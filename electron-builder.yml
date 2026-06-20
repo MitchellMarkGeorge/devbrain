@@ -1,5 +1,5 @@
-appId: com.example.electron-vite-react-template
-productName: Electron Vite React Template
+appId: com.example.devbrain
+productName: DevBrain
 directories:
   output: release
   buildResources: build

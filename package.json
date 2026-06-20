@@ -1,7 +1,7 @@
 {
-  "name": "electron-vite-react-template",
+  "name": "devteam",
   "version": "0.0.1",
-  "description": "The modern but simple Electron + Vite + React template",
+  "description": "The all-in-one productivity platform for developers",
   "main": "dist/main/index.js",
   "type": "module",
   "author": "",
@@ -54,6 +54,7 @@
   },
   "dependencies": {
     "dotenv": "^16.6.1",
+    "electron-store": "^11.0.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   }
