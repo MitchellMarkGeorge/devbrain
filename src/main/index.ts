@@ -2,6 +2,8 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { config as loadEnv } from 'dotenv';
+import log from 'electron-log';
+import os from 'node:os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -16,6 +18,15 @@ loadEnv({
 ipcMain.handle('ping', () => 'pong');
 ipcMain.handle('app:version', () => app.getVersion());
 console.log('hello');
+
+function configureLogging() {
+  log.initialize();
+  // handle uncaught errors
+  log.errorHandler.startCatching();
+  // make reusable function to get this path
+  // TODO: in dev, disable console logging
+  log.transports.file.resolvePathFn = () => path.join(os.homedir(), 'devteam', 'logs');
+}
 
 // --- Window ---------------------------------------------------------------
 function createWindow() {
@@ -46,6 +57,7 @@ function createWindow() {
 
 // --- App lifecycle --------------------------------------------------------
 app.whenReady().then(() => {
+  configureLogging();
   createWindow();
 
   app.on('activate', () => {
