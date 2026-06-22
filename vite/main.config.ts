@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { dependenciesToExternalize } from './utils';
 
 // Main process build. Targets Node/Electron's main runtime.
 // `electron` and Node built-ins are externalized so they resolve at runtime.
@@ -11,7 +12,7 @@ export default defineConfig({
       fileName: () => 'index.js',
     },
     rollupOptions: {
-      external: ['electron', 'dotenv', /^node:/],
+      external: dependenciesToExternalize(),
     },
     emptyOutDir: true,
     minify: false,

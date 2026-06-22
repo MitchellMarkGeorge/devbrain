@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import { dependenciesToExternalize } from './utils';
 
 // Preload build. CommonJS output (.cjs) — required when sandbox: true, which
 // is the secure default (set in src/main/index.ts). Sandboxed preload scripts
@@ -13,7 +14,7 @@ export default defineConfig({
       fileName: () => 'index.cjs',
     },
     rollupOptions: {
-      external: ['electron', /^node:/],
+      external: dependenciesToExternalize(),
     },
     emptyOutDir: true,
     minify: false,

@@ -14,7 +14,7 @@ import electronPath from 'electron';
 let electronProccess: ChildProcess | null = null;
 let restarting = false;
 
-const server = await createServer({ configFile: 'vite.renderer.config.ts' });
+const server = await createServer({ configFile: 'vite/renderer.config.ts' });
 await server.listen();
 const url = server.resolvedUrls?.local[0];
 server.printUrls();
@@ -29,7 +29,7 @@ function startElectron() {
 
   electronProccess = spawn(electronPath as unknown as string, ['.'], {
     stdio: 'inherit',
-    env: { ...process.env, VITE_DEV_SERVER_URL: url },
+    env: { ...process.env, NODE_ENV: 'development', VITE_DEV_SERVER_URL: url },
   });
 
   electronProccess?.on('exit', (code) => {
@@ -44,7 +44,7 @@ function startElectron() {
 
 // Preload watcher: a rebuild just needs the renderer to reload.
 await build({
-  configFile: 'vite.preload.config.ts',
+  configFile: 'vite/preload.config.ts',
   build: {
     watch: {},
   },
@@ -60,7 +60,7 @@ await build({
 
 // Main watcher: a rebuild requires relaunching Electron.
 await build({
-  configFile: 'vite.main.config.ts',
+  configFile: 'vite/main.config.ts',
   build: {
     watch: {},
   },

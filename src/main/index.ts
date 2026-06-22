@@ -1,17 +1,13 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { config as loadEnv } from 'dotenv';
+import { config as loadEnv } from '@dotenvx/dotenvx';
 import log from 'electron-log';
 import os from 'node:os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-loadEnv({
-  path: app.isPackaged
-    ? path.join(process.resourcesPath, '.env')
-    : path.join(__dirname, '../../.env'),
-});
+loadExpandedEnv();
 
 // --- IPC handlers ---------------------------------------------------------
 // Register handlers here; expose them to the renderer in src/preload/index.ts.
@@ -19,11 +15,21 @@ ipcMain.handle('ping', () => 'pong');
 ipcMain.handle('app:version', () => app.getVersion());
 console.log('hello');
 
+function loadExpandedEnv() {
+  loadEnv({
+    path: app.isPackaged
+      ? path.join(process.resourcesPath, '.env')
+      : path.join(__dirname, '../../.env'),
+  });
+}
+
 function configureLogging() {
   log.initialize();
+  log.info(process.env);
   // handle uncaught errors
   log.errorHandler.startCatching();
-  // make reusable function to get this path
+  // this path will be gotten from settings like
+  // settings.get('data.logPath', process.env.LOG_PATH)
   // TODO: in dev, disable console logging
   log.transports.file.resolvePathFn = () => path.join(os.homedir(), 'devteam', 'logs');
 }
@@ -48,6 +54,7 @@ function createWindow() {
   win.on('ready-to-show', () => win.show());
 
   if (process.env.VITE_DEV_SERVER_URL) {
+    console.log(process.env.VITE_DEV_SERVER_URL);
     win.loadURL(process.env.VITE_DEV_SERVER_URL);
     win.webContents.openDevTools({ mode: 'detach' });
   } else {

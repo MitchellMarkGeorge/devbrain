@@ -9,6 +9,8 @@ files:
 extraResources:
   - from: .env
     to: .env
+  - from: ./src/main/db/migrations
+    to: migrations
 mac:
   target: dmg
   category: public.app-category.utilities
