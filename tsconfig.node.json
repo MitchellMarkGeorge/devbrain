@@ -10,7 +10,11 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@common/*": ["./src/common/*"],
+      "@main/*": ["./src/main/*"]
+    }
   },
   "include": [
     "src/main/**/*.ts",

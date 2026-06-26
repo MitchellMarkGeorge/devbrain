@@ -18,4 +18,7 @@ export default defineConfig({
     minify: false,
     target: 'node24',
   },
+  resolve: {
+    tsconfigPaths: true,
+  },
 });
