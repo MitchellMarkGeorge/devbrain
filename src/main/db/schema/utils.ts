@@ -1,11 +1,19 @@
+import { sql } from 'drizzle-orm';
 import { integer } from 'drizzle-orm/sqlite-core';
 
-export const date = () => integer({ mode: 'timestamp_ms' });
+// storing as integer for easy sorting
+export const date = () => integer({ mode: 'timestamp' });
 export const boolean = () => integer({ mode: 'boolean' });
 
 export const timesamps = {
-  updatedAt: date().notNull(), // think about onUptate and default
-  createdAt: date().notNull(), // think about defualt
+  updatedAt: date()
+    .notNull()
+    .default(sql`(unixepoch())`)
+    .$onUpdate(() => new Date()),
+  createdAt: date()
+    .notNull()
+    .default(sql`(unixepoch())`),
+  favoritedAt: date(),
 };
 
 export const archivedAt = {

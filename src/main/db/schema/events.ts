@@ -22,7 +22,7 @@ export const events = sqliteTable(
     ...timesamps,
   },
   (table) => [
-    // used a lot for calendar views (Month, Week)
+    // used a lot for calendar views (Month, Week, Day)
     index('idx_events_start_at').on(table.startAt),
   ],
 );
