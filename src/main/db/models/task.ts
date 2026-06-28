@@ -1,5 +1,5 @@
 import { Archivable, Completeable, Model } from './model';
-import { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
+import { EventId, NoteId, ProjectId, TaskId } from '../../../common/ids';
 
 export enum TaskPriority {
   LOW = 'low',

@@ -1,4 +1,4 @@
-import { EventId } from '@common/ids';
+import { EventId } from '../../../common/ids';
 import { Model } from './model';
 
 export interface Event extends Model<EventId> {

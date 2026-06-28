@@ -1,4 +1,4 @@
-import { EventId, generateId } from '@common/ids';
+import { EventId, generateId } from '../../../common/ids';
 import { sqliteTable, text, index } from 'drizzle-orm/sqlite-core';
 import { timesamps, date, boolean } from './utils';
 

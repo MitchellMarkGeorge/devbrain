@@ -1,4 +1,4 @@
-import { ProjectId, generateId } from '@common/ids';
+import { ProjectId, generateId } from '../../../common/ids';
 import { sqliteTable, text } from 'drizzle-orm/sqlite-core';
 import { timesamps, completedAt, archivedAt, date } from './utils';
 

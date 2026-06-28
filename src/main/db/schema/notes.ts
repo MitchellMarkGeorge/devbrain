@@ -1,4 +1,4 @@
-import { NoteId, generateId, ProjectId, EventId, TaskId } from '@common/ids';
+import { NoteId, generateId, ProjectId, EventId, TaskId } from '../../../common/ids';
 import { sqliteTable, text, index, check } from 'drizzle-orm/sqlite-core';
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 // import { projects, events, tasks } from "../schema";
@@ -21,7 +21,7 @@ export const notes = sqliteTable(
       .$type<ProjectId>()
       .references(() => projects.id, { onDelete: 'set null' }),
     linkedEventId: text()
-      .unique() // an even can only have one note
+      .unique() // an event can only have one note
       .$type<EventId>()
       .references((): AnySQLiteColumn => events.id, { onDelete: 'set null' }),
     linkedTaskId: text()
