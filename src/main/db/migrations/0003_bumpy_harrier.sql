@@ -1,0 +1,1 @@
+ALTER TABLE `notes` ADD `file_path` text NOT NULL;

@@ -1,4 +1,5 @@
-import { EntityType, Id } from '../../../common/ids';
+import { EntityType, Id } from '@common/ids';
+// this should probably be moved elsewhere
 
 export interface Model<T extends Id<EntityType>> {
   id: T;

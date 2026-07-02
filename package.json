@@ -20,7 +20,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "db:generate-migrations": "drizzle-kit generate",
+    "db:generate-migrations": "tsx --tsconfig ./tsconfig.node.json node_modules/drizzle-kit/bin.cjs generate",
     "prepare": "husky",
     "postinstall": "electron-builder install-app-deps"
   },
@@ -35,6 +35,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^26.0.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^6.0.2",
@@ -63,8 +65,10 @@
     "drizzle-orm": "^0.45.2",
     "electron-log": "^5.4.4",
     "electron-store": "^11.0.2",
+    "junk": "^4.0.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "uuid": "^14.0.1"
+    "uuid": "^14.0.1",
+    "zod": "^4.4.3"
   }
 }

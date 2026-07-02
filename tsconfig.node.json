@@ -11,6 +11,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
+    "types": ["node"],
     "paths": {
       "@common/*": ["./src/common/*"],
       "@main/*": ["./src/main/*"]

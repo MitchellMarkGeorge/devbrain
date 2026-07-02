@@ -1,11 +1,13 @@
-import { TaskId, generateId, ProjectId, EventId, NoteId } from '../../../common/ids';
+import { TaskId, generateId, ProjectId, EventId, NoteId } from '@common/ids';
 import { AnySQLiteColumn, index, sqliteTable, text, check } from 'drizzle-orm/sqlite-core';
-import { TaskPriority, TaskStatus } from '../models/task';
+import { TaskPriority, TaskStatus } from '../../core/tasks/types';
 import { timesamps, date, completedAt, archivedAt } from './utils';
 import { projects } from './projects';
 import { events } from './events';
 import { notes } from './notes';
 import { isNotNull, sql } from 'drizzle-orm';
+
+// CONFIRM FILE NAMING CONVENTIONS
 
 export const tasks = sqliteTable(
   'tasks',
@@ -32,6 +34,7 @@ export const tasks = sqliteTable(
     linkedNoteId: text()
       .$type<NoteId>()
       .references((): AnySQLiteColumn => notes.id, { onDelete: 'set null' }),
+    pullRequestUrl: text(), // should be more generic to allow things like issue/tickets links
     ...timesamps,
     ...completedAt,
     ...archivedAt,

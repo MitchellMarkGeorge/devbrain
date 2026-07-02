@@ -1,5 +1,5 @@
-import { Archivable, Model } from './model';
-import { EventId, NoteId, ProjectId, TaskId } from '../../../common/ids';
+import { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
+import { Archivable, Model } from '../shared/model';
 
 export interface Note extends Model<NoteId>, Archivable {
   title: string;

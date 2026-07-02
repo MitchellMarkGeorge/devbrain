@@ -1,4 +1,4 @@
-import { NoteId, generateId, ProjectId, EventId, TaskId } from '../../../common/ids';
+import { NoteId, generateId, ProjectId, EventId, TaskId } from '@common/ids';
 import { sqliteTable, text, index, check } from 'drizzle-orm/sqlite-core';
 import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core';
 // import { projects, events, tasks } from "../schema";
@@ -16,6 +16,7 @@ export const notes = sqliteTable(
       .$type<NoteId>()
       .$default(() => generateId('note')),
     title: text().notNull(), // should this be not null?
+    filePath: text().notNull(), // adding this for flexibiliy
     preview: text(),
     projectId: text()
       .$type<ProjectId>()

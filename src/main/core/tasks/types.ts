@@ -1,5 +1,5 @@
-import { Archivable, Completeable, Model } from './model';
-import { EventId, NoteId, ProjectId, TaskId } from '../../../common/ids';
+import { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
+import { Archivable, Completeable, Model } from '../shared/model';
 
 export enum TaskPriority {
   LOW = 'low',
@@ -13,8 +13,6 @@ export enum TaskStatus {
   COMPLETED = 'completed',
 }
 
-// decoupled from ORM/query builder types
-// this is the type that will be used by services and everything else
 export interface Task extends Model<TaskId>, Archivable, Completeable {
   title: string;
   description: string | null;

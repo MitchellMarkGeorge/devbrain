@@ -2,7 +2,7 @@ import { sql } from 'drizzle-orm';
 import { integer } from 'drizzle-orm/sqlite-core';
 
 // storing as integer for easy sorting
-export const date = () => integer({ mode: 'timestamp' });
+export const date = () => integer({ mode: 'timestamp_ms' });
 export const boolean = () => integer({ mode: 'boolean' });
 
 export const timesamps = {

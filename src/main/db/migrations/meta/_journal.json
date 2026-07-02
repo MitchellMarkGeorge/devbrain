@@ -15,6 +15,20 @@
       "when": 1782660055341,
       "tag": "0001_fts-setup",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1782790271955,
+      "tag": "0002_crazy_stone_men",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1783018576206,
+      "tag": "0003_bumpy_harrier",
+      "breakpoints": true
     }
   ]
 }
