@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const workspaceInfoSchema = z.object({
   id: z.string().startsWith('wsp_'),
   name: z.string(),
-  color: z.string().nullable(),
+  color: z.string(),
   path: z.string(),
   createdAt: z.number(),
   lastOpenedAt: z.number().nullable(),

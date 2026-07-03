@@ -1,10 +1,12 @@
+import os from 'node:os';
+import path from 'node:path';
 import { TaskPriority } from '../tasks/types';
 import { SettingsFile } from './types';
 
 export const DEFAULTS: SettingsFile = {
   settings: {
     theme: 'dark',
-    devBrainPath: process.env.DEVBRAIN_PATH,
+    devBrainPath: process.env.DEVBRAIN_PATH ?? path.join(os.homedir(), '.devbrain'),
     general: {
       defaultLandingPage: 'home',
       launchOnStartup: false,
