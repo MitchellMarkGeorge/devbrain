@@ -56,7 +56,7 @@ export interface CreateSubTaskOptions {
   startDate?: Date;
 }
 
-export type TaskSort = 'priority' | 'dueDate' | 'status' | 'created' | 'lastUpdated';
+// export type TaskSort = 'priority' | 'dueDate' | 'status' | 'created' | 'lastUpdated';
 
 export interface TaskFilter {
   status?: TaskStatus;
@@ -71,6 +71,11 @@ export interface TaskFilter {
   dueAfter?: Date;
 
   excludeSubtasks?: boolean;
+}
+
+export interface TaskSort {
+  sortBy: 'priority' | 'dueDate' | 'status' | 'created' | 'lastUpdated';
+  direction?: 'asc' | 'desc';
 }
 
 // links, sub/parent task relationships, time stamps, project membership  and status are updated seperatly and have thier own logic

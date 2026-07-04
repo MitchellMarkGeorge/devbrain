@@ -1,6 +1,6 @@
 import { ProjectId, TaskId } from '@common/ids';
 import { tasks } from '@main/db/schema/tasks';
-import { eq, inArray, and, isNull, SQL, lt, gt, gte, desc } from 'drizzle-orm';
+import { eq, inArray, and, isNull, SQL, lt, gt, gte, desc, asc } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   CreateSubTaskOptions,
@@ -83,7 +83,7 @@ export class TaskService {
     return insertedTask;
   }
 
-  async listTasks(filter: TaskFilter = {}, sort: TaskSort = 'created') {
+  async listTasks(filter: TaskFilter = {}, sort: TaskSort = { sortBy: 'created' }) {
     const clauses = [isNull(tasks.archivedAt)];
     if (filter.excludeSubtasks) clauses.push(isNull(tasks.parentTaskId));
 
@@ -121,7 +121,7 @@ export class TaskService {
     }
 
     let orderColunm: SQLiteColumn;
-    switch (sort) {
+    switch (sort.sortBy) {
       case 'dueDate':
         orderColunm = tasks.dueDate;
         break;
@@ -139,7 +139,7 @@ export class TaskService {
         break;
     }
 
-    const order = desc(orderColunm);
+    const order = sort.direction === 'asc' ? asc(orderColunm) : desc(orderColunm);
 
     return this.db
       .select()

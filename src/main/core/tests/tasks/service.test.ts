@@ -10,6 +10,8 @@ import { TaskService } from '../../tasks/service';
 import { ArchiveService } from '../../archive/service';
 import { TaskPriority, TaskStatus } from '../../tasks/types';
 import { NotFoundError } from '../../shared/errors';
+import { tasks as tasksTable } from '@main/db/schema/tasks';
+import { eq } from 'drizzle-orm';
 
 const MIGRATIONS_PATH = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -521,7 +523,7 @@ describe('TaskService — listTasks', () => {
       dueDate: NEXT_WEEK,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = await tasks.listTasks({ status: TaskStatus.IN_PROGRESS }, 'dueDate');
+    const result = await tasks.listTasks({ status: TaskStatus.IN_PROGRESS }, { sortBy: 'dueDate' });
     expect(result[0].id).toBe(late.id);
     expect(result[result.length - 1].id).toBe(early.id);
   });
@@ -542,7 +544,7 @@ describe('TaskService — listTasks', () => {
       dueDate: TOMORROW,
       priority: TaskPriority.LOW,
     });
-    const result = await tasks.listTasks({}, 'priority');
+    const result = await tasks.listTasks({}, { sortBy: 'priority' });
     expect(result[0].id).toBe(high.id);
     expect(result[1].id).toBe(medium.id);
     expect(result[2].id).toBe(low.id);
@@ -564,7 +566,7 @@ describe('TaskService — listTasks', () => {
       dueDate: TOMORROW,
       status: TaskStatus.NOT_STARTED,
     });
-    const result = await tasks.listTasks({}, 'status');
+    const result = await tasks.listTasks({}, { sortBy: 'status' });
     expect(result[0].id).toBe(completed.id);
     expect(result[1].id).toBe(inProgress.id);
     expect(result[2].id).toBe(notStarted.id);
@@ -576,9 +578,31 @@ describe('TaskService — listTasks', () => {
     // updating A triggers $onUpdate(() => new Date()) which stores ms-precision timestamp,
     // much larger than B's insert default of unixepoch() (seconds), so A sorts first
     await tasks.updateTask(a.id, { title: 'A updated' });
-    const result = await tasks.listTasks({}, 'lastUpdated');
+    const result = await tasks.listTasks({}, { sortBy: 'lastUpdated' });
     const ids = result.map((t) => t.id);
     expect(ids.indexOf(a.id)).toBeLessThan(ids.indexOf(b.id));
+  });
+
+  it('direction=asc reverses the sort order', async () => {
+    const low = await tasks.createTask({
+      title: 'Low',
+      dueDate: TOMORROW,
+      priority: TaskPriority.LOW,
+    });
+    const medium = await tasks.createTask({
+      title: 'Medium',
+      dueDate: TOMORROW,
+      priority: TaskPriority.MEDIUM,
+    });
+    const high = await tasks.createTask({
+      title: 'High',
+      dueDate: TOMORROW,
+      priority: TaskPriority.HIGH,
+    });
+    const result = await tasks.listTasks({}, { sortBy: 'priority', direction: 'asc' });
+    expect(result[0].id).toBe(low.id);
+    expect(result[1].id).toBe(medium.id);
+    expect(result[2].id).toBe(high.id);
   });
 
   it('excludes archived tasks regardless of filter', async () => {
@@ -925,6 +949,26 @@ describe('ArchiveService — archiveTask', () => {
     const result = await tasks.listSubtasks(parent.id);
     expect(result).toHaveLength(0);
   });
+
+  it('archives all subtasks when the parent task is archived', async () => {
+    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub1 = await tasks.createSubtask(parent.id, { title: 'Sub 1' });
+    const sub2 = await tasks.createSubtask(parent.id, { title: 'Sub 2' });
+    await archive.archiveTask(parent.id);
+    expect(await tasks.getById(sub1.id)).toBeNull();
+    expect(await tasks.getById(sub2.id)).toBeNull();
+    expect(await tasks.listSubtasks(parent.id)).toHaveLength(0);
+  });
+
+  it('does not overwrite archivedAt of already-archived subtasks', async () => {
+    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = await tasks.createSubtask(parent.id, { title: 'Pre-archived sub' });
+    const archivedSub = await archive.archiveTask(sub.id);
+    const originalArchivedAt = archivedSub.archivedAt!.getTime();
+    await archive.archiveTask(parent.id);
+    const [row] = await db.select().from(tasksTable).where(eq(tasksTable.id, sub.id));
+    expect(row.archivedAt!.getTime()).toBe(originalArchivedAt);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -974,5 +1018,17 @@ describe('ArchiveService — restoreTask', () => {
     await archive.restoreTask(sub.id);
     const result = await tasks.listSubtasks(parent.id);
     expect(result.map((t) => t.id)).toContain(sub.id);
+  });
+
+  it('restores all subtasks when the parent task is restored', async () => {
+    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub1 = await tasks.createSubtask(parent.id, { title: 'Sub 1' });
+    const sub2 = await tasks.createSubtask(parent.id, { title: 'Sub 2' });
+    await archive.archiveTask(parent.id);
+    await archive.restoreTask(parent.id);
+    const subtasks = await tasks.listSubtasks(parent.id);
+    const ids = subtasks.map((t) => t.id);
+    expect(ids).toContain(sub1.id);
+    expect(ids).toContain(sub2.id);
   });
 });
