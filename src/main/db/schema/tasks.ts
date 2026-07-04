@@ -54,5 +54,11 @@ export const tasks = sqliteTable(
       'one_link',
       sql`(${table.linkedEventId} IS NOT NULL) + (${table.linkedNoteId} IS NOT NULL) <= 1`,
     ),
+
+    // completedAt only has a value if the task's status is completed
+    check(
+      'completed_at_consistency',
+      sql`(${table.status} = 'completed') = (${table.completedAt} IS NOT NULL)`,
+    ),
   ],
 );

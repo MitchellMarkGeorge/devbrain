@@ -55,11 +55,11 @@ export class Workspace {
   private static async initDb(dbPath: string, info: WorkspaceInfo): Promise<Workspace> {
     const sqlite = new Database(dbPath);
 
-    // figure out theses PRAGMAs
+    // keeping them off for now as I implement the services
     // sqlite.pragma('journal_mode = WAL');
     // sqlite.pragma('foreign_keys = ON');
 
-    const db = drizzle({ client: sqlite });
+    const db = drizzle({ client: sqlite, casing: 'snake_case' });
 
     const migrationsPath = process.env.DB_MIGRATIONS_PATH;
     migrate(db, { migrationsFolder: migrationsPath });
