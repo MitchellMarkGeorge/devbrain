@@ -4,15 +4,17 @@ import { tasks } from '@main/db/schema/tasks';
 import { InferSelectModel } from 'drizzle-orm';
 
 export enum TaskPriority {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
+  // migrated to ints so sorting works
+  LOW = 1, //  'low'
+  MEDIUM = 2, // 'medium'
+  HIGH = 3, // 'high'
 }
 
 export enum TaskStatus {
-  NOT_STARTED = 'not_started',
-  IN_PROGRESS = 'in_progress',
-  COMPLETED = 'completed',
+  // migrated to ints so sorting works
+  NOT_STARTED = 1, //'not_started'
+  IN_PROGRESS = 2, // 'in_progress'
+  COMPLETED = 3, // 'completed'
 }
 
 export interface Task extends Model<TaskId>, Archivable, Completeable {
@@ -54,7 +56,7 @@ export interface CreateSubTaskOptions {
   startDate?: Date;
 }
 
-export type TaskSort = 'priority' | 'dueDate' | 'status' | 'created';
+export type TaskSort = 'priority' | 'dueDate' | 'status' | 'created' | 'lastUpdated';
 
 export interface TaskFilter {
   status?: TaskStatus;

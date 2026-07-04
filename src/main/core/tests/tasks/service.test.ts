@@ -527,14 +527,58 @@ describe('TaskService — listTasks', () => {
   });
 
   it('sort=priority orders by priority descending', async () => {
+    const high = await tasks.createTask({
+      title: 'High',
+      dueDate: TOMORROW,
+      priority: TaskPriority.HIGH,
+    });
+    const medium = await tasks.createTask({
+      title: 'Medium',
+      dueDate: TOMORROW,
+      priority: TaskPriority.MEDIUM,
+    });
+    const low = await tasks.createTask({
+      title: 'Low',
+      dueDate: TOMORROW,
+      priority: TaskPriority.LOW,
+    });
     const result = await tasks.listTasks({}, 'priority');
-    // just verify it does not throw and returns an array
-    expect(Array.isArray(result)).toBe(true);
+    expect(result[0].id).toBe(high.id);
+    expect(result[1].id).toBe(medium.id);
+    expect(result[2].id).toBe(low.id);
   });
 
   it('sort=status orders by status descending', async () => {
+    const completed = await tasks.createTask({
+      title: 'Completed',
+      dueDate: TOMORROW,
+      status: TaskStatus.COMPLETED,
+    });
+    const inProgress = await tasks.createTask({
+      title: 'In progress',
+      dueDate: TOMORROW,
+      status: TaskStatus.IN_PROGRESS,
+    });
+    const notStarted = await tasks.createTask({
+      title: 'Not started',
+      dueDate: TOMORROW,
+      status: TaskStatus.NOT_STARTED,
+    });
     const result = await tasks.listTasks({}, 'status');
-    expect(Array.isArray(result)).toBe(true);
+    expect(result[0].id).toBe(completed.id);
+    expect(result[1].id).toBe(inProgress.id);
+    expect(result[2].id).toBe(notStarted.id);
+  });
+
+  it('sort=lastUpdated orders by updatedAt descending', async () => {
+    const a = await tasks.createTask({ title: 'A', dueDate: TOMORROW });
+    const b = await tasks.createTask({ title: 'B', dueDate: TOMORROW });
+    // updating A triggers $onUpdate(() => new Date()) which stores ms-precision timestamp,
+    // much larger than B's insert default of unixepoch() (seconds), so A sorts first
+    await tasks.updateTask(a.id, { title: 'A updated' });
+    const result = await tasks.listTasks({}, 'lastUpdated');
+    const ids = result.map((t) => t.id);
+    expect(ids.indexOf(a.id)).toBeLessThan(ids.indexOf(b.id));
   });
 
   it('excludes archived tasks regardless of filter', async () => {

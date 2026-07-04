@@ -133,6 +133,10 @@ export class TaskService {
         break;
       case 'created':
         orderColunm = tasks.createdAt;
+        break;
+      case 'lastUpdated':
+        orderColunm = tasks.updatedAt;
+        break;
     }
 
     const order = desc(orderColunm);
@@ -170,6 +174,8 @@ export class TaskService {
       .where(eq(tasks.id, id))
       .returning();
 
+    // if all the tasks in a project are marked as completed, then the project shoudl be marked as completed
+    // this shoudl also happen vice versa
     return row;
   }
 

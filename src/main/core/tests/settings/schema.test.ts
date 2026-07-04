@@ -192,7 +192,7 @@ describe('appSettingsSchema — tasks block', () => {
   });
 
   it('accepts all TaskPriority values', () => {
-    for (const priority of Object.values(TaskPriority)) {
+    for (const priority of [TaskPriority.HIGH, TaskPriority.LOW, TaskPriority.MEDIUM]) {
       expect(
         appSettingsSchema.safeParse(withTasks({ defaultPriority: priority }).settings).success,
       ).toBe(true);

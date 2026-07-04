@@ -1,5 +1,5 @@
 import { TaskId, generateId, ProjectId, EventId, NoteId } from '@common/ids';
-import { AnySQLiteColumn, index, sqliteTable, text, check } from 'drizzle-orm/sqlite-core';
+import { AnySQLiteColumn, index, sqliteTable, text, check, integer } from 'drizzle-orm/sqlite-core';
 import { TaskPriority, TaskStatus } from '../../core/tasks/types';
 import { timesamps, date, completedAt, archivedAt } from './utils';
 import { projects } from './projects';
@@ -18,8 +18,8 @@ export const tasks = sqliteTable(
       .$default(() => generateId('task')),
     title: text().notNull(),
     description: text(),
-    priority: text().notNull().$type<TaskPriority>().default(TaskPriority.LOW), // SQL defualt
-    status: text().notNull().$type<TaskStatus>().default(TaskStatus.NOT_STARTED),
+    priority: integer().notNull().$type<TaskPriority>().default(TaskPriority.LOW), // SQL defualt
+    status: integer().notNull().$type<TaskStatus>().default(TaskStatus.NOT_STARTED),
     startDate: date(),
     dueDate: date().notNull(),
     parentTaskId: text()
@@ -58,7 +58,8 @@ export const tasks = sqliteTable(
     // completedAt only has a value if the task's status is completed
     check(
       'completed_at_consistency',
-      sql`(${table.status} = 'completed') = (${table.completedAt} IS NOT NULL)`,
+      // TaskStatus.COMPLETED === 3... for some reason I can't use the enum directly here
+      sql`(${table.status} = 3) = (${table.completedAt} IS NOT NULL)`,
     ),
   ],
 );
