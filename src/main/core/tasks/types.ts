@@ -58,7 +58,7 @@ export interface CreateSubTaskOptions {
 
 // export type TaskSort = 'priority' | 'dueDate' | 'status' | 'created' | 'lastUpdated';
 
-export interface TaskFilter {
+export interface TaskFilterOptions {
   status?: TaskStatus;
   // allowing null for some options to be able to test the absence of said links
   // for example, getting all tasks that are without a project
@@ -73,7 +73,7 @@ export interface TaskFilter {
   excludeSubtasks?: boolean;
 }
 
-export interface TaskSort {
+export interface TaskSortOptions {
   sortBy: 'priority' | 'dueDate' | 'status' | 'created' | 'lastUpdated';
   direction?: 'asc' | 'desc';
 }

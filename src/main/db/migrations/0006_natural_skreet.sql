@@ -1,0 +1,1 @@
+ALTER TABLE `projects` ADD `status` integer DEFAULT 1 NOT NULL;

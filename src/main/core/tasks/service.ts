@@ -6,16 +6,17 @@ import {
   CreateSubTaskOptions,
   CreateTaskOptions,
   Task,
-  TaskFilter,
+  TaskFilterOptions,
   TaskPriority,
-  TaskSort,
+  TaskSortOptions,
   TaskStatus,
   UpdateTaskLinkOptions,
   UpdateTaskOptions,
 } from './types';
 import { NotFoundError } from '../shared/errors';
-import { isSubtask, localDayWindow } from './utils';
+import { isSubtask } from './utils';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
+import { localDayWindow } from '../shared/utils';
 
 export class TaskService {
   constructor(private readonly db: BetterSQLite3Database) {}
@@ -83,7 +84,7 @@ export class TaskService {
     return insertedTask;
   }
 
-  async listTasks(filter: TaskFilter = {}, sort: TaskSort = { sortBy: 'created' }) {
+  async listTasks(filter: TaskFilterOptions = {}, sort: TaskSortOptions = { sortBy: 'created' }) {
     const clauses = [isNull(tasks.archivedAt)];
     if (filter.excludeSubtasks) clauses.push(isNull(tasks.parentTaskId));
 
@@ -115,9 +116,9 @@ export class TaskService {
     if (filter.dueAfter != null) clauses.push(gt(tasks.dueDate, filter.dueAfter));
     if (filter.dueOn != null) {
       // get the start and end time the date and compare (inclusive start and exlusive end/midnight)
-      const { start, end } = localDayWindow(filter.dueOn);
-      clauses.push(gte(tasks.dueDate, start));
-      clauses.push(lt(tasks.dueDate, end));
+      const { startOfDay, endOfDay } = localDayWindow(filter.dueOn);
+      clauses.push(gte(tasks.dueDate, startOfDay));
+      clauses.push(lt(tasks.dueDate, endOfDay));
     }
 
     let orderColunm: SQLiteColumn;

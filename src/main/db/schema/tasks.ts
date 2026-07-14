@@ -58,8 +58,7 @@ export const tasks = sqliteTable(
     // completedAt only has a value if the task's status is completed
     check(
       'completed_at_consistency',
-      // TaskStatus.COMPLETED === 3... for some reason I can't use the enum directly here
-      sql`(${table.status} = 3) = (${table.completedAt} IS NOT NULL)`,
+      sql`(${table.status} = ${sql.raw(String(TaskStatus.COMPLETED))}) = (${table.completedAt} IS NOT NULL)`,
     ),
   ],
 );
