@@ -10,7 +10,8 @@ import type { WorkspaceInfo } from './types';
 import path from 'node:path';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { fileExists } from '../local/utils';
-import fs from 'node:fs/promises';
+
+type SqliteDatabaseClient = Database.Database;
 
 export class Workspace {
   // readonly notes: NoteService;
@@ -22,7 +23,7 @@ export class Workspace {
 
   private constructor(
     private readonly db: BetterSQLite3Database,
-    private readonly sqliteClient: Database.Database,
+    private readonly sqliteClient: SqliteDatabaseClient,
     readonly info: WorkspaceInfo,
   ) {
     // this.notes = new NoteService(db);
@@ -39,7 +40,8 @@ export class Workspace {
     if (await fileExists(dbPath)) {
       throw new Error(`Workspace database already exists at ${dbPath}`);
     }
-    return Workspace.initDb(dbPath, info);
+    const sqlite = new Database(dbPath);
+    return Workspace.initDb(sqlite, info);
   }
 
   static async open(info: WorkspaceInfo): Promise<Workspace> {
@@ -48,23 +50,26 @@ export class Workspace {
     if (!(await fileExists(dbPath))) {
       throw new Error(`No workspace database found at ${dbPath}`);
     }
-    await fs.copyFile(dbPath, `${dbPath}.backup`);
-    return Workspace.initDb(dbPath, info);
+    const sqlite = new Database(dbPath);
+    // use native backup method
+    await sqlite.backup(`${dbPath}.backup`);
+    return Workspace.initDb(sqlite, info);
   }
 
-  private static async initDb(dbPath: string, info: WorkspaceInfo): Promise<Workspace> {
-    const sqlite = new Database(dbPath);
-
+  private static async initDb(
+    sqliteClient: SqliteDatabaseClient,
+    info: WorkspaceInfo,
+  ): Promise<Workspace> {
     // keeping them off for now as I implement the services
     // sqlite.pragma('journal_mode = WAL');
     // sqlite.pragma('foreign_keys = ON');
 
-    const db = drizzle({ client: sqlite, casing: 'snake_case' });
+    const db = drizzle({ client: sqliteClient, casing: 'snake_case' });
 
     const migrationsPath = process.env.DB_MIGRATIONS_PATH;
     migrate(db, { migrationsFolder: migrationsPath });
 
-    return new Workspace(db, sqlite, info);
+    return new Workspace(db, sqliteClient, info);
   }
 
   close() {

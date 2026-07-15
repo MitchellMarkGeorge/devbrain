@@ -35,6 +35,7 @@ export class ProjectService {
       description: options.description ?? null,
       startDate: options.startDate ?? null,
       dueDate: options.dueDate,
+      color: options.color ?? null,
       status: options.status ?? ProjectStatus.NOT_STARTED,
       completedAt: options.status === ProjectStatus.COMPLETED ? new Date() : null,
     };
@@ -109,18 +110,24 @@ export class ProjectService {
   }
 
   async getProjectStats(id: ProjectId): Promise<ProjectStats> {
+    // to prevent N+1, this has to be a an arrow of project ids
     const project = await this.getById(id);
     if (!project) throw new NotFoundError(id);
 
-    const today = new Date();
+    const today = Date.now();
+
+    const count = (predicate: SQL) =>
+      sql<number>`coalesce(sum(case when ${predicate} then 1 else 0 end), 0)`;
 
     const [stats] = await this.db
       .select({
-        numOfCompleted: sql<number>`SUM(${tasks.status} = ${TaskStatus.COMPLETED})`,
-        numOfNotStarted: sql<number>`SUM(${tasks.status} = ${TaskStatus.NOT_STARTED})`,
-        numOfInProgress: sql<number>`SUM(${tasks.status} = ${TaskStatus.IN_PROGRESS})`,
-        numOfOverdue: sql<number>`SUM(${tasks.dueDate} < ${today} AND ${tasks.status} != ${TaskStatus.COMPLETED})`,
-        totalTasks: sql<number>`SUM(${tasks.projectId} = ${id} AND ${tasks.archivedAt} IS NULL)`,
+        numOfCompleted: count(sql`${tasks.status} = ${TaskStatus.COMPLETED}`),
+        numOfNotStarted: count(sql`${tasks.status} = ${TaskStatus.NOT_STARTED}`),
+        numOfInProgress: count(sql`${tasks.status} = ${TaskStatus.IN_PROGRESS}`),
+        numOfOverdue: count(
+          sql`${tasks.dueDate} < ${today} AND ${tasks.status} != ${TaskStatus.COMPLETED}`,
+        ),
+        totalTasks: count(sql`${tasks.projectId} = ${id} AND ${tasks.archivedAt} IS NULL`),
       })
       .from(tasks)
       .where(and(eq(tasks.projectId, id), isNull(tasks.archivedAt)));

@@ -155,10 +155,6 @@ describe('TaskService — createTask', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// createSubtask
-// ---------------------------------------------------------------------------
-
 describe('TaskService — createSubtask', () => {
   it('creates a subtask linked to the parent', async () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
@@ -618,10 +614,6 @@ describe('TaskService — listTasks', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// listSubtasks
-// ---------------------------------------------------------------------------
-
 describe('TaskService — listSubtasks', () => {
   it('returns subtasks for the given parent id', async () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
@@ -656,10 +648,6 @@ describe('TaskService — listSubtasks', () => {
     expect(result).toHaveLength(0);
   });
 });
-
-// ---------------------------------------------------------------------------
-// updateTask
-// ---------------------------------------------------------------------------
 
 describe('TaskService — updateTask', () => {
   it('updates the title', async () => {
@@ -700,10 +688,6 @@ describe('TaskService — updateTask', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// updateStatus
-// ---------------------------------------------------------------------------
-
 describe('TaskService — updateStatus', () => {
   it('updates the task status', async () => {
     const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
@@ -739,10 +723,6 @@ describe('TaskService — updateStatus', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// updateProject
-// ---------------------------------------------------------------------------
-
 describe('TaskService — updateProject', () => {
   it("updates the task's projectId", async () => {
     const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
@@ -774,10 +754,6 @@ describe('TaskService — updateProject', () => {
     );
   });
 });
-
-// ---------------------------------------------------------------------------
-// updateLinks
-// ---------------------------------------------------------------------------
 
 describe('TaskService — updateLinks', () => {
   it('sets linkedNoteId on a task', async () => {
@@ -833,10 +809,6 @@ describe('TaskService — updateLinks', () => {
   });
 });
 
-// ---------------------------------------------------------------------------
-// promoteSubtask
-// ---------------------------------------------------------------------------
-
 describe('TaskService — promoteSubtask', () => {
   it('sets parentTaskId to null, making the subtask a top-level task', async () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
@@ -862,10 +834,6 @@ describe('TaskService — promoteSubtask', () => {
     expect(remaining).toHaveLength(0);
   });
 });
-
-// ---------------------------------------------------------------------------
-// demoteTask
-// ---------------------------------------------------------------------------
 
 describe('TaskService — demoteTask', () => {
   it('throws when id and newParentId are the same', async () => {
@@ -902,10 +870,6 @@ describe('TaskService — demoteTask', () => {
     void child;
   });
 });
-
-// ---------------------------------------------------------------------------
-// ArchiveService — archiveTask
-// ---------------------------------------------------------------------------
 
 describe('ArchiveService — archiveTask', () => {
   it('sets archivedAt to a recent timestamp', async () => {
@@ -970,10 +934,6 @@ describe('ArchiveService — archiveTask', () => {
     expect(row.archivedAt!.getTime()).toBe(originalArchivedAt);
   });
 });
-
-// ---------------------------------------------------------------------------
-// ArchiveService — restoreTask
-// ---------------------------------------------------------------------------
 
 describe('ArchiveService — restoreTask', () => {
   it('sets archivedAt back to null', async () => {

@@ -32,43 +32,39 @@ export class ArchiveService {
   }
 
   async archiveProject(id: ProjectId): Promise<Project> {
-    return this.db.transaction(async (tx) => {
+    return this.db.transaction((tx) => {
       const now = new Date();
       // archive the project
-      const [project] = await tx
+      const project = tx
         .update(projects)
         .set({
           archivedAt: now,
         })
         .where(and(eq(projects.id, id), isNull(projects.archivedAt)))
-        .returning();
+        .returning()
+        .get();
 
       // archive all tasks (and subtasks) attached to the project
-      await this.db
-        .update(tasks)
-        .set({ archivedAt: now })
-        .where(and(eq(tasks.projectId, id), isNull(tasks.archivedAt)));
+      tx.update(tasks).set({ archivedAt: now }).where(eq(tasks.projectId, id)).run();
 
       return project;
     });
   }
 
   async restoreProject(id: ProjectId): Promise<Project> {
-    return this.db.transaction(async (tx) => {
-      // restore archive project
-      const [project] = await tx
+    return this.db.transaction((tx) => {
+      // restore archived project
+      const project = tx
         .update(projects)
         .set({
           archivedAt: null,
         })
         .where(and(eq(projects.id, id), isNotNull(projects.archivedAt)))
-        .returning();
+        .returning()
+        .get();
 
       // restore all archived tasks (and subtasks) attached to the project
-      await this.db
-        .update(tasks)
-        .set({ archivedAt: null })
-        .where(and(eq(tasks.projectId, id), isNotNull(tasks.archivedAt)));
+      tx.update(tasks).set({ archivedAt: null }).where(eq(tasks.projectId, id)).run();
 
       return project;
     });
