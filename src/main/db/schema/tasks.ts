@@ -5,7 +5,7 @@ import { timesamps, date, completedAt, archivedAt } from './utils';
 import { projects } from './projects';
 import { events } from './events';
 import { notes } from './notes';
-import { isNotNull, sql } from 'drizzle-orm';
+import { isNull, sql } from 'drizzle-orm';
 
 // CONFIRM FILE NAMING CONVENTIONS
 
@@ -40,14 +40,14 @@ export const tasks = sqliteTable(
     ...archivedAt,
   },
   (table) => [
-    index('idx_tasks_parent_task_id').on(table.parentTaskId).where(isNotNull(table.archivedAt)),
-    index('idx_tasks_project_id').on(table.projectId).where(isNotNull(table.archivedAt)),
-    index('idx_tasks_linked_note_id').on(table.linkedNoteId).where(isNotNull(table.archivedAt)),
-    index('idx_tasks_linked_event_id').on(table.linkedEventId).where(isNotNull(table.archivedAt)),
+    index('idx_tasks_parent_task_id').on(table.parentTaskId).where(isNull(table.archivedAt)),
+    index('idx_tasks_project_id').on(table.projectId).where(isNull(table.archivedAt)),
+    index('idx_tasks_linked_note_id').on(table.linkedNoteId).where(isNull(table.archivedAt)),
+    index('idx_tasks_linked_event_id').on(table.linkedEventId).where(isNull(table.archivedAt)),
     // having status here first filters out by status first, then followed by due date
     index('idx_tasks_status_due_date')
       .on(table.status, table.dueDate)
-      .where(isNotNull(table.archivedAt)),
+      .where(isNull(table.archivedAt)),
 
     // make sure there is one link if any
     check(

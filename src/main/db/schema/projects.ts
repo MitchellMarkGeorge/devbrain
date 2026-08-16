@@ -2,7 +2,7 @@ import { ProjectId, generateId } from '@common/ids';
 import { sqliteTable, text, integer, index, check } from 'drizzle-orm/sqlite-core';
 import { timesamps, completedAt, archivedAt, date } from './utils';
 import { ProjectStatus } from '@main/core/projects/types';
-import { isNotNull, sql } from 'drizzle-orm';
+import { isNull, sql } from 'drizzle-orm';
 
 export const projects = sqliteTable(
   'projects',
@@ -25,7 +25,7 @@ export const projects = sqliteTable(
     // having status here first filters out by status first, then followed by due date
     index('idx_projects_status_due_date')
       .on(table.status, table.dueDate)
-      .where(isNotNull(table.archivedAt)),
+      .where(isNull(table.archivedAt)),
 
     // completedAt only has a value if the task's status is completed
     check(

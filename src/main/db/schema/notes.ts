@@ -6,7 +6,7 @@ import { timesamps, completedAt, archivedAt } from './utils';
 import { tasks } from './tasks';
 import { projects } from './projects';
 import { events } from './events';
-import { isNotNull, sql } from 'drizzle-orm';
+import { isNull, sql } from 'drizzle-orm';
 
 export const notes = sqliteTable(
   'notes',
@@ -30,17 +30,15 @@ export const notes = sqliteTable(
       .$type<TaskId>()
       // this refrences the task that has this note as its "task note"
       .references((): AnySQLiteColumn => tasks.id, { onDelete: 'set null' }),
-    // should the file path be stored or be generated?
     ...timesamps,
     ...completedAt,
     ...archivedAt,
   },
   (table) => [
-    index('idx_notes_project_id').on(table.projectId).where(isNotNull(table.archivedAt)),
-    index('idx_notes_linked_event_id').on(table.linkedEventId).where(isNotNull(table.archivedAt)),
-    index('idx_notes_linked_note_id').on(table.linkedTaskId).where(isNotNull(table.archivedAt)),
-    index('idx_notes_linked_note_id').on(table.linkedTaskId).where(isNotNull(table.archivedAt)),
-    index('idx_notes_updated_at').on(table.updatedAt).where(isNotNull(table.archivedAt)),
+    index('idx_notes_project_id').on(table.projectId).where(isNull(table.archivedAt)),
+    index('idx_notes_linked_event_id').on(table.linkedEventId).where(isNull(table.archivedAt)),
+    index('idx_notes_linked_task_id').on(table.linkedTaskId).where(isNull(table.archivedAt)),
+    index('idx_notes_updated_at').on(table.updatedAt).where(isNull(table.archivedAt)),
 
     // make sure there is one link if any
     check(

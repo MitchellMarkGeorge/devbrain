@@ -1,10 +1,12 @@
-import { ProjectId, TaskId } from '@common/ids';
+import { NoteId, ProjectId, TaskId } from '@common/ids';
 import { tasks } from '@main/db/schema/tasks';
 import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { Task } from '../tasks/types';
 import { Project } from '../projects/types';
 import { projects } from '@main/db/schema/projects';
+import { Note } from '../notes/types';
+import { notes } from '@main/db/schema/notes';
 
 export class ArchiveService {
   constructor(private readonly db: BetterSQLite3Database) {}
@@ -18,6 +20,7 @@ export class ArchiveService {
         and(sql`${tasks.id} = ${id} OR ${tasks.parentTaskId} = ${id}`, isNull(tasks.archivedAt)),
       )
       .returning();
+    // should the task note be archived if there is one?
     return task;
   }
 
@@ -46,6 +49,7 @@ export class ArchiveService {
 
       // archive all tasks (and subtasks) attached to the project
       tx.update(tasks).set({ archivedAt: now }).where(eq(tasks.projectId, id)).run();
+      // should attached notes be archived??
 
       return project;
     });
@@ -68,5 +72,25 @@ export class ArchiveService {
 
       return project;
     });
+  }
+
+  async archiveNote(id: NoteId): Promise<Note> {
+    // archives a note
+    const [note] = await this.db
+      .update(notes)
+      .set({ archivedAt: new Date() })
+      .where(and(eq(notes.id, id), isNull(notes.archivedAt)))
+      .returning();
+    return note;
+  }
+
+  async restoreNote(id: NoteId): Promise<Note> {
+    // restores a note
+    const [note] = await this.db
+      .update(notes)
+      .set({ archivedAt: null })
+      .where(eq(notes.id, id))
+      .returning();
+    return note;
   }
 }

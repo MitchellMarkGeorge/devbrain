@@ -8,11 +8,11 @@ export const boolean = () => integer({ mode: 'boolean' });
 export const timesamps = {
   updatedAt: date()
     .notNull()
-    .default(sql`(unixepoch())`)
+    .default(sql`(unixepoch() * 1000)`)
     .$onUpdate(() => new Date()),
   createdAt: date()
     .notNull()
-    .default(sql`(unixepoch())`),
+    .default(sql`(unixepoch() * 1000)`),
   favoritedAt: date(),
 };
 

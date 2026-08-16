@@ -44,12 +44,12 @@ export class ProjectService {
   }
 
   async updateProject(id: ProjectId, updates: UpdateProjectOptions): Promise<Project | null> {
-    const [updatedTask] = await this.db
+    const [updatedProject] = await this.db
       .update(projects)
       .set(updates)
       .where(eq(projects.id, id))
       .returning();
-    return updatedTask ?? null;
+    return updatedProject ?? null;
   }
 
   async updateStatus(id: ProjectId, newStatus: ProjectStatus): Promise<Project> {
