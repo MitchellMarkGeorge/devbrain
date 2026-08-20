@@ -28,6 +28,7 @@ export const tasks = sqliteTable(
     projectId: text()
       .$type<ProjectId>()
       .references(() => projects.id, { onDelete: 'set null' }),
+    // these refer to either the event or note that created/is linked with this task
     linkedEventId: text()
       .$type<EventId>()
       .references((): AnySQLiteColumn => events.id, { onDelete: 'set null' }),

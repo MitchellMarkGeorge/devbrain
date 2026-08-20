@@ -1,51 +1,65 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { generateId } from '@common/ids';
+import { generateId, ProjectId, NoteId, EventId } from '@common/ids';
 import { TaskService } from '../../tasks/service';
 import { ArchiveService } from '../../archive/service';
+import { NoteService } from '../../notes/service';
+import { ProjectService } from '../../projects/service';
+import { EventService } from '../../events/service';
 import { TaskPriority, TaskStatus } from '../../tasks/types';
-import { NotFoundError } from '../../shared/errors';
+import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../../shared/errors';
 import { tasks as tasksTable } from '@main/db/schema/tasks';
 import { eq } from 'drizzle-orm';
+import { createDb } from '../utils';
 
-const MIGRATIONS_PATH = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '../../../db/migrations',
-);
-
-const FAKE_PROJECT_ID = generateId('project');
-const FAKE_NOTE_ID = generateId('note');
-const FAKE_OTHER_NOTE_ID = generateId('note');
-const FAKE_EVENT_ID = generateId('event');
-const FAKE_OTHER_EVENT_ID = generateId('event');
+let FAKE_PROJECT_ID: ProjectId;
+let FAKE_NOTE_ID: NoteId;
+let FAKE_OTHER_NOTE_ID: NoteId;
+let FAKE_EVENT_ID: EventId;
+let FAKE_OTHER_EVENT_ID: EventId;
 
 const TOMORROW = new Date(Date.now() + 86_400_000);
 const YESTERDAY = new Date(Date.now() - 86_400_000);
 const NEXT_WEEK = new Date(Date.now() + 7 * 86_400_000);
 
-function createDb(): BetterSQLite3Database {
-  const sqlite = new Database(':memory:');
-  const db = drizzle({ client: sqlite, casing: 'snake_case' });
-  migrate(db, { migrationsFolder: MIGRATIONS_PATH });
-  // migration 0004 leaves foreign_keys=ON; disable for tests so we can use
-  // fake foreign-key ids without seeding parent tables (for now)
-  sqlite.pragma('foreign_keys = OFF');
-  return db;
-}
-
 let db: BetterSQLite3Database;
 let tasks: TaskService;
 let archive: ArchiveService;
+let notesService: NoteService;
+let workspacePath: string;
 
-beforeEach(() => {
+beforeEach(async () => {
   db = createDb();
   tasks = new TaskService(db);
   archive = new ArchiveService(db);
+  workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-tasks-service-'));
+  notesService = new NoteService(db, workspacePath);
+
+  const projectService = new ProjectService(db);
+  const eventService = new EventService(db);
+
+  FAKE_PROJECT_ID = (
+    await projectService.createProject({ title: 'Fake Project', dueDate: TOMORROW })
+  ).id;
+  FAKE_NOTE_ID = (await notesService.createNote({ title: 'Fake Note' })).id;
+  FAKE_OTHER_NOTE_ID = (await notesService.createNote({ title: 'Fake Other Note' })).id;
+  FAKE_EVENT_ID = (
+    await eventService.createEvent({ title: 'Fake Event', startAt: TOMORROW, endAt: TOMORROW })
+  ).id;
+  FAKE_OTHER_EVENT_ID = (
+    await eventService.createEvent({
+      title: 'Fake Other Event',
+      startAt: TOMORROW,
+      endAt: TOMORROW,
+    })
+  ).id;
+});
+
+afterEach(async () => {
+  await fs.rm(workspacePath, { recursive: true, force: true });
 });
 
 describe('TaskService — createTask', () => {
@@ -933,6 +947,39 @@ describe('ArchiveService — archiveTask', () => {
     const [row] = await db.select().from(tasksTable).where(eq(tasksTable.id, sub.id));
     expect(row.archivedAt!.getTime()).toBe(originalArchivedAt);
   });
+
+  it("archives the task's linked note", async () => {
+    const task = await tasks.createTask({ title: 'Has a note', dueDate: TOMORROW });
+    const note = await notesService.createNote({ linkedTaskId: task.id });
+    await archive.archiveTask(task.id);
+    expect(await notesService.getById(note.id)).toBeNull();
+  });
+
+  it('does not archive notes linked to a different task', async () => {
+    const taskA = await tasks.createTask({ title: 'A', dueDate: TOMORROW });
+    const taskB = await tasks.createTask({ title: 'B', dueDate: TOMORROW });
+    const noteB = await notesService.createNote({ linkedTaskId: taskB.id });
+    await archive.archiveTask(taskA.id);
+    expect(await notesService.getById(noteB.id)).not.toBeNull();
+  });
+
+  it("archives a subtask's own linked note when the parent is archived", async () => {
+    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
+    const subNote = await notesService.createNote({ linkedTaskId: sub.id });
+    await archive.archiveTask(parent.id);
+    expect(await notesService.getById(subNote.id)).toBeNull();
+  });
+
+  it('throws NotFoundError for an unknown task id', async () => {
+    await expect(archive.archiveTask(generateId('task'))).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('throws AlreadyArchivedError when the task is already archived', async () => {
+    const task = await tasks.createTask({ title: 'Archive me once', dueDate: TOMORROW });
+    await archive.archiveTask(task.id);
+    await expect(archive.archiveTask(task.id)).rejects.toBeInstanceOf(AlreadyArchivedError);
+  });
 });
 
 describe('ArchiveService — restoreTask', () => {
@@ -990,5 +1037,41 @@ describe('ArchiveService — restoreTask', () => {
     const ids = subtasks.map((t) => t.id);
     expect(ids).toContain(sub1.id);
     expect(ids).toContain(sub2.id);
+  });
+
+  it("restores the task's linked note", async () => {
+    const task = await tasks.createTask({ title: 'Has a note', dueDate: TOMORROW });
+    const note = await notesService.createNote({ linkedTaskId: task.id });
+    await archive.archiveTask(task.id);
+    await archive.restoreTask(task.id);
+    expect(await notesService.getById(note.id)).not.toBeNull();
+  });
+
+  it("restores a subtask's own linked note when the parent is restored", async () => {
+    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
+    const subNote = await notesService.createNote({ linkedTaskId: sub.id });
+    await archive.archiveTask(parent.id);
+    await archive.restoreTask(parent.id);
+    expect(await notesService.getById(subNote.id)).not.toBeNull();
+  });
+
+  it('does not restore notes linked to a different task', async () => {
+    const taskA = await tasks.createTask({ title: 'A', dueDate: TOMORROW });
+    const taskB = await tasks.createTask({ title: 'B', dueDate: TOMORROW });
+    const noteB = await notesService.createNote({ linkedTaskId: taskB.id });
+    await archive.archiveNote(noteB.id);
+    await archive.archiveTask(taskA.id);
+    await archive.restoreTask(taskA.id);
+    expect(await notesService.getById(noteB.id)).toBeNull();
+  });
+
+  it('throws NotFoundError for an unknown task id', async () => {
+    await expect(archive.restoreTask(generateId('task'))).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('throws NotArchivedError when the task is not archived', async () => {
+    const task = await tasks.createTask({ title: 'Never archived', dueDate: TOMORROW });
+    await expect(archive.restoreTask(task.id)).rejects.toBeInstanceOf(NotArchivedError);
   });
 });

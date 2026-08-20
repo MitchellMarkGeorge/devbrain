@@ -1,41 +1,87 @@
 import { NoteId, ProjectId, TaskId } from '@common/ids';
 import { tasks } from '@main/db/schema/tasks';
-import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { Task } from '../tasks/types';
 import { Project } from '../projects/types';
 import { projects } from '@main/db/schema/projects';
 import { Note } from '../notes/types';
 import { notes } from '@main/db/schema/notes';
+import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../shared/errors';
 
 export class ArchiveService {
   constructor(private readonly db: BetterSQLite3Database) {}
 
   async archiveTask(id: TaskId): Promise<Task> {
-    // archives a task and any subtasks it has
-    const [task] = await this.db
-      .update(tasks)
-      .set({ archivedAt: new Date() })
-      .where(
-        and(sql`${tasks.id} = ${id} OR ${tasks.parentTaskId} = ${id}`, isNull(tasks.archivedAt)),
-      )
-      .returning();
-    // should the task note be archived if there is one?
-    return task;
+    return this.db.transaction((tx) => {
+      const existing = tx.select().from(tasks).where(eq(tasks.id, id)).get();
+      if (!existing) throw new NotFoundError(id);
+      if (existing.archivedAt !== null) throw new AlreadyArchivedError(id);
+
+      const now = new Date();
+      // archives the task and any subtasks it has
+      const updatedTasks = tx
+        .update(tasks)
+        .set({ archivedAt: now })
+        .where(
+          and(
+            sql`(${tasks.id} = ${id} OR ${tasks.parentTaskId} = ${id})`,
+            isNull(tasks.archivedAt),
+          ),
+        )
+        .returning()
+        .all();
+
+      const updatedTaskIds = updatedTasks.map((t) => t.id);
+
+      // archive notes linked to the task and/or any of its subtasks
+      if (updatedTaskIds.length > 0) {
+        tx.update(notes)
+          .set({ archivedAt: now })
+          .where(inArray(notes.linkedTaskId, updatedTaskIds))
+          .run();
+      }
+
+      const [task] = updatedTasks.filter((t) => t.id === id);
+      return task;
+    });
   }
 
   async restoreTask(id: TaskId): Promise<Task> {
-    // restores a task and any subtasks it has
-    const [task] = await this.db
-      .update(tasks)
-      .set({ archivedAt: null })
-      .where(sql`${tasks.id} = ${id} OR ${tasks.parentTaskId} = ${id}`)
-      .returning();
-    return task;
+    // restores the task and any subtasks it has
+    return this.db.transaction((tx) => {
+      const existing = tx.select().from(tasks).where(eq(tasks.id, id)).get();
+      if (!existing) throw new NotFoundError(id);
+      if (existing.archivedAt === null) throw new NotArchivedError(id);
+
+      const updatedTasks = tx
+        .update(tasks)
+        .set({ archivedAt: null })
+        .where(sql`(${tasks.id} = ${id} OR ${tasks.parentTaskId} = ${id})`)
+        .returning()
+        .all();
+
+      const updatedTaskIds = updatedTasks.map((t) => t.id);
+
+      // restore notes linked to the task and/or any of its subtasks
+      if (updatedTaskIds.length > 0) {
+        tx.update(notes)
+          .set({ archivedAt: null })
+          .where(inArray(notes.linkedTaskId, updatedTaskIds))
+          .run();
+      }
+
+      const [task] = updatedTasks.filter((t) => t.id === id);
+      return task;
+    });
   }
 
   async archiveProject(id: ProjectId): Promise<Project> {
     return this.db.transaction((tx) => {
+      const existing = tx.select().from(projects).where(eq(projects.id, id)).get();
+      if (!existing) throw new NotFoundError(id);
+      if (existing.archivedAt !== null) throw new AlreadyArchivedError(id);
+
       const now = new Date();
       // archive the project
       const project = tx
@@ -43,13 +89,24 @@ export class ArchiveService {
         .set({
           archivedAt: now,
         })
-        .where(and(eq(projects.id, id), isNull(projects.archivedAt)))
+        .where(eq(projects.id, id))
         .returning()
         .get();
 
       // archive all tasks (and subtasks) attached to the project
-      tx.update(tasks).set({ archivedAt: now }).where(eq(tasks.projectId, id)).run();
-      // should attached notes be archived??
+      const updatedTaskIds = tx
+        .update(tasks)
+        .set({ archivedAt: now })
+        .where(eq(tasks.projectId, id))
+        .returning({ id: tasks.id })
+        .all()
+        .map(({ id }) => id);
+
+      // archaive all related notes (either direct project notes or notes linked to tasks in the project - like task notes)
+      tx.update(notes)
+        .set({ archivedAt: now })
+        .where(or(eq(notes.projectId, id), inArray(notes.linkedTaskId, updatedTaskIds)))
+        .run();
 
       return project;
     });
@@ -57,40 +114,68 @@ export class ArchiveService {
 
   async restoreProject(id: ProjectId): Promise<Project> {
     return this.db.transaction((tx) => {
-      // restore archived project
+      const existing = tx.select().from(projects).where(eq(projects.id, id)).get();
+      if (!existing) throw new NotFoundError(id);
+      if (existing.archivedAt === null) throw new NotArchivedError(id);
+
+      // restore the project
       const project = tx
         .update(projects)
         .set({
           archivedAt: null,
         })
-        .where(and(eq(projects.id, id), isNotNull(projects.archivedAt)))
+        .where(eq(projects.id, id))
         .returning()
         .get();
 
       // restore all archived tasks (and subtasks) attached to the project
-      tx.update(tasks).set({ archivedAt: null }).where(eq(tasks.projectId, id)).run();
+      const updatedTaskIds = tx
+        .update(tasks)
+        .set({ archivedAt: null })
+        .where(eq(tasks.projectId, id))
+        .returning({ id: tasks.id })
+        .all()
+        .map(({ id }) => id);
+
+      // restore all related notes (either direct project notes or notes linked to tasks in the project - like task notes)
+      tx.update(notes)
+        .set({ archivedAt: null })
+        .where(or(eq(notes.projectId, id), inArray(notes.linkedTaskId, updatedTaskIds)))
+        .run();
 
       return project;
     });
   }
 
   async archiveNote(id: NoteId): Promise<Note> {
-    // archives a note
-    const [note] = await this.db
-      .update(notes)
-      .set({ archivedAt: new Date() })
-      .where(and(eq(notes.id, id), isNull(notes.archivedAt)))
-      .returning();
-    return note;
+    return this.db.transaction((tx) => {
+      const existing = tx.select().from(notes).where(eq(notes.id, id)).get();
+      if (!existing) throw new NotFoundError(id);
+      if (existing.archivedAt !== null) throw new AlreadyArchivedError(id);
+
+      const note = tx
+        .update(notes)
+        .set({ archivedAt: new Date() })
+        .where(eq(notes.id, id))
+        .returning()
+        .get();
+      return note;
+    });
   }
 
   async restoreNote(id: NoteId): Promise<Note> {
-    // restores a note
-    const [note] = await this.db
-      .update(notes)
-      .set({ archivedAt: null })
-      .where(eq(notes.id, id))
-      .returning();
-    return note;
+    return this.db.transaction((tx) => {
+      const existing = tx.select().from(notes).where(eq(notes.id, id)).get();
+      if (!existing) throw new NotFoundError(id);
+      if (existing.archivedAt === null) throw new NotArchivedError(id);
+
+      const note = tx
+        .update(notes)
+        .set({ archivedAt: null })
+        .where(eq(notes.id, id))
+        .returning()
+        .get();
+      return note;
+    });
   }
 }

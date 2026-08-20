@@ -1,3 +1,101 @@
+import { EventId } from '@common/ids';
+import { events } from '@main/db/schema/events';
+import { and, eq, gte, inArray, isNotNull, isNull, lte, or } from 'drizzle-orm';
+import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { NotFoundError } from '../shared/errors';
+import { CreateEventOptions, Event, UpdateEventOptions } from './types';
+
 export class EventService {
-  constructor(private repo: EventRepository) {}
+  constructor(private readonly db: BetterSQLite3Database) {}
+
+  async getById(id: EventId): Promise<Event | null> {
+    const [event] = await this.db.select().from(events).where(eq(events.id, id));
+    return event ?? null;
+  }
+
+  async getByIds(ids: EventId[]): Promise<Event[]> {
+    return this.db.select().from(events).where(inArray(events.id, ids));
+  }
+
+  async createEvent(options: CreateEventOptions): Promise<Event> {
+    if (options.endAt.getTime() < options.startAt.getTime()) {
+      throw new Error('endAt must not be before startAt');
+    }
+
+    const newEvent = {
+      title: options.title,
+      description: options.description ?? null,
+      startAt: options.startAt,
+      endAt: options.endAt,
+      allDay: options.allDay ?? null,
+      location: options.location ?? null,
+      reccurrenceRule: options.reccurrenceRule ?? null,
+      meetingUrl: options.meetingUrl ?? null,
+      color: options.color ?? null,
+    };
+
+    const [insertedEvent] = await this.db.insert(events).values(newEvent).returning();
+    return insertedEvent;
+  }
+
+  async updateEvent(id: EventId, updates: UpdateEventOptions): Promise<Event> {
+    // only pay for the extra lookup when a date is actually changing —
+    // updating just one of startAt/endAt can still put the row in an
+    // invalid state relative to whichever bound wasn't touched, so the
+    // check has to compare against the *effective* (post-update) pair
+    if (updates.startAt !== undefined || updates.endAt !== undefined) {
+      const existing = await this.getById(id);
+      if (!existing) throw new NotFoundError(id);
+
+      const effectiveStart = updates.startAt ?? existing.startAt;
+      const effectiveEnd = updates.endAt ?? existing.endAt;
+      if (effectiveEnd.getTime() < effectiveStart.getTime()) {
+        throw new Error('endAt must not be before startAt');
+      }
+    }
+
+    const [updatedEvent] = await this.db
+      .update(events)
+      .set(updates)
+      .where(eq(events.id, id))
+      .returning();
+    if (!updatedEvent) throw new NotFoundError(id);
+    return updatedEvent;
+  }
+
+  async deleteEvent(id: EventId): Promise<void> {
+    // events have no archivedAt column (unlike notes/tasks/projects) — this
+    // is a hard delete
+    const [deleted] = await this.db.delete(events).where(eq(events.id, id)).returning();
+    if (!deleted) throw new NotFoundError(id);
+  }
+
+  /**
+   * Returns events that may occur within [start, end] — the single query
+   * behind month/week/day views alike; the caller computes whichever
+   * window the active view needs and passes it in.
+   *
+   * Recurring rows are returned un-expanded (their stored startAt/endAt is
+   * just the series' anchor occurrence, not every instance) and filtered
+   * loosely: a series can't produce an occurrence before its own anchor
+   * start, but whether it's *still* recurring by `start` depends on
+   * evaluating the rule's UNTIL/COUNT, which is left to the caller's RRULE
+   * expansion (e.g. FullCalendar's rrule plugin) rather than reimplemented
+   * here. That means a long-ended recurring series can be over-fetched
+   * harmlessly — it'll just expand to zero instances in range.
+   */
+  async listEventsInRange(start: Date, end: Date): Promise<Event[]> {
+    return this.db
+      .select()
+      .from(events)
+      .where(
+        or(
+          // non-recurring: exact interval-overlap test
+          and(isNull(events.reccurrenceRule), lte(events.startAt, end), gte(events.endAt, start)),
+          // recurring: loose pre-filter, see doc comment above
+          and(isNotNull(events.reccurrenceRule), lte(events.startAt, end)),
+        ),
+      )
+      .orderBy(events.startAt);
+  }
 }

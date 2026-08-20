@@ -6,4 +6,6 @@ export class SearchService {
   async search(): Promise<SearchResult[]> {
     throw new Error('Not implemented');
   }
+
+  // async index
 }

@@ -1,11 +1,11 @@
 import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
-// import { ArchiveService } from '../archive/service';
-// import { EventService } from '../events/service';
-// import { NoteService } from '../notes/service';
-// import { ProjectService } from '../projects/service';
+import { ArchiveService } from '../archive/service';
+import { EventService } from '../events/service';
+import { NoteService } from '../notes/service';
+import { ProjectService } from '../projects/service';
 // import { SearchService } from '../search/service';
-// import { TaskService } from '../tasks/service';
+import { TaskService } from '../tasks/service';
 import type { WorkspaceInfo } from './types';
 import path from 'node:path';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
@@ -14,11 +14,11 @@ import { fileExists } from '../local/utils';
 type SqliteDatabaseClient = Database.Database;
 
 export class Workspace {
-  // readonly notes: NoteService;
-  // readonly tasks: TaskService;
-  // readonly projects: ProjectService;
-  // readonly events: EventService;
-  // readonly archive: ArchiveService;
+  readonly notes: NoteService;
+  readonly tasks: TaskService;
+  readonly projects: ProjectService;
+  readonly events: EventService;
+  readonly archive: ArchiveService;
   // readonly search: SearchService;
 
   private constructor(
@@ -26,11 +26,11 @@ export class Workspace {
     private readonly sqliteClient: SqliteDatabaseClient,
     readonly info: WorkspaceInfo,
   ) {
-    // this.notes = new NoteService(db);
-    // this.tasks = new TaskService(db);
-    // this.projects = new ProjectService(db);
-    // this.events = new EventService(db);
-    // this.archive = new ArchiveService(db);
+    this.notes = new NoteService(db, info.path);
+    this.tasks = new TaskService(db);
+    this.projects = new ProjectService(db);
+    this.events = new EventService(db);
+    this.archive = new ArchiveService(db);
     // this.search = new SearchService(db);
   }
 
@@ -62,7 +62,7 @@ export class Workspace {
   ): Promise<Workspace> {
     // keeping them off for now as I implement the services
     // sqlite.pragma('journal_mode = WAL');
-    // sqlite.pragma('foreign_keys = ON');
+    sqliteClient.pragma('foreign_keys = ON');
 
     const db = drizzle({ client: sqliteClient, casing: 'snake_case' });
 

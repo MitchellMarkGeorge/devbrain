@@ -1,39 +1,27 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { eq } from 'drizzle-orm';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { generateId } from '@common/ids';
+import { generateId, ProjectId, EventId, TaskId } from '@common/ids';
 import { NoteService } from '../../notes/service';
 import { ArchiveService } from '../../archive/service';
-import { NotFoundError } from '../../shared/errors';
+import { ProjectService } from '../../projects/service';
+import { EventService } from '../../events/service';
+import { TaskService } from '../../tasks/service';
+import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../../shared/errors';
 import { fileExists } from '../../local/utils';
 import { readNoteFile } from '../../local/notes';
 import { notes as notesTable } from '@main/db/schema/notes';
+import { createDb } from '../utils';
 
-const MIGRATIONS_PATH = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '../../../db/migrations',
-);
+const TOMORROW = new Date(Date.now() + 86_400_000);
 
-const FAKE_PROJECT_ID = generateId('project');
-const FAKE_OTHER_PROJECT_ID = generateId('project');
-const FAKE_EVENT_ID = generateId('event');
-const FAKE_TASK_ID = generateId('task');
-
-function createDb(): BetterSQLite3Database {
-  const sqlite = new Database(':memory:');
-  const db = drizzle({ client: sqlite, casing: 'snake_case' });
-  migrate(db, { migrationsFolder: MIGRATIONS_PATH });
-  // fake foreign-key ids are used below without seeding parent tables
-  sqlite.pragma('foreign_keys = OFF');
-  return db;
-}
+let FAKE_PROJECT_ID: ProjectId;
+let FAKE_OTHER_PROJECT_ID: ProjectId;
+let FAKE_EVENT_ID: EventId;
+let FAKE_TASK_ID: TaskId;
 
 function notesFilePath(workspacePath: string, id: string): string {
   return path.join(workspacePath, 'notes', `${id}.md`);
@@ -49,6 +37,21 @@ beforeEach(async () => {
   workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-notes-service-'));
   notesService = new NoteService(db, workspacePath);
   archive = new ArchiveService(db);
+
+  const projectService = new ProjectService(db);
+  const eventService = new EventService(db);
+  const taskService = new TaskService(db);
+
+  FAKE_PROJECT_ID = (
+    await projectService.createProject({ title: 'Fake Project', dueDate: TOMORROW })
+  ).id;
+  FAKE_OTHER_PROJECT_ID = (
+    await projectService.createProject({ title: 'Fake Other Project', dueDate: TOMORROW })
+  ).id;
+  FAKE_EVENT_ID = (
+    await eventService.createEvent({ title: 'Fake Event', startAt: TOMORROW, endAt: TOMORROW })
+  ).id;
+  FAKE_TASK_ID = (await taskService.createTask({ title: 'Fake Task', dueDate: TOMORROW })).id;
 });
 
 afterEach(async () => {
@@ -119,7 +122,7 @@ describe('NoteService — createNote', () => {
   it('cleans up the file it wrote if the DB insert fails', async () => {
     // linkedTaskId is unique, so a second note pointed at the same task
     // will fail at the DB layer after its file has already been written
-    const taskId = generateId('task');
+    const taskId = FAKE_TASK_ID;
     await notesService.createNote({ linkedTaskId: taskId });
 
     await expect(notesService.createNote({ linkedTaskId: taskId })).rejects.toThrow();
@@ -477,6 +480,16 @@ describe('ArchiveService — archiveNote', () => {
     await archive.archiveNote(note.id);
     expect(await fileExists(notesFilePath(workspacePath, note.id))).toBe(true);
   });
+
+  it('throws NotFoundError for an unknown note id', async () => {
+    await expect(archive.archiveNote(generateId('note'))).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('throws AlreadyArchivedError when the note is already archived', async () => {
+    const note = await notesService.createNote({ title: 'Archive me once' });
+    await archive.archiveNote(note.id);
+    await expect(archive.archiveNote(note.id)).rejects.toBeInstanceOf(AlreadyArchivedError);
+  });
 });
 
 describe('ArchiveService — restoreNote', () => {
@@ -510,5 +523,14 @@ describe('ArchiveService — restoreNote', () => {
     await archive.restoreNote(note.id);
     const result = await notesService.listNotes({ projectId: FAKE_PROJECT_ID });
     expect(result.map((n) => n.id)).toContain(note.id);
+  });
+
+  it('throws NotFoundError for an unknown note id', async () => {
+    await expect(archive.restoreNote(generateId('note'))).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('throws NotArchivedError when the note is not archived', async () => {
+    const note = await notesService.createNote({ title: 'Never archived' });
+    await expect(archive.restoreNote(note.id)).rejects.toBeInstanceOf(NotArchivedError);
   });
 });
