@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { directoryExists } from './utils';
 import fs from 'fs/promises';
-import { DEFAULTS } from '../settings/defaults';
+import { getDefaults } from '../settings/defaults';
 
 export async function scaffoldDevBrain(rootPath: string, overwrite: boolean) {
   // 1. check if the directory exists and if is should overwrite
@@ -20,7 +20,7 @@ export async function scaffoldDevBrain(rootPath: string, overwrite: boolean) {
 
   // 4. create the settings.json file with default values
   const settingsFilePath = path.join(rootPath, 'settings.json');
-  const settingsFileContent = JSON.stringify(DEFAULTS, null, 2);
+  const settingsFileContent = JSON.stringify(getDefaults(rootPath), null, 2);
   await fs.writeFile(settingsFilePath, settingsFileContent, { encoding: 'utf8' });
 
   // 5. create an empty workspaces.json registry

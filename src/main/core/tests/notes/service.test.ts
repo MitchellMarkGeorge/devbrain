@@ -149,7 +149,7 @@ describe('NoteService — getById', () => {
 
   it('returns null for an archived note', async () => {
     const note = await notesService.createNote({ title: 'Will be archived' });
-    await archive.archiveNote(note.id);
+    archive.archiveNote(note.id);
     const result = await notesService.getById(note.id);
     expect(result).toBeNull();
   });
@@ -174,7 +174,7 @@ describe('NoteService — getByIds', () => {
 
   it('excludes archived notes even when their id is requested', async () => {
     const note = await notesService.createNote({ title: 'Archived' });
-    await archive.archiveNote(note.id);
+    archive.archiveNote(note.id);
     const result = await notesService.getByIds([note.id]);
     expect(result).toHaveLength(0);
   });
@@ -185,7 +185,7 @@ describe('NoteService — listNotes', () => {
     const a = await notesService.createNote({ title: 'A' });
     const b = await notesService.createNote({ title: 'B' });
     const archived = await notesService.createNote({ title: 'Archived' });
-    await archive.archiveNote(archived.id);
+    archive.archiveNote(archived.id);
 
     const result = await notesService.listNotes();
     const ids = result.map((n) => n.id);
@@ -296,7 +296,7 @@ describe('NoteService — listNotes', () => {
       title: 'Will archive',
       projectId: FAKE_PROJECT_ID,
     });
-    await archive.archiveNote(note.id);
+    archive.archiveNote(note.id);
     const result = await notesService.listNotes({ projectId: FAKE_PROJECT_ID });
     expect(result.map((n) => n.id)).not.toContain(note.id);
   });
@@ -448,7 +448,7 @@ describe('ArchiveService — archiveNote', () => {
   it('sets archivedAt to a recent timestamp', async () => {
     const note = await notesService.createNote({ title: 'To archive' });
     const before = new Date();
-    const archived = await archive.archiveNote(note.id);
+    const archived = archive.archiveNote(note.id);
     const after = new Date();
     expect(archived.archivedAt).not.toBeNull();
     expect(archived.archivedAt!.getTime()).toBeGreaterThanOrEqual(before.getTime());
@@ -457,61 +457,61 @@ describe('ArchiveService — archiveNote', () => {
 
   it('returns the updated note row', async () => {
     const note = await notesService.createNote({ title: 'Archivable' });
-    const result = await archive.archiveNote(note.id);
+    const result = archive.archiveNote(note.id);
     expect(result.id).toBe(note.id);
     expect(result.title).toBe('Archivable');
   });
 
   it('archived note is no longer returned by NoteService.getById', async () => {
     const note = await notesService.createNote({ title: 'Gone' });
-    await archive.archiveNote(note.id);
+    archive.archiveNote(note.id);
     expect(await notesService.getById(note.id)).toBeNull();
   });
 
   it('archived note is excluded from NoteService.listNotes', async () => {
     const note = await notesService.createNote({ title: 'Gone', projectId: FAKE_PROJECT_ID });
-    await archive.archiveNote(note.id);
+    archive.archiveNote(note.id);
     const result = await notesService.listNotes({ projectId: FAKE_PROJECT_ID });
     expect(result.map((n) => n.id)).not.toContain(note.id);
   });
 
   it('leaves the note file on disk untouched', async () => {
     const note = await notesService.createNote({ title: 'Still on disk' });
-    await archive.archiveNote(note.id);
+    archive.archiveNote(note.id);
     expect(await fileExists(notesFilePath(workspacePath, note.id))).toBe(true);
   });
 
   it('throws NotFoundError for an unknown note id', async () => {
-    await expect(archive.archiveNote(generateId('note'))).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => archive.archiveNote(generateId('note'))).toThrow(NotFoundError);
   });
 
   it('throws AlreadyArchivedError when the note is already archived', async () => {
     const note = await notesService.createNote({ title: 'Archive me once' });
-    await archive.archiveNote(note.id);
-    await expect(archive.archiveNote(note.id)).rejects.toBeInstanceOf(AlreadyArchivedError);
+    archive.archiveNote(note.id);
+    expect(() => archive.archiveNote(note.id)).toThrow(AlreadyArchivedError);
   });
 });
 
 describe('ArchiveService — restoreNote', () => {
   it('clears archivedAt on the note', async () => {
     const note = await notesService.createNote({ title: 'Restore me' });
-    await archive.archiveNote(note.id);
-    const restored = await archive.restoreNote(note.id);
+    archive.archiveNote(note.id);
+    const restored = archive.restoreNote(note.id);
     expect(restored.archivedAt).toBeNull();
   });
 
   it('returns the updated note row', async () => {
     const note = await notesService.createNote({ title: 'Restore me' });
-    await archive.archiveNote(note.id);
-    const result = await archive.restoreNote(note.id);
+    archive.archiveNote(note.id);
+    const result = archive.restoreNote(note.id);
     expect(result.id).toBe(note.id);
     expect(result.title).toBe('Restore me');
   });
 
   it('restored note is visible via NoteService.getById', async () => {
     const note = await notesService.createNote({ title: 'Restored' });
-    await archive.archiveNote(note.id);
-    await archive.restoreNote(note.id);
+    archive.archiveNote(note.id);
+    archive.restoreNote(note.id);
     const found = await notesService.getById(note.id);
     expect(found).not.toBeNull();
     expect(found!.id).toBe(note.id);
@@ -519,18 +519,18 @@ describe('ArchiveService — restoreNote', () => {
 
   it('restored note appears in NoteService.listNotes', async () => {
     const note = await notesService.createNote({ title: 'Restored', projectId: FAKE_PROJECT_ID });
-    await archive.archiveNote(note.id);
-    await archive.restoreNote(note.id);
+    archive.archiveNote(note.id);
+    archive.restoreNote(note.id);
     const result = await notesService.listNotes({ projectId: FAKE_PROJECT_ID });
     expect(result.map((n) => n.id)).toContain(note.id);
   });
 
   it('throws NotFoundError for an unknown note id', async () => {
-    await expect(archive.restoreNote(generateId('note'))).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => archive.restoreNote(generateId('note'))).toThrow(NotFoundError);
   });
 
   it('throws NotArchivedError when the note is not archived', async () => {
     const note = await notesService.createNote({ title: 'Never archived' });
-    await expect(archive.restoreNote(note.id)).rejects.toBeInstanceOf(NotArchivedError);
+    expect(() => archive.restoreNote(note.id)).toThrow(NotArchivedError);
   });
 });

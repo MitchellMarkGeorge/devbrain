@@ -1,17 +1,20 @@
-import type { Note } from '../notes/types';
-import type { Project } from '../projects/types';
-import type { Task } from '../tasks/types';
+import { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
 
-export type SearchResultKind = 'note' | 'task' | 'project';
+export type SearchEntityType = 'note' | 'task' | 'project' | 'event';
 
-export interface SearchResult {
-  kind: SearchResultKind;
-  item: Note | Task | Project;
+export interface IndexEntity {
+  title: string;
+  body: string;
+  entityId: NoteId | TaskId | ProjectId | EventId;
+  entityType: SearchEntityType;
+}
+
+export interface SearchResult extends IndexEntity {
   rank: number;
 }
 
 export interface SearchOptions {
   query: string;
-  kinds?: SearchResultKind[];
+  entityType: SearchEntityType[];
   limit?: number;
 }

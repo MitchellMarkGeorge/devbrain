@@ -78,6 +78,13 @@
       "when": 1786741212805,
       "tag": "0010_chubby_magneto",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1787246447557,
+      "tag": "0011_fts-tokenize-update",
+      "breakpoints": true
     }
   ]
 }

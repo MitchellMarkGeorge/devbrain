@@ -4,7 +4,7 @@ import { ArchiveService } from '../archive/service';
 import { EventService } from '../events/service';
 import { NoteService } from '../notes/service';
 import { ProjectService } from '../projects/service';
-// import { SearchService } from '../search/service';
+import { SearchService } from '../search/service';
 import { TaskService } from '../tasks/service';
 import type { WorkspaceInfo } from './types';
 import path from 'node:path';
@@ -19,7 +19,7 @@ export class Workspace {
   readonly projects: ProjectService;
   readonly events: EventService;
   readonly archive: ArchiveService;
-  // readonly search: SearchService;
+  readonly search: SearchService;
 
   private constructor(
     private readonly db: BetterSQLite3Database,
@@ -31,7 +31,7 @@ export class Workspace {
     this.projects = new ProjectService(db);
     this.events = new EventService(db);
     this.archive = new ArchiveService(db);
-    // this.search = new SearchService(db);
+    this.search = new SearchService(db, info.path);
   }
 
   static async create(info: WorkspaceInfo): Promise<Workspace> {

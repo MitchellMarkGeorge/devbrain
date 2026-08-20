@@ -12,7 +12,7 @@ import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../shared
 export class ArchiveService {
   constructor(private readonly db: BetterSQLite3Database) {}
 
-  async archiveTask(id: TaskId): Promise<Task> {
+  archiveTask(id: TaskId): Task {
     return this.db.transaction((tx) => {
       const existing = tx.select().from(tasks).where(eq(tasks.id, id)).get();
       if (!existing) throw new NotFoundError(id);
@@ -47,7 +47,7 @@ export class ArchiveService {
     });
   }
 
-  async restoreTask(id: TaskId): Promise<Task> {
+  restoreTask(id: TaskId): Task {
     // restores the task and any subtasks it has
     return this.db.transaction((tx) => {
       const existing = tx.select().from(tasks).where(eq(tasks.id, id)).get();
@@ -76,7 +76,7 @@ export class ArchiveService {
     });
   }
 
-  async archiveProject(id: ProjectId): Promise<Project> {
+  archiveProject(id: ProjectId): Project {
     return this.db.transaction((tx) => {
       const existing = tx.select().from(projects).where(eq(projects.id, id)).get();
       if (!existing) throw new NotFoundError(id);
@@ -112,7 +112,7 @@ export class ArchiveService {
     });
   }
 
-  async restoreProject(id: ProjectId): Promise<Project> {
+  restoreProject(id: ProjectId): Project {
     return this.db.transaction((tx) => {
       const existing = tx.select().from(projects).where(eq(projects.id, id)).get();
       if (!existing) throw new NotFoundError(id);
@@ -147,7 +147,7 @@ export class ArchiveService {
     });
   }
 
-  async archiveNote(id: NoteId): Promise<Note> {
+  archiveNote(id: NoteId): Note {
     return this.db.transaction((tx) => {
       const existing = tx.select().from(notes).where(eq(notes.id, id)).get();
       if (!existing) throw new NotFoundError(id);
@@ -163,7 +163,7 @@ export class ArchiveService {
     });
   }
 
-  async restoreNote(id: NoteId): Promise<Note> {
+  restoreNote(id: NoteId): Note {
     return this.db.transaction((tx) => {
       const existing = tx.select().from(notes).where(eq(notes.id, id)).get();
       if (!existing) throw new NotFoundError(id);

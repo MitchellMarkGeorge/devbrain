@@ -12,7 +12,7 @@ import {
   NoteSortOptions,
   UpdateNoteOptions,
 } from './types';
-import removeMd from 'remove-markdown';
+import { stripMarkdown } from '../shared/markdown';
 import { NotFoundError } from '../shared/errors';
 
 export class NoteService {
@@ -140,7 +140,7 @@ export class NoteService {
     const existing = await this.getById(id);
     if (!existing) throw new NotFoundError(id);
 
-    const preview = removeMd(content.trim()).slice(0, 200);
+    const preview = stripMarkdown(content.trim()).slice(0, 200);
 
     await updateNoteFile(this.noteFilePath(id), { id, title: existing.title }, content);
 
