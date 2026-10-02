@@ -207,7 +207,7 @@ describe('appSettingsSchema — tasks block', () => {
   });
 
   it('accepts all valid defaultDueDate values', () => {
-    const dates = ['today', 'tommorow', 'nextWeek'] as const;
+    const dates = ['today', 'tomorrow', 'nextWeek'] as const;
     for (const date of dates) {
       expect(
         appSettingsSchema.safeParse(withTasks({ defaultDueDate: date }).settings).success,

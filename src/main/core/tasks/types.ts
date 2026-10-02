@@ -29,7 +29,6 @@ export interface Task extends Model<TaskId>, Archivable, Completeable {
   projectId: ProjectId | null;
   linkedEventId: EventId | null;
   linkedNoteId: NoteId | null;
-  completedAt: Date | null;
   pullRequestUrl: string | null;
 }
 export interface CreateTaskOptions {
@@ -56,7 +55,7 @@ export interface CreateSubTaskOptions {
   startDate?: Date;
 }
 
-// export type TaskSort = 'priority' | 'dueDate' | 'status' | 'created' | 'lastUpdated';
+// export type TaskSort = 'priority' | 'dueDate' | 'status' | 'createdAt' | 'updatedAt';
 
 export interface TaskFilterOptions {
   status?: TaskStatus;
@@ -74,7 +73,7 @@ export interface TaskFilterOptions {
 }
 
 export interface TaskSortOptions {
-  sortBy: 'priority' | 'dueDate' | 'status' | 'created' | 'lastUpdated';
+  sortBy: 'priority' | 'dueDate' | 'status' | 'createdAt' | 'updatedAt';
   direction?: 'asc' | 'desc';
 }
 

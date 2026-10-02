@@ -43,7 +43,7 @@ export interface UpdateProjectOptions {
   status?: ProjectStatus;
 }
 
-// export type ProjectSort = 'priority' | 'dueDate' | 'status' | 'created' | 'lastUpdated';
+// export type ProjectSort = 'priority' | 'dueDate' | 'status' | 'createdAt' | 'updatedAt';
 
 export interface ProjectFilterOptions {
   dueOn?: Date;
@@ -55,8 +55,8 @@ export interface ProjectFilterOptions {
 
 export interface ProjectSortOptions {
   // should be able to sort by progress and by project health, both computed fields
-  // sortBy: 'dueDate' |  'created' | 'lastUpdated' | 'progress' | 'health';
-  sortBy: 'dueDate' | 'created' | 'lastUpdated' | 'status';
+  // sortBy: 'dueDate' |  'createdAt' | 'updatedAt' | 'progress' | 'health';
+  sortBy: 'dueDate' | 'createdAt' | 'updatedAt' | 'status';
   direction?: 'asc' | 'desc';
 }
 

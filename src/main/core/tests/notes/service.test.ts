@@ -137,21 +137,18 @@ describe('NoteService — getById', () => {
   it('returns the note for a valid id', async () => {
     const created = await notesService.createNote({ title: 'Find me' });
     const found = await notesService.getById(created.id);
-    expect(found).not.toBeNull();
-    expect(found!.id).toBe(created.id);
-    expect(found!.title).toBe('Find me');
+    expect(found.id).toBe(created.id);
+    expect(found.title).toBe('Find me');
   });
 
-  it('returns null for an unknown id', async () => {
-    const result = await notesService.getById(generateId('note'));
-    expect(result).toBeNull();
+  it('throws NotFoundError for an unknown id', async () => {
+    await expect(notesService.getById(generateId('note'))).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  it('returns null for an archived note', async () => {
+  it('throws NotFoundError for an archived note', async () => {
     const note = await notesService.createNote({ title: 'Will be archived' });
     archive.archiveNote(note.id);
-    const result = await notesService.getById(note.id);
-    expect(result).toBeNull();
+    await expect(notesService.getById(note.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 });
 
@@ -246,7 +243,7 @@ describe('NoteService — listNotes', () => {
     expect(result.map((n) => n.id)).toContain(unlinked.id);
   });
 
-  it('defaults to sorting by lastUpdated descending', async () => {
+  it('defaults to sorting by updatedAt descending', async () => {
     const a = await notesService.createNote({ title: 'A' });
     const b = await notesService.createNote({ title: 'B' });
     await notesService.updateNote(a.id, { title: 'A updated' });
@@ -271,7 +268,7 @@ describe('NoteService — listNotes', () => {
       .set({ createdAt: new Date('2024-01-02') })
       .where(eq(notesTable.id, second.id));
 
-    const result = await notesService.listNotes({}, { sortBy: 'created' });
+    const result = await notesService.listNotes({}, { sortBy: 'createdAt' });
     expect(result[0].id).toBe(second.id);
     expect(result[result.length - 1].id).toBe(first.id);
   });
@@ -465,7 +462,7 @@ describe('ArchiveService — archiveNote', () => {
   it('archived note is no longer returned by NoteService.getById', async () => {
     const note = await notesService.createNote({ title: 'Gone' });
     archive.archiveNote(note.id);
-    expect(await notesService.getById(note.id)).toBeNull();
+    await expect(notesService.getById(note.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('archived note is excluded from NoteService.listNotes', async () => {
@@ -513,8 +510,7 @@ describe('ArchiveService — restoreNote', () => {
     archive.archiveNote(note.id);
     archive.restoreNote(note.id);
     const found = await notesService.getById(note.id);
-    expect(found).not.toBeNull();
-    expect(found!.id).toBe(note.id);
+    expect(found.id).toBe(note.id);
   });
 
   it('restored note appears in NoteService.listNotes', async () => {

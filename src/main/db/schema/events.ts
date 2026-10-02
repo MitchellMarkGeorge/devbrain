@@ -14,7 +14,7 @@ export const events = sqliteTable(
     // confirm these values
     startAt: date().notNull(),
     endAt: date().notNull(),
-    allDay: boolean(),
+    allDay: boolean().notNull().default(false),
     location: text(),
     reccurrenceRule: text(),
     meetingUrl: text(),

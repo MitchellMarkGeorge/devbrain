@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { WorkspaceId } from '@common/ids';
 import type { WorkspaceInfo } from '../../workspace/types';
+import { NotFoundError } from '../../shared/errors';
 
 // Mock the Workspace class so WorkspaceService tests don't need SQLite
 vi.mock('../../workspace/workspace', () => ({
@@ -69,10 +70,10 @@ describe('WorkspaceService — registry reads', () => {
     expect(service.getById(info.id)).toMatchObject({ id: info.id, name: info.name });
   });
 
-  it('getById() returns null for unknown id', () => {
+  it('getById() throws NotFoundError for unknown id', () => {
     writeRegistry(tmpDir, [makeInfo()]);
     const service = new WorkspaceService(tmpDir);
-    expect(service.getById('wsp_unknown' as WorkspaceId)).toBeNull();
+    expect(() => service.getById('wsp_unknown' as WorkspaceId)).toThrow(NotFoundError);
   });
 
   it('getByName() returns matching workspace info', () => {
@@ -305,9 +306,9 @@ describe('WorkspaceService — open', () => {
     const after = Date.now();
 
     const updated = service.getById(info.id);
-    expect(updated?.lastOpenedAt).toBeTypeOf('number');
-    expect(updated?.lastOpenedAt).toBeGreaterThanOrEqual(before);
-    expect(updated?.lastOpenedAt).toBeLessThanOrEqual(after);
+    expect(updated.lastOpenedAt).toBeTypeOf('number');
+    expect(updated.lastOpenedAt).toBeGreaterThanOrEqual(before);
+    expect(updated.lastOpenedAt).toBeLessThanOrEqual(after);
   });
 
   it('returns the opened workspace', async () => {

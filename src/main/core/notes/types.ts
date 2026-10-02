@@ -25,7 +25,7 @@ export interface NoteFilterOptions {
 }
 
 export interface NoteSortOptions {
-  sortBy: 'created' | 'lastUpdated' | 'title';
+  sortBy: 'createdAt' | 'updatedAt' | 'title';
   direction?: 'asc' | 'desc';
 }
 

@@ -6,8 +6,13 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import { directoryExists, isNotFound } from '../local/utils';
+import { NotFoundError } from '../shared/errors';
+
+// TODO: opening a workspace again after it has been openedn should be as cheap as possible
+// if possible, workspaces should be "cached" here
 
 export class WorkspaceService {
+  // this should absolutely NOT be public. Should be copmputed instead (but still cheap like O(1))
   public currentWorkspace: Workspace | null = null;
   private workspacesFilePath: string;
 
@@ -34,8 +39,10 @@ export class WorkspaceService {
     return Object.values(this.readWorkspaceFile());
   }
 
-  getById(id: WorkspaceId): WorkspaceInfo | null {
-    return this.readWorkspaceFile()[id] ?? null;
+  getById(id: WorkspaceId): WorkspaceInfo {
+    const workspaceInfo = this.readWorkspaceFile()[id];
+    if (!workspaceInfo) throw new NotFoundError(id);
+    return workspaceInfo;
   }
 
   getByName(name: string): WorkspaceInfo | null {
@@ -68,7 +75,7 @@ export class WorkspaceService {
   }
 
   async delete(id: WorkspaceId): Promise<void> {
-    let workspaceInfo: WorkspaceInfo | null = null;
+    let workspaceInfo: WorkspaceInfo;
 
     if (this.currentWorkspace?.info.id === id) {
       // close current workspace if it is to be deleted
@@ -76,8 +83,8 @@ export class WorkspaceService {
       workspaceInfo = this.currentWorkspace.info;
       this.currentWorkspace = null;
     } else {
+      // throws NotFoundError when the id is not in the registry
       workspaceInfo = this.getById(id);
-      if (!workspaceInfo) throw new Error('No workspace matching provided id');
     }
 
     // throw error if there is no workspace directory to delete
@@ -96,9 +103,8 @@ export class WorkspaceService {
   }
 
   async open(id: WorkspaceId): Promise<Workspace> {
-    // 1. get info from the registry
+    // 1. get info from the registry (throws NotFoundError when absent)
     const workspaceInfo = this.getById(id);
-    if (!workspaceInfo) throw new Error('No workspace matching provided id');
 
     // 2. make sure the workspace directory exists
     if (!(await directoryExists(workspaceInfo.path))) {

@@ -20,9 +20,10 @@ import { TaskStatus } from '../tasks/types';
 export class ProjectService {
   constructor(private readonly db: BetterSQLite3Database) {}
 
-  async getById(id: ProjectId): Promise<Project | null> {
+  async getById(id: ProjectId): Promise<Project> {
     const [row] = await this.activeProjects(eq(projects.id, id)).limit(1);
-    return row ?? null;
+    if (!row) throw new NotFoundError(id);
+    return row;
   }
 
   async getByIds(ids: ProjectId[]): Promise<Project[]> {
@@ -69,7 +70,7 @@ export class ProjectService {
 
   async listProjects(
     filter: ProjectFilterOptions = {},
-    sort: ProjectSortOptions = { sortBy: 'created' },
+    sort: ProjectSortOptions = { sortBy: 'createdAt' },
   ): Promise<Project[]> {
     const clauses = [isNull(projects.archivedAt)];
 
@@ -92,10 +93,10 @@ export class ProjectService {
       case 'status':
         orderColunm = projects.status;
         break;
-      case 'created':
+      case 'createdAt':
         orderColunm = projects.createdAt;
         break;
-      case 'lastUpdated':
+      case 'updatedAt':
         orderColunm = projects.updatedAt;
         break;
     }
@@ -111,8 +112,8 @@ export class ProjectService {
 
   async getProjectStats(id: ProjectId): Promise<ProjectStats> {
     // to prevent N+1, this has to be a an arrow of project ids
-    const project = await this.getById(id);
-    if (!project) throw new NotFoundError(id);
+    // throws NotFoundError for an unknown or archived project
+    await this.getById(id);
 
     const today = Date.now();
 

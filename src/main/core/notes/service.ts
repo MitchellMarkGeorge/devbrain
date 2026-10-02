@@ -24,9 +24,10 @@ export class NoteService {
     this.workspaceNotesPath = path.join(workspacePath, 'notes');
   }
 
-  async getById(id: NoteId): Promise<Note | null> {
+  async getById(id: NoteId): Promise<Note> {
     const [note] = await this.activeNotes(eq(notes.id, id));
-    return note ?? null;
+    if (!note) throw new NotFoundError(id);
+    return note;
   }
 
   async getByIds(ids: NoteId[]): Promise<Note[]> {
@@ -65,10 +66,7 @@ export class NoteService {
     }
   }
 
-  async listNotes(
-    filter: NoteFilterOptions = {},
-    sort: NoteSortOptions = { sortBy: 'lastUpdated' },
-  ) {
+  async listNotes(filter: NoteFilterOptions = {}, sort: NoteSortOptions = { sortBy: 'updatedAt' }) {
     const clauses = [isNull(notes.archivedAt)];
 
     if (filter.projectId !== undefined) {
@@ -98,10 +96,10 @@ export class NoteService {
       case 'title':
         orderColunm = notes.title;
         break;
-      case 'created':
+      case 'createdAt':
         orderColunm = notes.createdAt;
         break;
-      case 'lastUpdated':
+      case 'updatedAt':
         orderColunm = notes.updatedAt;
         break;
     }
@@ -137,8 +135,8 @@ export class NoteService {
 
   async updateNoteContent(id: NoteId, content: string): Promise<Note> {
     // think about this, could just pass in the title or the note object itself
+    // throws NotFoundError for an unknown or archived note
     const existing = await this.getById(id);
-    if (!existing) throw new NotFoundError(id);
 
     const preview = stripMarkdown(content.trim()).slice(0, 200);
 

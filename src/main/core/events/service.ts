@@ -8,9 +8,10 @@ import { CreateEventOptions, Event, UpdateEventOptions } from './types';
 export class EventService {
   constructor(private readonly db: BetterSQLite3Database) {}
 
-  async getById(id: EventId): Promise<Event | null> {
+  async getById(id: EventId): Promise<Event> {
     const [event] = await this.db.select().from(events).where(eq(events.id, id));
-    return event ?? null;
+    if (!event) throw new NotFoundError(id);
+    return event;
   }
 
   async getByIds(ids: EventId[]): Promise<Event[]> {
@@ -27,7 +28,7 @@ export class EventService {
       description: options.description ?? null,
       startAt: options.startAt,
       endAt: options.endAt,
-      allDay: options.allDay ?? null,
+      allDay: options.allDay ?? false,
       location: options.location ?? null,
       reccurrenceRule: options.reccurrenceRule ?? null,
       meetingUrl: options.meetingUrl ?? null,
@@ -44,8 +45,8 @@ export class EventService {
     // invalid state relative to whichever bound wasn't touched, so the
     // check has to compare against the *effective* (post-update) pair
     if (updates.startAt !== undefined || updates.endAt !== undefined) {
+      // throws NotFoundError when the event does not exist
       const existing = await this.getById(id);
-      if (!existing) throw new NotFoundError(id);
 
       const effectiveStart = updates.startAt ?? existing.startAt;
       const effectiveEnd = updates.endAt ?? existing.endAt;

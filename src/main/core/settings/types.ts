@@ -38,7 +38,7 @@ export type DotPathValue<T, P extends string> = P extends `${infer K}.${infer Re
 //   tasks: {
 //     defaultSort: 'priority' | 'dueDate' | 'status';
 //     defaultPriority: TaskPriority;
-//     defaultDueDate: 'today' | 'tommorow' | 'nextWeek';
+//     defaultDueDate: 'today' | 'tomorrow' | 'nextWeek';
 //     defaultView: 'list' | 'group' | 'board';
 //     showCompletedTasks: boolean;
 //   };

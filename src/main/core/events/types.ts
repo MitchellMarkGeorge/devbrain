@@ -6,7 +6,7 @@ export interface Event extends Model<EventId> {
   description: string | null;
   startAt: Date;
   endAt: Date;
-  allDay: boolean | null;
+  allDay: boolean;
   location: string | null;
   // an RRULE string (RFC 5545), possibly multiple lines (RRULE/EXRULE/RDATE/
   // EXDATE joined with \n) — the same format both the FullCalendar RRULE

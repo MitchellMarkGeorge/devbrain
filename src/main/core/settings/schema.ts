@@ -15,7 +15,7 @@ export const appSettingsSchema = z.object({
   tasks: z.object({
     defaultSort: z.enum(['priority', 'dueDate', 'status']),
     defaultPriority: z.enum(TaskPriority),
-    defaultDueDate: z.enum(['today', 'tommorow', 'nextWeek']),
+    defaultDueDate: z.enum(['today', 'tomorrow', 'nextWeek']),
     defaultView: z.enum(['list', 'group', 'board']),
     showCompletedTasks: z.boolean(),
   }),

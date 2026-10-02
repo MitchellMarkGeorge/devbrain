@@ -197,7 +197,7 @@ describe('SearchService — indexNote', () => {
     await searchService.indexNote(note);
     await noteService.updateNoteContent(note.id, 'finalized content');
     const updated = await noteService.getById(note.id);
-    await searchService.indexNote(updated!);
+    await searchService.indexNote(updated);
 
     const results = searchService.search({ query: 'Draft', entityType: [] });
     expect(results).toHaveLength(1);

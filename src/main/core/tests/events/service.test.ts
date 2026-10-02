@@ -41,7 +41,7 @@ describe('EventService — createEvent', () => {
       endAt: new Date('2026-06-10T11:00:00.000Z'),
     });
     expect(event.description).toBeNull();
-    expect(event.allDay).toBeNull();
+    expect(event.allDay).toBe(false);
     expect(event.location).toBeNull();
     expect(event.reccurrenceRule).toBeNull();
     expect(event.meetingUrl).toBeNull();
@@ -87,14 +87,12 @@ describe('EventService — getById', () => {
       endAt: new Date('2026-06-10T11:00:00.000Z'),
     });
     const found = await eventsService.getById(created.id);
-    expect(found).not.toBeNull();
-    expect(found!.id).toBe(created.id);
-    expect(found!.title).toBe('Find me');
+    expect(found.id).toBe(created.id);
+    expect(found.title).toBe('Find me');
   });
 
-  it('returns null for an unknown id', async () => {
-    const result = await eventsService.getById(generateId('event'));
-    expect(result).toBeNull();
+  it('throws NotFoundError for an unknown id', async () => {
+    await expect(eventsService.getById(generateId('event'))).rejects.toBeInstanceOf(NotFoundError);
   });
 });
 
@@ -215,7 +213,7 @@ describe('EventService — deleteEvent', () => {
       endAt: new Date('2026-06-10T11:00:00.000Z'),
     });
     await eventsService.deleteEvent(event.id);
-    expect(await eventsService.getById(event.id)).toBeNull();
+    await expect(eventsService.getById(event.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('throws NotFoundError for an unknown id', async () => {

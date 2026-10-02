@@ -21,9 +21,10 @@ import { localDayWindow } from '../shared/utils';
 export class TaskService {
   constructor(private readonly db: BetterSQLite3Database) {}
 
-  async getById(id: TaskId): Promise<Task | null> {
+  async getById(id: TaskId): Promise<Task> {
     const [row] = await this.activeTasks(eq(tasks.id, id)).limit(1);
-    return row ?? null;
+    if (!row) throw new NotFoundError(id);
+    return row;
   }
 
   async getByIds(ids: TaskId[]): Promise<Task[]> {
@@ -57,9 +58,8 @@ export class TaskService {
   }
 
   async createSubtask(parentTaskId: TaskId, options: CreateSubTaskOptions): Promise<Task> {
+    // throws NotFoundError when no task matches the provided id
     const parentTask = await this.getById(parentTaskId);
-    // no task matching provided id
-    if (!parentTask) throw new NotFoundError(parentTaskId);
 
     if (isSubtask(parentTask)) {
       throw new Error('Subtasks cannot create their own subtasks');
@@ -84,7 +84,7 @@ export class TaskService {
     return insertedTask;
   }
 
-  async listTasks(filter: TaskFilterOptions = {}, sort: TaskSortOptions = { sortBy: 'created' }) {
+  async listTasks(filter: TaskFilterOptions = {}, sort: TaskSortOptions = { sortBy: 'createdAt' }) {
     const clauses = [isNull(tasks.archivedAt)];
     if (filter.excludeSubtasks) clauses.push(isNull(tasks.parentTaskId));
 
@@ -132,10 +132,10 @@ export class TaskService {
       case 'status':
         orderColunm = tasks.status;
         break;
-      case 'created':
+      case 'createdAt':
         orderColunm = tasks.createdAt;
         break;
-      case 'lastUpdated':
+      case 'updatedAt':
         orderColunm = tasks.updatedAt;
         break;
     }
@@ -182,7 +182,6 @@ export class TaskService {
 
   async updateProject(id: TaskId, projectId: ProjectId | null): Promise<Task> {
     const task = await this.getById(id);
-    if (!task) throw new NotFoundError(id);
 
     if (isSubtask(task)) {
       throw new Error('Subtasks inherit project context from partent task');
@@ -201,7 +200,6 @@ export class TaskService {
 
   async updateLinks(id: TaskId, options: UpdateTaskLinkOptions): Promise<Task> {
     const task = await this.getById(id);
-    if (!task) throw new NotFoundError(id);
 
     if (isSubtask(task)) {
       throw new Error('Subtasks inherit link context from partent task');
@@ -226,7 +224,6 @@ export class TaskService {
   async promoteSubtask(id: TaskId): Promise<Task> {
     // makes an existing subtask a top level task
     const task = await this.getById(id);
-    if (!task) throw new NotFoundError(id);
 
     if (!isSubtask(task)) {
       throw new Error('Task is not a subtask');
@@ -248,11 +245,9 @@ export class TaskService {
     // the existing task will inherit the context if its new parent, even if already has its own
     if (id === newParentId) throw new Error('Tasks cannot be their own parent');
 
-    const task = await this.getById(id);
-    const parentTask = await this.getById(id);
-
-    if (!task) throw new NotFoundError(id);
-    if (!parentTask) throw new NotFoundError(newParentId);
+    // both throw NotFoundError when the id has no active task behind it
+    await this.getById(id);
+    const parentTask = await this.getById(newParentId);
 
     if (isSubtask(parentTask)) {
       throw new Error('Provided parent task is already a subtask');
