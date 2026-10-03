@@ -127,27 +127,21 @@ export class TaskService {
     }
 
     let sortColumn: SQLiteColumn;
-    let field: 'dueDate' | 'priority' | 'status' | 'createdAt' | 'updatedAt';
     switch (sort.sortBy) {
       case 'dueDate':
         sortColumn = tasks.dueDate;
-        field = 'dueDate';
         break;
       case 'priority':
         sortColumn = tasks.priority;
-        field = 'priority';
         break;
       case 'status':
         sortColumn = tasks.status;
-        field = 'status';
         break;
       case 'created':
         sortColumn = tasks.createdAt;
-        field = 'createdAt';
         break;
       case 'lastUpdated':
         sortColumn = tasks.updatedAt;
-        field = 'updatedAt';
         break;
     }
 
@@ -157,7 +151,7 @@ export class TaskService {
         sortColumn,
         idColumn: tasks.id,
         direction: sort.direction === 'asc' ? 'asc' : 'desc',
-        sortValue: (row) => row[field],
+        sortValue: (row) => row[sortColumn.name as keyof Task],
         id: (row) => row.id,
       },
       page,

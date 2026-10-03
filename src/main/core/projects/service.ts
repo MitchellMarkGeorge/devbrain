@@ -108,14 +108,7 @@ export class ProjectService {
         sortColumn,
         idColumn: projects.id,
         direction: sort.direction === 'asc' ? 'asc' : 'desc',
-        sortValue: (row) =>
-          row[
-            sort.sortBy === 'created'
-              ? 'createdAt'
-              : sort.sortBy === 'lastUpdated'
-                ? 'updatedAt'
-                : sort.sortBy
-          ],
+        sortValue: (row) => row[sortColumn.name as keyof Project],
         id: (row) => row.id,
       },
       page,

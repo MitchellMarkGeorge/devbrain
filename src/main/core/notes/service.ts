@@ -96,19 +96,15 @@ export class NoteService {
     }
 
     let sortColumn: SQLiteColumn;
-    let field: 'title' | 'createdAt' | 'updatedAt';
     switch (sort.sortBy) {
       case 'title':
         sortColumn = notes.title;
-        field = 'title';
         break;
       case 'created':
         sortColumn = notes.createdAt;
-        field = 'createdAt';
         break;
       case 'lastUpdated':
         sortColumn = notes.updatedAt;
-        field = 'updatedAt';
         break;
     }
 
@@ -118,7 +114,7 @@ export class NoteService {
         sortColumn,
         idColumn: notes.id,
         direction: sort.direction === 'asc' ? 'asc' : 'desc',
-        sortValue: (row) => row[field],
+        sortValue: (row) => row[sortColumn.name as keyof Note],
         id: (row) => row.id,
       },
       page,
