@@ -14,6 +14,7 @@ import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../../sha
 import { tasks as tasksTable } from '@main/db/schema/tasks';
 import { eq } from 'drizzle-orm';
 import { createDb } from '../utils';
+import { InvalidCursorError } from '../../shared/pagination';
 
 let FAKE_PROJECT_ID: ProjectId;
 let FAKE_NOTE_ID: NoteId;
@@ -312,7 +313,7 @@ describe('TaskService — listTasks', () => {
     const archived = await tasks.createTask({ title: 'D', dueDate: TOMORROW });
     archive.archiveTask(archived.id);
 
-    const result = await tasks.listTasks();
+    const result = (await tasks.listTasks()).items;
     const ids = result.map((t) => t.id);
     expect(ids).toContain(notStarted.id);
     expect(ids).toContain(inProgress.id);
@@ -327,7 +328,7 @@ describe('TaskService — listTasks', () => {
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = await tasks.listTasks({ status: TaskStatus.IN_PROGRESS });
+    const result = (await tasks.listTasks({ status: TaskStatus.IN_PROGRESS })).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(inProg.id);
   });
@@ -339,10 +340,12 @@ describe('TaskService — listTasks', () => {
       status: TaskStatus.IN_PROGRESS,
     });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
-    const result = await tasks.listTasks({
-      excludeSubtasks: true,
-      status: TaskStatus.IN_PROGRESS,
-    });
+    const result = (
+      await tasks.listTasks({
+        excludeSubtasks: true,
+        status: TaskStatus.IN_PROGRESS,
+      })
+    ).items;
     const ids = result.map((t) => t.id);
     expect(ids).toContain(parent.id);
     expect(ids).not.toContain(sub.id);
@@ -360,7 +363,8 @@ describe('TaskService — listTasks', () => {
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = await tasks.listTasks({ projectId: null, status: TaskStatus.IN_PROGRESS });
+    const result = (await tasks.listTasks({ projectId: null, status: TaskStatus.IN_PROGRESS }))
+      .items;
     const ids = result.map((t) => t.id);
     expect(ids).toContain(noProject.id);
     expect(ids).not.toContain(withProject.id);
@@ -378,7 +382,7 @@ describe('TaskService — listTasks', () => {
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = await tasks.listTasks({ projectId: FAKE_PROJECT_ID });
+    const result = (await tasks.listTasks({ projectId: FAKE_PROJECT_ID })).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(inProject.id);
   });
@@ -395,7 +399,7 @@ describe('TaskService — listTasks', () => {
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = await tasks.listTasks({ noteId: null, status: TaskStatus.IN_PROGRESS });
+    const result = (await tasks.listTasks({ noteId: null, status: TaskStatus.IN_PROGRESS })).items;
     const ids = result.map((t) => t.id);
     expect(ids).toContain(unlinked.id);
     expect(ids).not.toContain(linked.id);
@@ -414,7 +418,7 @@ describe('TaskService — listTasks', () => {
       linkedNoteId: FAKE_OTHER_NOTE_ID,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = await tasks.listTasks({ noteId: FAKE_NOTE_ID });
+    const result = (await tasks.listTasks({ noteId: FAKE_NOTE_ID })).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(linked.id);
   });
@@ -431,7 +435,7 @@ describe('TaskService — listTasks', () => {
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = await tasks.listTasks({ eventId: null, status: TaskStatus.IN_PROGRESS });
+    const result = (await tasks.listTasks({ eventId: null, status: TaskStatus.IN_PROGRESS })).items;
     const ids = result.map((t) => t.id);
     expect(ids).toContain(unlinked.id);
   });
@@ -449,7 +453,7 @@ describe('TaskService — listTasks', () => {
       linkedEventId: FAKE_OTHER_EVENT_ID,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = await tasks.listTasks({ eventId: FAKE_EVENT_ID });
+    const result = (await tasks.listTasks({ eventId: FAKE_EVENT_ID })).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(linked.id);
   });
@@ -467,7 +471,7 @@ describe('TaskService — listTasks', () => {
       priority: TaskPriority.LOW,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = await tasks.listTasks({ priority: TaskPriority.HIGH });
+    const result = (await tasks.listTasks({ priority: TaskPriority.HIGH })).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(high.id);
   });
@@ -483,7 +487,8 @@ describe('TaskService — listTasks', () => {
       dueDate: NEXT_WEEK,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = await tasks.listTasks({ dueBefore: TOMORROW, status: TaskStatus.IN_PROGRESS });
+    const result = (await tasks.listTasks({ dueBefore: TOMORROW, status: TaskStatus.IN_PROGRESS }))
+      .items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(early.id);
   });
@@ -499,7 +504,8 @@ describe('TaskService — listTasks', () => {
       dueDate: YESTERDAY,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = await tasks.listTasks({ dueAfter: TOMORROW, status: TaskStatus.IN_PROGRESS });
+    const result = (await tasks.listTasks({ dueAfter: TOMORROW, status: TaskStatus.IN_PROGRESS }))
+      .items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(late.id);
   });
@@ -517,7 +523,7 @@ describe('TaskService — listTasks', () => {
       dueDate: YESTERDAY,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = await tasks.listTasks({ dueOn: today, status: TaskStatus.IN_PROGRESS });
+    const result = (await tasks.listTasks({ dueOn: today, status: TaskStatus.IN_PROGRESS })).items;
     const ids = result.map((t) => t.id);
     expect(ids).toContain(onDay.id);
   });
@@ -533,7 +539,9 @@ describe('TaskService — listTasks', () => {
       dueDate: NEXT_WEEK,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = await tasks.listTasks({ status: TaskStatus.IN_PROGRESS }, { sortBy: 'dueDate' });
+    const result = (
+      await tasks.listTasks({ status: TaskStatus.IN_PROGRESS }, { sortBy: 'dueDate' })
+    ).items;
     expect(result[0].id).toBe(late.id);
     expect(result[result.length - 1].id).toBe(early.id);
   });
@@ -554,7 +562,7 @@ describe('TaskService — listTasks', () => {
       dueDate: TOMORROW,
       priority: TaskPriority.LOW,
     });
-    const result = await tasks.listTasks({}, { sortBy: 'priority' });
+    const result = (await tasks.listTasks({}, { sortBy: 'priority' })).items;
     expect(result[0].id).toBe(high.id);
     expect(result[1].id).toBe(medium.id);
     expect(result[2].id).toBe(low.id);
@@ -576,7 +584,7 @@ describe('TaskService — listTasks', () => {
       dueDate: TOMORROW,
       status: TaskStatus.NOT_STARTED,
     });
-    const result = await tasks.listTasks({}, { sortBy: 'status' });
+    const result = (await tasks.listTasks({}, { sortBy: 'status' })).items;
     expect(result[0].id).toBe(completed.id);
     expect(result[1].id).toBe(inProgress.id);
     expect(result[2].id).toBe(notStarted.id);
@@ -588,7 +596,7 @@ describe('TaskService — listTasks', () => {
     // updating A triggers $onUpdate(() => new Date()) which stores ms-precision timestamp,
     // much larger than B's insert default of unixepoch() (seconds), so A sorts first
     await tasks.updateTask(a.id, { title: 'A updated' });
-    const result = await tasks.listTasks({}, { sortBy: 'lastUpdated' });
+    const result = (await tasks.listTasks({}, { sortBy: 'lastUpdated' })).items;
     const ids = result.map((t) => t.id);
     expect(ids.indexOf(a.id)).toBeLessThan(ids.indexOf(b.id));
   });
@@ -609,7 +617,7 @@ describe('TaskService — listTasks', () => {
       dueDate: TOMORROW,
       priority: TaskPriority.HIGH,
     });
-    const result = await tasks.listTasks({}, { sortBy: 'priority', direction: 'asc' });
+    const result = (await tasks.listTasks({}, { sortBy: 'priority', direction: 'asc' })).items;
     expect(result[0].id).toBe(low.id);
     expect(result[1].id).toBe(medium.id);
     expect(result[2].id).toBe(high.id);
@@ -622,7 +630,7 @@ describe('TaskService — listTasks', () => {
       status: TaskStatus.IN_PROGRESS,
     });
     archive.archiveTask(task.id);
-    const result = await tasks.listTasks({ status: TaskStatus.IN_PROGRESS });
+    const result = (await tasks.listTasks({ status: TaskStatus.IN_PROGRESS })).items;
     const ids = result.map((t) => t.id);
     expect(ids).not.toContain(task.id);
   });
@@ -633,7 +641,7 @@ describe('TaskService — listSubtasks', () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub1 = await tasks.createSubtask(parent.id, { title: 'Sub 1' });
     const sub2 = await tasks.createSubtask(parent.id, { title: 'Sub 2' });
-    const result = await tasks.listSubtasks(parent.id);
+    const result = (await tasks.listSubtasks(parent.id)).items;
     const ids = result.map((t) => t.id);
     expect(ids).toContain(sub1.id);
     expect(ids).toContain(sub2.id);
@@ -642,7 +650,7 @@ describe('TaskService — listSubtasks', () => {
 
   it('returns an empty array when the parent has no subtasks', async () => {
     const parent = await tasks.createTask({ title: 'Lonely parent', dueDate: TOMORROW });
-    const result = await tasks.listSubtasks(parent.id);
+    const result = (await tasks.listSubtasks(parent.id)).items;
     expect(result).toHaveLength(0);
   });
 
@@ -650,7 +658,7 @@ describe('TaskService — listSubtasks', () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
     archive.archiveTask(sub.id);
-    const result = await tasks.listSubtasks(parent.id);
+    const result = (await tasks.listSubtasks(parent.id)).items;
     expect(result).toHaveLength(0);
   });
 
@@ -658,7 +666,7 @@ describe('TaskService — listSubtasks', () => {
     const parent1 = await tasks.createTask({ title: 'Parent 1', dueDate: TOMORROW });
     const parent2 = await tasks.createTask({ title: 'Parent 2', dueDate: TOMORROW });
     await tasks.createSubtask(parent2.id, { title: 'Sub of parent 2' });
-    const result = await tasks.listSubtasks(parent1.id);
+    const result = (await tasks.listSubtasks(parent1.id)).items;
     expect(result).toHaveLength(0);
   });
 });
@@ -844,7 +852,7 @@ describe('TaskService — promoteSubtask', () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
     await tasks.promoteSubtask(sub.id);
-    const remaining = await tasks.listSubtasks(parent.id);
+    const remaining = (await tasks.listSubtasks(parent.id)).items;
     expect(remaining).toHaveLength(0);
   });
 });
@@ -916,7 +924,7 @@ describe('ArchiveService — archiveTask', () => {
       status: TaskStatus.IN_PROGRESS,
     });
     archive.archiveTask(task.id);
-    const result = await tasks.listTasks({ status: TaskStatus.IN_PROGRESS });
+    const result = (await tasks.listTasks({ status: TaskStatus.IN_PROGRESS })).items;
     expect(result.map((t) => t.id)).not.toContain(task.id);
   });
 
@@ -924,7 +932,7 @@ describe('ArchiveService — archiveTask', () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
     archive.archiveTask(sub.id);
-    const result = await tasks.listSubtasks(parent.id);
+    const result = (await tasks.listSubtasks(parent.id)).items;
     expect(result).toHaveLength(0);
   });
 
@@ -935,7 +943,7 @@ describe('ArchiveService — archiveTask', () => {
     archive.archiveTask(parent.id);
     expect(await tasks.getById(sub1.id)).toBeNull();
     expect(await tasks.getById(sub2.id)).toBeNull();
-    expect(await tasks.listSubtasks(parent.id)).toHaveLength(0);
+    expect((await tasks.listSubtasks(parent.id)).items).toHaveLength(0);
   });
 
   it('does not overwrite archivedAt of already-archived subtasks', async () => {
@@ -1014,7 +1022,7 @@ describe('ArchiveService — restoreTask', () => {
     });
     archive.archiveTask(task.id);
     archive.restoreTask(task.id);
-    const result = await tasks.listTasks({ status: TaskStatus.IN_PROGRESS });
+    const result = (await tasks.listTasks({ status: TaskStatus.IN_PROGRESS })).items;
     expect(result.map((t) => t.id)).toContain(task.id);
   });
 
@@ -1023,7 +1031,7 @@ describe('ArchiveService — restoreTask', () => {
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
     archive.archiveTask(sub.id);
     archive.restoreTask(sub.id);
-    const result = await tasks.listSubtasks(parent.id);
+    const result = (await tasks.listSubtasks(parent.id)).items;
     expect(result.map((t) => t.id)).toContain(sub.id);
   });
 
@@ -1033,7 +1041,7 @@ describe('ArchiveService — restoreTask', () => {
     const sub2 = await tasks.createSubtask(parent.id, { title: 'Sub 2' });
     archive.archiveTask(parent.id);
     archive.restoreTask(parent.id);
-    const subtasks = await tasks.listSubtasks(parent.id);
+    const subtasks = (await tasks.listSubtasks(parent.id)).items;
     const ids = subtasks.map((t) => t.id);
     expect(ids).toContain(sub1.id);
     expect(ids).toContain(sub2.id);
@@ -1073,5 +1081,135 @@ describe('ArchiveService — restoreTask', () => {
   it('throws NotArchivedError when the task is not archived', async () => {
     const task = await tasks.createTask({ title: 'Never archived', dueDate: TOMORROW });
     expect(() => archive.restoreTask(task.id)).toThrow(NotArchivedError);
+  });
+});
+
+describe('TaskService — cursor pagination', () => {
+  async function seed(n: number) {
+    const created = [];
+    for (let i = 0; i < n; i++) {
+      created.push(
+        await tasks.createTask({
+          title: `T${i}`,
+          dueDate: TOMORROW,
+          priority: ((i % 3) + 1) as TaskPriority,
+        }),
+      );
+    }
+    return created;
+  }
+
+  async function collect(
+    sort: Parameters<TaskService['listTasks']>[1],
+    limit: number,
+    filter: Parameters<TaskService['listTasks']>[0] = {},
+  ) {
+    const ids: string[] = [];
+    let cursor: string | undefined;
+    let pages = 0;
+    do {
+      const page = await tasks.listTasks(filter, sort, { limit, cursor });
+      expect(page.items.length).toBeLessThanOrEqual(limit);
+      ids.push(...page.items.map((t) => t.id));
+      cursor = page.nextCursor ?? undefined;
+      pages++;
+    } while (cursor);
+    return { ids, pages };
+  }
+
+  it('returns a null nextCursor when everything fits in one page', async () => {
+    await seed(3);
+    const page = await tasks.listTasks();
+    expect(page.items).toHaveLength(3);
+    expect(page.nextCursor).toBeNull();
+  });
+
+  it('pages through all tasks exactly once with no duplicates (default sort, ties on createdAt)', async () => {
+    const created = await seed(7);
+    const { ids, pages } = await collect({ sortBy: 'created' }, 3);
+    expect(pages).toBe(3);
+    expect(ids).toEqual(created.map((t) => t.id).reverse());
+  });
+
+  it('paginated order matches the unpaginated order for every sort and direction', async () => {
+    await seed(8);
+    for (const sortBy of ['priority', 'dueDate', 'status', 'created', 'lastUpdated'] as const) {
+      for (const direction of ['asc', 'desc'] as const) {
+        const full = (await tasks.listTasks({}, { sortBy, direction }, { limit: 200 })).items;
+        const { ids } = await collect({ sortBy, direction }, 3);
+        expect(ids).toEqual(full.map((t) => t.id));
+      }
+    }
+  });
+
+  it('paginates ties on a low-cardinality column (priority) without skipping or repeating', async () => {
+    await seed(9);
+    const { ids } = await collect({ sortBy: 'priority', direction: 'asc' }, 2);
+    expect(new Set(ids).size).toBe(9);
+  });
+
+  it('respects filters across pages', async () => {
+    await seed(5);
+    await tasks.createTask({ title: 'done', dueDate: TOMORROW, status: TaskStatus.COMPLETED });
+    const { ids } = await collect({ sortBy: 'created' }, 2, { status: TaskStatus.NOT_STARTED });
+    expect(ids).toHaveLength(5);
+  });
+
+  it('a task created between page requests does not cause duplicates or skips', async () => {
+    const created = await seed(4);
+    const first = await tasks.listTasks({}, { sortBy: 'created' }, { limit: 2 });
+    await tasks.createTask({ title: 'late', dueDate: TOMORROW });
+    const second = await tasks.listTasks(
+      {},
+      { sortBy: 'created' },
+      { limit: 2, cursor: first.nextCursor! },
+    );
+    const ids = [...first.items, ...second.items].map((t) => t.id);
+    expect(ids).toEqual(created.map((t) => t.id).reverse());
+  });
+
+  it('a task archived between page requests is not returned, others are unaffected', async () => {
+    const created = await seed(4);
+    const first = await tasks.listTasks({}, { sortBy: 'created' }, { limit: 2 });
+    archive.archiveTask(created[0].id);
+    const second = await tasks.listTasks(
+      {},
+      { sortBy: 'created' },
+      { limit: 2, cursor: first.nextCursor! },
+    );
+    expect(second.items.map((t) => t.id)).toEqual([created[1].id]);
+    expect(second.nextCursor).toBeNull();
+  });
+
+  it('clamps limit to the maximum and rejects invalid limits', async () => {
+    await seed(1);
+    await expect(tasks.listTasks({}, undefined, { limit: 0 })).rejects.toThrow(RangeError);
+    const page = await tasks.listTasks({}, undefined, { limit: 100_000 });
+    expect(page.items).toHaveLength(1);
+  });
+
+  it('rejects garbage cursors and cursors from a different sort', async () => {
+    await seed(3);
+    await expect(tasks.listTasks({}, undefined, { cursor: 'garbage' })).rejects.toThrow(
+      InvalidCursorError,
+    );
+    const page = await tasks.listTasks({}, { sortBy: 'created' }, { limit: 1 });
+    await expect(
+      tasks.listTasks({}, { sortBy: 'priority' }, { cursor: page.nextCursor! }),
+    ).rejects.toThrow(InvalidCursorError);
+  });
+
+  it('listSubtasks paginates', async () => {
+    const parent = await tasks.createTask({ title: 'P', dueDate: TOMORROW });
+    const subs = [];
+    for (let i = 0; i < 5; i++) subs.push(await tasks.createSubtask(parent.id, { title: `S${i}` }));
+    const ids: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await tasks.listSubtasks(parent.id, { limit: 2, cursor });
+      ids.push(...page.items.map((t) => t.id));
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+    expect(ids).toEqual(subs.map((t) => t.id).reverse());
   });
 });

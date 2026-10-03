@@ -1,6 +1,6 @@
 import { generateId, NoteId } from '@common/ids';
 import { notes } from '@main/db/schema/notes';
-import { SQL, and, isNull, asc, desc, eq, inArray } from 'drizzle-orm';
+import { SQL, and, isNull, desc, eq, inArray } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import path from 'node:path';
@@ -14,6 +14,7 @@ import {
 } from './types';
 import { stripMarkdown } from '../shared/markdown';
 import { NotFoundError } from '../shared/errors';
+import { keyset, Page, PageOptions, SortKind } from '../shared/pagination';
 
 export class NoteService {
   private workspaceNotesPath: string;
@@ -68,7 +69,8 @@ export class NoteService {
   async listNotes(
     filter: NoteFilterOptions = {},
     sort: NoteSortOptions = { sortBy: 'lastUpdated' },
-  ) {
+    page: PageOptions = {},
+  ): Promise<Page<Note>> {
     const clauses = [isNull(notes.archivedAt)];
 
     if (filter.projectId !== undefined) {
@@ -93,27 +95,46 @@ export class NoteService {
       );
     }
 
-    let orderColunm: SQLiteColumn;
+    let sortColumn: SQLiteColumn;
+    let kind: SortKind = 'date';
+    let field: 'title' | 'createdAt' | 'updatedAt';
     switch (sort.sortBy) {
       case 'title':
-        orderColunm = notes.title;
+        sortColumn = notes.title;
+        kind = 'text';
+        field = 'title';
         break;
       case 'created':
-        orderColunm = notes.createdAt;
+        sortColumn = notes.createdAt;
+        field = 'createdAt';
         break;
       case 'lastUpdated':
-        orderColunm = notes.updatedAt;
+        sortColumn = notes.updatedAt;
+        field = 'updatedAt';
         break;
     }
 
-    const order = sort.direction === 'asc' ? asc(orderColunm) : desc(orderColunm);
+    const pager = keyset<Note>(
+      {
+        sortKey: sort.sortBy,
+        sortColumn,
+        idColumn: notes.id,
+        kind,
+        direction: sort.direction === 'asc' ? 'asc' : 'desc',
+        sortValue: (row) => row[field],
+        id: (row) => row.id,
+      },
+      page,
+    );
 
-    return this.db
+    const rows = await this.db
       .select()
       .from(notes)
-      .where(and(...clauses))
-      .orderBy(order)
-      .all();
+      .where(and(...clauses, pager.after))
+      .orderBy(...pager.orderBy)
+      .limit(pager.fetchLimit);
+
+    return pager.toPage(rows);
   }
 
   async updateNote(id: NoteId, options: UpdateNoteOptions): Promise<Note | null> {

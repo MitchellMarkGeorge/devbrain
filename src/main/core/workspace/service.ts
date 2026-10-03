@@ -6,6 +6,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import { directoryExists, isNotFound } from '../local/utils';
+import { paginateArray, Page, PageOptions } from '../shared/pagination';
 
 export class WorkspaceService {
   public currentWorkspace: Workspace | null = null;
@@ -30,8 +31,17 @@ export class WorkspaceService {
     fsSync.writeFileSync(this.workspacesFilePath, JSON.stringify(registry, null, 2), 'utf8');
   }
 
-  listAll(): WorkspaceInfo[] {
-    return Object.values(this.readWorkspaceFile());
+  listAll(page: PageOptions = {}): Page<WorkspaceInfo> {
+    const sorted = Object.values(this.readWorkspaceFile()).sort(
+      (a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+    );
+    return paginateArray(
+      sorted,
+      'created',
+      (w) => w.createdAt,
+      (w) => w.id,
+      page,
+    );
   }
 
   getById(id: WorkspaceId): WorkspaceInfo | null {
@@ -39,7 +49,7 @@ export class WorkspaceService {
   }
 
   getByName(name: string): WorkspaceInfo | null {
-    return this.listAll().find((info) => info.name === name) ?? null;
+    return Object.values(this.readWorkspaceFile()).find((info) => info.name === name) ?? null;
   }
 
   async create(options: CreateWorkspaceOptions) {

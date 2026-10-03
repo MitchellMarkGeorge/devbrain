@@ -4,6 +4,7 @@ import { and, eq, gte, inArray, isNotNull, isNull, lte, or } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { NotFoundError } from '../shared/errors';
 import { CreateEventOptions, Event, UpdateEventOptions } from './types';
+import { keyset, Page, PageOptions } from '../shared/pagination';
 
 export class EventService {
   constructor(private readonly db: BetterSQLite3Database) {}
@@ -84,18 +85,37 @@ export class EventService {
    * here. That means a long-ended recurring series can be over-fetched
    * harmlessly — it'll just expand to zero instances in range.
    */
-  async listEventsInRange(start: Date, end: Date): Promise<Event[]> {
-    return this.db
+  async listEventsInRange(start: Date, end: Date, page: PageOptions = {}): Promise<Page<Event>> {
+    const pager = keyset<Event>(
+      {
+        sortKey: 'startAt',
+        sortColumn: events.startAt,
+        idColumn: events.id,
+        kind: 'date',
+        direction: 'asc',
+        sortValue: (row) => row.startAt,
+        id: (row) => row.id,
+      },
+      page,
+    );
+
+    const rows = await this.db
       .select()
       .from(events)
       .where(
-        or(
-          // non-recurring: exact interval-overlap test
-          and(isNull(events.reccurrenceRule), lte(events.startAt, end), gte(events.endAt, start)),
-          // recurring: loose pre-filter, see doc comment above
-          and(isNotNull(events.reccurrenceRule), lte(events.startAt, end)),
+        and(
+          or(
+            // non-recurring: exact interval-overlap test
+            and(isNull(events.reccurrenceRule), lte(events.startAt, end), gte(events.endAt, start)),
+            // recurring: loose pre-filter, see doc comment above
+            and(isNotNull(events.reccurrenceRule), lte(events.startAt, end)),
+          ),
+          pager.after,
         ),
       )
-      .orderBy(events.startAt);
+      .orderBy(...pager.orderBy)
+      .limit(pager.fetchLimit);
+
+    return pager.toPage(rows);
   }
 }

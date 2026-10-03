@@ -1,6 +1,6 @@
 import { ProjectId, TaskId } from '@common/ids';
 import { tasks } from '@main/db/schema/tasks';
-import { eq, inArray, and, isNull, SQL, lt, gt, gte, desc, asc } from 'drizzle-orm';
+import { eq, inArray, and, isNull, SQL, lt, gt, gte, desc } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   CreateSubTaskOptions,
@@ -17,6 +17,7 @@ import { NotFoundError } from '../shared/errors';
 import { isSubtask } from './utils';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { localDayWindow } from '../shared/utils';
+import { keyset, Page, PageOptions, SortKind } from '../shared/pagination';
 
 export class TaskService {
   constructor(private readonly db: BetterSQLite3Database) {}
@@ -84,7 +85,11 @@ export class TaskService {
     return insertedTask;
   }
 
-  async listTasks(filter: TaskFilterOptions = {}, sort: TaskSortOptions = { sortBy: 'created' }) {
+  async listTasks(
+    filter: TaskFilterOptions = {},
+    sort: TaskSortOptions = { sortBy: 'created' },
+    page: PageOptions = {},
+  ): Promise<Page<Task>> {
     const clauses = [isNull(tasks.archivedAt)];
     if (filter.excludeSubtasks) clauses.push(isNull(tasks.parentTaskId));
 
@@ -121,37 +126,79 @@ export class TaskService {
       clauses.push(lt(tasks.dueDate, endOfDay));
     }
 
-    let orderColunm: SQLiteColumn;
+    let sortColumn: SQLiteColumn;
+    let kind: SortKind = 'date';
+    let field: 'dueDate' | 'priority' | 'status' | 'createdAt' | 'updatedAt';
     switch (sort.sortBy) {
       case 'dueDate':
-        orderColunm = tasks.dueDate;
+        sortColumn = tasks.dueDate;
+        field = 'dueDate';
         break;
       case 'priority':
-        orderColunm = tasks.priority;
+        sortColumn = tasks.priority;
+        kind = 'number';
+        field = 'priority';
         break;
       case 'status':
-        orderColunm = tasks.status;
+        sortColumn = tasks.status;
+        kind = 'number';
+        field = 'status';
         break;
       case 'created':
-        orderColunm = tasks.createdAt;
+        sortColumn = tasks.createdAt;
+        field = 'createdAt';
         break;
       case 'lastUpdated':
-        orderColunm = tasks.updatedAt;
+        sortColumn = tasks.updatedAt;
+        field = 'updatedAt';
         break;
     }
 
-    const order = sort.direction === 'asc' ? asc(orderColunm) : desc(orderColunm);
+    const pager = keyset<Task>(
+      {
+        sortKey: sort.sortBy,
+        sortColumn,
+        idColumn: tasks.id,
+        kind,
+        direction: sort.direction === 'asc' ? 'asc' : 'desc',
+        sortValue: (row) => row[field],
+        id: (row) => row.id,
+      },
+      page,
+    );
 
-    return this.db
+    const rows = await this.db
       .select()
       .from(tasks)
-      .where(and(...clauses))
-      .orderBy(order)
-      .all();
+      .where(and(...clauses, pager.after))
+      .orderBy(...pager.orderBy)
+      .limit(pager.fetchLimit);
+
+    return pager.toPage(rows);
   }
 
-  async listSubtasks(parentTaskId: TaskId): Promise<Task[]> {
-    return this.activeTasks(eq(tasks.parentTaskId, parentTaskId));
+  async listSubtasks(parentTaskId: TaskId, page: PageOptions = {}): Promise<Page<Task>> {
+    const pager = keyset<Task>(
+      {
+        sortKey: 'created',
+        sortColumn: tasks.createdAt,
+        idColumn: tasks.id,
+        kind: 'date',
+        direction: 'desc',
+        sortValue: (row) => row.createdAt,
+        id: (row) => row.id,
+      },
+      page,
+    );
+
+    const rows = await this.db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.parentTaskId, parentTaskId), isNull(tasks.archivedAt), pager.after))
+      .orderBy(...pager.orderBy)
+      .limit(pager.fetchLimit);
+
+    return pager.toPage(rows);
   }
 
   async updateTask(id: TaskId, updates: UpdateTaskOptions): Promise<Task | null> {

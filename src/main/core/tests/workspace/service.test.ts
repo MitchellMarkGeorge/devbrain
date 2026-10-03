@@ -52,14 +52,14 @@ const writeRegistry = (dir: string, infos: WorkspaceInfo[]) => {
 describe('WorkspaceService — registry reads', () => {
   it('listAll() returns empty array when workspaces.json is absent', () => {
     const service = new WorkspaceService(tmpDir);
-    expect(service.listAll()).toEqual([]);
+    expect(service.listAll().items).toEqual([]);
   });
 
   it('listAll() returns all workspace infos', () => {
     const infos = [makeInfo(), makeInfo({ id: 'wsp_test002' as WorkspaceId, name: 'Second' })];
     writeRegistry(tmpDir, infos);
     const service = new WorkspaceService(tmpDir);
-    expect(service.listAll()).toHaveLength(2);
+    expect(service.listAll().items).toHaveLength(2);
   });
 
   it('getById() returns matching workspace info', () => {
@@ -110,8 +110,8 @@ describe('WorkspaceService — create', () => {
     const service = new WorkspaceService(tmpDir);
     await service.create({ name: 'New WS', color: '#ff0000' });
 
-    expect(service.listAll()).toHaveLength(1);
-    expect(service.listAll()[0].name).toBe('New WS');
+    expect(service.listAll().items).toHaveLength(1);
+    expect(service.listAll().items[0].name).toBe('New WS');
   });
 
   it('persists the workspace color', async () => {
@@ -124,7 +124,7 @@ describe('WorkspaceService — create', () => {
     const service = new WorkspaceService(tmpDir);
     await service.create({ name: 'Coloured', color: '#aabbcc' });
 
-    expect(service.listAll()[0].color).toBe('#aabbcc');
+    expect(service.listAll().items[0].color).toBe('#aabbcc');
   });
 
   it('creates unique ids for multiple workspaces', async () => {
@@ -137,7 +137,7 @@ describe('WorkspaceService — create', () => {
     await service.create({ name: 'WS 1', color: '#000000' });
     await service.create({ name: 'WS 2', color: '#000000' });
 
-    const all = service.listAll();
+    const all = service.listAll().items;
     expect(all).toHaveLength(2);
     expect(all[0].id).not.toBe(all[1].id);
   });
@@ -169,7 +169,7 @@ describe('WorkspaceService — create', () => {
     await service.create({ name: 'Timestamp', color: '#000000' });
     const after = Date.now();
 
-    const created = service.listAll()[0];
+    const created = service.listAll().items[0];
     expect(created.createdAt).toBeGreaterThanOrEqual(before);
     expect(created.createdAt).toBeLessThanOrEqual(after);
   });
@@ -183,7 +183,7 @@ describe('WorkspaceService — create', () => {
     const service = new WorkspaceService(tmpDir);
     await service.create({ name: 'New', color: '#000000' });
 
-    expect(service.listAll()[0].lastOpenedAt).toBeNull();
+    expect(service.listAll().items[0].lastOpenedAt).toBeNull();
   });
 });
 
@@ -196,7 +196,7 @@ describe('WorkspaceService — delete', () => {
     const service = new WorkspaceService(tmpDir);
     await service.delete(info.id);
 
-    expect(service.listAll()).toHaveLength(0);
+    expect(service.listAll().items).toHaveLength(0);
   });
 
   it('removes the workspace directory from the filesystem', async () => {
@@ -257,7 +257,7 @@ describe('WorkspaceService — delete', () => {
     const service = new WorkspaceService(tmpDir);
     await service.delete(a.id);
 
-    const remaining = service.listAll();
+    const remaining = service.listAll().items;
     expect(remaining).toHaveLength(1);
     expect(remaining[0].id).toBe('wsp_bbb');
   });
@@ -390,5 +390,46 @@ describe('WorkspaceService — switch', () => {
     writeRegistry(tmpDir, []);
     const service = new WorkspaceService(tmpDir);
     await expect(service.switch('wsp_nope' as WorkspaceId)).rejects.toThrow();
+  });
+});
+
+describe('WorkspaceService — cursor pagination', () => {
+  const infos = Array.from({ length: 5 }, (_, i) =>
+    makeInfo({
+      id: `wsp_p${i}` as WorkspaceId,
+      name: `WS${i}`,
+      // pairs share createdAt to exercise the id tiebreaker
+      createdAt: 1000 + Math.floor(i / 2),
+    }),
+  );
+
+  it('returns a null nextCursor when everything fits', () => {
+    writeRegistry(tmpDir, infos);
+    const page = new WorkspaceService(tmpDir).listAll();
+    expect(page.items).toHaveLength(5);
+    expect(page.nextCursor).toBeNull();
+  });
+
+  it('pages through every workspace exactly once', () => {
+    writeRegistry(tmpDir, infos);
+    const service = new WorkspaceService(tmpDir);
+    const ids: string[] = [];
+    let cursor: string | undefined;
+    let pages = 0;
+    do {
+      const page = service.listAll({ limit: 2, cursor });
+      ids.push(...page.items.map((w) => w.id));
+      cursor = page.nextCursor ?? undefined;
+      pages++;
+    } while (cursor);
+    expect(pages).toBe(3);
+    expect(ids).toEqual(infos.map((w) => w.id));
+  });
+
+  it('rejects invalid limit and garbage cursor', () => {
+    writeRegistry(tmpDir, infos);
+    const service = new WorkspaceService(tmpDir);
+    expect(() => service.listAll({ limit: 0 })).toThrow(RangeError);
+    expect(() => service.listAll({ cursor: 'bad' })).toThrow();
   });
 });
