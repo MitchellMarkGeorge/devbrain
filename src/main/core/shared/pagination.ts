@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, gt, lt, or, SQL } from 'drizzle-orm';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
+import { z } from 'zod';
 
 export const DEFAULT_PAGE_LIMIT = 50;
 export const MAX_PAGE_LIMIT = 200;
@@ -24,39 +25,34 @@ export class InvalidCursorError extends Error {
   }
 }
 
-type SortValue = string | number;
+const sortValueSchema = z.union([z.string(), z.number()]);
+type SortValue = z.infer<typeof sortValueSchema>;
 
-interface CursorPayload {
+const cursorPayloadSchema = z.object({
   // what the list is sorted by, so a cursor can't be reused against a different ordering
-  sortKey: string;
+  sortKey: z.string(),
   // sort value of the last item on the page
-  lastSortValue: SortValue;
+  lastSortValue: sortValueSchema,
   // id of the last item on the page (tiebreaker)
-  lastId: string;
-}
+  lastId: z.string(),
+});
+
+type CursorPayload = z.infer<typeof cursorPayloadSchema>;
 
 function encodeCursor(payload: CursorPayload): string {
   return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
 }
 
 function decodeCursor(cursor: string, sortKey: string): CursorPayload {
-  let parsed: unknown;
+  let json: unknown;
   try {
-    parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+    json = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
   } catch {
     throw new InvalidCursorError();
   }
-  const p = parsed as Partial<CursorPayload> | null;
-  if (
-    !p ||
-    typeof p !== 'object' ||
-    p.sortKey !== sortKey ||
-    typeof p.lastId !== 'string' ||
-    (typeof p.lastSortValue !== 'string' && typeof p.lastSortValue !== 'number')
-  ) {
-    throw new InvalidCursorError();
-  }
-  return p as CursorPayload;
+  const result = cursorPayloadSchema.safeParse(json);
+  if (!result.success || result.data.sortKey !== sortKey) throw new InvalidCursorError();
+  return result.data;
 }
 
 export function resolveLimit(limit: number | undefined): number {
