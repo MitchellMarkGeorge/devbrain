@@ -14,7 +14,7 @@ import {
 } from './types';
 import { stripMarkdown } from '../shared/markdown';
 import { NotFoundError } from '../shared/errors';
-import { keyset, Page, PageOptions, SortKind } from '../shared/pagination';
+import { keyset, Page, PageOptions } from '../shared/pagination';
 
 export class NoteService {
   private workspaceNotesPath: string;
@@ -96,12 +96,10 @@ export class NoteService {
     }
 
     let sortColumn: SQLiteColumn;
-    let kind: SortKind = 'date';
     let field: 'title' | 'createdAt' | 'updatedAt';
     switch (sort.sortBy) {
       case 'title':
         sortColumn = notes.title;
-        kind = 'text';
         field = 'title';
         break;
       case 'created':
@@ -119,7 +117,6 @@ export class NoteService {
         sortKey: sort.sortBy,
         sortColumn,
         idColumn: notes.id,
-        kind,
         direction: sort.direction === 'asc' ? 'asc' : 'desc',
         sortValue: (row) => row[field],
         id: (row) => row.id,

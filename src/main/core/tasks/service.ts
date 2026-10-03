@@ -17,7 +17,7 @@ import { NotFoundError } from '../shared/errors';
 import { isSubtask } from './utils';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { localDayWindow } from '../shared/utils';
-import { keyset, Page, PageOptions, SortKind } from '../shared/pagination';
+import { keyset, Page, PageOptions } from '../shared/pagination';
 
 export class TaskService {
   constructor(private readonly db: BetterSQLite3Database) {}
@@ -127,7 +127,6 @@ export class TaskService {
     }
 
     let sortColumn: SQLiteColumn;
-    let kind: SortKind = 'date';
     let field: 'dueDate' | 'priority' | 'status' | 'createdAt' | 'updatedAt';
     switch (sort.sortBy) {
       case 'dueDate':
@@ -136,12 +135,10 @@ export class TaskService {
         break;
       case 'priority':
         sortColumn = tasks.priority;
-        kind = 'number';
         field = 'priority';
         break;
       case 'status':
         sortColumn = tasks.status;
-        kind = 'number';
         field = 'status';
         break;
       case 'created':
@@ -159,7 +156,6 @@ export class TaskService {
         sortKey: sort.sortBy,
         sortColumn,
         idColumn: tasks.id,
-        kind,
         direction: sort.direction === 'asc' ? 'asc' : 'desc',
         sortValue: (row) => row[field],
         id: (row) => row.id,
@@ -183,7 +179,6 @@ export class TaskService {
         sortKey: 'created',
         sortColumn: tasks.createdAt,
         idColumn: tasks.id,
-        kind: 'date',
         direction: 'desc',
         sortValue: (row) => row.createdAt,
         id: (row) => row.id,

@@ -6,7 +6,7 @@ import { projects } from '@main/db/schema/projects';
 import { notes } from '@main/db/schema/notes';
 import { events } from '@main/db/schema/events';
 import { createDb } from '../utils';
-import { keyset, SortKind } from '../../shared/pagination';
+import { keyset } from '../../shared/pagination';
 
 // Verifies the keyset-paginated queries are served by the pagination indexes: the plan must
 // SEARCH/SCAN using the expected index and must not need a temp b-tree for ORDER BY.
@@ -18,7 +18,6 @@ interface Case {
   table: { id: SQLiteColumn; archivedAt?: SQLiteColumn } & Record<string, unknown>;
   from: unknown;
   sortColumn: SQLiteColumn;
-  kind: SortKind;
   index: string;
   extra?: SQL;
 }
@@ -36,12 +35,11 @@ const cases: Case[] = [
   ['notes', notes, 'title', 'text', 'idx_notes_title_id'],
   ['notes', notes, 'createdAt', 'date', 'idx_notes_created_at_id'],
   ['notes', notes, 'updatedAt', 'date', 'idx_notes_updated_at_id'],
-].map(([name, table, column, kind, index]) => ({
+].map(([name, table, column, , index]) => ({
   name: `${name}.${column}`,
   table: table as unknown as Case['table'],
   from: table,
   sortColumn: (table as unknown as Record<string, SQLiteColumn>)[column as string],
-  kind: kind as SortKind,
   index: index as string,
 }));
 
@@ -53,14 +51,13 @@ function plan(query: { toSQL(): { sql: string; params: unknown[] } }): string[] 
   return rows.map((r) => r.detail);
 }
 
-function cursorFor(kind: SortKind, sortKey: string, value: unknown): string {
+function cursorFor(sortColumn: SQLiteColumn, sortKey: string, value: unknown): string {
   // produce a real cursor by paginating two fake rows with limit 1
   const pager = keyset<{ v: unknown; id: string }>(
     {
       sortKey,
-      sortColumn: tasks.id,
+      sortColumn,
       idColumn: tasks.id,
-      kind,
       direction: 'asc',
       sortValue: (r) => r.v,
       id: (r) => r.id,
@@ -74,7 +71,8 @@ function cursorFor(kind: SortKind, sortKey: string, value: unknown): string {
 }
 
 describe.each(cases)('pagination index — $name', (c) => {
-  const sample = c.kind === 'date' ? new Date() : c.kind === 'number' ? 1 : 'x';
+  const sample =
+    c.sortColumn.dataType === 'date' ? new Date() : c.sortColumn.dataType === 'number' ? 1 : 'x';
 
   it.each(['asc', 'desc'] as const)('%s, first page and with cursor use the index', (direction) => {
     for (const withCursor of [false, true]) {
@@ -83,12 +81,11 @@ describe.each(cases)('pagination index — $name', (c) => {
           sortKey: c.name,
           sortColumn: c.sortColumn,
           idColumn: c.table.id,
-          kind: c.kind,
           direction,
           sortValue: (r) => r.v,
           id: (r) => r.id,
         },
-        { cursor: withCursor ? cursorFor(c.kind, c.name, sample) : undefined },
+        { cursor: withCursor ? cursorFor(c.sortColumn, c.name, sample) : undefined },
       );
       const query = db
         .select()
@@ -109,7 +106,6 @@ describe('pagination index — tasks.listSubtasks', () => {
       sortKey: 'created',
       sortColumn: tasks.createdAt,
       idColumn: tasks.id,
-      kind: 'date',
       direction: 'desc',
       sortValue: (r) => r.v,
       id: (r) => r.id,
@@ -132,7 +128,6 @@ describe('pagination index — events.listEventsInRange', () => {
       sortKey: 'startAt',
       sortColumn: events.startAt,
       idColumn: events.id,
-      kind: 'date',
       direction: 'asc',
       sortValue: (r) => r.v,
       id: (r) => r.id,

@@ -91,7 +91,6 @@ export class EventService {
         sortKey: 'startAt',
         sortColumn: events.startAt,
         idColumn: events.id,
-        kind: 'date',
         direction: 'asc',
         sortValue: (row) => row.startAt,
         id: (row) => row.id,

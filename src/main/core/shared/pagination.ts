@@ -63,8 +63,24 @@ export function resolveLimit(limit: number | undefined): number {
   return Math.min(limit, MAX_PAGE_LIMIT);
 }
 
-/** Wire form of a sort value as stored in the cursor. */
-export type SortKind = 'date' | 'number' | 'text';
+/**
+ * How a sort column's values are represented, derived from the column itself so callers can't
+ * get it out of sync: dates (timestamp columns) travel through the cursor as epoch ms.
+ */
+type SortKind = 'date' | 'number' | 'text';
+
+function sortKindOf(column: SQLiteColumn): SortKind {
+  switch (column.dataType) {
+    case 'date':
+      return 'date';
+    case 'number':
+      return 'number';
+    case 'string':
+      return 'text';
+    default:
+      throw new Error(`Unsupported pagination sort column type: ${column.dataType}`);
+  }
+}
 
 function toCursorValue(value: unknown, kind: SortKind): SortValue {
   return kind === 'date' ? (value as Date).getTime() : (value as SortValue);
@@ -85,7 +101,6 @@ export interface KeysetConfig<T> {
   sortKey: string;
   sortColumn: SQLiteColumn;
   idColumn: SQLiteColumn;
-  kind: SortKind;
   direction: 'asc' | 'desc';
   /** reads the sort value and id off a row */
   sortValue: (row: T) => unknown;
@@ -98,12 +113,13 @@ export interface KeysetConfig<T> {
  */
 export function keyset<T>(config: KeysetConfig<T>, options: PageOptions = {}) {
   const limit = resolveLimit(options.limit);
+  const kind = sortKindOf(config.sortColumn);
   const cmp = config.direction === 'asc' ? gt : lt;
 
   let after: SQL | undefined;
   if (options.cursor !== undefined) {
     const payload = decodeCursor(options.cursor, config.sortKey);
-    const value = fromCursorValue(payload.lastSortValue, config.kind);
+    const value = fromCursorValue(payload.lastSortValue, kind);
     after = or(
       cmp(config.sortColumn, value),
       and(eq(config.sortColumn, value), cmp(config.idColumn, payload.lastId)),
@@ -123,7 +139,7 @@ export function keyset<T>(config: KeysetConfig<T>, options: PageOptions = {}) {
         rows.length > limit && last
           ? encodeCursor({
               sortKey: config.sortKey,
-              lastSortValue: toCursorValue(config.sortValue(last), config.kind),
+              lastSortValue: toCursorValue(config.sortValue(last), kind),
               lastId: config.id(last),
             })
           : null;

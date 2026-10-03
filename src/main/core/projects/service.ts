@@ -13,7 +13,7 @@ import { projects } from '@main/db/schema/projects';
 import { eq, inArray, SQL, sql, and, isNull, desc, gt, gte, lt } from 'drizzle-orm';
 import { localDayWindow } from '../shared/utils';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
-import { keyset, Page, PageOptions, SortKind } from '../shared/pagination';
+import { keyset, Page, PageOptions } from '../shared/pagination';
 import { NotFoundError } from '../shared/errors';
 import { tasks } from '@main/db/schema/tasks';
 import { TaskStatus } from '../tasks/types';
@@ -87,14 +87,12 @@ export class ProjectService {
     }
 
     let sortColumn: SQLiteColumn;
-    let kind: SortKind = 'date';
     switch (sort.sortBy) {
       case 'dueDate':
         sortColumn = projects.dueDate;
         break;
       case 'status':
         sortColumn = projects.status;
-        kind = 'number';
         break;
       case 'created':
         sortColumn = projects.createdAt;
@@ -109,7 +107,6 @@ export class ProjectService {
         sortKey: sort.sortBy,
         sortColumn,
         idColumn: projects.id,
-        kind,
         direction: sort.direction === 'asc' ? 'asc' : 'desc',
         sortValue: (row) =>
           row[
