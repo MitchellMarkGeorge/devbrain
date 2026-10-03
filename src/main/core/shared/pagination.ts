@@ -28,11 +28,11 @@ type SortValue = string | number;
 
 interface CursorPayload {
   // what the list is sorted by, so a cursor can't be reused against a different ordering
-  k: string;
+  sortKey: string;
   // sort value of the last item on the page
-  v: SortValue;
+  lastSortValue: SortValue;
   // id of the last item on the page (tiebreaker)
-  i: string;
+  lastId: string;
 }
 
 function encodeCursor(payload: CursorPayload): string {
@@ -50,9 +50,9 @@ function decodeCursor(cursor: string, sortKey: string): CursorPayload {
   if (
     !p ||
     typeof p !== 'object' ||
-    p.k !== sortKey ||
-    typeof p.i !== 'string' ||
-    (typeof p.v !== 'string' && typeof p.v !== 'number')
+    p.sortKey !== sortKey ||
+    typeof p.lastId !== 'string' ||
+    (typeof p.lastSortValue !== 'string' && typeof p.lastSortValue !== 'number')
   ) {
     throw new InvalidCursorError();
   }
@@ -107,10 +107,10 @@ export function keyset<T>(config: KeysetConfig<T>, options: PageOptions = {}) {
   let after: SQL | undefined;
   if (options.cursor !== undefined) {
     const payload = decodeCursor(options.cursor, config.sortKey);
-    const value = fromCursorValue(payload.v, config.kind);
+    const value = fromCursorValue(payload.lastSortValue, config.kind);
     after = or(
       cmp(config.sortColumn, value),
-      and(eq(config.sortColumn, value), cmp(config.idColumn, payload.i)),
+      and(eq(config.sortColumn, value), cmp(config.idColumn, payload.lastId)),
     );
   }
 
@@ -126,9 +126,9 @@ export function keyset<T>(config: KeysetConfig<T>, options: PageOptions = {}) {
       const nextCursor =
         rows.length > limit && last
           ? encodeCursor({
-              k: config.sortKey,
-              v: toCursorValue(config.sortValue(last), config.kind),
-              i: config.id(last),
+              sortKey: config.sortKey,
+              lastSortValue: toCursorValue(config.sortValue(last), config.kind),
+              lastId: config.id(last),
             })
           : null;
       return { items, nextCursor };
@@ -152,7 +152,7 @@ export function paginateArray<T>(
     const payload = decodeCursor(options.cursor, sortKey);
     start = sorted.findIndex((row) => {
       const v = sortValue(row);
-      return v > payload.v || (v === payload.v && id(row) > payload.i);
+      return v > payload.lastSortValue || (v === payload.lastSortValue && id(row) > payload.lastId);
     });
     if (start === -1) start = sorted.length;
   }
@@ -160,7 +160,7 @@ export function paginateArray<T>(
   const last = items[items.length - 1];
   const nextCursor =
     start + limit < sorted.length && last
-      ? encodeCursor({ k: sortKey, v: sortValue(last), i: id(last) })
+      ? encodeCursor({ sortKey, lastSortValue: sortValue(last), lastId: id(last) })
       : null;
   return { items, nextCursor };
 }

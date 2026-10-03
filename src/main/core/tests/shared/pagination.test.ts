@@ -55,7 +55,7 @@ describe('paginateArray', () => {
 
   it('rejects malformed cursors', () => {
     expect(() => page({ cursor: 'not-a-cursor' })).toThrow(InvalidCursorError);
-    const bad = Buffer.from(JSON.stringify({ k: 'n' })).toString('base64url');
+    const bad = Buffer.from(JSON.stringify({ sortKey: 'n' })).toString('base64url');
     expect(() => page({ cursor: bad })).toThrow(InvalidCursorError);
   });
 
