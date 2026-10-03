@@ -38,7 +38,11 @@ export const notes = sqliteTable(
     index('idx_notes_project_id').on(table.projectId).where(isNull(table.archivedAt)),
     index('idx_notes_linked_event_id').on(table.linkedEventId).where(isNull(table.archivedAt)),
     index('idx_notes_linked_task_id').on(table.linkedTaskId).where(isNull(table.archivedAt)),
-    index('idx_notes_updated_at').on(table.updatedAt).where(isNull(table.archivedAt)),
+    // keyset pagination in NoteService.listNotes: (sort column, id), either direction
+    // (sqlite can scan an index backwards). `where` must match the query's archived filter.
+    index('idx_notes_updated_at_id').on(table.updatedAt, table.id).where(isNull(table.archivedAt)),
+    index('idx_notes_created_at_id').on(table.createdAt, table.id).where(isNull(table.archivedAt)),
+    index('idx_notes_title_id').on(table.title, table.id).where(isNull(table.archivedAt)),
 
     // make sure there is one link if any
     check(

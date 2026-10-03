@@ -50,6 +50,18 @@ export const tasks = sqliteTable(
       .on(table.status, table.dueDate)
       .where(isNull(table.archivedAt)),
 
+    // keyset pagination in TaskService.listTasks: (sort column, id), either direction
+    // (sqlite can scan an index backwards). `where` must match the query's archived filter.
+    index('idx_tasks_due_date_id').on(table.dueDate, table.id).where(isNull(table.archivedAt)),
+    index('idx_tasks_priority_id').on(table.priority, table.id).where(isNull(table.archivedAt)),
+    index('idx_tasks_status_id').on(table.status, table.id).where(isNull(table.archivedAt)),
+    index('idx_tasks_created_at_id').on(table.createdAt, table.id).where(isNull(table.archivedAt)),
+    index('idx_tasks_updated_at_id').on(table.updatedAt, table.id).where(isNull(table.archivedAt)),
+    // TaskService.listSubtasks: subtasks of a parent ordered by createdAt
+    index('idx_tasks_parent_created_at_id')
+      .on(table.parentTaskId, table.createdAt, table.id)
+      .where(isNull(table.archivedAt)),
+
     // make sure there is one link if any
     check(
       'one_link',
