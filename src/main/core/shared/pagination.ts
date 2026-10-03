@@ -67,19 +67,15 @@ export function resolveLimit(limit: number | undefined): number {
  * How a sort column's values are represented, derived from the column itself so callers can't
  * get it out of sync: dates (timestamp columns) travel through the cursor as epoch ms.
  */
-type SortKind = 'date' | 'number' | 'text';
+type SortKind = 'date' | 'number' | 'string';
+
+const SORT_KINDS: readonly string[] = ['date', 'number', 'string'] satisfies SortKind[];
 
 function sortKindOf(column: SQLiteColumn): SortKind {
-  switch (column.dataType) {
-    case 'date':
-      return 'date';
-    case 'number':
-      return 'number';
-    case 'string':
-      return 'text';
-    default:
-      throw new Error(`Unsupported pagination sort column type: ${column.dataType}`);
+  if (!SORT_KINDS.includes(column.dataType)) {
+    throw new Error(`Unsupported pagination sort column type: ${column.dataType}`);
   }
+  return column.dataType as SortKind;
 }
 
 function toCursorValue(value: unknown, kind: SortKind): SortValue {
@@ -92,7 +88,7 @@ function fromCursorValue(value: SortValue, kind: SortKind): SortValue | Date {
     return new Date(value);
   }
   if (kind === 'number' && typeof value !== 'number') throw new InvalidCursorError();
-  if (kind === 'text' && typeof value !== 'string') throw new InvalidCursorError();
+  if (kind === 'string' && typeof value !== 'string') throw new InvalidCursorError();
   return value;
 }
 
