@@ -19,4 +19,4 @@ INSERT INTO `__new_events`("id", "title", "description", "start_at", "end_at", "
 DROP TABLE `events`;--> statement-breakpoint
 ALTER TABLE `__new_events` RENAME TO `events`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint
-CREATE INDEX `idx_events_start_at` ON `events` (`start_at`);
+CREATE INDEX `idx_events_start_at_id` ON `events` (`start_at`,`id`);

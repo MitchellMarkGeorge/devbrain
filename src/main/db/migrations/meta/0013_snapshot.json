@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "87795160-eb27-4452-b82b-f1ce0831e1cd",
-  "prevId": "b4733e98-91d3-4744-92c3-724d90af9a68",
+  "id": "a4630f77-2d8f-4f4b-ab05-75555130a5af",
+  "prevId": "87795160-eb27-4452-b82b-f1ce0831e1cd",
   "tables": {
     "events": {
       "name": "events",
@@ -550,12 +550,6 @@
         }
       },
       "indexes": {
-        "idx_tasks_parent_task_id": {
-          "name": "idx_tasks_parent_task_id",
-          "columns": ["parent_task_id"],
-          "isUnique": false,
-          "where": "\"tasks\".\"archived_at\" is null"
-        },
         "idx_tasks_project_id": {
           "name": "idx_tasks_project_id",
           "columns": ["project_id"],

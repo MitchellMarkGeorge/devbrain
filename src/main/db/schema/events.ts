@@ -22,7 +22,8 @@ export const events = sqliteTable(
     ...timesamps,
   },
   (table) => [
-    // used a lot for calendar views (Month, Week, Day)
-    index('idx_events_start_at').on(table.startAt),
+    // used a lot for calendar views (Month, Week, Day), and for keyset pagination
+    // in EventService.listEventsInRange (ordered by startAt, id)
+    index('idx_events_start_at_id').on(table.startAt, table.id),
   ],
 );

@@ -86,10 +86,10 @@ describe('loadDevBrain', () => {
       expect(brain.settings.get('settings.theme')).toBe('dark');
     });
 
-    it('workspaces.listAll() returns an empty array for an empty registry', async () => {
+    it('workspaces.listAll().items returns an empty array for an empty registry', async () => {
       await writeValidStructure(tmpDir);
       const brain = await loadDevBrain({ path: tmpDir });
-      expect(brain.workspaces.listAll()).toEqual([]);
+      expect(brain.workspaces.listAll().items).toEqual([]);
     });
   });
 

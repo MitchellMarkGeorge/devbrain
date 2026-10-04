@@ -2,6 +2,8 @@ export { DevBrain } from './devbrain';
 export type { Workspace } from './workspace/workspace';
 export type { WorkspaceInfo as WorkspaceEntry, CreateWorkspaceOptions } from './workspace/types';
 export type { AppSettings, AppState } from './settings/types';
+export { InvalidCursorError } from './shared/pagination';
+export type { Page, PageOptions } from './shared/pagination';
 
 import { DevBrain } from './devbrain';
 import { validateDevBrainFolderStructure } from './local/validate';

@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "87795160-eb27-4452-b82b-f1ce0831e1cd",
-  "prevId": "b4733e98-91d3-4744-92c3-724d90af9a68",
+  "id": "837d7819-d737-4770-8b3f-91fbc3acd9c5",
+  "prevId": "a4630f77-2d8f-4f4b-ab05-75555130a5af",
   "tables": {
     "events": {
       "name": "events",
@@ -46,8 +46,9 @@
           "name": "all_day",
           "type": "integer",
           "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
         },
         "location": {
           "name": "location",
@@ -550,12 +551,6 @@
         }
       },
       "indexes": {
-        "idx_tasks_parent_task_id": {
-          "name": "idx_tasks_parent_task_id",
-          "columns": ["parent_task_id"],
-          "isUnique": false,
-          "where": "\"tasks\".\"archived_at\" is null"
-        },
         "idx_tasks_project_id": {
           "name": "idx_tasks_project_id",
           "columns": ["project_id"],
