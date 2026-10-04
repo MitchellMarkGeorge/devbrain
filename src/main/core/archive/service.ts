@@ -211,7 +211,7 @@ export class ArchiveService {
 
     if (entityType !== 'all') {
       // a single table needs no union, so it can order by its own columns
-      const table = ARCHIVABLE_TABLES[entityType];
+      const table = tableFor(entityType);
       const pager = this.archivedPager(table, page);
       const rows = this.archivedBranch(entityType, pager.after)
         .orderBy(...pager.orderBy)
@@ -222,7 +222,7 @@ export class ArchiveService {
 
     const pager = this.archivedPager(tasks, page);
     const branch = (type: ArchivableEntityType) =>
-      this.archivedBranch(type, this.archivedPager(ARCHIVABLE_TABLES[type], page).after);
+      this.archivedBranch(type, this.archivedPager(tableFor(type), page).after);
 
     // a compound select resolves ORDER BY against the *result* column names of
     // its left-most branch, so these have to be the bare column names — a
@@ -253,7 +253,7 @@ export class ArchiveService {
 
   /** the archived rows of one table, shaped as ArchivedEntity summaries */
   private archivedBranch(type: ArchivableEntityType, after: SQL | undefined) {
-    const table = ARCHIVABLE_TABLES[type];
+    const table = tableFor(type);
     return this.db
       .select({
         // widened to ArchivableId because the union carries all three id types,
@@ -271,8 +271,13 @@ export class ArchiveService {
 
 type ArchivableTable = typeof tasks | typeof projects | typeof notes;
 
-const ARCHIVABLE_TABLES: Record<ArchivableEntityType, ArchivableTable> = {
-  task: tasks,
-  project: projects,
-  note: notes,
+// keyed by table name; entity types are singular, so look tables up with tableFor
+const ARCHIVABLE_TABLES: Record<`${ArchivableEntityType}s`, ArchivableTable> = {
+  tasks,
+  projects,
+  notes,
 };
+
+function tableFor(type: ArchivableEntityType): ArchivableTable {
+  return ARCHIVABLE_TABLES[`${type}s`];
+}
