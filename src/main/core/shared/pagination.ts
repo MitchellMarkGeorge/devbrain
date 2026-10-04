@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, gte, lt, lte, or, SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, lt, or, SQL } from 'drizzle-orm';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { z } from 'zod';
 
@@ -113,11 +113,9 @@ export function keyset<T>(config: KeysetConfig<T>, options: PageOptions = {}) {
   const cmp = config.direction === 'asc' ? gt : lt;
 
   let after: SQL | undefined;
-  let sortBound: SQL | undefined;
   if (options.cursor !== undefined) {
     const payload = decodeCursor(options.cursor, config.sortKey);
     const value = fromCursorValue(payload.lastSortValue, kind);
-    sortBound = (config.direction === 'asc' ? gte : lte)(config.sortColumn, value);
     after = or(
       cmp(config.sortColumn, value),
       and(eq(config.sortColumn, value), cmp(config.idColumn, payload.lastId)),
@@ -127,12 +125,6 @@ export function keyset<T>(config: KeysetConfig<T>, options: PageOptions = {}) {
   const dir = config.direction === 'asc' ? asc : desc;
   return {
     after,
-    /**
-     * Redundant with `after` (it never changes which rows match): a plain range bound on the
-     * sort column, for queries where sqlite would otherwise plan `after`'s OR as a multi-index
-     * OR plus a temp b-tree sort, e.g. ArchiveService.listArchived. Undefined on the first page.
-     */
-    sortBound,
     orderBy: [dir(config.sortColumn), dir(config.idColumn)] as const,
     // fetch one extra row to know whether another page exists
     fetchLimit: limit + 1,

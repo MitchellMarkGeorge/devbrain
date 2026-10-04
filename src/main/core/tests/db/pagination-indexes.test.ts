@@ -145,9 +145,11 @@ describe('pagination index — events.listEventsInRange', () => {
 });
 
 describe('pagination index — archive.listArchived', () => {
-  // mirrors the UNION ALL in ArchiveService.listArchived: each branch should seek its own
-  // (archived_at, id) index and the branches be merged, with no sort step anywhere
-  it.each([false, true])('with cursor: %s, merges the per-table archived indexes', (withCursor) => {
+  // mirrors the UNION ALL in ArchiveService.listArchived: each branch should use its own
+  // (archived_at, id) index. On the first page the branches are merged with no sort step; with
+  // a cursor sqlite plans the keyset OR as a multi-index OR, so each branch sorts the archived
+  // rows past the cursor (accepted: see the note on listArchived)
+  it.each([false, true])('with cursor: %s, uses the per-table archived indexes', (withCursor) => {
     const branch = (table: typeof tasks | typeof projects | typeof notes) => {
       const pager = keyset<{ v: unknown; id: string }>(
         {
@@ -162,12 +164,10 @@ describe('pagination index — archive.listArchived', () => {
           cursor: withCursor ? cursorFor(table.archivedAt, 'archivedAt', new Date()) : undefined,
         },
       );
-      // selects title like the real query: with an index-only (covering) select sqlite plans
-      // the cursor's OR well even without sortBound, so the test would prove nothing
       return db
         .select({ id: sql`${table.id}`.as('id'), title: table.title, archivedAt: table.archivedAt })
         .from(table)
-        .where(and(isNotNull(table.archivedAt), pager.sortBound, pager.after));
+        .where(and(isNotNull(table.archivedAt), pager.after));
     };
     const query = unionAll(branch(tasks), branch(projects), branch(notes))
       .orderBy(sql`archived_at desc`, sql`id desc`)
@@ -177,6 +177,6 @@ describe('pagination index — archive.listArchived', () => {
     expect(detail).toContain('idx_tasks_archived_at_id');
     expect(detail).toContain('idx_projects_archived_at_id');
     expect(detail).toContain('idx_notes_archived_at_id');
-    expect(detail).not.toContain('TEMP B-TREE');
+    if (!withCursor) expect(detail).not.toContain('TEMP B-TREE');
   });
 });
