@@ -70,9 +70,9 @@ describe('ArchiveService — listArchived', () => {
     archive.archiveNote(note.id);
 
     const byId = new Map(archive.listArchived().items.map((entity) => [entity.id, entity]));
-    expect(byId.get(task.id)?.entityType).toBe('task');
-    expect(byId.get(project.id)?.entityType).toBe('project');
-    expect(byId.get(note.id)?.entityType).toBe('note');
+    expect(byId.get(task.id)?.entityType).toBe('tasks');
+    expect(byId.get(project.id)?.entityType).toBe('projects');
+    expect(byId.get(note.id)?.entityType).toBe('notes');
   });
 
   it('carries the title of each archived entity', async () => {
@@ -207,15 +207,15 @@ describe('ArchiveService — listArchived cursor pagination', () => {
 describe('ArchiveService — listArchived entity type filter', () => {
   // two of each entity type, archived in a known order (oldest first)
   async function seed() {
-    const created: { id: string; entityType: 'task' | 'project' | 'note' }[] = [];
+    const created: { id: string; entityType: 'tasks' | 'projects' | 'notes' }[] = [];
     for (let i = 0; i < 2; i++) {
       const task = await tasks.createTask({ title: `T${i}`, dueDate: TOMORROW });
       const project = await projects.createProject({ title: `P${i}`, dueDate: TOMORROW });
       const note = await notesService.createNote({ title: `N${i}` });
       for (const [id, entityType, archiveIt] of [
-        [task.id, 'task', () => archive.archiveTask(task.id)],
-        [project.id, 'project', () => archive.archiveProject(project.id)],
-        [note.id, 'note', () => archive.archiveNote(note.id)],
+        [task.id, 'tasks', () => archive.archiveTask(task.id)],
+        [project.id, 'projects', () => archive.archiveProject(project.id)],
+        [note.id, 'notes', () => archive.archiveNote(note.id)],
       ] as const) {
         archiveIt();
         created.push({ id, entityType });
@@ -234,8 +234,8 @@ describe('ArchiveService — listArchived entity type filter', () => {
     expect(archive.listArchived().items.map((entity) => entity.id)).toEqual(all);
   });
 
-  it.each(['task', 'project', 'note'] as const)(
-    'returns only archived %ss, most recently archived first',
+  it.each(['tasks', 'projects', 'notes'] as const)(
+    'returns only archived %s, most recently archived first',
     async (entityType) => {
       const created = await seed();
       const result = archive.listArchived({ entityType }).items;
@@ -250,10 +250,10 @@ describe('ArchiveService — listArchived entity type filter', () => {
     const note = await notesService.createNote({ title: 'Only note' });
     const archived = archive.archiveNote(note.id);
 
-    const [entity] = archive.listArchived({ entityType: 'note' }).items;
+    const [entity] = archive.listArchived({ entityType: 'notes' }).items;
     expect(entity).toEqual({
       id: note.id,
-      entityType: 'note',
+      entityType: 'notes',
       title: 'Only note',
       archivedAt: archived.archivedAt,
     });
@@ -268,13 +268,13 @@ describe('ArchiveService — listArchived entity type filter', () => {
     });
     archive.archiveProject(project.id);
 
-    expect(archive.listArchived({ entityType: 'task' }).items.map((e) => e.id)).toEqual([task.id]);
-    expect(archive.listArchived({ entityType: 'project' }).items.map((e) => e.id)).toEqual([
+    expect(archive.listArchived({ entityType: 'tasks' }).items.map((e) => e.id)).toEqual([task.id]);
+    expect(archive.listArchived({ entityType: 'projects' }).items.map((e) => e.id)).toEqual([
       project.id,
     ]);
   });
 
-  it.each(['all', 'task', 'project', 'note'] as const)(
+  it.each(['all', 'tasks', 'projects', 'notes'] as const)(
     "paginates within the '%s' filter",
     async (entityType) => {
       await seed();

@@ -7,7 +7,7 @@ export interface ArchiveResult {
   archivedAt: Date;
 }
 
-export type ArchivableEntityType = 'task' | 'project' | 'note';
+export type ArchivableEntityType = 'tasks' | 'projects' | 'notes';
 
 export interface ArchiveFilterOptions {
   /** restrict the list to one kind of entity (defaults to 'all') */
