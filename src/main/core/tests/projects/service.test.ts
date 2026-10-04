@@ -12,6 +12,7 @@ import { ProjectStatus } from '../../projects/types';
 import { TaskStatus } from '../../tasks/types';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../../shared/errors';
 import { createDb } from '../utils';
+import { InvalidCursorError } from '../../shared/pagination';
 
 const TOMORROW = new Date(Date.now() + 86_400_000);
 const YESTERDAY = new Date(Date.now() - 86_400_000);
@@ -280,7 +281,7 @@ describe('ProjectService — listProjects', () => {
     const archived = await projects.createProject({ title: 'Archived', dueDate: TOMORROW });
     archive.archiveProject(archived.id);
 
-    const result = await projects.listProjects();
+    const result = (await projects.listProjects()).items;
     const ids = result.map((p) => p.id);
     expect(ids).toContain(a.id);
     expect(ids).toContain(b.id);
@@ -294,7 +295,7 @@ describe('ProjectService — listProjects', () => {
       dueDate: TOMORROW,
       status: ProjectStatus.ACTIVE,
     });
-    const result = await projects.listProjects({ status: ProjectStatus.ACTIVE });
+    const result = (await projects.listProjects({ status: ProjectStatus.ACTIVE })).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(active.id);
   });
@@ -302,7 +303,7 @@ describe('ProjectService — listProjects', () => {
   it('filter.dueBefore returns projects due strictly before the date', async () => {
     const early = await projects.createProject({ title: 'Early', dueDate: YESTERDAY });
     await projects.createProject({ title: 'Late', dueDate: NEXT_WEEK });
-    const result = await projects.listProjects({ dueBefore: TOMORROW });
+    const result = (await projects.listProjects({ dueBefore: TOMORROW })).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(early.id);
   });
@@ -310,7 +311,7 @@ describe('ProjectService — listProjects', () => {
   it('filter.dueAfter returns projects due strictly after the date', async () => {
     const late = await projects.createProject({ title: 'Late', dueDate: NEXT_WEEK });
     await projects.createProject({ title: 'Early', dueDate: YESTERDAY });
-    const result = await projects.listProjects({ dueAfter: TOMORROW });
+    const result = (await projects.listProjects({ dueAfter: TOMORROW })).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(late.id);
   });
@@ -320,7 +321,7 @@ describe('ProjectService — listProjects', () => {
     const midday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0);
     const onDay = await projects.createProject({ title: 'Today', dueDate: midday });
     await projects.createProject({ title: 'Yesterday', dueDate: YESTERDAY });
-    const result = await projects.listProjects({ dueOn: today });
+    const result = (await projects.listProjects({ dueOn: today })).items;
     const ids = result.map((p) => p.id);
     expect(ids).toContain(onDay.id);
   });
@@ -329,14 +330,14 @@ describe('ProjectService — listProjects', () => {
     const today = new Date();
     await projects.createProject({ title: 'Yesterday', dueDate: YESTERDAY });
     await projects.createProject({ title: 'Tomorrow', dueDate: TOMORROW });
-    const result = await projects.listProjects({ dueOn: today });
+    const result = (await projects.listProjects({ dueOn: today })).items;
     expect(result).toHaveLength(0);
   });
 
   it('sort=dueDate orders by dueDate descending by default', async () => {
     const early = await projects.createProject({ title: 'Early', dueDate: YESTERDAY });
     const late = await projects.createProject({ title: 'Late', dueDate: NEXT_WEEK });
-    const result = await projects.listProjects({}, { sortBy: 'dueDate' });
+    const result = (await projects.listProjects({}, { sortBy: 'dueDate' })).items;
     expect(result[0].id).toBe(late.id);
     expect(result[result.length - 1].id).toBe(early.id);
   });
@@ -356,7 +357,7 @@ describe('ProjectService — listProjects', () => {
       title: 'Not started',
       dueDate: TOMORROW,
     });
-    const result = await projects.listProjects({}, { sortBy: 'status' });
+    const result = (await projects.listProjects({}, { sortBy: 'status' })).items;
     expect(result[0].id).toBe(completed.id);
     expect(result[1].id).toBe(active.id);
     expect(result[2].id).toBe(notStarted.id);
@@ -366,7 +367,7 @@ describe('ProjectService — listProjects', () => {
     const a = await projects.createProject({ title: 'A', dueDate: TOMORROW });
     const b = await projects.createProject({ title: 'B', dueDate: TOMORROW });
     await projects.updateProject(a.id, { title: 'A updated' });
-    const result = await projects.listProjects({}, { sortBy: 'lastUpdated' });
+    const result = (await projects.listProjects({}, { sortBy: 'lastUpdated' })).items;
     const ids = result.map((p) => p.id);
     expect(ids.indexOf(a.id)).toBeLessThan(ids.indexOf(b.id));
   });
@@ -374,7 +375,7 @@ describe('ProjectService — listProjects', () => {
   it('direction=asc reverses the sort order', async () => {
     const early = await projects.createProject({ title: 'Early', dueDate: YESTERDAY });
     const late = await projects.createProject({ title: 'Late', dueDate: NEXT_WEEK });
-    const result = await projects.listProjects({}, { sortBy: 'dueDate', direction: 'asc' });
+    const result = (await projects.listProjects({}, { sortBy: 'dueDate', direction: 'asc' })).items;
     expect(result[0].id).toBe(early.id);
     expect(result[result.length - 1].id).toBe(late.id);
   });
@@ -386,7 +387,7 @@ describe('ProjectService — listProjects', () => {
       status: ProjectStatus.ACTIVE,
     });
     archive.archiveProject(project.id);
-    const result = await projects.listProjects({ status: ProjectStatus.ACTIVE });
+    const result = (await projects.listProjects({ status: ProjectStatus.ACTIVE })).items;
     expect(result.map((p) => p.id)).not.toContain(project.id);
   });
 
@@ -403,10 +404,12 @@ describe('ProjectService — listProjects', () => {
     });
     await projects.createProject({ title: 'Not started', dueDate: TOMORROW });
 
-    const result = await projects.listProjects(
-      { status: ProjectStatus.ACTIVE },
-      { sortBy: 'dueDate', direction: 'asc' },
-    );
+    const result = (
+      await projects.listProjects(
+        { status: ProjectStatus.ACTIVE },
+        { sortBy: 'dueDate', direction: 'asc' },
+      )
+    ).items;
     expect(result).toHaveLength(2);
     expect(result[0].id).toBe(earlyActive.id);
     expect(result[1].id).toBe(lateActive.id);
@@ -566,7 +569,7 @@ describe('ArchiveService — archiveProject', () => {
   it('archived project is excluded from ProjectService.listProjects', async () => {
     const project = await projects.createProject({ title: 'Gone', dueDate: TOMORROW });
     archive.archiveProject(project.id);
-    const result = await projects.listProjects();
+    const result = (await projects.listProjects()).items;
     expect(result.map((p) => p.id)).not.toContain(project.id);
   });
 
@@ -732,7 +735,7 @@ describe('ArchiveService — restoreProject', () => {
     const project = await projects.createProject({ title: 'Restored', dueDate: TOMORROW });
     archive.archiveProject(project.id);
     archive.restoreProject(project.id);
-    const result = await projects.listProjects();
+    const result = (await projects.listProjects()).items;
     expect(result.map((p) => p.id)).toContain(project.id);
   });
 
@@ -764,7 +767,7 @@ describe('ArchiveService — restoreProject', () => {
     });
     archive.archiveProject(project.id);
     archive.restoreProject(project.id);
-    const result = await tasks.listTasks({ status: TaskStatus.IN_PROGRESS });
+    const result = (await tasks.listTasks({ status: TaskStatus.IN_PROGRESS })).items;
     expect(result.map((t) => t.id)).toContain(task.id);
   });
 
@@ -843,5 +846,74 @@ describe('ArchiveService — restoreProject', () => {
   it('throws NotArchivedError when the project is not archived', async () => {
     const project = await projects.createProject({ title: 'Never archived', dueDate: TOMORROW });
     expect(() => archive.restoreProject(project.id)).toThrow(NotArchivedError);
+  });
+});
+
+describe('ProjectService — cursor pagination', () => {
+  async function collect(sort: Parameters<ProjectService['listProjects']>[1], limit: number) {
+    const ids: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await projects.listProjects({}, sort, { limit, cursor });
+      expect(page.items.length).toBeLessThanOrEqual(limit);
+      ids.push(...page.items.map((p) => p.id));
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+    return ids;
+  }
+
+  async function seed(n: number) {
+    const created = [];
+    for (let i = 0; i < n; i++) {
+      created.push(
+        await projects.createProject({
+          title: `P${i}`,
+          dueDate: new Date(Date.now() + (i % 3) * 86_400_000),
+          status: ((i % 4) + 1) as ProjectStatus,
+        }),
+      );
+    }
+    return created;
+  }
+
+  it('returns a null nextCursor when everything fits', async () => {
+    await seed(2);
+    const page = await projects.listProjects();
+    expect(page.items).toHaveLength(2);
+    expect(page.nextCursor).toBeNull();
+  });
+
+  it('paginated order matches unpaginated order for every sort and direction', async () => {
+    await seed(9);
+    for (const sortBy of ['dueDate', 'created', 'lastUpdated', 'status'] as const) {
+      for (const direction of ['asc', 'desc'] as const) {
+        const full = (await projects.listProjects({}, { sortBy, direction }, { limit: 200 })).items;
+        expect(await collect({ sortBy, direction }, 2)).toEqual(full.map((p) => p.id));
+      }
+    }
+  });
+
+  it('does not return archived projects on later pages', async () => {
+    const created = await seed(4);
+    const first = await projects.listProjects({}, { sortBy: 'created' }, { limit: 2 });
+    archive.archiveProject(created[0].id);
+    const second = await projects.listProjects(
+      {},
+      { sortBy: 'created' },
+      { limit: 2, cursor: first.nextCursor! },
+    );
+    expect(second.items.map((p) => p.id)).toEqual([created[1].id]);
+  });
+
+  it('rejects invalid limit, garbage cursor and mismatched-sort cursor', async () => {
+    await seed(3);
+    await expect(projects.listProjects({}, undefined, { limit: 0 })).rejects.toThrow(RangeError);
+    await expect(projects.listProjects({}, undefined, { cursor: 'x' })).rejects.toThrow(
+      InvalidCursorError,
+    );
+    const page = await projects.listProjects({}, { sortBy: 'created' }, { limit: 1 });
+    await expect(
+      projects.listProjects({}, { sortBy: 'status' }, { cursor: page.nextCursor! }),
+    ).rejects.toThrow(InvalidCursorError);
   });
 });

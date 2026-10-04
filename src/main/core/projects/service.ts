@@ -10,9 +10,10 @@ import {
   UpdateProjectOptions,
 } from './types';
 import { projects } from '@main/db/schema/projects';
-import { eq, inArray, SQL, sql, and, isNull, desc, gt, gte, lt, asc } from 'drizzle-orm';
+import { eq, inArray, SQL, sql, and, isNull, desc, gt, gte, lt } from 'drizzle-orm';
 import { localDayWindow } from '../shared/utils';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
+import { keyset, Page, PageOptions } from '../shared/pagination';
 import { NotFoundError } from '../shared/errors';
 import { tasks } from '@main/db/schema/tasks';
 import { TaskStatus } from '../tasks/types';
@@ -70,7 +71,8 @@ export class ProjectService {
   async listProjects(
     filter: ProjectFilterOptions = {},
     sort: ProjectSortOptions = { sortBy: 'created' },
-  ): Promise<Project[]> {
+    page: PageOptions = {},
+  ): Promise<Page<Project>> {
     const clauses = [isNull(projects.archivedAt)];
 
     // apply easy filters
@@ -84,29 +86,42 @@ export class ProjectService {
       clauses.push(lt(projects.dueDate, endOfDay));
     }
 
-    let orderColunm: SQLiteColumn;
+    let sortColumn: SQLiteColumn;
     switch (sort.sortBy) {
       case 'dueDate':
-        orderColunm = projects.dueDate;
+        sortColumn = projects.dueDate;
         break;
       case 'status':
-        orderColunm = projects.status;
+        sortColumn = projects.status;
         break;
       case 'created':
-        orderColunm = projects.createdAt;
+        sortColumn = projects.createdAt;
         break;
       case 'lastUpdated':
-        orderColunm = projects.updatedAt;
+        sortColumn = projects.updatedAt;
         break;
     }
 
-    const order = sort.direction === 'asc' ? asc(orderColunm) : desc(orderColunm);
+    const pager = keyset<Project>(
+      {
+        sortKey: sort.sortBy,
+        sortColumn,
+        idColumn: projects.id,
+        direction: sort.direction === 'asc' ? 'asc' : 'desc',
+        sortValue: (row) => row[sortColumn.name as keyof Project],
+        id: (row) => row.id,
+      },
+      page,
+    );
 
-    return this.db
+    const rows = await this.db
       .select()
       .from(projects)
-      .where(and(...clauses))
-      .orderBy(order);
+      .where(and(...clauses, pager.after))
+      .orderBy(...pager.orderBy)
+      .limit(pager.fetchLimit);
+
+    return pager.toPage(rows);
   }
 
   async getProjectStats(id: ProjectId): Promise<ProjectStats> {

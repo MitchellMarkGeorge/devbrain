@@ -1,0 +1,1 @@
+DROP INDEX `idx_tasks_parent_task_id`;
