@@ -8,6 +8,7 @@ import { ArchiveService } from '../../archive/service';
 import { NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
 import { TaskService } from '../../tasks/service';
+import { InvalidCursorError } from '../../shared/pagination';
 
 const TOMORROW = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
@@ -39,7 +40,7 @@ describe('ArchiveService — listArchived', () => {
     await projects.createProject({ title: 'Active', dueDate: TOMORROW });
     await notesService.createNote({ title: 'Active' });
 
-    expect(archive.listArchived()).toEqual([]);
+    expect(archive.listArchived().items).toEqual([]);
   });
 
   it('returns archived tasks, projects and notes in one list', async () => {
@@ -54,7 +55,7 @@ describe('ArchiveService — listArchived', () => {
     archive.archiveProject(project.id);
     archive.archiveNote(note.id);
 
-    const result = archive.listArchived();
+    const result = archive.listArchived().items;
     expect(result).toHaveLength(3);
     expect(result.map((entity) => entity.id).sort()).toEqual([task.id, project.id, note.id].sort());
   });
@@ -68,7 +69,7 @@ describe('ArchiveService — listArchived', () => {
     archive.archiveProject(project.id);
     archive.archiveNote(note.id);
 
-    const byId = new Map(archive.listArchived().map((entity) => [entity.id, entity]));
+    const byId = new Map(archive.listArchived().items.map((entity) => [entity.id, entity]));
     expect(byId.get(task.id)?.entityType).toBe('task');
     expect(byId.get(project.id)?.entityType).toBe('project');
     expect(byId.get(note.id)?.entityType).toBe('note');
@@ -78,7 +79,7 @@ describe('ArchiveService — listArchived', () => {
     const task = await tasks.createTask({ title: 'My task title', dueDate: TOMORROW });
     archive.archiveTask(task.id);
 
-    const [entity] = archive.listArchived();
+    const [entity] = archive.listArchived().items;
     expect(entity.title).toBe('My task title');
   });
 
@@ -86,7 +87,7 @@ describe('ArchiveService — listArchived', () => {
     const task = await tasks.createTask({ title: 'T', dueDate: TOMORROW });
     const archived = archive.archiveTask(task.id);
 
-    const [entity] = archive.listArchived();
+    const [entity] = archive.listArchived().items;
     expect(entity.archivedAt).toBeInstanceOf(Date);
     expect(entity.archivedAt.getTime()).toBe(archived.archivedAt!.getTime());
   });
@@ -104,7 +105,7 @@ describe('ArchiveService — listArchived', () => {
     await new Promise((resolve) => setTimeout(resolve, 5));
     archive.archiveNote(note.id);
 
-    const result = archive.listArchived();
+    const result = archive.listArchived().items;
     expect(result.map((entity) => entity.id)).toEqual([note.id, task.id, project.id]);
   });
 
@@ -116,7 +117,7 @@ describe('ArchiveService — listArchived', () => {
     archive.archiveTask(stillArchived.id);
     archive.restoreTask(task.id);
 
-    expect(archive.listArchived().map((entity) => entity.id)).toEqual([stillArchived.id]);
+    expect(archive.listArchived().items.map((entity) => entity.id)).toEqual([stillArchived.id]);
   });
 
   it('lists cascade-archived children alongside the entity that triggered them', async () => {
@@ -130,10 +131,75 @@ describe('ArchiveService — listArchived', () => {
 
     archive.archiveProject(project.id);
 
-    const ids = archive.listArchived().map((entity) => entity.id);
+    const ids = archive.listArchived().items.map((entity) => entity.id);
     expect(ids).toHaveLength(3);
     expect(ids).toContain(project.id);
     expect(ids).toContain(task.id);
     expect(ids).toContain(note.id);
+  });
+});
+
+describe('ArchiveService — listArchived cursor pagination', () => {
+  function collect(limit: number) {
+    const ids: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = archive.listArchived({ limit, cursor });
+      expect(page.items.length).toBeLessThanOrEqual(limit);
+      ids.push(...page.items.map((entity) => entity.id));
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+    return ids;
+  }
+
+  it('returns a null nextCursor when everything fits', async () => {
+    const task = await tasks.createTask({ title: 'T', dueDate: TOMORROW });
+    archive.archiveTask(task.id);
+
+    const page = archive.listArchived();
+    expect(page.items).toHaveLength(1);
+    expect(page.nextCursor).toBeNull();
+  });
+
+  it('paginated order matches unpaginated order, across entity types and tied archivedAt', async () => {
+    // each project cascade stamps the project, its task and the task's note with
+    // the same archivedAt, so pages have to break ties on id across all three tables
+    for (let i = 0; i < 3; i++) {
+      const project = await projects.createProject({ title: `P${i}`, dueDate: TOMORROW });
+      const task = await tasks.createTask({
+        title: `T${i}`,
+        dueDate: TOMORROW,
+        projectId: project.id,
+      });
+      await notesService.createNote({ title: `N${i}`, linkedTaskId: task.id });
+      archive.archiveProject(project.id);
+      await new Promise((resolve) => setTimeout(resolve, 2));
+    }
+    const looseNote = await notesService.createNote({ title: 'Loose' });
+    archive.archiveNote(looseNote.id);
+
+    const full = archive.listArchived({ limit: 200 }).items.map((entity) => entity.id);
+    expect(full).toHaveLength(10);
+    expect(new Set(full).size).toBe(10);
+    for (const limit of [1, 2, 3, 4]) {
+      expect(collect(limit)).toEqual(full);
+    }
+  });
+
+  it('rejects an invalid limit, a garbage cursor and a cursor from another list', async () => {
+    const a = await notesService.createNote({ title: 'a' });
+    const b = await notesService.createNote({ title: 'b' });
+    archive.archiveNote(a.id);
+    archive.archiveNote(b.id);
+
+    expect(() => archive.listArchived({ limit: 0 })).toThrow(RangeError);
+    expect(() => archive.listArchived({ cursor: '!!' })).toThrow(InvalidCursorError);
+
+    // a cursor from a different list (here the active-notes list) is rejected
+    await notesService.createNote({ title: 'c' });
+    await notesService.createNote({ title: 'd' });
+    const otherCursor = (await notesService.listNotes({}, { sortBy: 'title' }, { limit: 1 }))
+      .nextCursor!;
+    expect(() => archive.listArchived({ cursor: otherCursor })).toThrow(InvalidCursorError);
   });
 });

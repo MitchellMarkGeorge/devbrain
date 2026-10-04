@@ -5,7 +5,7 @@ import { timesamps, date, completedAt, archivedAt } from './utils';
 import { projects } from './projects';
 import { events } from './events';
 import { notes } from './notes';
-import { isNull, sql } from 'drizzle-orm';
+import { isNotNull, isNull, sql } from 'drizzle-orm';
 
 // CONFIRM FILE NAMING CONVENTIONS
 
@@ -64,6 +64,11 @@ export const tasks = sqliteTable(
     index('idx_tasks_parent_created_at_id')
       .on(table.parentTaskId, table.createdAt, table.id)
       .where(isNull(table.archivedAt)),
+    // keyset pagination in ArchiveService.listArchived: the inverse of the partial indexes above,
+    // covering only archived rows. `where` must match the query's archived filter.
+    index('idx_tasks_archived_at_id')
+      .on(table.archivedAt, table.id)
+      .where(isNotNull(table.archivedAt)),
 
     // make sure there is one link if any
     check(

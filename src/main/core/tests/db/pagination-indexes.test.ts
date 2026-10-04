@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { and, eq, isNull, SQL } from 'drizzle-orm';
-import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
+import { and, eq, isNotNull, isNull, sql, SQL } from 'drizzle-orm';
+import { SQLiteColumn, unionAll } from 'drizzle-orm/sqlite-core';
 import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
 import { notes } from '@main/db/schema/notes';
@@ -140,6 +140,41 @@ describe('pagination index — events.listEventsInRange', () => {
       .limit(pager.fetchLimit);
     const detail = plan(query).join('\n');
     expect(detail).toContain('idx_events_start_at_id');
+    expect(detail).not.toContain('TEMP B-TREE');
+  });
+});
+
+describe('pagination index — archive.listArchived', () => {
+  // mirrors the UNION ALL in ArchiveService.listArchived: each branch should seek its own
+  // (archived_at, id) index and the branches be merged, with no sort step anywhere
+  it.each([false, true])('with cursor: %s, merges the per-table archived indexes', (withCursor) => {
+    const branch = (table: typeof tasks | typeof projects | typeof notes) => {
+      const pager = keyset<{ v: unknown; id: string }>(
+        {
+          sortKey: 'archivedAt',
+          sortColumn: table.archivedAt,
+          idColumn: table.id,
+          direction: 'desc',
+          sortValue: (r) => r.v,
+          id: (r) => r.id,
+        },
+        {
+          cursor: withCursor ? cursorFor(table.archivedAt, 'archivedAt', new Date()) : undefined,
+        },
+      );
+      return db
+        .select({ id: sql`${table.id}`.as('id'), archivedAt: table.archivedAt })
+        .from(table)
+        .where(and(isNotNull(table.archivedAt), pager.after));
+    };
+    const query = unionAll(branch(tasks), branch(projects), branch(notes))
+      .orderBy(sql`archived_at desc`, sql`id desc`)
+      .limit(51);
+    const detail = plan(query).join('\n');
+    expect(detail).toContain('MERGE (UNION ALL)');
+    expect(detail).toContain('idx_tasks_archived_at_id');
+    expect(detail).toContain('idx_projects_archived_at_id');
+    expect(detail).toContain('idx_notes_archived_at_id');
     expect(detail).not.toContain('TEMP B-TREE');
   });
 });

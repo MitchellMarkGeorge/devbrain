@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, lt, or, SQL } from 'drizzle-orm';
+import { asc, desc, sql, SQL } from 'drizzle-orm';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { z } from 'zod';
 
@@ -110,16 +110,20 @@ export interface KeysetConfig<T> {
 export function keyset<T>(config: KeysetConfig<T>, options: PageOptions = {}) {
   const limit = resolveLimit(options.limit);
   const kind = sortKindOf(config.sortColumn);
-  const cmp = config.direction === 'asc' ? gt : lt;
+  const op = sql.raw(config.direction === 'asc' ? '>' : '<');
 
   let after: SQL | undefined;
   if (options.cursor !== undefined) {
     const payload = decodeCursor(options.cursor, config.sortKey);
     const value = fromCursorValue(payload.lastSortValue, kind);
-    after = or(
-      cmp(config.sortColumn, value),
-      and(eq(config.sortColumn, value), cmp(config.idColumn, payload.lastId)),
-    );
+    // a row-value comparison rather than the expanded `a > ? OR (a = ? AND id > ?)`: sqlite
+    // serves it as a single range seek on the (sort, id) index, whereas the OR form can be
+    // planned as a multi-index OR that then needs a temp b-tree for the ORDER BY (it does
+    // inside each branch of a UNION, e.g. ArchiveService.listArchived)
+    after = sql`(${config.sortColumn}, ${config.idColumn}) ${op} (${sql.param(
+      value,
+      config.sortColumn,
+    )}, ${sql.param(payload.lastId, config.idColumn)})`;
   }
 
   const dir = config.direction === 'asc' ? asc : desc;

@@ -9,6 +9,7 @@ import { projects } from '@main/db/schema/projects';
 import { Note } from '../notes/types';
 import { notes } from '@main/db/schema/notes';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../shared/errors';
+import { keyset, Page, PageOptions } from '../shared/pagination';
 import type { ArchivableEntityType, ArchivableId, ArchivedEntity } from './types';
 
 export class ArchiveService {
@@ -183,55 +184,77 @@ export class ArchiveService {
 
   /**
    * Every archived task, project and note as one list, most recently archived
-   * first — the query behind the archive view.
+   * first — the query behind the archive view. Paginated with an opaque cursor
+   * like the other list methods.
    *
    * Cascades are *not* collapsed: archiving a project also stamps its tasks and
    * their notes, and each of those rows shows up here in its own right. The
    * caller decides whether to group them back under the entity that triggered
    * the archive.
    */
-  listArchived(): ArchivedEntity[] {
+  listArchived(page: PageOptions = {}): Page<ArchivedEntity> {
+    // one pager per table: the cursor condition is pushed into each branch of
+    // the union (so each can seek its own (archived_at, id) index) rather than
+    // applied to the union as a whole. ids carry a per-entity prefix, so they
+    // are unique across the three tables and still a valid tiebreaker.
+    const pagerFor = (table: typeof tasks | typeof projects | typeof notes) =>
+      keyset<ArchivedEntity>(
+        {
+          sortKey: 'archivedAt',
+          sortColumn: table.archivedAt,
+          idColumn: table.id,
+          direction: 'desc',
+          sortValue: (row) => row.archivedAt,
+          id: (row) => row.id,
+        },
+        page,
+      );
+    const taskPager = pagerFor(tasks);
+    const projectPager = pagerFor(projects);
+    const notePager = pagerFor(notes);
+
     const archivedTasks = this.db
       .select({
         // widened to ArchivableId because the union carries all three id types,
         // and drizzle infers the compound row's shape from the first select
-        id: sql<ArchivableId>`${tasks.id}`,
+        id: sql<ArchivableId>`${tasks.id}`.as('id'),
         entityType: sql<ArchivableEntityType>`'task'`,
         title: tasks.title,
         archivedAt: tasks.archivedAt,
       })
       .from(tasks)
-      .where(isNotNull(tasks.archivedAt));
+      .where(and(isNotNull(tasks.archivedAt), taskPager.after));
 
     const archivedProjects = this.db
       .select({
-        id: sql<ArchivableId>`${projects.id}`,
+        id: sql<ArchivableId>`${projects.id}`.as('id'),
         entityType: sql<ArchivableEntityType>`'project'`,
         title: projects.title,
         archivedAt: projects.archivedAt,
       })
       .from(projects)
-      .where(isNotNull(projects.archivedAt));
+      .where(and(isNotNull(projects.archivedAt), projectPager.after));
 
     const archivedNotes = this.db
       .select({
-        id: sql<ArchivableId>`${notes.id}`,
+        id: sql<ArchivableId>`${notes.id}`.as('id'),
         entityType: sql<ArchivableEntityType>`'note'`,
         title: notes.title,
         archivedAt: notes.archivedAt,
       })
       .from(notes)
-      .where(isNotNull(notes.archivedAt));
+      .where(and(isNotNull(notes.archivedAt), notePager.after));
 
     // a compound select resolves ORDER BY against the *result* column names of
-    // its left-most branch, so this has to be the bare column name — a
-    // table-qualified reference is not valid here
+    // its left-most branch, so these have to be the bare column names — a
+    // table-qualified reference (and so pager.orderBy) is not valid here
     const rows = unionAll(archivedTasks, archivedProjects, archivedNotes)
-      .orderBy(sql`archived_at desc`)
+      .orderBy(sql`archived_at desc`, sql`id desc`)
+      .limit(taskPager.fetchLimit)
       .all();
 
     // archivedAt is nullable on all three tables, but every branch filters on
     // IS NOT NULL, so no row here can carry a null
-    return rows as ArchivedEntity[];
+    return taskPager.toPage(rows as ArchivedEntity[]);
   }
 }

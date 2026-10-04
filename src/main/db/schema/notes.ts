@@ -6,7 +6,7 @@ import { timesamps, completedAt, archivedAt } from './utils';
 import { tasks } from './tasks';
 import { projects } from './projects';
 import { events } from './events';
-import { isNull, sql } from 'drizzle-orm';
+import { isNotNull, isNull, sql } from 'drizzle-orm';
 
 export const notes = sqliteTable(
   'notes',
@@ -43,6 +43,11 @@ export const notes = sqliteTable(
     index('idx_notes_updated_at_id').on(table.updatedAt, table.id).where(isNull(table.archivedAt)),
     index('idx_notes_created_at_id').on(table.createdAt, table.id).where(isNull(table.archivedAt)),
     index('idx_notes_title_id').on(table.title, table.id).where(isNull(table.archivedAt)),
+    // keyset pagination in ArchiveService.listArchived: the inverse of the partial indexes above,
+    // covering only archived rows. `where` must match the query's archived filter.
+    index('idx_notes_archived_at_id')
+      .on(table.archivedAt, table.id)
+      .where(isNotNull(table.archivedAt)),
 
     // make sure there is one link if any
     check(
