@@ -194,25 +194,15 @@ export class ArchiveService {
    */
   listArchived(page: PageOptions = {}): Page<ArchivedEntity> {
     // one pager per table: the cursor condition is pushed into each branch of
-    // the union (so each can seek its own (archived_at, id) index) rather than
-    // applied to the union as a whole. ids carry a per-entity prefix, so they
-    // are unique across the three tables and still a valid tiebreaker.
-    const pagerFor = (table: typeof tasks | typeof projects | typeof notes) =>
-      keyset<ArchivedEntity>(
-        {
-          sortKey: 'archivedAt',
-          sortColumn: table.archivedAt,
-          idColumn: table.id,
-          direction: 'desc',
-          sortValue: (row) => row.archivedAt,
-          id: (row) => row.id,
-        },
-        page,
-      );
-    const taskPager = pagerFor(tasks);
-    const projectPager = pagerFor(projects);
-    const notePager = pagerFor(notes);
+    // the union, so each can seek its own (archived_at, id) index. ids carry a
+    // per-entity prefix, so they are unique across the three tables and still
+    // a valid tiebreaker.
+    const taskPager = this.archivedPager(tasks, page);
+    const projectPager = this.archivedPager(projects, page);
+    const notePager = this.archivedPager(notes, page);
 
+    // sortBound alongside after: without it sqlite plans after's OR as a
+    // multi-index OR plus a sort of every remaining archived row in each branch
     const archivedTasks = this.db
       .select({
         // widened to ArchivableId because the union carries all three id types,
@@ -223,7 +213,7 @@ export class ArchiveService {
         archivedAt: tasks.archivedAt,
       })
       .from(tasks)
-      .where(and(isNotNull(tasks.archivedAt), taskPager.after));
+      .where(and(isNotNull(tasks.archivedAt), taskPager.sortBound, taskPager.after));
 
     const archivedProjects = this.db
       .select({
@@ -233,7 +223,7 @@ export class ArchiveService {
         archivedAt: projects.archivedAt,
       })
       .from(projects)
-      .where(and(isNotNull(projects.archivedAt), projectPager.after));
+      .where(and(isNotNull(projects.archivedAt), projectPager.sortBound, projectPager.after));
 
     const archivedNotes = this.db
       .select({
@@ -243,7 +233,7 @@ export class ArchiveService {
         archivedAt: notes.archivedAt,
       })
       .from(notes)
-      .where(and(isNotNull(notes.archivedAt), notePager.after));
+      .where(and(isNotNull(notes.archivedAt), notePager.sortBound, notePager.after));
 
     // a compound select resolves ORDER BY against the *result* column names of
     // its left-most branch, so these have to be the bare column names — a
@@ -256,5 +246,19 @@ export class ArchiveService {
     // archivedAt is nullable on all three tables, but every branch filters on
     // IS NOT NULL, so no row here can carry a null
     return taskPager.toPage(rows as ArchivedEntity[]);
+  }
+
+  private archivedPager(table: typeof tasks | typeof projects | typeof notes, page: PageOptions) {
+    return keyset<ArchivedEntity>(
+      {
+        sortKey: 'archivedAt',
+        sortColumn: table.archivedAt,
+        idColumn: table.id,
+        direction: 'desc',
+        sortValue: (row) => row.archivedAt,
+        id: (row) => row.id,
+      },
+      page,
+    );
   }
 }

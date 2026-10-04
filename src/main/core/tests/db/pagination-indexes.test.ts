@@ -162,10 +162,12 @@ describe('pagination index — archive.listArchived', () => {
           cursor: withCursor ? cursorFor(table.archivedAt, 'archivedAt', new Date()) : undefined,
         },
       );
+      // selects title like the real query: with an index-only (covering) select sqlite plans
+      // the cursor's OR well even without sortBound, so the test would prove nothing
       return db
-        .select({ id: sql`${table.id}`.as('id'), archivedAt: table.archivedAt })
+        .select({ id: sql`${table.id}`.as('id'), title: table.title, archivedAt: table.archivedAt })
         .from(table)
-        .where(and(isNotNull(table.archivedAt), pager.after));
+        .where(and(isNotNull(table.archivedAt), pager.sortBound, pager.after));
     };
     const query = unionAll(branch(tasks), branch(projects), branch(notes))
       .orderBy(sql`archived_at desc`, sql`id desc`)

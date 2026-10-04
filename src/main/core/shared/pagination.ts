@@ -1,4 +1,4 @@
-import { asc, desc, sql, SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, lt, lte, or, SQL } from 'drizzle-orm';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { z } from 'zod';
 
@@ -110,25 +110,29 @@ export interface KeysetConfig<T> {
 export function keyset<T>(config: KeysetConfig<T>, options: PageOptions = {}) {
   const limit = resolveLimit(options.limit);
   const kind = sortKindOf(config.sortColumn);
-  const op = sql.raw(config.direction === 'asc' ? '>' : '<');
+  const cmp = config.direction === 'asc' ? gt : lt;
 
   let after: SQL | undefined;
+  let sortBound: SQL | undefined;
   if (options.cursor !== undefined) {
     const payload = decodeCursor(options.cursor, config.sortKey);
     const value = fromCursorValue(payload.lastSortValue, kind);
-    // a row-value comparison rather than the expanded `a > ? OR (a = ? AND id > ?)`: sqlite
-    // serves it as a single range seek on the (sort, id) index, whereas the OR form can be
-    // planned as a multi-index OR that then needs a temp b-tree for the ORDER BY (it does
-    // inside each branch of a UNION, e.g. ArchiveService.listArchived)
-    after = sql`(${config.sortColumn}, ${config.idColumn}) ${op} (${sql.param(
-      value,
-      config.sortColumn,
-    )}, ${sql.param(payload.lastId, config.idColumn)})`;
+    sortBound = (config.direction === 'asc' ? gte : lte)(config.sortColumn, value);
+    after = or(
+      cmp(config.sortColumn, value),
+      and(eq(config.sortColumn, value), cmp(config.idColumn, payload.lastId)),
+    );
   }
 
   const dir = config.direction === 'asc' ? asc : desc;
   return {
     after,
+    /**
+     * Redundant with `after` (it never changes which rows match): a plain range bound on the
+     * sort column, for queries where sqlite would otherwise plan `after`'s OR as a multi-index
+     * OR plus a temp b-tree sort, e.g. ArchiveService.listArchived. Undefined on the first page.
+     */
+    sortBound,
     orderBy: [dir(config.sortColumn), dir(config.idColumn)] as const,
     // fetch one extra row to know whether another page exists
     fetchLimit: limit + 1,
