@@ -180,3 +180,29 @@ describe('pagination index — archive.listArchived', () => {
     if (!withCursor) expect(detail).not.toContain('TEMP B-TREE');
   });
 });
+
+describe('pagination index — archive.listArchived filtered to one entity type', () => {
+  it.each([
+    ['tasks', tasks, 'idx_tasks_archived_at_id'],
+    ['projects', projects, 'idx_projects_archived_at_id'],
+    ['notes', notes, 'idx_notes_archived_at_id'],
+  ] as const)('%s: first page reads the archived index in order', (_, table, index) => {
+    const pager = keyset<{ v: unknown; id: string }>({
+      sortKey: 'archivedAt',
+      sortColumn: table.archivedAt,
+      idColumn: table.id,
+      direction: 'desc',
+      sortValue: (r) => r.v,
+      id: (r) => r.id,
+    });
+    const query = db
+      .select({ id: table.id, title: table.title, archivedAt: table.archivedAt })
+      .from(table as typeof tasks)
+      .where(and(isNotNull(table.archivedAt), pager.after))
+      .orderBy(...pager.orderBy)
+      .limit(pager.fetchLimit);
+    const detail = plan(query).join('\n');
+    expect(detail).toContain(index);
+    expect(detail).not.toContain('TEMP B-TREE');
+  });
+});

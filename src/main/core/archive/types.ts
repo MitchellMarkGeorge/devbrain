@@ -9,6 +9,11 @@ export interface ArchiveResult {
 
 export type ArchivableEntityType = 'task' | 'project' | 'note';
 
+export interface ArchiveFilterOptions {
+  /** restrict the list to one kind of entity (defaults to 'all') */
+  entityType?: ArchivableEntityType | 'all';
+}
+
 /**
  * A single row in the archive view. Deliberately a lightweight summary rather
  * than the full task/project/note row: the three tables have nothing in common
