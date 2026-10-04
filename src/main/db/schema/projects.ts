@@ -2,7 +2,7 @@ import { ProjectId, generateId } from '@common/ids';
 import { sqliteTable, text, integer, index, check } from 'drizzle-orm/sqlite-core';
 import { timesamps, completedAt, archivedAt, date } from './utils';
 import { ProjectStatus } from '@main/core/projects/types';
-import { isNull, sql } from 'drizzle-orm';
+import { isNotNull, isNull, sql } from 'drizzle-orm';
 
 export const projects = sqliteTable(
   'projects',
@@ -37,6 +37,11 @@ export const projects = sqliteTable(
     index('idx_projects_updated_at_id')
       .on(table.updatedAt, table.id)
       .where(isNull(table.archivedAt)),
+    // keyset pagination in ArchiveService.listArchived: the inverse of the partial indexes above,
+    // covering only archived rows. `where` must match the query's archived filter.
+    index('idx_projects_archived_at_id')
+      .on(table.archivedAt, table.id)
+      .where(isNotNull(table.archivedAt)),
 
     // completedAt only has a value if the task's status is completed
     check(
