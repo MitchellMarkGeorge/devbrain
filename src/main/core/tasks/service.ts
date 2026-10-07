@@ -159,7 +159,7 @@ export class TaskService {
         sortValue: (row) => row[sortColumn.name as keyof Task],
         id: (row) => row.id,
         // undated rows sort last
-        nullsLast: sort.sortBy === 'dueDate',
+        isSortValueNullable: sort.sortBy === 'dueDate',
       },
       page,
     );

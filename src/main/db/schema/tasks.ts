@@ -56,10 +56,10 @@ export const tasks = sqliteTable(
     // keyset pagination in TaskService.listTasks: (sort column, id), either direction
     // (sqlite can scan an index backwards). `where` must match the query's archived filter.
     index('idx_tasks_due_date_id').on(table.dueDate, table.id).where(isNull(table.archivedAt)),
-    // the due-date sort puts undated rows last (keyset's `nullsLast`): descending order gets that
-    // from the index above, ascending order leads with `(due_date IS NULL)` and is served by this
-    // one. drizzle-kit wraps the expression in backticks, which sqlite reads as a column name, so
-    // the generated CREATE INDEX was fixed by hand
+    // the due-date sort puts undated rows last (keyset's `isSortValueNullable`): descending order
+    // gets that from the index above, ascending order leads with `(due_date IS NULL)` and is served
+    // by this one. drizzle-kit wraps the expression in backticks, which sqlite reads as a column
+    // name, so the generated CREATE INDEX was fixed by hand
     index('idx_tasks_due_date_nulls_last_id')
       .on(sql`(${table.dueDate} IS NULL)`, table.dueDate, table.id)
       .where(isNull(table.archivedAt)),
