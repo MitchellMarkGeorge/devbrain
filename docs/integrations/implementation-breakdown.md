@@ -4,26 +4,26 @@ This build covers the core only: 15 features in 5 milestones, all under `src/mai
 
 ## Overview
 
-| # | Feature | Milestone | Depends on |
-| --- | --- | --- | --- |
-| 1 | Nullable due dates and null-aware pagination | 1 Foundations |  |
-| 2 | CANCELLED task status | 1 Foundations |  |
-| 3 | Integration tables, ids and errors | 1 Foundations |  |
-| 4 | External refs on read models | 1 Foundations | 3 |
-| 5 | Read-only guards and local tasks in mirrored projects | 1 Foundations | 4 |
-| 6 | Credential storage | 2 Connections | 3 |
-| 7 | IntegrationService and Linear API key connect | 2 Connections | 6 |
-| 8 | Linear client and mapper | 3 Linear sync | 2 |
-| 9 | SyncWriter | 3 Linear sync | 1, 4 |
-| 10 | SyncEngine: initial and incremental | 3 Linear sync | 7, 8, 9 |
-| 11 | Reconcile, watched set and project lifecycle | 3 Linear sync | 10 |
-| 12 | Detach and reattach | 3 Linear sync | 10 |
-| 13 | SyncScheduler and workspace wiring | 4 Runtime | 10 |
-| 14 | Main-process wiring | 4 Runtime | 7, 13 |
-| 15 | Disable, disconnect and re-authentication | 4 Runtime | 12, 13 |
-| 16 | Provider-agnostic OAuth with PKCE, Google Calendar | 5 OAuth and Google | 10 |
-|  | Typed IPC channels | Deferred, separate work |  |
-|  | UI | Deferred |  |
+| #   | Feature                                               | Milestone               | Depends on |
+| --- | ----------------------------------------------------- | ----------------------- | ---------- |
+| 1   | Nullable due dates and null-aware pagination          | 1 Foundations           |            |
+| 2   | CANCELLED task status                                 | 1 Foundations           |            |
+| 3   | Integration tables, ids and errors                    | 1 Foundations           |            |
+| 4   | External refs on read models                          | 1 Foundations           | 3          |
+| 5   | Read-only guards and local tasks in mirrored projects | 1 Foundations           | 4          |
+| 6   | Credential storage                                    | 2 Connections           | 3          |
+| 7   | IntegrationService and Linear API key connect         | 2 Connections           | 6          |
+| 8   | Linear client and mapper                              | 3 Linear sync           | 2          |
+| 9   | SyncWriter                                            | 3 Linear sync           | 1, 4       |
+| 10  | SyncEngine: initial and incremental                   | 3 Linear sync           | 7, 8, 9    |
+| 11  | Reconcile, watched set and project lifecycle          | 3 Linear sync           | 10         |
+| 12  | Detach and reattach                                   | 3 Linear sync           | 10         |
+| 13  | SyncScheduler and workspace wiring                    | 4 Runtime               | 10         |
+| 14  | Main-process wiring                                   | 4 Runtime               | 7, 13      |
+| 15  | Disable, disconnect and re-authentication             | 4 Runtime               | 12, 13     |
+| 16  | Provider-agnostic OAuth with PKCE, Google Calendar    | 5 OAuth and Google      | 10         |
+|     | Typed IPC channels                                    | Deferred, separate work |            |
+|     | UI                                                    | Deferred                |            |
 
 Features 1, 2 and 3 have no dependencies and can be built in any order or in parallel. Feature 16 is two sub-features: a provider-agnostic OAuth module and Google Calendar. Linear OAuth is deferred.
 
@@ -371,11 +371,11 @@ The Electron-side pieces core needs in order to run inside the app. No IPC chann
 
 **Service surface the IPC work will build on.** These are the only entry points; each takes plain arguments and returns plain data.
 
-| Service | Methods |
-| --- | --- |
-| `workspace.integrations` | `list`, `connectWithApiKey`, `connectWithOAuth`, `reconnect`, `setEnabled`, `setSourceEnabled`, `listCalendars`, `setCalendars`, `previewDisconnect`, `disconnect`, `detachTask`, `reattachTask`, `onChange` |
-| `workspace.sync` | `syncNow(sourceId?)`, `getStatus()`, `onProgress` |
-| `workspace.tasks`, `projects`, `events` | Existing methods; reads now include `external`, mutations may throw `ExternalReadOnlyError` |
+| Service                                 | Methods                                                                                                                                                                                                      |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `workspace.integrations`                | `list`, `connectWithApiKey`, `connectWithOAuth`, `reconnect`, `setEnabled`, `setSourceEnabled`, `listCalendars`, `setCalendars`, `previewDisconnect`, `disconnect`, `detachTask`, `reattachTask`, `onChange` |
+| `workspace.sync`                        | `syncNow(sourceId?)`, `getStatus()`, `onProgress`                                                                                                                                                            |
+| `workspace.tasks`, `projects`, `events` | Existing methods; reads now include `external`, mutations may throw `ExternalReadOnlyError`                                                                                                                  |
 
 **Tests**
 
@@ -424,16 +424,16 @@ interface OAuthConfig {
   tokenUrl: string;
   revokeUrl?: string;
   clientId: string;
-  clientSecret?: string;                 // only where the provider requires one
+  clientSecret?: string; // only where the provider requires one
   scopes: string[];
-  scopeSeparator?: ' ' | ',';            // default ' '
+  scopeSeparator?: ' ' | ','; // default ' '
   redirect: {
-    ports: number[] | 'any';             // fixed list, or any free port
-    path: string;                        // '/callback'
+    ports: number[] | 'any'; // fixed list, or any free port
+    path: string; // '/callback'
   };
-  extraAuthorizeParams?: Record<string, string>;  // e.g. access_type=offline
-  clientAuth?: 'body' | 'basic';         // how client credentials reach the token endpoint
-  parseTokens?: (json: unknown) => OAuthTokens;   // default reads the standard fields
+  extraAuthorizeParams?: Record<string, string>; // e.g. access_type=offline
+  clientAuth?: 'body' | 'basic'; // how client credentials reach the token endpoint
+  parseTokens?: (json: unknown) => OAuthTokens; // default reads the standard fields
 }
 
 interface OAuthClient {

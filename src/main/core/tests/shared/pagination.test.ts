@@ -73,9 +73,9 @@ describe('paginateArray', () => {
   });
 });
 
-describe('keyset — nullable', () => {
+describe('keyset — isSortValueNullable', () => {
   type DueRow = { dueDate: Date | null; id: string };
-  const pager = (nullable: boolean, cursor?: string) =>
+  const pager = (isSortValueNullable: boolean, cursor?: string) =>
     keyset<DueRow>(
       {
         sortKey: 'dueDate',
@@ -84,7 +84,7 @@ describe('keyset — nullable', () => {
         direction: 'asc',
         sortValue: (r) => r.dueDate,
         id: (r) => r.id,
-        nullable,
+        isSortValueNullable,
       },
       { limit: 1, cursor },
     );
@@ -98,7 +98,7 @@ describe('keyset — nullable', () => {
     expect(() => pager(true, nullCursor)).not.toThrow();
   });
 
-  it('rejects a null-valued cursor on a sort that is not nullable', () => {
+  it('rejects a null-valued cursor on a sort without isSortValueNullable', () => {
     expect(() => pager(false, nullCursor)).toThrow(InvalidCursorError);
   });
 

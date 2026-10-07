@@ -3,6 +3,8 @@ import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { runMigrations } from '@main/db/migrate';
+import { WorkspaceMigrationError } from '@main/core/shared/errors';
+import { migrationsWithExtra } from '../utils';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -163,6 +165,68 @@ describe('migration 0016 — nullable due dates', () => {
     expect(() =>
       sqlite.exec(`INSERT INTO tasks (id, title, status) VALUES ('tsk_z', 'Bad', 3)`),
     ).toThrow(/CHECK/);
+    sqlite.close();
+  });
+});
+
+// a migration that fails partway: the first statement succeeds, the second does not
+const BROKEN_SQL = `CREATE TABLE rolled_back (id text);--> statement-breakpoint
+INSERT INTO no_such_table VALUES (1);`;
+// a migration that succeeds but leaves a task pointing at a project that does not exist, which only
+// the foreign key check after the commit can catch (foreign keys are off while migrating)
+const DANGLING_SQL = `INSERT INTO tasks (id, title, project_id) VALUES ('tsk_dangling', 'Dangling', 'prj_missing');`;
+
+describe('runMigrations — failures', () => {
+  function caught(fn: () => void): WorkspaceMigrationError {
+    try {
+      fn();
+    } catch (error) {
+      expect(error).toBeInstanceOf(WorkspaceMigrationError);
+      return error as WorkspaceMigrationError;
+    }
+    throw new Error('expected runMigrations to throw');
+  }
+
+  it('reports a failed statement as rolled back and leaves the database unchanged', () => {
+    const { sqlite, db } = openDb();
+    runMigrations(sqlite, db, MIGRATIONS_PATH);
+    seed(sqlite);
+    const before = snapshot(sqlite);
+    const applied = sqlite.prepare('SELECT count(*) FROM __drizzle_migrations').pluck().get();
+
+    const folder = migrationsWithExtra(path.join(tmpDir, 'broken'), '0099_broken', BROKEN_SQL);
+    const error = caught(() => runMigrations(sqlite, db, folder));
+
+    expect(error.code).toBe('workspace_migration');
+    expect(error.committed).toBe(false);
+    expect(error.restoredFromBackup).toBe(false);
+    // drizzle's error names the statement that failed
+    expect(String(error.cause)).toMatch(/INSERT INTO no_such_table/);
+
+    // the whole transaction, including the statement that succeeded, was rolled back
+    expect(snapshot(sqlite)).toEqual(before);
+    expect(sqlite.prepare('SELECT count(*) FROM __drizzle_migrations').pluck().get()).toBe(applied);
+    expect(
+      sqlite.prepare(`SELECT 1 FROM sqlite_master WHERE name = 'rolled_back'`).get(),
+    ).toBeUndefined();
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1);
+    sqlite.close();
+  });
+
+  it('reports broken references found after the commit as committed', () => {
+    const { sqlite, db } = openDb();
+    runMigrations(sqlite, db, MIGRATIONS_PATH);
+
+    const folder = migrationsWithExtra(
+      path.join(tmpDir, 'dangling'),
+      '0099_dangling',
+      DANGLING_SQL,
+    );
+    const error = caught(() => runMigrations(sqlite, db, folder));
+
+    expect(error.committed).toBe(true);
+    expect(error.cause).toEqual([expect.objectContaining({ table: 'tasks', parent: 'projects' })]);
+    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1);
     sqlite.close();
   });
 });
