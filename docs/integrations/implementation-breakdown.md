@@ -145,9 +145,10 @@ A workspace can hold a validated, encrypted Linear connection. Nothing syncs yet
 
 ### 6. Credential storage
 
-- [ ] Define `SecretCipher` in `core/integrations/credentials.ts`: `isAvailable()`, `encrypt(plain: string): Buffer`, `decrypt(cipher: Buffer): string`.
+- [ ] Define `SecretCipher` in `core/integrations/credentials.ts`: `isAvailable(): Promise<boolean>`, `encrypt(plain: string): Promise<Buffer>`, `decrypt(cipher: Buffer): Promise<{ result: string; shouldReEncrypt: boolean }>`. It mirrors Electron's async `safeStorage` API.
 - [ ] Define the `Credentials` union: `{ type: 'api_key'; apiKey }` and `{ type: 'oauth'; accessToken; refreshToken; expiresAt }`. Validate with zod on decrypt.
-- [ ] Implement `CredentialStore` with `save(integrationId, credentials)`, `getAuth(integrationId)` and `clear(integrationId)`. It reads and writes `integrations.credentials`.
+- [ ] Implement `CredentialStore` with `seal(credentials)`, `save(integrationId, sealed)`, `getAuth(integrationId)` and `clear(integrationId)`. It reads and writes `integrations.credentials`. Encryption is async and a better-sqlite3 transaction is not, so `seal` encrypts before the transaction and the synchronous `save` writes inside it.
+- [ ] When `decrypt` reports `shouldReEncrypt`, re-encrypt and store the credentials under the new key.
 - [ ] `getAuth` returns the header value a provider needs. For OAuth it refreshes when the token expires within 60 seconds. Leave the refresh call as an injected function per provider; it is implemented in feature 16.
 - [ ] Add a per-integration in-memory mutex so two callers never refresh at once.
 - [ ] Refuse `save` when `isAvailable()` is false, with an error the UI can show.
@@ -360,7 +361,7 @@ Sync runs by itself while a workspace is open. Everything the later IPC layer wi
 
 The Electron-side pieces core needs in order to run inside the app. No IPC channels are added here; the separate IPC work will sit on top of the service surface listed at the end.
 
-- [ ] In `src/main`, implement the real `SecretCipher` over Electron `safeStorage`.
+- [ ] In `src/main`, implement the real `SecretCipher` over Electron's async `safeStorage` API: `isAsyncEncryptionAvailable`, `encryptStringAsync` and `decryptStringAsync`.
 - [ ] Pass `SecretCipher`, global `fetch` and `shell.openExternal` into `DevBrain`, which threads them to `WorkspaceService` and `Workspace`.
 - [ ] Call `scheduler.trigger('focus')` on `BrowserWindow` focus and `scheduler.trigger('resume')` on `powerMonitor` resume, for the current workspace.
 - [ ] Make sure switching or closing a workspace awaits the old scheduler's `stop()` before the next workspace starts.

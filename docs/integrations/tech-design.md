@@ -174,7 +174,7 @@ Endpoints, limits and sources for each row are in the provider reference section
 
 **API key path (Linear).** The user pastes a personal API key in settings. DevBrain validates it with a `viewer` query, then stores it like any other credential. The integration records `authType = 'api_key'` so the UI can offer "upgrade to OAuth" later without reconnecting data.
 
-**Storage.** Credentials are serialised to JSON, encrypted with `safeStorage.encryptString`, and stored as a blob in `integrations.credentials`. The key lives in the OS keychain, so a copied `db.sqlite` or `db.sqlite.backup` is useless on another machine. If `safeStorage.isEncryptionAvailable()` is false, connecting is refused with a clear error.
+**Storage.** Credentials are serialised to JSON, encrypted with `safeStorage.encryptStringAsync`, and stored as a blob in `integrations.credentials`. The key lives in the OS keychain, so a copied `db.sqlite` or `db.sqlite.backup` is useless on another machine. If `safeStorage.isAsyncEncryptionAvailable()` resolves false, connecting is refused with a clear error. When `decryptStringAsync` reports `shouldReEncrypt` (the key was rotated), the credentials are re-encrypted and stored again.
 
 **Refresh.** `CredentialStore.getAuth()` refreshes when the access token is within 60 seconds of expiry, under a per-integration mutex so two sync runs cannot both refresh. A failed refresh or a 401 sets the integration to `needs_reauth` and pauses its sources. Mirrored data stays visible.
 

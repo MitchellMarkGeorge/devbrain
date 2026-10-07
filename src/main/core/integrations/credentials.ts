@@ -7,13 +7,19 @@ import { IntegrationAuthError, NotFoundError } from '../shared/errors';
 import { TOKEN_REFRESH_MARGIN_MS } from '../sync/constants';
 import { AuthType, Provider } from './types';
 
-// Encrypts secrets at rest. The main process passes one over Electron's safeStorage; tests pass a
-// reversible fake. Core never imports Electron.
+// Encrypts secrets at rest. The main process passes one over Electron's async safeStorage API
+// (isAsyncEncryptionAvailable, encryptStringAsync, decryptStringAsync); tests pass a reversible
+// fake. Core never imports Electron.
 export interface SecretCipher {
-  isAvailable(): boolean;
-  encrypt(plain: string): Buffer;
-  decrypt(cipher: Buffer): string;
+  isAvailable(): Promise<boolean>;
+  encrypt(plain: string): Promise<Buffer>;
+  // shouldReEncrypt: the key was rotated or upgraded, so the plain text should be encrypted again
+  decrypt(cipher: Buffer): Promise<{ result: string; shouldReEncrypt: boolean }>;
 }
+
+declare const sealedBrand: unique symbol;
+// Encrypted credentials, ready to write. Only CredentialStore.seal makes one.
+export type SealedCredentials = Buffer & { readonly [sealedBrand]: true };
 
 export interface ApiKeyCredentials {
   type: AuthType.API_KEY;
@@ -138,11 +144,21 @@ export class CredentialStore {
     this.now = options.now ?? Date.now;
   }
 
-  // Synchronous on purpose: a connect calls it inside the same transaction that inserts the row.
-  save(integrationId: IntegrationId, credentials: Credentials): void {
+  // Encryption is async and a better-sqlite3 transaction is not, so saving is two steps: seal
+  // before the transaction, then save inside it, next to the insert or update it belongs with.
+  async seal(credentials: Credentials): Promise<SealedCredentials> {
+    if (!(await this.cipher.isAvailable())) {
+      throw new IntegrationAuthError(
+        "Secure storage isn't available on this system, so DevBrain can't store credentials",
+      );
+    }
+    return (await this.cipher.encrypt(serialize(credentials))) as SealedCredentials;
+  }
+
+  save(integrationId: IntegrationId, sealed: SealedCredentials): void {
     const result = this.db
       .update(integrations)
-      .set({ credentials: this.encrypt(credentials) })
+      .set({ credentials: sealed })
       .where(eq(integrations.id, integrationId))
       .run();
     if (result.changes === 0) throw new NotFoundError(integrationId);
@@ -159,34 +175,37 @@ export class CredentialStore {
   }
 
   async getAuth(integrationId: IntegrationId): Promise<Auth> {
-    const current = this.read(integrationId);
+    const current = await this.read(integrationId);
     if (!this.needsRefresh(current.credentials)) return toAuth(current.credentials);
 
     return this.withLock(integrationId, async () => {
       // another caller may have refreshed while this one waited for the lock
-      const latest = this.read(integrationId);
+      const latest = await this.read(integrationId);
       if (!this.needsRefresh(latest.credentials)) return toAuth(latest.credentials);
       const { provider, blob, credentials } = latest;
       return toAuth(await this.refresh(integrationId, provider, blob, credentials));
     });
   }
 
-  private read(integrationId: IntegrationId): {
+  private async read(integrationId: IntegrationId): Promise<{
     provider: Provider;
     blob: Buffer;
     credentials: Credentials;
-  } {
+  }> {
     const row = this.db
       .select({ provider: integrations.provider, credentials: integrations.credentials })
       .from(integrations)
       .where(eq(integrations.id, integrationId))
       .get();
     if (!row) throw new NotFoundError(integrationId);
-    return {
-      provider: row.provider,
-      blob: row.credentials,
-      credentials: this.decrypt(integrationId, row.credentials),
-    };
+
+    const { credentials, shouldReEncrypt } = await this.decrypt(integrationId, row.credentials);
+    if (!shouldReEncrypt) return { provider: row.provider, blob: row.credentials, credentials };
+
+    // the key was rotated: store the same credentials under the new key
+    const blob = await this.seal(credentials);
+    this.replace(integrationId, row.credentials, blob);
+    return { provider: row.provider, blob, credentials };
   }
 
   private needsRefresh(credentials: Credentials): credentials is OAuthCredentials {
@@ -215,35 +234,34 @@ export class CredentialStore {
       expiresAt: tokens.expiresAt ?? null,
     });
 
-    // Only replace the credentials this refresh started from. A save or clear that landed while the
-    // request was out wins; this caller still gets its fresh token.
-    this.db
-      .update(integrations)
-      .set({ credentials: this.encrypt(refreshed) })
-      .where(and(eq(integrations.id, integrationId), eq(integrations.credentials, blob)))
-      .run();
+    this.replace(integrationId, blob, await this.seal(refreshed));
     return refreshed;
   }
 
-  private encrypt(credentials: Credentials): Buffer {
-    if (!this.cipher.isAvailable()) {
-      throw new IntegrationAuthError(
-        "Secure storage isn't available on this system, so DevBrain can't store credentials",
-      );
-    }
-    return this.cipher.encrypt(serialize(credentials));
+  // Writes only over the blob the caller started from. A save or clear that landed while a refresh
+  // or re-encryption was in flight wins; the caller still uses what it has.
+  private replace(integrationId: IntegrationId, previous: Buffer, next: SealedCredentials): void {
+    this.db
+      .update(integrations)
+      .set({ credentials: next })
+      .where(and(eq(integrations.id, integrationId), eq(integrations.credentials, previous)))
+      .run();
   }
 
   // Any failure becomes an IntegrationAuthError, so a corrupt or foreign blob asks for a reconnect
   // instead of crashing a sync. Parse errors are not attached as the cause: they can quote the input.
-  private decrypt(integrationId: IntegrationId, blob: Buffer): Credentials {
+  private async decrypt(
+    integrationId: IntegrationId,
+    blob: Buffer,
+  ): Promise<{ credentials: Credentials; shouldReEncrypt: boolean }> {
     if (blob.length === 0) {
       throw new IntegrationAuthError(`No credentials are stored for ${integrationId}`);
     }
 
     let plain: string;
+    let shouldReEncrypt: boolean;
     try {
-      plain = this.cipher.decrypt(blob);
+      ({ result: plain, shouldReEncrypt } = await this.cipher.decrypt(blob));
     } catch (error) {
       throw new IntegrationAuthError(`Stored credentials for ${integrationId} can't be decrypted`, {
         cause: error,
@@ -263,13 +281,15 @@ export class CredentialStore {
     }
 
     const stored = parsed.data;
-    return stored.type === AuthType.API_KEY
-      ? apiKeyCredentials(stored.apiKey)
-      : oauthCredentials({
-          accessToken: stored.accessToken,
-          refreshToken: stored.refreshToken,
-          expiresAt: stored.expiresAt === null ? null : new Date(stored.expiresAt),
-        });
+    const credentials =
+      stored.type === AuthType.API_KEY
+        ? apiKeyCredentials(stored.apiKey)
+        : oauthCredentials({
+            accessToken: stored.accessToken,
+            refreshToken: stored.refreshToken,
+            expiresAt: stored.expiresAt === null ? null : new Date(stored.expiresAt),
+          });
+    return { credentials, shouldReEncrypt };
   }
 
   private async withLock<T>(integrationId: IntegrationId, fn: () => Promise<T>): Promise<T> {
