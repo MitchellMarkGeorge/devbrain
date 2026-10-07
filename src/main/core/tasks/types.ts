@@ -2,6 +2,7 @@ import { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
 import { Archivable, Completeable, Model } from '../shared/model';
 import { tasks } from '@main/db/schema/tasks';
 import { InferSelectModel } from 'drizzle-orm';
+import type { ExternalRef } from '../integrations/types';
 
 export enum TaskPriority {
   // migrated to ints so sorting works
@@ -32,6 +33,8 @@ export interface Task extends Model<TaskId>, Archivable, Completeable {
   linkedEventId: EventId | null;
   linkedNoteId: NoteId | null;
   pullRequestUrl: string | null;
+  // set on every read: the link to the provider item it mirrors, or null for a local task
+  external?: ExternalRef | null;
 }
 export interface CreateTaskOptions {
   title: string;
@@ -74,6 +77,8 @@ export interface TaskFilterOptions {
   excludeSubtasks?: boolean;
   // backs the showCompletedTasks setting: hides completed and cancelled tasks together
   excludeClosed?: boolean;
+  // external: synced from an integration; local: everything else, detached tasks included
+  origin?: 'local' | 'external';
 }
 
 export interface TaskSortOptions {

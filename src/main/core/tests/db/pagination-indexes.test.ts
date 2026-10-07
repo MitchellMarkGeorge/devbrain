@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, not, sql, SQL } from 'drizzle-orm';
 import { SQLiteColumn, unionAll } from 'drizzle-orm/sqlite-core';
 import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
@@ -7,6 +7,8 @@ import { notes } from '@main/db/schema/notes';
 import { events } from '@main/db/schema/events';
 import { createDb } from '../utils';
 import { keyset } from '../../shared/pagination';
+import { hasLinkInState, LinkedEntity } from '../../integrations/refs';
+import { LinkState } from '../../integrations/types';
 
 // Verifies the keyset-paginated queries are served by the pagination indexes: the plan must
 // SEARCH/SCAN using the expected index and must not need a temp b-tree for ORDER BY.
@@ -23,6 +25,19 @@ interface Case {
   ascIndex: string;
   // the service sorts this column with keyset's `isSortValueNullable`
   isSortValueNullable: boolean;
+  // the entity behind the `origin` filter, for the tables that have one
+  entity?: LinkedEntity;
+}
+
+// the `origin` filter as listTasks and listProjects build it: a correlated EXISTS on the link
+function originFilter(
+  entity: LinkedEntity | undefined,
+  idColumn: SQLiteColumn,
+  origin: 'local' | 'external' | undefined,
+): SQL | undefined {
+  if (!entity || origin === undefined) return undefined;
+  const isSynced = hasLinkInState(entity, idColumn, LinkState.SYNCED);
+  return origin === 'external' ? isSynced : not(isSynced);
 }
 
 const cases: Case[] = [
@@ -53,6 +68,7 @@ const cases: Case[] = [
   index: index as string,
   ascIndex: (ascIndex ?? index) as string,
   isSortValueNullable: column === 'dueDate',
+  entity: ({ tasks: 'task', projects: 'project' } as const)[name as string],
 }));
 
 function plan(query: { toSQL(): { sql: string; params: unknown[] } }): string[] {
@@ -95,8 +111,13 @@ describe.each(cases)('pagination index — $name', (c) => {
   // with isSortValueNullable, a sort resumes differently after a value and after a null
   const cursorValues = c.isSortValueNullable ? [sample, null] : [sample];
 
+  // the origin filter must not change the index or add a sort step
+  const origins = c.entity ? ([undefined, 'external', 'local'] as const) : [undefined];
+
   it.each(['asc', 'desc'] as const)('%s, first page and with cursor use the index', (direction) => {
-    for (const cursorValue of [undefined, ...cursorValues]) {
+    for (const [cursorValue, origin] of [undefined, ...cursorValues].flatMap((v) =>
+      origins.map((o) => [v, o] as const),
+    )) {
       const pager = keyset<{ v: unknown; id: string }>(
         {
           sortKey: c.name,
@@ -117,11 +138,19 @@ describe.each(cases)('pagination index — $name', (c) => {
       const query = db
         .select()
         .from(c.from as typeof tasks)
-        .where(and(isNull(c.table.archivedAt!), pager.after))
+        .where(
+          and(isNull(c.table.archivedAt!), originFilter(c.entity, c.table.id, origin), pager.after),
+        )
         .orderBy(...pager.orderBy)
         .limit(pager.fetchLimit);
       const detail = plan(query).join('\n');
       expect(detail).toContain(direction === 'asc' ? c.ascIndex : c.index);
+      // the link is found through its unique entity column, one seek per row
+      if (origin) {
+        expect(detail).toContain(
+          `USING INDEX external_links_${c.entity}Id_unique (${c.entity}_id=?)`,
+        );
+      }
       expect(detail).not.toContain('TEMP B-TREE');
     }
   });
@@ -150,7 +179,7 @@ describe('pagination index — tasks.listSubtasks', () => {
 });
 
 describe('pagination index — events.listEventsInRange', () => {
-  it('orders by startAt without a temp b-tree', () => {
+  it('orders by startAt without a temp b-tree, with removed events left out', () => {
     const pager = keyset<{ v: unknown; id: string }>({
       sortKey: 'startAt',
       sortColumn: events.startAt,
@@ -162,11 +191,12 @@ describe('pagination index — events.listEventsInRange', () => {
     const query = db
       .select()
       .from(events)
-      .where(pager.after)
+      .where(and(not(hasLinkInState('event', events.id, LinkState.REMOVED)), pager.after))
       .orderBy(...pager.orderBy)
       .limit(pager.fetchLimit);
     const detail = plan(query).join('\n');
     expect(detail).toContain('idx_events_start_at_id');
+    expect(detail).toContain('USING INDEX external_links_eventId_unique (event_id=?)');
     expect(detail).not.toContain('TEMP B-TREE');
   });
 });

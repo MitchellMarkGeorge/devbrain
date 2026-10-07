@@ -1,5 +1,6 @@
 import { ProjectId } from '@common/ids';
 import { Archivable, Completeable, Model } from '../shared/model';
+import type { ExternalRef } from '../integrations/types';
 
 export interface Project extends Model<ProjectId>, Archivable, Completeable {
   title: string;
@@ -8,6 +9,8 @@ export interface Project extends Model<ProjectId>, Archivable, Completeable {
   dueDate: Date | null;
   status: ProjectStatus;
   color: string | null;
+  // set on every read: the link to the provider item it mirrors, or null for a local project
+  external?: ExternalRef | null;
 }
 
 export enum ProjectStatus {
@@ -50,6 +53,8 @@ export interface ProjectFilterOptions {
   dueBefore?: Date;
   dueAfter?: Date;
   status?: ProjectStatus;
+  // external: synced from an integration; local: everything else, detached projects included
+  origin?: 'local' | 'external';
   // health?: ProjectHealth;
 }
 

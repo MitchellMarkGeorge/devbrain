@@ -1,6 +1,6 @@
 import { ProjectId, TaskId } from '@common/ids';
 import { tasks } from '@main/db/schema/tasks';
-import { eq, inArray, notInArray, and, isNull, SQL, lt, gt, gte, desc } from 'drizzle-orm';
+import { eq, inArray, notInArray, and, isNull, not, SQL, lt, gt, gte, desc } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   CreateSubTaskOptions,
@@ -18,6 +18,8 @@ import { isSubtask } from './utils';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { localDayWindow } from '../shared/utils';
 import { keyset, Page, PageOptions } from '../shared/pagination';
+import { hasLinkInState, withRef, withRefs } from '../integrations/refs';
+import { LinkState } from '../integrations/types';
 
 export class TaskService {
   constructor(private readonly db: BetterSQLite3Database) {}
@@ -25,11 +27,11 @@ export class TaskService {
   async getById(id: TaskId): Promise<Task> {
     const [row] = await this.activeTasks(eq(tasks.id, id)).limit(1);
     if (!row) throw new NotFoundError(id);
-    return row;
+    return withRef(this.db, row);
   }
 
   async getByIds(ids: TaskId[]): Promise<Task[]> {
-    return this.activeTasks(inArray(tasks.id, ids));
+    return withRefs(this.db, await this.activeTasks(inArray(tasks.id, ids)));
   }
 
   async createTask(options: CreateTaskOptions): Promise<Task> {
@@ -134,6 +136,12 @@ export class TaskService {
       clauses.push(lt(tasks.dueDate, endOfDay));
     }
 
+    if (filter.origin !== undefined) {
+      // only a synced link makes a task external; a detached one is the user's own again
+      const isSynced = hasLinkInState('task', tasks.id, LinkState.SYNCED);
+      clauses.push(filter.origin === 'external' ? isSynced : not(isSynced));
+    }
+
     let sortColumn: SQLiteColumn;
     switch (sort.sortBy) {
       case 'dueDate':
@@ -174,7 +182,9 @@ export class TaskService {
       .orderBy(...pager.orderBy)
       .limit(pager.fetchLimit);
 
-    return pager.toPage(rows);
+    // filled after the page is cut, so the lookup covers only the rows returned
+    const result = pager.toPage(rows);
+    return { ...result, items: await withRefs(this.db, result.items) };
   }
 
   async listSubtasks(parentTaskId: TaskId, page: PageOptions = {}): Promise<Page<Task>> {
@@ -197,7 +207,9 @@ export class TaskService {
       .orderBy(...pager.orderBy)
       .limit(pager.fetchLimit);
 
-    return pager.toPage(rows);
+    // filled after the page is cut, so the lookup covers only the rows returned
+    const result = pager.toPage(rows);
+    return { ...result, items: await withRefs(this.db, result.items) };
   }
 
   async updateTask(id: TaskId, updates: UpdateTaskOptions): Promise<Task | null> {
