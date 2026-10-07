@@ -182,7 +182,9 @@ export class TaskService {
       .orderBy(...pager.orderBy)
       .limit(pager.fetchLimit);
 
-    return this.withPageRefs(pager.toPage(rows));
+    // filled after the page is cut, so the lookup covers only the rows returned
+    const result = pager.toPage(rows);
+    return { ...result, items: await withRefs(this.db, result.items) };
   }
 
   async listSubtasks(parentTaskId: TaskId, page: PageOptions = {}): Promise<Page<Task>> {
@@ -205,7 +207,9 @@ export class TaskService {
       .orderBy(...pager.orderBy)
       .limit(pager.fetchLimit);
 
-    return this.withPageRefs(pager.toPage(rows));
+    // filled after the page is cut, so the lookup covers only the rows returned
+    const result = pager.toPage(rows);
+    return { ...result, items: await withRefs(this.db, result.items) };
   }
 
   async updateTask(id: TaskId, updates: UpdateTaskOptions): Promise<Task | null> {
@@ -329,11 +333,6 @@ export class TaskService {
       .returning();
 
     return row;
-  }
-
-  // filled after the page is cut, so the lookup covers only the rows returned
-  private async withPageRefs(page: Page<Task>): Promise<Page<Task>> {
-    return { ...page, items: await withRefs(this.db, page.items) };
   }
 
   private activeTasks(condition: SQL<unknown>) {
