@@ -7,12 +7,11 @@ import { integrations } from '@main/db/schema/integrations';
 import { createDb } from '../utils';
 import { FakeCipher } from '../__mocks__/fake-cipher';
 import {
-  apiKeyCredentials,
+  ApiKeyCredentials,
   CredentialStore,
-  oauthCredentials,
+  OAuthCredentials,
   RefreshedTokens,
   TokenRefresher,
-  toAuth,
 } from '../../integrations/credentials';
 import { AuthType, Provider } from '../../integrations/types';
 import { IntegrationAuthError, NotFoundError } from '../../shared/errors';
@@ -45,6 +44,14 @@ function storedBlob(db: BetterSQLite3Database, id: IntegrationId): Buffer {
     .from(integrations)
     .where(eq(integrations.id, id))
     .get()!.credentials;
+}
+
+function apiKeyCredentials(apiKey: string): ApiKeyCredentials {
+  return { type: AuthType.API_KEY, apiKey };
+}
+
+function oauthCredentials(tokens: Omit<OAuthCredentials, 'type'>): OAuthCredentials {
+  return { type: AuthType.OAUTH, ...tokens };
 }
 
 async function decryptStored(cipher: FakeCipher, db: BetterSQLite3Database, id: IntegrationId) {
@@ -329,44 +336,5 @@ describe('CredentialStore — refresh', () => {
 
     expect(await auth).toEqual({ authorization: 'Bearer new-access' });
     expect((await decryptStored(cipher, db, id)).accessToken).toBe('reconnected');
-  });
-});
-
-describe('credentials — redaction', () => {
-  const oauth = oauthCredentials({
-    accessToken: ACCESS_TOKEN,
-    refreshToken: REFRESH_TOKEN,
-    expiresAt: new Date(NOW),
-  });
-  const apiKey = apiKeyCredentials(API_KEY);
-  const secrets = [API_KEY, ACCESS_TOKEN, REFRESH_TOKEN];
-
-  function expectNoSecret(text: string) {
-    for (const secret of secrets) expect(text).not.toContain(secret);
-  }
-
-  it('hides secrets from JSON.stringify', () => {
-    expect(JSON.parse(JSON.stringify(apiKey))).toEqual({ type: 'api_key', apiKey: '[redacted]' });
-    expect(JSON.parse(JSON.stringify(oauth))).toEqual({
-      type: 'oauth',
-      accessToken: '[redacted]',
-      refreshToken: '[redacted]',
-      expiresAt: new Date(NOW).toISOString(),
-    });
-    expectNoSecret(JSON.stringify({ integration: 'int_1', credentials: [apiKey, oauth] }));
-    expectNoSecret(JSON.stringify(toAuth(oauth)));
-  });
-
-  it('hides secrets from util.inspect, which loggers use, including in an error cause', () => {
-    expectNoSecret(inspect({ apiKey, oauth, auth: toAuth(apiKey) }, { depth: 5 }));
-    const error = new IntegrationAuthError('refresh failed', { cause: { credentials: oauth } });
-    expectNoSecret(inspect(error, { depth: 5 }));
-    expectNoSecret(JSON.stringify({ error, cause: error.cause }));
-  });
-
-  it('keeps the secret fields readable in code', () => {
-    expect(apiKey.apiKey).toBe(API_KEY);
-    expect(oauth.accessToken).toBe(ACCESS_TOKEN);
-    expect({ ...apiKey }).toEqual({ type: AuthType.API_KEY, apiKey: API_KEY });
   });
 });

@@ -57,48 +57,15 @@ export interface CredentialStoreOptions {
   now?: () => number; // injected for tests
 }
 
-const REDACTED = '[redacted]';
-const inspectSymbol = Symbol.for('nodejs.util.inspect.custom');
-
-// Gives a secret-bearing object a toJSON and a util.inspect hook that hide its secrets, so logging
-// it (electron-log, console, an error's cause) never prints a token. Both are non-enumerable, so
-// equality checks and spreads ignore them.
-function redact<T extends object>(value: T, safe: () => object): T {
-  Object.defineProperty(value, 'toJSON', { value: safe, enumerable: false });
-  Object.defineProperty(value, inspectSymbol, { value: safe, enumerable: false });
-  return value;
-}
-
-export function apiKeyCredentials(apiKey: string): ApiKeyCredentials {
-  const credentials: ApiKeyCredentials = { type: AuthType.API_KEY, apiKey };
-  return redact(credentials, () => ({ type: credentials.type, apiKey: REDACTED }));
-}
-
-export function oauthCredentials(
-  tokens: Pick<OAuthCredentials, 'accessToken' | 'refreshToken' | 'expiresAt'>,
-): OAuthCredentials {
-  const credentials: OAuthCredentials = {
-    type: AuthType.OAUTH,
-    accessToken: tokens.accessToken,
-    refreshToken: tokens.refreshToken,
-    expiresAt: tokens.expiresAt,
-  };
-  return redact(credentials, () => ({
-    type: credentials.type,
-    accessToken: REDACTED,
-    refreshToken: REDACTED,
-    expiresAt: credentials.expiresAt,
-  }));
-}
-
 // The header value for credentials. OAuth tokens are bearer tokens; an API key goes as it is, which
 // is what Linear expects. Exported so a connect can validate a key before anything is stored.
 export function toAuth(credentials: Credentials): Auth {
-  const authorization =
-    credentials.type === AuthType.API_KEY
-      ? credentials.apiKey
-      : `Bearer ${credentials.accessToken}`;
-  return redact({ authorization }, () => ({ authorization: REDACTED }));
+  return {
+    authorization:
+      credentials.type === AuthType.API_KEY
+        ? credentials.apiKey
+        : `Bearer ${credentials.accessToken}`,
+  };
 }
 
 // the decrypted JSON; times are ISO strings, as JSON has no dates
@@ -113,7 +80,7 @@ const storedCredentialsSchema = z.discriminatedUnion('type', [
 ]);
 
 function serialize(credentials: Credentials): string {
-  // fields are picked by hand: JSON.stringify on the object itself would call the redacting toJSON
+  // fields are picked by hand, so only these are stored and expiresAt is written as an ISO string
   const stored: z.input<typeof storedCredentialsSchema> =
     credentials.type === AuthType.API_KEY
       ? { type: credentials.type, apiKey: credentials.apiKey }
@@ -228,11 +195,12 @@ export class CredentialStore {
     }
 
     const tokens = await refresher(credentials.refreshToken);
-    const refreshed = oauthCredentials({
+    const refreshed: OAuthCredentials = {
+      type: AuthType.OAUTH,
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken ?? credentials.refreshToken,
       expiresAt: tokens.expiresAt ?? null,
-    });
+    };
 
     this.replace(integrationId, blob, await this.seal(refreshed));
     return refreshed;
@@ -281,14 +249,10 @@ export class CredentialStore {
     }
 
     const stored = parsed.data;
-    const credentials =
+    const credentials: Credentials =
       stored.type === AuthType.API_KEY
-        ? apiKeyCredentials(stored.apiKey)
-        : oauthCredentials({
-            accessToken: stored.accessToken,
-            refreshToken: stored.refreshToken,
-            expiresAt: stored.expiresAt === null ? null : new Date(stored.expiresAt),
-          });
+        ? stored
+        : { ...stored, expiresAt: stored.expiresAt === null ? null : new Date(stored.expiresAt) };
     return { credentials, shouldReEncrypt };
   }
 

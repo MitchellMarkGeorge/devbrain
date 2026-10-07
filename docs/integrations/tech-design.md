@@ -1046,4 +1046,5 @@ Resolved on 6 October 2026 and recorded in the provider reference: Linear PKCE, 
 - [ ] Does background sync need to continue when the window is closed but the app is running (macOS)?
 - [ ] Add a time-zone column to `events` now, or keep the series time zone in link metadata for v1?
 
+* [ ] Revisit later: redact secrets by type. Credentials are plain objects today, so logging one prints its tokens; the only guard is the rule never to log them. A `Secret` class would hold each value in a `#private` field, expose it only through `reveal()`, and return `[redacted]` from `toJSON` and the `util.inspect` hook. Credential fields and `Auth.authorization` would be typed `Secret`, so `JSON.stringify`, `util.inspect`, spreads and `structuredClone` can never print a token, and every read of a raw value is an explicit, greppable `reveal()`. Patching `toJSON` onto plain objects was tried in feature 6 and dropped: it is invisible in the types and lost on any copy.
 * [ ] Revisit later: `SyncWriter` writes entity tables directly, alongside `TaskService` and `ArchiveService`. Should row writes be unified, through per-entity stores or service-owned row writers?

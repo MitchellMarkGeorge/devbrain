@@ -153,7 +153,7 @@ A workspace can hold a validated, encrypted Linear connection. Nothing syncs yet
 - [ ] Add a per-integration in-memory mutex so two callers never refresh at once.
 - [ ] Refuse `save` when `isAvailable()` is false, with an error the UI can show.
 - [ ] Write `tests/__mocks__/fake-cipher.ts`: a reversible fake for tests.
-- [ ] Make sure no credential field is ever passed to `electron-log`. Add a redacting `toJSON` on the credentials type.
+- [ ] Make sure no credential field is ever passed to `electron-log`. Automatic redaction is deferred; see the `Secret` wrapper under open questions in the design.
 
 **Tests**
 
