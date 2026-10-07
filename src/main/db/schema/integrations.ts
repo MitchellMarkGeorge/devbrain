@@ -18,7 +18,7 @@ import {
   AnySQLiteColumn,
 } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
-import type {
+import {
   AuthType,
   IntegrationStatus,
   LinkState,
@@ -42,7 +42,7 @@ export const integrations = sqliteTable(
     authType: text().notNull().$type<AuthType>(),
     accountId: text().notNull(), // provider's user id
     accountLabel: text().notNull(), // email or display name, shown in settings
-    status: text().notNull().$type<IntegrationStatus>().default('connected'),
+    status: text().notNull().$type<IntegrationStatus>().default(IntegrationStatus.CONNECTED),
     // safeStorage ciphertext; never leaves the main process
     credentials: blob({ mode: 'buffer' }).notNull(),
     scopes: text(), // granted scopes; null for API keys
@@ -112,7 +112,7 @@ export const externalLinks = sqliteTable(
     externalKey: text(), // human identifier, such as ENG-123
     externalUrl: text().notNull(),
     externalUpdatedAt: date().notNull(), // used to skip unchanged items
-    state: text().notNull().$type<LinkState>().default('synced'),
+    state: text().notNull().$type<LinkState>().default(LinkState.SYNCED),
     // JSON, validated with core/integrations/schema on read
     metadata: text({ mode: 'json' }).notNull().$type<unknown>().default({}),
     lastSyncedAt: date().notNull(),

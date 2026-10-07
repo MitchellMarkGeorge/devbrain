@@ -13,21 +13,39 @@ import {
   taskLinkMetadataSchema,
 } from './schema';
 
-// the value lists live next to the types so the db schema, zod and later the UI share them
-export const PROVIDERS = ['linear', 'google_calendar'] as const;
-export const SOURCE_TYPES = ['tasks', 'events', 'version_control'] as const;
-export const AUTH_TYPES = ['oauth', 'api_key'] as const;
-export const INTEGRATION_STATUSES = ['connected', 'disabled', 'needs_reauth'] as const;
-export const LINK_STATES = ['synced', 'detached', 'removed'] as const;
+// string values, as they are stored in the integration tables' text columns
 
-export type Provider = (typeof PROVIDERS)[number];
-// version_control is reserved in the schema only; no provider serves it in v1
-export type SourceType = (typeof SOURCE_TYPES)[number];
-export type AuthType = (typeof AUTH_TYPES)[number];
-export type IntegrationStatus = (typeof INTEGRATION_STATUSES)[number];
-// synced: provider-owned and read-only. detached: a local copy that remembers where it came
-// from, ignored by sync. removed: left scope (archived, or hidden for events), restored if it returns
-export type LinkState = (typeof LINK_STATES)[number];
+export enum Provider {
+  LINEAR = 'linear',
+  GOOGLE_CALENDAR = 'google_calendar',
+}
+
+export enum SourceType {
+  TASKS = 'tasks',
+  EVENTS = 'events',
+  // reserved in the schema only; no provider serves it in v1
+  VERSION_CONTROL = 'version_control',
+}
+
+export enum AuthType {
+  OAUTH = 'oauth',
+  API_KEY = 'api_key',
+}
+
+export enum IntegrationStatus {
+  CONNECTED = 'connected',
+  DISABLED = 'disabled',
+  NEEDS_REAUTH = 'needs_reauth',
+}
+
+export enum LinkState {
+  // provider-owned and read-only
+  SYNCED = 'synced',
+  // a local copy that remembers where it came from, ignored by sync
+  DETACHED = 'detached',
+  // left scope (archived, or hidden for events), restored if it returns
+  REMOVED = 'removed',
+}
 
 // what the rest of the app sees of a connection: never the credentials
 export interface Integration {

@@ -7,6 +7,13 @@ import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
 import { events } from '@main/db/schema/events';
 import { createDb } from '../utils';
+import {
+  AuthType,
+  IntegrationStatus,
+  LinkState,
+  Provider,
+  SourceType,
+} from '../../integrations/types';
 
 // The integration tables' constraints and foreign key actions, against the real migrations.
 
@@ -32,8 +39,8 @@ function insertIntegration(accountId = 'org:user') {
   return db
     .insert(integrations)
     .values({
-      provider: 'linear',
-      authType: 'api_key',
+      provider: Provider.LINEAR,
+      authType: AuthType.API_KEY,
       accountId,
       accountLabel: 'Ada, Acme',
       credentials: Buffer.from('ciphertext'),
@@ -45,7 +52,7 @@ function insertIntegration(accountId = 'org:user') {
 function link(values: Partial<typeof externalLinks.$inferInsert> = {}) {
   return db.insert(externalLinks).values({
     sourceId,
-    provider: 'linear',
+    provider: Provider.LINEAR,
     externalId: 'issue-1',
     externalKey: 'ENG-1',
     externalUrl: 'https://linear.app/acme/issue/ENG-1',
@@ -60,7 +67,7 @@ beforeEach(() => {
   integrationId = insertIntegration().id;
   sourceId = db
     .insert(externalSources)
-    .values({ integrationId, sourceType: 'tasks' })
+    .values({ integrationId, sourceType: SourceType.TASKS })
     .returning()
     .get().id;
   projectId = db.insert(projects).values({ title: 'Project' }).returning().get().id;
@@ -76,7 +83,7 @@ describe('integration tables — defaults and ids', () => {
   it('generates prefixed ids and fills defaults', () => {
     const integration = db.select().from(integrations).get()!;
     expect(integration.id).toMatch(/^int_/);
-    expect(integration.status).toBe('connected');
+    expect(integration.status).toBe(IntegrationStatus.CONNECTED);
     expect(integration.credentials.toString()).toBe('ciphertext');
 
     const source = db.select().from(externalSources).get()!;
@@ -91,7 +98,7 @@ describe('integration tables — defaults and ids', () => {
 
     const row = link({ taskId }).returning().get();
     expect(row.id).toMatch(/^xln_/);
-    expect(row).toMatchObject({ state: 'synced', metadata: {}, settledAt: null });
+    expect(row).toMatchObject({ state: LinkState.SYNCED, metadata: {}, settledAt: null });
   });
 
   it('round-trips JSON config, cursor and metadata', () => {
@@ -120,16 +127,16 @@ describe('integration tables — uniqueness', () => {
   it('rejects a second integration for the same provider and account', () => {
     expect(failure(() => insertIntegration())).toMatch(/UNIQUE constraint failed/);
     // another account on the same provider is fine
-    expect(insertIntegration('org:other').provider).toBe('linear');
+    expect(insertIntegration('org:other').provider).toBe(Provider.LINEAR);
   });
 
   it('rejects a second source of the same type on one integration', () => {
     expect(
       failure(() =>
-        db.insert(externalSources).values({ integrationId, sourceType: 'tasks' }).run(),
+        db.insert(externalSources).values({ integrationId, sourceType: SourceType.TASKS }).run(),
       ),
     ).toMatch(/UNIQUE constraint failed/);
-    db.insert(externalSources).values({ integrationId, sourceType: 'events' }).run();
+    db.insert(externalSources).values({ integrationId, sourceType: SourceType.EVENTS }).run();
   });
 
   it('rejects two links with the same sourceId and externalId', () => {
@@ -200,7 +207,7 @@ describe('integration tables — foreign key actions', () => {
     expect(db.select().from(externalSources).all()).toEqual([]);
     const survivor = db.select().from(externalLinks).where(eq(externalLinks.id, linkId)).get()!;
     // the detached copy keeps its provider and url for the badge
-    expect(survivor).toMatchObject({ sourceId: null, provider: 'linear', taskId });
+    expect(survivor).toMatchObject({ sourceId: null, provider: Provider.LINEAR, taskId });
     expect(db.select().from(tasks).all()).toHaveLength(1);
   });
 
@@ -219,7 +226,7 @@ describe('integration tables — reconcile index', () => {
     const query = db
       .select({ id: externalLinks.id })
       .from(externalLinks)
-      .where(and(eq(externalLinks.sourceId, sourceId), eq(externalLinks.state, 'synced')));
+      .where(and(eq(externalLinks.sourceId, sourceId), eq(externalLinks.state, LinkState.SYNCED)));
     const { sql, params } = query.toSQL();
     const rows = (db as unknown as { $client: import('better-sqlite3').Database }).$client
       .prepare(`EXPLAIN QUERY PLAN ${sql}`)
