@@ -100,7 +100,7 @@ Only the provider adapters talk to the network, and only `SyncWriter` writes ext
 | Component            | Location                                                    | Responsibility                                                                                  |
 | -------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `IntegrationService` | `core/integrations/service.ts`                              | Connect, disconnect, enable and disable. Owns the `integrations` and `external_sources` tables. |
-| `CredentialStore`    | `core/integrations/credentials.ts`                          | Encrypts and decrypts tokens through an injected `SecretCipher`. Refreshes OAuth tokens.        |
+| `CredentialStore`    | `core/integrations/credential-store.ts`                     | Encrypts and decrypts tokens through an injected `SecretCipher`. Refreshes OAuth tokens.        |
 | OAuth loopback       | `core/integrations/oauth/`                                  | PKCE pair, state, temporary `127.0.0.1` listener, code exchange.                                |
 | Provider adapters    | `core/integrations/providers/linear`, `.../google-calendar` | API client and mapper per provider. The only code that knows a provider's shapes.               |
 | `SyncEngine`         | `core/sync/engine.ts`                                       | Runs one sync for one source: pull pages, hand them to the writer, advance the cursor.          |

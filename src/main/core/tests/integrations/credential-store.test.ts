@@ -6,9 +6,9 @@ import { IntegrationId } from '@common/ids';
 import { integrations } from '@main/db/schema/integrations';
 import { createDb } from '../utils';
 import { FakeCipher } from '../__mocks__/fake-cipher';
+import { CredentialStore } from '../../integrations/credential-store';
 import {
   ApiKeyCredentials,
-  CredentialStore,
   OAuthCredentials,
   RefreshedTokens,
   TokenRefresher,

@@ -147,7 +147,7 @@ A workspace can hold a validated, encrypted Linear connection. Nothing syncs yet
 
 - [ ] Define `SecretCipher` in `core/integrations/credentials.ts`: `isAvailable(): Promise<boolean>`, `encrypt(plain: string): Promise<Buffer>`, `decrypt(cipher: Buffer): Promise<{ result: string; shouldReEncrypt: boolean }>`. It mirrors Electron's async `safeStorage` API.
 - [ ] Define the `Credentials` union: `{ type: 'api_key'; apiKey }` and `{ type: 'oauth'; accessToken; refreshToken; expiresAt }`. Validate with zod on decrypt.
-- [ ] Implement `CredentialStore` with `seal(credentials)`, `save(integrationId, sealed)`, `getAuth(integrationId)` and `clear(integrationId)`. It reads and writes `integrations.credentials`. Encryption is async and a better-sqlite3 transaction is not, so `seal` encrypts before the transaction and the synchronous `save` writes inside it.
+- [ ] Implement `CredentialStore` in `core/integrations/credential-store.ts` with `seal(credentials)`, `save(integrationId, sealed)`, `getAuth(integrationId)` and `clear(integrationId)`. It reads and writes `integrations.credentials`. Encryption is async and a better-sqlite3 transaction is not, so `seal` encrypts before the transaction and the synchronous `save` writes inside it.
 - [ ] When `decrypt` reports `shouldReEncrypt`, re-encrypt and store the credentials under the new key.
 - [ ] `getAuth` returns the header value a provider needs. For OAuth it refreshes when the token expires within 60 seconds. Leave the refresh call as an injected function per provider; it is implemented in feature 16.
 - [ ] Add a per-integration in-memory mutex so two callers never refresh at once.
