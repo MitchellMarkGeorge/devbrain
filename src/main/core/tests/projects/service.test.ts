@@ -13,6 +13,9 @@ import { TaskStatus } from '../../tasks/types';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../../shared/errors';
 import { createDb } from '../utils';
 import { InvalidCursorError } from '../../shared/pagination';
+import { projects as projectsTable } from '@main/db/schema/projects';
+import { tasks as tasksSchema } from '@main/db/schema/tasks';
+import { eq } from 'drizzle-orm';
 
 const TOMORROW = new Date(Date.now() + 86_400_000);
 const YESTERDAY = new Date(Date.now() - 86_400_000);
@@ -129,7 +132,7 @@ describe('ProjectService — createProject', () => {
 
   it('stores the provided dueDate', async () => {
     const project = await projects.createProject({ title: 'Due soon', dueDate: NEXT_WEEK });
-    expect(project.dueDate.getTime()).toBe(NEXT_WEEK.getTime());
+    expect(project.dueDate!.getTime()).toBe(NEXT_WEEK.getTime());
   });
 });
 
@@ -193,7 +196,7 @@ describe('ProjectService — updateProject', () => {
   it('updates the dueDate', async () => {
     const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
     const updated = await projects.updateProject(project.id, { dueDate: NEXT_WEEK });
-    expect(updated!.dueDate.getTime()).toBe(NEXT_WEEK.getTime());
+    expect(updated!.dueDate!.getTime()).toBe(NEXT_WEEK.getTime());
   });
 
   it('updates the startDate', async () => {
@@ -221,7 +224,7 @@ describe('ProjectService — updateProject', () => {
     });
     const updated = await projects.updateProject(project.id, { title: 'Changed' });
     expect(updated!.description).toBe('Original desc');
-    expect(updated!.dueDate.getTime()).toBe(TOMORROW.getTime());
+    expect(updated!.dueDate!.getTime()).toBe(TOMORROW.getTime());
   });
 });
 
@@ -911,5 +914,88 @@ describe('ProjectService — cursor pagination', () => {
     await expect(
       projects.listProjects({}, { sortBy: 'status' }, { cursor: page.nextCursor! }),
     ).rejects.toThrow(InvalidCursorError);
+  });
+});
+
+describe('ProjectService — undated projects', () => {
+  // local projects always get a due date; synced ones may not, so tests clear it on the row directly
+  async function undated(title: string) {
+    const project = await projects.createProject({ title, dueDate: TOMORROW });
+    await db.update(projectsTable).set({ dueDate: null }).where(eq(projectsTable.id, project.id));
+    return { ...project, dueDate: null };
+  }
+
+  async function collect(direction: 'asc' | 'desc', limit: number) {
+    const ids: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await projects.listProjects(
+        {},
+        { sortBy: 'dueDate', direction },
+        { limit, cursor },
+      );
+      ids.push(...page.items.map((p) => p.id));
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+    return ids;
+  }
+
+  it('reads back a null dueDate', async () => {
+    const project = await undated('No date');
+    expect((await projects.getById(project.id)).dueDate).toBeNull();
+  });
+
+  it.each(['asc', 'desc'] as const)(
+    'pages %s with undated projects last, without skipping or repeating',
+    async (direction) => {
+      const all = [];
+      for (let i = 0; i < 3; i++) {
+        all.push(
+          await projects.createProject({ title: `D${i}`, dueDate: i ? TOMORROW : NEXT_WEEK }),
+        );
+        all.push(await undated(`U${i}`));
+      }
+      const sign = direction === 'asc' ? 1 : -1;
+      const byId = (a: { id: string }, b: { id: string }) => sign * (a.id < b.id ? -1 : 1);
+      const expected = [
+        ...all
+          .filter((p) => p.dueDate !== null)
+          .sort((a, b) => sign * (a.dueDate!.getTime() - b.dueDate!.getTime()) || byId(a, b)),
+        ...all.filter((p) => p.dueDate === null).sort(byId),
+      ].map((p) => p.id);
+
+      for (const limit of [1, 2, 4]) {
+        expect(await collect(direction, limit)).toEqual(expected);
+      }
+    },
+  );
+
+  it('excludes undated projects from dueBefore, dueAfter and dueOn', async () => {
+    const before = await projects.createProject({ title: 'Yesterday', dueDate: YESTERDAY });
+    const after = await projects.createProject({ title: 'Next week', dueDate: NEXT_WEEK });
+    const on = await projects.createProject({ title: 'Tomorrow', dueDate: TOMORROW });
+    await undated('No date');
+
+    const ids = async (filter: Parameters<ProjectService['listProjects']>[0]) =>
+      (await projects.listProjects(filter, undefined, { limit: 200 })).items.map((p) => p.id);
+
+    expect(await ids({ dueBefore: new Date() })).toEqual([before.id]);
+    expect(await ids({ dueAfter: TOMORROW })).toEqual([after.id]);
+    expect(await ids({ dueOn: TOMORROW })).toEqual([on.id]);
+  });
+
+  it('getProjectStats does not count an undated incomplete task as overdue', async () => {
+    const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
+    await tasks.createTask({ title: 'Overdue', dueDate: YESTERDAY, projectId: project.id });
+    const task = await tasks.createTask({
+      title: 'Undated',
+      dueDate: YESTERDAY,
+      projectId: project.id,
+    });
+    await db.update(tasksSchema).set({ dueDate: null }).where(eq(tasksSchema.id, task.id));
+
+    const stats = await projects.getProjectStats(project.id);
+    expect(stats.numOfOverdue).toBe(1);
+    expect(stats.totalTasks).toBe(2);
   });
 });

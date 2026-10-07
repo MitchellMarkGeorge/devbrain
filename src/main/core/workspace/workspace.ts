@@ -8,8 +8,10 @@ import { SearchService } from '../search/service';
 import { TaskService } from '../tasks/service';
 import type { WorkspaceInfo } from './types';
 import path from 'node:path';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import fs from 'node:fs/promises';
+import { runMigrations } from '@main/db/migrate';
 import { fileExists } from '../local/utils';
+import { WorkspaceMigrationError } from '../shared/errors';
 
 type SqliteDatabaseClient = Database.Database;
 
@@ -41,7 +43,8 @@ export class Workspace {
       throw new Error(`Workspace database already exists at ${dbPath}`);
     }
     const sqlite = new Database(dbPath);
-    return Workspace.initDb(sqlite, info);
+    // a new database has nothing to restore if migrating fails
+    return Workspace.initDb(sqlite, info, { dbPath, backupPath: null });
   }
 
   static async open(info: WorkspaceInfo): Promise<Workspace> {
@@ -52,24 +55,64 @@ export class Workspace {
     }
     const sqlite = new Database(dbPath);
     // use native backup method
-    await sqlite.backup(`${dbPath}.backup`);
-    return Workspace.initDb(sqlite, info);
+    const backupPath = `${dbPath}.backup`;
+    await sqlite.backup(backupPath);
+    return Workspace.initDb(sqlite, info, { dbPath, backupPath });
   }
 
   private static async initDb(
     sqliteClient: SqliteDatabaseClient,
     info: WorkspaceInfo,
+    files: { dbPath: string; backupPath: string | null },
   ): Promise<Workspace> {
     // keeping them off for now as I implement the services
     // sqlite.pragma('journal_mode = WAL');
-    sqliteClient.pragma('foreign_keys = ON');
-
     const db = drizzle({ client: sqliteClient, casing: 'snake_case' });
 
-    const migrationsPath = process.env.DB_MIGRATIONS_PATH;
-    migrate(db, { migrationsFolder: migrationsPath });
+    try {
+      // leaves foreign keys on once migrations have run
+      runMigrations(sqliteClient, db, process.env.DB_MIGRATIONS_PATH);
+    } catch (error) {
+      sqliteClient.close();
+      if (!(error instanceof WorkspaceMigrationError)) throw error;
+      throw await Workspace.recoverFromFailedMigration(error, files);
+    }
 
     return new Workspace(db, sqliteClient, info);
+  }
+
+  /**
+   * A failed migration that was rolled back left the database as it was. One that was committed
+   * changed it, so the database is replaced with the backup taken when the workspace was opened.
+   * Returns the error to throw: the workspace is never opened after a failed migration.
+   */
+  private static async recoverFromFailedMigration(
+    error: WorkspaceMigrationError,
+    { dbPath, backupPath }: { dbPath: string; backupPath: string | null },
+  ): Promise<WorkspaceMigrationError> {
+    const details = {
+      committed: error.committed,
+      restoredFromBackup: false,
+      backupPath,
+      cause: error.cause,
+    };
+    if (!error.committed || backupPath === null) {
+      return new WorkspaceMigrationError(error.message, details);
+    }
+    try {
+      // with the connection closed and no WAL, the database is this one file; once WAL is on, the
+      // -wal and -shm files beside it must be removed too
+      await fs.copyFile(backupPath, dbPath);
+    } catch (restoreError) {
+      return new WorkspaceMigrationError(
+        `${error.message}, and restoring the backup at ${backupPath} failed`,
+        { ...details, cause: restoreError },
+      );
+    }
+    return new WorkspaceMigrationError(
+      `${error.message}; the database was restored from the backup taken when it was opened`,
+      { ...details, restoredFromBackup: true },
+    );
   }
 
   close() {

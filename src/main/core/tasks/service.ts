@@ -66,13 +66,18 @@ export class TaskService {
       throw new Error('Subtasks cannot create their own subtasks');
     }
 
+    // inherit the parent's due date when none is provided; local tasks always need one
+    const dueDate = options.dueDate ?? parentTask.dueDate;
+    if (dueDate === null) {
+      throw new Error('Subtasks need a due date when their parent task has none');
+    }
+
     const newSubtask = {
       title: options.title,
       description: options.description ?? null,
       status: options.status ?? TaskStatus.NOT_STARTED,
       priority: options.priority ?? TaskPriority.LOW,
-      // inherit the parents due date if none is provided?
-      dueDate: options.dueDate ?? parentTask.dueDate,
+      dueDate,
       startDate: options.startDate ?? null,
       // inherit the parents context by default
       parentTaskId: parentTaskId,
@@ -153,6 +158,8 @@ export class TaskService {
         direction: sort.direction === 'asc' ? 'asc' : 'desc',
         sortValue: (row) => row[sortColumn.name as keyof Task],
         id: (row) => row.id,
+        // undated rows sort last
+        isSortValueNullable: sort.sortBy === 'dueDate',
       },
       page,
     );

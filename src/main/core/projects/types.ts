@@ -5,7 +5,7 @@ export interface Project extends Model<ProjectId>, Archivable, Completeable {
   title: string;
   description: string | null;
   startDate: Date | null;
-  dueDate: Date;
+  dueDate: Date | null;
   status: ProjectStatus;
   color: string | null;
 }

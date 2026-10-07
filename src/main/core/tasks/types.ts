@@ -24,7 +24,7 @@ export interface Task extends Model<TaskId>, Archivable, Completeable {
   priority: TaskPriority;
   status: TaskStatus;
   startDate: Date | null;
-  dueDate: Date;
+  dueDate: Date | null;
   parentTaskId: TaskId | null;
   projectId: ProjectId | null;
   linkedEventId: EventId | null;

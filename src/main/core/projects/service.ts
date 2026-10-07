@@ -111,6 +111,8 @@ export class ProjectService {
         direction: sort.direction === 'asc' ? 'asc' : 'desc',
         sortValue: (row) => row[sortColumn.name as keyof Project],
         id: (row) => row.id,
+        // undated rows sort last
+        isSortValueNullable: sort.sortBy === 'dueDate',
       },
       page,
     );
@@ -141,7 +143,8 @@ export class ProjectService {
         numOfNotStarted: count(sql`${tasks.status} = ${TaskStatus.NOT_STARTED}`),
         numOfInProgress: count(sql`${tasks.status} = ${TaskStatus.IN_PROGRESS}`),
         numOfOverdue: count(
-          sql`${tasks.dueDate} < ${today} AND ${tasks.status} != ${TaskStatus.COMPLETED}`,
+          // an undated task is never overdue
+          sql`${tasks.dueDate} IS NOT NULL AND ${tasks.dueDate} < ${today} AND ${tasks.status} != ${TaskStatus.COMPLETED}`,
         ),
         totalTasks: count(sql`${tasks.projectId} = ${id} AND ${tasks.archivedAt} IS NULL`),
       })
