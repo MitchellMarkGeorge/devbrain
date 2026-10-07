@@ -1,5 +1,6 @@
 import { EventId } from '@common/ids';
 import { Model } from '../shared/model';
+import type { ExternalRef } from '../integrations/types';
 
 export interface Event extends Model<EventId> {
   title: string;
@@ -15,6 +16,8 @@ export interface Event extends Model<EventId> {
   reccurrenceRule: string | null;
   meetingUrl: string | null;
   color: string | null;
+  // set on every read: the link to the provider item it mirrors, or null for a local event
+  external?: ExternalRef | null;
 }
 
 export interface CreateEventOptions {

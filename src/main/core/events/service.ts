@@ -1,22 +1,28 @@
 import { EventId } from '@common/ids';
 import { events } from '@main/db/schema/events';
-import { and, eq, gte, inArray, isNotNull, isNull, lte, or } from 'drizzle-orm';
+import { and, eq, gte, inArray, isNotNull, isNull, lte, not, or } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { NotFoundError } from '../shared/errors';
 import { CreateEventOptions, Event, UpdateEventOptions } from './types';
 import { keyset, Page, PageOptions } from '../shared/pagination';
+import { ExternalRefs, hasLinkInState } from '../integrations/refs';
+import { LinkState } from '../integrations/types';
 
 export class EventService {
-  constructor(private readonly db: BetterSQLite3Database) {}
+  private readonly refs: ExternalRefs;
+
+  constructor(private readonly db: BetterSQLite3Database) {
+    this.refs = new ExternalRefs(db);
+  }
 
   async getById(id: EventId): Promise<Event> {
     const [event] = await this.db.select().from(events).where(eq(events.id, id));
     if (!event) throw new NotFoundError(id);
-    return event;
+    return this.refs.withRef(event);
   }
 
   async getByIds(ids: EventId[]): Promise<Event[]> {
-    return this.db.select().from(events).where(inArray(events.id, ids));
+    return this.refs.withRefs(await this.db.select().from(events).where(inArray(events.id, ids)));
   }
 
   async createEvent(options: CreateEventOptions): Promise<Event> {
@@ -85,6 +91,9 @@ export class EventService {
    * expansion (e.g. FullCalendar's rrule plugin) rather than reimplemented
    * here. That means a long-ended recurring series can be over-fetched
    * harmlessly — it'll just expand to zero instances in range.
+   *
+   * Events whose provider item was cancelled or deleted (link state `removed`) are kept only for
+   * the notes linked to them, and are left out of the calendar.
    */
   async listEventsInRange(start: Date, end: Date, page: PageOptions = {}): Promise<Page<Event>> {
     const pager = keyset<Event>(
@@ -110,12 +119,15 @@ export class EventService {
             // recurring: loose pre-filter, see doc comment above
             and(isNotNull(events.reccurrenceRule), lte(events.startAt, end)),
           ),
+          not(hasLinkInState('event', events.id, LinkState.REMOVED)),
           pager.after,
         ),
       )
       .orderBy(...pager.orderBy)
       .limit(pager.fetchLimit);
 
-    return pager.toPage(rows);
+    // filled after the page is cut, so the lookup covers only the rows returned
+    const result = pager.toPage(rows);
+    return { ...result, items: await this.refs.withRefs(result.items) };
   }
 }

@@ -10,25 +10,31 @@ import {
   UpdateProjectOptions,
 } from './types';
 import { projects } from '@main/db/schema/projects';
-import { eq, inArray, SQL, sql, and, isNull, desc, gt, gte, lt } from 'drizzle-orm';
+import { eq, inArray, SQL, sql, and, isNull, not, desc, gt, gte, lt } from 'drizzle-orm';
 import { localDayWindow } from '../shared/utils';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { keyset, Page, PageOptions } from '../shared/pagination';
 import { NotFoundError } from '../shared/errors';
 import { tasks } from '@main/db/schema/tasks';
 import { TaskStatus } from '../tasks/types';
+import { ExternalRefs, hasLinkInState } from '../integrations/refs';
+import { LinkState } from '../integrations/types';
 
 export class ProjectService {
-  constructor(private readonly db: BetterSQLite3Database) {}
+  private readonly refs: ExternalRefs;
+
+  constructor(private readonly db: BetterSQLite3Database) {
+    this.refs = new ExternalRefs(db);
+  }
 
   async getById(id: ProjectId): Promise<Project> {
     const [row] = await this.activeProjects(eq(projects.id, id)).limit(1);
     if (!row) throw new NotFoundError(id);
-    return row;
+    return this.refs.withRef(row);
   }
 
   async getByIds(ids: ProjectId[]): Promise<Project[]> {
-    return this.activeProjects(inArray(projects.id, ids));
+    return this.refs.withRefs(await this.activeProjects(inArray(projects.id, ids)));
   }
 
   async createProject(options: CreateProjectOptions): Promise<Project> {
@@ -87,6 +93,12 @@ export class ProjectService {
       clauses.push(lt(projects.dueDate, endOfDay));
     }
 
+    if (filter.origin !== undefined) {
+      // only a synced link makes a project external; a detached one is the user's own again
+      const isSynced = hasLinkInState('project', projects.id, LinkState.SYNCED);
+      clauses.push(filter.origin === 'external' ? isSynced : not(isSynced));
+    }
+
     let sortColumn: SQLiteColumn;
     switch (sort.sortBy) {
       case 'dueDate':
@@ -124,7 +136,9 @@ export class ProjectService {
       .orderBy(...pager.orderBy)
       .limit(pager.fetchLimit);
 
-    return pager.toPage(rows);
+    // filled after the page is cut, so the lookup covers only the rows returned
+    const result = pager.toPage(rows);
+    return { ...result, items: await this.refs.withRefs(result.items) };
   }
 
   async getProjectStats(id: ProjectId): Promise<ProjectStats> {
