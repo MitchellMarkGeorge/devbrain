@@ -540,6 +540,30 @@ describe('ProjectService — getProjectStats', () => {
     const stats = await projects.getProjectStats(project.id);
     expect(stats.totalTasks).toBe(2);
   });
+
+  it('counts cancelled tasks separately and leaves them out of totalTasks and overdue', async () => {
+    const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
+    const create = (title: string, status: TaskStatus) =>
+      tasks.createTask({ title, dueDate: YESTERDAY, projectId: project.id, status });
+    await create('Not started', TaskStatus.NOT_STARTED);
+    await create('In progress', TaskStatus.IN_PROGRESS);
+    await create('Completed 1', TaskStatus.COMPLETED);
+    await create('Completed 2', TaskStatus.COMPLETED);
+    await create('Cancelled 1', TaskStatus.CANCELLED);
+    await create('Cancelled 2', TaskStatus.CANCELLED);
+    await create('Cancelled 3', TaskStatus.CANCELLED);
+
+    const stats = await projects.getProjectStats(project.id);
+    expect(stats).toEqual({
+      numOfNotStarted: 1,
+      numOfInProgress: 1,
+      numOfCompleted: 2,
+      numOfCancelled: 3,
+      // only the open tasks past their due date
+      numOfOverdue: 2,
+      totalTasks: 4,
+    });
+  });
 });
 
 describe('ArchiveService — archiveProject', () => {

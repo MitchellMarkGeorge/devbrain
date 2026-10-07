@@ -128,7 +128,8 @@ describe('migration 0016 — nullable due dates', () => {
     expect(columnNotNull(sqlite, 'tasks', 'due_date')).toBe(true);
     expect(columnNotNull(sqlite, 'projects', 'due_date')).toBe(true);
 
-    runMigrations(sqlite, db, MIGRATIONS_PATH);
+    // stop at 0016 so the index comparison below covers this migration alone
+    runMigrations(sqlite, db, migrationsUpTo(16));
 
     // every row, including every foreign key column, is unchanged
     expect(snapshot(sqlite)).toEqual(before);
@@ -165,6 +166,73 @@ describe('migration 0016 — nullable due dates', () => {
     expect(() =>
       sqlite.exec(`INSERT INTO tasks (id, title, status) VALUES ('tsk_z', 'Bad', 3)`),
     ).toThrow(/CHECK/);
+    sqlite.close();
+  });
+});
+
+const INTEGRATION_TABLES = ['integrations', 'external_sources', 'external_links'] as const;
+
+function tableNames(sqlite: Database.Database): string[] {
+  return sqlite
+    .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name`)
+    .pluck()
+    .all() as string[];
+}
+
+describe('migration 0017 — integration tables', () => {
+  it('applies to a fresh database', () => {
+    const { sqlite, db } = openDb();
+    runMigrations(sqlite, db, MIGRATIONS_PATH);
+
+    expect(tableNames(sqlite)).toEqual(expect.arrayContaining([...INTEGRATION_TABLES]));
+    expect(checkConstraints(sqlite, 'external_links')).toEqual(['one_entity']);
+    expect(
+      schemaObjects(sqlite, 'index').filter((i) => /^(integrations|external_)/.test(i)),
+    ).toEqual([
+      'external_links.external_links_eventId_unique',
+      'external_links.external_links_projectId_unique',
+      'external_links.external_links_taskId_unique',
+      'external_links.idx_external_links_source_id_state',
+      'external_links.uq_external_links_source_external_id',
+      'external_sources.uq_external_sources_integration_type',
+      'integrations.uq_integrations_provider_account',
+    ]);
+    expect(sqlite.prepare('PRAGMA integrity_check').pluck().get()).toBe('ok');
+    sqlite.close();
+  });
+
+  it('applies to a database seeded at 0016 without touching existing rows', () => {
+    const { sqlite, db } = openDb();
+    migrate(db, { migrationsFolder: migrationsUpTo(16) });
+    seed(sqlite);
+    // undated rows only exist from 0016 on
+    sqlite.exec(`INSERT INTO tasks (id, title) VALUES ('tsk_undated', 'Undated')`);
+
+    const before = snapshot(sqlite);
+    const indexesBefore = schemaObjects(sqlite, 'index');
+    for (const table of INTEGRATION_TABLES) expect(tableNames(sqlite)).not.toContain(table);
+
+    runMigrations(sqlite, db, MIGRATIONS_PATH);
+
+    expect(snapshot(sqlite)).toEqual(before);
+    // only the new tables' indexes were added
+    const added = schemaObjects(sqlite, 'index').filter((i) => !indexesBefore.includes(i));
+    expect(added.every((i) => /^(integrations|external_sources|external_links)\./.test(i))).toBe(
+      true,
+    );
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
+
+    // the new tables work against the seeded rows, foreign keys included
+    sqlite.exec(`
+      INSERT INTO integrations (id, provider, auth_type, account_id, account_label, credentials)
+        VALUES ('int_a', 'linear', 'api_key', 'org:user', 'Ada', x'00');
+      INSERT INTO external_sources (id, integration_id, source_type) VALUES ('src_a', 'int_a', 'tasks');
+      INSERT INTO external_links
+        (id, source_id, provider, task_id, external_id, external_url, external_updated_at, last_synced_at)
+        VALUES ('xln_a', 'src_a', 'linear', 'tsk_a', 'issue-a', 'https://linear.app/a', 1000, 1000);
+    `);
+    sqlite.exec(`DELETE FROM integrations WHERE id = 'int_a'`);
+    expect(sqlite.prepare(`SELECT source_id FROM external_links`).pluck().all()).toEqual([null]);
     sqlite.close();
   });
 });

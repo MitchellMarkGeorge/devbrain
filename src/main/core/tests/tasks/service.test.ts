@@ -1363,3 +1363,87 @@ describe('TaskService — undated tasks', () => {
     expect(sub.dueDate!.getTime()).toBe(NEXT_WEEK.getTime());
   });
 });
+
+describe('TaskService — cancelled tasks', () => {
+  it('moves to CANCELLED and back, with completedAt null throughout', async () => {
+    const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
+    expect(task.completedAt).toBeNull();
+
+    const cancelled = await tasks.updateStatus(task.id, TaskStatus.CANCELLED);
+    expect(cancelled.status).toBe(TaskStatus.CANCELLED);
+    expect(cancelled.completedAt).toBeNull();
+
+    const reopened = await tasks.updateStatus(task.id, TaskStatus.IN_PROGRESS);
+    expect(reopened.status).toBe(TaskStatus.IN_PROGRESS);
+    expect(reopened.completedAt).toBeNull();
+  });
+
+  it('clears completedAt when a completed task is cancelled', async () => {
+    const task = await tasks.createTask({
+      title: 'Task',
+      dueDate: TOMORROW,
+      status: TaskStatus.COMPLETED,
+    });
+    expect(task.completedAt).not.toBeNull();
+    const cancelled = await tasks.updateStatus(task.id, TaskStatus.CANCELLED);
+    expect(cancelled.completedAt).toBeNull();
+  });
+
+  it('createTask with CANCELLED leaves completedAt null', async () => {
+    const task = await tasks.createTask({
+      title: 'Task',
+      dueDate: TOMORROW,
+      status: TaskStatus.CANCELLED,
+    });
+    expect(task.status).toBe(TaskStatus.CANCELLED);
+    expect(task.completedAt).toBeNull();
+  });
+
+  it('listTasks({ status: CANCELLED }) returns only cancelled tasks', async () => {
+    await tasks.createTask({ title: 'Not started', dueDate: TOMORROW });
+    await tasks.createTask({
+      title: 'Completed',
+      dueDate: TOMORROW,
+      status: TaskStatus.COMPLETED,
+    });
+    const cancelled = await tasks.createTask({
+      title: 'Cancelled',
+      dueDate: TOMORROW,
+      status: TaskStatus.CANCELLED,
+    });
+
+    const page = await tasks.listTasks({ status: TaskStatus.CANCELLED });
+    expect(page.items.map((t) => t.id)).toEqual([cancelled.id]);
+  });
+
+  it('excludeClosed hides completed and cancelled tasks together', async () => {
+    const notStarted = await tasks.createTask({ title: 'Not started', dueDate: TOMORROW });
+    const inProgress = await tasks.createTask({
+      title: 'In progress',
+      dueDate: TOMORROW,
+      status: TaskStatus.IN_PROGRESS,
+    });
+    await tasks.createTask({ title: 'Completed', dueDate: TOMORROW, status: TaskStatus.COMPLETED });
+    await tasks.createTask({ title: 'Cancelled', dueDate: TOMORROW, status: TaskStatus.CANCELLED });
+
+    const page = await tasks.listTasks({ excludeClosed: true });
+    expect(page.items.map((t) => t.id).sort()).toEqual([notStarted.id, inProgress.id].sort());
+  });
+
+  it('sorts cancelled tasks after completed ones by status', async () => {
+    const cancelled = await tasks.createTask({
+      title: 'Cancelled',
+      dueDate: TOMORROW,
+      status: TaskStatus.CANCELLED,
+    });
+    const completed = await tasks.createTask({
+      title: 'Completed',
+      dueDate: TOMORROW,
+      status: TaskStatus.COMPLETED,
+    });
+    const notStarted = await tasks.createTask({ title: 'Not started', dueDate: TOMORROW });
+
+    const page = await tasks.listTasks({}, { sortBy: 'status', direction: 'asc' });
+    expect(page.items.map((t) => t.id)).toEqual([notStarted.id, completed.id, cancelled.id]);
+  });
+});
