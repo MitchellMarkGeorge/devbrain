@@ -15,6 +15,8 @@ export enum TaskStatus {
   NOT_STARTED = 1, //'not_started'
   IN_PROGRESS = 2, // 'in_progress'
   COMPLETED = 3, // 'completed'
+  // like COMPLETED it closes the task, but it never sets completedAt
+  CANCELLED = 4,
 }
 
 export interface Task extends Model<TaskId>, Archivable, Completeable {
@@ -70,6 +72,8 @@ export interface TaskFilterOptions {
   dueAfter?: Date;
 
   excludeSubtasks?: boolean;
+  // backs the showCompletedTasks setting: hides completed and cancelled tasks together
+  excludeClosed?: boolean;
 }
 
 export interface TaskSortOptions {
