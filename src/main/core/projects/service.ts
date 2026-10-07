@@ -112,7 +112,7 @@ export class ProjectService {
         sortValue: (row) => row[sortColumn.name as keyof Project],
         id: (row) => row.id,
         // undated rows sort last
-        nullable: sort.sortBy === 'dueDate',
+        nullsLast: sort.sortBy === 'dueDate',
       },
       page,
     );

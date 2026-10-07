@@ -31,7 +31,7 @@ type SortValue = z.infer<typeof sortValueSchema>;
 const cursorPayloadSchema = z.object({
   // what the list is sorted by, so a cursor can't be reused against a different ordering
   sortKey: z.string(),
-  // sort value of the last item on the page; null only for a nullable sort column
+  // sort value of the last item on the page; null only for a `nullsLast` sort
   lastSortValue: sortValueSchema.nullable(),
   // id of the last item on the page (tiebreaker)
   lastId: z.string(),
@@ -104,17 +104,17 @@ export interface KeysetConfig<T> {
   sortValue: (row: T) => unknown;
   id: (row: T) => string;
   /**
-   * the sort column can hold nulls: they sort after every value in both directions,
+   * for a sort column that can hold nulls: they sort after every value in both directions,
    * ordered among themselves by id
    */
-  nullable?: boolean;
+  nullsLast?: boolean;
 }
 
 /**
  * Keyset (seek) pagination. Orders by (sortColumn, idColumn) in the same direction
  * so the order is total, and resumes strictly after the last row of the previous page.
  *
- * With `nullable`, null values come last whichever the direction, ordered among themselves by id.
+ * With `nullsLast`, null values come last whichever the direction, ordered among themselves by id.
  * sqlite sorts null below every value, so descending order already puts them last; ascending
  * order leads with `(sortColumn IS NULL)`, and needs an index on that same expression list,
  * (sortColumn IS NULL, sortColumn, idColumn), to avoid a sort step.
@@ -128,7 +128,7 @@ export function keyset<T>(config: KeysetConfig<T>, options: PageOptions = {}) {
   let after: SQL | undefined;
   if (options.cursor !== undefined) {
     const payload = decodeCursor(options.cursor, config.sortKey);
-    if (config.nullable && payload.lastSortValue === null) {
+    if (config.nullsLast && payload.lastSortValue === null) {
       // past the last value: only the remaining nulls are left. Ascending, the null test is a
       // range on the index's leading expression: sqlite then reads that index in order, where an
       // equality on an expression (or a plain IS NULL, which seeks (sortColumn, id)) needs a sort
@@ -137,7 +137,7 @@ export function keyset<T>(config: KeysetConfig<T>, options: PageOptions = {}) {
       after = and(nullTest, cmp(idColumn, payload.lastId));
     } else {
       const value = fromCursorValue(payload.lastSortValue, kind);
-      if (config.nullable && config.direction === 'asc') {
+      if (config.nullsLast && config.direction === 'asc') {
         // compared as a row value over the index's expression list, so sqlite can seek into it;
         // a null row is (1, null, id) and so lands after the cursor without comparing the null
         const lastValue = sortColumn.mapToDriverValue(value);
@@ -147,18 +147,18 @@ export function keyset<T>(config: KeysetConfig<T>, options: PageOptions = {}) {
           cmp(sortColumn, value),
           and(eq(sortColumn, value), cmp(idColumn, payload.lastId)),
           // descending: every null sorts after every value
-          config.nullable ? isNull(sortColumn) : undefined,
+          config.nullsLast ? isNull(sortColumn) : undefined,
         );
       }
     }
   }
 
   const dir = config.direction === 'asc' ? asc : desc;
-  const nullsLast =
-    config.nullable && config.direction === 'asc' ? [asc(sql`(${sortColumn} IS NULL)`)] : [];
+  const nullsLastOrder =
+    config.nullsLast && config.direction === 'asc' ? [asc(sql`(${sortColumn} IS NULL)`)] : [];
   return {
     after,
-    orderBy: [...nullsLast, dir(sortColumn), dir(idColumn)] as const,
+    orderBy: [...nullsLastOrder, dir(sortColumn), dir(idColumn)] as const,
     // fetch one extra row to know whether another page exists
     fetchLimit: limit + 1,
     toPage(rows: T[]): Page<T> {
