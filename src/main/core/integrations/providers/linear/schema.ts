@@ -2,20 +2,10 @@ import { z } from 'zod';
 import { TaskPriority, TaskStatus } from '../../../tasks/types';
 import { ProjectStatus } from '../../../projects/types';
 
-// Everything this adapter knows about Linear's schema: field names, enum values and query
-// documents. Several are from memory and still to be confirmed against the live API (see
-// tests/integrations/fixtures/linear/README.md), so they are kept together here: a correction
-// after a live check is a change to this file only.
-
-export const LINEAR_GRAPHQL_URL = 'https://api.linear.app/graphql';
-
-export const RATE_LIMITED_CODE = 'RATELIMITED';
-// from memory: an unknown or revoked key may come back as a 400 with this code instead of a 401
-export const AUTHENTICATION_ERROR_CODE = 'AUTHENTICATION_ERROR';
-export const RATE_LIMIT_RESET_HEADERS = [
-  'X-RateLimit-Requests-Reset',
-  'X-RateLimit-Complexity-Reset',
-];
+// What Linear sends back: enum values and their DevBrain mappings, and the response shapes the
+// client validates against. The queries that ask for these fields are in ./queries. Several values
+// are from memory and still to be confirmed against the live API (see
+// tests/integrations/fixtures/linear/README.md).
 
 // workflow state type -> DevBrain status
 export const STATE_TYPE_STATUS: Record<string, TaskStatus> = {
@@ -47,109 +37,6 @@ export const PROJECT_STATE_STATUS: Record<string, ProjectStatus> = {
   completed: ProjectStatus.COMPLETED,
   canceled: ProjectStatus.COMPLETED,
 };
-
-const PROJECT_FIELDS = `
-  id
-  name
-  description
-  url
-  state
-  startDate
-  targetDate
-  color
-  completedAt
-  canceledAt
-  createdAt
-  updatedAt
-`;
-
-const ISSUE_FIELDS = `
-  id
-  identifier
-  url
-  title
-  description
-  priority
-  priorityLabel
-  dueDate
-  startedAt
-  completedAt
-  canceledAt
-  createdAt
-  updatedAt
-  archivedAt
-  trashed
-  state { name type }
-  assignee { id }
-  parent { id identifier title }
-  project { ${PROJECT_FIELDS} }
-`;
-
-export const VIEWER_QUERY = `
-  query Viewer {
-    viewer { id name email organization { id name } }
-  }
-`;
-
-// one page of the viewer's assigned issues; the filter differs between initial and incremental
-export const ASSIGNED_ISSUES_QUERY = `
-  query AssignedIssues($first: Int!, $after: String, $filter: IssueFilter) {
-    viewer {
-      id
-      assignedIssues(
-        first: $first
-        after: $after
-        orderBy: updatedAt
-        includeArchived: true
-        filter: $filter
-      ) {
-        pageInfo { hasNextPage endCursor }
-        nodes { ${ISSUE_FIELDS} }
-      }
-    }
-  }
-`;
-
-export const ASSIGNED_ISSUE_IDS_QUERY = `
-  query AssignedIssueIds($first: Int!, $after: String, $filter: IssueFilter) {
-    viewer {
-      assignedIssues(first: $first, after: $after, filter: $filter) {
-        pageInfo { hasNextPage endCursor }
-        nodes { id }
-      }
-    }
-  }
-`;
-
-export const ISSUES_BY_ID_QUERY = `
-  query IssuesById($first: Int!, $ids: [ID!]!) {
-    viewer { id }
-    issues(first: $first, includeArchived: true, filter: { id: { in: $ids } }) {
-      nodes { ${ISSUE_FIELDS} }
-    }
-  }
-`;
-
-// filters, as IssueFilter variables
-
-export function openIssuesFilter() {
-  return { state: { type: { nin: CLOSED_STATE_TYPES } } };
-}
-
-// open at any age, or closed after `closedSince`
-export function initialIssuesFilter(closedSince: string) {
-  return {
-    or: [
-      openIssuesFilter(),
-      { completedAt: { gt: closedSince } },
-      { canceledAt: { gt: closedSince } },
-    ],
-  };
-}
-
-export function updatedIssuesFilter(updatedSince: string) {
-  return { updatedAt: { gt: updatedSince } };
-}
 
 // response shapes. Nodes are kept as unknown here and validated one by one, so a single bad item
 // is skipped instead of failing the page.

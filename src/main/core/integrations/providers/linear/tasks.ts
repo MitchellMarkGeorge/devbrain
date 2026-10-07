@@ -13,16 +13,18 @@ import { toExternalProject, toExternalTask } from './mapper';
 import {
   ASSIGNED_ISSUE_IDS_QUERY,
   ASSIGNED_ISSUES_QUERY,
-  AssignedIssueIdsResponse,
   ISSUES_BY_ID_QUERY,
+  initialIssuesFilter,
+  openIssuesFilter,
+  updatedIssuesFilter,
+} from './queries';
+import {
+  AssignedIssueIdsResponse,
   LinearIssue,
   assignedIssueIdsResponseSchema,
   assignedIssuesResponseSchema,
-  initialIssuesFilter,
   issuesByIdResponseSchema,
   linearIssueSchema,
-  openIssuesFilter,
-  updatedIssuesFilter,
 } from './schema';
 
 // The viewer's assigned issues as a task source. Initial mode walks open issues and those closed

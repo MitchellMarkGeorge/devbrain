@@ -7,15 +7,19 @@ import {
   ProviderUnavailableError,
   RateLimitError,
 } from '../../../shared/errors';
-import {
-  AUTHENTICATION_ERROR_CODE,
-  LINEAR_GRAPHQL_URL,
-  RATE_LIMIT_RESET_HEADERS,
-  RATE_LIMITED_CODE,
-} from './schema';
 
 // A minimal GraphQL-over-fetch helper for Linear's API. It maps transport and auth failures to the
 // shared error classes so the engine can react without knowing anything about Linear.
+
+export const LINEAR_GRAPHQL_URL = 'https://api.linear.app/graphql';
+
+export const RATE_LIMITED_CODE = 'RATELIMITED';
+// from memory: an unknown or revoked key may come back as a 400 with this code instead of a 401
+export const AUTHENTICATION_ERROR_CODE = 'AUTHENTICATION_ERROR';
+export const RATE_LIMIT_RESET_HEADERS = [
+  'X-RateLimit-Requests-Reset',
+  'X-RateLimit-Complexity-Reset',
+];
 
 // a GraphQL error that is not one of the mapped cases, e.g. a query the schema rejects
 export class LinearApiError extends Error {

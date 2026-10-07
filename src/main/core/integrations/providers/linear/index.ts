@@ -2,7 +2,8 @@ import { AuthType, Provider as ProviderId, SourceType } from '../../types';
 import { Auth } from '../../auth';
 import { ExternalAccount, FetchFn, Provider } from '../provider';
 import { LinearClient } from './client';
-import { VIEWER_QUERY, viewerResponseSchema } from './schema';
+import { VIEWER_QUERY } from './queries';
+import { viewerResponseSchema } from './schema';
 import { LinearTaskSource } from './tasks';
 
 export interface LinearProviderOptions {

@@ -21,7 +21,7 @@ DEV_LINEAR_API_KEY=lin_api_... npx tsx --tsconfig ./tsconfig.node.json scripts/l
 
 ## From memory, to confirm
 
-All of these live in `src/main/core/integrations/providers/linear/schema.ts`, so a correction is a change to that file (and to these fixtures).
+Each lives in one place under `src/main/core/integrations/providers/linear/`, so a correction is a change there (and to these fixtures): field selections and filters in `queries.ts`, response shapes and enum values in `schema.ts`, and error codes and headers in `client.ts`.
 
 **Enum values**
 
