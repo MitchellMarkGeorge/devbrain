@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { AuthType } from '../../../integrations/types';
-import { toAuth } from '../../../integrations/credentials';
+import { toAuth } from '../../../integrations/auth';
 import { LinearApiError, LinearClient } from '../../../integrations/providers/linear/client';
 import { createLinearProvider } from '../../../integrations/providers/linear';
 import {

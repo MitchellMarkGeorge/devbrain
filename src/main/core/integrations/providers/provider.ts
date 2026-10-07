@@ -9,7 +9,7 @@ import {
   Provider as ProviderId,
   SourceType,
 } from '../types';
-import { Auth } from '../credentials';
+import { Auth } from '../auth';
 
 // The provider contract. Adapters are pure with respect to the database: they return normalised
 // items and the engine decides what to write. Only the parts the Linear adapter implements are

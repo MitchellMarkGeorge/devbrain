@@ -796,15 +796,15 @@ Most work is new code. Changes to existing files are small but touch every entit
 
 **New**
 
-| Path                                                    | Contents                                                                         |
-| ------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `src/main/db/schema/integrations.ts`                    | `integrations`, `external_sources`, `external_links`                             |
-| `src/main/db/migrations/0016_*`                         | New tables; rebuild of `tasks` and `projects` for nullable `dueDate`             |
-| `src/main/core/integrations/`                           | `service.ts`, `types.ts`, `credentials.ts`, `oauth/pkce.ts`, `oauth/loopback.ts` |
-| `src/main/core/integrations/providers/linear/`          | `client.ts` (GraphQL over `fetch`), `mapper.ts`, `provider.ts`                   |
-| `src/main/core/integrations/providers/google-calendar/` | `client.ts`, `mapper.ts`, `provider.ts`                                          |
-| `src/main/core/sync/`                                   | `engine.ts`, `writer.ts`, `scheduler.ts`, `types.ts`                             |
-| `src/main/core/tests/integrations/`, `.../sync/`        | Tests and provider fixtures                                                      |
+| Path                                                    | Contents                                                                                    |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `src/main/db/schema/integrations.ts`                    | `integrations`, `external_sources`, `external_links`                                        |
+| `src/main/db/migrations/0016_*`                         | New tables; rebuild of `tasks` and `projects` for nullable `dueDate`                        |
+| `src/main/core/integrations/`                           | `service.ts`, `types.ts`, `auth.ts`, `credentials.ts`, `oauth/pkce.ts`, `oauth/loopback.ts` |
+| `src/main/core/integrations/providers/linear/`          | `client.ts` (GraphQL over `fetch`), `mapper.ts`, `provider.ts`                              |
+| `src/main/core/integrations/providers/google-calendar/` | `client.ts`, `mapper.ts`, `provider.ts`                                                     |
+| `src/main/core/sync/`                                   | `engine.ts`, `writer.ts`, `scheduler.ts`, `types.ts`                                        |
+| `src/main/core/tests/integrations/`, `.../sync/`        | Tests and provider fixtures                                                                 |
 
 **Modified**
 

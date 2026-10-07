@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Auth } from '../../credentials';
+import { Auth } from '../../auth';
 import { FetchFn } from '../provider';
 import { BACKOFF_INITIAL_MS, HTTP_TIMEOUT_MS } from '../../../sync/constants';
 import {

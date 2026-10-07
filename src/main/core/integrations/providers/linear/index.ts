@@ -1,5 +1,5 @@
 import { AuthType, Provider as ProviderId, SourceType } from '../../types';
-import { Auth } from '../../credentials';
+import { Auth } from '../../auth';
 import { ExternalAccount, FetchFn, Provider } from '../provider';
 import { LinearClient } from './client';
 import { VIEWER_QUERY, viewerResponseSchema } from './schema';

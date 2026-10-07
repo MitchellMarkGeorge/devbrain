@@ -1,6 +1,6 @@
 import { ExternalProject, ExternalTask, LinearTaskCursor } from '../../types';
 import { linearTaskCursorSchema } from '../../schema';
-import { Auth } from '../../credentials';
+import { Auth } from '../../auth';
 import { LookupResult, SyncCursor, TaskPage, TaskSource } from '../provider';
 import {
   CLOSED_ISSUE_WINDOW_MS,

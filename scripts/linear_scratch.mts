@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { config as loadEnvFile } from '@dotenvx/dotenvx';
 import { createLinearProvider } from '@main/core/integrations/providers/linear';
 import type { FetchFn, SyncCursor } from '@main/core/integrations/providers/provider';
-import { toAuth } from '@main/core/integrations/credentials';
+import { toAuth } from '@main/core/integrations/auth';
 import { AuthType } from '@main/core/integrations/types';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));

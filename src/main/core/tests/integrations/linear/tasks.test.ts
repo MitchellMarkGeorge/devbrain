@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { AuthType, LinearTaskCursor } from '../../../integrations/types';
-import { toAuth } from '../../../integrations/credentials';
+import { toAuth } from '../../../integrations/auth';
 import { TaskSource } from '../../../integrations/providers/provider';
 import { createLinearProvider } from '../../../integrations/providers/linear';
 import { CLOSED_ISSUE_WINDOW_MS, LOOKUP_BATCH_SIZE, PAGE_SIZE } from '../../../sync/constants';

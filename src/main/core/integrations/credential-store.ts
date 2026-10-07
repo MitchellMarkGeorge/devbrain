@@ -5,14 +5,13 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { z } from 'zod';
 import { IntegrationAuthError, NotFoundError } from '../shared/errors';
 import { TOKEN_REFRESH_MARGIN_MS } from '../sync/constants';
+import { Auth, toAuth } from './auth';
 import {
-  Auth,
   Credentials,
   OAuthCredentials,
   SealedCredentials,
   SecretCipher,
   TokenRefresher,
-  toAuth,
 } from './credentials';
 import { AuthType, Provider } from './types';
 
