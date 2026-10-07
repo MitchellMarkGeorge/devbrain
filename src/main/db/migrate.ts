@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { WorkspaceMigrationError } from '@main/core/shared/errors';
 
 /**
  * Runs pending migrations with foreign keys switched off, then checks them before turning them
@@ -11,19 +12,34 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
  * keys on, the rebuild's `DROP TABLE` runs an implicit DELETE that fires every ON DELETE action:
  * subtasks cascade away and project and note links are set to null. Switching foreign keys off out
  * here, before the transaction starts, is the procedure SQLite documents for table rebuilds.
+ *
+ * Throws WorkspaceMigrationError. When a statement fails, drizzle rolls the transaction back and
+ * the database is unchanged (`committed: false`). The foreign key check can only run after the
+ * commit, so when it fails the database has changed (`committed: true`) and the caller should
+ * restore a backup.
  */
 export function runMigrations(
   sqlite: Database.Database,
   db: BetterSQLite3Database,
   migrationsFolder: string,
 ): void {
+  const details = { restoredFromBackup: false, backupPath: null };
+
   sqlite.pragma('foreign_keys = OFF');
   try {
-    migrate(db, { migrationsFolder });
+    try {
+      migrate(db, { migrationsFolder });
+    } catch (cause) {
+      throw new WorkspaceMigrationError(
+        'The workspace database could not be updated; no changes were made',
+        { ...details, committed: false, cause },
+      );
+    }
     const violations = sqlite.pragma('foreign_key_check') as unknown[];
     if (violations.length > 0) {
-      throw new Error(
-        `Migration left ${violations.length} foreign key violation(s): ${JSON.stringify(violations)}`,
+      throw new WorkspaceMigrationError(
+        `The workspace database update left ${violations.length} broken reference(s)`,
+        { ...details, committed: true, cause: violations },
       );
     }
   } finally {

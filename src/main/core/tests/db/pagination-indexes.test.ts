@@ -21,8 +21,8 @@ interface Case {
   // index used when sorting descending, and ascending unless `ascIndex` is given
   index: string;
   ascIndex: string;
-  // the service sorts this column nulls-last (keyset's `nullable`)
-  nullable: boolean;
+  // the service sorts this column with keyset's `isSortValueNullable`
+  isSortValueNullable: boolean;
 }
 
 const cases: Case[] = [
@@ -52,7 +52,7 @@ const cases: Case[] = [
   sortColumn: (table as unknown as Record<string, SQLiteColumn>)[column as string],
   index: index as string,
   ascIndex: (ascIndex ?? index) as string,
-  nullable: column === 'dueDate',
+  isSortValueNullable: column === 'dueDate',
 }));
 
 function plan(query: { toSQL(): { sql: string; params: unknown[] } }): string[] {
@@ -67,7 +67,7 @@ function cursorFor(
   sortColumn: SQLiteColumn,
   sortKey: string,
   value: unknown,
-  nullable = false,
+  isSortValueNullable = false,
 ): string {
   // produce a real cursor by paginating two fake rows with limit 1
   const pager = keyset<{ v: unknown; id: string }>(
@@ -78,7 +78,7 @@ function cursorFor(
       direction: 'asc',
       sortValue: (r) => r.v,
       id: (r) => r.id,
-      nullable,
+      isSortValueNullable,
     },
     { limit: 1 },
   );
@@ -92,8 +92,8 @@ describe.each(cases)('pagination index — $name', (c) => {
   const sample =
     c.sortColumn.dataType === 'date' ? new Date() : c.sortColumn.dataType === 'number' ? 1 : 'x';
 
-  // a nullable sort resumes differently after a value and after a null
-  const cursorValues = c.nullable ? [sample, null] : [sample];
+  // with isSortValueNullable, a sort resumes differently after a value and after a null
+  const cursorValues = c.isSortValueNullable ? [sample, null] : [sample];
 
   it.each(['asc', 'desc'] as const)('%s, first page and with cursor use the index', (direction) => {
     for (const cursorValue of [undefined, ...cursorValues]) {
@@ -105,13 +105,13 @@ describe.each(cases)('pagination index — $name', (c) => {
           direction,
           sortValue: (r) => r.v,
           id: (r) => r.id,
-          nullable: c.nullable,
+          isSortValueNullable: c.isSortValueNullable,
         },
         {
           cursor:
             cursorValue === undefined
               ? undefined
-              : cursorFor(c.sortColumn, c.name, cursorValue, c.nullable),
+              : cursorFor(c.sortColumn, c.name, cursorValue, c.isSortValueNullable),
         },
       );
       const query = db
