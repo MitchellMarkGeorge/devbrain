@@ -45,21 +45,21 @@ The largest required change to existing code is making `tasks.dueDate` and `proj
 
 The core services are built and tested; the API layer and UI are not. These facts from the codebase shape the design.
 
-| Area | Today | Consequence for integrations |
-| --- | --- | --- |
-| Workspace storage | Each workspace owns a `db.sqlite` under `workspaces/<id>/`, opened by `Workspace.open` | Integration tables go in the workspace database. Scoping is free. |
-| Open workspaces | `WorkspaceService` holds one `currentWorkspace` | Sync runs only for the open workspace. |
-| Tasks | `dueDate` is `NOT NULL`; statuses are NOT\_STARTED, IN\_PROGRESS, COMPLETED; priorities are LOW, MEDIUM, HIGH | Due date must become nullable. Linear's richer states and priorities need a mapping plus the raw label. |
-| Subtasks | `createSubtask` and `demoteTask` allow one level only | Depth guards must apply to local tasks only. |
-| Task links | One of `linkedEventId` or `linkedNoteId`; subtasks inherit the parent's project and links | Links are local-owned fields that sync must never overwrite. |
-| Projects | `dueDate` is `NOT NULL`; four statuses | Same nullability change. Linear project states map onto the four. |
-| Events | `reccurrenceRule` stores RFC 5545 lines, chosen to match Google Calendar; no `archivedAt`, deletes are hard | Recurring masters map directly. Removal needs a soft state on the link row. |
-| Search | FTS5 `search_index`; services call `indexTask`, `indexEvents` and friends explicitly | The sync writer must index what it upserts and remove what it deletes. |
-| Timestamps | `updatedAt` uses `$onUpdate(() => new Date())` | Sync must skip unchanged rows, or every poll rewrites `updatedAt`. |
-| Database open | Native backup to `db.sqlite.backup` on every open; WAL is off | Encrypted credentials are copied into the backup. WAL should be on before background writes start. |
-| Core dependencies | `src/main/core` does not import Electron; tests mock `electron-store` | Secret storage and HTTP must be injected interfaces. |
-| API and UI | `schema.graphql` exists but GraphQL has been dropped for a custom typed IPC layer; `graphql/schema.ts` is empty; IPC exposes `ping` only | Integration channels and sync events are added to the custom typed IPC contract. GraphQL is not used. |
-| IDs | Prefixed UUIDv7 (`tsk_`, `prj_`, `evt_`) via `generateId` | Add `int_`, `src_` and `xln_` prefixes. |
+| Area              | Today                                                                                                                                    | Consequence for integrations                                                                            |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Workspace storage | Each workspace owns a `db.sqlite` under `workspaces/<id>/`, opened by `Workspace.open`                                                   | Integration tables go in the workspace database. Scoping is free.                                       |
+| Open workspaces   | `WorkspaceService` holds one `currentWorkspace`                                                                                          | Sync runs only for the open workspace.                                                                  |
+| Tasks             | `dueDate` is `NOT NULL`; statuses are NOT_STARTED, IN_PROGRESS, COMPLETED; priorities are LOW, MEDIUM, HIGH                              | Due date must become nullable. Linear's richer states and priorities need a mapping plus the raw label. |
+| Subtasks          | `createSubtask` and `demoteTask` allow one level only                                                                                    | Depth guards must apply to local tasks only.                                                            |
+| Task links        | One of `linkedEventId` or `linkedNoteId`; subtasks inherit the parent's project and links                                                | Links are local-owned fields that sync must never overwrite.                                            |
+| Projects          | `dueDate` is `NOT NULL`; four statuses                                                                                                   | Same nullability change. Linear project states map onto the four.                                       |
+| Events            | `reccurrenceRule` stores RFC 5545 lines, chosen to match Google Calendar; no `archivedAt`, deletes are hard                              | Recurring masters map directly. Removal needs a soft state on the link row.                             |
+| Search            | FTS5 `search_index`; services call `indexTask`, `indexEvents` and friends explicitly                                                     | The sync writer must index what it upserts and remove what it deletes.                                  |
+| Timestamps        | `updatedAt` uses `$onUpdate(() => new Date())`                                                                                           | Sync must skip unchanged rows, or every poll rewrites `updatedAt`.                                      |
+| Database open     | Native backup to `db.sqlite.backup` on every open; WAL is off                                                                            | Encrypted credentials are copied into the backup. WAL should be on before background writes start.      |
+| Core dependencies | `src/main/core` does not import Electron; tests mock `electron-store`                                                                    | Secret storage and HTTP must be injected interfaces.                                                    |
+| API and UI        | `schema.graphql` exists but GraphQL has been dropped for a custom typed IPC layer; `graphql/schema.ts` is empty; IPC exposes `ping` only | Integration channels and sync events are added to the custom typed IPC contract. GraphQL is not used.   |
+| IDs               | Prefixed UUIDv7 (`tsk_`, `prj_`, `evt_`) via `generateId`                                                                                | Add `int_`, `src_` and `xln_` prefixes.                                                                 |
 
 **Changed in `main` since 2 October.** Keyset pagination was added in `core/shared/pagination.ts`, and every list method now returns a `Page`. Its `keyset` helper assumes non-null sort values, which matters for nullable due dates. Migrations now run to `0015`. `tests/db/pagination-indexes.test.ts` asserts the index each list query uses. The GraphQL schema file was removed.
 
@@ -74,18 +74,18 @@ Four terms carry the model.
 
 The split between integration and source is what lets one GitHub connection later serve as version control but not as a task source.
 
-| Provider | Can serve as | v1 |
-| --- | --- | --- |
-| Linear | tasks | tasks |
-| Google Calendar | events | events |
-| GitHub (later) | tasks, version\_control | none |
+| Provider        | Can serve as           | v1     |
+| --------------- | ---------------------- | ------ |
+| Linear          | tasks                  | tasks  |
+| Google Calendar | events                 | events |
+| GitHub (later)  | tasks, version_control | none   |
 
 **Ownership rule.** Each field on a mirrored row has one owner. The provider owns content fields. DevBrain owns relationship fields. Sync overwrites the first group and never touches the second.
 
-| Owner | Fields |
-| --- | --- |
+| Owner    | Fields                                                                                                   |
+| -------- | -------------------------------------------------------------------------------------------------------- |
 | Provider | title, description, status, priority, start and due dates, parent, project, completed time, created time |
-| DevBrain | `linkedNoteId`, `linkedEventId`, the task note, `favoritedAt` |
+| DevBrain | `linkedNoteId`, `linkedEventId`, the task note, `favoritedAt`                                            |
 
 **Scoping.** Integrations, sources, links and credentials all live in the workspace database. Connecting Linear in workspace A creates nothing in workspace B. The same Linear account can be connected in both; each keeps its own tokens and cursors.
 
@@ -97,15 +97,15 @@ All integration code runs in the main process, inside `src/main/core`, as two ne
 
 Only the provider adapters talk to the network, and only `SyncWriter` writes external rows. The existing entity services keep writing local rows and reject edits to synced ones.
 
-| Component | Location | Responsibility |
-| --- | --- | --- |
-| `IntegrationService` | `core/integrations/service.ts` | Connect, disconnect, enable and disable. Owns the `integrations` and `external_sources` tables. |
-| `CredentialStore` | `core/integrations/credentials.ts` | Encrypts and decrypts tokens through an injected `SecretCipher`. Refreshes OAuth tokens. |
-| OAuth loopback | `core/integrations/oauth/` | PKCE pair, state, temporary `127.0.0.1` listener, code exchange. |
-| Provider adapters | `core/integrations/providers/linear`, `.../google-calendar` | API client and mapper per provider. The only code that knows a provider's shapes. |
-| `SyncEngine` | `core/sync/engine.ts` | Runs one sync for one source: pull pages, hand them to the writer, advance the cursor. |
-| `SyncWriter` | `core/sync/writer.ts` | The only code allowed to write external rows. Upserts, removes, indexes for search. |
-| `SyncScheduler` | `core/sync/scheduler.ts` | Decides when to sync: interval, focus, open, manual. One run per source at a time. |
+| Component            | Location                                                    | Responsibility                                                                                  |
+| -------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `IntegrationService` | `core/integrations/service.ts`                              | Connect, disconnect, enable and disable. Owns the `integrations` and `external_sources` tables. |
+| `CredentialStore`    | `core/integrations/credentials.ts`                          | Encrypts and decrypts tokens through an injected `SecretCipher`. Refreshes OAuth tokens.        |
+| OAuth loopback       | `core/integrations/oauth/`                                  | PKCE pair, state, temporary `127.0.0.1` listener, code exchange.                                |
+| Provider adapters    | `core/integrations/providers/linear`, `.../google-calendar` | API client and mapper per provider. The only code that knows a provider's shapes.               |
+| `SyncEngine`         | `core/sync/engine.ts`                                       | Runs one sync for one source: pull pages, hand them to the writer, advance the cursor.          |
+| `SyncWriter`         | `core/sync/writer.ts`                                       | The only code allowed to write external rows. Upserts, removes, indexes for search.             |
+| `SyncScheduler`      | `core/sync/scheduler.ts`                                    | Decides when to sync: interval, focus, open, manual. One run per source at a time.              |
 
 `Workspace` constructs `IntegrationService` and `SyncScheduler` next to `TaskService` and the rest. `Workspace.close()` stops the scheduler before closing SQLite.
 
@@ -114,9 +114,9 @@ Only the provider adapters talk to the network, and only `SyncWriter` writes ext
 ```ts
 interface Provider {
   id: 'linear' | 'google_calendar';
-  supports: SourceType[];              // ['tasks'] or ['events']
+  supports: SourceType[]; // ['tasks'] or ['events']
   authMethods: ('oauth' | 'api_key')[];
-  oauth?: OAuthConfig;                 // endpoints, scopes, redirect ports
+  oauth?: OAuthConfig; // endpoints, scopes, redirect ports
   getAccount(auth: Auth): Promise<ExternalAccount>;
   tasks?: TaskSource;
   events?: EventSource;
@@ -124,19 +124,21 @@ interface Provider {
 
 interface TaskSource {
   // one page per call; cursor is opaque to the engine
-  pull(auth: Auth, cursor: SyncCursor | null, config: SourceConfig):
-    Promise<{
-      tasks: ExternalTask[];
-      projects: ExternalProject[];
-      removedIds: string[];
-      nextCursor: SyncCursor;
-      done: boolean;
-    }>;
+  pull(
+    auth: Auth,
+    cursor: SyncCursor | null,
+    config: SourceConfig,
+  ): Promise<{
+    tasks: ExternalTask[];
+    projects: ExternalProject[];
+    removedIds: string[];
+    nextCursor: SyncCursor;
+    done: boolean;
+  }>;
   // ids of open items currently assigned to the user (id field only)
   listAssignedIds(auth: Auth): Promise<string[]>;
   // current state of specific items; ids that no longer resolve are gone
-  lookup(auth: Auth, externalIds: string[]):
-    Promise<{ tasks: ExternalTask[]; gone: string[] }>;
+  lookup(auth: Auth, externalIds: string[]): Promise<{ tasks: ExternalTask[]; gone: string[] }>;
 }
 ```
 
@@ -159,14 +161,14 @@ Google Calendar connects through OAuth 2.0 authorization code with PKCE over a l
 5. The main process exchanges the code and verifier for tokens, calls `getAccount`, and stores the integration.
 6. The listener times out after 5 minutes if no callback arrives.
 
-|  | Linear | Google Calendar |
-| --- | --- | --- |
-| v1 method | API key; OAuth deferred | OAuth |
-| Auth header | `Authorization: <API_KEY>`, no `Bearer` | `Authorization: Bearer <token>` |
-| Scopes | `read` (when OAuth is added), comma-separated | `calendar.calendarlist.readonly` and `calendar.events.readonly`, space-separated |
-| Redirect port | Fixed, from a short pre-registered list (to confirm) | Any free port on `127.0.0.1` |
-| Client secret | Optional with PKCE | Optional for desktop clients; sent if the console issues one |
-| Token lifetime | Access tokens last 24 hours; refresh tokens issued | Refresh tokens always returned for installed apps |
+|                | Linear                                               | Google Calendar                                                                  |
+| -------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------- |
+| v1 method      | API key; OAuth deferred                              | OAuth                                                                            |
+| Auth header    | `Authorization: <API_KEY>`, no `Bearer`              | `Authorization: Bearer <token>`                                                  |
+| Scopes         | `read` (when OAuth is added), comma-separated        | `calendar.calendarlist.readonly` and `calendar.events.readonly`, space-separated |
+| Redirect port  | Fixed, from a short pre-registered list (to confirm) | Any free port on `127.0.0.1`                                                     |
+| Client secret  | Optional with PKCE                                   | Optional for desktop clients; sent if the console issues one                     |
+| Token lifetime | Access tokens last 24 hours; refresh tokens issued   | Refresh tokens always returned for installed apps                                |
 
 Endpoints, limits and sources for each row are in the provider reference section. The few details not yet confirmed are listed under open questions.
 
@@ -184,63 +186,63 @@ Three new tables and two nullability changes. No new columns on `tasks`, `projec
 
 **New table: `integrations`**
 
-| Column | Type | Notes |
-| --- | --- | --- |
-| `id` | text PK | `int_` prefix |
-| `provider` | text | `linear`, `google_calendar` |
-| `authType` | text | `oauth`, `api_key` |
-| `accountId` | text | Provider's user id |
-| `accountLabel` | text | Email or display name, shown in settings |
-| `status` | text | `connected`, `disabled`, `needs_reauth` |
-| `credentials` | blob | `safeStorage` ciphertext |
-| `scopes` | text | Granted scopes |
-| `createdAt`, `updatedAt` | timestamp |  |
+| Column                   | Type      | Notes                                    |
+| ------------------------ | --------- | ---------------------------------------- |
+| `id`                     | text PK   | `int_` prefix                            |
+| `provider`               | text      | `linear`, `google_calendar`              |
+| `authType`               | text      | `oauth`, `api_key`                       |
+| `accountId`              | text      | Provider's user id                       |
+| `accountLabel`           | text      | Email or display name, shown in settings |
+| `status`                 | text      | `connected`, `disabled`, `needs_reauth`  |
+| `credentials`            | blob      | `safeStorage` ciphertext                 |
+| `scopes`                 | text      | Granted scopes                           |
+| `createdAt`, `updatedAt` | timestamp |                                          |
 
 Unique on (`provider`, `accountId`).
 
 **New table: `external_sources`**
 
-| Column | Type | Notes |
-| --- | --- | --- |
-| `id` | text PK | `src_` prefix |
-| `integrationId` | text FK | Cascade on delete |
-| `sourceType` | text | `tasks`, `events`, `version_control` |
-| `enabled` | boolean |  |
-| `config` | json text | Linear: none in v1. Google: selected calendar ids |
-| `cursor` | json text | Opaque to the engine. Google keeps one sync token per calendar |
-| `initialSyncCompletedAt` | timestamp | Null until the first full pass finishes |
-| `lastSyncedAt`, `lastReconciledAt` | timestamp |  |
-| `lastError` | text | Null when the last run succeeded |
-| `consecutiveFailures` | integer | Drives backoff |
+| Column                             | Type      | Notes                                                          |
+| ---------------------------------- | --------- | -------------------------------------------------------------- |
+| `id`                               | text PK   | `src_` prefix                                                  |
+| `integrationId`                    | text FK   | Cascade on delete                                              |
+| `sourceType`                       | text      | `tasks`, `events`, `version_control`                           |
+| `enabled`                          | boolean   |                                                                |
+| `config`                           | json text | Linear: none in v1. Google: selected calendar ids              |
+| `cursor`                           | json text | Opaque to the engine. Google keeps one sync token per calendar |
+| `initialSyncCompletedAt`           | timestamp | Null until the first full pass finishes                        |
+| `lastSyncedAt`, `lastReconciledAt` | timestamp |                                                                |
+| `lastError`                        | text      | Null when the last run succeeded                               |
+| `consecutiveFailures`              | integer   | Drives backoff                                                 |
 
 Unique on (`integrationId`, `sourceType`).
 
 **New table: `external_links`**
 
-| Column | Type | Notes |
-| --- | --- | --- |
-| `id` | text PK | `xln_` prefix |
-| `sourceId` | text FK | Set null on delete, so detached copies survive a disconnect |
-| `provider` | text | Kept on the row so the badge survives a disconnect |
-| `taskId`, `projectId`, `eventId` | text FK | Exactly one is set. Cascade on delete. Unique each |
-| `externalId` | text | Provider's stable id |
-| `externalKey` | text | Human identifier, such as `ENG-123` |
-| `externalUrl` | text | Opens the item in the provider |
-| `externalUpdatedAt` | timestamp | Used to skip unchanged items |
-| `state` | text | `synced`, `detached`, `removed` |
-| `metadata` | json text | Raw status and priority labels, team, parent title, calendar id, attendee response |
-| `lastSyncedAt`, `removedAt`, settledAt | timestamp |  |
+| Column                                 | Type      | Notes                                                                              |
+| -------------------------------------- | --------- | ---------------------------------------------------------------------------------- |
+| `id`                                   | text PK   | `xln_` prefix                                                                      |
+| `sourceId`                             | text FK   | Set null on delete, so detached copies survive a disconnect                        |
+| `provider`                             | text      | Kept on the row so the badge survives a disconnect                                 |
+| `taskId`, `projectId`, `eventId`       | text FK   | Exactly one is set. Cascade on delete. Unique each                                 |
+| `externalId`                           | text      | Provider's stable id                                                               |
+| `externalKey`                          | text      | Human identifier, such as `ENG-123`                                                |
+| `externalUrl`                          | text      | Opens the item in the provider                                                     |
+| `externalUpdatedAt`                    | timestamp | Used to skip unchanged items                                                       |
+| `state`                                | text      | `synced`, `detached`, `removed`                                                    |
+| `metadata`                             | json text | Raw status and priority labels, team, parent title, calendar id, attendee response |
+| `lastSyncedAt`, `removedAt`, settledAt | timestamp |                                                                                    |
 
 Unique on (`sourceId`, `externalId`). A `CHECK` enforces exactly one entity column, following the existing `one_link` pattern.
 
 **Changes to existing tables**
 
-| Table | Change | Why |
-| --- | --- | --- |
-| `tasks` | `dueDate` becomes nullable | Linear issues often have none. `TaskService.createTask` still requires it for local tasks. |
-| `projects` | `dueDate` becomes nullable | Linear's target date is optional. `ProjectService.createProject` still requires it for local projects. |
-| `tasks` | `status` accepts a new value, CANCELLED | Enum change only; the column and its check constraint are unchanged. |
-| `tasks` | `pullRequestUrl` is kept | Local tasks need a URL with no integration connected. A rename to a generic `url` can follow separately. |
+| Table      | Change                                  | Why                                                                                                      |
+| ---------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `tasks`    | `dueDate` becomes nullable              | Linear issues often have none. `TaskService.createTask` still requires it for local tasks.               |
+| `projects` | `dueDate` becomes nullable              | Linear's target date is optional. `ProjectService.createProject` still requires it for local projects.   |
+| `tasks`    | `status` accepts a new value, CANCELLED | Enum change only; the column and its check constraint are unchanged.                                     |
+| `tasks`    | `pullRequestUrl` is kept                | Local tasks need a URL with no integration connected. A rename to a generic `url` can follow separately. |
 
 Required due dates for local items are enforced in the services, not the schema, because integration data can lack them.
 
@@ -252,10 +254,10 @@ SQLite cannot drop `NOT NULL` in place, so drizzle-kit generates a table rebuild
 interface ExternalRef {
   provider: 'linear' | 'google_calendar';
   state: 'synced' | 'detached' | 'removed';
-  key: string | null;      // ENG-123
+  key: string | null; // ENG-123
   url: string;
-  statusLabel: string | null;    // "In Review"
-  priorityLabel: string | null;  // "Urgent"
+  statusLabel: string | null; // "In Review"
+  priorityLabel: string | null; // "Urgent"
   lastSyncedAt: Date;
 }
 ```
@@ -276,12 +278,12 @@ Open issues are included regardless of age because a 60-day-old open issue is st
 
 **Status mapping (Linear workflow state type)**
 
-| Linear type | DevBrain status | Notes |
-| --- | --- | --- |
-| triage, backlog, unstarted | NOT\_STARTED |  |
-| started | IN\_PROGRESS |  |
-| completed | COMPLETED | `completedAt` taken from Linear |
-| canceled | CANCELLED (new) | `completedAt` stays null |
+| Linear type                | DevBrain status | Notes                           |
+| -------------------------- | --------------- | ------------------------------- |
+| triage, backlog, unstarted | NOT_STARTED     |                                 |
+| started                    | IN_PROGRESS     |                                 |
+| completed                  | COMPLETED       | `completedAt` taken from Linear |
+| canceled                   | CANCELLED (new) | `completedAt` stays null        |
 
 `TaskStatus` gains `CANCELLED = 4`. The column is an integer, so no migration is needed, and the `completed_at_consistency` check still holds because a cancelled task has no `completedAt`. The value is part of the shared enum, so local tasks can be cancelled too. Cancelled tasks sort after completed ones, are hidden by the same `showCompletedTasks` setting, and are counted separately in project stats so they do not inflate progress.
 
@@ -289,15 +291,15 @@ The team's own state name ("In Review", "Blocked") is kept in `metadata.statusLa
 
 **Priority mapping**
 
-| Linear | DevBrain |
-| --- | --- |
-| Urgent, High | HIGH |
-| Medium | MEDIUM |
-| Low, No priority | LOW |
+| Linear           | DevBrain |
+| ---------------- | -------- |
+| Urgent, High     | HIGH     |
+| Medium           | MEDIUM   |
+| Low, No priority | LOW      |
 
 The raw label is kept, so "Urgent" still displays as urgent.
 
-**Project mapping.** Linear project states map as: backlog and planned to NOT\_STARTED, started to ACTIVE, paused to ON\_HOLD, completed and canceled to COMPLETED. Title, description, start date, target date and colour are mirrored.
+**Project mapping.** Linear project states map as: backlog and planned to NOT_STARTED, started to ACTIVE, paused to ON_HOLD, completed and canceled to COMPLETED. Title, description, start date, target date and colour are mirrored.
 
 **Project membership.** `tasks.projectId` on an external task always follows Linear. An orphan issue later added to a Linear project moves to the mirrored project on the next sync, creating it if needed. `updateProject` rejects external tasks.
 
@@ -310,12 +312,12 @@ The raw label is kept, so "Urgent" still displays as urgent.
 
 **What happens to items in a detached project**
 
-| Item in the project | Result |
-| --- | --- |
-| Local tasks | Stay in the project, unchanged |
-| Detached tasks | Stay in the project, unchanged |
-| Synced Linear issues | Follow Linear. They move to the project Linear now reports, or become tasks with no project. They do not stay, because a synced task cannot live in a local project |
-| Notes filed under the project | Stay |
+| Item in the project           | Result                                                                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Local tasks                   | Stay in the project, unchanged                                                                                                                                      |
+| Detached tasks                | Stay in the project, unchanged                                                                                                                                      |
+| Synced Linear issues          | Follow Linear. They move to the project Linear now reports, or become tasks with no project. They do not stay, because a synced task cannot live in a local project |
+| Notes filed under the project | Stay                                                                                                                                                                |
 
 If the same Linear project comes back into scope later, the detached project is reattached automatically instead of creating a duplicate. Provider-owned fields are refreshed and the local tasks stay in it. Automatic reattach is safe here because the detach was automatic too; projects have no manual detach in v1.
 
@@ -325,12 +327,12 @@ The reconcile pass checks mirrored project ids as well as issue ids, so a projec
 
 **Read-only enforcement.** Enforced in the service layer, not only the UI.
 
-| Operation on a `synced` task | Result |
-| --- | --- |
-| `updateTask`, `updateStatus`, `updateProject`, `promoteSubtask`, `demoteTask`, `createSubtask` | Throws `ExternalReadOnlyError` |
-| `updateLinks` (note or event) | Allowed. Links are DevBrain-owned |
-| Attach a task note, favourite | Allowed |
-| `archiveTask` | Rejected. Detach first |
+| Operation on a `synced` task                                                                   | Result                            |
+| ---------------------------------------------------------------------------------------------- | --------------------------------- |
+| `updateTask`, `updateStatus`, `updateProject`, `promoteSubtask`, `demoteTask`, `createSubtask` | Throws `ExternalReadOnlyError`    |
+| `updateLinks` (note or event)                                                                  | Allowed. Links are DevBrain-owned |
+| Attach a task note, favourite                                                                  | Allowed                           |
+| `archiveTask`                                                                                  | Rejected. Detach first            |
 
 Local subtasks inherit links from their parent. External subtasks do not; each carries its own links.
 
@@ -353,17 +355,17 @@ Google Calendar events are mirrored as `events` rows for the calendars the user 
 
 **Field mapping**
 
-| Google | DevBrain | Notes |
-| --- | --- | --- |
-| `summary` | `title` | "(No title)" when empty |
-| `description` | `description` | Google sends HTML; convert to Markdown on the way in |
-| `start`, `end` | `startAt`, `endAt`, `allDay` | Date-only values set `allDay` |
-| `location` | `location` |  |
-| `recurrence` | `reccurrenceRule` | Lines joined with newlines. Same RFC 5545 format the column already expects |
-| `hangoutLink` or conference entry point | `meetingUrl` |  |
-| Calendar or event colour | `color` |  |
-| `htmlLink` | `external_links.externalUrl` |  |
-| Own attendee response | `metadata.response` | Declined events are mirrored and shown dimmed |
+| Google                                  | DevBrain                     | Notes                                                                       |
+| --------------------------------------- | ---------------------------- | --------------------------------------------------------------------------- |
+| `summary`                               | `title`                      | "(No title)" when empty                                                     |
+| `description`                           | `description`                | Google sends HTML; convert to Markdown on the way in                        |
+| `start`, `end`                          | `startAt`, `endAt`, `allDay` | Date-only values set `allDay`                                               |
+| `location`                              | `location`                   |                                                                             |
+| `recurrence`                            | `reccurrenceRule`            | Lines joined with newlines. Same RFC 5545 format the column already expects |
+| `hangoutLink` or conference entry point | `meetingUrl`                 |                                                                             |
+| Calendar or event colour                | `color`                      |                                                                             |
+| `htmlLink`                              | `external_links.externalUrl` |                                                                             |
+| Own attendee response                   | `metadata.response`          | Declined events are mirrored and shown dimmed                               |
 
 **Recurring events.** Sync requests series, not expanded instances. One row per series keeps storage small and matches `listEventsInRange`, which already returns recurring rows unexpanded.
 
@@ -385,14 +387,14 @@ Sync is a pull loop in the main process: fetch a page, apply it in one SQLite tr
 
 **Triggers**
 
-| Trigger | Behaviour |
-| --- | --- |
-| Source enabled for the first time | Initial sync starts immediately |
-| Workspace opened | Sync every enabled source |
-| Interval | Every 5 minutes while the workspace is open |
-| Window focus | Sync if the last run finished more than 60 seconds ago |
-| System resume or network back | Same rule as focus |
-| "Sync now" | Always runs; also runs the reconcile pass |
+| Trigger                           | Behaviour                                              |
+| --------------------------------- | ------------------------------------------------------ |
+| Source enabled for the first time | Initial sync starts immediately                        |
+| Workspace opened                  | Sync every enabled source                              |
+| Interval                          | Every 5 minutes while the workspace is open            |
+| Window focus                      | Sync if the last run finished more than 60 seconds ago |
+| System resume or network back     | Same rule as focus                                     |
+| "Sync now"                        | Always runs; also runs the reconcile pass              |
 
 Recommendation on "3 or 5 minutes": use 5. The focus trigger covers the case that matters, which is returning to the app after changing something in Linear. A shorter interval mostly adds requests while nobody is looking. The interval is a constant per source type, so it is cheap to tune later.
 
@@ -438,10 +440,10 @@ The watched set is therefore open assigned issues plus issues closed in the last
 
 Cost scales with the number of open assigned issues, not with everything ever mirrored. Most passes find no candidates and make no second request.
 
-| Linear run | When | Catches |
-| --- | --- | --- |
-| Incremental | Every 5 minutes, on focus | New assignments, edits, completions |
-| Reconcile | Every 30 minutes, on workspace open, on "Sync now" | Reassigned away, trashed, deleted, empty projects |
+| Linear run  | When                                               | Catches                                           |
+| ----------- | -------------------------------------------------- | ------------------------------------------------- |
+| Incremental | Every 5 minutes, on focus                          | New assignments, edits, completions               |
+| Reconcile   | Every 30 minutes, on workspace open, on "Sync now" | Reassigned away, trashed, deleted, empty projects |
 
 The trade-off: an issue reassigned to someone else can stay in the list for up to 30 minutes. "Sync now" closes the gap on demand.
 
@@ -453,24 +455,24 @@ The trade-off: an issue reassigned to someone else can stay in the list for up t
 
 **Applying an item (`SyncWriter`)**
 
-| Link found? | Link state | Action |
-| --- | --- | --- |
-| No |  | Insert the entity and the link. Index for search. |
-| Yes | `synced`, remote unchanged | Update `lastSyncedAt` only |
-| Yes | `synced`, remote changed | Update provider-owned fields only. Re-index. |
-| Yes | `detached` | Skip |
-| Yes | `removed` | Restore: state back to `synced`, unarchive, update |
+| Link found? | Link state                 | Action                                             |
+| ----------- | -------------------------- | -------------------------------------------------- |
+| No          |                            | Insert the entity and the link. Index for search.  |
+| Yes         | `synced`, remote unchanged | Update `lastSyncedAt` only                         |
+| Yes         | `synced`, remote changed   | Update provider-owned fields only. Re-index.       |
+| Yes         | `detached`                 | Skip                                               |
+| Yes         | `removed`                  | Restore: state back to `synced`, unarchive, update |
 
 "Unchanged" is decided by comparing `externalUpdatedAt`. This keeps `updatedAt` stable, so "recently updated" sorting is not flooded every 5 minutes. `createdAt` is set from the provider's creation time.
 
 **Removal policy**
 
-| Entity | Has local links or a task note | Action |
-| --- | --- | --- |
-| Task | Either | Archive (`archivedAt`), link state `removed`. Never purged in v1; it stays in the archive as history. |
-| Project | Either | Archive, link state `removed` |
-| Event | Yes | Keep the row, link state `removed`, hidden from the calendar |
-| Event | No | Delete the row |
+| Entity  | Has local links or a task note | Action                                                                                                |
+| ------- | ------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| Task    | Either                         | Archive (`archivedAt`), link state `removed`. Never purged in v1; it stays in the archive as history. |
+| Project | Either                         | Archive, link state `removed`                                                                         |
+| Event   | Yes                            | Keep the row, link state `removed`, hidden from the calendar                                          |
+| Event   | No                             | Delete the row                                                                                        |
 
 Archiving instead of deleting means an issue that is briefly unassigned and reassigned comes back with its notes intact.
 
@@ -482,12 +484,12 @@ Archiving instead of deleting means an issue that is briefly unassigned and reas
 
 A workspace settings page lists each provider with its account, its sources, last sync time and any error. Four actions exist, and each has a defined effect on mirrored data.
 
-| Action | Credentials | Syncing | Mirrored data |
-| --- | --- | --- | --- |
-| Disable a source | Kept | Stops for that source | Stays, frozen, with a "paused" hint on the badge |
-| Enable a source | Kept | Resumes from the saved cursor | Catches up |
-| Disable the integration | Kept | Stops for all its sources | Stays, frozen |
-| Disconnect | Revoked at the provider, then deleted | Stops | User chooses, below |
+| Action                  | Credentials                           | Syncing                       | Mirrored data                                    |
+| ----------------------- | ------------------------------------- | ----------------------------- | ------------------------------------------------ |
+| Disable a source        | Kept                                  | Stops for that source         | Stays, frozen, with a "paused" hint on the badge |
+| Enable a source         | Kept                                  | Resumes from the saved cursor | Catches up                                       |
+| Disable the integration | Kept                                  | Stops for all its sources     | Stays, frozen                                    |
+| Disconnect              | Revoked at the provider, then deleted | Stops                         | User chooses, below                              |
 
 **Disconnect choices**
 
@@ -510,25 +512,25 @@ These are the shapes and rules every module shares. They belong in `core/integra
 
 ```ts
 interface ExternalTask {
-  externalId: string;            // provider's stable id
-  key: string | null;            // "ENG-123"
+  externalId: string; // provider's stable id
+  key: string | null; // "ENG-123"
   url: string;
   title: string;
-  description: string | null;    // Markdown
-  status: TaskStatus;            // already mapped
-  priority: TaskPriority;        // already mapped
-  statusLabel: string | null;    // "In Review"
-  priorityLabel: string | null;  // "Urgent"
+  description: string | null; // Markdown
+  status: TaskStatus; // already mapped
+  priority: TaskPriority; // already mapped
+  statusLabel: string | null; // "In Review"
+  priorityLabel: string | null; // "Urgent"
   startDate: Date | null;
   dueDate: Date | null;
-  completedAt: Date | null;      // set only when status is COMPLETED
+  completedAt: Date | null; // set only when status is COMPLETED
   createdAt: Date;
-  updatedAt: Date;               // drives the unchanged check
+  updatedAt: Date; // drives the unchanged check
   parentExternalId: string | null;
-  parentKey: string | null;      // kept for display when the parent is not mirrored
+  parentKey: string | null; // kept for display when the parent is not mirrored
   parentTitle: string | null;
   projectExternalId: string | null;
-  assignedToViewer: boolean;     // false in a lookup result means "remove"
+  assignedToViewer: boolean; // false in a lookup result means "remove"
 }
 
 interface ExternalProject {
@@ -536,7 +538,7 @@ interface ExternalProject {
   url: string;
   title: string;
   description: string | null;
-  status: ProjectStatus;         // already mapped
+  status: ProjectStatus; // already mapped
   statusLabel: string | null;
   startDate: Date | null;
   dueDate: Date | null;
@@ -547,19 +549,19 @@ interface ExternalProject {
 }
 
 interface ExternalEvent {
-  externalId: string;            // "<calendarId>:<eventId>"; Google event ids are unique per calendar only
+  externalId: string; // "<calendarId>:<eventId>"; Google event ids are unique per calendar only
   calendarId: string;
   url: string;
   title: string;
-  description: string | null;    // Markdown, converted from HTML
+  description: string | null; // Markdown, converted from HTML
   startAt: Date;
   endAt: Date;
   allDay: boolean;
-  timeZone: string | null;       // IANA zone of the series
+  timeZone: string | null; // IANA zone of the series
   location: string | null;
   recurrenceRule: string | null; // RFC 5545 lines joined with \n
-  recurringEventExternalId: string | null;  // set on a modified instance
-  originalStartAt: Date | null;             // the occurrence this instance replaces
+  recurringEventExternalId: string | null; // set on a modified instance
+  originalStartAt: Date | null; // the occurrence this instance replaces
   meetingUrl: string | null;
   color: string | null;
   response: 'accepted' | 'declined' | 'tentative' | 'needsAction' | null;
@@ -573,26 +575,32 @@ interface ExternalEvent {
 ```ts
 type LinearTaskCursor =
   | { mode: 'initial'; after: string | null; maxUpdatedAt: string | null }
-  | { mode: 'incremental'; updatedSince: string };   // ISO time, already minus the 60 s overlap
+  | { mode: 'incremental'; updatedSince: string }; // ISO time, already minus the 60 s overlap
 
 interface GoogleEventCursor {
-  calendars: Record<string, {            // keyed by calendarId
-    syncToken: string | null;            // null until the first full pass ends
-    pageToken: string | null;            // resume point inside a pass
-  }>;
+  calendars: Record<
+    string,
+    {
+      // keyed by calendarId
+      syncToken: string | null; // null until the first full pass ends
+      pageToken: string | null; // resume point inside a pass
+    }
+  >;
 }
 
-interface GoogleEventConfig { calendarIds: string[] }
-type LinearTaskConfig = Record<string, never>;         // nothing in v1
+interface GoogleEventConfig {
+  calendarIds: string[];
+}
+type LinearTaskConfig = Record<string, never>; // nothing in v1
 ```
 
 **Link metadata.** The JSON in `external_links.metadata`, by entity type.
 
-| Entity | Keys |
-| --- | --- |
-| Task | `statusLabel`, `priorityLabel`, `parentExternalId`, `parentKey`, `parentTitle` |
-| Project | `statusLabel` |
-| Event | `calendarId`, `timeZone`, `response`, `recurringEventExternalId`, `originalStartAt` |
+| Entity  | Keys                                                                                |
+| ------- | ----------------------------------------------------------------------------------- |
+| Task    | `statusLabel`, `priorityLabel`, `parentExternalId`, `parentKey`, `parentTitle`      |
+| Project | `statusLabel`                                                                       |
+| Event   | `calendarId`, `timeZone`, `response`, `recurringEventExternalId`, `originalStartAt` |
 
 **Identity rules**
 
@@ -602,57 +610,57 @@ type LinearTaskConfig = Record<string, never>;         // nothing in v1
 
 **Integration status transitions**
 
-| From | Event | To |
-| --- | --- | --- |
-| (none) | Connect succeeds | `connected` |
-| `connected` | User disables | `disabled` |
-| `disabled` | User enables | `connected` |
-| `connected` | Auth rejected, or token refresh fails | `needs_reauth` |
-| `needs_reauth` | Reconnect with the same account | `connected` |
-| any | Disconnect | row deleted |
+| From           | Event                                 | To             |
+| -------------- | ------------------------------------- | -------------- |
+| (none)         | Connect succeeds                      | `connected`    |
+| `connected`    | User disables                         | `disabled`     |
+| `disabled`     | User enables                          | `connected`    |
+| `connected`    | Auth rejected, or token refresh fails | `needs_reauth` |
+| `needs_reauth` | Reconnect with the same account       | `connected`    |
+| any            | Disconnect                            | row deleted    |
 
 **Link state transitions**
 
-| From | Event | To |
-| --- | --- | --- |
-| (none) | Item first seen | `synced` |
-| `synced` | User detaches a task; disconnect keeping copies; project left with only local tasks | `detached` |
-| `synced` | Item left scope (reassigned, deleted, cancelled event) | `removed` |
-| `detached` | User reattaches a task; a detached project returns to scope | `synced` |
-| `removed` | Item returns to scope | `synced` |
+| From       | Event                                                                               | To         |
+| ---------- | ----------------------------------------------------------------------------------- | ---------- |
+| (none)     | Item first seen                                                                     | `synced`   |
+| `synced`   | User detaches a task; disconnect keeping copies; project left with only local tasks | `detached` |
+| `synced`   | Item left scope (reassigned, deleted, cancelled event)                              | `removed`  |
+| `detached` | User reattaches a task; a detached project returns to scope                         | `synced`   |
+| `removed`  | Item returns to scope                                                               | `synced`   |
 
 A `detached` task never moves to `removed`; sync ignores it entirely.
 
 **Error handling**
 
-| Failure | Class | Engine response |
-| --- | --- | --- |
-| Credentials rejected, refresh fails | `IntegrationAuthError` | Integration to `needs_reauth`; stop scheduling; keep data |
-| Rate limited | `RateLimitError` with `retryAt` | End the run; next attempt no earlier than `retryAt` |
-| Network failure, timeout, provider 5xx | `ProviderUnavailableError` | End the run; exponential backoff |
-| One item fails to map or validate | logged, not thrown | Skip that item, continue the page, count it in the run summary |
-| Database error while applying a page | rethrown | Page rolls back; run ends; backoff |
-| Google sync token expired (410) | handled in the adapter | Clear that calendar's token; full resync of that calendar |
-| Encryption unavailable | `IntegrationAuthError` at connect | Connect refused with a message |
+| Failure                                | Class                             | Engine response                                                |
+| -------------------------------------- | --------------------------------- | -------------------------------------------------------------- |
+| Credentials rejected, refresh fails    | `IntegrationAuthError`            | Integration to `needs_reauth`; stop scheduling; keep data      |
+| Rate limited                           | `RateLimitError` with `retryAt`   | End the run; next attempt no earlier than `retryAt`            |
+| Network failure, timeout, provider 5xx | `ProviderUnavailableError`        | End the run; exponential backoff                               |
+| One item fails to map or validate      | logged, not thrown                | Skip that item, continue the page, count it in the run summary |
+| Database error while applying a page   | rethrown                          | Page rolls back; run ends; backoff                             |
+| Google sync token expired (410)        | handled in the adapter            | Clear that calendar's token; full resync of that calendar      |
+| Encryption unavailable                 | `IntegrationAuthError` at connect | Connect refused with a message                                 |
 
 Every HTTP request has a 30-second timeout through `AbortSignal`. Mutations rejected on synced rows throw `ExternalReadOnlyError`.
 
 **Constants.** One file, `core/sync/constants.ts`, so they are easy to tune.
 
-| Constant | Value |
-| --- | --- |
-| Incremental interval | 5 minutes |
-| Reconcile interval (Linear) | 30 minutes |
-| Minimum gap for focus and resume triggers | 60 seconds |
-| Page size | 50 |
-| Lookup batch size | 100 ids |
-| Closed-issue window and settle age | 30 days |
-| Event history window | 30 days back |
-| Cursor overlap | 60 seconds |
-| Backoff | 1 minute doubling to a 30-minute cap |
-| HTTP timeout | 30 seconds |
-| OAuth callback timeout | 5 minutes |
-| Token refresh margin | 60 seconds before expiry |
+| Constant                                  | Value                                |
+| ----------------------------------------- | ------------------------------------ |
+| Incremental interval                      | 5 minutes                            |
+| Reconcile interval (Linear)               | 30 minutes                           |
+| Minimum gap for focus and resume triggers | 60 seconds                           |
+| Page size                                 | 50                                   |
+| Lookup batch size                         | 100 ids                              |
+| Closed-issue window and settle age        | 30 days                              |
+| Event history window                      | 30 days back                         |
+| Cursor overlap                            | 60 seconds                           |
+| Backoff                                   | 1 minute doubling to a 30-minute cap |
+| HTTP timeout                              | 30 seconds                           |
+| OAuth callback timeout                    | 5 minutes                            |
+| Token refresh margin                      | 60 seconds before expiry             |
 
 **Logging.** Use `electron-log` as the rest of the app does. Log one line per run: source, mode, pages, counts of inserted, updated, removed and skipped, duration, and outcome. Never log credentials, authorization headers, the API key argument of `integrations:connect`, or item titles and descriptions.
 
@@ -662,23 +670,23 @@ Checked against each provider's documentation on 6 October 2026. Items marked "f
 
 ### Linear
 
-| Topic | Fact | Source |
-| --- | --- | --- |
-| Endpoint | `https://api.linear.app/graphql` | [Getting started](https://linear.app/developers/graphql) |
-| API key header | `Authorization: <API_KEY>`, with no `Bearer` prefix | [Getting started](https://linear.app/developers/graphql) |
-| OAuth token header | `Authorization: Bearer <ACCESS_TOKEN>` | [OAuth 2.0](https://linear.app/developers/oauth-2-0-authentication) |
-| Account query | `viewer { id name email }` | [Getting started](https://linear.app/developers/graphql) |
-| Request limit | 2,500 per hour with an API key; 5,000 per hour with OAuth | [Rate limiting](https://linear.app/developers/rate-limiting) |
-| Complexity limit | 3,000,000 points per hour with an API key; 10,000 points for one query | [Rate limiting](https://linear.app/developers/rate-limiting) |
-| Rate-limited response | HTTP 400 with a GraphQL error whose `extensions.code` is `RATELIMITED`. Not a 429 | [Rate limiting](https://linear.app/developers/rate-limiting) |
-| Rate-limit headers | `X-RateLimit-Requests-Remaining`, `X-RateLimit-Requests-Reset`, `X-RateLimit-Complexity-Remaining`, `X-RateLimit-Complexity-Reset` | [Rate limiting](https://linear.app/developers/rate-limiting) |
-| Pagination | `first` and `after`; `pageInfo { hasNextPage endCursor }`; default page size 50 | [Pagination](https://linear.app/developers/pagination) |
-| Ordering | `orderBy: updatedAt` or `createdAt` (default) | [Pagination](https://linear.app/developers/pagination) |
-| Archived items | Hidden unless `includeArchived: true` is passed | [Getting started](https://linear.app/developers/graphql) |
-| Filters | `state: { type: { in: [...] } }`, `updatedAt: { gt: "<ISO>" }`, `id: { in: [...] }`, `or: [...]`; several fields in one filter are combined with AND | [Filtering](https://linear.app/developers/filtering) |
-| Relative dates | ISO 8601 durations, such as `completedAt: { gt: "-P30D" }` | [Filtering](https://linear.app/developers/filtering) |
-| OAuth endpoints | Authorize `https://linear.app/oauth/authorize`; token `https://api.linear.app/oauth/token`; revoke `https://api.linear.app/oauth/revoke` | [OAuth 2.0](https://linear.app/developers/oauth-2-0-authentication) |
-| OAuth details | PKCE supported, client secret optional with PKCE; scopes comma-separated, `read` is the default; access tokens last 24 hours; refresh tokens are issued | [OAuth 2.0](https://linear.app/developers/oauth-2-0-authentication) |
+| Topic                 | Fact                                                                                                                                                    | Source                                                              |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Endpoint              | `https://api.linear.app/graphql`                                                                                                                        | [Getting started](https://linear.app/developers/graphql)            |
+| API key header        | `Authorization: <API_KEY>`, with no `Bearer` prefix                                                                                                     | [Getting started](https://linear.app/developers/graphql)            |
+| OAuth token header    | `Authorization: Bearer <ACCESS_TOKEN>`                                                                                                                  | [OAuth 2.0](https://linear.app/developers/oauth-2-0-authentication) |
+| Account query         | `viewer { id name email }`                                                                                                                              | [Getting started](https://linear.app/developers/graphql)            |
+| Request limit         | 2,500 per hour with an API key; 5,000 per hour with OAuth                                                                                               | [Rate limiting](https://linear.app/developers/rate-limiting)        |
+| Complexity limit      | 3,000,000 points per hour with an API key; 10,000 points for one query                                                                                  | [Rate limiting](https://linear.app/developers/rate-limiting)        |
+| Rate-limited response | HTTP 400 with a GraphQL error whose `extensions.code` is `RATELIMITED`. Not a 429                                                                       | [Rate limiting](https://linear.app/developers/rate-limiting)        |
+| Rate-limit headers    | `X-RateLimit-Requests-Remaining`, `X-RateLimit-Requests-Reset`, `X-RateLimit-Complexity-Remaining`, `X-RateLimit-Complexity-Reset`                      | [Rate limiting](https://linear.app/developers/rate-limiting)        |
+| Pagination            | `first` and `after`; `pageInfo { hasNextPage endCursor }`; default page size 50                                                                         | [Pagination](https://linear.app/developers/pagination)              |
+| Ordering              | `orderBy: updatedAt` or `createdAt` (default)                                                                                                           | [Pagination](https://linear.app/developers/pagination)              |
+| Archived items        | Hidden unless `includeArchived: true` is passed                                                                                                         | [Getting started](https://linear.app/developers/graphql)            |
+| Filters               | `state: { type: { in: [...] } }`, `updatedAt: { gt: "<ISO>" }`, `id: { in: [...] }`, `or: [...]`; several fields in one filter are combined with AND    | [Filtering](https://linear.app/developers/filtering)                |
+| Relative dates        | ISO 8601 durations, such as `completedAt: { gt: "-P30D" }`                                                                                              | [Filtering](https://linear.app/developers/filtering)                |
+| OAuth endpoints       | Authorize `https://linear.app/oauth/authorize`; token `https://api.linear.app/oauth/token`; revoke `https://api.linear.app/oauth/revoke`                | [OAuth 2.0](https://linear.app/developers/oauth-2-0-authentication) |
+| OAuth details         | PKCE supported, client secret optional with PKCE; scopes comma-separated, `read` is the default; access tokens last 24 hours; refresh tokens are issued | [OAuth 2.0](https://linear.app/developers/oauth-2-0-authentication) |
 
 **What this changes in the design**
 
@@ -699,15 +707,46 @@ query AssignedIssues($after: String, $since: DateTimeOrDuration) {
       includeArchived: true
       filter: { updatedAt: { gt: $since } }
     ) {
-      pageInfo { hasNextPage endCursor }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
       nodes {
-        id identifier url title description
-        priority priorityLabel
-        dueDate startedAt completedAt canceledAt
-        createdAt updatedAt archivedAt trashed
-        state { name type }
-        parent { id identifier title }
-        project { id name description url state startDate targetDate color updatedAt }
+        id
+        identifier
+        url
+        title
+        description
+        priority
+        priorityLabel
+        dueDate
+        startedAt
+        completedAt
+        canceledAt
+        createdAt
+        updatedAt
+        archivedAt
+        trashed
+        state {
+          name
+          type
+        }
+        parent {
+          id
+          identifier
+          title
+        }
+        project {
+          id
+          name
+          description
+          url
+          state
+          startDate
+          targetDate
+          color
+          updatedAt
+        }
       }
     }
   }
@@ -722,18 +761,18 @@ query AssignedIssues($after: String, $since: DateTimeOrDuration) {
 
 ### Google Calendar
 
-| Topic | Fact | Source |
-| --- | --- | --- |
-| OAuth endpoints | Authorize `https://accounts.google.com/o/oauth2/v2/auth`; token `https://oauth2.googleapis.com/token`; revoke `https://oauth2.googleapis.com/revoke` | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
-| Redirect | `http://127.0.0.1:<port>` on any free port; a path is optional | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
-| PKCE | `code_challenge` with `code_challenge_method=S256`, recommended | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
-| Client secret | Optional in the token exchange for desktop clients | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
-| Refresh tokens | Always returned for installed applications; refresh with `grant_type=refresh_token` | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
-| Scopes | `calendar.calendarlist.readonly` to list calendars and `calendar.events.readonly` to read events. Both are narrower than `calendar.readonly` | [Calendar API scopes](https://developers.google.com/workspace/calendar/api/auth) |
-| Initial sync | A list request may be restricted, for example with `timeMin`. `nextSyncToken` arrives on the last page only | [Synchronize resources](https://developers.google.com/workspace/calendar/api/guides/sync) |
-| Incremental sync | Send the stored `syncToken`. Keep the other query parameters the same as the initial request | [Synchronize resources](https://developers.google.com/workspace/calendar/api/guides/sync) |
-| Deletions | Incremental responses always include deleted entries | [Synchronize resources](https://developers.google.com/workspace/calendar/api/guides/sync) |
-| Expired token | HTTP 410. Wipe that calendar's stored state and run a full sync | [Synchronize resources](https://developers.google.com/workspace/calendar/api/guides/sync) |
+| Topic            | Fact                                                                                                                                                 | Source                                                                                       |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| OAuth endpoints  | Authorize `https://accounts.google.com/o/oauth2/v2/auth`; token `https://oauth2.googleapis.com/token`; revoke `https://oauth2.googleapis.com/revoke` | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
+| Redirect         | `http://127.0.0.1:<port>` on any free port; a path is optional                                                                                       | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
+| PKCE             | `code_challenge` with `code_challenge_method=S256`, recommended                                                                                      | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
+| Client secret    | Optional in the token exchange for desktop clients                                                                                                   | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
+| Refresh tokens   | Always returned for installed applications; refresh with `grant_type=refresh_token`                                                                  | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
+| Scopes           | `calendar.calendarlist.readonly` to list calendars and `calendar.events.readonly` to read events. Both are narrower than `calendar.readonly`         | [Calendar API scopes](https://developers.google.com/workspace/calendar/api/auth)             |
+| Initial sync     | A list request may be restricted, for example with `timeMin`. `nextSyncToken` arrives on the last page only                                          | [Synchronize resources](https://developers.google.com/workspace/calendar/api/guides/sync)    |
+| Incremental sync | Send the stored `syncToken`. Keep the other query parameters the same as the initial request                                                         | [Synchronize resources](https://developers.google.com/workspace/calendar/api/guides/sync)    |
+| Deletions        | Incremental responses always include deleted entries                                                                                                 | [Synchronize resources](https://developers.google.com/workspace/calendar/api/guides/sync)    |
+| Expired token    | HTTP 410. Wipe that calendar's stored state and run a full sync                                                                                      | [Synchronize resources](https://developers.google.com/workspace/calendar/api/guides/sync)    |
 
 **What this changes in the design**
 
@@ -757,36 +796,36 @@ Most work is new code. Changes to existing files are small but touch every entit
 
 **New**
 
-| Path | Contents |
-| --- | --- |
-| `src/main/db/schema/integrations.ts` | `integrations`, `external_sources`, `external_links` |
-| `src/main/db/migrations/0016_*` | New tables; rebuild of `tasks` and `projects` for nullable `dueDate` |
-| `src/main/core/integrations/` | `service.ts`, `types.ts`, `credentials.ts`, `oauth/pkce.ts`, `oauth/loopback.ts` |
-| `src/main/core/integrations/providers/linear/` | `client.ts` (GraphQL over `fetch`), `mapper.ts`, `provider.ts` |
-| `src/main/core/integrations/providers/google-calendar/` | `client.ts`, `mapper.ts`, `provider.ts` |
-| `src/main/core/sync/` | `engine.ts`, `writer.ts`, `scheduler.ts`, `types.ts` |
-| `src/main/core/tests/integrations/`, `.../sync/` | Tests and provider fixtures |
+| Path                                                    | Contents                                                                         |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `src/main/db/schema/integrations.ts`                    | `integrations`, `external_sources`, `external_links`                             |
+| `src/main/db/migrations/0016_*`                         | New tables; rebuild of `tasks` and `projects` for nullable `dueDate`             |
+| `src/main/core/integrations/`                           | `service.ts`, `types.ts`, `credentials.ts`, `oauth/pkce.ts`, `oauth/loopback.ts` |
+| `src/main/core/integrations/providers/linear/`          | `client.ts` (GraphQL over `fetch`), `mapper.ts`, `provider.ts`                   |
+| `src/main/core/integrations/providers/google-calendar/` | `client.ts`, `mapper.ts`, `provider.ts`                                          |
+| `src/main/core/sync/`                                   | `engine.ts`, `writer.ts`, `scheduler.ts`, `types.ts`                             |
+| `src/main/core/tests/integrations/`, `.../sync/`        | Tests and provider fixtures                                                      |
 
 **Modified**
 
-| File | Change |
-| --- | --- |
-| `src/common/ids.ts` | Add `integration`, `externalSource`, `externalLink` entity types and prefixes |
-| `core/shared/errors.ts` | Add `ExternalReadOnlyError`, `IntegrationAuthError` |
-| `db/schema/tasks.ts`, `projects.ts` | `dueDate` nullable |
-| `core/tasks/types.ts`, `projects/types.ts`, `events/types.ts` | `dueDate: Date \| null`; optional `external: ExternalRef`; `origin` filter |
-| `core/tasks/service.ts` | Read-only guards on mutations; depth guards scoped to local tasks; ref lookup for `external`; null due dates sort last; CANCELLED status in filters and sorting; local tasks allowed in mirrored projects |
-| `core/projects/service.ts` | Read-only guards; ref lookup; overdue stats ignore null due dates; cancelled tasks counted separately |
-| `core/events/service.ts` | Read-only guards; ref lookup; `listEventsInRange` hides `removed` |
-| `core/archive/service.ts` | Reject archiving synced items; `listArchived` labels removed external items |
-| `core/search/service.ts` | Add removal from the index by entity id, if not already present |
-| `core/workspace/workspace.ts` | Construct `IntegrationService` and `SyncScheduler`; enable WAL; stop the scheduler in `close()` |
-| `core/workspace/service.ts` | Revoke tokens on workspace delete |
-| `core/settings/schema.ts` | No change. Integration state is per workspace, not global settings |
-| `src/main/index.ts` | Pass `safeStorage`, `fetch` and `shell.openExternal` into core; forward window focus and `powerMonitor` resume to the scheduler; forward sync events to the renderer |
-| `src/preload/index.ts` | Expose a sync event subscription |
-| `src/common/ipc.ts` | Proposed home for the shared channel contract below, imported by main, preload and renderer |
-| `.env.template` | `DEV_LINEAR_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
+| File                                                          | Change                                                                                                                                                                                                    |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/common/ids.ts`                                           | Add `integration`, `externalSource`, `externalLink` entity types and prefixes                                                                                                                             |
+| `core/shared/errors.ts`                                       | Add `ExternalReadOnlyError`, `IntegrationAuthError`                                                                                                                                                       |
+| `db/schema/tasks.ts`, `projects.ts`                           | `dueDate` nullable                                                                                                                                                                                        |
+| `core/tasks/types.ts`, `projects/types.ts`, `events/types.ts` | `dueDate: Date \| null`; optional `external: ExternalRef`; `origin` filter                                                                                                                                |
+| `core/tasks/service.ts`                                       | Read-only guards on mutations; depth guards scoped to local tasks; ref lookup for `external`; null due dates sort last; CANCELLED status in filters and sorting; local tasks allowed in mirrored projects |
+| `core/projects/service.ts`                                    | Read-only guards; ref lookup; overdue stats ignore null due dates; cancelled tasks counted separately                                                                                                     |
+| `core/events/service.ts`                                      | Read-only guards; ref lookup; `listEventsInRange` hides `removed`                                                                                                                                         |
+| `core/archive/service.ts`                                     | Reject archiving synced items; `listArchived` labels removed external items                                                                                                                               |
+| `core/search/service.ts`                                      | Add removal from the index by entity id, if not already present                                                                                                                                           |
+| `core/workspace/workspace.ts`                                 | Construct `IntegrationService` and `SyncScheduler`; enable WAL; stop the scheduler in `close()`                                                                                                           |
+| `core/workspace/service.ts`                                   | Revoke tokens on workspace delete                                                                                                                                                                         |
+| `core/settings/schema.ts`                                     | No change. Integration state is per workspace, not global settings                                                                                                                                        |
+| `src/main/index.ts`                                           | Pass `safeStorage`, `fetch` and `shell.openExternal` into core; forward window focus and `powerMonitor` resume to the scheduler; forward sync events to the renderer                                      |
+| `src/preload/index.ts`                                        | Expose a sync event subscription                                                                                                                                                                          |
+| `src/common/ipc.ts`                                           | Proposed home for the shared channel contract below, imported by main, preload and renderer                                                                                                               |
+| `.env.template`                                               | `DEV_LINEAR_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`                                                                                                                                          |
 
 **IPC contract (deferred).** Not part of the current build. IPC will be implemented separately with a dedicated typed solution. The shapes below record what the integration feature will need from it: request channels the renderer invokes and push events the main process sends. Treat them as requirements to fit to that solution, not as its design. Until then, the same operations are plain methods and in-process events on the core services.
 
@@ -802,7 +841,10 @@ interface IntegrationChannels {
 
   'sources:setEnabled': (input: { id: ExternalSourceId; enabled: boolean }) => ExternalSource;
   'sources:listCalendars': (input: { id: ExternalSourceId }) => ExternalCalendar[];
-  'sources:setCalendars': (input: { id: ExternalSourceId; calendarIds: string[] }) => ExternalSource;
+  'sources:setCalendars': (input: {
+    id: ExternalSourceId;
+    calendarIds: string[];
+  }) => ExternalSource;
 
   'sync:now': (input: { sourceId?: ExternalSourceId }) => void;
   'tasks:detach': (input: { id: TaskId }) => Task;
@@ -815,10 +857,10 @@ interface IntegrationEvents {
     sourceId: ExternalSourceId;
     phase: 'initial' | 'incremental' | 'reconcile';
     itemsApplied: number;
-    changed: ('task' | 'project' | 'event')[];  // what the renderer should refetch
+    changed: ('task' | 'project' | 'event')[]; // what the renderer should refetch
   };
-  'sources:changed': ExternalSource;      // enabled, lastSyncedAt, lastError
-  'integrations:changed': Integration;    // status, such as needs_reauth
+  'sources:changed': ExternalSource; // enabled, lastSyncedAt, lastError
+  'integrations:changed': Integration; // status, such as needs_reauth
 }
 
 interface Integration {
@@ -856,90 +898,90 @@ Each decision below lists the chosen option first.
 
 **1. Where external items are stored**
 
-| Option | Pros | Cons |
-| --- | --- | --- |
-| Mirror into `tasks`, `projects`, `events` (chosen) | One list query, one search index, existing links and foreign keys work, fully offline | Existing constraints must loosen (`dueDate`, subtask depth); every mutation needs a read-only guard |
-| Separate `external_tasks` tables | Local schema untouched; no guards needed | Every view unions two tables; notes need a second link column; search and project stats are duplicated |
-| Fetch live, store nothing | No sync engine, never stale | No offline use, no linking, no search, slow lists, rate-limit exposure |
+| Option                                             | Pros                                                                                  | Cons                                                                                                   |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Mirror into `tasks`, `projects`, `events` (chosen) | One list query, one search index, existing links and foreign keys work, fully offline | Existing constraints must loosen (`dueDate`, subtask depth); every mutation needs a read-only guard    |
+| Separate `external_tasks` tables                   | Local schema untouched; no guards needed                                              | Every view unions two tables; notes need a second link column; search and project stats are duplicated |
+| Fetch live, store nothing                          | No sync engine, never stale                                                           | No offline use, no linking, no search, slow lists, rate-limit exposure                                 |
 
 **2. Where external identity lives**
 
-| Option | Pros | Cons |
-| --- | --- | --- |
-| `external_links` side table (chosen) | Entity tables stay clean; one place for sync state; one lookup path for the writer; new entity types need no new columns | A join on every list read; polymorphic row needs a `CHECK` |
-| Columns on each entity table | No join; simple filters | Six or more columns repeated on three tables; three table rebuilds; local rows carry dead columns |
+| Option                               | Pros                                                                                                                     | Cons                                                                                              |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `external_links` side table (chosen) | Entity tables stay clean; one place for sync state; one lookup path for the writer; new entity types need no new columns | A join on every list read; polymorphic row needs a `CHECK`                                        |
+| Columns on each entity table         | No join; simple filters                                                                                                  | Six or more columns repeated on three tables; three table rebuilds; local rows carry dead columns |
 
 **3. Where integrations are stored**
 
-| Option | Pros | Cons |
-| --- | --- | --- |
-| Workspace `db.sqlite` (chosen) | Scoping is automatic; deleting a workspace deletes its integrations; foreign keys to links | Ciphertext is copied into `db.sqlite.backup`; a workspace moved to another machine must reconnect |
-| Global `electron-store` keyed by workspace id | Credentials stay out of workspace files | Two stores to keep consistent; orphaned entries when a workspace is deleted; no foreign keys |
+| Option                                        | Pros                                                                                       | Cons                                                                                              |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| Workspace `db.sqlite` (chosen)                | Scoping is automatic; deleting a workspace deletes its integrations; foreign keys to links | Ciphertext is copied into `db.sqlite.backup`; a workspace moved to another machine must reconnect |
+| Global `electron-store` keyed by workspace id | Credentials stay out of workspace files                                                    | Two stores to keep consistent; orphaned entries when a workspace is deleted; no foreign keys      |
 
 **4. Credential protection**
 
-| Option | Pros | Cons |
-| --- | --- | --- |
-| `safeStorage` ciphertext in SQLite (chosen) | Built into Electron; OS keychain holds the key; no native module | Weaker on Linux without a keyring; tied to the machine and OS user |
-| OS keychain entry per integration (keytar-style) | Secrets never touch the database | Extra native dependency to rebuild alongside `better-sqlite3`; keytar is unmaintained |
-| Plain text in the database | Trivial | Any copy of the file leaks tokens |
+| Option                                           | Pros                                                             | Cons                                                                                  |
+| ------------------------------------------------ | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `safeStorage` ciphertext in SQLite (chosen)      | Built into Electron; OS keychain holds the key; no native module | Weaker on Linux without a keyring; tied to the machine and OS user                    |
+| OS keychain entry per integration (keytar-style) | Secrets never touch the database                                 | Extra native dependency to rebuild alongside `better-sqlite3`; keytar is unmaintained |
+| Plain text in the database                       | Trivial                                                          | Any copy of the file leaks tokens                                                     |
 
 **5. Linear authentication for v1**
 
-| Option | Pros | Cons |
-| --- | --- | --- |
+| Option                               | Pros                                                                | Cons                                                                                 |
+| ------------------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | API key now, OAuth deferred (chosen) | Sync work starts now; no app registration or fixed ports needed yet | Poor onboarding; keys are long-lived and carry the user's full access, not just read |
-| OAuth only | One path; read-only scope; better UX | Blocks on registering the app and confirming PKCE and loopback rules |
+| OAuth only                           | One path; read-only scope; better UX                                | Blocks on registering the app and confirming PKCE and loopback rules                 |
 
 **6. Change detection**
 
-| Option | Pros | Cons |
-| --- | --- | --- |
-| Polling with cursors (chosen) | Works from a desktop app with no server; simple failure model | Up to 5 minutes stale; needs extra queries to see removals |
-| Webhooks | Near real time | Needs a public endpoint, so a hosted relay; out of scope for a local-first app |
-| Full refetch every run | No cursor logic | Wasteful; hits rate limits on large accounts |
+| Option                        | Pros                                                          | Cons                                                                           |
+| ----------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Polling with cursors (chosen) | Works from a desktop app with no server; simple failure model | Up to 5 minutes stale; needs extra queries to see removals                     |
+| Webhooks                      | Near real time                                                | Needs a public endpoint, so a hosted relay; out of scope for a local-first app |
+| Full refetch every run        | No cursor logic                                               | Wasteful; hits rate limits on large accounts                                   |
 
 **7. Recurring Google events**
 
-| Option | Pros | Cons |
-| --- | --- | --- |
-| Store series with rules (chosen) | One row per series; matches the existing column and query; infinite series cost nothing | Exceptions need `EXDATE` handling; time-zone care in expansion |
-| Store expanded instances | Each row is a plain event; simpler rendering and linking per occurrence | Needs a forward window that must be rolled; many rows; a note links to one instance only by convention |
+| Option                           | Pros                                                                                    | Cons                                                                                                   |
+| -------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Store series with rules (chosen) | One row per series; matches the existing column and query; infinite series cost nothing | Exceptions need `EXDATE` handling; time-zone care in expansion                                         |
+| Store expanded instances         | Each row is a plain event; simpler rendering and linking per occurrence                 | Needs a forward window that must be rolled; many rows; a note links to one instance only by convention |
 
 **8. Statuses and priorities**
 
-| Option | Pros | Cons |
-| --- | --- | --- |
+| Option                                                             | Pros                                                                                                                | Cons                                                                                        |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | Map to DevBrain enums, keep raw label, add CANCELLED only (chosen) | Sorting, grouping and stats keep working; cancelled work is not shown as done; the user still sees Linear's wording | "Urgent" and "High" sort together; a new status touches local task views, filters and stats |
-| Map to the existing three statuses | No change to local tasks | Cancelled issues count as completed and inflate progress |
-| Also add URGENT | More faithful priorities | Changes local priority settings and defaults for little gain |
-| Per-source custom status tables | Fully faithful | Large UI and query cost for v1 |
+| Map to the existing three statuses                                 | No change to local tasks                                                                                            | Cancelled issues count as completed and inflate progress                                    |
+| Also add URGENT                                                    | More faithful priorities                                                                                            | Changes local priority settings and defaults for little gain                                |
+| Per-source custom status tables                                    | Fully faithful                                                                                                      | Large UI and query cost for v1                                                              |
 
 **9. Removed items**
 
-| Option | Pros | Cons |
-| --- | --- | --- |
+| Option                              | Pros                                                             | Cons                                                                                    |
+| ----------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | Archive and mark `removed` (chosen) | Reversible; notes keep their target; survives brief reassignment | Archive view gains external items; the archive grows until a later version adds cleanup |
-| Hard delete | Mirror is always exact | Linked notes lose their target silently; no undo |
+| Hard delete                         | Mirror is always exact                                           | Linked notes lose their target silently; no undo                                        |
 
 ## Risks, security and privacy
 
 The two risks most likely to cost time are Google's OAuth verification and the `dueDate` migration.
 
-| Risk | Impact | Mitigation |
-| --- | --- | --- |
-| Google treats calendar read access as a sensitive scope | Unverified apps show a warning screen and are capped on user count; verification takes weeks | Start the consent-screen and verification process in phase 1, not at launch. Use test users until then. |
-| Nullable `dueDate` breaks assumptions | Sorting, `dueOn` filters, overdue stats and any UI that formats the date | Change the TypeScript type first and let the compiler find every use. Add tests for null ordering. |
-| Table rebuild migration on real workspaces | Data loss if the rebuild fails midway | `Workspace.open` already backs up before migrating. Add a migration test against a seeded database. |
-| Linear OAuth cannot use a random loopback port | Port clash blocks login | Register three fixed ports and try each in turn. |
-| Credentials at rest | Token theft from a copied database | `safeStorage`; refuse to connect when encryption is unavailable; never log tokens or auth headers. |
-| Malicious local process hits the loopback listener | Forged callback | Bind to `127.0.0.1`; verify `state`; PKCE makes a stolen code useless; single-use listener with a timeout. |
-| Remote content rendered in the app | Script injection through a Linear description or Google event HTML | Convert Google HTML to Markdown and sanitise on render. The renderer already runs sandboxed with context isolation. |
-| Rate limits on large accounts | Initial sync stalls | Page size 50, sequential pages, honour retry headers, resume from the committed cursor. |
-| Sync writes block the main process | UI jank during initial sync | Small page transactions; WAL; yield between pages. Move to a worker thread only if measured. |
-| Stale data shown as current | User acts on outdated status | Last-synced time on the indicator; clear "paused" and "reconnect" states. |
-| Private work data stored locally | Mirrored issues and meetings sit in the workspace folder | State it in the connect dialog. Disconnect offers full removal. |
-| API key grants more than read | A leaked key can write to Linear | Label the API key path as temporary; push users to OAuth once it ships. |
+| Risk                                                    | Impact                                                                                       | Mitigation                                                                                                          |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Google treats calendar read access as a sensitive scope | Unverified apps show a warning screen and are capped on user count; verification takes weeks | Start the consent-screen and verification process in phase 1, not at launch. Use test users until then.             |
+| Nullable `dueDate` breaks assumptions                   | Sorting, `dueOn` filters, overdue stats and any UI that formats the date                     | Change the TypeScript type first and let the compiler find every use. Add tests for null ordering.                  |
+| Table rebuild migration on real workspaces              | Data loss if the rebuild fails midway                                                        | `Workspace.open` already backs up before migrating. Add a migration test against a seeded database.                 |
+| Linear OAuth cannot use a random loopback port          | Port clash blocks login                                                                      | Register three fixed ports and try each in turn.                                                                    |
+| Credentials at rest                                     | Token theft from a copied database                                                           | `safeStorage`; refuse to connect when encryption is unavailable; never log tokens or auth headers.                  |
+| Malicious local process hits the loopback listener      | Forged callback                                                                              | Bind to `127.0.0.1`; verify `state`; PKCE makes a stolen code useless; single-use listener with a timeout.          |
+| Remote content rendered in the app                      | Script injection through a Linear description or Google event HTML                           | Convert Google HTML to Markdown and sanitise on render. The renderer already runs sandboxed with context isolation. |
+| Rate limits on large accounts                           | Initial sync stalls                                                                          | Page size 50, sequential pages, honour retry headers, resume from the committed cursor.                             |
+| Sync writes block the main process                      | UI jank during initial sync                                                                  | Small page transactions; WAL; yield between pages. Move to a worker thread only if measured.                        |
+| Stale data shown as current                             | User acts on outdated status                                                                 | Last-synced time on the indicator; clear "paused" and "reconnect" states.                                           |
+| Private work data stored locally                        | Mirrored issues and meetings sit in the workspace folder                                     | State it in the connect dialog. Disconnect offers full removal.                                                     |
+| API key grants more than read                           | A leaked key can write to Linear                                                             | Label the API key path as temporary; push users to OAuth once it ships.                                             |
 
 ## Implementation plan
 
@@ -977,17 +1019,17 @@ None open.
 
 **Decided on 2 October 2026**
 
-| Question | Decision |
-| --- | --- |
-| Cancelled Linear issues | Shown with a new CANCELLED task status |
-| Separate "Urgent" priority | No. Urgent groups with High |
-| Sub-issue whose parent is not mirrored | Shown as a top-level task |
-| Declined calendar events | Shown dimmed |
-| Hiding a synced task without detaching | Not in v1 |
-| Local tasks in mirrored projects | Allowed. They stay local and are never synced back |
-| Purge window for removed items | Never in v1. Removed items stay archived as history; cleanup is revisited in a later version |
-| `tasks.pullRequestUrl` | Kept. Local tasks can carry a URL with no integration |
-| Required due date for local projects | Yes, enforced in the service, not the schema |
+| Question                               | Decision                                                                                     |
+| -------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Cancelled Linear issues                | Shown with a new CANCELLED task status                                                       |
+| Separate "Urgent" priority             | No. Urgent groups with High                                                                  |
+| Sub-issue whose parent is not mirrored | Shown as a top-level task                                                                    |
+| Declined calendar events               | Shown dimmed                                                                                 |
+| Hiding a synced task without detaching | Not in v1                                                                                    |
+| Local tasks in mirrored projects       | Allowed. They stay local and are never synced back                                           |
+| Purge window for removed items         | Never in v1. Removed items stay archived as history; cleanup is revisited in a later version |
+| `tasks.pullRequestUrl`                 | Kept. Local tasks can carry a URL with no integration                                        |
+| Required due date for local projects   | Yes, enforced in the service, not the schema                                                 |
 
 **To verify against provider documentation before building**
 
