@@ -75,7 +75,8 @@ export class LinearTaskSource implements TaskSource {
   async listAssignedIds(auth: Auth): Promise<string[]> {
     const ids: string[] = [];
     let after: string | null = null;
-    for (;;) {
+    // one request per page; whether there is another page is only known from each response
+    do {
       const response: AssignedIssueIdsResponse = await this.client.request(
         auth,
         ASSIGNED_ISSUE_IDS_QUERY,
@@ -84,11 +85,9 @@ export class LinearTaskSource implements TaskSource {
       );
       const { pageInfo, nodes } = response.viewer.assignedIssues;
       ids.push(...nodes.map((node) => node.id));
-      if (!pageInfo.hasNextPage || pageInfo.endCursor === null) {
-        return ids;
-      }
-      after = pageInfo.endCursor;
-    }
+      after = pageInfo.hasNextPage ? pageInfo.endCursor : null;
+    } while (after !== null);
+    return ids;
   }
 
   async lookup(auth: Auth, externalIds: string[]): Promise<LookupResult> {
