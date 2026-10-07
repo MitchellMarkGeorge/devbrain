@@ -1,0 +1,229 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { and, eq } from 'drizzle-orm';
+import { ExternalSourceId, IntegrationId, TaskId, ProjectId, EventId } from '@common/ids';
+import { integrations, externalSources, externalLinks } from '@main/db/schema/integrations';
+import { tasks } from '@main/db/schema/tasks';
+import { projects } from '@main/db/schema/projects';
+import { events } from '@main/db/schema/events';
+import { createDb } from '../utils';
+
+// The integration tables' constraints and foreign key actions, against the real migrations.
+
+let db: BetterSQLite3Database;
+let integrationId: IntegrationId;
+let sourceId: ExternalSourceId;
+let taskId: TaskId;
+let projectId: ProjectId;
+let eventId: EventId;
+
+/** the SQLite message of a statement that must fail (drizzle wraps it as the cause) */
+function failure(run: () => unknown): string {
+  try {
+    run();
+  } catch (e) {
+    const err = e as Error;
+    return (err.cause as Error | undefined)?.message ?? err.message;
+  }
+  throw new Error('expected the statement to fail');
+}
+
+function insertIntegration(accountId = 'org:user') {
+  return db
+    .insert(integrations)
+    .values({
+      provider: 'linear',
+      authType: 'api_key',
+      accountId,
+      accountLabel: 'Ada, Acme',
+      credentials: Buffer.from('ciphertext'),
+    })
+    .returning()
+    .get();
+}
+
+function link(values: Partial<typeof externalLinks.$inferInsert> = {}) {
+  return db.insert(externalLinks).values({
+    sourceId,
+    provider: 'linear',
+    externalId: 'issue-1',
+    externalKey: 'ENG-1',
+    externalUrl: 'https://linear.app/acme/issue/ENG-1',
+    externalUpdatedAt: new Date(),
+    lastSyncedAt: new Date(),
+    ...values,
+  });
+}
+
+beforeEach(() => {
+  db = createDb();
+  integrationId = insertIntegration().id;
+  sourceId = db
+    .insert(externalSources)
+    .values({ integrationId, sourceType: 'tasks' })
+    .returning()
+    .get().id;
+  projectId = db.insert(projects).values({ title: 'Project' }).returning().get().id;
+  taskId = db.insert(tasks).values({ title: 'Task', projectId }).returning().get().id;
+  eventId = db
+    .insert(events)
+    .values({ title: 'Event', startAt: new Date(), endAt: new Date() })
+    .returning()
+    .get().id;
+});
+
+describe('integration tables — defaults and ids', () => {
+  it('generates prefixed ids and fills defaults', () => {
+    const integration = db.select().from(integrations).get()!;
+    expect(integration.id).toMatch(/^int_/);
+    expect(integration.status).toBe('connected');
+    expect(integration.credentials.toString()).toBe('ciphertext');
+
+    const source = db.select().from(externalSources).get()!;
+    expect(source.id).toMatch(/^src_/);
+    expect(source).toMatchObject({
+      enabled: true,
+      config: {},
+      cursor: null,
+      consecutiveFailures: 0,
+      initialSyncCompletedAt: null,
+    });
+
+    const row = link({ taskId }).returning().get();
+    expect(row.id).toMatch(/^xln_/);
+    expect(row).toMatchObject({ state: 'synced', metadata: {}, settledAt: null });
+  });
+
+  it('round-trips JSON config, cursor and metadata', () => {
+    db.update(externalSources)
+      .set({
+        config: { calendarIds: ['primary'] },
+        cursor: { mode: 'incremental', updatedSince: '2026-10-01T00:00:00.000Z' },
+      })
+      .where(eq(externalSources.id, sourceId))
+      .run();
+    const source = db.select().from(externalSources).get()!;
+    expect(source.config).toEqual({ calendarIds: ['primary'] });
+    expect(source.cursor).toEqual({
+      mode: 'incremental',
+      updatedSince: '2026-10-01T00:00:00.000Z',
+    });
+
+    const row = link({ taskId, metadata: { statusLabel: 'In Review' } })
+      .returning()
+      .get();
+    expect(row.metadata).toEqual({ statusLabel: 'In Review' });
+  });
+});
+
+describe('integration tables — uniqueness', () => {
+  it('rejects a second integration for the same provider and account', () => {
+    expect(failure(() => insertIntegration())).toMatch(/UNIQUE constraint failed/);
+    // another account on the same provider is fine
+    expect(insertIntegration('org:other').provider).toBe('linear');
+  });
+
+  it('rejects a second source of the same type on one integration', () => {
+    expect(
+      failure(() =>
+        db.insert(externalSources).values({ integrationId, sourceType: 'tasks' }).run(),
+      ),
+    ).toMatch(/UNIQUE constraint failed/);
+    db.insert(externalSources).values({ integrationId, sourceType: 'events' }).run();
+  });
+
+  it('rejects two links with the same sourceId and externalId', () => {
+    link({ taskId }).run();
+    expect(failure(() => link({ projectId }).run())).toMatch(
+      /UNIQUE constraint failed: external_links\.source_id, external_links\.external_id/,
+    );
+    // the same external id from no source (after a disconnect) does not collide
+    link({ projectId, sourceId: null }).run();
+    link({ eventId, sourceId: null }).run();
+  });
+
+  it('allows at most one link per entity', () => {
+    link({ taskId }).run();
+    expect(failure(() => link({ taskId, externalId: 'issue-2' }).run())).toMatch(
+      /UNIQUE constraint failed: external_links\.task_id/,
+    );
+  });
+});
+
+describe('integration tables — one_entity check', () => {
+  it('rejects a link with no entity column set', () => {
+    expect(failure(() => link().run())).toMatch(/CHECK constraint failed: one_entity/);
+  });
+
+  it('rejects a link with two entity columns set', () => {
+    expect(failure(() => link({ taskId, projectId }).run())).toMatch(
+      /CHECK constraint failed: one_entity/,
+    );
+    expect(failure(() => link({ taskId, projectId, eventId }).run())).toMatch(
+      /CHECK constraint failed: one_entity/,
+    );
+  });
+
+  it('accepts a link to exactly one task, project or event', () => {
+    link({ taskId, externalId: 'a' }).run();
+    link({ projectId, externalId: 'b' }).run();
+    link({ eventId, externalId: 'c' }).run();
+    expect(db.select().from(externalLinks).all()).toHaveLength(3);
+  });
+});
+
+describe('integration tables — foreign key actions', () => {
+  it('deletes a link when its task, project or event is deleted', () => {
+    link({ taskId, externalId: 'a' }).run();
+    link({ projectId, externalId: 'b' }).run();
+    link({ eventId, externalId: 'c' }).run();
+
+    db.delete(tasks).where(eq(tasks.id, taskId)).run();
+    expect(
+      db
+        .select()
+        .from(externalLinks)
+        .all()
+        .map((l) => l.externalId),
+    ).toEqual(['b', 'c']);
+
+    db.delete(events).where(eq(events.id, eventId)).run();
+    db.delete(projects).where(eq(projects.id, projectId)).run();
+    expect(db.select().from(externalLinks).all()).toEqual([]);
+  });
+
+  it('deletes sources and nulls sourceId on links when the integration is deleted', () => {
+    const { id: linkId } = link({ taskId }).returning().get();
+
+    db.delete(integrations).where(eq(integrations.id, integrationId)).run();
+
+    expect(db.select().from(externalSources).all()).toEqual([]);
+    const survivor = db.select().from(externalLinks).where(eq(externalLinks.id, linkId)).get()!;
+    // the detached copy keeps its provider and url for the badge
+    expect(survivor).toMatchObject({ sourceId: null, provider: 'linear', taskId });
+    expect(db.select().from(tasks).all()).toHaveLength(1);
+  });
+
+  it('rejects a link to a missing source or entity', () => {
+    expect(failure(() => link({ taskId, sourceId: 'src_nope' as ExternalSourceId }).run())).toMatch(
+      /FOREIGN KEY constraint failed/,
+    );
+    expect(failure(() => link({ taskId: 'tsk_nope' as TaskId }).run())).toMatch(
+      /FOREIGN KEY constraint failed/,
+    );
+  });
+});
+
+describe('integration tables — reconcile index', () => {
+  it('serves the watched-links query by source and state from idx_external_links_source_id_state', () => {
+    const query = db
+      .select({ id: externalLinks.id })
+      .from(externalLinks)
+      .where(and(eq(externalLinks.sourceId, sourceId), eq(externalLinks.state, 'synced')));
+    const { sql, params } = query.toSQL();
+    const rows = (db as unknown as { $client: import('better-sqlite3').Database }).$client
+      .prepare(`EXPLAIN QUERY PLAN ${sql}`)
+      .all(...params) as { detail: string }[];
+    expect(rows.map((r) => r.detail).join('\n')).toMatch(/idx_external_links_source_id_state/);
+  });
+});
