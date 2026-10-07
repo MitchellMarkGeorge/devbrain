@@ -100,7 +100,7 @@ Only the provider adapters talk to the network, and only `SyncWriter` writes ext
 | Component            | Location                                                    | Responsibility                                                                                  |
 | -------------------- | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `IntegrationService` | `core/integrations/service.ts`                              | Connect, disconnect, enable and disable. Owns the `integrations` and `external_sources` tables. |
-| `CredentialStore`    | `core/integrations/credentials.ts`                          | Encrypts and decrypts tokens through an injected `SecretCipher`. Refreshes OAuth tokens.        |
+| `CredentialStore`    | `core/integrations/credential-store.ts`                     | Encrypts and decrypts tokens through an injected `SecretCipher`. Refreshes OAuth tokens.        |
 | OAuth loopback       | `core/integrations/oauth/`                                  | PKCE pair, state, temporary `127.0.0.1` listener, code exchange.                                |
 | Provider adapters    | `core/integrations/providers/linear`, `.../google-calendar` | API client and mapper per provider. The only code that knows a provider's shapes.               |
 | `SyncEngine`         | `core/sync/engine.ts`                                       | Runs one sync for one source: pull pages, hand them to the writer, advance the cursor.          |
@@ -174,7 +174,7 @@ Endpoints, limits and sources for each row are in the provider reference section
 
 **API key path (Linear).** The user pastes a personal API key in settings. DevBrain validates it with a `viewer` query, then stores it like any other credential. The integration records `authType = 'api_key'` so the UI can offer "upgrade to OAuth" later without reconnecting data.
 
-**Storage.** Credentials are serialised to JSON, encrypted with `safeStorage.encryptString`, and stored as a blob in `integrations.credentials`. The key lives in the OS keychain, so a copied `db.sqlite` or `db.sqlite.backup` is useless on another machine. If `safeStorage.isEncryptionAvailable()` is false, connecting is refused with a clear error.
+**Storage.** Credentials are serialised to JSON, encrypted with `safeStorage.encryptStringAsync`, and stored as a blob in `integrations.credentials`. The key lives in the OS keychain, so a copied `db.sqlite` or `db.sqlite.backup` is useless on another machine. If `safeStorage.isAsyncEncryptionAvailable()` resolves false, connecting is refused with a clear error. When `decryptStringAsync` reports `shouldReEncrypt` (the key was rotated), the credentials are re-encrypted and stored again.
 
 **Refresh.** `CredentialStore.getAuth()` refreshes when the access token is within 60 seconds of expiry, under a per-integration mutex so two sync runs cannot both refresh. A failed refresh or a 401 sets the integration to `needs_reauth` and pauses its sources. Mirrored data stays visible.
 
@@ -1046,4 +1046,5 @@ Resolved on 6 October 2026 and recorded in the provider reference: Linear PKCE, 
 - [ ] Does background sync need to continue when the window is closed but the app is running (macOS)?
 - [ ] Add a time-zone column to `events` now, or keep the series time zone in link metadata for v1?
 
+* [ ] Revisit later: redact secrets by type. Credentials are plain objects today, so logging one prints its tokens; the only guard is the rule never to log them. A `Secret` class would hold each value in a `#private` field, expose it only through `reveal()`, and return `[redacted]` from `toJSON` and the `util.inspect` hook. Credential fields and `Auth.authorization` would be typed `Secret`, so `JSON.stringify`, `util.inspect`, spreads and `structuredClone` can never print a token, and every read of a raw value is an explicit, greppable `reveal()`. Patching `toJSON` onto plain objects was tried in feature 6 and dropped: it is invisible in the types and lost on any copy.
 * [ ] Revisit later: `SyncWriter` writes entity tables directly, alongside `TaskService` and `ArchiveService`. Should row writes be unified, through per-entity stores or service-owned row writers?
