@@ -91,7 +91,6 @@ export class Workspace {
   ): Promise<unknown> {
     if (!(error instanceof WorkspaceMigrationError)) return error;
     const details = {
-      pendingMigrations: error.pendingMigrations,
       committed: error.committed,
       restoredFromBackup: false,
       backupPath,

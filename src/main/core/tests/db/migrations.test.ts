@@ -200,7 +200,6 @@ describe('runMigrations — failures', () => {
     expect(error.code).toBe('workspace_migration');
     expect(error.committed).toBe(false);
     expect(error.restoredFromBackup).toBe(false);
-    expect(error.pendingMigrations).toEqual(['0099_broken']);
     // drizzle's error names the statement that failed
     expect(String(error.cause)).toMatch(/INSERT INTO no_such_table/);
 
@@ -226,21 +225,8 @@ describe('runMigrations — failures', () => {
     const error = caught(() => runMigrations(sqlite, db, folder));
 
     expect(error.committed).toBe(true);
-    expect(error.pendingMigrations).toEqual(['0099_dangling']);
     expect(error.cause).toEqual([expect.objectContaining({ table: 'tasks', parent: 'projects' })]);
     expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1);
-    sqlite.close();
-  });
-
-  it('lists every migration as pending on a new database', () => {
-    const { sqlite, db } = openDb();
-    const folder = migrationsWithExtra(path.join(tmpDir, 'fresh'), '0099_broken', BROKEN_SQL);
-    const error = caught(() => runMigrations(sqlite, db, folder));
-
-    const journal = JSON.parse(
-      fs.readFileSync(path.join(MIGRATIONS_PATH, 'meta/_journal.json'), 'utf8'),
-    ) as Journal;
-    expect(error.pendingMigrations).toEqual([...journal.entries.map((e) => e.tag), '0099_broken']);
     sqlite.close();
   });
 });

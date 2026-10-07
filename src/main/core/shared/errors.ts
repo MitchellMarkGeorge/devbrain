@@ -22,8 +22,6 @@ export class NotArchivedError<T extends EntityType> extends Error {
 }
 
 export interface WorkspaceMigrationErrorDetails {
-  /** migrations that were due to run; they apply in one transaction, so any of them may have failed */
-  pendingMigrations: string[];
   /** the migrations were committed before the failure was found, so the database was changed */
   committed: boolean;
   /** the database file was replaced with the backup taken when the workspace was opened */
@@ -36,7 +34,6 @@ export interface WorkspaceMigrationErrorDetails {
 /** a workspace's database could not be brought up to date, so the workspace was not opened */
 export class WorkspaceMigrationError extends Error {
   readonly code = 'workspace_migration';
-  readonly pendingMigrations: string[];
   readonly committed: boolean;
   readonly restoredFromBackup: boolean;
   readonly backupPath: string | null;
@@ -44,7 +41,6 @@ export class WorkspaceMigrationError extends Error {
   constructor(message: string, details: WorkspaceMigrationErrorDetails) {
     super(message, { cause: details.cause });
     this.name = 'WorkspaceMigrationError';
-    this.pendingMigrations = details.pendingMigrations;
     this.committed = details.committed;
     this.restoredFromBackup = details.restoredFromBackup;
     this.backupPath = details.backupPath;

@@ -243,7 +243,6 @@ describe('Workspace.open — failed migrations', () => {
     expect(error.committed).toBe(true);
     expect(error.restoredFromBackup).toBe(true);
     expect(error.backupPath).toBe(path.join(workspaceDir, 'db.sqlite.backup'));
-    expect(error.pendingMigrations).toEqual(['0099_dangling']);
     expect(error.message).toMatch(/restored from the backup/);
 
     // the committed migration and its row are gone; the data from before the open is intact

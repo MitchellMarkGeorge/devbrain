@@ -1,31 +1,7 @@
 import type Database from 'better-sqlite3';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import fs from 'node:fs';
-import path from 'node:path';
 import { WorkspaceMigrationError } from '@main/core/shared/errors';
-
-interface Journal {
-  entries: { tag: string; when: number }[];
-}
-
-/**
- * Tags of the migrations drizzle will apply: those newer than the last one recorded in
- * `__drizzle_migrations`, which is how drizzle itself decides.
- */
-function pendingMigrations(sqlite: Database.Database, migrationsFolder: string): string[] {
-  const journalPath = path.join(migrationsFolder, 'meta/_journal.json');
-  const journal = JSON.parse(fs.readFileSync(journalPath, 'utf8')) as Journal;
-  const hasTable = sqlite
-    .prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = '__drizzle_migrations'`)
-    .get();
-  const last = hasTable
-    ? (sqlite.prepare('SELECT max(created_at) FROM __drizzle_migrations').pluck().get() as
-        | number
-        | null)
-    : null;
-  return journal.entries.filter((e) => last === null || e.when > Number(last)).map((e) => e.tag);
-}
 
 /**
  * Runs pending migrations with foreign keys switched off, then checks them before turning them
@@ -47,8 +23,7 @@ export function runMigrations(
   db: BetterSQLite3Database,
   migrationsFolder: string,
 ): void {
-  const pending = pendingMigrations(sqlite, migrationsFolder);
-  const details = { pendingMigrations: pending, restoredFromBackup: false, backupPath: null };
+  const details = { restoredFromBackup: false, backupPath: null };
 
   sqlite.pragma('foreign_keys = OFF');
   try {
