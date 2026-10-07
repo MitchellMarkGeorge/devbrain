@@ -74,6 +74,7 @@ export class Workspace {
       runMigrations(sqliteClient, db, process.env.DB_MIGRATIONS_PATH);
     } catch (error) {
       sqliteClient.close();
+      if (!(error instanceof WorkspaceMigrationError)) throw error;
       throw await Workspace.recoverFromFailedMigration(error, files);
     }
 
@@ -86,10 +87,9 @@ export class Workspace {
    * Returns the error to throw: the workspace is never opened after a failed migration.
    */
   private static async recoverFromFailedMigration(
-    error: unknown,
+    error: WorkspaceMigrationError,
     { dbPath, backupPath }: { dbPath: string; backupPath: string | null },
-  ): Promise<unknown> {
-    if (!(error instanceof WorkspaceMigrationError)) return error;
+  ): Promise<WorkspaceMigrationError> {
     const details = {
       committed: error.committed,
       restoredFromBackup: false,
