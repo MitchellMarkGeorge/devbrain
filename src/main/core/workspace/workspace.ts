@@ -8,7 +8,7 @@ import { SearchService } from '../search/service';
 import { TaskService } from '../tasks/service';
 import type { WorkspaceInfo } from './types';
 import path from 'node:path';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { runMigrations } from '@main/db/migrate';
 import { fileExists } from '../local/utils';
 
 type SqliteDatabaseClient = Database.Database;
@@ -62,12 +62,10 @@ export class Workspace {
   ): Promise<Workspace> {
     // keeping them off for now as I implement the services
     // sqlite.pragma('journal_mode = WAL');
-    sqliteClient.pragma('foreign_keys = ON');
-
     const db = drizzle({ client: sqliteClient, casing: 'snake_case' });
 
-    const migrationsPath = process.env.DB_MIGRATIONS_PATH;
-    migrate(db, { migrationsFolder: migrationsPath });
+    // leaves foreign keys on once migrations have run
+    runMigrations(sqliteClient, db, process.env.DB_MIGRATIONS_PATH);
 
     return new Workspace(db, sqliteClient, info);
   }
