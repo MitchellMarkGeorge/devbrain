@@ -64,6 +64,8 @@ export interface ProjectStats {
   numOfNotStarted: number;
   numOfInProgress: number;
   numOfCompleted: number;
+  numOfCancelled: number;
   numOfOverdue: number;
+  // excludes cancelled tasks, so progress is numOfCompleted / totalTasks
   totalTasks: number;
 }

@@ -142,11 +142,13 @@ export class ProjectService {
         numOfCompleted: count(sql`${tasks.status} = ${TaskStatus.COMPLETED}`),
         numOfNotStarted: count(sql`${tasks.status} = ${TaskStatus.NOT_STARTED}`),
         numOfInProgress: count(sql`${tasks.status} = ${TaskStatus.IN_PROGRESS}`),
+        numOfCancelled: count(sql`${tasks.status} = ${TaskStatus.CANCELLED}`),
         numOfOverdue: count(
-          // an undated task is never overdue
-          sql`${tasks.dueDate} IS NOT NULL AND ${tasks.dueDate} < ${today} AND ${tasks.status} != ${TaskStatus.COMPLETED}`,
+          // an undated task is never overdue, and neither is a closed one
+          sql`${tasks.dueDate} IS NOT NULL AND ${tasks.dueDate} < ${today} AND ${tasks.status} NOT IN (${TaskStatus.COMPLETED}, ${TaskStatus.CANCELLED})`,
         ),
-        totalTasks: count(sql`${tasks.projectId} = ${id} AND ${tasks.archivedAt} IS NULL`),
+        // cancelled tasks are left out so they do not dilute progress
+        totalTasks: count(sql`${tasks.status} != ${TaskStatus.CANCELLED}`),
       })
       .from(tasks)
       .where(and(eq(tasks.projectId, id), isNull(tasks.archivedAt)));
@@ -156,6 +158,7 @@ export class ProjectService {
         numOfCompleted: 0,
         numOfInProgress: 0,
         numOfNotStarted: 0,
+        numOfCancelled: 0,
         numOfOverdue: 0,
         totalTasks: 0,
       }

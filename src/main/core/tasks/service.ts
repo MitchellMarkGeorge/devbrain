@@ -1,6 +1,6 @@
 import { ProjectId, TaskId } from '@common/ids';
 import { tasks } from '@main/db/schema/tasks';
-import { eq, inArray, and, isNull, SQL, lt, gt, gte, desc } from 'drizzle-orm';
+import { eq, inArray, notInArray, and, isNull, SQL, lt, gt, gte, desc } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   CreateSubTaskOptions,
@@ -97,6 +97,9 @@ export class TaskService {
   ): Promise<Page<Task>> {
     const clauses = [isNull(tasks.archivedAt)];
     if (filter.excludeSubtasks) clauses.push(isNull(tasks.parentTaskId));
+    if (filter.excludeClosed) {
+      clauses.push(notInArray(tasks.status, [TaskStatus.COMPLETED, TaskStatus.CANCELLED]));
+    }
 
     if (filter.status) clauses.push(eq(tasks.status, filter.status));
 
@@ -212,6 +215,7 @@ export class TaskService {
       .set({
         // if a task is now complete, set a new completedAt timestamp
         // if not, set it to null (this also applies to tasks that were once completed and have their status changed)
+        // a cancelled task is closed but not completed, so it keeps completedAt null
         completedAt: newStatus === TaskStatus.COMPLETED ? new Date() : null,
         status: newStatus,
       })
