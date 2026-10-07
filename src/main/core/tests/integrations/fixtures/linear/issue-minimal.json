@@ -1,0 +1,26 @@
+{
+  "id": "8f6a3c2e-1d4b-4e7a-9c0f-3b2a1e5d7c02",
+  "identifier": "ENG-124",
+  "url": "https://linear.app/acme/issue/ENG-124/triage-inbox",
+  "title": "Triage inbox",
+  "description": null,
+  "priority": 0,
+  "priorityLabel": "No priority",
+  "dueDate": null,
+  "startedAt": null,
+  "completedAt": null,
+  "canceledAt": null,
+  "createdAt": "2026-09-28T10:00:00.000Z",
+  "updatedAt": "2026-10-05T16:45:00.000Z",
+  "archivedAt": null,
+  "trashed": false,
+  "state": {
+    "name": "Todo",
+    "type": "unstarted"
+  },
+  "assignee": {
+    "id": "a1b2c3d4-0000-4000-8000-000000000001"
+  },
+  "parent": null,
+  "project": null
+}

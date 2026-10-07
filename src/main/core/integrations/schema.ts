@@ -15,6 +15,9 @@ export const linearTaskCursorSchema = z.discriminatedUnion('mode', [
   z.object({
     mode: z.literal('incremental'),
     updatedSince: z.iso.datetime(), // already minus the cursor overlap
+    // set only while a run walks more than one page of changes; updatedSince stays fixed meanwhile
+    after: z.string().optional(),
+    maxUpdatedAt: z.iso.datetime().optional(),
   }),
 ]);
 
