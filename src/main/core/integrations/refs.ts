@@ -1,10 +1,12 @@
 import { EventId, ProjectId, TaskId } from '@common/ids';
 import { externalLinks } from '@main/db/schema/integrations';
-import { inArray, sql, SQL } from 'drizzle-orm';
+import { inArray, sql, SQL, SQLWrapper } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
+import { BaseSQLiteDatabase, SQLiteColumn } from 'drizzle-orm/sqlite-core';
+import { RunResult } from 'better-sqlite3';
 import { ExternalRef, LinkState } from './types';
 import { projectLinkMetadataSchema, taskLinkMetadataSchema } from './schema';
+import { ExternalReadOnlyError } from '../shared/errors';
 
 // the entities an external link can point at
 export type LinkedEntity = 'task' | 'project' | 'event';
@@ -54,14 +56,41 @@ function labelsOf(
 /**
  * True when the row whose id is `idColumn` (tasks.id, projects.id or events.id) has a link in
  * `state`. A correlated EXISTS that seeks the link's unique entity column once per candidate row,
- * so the outer query keeps its own index and ordering.
+ * so the outer query keeps its own index and ordering. `idColumn` can also be a bound id, to ask
+ * about one row.
  */
-export function hasLinkInState(
-  entity: LinkedEntity,
-  idColumn: SQLiteColumn,
-  state: LinkState,
-): SQL {
+export function hasLinkInState(entity: LinkedEntity, idColumn: SQLWrapper, state: LinkState): SQL {
   return sql`exists (select 1 from ${externalLinks} where ${LINK_COLUMNS[entity]} = ${idColumn} and ${externalLinks.state} = ${state})`;
+}
+
+/**
+ * Throws `ExternalReadOnlyError` when the row is synced from a provider. Detached and removed rows
+ * are the user's own and stay editable, as does an id with no row behind it, so callers keep their
+ * own not-found handling.
+ *
+ * Services call this before any write a user makes. `SyncWriter` writes synced rows through its own
+ * path and skips it. Synchronous, so it also runs inside a transaction (`db` can be one).
+ */
+export function assertEditable(
+  db: BaseSQLiteDatabase<'sync', RunResult>,
+  id: LinkedEntityId,
+): void {
+  const isSynced = hasLinkInState(entityOf(id), sql`${id}`, LinkState.SYNCED);
+  const [synced] = db.values<[number]>(sql`select ${isSynced}`);
+  if (synced[0]) throw new ExternalReadOnlyError(id);
+}
+
+/** true when a row read with its `external` field is synced, so its provider owns it */
+export function isSynced(row: { external?: ExternalRef | null }): boolean {
+  return row.external?.state === LinkState.SYNCED;
+}
+
+/** `assertEditable` for a row already read with its `external` field, so it costs no query */
+export function assertRowEditable(row: {
+  id: LinkedEntityId;
+  external?: ExternalRef | null;
+}): void {
+  if (isSynced(row)) throw new ExternalReadOnlyError(row.id);
 }
 
 /**

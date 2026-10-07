@@ -18,7 +18,14 @@ import { isSubtask } from './utils';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { localDayWindow } from '../shared/utils';
 import { keyset, Page, PageOptions } from '../shared/pagination';
-import { hasLinkInState, withRef, withRefs } from '../integrations/refs';
+import {
+  assertEditable,
+  assertRowEditable,
+  hasLinkInState,
+  isSynced,
+  withRef,
+  withRefs,
+} from '../integrations/refs';
 import { LinkState } from '../integrations/types';
 
 export class TaskService {
@@ -34,6 +41,7 @@ export class TaskService {
     return withRefs(this.db, await this.activeTasks(inArray(tasks.id, ids)));
   }
 
+  // a local task can be created in a mirrored project: it stays local and sync never touches it
   async createTask(options: CreateTaskOptions): Promise<Task> {
     if (options.linkedEventId && options.linkedNoteId) {
       throw Error('Tasks cannot be linked to both an event and a note');
@@ -63,6 +71,9 @@ export class TaskService {
   async createSubtask(parentTaskId: TaskId, options: CreateSubTaskOptions): Promise<Task> {
     // throws NotFoundError when no task matches the provided id
     const parentTask = await this.getById(parentTaskId);
+    // a synced parent's subtree is provider-owned, so it is rejected before the depth check:
+    // the one-level limit is for local tasks only
+    assertRowEditable(parentTask);
 
     if (isSubtask(parentTask)) {
       throw new Error('Subtasks cannot create their own subtasks');
@@ -213,6 +224,7 @@ export class TaskService {
   }
 
   async updateTask(id: TaskId, updates: UpdateTaskOptions): Promise<Task | null> {
+    assertEditable(this.db, id);
     const [updatedTask] = await this.db
       .update(tasks)
       .set(updates)
@@ -222,6 +234,7 @@ export class TaskService {
   }
 
   async updateStatus(id: TaskId, newStatus: TaskStatus): Promise<Task> {
+    assertEditable(this.db, id);
     const [row] = await this.db
       .update(tasks)
       .set({
@@ -241,6 +254,8 @@ export class TaskService {
 
   async updateProject(id: TaskId, projectId: ProjectId | null): Promise<Task> {
     const task = await this.getById(id);
+    // a synced task's project follows the provider; a local one can move into a mirrored project
+    assertRowEditable(task);
 
     if (isSubtask(task)) {
       throw new Error('Subtasks inherit project context from partent task');
@@ -260,7 +275,8 @@ export class TaskService {
   async updateLinks(id: TaskId, options: UpdateTaskLinkOptions): Promise<Task> {
     const task = await this.getById(id);
 
-    if (isSubtask(task)) {
+    // links are DevBrain-owned, so allowed on synced tasks; external subtasks carry their own
+    if (isSubtask(task) && !isSynced(task)) {
       throw new Error('Subtasks inherit link context from partent task');
     }
 
@@ -283,6 +299,7 @@ export class TaskService {
   async promoteSubtask(id: TaskId): Promise<Task> {
     // makes an existing subtask a top level task
     const task = await this.getById(id);
+    assertRowEditable(task);
 
     if (!isSubtask(task)) {
       throw new Error('Task is not a subtask');
@@ -305,8 +322,11 @@ export class TaskService {
     if (id === newParentId) throw new Error('Tasks cannot be their own parent');
 
     // both throw NotFoundError when the id has no active task behind it
-    await this.getById(id);
+    const task = await this.getById(id);
     const parentTask = await this.getById(newParentId);
+    // both sides are guarded before the depth checks, which apply to local tasks only
+    assertRowEditable(task);
+    assertRowEditable(parentTask);
 
     if (isSubtask(parentTask)) {
       throw new Error('Provided parent task is already a subtask');

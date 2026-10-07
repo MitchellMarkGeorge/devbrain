@@ -5,7 +5,13 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { NotFoundError } from '../shared/errors';
 import { CreateEventOptions, Event, UpdateEventOptions } from './types';
 import { keyset, Page, PageOptions } from '../shared/pagination';
-import { hasLinkInState, withRef, withRefs } from '../integrations/refs';
+import {
+  assertEditable,
+  assertRowEditable,
+  hasLinkInState,
+  withRef,
+  withRefs,
+} from '../integrations/refs';
 import { LinkState } from '../integrations/types';
 
 export class EventService {
@@ -50,12 +56,15 @@ export class EventService {
     if (updates.startAt !== undefined || updates.endAt !== undefined) {
       // throws NotFoundError when the event does not exist
       const existing = await this.getById(id);
+      assertRowEditable(existing);
 
       const effectiveStart = updates.startAt ?? existing.startAt;
       const effectiveEnd = updates.endAt ?? existing.endAt;
       if (effectiveEnd.getTime() < effectiveStart.getTime()) {
         throw new Error('endAt must not be before startAt');
       }
+    } else {
+      assertEditable(this.db, id);
     }
 
     const [updatedEvent] = await this.db
@@ -70,6 +79,7 @@ export class EventService {
   async deleteEvent(id: EventId): Promise<void> {
     // events have no archivedAt column (unlike notes/tasks/projects) — this
     // is a hard delete
+    assertEditable(this.db, id);
     const [deleted] = await this.db.delete(events).where(eq(events.id, id)).returning();
     if (!deleted) throw new NotFoundError(id);
   }
