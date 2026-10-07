@@ -2,10 +2,12 @@ import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_PAGE_LIMIT,
   InvalidCursorError,
+  keyset,
   MAX_PAGE_LIMIT,
   paginateArray,
   resolveLimit,
 } from '../../shared/pagination';
+import { tasks } from '@main/db/schema/tasks';
 
 type Row = { n: number; id: string };
 const rows: Row[] = Array.from({ length: 7 }, (_, i) => ({ n: Math.floor(i / 2), id: `id_${i}` }));
@@ -68,5 +70,42 @@ describe('paginateArray', () => {
       { limit: 2 },
     );
     expect(() => page({ cursor: nextCursor! })).toThrow(InvalidCursorError);
+  });
+});
+
+describe('keyset — nullable', () => {
+  type DueRow = { dueDate: Date | null; id: string };
+  const pager = (nullable: boolean, cursor?: string) =>
+    keyset<DueRow>(
+      {
+        sortKey: 'dueDate',
+        sortColumn: tasks.dueDate,
+        idColumn: tasks.id,
+        direction: 'asc',
+        sortValue: (r) => r.dueDate,
+        id: (r) => r.id,
+        nullable,
+      },
+      { limit: 1, cursor },
+    );
+  const nullCursor = pager(true).toPage([
+    { dueDate: null, id: 'a' },
+    { dueDate: null, id: 'b' },
+  ]).nextCursor!;
+
+  it('issues a cursor for a page ending on a null value', () => {
+    expect(nullCursor).toEqual(expect.any(String));
+    expect(() => pager(true, nullCursor)).not.toThrow();
+  });
+
+  it('rejects a null-valued cursor on a sort that is not nullable', () => {
+    expect(() => pager(false, nullCursor)).toThrow(InvalidCursorError);
+  });
+
+  it('paginateArray rejects a null-valued cursor', () => {
+    const bad = Buffer.from(
+      JSON.stringify({ sortKey: 'n', lastSortValue: null, lastId: 'id_0' }),
+    ).toString('base64url');
+    expect(() => page({ cursor: bad })).toThrow(InvalidCursorError);
   });
 });

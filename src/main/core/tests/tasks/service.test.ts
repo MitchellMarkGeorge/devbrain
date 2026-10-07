@@ -194,13 +194,13 @@ describe('TaskService — createSubtask', () => {
   it("inherits the parent's dueDate when none is provided", async () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
-    expect(sub.dueDate.getTime()).toBe(parent.dueDate.getTime());
+    expect(sub.dueDate!.getTime()).toBe(parent.dueDate!.getTime());
   });
 
   it('uses its own dueDate when one is provided', async () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub', dueDate: NEXT_WEEK });
-    expect(sub.dueDate.getTime()).toBe(NEXT_WEEK.getTime());
+    expect(sub.dueDate!.getTime()).toBe(NEXT_WEEK.getTime());
   });
 
   it("inherits the parent's projectId", async () => {
@@ -690,7 +690,7 @@ describe('TaskService — updateTask', () => {
   it('updates the dueDate', async () => {
     const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
     const updated = await tasks.updateTask(task.id, { dueDate: NEXT_WEEK });
-    expect(updated!.dueDate.getTime()).toBe(NEXT_WEEK.getTime());
+    expect(updated!.dueDate!.getTime()).toBe(NEXT_WEEK.getTime());
   });
 
   it('updates the pullRequestUrl', async () => {
@@ -1223,5 +1223,143 @@ describe('TaskService — cursor pagination', () => {
       cursor = page.nextCursor ?? undefined;
     } while (cursor);
     expect(ids).toEqual(subs.map((t) => t.id).reverse());
+  });
+});
+
+describe('TaskService — undated tasks', () => {
+  // local tasks always get a due date; synced ones may not, so tests clear it on the row directly
+  async function undated(title: string) {
+    const task = await tasks.createTask({ title, dueDate: TOMORROW });
+    await db.update(tasksTable).set({ dueDate: null }).where(eq(tasksTable.id, task.id));
+    return { ...task, dueDate: null };
+  }
+
+  async function dated(title: string, dueDate: Date) {
+    return tasks.createTask({ title, dueDate });
+  }
+
+  async function collect(direction: 'asc' | 'desc', limit: number) {
+    const ids: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await tasks.listTasks({}, { sortBy: 'dueDate', direction }, { limit, cursor });
+      ids.push(...page.items.map((t) => t.id));
+      cursor = page.nextCursor ?? undefined;
+    } while (cursor);
+    return ids;
+  }
+
+  /** dated tasks by (dueDate, id) in `direction`, then undated tasks by id in `direction` */
+  function expectedOrder(
+    all: { id: string; dueDate: Date | null }[],
+    direction: 'asc' | 'desc',
+  ): string[] {
+    const sign = direction === 'asc' ? 1 : -1;
+    const byId = (a: { id: string }, b: { id: string }) => sign * (a.id < b.id ? -1 : 1);
+    const withDate = all
+      .filter((t) => t.dueDate !== null)
+      .sort((a, b) => sign * (a.dueDate!.getTime() - b.dueDate!.getTime()) || byId(a, b));
+    const withoutDate = all.filter((t) => t.dueDate === null).sort(byId);
+    return [...withDate, ...withoutDate].map((t) => t.id);
+  }
+
+  async function seedMixed() {
+    // interleave creation so ids of dated and undated tasks are mixed, with ties on dueDate
+    const all = [];
+    for (let i = 0; i < 4; i++) {
+      all.push(await dated(`D${i}`, i % 2 ? TOMORROW : NEXT_WEEK));
+      all.push(await undated(`U${i}`));
+    }
+    all.push(await dated('D4', YESTERDAY));
+    return all;
+  }
+
+  it('reads back a null dueDate', async () => {
+    const task = await undated('No date');
+    expect((await tasks.getById(task.id)).dueDate).toBeNull();
+  });
+
+  it.each(['asc', 'desc'] as const)(
+    'sorts undated tasks last when sorting by dueDate %s',
+    async (direction) => {
+      const all = await seedMixed();
+      const page = await tasks.listTasks({}, { sortBy: 'dueDate', direction }, { limit: 200 });
+      expect(page.items.map((t) => t.id)).toEqual(expectedOrder(all, direction));
+    },
+  );
+
+  it.each(['asc', 'desc'] as const)(
+    'pages %s across the dated/undated boundary without skipping or repeating',
+    async (direction) => {
+      const all = await seedMixed();
+      // every limit puts the boundary, and a null cursor, at a different place in a page
+      for (const limit of [1, 2, 3, 4]) {
+        expect(await collect(direction, limit)).toEqual(expectedOrder(all, direction));
+      }
+    },
+  );
+
+  it.each(['asc', 'desc'] as const)(
+    'resumes %s from a cursor whose last value is null',
+    async (direction) => {
+      await dated('D', TOMORROW);
+      const nulls = [await undated('U0'), await undated('U1'), await undated('U2')];
+      const nullIds = nulls.map((t) => t.id).sort();
+      if (direction === 'desc') nullIds.reverse();
+
+      // page 1 ends on the dated task, page 2 on the first undated one
+      const first = await tasks.listTasks({}, { sortBy: 'dueDate', direction }, { limit: 1 });
+      const second = await tasks.listTasks(
+        {},
+        { sortBy: 'dueDate', direction },
+        { limit: 1, cursor: first.nextCursor! },
+      );
+      expect(second.items.map((t) => t.id)).toEqual([nullIds[0]]);
+
+      const rest = await tasks.listTasks(
+        {},
+        { sortBy: 'dueDate', direction },
+        { limit: 10, cursor: second.nextCursor! },
+      );
+      expect(rest.items.map((t) => t.id)).toEqual(nullIds.slice(1));
+      expect(rest.nextCursor).toBeNull();
+    },
+  );
+
+  it('pages undated tasks under other sorts as before', async () => {
+    const all = await seedMixed();
+    const page = await tasks.listTasks(
+      {},
+      { sortBy: 'createdAt', direction: 'asc' },
+      { limit: 200 },
+    );
+    expect(page.items.map((t) => t.id)).toEqual(all.map((t) => t.id));
+  });
+
+  it('excludes undated tasks from dueBefore, dueAfter and dueOn', async () => {
+    const before = await dated('Yesterday', YESTERDAY);
+    const after = await dated('Next week', NEXT_WEEK);
+    const on = await dated('Tomorrow', TOMORROW);
+    await undated('No date');
+
+    const ids = async (filter: Parameters<TaskService['listTasks']>[0]) =>
+      (await tasks.listTasks(filter, undefined, { limit: 200 })).items.map((t) => t.id);
+
+    expect(await ids({ dueBefore: new Date() })).toEqual([before.id]);
+    expect(await ids({ dueAfter: TOMORROW })).toEqual([after.id]);
+    expect(await ids({ dueOn: TOMORROW })).toEqual([on.id]);
+  });
+
+  it('createSubtask throws when neither the subtask nor its parent has a due date', async () => {
+    const parent = await undated('Undated parent');
+    await expect(tasks.createSubtask(parent.id, { title: 'Sub' })).rejects.toThrow(
+      'Subtasks need a due date when their parent task has none',
+    );
+  });
+
+  it('createSubtask under an undated parent uses its own due date', async () => {
+    const parent = await undated('Undated parent');
+    const sub = await tasks.createSubtask(parent.id, { title: 'Sub', dueDate: NEXT_WEEK });
+    expect(sub.dueDate!.getTime()).toBe(NEXT_WEEK.getTime());
   });
 });

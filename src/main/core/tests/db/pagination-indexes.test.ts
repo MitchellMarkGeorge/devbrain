@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { and, eq, isNotNull, isNull, sql, SQL } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { SQLiteColumn, unionAll } from 'drizzle-orm/sqlite-core';
 import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
@@ -18,29 +18,41 @@ interface Case {
   table: { id: SQLiteColumn; archivedAt?: SQLiteColumn } & Record<string, unknown>;
   from: unknown;
   sortColumn: SQLiteColumn;
+  // index used when sorting descending, and ascending unless `ascIndex` is given
   index: string;
-  extra?: SQL;
+  ascIndex: string;
+  // the service sorts this column nulls-last (keyset's `nullable`)
+  nullable: boolean;
 }
 
 const cases: Case[] = [
-  ['tasks', tasks, 'dueDate', 'date', 'idx_tasks_due_date_id'],
+  ['tasks', tasks, 'dueDate', 'date', 'idx_tasks_due_date_id', 'idx_tasks_due_date_nulls_last_id'],
   ['tasks', tasks, 'priority', 'number', 'idx_tasks_priority_id'],
   ['tasks', tasks, 'status', 'number', 'idx_tasks_status_id'],
   ['tasks', tasks, 'createdAt', 'date', 'idx_tasks_created_at_id'],
   ['tasks', tasks, 'updatedAt', 'date', 'idx_tasks_updated_at_id'],
-  ['projects', projects, 'dueDate', 'date', 'idx_projects_due_date_id'],
+  [
+    'projects',
+    projects,
+    'dueDate',
+    'date',
+    'idx_projects_due_date_id',
+    'idx_projects_due_date_nulls_last_id',
+  ],
   ['projects', projects, 'status', 'number', 'idx_projects_status_id'],
   ['projects', projects, 'createdAt', 'date', 'idx_projects_created_at_id'],
   ['projects', projects, 'updatedAt', 'date', 'idx_projects_updated_at_id'],
   ['notes', notes, 'title', 'text', 'idx_notes_title_id'],
   ['notes', notes, 'createdAt', 'date', 'idx_notes_created_at_id'],
   ['notes', notes, 'updatedAt', 'date', 'idx_notes_updated_at_id'],
-].map(([name, table, column, , index]) => ({
+].map(([name, table, column, , index, ascIndex]) => ({
   name: `${name}.${column}`,
   table: table as unknown as Case['table'],
   from: table,
   sortColumn: (table as unknown as Record<string, SQLiteColumn>)[column as string],
   index: index as string,
+  ascIndex: (ascIndex ?? index) as string,
+  nullable: column === 'dueDate',
 }));
 
 function plan(query: { toSQL(): { sql: string; params: unknown[] } }): string[] {
@@ -51,7 +63,12 @@ function plan(query: { toSQL(): { sql: string; params: unknown[] } }): string[] 
   return rows.map((r) => r.detail);
 }
 
-function cursorFor(sortColumn: SQLiteColumn, sortKey: string, value: unknown): string {
+function cursorFor(
+  sortColumn: SQLiteColumn,
+  sortKey: string,
+  value: unknown,
+  nullable = false,
+): string {
   // produce a real cursor by paginating two fake rows with limit 1
   const pager = keyset<{ v: unknown; id: string }>(
     {
@@ -61,6 +78,7 @@ function cursorFor(sortColumn: SQLiteColumn, sortKey: string, value: unknown): s
       direction: 'asc',
       sortValue: (r) => r.v,
       id: (r) => r.id,
+      nullable,
     },
     { limit: 1 },
   );
@@ -74,8 +92,11 @@ describe.each(cases)('pagination index — $name', (c) => {
   const sample =
     c.sortColumn.dataType === 'date' ? new Date() : c.sortColumn.dataType === 'number' ? 1 : 'x';
 
+  // a nullable sort resumes differently after a value and after a null
+  const cursorValues = c.nullable ? [sample, null] : [sample];
+
   it.each(['asc', 'desc'] as const)('%s, first page and with cursor use the index', (direction) => {
-    for (const withCursor of [false, true]) {
+    for (const cursorValue of [undefined, ...cursorValues]) {
       const pager = keyset<{ v: unknown; id: string }>(
         {
           sortKey: c.name,
@@ -84,8 +105,14 @@ describe.each(cases)('pagination index — $name', (c) => {
           direction,
           sortValue: (r) => r.v,
           id: (r) => r.id,
+          nullable: c.nullable,
         },
-        { cursor: withCursor ? cursorFor(c.sortColumn, c.name, sample) : undefined },
+        {
+          cursor:
+            cursorValue === undefined
+              ? undefined
+              : cursorFor(c.sortColumn, c.name, cursorValue, c.nullable),
+        },
       );
       const query = db
         .select()
@@ -94,7 +121,7 @@ describe.each(cases)('pagination index — $name', (c) => {
         .orderBy(...pager.orderBy)
         .limit(pager.fetchLimit);
       const detail = plan(query).join('\n');
-      expect(detail).toContain(c.index);
+      expect(detail).toContain(direction === 'asc' ? c.ascIndex : c.index);
       expect(detail).not.toContain('TEMP B-TREE');
     }
   });
