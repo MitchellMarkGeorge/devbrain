@@ -15,11 +15,11 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 export function runMigrations(
   sqlite: Database.Database,
   db: BetterSQLite3Database,
-  migrationsFolder: string | undefined,
+  migrationsFolder: string,
 ): void {
   sqlite.pragma('foreign_keys = OFF');
   try {
-    migrate(db, { migrationsFolder: migrationsFolder as string });
+    migrate(db, { migrationsFolder });
     const violations = sqlite.pragma('foreign_key_check') as unknown[];
     if (violations.length > 0) {
       throw new Error(
