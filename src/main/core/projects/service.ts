@@ -17,24 +17,20 @@ import { keyset, Page, PageOptions } from '../shared/pagination';
 import { NotFoundError } from '../shared/errors';
 import { tasks } from '@main/db/schema/tasks';
 import { TaskStatus } from '../tasks/types';
-import { ExternalRefs, hasLinkInState } from '../integrations/refs';
+import { hasLinkInState, withRef, withRefs } from '../integrations/refs';
 import { LinkState } from '../integrations/types';
 
 export class ProjectService {
-  private readonly refs: ExternalRefs;
-
-  constructor(private readonly db: BetterSQLite3Database) {
-    this.refs = new ExternalRefs(db);
-  }
+  constructor(private readonly db: BetterSQLite3Database) {}
 
   async getById(id: ProjectId): Promise<Project> {
     const [row] = await this.activeProjects(eq(projects.id, id)).limit(1);
     if (!row) throw new NotFoundError(id);
-    return this.refs.withRef(row);
+    return withRef(this.db, row);
   }
 
   async getByIds(ids: ProjectId[]): Promise<Project[]> {
-    return this.refs.withRefs(await this.activeProjects(inArray(projects.id, ids)));
+    return withRefs(this.db, await this.activeProjects(inArray(projects.id, ids)));
   }
 
   async createProject(options: CreateProjectOptions): Promise<Project> {
@@ -138,7 +134,7 @@ export class ProjectService {
 
     // filled after the page is cut, so the lookup covers only the rows returned
     const result = pager.toPage(rows);
-    return { ...result, items: await this.refs.withRefs(result.items) };
+    return { ...result, items: await withRefs(this.db, result.items) };
   }
 
   async getProjectStats(id: ProjectId): Promise<ProjectStats> {

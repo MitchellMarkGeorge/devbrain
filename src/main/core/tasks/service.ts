@@ -18,24 +18,20 @@ import { isSubtask } from './utils';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { localDayWindow } from '../shared/utils';
 import { keyset, Page, PageOptions } from '../shared/pagination';
-import { ExternalRefs, hasLinkInState } from '../integrations/refs';
+import { hasLinkInState, withRef, withRefs } from '../integrations/refs';
 import { LinkState } from '../integrations/types';
 
 export class TaskService {
-  private readonly refs: ExternalRefs;
-
-  constructor(private readonly db: BetterSQLite3Database) {
-    this.refs = new ExternalRefs(db);
-  }
+  constructor(private readonly db: BetterSQLite3Database) {}
 
   async getById(id: TaskId): Promise<Task> {
     const [row] = await this.activeTasks(eq(tasks.id, id)).limit(1);
     if (!row) throw new NotFoundError(id);
-    return this.refs.withRef(row);
+    return withRef(this.db, row);
   }
 
   async getByIds(ids: TaskId[]): Promise<Task[]> {
-    return this.refs.withRefs(await this.activeTasks(inArray(tasks.id, ids)));
+    return withRefs(this.db, await this.activeTasks(inArray(tasks.id, ids)));
   }
 
   async createTask(options: CreateTaskOptions): Promise<Task> {
@@ -186,7 +182,7 @@ export class TaskService {
       .orderBy(...pager.orderBy)
       .limit(pager.fetchLimit);
 
-    return this.withRefs(pager.toPage(rows));
+    return this.withPageRefs(pager.toPage(rows));
   }
 
   async listSubtasks(parentTaskId: TaskId, page: PageOptions = {}): Promise<Page<Task>> {
@@ -209,7 +205,7 @@ export class TaskService {
       .orderBy(...pager.orderBy)
       .limit(pager.fetchLimit);
 
-    return this.withRefs(pager.toPage(rows));
+    return this.withPageRefs(pager.toPage(rows));
   }
 
   async updateTask(id: TaskId, updates: UpdateTaskOptions): Promise<Task | null> {
@@ -336,8 +332,8 @@ export class TaskService {
   }
 
   // filled after the page is cut, so the lookup covers only the rows returned
-  private async withRefs(page: Page<Task>): Promise<Page<Task>> {
-    return { ...page, items: await this.refs.withRefs(page.items) };
+  private async withPageRefs(page: Page<Task>): Promise<Page<Task>> {
+    return { ...page, items: await withRefs(this.db, page.items) };
   }
 
   private activeTasks(condition: SQL<unknown>) {

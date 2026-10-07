@@ -5,24 +5,20 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { NotFoundError } from '../shared/errors';
 import { CreateEventOptions, Event, UpdateEventOptions } from './types';
 import { keyset, Page, PageOptions } from '../shared/pagination';
-import { ExternalRefs, hasLinkInState } from '../integrations/refs';
+import { hasLinkInState, withRef, withRefs } from '../integrations/refs';
 import { LinkState } from '../integrations/types';
 
 export class EventService {
-  private readonly refs: ExternalRefs;
-
-  constructor(private readonly db: BetterSQLite3Database) {
-    this.refs = new ExternalRefs(db);
-  }
+  constructor(private readonly db: BetterSQLite3Database) {}
 
   async getById(id: EventId): Promise<Event> {
     const [event] = await this.db.select().from(events).where(eq(events.id, id));
     if (!event) throw new NotFoundError(id);
-    return this.refs.withRef(event);
+    return withRef(this.db, event);
   }
 
   async getByIds(ids: EventId[]): Promise<Event[]> {
-    return this.refs.withRefs(await this.db.select().from(events).where(inArray(events.id, ids)));
+    return withRefs(this.db, await this.db.select().from(events).where(inArray(events.id, ids)));
   }
 
   async createEvent(options: CreateEventOptions): Promise<Event> {
@@ -128,6 +124,6 @@ export class EventService {
 
     // filled after the page is cut, so the lookup covers only the rows returned
     const result = pager.toPage(rows);
-    return { ...result, items: await this.refs.withRefs(result.items) };
+    return { ...result, items: await withRefs(this.db, result.items) };
   }
 }

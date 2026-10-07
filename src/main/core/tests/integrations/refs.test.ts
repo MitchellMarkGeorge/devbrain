@@ -9,7 +9,7 @@ import { TaskService } from '../../tasks/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
 import { Task, TaskSortOptions } from '../../tasks/types';
-import { ExternalRefs } from '../../integrations/refs';
+import { getRefs } from '../../integrations/refs';
 import { AuthType, LinkState, Provider, SourceType } from '../../integrations/types';
 import { PageOptions } from '../../shared/pagination';
 
@@ -83,7 +83,7 @@ beforeEach(() => {
     .get().id;
 });
 
-describe('ExternalRefs — tasks', () => {
+describe('refs — tasks', () => {
   let synced: Task;
   let local: Task;
 
@@ -164,7 +164,7 @@ describe('ExternalRefs — tasks', () => {
   });
 });
 
-describe('ExternalRefs — projects', () => {
+describe('refs — projects', () => {
   it('getById, getByIds and listProjects return the ref, with the status label only', async () => {
     const synced = await projects.createProject({ title: 'Synced', dueDate: TOMORROW });
     const local = await projects.createProject({ title: 'Local', dueDate: TOMORROW });
@@ -197,7 +197,7 @@ describe('ExternalRefs — projects', () => {
   });
 });
 
-describe('ExternalRefs — events', () => {
+describe('refs — events', () => {
   const start = new Date('2026-10-05T09:00:00Z');
   const end = new Date('2026-10-05T10:00:00Z');
   const range = [new Date('2026-10-01T00:00:00Z'), new Date('2026-10-31T00:00:00Z')] as const;
@@ -253,17 +253,17 @@ describe('ExternalRefs — events', () => {
   });
 });
 
-describe('ExternalRefs — getRefs', () => {
+describe('refs — getRefs', () => {
   it('returns an empty map for no ids, without a query', async () => {
-    expect((await new ExternalRefs(db).getRefs([])).size).toBe(0);
+    expect((await getRefs(db, [])).size).toBe(0);
   });
 
   it('rejects ids of different entity types', async () => {
     const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
     const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
-    await expect(
-      new ExternalRefs(db).getRefs<TaskId | ProjectId>([task.id, project.id]),
-    ).rejects.toThrow('one entity type at a time');
+    await expect(getRefs<TaskId | ProjectId>(db, [task.id, project.id])).rejects.toThrow(
+      'one entity type at a time',
+    );
   });
 });
 

@@ -65,55 +65,61 @@ export function hasLinkInState(
 }
 
 /**
- * Looks up the `external` field of read models. Services fill it after their own query, with one
- * batched lookup per call, instead of joining inside every list query: that keeps the keyset
- * queries and the indexes behind them untouched.
+ * The `external` field of read models: id to ref for each id that has a link, in any state. The
+ * ids must share an entity type.
+ *
+ * Services fill `external` after their own query, with one batched lookup per call, instead of
+ * joining inside every list query: that keeps the keyset queries and the indexes behind them
+ * untouched.
  */
-export class ExternalRefs {
-  constructor(private readonly db: BetterSQLite3Database) {}
+export async function getRefs<T extends LinkedEntityId>(
+  db: BetterSQLite3Database,
+  ids: T[],
+): Promise<Map<T, ExternalRef>> {
+  const refs = new Map<T, ExternalRef>();
+  if (ids.length === 0) return refs;
 
-  /** id to ref for each id that has a link, in any state; the ids must share an entity type */
-  async getRefs<T extends LinkedEntityId>(ids: T[]): Promise<Map<T, ExternalRef>> {
-    const refs = new Map<T, ExternalRef>();
-    if (ids.length === 0) return refs;
-
-    const entity = entityOf(ids[0]);
-    if (ids.some((id) => entityOf(id) !== entity)) {
-      throw new Error('External refs are looked up for one entity type at a time');
-    }
-    const column = LINK_COLUMNS[entity];
-
-    const links = await this.db
-      .select({
-        entityId: sql<T>`${column}`,
-        provider: externalLinks.provider,
-        state: externalLinks.state,
-        key: externalLinks.externalKey,
-        url: externalLinks.externalUrl,
-        metadata: externalLinks.metadata,
-        lastSyncedAt: externalLinks.lastSyncedAt,
-      })
-      .from(externalLinks)
-      .where(inArray(column, ids));
-
-    for (const { entityId, metadata, ...link } of links) {
-      refs.set(entityId, { ...link, ...labelsOf(entity, metadata) });
-    }
-    return refs;
+  const entity = entityOf(ids[0]);
+  if (ids.some((id) => entityOf(id) !== entity)) {
+    throw new Error('External refs are looked up for one entity type at a time');
   }
+  const column = LINK_COLUMNS[entity];
 
-  /** the rows with `external` set: the row's ref when it has a link, null when it is local */
-  async withRefs<T extends { id: LinkedEntityId }>(
-    rows: T[],
-  ): Promise<(T & { external: ExternalRef | null })[]> {
-    const refs = await this.getRefs(rows.map((row) => row.id));
-    return rows.map((row) => ({ ...row, external: refs.get(row.id) ?? null }));
-  }
+  const links = await db
+    .select({
+      entityId: sql<T>`${column}`,
+      provider: externalLinks.provider,
+      state: externalLinks.state,
+      key: externalLinks.externalKey,
+      url: externalLinks.externalUrl,
+      metadata: externalLinks.metadata,
+      lastSyncedAt: externalLinks.lastSyncedAt,
+    })
+    .from(externalLinks)
+    .where(inArray(column, ids));
 
-  async withRef<T extends { id: LinkedEntityId }>(
-    row: T,
-  ): Promise<T & { external: ExternalRef | null }> {
-    const [withRef] = await this.withRefs([row]);
-    return withRef;
+  for (const { entityId, metadata, ...link } of links) {
+    refs.set(entityId, { ...link, ...labelsOf(entity, metadata) });
   }
+  return refs;
+}
+
+/** the rows with `external` set: the row's ref when it has a link, null when it is local */
+export async function withRefs<T extends { id: LinkedEntityId }>(
+  db: BetterSQLite3Database,
+  rows: T[],
+): Promise<(T & { external: ExternalRef | null })[]> {
+  const refs = await getRefs(
+    db,
+    rows.map((row) => row.id),
+  );
+  return rows.map((row) => ({ ...row, external: refs.get(row.id) ?? null }));
+}
+
+export async function withRef<T extends { id: LinkedEntityId }>(
+  db: BetterSQLite3Database,
+  row: T,
+): Promise<T & { external: ExternalRef | null }> {
+  const [withRef] = await withRefs(db, [row]);
+  return withRef;
 }
