@@ -1,0 +1,348 @@
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { inspect } from 'node:util';
+import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { eq } from 'drizzle-orm';
+import { IntegrationId } from '@common/ids';
+import { integrations } from '@main/db/schema/integrations';
+import { createDb } from '../utils';
+import { FakeCipher } from '../__mocks__/fake-cipher';
+import {
+  apiKeyCredentials,
+  CredentialStore,
+  oauthCredentials,
+  RefreshedTokens,
+  TokenRefresher,
+  toAuth,
+} from '../../integrations/credentials';
+import { AuthType, Provider } from '../../integrations/types';
+import { IntegrationAuthError, NotFoundError } from '../../shared/errors';
+import { TOKEN_REFRESH_MARGIN_MS } from '../../sync/constants';
+
+const API_KEY = 'lin_api_supersecretkey';
+const ACCESS_TOKEN = 'ya29.access-secret';
+const REFRESH_TOKEN = '1//refresh-secret';
+const NOW = new Date('2026-10-07T12:00:00Z').getTime();
+
+// IntegrationService does not exist yet, so rows go in directly with an empty blob
+function insertIntegration(db: BetterSQLite3Database, provider = Provider.LINEAR): IntegrationId {
+  const [row] = db
+    .insert(integrations)
+    .values({
+      provider,
+      authType: AuthType.API_KEY,
+      accountId: `account-${Math.random()}`,
+      accountLabel: 'Ada, Acme',
+      credentials: Buffer.alloc(0),
+    })
+    .returning()
+    .all();
+  return row.id;
+}
+
+function storedBlob(db: BetterSQLite3Database, id: IntegrationId): Buffer {
+  return db
+    .select({ credentials: integrations.credentials })
+    .from(integrations)
+    .where(eq(integrations.id, id))
+    .get()!.credentials;
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((r) => (resolve = r));
+  return { promise, resolve };
+}
+
+describe('CredentialStore — storage', () => {
+  let db: BetterSQLite3Database;
+  let cipher: FakeCipher;
+  let store: CredentialStore;
+  let id: IntegrationId;
+
+  beforeEach(() => {
+    db = createDb();
+    cipher = new FakeCipher();
+    store = new CredentialStore(db, { cipher });
+    id = insertIntegration(db);
+  });
+
+  it('round-trips an API key', async () => {
+    store.save(id, apiKeyCredentials(API_KEY));
+    expect(await store.getAuth(id)).toEqual({ authorization: API_KEY });
+  });
+
+  it('round-trips OAuth credentials as a bearer header', async () => {
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    store.save(
+      id,
+      oauthCredentials({ accessToken: ACCESS_TOKEN, refreshToken: REFRESH_TOKEN, expiresAt }),
+    );
+    expect(await store.getAuth(id)).toEqual({ authorization: `Bearer ${ACCESS_TOKEN}` });
+    expect(cipher.decrypt(storedBlob(db, id)).toString()).toContain(expiresAt.toISOString());
+  });
+
+  it('does not store the plain key', () => {
+    store.save(id, apiKeyCredentials(API_KEY));
+    const blob = storedBlob(db, id);
+    expect(blob.length).toBeGreaterThan(0);
+    expect(blob.includes(API_KEY)).toBe(false);
+    expect(blob.toString('utf8')).not.toContain(API_KEY);
+  });
+
+  it('refuses to save when the cipher is unavailable, and leaves the row alone', () => {
+    cipher.available = false;
+    expect(() => store.save(id, apiKeyCredentials(API_KEY))).toThrow(IntegrationAuthError);
+    expect(() => store.save(id, apiKeyCredentials(API_KEY))).toThrow(/Secure storage/);
+    expect(storedBlob(db, id).length).toBe(0);
+  });
+
+  it('saves inside a caller transaction, and rolls back with it', async () => {
+    expect(() =>
+      db.transaction(() => {
+        store.save(id, apiKeyCredentials(API_KEY));
+        throw new Error('connect failed');
+      }),
+    ).toThrow('connect failed');
+    expect(storedBlob(db, id).length).toBe(0);
+
+    db.transaction(() => store.save(id, apiKeyCredentials(API_KEY)));
+    expect(await store.getAuth(id)).toEqual({ authorization: API_KEY });
+  });
+
+  it('throws NotFoundError for an unknown integration', async () => {
+    const missing = 'int_missing' as IntegrationId;
+    expect(() => store.save(missing, apiKeyCredentials(API_KEY))).toThrow(NotFoundError);
+    expect(() => store.clear(missing)).toThrow(NotFoundError);
+    await expect(store.getAuth(missing)).rejects.toThrow(NotFoundError);
+  });
+
+  it('clears credentials, after which getAuth asks for a reconnect', async () => {
+    store.save(id, apiKeyCredentials(API_KEY));
+    store.clear(id);
+    expect(storedBlob(db, id).length).toBe(0);
+    await expect(store.getAuth(id)).rejects.toThrow(IntegrationAuthError);
+  });
+});
+
+describe('CredentialStore — corrupt blobs', () => {
+  let db: BetterSQLite3Database;
+  let cipher: FakeCipher;
+  let store: CredentialStore;
+  let id: IntegrationId;
+
+  function setBlob(blob: Buffer) {
+    db.update(integrations).set({ credentials: blob }).where(eq(integrations.id, id)).run();
+  }
+
+  beforeEach(() => {
+    db = createDb();
+    cipher = new FakeCipher();
+    store = new CredentialStore(db, { cipher });
+    id = insertIntegration(db);
+  });
+
+  it('raises IntegrationAuthError for a blob that does not decrypt', async () => {
+    setBlob(Buffer.from('not ciphertext'));
+    await expect(store.getAuth(id)).rejects.toThrow(IntegrationAuthError);
+  });
+
+  it('raises IntegrationAuthError for ciphertext that is not JSON, without quoting it', async () => {
+    setBlob(cipher.encrypt(`{"apiKey":"${API_KEY}"`));
+    const error = await store.getAuth(id).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(IntegrationAuthError);
+    expect(inspect(error)).not.toContain(API_KEY);
+  });
+
+  it('raises IntegrationAuthError for JSON of the wrong shape', async () => {
+    setBlob(cipher.encrypt(JSON.stringify({ type: 'api_key' })));
+    await expect(store.getAuth(id)).rejects.toThrow(IntegrationAuthError);
+    setBlob(cipher.encrypt(JSON.stringify({ type: 'password', password: 'x' })));
+    await expect(store.getAuth(id)).rejects.toThrow(IntegrationAuthError);
+    setBlob(
+      cipher.encrypt(
+        JSON.stringify({ type: 'oauth', accessToken: 'a', refreshToken: 'r', expiresAt: 'soon' }),
+      ),
+    );
+    await expect(store.getAuth(id)).rejects.toThrow(IntegrationAuthError);
+  });
+});
+
+describe('CredentialStore — refresh', () => {
+  let db: BetterSQLite3Database;
+  let cipher: FakeCipher;
+  let now: number;
+  let id: IntegrationId;
+
+  function storeWith(refresher?: TokenRefresher) {
+    return new CredentialStore(db, {
+      cipher,
+      refreshers: refresher ? { [Provider.GOOGLE_CALENDAR]: refresher } : {},
+      now: () => now,
+    });
+  }
+
+  function saveToken(store: CredentialStore, expiresInMs: number | null) {
+    store.save(
+      id,
+      oauthCredentials({
+        accessToken: ACCESS_TOKEN,
+        refreshToken: REFRESH_TOKEN,
+        expiresAt: expiresInMs === null ? null : new Date(now + expiresInMs),
+      }),
+    );
+  }
+
+  beforeEach(() => {
+    db = createDb();
+    cipher = new FakeCipher();
+    now = NOW;
+    id = insertIntegration(db, Provider.GOOGLE_CALENDAR);
+  });
+
+  it('does not refresh a token with more than the margin left', async () => {
+    const refresher = vi.fn<TokenRefresher>();
+    const store = storeWith(refresher);
+    saveToken(store, TOKEN_REFRESH_MARGIN_MS + 1000);
+    expect(await store.getAuth(id)).toEqual({ authorization: `Bearer ${ACCESS_TOKEN}` });
+    saveToken(store, null);
+    expect(await store.getAuth(id)).toEqual({ authorization: `Bearer ${ACCESS_TOKEN}` });
+    expect(refresher).not.toHaveBeenCalled();
+  });
+
+  it('refreshes a token inside the margin and stores the result', async () => {
+    const expiresAt = new Date(NOW + 60 * 60 * 1000);
+    const refresher = vi.fn<TokenRefresher>().mockResolvedValue({
+      accessToken: 'new-access',
+      refreshToken: 'new-refresh',
+      expiresAt,
+    });
+    const store = storeWith(refresher);
+    saveToken(store, TOKEN_REFRESH_MARGIN_MS);
+
+    expect(await store.getAuth(id)).toEqual({ authorization: 'Bearer new-access' });
+    expect(refresher).toHaveBeenCalledWith(REFRESH_TOKEN);
+    expect(JSON.parse(cipher.decrypt(storedBlob(db, id)))).toEqual({
+      type: 'oauth',
+      accessToken: 'new-access',
+      refreshToken: 'new-refresh',
+      expiresAt: expiresAt.toISOString(),
+    });
+
+    // the stored token is now fresh, so the next call does not refresh
+    expect(await store.getAuth(id)).toEqual({ authorization: 'Bearer new-access' });
+    expect(refresher).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the old refresh token when the response omits one', async () => {
+    const store = storeWith(async () => ({ accessToken: 'new-access', expiresAt: null }));
+    saveToken(store, -1000);
+    await store.getAuth(id);
+    expect(JSON.parse(cipher.decrypt(storedBlob(db, id))).refreshToken).toBe(REFRESH_TOKEN);
+  });
+
+  it('refreshes once when two callers ask at the same time', async () => {
+    const pending = deferred<RefreshedTokens>();
+    const refresher = vi.fn<TokenRefresher>().mockReturnValue(pending.promise);
+    const store = storeWith(refresher);
+    saveToken(store, 1000);
+
+    const first = store.getAuth(id);
+    const second = store.getAuth(id);
+    await vi.waitFor(() => expect(refresher).toHaveBeenCalledTimes(1));
+    pending.resolve({ accessToken: 'new-access', expiresAt: new Date(NOW + 60 * 60 * 1000) });
+
+    expect(await Promise.all([first, second])).toEqual([
+      { authorization: 'Bearer new-access' },
+      { authorization: 'Bearer new-access' },
+    ]);
+    expect(refresher).toHaveBeenCalledTimes(1);
+  });
+
+  it('refreshes each integration independently', async () => {
+    const other = insertIntegration(db, Provider.GOOGLE_CALENDAR);
+    const refresher = vi.fn<TokenRefresher>().mockResolvedValue({ accessToken: 'new-access' });
+    const store = storeWith(refresher);
+    saveToken(store, 0);
+    store.save(other, oauthCredentials({ accessToken: 'a', refreshToken: 'r', expiresAt: null }));
+
+    await Promise.all([store.getAuth(id), store.getAuth(other)]);
+    expect(refresher).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes a failed refresh on, and lets the next caller try again', async () => {
+    const refresher = vi
+      .fn<TokenRefresher>()
+      .mockRejectedValueOnce(new IntegrationAuthError('invalid_grant'))
+      .mockResolvedValueOnce({ accessToken: 'new-access' });
+    const store = storeWith(refresher);
+    saveToken(store, 0);
+
+    await expect(store.getAuth(id)).rejects.toThrow(IntegrationAuthError);
+    expect(JSON.parse(cipher.decrypt(storedBlob(db, id))).accessToken).toBe(ACCESS_TOKEN);
+    expect(await store.getAuth(id)).toEqual({ authorization: 'Bearer new-access' });
+  });
+
+  it('raises IntegrationAuthError when the provider has no refresher', async () => {
+    const store = storeWith();
+    saveToken(store, 0);
+    await expect(store.getAuth(id)).rejects.toThrow(IntegrationAuthError);
+  });
+
+  it('does not overwrite credentials saved while a refresh was out', async () => {
+    const pending = deferred<RefreshedTokens>();
+    const refresher = vi.fn<TokenRefresher>().mockReturnValue(pending.promise);
+    const store = storeWith(refresher);
+    saveToken(store, 0);
+
+    const auth = store.getAuth(id);
+    await vi.waitFor(() => expect(refresher).toHaveBeenCalled());
+    // a reconnect lands before the refresh returns
+    store.save(
+      id,
+      oauthCredentials({ accessToken: 'reconnected', refreshToken: 'r2', expiresAt: null }),
+    );
+    pending.resolve({ accessToken: 'new-access' });
+
+    expect(await auth).toEqual({ authorization: 'Bearer new-access' });
+    expect(JSON.parse(cipher.decrypt(storedBlob(db, id))).accessToken).toBe('reconnected');
+  });
+});
+
+describe('credentials — redaction', () => {
+  const oauth = oauthCredentials({
+    accessToken: ACCESS_TOKEN,
+    refreshToken: REFRESH_TOKEN,
+    expiresAt: new Date(NOW),
+  });
+  const apiKey = apiKeyCredentials(API_KEY);
+  const secrets = [API_KEY, ACCESS_TOKEN, REFRESH_TOKEN];
+
+  function expectNoSecret(text: string) {
+    for (const secret of secrets) expect(text).not.toContain(secret);
+  }
+
+  it('hides secrets from JSON.stringify', () => {
+    expect(JSON.parse(JSON.stringify(apiKey))).toEqual({ type: 'api_key', apiKey: '[redacted]' });
+    expect(JSON.parse(JSON.stringify(oauth))).toEqual({
+      type: 'oauth',
+      accessToken: '[redacted]',
+      refreshToken: '[redacted]',
+      expiresAt: new Date(NOW).toISOString(),
+    });
+    expectNoSecret(JSON.stringify({ integration: 'int_1', credentials: [apiKey, oauth] }));
+    expectNoSecret(JSON.stringify(toAuth(oauth)));
+  });
+
+  it('hides secrets from util.inspect, which loggers use, including in an error cause', () => {
+    expectNoSecret(inspect({ apiKey, oauth, auth: toAuth(apiKey) }, { depth: 5 }));
+    const error = new IntegrationAuthError('refresh failed', { cause: { credentials: oauth } });
+    expectNoSecret(inspect(error, { depth: 5 }));
+    expectNoSecret(JSON.stringify({ error, cause: error.cause }));
+  });
+
+  it('keeps the secret fields readable in code', () => {
+    expect(apiKey.apiKey).toBe(API_KEY);
+    expect(oauth.accessToken).toBe(ACCESS_TOKEN);
+    expect({ ...apiKey }).toEqual({ type: AuthType.API_KEY, apiKey: API_KEY });
+  });
+});
