@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -6,6 +6,9 @@ import { fileURLToPath } from 'node:url';
 import type { WorkspaceId } from '@common/ids';
 import type { WorkspaceInfo } from '../../workspace/types';
 import { Workspace } from '../../workspace/workspace';
+import { WorkspaceMigrationError } from '../../shared/errors';
+import { migrationsWithExtra } from '../utils';
+import Database from 'better-sqlite3';
 
 // DB_MIGRATIONS_PATH is read at call time (not module load), so assigning here is safe.
 const MIGRATIONS_PATH = path.resolve(
@@ -37,6 +40,7 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  process.env.DB_MIGRATIONS_PATH = MIGRATIONS_PATH;
   await fs.rm(tmpDir, { recursive: true });
 });
 
@@ -187,5 +191,121 @@ describe('Workspace.close', () => {
     workspace.close();
     // better-sqlite3 silently no-ops on double-close
     expect(() => workspace.close()).not.toThrow();
+  });
+});
+
+describe('Workspace.open — failed migrations', () => {
+  // the workspace lives in its own folder so the extra migrations folder sits beside it
+  let workspaceDir: string;
+  let info: WorkspaceInfo;
+  let projectId: string;
+
+  beforeEach(async () => {
+    workspaceDir = path.join(tmpDir, 'workspace');
+    await fs.mkdir(workspaceDir);
+    info = makeInfo(workspaceDir);
+    const created = await Workspace.create(info);
+    projectId = (await created.projects.createProject({ title: 'Kept', dueDate: new Date() })).id;
+    created.close();
+  });
+
+  /** points Workspace at the real migrations plus one extra, `sql` */
+  function useExtraMigration(tag: string, sql: string) {
+    process.env.DB_MIGRATIONS_PATH = migrationsWithExtra(path.join(tmpDir, tag), tag, sql);
+  }
+
+  async function openFailure(): Promise<WorkspaceMigrationError> {
+    const error = await Workspace.open(info).then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(error).toBeInstanceOf(WorkspaceMigrationError);
+    return error as WorkspaceMigrationError;
+  }
+
+  function readDb<T>(query: (sqlite: Database.Database) => T): T {
+    const sqlite = new Database(path.join(workspaceDir, 'db.sqlite'), { readonly: true });
+    try {
+      return query(sqlite);
+    } finally {
+      sqlite.close();
+    }
+  }
+
+  it('restores the backup when the migration committed broken references', async () => {
+    useExtraMigration(
+      '0099_dangling',
+      `INSERT INTO tasks (id, title, project_id) VALUES ('tsk_dangling', 'Dangling', 'prj_missing');`,
+    );
+    const error = await openFailure();
+
+    expect(error.code).toBe('workspace_migration');
+    expect(error.committed).toBe(true);
+    expect(error.restoredFromBackup).toBe(true);
+    expect(error.backupPath).toBe(path.join(workspaceDir, 'db.sqlite.backup'));
+    expect(error.pendingMigrations).toEqual(['0099_dangling']);
+    expect(error.message).toMatch(/restored from the backup/);
+
+    // the committed migration and its row are gone; the data from before the open is intact
+    readDb((sqlite) => {
+      expect(
+        sqlite.prepare(`SELECT id FROM tasks WHERE id = 'tsk_dangling'`).get(),
+      ).toBeUndefined();
+      expect(sqlite.prepare(`SELECT id FROM projects`).pluck().all()).toEqual([projectId]);
+      expect(
+        sqlite.prepare('SELECT max(created_at) FROM __drizzle_migrations').pluck().get(),
+      ).not.toBe(null);
+    });
+
+    // with the bad migration gone, the restored workspace opens normally
+    process.env.DB_MIGRATIONS_PATH = MIGRATIONS_PATH;
+    const opened = await Workspace.open(info);
+    expect((await opened.projects.getById(projectId as never)).title).toBe('Kept');
+    opened.close();
+  });
+
+  it('leaves the database as it was, without restoring, when the migration rolled back', async () => {
+    useExtraMigration(
+      '0099_broken',
+      `CREATE TABLE rolled_back (id text);--> statement-breakpoint
+INSERT INTO no_such_table VALUES (1);`,
+    );
+    const backupPath = path.join(workspaceDir, 'db.sqlite.backup');
+    const error = await openFailure();
+
+    expect(error.committed).toBe(false);
+    expect(error.restoredFromBackup).toBe(false);
+    expect(error.backupPath).toBe(backupPath);
+    expect(error.message).toMatch(/no changes were made/);
+
+    readDb((sqlite) => {
+      expect(
+        sqlite.prepare(`SELECT 1 FROM sqlite_master WHERE name = 'rolled_back'`).get(),
+      ).toBeUndefined();
+      expect(sqlite.prepare(`SELECT id FROM projects`).pluck().all()).toEqual([projectId]);
+    });
+
+    // the failed open closed its connection, so the workspace opens again straight away
+    process.env.DB_MIGRATIONS_PATH = MIGRATIONS_PATH;
+    const opened = await Workspace.open(info);
+    opened.close();
+  });
+
+  it('reports a failed restore without claiming the database was restored', async () => {
+    useExtraMigration(
+      '0099_dangling',
+      `INSERT INTO tasks (id, title, project_id) VALUES ('tsk_dangling', 'Dangling', 'prj_missing');`,
+    );
+    const copyFile = vi.spyOn(fs, 'copyFile').mockRejectedValueOnce(new Error('disk full'));
+    try {
+      const error = await openFailure();
+      expect(copyFile).toHaveBeenCalledOnce();
+      expect(error.committed).toBe(true);
+      expect(error.restoredFromBackup).toBe(false);
+      expect(error.message).toMatch(/restoring the backup at .* failed/);
+      expect((error.cause as Error).message).toBe('disk full');
+    } finally {
+      copyFile.mockRestore();
+    }
   });
 });
