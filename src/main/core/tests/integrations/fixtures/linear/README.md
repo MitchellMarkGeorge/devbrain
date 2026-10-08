@@ -45,10 +45,11 @@ Field names, enum values and query shapes were checked against the generated sch
 - `priorityLabel` is "No priority", "Urgent", "High", "Medium" and "Low" for priorities 0 to 4.
 - With `includeArchived: true`, `assignedIssues` still returns a trashed issue, with `trashed: true` and `archivedAt` set. Trashing does **not** change `updatedAt`, so an incremental pull never sees it; the reconcile pass's lookup does, which is why `lookup` reports trashed ids as gone.
 - Marking an issue as a duplicate of another bumps the other issue's `updatedAt`.
+- The assignment snapshot (`listAssignedIds`, no `includeArchived`) leaves out trashed issues, as well as completed, canceled and duplicate ones. A trashed issue therefore becomes a reconcile candidate, and the lookup (with `includeArchived`) returns it with `trashed: true`, so it is reported as gone.
+- A lookup of three real ids and one random UUID returned the three issues; the unknown id was simply absent, so it is reported as gone.
 - The `id: { in: [...] }` filter rejects a value that is not a UUID with an `Argument Validation Error`, sent with HTTP 200 and an `errors` array. Ids that come from Linear are always UUIDs; an id that no longer resolves is simply absent from the result.
 
 ## Still to confirm on a live account
 
-- Whether `assignedIssues` without `includeArchived` (the assignment snapshot) hides a trashed issue. It is archived, so it most likely is hidden.
 - The largest `first` Linear accepts (lookups request 100).
 - Which extension field identifies an error. Linear's docs show `extensions.code: "RATELIMITED"`; `@linear/sdk` reads `extensions.type` (`"ratelimited"`, `"authentication error"`). The client accepts either. Also whether an unknown key comes back as a 401 or as a 400 with an authentication error.
