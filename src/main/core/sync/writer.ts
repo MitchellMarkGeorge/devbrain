@@ -59,7 +59,11 @@ export class SyncWriter {
   }
 }
 
-// one call's writes, inside its transaction
+/**
+ * One writer call's work, inside its transaction. The upsert and remove methods write rows and
+ * keep count as they go; `finish` does the deferred writes and returns the summary. Every query
+ * is scoped to `sourceId`.
+ */
 class PageWrite {
   private readonly now = new Date();
   private readonly provider: Provider;
@@ -75,6 +79,7 @@ class PageWrite {
     private readonly search: SearchService,
     private readonly sourceId: ExternalSourceId,
   ) {
+    // the provider is stamped on new links, so it is read once; an unknown source fails the call
     const source = tx
       .select({ provider: integrations.provider })
       .from(externalSources)
@@ -85,17 +90,29 @@ class PageWrite {
     this.provider = source.provider;
   }
 
+  /**
+   * Upserts the page's projects by the link-state table. Runs before `upsertTasks`, so the tasks
+   * in the same page can find their project.
+   *
+   * 1. Look up the existing links for every project in one query.
+   * 2. Per project: no link → insert; detached → skip; synced and unchanged → touch only;
+   *    otherwise (changed, or removed) → update and restore.
+   * 3. Index everything inserted or updated in one batch.
+   */
   upsertProjects(items: ExternalProject[]): void {
+    // 1. existing links, by external id
     const links = this.findLinks(items.map((item) => item.externalId));
     const written: Project[] = [];
 
     for (const item of items) {
       const link = links.get(item.externalId);
+      // what both the insert and the update write to the link
       const linkFields = {
         ...this.linkFields(item, null),
         metadata: projectLinkMetadataSchema.parse({ statusLabel: item.statusLabel }),
       };
 
+      // 2a. never seen: insert the project, then its link
       if (!link) {
         const project = this.tx
           .insert(projects)
@@ -112,13 +129,16 @@ class PageWrite {
       }
 
       const projectId = entityId(link, 'projectId');
+      // 2b. detached: the user's own now, so sync leaves it alone
       if (link.state === LinkState.DETACHED) continue;
+      // 2c. unchanged: the row is not written, so updatedAt stays put; lastSyncedAt moves in finish
       if (link.state === LinkState.SYNCED && !isNewer(item, link)) {
         this.touched.push(link.id);
         continue;
       }
 
-      // remote changed, or a removed project came back: a synced row is never archived
+      // 2d. remote changed, or a removed project came back: write the provider-owned fields and
+      // unarchive (a synced row is never archived), then mark the link synced again
       const project = this.tx
         .update(projects)
         .set({ ...projectFields(item), archivedAt: null })
@@ -134,12 +154,23 @@ class PageWrite {
       written.push(project);
     }
 
+    // 3. re-index what was written, and tell the renderer to refetch projects
     this.search.indexProjects(written);
     if (written.length > 0) this.changed.add('project');
   }
 
+  /**
+   * Upserts the page's tasks by the link-state table, after `upsertProjects`.
+   *
+   * 1. Look up the links of the page's tasks and of their parents, and the local ids of their
+   *    projects, in one query each.
+   * 2. Walk the tasks parents first, resolving each one's parent and project, then: no link →
+   *    insert; detached → skip; synced and unchanged → touch only; otherwise → update and restore.
+   * 3. Re-parent children from earlier pages whose parent was inserted or restored here.
+   * 4. Index everything inserted or updated in one batch.
+   */
   upsertTasks(items: ExternalTask[]): void {
-    // parents' links too, so a child can find a parent mirrored in an earlier page
+    // 1. parents' links too, so a child can find a parent mirrored in an earlier page
     const links = this.findLinks([
       ...items.map((item) => item.externalId),
       ...items.flatMap((item) => item.parentExternalId ?? []),
@@ -149,6 +180,7 @@ class PageWrite {
     const arrived = new Map<string, TaskId>();
     const written: Task[] = [];
 
+    // 2. parents first, so a parent in this page is already written when its children come up
     for (const item of parentsFirst(items)) {
       const link = links.get(item.externalId);
       // a parent that is not mirrored (or not synced) leaves the child top-level; its key and
@@ -169,6 +201,7 @@ class PageWrite {
         }),
       };
 
+      // 2a. never seen: insert the task and its link; it may be the parent children are waiting for
       if (!link) {
         const task = this.tx
           .insert(tasks)
@@ -180,6 +213,7 @@ class PageWrite {
           .values({ ...linkFields, ...this.newLink(), taskId: task.id })
           .returning()
           .get();
+        // later children in this page resolve their parent from the map
         links.set(item.externalId, newLink);
         arrived.set(item.externalId, task.id);
         this.inserted += 1;
@@ -188,13 +222,16 @@ class PageWrite {
       }
 
       const taskId = entityId(link, 'taskId');
+      // 2b. detached: the user's own now, so sync leaves it alone
       if (link.state === LinkState.DETACHED) continue;
+      // 2c. unchanged: the row is not written, so updatedAt stays put; lastSyncedAt moves in finish
       if (link.state === LinkState.SYNCED && !isNewer(item, link)) {
         this.touched.push(link.id);
         continue;
       }
 
-      // remote changed, or a removed task came back: a synced row is never archived
+      // 2d. remote changed, or a removed task came back: write the provider-owned fields and
+      // unarchive (a synced row is never archived), then mark the link synced again
       const task = this.tx
         .update(tasks)
         .set({ ...fields, archivedAt: null })
@@ -207,22 +244,32 @@ class PageWrite {
         .where(eq(externalLinks.id, link.id))
         .returning()
         .get();
+      // a restored task can adopt children too, and later children here see it as synced
       if (link.state === LinkState.REMOVED) arrived.set(item.externalId, taskId);
       links.set(item.externalId, updatedLink);
       this.updated += 1;
       written.push(task);
     }
 
-    // re-parenting only moves parentTaskId, so the adopted children need no re-index
+    // 3. re-parenting only moves parentTaskId, so the adopted children need no re-index
     this.updated += this.adoptChildren(arrived);
+    // 4. re-index what was written, and tell the renderer to refetch tasks
     this.search.indexTasks(written);
     if (written.length > 0) this.changed.add('task');
   }
 
+  /**
+   * Takes the tasks behind these ids out of scope.
+   *
+   * 1. Find their synced task links; other ids (detached, already removed, never mirrored) are
+   *    ignored.
+   * 2. Archive the tasks and mark their links `removed`.
+   * 3. Drop the tasks from search.
+   */
   removeTasks(externalIds: string[]): void {
     if (externalIds.length === 0) return;
 
-    // only synced links: a detached task is the user's own and never moves to removed
+    // 1. only synced links: a detached task is the user's own and never moves to removed
     const links = this.tx
       .select({ id: externalLinks.id, taskId: externalLinks.taskId })
       .from(externalLinks)
@@ -237,7 +284,7 @@ class PageWrite {
       .all();
     if (links.length === 0) return;
 
-    // archived, not deleted, so an issue that comes back keeps its notes and links. Linked notes
+    // 2. archived, not deleted, so an issue that comes back keeps its notes and links. Linked notes
     // are left as they are: they are the user's, and the task may well return
     const taskIds = links.map((link) => link.taskId!);
     this.tx.update(tasks).set({ archivedAt: this.now }).where(inArray(tasks.id, taskIds)).run();
@@ -251,11 +298,16 @@ class PageWrite {
         ),
       )
       .run();
+    // 3. removed rows are no longer searchable; a restore re-indexes them
     this.search.removeFromIndex(taskIds);
     this.removed += taskIds.length;
     this.changed.add('task');
   }
 
+  /**
+   * Ends the call: records that the unchanged items were seen, in one update for all of them,
+   * and returns the summary.
+   */
   finish(): SyncSummary {
     if (this.touched.length > 0) {
       this.tx
@@ -309,6 +361,7 @@ class PageWrite {
   private adoptChildren(parents: Map<string, TaskId>): number {
     let adopted = 0;
     for (const [parentExternalId, parentTaskId] of parents) {
+      // the synced links that recorded this parent in their metadata
       const children = this.tx
         .select({ taskId: externalLinks.taskId })
         .from(externalLinks)
@@ -319,6 +372,7 @@ class PageWrite {
             sql`json_extract(${externalLinks.metadata}, '$.parentExternalId') = ${parentExternalId}`,
           ),
         );
+      // only those still top-level; children already under the parent are not written again
       adopted += this.tx
         .update(tasks)
         .set({ parentTaskId })
@@ -328,6 +382,7 @@ class PageWrite {
     return adopted;
   }
 
+  /** the link columns taken from the provider item, written on insert and on update */
   private linkFields(item: ExternalTask | ExternalProject, externalKey: string | null) {
     return {
       externalId: item.externalId,
@@ -338,6 +393,7 @@ class PageWrite {
     };
   }
 
+  /** the link columns set only on insert: which source it belongs to, and synced from the start */
   private newLink() {
     return { sourceId: this.sourceId, provider: this.provider, state: LinkState.SYNCED };
   }
