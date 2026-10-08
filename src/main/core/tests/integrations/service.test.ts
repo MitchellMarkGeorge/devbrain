@@ -234,9 +234,97 @@ describe('IntegrationService — connectWithApiKey', () => {
       {
         type: 'connected',
         integrationId: integration.id,
-        sourceIds: integration.sources.map((source) => source.id),
+        sources: integration.sources.map((source) => ({ sourceId: source.id, enabled: true })),
       },
     ]);
+  });
+});
+
+describe('IntegrationService — choosing sources at connect', () => {
+  const twoRoles = () => fakeProvider({ supports: [SourceType.TASKS, SourceType.VERSION_CONTROL] });
+
+  function enabledByType(integration: { sources: { sourceType: SourceType; enabled: boolean }[] }) {
+    return Object.fromEntries(
+      integration.sources.map((source) => [source.sourceType, source.enabled]),
+    );
+  }
+
+  it('switches on only the chosen types and creates the rest disabled', async () => {
+    const { service, changes } = setup(registryOf(twoRoles().provider));
+
+    const integration = await service.connectWithApiKey(ProviderId.LINEAR, API_KEY, {
+      enable: [SourceType.VERSION_CONTROL],
+    });
+
+    expect(enabledByType(integration)).toEqual({
+      [SourceType.TASKS]: false,
+      [SourceType.VERSION_CONTROL]: true,
+    });
+    const [change] = changes;
+    expect(change.type === 'connected' && change.sources).toEqual(
+      expect.arrayContaining(
+        integration.sources.map((source) => ({ sourceId: source.id, enabled: source.enabled })),
+      ),
+    );
+  });
+
+  it('connects without syncing anything when no type is chosen', async () => {
+    const { service } = setup(registryOf(twoRoles().provider));
+
+    const integration = await service.connectWithApiKey(ProviderId.LINEAR, API_KEY, {
+      enable: [],
+    });
+
+    expect(integration.status).toBe(IntegrationStatus.CONNECTED);
+    expect(integration.sources).toHaveLength(2);
+    expect(integration.sources.every((source) => !source.enabled)).toBe(true);
+  });
+
+  it('a source left off at connect can be switched on later', async () => {
+    const { service, changes } = setup(registryOf(twoRoles().provider));
+    const integration = await service.connectWithApiKey(ProviderId.LINEAR, API_KEY, {
+      enable: [SourceType.VERSION_CONTROL],
+    });
+    const tasks = integration.sources.find((source) => source.sourceType === SourceType.TASKS)!;
+
+    await service.setSourceEnabled(tasks.id, true);
+
+    expect(enabledByType(await service.getById(integration.id))).toEqual({
+      [SourceType.TASKS]: true,
+      [SourceType.VERSION_CONTROL]: true,
+    });
+    expect(changes.at(-1)).toEqual({
+      type: 'source_changed',
+      integrationId: integration.id,
+      sourceId: tasks.id,
+      enabled: true,
+    });
+  });
+
+  it('rejects a type the provider does not serve, before calling it, and writes nothing', async () => {
+    const { provider, getAccount } = fakeProvider();
+    const { db, service } = setup(registryOf(provider));
+
+    await expect(
+      service.connectWithApiKey(ProviderId.LINEAR, API_KEY, { enable: [SourceType.EVENTS] }),
+    ).rejects.toThrow("linear can't serve as a source for events");
+    expect(getAccount).not.toHaveBeenCalled();
+    expect(countRows(db)).toEqual({ integrations: 0, sources: 0 });
+  });
+
+  it('leaves task sources of other integrations as they are', async () => {
+    // a second provider that also serves tasks stands in for a future GitHub
+    const other = fakeProvider({ id: ProviderId.GOOGLE_CALENDAR }).provider;
+    const { service } = setup(registryOf(fakeProvider().provider, other));
+
+    const linear = await service.connectWithApiKey(ProviderId.LINEAR, API_KEY);
+    await service.connectWithApiKey(ProviderId.GOOGLE_CALENDAR, API_KEY);
+
+    const list = await service.list();
+    expect(list).toHaveLength(2);
+    // both serve tasks at once
+    expect(list.every((integration) => enabledByType(integration)[SourceType.TASKS])).toBe(true);
+    expect(enabledByType(await service.getById(linear.id))[SourceType.TASKS]).toBe(true);
   });
 });
 

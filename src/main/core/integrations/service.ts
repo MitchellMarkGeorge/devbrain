@@ -7,12 +7,24 @@ import { toAuth } from './auth';
 import { CredentialStore } from './credential-store';
 import { ApiKeyCredentials } from './credentials';
 import { ProviderRegistry, getProvider } from './providers/registry';
-import { AuthType, ExternalSource, Integration, IntegrationStatus, Provider } from './types';
+import {
+  AuthType,
+  ExternalSource,
+  Integration,
+  IntegrationStatus,
+  Provider,
+  SourceType,
+} from './types';
 
 // What changed, for in-process subscribers: the scheduler starts and stops syncs from these, and
 // the IPC layer will forward them to the renderer. Ids and flags only, never credentials.
 export type IntegrationChange =
-  | { type: 'connected'; integrationId: IntegrationId; sourceIds: ExternalSourceId[] }
+  | {
+      type: 'connected';
+      integrationId: IntegrationId;
+      // every source the connection got; the scheduler starts the enabled ones
+      sources: { sourceId: ExternalSourceId; enabled: boolean }[];
+    }
   | { type: 'status_changed'; integrationId: IntegrationId; status: IntegrationStatus }
   | {
       type: 'source_changed';
@@ -22,6 +34,13 @@ export type IntegrationChange =
     };
 
 export type IntegrationChangeListener = (change: IntegrationChange) => void;
+
+export interface ConnectOptions {
+  // The source types to switch on, from those the provider supports; defaults to all of them.
+  // Every supported type still gets a source, created disabled when left out, so turning it on
+  // later is setSourceEnabled and needs no reconnect. An empty list connects without syncing.
+  enable?: SourceType[];
+}
 
 export interface IntegrationServiceOptions {
   credentials: CredentialStore;
@@ -64,13 +83,23 @@ export class IntegrationService {
 
   /**
    * Validates the key with the provider, then stores the integration, its encrypted credentials and
-   * one enabled source per type the provider supports, in one transaction. A rejected key throws
-   * the provider's IntegrationAuthError and writes nothing.
+   * one source per type the provider supports, in one transaction. Only the types in
+   * `options.enable` are switched on (all of them by default). A rejected key throws the provider's
+   * IntegrationAuthError and writes nothing.
    */
-  async connectWithApiKey(providerId: Provider, apiKey: string): Promise<Integration> {
+  async connectWithApiKey(
+    providerId: Provider,
+    apiKey: string,
+    options: ConnectOptions = {},
+  ): Promise<Integration> {
     const provider = getProvider(this.providers, providerId);
     if (!provider.authMethods.includes(AuthType.API_KEY)) {
       throw new Error(`${providerId} can't be connected with an API key`);
+    }
+    const enable = options.enable ?? provider.supports;
+    const unsupported = enable.filter((sourceType) => !provider.supports.includes(sourceType));
+    if (unsupported.length > 0) {
+      throw new Error(`${providerId} can't serve as a source for ${unsupported.join(', ')}`);
     }
     const key = apiKey.trim();
     if (key === '') throw new Error('An API key is required');
@@ -84,9 +113,9 @@ export class IntegrationService {
     const sealed = await this.credentials.seal(credentials);
 
     let integrationId: IntegrationId;
-    let sourceIds: ExternalSourceId[];
+    let sources: { sourceId: ExternalSourceId; enabled: boolean }[];
     try {
-      ({ integrationId, sourceIds } = this.db.transaction((tx) => {
+      ({ integrationId, sources } = this.db.transaction((tx) => {
         const [row] = tx
           .insert(integrations)
           .values({
@@ -103,17 +132,21 @@ export class IntegrationService {
         // writes through the same connection, so it commits or rolls back with the insert
         this.credentials.save(row.id, sealed);
 
-        const sources = provider.supports.map((sourceType) => ({
-          integrationId: row.id,
-          sourceType,
-          enabled: true,
-        }));
         const inserted = tx
           .insert(externalSources)
-          .values(sources)
-          .returning({ id: externalSources.id })
+          .values(
+            provider.supports.map((sourceType) => ({
+              integrationId: row.id,
+              sourceType,
+              enabled: enable.includes(sourceType),
+            })),
+          )
+          .returning({ id: externalSources.id, enabled: externalSources.enabled })
           .all();
-        return { integrationId: row.id, sourceIds: inserted.map((source) => source.id) };
+        return {
+          integrationId: row.id,
+          sources: inserted.map((source) => ({ sourceId: source.id, enabled: source.enabled })),
+        };
       }));
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -122,7 +155,7 @@ export class IntegrationService {
       throw error;
     }
 
-    this.emit({ type: 'connected', integrationId, sourceIds });
+    this.emit({ type: 'connected', integrationId, sources });
     return this.getById(integrationId);
   }
 
