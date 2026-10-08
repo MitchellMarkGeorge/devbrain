@@ -1,4 +1,5 @@
-import { EntityType, Id } from '@common/ids';
+import { EntityType, Id, IntegrationId } from '@common/ids';
+import type { Provider } from '../integrations/types';
 
 export class NotFoundError<T extends EntityType> extends Error {
   constructor(id: Id<T>) {
@@ -34,6 +35,17 @@ export class IntegrationAuthError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);
     this.name = 'IntegrationAuthError';
+  }
+}
+
+// a connect for an account this workspace already holds; reconnect the existing integration instead
+export class IntegrationAlreadyConnectedError extends Error {
+  readonly integrationId: IntegrationId;
+
+  constructor(provider: Provider, accountLabel: string, integrationId: IntegrationId) {
+    super(`${accountLabel} is already connected to ${provider} in this workspace`);
+    this.name = 'IntegrationAlreadyConnectedError';
+    this.integrationId = integrationId;
   }
 }
 

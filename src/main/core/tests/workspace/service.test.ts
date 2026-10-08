@@ -6,6 +6,7 @@ import path from 'node:path';
 import type { WorkspaceId } from '@common/ids';
 import type { WorkspaceInfo } from '../../workspace/types';
 import { NotFoundError } from '../../shared/errors';
+import { FakeCipher } from '../__mocks__/fake-cipher';
 
 // Mock the Workspace class so WorkspaceService tests don't need SQLite
 vi.mock('../../workspace/workspace', () => ({
@@ -391,6 +392,42 @@ describe('WorkspaceService — switch', () => {
     writeRegistry(tmpDir, []);
     const service = new WorkspaceService(tmpDir);
     await expect(service.switch('wsp_nope' as WorkspaceId)).rejects.toThrow();
+  });
+});
+
+describe('WorkspaceService — workspace options', () => {
+  const options = { cipher: new FakeCipher(), fetch: vi.fn() };
+
+  it('passes its options to every workspace it creates', async () => {
+    writeRegistry(tmpDir, []);
+    await fs.mkdir(path.join(tmpDir, 'workspaces'));
+    vi.mocked(Workspace.create).mockResolvedValue({ info: makeInfo(), close: vi.fn() } as never);
+
+    await new WorkspaceService(tmpDir, options).create({ name: 'WS', color: '#000000' });
+
+    expect(vi.mocked(Workspace.create).mock.calls[0][1]).toBe(options);
+  });
+
+  it('passes its options to every workspace it opens', async () => {
+    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
+    writeRegistry(tmpDir, [info]);
+    await fs.mkdir(info.path, { recursive: true });
+    vi.mocked(Workspace.open).mockResolvedValue({ info, close: vi.fn() } as never);
+
+    await new WorkspaceService(tmpDir, options).open(info.id);
+
+    expect(vi.mocked(Workspace.open)).toHaveBeenCalledWith(info, options);
+  });
+
+  it('passes empty options when given none', async () => {
+    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
+    writeRegistry(tmpDir, [info]);
+    await fs.mkdir(info.path, { recursive: true });
+    vi.mocked(Workspace.open).mockResolvedValue({ info, close: vi.fn() } as never);
+
+    await new WorkspaceService(tmpDir).open(info.id);
+
+    expect(vi.mocked(Workspace.open)).toHaveBeenCalledWith(info, {});
   });
 });
 

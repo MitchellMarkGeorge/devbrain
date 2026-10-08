@@ -28,6 +28,11 @@
  * DEV_PATH and DEV_WORKSPACE_NAME are read from the repo's .env file (same
  * variables the app itself uses), falling back to `.dev` / `Dev` if either is
  * unset. --path/--name flags take precedence over both.
+ *
+ * When DEV_LINEAR_API_KEY is set, the workspace is also connected to that
+ * Linear account through IntegrationService.connectWithApiKey, so a seeded
+ * workspace starts connected. The key is stored with a dev-only cipher (see
+ * devCipher below), not safeStorage, which only exists inside Electron.
  */
 
 import path from 'node:path';
@@ -35,6 +40,8 @@ import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { config as loadEnvFile } from '@dotenvx/dotenvx';
 import { initDevBrain } from '@main/core';
+import type { SecretCipher } from '@main/core/integrations/credentials';
+import { Provider } from '@main/core/integrations/types';
 import type { Workspace } from '@main/core/workspace/workspace';
 import type { Project } from '@main/core/projects/types';
 import type { Task } from '@main/core/tasks/types';
@@ -67,6 +74,25 @@ const RESET = hasFlag('reset') || hasFlag('force');
 const ROOT_PATH = path.resolve(REPO_ROOT, getOpt('path', process.env.DEV_PATH ?? '.dev'));
 const WORKSPACE_NAME = getOpt('name', process.env.DEV_WORKSPACE_NAME ?? 'Dev');
 const SEED = Number(getOpt('seed', '42'));
+// read here and in tests only; the app always takes a key through the connect flow
+const LINEAR_API_KEY = process.env.DEV_LINEAR_API_KEY?.trim() || null;
+
+// Stands in for Electron's safeStorage, which a plain Node script can't reach. It only encodes the
+// credentials behind a marker, so it keeps them out of plain sight in the git-ignored dev folder
+// and no more. A blob it writes can't be read by the app's real cipher (feature 14).
+const DEV_CIPHER_MARKER = Buffer.from('devbrain-dev-cipher:');
+const devCipher: SecretCipher = {
+  isAvailable: async () => true,
+  encrypt: async (plain) =>
+    Buffer.concat([DEV_CIPHER_MARKER, Buffer.from(Buffer.from(plain).toString('base64'))]),
+  decrypt: async (cipher) => {
+    if (!cipher.subarray(0, DEV_CIPHER_MARKER.length).equals(DEV_CIPHER_MARKER)) {
+      throw new Error('Not written by the dev cipher');
+    }
+    const encoded = cipher.subarray(DEV_CIPHER_MARKER.length).toString();
+    return { result: Buffer.from(encoded, 'base64').toString(), shouldReEncrypt: false };
+  },
+};
 
 // ---------------------------------------------------------------------------
 // Dataset size — a few hundred rows per table: enough to exercise
@@ -938,6 +964,29 @@ async function seedSubtasks(workspace: Workspace, tasks: Task[]): Promise<Task[]
 }
 
 // ---------------------------------------------------------------------------
+// Linear
+// ---------------------------------------------------------------------------
+
+// Connects DEV_LINEAR_API_KEY's account, when it is set. A failed connect only warns: the seeded
+// data is still useful without it. Returns a line for the summary; never prints the key.
+async function connectLinear(workspace: Workspace): Promise<string> {
+  if (!LINEAR_API_KEY) return 'not connected (DEV_LINEAR_API_KEY is unset)';
+
+  console.log('Connecting Linear...');
+  try {
+    const integration = await workspace.integrations.connectWithApiKey(
+      Provider.LINEAR,
+      LINEAR_API_KEY,
+    );
+    return `connected as ${integration.accountLabel} (${integration.id})`;
+  } catch (err) {
+    const message = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    console.warn(`Connecting Linear failed, so the workspace is not connected. ${message}`);
+    return 'not connected (connect failed)';
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -959,7 +1008,11 @@ async function main() {
 
   console.log(`Seeding dev workspace at ${ROOT_PATH}${RESET ? ' (--reset)' : ''} [seed=${SEED}]`);
 
-  const devBrain = await initDevBrain({ path: ROOT_PATH, overwrite: RESET });
+  const devBrain = await initDevBrain({
+    path: ROOT_PATH,
+    overwrite: RESET,
+    workspace: { cipher: devCipher, fetch },
+  });
   const workspace = await devBrain.workspaces.create({
     name: WORKSPACE_NAME,
     color: pick(PALETTE),
@@ -1001,6 +1054,8 @@ async function main() {
     workspace.search.indexTasks(allTasks);
     await workspace.search.indexNotes(allNotes);
 
+    const linear = await connectLinear(workspace);
+
     workspace.close();
 
     const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
@@ -1014,6 +1069,7 @@ async function main() {
       'tasks (total)': allTasks.length,
       'notes (total)': allNotes.length,
     });
+    console.log(`Linear: ${linear}`);
     console.log(`Workspace: ${WORKSPACE_NAME} (${workspace.info.id})`);
     console.log(`Path: ${ROOT_PATH}`);
     console.log(`Elapsed: ${elapsedSeconds}s`);
