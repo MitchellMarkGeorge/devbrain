@@ -325,6 +325,25 @@ The reconcile pass checks mirrored project ids as well as issue ids, so a projec
 
 **Subtasks.** Linear sub-issues map to `parentTaskId` at any depth. The one-level limit stays for local tasks only: `createSubtask` and `demoteTask` reject external parents and children outright. If the parent issue is not mirrored (assigned to someone else), the child appears as a top-level task and the parent's key and title are kept in metadata for display. Each page is applied parents first, then children.
 
+**Task hierarchy, local and external.** A task's kind comes from its link, not from a column on `tasks`: no link is local, `synced` is external, `detached` is local again, and `removed` is archived. A subtask is any task with `parentTaskId` set.
+
+- Local tasks nest one level. `createSubtask` and `demoteTask` enforce it in the service; the schema does not.
+- Synced tasks nest at any depth, as Linear does. Only `SyncWriter` writes them, so the depth checks never run on them. A synced task points only at a parent whose link is `synced`; otherwise it is top-level and waits in metadata until the parent arrives or is restored.
+- The two never mix. A synced task has no local children and no local parent: `createSubtask`, `demoteTask` and `promoteSubtask` reject synced rows before any depth check.
+- A detached task follows the local rules from then on. It can still head a subtree deeper than one level, carried over from Linear.
+
+| Operation                      | Local                                                  | Synced                                  | Detached      |
+| ------------------------------ | ------------------------------------------------------ | --------------------------------------- | ------------- |
+| `createSubtask` (as parent)    | Top-level parents only; the child inherits context     | Rejected                                | Same as local |
+| `updateTask`, `updateStatus`   | Allowed                                                | Rejected                                | Allowed       |
+| `updateProject`                | Top-level only; subtasks inherit the parent's project  | Rejected; the project follows Linear    | Same as local |
+| `updateLinks`                  | Top-level only; subtasks inherit the parent's links    | Allowed, on subtasks too                | Same as local |
+| `promoteSubtask`, `demoteTask` | Allowed, within the depth checks                       | Rejected                                | Same as local |
+| `archiveTask`                  | Archives the task, its direct subtasks and their notes | Rejected; detach first                  | Same as local |
+| Removal by sync                | n/a                                                    | Archives that task only, link `removed` | Never         |
+
+Context differs by kind. A local subtask copies its parent's project, note link and event link when it is created or demoted. A synced task carries its own: the project is Linear's for that issue (so a sub-issue can sit in a different project from its parent, and never in a local or detached one), and its note and event links are set per task. Due dates are required for local tasks only.
+
 **Read-only enforcement.** Enforced in the service layer, not only the UI.
 
 | Operation on a `synced` task                                                                   | Result                            |
@@ -1045,6 +1064,7 @@ Resolved on 6 October 2026 and recorded in the provider reference: Linear PKCE, 
 
 - [ ] Does background sync need to continue when the window is closed but the app is running (macOS)?
 - [ ] Add a time-zone column to `events` now, or keep the series time zone in link metadata for v1?
+- [ ] A local subtask copies its parent's project and links once, at creation or demotion; `updateProject` and `updateLinks` on the parent leave existing subtasks as they were, and the subtasks cannot be changed on their own. Intended, or should a parent's change carry to its subtasks? This predates integrations.
 
 * [ ] Revisit later: redact secrets by type. Credentials are plain objects today, so logging one prints its tokens; the only guard is the rule never to log them. A `Secret` class would hold each value in a `#private` field, expose it only through `reveal()`, and return `[redacted]` from `toJSON` and the `util.inspect` hook. Credential fields and `Auth.authorization` would be typed `Secret`, so `JSON.stringify`, `util.inspect`, spreads and `structuredClone` can never print a token, and every read of a raw value is an explicit, greppable `reveal()`. Patching `toJSON` onto plain objects was tried in feature 6 and dropped: it is invisible in the types and lost on any copy.
 * [ ] Revisit later: `SyncWriter` writes entity tables directly, alongside `TaskService` and `ArchiveService`. Should row writes be unified, through per-entity stores or service-owned row writers?
