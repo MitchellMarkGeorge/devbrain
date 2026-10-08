@@ -3,6 +3,11 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { TaskPriority } from '../tasks/types';
+import { Provider } from '../integrations/types';
+import { MIGRATIONS_PATH } from './utils';
+import { FakeCipher } from './__mocks__/fake-cipher';
+import { scriptedFetch } from './integrations/linear/fake-fetch';
+import viewerFixture from './integrations/fixtures/linear/viewer.json';
 
 vi.mock('electron-store', () => import('./__mocks__/electron-store'));
 
@@ -230,5 +235,29 @@ describe('initDevBrain', () => {
       await initDevBrain({ path: initPath, overwrite: true });
       await expect(fs.stat(path.join(initPath, 'sentinel.txt'))).rejects.toThrow();
     });
+  });
+});
+
+describe('DevBrain — workspace options', () => {
+  const API_KEY = 'lin_api_supersecretkey';
+
+  it('reach every workspace it creates and opens, so a connection survives a restart', async () => {
+    process.env.DB_MIGRATIONS_PATH = MIGRATIONS_PATH;
+    const initPath = path.join(tmpDir, 'brain');
+    const cipher = new FakeCipher();
+    const fetch = scriptedFetch([{ body: viewerFixture }]);
+
+    const brain = await initDevBrain({ path: initPath, workspace: { cipher, fetch } });
+    const created = await brain.workspaces.create({ name: 'Work', color: '#000000' });
+    const connected = await created.integrations.connectWithApiKey(Provider.LINEAR, API_KEY);
+    created.close();
+
+    const reloaded = await loadDevBrain({ path: initPath, workspace: { cipher } });
+    const opened = await reloaded.workspaces.open(created.info.id);
+    try {
+      expect(await opened.integrations.list()).toEqual([connected]);
+    } finally {
+      opened.close();
+    }
   });
 });

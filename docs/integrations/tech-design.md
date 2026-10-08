@@ -482,14 +482,17 @@ Archiving instead of deleting means an issue that is briefly unassigned and reas
 
 ## Managing integrations
 
-A workspace settings page lists each provider with its account, its sources, last sync time and any error. Four actions exist, and each has a defined effect on mirrored data.
+A workspace settings page lists each provider with its account, its sources, last sync time and any error. Each action has a defined effect on mirrored data.
 
 | Action                  | Credentials                           | Syncing                       | Mirrored data                                    |
 | ----------------------- | ------------------------------------- | ----------------------------- | ------------------------------------------------ |
 | Disable a source        | Kept                                  | Stops for that source         | Stays, frozen, with a "paused" hint on the badge |
 | Enable a source         | Kept                                  | Resumes from the saved cursor | Catches up                                       |
 | Disable the integration | Kept                                  | Stops for all its sources     | Stays, frozen                                    |
+| Enable the integration  | Kept                                  | Resumes for chosen sources    | Catches up                                       |
 | Disconnect              | Revoked at the provider, then deleted | Stops                         | User chooses, below                              |
+
+**One switch that counts.** Disabling an integration also switches off each of its sources, so a disabled integration never has a source that looks on, and a source syncs exactly when it is enabled and its integration is not in `needs_reauth`. Enabling the integration switches its sources back on: the types the caller chooses, all of them by default. A source of a disabled integration can't be switched on by itself. Connecting takes the same choice of source types, and leaves the others created but off. Sources of other integrations are never touched, so several providers can serve the same source type at once.
 
 **Disconnect choices**
 

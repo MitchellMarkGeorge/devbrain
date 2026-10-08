@@ -6,7 +6,11 @@ import { NoteService } from '../notes/service';
 import { ProjectService } from '../projects/service';
 import { SearchService } from '../search/service';
 import { TaskService } from '../tasks/service';
-import type { WorkspaceInfo } from './types';
+import { CredentialStore } from '../integrations/credential-store';
+import { unavailableCipher } from '../integrations/credentials';
+import { createProviderRegistry } from '../integrations/providers/registry';
+import { IntegrationService } from '../integrations/service';
+import type { WorkspaceInfo, WorkspaceOptions } from './types';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { runMigrations } from '@main/db/migrate';
@@ -22,11 +26,15 @@ export class Workspace {
   readonly events: EventService;
   readonly archive: ArchiveService;
   readonly search: SearchService;
+  readonly integrations: IntegrationService;
+  // shared with the sync engine (feature 10), which reads auth through the same store
+  private readonly credentials: CredentialStore;
 
   private constructor(
     private readonly db: BetterSQLite3Database,
     private readonly sqliteClient: SqliteDatabaseClient,
     readonly info: WorkspaceInfo,
+    options: WorkspaceOptions,
   ) {
     this.notes = new NoteService(db, info.path);
     this.tasks = new TaskService(db);
@@ -34,9 +42,14 @@ export class Workspace {
     this.events = new EventService(db);
     this.archive = new ArchiveService(db);
     this.search = new SearchService(db, info.path);
+    this.credentials = new CredentialStore(db, { cipher: options.cipher ?? unavailableCipher });
+    this.integrations = new IntegrationService(db, {
+      credentials: this.credentials,
+      providers: options.providers ?? createProviderRegistry({ fetch: options.fetch ?? fetch }),
+    });
   }
 
-  static async create(info: WorkspaceInfo): Promise<Workspace> {
+  static async create(info: WorkspaceInfo, options: WorkspaceOptions = {}): Promise<Workspace> {
     // just handles creating the db file (including running migrations)
     const dbPath = path.join(info.path, 'db.sqlite');
     if (await fileExists(dbPath)) {
@@ -44,10 +57,10 @@ export class Workspace {
     }
     const sqlite = new Database(dbPath);
     // a new database has nothing to restore if migrating fails
-    return Workspace.initDb(sqlite, info, { dbPath, backupPath: null });
+    return Workspace.initDb(sqlite, info, options, { dbPath, backupPath: null });
   }
 
-  static async open(info: WorkspaceInfo): Promise<Workspace> {
+  static async open(info: WorkspaceInfo, options: WorkspaceOptions = {}): Promise<Workspace> {
     // handles opening and existing workspace and backing up the exising database
     const dbPath = path.join(info.path, 'db.sqlite');
     if (!(await fileExists(dbPath))) {
@@ -57,12 +70,13 @@ export class Workspace {
     // use native backup method
     const backupPath = `${dbPath}.backup`;
     await sqlite.backup(backupPath);
-    return Workspace.initDb(sqlite, info, { dbPath, backupPath });
+    return Workspace.initDb(sqlite, info, options, { dbPath, backupPath });
   }
 
   private static async initDb(
     sqliteClient: SqliteDatabaseClient,
     info: WorkspaceInfo,
+    options: WorkspaceOptions,
     files: { dbPath: string; backupPath: string | null },
   ): Promise<Workspace> {
     // keeping them off for now as I implement the services
@@ -78,7 +92,7 @@ export class Workspace {
       throw await Workspace.recoverFromFailedMigration(error, files);
     }
 
-    return new Workspace(db, sqliteClient, info);
+    return new Workspace(db, sqliteClient, info, options);
   }
 
   /**

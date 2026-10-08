@@ -1,5 +1,5 @@
 import { generateId, type WorkspaceId } from '@common/ids';
-import type { CreateWorkspaceOptions, WorkspaceInfo } from './types';
+import type { CreateWorkspaceOptions, WorkspaceInfo, WorkspaceOptions } from './types';
 import { workspaceRegistrySchema } from './schema';
 import { Workspace } from './workspace';
 import path from 'node:path';
@@ -17,7 +17,11 @@ export class WorkspaceService {
   public currentWorkspace: Workspace | null = null;
   private workspacesFilePath: string;
 
-  constructor(private rootPath: string) {
+  constructor(
+    private rootPath: string,
+    // handed to every workspace this opens or creates
+    private readonly workspaceOptions: WorkspaceOptions = {},
+  ) {
     this.workspacesFilePath = path.join(rootPath, 'workspaces.json');
   }
 
@@ -81,7 +85,7 @@ export class WorkspaceService {
     this.writeWorkspaceFile(workspaces);
 
     // create workspace db file and run migrations
-    return await Workspace.create(workspaceInfo);
+    return await Workspace.create(workspaceInfo, this.workspaceOptions);
   }
 
   async delete(id: WorkspaceId): Promise<void> {
@@ -122,7 +126,7 @@ export class WorkspaceService {
     }
 
     // 3. open/initalize the workspace object
-    const workspace = await Workspace.open(workspaceInfo);
+    const workspace = await Workspace.open(workspaceInfo, this.workspaceOptions);
 
     // 4. update the `lastOpenedAt` timestamp in the registry
     const workspaces = this.readWorkspaceFile();

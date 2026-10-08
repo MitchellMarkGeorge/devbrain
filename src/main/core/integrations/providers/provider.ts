@@ -12,8 +12,8 @@ import {
 import { Auth } from '../auth';
 
 // The provider contract. Adapters are pure with respect to the database: they return normalised
-// items and the engine decides what to write. Only the parts the Linear adapter implements are
-// here so far; the registry, OAuth config and event sources come with features 7 and 16.
+// items and the engine decides what to write. Implementations are looked up through the registry in
+// ./registry. OAuth config and event sources come with feature 16.
 
 // who a credential belongs to, from the provider's own account query
 export interface ExternalAccount {
@@ -60,7 +60,9 @@ export interface TaskSource {
 
 export interface Provider {
   id: ProviderId;
+  // the source types a connection gets, one external_sources row each
   supports: SourceType[];
+  // how an account can be connected; connectWithApiKey refuses a provider without API_KEY
   authMethods: AuthType[];
   getAccount(auth: Auth): Promise<ExternalAccount>;
   tasks?: TaskSource;
