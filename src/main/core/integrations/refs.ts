@@ -1,9 +1,8 @@
 import { EventId, ProjectId, TaskId } from '@common/ids';
 import { externalLinks } from '@main/db/schema/integrations';
 import { inArray, sql, SQL, SQLWrapper } from 'drizzle-orm';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { NodeSQLiteDatabase, NodeSQLiteRunResult } from '@main/db/node-sqlite';
 import { BaseSQLiteDatabase, SQLiteColumn } from 'drizzle-orm/sqlite-core';
-import { RunResult } from 'better-sqlite3';
 import { ExternalRef, LinkState } from './types';
 import { projectLinkMetadataSchema, taskLinkMetadataSchema } from './schema';
 import { ExternalReadOnlyError } from '../shared/errors';
@@ -72,7 +71,7 @@ export function hasLinkInState(entity: LinkedEntity, idColumn: SQLWrapper, state
  * path and skips it. Synchronous, so it also runs inside a transaction (`db` can be one).
  */
 export function assertEditable(
-  db: BaseSQLiteDatabase<'sync', RunResult>,
+  db: BaseSQLiteDatabase<'sync', NodeSQLiteRunResult>,
   id: LinkedEntityId,
 ): void {
   const isSynced = hasLinkInState(entityOf(id), sql`${id}`, LinkState.SYNCED);
@@ -102,7 +101,7 @@ export function assertRowEditable(row: {
  * untouched.
  */
 export async function getRefs<T extends LinkedEntityId>(
-  db: BetterSQLite3Database,
+  db: NodeSQLiteDatabase,
   ids: T[],
 ): Promise<Map<T, ExternalRef>> {
   const refs = new Map<T, ExternalRef>();
@@ -135,7 +134,7 @@ export async function getRefs<T extends LinkedEntityId>(
 
 /** the rows with `external` set: the row's ref when it has a link, null when it is local */
 export async function withRefs<T extends { id: LinkedEntityId }>(
-  db: BetterSQLite3Database,
+  db: NodeSQLiteDatabase,
   rows: T[],
 ): Promise<(T & { external: ExternalRef | null })[]> {
   const refs = await getRefs(
@@ -146,7 +145,7 @@ export async function withRefs<T extends { id: LinkedEntityId }>(
 }
 
 export async function withRef<T extends { id: LinkedEntityId }>(
-  db: BetterSQLite3Database,
+  db: NodeSQLiteDatabase,
   row: T,
 ): Promise<T & { external: ExternalRef | null }> {
   const [withRef] = await withRefs(db, [row]);

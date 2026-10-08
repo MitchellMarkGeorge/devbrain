@@ -1,5 +1,5 @@
-import Database from 'better-sqlite3';
-import { BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3';
+import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
+import { NodeSQLiteDatabase, drizzle } from '@main/db/node-sqlite';
 import { runMigrations } from '@main/db/migrate';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,8 +10,8 @@ export const MIGRATIONS_PATH = path.resolve(
   '../../db/migrations',
 );
 
-export function createDb(): BetterSQLite3Database {
-  const sqlite = new Database(':memory:');
+export function createDb(): NodeSQLiteDatabase {
+  const sqlite = new DatabaseSync(':memory:');
   const db = drizzle({ client: sqlite, casing: 'snake_case' });
   runMigrations(sqlite, db, MIGRATIONS_PATH);
   return db;
@@ -32,4 +32,20 @@ export function migrationsWithExtra(dir: string, tag: string, sql: string): stri
   fs.writeFileSync(journalPath, JSON.stringify(journal));
   fs.writeFileSync(path.join(dir, `${tag}.sql`), sql);
   return dir;
+}
+
+/** the first column of every row; node:sqlite has no `.pluck()` */
+export function pluckAll(
+  sqlite: DatabaseSync,
+  query: string,
+  ...params: SQLInputValue[]
+): unknown[] {
+  const stmt = sqlite.prepare(query);
+  stmt.setReturnArrays(true);
+  return (stmt.all(...params) as unknown as unknown[][]).map((row) => row[0]);
+}
+
+/** the first column of the first row, or undefined when there is no row */
+export function pluckGet(sqlite: DatabaseSync, query: string, ...params: SQLInputValue[]): unknown {
+  return pluckAll(sqlite, query, ...params)[0];
 }

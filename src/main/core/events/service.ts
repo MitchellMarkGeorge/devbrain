@@ -1,7 +1,7 @@
 import { EventId } from '@common/ids';
 import { events } from '@main/db/schema/events';
 import { and, eq, gte, inArray, isNotNull, isNull, lte, not, or } from 'drizzle-orm';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { NodeSQLiteDatabase } from '@main/db/node-sqlite';
 import { NotFoundError } from '../shared/errors';
 import { CreateEventOptions, Event, UpdateEventOptions } from './types';
 import { keyset, Page, PageOptions } from '../shared/pagination';
@@ -15,7 +15,7 @@ import {
 import { LinkState } from '../integrations/types';
 
 export class EventService {
-  constructor(private readonly db: BetterSQLite3Database) {}
+  constructor(private readonly db: NodeSQLiteDatabase) {}
 
   async getById(id: EventId): Promise<Event> {
     const [event] = await this.db.select().from(events).where(eq(events.id, id));

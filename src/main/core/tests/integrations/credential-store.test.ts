@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { inspect } from 'node:util';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { NodeSQLiteDatabase } from '@main/db/node-sqlite';
 import { eq } from 'drizzle-orm';
 import { IntegrationId } from '@common/ids';
 import { integrations } from '@main/db/schema/integrations';
@@ -23,7 +23,7 @@ const REFRESH_TOKEN = '1//refresh-secret';
 const NOW = new Date('2026-10-07T12:00:00Z').getTime();
 
 // IntegrationService does not exist yet, so rows go in directly with an empty blob
-function insertIntegration(db: BetterSQLite3Database, provider = Provider.LINEAR): IntegrationId {
+function insertIntegration(db: NodeSQLiteDatabase, provider = Provider.LINEAR): IntegrationId {
   const [row] = db
     .insert(integrations)
     .values({
@@ -38,7 +38,7 @@ function insertIntegration(db: BetterSQLite3Database, provider = Provider.LINEAR
   return row.id;
 }
 
-function storedBlob(db: BetterSQLite3Database, id: IntegrationId): Buffer {
+function storedBlob(db: NodeSQLiteDatabase, id: IntegrationId): Buffer {
   return db
     .select({ credentials: integrations.credentials })
     .from(integrations)
@@ -54,7 +54,7 @@ function oauthCredentials(tokens: Omit<OAuthCredentials, 'type'>): OAuthCredenti
   return { type: AuthType.OAUTH, ...tokens };
 }
 
-async function decryptStored(cipher: FakeCipher, db: BetterSQLite3Database, id: IntegrationId) {
+async function decryptStored(cipher: FakeCipher, db: NodeSQLiteDatabase, id: IntegrationId) {
   return JSON.parse((await cipher.decrypt(storedBlob(db, id))).result);
 }
 
@@ -65,7 +65,7 @@ function deferred<T>() {
 }
 
 describe('CredentialStore — storage', () => {
-  let db: BetterSQLite3Database;
+  let db: NodeSQLiteDatabase;
   let cipher: FakeCipher;
   let store: CredentialStore;
   let id: IntegrationId;
@@ -155,7 +155,7 @@ describe('CredentialStore — storage', () => {
 });
 
 describe('CredentialStore — corrupt blobs', () => {
-  let db: BetterSQLite3Database;
+  let db: NodeSQLiteDatabase;
   let cipher: FakeCipher;
   let store: CredentialStore;
   let id: IntegrationId;
@@ -198,7 +198,7 @@ describe('CredentialStore — corrupt blobs', () => {
 });
 
 describe('CredentialStore — refresh', () => {
-  let db: BetterSQLite3Database;
+  let db: NodeSQLiteDatabase;
   let cipher: FakeCipher;
   let now: number;
   let id: IntegrationId;

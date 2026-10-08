@@ -1,7 +1,7 @@
 import { NoteId, ProjectId, TaskId } from '@common/ids';
 import { tasks } from '@main/db/schema/tasks';
 import { and, eq, inArray, isNotNull, isNull, or, SQL, sql } from 'drizzle-orm';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { NodeSQLiteDatabase } from '@main/db/node-sqlite';
 import { unionAll } from 'drizzle-orm/sqlite-core';
 import { Task } from '../tasks/types';
 import { Project } from '../projects/types';
@@ -19,7 +19,7 @@ import type {
 } from './types';
 
 export class ArchiveService {
-  constructor(private readonly db: BetterSQLite3Database) {}
+  constructor(private readonly db: NodeSQLiteDatabase) {}
 
   archiveTask(id: TaskId): Task {
     return this.db.transaction((tx) => {

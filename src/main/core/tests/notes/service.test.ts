@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { NodeSQLiteDatabase } from '@main/db/node-sqlite';
 import { eq } from 'drizzle-orm';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -28,7 +28,7 @@ function notesFilePath(workspacePath: string, id: string): string {
   return path.join(workspacePath, 'notes', `${id}.md`);
 }
 
-let db: BetterSQLite3Database;
+let db: NodeSQLiteDatabase;
 let workspacePath: string;
 let notesService: NoteService;
 let archive: ArchiveService;

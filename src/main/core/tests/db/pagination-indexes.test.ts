@@ -73,9 +73,9 @@ const cases: Case[] = [
 
 function plan(query: { toSQL(): { sql: string; params: unknown[] } }): string[] {
   const { sql, params } = query.toSQL();
-  const rows = (db as unknown as { $client: import('better-sqlite3').Database }).$client
+  const rows = (db as unknown as { $client: import('node:sqlite').DatabaseSync }).$client
     .prepare(`EXPLAIN QUERY PLAN ${sql}`)
-    .all(...params) as { detail: string }[];
+    .all(...(params as import('node:sqlite').SQLInputValue[])) as { detail: string }[];
   return rows.map((r) => r.detail);
 }
 

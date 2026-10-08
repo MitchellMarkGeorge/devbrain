@@ -7,8 +7,8 @@ import type { WorkspaceId } from '@common/ids';
 import type { WorkspaceInfo } from '../../workspace/types';
 import { Workspace } from '../../workspace/workspace';
 import { WorkspaceMigrationError } from '../../shared/errors';
-import { migrationsWithExtra } from '../utils';
-import Database from 'better-sqlite3';
+import { migrationsWithExtra, pluckAll, pluckGet } from '../utils';
+import { DatabaseSync } from 'node:sqlite';
 
 // DB_MIGRATIONS_PATH is read at call time (not module load), so assigning here is safe.
 const MIGRATIONS_PATH = path.resolve(
@@ -189,7 +189,7 @@ describe('Workspace.close', () => {
   it('calling close() a second time does not throw', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir));
     workspace.close();
-    // better-sqlite3 silently no-ops on double-close
+    // node:sqlite throws on a second close, so Workspace.close guards against it
     expect(() => workspace.close()).not.toThrow();
   });
 });
@@ -223,8 +223,8 @@ describe('Workspace.open — failed migrations', () => {
     return error as WorkspaceMigrationError;
   }
 
-  function readDb<T>(query: (sqlite: Database.Database) => T): T {
-    const sqlite = new Database(path.join(workspaceDir, 'db.sqlite'), { readonly: true });
+  function readDb<T>(query: (sqlite: DatabaseSync) => T): T {
+    const sqlite = new DatabaseSync(path.join(workspaceDir, 'db.sqlite'), { readOnly: true });
     try {
       return query(sqlite);
     } finally {
@@ -250,10 +250,8 @@ describe('Workspace.open — failed migrations', () => {
       expect(
         sqlite.prepare(`SELECT id FROM tasks WHERE id = 'tsk_dangling'`).get(),
       ).toBeUndefined();
-      expect(sqlite.prepare(`SELECT id FROM projects`).pluck().all()).toEqual([projectId]);
-      expect(
-        sqlite.prepare('SELECT max(created_at) FROM __drizzle_migrations').pluck().get(),
-      ).not.toBe(null);
+      expect(pluckAll(sqlite, `SELECT id FROM projects`)).toEqual([projectId]);
+      expect(pluckGet(sqlite, 'SELECT max(created_at) FROM __drizzle_migrations')).not.toBe(null);
     });
 
     // with the bad migration gone, the restored workspace opens normally
@@ -281,7 +279,7 @@ INSERT INTO no_such_table VALUES (1);`,
       expect(
         sqlite.prepare(`SELECT 1 FROM sqlite_master WHERE name = 'rolled_back'`).get(),
       ).toBeUndefined();
-      expect(sqlite.prepare(`SELECT id FROM projects`).pluck().all()).toEqual([projectId]);
+      expect(pluckAll(sqlite, `SELECT id FROM projects`)).toEqual([projectId]);
     });
 
     // the failed open closed its connection, so the workspace opens again straight away

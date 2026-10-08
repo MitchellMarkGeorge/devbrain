@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { NodeSQLiteDatabase } from '@main/db/node-sqlite';
 import { generateId } from '@common/ids';
 import { EventService } from '../../events/service';
 import { NotFoundError } from '../../shared/errors';
@@ -16,7 +16,7 @@ function hoursAfter(date: Date, hours: number): Date {
   return new Date(date.getTime() + hours * 60 * 60 * 1000);
 }
 
-let db: BetterSQLite3Database;
+let db: NodeSQLiteDatabase;
 let eventsService: EventService;
 
 beforeEach(() => {

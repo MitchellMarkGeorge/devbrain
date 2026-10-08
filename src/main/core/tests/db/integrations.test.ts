@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { NodeSQLiteDatabase } from '@main/db/node-sqlite';
 import { and, eq } from 'drizzle-orm';
 import { ExternalSourceId, IntegrationId, TaskId, ProjectId, EventId } from '@common/ids';
 import { integrations, externalSources, externalLinks } from '@main/db/schema/integrations';
@@ -17,7 +17,7 @@ import {
 
 // The integration tables' constraints and foreign key actions, against the real migrations.
 
-let db: BetterSQLite3Database;
+let db: NodeSQLiteDatabase;
 let integrationId: IntegrationId;
 let sourceId: ExternalSourceId;
 let taskId: TaskId;
@@ -228,9 +228,9 @@ describe('integration tables — reconcile index', () => {
       .from(externalLinks)
       .where(and(eq(externalLinks.sourceId, sourceId), eq(externalLinks.state, LinkState.SYNCED)));
     const { sql, params } = query.toSQL();
-    const rows = (db as unknown as { $client: import('better-sqlite3').Database }).$client
+    const rows = (db as unknown as { $client: import('node:sqlite').DatabaseSync }).$client
       .prepare(`EXPLAIN QUERY PLAN ${sql}`)
-      .all(...params) as { detail: string }[];
+      .all(...(params as import('node:sqlite').SQLInputValue[])) as { detail: string }[];
     expect(rows.map((r) => r.detail).join('\n')).toMatch(/idx_external_links_source_id_state/);
   });
 });

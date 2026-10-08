@@ -1,7 +1,7 @@
 import { IntegrationId } from '@common/ids';
 import { integrations } from '@main/db/schema/integrations';
 import { and, eq } from 'drizzle-orm';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { NodeSQLiteDatabase } from '@main/db/node-sqlite';
 import { z } from 'zod';
 import { IntegrationAuthError, NotFoundError } from '../shared/errors';
 import { TOKEN_REFRESH_MARGIN_MS } from '../sync/constants';
@@ -56,7 +56,7 @@ export class CredentialStore {
   private readonly locks = new Map<IntegrationId, Promise<unknown>>();
 
   constructor(
-    private readonly db: BetterSQLite3Database,
+    private readonly db: NodeSQLiteDatabase,
     options: CredentialStoreOptions,
   ) {
     this.cipher = options.cipher;
@@ -64,7 +64,7 @@ export class CredentialStore {
     this.now = options.now ?? Date.now;
   }
 
-  // Encryption is async and a better-sqlite3 transaction is not, so saving is two steps: seal
+  // Encryption is async and a database transaction is not, so saving is two steps: seal
   // before the transaction, then save inside it, next to the insert or update it belongs with.
   async seal(credentials: Credentials): Promise<SealedCredentials> {
     if (!(await this.cipher.isAvailable())) {

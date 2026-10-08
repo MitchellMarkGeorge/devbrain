@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { NodeSQLiteDatabase } from '@main/db/node-sqlite';
 import { createDb } from '../utils';
 import { ArchiveService } from '../../archive/service';
 import { NoteService } from '../../notes/service';
@@ -12,7 +12,7 @@ import { InvalidCursorError } from '../../shared/pagination';
 
 const TOMORROW = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-let db: BetterSQLite3Database;
+let db: NodeSQLiteDatabase;
 let archive: ArchiveService;
 let tasks: TaskService;
 let projects: ProjectService;

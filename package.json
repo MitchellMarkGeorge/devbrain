@@ -7,7 +7,7 @@
   "author": "",
   "license": "MIT",
   "scripts": {
-    "dev": "npm run rebuild:electron && tsx scripts/dev.mts",
+    "dev": "tsx scripts/dev.mts",
     "seed:dev": "tsx --tsconfig ./tsconfig.node.json scripts/setup_dev_workspace.mts",
     "build": "npm run build:main && npm run build:preload && npm run build:renderer",
     "build:main": "vite build --config vite/main.config.ts",
@@ -23,11 +23,8 @@
     "format:check": "prettier --check .",
     "db:generate-migrations": "tsx --tsconfig ./tsconfig.node.json node_modules/drizzle-kit/bin.cjs generate",
     "prepare": "husky",
-    "postinstall": "electron-builder install-app-deps",
-    "rebuild:node": "npm rebuild better-sqlite3",
-    "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
-    "test": "npm run rebuild:node && vitest run",
-    "test:watch": "npm run rebuild:node && vitest"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -39,9 +36,7 @@
     ]
   },
   "devDependencies": {
-    "@electron/rebuild": "^4.1.0",
     "@eslint/js": "^9.39.4",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^26.0.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
@@ -68,7 +63,6 @@
   },
   "dependencies": {
     "@dotenvx/dotenvx": "^1.75.1",
-    "better-sqlite3": "^12.11.1",
     "drizzle-orm": "^0.45.2",
     "electron-log": "^5.4.4",
     "electron-store": "^11.0.2",

@@ -1,10 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { DatabaseSync } from 'node:sqlite';
+import { drizzle, migrate } from '@main/db/node-sqlite';
 import { runMigrations } from '@main/db/migrate';
 import { WorkspaceMigrationError } from '@main/core/shared/errors';
-import { migrationsWithExtra } from '../utils';
+import { migrationsWithExtra, pluckAll, pluckGet } from '../utils';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -48,12 +47,12 @@ function migrationsUpTo(lastIdx: number): string {
 }
 
 function openDb() {
-  const sqlite = new Database(':memory:');
-  sqlite.pragma('foreign_keys = ON');
+  const sqlite = new DatabaseSync(':memory:');
+  sqlite.exec('PRAGMA foreign_keys = ON');
   return { sqlite, db: drizzle({ client: sqlite, casing: 'snake_case' }) };
 }
 
-function seed(sqlite: Database.Database) {
+function seed(sqlite: DatabaseSync) {
   sqlite.exec(`
     INSERT INTO projects (id, title, due_date, status, completed_at) VALUES
       ('prj_a', 'Project A', 1000, 1, NULL),
@@ -79,13 +78,13 @@ function seed(sqlite: Database.Database) {
 
 const TABLES = ['projects', 'tasks', 'notes', 'events'] as const;
 
-function snapshot(sqlite: Database.Database) {
+function snapshot(sqlite: DatabaseSync) {
   return Object.fromEntries(
     TABLES.map((t) => [t, sqlite.prepare(`SELECT * FROM ${t} ORDER BY id`).all()]),
   );
 }
 
-function schemaObjects(sqlite: Database.Database, type: 'index' | 'trigger') {
+function schemaObjects(sqlite: DatabaseSync, type: 'index' | 'trigger') {
   return (
     sqlite
       .prepare(
@@ -97,14 +96,14 @@ function schemaObjects(sqlite: Database.Database, type: 'index' | 'trigger') {
     .sort();
 }
 
-function checkConstraints(sqlite: Database.Database, table: string): string[] {
+function checkConstraints(sqlite: DatabaseSync, table: string): string[] {
   const { sql } = sqlite
     .prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?`)
     .get(table) as { sql: string };
   return [...sql.matchAll(/CONSTRAINT "(\w+)" CHECK/g)].map((m) => m[1]);
 }
 
-function columnNotNull(sqlite: Database.Database, table: string, column: string): boolean {
+function columnNotNull(sqlite: DatabaseSync, table: string, column: string): boolean {
   const cols = sqlite.prepare(`PRAGMA table_info(${table})`).all() as {
     name: string;
     notnull: number;
@@ -145,7 +144,7 @@ describe('migration 0016 — nullable due dates', () => {
     expect(checkConstraints(sqlite, 'tasks')).toEqual(checksBefore.tasks);
     expect(checkConstraints(sqlite, 'projects')).toEqual(checksBefore.projects);
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
-    expect(sqlite.prepare('PRAGMA integrity_check').pluck().get()).toBe('ok');
+    expect(pluckGet(sqlite, 'PRAGMA integrity_check')).toBe('ok');
 
     expect(columnNotNull(sqlite, 'tasks', 'due_date')).toBe(false);
     expect(columnNotNull(sqlite, 'projects', 'due_date')).toBe(false);
@@ -155,7 +154,7 @@ describe('migration 0016 — nullable due dates', () => {
   it('keeps foreign keys enforced and accepts null due dates afterwards', () => {
     const { sqlite, db } = openDb();
     runMigrations(sqlite, db, MIGRATIONS_PATH);
-    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1);
+    expect(pluckGet(sqlite, 'PRAGMA foreign_keys')).toBe(1);
 
     sqlite.exec(`INSERT INTO projects (id, title) VALUES ('prj_x', 'Undated')`);
     sqlite.exec(`INSERT INTO tasks (id, title, project_id) VALUES ('tsk_x', 'Undated', 'prj_x')`);
@@ -172,11 +171,11 @@ describe('migration 0016 — nullable due dates', () => {
 
 const INTEGRATION_TABLES = ['integrations', 'external_sources', 'external_links'] as const;
 
-function tableNames(sqlite: Database.Database): string[] {
-  return sqlite
-    .prepare(`SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name`)
-    .pluck()
-    .all() as string[];
+function tableNames(sqlite: DatabaseSync): string[] {
+  return pluckAll(
+    sqlite,
+    `SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name`,
+  ) as string[];
 }
 
 describe('migration 0017 — integration tables', () => {
@@ -197,7 +196,7 @@ describe('migration 0017 — integration tables', () => {
       'external_sources.uq_external_sources_integration_type',
       'integrations.uq_integrations_provider_account',
     ]);
-    expect(sqlite.prepare('PRAGMA integrity_check').pluck().get()).toBe('ok');
+    expect(pluckGet(sqlite, 'PRAGMA integrity_check')).toBe('ok');
     sqlite.close();
   });
 
@@ -232,7 +231,7 @@ describe('migration 0017 — integration tables', () => {
         VALUES ('xln_a', 'src_a', 'linear', 'tsk_a', 'issue-a', 'https://linear.app/a', 1000, 1000);
     `);
     sqlite.exec(`DELETE FROM integrations WHERE id = 'int_a'`);
-    expect(sqlite.prepare(`SELECT source_id FROM external_links`).pluck().all()).toEqual([null]);
+    expect(pluckAll(sqlite, `SELECT source_id FROM external_links`)).toEqual([null]);
     sqlite.close();
   });
 });
@@ -260,7 +259,7 @@ describe('runMigrations — failures', () => {
     runMigrations(sqlite, db, MIGRATIONS_PATH);
     seed(sqlite);
     const before = snapshot(sqlite);
-    const applied = sqlite.prepare('SELECT count(*) FROM __drizzle_migrations').pluck().get();
+    const applied = pluckGet(sqlite, 'SELECT count(*) FROM __drizzle_migrations');
 
     const folder = migrationsWithExtra(path.join(tmpDir, 'broken'), '0099_broken', BROKEN_SQL);
     const error = caught(() => runMigrations(sqlite, db, folder));
@@ -273,11 +272,11 @@ describe('runMigrations — failures', () => {
 
     // the whole transaction, including the statement that succeeded, was rolled back
     expect(snapshot(sqlite)).toEqual(before);
-    expect(sqlite.prepare('SELECT count(*) FROM __drizzle_migrations').pluck().get()).toBe(applied);
+    expect(pluckGet(sqlite, 'SELECT count(*) FROM __drizzle_migrations')).toBe(applied);
     expect(
       sqlite.prepare(`SELECT 1 FROM sqlite_master WHERE name = 'rolled_back'`).get(),
     ).toBeUndefined();
-    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1);
+    expect(pluckGet(sqlite, 'PRAGMA foreign_keys')).toBe(1);
     sqlite.close();
   });
 
@@ -294,7 +293,7 @@ describe('runMigrations — failures', () => {
 
     expect(error.committed).toBe(true);
     expect(error.cause).toEqual([expect.objectContaining({ table: 'tasks', parent: 'projects' })]);
-    expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1);
+    expect(pluckGet(sqlite, 'PRAGMA foreign_keys')).toBe(1);
     sqlite.close();
   });
 });

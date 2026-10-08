@@ -1,5 +1,5 @@
 import { ProjectId } from '@common/ids';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { NodeSQLiteDatabase } from '@main/db/node-sqlite';
 import {
   CreateProjectOptions,
   Project,
@@ -21,7 +21,7 @@ import { assertEditable, hasLinkInState, withRef, withRefs } from '../integratio
 import { LinkState } from '../integrations/types';
 
 export class ProjectService {
-  constructor(private readonly db: BetterSQLite3Database) {}
+  constructor(private readonly db: NodeSQLiteDatabase) {}
 
   async getById(id: ProjectId): Promise<Project> {
     const [row] = await this.activeProjects(eq(projects.id, id)).limit(1);

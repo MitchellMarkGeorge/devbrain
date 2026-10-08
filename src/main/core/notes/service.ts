@@ -1,7 +1,7 @@
 import { generateId, NoteId } from '@common/ids';
 import { notes } from '@main/db/schema/notes';
 import { SQL, and, isNull, desc, eq, inArray } from 'drizzle-orm';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { NodeSQLiteDatabase } from '@main/db/node-sqlite';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import path from 'node:path';
 import { deleteNoteFile, updateNoteFile, writeNoteFile } from '../local/notes';
@@ -19,7 +19,7 @@ import { keyset, Page, PageOptions } from '../shared/pagination';
 export class NoteService {
   private workspaceNotesPath: string;
   constructor(
-    private readonly db: BetterSQLite3Database,
+    private readonly db: NodeSQLiteDatabase,
     workspacePath: string,
   ) {
     this.workspaceNotesPath = path.join(workspacePath, 'notes');

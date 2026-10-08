@@ -1,6 +1,5 @@
-import type Database from 'better-sqlite3';
-import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import type { DatabaseSync } from 'node:sqlite';
+import { migrate, type NodeSQLiteDatabase } from '@main/db/node-sqlite';
 import { WorkspaceMigrationError } from '@main/core/shared/errors';
 
 /**
@@ -19,13 +18,13 @@ import { WorkspaceMigrationError } from '@main/core/shared/errors';
  * restore a backup.
  */
 export function runMigrations(
-  sqlite: Database.Database,
-  db: BetterSQLite3Database,
+  sqlite: DatabaseSync,
+  db: NodeSQLiteDatabase,
   migrationsFolder: string,
 ): void {
   const details = { restoredFromBackup: false, backupPath: null };
 
-  sqlite.pragma('foreign_keys = OFF');
+  sqlite.exec('PRAGMA foreign_keys = OFF');
   try {
     try {
       migrate(db, { migrationsFolder });
@@ -35,7 +34,7 @@ export function runMigrations(
         { ...details, committed: false, cause },
       );
     }
-    const violations = sqlite.pragma('foreign_key_check') as unknown[];
+    const violations = sqlite.prepare('PRAGMA foreign_key_check').all();
     if (violations.length > 0) {
       throw new WorkspaceMigrationError(
         `The workspace database update left ${violations.length} broken reference(s)`,
@@ -43,6 +42,6 @@ export function runMigrations(
       );
     }
   } finally {
-    sqlite.pragma('foreign_keys = ON');
+    sqlite.exec('PRAGMA foreign_keys = ON');
   }
 }

@@ -1,7 +1,7 @@
 import { ProjectId, TaskId } from '@common/ids';
 import { tasks } from '@main/db/schema/tasks';
 import { eq, inArray, notInArray, and, isNull, not, SQL, lt, gt, gte, desc } from 'drizzle-orm';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { NodeSQLiteDatabase } from '@main/db/node-sqlite';
 import {
   CreateSubTaskOptions,
   CreateTaskOptions,
@@ -29,7 +29,7 @@ import {
 import { LinkState } from '../integrations/types';
 
 export class TaskService {
-  constructor(private readonly db: BetterSQLite3Database) {}
+  constructor(private readonly db: NodeSQLiteDatabase) {}
 
   async getById(id: TaskId): Promise<Task> {
     const [row] = await this.activeTasks(eq(tasks.id, id)).limit(1);

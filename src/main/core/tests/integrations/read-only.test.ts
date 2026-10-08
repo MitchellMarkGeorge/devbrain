@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { NodeSQLiteDatabase } from '@main/db/node-sqlite';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -27,7 +27,7 @@ const TOMORROW = new Date(Date.now() + 86_400_000);
 const NEXT_WEEK = new Date(Date.now() + 7 * 86_400_000);
 const SYNCED_AT = new Date('2026-10-01T12:00:00Z');
 
-let db: BetterSQLite3Database;
+let db: NodeSQLiteDatabase;
 let tasks: TaskService;
 let projects: ProjectService;
 let events: EventService;

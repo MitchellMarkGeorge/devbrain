@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { NodeSQLiteDatabase } from '@main/db/node-sqlite';
 import { EventId, ExternalSourceId, ProjectId, TaskId } from '@common/ids';
 import { integrations, externalSources, externalLinks } from '@main/db/schema/integrations';
 import { tasks as tasksTable } from '@main/db/schema/tasks';
@@ -19,7 +19,7 @@ import { PageOptions } from '../../shared/pagination';
 const TOMORROW = new Date(Date.now() + 86_400_000);
 const SYNCED_AT = new Date('2026-10-01T12:00:00Z');
 
-let db: BetterSQLite3Database;
+let db: NodeSQLiteDatabase;
 let tasks: TaskService;
 let projects: ProjectService;
 let events: EventService;

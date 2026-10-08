@@ -1,5 +1,5 @@
 import { NoteId } from '@common/ids';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { NodeSQLiteDatabase } from '@main/db/node-sqlite';
 import path from 'node:path';
 import { stripMarkdown } from '../shared/markdown';
 import { readNoteFile } from '../local/notes';
@@ -15,7 +15,7 @@ export class SearchService {
   private workspaceNotesPath: string;
 
   constructor(
-    private readonly db: BetterSQLite3Database,
+    private readonly db: NodeSQLiteDatabase,
     workspacePath: string,
   ) {
     this.workspaceNotesPath = path.join(workspacePath, 'notes');

@@ -1,5 +1,5 @@
-import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
+import { backup, DatabaseSync } from 'node:sqlite';
+import { drizzle, NodeSQLiteDatabase } from '@main/db/node-sqlite';
 import { ArchiveService } from '../archive/service';
 import { EventService } from '../events/service';
 import { NoteService } from '../notes/service';
@@ -13,7 +13,10 @@ import { runMigrations } from '@main/db/migrate';
 import { fileExists } from '../local/utils';
 import { WorkspaceMigrationError } from '../shared/errors';
 
-type SqliteDatabaseClient = Database.Database;
+type SqliteDatabaseClient = DatabaseSync;
+
+// better-sqlite3's default: wait up to 5s on a locked database instead of failing at once
+const SQLITE_OPTIONS = { timeout: 5000 };
 
 export class Workspace {
   readonly notes: NoteService;
@@ -24,7 +27,7 @@ export class Workspace {
   readonly search: SearchService;
 
   private constructor(
-    private readonly db: BetterSQLite3Database,
+    private readonly db: NodeSQLiteDatabase,
     private readonly sqliteClient: SqliteDatabaseClient,
     readonly info: WorkspaceInfo,
   ) {
@@ -42,7 +45,7 @@ export class Workspace {
     if (await fileExists(dbPath)) {
       throw new Error(`Workspace database already exists at ${dbPath}`);
     }
-    const sqlite = new Database(dbPath);
+    const sqlite = new DatabaseSync(dbPath, SQLITE_OPTIONS);
     // a new database has nothing to restore if migrating fails
     return Workspace.initDb(sqlite, info, { dbPath, backupPath: null });
   }
@@ -53,10 +56,10 @@ export class Workspace {
     if (!(await fileExists(dbPath))) {
       throw new Error(`No workspace database found at ${dbPath}`);
     }
-    const sqlite = new Database(dbPath);
+    const sqlite = new DatabaseSync(dbPath, SQLITE_OPTIONS);
     // use native backup method
     const backupPath = `${dbPath}.backup`;
-    await sqlite.backup(backupPath);
+    await backup(sqlite, backupPath);
     return Workspace.initDb(sqlite, info, { dbPath, backupPath });
   }
 
@@ -66,7 +69,7 @@ export class Workspace {
     files: { dbPath: string; backupPath: string | null },
   ): Promise<Workspace> {
     // keeping them off for now as I implement the services
-    // sqlite.pragma('journal_mode = WAL');
+    // sqliteClient.exec('PRAGMA journal_mode = WAL');
     const db = drizzle({ client: sqliteClient, casing: 'snake_case' });
 
     try {
@@ -116,6 +119,7 @@ export class Workspace {
   }
 
   close() {
-    this.sqliteClient.close();
+    // node:sqlite throws when closing a connection twice
+    if (this.sqliteClient.isOpen) this.sqliteClient.close();
   }
 }

@@ -478,7 +478,7 @@ Archiving instead of deleting means an issue that is briefly unassigned and reas
 
 **Telling the UI.** After each committed page the main process emits one event to the renderer: source, phase, counts and which entity types changed. The renderer refetches the affected queries. A second event carries source status for the settings page and a status indicator.
 
-**Database concurrency.** `better-sqlite3` is synchronous, so each page's transaction briefly blocks the main process. At 50 items a page this is a few milliseconds. Turn on WAL (currently commented out in `Workspace.initDb`) before shipping background writes.
+**Database concurrency.** `node:sqlite` is synchronous, so each page's transaction briefly blocks the main process. At 50 items a page this is a few milliseconds. Turn on WAL (currently commented out in `Workspace.initDb`) before shipping background writes.
 
 ## Managing integrations
 
@@ -920,11 +920,11 @@ Each decision below lists the chosen option first.
 
 **4. Credential protection**
 
-| Option                                           | Pros                                                             | Cons                                                                                  |
-| ------------------------------------------------ | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `safeStorage` ciphertext in SQLite (chosen)      | Built into Electron; OS keychain holds the key; no native module | Weaker on Linux without a keyring; tied to the machine and OS user                    |
-| OS keychain entry per integration (keytar-style) | Secrets never touch the database                                 | Extra native dependency to rebuild alongside `better-sqlite3`; keytar is unmaintained |
-| Plain text in the database                       | Trivial                                                          | Any copy of the file leaks tokens                                                     |
+| Option                                           | Pros                                                             | Cons                                                                    |
+| ------------------------------------------------ | ---------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `safeStorage` ciphertext in SQLite (chosen)      | Built into Electron; OS keychain holds the key; no native module | Weaker on Linux without a keyring; tied to the machine and OS user      |
+| OS keychain entry per integration (keytar-style) | Secrets never touch the database                                 | Extra native dependency to rebuild for Electron; keytar is unmaintained |
+| Plain text in the database                       | Trivial                                                          | Any copy of the file leaks tokens                                       |
 
 **5. Linear authentication for v1**
 

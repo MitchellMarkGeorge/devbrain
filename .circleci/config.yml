@@ -42,9 +42,6 @@ jobs:
     steps:
       - install_deps
       - run:
-          name: Rebuild better-sqlite3 for Node
-          command: npm run rebuild:node
-      - run:
           name: Run tests
           command: npx vitest run --reporter=default --reporter=junit --outputFile=test-results/vitest/results.xml
       - store_test_results:
