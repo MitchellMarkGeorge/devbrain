@@ -144,7 +144,7 @@ interface TaskSource {
 
 `ExternalTask` already carries DevBrain's `TaskStatus` and `TaskPriority` plus the provider's raw labels. Mapping lives in each adapter's `mapper.ts`, which keeps it unit-testable against fixture payloads.
 
-**Why core stays free of Electron.** `SecretCipher`, `fetch` and `openExternal` are constructor arguments. The main process passes `safeStorage`, global `fetch` and `shell.openExternal`. Tests pass fakes, matching how `electron-store` is mocked today.
+**Why core stays free of Electron.** `SecretCipher`, `fetch` and `openExternal` are constructor arguments. The main process passes `safeStorage`, Electron's `net.fetch` (which honours the system proxy and certificate store) and `shell.openExternal`. Tests pass fakes, matching how `electron-store` is mocked today.
 
 ## Authentication
 
@@ -418,9 +418,9 @@ The UI shows "Syncing Linear, 150 issues so far" during the first pass. Items ap
 
 **Incremental sync (Linear)**
 
-One query per run: issues assigned to the viewer with `updatedAt` greater than the cursor. It catches new assignments, edits and completions. The cursor is stored with a 60-second overlap; upserts are idempotent, so re-reading a few items is harmless.
+One query per run: issues assigned to the viewer with `updatedAt` or `archivedAt` greater than the cursor, archived ones included. It catches new assignments, edits, completions and trashing; trashing archives an issue without changing `updatedAt`, so the `archivedAt` check is what sees it, and the trashed issue comes back flagged and is removed. The cursor is stored with a 60-second overlap; upserts are idempotent, so re-reading a few items is harmless.
 
-This query cannot see an issue that was reassigned away, trashed or deleted, because such an issue no longer matches the assignee filter. Those are found by the reconcile pass below, not by querying mirrored ids on every run. An id list sent every 5 minutes would grow with the user's history.
+This query cannot see an issue that was reassigned away or deleted, because such an issue no longer matches the assignee filter. Nor can it see an issue restored from the trash: restoring clears `archivedAt` and leaves `updatedAt` unchanged, so nothing about the issue is newer than the cursor. Those are found by the reconcile pass below, not by querying mirrored ids on every run. An id list sent every 5 minutes would grow with the user's history.
 
 **Watched set.** Only some links are checked for removal, which keeps the work tied to current workload:
 
@@ -433,19 +433,19 @@ The watched set is therefore open assigned issues plus issues closed in the last
 **Reconcile (Linear).** Removals are found by diffing against a snapshot of current assignments:
 
 1. Page through the ids of open issues assigned to the viewer, requesting the `id` field only.
-2. Compare with the watched links that are still open locally. A watched link missing from the snapshot is a candidate.
-3. Fetch the candidates by id, in batches of 100, including archived issues.
-4. Apply the result: completed or cancelled issues are updated, reassigned ones are removed, and ids that no longer resolve were deleted and are removed.
+2. Compare with the watched links that are still open locally. A watched link missing from the snapshot is a candidate. In the other direction, a snapshot id with no `synced` link (its link is `removed`, or it has none) is a returning issue, such as one restored from the trash. `detached` links are skipped either way.
+3. Fetch the candidates and returning issues by id, in batches of 100, including archived issues.
+4. Apply the result: completed or cancelled issues are updated, reassigned ones are removed, ids that no longer resolve were deleted and are removed, and returning issues are upserted, which restores a `removed` link.
 5. Archive mirrored projects that no longer have tasks, and mark newly aged-out closed issues as settled.
 
 Cost scales with the number of open assigned issues, not with everything ever mirrored. Most passes find no candidates and make no second request.
 
-| Linear run  | When                                               | Catches                                           |
-| ----------- | -------------------------------------------------- | ------------------------------------------------- |
-| Incremental | Every 5 minutes, on focus                          | New assignments, edits, completions               |
-| Reconcile   | Every 30 minutes, on workspace open, on "Sync now" | Reassigned away, trashed, deleted, empty projects |
+| Linear run  | When                                               | Catches                                                                                   |
+| ----------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Incremental | Every 5 minutes, on focus                          | New assignments, edits, completions, trashing                                             |
+| Reconcile   | Every 30 minutes, on workspace open, on "Sync now" | Reassigned away, deleted, restored from the trash, empty projects; trashing as a backstop |
 
-The trade-off: an issue reassigned to someone else can stay in the list for up to 30 minutes. "Sync now" closes the gap on demand.
+The trade-off: an issue reassigned to someone else can stay in the list for up to 30 minutes, and an issue restored from the trash can take as long to reappear. "Sync now" closes the gap on demand.
 
 **Initial and incremental sync (Google Calendar)**
 
@@ -796,15 +796,15 @@ Most work is new code. Changes to existing files are small but touch every entit
 
 **New**
 
-| Path                                                    | Contents                                                                         |
-| ------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `src/main/db/schema/integrations.ts`                    | `integrations`, `external_sources`, `external_links`                             |
-| `src/main/db/migrations/0016_*`                         | New tables; rebuild of `tasks` and `projects` for nullable `dueDate`             |
-| `src/main/core/integrations/`                           | `service.ts`, `types.ts`, `credentials.ts`, `oauth/pkce.ts`, `oauth/loopback.ts` |
-| `src/main/core/integrations/providers/linear/`          | `client.ts` (GraphQL over `fetch`), `mapper.ts`, `provider.ts`                   |
-| `src/main/core/integrations/providers/google-calendar/` | `client.ts`, `mapper.ts`, `provider.ts`                                          |
-| `src/main/core/sync/`                                   | `engine.ts`, `writer.ts`, `scheduler.ts`, `types.ts`                             |
-| `src/main/core/tests/integrations/`, `.../sync/`        | Tests and provider fixtures                                                      |
+| Path                                                    | Contents                                                                                    |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `src/main/db/schema/integrations.ts`                    | `integrations`, `external_sources`, `external_links`                                        |
+| `src/main/db/migrations/0016_*`                         | New tables; rebuild of `tasks` and `projects` for nullable `dueDate`                        |
+| `src/main/core/integrations/`                           | `service.ts`, `types.ts`, `auth.ts`, `credentials.ts`, `oauth/pkce.ts`, `oauth/loopback.ts` |
+| `src/main/core/integrations/providers/linear/`          | `client.ts` (GraphQL over `fetch`), `mapper.ts`, `provider.ts`                              |
+| `src/main/core/integrations/providers/google-calendar/` | `client.ts`, `mapper.ts`, `provider.ts`                                                     |
+| `src/main/core/sync/`                                   | `engine.ts`, `writer.ts`, `scheduler.ts`, `types.ts`                                        |
+| `src/main/core/tests/integrations/`, `.../sync/`        | Tests and provider fixtures                                                                 |
 
 **Modified**
 

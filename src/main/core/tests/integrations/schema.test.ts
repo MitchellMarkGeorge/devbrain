@@ -34,6 +34,16 @@ describe('integration schemas — cursors', () => {
     ).toEqual({ mode: 'incremental', updatedSince: '2026-10-01T00:00:00Z' });
   });
 
+  it('accepts an incremental Linear cursor part way through its pages', () => {
+    const cursor = {
+      mode: 'incremental',
+      updatedSince: '2026-10-01T00:00:00Z',
+      after: 'c1',
+      maxUpdatedAt: '2026-10-02T00:00:00Z',
+    };
+    expect(linearTaskCursorSchema.parse(cursor)).toEqual(cursor);
+  });
+
   it('rejects an unreadable Linear cursor', () => {
     expect(linearTaskCursorSchema.safeParse(null).success).toBe(false);
     expect(linearTaskCursorSchema.safeParse({ mode: 'other' }).success).toBe(false);

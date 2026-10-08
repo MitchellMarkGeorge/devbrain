@@ -1,0 +1,107 @@
+{
+  "data": {
+    "viewer": {
+      "id": "a1b2c3d4-0000-4000-8000-000000000001",
+      "assignedIssues": {
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": "cursor-page-2"
+        },
+        "nodes": [
+          {
+            "id": "8f6a3c2e-1d4b-4e7a-9c0f-3b2a1e5d7d05",
+            "identifier": "ENG-205",
+            "url": "https://linear.app/acme/issue/ENG-205/state-completed",
+            "title": "Write the Linear mapper",
+            "description": "Map issues to **ExternalTask**.",
+            "priority": 2,
+            "priorityLabel": "High",
+            "dueDate": "2026-10-20",
+            "startedAt": "2026-10-02T08:30:00.000Z",
+            "completedAt": "2026-10-04T15:00:00.000Z",
+            "canceledAt": null,
+            "createdAt": "2026-09-28T10:00:00.000Z",
+            "updatedAt": "2026-10-05T16:45:00.000Z",
+            "archivedAt": null,
+            "trashed": false,
+            "state": {
+              "name": "Done",
+              "type": "completed"
+            },
+            "assignee": {
+              "id": "a1b2c3d4-0000-4000-8000-000000000001"
+            },
+            "parent": {
+              "id": "8f6a3c2e-1d4b-4e7a-9c0f-3b2a1e5d7c00",
+              "identifier": "ENG-100",
+              "title": "Linear sync"
+            },
+            "project": {
+              "id": "5d2c9e1a-7b40-4c61-9f3e-2a8d1b6c0e01",
+              "name": "Sync engine",
+              "description": "Mirror Linear issues into DevBrain.",
+              "url": "https://linear.app/acme/project/sync-engine-5d2c9e1a7b40",
+              "status": {
+                "type": "started",
+                "name": "In Progress"
+              },
+              "startDate": "2026-09-01",
+              "targetDate": "2026-11-15",
+              "color": "#4ea7fc",
+              "completedAt": null,
+              "canceledAt": null,
+              "createdAt": "2026-08-20T09:00:00.000Z",
+              "updatedAt": "2026-10-01T12:00:00.000Z"
+            }
+          },
+          {
+            "id": "8f6a3c2e-1d4b-4e7a-9c0f-3b2a1e5d7e01",
+            "identifier": "ENG-300",
+            "url": "https://linear.app/acme/issue/ENG-202/state-backlog",
+            "title": "Write the Linear mapper",
+            "description": "Map issues to **ExternalTask**.",
+            "priority": 2,
+            "priorityLabel": "High",
+            "dueDate": "2026-10-20",
+            "startedAt": null,
+            "completedAt": null,
+            "canceledAt": null,
+            "createdAt": "2026-09-28T10:00:00.000Z",
+            "updatedAt": "2026-10-06T09:00:00.000Z",
+            "archivedAt": null,
+            "trashed": true,
+            "state": {
+              "name": "Backlog",
+              "type": "backlog"
+            },
+            "assignee": {
+              "id": "a1b2c3d4-0000-4000-8000-000000000001"
+            },
+            "parent": {
+              "id": "8f6a3c2e-1d4b-4e7a-9c0f-3b2a1e5d7c00",
+              "identifier": "ENG-100",
+              "title": "Linear sync"
+            },
+            "project": {
+              "id": "5d2c9e1a-7b40-4c61-9f3e-2a8d1b6c0e01",
+              "name": "Sync engine",
+              "description": "Mirror Linear issues into DevBrain.",
+              "url": "https://linear.app/acme/project/sync-engine-5d2c9e1a7b40",
+              "status": {
+                "type": "started",
+                "name": "In Progress"
+              },
+              "startDate": "2026-09-01",
+              "targetDate": "2026-11-15",
+              "color": "#4ea7fc",
+              "completedAt": null,
+              "canceledAt": null,
+              "createdAt": "2026-08-20T09:00:00.000Z",
+              "updatedAt": "2026-10-01T12:00:00.000Z"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

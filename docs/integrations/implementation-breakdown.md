@@ -290,7 +290,8 @@ The only code that writes external rows. It bypasses the service guards on purpo
 - [ ] Add `reconcileSource(sourceId, { signal })` to the engine.
 - [ ] Step 1: `listAssignedIds`.
 - [ ] Step 2: select watched links: state `synced`, `settledAt` null, local task not completed or cancelled. Candidates are those absent from the snapshot.
-- [ ] Step 3: `lookup` the candidates. Found and still assigned: upsert (covers completed and cancelled). Found but reassigned: remove. Not found: remove.
+- [ ] Step 2b: in the other direction, take snapshot ids with no `synced` link (link `removed`, or no link at all; skip `detached`) as returning issues. Restoring an issue from the trash clears `archivedAt` and leaves `updatedAt` unchanged (seen on a live account), so incremental sync never sees it and only this check brings it back.
+- [ ] Step 3: `lookup` the candidates and returning issues. Found and still assigned: upsert (covers completed and cancelled, and restores a `removed` link). Found but reassigned: remove. Not found: remove.
 - [ ] Step 4: settle. Set `settledAt` on synced links whose task was completed or cancelled more than 30 days ago.
 - [ ] Step 5: project lifecycle. For each mirrored project with no synced tasks, or that `lookup` reports deleted: detach it if it holds local or detached tasks, otherwise archive it and mark the link `removed`.
 - [ ] Step 6: when a project is detached, clear `projectId` on any still-synced task in it only if Linear now reports a different or no project; the upsert in step 3 normally does this already.
@@ -307,7 +308,8 @@ The only code that writes external rows. It bypasses the service guards on purpo
 - [ ] Settled issue is reopened: incremental sync updates it and clears `settledAt`.
 - [ ] Project with only a local task left is detached and editable; project with nothing left is archived.
 - [ ] Detached project's Linear project returns: reattached, no duplicate, local task still inside.
-- [ ] No candidates: `lookup` is never called.
+- [ ] Issue restored from the trash, with `updatedAt` unchanged: its `removed` link is restored and the task unarchived on the next reconcile.
+- [ ] No candidates and no returning issues: `lookup` is never called.
 
 **Done when** unassigning an issue in Linear removes it locally on the next reconcile.
 
@@ -362,7 +364,7 @@ Sync runs by itself while a workspace is open. Everything the later IPC layer wi
 The Electron-side pieces core needs in order to run inside the app. No IPC channels are added here; the separate IPC work will sit on top of the service surface listed at the end.
 
 - [ ] In `src/main`, implement the real `SecretCipher` over Electron's async `safeStorage` API: `isAsyncEncryptionAvailable`, `encryptStringAsync` and `decryptStringAsync`.
-- [ ] Pass `SecretCipher`, global `fetch` and `shell.openExternal` into `DevBrain`, which threads them to `WorkspaceService` and `Workspace`.
+- [ ] Pass `SecretCipher`, Electron's `net.fetch` and `shell.openExternal` into `DevBrain`, which threads them to `WorkspaceService` and `Workspace`. Use `net.fetch` rather than Node's global `fetch`: it goes through Chromium's network stack, so it honours the system proxy (including PAC files) and the OS certificate store, which Node's `fetch` does not. It can only be called after the app's `ready` event. `FetchFn` in `providers/provider.ts` is typed so either fits.
 - [ ] Call `scheduler.trigger('focus')` on `BrowserWindow` focus and `scheduler.trigger('resume')` on `powerMonitor` resume, for the current workspace.
 - [ ] Make sure switching or closing a workspace awaits the old scheduler's `stop()` before the next workspace starts.
 - [ ] Keep engine progress and service changes as typed in-process events (`sync.onProgress`, `integrations.onChange`). The IPC layer will forward them later; nothing in core knows about the renderer.

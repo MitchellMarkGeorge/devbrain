@@ -1,0 +1,13 @@
+{
+  "data": {
+    "viewer": {
+      "id": "49ecc4cf-4eab-4ad0-ba30-e4321299035a",
+      "name": "Ada Lovelace",
+      "email": "ada@example.com",
+      "organization": {
+        "id": "60549722-1bcb-494b-90dc-bb6ee9128bd5",
+        "name": "Acme"
+      }
+    }
+  }
+}

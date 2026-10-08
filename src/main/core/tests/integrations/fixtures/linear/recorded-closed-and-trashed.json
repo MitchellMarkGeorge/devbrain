@@ -1,0 +1,225 @@
+{
+  "data": {
+    "viewer": {
+      "id": "49ecc4cf-4eab-4ad0-ba30-e4321299035a",
+      "assignedIssues": {
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": "5a2e7561-e59c-485e-94b8-63aa9bdc7e52"
+        },
+        "nodes": [
+          {
+            "id": "239caa4f-dce8-48a1-8d81-c6ce4c53c5c9",
+            "identifier": "MIT-141",
+            "url": "https://linear.app/acme/issue/MIT-141/devbrain-sync-fixture-to-trash",
+            "title": "[DevBrain sync fixture] To trash",
+            "description": "Test issue for DevBrain's Linear sync fixtures. Move this to the trash to check how sync sees trashed issues.",
+            "priority": 0,
+            "priorityLabel": "No priority",
+            "dueDate": null,
+            "startedAt": null,
+            "completedAt": null,
+            "canceledAt": null,
+            "createdAt": "2026-10-08T01:37:24.054Z",
+            "updatedAt": "2026-10-08T01:37:24.054Z",
+            "archivedAt": "2026-10-08T01:38:15.435Z",
+            "trashed": true,
+            "state": {
+              "name": "Todo",
+              "type": "unstarted"
+            },
+            "assignee": {
+              "id": "49ecc4cf-4eab-4ad0-ba30-e4321299035a"
+            },
+            "parent": null,
+            "project": {
+              "id": "0bf902c7-76da-405d-8cc5-abf46518e6f5",
+              "name": "Test",
+              "description": "",
+              "url": "https://linear.app/acme/project/test-848837633aef",
+              "status": {
+                "type": "backlog",
+                "name": "Backlog"
+              },
+              "startDate": "2026-05-25",
+              "targetDate": null,
+              "color": "#eb5757",
+              "completedAt": null,
+              "canceledAt": null,
+              "createdAt": "2026-05-23T01:51:33.753Z",
+              "updatedAt": "2026-07-16T12:54:21.879Z"
+            }
+          },
+          {
+            "id": "451c9bf3-6523-4c3d-abc0-00664adfbd49",
+            "identifier": "MIT-140",
+            "url": "https://linear.app/acme/issue/MIT-140/devbrain-sync-fixture-in-review-low-due-date",
+            "title": "[DevBrain sync fixture] In Review, low, due date",
+            "description": "Test issue for DevBrain's Linear sync fixtures. Safe to delete.",
+            "priority": 4,
+            "priorityLabel": "Low",
+            "dueDate": "2026-10-20",
+            "startedAt": "2026-10-08T01:37:18.275Z",
+            "completedAt": null,
+            "canceledAt": null,
+            "createdAt": "2026-10-08T01:37:18.243Z",
+            "updatedAt": "2026-10-08T01:37:18.243Z",
+            "archivedAt": null,
+            "trashed": null,
+            "state": {
+              "name": "In Review",
+              "type": "started"
+            },
+            "assignee": {
+              "id": "49ecc4cf-4eab-4ad0-ba30-e4321299035a"
+            },
+            "parent": null,
+            "project": {
+              "id": "0bf902c7-76da-405d-8cc5-abf46518e6f5",
+              "name": "Test",
+              "description": "",
+              "url": "https://linear.app/acme/project/test-848837633aef",
+              "status": {
+                "type": "backlog",
+                "name": "Backlog"
+              },
+              "startDate": "2026-05-25",
+              "targetDate": null,
+              "color": "#eb5757",
+              "completedAt": null,
+              "canceledAt": null,
+              "createdAt": "2026-05-23T01:51:33.753Z",
+              "updatedAt": "2026-07-16T12:54:21.879Z"
+            }
+          },
+          {
+            "id": "e6a9c6b2-99d0-4248-a552-f73887890a18",
+            "identifier": "MIT-139",
+            "url": "https://linear.app/acme/issue/MIT-139/devbrain-sync-fixture-duplicate-medium",
+            "title": "[DevBrain sync fixture] Duplicate, medium",
+            "description": "Test issue for DevBrain's Linear sync fixtures. Safe to delete.",
+            "priority": 3,
+            "priorityLabel": "Medium",
+            "dueDate": null,
+            "startedAt": null,
+            "completedAt": null,
+            "canceledAt": "2026-10-08T01:37:14.442Z",
+            "createdAt": "2026-10-08T01:37:14.003Z",
+            "updatedAt": "2026-10-08T01:37:14.361Z",
+            "archivedAt": null,
+            "trashed": null,
+            "state": {
+              "name": "Duplicate",
+              "type": "duplicate"
+            },
+            "assignee": {
+              "id": "49ecc4cf-4eab-4ad0-ba30-e4321299035a"
+            },
+            "parent": null,
+            "project": {
+              "id": "0bf902c7-76da-405d-8cc5-abf46518e6f5",
+              "name": "Test",
+              "description": "",
+              "url": "https://linear.app/acme/project/test-848837633aef",
+              "status": {
+                "type": "backlog",
+                "name": "Backlog"
+              },
+              "startDate": "2026-05-25",
+              "targetDate": null,
+              "color": "#eb5757",
+              "completedAt": null,
+              "canceledAt": null,
+              "createdAt": "2026-05-23T01:51:33.753Z",
+              "updatedAt": "2026-07-16T12:54:21.879Z"
+            }
+          },
+          {
+            "id": "26314b1f-d0a1-4463-9db2-d6320b578d97",
+            "identifier": "MIT-137",
+            "url": "https://linear.app/acme/issue/MIT-137/devbrain-sync-fixture-completed-urgent",
+            "title": "[DevBrain sync fixture] Completed, urgent",
+            "description": "Test issue for DevBrain's Linear sync fixtures. Safe to delete.",
+            "priority": 1,
+            "priorityLabel": "Urgent",
+            "dueDate": null,
+            "startedAt": null,
+            "completedAt": "2026-10-08T01:37:04.182Z",
+            "canceledAt": null,
+            "createdAt": "2026-10-08T01:37:04.127Z",
+            "updatedAt": "2026-10-08T01:37:14.361Z",
+            "archivedAt": null,
+            "trashed": null,
+            "state": {
+              "name": "Done",
+              "type": "completed"
+            },
+            "assignee": {
+              "id": "49ecc4cf-4eab-4ad0-ba30-e4321299035a"
+            },
+            "parent": null,
+            "project": {
+              "id": "0bf902c7-76da-405d-8cc5-abf46518e6f5",
+              "name": "Test",
+              "description": "",
+              "url": "https://linear.app/acme/project/test-848837633aef",
+              "status": {
+                "type": "backlog",
+                "name": "Backlog"
+              },
+              "startDate": "2026-05-25",
+              "targetDate": null,
+              "color": "#eb5757",
+              "completedAt": null,
+              "canceledAt": null,
+              "createdAt": "2026-05-23T01:51:33.753Z",
+              "updatedAt": "2026-07-16T12:54:21.879Z"
+            }
+          },
+          {
+            "id": "5a2e7561-e59c-485e-94b8-63aa9bdc7e52",
+            "identifier": "MIT-138",
+            "url": "https://linear.app/acme/issue/MIT-138/devbrain-sync-fixture-canceled-high",
+            "title": "[DevBrain sync fixture] Canceled, high",
+            "description": "Test issue for DevBrain's Linear sync fixtures. Safe to delete.",
+            "priority": 2,
+            "priorityLabel": "High",
+            "dueDate": null,
+            "startedAt": null,
+            "completedAt": null,
+            "canceledAt": "2026-10-08T01:37:11.421Z",
+            "createdAt": "2026-10-08T01:37:11.378Z",
+            "updatedAt": "2026-10-08T01:37:11.378Z",
+            "archivedAt": null,
+            "trashed": null,
+            "state": {
+              "name": "Canceled",
+              "type": "canceled"
+            },
+            "assignee": {
+              "id": "49ecc4cf-4eab-4ad0-ba30-e4321299035a"
+            },
+            "parent": null,
+            "project": {
+              "id": "0bf902c7-76da-405d-8cc5-abf46518e6f5",
+              "name": "Test",
+              "description": "",
+              "url": "https://linear.app/acme/project/test-848837633aef",
+              "status": {
+                "type": "backlog",
+                "name": "Backlog"
+              },
+              "startDate": "2026-05-25",
+              "targetDate": null,
+              "color": "#eb5757",
+              "completedAt": null,
+              "canceledAt": null,
+              "createdAt": "2026-05-23T01:51:33.753Z",
+              "updatedAt": "2026-07-16T12:54:21.879Z"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
