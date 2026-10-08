@@ -49,6 +49,17 @@ export class IntegrationAlreadyConnectedError extends Error {
   }
 }
 
+// switching on a source of a disabled integration; enable the integration instead
+export class IntegrationDisabledError extends Error {
+  readonly integrationId: IntegrationId;
+
+  constructor(integrationId: IntegrationId) {
+    super(`Integration is disabled, so its sources can't be switched on: ${integrationId}`);
+    this.name = 'IntegrationDisabledError';
+    this.integrationId = integrationId;
+  }
+}
+
 // the provider asked us to slow down; the next attempt must wait until `retryAt`
 export class RateLimitError extends Error {
   readonly retryAt: Date;

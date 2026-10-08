@@ -2,7 +2,11 @@ import { ExternalSourceId, IntegrationId } from '@common/ids';
 import { externalSources, integrations } from '@main/db/schema/integrations';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { IntegrationAlreadyConnectedError, NotFoundError } from '../shared/errors';
+import {
+  IntegrationAlreadyConnectedError,
+  IntegrationDisabledError,
+  NotFoundError,
+} from '../shared/errors';
 import { toAuth } from './auth';
 import { CredentialStore } from './credential-store';
 import { ApiKeyCredentials } from './credentials';
@@ -39,6 +43,11 @@ export interface ConnectOptions {
   // The source types to switch on, from those the provider supports; defaults to all of them.
   // Every supported type still gets a source, created disabled when left out, so turning it on
   // later is setSourceEnabled and needs no reconnect. An empty list connects without syncing.
+  enable?: SourceType[];
+}
+
+export interface EnableOptions {
+  // the source types to switch back on when a disabled integration is enabled; defaults to all
   enable?: SourceType[];
 }
 
@@ -160,11 +169,18 @@ export class IntegrationService {
   }
 
   /**
-   * Moves the integration between connected and disabled; its sources keep their own flags and
-   * resume from their cursors. One in needs_reauth can be disabled, and enabling it again leaves it
-   * in needs_reauth: only a reconnect clears that.
+   * Disabling switches the integration and all of its sources off, so a disabled integration never
+   * has a source that looks on. Enabling a disabled one reconnects it and switches its sources back
+   * on: those in `options.enable`, or all of them by default. Sources resume from their cursors.
+   *
+   * One in needs_reauth can be disabled. Enabling it while it needs re-authentication changes
+   * nothing: only a reconnect clears that.
    */
-  async setEnabled(id: IntegrationId, enabled: boolean): Promise<Integration> {
+  async setEnabled(
+    id: IntegrationId,
+    enabled: boolean,
+    options: EnableOptions = {},
+  ): Promise<Integration> {
     const row = this.db
       .select({ status: integrations.status })
       .from(integrations)
@@ -172,14 +188,46 @@ export class IntegrationService {
       .get();
     if (!row) throw new NotFoundError(id);
 
-    const status = nextStatus(row.status, enabled);
-    if (status !== row.status) {
-      this.db.update(integrations).set({ status }).where(eq(integrations.id, id)).run();
-      this.emit({ type: 'status_changed', integrationId: id, status });
+    const sources = this.db
+      .select({ id: externalSources.id, sourceType: externalSources.sourceType })
+      .from(externalSources)
+      .where(eq(externalSources.integrationId, id))
+      .all();
+    const enable = options.enable ?? sources.map((source) => source.sourceType);
+    const unknown = enable.filter((type) => !sources.some((source) => source.sourceType === type));
+    if (unknown.length > 0) {
+      throw new Error(`${id} has no ${unknown.join(', ')} source`);
+    }
+
+    if (enabled && row.status !== IntegrationStatus.DISABLED) return this.getById(id);
+    if (!enabled && row.status === IntegrationStatus.DISABLED) return this.getById(id);
+
+    const status = enabled ? IntegrationStatus.CONNECTED : IntegrationStatus.DISABLED;
+    const toggled = this.db.transaction((tx) => {
+      tx.update(integrations).set({ status }).where(eq(integrations.id, id)).run();
+      const ids = enabled
+        ? sources.filter((source) => enable.includes(source.sourceType)).map((source) => source.id)
+        : sources.map((source) => source.id);
+      if (ids.length === 0) return [];
+      return tx
+        .update(externalSources)
+        .set({ enabled })
+        .where(and(inArray(externalSources.id, ids), eq(externalSources.enabled, !enabled)))
+        .returning({ id: externalSources.id })
+        .all();
+    });
+
+    this.emit({ type: 'status_changed', integrationId: id, status });
+    for (const source of toggled) {
+      this.emit({ type: 'source_changed', integrationId: id, sourceId: source.id, enabled });
     }
     return this.getById(id);
   }
 
+  /**
+   * Switches one source on or off. A source of a disabled integration can't be switched on: enable
+   * the integration, which can switch on just this source through its `enable` option.
+   */
   async setSourceEnabled(sourceId: ExternalSourceId, enabled: boolean): Promise<ExternalSource> {
     const row = this.db
       .select()
@@ -189,6 +237,17 @@ export class IntegrationService {
     if (!row) throw new NotFoundError(sourceId);
 
     if (row.enabled === enabled) return toSource(row);
+    if (enabled) {
+      const integration = this.db
+        .select({ status: integrations.status })
+        .from(integrations)
+        .where(eq(integrations.id, row.integrationId))
+        .get();
+      if (integration?.status === IntegrationStatus.DISABLED) {
+        throw new IntegrationDisabledError(row.integrationId);
+      }
+    }
+
     const [updated] = this.db
       .update(externalSources)
       .set({ enabled })
@@ -257,11 +316,6 @@ export class IntegrationService {
       updatedAt: row.updatedAt,
     }));
   }
-}
-
-function nextStatus(current: IntegrationStatus, enabled: boolean): IntegrationStatus {
-  if (!enabled) return IntegrationStatus.DISABLED;
-  return current === IntegrationStatus.DISABLED ? IntegrationStatus.CONNECTED : current;
 }
 
 function toSource(row: SourceRow): ExternalSource {

@@ -25,6 +25,7 @@ import {
 import {
   IntegrationAlreadyConnectedError,
   IntegrationAuthError,
+  IntegrationDisabledError,
   NotFoundError,
 } from '../../shared/errors';
 import { Workspace } from '../../workspace/workspace';
@@ -407,31 +408,103 @@ describe('IntegrationService — enabling and disabling', () => {
     return { ...context, integration };
   }
 
-  it('disabling the integration flips its status and emits the change', async () => {
+  it('disabling the integration switches its sources off too and emits each change', async () => {
     const { service, changes, integration } = await connected();
+    const [source] = integration.sources;
 
     const disabled = await service.setEnabled(integration.id, false);
 
     expect(disabled.status).toBe(IntegrationStatus.DISABLED);
-    // the sources keep their own flags
-    expect(disabled.sources[0].enabled).toBe(true);
+    expect(disabled.sources[0].enabled).toBe(false);
     expect(changes).toEqual([
       {
         type: 'status_changed',
         integrationId: integration.id,
         status: IntegrationStatus.DISABLED,
       },
+      {
+        type: 'source_changed',
+        integrationId: integration.id,
+        sourceId: source.id,
+        enabled: false,
+      },
     ]);
   });
 
-  it('enabling a disabled integration reconnects it', async () => {
+  it('enabling a disabled integration reconnects it and switches its sources back on', async () => {
     const { service, changes, integration } = await connected();
     await service.setEnabled(integration.id, false);
 
     const enabled = await service.setEnabled(integration.id, true);
 
     expect(enabled.status).toBe(IntegrationStatus.CONNECTED);
-    expect(changes.map((change) => change.type)).toEqual(['status_changed', 'status_changed']);
+    expect(enabled.sources[0].enabled).toBe(true);
+    expect(changes.map((change) => change.type)).toEqual([
+      'status_changed',
+      'source_changed',
+      'status_changed',
+      'source_changed',
+    ]);
+  });
+
+  it('enabling can switch back on only the chosen source types', async () => {
+    const { provider } = fakeProvider({ supports: [SourceType.TASKS, SourceType.VERSION_CONTROL] });
+    const { service, changes } = setup(registryOf(provider));
+    const integration = await service.connectWithApiKey(ProviderId.LINEAR, API_KEY);
+    await service.setEnabled(integration.id, false);
+    changes.length = 0;
+
+    const enabled = await service.setEnabled(integration.id, true, {
+      enable: [SourceType.VERSION_CONTROL],
+    });
+
+    const flags = Object.fromEntries(enabled.sources.map((s) => [s.sourceType, s.enabled]));
+    expect(flags).toEqual({ [SourceType.TASKS]: false, [SourceType.VERSION_CONTROL]: true });
+    expect(changes.filter((change) => change.type === 'source_changed')).toHaveLength(1);
+  });
+
+  it('enabling with no chosen types reconnects with every source off', async () => {
+    const { service, integration } = await connected();
+    await service.setEnabled(integration.id, false);
+
+    const enabled = await service.setEnabled(integration.id, true, { enable: [] });
+
+    expect(enabled.status).toBe(IntegrationStatus.CONNECTED);
+    expect(enabled.sources.every((source) => !source.enabled)).toBe(true);
+  });
+
+  it('rejects a source type the integration lacks, and changes nothing', async () => {
+    const { service, changes, integration } = await connected();
+
+    await expect(
+      service.setEnabled(integration.id, false, { enable: [SourceType.EVENTS] }),
+    ).rejects.toThrow(`${integration.id} has no events source`);
+    expect((await service.getById(integration.id)).status).toBe(IntegrationStatus.CONNECTED);
+    expect(changes).toEqual([]);
+  });
+
+  it('a source of a disabled integration cannot be switched on', async () => {
+    const { service, integration } = await connected();
+    await service.setEnabled(integration.id, false);
+
+    const error = await service
+      .setSourceEnabled(integration.sources[0].id, true)
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(IntegrationDisabledError);
+    expect((await service.getById(integration.id)).sources[0].enabled).toBe(false);
+  });
+
+  it('a source can still be switched off while its integration needs re-authentication', async () => {
+    const { db, service, integration } = await connected();
+    db.update(integrations)
+      .set({ status: IntegrationStatus.NEEDS_REAUTH })
+      .where(eq(integrations.id, integration.id))
+      .run();
+
+    const source = await service.setSourceEnabled(integration.sources[0].id, false);
+    expect(source.enabled).toBe(false);
+    expect((await service.setSourceEnabled(source.id, true)).enabled).toBe(true);
   });
 
   it('emits nothing when the status does not change', async () => {
@@ -451,9 +524,9 @@ describe('IntegrationService — enabling and disabling', () => {
       IntegrationStatus.NEEDS_REAUTH,
     );
     expect(changes).toEqual([]);
-    expect((await service.setEnabled(integration.id, false)).status).toBe(
-      IntegrationStatus.DISABLED,
-    );
+    const disabled = await service.setEnabled(integration.id, false);
+    expect(disabled.status).toBe(IntegrationStatus.DISABLED);
+    expect(disabled.sources[0].enabled).toBe(false);
   });
 
   it('setEnabled throws NotFoundError for an unknown id', async () => {
