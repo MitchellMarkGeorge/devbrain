@@ -8,6 +8,7 @@ import { NoteService } from '../../notes/service';
 import { TaskService } from '../../tasks/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
+import { generateId } from '@common/ids';
 import { createDb } from '../utils';
 
 const TOMORROW = new Date(Date.now() + 86_400_000);
@@ -121,6 +122,45 @@ describe('SearchService — indexProject', () => {
 
     expect(searchService.search({ query: 'Alpha', entityType: [] })).toHaveLength(0);
     expect(searchService.search({ query: 'Beta', entityType: [] })).toHaveLength(1);
+  });
+});
+
+describe('SearchService — removeFromIndex', () => {
+  it('removes only the given entities, across entity types', async () => {
+    const kept = await taskService.createTask({ title: 'Deploy kept', dueDate: TOMORROW });
+    const task = await taskService.createTask({ title: 'Deploy removed', dueDate: TOMORROW });
+    const project = await projectService.createProject({
+      title: 'Deploy project',
+      dueDate: TOMORROW,
+    });
+    searchService.indexTasks([kept, task]);
+    searchService.indexProject(project);
+
+    searchService.removeFromIndex([task.id, project.id]);
+
+    const results = searchService.search({ query: 'Deploy', entityType: [] });
+    expect(results.map((r) => r.entityId)).toEqual([kept.id]);
+  });
+
+  it('ignores ids with no entry and an empty list', async () => {
+    const task = await taskService.createTask({ title: 'Still here', dueDate: TOMORROW });
+    searchService.indexTask(task);
+
+    searchService.removeFromIndex([]);
+    searchService.removeFromIndex([generateId('task')]);
+
+    expect(searchService.search({ query: 'Still', entityType: [] })).toHaveLength(1);
+  });
+
+  it('an entity removed and indexed again is findable again', async () => {
+    const task = await taskService.createTask({ title: 'Boomerang', dueDate: TOMORROW });
+    searchService.indexTask(task);
+    searchService.removeFromIndex([task.id]);
+    expect(searchService.search({ query: 'Boomerang', entityType: [] })).toHaveLength(0);
+
+    searchService.indexTask(task);
+
+    expect(searchService.search({ query: 'Boomerang', entityType: [] })).toHaveLength(1);
   });
 });
 

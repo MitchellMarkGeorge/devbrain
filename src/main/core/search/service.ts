@@ -127,6 +127,18 @@ export class SearchService {
     );
   }
 
+  // drops the entries for these entities, e.g. synced rows that left scope; ids with no entry
+  // are ignored. One DELETE for the whole batch, like upsertIndexBatch.
+  removeFromIndex(entityIds: IndexEntity['entityId'][]): void {
+    if (entityIds.length === 0) return;
+
+    const ids = sql.join(
+      entityIds.map((entityId) => sql`${entityId}`),
+      sql.raw(', '),
+    );
+    this.db.run(sql`DELETE FROM search_index WHERE entity_id IN (${ids})`);
+  }
+
   private noteFilePath(id: NoteId): string {
     return path.join(this.workspaceNotesPath, `${id}.md`);
   }
