@@ -10,6 +10,8 @@ import issueFixture from '../fixtures/linear/issue.json';
 import page1Fixture from '../fixtures/linear/assigned-issues-page-1.json';
 import page2Fixture from '../fixtures/linear/assigned-issues-page-2.json';
 import rateLimitedFixture from '../fixtures/linear/rate-limited.json';
+import recordedPageFixture from '../fixtures/linear/recorded-assigned-issues.json';
+import recordedViewerFixture from '../fixtures/linear/recorded-viewer.json';
 
 const AUTH = toAuth({ type: AuthType.API_KEY, apiKey: 'lin_api_test' });
 const VIEWER_ID = 'a1b2c3d4-0000-4000-8000-000000000001';
@@ -267,5 +269,40 @@ describe('Linear tasks — lookup', () => {
     const fetch = scriptedFetch([]);
     expect(await source(fetch).lookup(AUTH, [])).toEqual({ tasks: [], gone: [], skipped: 0 });
     expect(fetch.requests).toHaveLength(0);
+  });
+});
+
+// responses recorded from a real account, then scrubbed; see the fixtures README
+describe('Linear tasks — recorded responses', () => {
+  it('maps a recorded page with nothing skipped', async () => {
+    const fetch = scriptedFetch([{ body: recordedPageFixture }]);
+    const page = await source(fetch).pull(AUTH, null, {});
+
+    expect(page.skipped).toBe(0);
+    expect(page.done).toBe(true);
+    expect(page.tasks.map((task) => task.key)).toEqual(['MIT-18', 'MIT-135', 'MIT-35', 'MIT-14']);
+    expect(page.tasks.every((task) => task.assignedToViewer)).toBe(true);
+    expect(page.projects.map((project) => project.statusLabel)).toEqual([
+      'Backlog',
+      'Backlog',
+      'In Progress',
+    ]);
+
+    const [due, child, started, noProject] = page.tasks;
+    expect(due.dueDate).toEqual(new Date(2026, 6, 14));
+    // Linear sends an empty description as "", which is stored as null
+    expect(due.description).toBeNull();
+    expect(child.parentKey).toBe('MIT-15');
+    expect(started.statusLabel).toBe('In Progress');
+    expect(noProject.projectExternalId).toBeNull();
+  });
+
+  it('builds the account from a recorded viewer', async () => {
+    const fetch = scriptedFetch([{ body: recordedViewerFixture }]);
+    const account = await createLinearProvider({ fetch }).getAccount(AUTH);
+    expect(account.label).toBe('Ada Lovelace, Acme');
+    expect(account.accountId).toBe(
+      '60549722-1bcb-494b-90dc-bb6ee9128bd5:49ecc4cf-4eab-4ad0-ba30-e4321299035a',
+    );
   });
 });

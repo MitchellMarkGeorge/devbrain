@@ -1,23 +1,25 @@
 # Linear fixtures
 
-**These fixtures are hand-written, not recorded.** Linear's API was not reachable when the Linear client was built, so every payload here was written from the query shapes in the design's provider reference ("Provider reference" → Linear). Names, emails and ids are made up.
+Most of these fixtures are **hand-written**, from the query shapes in the design's provider reference ("Provider reference" → Linear), because they need cases a real account may not have: closed, trashed and duplicate issues, every priority. Names, emails and ids in them are made up.
 
-Replace them with recorded responses (names and emails scrubbed) once the scratch script has run against a real account:
+The `recorded-*` files are **real responses**, recorded with the scratch script's `--record` option and then scrubbed: names, email, the workspace URL slug and descriptions are replaced; ids are real. To record more:
 
 ```sh
-DEV_LINEAR_API_KEY=lin_api_... npx tsx --tsconfig ./tsconfig.node.json scripts/linear_scratch.mts
+DEV_LINEAR_API_KEY=lin_api_... npx tsx --tsconfig ./tsconfig.node.json scripts/linear_scratch.mts --record <dir>
 ```
 
-| File                          | What it is                                                                  |
-| ----------------------------- | --------------------------------------------------------------------------- |
-| `viewer.json`                 | Response to the `Viewer` query                                              |
-| `issue.json`                  | One issue node with every mirrored field set, including parent and project  |
-| `issue-minimal.json`          | One issue node with no description, due date, start time, parent or project |
-| `issues-by-state.json`        | One issue node per workflow state type, keyed by type                       |
-| `assigned-issues-page-1.json` | First page of `viewer.assignedIssues`, with a next page                     |
-| `assigned-issues-page-2.json` | Last page, with a completed issue and a trashed one                         |
-| `rate-limited.json`           | Body of the HTTP 400 Linear sends when rate limited                         |
-| `authentication-error.json`   | Body of a GraphQL authentication error, as an unknown key might return it   |
+| File                            | What it is                                                                                      |
+| ------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `viewer.json`                   | Response to the `Viewer` query                                                                  |
+| `issue.json`                    | One issue node with every mirrored field set, including parent and project                      |
+| `issue-minimal.json`            | One issue node with no description, due date, start time, parent or project                     |
+| `issues-by-state.json`          | One issue node per workflow state type, keyed by type                                           |
+| `assigned-issues-page-1.json`   | First page of `viewer.assignedIssues`, with a next page                                         |
+| `assigned-issues-page-2.json`   | Last page, with a completed issue and a trashed one                                             |
+| `rate-limited.json`             | Body of the HTTP 400 Linear sends when rate limited                                             |
+| `authentication-error.json`     | Body of a GraphQL authentication error, as an unknown key might return it                       |
+| `recorded-viewer.json`          | Recorded: response to the `Viewer` query                                                        |
+| `recorded-assigned-issues.json` | Recorded: four issues from real pages (due date, parent, started, no project), as one last page |
 
 ## Checked against the schema
 
@@ -33,14 +35,18 @@ Field names, enum values and query shapes were checked against the generated sch
 
 ## Seen on a live account
 
-- `getAccount`, initial `pull` paging and `listAssignedIds` ran cleanly against a real account (111 open assigned issues).
+- `getAccount`, initial `pull` paging and `listAssignedIds` ran cleanly against a real account: 111 open assigned issues over three pages, all valid, none skipped.
+- `orderBy: updatedAt` returns the most recently updated issues first, across pages.
+- `endCursor` is the id of the page's last issue.
+- An issue that is not trashed has `trashed: null`, not `false`. An empty description is `""`, not `null`; the mapper stores both as null.
+- The reset headers are Unix times in milliseconds, about an hour ahead. A 50-issue page with its project costs about 670 complexity points, far under the 10,000 per query and 3,000,000 per hour.
 - The `id: { in: [...] }` filter rejects a value that is not a UUID with an `Argument Validation Error`, sent with HTTP 200 and an `errors` array. Ids that come from Linear are always UUIDs; an id that no longer resolves is simply absent from the result.
 
 ## Still to confirm on a live account
 
-- The direction of `orderBy: updatedAt` (assumed newest first; the cursor logic is safe either way).
 - Whether `viewer.assignedIssues` hides trashed issues.
 - The largest `first` Linear accepts (lookups request 100).
 - Whether closing an issue as a duplicate sets `canceledAt`. If not, a duplicate closed in the last 30 days is missed by the initial pull, though the next incremental run picks it up by `updatedAt`.
 - Which extension field identifies an error. Linear's docs show `extensions.code: "RATELIMITED"`; `@linear/sdk` reads `extensions.type` (`"ratelimited"`, `"authentication error"`). The client accepts either. Also whether an unknown key comes back as a 401 or as a 400 with an authentication error.
-- The unit of `X-RateLimit-Requests-Reset` and `X-RateLimit-Complexity-Reset`, documented by the SDK as a Unix timestamp. Seconds and milliseconds are both accepted. `Retry-After` (seconds) is used when neither is sent.
+- Closed issues: the recorded account had no issue closed in the last 30 days, so the initial pull's closed-issue window and `completedAt`/`canceledAt` values are untested live.
+- Priorities other than "No priority": every recorded issue had priority 0.

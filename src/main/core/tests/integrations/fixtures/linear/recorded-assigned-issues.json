@@ -1,0 +1,171 @@
+{
+  "data": {
+    "viewer": {
+      "id": "49ecc4cf-4eab-4ad0-ba30-e4321299035a",
+      "assignedIssues": {
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": "c72dfd95-0c74-437a-bf17-81a76de54007"
+        },
+        "nodes": [
+          {
+            "id": "4835efc2-4b1d-48c2-acab-6b38cf455e23",
+            "identifier": "MIT-18",
+            "url": "https://linear.app/acme/issue/MIT-18/test3",
+            "title": "test3",
+            "description": "",
+            "priority": 0,
+            "priorityLabel": "No priority",
+            "dueDate": "2026-07-14",
+            "startedAt": null,
+            "completedAt": null,
+            "canceledAt": null,
+            "createdAt": "2026-06-11T02:45:42.288Z",
+            "updatedAt": "2026-07-14T04:25:08.504Z",
+            "archivedAt": null,
+            "trashed": null,
+            "state": {
+              "name": "Todo",
+              "type": "unstarted"
+            },
+            "assignee": {
+              "id": "49ecc4cf-4eab-4ad0-ba30-e4321299035a"
+            },
+            "parent": null,
+            "project": {
+              "id": "0bf902c7-76da-405d-8cc5-abf46518e6f5",
+              "name": "Test",
+              "description": "",
+              "url": "https://linear.app/acme/project/test-848837633aef",
+              "status": {
+                "type": "backlog",
+                "name": "Backlog"
+              },
+              "startDate": "2026-05-25",
+              "targetDate": null,
+              "color": "#eb5757",
+              "completedAt": null,
+              "canceledAt": null,
+              "createdAt": "2026-05-23T01:51:33.753Z",
+              "updatedAt": "2026-07-16T12:54:21.879Z"
+            }
+          },
+          {
+            "id": "7a09133f-f4cc-4809-bc6c-201b1d463408",
+            "identifier": "MIT-135",
+            "url": "https://linear.app/acme/issue/MIT-135/test-5",
+            "title": "test 5",
+            "description": "",
+            "priority": 0,
+            "priorityLabel": "No priority",
+            "dueDate": null,
+            "startedAt": null,
+            "completedAt": null,
+            "canceledAt": null,
+            "createdAt": "2026-06-24T18:27:36.847Z",
+            "updatedAt": "2026-06-24T22:53:04.129Z",
+            "archivedAt": null,
+            "trashed": null,
+            "state": {
+              "name": "Todo",
+              "type": "unstarted"
+            },
+            "assignee": {
+              "id": "49ecc4cf-4eab-4ad0-ba30-e4321299035a"
+            },
+            "parent": {
+              "id": "cc18f7b2-b3eb-4f4b-a340-7e4525793684",
+              "identifier": "MIT-15",
+              "title": "test"
+            },
+            "project": {
+              "id": "79988d49-43b4-49b2-9595-6b209da2ec16",
+              "name": "Test 2",
+              "description": "",
+              "url": "https://linear.app/acme/project/test-2-cdb8a96e08db",
+              "status": {
+                "type": "backlog",
+                "name": "Backlog"
+              },
+              "startDate": "2026-05-25",
+              "targetDate": null,
+              "color": "#bec2c8",
+              "completedAt": null,
+              "canceledAt": null,
+              "createdAt": "2026-05-25T15:17:13.173Z",
+              "updatedAt": "2026-08-24T15:30:25.666Z"
+            }
+          },
+          {
+            "id": "ec1754fe-5c67-4581-a73d-8d05bd37bf18",
+            "identifier": "MIT-35",
+            "url": "https://linear.app/acme/issue/MIT-35/fts5-virtual-table",
+            "title": "FTS5 virtual table",
+            "description": "Scrubbed **Markdown** description.",
+            "priority": 0,
+            "priorityLabel": "No priority",
+            "dueDate": null,
+            "startedAt": "2026-06-28T15:29:55.776Z",
+            "completedAt": null,
+            "canceledAt": null,
+            "createdAt": "2026-06-20T14:36:35.271Z",
+            "updatedAt": "2026-06-28T15:29:55.790Z",
+            "archivedAt": null,
+            "trashed": null,
+            "state": {
+              "name": "In Progress",
+              "type": "started"
+            },
+            "assignee": {
+              "id": "49ecc4cf-4eab-4ad0-ba30-e4321299035a"
+            },
+            "parent": null,
+            "project": {
+              "id": "c33195b8-b8b2-42d6-917a-2d60ecbefa04",
+              "name": "DevBrain v1",
+              "description": "Scrubbed project description.",
+              "url": "https://linear.app/acme/project/devbrain-v1-43441db2acf4",
+              "status": {
+                "type": "started",
+                "name": "In Progress"
+              },
+              "startDate": "2026-06-20",
+              "targetDate": null,
+              "color": "#5E6AD2",
+              "completedAt": null,
+              "canceledAt": null,
+              "createdAt": "2026-06-20T14:33:06.863Z",
+              "updatedAt": "2026-08-22T17:15:12.871Z"
+            }
+          },
+          {
+            "id": "c72dfd95-0c74-437a-bf17-81a76de54007",
+            "identifier": "MIT-14",
+            "url": "https://linear.app/acme/issue/MIT-14/test",
+            "title": "test",
+            "description": "Scrubbed **Markdown** description.",
+            "priority": 0,
+            "priorityLabel": "No priority",
+            "dueDate": null,
+            "startedAt": null,
+            "completedAt": null,
+            "canceledAt": null,
+            "createdAt": "2026-05-17T13:27:54.689Z",
+            "updatedAt": "2026-06-08T17:05:26.777Z",
+            "archivedAt": null,
+            "trashed": null,
+            "state": {
+              "name": "Backlog",
+              "type": "backlog"
+            },
+            "assignee": {
+              "id": "49ecc4cf-4eab-4ad0-ba30-e4321299035a"
+            },
+            "parent": null,
+            "project": null
+          }
+        ]
+      }
+    }
+  }
+}
