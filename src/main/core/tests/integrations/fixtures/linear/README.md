@@ -44,6 +44,7 @@ Field names, enum values and query shapes were checked against the generated sch
 - The initial pull's closed window works: completed, canceled and duplicate issues closed in the last 30 days come back. Completing sets `completedAt`; canceling and marking as a duplicate both set `canceledAt`.
 - `priorityLabel` is "No priority", "Urgent", "High", "Medium" and "Low" for priorities 0 to 4.
 - With `includeArchived: true`, `assignedIssues` still returns a trashed issue, with `trashed: true` and `archivedAt` set. Trashing does **not** change `updatedAt`, so an incremental pull never sees it; the reconcile pass's lookup does, which is why `lookup` reports trashed ids as gone.
+- Restoring a trashed issue clears both `trashed` and `archivedAt` and also leaves `updatedAt` unchanged, so an incremental pull cannot see a restore either. The restored issue reappears in the assignment snapshot, so only a reconcile that also looks for snapshot ids not mirrored as synced can bring it back.
 - Marking an issue as a duplicate of another bumps the other issue's `updatedAt`.
 - The assignment snapshot (`listAssignedIds`, no `includeArchived`) leaves out trashed issues, as well as completed, canceled and duplicate ones. A trashed issue therefore becomes a reconcile candidate, and the lookup (with `includeArchived`) returns it with `trashed: true`, so it is reported as gone.
 - A lookup of three real ids and one random UUID returned the three issues; the unknown id was simply absent, so it is reported as gone.
