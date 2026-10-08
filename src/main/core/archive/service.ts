@@ -10,6 +10,7 @@ import { Note } from '../notes/types';
 import { notes } from '@main/db/schema/notes';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../shared/errors';
 import { keyset, Page, PageOptions } from '../shared/pagination';
+import { assertEditable } from '../integrations/refs';
 import type {
   ArchivableEntityType,
   ArchivableId,
@@ -25,6 +26,8 @@ export class ArchiveService {
       const existing = tx.select().from(tasks).where(eq(tasks.id, id)).get();
       if (!existing) throw new NotFoundError(id);
       if (existing.archivedAt !== null) throw new AlreadyArchivedError(id);
+      // a synced task is detached before it can be archived; restore is left open for SyncWriter
+      assertEditable(tx, id);
 
       const now = new Date();
       // archives the task and any subtasks it has
@@ -89,6 +92,8 @@ export class ArchiveService {
       const existing = tx.select().from(projects).where(eq(projects.id, id)).get();
       if (!existing) throw new NotFoundError(id);
       if (existing.archivedAt !== null) throw new AlreadyArchivedError(id);
+      // a synced project leaves only through sync
+      assertEditable(tx, id);
 
       const now = new Date();
       // archive the project
