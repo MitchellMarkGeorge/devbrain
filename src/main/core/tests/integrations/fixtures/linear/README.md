@@ -31,6 +31,11 @@ Field names, enum values and query shapes were checked against the generated sch
 - Viewer: `organization { id name }` (the workspace the user belongs to); `email` is never null.
 - Query shapes: `assignedIssues` and `issues` take `first`, `after`, `filter: IssueFilter`, `includeArchived` and `orderBy` (`createdAt` or `updatedAt`). `state.type` takes `nin`, `id` takes `in`, `or` works at the top of a filter, and date filters take an ISO time or a duration.
 
+## Seen on a live account
+
+- `getAccount`, initial `pull` paging and `listAssignedIds` ran cleanly against a real account (111 open assigned issues).
+- The `id: { in: [...] }` filter rejects a value that is not a UUID with an `Argument Validation Error`, sent with HTTP 200 and an `errors` array. Ids that come from Linear are always UUIDs; an id that no longer resolves is simply absent from the result.
+
 ## Still to confirm on a live account
 
 - The direction of `orderBy: updatedAt` (assumed newest first; the cursor logic is safe either way).

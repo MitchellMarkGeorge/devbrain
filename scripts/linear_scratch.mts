@@ -14,6 +14,7 @@
  */
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { config as loadEnvFile } from '@dotenvx/dotenvx';
 import { createLinearProvider } from '@main/core/integrations/providers/linear';
@@ -79,8 +80,11 @@ for (let pageNumber = 1; ; pageNumber++) {
 const assignedIds = await linear.tasks!.listAssignedIds(auth);
 console.log(`\nOpen assigned issues: ${assignedIds.length}`);
 
-const lookup = await linear.tasks!.lookup(auth, [...assignedIds.slice(0, 3), 'not-a-real-id']);
-console.log('Lookup of three ids and one unknown id:', {
+// A deleted issue looks like an id that no longer resolves. Linear validates the id filter, so the
+// stand-in must be a well-formed UUID; a malformed one fails the whole query.
+const deletedId = randomUUID();
+const lookup = await linear.tasks!.lookup(auth, [...assignedIds.slice(0, 3), deletedId]);
+console.log(`Lookup of three ids and one unknown id (${deletedId}):`, {
   found: lookup.tasks.map((task) => task.key),
   gone: lookup.gone,
   skipped: lookup.skipped,
