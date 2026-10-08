@@ -3,6 +3,7 @@ import { AuthType, LinearTaskCursor } from '../../../integrations/types';
 import { toAuth } from '../../../integrations/auth';
 import { TaskSource } from '../../../integrations/providers/provider';
 import { createLinearProvider } from '../../../integrations/providers/linear';
+import { TaskPriority, TaskStatus } from '../../../tasks/types';
 import { CLOSED_ISSUE_WINDOW_MS, LOOKUP_BATCH_SIZE, PAGE_SIZE } from '../../../sync/constants';
 import { RateLimitError } from '../../../shared/errors';
 import { jsonResponse, RecordedRequest, scriptedFetch } from './fake-fetch';
@@ -12,6 +13,7 @@ import page2Fixture from '../fixtures/linear/assigned-issues-page-2.json';
 import rateLimitedFixture from '../fixtures/linear/rate-limited.json';
 import recordedPageFixture from '../fixtures/linear/recorded-assigned-issues.json';
 import recordedViewerFixture from '../fixtures/linear/recorded-viewer.json';
+import recordedClosedFixture from '../fixtures/linear/recorded-closed-and-trashed.json';
 
 const AUTH = toAuth({ type: AuthType.API_KEY, apiKey: 'lin_api_test' });
 const VIEWER_ID = 'a1b2c3d4-0000-4000-8000-000000000001';
@@ -295,6 +297,43 @@ describe('Linear tasks — recorded responses', () => {
     expect(child.parentKey).toBe('MIT-15');
     expect(started.statusLabel).toBe('In Progress');
     expect(noProject.projectExternalId).toBeNull();
+  });
+
+  it('maps recorded closed issues and reports a recorded trashed one as removed', async () => {
+    const fetch = scriptedFetch([{ body: recordedClosedFixture }]);
+    const page = await source(fetch).pull(AUTH, null, {});
+
+    expect(page.skipped).toBe(0);
+    // trashing archives the issue and sets trashed; it is reported, not mapped
+    expect(page.removedIds).toEqual(['239caa4f-dce8-48a1-8d81-c6ce4c53c5c9']);
+    const byKey = Object.fromEntries(page.tasks.map((task) => [task.key, task]));
+    expect(Object.keys(byKey)).toEqual(['MIT-140', 'MIT-139', 'MIT-137', 'MIT-138']);
+
+    expect(byKey['MIT-137']).toMatchObject({
+      status: TaskStatus.COMPLETED,
+      statusLabel: 'Done',
+      priority: TaskPriority.HIGH,
+      priorityLabel: 'Urgent',
+      completedAt: new Date('2026-10-08T01:37:04.182Z'),
+    });
+    expect(byKey['MIT-138']).toMatchObject({
+      status: TaskStatus.CANCELLED,
+      priorityLabel: 'High',
+      completedAt: null,
+    });
+    expect(byKey['MIT-139']).toMatchObject({
+      status: TaskStatus.CANCELLED,
+      statusLabel: 'Duplicate',
+      priority: TaskPriority.MEDIUM,
+      completedAt: null,
+    });
+    expect(byKey['MIT-140']).toMatchObject({
+      status: TaskStatus.IN_PROGRESS,
+      statusLabel: 'In Review',
+      priority: TaskPriority.LOW,
+      priorityLabel: 'Low',
+      dueDate: new Date(2026, 9, 20),
+    });
   });
 
   it('builds the account from a recorded viewer', async () => {
