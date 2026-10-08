@@ -103,7 +103,10 @@ describe('Linear tasks — pull', () => {
     const page = await source(fetch).pull(AUTH, cursor, {});
 
     expect(fetch.requests[0].variables.filter).toEqual({
-      updatedAt: { gt: '2026-10-06T00:00:00.000Z' },
+      or: [
+        { updatedAt: { gt: '2026-10-06T00:00:00.000Z' } },
+        { archivedAt: { gt: '2026-10-06T00:00:00.000Z' } },
+      ],
     });
     // nothing changed, so the cursor stays where it was
     expect(page.nextCursor).toEqual(cursor);
@@ -131,11 +134,34 @@ describe('Linear tasks — pull', () => {
     const second = await tasks.pull(AUTH, first.nextCursor, {});
     expect(fetch.requests[1].variables).toMatchObject({
       after: 'c1',
-      filter: { updatedAt: { gt: '2026-10-06T00:00:00.000Z' } },
+      filter: { or: [{ updatedAt: { gt: '2026-10-06T00:00:00.000Z' } }, expect.anything()] },
     });
     expect(second.nextCursor).toEqual({
       mode: 'incremental',
       updatedSince: '2026-10-07T09:59:00.000Z',
+    });
+  });
+
+  it('reports an issue trashed since the cursor, though trashing left updatedAt unchanged', async () => {
+    // as recorded live: trashing sets trashed and archivedAt, not updatedAt
+    const trashed = {
+      ...issueAt('t', '2026-10-05T09:00:00.000Z'),
+      trashed: true,
+      archivedAt: '2026-10-06T12:00:00.000Z',
+    };
+    const fetch = scriptedFetch([{ body: issuesPage([trashed]) }]);
+    const cursor: LinearTaskCursor = {
+      mode: 'incremental',
+      updatedSince: '2026-10-06T00:00:00.000Z',
+    };
+    const page = await source(fetch).pull(AUTH, cursor, {});
+
+    expect(page.removedIds).toEqual(['t']);
+    expect(page.tasks).toEqual([]);
+    // the cursor moves past archivedAt, so the same trash is not fetched on every run
+    expect(page.nextCursor).toEqual({
+      mode: 'incremental',
+      updatedSince: '2026-10-06T11:59:00.000Z',
     });
   });
 

@@ -102,6 +102,8 @@ export function initialIssuesFilter(closedSince: string) {
   };
 }
 
-export function updatedIssuesFilter(updatedSince: string) {
-  return { updatedAt: { gt: updatedSince } };
+// Trashing an issue archives it without changing updatedAt, so archivedAt is checked too; with
+// includeArchived the trashed issue then comes back and is reported as removed
+export function changedIssuesFilter(since: string) {
+  return { or: [{ updatedAt: { gt: since } }, { archivedAt: { gt: since } }] };
 }

@@ -16,7 +16,7 @@ import {
   ISSUES_BY_ID_QUERY,
   initialIssuesFilter,
   openIssuesFilter,
-  updatedIssuesFilter,
+  changedIssuesFilter,
 } from './queries';
 import {
   AssignedIssueIdsResponse,
@@ -41,7 +41,7 @@ export class LinearTaskSource implements TaskSource {
     const filter =
       current.mode === 'initial'
         ? initialIssuesFilter(this.isoAgo(CLOSED_ISSUE_WINDOW_MS))
-        : updatedIssuesFilter(current.updatedSince);
+        : changedIssuesFilter(current.updatedSince);
 
     const { viewer } = await this.client.request(
       auth,
@@ -52,10 +52,11 @@ export class LinearTaskSource implements TaskSource {
     const { pageInfo, nodes } = viewer.assignedIssues;
 
     const page = mapIssues(nodes, viewer.id);
+    // the cursor's maxUpdatedAt tracks the latest change seen, archiving included
     let maxUpdatedAt = current.maxUpdatedAt ?? null;
-    for (const updatedAt of page.updatedAts) {
-      if (maxUpdatedAt === null || updatedAt > maxUpdatedAt) {
-        maxUpdatedAt = updatedAt;
+    for (const changedAt of page.changedAts) {
+      if (maxUpdatedAt === null || changedAt > maxUpdatedAt) {
+        maxUpdatedAt = changedAt;
       }
     }
 
@@ -171,8 +172,9 @@ interface MappedIssues {
   trashedIds: string[];
   // ids of nodes that failed to validate or map, when the node had a readable id
   unmappedIds: string[];
-  // updatedAt of every valid node, normalised to UTC ISO strings so they compare as text
-  updatedAts: string[];
+  // when each valid node last changed: the later of updatedAt and archivedAt, as UTC ISO strings
+  // so they compare as text. Without archivedAt a trashed issue would be fetched again every run.
+  changedAts: string[];
   skipped: number;
 }
 
@@ -183,7 +185,7 @@ function mapIssues(nodes: unknown[], viewerId: string): MappedIssues {
     projects: [],
     trashedIds: [],
     unmappedIds: [],
-    updatedAts: [],
+    changedAts: [],
     skipped: 0,
   };
   const projects = new Map<string, ExternalProject>();
@@ -199,7 +201,7 @@ function mapIssues(nodes: unknown[], viewerId: string): MappedIssues {
       continue;
     }
     const issue: LinearIssue = parsed.data;
-    result.updatedAts.push(new Date(issue.updatedAt).toISOString());
+    result.changedAts.push(changedAt(issue));
     if (issue.trashed) {
       result.trashedIds.push(issue.id);
       continue;
@@ -219,4 +221,10 @@ function readId(node: unknown): string | null {
     return node.id;
   }
   return null;
+}
+
+function changedAt(issue: LinearIssue): string {
+  const updatedAt = new Date(issue.updatedAt).getTime();
+  const archivedAt = issue.archivedAt === null ? 0 : new Date(issue.archivedAt).getTime();
+  return new Date(Math.max(updatedAt, archivedAt)).toISOString();
 }
