@@ -64,8 +64,9 @@ export class CredentialStore {
     this.now = options.now ?? Date.now;
   }
 
-  // Encryption is async and a database transaction is not, so saving is two steps: seal
-  // before the transaction, then save inside it, next to the insert or update it belongs with.
+  // Saving is two steps: seal before the transaction, then save inside it, next to the insert or
+  // update it belongs with. Encrypting inside would hold the connection, and every other query,
+  // for as long as the keychain takes.
   async seal(credentials: Credentials): Promise<SealedCredentials> {
     if (!(await this.cipher.isAvailable())) {
       throw new IntegrationAuthError(
@@ -75,8 +76,8 @@ export class CredentialStore {
     return (await this.cipher.encrypt(serialize(credentials))) as SealedCredentials;
   }
 
-  save(integrationId: IntegrationId, sealed: SealedCredentials): void {
-    const result = this.db
+  async save(integrationId: IntegrationId, sealed: SealedCredentials): Promise<void> {
+    const result = await this.db
       .update(integrations)
       .set({ credentials: sealed })
       .where(eq(integrations.id, integrationId))
@@ -85,8 +86,8 @@ export class CredentialStore {
   }
 
   // leaves an empty blob, which getAuth reports as missing credentials
-  clear(integrationId: IntegrationId): void {
-    const result = this.db
+  async clear(integrationId: IntegrationId): Promise<void> {
+    const result = await this.db
       .update(integrations)
       .set({ credentials: Buffer.alloc(0) })
       .where(eq(integrations.id, integrationId))
@@ -112,7 +113,7 @@ export class CredentialStore {
     blob: Buffer;
     credentials: Credentials;
   }> {
-    const row = this.db
+    const row = await this.db
       .select({ provider: integrations.provider, credentials: integrations.credentials })
       .from(integrations)
       .where(eq(integrations.id, integrationId))
@@ -124,7 +125,7 @@ export class CredentialStore {
 
     // the key was rotated: store the same credentials under the new key
     const blob = await this.seal(credentials);
-    this.replace(integrationId, row.credentials, blob);
+    await this.replace(integrationId, row.credentials, blob);
     return { provider: row.provider, blob, credentials };
   }
 
@@ -155,14 +156,18 @@ export class CredentialStore {
       expiresAt: tokens.expiresAt ?? null,
     };
 
-    this.replace(integrationId, blob, await this.seal(refreshed));
+    await this.replace(integrationId, blob, await this.seal(refreshed));
     return refreshed;
   }
 
   // Writes only over the blob the caller started from. A save or clear that landed while a refresh
   // or re-encryption was in flight wins; the caller still uses what it has.
-  private replace(integrationId: IntegrationId, previous: Buffer, next: SealedCredentials): void {
-    this.db
+  private async replace(
+    integrationId: IntegrationId,
+    previous: Buffer,
+    next: SealedCredentials,
+  ): Promise<void> {
+    await this.db
       .update(integrations)
       .set({ credentials: next })
       .where(and(eq(integrations.id, integrationId), eq(integrations.credentials, previous)))

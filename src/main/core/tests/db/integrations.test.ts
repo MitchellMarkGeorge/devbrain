@@ -25,9 +25,9 @@ let projectId: ProjectId;
 let eventId: EventId;
 
 /** the SQLite message of a statement that must fail (drizzle wraps it as the cause) */
-function failure(run: () => unknown): string {
+async function failure(run: () => Promise<unknown>): Promise<string> {
   try {
-    run();
+    await run();
   } catch (e) {
     const err = e as Error;
     return (err.cause as Error | undefined)?.message ?? err.message;
@@ -35,8 +35,8 @@ function failure(run: () => unknown): string {
   throw new Error('expected the statement to fail');
 }
 
-function insertIntegration(accountId = 'org:user') {
-  return db
+async function insertIntegration(accountId = 'org:user') {
+  return await db
     .insert(integrations)
     .values({
       provider: Provider.LINEAR,
@@ -62,31 +62,35 @@ function link(values: Partial<typeof externalLinks.$inferInsert> = {}) {
   });
 }
 
-beforeEach(() => {
-  db = createDb();
-  integrationId = insertIntegration().id;
-  sourceId = db
-    .insert(externalSources)
-    .values({ integrationId, sourceType: SourceType.TASKS })
-    .returning()
-    .get().id;
-  projectId = db.insert(projects).values({ title: 'Project' }).returning().get().id;
-  taskId = db.insert(tasks).values({ title: 'Task', projectId }).returning().get().id;
-  eventId = db
-    .insert(events)
-    .values({ title: 'Event', startAt: new Date(), endAt: new Date() })
-    .returning()
-    .get().id;
+beforeEach(async () => {
+  db = await createDb();
+  integrationId = (await insertIntegration()).id;
+  sourceId = (
+    await db
+      .insert(externalSources)
+      .values({ integrationId, sourceType: SourceType.TASKS })
+      .returning()
+      .get()
+  ).id;
+  projectId = (await db.insert(projects).values({ title: 'Project' }).returning().get()).id;
+  taskId = (await db.insert(tasks).values({ title: 'Task', projectId }).returning().get()).id;
+  eventId = (
+    await db
+      .insert(events)
+      .values({ title: 'Event', startAt: new Date(), endAt: new Date() })
+      .returning()
+      .get()
+  ).id;
 });
 
 describe('integration tables — defaults and ids', () => {
-  it('generates prefixed ids and fills defaults', () => {
-    const integration = db.select().from(integrations).get()!;
+  it('generates prefixed ids and fills defaults', async () => {
+    const integration = (await db.select().from(integrations).get())!;
     expect(integration.id).toMatch(/^int_/);
     expect(integration.status).toBe(IntegrationStatus.CONNECTED);
     expect(integration.credentials.toString()).toBe('ciphertext');
 
-    const source = db.select().from(externalSources).get()!;
+    const source = (await db.select().from(externalSources).get())!;
     expect(source.id).toMatch(/^src_/);
     expect(source).toMatchObject({
       enabled: true,
@@ -96,27 +100,28 @@ describe('integration tables — defaults and ids', () => {
       initialSyncCompletedAt: null,
     });
 
-    const row = link({ taskId }).returning().get();
+    const row = await link({ taskId }).returning().get();
     expect(row.id).toMatch(/^xln_/);
     expect(row).toMatchObject({ state: LinkState.SYNCED, metadata: {}, settledAt: null });
   });
 
-  it('round-trips JSON config, cursor and metadata', () => {
-    db.update(externalSources)
+  it('round-trips JSON config, cursor and metadata', async () => {
+    await db
+      .update(externalSources)
       .set({
         config: { calendarIds: ['primary'] },
         cursor: { mode: 'incremental', updatedSince: '2026-10-01T00:00:00.000Z' },
       })
       .where(eq(externalSources.id, sourceId))
       .run();
-    const source = db.select().from(externalSources).get()!;
+    const source = (await db.select().from(externalSources).get())!;
     expect(source.config).toEqual({ calendarIds: ['primary'] });
     expect(source.cursor).toEqual({
       mode: 'incremental',
       updatedSince: '2026-10-01T00:00:00.000Z',
     });
 
-    const row = link({ taskId, metadata: { statusLabel: 'In Review' } })
+    const row = await link({ taskId, metadata: { statusLabel: 'In Review' } })
       .returning()
       .get();
     expect(row.metadata).toEqual({ statusLabel: 'In Review' });
@@ -124,98 +129,99 @@ describe('integration tables — defaults and ids', () => {
 });
 
 describe('integration tables — uniqueness', () => {
-  it('rejects a second integration for the same provider and account', () => {
-    expect(failure(() => insertIntegration())).toMatch(/UNIQUE constraint failed/);
+  it('rejects a second integration for the same provider and account', async () => {
+    expect(await failure(() => insertIntegration())).toMatch(/UNIQUE constraint failed/);
     // another account on the same provider is fine
-    expect(insertIntegration('org:other').provider).toBe(Provider.LINEAR);
+    expect((await insertIntegration('org:other')).provider).toBe(Provider.LINEAR);
   });
 
-  it('rejects a second source of the same type on one integration', () => {
+  it('rejects a second source of the same type on one integration', async () => {
     expect(
-      failure(() =>
+      await failure(() =>
         db.insert(externalSources).values({ integrationId, sourceType: SourceType.TASKS }).run(),
       ),
     ).toMatch(/UNIQUE constraint failed/);
-    db.insert(externalSources).values({ integrationId, sourceType: SourceType.EVENTS }).run();
+    await db.insert(externalSources).values({ integrationId, sourceType: SourceType.EVENTS }).run();
   });
 
-  it('rejects two links with the same sourceId and externalId', () => {
-    link({ taskId }).run();
-    expect(failure(() => link({ projectId }).run())).toMatch(
+  it('rejects two links with the same sourceId and externalId', async () => {
+    await link({ taskId }).run();
+    expect(await failure(() => link({ projectId }).run())).toMatch(
       /UNIQUE constraint failed: external_links\.source_id, external_links\.external_id/,
     );
     // the same external id from no source (after a disconnect) does not collide
-    link({ projectId, sourceId: null }).run();
-    link({ eventId, sourceId: null }).run();
+    await link({ projectId, sourceId: null }).run();
+    await link({ eventId, sourceId: null }).run();
   });
 
-  it('allows at most one link per entity', () => {
-    link({ taskId }).run();
-    expect(failure(() => link({ taskId, externalId: 'issue-2' }).run())).toMatch(
+  it('allows at most one link per entity', async () => {
+    await link({ taskId }).run();
+    expect(await failure(() => link({ taskId, externalId: 'issue-2' }).run())).toMatch(
       /UNIQUE constraint failed: external_links\.task_id/,
     );
   });
 });
 
 describe('integration tables — one_entity check', () => {
-  it('rejects a link with no entity column set', () => {
-    expect(failure(() => link().run())).toMatch(/CHECK constraint failed: one_entity/);
+  it('rejects a link with no entity column set', async () => {
+    expect(await failure(() => link().run())).toMatch(/CHECK constraint failed: one_entity/);
   });
 
-  it('rejects a link with two entity columns set', () => {
-    expect(failure(() => link({ taskId, projectId }).run())).toMatch(
+  it('rejects a link with two entity columns set', async () => {
+    expect(await failure(() => link({ taskId, projectId }).run())).toMatch(
       /CHECK constraint failed: one_entity/,
     );
-    expect(failure(() => link({ taskId, projectId, eventId }).run())).toMatch(
+    expect(await failure(() => link({ taskId, projectId, eventId }).run())).toMatch(
       /CHECK constraint failed: one_entity/,
     );
   });
 
-  it('accepts a link to exactly one task, project or event', () => {
-    link({ taskId, externalId: 'a' }).run();
-    link({ projectId, externalId: 'b' }).run();
-    link({ eventId, externalId: 'c' }).run();
-    expect(db.select().from(externalLinks).all()).toHaveLength(3);
+  it('accepts a link to exactly one task, project or event', async () => {
+    await link({ taskId, externalId: 'a' }).run();
+    await link({ projectId, externalId: 'b' }).run();
+    await link({ eventId, externalId: 'c' }).run();
+    expect(await db.select().from(externalLinks).all()).toHaveLength(3);
   });
 });
 
 describe('integration tables — foreign key actions', () => {
-  it('deletes a link when its task, project or event is deleted', () => {
-    link({ taskId, externalId: 'a' }).run();
-    link({ projectId, externalId: 'b' }).run();
-    link({ eventId, externalId: 'c' }).run();
+  it('deletes a link when its task, project or event is deleted', async () => {
+    await link({ taskId, externalId: 'a' }).run();
+    await link({ projectId, externalId: 'b' }).run();
+    await link({ eventId, externalId: 'c' }).run();
 
-    db.delete(tasks).where(eq(tasks.id, taskId)).run();
-    expect(
-      db
-        .select()
-        .from(externalLinks)
-        .all()
-        .map((l) => l.externalId),
-    ).toEqual(['b', 'c']);
+    await db.delete(tasks).where(eq(tasks.id, taskId)).run();
+    expect((await db.select().from(externalLinks).all()).map((l) => l.externalId)).toEqual([
+      'b',
+      'c',
+    ]);
 
-    db.delete(events).where(eq(events.id, eventId)).run();
-    db.delete(projects).where(eq(projects.id, projectId)).run();
-    expect(db.select().from(externalLinks).all()).toEqual([]);
+    await db.delete(events).where(eq(events.id, eventId)).run();
+    await db.delete(projects).where(eq(projects.id, projectId)).run();
+    expect(await db.select().from(externalLinks).all()).toEqual([]);
   });
 
-  it('deletes sources and nulls sourceId on links when the integration is deleted', () => {
-    const { id: linkId } = link({ taskId }).returning().get();
+  it('deletes sources and nulls sourceId on links when the integration is deleted', async () => {
+    const { id: linkId } = await link({ taskId }).returning().get();
 
-    db.delete(integrations).where(eq(integrations.id, integrationId)).run();
+    await db.delete(integrations).where(eq(integrations.id, integrationId)).run();
 
-    expect(db.select().from(externalSources).all()).toEqual([]);
-    const survivor = db.select().from(externalLinks).where(eq(externalLinks.id, linkId)).get()!;
+    expect(await db.select().from(externalSources).all()).toEqual([]);
+    const survivor = await db
+      .select()
+      .from(externalLinks)
+      .where(eq(externalLinks.id, linkId))
+      .get()!;
     // the detached copy keeps its provider and url for the badge
     expect(survivor).toMatchObject({ sourceId: null, provider: Provider.LINEAR, taskId });
-    expect(db.select().from(tasks).all()).toHaveLength(1);
+    expect(await db.select().from(tasks).all()).toHaveLength(1);
   });
 
-  it('rejects a link to a missing source or entity', () => {
-    expect(failure(() => link({ taskId, sourceId: 'src_nope' as ExternalSourceId }).run())).toMatch(
-      /FOREIGN KEY constraint failed/,
-    );
-    expect(failure(() => link({ taskId: 'tsk_nope' as TaskId }).run())).toMatch(
+  it('rejects a link to a missing source or entity', async () => {
+    expect(
+      await failure(() => link({ taskId, sourceId: 'src_nope' as ExternalSourceId }).run()),
+    ).toMatch(/FOREIGN KEY constraint failed/);
+    expect(await failure(() => link({ taskId: 'tsk_nope' as TaskId }).run())).toMatch(
       /FOREIGN KEY constraint failed/,
     );
   });

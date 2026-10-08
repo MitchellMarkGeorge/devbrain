@@ -13,7 +13,7 @@ import { LinkState } from '../../integrations/types';
 // Verifies the keyset-paginated queries are served by the pagination indexes: the plan must
 // SEARCH/SCAN using the expected index and must not need a temp b-tree for ORDER BY.
 
-const db = createDb();
+const db = await createDb();
 
 interface Case {
   name: string;

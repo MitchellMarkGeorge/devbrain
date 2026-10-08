@@ -996,9 +996,9 @@ async function main() {
     const allTasks = [...topLevelTasks, ...subtasks];
 
     console.log('Indexing everything for search...');
-    workspace.search.indexProjects(projects);
-    workspace.search.indexEvents(events);
-    workspace.search.indexTasks(allTasks);
+    await workspace.search.indexProjects(projects);
+    await workspace.search.indexEvents(events);
+    await workspace.search.indexTasks(allTasks);
     await workspace.search.indexNotes(allNotes);
 
     workspace.close();

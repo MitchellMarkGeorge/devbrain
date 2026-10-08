@@ -21,7 +21,7 @@ export class SearchService {
     this.workspaceNotesPath = path.join(workspacePath, 'notes');
   }
 
-  search({ query, entityType, limit }: SearchOptions): SearchResult[] {
+  async search({ query, entityType, limit }: SearchOptions): Promise<SearchResult[]> {
     const ftsQuery = toFtsQuery(query);
 
     if (!ftsQuery) return [];
@@ -49,25 +49,35 @@ export class SearchService {
       searchQuery.append(sql` LIMIT ${sql.raw(limit.toString())}`);
     }
 
-    const result: SearchResult[] = this.db.all(searchQuery);
+    // the proxy driver returns raw queries as arrays of column values, in SELECT order
+    const rows =
+      await this.db.values<
+        [string, string, SearchResult['entityId'], SearchResult['entityType'], number]
+      >(searchQuery);
 
-    return result;
+    return rows.map(([title, body, entityId, entityType, rank]) => ({
+      title,
+      body,
+      entityId,
+      entityType,
+      rank,
+    }));
   }
 
-  indexTask(task: Task) {
-    this.indexTasks([task]);
+  async indexTask(task: Task): Promise<void> {
+    await this.indexTasks([task]);
   }
 
   async indexNote(note: Note) {
     await this.indexNotes([note]);
   }
 
-  indexProject(project: Project) {
-    this.indexProjects([project]);
+  async indexProject(project: Project): Promise<void> {
+    await this.indexProjects([project]);
   }
 
-  indexEvent(event: Event) {
-    this.indexEvents([event]);
+  async indexEvent(event: Event): Promise<void> {
+    await this.indexEvents([event]);
   }
 
   // plural counterparts to the single-entity methods above — the whole batch
@@ -75,8 +85,8 @@ export class SearchService {
   // transaction, instead of a DELETE+INSERT pair per entity. Matters once
   // you're indexing more than a handful of rows at a time (e.g. a bulk
   // (re)index or a seed script).
-  indexTasks(tasks: Task[]): void {
-    this.upsertIndexBatch(
+  async indexTasks(tasks: Task[]): Promise<void> {
+    await this.upsertIndexBatch(
       tasks.map((task) => ({
         title: task.title,
         body: task.description ?? '',
@@ -90,7 +100,8 @@ export class SearchService {
     // the DB only keeps a truncated plaintext preview — read each note's
     // backing markdown file for the full body and strip its formatting so
     // the index holds plain, searchable text. The file reads are resolved
-    // up front so the transaction below only ever does synchronous work.
+    // up front so the transaction below holds the connection only for the
+    // writes.
     const entities = await Promise.all(
       notes.map(async (note) => {
         const { content } = await readNoteFile(this.noteFilePath(note.id));
@@ -102,11 +113,11 @@ export class SearchService {
         };
       }),
     );
-    this.upsertIndexBatch(entities);
+    await this.upsertIndexBatch(entities);
   }
 
-  indexProjects(projects: Project[]): void {
-    this.upsertIndexBatch(
+  async indexProjects(projects: Project[]): Promise<void> {
+    await this.upsertIndexBatch(
       projects.map((project) => ({
         title: project.title,
         body: project.description ?? '',
@@ -116,8 +127,8 @@ export class SearchService {
     );
   }
 
-  indexEvents(events: Event[]): void {
-    this.upsertIndexBatch(
+  async indexEvents(events: Event[]): Promise<void> {
+    await this.upsertIndexBatch(
       events.map((event) => ({
         title: event.title,
         body: event.description ?? '',
@@ -131,7 +142,7 @@ export class SearchService {
     return path.join(this.workspaceNotesPath, `${id}.md`);
   }
 
-  private upsertIndexBatch(entities: IndexEntity[]): void {
+  private async upsertIndexBatch(entities: IndexEntity[]): Promise<void> {
     if (entities.length === 0) return;
 
     // search_index is a plain (non-content-linked) fts5 table, so there's no
@@ -156,9 +167,9 @@ export class SearchService {
     );
     const insertQuery = sql`INSERT INTO search_index (title, body, entity_id, entity_type) VALUES ${valueRows}`;
 
-    this.db.transaction((tx) => {
-      tx.run(deleteQuery);
-      tx.run(insertQuery);
+    await this.db.transaction(async (tx) => {
+      await tx.run(deleteQuery);
+      await tx.run(insertQuery);
     });
   }
 }

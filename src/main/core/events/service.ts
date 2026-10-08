@@ -64,7 +64,7 @@ export class EventService {
         throw new Error('endAt must not be before startAt');
       }
     } else {
-      assertEditable(this.db, id);
+      await assertEditable(this.db, id);
     }
 
     const [updatedEvent] = await this.db
@@ -79,7 +79,7 @@ export class EventService {
   async deleteEvent(id: EventId): Promise<void> {
     // events have no archivedAt column (unlike notes/tasks/projects) — this
     // is a hard delete
-    assertEditable(this.db, id);
+    await assertEditable(this.db, id);
     const [deleted] = await this.db.delete(events).where(eq(events.id, id)).returning();
     if (!deleted) throw new NotFoundError(id);
   }

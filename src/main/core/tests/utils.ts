@@ -10,10 +10,10 @@ export const MIGRATIONS_PATH = path.resolve(
   '../../db/migrations',
 );
 
-export function createDb(): NodeSQLiteDatabase {
+export async function createDb(): Promise<NodeSQLiteDatabase> {
   const sqlite = new DatabaseSync(':memory:');
   const db = drizzle({ client: sqlite, casing: 'snake_case' });
-  runMigrations(sqlite, db, MIGRATIONS_PATH);
+  await runMigrations(sqlite, db, MIGRATIONS_PATH);
   return db;
 }
 

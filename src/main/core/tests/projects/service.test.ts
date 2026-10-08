@@ -29,7 +29,7 @@ let notesService: NoteService;
 let workspacePath: string;
 
 beforeEach(async () => {
-  db = createDb();
+  db = await createDb();
   projects = new ProjectService(db);
   tasks = new TaskService(db);
   archive = new ArchiveService(db);
@@ -150,7 +150,7 @@ describe('ProjectService — getById', () => {
 
   it('throws NotFoundError for an archived project', async () => {
     const project = await projects.createProject({ title: 'Will be archived', dueDate: TOMORROW });
-    archive.archiveProject(project.id);
+    await archive.archiveProject(project.id);
     await expect(projects.getById(project.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 });
@@ -174,7 +174,7 @@ describe('ProjectService — getByIds', () => {
 
   it('excludes archived projects even when their id is requested', async () => {
     const project = await projects.createProject({ title: 'Archived', dueDate: TOMORROW });
-    archive.archiveProject(project.id);
+    await archive.archiveProject(project.id);
     const result = await projects.getByIds([project.id]);
     expect(result).toHaveLength(0);
   });
@@ -279,7 +279,7 @@ describe('ProjectService — listProjects', () => {
       status: ProjectStatus.ACTIVE,
     });
     const archived = await projects.createProject({ title: 'Archived', dueDate: TOMORROW });
-    archive.archiveProject(archived.id);
+    await archive.archiveProject(archived.id);
 
     const result = (await projects.listProjects()).items;
     const ids = result.map((p) => p.id);
@@ -386,7 +386,7 @@ describe('ProjectService — listProjects', () => {
       dueDate: TOMORROW,
       status: ProjectStatus.ACTIVE,
     });
-    archive.archiveProject(project.id);
+    await archive.archiveProject(project.id);
     const result = (await projects.listProjects({ status: ProjectStatus.ACTIVE })).items;
     expect(result.map((p) => p.id)).not.toContain(project.id);
   });
@@ -425,7 +425,7 @@ describe('ProjectService — getProjectStats', () => {
 
   it('throws NotFoundError for an archived project', async () => {
     const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
-    archive.archiveProject(project.id);
+    await archive.archiveProject(project.id);
     await expect(projects.getProjectStats(project.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
@@ -513,7 +513,7 @@ describe('ProjectService — getProjectStats', () => {
       projectId: project.id,
       status: TaskStatus.IN_PROGRESS,
     });
-    archive.archiveTask(task.id);
+    await archive.archiveTask(task.id);
 
     const stats = await projects.getProjectStats(project.id);
     expect(stats.numOfInProgress).toBe(0);
@@ -533,7 +533,7 @@ describe('ProjectService — getProjectStats', () => {
       dueDate: TOMORROW,
       projectId: project.id,
     });
-    archive.archiveTask(t3.id);
+    await archive.archiveTask(t3.id);
     // unrelated task
     await tasks.createTask({ title: 'Unrelated', dueDate: TOMORROW });
 
@@ -570,7 +570,7 @@ describe('ArchiveService — archiveProject', () => {
   it('sets archivedAt to a recent timestamp', async () => {
     const project = await projects.createProject({ title: 'To archive', dueDate: TOMORROW });
     const before = new Date();
-    const archived = archive.archiveProject(project.id);
+    const archived = await archive.archiveProject(project.id);
     const after = new Date();
     expect(archived.archivedAt).not.toBeNull();
     expect(archived.archivedAt!.getTime()).toBeGreaterThanOrEqual(before.getTime());
@@ -579,20 +579,20 @@ describe('ArchiveService — archiveProject', () => {
 
   it('returns the updated project row', async () => {
     const project = await projects.createProject({ title: 'Archivable', dueDate: TOMORROW });
-    const result = archive.archiveProject(project.id);
+    const result = await archive.archiveProject(project.id);
     expect(result.id).toBe(project.id);
     expect(result.title).toBe('Archivable');
   });
 
   it('archived project is no longer returned by ProjectService.getById', async () => {
     const project = await projects.createProject({ title: 'Gone', dueDate: TOMORROW });
-    archive.archiveProject(project.id);
+    await archive.archiveProject(project.id);
     await expect(projects.getById(project.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('archived project is excluded from ProjectService.listProjects', async () => {
     const project = await projects.createProject({ title: 'Gone', dueDate: TOMORROW });
-    archive.archiveProject(project.id);
+    await archive.archiveProject(project.id);
     const result = (await projects.listProjects()).items;
     expect(result.map((p) => p.id)).not.toContain(project.id);
   });
@@ -609,7 +609,7 @@ describe('ArchiveService — archiveProject', () => {
       dueDate: TOMORROW,
       projectId: project.id,
     });
-    archive.archiveProject(project.id);
+    await archive.archiveProject(project.id);
     await expect(tasks.getById(t1.id)).rejects.toBeInstanceOf(NotFoundError);
     await expect(tasks.getById(t2.id)).rejects.toBeInstanceOf(NotFoundError);
   });
@@ -622,7 +622,7 @@ describe('ArchiveService — archiveProject', () => {
       projectId: project.id,
     });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
-    archive.archiveProject(project.id);
+    await archive.archiveProject(project.id);
     await expect(tasks.getById(sub.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
@@ -634,7 +634,7 @@ describe('ArchiveService — archiveProject', () => {
       dueDate: TOMORROW,
       projectId: projectB.id,
     });
-    archive.archiveProject(projectA.id);
+    await archive.archiveProject(projectA.id);
     await expect(tasks.getById(taskInB.id)).resolves.toMatchObject({ id: taskInB.id });
   });
 
@@ -645,10 +645,10 @@ describe('ArchiveService — archiveProject', () => {
       dueDate: TOMORROW,
       projectId: project.id,
     });
-    archive.archiveTask(task.id);
+    await archive.archiveTask(task.id);
 
     const before = new Date();
-    archive.archiveProject(project.id);
+    await archive.archiveProject(project.id);
     const after = new Date();
 
     // archiveProject stamps all tasks with a fresh timestamp regardless of prior archive state
@@ -662,7 +662,7 @@ describe('ArchiveService — archiveProject', () => {
   it('archives notes directly owned by the project', async () => {
     const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
     const note = await notesService.createNote({ projectId: project.id });
-    archive.archiveProject(project.id);
+    await archive.archiveProject(project.id);
     await expect(notesService.getById(note.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
@@ -674,7 +674,7 @@ describe('ArchiveService — archiveProject', () => {
       projectId: project.id,
     });
     const taskNote = await notesService.createNote({ linkedTaskId: task.id });
-    archive.archiveProject(project.id);
+    await archive.archiveProject(project.id);
     await expect(notesService.getById(taskNote.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
@@ -687,7 +687,7 @@ describe('ArchiveService — archiveProject', () => {
     });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
     const subNote = await notesService.createNote({ linkedTaskId: sub.id });
-    archive.archiveProject(project.id);
+    await archive.archiveProject(project.id);
     await expect(notesService.getById(subNote.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
@@ -695,7 +695,7 @@ describe('ArchiveService — archiveProject', () => {
     const projectA = await projects.createProject({ title: 'A', dueDate: TOMORROW });
     const projectB = await projects.createProject({ title: 'B', dueDate: TOMORROW });
     const noteInB = await notesService.createNote({ projectId: projectB.id });
-    archive.archiveProject(projectA.id);
+    await archive.archiveProject(projectA.id);
     await expect(notesService.getById(noteInB.id)).resolves.toMatchObject({ id: noteInB.id });
   });
 
@@ -708,56 +708,56 @@ describe('ArchiveService — archiveProject', () => {
       projectId: projectB.id,
     });
     const noteInB = await notesService.createNote({ linkedTaskId: taskInB.id });
-    archive.archiveProject(projectA.id);
+    await archive.archiveProject(projectA.id);
     await expect(notesService.getById(noteInB.id)).resolves.toMatchObject({ id: noteInB.id });
   });
 
   it('does not archive unrelated notes (no project, no linked task)', async () => {
     const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
     const unrelated = await notesService.createNote({ title: 'Unrelated' });
-    archive.archiveProject(project.id);
+    await archive.archiveProject(project.id);
     await expect(notesService.getById(unrelated.id)).resolves.toMatchObject({ id: unrelated.id });
   });
 
   it('throws NotFoundError for an unknown project id', async () => {
-    expect(() => archive.archiveProject(generateId('project'))).toThrow(NotFoundError);
+    await expect(archive.archiveProject(generateId('project'))).rejects.toThrow(NotFoundError);
   });
 
   it('throws AlreadyArchivedError when the project is already archived', async () => {
     const project = await projects.createProject({ title: 'Archive me once', dueDate: TOMORROW });
-    archive.archiveProject(project.id);
-    expect(() => archive.archiveProject(project.id)).toThrow(AlreadyArchivedError);
+    await archive.archiveProject(project.id);
+    await expect(archive.archiveProject(project.id)).rejects.toThrow(AlreadyArchivedError);
   });
 });
 
 describe('ArchiveService — restoreProject', () => {
   it('clears archivedAt on the project', async () => {
     const project = await projects.createProject({ title: 'Restore me', dueDate: TOMORROW });
-    archive.archiveProject(project.id);
-    const restored = archive.restoreProject(project.id);
+    await archive.archiveProject(project.id);
+    const restored = await archive.restoreProject(project.id);
     expect(restored.archivedAt).toBeNull();
   });
 
   it('returns the updated project row', async () => {
     const project = await projects.createProject({ title: 'Restore me', dueDate: TOMORROW });
-    archive.archiveProject(project.id);
-    const result = archive.restoreProject(project.id);
+    await archive.archiveProject(project.id);
+    const result = await archive.restoreProject(project.id);
     expect(result.id).toBe(project.id);
     expect(result.title).toBe('Restore me');
   });
 
   it('restored project is visible via ProjectService.getById', async () => {
     const project = await projects.createProject({ title: 'Restored', dueDate: TOMORROW });
-    archive.archiveProject(project.id);
-    archive.restoreProject(project.id);
+    await archive.archiveProject(project.id);
+    await archive.restoreProject(project.id);
     const found = await projects.getById(project.id);
     expect(found.id).toBe(project.id);
   });
 
   it('restored project appears in ProjectService.listProjects', async () => {
     const project = await projects.createProject({ title: 'Restored', dueDate: TOMORROW });
-    archive.archiveProject(project.id);
-    archive.restoreProject(project.id);
+    await archive.archiveProject(project.id);
+    await archive.restoreProject(project.id);
     const result = (await projects.listProjects()).items;
     expect(result.map((p) => p.id)).toContain(project.id);
   });
@@ -774,8 +774,8 @@ describe('ArchiveService — restoreProject', () => {
       dueDate: TOMORROW,
       projectId: project.id,
     });
-    archive.archiveProject(project.id);
-    archive.restoreProject(project.id);
+    await archive.archiveProject(project.id);
+    await archive.restoreProject(project.id);
     await expect(tasks.getById(t1.id)).resolves.toMatchObject({ id: t1.id });
     await expect(tasks.getById(t2.id)).resolves.toMatchObject({ id: t2.id });
   });
@@ -788,8 +788,8 @@ describe('ArchiveService — restoreProject', () => {
       projectId: project.id,
       status: TaskStatus.IN_PROGRESS,
     });
-    archive.archiveProject(project.id);
-    archive.restoreProject(project.id);
+    await archive.archiveProject(project.id);
+    await archive.restoreProject(project.id);
     const result = (await tasks.listTasks({ status: TaskStatus.IN_PROGRESS })).items;
     expect(result.map((t) => t.id)).toContain(task.id);
   });
@@ -808,9 +808,9 @@ describe('ArchiveService — restoreProject', () => {
     });
 
     // archive one task independently before archiving the project
-    archive.archiveTask(independentlyArchived.id);
-    archive.archiveProject(project.id);
-    archive.restoreProject(project.id);
+    await archive.archiveTask(independentlyArchived.id);
+    await archive.archiveProject(project.id);
+    await archive.restoreProject(project.id);
 
     const restoredTask = await tasks.getById(projectTask.id);
     expect(restoredTask.id).toBe(projectTask.id);
@@ -824,8 +824,8 @@ describe('ArchiveService — restoreProject', () => {
       dueDate: TOMORROW,
       projectId: projectB.id,
     });
-    archive.archiveProject(projectA.id);
-    archive.restoreProject(projectA.id);
+    await archive.archiveProject(projectA.id);
+    await archive.restoreProject(projectA.id);
     // taskInB was never archived, should still be visible
     await expect(tasks.getById(taskInB.id)).resolves.toMatchObject({ id: taskInB.id });
   });
@@ -833,8 +833,8 @@ describe('ArchiveService — restoreProject', () => {
   it('restores notes directly owned by the project', async () => {
     const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
     const note = await notesService.createNote({ projectId: project.id });
-    archive.archiveProject(project.id);
-    archive.restoreProject(project.id);
+    await archive.archiveProject(project.id);
+    await archive.restoreProject(project.id);
     await expect(notesService.getById(note.id)).resolves.toMatchObject({ id: note.id });
   });
 
@@ -846,8 +846,8 @@ describe('ArchiveService — restoreProject', () => {
       projectId: project.id,
     });
     const taskNote = await notesService.createNote({ linkedTaskId: task.id });
-    archive.archiveProject(project.id);
-    archive.restoreProject(project.id);
+    await archive.archiveProject(project.id);
+    await archive.restoreProject(project.id);
     await expect(notesService.getById(taskNote.id)).resolves.toMatchObject({ id: taskNote.id });
   });
 
@@ -855,20 +855,20 @@ describe('ArchiveService — restoreProject', () => {
     const projectA = await projects.createProject({ title: 'A', dueDate: TOMORROW });
     const projectB = await projects.createProject({ title: 'B', dueDate: TOMORROW });
     const noteInB = await notesService.createNote({ projectId: projectB.id });
-    archive.archiveNote(noteInB.id);
-    archive.archiveProject(projectA.id);
-    archive.restoreProject(projectA.id);
+    await archive.archiveNote(noteInB.id);
+    await archive.archiveProject(projectA.id);
+    await archive.restoreProject(projectA.id);
     // noteInB was archived independently, restoring project A shouldn't touch it
     await expect(notesService.getById(noteInB.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('throws NotFoundError for an unknown project id', async () => {
-    expect(() => archive.restoreProject(generateId('project'))).toThrow(NotFoundError);
+    await expect(archive.restoreProject(generateId('project'))).rejects.toThrow(NotFoundError);
   });
 
   it('throws NotArchivedError when the project is not archived', async () => {
     const project = await projects.createProject({ title: 'Never archived', dueDate: TOMORROW });
-    expect(() => archive.restoreProject(project.id)).toThrow(NotArchivedError);
+    await expect(archive.restoreProject(project.id)).rejects.toThrow(NotArchivedError);
   });
 });
 
@@ -919,7 +919,7 @@ describe('ProjectService — cursor pagination', () => {
   it('does not return archived projects on later pages', async () => {
     const created = await seed(4);
     const first = await projects.listProjects({}, { sortBy: 'createdAt' }, { limit: 2 });
-    archive.archiveProject(created[0].id);
+    await archive.archiveProject(created[0].id);
     const second = await projects.listProjects(
       {},
       { sortBy: 'createdAt' },

@@ -28,9 +28,10 @@ let linkCount = 0;
 
 type Entity = { taskId: TaskId } | { projectId: ProjectId } | { eventId: EventId };
 
-function link(entity: Entity, values: Partial<typeof externalLinks.$inferInsert> = {}) {
+async function link(entity: Entity, values: Partial<typeof externalLinks.$inferInsert> = {}) {
   linkCount += 1;
-  db.insert(externalLinks)
+  await db
+    .insert(externalLinks)
     .values({
       sourceId,
       provider: Provider.LINEAR,
@@ -60,27 +61,31 @@ async function allPages(
 
 const ids = (rows: { id: string }[]) => rows.map((r) => r.id).sort();
 
-beforeEach(() => {
-  db = createDb();
+beforeEach(async () => {
+  db = await createDb();
   tasks = new TaskService(db);
   projects = new ProjectService(db);
   events = new EventService(db);
-  const integrationId = db
-    .insert(integrations)
-    .values({
-      provider: Provider.LINEAR,
-      authType: AuthType.API_KEY,
-      accountId: 'org:user',
-      accountLabel: 'Ada, Acme',
-      credentials: Buffer.from('ciphertext'),
-    })
-    .returning()
-    .get().id;
-  sourceId = db
-    .insert(externalSources)
-    .values({ integrationId, sourceType: SourceType.TASKS })
-    .returning()
-    .get().id;
+  const integrationId = (
+    await db
+      .insert(integrations)
+      .values({
+        provider: Provider.LINEAR,
+        authType: AuthType.API_KEY,
+        accountId: 'org:user',
+        accountLabel: 'Ada, Acme',
+        credentials: Buffer.from('ciphertext'),
+      })
+      .returning()
+      .get()
+  ).id;
+  sourceId = (
+    await db
+      .insert(externalSources)
+      .values({ integrationId, sourceType: SourceType.TASKS })
+      .returning()
+      .get()
+  ).id;
 });
 
 describe('refs — tasks', () => {
@@ -90,7 +95,7 @@ describe('refs — tasks', () => {
   beforeEach(async () => {
     synced = await tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
     local = await tasks.createTask({ title: 'Local', dueDate: TOMORROW });
-    link(
+    await link(
       { taskId: synced.id },
       {
         externalKey: 'ENG-123',
@@ -131,7 +136,7 @@ describe('refs — tasks', () => {
 
   it('listSubtasks fills each subtask', async () => {
     const child = await tasks.createSubtask(local.id, { title: 'Child' });
-    link({ taskId: child.id }, { externalKey: 'ENG-124' });
+    await link({ taskId: child.id }, { externalKey: 'ENG-124' });
     const { items } = await tasks.listSubtasks(local.id);
     expect(items).toHaveLength(1);
     expect(items[0].external).toMatchObject({ key: 'ENG-124', state: LinkState.SYNCED });
@@ -139,13 +144,13 @@ describe('refs — tasks', () => {
 
   it('keeps the ref of a detached task, with its state', async () => {
     const detached = await tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
-    link({ taskId: detached.id }, { state: LinkState.DETACHED });
+    await link({ taskId: detached.id }, { state: LinkState.DETACHED });
     expect((await tasks.getById(detached.id)).external?.state).toBe(LinkState.DETACHED);
   });
 
   it('reads missing labels as null', async () => {
     const bare = await tasks.createTask({ title: 'Bare', dueDate: TOMORROW });
-    link({ taskId: bare.id }, { externalKey: null });
+    await link({ taskId: bare.id }, { externalKey: null });
     expect((await tasks.getById(bare.id)).external).toMatchObject({
       key: null,
       statusLabel: null,
@@ -155,7 +160,7 @@ describe('refs — tasks', () => {
 
   it('an unreadable metadata blob costs only the labels', async () => {
     const odd = await tasks.createTask({ title: 'Odd', dueDate: TOMORROW });
-    link({ taskId: odd.id }, { metadata: { statusLabel: 42 } });
+    await link({ taskId: odd.id }, { metadata: { statusLabel: 42 } });
     expect((await tasks.getById(odd.id)).external).toMatchObject({
       key: expect.any(String),
       statusLabel: null,
@@ -168,7 +173,7 @@ describe('refs — projects', () => {
   it('getById, getByIds and listProjects return the ref, with the status label only', async () => {
     const synced = await projects.createProject({ title: 'Synced', dueDate: TOMORROW });
     const local = await projects.createProject({ title: 'Local', dueDate: TOMORROW });
-    link(
+    await link(
       { projectId: synced.id },
       { externalKey: null, metadata: { statusLabel: 'Planned', priorityLabel: 'Ignored' } },
     );
@@ -205,7 +210,7 @@ describe('refs — events', () => {
   it('getById, getByIds and listEventsInRange return the ref, with no labels', async () => {
     const synced = await events.createEvent({ title: 'Synced', startAt: start, endAt: end });
     const local = await events.createEvent({ title: 'Local', startAt: start, endAt: end });
-    link(
+    await link(
       { eventId: synced.id },
       {
         provider: Provider.GOOGLE_CALENDAR,
@@ -243,8 +248,8 @@ describe('refs — events', () => {
     const removed = await events.createEvent({ title: 'Removed', startAt: start, endAt: end });
     const synced = await events.createEvent({ title: 'Synced', startAt: start, endAt: end });
     const local = await events.createEvent({ title: 'Local', startAt: start, endAt: end });
-    link({ eventId: removed.id }, { state: LinkState.REMOVED, removedAt: SYNCED_AT });
-    link({ eventId: synced.id });
+    await link({ eventId: removed.id }, { state: LinkState.REMOVED, removedAt: SYNCED_AT });
+    await link({ eventId: synced.id });
 
     const { items } = await events.listEventsInRange(...range);
     expect(ids(items)).toEqual(ids([synced, local]));
@@ -278,9 +283,9 @@ describe('TaskService — listTasks origin filter', () => {
     detached = await tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
     removed = await tasks.createTask({ title: 'Removed', dueDate: TOMORROW });
     local = await tasks.createTask({ title: 'Local', dueDate: TOMORROW });
-    link({ taskId: synced.id });
-    link({ taskId: detached.id }, { state: LinkState.DETACHED });
-    link({ taskId: removed.id }, { state: LinkState.REMOVED, removedAt: SYNCED_AT });
+    await link({ taskId: synced.id });
+    await link({ taskId: detached.id }, { state: LinkState.DETACHED });
+    await link({ taskId: removed.id }, { state: LinkState.REMOVED, removedAt: SYNCED_AT });
   });
 
   it('external returns only synced tasks', async () => {
@@ -320,13 +325,13 @@ describe('TaskService — listTasks origin filter pagination', () => {
         dueDate: new Date(TOMORROW.getTime() + (i % 3) * 86_400_000),
       });
       if (i % 5 === 0)
-        db.update(tasksTable).set({ dueDate: null }).where(eq(tasksTable.id, task.id)).run();
+        await db.update(tasksTable).set({ dueDate: null }).where(eq(tasksTable.id, task.id)).run();
       if (i % 2 === 0) {
-        link({ taskId: task.id });
+        await link({ taskId: task.id });
         external.push(task);
       } else {
         // every other local task is a detached copy
-        if (i % 4 === 1) link({ taskId: task.id }, { state: LinkState.DETACHED });
+        if (i % 4 === 1) await link({ taskId: task.id }, { state: LinkState.DETACHED });
         localTasks.push(task);
       }
     }
@@ -363,10 +368,10 @@ describe('ProjectService — listProjects origin filter', () => {
     for (let i = 0; i < 7; i++) {
       const project = await projects.createProject({ title: `Project ${i}`, dueDate: TOMORROW });
       if (i % 2 === 0) {
-        link({ projectId: project.id });
+        await link({ projectId: project.id });
         synced.push(project.id);
       } else {
-        if (i === 1) link({ projectId: project.id }, { state: LinkState.DETACHED });
+        if (i === 1) await link({ projectId: project.id }, { state: LinkState.DETACHED });
         local.push(project.id);
       }
     }

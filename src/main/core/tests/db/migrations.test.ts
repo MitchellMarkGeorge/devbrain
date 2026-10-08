@@ -112,9 +112,9 @@ function columnNotNull(sqlite: DatabaseSync, table: string, column: string): boo
 }
 
 describe('migration 0016 — nullable due dates', () => {
-  it('rebuilds tasks and projects without losing rows, links, indexes or checks', () => {
+  it('rebuilds tasks and projects without losing rows, links, indexes or checks', async () => {
     const { sqlite, db } = openDb();
-    migrate(db, { migrationsFolder: migrationsUpTo(15) });
+    await migrate(db, { migrationsFolder: migrationsUpTo(15) });
     seed(sqlite);
 
     const before = snapshot(sqlite);
@@ -128,7 +128,7 @@ describe('migration 0016 — nullable due dates', () => {
     expect(columnNotNull(sqlite, 'projects', 'due_date')).toBe(true);
 
     // stop at 0016 so the index comparison below covers this migration alone
-    runMigrations(sqlite, db, migrationsUpTo(16));
+    await runMigrations(sqlite, db, migrationsUpTo(16));
 
     // every row, including every foreign key column, is unchanged
     expect(snapshot(sqlite)).toEqual(before);
@@ -151,9 +151,9 @@ describe('migration 0016 — nullable due dates', () => {
     sqlite.close();
   });
 
-  it('keeps foreign keys enforced and accepts null due dates afterwards', () => {
+  it('keeps foreign keys enforced and accepts null due dates afterwards', async () => {
     const { sqlite, db } = openDb();
-    runMigrations(sqlite, db, MIGRATIONS_PATH);
+    await runMigrations(sqlite, db, MIGRATIONS_PATH);
     expect(pluckGet(sqlite, 'PRAGMA foreign_keys')).toBe(1);
 
     sqlite.exec(`INSERT INTO projects (id, title) VALUES ('prj_x', 'Undated')`);
@@ -179,9 +179,9 @@ function tableNames(sqlite: DatabaseSync): string[] {
 }
 
 describe('migration 0017 — integration tables', () => {
-  it('applies to a fresh database', () => {
+  it('applies to a fresh database', async () => {
     const { sqlite, db } = openDb();
-    runMigrations(sqlite, db, MIGRATIONS_PATH);
+    await runMigrations(sqlite, db, MIGRATIONS_PATH);
 
     expect(tableNames(sqlite)).toEqual(expect.arrayContaining([...INTEGRATION_TABLES]));
     expect(checkConstraints(sqlite, 'external_links')).toEqual(['one_entity']);
@@ -200,9 +200,9 @@ describe('migration 0017 — integration tables', () => {
     sqlite.close();
   });
 
-  it('applies to a database seeded at 0016 without touching existing rows', () => {
+  it('applies to a database seeded at 0016 without touching existing rows', async () => {
     const { sqlite, db } = openDb();
-    migrate(db, { migrationsFolder: migrationsUpTo(16) });
+    await migrate(db, { migrationsFolder: migrationsUpTo(16) });
     seed(sqlite);
     // undated rows only exist from 0016 on
     sqlite.exec(`INSERT INTO tasks (id, title) VALUES ('tsk_undated', 'Undated')`);
@@ -211,7 +211,7 @@ describe('migration 0017 — integration tables', () => {
     const indexesBefore = schemaObjects(sqlite, 'index');
     for (const table of INTEGRATION_TABLES) expect(tableNames(sqlite)).not.toContain(table);
 
-    runMigrations(sqlite, db, MIGRATIONS_PATH);
+    await runMigrations(sqlite, db, MIGRATIONS_PATH);
 
     expect(snapshot(sqlite)).toEqual(before);
     // only the new tables' indexes were added
@@ -244,9 +244,9 @@ INSERT INTO no_such_table VALUES (1);`;
 const DANGLING_SQL = `INSERT INTO tasks (id, title, project_id) VALUES ('tsk_dangling', 'Dangling', 'prj_missing');`;
 
 describe('runMigrations — failures', () => {
-  function caught(fn: () => void): WorkspaceMigrationError {
+  async function caught(fn: () => Promise<void>): Promise<WorkspaceMigrationError> {
     try {
-      fn();
+      await fn();
     } catch (error) {
       expect(error).toBeInstanceOf(WorkspaceMigrationError);
       return error as WorkspaceMigrationError;
@@ -254,15 +254,15 @@ describe('runMigrations — failures', () => {
     throw new Error('expected runMigrations to throw');
   }
 
-  it('reports a failed statement as rolled back and leaves the database unchanged', () => {
+  it('reports a failed statement as rolled back and leaves the database unchanged', async () => {
     const { sqlite, db } = openDb();
-    runMigrations(sqlite, db, MIGRATIONS_PATH);
+    await runMigrations(sqlite, db, MIGRATIONS_PATH);
     seed(sqlite);
     const before = snapshot(sqlite);
     const applied = pluckGet(sqlite, 'SELECT count(*) FROM __drizzle_migrations');
 
     const folder = migrationsWithExtra(path.join(tmpDir, 'broken'), '0099_broken', BROKEN_SQL);
-    const error = caught(() => runMigrations(sqlite, db, folder));
+    const error = await caught(() => runMigrations(sqlite, db, folder));
 
     expect(error.code).toBe('workspace_migration');
     expect(error.committed).toBe(false);
@@ -280,16 +280,16 @@ describe('runMigrations — failures', () => {
     sqlite.close();
   });
 
-  it('reports broken references found after the commit as committed', () => {
+  it('reports broken references found after the commit as committed', async () => {
     const { sqlite, db } = openDb();
-    runMigrations(sqlite, db, MIGRATIONS_PATH);
+    await runMigrations(sqlite, db, MIGRATIONS_PATH);
 
     const folder = migrationsWithExtra(
       path.join(tmpDir, 'dangling'),
       '0099_dangling',
       DANGLING_SQL,
     );
-    const error = caught(() => runMigrations(sqlite, db, folder));
+    const error = await caught(() => runMigrations(sqlite, db, folder));
 
     expect(error.committed).toBe(true);
     expect(error.cause).toEqual([expect.objectContaining({ table: 'tasks', parent: 'projects' })]);

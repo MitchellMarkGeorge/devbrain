@@ -48,7 +48,7 @@ export class ProjectService {
   }
 
   async updateProject(id: ProjectId, updates: UpdateProjectOptions): Promise<Project | null> {
-    assertEditable(this.db, id);
+    await assertEditable(this.db, id);
     const [updatedProject] = await this.db
       .update(projects)
       .set(updates)
@@ -58,7 +58,7 @@ export class ProjectService {
   }
 
   async updateStatus(id: ProjectId, newStatus: ProjectStatus): Promise<Project> {
-    assertEditable(this.db, id);
+    await assertEditable(this.db, id);
     const [row] = await this.db
       .update(projects)
       .set({

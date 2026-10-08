@@ -23,8 +23,11 @@ const REFRESH_TOKEN = '1//refresh-secret';
 const NOW = new Date('2026-10-07T12:00:00Z').getTime();
 
 // IntegrationService does not exist yet, so rows go in directly with an empty blob
-function insertIntegration(db: NodeSQLiteDatabase, provider = Provider.LINEAR): IntegrationId {
-  const [row] = db
+async function insertIntegration(
+  db: NodeSQLiteDatabase,
+  provider = Provider.LINEAR,
+): Promise<IntegrationId> {
+  const [row] = await db
     .insert(integrations)
     .values({
       provider,
@@ -38,12 +41,13 @@ function insertIntegration(db: NodeSQLiteDatabase, provider = Provider.LINEAR): 
   return row.id;
 }
 
-function storedBlob(db: NodeSQLiteDatabase, id: IntegrationId): Buffer {
-  return db
+async function storedBlob(db: NodeSQLiteDatabase, id: IntegrationId): Promise<Buffer> {
+  const row = await db
     .select({ credentials: integrations.credentials })
     .from(integrations)
     .where(eq(integrations.id, id))
-    .get()!.credentials;
+    .get();
+  return row!.credentials;
 }
 
 function apiKeyCredentials(apiKey: string): ApiKeyCredentials {
@@ -55,7 +59,7 @@ function oauthCredentials(tokens: Omit<OAuthCredentials, 'type'>): OAuthCredenti
 }
 
 async function decryptStored(cipher: FakeCipher, db: NodeSQLiteDatabase, id: IntegrationId) {
-  return JSON.parse((await cipher.decrypt(storedBlob(db, id))).result);
+  return JSON.parse((await cipher.decrypt(await storedBlob(db, id))).result);
 }
 
 function deferred<T>() {
@@ -70,15 +74,15 @@ describe('CredentialStore — storage', () => {
   let store: CredentialStore;
   let id: IntegrationId;
 
-  beforeEach(() => {
-    db = createDb();
+  beforeEach(async () => {
+    db = await createDb();
     cipher = new FakeCipher();
     store = new CredentialStore(db, { cipher });
-    id = insertIntegration(db);
+    id = await insertIntegration(db);
   });
 
   it('round-trips an API key', async () => {
-    store.save(id, await store.seal(apiKeyCredentials(API_KEY)));
+    await store.save(id, await store.seal(apiKeyCredentials(API_KEY)));
     expect(await store.getAuth(id)).toEqual({ authorization: API_KEY });
   });
 
@@ -89,14 +93,14 @@ describe('CredentialStore — storage', () => {
       refreshToken: REFRESH_TOKEN,
       expiresAt,
     });
-    store.save(id, await store.seal(credentials));
+    await store.save(id, await store.seal(credentials));
     expect(await store.getAuth(id)).toEqual({ authorization: `Bearer ${ACCESS_TOKEN}` });
     expect((await decryptStored(cipher, db, id)).expiresAt).toBe(expiresAt.toISOString());
   });
 
   it('does not store the plain key', async () => {
-    store.save(id, await store.seal(apiKeyCredentials(API_KEY)));
-    const blob = storedBlob(db, id);
+    await store.save(id, await store.seal(apiKeyCredentials(API_KEY)));
+    const blob = await storedBlob(db, id);
     expect(blob.length).toBeGreaterThan(0);
     expect(blob.includes(API_KEY)).toBe(false);
     expect(blob.toString('utf8')).not.toContain(API_KEY);
@@ -107,45 +111,45 @@ describe('CredentialStore — storage', () => {
     const sealing = store.seal(apiKeyCredentials(API_KEY));
     await expect(sealing).rejects.toThrow(IntegrationAuthError);
     await expect(sealing).rejects.toThrow(/Secure storage/);
-    expect(storedBlob(db, id).length).toBe(0);
+    expect((await storedBlob(db, id)).length).toBe(0);
   });
 
   it('saves inside a caller transaction, and rolls back with it', async () => {
     const sealed = await store.seal(apiKeyCredentials(API_KEY));
-    expect(() =>
-      db.transaction(() => {
-        store.save(id, sealed);
+    await expect(
+      db.transaction(async () => {
+        await store.save(id, sealed);
         throw new Error('connect failed');
       }),
-    ).toThrow('connect failed');
-    expect(storedBlob(db, id).length).toBe(0);
+    ).rejects.toThrow('connect failed');
+    expect((await storedBlob(db, id)).length).toBe(0);
 
-    db.transaction(() => store.save(id, sealed));
+    await db.transaction(() => store.save(id, sealed));
     expect(await store.getAuth(id)).toEqual({ authorization: API_KEY });
   });
 
   it('throws NotFoundError for an unknown integration', async () => {
     const missing = 'int_missing' as IntegrationId;
     const sealed = await store.seal(apiKeyCredentials(API_KEY));
-    expect(() => store.save(missing, sealed)).toThrow(NotFoundError);
-    expect(() => store.clear(missing)).toThrow(NotFoundError);
+    await expect(store.save(missing, sealed)).rejects.toThrow(NotFoundError);
+    await expect(store.clear(missing)).rejects.toThrow(NotFoundError);
     await expect(store.getAuth(missing)).rejects.toThrow(NotFoundError);
   });
 
   it('clears credentials, after which getAuth asks for a reconnect', async () => {
-    store.save(id, await store.seal(apiKeyCredentials(API_KEY)));
-    store.clear(id);
-    expect(storedBlob(db, id).length).toBe(0);
+    await store.save(id, await store.seal(apiKeyCredentials(API_KEY)));
+    await store.clear(id);
+    expect((await storedBlob(db, id)).length).toBe(0);
     await expect(store.getAuth(id)).rejects.toThrow(IntegrationAuthError);
   });
 
   it('re-encrypts a blob under a rotated key on read', async () => {
-    store.save(id, await store.seal(apiKeyCredentials(API_KEY)));
-    const before = storedBlob(db, id);
+    await store.save(id, await store.seal(apiKeyCredentials(API_KEY)));
+    const before = await storedBlob(db, id);
     cipher.keyVersion = 2;
 
     expect(await store.getAuth(id)).toEqual({ authorization: API_KEY });
-    const after = storedBlob(db, id);
+    const after = await storedBlob(db, id);
     expect(after.equals(before)).toBe(false);
     expect(await cipher.decrypt(after)).toEqual({
       result: JSON.stringify({ type: 'api_key', apiKey: API_KEY }),
@@ -160,35 +164,35 @@ describe('CredentialStore — corrupt blobs', () => {
   let store: CredentialStore;
   let id: IntegrationId;
 
-  function setBlob(blob: Buffer) {
-    db.update(integrations).set({ credentials: blob }).where(eq(integrations.id, id)).run();
+  async function setBlob(blob: Buffer) {
+    await db.update(integrations).set({ credentials: blob }).where(eq(integrations.id, id)).run();
   }
 
-  beforeEach(() => {
-    db = createDb();
+  beforeEach(async () => {
+    db = await createDb();
     cipher = new FakeCipher();
     store = new CredentialStore(db, { cipher });
-    id = insertIntegration(db);
+    id = await insertIntegration(db);
   });
 
   it('raises IntegrationAuthError for a blob that does not decrypt', async () => {
-    setBlob(Buffer.from('not ciphertext'));
+    await setBlob(Buffer.from('not ciphertext'));
     await expect(store.getAuth(id)).rejects.toThrow(IntegrationAuthError);
   });
 
   it('raises IntegrationAuthError for ciphertext that is not JSON, without quoting it', async () => {
-    setBlob(await cipher.encrypt(`{"apiKey":"${API_KEY}"`));
+    await setBlob(await cipher.encrypt(`{"apiKey":"${API_KEY}"`));
     const error = await store.getAuth(id).catch((e: unknown) => e);
     expect(error).toBeInstanceOf(IntegrationAuthError);
     expect(inspect(error)).not.toContain(API_KEY);
   });
 
   it('raises IntegrationAuthError for JSON of the wrong shape', async () => {
-    setBlob(await cipher.encrypt(JSON.stringify({ type: 'api_key' })));
+    await setBlob(await cipher.encrypt(JSON.stringify({ type: 'api_key' })));
     await expect(store.getAuth(id)).rejects.toThrow(IntegrationAuthError);
-    setBlob(await cipher.encrypt(JSON.stringify({ type: 'password', password: 'x' })));
+    await setBlob(await cipher.encrypt(JSON.stringify({ type: 'password', password: 'x' })));
     await expect(store.getAuth(id)).rejects.toThrow(IntegrationAuthError);
-    setBlob(
+    await setBlob(
       await cipher.encrypt(
         JSON.stringify({ type: 'oauth', accessToken: 'a', refreshToken: 'r', expiresAt: 'soon' }),
       ),
@@ -217,14 +221,14 @@ describe('CredentialStore — refresh', () => {
       refreshToken: REFRESH_TOKEN,
       expiresAt: expiresInMs === null ? null : new Date(now + expiresInMs),
     });
-    store.save(id, await store.seal(credentials));
+    await store.save(id, await store.seal(credentials));
   }
 
-  beforeEach(() => {
-    db = createDb();
+  beforeEach(async () => {
+    db = await createDb();
     cipher = new FakeCipher();
     now = NOW;
-    id = insertIntegration(db, Provider.GOOGLE_CALENDAR);
+    id = await insertIntegration(db, Provider.GOOGLE_CALENDAR);
   });
 
   it('does not refresh a token with more than the margin left', async () => {
@@ -287,12 +291,12 @@ describe('CredentialStore — refresh', () => {
   });
 
   it('refreshes each integration independently', async () => {
-    const other = insertIntegration(db, Provider.GOOGLE_CALENDAR);
+    const other = await insertIntegration(db, Provider.GOOGLE_CALENDAR);
     const refresher = vi.fn<TokenRefresher>().mockResolvedValue({ accessToken: 'new-access' });
     const store = storeWith(refresher);
     await saveToken(store, 0);
     const credentials = oauthCredentials({ accessToken: 'a', refreshToken: 'r', expiresAt: null });
-    store.save(other, await store.seal(credentials));
+    await store.save(other, await store.seal(credentials));
 
     await Promise.all([store.getAuth(id), store.getAuth(other)]);
     expect(refresher).toHaveBeenCalledTimes(1);
@@ -331,7 +335,7 @@ describe('CredentialStore — refresh', () => {
       refreshToken: 'r2',
       expiresAt: null,
     });
-    store.save(id, await store.seal(reconnected));
+    await store.save(id, await store.seal(reconnected));
     pending.resolve({ accessToken: 'new-access' });
 
     expect(await auth).toEqual({ authorization: 'Bearer new-access' });

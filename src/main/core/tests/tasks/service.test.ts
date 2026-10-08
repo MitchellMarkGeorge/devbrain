@@ -33,7 +33,7 @@ let notesService: NoteService;
 let workspacePath: string;
 
 beforeEach(async () => {
-  db = createDb();
+  db = await createDb();
   tasks = new TaskService(db);
   archive = new ArchiveService(db);
   workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-tasks-service-'));
@@ -264,7 +264,7 @@ describe('TaskService — getById', () => {
 
   it('throws NotFoundError for an archived task', async () => {
     const task = await tasks.createTask({ title: 'Soon archived', dueDate: TOMORROW });
-    archive.archiveTask(task.id);
+    await archive.archiveTask(task.id);
     await expect(tasks.getById(task.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 });
@@ -288,7 +288,7 @@ describe('TaskService — getByIds', () => {
 
   it('excludes archived tasks even when their id is requested', async () => {
     const task = await tasks.createTask({ title: 'Archived', dueDate: TOMORROW });
-    archive.archiveTask(task.id);
+    await archive.archiveTask(task.id);
     const result = await tasks.getByIds([task.id]);
     expect(result).toHaveLength(0);
   });
@@ -308,7 +308,7 @@ describe('TaskService — listTasks', () => {
       status: TaskStatus.COMPLETED,
     });
     const archived = await tasks.createTask({ title: 'D', dueDate: TOMORROW });
-    archive.archiveTask(archived.id);
+    await archive.archiveTask(archived.id);
 
     const result = (await tasks.listTasks()).items;
     const ids = result.map((t) => t.id);
@@ -626,7 +626,7 @@ describe('TaskService — listTasks', () => {
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
-    archive.archiveTask(task.id);
+    await archive.archiveTask(task.id);
     const result = (await tasks.listTasks({ status: TaskStatus.IN_PROGRESS })).items;
     const ids = result.map((t) => t.id);
     expect(ids).not.toContain(task.id);
@@ -654,7 +654,7 @@ describe('TaskService — listSubtasks', () => {
   it('excludes archived subtasks', async () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
-    archive.archiveTask(sub.id);
+    await archive.archiveTask(sub.id);
     const result = (await tasks.listSubtasks(parent.id)).items;
     expect(result).toHaveLength(0);
   });
@@ -910,7 +910,7 @@ describe('ArchiveService — archiveTask', () => {
   it('sets archivedAt to a recent timestamp', async () => {
     const task = await tasks.createTask({ title: 'To archive', dueDate: TOMORROW });
     const before = new Date();
-    const archived = archive.archiveTask(task.id);
+    const archived = await archive.archiveTask(task.id);
     const after = new Date();
     expect(archived.archivedAt).not.toBeNull();
     expect(archived.archivedAt!.getTime()).toBeGreaterThanOrEqual(before.getTime());
@@ -919,14 +919,14 @@ describe('ArchiveService — archiveTask', () => {
 
   it('returns the updated task row', async () => {
     const task = await tasks.createTask({ title: 'Archivable', dueDate: TOMORROW });
-    const result = archive.archiveTask(task.id);
+    const result = await archive.archiveTask(task.id);
     expect(result.id).toBe(task.id);
     expect(result.title).toBe('Archivable');
   });
 
   it('archived task is no longer returned by TaskService.getById', async () => {
     const task = await tasks.createTask({ title: 'Gone', dueDate: TOMORROW });
-    archive.archiveTask(task.id);
+    await archive.archiveTask(task.id);
     await expect(tasks.getById(task.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
@@ -936,7 +936,7 @@ describe('ArchiveService — archiveTask', () => {
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
-    archive.archiveTask(task.id);
+    await archive.archiveTask(task.id);
     const result = (await tasks.listTasks({ status: TaskStatus.IN_PROGRESS })).items;
     expect(result.map((t) => t.id)).not.toContain(task.id);
   });
@@ -944,7 +944,7 @@ describe('ArchiveService — archiveTask', () => {
   it('archived subtask is excluded from TaskService.listSubtasks', async () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
-    archive.archiveTask(sub.id);
+    await archive.archiveTask(sub.id);
     const result = (await tasks.listSubtasks(parent.id)).items;
     expect(result).toHaveLength(0);
   });
@@ -953,7 +953,7 @@ describe('ArchiveService — archiveTask', () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub1 = await tasks.createSubtask(parent.id, { title: 'Sub 1' });
     const sub2 = await tasks.createSubtask(parent.id, { title: 'Sub 2' });
-    archive.archiveTask(parent.id);
+    await archive.archiveTask(parent.id);
     await expect(tasks.getById(sub1.id)).rejects.toBeInstanceOf(NotFoundError);
     await expect(tasks.getById(sub2.id)).rejects.toBeInstanceOf(NotFoundError);
     expect((await tasks.listSubtasks(parent.id)).items).toHaveLength(0);
@@ -962,9 +962,9 @@ describe('ArchiveService — archiveTask', () => {
   it('does not overwrite archivedAt of already-archived subtasks', async () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = await tasks.createSubtask(parent.id, { title: 'Pre-archived sub' });
-    const archivedSub = archive.archiveTask(sub.id);
+    const archivedSub = await archive.archiveTask(sub.id);
     const originalArchivedAt = archivedSub.archivedAt!.getTime();
-    archive.archiveTask(parent.id);
+    await archive.archiveTask(parent.id);
     const [row] = await db.select().from(tasksTable).where(eq(tasksTable.id, sub.id));
     expect(row.archivedAt!.getTime()).toBe(originalArchivedAt);
   });
@@ -972,7 +972,7 @@ describe('ArchiveService — archiveTask', () => {
   it("archives the task's linked note", async () => {
     const task = await tasks.createTask({ title: 'Has a note', dueDate: TOMORROW });
     const note = await notesService.createNote({ linkedTaskId: task.id });
-    archive.archiveTask(task.id);
+    await archive.archiveTask(task.id);
     await expect(notesService.getById(note.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
@@ -980,7 +980,7 @@ describe('ArchiveService — archiveTask', () => {
     const taskA = await tasks.createTask({ title: 'A', dueDate: TOMORROW });
     const taskB = await tasks.createTask({ title: 'B', dueDate: TOMORROW });
     const noteB = await notesService.createNote({ linkedTaskId: taskB.id });
-    archive.archiveTask(taskA.id);
+    await archive.archiveTask(taskA.id);
     await expect(notesService.getById(noteB.id)).resolves.toMatchObject({ id: noteB.id });
   });
 
@@ -988,40 +988,40 @@ describe('ArchiveService — archiveTask', () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
     const subNote = await notesService.createNote({ linkedTaskId: sub.id });
-    archive.archiveTask(parent.id);
+    await archive.archiveTask(parent.id);
     await expect(notesService.getById(subNote.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('throws NotFoundError for an unknown task id', async () => {
-    expect(() => archive.archiveTask(generateId('task'))).toThrow(NotFoundError);
+    await expect(archive.archiveTask(generateId('task'))).rejects.toThrow(NotFoundError);
   });
 
   it('throws AlreadyArchivedError when the task is already archived', async () => {
     const task = await tasks.createTask({ title: 'Archive me once', dueDate: TOMORROW });
-    archive.archiveTask(task.id);
-    expect(() => archive.archiveTask(task.id)).toThrow(AlreadyArchivedError);
+    await archive.archiveTask(task.id);
+    await expect(archive.archiveTask(task.id)).rejects.toThrow(AlreadyArchivedError);
   });
 });
 
 describe('ArchiveService — restoreTask', () => {
   it('sets archivedAt back to null', async () => {
     const task = await tasks.createTask({ title: 'Restore me', dueDate: TOMORROW });
-    archive.archiveTask(task.id);
-    const restored = archive.restoreTask(task.id);
+    await archive.archiveTask(task.id);
+    const restored = await archive.restoreTask(task.id);
     expect(restored.archivedAt).toBeNull();
   });
 
   it('returns the updated task row', async () => {
     const task = await tasks.createTask({ title: 'Restore me', dueDate: TOMORROW });
-    archive.archiveTask(task.id);
-    const result = archive.restoreTask(task.id);
+    await archive.archiveTask(task.id);
+    const result = await archive.restoreTask(task.id);
     expect(result.id).toBe(task.id);
   });
 
   it('restored task is visible via TaskService.getById', async () => {
     const task = await tasks.createTask({ title: 'Restored', dueDate: TOMORROW });
-    archive.archiveTask(task.id);
-    archive.restoreTask(task.id);
+    await archive.archiveTask(task.id);
+    await archive.restoreTask(task.id);
     const found = await tasks.getById(task.id);
     expect(found.id).toBe(task.id);
   });
@@ -1032,8 +1032,8 @@ describe('ArchiveService — restoreTask', () => {
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
-    archive.archiveTask(task.id);
-    archive.restoreTask(task.id);
+    await archive.archiveTask(task.id);
+    await archive.restoreTask(task.id);
     const result = (await tasks.listTasks({ status: TaskStatus.IN_PROGRESS })).items;
     expect(result.map((t) => t.id)).toContain(task.id);
   });
@@ -1041,8 +1041,8 @@ describe('ArchiveService — restoreTask', () => {
   it('restored subtask reappears in TaskService.listSubtasks', async () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
-    archive.archiveTask(sub.id);
-    archive.restoreTask(sub.id);
+    await archive.archiveTask(sub.id);
+    await archive.restoreTask(sub.id);
     const result = (await tasks.listSubtasks(parent.id)).items;
     expect(result.map((t) => t.id)).toContain(sub.id);
   });
@@ -1051,8 +1051,8 @@ describe('ArchiveService — restoreTask', () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub1 = await tasks.createSubtask(parent.id, { title: 'Sub 1' });
     const sub2 = await tasks.createSubtask(parent.id, { title: 'Sub 2' });
-    archive.archiveTask(parent.id);
-    archive.restoreTask(parent.id);
+    await archive.archiveTask(parent.id);
+    await archive.restoreTask(parent.id);
     const subtasks = (await tasks.listSubtasks(parent.id)).items;
     const ids = subtasks.map((t) => t.id);
     expect(ids).toContain(sub1.id);
@@ -1062,8 +1062,8 @@ describe('ArchiveService — restoreTask', () => {
   it("restores the task's linked note", async () => {
     const task = await tasks.createTask({ title: 'Has a note', dueDate: TOMORROW });
     const note = await notesService.createNote({ linkedTaskId: task.id });
-    archive.archiveTask(task.id);
-    archive.restoreTask(task.id);
+    await archive.archiveTask(task.id);
+    await archive.restoreTask(task.id);
     await expect(notesService.getById(note.id)).resolves.toMatchObject({ id: note.id });
   });
 
@@ -1071,8 +1071,8 @@ describe('ArchiveService — restoreTask', () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
     const subNote = await notesService.createNote({ linkedTaskId: sub.id });
-    archive.archiveTask(parent.id);
-    archive.restoreTask(parent.id);
+    await archive.archiveTask(parent.id);
+    await archive.restoreTask(parent.id);
     await expect(notesService.getById(subNote.id)).resolves.toMatchObject({ id: subNote.id });
   });
 
@@ -1080,19 +1080,19 @@ describe('ArchiveService — restoreTask', () => {
     const taskA = await tasks.createTask({ title: 'A', dueDate: TOMORROW });
     const taskB = await tasks.createTask({ title: 'B', dueDate: TOMORROW });
     const noteB = await notesService.createNote({ linkedTaskId: taskB.id });
-    archive.archiveNote(noteB.id);
-    archive.archiveTask(taskA.id);
-    archive.restoreTask(taskA.id);
+    await archive.archiveNote(noteB.id);
+    await archive.archiveTask(taskA.id);
+    await archive.restoreTask(taskA.id);
     await expect(notesService.getById(noteB.id)).rejects.toBeInstanceOf(NotFoundError);
   });
 
   it('throws NotFoundError for an unknown task id', async () => {
-    expect(() => archive.restoreTask(generateId('task'))).toThrow(NotFoundError);
+    await expect(archive.restoreTask(generateId('task'))).rejects.toThrow(NotFoundError);
   });
 
   it('throws NotArchivedError when the task is not archived', async () => {
     const task = await tasks.createTask({ title: 'Never archived', dueDate: TOMORROW });
-    expect(() => archive.restoreTask(task.id)).toThrow(NotArchivedError);
+    await expect(archive.restoreTask(task.id)).rejects.toThrow(NotArchivedError);
   });
 });
 
@@ -1183,7 +1183,7 @@ describe('TaskService — cursor pagination', () => {
   it('a task archived between page requests is not returned, others are unaffected', async () => {
     const created = await seed(4);
     const first = await tasks.listTasks({}, { sortBy: 'createdAt' }, { limit: 2 });
-    archive.archiveTask(created[0].id);
+    await archive.archiveTask(created[0].id);
     const second = await tasks.listTasks(
       {},
       { sortBy: 'createdAt' },

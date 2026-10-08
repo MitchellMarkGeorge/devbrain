@@ -21,7 +21,7 @@ let projectService: ProjectService;
 let eventService: EventService;
 
 beforeEach(async () => {
-  db = createDb();
+  db = await createDb();
   workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-search-service-'));
   searchService = new SearchService(db, workspacePath);
   noteService = new NoteService(db, workspacePath);
@@ -40,9 +40,9 @@ describe('SearchService — indexTask', () => {
       title: 'Refactor payment pipeline',
       dueDate: TOMORROW,
     });
-    searchService.indexTask(task);
+    await searchService.indexTask(task);
 
-    const results = searchService.search({ query: 'pipeline', entityType: [] });
+    const results = await searchService.search({ query: 'pipeline', entityType: [] });
     expect(results).toHaveLength(1);
     // the matched term is highlighted in place, so the title comes back
     // wrapped rather than as the raw stored string
@@ -59,30 +59,30 @@ describe('SearchService — indexTask', () => {
       description: 'Coordinate with the infrastructure team on rollout',
       dueDate: TOMORROW,
     });
-    searchService.indexTask(task);
+    await searchService.indexTask(task);
 
-    const results = searchService.search({ query: 'infrastructure', entityType: [] });
+    const results = await searchService.search({ query: 'infrastructure', entityType: [] });
     expect(results).toHaveLength(1);
     expect(results[0].entityId).toBe(task.id);
   });
 
   it('indexes with an empty body when description is null', async () => {
     const task = await taskService.createTask({ title: 'Untitled work item', dueDate: TOMORROW });
-    searchService.indexTask(task);
+    await searchService.indexTask(task);
 
-    const results = searchService.search({ query: 'Untitled', entityType: [] });
+    const results = await searchService.search({ query: 'Untitled', entityType: [] });
     expect(results).toHaveLength(1);
     expect(results[0].body).toBe('');
   });
 
   it('re-indexing replaces the previous entry instead of duplicating it', async () => {
     const task = await taskService.createTask({ title: 'Original title', dueDate: TOMORROW });
-    searchService.indexTask(task);
-    searchService.indexTask({ ...task, title: 'Updated title' });
+    await searchService.indexTask(task);
+    await searchService.indexTask({ ...task, title: 'Updated title' });
 
-    expect(searchService.search({ query: 'Original', entityType: [] })).toHaveLength(0);
+    expect(await searchService.search({ query: 'Original', entityType: [] })).toHaveLength(0);
 
-    const updated = searchService.search({ query: 'Updated', entityType: [] });
+    const updated = await searchService.search({ query: 'Updated', entityType: [] });
     expect(updated).toHaveLength(1);
     expect(updated[0].entityId).toBe(task.id);
   });
@@ -95,10 +95,10 @@ describe('SearchService — indexProject', () => {
       description: 'Plan the migration to the new billing provider',
       dueDate: TOMORROW,
     });
-    searchService.indexProject(project);
+    await searchService.indexProject(project);
 
-    expect(searchService.search({ query: 'Roadmap', entityType: [] })).toHaveLength(1);
-    const byDescription = searchService.search({ query: 'billing', entityType: [] });
+    expect(await searchService.search({ query: 'Roadmap', entityType: [] })).toHaveLength(1);
+    const byDescription = await searchService.search({ query: 'billing', entityType: [] });
     expect(byDescription).toHaveLength(1);
     expect(byDescription[0].entityType).toBe('project');
   });
@@ -108,19 +108,19 @@ describe('SearchService — indexProject', () => {
       title: 'Untitled project',
       dueDate: TOMORROW,
     });
-    searchService.indexProject(project);
+    await searchService.indexProject(project);
 
-    const results = searchService.search({ query: 'Untitled', entityType: [] });
+    const results = await searchService.search({ query: 'Untitled', entityType: [] });
     expect(results[0].body).toBe('');
   });
 
   it('re-indexing replaces the previous entry instead of duplicating it', async () => {
     const project = await projectService.createProject({ title: 'Alpha', dueDate: TOMORROW });
-    searchService.indexProject(project);
-    searchService.indexProject({ ...project, title: 'Beta' });
+    await searchService.indexProject(project);
+    await searchService.indexProject({ ...project, title: 'Beta' });
 
-    expect(searchService.search({ query: 'Alpha', entityType: [] })).toHaveLength(0);
-    expect(searchService.search({ query: 'Beta', entityType: [] })).toHaveLength(1);
+    expect(await searchService.search({ query: 'Alpha', entityType: [] })).toHaveLength(0);
+    expect(await searchService.search({ query: 'Beta', entityType: [] })).toHaveLength(1);
   });
 });
 
@@ -132,10 +132,10 @@ describe('SearchService — indexEvent', () => {
       startAt: TOMORROW,
       endAt: TOMORROW,
     });
-    searchService.indexEvent(event);
+    await searchService.indexEvent(event);
 
-    expect(searchService.search({ query: 'review', entityType: [] })).toHaveLength(1);
-    const byDescription = searchService.search({ query: 'onboarding', entityType: [] });
+    expect(await searchService.search({ query: 'review', entityType: [] })).toHaveLength(1);
+    const byDescription = await searchService.search({ query: 'onboarding', entityType: [] });
     expect(byDescription).toHaveLength(1);
     expect(byDescription[0].entityType).toBe('event');
   });
@@ -146,9 +146,9 @@ describe('SearchService — indexEvent', () => {
       startAt: TOMORROW,
       endAt: TOMORROW,
     });
-    searchService.indexEvent(event);
+    await searchService.indexEvent(event);
 
-    const results = searchService.search({ query: 'sync', entityType: [] });
+    const results = await searchService.search({ query: 'sync', entityType: [] });
     expect(results[0].body).toBe('');
   });
 
@@ -158,11 +158,11 @@ describe('SearchService — indexEvent', () => {
       startAt: TOMORROW,
       endAt: TOMORROW,
     });
-    searchService.indexEvent(event);
-    searchService.indexEvent({ ...event, title: 'New title' });
+    await searchService.indexEvent(event);
+    await searchService.indexEvent({ ...event, title: 'New title' });
 
-    expect(searchService.search({ query: 'Old', entityType: [] })).toHaveLength(0);
-    expect(searchService.search({ query: 'New', entityType: [] })).toHaveLength(1);
+    expect(await searchService.search({ query: 'Old', entityType: [] })).toHaveLength(0);
+    expect(await searchService.search({ query: 'New', entityType: [] })).toHaveLength(1);
   });
 });
 
@@ -171,7 +171,7 @@ describe('SearchService — indexNote', () => {
     const note = await noteService.createNote({ title: 'Untitled Note Alpha' });
     await searchService.indexNote(note);
 
-    const results = searchService.search({ query: 'Alpha', entityType: [] });
+    const results = await searchService.search({ query: 'Alpha', entityType: [] });
     expect(results).toHaveLength(1);
     expect(results[0]).toMatchObject({ entityId: note.id, entityType: 'note', body: '' });
   });
@@ -185,7 +185,7 @@ describe('SearchService — indexNote', () => {
 
     await searchService.indexNote(updated);
 
-    const results = searchService.search({ query: 'casserole', entityType: [] });
+    const results = await searchService.search({ query: 'casserole', entityType: [] });
     expect(results).toHaveLength(1);
     expect(results[0].entityId).toBe(note.id);
     expect(results[0].body).not.toContain('**');
@@ -199,7 +199,7 @@ describe('SearchService — indexNote', () => {
     const updated = await noteService.getById(note.id);
     await searchService.indexNote(updated);
 
-    const results = searchService.search({ query: 'Draft', entityType: [] });
+    const results = await searchService.search({ query: 'Draft', entityType: [] });
     expect(results).toHaveLength(1);
     expect(results[0].body).toContain('finalized content');
   });
@@ -211,54 +211,54 @@ describe('SearchService — search', () => {
       title: 'Widget sprint planning',
       dueDate: TOMORROW,
     });
-    searchService.indexTask(task);
+    await searchService.indexTask(task);
 
     const project = await projectService.createProject({
       title: 'Widget launch',
       dueDate: TOMORROW,
     });
-    searchService.indexProject(project);
+    await searchService.indexProject(project);
 
     const event = await eventService.createEvent({
       title: 'Widget kickoff meeting',
       startAt: TOMORROW,
       endAt: TOMORROW,
     });
-    searchService.indexEvent(event);
+    await searchService.indexEvent(event);
   });
 
-  it('returns matches across all entity types when no filter is given', () => {
-    const results = searchService.search({ query: 'Widget', entityType: [] });
+  it('returns matches across all entity types when no filter is given', async () => {
+    const results = await searchService.search({ query: 'Widget', entityType: [] });
     expect(results).toHaveLength(3);
   });
 
-  it('filters results down to the requested entity types', () => {
-    const results = searchService.search({ query: 'Widget', entityType: ['task'] });
+  it('filters results down to the requested entity types', async () => {
+    const results = await searchService.search({ query: 'Widget', entityType: ['task'] });
     expect(results).toHaveLength(1);
     expect(results[0].entityType).toBe('task');
   });
 
-  it('respects the limit option', () => {
-    const results = searchService.search({ query: 'Widget', entityType: [], limit: 1 });
+  it('respects the limit option', async () => {
+    const results = await searchService.search({ query: 'Widget', entityType: [], limit: 1 });
     expect(results).toHaveLength(1);
   });
 
-  it('returns an empty array for a blank query', () => {
-    expect(searchService.search({ query: '   ', entityType: [] })).toEqual([]);
+  it('returns an empty array for a blank query', async () => {
+    expect(await searchService.search({ query: '   ', entityType: [] })).toEqual([]);
   });
 
-  it('returns an empty array when nothing matches', () => {
-    expect(searchService.search({ query: 'nonexistentterm', entityType: [] })).toEqual([]);
+  it('returns an empty array when nothing matches', async () => {
+    expect(await searchService.search({ query: 'nonexistentterm', entityType: [] })).toEqual([]);
   });
 
-  it('matches on a prefix of an indexed term', () => {
-    const results = searchService.search({ query: 'Widg', entityType: [] });
+  it('matches on a prefix of an indexed term', async () => {
+    const results = await searchService.search({ query: 'Widg', entityType: [] });
     expect(results).toHaveLength(3);
   });
 
-  it('returns an empty body snippet when there is no content', () => {
+  it('returns an empty body snippet when there is no content', async () => {
     // the 'Widget sprint planning' task from the outer beforeEach has no description
-    const results = searchService.search({ query: 'Widget', entityType: ['task'] });
+    const results = await searchService.search({ query: 'Widget', entityType: ['task'] });
     expect(results[0].body).toBe('');
   });
 });
@@ -270,9 +270,9 @@ describe('SearchService — search highlighting', () => {
       description: 'This paragraph mentions gadget somewhere in the middle of it.',
       dueDate: TOMORROW,
     });
-    searchService.indexTask(task);
+    await searchService.indexTask(task);
 
-    const results = searchService.search({ query: 'gadget', entityType: ['task'] });
+    const results = await searchService.search({ query: 'gadget', entityType: ['task'] });
     expect(results).toHaveLength(1);
     expect(results[0].body).toContain('<b>gadget</b>');
   });
@@ -282,9 +282,9 @@ describe('SearchService — search highlighting', () => {
       title: 'Investigate the gadget recall',
       dueDate: TOMORROW,
     });
-    searchService.indexTask(task);
+    await searchService.indexTask(task);
 
-    const results = searchService.search({ query: 'gadget', entityType: ['task'] });
+    const results = await searchService.search({ query: 'gadget', entityType: ['task'] });
     expect(results).toHaveLength(1);
     expect(results[0].title).toBe('Investigate the <b>gadget</b> recall');
   });
@@ -294,9 +294,9 @@ describe('SearchService — search highlighting', () => {
       title: 'Widget planning for the widget launch',
       dueDate: TOMORROW,
     });
-    searchService.indexProject(project);
+    await searchService.indexProject(project);
 
-    const results = searchService.search({ query: 'widget', entityType: ['project'] });
+    const results = await searchService.search({ query: 'widget', entityType: ['project'] });
     expect(results).toHaveLength(1);
     expect(results[0].title).toBe('<b>Widget</b> planning for the <b>widget</b> launch');
   });
@@ -307,10 +307,10 @@ describe('SearchService — search highlighting', () => {
       startAt: TOMORROW,
       endAt: TOMORROW,
     });
-    searchService.indexEvent(event);
+    await searchService.indexEvent(event);
 
     // 'Widg' is short enough to be treated as a prefix query (see toFtsQuery)
-    const results = searchService.search({ query: 'Widg', entityType: ['event'] });
+    const results = await searchService.search({ query: 'Widg', entityType: ['event'] });
     expect(results).toHaveLength(1);
     expect(results[0].title).toBe('<b>Widget</b> kickoff meeting');
   });
@@ -319,7 +319,7 @@ describe('SearchService — search highlighting', () => {
     const note = await noteService.createNote({ title: 'Casserole recipe notes' });
     await searchService.indexNote(note);
 
-    const results = searchService.search({ query: 'casserole', entityType: ['note'] });
+    const results = await searchService.search({ query: 'casserole', entityType: ['note'] });
     expect(results).toHaveLength(1);
     expect(results[0].title).toBe('<b>Casserole</b> recipe notes');
   });
@@ -334,9 +334,9 @@ describe('SearchService — search highlighting', () => {
       description,
       dueDate: TOMORROW,
     });
-    searchService.indexProject(project);
+    await searchService.indexProject(project);
 
-    const results = searchService.search({ query: 'gizmo', entityType: ['project'] });
+    const results = await searchService.search({ query: 'gizmo', entityType: ['project'] });
     expect(results).toHaveLength(1);
     expect(results[0].body).toContain('<b>gizmo</b>');
     expect(results[0].body).toContain('…');
@@ -351,7 +351,7 @@ describe('SearchService — search highlighting', () => {
     );
     await searchService.indexNote(updated);
 
-    const results = searchService.search({ query: 'casserole', entityType: ['note'] });
+    const results = await searchService.search({ query: 'casserole', entityType: ['note'] });
     expect(results).toHaveLength(1);
     expect(results[0].body).toContain('<b>casserole</b>');
   });
@@ -360,9 +360,9 @@ describe('SearchService — search highlighting', () => {
 describe('SearchService — special characters', () => {
   it('finds and highlights a title containing "++" (e.g. C++)', async () => {
     const task = await taskService.createTask({ title: 'Learn C++ properly', dueDate: TOMORROW });
-    searchService.indexTask(task);
+    await searchService.indexTask(task);
 
-    const results = searchService.search({ query: 'C++', entityType: ['task'] });
+    const results = await searchService.search({ query: 'C++', entityType: ['task'] });
     expect(results).toHaveLength(1);
     expect(results[0].title).toBe('Learn <b>C++</b> properly');
   });
@@ -372,9 +372,9 @@ describe('SearchService — special characters', () => {
       title: 'C# style guide',
       dueDate: TOMORROW,
     });
-    searchService.indexProject(project);
+    await searchService.indexProject(project);
 
-    const results = searchService.search({ query: 'C#', entityType: ['project'] });
+    const results = await searchService.search({ query: 'C#', entityType: ['project'] });
     expect(results).toHaveLength(1);
     expect(results[0].title).toBe('<b>C#</b> style guide');
   });
@@ -385,9 +385,9 @@ describe('SearchService — special characters', () => {
       description: 'Rename snake_case to camelCase throughout the module.',
       dueDate: TOMORROW,
     });
-    searchService.indexTask(task);
+    await searchService.indexTask(task);
 
-    const results = searchService.search({ query: 'snake_case', entityType: ['task'] });
+    const results = await searchService.search({ query: 'snake_case', entityType: ['task'] });
     expect(results).toHaveLength(1);
     expect(results[0].body).toContain('<b>snake_case</b>');
   });
@@ -395,9 +395,9 @@ describe('SearchService — special characters', () => {
   it('does not conflate two different symbol-suffixed terms (C++ vs C#)', async () => {
     const cpp = await taskService.createTask({ title: 'Learn C++', dueDate: TOMORROW });
     const csharp = await taskService.createTask({ title: 'Learn C#', dueDate: TOMORROW });
-    searchService.indexTasks([cpp, csharp]);
+    await searchService.indexTasks([cpp, csharp]);
 
-    const results = searchService.search({ query: 'C++', entityType: ['task'] });
+    const results = await searchService.search({ query: 'C++', entityType: ['task'] });
     expect(results).toHaveLength(1);
     expect(results[0].entityId).toBe(cpp.id);
   });

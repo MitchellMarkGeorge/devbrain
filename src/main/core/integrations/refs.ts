@@ -68,14 +68,15 @@ export function hasLinkInState(entity: LinkedEntity, idColumn: SQLWrapper, state
  * own not-found handling.
  *
  * Services call this before any write a user makes. `SyncWriter` writes synced rows through its own
- * path and skips it. Synchronous, so it also runs inside a transaction (`db` can be one).
+ * path and skips it. `db` can be a transaction, so the check and the write it guards see the same
+ * rows.
  */
-export function assertEditable(
-  db: BaseSQLiteDatabase<'sync', NodeSQLiteRunResult>,
+export async function assertEditable(
+  db: BaseSQLiteDatabase<'async', NodeSQLiteRunResult>,
   id: LinkedEntityId,
-): void {
+): Promise<void> {
   const isSynced = hasLinkInState(entityOf(id), sql`${id}`, LinkState.SYNCED);
-  const [synced] = db.values<[number]>(sql`select ${isSynced}`);
+  const [synced] = await db.values<[number]>(sql`select ${isSynced}`);
   if (synced[0]) throw new ExternalReadOnlyError(id);
 }
 

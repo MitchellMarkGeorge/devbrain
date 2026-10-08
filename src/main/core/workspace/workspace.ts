@@ -74,7 +74,7 @@ export class Workspace {
 
     try {
       // leaves foreign keys on once migrations have run
-      runMigrations(sqliteClient, db, process.env.DB_MIGRATIONS_PATH);
+      await runMigrations(sqliteClient, db, process.env.DB_MIGRATIONS_PATH);
     } catch (error) {
       sqliteClient.close();
       if (!(error instanceof WorkspaceMigrationError)) throw error;

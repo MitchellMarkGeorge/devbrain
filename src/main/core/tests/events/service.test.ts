@@ -19,8 +19,8 @@ function hoursAfter(date: Date, hours: number): Date {
 let db: NodeSQLiteDatabase;
 let eventsService: EventService;
 
-beforeEach(() => {
-  db = createDb();
+beforeEach(async () => {
+  db = await createDb();
   eventsService = new EventService(db);
 });
 

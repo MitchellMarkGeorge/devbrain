@@ -21,17 +21,17 @@ import type {
 export class ArchiveService {
   constructor(private readonly db: NodeSQLiteDatabase) {}
 
-  archiveTask(id: TaskId): Task {
-    return this.db.transaction((tx) => {
-      const existing = tx.select().from(tasks).where(eq(tasks.id, id)).get();
+  async archiveTask(id: TaskId): Promise<Task> {
+    return this.db.transaction(async (tx) => {
+      const existing = await tx.select().from(tasks).where(eq(tasks.id, id)).get();
       if (!existing) throw new NotFoundError(id);
       if (existing.archivedAt !== null) throw new AlreadyArchivedError(id);
       // a synced task is detached before it can be archived; restore is left open for SyncWriter
-      assertEditable(tx, id);
+      await assertEditable(tx, id);
 
       const now = new Date();
       // archives the task and any subtasks it has
-      const updatedTasks = tx
+      const updatedTasks = await tx
         .update(tasks)
         .set({ archivedAt: now })
         .where(
@@ -47,7 +47,8 @@ export class ArchiveService {
 
       // archive notes linked to the task and/or any of its subtasks
       if (updatedTaskIds.length > 0) {
-        tx.update(notes)
+        await tx
+          .update(notes)
           .set({ archivedAt: now })
           .where(inArray(notes.linkedTaskId, updatedTaskIds))
           .run();
@@ -58,14 +59,14 @@ export class ArchiveService {
     });
   }
 
-  restoreTask(id: TaskId): Task {
+  async restoreTask(id: TaskId): Promise<Task> {
     // restores the task and any subtasks it has
-    return this.db.transaction((tx) => {
-      const existing = tx.select().from(tasks).where(eq(tasks.id, id)).get();
+    return this.db.transaction(async (tx) => {
+      const existing = await tx.select().from(tasks).where(eq(tasks.id, id)).get();
       if (!existing) throw new NotFoundError(id);
       if (existing.archivedAt === null) throw new NotArchivedError(id);
 
-      const updatedTasks = tx
+      const updatedTasks = await tx
         .update(tasks)
         .set({ archivedAt: null })
         .where(sql`(${tasks.id} = ${id} OR ${tasks.parentTaskId} = ${id})`)
@@ -76,7 +77,8 @@ export class ArchiveService {
 
       // restore notes linked to the task and/or any of its subtasks
       if (updatedTaskIds.length > 0) {
-        tx.update(notes)
+        await tx
+          .update(notes)
           .set({ archivedAt: null })
           .where(inArray(notes.linkedTaskId, updatedTaskIds))
           .run();
@@ -87,17 +89,17 @@ export class ArchiveService {
     });
   }
 
-  archiveProject(id: ProjectId): Project {
-    return this.db.transaction((tx) => {
-      const existing = tx.select().from(projects).where(eq(projects.id, id)).get();
+  async archiveProject(id: ProjectId): Promise<Project> {
+    return this.db.transaction(async (tx) => {
+      const existing = await tx.select().from(projects).where(eq(projects.id, id)).get();
       if (!existing) throw new NotFoundError(id);
       if (existing.archivedAt !== null) throw new AlreadyArchivedError(id);
       // a synced project leaves only through sync
-      assertEditable(tx, id);
+      await assertEditable(tx, id);
 
       const now = new Date();
       // archive the project
-      const project = tx
+      const project = await tx
         .update(projects)
         .set({
           archivedAt: now,
@@ -107,16 +109,17 @@ export class ArchiveService {
         .get();
 
       // archive all tasks (and subtasks) attached to the project
-      const updatedTaskIds = tx
+      const updatedTaskRows = await tx
         .update(tasks)
         .set({ archivedAt: now })
         .where(eq(tasks.projectId, id))
         .returning({ id: tasks.id })
-        .all()
-        .map(({ id }) => id);
+        .all();
+      const updatedTaskIds = updatedTaskRows.map(({ id }) => id);
 
       // archaive all related notes (either direct project notes or notes linked to tasks in the project - like task notes)
-      tx.update(notes)
+      await tx
+        .update(notes)
         .set({ archivedAt: now })
         .where(or(eq(notes.projectId, id), inArray(notes.linkedTaskId, updatedTaskIds)))
         .run();
@@ -125,14 +128,14 @@ export class ArchiveService {
     });
   }
 
-  restoreProject(id: ProjectId): Project {
-    return this.db.transaction((tx) => {
-      const existing = tx.select().from(projects).where(eq(projects.id, id)).get();
+  async restoreProject(id: ProjectId): Promise<Project> {
+    return this.db.transaction(async (tx) => {
+      const existing = await tx.select().from(projects).where(eq(projects.id, id)).get();
       if (!existing) throw new NotFoundError(id);
       if (existing.archivedAt === null) throw new NotArchivedError(id);
 
       // restore the project
-      const project = tx
+      const project = await tx
         .update(projects)
         .set({
           archivedAt: null,
@@ -142,16 +145,17 @@ export class ArchiveService {
         .get();
 
       // restore all archived tasks (and subtasks) attached to the project
-      const updatedTaskIds = tx
+      const updatedTaskRows = await tx
         .update(tasks)
         .set({ archivedAt: null })
         .where(eq(tasks.projectId, id))
         .returning({ id: tasks.id })
-        .all()
-        .map(({ id }) => id);
+        .all();
+      const updatedTaskIds = updatedTaskRows.map(({ id }) => id);
 
       // restore all related notes (either direct project notes or notes linked to tasks in the project - like task notes)
-      tx.update(notes)
+      await tx
+        .update(notes)
         .set({ archivedAt: null })
         .where(or(eq(notes.projectId, id), inArray(notes.linkedTaskId, updatedTaskIds)))
         .run();
@@ -160,13 +164,13 @@ export class ArchiveService {
     });
   }
 
-  archiveNote(id: NoteId): Note {
-    return this.db.transaction((tx) => {
-      const existing = tx.select().from(notes).where(eq(notes.id, id)).get();
+  async archiveNote(id: NoteId): Promise<Note> {
+    return this.db.transaction(async (tx) => {
+      const existing = await tx.select().from(notes).where(eq(notes.id, id)).get();
       if (!existing) throw new NotFoundError(id);
       if (existing.archivedAt !== null) throw new AlreadyArchivedError(id);
 
-      const note = tx
+      const note = await tx
         .update(notes)
         .set({ archivedAt: new Date() })
         .where(eq(notes.id, id))
@@ -176,13 +180,13 @@ export class ArchiveService {
     });
   }
 
-  restoreNote(id: NoteId): Note {
-    return this.db.transaction((tx) => {
-      const existing = tx.select().from(notes).where(eq(notes.id, id)).get();
+  async restoreNote(id: NoteId): Promise<Note> {
+    return this.db.transaction(async (tx) => {
+      const existing = await tx.select().from(notes).where(eq(notes.id, id)).get();
       if (!existing) throw new NotFoundError(id);
       if (existing.archivedAt === null) throw new NotArchivedError(id);
 
-      const note = tx
+      const note = await tx
         .update(notes)
         .set({ archivedAt: null })
         .where(eq(notes.id, id))
@@ -202,7 +206,10 @@ export class ArchiveService {
    * caller decides whether to group them back under the entity that triggered
    * the archive.
    */
-  listArchived(filter: ArchiveFilterOptions = {}, page: PageOptions = {}): Page<ArchivedEntity> {
+  async listArchived(
+    filter: ArchiveFilterOptions = {},
+    page: PageOptions = {},
+  ): Promise<Page<ArchivedEntity>> {
     // one pager per table: the cursor condition is pushed into each branch of
     // the union (so each can seek its own (archived_at, id) index) rather than
     // applied to the union as a whole. ids carry a per-entity prefix, so they
@@ -218,7 +225,7 @@ export class ArchiveService {
       // a single table needs no union, so it can order by its own columns
       const table = ARCHIVABLE_TABLES[entityType];
       const pager = this.archivedPager(table, page);
-      const rows = this.archivedBranch(entityType, pager.after)
+      const rows = await this.archivedBranch(entityType, pager.after)
         .orderBy(...pager.orderBy)
         .limit(pager.fetchLimit)
         .all();
@@ -232,7 +239,7 @@ export class ArchiveService {
     // a compound select resolves ORDER BY against the *result* column names of
     // its left-most branch, so these have to be the bare column names — a
     // table-qualified reference (and so pager.orderBy) is not valid here
-    const rows = unionAll(branch('tasks'), branch('projects'), branch('notes'))
+    const rows = await unionAll(branch('tasks'), branch('projects'), branch('notes'))
       .orderBy(sql`archived_at desc`, sql`id desc`)
       .limit(pager.fetchLimit)
       .all();

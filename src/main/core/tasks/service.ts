@@ -224,7 +224,7 @@ export class TaskService {
   }
 
   async updateTask(id: TaskId, updates: UpdateTaskOptions): Promise<Task | null> {
-    assertEditable(this.db, id);
+    await assertEditable(this.db, id);
     const [updatedTask] = await this.db
       .update(tasks)
       .set(updates)
@@ -234,7 +234,7 @@ export class TaskService {
   }
 
   async updateStatus(id: TaskId, newStatus: TaskStatus): Promise<Task> {
-    assertEditable(this.db, id);
+    await assertEditable(this.db, id);
     const [row] = await this.db
       .update(tasks)
       .set({

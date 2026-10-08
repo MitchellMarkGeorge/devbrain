@@ -1,268 +1,134 @@
-import type { DatabaseSync, StatementResultingChanges, StatementSync } from 'node:sqlite';
-import { NoopCache, type Cache } from 'drizzle-orm/cache/core';
-import type { WithCacheConfig } from 'drizzle-orm/cache/core/types';
-import { entityKind, type Casing } from 'drizzle-orm';
-import { DefaultLogger, NoopLogger, type Logger } from 'drizzle-orm/logger';
-import { readMigrationFiles, type MigrationConfig } from 'drizzle-orm/migrator';
-import { fillPlaceholders, sql, type Query } from 'drizzle-orm/sql/sql';
-import {
-  BaseSQLiteDatabase,
-  SQLitePreparedQuery,
-  SQLiteSession,
-  SQLiteSyncDialect,
-  SQLiteTransaction,
-  type SelectedFieldsOrdered,
-  type SQLiteExecuteMethod,
-  type SQLiteTransactionConfig,
-} from 'drizzle-orm/sqlite-core';
-import * as drizzleUtils from 'drizzle-orm/utils';
+import { AsyncLocalStorage } from 'node:async_hooks';
+import type { DatabaseSync, SQLInputValue, StatementResultingChanges } from 'node:sqlite';
+import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
+import { drizzle as drizzleProxy } from 'drizzle-orm/sqlite-proxy';
+import { migrate as migrateProxy } from 'drizzle-orm/sqlite-proxy/migrator';
+import type { Casing } from 'drizzle-orm';
+import type { MigrationConfig } from 'drizzle-orm/migrator';
 
-// A synchronous drizzle driver for Node's built-in `node:sqlite`, so the main process needs no
-// native module. drizzle-orm 0.45 only ships `node:sqlite` support in its 1.0 line, where the
-// driver is async, so this mirrors its better-sqlite3 driver instead: same sync API, same
-// prepared-query behaviour, with `node:sqlite`'s `DatabaseSync` underneath.
+// Drizzle's sqlite-proxy driver over Node's built-in `node:sqlite`. Drizzle builds the SQL and hands
+// it to `execute` below, which runs it on a `DatabaseSync`. The proxy driver is async, so every
+// query returns a Promise even though node:sqlite does the work synchronously.
 
-export type NodeSQLiteRunResult = StatementResultingChanges;
+/** what `.run()` resolves to: the proxy's `rows`, plus node:sqlite's change counts */
+export type NodeSQLiteRunResult = { rows: unknown[] } & StatementResultingChanges;
 
-type EmptySchema = Record<string, never>;
-type PreparedQueryConfig = {
-  type: 'sync';
-  run: NodeSQLiteRunResult;
-  all: unknown;
-  get: unknown;
-  values: unknown;
-  execute: unknown;
-};
-type QueryMetadata = { type: 'select' | 'update' | 'delete' | 'insert'; tables: string[] };
-type ResultMapper = (rows: unknown[][]) => unknown;
-type Params = Parameters<StatementSync['all']>;
-
-// exported at runtime but marked @internal in drizzle's type declarations
-const { mapResultRow } = drizzleUtils as unknown as {
-  mapResultRow: (
-    columns: SelectedFieldsOrdered,
-    row: unknown[],
-    joinsNotNullableMap: Record<string, boolean> | undefined,
-  ) => unknown;
+export type NodeSQLiteDatabase = BaseSQLiteDatabase<'async', NodeSQLiteRunResult> & {
+  $client: DatabaseSync;
 };
 
-class NodeSQLitePreparedQuery extends SQLitePreparedQuery<PreparedQueryConfig> {
-  static override readonly [entityKind]: string = 'NodeSQLitePreparedQuery';
+type Method = 'run' | 'all' | 'values' | 'get';
 
-  constructor(
-    private readonly stmt: StatementSync,
-    query: Query,
-    private readonly logger: Logger,
-    cache: Cache,
-    queryMetadata: QueryMetadata | undefined,
-    cacheConfig: WithCacheConfig | undefined,
-    private readonly fields: SelectedFieldsOrdered | undefined,
-    executeMethod: SQLiteExecuteMethod,
-    private readonly _isResponseInArrayMode: boolean,
-    private readonly customResultMapper?: ResultMapper,
-  ) {
-    super('sync', executeMethod, query, cache, queryMetadata, cacheConfig);
+/**
+ * Keeps a transaction's queries to itself. The proxy driver runs a transaction as BEGIN, the
+ * awaited callback, then COMMIT on the one connection, so without this any query issued while the
+ * callback is awaiting something would land inside the open transaction (and be rolled back with
+ * it). A transaction holds the gate for its whole run; queries from inside it (tracked with
+ * AsyncLocalStorage, which follows awaits) go straight through, everything else waits its turn.
+ */
+class ConnectionGate {
+  private readonly context = new AsyncLocalStorage<symbol>();
+  private holder: symbol | null = null;
+  private queue: Promise<void> = Promise.resolve();
+
+  /** true when another transaction holds the connection */
+  blocked(): boolean {
+    return this.holder !== null && this.context.getStore() !== this.holder;
   }
 
-  run(placeholderValues?: Record<string, unknown>): NodeSQLiteRunResult {
-    return this.stmt.run(...this.params(placeholderValues));
+  /** settles once the current holder lets go; callers re-check `blocked()` after it */
+  released(): Promise<void> {
+    return this.queue;
   }
 
-  all(placeholderValues?: Record<string, unknown>): unknown {
-    const { fields, customResultMapper } = this;
-    if (!fields && !customResultMapper) {
-      return this.execute_('all', false, placeholderValues);
-    }
-    const rows = this.values(placeholderValues);
-    if (customResultMapper) return customResultMapper(rows);
-    return rows.map((row) => mapResultRow(fields!, row, this.joinsNotNullableMap));
-  }
+  async exclusive<T>(fn: () => Promise<T>): Promise<T> {
+    // a transaction started from inside the one holding the gate already has the connection
+    if (this.holder !== null && this.context.getStore() === this.holder) return fn();
 
-  get(placeholderValues?: Record<string, unknown>): unknown {
-    const { fields, customResultMapper } = this;
-    if (!fields && !customResultMapper) {
-      return this.execute_('get', false, placeholderValues);
-    }
-    const row = this.execute_('get', true, placeholderValues) as unknown[] | undefined;
-    if (!row) return undefined;
-    if (customResultMapper) return customResultMapper([row]);
-    return mapResultRow(fields!, row, this.joinsNotNullableMap);
-  }
+    const previous = this.queue;
+    let release!: () => void;
+    this.queue = new Promise((resolve) => (release = resolve));
+    await previous;
 
-  values(placeholderValues?: Record<string, unknown>): unknown[][] {
-    return this.execute_('all', true, placeholderValues) as unknown[][];
-  }
-
-  /** @internal */
-  isResponseInArrayMode(): boolean {
-    return this._isResponseInArrayMode;
-  }
-
-  // set on the instance by drizzle's query builders; declared here for the type checker
-  declare joinsNotNullableMap?: Record<string, boolean>;
-
-  // node:sqlite has no per-call `.raw()` like better-sqlite3, so the statement's array mode is
-  // set before every call: the same prepared query can be read as objects and as arrays
-  private execute_(
-    method: 'all' | 'get',
-    arrays: boolean,
-    placeholderValues?: Record<string, unknown>,
-  ): unknown {
-    this.stmt.setReturnArrays(arrays);
-    return this.stmt[method](...this.params(placeholderValues));
-  }
-
-  private params(placeholderValues?: Record<string, unknown>): Params {
-    const params = fillPlaceholders(this.query.params, placeholderValues ?? {});
-    this.logger.logQuery(this.query.sql, params);
-    return params as Params;
-  }
-}
-
-export class NodeSQLiteSession extends SQLiteSession<
-  'sync',
-  NodeSQLiteRunResult,
-  EmptySchema,
-  EmptySchema
-> {
-  static override readonly [entityKind]: string = 'NodeSQLiteSession';
-
-  constructor(
-    private readonly client: DatabaseSync,
-    private readonly syncDialect: SQLiteSyncDialect,
-    private readonly logger: Logger,
-    private readonly cache: Cache = new NoopCache(),
-  ) {
-    super(syncDialect);
-  }
-
-  prepareQuery(
-    query: Query,
-    fields: SelectedFieldsOrdered | undefined,
-    executeMethod: SQLiteExecuteMethod,
-    isResponseInArrayMode: boolean,
-    customResultMapper?: ResultMapper,
-    queryMetadata?: QueryMetadata,
-    cacheConfig?: WithCacheConfig,
-  ): NodeSQLitePreparedQuery {
-    return new NodeSQLitePreparedQuery(
-      this.client.prepare(query.sql),
-      query,
-      this.logger,
-      this.cache,
-      queryMetadata,
-      cacheConfig,
-      fields,
-      executeMethod,
-      isResponseInArrayMode,
-      customResultMapper,
-    );
-  }
-
-  // better-sqlite3's `db.transaction()` has no node:sqlite counterpart, so this does what it does:
-  // BEGIN, run the callback, COMMIT, or ROLLBACK and rethrow. When the connection is already inside
-  // a transaction the callback runs in a savepoint instead.
-  transaction<T>(
-    transaction: (tx: NodeSQLiteTransaction) => T,
-    config: SQLiteTransactionConfig = {},
-  ): T {
-    const tx = new NodeSQLiteTransaction('sync', this.syncDialect, this, undefined);
-    const nested = this.client.isTransaction;
-    const [begin, commit, rollback] = nested
-      ? ['savepoint drizzle_tx', 'release savepoint drizzle_tx', 'rollback to savepoint drizzle_tx']
-      : [`begin ${config.behavior ?? 'deferred'}`, 'commit', 'rollback'];
-
-    this.client.exec(begin);
+    const token = Symbol('transaction');
+    this.holder = token;
     try {
-      const result = transaction(tx);
-      if (result instanceof Promise) {
-        throw new TypeError('Transaction function cannot return a promise');
-      }
-      this.client.exec(commit);
-      return result;
-    } catch (error) {
-      // a failed COMMIT can leave the transaction already closed
-      if (this.client.isTransaction) {
-        this.client.exec(rollback);
-        if (nested) this.client.exec('release savepoint drizzle_tx');
-      }
-      throw error;
+      return await this.context.run(token, fn);
+    } finally {
+      this.holder = null;
+      release();
     }
   }
-}
-
-export class NodeSQLiteTransaction extends SQLiteTransaction<
-  'sync',
-  NodeSQLiteRunResult,
-  EmptySchema,
-  EmptySchema
-> {
-  static override readonly [entityKind]: string = 'NodeSQLiteTransaction';
-
-  override transaction<T>(transaction: (tx: NodeSQLiteTransaction) => T): T {
-    const savepointName = `sp${this.nestedIndex}`;
-    const tx = new NodeSQLiteTransaction(
-      'sync',
-      this.txDialect,
-      this.txSession,
-      this.schema,
-      this.nestedIndex + 1,
-    );
-    this.txSession.run(sql.raw(`savepoint ${savepointName}`));
-    try {
-      const result = transaction(tx);
-      this.txSession.run(sql.raw(`release savepoint ${savepointName}`));
-      return result;
-    } catch (err) {
-      this.txSession.run(sql.raw(`rollback to savepoint ${savepointName}`));
-      throw err;
-    }
-  }
-
-  // drizzle keeps these on the instance but leaves them out of its type declarations
-  private get txDialect(): SQLiteSyncDialect {
-    return (this as unknown as { dialect: SQLiteSyncDialect }).dialect;
-  }
-
-  private get txSession(): NodeSQLiteSession {
-    return (this as unknown as { session: NodeSQLiteSession }).session;
-  }
-}
-
-export class NodeSQLiteDatabase extends BaseSQLiteDatabase<
-  'sync',
-  NodeSQLiteRunResult,
-  EmptySchema,
-  EmptySchema
-> {
-  static override readonly [entityKind]: string = 'NodeSQLiteDatabase';
 }
 
 export interface DrizzleNodeSQLiteConfig {
   client: DatabaseSync;
   casing?: Casing;
-  logger?: boolean | Logger;
 }
 
-export function drizzle({
-  client,
-  casing,
-  logger,
-}: DrizzleNodeSQLiteConfig): NodeSQLiteDatabase & { $client: DatabaseSync } {
-  const dialect = new SQLiteSyncDialect({ casing });
-  const queryLogger = logger === true ? new DefaultLogger() : logger ? logger : new NoopLogger();
-  const session = new NodeSQLiteSession(client, dialect, queryLogger);
-  const db = new NodeSQLiteDatabase('sync', dialect, session, undefined);
+export function drizzle({ client, casing }: DrizzleNodeSQLiteConfig): NodeSQLiteDatabase {
+  const gate = new ConnectionGate();
+
+  const execute = async (sql: string, params: unknown[], method: Method) => {
+    // checked and run with no await in between, so no transaction can start in the gap
+    while (gate.blocked()) await gate.released();
+    return run(client, sql, params as SQLInputValue[], method);
+  };
+
+  // drizzle 0.45 reads `casing` only from the third argument, even though its overloads also
+  // accept the config second, so the (unused) batch callback slot is passed explicitly
+  const db = drizzleProxy(execute, undefined, { casing }) as unknown as NodeSQLiteDatabase;
+
+  const transaction = db.transaction.bind(db);
+  db.transaction = ((callback, config) =>
+    gate.exclusive(() => transaction(callback, config))) as typeof db.transaction;
+
+  gates.set(db, gate);
   return Object.assign(db, { $client: client });
 }
 
-/** drizzle's migrator for this driver; applies every pending migration in one transaction */
-export function migrate(db: NodeSQLiteDatabase, config: MigrationConfig): void {
-  const migrations = readMigrationFiles(config);
-  // like drizzle's own migrators, this reaches the dialect and session drizzle keeps internal
-  const { dialect, session } = db as unknown as {
-    dialect: SQLiteSyncDialect;
-    session: Parameters<SQLiteSyncDialect['migrate']>[1];
-  };
-  dialect.migrate(migrations, session, config);
+// the proxy expects arrays of column values back. For `get`, `rows` is the single row itself (or
+// undefined), though drizzle's callback type still calls it an array.
+function run(
+  client: DatabaseSync,
+  sql: string,
+  params: SQLInputValue[],
+  method: Method,
+): { rows: unknown[] } {
+  const stmt = client.prepare(sql);
+  if (method === 'run') return { rows: [], ...stmt.run(...params) };
+  stmt.setReturnArrays(true);
+  const rows = method === 'get' ? stmt.get(...params) : stmt.all(...params);
+  return { rows: rows as unknown as unknown[] };
+}
+
+const gates = new WeakMap<NodeSQLiteDatabase, ConnectionGate>();
+
+/**
+ * Applies every pending migration in one transaction. drizzle's proxy migrator works out which
+ * migrations are pending and hands over their statements; running them is left to the driver.
+ */
+export async function migrate(db: NodeSQLiteDatabase, config: MigrationConfig): Promise<void> {
+  const gate = gates.get(db)!;
+  await migrateProxy(
+    db as never,
+    (queries) =>
+      gate.exclusive(async () => {
+        db.$client.exec('BEGIN');
+        try {
+          for (const query of queries) {
+            try {
+              db.$client.exec(query);
+            } catch (cause) {
+              throw new Error(`Failed to run the query '${query}'`, { cause });
+            }
+          }
+          db.$client.exec('COMMIT');
+        } catch (error) {
+          db.$client.exec('ROLLBACK');
+          throw error;
+        }
+      }),
+    config,
+  );
 }

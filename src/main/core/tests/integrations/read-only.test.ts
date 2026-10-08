@@ -45,9 +45,10 @@ function entityColumn(id: LinkedId) {
   return { eventId: id as EventId };
 }
 
-function link(id: LinkedId, state: LinkState = LinkState.SYNCED) {
+async function link(id: LinkedId, state: LinkState = LinkState.SYNCED) {
   linkCount += 1;
-  db.insert(externalLinks)
+  await db
+    .insert(externalLinks)
     .values({
       sourceId,
       provider: Provider.LINEAR,
@@ -63,9 +64,10 @@ function link(id: LinkedId, state: LinkState = LinkState.SYNCED) {
 }
 
 // what detach (feature 12) will do to the link
-function setState(id: LinkedId, state: LinkState) {
+async function setState(id: LinkedId, state: LinkState) {
   // entity ids carry a per-type prefix, so at most one of these columns can match
-  db.update(externalLinks)
+  await db
+    .update(externalLinks)
     .set({ state })
     .where(
       or(
@@ -78,38 +80,44 @@ function setState(id: LinkedId, state: LinkState) {
 }
 
 // a child row the way SyncWriter will write one: straight into the table, at any depth
-function insertChild(parentTaskId: TaskId, title: string): TaskId {
-  return db
-    .insert(tasksTable)
-    .values({ title, dueDate: TOMORROW, parentTaskId, status: TaskStatus.NOT_STARTED })
-    .returning()
-    .get().id;
+async function insertChild(parentTaskId: TaskId, title: string): Promise<TaskId> {
+  return (
+    await db
+      .insert(tasksTable)
+      .values({ title, dueDate: TOMORROW, parentTaskId, status: TaskStatus.NOT_STARTED })
+      .returning()
+      .get()
+  ).id;
 }
 
 beforeEach(async () => {
-  db = createDb();
+  db = await createDb();
   tasks = new TaskService(db);
   projects = new ProjectService(db);
   events = new EventService(db);
   archive = new ArchiveService(db);
   workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-read-only-'));
   notes = new NoteService(db, workspacePath);
-  const integrationId = db
-    .insert(integrations)
-    .values({
-      provider: Provider.LINEAR,
-      authType: AuthType.API_KEY,
-      accountId: 'org:user',
-      accountLabel: 'Ada, Acme',
-      credentials: Buffer.from('ciphertext'),
-    })
-    .returning()
-    .get().id;
-  sourceId = db
-    .insert(externalSources)
-    .values({ integrationId, sourceType: SourceType.TASKS })
-    .returning()
-    .get().id;
+  const integrationId = (
+    await db
+      .insert(integrations)
+      .values({
+        provider: Provider.LINEAR,
+        authType: AuthType.API_KEY,
+        accountId: 'org:user',
+        accountLabel: 'Ada, Acme',
+        credentials: Buffer.from('ciphertext'),
+      })
+      .returning()
+      .get()
+  ).id;
+  sourceId = (
+    await db
+      .insert(externalSources)
+      .values({ integrationId, sourceType: SourceType.TASKS })
+      .returning()
+      .get()
+  ).id;
 });
 
 afterEach(async () => {
@@ -217,28 +225,28 @@ describe('read-only guards — guarded methods', () => {
   ];
 
   it.each(cases)('$method throws on a synced row', async ({ target, run }) => {
-    link(target(f));
+    await link(target(f));
     // `run` may be sync (ArchiveService) or async; the async wrapper turns both into a promise
     await expect((async () => run(f))()).rejects.toThrow(ExternalReadOnlyError);
   });
 
   it.each(cases)('$method succeeds once the row is detached', async ({ target, run }) => {
-    link(target(f));
-    setState(target(f), LinkState.DETACHED);
+    await link(target(f));
+    await setState(target(f), LinkState.DETACHED);
     await run(f);
   });
 
   it.each(cases)('$method succeeds on a removed row', async ({ target, run }) => {
-    link(target(f), LinkState.REMOVED);
+    await link(target(f), LinkState.REMOVED);
     await run(f);
   });
 
   it('leaves a synced row untouched when a write is rejected', async () => {
-    link(f.task.id);
+    await link(f.task.id);
     await expect(tasks.updateTask(f.task.id, { title: 'Edited' })).rejects.toThrow(
       ExternalReadOnlyError,
     );
-    expect(() => archive.archiveTask(f.task.id)).toThrow(ExternalReadOnlyError);
+    await expect(archive.archiveTask(f.task.id)).rejects.toThrow(ExternalReadOnlyError);
 
     const task = await tasks.getById(f.task.id);
     expect(task.title).toBe('Task');
@@ -246,9 +254,9 @@ describe('read-only guards — guarded methods', () => {
   });
 
   it('restores a synced task, which SyncWriter relies on', async () => {
-    archive.archiveTask(f.task.id);
-    link(f.task.id);
-    expect(archive.restoreTask(f.task.id).archivedAt).toBeNull();
+    await archive.archiveTask(f.task.id);
+    await link(f.task.id);
+    expect((await archive.restoreTask(f.task.id)).archivedAt).toBeNull();
   });
 });
 
@@ -257,17 +265,17 @@ describe('read-only guards — assertEditable', () => {
     const synced = await tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
     const detached = await tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
     const local = await tasks.createTask({ title: 'Local', dueDate: TOMORROW });
-    link(synced.id);
-    link(detached.id, LinkState.DETACHED);
+    await link(synced.id);
+    await link(detached.id, LinkState.DETACHED);
 
-    expect(() => assertEditable(db, synced.id)).toThrow(ExternalReadOnlyError);
-    expect(() => assertEditable(db, detached.id)).not.toThrow();
-    expect(() => assertEditable(db, local.id)).not.toThrow();
+    await expect(assertEditable(db, synced.id)).rejects.toThrow(ExternalReadOnlyError);
+    await expect(assertEditable(db, detached.id)).resolves.toBeUndefined();
+    await expect(assertEditable(db, local.id)).resolves.toBeUndefined();
   });
 
   it('passes an id with no row, leaving not-found to the caller', async () => {
     const missing = generateId('task');
-    expect(() => assertEditable(db, missing)).not.toThrow();
+    await expect(assertEditable(db, missing)).resolves.toBeUndefined();
     await expect(tasks.updateTask(missing, { title: 'Edited' })).resolves.toBeNull();
   });
 });
@@ -277,7 +285,7 @@ describe('read-only guards — local tasks in mirrored projects', () => {
 
   beforeEach(async () => {
     mirrored = await projects.createProject({ title: 'Mirrored', dueDate: TOMORROW });
-    link(mirrored.id);
+    await link(mirrored.id);
   });
 
   it('creates a local task in a mirrored project and counts it in the stats', async () => {
@@ -306,7 +314,7 @@ describe('read-only guards — local tasks in mirrored projects', () => {
 
   it('still rejects moving a synced task, even into a mirrored project', async () => {
     const task = await tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
-    link(task.id);
+    await link(task.id);
     await expect(tasks.updateProject(task.id, mirrored.id)).rejects.toThrow(ExternalReadOnlyError);
   });
 });
@@ -314,7 +322,7 @@ describe('read-only guards — local tasks in mirrored projects', () => {
 describe('read-only guards — links on synced rows', () => {
   it('links a note and an event to a synced task', async () => {
     const task = await tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
-    link(task.id);
+    await link(task.id);
     const note = await notes.createNote({ title: 'Note' });
     const event = await events.createEvent({ title: 'Event', startAt: TOMORROW, endAt: NEXT_WEEK });
 
@@ -328,14 +336,14 @@ describe('read-only guards — links on synced rows', () => {
 
   it('files a note under a synced task', async () => {
     const task = await tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
-    link(task.id);
+    await link(task.id);
     const note = await notes.createNote({ title: 'Task note', linkedTaskId: task.id });
     expect(note.linkedTaskId).toBe(task.id);
   });
 
   it('links a note and a task to a synced event', async () => {
     const event = await events.createEvent({ title: 'Event', startAt: TOMORROW, endAt: NEXT_WEEK });
-    link(event.id);
+    await link(event.id);
     const note = await notes.createNote({ title: 'Meeting notes', linkedEventId: event.id });
     expect(note.linkedEventId).toBe(event.id);
 
@@ -347,9 +355,9 @@ describe('read-only guards — links on synced rows', () => {
 
   it('lets a synced subtask carry its own links', async () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const child = insertChild(parent.id, 'Child');
-    link(parent.id);
-    link(child);
+    const child = await insertChild(parent.id, 'Child');
+    await link(parent.id);
+    await link(child);
     const note = await notes.createNote({ title: 'Note' });
 
     const updated = await tasks.updateLinks(child, { linkedNoteId: note.id });
@@ -359,8 +367,8 @@ describe('read-only guards — links on synced rows', () => {
   it('still makes local and detached subtasks inherit links', async () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const local = await tasks.createSubtask(parent.id, { title: 'Local' });
-    const detached = insertChild(parent.id, 'Detached');
-    link(detached, LinkState.DETACHED);
+    const detached = await insertChild(parent.id, 'Detached');
+    await link(detached, LinkState.DETACHED);
     const note = await notes.createNote({ title: 'Note' });
 
     await expect(tasks.updateLinks(local.id, { linkedNoteId: note.id })).rejects.toThrow(
@@ -380,9 +388,9 @@ describe('read-only guards — deep external trees', () => {
   beforeEach(async () => {
     // three levels, which local tasks cannot reach
     root = (await tasks.createTask({ title: 'Root', dueDate: TOMORROW })).id;
-    child = insertChild(root, 'Child');
-    grandchild = insertChild(child, 'Grandchild');
-    for (const id of [root, child, grandchild]) link(id);
+    child = await insertChild(root, 'Child');
+    grandchild = await insertChild(child, 'Grandchild');
+    for (const id of [root, child, grandchild]) await link(id);
   });
 
   it('reads every level', async () => {
