@@ -8,7 +8,7 @@ const PROJECT_FIELDS = `
   name
   description
   url
-  state
+  status { type name }
   startDate
   targetDate
   color

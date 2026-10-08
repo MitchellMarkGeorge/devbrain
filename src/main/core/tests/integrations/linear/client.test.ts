@@ -71,6 +71,34 @@ describe('Linear client — errors', () => {
     );
   });
 
+  it('maps an authentication error reported only through extensions.type', async () => {
+    const fetch = scriptedFetch([
+      {
+        status: 400,
+        body: {
+          errors: [{ message: 'Not authenticated', extensions: { type: 'authentication error' } }],
+        },
+      },
+    ]);
+    await expect(client(fetch).request(API_KEY, 'query', {}, anything)).rejects.toBeInstanceOf(
+      IntegrationAuthError,
+    );
+  });
+
+  it('does not treat an unrelated 400 as an authentication failure', async () => {
+    const fetch = scriptedFetch([
+      {
+        status: 400,
+        body: { errors: [{ message: 'Bad query', extensions: { type: 'invalid input' } }] },
+      },
+    ]);
+    const error = await client(fetch)
+      .request(API_KEY, 'query', {}, anything)
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(LinearApiError);
+    expect(error).not.toBeInstanceOf(IntegrationAuthError);
+  });
+
   it('maps a 400 with code RATELIMITED to RateLimitError with the reset time', async () => {
     const reset = new Date('2026-10-07T12:30:00.000Z');
     const fetch = scriptedFetch([
@@ -102,6 +130,28 @@ describe('Linear client — errors', () => {
       .request(API_KEY, 'query', {}, anything)
       .catch((e: unknown) => e)) as RateLimitError;
     expect(error.retryAt).toEqual(new Date('2026-10-07T12:45:00Z'));
+  });
+
+  it('falls back to Retry-After when no reset header is sent', async () => {
+    const fetch = scriptedFetch([
+      { status: 400, body: rateLimitedFixture, headers: { 'Retry-After': '120' } },
+    ]);
+    const error = (await client(fetch)
+      .request(API_KEY, 'query', {}, anything)
+      .catch((e: unknown) => e)) as RateLimitError;
+    expect(error.retryAt).toEqual(new Date('2026-10-07T12:02:00.000Z'));
+  });
+
+  it('recognises a rate limit reported only through extensions.type', async () => {
+    const fetch = scriptedFetch([
+      {
+        status: 400,
+        body: { errors: [{ message: 'Rate limited', extensions: { type: 'ratelimited' } }] },
+      },
+    ]);
+    await expect(client(fetch).request(API_KEY, 'query', {}, anything)).rejects.toBeInstanceOf(
+      RateLimitError,
+    );
   });
 
   it('falls back to a short wait when no reset header is sent', async () => {

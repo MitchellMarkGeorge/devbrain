@@ -3,9 +3,9 @@ import { TaskPriority, TaskStatus } from '../../../tasks/types';
 import { ProjectStatus } from '../../../projects/types';
 
 // What Linear sends back: enum values and their DevBrain mappings, and the response shapes the
-// client validates against. The queries that ask for these fields are in ./queries. Several values
-// are from memory and still to be confirmed against the live API (see
-// tests/integrations/fixtures/linear/README.md).
+// client validates against. The queries that ask for these fields are in ./queries. Field names
+// and enum values are checked against the schema types in @linear/sdk; what still needs a live
+// account is listed in tests/integrations/fixtures/linear/README.md.
 
 // workflow state type -> DevBrain status
 export const STATE_TYPE_STATUS: Record<string, TaskStatus> = {
@@ -15,9 +15,11 @@ export const STATE_TYPE_STATUS: Record<string, TaskStatus> = {
   started: TaskStatus.IN_PROGRESS,
   completed: TaskStatus.COMPLETED,
   canceled: TaskStatus.CANCELLED,
+  // an issue closed as a duplicate of another
+  duplicate: TaskStatus.CANCELLED,
 };
 // the state types that close an issue
-export const CLOSED_STATE_TYPES = ['completed', 'canceled'];
+export const CLOSED_STATE_TYPES = ['completed', 'canceled', 'duplicate'];
 
 // priority number -> DevBrain priority; 0 is "No priority"
 export const PRIORITY: Record<number, TaskPriority> = {
@@ -28,8 +30,8 @@ export const PRIORITY: Record<number, TaskPriority> = {
   4: TaskPriority.LOW,
 };
 
-// project state -> DevBrain project status
-export const PROJECT_STATE_STATUS: Record<string, ProjectStatus> = {
+// project status type -> DevBrain project status
+export const PROJECT_STATUS_TYPE_STATUS: Record<string, ProjectStatus> = {
   backlog: ProjectStatus.NOT_STARTED,
   planned: ProjectStatus.NOT_STARTED,
   started: ProjectStatus.ACTIVE,
@@ -87,7 +89,11 @@ export const linearProjectSchema = z.object({
   name: z.string(),
   description: z.string().nullable(),
   url: z.string(),
-  state: z.enum(Object.keys(PROJECT_STATE_STATUS) as [string, ...string[]]),
+  // the type drives the mapping; the name is the team's own label, e.g. "In Progress"
+  status: z.object({
+    type: z.enum(Object.keys(PROJECT_STATUS_TYPE_STATUS) as [string, ...string[]]),
+    name: z.string(),
+  }),
   startDate: dateOnly.nullable(),
   targetDate: dateOnly.nullable(),
   color: z.string().nullable(),

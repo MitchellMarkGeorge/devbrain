@@ -5,7 +5,7 @@ import {
   LinearIssue,
   LinearProject,
   PRIORITY,
-  PROJECT_STATE_STATUS,
+  PROJECT_STATUS_TYPE_STATUS,
   STATE_TYPE_STATUS,
 } from './schema';
 
@@ -41,14 +41,14 @@ export function toExternalTask(issue: LinearIssue, viewerId: string): ExternalTa
 }
 
 export function toExternalProject(project: LinearProject): ExternalProject {
-  const status = PROJECT_STATE_STATUS[project.state];
+  const status = PROJECT_STATUS_TYPE_STATUS[project.status.type];
   return {
     externalId: project.id,
     url: project.url,
     title: project.name,
     description: project.description || null,
     status,
-    statusLabel: project.state,
+    statusLabel: project.status.name,
     startDate: toLocalMidnight(project.startDate),
     dueDate: toLocalMidnight(project.targetDate),
     color: project.color,

@@ -47,7 +47,8 @@ describe('Linear mapper — issues', () => {
     ['unstarted', TaskStatus.NOT_STARTED, 'Todo'],
     ['started', TaskStatus.IN_PROGRESS, 'In Progress'],
     ['completed', TaskStatus.COMPLETED, 'Done'],
-    ['canceled', TaskStatus.CANCELLED, 'Duplicate'],
+    ['canceled', TaskStatus.CANCELLED, 'Canceled'],
+    ['duplicate', TaskStatus.CANCELLED, 'Duplicate'],
   ] as const)('maps state type %s by type, keeping the team label', (type, status, label) => {
     const task = toExternalTask(issue(byStateFixture[type]), VIEWER_ID);
     expect(task.status).toBe(status);
@@ -60,6 +61,7 @@ describe('Linear mapper — issues', () => {
     );
     // cancelled closes the task but never sets completedAt
     expect(toExternalTask(issue(byStateFixture.canceled), VIEWER_ID).completedAt).toBeNull();
+    expect(toExternalTask(issue(byStateFixture.duplicate), VIEWER_ID).completedAt).toBeNull();
     expect(toExternalTask(issue(byStateFixture.started), VIEWER_ID).completedAt).toBeNull();
   });
 
@@ -119,6 +121,7 @@ describe('Linear mapper — issues', () => {
 describe('Linear mapper — projects', () => {
   const project = (overrides: Record<string, unknown> = {}) =>
     linearProjectSchema.parse({ ...issueFixture.project, ...overrides });
+  const status = (type: string, name = 'Custom name') => ({ status: { type, name } });
 
   it('maps every mirrored field', () => {
     expect(toExternalProject(project())).toEqual({
@@ -127,7 +130,7 @@ describe('Linear mapper — projects', () => {
       title: 'Sync engine',
       description: 'Mirror Linear issues into DevBrain.',
       status: ProjectStatus.ACTIVE,
-      statusLabel: 'started',
+      statusLabel: 'In Progress',
       startDate: new Date(2026, 8, 1),
       dueDate: new Date(2026, 10, 15),
       color: '#4ea7fc',
@@ -144,17 +147,26 @@ describe('Linear mapper — projects', () => {
     ['paused', ProjectStatus.ON_HOLD],
     ['completed', ProjectStatus.COMPLETED],
     ['canceled', ProjectStatus.COMPLETED],
-  ])('maps project state %s', (state, status) => {
-    expect(toExternalProject(project({ state })).status).toBe(status);
+  ])('maps project status type %s', (type, expected) => {
+    expect(toExternalProject(project(status(type))).status).toBe(expected);
+  });
+
+  it("keeps the team's status name as the label", () => {
+    expect(toExternalProject(project(status('started', 'Building'))).statusLabel).toBe('Building');
+  });
+
+  it('rejects the deprecated state field without a status', () => {
+    const legacy = { ...issueFixture.project, status: undefined, state: 'started' };
+    expect(linearProjectSchema.safeParse(legacy).success).toBe(false);
   });
 
   it('gives a closed project a completedAt, as the database requires', () => {
     const completedAt = '2026-10-03T10:00:00.000Z';
-    expect(toExternalProject(project({ state: 'completed', completedAt })).completedAt).toEqual(
+    expect(toExternalProject(project({ ...status('completed'), completedAt })).completedAt).toEqual(
       new Date(completedAt),
     );
     const canceledAt = '2026-10-04T10:00:00.000Z';
-    expect(toExternalProject(project({ state: 'canceled', canceledAt })).completedAt).toEqual(
+    expect(toExternalProject(project({ ...status('canceled'), canceledAt })).completedAt).toEqual(
       new Date(canceledAt),
     );
   });

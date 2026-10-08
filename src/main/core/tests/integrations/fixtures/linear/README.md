@@ -19,31 +19,23 @@ DEV_LINEAR_API_KEY=lin_api_... npx tsx --tsconfig ./tsconfig.node.json scripts/l
 | `rate-limited.json`           | Body of the HTTP 400 Linear sends when rate limited                         |
 | `authentication-error.json`   | Body of a GraphQL authentication error, as an unknown key might return it   |
 
-## From memory, to confirm
+## Checked against the schema
 
-Each lives in one place under `src/main/core/integrations/providers/linear/`, so a correction is a change there (and to these fixtures): field selections and filters in `queries.ts`, response shapes and enum values in `schema.ts`, and error codes and headers in `client.ts`.
+Field names, enum values and query shapes were checked against the generated schema types in `@linear/sdk` 97.1.0. Each lives in one place under `src/main/core/integrations/providers/linear/`, so a correction is a change there (and to these fixtures): field selections and filters in `queries.ts`, response shapes and enum values in `schema.ts`, and error codes and headers in `client.ts`.
 
-**Enum values**
+- Workflow state types: `triage`, `backlog`, `unstarted`, `started`, `completed`, `canceled`, `duplicate`. A duplicate maps to cancelled.
+- Priority numbers: 0 no priority, 1 urgent, 2 high, 3 medium, 4 low. `priorityLabel` is never null.
+- Project status: `status { type name }`, with types `backlog`, `planned`, `started`, `paused`, `completed`, `canceled`. The older `state` field is deprecated.
+- Issue fields: `identifier`, `priorityLabel`, `dueDate` (date-only), `startedAt`, `completedAt`, `canceledAt`, `archivedAt`, `trashed` (nullable), `state { name type }`, `assignee { id }`, `parent`, `project`.
+- Project fields: `startDate` and `targetDate` (date-only), `color`, `completedAt`, `canceledAt`, `createdAt`.
+- Viewer: `organization { id name }` (the workspace the user belongs to); `email` is never null.
+- Query shapes: `assignedIssues` and `issues` take `first`, `after`, `filter: IssueFilter`, `includeArchived` and `orderBy` (`createdAt` or `updatedAt`). `state.type` takes `nin`, `id` takes `in`, `or` works at the top of a filter, and date filters take an ISO time or a duration.
 
-- Workflow state types: `triage`, `backlog`, `unstarted`, `started`, `completed`, `canceled`.
-- Priority numbers: 0 no priority, 1 urgent, 2 high, 3 medium, 4 low; and the `priorityLabel` strings ("No priority", "Urgent", "High", "Medium", "Low").
-- Project `state` values: `backlog`, `planned`, `started`, `paused`, `completed`, `canceled`. Linear may have moved this to a `status { type }` object, with `state` deprecated.
-- Error codes: `RATELIMITED` (documented) and `AUTHENTICATION_ERROR` (from memory), and whether an unknown key comes back as a 401 or as a 400 with that code.
+## Still to confirm on a live account
 
-**Fields**
-
-- Issue: `identifier`, `priorityLabel`, `dueDate` (a date-only string), `startedAt`, `completedAt`, `canceledAt`, `archivedAt`, `trashed` (and whether it is nullable), `state { name type }`, `assignee { id }`, `parent { id identifier title }`, `project { ... }`.
-- Project: `state`, `startDate` and `targetDate` (date-only strings), `color`, `completedAt`, `canceledAt`, `createdAt`. `createdAt`, `completedAt` and `canceledAt` are not in the design's query shape; they were added because `ExternalProject` needs them.
-- Viewer: `organization { id name }`, and whether `email` can be null.
-
-**Query shapes**
-
-- The filter variable type name `IssueFilter`, and `$since`/date filters taking an ISO time (the initial filter sends an ISO time rather than a `-P30D` duration).
-- `nin` on `state.type`, `id: { in: [...] }` on `issues`, and `or: [...]` at the top of a filter.
 - The direction of `orderBy: updatedAt` (assumed newest first; the cursor logic is safe either way).
-- Whether `viewer.assignedIssues` without `includeArchived` hides trashed issues.
+- Whether `viewer.assignedIssues` hides trashed issues.
 - The largest `first` Linear accepts (lookups request 100).
-
-**Headers**
-
-- `X-RateLimit-Requests-Reset` and `X-RateLimit-Complexity-Reset` are assumed to be UTC epoch milliseconds. Second values are accepted too.
+- Whether closing an issue as a duplicate sets `canceledAt`. If not, a duplicate closed in the last 30 days is missed by the initial pull, though the next incremental run picks it up by `updatedAt`.
+- Which extension field identifies an error. Linear's docs show `extensions.code: "RATELIMITED"`; `@linear/sdk` reads `extensions.type` (`"ratelimited"`, `"authentication error"`). The client accepts either. Also whether an unknown key comes back as a 401 or as a 400 with an authentication error.
+- The unit of `X-RateLimit-Requests-Reset` and `X-RateLimit-Complexity-Reset`, documented by the SDK as a Unix timestamp. Seconds and milliseconds are both accepted. `Retry-After` (seconds) is used when neither is sent.

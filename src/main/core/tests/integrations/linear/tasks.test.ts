@@ -73,7 +73,7 @@ describe('Linear tasks — pull', () => {
     const closedSince = new Date(NOW.getTime() - CLOSED_ISSUE_WINDOW_MS).toISOString();
     expect(fetch.requests[0].variables.filter).toEqual({
       or: [
-        { state: { type: { nin: ['completed', 'canceled'] } } },
+        { state: { type: { nin: ['completed', 'canceled', 'duplicate'] } } },
         { completedAt: { gt: closedSince } },
         { canceledAt: { gt: closedSince } },
       ],
@@ -200,7 +200,7 @@ describe('Linear tasks — listAssignedIds', () => {
     expect(await source(fetch).listAssignedIds(AUTH)).toEqual(['a', 'b', 'c']);
     expect(fetch.requests.map((request) => request.variables.after)).toEqual([null, 'c1']);
     expect(fetch.requests[0].variables.filter).toEqual({
-      state: { type: { nin: ['completed', 'canceled'] } },
+      state: { type: { nin: ['completed', 'canceled', 'duplicate'] } },
     });
     expect(fetch.requests[0].query).toMatch(/nodes\s*{\s*id\s*}/);
   });

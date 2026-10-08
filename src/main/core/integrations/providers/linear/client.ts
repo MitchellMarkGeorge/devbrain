@@ -13,13 +13,17 @@ import {
 
 export const LINEAR_GRAPHQL_URL = 'https://api.linear.app/graphql';
 
-export const RATE_LIMITED_CODE = 'RATELIMITED';
-// from memory: an unknown or revoked key may come back as a 400 with this code instead of a 401
-export const AUTHENTICATION_ERROR_CODE = 'AUTHENTICATION_ERROR';
+// GraphQL errors are recognised by extensions.code (as Linear's docs show) or extensions.type (as
+// @linear/sdk reads them); which one Linear sends for each is still to be confirmed live
+export const RATE_LIMITED = { code: 'RATELIMITED', type: 'ratelimited' };
+// an unknown or revoked key may come back as a 400 with this error instead of a 401
+export const AUTHENTICATION_ERROR = { code: 'AUTHENTICATION_ERROR', type: 'authentication error' };
 export const RATE_LIMIT_RESET_HEADERS = [
   'X-RateLimit-Requests-Reset',
   'X-RateLimit-Complexity-Reset',
 ];
+// seconds to wait, used when neither reset header is sent
+export const RETRY_AFTER_HEADER = 'Retry-After';
 
 // a GraphQL error that is not one of the mapped cases, e.g. a query the schema rejects
 export class LinearApiError extends Error {
@@ -34,7 +38,7 @@ export class LinearApiError extends Error {
 
 interface GraphQLError {
   message?: string;
-  extensions?: { code?: string };
+  extensions?: { code?: string; type?: string };
 }
 
 interface GraphQLBody {
@@ -87,13 +91,12 @@ export class LinearClient {
     }
 
     const body = await readBody(response);
-    const codes = body?.errors?.map((error) => error.extensions?.code) ?? [];
-
     // Linear reports rate limiting as a 400 with a GraphQL error code, not a 429
-    if (codes.includes(RATE_LIMITED_CODE) || response.status === 429) {
+    if (hasError(body, RATE_LIMITED) || response.status === 429) {
       throw new RateLimitError(this.retryAt(response.headers));
     }
-    if (codes.includes(AUTHENTICATION_ERROR_CODE)) {
+    // any other 400 is not treated as an auth failure: a bad query must not force a reconnect
+    if (hasError(body, AUTHENTICATION_ERROR)) {
       throw new IntegrationAuthError('Linear rejected the credentials');
     }
     if (!response.ok || body?.errors?.length) {
@@ -111,16 +114,27 @@ export class LinearClient {
     return parsed.data;
   }
 
-  // the later of the reset headers, so neither limit is hit again on the next attempt
+  // the later of the reset headers, so neither limit is hit again on the next attempt; then
+  // Retry-After; then a short default
   private retryAt(headers: Headers): Date {
     const resets = RATE_LIMIT_RESET_HEADERS.map((name) => parseResetTime(headers.get(name))).filter(
       (time): time is number => time !== null,
     );
-    if (resets.length === 0) {
-      return new Date(this.now().getTime() + BACKOFF_INITIAL_MS);
+    if (resets.length > 0) {
+      return new Date(Math.max(...resets));
     }
-    return new Date(Math.max(...resets));
+    const retryAfter = Number(headers.get(RETRY_AFTER_HEADER));
+    const wait = retryAfter > 0 ? retryAfter * 1000 : BACKOFF_INITIAL_MS;
+    return new Date(this.now().getTime() + wait);
   }
+}
+
+function hasError(body: GraphQLBody | null, kind: { code: string; type: string }): boolean {
+  return (
+    body?.errors?.some(
+      (error) => error.extensions?.code === kind.code || error.extensions?.type === kind.type,
+    ) ?? false
+  );
 }
 
 async function readBody(response: Response): Promise<GraphQLBody | null> {

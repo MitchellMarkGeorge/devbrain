@@ -31,7 +31,10 @@
     "name": "Sync engine",
     "description": "Mirror Linear issues into DevBrain.",
     "url": "https://linear.app/acme/project/sync-engine-5d2c9e1a7b40",
-    "state": "started",
+    "status": {
+      "type": "started",
+      "name": "In Progress"
+    },
     "startDate": "2026-09-01",
     "targetDate": "2026-11-15",
     "color": "#4ea7fc",
