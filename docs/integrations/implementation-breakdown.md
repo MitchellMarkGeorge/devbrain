@@ -362,7 +362,7 @@ Sync runs by itself while a workspace is open. Everything the later IPC layer wi
 The Electron-side pieces core needs in order to run inside the app. No IPC channels are added here; the separate IPC work will sit on top of the service surface listed at the end.
 
 - [ ] In `src/main`, implement the real `SecretCipher` over Electron's async `safeStorage` API: `isAsyncEncryptionAvailable`, `encryptStringAsync` and `decryptStringAsync`.
-- [ ] Pass `SecretCipher`, global `fetch` and `shell.openExternal` into `DevBrain`, which threads them to `WorkspaceService` and `Workspace`.
+- [ ] Pass `SecretCipher`, Electron's `net.fetch` and `shell.openExternal` into `DevBrain`, which threads them to `WorkspaceService` and `Workspace`. Use `net.fetch` rather than Node's global `fetch`: it goes through Chromium's network stack, so it honours the system proxy (including PAC files) and the OS certificate store, which Node's `fetch` does not. It can only be called after the app's `ready` event. `FetchFn` in `providers/provider.ts` is typed so either fits.
 - [ ] Call `scheduler.trigger('focus')` on `BrowserWindow` focus and `scheduler.trigger('resume')` on `powerMonitor` resume, for the current workspace.
 - [ ] Make sure switching or closing a workspace awaits the old scheduler's `stop()` before the next workspace starts.
 - [ ] Keep engine progress and service changes as typed in-process events (`sync.onProgress`, `integrations.onChange`). The IPC layer will forward them later; nothing in core knows about the renderer.

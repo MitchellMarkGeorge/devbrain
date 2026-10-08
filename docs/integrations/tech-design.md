@@ -144,7 +144,7 @@ interface TaskSource {
 
 `ExternalTask` already carries DevBrain's `TaskStatus` and `TaskPriority` plus the provider's raw labels. Mapping lives in each adapter's `mapper.ts`, which keeps it unit-testable against fixture payloads.
 
-**Why core stays free of Electron.** `SecretCipher`, `fetch` and `openExternal` are constructor arguments. The main process passes `safeStorage`, global `fetch` and `shell.openExternal`. Tests pass fakes, matching how `electron-store` is mocked today.
+**Why core stays free of Electron.** `SecretCipher`, `fetch` and `openExternal` are constructor arguments. The main process passes `safeStorage`, Electron's `net.fetch` (which honours the system proxy and certificate store) and `shell.openExternal`. Tests pass fakes, matching how `electron-store` is mocked today.
 
 ## Authentication
 

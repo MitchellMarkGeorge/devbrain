@@ -66,5 +66,6 @@ export interface Provider {
   tasks?: TaskSource;
 }
 
-// global fetch in the main process, a scripted fake in tests
-export type FetchFn = typeof fetch;
+// What adapters need from fetch: a URL string and an init. Kept this narrow so Electron's
+// net.fetch (which takes no URL object) fits, as do Node's global fetch and the fakes in tests.
+export type FetchFn = (url: string, init: RequestInit) => Promise<Response>;
