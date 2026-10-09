@@ -94,6 +94,33 @@ export class LinearTaskSource implements TaskSource {
     return ids;
   }
 
+  /**
+   * The current state of specific issues and, optionally, projects, by id. Reconcile uses it to
+   * find out what happened to items the assignment snapshot no longer lists (and to those it lists
+   * again). It writes nothing; SyncWriter decides what each result means.
+   *
+   * 1. Issues: drop duplicate ids and split them into batches of LOOKUP_BATCH_SIZE, one request
+   *    each. The query passes includeArchived, so trashed and archived issues still come back and
+   *    a trashed issue can be told apart from a deleted one. The same request asks for the viewer's
+   *    id, to compare with each issue's assignee.
+   * 2. Sort each requested issue id into exactly one bucket:
+   *    - found: valid and not trashed. Mapped like a pulled issue, with assignedToViewer set from
+   *      its assignee, and its project collected
+   *    - gone: not in the response (Linear leaves out ids that no longer exist), or trashed
+   *    - skipped: in the response but failed to validate. Counted, and never reported as gone, so
+   *      a schema mismatch on our side cannot make an issue look deleted
+   * 3. Projects, only for `options.projectIds`: the same batching and the same three buckets,
+   *    through the projects query. An archived project that is not trashed still exists, so it is
+   *    found.
+   *
+   * Returns:
+   * - tasks: the found issues. assignedToViewer false means reassigned away
+   * - projects: the found issues' projects, then the found requested projects, each once
+   * - gone, goneProjects: the ids that no longer resolve or are trashed
+   * - skipped: issues and projects that came back but could not be read
+   *
+   * Empty inputs make no request.
+   */
   async lookup(
     auth: Auth,
     externalIds: string[],
@@ -105,6 +132,7 @@ export class LinearTaskSource implements TaskSource {
     const gone: string[] = [];
     let skipped = 0;
 
+    // 1.
     for (const batch of batches(ids)) {
       const { viewer, issues } = await this.client.request(
         auth,
@@ -112,6 +140,7 @@ export class LinearTaskSource implements TaskSource {
         { first: batch.length, ids: batch },
         issuesByIdResponseSchema,
       );
+      // 2. mapIssues validates node by node, and leaves trashed issues out of page.tasks
       const page = mapIssues(issues.nodes, viewer.id);
       tasks.push(...page.tasks);
       page.projects.forEach((project) => projects.set(project.externalId, project));
@@ -123,6 +152,7 @@ export class LinearTaskSource implements TaskSource {
       gone.push(...batch.filter((id) => !seen.has(id)));
     }
 
+    // 3.
     const goneProjects: string[] = [];
     for (const batch of batches([...new Set(options.projectIds ?? [])])) {
       const response = await this.client.request(
