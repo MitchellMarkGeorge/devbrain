@@ -201,26 +201,6 @@ export class IntegrationService {
     }
   }
 
-  /**
-   * Moves a connected integration to needs_reauth, e.g. when its token refresh is rejected. Its
-   * sources stop syncing until a reconnect; mirrored data stays. A disabled integration, or one
-   * already waiting for re-authentication, is left as it is.
-   */
-  markNeedsReauth(id: IntegrationId): void {
-    const updated = this.db
-      .update(integrations)
-      .set({ status: IntegrationStatus.NEEDS_REAUTH })
-      .where(and(eq(integrations.id, id), eq(integrations.status, IntegrationStatus.CONNECTED)))
-      .returning({ id: integrations.id })
-      .all();
-    if (updated.length === 0) return;
-    this.emit({
-      type: 'status_changed',
-      integrationId: id,
-      status: IntegrationStatus.NEEDS_REAUTH,
-    });
-  }
-
   // Stores a validated connection: the integration, its encrypted credentials and one source per
   // type the provider supports, in one transaction. The same for every auth method and provider.
   private async store(
