@@ -32,7 +32,8 @@ export const googleEventCursorSchema = z.object({
   ),
 });
 
-// nothing in v1
+// Nothing in v1: every issue assigned to the viewer is synced. A team filter would go here; see
+// the config parameter of TaskSource.pull.
 export const linearTaskConfigSchema = z.object({});
 
 export const googleEventConfigSchema = z.object({
