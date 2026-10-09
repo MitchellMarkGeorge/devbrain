@@ -71,6 +71,15 @@ export class RateLimitError extends Error {
   }
 }
 
+// a sync run hit MAX_PAGES_PER_RUN without the provider saying it was done; the pages pulled so far
+// stay committed, and the run fails and backs off like any other failure
+export class SyncPageLimitError extends Error {
+  constructor(maxPages: number) {
+    super(`The provider did not finish within ${maxPages} pages`);
+    this.name = 'SyncPageLimitError';
+  }
+}
+
 // a network failure, timeout or provider 5xx; the run ends and backs off
 export class ProviderUnavailableError extends Error {
   constructor(message: string, options?: ErrorOptions) {

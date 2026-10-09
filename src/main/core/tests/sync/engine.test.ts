@@ -36,6 +36,7 @@ import {
   IntegrationAuthError,
   ProviderUnavailableError,
   RateLimitError,
+  SyncPageLimitError,
 } from '../../shared/errors';
 
 const CREATED = new Date('2026-01-15T09:00:00Z');
@@ -105,7 +106,7 @@ function project(overrides: Partial<ExternalProject> = {}): ExternalProject {
 }
 
 // builds the services around `registryProvider` and connects through connectWithApiKey
-async function setup(registryProvider: Provider, apiKey = FAKE_API_KEY) {
+async function setup(registryProvider: Provider, apiKey = FAKE_API_KEY, maxPagesPerRun?: number) {
   db = createDb();
   const credentials = new CredentialStore(db, { cipher: new FakeCipher() });
   service = new IntegrationService(db, { credentials, providers: fakeRegistry(registryProvider) });
@@ -119,6 +120,7 @@ async function setup(registryProvider: Provider, apiKey = FAKE_API_KEY) {
     writer,
     logger,
     now: () => clock,
+    maxPagesPerRun,
   });
   const integration = await service.connectWithApiKey(ProviderId.LINEAR, apiKey);
   integrationId = integration.id;
@@ -544,6 +546,36 @@ describe('SyncEngine — failures', () => {
     provider.tasks.script({ tasks: [issue()] });
     expect(await engine.runSource(sourceId)).toMatchObject({ outcome: SyncRunOutcome.COMPLETED });
     expect(sourceRow()).toMatchObject({ retryAt: null, lastError: null });
+  });
+
+  it('fails a run that reaches the page cap, keeping its pages for the next run', async () => {
+    provider = createFakeProvider();
+    await setup(provider, FAKE_API_KEY, 2);
+    provider.tasks.script(
+      { tasks: [issue({ title: 'One' })], done: false },
+      { tasks: [issue({ title: 'Two' })], done: false },
+      { tasks: [issue({ title: 'Three' })] },
+    );
+
+    const capped = await engine.runSource(sourceId);
+
+    expect(capped).toMatchObject({ outcome: SyncRunOutcome.FAILED, pages: 2, inserted: 2 });
+    expect(capped.error).toBeInstanceOf(SyncPageLimitError);
+    expect(provider.tasks.pulls).toHaveLength(2);
+    expect(taskTitles()).toEqual(['One', 'Two']);
+    expect(sourceRow()).toMatchObject({
+      cursor: { mode: 'initial', after: 'page-2' },
+      initialSyncCompletedAt: null,
+      consecutiveFailures: 1,
+    });
+    expect(logLines()[0]).toMatch(/outcome=failed error=SyncPageLimitError$/);
+
+    const resumed = await engine.runSource(sourceId);
+
+    expect(resumed).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, pages: 1 });
+    expect(provider.tasks.pulls[2].cursor).toMatchObject({ after: 'page-2' });
+    expect(taskTitles()).toEqual(['One', 'Three', 'Two']);
+    expect(sourceRow()).toMatchObject({ initialSyncCompletedAt: NOW, consecutiveFailures: 0 });
   });
 
   it('counts consecutive provider failures and resets them on success', async () => {

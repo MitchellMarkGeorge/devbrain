@@ -8,7 +8,8 @@ import { SyncCursor, SourceConfig, TaskSource } from '../integrations/providers/
 import { ProviderRegistry } from '../integrations/providers/registry';
 import { linearTaskConfigSchema, linearTaskCursorSchema } from '../integrations/schema';
 import { IntegrationStatus, Provider, SourceType } from '../integrations/types';
-import { IntegrationAuthError, RateLimitError } from '../shared/errors';
+import { IntegrationAuthError, RateLimitError, SyncPageLimitError } from '../shared/errors';
+import { MAX_PAGES_PER_RUN } from './constants';
 import { SyncWriter } from './writer';
 import {
   SyncEntityType,
@@ -34,6 +35,7 @@ export interface SyncEngineOptions {
   writer: SyncWriter;
   logger?: SyncLogger;
   now?: () => Date; // injected for tests
+  maxPagesPerRun?: number; // defaults to MAX_PAGES_PER_RUN; lowered in tests
 }
 
 export interface RunOptions {
@@ -66,6 +68,7 @@ export class SyncEngine {
   private readonly writer: SyncWriter;
   private readonly logger: SyncLogger;
   private readonly now: () => Date;
+  private readonly maxPagesPerRun: number;
   private readonly listeners = new Set<SyncProgressListener>();
   // sources with a run in flight; a second run for one of them is skipped
   private readonly running = new Set<ExternalSourceId>();
@@ -80,6 +83,7 @@ export class SyncEngine {
     this.writer = options.writer;
     this.logger = options.logger ?? log.scope('sync');
     this.now = options.now ?? (() => new Date());
+    this.maxPagesPerRun = options.maxPagesPerRun ?? MAX_PAGES_PER_RUN;
   }
 
   /**
@@ -91,7 +95,8 @@ export class SyncEngine {
    * 3. Get auth, then per page: check the signal, pull, check the signal again (an aborted run
    *    discards the page it was waiting on), then apply the page and save its cursor in one
    *    transaction. The last page of an initial pass also sets initialSyncCompletedAt; the
-   *    provider's cursor after it is already incremental.
+   *    provider's cursor after it is already incremental. A run that reaches the page cap without
+   *    the provider finishing fails, keeping the pages it committed.
    * 4. Record the outcome on the source: success clears the error and failure count; a failure
    *    stores the error, and a rate limit its retry time. Rejected credentials also move the
    *    integration to needs_reauth.
@@ -168,7 +173,10 @@ export class SyncEngine {
     const auth = await this.credentials.getAuth(target.integrationId);
 
     let current = cursor;
-    for (;;) {
+    let done = false;
+    do {
+      // the pages so far are committed, so the next run resumes after them
+      if (run.pages >= this.maxPagesPerRun) throw new SyncPageLimitError(this.maxPagesPerRun);
       if (signal?.aborted) return;
       const page = await tasks.pull(auth, current, config);
       // the page arrived after an abort: discard it, so nothing is written after the abort
@@ -193,9 +201,9 @@ export class SyncEngine {
         itemsApplied: run.itemsApplied,
       });
 
-      if (page.done) return;
+      done = page.done;
       current = page.nextCursor;
-    }
+    } while (!done);
   }
 
   private skipReason(target: SyncTarget): SyncSkipReason | null {
