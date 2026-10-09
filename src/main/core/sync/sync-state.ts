@@ -18,6 +18,8 @@ export interface SyncTarget {
   cursor: unknown;
   initialSyncCompletedAt: Date | null;
   retryAt: Date | null;
+  // failed runs in a row; the scheduler backs off by it
+  consecutiveFailures: number;
 }
 
 // Why nothing may ask the provider for a source now, or null when it may: the source or its
@@ -81,6 +83,7 @@ export class SyncStateManager {
         cursor: externalSources.cursor,
         initialSyncCompletedAt: externalSources.initialSyncCompletedAt,
         retryAt: externalSources.retryAt,
+        consecutiveFailures: externalSources.consecutiveFailures,
       })
       .from(externalSources)
       .innerJoin(integrations, eq(integrations.id, externalSources.integrationId))

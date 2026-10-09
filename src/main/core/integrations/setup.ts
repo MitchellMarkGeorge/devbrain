@@ -13,7 +13,8 @@ import { IntegrationService } from './service';
 
 // Puts the integration services together for one workspace: the provider registry, the OAuth
 // client, CredentialStore with a refresher for every provider that declares OAuth, and
-// IntegrationService. Workspace calls this; tests call it to get the same wiring.
+// IntegrationService. Workspace calls this, and hands the same store and registry to SyncEngine;
+// tests call it to get the same wiring.
 
 export interface IntegrationsSetupOptions {
   // defaults to one that is never available, so connecting is refused and nothing is stored
@@ -37,7 +38,7 @@ export const unavailableBrowser: OpenExternal = async () => {
 export function createIntegrationServices(
   db: BetterSQLite3Database,
   options: IntegrationsSetupOptions = {},
-): { credentials: CredentialStore; integrations: IntegrationService } {
+): { credentials: CredentialStore; integrations: IntegrationService; providers: ProviderRegistry } {
   const fetchFn = options.fetch ?? fetch;
   const providers = options.providers ?? createProviderRegistry({ fetch: fetchFn });
   const oauth = createOAuthClient({
@@ -54,5 +55,7 @@ export function createIntegrationServices(
     onRefreshRejected: (integrationId) => service?.markNeedsReauth(integrationId),
   });
   service = new IntegrationService(db, { credentials, providers, oauth });
-  return { credentials, integrations: service };
+  // the sync engine gets the same store and registry, so an integration syncs through the provider
+  // that connected it
+  return { credentials, integrations: service, providers };
 }
