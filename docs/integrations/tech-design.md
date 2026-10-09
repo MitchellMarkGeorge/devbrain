@@ -323,26 +323,26 @@ If the same Linear project comes back into scope later, the detached project is 
 
 The reconcile pass checks mirrored project ids as well as issue ids, so a project deleted in Linear is noticed even if its issues were not otherwise touched.
 
-**Subtasks.** Linear sub-issues map to `parentTaskId` at any depth. The one-level limit stays for local tasks only: `createSubtask` and `demoteTask` reject external parents and children outright. If the parent issue is not mirrored (assigned to someone else), the child appears as a top-level task and the parent's key and title are kept in metadata for display. Each page is applied parents first, then children.
+**Subtasks.** Linear sub-issues map to `parentTaskId` at any depth. Local tasks nest at any depth too, but `createSubtask` and `demoteTask` reject external parents and children outright. If the parent issue is not mirrored (assigned to someone else), the child appears as a top-level task and the parent's key and title are kept in metadata for display. Each page is applied parents first, then children.
 
 **Task hierarchy, local and external.** A task's kind comes from its link, not from a column on `tasks`: no link is local, `synced` is external, `detached` is local again, and `removed` is archived. A subtask is any task with `parentTaskId` set.
 
-- Local tasks nest one level. `createSubtask` and `demoteTask` enforce it in the service; the schema does not.
-- Synced tasks nest at any depth, as Linear does. Only `SyncWriter` writes them, so the depth checks never run on them. A synced task points only at a parent whose link is `synced`; otherwise it is top-level and waits in metadata until the parent arrives or is restored.
-- The two never mix. A synced task has no local children and no local parent: `createSubtask`, `demoteTask` and `promoteSubtask` reject synced rows before any depth check.
-- A detached task follows the local rules from then on. It can still head a subtree deeper than one level, carried over from Linear.
+- Local tasks nest at any depth. `demoteTask` rejects a move under the task's own subtree, so the tree never cycles.
+- Synced tasks nest at any depth, as Linear does. Only `SyncWriter` writes them. A synced task points only at a parent whose link is `synced`; otherwise it is top-level and waits in metadata until the parent arrives or is restored.
+- The two never mix. A synced task has no local children and no local parent: `createSubtask`, `demoteTask` and `promoteSubtask` reject synced rows.
+- A detached task follows the local rules from then on, with the subtree it carried over from Linear.
 
-| Operation                      | Local                                                  | Synced                                  | Detached      |
-| ------------------------------ | ------------------------------------------------------ | --------------------------------------- | ------------- |
-| `createSubtask` (as parent)    | Top-level parents only; the child inherits context     | Rejected                                | Same as local |
-| `updateTask`, `updateStatus`   | Allowed                                                | Rejected                                | Allowed       |
-| `updateProject`                | Top-level only; subtasks inherit the parent's project  | Rejected; the project follows Linear    | Same as local |
-| `updateLinks`                  | Top-level only; subtasks inherit the parent's links    | Allowed, on subtasks too                | Same as local |
-| `promoteSubtask`, `demoteTask` | Allowed, within the depth checks                       | Rejected                                | Same as local |
-| `archiveTask`                  | Archives the task, its direct subtasks and their notes | Rejected; detach first                  | Same as local |
-| Removal by sync                | n/a                                                    | Archives that task only, link `removed` | Never         |
+| Operation                      | Local                                                 | Synced                                  | Detached      |
+| ------------------------------ | ----------------------------------------------------- | --------------------------------------- | ------------- |
+| `createSubtask` (as parent)    | Any depth; the child inherits context                 | Rejected                                | Same as local |
+| `updateTask`, `updateStatus`   | Allowed                                               | Rejected                                | Allowed       |
+| `updateProject`                | Top-level only; subtasks inherit the parent's project | Rejected; the project follows Linear    | Same as local |
+| `updateLinks`                  | Top-level only; subtasks inherit the parent's links   | Allowed, on subtasks too                | Same as local |
+| `promoteSubtask`, `demoteTask` | Allowed; never under the task's own subtree           | Rejected                                | Same as local |
+| `archiveTask`                  | Archives the task, its whole subtree and their notes  | Rejected; detach first                  | Same as local |
+| Removal by sync                | n/a                                                   | Archives that task only, link `removed` | Never         |
 
-Context differs by kind. A local subtask copies its parent's project, note link and event link when it is created or demoted. A synced task carries its own: the project is Linear's for that issue (so a sub-issue can sit in a different project from its parent, and never in a local or detached one), and its note and event links are set per task. Due dates are required for local tasks only.
+Context differs by kind. A local subtask copies its parent's project, note link and event link when it is created or demoted; a demoted task's whole subtree takes them on. A synced task carries its own: the project is Linear's for that issue (so a sub-issue can sit in a different project from its parent, and never in a local or detached one), and its note and event links are set per task. Due dates are required for local tasks only.
 
 **Read-only enforcement.** Enforced in the service layer, not only the UI.
 

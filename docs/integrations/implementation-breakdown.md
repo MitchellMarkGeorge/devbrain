@@ -318,9 +318,9 @@ The only code that writes external rows. It bypasses the service guards on purpo
 - [ ] Add `detachTask(id)` to a new `core/integrations/detach.ts` or to `IntegrationService`. Set the link and the links of its whole subtree to `detached`, in one transaction.
 - [ ] Add `reattachTask(id)`: require a connected, enabled source; `lookup` the single issue; fail clearly if it no longer resolves; set state `synced`; apply the fresh data through `SyncWriter`.
 - [ ] Reattaching a parent reattaches its detached subtree in the same call.
-- [ ] Confirm that a detached task with nested children does not trip the local depth guards on later edits.
+- [x] Confirm that a detached task with nested children does not trip the local depth guards on later edits.
 - [ ] Reject `reattachTask` while the task, or any task in its detached subtree, has local subtasks, with a message to promote or move them first. A synced task never has local children, and `removeTasks` archives only the task itself, so a reattached parent would leave such children live under an archived row.
-- [ ] Archive and restore a detached task's whole subtree. `ArchiveService` covers the task and its direct subtasks only, which is enough for local tasks but not for a detached subtree deeper than one level.
+- [x] Archive and restore a detached task's whole subtree. `ArchiveService` covers the task and its direct subtasks only, which is enough for local tasks but not for a detached subtree deeper than one level.
 
 **Tests**
 

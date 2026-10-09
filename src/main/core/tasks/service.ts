@@ -14,7 +14,7 @@ import {
   UpdateTaskOptions,
 } from './types';
 import { NotFoundError } from '../shared/errors';
-import { isSubtask } from './utils';
+import { isSubtask, subtreeIds } from './utils';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { localDayWindow } from '../shared/utils';
 import { keyset, Page, PageOptions } from '../shared/pagination';
@@ -71,13 +71,8 @@ export class TaskService {
   async createSubtask(parentTaskId: TaskId, options: CreateSubTaskOptions): Promise<Task> {
     // throws NotFoundError when no task matches the provided id
     const parentTask = await this.getById(parentTaskId);
-    // a synced parent's subtree is provider-owned, so it is rejected before the depth check:
-    // the one-level limit is for local tasks only
+    // a synced parent's subtree is provider-owned; local subtasks nest at any depth
     assertRowEditable(parentTask);
-
-    if (isSubtask(parentTask)) {
-      throw new Error('Subtasks cannot create their own subtasks');
-    }
 
     // inherit the parent's due date when none is provided; local tasks always need one
     const dueDate = options.dueDate ?? parentTask.dueDate;
@@ -324,35 +319,36 @@ export class TaskService {
     // both throw NotFoundError when the id has no active task behind it
     const task = await this.getById(id);
     const parentTask = await this.getById(newParentId);
-    // both sides are guarded before the depth checks, which apply to local tasks only
+    // both sides are guarded; local tasks nest at any depth
     assertRowEditable(task);
     assertRowEditable(parentTask);
 
-    if (isSubtask(parentTask)) {
-      throw new Error('Provided parent task is already a subtask');
-    }
+    const [cycle] = await this.db
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(and(eq(tasks.id, newParentId), inArray(tasks.id, subtreeIds(id))))
+      .limit(1);
+    if (cycle) throw new Error('Tasks cannot become a subtask of their own subtask');
 
-    const numOfSubtasks = await this.db.$count(
-      tasks,
-      and(eq(tasks.parentTaskId, id), isNull(tasks.archivedAt)),
-    );
+    return this.db.transaction((tx) => {
+      // the whole subtree takes on the new parent's context, so it stays consistent with its root
+      tx.update(tasks)
+        .set({
+          // override all previous context (WARN THE USER)
+          projectId: parentTask.projectId,
+          linkedNoteId: parentTask.linkedNoteId,
+          linkedEventId: parentTask.linkedEventId,
+        })
+        .where(inArray(tasks.id, subtreeIds(id)))
+        .run();
 
-    if (numOfSubtasks > 0)
-      throw new Error('Provided task has subtasks so cannot be become a subtask');
-
-    const [row] = await this.db
-      .update(tasks)
-      .set({
-        parentTaskId: newParentId,
-        // override all previous context (WARN THE USER)
-        projectId: parentTask.projectId,
-        linkedNoteId: parentTask.linkedNoteId,
-        linkedEventId: parentTask.linkedEventId,
-      })
-      .where(eq(tasks.id, id))
-      .returning();
-
-    return row;
+      return tx
+        .update(tasks)
+        .set({ parentTaskId: newParentId })
+        .where(eq(tasks.id, id))
+        .returning()
+        .get();
+    });
   }
 
   private activeTasks(condition: SQL<unknown>) {
