@@ -293,9 +293,89 @@ describe('Linear tasks — lookup', () => {
     expect(result.skipped).toBe(1);
   });
 
+  it('returns the projects of the issues it finds', async () => {
+    const fetch = scriptedFetch([lookupResponder(new Set())]);
+
+    const result = await source(fetch).lookup(AUTH, ['a', 'b']);
+
+    // both issues are in the fixture's project, which comes back once
+    expect(result.projects.map((project) => project.externalId)).toEqual([issueFixture.project.id]);
+    expect(result.goneProjects).toEqual([]);
+  });
+
+  it('looks up project ids after the issues and reports missing and trashed ones as gone', async () => {
+    const issues = lookupResponder(new Set());
+    const projects = (request: RecordedRequest) => {
+      const ids = request.variables.ids as string[];
+      const nodes = ids
+        .filter((id) => id !== 'deleted')
+        .map((id) => ({ ...issueFixture.project, id, trashed: id === 'trashed' ? true : null }));
+      return jsonResponse({ data: { projects: { nodes } } });
+    };
+    const fetch = scriptedFetch([issues, projects]);
+
+    const result = await source(fetch).lookup(AUTH, ['issue'], {
+      projectIds: ['kept', 'deleted', 'trashed'],
+    });
+
+    expect(fetch.requests[1].query).toMatch(/projects\(/);
+    expect(fetch.requests[1].query).toMatch(/includeArchived: true/);
+    expect(fetch.requests[1].variables.ids).toEqual(['kept', 'deleted', 'trashed']);
+    expect(result.goneProjects).toEqual(['deleted', 'trashed']);
+    expect(result.projects.map((project) => project.externalId).sort()).toEqual(
+      [issueFixture.project.id, 'kept'].sort(),
+    );
+  });
+
+  it('splits project ids into batches, with no issue request when there are no issue ids', async () => {
+    const projectIds = Array.from({ length: LOOKUP_BATCH_SIZE + 1 }, (_, i) => `project-${i}`);
+    const projects = (request: RecordedRequest) => {
+      const nodes = (request.variables.ids as string[]).map((id) => ({
+        ...issueFixture.project,
+        id,
+        trashed: null,
+      }));
+      return jsonResponse({ data: { projects: { nodes } } });
+    };
+    const fetch = scriptedFetch([projects, projects]);
+
+    const result = await source(fetch).lookup(AUTH, [], { projectIds });
+
+    expect(fetch.requests.map((request) => (request.variables.ids as string[]).length)).toEqual([
+      LOOKUP_BATCH_SIZE,
+      1,
+    ]);
+    expect(result.projects).toHaveLength(LOOKUP_BATCH_SIZE + 1);
+    expect(result.goneProjects).toEqual([]);
+  });
+
+  it('counts a project that fails to validate as skipped, not gone', async () => {
+    const projects = () =>
+      jsonResponse({
+        data: {
+          projects: {
+            nodes: [
+              { ...issueFixture.project, id: 'odd', status: { type: 'unknown', name: 'Odd' } },
+            ],
+          },
+        },
+      });
+    const fetch = scriptedFetch([projects]);
+
+    const result = await source(fetch).lookup(AUTH, [], { projectIds: ['odd'] });
+
+    expect(result).toMatchObject({ projects: [], goneProjects: [], skipped: 1 });
+  });
+
   it('makes no request for an empty id list', async () => {
     const fetch = scriptedFetch([]);
-    expect(await source(fetch).lookup(AUTH, [])).toEqual({ tasks: [], gone: [], skipped: 0 });
+    expect(await source(fetch).lookup(AUTH, [])).toEqual({
+      tasks: [],
+      projects: [],
+      gone: [],
+      goneProjects: [],
+      skipped: 0,
+    });
     expect(fetch.requests).toHaveLength(0);
   });
 });

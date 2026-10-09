@@ -103,6 +103,15 @@ export const linearProjectSchema = z.object({
   updatedAt: dateTime,
 });
 
+// a project from the lookup, which also says whether it is in the trash
+export const linearProjectNodeSchema = linearProjectSchema.extend({
+  trashed: z.boolean().nullable(),
+});
+
+export const projectsByIdResponseSchema = z.object({
+  projects: z.object({ nodes: z.array(z.unknown()) }),
+});
+
 export const linearIssueSchema = z.object({
   id: z.string(),
   identifier: z.string(),

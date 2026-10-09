@@ -42,11 +42,20 @@ export interface TaskPage {
   skipped: number;
 }
 
+export interface LookupOptions {
+  // containers to check as well, such as Linear projects; what resolves comes back in `projects`
+  projectIds?: string[];
+}
+
 export interface LookupResult {
   // a task with assignedToViewer false has been reassigned and should be removed
   tasks: ExternalTask[];
+  // the projects of the found tasks, and the requested projects that resolved, each once
+  projects: ExternalProject[];
   // ids that no longer resolve, or resolve to a trashed item
   gone: string[];
+  // requested project ids that no longer resolve, or resolve to a trashed project
+  goneProjects: string[];
   skipped: number;
 }
 
@@ -64,8 +73,9 @@ export interface TaskSource {
   pull(auth: Auth, cursor: SyncCursor | null, config: SourceConfig): Promise<TaskPage>;
   // ids of open items currently assigned to the user (id field only)
   listAssignedIds(auth: Auth): Promise<string[]>;
-  // current state of specific items; ids that no longer resolve are gone
-  lookup(auth: Auth, externalIds: string[]): Promise<LookupResult>;
+  // current state of specific items, and of the projects in `options`; ids that no longer resolve
+  // are gone
+  lookup(auth: Auth, externalIds: string[], options?: LookupOptions): Promise<LookupResult>;
 }
 
 export interface Provider {

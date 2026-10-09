@@ -85,6 +85,16 @@ export const ISSUES_BY_ID_QUERY = `
   }
 `;
 
+// trashed is asked for here only: a trashed project is gone, while one nested in an issue is not
+// checked
+export const PROJECTS_BY_ID_QUERY = `
+  query ProjectsById($first: Int!, $ids: [ID!]!) {
+    projects(first: $first, includeArchived: true, filter: { id: { in: $ids } }) {
+      nodes { ${PROJECT_FIELDS} trashed }
+    }
+  }
+`;
+
 // filters, as IssueFilter variables
 
 export function openIssuesFilter() {

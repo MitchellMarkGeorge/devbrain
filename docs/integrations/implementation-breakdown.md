@@ -554,6 +554,7 @@ Not part of this build. Kept as a record of what the integration feature will ne
 - [ ] Detach action with a short explanation; reattach action with an overwrite confirmation.
 - [ ] "Detached from ENG-123" badge on detached tasks, and "Detached from Linear" on detached projects.
 - [ ] Parent hint on a top-level sub-issue whose parent is not mirrored.
+- [ ] Show a task's settled state: a closed issue past the 30-day window that reconcile no longer checks, so it may already be reassigned or deleted in Linear. `ExternalRef` does not carry it yet; it needs a `settled` flag (from `external_links.settledAt`) first.
 - [ ] Cancelled status in status pickers, filters, board columns and grouping, for local and external tasks.
 - [ ] Undated tasks: a "No due date" group or sort position, and no date formatting crash.
 - [ ] Project view: mark local tasks inside a mirrored project as local; allow creating one there.

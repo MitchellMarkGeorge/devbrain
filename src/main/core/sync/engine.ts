@@ -4,12 +4,17 @@ import log from 'electron-log';
 import { z } from 'zod';
 import { CredentialStore } from '../integrations/credential-store';
 import { IntegrationService, SyncTarget } from '../integrations/service';
-import { SyncCursor, SourceConfig, TaskSource } from '../integrations/providers/provider';
+import {
+  LookupResult,
+  SyncCursor,
+  SourceConfig,
+  TaskSource,
+} from '../integrations/providers/provider';
 import { ProviderRegistry } from '../integrations/providers/registry';
 import { linearTaskConfigSchema, linearTaskCursorSchema } from '../integrations/schema';
 import { IntegrationStatus, Provider, SourceType } from '../integrations/types';
 import { IntegrationAuthError, RateLimitError, SyncPageLimitError } from '../shared/errors';
-import { MAX_PAGES_PER_RUN } from './constants';
+import { CLOSED_ISSUE_WINDOW_MS, MAX_PAGES_PER_RUN } from './constants';
 import { SyncWriter } from './writer';
 import {
   SyncEntityType,
@@ -159,6 +164,73 @@ export class SyncEngine {
     }
   }
 
+  /**
+   * The reconcile pass of one tasks source: finds what the incremental pull cannot see, namely
+   * issues reassigned away, deleted or restored from the trash, and projects that left scope.
+   *
+   * 0-1. As runSource: an aborted signal, a run in flight, or a source or integration that is off,
+   *    needs re-authentication or is rate limited ends it early. So does a source whose initial
+   *    sync has not finished.
+   * 2. Ask the provider for the ids of the open items assigned to the viewer now.
+   * 3. Diff them against the watched links (SyncWriter.planReconcile). With no candidates and no
+   *    returning issues nothing is looked up, so most passes make one request; otherwise one
+   *    lookup covers them and the source's mirrored projects.
+   * 4. Apply the lookup, settle closed issues past the window and run the project lifecycle, in
+   *    one transaction (SyncWriter.applyReconcile), then report it as one page.
+   * 5. Record the outcome as runSource does; success also sets lastReconciledAt.
+   *
+   * Never throws for a failed run, and an aborted one records nothing, as with runSource.
+   */
+  async reconcileSource(
+    sourceId: ExternalSourceId,
+    options: RunOptions = {},
+  ): Promise<SyncRunResult> {
+    const startedAt = Date.now();
+    const run = new RunTally(sourceId);
+    run.mode = SyncMode.RECONCILE;
+    const finish = (result: Partial<SyncRunResult> & Pick<SyncRunResult, 'outcome'>) => {
+      const done = { ...run.result(), ...result, durationMs: Date.now() - startedAt };
+      this.logRun(done);
+      return done;
+    };
+    const skip = (skipReason: SyncSkipReason) =>
+      finish({ outcome: SyncRunOutcome.SKIPPED, skipReason });
+
+    if (options.signal?.aborted) return finish({ outcome: SyncRunOutcome.ABORTED });
+    if (this.running.has(sourceId)) return skip(SyncSkipReason.ALREADY_RUNNING);
+    this.running.add(sourceId);
+    try {
+      // 1.
+      const target = this.integrations.getSyncTarget(sourceId);
+      const blocked = this.skipReason(target);
+      if (blocked) return skip(blocked);
+      const tasks = this.providers.get(target.provider)?.tasks;
+      if (target.sourceType !== SourceType.TASKS || !tasks) {
+        return skip(SyncSkipReason.UNSUPPORTED);
+      }
+      // before the first full pass every snapshot id would look like a returning issue
+      if (target.initialSyncCompletedAt === null) {
+        return skip(SyncSkipReason.INITIAL_SYNC_PENDING);
+      }
+
+      try {
+        await this.reconcile(sourceId, target, tasks, run, options.signal);
+      } catch (error) {
+        if (options.signal?.aborted) return finish({ outcome: SyncRunOutcome.ABORTED });
+        return finish(this.recordFailure(sourceId, target, error));
+      }
+
+      if (options.signal?.aborted) return finish({ outcome: SyncRunOutcome.ABORTED });
+      // 5. success
+      const at = this.now();
+      this.integrations.recordSyncOutcome(sourceId, { ok: true, at });
+      this.integrations.markReconciled(sourceId, at);
+      return finish({ outcome: SyncRunOutcome.COMPLETED });
+    } finally {
+      this.running.delete(sourceId);
+    }
+  }
+
   // returns a function that unsubscribes the listener
   onProgress(listener: SyncProgressListener): () => void {
     this.listeners.add(listener);
@@ -211,6 +283,42 @@ export class SyncEngine {
       done = page.done;
       current = page.nextCursor;
     } while (!done);
+  }
+
+  // 2-4. returns early, having written nothing, when the signal aborts before the write
+  private async reconcile(
+    sourceId: ExternalSourceId,
+    target: SyncTarget,
+    tasks: TaskSource,
+    run: RunTally,
+    signal: AbortSignal | undefined,
+  ): Promise<void> {
+    const auth = await this.credentials.getAuth(target.integrationId);
+    if (signal?.aborted) return;
+    // 2.
+    const assigned = await tasks.listAssignedIds(auth);
+    if (signal?.aborted) return;
+
+    // 3.
+    const plan = this.writer.planReconcile(sourceId, assigned);
+    const ids = [...plan.candidates, ...plan.returning];
+    let found: LookupResult = { tasks: [], projects: [], gone: [], goneProjects: [], skipped: 0 };
+    if (ids.length > 0) {
+      found = await tasks.lookup(auth, ids, { projectIds: plan.projectIds });
+      if (signal?.aborted) return;
+    }
+
+    // 4.
+    const settleBefore = new Date(this.now().getTime() - CLOSED_ISSUE_WINDOW_MS);
+    const summary = this.writer.applyReconcile(sourceId, found, { settleBefore });
+    run.addPage(summary, found.skipped);
+    this.emitProgress({
+      sourceId,
+      phase: SyncMode.RECONCILE,
+      pages: run.pages,
+      summary,
+      itemsApplied: run.itemsApplied,
+    });
   }
 
   private skipReason(target: SyncTarget): SyncSkipReason | null {

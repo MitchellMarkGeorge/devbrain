@@ -445,6 +445,7 @@ This query cannot see an issue that was reassigned away or deleted, because such
 
 - `detached` and `removed` links are never checked.
 - A completed or cancelled issue older than 30 days is marked settled (`settledAt` on the link). It stays mirrored and is no longer checked.
+- The UI must show that a task is settled, because the mirror no longer vouches for it: a settled issue may since have been reassigned or deleted in Linear without DevBrain noticing.
 - A settled issue that is reopened while still assigned to the user comes back through the incremental query, which clears `settledAt`.
 
 The watched set is therefore open assigned issues plus issues closed in the last 30 days.
