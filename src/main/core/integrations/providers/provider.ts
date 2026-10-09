@@ -10,10 +10,11 @@ import {
   SourceType,
 } from '../types';
 import { Auth } from '../auth';
+import { OAuthConfig } from '../oauth/types';
 
 // The provider contract. Adapters are pure with respect to the database: they return normalised
 // items and the engine decides what to write. Implementations are looked up through the registry in
-// ./registry. OAuth config and event sources come with feature 16.
+// ./registry. Event sources come with feature 16b.
 
 // who a credential belongs to, from the provider's own account query
 export interface ExternalAccount {
@@ -71,12 +72,14 @@ export interface Provider {
   id: ProviderId;
   // the source types a connection gets, one external_sources row each
   supports: SourceType[];
-  // how an account can be connected; connectWithApiKey refuses a provider without API_KEY
+  // how an account can be connected; connectWithApiKey refuses a provider without API_KEY. Includes
+  // OAUTH exactly when `oauth` is set.
   authMethods: AuthType[];
+  // declaring this is all a provider does to connect through OAuth; the flow lives in ../oauth
+  oauth?: OAuthConfig;
   getAccount(auth: Auth): Promise<ExternalAccount>;
   tasks?: TaskSource;
 }
 
-// What adapters need from fetch: a URL string and an init. Kept this narrow so Electron's
-// net.fetch (which takes no URL object) fits, as do Node's global fetch and the fakes in tests.
-export type FetchFn = (url: string, init: RequestInit) => Promise<Response>;
+// shared with the OAuth client, which may not import from providers/
+export type { FetchFn } from '../fetch';

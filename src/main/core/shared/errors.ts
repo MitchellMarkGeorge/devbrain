@@ -49,6 +49,14 @@ export class IntegrationAlreadyConnectedError extends Error {
   }
 }
 
+// a second connect while an OAuth flow is still waiting on the browser; cancel the first one
+export class ConnectInProgressError extends Error {
+  constructor() {
+    super('Another connection is already in progress in this workspace');
+    this.name = 'ConnectInProgressError';
+  }
+}
+
 // switching on a source of a disabled integration; enable the integration instead
 export class IntegrationDisabledError extends Error {
   readonly integrationId: IntegrationId;

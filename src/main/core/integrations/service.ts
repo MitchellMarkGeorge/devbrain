@@ -3,13 +3,17 @@ import { externalSources, integrations } from '@main/db/schema/integrations';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
+  ConnectInProgressError,
   IntegrationAlreadyConnectedError,
+  IntegrationAuthError,
   IntegrationDisabledError,
   NotFoundError,
 } from '../shared/errors';
 import { toAuth } from './auth';
 import { CredentialStore } from './credential-store';
-import { ApiKeyCredentials } from './credentials';
+import { ApiKeyCredentials, Credentials, OAuthCredentials } from './credentials';
+import { OAuthClient } from './oauth/types';
+import { ExternalAccount, Provider as ProviderImpl } from './providers/provider';
 import { ProviderRegistry, getProvider } from './providers/registry';
 import {
   AuthType,
@@ -53,6 +57,11 @@ export interface ConnectOptions {
   enable?: SourceType[];
 }
 
+export interface OAuthConnectOptions extends ConnectOptions {
+  // cancels the flow while it waits on the browser; the later IPC channel is integrations:cancelConnect
+  signal?: AbortSignal;
+}
+
 export interface EnableOptions {
   // the source types to switch back on when a disabled integration is enabled; defaults to all
   enable?: SourceType[];
@@ -86,6 +95,8 @@ export type SyncOutcome =
 export interface IntegrationServiceOptions {
   credentials: CredentialStore;
   providers: ProviderRegistry;
+  // runs connectWithOAuth's browser flow; without one, connecting through OAuth is refused
+  oauth?: OAuthClient;
 }
 
 type IntegrationRow = typeof integrations.$inferSelect;
@@ -96,7 +107,10 @@ type SourceRow = typeof externalSources.$inferSelect;
 export class IntegrationService {
   private readonly credentials: CredentialStore;
   private readonly providers: ProviderRegistry;
+  private readonly oauth: OAuthClient | null;
   private readonly listeners = new Set<IntegrationChangeListener>();
+  // set while an OAuth connect waits on the browser; one flow per workspace at a time
+  private connecting = false;
 
   constructor(
     private readonly db: BetterSQLite3Database,
@@ -104,6 +118,7 @@ export class IntegrationService {
   ) {
     this.credentials = options.credentials;
     this.providers = options.providers;
+    this.oauth = options.oauth ?? null;
   }
 
   async list(): Promise<Integration[]> {
@@ -137,20 +152,65 @@ export class IntegrationService {
     if (!provider.authMethods.includes(AuthType.API_KEY)) {
       throw new Error(`${providerId} can't be connected with an API key`);
     }
-    const enable = options.enable ?? provider.supports;
-    const unsupported = enable.filter((sourceType) => !provider.supports.includes(sourceType));
-    if (unsupported.length > 0) {
-      throw new Error(`${providerId} can't serve as a source for ${unsupported.join(', ')}`);
-    }
+    const enable = sourcesToEnable(provider, options);
     const key = apiKey.trim();
     if (key === '') throw new Error('An API key is required');
 
     const credentials: ApiKeyCredentials = { type: AuthType.API_KEY, apiKey: key };
     // the network call comes first, so a rejected key leaves nothing behind
     const account = await provider.getAccount(toAuth(credentials));
+    return this.store(provider, credentials, account, enable);
+  }
 
+  /**
+   * Runs the provider's OAuth flow in the system browser, then stores the integration exactly as
+   * connectWithApiKey does. Resolves when the flow ends; `options.signal` cancels it while it waits
+   * on the browser. Only one OAuth connect runs at a time in a workspace: a second one throws
+   * ConnectInProgressError. Nothing is written unless the flow and the account query succeed.
+   */
+  async connectWithOAuth(
+    providerId: Provider,
+    options: OAuthConnectOptions = {},
+  ): Promise<Integration> {
+    const provider = getProvider(this.providers, providerId);
+    const config = provider.oauth;
+    if (!config || !provider.authMethods.includes(AuthType.OAUTH)) {
+      throw new Error(`${providerId} can't be connected with OAuth`);
+    }
+    if (!this.oauth) throw new Error('No OAuth client is configured');
+    const enable = sourcesToEnable(provider, options);
+
+    if (this.connecting) throw new ConnectInProgressError();
+    this.connecting = true;
+    try {
+      const signal = options.signal ?? new AbortController().signal;
+      const tokens = await this.oauth.authorize(config, { signal });
+      if (!tokens.refreshToken) {
+        throw new IntegrationAuthError(`${providerId} issued no refresh token`);
+      }
+      const credentials: OAuthCredentials = {
+        type: AuthType.OAUTH,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresAt: tokens.expiresAt ?? null,
+      };
+      const account = await provider.getAccount(toAuth(credentials));
+      return await this.store(provider, credentials, account, enable);
+    } finally {
+      this.connecting = false;
+    }
+  }
+
+  // Stores a validated connection: the integration, its encrypted credentials and one source per
+  // type the provider supports, in one transaction. The same for every auth method and provider.
+  private async store(
+    provider: ProviderImpl,
+    credentials: Credentials,
+    account: ExternalAccount,
+    enable: SourceType[],
+  ): Promise<Integration> {
     // checked here for a useful message; the unique constraint catches a connect racing this one
-    this.assertNotConnected(providerId, account.accountId, account.label);
+    this.assertNotConnected(provider.id, account.accountId, account.label);
     const sealed = await this.credentials.seal(credentials);
 
     let integrationId: IntegrationId;
@@ -160,8 +220,8 @@ export class IntegrationService {
         const [row] = tx
           .insert(integrations)
           .values({
-            provider: providerId,
-            authType: AuthType.API_KEY,
+            provider: provider.id,
+            authType: credentials.type,
             accountId: account.accountId,
             accountLabel: account.label,
             status: IntegrationStatus.CONNECTED,
@@ -191,7 +251,7 @@ export class IntegrationService {
       }));
     } catch (error) {
       if (isUniqueViolation(error)) {
-        this.assertNotConnected(providerId, account.accountId, account.label);
+        this.assertNotConnected(provider.id, account.accountId, account.label);
       }
       throw error;
     }
@@ -443,6 +503,16 @@ export class IntegrationService {
       updatedAt: row.updatedAt,
     }));
   }
+}
+
+// the types a connect switches on: those asked for, all supported ones by default
+function sourcesToEnable(provider: ProviderImpl, options: ConnectOptions): SourceType[] {
+  const enable = options.enable ?? provider.supports;
+  const unsupported = enable.filter((sourceType) => !provider.supports.includes(sourceType));
+  if (unsupported.length > 0) {
+    throw new Error(`${provider.id} can't serve as a source for ${unsupported.join(', ')}`);
+  }
+  return enable;
 }
 
 function toSource(row: SourceRow): ExternalSource {

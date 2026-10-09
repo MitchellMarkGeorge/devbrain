@@ -9,6 +9,7 @@ import { Auth, toAuth } from './auth';
 import {
   Credentials,
   OAuthCredentials,
+  RefreshedTokens,
   SealedCredentials,
   SecretCipher,
   TokenRefresher,
@@ -18,6 +19,8 @@ import { AuthType, Provider } from './types';
 export interface CredentialStoreOptions {
   cipher: SecretCipher;
   refreshers?: Partial<Record<Provider, TokenRefresher>>;
+  // told when a provider rejects a refresh, so the integration can move to needs_reauth
+  onRefreshRejected?: (integrationId: IntegrationId) => void;
   now?: () => number; // injected for tests
 }
 
@@ -51,6 +54,7 @@ function serialize(credentials: Credentials): string {
 export class CredentialStore {
   private readonly cipher: SecretCipher;
   private readonly refreshers: Partial<Record<Provider, TokenRefresher>>;
+  private readonly onRefreshRejected: (integrationId: IntegrationId) => void;
   private readonly now: () => number;
   // per-integration tail of the refresh queue, so two callers never refresh the same token at once
   private readonly locks = new Map<IntegrationId, Promise<unknown>>();
@@ -61,6 +65,7 @@ export class CredentialStore {
   ) {
     this.cipher = options.cipher;
     this.refreshers = options.refreshers ?? {};
+    this.onRefreshRejected = options.onRefreshRejected ?? (() => undefined);
     this.now = options.now ?? Date.now;
   }
 
@@ -147,7 +152,14 @@ export class CredentialStore {
       throw new IntegrationAuthError(`No token refresh is available for ${provider}`);
     }
 
-    const tokens = await refresher(credentials.refreshToken);
+    let tokens: RefreshedTokens;
+    try {
+      tokens = await refresher(credentials.refreshToken);
+    } catch (error) {
+      // a network failure is retried later; a rejected grant only a reconnect can fix
+      if (error instanceof IntegrationAuthError) this.onRefreshRejected(integrationId);
+      throw error;
+    }
     const refreshed: OAuthCredentials = {
       type: AuthType.OAUTH,
       accessToken: tokens.accessToken,

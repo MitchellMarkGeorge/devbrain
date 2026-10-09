@@ -7,9 +7,8 @@ import { ProjectService } from '../projects/service';
 import { SearchService } from '../search/service';
 import { TaskService } from '../tasks/service';
 import { CredentialStore } from '../integrations/credential-store';
-import { unavailableCipher } from '../integrations/credentials';
-import { createProviderRegistry } from '../integrations/providers/registry';
 import { IntegrationService } from '../integrations/service';
+import { createIntegrationServices } from '../integrations/setup';
 import type { WorkspaceInfo, WorkspaceOptions } from './types';
 import path from 'node:path';
 import fs from 'node:fs/promises';
@@ -42,11 +41,10 @@ export class Workspace {
     this.events = new EventService(db);
     this.archive = new ArchiveService(db);
     this.search = new SearchService(db, info.path);
-    this.credentials = new CredentialStore(db, { cipher: options.cipher ?? unavailableCipher });
-    this.integrations = new IntegrationService(db, {
-      credentials: this.credentials,
-      providers: options.providers ?? createProviderRegistry({ fetch: options.fetch ?? fetch }),
-    });
+    ({ credentials: this.credentials, integrations: this.integrations } = createIntegrationServices(
+      db,
+      options,
+    ));
   }
 
   static async create(info: WorkspaceInfo, options: WorkspaceOptions = {}): Promise<Workspace> {
