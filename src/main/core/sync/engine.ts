@@ -89,6 +89,7 @@ export class SyncEngine {
   /**
    * Initial or incremental sync of one tasks source, by its stored cursor.
    *
+   * 0. An already aborted signal ends the run before anything is read.
    * 1. Load the source and its integration; skip when either is off, the integration needs
    *    re-authentication, or the provider's retry time has not passed.
    * 2. Read the stored cursor; an unreadable one is treated as null, which starts an initial sync.
@@ -99,7 +100,8 @@ export class SyncEngine {
    *    the provider finishing fails, keeping the pages it committed.
    * 4. Record the outcome on the source: success clears the error and failure count; a failure
    *    stores the error, and a rate limit its retry time. Rejected credentials also move the
-   *    integration to needs_reauth.
+   *    integration to needs_reauth. A run whose signal was aborted records nothing, even when
+   *    something then failed: the failure was cut short by the abort, and a real one recurs.
    *
    * Never throws for a failed run: the result says how it ended, and so does the source. An
    * unknown source id throws NotFoundError.
@@ -115,6 +117,8 @@ export class SyncEngine {
     const skip = (skipReason: SyncSkipReason) =>
       finish({ outcome: SyncRunOutcome.SKIPPED, skipReason });
 
+    // an aborted run does no work at all: no reads, no auth, no pull
+    if (options.signal?.aborted) return finish({ outcome: SyncRunOutcome.ABORTED });
     if (this.running.has(sourceId)) return skip(SyncSkipReason.ALREADY_RUNNING);
     this.running.add(sourceId);
     try {
@@ -140,6 +144,8 @@ export class SyncEngine {
         const config = schemas.config.parse(target.config);
         await this.pullPages(sourceId, target, tasks, cursor, config, run, options.signal);
       } catch (error) {
+        // whatever failed after an abort was cut short by it; report the abort, record nothing
+        if (options.signal?.aborted) return finish({ outcome: SyncRunOutcome.ABORTED });
         return finish(this.recordFailure(sourceId, target, error));
       }
 

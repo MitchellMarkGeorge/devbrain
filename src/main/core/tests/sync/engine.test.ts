@@ -49,6 +49,7 @@ let db: BetterSQLite3Database;
 let workspacePath: string;
 let provider: FakeProvider;
 let service: IntegrationService;
+let credentials: CredentialStore;
 let writer: SyncWriter;
 let engine: SyncEngine;
 type LogFn = (...params: unknown[]) => void;
@@ -108,7 +109,7 @@ function project(overrides: Partial<ExternalProject> = {}): ExternalProject {
 // builds the services around `registryProvider` and connects through connectWithApiKey
 async function setup(registryProvider: Provider, apiKey = FAKE_API_KEY, maxPagesPerRun?: number) {
   db = createDb();
-  const credentials = new CredentialStore(db, { cipher: new FakeCipher() });
+  credentials = new CredentialStore(db, { cipher: new FakeCipher() });
   service = new IntegrationService(db, { credentials, providers: fakeRegistry(registryProvider) });
   writer = new SyncWriter(db, new SearchService(db, workspacePath));
   logger = { info: vi.fn<LogFn>(), warn: vi.fn<LogFn>() };
@@ -641,15 +642,65 @@ describe('SyncEngine — abort and concurrency', () => {
     expect(provider.tasks.pulls[0].cursor).toMatchObject({ after: 'page-1' });
   });
 
-  it('does not pull when aborted before it starts', async () => {
+  it('does no work when aborted before it starts', async () => {
     const controller = new AbortController();
     controller.abort();
+    const getAuth = vi.spyOn(credentials, 'getAuth');
+    const before = sourceRow();
+    provider.tasks.script({ tasks: [issue()] });
+
+    const result = await engine.runSource(sourceId, { signal: controller.signal });
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.ABORTED, mode: null, pages: 0 });
+    expect(getAuth).not.toHaveBeenCalled();
+    expect(provider.tasks.pulls).toHaveLength(0);
+    expect(sourceRow()).toEqual(before);
+    expect(changes).toEqual([]);
+  });
+
+  it('reports an abort before a skip', async () => {
+    await service.setSourceEnabled(sourceId, false);
+    const controller = new AbortController();
+    controller.abort();
+
+    const result = await engine.runSource(sourceId, { signal: controller.signal });
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.ABORTED });
+    expect(result.skipReason).toBeUndefined();
+  });
+
+  it('does not pull when the abort lands while auth is being fetched', async () => {
+    const controller = new AbortController();
+    const getAuth = credentials.getAuth.bind(credentials);
+    vi.spyOn(credentials, 'getAuth').mockImplementationOnce(async (id) => {
+      controller.abort();
+      return getAuth(id);
+    });
+    const before = sourceRow();
     provider.tasks.script({ tasks: [issue()] });
 
     const result = await engine.runSource(sourceId, { signal: controller.signal });
 
     expect(result).toMatchObject({ outcome: SyncRunOutcome.ABORTED, pages: 0 });
     expect(provider.tasks.pulls).toHaveLength(0);
+    expect(sourceRow()).toEqual(before);
+  });
+
+  it('records nothing when a call fails after the abort', async () => {
+    const controller = new AbortController();
+    vi.spyOn(credentials, 'getAuth').mockImplementationOnce(async () => {
+      controller.abort();
+      throw new IntegrationAuthError('refresh was cut short');
+    });
+    const before = sourceRow();
+
+    const result = await engine.runSource(sourceId, { signal: controller.signal });
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.ABORTED });
+    expect(result.error).toBeUndefined();
+    expect(sourceRow()).toEqual(before);
+    expect(integrationStatus()).toBe(IntegrationStatus.CONNECTED);
+    expect(changes).toEqual([]);
   });
 
   it('skips a second run for a source while one is in flight', async () => {
