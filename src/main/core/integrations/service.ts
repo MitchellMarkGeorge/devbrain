@@ -79,6 +79,8 @@ export interface SyncTarget {
   config: unknown;
   initialSyncCompletedAt: Date | null;
   retryAt: Date | null;
+  // failed runs in a row; the scheduler backs off by it
+  consecutiveFailures: number;
 }
 
 // how a sync run ended, as recorded on its source
@@ -368,6 +370,7 @@ export class IntegrationService {
         config: externalSources.config,
         initialSyncCompletedAt: externalSources.initialSyncCompletedAt,
         retryAt: externalSources.retryAt,
+        consecutiveFailures: externalSources.consecutiveFailures,
       })
       .from(externalSources)
       .innerJoin(integrations, eq(integrations.id, externalSources.integrationId))

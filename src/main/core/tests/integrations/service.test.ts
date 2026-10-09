@@ -652,8 +652,8 @@ describe('IntegrationService — workspaces', () => {
       expect(await a.workspace.integrations.list()).toHaveLength(1);
       expect(await b.workspace.integrations.list()).toEqual([]);
     } finally {
-      a.workspace.close();
-      b.workspace.close();
+      await a.workspace.close();
+      await b.workspace.close();
     }
   });
 
@@ -667,8 +667,8 @@ describe('IntegrationService — workspaces', () => {
       const inB = await b.workspace.integrations.connectWithApiKey(ProviderId.LINEAR, API_KEY);
       expect(inA.id).not.toBe(inB.id);
     } finally {
-      a.workspace.close();
-      b.workspace.close();
+      await a.workspace.close();
+      await b.workspace.close();
     }
   });
 
@@ -680,13 +680,13 @@ describe('IntegrationService — workspaces', () => {
       scriptedFetch([{ body: viewerFixture }]),
     );
     const connected = await workspace.integrations.connectWithApiKey(ProviderId.LINEAR, API_KEY);
-    workspace.close();
+    await workspace.close();
 
     const reopened = await Workspace.open(info, { cipher });
     try {
       expect(await reopened.integrations.list()).toEqual([connected]);
     } finally {
-      reopened.close();
+      await reopened.close();
     }
   });
 
@@ -703,7 +703,7 @@ describe('IntegrationService — workspaces', () => {
       ).rejects.toThrow(IntegrationAuthError);
       expect(await workspace.integrations.list()).toEqual([]);
     } finally {
-      workspace.close();
+      await workspace.close();
     }
   });
 });
