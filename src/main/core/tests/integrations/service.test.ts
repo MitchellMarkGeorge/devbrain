@@ -104,6 +104,7 @@ describe('IntegrationService — connectWithApiKey', () => {
         initialSyncCompleted: false,
         lastSyncedAt: null,
         lastError: null,
+        retryAt: null,
       },
     ]);
 

@@ -15,6 +15,10 @@ export const MIN_TRIGGER_GAP_MS = 60 * SECOND;
 export const PAGE_SIZE = 50;
 // ids per lookup request in the reconcile pass
 export const LOOKUP_BATCH_SIZE = 100;
+// a run that pulls this many pages without the provider reaching the end is stopped as a failure,
+// so a provider that never says done cannot hold a run open forever; at 50 items a page this is
+// 50,000 items, well past any one user's assigned work
+export const MAX_PAGES_PER_RUN = 1000;
 
 // closed issues are mirrored for this long, then settled and no longer checked
 export const CLOSED_ISSUE_WINDOW_MS = 30 * DAY;

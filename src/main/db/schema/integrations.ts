@@ -76,6 +76,8 @@ export const externalSources = sqliteTable(
     lastReconciledAt: date(),
     lastError: text(), // null when the last run succeeded
     consecutiveFailures: integer().notNull().default(0), // drives backoff
+    // set after a rate-limited run: the provider's stated retry time, before which nothing is sent
+    retryAt: date(),
   },
   (table) => [
     unique('uq_external_sources_integration_type').on(table.integrationId, table.sourceType),

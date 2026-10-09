@@ -50,7 +50,16 @@ export interface LookupResult {
 }
 
 export interface TaskSource {
-  // one page per call; a null or unreadable cursor starts a fresh initial sync
+  // One page per call; a null or unreadable cursor starts a fresh initial sync.
+  //
+  // `config` is the source's settings from external_sources.config: what the user chose to sync,
+  // as opposed to the cursor, which is where the last run stopped. No task provider reads it in v1
+  // (Linear syncs every issue assigned to the viewer, so its config is empty), and an
+  // implementation may leave the parameter off. It is part of the contract so a provider that
+  // needs a choice from the user can take one without changing the engine, for example:
+  // - Linear: only issues from the teams the user picks
+  // - GitHub issues: only the repositories the user picks
+  // Events sources already work this way: Google Calendar's config is the selected calendarIds.
   pull(auth: Auth, cursor: SyncCursor | null, config: SourceConfig): Promise<TaskPage>;
   // ids of open items currently assigned to the user (id field only)
   listAssignedIds(auth: Auth): Promise<string[]>;
