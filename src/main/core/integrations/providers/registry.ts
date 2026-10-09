@@ -1,4 +1,6 @@
-import { Provider as ProviderId } from '../types';
+import { TokenRefresher } from '../credentials';
+import { OAuthClient } from '../oauth/types';
+import { AuthType, Provider as ProviderId } from '../types';
 import { FetchFn, Provider } from './provider';
 import { createLinearProvider } from './linear';
 
@@ -20,4 +22,19 @@ export function getProvider(registry: ProviderRegistry, id: ProviderId): Provide
   const provider = registry.get(id);
   if (!provider) throw new Error(`No provider is registered for ${id}`);
   return provider;
+}
+
+// One refresher per provider that declares OAuth, each the generic refresh over its config, for
+// CredentialStore. A provider gets token refresh by declaring an OAuthConfig and nothing else.
+export function createTokenRefreshers(
+  registry: ProviderRegistry,
+  oauth: OAuthClient,
+): Partial<Record<ProviderId, TokenRefresher>> {
+  const refreshers: Partial<Record<ProviderId, TokenRefresher>> = {};
+  for (const provider of registry.values()) {
+    const config = provider.oauth;
+    if (!config || !provider.authMethods.includes(AuthType.OAUTH)) continue;
+    refreshers[provider.id] = (refreshToken) => oauth.refresh(config, refreshToken);
+  }
+  return refreshers;
 }
