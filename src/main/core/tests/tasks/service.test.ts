@@ -183,12 +183,16 @@ describe('TaskService — createSubtask', () => {
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 
-  it('throws when trying to add a subtask to a subtask', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+  it('creates a subtask of a subtask, inheriting its context', async () => {
+    const parent = await tasks.createTask({
+      title: 'Parent',
+      dueDate: TOMORROW,
+      projectId: FAKE_PROJECT_ID,
+    });
     const child = await tasks.createSubtask(parent.id, { title: 'Child' });
-    await expect(tasks.createSubtask(child.id, { title: 'Grandchild' })).rejects.toThrow(
-      'Subtasks cannot create their own subtasks',
-    );
+    const grandchild = await tasks.createSubtask(child.id, { title: 'Grandchild' });
+    expect(grandchild.parentTaskId).toBe(child.id);
+    expect(grandchild.projectId).toBe(FAKE_PROJECT_ID);
   });
 
   it("inherits the parent's dueDate when none is provided", async () => {
@@ -883,26 +887,45 @@ describe('TaskService — demoteTask', () => {
     );
   });
 
-  it('throws when the new parent is itself a subtask', async () => {
+  it('demotes a task under a subtask', async () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
     const child = await tasks.createTask({ title: 'Future child', dueDate: TOMORROW });
-    await expect(tasks.demoteTask(child.id, sub.id)).rejects.toThrow(
-      'Provided parent task is already a subtask',
-    );
+    const demoted = await tasks.demoteTask(child.id, sub.id);
+    expect(demoted.parentTaskId).toBe(sub.id);
   });
 
-  it('throws when the task already has subtasks', async () => {
-    const parent = await tasks.createTask({ title: 'Future parent', dueDate: TOMORROW });
-    const child = await tasks.createTask({ title: 'Child', dueDate: TOMORROW });
-    const newParent = await tasks.createTask({ title: 'New parent', dueDate: TOMORROW });
-    // give `parent` a subtask so it can't be demoted
-    await tasks.createSubtask(parent.id, { title: 'Sub' });
-    await expect(tasks.demoteTask(parent.id, newParent.id)).rejects.toThrow(
-      'Provided task has subtasks so cannot be become a subtask',
-    );
-    // unused but suppresses the lint warning
-    void child;
+  it('demotes a task that has subtasks, carrying the new context down its subtree', async () => {
+    const task = await tasks.createTask({ title: 'Future child', dueDate: TOMORROW });
+    const sub = await tasks.createSubtask(task.id, { title: 'Sub' });
+    const subSub = await tasks.createSubtask(sub.id, { title: 'Sub sub' });
+    const newParent = await tasks.createTask({
+      title: 'New parent',
+      dueDate: TOMORROW,
+      projectId: FAKE_PROJECT_ID,
+      linkedNoteId: FAKE_NOTE_ID,
+    });
+    const demoted = await tasks.demoteTask(task.id, newParent.id);
+    expect(demoted.parentTaskId).toBe(newParent.id);
+    for (const id of [task.id, sub.id, subSub.id]) {
+      const row = await tasks.getById(id);
+      expect(row.projectId).toBe(FAKE_PROJECT_ID);
+      expect(row.linkedNoteId).toBe(FAKE_NOTE_ID);
+    }
+    // the subtree keeps its own shape
+    expect((await tasks.getById(subSub.id)).parentTaskId).toBe(sub.id);
+  });
+
+  it('throws when the new parent is in the task subtree', async () => {
+    const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
+    const sub = await tasks.createSubtask(task.id, { title: 'Sub' });
+    const subSub = await tasks.createSubtask(sub.id, { title: 'Sub sub' });
+    for (const id of [sub.id, subSub.id]) {
+      await expect(tasks.demoteTask(task.id, id)).rejects.toThrow(
+        'Tasks cannot become a subtask of their own subtask',
+      );
+    }
+    expect((await tasks.getById(task.id)).parentTaskId).toBeNull();
   });
 });
 
@@ -947,6 +970,20 @@ describe('ArchiveService — archiveTask', () => {
     archive.archiveTask(sub.id);
     const result = (await tasks.listSubtasks(parent.id)).items;
     expect(result).toHaveLength(0);
+  });
+
+  it('archives and restores subtasks at every depth', async () => {
+    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
+    const subSub = await tasks.createSubtask(sub.id, { title: 'Sub sub' });
+    const unrelated = await tasks.createTask({ title: 'Unrelated', dueDate: TOMORROW });
+    archive.archiveTask(parent.id);
+    await expect(tasks.getById(sub.id)).rejects.toBeInstanceOf(NotFoundError);
+    await expect(tasks.getById(subSub.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect((await tasks.getById(unrelated.id)).archivedAt).toBeNull();
+
+    archive.restoreTask(parent.id);
+    expect((await tasks.getById(subSub.id)).archivedAt).toBeNull();
   });
 
   it('archives all subtasks when the parent task is archived', async () => {
