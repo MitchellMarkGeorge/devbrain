@@ -1,4 +1,4 @@
-import { ExternalSourceId } from '@common/ids';
+import { ExternalSourceId, TaskId } from '@common/ids';
 import type { LookupResult, TaskPage } from '../integrations/providers/provider';
 
 // what SyncWriter.applyTaskPage takes: the items of a pulled page, or of a lookup result
@@ -103,3 +103,28 @@ export interface SyncRunResult {
   error?: Error;
   retryAt?: Date;
 }
+
+// why SyncEngine.reattachTasks wrote nothing, beyond the reasons a run is skipped for
+export enum ReattachRefusal {
+  // the issue no longer resolves, or resolves to a trashed one
+  GONE = 'gone',
+  // the issue resolves but is assigned to someone else
+  UNASSIGNED = 'unassigned',
+  // the issue resolves but could not be mapped
+  UNREADABLE = 'unreadable',
+  // the task's link was no longer detached by the time the lookup came back
+  CHANGED = 'changed',
+}
+
+// what SyncWriter.reattachTasks did
+export interface ReattachSummary extends SyncSummary {
+  // tasks whose links went back to synced and were refreshed
+  reattached: TaskId[];
+  // detached tasks that stayed detached and were moved out from under a reattached parent
+  promoted: TaskId[];
+}
+
+// what SyncEngine.reattachTasks did; nothing is written unless ok
+export type ReattachResult =
+  | { ok: true; summary: ReattachSummary }
+  | { ok: false; reason: SyncSkipReason | ReattachRefusal };

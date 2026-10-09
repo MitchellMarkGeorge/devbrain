@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { and, eq } from 'drizzle-orm';
 import { ExternalSourceId, IntegrationId, TaskId } from '@common/ids';
-import { externalLinks } from '@main/db/schema/integrations';
+import { externalLinks, externalSources } from '@main/db/schema/integrations';
 import { tasks as tasksTable } from '@main/db/schema/tasks';
 import { createDb } from '../utils';
 import { FakeCipher } from '../__mocks__/fake-cipher';
@@ -24,6 +24,7 @@ import { DetachService, TaskLinkChange } from '../../integrations/detach';
 import {
   ExternalProject,
   ExternalTask,
+  IntegrationStatus,
   LinkState,
   Provider as ProviderId,
 } from '../../integrations/types';
@@ -33,7 +34,12 @@ import { ArchiveService } from '../../archive/service';
 import { TaskPriority, TaskStatus } from '../../tasks/types';
 import { ProjectStatus } from '../../projects/types';
 import { projects as projectsTable } from '@main/db/schema/projects';
-import { DetachError, ExternalReadOnlyError, NotFoundError } from '../../shared/errors';
+import {
+  DetachError,
+  ExternalReadOnlyError,
+  IntegrationAuthError,
+  NotFoundError,
+} from '../../shared/errors';
 
 const CREATED = new Date('2026-01-15T09:00:00Z');
 const V1 = new Date('2026-10-01T12:00:00Z');
@@ -160,7 +166,7 @@ beforeEach(async () => {
   const writer = new SyncWriter(db, new SearchService(db, workspacePath));
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
   engine = new SyncEngine(db, { integrations: service, credentials, providers, writer, logger });
-  detach = new DetachService(db, { integrations: service, credentials, providers, writer });
+  detach = new DetachService(db, engine);
   tasks = new TaskService(db);
   notes = new NoteService(db, workspacePath);
   archive = new ArchiveService(db);
@@ -471,6 +477,40 @@ describe('DetachService — reattach', () => {
     await expect(detach.reattachTask(id)).rejects.toThrow(/disconnected/);
     const [link] = db.select().from(externalLinks).where(eq(externalLinks.taskId, id)).all();
     expect(link.state).toBe(LinkState.DETACHED);
+  });
+});
+
+describe('SyncEngine — reattachTasks', () => {
+  it('moves the integration to needs_reauth when the lookup is rejected', async () => {
+    const item = issue();
+    await sync(item);
+    await detach.detachTask(idOf(item));
+    provider.tasks.respondToLookup = () => {
+      throw new IntegrationAuthError('rejected');
+    };
+
+    await expect(detach.reattachTask(idOf(item))).rejects.toThrow(IntegrationAuthError);
+
+    expect((await service.getById(integrationId)).status).toBe(IntegrationStatus.NEEDS_REAUTH);
+    expect(stateOf(item)).toBe(LinkState.DETACHED);
+    await expect(detach.reattachTask(idOf(item))).rejects.toThrow(
+      /until its integration is reconnected/,
+    );
+  });
+
+  it("is not a run: the source's cursor and sync status stay as they were", async () => {
+    const item = issue();
+    await sync(item);
+    await detach.detachTask(idOf(item));
+    const before = db.select().from(externalSources).where(eq(externalSources.id, sourceId)).get();
+
+    answerLookup([{ ...item, updatedAt: V2 }]);
+    const result = await engine.reattachTasks(sourceId, item.externalId, []);
+
+    expect(result).toMatchObject({ ok: true, summary: { reattached: [idOf(item)], updated: 1 } });
+    expect(db.select().from(externalSources).where(eq(externalSources.id, sourceId)).get()).toEqual(
+      before,
+    );
   });
 });
 

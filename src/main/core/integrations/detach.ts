@@ -1,18 +1,15 @@
-import { ExternalLinkId, TaskId } from '@common/ids';
+import { TaskId } from '@common/ids';
 import { externalLinks } from '@main/db/schema/integrations';
 import { tasks } from '@main/db/schema/tasks';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { SyncWriter } from '../sync/writer';
-import { SyncEntityType } from '../sync/types';
+import { SyncEngine } from '../sync/engine';
+import { ReattachRefusal, SyncEntityType, SyncSkipReason } from '../sync/types';
 import { subtreeOf } from '../tasks/subtree';
 import { Task } from '../tasks/types';
 import { DetachError, NotFoundError } from '../shared/errors';
-import { CredentialStore } from './credential-store';
-import { ProviderRegistry } from './providers/registry';
 import { withRef } from './refs';
-import { IntegrationService } from './service';
-import { IntegrationStatus, LinkState } from './types';
+import { LinkState } from './types';
 
 // What changed, for in-process subscribers; the IPC layer will forward it so the renderer refetches
 // the tasks, and the projects too when a reattach wrote one
@@ -27,41 +24,39 @@ export interface TaskLinkChange {
 
 export type TaskLinkChangeListener = (change: TaskLinkChange) => void;
 
-export interface DetachServiceOptions {
-  integrations: IntegrationService;
-  credentials: CredentialStore;
-  providers: ProviderRegistry;
-  writer: SyncWriter;
-}
-
 type Link = typeof externalLinks.$inferSelect;
+
+// what each refusal from the engine tells the user, after "Task ENG-123 can't be reattached"
+const REFUSALS: Record<SyncSkipReason | ReattachRefusal, string> = {
+  [SyncSkipReason.SOURCE_DISABLED]: 'while its source is turned off',
+  [SyncSkipReason.INTEGRATION_DISABLED]: 'while its integration is disabled',
+  [SyncSkipReason.NEEDS_REAUTH]: 'until its integration is reconnected',
+  [SyncSkipReason.RATE_LIMITED]: 'yet: the provider asked DevBrain to wait. Try again shortly',
+  [SyncSkipReason.ALREADY_RUNNING]: 'yet. Try again shortly',
+  [SyncSkipReason.INITIAL_SYNC_PENDING]: 'yet. Try again shortly',
+  [SyncSkipReason.UNSUPPORTED]: 'because its provider has no tasks',
+  [ReattachRefusal.GONE]: 'because it no longer exists',
+  [ReattachRefusal.UNASSIGNED]: 'because it is no longer assigned to you',
+  [ReattachRefusal.UNREADABLE]: 'because its provider returned it unreadable',
+  [ReattachRefusal.CHANGED]: 'because it changed while reattaching',
+};
 
 /**
  * Detach and reattach of external tasks. Detach turns a synced task and its subtree into local
  * copies that remember where they came from; reattach hands them back to the provider and refreshes
  * them from it.
  *
- * Kept apart from IntegrationService, which owns connections and sources: reattach needs the
- * provider lookup and SyncWriter on top of it, and SyncEngine already sits on IntegrationService the
- * same way. The workspace exposes both methods as `workspace.integrations.detachTask` and
- * `reattachTask`.
+ * This service owns the rules about the task tree and the messages the user sees. Talking to the
+ * provider and writing the refreshed rows is SyncEngine's job, through `reattachTasks`. The
+ * workspace exposes both methods as `workspace.integrations.detachTask` and `reattachTask`.
  */
 export class DetachService {
-  private readonly integrations: IntegrationService;
-  private readonly credentials: CredentialStore;
-  private readonly providers: ProviderRegistry;
-  private readonly writer: SyncWriter;
   private readonly listeners = new Set<TaskLinkChangeListener>();
 
   constructor(
     private readonly db: BetterSQLite3Database,
-    options: DetachServiceOptions,
-  ) {
-    this.integrations = options.integrations;
-    this.credentials = options.credentials;
-    this.providers = options.providers;
-    this.writer = options.writer;
-  }
+    private readonly engine: SyncEngine,
+  ) {}
 
   /**
    * Makes a synced task, and every synced task below it at any depth, local again, in one
@@ -104,14 +99,12 @@ export class DetachService {
    * 1. The task must be detached, active, and have no local subtasks anywhere below it: a synced
    *    task never has local children, and sync archives a removed task on its own, which would
    *    leave such children live under an archived row.
-   * 2. Its source must still exist (a disconnect nulls it) and be enabled, and its integration
-   *    connected.
-   * 3. Look up the task and its detached descendants. The task itself must still resolve and be
-   *    assigned to the viewer; otherwise this throws and it stays detached.
-   * 4. In one transaction, set the links that came back assigned to `synced`, then apply the fresh
-   *    items through SyncWriter. Provider-owned fields are overwritten; links, the task note and
-   *    `favoritedAt` are DevBrain's and kept. Descendants that are gone or reassigned stay
-   *    detached and become top-level, as a synced task has no local children.
+   * 2. Its source must still exist; a disconnect nulls it.
+   * 3. SyncEngine.reattachTasks does the rest: it checks the source and integration, looks the
+   *    task and its detached descendants up, and refreshes those still assigned. Provider-owned
+   *    fields are overwritten; links, the task note and `favoritedAt` are kept. Descendants that
+   *    are gone or reassigned stay detached and become top-level. When the engine refuses, the
+   *    task stays detached.
    *
    * Throws NotFoundError for an archived or unknown task, and DetachError for every refusal.
    */
@@ -135,115 +128,33 @@ export class DetachService {
     }
 
     // 2. a source to reattach to
-    const sourceId = link.sourceId;
-    if (sourceId === null) {
+    if (link.sourceId === null) {
       throw new DetachError(
         id,
         `Task ${key} can't be reattached because its integration was disconnected`,
       );
     }
-    const target = this.integrations.getSyncTarget(sourceId);
-    if (target.status !== IntegrationStatus.CONNECTED) {
-      throw new DetachError(
-        id,
-        target.status === IntegrationStatus.NEEDS_REAUTH
-          ? `Task ${key} can't be reattached until its integration is reconnected`
-          : `Task ${key} can't be reattached while its integration is disabled`,
-      );
-    }
-    if (!target.enabled) {
-      throw new DetachError(id, `Task ${key} can't be reattached while its source is turned off`);
-    }
-    const taskSource = this.providers.get(target.provider)?.tasks;
-    if (!taskSource) {
-      throw new DetachError(id, `Task ${key} can't be reattached: ${target.provider} has no tasks`);
-    }
 
-    // 3. the provider's current copy of the task and its detached descendants
-    const detached = subtree.filter(
-      (row) => row.state === LinkState.DETACHED && row.sourceId === sourceId,
+    // 3. the provider's copy, written by the engine
+    const descendants = subtree.filter(
+      (row) =>
+        row.taskId !== id && row.state === LinkState.DETACHED && row.sourceId === link.sourceId,
     );
-    const auth = await this.credentials.getAuth(target.integrationId);
-    const result = await taskSource.lookup(
-      auth,
-      detached.map((row) => row.externalId!),
+    const result = await this.engine.reattachTasks(
+      link.sourceId,
+      link.externalId,
+      descendants.map((row) => row.externalId!),
     );
-    const found = new Map(result.tasks.map((task) => [task.externalId, task]));
-    const fresh = found.get(link.externalId);
-    if (!fresh || result.gone.includes(link.externalId)) {
-      throw new DetachError(
-        id,
-        result.gone.includes(link.externalId)
-          ? `Task ${key} can't be reattached because it no longer exists in ${target.provider}`
-          : `Task ${key} can't be reattached because ${target.provider} returned it unreadable`,
-      );
-    }
-    if (!fresh.assignedToViewer) {
-      throw new DetachError(
-        id,
-        `Task ${key} can't be reattached because it is no longer assigned to you`,
-      );
+    if (!result.ok) {
+      throw new DetachError(id, `Task ${key} can't be reattached ${REFUSALS[result.reason]}`);
     }
 
-    // 4. back to synced, then refreshed
-    const rejoining = detached.flatMap((row) => {
-      const item = found.get(row.externalId!);
-      return item?.assignedToViewer ? [{ ...row, linkId: row.linkId!, item }] : [];
-    });
-    const { taskIds, summary } = this.db.transaction((tx) => {
-      // the lookup was async; a link that moved meanwhile is left as it now is
-      const resynced = tx
-        .update(externalLinks)
-        .set({
-          state: LinkState.SYNCED,
-          // the writer skips an item no newer than its link, and the local copy may differ from
-          // the provider's at any updatedAt, so the stored one is cleared to force the overwrite
-          externalUpdatedAt: new Date(0),
-          removedAt: null,
-          settledAt: null,
-        })
-        .where(
-          and(
-            inArray(
-              externalLinks.id,
-              rejoining.map((row) => row.linkId),
-            ),
-            eq(externalLinks.state, LinkState.DETACHED),
-          ),
-        )
-        .returning({ id: externalLinks.id })
-        .all();
-      const ids = new Set<ExternalLinkId>(resynced.map((row) => row.id));
-      if (!ids.has(link.id)) throw new DetachError(id, `Task ${key} changed while reattaching`);
-      const rejoined = rejoining.filter((row) => ids.has(row.linkId));
-
-      // descendants left detached are local, and a synced task has no local children, so those
-      // under a task that rejoined become top-level
-      const rejoinedIds = new Set(rejoined.map((row) => row.taskId));
-      const leftBehind = subtree
-        .filter((row) => row.parentTaskId !== null && rejoinedIds.has(row.parentTaskId))
-        .filter((row) => !rejoinedIds.has(row.taskId))
-        .map((row) => row.taskId);
-      if (leftBehind.length > 0) {
-        tx.update(tasks).set({ parentTaskId: null }).where(inArray(tasks.id, leftBehind)).run();
-      }
-
-      // the writer's transaction nests as a savepoint, so the state change and the refresh commit
-      // together. The lookup's projects come first, so a task that moved to a project not yet
-      // mirrored gets it in the same call
-      const summary = this.writer.applyTaskPage(sourceId, {
-        projects: result.projects,
-        tasks: rejoined.map((row) => row.item),
-        removedIds: [],
-      });
-      return { taskIds: [...rejoinedIds, ...leftBehind], summary };
-    });
-
+    const { reattached, promoted, changed } = result.summary;
     this.emit({
       type: 'reattached',
       taskId: id,
-      taskIds,
-      changed: [...new Set<SyncEntityType>(['task', ...summary.changed])],
+      taskIds: [...reattached, ...promoted],
+      changed: [...new Set<SyncEntityType>(['task', ...changed])],
     });
     return this.getTask(id);
   }
@@ -288,7 +199,6 @@ export class DetachService {
     return this.db
       .select({
         taskId: tasks.id,
-        parentTaskId: tasks.parentTaskId,
         linkId: externalLinks.id,
         state: externalLinks.state,
         sourceId: externalLinks.sourceId,
