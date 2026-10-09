@@ -17,6 +17,8 @@ import { IntegrationAuthError, RateLimitError, SyncPageLimitError } from '../sha
 import { CLOSED_ISSUE_WINDOW_MS, MAX_PAGES_PER_RUN } from './constants';
 import { SyncWriter } from './writer';
 import {
+  ReattachRefusal,
+  ReattachResult,
   SyncEntityType,
   SyncMode,
   SyncProgress,
@@ -229,6 +231,69 @@ export class SyncEngine {
     } finally {
       this.running.delete(sourceId);
     }
+  }
+
+  /**
+   * Refreshes detached tasks from the provider and hands them back to sync: the reattach behind
+   * DetachService. Not a run: no cursor moves, no outcome is recorded on the source, and a run in
+   * flight is not waited for, as each write is its own transaction.
+   *
+   * 1. Refuse, as a run would be skipped, when the source or its integration is off, the
+   *    integration needs re-authentication, the provider asked to wait, or it has no tasks.
+   * 2. Look up the root and its detached descendants. The root must come back readable and
+   *    assigned to the viewer; otherwise this refuses, having written nothing.
+   * 3. Hand the descendants that came back assigned back to sync with the root, through
+   *    SyncWriter.reattachTasks. Those gone, reassigned or unreadable stay detached.
+   *
+   * Rejected credentials also move the integration to needs_reauth, as in a run, and throw; so
+   * does any other lookup failure.
+   */
+  async reattachTasks(
+    sourceId: ExternalSourceId,
+    rootExternalId: string,
+    descendantExternalIds: string[],
+  ): Promise<ReattachResult> {
+    // 1.
+    const target = this.integrations.getSyncTarget(sourceId);
+    const blocked = this.skipReason(target);
+    if (blocked) return { ok: false, reason: blocked };
+    const tasks = this.providers.get(target.provider)?.tasks;
+    if (target.sourceType !== SourceType.TASKS || !tasks) {
+      return { ok: false, reason: SyncSkipReason.UNSUPPORTED };
+    }
+
+    // 2.
+    const ids = [rootExternalId, ...descendantExternalIds];
+    let found: LookupResult;
+    try {
+      const auth = await this.credentials.getAuth(target.integrationId);
+      found = await tasks.lookup(auth, ids);
+    } catch (error) {
+      if (error instanceof IntegrationAuthError) {
+        this.integrations.markNeedsReauth(target.integrationId);
+      }
+      throw error;
+    }
+    const root = found.tasks.find((task) => task.externalId === rootExternalId);
+    if (found.gone.includes(rootExternalId)) return { ok: false, reason: ReattachRefusal.GONE };
+    if (!root) return { ok: false, reason: ReattachRefusal.UNREADABLE };
+    if (!root.assignedToViewer) return { ok: false, reason: ReattachRefusal.UNASSIGNED };
+
+    // 3.
+    const assigned = found.tasks.filter((task) => task.assignedToViewer);
+    const leftDetached = ids.filter((id) => !assigned.some((task) => task.externalId === id));
+    const summary = this.writer.reattachTasks(
+      sourceId,
+      rootExternalId,
+      { tasks: assigned, projects: found.projects },
+      leftDetached,
+    );
+    if (!summary) return { ok: false, reason: ReattachRefusal.CHANGED };
+    this.logger.info(
+      `Reattached ${summary.reattached.length} task(s) on ${sourceId}, ` +
+        `${leftDetached.length} left detached`,
+    );
+    return { ok: true, summary };
   }
 
   // returns a function that unsubscribes the listener

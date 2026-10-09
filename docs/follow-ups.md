@@ -55,3 +55,21 @@ Options:
 _Found in feature 10 (PR #15)._
 
 `SyncMode`, `SyncRunOutcome` and `SyncSkipReason` in `src/main/core/sync/types.ts` are string enums, matching `Provider`, `SourceType` and the other enums in `src/main/core/integrations/types.ts`. `SyncEntityType` (`'task' | 'project'`) in the same file is still a union. It comes from the writer (feature 9), so converting it means changing `src/main/core/sync/writer.ts` and its tests too. The values would stay the same, so progress events and anything forwarding them are unaffected.
+
+### Share the gate and the lookup-and-apply path in `SyncEngine`
+
+_Found in feature 12 (PR #17). Worth doing before another engine entry point is added, such as a per-task refresh._
+
+`SyncEngine` (`src/main/core/sync/engine.ts`) has three entry points that talk to a task provider: `runSource`, `reconcileSource` and `reattachTasks`. Each repeats the same steps:
+
+- **The gate:** `getSyncTarget`, then `skipReason`, then resolve the provider's `TaskSource` or skip as unsupported.
+- **Auth:** `credentials.getAuth`, with rejected credentials moving the integration to `needs_reauth`. Runs do this through `recordFailure`. `reattachTasks` has its own `try`/`catch`.
+- **Lookup then write:** reconcile calls `lookup` and then `writer.applyReconcile`. Reattach calls `lookup` and then `writer.reattachTasks`, which moves detached links to `synced`, promotes the subtasks left detached and upserts the page.
+
+Proposal:
+
+1. **A private `openTaskSource(sourceId)`** that returns `{ target, tasks }` or a `SyncSkipReason`, plus an auth helper that marks `needs_reauth` on `IntegrationAuthError`. All three entry points use it, so any new one gets the same rules for a source that is off, disabled, needs reauth, is rate limited or is unsupported.
+2. **A public `refreshTasks(sourceId, externalIds)`** that looks the issues up and applies them through `writer.applyTaskPage`, which already handles updated, reassigned and gone issues. This would be a per-task "Sync now", for example a refresh button on the task detail. It isn't in the design: "Sync now" in `docs/integrations/tech-design.md` is per source, `runSource` then `reconcileSource` behind the scheduler's manual trigger. Adding it means a line in the design and a channel in the IPC list.
+3. **Reattach as an option on that path:** `refreshTasks(sourceId, ids, { reattach: rootExternalId })`. The writer flips the detached links in the same transaction as the page apply. The only reattach-specific code left would be the root checks (gone, unassigned, unreadable) and the link-state change.
+
+Items 1 and 3 are refactors with no change in behaviour, covered by the existing engine, reconcile and detach tests. Item 2 is a product decision.

@@ -26,7 +26,14 @@ import { hasLinkInState } from '../integrations/refs';
 import { Task, TaskStatus } from '../tasks/types';
 import { Project, ProjectStatus } from '../projects/types';
 import { NotFoundError } from '../shared/errors';
-import { ReconcileItems, ReconcilePlan, SyncEntityType, SyncSummary, TaskPageItems } from './types';
+import {
+  ReattachSummary,
+  ReconcileItems,
+  ReconcilePlan,
+  SyncEntityType,
+  SyncSummary,
+  TaskPageItems,
+} from './types';
 
 type Tx = BaseSQLiteDatabase<'sync', RunResult>;
 type Link = typeof externalLinks.$inferSelect;
@@ -154,6 +161,74 @@ export class SyncWriter {
       // 3.
       write.retireProjects(items.goneProjects);
       return write.finish();
+    });
+  }
+
+  /**
+   * Hands detached tasks back to sync and overwrites them with the provider's copy. Returns null,
+   * having written nothing, when `rootExternalId` is no longer detached.
+   *
+   * 1. Move the detached links of `items.tasks` to `synced`. Their externalUpdatedAt is cleared,
+   *    since the local copy may differ from the provider's at any updatedAt and the unchanged
+   *    check would otherwise skip it.
+   * 2. A synced task has no local children, so the `leftDetached` tasks under one of them become
+   *    top-level.
+   * 3. Upsert the projects and tasks as a page does: provider-owned fields are overwritten, and
+   *    links, the task note and favoritedAt are kept.
+   */
+  reattachTasks(
+    sourceId: ExternalSourceId,
+    rootExternalId: string,
+    items: Pick<TaskPageItems, 'tasks' | 'projects'>,
+    leftDetached: string[],
+  ): ReattachSummary | null {
+    return this.db.transaction((tx) => {
+      const detached = and(
+        eq(externalLinks.sourceId, sourceId),
+        eq(externalLinks.state, LinkState.DETACHED),
+      );
+      const root = tx
+        .select({ id: externalLinks.id })
+        .from(externalLinks)
+        .where(and(detached, eq(externalLinks.externalId, rootExternalId)))
+        .get();
+      if (!root) return null;
+
+      // 1.
+      const reattached = tx
+        .update(externalLinks)
+        .set({ ...resynced(), externalUpdatedAt: new Date(0) })
+        .where(
+          and(
+            detached,
+            inArray(
+              externalLinks.externalId,
+              items.tasks.map((task) => task.externalId),
+            ),
+          ),
+        )
+        .returning({ taskId: externalLinks.taskId })
+        .all()
+        .map((link) => link.taskId!);
+
+      // 2.
+      const stayed = tx
+        .select({ taskId: externalLinks.taskId })
+        .from(externalLinks)
+        .where(and(detached, inArray(externalLinks.externalId, leftDetached)));
+      const promoted = tx
+        .update(tasks)
+        .set({ parentTaskId: null })
+        .where(and(inArray(tasks.id, stayed), inArray(tasks.parentTaskId, reattached)))
+        .returning({ id: tasks.id })
+        .all()
+        .map((task) => task.id);
+
+      // 3.
+      const write = new PageWrite(tx, this.search, sourceId);
+      write.upsertProjects(items.projects);
+      write.upsertTasks(items.tasks);
+      return { ...write.finish(), reattached, promoted };
     });
   }
 
