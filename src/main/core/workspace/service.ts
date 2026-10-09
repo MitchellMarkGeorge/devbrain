@@ -93,9 +93,8 @@ export class WorkspaceService {
 
     if (this.currentWorkspace?.info.id === id) {
       // close current workspace if it is to be deleted
-      this.currentWorkspace.close();
       workspaceInfo = this.currentWorkspace.info;
-      this.currentWorkspace = null;
+      await this.closeCurrent();
     } else {
       // throws NotFoundError when the id is not in the registry
       workspaceInfo = this.getById(id);
@@ -125,23 +124,33 @@ export class WorkspaceService {
       throw new Error('No workspace data found');
     }
 
-    // 3. open/initalize the workspace object
+    // 3. close the workspace open now, if any: only one syncs at a time, and its runs settle first
+    await this.closeCurrent();
+
+    // 4. open/initalize the workspace object
     const workspace = await Workspace.open(workspaceInfo, this.workspaceOptions);
 
-    // 4. update the `lastOpenedAt` timestamp in the registry
+    // 5. update the `lastOpenedAt` timestamp in the registry
     const workspaces = this.readWorkspaceFile();
     workspaces[id] = { ...workspaceInfo, lastOpenedAt: Date.now() };
     this.writeWorkspaceFile(workspaces);
 
-    // set the current workspace
+    // set the current workspace, and start syncing it: the open workspace is the one that syncs
     this.currentWorkspace = workspace;
+    workspace.sync.start();
     return workspace;
   }
 
   async switch(id: WorkspaceId): Promise<Workspace> {
-    if (this.currentWorkspace) {
-      this.currentWorkspace.close();
-    }
+    // open closes the current workspace first
     return this.open(id);
+  }
+
+  // closes the current workspace, waiting for its sync runs to settle
+  private async closeCurrent(): Promise<void> {
+    const current = this.currentWorkspace;
+    if (!current) return;
+    this.currentWorkspace = null;
+    await current.close();
   }
 }

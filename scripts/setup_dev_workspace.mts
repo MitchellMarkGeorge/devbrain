@@ -1056,7 +1056,7 @@ async function main() {
 
     const linear = await connectLinear(workspace);
 
-    workspace.close();
+    await workspace.close();
 
     const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
     console.log('');
@@ -1074,7 +1074,7 @@ async function main() {
     console.log(`Path: ${ROOT_PATH}`);
     console.log(`Elapsed: ${elapsedSeconds}s`);
   } catch (err) {
-    workspace.close();
+    await workspace.close();
     throw err;
   }
 }

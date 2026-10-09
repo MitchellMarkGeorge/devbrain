@@ -50,6 +50,16 @@ Options:
 2. **A narrow accessor** such as `IntegrationService.getProvider(id)`. Smaller, but exposes the registry anyway.
 3. **Keep injecting both**, and have `Workspace` (feature 13) build each once and pass the same instances to both. This is ordinary dependency injection; the risk is only a wiring mistake.
 
+Feature 13 did option 3 for now: `createIntegrationServices` returns the registry it built, and `Workspace` hands that and the same `CredentialStore` to `SyncEngine`. Options 1 and 2 still remove the possibility of a wiring mistake.
+
+### Let an aborted sync cancel the request in flight
+
+_Found in feature 13._
+
+`SyncScheduler.stop()`, and so `Workspace.close()`, aborts each run's `AbortSignal` and waits for the runs to settle. The engine checks the signal between pages, but `TaskSource.pull` (`src/main/core/integrations/providers/provider.ts`) takes no signal, so a run waiting on Linear settles only when that request answers or hits its own `HTTP_TIMEOUT_MS` (30 seconds) in `providers/linear/client.ts`. Closing or switching a workspace during a slow request can therefore take up to 30 seconds. Nothing is written after the abort either way.
+
+- Add an optional `signal` to `pull`, `listAssignedIds` and `lookup`, have the engine pass the run's signal, and combine it with the timeout through `AbortSignal.any`, as the OAuth client already does.
+
 ### `SyncEntityType` is still a string union
 
 _Found in feature 10 (PR #15)._

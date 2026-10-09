@@ -106,7 +106,7 @@ describe('WorkspaceService — create', () => {
     const workspacesDir = path.join(tmpDir, 'workspaces');
     await fs.mkdir(workspacesDir);
 
-    const fakeWorkspace = { info: makeInfo(), close: vi.fn() };
+    const fakeWorkspace = { info: makeInfo(), close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.create).mockResolvedValue(fakeWorkspace as never);
 
     const service = new WorkspaceService(tmpDir);
@@ -120,7 +120,7 @@ describe('WorkspaceService — create', () => {
     writeRegistry(tmpDir, []);
     await fs.mkdir(path.join(tmpDir, 'workspaces'));
 
-    const fakeWorkspace = { info: makeInfo(), close: vi.fn() };
+    const fakeWorkspace = { info: makeInfo(), close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.create).mockResolvedValue(fakeWorkspace as never);
 
     const service = new WorkspaceService(tmpDir);
@@ -133,7 +133,11 @@ describe('WorkspaceService — create', () => {
     writeRegistry(tmpDir, []);
     await fs.mkdir(path.join(tmpDir, 'workspaces'));
 
-    vi.mocked(Workspace.create).mockResolvedValue({ info: makeInfo(), close: vi.fn() } as never);
+    vi.mocked(Workspace.create).mockResolvedValue({
+      info: makeInfo(),
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+    } as never);
 
     const service = new WorkspaceService(tmpDir);
     await service.create({ name: 'WS 1', color: '#000000' });
@@ -148,7 +152,7 @@ describe('WorkspaceService — create', () => {
     writeRegistry(tmpDir, []);
     await fs.mkdir(path.join(tmpDir, 'workspaces'));
 
-    const fakeWorkspace = { info: makeInfo(), close: vi.fn() };
+    const fakeWorkspace = { info: makeInfo(), close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.create).mockResolvedValue(fakeWorkspace as never);
 
     const service = new WorkspaceService(tmpDir);
@@ -165,7 +169,11 @@ describe('WorkspaceService — create', () => {
     await fs.mkdir(path.join(tmpDir, 'workspaces'));
 
     const before = Date.now();
-    vi.mocked(Workspace.create).mockResolvedValue({ info: makeInfo(), close: vi.fn() } as never);
+    vi.mocked(Workspace.create).mockResolvedValue({
+      info: makeInfo(),
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+    } as never);
 
     const service = new WorkspaceService(tmpDir);
     await service.create({ name: 'Timestamp', color: '#000000' });
@@ -180,7 +188,11 @@ describe('WorkspaceService — create', () => {
     writeRegistry(tmpDir, []);
     await fs.mkdir(path.join(tmpDir, 'workspaces'));
 
-    vi.mocked(Workspace.create).mockResolvedValue({ info: makeInfo(), close: vi.fn() } as never);
+    vi.mocked(Workspace.create).mockResolvedValue({
+      info: makeInfo(),
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+    } as never);
 
     const service = new WorkspaceService(tmpDir);
     await service.create({ name: 'New', color: '#000000' });
@@ -232,7 +244,7 @@ describe('WorkspaceService — delete', () => {
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const fakeWorkspace = { info, close: vi.fn() };
+    const fakeWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
 
     const service = new WorkspaceService(tmpDir);
     service.currentWorkspace = fakeWorkspace as never;
@@ -284,7 +296,7 @@ describe('WorkspaceService — open', () => {
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const fakeWorkspace = { info, close: vi.fn() };
+    const fakeWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.open).mockResolvedValue(fakeWorkspace as never);
 
     const service = new WorkspaceService(tmpDir);
@@ -298,7 +310,7 @@ describe('WorkspaceService — open', () => {
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const fakeWorkspace = { info, close: vi.fn() };
+    const fakeWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.open).mockResolvedValue(fakeWorkspace as never);
 
     const before = Date.now();
@@ -317,7 +329,7 @@ describe('WorkspaceService — open', () => {
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const fakeWorkspace = { info, close: vi.fn() };
+    const fakeWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.open).mockResolvedValue(fakeWorkspace as never);
 
     const service = new WorkspaceService(tmpDir);
@@ -331,7 +343,11 @@ describe('WorkspaceService — open', () => {
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    vi.mocked(Workspace.open).mockResolvedValue({ info, close: vi.fn() } as never);
+    vi.mocked(Workspace.open).mockResolvedValue({
+      info,
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+    } as never);
 
     const service = new WorkspaceService(tmpDir);
     await service.open(info.id);
@@ -341,14 +357,112 @@ describe('WorkspaceService — open', () => {
   });
 });
 
+describe('WorkspaceService — sync', () => {
+  it('open starts syncing the opened workspace', async () => {
+    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
+    writeRegistry(tmpDir, [info]);
+    await fs.mkdir(info.path, { recursive: true });
+
+    const fakeWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
+    vi.mocked(Workspace.open).mockResolvedValue(fakeWorkspace as never);
+
+    const service = new WorkspaceService(tmpDir);
+    await service.open(info.id);
+
+    expect(fakeWorkspace.sync.start).toHaveBeenCalledOnce();
+  });
+
+  it('create does not start syncing: only the open workspace syncs', async () => {
+    const created = { info: makeInfo(), close: vi.fn(), sync: { start: vi.fn() } };
+    vi.mocked(Workspace.create).mockResolvedValue(created as never);
+
+    const service = new WorkspaceService(tmpDir);
+    await service.create({ name: 'New', color: '#000000' });
+
+    expect(created.sync.start).not.toHaveBeenCalled();
+  });
+
+  it('switch waits for the current workspace to close before opening the next', async () => {
+    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
+    writeRegistry(tmpDir, [info]);
+    await fs.mkdir(info.path, { recursive: true });
+
+    let finishClose!: () => void;
+    const prevWorkspace = {
+      info: makeInfo({ id: 'wsp_prev' as WorkspaceId }),
+      close: vi.fn(() => new Promise<void>((resolve) => (finishClose = resolve))),
+    };
+    const nextWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
+    vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
+
+    const service = new WorkspaceService(tmpDir);
+    service.currentWorkspace = prevWorkspace as never;
+
+    const switching = service.switch(info.id);
+    await vi.waitFor(() => expect(prevWorkspace.close).toHaveBeenCalled());
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(Workspace.open).not.toHaveBeenCalled();
+
+    finishClose();
+    await expect(switching).resolves.toBe(nextWorkspace);
+    expect(nextWorkspace.sync.start).toHaveBeenCalledOnce();
+  });
+
+  it('opening another workspace closes the current one first', async () => {
+    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
+    writeRegistry(tmpDir, [info]);
+    await fs.mkdir(info.path, { recursive: true });
+
+    const prevWorkspace = { info: makeInfo({ id: 'wsp_prev' as WorkspaceId }), close: vi.fn() };
+    vi.mocked(Workspace.open).mockResolvedValue({
+      info,
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+    } as never);
+
+    const service = new WorkspaceService(tmpDir);
+    service.currentWorkspace = prevWorkspace as never;
+    await service.open(info.id);
+
+    expect(prevWorkspace.close).toHaveBeenCalledOnce();
+  });
+
+  it('delete waits for the current workspace to close before removing its directory', async () => {
+    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
+    writeRegistry(tmpDir, [info]);
+    await fs.mkdir(info.path, { recursive: true });
+
+    let finishClose!: () => void;
+    const current = {
+      info,
+      close: vi.fn(() => new Promise<void>((resolve) => (finishClose = resolve))),
+    };
+    const service = new WorkspaceService(tmpDir);
+    service.currentWorkspace = current as never;
+
+    const deleting = service.delete(info.id);
+    await vi.waitFor(() => expect(current.close).toHaveBeenCalled());
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(fsSync.existsSync(info.path)).toBe(true);
+
+    finishClose();
+    await deleting;
+    expect(fsSync.existsSync(info.path)).toBe(false);
+  });
+});
+
 describe('WorkspaceService — switch', () => {
   it('closes current workspace before opening new one', async () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const prevWorkspace = { info: makeInfo({ id: 'wsp_prev' as WorkspaceId }), close: vi.fn() };
-    const nextWorkspace = { info, close: vi.fn() };
+    const prevWorkspace = {
+      info: makeInfo({ id: 'wsp_prev' as WorkspaceId }),
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+    };
+    const nextWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
 
     const service = new WorkspaceService(tmpDir);
@@ -365,7 +479,7 @@ describe('WorkspaceService — switch', () => {
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const nextWorkspace = { info, close: vi.fn() };
+    const nextWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
 
     const service = new WorkspaceService(tmpDir);
@@ -379,7 +493,7 @@ describe('WorkspaceService — switch', () => {
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const nextWorkspace = { info, close: vi.fn() };
+    const nextWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
 
     const service = new WorkspaceService(tmpDir);
@@ -401,7 +515,11 @@ describe('WorkspaceService — workspace options', () => {
   it('passes its options to every workspace it creates', async () => {
     writeRegistry(tmpDir, []);
     await fs.mkdir(path.join(tmpDir, 'workspaces'));
-    vi.mocked(Workspace.create).mockResolvedValue({ info: makeInfo(), close: vi.fn() } as never);
+    vi.mocked(Workspace.create).mockResolvedValue({
+      info: makeInfo(),
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+    } as never);
 
     await new WorkspaceService(tmpDir, options).create({ name: 'WS', color: '#000000' });
 
@@ -412,7 +530,11 @@ describe('WorkspaceService — workspace options', () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
-    vi.mocked(Workspace.open).mockResolvedValue({ info, close: vi.fn() } as never);
+    vi.mocked(Workspace.open).mockResolvedValue({
+      info,
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+    } as never);
 
     await new WorkspaceService(tmpDir, options).open(info.id);
 
@@ -423,7 +545,11 @@ describe('WorkspaceService — workspace options', () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
-    vi.mocked(Workspace.open).mockResolvedValue({ info, close: vi.fn() } as never);
+    vi.mocked(Workspace.open).mockResolvedValue({
+      info,
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+    } as never);
 
     await new WorkspaceService(tmpDir).open(info.id);
 

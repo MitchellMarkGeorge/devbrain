@@ -6,9 +6,11 @@ import { NoteService } from '../notes/service';
 import { ProjectService } from '../projects/service';
 import { SearchService } from '../search/service';
 import { TaskService } from '../tasks/service';
-import { CredentialStore } from '../integrations/credential-store';
 import { IntegrationService } from '../integrations/service';
 import { createIntegrationServices } from '../integrations/setup';
+import { SyncEngine } from '../sync/engine';
+import { SyncScheduler } from '../sync/scheduler';
+import { SyncWriter } from '../sync/writer';
 import type { WorkspaceInfo, WorkspaceOptions } from './types';
 import path from 'node:path';
 import fs from 'node:fs/promises';
@@ -26,8 +28,9 @@ export class Workspace {
   readonly archive: ArchiveService;
   readonly search: SearchService;
   readonly integrations: IntegrationService;
-  // shared with the sync engine (feature 10), which reads auth through the same store
-  private readonly credentials: CredentialStore;
+  // syncNow, getStatus and onProgress for the app; trigger for focus and resume. Started by
+  // WorkspaceService.open, stopped by close()
+  readonly sync: SyncScheduler;
 
   private constructor(
     private readonly db: BetterSQLite3Database,
@@ -41,10 +44,15 @@ export class Workspace {
     this.events = new EventService(db);
     this.archive = new ArchiveService(db);
     this.search = new SearchService(db, info.path);
-    ({ credentials: this.credentials, integrations: this.integrations } = createIntegrationServices(
-      db,
-      options,
-    ));
+    const { credentials, integrations, providers } = createIntegrationServices(db, options);
+    this.integrations = integrations;
+    const engine = new SyncEngine(db, {
+      integrations,
+      credentials,
+      providers,
+      writer: new SyncWriter(db, this.search),
+    });
+    this.sync = new SyncScheduler({ engine, integrations });
   }
 
   static async create(info: WorkspaceInfo, options: WorkspaceOptions = {}): Promise<Workspace> {
@@ -77,8 +85,10 @@ export class Workspace {
     options: WorkspaceOptions,
     files: { dbPath: string; backupPath: string | null },
   ): Promise<Workspace> {
-    // keeping them off for now as I implement the services
-    // sqlite.pragma('journal_mode = WAL');
+    // Before migrating: WAL is stored in the file, so from the second open on migrations run under
+    // it anyway, and setting it first makes the first open behave the same. Background sync writes
+    // while the app reads; WAL keeps readers from waiting on those writes.
+    sqliteClient.pragma('journal_mode = WAL');
     const db = drizzle({ client: sqliteClient, casing: 'snake_case' });
 
     try {
@@ -112,8 +122,11 @@ export class Workspace {
       return new WorkspaceMigrationError(error.message, details);
     }
     try {
-      // with the connection closed and no WAL, the database is this one file; once WAL is on, the
-      // -wal and -shm files beside it must be removed too
+      // A WAL left beside the database belongs to the migrated one: replayed onto the backup it
+      // would corrupt it. Closing the last connection normally checkpoints and removes both files,
+      // so this rarely finds any. They go first, so no step leaves the backup next to a stale WAL.
+      await fs.rm(`${dbPath}-wal`, { force: true });
+      await fs.rm(`${dbPath}-shm`, { force: true });
       await fs.copyFile(backupPath, dbPath);
     } catch (restoreError) {
       return new WorkspaceMigrationError(
@@ -127,7 +140,12 @@ export class Workspace {
     );
   }
 
-  close() {
+  /**
+   * Stops syncing, waiting for any run in flight to settle, then closes SQLite, so no run writes to
+   * a closed database. Calling it again does nothing.
+   */
+  async close(): Promise<void> {
+    await this.sync.stop();
     this.sqliteClient.close();
   }
 }
