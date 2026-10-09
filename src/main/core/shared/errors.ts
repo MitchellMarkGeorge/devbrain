@@ -1,4 +1,4 @@
-import { EntityType, Id, IntegrationId } from '@common/ids';
+import { EntityType, Id, IntegrationId, TaskId } from '@common/ids';
 import type { Provider } from '../integrations/types';
 
 export class NotFoundError<T extends EntityType> extends Error {
@@ -27,6 +27,18 @@ export class ExternalReadOnlyError<T extends EntityType> extends Error {
   constructor(id: Id<T>) {
     super(`Entity is synced from an integration and is read-only: ${id}`);
     this.name = 'ExternalReadOnlyError';
+  }
+}
+
+// a task can't be detached or reattached: it is local, already in that state, its integration is
+// gone or off, or its issue no longer resolves. Whatever was asked changed nothing
+export class DetachError extends Error {
+  readonly taskId: TaskId;
+
+  constructor(taskId: TaskId, message: string) {
+    super(message);
+    this.name = 'DetachError';
+    this.taskId = taskId;
   }
 }
 

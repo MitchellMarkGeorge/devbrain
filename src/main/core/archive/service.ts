@@ -11,6 +11,7 @@ import { notes } from '@main/db/schema/notes';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../shared/errors';
 import { keyset, Page, PageOptions } from '../shared/pagination';
 import { assertEditable } from '../integrations/refs';
+import { subtreeOf } from '../tasks/subtree';
 import type {
   ArchivableEntityType,
   ArchivableId,
@@ -30,16 +31,12 @@ export class ArchiveService {
       assertEditable(tx, id);
 
       const now = new Date();
-      // archives the task and any subtasks it has
+      // archives the task and its whole subtree: a local task's subtasks, or the deeper subtree a
+      // detached task carried over from Linear
       const updatedTasks = tx
         .update(tasks)
         .set({ archivedAt: now })
-        .where(
-          and(
-            sql`(${tasks.id} = ${id} OR ${tasks.parentTaskId} = ${id})`,
-            isNull(tasks.archivedAt),
-          ),
-        )
+        .where(and(inArray(tasks.id, subtreeOf(id)), isNull(tasks.archivedAt)))
         .returning()
         .all();
 
@@ -59,7 +56,7 @@ export class ArchiveService {
   }
 
   restoreTask(id: TaskId): Task {
-    // restores the task and any subtasks it has
+    // restores the task and its whole subtree, as archiveTask archived it
     return this.db.transaction((tx) => {
       const existing = tx.select().from(tasks).where(eq(tasks.id, id)).get();
       if (!existing) throw new NotFoundError(id);
@@ -68,7 +65,7 @@ export class ArchiveService {
       const updatedTasks = tx
         .update(tasks)
         .set({ archivedAt: null })
-        .where(sql`(${tasks.id} = ${id} OR ${tasks.parentTaskId} = ${id})`)
+        .where(inArray(tasks.id, subtreeOf(id)))
         .returning()
         .all();
 
