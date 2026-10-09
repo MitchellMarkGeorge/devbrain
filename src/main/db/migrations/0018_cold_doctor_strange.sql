@@ -1,0 +1,1 @@
+ALTER TABLE `external_sources` ADD `retry_at` integer;

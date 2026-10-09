@@ -66,6 +66,8 @@ export interface ExternalSource {
   initialSyncCompleted: boolean;
   lastSyncedAt: Date | null;
   lastError: string | null;
+  // after a rate-limited run, the provider's stated retry time; null otherwise
+  retryAt: Date | null;
 }
 
 // the `external` field on Task, Project and Event read models

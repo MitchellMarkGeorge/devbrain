@@ -1,6 +1,6 @@
 import { ExternalSourceId, IntegrationId } from '@common/ids';
 import { externalSources, integrations } from '@main/db/schema/integrations';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   IntegrationAlreadyConnectedError,
@@ -35,6 +35,13 @@ export type IntegrationChange =
       integrationId: IntegrationId;
       sourceId: ExternalSourceId;
       enabled: boolean;
+    }
+  | {
+      // a sync run ended and recorded its outcome: lastSyncedAt, lastError, retryAt
+      type: 'sync_status_changed';
+      integrationId: IntegrationId;
+      sourceId: ExternalSourceId;
+      source: ExternalSource;
     };
 
 export type IntegrationChangeListener = (change: IntegrationChange) => void;
@@ -50,6 +57,31 @@ export interface EnableOptions {
   // the source types to switch back on when a disabled integration is enabled; defaults to all
   enable?: SourceType[];
 }
+
+// What the sync engine needs to start a run: the source's stored state and its integration's.
+// The cursor and config are the raw JSON; the engine validates them.
+export interface SyncTarget {
+  integrationId: IntegrationId;
+  provider: Provider;
+  status: IntegrationStatus;
+  sourceType: SourceType;
+  enabled: boolean;
+  cursor: unknown;
+  config: unknown;
+  initialSyncCompletedAt: Date | null;
+  retryAt: Date | null;
+}
+
+// how a sync run ended, as recorded on its source
+export type SyncOutcome =
+  | { ok: true; at: Date }
+  | {
+      ok: false;
+      error: string;
+      // false for a rate limit: retryAt is the wait, so it does not also count toward backoff
+      countsAsFailure: boolean;
+      retryAt?: Date;
+    };
 
 export interface IntegrationServiceOptions {
   credentials: CredentialStore;
@@ -263,6 +295,101 @@ export class IntegrationService {
     return toSource(updated);
   }
 
+  /** the stored sync state of a source and its integration, for the sync engine */
+  getSyncTarget(sourceId: ExternalSourceId): SyncTarget {
+    const row = this.db
+      .select({
+        integrationId: externalSources.integrationId,
+        provider: integrations.provider,
+        status: integrations.status,
+        sourceType: externalSources.sourceType,
+        enabled: externalSources.enabled,
+        cursor: externalSources.cursor,
+        config: externalSources.config,
+        initialSyncCompletedAt: externalSources.initialSyncCompletedAt,
+        retryAt: externalSources.retryAt,
+      })
+      .from(externalSources)
+      .innerJoin(integrations, eq(integrations.id, externalSources.integrationId))
+      .where(eq(externalSources.id, sourceId))
+      .get();
+    if (!row) throw new NotFoundError(sourceId);
+    return row;
+  }
+
+  /**
+   * Stores a source's cursor, and when a full pass just ended, when it did. Synchronous and
+   * emits nothing, so the engine can call it inside the transaction that applies the page: the
+   * cursor commits or rolls back with it.
+   */
+  saveCursor(
+    sourceId: ExternalSourceId,
+    cursor: unknown,
+    options: { initialSyncCompletedAt?: Date } = {},
+  ): void {
+    const result = this.db
+      .update(externalSources)
+      .set({
+        cursor,
+        ...(options.initialSyncCompletedAt && {
+          initialSyncCompletedAt: options.initialSyncCompletedAt,
+        }),
+      })
+      .where(eq(externalSources.id, sourceId))
+      .run();
+    if (result.changes === 0) throw new NotFoundError(sourceId);
+  }
+
+  /**
+   * Records how a sync run ended. Success sets lastSyncedAt and clears the error, the failure
+   * count and any retry time. Failure stores the error and retryAt, and counts toward backoff
+   * unless `countsAsFailure` is false. A source deleted while its run was in flight is ignored.
+   */
+  recordSyncOutcome(sourceId: ExternalSourceId, outcome: SyncOutcome): void {
+    const [row] = this.db
+      .update(externalSources)
+      .set(
+        outcome.ok
+          ? { lastSyncedAt: outcome.at, lastError: null, consecutiveFailures: 0, retryAt: null }
+          : {
+              lastError: outcome.error,
+              retryAt: outcome.retryAt ?? null,
+              ...(outcome.countsAsFailure && {
+                consecutiveFailures: sql`${externalSources.consecutiveFailures} + 1`,
+              }),
+            },
+      )
+      .where(eq(externalSources.id, sourceId))
+      .returning()
+      .all();
+    if (!row) return;
+    this.emit({
+      type: 'sync_status_changed',
+      integrationId: row.integrationId,
+      sourceId,
+      source: toSource(row),
+    });
+  }
+
+  /**
+   * Moves a connected integration to needs_reauth after its credentials were rejected. Its sources
+   * keep their flags and cursors; they stop syncing until a reconnect. A disabled integration stays
+   * disabled.
+   */
+  markNeedsReauth(id: IntegrationId): void {
+    const result = this.db
+      .update(integrations)
+      .set({ status: IntegrationStatus.NEEDS_REAUTH })
+      .where(and(eq(integrations.id, id), eq(integrations.status, IntegrationStatus.CONNECTED)))
+      .run();
+    if (result.changes === 0) return;
+    this.emit({
+      type: 'status_changed',
+      integrationId: id,
+      status: IntegrationStatus.NEEDS_REAUTH,
+    });
+  }
+
   // returns a function that unsubscribes the listener
   onChange(listener: IntegrationChangeListener): () => void {
     this.listeners.add(listener);
@@ -326,6 +453,7 @@ function toSource(row: SourceRow): ExternalSource {
     initialSyncCompleted: row.initialSyncCompletedAt !== null,
     lastSyncedAt: row.lastSyncedAt,
     lastError: row.lastError,
+    retryAt: row.retryAt,
   };
 }
 

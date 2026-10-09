@@ -237,6 +237,36 @@ describe('migration 0017 — integration tables', () => {
   });
 });
 
+describe('migration 0018 — source retryAt', () => {
+  it('adds a null retry_at to existing sources and keeps their sync state', () => {
+    const { sqlite, db } = openDb();
+    migrate(db, { migrationsFolder: migrationsUpTo(17) });
+    sqlite.exec(`
+      INSERT INTO integrations (id, provider, auth_type, account_id, account_label, credentials)
+        VALUES ('int_a', 'linear', 'api_key', 'org:user', 'Ada', x'00');
+      INSERT INTO external_sources (id, integration_id, source_type, cursor, consecutive_failures)
+        VALUES ('src_a', 'int_a', 'tasks', '{"mode":"incremental","updatedSince":"2026-10-01T00:00:00.000Z"}', 2);
+    `);
+
+    runMigrations(sqlite, db, MIGRATIONS_PATH);
+
+    expect(
+      sqlite
+        .prepare(`SELECT id, cursor, consecutive_failures, retry_at FROM external_sources`)
+        .all(),
+    ).toEqual([
+      {
+        id: 'src_a',
+        cursor: '{"mode":"incremental","updatedSince":"2026-10-01T00:00:00.000Z"}',
+        consecutive_failures: 2,
+        retry_at: null,
+      },
+    ]);
+    expect(sqlite.prepare('PRAGMA integrity_check').pluck().get()).toBe('ok');
+    sqlite.close();
+  });
+});
+
 // a migration that fails partway: the first statement succeeds, the second does not
 const BROKEN_SQL = `CREATE TABLE rolled_back (id text);--> statement-breakpoint
 INSERT INTO no_such_table VALUES (1);`;
