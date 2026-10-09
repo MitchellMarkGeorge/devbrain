@@ -482,19 +482,23 @@ describe('SyncWriter — detached', () => {
     expect(count(tasksTable)).toBe(1);
   });
 
-  it('skips a detached project, and its synced tasks do not live in it', () => {
+  it('reattaches a detached project that returns, refreshed, with its tasks', () => {
     const proj = project({ title: 'Kept locally' });
     writer.applyTaskPage(sourceId, page({ projects: [proj] }));
     setLinkState(proj.externalId, LinkState.DETACHED);
     const item = issue({ projectExternalId: proj.externalId });
 
-    writer.applyTaskPage(
+    // a project is only ever detached by sync, so its return reattaches it
+    const summary = writer.applyTaskPage(
       sourceId,
       page({ projects: [{ ...proj, title: 'Renamed', updatedAt: V2 }], tasks: [item] }),
     );
 
-    expect(projectRow(projectIdOf(proj.externalId)).title).toBe('Kept locally');
-    expect(taskRow(item.externalId).projectId).toBeNull();
+    expect(summary).toMatchObject({ inserted: 1, updated: 1 });
+    expect(count(projectsTable)).toBe(1);
+    expect(projectRow(projectIdOf(proj.externalId)).title).toBe('Renamed');
+    expect(linkOf(proj.externalId)!.state).toBe(LinkState.SYNCED);
+    expect(taskRow(item.externalId).projectId).toBe(projectIdOf(proj.externalId));
   });
 
   it('removal leaves a detached task alone', () => {

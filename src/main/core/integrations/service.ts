@@ -432,6 +432,19 @@ export class IntegrationService {
   }
 
   /**
+   * Records that a reconcile pass finished. Called after recordSyncOutcome for the same run, which
+   * already told subscribers the run ended, so this emits nothing. A source deleted while its run
+   * was in flight is ignored.
+   */
+  markReconciled(sourceId: ExternalSourceId, at: Date): void {
+    this.db
+      .update(externalSources)
+      .set({ lastReconciledAt: at })
+      .where(eq(externalSources.id, sourceId))
+      .run();
+  }
+
+  /**
    * Moves a connected integration to needs_reauth after its credentials were rejected. Its sources
    * keep their flags and cursors; they stop syncing until a reconnect. A disabled integration stays
    * disabled.

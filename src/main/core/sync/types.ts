@@ -1,8 +1,22 @@
 import { ExternalSourceId } from '@common/ids';
-import type { TaskPage } from '../integrations/providers/provider';
+import type { LookupResult, TaskPage } from '../integrations/providers/provider';
 
 // what SyncWriter.applyTaskPage takes: the items of a pulled page, or of a lookup result
 export type TaskPageItems = Pick<TaskPage, 'projects' | 'tasks' | 'removedIds'>;
+
+// what SyncWriter.applyReconcile takes: a reconcile pass's lookup result, empty when nothing was
+// looked up
+export type ReconcileItems = Pick<LookupResult, 'tasks' | 'projects' | 'gone' | 'goneProjects'>;
+
+// what a reconcile pass looks up, from SyncWriter.planReconcile; all external ids
+export interface ReconcilePlan {
+  // watched links missing from the assignment snapshot
+  candidates: string[];
+  // snapshot ids with no synced link
+  returning: string[];
+  // the source's synced projects
+  projectIds: string[];
+}
 
 // the entity types a write touched, so the renderer refetches only those queries
 export type SyncEntityType = 'task' | 'project';
@@ -20,10 +34,12 @@ export interface SyncSummary {
 
 // string values, as they appear in the run's log line
 
-// an initial pass walks everything in scope; an incremental one walks changes since the cursor
+// an initial pass walks everything in scope; an incremental one walks changes since the cursor;
+// a reconcile pass diffs the mirror against the provider's current assignments
 export enum SyncMode {
   INITIAL = 'initial',
   INCREMENTAL = 'incremental',
+  RECONCILE = 'reconcile',
 }
 
 // sent after each committed page, so the renderer can refetch what changed
@@ -48,6 +64,8 @@ export enum SyncSkipReason {
   // the provider's retry time from a rate-limited run has not passed
   RATE_LIMITED = 'rate_limited',
   ALREADY_RUNNING = 'already_running',
+  // reconcile waits for the first full pass, which brings in everything the snapshot would
+  INITIAL_SYNC_PENDING = 'initial_sync_pending',
   // the source's type has no sync yet, or its provider does not serve it
   UNSUPPORTED = 'unsupported',
 }

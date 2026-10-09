@@ -2,17 +2,18 @@ import { ExternalLinkId, ExternalSourceId, ProjectId, TaskId } from '@common/ids
 import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
 import { projects } from '@main/db/schema/projects';
 import { tasks } from '@main/db/schema/tasks';
-import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 import { RunResult } from 'better-sqlite3';
 import { SearchService } from '../search/service';
 import { ExternalProject, ExternalTask, LinkState, Provider } from '../integrations/types';
 import { projectLinkMetadataSchema, taskLinkMetadataSchema } from '../integrations/schema';
+import { hasLinkInState } from '../integrations/refs';
 import { Task, TaskStatus } from '../tasks/types';
 import { Project, ProjectStatus } from '../projects/types';
 import { NotFoundError } from '../shared/errors';
-import { SyncEntityType, SyncSummary, TaskPageItems } from './types';
+import { ReconcileItems, ReconcilePlan, SyncEntityType, SyncSummary, TaskPageItems } from './types';
 
 type Tx = BaseSQLiteDatabase<'sync', RunResult>;
 type Link = typeof externalLinks.$inferSelect;
@@ -45,6 +46,100 @@ export class SyncWriter {
         ...page.removedIds,
         ...page.tasks.filter((task) => !task.assignedToViewer).map((task) => task.externalId),
       ]);
+      return write.finish();
+    });
+  }
+
+  /**
+   * What a reconcile pass has to look up, given the ids of the open items assigned to the viewer
+   * now. Reads only.
+   *
+   * - candidates: watched links (synced, not settled, task still open locally) missing from the
+   *   snapshot, so reassigned, deleted or trashed since the last run, or closed in a way the
+   *   incremental query has not seen yet
+   * - returning: snapshot ids with no synced link: a `removed` link (e.g. restored from the trash,
+   *   which leaves updatedAt alone) or none yet. A detached link is the user's own and is skipped
+   * - projectIds: this source's synced projects, so one deleted in the provider is noticed
+   */
+  planReconcile(sourceId: ExternalSourceId, assignedIds: string[]): ReconcilePlan {
+    const assigned = new Set(assignedIds);
+    // served by idx_external_links_source_id_state, then the tasks primary key
+    const watched = this.db
+      .select({ externalId: externalLinks.externalId })
+      .from(externalLinks)
+      .innerJoin(tasks, eq(tasks.id, externalLinks.taskId))
+      .where(
+        and(
+          eq(externalLinks.sourceId, sourceId),
+          eq(externalLinks.state, LinkState.SYNCED),
+          isNull(externalLinks.settledAt),
+          notInArray(tasks.status, CLOSED_STATUSES),
+        ),
+      )
+      .all();
+    const candidates = watched
+      .map((link) => link.externalId)
+      .filter((externalId) => !assigned.has(externalId));
+
+    // the snapshot's links, by uq_external_links_source_external_id
+    const known = new Map<string, LinkState>();
+    for (const batch of chunks([...assigned])) {
+      const links = this.db
+        .select({ externalId: externalLinks.externalId, state: externalLinks.state })
+        .from(externalLinks)
+        .where(and(eq(externalLinks.sourceId, sourceId), inArray(externalLinks.externalId, batch)))
+        .all();
+      links.forEach((link) => known.set(link.externalId, link.state));
+    }
+    const returning = [...assigned].filter((externalId) => {
+      const state = known.get(externalId);
+      return state === undefined || state === LinkState.REMOVED;
+    });
+
+    // served by idx_external_links_source_id_state
+    const projectLinks = this.db
+      .select({ externalId: externalLinks.externalId })
+      .from(externalLinks)
+      .where(
+        and(
+          eq(externalLinks.sourceId, sourceId),
+          eq(externalLinks.state, LinkState.SYNCED),
+          isNotNull(externalLinks.projectId),
+        ),
+      )
+      .all();
+
+    return { candidates, returning, projectIds: projectLinks.map((link) => link.externalId) };
+  }
+
+  /**
+   * Applies a reconcile pass, in one transaction, in this order:
+   *
+   * 1. The lookup, as a page: found and still assigned is upserted (a completion, or a restore of
+   *    a removed link); reassigned or gone is removed.
+   * 2. Settle: synced task links closed before `settleBefore` stop being watched.
+   * 3. Project lifecycle, on the state after 1: a synced project that is gone, or has no synced
+   *    tasks left, is detached when it still holds local or detached tasks, and archived with its
+   *    link `removed` otherwise.
+   */
+  applyReconcile(
+    sourceId: ExternalSourceId,
+    items: ReconcileItems,
+    { settleBefore }: { settleBefore: Date },
+  ): SyncSummary {
+    return this.db.transaction((tx) => {
+      const write = new PageWrite(tx, this.search, sourceId);
+      // 1.
+      write.upsertProjects(items.projects);
+      write.upsertTasks(items.tasks.filter((task) => task.assignedToViewer));
+      write.removeTasks([
+        ...items.gone,
+        ...items.tasks.filter((task) => !task.assignedToViewer).map((task) => task.externalId),
+      ]);
+      // 2.
+      write.settle(settleBefore);
+      // 3.
+      write.retireProjects(items.goneProjects);
       return write.finish();
     });
   }
@@ -95,8 +190,9 @@ class PageWrite {
    * in the same page can find their project.
    *
    * 1. Look up the existing links for every project in one query.
-   * 2. Per project: no link → insert; detached → skip; synced and unchanged → touch only;
-   *    otherwise (changed, or removed) → update and restore.
+   * 2. Per project: no link → insert; synced and unchanged → touch only; otherwise (changed,
+   *    removed, or detached) → update and restore. A project is only ever detached by sync, when
+   *    it left scope still holding the user's tasks, so it is reattached the moment it returns.
    * 3. Index everything inserted or updated in one batch.
    */
   upsertProjects(items: ExternalProject[]): void {
@@ -129,16 +225,16 @@ class PageWrite {
       }
 
       const projectId = entityId(link, 'projectId');
-      // 2b. detached: the user's own now, so sync leaves it alone
-      if (link.state === LinkState.DETACHED) continue;
-      // 2c. unchanged: the row is not written, so updatedAt stays put; lastSyncedAt moves in finish
+      // 2b. unchanged: the row is not written, so updatedAt stays put; lastSyncedAt moves in finish
       if (link.state === LinkState.SYNCED && !isNewer(item, link)) {
         this.touched.push(link.id);
         continue;
       }
 
-      // 2d. remote changed, or a removed project came back: write the provider-owned fields and
-      // unarchive (a synced row is never archived), then mark the link synced again
+      // 2c. remote changed, or a removed or detached project came back: write the provider-owned
+      // fields and unarchive (a synced row is never archived), then mark the link synced again.
+      // A detached project's local and detached tasks stay in it; its link is reused, so there is
+      // no duplicate
       const project = this.tx
         .update(projects)
         .set({ ...projectFields(item), archivedAt: null })
@@ -305,6 +401,135 @@ class PageWrite {
   }
 
   /**
+   * Marks synced task links closed before `before` as settled, so reconcile stops watching them.
+   * A completed task closed at its completedAt. A cancelled one keeps no close time, so its
+   * provider's updatedAt stands in: the issue changed when it was cancelled, so an issue unchanged
+   * since `before` was cancelled before it too. A reopened issue comes back through the
+   * incremental pull, whose update clears settledAt.
+   */
+  settle(before: Date): void {
+    const completedBefore = this.tx
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(and(eq(tasks.status, TaskStatus.COMPLETED), lt(tasks.completedAt, before)));
+    const cancelled = this.tx
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(eq(tasks.status, TaskStatus.CANCELLED));
+    // links only: the task rows and their updatedAt are not written
+    this.tx
+      .update(externalLinks)
+      .set({ settledAt: this.now })
+      .where(
+        and(
+          eq(externalLinks.sourceId, this.sourceId),
+          eq(externalLinks.state, LinkState.SYNCED),
+          isNull(externalLinks.settledAt),
+          or(
+            inArray(externalLinks.taskId, completedBefore),
+            and(
+              lt(externalLinks.externalUpdatedAt, before),
+              inArray(externalLinks.taskId, cancelled),
+            ),
+          ),
+        ),
+      )
+      .run();
+  }
+
+  /**
+   * The project lifecycle. Runs after the call's task changes, so "no synced tasks" is read on
+   * the final state.
+   *
+   * 1. Find this source's synced projects that left scope: gone in the provider, or with no synced
+   *    tasks left in them.
+   * 2. A gone project's synced tasks follow the provider, which no longer has the project, so
+   *    they lose it. (Tasks that moved elsewhere were already moved by the upsert.)
+   * 3. One still holding local or detached tasks is detached: a normal local project, where the
+   *    user's own tasks keep their home. Any other one is archived, not deleted, so notes filed
+   *    under it keep their link, and its link is marked `removed`.
+   */
+  retireProjects(goneExternalIds: string[]): void {
+    const gone = new Set(goneExternalIds);
+    // 1. served by idx_external_links_source_id_state
+    const links = this.tx
+      .select({
+        id: externalLinks.id,
+        externalId: externalLinks.externalId,
+        projectId: externalLinks.projectId,
+      })
+      .from(externalLinks)
+      .where(
+        and(
+          eq(externalLinks.sourceId, this.sourceId),
+          eq(externalLinks.state, LinkState.SYNCED),
+          isNotNull(externalLinks.projectId),
+        ),
+      )
+      .all();
+    const archived: ProjectId[] = [];
+
+    for (const link of links) {
+      const projectId = link.projectId!;
+      const inProjectAndSynced = and(
+        eq(tasks.projectId, projectId),
+        hasLinkInState('task', tasks.id, LinkState.SYNCED),
+      );
+      const hasSynced = this.tx
+        .select({ id: tasks.id })
+        .from(tasks)
+        .where(inProjectAndSynced)
+        .limit(1)
+        .get();
+      if (!gone.has(link.externalId) && hasSynced) continue;
+
+      // 2. a synced task cannot live in a local or archived project
+      if (hasSynced) {
+        this.tx.update(tasks).set({ projectId: null }).where(inProjectAndSynced).run();
+        this.changed.add('task');
+      }
+
+      // 3. live tasks that are not synced are local or detached; a removed task is archived
+      const keeps = this.tx
+        .select({ id: tasks.id })
+        .from(tasks)
+        .where(
+          and(
+            eq(tasks.projectId, projectId),
+            isNull(tasks.archivedAt),
+            sql`NOT ${hasLinkInState('task', tasks.id, LinkState.SYNCED)}`,
+          ),
+        )
+        .limit(1)
+        .get();
+      if (keeps) {
+        this.tx
+          .update(externalLinks)
+          .set({ state: LinkState.DETACHED })
+          .where(eq(externalLinks.id, link.id))
+          .run();
+      } else {
+        this.tx
+          .update(projects)
+          .set({ archivedAt: this.now })
+          .where(eq(projects.id, projectId))
+          .run();
+        this.tx
+          .update(externalLinks)
+          .set({ state: LinkState.REMOVED, removedAt: this.now })
+          .where(eq(externalLinks.id, link.id))
+          .run();
+        archived.push(projectId);
+        this.removed += 1;
+      }
+      this.changed.add('project');
+    }
+
+    // archived projects are no longer searchable; a restore re-indexes them
+    this.search.removeFromIndex(archived);
+  }
+
+  /**
    * Ends the call: records that the unchanged items were seen, in one update for all of them,
    * and returns the summary.
    */
@@ -397,6 +622,19 @@ class PageWrite {
   private newLink() {
     return { sourceId: this.sourceId, provider: this.provider, state: LinkState.SYNCED };
   }
+}
+
+// a closed task is not watched: its issue is out of the open-assignment snapshot by design
+const CLOSED_STATUSES = [TaskStatus.COMPLETED, TaskStatus.CANCELLED];
+
+// keeps an id list under SQLite's bound-parameter limit
+const CHUNK_SIZE = 500;
+function chunks(ids: string[]): string[][] {
+  const result: string[][] = [];
+  for (let start = 0; start < ids.length; start += CHUNK_SIZE) {
+    result.push(ids.slice(start, start + CHUNK_SIZE));
+  }
+  return result;
 }
 
 /** what an update writes to a link besides its fields: synced again, and watched again */

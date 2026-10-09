@@ -1,6 +1,8 @@
 import { Auth } from '../../integrations/auth';
 import {
   ExternalAccount,
+  LookupOptions,
+  LookupResult,
   Provider,
   SyncCursor,
   TaskPage,
@@ -53,8 +55,21 @@ export interface FakePull {
   cursor: SyncCursor | null;
 }
 
+export interface FakeLookup {
+  externalIds: string[];
+  projectIds: string[];
+}
+
+// answers one lookup; what it leaves out comes back empty
+export type FakeLookupResponder = (request: FakeLookup) => Partial<LookupResult>;
+
 export class FakeTaskSource implements TaskSource {
   readonly pulls: FakePull[] = [];
+  readonly lookups: FakeLookup[] = [];
+  // what listAssignedIds answers, or throws; unset, it throws
+  assigned?: string[] | { error: unknown };
+  // answers each lookup; unset, lookup throws
+  respondToLookup?: FakeLookupResponder;
   private readonly steps: FakeStep[] = [];
 
   /** queues steps for the next pulls, in order */
@@ -96,11 +111,29 @@ export class FakeTaskSource implements TaskSource {
   }
 
   async listAssignedIds(): Promise<string[]> {
-    throw new Error('FakeTaskSource: listAssignedIds is not scripted');
+    if (this.assigned === undefined) {
+      throw new Error('FakeTaskSource: listAssignedIds is not scripted');
+    }
+    if ('error' in this.assigned) throw this.assigned.error;
+    return [...this.assigned];
   }
 
-  async lookup(): Promise<never> {
-    throw new Error('FakeTaskSource: lookup is not scripted');
+  async lookup(
+    _auth: Auth,
+    externalIds: string[],
+    options: LookupOptions = {},
+  ): Promise<LookupResult> {
+    const request = { externalIds, projectIds: options.projectIds ?? [] };
+    this.lookups.push(request);
+    if (!this.respondToLookup) throw new Error('FakeTaskSource: lookup is not scripted');
+    return {
+      tasks: [],
+      projects: [],
+      gone: [],
+      goneProjects: [],
+      skipped: 0,
+      ...this.respondToLookup(request),
+    };
   }
 }
 
