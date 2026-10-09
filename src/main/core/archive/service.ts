@@ -4,6 +4,7 @@ import { and, eq, inArray, isNotNull, isNull, or, SQL, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { unionAll } from 'drizzle-orm/sqlite-core';
 import { Task } from '../tasks/types';
+import { subtreeIds } from '../tasks/utils';
 import { Project } from '../projects/types';
 import { projects } from '@main/db/schema/projects';
 import { Note } from '../notes/types';
@@ -30,16 +31,11 @@ export class ArchiveService {
       assertEditable(tx, id);
 
       const now = new Date();
-      // archives the task and any subtasks it has
+      // archives the task and every subtask below it, at any depth
       const updatedTasks = tx
         .update(tasks)
         .set({ archivedAt: now })
-        .where(
-          and(
-            sql`(${tasks.id} = ${id} OR ${tasks.parentTaskId} = ${id})`,
-            isNull(tasks.archivedAt),
-          ),
-        )
+        .where(and(inArray(tasks.id, subtreeIds(id)), isNull(tasks.archivedAt)))
         .returning()
         .all();
 
@@ -59,7 +55,7 @@ export class ArchiveService {
   }
 
   restoreTask(id: TaskId): Task {
-    // restores the task and any subtasks it has
+    // restores the task and every subtask below it, at any depth
     return this.db.transaction((tx) => {
       const existing = tx.select().from(tasks).where(eq(tasks.id, id)).get();
       if (!existing) throw new NotFoundError(id);
@@ -68,7 +64,7 @@ export class ArchiveService {
       const updatedTasks = tx
         .update(tasks)
         .set({ archivedAt: null })
-        .where(sql`(${tasks.id} = ${id} OR ${tasks.parentTaskId} = ${id})`)
+        .where(inArray(tasks.id, subtreeIds(id)))
         .returning()
         .all();
 

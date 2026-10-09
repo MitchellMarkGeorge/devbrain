@@ -41,10 +41,10 @@ export const tasks = sqliteTable(
     ...archivedAt,
   },
   (table) => [
-    // NOTE: there is intentionally no standalone index on parent_task_id. It is the leading
-    // column of idx_tasks_parent_created_at_id (below), which serves every lookup by parent
-    // (listSubtasks, demoteTask's child count), so a separate one would be redundant and only
-    // add write overhead.
+    // subtreeIds walks parent_task_id over archived rows too (restore needs them), which the
+    // partial idx_tasks_parent_created_at_id below cannot serve, so it gets a full index of its
+    // own; without it every step of the walk scans the whole table
+    index('idx_tasks_parent_task_id').on(table.parentTaskId),
     index('idx_tasks_project_id').on(table.projectId).where(isNull(table.archivedAt)),
     index('idx_tasks_linked_note_id').on(table.linkedNoteId).where(isNull(table.archivedAt)),
     index('idx_tasks_linked_event_id').on(table.linkedEventId).where(isNull(table.archivedAt)),

@@ -212,7 +212,8 @@ describe('migration 0017 — integration tables', () => {
     const indexesBefore = schemaObjects(sqlite, 'index');
     for (const table of INTEGRATION_TABLES) expect(tableNames(sqlite)).not.toContain(table);
 
-    runMigrations(sqlite, db, MIGRATIONS_PATH);
+    // stop at 0017, so indexes added by later migrations don't count as its own
+    runMigrations(sqlite, db, migrationsUpTo(17));
 
     expect(snapshot(sqlite)).toEqual(before);
     // only the new tables' indexes were added
@@ -273,6 +274,25 @@ INSERT INTO no_such_table VALUES (1);`;
 // a migration that succeeds but leaves a task pointing at a project that does not exist, which only
 // the foreign key check after the commit can catch (foreign keys are off while migrating)
 const DANGLING_SQL = `INSERT INTO tasks (id, title, project_id) VALUES ('tsk_dangling', 'Dangling', 'prj_missing');`;
+
+describe('migration 0019 — full parent_task_id index', () => {
+  it('indexes parent_task_id over archived rows too, without touching existing rows', () => {
+    const { sqlite, db } = openDb();
+    migrate(db, { migrationsFolder: migrationsUpTo(18) });
+    seed(sqlite);
+    const before = snapshot(sqlite);
+
+    runMigrations(sqlite, db, MIGRATIONS_PATH);
+
+    expect(snapshot(sqlite)).toEqual(before);
+    const index = sqlite
+      .prepare(`SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?`)
+      .pluck()
+      .get('idx_tasks_parent_task_id') as string;
+    expect(index).toMatch(/\(`parent_task_id`\)$/);
+    sqlite.close();
+  });
+});
 
 describe('runMigrations — failures', () => {
   function caught(fn: () => void): WorkspaceMigrationError {
