@@ -2,7 +2,20 @@ import { ExternalLinkId, ExternalSourceId, ProjectId, TaskId } from '@common/ids
 import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
 import { projects } from '@main/db/schema/projects';
 import { tasks } from '@main/db/schema/tasks';
-import { and, eq, exists, inArray, isNotNull, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
+import {
+  and,
+  eq,
+  exists,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  notExists,
+  notInArray,
+  or,
+  sql,
+  SQLWrapper,
+} from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 import { RunResult } from 'better-sqlite3';
@@ -443,8 +456,8 @@ class PageWrite {
    * The project lifecycle. Runs after the call's task changes, so "no synced tasks" is read on
    * the final state.
    *
-   * 1. Find this source's synced projects that left scope: gone in the provider, or with no synced
-   *    tasks left in them.
+   * 1. Find this source's synced projects that left scope, in one query: gone in the provider, or
+   *    with no synced tasks left in them. Usually it finds none, and nothing else runs.
    * 2. A gone project's synced tasks follow the provider, which no longer has the project, so
    *    they lose it. (Tasks that moved elsewhere were already moved by the upsert.)
    * 3. One still holding local or detached tasks is detached: a normal local project, where the
@@ -453,8 +466,20 @@ class PageWrite {
    */
   retireProjects(goneExternalIds: string[]): void {
     const gone = new Set(goneExternalIds);
-    // 1. served by idx_external_links_source_id_state
-    const links = this.tx
+    // live synced tasks in the project the outer row links to; a synced task is never archived,
+    // and saying so lets idx_tasks_project_id serve this
+    const syncedTasksIn = (projectId: SQLWrapper) =>
+      and(
+        eq(tasks.projectId, projectId),
+        isNull(tasks.archivedAt),
+        hasLinkInState('task', tasks.id, LinkState.SYNCED),
+      );
+
+    // 1. served by idx_external_links_source_id_state, with one seek per project for its tasks
+    const empty = notExists(
+      this.tx.select({ id: tasks.id }).from(tasks).where(syncedTasksIn(externalLinks.projectId)),
+    );
+    const leaving = this.tx
       .select({
         id: externalLinks.id,
         externalId: externalLinks.externalId,
@@ -466,31 +491,24 @@ class PageWrite {
           eq(externalLinks.sourceId, this.sourceId),
           eq(externalLinks.state, LinkState.SYNCED),
           isNotNull(externalLinks.projectId),
+          gone.size > 0 ? or(inArray(externalLinks.externalId, [...gone]), empty) : empty,
         ),
       )
       .all();
+    if (leaving.length === 0) return;
     const archived: ProjectId[] = [];
 
-    for (const link of links) {
+    for (const link of leaving) {
       const projectId = link.projectId!;
-      // a synced task is never archived; saying so lets idx_tasks_project_id serve this
-      const inProjectAndSynced = and(
-        eq(tasks.projectId, projectId),
-        isNull(tasks.archivedAt),
-        hasLinkInState('task', tasks.id, LinkState.SYNCED),
-      );
-      const hasSynced = this.tx
-        .select({ id: tasks.id })
-        .from(tasks)
-        .where(inProjectAndSynced)
-        .limit(1)
-        .get();
-      if (!gone.has(link.externalId) && hasSynced) continue;
 
-      // 2. a synced task cannot live in a local or archived project
-      if (hasSynced) {
-        this.tx.update(tasks).set({ projectId: null }).where(inProjectAndSynced).run();
-        this.changed.add('task');
+      // 2. a synced task cannot live in a local or archived project; an empty project has none
+      if (gone.has(link.externalId)) {
+        const moved = this.tx
+          .update(tasks)
+          .set({ projectId: null })
+          .where(syncedTasksIn(sql`${projectId}`))
+          .run().changes;
+        if (moved > 0) this.changed.add('task');
       }
 
       // 3. live tasks that are not synced are local or detached; a removed task is archived

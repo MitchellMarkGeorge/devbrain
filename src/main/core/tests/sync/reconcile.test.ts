@@ -446,6 +446,24 @@ describe('SyncEngine reconcile — project lifecycle', () => {
     expect(projectOf(proj.externalId).archivedAt).toBeNull();
   });
 
+  it('archives a project emptied by an incremental pull, on a pass with no lookup', async () => {
+    const proj = project();
+    const trashed = issue({ projectExternalId: proj.externalId });
+    await seed([trashed], [proj]);
+    // trashing comes through the incremental pull, which leaves the project in place
+    provider.tasks.script({ removedIds: [trashed.externalId] });
+    await engine.runSource(sourceId);
+    remoteTasks.delete(trashed.externalId);
+    expect(linkOf(proj.externalId).state).toBe(LinkState.SYNCED);
+
+    const result = await reconcile();
+
+    expect(provider.tasks.lookups).toEqual([]);
+    expect(result).toMatchObject({ removed: 1, changed: ['project'] });
+    expect(linkOf(proj.externalId).state).toBe(LinkState.REMOVED);
+    expect(projectOf(proj.externalId).archivedAt).toBeInstanceOf(Date);
+  });
+
   it('counts a detached task as a reason to keep a project', async () => {
     const proj = project();
     const detached = issue({ projectExternalId: proj.externalId });
