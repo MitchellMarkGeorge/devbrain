@@ -15,6 +15,7 @@ import {
   SyncMode,
   SyncProgress,
   SyncProgressListener,
+  SyncRunOutcome,
   SyncRunResult,
   SyncSkipReason,
   SyncSummary,
@@ -106,9 +107,10 @@ export class SyncEngine {
       this.logRun(done);
       return done;
     };
-    const skip = (skipReason: SyncSkipReason) => finish({ outcome: 'skipped', skipReason });
+    const skip = (skipReason: SyncSkipReason) =>
+      finish({ outcome: SyncRunOutcome.SKIPPED, skipReason });
 
-    if (this.running.has(sourceId)) return skip('already_running');
+    if (this.running.has(sourceId)) return skip(SyncSkipReason.ALREADY_RUNNING);
     this.running.add(sourceId);
     try {
       // 1. nothing runs for a source that is off, or for an integration that is off or rejected
@@ -118,14 +120,16 @@ export class SyncEngine {
       const tasks = this.providers.get(target.provider)?.tasks;
       const schemas = TASK_SOURCE_SCHEMAS[target.provider];
       if (target.sourceType !== SourceType.TASKS || !tasks || !schemas) {
-        return skip('unsupported');
+        return skip(SyncSkipReason.UNSUPPORTED);
       }
 
       // 2. a cursor that does not parse, e.g. written by an older version, starts over
       const stored = schemas.cursor.safeParse(target.cursor);
       const cursor = stored.success ? stored.data : null;
       run.mode =
-        cursor === null || target.initialSyncCompletedAt === null ? 'initial' : 'incremental';
+        cursor === null || target.initialSyncCompletedAt === null
+          ? SyncMode.INITIAL
+          : SyncMode.INCREMENTAL;
 
       try {
         const config = schemas.config.parse(target.config);
@@ -134,10 +138,10 @@ export class SyncEngine {
         return finish(this.recordFailure(sourceId, target, error));
       }
 
-      if (options.signal?.aborted) return finish({ outcome: 'aborted' });
+      if (options.signal?.aborted) return finish({ outcome: SyncRunOutcome.ABORTED });
       // 4. success
       this.integrations.recordSyncOutcome(sourceId, { ok: true, at: this.now() });
-      return finish({ outcome: 'completed' });
+      return finish({ outcome: SyncRunOutcome.COMPLETED });
     } finally {
       this.running.delete(sourceId);
     }
@@ -170,7 +174,7 @@ export class SyncEngine {
       // the page arrived after an abort: discard it, so nothing is written after the abort
       if (signal?.aborted) return;
 
-      const completesInitial = run.mode === 'initial' && page.done;
+      const completesInitial = run.mode === SyncMode.INITIAL && page.done;
       // the writer's own transaction becomes a savepoint inside this one, so the page and its
       // cursor commit together or not at all
       const summary = this.db.transaction(() => {
@@ -195,10 +199,11 @@ export class SyncEngine {
   }
 
   private skipReason(target: SyncTarget): SyncSkipReason | null {
-    if (target.status === IntegrationStatus.NEEDS_REAUTH) return 'needs_reauth';
-    if (target.status === IntegrationStatus.DISABLED) return 'integration_disabled';
-    if (!target.enabled) return 'source_disabled';
-    if (target.retryAt && target.retryAt.getTime() > this.now().getTime()) return 'rate_limited';
+    if (target.status === IntegrationStatus.NEEDS_REAUTH) return SyncSkipReason.NEEDS_REAUTH;
+    if (target.status === IntegrationStatus.DISABLED) return SyncSkipReason.INTEGRATION_DISABLED;
+    if (!target.enabled) return SyncSkipReason.SOURCE_DISABLED;
+    if (target.retryAt && target.retryAt.getTime() > this.now().getTime())
+      return SyncSkipReason.RATE_LIMITED;
     return null;
   }
 
@@ -218,7 +223,7 @@ export class SyncEngine {
         countsAsFailure: false,
         retryAt: error.retryAt,
       });
-      return { outcome: 'rate_limited', error, retryAt: error.retryAt };
+      return { outcome: SyncRunOutcome.RATE_LIMITED, error, retryAt: error.retryAt };
     }
 
     this.integrations.recordSyncOutcome(sourceId, {
@@ -230,7 +235,7 @@ export class SyncEngine {
     if (error instanceof IntegrationAuthError) {
       this.integrations.markNeedsReauth(target.integrationId);
     }
-    return { outcome: 'failed', error };
+    return { outcome: SyncRunOutcome.FAILED, error };
   }
 
   private emitProgress(progress: SyncProgress): void {
@@ -262,7 +267,10 @@ export class SyncEngine {
       ...(result.retryAt ? [`retryAt=${result.retryAt.toISOString()}`] : []),
     ];
     const line = `Sync run ${fields.join(' ')}`;
-    if (result.outcome === 'failed' || result.outcome === 'rate_limited') {
+    if (
+      result.outcome === SyncRunOutcome.FAILED ||
+      result.outcome === SyncRunOutcome.RATE_LIMITED
+    ) {
       this.logger.warn(line);
     } else {
       this.logger.info(line);

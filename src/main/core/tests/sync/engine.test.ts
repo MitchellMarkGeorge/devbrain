@@ -16,7 +16,7 @@ import issueFixture from '../integrations/fixtures/linear/issue.json';
 import { createFakeProvider, FAKE_API_KEY, FakeProvider, fakeRegistry } from './fake-provider';
 import { SyncEngine } from '../../sync/engine';
 import { SyncWriter } from '../../sync/writer';
-import { SyncProgress } from '../../sync/types';
+import { SyncMode, SyncProgress, SyncRunOutcome, SyncSkipReason } from '../../sync/types';
 import { CURSOR_OVERLAP_MS } from '../../sync/constants';
 import { SearchService } from '../../search/service';
 import { CredentialStore } from '../../integrations/credential-store';
@@ -193,8 +193,8 @@ describe('SyncEngine — initial sync', () => {
     const result = await engine.runSource(sourceId);
 
     expect(result).toMatchObject({
-      outcome: 'completed',
-      mode: 'initial',
+      outcome: SyncRunOutcome.COMPLETED,
+      mode: SyncMode.INITIAL,
       pages: 3,
       inserted: 5,
       updated: 0,
@@ -246,7 +246,11 @@ describe('SyncEngine — initial sync', () => {
 
     const result = await engine.runSource(sourceId);
 
-    expect(result).toMatchObject({ outcome: 'completed', mode: 'initial', pages: 2 });
+    expect(result).toMatchObject({
+      outcome: SyncRunOutcome.COMPLETED,
+      mode: SyncMode.INITIAL,
+      pages: 2,
+    });
     expect(sourceRow().cursor).toEqual({
       mode: 'incremental',
       updatedSince: '2026-10-06T08:59:00.000Z',
@@ -265,7 +269,7 @@ describe('SyncEngine — initial sync', () => {
 
     const result = await engine.runSource(sourceId);
 
-    expect(result).toMatchObject({ outcome: 'completed', inserted: 2, skipped: 3 });
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, inserted: 2, skipped: 3 });
     expect(logLines()[0]).toMatch(/skipped=3/);
   });
 
@@ -275,7 +279,7 @@ describe('SyncEngine — initial sync', () => {
 
     const result = await engine.runSource(sourceId);
 
-    expect(result).toMatchObject({ outcome: 'completed', mode: 'initial' });
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, mode: SyncMode.INITIAL });
     expect(provider.tasks.pulls[0].cursor).toBeNull();
     expect(sourceRow().cursor).toMatchObject({ mode: 'incremental' });
     expect(taskTitles()).toEqual(['Fresh']);
@@ -292,14 +296,14 @@ describe('SyncEngine — initial sync', () => {
     expect(progress).toEqual([
       {
         sourceId,
-        phase: 'initial',
+        phase: SyncMode.INITIAL,
         pages: 1,
         summary: { inserted: 2, updated: 0, removed: 0, changed: ['task'] },
         itemsApplied: 2,
       },
       {
         sourceId,
-        phase: 'initial',
+        phase: SyncMode.INITIAL,
         pages: 2,
         summary: { inserted: 1, updated: 0, removed: 0, changed: ['task'] },
         itemsApplied: 3,
@@ -316,7 +320,7 @@ describe('SyncEngine — initial sync', () => {
 
     const result = await engine.runSource(sourceId);
 
-    expect(result).toMatchObject({ outcome: 'completed', pages: 2 });
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, pages: 2 });
     expect(consoleError).toHaveBeenCalled();
   });
 });
@@ -330,7 +334,12 @@ describe('SyncEngine — resume and transactions', () => {
 
     const failed = await engine.runSource(sourceId);
 
-    expect(failed).toMatchObject({ outcome: 'failed', mode: 'initial', pages: 1, inserted: 1 });
+    expect(failed).toMatchObject({
+      outcome: SyncRunOutcome.FAILED,
+      mode: SyncMode.INITIAL,
+      pages: 1,
+      inserted: 1,
+    });
     expect(failed.error).toBeInstanceOf(ProviderUnavailableError);
     expect(taskTitles()).toEqual(['First']);
     expect(sourceRow()).toMatchObject({
@@ -344,7 +353,11 @@ describe('SyncEngine — resume and transactions', () => {
     provider.tasks.script({ tasks: [issue({ title: 'Second' })] });
     const resumed = await engine.runSource(sourceId);
 
-    expect(resumed).toMatchObject({ outcome: 'completed', mode: 'initial', pages: 1 });
+    expect(resumed).toMatchObject({
+      outcome: SyncRunOutcome.COMPLETED,
+      mode: SyncMode.INITIAL,
+      pages: 1,
+    });
     expect(provider.tasks.pulls[2].cursor).toEqual({
       mode: 'initial',
       after: 'page-1',
@@ -370,7 +383,7 @@ describe('SyncEngine — resume and transactions', () => {
 
     // the writer's transaction committed as a savepoint, then the outer one rolled it back
     expect(applied).toHaveReturnedWith(expect.objectContaining({ inserted: 2 }));
-    expect(result).toMatchObject({ outcome: 'failed', pages: 0, inserted: 0 });
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.FAILED, pages: 0, inserted: 0 });
     expect(db.select().from(tasksTable).all()).toEqual([]);
     expect(db.select().from(projectsTable).all()).toEqual([]);
     expect(db.select().from(externalLinks).all()).toEqual([]);
@@ -386,7 +399,7 @@ describe('SyncEngine — resume and transactions', () => {
 
     const result = await engine.runSource(sourceId);
 
-    expect(result).toMatchObject({ outcome: 'failed', pages: 1 });
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.FAILED, pages: 1 });
     expect(taskTitles()).toEqual(['Kept']);
     expect(sourceRow()).toMatchObject({
       cursor: { mode: 'initial', after: 'page-1' },
@@ -412,7 +425,11 @@ describe('SyncEngine — incremental sync', () => {
 
     const result = await engine.runSource(sourceId);
 
-    expect(result).toMatchObject({ outcome: 'completed', mode: 'incremental', pages: 1 });
+    expect(result).toMatchObject({
+      outcome: SyncRunOutcome.COMPLETED,
+      mode: SyncMode.INCREMENTAL,
+      pages: 1,
+    });
     expect(provider.tasks.pulls[1].cursor).toEqual({ mode: 'incremental', updatedSince: since });
     expect(db.select().from(tasksTable).all()).toEqual(tasksBefore);
     expect(db.select().from(externalLinks).all()).toEqual(linksBefore);
@@ -446,8 +463,8 @@ describe('SyncEngine — incremental sync', () => {
     const result = await engine.runSource(sourceId);
 
     expect(result).toMatchObject({
-      outcome: 'completed',
-      mode: 'incremental',
+      outcome: SyncRunOutcome.COMPLETED,
+      mode: SyncMode.INCREMENTAL,
       pages: 2,
       updated: 1,
       removed: 1,
@@ -469,7 +486,7 @@ describe('SyncEngine — failures', () => {
 
     const result = await engine.runSource(sourceId);
 
-    expect(result).toMatchObject({ outcome: 'failed' });
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.FAILED });
     expect(result.error).toBeInstanceOf(IntegrationAuthError);
     expect(integrationStatus()).toBe(IntegrationStatus.NEEDS_REAUTH);
     expect(sourceRow()).toMatchObject({
@@ -485,7 +502,10 @@ describe('SyncEngine — failures', () => {
 
     const next = await engine.runSource(sourceId);
 
-    expect(next).toMatchObject({ outcome: 'skipped', skipReason: 'needs_reauth' });
+    expect(next).toMatchObject({
+      outcome: SyncRunOutcome.SKIPPED,
+      skipReason: SyncSkipReason.NEEDS_REAUTH,
+    });
     expect(provider.tasks.pulls).toHaveLength(1);
   });
 
@@ -508,21 +528,21 @@ describe('SyncEngine — failures', () => {
 
     const limited = await engine.runSource(sourceId);
 
-    expect(limited).toMatchObject({ outcome: 'rate_limited', retryAt });
+    expect(limited).toMatchObject({ outcome: SyncRunOutcome.RATE_LIMITED, retryAt });
     expect(sourceRow()).toMatchObject({ retryAt, consecutiveFailures: 0 });
     expect(sourceRow().lastError).toMatch(/Rate limited/);
     expect(integrationStatus()).toBe(IntegrationStatus.CONNECTED);
 
     clock = new Date(retryAt.getTime() - 1);
     expect(await engine.runSource(sourceId)).toMatchObject({
-      outcome: 'skipped',
-      skipReason: 'rate_limited',
+      outcome: SyncRunOutcome.SKIPPED,
+      skipReason: SyncSkipReason.RATE_LIMITED,
     });
     expect(provider.tasks.pulls).toHaveLength(1);
 
     clock = retryAt;
     provider.tasks.script({ tasks: [issue()] });
-    expect(await engine.runSource(sourceId)).toMatchObject({ outcome: 'completed' });
+    expect(await engine.runSource(sourceId)).toMatchObject({ outcome: SyncRunOutcome.COMPLETED });
     expect(sourceRow()).toMatchObject({ retryAt: null, lastError: null });
   });
 
@@ -543,15 +563,15 @@ describe('SyncEngine — failures', () => {
   it('skips a disabled source and a disabled integration without pulling', async () => {
     await service.setSourceEnabled(sourceId, false);
     expect(await engine.runSource(sourceId)).toMatchObject({
-      outcome: 'skipped',
-      skipReason: 'source_disabled',
+      outcome: SyncRunOutcome.SKIPPED,
+      skipReason: SyncSkipReason.SOURCE_DISABLED,
     });
 
     await service.setSourceEnabled(sourceId, true);
     await service.setEnabled(integrationId, false);
     expect(await engine.runSource(sourceId)).toMatchObject({
-      outcome: 'skipped',
-      skipReason: 'integration_disabled',
+      outcome: SyncRunOutcome.SKIPPED,
+      skipReason: SyncSkipReason.INTEGRATION_DISABLED,
     });
 
     expect(provider.tasks.pulls).toHaveLength(0);
@@ -571,7 +591,7 @@ describe('SyncEngine — abort and concurrency', () => {
 
     const result = await engine.runSource(sourceId, { signal: controller.signal });
 
-    expect(result).toMatchObject({ outcome: 'aborted', pages: 1, inserted: 1 });
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.ABORTED, pages: 1, inserted: 1 });
     expect(provider.tasks.pulls).toHaveLength(2);
     expect(taskTitles()).toEqual(['Committed']);
     expect(sourceRow()).toMatchObject({
@@ -596,7 +616,7 @@ describe('SyncEngine — abort and concurrency', () => {
 
     const result = await engine.runSource(sourceId, { signal: controller.signal });
 
-    expect(result).toMatchObject({ outcome: 'aborted', pages: 0 });
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.ABORTED, pages: 0 });
     expect(provider.tasks.pulls).toHaveLength(0);
   });
 
@@ -608,8 +628,11 @@ describe('SyncEngine — abort and concurrency', () => {
       engine.runSource(sourceId),
     ]);
 
-    expect(first).toMatchObject({ outcome: 'completed' });
-    expect(second).toMatchObject({ outcome: 'skipped', skipReason: 'already_running' });
+    expect(first).toMatchObject({ outcome: SyncRunOutcome.COMPLETED });
+    expect(second).toMatchObject({
+      outcome: SyncRunOutcome.SKIPPED,
+      skipReason: SyncSkipReason.ALREADY_RUNNING,
+    });
     expect(provider.tasks.pulls).toHaveLength(1);
   });
 });

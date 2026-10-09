@@ -18,8 +18,13 @@ export interface SyncSummary {
   changed: SyncEntityType[];
 }
 
+// string values, as they appear in the run's log line
+
 // an initial pass walks everything in scope; an incremental one walks changes since the cursor
-export type SyncMode = 'initial' | 'incremental';
+export enum SyncMode {
+  INITIAL = 'initial',
+  INCREMENTAL = 'incremental',
+}
 
 // sent after each committed page, so the renderer can refetch what changed
 export interface SyncProgress {
@@ -36,17 +41,24 @@ export interface SyncProgress {
 export type SyncProgressListener = (progress: SyncProgress) => void;
 
 // why a run did nothing
-export type SyncSkipReason =
-  | 'source_disabled'
-  | 'integration_disabled'
-  | 'needs_reauth'
+export enum SyncSkipReason {
+  SOURCE_DISABLED = 'source_disabled',
+  INTEGRATION_DISABLED = 'integration_disabled',
+  NEEDS_REAUTH = 'needs_reauth',
   // the provider's retry time from a rate-limited run has not passed
-  | 'rate_limited'
-  | 'already_running'
+  RATE_LIMITED = 'rate_limited',
+  ALREADY_RUNNING = 'already_running',
   // the source's type has no sync yet, or its provider does not serve it
-  | 'unsupported';
+  UNSUPPORTED = 'unsupported',
+}
 
-export type SyncRunOutcome = 'completed' | 'skipped' | 'aborted' | 'rate_limited' | 'failed';
+export enum SyncRunOutcome {
+  COMPLETED = 'completed',
+  SKIPPED = 'skipped',
+  ABORTED = 'aborted',
+  RATE_LIMITED = 'rate_limited',
+  FAILED = 'failed',
+}
 
 // what one runSource call did; also what the run's log line reports
 export interface SyncRunResult {
