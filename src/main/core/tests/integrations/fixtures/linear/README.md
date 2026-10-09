@@ -53,4 +53,5 @@ Field names, enum values and query shapes were checked against the generated sch
 ## Still to confirm on a live account
 
 - The largest `first` Linear accepts (lookups request 100).
+- The project lookup (`projects(filter: { id: { in: [...] } }, includeArchived: true)` selecting `trashed`), added for reconcile. `ProjectFilter.id` and `Project.trashed` are in the `@linear/sdk` 97.1.0 schema types, but what a deleted project returns (absent, or `trashed: true`) has not been seen on a live account.
 - Which extension field identifies an error. Linear's docs show `extensions.code: "RATELIMITED"`; `@linear/sdk` reads `extensions.type` (`"ratelimited"`, `"authentication error"`). The client accepts either. Also whether an unknown key comes back as a 401 or as a 400 with an authentication error.

@@ -2,7 +2,7 @@ import { ExternalLinkId, ExternalSourceId, ProjectId, TaskId } from '@common/ids
 import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
 import { projects } from '@main/db/schema/projects';
 import { tasks } from '@main/db/schema/tasks';
-import { and, eq, inArray, isNotNull, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
+import { and, eq, exists, inArray, isNotNull, isNull, lt, notInArray, or, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 import { RunResult } from 'better-sqlite3';
@@ -408,14 +408,22 @@ class PageWrite {
    * incremental pull, whose update clears settledAt.
    */
   settle(before: Date): void {
-    const completedBefore = this.tx
+    // per link, one seek on the tasks primary key
+    const closedBefore = this.tx
       .select({ id: tasks.id })
       .from(tasks)
-      .where(and(eq(tasks.status, TaskStatus.COMPLETED), lt(tasks.completedAt, before)));
-    const cancelled = this.tx
-      .select({ id: tasks.id })
-      .from(tasks)
-      .where(eq(tasks.status, TaskStatus.CANCELLED));
+      .where(
+        and(
+          eq(tasks.id, externalLinks.taskId),
+          or(
+            and(eq(tasks.status, TaskStatus.COMPLETED), lt(tasks.completedAt, before)),
+            and(
+              eq(tasks.status, TaskStatus.CANCELLED),
+              lt(externalLinks.externalUpdatedAt, before),
+            ),
+          ),
+        ),
+      );
     // links only: the task rows and their updatedAt are not written
     this.tx
       .update(externalLinks)
@@ -425,13 +433,7 @@ class PageWrite {
           eq(externalLinks.sourceId, this.sourceId),
           eq(externalLinks.state, LinkState.SYNCED),
           isNull(externalLinks.settledAt),
-          or(
-            inArray(externalLinks.taskId, completedBefore),
-            and(
-              lt(externalLinks.externalUpdatedAt, before),
-              inArray(externalLinks.taskId, cancelled),
-            ),
-          ),
+          exists(closedBefore),
         ),
       )
       .run();
@@ -471,8 +473,10 @@ class PageWrite {
 
     for (const link of links) {
       const projectId = link.projectId!;
+      // a synced task is never archived; saying so lets idx_tasks_project_id serve this
       const inProjectAndSynced = and(
         eq(tasks.projectId, projectId),
+        isNull(tasks.archivedAt),
         hasLinkInState('task', tasks.id, LinkState.SYNCED),
       );
       const hasSynced = this.tx
