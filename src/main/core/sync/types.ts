@@ -8,13 +8,19 @@ export type TaskPageItems = Pick<TaskPage, 'projects' | 'tasks' | 'removedIds'>;
 // looked up
 export type ReconcileItems = Pick<LookupResult, 'tasks' | 'projects' | 'gone' | 'goneProjects'>;
 
-// what a reconcile pass looks up, from SyncWriter.planReconcile; all external ids
+// What a reconcile pass looks up, from SyncWriter.planReconcile. It compares the provider's
+// snapshot of open items assigned to the user with the source's links. Every entry is an external
+// id (`external_links.externalId`, the provider's own id), not a DevBrain id or a display key.
 export interface ReconcilePlan {
-  // watched links missing from the assignment snapshot
+  // external task ids of watched links (synced, not settled, task still open locally) that are
+  // missing from the snapshot: reassigned, deleted or trashed since the last run, or closed in a
+  // way the incremental pull has not picked up yet
   candidates: string[];
-  // snapshot ids with no synced link
+  // external task ids in the snapshot with no synced link: a removed link (e.g. restored from the
+  // trash) or none yet (e.g. assigned since the last pull). Detached links are left out
   returning: string[];
-  // the source's synced projects
+  // external project ids of every project the source mirrors (link synced), so one deleted in the
+  // provider is noticed; sent only with a lookup the other two lists already need
   projectIds: string[];
 }
 
