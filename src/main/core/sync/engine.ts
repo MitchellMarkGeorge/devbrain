@@ -26,6 +26,7 @@ import {
 export interface SyncLogger {
   info(...params: unknown[]): void;
   warn(...params: unknown[]): void;
+  error(...params: unknown[]): void;
 }
 
 export interface SyncEngineOptions {
@@ -258,7 +259,9 @@ export class SyncEngine {
       try {
         listener(progress);
       } catch (error) {
-        console.error('A sync progress listener threw:', error);
+        // the error class only, like the run's own line: a message could quote item data
+        const name = error instanceof Error ? error.name : typeof error;
+        this.logger.error(`Sync progress listener threw source=${progress.sourceId} error=${name}`);
       }
     }
   }

@@ -53,7 +53,7 @@ let credentials: CredentialStore;
 let writer: SyncWriter;
 let engine: SyncEngine;
 type LogFn = (...params: unknown[]) => void;
-let logger: { info: Mock<LogFn>; warn: Mock<LogFn> };
+let logger: { info: Mock<LogFn>; warn: Mock<LogFn>; error: Mock<LogFn> };
 let clock: Date;
 let changes: IntegrationChange[];
 let progress: SyncProgress[];
@@ -112,7 +112,7 @@ async function setup(registryProvider: Provider, apiKey = FAKE_API_KEY, maxPages
   credentials = new CredentialStore(db, { cipher: new FakeCipher() });
   service = new IntegrationService(db, { credentials, providers: fakeRegistry(registryProvider) });
   writer = new SyncWriter(db, new SearchService(db, workspacePath));
-  logger = { info: vi.fn<LogFn>(), warn: vi.fn<LogFn>() };
+  logger = { info: vi.fn<LogFn>(), warn: vi.fn<LogFn>(), error: vi.fn<LogFn>() };
   clock = NOW;
   engine = new SyncEngine(db, {
     integrations: service,
@@ -314,17 +314,22 @@ describe('SyncEngine — initial sync', () => {
     ]);
   });
 
-  it('keeps running when a progress listener throws', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('keeps running when a progress listener throws, and logs it', async () => {
     engine.onProgress(() => {
-      throw new Error('listener bug');
+      throw new TypeError('listener bug with "Secret title"');
     });
     provider.tasks.script({ tasks: [issue()], done: false }, { tasks: [issue()] });
 
     const result = await engine.runSource(sourceId);
 
     expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, pages: 2 });
-    expect(consoleError).toHaveBeenCalled();
+    // once per page, by error class only
+    expect(logger.error.mock.calls).toEqual([
+      [`Sync progress listener threw source=${sourceId} error=TypeError`],
+      [`Sync progress listener threw source=${sourceId} error=TypeError`],
+    ]);
+    // the other listener still heard about both pages
+    expect(progress).toHaveLength(2);
   });
 });
 
