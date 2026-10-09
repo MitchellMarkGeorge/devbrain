@@ -21,12 +21,18 @@ import { SearchService } from '../../search/service';
 import { CredentialStore } from '../../integrations/credential-store';
 import { IntegrationService } from '../../integrations/service';
 import { DetachService, TaskLinkChange } from '../../integrations/detach';
-import { TaskSource } from '../../integrations/providers/provider';
-import { ExternalTask, LinkState, Provider as ProviderId } from '../../integrations/types';
+import {
+  ExternalProject,
+  ExternalTask,
+  LinkState,
+  Provider as ProviderId,
+} from '../../integrations/types';
 import { TaskService } from '../../tasks/service';
 import { NoteService } from '../../notes/service';
 import { ArchiveService } from '../../archive/service';
 import { TaskPriority, TaskStatus } from '../../tasks/types';
+import { ProjectStatus } from '../../projects/types';
+import { projects as projectsTable } from '@main/db/schema/projects';
 import { DetachError, ExternalReadOnlyError, NotFoundError } from '../../shared/errors';
 
 const CREATED = new Date('2026-01-15T09:00:00Z');
@@ -46,7 +52,6 @@ let archive: ArchiveService;
 let integrationId: IntegrationId;
 let sourceId: ExternalSourceId;
 let changes: TaskLinkChange[];
-let lookups: string[][];
 let itemCount = 0;
 
 function issue(overrides: Partial<ExternalTask> = {}): ExternalTask {
@@ -75,6 +80,25 @@ function issue(overrides: Partial<ExternalTask> = {}): ExternalTask {
   };
 }
 
+function project(overrides: Partial<ExternalProject> = {}): ExternalProject {
+  itemCount += 1;
+  return {
+    externalId: `project-${itemCount}`,
+    url: `https://linear.app/acme/project/project-${itemCount}`,
+    title: `Project ${itemCount}`,
+    description: null,
+    status: ProjectStatus.ACTIVE,
+    statusLabel: 'Started',
+    startDate: null,
+    dueDate: null,
+    color: null,
+    completedAt: null,
+    createdAt: CREATED,
+    updatedAt: V1,
+    ...overrides,
+  };
+}
+
 // a three-level Linear tree: root, child, grandchild
 function tree(): [ExternalTask, ExternalTask, ExternalTask] {
   const root = issue({ title: 'Root' });
@@ -90,18 +114,18 @@ async function sync(...issues: ExternalTask[]) {
 }
 
 // the next lookup answers with these; anything asked for and not listed is gone
-function answerLookup(...found: ExternalTask[]) {
-  // the fake leaves lookup unscripted, so it is replaced through the wider contract type
-  const source: TaskSource = provider.tasks;
-  source.lookup = async (_auth, ids) => {
-    lookups.push(ids);
-    const byId = new Map(found.map((item) => [item.externalId, item]));
-    return {
-      tasks: ids.flatMap((id) => byId.get(id) ?? []),
-      gone: ids.filter((id) => !byId.has(id)),
-      skipped: 0,
-    };
-  };
+function answerLookup(found: ExternalTask[], projects: ExternalProject[] = []) {
+  const byId = new Map(found.map((item) => [item.externalId, item]));
+  provider.tasks.respondToLookup = ({ externalIds }) => ({
+    tasks: externalIds.flatMap((id) => byId.get(id) ?? []),
+    projects,
+    gone: externalIds.filter((id) => !byId.has(id)),
+  });
+}
+
+// the issue ids each lookup asked for
+function lookups(): string[][] {
+  return provider.tasks.lookups.map((lookup) => lookup.externalIds);
 }
 
 function linkOf(externalId: string) {
@@ -146,7 +170,6 @@ beforeEach(async () => {
   sourceId = integration.sources[0].id;
   changes = [];
   detach.onChange((change) => changes.push(change));
-  lookups = [];
 });
 
 afterEach(async () => {
@@ -260,10 +283,10 @@ describe('DetachService — reattach', () => {
     const taskNote = await notes.createNote({ title: 'Task note', linkedTaskId: id });
 
     // Linear has not changed the issue since it was mirrored; the local edits still go
-    answerLookup({ ...item, statusLabel: 'In Review' });
+    answerLookup([{ ...item, statusLabel: 'In Review' }]);
     const reattached = await detach.reattachTask(id);
 
-    expect(lookups).toEqual([[item.externalId]]);
+    expect(lookups()).toEqual([[item.externalId]]);
     expect(reattached).toMatchObject({
       title: 'From Linear',
       priority: TaskPriority.LOW,
@@ -295,7 +318,7 @@ describe('DetachService — reattach', () => {
     await detach.detachTask(id);
     await tasks.updateTask(id, { title: 'Mine' });
 
-    answerLookup();
+    answerLookup([]);
     await expect(detach.reattachTask(id)).rejects.toThrow(/no longer exists/);
 
     expect(stateOf(item)).toBe(LinkState.DETACHED);
@@ -308,7 +331,7 @@ describe('DetachService — reattach', () => {
     await sync(item);
     await detach.detachTask(idOf(item));
 
-    answerLookup({ ...item, assignedToViewer: false });
+    answerLookup([{ ...item, assignedToViewer: false }]);
     await expect(detach.reattachTask(idOf(item))).rejects.toThrow(/no longer assigned/);
 
     expect(stateOf(item)).toBe(LinkState.DETACHED);
@@ -323,10 +346,10 @@ describe('DetachService — reattach', () => {
       await tasks.updateTask(idOf(item), { title: 'Local edit' });
     }
 
-    answerLookup(root, child, grandchild);
+    answerLookup([root, child, grandchild]);
     await detach.reattachTask(idOf(root));
 
-    expect(lookups[0].sort()).toEqual(
+    expect(lookups()[0].sort()).toEqual(
       [root.externalId, child.externalId, grandchild.externalId].sort(),
     );
     expect([root, child, grandchild].map(stateOf)).toEqual([
@@ -343,13 +366,28 @@ describe('DetachService — reattach', () => {
     expect(changes.at(-1)?.taskIds).toHaveLength(3);
   });
 
+  it('mirrors the project the issue moved to while it was detached', async () => {
+    const item = issue();
+    await sync(item);
+    await detach.detachTask(idOf(item));
+
+    const proj = project({ title: 'Launch' });
+    answerLookup([{ ...item, projectExternalId: proj.externalId }], [proj]);
+    await detach.reattachTask(idOf(item));
+
+    const mirrored = db.select().from(projectsTable).all();
+    expect(mirrored.map((row) => row.title)).toEqual(['Launch']);
+    expect(taskOf(item.externalId).projectId).toBe(mirrored[0].id);
+    expect(changes.at(-1)?.changed.sort()).toEqual(['project', 'task']);
+  });
+
   it('leaves a descendant that no longer resolves detached and top-level', async () => {
     const [root, child, grandchild] = tree();
     await sync(root, child, grandchild);
     await detach.detachTask(idOf(root));
 
     // the child was deleted in Linear; the grandchild now hangs off the root there
-    answerLookup(root, { ...grandchild, parentExternalId: root.externalId });
+    answerLookup([root, { ...grandchild, parentExternalId: root.externalId }]);
     await detach.reattachTask(idOf(root));
 
     expect([root, child, grandchild].map(stateOf)).toEqual([
@@ -368,11 +406,11 @@ describe('DetachService — reattach', () => {
     await detach.detachTask(id);
     await tasks.updateTask(id, { title: 'Mine', dueDate: TOMORROW });
     const local = await tasks.createSubtask(id, { title: 'Local subtask' });
-    answerLookup(item);
+    answerLookup([item]);
 
     await expect(detach.reattachTask(id)).rejects.toThrow(/local subtasks/);
 
-    expect(lookups).toEqual([]);
+    expect(lookups()).toEqual([]);
     expect(stateOf(item)).toBe(LinkState.DETACHED);
     expect(taskOf(item.externalId).title).toBe('Mine');
     expect((await tasks.getById(local.id)).parentTaskId).toBe(id);
@@ -390,7 +428,7 @@ describe('DetachService — reattach', () => {
       .set({ parentTaskId: idOf(child) })
       .where(eq(tasksTable.id, idOf(grandchild)))
       .run();
-    answerLookup(root, child, grandchild);
+    answerLookup([root, child, grandchild]);
 
     await expect(detach.reattachTask(idOf(root))).rejects.toThrow(/local subtasks/);
     expect(stateOf(root)).toBe(LinkState.DETACHED);
@@ -409,7 +447,7 @@ describe('DetachService — reattach', () => {
     const item = issue();
     await sync(item);
     await detach.detachTask(idOf(item));
-    answerLookup(item);
+    answerLookup([item]);
 
     await service.setEnabled(integrationId, false);
     await expect(detach.reattachTask(idOf(item))).rejects.toThrow(/integration is disabled/);
@@ -418,7 +456,7 @@ describe('DetachService — reattach', () => {
     await service.setSourceEnabled(sourceId, false);
     await expect(detach.reattachTask(idOf(item))).rejects.toThrow(/source is turned off/);
 
-    expect(lookups).toEqual([]);
+    expect(lookups()).toEqual([]);
     expect(stateOf(item)).toBe(LinkState.DETACHED);
   });
 

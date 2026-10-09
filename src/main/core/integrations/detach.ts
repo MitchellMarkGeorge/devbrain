@@ -229,10 +229,10 @@ export class DetachService {
       }
 
       // the writer's transaction nests as a savepoint, so the state change and the refresh commit
-      // together. A lookup carries no projects: a task whose project is mirrored and synced finds
-      // it, and one whose project is not gets none until sync brings it
+      // together. The lookup's projects come first, so a task that moved to a project not yet
+      // mirrored gets it in the same call
       const summary = this.writer.applyTaskPage(sourceId, {
-        projects: [],
+        projects: result.projects,
         tasks: rejoined.map((row) => row.item),
         removedIds: [],
       });
