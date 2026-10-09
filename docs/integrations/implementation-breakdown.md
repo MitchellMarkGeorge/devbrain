@@ -319,6 +319,8 @@ The only code that writes external rows. It bypasses the service guards on purpo
 - [ ] Add `reattachTask(id)`: require a connected, enabled source; `lookup` the single issue; fail clearly if it no longer resolves; set state `synced`; apply the fresh data through `SyncWriter`.
 - [ ] Reattaching a parent reattaches its detached subtree in the same call.
 - [ ] Confirm that a detached task with nested children does not trip the local depth guards on later edits.
+- [ ] Reject `reattachTask` while the task, or any task in its detached subtree, has local subtasks, with a message to promote or move them first. A synced task never has local children, and `removeTasks` archives only the task itself, so a reattached parent would leave such children live under an archived row.
+- [ ] Archive and restore a detached task's whole subtree. `ArchiveService` covers the task and its direct subtasks only, which is enough for local tasks but not for a detached subtree deeper than one level.
 
 **Tests**
 
@@ -326,6 +328,8 @@ The only code that writes external rows. It bypasses the service guards on purpo
 - [ ] Reattach overwrites the local title with Linear's and keeps the linked note.
 - [ ] Reattach of a deleted issue throws and leaves the task detached.
 - [ ] Detaching a parent detaches all descendants.
+- [ ] Reattach of a task with a local subtask throws and changes nothing.
+- [ ] Archiving a detached three-level subtree archives every level; restoring brings every level back.
 
 **Done when** a task can leave and rejoin sync without losing links.
 
