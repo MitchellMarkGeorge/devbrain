@@ -75,8 +75,9 @@ export class GoogleCalendarClient {
     return this.get(auth, primaryCalendarUrl(), calendarListEntrySchema);
   }
 
-  // every calendar in the account's list, across pages
-  async listCalendars(auth: Auth): Promise<ExternalCalendar[]> {
+  // every calendar in the account's Google calendar list (calendarList), across pages, with Google's
+  // own ids, colours, zones and primary flag
+  async listExternalCalendars(auth: Auth): Promise<ExternalCalendar[]> {
     const calendars: ExternalCalendar[] = [];
     let pageToken: string | null = null;
     do {

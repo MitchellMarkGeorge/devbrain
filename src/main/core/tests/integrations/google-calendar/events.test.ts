@@ -391,7 +391,7 @@ describe('Google Calendar events — expired sync token', () => {
 describe('Google Calendar events — calendars', () => {
   it('lists the calendars the account can read', async () => {
     const { events } = source([CALENDARS]);
-    const calendars = await events.listCalendars(AUTH);
+    const calendars = await events.listExternalCalendars(AUTH);
     expect(calendars.map((calendar) => [calendar.id, calendar.primary])).toEqual([
       [PRIMARY, true],
       [TEAM, false],
@@ -401,7 +401,7 @@ describe('Google Calendar events — calendars', () => {
 
   it('marks the primary calendar, which a new connection selects', async () => {
     const { events } = source([CALENDARS]);
-    const calendars = await events.listCalendars(AUTH);
+    const calendars = await events.listExternalCalendars(AUTH);
     expect(calendars.filter((calendar) => calendar.primary).map((calendar) => calendar.id)).toEqual(
       [PRIMARY],
     );

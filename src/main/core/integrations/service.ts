@@ -377,15 +377,16 @@ export class IntegrationService {
   }
 
   /**
-   * The calendars of an events source, as rows: each with whether it syncs (selected) and whether
-   * it is shown (visible). Asks the provider first, so a calendar shared since appears (not
+   * The calendars of an events source, as rows of DevBrain's calendars table: each with whether it
+   * syncs (selected) and whether it is shown (visible). For the calendar picker. Asks the provider
+   * for its external calendars first and stores them, so a calendar shared since appears (not
    * selected) and names, colours and zones are current; needs a working connection. The first
    * listing of a source selects its primary calendar. A calendar the account no longer lists keeps
    * its row.
    */
   async listCalendars(sourceId: ExternalSourceId): Promise<Calendar[]> {
     const { integrationId, events } = this.eventsSource(sourceId);
-    const listed = await this.withAuth(integrationId, (auth) => events.listCalendars(auth));
+    const listed = await this.withAuth(integrationId, (auth) => events.listExternalCalendars(auth));
     this.storeListedCalendars(sourceId, listed);
     return this.calendarsOf(sourceId);
   }
@@ -395,12 +396,13 @@ export class IntegrationService {
    * the start of every run, with the run's auth; a provider keeps nothing between calls, so this
    * is the run's only listing.
    *
-   * Lists the account's calendars and stores them as listCalendars does: new ones inserted (the
-   * source's first listing selects the primary calendar, later ones start unselected), existing
-   * ones brought up to date, selection and visibility left alone. Returns the selected rows the
-   * account still lists, with their current name, colour and zone, and whether any row was
-   * inserted or changed. A selected calendar it no longer lists keeps its row, but is left out, so
-   * it cannot fail the run.
+   * Asks the provider for the account's external calendars (listExternalCalendars) and stores
+   * them as rows of the calendars table, as listCalendars does: new ones inserted (the source's
+   * first listing selects the primary calendar, later ones start unselected), existing ones
+   * brought up to date, selection and visibility left alone. Returns the selected rows the account
+   * still lists, with their current name, colour and zone, and whether any row was inserted or
+   * changed. A selected calendar it no longer lists keeps its row, but is left out, so it cannot
+   * fail the run.
    *
    * Connecting stores no calendars, so a source whose events are never switched on never asks.
    */
@@ -409,7 +411,7 @@ export class IntegrationService {
     auth: Auth,
   ): Promise<{ calendars: Calendar[]; changed: boolean }> {
     const { events } = this.eventsSource(sourceId);
-    const listed = await events.listCalendars(auth);
+    const listed = await events.listExternalCalendars(auth);
     const changed = this.storeListedCalendars(sourceId, listed);
     const listedIds = new Set(listed.map((calendar) => calendar.id));
     const calendars = this.calendarsOf(sourceId).filter(
@@ -644,9 +646,9 @@ export class IntegrationService {
     return { integrationId: row.integrationId, events };
   }
 
-  // Stores the calendars a provider listed for an events source. The first listing selects the
-  // primary calendar, so a new source syncs it without being asked; a calendar that appears later
-  // starts unselected.
+  // Stores the external calendars a provider listed (listExternalCalendars) as rows of the
+  // calendars table for an events source. The first listing selects the primary calendar, so a
+  // new source syncs it without being asked; a calendar that appears later starts unselected.
   //
   // New ones are inserted; existing ones get their name, colour, zone and primary flag, their
   // selection and visibility left alone. Says whether any row was inserted or changed.

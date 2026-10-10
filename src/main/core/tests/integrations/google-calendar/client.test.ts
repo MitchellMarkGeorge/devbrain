@@ -94,7 +94,7 @@ describe('Google Calendar client — requests', () => {
       { body: { items: [holidays] } },
     ]);
 
-    const calendars = await google.listCalendars(AUTH);
+    const calendars = await google.listExternalCalendars(AUTH);
 
     expect(fetch.requests.map((request) => request.url.searchParams.get('pageToken'))).toEqual([
       null,

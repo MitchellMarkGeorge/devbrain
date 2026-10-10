@@ -170,8 +170,11 @@ export class GoogleEventSource implements EventSource {
     };
   }
 
-  listCalendars(auth: Auth): Promise<ExternalCalendar[]> {
-    return this.client.listCalendars(auth);
+  // The account's calendars as Google lists them (calendarList), not DevBrain's calendars table:
+  // IntegrationService stores them there. A plain pass-through: the client pages through the list
+  // and maps each entry, and nothing is kept here, as this source is stateless.
+  listExternalCalendars(auth: Auth): Promise<ExternalCalendar[]> {
+    return this.client.listExternalCalendars(auth);
   }
 
   // One page of one calendar, from where its state left off. On a 410 the state is dropped and

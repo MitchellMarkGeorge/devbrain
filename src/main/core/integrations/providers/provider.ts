@@ -115,10 +115,12 @@ export interface EventSource {
   // Stateless, like every adapter call: the calendars come in as an argument on every call, never
   // from an earlier one. See the note at the top of this file.
   pull(auth: Auth, cursor: SyncCursor | null, calendars: ExternalCalendar[]): Promise<EventPage>;
-  // the calendars the account can read, with their name, colour and zone. The engine lists them at
-  // the start of every run, and the calendar picker when it opens; a source's first listing selects
-  // the one marked primary.
-  listCalendars(auth: Auth): Promise<ExternalCalendar[]>;
+  // The calendars the account can read, as the provider has them now: asked of the provider on every
+  // call, never read from DevBrain's calendars table. Each carries the provider's id, name, colour,
+  // zone and whether it is the account's primary calendar. IntegrationService stores what this
+  // returns as rows of the calendars table (refreshCalendars at the start of every run,
+  // listCalendars for the calendar picker); a source's first listing selects the primary one.
+  listExternalCalendars(auth: Auth): Promise<ExternalCalendar[]>;
 }
 
 export interface Provider {
