@@ -111,6 +111,8 @@ Only the provider adapters talk to the network, and only `SyncWriter` writes ext
 
 **Provider contract.** Adapters are pure with respect to the database. They return normalised items; the engine decides what to write.
 
+Adapters are also stateless. The registry holds one instance per provider for the whole app, shared by every account connected to it and by runs that may interleave, so a call works only from its arguments and keeps nothing between calls: no cache, no per-run field. Progress that must outlive a call goes in the returned cursor; anything else a run needs, the engine passes in. Google's events source, for example, is handed the run's calendars on every `pull` rather than listing and keeping them itself.
+
 ```ts
 interface Provider {
   id: 'linear' | 'google_calendar';
@@ -161,14 +163,14 @@ Google Calendar connects through OAuth 2.0 authorization code with PKCE over a l
 5. The main process exchanges the code and verifier for tokens, calls `getAccount`, and stores the integration.
 6. The listener times out after 5 minutes if no callback arrives.
 
-|                | Linear                                               | Google Calendar                                                                  |
-| -------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------- |
-| v1 method      | API key; OAuth deferred                              | OAuth                                                                            |
-| Auth header    | `Authorization: <API_KEY>`, no `Bearer`              | `Authorization: Bearer <token>`                                                  |
-| Scopes         | `read` (when OAuth is added), comma-separated        | `calendar.calendarlist.readonly` and `calendar.events.readonly`, space-separated |
-| Redirect port  | Fixed, from a short pre-registered list (to confirm) | Any free port on `127.0.0.1`                                                     |
-| Client secret  | Optional with PKCE                                   | Optional for desktop clients; sent if the console issues one                     |
-| Token lifetime | Access tokens last 24 hours; refresh tokens issued   | Refresh tokens always returned for installed apps                                |
+|                | Linear                                               | Google Calendar                                                                            |
+| -------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| v1 method      | API key; OAuth deferred                              | OAuth                                                                                      |
+| Auth header    | `Authorization: <API_KEY>`, no `Bearer`              | `Authorization: Bearer <token>`                                                            |
+| Scopes         | `read` (when OAuth is added), comma-separated        | `openid`, `calendar.calendarlist.readonly` and `calendar.events.readonly`, space-separated |
+| Redirect port  | Fixed, from a short pre-registered list (to confirm) | Any free port on `127.0.0.1`                                                               |
+| Client secret  | Optional with PKCE                                   | Optional for desktop clients; sent if the console issues one                               |
+| Token lifetime | Access tokens last 24 hours; refresh tokens issued   | Refresh tokens always returned for installed apps                                          |
 
 Endpoints, limits and sources for each row are in the provider reference section. The few details not yet confirmed are listed under open questions.
 
@@ -182,7 +184,7 @@ Endpoints, limits and sources for each row are in the provider reference section
 
 ## Data model changes
 
-Three new tables and two nullability changes. No new columns on `tasks`, `projects` or `events`.
+Three new tables and two nullability changes, plus, from feature 16b, a calendars table and a reworked `events` table (see "Event model" below). No new columns on `tasks` or `projects`.
 
 **New table: `integrations`**
 
@@ -202,18 +204,18 @@ Unique on (`provider`, `accountId`).
 
 **New table: `external_sources`**
 
-| Column                             | Type      | Notes                                                          |
-| ---------------------------------- | --------- | -------------------------------------------------------------- |
-| `id`                               | text PK   | `src_` prefix                                                  |
-| `integrationId`                    | text FK   | Cascade on delete                                              |
-| `sourceType`                       | text      | `tasks`, `events`, `version_control`                           |
-| `enabled`                          | boolean   |                                                                |
-| `config`                           | json text | Linear: none in v1. Google: selected calendar ids              |
-| `cursor`                           | json text | Opaque to the engine. Google keeps one sync token per calendar |
-| `initialSyncCompletedAt`           | timestamp | Null until the first full pass finishes                        |
-| `lastSyncedAt`, `lastReconciledAt` | timestamp |                                                                |
-| `lastError`                        | text      | Null when the last run succeeded                               |
-| `consecutiveFailures`              | integer   | Drives backoff                                                 |
+| Column                             | Type      | Notes                                                             |
+| ---------------------------------- | --------- | ----------------------------------------------------------------- |
+| `id`                               | text PK   | `src_` prefix                                                     |
+| `integrationId`                    | text FK   | Cascade on delete                                                 |
+| `sourceType`                       | text      | `tasks`, `events`, `version_control`                              |
+| `enabled`                          | boolean   |                                                                   |
+| `config`                           | json text | Linear: none in v1. Google: none; the selection is in `calendars` |
+| `cursor`                           | json text | Opaque to the engine. Google keeps one sync token per calendar    |
+| `initialSyncCompletedAt`           | timestamp | Null until the first full pass finishes                           |
+| `lastSyncedAt`, `lastReconciledAt` | timestamp |                                                                   |
+| `lastError`                        | text      | Null when the last run succeeded                                  |
+| `consecutiveFailures`              | integer   | Drives backoff                                                    |
 
 Unique on (`integrationId`, `sourceType`).
 
@@ -263,6 +265,43 @@ interface ExternalRef {
 ```
 
 `TaskFilterOptions` gains `origin?: 'local' | 'external'` so views can filter either way.
+
+**Event model (feature 16b).** The calendar view renders with FullCalendar, so events are stored as FullCalendar's event input needs them, and the adapter between the two stays thin. Migration `0019` makes these changes, moving existing events into a seeded default calendar and giving existing all-day events their dates.
+
+New table `calendars`: one per calendar events belong to.
+
+| Column                   | Type      | Notes                                                                       |
+| ------------------------ | --------- | --------------------------------------------------------------------------- |
+| `id`                     | text PK   | `cal_` prefix. `cal_default` is the local calendar every event starts in    |
+| `sourceId`               | text FK   | Null for a local calendar. Set null on delete                               |
+| `externalId`             | text      | The provider's calendar id                                                  |
+| `name`, `color`          | text      | Kept current by each sync; an event without its own colour is drawn in this |
+| `timeZone`               | text      | IANA zone                                                                   |
+| `isPrimary`              | boolean   | The account's own calendar, selected when the calendars are first listed    |
+| `selected`               | boolean   | Synced at all. Replaces the selected calendar ids in the source's config    |
+| `visible`                | boolean   | Shown in the calendar view; hiding syncs and removes nothing                |
+| `createdAt`, `updatedAt` | timestamp |                                                                             |
+
+Unique on (`sourceId`, `externalId`). Each calendar is one FullCalendar event source with its own colour.
+
+Changes to `events`:
+
+| Column                        | Notes                                                                                                                  |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `calendarId`                  | Required; defaults to `cal_default`                                                                                    |
+| `startDate`, `endDate`        | `YYYY-MM-DD`, end exclusive, set exactly when `allDay` is (a CHECK). What FullCalendar takes for an all-day event      |
+| `startAt`, `endAt`            | Unchanged for timed events. For an all-day event, its dates' local midnights, so the range queries serve both          |
+| `timeZone`                    | IANA zone. A series expands in it: FullCalendar's `rrule` input starts with `DTSTART;TZID=<timeZone>`                  |
+| `recurrenceRule`              | Renamed from `reccurrenceRule`. The source's RFC 5545 lines only; nothing appends to it                                |
+| `seriesId`, `originalStartAt` | A moved or edited occurrence of a series: its series (set null if the series goes) and the start it replaces (a CHECK) |
+| `status`                      | `confirmed` or `tentative`                                                                                             |
+| `response`                    | The calendar's answer to an invitation; drawn dimmed when declined                                                     |
+| `kind`                        | `default`, `focus_time` or `out_of_office`; drawn differently                                                          |
+| `color`                       | Now an override: null means the calendar's colour                                                                      |
+
+New table `event_exceptions` (`seriesId`, `originalStartAt`): the cancelled occurrences of a series. With the original starts of its occurrence rows, they are what the series no longer has, which `EventService` reads as `exdates`; the calendar view writes them as `EXDATE` lines in FullCalendar's `rrule` ([adapter spec](../calendar/fullcalendar-adapter.md)). New table `external_event_exceptions`: cancelled occurrences of a synced series whose master has not arrived yet, moved to `event_exceptions` when it does.
+
+`EventService.listForCalendar(start, end)` returns every event of the visible calendars in a range, unpaginated, with `external` and `exdates`: what the calendar view hands FullCalendar. `CalendarService` lists calendars and shows or hides them.
 
 ## External tasks and projects
 
@@ -368,31 +407,40 @@ Local subtasks inherit links from their parent. External subtasks do not; each c
 
 Google Calendar events are mirrored as `events` rows for the calendars the user selects, from 30 days back with no forward limit.
 
+**Event types.** Only `default`, `focusTime`, `outOfOffice` and `fromGmail` events are mirrored, through the `eventTypes` request filter. `workingLocation` (a daily all-day marker, not an event) and `birthday` (generated from contacts) are left out. The type is kept as `events.kind` so the calendar can show focus time and time off apart from meetings. A sync token belongs to the query it was issued for, so changing the list later means a full resync of every calendar.
+
 **Why events differ from tasks.** Relevance is by time window and calendar, not by assignee. Google also provides a true incremental feed (sync tokens), so no `updatedAt` cursor or reconcile pass is needed.
 
-**Calendar selection.** On connect, DevBrain lists the user's calendars and preselects the primary one. The selection is stored in `external_sources.config`. Adding a calendar triggers an initial sync for that calendar only. Removing one removes its mirrored events.
+**Calendar selection.** Connecting stores no calendars, so a provider or a source that is never switched on makes no calendar request. An events source gets its calendars as rows in `calendars` the first time they are listed, with the primary one selected: on its first sync run (`IntegrationService.refreshCalendars`, called by the engine), or earlier if the calendar picker calls `listCalendars`. Every run starts with that listing: `refreshCalendars` brings the rows up to date (name, colour, zone, primary flag; never the selection) and returns the selected calendars the account still lists, which the engine passes to every `pull` of the run. A selected calendar the account no longer lists keeps its row and is left out of the run. `IntegrationService.listCalendars` refreshes the rows the same way for the picker, and `setCalendars` sets which are selected. Adding a calendar triggers an initial sync for that calendar only. Removing one removes its mirrored events and keeps its row, unselected. An events source stores no config.
 
 **Field mapping**
 
-| Google                                  | DevBrain                     | Notes                                                                       |
-| --------------------------------------- | ---------------------------- | --------------------------------------------------------------------------- |
-| `summary`                               | `title`                      | "(No title)" when empty                                                     |
-| `description`                           | `description`                | Google sends HTML; convert to Markdown on the way in                        |
-| `start`, `end`                          | `startAt`, `endAt`, `allDay` | Date-only values set `allDay`                                               |
-| `location`                              | `location`                   |                                                                             |
-| `recurrence`                            | `reccurrenceRule`            | Lines joined with newlines. Same RFC 5545 format the column already expects |
-| `hangoutLink` or conference entry point | `meetingUrl`                 |                                                                             |
-| Calendar or event colour                | `color`                      |                                                                             |
-| `htmlLink`                              | `external_links.externalUrl` |                                                                             |
-| Own attendee response                   | `metadata.response`          | Declined events are mirrored and shown dimmed                               |
+| Google                                  | DevBrain                                             | Notes                                                                  |
+| --------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------- |
+| `summary`                               | `title`                                              | "(No title)" when empty                                                |
+| `description`                           | `description`                                        | Google sends HTML; convert to Markdown on the way in                   |
+| `start`, `end`                          | `startAt`, `endAt`, `allDay`, `startDate`, `endDate` | Date-only values set `allDay` and the dates                            |
+| `start.timeZone`                        | `timeZone`                                           | Or the calendar's zone                                                 |
+| `location`                              | `location`                                           |                                                                        |
+| `recurrence`                            | `recurrenceRule`                                     | Lines joined with newlines, unchanged                                  |
+| `recurringEventId`, `originalStartTime` | `seriesId`, `originalStartAt`                        | On a moved or edited occurrence                                        |
+| `status`                                | `status`                                             | `cancelled` removes instead                                            |
+| `eventType`                             | `kind`                                               | `focusTime`, `outOfOffice`; the rest `default`                         |
+| `hangoutLink` or conference entry point | `meetingUrl`                                         |                                                                        |
+| `colorId`                               | `color`                                              | The event's own only; without one it is drawn in the calendar's colour |
+| `created`                               | `createdAt`                                          |                                                                        |
+| `htmlLink`                              | `external_links.externalUrl`                         |                                                                        |
+| Own attendee response                   | `response`                                           | Declined events are mirrored and shown dimmed                          |
 
-**Recurring events.** Sync requests series, not expanded instances. One row per series keeps storage small and matches `listEventsInRange`, which already returns recurring rows unexpanded.
+**Recurring events.** Sync requests series, not expanded instances. One row per series keeps storage small and matches `listForCalendar`, which returns recurring rows unexpanded.
 
-- A series master is one row with its rule.
-- A cancelled single occurrence adds an `EXDATE` line to the master's rule.
-- A modified single occurrence becomes its own row, and the master gets an `EXDATE` for the original start. The link's metadata records the master's external id.
+- A series master is one row with its rule, exactly as Google sent it.
+- A cancelled single occurrence is an `event_exceptions` row of the series.
+- A modified single occurrence becomes its own row, with `seriesId` and `originalStartAt`. The link's metadata records the master's external id, so an occurrence that arrives before its master is adopted when the master does.
+- A cancelled occurrence whose master is not mirrored yet is parked in `external_event_exceptions`, and moved to `event_exceptions` when the master arrives.
+- What a series no longer has (its cancelled occurrences and its occurrence rows' original starts) is read back as the series' `exdates`. Nothing edits the rule, so a master rewritten by a later sync keeps its exceptions.
 
-**Time zones.** Timed events are stored as instants, as today. All-day events are stored at local midnight with `allDay = true`. Recurring series also need the event's original time zone for correct expansion across daylight-saving changes; it is kept in link metadata until `events` gets a column for it.
+**Time zones.** Timed events are stored as instants, as today. All-day events are stored as their dates (`startDate`, `endDate`), with `allDay = true` and their instants at local midnight. Recurring series also need the event's original time zone for correct expansion across daylight-saving changes; it is stored in `events.timeZone`.
 
 **Read-only.** `updateEvent` and `deleteEvent` throw `ExternalReadOnlyError` for synced events. Linking a note or tasks to a synced event is allowed, which is the main use: meeting notes.
 
@@ -472,6 +520,8 @@ The trade-off: an issue reassigned to someone else can stay in the list for up t
 1. Per selected calendar, list events from 30 days ago onward, paging to the end. The final page returns a sync token.
 2. Each later run sends only the sync token and receives changed and cancelled events since.
 3. If Google answers 410 (token expired), the calendar's token is cleared and that calendar is fully resynced. Existing rows are matched by external id, so nothing is duplicated and local links survive.
+
+How a run walks the calendars: each `pull` returns one page of one calendar, and the engine commits it with the cursor after it, as for tasks. The cursor keeps, per calendar, its sync token and, while a pass is part-way, its page token and the pass's fixed `timeMin`; at the top, `pending` lists the calendars the run still has to visit. The engine lists the account's calendars at the start of the run and passes the chosen ones to every `pull`, which walks them in turn, each to the end of its pass, and is done after the last. One page per call, rather than a whole calendar, keeps each transaction short on the synchronous main process and lets a run cut short (often the first sync, when the app closes) resume at the page it stopped on. The cost is that an exception of a series can arrive a page before its master, which `external_event_exceptions` covers. The provider's `GoogleEventSource` has the details and a worked example.
 
 **Applying an item (`SyncWriter`)**
 
@@ -607,29 +657,32 @@ interface GoogleEventCursor {
       // keyed by calendarId
       syncToken: string | null; // null until the first full pass ends
       pageToken: string | null; // resume point inside a pass
+      timeMin?: string; // a full pass's lower bound, fixed when it starts and kept while it pages
     }
   >;
+  // the calendars the current run still has to visit, in order; absent between runs, so a run
+  // cut short resumes at the calendar it was on
+  pending?: string[];
 }
 
-interface GoogleEventConfig {
-  calendarIds: string[];
-}
 type LinearTaskConfig = Record<string, never>; // nothing in v1
+// An events source stores no config: what it syncs is the calendars selected in the calendars
+// table, which the engine lists at the start of each run and passes to every EventSource.pull
 ```
 
 **Link metadata.** The JSON in `external_links.metadata`, by entity type.
 
-| Entity  | Keys                                                                                |
-| ------- | ----------------------------------------------------------------------------------- |
-| Task    | `statusLabel`, `priorityLabel`, `parentExternalId`, `parentKey`, `parentTitle`      |
-| Project | `statusLabel`                                                                       |
-| Event   | `calendarId`, `timeZone`, `response`, `recurringEventExternalId`, `originalStartAt` |
+| Entity  | Keys                                                                                          |
+| ------- | --------------------------------------------------------------------------------------------- |
+| Task    | `statusLabel`, `priorityLabel`, `parentExternalId`, `parentKey`, `parentTitle`                |
+| Project | `statusLabel`                                                                                 |
+| Event   | `calendarId` (the provider's), `recurringEventExternalId`; the rest is in columns on `events` |
 
 **Identity rules**
 
 - **Linear account id** is `<organizationId>:<userId>`. An API key or token belongs to one Linear workspace, and the same person can be in several. The label is "name, organisation".
-- **Google account id** is the account's stable subject id; the label is the email.
-- **Date-only values** (a Linear due date, a Google all-day event) are stored as local midnight, so the existing `dueOn` local-day filter matches them.
+- **Google account id** is the account's stable subject id, read from the OpenID Connect userinfo endpoint (which is why `openid` is requested); the label is the email, read as the primary calendar's id.
+- **Date-only values** (a Linear due date, a Google all-day event) are stored as local midnight, so the existing `dueOn` local-day filter matches them. An all-day event also keeps its dates as text, which is what the calendar shows.
 
 **Integration status transitions**
 
@@ -784,22 +837,22 @@ query AssignedIssues($after: String, $since: DateTimeOrDuration) {
 
 ### Google Calendar
 
-| Topic            | Fact                                                                                                                                                 | Source                                                                                       |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| OAuth endpoints  | Authorize `https://accounts.google.com/o/oauth2/v2/auth`; token `https://oauth2.googleapis.com/token`; revoke `https://oauth2.googleapis.com/revoke` | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
-| Redirect         | `http://127.0.0.1:<port>` on any free port; a path is optional                                                                                       | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
-| PKCE             | `code_challenge` with `code_challenge_method=S256`, recommended                                                                                      | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
-| Client secret    | Optional in the token exchange for desktop clients                                                                                                   | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
-| Refresh tokens   | Always returned for installed applications; refresh with `grant_type=refresh_token`                                                                  | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
-| Scopes           | `calendar.calendarlist.readonly` to list calendars and `calendar.events.readonly` to read events. Both are narrower than `calendar.readonly`         | [Calendar API scopes](https://developers.google.com/workspace/calendar/api/auth)             |
-| Initial sync     | A list request may be restricted, for example with `timeMin`. `nextSyncToken` arrives on the last page only                                          | [Synchronize resources](https://developers.google.com/workspace/calendar/api/guides/sync)    |
-| Incremental sync | Send the stored `syncToken`. Keep the other query parameters the same as the initial request                                                         | [Synchronize resources](https://developers.google.com/workspace/calendar/api/guides/sync)    |
-| Deletions        | Incremental responses always include deleted entries                                                                                                 | [Synchronize resources](https://developers.google.com/workspace/calendar/api/guides/sync)    |
-| Expired token    | HTTP 410. Wipe that calendar's stored state and run a full sync                                                                                      | [Synchronize resources](https://developers.google.com/workspace/calendar/api/guides/sync)    |
+| Topic            | Fact                                                                                                                                                                            | Source                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| OAuth endpoints  | Authorize `https://accounts.google.com/o/oauth2/v2/auth`; token `https://oauth2.googleapis.com/token`; revoke `https://oauth2.googleapis.com/revoke`                            | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
+| Redirect         | `http://127.0.0.1:<port>` on any free port; a path is optional                                                                                                                  | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
+| PKCE             | `code_challenge` with `code_challenge_method=S256`, recommended                                                                                                                 | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
+| Client secret    | Optional in the token exchange for desktop clients                                                                                                                              | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
+| Refresh tokens   | Always returned for installed applications; refresh with `grant_type=refresh_token`                                                                                             | [OAuth for desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app) |
+| Scopes           | `calendar.calendarlist.readonly` to list calendars and `calendar.events.readonly` to read events. Both are narrower than `calendar.readonly`. Plus `openid`, for the subject id | [Calendar API scopes](https://developers.google.com/workspace/calendar/api/auth)             |
+| Initial sync     | A list request may be restricted, for example with `timeMin`. `nextSyncToken` arrives on the last page only                                                                     | [Synchronize resources](https://developers.google.com/workspace/calendar/api/guides/sync)    |
+| Incremental sync | Send the stored `syncToken`. Keep the other query parameters the same as the initial request                                                                                    | [Synchronize resources](https://developers.google.com/workspace/calendar/api/guides/sync)    |
+| Deletions        | Incremental responses always include deleted entries                                                                                                                            | [Synchronize resources](https://developers.google.com/workspace/calendar/api/guides/sync)    |
+| Expired token    | HTTP 410. Wipe that calendar's stored state and run a full sync                                                                                                                 | [Synchronize resources](https://developers.google.com/workspace/calendar/api/guides/sync)    |
 
 **What this changes in the design**
 
-- Use the two narrow scopes, not `calendar.readonly`. The authentication table above is superseded on this point.
+- Use the two narrow scopes, not `calendar.readonly`, plus `openid` so the account can be identified by its subject id. The authentication table above is superseded on this point.
 - The 30-day lower bound on the initial events request is supported.
 - `timeMin` is sent only on a full sync, and `syncToken` only on an incremental one. Every other parameter (`singleEvents=false`, `showDeleted`, page size) must be identical on both, so build both requests from one function.
 
@@ -839,7 +892,7 @@ Most work is new code. Changes to existing files are small but touch every entit
 | `core/tasks/types.ts`, `projects/types.ts`, `events/types.ts` | `dueDate: Date \| null`; optional `external: ExternalRef`; `origin` filter                                                                                                                                |
 | `core/tasks/service.ts`                                       | Read-only guards on mutations; depth guards scoped to local tasks; ref lookup for `external`; null due dates sort last; CANCELLED status in filters and sorting; local tasks allowed in mirrored projects |
 | `core/projects/service.ts`                                    | Read-only guards; ref lookup; overdue stats ignore null due dates; cancelled tasks counted separately                                                                                                     |
-| `core/events/service.ts`                                      | Read-only guards; ref lookup; `listEventsInRange` hides `removed`                                                                                                                                         |
+| `core/events/service.ts`                                      | Read-only guards; ref lookup; `listForCalendar` hides `removed`                                                                                                                                           |
 | `core/archive/service.ts`                                     | Reject archiving synced items; `listArchived` labels removed external items                                                                                                                               |
 | `core/search/service.ts`                                      | Add removal from the index by entity id, if not already present                                                                                                                                           |
 | `core/workspace/workspace.ts`                                 | Construct `IntegrationService` and `SyncScheduler`; enable WAL; stop the scheduler in `close()`                                                                                                           |
@@ -863,11 +916,11 @@ interface IntegrationChannels {
   'integrations:disconnect': (input: { id: IntegrationId; keepLocalCopies: boolean }) => void;
 
   'sources:setEnabled': (input: { id: ExternalSourceId; enabled: boolean }) => ExternalSource;
-  'sources:listCalendars': (input: { id: ExternalSourceId }) => ExternalCalendar[];
+  'sources:listCalendars': (input: { id: ExternalSourceId }) => Calendar[];
   'sources:setCalendars': (input: {
     id: ExternalSourceId;
-    calendarIds: string[];
-  }) => ExternalSource;
+    calendarIds: CalendarId[]; // DevBrain calendar ids, as listCalendars returns them
+  }) => Calendar[];
 
   'sync:now': (input: { sourceId?: ExternalSourceId }) => void;
   'tasks:detach': (input: { id: TaskId }) => Task;

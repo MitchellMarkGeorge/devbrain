@@ -212,7 +212,8 @@ describe('migration 0017 — integration tables', () => {
     const indexesBefore = schemaObjects(sqlite, 'index');
     for (const table of INTEGRATION_TABLES) expect(tableNames(sqlite)).not.toContain(table);
 
-    runMigrations(sqlite, db, MIGRATIONS_PATH);
+    // up to 0017 only: later migrations change existing rows on purpose (0019 rebuilds events)
+    runMigrations(sqlite, db, migrationsUpTo(17));
 
     expect(snapshot(sqlite)).toEqual(before);
     // only the new tables' indexes were added
@@ -263,6 +264,136 @@ describe('migration 0018 — source retryAt', () => {
       },
     ]);
     expect(sqlite.prepare('PRAGMA integrity_check').pluck().get()).toBe('ok');
+    sqlite.close();
+  });
+});
+
+describe('migration 0019 — event exceptions', () => {
+  it('adds the table, keyed by source, master and original start, going with its source', () => {
+    const { sqlite, db } = openDb();
+    migrate(db, { migrationsFolder: migrationsUpTo(18) });
+    sqlite.exec(`
+      INSERT INTO integrations (id, provider, auth_type, account_id, account_label, credentials)
+        VALUES ('int_a', 'google_calendar', 'oauth', 'ada@example.com', 'ada@example.com', x'00');
+      INSERT INTO external_sources (id, integration_id, source_type) VALUES ('src_a', 'int_a', 'events');
+    `);
+
+    runMigrations(sqlite, db, MIGRATIONS_PATH);
+
+    const insert = sqlite.prepare(
+      `INSERT INTO external_event_exceptions (source_id, calendar_id, master_external_id, original_start_at)
+        VALUES ('src_a', 'cal', 'cal:series', ?)`,
+    );
+    insert.run(1000);
+    insert.run(2000);
+    expect(() => insert.run(1000)).toThrow(/UNIQUE/);
+    sqlite.exec(`DELETE FROM external_sources WHERE id = 'src_a'`);
+    expect(sqlite.prepare(`SELECT count(*) FROM external_event_exceptions`).pluck().get()).toBe(0);
+    expect(sqlite.prepare('PRAGMA integrity_check').pluck().get()).toBe('ok');
+    sqlite.close();
+  });
+});
+
+describe('migration 0019 — calendars and the event model', () => {
+  function migrated(seedEvents: string) {
+    const { sqlite, db } = openDb();
+    migrate(db, { migrationsFolder: migrationsUpTo(18) });
+    sqlite.exec(seedEvents);
+    runMigrations(sqlite, db, MIGRATIONS_PATH);
+    return sqlite;
+  }
+
+  it('seeds the default calendar and moves every event into it, keeping each row', () => {
+    const sqlite = migrated(`
+      INSERT INTO events (id, title, start_at, end_at, reccurrence_rule, color, created_at)
+        VALUES ('evt_a', 'Standup', 1000, 2000, 'RRULE:FREQ=DAILY', '#fff', 5000);
+    `);
+
+    expect(
+      sqlite.prepare(`SELECT id, name, source_id, selected, visible FROM calendars`).all(),
+    ).toEqual([{ id: 'cal_default', name: 'DevBrain', source_id: null, selected: 1, visible: 1 }]);
+    expect(
+      sqlite
+        .prepare(
+          `SELECT id, calendar_id, title, start_at, end_at, all_day, start_date, end_date,
+             recurrence_rule, status, kind, color, created_at FROM events`,
+        )
+        .all(),
+    ).toEqual([
+      {
+        id: 'evt_a',
+        calendar_id: 'cal_default',
+        title: 'Standup',
+        start_at: 1000,
+        end_at: 2000,
+        all_day: 0,
+        start_date: null,
+        end_date: null,
+        recurrence_rule: 'RRULE:FREQ=DAILY',
+        status: 'confirmed',
+        kind: 'default',
+        color: '#fff',
+        created_at: 5000,
+      },
+    ]);
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
+    expect(sqlite.prepare('PRAGMA integrity_check').pluck().get()).toBe('ok');
+    sqlite.close();
+  });
+
+  it('gives an all-day event its dates and moves its instants to their local midnights', () => {
+    // as the seed script stores them: local midnight to 23:59 the same day, and a two-day event
+    // ending exactly at midnight
+    const day = new Date(2026, 9, 14).getTime();
+    const sqlite = migrated(`
+      INSERT INTO events (id, title, start_at, end_at, all_day) VALUES
+        ('evt_one', 'Offsite', ${day}, ${day + 24 * 3600 * 1000 - 60 * 1000}, 1),
+        ('evt_two', 'Conference', ${day}, ${new Date(2026, 9, 16).getTime()}, 1);
+    `);
+
+    expect(
+      sqlite
+        .prepare(`SELECT id, start_date, end_date, start_at, end_at FROM events ORDER BY id`)
+        .all(),
+    ).toEqual([
+      {
+        id: 'evt_one',
+        start_date: '2026-10-14',
+        end_date: '2026-10-15',
+        start_at: day,
+        end_at: new Date(2026, 9, 15).getTime(),
+      },
+      {
+        id: 'evt_two',
+        start_date: '2026-10-14',
+        end_date: '2026-10-16',
+        start_at: day,
+        end_at: new Date(2026, 9, 16).getTime(),
+      },
+    ]);
+    sqlite.close();
+  });
+
+  it("enforces the all-day dates and an occurrence's original start", () => {
+    const sqlite = migrated('');
+    expect(() =>
+      sqlite.exec(
+        `INSERT INTO events (id, title, start_at, end_at, all_day) VALUES ('evt_x', 'x', 0, 1, 1)`,
+      ),
+    ).toThrow(/all_day_dates/);
+    expect(() =>
+      sqlite.exec(
+        `INSERT INTO events (id, title, start_at, end_at, start_date, end_date) VALUES ('evt_x', 'x', 0, 1, '2026-10-14', '2026-10-15')`,
+      ),
+    ).toThrow(/all_day_dates/);
+    sqlite.exec(
+      `INSERT INTO events (id, title, start_at, end_at) VALUES ('evt_series', 's', 0, 1)`,
+    );
+    expect(() =>
+      sqlite.exec(
+        `INSERT INTO events (id, title, start_at, end_at, series_id) VALUES ('evt_x', 'x', 0, 1, 'evt_series')`,
+      ),
+    ).toThrow(/series_original_start/);
     sqlite.close();
   });
 });

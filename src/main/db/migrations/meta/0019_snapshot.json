@@ -1,0 +1,1414 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "95c336d3-63d9-4fa3-a816-853a2c95121a",
+  "prevId": "8a2e8eb4-a950-4f89-99a7-0c0762b34bc5",
+  "tables": {
+    "calendars": {
+      "name": "calendars",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "time_zone": {
+          "name": "time_zone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "is_primary": {
+          "name": "is_primary",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "selected": {
+          "name": "selected",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "visible": {
+          "name": "visible",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {
+        "uq_calendars_source_external_id": {
+          "name": "uq_calendars_source_external_id",
+          "columns": ["source_id", "external_id"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "calendars_source_id_external_sources_id_fk": {
+          "name": "calendars_source_id_external_sources_id_fk",
+          "tableFrom": "calendars",
+          "tableTo": "external_sources",
+          "columnsFrom": ["source_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "event_exceptions": {
+      "name": "event_exceptions",
+      "columns": {
+        "series_id": {
+          "name": "series_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "original_start_at": {
+          "name": "original_start_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "event_exceptions_series_id_events_id_fk": {
+          "name": "event_exceptions_series_id_events_id_fk",
+          "tableFrom": "event_exceptions",
+          "tableTo": "events",
+          "columnsFrom": ["series_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "event_exceptions_series_id_original_start_at_pk": {
+          "columns": ["series_id", "original_start_at"],
+          "name": "event_exceptions_series_id_original_start_at_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "events": {
+      "name": "events",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "calendar_id": {
+          "name": "calendar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'cal_default'"
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "start_at": {
+          "name": "start_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "end_at": {
+          "name": "end_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "all_day": {
+          "name": "all_day",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "end_date": {
+          "name": "end_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "time_zone": {
+          "name": "time_zone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "location": {
+          "name": "location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "recurrence_rule": {
+          "name": "recurrence_rule",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "series_id": {
+          "name": "series_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "original_start_at": {
+          "name": "original_start_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'confirmed'"
+        },
+        "response": {
+          "name": "response",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'default'"
+        },
+        "meeting_url": {
+          "name": "meeting_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "favorited_at": {
+          "name": "favorited_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_events_start_at_id": {
+          "name": "idx_events_start_at_id",
+          "columns": ["start_at", "id"],
+          "isUnique": false
+        },
+        "idx_events_calendar_id": {
+          "name": "idx_events_calendar_id",
+          "columns": ["calendar_id"],
+          "isUnique": false
+        },
+        "idx_events_series_id": {
+          "name": "idx_events_series_id",
+          "columns": ["series_id"],
+          "isUnique": false,
+          "where": "\"events\".\"series_id\" is not null"
+        }
+      },
+      "foreignKeys": {
+        "events_calendar_id_calendars_id_fk": {
+          "name": "events_calendar_id_calendars_id_fk",
+          "tableFrom": "events",
+          "tableTo": "calendars",
+          "columnsFrom": ["calendar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "events_series_id_events_id_fk": {
+          "name": "events_series_id_events_id_fk",
+          "tableFrom": "events",
+          "tableTo": "events",
+          "columnsFrom": ["series_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "all_day_dates": {
+          "name": "all_day_dates",
+          "value": "(\"events\".\"all_day\" = 1 AND \"events\".\"start_date\" IS NOT NULL AND \"events\".\"end_date\" IS NOT NULL) OR (\"events\".\"all_day\" = 0 AND \"events\".\"start_date\" IS NULL AND \"events\".\"end_date\" IS NULL)"
+        },
+        "series_original_start": {
+          "name": "series_original_start",
+          "value": "\"events\".\"series_id\" IS NULL OR \"events\".\"original_start_at\" IS NOT NULL"
+        }
+      }
+    },
+    "external_event_exceptions": {
+      "name": "external_event_exceptions",
+      "columns": {
+        "source_id": {
+          "name": "source_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "calendar_id": {
+          "name": "calendar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "master_external_id": {
+          "name": "master_external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "original_start_at": {
+          "name": "original_start_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "external_event_exceptions_source_id_external_sources_id_fk": {
+          "name": "external_event_exceptions_source_id_external_sources_id_fk",
+          "tableFrom": "external_event_exceptions",
+          "tableTo": "external_sources",
+          "columnsFrom": ["source_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "external_event_exceptions_source_id_master_external_id_original_start_at_pk": {
+          "columns": ["source_id", "master_external_id", "original_start_at"],
+          "name": "external_event_exceptions_source_id_master_external_id_original_start_at_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "external_links": {
+      "name": "external_links",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "task_id": {
+          "name": "task_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "external_key": {
+          "name": "external_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "external_url": {
+          "name": "external_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "external_updated_at": {
+          "name": "external_updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'synced'"
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'{}'"
+        },
+        "last_synced_at": {
+          "name": "last_synced_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "removed_at": {
+          "name": "removed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "settled_at": {
+          "name": "settled_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "external_links_taskId_unique": {
+          "name": "external_links_taskId_unique",
+          "columns": ["task_id"],
+          "isUnique": true
+        },
+        "external_links_projectId_unique": {
+          "name": "external_links_projectId_unique",
+          "columns": ["project_id"],
+          "isUnique": true
+        },
+        "external_links_eventId_unique": {
+          "name": "external_links_eventId_unique",
+          "columns": ["event_id"],
+          "isUnique": true
+        },
+        "idx_external_links_source_id_state": {
+          "name": "idx_external_links_source_id_state",
+          "columns": ["source_id", "state"],
+          "isUnique": false
+        },
+        "uq_external_links_source_external_id": {
+          "name": "uq_external_links_source_external_id",
+          "columns": ["source_id", "external_id"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "external_links_source_id_external_sources_id_fk": {
+          "name": "external_links_source_id_external_sources_id_fk",
+          "tableFrom": "external_links",
+          "tableTo": "external_sources",
+          "columnsFrom": ["source_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "external_links_task_id_tasks_id_fk": {
+          "name": "external_links_task_id_tasks_id_fk",
+          "tableFrom": "external_links",
+          "tableTo": "tasks",
+          "columnsFrom": ["task_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "external_links_project_id_projects_id_fk": {
+          "name": "external_links_project_id_projects_id_fk",
+          "tableFrom": "external_links",
+          "tableTo": "projects",
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "external_links_event_id_events_id_fk": {
+          "name": "external_links_event_id_events_id_fk",
+          "tableFrom": "external_links",
+          "tableTo": "events",
+          "columnsFrom": ["event_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "one_entity": {
+          "name": "one_entity",
+          "value": "(\"external_links\".\"task_id\" IS NOT NULL) + (\"external_links\".\"project_id\" IS NOT NULL) + (\"external_links\".\"event_id\" IS NOT NULL) = 1"
+        }
+      }
+    },
+    "external_sources": {
+      "name": "external_sources",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "integration_id": {
+          "name": "integration_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source_type": {
+          "name": "source_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "config": {
+          "name": "config",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'{}'"
+        },
+        "cursor": {
+          "name": "cursor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "initial_sync_completed_at": {
+          "name": "initial_sync_completed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_synced_at": {
+          "name": "last_synced_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_reconciled_at": {
+          "name": "last_reconciled_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "consecutive_failures": {
+          "name": "consecutive_failures",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "retry_at": {
+          "name": "retry_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "uq_external_sources_integration_type": {
+          "name": "uq_external_sources_integration_type",
+          "columns": ["integration_id", "source_type"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "external_sources_integration_id_integrations_id_fk": {
+          "name": "external_sources_integration_id_integrations_id_fk",
+          "tableFrom": "external_sources",
+          "tableTo": "integrations",
+          "columnsFrom": ["integration_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "integrations": {
+      "name": "integrations",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "auth_type": {
+          "name": "auth_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "account_id": {
+          "name": "account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "account_label": {
+          "name": "account_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'connected'"
+        },
+        "credentials": {
+          "name": "credentials",
+          "type": "blob",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scopes": {
+          "name": "scopes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {
+        "uq_integrations_provider_account": {
+          "name": "uq_integrations_provider_account",
+          "columns": ["provider", "account_id"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "notes": {
+      "name": "notes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "file_path": {
+          "name": "file_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "preview": {
+          "name": "preview",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "linked_event_id": {
+          "name": "linked_event_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "linked_task_id": {
+          "name": "linked_task_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "favorited_at": {
+          "name": "favorited_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "notes_linkedEventId_unique": {
+          "name": "notes_linkedEventId_unique",
+          "columns": ["linked_event_id"],
+          "isUnique": true
+        },
+        "notes_linkedTaskId_unique": {
+          "name": "notes_linkedTaskId_unique",
+          "columns": ["linked_task_id"],
+          "isUnique": true
+        },
+        "idx_notes_project_id": {
+          "name": "idx_notes_project_id",
+          "columns": ["project_id"],
+          "isUnique": false,
+          "where": "\"notes\".\"archived_at\" is null"
+        },
+        "idx_notes_linked_event_id": {
+          "name": "idx_notes_linked_event_id",
+          "columns": ["linked_event_id"],
+          "isUnique": false,
+          "where": "\"notes\".\"archived_at\" is null"
+        },
+        "idx_notes_linked_task_id": {
+          "name": "idx_notes_linked_task_id",
+          "columns": ["linked_task_id"],
+          "isUnique": false,
+          "where": "\"notes\".\"archived_at\" is null"
+        },
+        "idx_notes_updated_at_id": {
+          "name": "idx_notes_updated_at_id",
+          "columns": ["updated_at", "id"],
+          "isUnique": false,
+          "where": "\"notes\".\"archived_at\" is null"
+        },
+        "idx_notes_created_at_id": {
+          "name": "idx_notes_created_at_id",
+          "columns": ["created_at", "id"],
+          "isUnique": false,
+          "where": "\"notes\".\"archived_at\" is null"
+        },
+        "idx_notes_title_id": {
+          "name": "idx_notes_title_id",
+          "columns": ["title", "id"],
+          "isUnique": false,
+          "where": "\"notes\".\"archived_at\" is null"
+        },
+        "idx_notes_archived_at_id": {
+          "name": "idx_notes_archived_at_id",
+          "columns": ["archived_at", "id"],
+          "isUnique": false,
+          "where": "\"notes\".\"archived_at\" is not null"
+        }
+      },
+      "foreignKeys": {
+        "notes_project_id_projects_id_fk": {
+          "name": "notes_project_id_projects_id_fk",
+          "tableFrom": "notes",
+          "tableTo": "projects",
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "notes_linked_event_id_events_id_fk": {
+          "name": "notes_linked_event_id_events_id_fk",
+          "tableFrom": "notes",
+          "tableTo": "events",
+          "columnsFrom": ["linked_event_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "notes_linked_task_id_tasks_id_fk": {
+          "name": "notes_linked_task_id_tasks_id_fk",
+          "tableFrom": "notes",
+          "tableTo": "tasks",
+          "columnsFrom": ["linked_task_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "one_link": {
+          "name": "one_link",
+          "value": "(\"notes\".\"linked_event_id\" IS NOT NULL) + (\"notes\".\"linked_task_id\" IS NOT NULL) <= 1"
+        }
+      }
+    },
+    "projects": {
+      "name": "projects",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "due_date": {
+          "name": "due_date",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "favorited_at": {
+          "name": "favorited_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_projects_status_due_date": {
+          "name": "idx_projects_status_due_date",
+          "columns": ["status", "due_date"],
+          "isUnique": false,
+          "where": "\"projects\".\"archived_at\" is null"
+        },
+        "idx_projects_due_date_id": {
+          "name": "idx_projects_due_date_id",
+          "columns": ["due_date", "id"],
+          "isUnique": false,
+          "where": "\"projects\".\"archived_at\" is null"
+        },
+        "idx_projects_due_date_nulls_last_id": {
+          "name": "idx_projects_due_date_nulls_last_id",
+          "columns": ["(\"due_date\" IS NULL)", "due_date", "id"],
+          "isUnique": false,
+          "where": "\"projects\".\"archived_at\" is null"
+        },
+        "idx_projects_status_id": {
+          "name": "idx_projects_status_id",
+          "columns": ["status", "id"],
+          "isUnique": false,
+          "where": "\"projects\".\"archived_at\" is null"
+        },
+        "idx_projects_created_at_id": {
+          "name": "idx_projects_created_at_id",
+          "columns": ["created_at", "id"],
+          "isUnique": false,
+          "where": "\"projects\".\"archived_at\" is null"
+        },
+        "idx_projects_updated_at_id": {
+          "name": "idx_projects_updated_at_id",
+          "columns": ["updated_at", "id"],
+          "isUnique": false,
+          "where": "\"projects\".\"archived_at\" is null"
+        },
+        "idx_projects_archived_at_id": {
+          "name": "idx_projects_archived_at_id",
+          "columns": ["archived_at", "id"],
+          "isUnique": false,
+          "where": "\"projects\".\"archived_at\" is not null"
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "completed_at_consistency": {
+          "name": "completed_at_consistency",
+          "value": "(\"projects\".\"status\" = 4) = (\"projects\".\"completed_at\" IS NOT NULL)"
+        }
+      }
+    },
+    "tasks": {
+      "name": "tasks",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "priority": {
+          "name": "priority",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "status": {
+          "name": "status",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "due_date": {
+          "name": "due_date",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "parent_task_id": {
+          "name": "parent_task_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "linked_event_id": {
+          "name": "linked_event_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "linked_note_id": {
+          "name": "linked_note_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pull_request_url": {
+          "name": "pull_request_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "favorited_at": {
+          "name": "favorited_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_tasks_project_id": {
+          "name": "idx_tasks_project_id",
+          "columns": ["project_id"],
+          "isUnique": false,
+          "where": "\"tasks\".\"archived_at\" is null"
+        },
+        "idx_tasks_linked_note_id": {
+          "name": "idx_tasks_linked_note_id",
+          "columns": ["linked_note_id"],
+          "isUnique": false,
+          "where": "\"tasks\".\"archived_at\" is null"
+        },
+        "idx_tasks_linked_event_id": {
+          "name": "idx_tasks_linked_event_id",
+          "columns": ["linked_event_id"],
+          "isUnique": false,
+          "where": "\"tasks\".\"archived_at\" is null"
+        },
+        "idx_tasks_status_due_date": {
+          "name": "idx_tasks_status_due_date",
+          "columns": ["status", "due_date"],
+          "isUnique": false,
+          "where": "\"tasks\".\"archived_at\" is null"
+        },
+        "idx_tasks_due_date_id": {
+          "name": "idx_tasks_due_date_id",
+          "columns": ["due_date", "id"],
+          "isUnique": false,
+          "where": "\"tasks\".\"archived_at\" is null"
+        },
+        "idx_tasks_due_date_nulls_last_id": {
+          "name": "idx_tasks_due_date_nulls_last_id",
+          "columns": ["(\"due_date\" IS NULL)", "due_date", "id"],
+          "isUnique": false,
+          "where": "\"tasks\".\"archived_at\" is null"
+        },
+        "idx_tasks_priority_id": {
+          "name": "idx_tasks_priority_id",
+          "columns": ["priority", "id"],
+          "isUnique": false,
+          "where": "\"tasks\".\"archived_at\" is null"
+        },
+        "idx_tasks_status_id": {
+          "name": "idx_tasks_status_id",
+          "columns": ["status", "id"],
+          "isUnique": false,
+          "where": "\"tasks\".\"archived_at\" is null"
+        },
+        "idx_tasks_created_at_id": {
+          "name": "idx_tasks_created_at_id",
+          "columns": ["created_at", "id"],
+          "isUnique": false,
+          "where": "\"tasks\".\"archived_at\" is null"
+        },
+        "idx_tasks_updated_at_id": {
+          "name": "idx_tasks_updated_at_id",
+          "columns": ["updated_at", "id"],
+          "isUnique": false,
+          "where": "\"tasks\".\"archived_at\" is null"
+        },
+        "idx_tasks_parent_created_at_id": {
+          "name": "idx_tasks_parent_created_at_id",
+          "columns": ["parent_task_id", "created_at", "id"],
+          "isUnique": false,
+          "where": "\"tasks\".\"archived_at\" is null"
+        },
+        "idx_tasks_archived_at_id": {
+          "name": "idx_tasks_archived_at_id",
+          "columns": ["archived_at", "id"],
+          "isUnique": false,
+          "where": "\"tasks\".\"archived_at\" is not null"
+        }
+      },
+      "foreignKeys": {
+        "tasks_parent_task_id_tasks_id_fk": {
+          "name": "tasks_parent_task_id_tasks_id_fk",
+          "tableFrom": "tasks",
+          "tableTo": "tasks",
+          "columnsFrom": ["parent_task_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "tasks_project_id_projects_id_fk": {
+          "name": "tasks_project_id_projects_id_fk",
+          "tableFrom": "tasks",
+          "tableTo": "projects",
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "tasks_linked_event_id_events_id_fk": {
+          "name": "tasks_linked_event_id_events_id_fk",
+          "tableFrom": "tasks",
+          "tableTo": "events",
+          "columnsFrom": ["linked_event_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "tasks_linked_note_id_notes_id_fk": {
+          "name": "tasks_linked_note_id_notes_id_fk",
+          "tableFrom": "tasks",
+          "tableTo": "notes",
+          "columnsFrom": ["linked_note_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "one_link": {
+          "name": "one_link",
+          "value": "(\"tasks\".\"linked_event_id\" IS NOT NULL) + (\"tasks\".\"linked_note_id\" IS NOT NULL) <= 1"
+        },
+        "completed_at_consistency": {
+          "name": "completed_at_consistency",
+          "value": "(\"tasks\".\"status\" = 3) = (\"tasks\".\"completed_at\" IS NOT NULL)"
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {
+      "idx_projects_due_date_nulls_last_id": {
+        "columns": {
+          "(\"due_date\" IS NULL)": {
+            "isExpression": true
+          }
+        }
+      },
+      "idx_tasks_due_date_nulls_last_id": {
+        "columns": {
+          "(\"due_date\" IS NULL)": {
+            "isExpression": true
+          }
+        }
+      }
+    }
+  }
+}

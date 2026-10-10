@@ -2,10 +2,9 @@ import { ExternalSourceId, IntegrationId } from '@common/ids';
 import { z } from 'zod';
 import { TaskPriority, TaskStatus } from '../tasks/types';
 import { ProjectStatus } from '../projects/types';
+import { EventKind, EventResponse, EventStatus } from '../events/types';
 import {
   eventLinkMetadataSchema,
-  eventResponseSchema,
-  googleEventConfigSchema,
   googleEventCursorSchema,
   linearTaskConfigSchema,
   linearTaskCursorSchema,
@@ -121,34 +120,48 @@ export interface ExternalProject {
   updatedAt: Date;
 }
 
-export type EventResponse = z.infer<typeof eventResponseSchema>;
-
 export interface ExternalEvent {
   externalId: string; // "<calendarId>:<eventId>"; Google event ids are unique per calendar only
-  calendarId: string;
+  calendarId: string; // the provider's calendar id
   url: string;
   title: string;
   description: string | null; // Markdown, converted from HTML
+  // instants; for an all-day event, its dates' local midnights
   startAt: Date;
   endAt: Date;
   allDay: boolean;
-  timeZone: string | null; // IANA zone of the series
+  // set exactly when allDay is: YYYY-MM-DD, end exclusive
+  startDate: string | null;
+  endDate: string | null;
+  timeZone: string | null; // IANA zone the event, or its series, is in
   location: string | null;
-  recurrenceRule: string | null; // RFC 5545 lines joined with \n
-  recurringEventExternalId: string | null; // set on a modified instance
-  originalStartAt: Date | null; // the occurrence this instance replaces
+  recurrenceRule: string | null; // RFC 5545 lines joined with \n, as the provider sent them
+  recurringEventExternalId: string | null; // set on an occurrence of a series
+  originalStartAt: Date | null; // the occurrence this one replaces
   meetingUrl: string | null;
-  color: string | null;
+  color: string | null; // the event's own colour; null means its calendar's
+  status: EventStatus;
   response: EventResponse | null;
+  kind: EventKind;
   cancelled: boolean;
+  createdAt: Date;
   updatedAt: Date;
+}
+
+// a calendar the account can read, as the provider lists it
+export interface ExternalCalendar {
+  id: string;
+  name: string;
+  // the account's own calendar, selected when the source's calendars are first listed
+  primary: boolean;
+  color: string | null;
+  timeZone: string | null;
 }
 
 // JSON stored in external_sources.cursor and .config, validated with ./schema on read
 export type LinearTaskCursor = z.infer<typeof linearTaskCursorSchema>;
 export type GoogleEventCursor = z.infer<typeof googleEventCursorSchema>;
 export type LinearTaskConfig = z.infer<typeof linearTaskConfigSchema>;
-export type GoogleEventConfig = z.infer<typeof googleEventConfigSchema>;
 
 // JSON stored in external_links.metadata, by entity type
 export type TaskLinkMetadata = z.infer<typeof taskLinkMetadataSchema>;

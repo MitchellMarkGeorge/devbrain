@@ -4,9 +4,8 @@ import { generateId } from '@common/ids';
 import { EventService } from '../../events/service';
 import { NotFoundError } from '../../shared/errors';
 import { createDb } from '../utils';
-import { InvalidCursorError } from '../../shared/pagination';
 
-// a fixed "day view" window, used across the listEventsInRange tests so
+// a fixed "day view" window, used across the listForCalendar range tests so
 // overlap behavior at the edges is deterministic rather than tied to
 // whatever Date.now() happens to be when the suite runs
 const RANGE_START = new Date('2026-06-10T00:00:00.000Z');
@@ -44,7 +43,7 @@ describe('EventService — createEvent', () => {
     expect(event.description).toBeNull();
     expect(event.allDay).toBe(false);
     expect(event.location).toBeNull();
-    expect(event.reccurrenceRule).toBeNull();
+    expect(event.recurrenceRule).toBeNull();
     expect(event.meetingUrl).toBeNull();
     expect(event.color).toBeNull();
   });
@@ -57,14 +56,14 @@ describe('EventService — createEvent', () => {
       endAt: new Date('2026-06-10T11:00:00.000Z'),
       allDay: false,
       location: 'Room 1',
-      reccurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
+      recurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
       meetingUrl: 'https://example.com/meet',
       color: '#00ff00',
     });
     expect(event.description).toBe('Details');
     expect(event.allDay).toBe(false);
     expect(event.location).toBe('Room 1');
-    expect(event.reccurrenceRule).toBe('RRULE:FREQ=WEEKLY;BYDAY=MO');
+    expect(event.recurrenceRule).toBe('RRULE:FREQ=WEEKLY;BYDAY=MO');
     expect(event.meetingUrl).toBe('https://example.com/meet');
     expect(event.color).toBe('#00ff00');
   });
@@ -188,15 +187,15 @@ describe('EventService — updateEvent', () => {
     ).rejects.toThrow(/endAt must not be before startAt/i);
   });
 
-  it('clears reccurrenceRule when explicitly set to null', async () => {
+  it('clears recurrenceRule when explicitly set to null', async () => {
     const event = await eventsService.createEvent({
       title: 'Recurring',
       startAt: new Date('2026-06-10T10:00:00.000Z'),
       endAt: new Date('2026-06-10T11:00:00.000Z'),
-      reccurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
+      recurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
     });
-    const updated = await eventsService.updateEvent(event.id, { reccurrenceRule: null });
-    expect(updated.reccurrenceRule).toBeNull();
+    const updated = await eventsService.updateEvent(event.id, { recurrenceRule: null });
+    expect(updated.recurrenceRule).toBeNull();
   });
 
   it('throws NotFoundError for an unknown id', async () => {
@@ -224,14 +223,14 @@ describe('EventService — deleteEvent', () => {
   });
 });
 
-describe('EventService — listEventsInRange', () => {
+describe('EventService — listForCalendar range', () => {
   it('includes a non-recurring event fully inside the range', async () => {
     const event = await eventsService.createEvent({
       title: 'Inside',
       startAt: hoursAfter(RANGE_START, 2),
       endAt: hoursAfter(RANGE_START, 3),
     });
-    const result = (await eventsService.listEventsInRange(RANGE_START, RANGE_END)).items;
+    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).toContain(event.id);
   });
 
@@ -241,7 +240,7 @@ describe('EventService — listEventsInRange', () => {
       startAt: hoursAfter(RANGE_START, -6), // day before, 6pm
       endAt: hoursAfter(RANGE_START, 2),
     });
-    const result = (await eventsService.listEventsInRange(RANGE_START, RANGE_END)).items;
+    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).toContain(event.id);
   });
 
@@ -251,7 +250,7 @@ describe('EventService — listEventsInRange', () => {
       startAt: hoursAfter(RANGE_START, 20),
       endAt: hoursAfter(RANGE_START, 30), // spills into the next day
     });
-    const result = (await eventsService.listEventsInRange(RANGE_START, RANGE_END)).items;
+    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).toContain(event.id);
   });
 
@@ -261,7 +260,7 @@ describe('EventService — listEventsInRange', () => {
       startAt: hoursAfter(RANGE_START, -24),
       endAt: hoursAfter(RANGE_START, 48),
     });
-    const result = (await eventsService.listEventsInRange(RANGE_START, RANGE_END)).items;
+    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).toContain(event.id);
   });
 
@@ -271,7 +270,7 @@ describe('EventService — listEventsInRange', () => {
       startAt: hoursAfter(RANGE_START, -5),
       endAt: hoursAfter(RANGE_START, -2),
     });
-    const result = (await eventsService.listEventsInRange(RANGE_START, RANGE_END)).items;
+    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).not.toContain(event.id);
   });
 
@@ -281,7 +280,7 @@ describe('EventService — listEventsInRange', () => {
       startAt: hoursAfter(RANGE_END, 2),
       endAt: hoursAfter(RANGE_END, 3),
     });
-    const result = (await eventsService.listEventsInRange(RANGE_START, RANGE_END)).items;
+    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).not.toContain(event.id);
   });
 
@@ -291,9 +290,9 @@ describe('EventService — listEventsInRange', () => {
       title: 'Weekly standup',
       startAt: new Date('2025-01-06T10:00:00.000Z'),
       endAt: new Date('2025-01-06T10:30:00.000Z'),
-      reccurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
+      recurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
     });
-    const result = (await eventsService.listEventsInRange(RANGE_START, RANGE_END)).items;
+    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).toContain(event.id);
   });
 
@@ -302,9 +301,9 @@ describe('EventService — listEventsInRange', () => {
       title: 'Future series',
       startAt: hoursAfter(RANGE_END, 24),
       endAt: hoursAfter(RANGE_END, 24.5),
-      reccurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
+      recurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
     });
-    const result = (await eventsService.listEventsInRange(RANGE_START, RANGE_END)).items;
+    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).not.toContain(event.id);
   });
 
@@ -319,69 +318,8 @@ describe('EventService — listEventsInRange', () => {
       startAt: hoursAfter(RANGE_START, 2),
       endAt: hoursAfter(RANGE_START, 3),
     });
-    const result = (await eventsService.listEventsInRange(RANGE_START, RANGE_END)).items;
+    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result[0].id).toBe(earlier.id);
     expect(result[1].id).toBe(later.id);
-  });
-});
-
-describe('EventService — listEventsInRange cursor pagination', () => {
-  async function seed(n: number) {
-    const created = [];
-    for (let i = 0; i < n; i++) {
-      // pairs share the same startAt to exercise the id tiebreaker
-      const startAt = hoursAfter(RANGE_START, 1 + Math.floor(i / 2));
-      created.push(
-        await eventsService.createEvent({
-          title: `E${i}`,
-          startAt,
-          endAt: hoursAfter(startAt, 1),
-        }),
-      );
-    }
-    return created;
-  }
-
-  it('returns a null nextCursor when everything fits', async () => {
-    await seed(3);
-    const page = await eventsService.listEventsInRange(RANGE_START, RANGE_END);
-    expect(page.items).toHaveLength(3);
-    expect(page.nextCursor).toBeNull();
-  });
-
-  it('pages through all in-range events once, in startAt order, ignoring out-of-range events', async () => {
-    await seed(7);
-    await eventsService.createEvent({
-      title: 'outside',
-      startAt: hoursAfter(RANGE_END, 48),
-      endAt: hoursAfter(RANGE_END, 49),
-    });
-    const full = (await eventsService.listEventsInRange(RANGE_START, RANGE_END)).items;
-    expect(full).toHaveLength(7);
-
-    const ids: string[] = [];
-    let cursor: string | undefined;
-    let pages = 0;
-    do {
-      const page = await eventsService.listEventsInRange(RANGE_START, RANGE_END, {
-        limit: 3,
-        cursor,
-      });
-      ids.push(...page.items.map((e) => e.id));
-      cursor = page.nextCursor ?? undefined;
-      pages++;
-    } while (cursor);
-    expect(pages).toBe(3);
-    expect(ids).toEqual(full.map((e) => e.id));
-    expect(new Set(ids).size).toBe(7);
-  });
-
-  it('rejects invalid limit and garbage cursor', async () => {
-    await expect(
-      eventsService.listEventsInRange(RANGE_START, RANGE_END, { limit: 0 }),
-    ).rejects.toThrow(RangeError);
-    await expect(
-      eventsService.listEventsInRange(RANGE_START, RANGE_END, { cursor: 'nope' }),
-    ).rejects.toThrow(InvalidCursorError);
   });
 });

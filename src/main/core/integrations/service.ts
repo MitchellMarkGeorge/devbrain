@@ -1,7 +1,9 @@
-import { ExternalSourceId, IntegrationId } from '@common/ids';
+import { CalendarId, ExternalSourceId, IntegrationId } from '@common/ids';
+import { calendars } from '@main/db/schema/calendars';
 import { externalSources, integrations } from '@main/db/schema/integrations';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { Calendar } from '../calendars/types';
 import {
   ConnectInProgressError,
   IntegrationAlreadyConnectedError,
@@ -13,10 +15,14 @@ import { toAuth } from './auth';
 import { CredentialStore } from './credential-store';
 import { ApiKeyCredentials, Credentials, OAuthCredentials } from './credentials';
 import { OAuthClient } from './oauth/types';
-import { ExternalAccount, Provider as ProviderImpl } from './providers/provider';
+import type { SyncWriter } from '../sync/writer';
+import { Auth } from './auth';
+import { EventSource, ExternalAccount, Provider as ProviderImpl } from './providers/provider';
 import { ProviderRegistry, getProvider } from './providers/registry';
+import { googleEventCursorSchema } from './schema';
 import {
   AuthType,
+  ExternalCalendar,
   ExternalSource,
   Integration,
   IntegrationStatus,
@@ -39,6 +45,15 @@ export type IntegrationChange =
       integrationId: IntegrationId;
       sourceId: ExternalSourceId;
       enabled: boolean;
+    }
+  | {
+      // an events source's calendar selection changed; the added calendars want a sync, and the
+      // removed ones' events are already gone
+      type: 'calendars_changed';
+      integrationId: IntegrationId;
+      sourceId: ExternalSourceId;
+      added: CalendarId[];
+      removed: CalendarId[];
     }
   | {
       // a sync run ended and recorded its outcome: lastSyncedAt, lastError, retryAt
@@ -97,6 +112,8 @@ export interface IntegrationServiceOptions {
   providers: ProviderRegistry;
   // runs connectWithOAuth's browser flow; without one, connecting through OAuth is refused
   oauth?: OAuthClient;
+  // removes a deselected calendar's events; without one, setCalendars can only add calendars
+  writer?: SyncWriter;
 }
 
 type IntegrationRow = typeof integrations.$inferSelect;
@@ -108,6 +125,7 @@ export class IntegrationService {
   private readonly credentials: CredentialStore;
   private readonly providers: ProviderRegistry;
   private readonly oauth: OAuthClient | null;
+  private readonly writer: SyncWriter | null;
   private readonly listeners = new Set<IntegrationChangeListener>();
   // set while an OAuth connect waits on the browser; one flow per workspace at a time
   private connecting = false;
@@ -119,6 +137,7 @@ export class IntegrationService {
     this.credentials = options.credentials;
     this.providers = options.providers;
     this.oauth = options.oauth ?? null;
+    this.writer = options.writer ?? null;
   }
 
   async list(): Promise<Integration[]> {
@@ -202,7 +221,9 @@ export class IntegrationService {
   }
 
   // Stores a validated connection: the integration, its encrypted credentials and one source per
-  // type the provider supports, in one transaction. The same for every auth method and provider.
+  // type the provider supports, in one transaction. The same for every auth method and provider:
+  // nothing here is specific to a source type (an events source lists its calendars when it first
+  // syncs; see refreshCalendars).
   private async store(
     provider: ProviderImpl,
     credentials: Credentials,
@@ -355,6 +376,124 @@ export class IntegrationService {
     return toSource(updated);
   }
 
+  /**
+   * The calendars of an events source, as rows: each with whether it syncs (selected) and whether
+   * it is shown (visible). Asks the provider first, so a calendar shared since appears (not
+   * selected) and names, colours and zones are current; needs a working connection. The first
+   * listing of a source selects its primary calendar. A calendar the account no longer lists keeps
+   * its row.
+   */
+  async listCalendars(sourceId: ExternalSourceId): Promise<Calendar[]> {
+    const { integrationId, events } = this.eventsSource(sourceId);
+    const listed = await this.withAuth(integrationId, (auth) => events.listCalendars(auth));
+    this.storeListedCalendars(sourceId, listed);
+    return this.calendarsOf(sourceId);
+  }
+
+  /**
+   * The calendars a sync run of an events source works on, listed fresh. For the sync engine, at
+   * the start of every run, with the run's auth; a provider keeps nothing between calls, so this
+   * is the run's only listing.
+   *
+   * Lists the account's calendars and stores them as listCalendars does: new ones inserted (the
+   * source's first listing selects the primary calendar, later ones start unselected), existing
+   * ones brought up to date, selection and visibility left alone. Returns the selected rows the
+   * account still lists, with their current name, colour and zone, and whether any row was
+   * inserted or changed. A selected calendar it no longer lists keeps its row, but is left out, so
+   * it cannot fail the run.
+   *
+   * Connecting stores no calendars, so a source whose events are never switched on never asks.
+   */
+  async refreshCalendars(
+    sourceId: ExternalSourceId,
+    auth: Auth,
+  ): Promise<{ calendars: Calendar[]; changed: boolean }> {
+    const { events } = this.eventsSource(sourceId);
+    const listed = await events.listCalendars(auth);
+    const changed = this.storeListedCalendars(sourceId, listed);
+    const listedIds = new Set(listed.map((calendar) => calendar.id));
+    const calendars = this.calendarsOf(sourceId).filter(
+      (row) => row.selected && row.externalId !== null && listedIds.has(row.externalId),
+    );
+    return { calendars, changed };
+  }
+
+  /**
+   * Sets which calendars of an events source sync, by their ids as listCalendars returns them.
+   * Works offline.
+   *
+   * An added calendar has no sync token, so the next run gives it, and only it, a full pass. A
+   * removed one loses its token, so selecting it again later is a full pass too, and its events go
+   * by the removal rule: deleted, or kept and hidden where a note or task links to them. Its row
+   * stays, unselected. All in one transaction. A sync run in flight writes nothing more once this
+   * commits; see the engine.
+   */
+  async setCalendars(sourceId: ExternalSourceId, calendarIds: CalendarId[]): Promise<Calendar[]> {
+    const { integrationId } = this.eventsSource(sourceId);
+    const rows = this.calendarsOf(sourceId);
+    const wanted = new Set(calendarIds);
+    const unknown = [...wanted].filter((id) => !rows.some((row) => row.id === id));
+    if (unknown.length > 0) {
+      throw new Error(`${sourceId} has no calendar ${unknown.join(', ')}`);
+    }
+    const added = rows.filter((row) => !row.selected && wanted.has(row.id));
+    const removed = rows.filter((row) => row.selected && !wanted.has(row.id));
+
+    if (added.length > 0 || removed.length > 0) {
+      const writer = this.writer;
+      if (removed.length > 0 && !writer) throw new Error('No sync writer is configured');
+      this.db.transaction((tx) => {
+        const select = (ids: CalendarId[], selected: boolean) => {
+          if (ids.length > 0) {
+            tx.update(calendars).set({ selected }).where(inArray(calendars.id, ids)).run();
+          }
+        };
+        select(
+          added.map((row) => row.id),
+          true,
+        );
+        select(
+          removed.map((row) => row.id),
+          false,
+        );
+        const source = tx
+          .select({ cursor: externalSources.cursor })
+          .from(externalSources)
+          .where(eq(externalSources.id, sourceId))
+          .get();
+        tx.update(externalSources)
+          .set({
+            cursor: withoutCalendars(
+              source?.cursor,
+              removed.flatMap((row) => row.externalId ?? []),
+            ),
+          })
+          .where(eq(externalSources.id, sourceId))
+          .run();
+        // the writer's own transaction becomes a savepoint inside this one
+        for (const row of removed) writer!.removeCalendarEvents(sourceId, row.id);
+      });
+      this.emit({
+        type: 'calendars_changed',
+        integrationId,
+        sourceId,
+        added: added.map((row) => row.id),
+        removed: removed.map((row) => row.id),
+      });
+    }
+    return this.calendarsOf(sourceId);
+  }
+
+  /**
+   * The provider ids of an events source's selected calendars, in the order a run visits them:
+   * the primary first, then by name. What the engine tells the provider to sync.
+   */
+  selectedCalendarExternalIds(sourceId: ExternalSourceId): string[] {
+    return this.calendarsOf(sourceId)
+      .filter((row) => row.selected && row.externalId !== null)
+      .map((row) => row.externalId!);
+  }
+
   /** the stored sync state of a source and its integration, for the sync engine */
   getSyncTarget(sourceId: ExternalSourceId): SyncTarget {
     const row = this.db
@@ -482,6 +621,96 @@ export class IntegrationService {
     }
   }
 
+  // an events source and its provider's EventSource
+  private eventsSource(sourceId: ExternalSourceId): {
+    integrationId: IntegrationId;
+    events: EventSource;
+  } {
+    const row = this.db
+      .select({
+        integrationId: externalSources.integrationId,
+        sourceType: externalSources.sourceType,
+        provider: integrations.provider,
+      })
+      .from(externalSources)
+      .innerJoin(integrations, eq(integrations.id, externalSources.integrationId))
+      .where(eq(externalSources.id, sourceId))
+      .get();
+    if (!row) throw new NotFoundError(sourceId);
+    const events = getProvider(this.providers, row.provider).events;
+    if (row.sourceType !== SourceType.EVENTS || !events) {
+      throw new Error(`${sourceId} is not an events source`);
+    }
+    return { integrationId: row.integrationId, events };
+  }
+
+  // Stores the calendars a provider listed for an events source. The first listing selects the
+  // primary calendar, so a new source syncs it without being asked; a calendar that appears later
+  // starts unselected.
+  //
+  // New ones are inserted; existing ones get their name, colour, zone and primary flag, their
+  // selection and visibility left alone. Says whether any row was inserted or changed.
+  private storeListedCalendars(sourceId: ExternalSourceId, listed: ExternalCalendar[]): boolean {
+    return this.db.transaction((tx) => {
+      const existing = new Map(
+        tx
+          .select()
+          .from(calendars)
+          .where(eq(calendars.sourceId, sourceId))
+          .all()
+          .map((row) => [row.externalId, row]),
+      );
+      const first = existing.size === 0;
+      let changed = false;
+      for (const calendar of listed) {
+        const fields = {
+          name: calendar.name,
+          color: calendar.color,
+          timeZone: calendar.timeZone,
+          isPrimary: calendar.primary,
+        };
+        const row = existing.get(calendar.id);
+        if (!row) {
+          tx.insert(calendars)
+            .values({
+              ...fields,
+              sourceId,
+              externalId: calendar.id,
+              selected: first && calendar.primary,
+            })
+            .run();
+          changed = true;
+        } else if (
+          (Object.keys(fields) as (keyof typeof fields)[]).some((k) => row[k] !== fields[k])
+        ) {
+          tx.update(calendars).set(fields).where(eq(calendars.id, row.id)).run();
+          changed = true;
+        }
+      }
+      return changed;
+    });
+  }
+
+  // a source's calendars: the primary first, then by name
+  private calendarsOf(sourceId: ExternalSourceId): Calendar[] {
+    return this.db
+      .select()
+      .from(calendars)
+      .where(eq(calendars.sourceId, sourceId))
+      .orderBy(desc(calendars.isPrimary), asc(calendars.name), asc(calendars.id))
+      .all();
+  }
+
+  // a provider call outside a sync run: rejected credentials need a reconnect just the same
+  private async withAuth<T>(integrationId: IntegrationId, call: (auth: Auth) => Promise<T>) {
+    try {
+      return await call(await this.credentials.getAuth(integrationId));
+    } catch (error) {
+      if (error instanceof IntegrationAuthError) this.markNeedsReauth(integrationId);
+      throw error;
+    }
+  }
+
   private assertNotConnected(provider: Provider, accountId: string, accountLabel: string): void {
     const existing = this.db
       .select({ id: integrations.id })
@@ -526,6 +755,20 @@ function sourcesToEnable(provider: ProviderImpl, options: ConnectOptions): Sourc
     throw new Error(`${provider.id} can't serve as a source for ${unsupported.join(', ')}`);
   }
   return enable;
+}
+
+// an events cursor without these calendars' tokens and pending visits; one that does not parse is
+// left alone, as the engine already treats it as no cursor
+function withoutCalendars(cursor: unknown, calendarIds: string[]): unknown {
+  const parsed = googleEventCursorSchema.safeParse(cursor);
+  if (!parsed.success || calendarIds.length === 0) return cursor;
+  const { calendars, pending } = parsed.data;
+  return {
+    calendars: Object.fromEntries(
+      Object.entries(calendars).filter(([id]) => !calendarIds.includes(id)),
+    ),
+    ...(pending && { pending: pending.filter((id) => !calendarIds.includes(id)) }),
+  };
 }
 
 function toSource(row: SourceRow): ExternalSource {

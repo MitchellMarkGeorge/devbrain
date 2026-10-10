@@ -1,0 +1,8 @@
+{
+  "kind": "calendar#event",
+  "etag": "\"3459123456789003\"",
+  "id": "4s2lfo5ma1k3a2rmq1hcf5c9fg_20261019T140000Z",
+  "status": "cancelled",
+  "recurringEventId": "4s2lfo5ma1k3a2rmq1hcf5c9fg",
+  "originalStartTime": { "dateTime": "2026-10-19T10:00:00-04:00", "timeZone": "America/New_York" }
+}

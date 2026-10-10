@@ -54,7 +54,7 @@ Options:
 
 _Found in feature 10 (PR #15)._
 
-`SyncMode`, `SyncRunOutcome` and `SyncSkipReason` in `src/main/core/sync/types.ts` are string enums, matching `Provider`, `SourceType` and the other enums in `src/main/core/integrations/types.ts`. `SyncEntityType` (`'task' | 'project'`) in the same file is still a union. It comes from the writer (feature 9), so converting it means changing `src/main/core/sync/writer.ts` and its tests too. The values would stay the same, so progress events and anything forwarding them are unaffected.
+`SyncMode`, `SyncRunOutcome` and `SyncSkipReason` in `src/main/core/sync/types.ts` are string enums, matching `Provider`, `SourceType` and the other enums in `src/main/core/integrations/types.ts`. `SyncEntityType` (`'task' | 'project' | 'event' | 'calendar'`) in the same file is still a union. It comes from the writer (feature 9), so converting it means changing `src/main/core/sync/writer.ts` and its tests too. The values would stay the same, so progress events and anything forwarding them are unaffected.
 
 ### Share the gate and the lookup-and-apply path in `SyncEngine`
 
@@ -73,3 +73,60 @@ Proposal:
 3. **Reattach as an option on that path:** `refreshTasks(sourceId, ids, { reattach: rootExternalId })`. The writer flips the detached links in the same transaction as the page apply. The only reattach-specific code left would be the root checks (gone, unassigned, unreadable) and the link-state change.
 
 Items 1 and 3 are refactors with no change in behaviour, covered by the existing engine, reconcile and detach tests. Item 2 is a product decision.
+
+### Start a sync when the calendar selection changes
+
+_Found in feature 16b._
+
+`IntegrationService.setCalendars` emits `calendars_changed` with the added and removed calendar ids. The scheduler (feature 13) does not listen for it yet, so an added calendar waits for the next interval or focus trigger. It should run the source when `added` is not empty. The `connected` event's missing `sourceType` (above) matters here too.
+
+### A full resync of a calendar does not drop events deleted long ago
+
+_Found in feature 16b._
+
+After a 410, a calendar is walked again from 30 days back and its rows are matched by external id, as the design says. An event deleted while the token was stale that Google no longer reports as cancelled keeps its row. A sweep at the end of a full pass (delete this calendar's synced events not seen during the pass, by the removal rule) would close that; it needs the pass to record what it saw.
+
+### Read `eventLabelId` for event colours
+
+_Found in feature 16b._
+
+The mapper (`src/main/core/integrations/providers/google-calendar/mapper.ts`) colours an event from its `colorId`, through a fixed copy of Google's event palette, and falls back to the calendar's colour. Google's event resource now has `eventLabelId`, which supersedes `colorId` and refers to a label defined on the calendar (`calendars.get` → `labelProperties.eventLabels`). An event coloured through a label gets its calendar's colour instead. Reading labels needs one `calendars.get` per calendar, and the scope that allows it is still to check. The palette itself is also still from memory.
+
+### Check that answering an invitation changes `updated`
+
+_Found in feature 16b._
+
+The writer skips an event whose `updated` is not newer than the stored one, which is how unchanged events cost no write. Google says `updated` covers "the main event data" and does not change for reminders. If answering an invitation does not change it either, a changed `response` (accepted to declined, say) would be skipped. One live check settles it: answer an invitation, then run an incremental sync and compare `updated`. If it does not change, compare `response` as well in the unchanged check for events.
+
+### Changing the mirrored event types needs a resync
+
+_Found in feature 16b._
+
+`MIRRORED_EVENT_TYPES` (`src/main/core/integrations/providers/google-calendar/requests.ts`) is sent as the `eventTypes` filter on every events request. Google requires the parameters of an incremental request to match the full pass that issued its sync token, so changing the list once users have synced needs their stored tokens cleared: a migration that empties the `calendars` of every Google events cursor, or a filter version kept in the cursor and compared on each pull. Making the list a per-source setting, so a user can opt into birthdays, would need the same.
+
+### Disconnect has to handle synced calendars
+
+_Found in feature 16b, for feature 15._
+
+`calendars.sourceId` is set null when a source is deleted, which turns a synced calendar into a local one: its events become editable. That is right for "keep everything as local copies". For "remove synced items" (the default), disconnect should delete the source's calendars after removing their events, keeping a calendar only while events are kept in it (those a note or task links to). A calendar with events cannot be deleted (`events.calendarId` has no `ON DELETE`).
+
+### The calendar view's FullCalendar adapter
+
+_Found in feature 16b, for the calendar UI._
+
+The event model stores what FullCalendar needs; the renderer still has to map each `Event` from `EventService.listForCalendar` to FullCalendar's event input. [The adapter spec](calendar/fullcalendar-adapter.md) covers the mapping. In short: one-off events map directly; a series' `rrule` is a string of `DTSTART`, its `recurrenceRule` and its `exdates` as `EXDATE` lines (FullCalendar's `exdate` property only works with an object `rrule`); occurrence rows are events of their own, grouped with their series. It also lists what to confirm against FullCalendar, chiefly `TZID` support.
+
+## Events
+
+### Deleting one occurrence, or this and following, of a local series
+
+_Found in feature 16b, for the calendar UI._
+
+`EventService.deleteEvent` on a series deletes the master and its occurrence rows: Google's "All events". Google also offers "This event" and "This and following events", which local series will need once the calendar UI can edit them:
+
+- **This event**: add an `event_exceptions` row for the occurrence's start, or, if it has an occurrence row, delete that row (its `originalStartAt` already keeps the slot out of `exdates`).
+- **This and following**: end the series before the occurrence by adding `UNTIL` to its `RRULE` line, and delete its occurrence rows and `event_exceptions` rows from that start on.
+
+Neither is reachable yet: `CreateEventOptions` and `UpdateEventOptions` take no `seriesId` or `originalStartAt`, so only sync creates occurrence rows, and synced events are read-only.
+
+When local occurrence rows exist, `deleteEvent` should also follow the removal rule for them. Today it deletes every occurrence row of the series, and a note linked to one only loses its link. The schema's intent (`events.seriesId` is set null when its series goes) is that an occurrence a note or task links to survives as a one-off: delete the unlinked occurrence rows, and keep the linked ones with `seriesId` cleared.

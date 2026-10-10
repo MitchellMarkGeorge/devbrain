@@ -2,6 +2,7 @@ import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
 import { ArchiveService } from '../archive/service';
 import { EventService } from '../events/service';
+import { CalendarService } from '../calendars/service';
 import { NoteService } from '../notes/service';
 import { ProjectService } from '../projects/service';
 import { SearchService } from '../search/service';
@@ -23,6 +24,7 @@ export class Workspace {
   readonly tasks: TaskService;
   readonly projects: ProjectService;
   readonly events: EventService;
+  readonly calendars: CalendarService;
   readonly archive: ArchiveService;
   readonly search: SearchService;
   readonly integrations: IntegrationService;
@@ -39,11 +41,12 @@ export class Workspace {
     this.tasks = new TaskService(db);
     this.projects = new ProjectService(db);
     this.events = new EventService(db);
+    this.calendars = new CalendarService(db);
     this.archive = new ArchiveService(db);
     this.search = new SearchService(db, info.path);
     ({ credentials: this.credentials, integrations: this.integrations } = createIntegrationServices(
       db,
-      options,
+      { ...options, search: this.search },
     ));
   }
 

@@ -1,8 +1,9 @@
 import {
   AuthType,
+  ExternalCalendar,
+  ExternalEvent,
   ExternalProject,
   ExternalTask,
-  GoogleEventConfig,
   GoogleEventCursor,
   LinearTaskConfig,
   LinearTaskCursor,
@@ -14,7 +15,13 @@ import { OAuthConfig } from '../oauth/types';
 
 // The provider contract. Adapters are pure with respect to the database: they return normalised
 // items and the engine decides what to write. Implementations are looked up through the registry in
-// ./registry. Event sources come with feature 16b.
+// ./registry.
+//
+// Adapters are also stateless. The registry holds one instance of each provider for the whole app,
+// shared by every account connected to it and by runs that may interleave, so a call must work only
+// from its arguments (auth, cursor, and what the engine hands it) and keep nothing between calls:
+// no cache, no per-run field. Progress that has to outlive a call goes in the returned cursor, which
+// the engine stores and hands back; anything else a run needs is passed in by the engine.
 
 // who a credential belongs to, from the provider's own account query
 export interface ExternalAccount {
@@ -28,7 +35,7 @@ export interface ExternalAccount {
 
 // opaque to the engine: stored as JSON and handed back on the next call
 export type SyncCursor = LinearTaskCursor | GoogleEventCursor;
-export type SourceConfig = LinearTaskConfig | GoogleEventConfig;
+export type SourceConfig = LinearTaskConfig;
 
 export interface TaskPage {
   tasks: ExternalTask[];
@@ -69,13 +76,49 @@ export interface TaskSource {
   // needs a choice from the user can take one without changing the engine, for example:
   // - Linear: only issues from the teams the user picks
   // - GitHub issues: only the repositories the user picks
-  // Events sources already work this way: Google Calendar's config is the selected calendarIds.
+  // Events sources are told what to sync the same way, as the selected calendars, which the engine
+  // reads from the calendars table.
+  //
+  // Stateless, like every adapter call: see the note at the top of this file.
   pull(auth: Auth, cursor: SyncCursor | null, config: SourceConfig): Promise<TaskPage>;
   // ids of open items currently assigned to the user (id field only)
   listAssignedIds(auth: Auth): Promise<string[]>;
   // current state of specific items, and of the projects in `options`; ids that no longer resolve
   // are gone
   lookup(auth: Auth, externalIds: string[], options?: LookupOptions): Promise<LookupResult>;
+}
+
+export interface EventPage {
+  // the provider's id of the calendar this page came from, one of those passed to pull; null when
+  // there was nothing to pull
+  calendarExternalId: string | null;
+  // live events, plus cancelled instances of a series (cancelled set, carrying their master's id
+  // and original start), which take an occurrence out of the master
+  events: ExternalEvent[];
+  // events and whole series the provider reports as cancelled or deleted
+  cancelledIds: string[];
+  nextCursor: SyncCursor;
+  done: boolean;
+  // items that failed to validate or map; left out of the page and counted in the run summary
+  skipped: number;
+}
+
+export interface EventSource {
+  // One page of one calendar per call, visiting `calendars` (the calendars to sync: those the user
+  // selected that the account still lists, as the engine listed them at the start of the run) in
+  // that order; done once every one has been walked to its end. The caller passes each page's
+  // nextCursor to the next call, and commits the page with it, so a run cut short resumes at the
+  // page it stopped on. A null or unreadable cursor starts every calendar with a full pass. Unlike
+  // tasks there is no reconcile: the provider's feed reports deletions. GoogleEventSource has the
+  // details.
+  //
+  // Stateless, like every adapter call: the calendars come in as an argument on every call, never
+  // from an earlier one. See the note at the top of this file.
+  pull(auth: Auth, cursor: SyncCursor | null, calendars: ExternalCalendar[]): Promise<EventPage>;
+  // the calendars the account can read, with their name, colour and zone. The engine lists them at
+  // the start of every run, and the calendar picker when it opens; a source's first listing selects
+  // the one marked primary.
+  listCalendars(auth: Auth): Promise<ExternalCalendar[]>;
 }
 
 export interface Provider {
@@ -89,6 +132,7 @@ export interface Provider {
   oauth?: OAuthConfig;
   getAccount(auth: Auth): Promise<ExternalAccount>;
   tasks?: TaskSource;
+  events?: EventSource;
 }
 
 // shared with the OAuth client, which may not import from providers/

@@ -680,7 +680,7 @@ async function seedEvents(workspace: Workspace): Promise<Event[]> {
       description: series.description,
       startAt,
       endAt,
-      reccurrenceRule: series.rrule,
+      recurrenceRule: series.rrule,
       location: series.location,
       meetingUrl: series.meetingUrl,
       color: pick(PALETTE),
@@ -826,7 +826,7 @@ async function seedEventFollowups(
   // only one-off events get follow-ups here — recurring anchors represent a
   // whole series, not a single occurrence, so linking a note/task to "the"
   // occurrence doesn't map cleanly onto the schema
-  const oneOffEvents = events.filter((event) => event.reccurrenceRule === null);
+  const oneOffEvents = events.filter((event) => event.recurrenceRule === null);
   const shuffled = shuffle(oneOffEvents);
 
   const meetingNoteCount = Math.round(oneOffEvents.length * MEETING_NOTE_RATE);

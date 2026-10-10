@@ -494,7 +494,7 @@ interface OAuthClient {
 - [ ] Keep the series time zone in link metadata.
 - [ ] Removal: delete the row when nothing links to it; otherwise keep it and set the link to `removed`.
 - [ ] Index events for search on insert and change; remove on delete.
-- [ ] Calendar selection: `IntegrationService.listCalendars(sourceId)` and `setCalendars(sourceId, ids)`. Preselect the primary calendar on connect. Adding a calendar syncs only that calendar; removing one deletes its events under the same removal rule.
+- [ ] Calendar selection: `IntegrationService.listCalendars(sourceId)` and `setCalendars(sourceId, ids)`. Preselect the primary calendar when the source's calendars are first listed (its first sync, or the first `listCalendars`), not on connect. Adding a calendar syncs only that calendar; removing one deletes its events under the same removal rule.
 - [ ] Teach the engine to run an events source: same loop, `applyEventPage` instead of `applyTaskPage`. Events have no reconcile pass.
 - [ ] Add the `sources:listCalendars` and `sources:setCalendars` channels later, with the IPC work. Core only exposes the two service methods.
 

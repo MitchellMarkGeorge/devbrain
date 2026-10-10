@@ -10,6 +10,8 @@ import {
   ProviderRegistry,
 } from './providers/registry';
 import { IntegrationService } from './service';
+import { SearchService } from '../search/service';
+import { SyncWriter } from '../sync/writer';
 
 // Puts the integration services together for one workspace: the provider registry, the OAuth
 // client, CredentialStore with a refresher for every provider that declares OAuth, and
@@ -26,6 +28,9 @@ export interface IntegrationsSetupOptions {
   openExternal?: OpenExternal;
   // injected for tests
   callbackTimeoutMs?: number;
+  // the workspace's search index, which the sync writer keeps up to date; without it, deselecting
+  // a calendar is refused
+  search?: SearchService;
 }
 
 // The browser opener a workspace gets when the caller passes none, until the main process passes
@@ -53,6 +58,7 @@ export function createIntegrationServices(
     refreshers: createTokenRefreshers(providers, oauth),
     onRefreshRejected: (integrationId) => service?.markNeedsReauth(integrationId),
   });
-  service = new IntegrationService(db, { credentials, providers, oauth });
+  const writer = options.search ? new SyncWriter(db, options.search) : undefined;
+  service = new IntegrationService(db, { credentials, providers, oauth, writer });
   return { credentials, integrations: service };
 }
