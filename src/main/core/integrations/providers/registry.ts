@@ -2,6 +2,7 @@ import { TokenRefresher } from '../credentials';
 import { OAuthClient } from '../oauth/types';
 import { AuthType, Provider as ProviderId } from '../types';
 import { FetchFn, Provider } from './provider';
+import { createGoogleCalendarProvider } from './google-calendar';
 import { createLinearProvider } from './linear';
 
 // Provider id to implementation. IntegrationService and the sync engine look providers up here
@@ -12,9 +13,12 @@ export interface ProviderRegistryOptions {
   fetch: FetchFn;
 }
 
-// the providers the app ships; Google Calendar joins in feature 16
+// the providers the app ships
 export function createProviderRegistry(options: ProviderRegistryOptions): ProviderRegistry {
-  const providers: Provider[] = [createLinearProvider({ fetch: options.fetch })];
+  const providers: Provider[] = [
+    createLinearProvider({ fetch: options.fetch }),
+    createGoogleCalendarProvider({ fetch: options.fetch }),
+  ];
   return new Map(providers.map((provider) => [provider.id, provider]));
 }
 

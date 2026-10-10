@@ -15,6 +15,7 @@ import {
   index,
   unique,
   check,
+  primaryKey,
   AnySQLiteColumn,
 } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
@@ -133,5 +134,23 @@ export const externalLinks = sqliteTable(
       'one_entity',
       sql`(${table.taskId} IS NOT NULL) + (${table.projectId} IS NOT NULL) + (${table.eventId} IS NOT NULL) = 1`,
     ),
+  ],
+);
+
+// Cancelled occurrences of a synced series whose master is not mirrored yet, e.g. one that came a
+// page before it. They move to event_exceptions when the master arrives.
+export const externalEventExceptions = sqliteTable(
+  'external_event_exceptions',
+  {
+    sourceId: text()
+      .notNull()
+      .$type<ExternalSourceId>()
+      .references(() => externalSources.id, { onDelete: 'cascade' }),
+    calendarId: text().notNull(), // so deselecting a calendar can drop its rows
+    masterExternalId: text().notNull(),
+    originalStartAt: date().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.sourceId, table.masterExternalId, table.originalStartAt] }),
   ],
 );

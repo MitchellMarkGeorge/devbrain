@@ -5,14 +5,20 @@ import { z } from 'zod';
 import { CredentialStore } from '../integrations/credential-store';
 import { IntegrationService, SyncTarget } from '../integrations/service';
 import {
+  EventSource,
   LookupResult,
   SyncCursor,
   SourceConfig,
   TaskSource,
 } from '../integrations/providers/provider';
 import { ProviderRegistry } from '../integrations/providers/registry';
-import { linearTaskConfigSchema, linearTaskCursorSchema } from '../integrations/schema';
-import { IntegrationStatus, Provider, SourceType } from '../integrations/types';
+import {
+  googleEventCursorSchema,
+  linearTaskConfigSchema,
+  linearTaskCursorSchema,
+} from '../integrations/schema';
+import { ExternalCalendar, IntegrationStatus, Provider, SourceType } from '../integrations/types';
+import { Calendar } from '../calendars/types';
 import { IntegrationAuthError, RateLimitError, SyncPageLimitError } from '../shared/errors';
 import { CLOSED_ISSUE_WINDOW_MS, MAX_PAGES_PER_RUN } from './constants';
 import { SyncWriter } from './writer';
@@ -60,6 +66,38 @@ const TASK_SOURCE_SCHEMAS: Partial<
   [Provider.LINEAR]: { cursor: linearTaskCursorSchema, config: linearTaskConfigSchema },
 };
 
+// How each provider's events cursor is stored, validated the same way. An events source has no
+// stored config: what it syncs is the calendars selected in the calendars table, read before the
+// run and again before each page is written (see pullEventPages).
+const EVENT_CURSOR_SCHEMAS: Partial<Record<Provider, z.ZodType<SyncCursor>>> = {
+  [Provider.GOOGLE_CALENDAR]: googleEventCursorSchema,
+};
+
+// the summary of a page that applied nothing
+const NOTHING_APPLIED: SyncSummary = { inserted: 0, updated: 0, removed: 0, changed: [] };
+
+// a calendar row as a provider takes it: by the provider's own id
+function toExternalCalendar(row: Calendar): ExternalCalendar {
+  return {
+    id: row.externalId!,
+    name: row.name,
+    primary: row.isPrimary,
+    color: row.color,
+    timeZone: row.timeZone,
+  };
+}
+
+// how a run pulls and applies its pages, by source type
+interface SourceSync {
+  cursorSchema: z.ZodType<SyncCursor>;
+  // throws when what the source syncs (its stored config, for tasks) does not validate
+  pullPages(
+    cursor: SyncCursor | null,
+    run: RunTally,
+    signal: AbortSignal | undefined,
+  ): Promise<void>;
+}
+
 /**
  * Runs one sync for one source: pull a page, apply it with SyncWriter and save the provider's next
  * cursor in the same transaction, until the provider says it is done. A crash or abort at any
@@ -95,7 +133,7 @@ export class SyncEngine {
   }
 
   /**
-   * Initial or incremental sync of one tasks source, by its stored cursor.
+   * Initial or incremental sync of one tasks or events source, by its stored cursor.
    *
    * 0. An already aborted signal ends the run before anything is read.
    * 1. Load the source and its integration; skip when either is off, the integration needs
@@ -134,14 +172,11 @@ export class SyncEngine {
       const target = this.integrations.getSyncTarget(sourceId);
       const blocked = this.skipReason(target);
       if (blocked) return skip(blocked);
-      const tasks = this.providers.get(target.provider)?.tasks;
-      const schemas = TASK_SOURCE_SCHEMAS[target.provider];
-      if (target.sourceType !== SourceType.TASKS || !tasks || !schemas) {
-        return skip(SyncSkipReason.UNSUPPORTED);
-      }
+      const sync = this.sourceSync(sourceId, target);
+      if (!sync) return skip(SyncSkipReason.UNSUPPORTED);
 
       // 2. a cursor that does not parse, e.g. written by an older version, starts over
-      const stored = schemas.cursor.safeParse(target.cursor);
+      const stored = sync.cursorSchema.safeParse(target.cursor);
       const cursor = stored.success ? stored.data : null;
       run.mode =
         cursor === null || target.initialSyncCompletedAt === null
@@ -149,8 +184,7 @@ export class SyncEngine {
           : SyncMode.INCREMENTAL;
 
       try {
-        const config = schemas.config.parse(target.config);
-        await this.pullPages(sourceId, target, tasks, cursor, config, run, options.signal);
+        await sync.pullPages(cursor, run, options.signal);
       } catch (error) {
         // whatever failed after an abort was cut short by it; report the abort, record nothing
         if (options.signal?.aborted) return finish({ outcome: SyncRunOutcome.ABORTED });
@@ -386,6 +420,118 @@ export class SyncEngine {
     });
   }
 
+  // the page loop for this source's type and provider; null when there is none
+  private sourceSync(sourceId: ExternalSourceId, target: SyncTarget): SourceSync | null {
+    const provider = this.providers.get(target.provider);
+    if (target.sourceType === SourceType.TASKS) {
+      const tasks = provider?.tasks;
+      const schemas = TASK_SOURCE_SCHEMAS[target.provider];
+      if (!tasks || !schemas) return null;
+      return {
+        cursorSchema: schemas.cursor,
+        pullPages: (cursor, run, signal) =>
+          this.pullPages(
+            sourceId,
+            target,
+            tasks,
+            cursor,
+            schemas.config.parse(target.config),
+            run,
+            signal,
+          ),
+      };
+    }
+    if (target.sourceType === SourceType.EVENTS) {
+      const events = provider?.events;
+      const cursorSchema = EVENT_CURSOR_SCHEMAS[target.provider];
+      if (!events || !cursorSchema) return null;
+      return {
+        cursorSchema,
+        pullPages: (cursor, run, signal) =>
+          this.pullEventPages(sourceId, target, events, cursor, run, signal),
+      };
+    }
+    return null;
+  }
+
+  /**
+   * The page loop for an events source: the same as pullPages, with SyncWriter.applyEventPage.
+   * Events have no reconcile pass: the provider's feed reports cancellations and deletions.
+   *
+   * The run starts by listing the account's calendars (IntegrationService.refreshCalendars),
+   * which keeps their rows current and gives the calendars to sync: those selected that the
+   * account still lists. Every pull gets that same list, since a provider keeps nothing between
+   * calls. Each pull returns one page of one of them, naming it, and the provider's cursor says
+   * which calendar and page come next: this loop pulls, applies the page to that calendar's row
+   * and saves its nextCursor in one transaction, and goes on until a page says done. Why a page
+   * and not a whole calendar, and how the cursor walks the calendars, is in GoogleEventSource.
+   *
+   * The selection can change while a page is in flight, so the page's transaction reads it
+   * again, and if it differs, writes nothing and ends the run: the page may belong to a calendar
+   * that was just deselected, and its cursor still lists one. The change that was saved meanwhile
+   * is picked up by the next run.
+   */
+  private async pullEventPages(
+    sourceId: ExternalSourceId,
+    target: SyncTarget,
+    events: EventSource,
+    cursor: SyncCursor | null,
+    run: RunTally,
+    signal: AbortSignal | undefined,
+  ): Promise<void> {
+    const auth = await this.credentials.getAuth(target.integrationId);
+    // the run's one listing; a source's first one selects the primary calendar
+    const { calendars, changed } = await this.integrations.refreshCalendars(sourceId, auth);
+    if (changed) run.addChanged('calendar');
+    const toSync = calendars.map(toExternalCalendar);
+    const rowIds = new Map(calendars.map((row) => [row.externalId!, row.id]));
+    const startedWith = JSON.stringify(this.integrations.selectedCalendarExternalIds(sourceId));
+
+    let current = cursor;
+    let done = false;
+    do {
+      // the pages so far are committed, so the next run resumes after them
+      if (run.pages >= this.maxPagesPerRun) throw new SyncPageLimitError(this.maxPagesPerRun);
+      if (signal?.aborted) return;
+      const page = await events.pull(auth, current, toSync);
+      // the page arrived after an abort: discard it, so nothing is written after the abort
+      if (signal?.aborted) return;
+
+      const completesInitial = run.mode === SyncMode.INITIAL && page.done;
+      const summary = this.db.transaction(() => {
+        const selectedNow = this.integrations.selectedCalendarExternalIds(sourceId);
+        if (JSON.stringify(selectedNow) !== startedWith) return null;
+        const calendarId =
+          page.calendarExternalId === null ? null : rowIds.get(page.calendarExternalId);
+        if (calendarId === undefined) {
+          throw new Error('The provider returned a page of a calendar it was not given');
+        }
+        // a null calendar: nothing was pulled, and only the cursor is saved
+        const summary =
+          calendarId === null
+            ? NOTHING_APPLIED
+            : this.writer.applyEventPage(sourceId, calendarId, page);
+        this.integrations.saveCursor(sourceId, page.nextCursor, {
+          ...(completesInitial && { initialSyncCompletedAt: this.now() }),
+        });
+        return summary;
+      });
+      // the selection changed under the run: stop, leaving the stored cursor to the next run
+      if (summary === null) return;
+      run.addPage(summary, page.skipped);
+      this.emitProgress({
+        sourceId,
+        phase: run.mode!,
+        pages: run.pages,
+        summary,
+        itemsApplied: run.itemsApplied,
+      });
+
+      done = page.done;
+      current = page.nextCursor;
+    } while (!done);
+  }
+
   private skipReason(target: SyncTarget): SyncSkipReason | null {
     if (target.status === IntegrationStatus.NEEDS_REAUTH) return SyncSkipReason.NEEDS_REAUTH;
     if (target.status === IntegrationStatus.DISABLED) return SyncSkipReason.INTEGRATION_DISABLED;
@@ -482,6 +628,11 @@ class RunTally {
 
   get itemsApplied(): number {
     return this.inserted + this.updated + this.removed;
+  }
+
+  // a change made outside a page, such as calendar rows refreshed at the start of a run
+  addChanged(type: SyncEntityType): void {
+    this.changed.add(type);
   }
 
   addPage(summary: SyncSummary, skipped: number): void {

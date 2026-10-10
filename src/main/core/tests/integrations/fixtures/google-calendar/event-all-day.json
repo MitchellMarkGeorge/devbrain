@@ -1,0 +1,20 @@
+{
+  "kind": "calendar#event",
+  "etag": "\"3459123456789001\"",
+  "id": "1q2w3e4r5t6y7u8i9o0p1a2s3d",
+  "status": "confirmed",
+  "htmlLink": "https://www.google.com/calendar/event?eid=MXEydzNlNHI1dDZ5N3U4aTlvMHAxYTJzM2QgYWRhQGV4YW1wbGUuY29t",
+  "created": "2026-09-20T12:00:00.000Z",
+  "updated": "2026-09-20T12:00:00.000Z",
+  "summary": "Team offsite",
+  "description": "Bring a laptop.\nLunch is provided.",
+  "creator": { "email": "ada@example.com", "self": true },
+  "organizer": { "email": "ada@example.com", "self": true },
+  "start": { "date": "2026-10-14" },
+  "end": { "date": "2026-10-16" },
+  "transparency": "transparent",
+  "iCalUID": "1q2w3e4r5t6y7u8i9o0p1a2s3d@google.com",
+  "sequence": 0,
+  "reminders": { "useDefault": false },
+  "eventType": "default"
+}

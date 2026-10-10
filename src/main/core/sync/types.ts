@@ -1,5 +1,5 @@
 import { ExternalSourceId, TaskId } from '@common/ids';
-import type { LookupResult, TaskPage } from '../integrations/providers/provider';
+import type { EventPage, LookupResult, TaskPage } from '../integrations/providers/provider';
 
 // what SyncWriter.applyTaskPage takes: the items of a pulled page, or of a lookup result
 export type TaskPageItems = Pick<TaskPage, 'projects' | 'tasks' | 'removedIds'>;
@@ -24,8 +24,11 @@ export interface ReconcilePlan {
   projectIds: string[];
 }
 
+// what SyncWriter.applyEventPage takes: the items of a pulled page
+export type EventPageItems = Pick<EventPage, 'events' | 'cancelledIds'>;
+
 // the entity types a write touched, so the renderer refetches only those queries
-export type SyncEntityType = 'task' | 'project';
+export type SyncEntityType = 'task' | 'project' | 'event' | 'calendar';
 
 // what one writer call did; the engine passes it to its progress callback
 export interface SyncSummary {
@@ -33,7 +36,7 @@ export interface SyncSummary {
   inserted: number;
   // entities whose provider-owned fields were written, restored ones included
   updated: number;
-  // entities archived because they left scope
+  // entities archived because they left scope; for events, deleted or hidden
   removed: number;
   changed: SyncEntityType[];
 }

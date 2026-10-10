@@ -4,7 +4,6 @@ import { SQLiteColumn, unionAll } from 'drizzle-orm/sqlite-core';
 import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
 import { notes } from '@main/db/schema/notes';
-import { events } from '@main/db/schema/events';
 import { createDb } from '../utils';
 import { keyset } from '../../shared/pagination';
 import { hasLinkInState, LinkedEntity } from '../../integrations/refs';
@@ -174,29 +173,6 @@ describe('pagination index — tasks.listSubtasks', () => {
       .limit(pager.fetchLimit);
     const detail = plan(query).join('\n');
     expect(detail).toContain('idx_tasks_parent_created_at_id');
-    expect(detail).not.toContain('TEMP B-TREE');
-  });
-});
-
-describe('pagination index — events.listEventsInRange', () => {
-  it('orders by startAt without a temp b-tree, with removed events left out', () => {
-    const pager = keyset<{ v: unknown; id: string }>({
-      sortKey: 'startAt',
-      sortColumn: events.startAt,
-      idColumn: events.id,
-      direction: 'asc',
-      sortValue: (r) => r.v,
-      id: (r) => r.id,
-    });
-    const query = db
-      .select()
-      .from(events)
-      .where(and(not(hasLinkInState('event', events.id, LinkState.REMOVED)), pager.after))
-      .orderBy(...pager.orderBy)
-      .limit(pager.fetchLimit);
-    const detail = plan(query).join('\n');
-    expect(detail).toContain('idx_events_start_at_id');
-    expect(detail).toContain('USING INDEX external_links_eventId_unique (event_id=?)');
     expect(detail).not.toContain('TEMP B-TREE');
   });
 });

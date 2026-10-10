@@ -13,6 +13,9 @@ export const MIN_TRIGGER_GAP_MS = 60 * SECOND;
 
 // items requested per page
 export const PAGE_SIZE = 50;
+// events requested per page from Google Calendar, as the provider reference's request shape has it;
+// events are small and come with no nested items, so a page is still a short transaction
+export const EVENTS_PAGE_SIZE = 250;
 // ids per lookup request in the reconcile pass
 export const LOOKUP_BATCH_SIZE = 100;
 // a run that pulls this many pages without the provider reaching the end is stopped as a failure,
