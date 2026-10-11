@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   GoogleApiError,
   GoogleCalendarClient,
-  SyncTokenExpiredError,
 } from '../../../integrations/providers/google-calendar/client';
+import { ChangeTokenExpiredError } from '../../../integrations/providers/provider';
 import {
   createGoogleCalendarProvider,
   getAccount,
@@ -155,9 +155,9 @@ describe('Google Calendar client — errors', () => {
   const listEvents = (google: GoogleCalendarClient) =>
     google.listEvents(AUTH, 'ada@example.com', { syncToken: 'token-1' }, null);
 
-  it('maps 410 to SyncTokenExpiredError', async () => {
+  it('maps 410 to ChangeTokenExpiredError', async () => {
     const { client: google } = client([{ status: 410, body: expiredFixture }]);
-    await expect(listEvents(google)).rejects.toThrow(SyncTokenExpiredError);
+    await expect(listEvents(google)).rejects.toThrow(ChangeTokenExpiredError);
   });
 
   it('maps 401 to IntegrationAuthError', async () => {
@@ -205,7 +205,7 @@ describe('Google Calendar provider', () => {
     expect(provider.supports).toEqual(['events']);
     expect(provider.authMethods).toEqual(['oauth']);
     expect(provider.oauth?.clientId).toBe('client-1');
-    expect(provider.events).toBeDefined();
+    expect(provider.calendars).toBeDefined();
     expect(provider.tasks).toBeUndefined();
   });
 

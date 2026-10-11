@@ -95,26 +95,32 @@ All integration code runs in the main process, inside `src/main/core`, as two ne
 
 &#91;embedded content: integration and sync components in the main process\]
 
-Only the provider adapters talk to the network, and only `SyncWriter` writes external rows. The existing entity services keep writing local rows and reject edits to synced ones. They are the public interface for managing their entities, which the IPC layer exposes as it is: they read and write the database only, call no provider and hold no `SyncWriter`. `SyncWriter` is used only inside `core/sync/`.
+Only the provider clients talk to the network, and only `SyncWriter` writes external rows. The existing entity services keep writing local rows and reject edits to synced ones. They are the public interface for managing their entities, which the IPC layer exposes as it is: they read and write the database only, call no provider and hold no `SyncWriter`. `SyncWriter` is used only inside `core/sync/`.
 
-| Component            | Location                                                    | Responsibility                                                                                                                                       |
-| -------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `IntegrationService` | `core/integrations/service.ts`                              | Connect, disconnect, enable and disable. Owns the `integrations` table and which `external_sources` exist and are on.                                |
-| `SyncStateManager`   | `core/sync/sync-state.ts`                                   | The sync state on `external_sources`: a source's cursor and how its runs went. Only the engine writes it; emits `sync_status_changed`.               |
-| `CredentialStore`    | `core/integrations/credential-store.ts`                     | Encrypts and decrypts tokens through an injected `SecretCipher`. Refreshes OAuth tokens.                                                             |
-| OAuth loopback       | `core/integrations/oauth/`                                  | PKCE pair, state, temporary `127.0.0.1` listener, code exchange.                                                                                     |
-| Provider adapters    | `core/integrations/providers/linear`, `.../google-calendar` | API client and mapper per provider. The only code that knows a provider's shapes.                                                                    |
-| `SyncEngine`         | `core/sync/engine.ts`                                       | Runs one sync for one source: gate, page loop, commit each page with its cursor, record the outcome. Knows no source type beyond picking its syncer. |
-| Syncers              | `core/sync/syncer.ts`, `task-syncer.ts`, `event-syncer.ts`  | What a run does per source type: how it starts, pulls and applies a page. `EventSyncer` holds all calendar work of a run.                            |
-| `CalendarService`    | `core/calendars/service.ts`                                 | Lists calendars, shows or hides one, chooses which synced ones sync. Database only.                                                                  |
-| `SyncWriter`         | `core/sync/writer.ts`                                       | The only code allowed to write external rows. Upserts, removes, indexes for search.                                                                  |
-| `SyncScheduler`      | `core/sync/scheduler.ts`                                    | Decides when to sync: interval, focus, open, manual. One run per source at a time.                                                                   |
+| Component            | Location                                                    | Responsibility                                                                                                                                      |
+| -------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `IntegrationService` | `core/integrations/service.ts`                              | Connect, disconnect, enable and disable. Owns the `integrations` table and which `external_sources` exist and are on.                               |
+| `SyncStateManager`   | `core/sync/sync-state.ts`                                   | The sync state on `external_sources`: a source's cursor and how its runs went. Only the engine writes it; emits `sync_status_changed`.              |
+| `CredentialStore`    | `core/integrations/credential-store.ts`                     | Encrypts and decrypts tokens through an injected `SecretCipher`. Refreshes OAuth tokens.                                                            |
+| OAuth loopback       | `core/integrations/oauth/`                                  | PKCE pair, state, temporary `127.0.0.1` listener, code exchange.                                                                                    |
+| Provider clients     | `core/integrations/providers/linear`, `.../google-calendar` | HTTP, auth headers, rate limits, errors and response schemas per provider. The only code that knows a provider's wire shapes.                       |
+| Provider sources     | `.../linear/tasks.ts`, `.../google-calendar/calendars.ts`   | The provider in DevBrain's terms: queries in, normalised items out. No cursors, modes or run state, so they serve callers outside sync too.         |
+| `SyncEngine`         | `core/sync/engine.ts`                                       | Runs one sync or reconcile pass for one source: gate, page loop, commit each page with its cursor, record the outcome. Knows no source type.        |
+| Syncers              | `core/sync/syncer.ts`, `task-syncer.ts`, `event-syncer.ts`  | What a run does per source type: its cursor, modes and windows, and how it starts, pulls and applies a page. `EventSyncer` holds all calendar work. |
+| `TaskReconciler`     | `core/sync/task-reconciler.ts`                              | What a tasks source's pages cannot see: the reconcile pass, and reattaching detached tasks.                                                         |
+| `CalendarService`    | `core/calendars/service.ts`                                 | Lists calendars, shows or hides one, chooses which synced ones sync. Database only.                                                                 |
+| `SyncWriter`         | `core/sync/writer.ts`                                       | The only code allowed to write external rows. Upserts, removes, indexes for search.                                                                 |
+| `SyncScheduler`      | `core/sync/scheduler.ts`                                    | Decides when to sync: interval, focus, open, manual. One run per source at a time.                                                                  |
 
 `Workspace` constructs `IntegrationService` and `SyncScheduler` next to `TaskService` and the rest. `Workspace.close()` stops the scheduler before closing SQLite.
 
-**Provider contract.** Adapters are pure with respect to the database. They return normalised items; the engine decides what to write.
+**Provider contract.** A provider is three layers, kept as separate classes:
 
-Adapters are also stateless. The registry holds one instance per provider for the whole app, shared by every account connected to it and by runs that may interleave, so a call works only from its arguments and keeps nothing between calls: no cache, no per-run field. Progress that must outlive a call goes in the returned cursor; anything else a run needs, the engine passes in. Google's events source, for example, is handed the run's calendars on every `pull` rather than listing and keeping them itself.
+- **Client** (`LinearClient`, `GoogleCalendarClient`): transport. HTTP, auth headers, rate limits, errors and response schemas.
+- **Source** (`LinearTaskSource`, `GoogleCalendarSource`): translation. The provider in DevBrain's terms: queries in, normalised items out. A source knows nothing of sync (no cursors, no modes, no run state) and never touches the database, so anything that needs the provider can use it.
+- **Syncer** (`TaskSyncer`, `EventSyncer` in `core/sync/`): keeping DevBrain's copy current. Cursors, modes, windows and overlap, the queue of calendars, retrying a calendar whose change token expired, reconcile and calendar selection, all built on the source's calls.
+
+Sources are stateless. The registry holds one instance per provider for the whole app, shared by every account connected to it and by calls that may interleave, so a call works only from its arguments and keeps nothing between calls: no cache, no per-account field. Progress that must outlive a call is the syncer's, in the cursor it stores. Google's calendar source, for example, is asked for one page of one named calendar; which calendars a run visits is `EventSyncer`'s.
 
 ```ts
 interface Provider {
@@ -124,30 +130,65 @@ interface Provider {
   oauth?: OAuthConfig; // endpoints, scopes, redirect ports
   getAccount(auth: Auth): Promise<ExternalAccount>;
   tasks?: TaskSource;
-  events?: EventSource;
+  calendars?: CalendarSource;
 }
 
 interface TaskSource {
-  // one page per call; cursor is opaque to the engine
-  pull(
-    auth: Auth,
-    cursor: SyncCursor | null,
-    config: SourceConfig,
-  ): Promise<{
-    tasks: ExternalTask[];
-    projects: ExternalProject[];
-    removedIds: string[];
-    nextCursor: SyncCursor;
-    done: boolean;
-  }>;
-  // ids of open items currently assigned to the user (id field only)
-  listAssignedIds(auth: Auth): Promise<string[]>;
-  // current state of specific items; ids that no longer resolve are gone
-  lookup(auth: Auth, externalIds: string[]): Promise<{ tasks: ExternalTask[]; gone: string[] }>;
+  // one page of the viewer's assigned tasks matching the query
+  getAssignedTaskPage(auth: Auth, query: AssignedTasksQuery): Promise<AssignedTaskPage>;
+  // ids of the viewer's open assigned tasks
+  listOpenAssignedTaskIds(auth: Auth): Promise<string[]>;
+  // each id sorted into found, gone (missing or trashed) or unreadable, plus the found tasks' projects
+  resolveTasks(auth: Auth, ids: string[]): Promise<TaskResolution>;
+  resolveProjects(auth: Auth, ids: string[]): Promise<Resolution<ExternalProject>>;
+}
+
+interface AssignedTasksQuery {
+  changedSince?: string; // only tasks changed after this
+  closedSince?: string; // open tasks, plus closed ones after this
+  pageToken?: string;
+}
+
+interface AssignedTaskPage {
+  tasks: ExternalTask[];
+  projects: ExternalProject[]; // the page's tasks' projects, each once
+  trashedIds: string[];
+  skipped: number;
+  latestChange: string | null; // latest updatedAt or archivedAt on the page (archiving counts)
+  nextPageToken: string | null;
+}
+
+interface Resolution<T> {
+  found: T[];
+  gone: string[];
+  skipped: number; // came back but failed to validate: never gone
+}
+
+interface TaskResolution extends Resolution<ExternalTask> {
+  projects: ExternalProject[];
+}
+
+interface CalendarSource {
+  listCalendars(auth: Auth): Promise<ExternalCalendar[]>;
+  // one page of a calendar's events: everything from `from`, or the changes since `changeToken`;
+  // throws ChangeTokenExpiredError when the token is no longer accepted
+  getEventPage(auth: Auth, calendarId: string, query: EventsQuery): Promise<CalendarEventPage>;
+}
+
+type EventsQuery = ({ from: string } | { changeToken: string }) & { pageToken?: string };
+
+interface CalendarEventPage {
+  events: ExternalEvent[];
+  cancelledIds: string[];
+  skipped: number;
+  nextPageToken: string | null;
+  changeToken: string | null; // last page only
 }
 ```
 
-`ExternalTask` already carries DevBrain's `TaskStatus` and `TaskPriority` plus the provider's raw labels. Mapping lives in each adapter's `mapper.ts`, which keeps it unit-testable against fixture payloads.
+"Change token" is the neutral name for Google's sync token; Google's 410 becomes `ChangeTokenExpiredError`, defined next to the contract.
+
+`ExternalTask` already carries DevBrain's `TaskStatus` and `TaskPriority` plus the provider's raw labels. Mapping lives in each provider's `mapper.ts`, which keeps it unit-testable against fixture payloads.
 
 **Why core stays free of Electron.** `SecretCipher`, `fetch` and `openExternal` are constructor arguments. The main process passes `safeStorage`, Electron's `net.fetch` (which honours the system proxy and certificate store) and `shell.openExternal`. Tests pass fakes, matching how `electron-store` is mocked today.
 
@@ -416,9 +457,9 @@ Google Calendar events are mirrored as `events` rows for the calendars the user 
 
 **Calendar selection.** Every calendar operation that needs the provider or `SyncWriter` happens in a sync run; `CalendarService` only reads and writes the `calendars` table. Connecting stores no calendars, so a provider or a source that is never switched on makes no calendar request.
 
-`EventSyncer` starts every run of an events source, resumed runs included, by listing the account's calendars (`listExternalCalendars`) and working out which to sync: the selected ones the account still lists, or on a source's first listing its primary calendar. A selected calendar the account no longer lists keeps its row and is left out. Starting writes nothing. The run's calendar work is written with its first page, in the same transaction as the page and its cursor:
+`EventSyncer` starts every run of an events source, resumed runs included, by listing the account's calendars (`CalendarSource.listCalendars`) and working out which to sync: the selected ones the account still lists, or on a source's first listing its primary calendar. A selected calendar the account no longer lists keeps its row and is left out. Starting writes nothing. The run's calendar work is written with its first page, in the same transaction as the page and its cursor:
 
-1. **Clean-up.** The events of calendars the user deselected are removed by the removal rule. Their progress goes with them: a provider keeps cursor entries only for the calendars a pull is handed, so the page's next cursor, saved in this transaction, no longer has it, and selecting one again is a full pass that brings its events back.
+1. **Clean-up.** The events of calendars the user deselected are removed by the removal rule. Their progress goes with them: `EventSyncer` keeps cursor entries only for the calendars of the run, so the page's next cursor, saved in this transaction, no longer has it, and selecting one again is a full pass that brings its events back.
 2. **Listing.** The calendars are stored as rows by `SyncWriter.applyCalendarList`: new ones inserted, name, colour, zone and primary flag kept current, selection and visibility never touched. A source's first listing selects its primary calendar; one that appears later starts unselected. The run's result has `'calendar'` in `changed` when a row changed.
 
 The user chooses with `CalendarService.setSelected(id, selected)`, which only flips the column; a local calendar always syncs and is refused. The caller (the picker's IPC handler) then asks the scheduler for a run of the source: a selected calendar gets a full pass of its own, a deselected one's events go with that run's first page. Until then, a deselected calendar's events stay; so they do after a run that is skipped (the integration disabled or needing reauth) or fails before its first page (offline). A run syncs the calendars it chose when it started, so a selection changed during a run takes effect at the next one. Refreshing the picker is a sync run too. There is no change event for the selection; the caller has it already. An events source stores no config.
@@ -462,14 +503,18 @@ The user chooses with `CalendarService.setSelected(id, selected)`, which only fl
 
 Sync is a pull loop in the main process: fetch a page, apply it in one SQLite transaction, save the cursor in that same transaction, repeat. A crash at any point resumes from the last committed page.
 
-**Engine and syncers.** `SyncEngine` runs the parts every source shares: the gate (a source or integration that is off, needs reauth or is rate limited is skipped), the mode, one page loop, the commit of each page with its cursor, and recording the outcome. What differs by source type is in a `Syncer`, picked from a table by the source's type:
+**Engine and syncers.** `SyncEngine` runs the parts every source shares: the gate (a source or integration that is off, needs reauth or is rate limited is skipped), the mode, one page loop, the commit of each page with its cursor, and recording the outcome. It has no type- or provider-specific methods. What differs by source type is in a `Syncer`, picked from a table by the source's type and built on the provider's source:
 
 ```ts
 interface Syncer {
+  // how this type's cursor is stored; the syncer owns its shape
   cursorSchema: z.ZodType<SyncCursor>;
   // gets ready for one run (reads, and calls the provider where the run needs it first) and
   // starts it; writes nothing, and throws to fail the run
   start(context: RunContext): Promise<ActiveSync>;
+  // a reconcile pass, for a type whose pages cannot see everything: reads only, and returns the
+  // pass's writes for the engine to apply in one transaction; absent means no reconcile
+  reconcile?(context: ReconcileContext): Promise<PendingReconcile | null>;
 }
 
 // the run once started: the cursor it begins from, and how it pulls and applies each page
@@ -482,7 +527,11 @@ interface ActiveSync {
 }
 ```
 
-`RunContext` carries the source id, its stored target, auth and the stored cursor. Every write of a run happens in `apply`, in the transaction that saves the page's cursor, so a run's writes and its cursor never get out of step; a run that fails before its first page has written nothing. `TaskSyncer` parses the source's config and applies pages with `SyncWriter.applyTaskPage`. `EventSyncer` does a run's calendar work; see "Calendar selection". The engine keeps each source's cursor and run outcomes through `SyncStateManager`. The reconcile pass and reattach are still on the engine; moving them into `TaskSyncer` is a follow-up.
+`RunContext` carries the source id, its stored target, auth and the stored cursor. Every write of a run happens in `apply`, in the transaction that saves the page's cursor, so a run's writes and its cursor never get out of step; a run that fails before its first page has written nothing. The engine keeps each source's cursor and run outcomes through `SyncStateManager`.
+
+- `TaskSyncer` owns the task cursor (`core/sync/task-cursor.ts`) and its modes: an initial walk asks the source for open tasks and those closed within the window (`closedSince`), an incremental one for tasks changed since the cursor (`changedSince`), and each page's `latestChange` becomes the next cursor, minus the overlap. It applies pages with `SyncWriter.applyTaskPage`. Its `reconcile` hands the pass to `TaskReconciler`.
+- `TaskReconciler` holds what pages cannot see: the reconcile pass (`listOpenAssignedTaskIds`, then `resolveTasks` and `resolveProjects`) and reattach, which `DetachService` calls. Reattach is not a run, so it checks the same gate (`syncSkipReason`) itself. It throws rejected credentials without moving the integration to `needs_reauth`; the typed IPC layer will do that (see `docs/follow-ups.md`).
+- `EventSyncer` owns the events cursor (`core/sync/event-cursor.ts`), the queue of calendars and a run's calendar work; see "Calendar selection".
 
 **Triggers**
 
@@ -551,9 +600,9 @@ The trade-off: an issue reassigned to someone else can stay in the list for up t
 
 1. Per selected calendar, list events from 30 days ago onward, paging to the end. The final page returns a sync token.
 2. Each later run sends only the sync token and receives changed and cancelled events since.
-3. If Google answers 410 (token expired), the calendar's token is cleared and that calendar is fully resynced. Existing rows are matched by external id, so nothing is duplicated and local links survive.
+3. If Google answers 410 (token expired; the source throws `ChangeTokenExpiredError`), `EventSyncer` clears the calendar's token and that calendar is fully resynced, in the same pull; a second 410 in a row fails the run. Existing rows are matched by external id, so nothing is duplicated and local links survive.
 
-How a run walks the calendars: each `pull` returns one page of one calendar, and the engine commits it with the cursor after it, as for tasks. The cursor keeps, per calendar, its sync token and, while a pass is part-way, its page token and the pass's fixed `timeMin`; at the top, `pending` lists the calendars the run still has to visit. The engine lists the account's calendars at the start of the run and passes the chosen ones to every `pull`, which walks them in turn, each to the end of its pass, and is done after the last. One page per call, rather than a whole calendar, keeps each transaction short on the synchronous main process and lets a run cut short (often the first sync, when the app closes) resume at the page it stopped on. The cost is that an exception of a series can arrive a page before its master, which `external_event_exceptions` covers. The provider's `GoogleEventSource` has the details and a worked example.
+How a run walks the calendars: each `pull` asks the source for one page of one calendar (`getEventPage`), and the engine commits it with the cursor after it, as for tasks. The cursor keeps, per calendar, its change token and, while a pass is part-way, its page token and the pass's fixed `timeMin`; at the top, `pending` lists the calendars the run still has to visit. `EventSyncer` lists the account's calendars at the start of the run and walks the chosen ones in turn, each to the end of its pass, and is done after the last. One page per pull, rather than a whole calendar, keeps each transaction short on the synchronous main process and lets a run cut short (often the first sync, when the app closes) resume at the page it stopped on. The cost is that an exception of a series can arrive a page before its master, which `external_event_exceptions` covers. `EventSyncer` has the details and a worked example.
 
 **Applying an item (`SyncWriter`)**
 
@@ -613,7 +662,7 @@ Reconnecting the same account later re-matches detached and removed links by `ex
 
 These are the shapes and rules every module shares. They belong in `core/integrations/types.ts` and `core/sync/types.ts`.
 
-**Normalised items.** What a provider adapter returns. Adapters map into these; `SyncWriter` only ever sees these.
+**Normalised items.** What a provider's sources return. Sources map into these; `SyncWriter` only ever sees these.
 
 ```ts
 interface ExternalTask {
@@ -635,7 +684,7 @@ interface ExternalTask {
   parentKey: string | null; // kept for display when the parent is not mirrored
   parentTitle: string | null;
   projectExternalId: string | null;
-  assignedToViewer: boolean; // false in a lookup result means "remove"
+  assignedToViewer: boolean; // false in a resolved task means "remove"
 }
 
 interface ExternalProject {
@@ -675,20 +724,20 @@ interface ExternalEvent {
 }
 ```
 
-**Cursors and config.** Stored as JSON in `external_sources`. Validate with zod on read; an unreadable cursor is treated as null and triggers a fresh initial sync.
+**Cursors and config.** Cursors are stored as JSON in `external_sources`, owned by the syncers (`core/sync/task-cursor.ts`, `core/sync/event-cursor.ts`), not the providers. Validate with zod on read; an unreadable cursor is treated as null and triggers a fresh initial sync. They kept the shape of the Linear and Google cursors they replaced, so stored cursors still parse.
 
 ```ts
-type LinearTaskCursor =
-  | { mode: 'initial'; after: string | null; maxUpdatedAt: string | null }
+type TaskCursor =
+  | { mode: 'initial'; after: string | null; maxUpdatedAt: string | null } // after: the page token
   | { mode: 'incremental'; updatedSince: string }; // ISO time, already minus the 60 s overlap
 
-interface GoogleEventCursor {
-  // keyed by calendarId; only the calendars the last pull was handed, so a deselected calendar's
-  // progress goes with the page that removes its events
+interface EventCursor {
+  // keyed by calendarId; only the calendars of the last run, so a deselected calendar's progress
+  // goes with the page that removes its events
   calendars: Record<
     string,
     {
-      syncToken: string | null; // null until the first full pass ends
+      syncToken: string | null; // the change token; null until the first full pass ends
       pageToken: string | null; // resume point inside a pass
       timeMin?: string; // a full pass's lower bound, fixed when it starts and kept while it pages
     }
@@ -698,9 +747,11 @@ interface GoogleEventCursor {
   pending?: string[];
 }
 
-type LinearTaskConfig = Record<string, never>; // nothing in v1
+type TaskConfig = Record<string, never>; // nothing in v1, and not read yet: every assigned task
+// is synced. A choice such as Linear teams would go here; TaskSyncer would parse it when a run
+// starts and pass it on in AssignedTasksQuery.
 // An events source stores no config: what it syncs is the calendars selected in the calendars
-// table, which the engine lists at the start of each run and passes to every EventSource.pull
+// table, which EventSyncer reads at the start of each run
 ```
 
 **Link metadata.** The JSON in `external_links.metadata`, by entity type.
@@ -749,7 +800,7 @@ A `detached` task never moves to `removed`; sync ignores it entirely.
 | Network failure, timeout, provider 5xx | `ProviderUnavailableError`        | End the run; exponential backoff                               |
 | One item fails to map or validate      | logged, not thrown                | Skip that item, continue the page, count it in the run summary |
 | Database error while applying a page   | rethrown                          | Page rolls back; run ends; backoff                             |
-| Google sync token expired (410)        | handled in the adapter            | Clear that calendar's token; full resync of that calendar      |
+| Google sync token expired (410)        | handled in `EventSyncer`          | Clear that calendar's token; full resync of that calendar      |
 | Encryption unavailable                 | `IntegrationAuthError` at connect | Connect refused with a message                                 |
 
 Every HTTP request has a 30-second timeout through `AbortSignal`. Mutations rejected on synced rows throw `ExternalReadOnlyError`.

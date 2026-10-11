@@ -1,13 +1,13 @@
-import { ExternalProject, ExternalTask, LinearTaskCursor } from '../../types';
-import { linearTaskCursorSchema } from '../../schema';
+import { ExternalProject, ExternalTask } from '../../types';
 import { Auth } from '../../auth';
-import { LookupOptions, LookupResult, SyncCursor, TaskPage, TaskSource } from '../provider';
 import {
-  CLOSED_ISSUE_WINDOW_MS,
-  CURSOR_OVERLAP_MS,
-  LOOKUP_BATCH_SIZE,
-  PAGE_SIZE,
-} from '../../../sync/constants';
+  AssignedTaskPage,
+  AssignedTasksQuery,
+  Resolution,
+  TaskResolution,
+  TaskSource,
+} from '../provider';
+import { LOOKUP_BATCH_SIZE, PAGE_SIZE } from '../../../sync/constants';
 import { LinearClient } from './client';
 import { toExternalProject, toExternalTask } from './mapper';
 import {
@@ -30,53 +30,54 @@ import {
   projectsByIdResponseSchema,
 } from './schema';
 
-// The viewer's assigned issues as a task source. Initial mode walks open issues and those closed
-// in the last 30 days; incremental mode walks issues updated since the cursor. Both order by
-// updatedAt and track the highest one seen, which becomes the next incremental cursor.
+// The viewer's assigned Linear issues as a task source: the queries, their filters, and the
+// mapping of what comes back. Which query a sync asks, and where it resumes, is TaskSyncer's.
 export class LinearTaskSource implements TaskSource {
-  constructor(
-    private readonly client: LinearClient,
-    private readonly now: () => Date = () => new Date(),
-  ) {}
+  constructor(private readonly client: LinearClient) {}
 
-  async pull(auth: Auth, cursor: SyncCursor | null): Promise<TaskPage> {
-    const current = this.readCursor(cursor);
+  /**
+   * One page of the viewer's assigned issues, ordered by updatedAt and including archived ones,
+   * so a trashed issue comes back and is reported in trashedIds.
+   *
+   * - closedSince: open issues at any age, plus those completed or canceled after it
+   * - changedSince: issues updated or archived after it; trashing archives an issue without
+   *   changing updatedAt, so archivedAt is checked too
+   * - neither: every assigned issue
+   */
+  async getAssignedTaskPage(auth: Auth, query: AssignedTasksQuery): Promise<AssignedTaskPage> {
     const filter =
-      current.mode === 'initial'
-        ? initialIssuesFilter(this.isoAgo(CLOSED_ISSUE_WINDOW_MS))
-        : changedIssuesFilter(current.updatedSince);
+      query.changedSince !== undefined
+        ? changedIssuesFilter(query.changedSince)
+        : query.closedSince !== undefined
+          ? initialIssuesFilter(query.closedSince)
+          : null;
 
     const { viewer } = await this.client.request(
       auth,
       ASSIGNED_ISSUES_QUERY,
-      { first: PAGE_SIZE, after: current.after ?? null, filter },
+      { first: PAGE_SIZE, after: query.pageToken ?? null, filter },
       assignedIssuesResponseSchema,
     );
     const { pageInfo, nodes } = viewer.assignedIssues;
 
     const page = mapIssues(nodes, viewer.id);
-    // the cursor's maxUpdatedAt tracks the latest change seen, archiving included
-    let maxUpdatedAt = current.maxUpdatedAt ?? null;
+    // the latest change on the page, archiving included
+    let latestChange: string | null = null;
     for (const changedAt of page.changedAts) {
-      if (maxUpdatedAt === null || changedAt > maxUpdatedAt) {
-        maxUpdatedAt = changedAt;
-      }
+      if (latestChange === null || changedAt > latestChange) latestChange = changedAt;
     }
 
-    const done = !pageInfo.hasNextPage || pageInfo.endCursor === null;
     return {
       tasks: page.tasks,
       projects: page.projects,
-      removedIds: page.trashedIds,
-      nextCursor: done
-        ? this.nextIncremental(current, maxUpdatedAt)
-        : this.nextPage(current, pageInfo.endCursor!, maxUpdatedAt),
-      done,
+      trashedIds: page.trashedIds,
       skipped: page.skipped,
+      latestChange,
+      nextPageToken: pageInfo.hasNextPage ? pageInfo.endCursor : null,
     };
   }
 
-  async listAssignedIds(auth: Auth): Promise<string[]> {
+  async listOpenAssignedTaskIds(auth: Auth): Promise<string[]> {
     const ids: string[] = [];
     let after: string | null = null;
     // one request per page; whether there is another page is only known from each response
@@ -95,45 +96,28 @@ export class LinearTaskSource implements TaskSource {
   }
 
   /**
-   * The current state of specific issues and, optionally, projects, by id. Reconcile uses it to
-   * find out what happened to items the assignment snapshot no longer lists (and to those it lists
-   * again). It writes nothing; SyncWriter decides what each result means.
+   * The current state of specific issues, by id.
    *
-   * 1. Issues: drop duplicate ids and split them into batches of LOOKUP_BATCH_SIZE, one request
-   *    each. The query passes includeArchived, so trashed and archived issues still come back and
-   *    a trashed issue can be told apart from a deleted one. The same request asks for the viewer's
-   *    id, to compare with each issue's assignee.
-   * 2. Sort each requested issue id into exactly one bucket:
-   *    - found: valid and not trashed. Mapped like a pulled issue, with assignedToViewer set from
+   * 1. Drop duplicate ids and split them into batches of LOOKUP_BATCH_SIZE, one request each. The
+   *    query passes includeArchived, so trashed and archived issues still come back and a trashed
+   *    issue can be told apart from a deleted one. The same request asks for the viewer's id, to
+   *    compare with each issue's assignee.
+   * 2. Sort each requested id into exactly one bucket:
+   *    - found: valid and not trashed. Mapped like a listed issue, with assignedToViewer set from
    *      its assignee, and its project collected
    *    - gone: not in the response (Linear leaves out ids that no longer exist), or trashed
-   *    - skipped: in the response but failed to validate. Counted, and never reported as gone, so
-   *      a schema mismatch on our side cannot make an issue look deleted
-   * 3. Projects, only for `options.projectIds`: the same batching and the same three buckets,
-   *    through the projects query. An archived project that is not trashed still exists, so it is
-   *    found.
+   *    - skipped: in the response but failed to validate. Counted, and never reported as gone
    *
-   * Returns:
-   * - tasks: the found issues. assignedToViewer false means reassigned away
-   * - projects: the found issues' projects, then the found requested projects, each once
-   * - gone, goneProjects: the ids that no longer resolve or are trashed
-   * - skipped: issues and projects that came back but could not be read
-   *
-   * Empty inputs make no request.
+   * Empty input makes no request.
    */
-  async lookup(
-    auth: Auth,
-    externalIds: string[],
-    options: LookupOptions = {},
-  ): Promise<LookupResult> {
-    const ids = [...new Set(externalIds)];
-    const tasks: ExternalTask[] = [];
+  async resolveTasks(auth: Auth, ids: string[]): Promise<TaskResolution> {
+    const found: ExternalTask[] = [];
     const projects = new Map<string, ExternalProject>();
     const gone: string[] = [];
     let skipped = 0;
 
     // 1.
-    for (const batch of batches(ids)) {
+    for (const batch of batches([...new Set(ids)])) {
       const { viewer, issues } = await this.client.request(
         auth,
         ISSUES_BY_ID_QUERY,
@@ -142,7 +126,7 @@ export class LinearTaskSource implements TaskSource {
       );
       // 2. mapIssues validates node by node, and leaves trashed issues out of page.tasks
       const page = mapIssues(issues.nodes, viewer.id);
-      tasks.push(...page.tasks);
+      found.push(...page.tasks);
       page.projects.forEach((project) => projects.set(project.externalId, project));
       skipped += page.skipped;
 
@@ -152,9 +136,20 @@ export class LinearTaskSource implements TaskSource {
       gone.push(...batch.filter((id) => !seen.has(id)));
     }
 
-    // 3.
-    const goneProjects: string[] = [];
-    for (const batch of batches([...new Set(options.projectIds ?? [])])) {
+    return { found, projects: [...projects.values()], gone, skipped };
+  }
+
+  /**
+   * The current state of specific projects, by id: the same batching and the same three buckets
+   * as resolveTasks, through the projects query. An archived project that is not trashed still
+   * exists, so it is found. Empty input makes no request.
+   */
+  async resolveProjects(auth: Auth, ids: string[]): Promise<Resolution<ExternalProject>> {
+    const found = new Map<string, ExternalProject>();
+    const gone: string[] = [];
+    let skipped = 0;
+
+    for (const batch of batches([...new Set(ids)])) {
       const response = await this.client.request(
         auth,
         PROJECTS_BY_ID_QUERY,
@@ -173,60 +168,12 @@ export class LinearTaskSource implements TaskSource {
         }
         if (parsed.data.trashed) continue;
         seen.add(parsed.data.id);
-        projects.set(parsed.data.id, toExternalProject(parsed.data));
+        found.set(parsed.data.id, toExternalProject(parsed.data));
       }
-      goneProjects.push(...batch.filter((id) => !seen.has(id)));
+      gone.push(...batch.filter((id) => !seen.has(id)));
     }
 
-    return { tasks, projects: [...projects.values()], gone, goneProjects, skipped };
-  }
-
-  private readCursor(cursor: SyncCursor | null): LinearTaskCursor {
-    const parsed = linearTaskCursorSchema.safeParse(cursor);
-    // a missing or unreadable cursor starts a fresh initial sync
-    return parsed.success ? parsed.data : { mode: 'initial', after: null, maxUpdatedAt: null };
-  }
-
-  private nextPage(
-    current: LinearTaskCursor,
-    after: string,
-    maxUpdatedAt: string | null,
-  ): LinearTaskCursor {
-    if (current.mode === 'initial') {
-      return { mode: 'initial', after, maxUpdatedAt };
-    }
-    // updatedSince stays fixed until the last page, so the walk sees a stable result set
-    return {
-      mode: 'incremental',
-      updatedSince: current.updatedSince,
-      after,
-      ...(maxUpdatedAt !== null && { maxUpdatedAt }),
-    };
-  }
-
-  // after the last page: changes since the highest updatedAt seen, minus the overlap
-  private nextIncremental(
-    current: LinearTaskCursor,
-    maxUpdatedAt: string | null,
-  ): LinearTaskCursor {
-    if (maxUpdatedAt === null) {
-      // nothing seen: keep the incremental cursor, or start from now after an empty initial sync
-      return {
-        mode: 'incremental',
-        updatedSince:
-          current.mode === 'incremental' ? current.updatedSince : this.isoAgo(CURSOR_OVERLAP_MS),
-      };
-    }
-    let since = new Date(new Date(maxUpdatedAt).getTime() - CURSOR_OVERLAP_MS).toISOString();
-    // never move the cursor backwards
-    if (current.mode === 'incremental' && since < current.updatedSince) {
-      since = current.updatedSince;
-    }
-    return { mode: 'incremental', updatedSince: since };
-  }
-
-  private isoAgo(ms: number): string {
-    return new Date(this.now().getTime() - ms).toISOString();
+    return { found: [...found.values()], gone, skipped };
   }
 }
 
@@ -237,7 +184,8 @@ interface MappedIssues {
   // ids of nodes that failed to validate or map, when the node had a readable id
   unmappedIds: string[];
   // when each valid node last changed: the later of updatedAt and archivedAt, as UTC ISO strings
-  // so they compare as text. Without archivedAt a trashed issue would be fetched again every run.
+  // so they compare as text. Without archivedAt, a sync that resumes from the latest change would
+  // fetch a trashed issue again every run.
   changedAts: string[];
   skipped: number;
 }

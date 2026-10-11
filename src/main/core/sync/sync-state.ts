@@ -5,9 +5,10 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { toSource } from '../integrations/service';
 import { ExternalSource, IntegrationStatus, Provider, SourceType } from '../integrations/types';
 import { NotFoundError } from '../shared/errors';
+import { SyncSkipReason } from './types';
 
 // What the sync engine needs to start a run: the source's stored state and its integration's.
-// The cursor and config are the raw JSON; the engine validates them.
+// The cursor is the raw JSON; the engine validates it with the syncer's schema.
 export interface SyncTarget {
   integrationId: IntegrationId;
   provider: Provider;
@@ -15,9 +16,22 @@ export interface SyncTarget {
   sourceType: SourceType;
   enabled: boolean;
   cursor: unknown;
-  config: unknown;
   initialSyncCompletedAt: Date | null;
   retryAt: Date | null;
+}
+
+// Why nothing may ask the provider for a source now, or null when it may: the source or its
+// integration is off, the integration needs re-authentication, or the provider's retry time from a
+// rate-limited run has not passed. A run is skipped for it, and so is any other call for the
+// source, such as a reattach.
+export function syncSkipReason(target: SyncTarget, now: Date): SyncSkipReason | null {
+  if (target.status === IntegrationStatus.NEEDS_REAUTH) return SyncSkipReason.NEEDS_REAUTH;
+  if (target.status === IntegrationStatus.DISABLED) return SyncSkipReason.INTEGRATION_DISABLED;
+  if (!target.enabled) return SyncSkipReason.SOURCE_DISABLED;
+  if (target.retryAt && target.retryAt.getTime() > now.getTime()) {
+    return SyncSkipReason.RATE_LIMITED;
+  }
+  return null;
 }
 
 // how a sync run ended, as recorded on its source
@@ -65,7 +79,6 @@ export class SyncStateManager {
         sourceType: externalSources.sourceType,
         enabled: externalSources.enabled,
         cursor: externalSources.cursor,
-        config: externalSources.config,
         initialSyncCompletedAt: externalSources.initialSyncCompletedAt,
         retryAt: externalSources.retryAt,
       })

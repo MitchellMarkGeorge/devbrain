@@ -4,7 +4,7 @@ import { OAuthConfig } from '../../oauth/types';
 import { OAuthClientCredentials, oauthClientFor } from '../oauth-clients';
 import { ExternalAccount, FetchFn, Provider } from '../provider';
 import { GoogleCalendarClient } from './client';
-import { GoogleEventSource } from './events';
+import { GoogleCalendarSource } from './calendars';
 
 export const AUTHORIZE_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 export const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -61,7 +61,7 @@ export function createGoogleCalendarProvider(options: GoogleCalendarProviderOpti
     authMethods: oauth ? [AuthType.OAUTH] : [],
     ...(oauth && { oauth }),
     getAccount: (auth) => getAccount(client, auth),
-    events: new GoogleEventSource(client, options.now),
+    calendars: new GoogleCalendarSource(client),
   };
 }
 

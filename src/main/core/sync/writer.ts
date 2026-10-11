@@ -26,7 +26,6 @@ import {
   isNull,
   lt,
   notExists,
-  notInArray,
   or,
   sql,
   SQLWrapper,
@@ -58,7 +57,6 @@ import {
   EventPageItems,
   ReattachSummary,
   ReconcileItems,
-  ReconcilePlan,
   SyncEntityType,
   SyncSummary,
   TaskPageItems,
@@ -84,7 +82,7 @@ export class SyncWriter {
 
   /**
    * Applies one page: projects first, then tasks parents first, then removals. A task no longer
-   * assigned to the viewer (from a lookup) is removed like one in `removedIds`.
+   * assigned to the viewer (from TaskSource.resolveTasks) is removed like one in `removedIds`.
    */
   applyTaskPage(sourceId: ExternalSourceId, page: TaskPageItems): SyncSummary {
     return this.db.transaction((tx) => {
@@ -100,71 +98,9 @@ export class SyncWriter {
   }
 
   /**
-   * What a reconcile pass has to look up, given the ids of the open items assigned to the viewer
-   * now. Reads only.
-   *
-   * - candidates: watched links (synced, not settled, task still open locally) missing from the
-   *   snapshot, so reassigned, deleted or trashed since the last run, or closed in a way the
-   *   incremental query has not seen yet
-   * - returning: snapshot ids with no synced link: a `removed` link (e.g. restored from the trash,
-   *   which leaves updatedAt alone) or none yet. A detached link is the user's own and is skipped
-   * - projectIds: this source's synced projects, so one deleted in the provider is noticed
-   */
-  planReconcile(sourceId: ExternalSourceId, assignedIds: string[]): ReconcilePlan {
-    const assigned = new Set(assignedIds);
-    // served by idx_external_links_source_id_state, then the tasks primary key
-    const watched = this.db
-      .select({ externalId: externalLinks.externalId })
-      .from(externalLinks)
-      .innerJoin(tasks, eq(tasks.id, externalLinks.taskId))
-      .where(
-        and(
-          eq(externalLinks.sourceId, sourceId),
-          eq(externalLinks.state, LinkState.SYNCED),
-          isNull(externalLinks.settledAt),
-          notInArray(tasks.status, CLOSED_STATUSES),
-        ),
-      )
-      .all();
-    const candidates = watched
-      .map((link) => link.externalId)
-      .filter((externalId) => !assigned.has(externalId));
-
-    // the snapshot's links, by uq_external_links_source_external_id
-    const known = new Map<string, LinkState>();
-    for (const batch of chunks([...assigned])) {
-      const links = this.db
-        .select({ externalId: externalLinks.externalId, state: externalLinks.state })
-        .from(externalLinks)
-        .where(and(eq(externalLinks.sourceId, sourceId), inArray(externalLinks.externalId, batch)))
-        .all();
-      links.forEach((link) => known.set(link.externalId, link.state));
-    }
-    const returning = [...assigned].filter((externalId) => {
-      const state = known.get(externalId);
-      return state === undefined || state === LinkState.REMOVED;
-    });
-
-    // served by idx_external_links_source_id_state
-    const projectLinks = this.db
-      .select({ externalId: externalLinks.externalId })
-      .from(externalLinks)
-      .where(
-        and(
-          eq(externalLinks.sourceId, sourceId),
-          eq(externalLinks.state, LinkState.SYNCED),
-          isNotNull(externalLinks.projectId),
-        ),
-      )
-      .all();
-
-    return { candidates, returning, projectIds: projectLinks.map((link) => link.externalId) };
-  }
-
-  /**
    * Applies a reconcile pass, in one transaction, in this order:
    *
-   * 1. The lookup, as a page: found and still assigned is upserted (a completion, or a restore of
+   * 1. What the pass resolved, as a page: found and still assigned is upserted (a completion, or a restore of
    *    a removed link); reassigned or gone is removed.
    * 2. Settle: synced task links closed before `settleBefore` stop being watched.
    * 3. Project lifecycle, on the state after 1: a synced project that is gone, or has no synced
@@ -1216,19 +1152,6 @@ class PageWrite {
   private newLink() {
     return { sourceId: this.sourceId, provider: this.provider, state: LinkState.SYNCED };
   }
-}
-
-// a closed task is not watched: its issue is out of the open-assignment snapshot by design
-const CLOSED_STATUSES = [TaskStatus.COMPLETED, TaskStatus.CANCELLED];
-
-// keeps an id list under SQLite's bound-parameter limit
-const CHUNK_SIZE = 500;
-function chunks(ids: string[]): string[][] {
-  const result: string[][] = [];
-  for (let start = 0; start < ids.length; start += CHUNK_SIZE) {
-    result.push(ids.slice(start, start + CHUNK_SIZE));
-  }
-  return result;
 }
 
 /** what an update writes to a link besides its fields: synced again, and watched again */

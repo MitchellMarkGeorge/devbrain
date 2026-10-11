@@ -1,23 +1,25 @@
 import { describe, it, expect } from 'vitest';
-import { GoogleCalendarClient } from '../../../integrations/providers/google-calendar/client';
-import { GoogleEventSource } from '../../../integrations/providers/google-calendar/events';
-import { EventPage } from '../../../integrations/providers/provider';
-import { ExternalCalendar, GoogleEventCursor } from '../../../integrations/types';
-import { EVENT_HISTORY_WINDOW_MS } from '../../../sync/constants';
-import { RateLimitError } from '../../../shared/errors';
-import { MIRRORED_EVENT_TYPES } from '../../../integrations/providers/google-calendar/requests';
-import { eventsPage, scriptedFetch } from './fake-fetch';
-import calendarListFixture from '../fixtures/google-calendar/calendar-list.json';
-import timedFixture from '../fixtures/google-calendar/event-timed.json';
-import allDayFixture from '../fixtures/google-calendar/event-all-day.json';
-import masterFixture from '../fixtures/google-calendar/event-recurring-master.json';
-import cancelledInstanceFixture from '../fixtures/google-calendar/event-cancelled-instance.json';
-import modifiedInstanceFixture from '../fixtures/google-calendar/event-modified-instance.json';
-import declinedFixture from '../fixtures/google-calendar/event-declined.json';
-import meetFixture from '../fixtures/google-calendar/event-meet-link.json';
-import cancelledFixture from '../fixtures/google-calendar/event-cancelled.json';
-import expiredFixture from '../fixtures/google-calendar/error-sync-token-expired.json';
-import rateLimitedFixture from '../fixtures/google-calendar/error-rate-limited.json';
+import { createGoogleCalendarProvider } from '../../integrations/providers/google-calendar';
+import { ChangeTokenExpiredError } from '../../integrations/providers/provider';
+import { ExternalCalendar } from '../../integrations/types';
+import { EventSyncer } from '../../sync/event-syncer';
+import { EventCursor } from '../../sync/event-cursor';
+import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { SyncWriter } from '../../sync/writer';
+import { EventSyncPage } from '../../sync/types';
+import { EVENT_HISTORY_WINDOW_MS } from '../../sync/constants';
+import { RateLimitError } from '../../shared/errors';
+import { MIRRORED_EVENT_TYPES } from '../../integrations/providers/google-calendar/requests';
+import { eventsPage, scriptedFetch } from '../integrations/google-calendar/fake-fetch';
+import timedFixture from '../integrations/fixtures/google-calendar/event-timed.json';
+import allDayFixture from '../integrations/fixtures/google-calendar/event-all-day.json';
+import meetFixture from '../integrations/fixtures/google-calendar/event-meet-link.json';
+import expiredFixture from '../integrations/fixtures/google-calendar/error-sync-token-expired.json';
+import rateLimitedFixture from '../integrations/fixtures/google-calendar/error-rate-limited.json';
+
+// EventSyncer's queue of calendars, per-calendar progress and expired change tokens, through the
+// real Google source and a scripted fetch, so each cursor is checked against the requests it
+// makes. Starting a run and applying pages are covered by the engine tests.
 
 const AUTH = { authorization: 'Bearer access-token' };
 const PRIMARY = 'ada@example.com';
@@ -25,7 +27,6 @@ const TEAM = 'c_team0123456789@group.calendar.google.com';
 const NOW = new Date('2026-10-09T12:00:00Z');
 const TIME_MIN = new Date(NOW.getTime() - EVENT_HISTORY_WINDOW_MS).toISOString();
 
-const CALENDARS = { body: calendarListFixture };
 // the calendars a run passes in, as the engine listed them
 const PRIMARY_CALENDAR: ExternalCalendar = {
   id: PRIMARY,
@@ -42,9 +43,11 @@ const TEAM_CALENDAR: ExternalCalendar = {
   timeZone: 'America/New_York',
 };
 
+// pulls only: nothing here starts a run or applies a page
 function source(steps: Parameters<typeof scriptedFetch>[0], now = () => NOW) {
   const fetch = scriptedFetch(steps);
-  const events = new GoogleEventSource(new GoogleCalendarClient({ fetch, now }), now);
+  const calendars = createGoogleCalendarProvider({ fetch, now, client: null }).calendars!;
+  const events = new EventSyncer({} as BetterSQLite3Database, {} as SyncWriter, calendars, now);
   return { fetch, events };
 }
 
@@ -68,7 +71,7 @@ function eventRequests(fetch: ReturnType<typeof scriptedFetch>) {
 
 const FULL = { singleEvents: 'false', showDeleted: 'true', maxResults: '250' };
 
-describe('Google Calendar events — pull', () => {
+describe('EventSyncer — pull', () => {
   it('gives a new calendar a full pass from 30 days back, asking Google for its events only', async () => {
     const { fetch, events } = source([
       { body: eventsPage([timedFixture, allDayFixture], { nextSyncToken: 'sync-1' }) },
@@ -90,7 +93,7 @@ describe('Google Calendar events — pull', () => {
   });
 
   it('sends only the sync token on the next run', async () => {
-    const cursor: GoogleEventCursor = {
+    const cursor: EventCursor = {
       calendars: { [PRIMARY]: { syncToken: 'sync-1', pageToken: null } },
     };
     const { fetch, events } = source([{ body: eventsPage([], { nextSyncToken: 'sync-2' }) }]);
@@ -138,7 +141,7 @@ describe('Google Calendar events — pull', () => {
   });
 
   it('keeps the sync token while an incremental pass pages', async () => {
-    const cursor: GoogleEventCursor = {
+    const cursor: EventCursor = {
       calendars: { [PRIMARY]: { syncToken: 'sync-1', pageToken: null } },
     };
     const { fetch, events } = source([
@@ -185,7 +188,7 @@ describe('Google Calendar events — pull', () => {
   });
 
   it('gives an added calendar a full pass while the others stay incremental', async () => {
-    const cursor: GoogleEventCursor = {
+    const cursor: EventCursor = {
       calendars: { [PRIMARY]: { syncToken: 'primary-1', pageToken: null } },
     };
     const { fetch, events } = source([
@@ -204,7 +207,7 @@ describe('Google Calendar events — pull', () => {
   });
 
   it('drops a deselected calendar from the cursor', async () => {
-    const cursor: GoogleEventCursor = {
+    const cursor: EventCursor = {
       calendars: {
         [PRIMARY]: { syncToken: 'primary-1', pageToken: null },
         [TEAM]: { syncToken: 'team-1', pageToken: null },
@@ -221,7 +224,7 @@ describe('Google Calendar events — pull', () => {
 
   it('passes over a pending calendar that is no longer passed in, and drops its entry', async () => {
     // a run that stopped before the team calendar, which has since been deselected or unshared
-    const cursor: GoogleEventCursor = {
+    const cursor: EventCursor = {
       calendars: {
         [PRIMARY]: { syncToken: 'primary-1', pageToken: null },
         [TEAM]: { syncToken: 'team-1', pageToken: null },
@@ -237,6 +240,28 @@ describe('Google Calendar events — pull', () => {
     expect(page.nextCursor).toEqual({
       calendars: { [PRIMARY]: { syncToken: 'primary-2', pageToken: null } },
     });
+  });
+
+  it("gives an event with no zone of its own, nor on the page, the calendar's listed zone", async () => {
+    const { start, end, ...rest } = timedFixture;
+    const floating = {
+      ...rest,
+      start: { dateTime: start.dateTime },
+      end: { dateTime: end.dateTime },
+    };
+    const withZone = {
+      ...timedFixture,
+      id: 'zoned',
+      start: { ...start, timeZone: 'Europe/Paris' },
+    };
+    const { events } = source([
+      { body: { ...eventsPage([floating, withZone]), timeZone: undefined } },
+    ]);
+    const listed = { ...PRIMARY_CALENDAR, timeZone: 'Asia/Tokyo' };
+
+    const page = await events.pull(AUTH, null, [listed]);
+
+    expect(page.events.map((event) => event.timeZone)).toEqual(['Asia/Tokyo', 'Europe/Paris']);
   });
 
   it('is done at once with nothing selected', async () => {
@@ -287,44 +312,11 @@ describe('Google Calendar events — pull', () => {
       calendars: { [PRIMARY]: { syncToken: 'ada-1', pageToken: null } },
     });
   });
-
-  it('splits cancelled entries: an occurrence of a series, or a whole event', async () => {
-    const { events } = source([
-      {
-        body: eventsPage([
-          masterFixture,
-          cancelledInstanceFixture,
-          modifiedInstanceFixture,
-          declinedFixture,
-          cancelledFixture,
-        ]),
-      },
-    ]);
-
-    const page = await events.pull(AUTH, null, [PRIMARY_CALENDAR]);
-
-    expect(page.cancelledIds).toEqual([`${PRIMARY}:${cancelledFixture.id}`]);
-    expect(page.events.map((event) => [event.externalId, event.cancelled])).toEqual([
-      [`${PRIMARY}:${masterFixture.id}`, false],
-      [`${PRIMARY}:${cancelledInstanceFixture.id}`, true],
-      [`${PRIMARY}:${modifiedInstanceFixture.id}`, false],
-      [`${PRIMARY}:${declinedFixture.id}`, false],
-    ]);
-  });
-
-  it('skips and counts an entry that does not validate, keeping the rest', async () => {
-    const { events } = source([
-      { body: eventsPage([{ summary: 'no id' }, { ...timedFixture, start: {} }, allDayFixture]) },
-    ]);
-    const page = await events.pull(AUTH, null, [PRIMARY_CALENDAR]);
-    expect(page.skipped).toBe(2);
-    expect(page.events.map((event) => event.title)).toEqual(['Team offsite']);
-  });
 });
 
-describe('Google Calendar events — expired sync token', () => {
+describe('EventSyncer — expired change token', () => {
   it('clears only that calendar and walks it again from the time bound', async () => {
-    const cursor: GoogleEventCursor = {
+    const cursor: EventCursor = {
       calendars: {
         [PRIMARY]: { syncToken: 'primary-1', pageToken: null },
         [TEAM]: { syncToken: 'team-1', pageToken: null },
@@ -338,7 +330,7 @@ describe('Google Calendar events — expired sync token', () => {
     const calendars = [PRIMARY_CALENDAR, TEAM_CALENDAR];
 
     const first = await events.pull(AUTH, cursor, calendars);
-    const second: EventPage = await events.pull(AUTH, first.nextCursor, calendars);
+    const second: EventSyncPage = await events.pull(AUTH, first.nextCursor, calendars);
 
     expect(eventRequests(fetch)).toEqual([
       { calendarId: PRIMARY, params: { ...FULL, syncToken: 'primary-1' } },
@@ -355,7 +347,7 @@ describe('Google Calendar events — expired sync token', () => {
   });
 
   it('restarts a full pass whose page token expired', async () => {
-    const cursor: GoogleEventCursor = {
+    const cursor: EventCursor = {
       calendars: {
         [PRIMARY]: { syncToken: null, pageToken: 'stale', timeMin: '2026-09-01T00:00:00.000Z' },
       },
@@ -370,7 +362,7 @@ describe('Google Calendar events — expired sync token', () => {
   });
 
   it('gives up on a second 410 in a row', async () => {
-    const cursor: GoogleEventCursor = {
+    const cursor: EventCursor = {
       calendars: { [PRIMARY]: { syncToken: 'primary-1', pageToken: null } },
     };
     const { events } = source([
@@ -378,32 +370,12 @@ describe('Google Calendar events — expired sync token', () => {
       { status: 410, body: expiredFixture },
     ]);
     await expect(events.pull(AUTH, cursor, [PRIMARY_CALENDAR])).rejects.toThrow(
-      'sync token expired',
+      ChangeTokenExpiredError,
     );
   });
 
   it('lets other failures through, e.g. a rate limit', async () => {
     const { events } = source([{ status: 403, body: rateLimitedFixture }]);
     await expect(events.pull(AUTH, null, [PRIMARY_CALENDAR])).rejects.toThrow(RateLimitError);
-  });
-});
-
-describe('Google Calendar events — calendars', () => {
-  it('lists the calendars the account can read', async () => {
-    const { events } = source([CALENDARS]);
-    const calendars = await events.listExternalCalendars(AUTH);
-    expect(calendars.map((calendar) => [calendar.id, calendar.primary])).toEqual([
-      [PRIMARY, true],
-      [TEAM, false],
-      ['en.usa#holiday@group.v.calendar.google.com', false],
-    ]);
-  });
-
-  it('marks the primary calendar, which a new connection selects', async () => {
-    const { events } = source([CALENDARS]);
-    const calendars = await events.listExternalCalendars(AUTH);
-    expect(calendars.filter((calendar) => calendar.primary).map((calendar) => calendar.id)).toEqual(
-      [PRIMARY],
-    );
   });
 });

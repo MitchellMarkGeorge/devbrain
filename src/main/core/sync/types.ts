@@ -1,14 +1,57 @@
 import { ExternalSourceId, TaskId } from '@common/ids';
-import type { EventPage, LookupResult, TaskPage } from '../integrations/providers/provider';
+import type { ExternalEvent, ExternalProject, ExternalTask } from '../integrations/types';
+import type { EventCursor } from './event-cursor';
+import type { TaskCursor } from './task-cursor';
 
-// what SyncWriter.applyTaskPage takes: the items of a pulled page, or of a lookup result
-export type TaskPageItems = Pick<TaskPage, 'projects' | 'tasks' | 'removedIds'>;
+// a source's cursor, as its syncer stores it on external_sources; opaque to the engine
+export type SyncCursor = TaskCursor | EventCursor;
 
-// what SyncWriter.applyReconcile takes: a reconcile pass's lookup result, empty when nothing was
-// looked up
-export type ReconcileItems = Pick<LookupResult, 'tasks' | 'projects' | 'gone' | 'goneProjects'>;
+// what every page of a run has, whatever its type
+export interface SyncPage {
+  // saved with the page, in the transaction that applies it
+  nextCursor: SyncCursor;
+  done: boolean;
+  // items that failed to validate or map, counted in the run summary
+  skipped: number;
+}
 
-// What a reconcile pass looks up, from SyncWriter.planReconcile. It compares the provider's
+// a page of a tasks source's run: one AssignedTaskPage from the provider, with where the run goes
+// next
+export interface TaskSyncPage extends SyncPage {
+  tasks: ExternalTask[];
+  // the projects of the page's tasks, each once
+  projects: ExternalProject[];
+  // items in scope that the provider reports as gone, e.g. trashed
+  removedIds: string[];
+}
+
+// a page of an events source's run: one CalendarEventPage from the provider, naming its calendar,
+// with where the run goes next
+export interface EventSyncPage extends SyncPage {
+  // the provider's id of the calendar this page came from, one of the run's; null when there was
+  // nothing to fetch
+  calendarExternalId: string | null;
+  events: ExternalEvent[];
+  cancelledIds: string[];
+}
+
+// what SyncWriter.applyTaskPage takes: the items of a pulled page, or of resolved tasks
+export type TaskPageItems = Pick<TaskSyncPage, 'projects' | 'tasks' | 'removedIds'>;
+
+// what SyncWriter.applyReconcile takes: what a reconcile pass resolved, empty when it resolved
+// nothing
+export interface ReconcileItems {
+  // a task with assignedToViewer false has been reassigned and should be removed
+  tasks: ExternalTask[];
+  // the projects of the found tasks, and the requested projects that resolved, each once
+  projects: ExternalProject[];
+  // task ids that no longer resolve, or resolve to a trashed task
+  gone: string[];
+  // project ids that no longer resolve, or resolve to a trashed project
+  goneProjects: string[];
+}
+
+// What a reconcile pass looks up, from TaskReconciler's planReconcile. It compares the provider's
 // snapshot of open items assigned to the user with the source's links. Every entry is an external
 // id (`external_links.externalId`, the provider's own id), not a DevBrain id or a display key.
 export interface ReconcilePlan {
@@ -25,7 +68,14 @@ export interface ReconcilePlan {
 }
 
 // what SyncWriter.applyEventPage takes: the items of a pulled page
-export type EventPageItems = Pick<EventPage, 'events' | 'cancelledIds'>;
+export type EventPageItems = Pick<EventSyncPage, 'events' | 'cancelledIds'>;
+
+// the electron-log methods sync uses; injected in tests
+export interface SyncLogger {
+  info(...params: unknown[]): void;
+  warn(...params: unknown[]): void;
+  error(...params: unknown[]): void;
+}
 
 // the entity types a write touched, so the renderer refetches only those queries
 export type SyncEntityType = 'task' | 'project' | 'event' | 'calendar';
@@ -107,7 +157,7 @@ export interface SyncRunResult {
   retryAt?: Date;
 }
 
-// why SyncEngine.reattachTasks wrote nothing, beyond the reasons a run is skipped for
+// why TaskReconciler.reattachTasks wrote nothing, beyond the reasons a run is skipped for
 export enum ReattachRefusal {
   // the issue no longer resolves, or resolves to a trashed one
   GONE = 'gone',
@@ -115,7 +165,7 @@ export enum ReattachRefusal {
   UNASSIGNED = 'unassigned',
   // the issue resolves but could not be mapped
   UNREADABLE = 'unreadable',
-  // the task's link was no longer detached by the time the lookup came back
+  // the task's link was no longer detached by the time the provider answered
   CHANGED = 'changed',
 }
 
@@ -127,7 +177,7 @@ export interface ReattachSummary extends SyncSummary {
   promoted: TaskId[];
 }
 
-// what SyncEngine.reattachTasks did; nothing is written unless ok
+// what TaskReconciler.reattachTasks did; nothing is written unless ok
 export type ReattachResult =
   | { ok: true; summary: ReattachSummary }
   | { ok: false; reason: SyncSkipReason | ReattachRefusal };

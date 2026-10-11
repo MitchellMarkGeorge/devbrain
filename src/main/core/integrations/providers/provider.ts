@@ -4,24 +4,27 @@ import {
   ExternalEvent,
   ExternalProject,
   ExternalTask,
-  GoogleEventCursor,
-  LinearTaskConfig,
-  LinearTaskCursor,
   Provider as ProviderId,
   SourceType,
 } from '../types';
 import { Auth } from '../auth';
 import { OAuthConfig } from '../oauth/types';
 
-// The provider contract. Adapters are pure with respect to the database: they return normalised
-// items and the engine decides what to write. Implementations are looked up through the registry in
-// ./registry.
+// The provider contract: each provider in DevBrain's terms. Implementations are looked up through
+// the registry in ./registry.
 //
-// Adapters are also stateless. The registry holds one instance of each provider for the whole app,
-// shared by every account connected to it and by runs that may interleave, so a call must work only
-// from its arguments (auth, cursor, and what the engine hands it) and keep nothing between calls:
-// no cache, no per-run field. Progress that has to outlive a call goes in the returned cursor, which
-// the engine stores and hands back; anything else a run needs is passed in by the engine.
+// Three layers make up a provider:
+// - its client (LinearClient, GoogleCalendarClient): HTTP, auth headers, rate limits, errors and
+//   response schemas
+// - its sources (TaskSource, CalendarSource): queries in, normalised items out. A source knows
+//   nothing of sync: no cursors, no modes, no run state, and it never touches the database. So a
+//   source can serve anything that needs the provider, not only sync
+// - the syncers in ../../sync, which keep DevBrain's copy current: cursors, modes, windows,
+//   reconcile and calendar selection, built on these calls
+//
+// Sources are also stateless. The registry holds one instance of each provider for the whole app,
+// shared by every account connected to it and by calls that may interleave, so a call must work
+// only from its arguments and keep nothing between calls: no cache, no per-account field.
 
 // who a credential belongs to, from the provider's own account query
 export interface ExternalAccount {
@@ -33,99 +36,99 @@ export interface ExternalAccount {
   userId: string;
 }
 
-// opaque to the engine: stored as JSON and handed back on the next call
-export type SyncCursor = LinearTaskCursor | GoogleEventCursor;
-export type SourceConfig = LinearTaskConfig;
+// what to ask for in one page of the viewer's assigned tasks; at most one of the two filters
+export interface AssignedTasksQuery {
+  // only tasks changed after this (an edit, or archiving, which some providers do on trashing)
+  changedSince?: string;
+  // open tasks, plus those closed after this
+  closedSince?: string;
+  // from the previous page's nextPageToken; absent for the first page
+  pageToken?: string;
+}
 
-export interface TaskPage {
+export interface AssignedTaskPage {
+  // the page's tasks, trashed ones left out
   tasks: ExternalTask[];
-  // the projects of the page's tasks, each once
+  // the page's tasks' projects, each once
   projects: ExternalProject[];
-  // items in scope that the provider reports as gone, e.g. trashed
-  removedIds: string[];
-  nextCursor: SyncCursor;
-  done: boolean;
-  // items that failed to validate or map; left out of the page and counted in the run summary
+  // tasks on the page that the provider reports as trashed
+  trashedIds: string[];
+  // items that failed to validate or map; left out of the page
   skipped: number;
+  // the latest change on the page, as an ISO string: the later of each task's updatedAt and its
+  // archivedAt, as archiving counts; null for a page with nothing readable
+  latestChange: string | null;
+  // the token for the next page; null on the last
+  nextPageToken: string | null;
 }
 
-export interface LookupOptions {
-  // containers to check as well, such as Linear projects; what resolves comes back in `projects`
-  projectIds?: string[];
-}
-
-export interface LookupResult {
-  // a task with assignedToViewer false has been reassigned and should be removed
-  tasks: ExternalTask[];
-  // the projects of the found tasks, and the requested projects that resolved, each once
-  projects: ExternalProject[];
-  // ids that no longer resolve, or resolve to a trashed item
+// ids sorted into what they resolve to
+export interface Resolution<T> {
+  // valid and not trashed
+  found: T[];
+  // missing, or trashed
   gone: string[];
-  // requested project ids that no longer resolve, or resolve to a trashed project
-  goneProjects: string[];
+  // came back but failed to validate: never reported as gone, so a schema mismatch on our side
+  // cannot make an item look deleted
   skipped: number;
+}
+
+export interface TaskResolution extends Resolution<ExternalTask> {
+  // the found tasks' projects, each once
+  projects: ExternalProject[];
 }
 
 export interface TaskSource {
-  // One page per call; a null or unreadable cursor starts a fresh initial sync.
-  //
-  // `config` is the source's settings from external_sources.config: what the user chose to sync,
-  // as opposed to the cursor, which is where the last run stopped. No task provider reads it in v1
-  // (Linear syncs every issue assigned to the viewer, so its config is empty), and an
-  // implementation may leave the parameter off. It is part of the contract so a provider that
-  // needs a choice from the user can take one without changing the engine, for example:
-  // - Linear: only issues from the teams the user picks
-  // - GitHub issues: only the repositories the user picks
-  // Events sources are told what to sync the same way, as the selected calendars, which the engine
-  // reads from the calendars table.
-  //
-  // Stateless, like every adapter call: see the note at the top of this file.
-  pull(auth: Auth, cursor: SyncCursor | null, config: SourceConfig): Promise<TaskPage>;
-  // ids of open items currently assigned to the user (id field only)
-  listAssignedIds(auth: Auth): Promise<string[]>;
-  // current state of specific items, and of the projects in `options`; ids that no longer resolve
-  // are gone
-  lookup(auth: Auth, externalIds: string[], options?: LookupOptions): Promise<LookupResult>;
+  // One page of the viewer's assigned tasks matching the query, in the order they last changed.
+  // A provider that lets the user choose what to sync (Linear teams, GitHub repositories) would
+  // take that choice as part of the query.
+  getAssignedTaskPage(auth: Auth, query: AssignedTasksQuery): Promise<AssignedTaskPage>;
+  // ids of the viewer's open assigned tasks, across every page
+  listOpenAssignedTaskIds(auth: Auth): Promise<string[]>;
+  // each id sorted into found, gone (missing or trashed) or unreadable, plus the found tasks'
+  // projects. A found task with assignedToViewer false has been reassigned. Empty input makes no
+  // request.
+  resolveTasks(auth: Auth, ids: string[]): Promise<TaskResolution>;
+  // the same for projects. An archived project that is not trashed still exists, so it is found.
+  // Empty input makes no request.
+  resolveProjects(auth: Auth, ids: string[]): Promise<Resolution<ExternalProject>>;
 }
 
-export interface EventPage {
-  // the provider's id of the calendar this page came from, one of those passed to pull; null when
-  // there was nothing to pull
-  calendarExternalId: string | null;
+// a calendar's change token is no longer accepted (nor, with it, a page token of its pass): the
+// calendar must be walked again from the start
+export class ChangeTokenExpiredError extends Error {
+  constructor() {
+    super('Calendar change token expired');
+    this.name = 'ChangeTokenExpiredError';
+  }
+}
+
+// one page of a calendar's events: everything from `from` on (a full pass), or the changes since
+// `changeToken`, which the last page of an earlier pass handed out
+export type EventsQuery = ({ from: string } | { changeToken: string }) & { pageToken?: string };
+
+export interface CalendarEventPage {
   // live events, plus cancelled instances of a series (cancelled set, carrying their master's id
-  // and original start), which take an occurrence out of the master
+  // and original start), which take an occurrence out of the master. An event's timeZone is its
+  // own, else the calendar's as the page gives it; null when neither says
   events: ExternalEvent[];
   // events and whole series the provider reports as cancelled or deleted
   cancelledIds: string[];
-  nextCursor: SyncCursor;
-  done: boolean;
-  // items that failed to validate or map; left out of the page and counted in the run summary
+  // items that failed to validate or map; left out of the page
   skipped: number;
+  // the token for the next page of this pass; null on the last
+  nextPageToken: string | null;
+  // set on the last page of a pass only: the token to ask for the changes after it
+  changeToken: string | null;
 }
 
-export interface EventSource {
-  // One page of one calendar per call, visiting `calendars` (the calendars to sync: those the user
-  // selected that the account still lists, as the engine listed them at the start of the run) in
-  // that order; done once every one has been walked to its end. The caller passes each page's
-  // nextCursor to the next call, and commits the page with it, so a run cut short resumes at the
-  // page it stopped on. A null or unreadable cursor starts every calendar with a full pass. Unlike
-  // tasks there is no reconcile: the provider's feed reports deletions. GoogleEventSource has the
-  // details.
-  //
-  // Stateless, like every adapter call: the calendars come in as an argument on every call, never
-  // from an earlier one. See the note at the top of this file.
-  //
-  // The next cursor keeps progress only for the calendars passed in. That is how a deselected
-  // calendar's progress goes: EventSyncer removes its events in the transaction that saves the
-  // next cursor of a pull it was not passed to, so selecting it again starts it over with a full
-  // pass that brings its events back.
-  pull(auth: Auth, cursor: SyncCursor | null, calendars: ExternalCalendar[]): Promise<EventPage>;
-  // The calendars the account can read, as the provider has them now: asked of the provider on every
-  // call, never read from DevBrain's calendars table. Each carries the provider's id, name, colour,
-  // zone and whether it is the account's primary calendar. EventSyncer lists them at the start of
-  // every run and stores them as rows of the calendars table (SyncWriter.applyCalendarList); a
-  // source's first listing selects the primary one.
-  listExternalCalendars(auth: Auth): Promise<ExternalCalendar[]>;
+export interface CalendarSource {
+  // The calendars the account can read, as the provider has them now, with the provider's id,
+  // name, colour, zone and whether it is the account's primary calendar.
+  listCalendars(auth: Auth): Promise<ExternalCalendar[]>;
+  // One page of a calendar's events. Throws ChangeTokenExpiredError when the change token (or the
+  // page token) is no longer accepted.
+  getEventPage(auth: Auth, calendarId: string, query: EventsQuery): Promise<CalendarEventPage>;
 }
 
 export interface Provider {
@@ -139,7 +142,7 @@ export interface Provider {
   oauth?: OAuthConfig;
   getAccount(auth: Auth): Promise<ExternalAccount>;
   tasks?: TaskSource;
-  events?: EventSource;
+  calendars?: CalendarSource;
 }
 
 // shared with the OAuth client, which may not import from providers/

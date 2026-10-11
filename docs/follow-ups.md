@@ -42,7 +42,7 @@ Two smaller points about the same events:
 
 _Found in feature 10 (PR #15)._
 
-`IntegrationService` and `SyncEngine` each take the `ProviderRegistry` and the `CredentialStore` in their options. The service keeps both private, so the engine was given its own references rather than widening the service's API. Nothing guarantees the two were handed the same registry: if they were not, an integration would be connected through one provider and synced through another. The engine tests already build two separate registries (`fakeRegistry(...)` is called once for each), which only works because both hold the same provider object.
+`IntegrationService`, `SyncEngine` and `TaskReconciler` each take the `ProviderRegistry` and the `CredentialStore` in their options. The service keeps both private, so the engine was given its own references rather than widening the service's API. Nothing guarantees the two were handed the same registry: if they were not, an integration would be connected through one provider and synced through another. The engine tests already build two separate registries (`fakeRegistry(...)` is called once for each), which only works because both hold the same provider object.
 
 Options:
 
@@ -56,20 +56,19 @@ _Found in feature 10 (PR #15)._
 
 `SyncMode`, `SyncRunOutcome` and `SyncSkipReason` in `src/main/core/sync/types.ts` are string enums, matching `Provider`, `SourceType` and the other enums in `src/main/core/integrations/types.ts`. `SyncEntityType` (`'task' | 'project' | 'event' | 'calendar'`) in the same file is still a union. It comes from the writer (feature 9), so converting it means changing `src/main/core/sync/writer.ts` and its tests too. The values would stay the same, so progress events and anything forwarding them are unaffected.
 
-### Share the gate and the lookup-and-apply path in `SyncEngine`
+### Share the auth path and the resolve-and-apply path for tasks
 
-_Found in feature 12 (PR #17). Worth doing before another engine entry point is added, such as a per-task refresh._
+_Found in feature 12 (PR #17). Narrowed when reconcile and reattach moved into `TaskReconciler`. Worth doing before another entry point is added, such as a per-task refresh._
 
-`SyncEngine` (`src/main/core/sync/engine.ts`) has three entry points that talk to a task provider: `runSource`, `reconcileSource` and `reattachTasks`. Each repeats the same steps:
+Three entry points talk to a task provider: `SyncEngine.runSource` and `SyncEngine.reconcileSource` (through `TaskSyncer`), and `TaskReconciler.reattachTasks` (`src/main/core/sync/task-reconciler.ts`). The gate is shared: each calls `syncSkipReason` (`src/main/core/sync/sync-state.ts`). Two steps are still repeated:
 
-- **The gate:** `getSyncTarget`, then `skipReason`, then resolve the provider's `TaskSource` or skip as unsupported.
-- **Auth:** `credentials.getAuth`, with rejected credentials moving the integration to `needs_reauth`. Runs do this through `recordFailure`. `reattachTasks` has its own `try`/`catch`.
-- **Lookup then write:** reconcile calls `lookup` and then `writer.applyReconcile`. Reattach calls `lookup` and then `writer.reattachTasks`, which moves detached links to `synced`, promotes the subtasks left detached and upserts the page.
+- **Auth:** `credentials.getAuth`. Runs move the integration to `needs_reauth` on rejected credentials through the engine's `recordFailure`; `reattachTasks` leaves that to its caller (see the next item). `reattachTasks` also resolves the provider's `TaskSource` itself.
+- **Resolve then write:** reconcile calls `resolveTasks` and `resolveProjects` and then `writer.applyReconcile`. Reattach calls `resolveTasks` and then `writer.reattachTasks`, which moves detached links to `synced`, promotes the subtasks left detached and upserts the page.
 
 Proposal:
 
-1. **A private `openTaskSource(sourceId)`** that returns `{ target, tasks }` or a `SyncSkipReason`, plus an auth helper that marks `needs_reauth` on `IntegrationAuthError`. All three entry points use it, so any new one gets the same rules for a source that is off, disabled, needs reauth, is rate limited or is unsupported.
-2. **A public `refreshTasks(sourceId, externalIds)`** that looks the issues up and applies them through `writer.applyTaskPage`, which already handles updated, reassigned and gone issues. This would be a per-task "Sync now", for example a refresh button on the task detail. It isn't in the design: "Sync now" in `docs/integrations/tech-design.md` is per source, `runSource` then `reconcileSource` behind the scheduler's manual trigger. Adding it means a line in the design and a channel in the IPC list.
+1. **One helper that opens a source for a call outside a run:** returns `{ target, tasks, auth }` or a `SyncSkipReason`, and marks `needs_reauth` on `IntegrationAuthError`. Any new entry point then gets the same rules for a source that is off, disabled, needs reauth, is rate limited or is unsupported. It could also be the `withConnection` path in "A path for provider features that are not sync" below.
+2. **A public `refreshTasks(sourceId, externalIds)`** that resolves the issues and applies them through `writer.applyTaskPage`, which already handles updated, reassigned and gone issues. This would be a per-task "Sync now", for example a refresh button on the task detail. It isn't in the design: "Sync now" in `docs/integrations/tech-design.md` is per source, `runSource` then `reconcileSource` behind the scheduler's manual trigger. Adding it means a line in the design and a channel in the IPC list.
 3. **Reattach as an option on that path:** `refreshTasks(sourceId, ids, { reattach: rootExternalId })`. The writer flips the detached links in the same transaction as the page apply. The only reattach-specific code left would be the root checks (gone, unassigned, unreadable) and the link-state change.
 
 Items 1 and 3 are refactors with no change in behaviour, covered by the existing engine, reconcile and detach tests. Item 2 is a product decision.
@@ -94,24 +93,43 @@ Feature 16b moved the calendar work out of `IntegrationService` so that services
 If any of these matters in the calendar UI, `EventSyncer` can expose two operations beside `start`, keeping both rules:
 
 - **`refreshCalendars(sourceId, auth)`**: list the account's calendars and store them with `SyncWriter.applyCalendarList`, without pulling events. One request, for the picker.
-- **`deselectCalendar(sourceId, calendarId)`**: unselect the calendar, remove its events with `SyncWriter.removeCalendarEvents` and drop its entry from the source's cursor, in one transaction. Dropping the entry needs the cursor's shape, which only the provider knows, so this needs a provider method for it. Database only, so it works offline and while the integration needs reauth.
+- **`deselectCalendar(sourceId, calendarId)`**: unselect the calendar, remove its events with `SyncWriter.removeCalendarEvents` and drop its entry from the source's cursor, in one transaction. `EventSyncer` owns the cursor's shape (`src/main/core/sync/event-cursor.ts`), so it can drop the entry itself. Database only, so it works offline and while the integration needs reauth.
 
 The picker's IPC handlers would call them through whatever owns the syncers (the engine, or the scheduler). Selecting a calendar would stay `CalendarService.setSelected` followed by a run.
 
-### Move `reconcileSource` and `reattachTasks` into `TaskSyncer`
+### Move a reattach's integration to `needs_reauth` in the typed IPC layer
 
-_Found in feature 16b._
+_Found in the source/syncer split._
 
-`SyncEngine` (`src/main/core/sync/engine.ts`) now knows no source type for runs: `TaskSyncer` and `EventSyncer` hold what differs. Its reconcile pass (`reconcileSource`, `reconcile`) and `reattachTasks` are still task-specific code on the engine, from features 10 and 12. They could become optional `Syncer` operations implemented by `TaskSyncer` (e.g. `reconcile(context)` and `reattach(context, root, descendants)`), with the engine keeping the gate, auth and outcome recording around them. That also settles most of "Share the gate and the lookup-and-apply path in `SyncEngine`" above.
+When a reattach's credentials are rejected, `TaskReconciler.reattachTasks` (`src/main/core/sync/task-reconciler.ts`) throws `IntegrationAuthError` and leaves the integration's status alone: sync no longer depends on `IntegrationService`. Nothing moves the integration to `needs_reauth` in that case for now, so a rejected key is only noticed by the next sync run (`SyncEngine` still marks it). `DetachService` is not wired into the workspace yet either.
+
+When the typed IPC layer exposes `detachTask` and `reattachTask`, its handler should catch `IntegrationAuthError` and call `IntegrationService.markNeedsReauth`, ideally through one helper shared by every handler that can reach a provider. The handler knows a task id, not an integration id, so either:
+
+1. **`IntegrationAuthError` carries the `integrationId`**, tagged where the auth was fetched (in `TaskReconciler`) without touching the integration's status. Works the same for every entry point. Recommended.
+2. **The handler looks the integration up** from the task's link (`src/main/core/integrations/refs.ts` reads links; it would also return the integration id).
+
+The same could later take `IntegrationService` out of `SyncEngine`, whose `recordFailure` marks `needs_reauth` for runs: the scheduler would do it from the run result's error instead.
+
+### Take the calendar reads out of `EventSyncer`
+
+_Found in the source/syncer split. Subject to change: the current placement is a stopgap._
+
+Syncers should not hold a database handle, but `EventSyncer` (`src/main/core/sync/event-syncer.ts`) takes one for two reads of the calendars table: which listed calendars a run syncs (`calendarsToSync`), and a calendar's row id for `SyncWriter.applyEventPage` (`rowIdOf`). They briefly lived in their own `CalendarSelection` class, which was too thin to justify on its own.
+
+Options:
+
+1. **A `SyncReader`**, the read side of `SyncWriter`: every read sync makes, namely the calendar rows and `rowIdOf` (and `TaskReconciler`'s `planReconcile`, which takes a database handle for the same reason). Syncers get a writer and a reader, never a handle, and the selection rule becomes a pure function `calendarsToSync(listed, rows)` testable without a database. Recommended.
+2. **The reads on `SyncWriter`**, with `applyEventPage` taking the calendar's external id and resolving the row itself, which removes `rowIdOf`. Fewest moving parts, but stretches the writer into all of sync's database access, and about 50 test call sites pass a `CalendarId` today.
+3. **Through `CalendarService`.** Not recommended: services are the public interface for IPC, and the rule works on provider shapes (`ExternalCalendar`).
 
 ### A path for provider features that are not sync
 
 _Found in feature 16b._
 
-Every provider feature so far is sync. Reading something on demand, such as a Linear issue's comments or a GitHub pull request's checks, has no obvious place:
+Every provider feature so far is sync. Since the source/syncer split, the sources themselves know nothing of sync: `TaskSource` and `CalendarSource` take queries and return normalised items, with cursors, modes and windows in the syncers under `src/main/core/sync/`. So a source can already serve a caller outside sync, as `scripts/linear_scratch.mts` does. Reading something on demand, such as a Linear issue's comments or a GitHub pull request's checks, still has no obvious place:
 
-- The provider contract (`src/main/core/integrations/providers/provider.ts`) has only `getAccount`, `tasks?: TaskSource` and `events?: EventSource`.
-- There is no public way to get a provider with working auth. The engine assembles it privately from the registry and `CredentialStore`, with its own needs-reauth handling.
+- The provider contract (`src/main/core/integrations/providers/provider.ts`) has only `getAccount`, `tasks?: TaskSource` and `calendars?: CalendarSource`.
+- There is no public way to get a provider with working auth. The engine and `TaskReconciler` assemble it privately from the registry and `CredentialStore`, with their own needs-reauth handling.
 
 Proposal:
 

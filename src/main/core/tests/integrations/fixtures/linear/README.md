@@ -36,18 +36,18 @@ Field names, enum values and query shapes were checked against the generated sch
 
 ## Seen on a live account
 
-- `getAccount`, initial `pull` paging and `listAssignedIds` ran cleanly against a real account: 111 open assigned issues over three pages, all valid, none skipped.
+- `getAccount`, initial-sync paging (`getAssignedTaskPage`) and `listOpenAssignedTaskIds` ran cleanly against a real account: 111 open assigned issues over three pages, all valid, none skipped.
 - `orderBy: updatedAt` returns the most recently updated issues first, across pages.
 - `endCursor` is the id of the page's last issue.
 - An issue that is not trashed has `trashed: null`, not `false`. An empty description is `""`, not `null`; the mapper stores both as null.
 - The reset headers are Unix times in milliseconds, about an hour ahead. A 50-issue page with its project costs about 670 complexity points, far under the 10,000 per query and 3,000,000 per hour.
 - The initial pull's closed window works: completed, canceled and duplicate issues closed in the last 30 days come back. Completing sets `completedAt`; canceling and marking as a duplicate both set `canceledAt`.
 - `priorityLabel` is "No priority", "Urgent", "High", "Medium" and "Low" for priorities 0 to 4.
-- With `includeArchived: true`, `assignedIssues` still returns a trashed issue, with `trashed: true` and `archivedAt` set. Trashing does **not** change `updatedAt`, so the incremental filter also checks `archivedAt`, which trashing does set; the trashed issue then comes back and is reported in `removedIds`. The reconcile lookup is the backstop, which is why `lookup` reports trashed ids as gone.
+- With `includeArchived: true`, `assignedIssues` still returns a trashed issue, with `trashed: true` and `archivedAt` set. Trashing does **not** change `updatedAt`, so the incremental filter also checks `archivedAt`, which trashing does set; the trashed issue then comes back and is reported in `trashedIds`. The reconcile pass is the backstop, which is why `resolveTasks` reports trashed ids as gone.
 - Restoring a trashed issue clears both `trashed` and `archivedAt` and also leaves `updatedAt` unchanged, so an incremental pull cannot see a restore either. The restored issue reappears in the assignment snapshot, so reconcile brings it back by also looking up snapshot ids that are not mirrored as synced (feature 11).
 - Marking an issue as a duplicate of another bumps the other issue's `updatedAt`.
-- The assignment snapshot (`listAssignedIds`, no `includeArchived`) leaves out trashed issues, as well as completed, canceled and duplicate ones. A trashed issue therefore becomes a reconcile candidate, and the lookup (with `includeArchived`) returns it with `trashed: true`, so it is reported as gone.
-- A lookup of three real ids and one random UUID returned the three issues; the unknown id was simply absent, so it is reported as gone.
+- The assignment snapshot (`listOpenAssignedTaskIds`, no `includeArchived`) leaves out trashed issues, as well as completed, canceled and duplicate ones. A trashed issue therefore becomes a reconcile candidate, and `resolveTasks` (with `includeArchived`) returns it with `trashed: true`, so it is reported as gone.
+- Resolving three real ids and one random UUID returned the three issues; the unknown id was simply absent, so it is reported as gone.
 - The `id: { in: [...] }` filter rejects a value that is not a UUID with an `Argument Validation Error`, sent with HTTP 200 and an `errors` array. Ids that come from Linear are always UUIDs; an id that no longer resolves is simply absent from the result.
 
 ## Still to confirm on a live account
