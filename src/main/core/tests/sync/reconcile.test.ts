@@ -1,3 +1,4 @@
+import { SyncStateManager } from '../../sync/sync-state';
 import { describe, it, expect, beforeEach, afterEach, vi, Mock } from 'vitest';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import fs from 'node:fs/promises';
@@ -186,6 +187,7 @@ beforeEach(async () => {
   logger = { info: vi.fn<LogFn>(), warn: vi.fn<LogFn>(), error: vi.fn<LogFn>() };
   engine = new SyncEngine(db, {
     integrations: service,
+    syncState: new SyncStateManager(db),
     credentials,
     providers: fakeRegistry(provider),
     writer: new SyncWriter(db, new SearchService(db, workspacePath)),

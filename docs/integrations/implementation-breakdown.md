@@ -378,11 +378,11 @@ The Electron-side pieces core needs in order to run inside the app. No IPC chann
 
 **Service surface the IPC work will build on.** These are the only entry points; each takes plain arguments and returns plain data.
 
-| Service                                 | Methods                                                                                                                                                                                                      |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `workspace.integrations`                | `list`, `connectWithApiKey`, `connectWithOAuth`, `reconnect`, `setEnabled`, `setSourceEnabled`, `listCalendars`, `setCalendars`, `previewDisconnect`, `disconnect`, `detachTask`, `reattachTask`, `onChange` |
-| `workspace.sync`                        | `syncNow(sourceId?)`, `getStatus()`, `onProgress`                                                                                                                                                            |
-| `workspace.tasks`, `projects`, `events` | Existing methods; reads now include `external`, mutations may throw `ExternalReadOnlyError`                                                                                                                  |
+| Service                                 | Methods                                                                                                                                                                     |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `workspace.integrations`                | `list`, `connectWithApiKey`, `connectWithOAuth`, `reconnect`, `setEnabled`, `setSourceEnabled`, `previewDisconnect`, `disconnect`, `detachTask`, `reattachTask`, `onChange` |
+| `workspace.sync`                        | `syncNow(sourceId?)`, `getStatus()`, `onProgress`                                                                                                                           |
+| `workspace.tasks`, `projects`, `events` | Existing methods; reads now include `external`, mutations may throw `ExternalReadOnlyError`                                                                                 |
 
 **Tests**
 
@@ -494,9 +494,9 @@ interface OAuthClient {
 - [ ] Keep the series time zone in link metadata.
 - [ ] Removal: delete the row when nothing links to it; otherwise keep it and set the link to `removed`.
 - [ ] Index events for search on insert and change; remove on delete.
-- [ ] Calendar selection: `IntegrationService.listCalendars(sourceId)` and `setCalendars(sourceId, ids)`. Preselect the primary calendar on connect. Adding a calendar syncs only that calendar; removing one deletes its events under the same removal rule.
+- [ ] Calendar selection: `CalendarService.setSelected(id, selected)` flips the column; `EventSyncer` applies it at the next run of the source, listing the calendars (`SyncWriter.applyCalendarList`) and removing deselected ones' events. Preselect the primary calendar on the source's first listing, not on connect. Adding a calendar syncs only that calendar; removing one deletes its events under the same removal rule.
 - [ ] Teach the engine to run an events source: same loop, `applyEventPage` instead of `applyTaskPage`. Events have no reconcile pass.
-- [ ] Add the `sources:listCalendars` and `sources:setCalendars` channels later, with the IPC work. Core only exposes the two service methods.
+- [ ] Add the `calendars:list`, `calendars:setVisible` and `calendars:setSelected` channels later, with the IPC work; `setSelected` and a refresh ask the scheduler for a run of the source. Core only exposes the `CalendarService` methods.
 
 **Tests**
 
@@ -539,7 +539,7 @@ Not part of this build. Kept as a record of what the integration feature will ne
 - [ ] Connect Linear: an API key field with a link to where Linear issues keys, inline validation errors, and a note that the key path is temporary. Once 16c lands, an OAuth button becomes the default.
 - [ ] Connect Google Calendar: a button that starts the OAuth flow, a "waiting for browser" state and a cancel action.
 - [ ] Per source: an enable switch, last synced time, and the last error if any.
-- [ ] Google: a calendar checklist backed by `sources:listCalendars` and `sources:setCalendars`.
+- [ ] Google: a calendar checklist backed by `calendars:list` and `calendars:setSelected`.
 - [ ] Disconnect dialog: show the counts from `previewDisconnect` and the two choices, remove or keep as local copies.
 - [ ] Reconnect action when the status is `needs_reauth`.
 - [ ] A first-connect notice that mirrored data is stored locally in the workspace folder.

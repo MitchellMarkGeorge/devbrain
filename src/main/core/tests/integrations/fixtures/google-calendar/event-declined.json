@@ -1,0 +1,23 @@
+{
+  "kind": "calendar#event",
+  "etag": "\"3459123456789005\"",
+  "id": "5f6g7h8i9j0k1l2m3n4o5p6q7r",
+  "status": "confirmed",
+  "htmlLink": "https://www.google.com/calendar/event?eid=NWY2ZzdoOGk5ajBrMWwybTNuNG81cDZxN3Ig",
+  "created": "2026-10-04T16:00:00.000Z",
+  "updated": "2026-10-05T07:15:00.000Z",
+  "summary": "Vendor demo",
+  "creator": { "email": "sales@vendor.example" },
+  "organizer": { "email": "sales@vendor.example" },
+  "start": { "dateTime": "2026-10-13T15:00:00Z" },
+  "end": { "dateTime": "2026-10-13T16:00:00Z" },
+  "iCalUID": "5f6g7h8i9j0k1l2m3n4o5p6q7r@vendor.example",
+  "sequence": 0,
+  "attendees": [
+    { "email": "sales@vendor.example", "organizer": true, "responseStatus": "accepted" },
+    { "email": "ada@example.com", "self": true, "responseStatus": "declined" }
+  ],
+  "guestsCanModify": false,
+  "reminders": { "useDefault": true },
+  "eventType": "default"
+}

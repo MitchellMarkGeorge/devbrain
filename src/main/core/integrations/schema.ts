@@ -21,24 +21,24 @@ export const linearTaskCursorSchema = z.discriminatedUnion('mode', [
   }),
 ]);
 
+// one Google calendar's progress
+export const googleCalendarStateSchema = z.object({
+  syncToken: z.string().nullable(), // null until the first full pass ends
+  pageToken: z.string().nullable(), // resume point inside a pass
+  // the lower bound of a full pass, kept while it pages so every page asks the same question
+  timeMin: z.iso.datetime().optional(),
+});
+
 export const googleEventCursorSchema = z.object({
-  // keyed by calendarId
-  calendars: z.record(
-    z.string(),
-    z.object({
-      syncToken: z.string().nullable(), // null until the first full pass ends
-      pageToken: z.string().nullable(), // resume point inside a pass
-    }),
-  ),
+  // each calendar's progress, keyed by calendarId
+  calendars: z.record(z.string(), googleCalendarStateSchema),
+  // the calendars a run has still to visit, in order; absent between runs
+  pending: z.array(z.string()).optional(),
 });
 
 // Nothing in v1: every issue assigned to the viewer is synced. A team filter would go here; see
 // the config parameter of TaskSource.pull.
 export const linearTaskConfigSchema = z.object({});
-
-export const googleEventConfigSchema = z.object({
-  calendarIds: z.array(z.string()),
-});
 
 export const taskLinkMetadataSchema = z.object({
   statusLabel: nullableString(),
@@ -52,12 +52,12 @@ export const projectLinkMetadataSchema = z.object({
   statusLabel: nullableString(),
 });
 
-export const eventResponseSchema = z.enum(['accepted', 'declined', 'tentative', 'needsAction']);
-
+// Provider bookkeeping only: what the event shows (time zone, response, kind, its series) is in
+// columns on events.
 export const eventLinkMetadataSchema = z.object({
+  // the provider's calendar id
   calendarId: z.string(),
-  timeZone: nullableString(),
-  response: eventResponseSchema.nullable().default(null),
+  // on an occurrence of a series: the master's external id, which adopts the occurrence into its
+  // series if the master arrives after it
   recurringEventExternalId: nullableString(),
-  originalStartAt: z.iso.datetime().nullable().default(null),
 });

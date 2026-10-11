@@ -1,0 +1,29 @@
+{
+  "kind": "calendar#event",
+  "etag": "\"3459123456789004\"",
+  "id": "4s2lfo5ma1k3a2rmq1hcf5c9fg_20261026T140000Z",
+  "status": "confirmed",
+  "htmlLink": "https://www.google.com/calendar/event?eid=NHMybGZvNW1hMWszYTJybXExaGNmNWM5ZmdfMjAyNjEwMjZUMTQwMDAwWiA",
+  "created": "2026-09-01T14:00:00.000Z",
+  "updated": "2026-10-03T08:00:00.000Z",
+  "summary": "Weekly sync (moved to Tuesday)",
+  "creator": { "email": "ada@example.com", "self": true },
+  "organizer": { "email": "ada@example.com", "self": true },
+  "start": { "dateTime": "2026-10-27T10:00:00-04:00", "timeZone": "America/New_York" },
+  "end": { "dateTime": "2026-10-27T10:30:00-04:00", "timeZone": "America/New_York" },
+  "recurringEventId": "4s2lfo5ma1k3a2rmq1hcf5c9fg",
+  "originalStartTime": { "dateTime": "2026-10-26T10:00:00-04:00", "timeZone": "America/New_York" },
+  "iCalUID": "4s2lfo5ma1k3a2rmq1hcf5c9fg@google.com",
+  "sequence": 1,
+  "attendees": [
+    {
+      "email": "ada@example.com",
+      "organizer": true,
+      "self": true,
+      "responseStatus": "accepted"
+    },
+    { "email": "grace@example.com", "responseStatus": "accepted" }
+  ],
+  "reminders": { "useDefault": true },
+  "eventType": "default"
+}

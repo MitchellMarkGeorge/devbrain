@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { generateId } from '@common/ids';
 import {
   eventLinkMetadataSchema,
-  googleEventConfigSchema,
   googleEventCursorSchema,
   linearTaskConfigSchema,
   linearTaskCursorSchema,
@@ -57,15 +56,27 @@ describe('integration schemas — cursors', () => {
     expect(googleEventCursorSchema.parse(cursor)).toEqual(cursor);
     expect(googleEventCursorSchema.safeParse({ calendars: { primary: {} } }).success).toBe(false);
   });
+
+  it("accepts a Google cursor mid-run: a full pass's lower bound and the calendars left", () => {
+    const cursor = {
+      calendars: {
+        primary: { syncToken: null, pageToken: 'p2', timeMin: '2026-09-09T12:00:00.000Z' },
+        team: { syncToken: 't1', pageToken: null },
+      },
+      pending: ['primary', 'team'],
+    };
+    expect(googleEventCursorSchema.parse(cursor)).toEqual(cursor);
+    expect(
+      googleEventCursorSchema.safeParse({
+        calendars: { primary: { syncToken: null, pageToken: null, timeMin: 'last month' } },
+      }).success,
+    ).toBe(false);
+  });
 });
 
 describe('integration schemas — config', () => {
-  it('parses Linear and Google config', () => {
+  it('parses Linear config; an events source has none stored', () => {
     expect(linearTaskConfigSchema.parse({})).toEqual({});
-    expect(googleEventConfigSchema.parse({ calendarIds: ['primary'] })).toEqual({
-      calendarIds: ['primary'],
-    });
-    expect(googleEventConfigSchema.safeParse({}).success).toBe(false);
   });
 });
 
@@ -81,18 +92,22 @@ describe('integration schemas — link metadata', () => {
     expect(projectLinkMetadataSchema.parse({})).toEqual({ statusLabel: null });
   });
 
-  it('requires a calendar id and a known response on event metadata', () => {
-    expect(eventLinkMetadataSchema.parse({ calendarId: 'primary', response: 'declined' })).toEqual({
+  it('requires a calendar id on event metadata, and keeps only provider bookkeeping', () => {
+    expect(eventLinkMetadataSchema.parse({ calendarId: 'primary' })).toEqual({
       calendarId: 'primary',
-      timeZone: null,
-      response: 'declined',
       recurringEventExternalId: null,
-      originalStartAt: null,
     });
-    expect(eventLinkMetadataSchema.safeParse({}).success).toBe(false);
+    // metadata in the earlier shape still reads; what moved to columns on events is dropped
     expect(
-      eventLinkMetadataSchema.safeParse({ calendarId: 'primary', response: 'maybe' }).success,
-    ).toBe(false);
+      eventLinkMetadataSchema.parse({
+        calendarId: 'primary',
+        timeZone: 'America/New_York',
+        response: 'declined',
+        recurringEventExternalId: 'primary:series',
+        originalStartAt: '2026-10-12T14:00:00.000Z',
+      }),
+    ).toEqual({ calendarId: 'primary', recurringEventExternalId: 'primary:series' });
+    expect(eventLinkMetadataSchema.safeParse({}).success).toBe(false);
   });
 });
 
