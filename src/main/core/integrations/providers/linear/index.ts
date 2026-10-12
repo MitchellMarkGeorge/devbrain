@@ -19,7 +19,7 @@ export function createLinearProvider(options: LinearProviderOptions): Provider {
     // OAuth is deferred to feature 16c
     authMethods: [AuthType.API_KEY],
     getAccount: (auth) => getAccount(client, auth),
-    tasks: new LinearTaskSource(client, options.now),
+    tasks: new LinearTaskSource(client),
   };
 }
 

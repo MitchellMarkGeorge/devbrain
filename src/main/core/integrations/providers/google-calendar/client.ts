@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Auth } from '../../auth';
-import { FetchFn } from '../provider';
+import { ChangeTokenExpiredError, FetchFn } from '../provider';
 import { ExternalCalendar } from '../../types';
 import { BACKOFF_INITIAL_MS, HTTP_TIMEOUT_MS } from '../../../sync/constants';
 import {
@@ -30,16 +30,8 @@ import {
 
 // A small JSON-over-fetch client for the Calendar API. It maps transport and auth failures to the
 // shared error classes so the engine can react without knowing anything about Google, and a 410
-// to SyncTokenExpiredError, which the event source handles itself.
-
-// Google no longer accepts a calendar's sync token (or page token); that calendar must be walked
-// again from the start
-export class SyncTokenExpiredError extends Error {
-  constructor() {
-    super('Google Calendar sync token expired');
-    this.name = 'SyncTokenExpiredError';
-  }
-}
+// (Google no longer accepts a calendar's sync token or page token) to ChangeTokenExpiredError,
+// which EventSyncer handles by walking that calendar again.
 
 // an error response that is not one of the mapped cases, e.g. a calendar that does not exist
 export class GoogleApiError extends Error {
@@ -92,7 +84,7 @@ export class GoogleCalendarClient {
     return calendars;
   }
 
-  // one page of a calendar's events; throws SyncTokenExpiredError on a 410
+  // one page of a calendar's events; throws ChangeTokenExpiredError on a 410
   async listEvents(
     auth: Auth,
     calendarId: string,
@@ -117,7 +109,7 @@ export class GoogleCalendarClient {
     }
 
     const body = await readBody(response);
-    if (response.status === 410) throw new SyncTokenExpiredError();
+    if (response.status === 410) throw new ChangeTokenExpiredError();
     if (response.status === 401) {
       throw new IntegrationAuthError('Google Calendar rejected the credentials');
     }

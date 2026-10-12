@@ -11,7 +11,13 @@ import { tasks as tasksTable } from '@main/db/schema/tasks';
 import { projects as projectsTable } from '@main/db/schema/projects';
 import { createDb } from '../utils';
 import { FakeCipher } from '../__mocks__/fake-cipher';
-import { createFakeProvider, FakeLookup, FakeProvider, fakeRegistry } from './fake-provider';
+import {
+  createFakeProvider,
+  FakeLookup,
+  FakeLookupResult,
+  FakeProvider,
+  fakeRegistry,
+} from './fake-provider';
 import { SyncEngine } from '../../sync/engine';
 import { SyncWriter } from '../../sync/writer';
 import { SyncMode, SyncProgress, SyncRunOutcome, SyncSkipReason } from '../../sync/types';
@@ -19,7 +25,6 @@ import { CLOSED_ISSUE_WINDOW_MS } from '../../sync/constants';
 import { SearchService } from '../../search/service';
 import { CredentialStore } from '../../integrations/credential-store';
 import { IntegrationService } from '../../integrations/service';
-import { LookupResult } from '../../integrations/providers/provider';
 import {
   ExternalProject,
   ExternalTask,
@@ -101,7 +106,7 @@ function project(overrides: Partial<ExternalProject> = {}): ExternalProject {
 }
 
 // answers a lookup from the remote maps, as Linear would
-function lookupFromRemote({ externalIds, projectIds }: FakeLookup): Partial<LookupResult> {
+function lookupFromRemote({ externalIds, projectIds }: FakeLookup): Partial<FakeLookupResult> {
   const found = externalIds.flatMap((id) => remoteTasks.get(id) ?? []);
   const projects = new Map<string, ExternalProject>();
   for (const task of found) {
@@ -332,8 +337,10 @@ describe('SyncEngine reconcile — returning issues', () => {
 
     await reconcile();
 
+    // the tasks first, then the projects
     expect(provider.tasks.lookups).toEqual([
-      { externalIds: [gone.externalId], projectIds: [proj.externalId] },
+      { externalIds: [gone.externalId], projectIds: [] },
+      { externalIds: [], projectIds: [proj.externalId] },
     ]);
   });
 });
@@ -493,7 +500,7 @@ describe('SyncEngine reconcile — project lifecycle', () => {
 
     await reconcile();
 
-    expect(provider.tasks.lookups[0].projectIds.sort()).toEqual(
+    expect(provider.tasks.lookups[1].projectIds.sort()).toEqual(
       [deleted.externalId, other.externalId].sort(),
     );
     expect(linkOf(deleted.externalId).state).toBe(LinkState.REMOVED);

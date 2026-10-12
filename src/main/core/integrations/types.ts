@@ -5,10 +5,6 @@ import { ProjectStatus } from '../projects/types';
 import { EventKind, EventResponse, EventStatus } from '../events/types';
 import {
   eventLinkMetadataSchema,
-  googleCalendarStateSchema,
-  googleEventCursorSchema,
-  linearTaskConfigSchema,
-  linearTaskCursorSchema,
   projectLinkMetadataSchema,
   taskLinkMetadataSchema,
 } from './schema';
@@ -158,12 +154,6 @@ export interface ExternalCalendar {
   color: string | null;
   timeZone: string | null;
 }
-
-// JSON stored in external_sources.cursor and .config, validated with ./schema on read
-export type LinearTaskCursor = z.infer<typeof linearTaskCursorSchema>;
-export type GoogleCalendarState = z.infer<typeof googleCalendarStateSchema>;
-export type GoogleEventCursor = z.infer<typeof googleEventCursorSchema>;
-export type LinearTaskConfig = z.infer<typeof linearTaskConfigSchema>;
 
 // JSON stored in external_links.metadata, by entity type
 export type TaskLinkMetadata = z.infer<typeof taskLinkMetadataSchema>;

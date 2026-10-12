@@ -18,6 +18,7 @@ import {
 } from '../sync/fake-provider';
 import { SyncEngine } from '../../sync/engine';
 import { SyncWriter } from '../../sync/writer';
+import { TaskReconciler } from '../../sync/task-reconciler';
 import { SearchService } from '../../search/service';
 import { CredentialStore } from '../../integrations/credential-store';
 import { IntegrationService } from '../../integrations/service';
@@ -52,6 +53,7 @@ let workspacePath: string;
 let provider: FakeProvider;
 let service: IntegrationService;
 let engine: SyncEngine;
+let reconciler: TaskReconciler;
 let detach: DetachService;
 let tasks: TaskService;
 let notes: NoteService;
@@ -166,15 +168,24 @@ beforeEach(async () => {
   service = new IntegrationService(db, { credentials, providers });
   const writer = new SyncWriter(db, new SearchService(db, workspacePath));
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+  const syncState = new SyncStateManager(db);
   engine = new SyncEngine(db, {
     integrations: service,
-    syncState: new SyncStateManager(db),
+    syncState,
     credentials,
     providers,
     writer,
     logger,
   });
-  detach = new DetachService(db, engine);
+  reconciler = new TaskReconciler({
+    db,
+    syncState,
+    credentials,
+    providers,
+    writer,
+    logger,
+  });
+  detach = new DetachService(db, reconciler);
   tasks = new TaskService(db);
   notes = new NoteService(db, workspacePath);
   archive = new ArchiveService(db);
@@ -488,8 +499,8 @@ describe('DetachService — reattach', () => {
   });
 });
 
-describe('SyncEngine — reattachTasks', () => {
-  it('moves the integration to needs_reauth when the lookup is rejected', async () => {
+describe('TaskReconciler — reattachTasks', () => {
+  it('passes rejected credentials up, leaving the integration and the link as they were', async () => {
     const item = issue();
     await sync(item);
     await detach.detachTask(idOf(item));
@@ -499,11 +510,22 @@ describe('SyncEngine — reattachTasks', () => {
 
     await expect(detach.reattachTask(idOf(item))).rejects.toThrow(IntegrationAuthError);
 
-    expect((await service.getById(integrationId)).status).toBe(IntegrationStatus.NEEDS_REAUTH);
+    // moving the integration to needs_reauth is the caller's job (the IPC layer, later)
+    expect((await service.getById(integrationId)).status).toBe(IntegrationStatus.CONNECTED);
     expect(stateOf(item)).toBe(LinkState.DETACHED);
+  });
+
+  it('refuses while the integration needs re-authentication', async () => {
+    const item = issue();
+    await sync(item);
+    await detach.detachTask(idOf(item));
+    service.markNeedsReauth(integrationId);
+
     await expect(detach.reattachTask(idOf(item))).rejects.toThrow(
       /until its integration is reconnected/,
     );
+    expect(provider.tasks.lookups).toEqual([]);
+    expect(stateOf(item)).toBe(LinkState.DETACHED);
   });
 
   it("is not a run: the source's cursor and sync status stay as they were", async () => {
@@ -513,7 +535,7 @@ describe('SyncEngine — reattachTasks', () => {
     const before = db.select().from(externalSources).where(eq(externalSources.id, sourceId)).get();
 
     answerLookup([{ ...item, updatedAt: V2 }]);
-    const result = await engine.reattachTasks(sourceId, item.externalId, []);
+    const result = await reconciler.reattachTasks(sourceId, item.externalId, []);
 
     expect(result).toMatchObject({ ok: true, summary: { reattached: [idOf(item)], updated: 1 } });
     expect(db.select().from(externalSources).where(eq(externalSources.id, sourceId)).get()).toEqual(

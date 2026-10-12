@@ -121,7 +121,7 @@ async function setup() {
   calendarsAfterConnect = calendarRows().length;
   writer.applyCalendarList(
     sourceId,
-    await provider.events!.listExternalCalendars({ authorization: 'Bearer access-1' }),
+    await provider.calendars!.listCalendars({ authorization: 'Bearer access-1' }),
   );
 }
 
@@ -698,9 +698,9 @@ describe('Google Calendar sync — calendar selection', () => {
 });
 
 describe('Google Calendar sync — unsupported', () => {
-  it('skips an events source whose provider serves no events', async () => {
+  it('skips an events source whose provider serves no calendars', async () => {
     const credentials = new CredentialStore(db, { cipher: new FakeCipher() });
-    const bare = { ...createGoogleCalendarProvider({ fetch, client: null }), events: undefined };
+    const bare = { ...createGoogleCalendarProvider({ fetch, client: null }), calendars: undefined };
     const providers: ProviderRegistry = new Map<ProviderId, Provider>([[bare.id, bare]]);
     const other = new SyncEngine(db, {
       integrations: service,

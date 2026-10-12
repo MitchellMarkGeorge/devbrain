@@ -3,7 +3,7 @@ import { externalLinks } from '@main/db/schema/integrations';
 import { tasks } from '@main/db/schema/tasks';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { SyncEngine } from '../sync/engine';
+import { TaskReconciler } from '../sync/task-reconciler';
 import { ReattachRefusal, SyncEntityType, SyncSkipReason } from '../sync/types';
 import { subtreeOf } from '../tasks/subtree';
 import { Task } from '../tasks/types';
@@ -26,7 +26,7 @@ export type TaskLinkChangeListener = (change: TaskLinkChange) => void;
 
 type Link = typeof externalLinks.$inferSelect;
 
-// what each refusal from the engine tells the user, after "Task ENG-123 can't be reattached"
+// what each refusal from the reconciler tells the user, after "Task ENG-123 can't be reattached"
 const REFUSALS: Record<SyncSkipReason | ReattachRefusal, string> = {
   [SyncSkipReason.SOURCE_DISABLED]: 'while its source is turned off',
   [SyncSkipReason.INTEGRATION_DISABLED]: 'while its integration is disabled',
@@ -47,15 +47,18 @@ const REFUSALS: Record<SyncSkipReason | ReattachRefusal, string> = {
  * them from it.
  *
  * This service owns the rules about the task tree and the messages the user sees. Talking to the
- * provider and writing the refreshed rows is SyncEngine's job, through `reattachTasks`. The
- * workspace exposes both methods as `workspace.integrations.detachTask` and `reattachTask`.
+ * provider and writing the refreshed rows is sync's job, through TaskReconciler.reattachTasks.
+ *
+ * Not wired into the workspace yet: the typed IPC layer will expose both methods. A reattach whose
+ * credentials are rejected throws IntegrationAuthError and leaves the integration's status alone;
+ * moving it to needs_reauth is the IPC layer's job (see docs/follow-ups.md).
  */
 export class DetachService {
   private readonly listeners = new Set<TaskLinkChangeListener>();
 
   constructor(
     private readonly db: BetterSQLite3Database,
-    private readonly engine: SyncEngine,
+    private readonly reconciler: TaskReconciler,
   ) {}
 
   /**
@@ -100,11 +103,11 @@ export class DetachService {
    *    task never has local children, and sync archives a removed task on its own, which would
    *    leave such children live under an archived row.
    * 2. Its source must still exist; a disconnect nulls it.
-   * 3. SyncEngine.reattachTasks does the rest: it checks the source and integration, looks the
-   *    task and its detached descendants up, and refreshes those still assigned. Provider-owned
+   * 3. TaskReconciler.reattachTasks does the rest: it checks the source and integration, resolves
+   *    the task and its detached descendants, and refreshes those still assigned. Provider-owned
    *    fields are overwritten; links, the task note and `favoritedAt` are kept. Descendants that
-   *    are gone or reassigned stay detached and become top-level. When the engine refuses, the
-   *    task stays detached.
+   *    are gone or reassigned stay detached and become top-level. When it refuses, the task stays
+   *    detached.
    *
    * Throws NotFoundError for an archived or unknown task, and DetachError for every refusal.
    */
@@ -135,12 +138,12 @@ export class DetachService {
       );
     }
 
-    // 3. the provider's copy, written by the engine
+    // 3. the provider's copy, written by sync
     const descendants = subtree.filter(
       (row) =>
         row.taskId !== id && row.state === LinkState.DETACHED && row.sourceId === link.sourceId,
     );
-    const result = await this.engine.reattachTasks(
+    const result = await this.reconciler.reattachTasks(
       link.sourceId,
       link.externalId,
       descendants.map((row) => row.externalId!),

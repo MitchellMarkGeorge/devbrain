@@ -1,4 +1,3 @@
-import { ZodError } from 'zod';
 import { describe, it, expect, beforeEach, afterEach, vi, Mock } from 'vitest';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import fs from 'node:fs/promises';
@@ -18,7 +17,7 @@ import { createFakeProvider, FAKE_API_KEY, FakeProvider, fakeRegistry } from './
 import { SyncEngine } from '../../sync/engine';
 import { SyncWriter } from '../../sync/writer';
 import { SyncMode, SyncProgress, SyncRunOutcome, SyncSkipReason } from '../../sync/types';
-import { CURSOR_OVERLAP_MS } from '../../sync/constants';
+import { CLOSED_ISSUE_WINDOW_MS, CURSOR_OVERLAP_MS } from '../../sync/constants';
 import { SearchService } from '../../search/service';
 import { CredentialStore } from '../../integrations/credential-store';
 import { IntegrationChange, IntegrationService } from '../../integrations/service';
@@ -46,6 +45,8 @@ const V1 = new Date('2026-10-01T12:00:00Z');
 const V2 = new Date('2026-10-02T12:00:00Z');
 const V3 = new Date('2026-10-03T12:00:00Z');
 const NOW = new Date('2026-10-09T12:00:00Z');
+// what an initial sync asks for: open issues, and those closed within the window
+const CLOSED_SINCE = new Date(NOW.getTime() - CLOSED_ISSUE_WINDOW_MS).toISOString();
 
 let db: BetterSQLite3Database;
 let workspacePath: string;
@@ -199,6 +200,7 @@ describe('SyncEngine — initial sync', () => {
       { tasks: pages[1], done: false },
       { tasks: pages[2] },
     );
+    const saved = vi.spyOn(syncState, 'saveCursor');
 
     const result = await engine.runSource(sourceId);
 
@@ -215,11 +217,19 @@ describe('SyncEngine — initial sync', () => {
     expect(taskTitles()).toEqual(['Four', 'One', 'Three', 'Two']);
     expect(db.select().from(projectsTable).all()).toHaveLength(1);
 
-    // each pull resumed where the previous page ended
-    expect(provider.tasks.pulls.map((pull) => pull.cursor)).toEqual([
-      null,
+    // each page was committed with the cursor after it, and each pull resumed from that cursor
+    expect(saved.mock.calls.map((call) => call[1])).toEqual([
       { mode: 'initial', after: 'page-1', maxUpdatedAt: V3.toISOString() },
       { mode: 'initial', after: 'page-2', maxUpdatedAt: V3.toISOString() },
+      {
+        mode: 'incremental',
+        updatedSince: new Date(V3.getTime() - CURSOR_OVERLAP_MS).toISOString(),
+      },
+    ]);
+    expect(provider.tasks.pulls.map((pull) => pull.query)).toEqual([
+      { closedSince: CLOSED_SINCE },
+      { closedSince: CLOSED_SINCE, pageToken: 'page-1' },
+      { closedSince: CLOSED_SINCE, pageToken: 'page-2' },
     ]);
     expect(provider.tasks.pulls[0].auth).toEqual({ authorization: FAKE_API_KEY });
 
@@ -235,7 +245,7 @@ describe('SyncEngine — initial sync', () => {
   });
 
   it('tracks the highest updatedAt across every page of a real Linear walk', async () => {
-    // the Linear provider carries maxUpdatedAt in its cursor; the engine stores what it returns
+    // the cursor carries the latest change across pages; the engine stores what TaskSyncer builds
     const page = (nodes: unknown[], endCursor: string | null) => ({
       body: {
         data: {
@@ -290,7 +300,7 @@ describe('SyncEngine — initial sync', () => {
     const result = await engine.runSource(sourceId);
 
     expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, mode: SyncMode.INITIAL });
-    expect(provider.tasks.pulls[0].cursor).toBeNull();
+    expect(provider.tasks.pulls[0].query).toEqual({ closedSince: CLOSED_SINCE });
     expect(sourceRow().cursor).toMatchObject({ mode: 'incremental' });
     expect(taskTitles()).toEqual(['Fresh']);
   });
@@ -373,10 +383,9 @@ describe('SyncEngine — resume and transactions', () => {
       mode: SyncMode.INITIAL,
       pages: 1,
     });
-    expect(provider.tasks.pulls[2].cursor).toEqual({
-      mode: 'initial',
-      after: 'page-1',
-      maxUpdatedAt: V1.toISOString(),
+    expect(provider.tasks.pulls[2].query).toEqual({
+      closedSince: CLOSED_SINCE,
+      pageToken: 'page-1',
     });
     expect(taskTitles()).toEqual(['First', 'Second']);
     expect(sourceRow()).toMatchObject({
@@ -445,7 +454,7 @@ describe('SyncEngine — incremental sync', () => {
       mode: SyncMode.INCREMENTAL,
       pages: 1,
     });
-    expect(provider.tasks.pulls[1].cursor).toEqual({ mode: 'incremental', updatedSince: since });
+    expect(provider.tasks.pulls[1].query).toEqual({ changedSince: since });
     expect(db.select().from(tasksTable).all()).toEqual(tasksBefore);
     expect(db.select().from(externalLinks).all()).toEqual(linksBefore);
     expect(sourceRow()).toEqual({ ...before, lastSyncedAt: clock });
@@ -524,20 +533,6 @@ describe('SyncEngine — failures', () => {
     expect(provider.tasks.pulls).toHaveLength(1);
   });
 
-  it('fails the run without pulling when the stored config does not validate', async () => {
-    db.update(externalSources)
-      .set({ config: 'not an object' })
-      .where(eq(externalSources.id, sourceId))
-      .run();
-
-    const result = await engine.runSource(sourceId);
-
-    expect(result).toMatchObject({ outcome: SyncRunOutcome.FAILED, pages: 0 });
-    expect(result.error).toBeInstanceOf(ZodError);
-    expect(provider.tasks.pulls).toHaveLength(0);
-    expect(sourceRow()).toMatchObject({ consecutiveFailures: 1 });
-  });
-
   it('treats unreadable stored credentials as rejected', async () => {
     db.update(integrations)
       .set({ credentials: Buffer.from('garbage') })
@@ -600,7 +595,7 @@ describe('SyncEngine — failures', () => {
     const resumed = await engine.runSource(sourceId);
 
     expect(resumed).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, pages: 1 });
-    expect(provider.tasks.pulls[2].cursor).toMatchObject({ after: 'page-2' });
+    expect(provider.tasks.pulls[2].query).toMatchObject({ pageToken: 'page-2' });
     expect(taskTitles()).toEqual(['One', 'Three', 'Two']);
     expect(sourceRow()).toMatchObject({ initialSyncCompletedAt: NOW, consecutiveFailures: 0 });
   });
@@ -665,7 +660,7 @@ describe('SyncEngine — abort and concurrency', () => {
     provider.tasks.pulls.length = 0;
     provider.tasks.script({ tasks: [issue({ title: 'Resumed' })] });
     await engine.runSource(sourceId);
-    expect(provider.tasks.pulls[0].cursor).toMatchObject({ after: 'page-1' });
+    expect(provider.tasks.pulls[0].query).toMatchObject({ pageToken: 'page-1' });
   });
 
   it('does no work when aborted before it starts', async () => {

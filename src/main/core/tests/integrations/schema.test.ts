@@ -2,9 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { generateId } from '@common/ids';
 import {
   eventLinkMetadataSchema,
-  googleEventCursorSchema,
-  linearTaskConfigSchema,
-  linearTaskCursorSchema,
   projectLinkMetadataSchema,
   taskLinkMetadataSchema,
 } from '../../integrations/schema';
@@ -20,63 +17,6 @@ describe('integration ids — prefixes', () => {
     expect(generateId('integration')).toMatch(/^int_/);
     expect(generateId('externalSource')).toMatch(/^src_/);
     expect(generateId('externalLink')).toMatch(/^xln_/);
-  });
-});
-
-describe('integration schemas — cursors', () => {
-  it('accepts both Linear cursor modes', () => {
-    expect(
-      linearTaskCursorSchema.parse({ mode: 'initial', after: null, maxUpdatedAt: null }),
-    ).toEqual({ mode: 'initial', after: null, maxUpdatedAt: null });
-    expect(
-      linearTaskCursorSchema.parse({ mode: 'incremental', updatedSince: '2026-10-01T00:00:00Z' }),
-    ).toEqual({ mode: 'incremental', updatedSince: '2026-10-01T00:00:00Z' });
-  });
-
-  it('accepts an incremental Linear cursor part way through its pages', () => {
-    const cursor = {
-      mode: 'incremental',
-      updatedSince: '2026-10-01T00:00:00Z',
-      after: 'c1',
-      maxUpdatedAt: '2026-10-02T00:00:00Z',
-    };
-    expect(linearTaskCursorSchema.parse(cursor)).toEqual(cursor);
-  });
-
-  it('rejects an unreadable Linear cursor', () => {
-    expect(linearTaskCursorSchema.safeParse(null).success).toBe(false);
-    expect(linearTaskCursorSchema.safeParse({ mode: 'other' }).success).toBe(false);
-    expect(
-      linearTaskCursorSchema.safeParse({ mode: 'incremental', updatedSince: 'yesterday' }).success,
-    ).toBe(false);
-  });
-
-  it('accepts a Google cursor keyed by calendar', () => {
-    const cursor = { calendars: { primary: { syncToken: null, pageToken: 'p2' } } };
-    expect(googleEventCursorSchema.parse(cursor)).toEqual(cursor);
-    expect(googleEventCursorSchema.safeParse({ calendars: { primary: {} } }).success).toBe(false);
-  });
-
-  it("accepts a Google cursor mid-run: a full pass's lower bound and the calendars left", () => {
-    const cursor = {
-      calendars: {
-        primary: { syncToken: null, pageToken: 'p2', timeMin: '2026-09-09T12:00:00.000Z' },
-        team: { syncToken: 't1', pageToken: null },
-      },
-      pending: ['primary', 'team'],
-    };
-    expect(googleEventCursorSchema.parse(cursor)).toEqual(cursor);
-    expect(
-      googleEventCursorSchema.safeParse({
-        calendars: { primary: { syncToken: null, pageToken: null, timeMin: 'last month' } },
-      }).success,
-    ).toBe(false);
-  });
-});
-
-describe('integration schemas — config', () => {
-  it('parses Linear config; an events source has none stored', () => {
-    expect(linearTaskConfigSchema.parse({})).toEqual({});
   });
 });
 
