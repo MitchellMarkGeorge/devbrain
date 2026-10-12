@@ -405,6 +405,25 @@ INSERT INTO no_such_table VALUES (1);`;
 // the foreign key check after the commit can catch (foreign keys are off while migrating)
 const DANGLING_SQL = `INSERT INTO tasks (id, title, project_id) VALUES ('tsk_dangling', 'Dangling', 'prj_missing');`;
 
+describe('migration 0022 — full parent_task_id index', () => {
+  it('indexes parent_task_id over archived rows too, without touching existing rows', () => {
+    const { sqlite, db } = openDb();
+    migrate(db, { migrationsFolder: migrationsUpTo(21) });
+    seed(sqlite);
+    const before = snapshot(sqlite);
+
+    runMigrations(sqlite, db, MIGRATIONS_PATH);
+
+    expect(snapshot(sqlite)).toEqual(before);
+    const index = sqlite
+      .prepare(`SELECT sql FROM sqlite_master WHERE type = 'index' AND name = ?`)
+      .pluck()
+      .get('idx_tasks_parent_task_id') as string;
+    expect(index).toMatch(/\(`parent_task_id`\)$/);
+    sqlite.close();
+  });
+});
+
 describe('runMigrations — failures', () => {
   function caught(fn: () => void): WorkspaceMigrationError {
     try {
