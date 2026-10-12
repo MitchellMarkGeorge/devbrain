@@ -1,3 +1,4 @@
+import { SyncStateManager } from '../../sync/sync-state';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import fs from 'node:fs/promises';
@@ -165,7 +166,14 @@ beforeEach(async () => {
   service = new IntegrationService(db, { credentials, providers });
   const writer = new SyncWriter(db, new SearchService(db, workspacePath));
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
-  engine = new SyncEngine(db, { integrations: service, credentials, providers, writer, logger });
+  engine = new SyncEngine(db, {
+    integrations: service,
+    syncState: new SyncStateManager(db),
+    credentials,
+    providers,
+    writer,
+    logger,
+  });
   detach = new DetachService(db, engine);
   tasks = new TaskService(db);
   notes = new NoteService(db, workspacePath);

@@ -20,7 +20,7 @@ _Found in feature 10 (PR #15)._
 
 _Found in feature 10 (PR #15). Worth settling before the scheduler (feature 13) subscribes to these events._
 
-`connected`, `status_changed` and `source_changed` are deltas: ids plus the one thing that changed, as the comment on `IntegrationChange` promises ("Ids and flags only"). `sync_status_changed`, added in feature 10, instead carries a full `ExternalSource` snapshot.
+`connected`, `status_changed` and `source_changed` are deltas: ids plus the one thing that changed, as the comment on `IntegrationChange` promises ("Ids and flags only"). `sync_status_changed`, added in feature 10, instead carries a full `ExternalSource` snapshot. (Since feature 16b it comes from `SyncStateManager` in `src/main/core/sync/sync-state.ts`, which owns the sync state on `external_sources`, not from `IntegrationService`; a listener that wants both subscribes to both.)
 
 - It mixes two conventions, so a listener has to handle both, and the comment on the type is no longer true.
 - Its top-level `sourceId` always equals `source.id`.
@@ -54,7 +54,7 @@ Options:
 
 _Found in feature 10 (PR #15)._
 
-`SyncMode`, `SyncRunOutcome` and `SyncSkipReason` in `src/main/core/sync/types.ts` are string enums, matching `Provider`, `SourceType` and the other enums in `src/main/core/integrations/types.ts`. `SyncEntityType` (`'task' | 'project'`) in the same file is still a union. It comes from the writer (feature 9), so converting it means changing `src/main/core/sync/writer.ts` and its tests too. The values would stay the same, so progress events and anything forwarding them are unaffected.
+`SyncMode`, `SyncRunOutcome` and `SyncSkipReason` in `src/main/core/sync/types.ts` are string enums, matching `Provider`, `SourceType` and the other enums in `src/main/core/integrations/types.ts`. `SyncEntityType` (`'task' | 'project' | 'event' | 'calendar'`) in the same file is still a union. It comes from the writer (feature 9), so converting it means changing `src/main/core/sync/writer.ts` and its tests too. The values would stay the same, so progress events and anything forwarding them are unaffected.
 
 ### Share the gate and the lookup-and-apply path in `SyncEngine`
 
@@ -73,3 +73,102 @@ Proposal:
 3. **Reattach as an option on that path:** `refreshTasks(sourceId, ids, { reattach: rootExternalId })`. The writer flips the detached links in the same transaction as the page apply. The only reattach-specific code left would be the root checks (gone, unassigned, unreadable) and the link-state change.
 
 Items 1 and 3 are refactors with no change in behaviour, covered by the existing engine, reconcile and detach tests. Item 2 is a product decision.
+
+### Start a sync when the calendar selection changes
+
+_Found in feature 16b._
+
+`CalendarService.setSelected` only flips the `selected` column: a selected calendar gets its first pass, and a deselected one's events are removed, at the next sync run of its source (`EventSyncer`). Nothing triggers that run yet, so the change waits for the next interval or focus trigger. The IPC handler for `calendars:setSelected` should ask the scheduler (feature 13) for a run of the calendar's source right after the change; so should a "refresh" in the calendar picker. There is no change event to listen for: the handler has the calendar, and its `sourceId`, already.
+
+### Calendar changes wait for a sync run
+
+_Found in feature 16b. Not a priority._
+
+Feature 16b moved the calendar work out of `IntegrationService` so that services only read and write the database and `SyncWriter` stays inside `src/main/core/sync/`. Every calendar operation that needs the provider or the writer now happens at the start of a run, in `EventSyncer`. That changed some behaviour:
+
+- **Deselecting a calendar removes its events at the next run, not at once.** Until then they stay in the calendar view.
+- **Refreshing the picker means running a sync.** New or renamed calendars appear when the run's listing stores them; the run's result has `'calendar'` in `changed`.
+- **There is no `calendars_changed` event.** `IntegrationService.setCalendars` emitted one; the caller of `CalendarService.setSelected` now knows what changed and notifies the renderer and the scheduler itself.
+- **A run that does not reach its first page does not clean up.** The clean-up is written with the run's first page, so with the integration disabled or needing reauth (the run is skipped), or offline (it fails before a page), a deselected calendar's events stay until a run gets that far.
+
+If any of these matters in the calendar UI, `EventSyncer` can expose two operations beside `start`, keeping both rules:
+
+- **`refreshCalendars(sourceId, auth)`**: list the account's calendars and store them with `SyncWriter.applyCalendarList`, without pulling events. One request, for the picker.
+- **`deselectCalendar(sourceId, calendarId)`**: unselect the calendar, remove its events with `SyncWriter.removeCalendarEvents` and drop its entry from the source's cursor, in one transaction. Dropping the entry needs the cursor's shape, which only the provider knows, so this needs a provider method for it. Database only, so it works offline and while the integration needs reauth.
+
+The picker's IPC handlers would call them through whatever owns the syncers (the engine, or the scheduler). Selecting a calendar would stay `CalendarService.setSelected` followed by a run.
+
+### Move `reconcileSource` and `reattachTasks` into `TaskSyncer`
+
+_Found in feature 16b._
+
+`SyncEngine` (`src/main/core/sync/engine.ts`) now knows no source type for runs: `TaskSyncer` and `EventSyncer` hold what differs. Its reconcile pass (`reconcileSource`, `reconcile`) and `reattachTasks` are still task-specific code on the engine, from features 10 and 12. They could become optional `Syncer` operations implemented by `TaskSyncer` (e.g. `reconcile(context)` and `reattach(context, root, descendants)`), with the engine keeping the gate, auth and outcome recording around them. That also settles most of "Share the gate and the lookup-and-apply path in `SyncEngine`" above.
+
+### A path for provider features that are not sync
+
+_Found in feature 16b._
+
+Every provider feature so far is sync. Reading something on demand, such as a Linear issue's comments or a GitHub pull request's checks, has no obvious place:
+
+- The provider contract (`src/main/core/integrations/providers/provider.ts`) has only `getAccount`, `tasks?: TaskSource` and `events?: EventSource`.
+- There is no public way to get a provider with working auth. The engine assembles it privately from the registry and `CredentialStore`, with its own needs-reauth handling.
+
+Proposal:
+
+1. **Optional capabilities on `Provider`** beside the sync sources, each a small typed interface under the same stateless rule, e.g. `pullRequests?: PullRequests` or `issueDetails?: IssueDetails`.
+2. **`IntegrationService.withConnection(integrationId, call)`:** runs `call({ provider, auth })` with fresh auth, and moves the integration to `needs_reauth` on a rejected call. It is the one path for any caller, the engine included.
+3. **A link lookup** from a local entity to its integration, provider and external id. `src/main/core/integrations/refs.ts` already reads links; it would also return the integration id.
+4. **One service per feature, in its own module,** using 1–3. For example, a pull request service resolves a task's link, then calls `provider.pullRequests.get(auth, url)` through `withConnection`. A new feature is then a capability interface, its implementation in the provider's folder, and that service. `IntegrationService`, `SyncEngine` and `SyncWriter` do not change.
+
+Design it properly with the first such feature, rather than guessing the capability shapes now.
+
+### A full resync of a calendar does not drop events deleted long ago
+
+_Found in feature 16b._
+
+After a 410, a calendar is walked again from 30 days back and its rows are matched by external id, as the design says. An event deleted while the token was stale that Google no longer reports as cancelled keeps its row. A sweep at the end of a full pass (delete this calendar's synced events not seen during the pass, by the removal rule) would close that; it needs the pass to record what it saw.
+
+### Read `eventLabelId` for event colours
+
+_Found in feature 16b._
+
+The mapper (`src/main/core/integrations/providers/google-calendar/mapper.ts`) colours an event from its `colorId`, through a fixed copy of Google's event palette, and falls back to the calendar's colour. Google's event resource now has `eventLabelId`, which supersedes `colorId` and refers to a label defined on the calendar (`calendars.get` → `labelProperties.eventLabels`). An event coloured through a label gets its calendar's colour instead. Reading labels needs one `calendars.get` per calendar, and the scope that allows it is still to check. The palette itself is also still from memory.
+
+### Check that answering an invitation changes `updated`
+
+_Found in feature 16b._
+
+The writer skips an event whose `updated` is not newer than the stored one, which is how unchanged events cost no write. Google says `updated` covers "the main event data" and does not change for reminders. If answering an invitation does not change it either, a changed `response` (accepted to declined, say) would be skipped. One live check settles it: answer an invitation, then run an incremental sync and compare `updated`. If it does not change, compare `response` as well in the unchanged check for events.
+
+### Changing the mirrored event types needs a resync
+
+_Found in feature 16b._
+
+`MIRRORED_EVENT_TYPES` (`src/main/core/integrations/providers/google-calendar/requests.ts`) is sent as the `eventTypes` filter on every events request. Google requires the parameters of an incremental request to match the full pass that issued its sync token, so changing the list once users have synced needs their stored tokens cleared: a migration that empties the `calendars` of every Google events cursor, or a filter version kept in the cursor and compared on each pull. Making the list a per-source setting, so a user can opt into birthdays, would need the same.
+
+### Disconnect has to handle synced calendars
+
+_Found in feature 16b, for feature 15._
+
+`calendars.sourceId` is set null when a source is deleted, which turns a synced calendar into a local one: its events become editable. That is right for "keep everything as local copies". For "remove synced items" (the default), disconnect should delete the source's calendars after removing their events, keeping a calendar only while events are kept in it (those a note or task links to). A calendar with events cannot be deleted (`events.calendarId` has no `ON DELETE`).
+
+### The calendar view's FullCalendar adapter
+
+_Found in feature 16b, for the calendar UI._
+
+The event model stores what FullCalendar needs; the renderer still has to map each `Event` from `EventService.listForCalendar` to FullCalendar's event input. [The adapter spec](calendar/fullcalendar-adapter.md) covers the mapping. In short: one-off events map directly; a series' `rrule` is a string of `DTSTART`, its `recurrenceRule` and its `exdates` as `EXDATE` lines (FullCalendar's `exdate` property only works with an object `rrule`); occurrence rows are events of their own, grouped with their series. It also lists what to confirm against FullCalendar, chiefly `TZID` support.
+
+## Events
+
+### Deleting one occurrence, or this and following, of a local series
+
+_Found in feature 16b, for the calendar UI._
+
+`EventService.deleteEvent` on a series deletes the master and its occurrence rows: Google's "All events". Google also offers "This event" and "This and following events", which local series will need once the calendar UI can edit them:
+
+- **This event**: add an `event_exceptions` row for the occurrence's start, or, if it has an occurrence row, delete that row (its `originalStartAt` already keeps the slot out of `exdates`).
+- **This and following**: end the series before the occurrence by adding `UNTIL` to its `RRULE` line, and delete its occurrence rows and `event_exceptions` rows from that start on.
+
+Neither is reachable yet: `CreateEventOptions` and `UpdateEventOptions` take no `seriesId` or `originalStartAt`, so only sync creates occurrence rows, and synced events are read-only.
+
+When local occurrence rows exist, `deleteEvent` should also follow the removal rule for them. Today it deletes every occurrence row of the series, and a note linked to one only loses its link. The schema's intent (`events.seriesId` is set null when its series goes) is that an occurrence a note or task links to survives as a one-off: delete the unlinked occurrence rows, and keep the linked ones with `seriesId` cleared.

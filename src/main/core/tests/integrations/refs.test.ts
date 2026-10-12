@@ -202,7 +202,7 @@ describe('refs — events', () => {
   const end = new Date('2026-10-05T10:00:00Z');
   const range = [new Date('2026-10-01T00:00:00Z'), new Date('2026-10-31T00:00:00Z')] as const;
 
-  it('getById, getByIds and listEventsInRange return the ref, with no labels', async () => {
+  it('getById, getByIds and listForCalendar return the ref, with no labels', async () => {
     const synced = await events.createEvent({ title: 'Synced', startAt: start, endAt: end });
     const local = await events.createEvent({ title: 'Local', startAt: start, endAt: end });
     link(
@@ -233,20 +233,20 @@ describe('refs — events', () => {
     expect(fromIds.get(local.id)).toBeNull();
 
     const fromRange = new Map(
-      (await events.listEventsInRange(...range)).items.map((r) => [r.id, r.external]),
+      (await events.listForCalendar(...range)).map((r) => [r.id, r.external]),
     );
     expect(fromRange.get(synced.id)).toEqual(expectedRef);
     expect(fromRange.get(local.id)).toBeNull();
   });
 
-  it('listEventsInRange leaves out removed events and keeps every other kind', async () => {
+  it('listForCalendar leaves out removed events and keeps every other kind', async () => {
     const removed = await events.createEvent({ title: 'Removed', startAt: start, endAt: end });
     const synced = await events.createEvent({ title: 'Synced', startAt: start, endAt: end });
     const local = await events.createEvent({ title: 'Local', startAt: start, endAt: end });
     link({ eventId: removed.id }, { state: LinkState.REMOVED, removedAt: SYNCED_AT });
     link({ eventId: synced.id });
 
-    const { items } = await events.listEventsInRange(...range);
+    const items = await events.listForCalendar(...range);
     expect(ids(items)).toEqual(ids([synced, local]));
     // still readable directly, for the notes linked to it
     expect((await events.getById(removed.id)).external?.state).toBe(LinkState.REMOVED);

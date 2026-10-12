@@ -134,6 +134,27 @@
       "when": 1791504988605,
       "tag": "0018_cold_doctor_strange",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1791769074842,
+      "tag": "0019_calendars_and_event_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1791769085410,
+      "tag": "0020_default_calendar_and_all_day_dates",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1791769087524,
+      "tag": "0021_event_constraints",
+      "breakpoints": true
     }
   ]
 }

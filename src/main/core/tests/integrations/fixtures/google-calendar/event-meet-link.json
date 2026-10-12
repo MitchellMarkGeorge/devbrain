@@ -1,0 +1,40 @@
+{
+  "kind": "calendar#event",
+  "etag": "\"3459123456789006\"",
+  "id": "8s9t0u1v2a3b4c5d6e7f8g9h0i",
+  "status": "confirmed",
+  "htmlLink": "https://www.google.com/calendar/event?eid=OHM5dDB1MXYyYTNiNGM1ZDZlN2Y4ZzloMGkg",
+  "created": "2026-10-06T10:00:00.000Z",
+  "updated": "2026-10-06T10:05:00.000Z",
+  "summary": "1:1 with Grace",
+  "creator": { "email": "grace@example.com" },
+  "organizer": { "email": "grace@example.com" },
+  "start": { "dateTime": "2026-10-15T09:00:00-04:00", "timeZone": "America/New_York" },
+  "end": { "dateTime": "2026-10-15T09:30:00-04:00", "timeZone": "America/New_York" },
+  "iCalUID": "8s9t0u1v2a3b4c5d6e7f8g9h0i@google.com",
+  "sequence": 0,
+  "attendees": [
+    { "email": "grace@example.com", "organizer": true, "responseStatus": "accepted" },
+    { "email": "ada@example.com", "self": true, "responseStatus": "tentative" }
+  ],
+  "hangoutLink": "https://meet.google.com/abc-defg-hij",
+  "conferenceData": {
+    "entryPoints": [
+      {
+        "entryPointType": "video",
+        "uri": "https://meet.google.com/abc-defg-hij",
+        "label": "meet.google.com/abc-defg-hij"
+      },
+      {
+        "entryPointType": "phone",
+        "uri": "tel:+1-555-0100",
+        "label": "+1 555-0100",
+        "pin": "123456789"
+      }
+    ],
+    "conferenceSolution": { "key": { "type": "hangoutsMeet" }, "name": "Google Meet" },
+    "conferenceId": "abc-defg-hij"
+  },
+  "reminders": { "useDefault": true },
+  "eventType": "default"
+}

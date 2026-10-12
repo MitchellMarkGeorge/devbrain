@@ -5,6 +5,7 @@ export type EntityType =
   | 'note'
   | 'project'
   | 'event'
+  | 'calendar'
   | 'workspace'
   | 'integration'
   | 'externalSource'
@@ -15,6 +16,7 @@ const PREFIX: Record<EntityType, string> = {
   note: 'nte',
   project: 'prj',
   event: 'evt',
+  calendar: 'cal',
   workspace: 'wsp',
   integration: 'int',
   externalSource: 'src',
@@ -27,6 +29,7 @@ export type TaskId = Id<'task'>;
 export type NoteId = Id<'note'>;
 export type ProjectId = Id<'project'>;
 export type EventId = Id<'event'>;
+export type CalendarId = Id<'calendar'>;
 export type WorkspaceId = Id<'workspace'>;
 export type IntegrationId = Id<'integration'>;
 export type ExternalSourceId = Id<'externalSource'>;

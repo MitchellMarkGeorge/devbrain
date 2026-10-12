@@ -1,0 +1,47 @@
+{
+  "kind": "calendar#calendarList",
+  "etag": "\"p32o9fqbqvbbft0g\"",
+  "nextSyncToken": "COjZ7aXUlYgDEhJhZGFAZXhhbXBsZS5jb20=",
+  "items": [
+    {
+      "kind": "calendar#calendarListEntry",
+      "etag": "\"1696000000000000\"",
+      "id": "ada@example.com",
+      "summary": "ada@example.com",
+      "timeZone": "America/New_York",
+      "colorId": "14",
+      "backgroundColor": "#9fe1e7",
+      "foregroundColor": "#000000",
+      "selected": true,
+      "accessRole": "owner",
+      "defaultReminders": [{ "method": "popup", "minutes": 10 }],
+      "primary": true
+    },
+    {
+      "kind": "calendar#calendarListEntry",
+      "etag": "\"1696000000000001\"",
+      "id": "c_team0123456789@group.calendar.google.com",
+      "summary": "Engineering",
+      "summaryOverride": "Team",
+      "timeZone": "Europe/London",
+      "colorId": "7",
+      "backgroundColor": "#42d692",
+      "foregroundColor": "#000000",
+      "selected": true,
+      "accessRole": "reader",
+      "defaultReminders": []
+    },
+    {
+      "kind": "calendar#calendarListEntry",
+      "etag": "\"1696000000000002\"",
+      "id": "en.usa#holiday@group.v.calendar.google.com",
+      "summary": "Holidays in United States",
+      "timeZone": "America/New_York",
+      "colorId": "8",
+      "backgroundColor": "#16a765",
+      "foregroundColor": "#000000",
+      "accessRole": "reader",
+      "defaultReminders": []
+    }
+  ]
+}

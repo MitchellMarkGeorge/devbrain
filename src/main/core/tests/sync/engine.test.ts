@@ -1,3 +1,4 @@
+import { ZodError } from 'zod';
 import { describe, it, expect, beforeEach, afterEach, vi, Mock } from 'vitest';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import fs from 'node:fs/promises';
@@ -21,6 +22,7 @@ import { CURSOR_OVERLAP_MS } from '../../sync/constants';
 import { SearchService } from '../../search/service';
 import { CredentialStore } from '../../integrations/credential-store';
 import { IntegrationChange, IntegrationService } from '../../integrations/service';
+import { SyncStateManager, SyncStatusChange } from '../../sync/sync-state';
 import { Provider } from '../../integrations/providers/provider';
 import { createLinearProvider } from '../../integrations/providers/linear';
 import {
@@ -51,11 +53,13 @@ let provider: FakeProvider;
 let service: IntegrationService;
 let credentials: CredentialStore;
 let writer: SyncWriter;
+let syncState: SyncStateManager;
 let engine: SyncEngine;
 type LogFn = (...params: unknown[]) => void;
 let logger: { info: Mock<LogFn>; warn: Mock<LogFn>; error: Mock<LogFn> };
 let clock: Date;
-let changes: IntegrationChange[];
+// what IntegrationService and SyncStateManager told their listeners, in order
+let changes: (IntegrationChange | SyncStatusChange)[];
 let progress: SyncProgress[];
 let integrationId: IntegrationId;
 let sourceId: ExternalSourceId;
@@ -112,10 +116,12 @@ async function setup(registryProvider: Provider, apiKey = FAKE_API_KEY, maxPages
   credentials = new CredentialStore(db, { cipher: new FakeCipher() });
   service = new IntegrationService(db, { credentials, providers: fakeRegistry(registryProvider) });
   writer = new SyncWriter(db, new SearchService(db, workspacePath));
+  syncState = new SyncStateManager(db);
   logger = { info: vi.fn<LogFn>(), warn: vi.fn<LogFn>(), error: vi.fn<LogFn>() };
   clock = NOW;
   engine = new SyncEngine(db, {
     integrations: service,
+    syncState,
     credentials,
     providers: fakeRegistry(registryProvider),
     writer,
@@ -128,6 +134,7 @@ async function setup(registryProvider: Provider, apiKey = FAKE_API_KEY, maxPages
   sourceId = integration.sources[0].id;
   changes = [];
   service.onChange((change) => changes.push(change));
+  syncState.onChange((change) => changes.push(change));
   progress = [];
   engine.onProgress((event) => progress.push(event));
 }
@@ -381,7 +388,7 @@ describe('SyncEngine — resume and transactions', () => {
   });
 
   it('rolls back the page when saving its cursor fails after the page was applied', async () => {
-    vi.spyOn(service, 'saveCursor').mockImplementationOnce(() => {
+    vi.spyOn(syncState, 'saveCursor').mockImplementationOnce(() => {
       throw new Error('disk full');
     });
     const applied = vi.spyOn(writer, 'applyTaskPage');
@@ -515,6 +522,20 @@ describe('SyncEngine — failures', () => {
       skipReason: SyncSkipReason.NEEDS_REAUTH,
     });
     expect(provider.tasks.pulls).toHaveLength(1);
+  });
+
+  it('fails the run without pulling when the stored config does not validate', async () => {
+    db.update(externalSources)
+      .set({ config: 'not an object' })
+      .where(eq(externalSources.id, sourceId))
+      .run();
+
+    const result = await engine.runSource(sourceId);
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.FAILED, pages: 0 });
+    expect(result.error).toBeInstanceOf(ZodError);
+    expect(provider.tasks.pulls).toHaveLength(0);
+    expect(sourceRow()).toMatchObject({ consecutiveFailures: 1 });
   });
 
   it('treats unreadable stored credentials as rejected', async () => {
@@ -758,7 +779,7 @@ describe('SyncEngine — logging and change events', () => {
     expect(line).not.toMatch(/Secret/);
   });
 
-  it('emits the recorded source status through IntegrationService', async () => {
+  it('emits the recorded source status through SyncStateManager', async () => {
     provider.tasks.script({ tasks: [issue()] });
 
     await engine.runSource(sourceId);

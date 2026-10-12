@@ -1,0 +1,21 @@
+{
+  "kind": "calendar#event",
+  "etag": "\"3459123456789000\"",
+  "id": "7cbh8rpc10lrc0ckih9tafss99",
+  "status": "confirmed",
+  "htmlLink": "https://www.google.com/calendar/event?eid=N2NiaDhycGMxMGxyYzBja2loOXRhZnNzOTkgYWRhQGV4YW1wbGUuY29t",
+  "created": "2026-10-01T15:00:00.000Z",
+  "updated": "2026-10-02T09:30:00.000Z",
+  "summary": "Design review",
+  "description": "<b>Agenda</b><br>Walk through the <a href=\"https://docs.example.com/spec\">spec</a><ul><li>Open questions</li><li>Next steps</li></ul><script>alert(1)</script><span style=\"color:red\">Bring <u>notes</u></span>",
+  "location": "Room 4",
+  "colorId": "11",
+  "creator": { "email": "ada@example.com", "self": true },
+  "organizer": { "email": "ada@example.com", "self": true },
+  "start": { "dateTime": "2026-10-12T10:00:00-04:00", "timeZone": "America/New_York" },
+  "end": { "dateTime": "2026-10-12T11:00:00-04:00", "timeZone": "America/New_York" },
+  "iCalUID": "7cbh8rpc10lrc0ckih9tafss99@google.com",
+  "sequence": 0,
+  "reminders": { "useDefault": true },
+  "eventType": "default"
+}

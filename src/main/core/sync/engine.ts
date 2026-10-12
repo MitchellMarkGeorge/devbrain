@@ -3,19 +3,28 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import log from 'electron-log';
 import { z } from 'zod';
 import { CredentialStore } from '../integrations/credential-store';
-import { IntegrationService, SyncTarget } from '../integrations/service';
+import { IntegrationService } from '../integrations/service';
+import { SyncStateManager, SyncTarget } from './sync-state';
 import {
   LookupResult,
+  Provider as ProviderImpl,
   SyncCursor,
   SourceConfig,
   TaskSource,
 } from '../integrations/providers/provider';
 import { ProviderRegistry } from '../integrations/providers/registry';
-import { linearTaskConfigSchema, linearTaskCursorSchema } from '../integrations/schema';
+import {
+  googleEventCursorSchema,
+  linearTaskConfigSchema,
+  linearTaskCursorSchema,
+} from '../integrations/schema';
 import { IntegrationStatus, Provider, SourceType } from '../integrations/types';
 import { IntegrationAuthError, RateLimitError, SyncPageLimitError } from '../shared/errors';
 import { CLOSED_ISSUE_WINDOW_MS, MAX_PAGES_PER_RUN } from './constants';
 import { SyncWriter } from './writer';
+import { Syncer } from './syncer';
+import { TaskSyncer } from './task-syncer';
+import { EventSyncer } from './event-syncer';
 import {
   ReattachRefusal,
   ReattachResult,
@@ -37,7 +46,10 @@ export interface SyncLogger {
 }
 
 export interface SyncEngineOptions {
+  // for needs_reauth when a provider rejects the credentials
   integrations: IntegrationService;
+  // each source's cursor and run outcomes
+  syncState: SyncStateManager;
   credentials: CredentialStore;
   providers: ProviderRegistry;
   writer: SyncWriter;
@@ -60,17 +72,26 @@ const TASK_SOURCE_SCHEMAS: Partial<
   [Provider.LINEAR]: { cursor: linearTaskCursorSchema, config: linearTaskConfigSchema },
 };
 
+// How each provider's events cursor is stored, validated the same way. An events source has no
+// stored config: what it syncs is the calendars selected in the calendars table (see EventSyncer).
+const EVENT_CURSOR_SCHEMAS: Partial<Record<Provider, z.ZodType<SyncCursor>>> = {
+  [Provider.GOOGLE_CALENDAR]: googleEventCursorSchema,
+};
+
 /**
- * Runs one sync for one source: pull a page, apply it with SyncWriter and save the provider's next
- * cursor in the same transaction, until the provider says it is done. A crash or abort at any
- * point leaves the last committed page and its cursor, so the next run resumes from there.
+ * Runs one sync for one source: start the syncer for its type, then pull a page, apply it and save
+ * the provider's next cursor in the same transaction, until the provider says it is done. A crash
+ * or abort at any point leaves the last committed page and its cursor, so the next run resumes
+ * from there. What differs by source type (what a page holds, how it is written, what a run does
+ * first) is in the type's Syncer; the engine knows no source type beyond picking it.
  *
  * Deciding when to run (intervals, backoff, one run per source) is the scheduler's job. The engine
  * only refuses to start a run that cannot or must not talk to the provider, and records how each
- * run ended on its source through IntegrationService, which tells the scheduler and the renderer.
+ * run ended on its source through SyncStateManager, which tells the scheduler and the renderer.
  */
 export class SyncEngine {
   private readonly integrations: IntegrationService;
+  private readonly syncState: SyncStateManager;
   private readonly credentials: CredentialStore;
   private readonly providers: ProviderRegistry;
   private readonly writer: SyncWriter;
@@ -80,30 +101,51 @@ export class SyncEngine {
   private readonly listeners = new Set<SyncProgressListener>();
   // sources with a run in flight; a second run for one of them is skipped
   private readonly running = new Set<ExternalSourceId>();
+  // the syncer for each source type and its provider; null when the provider has none
+  private readonly syncers: Record<
+    SourceType,
+    (provider: ProviderImpl, target: SyncTarget) => Syncer | null
+  >;
 
   constructor(
     private readonly db: BetterSQLite3Database,
     options: SyncEngineOptions,
   ) {
     this.integrations = options.integrations;
+    this.syncState = options.syncState;
     this.credentials = options.credentials;
     this.providers = options.providers;
     this.writer = options.writer;
     this.logger = options.logger ?? log.scope('sync');
     this.now = options.now ?? (() => new Date());
     this.maxPagesPerRun = options.maxPagesPerRun ?? MAX_PAGES_PER_RUN;
+    this.syncers = {
+      [SourceType.TASKS]: (provider, target) => {
+        const schemas = TASK_SOURCE_SCHEMAS[target.provider];
+        return provider.tasks && schemas
+          ? new TaskSyncer(this.writer, provider.tasks, schemas.cursor, schemas.config)
+          : null;
+      },
+      [SourceType.EVENTS]: (provider, target) => {
+        const cursorSchema = EVENT_CURSOR_SCHEMAS[target.provider];
+        return provider.events && cursorSchema
+          ? new EventSyncer(this.db, this.writer, provider.events, cursorSchema)
+          : null;
+      },
+      [SourceType.VERSION_CONTROL]: () => null,
+    };
   }
 
   /**
-   * Initial or incremental sync of one tasks source, by its stored cursor.
+   * Initial or incremental sync of one tasks or events source, by its stored cursor.
    *
    * 0. An already aborted signal ends the run before anything is read.
    * 1. Load the source and its integration; skip when either is off, the integration needs
    *    re-authentication, or the provider's retry time has not passed.
    * 2. Read the stored cursor; an unreadable one is treated as null, which starts an initial sync.
-   * 3. Get auth, then per page: check the signal, pull, check the signal again (an aborted run
-   *    discards the page it was waiting on), then apply the page and save its cursor in one
-   *    transaction. The last page of an initial pass also sets initialSyncCompletedAt; the
+   * 3. Get auth and start the source type's syncer, then per page: check the signal, pull, check
+   *    the signal again (an aborted run discards the page it was waiting on), then apply the page
+   *    and save its cursor in one transaction. A page the syncer declines to apply ends the run. The last page of an initial pass also sets initialSyncCompletedAt; the
    *    provider's cursor after it is already incremental. A run that reaches the page cap without
    *    the provider finishing fails, keeping the pages it committed.
    * 4. Record the outcome on the source: success clears the error and failure count; a failure
@@ -131,26 +173,21 @@ export class SyncEngine {
     this.running.add(sourceId);
     try {
       // 1. nothing runs for a source that is off, or for an integration that is off or rejected
-      const target = this.integrations.getSyncTarget(sourceId);
+      const target = this.syncState.getSyncTarget(sourceId);
       const blocked = this.skipReason(target);
       if (blocked) return skip(blocked);
-      const tasks = this.providers.get(target.provider)?.tasks;
-      const schemas = TASK_SOURCE_SCHEMAS[target.provider];
-      if (target.sourceType !== SourceType.TASKS || !tasks || !schemas) {
-        return skip(SyncSkipReason.UNSUPPORTED);
-      }
+      const syncer = this.getSyncer(target);
+      if (!syncer) return skip(SyncSkipReason.UNSUPPORTED);
 
-      // 2. a cursor that does not parse, e.g. written by an older version, starts over
-      const stored = schemas.cursor.safeParse(target.cursor);
-      const cursor = stored.success ? stored.data : null;
+      // 2.
+      const cursor = this.parseCursor(syncer, target);
       run.mode =
         cursor === null || target.initialSyncCompletedAt === null
           ? SyncMode.INITIAL
           : SyncMode.INCREMENTAL;
 
       try {
-        const config = schemas.config.parse(target.config);
-        await this.pullPages(sourceId, target, tasks, cursor, config, run, options.signal);
+        await this.pullPages(sourceId, target, syncer, cursor, run, options.signal);
       } catch (error) {
         // whatever failed after an abort was cut short by it; report the abort, record nothing
         if (options.signal?.aborted) return finish({ outcome: SyncRunOutcome.ABORTED });
@@ -159,7 +196,7 @@ export class SyncEngine {
 
       if (options.signal?.aborted) return finish({ outcome: SyncRunOutcome.ABORTED });
       // 4. success
-      this.integrations.recordSyncOutcome(sourceId, { ok: true, at: this.now() });
+      this.syncState.recordSyncOutcome(sourceId, { ok: true, at: this.now() });
       return finish({ outcome: SyncRunOutcome.COMPLETED });
     } finally {
       this.running.delete(sourceId);
@@ -203,7 +240,7 @@ export class SyncEngine {
     this.running.add(sourceId);
     try {
       // 1.
-      const target = this.integrations.getSyncTarget(sourceId);
+      const target = this.syncState.getSyncTarget(sourceId);
       const blocked = this.skipReason(target);
       if (blocked) return skip(blocked);
       const tasks = this.providers.get(target.provider)?.tasks;
@@ -225,8 +262,8 @@ export class SyncEngine {
       if (options.signal?.aborted) return finish({ outcome: SyncRunOutcome.ABORTED });
       // 5. success
       const at = this.now();
-      this.integrations.recordSyncOutcome(sourceId, { ok: true, at });
-      this.integrations.markReconciled(sourceId, at);
+      this.syncState.recordSyncOutcome(sourceId, { ok: true, at });
+      this.syncState.markReconciled(sourceId, at);
       return finish({ outcome: SyncRunOutcome.COMPLETED });
     } finally {
       this.running.delete(sourceId);
@@ -254,7 +291,7 @@ export class SyncEngine {
     descendantExternalIds: string[],
   ): Promise<ReattachResult> {
     // 1.
-    const target = this.integrations.getSyncTarget(sourceId);
+    const target = this.syncState.getSyncTarget(sourceId);
     const blocked = this.skipReason(target);
     if (blocked) return { ok: false, reason: blocked };
     const tasks = this.providers.get(target.provider)?.tasks;
@@ -308,21 +345,23 @@ export class SyncEngine {
   private async pullPages(
     sourceId: ExternalSourceId,
     target: SyncTarget,
-    tasks: TaskSource,
+    syncer: Syncer,
     cursor: SyncCursor | null,
-    config: SourceConfig,
     run: RunTally,
     signal: AbortSignal | undefined,
   ): Promise<void> {
     const auth = await this.credentials.getAuth(target.integrationId);
+    if (signal?.aborted) return;
+    // writes nothing: every write of the run is in sync.apply, below
+    const sync = await syncer.start({ sourceId, target, auth, cursor });
 
-    let current = cursor;
+    let current = sync.cursor;
     let done = false;
     do {
       // the pages so far are committed, so the next run resumes after them
       if (run.pages >= this.maxPagesPerRun) throw new SyncPageLimitError(this.maxPagesPerRun);
       if (signal?.aborted) return;
-      const page = await tasks.pull(auth, current, config);
+      const page = await sync.pull(current);
       // the page arrived after an abort: discard it, so nothing is written after the abort
       if (signal?.aborted) return;
 
@@ -330,12 +369,15 @@ export class SyncEngine {
       // the writer's own transaction becomes a savepoint inside this one, so the page and its
       // cursor commit together or not at all
       const summary = this.db.transaction(() => {
-        const summary = this.writer.applyTaskPage(sourceId, page);
-        this.integrations.saveCursor(sourceId, page.nextCursor, {
+        const summary = sync.apply(page);
+        if (summary === null) return null;
+        this.syncState.saveCursor(sourceId, page.nextCursor, {
           ...(completesInitial && { initialSyncCompletedAt: this.now() }),
         });
         return summary;
       });
+      // the syncer declined the page: stop, leaving the stored cursor to the next run
+      if (summary === null) return;
       run.addPage(summary, page.skipped);
       this.emitProgress({
         sourceId,
@@ -386,6 +428,19 @@ export class SyncEngine {
     });
   }
 
+  // the syncer for the source's type and provider; null when there is none, and the run is skipped
+  private getSyncer(target: SyncTarget): Syncer | null {
+    const provider = this.providers.get(target.provider);
+    return provider ? this.syncers[target.sourceType](provider, target) : null;
+  }
+
+  // the stored cursor, validated with the syncer's schema; one that does not parse, e.g. written
+  // by an older version, is null, which starts a fresh initial sync
+  private parseCursor(syncer: Syncer, target: SyncTarget): SyncCursor | null {
+    const stored = syncer.cursorSchema.safeParse(target.cursor);
+    return stored.success ? stored.data : null;
+  }
+
   private skipReason(target: SyncTarget): SyncSkipReason | null {
     if (target.status === IntegrationStatus.NEEDS_REAUTH) return SyncSkipReason.NEEDS_REAUTH;
     if (target.status === IntegrationStatus.DISABLED) return SyncSkipReason.INTEGRATION_DISABLED;
@@ -405,7 +460,7 @@ export class SyncEngine {
 
     if (error instanceof RateLimitError) {
       // the retry time is the wait, so a rate limit does not also count toward backoff
-      this.integrations.recordSyncOutcome(sourceId, {
+      this.syncState.recordSyncOutcome(sourceId, {
         ok: false,
         error: error.message,
         countsAsFailure: false,
@@ -414,7 +469,7 @@ export class SyncEngine {
       return { outcome: SyncRunOutcome.RATE_LIMITED, error, retryAt: error.retryAt };
     }
 
-    this.integrations.recordSyncOutcome(sourceId, {
+    this.syncState.recordSyncOutcome(sourceId, {
       ok: false,
       error: error.message,
       countsAsFailure: true,

@@ -1,0 +1,14 @@
+{
+  "kind": "calendar#calendarListEntry",
+  "etag": "\"1696000000000000\"",
+  "id": "ada@example.com",
+  "summary": "ada@example.com",
+  "timeZone": "America/New_York",
+  "colorId": "14",
+  "backgroundColor": "#9fe1e7",
+  "foregroundColor": "#000000",
+  "selected": true,
+  "accessRole": "owner",
+  "defaultReminders": [{ "method": "popup", "minutes": 10 }],
+  "primary": true
+}
