@@ -2,6 +2,9 @@ import { Auth } from '../../integrations/auth';
 import {
   AssignedTaskPage,
   AssignedTasksQuery,
+  CalendarEventPage,
+  CalendarSource,
+  EventsQuery,
   ExternalAccount,
   Provider,
   Resolution,
@@ -11,6 +14,8 @@ import {
 import { ProviderRegistry } from '../../integrations/providers/registry';
 import {
   AuthType,
+  ExternalCalendar,
+  ExternalEvent,
   ExternalProject,
   ExternalTask,
   Provider as ProviderId,
@@ -170,6 +175,72 @@ export function createFakeProvider(): FakeProvider {
   };
 }
 
-export function fakeRegistry(provider: Provider): ProviderRegistry {
-  return new Map([[provider.id, provider]]);
+export function fakeRegistry(...providers: Provider[]): ProviderRegistry {
+  return new Map(providers.map((provider) => [provider.id, provider]));
+}
+
+export const FAKE_ACCESS_TOKEN = 'fake_access_token';
+export const FAKE_REFRESH_TOKEN = 'fake_refresh_token';
+export const FAKE_CALENDAR_ACCOUNT: ExternalAccount = {
+  accountId: 'subject-1',
+  label: 'ada@example.com',
+  userId: 'subject-1',
+};
+
+// A calendar source for engine tests: it lists `calendars`, and every page request for a calendar
+// answers with all of its `events` as one last page, full pass or not.
+export class FakeCalendarSource implements CalendarSource {
+  calendars: ExternalCalendar[] = [
+    { id: 'ada@example.com', name: 'Ada', primary: true, color: '#039be5', timeZone: 'UTC' },
+  ];
+  readonly events = new Map<string, ExternalEvent[]>();
+  readonly pulls: { calendarId: string; query: EventsQuery }[] = [];
+
+  async listCalendars(): Promise<ExternalCalendar[]> {
+    return [...this.calendars];
+  }
+
+  async getEventPage(
+    _auth: Auth,
+    calendarId: string,
+    query: EventsQuery,
+  ): Promise<CalendarEventPage> {
+    this.pulls.push({ calendarId, query });
+    return {
+      events: this.events.get(calendarId) ?? [],
+      cancelledIds: [],
+      skipped: 0,
+      nextPageToken: null,
+      changeToken: `change-${this.pulls.length}`,
+    };
+  }
+}
+
+export interface FakeCalendarProvider extends Provider {
+  calendars: FakeCalendarSource;
+}
+
+// An events provider connected through OAuth, registered under Google Calendar's id. Its account
+// query accepts FAKE_ACCESS_TOKEN only; pair it with an OAuthClient that hands that token out.
+export function createFakeCalendarProvider(): FakeCalendarProvider {
+  return {
+    id: ProviderId.GOOGLE_CALENDAR,
+    supports: [SourceType.EVENTS],
+    authMethods: [AuthType.OAUTH],
+    oauth: {
+      authorizeUrl: 'https://auth.example.com/authorize',
+      tokenUrl: 'https://auth.example.com/token',
+      revokeUrl: 'https://auth.example.com/revoke',
+      clientId: 'fake-client',
+      scopes: ['calendar'],
+      redirect: { ports: 'any', path: '/callback' },
+    },
+    async getAccount(auth) {
+      if (auth.authorization !== `Bearer ${FAKE_ACCESS_TOKEN}`) {
+        throw new IntegrationAuthError('rejected');
+      }
+      return FAKE_CALENDAR_ACCOUNT;
+    },
+    calendars: new FakeCalendarSource(),
+  };
 }

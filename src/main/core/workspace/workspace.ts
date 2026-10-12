@@ -48,7 +48,10 @@ export class Workspace {
     this.calendars = new CalendarService(db);
     this.archive = new ArchiveService(db);
     this.search = new SearchService(db, info.path);
-    const { credentials, integrations, providers } = createIntegrationServices(db, options);
+    const { credentials, integrations, providers } = createIntegrationServices(db, {
+      ...options,
+      search: this.search,
+    });
     this.integrations = integrations;
     const syncState = new SyncStateManager(db);
     const engine = new SyncEngine(db, {

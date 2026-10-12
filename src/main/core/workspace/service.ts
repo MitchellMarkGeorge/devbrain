@@ -5,7 +5,7 @@ import { Workspace } from './workspace';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
-import { directoryExists, isNotFound } from '../local/utils';
+import { directoryExists, fileExists, isNotFound } from '../local/utils';
 import { NotFoundError } from '../shared/errors';
 import { paginateArray, Page, PageOptions } from '../shared/pagination';
 
@@ -90,8 +90,11 @@ export class WorkspaceService {
 
   async delete(id: WorkspaceId): Promise<void> {
     let workspaceInfo: WorkspaceInfo;
+    const isOpen = this.currentWorkspace?.info.id === id;
 
-    if (this.currentWorkspace?.info.id === id) {
+    if (this.currentWorkspace !== null && isOpen) {
+      // revoke the workspace's grants while its database is open; best effort, never throws
+      await this.currentWorkspace.integrations.revokeAll();
       // close current workspace if it is to be deleted
       workspaceInfo = this.currentWorkspace.info;
       await this.closeCurrent();
@@ -105,6 +108,9 @@ export class WorkspaceService {
       throw new Error('Workspace directory not found');
     }
 
+    // an open one was revoked above, before it closed
+    if (!isOpen) await this.revokeClosed(workspaceInfo);
+
     // delete worksapce directory and all its conents (db file and notes)
     await fs.rm(workspaceInfo.path, { recursive: true, force: true });
 
@@ -113,6 +119,26 @@ export class WorkspaceService {
     // remove workspace from workspaces file
     delete workspaces[id];
     this.writeWorkspaceFile(workspaces);
+  }
+
+  /**
+   * Revokes the grants of a workspace that is not open, by opening it just for that. Best effort:
+   * a workspace that can't be opened (no database, a failed migration) is deleted all the same.
+   */
+  private async revokeClosed(info: WorkspaceInfo): Promise<void> {
+    // nothing was ever stored without a database
+    if (!(await fileExists(path.join(info.path, 'db.sqlite')))) return;
+    let workspace: Workspace;
+    try {
+      workspace = await Workspace.open(info, this.workspaceOptions);
+    } catch {
+      return;
+    }
+    try {
+      await workspace.integrations.revokeAll();
+    } finally {
+      await workspace.close();
+    }
   }
 
   async open(id: WorkspaceId): Promise<Workspace> {

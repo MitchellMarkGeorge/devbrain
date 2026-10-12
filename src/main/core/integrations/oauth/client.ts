@@ -204,14 +204,14 @@ export function createOAuthClient(options: OAuthClientOptions): OAuthClient {
       return { ...tokens, refreshToken: tokens.refreshToken ?? refreshToken };
     },
 
-    async revoke(config, tokens) {
+    async revoke(config, tokens, opts = {}) {
       if (!config.revokeUrl) return;
       // revoking the refresh token ends the whole grant where the provider supports that
       const [token, hint] = tokens.refreshToken
         ? [tokens.refreshToken, 'refresh_token']
         : [tokens.accessToken, 'access_token'];
       try {
-        await post(config, config.revokeUrl, { token, token_type_hint: hint });
+        await post(config, config.revokeUrl, { token, token_type_hint: hint }, opts.signal);
       } catch (error) {
         // a token that is already invalid needs no revoking (RFC 7009 section 2.2)
         if (error instanceof OAuthError && error.code === 'invalid_token') return;

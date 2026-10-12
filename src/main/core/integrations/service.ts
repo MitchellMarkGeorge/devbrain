@@ -4,14 +4,19 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   ConnectInProgressError,
+  IntegrationAccountMismatchError,
   IntegrationAlreadyConnectedError,
   IntegrationAuthError,
   IntegrationDisabledError,
   NotFoundError,
 } from '../shared/errors';
+import { SearchService } from '../search/service';
+import { REVOKE_TIMEOUT_MS } from '../sync/constants';
+import { SyncEntityType } from '../sync/types';
 import { toAuth } from './auth';
 import { CredentialStore } from './credential-store';
-import { ApiKeyCredentials, Credentials, OAuthCredentials } from './credentials';
+import { ApiKeyCredentials, Credentials, OAuthCredentials, PendingRevoke } from './credentials';
+import { applyDisconnect, countPlan, DisconnectCounts, planDisconnect } from './disconnect';
 import { OAuthClient } from './oauth/types';
 import { ExternalAccount, Provider as ProviderImpl } from './providers/provider';
 import { ProviderRegistry, getProvider } from './providers/registry';
@@ -39,9 +44,35 @@ export type IntegrationChange =
       integrationId: IntegrationId;
       sourceId: ExternalSourceId;
       enabled: boolean;
-    };
+    }
+  // Sent by disconnect before any row is touched: stop scheduling these sources and abort their
+  // runs. Once disconnect resolves, the integration and its sources are gone.
+  | { type: 'removed'; integrationId: IntegrationId; sourceIds: ExternalSourceId[] };
 
 export type IntegrationChangeListener = (change: IntegrationChange) => void;
+
+// Awaited by disconnect after the `removed` change and before any row is touched, so a subscriber
+// that needs to wait (the scheduler settling a run it aborted) can. A hook that throws is logged
+// and does not stop the disconnect.
+export type BeforeDisconnectHook = (integrationId: IntegrationId) => Promise<void> | void;
+
+// what a reconnect authenticates with: a new API key, or the provider's OAuth flow run again
+export type ReconnectWith =
+  | { type: AuthType.API_KEY; apiKey: string }
+  | { type: AuthType.OAUTH; signal?: AbortSignal };
+
+export interface DisconnectOptions {
+  // true keeps every synced item as a detached local copy; false (the default choice in the
+  // dialog) deletes those nothing of the user's points at
+  keepLocalCopies: boolean;
+}
+
+export interface DisconnectResult extends DisconnectCounts {
+  changed: SyncEntityType[];
+  // whether the provider confirmed the grant revoked; false for an API key, which has nothing to
+  // revoke, and when revoking failed or timed out
+  revoked: boolean;
+}
 
 export interface ConnectOptions {
   // The source types to switch on, from those the provider supports; defaults to all of them.
@@ -65,6 +96,9 @@ export interface IntegrationServiceOptions {
   providers: ProviderRegistry;
   // runs connectWithOAuth's browser flow; without one, connecting through OAuth is refused
   oauth?: OAuthClient;
+  // the workspace's search index, which disconnect drops deleted rows from; defaults to one over
+  // the same database (removing from the index never reads note files)
+  search?: SearchService;
 }
 
 type IntegrationRow = typeof integrations.$inferSelect;
@@ -84,18 +118,26 @@ export interface BaseIntegrationService {
   connectWithOAuth(providerId: Provider, options?: OAuthConnectOptions): Promise<Integration>;
   setEnabled(id: IntegrationId, enabled: boolean, options?: EnableOptions): Promise<Integration>;
   setSourceEnabled(sourceId: ExternalSourceId, enabled: boolean): Promise<ExternalSource>;
+  reconnect(id: IntegrationId, using: ReconnectWith): Promise<Integration>;
+  previewDisconnect(id: IntegrationId): Promise<DisconnectCounts>;
+  disconnect(id: IntegrationId, options: DisconnectOptions): Promise<DisconnectResult>;
   markNeedsReauth(id: IntegrationId): void;
   // returns a function that unsubscribes the listener
   onChange(listener: IntegrationChangeListener): () => void;
+  // returns a function that removes the hook; see BeforeDisconnectHook
+  onBeforeDisconnect(hook: BeforeDisconnectHook): () => void;
 }
 
-// Connect, enable and disable. Owns the integrations and external_sources tables; credentials go
+// Connect, enable, disable, reconnect and disconnect. Owns the integrations and external_sources
+// tables (a disconnect also deletes or detaches the mirrored rows); credentials go
 // through CredentialStore and never appear on what this returns.
 export class IntegrationService implements BaseIntegrationService {
   private readonly credentials: CredentialStore;
   private readonly providers: ProviderRegistry;
   private readonly oauth: OAuthClient | null;
+  private readonly search: SearchService;
   private readonly listeners = new Set<IntegrationChangeListener>();
+  private readonly beforeDisconnect = new Set<BeforeDisconnectHook>();
   // set while an OAuth connect waits on the browser; one flow per workspace at a time
   private connecting = false;
 
@@ -106,6 +148,7 @@ export class IntegrationService implements BaseIntegrationService {
     this.credentials = options.credentials;
     this.providers = options.providers;
     this.oauth = options.oauth ?? null;
+    this.search = options.search ?? new SearchService(db, '');
   }
 
   async list(): Promise<Integration[]> {
@@ -140,12 +183,12 @@ export class IntegrationService implements BaseIntegrationService {
       throw new Error(`${providerId} can't be connected with an API key`);
     }
     const enable = sourcesToEnable(provider, options);
-    const key = apiKey.trim();
-    if (key === '') throw new Error('An API key is required');
 
-    const credentials: ApiKeyCredentials = { type: AuthType.API_KEY, apiKey: key };
     // the network call comes first, so a rejected key leaves nothing behind
-    const account = await provider.getAccount(toAuth(credentials));
+    const { credentials, account } = await this.authenticate(provider, {
+      type: AuthType.API_KEY,
+      apiKey,
+    });
     return this.store(provider, credentials, account, enable);
   }
 
@@ -160,20 +203,87 @@ export class IntegrationService implements BaseIntegrationService {
     options: OAuthConnectOptions = {},
   ): Promise<Integration> {
     const provider = getProvider(this.providers, providerId);
-    const config = provider.oauth;
-    if (!config || !provider.authMethods.includes(AuthType.OAUTH)) {
+    if (!provider.oauth || !provider.authMethods.includes(AuthType.OAUTH)) {
       throw new Error(`${providerId} can't be connected with OAuth`);
     }
     if (!this.oauth) throw new Error('No OAuth client is configured');
     const enable = sourcesToEnable(provider, options);
+    const { credentials, account } = await this.authenticate(provider, {
+      type: AuthType.OAUTH,
+      signal: options.signal,
+    });
+    return this.store(provider, credentials, account, enable);
+  }
 
+  /**
+   * Re-authenticates an integration, usually one in needs_reauth, keeping its row, sources and
+   * cursors: with a new API key, or by running the provider's OAuth flow again. The credentials
+   * are validated through the provider's account query first. Credentials for another account are
+   * rejected with IntegrationAccountMismatchError and change nothing.
+   *
+   * On success the new credentials are stored and the status becomes connected, so a scheduler
+   * listening for status_changed starts syncing again from the saved cursors. A disabled
+   * integration stays disabled with the new credentials, as enabling it is the user's call.
+   */
+  async reconnect(id: IntegrationId, using: ReconnectWith): Promise<Integration> {
+    const row = this.db.select().from(integrations).where(eq(integrations.id, id)).get();
+    if (!row) throw new NotFoundError(id);
+    const provider = getProvider(this.providers, row.provider);
+
+    const { credentials, account } = await this.authenticate(provider, using);
+    if (account.accountId !== row.accountId) {
+      throw new IntegrationAccountMismatchError(id, row.accountLabel, account.label);
+    }
+    const sealed = await this.credentials.seal(credentials);
+
+    const status =
+      row.status === IntegrationStatus.DISABLED
+        ? IntegrationStatus.DISABLED
+        : IntegrationStatus.CONNECTED;
+    this.db.transaction((tx) => {
+      // a reconnect may switch auth method, e.g. from an API key to OAuth
+      tx.update(integrations)
+        .set({ authType: credentials.type, accountLabel: account.label, status })
+        .where(eq(integrations.id, id))
+        .run();
+      this.credentials.save(id, sealed);
+    });
+
+    if (status === IntegrationStatus.CONNECTED) {
+      this.emit({ type: 'status_changed', integrationId: id, status });
+    }
+    return this.getById(id);
+  }
+
+  // Gets credentials from the user, by API key or the provider's OAuth flow, and validates them
+  // with the provider's account query. Writes nothing. Only one OAuth flow runs at a time in a
+  // workspace: a second one throws ConnectInProgressError.
+  private async authenticate(
+    provider: ProviderImpl,
+    using: ReconnectWith,
+  ): Promise<{ credentials: Credentials; account: ExternalAccount }> {
+    if (using.type === AuthType.API_KEY) {
+      if (!provider.authMethods.includes(AuthType.API_KEY)) {
+        throw new Error(`${provider.id} can't be connected with an API key`);
+      }
+      const key = using.apiKey.trim();
+      if (key === '') throw new Error('An API key is required');
+      const credentials: ApiKeyCredentials = { type: AuthType.API_KEY, apiKey: key };
+      return { credentials, account: await provider.getAccount(toAuth(credentials)) };
+    }
+
+    const config = provider.oauth;
+    if (!config || !provider.authMethods.includes(AuthType.OAUTH)) {
+      throw new Error(`${provider.id} can't be connected with OAuth`);
+    }
+    if (!this.oauth) throw new Error('No OAuth client is configured');
     if (this.connecting) throw new ConnectInProgressError();
     this.connecting = true;
     try {
-      const signal = options.signal ?? new AbortController().signal;
+      const signal = using.signal ?? new AbortController().signal;
       const tokens = await this.oauth.authorize(config, { signal });
       if (!tokens.refreshToken) {
-        throw new IntegrationAuthError(`${providerId} issued no refresh token`);
+        throw new IntegrationAuthError(`${provider.id} issued no refresh token`);
       }
       const credentials: OAuthCredentials = {
         type: AuthType.OAUTH,
@@ -181,8 +291,7 @@ export class IntegrationService implements BaseIntegrationService {
         refreshToken: tokens.refreshToken,
         expiresAt: tokens.expiresAt ?? null,
       };
-      const account = await provider.getAccount(toAuth(credentials));
-      return await this.store(provider, credentials, account, enable);
+      return { credentials, account: await provider.getAccount(toAuth(credentials)) };
     } finally {
       this.connecting = false;
     }
@@ -345,6 +454,81 @@ export class IntegrationService implements BaseIntegrationService {
   }
 
   /**
+   * What disconnecting with "remove synced items" would do: how many mirrored tasks, projects and
+   * events would be deleted, and how many kept as local copies. Keeping everything keeps the sum.
+   * Reads only; uses the same plan as disconnect, so the two agree.
+   */
+  async previewDisconnect(id: IntegrationId): Promise<DisconnectCounts> {
+    const sourceIds = this.sourceIdsOf(id);
+    return countPlan(planDisconnect(this.db, sourceIds, { keepLocalCopies: false }));
+  }
+
+  /**
+   * Disconnects an integration and deletes it.
+   *
+   * 1. Emit `removed` and await the before-disconnect hooks, so the scheduler stops the sources
+   *    before any row is touched.
+   * 2. Read the credentials for revoking, before the row that holds them goes.
+   * 3. In one transaction: delete or detach the mirrored items (see planDisconnect and
+   *    applyDisconnect), clear the credentials and delete the integration. The cascade deletes the
+   *    sources and nulls `sourceId` on the surviving links and calendars, which keep their
+   *    provider, key and URL for the badge.
+   * 4. Revoke the grant at the provider, best effort and for at most REVOKE_TIMEOUT_MS: a failure
+   *    is logged and never undoes or blocks the disconnect. An API key has nothing to revoke.
+   */
+  async disconnect(id: IntegrationId, options: DisconnectOptions): Promise<DisconnectResult> {
+    const sourceIds = this.sourceIdsOf(id);
+
+    // 1.
+    this.emit({ type: 'removed', integrationId: id, sourceIds });
+    for (const hook of [...this.beforeDisconnect]) {
+      try {
+        await hook(id);
+      } catch (error) {
+        console.error('A before-disconnect hook threw:', error);
+      }
+    }
+
+    // 2. unreadable credentials have nothing to revoke, and must not keep the user connected
+    const revoke = await this.credentials.prepareRevoke(id);
+
+    // 3. the plan is made inside the transaction, on the rows as they are when it commits
+    const { counts, changed } = this.db.transaction((tx) => {
+      const plan = planDisconnect(tx, sourceIds, options);
+      const changed = applyDisconnect(tx, this.search, sourceIds, plan);
+      this.credentials.clear(id);
+      tx.delete(integrations).where(eq(integrations.id, id)).run();
+      return { counts: countPlan(plan), changed };
+    });
+
+    // 4.
+    const revoked = revoke ? await revokeQuietly(revoke) : false;
+    return { ...counts, changed, revoked };
+  }
+
+  /**
+   * Revokes every integration's grant at its provider, best effort and in parallel, and changes no
+   * row. For deleting a workspace, whose database goes with it.
+   */
+  async revokeAll(): Promise<void> {
+    const ids = this.db.select({ id: integrations.id }).from(integrations).all();
+    await Promise.all(
+      ids.map(async ({ id }) => {
+        const revoke = await this.credentials.prepareRevoke(id).catch(() => null);
+        if (revoke) await revokeQuietly(revoke);
+      }),
+    );
+  }
+
+  // returns a function that removes the hook; see BeforeDisconnectHook
+  onBeforeDisconnect(hook: BeforeDisconnectHook): () => void {
+    this.beforeDisconnect.add(hook);
+    return () => {
+      this.beforeDisconnect.delete(hook);
+    };
+  }
+
+  /**
    * Moves a connected integration to needs_reauth after its credentials were rejected. Its sources
    * keep their flags and cursors; they stop syncing until a reconnect. A disabled integration stays
    * disabled.
@@ -380,6 +564,22 @@ export class IntegrationService implements BaseIntegrationService {
         console.error('An integration change listener threw:', error);
       }
     }
+  }
+
+  // the integration's source ids; throws NotFoundError for an unknown integration
+  private sourceIdsOf(id: IntegrationId): ExternalSourceId[] {
+    const row = this.db
+      .select({ id: integrations.id })
+      .from(integrations)
+      .where(eq(integrations.id, id))
+      .get();
+    if (!row) throw new NotFoundError(id);
+    return this.db
+      .select({ id: externalSources.id })
+      .from(externalSources)
+      .where(eq(externalSources.integrationId, id))
+      .all()
+      .map((source) => source.id);
   }
 
   private assertNotConnected(provider: Provider, accountId: string, accountLabel: string): void {
@@ -426,6 +626,26 @@ function sourcesToEnable(provider: ProviderImpl, options: ConnectOptions): Sourc
     throw new Error(`${provider.id} can't serve as a source for ${unsupported.join(', ')}`);
   }
   return enable;
+}
+
+// Sends a prepared revocation, giving up after REVOKE_TIMEOUT_MS. Resolves whether it was confirmed;
+// never throws, and logs no more than the error's name, as a message could quote a token.
+async function revokeQuietly(revoke: PendingRevoke): Promise<boolean> {
+  const signal = AbortSignal.timeout(REVOKE_TIMEOUT_MS);
+  // the race bounds the wait even for a revoker that ignores the signal
+  const timedOut = new Promise<never>((_, reject) => {
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+  });
+  try {
+    await Promise.race([revoke(signal), timedOut]);
+    return true;
+  } catch (error) {
+    console.warn(
+      'Revoking credentials at the provider failed:',
+      error instanceof Error ? error.name : 'unknown error',
+    );
+    return false;
+  }
 }
 
 // a source row as the API returns it; also used by SyncStateManager

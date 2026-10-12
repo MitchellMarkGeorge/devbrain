@@ -244,7 +244,12 @@ describe('WorkspaceService — delete', () => {
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const fakeWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
+    const fakeWorkspace = {
+      info,
+      close: vi.fn(),
+      sync: { start: vi.fn() },
+      integrations: { revokeAll: vi.fn() },
+    };
 
     const service = new WorkspaceService(tmpDir);
     service.currentWorkspace = fakeWorkspace as never;
@@ -252,6 +257,54 @@ describe('WorkspaceService — delete', () => {
     await service.delete(info.id);
     expect(fakeWorkspace.close).toHaveBeenCalled();
     expect(service.currentWorkspace).toBeNull();
+  });
+
+  it("revokes the current workspace's credentials before closing it", async () => {
+    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
+    writeRegistry(tmpDir, [info]);
+    await fs.mkdir(info.path, { recursive: true });
+    const calls: string[] = [];
+    const fakeWorkspace = {
+      info,
+      close: vi.fn(() => calls.push('close')),
+      integrations: { revokeAll: vi.fn(async () => void calls.push('revoke')) },
+    };
+
+    const service = new WorkspaceService(tmpDir);
+    service.currentWorkspace = fakeWorkspace as never;
+    await service.delete(info.id);
+
+    expect(calls).toEqual(['revoke', 'close']);
+  });
+
+  it('opens a closed workspace to revoke its credentials, then deletes it', async () => {
+    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
+    writeRegistry(tmpDir, [info]);
+    await fs.mkdir(info.path, { recursive: true });
+    await fs.writeFile(path.join(info.path, 'db.sqlite'), '');
+    const opened = { info, close: vi.fn(), integrations: { revokeAll: vi.fn() } };
+    vi.mocked(Workspace.open).mockResolvedValueOnce(opened as never);
+
+    const service = new WorkspaceService(tmpDir);
+    await service.delete(info.id);
+
+    expect(opened.integrations.revokeAll).toHaveBeenCalled();
+    expect(opened.close).toHaveBeenCalled();
+    await expect(fs.stat(info.path)).rejects.toThrow();
+  });
+
+  it('deletes a workspace that fails to open for revoking', async () => {
+    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
+    writeRegistry(tmpDir, [info]);
+    await fs.mkdir(info.path, { recursive: true });
+    await fs.writeFile(path.join(info.path, 'db.sqlite'), '');
+    vi.mocked(Workspace.open).mockRejectedValueOnce(new Error('migration failed'));
+
+    const service = new WorkspaceService(tmpDir);
+    await service.delete(info.id);
+
+    expect(service.listAll().items).toHaveLength(0);
+    await expect(fs.stat(info.path)).rejects.toThrow();
   });
 
   it('removes only the targeted workspace when multiple exist', async () => {
@@ -391,6 +444,7 @@ describe('WorkspaceService — sync', () => {
     const prevWorkspace = {
       info: makeInfo({ id: 'wsp_prev' as WorkspaceId }),
       close: vi.fn(() => new Promise<void>((resolve) => (finishClose = resolve))),
+      integrations: { revokeAll: vi.fn() },
     };
     const nextWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
@@ -436,6 +490,7 @@ describe('WorkspaceService — sync', () => {
     const current = {
       info,
       close: vi.fn(() => new Promise<void>((resolve) => (finishClose = resolve))),
+      integrations: { revokeAll: vi.fn() },
     };
     const service = new WorkspaceService(tmpDir);
     service.currentWorkspace = current as never;

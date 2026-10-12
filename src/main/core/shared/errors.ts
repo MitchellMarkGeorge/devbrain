@@ -69,6 +69,19 @@ export class ConnectInProgressError extends Error {
   }
 }
 
+// a reconnect whose credentials belong to another account than the integration's; nothing changed
+export class IntegrationAccountMismatchError extends Error {
+  readonly integrationId: IntegrationId;
+
+  constructor(integrationId: IntegrationId, accountLabel: string, otherLabel: string) {
+    super(
+      `These credentials are for ${otherLabel}, not ${accountLabel}. Connect that account separately`,
+    );
+    this.name = 'IntegrationAccountMismatchError';
+    this.integrationId = integrationId;
+  }
+}
+
 // switching on a source of a disabled integration; enable the integration instead
 export class IntegrationDisabledError extends Error {
   readonly integrationId: IntegrationId;

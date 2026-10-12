@@ -1,4 +1,4 @@
-import { TokenRefresher } from '../credentials';
+import { TokenRefresher, TokenRevoker } from '../credentials';
 import { OAuthClient } from '../oauth/types';
 import { AuthType, Provider as ProviderId } from '../types';
 import { FetchFn, Provider } from './provider';
@@ -41,4 +41,29 @@ export function createTokenRefreshers(
     refreshers[provider.id] = (refreshToken) => oauth.refresh(config, refreshToken);
   }
   return refreshers;
+}
+
+// The same for revocation: the generic revoke over each OAuth provider's config. A provider whose
+// config has no revoke URL gets one that does nothing, as the generic revoke does.
+export function createTokenRevokers(
+  registry: ProviderRegistry,
+  oauth: OAuthClient,
+): Partial<Record<ProviderId, TokenRevoker>> {
+  const revokers: Partial<Record<ProviderId, TokenRevoker>> = {};
+  for (const provider of registry.values()) {
+    const config = provider.oauth;
+    if (!config || !provider.authMethods.includes(AuthType.OAUTH)) continue;
+    revokers[provider.id] = (credentials, signal) =>
+      oauth.revoke(
+        config,
+        {
+          accessToken: credentials.accessToken,
+          refreshToken: credentials.refreshToken,
+          expiresAt: credentials.expiresAt,
+          scopes: config.scopes,
+        },
+        { signal },
+      );
+  }
+  return revokers;
 }

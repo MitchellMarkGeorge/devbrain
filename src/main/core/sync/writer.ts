@@ -19,6 +19,8 @@ import { projects } from '@main/db/schema/projects';
 import { tasks } from '@main/db/schema/tasks';
 import {
   and,
+  asc,
+  desc,
   eq,
   exists,
   inArray,
@@ -898,6 +900,26 @@ class PageWrite {
         .map((row) => [row.externalId, row]),
     );
     const first = existing.size === 0;
+    // calendars a disconnect left without a source are this source's again when listed; their
+    // selection and visibility are kept, as are the events still in them
+    const orphans = new Map(
+      this.tx
+        .select()
+        .from(calendars)
+        .where(
+          and(
+            isNull(calendars.sourceId),
+            inArray(
+              calendars.externalId,
+              listed
+                .filter((calendar) => !existing.has(calendar.id))
+                .map((calendar) => calendar.id),
+            ),
+          ),
+        )
+        .all()
+        .map((row) => [row.externalId, row]),
+    );
     for (const calendar of listed) {
       const fields = {
         name: calendar.name,
@@ -905,6 +927,16 @@ class PageWrite {
         timeZone: calendar.timeZone,
         isPrimary: calendar.primary,
       };
+      const orphan = existing.has(calendar.id) ? undefined : orphans.get(calendar.id);
+      if (orphan) {
+        this.tx
+          .update(calendars)
+          .set({ ...fields, sourceId: this.sourceId })
+          .where(eq(calendars.id, orphan.id))
+          .run();
+        this.changed.add('calendar');
+        continue;
+      }
       const row = existing.get(calendar.id);
       if (!row) {
         this.tx
@@ -1076,20 +1108,50 @@ class PageWrite {
     };
   }
 
-  /** this source's links for these ids, in any state, by external id */
+  /**
+   * This source's links for these ids, in any state, by external id. An id with none may have a
+   * link a disconnect left without a source: same provider and external id, `sourceId` null. That
+   * link is moved to this source and returned, so reconnecting the same account matches the copies
+   * it left instead of duplicating them; its state rules as for any link (a detached task stays
+   * detached until the user reattaches it, a removed item is restored, a detached project is
+   * reattached).
+   */
   private findLinks(externalIds: string[]): Map<string, Link> {
     if (externalIds.length === 0) return new Map();
+    const ids = [...new Set(externalIds)];
     const links = this.tx
+      .select()
+      .from(externalLinks)
+      .where(and(eq(externalLinks.sourceId, this.sourceId), inArray(externalLinks.externalId, ids)))
+      .all();
+    const found = new Map(links.map((link) => [link.externalId, link]));
+
+    const missing = ids.filter((id) => !found.has(id));
+    if (missing.length === 0) return found;
+    const orphans = this.tx
       .select()
       .from(externalLinks)
       .where(
         and(
-          eq(externalLinks.sourceId, this.sourceId),
-          inArray(externalLinks.externalId, [...new Set(externalIds)]),
+          isNull(externalLinks.sourceId),
+          eq(externalLinks.provider, this.provider),
+          inArray(externalLinks.externalId, missing),
         ),
       )
+      // the newest copy when more than one was left, e.g. by two accounts sharing a calendar
+      .orderBy(desc(externalLinks.lastSyncedAt), asc(externalLinks.id))
       .all();
-    return new Map(links.map((link) => [link.externalId, link]));
+    for (const orphan of orphans) {
+      if (found.has(orphan.externalId)) continue;
+      const adopted = this.tx
+        .update(externalLinks)
+        .set({ sourceId: this.sourceId })
+        .where(eq(externalLinks.id, orphan.id))
+        .returning()
+        .get();
+      found.set(adopted.externalId, adopted);
+    }
+    return found;
   }
 
   /**
