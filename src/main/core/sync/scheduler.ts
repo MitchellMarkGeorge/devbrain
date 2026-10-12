@@ -152,8 +152,9 @@ export class SyncScheduler {
 
   /**
    * Clears the timers, stops listening for changes and aborts every run, then resolves once all
-   * of them have settled, so nothing writes to the database after it does. A run waiting on the
-   * provider settles when that request does; its page is then discarded.
+   * of them have settled, so nothing writes to the database after it does. The abort cancels a
+   * provider request in flight, so a run waiting on one settles at once. The exception is an OAuth
+   * token refresh, which is shared between callers and runs to its own timeout.
    */
   async stop(): Promise<void> {
     this.started = false;

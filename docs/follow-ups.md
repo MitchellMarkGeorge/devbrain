@@ -52,13 +52,13 @@ Options:
 
 Feature 13 did option 3 for now: `createIntegrationServices` returns the registry it built, and `Workspace` hands that and the same `CredentialStore` to `SyncEngine`. Options 1 and 2 still remove the possibility of a wiring mistake.
 
-### Let an aborted sync cancel the request in flight
+### Let an aborted sync cancel a token refresh
 
 _Found in feature 13._
 
-`SyncScheduler.stop()`, and so `Workspace.close()`, aborts each run's `AbortSignal` and waits for the runs to settle. The engine checks the signal between pages, but no `TaskSource` or `CalendarSource` method (`src/main/core/integrations/providers/provider.ts`) takes a signal, so a run waiting on a provider settles only when that request answers or hits its client's own `HTTP_TIMEOUT_MS` (30 seconds). Closing or switching a workspace during a slow request can therefore take up to 30 seconds. Nothing is written after the abort either way.
+An aborted sync run cancels its provider requests: every `TaskSource` and `CalendarSource` method takes an optional `signal`, which the clients combine with `HTTP_TIMEOUT_MS` (`requestSignal` in `src/main/core/integrations/fetch.ts`). The one request it does not reach is an OAuth token refresh inside `CredentialStore.getAuth`, which a run makes before its first page when the access token is about to expire. That refresh is shared: refreshes of one integration are queued, and a caller that waited in the queue uses the tokens the refresh before it stored, so one caller's abort must not cancel a refresh another is waiting on. A `Workspace.close()` that lands during a refresh therefore still waits for it, up to 30 seconds.
 
-- Add an optional `signal` to each source method, have the engine and its syncers pass the run's signal, and combine it with the timeout through `AbortSignal.any`, as the OAuth client already does.
+- Give `getAuth` an optional `signal` that stops the caller waiting without cancelling the shared refresh, so the refresh finishes and stores its tokens for the next caller. The run then ends at once; the refresh's own write lands later, so `close()` would also need to wait for refreshes in flight, or the store would need to check the connection is still open before writing.
 
 ### `SyncEntityType` is still a string union
 

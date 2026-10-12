@@ -257,7 +257,7 @@ export class SyncEngine {
     const auth = await this.credentials.getAuth(target.integrationId);
     if (signal?.aborted) return;
     // writes nothing: every write of the run is in sync.apply, below
-    const sync = await syncer.start({ sourceId, target, auth, cursor });
+    const sync = await syncer.start({ sourceId, target, auth, cursor, signal });
 
     let current = sync.cursor;
     let done = false;

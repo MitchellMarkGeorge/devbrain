@@ -135,14 +135,14 @@ export class EventSyncer implements Syncer {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  async start({ sourceId, auth, cursor }: RunContext): Promise<ActiveSync<EventSyncPage>> {
-    const listed = await this.calendars.listCalendars(auth);
+  async start({ sourceId, auth, cursor, signal }: RunContext): Promise<ActiveSync<EventSyncPage>> {
+    const listed = await this.calendars.listCalendars(auth, { signal });
     const calendarsToSync = this.calendarsToSync(sourceId, listed);
     let calendarWorkDone = false;
 
     return {
       cursor,
-      pull: (current) => this.pull(auth, current, calendarsToSync),
+      pull: (current) => this.pull(auth, current, calendarsToSync, signal),
       apply: (page) => {
         let summary = NOTHING_APPLIED;
         if (!calendarWorkDone) {
@@ -179,6 +179,7 @@ export class EventSyncer implements Syncer {
     auth: Auth,
     cursor: SyncCursor | null,
     calendars: ExternalCalendar[],
+    signal?: AbortSignal,
   ): Promise<EventSyncPage> {
     // 1.
     const current = readCursor(cursor);
@@ -207,7 +208,7 @@ export class EventSyncer implements Syncer {
 
     // 3.
     const [calendarId] = queue;
-    const { state, page } = await this.fetchPage(auth, calendarId, kept[calendarId]);
+    const { state, page } = await this.fetchPage(auth, calendarId, kept[calendarId], signal);
     // an event the source could give no zone, its own or its calendar's on the page, takes the
     // calendar's zone as listed
     const listedZone = byId.get(calendarId)!.timeZone;
@@ -244,14 +245,22 @@ export class EventSyncer implements Syncer {
     auth: Auth,
     calendarId: string,
     stored: CalendarSyncState | undefined,
+    signal: AbortSignal | undefined,
   ): Promise<{ state: CalendarSyncState; page: CalendarEventPage }> {
     let state = this.withTimeMin(stored ?? FRESH);
+    const options = { signal };
     try {
-      return { state, page: await this.calendars.getEventPage(auth, calendarId, query(state)) };
+      return {
+        state,
+        page: await this.calendars.getEventPage(auth, calendarId, query(state), options),
+      };
     } catch (error) {
       if (!(error instanceof ChangeTokenExpiredError)) throw error;
       state = this.withTimeMin(FRESH);
-      return { state, page: await this.calendars.getEventPage(auth, calendarId, query(state)) };
+      return {
+        state,
+        page: await this.calendars.getEventPage(auth, calendarId, query(state), options),
+      };
     }
   }
 

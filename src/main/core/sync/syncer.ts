@@ -41,6 +41,8 @@ export interface RunContext {
   auth: Auth;
   // the stored cursor, validated with the syncer's cursorSchema; null when there is none
   cursor: SyncCursor | null;
+  // the run's signal, passed to every provider call so an abort cancels the request in flight
+  signal?: AbortSignal;
 }
 
 // what a syncer is given for a reconcile pass
@@ -48,7 +50,7 @@ export interface ReconcileContext {
   sourceId: ExternalSourceId;
   target: SyncTarget;
   auth: Auth;
-  // checked between provider calls
+  // checked between provider calls, and passed to each so an abort cancels the request in flight
   signal?: AbortSignal;
 }
 

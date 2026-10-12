@@ -717,3 +717,35 @@ describe('Google Calendar sync — unsupported', () => {
     });
   });
 });
+
+describe('Google Calendar sync — abort', () => {
+  it('cancels the calendar listing in flight on abort, writing nothing', async () => {
+    script({ hang: true });
+    const before = sourceRow();
+    const controller = new AbortController();
+
+    const running = engine.runSource(sourceId, { signal: controller.signal });
+    await vi.waitFor(() => expect(fetch.requests).toHaveLength(1));
+    controller.abort();
+
+    // the request would otherwise wait for its 30-second timeout, past the test's own
+    await expect(running).resolves.toMatchObject({ outcome: SyncRunOutcome.ABORTED, pages: 0 });
+    expect(fetch.requests[0].signal?.aborted).toBe(true);
+    expect(sourceRow()).toEqual(before);
+  });
+
+  it('cancels the events page in flight on abort, writing nothing', async () => {
+    script(CALENDARS, { hang: true });
+    const before = sourceRow();
+    const controller = new AbortController();
+
+    const running = engine.runSource(sourceId, { signal: controller.signal });
+    await vi.waitFor(() => expect(fetch.requests).toHaveLength(2));
+    controller.abort();
+
+    await expect(running).resolves.toMatchObject({ outcome: SyncRunOutcome.ABORTED, pages: 0 });
+    expect(fetch.requests[1].signal?.aborted).toBe(true);
+    expect(sourceRow()).toEqual(before);
+    expect(db.select().from(eventsTable).all()).toEqual([]);
+  });
+});

@@ -81,7 +81,7 @@ export class TaskReconciler {
     signal?: AbortSignal,
   ): Promise<PendingReconcile | null> {
     // 1.
-    const assigned = await tasks.listOpenAssignedTaskIds(auth);
+    const assigned = await tasks.listOpenAssignedTaskIds(auth, { signal });
     if (signal?.aborted) return null;
 
     // 2.
@@ -90,11 +90,11 @@ export class TaskReconciler {
     let items = NOTHING_RESOLVED;
     let skipped = 0;
     if (ids.length > 0) {
-      const resolved = await tasks.resolveTasks(auth, ids);
+      const resolved = await tasks.resolveTasks(auth, ids, { signal });
       if (signal?.aborted) return null;
       const projects =
         plan.projectIds.length > 0
-          ? await tasks.resolveProjects(auth, plan.projectIds)
+          ? await tasks.resolveProjects(auth, plan.projectIds, { signal })
           : { found: [], gone: [], skipped: 0 };
       if (signal?.aborted) return null;
 

@@ -193,6 +193,20 @@ describe('Google Calendar client — errors', () => {
     await expect(listEvents(offline)).rejects.toThrow(ProviderUnavailableError);
   });
 
+  it("rejects with the caller's abort reason, not as a provider failure, when its signal aborts", async () => {
+    const { fetch, client: google } = client([{ hang: true }]);
+    const controller = new AbortController();
+    const reason = new Error('sync stopped');
+
+    const request = google.listEvents(AUTH, 'ada@example.com', { syncToken: 'token-1' }, null, {
+      signal: controller.signal,
+    });
+    controller.abort(reason);
+
+    await expect(request).rejects.toBe(reason);
+    expect(fetch.requests[0].signal?.aborted).toBe(true);
+  });
+
   it('rejects a response that does not match the expected shape', async () => {
     const { client: google } = client([{ body: { items: 'not a list' } }]);
     await expect(listEvents(google)).rejects.toThrow(GoogleApiError);

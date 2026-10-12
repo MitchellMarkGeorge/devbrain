@@ -663,6 +663,46 @@ describe('SyncEngine — abort and concurrency', () => {
     expect(provider.tasks.pulls[0].query).toMatchObject({ pageToken: 'page-1' });
   });
 
+  it('cancels the provider request in flight on abort, so the run settles at once', async () => {
+    const fetch = scriptedFetch([{ body: viewerFixture }, { hang: true }]);
+    await setup(createLinearProvider({ fetch, now: () => NOW }), 'lin_api_test');
+    const controller = new AbortController();
+
+    const running = engine.runSource(sourceId, { signal: controller.signal });
+    await vi.waitFor(() => expect(fetch.requests).toHaveLength(2));
+    controller.abort();
+
+    // the request would otherwise wait for its 30-second timeout, past the test's own
+    await expect(running).resolves.toMatchObject({ outcome: SyncRunOutcome.ABORTED, pages: 0 });
+    expect(fetch.requests[1].signal?.aborted).toBe(true);
+    expect(sourceRow()).toMatchObject({ cursor: null, lastError: null, consecutiveFailures: 0 });
+  });
+
+  it('cancels the reconcile pass request in flight on abort', async () => {
+    const emptyPage = {
+      body: {
+        data: {
+          viewer: {
+            id: viewerFixture.data.viewer.id,
+            assignedIssues: { pageInfo: { hasNextPage: false, endCursor: null }, nodes: [] },
+          },
+        },
+      },
+    };
+    const fetch = scriptedFetch([{ body: viewerFixture }, emptyPage, { hang: true }]);
+    await setup(createLinearProvider({ fetch, now: () => NOW }), 'lin_api_test');
+    await engine.runSource(sourceId);
+    const controller = new AbortController();
+
+    const running = engine.reconcileSource(sourceId, { signal: controller.signal });
+    await vi.waitFor(() => expect(fetch.requests).toHaveLength(3));
+    controller.abort();
+
+    await expect(running).resolves.toMatchObject({ outcome: SyncRunOutcome.ABORTED });
+    expect(fetch.requests[2].signal?.aborted).toBe(true);
+    expect(sourceRow()).toMatchObject({ lastReconciledAt: null, lastError: null });
+  });
+
   it('does no work when aborted before it starts', async () => {
     const controller = new AbortController();
     controller.abort();

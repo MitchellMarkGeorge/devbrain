@@ -14,6 +14,8 @@ import { FakeCipher } from '../__mocks__/fake-cipher';
 import { createFakeProvider, FAKE_API_KEY, fakeRegistry } from '../sync/fake-provider';
 import { Provider } from '../../integrations/types';
 import { TaskPriority, TaskStatus } from '../../tasks/types';
+import { scriptedFetch } from '../integrations/linear/fake-fetch';
+import viewerFixture from '../integrations/fixtures/linear/viewer.json';
 
 // DB_MIGRATIONS_PATH is read at call time (not module load), so assigning here is safe.
 const MIGRATIONS_PATH = path.resolve(
@@ -285,6 +287,23 @@ describe('Workspace.close — sync', () => {
     } finally {
       await reopened.close();
     }
+  });
+
+  it('closing while Linear is not answering cancels the request and returns at once', async () => {
+    const info = makeInfo(tmpDir);
+    // connecting reads the viewer; the sync it starts then waits on a request that never answers
+    const fetch = scriptedFetch([{ body: viewerFixture }, { hang: true }]);
+    const workspace = await Workspace.create(info, { cipher: new FakeCipher(), fetch });
+    workspace.sync.start();
+    await workspace.integrations.connectWithApiKey(Provider.LINEAR, 'lin_api_test');
+    await vi.waitFor(() => expect(fetch.requests).toHaveLength(2));
+
+    const startedAt = performance.now();
+    await workspace.close();
+
+    // without the run's signal on the request, close would wait out the 30-second timeout
+    expect(performance.now() - startedAt).toBeLessThan(1000);
+    expect(fetch.requests[1].signal?.aborted).toBe(true);
   });
 
   it('closing an idle started workspace leaves no timers behind', async () => {

@@ -1,6 +1,6 @@
 import { ExternalCalendar, ExternalEvent } from '../../types';
 import { Auth } from '../../auth';
-import { CalendarEventPage, CalendarSource, EventsQuery } from '../provider';
+import { CalendarEventPage, CalendarSource, EventsQuery, RequestOptions } from '../provider';
 import { GoogleCalendarClient } from './client';
 import { CalendarContext, externalEventId, toCancelledInstance, toExternalEvent } from './mapper';
 import { EventsWindow } from './requests';
@@ -25,14 +25,15 @@ export class GoogleCalendarSource implements CalendarSource {
 
   // The account's calendars as Google lists them (calendarList): the client pages through the list
   // and maps each entry
-  listCalendars(auth: Auth): Promise<ExternalCalendar[]> {
-    return this.client.listExternalCalendars(auth);
+  listCalendars(auth: Auth, options: RequestOptions = {}): Promise<ExternalCalendar[]> {
+    return this.client.listExternalCalendars(auth, options);
   }
 
   async getEventPage(
     auth: Auth,
     calendarId: string,
     query: EventsQuery,
+    options: RequestOptions = {},
   ): Promise<CalendarEventPage> {
     const window: EventsWindow =
       'changeToken' in query ? { syncToken: query.changeToken } : { timeMin: query.from };
@@ -41,6 +42,7 @@ export class GoogleCalendarSource implements CalendarSource {
       calendarId,
       window,
       query.pageToken ?? null,
+      options,
     );
     // an event that names no zone of its own is in its calendar's, which the response carries
     const page = mapEvents(response.items, {

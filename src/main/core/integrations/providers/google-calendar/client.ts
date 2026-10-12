@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { Auth } from '../../auth';
-import { ChangeTokenExpiredError, FetchFn } from '../provider';
+import { ChangeTokenExpiredError, FetchFn, RequestOptions } from '../provider';
+import { requestSignal } from '../../fetch';
 import { ExternalCalendar } from '../../types';
-import { BACKOFF_INITIAL_MS, HTTP_TIMEOUT_MS } from '../../../sync/constants';
+import { BACKOFF_INITIAL_MS } from '../../../sync/constants';
 import {
   IntegrationAuthError,
   ProviderUnavailableError,
@@ -69,7 +70,10 @@ export class GoogleCalendarClient {
 
   // every calendar in the account's Google calendar list (calendarList), across pages, with Google's
   // own ids, colours, zones and primary flag
-  async listExternalCalendars(auth: Auth): Promise<ExternalCalendar[]> {
+  async listExternalCalendars(
+    auth: Auth,
+    options: RequestOptions = {},
+  ): Promise<ExternalCalendar[]> {
     const calendars: ExternalCalendar[] = [];
     let pageToken: string | null = null;
     do {
@@ -77,6 +81,7 @@ export class GoogleCalendarClient {
         auth,
         calendarListUrl(pageToken),
         calendarListResponseSchema,
+        options,
       );
       calendars.push(...page.items.map(toCalendar));
       pageToken = page.nextPageToken ?? null;
@@ -90,25 +95,35 @@ export class GoogleCalendarClient {
     calendarId: string,
     window: EventsWindow,
     pageToken: string | null,
+    options: RequestOptions = {},
   ): Promise<EventsResponse> {
-    return this.get(auth, eventsUrl(calendarId, window, pageToken), eventsResponseSchema);
+    return this.get(auth, eventsUrl(calendarId, window, pageToken), eventsResponseSchema, options);
   }
 
-  // sends one GET and returns its body, validated against `schema`
-  private async get<T>(auth: Auth, url: string, schema: z.ZodType<T>): Promise<T> {
+  // sends one GET and returns its body, validated against `schema`; an abort of
+  // `options.signal` rejects with the signal's reason
+  private async get<T>(
+    auth: Auth,
+    url: string,
+    schema: z.ZodType<T>,
+    options: RequestOptions = {},
+  ): Promise<T> {
+    const { signal } = options;
     let response: Response;
     try {
       response = await this.fetch(url, {
         method: 'GET',
         headers: { Accept: 'application/json', Authorization: auth.authorization },
-        signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
+        signal: requestSignal(signal),
       });
     } catch (error) {
+      // the caller cancelled: not a provider failure
+      if (signal?.aborted) throw signal.reason;
       // network failure or the timeout firing
       throw new ProviderUnavailableError('Google Calendar could not be reached', { cause: error });
     }
 
-    const body = await readBody(response);
+    const body = await readBody(response, signal);
     if (response.status === 410) throw new ChangeTokenExpiredError();
     if (response.status === 401) {
       throw new IntegrationAuthError('Google Calendar rejected the credentials');
@@ -165,11 +180,12 @@ function isRateLimit(body: unknown): boolean {
   );
 }
 
-async function readBody(response: Response): Promise<unknown> {
+async function readBody(response: Response, signal: AbortSignal | undefined): Promise<unknown> {
   let text: string;
   try {
     text = await response.text();
   } catch (error) {
+    if (signal?.aborted) throw signal.reason;
     // the connection dropped or the timeout fired while the body was streaming
     throw new ProviderUnavailableError('Google Calendar could not be reached', { cause: error });
   }

@@ -3,6 +3,7 @@ import { Auth } from '../../auth';
 import {
   AssignedTaskPage,
   AssignedTasksQuery,
+  RequestOptions,
   Resolution,
   TaskResolution,
   TaskSource,
@@ -44,7 +45,11 @@ export class LinearTaskSource implements TaskSource {
    *   changing updatedAt, so archivedAt is checked too
    * - neither: every assigned issue
    */
-  async getAssignedTaskPage(auth: Auth, query: AssignedTasksQuery): Promise<AssignedTaskPage> {
+  async getAssignedTaskPage(
+    auth: Auth,
+    query: AssignedTasksQuery,
+    options: RequestOptions = {},
+  ): Promise<AssignedTaskPage> {
     const filter =
       query.changedSince !== undefined
         ? changedIssuesFilter(query.changedSince)
@@ -57,6 +62,7 @@ export class LinearTaskSource implements TaskSource {
       ASSIGNED_ISSUES_QUERY,
       { first: PAGE_SIZE, after: query.pageToken ?? null, filter },
       assignedIssuesResponseSchema,
+      options,
     );
     const { pageInfo, nodes } = viewer.assignedIssues;
 
@@ -77,7 +83,7 @@ export class LinearTaskSource implements TaskSource {
     };
   }
 
-  async listOpenAssignedTaskIds(auth: Auth): Promise<string[]> {
+  async listOpenAssignedTaskIds(auth: Auth, options: RequestOptions = {}): Promise<string[]> {
     const ids: string[] = [];
     let after: string | null = null;
     // one request per page; whether there is another page is only known from each response
@@ -87,6 +93,7 @@ export class LinearTaskSource implements TaskSource {
         ASSIGNED_ISSUE_IDS_QUERY,
         { first: PAGE_SIZE, after, filter: openIssuesFilter() },
         assignedIssueIdsResponseSchema,
+        options,
       );
       const { pageInfo, nodes } = response.viewer.assignedIssues;
       ids.push(...nodes.map((node) => node.id));
@@ -110,7 +117,11 @@ export class LinearTaskSource implements TaskSource {
    *
    * Empty input makes no request.
    */
-  async resolveTasks(auth: Auth, ids: string[]): Promise<TaskResolution> {
+  async resolveTasks(
+    auth: Auth,
+    ids: string[],
+    options: RequestOptions = {},
+  ): Promise<TaskResolution> {
     const found: ExternalTask[] = [];
     const projects = new Map<string, ExternalProject>();
     const gone: string[] = [];
@@ -123,6 +134,7 @@ export class LinearTaskSource implements TaskSource {
         ISSUES_BY_ID_QUERY,
         { first: batch.length, ids: batch },
         issuesByIdResponseSchema,
+        options,
       );
       // 2. mapIssues validates node by node, and leaves trashed issues out of page.tasks
       const page = mapIssues(issues.nodes, viewer.id);
@@ -144,7 +156,11 @@ export class LinearTaskSource implements TaskSource {
    * as resolveTasks, through the projects query. An archived project that is not trashed still
    * exists, so it is found. Empty input makes no request.
    */
-  async resolveProjects(auth: Auth, ids: string[]): Promise<Resolution<ExternalProject>> {
+  async resolveProjects(
+    auth: Auth,
+    ids: string[],
+    options: RequestOptions = {},
+  ): Promise<Resolution<ExternalProject>> {
     const found = new Map<string, ExternalProject>();
     const gone: string[] = [];
     let skipped = 0;
@@ -155,6 +171,7 @@ export class LinearTaskSource implements TaskSource {
         PROJECTS_BY_ID_QUERY,
         { first: batch.length, ids: batch },
         projectsByIdResponseSchema,
+        options,
       );
       // the same rule as issues: missing or trashed is gone, unreadable is neither
       const seen = new Set<string>();
