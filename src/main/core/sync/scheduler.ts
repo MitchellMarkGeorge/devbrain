@@ -17,10 +17,10 @@ import { SyncLogger, SyncProgressListener, SyncRunOutcome } from './types';
 // so Vitest's fake timers drive it.
 export interface SchedulerTimers {
   now(): number;
-  setImmediate(callback: () => void): unknown;
-  clearImmediate(handle: unknown): void;
-  setInterval(callback: () => void, ms: number): unknown;
-  clearInterval(handle: unknown): void;
+  setImmediate(callback: () => void): NodeJS.Immediate;
+  clearImmediate(handle: NodeJS.Immediate): void;
+  setInterval(callback: () => void, ms: number): NodeJS.Timeout;
+  clearInterval(handle: NodeJS.Timeout): void;
 }
 
 export interface SyncSchedulerOptions {
@@ -60,9 +60,9 @@ export interface SourceSyncStatus {
 const globalTimers: SchedulerTimers = {
   now: () => Date.now(),
   setImmediate: (callback) => setImmediate(callback),
-  clearImmediate: (handle) => clearImmediate(handle as NodeJS.Immediate),
+  clearImmediate: (handle) => clearImmediate(handle),
   setInterval: (callback, ms) => setInterval(callback, ms),
-  clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),
+  clearInterval: (handle) => clearInterval(handle),
 };
 
 // the wait after `failures` failed runs in a row: 1 minute, doubling to a 30-minute cap
@@ -109,8 +109,8 @@ export class SyncScheduler {
   // a source's failure count when a manual sync restarted its backoff; failures before it are ignored
   private readonly failureCountAtManualSync = new Map<ExternalSourceId, number>();
   // the pass at start, until it begins
-  private pendingOpenPass: unknown = null;
-  private tickInterval: unknown = null;
+  private pendingOpenPass: NodeJS.Immediate | null = null;
+  private tickInterval: NodeJS.Timeout | null = null;
   // when the last reconcile tick, or the pass at start, ran
   private lastReconcileTickAt = 0;
   private unsubscribeFromChanges: (() => void) | null = null;
