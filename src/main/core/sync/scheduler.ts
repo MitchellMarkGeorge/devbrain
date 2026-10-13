@@ -1,6 +1,6 @@
 import { ExternalSourceId, IntegrationId } from '@common/ids';
 import log from 'electron-log';
-import { IntegrationChange, IntegrationService } from '../integrations/service';
+import { BaseIntegrationService, IntegrationChange } from '../integrations/service';
 import { IntegrationStatus, Provider, SourceType } from '../integrations/types';
 import {
   BACKOFF_INITIAL_MS,
@@ -9,16 +9,9 @@ import {
   MIN_TRIGGER_GAP_MS,
   RECONCILE_INTERVAL_MS,
 } from './constants';
-import type { SyncEngine } from './engine';
+import type { BaseSyncEngine } from './engine';
 import { SyncStateManager, SyncTarget } from './sync-state';
 import { SyncLogger, SyncProgressListener, SyncRunOutcome } from './types';
-
-// what the scheduler needs from SyncEngine; tests pass a fake
-export type SchedulerEngine = Pick<SyncEngine, 'runSource' | 'reconcileSource' | 'onProgress'>;
-
-// What the scheduler reads from IntegrationService: which sources exist and the changes that start
-// and stop runs.
-export type SchedulerIntegrations = Pick<IntegrationService, 'list' | 'onChange'>;
 
 // The clock and timers the scheduler runs on. Defaults to the global ones, resolved at each call,
 // so Vitest's fake timers drive it.
@@ -31,8 +24,9 @@ export interface SchedulerTimers {
 }
 
 export interface SyncSchedulerOptions {
-  engine: SchedulerEngine;
-  integrations: SchedulerIntegrations;
+  engine: BaseSyncEngine;
+  // which sources exist (list), and the changes that start and stop runs (onChange)
+  integrations: BaseIntegrationService;
   // each source's failure count and retry time, for backoff
   syncState: Pick<SyncStateManager, 'getSyncTarget'>;
   timers?: SchedulerTimers;
@@ -101,8 +95,8 @@ interface SourceRun {
  *   runs. stop() aborts everything and resolves once every run has settled.
  */
 export class SyncScheduler {
-  private readonly engine: SchedulerEngine;
-  private readonly integrations: SchedulerIntegrations;
+  private readonly engine: BaseSyncEngine;
+  private readonly integrations: BaseIntegrationService;
   private readonly syncState: Pick<SyncStateManager, 'getSyncTarget'>;
   private readonly timers: SchedulerTimers;
   private readonly logger: SyncLogger;

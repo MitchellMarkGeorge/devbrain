@@ -10,10 +10,10 @@ import { tasks as tasksTable } from '@main/db/schema/tasks';
 import { createDb } from '../utils';
 import { FakeCipher } from '../__mocks__/fake-cipher';
 import { createFakeProvider, FAKE_API_KEY, FakeProvider } from './fake-provider';
-import { SyncEngine, RunOptions } from '../../sync/engine';
+import { BaseSyncEngine, SyncEngine, RunOptions } from '../../sync/engine';
 import { SyncWriter } from '../../sync/writer';
 import { SyncStateManager } from '../../sync/sync-state';
-import { backoffDelay, SchedulerEngine, SyncScheduler } from '../../sync/scheduler';
+import { backoffDelay, SyncScheduler } from '../../sync/scheduler';
 import { SyncProgressListener, SyncRunOutcome, SyncRunResult } from '../../sync/types';
 import {
   INCREMENTAL_INTERVAL_MS,
@@ -50,7 +50,7 @@ interface EngineCall {
  * clock and records its outcome on the source through the real SyncStateManager, as the engine
  * does, so the scheduler reads real failure counts and retry times.
  */
-class FakeEngine implements SchedulerEngine {
+class FakeEngine implements BaseSyncEngine {
   readonly calls: EngineCall[] = [];
   readonly listeners = new Set<SyncProgressListener>();
   durationMs = 0;

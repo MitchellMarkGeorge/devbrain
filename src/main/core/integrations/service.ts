@@ -70,9 +70,28 @@ export interface IntegrationServiceOptions {
 type IntegrationRow = typeof integrations.$inferSelect;
 type SourceRow = typeof externalSources.$inferSelect;
 
+// IntegrationService's public API. Code that only needs a workspace's integrations, such as
+// SyncScheduler, depends on this rather than the class, and tests can pass their own.
+export interface BaseIntegrationService {
+  // every integration in the workspace, oldest first, each with its sources
+  list(): Promise<Integration[]>;
+  getById(id: IntegrationId): Promise<Integration>;
+  connectWithApiKey(
+    providerId: Provider,
+    apiKey: string,
+    options?: ConnectOptions,
+  ): Promise<Integration>;
+  connectWithOAuth(providerId: Provider, options?: OAuthConnectOptions): Promise<Integration>;
+  setEnabled(id: IntegrationId, enabled: boolean, options?: EnableOptions): Promise<Integration>;
+  setSourceEnabled(sourceId: ExternalSourceId, enabled: boolean): Promise<ExternalSource>;
+  markNeedsReauth(id: IntegrationId): void;
+  // returns a function that unsubscribes the listener
+  onChange(listener: IntegrationChangeListener): () => void;
+}
+
 // Connect, enable and disable. Owns the integrations and external_sources tables; credentials go
 // through CredentialStore and never appear on what this returns.
-export class IntegrationService {
+export class IntegrationService implements BaseIntegrationService {
   private readonly credentials: CredentialStore;
   private readonly providers: ProviderRegistry;
   private readonly oauth: OAuthClient | null;
