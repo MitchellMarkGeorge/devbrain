@@ -161,6 +161,7 @@ let service: IntegrationService;
 let syncState: SyncStateManager;
 let engine: FakeEngine;
 let scheduler: SyncScheduler;
+let logger: ReturnType<typeof quietLogger>;
 let linearId: IntegrationId;
 let linearSourceId: ExternalSourceId;
 let calendarSourceId: ExternalSourceId;
@@ -186,12 +187,8 @@ beforeEach(async () => {
 
   syncState = new SyncStateManager(db);
   engine = new FakeEngine(syncState);
-  scheduler = new SyncScheduler({
-    engine,
-    integrations: service,
-    syncState,
-    logger: quietLogger(),
-  });
+  logger = quietLogger();
+  scheduler = new SyncScheduler({ engine, integrations: service, syncState, logger });
 });
 
 afterEach(async () => {
@@ -236,12 +233,15 @@ describe('SyncScheduler — start', () => {
     expect(engine.calls).toEqual([]);
   });
 
-  it('runs nothing until the next tick, so a stop straight after start sends nothing', async () => {
+  it('runs nothing until the next turn of the event loop, so a stop straight after start sends nothing', async () => {
+    const list = vi.spyOn(service, 'list');
     scheduler.start();
     await scheduler.stop();
     await vi.advanceTimersByTimeAsync(RECONCILE_INTERVAL_MS);
 
     expect(engine.calls).toEqual([]);
+    // the pass was cancelled before it began, not just stopped before it ran anything
+    expect(list).not.toHaveBeenCalled();
   });
 
   it('a second start while started does nothing', async () => {
@@ -256,6 +256,33 @@ describe('SyncScheduler — start', () => {
     await scheduler.trigger('manual');
 
     expect(engine.calls).toEqual([]);
+  });
+});
+
+describe('SyncScheduler — listing failures', () => {
+  // Nothing awaits the pass at start or a tick, so a rejection there would be unhandled, which
+  // fails the test run on its own. Each is logged and skipped instead, and the next tick retries.
+  it('logs a failure to list the sources at start, and the first tick syncs as usual', async () => {
+    vi.spyOn(service, 'list').mockRejectedValueOnce(new Error('disk I/O error'));
+
+    await start();
+    expect(engine.calls).toEqual([]);
+    expect(logger.error).toHaveBeenCalledWith('Listing sources to sync threw error=Error');
+
+    await vi.advanceTimersByTimeAsync(INCREMENTAL_INTERVAL_MS);
+    expect(engine.runs().map((call) => call.at)).toEqual([5]);
+  });
+
+  it('logs a failure to list the sources on a tick, and the next tick syncs as usual', async () => {
+    await start();
+    vi.spyOn(service, 'list').mockRejectedValueOnce(new Error('disk I/O error'));
+
+    await vi.advanceTimersByTimeAsync(INCREMENTAL_INTERVAL_MS);
+    expect(engine.runs().map((call) => call.at)).toEqual([0]);
+    expect(logger.error).toHaveBeenCalledOnce();
+
+    await vi.advanceTimersByTimeAsync(INCREMENTAL_INTERVAL_MS);
+    expect(engine.runs().map((call) => call.at)).toEqual([0, 10]);
   });
 });
 

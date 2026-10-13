@@ -24,8 +24,8 @@ export type SchedulerIntegrations = Pick<IntegrationService, 'list' | 'onChange'
 // so Vitest's fake timers drive it.
 export interface SchedulerTimers {
   now(): number;
-  setTimeout(callback: () => void, ms: number): unknown;
-  clearTimeout(handle: unknown): void;
+  setImmediate(callback: () => void): unknown;
+  clearImmediate(handle: unknown): void;
   setInterval(callback: () => void, ms: number): unknown;
   clearInterval(handle: unknown): void;
 }
@@ -65,8 +65,8 @@ export interface SourceSyncStatus {
 
 const globalTimers: SchedulerTimers = {
   now: () => Date.now(),
-  setTimeout: (callback, ms) => setTimeout(callback, ms),
-  clearTimeout: (handle) => clearTimeout(handle as NodeJS.Timeout),
+  setImmediate: (callback) => setImmediate(callback),
+  clearImmediate: (handle) => clearImmediate(handle as NodeJS.Immediate),
   setInterval: (callback, ms) => setInterval(callback, ms),
   clearInterval: (handle) => clearInterval(handle as NodeJS.Timeout),
 };
@@ -113,7 +113,8 @@ export class SyncScheduler {
   private readonly lastFinishedAt = new Map<ExternalSourceId, number>();
   // a source's failure count when a manual sync restarted its backoff; failures before it are ignored
   private readonly backoffFloor = new Map<ExternalSourceId, number>();
-  private readonly timeouts = new Set<unknown>();
+  // the pass at start, until it begins
+  private pendingStart: unknown = null;
   private interval: unknown = null;
   // when the last reconcile tick, or the pass at start, ran
   private lastReconcileTickAt = 0;
@@ -130,15 +131,18 @@ export class SyncScheduler {
 
   /**
    * Syncs every enabled source once, with the reconcile pass, then every INCREMENTAL_INTERVAL_MS,
-   * reconciling every RECONCILE_INTERVAL_MS. The first pass starts on the next tick, so start()
-   * returns at once and a stop() straight after it sends nothing. Calling it again while started
-   * does nothing.
+   * reconciling every RECONCILE_INTERVAL_MS. The first pass starts on the next turn of the event
+   * loop, so start() returns at once and a stop() straight after it sends nothing. Calling it again
+   * while started does nothing.
    */
   start(): void {
     if (this.started) return;
     this.started = true;
     this.unsubscribe = this.integrations.onChange((change) => this.onChange(change));
-    this.after(0, () => void this.forEachEnabled((sourceId) => void this.request(sourceId, true)));
+    this.pendingStart = this.timers.setImmediate(() => {
+      this.pendingStart = null;
+      void this.forEachEnabled((sourceId) => void this.request(sourceId, true));
+    });
     // One timer for both: the tick that reaches the reconcile interval adds the reconcile pass to
     // its incremental run, so a shared mark never runs the incremental sync twice.
     this.lastReconcileTickAt = this.timers.now();
@@ -160,8 +164,8 @@ export class SyncScheduler {
     this.started = false;
     this.unsubscribe?.();
     this.unsubscribe = null;
-    for (const handle of this.timeouts) this.timers.clearTimeout(handle);
-    this.timeouts.clear();
+    if (this.pendingStart !== null) this.timers.clearImmediate(this.pendingStart);
+    this.pendingStart = null;
     if (this.interval !== null) this.timers.clearInterval(this.interval);
     this.interval = null;
     for (const run of this.runs.values()) run.controller.abort();
@@ -365,18 +369,18 @@ export class SyncScheduler {
       .map((source) => source.id);
   }
 
+  // For the pass at start and the interval ticks, which nothing awaits: never rejects, so a failure
+  // to list the sources is logged and that pass or tick is skipped. The next tick tries again.
   private async forEachEnabled(callback: (sourceId: ExternalSourceId) => void): Promise<void> {
-    const ids = await this.enabledSourceIds();
-    // stopped while listing
-    if (!this.started) return;
-    ids.forEach(callback);
-  }
-
-  private after(ms: number, callback: () => void): void {
-    const handle = this.timers.setTimeout(() => {
-      this.timeouts.delete(handle);
-      callback();
-    }, ms);
-    this.timeouts.add(handle);
+    try {
+      const ids = await this.enabledSourceIds();
+      // stopped while listing
+      if (!this.started) return;
+      ids.forEach(callback);
+    } catch (error) {
+      // the error class only, as for a run: a message could quote stored data
+      const name = error instanceof Error ? error.name : typeof error;
+      this.logger.error(`Listing sources to sync threw error=${name}`);
+    }
   }
 }
