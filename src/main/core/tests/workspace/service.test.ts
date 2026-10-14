@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { WorkspaceId } from '@common/ids';
 import type { WorkspaceInfo } from '../../workspace/types';
-import { NotFoundError } from '../../shared/errors';
+import { NotFoundError, WorkspaceNotOpenError } from '../../shared/errors';
 import { FakeCipher } from '../__mocks__/fake-cipher';
 
 // Mock the Workspace class so WorkspaceService tests don't need SQLite
@@ -208,12 +208,20 @@ describe('WorkspaceService — create', () => {
 });
 
 describe('WorkspaceService — delete', () => {
+  // a service whose open workspace is `info`, as WorkspaceService.open leaves it
+  function openService(info: WorkspaceInfo, integrations = fakeIntegrations([])) {
+    const workspace = { info, close: vi.fn(), integrations };
+    const service = new WorkspaceService(tmpDir);
+    service.currentWorkspace = workspace as never;
+    return { service, workspace };
+  }
+
   it('removes the workspace from the registry', async () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const service = new WorkspaceService(tmpDir);
+    const { service } = openService(info);
     await service.delete(info.id);
 
     expect(service.listAll().items).toHaveLength(0);
@@ -224,7 +232,7 @@ describe('WorkspaceService — delete', () => {
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const service = new WorkspaceService(tmpDir);
+    const { service } = openService(info);
     await service.delete(info.id);
 
     await expect(fs.stat(info.path)).rejects.toThrow();
@@ -233,52 +241,69 @@ describe('WorkspaceService — delete', () => {
   it('throws when no matching workspace exists in registry', async () => {
     writeRegistry(tmpDir, []);
     const service = new WorkspaceService(tmpDir);
-    await expect(service.delete('wsp_missing' as WorkspaceId)).rejects.toThrow();
+    await expect(service.delete('wsp_missing' as WorkspaceId)).rejects.toThrow(NotFoundError);
   });
 
-  it('throws when the workspace directory does not exist on disk', async () => {
+  it('refuses a workspace that is not open, changing nothing', async () => {
+    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
+    const other = makeInfo({
+      id: 'wsp_other' as WorkspaceId,
+      path: path.join(tmpDir, 'workspaces', 'wsp_other'),
+    });
+    writeRegistry(tmpDir, [info, other]);
+    await fs.mkdir(info.path, { recursive: true });
+
+    // nothing open, then another workspace open
+    await expect(new WorkspaceService(tmpDir).delete(info.id)).rejects.toThrow(
+      WorkspaceNotOpenError,
+    );
+    const { service, workspace } = openService(other);
+    await expect(service.delete(info.id)).rejects.toThrow(WorkspaceNotOpenError);
+
+    expect(Workspace.open).not.toHaveBeenCalled();
+    expect(workspace.integrations.disconnect).not.toHaveBeenCalled();
+    expect(workspace.close).not.toHaveBeenCalled();
+    expect(service.currentWorkspace).toBe(workspace);
+    expect(service.listAll().items).toHaveLength(2);
+    await expect(fs.stat(info.path)).resolves.toBeDefined();
+  });
+
+  it('throws when the workspace directory does not exist on disk, before disconnecting', async () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_missing_dir') });
     writeRegistry(tmpDir, [info]);
     // Do NOT create the directory
 
-    const service = new WorkspaceService(tmpDir);
+    const { service, workspace } = openService(info, fakeIntegrations(['int_a']));
     await expect(service.delete(info.id)).rejects.toThrow(/directory not found/i);
+    expect(workspace.integrations.disconnect).not.toHaveBeenCalled();
   });
 
-  it('closes the current workspace before deleting it', async () => {
+  it('closes the workspace before deleting it', async () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const fakeWorkspace = {
-      info,
-      close: vi.fn(),
-      sync: { start: vi.fn() },
-      integrations: fakeIntegrations([]),
-    };
-
-    const service = new WorkspaceService(tmpDir);
-    service.currentWorkspace = fakeWorkspace as never;
-
+    const { service, workspace } = openService(info);
     await service.delete(info.id);
-    expect(fakeWorkspace.close).toHaveBeenCalled();
+
+    expect(workspace.close).toHaveBeenCalled();
     expect(service.currentWorkspace).toBeNull();
   });
 
-  it("disconnects the current workspace's integrations, keeping copies, before closing it", async () => {
+  it('disconnects its integrations, keeping copies, before closing it', async () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
     const calls: string[] = [];
-    const integrations = fakeIntegrations(['int_a', 'int_b'], calls);
-    const fakeWorkspace = { info, close: vi.fn(() => calls.push('close')), integrations };
+    const { service, workspace } = openService(info, fakeIntegrations(['int_a', 'int_b'], calls));
+    workspace.close.mockImplementation(() => calls.push('close'));
 
-    const service = new WorkspaceService(tmpDir);
-    service.currentWorkspace = fakeWorkspace as never;
     await service.delete(info.id);
 
     expect(calls).toEqual(['disconnect int_a', 'disconnect int_b', 'close']);
-    expect(integrations.disconnect).toHaveBeenCalledWith('int_a', { keepLocalCopies: true });
+    expect(workspace.integrations.disconnect).toHaveBeenCalledWith('int_a', {
+      keepLocalCopies: true,
+    });
   });
 
   it('deletes the workspace when an integration fails to disconnect', async () => {
@@ -287,45 +312,11 @@ describe('WorkspaceService — delete', () => {
     await fs.mkdir(info.path, { recursive: true });
     const integrations = fakeIntegrations(['int_a', 'int_b']);
     integrations.disconnect.mockRejectedValueOnce(new Error('database is locked'));
-    const fakeWorkspace = { info, close: vi.fn(), integrations };
 
-    const service = new WorkspaceService(tmpDir);
-    service.currentWorkspace = fakeWorkspace as never;
+    const { service } = openService(info, integrations);
     await service.delete(info.id);
 
     expect(integrations.disconnect).toHaveBeenCalledTimes(2);
-    await expect(fs.stat(info.path)).rejects.toThrow();
-  });
-
-  it('opens a closed workspace to disconnect its integrations, then deletes it', async () => {
-    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
-    writeRegistry(tmpDir, [info]);
-    await fs.mkdir(info.path, { recursive: true });
-    await fs.writeFile(path.join(info.path, 'db.sqlite'), '');
-    const opened = { info, close: vi.fn(), integrations: fakeIntegrations(['int_a']) };
-    vi.mocked(Workspace.open).mockResolvedValueOnce(opened as never);
-
-    const service = new WorkspaceService(tmpDir);
-    await service.delete(info.id);
-
-    expect(opened.integrations.disconnect).toHaveBeenCalledWith('int_a', {
-      keepLocalCopies: true,
-    });
-    expect(opened.close).toHaveBeenCalled();
-    await expect(fs.stat(info.path)).rejects.toThrow();
-  });
-
-  it('deletes a workspace that fails to open for disconnecting', async () => {
-    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
-    writeRegistry(tmpDir, [info]);
-    await fs.mkdir(info.path, { recursive: true });
-    await fs.writeFile(path.join(info.path, 'db.sqlite'), '');
-    vi.mocked(Workspace.open).mockRejectedValueOnce(new Error('migration failed'));
-
-    const service = new WorkspaceService(tmpDir);
-    await service.delete(info.id);
-
-    expect(service.listAll().items).toHaveLength(0);
     await expect(fs.stat(info.path)).rejects.toThrow();
   });
 
@@ -343,12 +334,13 @@ describe('WorkspaceService — delete', () => {
     await fs.mkdir(a.path, { recursive: true });
     await fs.mkdir(b.path, { recursive: true });
 
-    const service = new WorkspaceService(tmpDir);
+    const { service } = openService(a);
     await service.delete(a.id);
 
     const remaining = service.listAll().items;
     expect(remaining).toHaveLength(1);
     expect(remaining[0].id).toBe('wsp_bbb');
+    await expect(fs.stat(b.path)).resolves.toBeDefined();
   });
 });
 

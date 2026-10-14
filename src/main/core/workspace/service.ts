@@ -5,8 +5,8 @@ import { Workspace } from './workspace';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
-import { directoryExists, fileExists, isNotFound } from '../local/utils';
-import { NotFoundError } from '../shared/errors';
+import { directoryExists, isNotFound } from '../local/utils';
+import { NotFoundError, WorkspaceNotOpenError } from '../shared/errors';
 import { paginateArray, Page, PageOptions } from '../shared/pagination';
 
 // TODO: opening a workspace again after it has been openedn should be as cheap as possible
@@ -88,28 +88,26 @@ export class WorkspaceService {
     return await Workspace.create(workspaceInfo, this.workspaceOptions);
   }
 
+  /**
+   * Deletes the open workspace: disconnects its integrations, which revokes their grants at the
+   * providers and needs the database open, then closes it and removes its directory and registry
+   * entry. Throws NotFoundError for an unknown id, and WorkspaceNotOpenError for a workspace that
+   * isn't the open one: open it first.
+   */
   async delete(id: WorkspaceId): Promise<void> {
-    let workspaceInfo: WorkspaceInfo;
-    const isOpen = this.currentWorkspace?.info.id === id;
-
-    if (this.currentWorkspace !== null && isOpen) {
-      // disconnect its integrations while its database is open, which revokes their grants
-      await this.disconnectAll(this.currentWorkspace);
-      // close current workspace if it is to be deleted
-      workspaceInfo = this.currentWorkspace.info;
-      await this.closeCurrent();
-    } else {
-      // throws NotFoundError when the id is not in the registry
-      workspaceInfo = this.getById(id);
-    }
+    // throws NotFoundError when the id is not in the registry
+    const workspaceInfo = this.getById(id);
+    const workspace = this.currentWorkspace;
+    if (workspace === null || workspace.info.id !== id) throw new WorkspaceNotOpenError(id);
 
     // throw error if there is no workspace directory to delete
     if (!(await directoryExists(workspaceInfo.path))) {
       throw new Error('Workspace directory not found');
     }
 
-    // an open one was disconnected above, before it closed
-    if (!isOpen) await this.disconnectClosed(workspaceInfo);
+    // disconnect its integrations while its database is open, then close it
+    await this.disconnectAll(workspace);
+    await this.closeCurrent();
 
     // delete worksapce directory and all its conents (db file and notes)
     await fs.rm(workspaceInfo.path, { recursive: true, force: true });
@@ -139,27 +137,6 @@ export class WorkspaceService {
       } catch {
         // the delete goes ahead
       }
-    }
-  }
-
-  /**
-   * Disconnects the integrations of a workspace that is not open, by opening it just for that.
-   * Best effort: a workspace that can't be opened (no database, a failed migration) is deleted all
-   * the same.
-   */
-  private async disconnectClosed(info: WorkspaceInfo): Promise<void> {
-    // nothing was ever stored without a database
-    if (!(await fileExists(path.join(info.path, 'db.sqlite')))) return;
-    let workspace: Workspace;
-    try {
-      workspace = await Workspace.open(info, this.workspaceOptions);
-    } catch {
-      return;
-    }
-    try {
-      await this.disconnectAll(workspace);
-    } finally {
-      await workspace.close();
     }
   }
 
