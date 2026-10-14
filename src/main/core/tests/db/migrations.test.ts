@@ -424,6 +424,30 @@ describe('migration 0022 — full parent_task_id index', () => {
   });
 });
 
+describe('migration 0023 — full project and linked event indexes', () => {
+  it('indexes the columns over archived rows too, without touching existing rows', () => {
+    const { sqlite, db } = openDb();
+    migrate(db, { migrationsFolder: migrationsUpTo(22) });
+    seed(sqlite);
+    const before = snapshot(sqlite);
+
+    runMigrations(sqlite, db, MIGRATIONS_PATH);
+
+    expect(snapshot(sqlite)).toEqual(before);
+    // a lookup with no archived filter, as a disconnect's and a foreign key's are, uses them
+    const plan = (query: string) =>
+      (sqlite.prepare(`EXPLAIN QUERY PLAN ${query}`).all('x') as { detail: string }[])
+        .map((row) => row.detail)
+        .join(' | ');
+    expect(plan('SELECT id FROM tasks WHERE linked_event_id = ?')).toContain(
+      'idx_tasks_linked_event_id_all',
+    );
+    expect(plan('SELECT id FROM tasks WHERE project_id = ?')).toContain('idx_tasks_project_id_all');
+    expect(plan('SELECT id FROM notes WHERE project_id = ?')).toContain('idx_notes_project_id_all');
+    sqlite.close();
+  });
+});
+
 describe('runMigrations — failures', () => {
   function caught(fn: () => void): WorkspaceMigrationError {
     try {

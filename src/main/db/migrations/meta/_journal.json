@@ -162,6 +162,13 @@
       "when": 1791781966365,
       "tag": "0022_tense_tag",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1791999257908,
+      "tag": "0023_full_project_and_linked_event_indexes",
+      "breakpoints": true
     }
   ]
 }

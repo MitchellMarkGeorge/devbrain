@@ -36,6 +36,10 @@ export const notes = sqliteTable(
   },
   (table) => [
     index('idx_notes_project_id').on(table.projectId).where(isNull(table.archivedAt)),
+    // a full index beside the partial one, for lookups that include archived notes: what a
+    // disconnect keeps (an archived note still keeps its project), and the foreign key that nulls
+    // project_id when a project is deleted
+    index('idx_notes_project_id_all').on(table.projectId),
     index('idx_notes_linked_event_id').on(table.linkedEventId).where(isNull(table.archivedAt)),
     index('idx_notes_linked_task_id').on(table.linkedTaskId).where(isNull(table.archivedAt)),
     // keyset pagination in NoteService.listNotes: (sort column, id), either direction
