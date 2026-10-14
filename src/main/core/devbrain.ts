@@ -16,4 +16,9 @@ export class DevBrain {
   public get currentWorkspace() {
     return this.workspaces.currentWorkspace;
   }
+
+  // closes the open workspace, waiting for its sync runs to settle; see WorkspaceService.close
+  async close(): Promise<void> {
+    await this.workspaces.close();
+  }
 }

@@ -13,9 +13,9 @@ export interface SecretCipher {
   decrypt(cipher: Buffer): Promise<{ result: string; shouldReEncrypt: boolean }>;
 }
 
-// The cipher a workspace gets when the caller passes none, until the main process passes the real
-// one (feature 14). CredentialStore.seal refuses to store anything with it, so connecting fails
-// with a clear error and nothing is ever written in the clear.
+// The cipher a workspace gets when the caller passes none; the app passes one over safeStorage
+// (src/main/runtime/safe-storage-cipher.ts). CredentialStore.seal refuses to store anything with
+// it, so connecting fails with a clear error and nothing is ever written in the clear.
 export const unavailableCipher: SecretCipher = {
   isAvailable: async () => false,
   encrypt: async () => {

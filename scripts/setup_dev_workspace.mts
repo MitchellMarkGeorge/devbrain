@@ -31,8 +31,10 @@
  *
  * When DEV_LINEAR_API_KEY is set, the workspace is also connected to that
  * Linear account through IntegrationService.connectWithApiKey, so a seeded
- * workspace starts connected. The key is stored with a dev-only cipher (see
- * devCipher below), not safeStorage, which only exists inside Electron.
+ * workspace starts connected. The key is stored with a dev-only cipher
+ * (src/main/runtime/dev-cipher.ts), not safeStorage, which only exists inside
+ * Electron. The app, run with `npm run dev`, reads it and stores it again
+ * under safeStorage the first time it syncs.
  */
 
 import path from 'node:path';
@@ -40,7 +42,7 @@ import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { config as loadEnvFile } from '@dotenvx/dotenvx';
 import { initDevBrain } from '@main/core';
-import type { SecretCipher } from '@main/core/integrations/credentials';
+import { devCipher } from '@main/runtime/dev-cipher';
 import { Provider } from '@main/core/integrations/types';
 import type { Workspace } from '@main/core/workspace/workspace';
 import type { Project } from '@main/core/projects/types';
@@ -76,23 +78,6 @@ const WORKSPACE_NAME = getOpt('name', process.env.DEV_WORKSPACE_NAME ?? 'Dev');
 const SEED = Number(getOpt('seed', '42'));
 // read here and in tests only; the app always takes a key through the connect flow
 const LINEAR_API_KEY = process.env.DEV_LINEAR_API_KEY?.trim() || null;
-
-// Stands in for Electron's safeStorage, which a plain Node script can't reach. It only encodes the
-// credentials behind a marker, so it keeps them out of plain sight in the git-ignored dev folder
-// and no more. A blob it writes can't be read by the app's real cipher (feature 14).
-const DEV_CIPHER_MARKER = Buffer.from('devbrain-dev-cipher:');
-const devCipher: SecretCipher = {
-  isAvailable: async () => true,
-  encrypt: async (plain) =>
-    Buffer.concat([DEV_CIPHER_MARKER, Buffer.from(Buffer.from(plain).toString('base64'))]),
-  decrypt: async (cipher) => {
-    if (!cipher.subarray(0, DEV_CIPHER_MARKER.length).equals(DEV_CIPHER_MARKER)) {
-      throw new Error('Not written by the dev cipher');
-    }
-    const encoded = cipher.subarray(DEV_CIPHER_MARKER.length).toString();
-    return { result: Buffer.from(encoded, 'base64').toString(), shouldReEncrypt: false };
-  },
-};
 
 // ---------------------------------------------------------------------------
 // Dataset size — a few hundred rows per table: enough to exercise
