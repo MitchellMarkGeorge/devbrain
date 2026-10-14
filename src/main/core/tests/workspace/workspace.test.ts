@@ -348,6 +348,56 @@ describe('Workspace — disconnect', () => {
   });
 });
 
+describe('Workspace — search', () => {
+  it("indexes the user's own tasks, projects and notes as they are written", async () => {
+    const workspace = await Workspace.create(makeInfo(tmpDir));
+    try {
+      const search = (query: string) =>
+        workspace.search
+          .search({ query, entityType: ['task', 'project', 'note'] })
+          .map(({ entityId }) => entityId);
+
+      const project = await workspace.projects.createProject({
+        title: 'Apollo',
+        dueDate: new Date(),
+      });
+      const task = await workspace.tasks.createTask({ title: 'Draft', dueDate: new Date() });
+      const note = await workspace.notes.createNote({ title: 'Minutes' });
+      await vi.waitFor(() => expect(search('Minutes')).toEqual([note.id]));
+      expect(search('Apollo')).toEqual([project.id]);
+      expect(search('Draft')).toEqual([task.id]);
+
+      await workspace.projects.updateProject(project.id, { description: 'lunar' });
+      await workspace.tasks.updateTask(task.id, { title: 'Final' });
+      await workspace.notes.updateNoteContent(note.id, 'first');
+      await workspace.notes.updateNoteContent(note.id, 'second');
+
+      expect(search('lunar')).toEqual([project.id]);
+      expect(search('Final')).toEqual([task.id]);
+      expect(search('Draft')).toEqual([]);
+      // indexed in write order, so the last content wins
+      await vi.waitFor(() => expect(search('second')).toEqual([note.id]));
+      expect(search('first')).toEqual([]);
+    } finally {
+      await workspace.close();
+    }
+  });
+
+  it('waits for notes still being indexed before closing', async () => {
+    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const note = await workspace.notes.createNote({ title: 'Minutes' });
+    await workspace.notes.updateNoteContent(note.id, 'closing');
+    await workspace.close();
+
+    const reopened = await Workspace.open(makeInfo(tmpDir));
+    try {
+      expect(reopened.search.search({ query: 'closing', entityType: ['note'] })).toHaveLength(1);
+    } finally {
+      await reopened.close();
+    }
+  });
+});
+
 describe('Workspace.open — failed migrations', () => {
   // the workspace lives in its own folder so the extra migrations folder sits beside it
   let workspaceDir: string;

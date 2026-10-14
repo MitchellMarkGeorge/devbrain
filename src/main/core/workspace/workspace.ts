@@ -36,6 +36,10 @@ export class Workspace {
   // syncNow, getStatus and onProgress for the app; trigger for focus and resume. Started by
   // WorkspaceService.open, stopped by close()
   readonly sync: SyncScheduler;
+  // A note's body is read from its file, so it is indexed after the write returns. Indexing runs one
+  // note at a time, in write order, so an older read never lands after a newer one; close() waits
+  // for it.
+  private noteIndexing: Promise<void> = Promise.resolve();
 
   private constructor(
     private readonly db: BetterSQLite3Database,
@@ -50,6 +54,14 @@ export class Workspace {
     this.calendars = new CalendarService(db);
     this.archive = new ArchiveService(db);
     this.search = new SearchService(db, info.path);
+    // the user's own writes; SyncWriter indexes what sync writes
+    this.tasks.onChange(({ task }) => this.search.indexTask(task));
+    this.projects.onChange(({ project }) => this.search.indexProject(project));
+    this.notes.onChange(({ note }) => {
+      this.noteIndexing = this.noteIndexing
+        .then(() => this.search.indexNote(note))
+        .catch((error) => console.error(`Indexing note ${note.id} failed:`, error));
+    });
     const { credentials, integrations, providers } = createIntegrationServices(
       db,
       options,
@@ -162,15 +174,16 @@ export class Workspace {
   }
 
   /**
-   * Cancels integration authentication and waits for sync runs before closing SQLite.
-   * Authentication checks cancellation before touching the database again. Ordinary service
-   * calls are not tracked or drained. Every caller shares the same close promise.
+   * Cancels integration authentication and waits for sync runs and notes still being indexed
+   * before closing SQLite. Authentication checks cancellation before touching the database again.
+   * Ordinary service calls are not tracked or drained. Every caller shares the same close promise.
    */
   close(): Promise<void> {
     if (!this.closePromise) {
       this.closing.abort(new WorkspaceClosedError());
       this.closePromise = (async () => {
         await this.sync.stop();
+        await this.noteIndexing;
         this.sqliteClient.close();
       })();
     }

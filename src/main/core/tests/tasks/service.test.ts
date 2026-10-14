@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { generateId, ProjectId, NoteId, EventId } from '@common/ids';
-import { TaskService } from '../../tasks/service';
+import { TaskChange, TaskService } from '../../tasks/service';
 import { ArchiveService } from '../../archive/service';
 import { NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
@@ -1482,5 +1482,71 @@ describe('TaskService — cancelled tasks', () => {
 
     const page = await tasks.listTasks({}, { sortBy: 'status', direction: 'asc' });
     expect(page.items.map((t) => t.id)).toEqual([notStarted.id, completed.id, cancelled.id]);
+  });
+});
+
+describe('TaskService — onChange', () => {
+  it('sends every write with the row as written', async () => {
+    const changes: TaskChange[] = [];
+    tasks.onChange((change) => changes.push(change));
+
+    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const other = await tasks.createTask({ title: 'Other', dueDate: TOMORROW });
+    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
+    await tasks.updateTask(parent.id, { title: 'Renamed' });
+    await tasks.updateStatus(parent.id, TaskStatus.IN_PROGRESS);
+    await tasks.updateProject(parent.id, FAKE_PROJECT_ID);
+    await tasks.updateLinks(parent.id, { linkedNoteId: FAKE_NOTE_ID });
+    await tasks.promoteSubtask(sub.id);
+    await tasks.demoteTask(sub.id, other.id);
+
+    expect(changes.map(({ type, task }) => [type, task.id])).toEqual([
+      ['created', parent.id],
+      ['created', other.id],
+      ['created', sub.id],
+      ['updated', parent.id],
+      ['updated', parent.id],
+      ['updated', parent.id],
+      ['updated', parent.id],
+      ['updated', sub.id],
+      ['updated', sub.id],
+    ]);
+    expect(changes[3]).toMatchObject({ task: { title: 'Renamed' } });
+    expect(changes[8]).toMatchObject({ task: { parentTaskId: other.id } });
+  });
+
+  it('sends nothing for a write that changed no row', async () => {
+    const listener = vi.fn();
+    tasks.onChange(listener);
+
+    await tasks.updateTask(generateId('task'), { title: 'Missing' });
+
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('keeps the write and the other listeners when a listener throws', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const listener = vi.fn();
+    tasks.onChange(() => {
+      throw new Error('boom');
+    });
+    tasks.onChange(listener);
+
+    const task = await tasks.createTask({ title: 'Kept', dueDate: TOMORROW });
+
+    expect(await tasks.getById(task.id)).toMatchObject({ title: 'Kept' });
+    expect(listener).toHaveBeenCalledOnce();
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+  });
+
+  it('stops sending to an unsubscribed listener', async () => {
+    const listener = vi.fn();
+    const unsubscribe = tasks.onChange(listener);
+    unsubscribe();
+
+    await tasks.createTask({ title: 'Unheard', dueDate: TOMORROW });
+
+    expect(listener).not.toHaveBeenCalled();
   });
 });

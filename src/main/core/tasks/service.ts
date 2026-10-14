@@ -28,9 +28,21 @@ import {
   withRefs,
 } from '../integrations/refs';
 import { LinkState } from '../integrations/types';
+import { ChangeListener, ChangeListeners } from '../shared/changes';
+
+// What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
+// layer will forward them to the renderer. Sent after the write commits, with the row as written.
+export type TaskChange = { type: 'created'; task: Task } | { type: 'updated'; task: Task };
 
 export class TaskService {
+  private readonly changes = new ChangeListeners<TaskChange>('task');
+
   constructor(private readonly db: BetterSQLite3Database) {}
+
+  // returns a function that unsubscribes the listener
+  onChange(listener: ChangeListener<TaskChange>): () => void {
+    return this.changes.add(listener);
+  }
 
   async getById(id: TaskId): Promise<Task> {
     const [row] = await this.activeTasks(eq(tasks.id, id)).limit(1);
@@ -66,6 +78,7 @@ export class TaskService {
     };
 
     const [insertedTask] = await this.db.insert(tasks).values(newTask).returning();
+    this.changes.emit({ type: 'created', task: insertedTask });
     return insertedTask;
   }
 
@@ -96,6 +109,7 @@ export class TaskService {
       completedAt: options.status === TaskStatus.COMPLETED ? new Date() : null,
     };
     const [insertedTask] = await this.db.insert(tasks).values(newSubtask).returning();
+    this.changes.emit({ type: 'created', task: insertedTask });
     return insertedTask;
   }
 
@@ -226,7 +240,9 @@ export class TaskService {
       .set(updates)
       .where(eq(tasks.id, id))
       .returning();
-    return updatedTask ?? null;
+    if (!updatedTask) return null;
+    this.changes.emit({ type: 'updated', task: updatedTask });
+    return updatedTask;
   }
 
   async updateStatus(id: TaskId, newStatus: TaskStatus): Promise<Task> {
@@ -242,6 +258,7 @@ export class TaskService {
       })
       .where(eq(tasks.id, id))
       .returning();
+    if (row) this.changes.emit({ type: 'updated', task: row });
 
     // if all the tasks in a project are marked as completed, then the project shoudl be marked as completed
     // this shoudl also happen vice versa
@@ -264,6 +281,7 @@ export class TaskService {
       })
       .where(eq(tasks.id, id))
       .returning();
+    if (row) this.changes.emit({ type: 'updated', task: row });
 
     return row;
   }
@@ -288,6 +306,7 @@ export class TaskService {
       })
       .where(eq(tasks.id, id))
       .returning();
+    if (row) this.changes.emit({ type: 'updated', task: row });
 
     return row;
   }
@@ -308,6 +327,7 @@ export class TaskService {
       })
       .where(eq(tasks.id, id))
       .returning();
+    if (row) this.changes.emit({ type: 'updated', task: row });
 
     return row;
   }
@@ -331,7 +351,7 @@ export class TaskService {
       .limit(1);
     if (cycle) throw new Error('Tasks cannot become a subtask of their own subtask');
 
-    return this.db.transaction((tx) => {
+    const row = this.db.transaction((tx) => {
       // the whole subtree takes on the new parent's context, so it stays consistent with its root
       tx.update(tasks)
         .set({
@@ -350,6 +370,9 @@ export class TaskService {
         .returning()
         .get();
     });
+    // only the demoted task is sent: its subtree's new context changes nothing searchable
+    if (row) this.changes.emit({ type: 'updated', task: row });
+    return row;
   }
 
   private activeTasks(condition: SQL<unknown>) {
