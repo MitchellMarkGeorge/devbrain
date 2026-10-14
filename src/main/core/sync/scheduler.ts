@@ -92,7 +92,8 @@ interface SourceRun {
  *   doubling with each failure in a row to BACKOFF_MAX_MS, has passed since the last run finished.
  * - After a rate-limited run nothing but a manual sync starts before the provider's retry time.
  * - Disabling a source or its integration, or the integration moving to needs_reauth, aborts its
- *   runs. stop() aborts everything and resolves once every run has settled.
+ *   runs. Disconnecting it aborts them and waits for them to settle before any row is deleted
+ *   (stopIntegration). stop() aborts everything and resolves once every run has settled.
  */
 export class SyncScheduler {
   private readonly engine: BaseSyncEngine;
@@ -114,6 +115,9 @@ export class SyncScheduler {
   // when the last reconcile tick, or the pass at start, ran
   private lastReconcileTickAt = 0;
   private unsubscribeFromChanges: (() => void) | null = null;
+  private removeDisconnectHook: (() => void) | null = null;
+  // sources of integrations being disconnected: aborted, and never run again
+  private readonly removedSources = new Set<ExternalSourceId>();
   private isStarted = false;
 
   constructor(options: SyncSchedulerOptions) {
@@ -145,6 +149,9 @@ export class SyncScheduler {
   start(): void {
     if (this.isStarted) return;
     this.isStarted = true;
+    this.removeDisconnectHook = this.integrations.onBeforeDisconnect((integrationId) =>
+      this.stopIntegration(integrationId),
+    );
     this.unsubscribeFromChanges = this.integrations.onChange((change) =>
       this.handleIntegrationChange(change),
     );
@@ -174,6 +181,8 @@ export class SyncScheduler {
     this.isStarted = false;
     this.unsubscribeFromChanges?.();
     this.unsubscribeFromChanges = null;
+    this.removeDisconnectHook?.();
+    this.removeDisconnectHook = null;
     if (this.pendingOpenPass !== null) this.timers.clearImmediate(this.pendingOpenPass);
     this.pendingOpenPass = null;
     if (this.tickInterval !== null) this.timers.clearInterval(this.tickInterval);
@@ -182,6 +191,30 @@ export class SyncScheduler {
     // Every run must settle before stop() resolves, since close() then closes SQLite. allSettled,
     // not all: a run that rejected must not end the wait while the others are still going.
     await Promise.allSettled([...this.unsettledRuns]);
+  }
+
+  /**
+   * Aborts the runs of an integration being disconnected and resolves once they have settled, so
+   * the disconnect deletes nothing a run is still writing. Its sources never run again. Registered
+   * as IntegrationService's before-disconnect hook while the scheduler is started.
+   */
+  async stopIntegration(integrationId: IntegrationId): Promise<void> {
+    let sourceIds: ExternalSourceId[];
+    try {
+      sourceIds = (await this.integrations.getById(integrationId)).sources.map(
+        (source) => source.id,
+      );
+    } catch {
+      // already gone: nothing of it can be running
+      return;
+    }
+    const settling = sourceIds.map((sourceId) => {
+      this.removedSources.add(sourceId);
+      const run = this.currentRuns.get(sourceId);
+      run?.controller.abort();
+      return run?.settled;
+    });
+    await Promise.allSettled(settling);
   }
 
   /**
@@ -263,7 +296,7 @@ export class SyncScheduler {
    * off and straight back on still syncs, and never has two runs at once.
    */
   private requestRun(sourceId: ExternalSourceId, reconcile: boolean): Promise<void> {
-    if (!this.isStarted) return Promise.resolve();
+    if (!this.isStarted || this.removedSources.has(sourceId)) return Promise.resolve();
     const current = this.currentRuns.get(sourceId);
     if (current && !current.controller.signal.aborted) {
       current.followUp = { reconcile: reconcile || (current.followUp?.reconcile ?? false) };
@@ -355,6 +388,13 @@ export class SyncScheduler {
             const target = this.readSyncTarget(sourceId);
             if (!target || target.integrationId === change.integrationId) this.abortRun(sourceId);
           }
+        }
+        return;
+      case 'removed':
+        // stopIntegration, awaited next, waits for these runs to settle
+        for (const sourceId of change.sourceIds) {
+          this.removedSources.add(sourceId);
+          this.abortRun(sourceId);
         }
         return;
     }

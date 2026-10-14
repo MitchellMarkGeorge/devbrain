@@ -598,6 +598,53 @@ describe('SyncScheduler — stop', () => {
   });
 });
 
+describe('SyncScheduler — disconnect', () => {
+  it("aborts the integration's runs and waits for them to settle before any row is deleted", async () => {
+    engine.durationMs = MINUTE;
+    await start();
+    const [run] = engine.runs();
+
+    let disconnected = false;
+    const disconnecting = service
+      .disconnect(linearId, { keepLocalCopies: true })
+      .then(() => (disconnected = true));
+    await vi.advanceTimersByTimeAsync(SECOND);
+    expect(run.signal?.aborted).toBe(true);
+    expect(disconnected).toBe(false);
+    expect(source()).toBeDefined();
+
+    await vi.advanceTimersByTimeAsync(MINUTE);
+    await disconnecting;
+    expect(disconnected).toBe(true);
+    expect(engine.overlapped).toBe(false);
+
+    // its source never runs again, even when asked for by id
+    await scheduler.syncNow(linearSourceId);
+    await vi.advanceTimersByTimeAsync(RECONCILE_INTERVAL_MS);
+    expect(engine.runs()).toHaveLength(1);
+  });
+
+  it("leaves other integrations' sources running", async () => {
+    await service.setSourceEnabled(calendarSourceId, true);
+    await start();
+
+    await service.disconnect(linearId, { keepLocalCopies: false });
+    await vi.advanceTimersByTimeAsync(INCREMENTAL_INTERVAL_MS);
+
+    expect(engine.runs(calendarSourceId).length).toBeGreaterThan(1);
+  });
+
+  it('a stopped scheduler does not hold up a disconnect', async () => {
+    await start();
+    await scheduler.stop();
+    const stopIntegration = vi.spyOn(scheduler, 'stopIntegration');
+
+    await service.disconnect(linearId, { keepLocalCopies: false });
+
+    expect(stopIntegration).not.toHaveBeenCalled();
+  });
+});
+
 describe('SyncScheduler — stop with the real engine', () => {
   let workspacePath: string;
 
@@ -642,6 +689,20 @@ describe('SyncScheduler — stop with the real engine', () => {
       consecutiveFailures: 0,
     });
 
+    await vi.advanceTimersByTimeAsync(RECONCILE_INTERVAL_MS);
+    expect(provider.tasks.pulls).toHaveLength(1);
+  });
+  it('a disconnect during a pull waits for the run, and nothing is written after it', async () => {
+    provider.tasks.script({ tasks: [issue()], delayMs: 10 * SECOND });
+    await start();
+    expect(provider.tasks.pulls).toHaveLength(1);
+
+    const disconnecting = service.disconnect(linearId, { keepLocalCopies: false });
+    await vi.advanceTimersByTimeAsync(10 * SECOND);
+    await disconnecting;
+
+    expect(db.select().from(tasksTable).all()).toEqual([]);
+    expect(db.select().from(externalSources).all()).toHaveLength(1);
     await vi.advanceTimersByTimeAsync(RECONCILE_INTERVAL_MS);
     expect(provider.tasks.pulls).toHaveLength(1);
   });
