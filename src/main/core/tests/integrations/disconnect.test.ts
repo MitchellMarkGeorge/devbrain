@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import type Database from 'better-sqlite3';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -216,6 +217,11 @@ function eventRow(id: EventId) {
   return db.select().from(eventsTable).where(eq(eventsTable.id, id)).get();
 }
 
+// whether the database connection is inside a transaction now; createDb's type leaves out $client
+function inTransaction(): boolean {
+  return (db as typeof db & { $client: Database.Database }).$client.inTransaction;
+}
+
 function indexed(): string[] {
   return db
     .all<{ entityId: string }>(sql`SELECT entity_id AS entityId FROM search_index`)
@@ -258,7 +264,7 @@ beforeEach(async () => {
   credentials = new CredentialStore(db, { cipher: new FakeCipher() });
   const search = new SearchService(db, workspacePath);
   service = new IntegrationService(db, { credentials, providers, oauth });
-  // as Workspace does: deleted items leave search once the disconnect has committed
+  // as Workspace does: deleted items leave search in the disconnect's own transaction
   service.onChange((change) => {
     if (change.type !== 'disconnected') return;
     const { taskIds, projectIds, eventIds } = change.deleted;
@@ -657,53 +663,48 @@ describe('IntegrationService — previewDisconnect', () => {
   });
 });
 
-describe('IntegrationService — disconnect, stopping sync first', () => {
-  it('emits removed and awaits the before-disconnect hooks before any row is touched, then disconnected', async () => {
+describe('IntegrationService — disconnect, the disconnected change', () => {
+  it('is sent once, inside the removal, once the rows are gone', async () => {
     const { id, sourceId } = await connectLinear();
     const item = issue();
     await syncTasks(sourceId, [item]);
     const taskId = taskIdOf(item);
-    // what each step saw: whether the integration and the task were still there
+    // what the listener saw: whether it ran inside the transaction, and what was still there
     const seen: unknown[] = [];
-    const look = () => ({
-      integration: db.select().from(integrations).all().length,
-      link: linkOf(item)?.state,
-    });
-    service.onChange((change: IntegrationChange) => seen.push({ change, ...look() }));
-    service.onBeforeDisconnect(async (integrationId) => {
-      await new Promise((resolve) => setTimeout(resolve, 5));
-      seen.push({ hook: integrationId, ...look() });
-    });
+    service.onChange((change: IntegrationChange) =>
+      seen.push({
+        change,
+        inTransaction: inTransaction(),
+        integrations: db.select().from(integrations).all().length,
+        link: linkOf(item)?.state,
+      }),
+    );
 
     await service.disconnect(id, { keepLocalCopies: false });
 
     expect(seen).toEqual([
       {
-        change: { type: 'removed', integrationId: id, sourceIds: [sourceId] },
-        integration: 1,
-        link: LinkState.SYNCED,
-      },
-      { hook: id, integration: 1, link: LinkState.SYNCED },
-      // and, once the transaction has committed, what it deleted
-      {
         change: {
           type: 'disconnected',
           integrationId: id,
+          sourceIds: [sourceId],
           deleted: { taskIds: [taskId], projectIds: [], eventIds: [] },
           changed: ['task'],
         },
-        integration: 0,
+        // so a listener's database writes, such as search dropping the ids, commit with it
+        inTransaction: true,
+        integrations: 0,
         link: undefined,
       },
     ]);
-    expect(look()).toEqual({ integration: 0, link: undefined });
+    expect(inTransaction()).toBe(false);
   });
 
-  it('goes ahead when a before-disconnect hook throws', async () => {
+  it('a listener that throws does not stop the disconnect', async () => {
     const { id } = await connectLinear();
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    service.onBeforeDisconnect(() => {
-      throw new Error('scheduler failed to stop');
+    service.onChange(() => {
+      throw new Error('listener failed');
     });
 
     await service.disconnect(id, { keepLocalCopies: false });
@@ -711,23 +712,13 @@ describe('IntegrationService — disconnect, stopping sync first', () => {
     expect(db.select().from(integrations).all()).toEqual([]);
     expect(error).toHaveBeenCalled();
   });
-
-  it('a removed hook is not called', async () => {
-    const { id } = await connectLinear();
-    const hook = vi.fn();
-    service.onBeforeDisconnect(hook)();
-
-    await service.disconnect(id, { keepLocalCopies: true });
-
-    expect(hook).not.toHaveBeenCalled();
-  });
 });
 
 describe('IntegrationService — disconnect, revoking credentials', () => {
-  it('revokes an OAuth grant at the provider once sync has stopped, before the rows go', async () => {
+  it('revokes an OAuth grant at the provider before the rows go', async () => {
     const { id } = await connectCalendar();
     const order: string[] = [];
-    service.onBeforeDisconnect(() => void order.push('sync stopped'));
+    service.onChange((change) => void order.push(change.type));
     let integrationsAtRevoke: number | null = null;
     oauth.revoke.mockImplementationOnce(async () => {
       order.push('revoked');
@@ -745,7 +736,7 @@ describe('IntegrationService — disconnect, revoking credentials', () => {
       refreshToken: FAKE_REFRESH_TOKEN,
     });
     expect(opts?.signal).toBeInstanceOf(AbortSignal);
-    expect(order).toEqual(['sync stopped', 'revoked']);
+    expect(order).toEqual(['revoked', 'disconnected']);
     expect(integrationsAtRevoke).toBe(1);
     expect(db.select().from(integrations).all()).toEqual([]);
   });

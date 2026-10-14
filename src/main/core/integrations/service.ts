@@ -34,8 +34,9 @@ import {
   SourceType,
 } from './types';
 
-// What changed, for in-process subscribers: the scheduler starts and stops syncs from these, and
-// the IPC layer will forward them to the renderer. Ids and flags only, never credentials.
+// What changed, for in-process subscribers: the scheduler starts and stops syncs from these, the
+// workspace keeps search in step, and the IPC layer will forward them to the renderer. Ids and
+// flags only, never credentials.
 export type IntegrationChange =
   | {
       type: 'connected';
@@ -50,24 +51,20 @@ export type IntegrationChange =
       sourceId: ExternalSourceId;
       enabled: boolean;
     }
-  // Sent by disconnect before any row is touched: stop scheduling these sources and abort their
-  // runs. Once disconnect resolves, the integration and its sources are gone.
-  | { type: 'removed'; integrationId: IntegrationId; sourceIds: ExternalSourceId[] }
-  // Sent by disconnect once its transaction has committed: the items it deleted, which the
-  // workspace drops from search, and the entity types whose rows changed, for the renderer
+  // The integration is gone, with its sources, the items it deleted and the entity types whose rows
+  // changed. Sent as the last step of the removal, inside its transaction: a listener's synchronous
+  // database writes (search dropping the ids) commit with it, and anything asynchronous runs after
+  // the commit
   | {
       type: 'disconnected';
       integrationId: IntegrationId;
+      // already deleted, so they can't be looked up from here
+      sourceIds: ExternalSourceId[];
       deleted: DisconnectedItems;
       changed: SyncEntityType[];
     };
 
 export type IntegrationChangeListener = (change: IntegrationChange) => void;
-
-// Awaited by disconnect after the `removed` change and before any row is touched, so a subscriber
-// that needs to wait (the scheduler settling a run it aborted) can. A hook that throws is logged
-// and does not stop the disconnect.
-export type BeforeDisconnectHook = (integrationId: IntegrationId) => Promise<void> | void;
 
 // what a reconnect authenticates with: a new API key, or the provider's OAuth flow run again
 export type ReconnectWith =
@@ -134,8 +131,6 @@ export interface BaseIntegrationService {
   markNeedsReauth(id: IntegrationId): void;
   // returns a function that unsubscribes the listener
   onChange(listener: IntegrationChangeListener): () => void;
-  // returns a function that removes the hook; see BeforeDisconnectHook
-  onBeforeDisconnect(hook: BeforeDisconnectHook): () => void;
 }
 
 // Connect, enable, disable, reconnect and disconnect. Owns the integrations and external_sources
@@ -146,7 +141,6 @@ export class IntegrationService implements BaseIntegrationService {
   private readonly providers: ProviderRegistry;
   private readonly oauth: OAuthClient | null;
   private readonly listeners = new Set<IntegrationChangeListener>();
-  private readonly beforeDisconnect = new Set<BeforeDisconnectHook>();
   // set while an OAuth connect waits on the browser; one flow per workspace at a time
   private connecting = false;
 
@@ -474,53 +468,40 @@ export class IntegrationService implements BaseIntegrationService {
   /**
    * Disconnects an integration and deletes it.
    *
-   * 1. Emit `removed` and await the before-disconnect hooks, so the scheduler stops the sources
-   *    before any row is touched.
-   * 2. Revoke the grant at the provider (see revokeGrant), while the credentials are still
+   * 1. Revoke the grant at the provider (see revokeGrant), while the credentials are still
    *    stored. Best effort: a failure never blocks the disconnect.
-   * 3. In one transaction: delete or detach the mirrored items (see planDisconnect and
+   * 2. In one transaction: delete or detach the mirrored items (see planDisconnect and
    *    applyDisconnect), clear the credentials and delete the integration. The cascade deletes the
    *    sources and nulls `sourceId` on the surviving links and calendars, which keep their
    *    provider, key and URL for the badge.
-   * 4. Emit `disconnected` with the deleted ids; the workspace drops them from search.
+   * 3. Emit `disconnected` as the transaction's last step: the workspace drops the deleted ids
+   *    from search in the same commit, and the scheduler aborts the sources' runs. A run still
+   *    going writes nothing after: its source is gone.
    */
   async disconnect(id: IntegrationId, options: DisconnectOptions): Promise<DisconnectResult> {
     const { provider } = this.rowOf(id);
     const sourceIds = this.sourceIdsOf(id);
 
     // 1.
-    this.emit({ type: 'removed', integrationId: id, sourceIds });
-    for (const hook of [...this.beforeDisconnect]) {
-      try {
-        await hook(id);
-      } catch (error) {
-        console.error('A before-disconnect hook threw:', error);
-      }
-    }
-
-    // 2.
     const revoked = await this.revokeGrant(id, provider);
 
-    // 3. the plan is made inside the transaction, on the rows as they are when it commits
+    // 2. the plan is made inside the transaction, on the rows as they are when it commits
     const { plan, changed } = this.db.transaction((tx) => {
       const plan = planDisconnect(tx, id, options);
       const changed = applyDisconnect(tx, plan);
       this.credentials.clear(id);
       tx.delete(integrations).where(eq(integrations.id, id)).run();
+      // 3.
+      this.emit({
+        type: 'disconnected',
+        integrationId: id,
+        sourceIds,
+        deleted: plan.deleted,
+        changed,
+      });
       return { plan, changed };
     });
-
-    // 4.
-    this.emit({ type: 'disconnected', integrationId: id, deleted: plan.deleted, changed });
     return { ...countPlan(plan), changed, revoked };
-  }
-
-  // returns a function that removes the hook; see BeforeDisconnectHook
-  onBeforeDisconnect(hook: BeforeDisconnectHook): () => void {
-    this.beforeDisconnect.add(hook);
-    return () => {
-      this.beforeDisconnect.delete(hook);
-    };
   }
 
   /**
@@ -551,7 +532,8 @@ export class IntegrationService implements BaseIntegrationService {
   }
 
   private emit(change: IntegrationChange): void {
-    // the change is already committed, so a failing listener must not fail the call or the others
+    // a failing listener must not fail the call or the others; `disconnected` is sent inside its
+    // transaction, and the removal stands even if a listener throws
     for (const listener of [...this.listeners]) {
       try {
         listener(change);

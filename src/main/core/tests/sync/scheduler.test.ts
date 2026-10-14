@@ -599,26 +599,18 @@ describe('SyncScheduler — stop', () => {
 });
 
 describe('SyncScheduler — disconnect', () => {
-  it("aborts the integration's runs and waits for them to settle before any row is deleted", async () => {
+  it("aborts the integration's runs, and its sources never run again", async () => {
     engine.durationMs = MINUTE;
     await start();
     const [run] = engine.runs();
 
-    let disconnected = false;
-    const disconnecting = service
-      .disconnect(linearId, { keepLocalCopies: true })
-      .then(() => (disconnected = true));
-    await vi.advanceTimersByTimeAsync(SECOND);
-    expect(run.signal?.aborted).toBe(true);
-    expect(disconnected).toBe(false);
-    expect(source()).toBeDefined();
+    await service.disconnect(linearId, { keepLocalCopies: true });
 
+    expect(run.signal?.aborted).toBe(true);
     await vi.advanceTimersByTimeAsync(MINUTE);
-    await disconnecting;
-    expect(disconnected).toBe(true);
     expect(engine.overlapped).toBe(false);
 
-    // its source never runs again, even when asked for by id
+    // not even when asked for by id
     await scheduler.syncNow(linearSourceId);
     await vi.advanceTimersByTimeAsync(RECONCILE_INTERVAL_MS);
     expect(engine.runs()).toHaveLength(1);
@@ -632,16 +624,6 @@ describe('SyncScheduler — disconnect', () => {
     await vi.advanceTimersByTimeAsync(INCREMENTAL_INTERVAL_MS);
 
     expect(engine.runs(calendarSourceId).length).toBeGreaterThan(1);
-  });
-
-  it('a stopped scheduler does not hold up a disconnect', async () => {
-    await start();
-    await scheduler.stop();
-    const stopIntegration = vi.spyOn(scheduler, 'stopIntegration');
-
-    await service.disconnect(linearId, { keepLocalCopies: false });
-
-    expect(stopIntegration).not.toHaveBeenCalled();
   });
 });
 
