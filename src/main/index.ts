@@ -40,8 +40,11 @@ function configureLogging() {
 
 // --- DevBrain -------------------------------------------------------------
 const devBrainLog = log.scope('devbrain');
-// set once DevBrain has started; null before, and when there is no DevBrain folder in development
+// set once DevBrain has started; null before, if starting failed, and when there is no DevBrain
+// folder in development
 let devBrain: DevBrain | null = null;
+// settles once starting has finished, whether or not it succeeded
+let starting: Promise<void> = Promise.resolve();
 
 // The DevBrain folder: in development the one `npm run seed:dev` fills (DEV_PATH, relative to the
 // repository, as the seed script reads it), else DEVBRAIN_PATH or ~/.devbrain.
@@ -58,22 +61,34 @@ function setMigrationsPath() {
     : path.resolve(REPO_ROOT, process.env.DB_MIGRATIONS_PATH ?? 'src/main/db/migrations');
 }
 
-// Must run after `ready`: net.fetch and safeStorage's async API are only usable from then.
-async function startCore(): Promise<DevBrain | null> {
+// Must run after `ready`: net.fetch and safeStorage's async API are only usable from then. Never
+// rejects: a failure is logged and leaves `devBrain` null, and the window stays up.
+async function startCore(): Promise<void> {
   setMigrationsPath();
-  return startDevBrain({
-    rootPath: devBrainRootPath(),
-    createIfMissing: app.isPackaged,
-    workspace: {
-      // the key stays in the OS keychain; in development the seed script's dev blobs are read too
-      cipher: createSafeStorageCipher(safeStorage, { readDevBlobs: !app.isPackaged }),
-      // Chromium's network stack: honours the system proxy (PAC files included) and the OS
-      // certificate store, which Node's fetch does not
-      fetch: (url, init) => net.fetch(url, init),
-      openExternal: (url) => shell.openExternal(url),
-    },
-    logger: devBrainLog,
-  });
+  try {
+    devBrain = await startDevBrain({
+      rootPath: devBrainRootPath(),
+      createIfMissing: app.isPackaged,
+      workspace: {
+        // the key stays in the OS keychain; in development the seed script's dev blobs are read too
+        cipher: createSafeStorageCipher(safeStorage, { readDevBlobs: !app.isPackaged }),
+        // Chromium's network stack: honours the system proxy (PAC files included) and the OS
+        // certificate store, which Node's fetch does not
+        fetch: (url, init) => net.fetch(url, init),
+        openExternal: (url) => shell.openExternal(url),
+      },
+      logger: devBrainLog,
+    });
+  } catch (error) {
+    devBrainLog.error('Starting DevBrain failed', error);
+  }
+}
+
+// Closes the open workspace before the app quits. A quit while starting waits for the start to
+// finish first, so a workspace it is opening is closed too.
+async function closeCore(): Promise<void> {
+  await starting;
+  await devBrain?.close();
 }
 
 // --- Window ---------------------------------------------------------------
@@ -108,18 +123,10 @@ app.whenReady().then(() => {
   configureLogging();
   createWindow();
 
-  // settles once DevBrain has started, or failed to; never rejects
-  const started = startCore()
-    .then((started) => (devBrain = started))
-    .catch((error: unknown) => {
-      devBrainLog.error('Starting DevBrain failed', error);
-      return null;
-    });
-
+  starting = startCore();
   // window focus and system resume sync the workspace open at the time, if any
   forwardSyncTriggers({ app, powerMonitor }, () => devBrain, devBrainLog);
-  // a quit while starting waits for the start, then closes whatever it opened
-  closeBeforeQuit(app, async () => (await started)?.close(), devBrainLog);
+  closeBeforeQuit(app, closeCore, devBrainLog);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
