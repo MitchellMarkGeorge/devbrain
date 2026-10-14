@@ -10,13 +10,18 @@ import {
   IntegrationDisabledError,
   NotFoundError,
 } from '../shared/errors';
-import { SearchService } from '../search/service';
 import { REVOKE_TIMEOUT_MS } from '../sync/constants';
 import { SyncEntityType } from '../sync/types';
 import { toAuth } from './auth';
 import { CredentialStore } from './credential-store';
 import { ApiKeyCredentials, Credentials, OAuthCredentials, PendingRevoke } from './credentials';
-import { applyDisconnect, countPlan, DisconnectCounts, planDisconnect } from './disconnect';
+import {
+  applyDisconnect,
+  countPlan,
+  DisconnectCounts,
+  DisconnectedItems,
+  planDisconnect,
+} from './disconnect';
 import { OAuthClient } from './oauth/types';
 import { ExternalAccount, Provider as ProviderImpl } from './providers/provider';
 import { ProviderRegistry, getProvider } from './providers/registry';
@@ -47,7 +52,15 @@ export type IntegrationChange =
     }
   // Sent by disconnect before any row is touched: stop scheduling these sources and abort their
   // runs. Once disconnect resolves, the integration and its sources are gone.
-  | { type: 'removed'; integrationId: IntegrationId; sourceIds: ExternalSourceId[] };
+  | { type: 'removed'; integrationId: IntegrationId; sourceIds: ExternalSourceId[] }
+  // Sent by disconnect once its transaction has committed: the items it deleted, which the
+  // workspace drops from search, and the entity types whose rows changed, for the renderer
+  | {
+      type: 'disconnected';
+      integrationId: IntegrationId;
+      deleted: DisconnectedItems;
+      changed: SyncEntityType[];
+    };
 
 export type IntegrationChangeListener = (change: IntegrationChange) => void;
 
@@ -96,9 +109,6 @@ export interface IntegrationServiceOptions {
   providers: ProviderRegistry;
   // runs connectWithOAuth's browser flow; without one, connecting through OAuth is refused
   oauth?: OAuthClient;
-  // the workspace's search index, which disconnect drops deleted rows from; defaults to one over
-  // the same database (removing from the index never reads note files)
-  search?: SearchService;
 }
 
 type IntegrationRow = typeof integrations.$inferSelect;
@@ -135,7 +145,6 @@ export class IntegrationService implements BaseIntegrationService {
   private readonly credentials: CredentialStore;
   private readonly providers: ProviderRegistry;
   private readonly oauth: OAuthClient | null;
-  private readonly search: SearchService;
   private readonly listeners = new Set<IntegrationChangeListener>();
   private readonly beforeDisconnect = new Set<BeforeDisconnectHook>();
   // set while an OAuth connect waits on the browser; one flow per workspace at a time
@@ -148,7 +157,6 @@ export class IntegrationService implements BaseIntegrationService {
     this.credentials = options.credentials;
     this.providers = options.providers;
     this.oauth = options.oauth ?? null;
-    this.search = options.search ?? new SearchService(db, '');
   }
 
   async list(): Promise<Integration[]> {
@@ -459,8 +467,8 @@ export class IntegrationService implements BaseIntegrationService {
    * Reads only; uses the same plan as disconnect, so the two agree.
    */
   async previewDisconnect(id: IntegrationId): Promise<DisconnectCounts> {
-    const sourceIds = this.sourceIdsOf(id);
-    return countPlan(planDisconnect(this.db, sourceIds, { keepLocalCopies: false }));
+    this.assertExists(id);
+    return countPlan(planDisconnect(this.db, id, { keepLocalCopies: false }));
   }
 
   /**
@@ -473,7 +481,8 @@ export class IntegrationService implements BaseIntegrationService {
    *    applyDisconnect), clear the credentials and delete the integration. The cascade deletes the
    *    sources and nulls `sourceId` on the surviving links and calendars, which keep their
    *    provider, key and URL for the badge.
-   * 4. Revoke the grant at the provider, best effort and for at most REVOKE_TIMEOUT_MS: a failure
+   * 4. Emit `disconnected` with the deleted ids; the workspace drops them from search.
+   * 5. Revoke the grant at the provider, best effort and for at most REVOKE_TIMEOUT_MS: a failure
    *    is logged and never undoes or blocks the disconnect. An API key has nothing to revoke.
    */
   async disconnect(id: IntegrationId, options: DisconnectOptions): Promise<DisconnectResult> {
@@ -493,17 +502,20 @@ export class IntegrationService implements BaseIntegrationService {
     const revoke = await this.credentials.prepareRevoke(id);
 
     // 3. the plan is made inside the transaction, on the rows as they are when it commits
-    const { counts, changed } = this.db.transaction((tx) => {
-      const plan = planDisconnect(tx, sourceIds, options);
-      const changed = applyDisconnect(tx, this.search, sourceIds, plan);
+    const { plan, changed } = this.db.transaction((tx) => {
+      const plan = planDisconnect(tx, id, options);
+      const changed = applyDisconnect(tx, plan);
       this.credentials.clear(id);
       tx.delete(integrations).where(eq(integrations.id, id)).run();
-      return { counts: countPlan(plan), changed };
+      return { plan, changed };
     });
 
     // 4.
+    this.emit({ type: 'disconnected', integrationId: id, deleted: plan.deleted, changed });
+
+    // 5.
     const revoked = revoke ? await revokeQuietly(revoke) : false;
-    return { ...counts, changed, revoked };
+    return { ...countPlan(plan), changed, revoked };
   }
 
   /**
@@ -566,14 +578,18 @@ export class IntegrationService implements BaseIntegrationService {
     }
   }
 
-  // the integration's source ids; throws NotFoundError for an unknown integration
-  private sourceIdsOf(id: IntegrationId): ExternalSourceId[] {
+  private assertExists(id: IntegrationId): void {
     const row = this.db
       .select({ id: integrations.id })
       .from(integrations)
       .where(eq(integrations.id, id))
       .get();
     if (!row) throw new NotFoundError(id);
+  }
+
+  // the integration's source ids; throws NotFoundError for an unknown integration
+  private sourceIdsOf(id: IntegrationId): ExternalSourceId[] {
+    this.assertExists(id);
     return this.db
       .select({ id: externalSources.id })
       .from(externalSources)

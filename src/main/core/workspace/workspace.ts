@@ -48,11 +48,14 @@ export class Workspace {
     this.calendars = new CalendarService(db);
     this.archive = new ArchiveService(db);
     this.search = new SearchService(db, info.path);
-    const { credentials, integrations, providers } = createIntegrationServices(db, {
-      ...options,
-      search: this.search,
-    });
+    const { credentials, integrations, providers } = createIntegrationServices(db, options);
     this.integrations = integrations;
+    // a disconnect deletes mirrored rows; they leave search once its transaction has committed
+    integrations.onChange((change) => {
+      if (change.type !== 'disconnected') return;
+      const { taskIds, projectIds, eventIds } = change.deleted;
+      this.search.removeFromIndex([...taskIds, ...projectIds, ...eventIds]);
+    });
     const syncState = new SyncStateManager(db);
     const engine = new SyncEngine(db, {
       integrations,

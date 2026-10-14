@@ -10,7 +10,6 @@ import {
   createTokenRevokers,
   ProviderRegistry,
 } from './providers/registry';
-import { SearchService } from '../search/service';
 import { IntegrationService } from './service';
 
 // Puts the integration services together for one workspace: the provider registry, the OAuth
@@ -29,8 +28,6 @@ export interface IntegrationsSetupOptions {
   openExternal?: OpenExternal;
   // injected for tests
   callbackTimeoutMs?: number;
-  // the workspace's search index, which disconnect drops deleted rows from
-  search?: SearchService;
 }
 
 // The browser opener a workspace gets when the caller passes none, until the main process passes
@@ -59,7 +56,7 @@ export function createIntegrationServices(
     revokers: createTokenRevokers(providers, oauth),
     onRefreshRejected: (integrationId) => service?.markNeedsReauth(integrationId),
   });
-  service = new IntegrationService(db, { credentials, providers, oauth, search: options.search });
+  service = new IntegrationService(db, { credentials, providers, oauth });
   // the sync engine gets the same store and registry, so an integration syncs through the provider
   // that connected it
   return { credentials, integrations: service, providers };

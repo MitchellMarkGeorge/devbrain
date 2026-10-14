@@ -261,7 +261,13 @@ beforeEach(async () => {
     revokers: createTokenRevokers(providers, oauth),
   });
   const search = new SearchService(db, workspacePath);
-  service = new IntegrationService(db, { credentials, providers, oauth, search });
+  service = new IntegrationService(db, { credentials, providers, oauth });
+  // as Workspace does: deleted items leave search once the disconnect has committed
+  service.onChange((change) => {
+    if (change.type !== 'disconnected') return;
+    const { taskIds, projectIds, eventIds } = change.deleted;
+    search.removeFromIndex([...taskIds, ...projectIds, ...eventIds]);
+  });
   const writer = new SyncWriter(db, search);
   const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
   const syncState = new SyncStateManager(db);
@@ -656,10 +662,11 @@ describe('IntegrationService — previewDisconnect', () => {
 });
 
 describe('IntegrationService — disconnect, stopping sync first', () => {
-  it('emits removed and awaits the before-disconnect hooks before any row is touched', async () => {
+  it('emits removed and awaits the before-disconnect hooks before any row is touched, then disconnected', async () => {
     const { id, sourceId } = await connectLinear();
     const item = issue();
     await syncTasks(sourceId, [item]);
+    const taskId = taskIdOf(item);
     // what each step saw: whether the integration and the task were still there
     const seen: unknown[] = [];
     const look = () => ({
@@ -681,6 +688,17 @@ describe('IntegrationService — disconnect, stopping sync first', () => {
         link: LinkState.SYNCED,
       },
       { hook: id, integration: 1, link: LinkState.SYNCED },
+      // and, once the transaction has committed, what it deleted
+      {
+        change: {
+          type: 'disconnected',
+          integrationId: id,
+          deleted: { taskIds: [taskId], projectIds: [], eventIds: [] },
+          changed: ['task'],
+        },
+        integration: 0,
+        link: undefined,
+      },
     ]);
     expect(look()).toEqual({ integration: 0, link: undefined });
   });

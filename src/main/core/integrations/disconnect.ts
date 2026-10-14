@@ -1,14 +1,13 @@
-import { EventId, ExternalSourceId, ProjectId, TaskId } from '@common/ids';
+import { EventId, IntegrationId, ProjectId, TaskId } from '@common/ids';
 import { calendars } from '@main/db/schema/calendars';
 import { events } from '@main/db/schema/events';
-import { externalLinks } from '@main/db/schema/integrations';
+import { externalLinks, externalSources } from '@main/db/schema/integrations';
 import { notes } from '@main/db/schema/notes';
 import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
 import { and, eq, exists, inArray, isNotNull, notExists, notInArray, or, sql } from 'drizzle-orm';
 import { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 import { RunResult } from 'better-sqlite3';
-import { SearchService } from '../search/service';
 import { SyncEntityType } from '../sync/types';
 import { LinkState } from './types';
 
@@ -31,15 +30,30 @@ export interface DisconnectCounts {
   kept: EntityCounts;
 }
 
+export interface DisconnectedItems {
+  taskIds: TaskId[];
+  projectIds: ProjectId[];
+  eventIds: EventId[];
+}
+
 export interface DisconnectPlan {
-  deleted: { taskIds: TaskId[]; projectIds: ProjectId[]; eventIds: EventId[] };
-  kept: { taskIds: TaskId[]; projectIds: ProjectId[]; eventIds: EventId[] };
+  integrationId: IntegrationId;
+  deleted: DisconnectedItems;
+  kept: DisconnectedItems;
 }
 
 const MIRRORED = [LinkState.SYNCED, LinkState.REMOVED];
 
+// the integration's source ids, as a subquery; its links and calendars are found through them
+function sourcesOf(tx: Tx, integrationId: IntegrationId) {
+  return tx
+    .select({ id: externalSources.id })
+    .from(externalSources)
+    .where(eq(externalSources.integrationId, integrationId));
+}
+
 /**
- * Sorts the sources' mirrored items, synced or removed, into deleted and kept. With
+ * Sorts the integration's mirrored items, synced or removed, into deleted and kept. With
  * `keepLocalCopies` everything is kept. Otherwise an item is kept when something of the user's
  * points at it, archived things included (they are the user's and may return):
  *
@@ -52,16 +66,16 @@ const MIRRORED = [LinkState.SYNCED, LinkState.REMOVED];
  */
 export function planDisconnect(
   tx: Tx,
-  sourceIds: ExternalSourceId[],
+  integrationId: IntegrationId,
   { keepLocalCopies }: { keepLocalCopies: boolean },
 ): DisconnectPlan {
   const plan: DisconnectPlan = {
+    integrationId,
     deleted: { taskIds: [], projectIds: [], eventIds: [] },
     kept: { taskIds: [], projectIds: [], eventIds: [] },
   };
-  if (sourceIds.length === 0) return plan;
   const mirrored = and(
-    inArray(externalLinks.sourceId, sourceIds),
+    inArray(externalLinks.sourceId, sourcesOf(tx, integrationId)),
     inArray(externalLinks.state, MIRRORED),
   );
 
@@ -139,7 +153,7 @@ export function planDisconnect(
 }
 
 export function countPlan(plan: DisconnectPlan): DisconnectCounts {
-  const count = (ids: DisconnectPlan['deleted']): EntityCounts => ({
+  const count = (ids: DisconnectedItems): EntityCounts => ({
     tasks: ids.taskIds.length,
     projects: ids.projectIds.length,
     events: ids.eventIds.length,
@@ -155,20 +169,17 @@ export function countPlan(plan: DisconnectPlan): DisconnectCounts {
  * 2. Delete the deleted items; their links go with them.
  * 3. Detach every synced link left. Removed ones stay removed: their rows are archived or hidden,
  *    and a later connect of the same account can still restore them.
- * 4. Delete the sources' calendars left with no events, which hold nothing of the user's. Kept ones
- *    become local calendars when the cascade nulls their source.
- * 5. Drop the deleted items from search. Kept ones stay indexed as they were.
+ * 4. Delete the integration's calendars left with no events, which hold nothing of the user's.
+ *    Kept ones become local calendars when the cascade nulls their source.
+ *
+ * The search index is not touched here: IntegrationService emits the deleted ids in a
+ * `disconnected` change once this commits, and the workspace drops them from search.
  *
  * Returns the entity types whose rows changed.
  */
-export function applyDisconnect(
-  tx: Tx,
-  search: SearchService,
-  sourceIds: ExternalSourceId[],
-  plan: DisconnectPlan,
-): SyncEntityType[] {
+export function applyDisconnect(tx: Tx, plan: DisconnectPlan): SyncEntityType[] {
   const changed = new Set<SyncEntityType>();
-  if (sourceIds.length === 0) return [];
+  const sources = sourcesOf(tx, plan.integrationId);
   const { taskIds, projectIds, eventIds } = plan.deleted;
 
   // 1. a synced task only has synced children, but a kept one among them must not go too
@@ -197,9 +208,7 @@ export function applyDisconnect(
   const detached = tx
     .update(externalLinks)
     .set({ state: LinkState.DETACHED })
-    .where(
-      and(inArray(externalLinks.sourceId, sourceIds), eq(externalLinks.state, LinkState.SYNCED)),
-    )
+    .where(and(inArray(externalLinks.sourceId, sources), eq(externalLinks.state, LinkState.SYNCED)))
     .returning({
       taskId: externalLinks.taskId,
       projectId: externalLinks.projectId,
@@ -215,7 +224,7 @@ export function applyDisconnect(
     .delete(calendars)
     .where(
       and(
-        inArray(calendars.sourceId, sourceIds),
+        inArray(calendars.sourceId, sources),
         notExists(
           tx.select({ id: events.id }).from(events).where(eq(events.calendarId, calendars.id)),
         ),
@@ -223,8 +232,5 @@ export function applyDisconnect(
     )
     .run().changes;
   if (emptied > 0) changed.add('calendar');
-
-  // 5.
-  search.removeFromIndex([...taskIds, ...projectIds, ...eventIds]);
   return [...changed];
 }
