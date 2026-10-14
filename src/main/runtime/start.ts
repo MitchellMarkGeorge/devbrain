@@ -9,8 +9,6 @@ export interface StartDevBrainOptions {
   // Creates a DevBrain folder when there is none (or only an empty directory), as on the packaged
   // app's first run. Off in development, where the folder comes from `npm run seed:dev`.
   createIfMissing: boolean;
-  // the workspace to open when the last one opened is unknown: in development, the seeded one
-  preferredWorkspaceName?: string;
   // the cipher, fetch and browser opener every workspace gets
   workspace: WorkspaceOptions;
   logger: Pick<SyncLogger, 'info' | 'warn'>;
@@ -36,7 +34,7 @@ export async function startDevBrain(options: StartDevBrainOptions): Promise<DevB
     return null;
   }
 
-  const id = pickWorkspace(devBrain, options.preferredWorkspaceName);
+  const id = pickWorkspace(devBrain);
   if (id === null) {
     logger.info(`No workspace to open in ${rootPath}`);
     return devBrain;
@@ -53,10 +51,10 @@ export async function startDevBrain(options: StartDevBrainOptions): Promise<DevB
 }
 
 /**
- * The workspace to open at start: the last one opened, if it is still registered; else the one
- * named `preferredName`; else the oldest. Null when there are none.
+ * The workspace to open at start: the last one opened, if it is still registered; else the oldest.
+ * Null when there are none. A seeded dev folder records its workspace as the last one opened.
  */
-export function pickWorkspace(devBrain: DevBrain, preferredName?: string): WorkspaceId | null {
+export function pickWorkspace(devBrain: DevBrain): WorkspaceId | null {
   const workspaces = devBrain.workspaces;
   const lastId = devBrain.settings.get('state.lastWorkspaceId') as WorkspaceId | null;
   if (lastId !== null) {
@@ -65,10 +63,6 @@ export function pickWorkspace(devBrain: DevBrain, preferredName?: string): Works
     } catch {
       // deleted since, or from another DevBrain folder
     }
-  }
-  if (preferredName) {
-    const preferred = workspaces.getByName(preferredName);
-    if (preferred) return preferred.id;
   }
   return workspaces.listAll({ limit: 1 }).items[0]?.id ?? null;
 }

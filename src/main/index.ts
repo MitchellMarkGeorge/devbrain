@@ -64,7 +64,6 @@ async function startCore(): Promise<DevBrain | null> {
   return startDevBrain({
     rootPath: devBrainRootPath(),
     createIfMissing: app.isPackaged,
-    preferredWorkspaceName: app.isPackaged ? undefined : process.env.DEV_WORKSPACE_NAME,
     workspace: {
       // the key stays in the OS keychain; in development the seed script's dev blobs are read too
       cipher: createSafeStorageCipher(safeStorage, { readDevBlobs: !app.isPackaged }),

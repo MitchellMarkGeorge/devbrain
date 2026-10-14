@@ -1004,6 +1004,8 @@ async function main() {
     name: WORKSPACE_NAME,
     color: pick(PALETTE),
   });
+  // recorded as the last one opened, so the app opens it on its first start
+  devBrain.settings.set('state.lastWorkspaceId', workspace.info.id);
 
   try {
     console.log('Creating projects...');

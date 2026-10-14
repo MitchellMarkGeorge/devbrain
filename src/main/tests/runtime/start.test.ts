@@ -93,18 +93,17 @@ describe('startDevBrain — the folder', () => {
 });
 
 describe('startDevBrain — the workspace', () => {
-  it('opens the named workspace, starts syncing it and remembers it', async () => {
-    const { ids } = await folderWith('Other', 'Dev');
+  it('opens the oldest workspace when none was opened before, starts syncing it and remembers it', async () => {
+    const { ids } = await folderWith('First', 'Second');
     started = await startDevBrain({
       rootPath,
       createIfMissing: false,
-      preferredWorkspaceName: 'Dev',
       workspace: {},
       logger: quietLogger(),
     });
-    expect(started!.currentWorkspace?.info.id).toBe(ids[1]);
+    expect(started!.currentWorkspace?.info.id).toBe(ids[0]);
     expect(await started!.currentWorkspace!.sync.getStatus()).toEqual([]);
-    expect(started!.settings.get('state.lastWorkspaceId')).toBe(ids[1]);
+    expect(started!.settings.get('state.lastWorkspaceId')).toBe(ids[0]);
   });
 
   it('logs a workspace that fails to open and leaves none open', async () => {
@@ -119,18 +118,16 @@ describe('startDevBrain — the workspace', () => {
 
 describe('pickWorkspace', () => {
   it('picks the last workspace opened, while it is still registered', async () => {
-    const { devBrain, ids } = await folderWith('Dev', 'Last');
+    const { devBrain, ids } = await folderWith('First', 'Last');
     devBrain.settings.set('state.lastWorkspaceId', ids[1]);
-    expect(pickWorkspace(devBrain, 'Dev')).toBe(ids[1]);
+    expect(pickWorkspace(devBrain)).toBe(ids[1]);
 
     devBrain.settings.set('state.lastWorkspaceId', 'wsp_gone');
-    expect(pickWorkspace(devBrain, 'Dev')).toBe(ids[0]);
+    expect(pickWorkspace(devBrain)).toBe(ids[0]);
   });
 
-  it('else the named one, else the oldest, else none', async () => {
-    const { devBrain, ids } = await folderWith('First', 'Dev');
-    expect(pickWorkspace(devBrain, 'Dev')).toBe(ids[1]);
-    expect(pickWorkspace(devBrain, 'Missing')).toBe(ids[0]);
+  it('else the oldest, else none', async () => {
+    const { devBrain, ids } = await folderWith('First', 'Second');
     expect(pickWorkspace(devBrain)).toBe(ids[0]);
 
     const empty = await openDevBrain({ path: path.join(tmpDir, 'empty'), createIfMissing: true });
