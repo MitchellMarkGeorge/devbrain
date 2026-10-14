@@ -9,11 +9,13 @@ import { Auth, toAuth } from './auth';
 import {
   Credentials,
   OAuthCredentials,
+  PendingRevoke,
   RefreshedTokens,
   SealedCredentials,
   SecretCipher,
   TokenRefresher,
 } from './credentials';
+import { OAuthClient, OAuthConfig } from './oauth/types';
 import { AuthType, Provider } from './types';
 
 export interface CredentialStoreOptions {
@@ -110,6 +112,36 @@ export class CredentialStore {
       const { provider, blob, credentials } = latest;
       return toAuth(await this.refresh(integrationId, provider, blob, credentials));
     });
+  }
+
+  /**
+   * Reads the stored OAuth tokens now and returns a call that revokes them at the provider later,
+   * for IntegrationService.disconnect: it reads them before its transaction deletes them, and
+   * revokes once that has committed. The tokens stay inside the returned call and go from there
+   * straight to `oauth`, as for a refresh. Null for an API key (Linear has no endpoint to revoke
+   * one) or credentials that can't be read, which a provider would refuse anyway. Throws
+   * NotFoundError for an unknown integration.
+   */
+  async prepareRevoke(
+    integrationId: IntegrationId,
+    oauth: OAuthClient,
+    config: OAuthConfig,
+  ): Promise<PendingRevoke | null> {
+    let credentials: Credentials;
+    try {
+      ({ credentials } = await this.read(integrationId));
+    } catch (error) {
+      if (error instanceof IntegrationAuthError) return null;
+      throw error;
+    }
+    if (credentials.type !== AuthType.OAUTH) return null;
+    const { accessToken, refreshToken, expiresAt } = credentials;
+    return (signal) =>
+      oauth.revoke(
+        config,
+        { accessToken, refreshToken, expiresAt, scopes: config.scopes },
+        { signal },
+      );
   }
 
   private async read(integrationId: IntegrationId): Promise<{

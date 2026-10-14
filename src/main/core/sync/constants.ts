@@ -35,6 +35,8 @@ export const BACKOFF_INITIAL_MS = 1 * MINUTE;
 export const BACKOFF_MAX_MS = 30 * MINUTE;
 
 export const HTTP_TIMEOUT_MS = 30 * SECOND;
+// how long a disconnect waits on the provider to revoke a grant; best effort
+export const REVOKE_TIMEOUT_MS = 5 * SECOND;
 export const OAUTH_CALLBACK_TIMEOUT_MS = 5 * MINUTE;
 // refresh an OAuth access token when it is this close to expiry
 export const TOKEN_REFRESH_MARGIN_MS = 60 * SECOND;

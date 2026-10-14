@@ -174,11 +174,14 @@ _Found in feature 16b._
 
 `MIRRORED_EVENT_TYPES` (`src/main/core/integrations/providers/google-calendar/requests.ts`) is sent as the `eventTypes` filter on every events request. Google requires the parameters of an incremental request to match the full pass that issued its sync token, so changing the list once users have synced needs their stored tokens cleared: a migration that empties the `calendars` of every Google events cursor, or a filter version kept in the cursor and compared on each pull. Making the list a per-source setting, so a user can opt into birthdays, would need the same.
 
-### Disconnect has to handle synced calendars
+### Reconnecting leaves kept tasks detached
 
-_Found in feature 16b, for feature 15._
+_Found in feature 15._
 
-`calendars.sourceId` is set null when a source is deleted, which turns a synced calendar into a local one: its events become editable. That is right for "keep everything as local copies". For "remove synced items" (the default), disconnect should delete the source's calendars after removing their events, keeping a calendar only while events are kept in it (those a note or task links to). A calendar with events cannot be deleted (`events.calendarId` has no `ON DELETE`).
+After "keep everything as local copies", connecting the same account again re-matches every link by provider and external id when the next sync sees the item (`PageWrite.findLinks` in `src/main/core/sync/writer.ts`), so nothing is duplicated. The link's state then rules as for any link: a project or calendar comes back synced (a project was detached automatically, so it is reattached automatically), a removed item is restored, but a task stays detached until the user reattaches it, as a detached task may hold edits made since the disconnect.
+
+- That is safe, but after reconnecting the user has every old task as a local copy and has to reattach each one. The UI could offer "reattach all" after a reconnect: `DetachService.reattachTask` per top-level task, which refreshes it from the provider and overwrites local edits after a confirmation.
+- Or disconnect could mark the links it detached (a `detachedBy` on the link, or a metadata key), so a later sync reattaches those and leaves the ones the user detached alone. That needs a migration and a rule for a copy edited after the disconnect.
 
 ### The calendar view's FullCalendar adapter
 

@@ -320,6 +320,32 @@ describe('Workspace.close — sync', () => {
   });
 });
 
+describe('Workspace — disconnect', () => {
+  it('drops the items a disconnect deleted from search', async () => {
+    const provider = createFakeProvider();
+    const workspace = await Workspace.create(makeInfo(tmpDir), {
+      cipher: new FakeCipher(),
+      providers: fakeRegistry(provider),
+    });
+    try {
+      workspace.sync.start();
+      provider.tasks.script({ tasks: [issue()] });
+      const integration = await workspace.integrations.connectWithApiKey(
+        Provider.LINEAR,
+        FAKE_API_KEY,
+      );
+      const search = () => workspace.search.search({ query: 'Issue', entityType: ['task'] });
+      await vi.waitFor(() => expect(search()).toHaveLength(1));
+
+      await workspace.integrations.disconnect(integration.id, { keepLocalCopies: false });
+
+      expect(search()).toEqual([]);
+    } finally {
+      await workspace.close();
+    }
+  });
+});
+
 describe('Workspace.open — failed migrations', () => {
   // the workspace lives in its own folder so the extra migrations folder sits beside it
   let workspaceDir: string;

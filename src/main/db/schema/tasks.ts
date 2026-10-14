@@ -48,6 +48,12 @@ export const tasks = sqliteTable(
     index('idx_tasks_project_id').on(table.projectId).where(isNull(table.archivedAt)),
     index('idx_tasks_linked_note_id').on(table.linkedNoteId).where(isNull(table.archivedAt)),
     index('idx_tasks_linked_event_id').on(table.linkedEventId).where(isNull(table.archivedAt)),
+    // Full indexes beside the partial ones above, for lookups that include archived rows: what a
+    // disconnect keeps (an archived task still keeps its event and project), and the foreign keys
+    // that null these columns when an event or project is deleted. Without them each deleted event
+    // or project scans the whole table
+    index('idx_tasks_project_id_all').on(table.projectId),
+    index('idx_tasks_linked_event_id_all').on(table.linkedEventId),
     // having status here first filters out by status first, then followed by due date
     index('idx_tasks_status_due_date')
       .on(table.status, table.dueDate)

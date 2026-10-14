@@ -92,7 +92,8 @@ interface SourceRun {
  *   doubling with each failure in a row to BACKOFF_MAX_MS, has passed since the last run finished.
  * - After a rate-limited run nothing but a manual sync starts before the provider's retry time.
  * - Disabling a source or its integration, or the integration moving to needs_reauth, aborts its
- *   runs. stop() aborts everything and resolves once every run has settled.
+ *   runs, and so does disconnecting it; its sources never run again. stop() aborts everything and
+ *   resolves once every run has settled.
  */
 export class SyncScheduler {
   private readonly engine: BaseSyncEngine;
@@ -114,6 +115,8 @@ export class SyncScheduler {
   // when the last reconcile tick, or the pass at start, ran
   private lastReconcileTickAt = 0;
   private unsubscribeFromChanges: (() => void) | null = null;
+  // sources of integrations being disconnected: aborted, and never run again
+  private readonly removedSources = new Set<ExternalSourceId>();
   private isStarted = false;
 
   constructor(options: SyncSchedulerOptions) {
@@ -263,7 +266,7 @@ export class SyncScheduler {
    * off and straight back on still syncs, and never has two runs at once.
    */
   private requestRun(sourceId: ExternalSourceId, reconcile: boolean): Promise<void> {
-    if (!this.isStarted) return Promise.resolve();
+    if (!this.isStarted || this.removedSources.has(sourceId)) return Promise.resolve();
     const current = this.currentRuns.get(sourceId);
     if (current && !current.controller.signal.aborted) {
       current.followUp = { reconcile: reconcile || (current.followUp?.reconcile ?? false) };
@@ -355,6 +358,14 @@ export class SyncScheduler {
             const target = this.readSyncTarget(sourceId);
             if (!target || target.integrationId === change.integrationId) this.abortRun(sourceId);
           }
+        }
+        return;
+      case 'disconnected':
+        // the integration is gone: abort its runs, which also cancels their requests, and never
+        // schedule its sources again
+        for (const sourceId of change.sourceIds) {
+          this.removedSources.add(sourceId);
+          this.abortRun(sourceId);
         }
         return;
     }

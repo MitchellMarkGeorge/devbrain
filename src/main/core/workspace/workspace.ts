@@ -50,6 +50,12 @@ export class Workspace {
     this.search = new SearchService(db, info.path);
     const { credentials, integrations, providers } = createIntegrationServices(db, options);
     this.integrations = integrations;
+    // a disconnect deletes mirrored rows; they leave search in its transaction, all or nothing
+    integrations.onChange((change) => {
+      if (change.type !== 'disconnected') return;
+      const { taskIds, projectIds, eventIds } = change.deleted;
+      this.search.removeFromIndex([...taskIds, ...projectIds, ...eventIds]);
+    });
     const syncState = new SyncStateManager(db);
     const engine = new SyncEngine(db, {
       integrations,

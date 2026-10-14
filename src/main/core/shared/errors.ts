@@ -1,4 +1,4 @@
-import { EntityType, Id, IntegrationId, TaskId } from '@common/ids';
+import { EntityType, Id, IntegrationId, TaskId, WorkspaceId } from '@common/ids';
 import type { Provider } from '../integrations/types';
 
 export class NotFoundError<T extends EntityType> extends Error {
@@ -69,6 +69,19 @@ export class ConnectInProgressError extends Error {
   }
 }
 
+// a reconnect whose credentials belong to another account than the integration's; nothing changed
+export class IntegrationAccountMismatchError extends Error {
+  readonly integrationId: IntegrationId;
+
+  constructor(integrationId: IntegrationId, accountLabel: string, otherLabel: string) {
+    super(
+      `These credentials are for ${otherLabel}, not ${accountLabel}. Connect that account separately`,
+    );
+    this.name = 'IntegrationAccountMismatchError';
+    this.integrationId = integrationId;
+  }
+}
+
 // switching on a source of a disabled integration; enable the integration instead
 export class IntegrationDisabledError extends Error {
   readonly integrationId: IntegrationId;
@@ -116,6 +129,18 @@ export interface WorkspaceMigrationErrorDetails {
   /** where that backup is, when one was taken */
   backupPath: string | null;
   cause?: unknown;
+}
+
+// deleting a workspace that is not the open one; deleting disconnects its integrations, which
+// needs its database open, so open it first
+export class WorkspaceNotOpenError extends Error {
+  readonly workspaceId: WorkspaceId;
+
+  constructor(workspaceId: WorkspaceId) {
+    super(`Workspace ${workspaceId} must be open to be deleted`);
+    this.name = 'WorkspaceNotOpenError';
+    this.workspaceId = workspaceId;
+  }
 }
 
 /** a workspace's database could not be brought up to date, so the workspace was not opened */

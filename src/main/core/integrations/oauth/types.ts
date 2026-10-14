@@ -41,7 +41,8 @@ export interface OAuthClient {
   authorize(config: OAuthConfig, opts: { signal: AbortSignal }): Promise<OAuthTokens>;
   // throws IntegrationAuthError when the grant is rejected
   refresh(config: OAuthConfig, refreshToken: string): Promise<OAuthTokens>;
-  revoke(config: OAuthConfig, tokens: OAuthTokens): Promise<void>;
+  // `signal` cuts the request short, e.g. for a disconnect that won't wait on the network
+  revoke(config: OAuthConfig, tokens: OAuthTokens, opts?: { signal?: AbortSignal }): Promise<void>;
 }
 
 // Opens a URL in the system browser. The main process passes shell.openExternal; tests pass one

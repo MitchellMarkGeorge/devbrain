@@ -1,4 +1,4 @@
-import { generateId, type WorkspaceId } from '@common/ids';
+import { generateId, type IntegrationId, type WorkspaceId } from '@common/ids';
 import type { CreateWorkspaceOptions, WorkspaceInfo, WorkspaceOptions } from './types';
 import { workspaceRegistrySchema } from './schema';
 import { Workspace } from './workspace';
@@ -6,7 +6,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import { directoryExists, isNotFound } from '../local/utils';
-import { NotFoundError } from '../shared/errors';
+import { NotFoundError, WorkspaceNotOpenError } from '../shared/errors';
 import { paginateArray, Page, PageOptions } from '../shared/pagination';
 
 // TODO: opening a workspace again after it has been openedn should be as cheap as possible
@@ -88,22 +88,26 @@ export class WorkspaceService {
     return await Workspace.create(workspaceInfo, this.workspaceOptions);
   }
 
+  /**
+   * Deletes the open workspace: disconnects its integrations, which revokes their grants at the
+   * providers and needs the database open, then closes it and removes its directory and registry
+   * entry. Throws NotFoundError for an unknown id, and WorkspaceNotOpenError for a workspace that
+   * isn't the open one: open it first.
+   */
   async delete(id: WorkspaceId): Promise<void> {
-    let workspaceInfo: WorkspaceInfo;
-
-    if (this.currentWorkspace?.info.id === id) {
-      // close current workspace if it is to be deleted
-      workspaceInfo = this.currentWorkspace.info;
-      await this.closeCurrent();
-    } else {
-      // throws NotFoundError when the id is not in the registry
-      workspaceInfo = this.getById(id);
-    }
+    // throws NotFoundError when the id is not in the registry
+    const workspaceInfo = this.getById(id);
+    const workspace = this.currentWorkspace;
+    if (workspace === null || workspace.info.id !== id) throw new WorkspaceNotOpenError(id);
 
     // throw error if there is no workspace directory to delete
     if (!(await directoryExists(workspaceInfo.path))) {
       throw new Error('Workspace directory not found');
     }
+
+    // disconnect its integrations while its database is open, then close it
+    await this.disconnectAll(workspace);
+    await this.closeCurrent();
 
     // delete worksapce directory and all its conents (db file and notes)
     await fs.rm(workspaceInfo.path, { recursive: true, force: true });
@@ -113,6 +117,27 @@ export class WorkspaceService {
     // remove workspace from workspaces file
     delete workspaces[id];
     this.writeWorkspaceFile(workspaces);
+  }
+
+  /**
+   * Disconnects every integration of a workspace about to be deleted, so each revokes its grant at
+   * its provider. Keeping local copies is the least work, as the database goes next anyway. Best
+   * effort: an integration that fails to disconnect does not stop the delete.
+   */
+  private async disconnectAll(workspace: Workspace): Promise<void> {
+    let integrations: { id: IntegrationId }[];
+    try {
+      integrations = await workspace.integrations.list();
+    } catch {
+      return;
+    }
+    for (const { id } of integrations) {
+      try {
+        await workspace.integrations.disconnect(id, { keepLocalCopies: true });
+      } catch {
+        // the delete goes ahead
+      }
+    }
   }
 
   async open(id: WorkspaceId): Promise<Workspace> {
