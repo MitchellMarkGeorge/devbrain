@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  CoreError,
   IntegrationAuthError,
   ProviderUnavailableError,
   RateLimitError,
@@ -25,17 +26,19 @@ export interface OAuthClientOptions {
 const AUTH_ERRORS = new Set(['invalid_grant', 'invalid_client', 'unauthorized_client']);
 
 // a token or revoke endpoint error that is neither an auth failure nor the provider being down
-export class OAuthError extends Error {
-  readonly code: string | null;
+export class OAuthError extends CoreError {
+  readonly code = 'oauth_error';
+  // the endpoint's `error` field (RFC 6749 section 5.2), e.g. invalid_request; null when it sent none
+  readonly oauthError: string | null;
   readonly status: number;
 
-  constructor(status: number, code: string | null, description: string | null) {
+  constructor(status: number, oauthError: string | null, description: string | null) {
     super(
-      `OAuth endpoint responded with ${status}${code ? ` (${code})` : ''}${description ? `: ${description}` : ''}`,
+      `OAuth endpoint responded with ${status}${oauthError ? ` (${oauthError})` : ''}${description ? `: ${description}` : ''}`,
     );
     this.name = 'OAuthError';
     this.status = status;
-    this.code = code;
+    this.oauthError = oauthError;
   }
 }
 
@@ -214,7 +217,7 @@ export function createOAuthClient(options: OAuthClientOptions): OAuthClient {
         await post(config, config.revokeUrl, { token, token_type_hint: hint }, opts.signal);
       } catch (error) {
         // a token that is already invalid needs no revoking (RFC 7009 section 2.2)
-        if (error instanceof OAuthError && error.code === 'invalid_token') return;
+        if (error instanceof OAuthError && error.oauthError === 'invalid_token') return;
         throw error;
       }
     },

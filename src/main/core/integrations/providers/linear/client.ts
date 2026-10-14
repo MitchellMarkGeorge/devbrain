@@ -4,6 +4,7 @@ import { FetchFn, RequestOptions } from '../provider';
 import { requestSignal } from '../../fetch';
 import { BACKOFF_INITIAL_MS } from '../../../sync/constants';
 import {
+  CoreError,
   IntegrationAuthError,
   ProviderUnavailableError,
   RateLimitError,
@@ -27,7 +28,8 @@ export const RATE_LIMIT_RESET_HEADERS = [
 export const RETRY_AFTER_HEADER = 'Retry-After';
 
 // a GraphQL error that is not one of the mapped cases, e.g. a query the schema rejects
-export class LinearApiError extends Error {
+export class LinearApiError extends CoreError {
+  readonly code = 'provider_api';
   readonly status: number;
 
   constructor(status: number, message: string) {

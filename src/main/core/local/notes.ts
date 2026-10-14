@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import { extractFrontmatter, serializeFrontmatter } from './frontmatter';
+import { CoreError } from '../shared/errors';
 
 export type NoteFileFrontmatter = {
   id: NoteId;
@@ -16,7 +17,8 @@ const noteFrontmatterSchema = z.object({
   title: z.string(),
 });
 
-export class MalformedNoteFileError extends Error {
+export class MalformedNoteFileError extends CoreError {
+  readonly code = 'malformed_note_file';
   constructor(filePath: string, cause: unknown) {
     super(`Note file is missing or has invalid front matter: ${filePath}`);
     this.name = 'MalformedNoteFileError';
