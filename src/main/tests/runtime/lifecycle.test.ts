@@ -40,9 +40,8 @@ class FakeApp extends EventEmitter {
 }
 
 describe('Lifecycle — sync triggers', () => {
-  it('does nothing before DevBrain has started or while no workspace is open', () => {
+  it('does nothing while no workspace is open', () => {
     const logger = quietLogger();
-    expect(() => triggerSync(null, 'focus', logger)).not.toThrow();
     const brain = fakeDevBrain();
     expect(() => triggerSync(asDevBrain(brain), 'resume', logger)).not.toThrow();
     expect(logger.warn).not.toHaveBeenCalled();
@@ -52,7 +51,7 @@ describe('Lifecycle — sync triggers', () => {
     const app = new EventEmitter();
     const powerMonitor = new EventEmitter();
     const brain = fakeDevBrain();
-    forwardSyncTriggers({ app, powerMonitor }, () => asDevBrain(brain), quietLogger());
+    forwardSyncTriggers({ app, powerMonitor }, asDevBrain(brain), quietLogger());
 
     // no workspace yet: nothing to sync
     app.emit('browser-window-focus');

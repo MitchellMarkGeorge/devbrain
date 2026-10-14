@@ -40,11 +40,6 @@ function configureLogging() {
 
 // --- DevBrain -------------------------------------------------------------
 const devBrainLog = log.scope('devbrain');
-// set once DevBrain has started; null before, if starting failed, and when there is no DevBrain
-// folder in development
-let devBrain: DevBrain | null = null;
-// settles once starting has finished, whether or not it succeeded
-let starting: Promise<void> = Promise.resolve();
 
 // The DevBrain folder: in development the one `npm run seed:dev` fills (DEV_PATH, relative to the
 // repository, as the seed script reads it), else DEVBRAIN_PATH or ~/.devbrain.
@@ -61,12 +56,13 @@ function setMigrationsPath() {
     : path.resolve(REPO_ROOT, process.env.DB_MIGRATIONS_PATH ?? 'src/main/db/migrations');
 }
 
-// Must run after `ready`: net.fetch and safeStorage's async API are only usable from then. Never
-// rejects: a failure is logged and leaves `devBrain` null, and the window stays up.
-async function startCore(): Promise<void> {
+// Must run after `ready`: net.fetch and safeStorage's async API are only usable from then. Null
+// when there is no DevBrain folder in development, or starting failed. Never rejects: a failure is
+// logged, and the window stays up.
+async function startCore(): Promise<DevBrain | null> {
   setMigrationsPath();
   try {
-    devBrain = await startDevBrain({
+    return await startDevBrain({
       rootPath: devBrainRootPath(),
       createIfMissing: app.isPackaged,
       workspace: {
@@ -81,13 +77,14 @@ async function startCore(): Promise<void> {
     });
   } catch (error) {
     devBrainLog.error('Starting DevBrain failed', error);
+    return null;
   }
 }
 
 // Closes the open workspace before the app quits. A quit while starting waits for the start to
 // finish first, so a workspace it is opening is closed too.
-async function closeCore(): Promise<void> {
-  await starting;
+async function closeCore(starting: Promise<DevBrain | null>): Promise<void> {
+  const devBrain = await starting;
   await devBrain?.close();
 }
 
@@ -119,18 +116,20 @@ function createWindow() {
 }
 
 // --- App lifecycle --------------------------------------------------------
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   configureLogging();
   createWindow();
-
-  starting = startCore();
-  // window focus and system resume sync the workspace open at the time, if any
-  forwardSyncTriggers({ app, powerMonitor }, () => devBrain, devBrainLog);
-  closeBeforeQuit(app, closeCore, devBrainLog);
-
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+
+  const starting = startCore();
+  closeBeforeQuit(app, () => closeCore(starting), devBrainLog);
+
+  const devBrain = await starting;
+  if (devBrain === null) return;
+  // window focus and system resume sync the workspace open at the time, if any
+  forwardSyncTriggers({ app, powerMonitor }, devBrain, devBrainLog);
 });
 
 app.on('window-all-closed', () => {

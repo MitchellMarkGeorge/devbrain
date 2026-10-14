@@ -28,11 +28,11 @@ type Logger = Pick<SyncLogger, 'warn'>;
  * while one is being switched or closed. Never throws: nothing waits on the trigger.
  */
 export function triggerSync(
-  devBrain: Pick<DevBrain, 'currentWorkspace'> | null,
+  devBrain: Pick<DevBrain, 'currentWorkspace'>,
   reason: 'focus' | 'resume',
   logger: Logger,
 ): void {
-  const workspace = devBrain?.currentWorkspace;
+  const workspace = devBrain.currentWorkspace;
   if (!workspace) return;
   workspace.sync.trigger(reason).catch((error: unknown) => {
     const name = error instanceof Error ? error.name : typeof error;
@@ -40,15 +40,15 @@ export function triggerSync(
   });
 }
 
-// focus and resume trigger a sync of the workspace open at the time; getDevBrain is null until
-// DevBrain has started
+// focus and resume trigger a sync of the workspace open at the time, read at each event, so a
+// switch is followed
 export function forwardSyncTriggers(
   sources: { app: FocusSource; powerMonitor: ResumeSource },
-  getDevBrain: () => Pick<DevBrain, 'currentWorkspace'> | null,
+  devBrain: Pick<DevBrain, 'currentWorkspace'>,
   logger: Logger,
 ): void {
-  sources.app.on('browser-window-focus', () => triggerSync(getDevBrain(), 'focus', logger));
-  sources.powerMonitor.on('resume', () => triggerSync(getDevBrain(), 'resume', logger));
+  sources.app.on('browser-window-focus', () => triggerSync(devBrain, 'focus', logger));
+  sources.powerMonitor.on('resume', () => triggerSync(devBrain, 'resume', logger));
 }
 
 /**
