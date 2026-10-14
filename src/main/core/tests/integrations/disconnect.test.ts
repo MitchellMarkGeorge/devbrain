@@ -715,7 +715,7 @@ describe('IntegrationService — disconnect, the disconnected change', () => {
 });
 
 describe('IntegrationService — disconnect, revoking credentials', () => {
-  it('revokes an OAuth grant at the provider before the rows go', async () => {
+  it('revokes an OAuth grant at the provider once the rows are gone and sync has stopped', async () => {
     const { id } = await connectCalendar();
     const order: string[] = [];
     service.onChange((change) => void order.push(change.type));
@@ -736,9 +736,9 @@ describe('IntegrationService — disconnect, revoking credentials', () => {
       refreshToken: FAKE_REFRESH_TOKEN,
     });
     expect(opts?.signal).toBeInstanceOf(AbortSignal);
-    expect(order).toEqual(['revoked', 'disconnected']);
-    expect(integrationsAtRevoke).toBe(1);
-    expect(db.select().from(integrations).all()).toEqual([]);
+    // with the tokens read before the transaction deleted them
+    expect(order).toEqual(['disconnected', 'revoked']);
+    expect(integrationsAtRevoke).toBe(0);
   });
 
   it('a revoke that never answers is given up on after the timeout', async () => {

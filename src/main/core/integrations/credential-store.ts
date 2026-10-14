@@ -9,6 +9,7 @@ import { Auth, toAuth } from './auth';
 import {
   Credentials,
   OAuthCredentials,
+  PendingRevoke,
   RefreshedTokens,
   SealedCredentials,
   SecretCipher,
@@ -114,33 +115,33 @@ export class CredentialStore {
   }
 
   /**
-   * Revokes the stored OAuth grant at its provider, for IntegrationService.disconnect, which
-   * deletes the credentials next. The tokens go from here straight to `oauth`, as for a refresh.
-   * Resolves whether anything was revoked: false for an API key (Linear has no endpoint to revoke
-   * one) or credentials that can't be read, which a provider would refuse anyway. Throws when the
-   * provider can't be reached or refuses; `signal` cuts the request short.
+   * Reads the stored OAuth tokens now and returns a call that revokes them at the provider later,
+   * for IntegrationService.disconnect: it reads them before its transaction deletes them, and
+   * revokes once that has committed. The tokens stay inside the returned call and go from there
+   * straight to `oauth`, as for a refresh. Null for an API key (Linear has no endpoint to revoke
+   * one) or credentials that can't be read, which a provider would refuse anyway. Throws
+   * NotFoundError for an unknown integration.
    */
-  async revoke(
+  async prepareRevoke(
     integrationId: IntegrationId,
     oauth: OAuthClient,
     config: OAuthConfig,
-    signal: AbortSignal,
-  ): Promise<boolean> {
+  ): Promise<PendingRevoke | null> {
     let credentials: Credentials;
     try {
       ({ credentials } = await this.read(integrationId));
     } catch (error) {
-      if (error instanceof IntegrationAuthError) return false;
+      if (error instanceof IntegrationAuthError) return null;
       throw error;
     }
-    if (credentials.type !== AuthType.OAUTH) return false;
+    if (credentials.type !== AuthType.OAUTH) return null;
     const { accessToken, refreshToken, expiresAt } = credentials;
-    await oauth.revoke(
-      config,
-      { accessToken, refreshToken, expiresAt, scopes: config.scopes },
-      { signal },
-    );
-    return true;
+    return (signal) =>
+      oauth.revoke(
+        config,
+        { accessToken, refreshToken, expiresAt, scopes: config.scopes },
+        { signal },
+      );
   }
 
   private async read(integrationId: IntegrationId): Promise<{

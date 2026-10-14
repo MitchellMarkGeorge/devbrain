@@ -14,7 +14,7 @@ import { REVOKE_TIMEOUT_MS } from '../sync/constants';
 import { SyncEntityType } from '../sync/types';
 import { toAuth } from './auth';
 import { CredentialStore } from './credential-store';
-import { ApiKeyCredentials, Credentials, OAuthCredentials } from './credentials';
+import { ApiKeyCredentials, Credentials, OAuthCredentials, PendingRevoke } from './credentials';
 import {
   applyDisconnect,
   countPlan,
@@ -468,8 +468,7 @@ export class IntegrationService implements BaseIntegrationService {
   /**
    * Disconnects an integration and deletes it.
    *
-   * 1. Revoke the grant at the provider (see revokeGrant), while the credentials are still
-   *    stored. Best effort: a failure never blocks the disconnect.
+   * 1. Read the credentials for revoking (see prepareRevoke), before the transaction deletes them.
    * 2. In one transaction: delete or detach the mirrored items (see planDisconnect and
    *    applyDisconnect), clear the credentials and delete the integration. The cascade deletes the
    *    sources and nulls `sourceId` on the surviving links and calendars, which keep their
@@ -477,13 +476,15 @@ export class IntegrationService implements BaseIntegrationService {
    * 3. Emit `disconnected` as the transaction's last step: the workspace drops the deleted ids
    *    from search in the same commit, and the scheduler aborts the sources' runs. A run still
    *    going writes nothing after: its source is gone.
+   * 4. Revoke the grant at the provider (see sendRevoke). Syncing has stopped by now, so no run
+   *    can meet the revoked token. Best effort: a failure never undoes the disconnect.
    */
   async disconnect(id: IntegrationId, options: DisconnectOptions): Promise<DisconnectResult> {
     const { provider } = this.rowOf(id);
     const sourceIds = this.sourceIdsOf(id);
 
     // 1.
-    const revoked = await this.revokeGrant(id, provider);
+    const revoke = await this.prepareRevoke(id, provider);
 
     // 2. the plan is made inside the transaction, on the rows as they are when it commits
     const { plan, changed } = this.db.transaction((tx) => {
@@ -501,6 +502,9 @@ export class IntegrationService implements BaseIntegrationService {
       });
       return { plan, changed };
     });
+
+    // 4.
+    const revoked = revoke ? await sendRevoke(revoke) : false;
     return { ...countPlan(plan), changed, revoked };
   }
 
@@ -554,38 +558,17 @@ export class IntegrationService implements BaseIntegrationService {
   }
 
   /**
-   * Revokes the integration's grant at its provider, for disconnect. Only a provider that connects
-   * through OAuth has a grant to revoke. Gives up after REVOKE_TIMEOUT_MS, and never throws: it
-   * logs no more than the error's name, as a message could quote a token. Resolves whether the
-   * provider confirmed the revoke.
+   * The revocation of the integration's grant, read before disconnect deletes the credentials; see
+   * CredentialStore.prepareRevoke. Only a provider that connects through OAuth has a grant to
+   * revoke; null for anything else.
    */
-  private async revokeGrant(id: IntegrationId, providerId: Provider): Promise<boolean> {
+  private async prepareRevoke(
+    id: IntegrationId,
+    providerId: Provider,
+  ): Promise<PendingRevoke | null> {
     const config = getProvider(this.providers, providerId).oauth;
-    if (!config || !this.oauth) return false;
-    const controller = new AbortController();
-    // the race bounds the wait even for an OAuth client that ignores the signal
-    let timer: NodeJS.Timeout | undefined;
-    const timedOut = new Promise<never>((_, reject) => {
-      timer = setTimeout(() => {
-        const reason = new DOMException('Revoking timed out', 'TimeoutError');
-        controller.abort(reason);
-        reject(reason);
-      }, REVOKE_TIMEOUT_MS);
-    });
-    try {
-      return await Promise.race([
-        this.credentials.revoke(id, this.oauth, config, controller.signal),
-        timedOut,
-      ]);
-    } catch (error) {
-      console.warn(
-        'Revoking credentials at the provider failed:',
-        error instanceof Error ? error.name : 'unknown error',
-      );
-      return false;
-    } finally {
-      clearTimeout(timer);
-    }
+    if (!config || !this.oauth) return null;
+    return this.credentials.prepareRevoke(id, this.oauth, config);
   }
 
   // the integration's source ids; throws NotFoundError for an unknown integration
@@ -643,6 +626,34 @@ function sourcesToEnable(provider: ProviderImpl, options: ConnectOptions): Sourc
     throw new Error(`${provider.id} can't serve as a source for ${unsupported.join(', ')}`);
   }
   return enable;
+}
+
+// Sends a prepared revocation, giving up after REVOKE_TIMEOUT_MS. Resolves whether the provider
+// confirmed it; never throws, and logs no more than the error's name, as a message could quote a
+// token.
+async function sendRevoke(revoke: PendingRevoke): Promise<boolean> {
+  const controller = new AbortController();
+  // the race bounds the wait even for an OAuth client that ignores the signal
+  let timer: NodeJS.Timeout | undefined;
+  const timedOut = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      const reason = new DOMException('Revoking timed out', 'TimeoutError');
+      controller.abort(reason);
+      reject(reason);
+    }, REVOKE_TIMEOUT_MS);
+  });
+  try {
+    await Promise.race([revoke(controller.signal), timedOut]);
+    return true;
+  } catch (error) {
+    console.warn(
+      'Revoking credentials at the provider failed:',
+      error instanceof Error ? error.name : 'unknown error',
+    );
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // a source row as the API returns it; also used by SyncStateManager
