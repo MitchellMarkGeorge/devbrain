@@ -50,6 +50,16 @@ Options:
 2. **A narrow accessor** such as `IntegrationService.getProvider(id)`. Smaller, but exposes the registry anyway.
 3. **Keep injecting both**, and have `Workspace` (feature 13) build each once and pass the same instances to both. This is ordinary dependency injection; the risk is only a wiring mistake.
 
+Feature 13 did option 3 for now: `createIntegrationServices` returns the registry it built, and `Workspace` hands that and the same `CredentialStore` to `SyncEngine`. Options 1 and 2 still remove the possibility of a wiring mistake.
+
+### Let an aborted sync cancel a token refresh
+
+_Found in feature 13._
+
+An aborted sync run cancels its provider requests: every `TaskSource` and `CalendarSource` method takes an optional `signal`, which the clients combine with `HTTP_TIMEOUT_MS` (`requestSignal` in `src/main/core/integrations/fetch.ts`). The one request it does not reach is an OAuth token refresh inside `CredentialStore.getAuth`, which a run makes before its first page when the access token is about to expire. That refresh is shared: refreshes of one integration are queued, and a caller that waited in the queue uses the tokens the refresh before it stored, so one caller's abort must not cancel a refresh another is waiting on. A `Workspace.close()` that lands during a refresh therefore still waits for it, up to 30 seconds.
+
+- Give `getAuth` an optional `signal` that stops the caller waiting without cancelling the shared refresh, so the refresh finishes and stores its tokens for the next caller. The run then ends at once; the refresh's own write lands later, so `close()` would also need to wait for refreshes in flight, or the store would need to check the connection is still open before writing.
+
 ### `SyncEntityType` is still a string union
 
 _Found in feature 10 (PR #15)._

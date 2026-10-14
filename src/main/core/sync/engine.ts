@@ -47,6 +47,17 @@ export interface RunOptions {
   signal?: AbortSignal;
 }
 
+// SyncEngine's public API. SyncScheduler depends on this rather than the class, and its tests
+// pass a fake.
+export interface BaseSyncEngine {
+  // initial or incremental sync of one source; never throws for a failed run
+  runSource(sourceId: ExternalSourceId, options?: RunOptions): Promise<SyncRunResult>;
+  // the reconcile pass of one source; skipped for a type without one
+  reconcileSource(sourceId: ExternalSourceId, options?: RunOptions): Promise<SyncRunResult>;
+  // returns a function that unsubscribes the listener
+  onProgress(listener: SyncProgressListener): () => void;
+}
+
 /**
  * Runs one sync, or one reconcile pass, for one source: start the syncer for its type, then pull a
  * page, apply it and save the syncer's next cursor in the same transaction, until the syncer says
@@ -59,7 +70,7 @@ export interface RunOptions {
  * only refuses to start a run that cannot or must not talk to the provider, and records how each
  * run ended on its source through SyncStateManager, which tells the scheduler and the renderer.
  */
-export class SyncEngine {
+export class SyncEngine implements BaseSyncEngine {
   private readonly integrations: IntegrationService;
   private readonly syncState: SyncStateManager;
   private readonly credentials: CredentialStore;
@@ -257,7 +268,7 @@ export class SyncEngine {
     const auth = await this.credentials.getAuth(target.integrationId);
     if (signal?.aborted) return;
     // writes nothing: every write of the run is in sync.apply, below
-    const sync = await syncer.start({ sourceId, target, auth, cursor });
+    const sync = await syncer.start({ sourceId, target, auth, cursor, signal });
 
     let current = sync.cursor;
     let done = false;

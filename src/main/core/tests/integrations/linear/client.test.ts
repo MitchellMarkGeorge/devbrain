@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
 import { AuthType } from '../../../integrations/types';
 import { toAuth } from '../../../integrations/auth';
@@ -9,6 +9,7 @@ import {
   ProviderUnavailableError,
   RateLimitError,
 } from '../../../shared/errors';
+import { HTTP_TIMEOUT_MS } from '../../../sync/constants';
 import { scriptedFetch } from './fake-fetch';
 import viewerFixture from '../fixtures/linear/viewer.json';
 import rateLimitedFixture from '../fixtures/linear/rate-limited.json';
@@ -177,6 +178,35 @@ describe('Linear client — errors', () => {
     await expect(client(fetch).request(API_KEY, 'query', {}, anything)).rejects.toBeInstanceOf(
       ProviderUnavailableError,
     );
+  });
+
+  it("rejects with the caller's abort reason, not as a provider failure, when its signal aborts", async () => {
+    const fetch = scriptedFetch([{ hang: true }]);
+    const controller = new AbortController();
+    const reason = new Error('sync stopped');
+
+    const request = client(fetch).request(API_KEY, 'query', {}, anything, {
+      signal: controller.signal,
+    });
+    controller.abort(reason);
+
+    await expect(request).rejects.toBe(reason);
+    expect(fetch.requests[0].signal?.aborted).toBe(true);
+  });
+
+  it("keeps the timeout alongside the caller's signal", async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout');
+    try {
+      const fetch = scriptedFetch([{ body: { data: { ok: true } } }]);
+      const controller = new AbortController();
+      await client(fetch).request(API_KEY, 'query', {}, anything, { signal: controller.signal });
+
+      expect(timeout).toHaveBeenCalledWith(HTTP_TIMEOUT_MS);
+      // a signal combining the two, not the caller's alone
+      expect(fetch.requests[0].signal).not.toBe(controller.signal);
+    } finally {
+      timeout.mockRestore();
+    }
   });
 
   it('maps a 5xx to ProviderUnavailableError, even with a non-JSON body', async () => {

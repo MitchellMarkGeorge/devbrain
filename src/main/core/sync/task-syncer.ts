@@ -37,10 +37,10 @@ export class TaskSyncer implements Syncer {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  async start({ sourceId, auth, cursor }: RunContext): Promise<ActiveSync<TaskSyncPage>> {
+  async start({ sourceId, auth, cursor, signal }: RunContext): Promise<ActiveSync<TaskSyncPage>> {
     return {
       cursor,
-      pull: (current) => this.pull(auth, current),
+      pull: (current) => this.pull(auth, current, signal),
       apply: (page) => this.writer.applyTaskPage(sourceId, page),
     };
   }
@@ -50,7 +50,7 @@ export class TaskSyncer implements Syncer {
   }
 
   // one page from the source, and the cursor after it
-  async pull(auth: Auth, cursor: SyncCursor | null): Promise<TaskSyncPage> {
+  async pull(auth: Auth, cursor: SyncCursor | null, signal?: AbortSignal): Promise<TaskSyncPage> {
     const current = readCursor(cursor);
     const query: AssignedTasksQuery =
       current.mode === 'initial'
@@ -58,7 +58,7 @@ export class TaskSyncer implements Syncer {
         : { changedSince: current.updatedSince };
     if (current.after) query.pageToken = current.after;
 
-    const page = await this.tasks.getAssignedTaskPage(auth, query);
+    const page = await this.tasks.getAssignedTaskPage(auth, query, { signal });
 
     // the latest change seen across the walk, archiving included
     let maxUpdatedAt = current.maxUpdatedAt ?? null;

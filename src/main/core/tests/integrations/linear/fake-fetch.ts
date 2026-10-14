@@ -11,7 +11,18 @@ export interface RecordedRequest {
 type Step =
   | { status?: number; body: unknown; headers?: Record<string, string> }
   | { error: unknown }
+  // waits until the request is aborted, as a request to a provider that has stopped answering
+  | { hang: true }
   | ((request: RecordedRequest) => Response);
+
+// never answers: rejects with the signal's reason once the request's signal aborts, as fetch does
+function hangUntilAborted(signal: AbortSignal | null): Promise<Response> {
+  return new Promise((_, reject) => {
+    if (!signal) return;
+    if (signal.aborted) reject(signal.reason);
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+  });
+}
 
 // a scripted fetch: each call takes the next step, and every request is recorded for assertions
 export function scriptedFetch(steps: Step[]): FetchFn & { requests: RecordedRequest[] } {
@@ -36,6 +47,9 @@ export function scriptedFetch(steps: Step[]): FetchFn & { requests: RecordedRequ
     }
     if ('error' in step) {
       throw step.error;
+    }
+    if ('hang' in step) {
+      return hangUntilAborted(request.signal);
     }
     return jsonResponse(step.body, step.status ?? 200, step.headers);
   };

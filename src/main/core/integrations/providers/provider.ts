@@ -78,20 +78,34 @@ export interface TaskResolution extends Resolution<ExternalTask> {
   projects: ExternalProject[];
 }
 
+// what a sync passes to each source call
+export interface RequestOptions {
+  // aborts the call's requests; an aborted call rejects with the signal's reason
+  signal?: AbortSignal;
+}
+
 export interface TaskSource {
   // One page of the viewer's assigned tasks matching the query, in the order they last changed.
   // A provider that lets the user choose what to sync (Linear teams, GitHub repositories) would
   // take that choice as part of the query.
-  getAssignedTaskPage(auth: Auth, query: AssignedTasksQuery): Promise<AssignedTaskPage>;
+  getAssignedTaskPage(
+    auth: Auth,
+    query: AssignedTasksQuery,
+    options?: RequestOptions,
+  ): Promise<AssignedTaskPage>;
   // ids of the viewer's open assigned tasks, across every page
-  listOpenAssignedTaskIds(auth: Auth): Promise<string[]>;
+  listOpenAssignedTaskIds(auth: Auth, options?: RequestOptions): Promise<string[]>;
   // each id sorted into found, gone (missing or trashed) or unreadable, plus the found tasks'
   // projects. A found task with assignedToViewer false has been reassigned. Empty input makes no
   // request.
-  resolveTasks(auth: Auth, ids: string[]): Promise<TaskResolution>;
+  resolveTasks(auth: Auth, ids: string[], options?: RequestOptions): Promise<TaskResolution>;
   // the same for projects. An archived project that is not trashed still exists, so it is found.
   // Empty input makes no request.
-  resolveProjects(auth: Auth, ids: string[]): Promise<Resolution<ExternalProject>>;
+  resolveProjects(
+    auth: Auth,
+    ids: string[],
+    options?: RequestOptions,
+  ): Promise<Resolution<ExternalProject>>;
 }
 
 // a calendar's change token is no longer accepted (nor, with it, a page token of its pass): the
@@ -125,10 +139,15 @@ export interface CalendarEventPage {
 export interface CalendarSource {
   // The calendars the account can read, as the provider has them now, with the provider's id,
   // name, colour, zone and whether it is the account's primary calendar.
-  listCalendars(auth: Auth): Promise<ExternalCalendar[]>;
+  listCalendars(auth: Auth, options?: RequestOptions): Promise<ExternalCalendar[]>;
   // One page of a calendar's events. Throws ChangeTokenExpiredError when the change token (or the
   // page token) is no longer accepted.
-  getEventPage(auth: Auth, calendarId: string, query: EventsQuery): Promise<CalendarEventPage>;
+  getEventPage(
+    auth: Auth,
+    calendarId: string,
+    query: EventsQuery,
+    options?: RequestOptions,
+  ): Promise<CalendarEventPage>;
 }
 
 export interface Provider {

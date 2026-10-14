@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { Auth } from '../../auth';
-import { FetchFn } from '../provider';
-import { BACKOFF_INITIAL_MS, HTTP_TIMEOUT_MS } from '../../../sync/constants';
+import { FetchFn, RequestOptions } from '../provider';
+import { requestSignal } from '../../fetch';
+import { BACKOFF_INITIAL_MS } from '../../../sync/constants';
 import {
   IntegrationAuthError,
   ProviderUnavailableError,
@@ -60,13 +61,16 @@ export class LinearClient {
     this.now = options.now ?? (() => new Date());
   }
 
-  // sends one query and returns its `data`, validated against `schema`
+  // sends one query and returns its `data`, validated against `schema`; an abort of
+  // `options.signal` rejects with the signal's reason
   async request<T>(
     auth: Auth,
     query: string,
     variables: Record<string, unknown>,
     schema: z.ZodType<T>,
+    options: RequestOptions = {},
   ): Promise<T> {
+    const { signal } = options;
     let response: Response;
     try {
       response = await this.fetch(LINEAR_GRAPHQL_URL, {
@@ -76,9 +80,11 @@ export class LinearClient {
           Authorization: auth.authorization,
         },
         body: JSON.stringify({ query, variables }),
-        signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
+        signal: requestSignal(signal),
       });
     } catch (error) {
+      // the caller cancelled: not a provider failure
+      if (signal?.aborted) throw signal.reason;
       // network failure or the timeout firing
       throw new ProviderUnavailableError('Linear could not be reached', { cause: error });
     }
@@ -90,7 +96,7 @@ export class LinearClient {
       throw new IntegrationAuthError('Linear rejected the credentials');
     }
 
-    const body = await readBody(response);
+    const body = await readBody(response, signal);
     // Linear reports rate limiting as a 400 with a GraphQL error code, not a 429
     if (hasError(body, RATE_LIMITED) || response.status === 429) {
       throw new RateLimitError(this.retryAt(response.headers));
@@ -137,11 +143,15 @@ function hasError(body: GraphQLBody | null, kind: { code: string; type: string }
   );
 }
 
-async function readBody(response: Response): Promise<GraphQLBody | null> {
+async function readBody(
+  response: Response,
+  signal: AbortSignal | undefined,
+): Promise<GraphQLBody | null> {
   let text: string;
   try {
     text = await response.text();
   } catch (error) {
+    if (signal?.aborted) throw signal.reason;
     // the connection dropped or the timeout fired while the body was streaming
     throw new ProviderUnavailableError('Linear could not be reached', { cause: error });
   }
