@@ -28,12 +28,11 @@ import { SyncStateManager } from '../../sync/sync-state';
 import { SyncWriter } from '../../sync/writer';
 import { TaskReconciler } from '../../sync/task-reconciler';
 import { SyncRunOutcome, SyncSkipReason } from '../../sync/types';
-import { CURSOR_OVERLAP_MS } from '../../sync/constants';
+import { CURSOR_OVERLAP_MS, REVOKE_TIMEOUT_MS } from '../../sync/constants';
 import { SearchService } from '../../search/service';
 import { CredentialStore } from '../../integrations/credential-store';
 import { IntegrationChange, IntegrationService } from '../../integrations/service';
 import { DetachService } from '../../integrations/detach';
-import { createTokenRevokers } from '../../integrations/providers/registry';
 import { OAuthClient } from '../../integrations/oauth/types';
 import {
   AuthType,
@@ -256,10 +255,7 @@ beforeEach(async () => {
     revoke: vi.fn<OAuthClient['revoke']>(async () => {}),
   };
   const providers = fakeRegistry(linear, google);
-  credentials = new CredentialStore(db, {
-    cipher: new FakeCipher(),
-    revokers: createTokenRevokers(providers, oauth),
-  });
+  credentials = new CredentialStore(db, { cipher: new FakeCipher() });
   const search = new SearchService(db, workspacePath);
   service = new IntegrationService(db, { credentials, providers, oauth });
   // as Workspace does: deleted items leave search once the disconnect has committed
@@ -728,10 +724,13 @@ describe('IntegrationService — disconnect, stopping sync first', () => {
 });
 
 describe('IntegrationService — disconnect, revoking credentials', () => {
-  it('revokes an OAuth grant at the provider after the rows are gone', async () => {
+  it('revokes an OAuth grant at the provider once sync has stopped, before the rows go', async () => {
     const { id } = await connectCalendar();
+    const order: string[] = [];
+    service.onBeforeDisconnect(() => void order.push('sync stopped'));
     let integrationsAtRevoke: number | null = null;
     oauth.revoke.mockImplementationOnce(async () => {
+      order.push('revoked');
       integrationsAtRevoke = db.select().from(integrations).all().length;
     });
 
@@ -746,7 +745,27 @@ describe('IntegrationService — disconnect, revoking credentials', () => {
       refreshToken: FAKE_REFRESH_TOKEN,
     });
     expect(opts?.signal).toBeInstanceOf(AbortSignal);
-    expect(integrationsAtRevoke).toBe(0);
+    expect(order).toEqual(['sync stopped', 'revoked']);
+    expect(integrationsAtRevoke).toBe(1);
+    expect(db.select().from(integrations).all()).toEqual([]);
+  });
+
+  it('a revoke that never answers is given up on after the timeout', async () => {
+    const { id } = await connectCalendar();
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      // ignores the signal, so only the timeout ends the wait
+      oauth.revoke.mockImplementationOnce(() => new Promise(() => {}));
+
+      const disconnecting = service.disconnect(id, { keepLocalCopies: false });
+      await vi.advanceTimersByTimeAsync(REVOKE_TIMEOUT_MS);
+
+      await expect(disconnecting).resolves.toMatchObject({ revoked: false });
+      expect(db.select().from(integrations).all()).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('a revocation failure does not block the disconnect', async () => {
@@ -1001,20 +1020,5 @@ describe('IntegrationService — reconnect', () => {
         apiKey: FAKE_API_KEY,
       }),
     ).rejects.toThrow(NotFoundError);
-  });
-});
-
-describe('IntegrationService — revokeAll', () => {
-  it('revokes every OAuth grant, best effort, and changes no row', async () => {
-    await connectLinear();
-    await connectCalendar();
-    const before = snapshot();
-    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    oauth.revoke.mockRejectedValueOnce(new ProviderUnavailableError('provider is down'));
-
-    await expect(service.revokeAll()).resolves.toBeUndefined();
-
-    expect(oauth.revoke).toHaveBeenCalledOnce();
-    expect(snapshot()).toEqual(before);
   });
 });

@@ -9,20 +9,17 @@ import { Auth, toAuth } from './auth';
 import {
   Credentials,
   OAuthCredentials,
-  PendingRevoke,
   RefreshedTokens,
   SealedCredentials,
   SecretCipher,
   TokenRefresher,
-  TokenRevoker,
 } from './credentials';
+import { OAuthClient, OAuthConfig } from './oauth/types';
 import { AuthType, Provider } from './types';
 
 export interface CredentialStoreOptions {
   cipher: SecretCipher;
   refreshers?: Partial<Record<Provider, TokenRefresher>>;
-  // revokes OAuth grants on disconnect; a provider without one has nothing revoked
-  revokers?: Partial<Record<Provider, TokenRevoker>>;
   // told when a provider rejects a refresh, so the integration can move to needs_reauth
   onRefreshRejected?: (integrationId: IntegrationId) => void;
   now?: () => number; // injected for tests
@@ -58,7 +55,6 @@ function serialize(credentials: Credentials): string {
 export class CredentialStore {
   private readonly cipher: SecretCipher;
   private readonly refreshers: Partial<Record<Provider, TokenRefresher>>;
-  private readonly revokers: Partial<Record<Provider, TokenRevoker>>;
   private readonly onRefreshRejected: (integrationId: IntegrationId) => void;
   private readonly now: () => number;
   // per-integration tail of the refresh queue, so two callers never refresh the same token at once
@@ -70,7 +66,6 @@ export class CredentialStore {
   ) {
     this.cipher = options.cipher;
     this.refreshers = options.refreshers ?? {};
-    this.revokers = options.revokers ?? {};
     this.onRefreshRejected = options.onRefreshRejected ?? (() => undefined);
     this.now = options.now ?? Date.now;
   }
@@ -119,24 +114,33 @@ export class CredentialStore {
   }
 
   /**
-   * Reads the stored credentials now and returns a call that revokes them at the provider later,
-   * so a disconnect can delete the row in between without the tokens leaving this class. Resolves
-   * to null when there is nothing to revoke: an API key (Linear has no endpoint to revoke one), a
-   * provider with no revoker, or credentials that can't be read, which a provider would refuse
-   * anyway. Throws NotFoundError for an unknown integration.
+   * Revokes the stored OAuth grant at its provider, for IntegrationService.disconnect, which
+   * deletes the credentials next. The tokens go from here straight to `oauth`, as for a refresh.
+   * Resolves whether anything was revoked: false for an API key (Linear has no endpoint to revoke
+   * one) or credentials that can't be read, which a provider would refuse anyway. Throws when the
+   * provider can't be reached or refuses; `signal` cuts the request short.
    */
-  async prepareRevoke(integrationId: IntegrationId): Promise<PendingRevoke | null> {
-    let current: Awaited<ReturnType<CredentialStore['read']>>;
+  async revoke(
+    integrationId: IntegrationId,
+    oauth: OAuthClient,
+    config: OAuthConfig,
+    signal: AbortSignal,
+  ): Promise<boolean> {
+    let credentials: Credentials;
     try {
-      current = await this.read(integrationId);
+      ({ credentials } = await this.read(integrationId));
     } catch (error) {
-      if (error instanceof IntegrationAuthError) return null;
+      if (error instanceof IntegrationAuthError) return false;
       throw error;
     }
-    const { provider, credentials } = current;
-    const revoker = this.revokers[provider];
-    if (credentials.type !== AuthType.OAUTH || !revoker) return null;
-    return (signal) => revoker(credentials, signal);
+    if (credentials.type !== AuthType.OAUTH) return false;
+    const { accessToken, refreshToken, expiresAt } = credentials;
+    await oauth.revoke(
+      config,
+      { accessToken, refreshToken, expiresAt, scopes: config.scopes },
+      { signal },
+    );
+    return true;
   }
 
   private async read(integrationId: IntegrationId): Promise<{

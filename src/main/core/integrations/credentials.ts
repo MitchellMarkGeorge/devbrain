@@ -53,11 +53,3 @@ export interface RefreshedTokens {
 // one per provider, implemented in feature 16. Throws IntegrationAuthError when the grant is
 // rejected, so the caller can move the integration to needs_reauth.
 export type TokenRefresher = (refreshToken: string) => Promise<RefreshedTokens>;
-
-// one per provider that declares OAuth: revokes the grant at the provider, giving up when `signal`
-// aborts. Throws when the provider can't be reached or refuses; a disconnect goes ahead regardless.
-export type TokenRevoker = (credentials: OAuthCredentials, signal: AbortSignal) => Promise<void>;
-
-// a revocation read and ready to send: the credentials were read when it was made, so it still
-// works once the integration row is gone
-export type PendingRevoke = (signal: AbortSignal) => Promise<void>;

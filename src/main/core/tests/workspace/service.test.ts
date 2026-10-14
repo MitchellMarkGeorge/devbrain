@@ -29,6 +29,12 @@ const makeInfo = (overrides: Partial<WorkspaceInfo> = {}): WorkspaceInfo => ({
   ...overrides,
 });
 
+// an IntegrationService with these integrations, recording each disconnect in `calls`
+const fakeIntegrations = (ids: string[], calls: string[] = []) => ({
+  list: vi.fn(async () => ids.map((id) => ({ id }))),
+  disconnect: vi.fn(async (id: string) => void calls.push(`disconnect ${id}`)),
+});
+
 const makeRegistry = (infos: WorkspaceInfo[]): Record<WorkspaceId, WorkspaceInfo> =>
   Object.fromEntries(infos.map((w) => [w.id, w])) as Record<WorkspaceId, WorkspaceInfo>;
 
@@ -248,7 +254,7 @@ describe('WorkspaceService — delete', () => {
       info,
       close: vi.fn(),
       sync: { start: vi.fn() },
-      integrations: { revokeAll: vi.fn() },
+      integrations: fakeIntegrations([]),
     };
 
     const service = new WorkspaceService(tmpDir);
@@ -259,41 +265,57 @@ describe('WorkspaceService — delete', () => {
     expect(service.currentWorkspace).toBeNull();
   });
 
-  it("revokes the current workspace's credentials before closing it", async () => {
+  it("disconnects the current workspace's integrations, keeping copies, before closing it", async () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
     const calls: string[] = [];
-    const fakeWorkspace = {
-      info,
-      close: vi.fn(() => calls.push('close')),
-      integrations: { revokeAll: vi.fn(async () => void calls.push('revoke')) },
-    };
+    const integrations = fakeIntegrations(['int_a', 'int_b'], calls);
+    const fakeWorkspace = { info, close: vi.fn(() => calls.push('close')), integrations };
 
     const service = new WorkspaceService(tmpDir);
     service.currentWorkspace = fakeWorkspace as never;
     await service.delete(info.id);
 
-    expect(calls).toEqual(['revoke', 'close']);
+    expect(calls).toEqual(['disconnect int_a', 'disconnect int_b', 'close']);
+    expect(integrations.disconnect).toHaveBeenCalledWith('int_a', { keepLocalCopies: true });
   });
 
-  it('opens a closed workspace to revoke its credentials, then deletes it', async () => {
+  it('deletes the workspace when an integration fails to disconnect', async () => {
+    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
+    writeRegistry(tmpDir, [info]);
+    await fs.mkdir(info.path, { recursive: true });
+    const integrations = fakeIntegrations(['int_a', 'int_b']);
+    integrations.disconnect.mockRejectedValueOnce(new Error('database is locked'));
+    const fakeWorkspace = { info, close: vi.fn(), integrations };
+
+    const service = new WorkspaceService(tmpDir);
+    service.currentWorkspace = fakeWorkspace as never;
+    await service.delete(info.id);
+
+    expect(integrations.disconnect).toHaveBeenCalledTimes(2);
+    await expect(fs.stat(info.path)).rejects.toThrow();
+  });
+
+  it('opens a closed workspace to disconnect its integrations, then deletes it', async () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
     await fs.writeFile(path.join(info.path, 'db.sqlite'), '');
-    const opened = { info, close: vi.fn(), integrations: { revokeAll: vi.fn() } };
+    const opened = { info, close: vi.fn(), integrations: fakeIntegrations(['int_a']) };
     vi.mocked(Workspace.open).mockResolvedValueOnce(opened as never);
 
     const service = new WorkspaceService(tmpDir);
     await service.delete(info.id);
 
-    expect(opened.integrations.revokeAll).toHaveBeenCalled();
+    expect(opened.integrations.disconnect).toHaveBeenCalledWith('int_a', {
+      keepLocalCopies: true,
+    });
     expect(opened.close).toHaveBeenCalled();
     await expect(fs.stat(info.path)).rejects.toThrow();
   });
 
-  it('deletes a workspace that fails to open for revoking', async () => {
+  it('deletes a workspace that fails to open for disconnecting', async () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
@@ -444,7 +466,6 @@ describe('WorkspaceService — sync', () => {
     const prevWorkspace = {
       info: makeInfo({ id: 'wsp_prev' as WorkspaceId }),
       close: vi.fn(() => new Promise<void>((resolve) => (finishClose = resolve))),
-      integrations: { revokeAll: vi.fn() },
     };
     const nextWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
@@ -490,7 +511,7 @@ describe('WorkspaceService — sync', () => {
     const current = {
       info,
       close: vi.fn(() => new Promise<void>((resolve) => (finishClose = resolve))),
-      integrations: { revokeAll: vi.fn() },
+      integrations: fakeIntegrations([]),
     };
     const service = new WorkspaceService(tmpDir);
     service.currentWorkspace = current as never;

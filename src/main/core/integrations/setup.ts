@@ -7,7 +7,6 @@ import { OpenExternal } from './oauth/types';
 import {
   createProviderRegistry,
   createTokenRefreshers,
-  createTokenRevokers,
   ProviderRegistry,
 } from './providers/registry';
 import { IntegrationService } from './service';
@@ -53,7 +52,6 @@ export function createIntegrationServices(
   const credentials = new CredentialStore(db, {
     cipher: options.cipher ?? unavailableCipher,
     refreshers: createTokenRefreshers(providers, oauth),
-    revokers: createTokenRevokers(providers, oauth),
     onRefreshRejected: (integrationId) => service?.markNeedsReauth(integrationId),
   });
   service = new IntegrationService(db, { credentials, providers, oauth });

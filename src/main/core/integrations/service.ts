@@ -14,7 +14,7 @@ import { REVOKE_TIMEOUT_MS } from '../sync/constants';
 import { SyncEntityType } from '../sync/types';
 import { toAuth } from './auth';
 import { CredentialStore } from './credential-store';
-import { ApiKeyCredentials, Credentials, OAuthCredentials, PendingRevoke } from './credentials';
+import { ApiKeyCredentials, Credentials, OAuthCredentials } from './credentials';
 import {
   applyDisconnect,
   countPlan,
@@ -476,16 +476,16 @@ export class IntegrationService implements BaseIntegrationService {
    *
    * 1. Emit `removed` and await the before-disconnect hooks, so the scheduler stops the sources
    *    before any row is touched.
-   * 2. Read the credentials for revoking, before the row that holds them goes.
+   * 2. Revoke the grant at the provider (see revokeGrant), while the credentials are still
+   *    stored. Best effort: a failure never blocks the disconnect.
    * 3. In one transaction: delete or detach the mirrored items (see planDisconnect and
    *    applyDisconnect), clear the credentials and delete the integration. The cascade deletes the
    *    sources and nulls `sourceId` on the surviving links and calendars, which keep their
    *    provider, key and URL for the badge.
    * 4. Emit `disconnected` with the deleted ids; the workspace drops them from search.
-   * 5. Revoke the grant at the provider, best effort and for at most REVOKE_TIMEOUT_MS: a failure
-   *    is logged and never undoes or blocks the disconnect. An API key has nothing to revoke.
    */
   async disconnect(id: IntegrationId, options: DisconnectOptions): Promise<DisconnectResult> {
+    const { provider } = this.rowOf(id);
     const sourceIds = this.sourceIdsOf(id);
 
     // 1.
@@ -498,8 +498,8 @@ export class IntegrationService implements BaseIntegrationService {
       }
     }
 
-    // 2. unreadable credentials have nothing to revoke, and must not keep the user connected
-    const revoke = await this.credentials.prepareRevoke(id);
+    // 2.
+    const revoked = await this.revokeGrant(id, provider);
 
     // 3. the plan is made inside the transaction, on the rows as they are when it commits
     const { plan, changed } = this.db.transaction((tx) => {
@@ -512,24 +512,7 @@ export class IntegrationService implements BaseIntegrationService {
 
     // 4.
     this.emit({ type: 'disconnected', integrationId: id, deleted: plan.deleted, changed });
-
-    // 5.
-    const revoked = revoke ? await revokeQuietly(revoke) : false;
     return { ...countPlan(plan), changed, revoked };
-  }
-
-  /**
-   * Revokes every integration's grant at its provider, best effort and in parallel, and changes no
-   * row. For deleting a workspace, whose database goes with it.
-   */
-  async revokeAll(): Promise<void> {
-    const ids = this.db.select({ id: integrations.id }).from(integrations).all();
-    await Promise.all(
-      ids.map(async ({ id }) => {
-        const revoke = await this.credentials.prepareRevoke(id).catch(() => null);
-        if (revoke) await revokeQuietly(revoke);
-      }),
-    );
   }
 
   // returns a function that removes the hook; see BeforeDisconnectHook
@@ -579,12 +562,48 @@ export class IntegrationService implements BaseIntegrationService {
   }
 
   private assertExists(id: IntegrationId): void {
-    const row = this.db
-      .select({ id: integrations.id })
-      .from(integrations)
-      .where(eq(integrations.id, id))
-      .get();
+    this.rowOf(id);
+  }
+
+  private rowOf(id: IntegrationId): IntegrationRow {
+    const row = this.db.select().from(integrations).where(eq(integrations.id, id)).get();
     if (!row) throw new NotFoundError(id);
+    return row;
+  }
+
+  /**
+   * Revokes the integration's grant at its provider, for disconnect. Only a provider that connects
+   * through OAuth has a grant to revoke. Gives up after REVOKE_TIMEOUT_MS, and never throws: it
+   * logs no more than the error's name, as a message could quote a token. Resolves whether the
+   * provider confirmed the revoke.
+   */
+  private async revokeGrant(id: IntegrationId, providerId: Provider): Promise<boolean> {
+    const config = getProvider(this.providers, providerId).oauth;
+    if (!config || !this.oauth) return false;
+    const controller = new AbortController();
+    // the race bounds the wait even for an OAuth client that ignores the signal
+    let timer: NodeJS.Timeout | undefined;
+    const timedOut = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        const reason = new DOMException('Revoking timed out', 'TimeoutError');
+        controller.abort(reason);
+        reject(reason);
+      }, REVOKE_TIMEOUT_MS);
+    });
+    try {
+      return await Promise.race([
+        this.credentials.revoke(id, this.oauth, config, controller.signal),
+        timedOut,
+      ]);
+    } catch (error) {
+      console.warn(
+        'Revoking credentials at the provider failed:',
+        error instanceof Error ? error.name : 'unknown error',
+      );
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   // the integration's source ids; throws NotFoundError for an unknown integration
@@ -642,26 +661,6 @@ function sourcesToEnable(provider: ProviderImpl, options: ConnectOptions): Sourc
     throw new Error(`${provider.id} can't serve as a source for ${unsupported.join(', ')}`);
   }
   return enable;
-}
-
-// Sends a prepared revocation, giving up after REVOKE_TIMEOUT_MS. Resolves whether it was confirmed;
-// never throws, and logs no more than the error's name, as a message could quote a token.
-async function revokeQuietly(revoke: PendingRevoke): Promise<boolean> {
-  const signal = AbortSignal.timeout(REVOKE_TIMEOUT_MS);
-  // the race bounds the wait even for a revoker that ignores the signal
-  const timedOut = new Promise<never>((_, reject) => {
-    signal.addEventListener('abort', () => reject(signal.reason), { once: true });
-  });
-  try {
-    await Promise.race([revoke(signal), timedOut]);
-    return true;
-  } catch (error) {
-    console.warn(
-      'Revoking credentials at the provider failed:',
-      error instanceof Error ? error.name : 'unknown error',
-    );
-    return false;
-  }
 }
 
 // a source row as the API returns it; also used by SyncStateManager

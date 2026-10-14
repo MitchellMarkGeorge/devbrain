@@ -1,4 +1,4 @@
-import { generateId, type WorkspaceId } from '@common/ids';
+import { generateId, type IntegrationId, type WorkspaceId } from '@common/ids';
 import type { CreateWorkspaceOptions, WorkspaceInfo, WorkspaceOptions } from './types';
 import { workspaceRegistrySchema } from './schema';
 import { Workspace } from './workspace';
@@ -93,8 +93,8 @@ export class WorkspaceService {
     const isOpen = this.currentWorkspace?.info.id === id;
 
     if (this.currentWorkspace !== null && isOpen) {
-      // revoke the workspace's grants while its database is open; best effort, never throws
-      await this.currentWorkspace.integrations.revokeAll();
+      // disconnect its integrations while its database is open, which revokes their grants
+      await this.disconnectAll(this.currentWorkspace);
       // close current workspace if it is to be deleted
       workspaceInfo = this.currentWorkspace.info;
       await this.closeCurrent();
@@ -108,8 +108,8 @@ export class WorkspaceService {
       throw new Error('Workspace directory not found');
     }
 
-    // an open one was revoked above, before it closed
-    if (!isOpen) await this.revokeClosed(workspaceInfo);
+    // an open one was disconnected above, before it closed
+    if (!isOpen) await this.disconnectClosed(workspaceInfo);
 
     // delete worksapce directory and all its conents (db file and notes)
     await fs.rm(workspaceInfo.path, { recursive: true, force: true });
@@ -122,10 +122,32 @@ export class WorkspaceService {
   }
 
   /**
-   * Revokes the grants of a workspace that is not open, by opening it just for that. Best effort:
-   * a workspace that can't be opened (no database, a failed migration) is deleted all the same.
+   * Disconnects every integration of a workspace about to be deleted, so each revokes its grant at
+   * its provider. Keeping local copies is the least work, as the database goes next anyway. Best
+   * effort: an integration that fails to disconnect does not stop the delete.
    */
-  private async revokeClosed(info: WorkspaceInfo): Promise<void> {
+  private async disconnectAll(workspace: Workspace): Promise<void> {
+    let integrations: { id: IntegrationId }[];
+    try {
+      integrations = await workspace.integrations.list();
+    } catch {
+      return;
+    }
+    for (const { id } of integrations) {
+      try {
+        await workspace.integrations.disconnect(id, { keepLocalCopies: true });
+      } catch {
+        // the delete goes ahead
+      }
+    }
+  }
+
+  /**
+   * Disconnects the integrations of a workspace that is not open, by opening it just for that.
+   * Best effort: a workspace that can't be opened (no database, a failed migration) is deleted all
+   * the same.
+   */
+  private async disconnectClosed(info: WorkspaceInfo): Promise<void> {
     // nothing was ever stored without a database
     if (!(await fileExists(path.join(info.path, 'db.sqlite')))) return;
     let workspace: Workspace;
@@ -135,7 +157,7 @@ export class WorkspaceService {
       return;
     }
     try {
-      await workspace.integrations.revokeAll();
+      await this.disconnectAll(workspace);
     } finally {
       await workspace.close();
     }
