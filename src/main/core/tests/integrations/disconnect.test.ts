@@ -743,7 +743,7 @@ describe('IntegrationService — disconnect, revoking credentials', () => {
 
   it('a revoke that never answers is given up on after the timeout', async () => {
     const { id } = await connectCalendar();
-    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     try {
       // ignores the signal, so only the timeout ends the wait
@@ -754,6 +754,8 @@ describe('IntegrationService — disconnect, revoking credentials', () => {
 
       await expect(disconnecting).resolves.toMatchObject({ revoked: false });
       expect(db.select().from(integrations).all()).toEqual([]);
+      // a timeout is the provider being unreachable, as for any other request
+      expect(warn).toHaveBeenCalledWith(expect.any(String), 'ProviderUnavailableError');
     } finally {
       vi.useRealTimers();
     }

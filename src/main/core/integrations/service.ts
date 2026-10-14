@@ -9,6 +9,7 @@ import {
   IntegrationAuthError,
   IntegrationDisabledError,
   NotFoundError,
+  ProviderUnavailableError,
 } from '../shared/errors';
 import { REVOKE_TIMEOUT_MS } from '../sync/constants';
 import { SyncEntityType } from '../sync/types';
@@ -616,7 +617,7 @@ async function sendRevoke(revoke: PendingRevoke): Promise<boolean> {
   let timer: NodeJS.Timeout | undefined;
   const timedOut = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
-      const reason = new DOMException('Revoking timed out', 'TimeoutError');
+      const reason = new ProviderUnavailableError('Revoking timed out');
       controller.abort(reason);
       reject(reason);
     }, REVOKE_TIMEOUT_MS);
