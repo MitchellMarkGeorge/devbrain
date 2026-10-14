@@ -11,7 +11,7 @@ import viewerFixture from './integrations/fixtures/linear/viewer.json';
 
 vi.mock('electron-store', () => import('./__mocks__/electron-store'));
 
-import { loadDevBrain, initDevBrain, DevBrain } from '../index';
+import { openDevBrain, DevBrain } from '../index';
 
 // Hardcoded valid settings — avoids depending on env-var-derived DEFAULTS
 const VALID_SETTINGS = {
@@ -59,181 +59,159 @@ afterEach(async () => {
   await fs.rm(tmpDir, { recursive: true });
 });
 
-describe('loadDevBrain', () => {
-  describe('valid paths', () => {
-    it('returns a DevBrain instance for a valid path', async () => {
-      await writeValidStructure(tmpDir);
-      const brain = await loadDevBrain({ path: tmpDir });
-      expect(brain).toBeInstanceOf(DevBrain);
-    });
-
-    it('returned instance exposes a settings service', async () => {
-      await writeValidStructure(tmpDir);
-      const brain = await loadDevBrain({ path: tmpDir });
-      expect(brain.settings).toBeDefined();
-    });
-
-    it('returned instance exposes a workspaces service', async () => {
-      await writeValidStructure(tmpDir);
-      const brain = await loadDevBrain({ path: tmpDir });
-      expect(brain.workspaces).toBeDefined();
-    });
-
-    it('currentWorkspace is null before any workspace is opened', async () => {
-      await writeValidStructure(tmpDir);
-      const brain = await loadDevBrain({ path: tmpDir });
-      expect(brain.currentWorkspace).toBeNull();
-    });
-
-    it('settings.get() returns the correct value from the written file', async () => {
-      await writeValidStructure(tmpDir);
-      const brain = await loadDevBrain({ path: tmpDir });
-      expect(brain.settings.get('settings.theme')).toBe('dark');
-    });
-
-    it('workspaces.listAll().items returns an empty array for an empty registry', async () => {
-      await writeValidStructure(tmpDir);
-      const brain = await loadDevBrain({ path: tmpDir });
-      expect(brain.workspaces.listAll().items).toEqual([]);
-    });
+describe('openDevBrain — an existing folder', () => {
+  it('returns a DevBrain instance for a valid folder', async () => {
+    await writeValidStructure(tmpDir);
+    const brain = await openDevBrain({ path: tmpDir });
+    expect(brain).toBeInstanceOf(DevBrain);
   });
 
-  describe('invalid paths', () => {
-    it('throws for a path that does not exist', async () => {
-      await expect(loadDevBrain({ path: path.join(tmpDir, 'missing') })).rejects.toThrow();
+  it('returned instance exposes a settings service', async () => {
+    await writeValidStructure(tmpDir);
+    const brain = await openDevBrain({ path: tmpDir });
+    expect(brain.settings).toBeDefined();
+  });
+
+  it('returned instance exposes a workspaces service', async () => {
+    await writeValidStructure(tmpDir);
+    const brain = await openDevBrain({ path: tmpDir });
+    expect(brain.workspaces).toBeDefined();
+  });
+
+  it('currentWorkspace is null before any workspace is opened', async () => {
+    await writeValidStructure(tmpDir);
+    const brain = await openDevBrain({ path: tmpDir });
+    expect(brain.currentWorkspace).toBeNull();
+  });
+
+  it('settings.get() returns the correct value from the written file', async () => {
+    await writeValidStructure(tmpDir);
+    const brain = await openDevBrain({ path: tmpDir });
+    expect(brain.settings.get('settings.theme')).toBe('dark');
+  });
+
+  it('workspaces.listAll().items returns an empty array for an empty registry', async () => {
+    await writeValidStructure(tmpDir);
+    const brain = await openDevBrain({ path: tmpDir });
+    expect(brain.workspaces.listAll().items).toEqual([]);
+  });
+
+  it('opens a valid folder as it is with createIfMissing, keeping its contents', async () => {
+    await writeValidStructure(tmpDir);
+    await fs.writeFile(path.join(tmpDir, 'sentinel.txt'), 'kept');
+    const settings = await fs.readFile(path.join(tmpDir, 'settings.json'), 'utf8');
+    await expect(openDevBrain({ path: tmpDir, createIfMissing: true })).resolves.toBeInstanceOf(
+      DevBrain,
+    );
+    expect(await fs.readFile(path.join(tmpDir, 'settings.json'), 'utf8')).toBe(settings);
+    expect(await fs.readFile(path.join(tmpDir, 'sentinel.txt'), 'utf8')).toBe('kept');
+  });
+});
+
+describe('openDevBrain — no folder yet', () => {
+  it('refuses a path that does not exist, creating nothing', async () => {
+    const missing = path.join(tmpDir, 'missing');
+    await expect(openDevBrain({ path: missing })).rejects.toMatchObject({
+      code: 'devbrain_folder',
+      reason: 'missing',
+    });
+    await expect(fs.stat(missing)).rejects.toThrow();
+  });
+
+  it('refuses an empty directory, leaving it empty', async () => {
+    await expect(openDevBrain({ path: tmpDir })).rejects.toMatchObject({ reason: 'missing' });
+    expect(await fs.readdir(tmpDir)).toEqual([]);
+  });
+
+  it('with createIfMissing, creates the folder with its settings and empty registry', async () => {
+    const initPath = path.join(tmpDir, 'new', 'brain');
+    const brain = await openDevBrain({ path: initPath, createIfMissing: true });
+    expect(brain).toBeInstanceOf(DevBrain);
+    expect(brain.currentWorkspace).toBeNull();
+    expect(brain.workspaces.listAll().items).toEqual([]);
+    await expect(fs.stat(path.join(initPath, 'settings.json'))).resolves.toBeDefined();
+    await expect(fs.stat(path.join(initPath, 'workspaces.json'))).resolves.toBeDefined();
+  });
+
+  it('with createIfMissing, creates it in an empty directory, junk files aside', async () => {
+    await fs.writeFile(path.join(tmpDir, '.DS_Store'), '');
+    await openDevBrain({ path: tmpDir, createIfMissing: true });
+    expect((await fs.readdir(tmpDir)).sort()).toEqual(
+      ['.DS_Store', 'settings.json', 'workspaces.json'].sort(),
+    );
+  });
+
+  it('a created folder opens again without createIfMissing', async () => {
+    const initPath = path.join(tmpDir, 'new');
+    await openDevBrain({ path: initPath, createIfMissing: true });
+    await expect(openDevBrain({ path: initPath })).resolves.toBeInstanceOf(DevBrain);
+  });
+});
+
+describe('openDevBrain — invalid folders', () => {
+  // with or without createIfMissing: what is there is refused and left as it is
+  describe.each([false, true])('createIfMissing: %s', (createIfMissing) => {
+    const open = (folder: string) => openDevBrain({ path: folder, createIfMissing });
+    const invalid = { code: 'devbrain_folder', reason: 'invalid' };
+
+    it('refuses a directory holding something else, changing nothing', async () => {
+      await fs.writeFile(path.join(tmpDir, 'notes.txt'), 'mine');
+      await expect(open(tmpDir)).rejects.toMatchObject(invalid);
+      expect(await fs.readdir(tmpDir)).toEqual(['notes.txt']);
     });
 
-    it('throws when the path is a file, not a directory', async () => {
+    it('refuses a path that is a file', async () => {
       const filePath = path.join(tmpDir, 'afile.txt');
       await fs.writeFile(filePath, 'content');
-      await expect(loadDevBrain({ path: filePath })).rejects.toThrow();
+      await expect(open(filePath)).rejects.toMatchObject(invalid);
+      expect(await fs.readFile(filePath, 'utf8')).toBe('content');
     });
 
-    it('throws when the path is not absolute', async () => {
-      await expect(loadDevBrain({ path: 'relative/path' })).rejects.toThrow();
+    it('refuses a path that is not absolute', async () => {
+      await expect(open('relative/path')).rejects.toMatchObject(invalid);
     });
 
-    it('throws for a path missing settings.json', async () => {
-      await fs.mkdir(tmpDir, { recursive: true });
+    it('refuses a folder missing settings.json', async () => {
       await fs.writeFile(path.join(tmpDir, 'workspaces.json'), '{}', 'utf8');
-      await expect(loadDevBrain({ path: tmpDir })).rejects.toThrow();
+      await expect(open(tmpDir)).rejects.toMatchObject(invalid);
+      expect(await fs.readdir(tmpDir)).toEqual(['workspaces.json']);
     });
 
-    it('throws for a path missing workspaces.json', async () => {
-      await fs.mkdir(tmpDir, { recursive: true });
+    it('refuses a folder missing workspaces.json', async () => {
       await fs.writeFile(
         path.join(tmpDir, 'settings.json'),
         JSON.stringify(VALID_SETTINGS),
         'utf8',
       );
-      await expect(loadDevBrain({ path: tmpDir })).rejects.toThrow();
+      await expect(open(tmpDir)).rejects.toMatchObject(invalid);
+      expect(await fs.readdir(tmpDir)).toEqual(['settings.json']);
     });
 
-    it('throws when settings.json is invalid JSON', async () => {
-      await fs.mkdir(tmpDir, { recursive: true });
+    it('refuses settings.json that is not JSON', async () => {
       await fs.writeFile(path.join(tmpDir, 'settings.json'), 'not json', 'utf8');
       await fs.writeFile(path.join(tmpDir, 'workspaces.json'), '{}', 'utf8');
-      await expect(loadDevBrain({ path: tmpDir })).rejects.toThrow();
+      await expect(open(tmpDir)).rejects.toMatchObject(invalid);
+      expect(await fs.readFile(path.join(tmpDir, 'settings.json'), 'utf8')).toBe('not json');
     });
 
-    it('throws when settings.json is valid JSON but fails schema', async () => {
-      await fs.mkdir(tmpDir, { recursive: true });
+    it('refuses settings.json that fails the schema', async () => {
       await fs.writeFile(
         path.join(tmpDir, 'settings.json'),
         JSON.stringify({ invalid: true }),
         'utf8',
       );
       await fs.writeFile(path.join(tmpDir, 'workspaces.json'), '{}', 'utf8');
-      await expect(loadDevBrain({ path: tmpDir })).rejects.toThrow();
+      await expect(open(tmpDir)).rejects.toMatchObject(invalid);
     });
 
-    it('throws when workspaces.json is invalid JSON', async () => {
-      await fs.mkdir(tmpDir, { recursive: true });
+    it('refuses workspaces.json that is not JSON', async () => {
       await fs.writeFile(
         path.join(tmpDir, 'settings.json'),
         JSON.stringify(VALID_SETTINGS),
         'utf8',
       );
       await fs.writeFile(path.join(tmpDir, 'workspaces.json'), 'not json', 'utf8');
-      await expect(loadDevBrain({ path: tmpDir })).rejects.toThrow();
-    });
-  });
-});
-
-describe('initDevBrain', () => {
-  describe('successful initialisation', () => {
-    it('returns a DevBrain instance', async () => {
-      const initPath = path.join(tmpDir, 'new');
-      const brain = await initDevBrain({ path: initPath });
-      expect(brain).toBeInstanceOf(DevBrain);
-    });
-
-    it('returned instance exposes a settings service', async () => {
-      const initPath = path.join(tmpDir, 'new');
-      const brain = await initDevBrain({ path: initPath });
-      expect(brain.settings).toBeDefined();
-    });
-
-    it('returned instance exposes a workspaces service', async () => {
-      const initPath = path.join(tmpDir, 'new');
-      const brain = await initDevBrain({ path: initPath });
-      expect(brain.workspaces).toBeDefined();
-    });
-
-    it('currentWorkspace is null on a freshly initialised DevBrain', async () => {
-      const initPath = path.join(tmpDir, 'new');
-      const brain = await initDevBrain({ path: initPath });
-      expect(brain.currentWorkspace).toBeNull();
-    });
-
-    it('creates settings.json at the given path', async () => {
-      const initPath = path.join(tmpDir, 'new');
-      await initDevBrain({ path: initPath });
-      await expect(fs.stat(path.join(initPath, 'settings.json'))).resolves.toBeDefined();
-    });
-
-    it('creates workspaces.json at the given path', async () => {
-      const initPath = path.join(tmpDir, 'new');
-      await initDevBrain({ path: initPath });
-      await expect(fs.stat(path.join(initPath, 'workspaces.json'))).resolves.toBeDefined();
-    });
-
-    it('the initialised path can subsequently be loaded with loadDevBrain', async () => {
-      const initPath = path.join(tmpDir, 'new');
-      await initDevBrain({ path: initPath });
-      await expect(loadDevBrain({ path: initPath })).resolves.toBeInstanceOf(DevBrain);
-    });
-  });
-
-  describe('overwrite behaviour', () => {
-    it('throws when path exists and overwrite is false', async () => {
-      const initPath = path.join(tmpDir, 'existing');
-      await fs.mkdir(initPath);
-      await expect(initDevBrain({ path: initPath, overwrite: false })).rejects.toThrow(
-        /already exists/,
-      );
-    });
-
-    it('throws when path exists and overwrite is not provided (defaults to false)', async () => {
-      const initPath = path.join(tmpDir, 'existing');
-      await fs.mkdir(initPath);
-      await expect(initDevBrain({ path: initPath })).rejects.toThrow(/already exists/);
-    });
-
-    it('succeeds when overwrite is true and path exists', async () => {
-      const initPath = path.join(tmpDir, 'existing');
-      await initDevBrain({ path: initPath });
-      await expect(initDevBrain({ path: initPath, overwrite: true })).resolves.toBeInstanceOf(
-        DevBrain,
-      );
-    });
-
-    it('discards old content when overwriting', async () => {
-      const initPath = path.join(tmpDir, 'existing');
-      await initDevBrain({ path: initPath });
-      await fs.writeFile(path.join(initPath, 'sentinel.txt'), 'old');
-      await initDevBrain({ path: initPath, overwrite: true });
-      await expect(fs.stat(path.join(initPath, 'sentinel.txt'))).rejects.toThrow();
+      await expect(open(tmpDir)).rejects.toMatchObject(invalid);
     });
   });
 });
@@ -247,12 +225,16 @@ describe('DevBrain — workspace options', () => {
     const cipher = new FakeCipher();
     const fetch = scriptedFetch([{ body: viewerFixture }]);
 
-    const brain = await initDevBrain({ path: initPath, workspace: { cipher, fetch } });
+    const brain = await openDevBrain({
+      path: initPath,
+      createIfMissing: true,
+      workspace: { cipher, fetch },
+    });
     const created = await brain.workspaces.create({ name: 'Work', color: '#000000' });
     const connected = await created.integrations.connectWithApiKey(Provider.LINEAR, API_KEY);
     await created.close();
 
-    const reloaded = await loadDevBrain({ path: initPath, workspace: { cipher } });
+    const reloaded = await openDevBrain({ path: initPath, workspace: { cipher } });
     const opened = await reloaded.workspaces.open(created.info.id);
     try {
       expect(await opened.integrations.list()).toEqual([connected]);

@@ -5,6 +5,7 @@ import { requestSignal } from '../../fetch';
 import { ExternalCalendar } from '../../types';
 import { BACKOFF_INITIAL_MS } from '../../../sync/constants';
 import {
+  CoreError,
   IntegrationAuthError,
   ProviderUnavailableError,
   RateLimitError,
@@ -35,7 +36,8 @@ import {
 // which EventSyncer handles by walking that calendar again.
 
 // an error response that is not one of the mapped cases, e.g. a calendar that does not exist
-export class GoogleApiError extends Error {
+export class GoogleApiError extends CoreError {
+  readonly code = 'provider_api';
   readonly status: number;
 
   constructor(status: number, message: string) {

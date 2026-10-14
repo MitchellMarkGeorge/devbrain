@@ -29,8 +29,8 @@ export interface IntegrationsSetupOptions {
   callbackTimeoutMs?: number;
 }
 
-// The browser opener a workspace gets when the caller passes none, until the main process passes
-// shell.openExternal (feature 14).
+// The browser opener a workspace gets when the caller passes none; the app passes
+// shell.openExternal.
 export const unavailableBrowser: OpenExternal = async () => {
   throw new Error('No browser is configured to open the sign-in page');
 };

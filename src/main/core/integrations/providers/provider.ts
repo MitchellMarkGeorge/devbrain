@@ -9,6 +9,7 @@ import {
 } from '../types';
 import { Auth } from '../auth';
 import { OAuthConfig } from '../oauth/types';
+import { CoreError } from '../../shared/errors';
 
 // The provider contract: each provider in DevBrain's terms. Implementations are looked up through
 // the registry in ./registry.
@@ -110,7 +111,8 @@ export interface TaskSource {
 
 // a calendar's change token is no longer accepted (nor, with it, a page token of its pass): the
 // calendar must be walked again from the start
-export class ChangeTokenExpiredError extends Error {
+export class ChangeTokenExpiredError extends CoreError {
+  readonly code = 'change_token_expired';
   constructor() {
     super('Calendar change token expired');
     this.name = 'ChangeTokenExpiredError';

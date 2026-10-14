@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gt, isNull, lt, or, sql, SQL } from 'drizzle-orm';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { z } from 'zod';
+import { CoreError } from './errors';
 
 export const DEFAULT_PAGE_LIMIT = 50;
 export const MAX_PAGE_LIMIT = 200;
@@ -18,7 +19,8 @@ export interface Page<T> {
   nextCursor: string | null;
 }
 
-export class InvalidCursorError extends Error {
+export class InvalidCursorError extends CoreError {
+  readonly code = 'invalid_cursor';
   constructor(message = 'Invalid pagination cursor') {
     super(message);
     this.name = 'InvalidCursorError';

@@ -13,6 +13,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/main/core/**/*.test.ts'],
+    // core's tests, and the main process's own in src/main/tests
+    include: ['src/main/**/*.test.ts'],
   },
 });

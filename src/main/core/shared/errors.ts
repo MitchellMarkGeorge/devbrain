@@ -1,21 +1,56 @@
 import { EntityType, Id, IntegrationId, TaskId, WorkspaceId } from '@common/ids';
-import type { Provider } from '../integrations/types';
+import type { Provider } from '../integrations/shared-types';
 
-export class NotFoundError<T extends EntityType> extends Error {
+// Every error core throws on purpose, with a stable `code` the IPC layer can serialise and the
+// renderer can switch on without parsing messages. Plain data only: this file and the union stay
+// free of main-only imports.
+export type CoreErrorCode =
+  | 'not_found'
+  | 'already_archived'
+  | 'not_archived'
+  | 'external_read_only'
+  | 'detach_failed'
+  | 'integration_auth'
+  | 'integration_already_connected'
+  | 'connect_in_progress'
+  | 'integration_account_mismatch'
+  | 'integration_disabled'
+  | 'rate_limited'
+  | 'sync_page_limit'
+  | 'provider_unavailable'
+  | 'provider_api'
+  | 'change_token_expired'
+  | 'oauth_error'
+  | 'oauth_callback_timeout'
+  | 'invalid_cursor'
+  | 'malformed_note_file'
+  | 'devbrain_folder'
+  | 'workspace_not_open'
+  | 'workspace_migration';
+
+// the base of every error class in core; a new one extends this and adds its code above
+export abstract class CoreError extends Error {
+  abstract readonly code: CoreErrorCode;
+}
+
+export class NotFoundError<T extends EntityType> extends CoreError {
+  readonly code = 'not_found';
   constructor(id: Id<T>) {
     super(`No entity found with id: ${id}`);
     this.name = 'NotFoundError';
   }
 }
 
-export class AlreadyArchivedError<T extends EntityType> extends Error {
+export class AlreadyArchivedError<T extends EntityType> extends CoreError {
+  readonly code = 'already_archived';
   constructor(id: Id<T>) {
     super(`Entity is already archived: ${id}`);
     this.name = 'AlreadyArchivedError';
   }
 }
 
-export class NotArchivedError<T extends EntityType> extends Error {
+export class NotArchivedError<T extends EntityType> extends CoreError {
+  readonly code = 'not_archived';
   constructor(id: Id<T>) {
     super(`Entity is not archived: ${id}`);
     this.name = 'NotArchivedError';
@@ -23,7 +58,8 @@ export class NotArchivedError<T extends EntityType> extends Error {
 }
 
 // a mutation on a row an integration owns (its link is `synced`); detach it first
-export class ExternalReadOnlyError<T extends EntityType> extends Error {
+export class ExternalReadOnlyError<T extends EntityType> extends CoreError {
+  readonly code = 'external_read_only';
   constructor(id: Id<T>) {
     super(`Entity is synced from an integration and is read-only: ${id}`);
     this.name = 'ExternalReadOnlyError';
@@ -32,7 +68,8 @@ export class ExternalReadOnlyError<T extends EntityType> extends Error {
 
 // a task can't be detached or reattached: it is local, already in that state, its integration is
 // gone or off, or its issue no longer resolves. Whatever was asked changed nothing
-export class DetachError extends Error {
+export class DetachError extends CoreError {
+  readonly code = 'detach_failed';
   readonly taskId: TaskId;
 
   constructor(taskId: TaskId, message: string) {
@@ -43,7 +80,8 @@ export class DetachError extends Error {
 }
 
 // credentials rejected, a token refresh failed, or encryption is unavailable at connect
-export class IntegrationAuthError extends Error {
+export class IntegrationAuthError extends CoreError {
+  readonly code = 'integration_auth';
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);
     this.name = 'IntegrationAuthError';
@@ -51,7 +89,8 @@ export class IntegrationAuthError extends Error {
 }
 
 // a connect for an account this workspace already holds; reconnect the existing integration instead
-export class IntegrationAlreadyConnectedError extends Error {
+export class IntegrationAlreadyConnectedError extends CoreError {
+  readonly code = 'integration_already_connected';
   readonly integrationId: IntegrationId;
 
   constructor(provider: Provider, accountLabel: string, integrationId: IntegrationId) {
@@ -62,7 +101,8 @@ export class IntegrationAlreadyConnectedError extends Error {
 }
 
 // a second connect while an OAuth flow is still waiting on the browser; cancel the first one
-export class ConnectInProgressError extends Error {
+export class ConnectInProgressError extends CoreError {
+  readonly code = 'connect_in_progress';
   constructor() {
     super('Another connection is already in progress in this workspace');
     this.name = 'ConnectInProgressError';
@@ -70,7 +110,8 @@ export class ConnectInProgressError extends Error {
 }
 
 // a reconnect whose credentials belong to another account than the integration's; nothing changed
-export class IntegrationAccountMismatchError extends Error {
+export class IntegrationAccountMismatchError extends CoreError {
+  readonly code = 'integration_account_mismatch';
   readonly integrationId: IntegrationId;
 
   constructor(integrationId: IntegrationId, accountLabel: string, otherLabel: string) {
@@ -83,7 +124,8 @@ export class IntegrationAccountMismatchError extends Error {
 }
 
 // switching on a source of a disabled integration; enable the integration instead
-export class IntegrationDisabledError extends Error {
+export class IntegrationDisabledError extends CoreError {
+  readonly code = 'integration_disabled';
   readonly integrationId: IntegrationId;
 
   constructor(integrationId: IntegrationId) {
@@ -94,7 +136,8 @@ export class IntegrationDisabledError extends Error {
 }
 
 // the provider asked us to slow down; the next attempt must wait until `retryAt`
-export class RateLimitError extends Error {
+export class RateLimitError extends CoreError {
+  readonly code = 'rate_limited';
   readonly retryAt: Date;
 
   constructor(retryAt: Date, options?: ErrorOptions) {
@@ -106,7 +149,8 @@ export class RateLimitError extends Error {
 
 // a sync run hit MAX_PAGES_PER_RUN without the provider saying it was done; the pages pulled so far
 // stay committed, and the run fails and backs off like any other failure
-export class SyncPageLimitError extends Error {
+export class SyncPageLimitError extends CoreError {
+  readonly code = 'sync_page_limit';
   constructor(maxPages: number) {
     super(`The provider did not finish within ${maxPages} pages`);
     this.name = 'SyncPageLimitError';
@@ -114,7 +158,8 @@ export class SyncPageLimitError extends Error {
 }
 
 // a network failure, timeout or provider 5xx; the run ends and backs off
-export class ProviderUnavailableError extends Error {
+export class ProviderUnavailableError extends CoreError {
+  readonly code = 'provider_unavailable';
   constructor(message: string, options?: ErrorOptions) {
     super(message, options);
     this.name = 'ProviderUnavailableError';
@@ -131,9 +176,23 @@ export interface WorkspaceMigrationErrorDetails {
   cause?: unknown;
 }
 
+// the DevBrain folder can't be opened: there is none (`missing`), and creating one was not asked
+// for, or what is there is not a DevBrain folder (`invalid`). Nothing at the path was changed
+export class DevBrainFolderError extends CoreError {
+  readonly code = 'devbrain_folder';
+  readonly reason: 'missing' | 'invalid';
+
+  constructor(reason: 'missing' | 'invalid', message: string) {
+    super(message);
+    this.name = 'DevBrainFolderError';
+    this.reason = reason;
+  }
+}
+
 // deleting a workspace that is not the open one; deleting disconnects its integrations, which
 // needs its database open, so open it first
-export class WorkspaceNotOpenError extends Error {
+export class WorkspaceNotOpenError extends CoreError {
+  readonly code = 'workspace_not_open';
   readonly workspaceId: WorkspaceId;
 
   constructor(workspaceId: WorkspaceId) {
@@ -144,7 +203,7 @@ export class WorkspaceNotOpenError extends Error {
 }
 
 /** a workspace's database could not be brought up to date, so the workspace was not opened */
-export class WorkspaceMigrationError extends Error {
+export class WorkspaceMigrationError extends CoreError {
   readonly code = 'workspace_migration';
   readonly committed: boolean;
   readonly restoredFromBackup: boolean;

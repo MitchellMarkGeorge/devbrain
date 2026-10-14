@@ -1,6 +1,6 @@
 import { createServer, IncomingMessage, Server, ServerResponse } from 'node:http';
 import { AddressInfo } from 'node:net';
-import { IntegrationAuthError } from '../../shared/errors';
+import { CoreError, IntegrationAuthError } from '../../shared/errors';
 import { OAUTH_CALLBACK_TIMEOUT_MS } from '../../sync/constants';
 
 // The temporary HTTP listener the browser is redirected to at the end of an OAuth flow. Bound to
@@ -27,7 +27,8 @@ export interface LoopbackListener {
   close(): void;
 }
 
-export class OAuthCallbackTimeoutError extends Error {
+export class OAuthCallbackTimeoutError extends CoreError {
+  readonly code = 'oauth_callback_timeout';
   constructor(timeoutMs: number) {
     super(`No sign-in arrived from the browser within ${Math.round(timeoutMs / 1000)} seconds`);
     this.name = 'OAuthCallbackTimeoutError';

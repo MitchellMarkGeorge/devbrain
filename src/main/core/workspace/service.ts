@@ -171,6 +171,14 @@ export class WorkspaceService {
     return this.open(id);
   }
 
+  /**
+   * Closes the open workspace, if any, once its sync runs have settled, so nothing writes to its
+   * database after this resolves. The app calls it on quit.
+   */
+  async close(): Promise<void> {
+    await this.closeCurrent();
+  }
+
   // closes the current workspace, waiting for its sync runs to settle
   private async closeCurrent(): Promise<void> {
     const current = this.currentWorkspace;

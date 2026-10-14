@@ -1,11 +1,17 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, net, powerMonitor, safeStorage, shell } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { config as loadEnv } from '@dotenvx/dotenvx';
 import log from 'electron-log';
 import os from 'node:os';
+import type { DevBrain } from '@main/core';
+import { createSafeStorageCipher } from './runtime/safe-storage-cipher';
+import { startDevBrain } from './runtime/start';
+import { closeBeforeQuit, forwardSyncTriggers } from './runtime/lifecycle';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// the repository, in development: dist/main is two levels down
+const REPO_ROOT = path.join(__dirname, '../..');
 
 loadExpandedEnv();
 
@@ -13,25 +19,73 @@ loadExpandedEnv();
 // Register handlers here; expose them to the renderer in src/preload/index.ts.
 ipcMain.handle('ping', () => 'pong');
 ipcMain.handle('app:version', () => app.getVersion());
-console.log('hello');
 
 function loadExpandedEnv() {
   loadEnv({
-    path: app.isPackaged
-      ? path.join(process.resourcesPath, '.env')
-      : path.join(__dirname, '../../.env'),
+    path: app.isPackaged ? path.join(process.resourcesPath, '.env') : path.join(REPO_ROOT, '.env'),
   });
 }
 
 function configureLogging() {
   log.initialize();
-  log.info(process.env);
+  // Never log process.env, credentials or auth headers: the environment holds DEV_LINEAR_API_KEY
+  // and GOOGLE_CLIENT_SECRET.
   // handle uncaught errors
   log.errorHandler.startCatching();
   // this path will be gotten from settings like
   // settings.get('data.logPath', process.env.LOG_PATH)
   // TODO: in dev, disable console logging
   log.transports.file.resolvePathFn = () => path.join(os.homedir(), 'devteam', 'logs');
+}
+
+// --- DevBrain -------------------------------------------------------------
+const devBrainLog = log.scope('devbrain');
+
+// The DevBrain folder: in development the one `npm run seed:dev` fills (DEV_PATH, relative to the
+// repository, as the seed script reads it), else DEVBRAIN_PATH or ~/.devbrain.
+function devBrainRootPath(): string {
+  if (!app.isPackaged) return path.resolve(REPO_ROOT, process.env.DEV_PATH ?? '.dev');
+  return process.env.DEVBRAIN_PATH ?? path.join(os.homedir(), '.devbrain');
+}
+
+// Workspace reads the migrations folder from DB_MIGRATIONS_PATH: electron-builder ships it in the
+// app's resources; in development it is the repository's, which .env may give relative to it.
+function setMigrationsPath() {
+  process.env.DB_MIGRATIONS_PATH = app.isPackaged
+    ? path.join(process.resourcesPath, 'migrations')
+    : path.resolve(REPO_ROOT, process.env.DB_MIGRATIONS_PATH ?? 'src/main/db/migrations');
+}
+
+// Must run after `ready`: net.fetch and safeStorage's async API are only usable from then. Null
+// when there is no DevBrain folder in development, or starting failed. Never rejects: a failure is
+// logged, and the window stays up.
+async function startCore(): Promise<DevBrain | null> {
+  setMigrationsPath();
+  try {
+    return await startDevBrain({
+      rootPath: devBrainRootPath(),
+      createIfMissing: app.isPackaged,
+      workspace: {
+        // the key stays in the OS keychain; in development the seed script's dev blobs are read too
+        cipher: createSafeStorageCipher(safeStorage, { readDevBlobs: !app.isPackaged }),
+        // Chromium's network stack: honours the system proxy (PAC files included) and the OS
+        // certificate store, which Node's fetch does not
+        fetch: (url, init) => net.fetch(url, init),
+        openExternal: (url) => shell.openExternal(url),
+      },
+      logger: devBrainLog,
+    });
+  } catch (error) {
+    devBrainLog.error('Starting DevBrain failed', error);
+    return null;
+  }
+}
+
+// Closes the open workspace before the app quits. A quit while starting waits for the start to
+// finish first, so a workspace it is opening is closed too.
+async function closeCore(starting: Promise<DevBrain | null>): Promise<void> {
+  const devBrain = await starting;
+  await devBrain?.close();
 }
 
 // --- Window ---------------------------------------------------------------
@@ -54,7 +108,6 @@ function createWindow() {
   win.on('ready-to-show', () => win.show());
 
   if (process.env.VITE_DEV_SERVER_URL) {
-    console.log(process.env.VITE_DEV_SERVER_URL);
     win.loadURL(process.env.VITE_DEV_SERVER_URL);
     win.webContents.openDevTools({ mode: 'detach' });
   } else {
@@ -63,13 +116,20 @@ function createWindow() {
 }
 
 // --- App lifecycle --------------------------------------------------------
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   configureLogging();
   createWindow();
-
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+
+  const starting = startCore();
+  closeBeforeQuit(app, () => closeCore(starting), devBrainLog);
+
+  const devBrain = await starting;
+  if (devBrain === null) return;
+  // window focus and system resume sync the workspace open at the time, if any
+  forwardSyncTriggers({ app, powerMonitor }, devBrain, devBrainLog);
 });
 
 app.on('window-all-closed', () => {
