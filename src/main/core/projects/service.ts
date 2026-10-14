@@ -19,9 +19,23 @@ import { tasks } from '@main/db/schema/tasks';
 import { TaskStatus } from '../tasks/types';
 import { assertEditable, hasLinkInState, withRef, withRefs } from '../integrations/refs';
 import { LinkState } from '../integrations/types';
+import { ChangeListener, ChangeListeners } from '../shared/changes';
+
+// What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
+// layer will forward them to the renderer. Sent after the write commits, with the row as written.
+export type ProjectChange =
+  | { type: 'created'; project: Project }
+  | { type: 'updated'; project: Project };
 
 export class ProjectService {
+  private readonly changes = new ChangeListeners<ProjectChange>('project');
+
   constructor(private readonly db: BetterSQLite3Database) {}
+
+  // returns a function that unsubscribes the listener
+  onChange(listener: ChangeListener<ProjectChange>): () => void {
+    return this.changes.add(listener);
+  }
 
   async getById(id: ProjectId): Promise<Project> {
     const [row] = await this.activeProjects(eq(projects.id, id)).limit(1);
@@ -44,6 +58,7 @@ export class ProjectService {
       completedAt: options.status === ProjectStatus.COMPLETED ? new Date() : null,
     };
     const [project] = await this.db.insert(projects).values(newProject).returning();
+    this.changes.emit({ type: 'created', project });
     return project;
   }
 
@@ -54,7 +69,9 @@ export class ProjectService {
       .set(updates)
       .where(eq(projects.id, id))
       .returning();
-    return updatedProject ?? null;
+    if (!updatedProject) return null;
+    this.changes.emit({ type: 'updated', project: updatedProject });
+    return updatedProject;
   }
 
   async updateStatus(id: ProjectId, newStatus: ProjectStatus): Promise<Project> {
@@ -69,6 +86,7 @@ export class ProjectService {
       })
       .where(eq(projects.id, id))
       .returning();
+    if (row) this.changes.emit({ type: 'updated', project: row });
 
     return row;
   }

@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { generateId } from '@common/ids';
-import { ProjectService } from '../../projects/service';
+import { ProjectChange, ProjectService } from '../../projects/service';
 import { TaskService } from '../../tasks/service';
 import { ArchiveService } from '../../archive/service';
 import { NoteService } from '../../notes/service';
@@ -1021,5 +1021,34 @@ describe('ProjectService — undated projects', () => {
     const stats = await projects.getProjectStats(project.id);
     expect(stats.numOfOverdue).toBe(1);
     expect(stats.totalTasks).toBe(2);
+  });
+});
+
+describe('ProjectService — onChange', () => {
+  it('sends every write with the row as written', async () => {
+    const changes: ProjectChange[] = [];
+    projects.onChange((change) => changes.push(change));
+
+    const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
+    await projects.updateProject(project.id, { title: 'Renamed' });
+    await projects.updateStatus(project.id, ProjectStatus.ACTIVE);
+
+    expect(changes).toEqual([
+      { type: 'created', project: expect.objectContaining({ id: project.id, title: 'Project' }) },
+      { type: 'updated', project: expect.objectContaining({ id: project.id, title: 'Renamed' }) },
+      {
+        type: 'updated',
+        project: expect.objectContaining({ id: project.id, status: ProjectStatus.ACTIVE }),
+      },
+    ]);
+  });
+
+  it('sends nothing for a write that changed no row', async () => {
+    const listener = vi.fn();
+    projects.onChange(listener);
+
+    await projects.updateProject(generateId('project'), { title: 'Missing' });
+
+    expect(listener).not.toHaveBeenCalled();
   });
 });

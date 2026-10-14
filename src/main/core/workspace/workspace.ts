@@ -34,6 +34,10 @@ export class Workspace {
   // syncNow, getStatus and onProgress for the app; trigger for focus and resume. Started by
   // WorkspaceService.open, stopped by close()
   readonly sync: SyncScheduler;
+  // A note's body is read from its file, so it is indexed after the write returns. Indexing runs one
+  // note at a time, in write order, so an older read never lands after a newer one; close() waits
+  // for it.
+  private noteIndexing: Promise<void> = Promise.resolve();
 
   private constructor(
     private readonly db: BetterSQLite3Database,
@@ -48,6 +52,14 @@ export class Workspace {
     this.calendars = new CalendarService(db);
     this.archive = new ArchiveService(db);
     this.search = new SearchService(db, info.path);
+    // the user's own writes; SyncWriter indexes what sync writes
+    this.tasks.onChange(({ task }) => this.search.indexTask(task));
+    this.projects.onChange(({ project }) => this.search.indexProject(project));
+    this.notes.onChange(({ note }) => {
+      this.noteIndexing = this.noteIndexing
+        .then(() => this.search.indexNote(note))
+        .catch((error) => console.error(`Indexing note ${note.id} failed:`, error));
+    });
     const { credentials, integrations, providers } = createIntegrationServices(db, options);
     this.integrations = integrations;
     // a disconnect deletes mirrored rows; they leave search in its transaction, all or nothing
@@ -153,11 +165,12 @@ export class Workspace {
   }
 
   /**
-   * Stops syncing, waiting for any run in flight to settle, then closes SQLite, so no run writes to
-   * a closed database. Calling it again does nothing.
+   * Stops syncing, waiting for any run in flight to settle, and waits for notes still being
+   * indexed, then closes SQLite, so nothing writes to a closed database. Calling it again does nothing.
    */
   async close(): Promise<void> {
     await this.sync.stop();
+    await this.noteIndexing;
     this.sqliteClient.close();
   }
 }
