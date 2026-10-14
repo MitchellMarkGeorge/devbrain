@@ -179,7 +179,9 @@ export class SyncScheduler {
     if (this.tickInterval !== null) this.timers.clearInterval(this.tickInterval);
     this.tickInterval = null;
     for (const run of this.currentRuns.values()) run.controller.abort();
-    await Promise.all([...this.unsettledRuns]);
+    // Every run must settle before stop() resolves, since close() then closes SQLite. allSettled,
+    // not all: a run that rejected must not end the wait while the others are still going.
+    await Promise.allSettled([...this.unsettledRuns]);
   }
 
   /**
