@@ -244,6 +244,23 @@ describe('SyncScheduler — start', () => {
     expect(list).not.toHaveBeenCalled();
   });
 
+  it("a listener added after the caller's own awaits still sees a first run that fails at once", async () => {
+    // the run fails without waiting on anything, as with credentials that fail to decrypt
+    engine.outcome = SyncRunOutcome.FAILED;
+    scheduler.start();
+
+    // the caller carries on through awaits that need no I/O before it subscribes, e.g. reading the
+    // integration list; without the deferral the failure is reported during these and missed
+    await service.list();
+    for (let step = 0; step < 20; step++) await Promise.resolve();
+    const errors: (string | null)[] = [];
+    syncState.onChange((change) => errors.push(change.source.lastError));
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(engine.runs()).toHaveLength(1);
+    expect(errors).toEqual(['down']);
+  });
+
   it('a second start while started does nothing', async () => {
     await start();
     scheduler.start();

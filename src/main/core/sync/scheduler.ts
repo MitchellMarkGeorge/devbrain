@@ -126,9 +126,21 @@ export class SyncScheduler {
 
   /**
    * Syncs every enabled source once, with the reconcile pass, then every INCREMENTAL_INTERVAL_MS,
-   * reconciling every RECONCILE_INTERVAL_MS. The first pass starts on the next turn of the event
-   * loop, so start() returns at once and a stop() straight after it sends nothing. Calling it again
-   * while started does nothing.
+   * reconciling every RECONCILE_INTERVAL_MS. Calling it again while started does nothing.
+   *
+   * start() itself only subscribes and arms timers; the first pass (the "open pass") begins on the
+   * next turn of the event loop, through setImmediate. Correctness does not depend on this: stop()
+   * aborts and waits for every run, so nothing writes after it whenever it lands. The deferral is
+   * for the caller, typically WorkspaceService.open and then whatever opened the workspace:
+   *
+   * - The caller finishes its own promise-chained work first. A listener it adds after further
+   *   awaits that need no I/O (e.g. after reading the integration list) still sees every event of
+   *   the open pass. Without the deferral, a run that fails without waiting on the network (e.g.
+   *   credentials that fail to decrypt) reports its failure a few promise steps after start(),
+   *   and such a listener misses it. An await that waits on I/O lets the pass run first either
+   *   way, so listeners should be added before any such await.
+   * - A stop() straight after start() cancels the pass before it does anything: no listing, no
+   *   decrypting, no request started and then aborted.
    */
   start(): void {
     if (this.isStarted) return;
@@ -136,6 +148,7 @@ export class SyncScheduler {
     this.unsubscribeFromChanges = this.integrations.onChange((change) =>
       this.handleIntegrationChange(change),
     );
+    // deferred to the next turn of the event loop; see above
     this.pendingOpenPass = this.timers.setImmediate(() => {
       this.pendingOpenPass = null;
       void this.forEachSyncableSource((sourceId) => void this.requestRun(sourceId, true));
