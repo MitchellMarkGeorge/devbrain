@@ -5,13 +5,13 @@ import path from 'node:path';
 import type { WorkspaceId } from '@common/ids';
 import { MIGRATIONS_PATH } from '@main/core/tests/utils';
 
-vi.mock('electron-store', () => import('@main/core/tests/__mocks__/electron-store'));
+vi.mock('electron-store', () => import('./__mocks__/file-store'));
 
 import { DevBrain, openDevBrain } from '@main/core';
-import { pickWorkspace, startDevBrain } from '../../runtime/start';
+import { lastOpenedWorkspace, startDevBrain } from '../../runtime/start';
 
-// Which DevBrain folder and workspace the app opens at start. electron-store is mocked, so
-// settings live in memory: each test builds the folder and starts DevBrain on it within the test.
+// Which DevBrain folder and workspace the app opens at start. electron-store is replaced with a
+// store kept in the folder's settings.json, so a setting one DevBrain writes is read at the next start.
 
 let tmpDir: string;
 let rootPath: string;
@@ -29,8 +29,6 @@ async function folderWith(...names: string[]): Promise<{ devBrain: DevBrain; ids
     const workspace = await devBrain.workspaces.create({ name, color: '#000000' });
     await workspace.close();
     ids.push(workspace.info.id);
-    // createdAt orders the workspaces; keep them apart
-    await new Promise((resolve) => setTimeout(resolve, 2));
   }
   return { devBrain, ids };
 }
@@ -93,21 +91,42 @@ describe('startDevBrain — the folder', () => {
 });
 
 describe('startDevBrain — the workspace', () => {
-  it('opens the oldest workspace when none was opened before, starts syncing it and remembers it', async () => {
-    const { ids } = await folderWith('First', 'Second');
+  it('reopens the workspace open last time, which starts syncing', async () => {
+    const { devBrain, ids } = await folderWith('First', 'Last');
+    devBrain.settings.set('state.lastWorkspaceId', ids[1]);
     started = await startDevBrain({
       rootPath,
       createIfMissing: false,
       workspace: {},
       logger: quietLogger(),
     });
-    expect(started!.currentWorkspace?.info.id).toBe(ids[0]);
+    expect(started!.currentWorkspace?.info.id).toBe(ids[1]);
     expect(await started!.currentWorkspace!.sync.getStatus()).toEqual([]);
-    expect(started!.settings.get('state.lastWorkspaceId')).toBe(ids[0]);
+  });
+
+  it('opens none when none was open last time, leaving the choice to the user', async () => {
+    await folderWith('First', 'Second');
+    const logger = quietLogger();
+    started = await startDevBrain({ rootPath, createIfMissing: false, workspace: {}, logger });
+    expect(started!.currentWorkspace).toBeNull();
+    expect(logger.info).toHaveBeenCalledWith('No workspace was open last time; none opened');
+  });
+
+  it('opens none when the last workspace has been deleted since', async () => {
+    const { devBrain } = await folderWith('First');
+    devBrain.settings.set('state.lastWorkspaceId', 'wsp_gone');
+    started = await startDevBrain({
+      rootPath,
+      createIfMissing: false,
+      workspace: {},
+      logger: quietLogger(),
+    });
+    expect(started!.currentWorkspace).toBeNull();
   });
 
   it('logs a workspace that fails to open and leaves none open', async () => {
     const { devBrain, ids } = await folderWith('Dev');
+    devBrain.settings.set('state.lastWorkspaceId', ids[0]);
     await fs.rm(devBrain.workspaces.getById(ids[0]).path, { recursive: true });
     const logger = quietLogger();
     started = await startDevBrain({ rootPath, createIfMissing: false, workspace: {}, logger });
@@ -116,21 +135,15 @@ describe('startDevBrain — the workspace', () => {
   });
 });
 
-describe('pickWorkspace', () => {
-  it('picks the last workspace opened, while it is still registered', async () => {
+describe('lastOpenedWorkspace', () => {
+  it('is the last workspace opened, while it is still registered', async () => {
     const { devBrain, ids } = await folderWith('First', 'Last');
+    expect(lastOpenedWorkspace(devBrain)).toBeNull();
+
     devBrain.settings.set('state.lastWorkspaceId', ids[1]);
-    expect(pickWorkspace(devBrain)).toBe(ids[1]);
+    expect(lastOpenedWorkspace(devBrain)).toBe(ids[1]);
 
     devBrain.settings.set('state.lastWorkspaceId', 'wsp_gone');
-    expect(pickWorkspace(devBrain)).toBe(ids[0]);
-  });
-
-  it('else the oldest, else none', async () => {
-    const { devBrain, ids } = await folderWith('First', 'Second');
-    expect(pickWorkspace(devBrain)).toBe(ids[0]);
-
-    const empty = await openDevBrain({ path: path.join(tmpDir, 'empty'), createIfMissing: true });
-    expect(pickWorkspace(empty)).toBeNull();
+    expect(lastOpenedWorkspace(devBrain)).toBeNull();
   });
 });

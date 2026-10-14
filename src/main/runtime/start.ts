@@ -15,9 +15,10 @@ export interface StartDevBrainOptions {
 }
 
 /**
- * Loads the DevBrain folder and opens a workspace, which starts syncing it. Returns null when there
- * is no folder and none is to be created. Throws when the folder is invalid. A workspace that fails
- * to open (e.g. a failed migration) is logged and leaves DevBrain with none open.
+ * Opens the DevBrain folder and, when the workspace open last time is still registered, that
+ * workspace, which starts syncing it. Otherwise no workspace is opened: the user picks one. Returns
+ * null when there is no folder and none is to be created. Throws when the folder is invalid. A
+ * workspace that fails to open (e.g. a failed migration) is logged and leaves none open.
  */
 export async function startDevBrain(options: StartDevBrainOptions): Promise<DevBrain | null> {
   const { rootPath, logger } = options;
@@ -34,14 +35,13 @@ export async function startDevBrain(options: StartDevBrainOptions): Promise<DevB
     return null;
   }
 
-  const id = pickWorkspace(devBrain);
+  const id = lastOpenedWorkspace(devBrain);
   if (id === null) {
-    logger.info(`No workspace to open in ${rootPath}`);
+    logger.info('No workspace was open last time; none opened');
     return devBrain;
   }
   try {
     const workspace = await devBrain.workspaces.open(id);
-    devBrain.settings.set('state.lastWorkspaceId', id);
     logger.info(`Opened workspace ${workspace.info.id}`);
   } catch (error) {
     const name = error instanceof Error ? error.name : typeof error;
@@ -51,18 +51,16 @@ export async function startDevBrain(options: StartDevBrainOptions): Promise<DevB
 }
 
 /**
- * The workspace to open at start: the last one opened, if it is still registered; else the oldest.
- * Null when there are none. A seeded dev folder records its workspace as the last one opened.
+ * The workspace open last time, from `state.lastWorkspaceId`, while it is still registered. Null
+ * when none was recorded or it has been deleted since.
  */
-export function pickWorkspace(devBrain: DevBrain): WorkspaceId | null {
-  const workspaces = devBrain.workspaces;
+export function lastOpenedWorkspace(devBrain: DevBrain): WorkspaceId | null {
   const lastId = devBrain.settings.get('state.lastWorkspaceId') as WorkspaceId | null;
-  if (lastId !== null) {
-    try {
-      return workspaces.getById(lastId).id;
-    } catch {
-      // deleted since, or from another DevBrain folder
-    }
+  if (lastId === null) return null;
+  try {
+    return devBrain.workspaces.getById(lastId).id;
+  } catch {
+    // deleted since, or from another DevBrain folder
+    return null;
   }
-  return workspaces.listAll({ limit: 1 }).items[0]?.id ?? null;
 }
