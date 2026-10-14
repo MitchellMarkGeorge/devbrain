@@ -461,7 +461,7 @@ export class IntegrationService implements BaseIntegrationService {
    * Reads only; uses the same plan as disconnect, so the two agree.
    */
   async previewDisconnect(id: IntegrationId): Promise<DisconnectCounts> {
-    this.assertExists(id);
+    await this.getById(id);
     return countPlan(planDisconnect(this.db, id, { keepLocalCopies: false }));
   }
 
@@ -480,8 +480,8 @@ export class IntegrationService implements BaseIntegrationService {
    *    can meet the revoked token. Best effort: a failure never undoes the disconnect.
    */
   async disconnect(id: IntegrationId, options: DisconnectOptions): Promise<DisconnectResult> {
-    const { provider } = this.rowOf(id);
-    const sourceIds = this.sourceIdsOf(id);
+    const { provider, sources } = await this.getById(id);
+    const sourceIds = sources.map((source) => source.id);
 
     // 1.
     const revoke = await this.prepareRevoke(id, provider);
@@ -547,16 +547,6 @@ export class IntegrationService implements BaseIntegrationService {
     }
   }
 
-  private assertExists(id: IntegrationId): void {
-    this.rowOf(id);
-  }
-
-  private rowOf(id: IntegrationId): IntegrationRow {
-    const row = this.db.select().from(integrations).where(eq(integrations.id, id)).get();
-    if (!row) throw new NotFoundError(id);
-    return row;
-  }
-
   /**
    * The revocation of the integration's grant, read before disconnect deletes the credentials; see
    * CredentialStore.prepareRevoke. Only a provider that connects through OAuth has a grant to
@@ -569,17 +559,6 @@ export class IntegrationService implements BaseIntegrationService {
     const config = getProvider(this.providers, providerId).oauth;
     if (!config || !this.oauth) return null;
     return this.credentials.prepareRevoke(id, this.oauth, config);
-  }
-
-  // the integration's source ids; throws NotFoundError for an unknown integration
-  private sourceIdsOf(id: IntegrationId): ExternalSourceId[] {
-    this.assertExists(id);
-    return this.db
-      .select({ id: externalSources.id })
-      .from(externalSources)
-      .where(eq(externalSources.integrationId, id))
-      .all()
-      .map((source) => source.id);
   }
 
   private assertNotConnected(provider: Provider, accountId: string, accountLabel: string): void {
