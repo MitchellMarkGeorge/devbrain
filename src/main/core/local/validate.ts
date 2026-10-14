@@ -1,8 +1,25 @@
 import fs from 'fs/promises';
 import path from 'node:path';
+import { isJunk } from 'junk';
 import { isErrnoException, isNotFound } from './utils';
 import { settingsFileSchema } from '../settings/schema';
 import { workspaceRegistrySchema } from '../workspace/schema';
+
+// What is at a DevBrain folder's path: nothing, an empty directory (junk files such as .DS_Store
+// aside), or something else, which only validation can tell apart from a DevBrain folder.
+export type DevBrainFolderState = 'missing' | 'empty' | 'present';
+
+export async function devBrainFolderState(rootPath: string): Promise<DevBrainFolderState> {
+  let entries: string[];
+  try {
+    entries = await fs.readdir(rootPath);
+  } catch (error) {
+    if (isNotFound(error)) return 'missing';
+    // not a directory, or unreadable: validation says which
+    return 'present';
+  }
+  return entries.every(isJunk) ? 'empty' : 'present';
+}
 
 export type ValidationResult = { valid: true } | { valid: false; error: string };
 

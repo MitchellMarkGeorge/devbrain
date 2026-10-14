@@ -1,13 +1,13 @@
 import type { WorkspaceId } from '@common/ids';
-import { DevBrain, initDevBrain, loadDevBrain, type WorkspaceOptions } from '@main/core';
-import { directoryExists } from '@main/core/local/utils';
+import { DevBrain, openDevBrain, type WorkspaceOptions } from '@main/core';
+import { DevBrainFolderError } from '@main/core/shared/errors';
 import type { SyncLogger } from '@main/core/sync/types';
 
 export interface StartDevBrainOptions {
   // the DevBrain folder: settings.json, workspaces.json and the workspaces
   rootPath: string;
-  // Creates an empty DevBrain folder when there is none, as on the packaged app's first run. Off
-  // in development, where the folder comes from `npm run seed:dev`.
+  // Creates a DevBrain folder when there is none (or only an empty directory), as on the packaged
+  // app's first run. Off in development, where the folder comes from `npm run seed:dev`.
   createIfMissing: boolean;
   // the workspace to open when the last one opened is unknown: in development, the seeded one
   preferredWorkspaceName?: string;
@@ -24,11 +24,14 @@ export interface StartDevBrainOptions {
 export async function startDevBrain(options: StartDevBrainOptions): Promise<DevBrain | null> {
   const { rootPath, logger } = options;
   let devBrain: DevBrain;
-  if (await directoryExists(rootPath)) {
-    devBrain = await loadDevBrain({ path: rootPath, workspace: options.workspace });
-  } else if (options.createIfMissing) {
-    devBrain = await initDevBrain({ path: rootPath, workspace: options.workspace });
-  } else {
+  try {
+    devBrain = await openDevBrain({
+      path: rootPath,
+      createIfMissing: options.createIfMissing,
+      workspace: options.workspace,
+    });
+  } catch (error) {
+    if (!(error instanceof DevBrainFolderError && error.reason === 'missing')) throw error;
     logger.warn(`No DevBrain folder at ${rootPath}; run \`npm run seed:dev\` to create one`);
     return null;
   }

@@ -9,6 +9,7 @@ import {
   CoreError,
   CoreErrorCode,
   DetachError,
+  DevBrainFolderError,
   ExternalReadOnlyError,
   IntegrationAccountMismatchError,
   IntegrationAlreadyConnectedError,
@@ -65,6 +66,7 @@ const errors: [CoreError, CoreErrorCode][] = [
   [new OAuthCallbackTimeoutError(300_000), 'oauth_callback_timeout'],
   [new InvalidCursorError(), 'invalid_cursor'],
   [new MalformedNoteFileError('/notes/a.md', null), 'malformed_note_file'],
+  [new DevBrainFolderError('missing', 'No DevBrain folder'), 'devbrain_folder'],
   [new WorkspaceNotOpenError('wsp_1' as WorkspaceId), 'workspace_not_open'],
   [
     new WorkspaceMigrationError('Failed', {

@@ -41,7 +41,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { config as loadEnvFile } from '@dotenvx/dotenvx';
-import { initDevBrain } from '@main/core';
+import { openDevBrain } from '@main/core';
 import { devCipher } from '@main/runtime/dev-cipher';
 import { Provider } from '@main/core/integrations/types';
 import type { Workspace } from '@main/core/workspace/workspace';
@@ -993,9 +993,11 @@ async function main() {
 
   console.log(`Seeding dev workspace at ${ROOT_PATH}${RESET ? ' (--reset)' : ''} [seed=${SEED}]`);
 
-  const devBrain = await initDevBrain({
+  // --reset wipes the folder here: opening a DevBrain folder never deletes anything
+  if (alreadyExists) await fs.rm(ROOT_PATH, { recursive: true, force: true });
+  const devBrain = await openDevBrain({
     path: ROOT_PATH,
-    overwrite: RESET,
+    createIfMissing: true,
     workspace: { cipher: devCipher, fetch },
   });
   const workspace = await devBrain.workspaces.create({

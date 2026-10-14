@@ -24,6 +24,7 @@ export type CoreErrorCode =
   | 'oauth_callback_timeout'
   | 'invalid_cursor'
   | 'malformed_note_file'
+  | 'devbrain_folder'
   | 'workspace_not_open'
   | 'workspace_migration';
 
@@ -173,6 +174,19 @@ export interface WorkspaceMigrationErrorDetails {
   /** where that backup is, when one was taken */
   backupPath: string | null;
   cause?: unknown;
+}
+
+// the DevBrain folder can't be opened: there is none (`missing`), and creating one was not asked
+// for, or what is there is not a DevBrain folder (`invalid`). Nothing at the path was changed
+export class DevBrainFolderError extends CoreError {
+  readonly code = 'devbrain_folder';
+  readonly reason: 'missing' | 'invalid';
+
+  constructor(reason: 'missing' | 'invalid', message: string) {
+    super(message);
+    this.name = 'DevBrainFolderError';
+    this.reason = reason;
+  }
 }
 
 // deleting a workspace that is not the open one; deleting disconnects its integrations, which

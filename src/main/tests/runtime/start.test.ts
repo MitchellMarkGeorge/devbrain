@@ -7,7 +7,7 @@ import { MIGRATIONS_PATH } from '@main/core/tests/utils';
 
 vi.mock('electron-store', () => import('@main/core/tests/__mocks__/electron-store'));
 
-import { DevBrain, initDevBrain } from '@main/core';
+import { DevBrain, openDevBrain } from '@main/core';
 import { pickWorkspace, startDevBrain } from '../../runtime/start';
 
 // Which DevBrain folder and workspace the app opens at start. electron-store is mocked, so
@@ -23,7 +23,7 @@ function quietLogger() {
 
 // a DevBrain folder with these workspaces, created in order and closed
 async function folderWith(...names: string[]): Promise<{ devBrain: DevBrain; ids: WorkspaceId[] }> {
-  const devBrain = await initDevBrain({ path: rootPath });
+  const devBrain = await openDevBrain({ path: rootPath, createIfMissing: true });
   const ids: WorkspaceId[] = [];
   for (const name of names) {
     const workspace = await devBrain.workspaces.create({ name, color: '#000000' });
@@ -71,11 +71,24 @@ describe('startDevBrain — the folder', () => {
     expect((await fs.stat(path.join(rootPath, 'workspaces.json'))).isFile()).toBe(true);
   });
 
-  it('throws for a folder that is not a DevBrain folder', async () => {
+  it('creates one in an empty directory', async () => {
     await fs.mkdir(rootPath);
+    started = await startDevBrain({
+      rootPath,
+      createIfMissing: true,
+      workspace: {},
+      logger: quietLogger(),
+    });
+    expect(started!.workspaces.listAll().items).toEqual([]);
+  });
+
+  it('throws for a folder that is not a DevBrain folder, changing nothing', async () => {
+    await fs.mkdir(rootPath);
+    await fs.writeFile(path.join(rootPath, 'notes.txt'), 'mine');
     await expect(
       startDevBrain({ rootPath, createIfMissing: true, workspace: {}, logger: quietLogger() }),
     ).rejects.toThrow('settings.json');
+    expect(await fs.readdir(rootPath)).toEqual(['notes.txt']);
   });
 });
 
@@ -120,7 +133,7 @@ describe('pickWorkspace', () => {
     expect(pickWorkspace(devBrain, 'Missing')).toBe(ids[0]);
     expect(pickWorkspace(devBrain)).toBe(ids[0]);
 
-    const empty = await initDevBrain({ path: path.join(tmpDir, 'empty') });
+    const empty = await openDevBrain({ path: path.join(tmpDir, 'empty'), createIfMissing: true });
     expect(pickWorkspace(empty)).toBeNull();
   });
 });

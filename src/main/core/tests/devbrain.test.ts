@@ -17,7 +17,7 @@ import { SyncProgress } from '../sync/types';
 
 vi.mock('electron-store', () => import('./__mocks__/electron-store'));
 
-import { DevBrain, initDevBrain } from '../index';
+import { DevBrain, openDevBrain } from '../index';
 
 // DevBrain as the main process runs it: one DevBrain over a folder, with the cipher, fetch and
 // providers passed in, opening a workspace that syncs. Everything Electron is a fake here, and
@@ -55,8 +55,9 @@ function issue(overrides: Partial<ExternalTask> = {}): ExternalTask {
 
 // a DevBrain over a fresh folder whose workspaces sync through `provider`
 async function devBrainWith(provider: FakeProvider): Promise<DevBrain> {
-  return initDevBrain({
+  return openDevBrain({
     path: path.join(tmpDir, 'brain'),
+    createIfMissing: true,
     workspace: { cipher: new FakeCipher(), providers: fakeRegistry(provider) },
   });
 }
@@ -106,8 +107,9 @@ describe('DevBrain — connect, sync and close', () => {
       { body: page1Fixture },
       { body: page2Fixture },
     ]);
-    devBrain = await initDevBrain({
+    devBrain = await openDevBrain({
       path: path.join(tmpDir, 'brain'),
+      createIfMissing: true,
       workspace: { cipher: new FakeCipher(), fetch },
     });
     const { id } = await createWorkspace('Work');

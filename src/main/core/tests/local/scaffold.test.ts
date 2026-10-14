@@ -22,30 +22,30 @@ afterEach(async () => {
 describe('scaffoldDevBrain', () => {
   describe('directory creation', () => {
     it('creates the root directory', async () => {
-      await scaffoldDevBrain(dir, false);
+      await scaffoldDevBrain(dir);
       expect(await directoryExists(dir)).toBe(true);
     });
 
     it('creates parent directories if they do not exist', async () => {
       const deepDir = path.join(dir, 'a', 'b', 'c');
-      await scaffoldDevBrain(deepDir, false);
+      await scaffoldDevBrain(deepDir);
       expect(await directoryExists(deepDir)).toBe(true);
     });
   });
 
   describe('file creation', () => {
     it('creates settings.json', async () => {
-      await scaffoldDevBrain(dir, false);
+      await scaffoldDevBrain(dir);
       expect(await fileExists(path.join(dir, 'settings.json'))).toBe(true);
     });
 
     it('creates workspaces.json', async () => {
-      await scaffoldDevBrain(dir, false);
+      await scaffoldDevBrain(dir);
       expect(await fileExists(path.join(dir, 'workspaces.json'))).toBe(true);
     });
 
     it('creates only settings.json and workspaces.json at the root', async () => {
-      await scaffoldDevBrain(dir, false);
+      await scaffoldDevBrain(dir);
       const entries = await fs.readdir(dir);
       expect(entries.sort()).toEqual(['settings.json', 'workspaces.json']);
     });
@@ -53,20 +53,20 @@ describe('scaffoldDevBrain', () => {
 
   describe('settings.json content', () => {
     it('writes valid JSON to settings.json', async () => {
-      await scaffoldDevBrain(dir, false);
+      await scaffoldDevBrain(dir);
       const raw = await fs.readFile(path.join(dir, 'settings.json'), 'utf8');
       expect(() => JSON.parse(raw)).not.toThrow();
     });
 
     it('writes a settings file that passes settingsFileSchema validation', async () => {
-      await scaffoldDevBrain(dir, false);
+      await scaffoldDevBrain(dir);
       const raw = await fs.readFile(path.join(dir, 'settings.json'), 'utf8');
       const parsed = JSON.parse(raw);
       expect(settingsFileSchema.safeParse(parsed).success).toBe(true);
     });
 
     it('settings.json includes a state object with null values', async () => {
-      await scaffoldDevBrain(dir, false);
+      await scaffoldDevBrain(dir);
       const raw = await fs.readFile(path.join(dir, 'settings.json'), 'utf8');
       const parsed = JSON.parse(raw);
       expect(parsed.state.lastPage).toBeNull();
@@ -76,52 +76,44 @@ describe('scaffoldDevBrain', () => {
 
   describe('workspaces.json content', () => {
     it('writes valid JSON to workspaces.json', async () => {
-      await scaffoldDevBrain(dir, false);
+      await scaffoldDevBrain(dir);
       const raw = await fs.readFile(path.join(dir, 'workspaces.json'), 'utf8');
       expect(() => JSON.parse(raw)).not.toThrow();
     });
 
     it('writes an empty registry to workspaces.json', async () => {
-      await scaffoldDevBrain(dir, false);
+      await scaffoldDevBrain(dir);
       const raw = await fs.readFile(path.join(dir, 'workspaces.json'), 'utf8');
       expect(JSON.parse(raw)).toEqual({});
     });
 
     it('workspaces.json passes workspaceRegistrySchema validation', async () => {
-      await scaffoldDevBrain(dir, false);
+      await scaffoldDevBrain(dir);
       const raw = await fs.readFile(path.join(dir, 'workspaces.json'), 'utf8');
       const parsed = JSON.parse(raw);
       expect(workspaceRegistrySchema.safeParse(parsed).success).toBe(true);
     });
   });
 
-  describe('overwrite behaviour', () => {
-    it('throws when directory exists and overwrite is false', async () => {
+  describe('existing contents', () => {
+    it('scaffolds into an existing empty directory', async () => {
       await fs.mkdir(dir, { recursive: true });
-      await expect(scaffoldDevBrain(dir, false)).rejects.toThrow(/already exists/);
+      await scaffoldDevBrain(dir);
+      expect((await fs.readdir(dir)).sort()).toEqual(['settings.json', 'workspaces.json']);
     });
 
-    it('does not throw when directory exists and overwrite is true', async () => {
-      await scaffoldDevBrain(dir, false);
-      await expect(scaffoldDevBrain(dir, true)).resolves.toBeUndefined();
+    it('never overwrites: an existing settings.json makes it throw and stays as it was', async () => {
+      await fs.mkdir(dir, { recursive: true });
+      await fs.writeFile(path.join(dir, 'settings.json'), 'mine');
+      await expect(scaffoldDevBrain(dir)).rejects.toThrow(/EEXIST/);
+      expect(await fs.readFile(path.join(dir, 'settings.json'), 'utf8')).toBe('mine');
     });
 
-    it('overwrites existing directory when overwrite is true', async () => {
-      await scaffoldDevBrain(dir, false);
-      // Write a sentinel file that should be erased on overwrite
-      await fs.writeFile(path.join(dir, 'sentinel.txt'), 'old');
-      await scaffoldDevBrain(dir, true);
-      expect(await fileExists(path.join(dir, 'sentinel.txt'))).toBe(false);
-      expect(await fileExists(path.join(dir, 'settings.json'))).toBe(true);
-    });
-
-    it('fresh scaffold after overwrite still produces a valid settings file', async () => {
-      await scaffoldDevBrain(dir, false);
-      // Corrupt the settings file
-      await fs.writeFile(path.join(dir, 'settings.json'), 'corrupted');
-      await scaffoldDevBrain(dir, true);
-      const raw = await fs.readFile(path.join(dir, 'settings.json'), 'utf8');
-      expect(settingsFileSchema.safeParse(JSON.parse(raw)).success).toBe(true);
+    it('never overwrites a scaffolded folder', async () => {
+      await scaffoldDevBrain(dir);
+      await fs.writeFile(path.join(dir, 'workspaces.json'), '{"kept":true}');
+      await expect(scaffoldDevBrain(dir)).rejects.toThrow(/EEXIST/);
+      expect(await fs.readFile(path.join(dir, 'workspaces.json'), 'utf8')).toBe('{"kept":true}');
     });
   });
 });

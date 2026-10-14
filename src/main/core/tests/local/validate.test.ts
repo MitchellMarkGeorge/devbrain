@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { validateDevBrainFolderStructure } from '../../local/validate';
+import { devBrainFolderState, validateDevBrainFolderStructure } from '../../local/validate';
 import { TaskPriority } from '../../tasks/types';
 import type { WorkspaceId } from '@common/ids';
 
@@ -177,5 +177,35 @@ describe('validateDevBrainFolderStructure', () => {
       const result = await validateDevBrainFolderStructure(rootPath);
       expect(result).toMatchObject({ valid: false });
     });
+  });
+});
+
+describe('devBrainFolderState', () => {
+  // beside the valid folder every test starts with
+  let folder: string;
+  beforeEach(() => {
+    folder = path.join(tmpDir, 'other');
+  });
+
+  it('is missing when nothing is at the path', async () => {
+    expect(await devBrainFolderState(folder)).toBe('missing');
+  });
+
+  it('is empty for a directory with nothing in it, or junk files only', async () => {
+    await fs.mkdir(folder);
+    expect(await devBrainFolderState(folder)).toBe('empty');
+    await fs.writeFile(path.join(folder, '.DS_Store'), '');
+    expect(await devBrainFolderState(folder)).toBe('empty');
+  });
+
+  it('is present for a directory holding anything else', async () => {
+    await fs.mkdir(folder);
+    await fs.writeFile(path.join(folder, 'notes.txt'), 'mine');
+    expect(await devBrainFolderState(folder)).toBe('present');
+  });
+
+  it('is present for a file, which validation then refuses', async () => {
+    await fs.writeFile(folder, 'content');
+    expect(await devBrainFolderState(folder)).toBe('present');
   });
 });
