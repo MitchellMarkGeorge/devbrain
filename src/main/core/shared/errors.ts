@@ -26,6 +26,7 @@ export type CoreErrorCode =
   | 'malformed_note_file'
   | 'devbrain_folder'
   | 'workspace_not_open'
+  | 'workspace_closed'
   | 'workspace_migration';
 
 // the base of every error class in core; a new one extends this and adds its code above
@@ -199,6 +200,16 @@ export class WorkspaceNotOpenError extends CoreError {
     super(`Workspace ${workspaceId} must be open to be deleted`);
     this.name = 'WorkspaceNotOpenError';
     this.workspaceId = workspaceId;
+  }
+}
+
+// the workspace was closed, e.g. by a switch or quit, while this was in flight, such as an OAuth
+// connect waiting on the browser; it was cancelled and wrote nothing
+export class WorkspaceClosedError extends CoreError {
+  readonly code = 'workspace_closed';
+  constructor() {
+    super('The workspace was closed');
+    this.name = 'WorkspaceClosedError';
   }
 }
 

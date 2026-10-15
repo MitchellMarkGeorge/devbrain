@@ -38,6 +38,11 @@ const fakeIntegrations = (ids: string[], calls: string[] = []) => ({
 const makeRegistry = (infos: WorkspaceInfo[]): Record<WorkspaceId, WorkspaceInfo> =>
   Object.fromEntries(infos.map((w) => [w.id, w])) as Record<WorkspaceId, WorkspaceInfo>;
 
+// makes `workspace` the open one, as WorkspaceService.open leaves it, without opening anything
+const setCurrent = (service: WorkspaceService, workspace: unknown) => {
+  (service as unknown as { current: unknown }).current = workspace;
+};
+
 let tmpDir: string;
 
 beforeEach(async () => {
@@ -212,7 +217,7 @@ describe('WorkspaceService — delete', () => {
   function openService(info: WorkspaceInfo, integrations = fakeIntegrations([])) {
     const workspace = { info, close: vi.fn(), integrations };
     const service = new WorkspaceService(tmpDir);
-    service.currentWorkspace = workspace as never;
+    setCurrent(service, workspace);
     return { service, workspace };
   }
 
@@ -463,7 +468,7 @@ describe('WorkspaceService — sync', () => {
     vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
 
     const service = new WorkspaceService(tmpDir);
-    service.currentWorkspace = prevWorkspace as never;
+    setCurrent(service, prevWorkspace);
 
     const switching = service.switch(info.id);
     await vi.waitFor(() => expect(prevWorkspace.close).toHaveBeenCalled());
@@ -488,7 +493,7 @@ describe('WorkspaceService — sync', () => {
     } as never);
 
     const service = new WorkspaceService(tmpDir);
-    service.currentWorkspace = prevWorkspace as never;
+    setCurrent(service, prevWorkspace);
     await service.open(info.id);
 
     expect(prevWorkspace.close).toHaveBeenCalledOnce();
@@ -506,7 +511,7 @@ describe('WorkspaceService — sync', () => {
       integrations: fakeIntegrations([]),
     };
     const service = new WorkspaceService(tmpDir);
-    service.currentWorkspace = current as never;
+    setCurrent(service, current);
 
     const deleting = service.delete(info.id);
     await vi.waitFor(() => expect(current.close).toHaveBeenCalled());
@@ -534,7 +539,7 @@ describe('WorkspaceService — switch', () => {
     vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
 
     const service = new WorkspaceService(tmpDir);
-    service.currentWorkspace = prevWorkspace as never;
+    setCurrent(service, prevWorkspace);
 
     await service.switch(info.id);
 

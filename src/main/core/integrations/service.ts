@@ -10,6 +10,7 @@ import {
   IntegrationDisabledError,
   NotFoundError,
   ProviderUnavailableError,
+  WorkspaceClosedError,
 } from '../shared/errors';
 import { REVOKE_TIMEOUT_MS } from '../sync/constants';
 import { SyncEntityType } from '../sync/types';
@@ -144,6 +145,8 @@ export class IntegrationService implements BaseIntegrationService {
   private readonly listeners = new Set<IntegrationChangeListener>();
   // set while an OAuth connect waits on the browser; one flow per workspace at a time
   private connecting = false;
+  // aborted by close(): cancels an OAuth flow in flight, and a connect checks it before it writes
+  private readonly closing = new AbortController();
 
   constructor(
     private readonly db: BetterSQLite3Database,
@@ -152,6 +155,15 @@ export class IntegrationService implements BaseIntegrationService {
     this.credentials = options.credentials;
     this.providers = options.providers;
     this.oauth = options.oauth ?? null;
+  }
+
+  /**
+   * Cancels an OAuth connect or reconnect in flight, which rejects with WorkspaceClosedError, and
+   * makes any connect still running throw it before it writes. Workspace.close calls it before
+   * closing the database. Calling it again does nothing.
+   */
+  close(): void {
+    this.closing.abort(new WorkspaceClosedError());
   }
 
   async list(): Promise<Integration[]> {
@@ -238,6 +250,7 @@ export class IntegrationService implements BaseIntegrationService {
       throw new IntegrationAccountMismatchError(id, row.accountLabel, account.label);
     }
     const sealed = await this.credentials.seal(credentials);
+    this.closing.signal.throwIfAborted();
 
     const status =
       row.status === IntegrationStatus.DISABLED
@@ -283,7 +296,10 @@ export class IntegrationService implements BaseIntegrationService {
     if (this.connecting) throw new ConnectInProgressError();
     this.connecting = true;
     try {
-      const signal = using.signal ?? new AbortController().signal;
+      // closing the workspace cancels the flow as the caller's own signal does
+      const signal = using.signal
+        ? AbortSignal.any([using.signal, this.closing.signal])
+        : this.closing.signal;
       const tokens = await this.oauth.authorize(config, { signal });
       if (!tokens.refreshToken) {
         throw new IntegrationAuthError(`${provider.id} issued no refresh token`);
@@ -310,9 +326,12 @@ export class IntegrationService implements BaseIntegrationService {
     account: ExternalAccount,
     enable: SourceType[],
   ): Promise<Integration> {
+    // the workspace may have closed while the flow or the account query ran, or while sealing
+    this.closing.signal.throwIfAborted();
     // checked here for a useful message; the unique constraint catches a connect racing this one
     this.assertNotConnected(provider.id, account.accountId, account.label);
     const sealed = await this.credentials.seal(credentials);
+    this.closing.signal.throwIfAborted();
 
     let integrationId: IntegrationId;
     let sources: { sourceId: ExternalSourceId; enabled: boolean }[];

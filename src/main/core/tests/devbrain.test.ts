@@ -18,6 +18,7 @@ import { SyncProgress } from '../sync/types';
 vi.mock('electron-store', () => import('./__mocks__/electron-store'));
 
 import { DevBrain, openDevBrain } from '../index';
+import { Workspace } from '../workspace/workspace';
 
 // DevBrain as the main process runs it: one DevBrain over a folder, with the cipher, fetch and
 // providers passed in, opening a workspace that syncs. Everything Electron is a fake here, and
@@ -170,6 +171,53 @@ describe('DevBrain — connect, sync and close', () => {
     expect(performance.now() - pullStartedAt).toBeGreaterThanOrEqual(195);
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(countRows(path.join(workspacePath, 'db.sqlite'), 'tasks')).toBe(0);
+  });
+});
+
+describe('DevBrain — quitting during an open', () => {
+  it('waits for the open, then closes it: nothing is open or syncing once close resolves', async () => {
+    const provider = createFakeProvider();
+    devBrain = await devBrainWith(provider);
+    const { id } = await createWorkspace('Work');
+    const connected = await openWorkspace(id);
+    provider.tasks.script({ tasks: [issue()] });
+    await connected.integrations.connectWithApiKey(Provider.LINEAR, FAKE_API_KEY);
+    await vi.waitFor(async () => {
+      const [status] = await connected.sync.getStatus();
+      expect(status.lastSyncedAt).not.toBeNull();
+    });
+    await devBrain.close();
+    const pulls = provider.tasks.pulls.length;
+
+    // the next open has its database open, and waits here before it is made current
+    const realOpen = Workspace.open.bind(Workspace);
+    let opened!: Workspace;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const reached = new Promise<void>((resolve) => {
+      vi.spyOn(Workspace, 'open').mockImplementationOnce(async (info, options) => {
+        opened = await realOpen(info, options);
+        resolve();
+        await held;
+        return opened;
+      });
+    });
+    const opening = devBrain.workspaces.open(id);
+    await reached;
+    // the focus and resume triggers see no workspace while it opens
+    expect(devBrain.currentWorkspace).toBeNull();
+
+    const quitting = devBrain.close();
+    release();
+    await opening;
+    await quitting;
+
+    expect(devBrain.currentWorkspace).toBeNull();
+    await expect(opened.tasks.listTasks()).rejects.toThrow();
+    // the open pass would start on the next turn; a stopped scheduler pulls nothing
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(provider.tasks.pulls).toHaveLength(pulls);
+    vi.restoreAllMocks();
   });
 });
 

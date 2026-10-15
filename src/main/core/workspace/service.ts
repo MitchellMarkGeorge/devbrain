@@ -12,9 +12,15 @@ import { paginateArray, Page, PageOptions } from '../shared/pagination';
 // TODO: opening a workspace again after it has been openedn should be as cheap as possible
 // if possible, workspaces should be "cached" here
 
+// Open, switch, close and delete run one at a time, in the order they were called: each waits for
+// the one before it to settle, failed or not, and sees the state it left. Two opens at once both
+// open their workspace, the second closing the first as a switch does, so each caller gets the
+// workspace it asked for and only the last stays open. A close during an open waits for it and then
+// closes what it opened.
 export class WorkspaceService {
-  // this should absolutely NOT be public. Should be copmputed instead (but still cheap like O(1))
-  public currentWorkspace: Workspace | null = null;
+  private current: Workspace | null = null;
+  // the last lifecycle operation queued; never rejects, so a failed one doesn't block the next
+  private lifecycle: Promise<void> = Promise.resolve();
   private workspacesFilePath: string;
 
   constructor(
@@ -23,6 +29,22 @@ export class WorkspaceService {
     private readonly workspaceOptions: WorkspaceOptions = {},
   ) {
     this.workspacesFilePath = path.join(rootPath, 'workspaces.json');
+  }
+
+  // The open workspace, syncing; null while none is, including while one is being opened, switched
+  // or closed. Only open, switch, close and delete change it.
+  get currentWorkspace(): Workspace | null {
+    return this.current;
+  }
+
+  // runs `operation` once every lifecycle operation queued before it has settled
+  private serialise<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.lifecycle.then(operation);
+    this.lifecycle = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
   }
 
   private readWorkspaceFile(): Record<WorkspaceId, WorkspaceInfo> {
@@ -92,12 +114,17 @@ export class WorkspaceService {
    * Deletes the open workspace: disconnects its integrations, which revokes their grants at the
    * providers and needs the database open, then closes it and removes its directory and registry
    * entry. Throws NotFoundError for an unknown id, and WorkspaceNotOpenError for a workspace that
-   * isn't the open one: open it first.
+   * isn't the open one: open it first. Waits for an open, switch or close in flight, and is checked
+   * against the workspace open once it has settled.
    */
-  async delete(id: WorkspaceId): Promise<void> {
+  delete(id: WorkspaceId): Promise<void> {
+    return this.serialise(() => this.deleteNow(id));
+  }
+
+  private async deleteNow(id: WorkspaceId): Promise<void> {
     // throws NotFoundError when the id is not in the registry
     const workspaceInfo = this.getById(id);
-    const workspace = this.currentWorkspace;
+    const workspace = this.current;
     if (workspace === null || workspace.info.id !== id) throw new WorkspaceNotOpenError(id);
 
     // throw error if there is no workspace directory to delete
@@ -140,7 +167,15 @@ export class WorkspaceService {
     }
   }
 
-  async open(id: WorkspaceId): Promise<Workspace> {
+  /**
+   * Opens the workspace and starts syncing it, closing the one open now first. Waits for an open,
+   * switch, close or delete in flight; see the class comment for opens that overlap.
+   */
+  open(id: WorkspaceId): Promise<Workspace> {
+    return this.serialise(() => this.openNow(id));
+  }
+
+  private async openNow(id: WorkspaceId): Promise<Workspace> {
     // 1. get info from the registry (throws NotFoundError when absent)
     const workspaceInfo = this.getById(id);
 
@@ -161,29 +196,30 @@ export class WorkspaceService {
     this.writeWorkspaceFile(workspaces);
 
     // set the current workspace, and start syncing it: the open workspace is the one that syncs
-    this.currentWorkspace = workspace;
+    this.current = workspace;
     workspace.sync.start();
     return workspace;
   }
 
-  async switch(id: WorkspaceId): Promise<Workspace> {
+  switch(id: WorkspaceId): Promise<Workspace> {
     // open closes the current workspace first
     return this.open(id);
   }
 
   /**
    * Closes the open workspace, if any, once its sync runs have settled, so nothing writes to its
-   * database after this resolves. The app calls it on quit.
+   * database after this resolves. An open in flight finishes first and is then closed, so no
+   * workspace is open when this resolves. The app calls it on quit.
    */
-  async close(): Promise<void> {
-    await this.closeCurrent();
+  close(): Promise<void> {
+    return this.serialise(() => this.closeCurrent());
   }
 
-  // closes the current workspace, waiting for its sync runs to settle
+  // closes the current workspace, waiting for its sync runs to settle; only from a queued operation
   private async closeCurrent(): Promise<void> {
-    const current = this.currentWorkspace;
+    const current = this.current;
     if (!current) return;
-    this.currentWorkspace = null;
+    this.current = null;
     await current.close();
   }
 }

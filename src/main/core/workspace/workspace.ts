@@ -153,10 +153,11 @@ export class Workspace {
   }
 
   /**
-   * Stops syncing, waiting for any run in flight to settle, then closes SQLite, so no run writes to
-   * a closed database. Calling it again does nothing.
+   * Cancels an OAuth connect in flight, stops syncing, waiting for any run in flight to settle,
+   * then closes SQLite, so neither writes to a closed database. Calling it again does nothing.
    */
   async close(): Promise<void> {
+    this.integrations.close();
     await this.sync.stop();
     this.sqliteClient.close();
   }
