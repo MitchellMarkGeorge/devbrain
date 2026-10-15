@@ -184,7 +184,10 @@ describe('startup shutdown', () => {
       started = await starting;
       await vi.waitFor(() => expect(app.quit).toHaveBeenCalledOnce());
       expect(started!.currentWorkspace).toBeNull();
-      await expect(workspace.integrations.list()).rejects.toMatchObject({ name: 'AbortError' });
+      await expect(workspace.integrations.list()).rejects.toMatchObject({
+        name: 'WorkspaceClosedError',
+        code: 'workspace_closed',
+      });
     } finally {
       release.resolve(undefined);
       spy.mockRestore();

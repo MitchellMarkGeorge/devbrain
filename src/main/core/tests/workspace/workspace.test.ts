@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 import type { WorkspaceId } from '@common/ids';
 import type { WorkspaceInfo } from '../../workspace/types';
 import { Workspace } from '../../workspace/workspace';
-import { WorkspaceMigrationError } from '../../shared/errors';
+import { WorkspaceClosedError, WorkspaceMigrationError } from '../../shared/errors';
 import { migrationsWithExtra } from '../utils';
 import Database from 'better-sqlite3';
 import { FakeCipher } from '../__mocks__/fake-cipher';
@@ -517,6 +517,30 @@ function issue() {
   };
 }
 
+describe('Workspace — closed service contracts', () => {
+  it('rejects promise APIs, including syncNow without async, and throws for synchronous APIs', async () => {
+    const workspace = await Workspace.create(makeInfo(tmpDir));
+    await workspace.close();
+    // Calling a Promise API must return a promise so existing .catch() callers keep working.
+    const results = [
+      workspace.sync.syncNow(),
+      workspace.sync.trigger('manual'),
+      workspace.sync.getStatus(),
+      workspace.tasks.listTasks(),
+      workspace.notes.listNotes(),
+    ];
+    await Promise.all(
+      results.map((result) => expect(result).rejects.toBeInstanceOf(WorkspaceClosedError)),
+    );
+    expect(() => workspace.search.search({ query: 'test', entityType: ['task'] })).toThrow(
+      WorkspaceClosedError,
+    );
+    expect(() => workspace.archive.listArchived()).toThrow(WorkspaceClosedError);
+    expect(() => workspace.sync.start()).toThrow(WorkspaceClosedError);
+    expect(() => workspace.integrations.onChange(() => {})).toThrow(WorkspaceClosedError);
+  });
+});
+
 describe('Workspace — outstanding operations', () => {
   it.each(['connect', 'reconnect'] as const)(
     'drains a pending %s that ignores cancellation before closing SQLite',
@@ -539,7 +563,10 @@ describe('Workspace — outstanding operations', () => {
             apiKey: FAKE_API_KEY,
           })
         : workspace.integrations.connectWithApiKey(Provider.LINEAR, FAKE_API_KEY);
-      const rejected = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+      const rejected = expect(pending).rejects.toMatchObject({
+        name: 'WorkspaceClosedError',
+        code: 'workspace_closed',
+      });
       expect(getAccount).toHaveBeenCalledOnce();
       // An unrelated operation can finish while the provider call is outstanding.
       await expect(
@@ -552,7 +579,10 @@ describe('Workspace — outstanding operations', () => {
         await new Promise((resolve) => setImmediate(resolve));
         expect(closeSqlite).not.toHaveBeenCalled();
         expect(getAccount.mock.calls[0][1]?.signal?.aborted).toBe(true);
-        await expect(workspace.integrations.list()).rejects.toMatchObject({ name: 'AbortError' });
+        await expect(workspace.integrations.list()).rejects.toMatchObject({
+          name: 'WorkspaceClosedError',
+          code: 'workspace_closed',
+        });
         answer.resolve(account);
         await Promise.all([closing, rejected]);
         expect(closeSqlite).toHaveBeenCalledOnce();
@@ -588,7 +618,10 @@ describe('Workspace — outstanding operations', () => {
             apiKey: 'lin_api_test',
           })
         : workspace.integrations.connectWithApiKey(Provider.LINEAR, 'lin_api_test');
-      const rejected = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+      const rejected = expect(pending).rejects.toMatchObject({
+        name: 'WorkspaceClosedError',
+        code: 'workspace_closed',
+      });
       await vi.waitFor(() => expect(fetch.requests).toHaveLength(existing ? 2 : 1));
       await workspace.close();
       await rejected;
@@ -609,7 +642,10 @@ describe('Workspace — outstanding operations', () => {
       ]),
     });
     const pending = workspace.integrations.connectWithOAuth(Provider.GOOGLE_CALENDAR);
-    const rejected = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    const rejected = expect(pending).rejects.toMatchObject({
+      name: 'WorkspaceClosedError',
+      code: 'workspace_closed',
+    });
     await vi.waitFor(() => expect(browser).toHaveBeenCalledOnce());
     await workspace.close();
     await rejected;
@@ -675,7 +711,10 @@ describe('Workspace — failed opening cleanup', () => {
       return encrypt(plain);
     });
     const pending = workspace.integrations.connectWithApiKey(Provider.LINEAR, FAKE_API_KEY);
-    const rejected = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    const rejected = expect(pending).rejects.toMatchObject({
+      name: 'WorkspaceClosedError',
+      code: 'workspace_closed',
+    });
     await vi.waitFor(() => expect(encrypting).toHaveBeenCalledOnce());
     let closed = false;
     const closing = workspace.close().then(() => {

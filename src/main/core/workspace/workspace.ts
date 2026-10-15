@@ -45,20 +45,40 @@ export class Workspace {
     readonly info: WorkspaceInfo,
     options: WorkspaceOptions,
   ) {
-    this.notes = this.operations.track(new NoteService(db, info.path));
-    this.tasks = this.operations.track(new TaskService(db));
-    this.projects = this.operations.track(new ProjectService(db));
-    this.events = this.operations.track(new EventService(db));
-    this.calendars = this.operations.track(new CalendarService(db));
-    this.archive = this.operations.track(new ArchiveService(db));
+    this.notes = this.operations.track(new NoteService(db, info.path), {});
+    this.tasks = this.operations.track(new TaskService(db), {});
+    this.projects = this.operations.track(new ProjectService(db), {});
+    this.events = this.operations.track(new EventService(db), {});
+    this.calendars = this.operations.track(new CalendarService(db), {});
+    this.archive = this.operations.track(new ArchiveService(db), {
+      archiveTask: true,
+      restoreTask: true,
+      archiveProject: true,
+      restoreProject: true,
+      archiveNote: true,
+      restoreNote: true,
+      listArchived: true,
+    });
     const search = new SearchService(db, info.path);
-    this.search = this.operations.track(search);
+    this.search = this.operations.track(search, {
+      search: true,
+      indexTask: true,
+      indexProject: true,
+      indexEvent: true,
+      indexTasks: true,
+      indexProjects: true,
+      indexEvents: true,
+      removeFromIndex: true,
+    });
     const { credentials, integrations, providers } = createIntegrationServices(
       db,
       options,
       this.operations.signal,
     );
-    this.integrations = this.operations.track(integrations);
+    this.integrations = this.operations.track(integrations, {
+      onChange: true,
+      markNeedsReauth: true,
+    });
     // a disconnect deletes mirrored rows; they leave search in its transaction, all or nothing
     integrations.onChange((change) => {
       if (change.type !== 'disconnected') return;
@@ -74,7 +94,7 @@ export class Workspace {
       writer: new SyncWriter(db, search),
     });
     this.scheduler = new SyncScheduler({ engine, integrations, syncState });
-    this.sync = this.operations.track(this.scheduler);
+    this.sync = this.operations.track(this.scheduler, { start: true, onProgress: true });
   }
 
   static async create(info: WorkspaceInfo, options: WorkspaceOptions = {}): Promise<Workspace> {
