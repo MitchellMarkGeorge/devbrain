@@ -1,3 +1,7 @@
+import { EventEmitter } from 'node:events';
+import { Workspace } from '@main/core/workspace/workspace';
+import { deferred } from '@main/core/tests/utils';
+import { closeBeforeQuit, closeCore } from '../../runtime/lifecycle';
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -145,5 +149,45 @@ describe('lastOpenedWorkspace', () => {
 
     devBrain.settings.set('state.lastWorkspaceId', 'wsp_gone');
     expect(lastOpenedWorkspace(devBrain)).toBeNull();
+  });
+});
+
+describe('startup shutdown', () => {
+  it('holds quit during a pending workspace open and closes it before quitting', async () => {
+    const { devBrain, ids } = await folderWith('Opening');
+    devBrain.settings.set('state.lastWorkspaceId', ids[0]);
+    const originalOpen = Workspace.open;
+    const opening = deferred<Workspace>();
+    const release = deferred<void>();
+    const spy = vi.spyOn(Workspace, 'open').mockImplementationOnce(async (...args) => {
+      const workspace = await originalOpen(...args);
+      opening.resolve(workspace);
+      await release.promise;
+      return workspace;
+    });
+    try {
+      const starting = startDevBrain({
+        rootPath,
+        createIfMissing: false,
+        workspace: {},
+        logger: quietLogger(),
+      });
+      const workspace = await opening.promise;
+      const app = Object.assign(new EventEmitter(), { quit: vi.fn<() => void>() });
+      closeBeforeQuit(app, () => closeCore(starting), quietLogger());
+      const event = { preventDefault: vi.fn() };
+      app.emit('before-quit', event);
+      app.emit('before-quit', event);
+      expect(event.preventDefault).toHaveBeenCalledTimes(2);
+      expect(app.quit).not.toHaveBeenCalled();
+      release.resolve(undefined);
+      started = await starting;
+      await vi.waitFor(() => expect(app.quit).toHaveBeenCalledOnce());
+      expect(started!.currentWorkspace).toBeNull();
+      await expect(workspace.integrations.list()).rejects.toMatchObject({ name: 'AbortError' });
+    } finally {
+      release.resolve(undefined);
+      spy.mockRestore();
+    }
   });
 });

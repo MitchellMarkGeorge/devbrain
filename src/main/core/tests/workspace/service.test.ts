@@ -1,3 +1,4 @@
+import { deferred } from '../utils';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
@@ -42,7 +43,7 @@ let tmpDir: string;
 
 beforeEach(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-wssvc-'));
-  vi.clearAllMocks();
+  vi.resetAllMocks();
 });
 
 afterEach(async () => {
@@ -56,6 +57,21 @@ const writeRegistry = (dir: string, infos: WorkspaceInfo[]) => {
     'utf8',
   );
 };
+
+// Establish state through the public lifecycle API rather than mutating currentWorkspace.
+async function setOpenWorkspace(service: WorkspaceService, workspace: { info: WorkspaceInfo }) {
+  const info = service.listAll().items.find((item) => item.id === workspace.info.id) ?? {
+    ...workspace.info,
+    path: path.join(tmpDir, 'fixtures', workspace.info.id),
+  };
+  await fs.mkdir(info.path, { recursive: true });
+  const registry = makeRegistry(service.listAll().items);
+  registry[info.id] ??= info;
+  writeRegistry(tmpDir, Object.values(registry));
+  if (!('sync' in workspace)) Object.assign(workspace, { sync: { start: vi.fn() } });
+  vi.mocked(Workspace.open).mockResolvedValueOnce(workspace as never);
+  await service.open(info.id);
+}
 
 describe('WorkspaceService — registry reads', () => {
   it('listAll() returns empty array when workspaces.json is absent', () => {
@@ -209,10 +225,10 @@ describe('WorkspaceService — create', () => {
 
 describe('WorkspaceService — delete', () => {
   // a service whose open workspace is `info`, as WorkspaceService.open leaves it
-  function openService(info: WorkspaceInfo, integrations = fakeIntegrations([])) {
+  async function openService(info: WorkspaceInfo, integrations = fakeIntegrations([])) {
     const workspace = { info, close: vi.fn(), integrations };
     const service = new WorkspaceService(tmpDir);
-    service.currentWorkspace = workspace as never;
+    await setOpenWorkspace(service, workspace);
     return { service, workspace };
   }
 
@@ -221,7 +237,7 @@ describe('WorkspaceService — delete', () => {
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const { service } = openService(info);
+    const { service } = await openService(info);
     await service.delete(info.id);
 
     expect(service.listAll().items).toHaveLength(0);
@@ -232,7 +248,7 @@ describe('WorkspaceService — delete', () => {
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const { service } = openService(info);
+    const { service } = await openService(info);
     await service.delete(info.id);
 
     await expect(fs.stat(info.path)).rejects.toThrow();
@@ -257,10 +273,10 @@ describe('WorkspaceService — delete', () => {
     await expect(new WorkspaceService(tmpDir).delete(info.id)).rejects.toThrow(
       WorkspaceNotOpenError,
     );
-    const { service, workspace } = openService(other);
+    const { service, workspace } = await openService(other);
     await expect(service.delete(info.id)).rejects.toThrow(WorkspaceNotOpenError);
 
-    expect(Workspace.open).not.toHaveBeenCalled();
+    expect(Workspace.open).toHaveBeenCalledOnce();
     expect(workspace.integrations.disconnect).not.toHaveBeenCalled();
     expect(workspace.close).not.toHaveBeenCalled();
     expect(service.currentWorkspace).toBe(workspace);
@@ -273,7 +289,8 @@ describe('WorkspaceService — delete', () => {
     writeRegistry(tmpDir, [info]);
     // Do NOT create the directory
 
-    const { service, workspace } = openService(info, fakeIntegrations(['int_a']));
+    const { service, workspace } = await openService(info, fakeIntegrations(['int_a']));
+    await fs.rm(info.path, { recursive: true });
     await expect(service.delete(info.id)).rejects.toThrow(/directory not found/i);
     expect(workspace.integrations.disconnect).not.toHaveBeenCalled();
   });
@@ -283,7 +300,7 @@ describe('WorkspaceService — delete', () => {
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
 
-    const { service, workspace } = openService(info);
+    const { service, workspace } = await openService(info);
     await service.delete(info.id);
 
     expect(workspace.close).toHaveBeenCalled();
@@ -295,7 +312,10 @@ describe('WorkspaceService — delete', () => {
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
     const calls: string[] = [];
-    const { service, workspace } = openService(info, fakeIntegrations(['int_a', 'int_b'], calls));
+    const { service, workspace } = await openService(
+      info,
+      fakeIntegrations(['int_a', 'int_b'], calls),
+    );
     workspace.close.mockImplementation(() => calls.push('close'));
 
     await service.delete(info.id);
@@ -313,7 +333,7 @@ describe('WorkspaceService — delete', () => {
     const integrations = fakeIntegrations(['int_a', 'int_b']);
     integrations.disconnect.mockRejectedValueOnce(new Error('database is locked'));
 
-    const { service } = openService(info, integrations);
+    const { service } = await openService(info, integrations);
     await service.delete(info.id);
 
     expect(integrations.disconnect).toHaveBeenCalledTimes(2);
@@ -334,7 +354,7 @@ describe('WorkspaceService — delete', () => {
     await fs.mkdir(a.path, { recursive: true });
     await fs.mkdir(b.path, { recursive: true });
 
-    const { service } = openService(a);
+    const { service } = await openService(a);
     await service.delete(a.id);
 
     const remaining = service.listAll().items;
@@ -463,12 +483,12 @@ describe('WorkspaceService — sync', () => {
     vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
 
     const service = new WorkspaceService(tmpDir);
-    service.currentWorkspace = prevWorkspace as never;
+    await setOpenWorkspace(service, prevWorkspace);
 
     const switching = service.switch(info.id);
     await vi.waitFor(() => expect(prevWorkspace.close).toHaveBeenCalled());
     await new Promise((resolve) => setImmediate(resolve));
-    expect(Workspace.open).not.toHaveBeenCalled();
+    expect(Workspace.open).toHaveBeenCalledOnce();
 
     finishClose();
     await expect(switching).resolves.toBe(nextWorkspace);
@@ -488,7 +508,7 @@ describe('WorkspaceService — sync', () => {
     } as never);
 
     const service = new WorkspaceService(tmpDir);
-    service.currentWorkspace = prevWorkspace as never;
+    await setOpenWorkspace(service, prevWorkspace);
     await service.open(info.id);
 
     expect(prevWorkspace.close).toHaveBeenCalledOnce();
@@ -506,7 +526,7 @@ describe('WorkspaceService — sync', () => {
       integrations: fakeIntegrations([]),
     };
     const service = new WorkspaceService(tmpDir);
-    service.currentWorkspace = current as never;
+    await setOpenWorkspace(service, current);
 
     const deleting = service.delete(info.id);
     await vi.waitFor(() => expect(current.close).toHaveBeenCalled());
@@ -534,7 +554,7 @@ describe('WorkspaceService — switch', () => {
     vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
 
     const service = new WorkspaceService(tmpDir);
-    service.currentWorkspace = prevWorkspace as never;
+    await setOpenWorkspace(service, prevWorkspace);
 
     await service.switch(info.id);
 
@@ -663,5 +683,98 @@ describe('WorkspaceService — cursor pagination', () => {
     const service = new WorkspaceService(tmpDir);
     expect(() => service.listAll({ limit: 0 })).toThrow(RangeError);
     expect(() => service.listAll({ cursor: 'bad' })).toThrow();
+  });
+});
+
+describe('WorkspaceService — overlapping transitions', () => {
+  async function setup() {
+    const infos = ['first', 'second'].map((name) =>
+      makeInfo({
+        id: `wsp_${name}` as WorkspaceId,
+        name,
+        path: path.join(tmpDir, name),
+      }),
+    );
+    writeRegistry(tmpDir, infos);
+    await Promise.all(infos.map((info) => fs.mkdir(info.path)));
+    const workspaces = infos.map((info) => ({
+      info,
+      close: vi.fn(async () => {}),
+      sync: { start: vi.fn() },
+      integrations: fakeIntegrations([]),
+    }));
+    return { service: new WorkspaceService(tmpDir), infos, workspaces };
+  }
+
+  it('serializes open, switch and close, including repeated closes', async () => {
+    const { service, infos, workspaces } = await setup();
+    const opening = deferred<Workspace>();
+    vi.mocked(Workspace.open)
+      .mockReturnValueOnce(opening.promise)
+      .mockResolvedValueOnce(workspaces[1] as never);
+    const first = service.open(infos[0].id);
+    const switching = service.switch(infos[1].id);
+    const closing = service.close();
+    const closingAgain = service.close();
+    await vi.waitFor(() => expect(Workspace.open).toHaveBeenCalledOnce());
+    expect(service.currentWorkspace).toBeNull();
+    opening.resolve(workspaces[0] as never);
+    await Promise.all([first, switching, closing, closingAgain]);
+    expect(workspaces[0].close).toHaveBeenCalledOnce();
+    expect(workspaces[1].close).toHaveBeenCalledOnce();
+    expect(service.currentWorkspace).toBeNull();
+  });
+
+  it('finishes deletion before opening the next workspace', async () => {
+    const { service, infos, workspaces } = await setup();
+    vi.mocked(Workspace.open)
+      .mockResolvedValueOnce(workspaces[0] as never)
+      .mockResolvedValueOnce(workspaces[1] as never);
+    await service.open(infos[0].id);
+    const closed = deferred<void>();
+    workspaces[0].close.mockReturnValueOnce(closed.promise);
+    const deleting = service.delete(infos[0].id);
+    const switching = service.switch(infos[1].id);
+    await vi.waitFor(() => expect(workspaces[0].close).toHaveBeenCalledOnce());
+    expect(Workspace.open).toHaveBeenCalledOnce();
+    expect(fsSync.existsSync(infos[0].path)).toBe(true);
+    closed.resolve(undefined);
+    await Promise.all([deleting, switching]);
+    expect(fsSync.existsSync(infos[0].path)).toBe(false);
+    expect(service.currentWorkspace).toBe(workspaces[1]);
+  });
+
+  it('drains an opening workspace on shutdown even when no workspace is current yet', async () => {
+    const { service, infos, workspaces } = await setup();
+    const opened = deferred<Workspace>();
+    vi.mocked(Workspace.open).mockReturnValueOnce(opened.promise);
+    const opening = service.open(infos[0].id);
+    await vi.waitFor(() => expect(Workspace.open).toHaveBeenCalledOnce());
+    let closed = false;
+    const closing = service.close().then(() => {
+      closed = true;
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(closed).toBe(false);
+    opened.resolve(workspaces[0] as never);
+    await Promise.all([opening, closing]);
+    expect(workspaces[0].close).toHaveBeenCalledOnce();
+    expect(service.currentWorkspace).toBeNull();
+  });
+
+  it('cleans up a failed open and allows the next queued transition', async () => {
+    const { service, infos, workspaces } = await setup();
+    workspaces[0].sync.start.mockImplementationOnce(() => {
+      throw new Error('start failed');
+    });
+    vi.mocked(Workspace.open)
+      .mockResolvedValueOnce(workspaces[0] as never)
+      .mockResolvedValueOnce(workspaces[1] as never);
+    const failed = expect(service.open(infos[0].id)).rejects.toThrow('start failed');
+    const next = service.open(infos[1].id);
+    await failed;
+    await next;
+    expect(workspaces[0].close).toHaveBeenCalledOnce();
+    expect(service.currentWorkspace).toBe(workspaces[1]);
   });
 });

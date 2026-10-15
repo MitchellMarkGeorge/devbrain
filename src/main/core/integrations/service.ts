@@ -107,6 +107,7 @@ export interface IntegrationServiceOptions {
   providers: ProviderRegistry;
   // runs connectWithOAuth's browser flow; without one, connecting through OAuth is refused
   oauth?: OAuthClient;
+  signal?: AbortSignal;
 }
 
 type IntegrationRow = typeof integrations.$inferSelect;
@@ -144,6 +145,7 @@ export class IntegrationService implements BaseIntegrationService {
   private readonly listeners = new Set<IntegrationChangeListener>();
   // set while an OAuth connect waits on the browser; one flow per workspace at a time
   private connecting = false;
+  private readonly signal?: AbortSignal;
 
   constructor(
     private readonly db: BetterSQLite3Database,
@@ -152,6 +154,7 @@ export class IntegrationService implements BaseIntegrationService {
     this.credentials = options.credentials;
     this.providers = options.providers;
     this.oauth = options.oauth ?? null;
+    this.signal = options.signal;
   }
 
   async list(): Promise<Integration[]> {
@@ -238,6 +241,7 @@ export class IntegrationService implements BaseIntegrationService {
       throw new IntegrationAccountMismatchError(id, row.accountLabel, account.label);
     }
     const sealed = await this.credentials.seal(credentials);
+    this.signal?.throwIfAborted();
 
     const status =
       row.status === IntegrationStatus.DISABLED
@@ -265,6 +269,7 @@ export class IntegrationService implements BaseIntegrationService {
     provider: ProviderImpl,
     using: ReconnectWith,
   ): Promise<{ credentials: Credentials; account: ExternalAccount }> {
+    this.signal?.throwIfAborted();
     if (using.type === AuthType.API_KEY) {
       if (!provider.authMethods.includes(AuthType.API_KEY)) {
         throw new Error(`${provider.id} can't be connected with an API key`);
@@ -272,7 +277,9 @@ export class IntegrationService implements BaseIntegrationService {
       const key = using.apiKey.trim();
       if (key === '') throw new Error('An API key is required');
       const credentials: ApiKeyCredentials = { type: AuthType.API_KEY, apiKey: key };
-      return { credentials, account: await provider.getAccount(toAuth(credentials)) };
+      const account = await provider.getAccount(toAuth(credentials), { signal: this.signal });
+      this.signal?.throwIfAborted();
+      return { credentials, account };
     }
 
     const config = provider.oauth;
@@ -283,8 +290,10 @@ export class IntegrationService implements BaseIntegrationService {
     if (this.connecting) throw new ConnectInProgressError();
     this.connecting = true;
     try {
-      const signal = using.signal ?? new AbortController().signal;
+      const signals = [using.signal, this.signal].filter((s): s is AbortSignal => !!s);
+      const signal = AbortSignal.any(signals);
       const tokens = await this.oauth.authorize(config, { signal });
+      signal.throwIfAborted();
       if (!tokens.refreshToken) {
         throw new IntegrationAuthError(`${provider.id} issued no refresh token`);
       }
@@ -294,7 +303,9 @@ export class IntegrationService implements BaseIntegrationService {
         refreshToken: tokens.refreshToken,
         expiresAt: tokens.expiresAt ?? null,
       };
-      return { credentials, account: await provider.getAccount(toAuth(credentials)) };
+      const account = await provider.getAccount(toAuth(credentials), { signal });
+      signal.throwIfAborted();
+      return { credentials, account };
     } finally {
       this.connecting = false;
     }
@@ -313,6 +324,7 @@ export class IntegrationService implements BaseIntegrationService {
     // checked here for a useful message; the unique constraint catches a connect racing this one
     this.assertNotConnected(provider.id, account.accountId, account.label);
     const sealed = await this.credentials.seal(credentials);
+    this.signal?.throwIfAborted();
 
     let integrationId: IntegrationId;
     let sources: { sourceId: ExternalSourceId; enabled: boolean }[];

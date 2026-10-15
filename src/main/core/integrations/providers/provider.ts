@@ -161,7 +161,7 @@ export interface Provider {
   authMethods: AuthType[];
   // declaring this is all a provider does to connect through OAuth; the flow lives in ../oauth
   oauth?: OAuthConfig;
-  getAccount(auth: Auth): Promise<ExternalAccount>;
+  getAccount(auth: Auth, options?: RequestOptions): Promise<ExternalAccount>;
   tasks?: TaskSource;
   calendars?: CalendarSource;
 }

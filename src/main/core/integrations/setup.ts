@@ -38,6 +38,7 @@ export const unavailableBrowser: OpenExternal = async () => {
 export function createIntegrationServices(
   db: BetterSQLite3Database,
   options: IntegrationsSetupOptions = {},
+  signal?: AbortSignal,
 ): { credentials: CredentialStore; integrations: IntegrationService; providers: ProviderRegistry } {
   const fetchFn = options.fetch ?? fetch;
   const providers = options.providers ?? createProviderRegistry({ fetch: fetchFn });
@@ -54,7 +55,7 @@ export function createIntegrationServices(
     refreshers: createTokenRefreshers(providers, oauth),
     onRefreshRejected: (integrationId) => service?.markNeedsReauth(integrationId),
   });
-  service = new IntegrationService(db, { credentials, providers, oauth });
+  service = new IntegrationService(db, { credentials, providers, oauth, signal });
   // the sync engine gets the same store and registry, so an integration syncs through the provider
   // that connected it
   return { credentials, integrations: service, providers };

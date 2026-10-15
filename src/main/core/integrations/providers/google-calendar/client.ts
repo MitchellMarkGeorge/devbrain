@@ -62,12 +62,12 @@ export class GoogleCalendarClient {
   }
 
   // who the token belongs to; needs the openid scope
-  async getUserInfo(auth: Auth): Promise<UserInfo> {
-    return this.get(auth, USERINFO_URL, userInfoSchema);
+  async getUserInfo(auth: Auth, options: RequestOptions = {}): Promise<UserInfo> {
+    return this.get(auth, USERINFO_URL, userInfoSchema, options);
   }
 
-  async getPrimaryCalendar(auth: Auth): Promise<CalendarListEntry> {
-    return this.get(auth, primaryCalendarUrl(), calendarListEntrySchema);
+  async getPrimaryCalendar(auth: Auth, options: RequestOptions = {}): Promise<CalendarListEntry> {
+    return this.get(auth, primaryCalendarUrl(), calendarListEntrySchema, options);
   }
 
   // every calendar in the account's Google calendar list (calendarList), across pages, with Google's
