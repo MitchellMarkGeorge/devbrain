@@ -1,6 +1,6 @@
 import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
-import { ArchiveService } from '../archive/service';
+import { ArchiveChange, ArchiveService } from '../archive/service';
 import { EventService } from '../events/service';
 import { CalendarService } from '../calendars/service';
 import { NoteService } from '../notes/service';
@@ -19,6 +19,11 @@ import fs from 'node:fs/promises';
 import { runMigrations } from '@main/db/migrate';
 import { fileExists } from '../local/utils';
 import { WorkspaceMigrationError } from '../shared/errors';
+import { inArray } from 'drizzle-orm';
+import { tasks } from '@main/db/schema/tasks';
+import { projects } from '@main/db/schema/projects';
+import { notes } from '@main/db/schema/notes';
+import type { Note } from '../notes/types';
 
 type SqliteDatabaseClient = Database.Database;
 
@@ -55,11 +60,9 @@ export class Workspace {
     // the user's own writes; SyncWriter indexes what sync writes
     this.tasks.onChange(({ task }) => this.search.indexTask(task));
     this.projects.onChange(({ project }) => this.search.indexProject(project));
-    this.notes.onChange(({ note }) => {
-      this.noteIndexing = this.noteIndexing
-        .then(() => this.search.indexNote(note))
-        .catch((error) => console.error(`Indexing note ${note.id} failed:`, error));
-    });
+    this.notes.onChange(({ note }) => this.queueNoteIndexing(note));
+    // archived rows leave search and restored ones come back, in the archive's transaction
+    this.archive.onChange((change) => this.onArchiveChange(change));
     const { credentials, integrations, providers } = createIntegrationServices(db, options);
     this.integrations = integrations;
     // a disconnect deletes mirrored rows; they leave search in its transaction, all or nothing
@@ -77,6 +80,47 @@ export class Workspace {
       writer: new SyncWriter(db, this.search),
     });
     this.sync = new SyncScheduler({ engine, integrations, syncState });
+  }
+
+  private onArchiveChange({ type, taskIds, projectIds, noteIds }: ArchiveChange): void {
+    if (type === 'archived') {
+      this.search.removeFromIndex([...taskIds, ...projectIds, ...noteIds]);
+      // a note write from before the archive may still be waiting to be indexed; dropping the
+      // notes again behind it keeps that from bringing them back
+      if (noteIds.length > 0) {
+        this.queueNoteWork('Removing archived notes from search', () =>
+          this.search.removeFromIndex(noteIds),
+        );
+      }
+      return;
+    }
+    // emitted inside the restore's transaction, on the same connection, so the rows read here are
+    // the restored ones
+    if (taskIds.length > 0) {
+      this.search.indexTasks(this.db.select().from(tasks).where(inArray(tasks.id, taskIds)).all());
+    }
+    if (projectIds.length > 0) {
+      this.search.indexProjects(
+        this.db.select().from(projects).where(inArray(projects.id, projectIds)).all(),
+      );
+    }
+    if (noteIds.length > 0) {
+      // one at a time, so a note whose file can't be read doesn't keep the others out of search
+      const restored = this.db.select().from(notes).where(inArray(notes.id, noteIds)).all();
+      for (const note of restored) this.queueNoteIndexing(note);
+    }
+  }
+
+  private queueNoteIndexing(note: Note): void {
+    this.queueNoteWork(`Indexing note ${note.id}`, () => this.search.indexNote(note));
+  }
+
+  // runs `work` once every note write queued before it is indexed; a failure is logged, and the
+  // work queued after it still runs
+  private queueNoteWork(label: string, work: () => void | Promise<void>): void {
+    this.noteIndexing = this.noteIndexing
+      .then(work)
+      .catch((error) => console.error(`${label} failed:`, error));
   }
 
   static async create(info: WorkspaceInfo, options: WorkspaceOptions = {}): Promise<Workspace> {

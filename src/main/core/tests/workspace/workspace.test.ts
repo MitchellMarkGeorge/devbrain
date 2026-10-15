@@ -396,6 +396,141 @@ describe('Workspace — search', () => {
   });
 });
 
+describe('Workspace — archive', () => {
+  // the ids the search finds for `query`, across tasks, projects and notes
+  function searchIds(workspace: Workspace, query: string) {
+    return workspace.search
+      .search({ query, entityType: ['task', 'project', 'note'] })
+      .map(({ entityId }) => entityId)
+      .sort();
+  }
+
+  it('archiving drops a project, its tasks and their notes from search; restoring brings them back', async () => {
+    const workspace = await Workspace.create(makeInfo(tmpDir));
+    try {
+      const project = await workspace.projects.createProject({
+        title: 'Apollo',
+        dueDate: new Date(),
+      });
+      const task = await workspace.tasks.createTask({
+        title: 'Apollo launch',
+        dueDate: new Date(),
+        projectId: project.id,
+      });
+      const subtask = await workspace.tasks.createSubtask(task.id, { title: 'Apollo fuel' });
+      const projectNote = await workspace.notes.createNote({
+        title: 'Apollo plan',
+        projectId: project.id,
+      });
+      const taskNote = await workspace.notes.createNote({
+        title: 'Apollo log',
+        linkedTaskId: subtask.id,
+      });
+      const all = [project.id, task.id, subtask.id, projectNote.id, taskNote.id].sort();
+      await vi.waitFor(() => expect(searchIds(workspace, 'Apollo')).toEqual(all));
+
+      workspace.archive.archiveProject(project.id);
+      expect(searchIds(workspace, 'Apollo')).toEqual([]);
+
+      workspace.archive.restoreProject(project.id);
+      // tasks and projects are back at once; notes once their files are read
+      await vi.waitFor(() => expect(searchIds(workspace, 'Apollo')).toEqual(all));
+    } finally {
+      await workspace.close();
+    }
+  });
+
+  it('archiving drops a task, its subtree and their notes from search; restoring brings them back', async () => {
+    const workspace = await Workspace.create(makeInfo(tmpDir));
+    try {
+      const task = await workspace.tasks.createTask({ title: 'Draft', dueDate: new Date() });
+      const subtask = await workspace.tasks.createSubtask(task.id, { title: 'Draft intro' });
+      const note = await workspace.notes.createNote({
+        title: 'Draft notes',
+        linkedTaskId: subtask.id,
+      });
+      const other = await workspace.tasks.createTask({ title: 'Draft other', dueDate: new Date() });
+      const all = [task.id, subtask.id, note.id, other.id].sort();
+      await vi.waitFor(() => expect(searchIds(workspace, 'Draft')).toEqual(all));
+
+      workspace.archive.archiveTask(task.id);
+      expect(searchIds(workspace, 'Draft')).toEqual([other.id]);
+
+      workspace.archive.restoreTask(task.id);
+      expect(searchIds(workspace, 'Draft')).toEqual([task.id, subtask.id, other.id].sort());
+      await vi.waitFor(() => expect(searchIds(workspace, 'Draft')).toEqual(all));
+    } finally {
+      await workspace.close();
+    }
+  });
+
+  it('archiving and restoring a note re-indexes its content from its file', async () => {
+    const workspace = await Workspace.create(makeInfo(tmpDir));
+    try {
+      const note = await workspace.notes.createNote({ title: 'Minutes' });
+      await workspace.notes.updateNoteContent(note.id, 'quarterly');
+      await vi.waitFor(() => expect(searchIds(workspace, 'quarterly')).toEqual([note.id]));
+
+      workspace.archive.archiveNote(note.id);
+      expect(searchIds(workspace, 'quarterly')).toEqual([]);
+
+      workspace.archive.restoreNote(note.id);
+      await vi.waitFor(() => expect(searchIds(workspace, 'quarterly')).toEqual([note.id]));
+    } finally {
+      await workspace.close();
+    }
+  });
+
+  it('a note write still being indexed does not bring back a note archived after it', async () => {
+    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const note = await workspace.notes.createNote({ title: 'Minutes' });
+    await workspace.notes.updateNoteContent(note.id, 'quarterly');
+    // archived before the update above is indexed
+    workspace.archive.archiveNote(note.id);
+    await workspace.close();
+
+    const reopened = await Workspace.open(makeInfo(tmpDir));
+    try {
+      expect(searchIds(reopened, 'Minutes')).toEqual([]);
+      expect(searchIds(reopened, 'quarterly')).toEqual([]);
+    } finally {
+      await reopened.close();
+    }
+  });
+
+  it("writes search in the archive's transaction", async () => {
+    const workspace = await Workspace.create(makeInfo(tmpDir));
+    // private, but it is the connection the archive's transaction runs on
+    const sqlite = workspace['sqliteClient'];
+    // recorded rather than asserted in the spies: a listener's error is logged, not thrown
+    const calls: [string, boolean][] = [];
+    const removed = vi
+      .spyOn(workspace.search, 'removeFromIndex')
+      .mockImplementation(() => void calls.push(['remove', sqlite.inTransaction]));
+    const indexed = vi
+      .spyOn(workspace.search, 'indexTasks')
+      .mockImplementation(() => void calls.push(['index', sqlite.inTransaction]));
+    try {
+      const task = await workspace.tasks.createTask({ title: 'Draft', dueDate: new Date() });
+      calls.length = 0;
+
+      workspace.archive.archiveTask(task.id);
+      workspace.archive.restoreTask(task.id);
+
+      expect(calls).toEqual([
+        ['remove', true],
+        ['index', true],
+      ]);
+      expect(removed).toHaveBeenCalledWith([task.id]);
+      expect(indexed).toHaveBeenCalledWith([expect.objectContaining({ id: task.id })]);
+    } finally {
+      removed.mockRestore();
+      indexed.mockRestore();
+      await workspace.close();
+    }
+  });
+});
+
 describe('Workspace.open — failed migrations', () => {
   // the workspace lives in its own folder so the extra migrations folder sits beside it
   let workspaceDir: string;

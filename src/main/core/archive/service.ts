@@ -12,6 +12,7 @@ import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../shared
 import { keyset, Page, PageOptions } from '../shared/pagination';
 import { assertEditable } from '../integrations/refs';
 import { subtreeOf } from '../tasks/subtree';
+import { ChangeListener, ChangeListeners } from '../shared/changes';
 import type {
   ArchivableEntityType,
   ArchivableId,
@@ -19,8 +20,31 @@ import type {
   ArchiveFilterOptions,
 } from './types';
 
+// The rows an archive or restore stamped: the entity itself and everything it cascaded to.
+export interface ArchiveChangedIds {
+  taskIds: TaskId[];
+  projectIds: ProjectId[];
+  noteIds: NoteId[];
+}
+
+// What an archive or restore changed, for in-process subscribers: the workspace keeps search in
+// step, and the IPC layer will forward them to the renderer. Sent as the last step of the write,
+// inside its transaction, like IntegrationService's `disconnected`: a listener's synchronous
+// database writes (search dropping or re-indexing the rows) commit with it, and anything
+// asynchronous runs after the commit.
+export type ArchiveChange =
+  | ({ type: 'archived' } & ArchiveChangedIds)
+  | ({ type: 'restored' } & ArchiveChangedIds);
+
 export class ArchiveService {
+  private readonly changes = new ChangeListeners<ArchiveChange>('archive');
+
   constructor(private readonly db: BetterSQLite3Database) {}
+
+  // returns a function that unsubscribes the listener
+  onChange(listener: ChangeListener<ArchiveChange>): () => void {
+    return this.changes.add(listener);
+  }
 
   archiveTask(id: TaskId): Task {
     return this.db.transaction((tx) => {
@@ -43,13 +67,18 @@ export class ArchiveService {
       const updatedTaskIds = updatedTasks.map((t) => t.id);
 
       // archive notes linked to the task and/or any of its subtasks
-      if (updatedTaskIds.length > 0) {
-        tx.update(notes)
-          .set({ archivedAt: now })
-          .where(inArray(notes.linkedTaskId, updatedTaskIds))
-          .run();
-      }
+      const noteIds =
+        updatedTaskIds.length > 0
+          ? tx
+              .update(notes)
+              .set({ archivedAt: now })
+              .where(inArray(notes.linkedTaskId, updatedTaskIds))
+              .returning({ id: notes.id })
+              .all()
+              .map(({ id }) => id)
+          : [];
 
+      this.changes.emit({ type: 'archived', taskIds: updatedTaskIds, projectIds: [], noteIds });
       const [task] = updatedTasks.filter((t) => t.id === id);
       return task;
     });
@@ -72,13 +101,18 @@ export class ArchiveService {
       const updatedTaskIds = updatedTasks.map((t) => t.id);
 
       // restore notes linked to the task and/or any of its subtasks
-      if (updatedTaskIds.length > 0) {
-        tx.update(notes)
-          .set({ archivedAt: null })
-          .where(inArray(notes.linkedTaskId, updatedTaskIds))
-          .run();
-      }
+      const noteIds =
+        updatedTaskIds.length > 0
+          ? tx
+              .update(notes)
+              .set({ archivedAt: null })
+              .where(inArray(notes.linkedTaskId, updatedTaskIds))
+              .returning({ id: notes.id })
+              .all()
+              .map(({ id }) => id)
+          : [];
 
+      this.changes.emit({ type: 'restored', taskIds: updatedTaskIds, projectIds: [], noteIds });
       const [task] = updatedTasks.filter((t) => t.id === id);
       return task;
     });
@@ -113,11 +147,15 @@ export class ArchiveService {
         .map(({ id }) => id);
 
       // archaive all related notes (either direct project notes or notes linked to tasks in the project - like task notes)
-      tx.update(notes)
+      const noteIds = tx
+        .update(notes)
         .set({ archivedAt: now })
         .where(or(eq(notes.projectId, id), inArray(notes.linkedTaskId, updatedTaskIds)))
-        .run();
+        .returning({ id: notes.id })
+        .all()
+        .map(({ id }) => id);
 
+      this.changes.emit({ type: 'archived', taskIds: updatedTaskIds, projectIds: [id], noteIds });
       return project;
     });
   }
@@ -148,11 +186,15 @@ export class ArchiveService {
         .map(({ id }) => id);
 
       // restore all related notes (either direct project notes or notes linked to tasks in the project - like task notes)
-      tx.update(notes)
+      const noteIds = tx
+        .update(notes)
         .set({ archivedAt: null })
         .where(or(eq(notes.projectId, id), inArray(notes.linkedTaskId, updatedTaskIds)))
-        .run();
+        .returning({ id: notes.id })
+        .all()
+        .map(({ id }) => id);
 
+      this.changes.emit({ type: 'restored', taskIds: updatedTaskIds, projectIds: [id], noteIds });
       return project;
     });
   }
@@ -169,6 +211,7 @@ export class ArchiveService {
         .where(eq(notes.id, id))
         .returning()
         .get();
+      this.changes.emit({ type: 'archived', taskIds: [], projectIds: [], noteIds: [id] });
       return note;
     });
   }
@@ -185,6 +228,7 @@ export class ArchiveService {
         .where(eq(notes.id, id))
         .returning()
         .get();
+      this.changes.emit({ type: 'restored', taskIds: [], projectIds: [], noteIds: [id] });
       return note;
     });
   }
