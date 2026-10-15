@@ -18,15 +18,13 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { runMigrations } from '@main/db/migrate';
 import { fileExists } from '../local/utils';
-import { WorkspaceOperations } from './operations';
-import { WorkspaceMigrationError } from '../shared/errors';
+import { WorkspaceClosedError, WorkspaceMigrationError } from '../shared/errors';
 
 type SqliteDatabaseClient = Database.Database;
 
 export class Workspace {
-  private readonly operations = new WorkspaceOperations();
+  private readonly closing = new AbortController();
   private closePromise: Promise<void> | null = null;
-  private readonly scheduler: SyncScheduler;
   readonly notes: NoteService;
   readonly tasks: TaskService;
   readonly projects: ProjectService;
@@ -45,45 +43,24 @@ export class Workspace {
     readonly info: WorkspaceInfo,
     options: WorkspaceOptions,
   ) {
-    this.notes = this.operations.track(new NoteService(db, info.path), {});
-    this.tasks = this.operations.track(new TaskService(db), {});
-    this.projects = this.operations.track(new ProjectService(db), {});
-    this.events = this.operations.track(new EventService(db), {});
-    this.calendars = this.operations.track(new CalendarService(db), {});
-    this.archive = this.operations.track(new ArchiveService(db), {
-      archiveTask: true,
-      restoreTask: true,
-      archiveProject: true,
-      restoreProject: true,
-      archiveNote: true,
-      restoreNote: true,
-      listArchived: true,
-    });
-    const search = new SearchService(db, info.path);
-    this.search = this.operations.track(search, {
-      search: true,
-      indexTask: true,
-      indexProject: true,
-      indexEvent: true,
-      indexTasks: true,
-      indexProjects: true,
-      indexEvents: true,
-      removeFromIndex: true,
-    });
+    this.notes = new NoteService(db, info.path);
+    this.tasks = new TaskService(db);
+    this.projects = new ProjectService(db);
+    this.events = new EventService(db);
+    this.calendars = new CalendarService(db);
+    this.archive = new ArchiveService(db);
+    this.search = new SearchService(db, info.path);
     const { credentials, integrations, providers } = createIntegrationServices(
       db,
       options,
-      this.operations.signal,
+      this.closing.signal,
     );
-    this.integrations = this.operations.track(integrations, {
-      onChange: true,
-      markNeedsReauth: true,
-    });
+    this.integrations = integrations;
     // a disconnect deletes mirrored rows; they leave search in its transaction, all or nothing
     integrations.onChange((change) => {
       if (change.type !== 'disconnected') return;
       const { taskIds, projectIds, eventIds } = change.deleted;
-      search.removeFromIndex([...taskIds, ...projectIds, ...eventIds]);
+      this.search.removeFromIndex([...taskIds, ...projectIds, ...eventIds]);
     });
     const syncState = new SyncStateManager(db);
     const engine = new SyncEngine(db, {
@@ -91,10 +68,9 @@ export class Workspace {
       syncState,
       credentials,
       providers,
-      writer: new SyncWriter(db, search),
+      writer: new SyncWriter(db, this.search),
     });
-    this.scheduler = new SyncScheduler({ engine, integrations, syncState });
-    this.sync = this.operations.track(this.scheduler, { start: true, onProgress: true });
+    this.sync = new SyncScheduler({ engine, integrations, syncState });
   }
 
   static async create(info: WorkspaceInfo, options: WorkspaceOptions = {}): Promise<Workspace> {
@@ -186,14 +162,15 @@ export class Workspace {
   }
 
   /**
-   * Rejects new service calls, cancels requests and drains admitted calls and sync runs before
-   * closing SQLite. Every caller shares the same close promise.
+   * Cancels integration authentication and waits for sync runs before closing SQLite.
+   * Authentication checks cancellation before touching the database again. Ordinary service
+   * calls are not tracked or drained. Every caller shares the same close promise.
    */
   close(): Promise<void> {
     if (!this.closePromise) {
-      this.operations.cancel();
+      this.closing.abort(new WorkspaceClosedError());
       this.closePromise = (async () => {
-        await Promise.all([this.scheduler.stop(), this.operations.drain()]);
+        await this.sync.stop();
         this.sqliteClient.close();
       })();
     }

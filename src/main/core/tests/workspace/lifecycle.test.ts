@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { WorkspaceService } from '../../workspace/service';
 import { Workspace } from '../../workspace/workspace';
-import { NotFoundError, WorkspaceClosedError, WorkspaceMigrationError } from '../../shared/errors';
+import { NotFoundError, WorkspaceMigrationError } from '../../shared/errors';
 import type { WorkspaceId } from '@common/ids';
 import { deferred, MIGRATIONS_PATH, migrationsWithExtra } from '../utils';
 
@@ -55,7 +55,7 @@ describe('WorkspaceService — real overlapping transitions', () => {
     expect(first.info.id).toBe(ids[0]);
     expect(second.info.id).toBe(ids[1]);
     expect(service.currentWorkspace).toBe(second);
-    await expect(first.tasks.listTasks()).rejects.toBeInstanceOf(WorkspaceClosedError);
+    await expect(first.tasks.listTasks()).rejects.toThrow();
     await expect(second.tasks.listTasks()).resolves.toMatchObject({ items: [] });
   });
 
@@ -69,7 +69,7 @@ describe('WorkspaceService — real overlapping transitions', () => {
     await opening;
     const second = await switching;
     expect(service.currentWorkspace).toBe(second);
-    await expect(first.tasks.listTasks()).rejects.toBeInstanceOf(WorkspaceClosedError);
+    await expect(first.tasks.listTasks()).rejects.toThrow();
   });
 
   it('waits for opening before closing, including repeated close calls', async () => {
@@ -86,7 +86,7 @@ describe('WorkspaceService — real overlapping transitions', () => {
     gate.release();
     await Promise.all([opening, closing, again]);
     expect(service.currentWorkspace).toBeNull();
-    await expect(workspace.tasks.listTasks()).rejects.toBeInstanceOf(WorkspaceClosedError);
+    await expect(workspace.tasks.listTasks()).rejects.toThrow();
   });
 
   it('deletes a workspace whose open is still pending', async () => {
@@ -99,7 +99,7 @@ describe('WorkspaceService — real overlapping transitions', () => {
     expect(service.currentWorkspace).toBeNull();
     expect(() => service.getById(ids[0])).toThrow(NotFoundError);
     await expect(fs.stat(workspace.info.path)).rejects.toMatchObject({ code: 'ENOENT' });
-    await expect(workspace.tasks.listTasks()).rejects.toBeInstanceOf(WorkspaceClosedError);
+    await expect(workspace.tasks.listTasks()).rejects.toThrow();
   });
 
   it('rejects an open queued behind deletion of the same workspace', async () => {

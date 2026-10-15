@@ -232,6 +232,7 @@ export class IntegrationService implements BaseIntegrationService {
    * integration stays disabled with the new credentials, as enabling it is the user's call.
    */
   async reconnect(id: IntegrationId, using: ReconnectWith): Promise<Integration> {
+    this.signal?.throwIfAborted();
     const row = this.db.select().from(integrations).where(eq(integrations.id, id)).get();
     if (!row) throw new NotFoundError(id);
     const provider = getProvider(this.providers, row.provider);
@@ -321,6 +322,7 @@ export class IntegrationService implements BaseIntegrationService {
     account: ExternalAccount,
     enable: SourceType[],
   ): Promise<Integration> {
+    this.signal?.throwIfAborted();
     // checked here for a useful message; the unique constraint catches a connect racing this one
     this.assertNotConnected(provider.id, account.accountId, account.label);
     const sealed = await this.credentials.seal(credentials);

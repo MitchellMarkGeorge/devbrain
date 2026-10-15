@@ -517,33 +517,9 @@ function issue() {
   };
 }
 
-describe('Workspace — closed service contracts', () => {
-  it('rejects promise APIs, including syncNow without async, and throws for synchronous APIs', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
-    await workspace.close();
-    // Calling a Promise API must return a promise so existing .catch() callers keep working.
-    const results = [
-      workspace.sync.syncNow(),
-      workspace.sync.trigger('manual'),
-      workspace.sync.getStatus(),
-      workspace.tasks.listTasks(),
-      workspace.notes.listNotes(),
-    ];
-    await Promise.all(
-      results.map((result) => expect(result).rejects.toBeInstanceOf(WorkspaceClosedError)),
-    );
-    expect(() => workspace.search.search({ query: 'test', entityType: ['task'] })).toThrow(
-      WorkspaceClosedError,
-    );
-    expect(() => workspace.archive.listArchived()).toThrow(WorkspaceClosedError);
-    expect(() => workspace.sync.start()).toThrow(WorkspaceClosedError);
-    expect(() => workspace.integrations.onChange(() => {})).toThrow(WorkspaceClosedError);
-  });
-});
-
-describe('Workspace — outstanding operations', () => {
+describe('Workspace — integration cancellation', () => {
   it.each(['connect', 'reconnect'] as const)(
-    'drains a pending %s that ignores cancellation before closing SQLite',
+    'prevents late writes from a pending %s that ignores cancellation',
     async (operation) => {
       const provider = createFakeProvider();
       const cipher = new FakeCipher();
@@ -576,13 +552,17 @@ describe('Workspace — outstanding operations', () => {
       try {
         const closing = workspace.close();
         expect(workspace.close()).toBe(closing);
-        await new Promise((resolve) => setImmediate(resolve));
-        expect(closeSqlite).not.toHaveBeenCalled();
+        await closing;
+        expect(closeSqlite).toHaveBeenCalledOnce();
         expect(getAccount.mock.calls[0][1]?.signal?.aborted).toBe(true);
-        await expect(workspace.integrations.list()).rejects.toMatchObject({
-          name: 'WorkspaceClosedError',
-          code: 'workspace_closed',
-        });
+        // Reconnect must reject before its initial SQLite read as well.
+        const late = existing
+          ? workspace.integrations.reconnect(existing.id, {
+              type: AuthType.API_KEY,
+              apiKey: FAKE_API_KEY,
+            })
+          : workspace.integrations.connectWithApiKey(Provider.LINEAR, FAKE_API_KEY);
+        await expect(late).rejects.toBeInstanceOf(WorkspaceClosedError);
         answer.resolve(account);
         await Promise.all([closing, rejected]);
         expect(closeSqlite).toHaveBeenCalledOnce();
@@ -650,20 +630,6 @@ describe('Workspace — outstanding operations', () => {
     await workspace.close();
     await rejected;
   });
-
-  it('drains ordinary file operations admitted before close', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
-    const note = workspace.notes.createNote({ title: 'Kept' });
-    const closing = workspace.close();
-    await expect(note).resolves.toMatchObject({ title: 'Kept' });
-    await closing;
-    const reopened = await Workspace.open(makeInfo(tmpDir));
-    try {
-      expect((await reopened.notes.listNotes()).items).toHaveLength(1);
-    } finally {
-      await reopened.close();
-    }
-  });
 });
 
 describe('Workspace — failed opening cleanup', () => {
@@ -698,7 +664,7 @@ describe('Workspace — failed opening cleanup', () => {
     },
   );
 
-  it('drains encryption before closing and cancels the pending insert', async () => {
+  it('prevents an insert when encryption finishes after close', async () => {
     const cipher = new FakeCipher();
     const workspace = await Workspace.create(makeInfo(tmpDir), {
       cipher,
@@ -716,14 +682,9 @@ describe('Workspace — failed opening cleanup', () => {
       code: 'workspace_closed',
     });
     await vi.waitFor(() => expect(encrypting).toHaveBeenCalledOnce());
-    let closed = false;
-    const closing = workspace.close().then(() => {
-      closed = true;
-    });
-    await new Promise((resolve) => setImmediate(resolve));
-    expect(closed).toBe(false);
+    await workspace.close();
     release.resolve(undefined);
-    await Promise.all([closing, rejected]);
+    await rejected;
     const reopened = await Workspace.open(makeInfo(tmpDir));
     try {
       expect(await reopened.integrations.list()).toEqual([]);
