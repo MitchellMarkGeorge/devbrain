@@ -245,6 +245,50 @@ describe('SearchService — indexNote', () => {
   });
 });
 
+describe('SearchService — indexNoteContent', () => {
+  it('indexes the given markdown with its formatting stripped, without reading the file', async () => {
+    const note = await noteService.createNote({ title: 'Recipe' });
+    // the file is still empty: the body comes from the content passed in
+    searchService.indexNoteContent(note, '# Heading\n\nSome **bold** casserole instructions.');
+
+    const results = searchService.search({ query: 'casserole', entityType: ['note'] });
+    expect(results).toHaveLength(1);
+    expect(results[0]).toMatchObject({ entityId: note.id, entityType: 'note', title: 'Recipe' });
+    expect(results[0].body).not.toContain('**');
+    expect(results[0].body).not.toContain('#');
+  });
+
+  it('replaces the previous entry instead of duplicating it', async () => {
+    const note = await noteService.createNote({ title: 'Draft' });
+    searchService.indexNoteContent(note, 'first');
+    searchService.indexNoteContent(note, 'second');
+
+    const results = searchService.search({ query: 'Draft', entityType: [] });
+    expect(results).toHaveLength(1);
+    expect(results[0].body).toBe('second');
+  });
+});
+
+describe('SearchService — updateIndexedTitle', () => {
+  it('changes the title and keeps the body', async () => {
+    const note = await noteService.createNote({ title: 'Old' });
+    searchService.indexNoteContent(note, 'kept body');
+
+    searchService.updateIndexedTitle(note.id, 'New');
+
+    expect(searchService.search({ query: 'Old', entityType: [] })).toEqual([]);
+    expect(searchService.search({ query: 'New', entityType: [] })).toMatchObject([
+      { entityId: note.id, body: 'kept body' },
+    ]);
+  });
+
+  it('ignores an entity with no entry', () => {
+    searchService.updateIndexedTitle(generateId('note'), 'Nothing');
+
+    expect(searchService.search({ query: 'Nothing', entityType: [] })).toEqual([]);
+  });
+});
+
 describe('SearchService — search', () => {
   beforeEach(async () => {
     const task = await taskService.createTask({

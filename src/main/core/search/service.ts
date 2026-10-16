@@ -62,6 +62,18 @@ export class SearchService {
     await this.indexNotes([note]);
   }
 
+  // indexes a note from its markdown, for a write that has it in hand; indexNotes reads the files
+  indexNoteContent(note: Note, content: string): void {
+    this.upsertIndexBatch([
+      {
+        title: note.title,
+        body: stripMarkdown(content.trim()),
+        entityId: note.id,
+        entityType: 'note',
+      },
+    ]);
+  }
+
   indexProject(project: Project) {
     this.indexProjects([project]);
   }
@@ -137,6 +149,11 @@ export class SearchService {
       sql.raw(', '),
     );
     this.db.run(sql`DELETE FROM search_index WHERE entity_id IN (${ids})`);
+  }
+
+  // changes an entry's title and keeps its body; an entity with no entry is ignored
+  updateIndexedTitle(entityId: IndexEntity['entityId'], title: string): void {
+    this.db.run(sql`UPDATE search_index SET title = ${title} WHERE entity_id = ${entityId}`);
   }
 
   private noteFilePath(id: NoteId): string {

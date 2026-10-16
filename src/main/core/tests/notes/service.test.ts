@@ -624,7 +624,11 @@ describe('NoteService — onChange', () => {
       ['updated', note.id],
       ['updated', note.id],
     ]);
+    // the content sent is what the write left in the file; a rename sends none
+    expect(changes[0]).toMatchObject({ content: '' });
     expect(changes[1]).toMatchObject({ note: { title: 'Renamed' } });
+    expect(changes[1]).not.toHaveProperty('content');
+    expect(changes[2]).toMatchObject({ content: 'Some **content**' });
     expect(contentWhenSent[2]).toContain('Some **content**');
   });
 

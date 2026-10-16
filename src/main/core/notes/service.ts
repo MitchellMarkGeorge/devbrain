@@ -19,8 +19,11 @@ import { ChangeListener, ChangeListeners } from '../shared/changes';
 
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
 // layer will forward them to the renderer. Sent after both the note's file and its row are written,
-// with the row as written; the content is in the file.
-export type NoteChange = { type: 'created'; note: Note } | { type: 'updated'; note: Note };
+// with the row as written. `content` is the note's new markdown when the write changed it; a write
+// that leaves the body alone (a rename, a new project or link) has none.
+export type NoteChange =
+  | { type: 'created'; note: Note; content: string }
+  | { type: 'updated'; note: Note; content?: string };
 
 export class NoteService {
   private workspaceNotesPath: string;
@@ -78,7 +81,8 @@ export class NoteService {
       await deleteNoteFile(filePath);
       throw err;
     }
-    this.changes.emit({ type: 'created', note: insertedNote });
+    // the file is written empty
+    this.changes.emit({ type: 'created', note: insertedNote, content: '' });
     return insertedNote;
   }
 
@@ -183,7 +187,7 @@ export class NoteService {
       })
       .where(eq(notes.id, id))
       .returning();
-    if (updatedNote) this.changes.emit({ type: 'updated', note: updatedNote });
+    if (updatedNote) this.changes.emit({ type: 'updated', note: updatedNote, content });
 
     return updatedNote;
   }
