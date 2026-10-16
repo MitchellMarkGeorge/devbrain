@@ -1,6 +1,6 @@
 import { generateId, type IntegrationId, type WorkspaceId } from '@common/ids';
 import type { CreateWorkspaceOptions, WorkspaceInfo, WorkspaceOptions } from './types';
-import { workspaceRegistrySchema } from './schema';
+import { parseRegistry, REGISTRY_FILE, writeRegistry, type WorkspaceRegistry } from './registry';
 import { Workspace } from './workspace';
 import path from 'node:path';
 import fs from 'node:fs/promises';
@@ -33,22 +33,21 @@ export class WorkspaceService {
     // handed to every workspace this opens or creates
     private readonly workspaceOptions: WorkspaceOptions = {},
   ) {
-    this.workspacesFilePath = path.join(rootPath, 'workspaces.json');
+    this.workspacesFilePath = path.join(rootPath, REGISTRY_FILE);
   }
 
-  private readWorkspaceFile(): Record<WorkspaceId, WorkspaceInfo> {
+  private readWorkspaceFile(): WorkspaceRegistry {
     try {
-      const rawContent = fsSync.readFileSync(this.workspacesFilePath, 'utf8');
-      const parsedContent = JSON.parse(rawContent);
-      return workspaceRegistrySchema.parse(parsedContent) as Record<WorkspaceId, WorkspaceInfo>;
+      return parseRegistry(fsSync.readFileSync(this.workspacesFilePath, 'utf8'));
     } catch (error) {
-      if (isNotFound(error)) return {} as Record<WorkspaceId, WorkspaceInfo>;
+      if (isNotFound(error)) return {} as WorkspaceRegistry;
       throw error;
     }
   }
 
-  private writeWorkspaceFile(registry: Record<WorkspaceId, WorkspaceInfo>): void {
-    fsSync.writeFileSync(this.workspacesFilePath, JSON.stringify(registry, null, 2), 'utf8');
+  // atomic, and keeps a backup that DevBrain.open restores from (see recoverRegistry)
+  private writeWorkspaceFile(registry: WorkspaceRegistry): void {
+    writeRegistry(this.rootPath, registry);
   }
 
   listAll(page: PageOptions = {}): Page<WorkspaceInfo> {

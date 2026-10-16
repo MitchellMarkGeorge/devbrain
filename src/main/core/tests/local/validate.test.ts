@@ -158,24 +158,37 @@ describe('validateDevBrainFolderStructure', () => {
       });
     });
 
-    it('rejects when workspaces.json is invalid JSON', async () => {
-      await fs.writeFile(path.join(rootPath, 'workspaces.json'), 'not json');
-      const result = await validateDevBrainFolderStructure(rootPath);
-      expect(result).toMatchObject({ valid: false });
+    it('rejects a missing workspaces.json with no backup and no workspaces directory', async () => {
+      await fs.writeFile(path.join(rootPath, 'workspaces.json.bak'), 'not json');
+      await fs.rm(path.join(rootPath, 'workspaces.json'));
+      expect(await validateDevBrainFolderStructure(rootPath)).toMatchObject({ valid: false });
     });
 
-    it('rejects when workspaces.json has keys without wsp_ prefix', async () => {
-      const badRegistry = { bad_key: VALID_WORKSPACE_ENTRY };
-      await fs.writeFile(path.join(rootPath, 'workspaces.json'), JSON.stringify(badRegistry));
-      const result = await validateDevBrainFolderStructure(rootPath);
-      expect(result).toMatchObject({ valid: false });
+    it('accepts a missing workspaces.json with a valid backup, which DevBrain.open restores', async () => {
+      await fs.rename(
+        path.join(rootPath, 'workspaces.json'),
+        path.join(rootPath, 'workspaces.json.bak'),
+      );
+      expect(await validateDevBrainFolderStructure(rootPath)).toEqual({ valid: true });
     });
 
-    it('rejects when workspaces.json has a wsp_ key but invalid workspace entry', async () => {
-      const badRegistry = { wsp_test001: { id: 'wsp_test001', name: 'Incomplete' } };
-      await fs.writeFile(path.join(rootPath, 'workspaces.json'), JSON.stringify(badRegistry));
-      const result = await validateDevBrainFolderStructure(rootPath);
-      expect(result).toMatchObject({ valid: false });
+    it('accepts a missing workspaces.json beside a workspaces directory to rebuild it from', async () => {
+      await fs.rm(path.join(rootPath, 'workspaces.json'));
+      await fs.mkdir(path.join(rootPath, 'workspaces'));
+      expect(await validateDevBrainFolderStructure(rootPath)).toEqual({ valid: true });
+    });
+
+    // an invalid registry stood for workspaces that all have a directory, so it can be rebuilt
+    it.each([
+      ['invalid JSON', 'not json'],
+      ['keys without the wsp_ prefix', JSON.stringify({ bad_key: VALID_WORKSPACE_ENTRY })],
+      [
+        'an invalid workspace entry',
+        JSON.stringify({ wsp_test001: { id: 'wsp_test001', name: 'Incomplete' } }),
+      ],
+    ])('accepts a workspaces.json with %s, which DevBrain.open restores', async (_, content) => {
+      await fs.writeFile(path.join(rootPath, 'workspaces.json'), content);
+      expect(await validateDevBrainFolderStructure(rootPath)).toEqual({ valid: true });
     });
   });
 });

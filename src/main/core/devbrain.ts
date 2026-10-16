@@ -4,6 +4,7 @@ import { WorkspaceService } from './workspace/service';
 import type { WorkspaceOptions } from './workspace/types';
 import { devBrainFolderState, validateDevBrainFolderStructure } from './local/validate';
 import { scaffoldDevBrain } from './local/scaffold';
+import { recoverRegistry } from './workspace/registry';
 import { DevBrainFolderError } from './shared/errors';
 
 export interface OpenDevBrainOptions {
@@ -29,8 +30,9 @@ export class DevBrain {
   /**
    * Opens the DevBrain folder at `path`. Nothing there, or an empty directory, is created as a new
    * folder when `createIfMissing` is set, and refused otherwise (reason `missing`). Anything else
-   * must be a valid DevBrain folder (reason `invalid` when not). Never deletes or overwrites
-   * anything. Throws DevBrainFolderError.
+   * must be a valid DevBrain folder (reason `invalid` when not). Never deletes anything, and
+   * overwrites only a missing or invalid workspaces.json, restoring it after keeping a copy (see
+   * recoverRegistry). Throws DevBrainFolderError.
    */
   static async open({
     path,
@@ -47,6 +49,8 @@ export class DevBrain {
     if (state === 'present') {
       const result = await validateDevBrainFolderStructure(path);
       if (!result.valid) throw new DevBrainFolderError('invalid', result.error);
+      // a registry found missing or invalid is restored from its backup or the workspace directories
+      await recoverRegistry(path);
     } else if (createIfMissing) {
       await scaffoldDevBrain(path);
     } else {

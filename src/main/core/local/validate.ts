@@ -3,7 +3,7 @@ import path from 'node:path';
 import { isJunk } from 'junk';
 import { isErrnoException, isNotFound } from './utils';
 import { settingsFileSchema } from '../settings/schema';
-import { workspaceRegistrySchema } from '../workspace/schema';
+import { inspectRegistry, type RegistryInspection } from '../workspace/registry';
 
 // What is at a DevBrain folder's path: nothing, an empty directory (junk files such as .DS_Store
 // aside), or something else, which only validation can tell apart from a DevBrain folder.
@@ -64,20 +64,17 @@ export async function validateDevBrainFolderStructure(rootPath: string): Promise
     return { valid: false, error: 'Invalid settings.json file' };
   }
 
-  // 4. valid workspaces registry file must exist
-  const workspacesFilePath = path.join(rootPath, 'workspaces.json');
-  let parsedRegistry: unknown;
+  // 4. a valid workspaces registry must exist, or be recoverable from its backup or the workspace
+  //    directories; DevBrain.open then restores it (see recoverRegistry)
+  let inspection: RegistryInspection;
   try {
-    parsedRegistry = JSON.parse(await fs.readFile(workspacesFilePath, 'utf8'));
+    inspection = await inspectRegistry(rootPath);
   } catch (error) {
-    if (isNotFound(error))
-      return { valid: false, error: 'No workspaces.json file in provided rootPath' };
-    return { valid: false, error: 'workspaces.json is not valid JSON' };
+    return { valid: false, error: `Unable to read workspaces.json: ${error}` };
   }
-
-  const registryResult = workspaceRegistrySchema.safeParse(parsedRegistry);
-  if (!registryResult.success) {
-    return { valid: false, error: 'Invalid workspaces.json file' };
+  const { registry, recoverableFrom } = inspection;
+  if (registry.state === 'missing' && recoverableFrom === null) {
+    return { valid: false, error: 'No workspaces.json file in provided rootPath' };
   }
 
   // 5. validate other paths in folder (can only have workspaces)
