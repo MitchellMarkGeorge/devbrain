@@ -1,0 +1,2 @@
+ALTER TABLE `external_links` ADD `parent_external_id` text;--> statement-breakpoint
+CREATE INDEX `idx_external_links_source_id_parent_external_id` ON `external_links` (`source_id`,`parent_external_id`) WHERE "external_links"."parent_external_id" is not null;

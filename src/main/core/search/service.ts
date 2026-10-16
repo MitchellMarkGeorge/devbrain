@@ -174,9 +174,14 @@ export class SearchService {
   // is deleted+inserted as one DELETE and one multi-row INSERT inside one
   // transaction, instead of a DELETE+INSERT pair per entity. Matters once
   // you're indexing more than a handful of rows at a time (e.g. a bulk
-  // (re)index or a seed script).
-  indexTasks(tasks: Task[]): void {
-    this.upsertIndexBatch(tasks.map((task) => taskEntity(task)));
+  // (re)index or a seed script). `isNew` says nothing in the batch can have an entry yet (it was
+  // all inserted in the caller's transaction), so the DELETE, which reads the whole index, is
+  // skipped.
+  indexTasks(tasks: Task[], { isNew = false }: { isNew?: boolean } = {}): void {
+    this.upsertIndexBatch(
+      tasks.map((task) => taskEntity(task)),
+      { isNew },
+    );
   }
 
   indexNotes(notes: Note[]): Promise<void> {
@@ -204,8 +209,11 @@ export class SearchService {
     this.upsertIndexBatch(projects.map((project) => projectEntity(project)));
   }
 
-  indexEvents(events: Event[]): void {
-    this.upsertIndexBatch(events.map((event) => eventEntity(event)));
+  indexEvents(events: Event[], { isNew = false }: { isNew?: boolean } = {}): void {
+    this.upsertIndexBatch(
+      events.map((event) => eventEntity(event)),
+      { isNew },
+    );
   }
 
   /**
@@ -302,7 +310,7 @@ export class SearchService {
     return running;
   }
 
-  private upsertIndexBatch(entities: IndexEntity[]): void {
+  private upsertIndexBatch(entities: IndexEntity[], { isNew = false } = {}): void {
     if (entities.length === 0) return;
 
     // search_index is a plain (non-content-linked) fts5 table, so there's no
@@ -319,7 +327,8 @@ export class SearchService {
     const deleteQuery = sql`DELETE FROM search_index WHERE entity_id IN (${entityIds})`;
 
     this.db.transaction((tx) => {
-      tx.run(deleteQuery);
+      // entity_id is UNINDEXED, so this reads every entry in the index
+      if (!isNew) tx.run(deleteQuery);
       tx.run(insertQuery(entities));
     });
   }

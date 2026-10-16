@@ -711,6 +711,62 @@ describe('SyncWriter — subtasks', () => {
 
     expect(taskRow(child.externalId).parentTaskId).toBeNull();
     expect(linkOf(child.externalId)!.metadata).toMatchObject({ parentExternalId: null });
+    expect(linkOf(child.externalId)!.parentExternalId).toBeNull();
+  });
+
+  it("stores the parent's external id on the link, where adoption looks it up", () => {
+    const parent = issue();
+    const child = childOf(parent);
+
+    writer.applyTaskPage(sourceId, page({ tasks: [child, parent] }));
+
+    expect(linkOf(child.externalId)!.parentExternalId).toBe(parent.externalId);
+    expect(linkOf(parent.externalId)!.parentExternalId).toBeNull();
+  });
+
+  it('a changed child moves under a parent that is new in the same page', () => {
+    const parent = issue();
+    const child = childOf(parent);
+    writer.applyTaskPage(sourceId, page({ tasks: [child] }));
+
+    const summary = writer.applyTaskPage(
+      sourceId,
+      page({ tasks: [{ ...child, title: 'Renamed', updatedAt: V2 }, parent] }),
+    );
+
+    // the new parent is inserted before the child is updated to point at it
+    expect(summary).toMatchObject({ inserted: 1, updated: 1 });
+    expect(taskRow(child.externalId)).toMatchObject({
+      title: 'Renamed',
+      parentTaskId: taskIdOf(parent.externalId),
+    });
+  });
+
+  it('a page larger than one insert statement keeps every parent before its children', () => {
+    // a chain, children first: each chunk of the insert points into the one before it
+    const chain = [issue()];
+    for (let i = 1; i < 1_200; i++) chain.push(childOf(chain[i - 1]));
+
+    const summary = writer.applyTaskPage(sourceId, page({ tasks: [...chain].reverse() }));
+
+    expect(summary).toMatchObject({ inserted: 1_200, updated: 0 });
+    for (const i of [1, 499, 500, 501, 1_199]) {
+      expect(taskRow(chain[i].externalId).parentTaskId).toBe(taskIdOf(chain[i - 1].externalId));
+    }
+    expect(searchIds(chain[1_199].title)).toEqual([taskIdOf(chain[1_199].externalId)]);
+  });
+
+  it('children waiting for parents from more than one adoption statement are all adopted', () => {
+    const parents = Array.from({ length: 600 }, () => issue());
+    const children = parents.map((parent) => childOf(parent));
+    writer.applyTaskPage(sourceId, page({ tasks: children }));
+
+    const summary = writer.applyTaskPage(sourceId, page({ tasks: parents }));
+
+    expect(summary).toMatchObject({ inserted: 600, updated: 600 });
+    for (const i of [0, 499, 500, 599]) {
+      expect(taskRow(children[i].externalId).parentTaskId).toBe(taskIdOf(parents[i].externalId));
+    }
   });
 });
 

@@ -18,7 +18,7 @@ import {
   primaryKey,
   AnySQLiteColumn,
 } from 'drizzle-orm/sqlite-core';
-import { sql } from 'drizzle-orm';
+import { isNotNull, sql } from 'drizzle-orm';
 import {
   AuthType,
   IntegrationStatus,
@@ -114,6 +114,10 @@ export const externalLinks = sqliteTable(
     externalId: text().notNull(), // provider's stable id
     externalKey: text(), // human identifier, such as ENG-123
     externalUrl: text().notNull(),
+    // the provider id of the item this one sits under: a sub-issue's parent, or an occurrence's
+    // series master. The same id is in `metadata` for display; this copy is indexed, so the item
+    // that arrives after its children finds them without reading every link's metadata
+    parentExternalId: text(),
     externalUpdatedAt: date().notNull(), // used to skip unchanged items
     state: text().notNull().$type<LinkState>().default(LinkState.SYNCED),
     // JSON, validated with core/integrations/schema on read
@@ -131,6 +135,10 @@ export const externalLinks = sqliteTable(
     unique('uq_external_links_source_external_id').on(table.sourceId, table.externalId),
     // the reconcile pass: watched links of one source
     index('idx_external_links_source_id_state').on(table.sourceId, table.state),
+    // adoption: the links of one source waiting for a parent or series master that just arrived
+    index('idx_external_links_source_id_parent_external_id')
+      .on(table.sourceId, table.parentExternalId)
+      .where(isNotNull(table.parentExternalId)),
 
     // a link points at exactly one entity
     check(
