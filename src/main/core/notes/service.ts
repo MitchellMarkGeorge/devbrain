@@ -15,14 +15,30 @@ import {
 import { stripMarkdown } from '../shared/markdown';
 import { NotFoundError } from '../shared/errors';
 import { keyset, Page, PageOptions } from '../shared/pagination';
+import { ChangeListener, ChangeListeners } from '../shared/changes';
+
+// What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
+// layer will forward them to the renderer. Sent after both the note's file and its row are written,
+// with the row as written. `content` is the note's new markdown when the write changed it; a write
+// that leaves the body alone (a rename, a new project or link) has none.
+export type NoteChange =
+  | { type: 'created'; note: Note; content: string }
+  | { type: 'updated'; note: Note; content?: string };
 
 export class NoteService {
   private workspaceNotesPath: string;
+  private readonly changes = new ChangeListeners<NoteChange>('Note');
+
   constructor(
     private readonly db: BetterSQLite3Database,
     workspacePath: string,
   ) {
     this.workspaceNotesPath = path.join(workspacePath, 'notes');
+  }
+
+  // returns a function that unsubscribes the listener
+  onChange(listener: ChangeListener<NoteChange>): () => void {
+    return this.changes.add(listener);
   }
 
   async getById(id: NoteId): Promise<Note> {
@@ -57,14 +73,17 @@ export class NoteService {
       linkedEventId: options.linkedEventId ?? null,
     };
 
+    let insertedNote: Note;
     try {
-      const [insertedNote] = await this.db.insert(notes).values(newNote).returning();
-      return insertedNote;
+      [insertedNote] = await this.db.insert(notes).values(newNote).returning();
     } catch (err) {
       // undo the file write
       await deleteNoteFile(filePath);
       throw err;
     }
+    // the file is written empty
+    this.changes.emit({ type: 'created', note: insertedNote, content: '' });
+    return insertedNote;
   }
 
   async listNotes(
@@ -147,7 +166,9 @@ export class NoteService {
       .set(updates)
       .where(eq(notes.id, id))
       .returning();
-    return updatedNote ?? null;
+    if (!updatedNote) return null;
+    this.changes.emit({ type: 'updated', note: updatedNote });
+    return updatedNote;
   }
 
   async updateNoteContent(id: NoteId, content: string): Promise<Note> {
@@ -166,6 +187,7 @@ export class NoteService {
       })
       .where(eq(notes.id, id))
       .returning();
+    if (updatedNote) this.changes.emit({ type: 'updated', note: updatedNote, content });
 
     return updatedNote;
   }

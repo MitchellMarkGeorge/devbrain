@@ -13,6 +13,7 @@ import {
 } from '../shared/errors';
 import { REVOKE_TIMEOUT_MS } from '../sync/constants';
 import { SyncEntityType } from '../sync/types';
+import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { toAuth } from './auth';
 import { CredentialStore } from './credential-store';
 import { ApiKeyCredentials, Credentials, OAuthCredentials, PendingRevoke } from './credentials';
@@ -65,7 +66,7 @@ export type IntegrationChange =
       changed: SyncEntityType[];
     };
 
-export type IntegrationChangeListener = (change: IntegrationChange) => void;
+export type IntegrationChangeListener = ChangeListener<IntegrationChange>;
 
 // what a reconnect authenticates with: a new API key, or the provider's OAuth flow run again
 export type ReconnectWith =
@@ -142,7 +143,9 @@ export class IntegrationService implements BaseIntegrationService {
   private readonly credentials: CredentialStore;
   private readonly providers: ProviderRegistry;
   private readonly oauth: OAuthClient | null;
-  private readonly listeners = new Set<IntegrationChangeListener>();
+  // a failing listener must not fail the call or the others; `disconnected` is sent inside its
+  // transaction, and the removal stands even if a listener throws
+  private readonly changes = new ChangeListeners<IntegrationChange>('Integration');
   // set while an OAuth connect waits on the browser; one flow per workspace at a time
   private connecting = false;
   private readonly signal?: AbortSignal;
@@ -258,7 +261,7 @@ export class IntegrationService implements BaseIntegrationService {
     });
 
     if (status === IntegrationStatus.CONNECTED) {
-      this.emit({ type: 'status_changed', integrationId: id, status });
+      this.changes.emit({ type: 'status_changed', integrationId: id, status });
     }
     return this.getById(id);
   }
@@ -371,7 +374,7 @@ export class IntegrationService implements BaseIntegrationService {
       throw error;
     }
 
-    this.emit({ type: 'connected', integrationId, sources });
+    this.changes.emit({ type: 'connected', integrationId, sources });
     return this.getById(integrationId);
   }
 
@@ -424,9 +427,14 @@ export class IntegrationService implements BaseIntegrationService {
         .all();
     });
 
-    this.emit({ type: 'status_changed', integrationId: id, status });
+    this.changes.emit({ type: 'status_changed', integrationId: id, status });
     for (const source of toggled) {
-      this.emit({ type: 'source_changed', integrationId: id, sourceId: source.id, enabled });
+      this.changes.emit({
+        type: 'source_changed',
+        integrationId: id,
+        sourceId: source.id,
+        enabled,
+      });
     }
     return this.getById(id);
   }
@@ -461,7 +469,7 @@ export class IntegrationService implements BaseIntegrationService {
       .where(eq(externalSources.id, sourceId))
       .returning()
       .all();
-    this.emit({
+    this.changes.emit({
       type: 'source_changed',
       integrationId: row.integrationId,
       sourceId,
@@ -508,7 +516,7 @@ export class IntegrationService implements BaseIntegrationService {
       this.credentials.clear(id);
       tx.delete(integrations).where(eq(integrations.id, id)).run();
       // 3.
-      this.emit({
+      this.changes.emit({
         type: 'disconnected',
         integrationId: id,
         sourceIds,
@@ -535,7 +543,7 @@ export class IntegrationService implements BaseIntegrationService {
       .where(and(eq(integrations.id, id), eq(integrations.status, IntegrationStatus.CONNECTED)))
       .run();
     if (result.changes === 0) return;
-    this.emit({
+    this.changes.emit({
       type: 'status_changed',
       integrationId: id,
       status: IntegrationStatus.NEEDS_REAUTH,
@@ -544,22 +552,7 @@ export class IntegrationService implements BaseIntegrationService {
 
   // returns a function that unsubscribes the listener
   onChange(listener: IntegrationChangeListener): () => void {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  }
-
-  private emit(change: IntegrationChange): void {
-    // a failing listener must not fail the call or the others; `disconnected` is sent inside its
-    // transaction, and the removal stands even if a listener throws
-    for (const listener of [...this.listeners]) {
-      try {
-        listener(change);
-      } catch (error) {
-        console.error('An integration change listener threw:', error);
-      }
-    }
+    return this.changes.add(listener);
   }
 
   /**

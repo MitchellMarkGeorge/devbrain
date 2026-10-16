@@ -14,7 +14,7 @@ import {
   TokenRefresher,
 } from '../../integrations/credentials';
 import { AuthType, Provider } from '../../integrations/types';
-import { IntegrationAuthError, NotFoundError } from '../../shared/errors';
+import { IntegrationAuthError, NotFoundError, ProviderUnavailableError } from '../../shared/errors';
 import { TOKEN_REFRESH_MARGIN_MS } from '../../sync/constants';
 
 const API_KEY = 'lin_api_supersecretkey';
@@ -309,6 +309,48 @@ describe('CredentialStore — refresh', () => {
     await expect(store.getAuth(id)).rejects.toThrow(IntegrationAuthError);
     expect((await decryptStored(cipher, db, id)).accessToken).toBe(ACCESS_TOKEN);
     expect(await store.getAuth(id)).toEqual({ authorization: 'Bearer new-access' });
+  });
+
+  it('tells listeners when the provider rejects a refresh', async () => {
+    const refresher = vi
+      .fn<TokenRefresher>()
+      .mockRejectedValue(new IntegrationAuthError('invalid_grant'));
+    const store = storeWith(refresher);
+    const listener = vi.fn();
+    store.onChange(listener);
+    await saveToken(store, 0);
+
+    await expect(store.getAuth(id)).rejects.toThrow(IntegrationAuthError);
+    expect(listener.mock.calls).toEqual([[{ type: 'refresh_rejected', integrationId: id }]]);
+  });
+
+  it('tells listeners nothing when the provider is only unreachable', async () => {
+    const refresher = vi
+      .fn<TokenRefresher>()
+      .mockRejectedValue(new ProviderUnavailableError('down'));
+    const store = storeWith(refresher);
+    const listener = vi.fn();
+    store.onChange(listener);
+    await saveToken(store, 0);
+
+    await expect(store.getAuth(id)).rejects.toThrow(ProviderUnavailableError);
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('passes the rejection on when a listener throws', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const refresher = vi
+      .fn<TokenRefresher>()
+      .mockRejectedValue(new IntegrationAuthError('invalid_grant'));
+    const store = storeWith(refresher);
+    store.onChange(() => {
+      throw new Error('boom');
+    });
+    await saveToken(store, 0);
+
+    await expect(store.getAuth(id)).rejects.toThrow('invalid_grant');
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
   });
 
   it('raises IntegrationAuthError when the provider has no refresher', async () => {

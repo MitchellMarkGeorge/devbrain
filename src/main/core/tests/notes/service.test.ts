@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { eq } from 'drizzle-orm';
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { generateId, ProjectId, EventId, TaskId } from '@common/ids';
-import { NoteService } from '../../notes/service';
+import { NoteChange, NoteService } from '../../notes/service';
 import { ArchiveService } from '../../archive/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
@@ -599,5 +600,44 @@ describe('NoteService — cursor pagination', () => {
     await expect(
       notesService.listNotes({}, { sortBy: 'createdAt' }, { cursor: page.nextCursor! }),
     ).rejects.toThrow(InvalidCursorError);
+  });
+});
+
+describe('NoteService — onChange', () => {
+  it('sends every write once its file and row are written', async () => {
+    const changes: NoteChange[] = [];
+    const contentWhenSent: string[] = [];
+    notesService.onChange((change) => {
+      changes.push(change);
+      // the file is written before the change is sent; read synchronously at send time
+      contentWhenSent.push(
+        fsSync.readFileSync(notesFilePath(workspacePath, change.note.id), 'utf8'),
+      );
+    });
+
+    const note = await notesService.createNote({ title: 'Note' });
+    await notesService.updateNote(note.id, { title: 'Renamed' });
+    await notesService.updateNoteContent(note.id, 'Some **content**');
+
+    expect(changes.map(({ type, note }) => [type, note.id])).toEqual([
+      ['created', note.id],
+      ['updated', note.id],
+      ['updated', note.id],
+    ]);
+    // the content sent is what the write left in the file; a rename sends none
+    expect(changes[0]).toMatchObject({ content: '' });
+    expect(changes[1]).toMatchObject({ note: { title: 'Renamed' } });
+    expect(changes[1]).not.toHaveProperty('content');
+    expect(changes[2]).toMatchObject({ content: 'Some **content**' });
+    expect(contentWhenSent[2]).toContain('Some **content**');
+  });
+
+  it('sends nothing for a write that changed no row', async () => {
+    const listener = vi.fn();
+    notesService.onChange(listener);
+
+    await notesService.updateNote(generateId('note'), { title: 'Missing' });
+
+    expect(listener).not.toHaveBeenCalled();
   });
 });

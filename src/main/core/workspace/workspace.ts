@@ -50,6 +50,13 @@ export class Workspace {
     this.calendars = new CalendarService(db);
     this.archive = new ArchiveService(db);
     this.search = new SearchService(db, info.path);
+    // the user's own writes; SyncWriter indexes what sync writes
+    this.tasks.onChange(({ task }) => this.search.indexTask(task));
+    this.projects.onChange(({ project }) => this.search.indexProject(project));
+    this.notes.onChange(({ note, content }) => {
+      if (content === undefined) this.search.updateIndexedTitle(note.id, note.title);
+      else this.search.indexNoteContent(note, content);
+    });
     const { credentials, integrations, providers } = createIntegrationServices(
       db,
       options,

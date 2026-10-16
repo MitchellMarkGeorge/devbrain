@@ -34,3 +34,19 @@ Other points:
   `_journal.json` entry) and generated again; a merged migration is never changed.
 - Cover a migration that changes existing rows in `src/main/core/tests/db/migrations.test.ts`,
   seeding a database at the migration before it.
+
+## Change events
+
+A service in `src/main/core` that tells other code what it changed does so through
+`ChangeListeners` (`src/main/core/shared/changes.ts`), not a listener set or callback option of its
+own:
+
+- Expose `onChange(listener)` (or a name saying what is sent, like `onProgress`) returning
+  `this.changes.add(listener)`, and send with `this.changes.emit(change)` once the change has
+  happened (after the commit, or as a transaction's last step when a listener's writes must commit
+  with it).
+- Make the change a discriminated union with a `type`, carrying ids and rows, never credentials.
+- Wire services together by subscribing where they are built (`Workspace`,
+  `createIntegrationServices`), not by passing hooks into constructors.
+- A listener that throws is logged and never fails the call; pass a reporter as the second
+  argument when the default `console.error` line could leak data (see `SyncEngine`).

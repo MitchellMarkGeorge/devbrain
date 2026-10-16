@@ -48,14 +48,15 @@ export function createIntegrationServices(
     callbackTimeoutMs: options.callbackTimeoutMs,
   });
 
-  // the store reports rejected refreshes to the service, which is built after it
-  let service: IntegrationService | null = null;
   const credentials = new CredentialStore(db, {
     cipher: options.cipher ?? unavailableCipher,
     refreshers: createTokenRefreshers(providers, oauth),
-    onRefreshRejected: (integrationId) => service?.markNeedsReauth(integrationId),
   });
-  service = new IntegrationService(db, { credentials, providers, oauth, signal });
+  const service = new IntegrationService(db, { credentials, providers, oauth, signal });
+  // a rejected refresh only a reconnect can fix
+  credentials.onChange((change) => {
+    if (change.type === 'refresh_rejected') service.markNeedsReauth(change.integrationId);
+  });
   // the sync engine gets the same store and registry, so an integration syncs through the provider
   // that connected it
   return { credentials, integrations: service, providers };
