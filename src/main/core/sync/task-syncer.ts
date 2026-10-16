@@ -45,8 +45,13 @@ export class TaskSyncer implements Syncer {
     };
   }
 
-  reconcile({ sourceId, auth, signal }: ReconcileContext): Promise<PendingReconcile | null> {
-    return this.reconciler.reconcile(sourceId, this.tasks, auth, signal);
+  reconcile({
+    sourceId,
+    target,
+    auth,
+    signal,
+  }: ReconcileContext): Promise<PendingReconcile | null> {
+    return this.reconciler.reconcile(sourceId, target, this.tasks, auth, signal);
   }
 
   // one page from the source, and the cursor after it

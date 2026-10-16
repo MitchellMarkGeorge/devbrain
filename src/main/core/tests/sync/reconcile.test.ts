@@ -21,7 +21,7 @@ import {
 import { SyncEngine } from '../../sync/engine';
 import { SyncWriter } from '../../sync/writer';
 import { SyncMode, SyncProgress, SyncRunOutcome, SyncSkipReason } from '../../sync/types';
-import { CLOSED_ISSUE_WINDOW_MS } from '../../sync/constants';
+import { CLOSED_ISSUE_WINDOW_MS, PROJECT_CHECK_INTERVAL_MS } from '../../sync/constants';
 import { SearchService } from '../../search/service';
 import { CredentialStore } from '../../integrations/credential-store';
 import { IntegrationService } from '../../integrations/service';
@@ -55,6 +55,8 @@ let logger: { info: Mock<LogFn>; warn: Mock<LogFn>; error: Mock<LogFn> };
 let progress: SyncProgress[];
 let sourceId: ExternalSourceId;
 let itemCount = 0;
+// the engine's clock: NOW unless a test moves it
+let clock: Date;
 
 // what Linear holds now: the lookup answers from these, and reports anything else as gone
 let remoteTasks: Map<string, ExternalTask>;
@@ -185,6 +187,7 @@ async function localTaskIn(projectId: ProjectId): Promise<TaskId> {
 
 beforeEach(async () => {
   workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-sync-reconcile-'));
+  clock = NOW;
   db = createDb();
   provider = createFakeProvider();
   const credentials = new CredentialStore(db, { cipher: new FakeCipher() });
@@ -197,7 +200,7 @@ beforeEach(async () => {
     providers: fakeRegistry(provider),
     writer: new SyncWriter(db, new SearchService(db, workspacePath)),
     logger,
-    now: () => NOW,
+    now: () => clock,
   });
   const integration = await service.connectWithApiKey(ProviderId.LINEAR, 'fake_api_key');
   sourceId = integration.sources[0].id;
@@ -313,9 +316,11 @@ describe('SyncEngine reconcile — returning issues', () => {
     expect(provider.tasks.lookups).toEqual([]);
   });
 
-  it('makes no lookup with no candidates and no returning issues', async () => {
+  it('makes no lookup with no candidates, no returning issues and no project check due', async () => {
     const proj = project();
     await seed([issue({ projectExternalId: proj.externalId }), issue()], [proj]);
+    // the initial sync just brought the project in, so its check is not due yet
+    clock = new Date(NOW.getTime() + PROJECT_CHECK_INTERVAL_MS - 1);
 
     const result = await reconcile();
 
@@ -326,7 +331,7 @@ describe('SyncEngine reconcile — returning issues', () => {
       updated: 0,
       removed: 0,
     });
-    expect(sourceRow().lastReconciledAt).toEqual(NOW);
+    expect(sourceRow()).toMatchObject({ lastReconciledAt: clock, projectsCheckedAt: null });
   });
 
   it('sends the source’s synced projects with the lookup', async () => {
@@ -342,6 +347,99 @@ describe('SyncEngine reconcile — returning issues', () => {
       { externalIds: [gone.externalId], projectIds: [] },
       { externalIds: [], projectIds: [proj.externalId] },
     ]);
+    // which counts as the project check
+    expect(sourceRow().projectsCheckedAt).toEqual(NOW);
+  });
+});
+
+describe('SyncEngine reconcile — project check', () => {
+  const later = (ms: number) => new Date(NOW.getTime() + ms);
+
+  it('picks up a project edited with its issues unchanged once the check is due, not before', async () => {
+    const proj = project({ title: 'Platform' });
+    await seed([issue({ projectExternalId: proj.externalId })], [proj]);
+    remoteProjects.set(proj.externalId, {
+      ...proj,
+      title: 'Platform v2',
+      status: ProjectStatus.COMPLETED,
+      statusLabel: 'Completed',
+      completedAt: V2,
+      updatedAt: V2,
+    });
+
+    // not due: the initial sync brought the project in less than an interval ago
+    clock = later(PROJECT_CHECK_INTERVAL_MS - 1);
+    await reconcile();
+    expect(provider.tasks.lookups).toEqual([]);
+    expect(projectOf(proj.externalId).title).toBe('Platform');
+
+    clock = later(PROJECT_CHECK_INTERVAL_MS);
+    const result = await reconcile();
+
+    expect(provider.tasks.lookups).toEqual([{ externalIds: [], projectIds: [proj.externalId] }]);
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, updated: 1, removed: 0 });
+    expect(projectOf(proj.externalId)).toMatchObject({
+      title: 'Platform v2',
+      status: ProjectStatus.COMPLETED,
+      archivedAt: null,
+    });
+    expect(linkOf(proj.externalId).state).toBe(LinkState.SYNCED);
+    expect(sourceRow().projectsCheckedAt).toEqual(clock);
+  });
+
+  it('counts the interval from the last check, as stored on the source', async () => {
+    const proj = project();
+    await seed([issue({ projectExternalId: proj.externalId })], [proj]);
+    clock = later(PROJECT_CHECK_INTERVAL_MS);
+    await reconcile();
+    expect(provider.tasks.lookups).toHaveLength(1);
+
+    // a pass soon after makes no project lookup
+    clock = later(PROJECT_CHECK_INTERVAL_MS + 30 * 60 * 1000);
+    await reconcile();
+    expect(provider.tasks.lookups).toHaveLength(1);
+
+    clock = later(2 * PROJECT_CHECK_INTERVAL_MS);
+    await reconcile();
+    expect(provider.tasks.lookups).toHaveLength(2);
+  });
+
+  it('archives a project deleted in Linear when the check is due, with no task lookup', async () => {
+    const deleted = project();
+    const kept = project();
+    const inDeleted = issue({ projectExternalId: deleted.externalId });
+    await seed([inDeleted, issue({ projectExternalId: kept.externalId })], [deleted, kept]);
+    remoteProjects.delete(deleted.externalId);
+    // the issue itself is unchanged, so no incremental pull brings the deletion in
+    clock = later(PROJECT_CHECK_INTERVAL_MS);
+
+    const result = await reconcile();
+
+    expect(provider.tasks.lookups.map((lookup) => lookup.externalIds)).toEqual([[]]);
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, removed: 1 });
+    expect(linkOf(deleted.externalId).state).toBe(LinkState.REMOVED);
+    expect(projectOf(deleted.externalId).archivedAt).toBeInstanceOf(Date);
+    expect(taskOf(inDeleted.externalId)).toMatchObject({ projectId: null, archivedAt: null });
+    expect(linkOf(kept.externalId).state).toBe(LinkState.SYNCED);
+  });
+
+  it('records no check when the pass is aborted during the project lookup', async () => {
+    const proj = project();
+    await seed([issue({ projectExternalId: proj.externalId })], [proj]);
+    remoteProjects.set(proj.externalId, { ...proj, title: 'Renamed', updatedAt: V2 });
+    clock = later(PROJECT_CHECK_INTERVAL_MS);
+    const controller = new AbortController();
+    provider.tasks.respondToLookup = (request) => {
+      controller.abort();
+      return lookupFromRemote(request);
+    };
+    assignNow();
+
+    const result = await engine.reconcileSource(sourceId, { signal: controller.signal });
+
+    expect(result.outcome).toBe(SyncRunOutcome.ABORTED);
+    expect(sourceRow().projectsCheckedAt).toBeNull();
+    expect(projectOf(proj.externalId).title).toBe(proj.title);
   });
 });
 

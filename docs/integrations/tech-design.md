@@ -258,6 +258,7 @@ Unique on (`provider`, `accountId`).
 | `cursor`                           | json text | Opaque to the engine. Google keeps one sync token per calendar    |
 | `initialSyncCompletedAt`           | timestamp | Null until the first full pass finishes                           |
 | `lastSyncedAt`, `lastReconciledAt` | timestamp |                                                                   |
+| `projectsCheckedAt`                | timestamp | Last reconcile pass that looked up every mirrored project         |
 | `lastError`                        | text      | Null when the last run succeeded                                  |
 | `consecutiveFailures`              | integer   | Drives backoff                                                    |
 
@@ -587,17 +588,18 @@ The watched set is therefore open assigned issues plus issues closed in the last
 1. Page through the ids of open issues assigned to the viewer, requesting the `id` field only.
 2. Compare with the watched links that are still open locally. A watched link missing from the snapshot is a candidate. In the other direction, a snapshot id with no `synced` link (its link is `removed`, or it has none) is a returning issue, such as one restored from the trash. `detached` links are skipped either way.
 3. Fetch the candidates and returning issues by id, in batches of 100, including archived issues.
-4. Apply the result: completed or cancelled issues are updated, reassigned ones are removed, ids that no longer resolve were deleted and are removed, and returning issues are upserted, which restores a `removed` link.
-5. Archive mirrored projects that no longer have tasks, and mark newly aged-out closed issues as settled.
+4. Fetch the source's mirrored projects by id, when step 3 fetched anything or the project check is due: its last run (`projectsCheckedAt`, or the initial sync before the first) is 2 hours old. Incremental sync queries issues only and sees a project only inside a changed issue, so this is what brings in a project renamed, given a new status or dates, or deleted while its issues stay the same.
+5. Apply the result: completed or cancelled issues are updated, reassigned ones are removed, ids that no longer resolve were deleted and are removed, and returning issues are upserted, which restores a `removed` link. Fetched projects are updated, and those that no longer resolve are retired like empty ones. A pass that fetched the projects sets `projectsCheckedAt` in the same transaction.
+6. Archive mirrored projects that no longer have tasks, and mark newly aged-out closed issues as settled.
 
-Cost scales with the number of open assigned issues, not with everything ever mirrored. Most passes find no candidates and make no second request.
+Cost scales with the number of open assigned issues and mirrored projects, not with everything ever mirrored. Most passes find no candidates, have no project check due, and make no second request; about one in four makes the project request.
 
-| Linear run  | When                                                                              | Catches                                                                                   |
-| ----------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Incremental | Every 5 minutes, on focus                                                         | New assignments, edits, completions, trashing                                             |
-| Reconcile   | Every 30 minutes, on workspace open, on "Sync now", when a source resumes syncing | Reassigned away, deleted, restored from the trash, empty projects; trashing as a backstop |
+| Linear run  | When                                                                              | Catches                                                                                                                              |
+| ----------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Incremental | Every 5 minutes, on focus                                                         | New assignments, edits, completions, trashing                                                                                        |
+| Reconcile   | Every 30 minutes, on workspace open, on "Sync now", when a source resumes syncing | Reassigned away, deleted, restored from the trash, empty projects; project edits and deletions every 2 hours; trashing as a backstop |
 
-The trade-off: an issue reassigned to someone else can stay in the list for up to 30 minutes, and an issue restored from the trash can take as long to reappear. "Sync now" closes the gap on demand, and so does a source resuming after being switched off or reconnected, when the gap can be much longer than 30 minutes.
+The trade-off: an issue reassigned to someone else can stay in the list for up to 30 minutes, and an issue restored from the trash can take as long to reappear. "Sync now" closes the gap on demand, and so does a source resuming after being switched off or reconnected, when the gap can be much longer than 30 minutes. A project edited or deleted in Linear while its issues stay the same can take up to 2.5 hours to show, unless a pass looks up an issue sooner; checking projects on every pass would spend a request each time on what rarely changes.
 
 **Initial and incremental sync (Google Calendar)**
 
@@ -817,6 +819,7 @@ Every HTTP request has a 30-second timeout through `AbortSignal`. Mutations reje
 | ----------------------------------------- | ------------------------------------ |
 | Incremental interval                      | 5 minutes                            |
 | Reconcile interval (Linear)               | 30 minutes                           |
+| Project check interval (Linear)           | 2 hours                              |
 | Minimum gap for focus and resume triggers | 60 seconds                           |
 | Page size                                 | 50                                   |
 | Lookup batch size                         | 100 ids                              |

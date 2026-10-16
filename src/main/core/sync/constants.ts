@@ -2,12 +2,18 @@
 
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
-const DAY = 24 * 60 * MINUTE;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
 
 // how often an enabled source runs an incremental sync while the workspace is open
 export const INCREMENTAL_INTERVAL_MS = 5 * MINUTE;
 // how often Linear's reconcile pass looks for reassigned, trashed and deleted issues
 export const RECONCILE_INTERVAL_MS = 30 * MINUTE;
+// how often a reconcile pass looks up every mirrored Linear project, to see renames, status and
+// date changes and deletions that no issue change carries; a pass that looks up tasks checks them
+// anyway. So about every fourth pass makes the request, and a project edit takes up to this long,
+// plus a reconcile interval, to arrive
+export const PROJECT_CHECK_INTERVAL_MS = 2 * HOUR;
 // focus and resume trigger a sync only if the last run finished longer ago than this
 export const MIN_TRIGGER_GAP_MS = 60 * SECOND;
 
