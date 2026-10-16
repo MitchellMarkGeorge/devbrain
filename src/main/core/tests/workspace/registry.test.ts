@@ -11,6 +11,7 @@ import { FileExistsError } from '../../shared/errors';
 import { recoverRegistry, writeRegistry, type WorkspaceRegistry } from '../../workspace/registry';
 
 vi.mock('electron-store', () => import('../__mocks__/electron-store'));
+import { WORKSPACE_OPTIONS } from '../utils';
 
 // Faults injected into node:fs, for atomically as much as our own code: vitest.config.ts inlines
 // atomically and stubborn-fs so this mock reaches them. afterEach clears them.
@@ -171,7 +172,7 @@ describe('WorkspaceService — failed registry writes', () => {
     const existing = registryOf(makeInfo('wsp_a'));
     writeRegistry(rootPath, existing);
     faults.failRename = () => true;
-    const service = new WorkspaceService(rootPath);
+    const service = new WorkspaceService(rootPath, WORKSPACE_OPTIONS);
     await expect(service.create({ name: 'New', color: '#000000' })).rejects.toThrow(/EIO/);
     expect(await readJson(registryPath())).toEqual(existing);
     expect(service.listAll().items.map((info) => info.id)).toEqual(['wsp_a']);
@@ -181,7 +182,7 @@ describe('WorkspaceService — failed registry writes', () => {
     const existing = registryOf(makeInfo('wsp_a'));
     writeRegistry(rootPath, existing);
     faults.writeHalfway = true;
-    const service = new WorkspaceService(rootPath);
+    const service = new WorkspaceService(rootPath, WORKSPACE_OPTIONS);
     await expect(service.create({ name: 'New', color: '#000000' })).rejects.toThrow(/ENOSPC/);
     expect(await readJson(registryPath())).toEqual(existing);
   });
@@ -254,7 +255,7 @@ describe('DevBrain.open — a corrupt registry', () => {
     await fs.writeFile(registryPath(), '');
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const devBrain = await DevBrain.open({ path: rootPath });
+    const devBrain = await DevBrain.open({ path: rootPath, workspace: WORKSPACE_OPTIONS });
     expect(devBrain.workspaces.listAll().items.map((info) => info.id)).toEqual(['wsp_a', 'wsp_b']);
     expect(console.warn).toHaveBeenCalledOnce();
     await devBrain.close();

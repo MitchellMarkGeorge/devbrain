@@ -31,7 +31,7 @@ export class WorkspaceService {
   constructor(
     private rootPath: string,
     // handed to every workspace this opens or creates
-    private readonly workspaceOptions: WorkspaceOptions = {},
+    private readonly workspaceOptions: WorkspaceOptions,
   ) {
     this.workspacesFilePath = path.join(rootPath, REGISTRY_FILE);
   }

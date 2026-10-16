@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -6,7 +6,7 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { eq } from 'drizzle-orm';
 import { IntegrationId, WorkspaceId } from '@common/ids';
 import { externalSources, integrations } from '@main/db/schema/integrations';
-import { createDb, MIGRATIONS_PATH } from '../utils';
+import { createDb, WORKSPACE_OPTIONS } from '../utils';
 import { FakeCipher } from '../__mocks__/fake-cipher';
 import { scriptedFetch } from './linear/fake-fetch';
 import viewerFixture from './fixtures/linear/viewer.json';
@@ -634,10 +634,6 @@ describe('IntegrationService — workspaces', () => {
     lastOpenedAt: null,
   });
 
-  beforeAll(() => {
-    process.env.DB_MIGRATIONS_PATH = MIGRATIONS_PATH;
-  });
-
   beforeEach(async () => {
     tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-integrations-'));
   });
@@ -649,7 +645,10 @@ describe('IntegrationService — workspaces', () => {
   async function createWorkspace(name: string, cipher: FakeCipher, fetch = scriptedFetch([])) {
     const info = makeInfo(name);
     await fs.mkdir(info.path);
-    return { info, workspace: await Workspace.create(info, { cipher, fetch }) };
+    return {
+      info,
+      workspace: await Workspace.create(info, { ...WORKSPACE_OPTIONS, cipher, fetch }),
+    };
   }
 
   it('connecting in one workspace leaves the other empty', async () => {
@@ -693,7 +692,7 @@ describe('IntegrationService — workspaces', () => {
     const connected = await workspace.integrations.connectWithApiKey(ProviderId.LINEAR, API_KEY);
     await workspace.close();
 
-    const reopened = await Workspace.open(info, { cipher });
+    const reopened = await Workspace.open(info, { ...WORKSPACE_OPTIONS, cipher });
     try {
       expect(await reopened.integrations.list()).toEqual([connected]);
     } finally {
@@ -705,6 +704,7 @@ describe('IntegrationService — workspaces', () => {
     const info = makeInfo('plain');
     await fs.mkdir(info.path);
     const workspace = await Workspace.create(info, {
+      ...WORKSPACE_OPTIONS,
       fetch: scriptedFetch([{ body: viewerFixture }]),
     });
 

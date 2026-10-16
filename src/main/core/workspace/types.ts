@@ -18,9 +18,12 @@ export interface CreateWorkspaceOptions {
   color: string;
 }
 
-// What a workspace needs from outside core. The main process passes safeStorage, net.fetch and
-// shell.openExternal (feature 14); tests pass fakes. All optional, so callers that never connect anything pass none.
+// What a workspace needs from outside core. The main process passes the migrations folder,
+// safeStorage, net.fetch and shell.openExternal (feature 14); tests pass fakes. All but the
+// migrations folder are optional, so callers that never connect anything pass none of them.
 export interface WorkspaceOptions {
+  // the folder of drizzle migrations run when a workspace's database is created or opened
+  migrationsPath: string;
   // defaults to one that is never available, so connecting is refused and nothing is stored
   cipher?: SecretCipher;
   // defaults to the global fetch; only used to build the default provider registry

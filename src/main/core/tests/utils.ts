@@ -4,11 +4,15 @@ import { runMigrations } from '@main/db/migrate';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { WorkspaceOptions } from '../workspace/types';
 
 export const MIGRATIONS_PATH = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../db/migrations',
 );
+
+// the workspace options every test passes, with nothing else configured
+export const WORKSPACE_OPTIONS: WorkspaceOptions = { migrationsPath: MIGRATIONS_PATH };
 
 export function createDb(): BetterSQLite3Database {
   const sqlite = new Database(':memory:');

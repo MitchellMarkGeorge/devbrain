@@ -6,7 +6,7 @@ import { WorkspaceService } from '../../workspace/service';
 import { Workspace } from '../../workspace/workspace';
 import { NotFoundError, WorkspaceMigrationError } from '../../shared/errors';
 import type { WorkspaceId } from '@common/ids';
-import { deferred, MIGRATIONS_PATH, migrationsWithExtra } from '../utils';
+import { deferred, migrationsWithExtra, WORKSPACE_OPTIONS } from '../utils';
 
 let root: string;
 let service: WorkspaceService;
@@ -14,9 +14,8 @@ let ids: WorkspaceId[];
 const releases: (() => void)[] = [];
 
 beforeEach(async () => {
-  vi.stubEnv('DB_MIGRATIONS_PATH', MIGRATIONS_PATH);
   root = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-lifecycle-'));
-  service = new WorkspaceService(root);
+  service = new WorkspaceService(root, WORKSPACE_OPTIONS);
   ids = [];
   for (const name of ['A', 'B']) {
     const workspace = await service.create({ name, color: '#000000' });
@@ -118,14 +117,9 @@ describe('WorkspaceService — real overlapping transitions', () => {
       'SELECT * FROM no_such_table;',
     );
     const realOpen = Workspace.open.bind(Workspace);
-    vi.spyOn(Workspace, 'open').mockImplementationOnce(async (...args) => {
-      process.env.DB_MIGRATIONS_PATH = broken;
-      try {
-        return await realOpen(...args);
-      } finally {
-        process.env.DB_MIGRATIONS_PATH = MIGRATIONS_PATH;
-      }
-    });
+    vi.spyOn(Workspace, 'open').mockImplementationOnce((info, options) =>
+      realOpen(info, { ...options, migrationsPath: broken }),
+    );
     const failed = expect(service.open(ids[0])).rejects.toBeInstanceOf(WorkspaceMigrationError);
     const next = service.open(ids[1]);
     await failed;

@@ -2,12 +2,12 @@ import { EventEmitter } from 'node:events';
 import { Workspace } from '@main/core/workspace/workspace';
 import { deferred } from '@main/core/tests/utils';
 import { closeBeforeQuit, closeCore } from '../../runtime/lifecycle';
-import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type { WorkspaceId } from '@common/ids';
-import { MIGRATIONS_PATH } from '@main/core/tests/utils';
+import { WORKSPACE_OPTIONS } from '@main/core/tests/utils';
 
 vi.mock('electron-store', () => import('./__mocks__/file-store'));
 
@@ -27,7 +27,11 @@ function quietLogger() {
 
 // a DevBrain folder with these workspaces, created in order and closed
 async function folderWith(...names: string[]): Promise<{ devBrain: DevBrain; ids: WorkspaceId[] }> {
-  const devBrain = await openDevBrain({ path: rootPath, createIfMissing: true });
+  const devBrain = await openDevBrain({
+    path: rootPath,
+    createIfMissing: true,
+    workspace: WORKSPACE_OPTIONS,
+  });
   const ids: WorkspaceId[] = [];
   for (const name of names) {
     const workspace = await devBrain.workspaces.create({ name, color: '#000000' });
@@ -36,10 +40,6 @@ async function folderWith(...names: string[]): Promise<{ devBrain: DevBrain; ids
   }
   return { devBrain, ids };
 }
-
-beforeAll(() => {
-  process.env.DB_MIGRATIONS_PATH = MIGRATIONS_PATH;
-});
 
 beforeEach(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-start-'));
@@ -55,7 +55,12 @@ afterEach(async () => {
 describe('startDevBrain — the folder', () => {
   it('returns null and says how to make one when there is none to load', async () => {
     const logger = quietLogger();
-    started = await startDevBrain({ rootPath, createIfMissing: false, workspace: {}, logger });
+    started = await startDevBrain({
+      rootPath,
+      createIfMissing: false,
+      workspace: WORKSPACE_OPTIONS,
+      logger,
+    });
     expect(started).toBeNull();
     expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('npm run seed:dev'));
     await expect(fs.stat(rootPath)).rejects.toThrow();
@@ -65,7 +70,7 @@ describe('startDevBrain — the folder', () => {
     started = await startDevBrain({
       rootPath,
       createIfMissing: true,
-      workspace: {},
+      workspace: WORKSPACE_OPTIONS,
       logger: quietLogger(),
     });
     expect(started).not.toBeNull();
@@ -78,7 +83,7 @@ describe('startDevBrain — the folder', () => {
     started = await startDevBrain({
       rootPath,
       createIfMissing: true,
-      workspace: {},
+      workspace: WORKSPACE_OPTIONS,
       logger: quietLogger(),
     });
     expect(started!.workspaces.listAll().items).toEqual([]);
@@ -88,7 +93,12 @@ describe('startDevBrain — the folder', () => {
     await fs.mkdir(rootPath);
     await fs.writeFile(path.join(rootPath, 'notes.txt'), 'mine');
     await expect(
-      startDevBrain({ rootPath, createIfMissing: true, workspace: {}, logger: quietLogger() }),
+      startDevBrain({
+        rootPath,
+        createIfMissing: true,
+        workspace: WORKSPACE_OPTIONS,
+        logger: quietLogger(),
+      }),
     ).rejects.toThrow('settings.json');
     expect(await fs.readdir(rootPath)).toEqual(['notes.txt']);
   });
@@ -101,7 +111,7 @@ describe('startDevBrain — the workspace', () => {
     started = await startDevBrain({
       rootPath,
       createIfMissing: false,
-      workspace: {},
+      workspace: WORKSPACE_OPTIONS,
       logger: quietLogger(),
     });
     expect(started!.currentWorkspace?.info.id).toBe(ids[1]);
@@ -111,7 +121,12 @@ describe('startDevBrain — the workspace', () => {
   it('opens none when none was open last time, leaving the choice to the user', async () => {
     await folderWith('First', 'Second');
     const logger = quietLogger();
-    started = await startDevBrain({ rootPath, createIfMissing: false, workspace: {}, logger });
+    started = await startDevBrain({
+      rootPath,
+      createIfMissing: false,
+      workspace: WORKSPACE_OPTIONS,
+      logger,
+    });
     expect(started!.currentWorkspace).toBeNull();
     expect(logger.info).toHaveBeenCalledWith('No workspace was open last time; none opened');
   });
@@ -122,7 +137,7 @@ describe('startDevBrain — the workspace', () => {
     started = await startDevBrain({
       rootPath,
       createIfMissing: false,
-      workspace: {},
+      workspace: WORKSPACE_OPTIONS,
       logger: quietLogger(),
     });
     expect(started!.currentWorkspace).toBeNull();
@@ -133,7 +148,12 @@ describe('startDevBrain — the workspace', () => {
     devBrain.settings.set('state.lastWorkspaceId', ids[0]);
     await fs.rm(devBrain.workspaces.getById(ids[0]).path, { recursive: true });
     const logger = quietLogger();
-    started = await startDevBrain({ rootPath, createIfMissing: false, workspace: {}, logger });
+    started = await startDevBrain({
+      rootPath,
+      createIfMissing: false,
+      workspace: WORKSPACE_OPTIONS,
+      logger,
+    });
     expect(started!.currentWorkspace).toBeNull();
     expect(logger.warn).toHaveBeenCalledWith(
       `Opening workspace ${ids[0]} failed error=WorkspaceDataMissingError`,
@@ -171,7 +191,7 @@ describe('startup shutdown', () => {
       const starting = startDevBrain({
         rootPath,
         createIfMissing: false,
-        workspace: {},
+        workspace: WORKSPACE_OPTIONS,
         logger: quietLogger(),
       });
       const workspace = await opening.promise;

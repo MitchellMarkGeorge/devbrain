@@ -145,7 +145,7 @@ export class Workspace {
     }
   }
 
-  static async create(info: WorkspaceInfo, options: WorkspaceOptions = {}): Promise<Workspace> {
+  static async create(info: WorkspaceInfo, options: WorkspaceOptions): Promise<Workspace> {
     // just handles creating the db file (including running migrations)
     const dbPath = path.join(info.path, 'db.sqlite');
     if (await fileExists(dbPath)) {
@@ -156,7 +156,7 @@ export class Workspace {
     return Workspace.initDb(sqlite, info, options, { dbPath, backupPath: null });
   }
 
-  static async open(info: WorkspaceInfo, options: WorkspaceOptions = {}): Promise<Workspace> {
+  static async open(info: WorkspaceInfo, options: WorkspaceOptions): Promise<Workspace> {
     // handles opening and existing workspace and backing up the exising database
     const dbPath = path.join(info.path, 'db.sqlite');
     if (!(await fileExists(dbPath))) {
@@ -187,7 +187,7 @@ export class Workspace {
       sqliteClient.pragma('journal_mode = WAL');
       const db = drizzle({ client: sqliteClient, casing: 'snake_case' });
       // leaves foreign keys on once migrations have run
-      runMigrations(sqliteClient, db, process.env.DB_MIGRATIONS_PATH);
+      runMigrations(sqliteClient, db, options.migrationsPath);
       return new Workspace(db, sqliteClient, info, options);
     } catch (error) {
       sqliteClient.close();

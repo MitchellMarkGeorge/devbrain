@@ -1,10 +1,10 @@
-import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import type { WorkspaceId } from '@common/ids';
-import { MIGRATIONS_PATH } from './utils';
+import { WORKSPACE_OPTIONS } from './utils';
 import { FakeCipher } from './__mocks__/fake-cipher';
 import { createFakeProvider, FAKE_API_KEY, fakeRegistry, FakeProvider } from './sync/fake-provider';
 import { scriptedFetch } from './integrations/linear/fake-fetch';
@@ -58,7 +58,11 @@ async function devBrainWith(provider: FakeProvider): Promise<DevBrain> {
   return openDevBrain({
     path: path.join(tmpDir, 'brain'),
     createIfMissing: true,
-    workspace: { cipher: new FakeCipher(), providers: fakeRegistry(provider) },
+    workspace: {
+      ...WORKSPACE_OPTIONS,
+      cipher: new FakeCipher(),
+      providers: fakeRegistry(provider),
+    },
   });
 }
 
@@ -87,10 +91,6 @@ function countRows(dbPath: string, table: string): number {
   }
 }
 
-beforeAll(() => {
-  process.env.DB_MIGRATIONS_PATH = MIGRATIONS_PATH;
-});
-
 beforeEach(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-app-'));
 });
@@ -110,7 +110,7 @@ describe('DevBrain — connect, sync and close', () => {
     devBrain = await openDevBrain({
       path: path.join(tmpDir, 'brain'),
       createIfMissing: true,
-      workspace: { cipher: new FakeCipher(), fetch },
+      workspace: { ...WORKSPACE_OPTIONS, cipher: new FakeCipher(), fetch },
     });
     const { id } = await createWorkspace('Work');
     const workspace = await openWorkspace(id);

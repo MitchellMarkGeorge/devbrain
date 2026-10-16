@@ -6,6 +6,7 @@ import log from 'electron-log';
 import os from 'node:os';
 import type { DevBrain } from '@main/core';
 import { createSafeStorageCipher } from './runtime/safe-storage-cipher';
+import { migrationsPath } from './runtime/migrations';
 import { startDevBrain } from './runtime/start';
 import { closeBeforeQuit, closeCore, forwardSyncTriggers } from './runtime/lifecycle';
 
@@ -48,24 +49,21 @@ function devBrainRootPath(): string {
   return process.env.DEVBRAIN_PATH ?? path.join(os.homedir(), '.devbrain');
 }
 
-// Workspace reads the migrations folder from DB_MIGRATIONS_PATH: electron-builder ships it in the
-// app's resources; in development it is the repository's, which .env may give relative to it.
-function setMigrationsPath() {
-  process.env.DB_MIGRATIONS_PATH = app.isPackaged
-    ? path.join(process.resourcesPath, 'migrations')
-    : path.resolve(REPO_ROOT, process.env.DB_MIGRATIONS_PATH ?? 'src/main/db/migrations');
-}
-
 // Must run after `ready`: net.fetch and safeStorage's async API are only usable from then. Null
 // when there is no DevBrain folder in development, or starting failed. Never rejects: a failure is
 // logged, and the window stays up.
 async function startCore(): Promise<DevBrain | null> {
-  setMigrationsPath();
   try {
     return await startDevBrain({
       rootPath: devBrainRootPath(),
       createIfMissing: app.isPackaged,
       workspace: {
+        migrationsPath: migrationsPath({
+          isPackaged: app.isPackaged,
+          resourcesPath: process.resourcesPath,
+          repoRoot: REPO_ROOT,
+          override: process.env.DB_MIGRATIONS_PATH,
+        }),
         // the key stays in the OS keychain; in development the seed script's dev blobs are read too
         cipher: createSafeStorageCipher(safeStorage, { readDevBlobs: !app.isPackaged }),
         // Chromium's network stack: honours the system proxy (PAC files included) and the OS

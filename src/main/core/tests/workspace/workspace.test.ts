@@ -1,13 +1,13 @@
 import { createGoogleCalendarProvider } from '../../integrations/providers/google-calendar';
 import { deferred } from '../utils';
-import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { WorkspaceId } from '@common/ids';
-import type { WorkspaceInfo } from '../../workspace/types';
+import type { WorkspaceInfo, WorkspaceOptions } from '../../workspace/types';
 import { Workspace } from '../../workspace/workspace';
 import {
   IntegrationAuthError,
@@ -25,11 +25,11 @@ import { TaskPriority, TaskStatus } from '../../tasks/types';
 import { scriptedFetch } from '../integrations/linear/fake-fetch';
 import viewerFixture from '../integrations/fixtures/linear/viewer.json';
 
-// DB_MIGRATIONS_PATH is read at call time (not module load), so assigning here is safe.
 const MIGRATIONS_PATH = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../db/migrations',
 );
+const OPTIONS: WorkspaceOptions = { migrationsPath: MIGRATIONS_PATH };
 
 const makeInfo = (
   workspacePath: string,
@@ -46,29 +46,24 @@ const makeInfo = (
 
 let tmpDir: string;
 
-beforeAll(() => {
-  process.env.DB_MIGRATIONS_PATH = MIGRATIONS_PATH;
-});
-
 beforeEach(async () => {
   tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-workspace-'));
 });
 
 afterEach(async () => {
-  process.env.DB_MIGRATIONS_PATH = MIGRATIONS_PATH;
   await fs.rm(tmpDir, { recursive: true });
 });
 
 describe('Workspace.create', () => {
   it('creates a db.sqlite file in the workspace directory', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     await workspace.close();
     const stat = await fs.stat(path.join(tmpDir, 'db.sqlite'));
     expect(stat.isFile()).toBe(true);
   });
 
   it('creates a non-empty db.sqlite file (migrations have run)', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     await workspace.close();
     const stat = await fs.stat(path.join(tmpDir, 'db.sqlite'));
     expect(stat.size).toBeGreaterThan(0);
@@ -76,7 +71,7 @@ describe('Workspace.create', () => {
 
   it('exposes the provided workspace info', async () => {
     const info = makeInfo(tmpDir);
-    const workspace = await Workspace.create(info);
+    const workspace = await Workspace.create(info, OPTIONS);
     expect(workspace.info).toBe(info);
     await workspace.close();
   });
@@ -88,7 +83,7 @@ describe('Workspace.create', () => {
       color: '#ff0000',
       lastOpenedAt: 1_700_000_000_000,
     });
-    const workspace = await Workspace.create(info);
+    const workspace = await Workspace.create(info, OPTIONS);
     expect(workspace.info.id).toBe('wsp_custom1');
     expect(workspace.info.name).toBe('Custom Name');
     expect(workspace.info.color).toBe('#ff0000');
@@ -98,19 +93,19 @@ describe('Workspace.create', () => {
 
   it('throws when a database already exists at the workspace path', async () => {
     const info = makeInfo(tmpDir);
-    const first = await Workspace.create(info);
+    const first = await Workspace.create(info, OPTIONS);
     await first.close();
-    await expect(Workspace.create(info)).rejects.toThrow(/already exists/);
+    await expect(Workspace.create(info, OPTIONS)).rejects.toThrow(/already exists/);
   });
 });
 
 describe('Workspace.open', () => {
   it('opens an existing workspace', async () => {
     const info = makeInfo(tmpDir);
-    const created = await Workspace.create(info);
+    const created = await Workspace.create(info, OPTIONS);
     await created.close();
 
-    const opened = await Workspace.open(info);
+    const opened = await Workspace.open(info, OPTIONS);
     expect(opened.info).toMatchObject({ id: info.id, name: info.name });
     await opened.close();
   });
@@ -121,10 +116,10 @@ describe('Workspace.open', () => {
       name: 'Open Test',
       color: '#00ff00',
     });
-    const created = await Workspace.create(info);
+    const created = await Workspace.create(info, OPTIONS);
     await created.close();
 
-    const opened = await Workspace.open(info);
+    const opened = await Workspace.open(info, OPTIONS);
     expect(opened.info.id).toBe('wsp_opentest');
     expect(opened.info.name).toBe('Open Test');
     expect(opened.info.color).toBe('#00ff00');
@@ -133,10 +128,10 @@ describe('Workspace.open', () => {
 
   it('creates a db.sqlite.backup file on open', async () => {
     const info = makeInfo(tmpDir);
-    const created = await Workspace.create(info);
+    const created = await Workspace.create(info, OPTIONS);
     await created.close();
 
-    const opened = await Workspace.open(info);
+    const opened = await Workspace.open(info, OPTIONS);
     await opened.close();
 
     const stat = await fs.stat(path.join(tmpDir, 'db.sqlite.backup'));
@@ -145,10 +140,10 @@ describe('Workspace.open', () => {
 
   it('backup file is non-empty', async () => {
     const info = makeInfo(tmpDir);
-    const created = await Workspace.create(info);
+    const created = await Workspace.create(info, OPTIONS);
     await created.close();
 
-    const opened = await Workspace.open(info);
+    const opened = await Workspace.open(info, OPTIONS);
     await opened.close();
 
     const stat = await fs.stat(path.join(tmpDir, 'db.sqlite.backup'));
@@ -157,11 +152,11 @@ describe('Workspace.open', () => {
 
   it('overwrites an existing backup on repeated opens', async () => {
     const info = makeInfo(tmpDir);
-    const first = await Workspace.create(info);
+    const first = await Workspace.create(info, OPTIONS);
     await first.close();
 
     // First open creates the backup
-    const second = await Workspace.open(info);
+    const second = await Workspace.open(info, OPTIONS);
     await second.close();
 
     const firstBackupStat = await fs.stat(path.join(tmpDir, 'db.sqlite.backup'));
@@ -171,7 +166,7 @@ describe('Workspace.open', () => {
     await new Promise((r) => setTimeout(r, 10));
 
     // Second open should overwrite the backup without throwing
-    const third = await Workspace.open(info);
+    const third = await Workspace.open(info, OPTIONS);
     await third.close();
 
     await expect(fs.stat(path.join(tmpDir, 'db.sqlite.backup'))).resolves.toBeDefined();
@@ -181,7 +176,7 @@ describe('Workspace.open', () => {
   });
 
   it('throws when no database exists at the workspace path', async () => {
-    await expect(Workspace.open(makeInfo(tmpDir))).rejects.toMatchObject({
+    await expect(Workspace.open(makeInfo(tmpDir), OPTIONS)).rejects.toMatchObject({
       code: 'workspace_data_missing',
       message: expect.stringMatching(/No workspace database found/),
     });
@@ -189,10 +184,10 @@ describe('Workspace.open', () => {
 
   it('a created-then-closed workspace can be re-opened', async () => {
     const info = makeInfo(tmpDir);
-    const created = await Workspace.create(info);
+    const created = await Workspace.create(info, OPTIONS);
     await created.close();
 
-    const opened = await Workspace.open(info);
+    const opened = await Workspace.open(info, OPTIONS);
     expect(opened.info.id).toBe(info.id);
     await opened.close();
   });
@@ -200,12 +195,12 @@ describe('Workspace.open', () => {
 
 describe('Workspace.close', () => {
   it('closes the SQLite connection without throwing', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     await expect(workspace.close()).resolves.toBeUndefined();
   });
 
   it('calling close() a second time does not throw', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     await workspace.close();
     // better-sqlite3 silently no-ops on double-close
     await expect(workspace.close()).resolves.toBeUndefined();
@@ -224,18 +219,18 @@ describe('Workspace — WAL', () => {
 
   it('creates and opens the database in WAL mode', async () => {
     const info = makeInfo(tmpDir);
-    const created = await Workspace.create(info);
+    const created = await Workspace.create(info, OPTIONS);
     await created.close();
     expect(journalMode(path.join(tmpDir, 'db.sqlite'))).toBe('wal');
 
-    const opened = await Workspace.open(info);
+    const opened = await Workspace.open(info, OPTIONS);
     await opened.close();
     expect(journalMode(path.join(tmpDir, 'db.sqlite'))).toBe('wal');
   });
 
   it('the backup taken on open includes writes still in the WAL', async () => {
     const info = makeInfo(tmpDir);
-    const created = await Workspace.create(info);
+    const created = await Workspace.create(info, OPTIONS);
     await created.close();
 
     // another connection writes and stays open, so its write is in the WAL, not the main file
@@ -247,7 +242,7 @@ describe('Workspace — WAL', () => {
         .run();
       expect((await fs.stat(`${dbPath}-wal`)).size).toBeGreaterThan(0);
 
-      const opened = await Workspace.open(info);
+      const opened = await Workspace.open(info, OPTIONS);
       await opened.close();
     } finally {
       writer.close();
@@ -267,7 +262,7 @@ describe('Workspace.close — sync', () => {
   it('closing mid-sync waits for the run, writes nothing and does not throw', async () => {
     const info = makeInfo(tmpDir);
     const provider = createFakeProvider();
-    const options = { cipher: new FakeCipher(), providers: fakeRegistry(provider) };
+    const options = { ...OPTIONS, cipher: new FakeCipher(), providers: fakeRegistry(provider) };
     const workspace = await Workspace.create(info, options);
     workspace.sync.start();
 
@@ -304,7 +299,7 @@ describe('Workspace.close — sync', () => {
     const info = makeInfo(tmpDir);
     // connecting reads the viewer; the sync it starts then waits on a request that never answers
     const fetch = scriptedFetch([{ body: viewerFixture }, { hang: true }]);
-    const workspace = await Workspace.create(info, { cipher: new FakeCipher(), fetch });
+    const workspace = await Workspace.create(info, { ...OPTIONS, cipher: new FakeCipher(), fetch });
     workspace.sync.start();
     await workspace.integrations.connectWithApiKey(Provider.LINEAR, 'lin_api_test');
     await vi.waitFor(() => expect(fetch.requests).toHaveLength(2));
@@ -320,7 +315,7 @@ describe('Workspace.close — sync', () => {
   it('closing an idle started workspace leaves no timers behind', async () => {
     vi.useFakeTimers();
     try {
-      const workspace = await Workspace.create(makeInfo(tmpDir));
+      const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
       workspace.sync.start();
       expect(vi.getTimerCount()).toBeGreaterThan(0);
       await workspace.close();
@@ -335,6 +330,7 @@ describe('Workspace — disconnect', () => {
   it('drops the items a disconnect deleted from search', async () => {
     const provider = createFakeProvider();
     const workspace = await Workspace.create(makeInfo(tmpDir), {
+      ...OPTIONS,
       cipher: new FakeCipher(),
       providers: fakeRegistry(provider),
     });
@@ -361,6 +357,7 @@ describe('Workspace — detach', () => {
   it('detaches, renames and reattaches a task, keeping search up to date', async () => {
     const provider = createFakeProvider();
     const workspace = await Workspace.create(makeInfo(tmpDir), {
+      ...OPTIONS,
       cipher: new FakeCipher(),
       providers: fakeRegistry(provider),
     });
@@ -399,6 +396,7 @@ describe('Workspace — detach', () => {
   it('moves the integration to needs_reauth when Linear rejects a reattach, aborting its runs', async () => {
     const provider = createFakeProvider();
     const workspace = await Workspace.create(makeInfo(tmpDir), {
+      ...OPTIONS,
       cipher: new FakeCipher(),
       providers: fakeRegistry(provider),
     });
@@ -445,7 +443,7 @@ describe('Workspace — detach', () => {
 
 describe('Workspace — search', () => {
   it("indexes the user's own tasks, projects and notes as they are written", async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const search = (query: string) =>
         workspace.search
@@ -487,7 +485,7 @@ describe('Workspace — search', () => {
 
 describe('Workspace — concurrent note saves', () => {
   it('indexes the last of many parallel saves to one note', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const note = await workspace.notes.createNote({ title: 'Minutes' });
       const words = Array.from({ length: 20 }, (_, i) => `word${String(i).padStart(2, '0')}`);
@@ -516,7 +514,7 @@ function searchIds(workspace: Workspace, query: string) {
 
 describe('Workspace — search of events', () => {
   it('indexes local events as they are created and updated, and drops them when deleted', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const startAt = new Date('2026-06-10T10:00:00.000Z');
       const endAt = new Date('2026-06-10T11:00:00.000Z');
@@ -547,7 +545,7 @@ describe('Workspace — search of events', () => {
 
 describe('Workspace — search of archived and restored rows', () => {
   it('archiving drops a project, its tasks and their notes; restoring brings them back', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const project = await workspace.projects.createProject({
         title: 'Apollo',
@@ -592,7 +590,7 @@ describe('Workspace — search of archived and restored rows', () => {
   });
 
   it('archiving drops a task, its subtree and their notes; restoring brings them back', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const task = await workspace.tasks.createTask({ title: 'Draft', dueDate: new Date() });
       const subtask = await workspace.tasks.createSubtask(task.id, { title: 'Draft intro' });
@@ -616,7 +614,7 @@ describe('Workspace — search of archived and restored rows', () => {
   });
 
   it('archiving and restoring a note re-indexes its content from its file', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const note = await workspace.notes.createNote({ title: 'Minutes' });
       await workspace.notes.updateNoteContent(note.id, 'quarterly');
@@ -638,7 +636,7 @@ describe('Workspace — search of archived and restored rows', () => {
   });
 
   it('a write to an archived task or project leaves it out of search', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const project = await workspace.projects.createProject({
         title: 'Apollo',
@@ -661,7 +659,7 @@ describe('Workspace — search of archived and restored rows', () => {
   });
 
   it('a note archived again while its restore is read stays out of search', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const note = await workspace.notes.createNote({ title: 'Minutes' });
       workspace.archive.archiveNote(note.id);
@@ -670,7 +668,7 @@ describe('Workspace — search of archived and restored rows', () => {
       workspace.archive.archiveNote(note.id);
       await workspace.close();
 
-      const reopened = await Workspace.open(makeInfo(tmpDir));
+      const reopened = await Workspace.open(makeInfo(tmpDir), OPTIONS);
       try {
         expect(searchIds(reopened, 'Minutes')).toEqual([]);
       } finally {
@@ -682,7 +680,7 @@ describe('Workspace — search of archived and restored rows', () => {
   });
 
   it('a content write while a restored note is read keeps its newer content', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const note = await workspace.notes.createNote({ title: 'Minutes' });
       await workspace.notes.updateNoteContent(note.id, 'older');
@@ -700,13 +698,13 @@ describe('Workspace — search of archived and restored rows', () => {
   });
 
   it('closing waits for restored notes to be indexed', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     const note = await workspace.notes.createNote({ title: 'Minutes' });
     workspace.archive.archiveNote(note.id);
     workspace.archive.restoreNote(note.id);
     await workspace.close();
 
-    const reopened = await Workspace.open(makeInfo(tmpDir));
+    const reopened = await Workspace.open(makeInfo(tmpDir), OPTIONS);
     try {
       expect(searchIds(reopened, 'Minutes')).toEqual([note.id]);
     } finally {
@@ -715,7 +713,7 @@ describe('Workspace — search of archived and restored rows', () => {
   });
 
   it("writes search in the archive's transaction", async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     // private, but it is the connection the archive's transaction runs on
     const sqlite = workspace['sqliteClient'];
     // recorded rather than asserted in the spies: a listener's error is logged, not thrown
@@ -749,7 +747,7 @@ describe('Workspace — search of archived and restored rows', () => {
 
 describe('Workspace — search rebuild', () => {
   it('rebuilds a drifted index from the current rows and note files', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const project = await workspace.projects.createProject({
         title: 'Apollo',
@@ -808,7 +806,7 @@ describe('Workspace — search rebuild', () => {
   });
 
   it('reports a note whose file cannot be read and indexes the rest', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
       const lost = await workspace.notes.createNote({ title: 'Minutes lost' });
@@ -826,7 +824,7 @@ describe('Workspace — search rebuild', () => {
   });
 
   it('keeps a note content write made while the files are read', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const note = await workspace.notes.createNote({ title: 'Minutes' });
       await workspace.notes.updateNoteContent(note.id, 'older');
@@ -843,7 +841,7 @@ describe('Workspace — search rebuild', () => {
   });
 
   it('closing waits for a rebuild still reading note files', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     const note = await workspace.notes.createNote({ title: 'Minutes' });
     await workspace.notes.updateNoteContent(note.id, 'quarterly');
     workspace['sqliteClient'].prepare('DELETE FROM search_index').run();
@@ -852,7 +850,7 @@ describe('Workspace — search rebuild', () => {
     await workspace.close();
 
     await expect(rebuilding).resolves.toEqual({ indexed: 1, unreadableNoteIds: [] });
-    const reopened = await Workspace.open(makeInfo(tmpDir));
+    const reopened = await Workspace.open(makeInfo(tmpDir), OPTIONS);
     try {
       expect(searchIds(reopened, 'quarterly')).toEqual([note.id]);
     } finally {
@@ -861,7 +859,7 @@ describe('Workspace — search rebuild', () => {
   });
 
   it('whenIdle settles without rejecting when an index write fails', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const note = await workspace.notes.createNote({ title: 'Minutes' });
       await fs.rm(path.join(tmpDir, 'notes', `${note.id}.md`));
@@ -877,7 +875,7 @@ describe('Workspace — search rebuild', () => {
   });
 
   it('leaves out a note archived while the files are read', async () => {
-    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const note = await workspace.notes.createNote({ title: 'Minutes' });
 
@@ -902,18 +900,21 @@ describe('Workspace.open — failed migrations', () => {
     workspaceDir = path.join(tmpDir, 'workspace');
     await fs.mkdir(workspaceDir);
     info = makeInfo(workspaceDir);
-    const created = await Workspace.create(info);
+    const created = await Workspace.create(info, OPTIONS);
     projectId = (await created.projects.createProject({ title: 'Kept', dueDate: new Date() })).id;
     await created.close();
   });
 
-  /** points Workspace at the real migrations plus one extra, `sql` */
+  // the real migrations plus the extra one openFailure runs
+  let extraMigrations: string;
+
+  /** opens Workspace with the real migrations plus one extra, `sql` */
   function useExtraMigration(tag: string, sql: string) {
-    process.env.DB_MIGRATIONS_PATH = migrationsWithExtra(path.join(tmpDir, tag), tag, sql);
+    extraMigrations = migrationsWithExtra(path.join(tmpDir, tag), tag, sql);
   }
 
   async function openFailure(): Promise<WorkspaceMigrationError> {
-    const error = await Workspace.open(info).then(
+    const error = await Workspace.open(info, { ...OPTIONS, migrationsPath: extraMigrations }).then(
       () => null,
       (e: unknown) => e,
     );
@@ -955,8 +956,7 @@ describe('Workspace.open — failed migrations', () => {
     });
 
     // with the bad migration gone, the restored workspace opens normally
-    process.env.DB_MIGRATIONS_PATH = MIGRATIONS_PATH;
-    const opened = await Workspace.open(info);
+    const opened = await Workspace.open(info, OPTIONS);
     expect((await opened.projects.getById(projectId as never)).title).toBe('Kept');
     await opened.close();
   });
@@ -983,8 +983,7 @@ INSERT INTO no_such_table VALUES (1);`,
     });
 
     // the failed open closed its connection, so the workspace opens again straight away
-    process.env.DB_MIGRATIONS_PATH = MIGRATIONS_PATH;
-    const opened = await Workspace.open(info);
+    const opened = await Workspace.open(info, OPTIONS);
     await opened.close();
   });
 
@@ -1068,7 +1067,7 @@ describe('Workspace — integration cancellation', () => {
       const provider = createFakeProvider();
       const cipher = new FakeCipher();
       const info = makeInfo(tmpDir);
-      const options = { cipher, providers: fakeRegistry(provider) };
+      const options = { ...OPTIONS, cipher, providers: fakeRegistry(provider) };
       const workspace = await Workspace.create(info, options);
       const existing =
         operation === 'reconnect'
@@ -1129,6 +1128,7 @@ describe('Workspace — integration cancellation', () => {
         operation === 'connect' ? [{ hang: true }] : [{ body: viewerFixture }, { hang: true }],
       );
       const workspace = await Workspace.create(makeInfo(tmpDir), {
+        ...OPTIONS,
         cipher: new FakeCipher(),
         fetch,
       });
@@ -1155,7 +1155,10 @@ describe('Workspace — integration cancellation', () => {
 
   it('opens http and https links through openUrl, and nothing else', async () => {
     const browser = vi.fn(async () => {});
-    const workspace = await Workspace.create(makeInfo(tmpDir), { openExternal: browser });
+    const workspace = await Workspace.create(makeInfo(tmpDir), {
+      ...OPTIONS,
+      openExternal: browser,
+    });
     try {
       await workspace.openUrl('https://meet.google.com/abc-defg-hij');
       await expect(workspace.openUrl('javascript:alert(1)')).rejects.toBeInstanceOf(UnsafeUrlError);
@@ -1169,6 +1172,7 @@ describe('Workspace — integration cancellation', () => {
   it('cancels OAuth while waiting for the browser callback', async () => {
     const browser = vi.fn(async () => {});
     const workspace = await Workspace.create(makeInfo(tmpDir), {
+      ...OPTIONS,
       cipher: new FakeCipher(),
       openExternal: browser,
       providers: new Map([
@@ -1194,7 +1198,7 @@ describe('Workspace — failed opening cleanup', () => {
     'closes SQLite when %s fails during open',
     async (stage) => {
       const info = makeInfo(tmpDir);
-      const created = await Workspace.create(info);
+      const created = await Workspace.create(info, OPTIONS);
       await created.close();
       const failure = new Error(`${stage} failed`);
       const providers = fakeRegistry(createFakeProvider());
@@ -1210,13 +1214,13 @@ describe('Workspace — failed opening cleanup', () => {
               });
       const close = vi.spyOn(Database.prototype, 'close');
       try {
-        await expect(Workspace.open(info, { providers })).rejects.toBe(failure);
+        await expect(Workspace.open(info, { ...OPTIONS, providers })).rejects.toBe(failure);
         expect(close).toHaveBeenCalledOnce();
       } finally {
         fail.mockRestore();
         close.mockRestore();
       }
-      const reopened = await Workspace.open(info);
+      const reopened = await Workspace.open(info, OPTIONS);
       await reopened.close();
     },
   );
@@ -1224,6 +1228,7 @@ describe('Workspace — failed opening cleanup', () => {
   it('prevents an insert when encryption finishes after close', async () => {
     const cipher = new FakeCipher();
     const workspace = await Workspace.create(makeInfo(tmpDir), {
+      ...OPTIONS,
       cipher,
       providers: fakeRegistry(createFakeProvider()),
     });
@@ -1242,7 +1247,7 @@ describe('Workspace — failed opening cleanup', () => {
     await workspace.close();
     release.resolve(undefined);
     await rejected;
-    const reopened = await Workspace.open(makeInfo(tmpDir));
+    const reopened = await Workspace.open(makeInfo(tmpDir), OPTIONS);
     try {
       expect(await reopened.integrations.list()).toEqual([]);
     } finally {

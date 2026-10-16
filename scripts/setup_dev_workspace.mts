@@ -989,8 +989,6 @@ async function main() {
     process.exit(1);
   }
 
-  process.env.DB_MIGRATIONS_PATH = MIGRATIONS_PATH;
-
   console.log(`Seeding dev workspace at ${ROOT_PATH}${RESET ? ' (--reset)' : ''} [seed=${SEED}]`);
 
   // --reset wipes the folder here: opening a DevBrain folder never deletes anything
@@ -998,7 +996,7 @@ async function main() {
   const devBrain = await openDevBrain({
     path: ROOT_PATH,
     createIfMissing: true,
-    workspace: { cipher: devCipher, fetch },
+    workspace: { migrationsPath: MIGRATIONS_PATH, cipher: devCipher, fetch },
   });
   const workspace = await devBrain.workspaces.create({
     name: WORKSPACE_NAME,

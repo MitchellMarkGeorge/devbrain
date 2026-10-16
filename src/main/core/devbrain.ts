@@ -13,8 +13,8 @@ export interface OpenDevBrainOptions {
   // creates a DevBrain folder when there is none at `path`, or only an empty directory; without
   // it, a missing folder is refused
   createIfMissing?: boolean;
-  // the secret cipher, fetch and provider registry every workspace gets
-  workspace?: WorkspaceOptions;
+  // the migrations folder, secret cipher, fetch and provider registry every workspace gets
+  workspace: WorkspaceOptions;
 }
 
 export class DevBrain {
@@ -37,7 +37,7 @@ export class DevBrain {
   static async open({
     path,
     createIfMissing = false,
-    workspace = {},
+    workspace,
   }: OpenDevBrainOptions): Promise<DevBrain> {
     if (!nodePath.isAbsolute(path)) {
       throw new DevBrainFolderError(
