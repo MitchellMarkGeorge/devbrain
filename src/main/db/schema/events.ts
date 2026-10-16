@@ -82,6 +82,9 @@ export const eventExceptions = sqliteTable(
       .$type<EventId>()
       .references((): AnySQLiteColumn => events.id, { onDelete: 'cascade' }),
     originalStartAt: date().notNull(),
+    // a synced series' only: the last full pass of its calendar that listed the cancellation (see
+    // external_links.seenInPass)
+    seenInPass: text(),
   },
   (table) => [primaryKey({ columns: [table.seriesId, table.originalStartAt] })],
 );

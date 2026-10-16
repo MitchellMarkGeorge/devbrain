@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { CalendarId, ExternalSourceId } from '@common/ids';
 import { calendars } from '@main/db/schema/calendars';
 import { and, eq } from 'drizzle-orm';
@@ -14,7 +15,7 @@ import { EVENT_HISTORY_WINDOW_MS } from './constants';
 import { CalendarSyncState, EventCursor, eventCursorSchema } from './event-cursor';
 import { selectedOnFirstListing, SyncWriter } from './writer';
 import { ActiveSync, combineSummaries, NOTHING_APPLIED, RunContext, Syncer } from './syncer';
-import { EventSyncPage, SyncCursor } from './types';
+import { EventSyncPage, FullPass, SyncCursor } from './types';
 
 const FRESH: CalendarSyncState = { syncToken: null, pageToken: null };
 
@@ -50,6 +51,7 @@ const FRESH: CalendarSyncState = { syncToken: null, pageToken: null };
  * - timeMin: set while a full pass is part-way through. It is fixed when the pass starts, so every
  *   page asks the same question: Google expects every parameter but the page token to match
  *   across the pages of a pass.
+ * - pass: a full pass's id, set with timeMin and kept with it; see "What a full pass removes".
  *
  * and, at the top, pending: the calendars this run has still to visit, first one being walked.
  * It is absent between runs, which is how a pull knows a new run is starting; it is dropped on
@@ -95,6 +97,22 @@ const FRESH: CalendarSyncState = { syncToken: null, pageToken: null };
  * longer accepted), that calendar alone starts a full pass, in the same pull; the others keep their
  * tokens. A second one in a row is not caught, and fails the run. SyncWriter matches events by
  * external id, so the full pass duplicates nothing and linked notes stay linked.
+ *
+ * What a full pass removes
+ *
+ * A full pass lists every event of the calendar that ends after its timeMin, and Google reports no
+ * deletion in it, so an event deleted while a change token went stale would otherwise stay. Each
+ * full pass gets a random id when it starts (pass, in the cursor), and every page of it is applied
+ * with that id, marking the events and cancelled occurrences it lists (SyncWriter.applyEventPage).
+ * The marks commit with the page, so a pass resumed after a restart still has those of its earlier
+ * pages. Its last page then removes the calendar's synced events in the window that are not
+ * marked, and the cancelled occurrences the pass no longer lists.
+ *
+ * Only the last page of a pass removes anything, and it is only applied once every page before it
+ * was: a run that stops part-way (an abort, a failure, MAX_PAGES_PER_RUN) leaves the rest to the
+ * run that resumes it. A pass restarted on a 410 gets a new id, so the marks of the pages before
+ * count for nothing. The marks live in rows rather than in the cursor, since a list of every event
+ * seen would grow with the calendar and be rewritten with every page.
  *
  * Applying
  *
@@ -202,6 +220,7 @@ export class EventSyncer implements Syncer {
         cancelledIds: [],
         skipped: 0,
         done: true,
+        fullPass: null,
         nextCursor: { calendars: kept },
       };
     }
@@ -231,6 +250,7 @@ export class EventSyncer implements Syncer {
       cancelledIds: page.cancelledIds,
       skipped: page.skipped,
       done,
+      fullPass: fullPassOf(state, passDone),
       nextCursor: {
         calendars: { ...kept, [calendarId]: next },
         ...(!done && { pending }),
@@ -264,12 +284,13 @@ export class EventSyncer implements Syncer {
     }
   }
 
-  // A full pass fixes its lower bound when it starts and keeps it while it pages, so each page
-  // asks the same question. An incremental pass has none.
+  // A full pass fixes its lower bound and its id when it starts and keeps them while it pages, so
+  // each page asks the same question and marks what it saw the same way. An incremental pass has
+  // neither.
   private withTimeMin(state: CalendarSyncState): CalendarSyncState {
     if (state.syncToken !== null || state.timeMin !== undefined) return state;
     const timeMin = new Date(this.now().getTime() - EVENT_HISTORY_WINDOW_MS).toISOString();
-    return { ...state, timeMin };
+    return { ...state, timeMin, pass: randomUUID() };
   }
 
   // The two calendar reads below are subject to change: they are here for now, and are expected
@@ -323,6 +344,12 @@ function query(state: CalendarSyncState): EventsQuery {
   return state.syncToken !== null
     ? { changeToken: state.syncToken, ...pageToken }
     : { from: state.timeMin!, ...pageToken };
+}
+
+// the full pass a page fetched from this state is part of, if it is one with an id
+function fullPassOf(state: CalendarSyncState, last: boolean): FullPass | null {
+  if (state.syncToken !== null || state.pass === undefined) return null;
+  return { id: state.pass, from: new Date(state.timeMin!), last };
 }
 
 function readCursor(cursor: SyncCursor | null): EventCursor {
