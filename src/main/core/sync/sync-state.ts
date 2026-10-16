@@ -4,6 +4,7 @@ import { eq, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { toSource } from '../integrations/service';
 import { ExternalSource, IntegrationStatus, Provider, SourceType } from '../integrations/types';
+import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { NotFoundError } from '../shared/errors';
 import { SyncSkipReason } from './types';
 
@@ -55,7 +56,7 @@ export interface SyncStatusChange {
   source: ExternalSource;
 }
 
-export type SyncStatusListener = (change: SyncStatusChange) => void;
+export type SyncStatusListener = ChangeListener<SyncStatusChange>;
 
 /**
  * The sync state kept on external_sources: each source's cursor and how its runs went. Only the
@@ -67,7 +68,8 @@ export type SyncStatusListener = (change: SyncStatusChange) => void;
  * and both commit or roll back together.
  */
 export class SyncStateManager {
-  private readonly listeners = new Set<SyncStatusListener>();
+  // the outcome is already committed, so a failing listener must not fail the run or the others
+  private readonly changes = new ChangeListeners<SyncStatusChange>('Sync status');
 
   constructor(private readonly db: BetterSQLite3Database) {}
 
@@ -139,7 +141,7 @@ export class SyncStateManager {
       .returning()
       .all();
     if (!row) return;
-    this.emit({
+    this.changes.emit({
       type: 'sync_status_changed',
       integrationId: row.integrationId,
       sourceId,
@@ -162,20 +164,6 @@ export class SyncStateManager {
 
   // returns a function that unsubscribes the listener
   onChange(listener: SyncStatusListener): () => void {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  }
-
-  private emit(change: SyncStatusChange): void {
-    // the outcome is already committed, so a failing listener must not fail the run or the others
-    for (const listener of [...this.listeners]) {
-      try {
-        listener(change);
-      } catch (error) {
-        console.error('A sync status listener threw:', error);
-      }
-    }
+    return this.changes.add(listener);
   }
 }

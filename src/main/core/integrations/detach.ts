@@ -7,6 +7,7 @@ import { TaskReconciler } from '../sync/task-reconciler';
 import { ReattachRefusal, SyncEntityType, SyncSkipReason } from '../sync/types';
 import { subtreeOf } from '../tasks/subtree';
 import { Task } from '../tasks/types';
+import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { DetachError, NotFoundError } from '../shared/errors';
 import { withRef } from './refs';
 import { LinkState } from './types';
@@ -22,7 +23,7 @@ export interface TaskLinkChange {
   changed: SyncEntityType[];
 }
 
-export type TaskLinkChangeListener = (change: TaskLinkChange) => void;
+export type TaskLinkChangeListener = ChangeListener<TaskLinkChange>;
 
 type Link = typeof externalLinks.$inferSelect;
 
@@ -54,7 +55,8 @@ const REFUSALS: Record<SyncSkipReason | ReattachRefusal, string> = {
  * moving it to needs_reauth is the IPC layer's job (see docs/follow-ups.md).
  */
 export class DetachService {
-  private readonly listeners = new Set<TaskLinkChangeListener>();
+  // the change is already committed, so a failing listener must not fail the call or the others
+  private readonly changes = new ChangeListeners<TaskLinkChange>('Task link');
 
   constructor(
     private readonly db: BetterSQLite3Database,
@@ -92,7 +94,7 @@ export class DetachService {
         .map((row) => row.taskId!);
     });
 
-    this.emit({ type: 'detached', taskId: id, taskIds, changed: ['task'] });
+    this.changes.emit({ type: 'detached', taskId: id, taskIds, changed: ['task'] });
     return this.getTask(id);
   }
 
@@ -153,7 +155,7 @@ export class DetachService {
     }
 
     const { reattached, promoted, changed } = result.summary;
-    this.emit({
+    this.changes.emit({
       type: 'reattached',
       taskId: id,
       taskIds: [...reattached, ...promoted],
@@ -164,21 +166,7 @@ export class DetachService {
 
   // returns a function that unsubscribes the listener
   onChange(listener: TaskLinkChangeListener): () => void {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
-  }
-
-  private emit(change: TaskLinkChange): void {
-    // the change is already committed, so a failing listener must not fail the call or the others
-    for (const listener of [...this.listeners]) {
-      try {
-        listener(change);
-      } catch (error) {
-        console.error('A task link change listener threw:', error);
-      }
-    }
+    return this.changes.add(listener);
   }
 
   /** the link of an active task; an archived or unknown task is not found, a local one refused */

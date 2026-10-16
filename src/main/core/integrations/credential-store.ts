@@ -3,6 +3,7 @@ import { integrations } from '@main/db/schema/integrations';
 import { and, eq } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { z } from 'zod';
+import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { IntegrationAuthError, NotFoundError } from '../shared/errors';
 import { TOKEN_REFRESH_MARGIN_MS } from '../sync/constants';
 import { Auth, toAuth } from './auth';
@@ -18,11 +19,14 @@ import {
 import { OAuthClient, OAuthConfig } from './oauth/types';
 import { AuthType, Provider } from './types';
 
+// What happened to an integration's credentials, for in-process subscribers: a provider that
+// rejects a refresh moves the integration to needs_reauth (see createIntegrationServices). Ids
+// only, never tokens.
+export type CredentialChange = { type: 'refresh_rejected'; integrationId: IntegrationId };
+
 export interface CredentialStoreOptions {
   cipher: SecretCipher;
   refreshers?: Partial<Record<Provider, TokenRefresher>>;
-  // told when a provider rejects a refresh, so the integration can move to needs_reauth
-  onRefreshRejected?: (integrationId: IntegrationId) => void;
   now?: () => number; // injected for tests
 }
 
@@ -56,7 +60,7 @@ function serialize(credentials: Credentials): string {
 export class CredentialStore {
   private readonly cipher: SecretCipher;
   private readonly refreshers: Partial<Record<Provider, TokenRefresher>>;
-  private readonly onRefreshRejected: (integrationId: IntegrationId) => void;
+  private readonly changes = new ChangeListeners<CredentialChange>('Credential');
   private readonly now: () => number;
   // per-integration tail of the refresh queue, so two callers never refresh the same token at once
   private readonly locks = new Map<IntegrationId, Promise<unknown>>();
@@ -67,8 +71,12 @@ export class CredentialStore {
   ) {
     this.cipher = options.cipher;
     this.refreshers = options.refreshers ?? {};
-    this.onRefreshRejected = options.onRefreshRejected ?? (() => undefined);
     this.now = options.now ?? Date.now;
+  }
+
+  // returns a function that unsubscribes the listener
+  onChange(listener: ChangeListener<CredentialChange>): () => void {
+    return this.changes.add(listener);
   }
 
   // Encryption is async and a better-sqlite3 transaction is not, so saving is two steps: seal
@@ -189,7 +197,9 @@ export class CredentialStore {
       tokens = await refresher(credentials.refreshToken);
     } catch (error) {
       // a network failure is retried later; a rejected grant only a reconnect can fix
-      if (error instanceof IntegrationAuthError) this.onRefreshRejected(integrationId);
+      if (error instanceof IntegrationAuthError) {
+        this.changes.emit({ type: 'refresh_rejected', integrationId });
+      }
       throw error;
     }
     const refreshed: OAuthCredentials = {

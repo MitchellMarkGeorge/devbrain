@@ -7,6 +7,7 @@ import { SyncStateManager, SyncTarget, syncSkipReason } from './sync-state';
 import { Provider as ProviderImpl } from '../integrations/providers/provider';
 import { ProviderRegistry } from '../integrations/providers/registry';
 import { SourceType } from '../integrations/types';
+import { ChangeListeners } from '../shared/changes';
 import { IntegrationAuthError, RateLimitError, SyncPageLimitError } from '../shared/errors';
 import { MAX_PAGES_PER_RUN } from './constants';
 import { SyncWriter } from './writer';
@@ -79,7 +80,8 @@ export class SyncEngine implements BaseSyncEngine {
   private readonly logger: SyncLogger;
   private readonly now: () => Date;
   private readonly maxPagesPerRun: number;
-  private readonly listeners = new Set<SyncProgressListener>();
+  // the page is already committed, so a failing listener must not fail the run or the others
+  private readonly progress: ChangeListeners<SyncProgress>;
   // sources with a run in flight; a second run for one of them is skipped
   private readonly running = new Set<ExternalSourceId>();
   // the syncer for each source type, built on its provider's source; null when the provider has
@@ -96,6 +98,11 @@ export class SyncEngine implements BaseSyncEngine {
     this.providers = options.providers;
     this.writer = options.writer;
     this.logger = options.logger ?? log.scope('sync');
+    this.progress = new ChangeListeners<SyncProgress>('Sync progress', (error, progress) => {
+      // the error class only, like the run's own line: a message could quote item data
+      const name = error instanceof Error ? error.name : typeof error;
+      this.logger.error(`Sync progress listener threw source=${progress.sourceId} error=${name}`);
+    });
     this.now = options.now ?? (() => new Date());
     this.maxPagesPerRun = options.maxPagesPerRun ?? MAX_PAGES_PER_RUN;
     const reconciler = new TaskReconciler({
@@ -250,10 +257,7 @@ export class SyncEngine implements BaseSyncEngine {
 
   // returns a function that unsubscribes the listener
   onProgress(listener: SyncProgressListener): () => void {
-    this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
+    return this.progress.add(listener);
   }
 
   // 3. the page loop; returns early, with everything so far committed, when the signal aborts
@@ -294,7 +298,7 @@ export class SyncEngine implements BaseSyncEngine {
       // the syncer declined the page: stop, leaving the stored cursor to the next run
       if (summary === null) return;
       run.addPage(summary, page.skipped);
-      this.emitProgress({
+      this.progress.emit({
         sourceId,
         phase: run.mode!,
         pages: run.pages,
@@ -324,7 +328,7 @@ export class SyncEngine implements BaseSyncEngine {
     // 3.
     const summary = this.db.transaction(() => pass.apply());
     run.addPage(summary, pass.skipped);
-    this.emitProgress({
+    this.progress.emit({
       sourceId,
       phase: SyncMode.RECONCILE,
       pages: run.pages,
@@ -375,19 +379,6 @@ export class SyncEngine implements BaseSyncEngine {
       this.integrations.markNeedsReauth(target.integrationId);
     }
     return { outcome: SyncRunOutcome.FAILED, error };
-  }
-
-  private emitProgress(progress: SyncProgress): void {
-    // the page is already committed, so a failing listener must not fail the run or the others
-    for (const listener of [...this.listeners]) {
-      try {
-        listener(progress);
-      } catch (error) {
-        // the error class only, like the run's own line: a message could quote item data
-        const name = error instanceof Error ? error.name : typeof error;
-        this.logger.error(`Sync progress listener threw source=${progress.sourceId} error=${name}`);
-      }
-    }
   }
 
   // One line per run. Counts, ids and error class names only: never titles, descriptions,
