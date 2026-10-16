@@ -1,20 +1,20 @@
-import { TaskId } from '@common/ids';
-import { externalLinks } from '@main/db/schema/integrations';
+import { ExternalSourceId, IntegrationId, TaskId } from '@common/ids';
+import { externalLinks, externalSources } from '@main/db/schema/integrations';
 import { tasks } from '@main/db/schema/tasks';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { TaskReconciler } from '../sync/task-reconciler';
-import { ReattachRefusal, SyncEntityType, SyncSkipReason } from '../sync/types';
+import { ReattachRefusal, ReattachResult, SyncEntityType, SyncSkipReason } from '../sync/types';
 import { subtreeOf } from '../tasks/subtree';
 import { Task } from '../tasks/types';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
-import { DetachError, NotFoundError } from '../shared/errors';
+import { DetachError, IntegrationAuthError, NotFoundError } from '../shared/errors';
 import { withRef } from './refs';
 import { LinkState } from './types';
 
-// What changed, for in-process subscribers; the IPC layer will forward it so the renderer refetches
-// the tasks, and the projects too when a reattach wrote one
-export interface TaskLinkChange {
+// A detach or reattach; the IPC layer will forward it so the renderer refetches the tasks, and the
+// projects too when a reattach wrote one
+export interface TaskLinkStateChange {
   type: 'detached' | 'reattached';
   // the task asked for
   taskId: TaskId;
@@ -22,6 +22,13 @@ export interface TaskLinkChange {
   taskIds: TaskId[];
   changed: SyncEntityType[];
 }
+
+// What changed, for in-process subscribers. `credentials_rejected`: the provider refused a
+// reattach's credentials, which only a reconnect can fix, so the workspace moves the integration to
+// needs_reauth. Ids only, never credentials.
+export type TaskLinkChange =
+  | TaskLinkStateChange
+  | { type: 'credentials_rejected'; taskId: TaskId; integrationId: IntegrationId };
 
 export type TaskLinkChangeListener = ChangeListener<TaskLinkChange>;
 
@@ -50,9 +57,9 @@ const REFUSALS: Record<SyncSkipReason | ReattachRefusal, string> = {
  * This service owns the rules about the task tree and the messages the user sees. Talking to the
  * provider and writing the refreshed rows is sync's job, through TaskReconciler.reattachTasks.
  *
- * Not wired into the workspace yet: the typed IPC layer will expose both methods. A reattach whose
- * credentials are rejected throws IntegrationAuthError and leaves the integration's status alone;
- * moving it to needs_reauth is the IPC layer's job (see docs/follow-ups.md).
+ * A reattach whose credentials are rejected throws IntegrationAuthError and sends a
+ * `credentials_rejected` change, which the workspace answers by moving the integration to
+ * needs_reauth, as a sync run's rejected credentials would.
  */
 export class DetachService {
   // the change is already committed, so a failing listener must not fail the call or the others
@@ -111,7 +118,9 @@ export class DetachService {
    *    are gone or reassigned stay detached and become top-level. When it refuses, the task stays
    *    detached.
    *
-   * Throws NotFoundError for an archived or unknown task, and DetachError for every refusal.
+   * Throws NotFoundError for an archived or unknown task, DetachError for every refusal, and
+   * IntegrationAuthError, after sending `credentials_rejected`, when the provider rejects the
+   * credentials. The task stays detached on any failure.
    */
   async reattachTask(id: TaskId): Promise<Task> {
     // 1. the task, and what sits below it
@@ -145,11 +154,22 @@ export class DetachService {
       (row) =>
         row.taskId !== id && row.state === LinkState.DETACHED && row.sourceId === link.sourceId,
     );
-    const result = await this.reconciler.reattachTasks(
-      link.sourceId,
-      link.externalId,
-      descendants.map((row) => row.externalId!),
-    );
+    let result: ReattachResult;
+    try {
+      result = await this.reconciler.reattachTasks(
+        link.sourceId,
+        link.externalId,
+        descendants.map((row) => row.externalId!),
+      );
+    } catch (error) {
+      // only a reconnect fixes rejected credentials; null when a disconnect landed meanwhile
+      const integrationId =
+        error instanceof IntegrationAuthError ? this.integrationOf(link.sourceId) : null;
+      if (integrationId) {
+        this.changes.emit({ type: 'credentials_rejected', taskId: id, integrationId });
+      }
+      throw error;
+    }
     if (!result.ok) {
       throw new DetachError(id, `Task ${key} can't be reattached ${REFUSALS[result.reason]}`);
     }
@@ -180,6 +200,15 @@ export class DetachService {
     if (!row) throw new NotFoundError(id);
     if (!row.link) throw new DetachError(id, `Task ${id} is a local task with no integration`);
     return row.link;
+  }
+
+  private integrationOf(sourceId: ExternalSourceId): IntegrationId | null {
+    const row = this.db
+      .select({ integrationId: externalSources.integrationId })
+      .from(externalSources)
+      .where(eq(externalSources.id, sourceId))
+      .get();
+    return row?.integrationId ?? null;
   }
 
   /**

@@ -107,19 +107,6 @@ If any of these matters in the calendar UI, `EventSyncer` can expose two operati
 
 The picker's IPC handlers would call them through whatever owns the syncers (the engine, or the scheduler). Selecting a calendar would stay `CalendarService.setSelected` followed by a run.
 
-### Move a reattach's integration to `needs_reauth` in the typed IPC layer
-
-_Found in the source/syncer split._
-
-When a reattach's credentials are rejected, `TaskReconciler.reattachTasks` (`src/main/core/sync/task-reconciler.ts`) throws `IntegrationAuthError` and leaves the integration's status alone: sync no longer depends on `IntegrationService`. Nothing moves the integration to `needs_reauth` in that case for now, so a rejected key is only noticed by the next sync run (`SyncEngine` still marks it). `DetachService` is not wired into the workspace yet either.
-
-When the typed IPC layer exposes `detachTask` and `reattachTask`, its handler should catch `IntegrationAuthError` and call `IntegrationService.markNeedsReauth`, ideally through one helper shared by every handler that can reach a provider. The handler knows a task id, not an integration id, so either:
-
-1. **`IntegrationAuthError` carries the `integrationId`**, tagged where the auth was fetched (in `TaskReconciler`) without touching the integration's status. Works the same for every entry point. Recommended.
-2. **The handler looks the integration up** from the task's link (`src/main/core/integrations/refs.ts` reads links; it would also return the integration id).
-
-The same could later take `IntegrationService` out of `SyncEngine`, whose `recordFailure` marks `needs_reauth` for runs: the scheduler would do it from the run result's error instead.
-
 ### Take the calendar reads out of `EventSyncer`
 
 _Found in the source/syncer split. Subject to change: the current placement is a stopgap._
