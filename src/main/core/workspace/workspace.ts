@@ -7,12 +7,14 @@ import { NoteService } from '../notes/service';
 import { ProjectService } from '../projects/service';
 import { SearchService } from '../search/service';
 import { TaskService } from '../tasks/service';
+import { DetachService } from '../integrations/detach';
 import { IntegrationService } from '../integrations/service';
 import { createIntegrationServices } from '../integrations/setup';
 import { SyncEngine } from '../sync/engine';
 import { SyncScheduler } from '../sync/scheduler';
 import { SyncStateManager } from '../sync/sync-state';
 import { SyncWriter } from '../sync/writer';
+import { TaskReconciler } from '../sync/task-reconciler';
 import type { WorkspaceInfo, WorkspaceOptions } from './types';
 import path from 'node:path';
 import fs from 'node:fs/promises';
@@ -33,6 +35,8 @@ export class Workspace {
   readonly archive: ArchiveService;
   readonly search: SearchService;
   readonly integrations: IntegrationService;
+  // detachTask and reattachTask for external tasks, and onChange
+  readonly detach: DetachService;
   // syncNow, getStatus and onProgress for the app; trigger for focus and resume. Started by
   // WorkspaceService.open, stopped by close()
   readonly sync: SyncScheduler;
@@ -70,12 +74,18 @@ export class Workspace {
       this.search.removeFromIndex([...taskIds, ...projectIds, ...eventIds]);
     });
     const syncState = new SyncStateManager(db);
-    const engine = new SyncEngine(db, {
-      integrations,
-      syncState,
-      credentials,
-      providers,
-      writer: new SyncWriter(db, this.search),
+    const writer = new SyncWriter(db, this.search);
+    const engine = new SyncEngine(db, { integrations, syncState, credentials, providers, writer });
+    // a reattach writes through SyncWriter, which indexes it, and a detach changes no indexed field;
+    // edits to a detached task go through TaskService like any other
+    this.detach = new DetachService(
+      db,
+      new TaskReconciler({ db, syncState, credentials, providers, writer }),
+    );
+    // rejected credentials stop every source of the integration until a reconnect, as in a run
+    this.detach.onChange((change) => {
+      if (change.type !== 'credentials_rejected') return;
+      integrations.markNeedsReauth(change.integrationId);
     });
     this.sync = new SyncScheduler({ engine, integrations, syncState });
   }
