@@ -234,6 +234,33 @@ describe('Linear client — errors', () => {
       /Cannot query field "nope"/,
     );
   });
+
+  it('reports a body that is not JSON as a LinearApiError', async () => {
+    const fetch = scriptedFetch([() => new Response('<html>ok</html>', { status: 200 })]);
+    await expect(client(fetch).request(API_KEY, 'query', {}, anything)).rejects.toThrow(
+      /response was not JSON/,
+    );
+  });
+
+  it.each([
+    ['an array', []],
+    ['errors that are not a list', { data: {}, errors: 'boom' }],
+    ['an error with a non-string message', { errors: [{ message: 42 }] }],
+  ])('reports a malformed GraphQL envelope (%s) as a LinearApiError', async (_, body) => {
+    const fetch = scriptedFetch([{ body }]);
+    const error = await client(fetch)
+      .request(API_KEY, 'query', {}, anything)
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(LinearApiError);
+    expect((error as LinearApiError).message).toMatch(/unexpected response envelope/);
+  });
+
+  it('still maps a 429 with a malformed body to RateLimitError', async () => {
+    const fetch = scriptedFetch([{ status: 429, body: { errors: 'slow down' } }]);
+    await expect(client(fetch).request(API_KEY, 'query', {}, anything)).rejects.toBeInstanceOf(
+      RateLimitError,
+    );
+  });
 });
 
 describe('Linear provider — getAccount', () => {
