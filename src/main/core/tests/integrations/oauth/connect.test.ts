@@ -26,6 +26,7 @@ import {
   ConnectInProgressError,
   IntegrationAuthError,
   ProviderUnavailableError,
+  UnsafeUrlError,
 } from '../../../shared/errors';
 import { TOKEN_REFRESH_MARGIN_MS } from '../../../sync/constants';
 import { FakeAuthServer, fakeBrowser } from './fake-auth-server';
@@ -125,6 +126,20 @@ describe('IntegrationService — connectWithOAuth', () => {
     };
     return { openExternal, opened, release };
   }
+
+  it('never opens an authorize URL that is not http or https', async () => {
+    const opened = vi.fn(async () => {});
+    const { provider } = oauthProvider({
+      oauth: { ...config, authorizeUrl: 'javascript:alert(1)//' },
+    });
+    const { db, service } = setup({ provider, openExternal: opened });
+
+    await expect(service.connectWithOAuth(ProviderId.GOOGLE_CALENDAR)).rejects.toBeInstanceOf(
+      UnsafeUrlError,
+    );
+    expect(opened).not.toHaveBeenCalled();
+    expect(db.select().from(integrations).all()).toEqual([]);
+  });
 
   it('runs the flow, checks the account with the new token and stores the integration', async () => {
     const { provider, getAccount } = oauthProvider();

@@ -20,6 +20,7 @@ import {
   ProviderUnavailableError,
   RateLimitError,
   SyncPageLimitError,
+  UnsafeUrlError,
   WorkspaceClosedError,
   WorkspaceMigrationError,
   WorkspaceNotOpenError,
@@ -70,6 +71,7 @@ const errors: [CoreError, CoreErrorCode][] = [
   [new DevBrainFolderError('missing', 'No DevBrain folder'), 'devbrain_folder'],
   [new WorkspaceNotOpenError('wsp_1' as WorkspaceId), 'workspace_not_open'],
   [new WorkspaceClosedError(), 'workspace_closed'],
+  [new UnsafeUrlError(), 'unsafe_url'],
   [
     new WorkspaceMigrationError('Failed', {
       committed: false,

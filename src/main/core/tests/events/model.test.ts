@@ -14,7 +14,7 @@ import {
   isDateString,
   localTimeZone,
   toDateString,
-} from '../../events/dates';
+} from '../../shared/dates';
 import { AuthType, Provider, SourceType } from '../../integrations/types';
 import { NotFoundError } from '../../shared/errors';
 import { createDb } from '../utils';

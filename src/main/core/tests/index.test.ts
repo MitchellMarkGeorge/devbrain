@@ -34,7 +34,6 @@ const VALID_SETTINGS = {
       showCompletedTasks: false,
     },
     calendar: {
-      timezone: 'America/Toronto',
       defaultEventDuration: '30m',
       firstDayOfWeek: 'monday',
       defaultView: 'week',
