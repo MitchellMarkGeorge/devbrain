@@ -10,6 +10,7 @@ import {
   ProviderRegistry,
 } from './providers/registry';
 import { IntegrationService } from './service';
+import { OAuthUnavailableError } from '../shared/errors';
 
 // Puts the integration services together for one workspace: the provider registry, the OAuth
 // client, CredentialStore with a refresher for every provider that declares OAuth, and
@@ -32,7 +33,7 @@ export interface IntegrationsSetupOptions {
 // The browser opener a workspace gets when the caller passes none; the app passes
 // shell.openExternal.
 export const unavailableBrowser: OpenExternal = async () => {
-  throw new Error('No browser is configured to open the sign-in page');
+  throw new OAuthUnavailableError('No browser is configured to open the sign-in page');
 };
 
 export function createIntegrationServices(

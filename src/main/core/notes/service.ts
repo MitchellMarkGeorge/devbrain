@@ -13,7 +13,7 @@ import {
   UpdateNoteOptions,
 } from './types';
 import { stripMarkdown } from '../shared/markdown';
-import { NotFoundError } from '../shared/errors';
+import { InvalidInputError, NotFoundError } from '../shared/errors';
 import { keyset, Page, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 
@@ -55,7 +55,7 @@ export class NoteService {
 
   async createNote(options: CreateNoteOptions): Promise<Note> {
     if (options.linkedEventId && options.linkedTaskId) {
-      throw Error('Notes cannot be linked to both an event and a task');
+      throw new InvalidInputError('Notes cannot be linked to both an event and a task');
     }
 
     const newNoteId = generateId('note');
@@ -152,9 +152,9 @@ export class NoteService {
     return pager.toPage(rows);
   }
 
-  async updateNote(id: NoteId, options: UpdateNoteOptions): Promise<Note | null> {
+  async updateNote(id: NoteId, options: UpdateNoteOptions): Promise<Note> {
     if (options.linkedEventId && options.linkedTaskId) {
-      throw Error('Notes cannot be linked to both an event and a task');
+      throw new InvalidInputError('Notes cannot be linked to both an event and a task');
     }
 
     const updates: UpdateNoteOptions = {};
@@ -168,7 +168,7 @@ export class NoteService {
       .set(updates)
       .where(eq(notes.id, id))
       .returning();
-    if (!updatedNote) return null;
+    if (!updatedNote) throw new NotFoundError(id);
     this.changes.emit({ type: 'updated', note: updatedNote });
     return updatedNote;
   }
@@ -208,7 +208,6 @@ export class NoteService {
       .returning();
     if (!updatedNote) throw new NotFoundError(id);
     this.changes.emit({ type: 'updated', note: updatedNote, content });
-
     return updatedNote;
   }
 

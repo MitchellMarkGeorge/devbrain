@@ -3,7 +3,7 @@ import { calendars } from '@main/db/schema/calendars';
 import { eventExceptions, events } from '@main/db/schema/events';
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lte, not, or } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { NotFoundError } from '../shared/errors';
+import { ExternalReadOnlyError, InvalidInputError, NotFoundError } from '../shared/errors';
 import { CreateEventOptions, Event, UpdateEventOptions } from './types';
 import { assertEditable, assertRowEditable, hasLinkInState, withRefs } from '../integrations/refs';
 import { LinkState } from '../integrations/types';
@@ -176,9 +176,8 @@ export class EventService {
       .from(calendars)
       .where(eq(calendars.id, calendarId));
     if (!calendar) throw new NotFoundError(calendarId);
-    if (calendar.sourceId !== null) {
-      throw new Error(`${calendarId} is synced from a provider; its events are read-only`);
-    }
+    // a synced calendar's events come from its provider
+    if (calendar.sourceId !== null) throw new ExternalReadOnlyError(calendarId);
   }
 
   // `external` and `exdates`, each in one batched lookup
@@ -243,7 +242,7 @@ export function timing(input: {
 }) {
   if (!input.allDay) {
     if (input.endAt.getTime() < input.startAt.getTime()) {
-      throw new Error('endAt must not be before startAt');
+      throw new InvalidInputError('endAt must not be before startAt');
     }
     return {
       startAt: input.startAt,
@@ -258,10 +257,10 @@ export function timing(input: {
   const startDate = input.startDate ?? derived.startDate;
   const endDate = input.endDate ?? derived.endDate;
   for (const value of [startDate, endDate]) {
-    if (!isDateString(value)) throw new Error(`Not a date: ${value}`);
+    if (!isDateString(value)) throw new InvalidInputError(`Not a date: ${value}`);
   }
   // the end is exclusive, so an all-day event lasts at least one day
-  if (endDate <= startDate) throw new Error('endDate must be after startDate');
+  if (endDate <= startDate) throw new InvalidInputError('endDate must be after startDate');
   return {
     startAt: fromDateString(startDate),
     endAt: fromDateString(endDate),

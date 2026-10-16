@@ -8,7 +8,9 @@ import { createDb } from '../utils';
 import { TaskService } from '../../tasks/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
-import { Task, TaskSortOptions } from '../../tasks/types';
+import { ArchiveService } from '../../archive/service';
+import { ProjectStatus } from '../../projects/types';
+import { Task, TaskSortOptions, TaskStatus } from '../../tasks/types';
 import { getRefs } from '../../integrations/refs';
 import { AuthType, LinkState, Provider, SourceType } from '../../integrations/types';
 import { PageOptions } from '../../shared/pagination';
@@ -392,5 +394,81 @@ describe('ProjectService — listProjects origin filter', () => {
       expect([...paged].sort()).toEqual([...expected].sort());
       expect(new Set(paged).size).toBe(paged.length);
     }
+  });
+});
+
+// a mutation returns its row as the reads do: `external` set, null for a local row
+describe('refs — mutation results', () => {
+  const MONDAY = new Date('2026-10-05T14:00:00.000Z');
+  const HOUR_LATER = new Date('2026-10-05T15:00:00.000Z');
+
+  it('every task mutation returns external, null for a local task', async () => {
+    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const other = await tasks.createTask({ title: 'Other', dueDate: TOMORROW });
+    const subtask = await tasks.createSubtask(parent.id, { title: 'Sub' });
+    const results = [
+      parent,
+      subtask,
+      await tasks.updateTask(parent.id, { title: 'Renamed' }),
+      await tasks.updateStatus(parent.id, TaskStatus.IN_PROGRESS),
+      await tasks.updateProject(parent.id, null),
+      await tasks.updateLinks(parent.id, {}),
+      await tasks.promoteSubtask(subtask.id),
+      await tasks.demoteTask(other.id, parent.id),
+    ];
+    for (const task of results) expect(task).toHaveProperty('external', null);
+  });
+
+  it("a detached task's update returns its ref", async () => {
+    const task = await tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
+    link({ taskId: task.id }, { state: LinkState.DETACHED });
+    const updated = await tasks.updateTask(task.id, { title: 'Edited' });
+    expect(updated.external?.state).toBe(LinkState.DETACHED);
+    expect((await tasks.updateStatus(task.id, TaskStatus.COMPLETED)).external?.state).toBe(
+      LinkState.DETACHED,
+    );
+  });
+
+  it('every project mutation returns external, null for a local project', async () => {
+    const project = await projects.createProject({ title: 'Local', dueDate: TOMORROW });
+    expect(project).toHaveProperty('external', null);
+    expect(await projects.updateProject(project.id, { title: 'Renamed' })).toHaveProperty(
+      'external',
+      null,
+    );
+    expect(await projects.updateStatus(project.id, ProjectStatus.ACTIVE)).toHaveProperty(
+      'external',
+      null,
+    );
+
+    const detached = await projects.createProject({ title: 'Detached', dueDate: TOMORROW });
+    link({ projectId: detached.id }, { state: LinkState.DETACHED });
+    expect((await projects.updateProject(detached.id, { title: 'Edited' })).external?.state).toBe(
+      LinkState.DETACHED,
+    );
+  });
+
+  it('every event mutation returns external, null for a local event', async () => {
+    const event = await events.createEvent({ title: 'Local', startAt: MONDAY, endAt: HOUR_LATER });
+    expect(event).toHaveProperty('external', null);
+    expect(await events.updateEvent(event.id, { title: 'Renamed' })).toHaveProperty(
+      'external',
+      null,
+    );
+  });
+
+  it('archiving and restoring return external', async () => {
+    const archive = new ArchiveService(db);
+    const task = await tasks.createTask({ title: 'Local', dueDate: TOMORROW });
+    const detached = await tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
+    link({ taskId: detached.id }, { state: LinkState.DETACHED });
+    const project = await projects.createProject({ title: 'Local', dueDate: TOMORROW });
+
+    expect(archive.archiveTask(task.id)).toHaveProperty('external', null);
+    expect(archive.restoreTask(task.id)).toHaveProperty('external', null);
+    expect(archive.archiveTask(detached.id).external?.state).toBe(LinkState.DETACHED);
+    expect(archive.restoreTask(detached.id).external?.state).toBe(LinkState.DETACHED);
+    expect(archive.archiveProject(project.id)).toHaveProperty('external', null);
+    expect(archive.restoreProject(project.id)).toHaveProperty('external', null);
   });
 });

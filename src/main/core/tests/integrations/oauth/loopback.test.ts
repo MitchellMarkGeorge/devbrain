@@ -153,7 +153,10 @@ describe('OAuth — loopback listener', () => {
   it('fails when every fixed port is busy', async () => {
     const busy = await occupyPort();
     try {
-      await expect(start({ ports: [busy.port] })).rejects.toThrow('None of the redirect ports');
+      await expect(start({ ports: [busy.port] })).rejects.toMatchObject({
+        code: 'oauth_unavailable',
+        message: expect.stringContaining('None of the redirect ports'),
+      });
     } finally {
       await busy.close();
     }
