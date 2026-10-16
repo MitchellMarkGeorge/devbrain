@@ -38,6 +38,8 @@
  *    correctly.
  */
 
+import { consoleLogger, errorClass, type Logger } from './logger';
+
 export interface StripMarkdownOptions {
   listUnicodeChar?: string | false;
   stripListLeaders?: boolean;
@@ -48,6 +50,8 @@ export interface StripMarkdownOptions {
   separateLinksAndTexts?: string | null;
   htmlTagsToSkip?: string[];
   throwError?: boolean;
+  // where a failure is logged, by its class only, when throwError is off; defaults to the console
+  logger?: Pick<Logger, 'error'>;
 }
 
 const DEFAULT_OPTIONS: Required<StripMarkdownOptions> = {
@@ -60,6 +64,7 @@ const DEFAULT_OPTIONS: Required<StripMarkdownOptions> = {
   separateLinksAndTexts: null,
   htmlTagsToSkip: [],
   throwError: false,
+  logger: consoleLogger,
 };
 
 export function stripMarkdown(markdown: string, options: StripMarkdownOptions = {}): string {
@@ -152,7 +157,8 @@ export function stripMarkdown(markdown: string, options: StripMarkdownOptions = 
   } catch (err) {
     if (opts.throwError) throw err;
 
-    console.error('stripMarkdown encountered an error:', err);
+    // the class only: the message could quote the markdown, which is the user's
+    opts.logger.error(`stripMarkdown failed error=${errorClass(err)}`);
     return markdown;
   }
 

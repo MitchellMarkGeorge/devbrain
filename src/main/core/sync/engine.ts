@@ -1,6 +1,7 @@
 import { ExternalSourceId } from '@common/ids';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import log from 'electron-log';
+import { errorClass } from '../shared/logger';
 import { CredentialStore } from '../integrations/credential-store';
 import { IntegrationService } from '../integrations/service';
 import { SyncStateManager, SyncTarget, syncSkipReason } from './sync-state';
@@ -98,10 +99,12 @@ export class SyncEngine implements BaseSyncEngine {
     this.providers = options.providers;
     this.writer = options.writer;
     this.logger = options.logger ?? log.scope('sync');
-    this.progress = new ChangeListeners<SyncProgress>('Sync progress', (error, progress) => {
+    this.progress = new ChangeListeners<SyncProgress>('Sync progress', {
       // the error class only, like the run's own line: a message could quote item data
-      const name = error instanceof Error ? error.name : typeof error;
-      this.logger.error(`Sync progress listener threw source=${progress.sourceId} error=${name}`);
+      report: (error, progress) =>
+        this.logger.error(
+          `Sync progress listener threw source=${progress.sourceId} error=${errorClass(error)}`,
+        ),
     });
     this.now = options.now ?? (() => new Date());
     this.maxPagesPerRun = options.maxPagesPerRun ?? MAX_PAGES_PER_RUN;
