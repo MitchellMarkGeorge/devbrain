@@ -2,7 +2,7 @@ import { CalendarId } from '@common/ids';
 import { calendars } from '@main/db/schema/calendars';
 import { asc, desc, eq } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { NotFoundError } from '../shared/errors';
+import { InvalidInputError, NotFoundError } from '../shared/errors';
 import { Calendar } from './types';
 
 // The calendars events belong to, local and synced: the public interface for managing them. It
@@ -39,13 +39,14 @@ export class CalendarService {
   async setSelected(id: CalendarId, selected: boolean): Promise<Calendar> {
     const existing = await this.getById(id);
     if (existing.sourceId === null) {
-      throw new Error(`${id} is a local calendar, which always syncs`);
+      throw new InvalidInputError(`${id} is a local calendar, which always syncs`);
     }
     const [calendar] = await this.db
       .update(calendars)
       .set({ selected })
       .where(eq(calendars.id, id))
       .returning();
+    if (!calendar) throw new NotFoundError(id);
     return calendar;
   }
 

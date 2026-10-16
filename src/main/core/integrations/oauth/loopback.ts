@@ -1,6 +1,6 @@
 import { createServer, IncomingMessage, Server, ServerResponse } from 'node:http';
 import { AddressInfo } from 'node:net';
-import { CoreError, IntegrationAuthError } from '../../shared/errors';
+import { CoreError, IntegrationAuthError, OAuthUnavailableError } from '../../shared/errors';
 import { OAUTH_CALLBACK_TIMEOUT_MS } from '../../sync/constants';
 
 // The temporary HTTP listener the browser is redirected to at the end of an OAuth flow. Bound to
@@ -147,7 +147,7 @@ async function listen(server: Server, ports: number[] | 'any'): Promise<number> 
       if (code !== 'EADDRINUSE' && code !== 'EACCES') throw error;
     }
   }
-  throw new Error(`None of the redirect ports is free: ${candidates.join(', ')}`);
+  throw new OAuthUnavailableError(`None of the redirect ports is free: ${candidates.join(', ')}`);
 }
 
 function send(res: ServerResponse, status: number, body: string): void {

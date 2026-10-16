@@ -202,9 +202,10 @@ describe('IntegrationService — connectWithApiKey', () => {
     const { provider, getAccount } = fakeProvider();
     const { service } = setup(registryOf(provider));
 
-    await expect(service.connectWithApiKey(ProviderId.LINEAR, '   ')).rejects.toThrow(
-      'An API key is required',
-    );
+    await expect(service.connectWithApiKey(ProviderId.LINEAR, '   ')).rejects.toMatchObject({
+      code: 'invalid_input',
+      message: expect.stringContaining('An API key is required'),
+    });
     expect(getAccount).not.toHaveBeenCalled();
   });
 
@@ -222,9 +223,12 @@ describe('IntegrationService — connectWithApiKey', () => {
     });
     const { service } = setup(registryOf(provider));
 
-    await expect(service.connectWithApiKey(ProviderId.GOOGLE_CALENDAR, API_KEY)).rejects.toThrow(
-      "google_calendar can't be connected with an API key",
-    );
+    await expect(
+      service.connectWithApiKey(ProviderId.GOOGLE_CALENDAR, API_KEY),
+    ).rejects.toMatchObject({
+      code: 'unsupported_by_provider',
+      message: expect.stringContaining("google_calendar can't be connected with an API key"),
+    });
     expect(getAccount).not.toHaveBeenCalled();
   });
 
@@ -309,7 +313,10 @@ describe('IntegrationService — choosing sources at connect', () => {
 
     await expect(
       service.connectWithApiKey(ProviderId.LINEAR, API_KEY, { enable: [SourceType.EVENTS] }),
-    ).rejects.toThrow("linear can't serve as a source for events");
+    ).rejects.toMatchObject({
+      code: 'unsupported_by_provider',
+      message: expect.stringContaining("linear can't serve as a source for events"),
+    });
     expect(getAccount).not.toHaveBeenCalled();
     expect(countRows(db)).toEqual({ integrations: 0, sources: 0 });
   });
@@ -479,7 +486,10 @@ describe('IntegrationService — enabling and disabling', () => {
 
     await expect(
       service.setEnabled(integration.id, false, { enable: [SourceType.EVENTS] }),
-    ).rejects.toThrow(`${integration.id} has no events source`);
+    ).rejects.toMatchObject({
+      code: 'unsupported_by_provider',
+      message: expect.stringContaining(`${integration.id} has no events source`),
+    });
     expect((await service.getById(integration.id)).status).toBe(IntegrationStatus.CONNECTED);
     expect(changes).toEqual([]);
   });

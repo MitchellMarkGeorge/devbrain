@@ -13,7 +13,7 @@ import {
   UpdateTaskLinkOptions,
   UpdateTaskOptions,
 } from './types';
-import { NotFoundError } from '../shared/errors';
+import { InvalidInputError, NotFoundError, TaskHierarchyError } from '../shared/errors';
 import { isSubtask } from './utils';
 import { subtreeOf } from './subtree';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
@@ -57,7 +57,7 @@ export class TaskService {
   // a local task can be created in a mirrored project: it stays local and sync never touches it
   async createTask(options: CreateTaskOptions): Promise<Task> {
     if (options.linkedEventId && options.linkedNoteId) {
-      throw Error('Tasks cannot be linked to both an event and a note');
+      throw new InvalidInputError('Tasks cannot be linked to both an event and a note');
     }
 
     const newTask = {
@@ -77,7 +77,9 @@ export class TaskService {
       completedAt: options.status === TaskStatus.COMPLETED ? new Date() : null,
     };
 
-    const [insertedTask] = await this.db.insert(tasks).values(newTask).returning();
+    const [row] = await this.db.insert(tasks).values(newTask).returning();
+    // a new task is local, so it has no link
+    const insertedTask = { ...row, external: null };
     this.changes.emit({ type: 'created', task: insertedTask });
     return insertedTask;
   }
@@ -91,7 +93,11 @@ export class TaskService {
     // inherit the parent's due date when none is provided; local tasks always need one
     const dueDate = options.dueDate ?? parentTask.dueDate;
     if (dueDate === null) {
-      throw new Error('Subtasks need a due date when their parent task has none');
+      throw new TaskHierarchyError(
+        parentTaskId,
+        'due_date_required',
+        'Subtasks need a due date when their parent task has none',
+      );
     }
 
     const newSubtask = {
@@ -108,7 +114,8 @@ export class TaskService {
       linkedEventId: parentTask.linkedEventId,
       completedAt: options.status === TaskStatus.COMPLETED ? new Date() : null,
     };
-    const [insertedTask] = await this.db.insert(tasks).values(newSubtask).returning();
+    const [row] = await this.db.insert(tasks).values(newSubtask).returning();
+    const insertedTask = { ...row, external: null };
     this.changes.emit({ type: 'created', task: insertedTask });
     return insertedTask;
   }
@@ -233,16 +240,10 @@ export class TaskService {
     return { ...result, items: await withRefs(this.db, result.items) };
   }
 
-  async updateTask(id: TaskId, updates: UpdateTaskOptions): Promise<Task | null> {
+  async updateTask(id: TaskId, updates: UpdateTaskOptions): Promise<Task> {
     assertEditable(this.db, id);
-    const [updatedTask] = await this.db
-      .update(tasks)
-      .set(updates)
-      .where(eq(tasks.id, id))
-      .returning();
-    if (!updatedTask) return null;
-    this.changes.emit({ type: 'updated', task: updatedTask });
-    return updatedTask;
+    const [row] = await this.db.update(tasks).set(updates).where(eq(tasks.id, id)).returning();
+    return this.updated(id, row);
   }
 
   async updateStatus(id: TaskId, newStatus: TaskStatus): Promise<Task> {
@@ -258,11 +259,10 @@ export class TaskService {
       })
       .where(eq(tasks.id, id))
       .returning();
-    if (row) this.changes.emit({ type: 'updated', task: row });
 
     // if all the tasks in a project are marked as completed, then the project shoudl be marked as completed
     // this shoudl also happen vice versa
-    return row;
+    return this.updated(id, row);
   }
 
   async updateProject(id: TaskId, projectId: ProjectId | null): Promise<Task> {
@@ -271,7 +271,11 @@ export class TaskService {
     assertRowEditable(task);
 
     if (isSubtask(task)) {
-      throw new Error('Subtasks inherit project context from partent task');
+      throw new TaskHierarchyError(
+        id,
+        'inherits_context',
+        'Subtasks inherit project context from partent task',
+      );
     }
 
     const [row] = await this.db
@@ -281,9 +285,7 @@ export class TaskService {
       })
       .where(eq(tasks.id, id))
       .returning();
-    if (row) this.changes.emit({ type: 'updated', task: row });
-
-    return row;
+    return this.updated(id, row);
   }
 
   async updateLinks(id: TaskId, options: UpdateTaskLinkOptions): Promise<Task> {
@@ -291,11 +293,15 @@ export class TaskService {
 
     // links are DevBrain-owned, so allowed on synced tasks; external subtasks carry their own
     if (isSubtask(task) && !isSynced(task)) {
-      throw new Error('Subtasks inherit link context from partent task');
+      throw new TaskHierarchyError(
+        id,
+        'inherits_context',
+        'Subtasks inherit link context from partent task',
+      );
     }
 
     if (options.linkedEventId && options.linkedNoteId) {
-      throw Error('Tasks cannot be linked to both an event and a note');
+      throw new InvalidInputError('Tasks cannot be linked to both an event and a note');
     }
 
     const [row] = await this.db
@@ -306,9 +312,7 @@ export class TaskService {
       })
       .where(eq(tasks.id, id))
       .returning();
-    if (row) this.changes.emit({ type: 'updated', task: row });
-
-    return row;
+    return this.updated(id, row);
   }
 
   async promoteSubtask(id: TaskId): Promise<Task> {
@@ -317,7 +321,7 @@ export class TaskService {
     assertRowEditable(task);
 
     if (!isSubtask(task)) {
-      throw new Error('Task is not a subtask');
+      throw new TaskHierarchyError(id, 'not_subtask', 'Task is not a subtask');
     }
 
     const [row] = await this.db
@@ -327,15 +331,15 @@ export class TaskService {
       })
       .where(eq(tasks.id, id))
       .returning();
-    if (row) this.changes.emit({ type: 'updated', task: row });
-
-    return row;
+    return this.updated(id, row);
   }
 
   async demoteTask(id: TaskId, newParentId: TaskId): Promise<Task> {
     // makes an existing top level task a subtask of another task
     // the existing task will inherit the context if its new parent, even if already has its own
-    if (id === newParentId) throw new Error('Tasks cannot be their own parent');
+    if (id === newParentId) {
+      throw new TaskHierarchyError(id, 'cycle', 'Tasks cannot be their own parent');
+    }
 
     // both throw NotFoundError when the id has no active task behind it
     const task = await this.getById(id);
@@ -349,7 +353,13 @@ export class TaskService {
       .from(tasks)
       .where(and(eq(tasks.id, newParentId), inArray(tasks.id, subtreeOf(id))))
       .limit(1);
-    if (cycle) throw new Error('Tasks cannot become a subtask of their own subtask');
+    if (cycle) {
+      throw new TaskHierarchyError(
+        id,
+        'cycle',
+        'Tasks cannot become a subtask of their own subtask',
+      );
+    }
 
     const row = this.db.transaction((tx) => {
       // the whole subtree takes on the new parent's context, so it stays consistent with its root
@@ -371,8 +381,16 @@ export class TaskService {
         .get();
     });
     // only the demoted task is sent: its subtree's new context changes nothing searchable
-    if (row) this.changes.emit({ type: 'updated', task: row });
-    return row;
+    return this.updated(id, row);
+  }
+
+  // An update's result as every read returns it, with `external`, after sending the change. Throws
+  // NotFoundError when the update matched no row.
+  private async updated(id: TaskId, row: Task | undefined): Promise<Task> {
+    if (!row) throw new NotFoundError(id);
+    const task = await withRef(this.db, row);
+    this.changes.emit({ type: 'updated', task });
+    return task;
   }
 
   private activeTasks(condition: SQL<unknown>) {

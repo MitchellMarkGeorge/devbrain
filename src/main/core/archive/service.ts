@@ -10,7 +10,7 @@ import { Note } from '../notes/types';
 import { notes } from '@main/db/schema/notes';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../shared/errors';
 import { keyset, Page, PageOptions } from '../shared/pagination';
-import { assertEditable } from '../integrations/refs';
+import { assertEditable, withRefSync } from '../integrations/refs';
 import { subtreeOf } from '../tasks/subtree';
 import type {
   ArchivableEntityType,
@@ -51,7 +51,7 @@ export class ArchiveService {
       }
 
       const [task] = updatedTasks.filter((t) => t.id === id);
-      return task;
+      return withRefSync(tx, task);
     });
   }
 
@@ -80,7 +80,7 @@ export class ArchiveService {
       }
 
       const [task] = updatedTasks.filter((t) => t.id === id);
-      return task;
+      return withRefSync(tx, task);
     });
   }
 
@@ -118,7 +118,7 @@ export class ArchiveService {
         .where(or(eq(notes.projectId, id), inArray(notes.linkedTaskId, updatedTaskIds)))
         .run();
 
-      return project;
+      return withRefSync(tx, project);
     });
   }
 
@@ -153,7 +153,7 @@ export class ArchiveService {
         .where(or(eq(notes.projectId, id), inArray(notes.linkedTaskId, updatedTaskIds)))
         .run();
 
-      return project;
+      return withRefSync(tx, project);
     });
   }
 

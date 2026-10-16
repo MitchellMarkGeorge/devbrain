@@ -141,9 +141,12 @@ describe('EventService — calendars and time zones', () => {
     await expect(
       eventsService.createEvent({ ...options, calendarId: 'cal_missing' as CalendarId }),
     ).rejects.toThrow(NotFoundError);
-    await expect(eventsService.createEvent({ ...options, calendarId: synced })).rejects.toThrow(
-      'read-only',
-    );
+    await expect(
+      eventsService.createEvent({ ...options, calendarId: synced }),
+    ).rejects.toMatchObject({
+      code: 'external_read_only',
+      message: expect.stringContaining('read-only'),
+    });
   });
 });
 
@@ -184,13 +187,22 @@ describe('EventService — all-day events', () => {
     const base = { title: 'x', startAt: MONDAY, endAt: MONDAY, allDay: true };
     await expect(
       eventsService.createEvent({ ...base, startDate: '24/12/2026', endDate: '2026-12-27' }),
-    ).rejects.toThrow('Not a date');
+    ).rejects.toMatchObject({
+      code: 'invalid_input',
+      message: expect.stringContaining('Not a date'),
+    });
     await expect(
       eventsService.createEvent({ ...base, startDate: '2026-12-24', endDate: '2026-02-30' }),
-    ).rejects.toThrow('Not a date');
+    ).rejects.toMatchObject({
+      code: 'invalid_input',
+      message: expect.stringContaining('Not a date'),
+    });
     await expect(
       eventsService.createEvent({ ...base, startDate: '2026-12-24', endDate: '2026-12-24' }),
-    ).rejects.toThrow('endDate must be after startDate');
+    ).rejects.toMatchObject({
+      code: 'invalid_input',
+      message: expect.stringContaining('endDate must be after startDate'),
+    });
   });
 
   it('gives a timed event no dates', async () => {
@@ -394,9 +406,10 @@ describe('CalendarService', () => {
   });
 
   it('refuses to choose for a local calendar, which always syncs, or one that does not exist', async () => {
-    await expect(calendarService.setSelected(DEFAULT_CALENDAR_ID, false)).rejects.toThrow(
-      'always syncs',
-    );
+    await expect(calendarService.setSelected(DEFAULT_CALENDAR_ID, false)).rejects.toMatchObject({
+      code: 'invalid_input',
+      message: expect.stringContaining('always syncs'),
+    });
     expect((await calendarService.getById(DEFAULT_CALENDAR_ID)).selected).toBe(true);
     await expect(calendarService.setSelected('cal_missing' as CalendarId, true)).rejects.toThrow(
       NotFoundError,

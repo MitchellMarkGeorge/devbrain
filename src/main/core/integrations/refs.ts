@@ -105,6 +105,14 @@ export async function getRefs<T extends LinkedEntityId>(
   db: BetterSQLite3Database,
   ids: T[],
 ): Promise<Map<T, ExternalRef>> {
+  return getRefsSync(db, ids);
+}
+
+/** `getRefs` for synchronous callers, such as a transaction (`db` can be one) */
+export function getRefsSync<T extends LinkedEntityId>(
+  db: BaseSQLiteDatabase<'sync', RunResult>,
+  ids: T[],
+): Map<T, ExternalRef> {
   const refs = new Map<T, ExternalRef>();
   if (ids.length === 0) return refs;
 
@@ -114,7 +122,7 @@ export async function getRefs<T extends LinkedEntityId>(
   }
   const column = LINK_COLUMNS[entity];
 
-  const links = await db
+  const links = db
     .select({
       entityId: sql<T>`${column}`,
       provider: externalLinks.provider,
@@ -125,7 +133,8 @@ export async function getRefs<T extends LinkedEntityId>(
       lastSyncedAt: externalLinks.lastSyncedAt,
     })
     .from(externalLinks)
-    .where(inArray(column, ids));
+    .where(inArray(column, ids))
+    .all();
 
   for (const { entityId, metadata, ...link } of links) {
     refs.set(entityId, { ...link, ...labelsOf(entity, metadata) });
@@ -149,6 +158,13 @@ export async function withRef<T extends { id: LinkedEntityId }>(
   db: BetterSQLite3Database,
   row: T,
 ): Promise<T & { external: ExternalRef | null }> {
-  const [withRef] = await withRefs(db, [row]);
-  return withRef;
+  return withRefSync(db, row);
+}
+
+/** `withRef` for synchronous callers, such as a transaction (`db` can be one) */
+export function withRefSync<T extends { id: LinkedEntityId }>(
+  db: BaseSQLiteDatabase<'sync', RunResult>,
+  row: T,
+): T & { external: ExternalRef | null } {
+  return { ...row, external: getRefsSync(db, [row.id]).get(row.id) ?? null };
 }

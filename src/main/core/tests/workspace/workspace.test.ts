@@ -175,7 +175,10 @@ describe('Workspace.open', () => {
   });
 
   it('throws when no database exists at the workspace path', async () => {
-    await expect(Workspace.open(makeInfo(tmpDir))).rejects.toThrow(/No workspace database found/);
+    await expect(Workspace.open(makeInfo(tmpDir))).rejects.toMatchObject({
+      code: 'workspace_data_missing',
+      message: expect.stringMatching(/No workspace database found/),
+    });
   });
 
   it('a created-then-closed workspace can be re-opened', async () => {

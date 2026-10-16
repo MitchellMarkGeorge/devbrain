@@ -15,7 +15,7 @@ import {
   ProviderRegistry,
 } from '../../../integrations/providers/registry';
 import { IntegrationChange, IntegrationService } from '../../../integrations/service';
-import { createIntegrationServices } from '../../../integrations/setup';
+import { createIntegrationServices, unavailableBrowser } from '../../../integrations/setup';
 import {
   AuthType,
   IntegrationStatus,
@@ -164,9 +164,28 @@ describe('IntegrationService — connectWithOAuth', () => {
   it('refuses a provider that declares no OAuth config', async () => {
     const { provider } = oauthProvider({ oauth: undefined, authMethods: [AuthType.API_KEY] });
     const { service } = setup({ provider });
-    await expect(service.connectWithOAuth(ProviderId.GOOGLE_CALENDAR)).rejects.toThrow(
-      "can't be connected with OAuth",
-    );
+    await expect(service.connectWithOAuth(ProviderId.GOOGLE_CALENDAR)).rejects.toMatchObject({
+      code: 'unsupported_by_provider',
+      message: expect.stringContaining("can't be connected with OAuth"),
+    });
+  });
+
+  it('refuses with oauth_unavailable when no OAuth client or browser is configured', async () => {
+    const db = createDb();
+    const providers: ProviderRegistry = new Map([
+      [ProviderId.GOOGLE_CALENDAR, oauthProvider().provider],
+    ]);
+    const credentials = new CredentialStore(db, { cipher: new FakeCipher() });
+    const withoutClient = new IntegrationService(db, { credentials, providers });
+    await expect(withoutClient.connectWithOAuth(ProviderId.GOOGLE_CALENDAR)).rejects.toMatchObject({
+      code: 'oauth_unavailable',
+      message: 'No OAuth client is configured',
+    });
+
+    const { service } = setup({ openExternal: unavailableBrowser });
+    await expect(service.connectWithOAuth(ProviderId.GOOGLE_CALENDAR)).rejects.toMatchObject({
+      code: 'oauth_unavailable',
+    });
   });
 
   it('writes nothing when the account query fails', async () => {
