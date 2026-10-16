@@ -46,7 +46,15 @@ export type IntegrationChange =
       // every source the connection got; the scheduler starts the enabled ones
       sources: { sourceId: ExternalSourceId; enabled: boolean }[];
     }
-  | { type: 'status_changed'; integrationId: IntegrationId; status: IntegrationStatus }
+  | {
+      type: 'status_changed';
+      integrationId: IntegrationId;
+      status: IntegrationStatus;
+      // the status before; the same as `status` when a reconnect replaced a connected
+      // integration's credentials. Connected from disabled is enabling, connected from anything
+      // else a reconnect
+      previous: IntegrationStatus;
+    }
   | {
       type: 'source_changed';
       integrationId: IntegrationId;
@@ -231,8 +239,9 @@ export class IntegrationService implements BaseIntegrationService {
    * rejected with IntegrationAccountMismatchError and change nothing.
    *
    * On success the new credentials are stored and the status becomes connected, so a scheduler
-   * listening for status_changed starts syncing again from the saved cursors. A disabled
-   * integration stays disabled with the new credentials, as enabling it is the user's call.
+   * listening for status_changed starts syncing the enabled sources again from the saved cursors,
+   * at once. A disabled integration stays disabled with the new credentials, as enabling it is the
+   * user's call.
    */
   async reconnect(id: IntegrationId, using: ReconnectWith): Promise<Integration> {
     this.signal?.throwIfAborted();
@@ -261,7 +270,12 @@ export class IntegrationService implements BaseIntegrationService {
     });
 
     if (status === IntegrationStatus.CONNECTED) {
-      this.changes.emit({ type: 'status_changed', integrationId: id, status });
+      this.changes.emit({
+        type: 'status_changed',
+        integrationId: id,
+        status,
+        previous: row.status,
+      });
     }
     return this.getById(id);
   }
@@ -427,7 +441,7 @@ export class IntegrationService implements BaseIntegrationService {
         .all();
     });
 
-    this.changes.emit({ type: 'status_changed', integrationId: id, status });
+    this.changes.emit({ type: 'status_changed', integrationId: id, status, previous: row.status });
     for (const source of toggled) {
       this.changes.emit({
         type: 'source_changed',
@@ -547,6 +561,7 @@ export class IntegrationService implements BaseIntegrationService {
       type: 'status_changed',
       integrationId: id,
       status: IntegrationStatus.NEEDS_REAUTH,
+      previous: IntegrationStatus.CONNECTED,
     });
   }
 

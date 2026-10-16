@@ -276,6 +276,7 @@ describe('IntegrationService — connectWithOAuth', () => {
         type: 'status_changed',
         integrationId: id,
         status: IntegrationStatus.NEEDS_REAUTH,
+        previous: IntegrationStatus.CONNECTED,
       });
     });
 
@@ -321,6 +322,7 @@ describe('IntegrationService — markNeedsReauth', () => {
         type: 'status_changed',
         integrationId: connected.id,
         status: IntegrationStatus.NEEDS_REAUTH,
+        previous: IntegrationStatus.CONNECTED,
       },
     ]);
   });

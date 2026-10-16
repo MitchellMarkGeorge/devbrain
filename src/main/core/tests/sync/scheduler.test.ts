@@ -164,6 +164,7 @@ let scheduler: SyncScheduler;
 let logger: ReturnType<typeof quietLogger>;
 let linearId: IntegrationId;
 let linearSourceId: ExternalSourceId;
+let calendarId: IntegrationId;
 let calendarSourceId: ExternalSourceId;
 
 beforeEach(async () => {
@@ -183,6 +184,7 @@ beforeEach(async () => {
   const calendar = await service.connectWithApiKey(ProviderId.GOOGLE_CALENDAR, 'key', {
     enable: [],
   });
+  calendarId = calendar.id;
   calendarSourceId = calendar.sources[0].id;
 
   syncState = new SyncStateManager(db);
@@ -520,6 +522,87 @@ describe('SyncScheduler — backoff', () => {
 
     await vi.advanceTimersByTimeAsync(5 * MINUTE);
     expect(engine.runs().map((call) => call.at)).toEqual([0, 15]);
+  });
+});
+
+describe('SyncScheduler — reconnect', () => {
+  function reconnect(id: IntegrationId, apiKey = FAKE_API_KEY) {
+    return service.reconnect(id, { type: AuthType.API_KEY, apiKey });
+  }
+
+  it('runs each enabled source of the integration once, at once', async () => {
+    await start();
+    await vi.advanceTimersByTimeAsync(2 * MINUTE);
+    service.markNeedsReauth(linearId);
+
+    await reconnect(linearId);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(engine.runs().map((call) => call.at)).toEqual([0, 2]);
+    // no follow-up: the next run is the 5-minute tick
+    await vi.advanceTimersByTimeAsync(2 * MINUTE);
+    expect(engine.runs().map((call) => call.at)).toEqual([0, 2]);
+    expect(engine.reconciles()).toHaveLength(1);
+  });
+
+  it("runs neither a disabled source nor another integration's", async () => {
+    await start();
+    await vi.advanceTimersByTimeAsync(2 * MINUTE);
+    service.markNeedsReauth(calendarId);
+
+    await reconnect(calendarId, 'key');
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(engine.runs(calendarSourceId)).toHaveLength(0);
+    expect(engine.runs()).toHaveLength(1);
+  });
+
+  it('ignores the backoff and restarts it', async () => {
+    engine.outcome = SyncRunOutcome.FAILED;
+    await start();
+    await vi.advanceTimersByTimeAsync(16 * MINUTE);
+    expect(source().consecutiveFailures).toBe(4);
+    service.markNeedsReauth(linearId);
+
+    // inside the 8-minute wait
+    await reconnect(linearId);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(engine.runs().map((call) => call.at)).toEqual([0, 5, 10, 15, 16]);
+
+    // failed again, but the wait starts over at 1 minute, so the 20-minute tick runs
+    await vi.advanceTimersByTimeAsync(4 * MINUTE);
+    expect(engine.runs().map((call) => call.at)).toEqual([0, 5, 10, 15, 16, 20]);
+  });
+
+  it("waits for the provider's retry time", async () => {
+    engine.outcome = SyncRunOutcome.RATE_LIMITED;
+    engine.retryAt = new Date(START.getTime() + 12 * MINUTE);
+    await start();
+    engine.outcome = SyncRunOutcome.COMPLETED;
+    await vi.advanceTimersByTimeAsync(2 * MINUTE);
+    service.markNeedsReauth(linearId);
+
+    await reconnect(linearId);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(engine.runs().map((call) => call.at)).toEqual([0]);
+
+    // the first tick after the retry time runs it
+    await vi.advanceTimersByTimeAsync(13 * MINUTE);
+    expect(engine.runs().map((call) => call.at)).toEqual([0, 15]);
+  });
+
+  it('enabling a disabled integration runs each source it switches on once', async () => {
+    await start();
+    await service.setEnabled(linearId, false);
+    await vi.advanceTimersByTimeAsync(2 * MINUTE);
+
+    await service.setEnabled(linearId, true);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(engine.runs().map((call) => call.at)).toEqual([0, 2]);
+    await vi.advanceTimersByTimeAsync(2 * MINUTE);
+    expect(engine.runs().map((call) => call.at)).toEqual([0, 2]);
+    expect(engine.overlapped).toBe(false);
   });
 });
 

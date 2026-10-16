@@ -38,8 +38,9 @@ export interface SyncSchedulerOptions {
  * source's last run finished under MIN_TRIGGER_GAP_MS ago, and while it backs off or waits on a
  * rate limit. Manual always runs, includes the reconcile pass, and restarts the backoff. Connected
  * always runs: a source that was just connected or switched on gets its first sync at once.
+ * Reconnected restarts the backoff and runs at once, unless the provider's retry time is ahead.
  */
-export type SyncTrigger = 'focus' | 'resume' | 'manual' | 'connected';
+export type SyncTrigger = 'focus' | 'resume' | 'manual' | 'connected' | 'reconnected';
 
 // one source's sync state, for a status indicator and the settings page
 export interface SourceSyncStatus {
@@ -82,8 +83,9 @@ interface SourceRun {
 
 /**
  * Decides when each source syncs: once when started, on an interval, on focus and resume, on
- * demand, and when a source is connected or switched on. Runs go through SyncEngine; this class
- * never touches the database except to read a source's sync state.
+ * demand, when a source is connected or switched on, and when its integration is reconnected.
+ * Runs go through SyncEngine; this class never touches the database except to read a source's
+ * sync state.
  *
  * - One run per source at a time. A trigger during a run asks for a follow-up run, and any
  *   number of them cause exactly one.
@@ -91,6 +93,11 @@ interface SourceRun {
  * - Failures back off: interval, focus and resume runs are skipped until BACKOFF_INITIAL_MS,
  *   doubling with each failure in a row to BACKOFF_MAX_MS, has passed since the last run finished.
  * - After a rate-limited run nothing but a manual sync starts before the provider's retry time.
+ * - A reconnect (status_changed to connected from anything but disabled) runs the integration's
+ *   enabled sources at once, as connecting does, and restarts their backoff as a manual sync does:
+ *   the failures were most likely the rejected credentials the reconnect replaced. A source whose
+ *   provider retry time is ahead still waits for it. Enabling a disabled integration is not a
+ *   reconnect: it sends source_changed for each source it switches on, which starts that source.
  * - Disabling a source or its integration, or the integration moving to needs_reauth, aborts its
  *   runs, and so does disconnecting it; its sources never run again. stop() aborts everything and
  *   resolves once every run has settled.
@@ -107,8 +114,9 @@ export class SyncScheduler {
   private readonly unsettledRuns = new Set<Promise<void>>();
   // when each source's last run ended in this session; drives the focus gap and backoff
   private readonly lastRunFinishedAt = new Map<ExternalSourceId, number>();
-  // a source's failure count when a manual sync restarted its backoff; failures before it are ignored
-  private readonly failureCountAtManualSync = new Map<ExternalSourceId, number>();
+  // a source's failure count when a manual sync or a reconnect restarted its backoff; failures
+  // before it are ignored
+  private readonly failureCountAtBackoffRestart = new Map<ExternalSourceId, number>();
   // the pass at start, until it begins
   private pendingOpenPass: NodeJS.Immediate | null = null;
   private tickInterval: NodeJS.Timeout | null = null;
@@ -229,14 +237,18 @@ export class SyncScheduler {
 
   private applyTrigger(reason: SyncTrigger, sourceId: ExternalSourceId): Promise<void> {
     switch (reason) {
-      case 'manual': {
-        // failures so far no longer count toward the wait; a later success clears the record
-        const target = this.readSyncTarget(sourceId);
-        if (target) this.failureCountAtManualSync.set(sourceId, target.consecutiveFailures);
+      case 'manual':
+        this.restartBackoff(sourceId);
         return this.requestRun(sourceId, true);
-      }
       case 'connected':
         return this.requestRun(sourceId, false);
+      case 'reconnected': {
+        this.restartBackoff(sourceId);
+        const retryAt = this.readSyncTarget(sourceId)?.retryAt;
+        // rate limited: the interval tick after the retry time runs it, with the backoff restarted
+        if (retryAt && retryAt.getTime() > this.timers.now()) return Promise.resolve();
+        return this.requestRun(sourceId, false);
+      }
       case 'focus':
       case 'resume': {
         const last = this.lastRunFinishedAt.get(sourceId);
@@ -247,6 +259,12 @@ export class SyncScheduler {
         return this.requestRun(sourceId, false);
       }
     }
+  }
+
+  // failures so far no longer count toward the wait; a later success clears the record
+  private restartBackoff(sourceId: ExternalSourceId): void {
+    const target = this.readSyncTarget(sourceId);
+    if (target) this.failureCountAtBackoffRestart.set(sourceId, target.consecutiveFailures);
   }
 
   // an interval tick: every enabled source that is not backing off runs
@@ -319,7 +337,7 @@ export class SyncScheduler {
   /**
    * Whether an interval, focus or resume run may start: the source is enabled, its integration is
    * connected, the provider's retry time has passed, and the backoff from failures in a row since
-   * the last manual sync has run out.
+   * the last manual sync or reconnect has run out.
    */
   private isDueForAutomaticRun(sourceId: ExternalSourceId): boolean {
     const target = this.readSyncTarget(sourceId);
@@ -327,16 +345,16 @@ export class SyncScheduler {
     const now = this.timers.now();
     if (target.retryAt && target.retryAt.getTime() > now) return false;
 
-    let failuresBeforeManualSync = this.failureCountAtManualSync.get(sourceId) ?? 0;
-    // a success since the manual sync reset the count, so the record no longer applies
-    if (target.consecutiveFailures < failuresBeforeManualSync) {
-      this.failureCountAtManualSync.delete(sourceId);
-      failuresBeforeManualSync = 0;
+    let failuresBeforeRestart = this.failureCountAtBackoffRestart.get(sourceId) ?? 0;
+    // a success since the restart reset the count, so the record no longer applies
+    if (target.consecutiveFailures < failuresBeforeRestart) {
+      this.failureCountAtBackoffRestart.delete(sourceId);
+      failuresBeforeRestart = 0;
     }
     const lastFinishedAt = this.lastRunFinishedAt.get(sourceId);
     // nothing has run in this session, so nothing to wait from; the workspace-open pass runs
     if (lastFinishedAt === undefined) return true;
-    const failures = target.consecutiveFailures - failuresBeforeManualSync;
+    const failures = target.consecutiveFailures - failuresBeforeRestart;
     return now >= lastFinishedAt + backoffDelay(failures);
   }
 
@@ -352,12 +370,21 @@ export class SyncScheduler {
         else this.abortRun(change.sourceId);
         return;
       case 'status_changed':
-        // disabled or needs_reauth: its sources stop; enabling sends source_changed per source
-        if (change.status !== IntegrationStatus.CONNECTED) {
-          for (const sourceId of this.currentRuns.keys()) {
-            const target = this.readSyncTarget(sourceId);
-            if (!target || target.integrationId === change.integrationId) this.abortRun(sourceId);
+        if (change.status === IntegrationStatus.CONNECTED) {
+          // from disabled is enabling, which sends source_changed for each source it switches on;
+          // anything else is a reconnect, which sends nothing more
+          if (change.previous !== IntegrationStatus.DISABLED) {
+            void this.forEachSyncableSource(
+              (sourceId) => void this.applyTrigger('reconnected', sourceId),
+              change.integrationId,
+            );
           }
+          return;
+        }
+        // disabled or needs_reauth: its sources stop
+        for (const sourceId of this.currentRuns.keys()) {
+          const target = this.readSyncTarget(sourceId);
+          if (!target || target.integrationId === change.integrationId) this.abortRun(sourceId);
         }
         return;
       case 'disconnected':
@@ -384,22 +411,24 @@ export class SyncScheduler {
     }
   }
 
-  // sources that are switched on, of integrations that are connected
-  private async syncableSourceIds(): Promise<ExternalSourceId[]> {
+  // sources that are switched on, of integrations that are connected; of one integration if given
+  private async syncableSourceIds(integrationId?: IntegrationId): Promise<ExternalSourceId[]> {
     const integrations = await this.integrations.list();
     return integrations
       .filter((integration) => integration.status === IntegrationStatus.CONNECTED)
+      .filter((integration) => integrationId === undefined || integration.id === integrationId)
       .flatMap((integration) => integration.sources.filter((source) => source.enabled))
       .map((source) => source.id);
   }
 
-  // For the pass at start and the interval ticks, which nothing awaits: never rejects, so a failure
-  // to list the sources is logged and that pass or tick is skipped. The next tick tries again.
+  // For the pass at start, the interval ticks and reconnects, which nothing awaits: never rejects,
+  // so a failure to list the sources is logged and that pass is skipped. The next tick tries again.
   private async forEachSyncableSource(
     callback: (sourceId: ExternalSourceId) => void,
+    integrationId?: IntegrationId,
   ): Promise<void> {
     try {
-      const ids = await this.syncableSourceIds();
+      const ids = await this.syncableSourceIds(integrationId);
       // stopped while listing
       if (!this.isStarted) return;
       ids.forEach(callback);
