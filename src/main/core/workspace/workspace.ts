@@ -28,8 +28,14 @@ import {
 import { inArray } from 'drizzle-orm';
 import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
+import { guardOpenExternal } from '../shared/untrusted';
 
 type SqliteDatabaseClient = Database.Database;
+
+// the link opener when the caller passes no browser, as tests do; the app always passes one
+const noBrowser = async () => {
+  throw new Error('No browser is configured to open links');
+};
 
 export class Workspace {
   private readonly closing = new AbortController();
@@ -47,6 +53,12 @@ export class Workspace {
   // syncNow, getStatus and onProgress for the app; trigger for focus and resume. Started by
   // WorkspaceService.open, stopped by close()
   readonly sync: SyncScheduler;
+  /**
+   * Opens a link in the system browser: a synced item's provider page, a meeting link, a link in a
+   * description. Only http and https URLs are opened; anything else throws UnsafeUrlError and
+   * opens nothing (docs/security/untrusted-content.md).
+   */
+  readonly openUrl: (url: string) => Promise<void>;
 
   private constructor(
     private readonly db: BetterSQLite3Database,
@@ -106,6 +118,7 @@ export class Workspace {
       integrations.markNeedsReauth(change.integrationId);
     });
     this.sync = new SyncScheduler({ engine, integrations, syncState });
+    this.openUrl = guardOpenExternal(options.openExternal ?? noBrowser);
   }
 
   private onArchiveChange({ type, taskIds, projectIds, noteIds }: ArchiveChange): void {

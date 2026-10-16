@@ -43,7 +43,6 @@ export type DotPathValue<T, P extends string> = P extends `${infer K}.${infer Re
 //     showCompletedTasks: boolean;
 //   };
 //   calendar: {
-//     timezone: string;
 //     defaultEventDuration: '15m' | '30m' | '1h';
 //     firstDayOfWeek: 'monday' | 'sunday';
 //     defaultView: 'month' | 'week' | 'day';

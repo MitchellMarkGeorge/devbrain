@@ -17,7 +17,7 @@ import { InvalidInputError, NotFoundError, TaskHierarchyError } from '../shared/
 import { isSubtask } from './utils';
 import { subtreeOf } from './subtree';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
-import { localDayWindow } from '../shared/utils';
+import { localDayWindow } from '../shared/dates';
 import { keyset, Page, PageOptions } from '../shared/pagination';
 import {
   assertEditable,

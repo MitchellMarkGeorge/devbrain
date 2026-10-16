@@ -23,7 +23,6 @@ const validSettings: SettingsFile = {
       showCompletedTasks: false,
     },
     calendar: {
-      timezone: 'America/Toronto',
       defaultEventDuration: '30m',
       firstDayOfWeek: 'monday',
       defaultView: 'week',
@@ -297,10 +296,11 @@ describe('appSettingsSchema — calendar block', () => {
     ).toBe(false);
   });
 
-  it('accepts any non-empty string for timezone', () => {
-    expect(
-      appSettingsSchema.safeParse(withCalendar({ timezone: 'Europe/London' }).settings).success,
-    ).toBe(true);
+  it('has no time zone: one left by an older version is accepted and stripped', () => {
+    const calendar = { ...validSettings.settings.calendar, timezone: 'Toronto UTC' };
+    const result = appSettingsSchema.safeParse({ ...validSettings.settings, calendar });
+    expect(result.success).toBe(true);
+    expect(result.data?.calendar).toEqual(validSettings.settings.calendar);
   });
 });
 

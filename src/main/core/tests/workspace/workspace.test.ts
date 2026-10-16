@@ -11,6 +11,7 @@ import type { WorkspaceInfo } from '../../workspace/types';
 import { Workspace } from '../../workspace/workspace';
 import {
   IntegrationAuthError,
+  UnsafeUrlError,
   WorkspaceClosedError,
   WorkspaceMigrationError,
 } from '../../shared/errors';
@@ -1151,6 +1152,19 @@ describe('Workspace — integration cancellation', () => {
       expect(fetch.requests.at(-1)?.signal?.aborted).toBe(true);
     },
   );
+
+  it('opens http and https links through openUrl, and nothing else', async () => {
+    const browser = vi.fn(async () => {});
+    const workspace = await Workspace.create(makeInfo(tmpDir), { openExternal: browser });
+    try {
+      await workspace.openUrl('https://meet.google.com/abc-defg-hij');
+      await expect(workspace.openUrl('javascript:alert(1)')).rejects.toBeInstanceOf(UnsafeUrlError);
+      await expect(workspace.openUrl('file:///etc/passwd')).rejects.toBeInstanceOf(UnsafeUrlError);
+      expect(browser.mock.calls).toEqual([['https://meet.google.com/abc-defg-hij']]);
+    } finally {
+      await workspace.close();
+    }
+  });
 
   it('cancels OAuth while waiting for the browser callback', async () => {
     const browser = vi.fn(async () => {});

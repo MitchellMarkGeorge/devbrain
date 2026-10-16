@@ -27,6 +27,8 @@ export interface WorkspaceOptions {
   fetch?: FetchFn;
   // defaults to the providers the app ships, built over `fetch`
   providers?: ProviderRegistry;
-  // opens the OAuth sign-in page; defaults to one that refuses, so an OAuth connect fails
+  // Opens the OAuth sign-in page, and links through Workspace.openUrl. Core lets only http and
+  // https URLs through to it (docs/security/untrusted-content.md). Defaults to one that refuses,
+  // so an OAuth connect fails.
   openExternal?: OpenExternal;
 }
