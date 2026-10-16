@@ -20,6 +20,7 @@ import {
   ProviderUnavailableError,
   RateLimitError,
   SyncPageLimitError,
+  WorkspaceClosedError,
   WorkspaceMigrationError,
   WorkspaceNotOpenError,
 } from '../../shared/errors';
@@ -68,6 +69,7 @@ const errors: [CoreError, CoreErrorCode][] = [
   [new MalformedNoteFileError('/notes/a.md', null), 'malformed_note_file'],
   [new DevBrainFolderError('missing', 'No DevBrain folder'), 'devbrain_folder'],
   [new WorkspaceNotOpenError('wsp_1' as WorkspaceId), 'workspace_not_open'],
+  [new WorkspaceClosedError(), 'workspace_closed'],
   [
     new WorkspaceMigrationError('Failed', {
       committed: false,

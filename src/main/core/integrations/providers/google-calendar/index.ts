@@ -2,7 +2,7 @@ import { AuthType, Provider as ProviderId, SourceType } from '../../types';
 import { Auth } from '../../auth';
 import { OAuthConfig } from '../../oauth/types';
 import { OAuthClientCredentials, oauthClientFor } from '../oauth-clients';
-import { ExternalAccount, FetchFn, Provider } from '../provider';
+import { ExternalAccount, FetchFn, Provider, RequestOptions } from '../provider';
 import { GoogleCalendarClient } from './client';
 import { GoogleCalendarSource } from './calendars';
 
@@ -60,7 +60,7 @@ export function createGoogleCalendarProvider(options: GoogleCalendarProviderOpti
     supports: [SourceType.EVENTS],
     authMethods: oauth ? [AuthType.OAUTH] : [],
     ...(oauth && { oauth }),
-    getAccount: (auth) => getAccount(client, auth),
+    getAccount: (auth, options) => getAccount(client, auth, options),
     calendars: new GoogleCalendarSource(client),
   };
 }
@@ -71,8 +71,9 @@ export function createGoogleCalendarProvider(options: GoogleCalendarProviderOpti
 export async function getAccount(
   client: GoogleCalendarClient,
   auth: Auth,
+  options: RequestOptions = {},
 ): Promise<ExternalAccount> {
-  const { sub } = await client.getUserInfo(auth);
-  const primary = await client.getPrimaryCalendar(auth);
+  const { sub } = await client.getUserInfo(auth, options);
+  const primary = await client.getPrimaryCalendar(auth, options);
   return { accountId: sub, label: primary.id, userId: sub };
 }

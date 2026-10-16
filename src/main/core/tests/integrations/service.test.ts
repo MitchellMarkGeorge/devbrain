@@ -140,7 +140,7 @@ describe('IntegrationService — connectWithApiKey', () => {
 
     await service.connectWithApiKey(ProviderId.LINEAR, `  ${API_KEY}\n`);
 
-    expect(getAccount).toHaveBeenCalledWith({ authorization: API_KEY });
+    expect(getAccount).toHaveBeenCalledWith({ authorization: API_KEY }, { signal: undefined });
   });
 
   it('writes nothing when the provider rejects the key', async () => {

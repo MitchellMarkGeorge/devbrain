@@ -7,7 +7,7 @@ import os from 'node:os';
 import type { DevBrain } from '@main/core';
 import { createSafeStorageCipher } from './runtime/safe-storage-cipher';
 import { startDevBrain } from './runtime/start';
-import { closeBeforeQuit, forwardSyncTriggers } from './runtime/lifecycle';
+import { closeBeforeQuit, closeCore, forwardSyncTriggers } from './runtime/lifecycle';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // the repository, in development: dist/main is two levels down
@@ -79,13 +79,6 @@ async function startCore(): Promise<DevBrain | null> {
     devBrainLog.error('Starting DevBrain failed', error);
     return null;
   }
-}
-
-// Closes the open workspace before the app quits. A quit while starting waits for the start to
-// finish first, so a workspace it is opening is closed too.
-async function closeCore(starting: Promise<DevBrain | null>): Promise<void> {
-  const devBrain = await starting;
-  await devBrain?.close();
 }
 
 // --- Window ---------------------------------------------------------------

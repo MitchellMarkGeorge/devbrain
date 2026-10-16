@@ -138,7 +138,10 @@ describe('IntegrationService — connectWithOAuth', () => {
       status: IntegrationStatus.CONNECTED,
       sources: [{ sourceType: SourceType.EVENTS, enabled: true }],
     });
-    expect(getAccount).toHaveBeenCalledWith({ authorization: 'Bearer access-2' });
+    expect(getAccount).toHaveBeenCalledWith(
+      { authorization: 'Bearer access-2' },
+      { signal: expect.any(AbortSignal) },
+    );
     expect(await storedCredentials(cipher, db, integration.id)).toEqual({
       type: 'oauth',
       accessToken: 'access-2',

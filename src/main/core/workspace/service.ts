@@ -13,9 +13,20 @@ import { paginateArray, Page, PageOptions } from '../shared/pagination';
 // if possible, workspaces should be "cached" here
 
 export class WorkspaceService {
-  // this should absolutely NOT be public. Should be copmputed instead (but still cheap like O(1))
-  public currentWorkspace: Workspace | null = null;
+  private current: Workspace | null = null;
+  private transition: Promise<unknown> = Promise.resolve();
   private workspacesFilePath: string;
+
+  get currentWorkspace(): Workspace | null {
+    return this.current;
+  }
+
+  // Only lifecycle transitions queue. A rejected transition must not poison later calls.
+  private serialize<T>(action: () => Promise<T>): Promise<T> {
+    const result = this.transition.then(action);
+    this.transition = result.catch(() => {});
+    return result;
+  }
 
   constructor(
     private rootPath: string,
@@ -94,7 +105,11 @@ export class WorkspaceService {
    * entry. Throws NotFoundError for an unknown id, and WorkspaceNotOpenError for a workspace that
    * isn't the open one: open it first.
    */
-  async delete(id: WorkspaceId): Promise<void> {
+  delete(id: WorkspaceId): Promise<void> {
+    return this.serialize(() => this.deleteWorkspace(id));
+  }
+
+  private async deleteWorkspace(id: WorkspaceId): Promise<void> {
     // throws NotFoundError when the id is not in the registry
     const workspaceInfo = this.getById(id);
     const workspace = this.currentWorkspace;
@@ -140,7 +155,11 @@ export class WorkspaceService {
     }
   }
 
-  async open(id: WorkspaceId): Promise<Workspace> {
+  open(id: WorkspaceId): Promise<Workspace> {
+    return this.serialize(() => this.openWorkspace(id));
+  }
+
+  private async openWorkspace(id: WorkspaceId): Promise<Workspace> {
     // 1. get info from the registry (throws NotFoundError when absent)
     const workspaceInfo = this.getById(id);
 
@@ -155,15 +174,17 @@ export class WorkspaceService {
     // 4. open/initalize the workspace object
     const workspace = await Workspace.open(workspaceInfo, this.workspaceOptions);
 
-    // 5. update the `lastOpenedAt` timestamp in the registry
-    const workspaces = this.readWorkspaceFile();
-    workspaces[id] = { ...workspaceInfo, lastOpenedAt: Date.now() };
-    this.writeWorkspaceFile(workspaces);
-
-    // set the current workspace, and start syncing it: the open workspace is the one that syncs
-    this.currentWorkspace = workspace;
-    workspace.sync.start();
-    return workspace;
+    try {
+      const workspaces = this.readWorkspaceFile();
+      workspaces[id] = { ...workspaceInfo, lastOpenedAt: Date.now() };
+      this.writeWorkspaceFile(workspaces);
+      workspace.sync.start();
+      this.current = workspace;
+      return workspace;
+    } catch (error) {
+      await workspace.close();
+      throw error;
+    }
   }
 
   async switch(id: WorkspaceId): Promise<Workspace> {
@@ -175,15 +196,15 @@ export class WorkspaceService {
    * Closes the open workspace, if any, once its sync runs have settled, so nothing writes to its
    * database after this resolves. The app calls it on quit.
    */
-  async close(): Promise<void> {
-    await this.closeCurrent();
+  close(): Promise<void> {
+    return this.serialize(() => this.closeCurrent());
   }
 
   // closes the current workspace, waiting for its sync runs to settle
   private async closeCurrent(): Promise<void> {
     const current = this.currentWorkspace;
     if (!current) return;
-    this.currentWorkspace = null;
+    this.current = null;
     await current.close();
   }
 }

@@ -18,11 +18,13 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { runMigrations } from '@main/db/migrate';
 import { fileExists } from '../local/utils';
-import { WorkspaceMigrationError } from '../shared/errors';
+import { WorkspaceClosedError, WorkspaceMigrationError } from '../shared/errors';
 
 type SqliteDatabaseClient = Database.Database;
 
 export class Workspace {
+  private readonly closing = new AbortController();
+  private closePromise: Promise<void> | null = null;
   readonly notes: NoteService;
   readonly tasks: TaskService;
   readonly projects: ProjectService;
@@ -48,7 +50,11 @@ export class Workspace {
     this.calendars = new CalendarService(db);
     this.archive = new ArchiveService(db);
     this.search = new SearchService(db, info.path);
-    const { credentials, integrations, providers } = createIntegrationServices(db, options);
+    const { credentials, integrations, providers } = createIntegrationServices(
+      db,
+      options,
+      this.closing.signal,
+    );
     this.integrations = integrations;
     // a disconnect deletes mirrored rows; they leave search in its transaction, all or nothing
     integrations.onChange((change) => {
@@ -87,7 +93,12 @@ export class Workspace {
     const sqlite = new Database(dbPath);
     // use native backup method
     const backupPath = `${dbPath}.backup`;
-    await sqlite.backup(backupPath);
+    try {
+      await sqlite.backup(backupPath);
+    } catch (error) {
+      sqlite.close();
+      throw error;
+    }
     return Workspace.initDb(sqlite, info, options, { dbPath, backupPath });
   }
 
@@ -100,19 +111,17 @@ export class Workspace {
     // Before migrating: WAL is stored in the file, so from the second open on migrations run under
     // it anyway, and setting it first makes the first open behave the same. Background sync writes
     // while the app reads; WAL keeps readers from waiting on those writes.
-    sqliteClient.pragma('journal_mode = WAL');
-    const db = drizzle({ client: sqliteClient, casing: 'snake_case' });
-
     try {
+      sqliteClient.pragma('journal_mode = WAL');
+      const db = drizzle({ client: sqliteClient, casing: 'snake_case' });
       // leaves foreign keys on once migrations have run
       runMigrations(sqliteClient, db, process.env.DB_MIGRATIONS_PATH);
+      return new Workspace(db, sqliteClient, info, options);
     } catch (error) {
       sqliteClient.close();
       if (!(error instanceof WorkspaceMigrationError)) throw error;
       throw await Workspace.recoverFromFailedMigration(error, files);
     }
-
-    return new Workspace(db, sqliteClient, info, options);
   }
 
   /**
@@ -153,11 +162,18 @@ export class Workspace {
   }
 
   /**
-   * Stops syncing, waiting for any run in flight to settle, then closes SQLite, so no run writes to
-   * a closed database. Calling it again does nothing.
+   * Cancels integration authentication and waits for sync runs before closing SQLite.
+   * Authentication checks cancellation before touching the database again. Ordinary service
+   * calls are not tracked or drained. Every caller shares the same close promise.
    */
-  async close(): Promise<void> {
-    await this.sync.stop();
-    this.sqliteClient.close();
+  close(): Promise<void> {
+    if (!this.closePromise) {
+      this.closing.abort(new WorkspaceClosedError());
+      this.closePromise = (async () => {
+        await this.sync.stop();
+        this.sqliteClient.close();
+      })();
+    }
+    return this.closePromise;
   }
 }

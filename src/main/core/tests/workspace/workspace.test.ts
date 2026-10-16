@@ -1,3 +1,5 @@
+import { createGoogleCalendarProvider } from '../../integrations/providers/google-calendar';
+import { deferred } from '../utils';
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
@@ -7,12 +9,12 @@ import { fileURLToPath } from 'node:url';
 import type { WorkspaceId } from '@common/ids';
 import type { WorkspaceInfo } from '../../workspace/types';
 import { Workspace } from '../../workspace/workspace';
-import { WorkspaceMigrationError } from '../../shared/errors';
+import { WorkspaceClosedError, WorkspaceMigrationError } from '../../shared/errors';
 import { migrationsWithExtra } from '../utils';
 import Database from 'better-sqlite3';
 import { FakeCipher } from '../__mocks__/fake-cipher';
 import { createFakeProvider, FAKE_API_KEY, fakeRegistry } from '../sync/fake-provider';
-import { Provider } from '../../integrations/types';
+import { AuthType, Provider } from '../../integrations/types';
 import { TaskPriority, TaskStatus } from '../../tasks/types';
 import { scriptedFetch } from '../integrations/linear/fake-fetch';
 import viewerFixture from '../integrations/fixtures/linear/viewer.json';
@@ -514,3 +516,180 @@ function issue() {
     assignedToViewer: true,
   };
 }
+
+describe('Workspace — integration cancellation', () => {
+  it.each(['connect', 'reconnect'] as const)(
+    'prevents late writes from a pending %s that ignores cancellation',
+    async (operation) => {
+      const provider = createFakeProvider();
+      const cipher = new FakeCipher();
+      const info = makeInfo(tmpDir);
+      const options = { cipher, providers: fakeRegistry(provider) };
+      const workspace = await Workspace.create(info, options);
+      const existing =
+        operation === 'reconnect'
+          ? await workspace.integrations.connectWithApiKey(Provider.LINEAR, FAKE_API_KEY)
+          : null;
+      const account = await provider.getAccount({ authorization: FAKE_API_KEY });
+      const answer = deferred<typeof account>();
+      const getAccount = vi.spyOn(provider, 'getAccount').mockReturnValueOnce(answer.promise);
+      const pending = existing
+        ? workspace.integrations.reconnect(existing.id, {
+            type: AuthType.API_KEY,
+            apiKey: FAKE_API_KEY,
+          })
+        : workspace.integrations.connectWithApiKey(Provider.LINEAR, FAKE_API_KEY);
+      const rejected = expect(pending).rejects.toMatchObject({
+        name: 'WorkspaceClosedError',
+        code: 'workspace_closed',
+      });
+      expect(getAccount).toHaveBeenCalledOnce();
+      // An unrelated operation can finish while the provider call is outstanding.
+      await expect(
+        workspace.projects.createProject({ title: 'Concurrent', dueDate: new Date() }),
+      ).resolves.toMatchObject({ title: 'Concurrent' });
+      const closeSqlite = vi.spyOn(Database.prototype, 'close');
+      try {
+        const closing = workspace.close();
+        expect(workspace.close()).toBe(closing);
+        await closing;
+        expect(closeSqlite).toHaveBeenCalledOnce();
+        expect(getAccount.mock.calls[0][1]?.signal?.aborted).toBe(true);
+        // Reconnect must reject before its initial SQLite read as well.
+        const late = existing
+          ? workspace.integrations.reconnect(existing.id, {
+              type: AuthType.API_KEY,
+              apiKey: FAKE_API_KEY,
+            })
+          : workspace.integrations.connectWithApiKey(Provider.LINEAR, FAKE_API_KEY);
+        await expect(late).rejects.toBeInstanceOf(WorkspaceClosedError);
+        answer.resolve(account);
+        await Promise.all([closing, rejected]);
+        expect(closeSqlite).toHaveBeenCalledOnce();
+      } finally {
+        closeSqlite.mockRestore();
+      }
+      const reopened = await Workspace.open(info, options);
+      try {
+        expect(await reopened.integrations.list()).toHaveLength(existing ? 1 : 0);
+      } finally {
+        await reopened.close();
+      }
+    },
+  );
+
+  it.each(['connect', 'reconnect'] as const)(
+    'cancels a hanging Linear account query during %s',
+    async (operation) => {
+      const fetch = scriptedFetch(
+        operation === 'connect' ? [{ hang: true }] : [{ body: viewerFixture }, { hang: true }],
+      );
+      const workspace = await Workspace.create(makeInfo(tmpDir), {
+        cipher: new FakeCipher(),
+        fetch,
+      });
+      const existing =
+        operation === 'reconnect'
+          ? await workspace.integrations.connectWithApiKey(Provider.LINEAR, 'lin_api_test')
+          : null;
+      const pending = existing
+        ? workspace.integrations.reconnect(existing.id, {
+            type: AuthType.API_KEY,
+            apiKey: 'lin_api_test',
+          })
+        : workspace.integrations.connectWithApiKey(Provider.LINEAR, 'lin_api_test');
+      const rejected = expect(pending).rejects.toMatchObject({
+        name: 'WorkspaceClosedError',
+        code: 'workspace_closed',
+      });
+      await vi.waitFor(() => expect(fetch.requests).toHaveLength(existing ? 2 : 1));
+      await workspace.close();
+      await rejected;
+      expect(fetch.requests.at(-1)?.signal?.aborted).toBe(true);
+    },
+  );
+
+  it('cancels OAuth while waiting for the browser callback', async () => {
+    const browser = vi.fn(async () => {});
+    const workspace = await Workspace.create(makeInfo(tmpDir), {
+      cipher: new FakeCipher(),
+      openExternal: browser,
+      providers: new Map([
+        [
+          Provider.GOOGLE_CALENDAR,
+          createGoogleCalendarProvider({ fetch, client: { clientId: 'test-client' } }),
+        ],
+      ]),
+    });
+    const pending = workspace.integrations.connectWithOAuth(Provider.GOOGLE_CALENDAR);
+    const rejected = expect(pending).rejects.toMatchObject({
+      name: 'WorkspaceClosedError',
+      code: 'workspace_closed',
+    });
+    await vi.waitFor(() => expect(browser).toHaveBeenCalledOnce());
+    await workspace.close();
+    await rejected;
+  });
+});
+
+describe('Workspace — failed opening cleanup', () => {
+  it.each(['backup', 'pragma', 'services'] as const)(
+    'closes SQLite when %s fails during open',
+    async (stage) => {
+      const info = makeInfo(tmpDir);
+      const created = await Workspace.create(info);
+      await created.close();
+      const failure = new Error(`${stage} failed`);
+      const providers = fakeRegistry(createFakeProvider());
+      const fail =
+        stage === 'backup'
+          ? vi.spyOn(Database.prototype, 'backup').mockRejectedValueOnce(failure)
+          : stage === 'pragma'
+            ? vi.spyOn(Database.prototype, 'pragma').mockImplementationOnce(() => {
+                throw failure;
+              })
+            : vi.spyOn(providers, 'values').mockImplementationOnce(() => {
+                throw failure;
+              });
+      const close = vi.spyOn(Database.prototype, 'close');
+      try {
+        await expect(Workspace.open(info, { providers })).rejects.toBe(failure);
+        expect(close).toHaveBeenCalledOnce();
+      } finally {
+        fail.mockRestore();
+        close.mockRestore();
+      }
+      const reopened = await Workspace.open(info);
+      await reopened.close();
+    },
+  );
+
+  it('prevents an insert when encryption finishes after close', async () => {
+    const cipher = new FakeCipher();
+    const workspace = await Workspace.create(makeInfo(tmpDir), {
+      cipher,
+      providers: fakeRegistry(createFakeProvider()),
+    });
+    const encrypt = cipher.encrypt.bind(cipher);
+    const release = deferred<void>();
+    const encrypting = vi.spyOn(cipher, 'encrypt').mockImplementationOnce(async (plain) => {
+      await release.promise;
+      return encrypt(plain);
+    });
+    const pending = workspace.integrations.connectWithApiKey(Provider.LINEAR, FAKE_API_KEY);
+    const rejected = expect(pending).rejects.toMatchObject({
+      name: 'WorkspaceClosedError',
+      code: 'workspace_closed',
+    });
+    await vi.waitFor(() => expect(encrypting).toHaveBeenCalledOnce());
+    await workspace.close();
+    release.resolve(undefined);
+    await rejected;
+    const reopened = await Workspace.open(makeInfo(tmpDir));
+    try {
+      expect(await reopened.integrations.list()).toEqual([]);
+    } finally {
+      await reopened.close();
+    }
+  });
+});
