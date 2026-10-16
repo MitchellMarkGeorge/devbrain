@@ -15,7 +15,7 @@ import { ExternalTask, LinkState, Provider } from '../integrations/types';
 import { TaskPriority, TaskStatus } from '../tasks/types';
 import { SyncProgress } from '../sync/types';
 
-vi.mock('electron-store', () => import('./__mocks__/electron-store'));
+import { openMemorySettingsStore } from './__mocks__/memory-settings-store';
 
 import { DevBrain, openDevBrain } from '../index';
 
@@ -56,6 +56,7 @@ function issue(overrides: Partial<ExternalTask> = {}): ExternalTask {
 // a DevBrain over a fresh folder whose workspaces sync through `provider`
 async function devBrainWith(provider: FakeProvider): Promise<DevBrain> {
   return openDevBrain({
+    settingsStore: openMemorySettingsStore,
     path: path.join(tmpDir, 'brain'),
     createIfMissing: true,
     workspace: {
@@ -108,6 +109,7 @@ describe('DevBrain — connect, sync and close', () => {
       { body: page2Fixture },
     ]);
     devBrain = await openDevBrain({
+      settingsStore: openMemorySettingsStore,
       path: path.join(tmpDir, 'brain'),
       createIfMissing: true,
       workspace: { ...WORKSPACE_OPTIONS, cipher: new FakeCipher(), fetch },

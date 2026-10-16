@@ -105,19 +105,27 @@ export class Workspace {
     });
     const syncState = new SyncStateManager(db);
     const writer = new SyncWriter(db, this.search);
-    const engine = new SyncEngine(db, { integrations, syncState, credentials, providers, writer });
+    const { logger } = options;
+    const engine = new SyncEngine(db, {
+      integrations,
+      syncState,
+      credentials,
+      providers,
+      writer,
+      logger,
+    });
     // a reattach writes through SyncWriter, which indexes it, and a detach changes no indexed field;
     // edits to a detached task go through TaskService like any other
     this.detach = new DetachService(
       db,
-      new TaskReconciler({ db, syncState, credentials, providers, writer }),
+      new TaskReconciler({ db, syncState, credentials, providers, writer, logger }),
     );
     // rejected credentials stop every source of the integration until a reconnect, as in a run
     this.detach.onChange((change) => {
       if (change.type !== 'credentials_rejected') return;
       integrations.markNeedsReauth(change.integrationId);
     });
-    this.sync = new SyncScheduler({ engine, integrations, syncState });
+    this.sync = new SyncScheduler({ engine, integrations, syncState, logger });
     this.openUrl = guardOpenExternal(options.openExternal ?? noBrowser);
   }
 

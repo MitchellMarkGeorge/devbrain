@@ -2,6 +2,7 @@ import { ExternalSourceId, TaskId } from '@common/ids';
 import type { ExternalEvent, ExternalProject, ExternalTask } from '../integrations/types';
 import type { EventCursor } from './event-cursor';
 import type { TaskCursor } from './task-cursor';
+import type { Logger } from '../shared/logger';
 
 // a source's cursor, as its syncer stores it on external_sources; opaque to the engine
 export type SyncCursor = TaskCursor | EventCursor;
@@ -88,12 +89,8 @@ export type EventPageItems = Pick<
   'events' | 'cancelledIds' | 'skippedIds' | 'fullPass'
 >;
 
-// the electron-log methods sync uses; injected in tests
-export interface SyncLogger {
-  info(...params: unknown[]): void;
-  warn(...params: unknown[]): void;
-  error(...params: unknown[]): void;
-}
+// the logger sync writes its run lines to; see shared/logger
+export type SyncLogger = Logger;
 
 // the entity types a write touched, so the renderer refetches only those queries
 export type SyncEntityType = 'task' | 'project' | 'event' | 'calendar';

@@ -8,14 +8,13 @@ import os from 'node:os';
 import path from 'node:path';
 import type { WorkspaceId } from '@common/ids';
 import { WORKSPACE_OPTIONS } from '@main/core/tests/utils';
-
-vi.mock('electron-store', () => import('./__mocks__/file-store'));
-
+import { openFileSettingsStore } from './__mocks__/file-store';
 import { DevBrain, openDevBrain } from '@main/core';
 import { lastOpenedWorkspace, startDevBrain } from '../../runtime/start';
 
-// Which DevBrain folder and workspace the app opens at start. electron-store is replaced with a
-// store kept in the folder's settings.json, so a setting one DevBrain writes is read at the next start.
+// Which DevBrain folder and workspace the app opens at start. Settings are kept in the folder's
+// settings.json, as electron-store keeps them, so a setting one DevBrain writes is read at the next
+// start.
 
 let tmpDir: string;
 let rootPath: string;
@@ -28,6 +27,7 @@ function quietLogger() {
 // a DevBrain folder with these workspaces, created in order and closed
 async function folderWith(...names: string[]): Promise<{ devBrain: DevBrain; ids: WorkspaceId[] }> {
   const devBrain = await openDevBrain({
+    settingsStore: openFileSettingsStore,
     path: rootPath,
     createIfMissing: true,
     workspace: WORKSPACE_OPTIONS,
@@ -56,6 +56,7 @@ describe('startDevBrain — the folder', () => {
   it('returns null and says how to make one when there is none to load', async () => {
     const logger = quietLogger();
     started = await startDevBrain({
+      settingsStore: openFileSettingsStore,
       rootPath,
       createIfMissing: false,
       workspace: WORKSPACE_OPTIONS,
@@ -68,6 +69,7 @@ describe('startDevBrain — the folder', () => {
 
   it('creates an empty one on first run when asked to, opening nothing', async () => {
     started = await startDevBrain({
+      settingsStore: openFileSettingsStore,
       rootPath,
       createIfMissing: true,
       workspace: WORKSPACE_OPTIONS,
@@ -81,6 +83,7 @@ describe('startDevBrain — the folder', () => {
   it('creates one in an empty directory', async () => {
     await fs.mkdir(rootPath);
     started = await startDevBrain({
+      settingsStore: openFileSettingsStore,
       rootPath,
       createIfMissing: true,
       workspace: WORKSPACE_OPTIONS,
@@ -94,6 +97,7 @@ describe('startDevBrain — the folder', () => {
     await fs.writeFile(path.join(rootPath, 'notes.txt'), 'mine');
     await expect(
       startDevBrain({
+        settingsStore: openFileSettingsStore,
         rootPath,
         createIfMissing: true,
         workspace: WORKSPACE_OPTIONS,
@@ -109,6 +113,7 @@ describe('startDevBrain — the workspace', () => {
     const { devBrain, ids } = await folderWith('First', 'Last');
     devBrain.settings.set('state.lastWorkspaceId', ids[1]);
     started = await startDevBrain({
+      settingsStore: openFileSettingsStore,
       rootPath,
       createIfMissing: false,
       workspace: WORKSPACE_OPTIONS,
@@ -122,6 +127,7 @@ describe('startDevBrain — the workspace', () => {
     await folderWith('First', 'Second');
     const logger = quietLogger();
     started = await startDevBrain({
+      settingsStore: openFileSettingsStore,
       rootPath,
       createIfMissing: false,
       workspace: WORKSPACE_OPTIONS,
@@ -135,6 +141,7 @@ describe('startDevBrain — the workspace', () => {
     const { devBrain } = await folderWith('First');
     devBrain.settings.set('state.lastWorkspaceId', 'wsp_gone');
     started = await startDevBrain({
+      settingsStore: openFileSettingsStore,
       rootPath,
       createIfMissing: false,
       workspace: WORKSPACE_OPTIONS,
@@ -149,6 +156,7 @@ describe('startDevBrain — the workspace', () => {
     await fs.rm(devBrain.workspaces.getById(ids[0]).path, { recursive: true });
     const logger = quietLogger();
     started = await startDevBrain({
+      settingsStore: openFileSettingsStore,
       rootPath,
       createIfMissing: false,
       workspace: WORKSPACE_OPTIONS,
@@ -189,6 +197,7 @@ describe('startup shutdown', () => {
     });
     try {
       const starting = startDevBrain({
+        settingsStore: openFileSettingsStore,
         rootPath,
         createIfMissing: false,
         workspace: WORKSPACE_OPTIONS,

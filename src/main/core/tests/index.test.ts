@@ -9,7 +9,7 @@ import { FakeCipher } from './__mocks__/fake-cipher';
 import { scriptedFetch } from './integrations/linear/fake-fetch';
 import viewerFixture from './integrations/fixtures/linear/viewer.json';
 
-vi.mock('electron-store', () => import('./__mocks__/electron-store'));
+import { openMemorySettingsStore } from './__mocks__/memory-settings-store';
 
 import { openDevBrain, DevBrain } from '../index';
 
@@ -61,37 +61,61 @@ afterEach(async () => {
 describe('openDevBrain — an existing folder', () => {
   it('returns a DevBrain instance for a valid folder', async () => {
     await writeValidStructure(tmpDir);
-    const brain = await openDevBrain({ path: tmpDir, workspace: WORKSPACE_OPTIONS });
+    const brain = await openDevBrain({
+      settingsStore: openMemorySettingsStore,
+      path: tmpDir,
+      workspace: WORKSPACE_OPTIONS,
+    });
     expect(brain).toBeInstanceOf(DevBrain);
   });
 
   it('returned instance exposes a settings service', async () => {
     await writeValidStructure(tmpDir);
-    const brain = await openDevBrain({ path: tmpDir, workspace: WORKSPACE_OPTIONS });
+    const brain = await openDevBrain({
+      settingsStore: openMemorySettingsStore,
+      path: tmpDir,
+      workspace: WORKSPACE_OPTIONS,
+    });
     expect(brain.settings).toBeDefined();
   });
 
   it('returned instance exposes a workspaces service', async () => {
     await writeValidStructure(tmpDir);
-    const brain = await openDevBrain({ path: tmpDir, workspace: WORKSPACE_OPTIONS });
+    const brain = await openDevBrain({
+      settingsStore: openMemorySettingsStore,
+      path: tmpDir,
+      workspace: WORKSPACE_OPTIONS,
+    });
     expect(brain.workspaces).toBeDefined();
   });
 
   it('currentWorkspace is null before any workspace is opened', async () => {
     await writeValidStructure(tmpDir);
-    const brain = await openDevBrain({ path: tmpDir, workspace: WORKSPACE_OPTIONS });
+    const brain = await openDevBrain({
+      settingsStore: openMemorySettingsStore,
+      path: tmpDir,
+      workspace: WORKSPACE_OPTIONS,
+    });
     expect(brain.currentWorkspace).toBeNull();
   });
 
   it('settings.get() returns the correct value from the written file', async () => {
     await writeValidStructure(tmpDir);
-    const brain = await openDevBrain({ path: tmpDir, workspace: WORKSPACE_OPTIONS });
+    const brain = await openDevBrain({
+      settingsStore: openMemorySettingsStore,
+      path: tmpDir,
+      workspace: WORKSPACE_OPTIONS,
+    });
     expect(brain.settings.get('settings.theme')).toBe('dark');
   });
 
   it('workspaces.listAll().items returns an empty array for an empty registry', async () => {
     await writeValidStructure(tmpDir);
-    const brain = await openDevBrain({ path: tmpDir, workspace: WORKSPACE_OPTIONS });
+    const brain = await openDevBrain({
+      settingsStore: openMemorySettingsStore,
+      path: tmpDir,
+      workspace: WORKSPACE_OPTIONS,
+    });
     expect(brain.workspaces.listAll().items).toEqual([]);
   });
 
@@ -100,7 +124,12 @@ describe('openDevBrain — an existing folder', () => {
     await fs.writeFile(path.join(tmpDir, 'sentinel.txt'), 'kept');
     const settings = await fs.readFile(path.join(tmpDir, 'settings.json'), 'utf8');
     await expect(
-      openDevBrain({ path: tmpDir, workspace: WORKSPACE_OPTIONS, createIfMissing: true }),
+      openDevBrain({
+        settingsStore: openMemorySettingsStore,
+        path: tmpDir,
+        workspace: WORKSPACE_OPTIONS,
+        createIfMissing: true,
+      }),
     ).resolves.toBeInstanceOf(DevBrain);
     expect(await fs.readFile(path.join(tmpDir, 'settings.json'), 'utf8')).toBe(settings);
     expect(await fs.readFile(path.join(tmpDir, 'sentinel.txt'), 'utf8')).toBe('kept');
@@ -111,7 +140,11 @@ describe('openDevBrain — no folder yet', () => {
   it('refuses a path that does not exist, creating nothing', async () => {
     const missing = path.join(tmpDir, 'missing');
     await expect(
-      openDevBrain({ path: missing, workspace: WORKSPACE_OPTIONS }),
+      openDevBrain({
+        settingsStore: openMemorySettingsStore,
+        path: missing,
+        workspace: WORKSPACE_OPTIONS,
+      }),
     ).rejects.toMatchObject({
       code: 'devbrain_folder',
       reason: 'missing',
@@ -121,7 +154,11 @@ describe('openDevBrain — no folder yet', () => {
 
   it('refuses an empty directory, leaving it empty', async () => {
     await expect(
-      openDevBrain({ path: tmpDir, workspace: WORKSPACE_OPTIONS }),
+      openDevBrain({
+        settingsStore: openMemorySettingsStore,
+        path: tmpDir,
+        workspace: WORKSPACE_OPTIONS,
+      }),
     ).rejects.toMatchObject({ reason: 'missing' });
     expect(await fs.readdir(tmpDir)).toEqual([]);
   });
@@ -129,6 +166,7 @@ describe('openDevBrain — no folder yet', () => {
   it('with createIfMissing, creates the folder with its settings and empty registry', async () => {
     const initPath = path.join(tmpDir, 'new', 'brain');
     const brain = await openDevBrain({
+      settingsStore: openMemorySettingsStore,
       path: initPath,
       workspace: WORKSPACE_OPTIONS,
       createIfMissing: true,
@@ -142,7 +180,12 @@ describe('openDevBrain — no folder yet', () => {
 
   it('with createIfMissing, creates it in an empty directory, junk files aside', async () => {
     await fs.writeFile(path.join(tmpDir, '.DS_Store'), '');
-    await openDevBrain({ path: tmpDir, workspace: WORKSPACE_OPTIONS, createIfMissing: true });
+    await openDevBrain({
+      settingsStore: openMemorySettingsStore,
+      path: tmpDir,
+      workspace: WORKSPACE_OPTIONS,
+      createIfMissing: true,
+    });
     expect((await fs.readdir(tmpDir)).sort()).toEqual(
       ['.DS_Store', 'settings.json', 'workspaces.json'].sort(),
     );
@@ -150,9 +193,18 @@ describe('openDevBrain — no folder yet', () => {
 
   it('a created folder opens again without createIfMissing', async () => {
     const initPath = path.join(tmpDir, 'new');
-    await openDevBrain({ path: initPath, workspace: WORKSPACE_OPTIONS, createIfMissing: true });
+    await openDevBrain({
+      settingsStore: openMemorySettingsStore,
+      path: initPath,
+      workspace: WORKSPACE_OPTIONS,
+      createIfMissing: true,
+    });
     await expect(
-      openDevBrain({ path: initPath, workspace: WORKSPACE_OPTIONS }),
+      openDevBrain({
+        settingsStore: openMemorySettingsStore,
+        path: initPath,
+        workspace: WORKSPACE_OPTIONS,
+      }),
     ).resolves.toBeInstanceOf(DevBrain);
   });
 });
@@ -161,7 +213,12 @@ describe('openDevBrain — invalid folders', () => {
   // with or without createIfMissing: what is there is refused and left as it is
   describe.each([false, true])('createIfMissing: %s', (createIfMissing) => {
     const open = (folder: string) =>
-      openDevBrain({ path: folder, workspace: WORKSPACE_OPTIONS, createIfMissing });
+      openDevBrain({
+        settingsStore: openMemorySettingsStore,
+        path: folder,
+        workspace: WORKSPACE_OPTIONS,
+        createIfMissing,
+      });
     const invalid = { code: 'devbrain_folder', reason: 'invalid' };
 
     it('refuses a directory holding something else, changing nothing', async () => {
@@ -244,6 +301,7 @@ describe('DevBrain — workspace options', () => {
     const fetch = scriptedFetch([{ body: viewerFixture }]);
 
     const brain = await openDevBrain({
+      settingsStore: openMemorySettingsStore,
       path: initPath,
       createIfMissing: true,
       workspace: { ...WORKSPACE_OPTIONS, cipher, fetch },
@@ -253,6 +311,7 @@ describe('DevBrain — workspace options', () => {
     await created.close();
 
     const reloaded = await openDevBrain({
+      settingsStore: openMemorySettingsStore,
       path: initPath,
       workspace: { ...WORKSPACE_OPTIONS, cipher },
     });

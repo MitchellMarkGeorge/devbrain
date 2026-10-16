@@ -1,7 +1,6 @@
 import { ExternalSourceId } from '@common/ids';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import log from 'electron-log';
-import { errorClass } from '../shared/logger';
+import { consoleLogger, errorClass } from '../shared/logger';
 import { CredentialStore } from '../integrations/credential-store';
 import { IntegrationService } from '../integrations/service';
 import { SyncStateManager, SyncTarget, syncSkipReason } from './sync-state';
@@ -98,7 +97,7 @@ export class SyncEngine implements BaseSyncEngine {
     this.credentials = options.credentials;
     this.providers = options.providers;
     this.writer = options.writer;
-    this.logger = options.logger ?? log.scope('sync');
+    this.logger = options.logger ?? consoleLogger;
     this.progress = new ChangeListeners<SyncProgress>('Sync progress', {
       // the error class only, like the run's own line: a message could quote item data
       report: (error, progress) =>

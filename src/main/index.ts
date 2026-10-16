@@ -7,6 +7,7 @@ import os from 'node:os';
 import type { DevBrain } from '@main/core';
 import { createSafeStorageCipher } from './runtime/safe-storage-cipher';
 import { migrationsPath } from './runtime/migrations';
+import { openElectronSettingsStore } from './runtime/settings-store';
 import { startDevBrain } from './runtime/start';
 import { closeBeforeQuit, closeCore, forwardSyncTriggers } from './runtime/lifecycle';
 
@@ -57,6 +58,7 @@ async function startCore(): Promise<DevBrain | null> {
     return await startDevBrain({
       rootPath: devBrainRootPath(),
       createIfMissing: app.isPackaged,
+      settingsStore: openElectronSettingsStore,
       workspace: {
         migrationsPath: migrationsPath({
           isPackaged: app.isPackaged,
@@ -70,6 +72,7 @@ async function startCore(): Promise<DevBrain | null> {
         // certificate store, which Node's fetch does not
         fetch: (url, init) => net.fetch(url, init),
         openExternal: (url) => shell.openExternal(url),
+        logger: log.scope('sync'),
       },
       logger: devBrainLog,
     });

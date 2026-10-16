@@ -3,6 +3,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import type { OpenSettingsStore } from '@main/core';
 
 type StoreOptions = { defaults?: Record<string, unknown>; name?: string; cwd?: string };
 
@@ -41,3 +42,7 @@ export default class FileStore {
     fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2));
   }
 }
+
+// opens settings.json in the DevBrain folder, as the app's electron-store does
+export const openFileSettingsStore: OpenSettingsStore = (rootPath, defaults) =>
+  new FileStore({ name: 'settings', cwd: rootPath, defaults });

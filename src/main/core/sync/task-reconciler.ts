@@ -1,9 +1,9 @@
 import { ExternalSourceId } from '@common/ids';
+import { consoleLogger } from '../shared/logger';
 import { externalLinks } from '@main/db/schema/integrations';
 import { tasks as tasksTable } from '@main/db/schema/tasks';
 import { and, eq, inArray, isNotNull, isNull, notInArray } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import log from 'electron-log';
 import { Auth } from '../integrations/auth';
 import { CredentialStore } from '../integrations/credential-store';
 import { TaskSource } from '../integrations/providers/provider';
@@ -54,7 +54,7 @@ export class TaskReconciler {
     this.credentials = options.credentials;
     this.providers = options.providers;
     this.writer = options.writer;
-    this.logger = options.logger ?? log.scope('sync');
+    this.logger = options.logger ?? consoleLogger;
     this.now = options.now ?? (() => new Date());
   }
 

@@ -42,6 +42,7 @@ import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { config as loadEnvFile } from '@dotenvx/dotenvx';
 import { openDevBrain } from '@main/core';
+import { openElectronSettingsStore } from '@main/runtime/settings-store';
 import { devCipher } from '@main/runtime/dev-cipher';
 import { Provider } from '@main/core/integrations/types';
 import type { Workspace } from '@main/core/workspace/workspace';
@@ -994,6 +995,7 @@ async function main() {
   // --reset wipes the folder here: opening a DevBrain folder never deletes anything
   if (alreadyExists) await fs.rm(ROOT_PATH, { recursive: true, force: true });
   const devBrain = await openDevBrain({
+    settingsStore: openElectronSettingsStore,
     path: ROOT_PATH,
     createIfMissing: true,
     workspace: { migrationsPath: MIGRATIONS_PATH, cipher: devCipher, fetch },

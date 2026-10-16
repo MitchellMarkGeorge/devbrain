@@ -1,17 +1,12 @@
-// Manual mock for electron-store — used by SettingsService tests.
-// Stores data in a plain object so tests don't need Electron or disk I/O.
+// A settings store that keeps its data in a plain object, so tests need no Electron or disk I/O.
 
-type StoreOptions<T extends Record<string, unknown>> = {
-  defaults?: T;
-  name?: string;
-  cwd?: string;
-};
+import type { OpenSettingsStore, SettingsStore } from '../../settings/store';
 
-class MockStore<T extends Record<string, unknown>> {
+class MemoryStore implements SettingsStore {
   private data: Record<string, unknown>;
 
-  constructor(opts: StoreOptions<T> = {}) {
-    this.data = structuredClone(opts.defaults ?? {});
+  constructor(defaults: object) {
+    this.data = structuredClone(defaults) as Record<string, unknown>;
   }
 
   get(key: string): unknown {
@@ -39,4 +34,5 @@ class MockStore<T extends Record<string, unknown>> {
   }
 }
 
-export default MockStore;
+export const openMemorySettingsStore: OpenSettingsStore = (_rootPath, defaults) =>
+  new MemoryStore(defaults);

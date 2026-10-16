@@ -3,6 +3,7 @@ import type { SecretCipher } from '../integrations/credentials';
 import type { OpenExternal } from '../integrations/oauth/types';
 import type { FetchFn } from '../integrations/providers/provider';
 import type { ProviderRegistry } from '../integrations/providers/registry';
+import type { Logger } from '../shared/logger';
 
 export interface WorkspaceInfo {
   id: WorkspaceId;
@@ -34,4 +35,6 @@ export interface WorkspaceOptions {
   // https URLs through to it (docs/security/untrusted-content.md). Defaults to one that refuses,
   // so an OAuth connect fails.
   openExternal?: OpenExternal;
+  // where sync logs its runs; defaults to the console
+  logger?: Logger;
 }
