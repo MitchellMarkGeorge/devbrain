@@ -27,7 +27,7 @@ export type NoteChange =
 
 export class NoteService {
   private workspaceNotesPath: string;
-  private readonly changes = new ChangeListeners<NoteChange>('note');
+  private readonly changes = new ChangeListeners<NoteChange>('Note');
 
   constructor(
     private readonly db: BetterSQLite3Database,

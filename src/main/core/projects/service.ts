@@ -28,7 +28,7 @@ export type ProjectChange =
   | { type: 'updated'; project: Project };
 
 export class ProjectService {
-  private readonly changes = new ChangeListeners<ProjectChange>('project');
+  private readonly changes = new ChangeListeners<ProjectChange>('Project');
 
   constructor(private readonly db: BetterSQLite3Database) {}
 

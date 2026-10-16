@@ -35,7 +35,7 @@ import { ChangeListener, ChangeListeners } from '../shared/changes';
 export type TaskChange = { type: 'created'; task: Task } | { type: 'updated'; task: Task };
 
 export class TaskService {
-  private readonly changes = new ChangeListeners<TaskChange>('task');
+  private readonly changes = new ChangeListeners<TaskChange>('Task');
 
   constructor(private readonly db: BetterSQLite3Database) {}
 
