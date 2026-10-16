@@ -122,6 +122,9 @@ export const externalLinks = sqliteTable(
     removedAt: date(),
     // a closed issue past the settle age: still mirrored, no longer checked by reconcile
     settledAt: date(),
+    // the last full pass of its calendar that listed it (an event's link only); the pass's id is in
+    // the events cursor, and its last page removes what it did not see
+    seenInPass: text(),
   },
   (table) => [
     // a null sourceId (after a disconnect) never collides, so detached copies can pile up freely
@@ -149,6 +152,9 @@ export const externalEventExceptions = sqliteTable(
     calendarId: text().notNull(), // so deselecting a calendar can drop its rows
     masterExternalId: text().notNull(),
     originalStartAt: date().notNull(),
+    // the last full pass of its calendar that listed it, as on external_links; carried over when
+    // the master arrives
+    seenInPass: text(),
   },
   (table) => [
     primaryKey({ columns: [table.sourceId, table.masterExternalId, table.originalStartAt] }),
