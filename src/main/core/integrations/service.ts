@@ -147,6 +147,14 @@ export interface BaseIntegrationService {
   onChange(listener: IntegrationChangeListener): () => void;
 }
 
+// credentials validated with the provider's account query, not yet stored
+interface Authenticated {
+  credentials: Credentials;
+  account: ExternalAccount;
+  // the scopes the provider granted, space-separated; null for an API key
+  scopes: string | null;
+}
+
 // Connect, enable, disable, reconnect and disconnect. Owns the integrations and external_sources
 // tables (a disconnect also deletes or detaches the mirrored rows); credentials go
 // through CredentialStore and never appear on what this returns.
@@ -208,11 +216,8 @@ export class IntegrationService implements BaseIntegrationService {
     const enable = sourcesToEnable(provider, options);
 
     // the network call comes first, so a rejected key leaves nothing behind
-    const { credentials, account } = await this.authenticate(provider, {
-      type: AuthType.API_KEY,
-      apiKey,
-    });
-    return this.store(provider, credentials, account, enable);
+    const authenticated = await this.authenticate(provider, { type: AuthType.API_KEY, apiKey });
+    return this.store(provider, authenticated, enable);
   }
 
   /**
@@ -234,11 +239,11 @@ export class IntegrationService implements BaseIntegrationService {
     }
     if (!this.oauth) throw new OAuthUnavailableError('No OAuth client is configured');
     const enable = sourcesToEnable(provider, options);
-    const { credentials, account } = await this.authenticate(provider, {
+    const authenticated = await this.authenticate(provider, {
       type: AuthType.OAUTH,
       signal: options.signal,
     });
-    return this.store(provider, credentials, account, enable);
+    return this.store(provider, authenticated, enable);
   }
 
   /**
@@ -258,7 +263,7 @@ export class IntegrationService implements BaseIntegrationService {
     if (!row) throw new NotFoundError(id);
     const provider = getProvider(this.providers, row.provider);
 
-    const { credentials, account } = await this.authenticate(provider, using);
+    const { credentials, account, scopes } = await this.authenticate(provider, using);
     if (account.accountId !== row.accountId) {
       throw new IntegrationAccountMismatchError(id, row.accountLabel, account.label);
     }
@@ -272,7 +277,7 @@ export class IntegrationService implements BaseIntegrationService {
     this.db.transaction((tx) => {
       // a reconnect may switch auth method, e.g. from an API key to OAuth
       tx.update(integrations)
-        .set({ authType: credentials.type, accountLabel: account.label, status })
+        .set({ authType: credentials.type, accountLabel: account.label, scopes, status })
         .where(eq(integrations.id, id))
         .run();
       this.credentials.save(id, sealed);
@@ -292,10 +297,7 @@ export class IntegrationService implements BaseIntegrationService {
   // Gets credentials from the user, by API key or the provider's OAuth flow, and validates them
   // with the provider's account query. Writes nothing. Only one OAuth flow runs at a time in a
   // workspace: a second one throws ConnectInProgressError.
-  private async authenticate(
-    provider: ProviderImpl,
-    using: ReconnectWith,
-  ): Promise<{ credentials: Credentials; account: ExternalAccount }> {
+  private async authenticate(provider: ProviderImpl, using: ReconnectWith): Promise<Authenticated> {
     this.signal?.throwIfAborted();
     if (using.type === AuthType.API_KEY) {
       if (!provider.authMethods.includes(AuthType.API_KEY)) {
@@ -309,7 +311,7 @@ export class IntegrationService implements BaseIntegrationService {
       const credentials: ApiKeyCredentials = { type: AuthType.API_KEY, apiKey: key };
       const account = await provider.getAccount(toAuth(credentials), { signal: this.signal });
       this.signal?.throwIfAborted();
-      return { credentials, account };
+      return { credentials, account, scopes: null };
     }
 
     const config = provider.oauth;
@@ -338,7 +340,8 @@ export class IntegrationService implements BaseIntegrationService {
       };
       const account = await provider.getAccount(toAuth(credentials), { signal });
       signal.throwIfAborted();
-      return { credentials, account };
+      // space-separated, as RFC 6749 writes them
+      return { credentials, account, scopes: tokens.scopes.join(' ') };
     } finally {
       this.connecting = false;
     }
@@ -350,8 +353,7 @@ export class IntegrationService implements BaseIntegrationService {
   // syncs; see EventSyncer).
   private async store(
     provider: ProviderImpl,
-    credentials: Credentials,
-    account: ExternalAccount,
+    { credentials, account, scopes }: Authenticated,
     enable: SourceType[],
   ): Promise<Integration> {
     this.signal?.throwIfAborted();
@@ -371,6 +373,7 @@ export class IntegrationService implements BaseIntegrationService {
             authType: credentials.type,
             accountId: account.accountId,
             accountLabel: account.label,
+            scopes,
             status: IntegrationStatus.CONNECTED,
             // the column is not null; save fills it in the same transaction
             credentials: Buffer.alloc(0),

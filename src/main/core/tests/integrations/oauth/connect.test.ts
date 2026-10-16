@@ -168,6 +168,37 @@ describe('IntegrationService — connectWithOAuth', () => {
     ]);
   });
 
+  function storedScopes(db: BetterSQLite3Database, id: IntegrationId) {
+    return db.select().from(integrations).where(eq(integrations.id, id)).get()!.scopes;
+  }
+
+  it('stores the granted scopes', async () => {
+    const { db, service } = setup();
+    const integration = await service.connectWithOAuth(ProviderId.GOOGLE_CALENDAR);
+    expect(storedScopes(db, integration.id)).toBe('events.read');
+  });
+
+  it('updates the scopes on reconnect, and clears them for an API key', async () => {
+    const { provider } = oauthProvider({
+      authMethods: [AuthType.OAUTH, AuthType.API_KEY],
+      getAccount: async (auth) => {
+        if (auth.authorization === 'key' || /^Bearer access-\d+$/.test(auth.authorization)) {
+          return ACCOUNT;
+        }
+        throw new IntegrationAuthError('rejected');
+      },
+    });
+    const { db, service } = setup({ provider });
+    const { id } = await service.connectWithApiKey(ProviderId.GOOGLE_CALENDAR, 'key');
+    expect(storedScopes(db, id)).toBeNull();
+
+    await service.reconnect(id, { type: AuthType.OAUTH });
+    expect(storedScopes(db, id)).toBe('events.read');
+
+    await service.reconnect(id, { type: AuthType.API_KEY, apiKey: 'key' });
+    expect(storedScopes(db, id)).toBeNull();
+  });
+
   it('switches on only the chosen source types', async () => {
     const { service } = setup();
     const integration = await service.connectWithOAuth(ProviderId.GOOGLE_CALENDAR, { enable: [] });
