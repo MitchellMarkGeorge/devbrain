@@ -5,6 +5,7 @@ import path from 'node:path';
 import { generateId } from '@common/ids';
 import {
   writeNoteFile,
+  updateNoteFile,
   readNoteFile,
   deleteNoteFile,
   serializeNoteFile,
@@ -82,5 +83,20 @@ describe('deleteNoteFile', () => {
   it('does not throw when the file does not exist', async () => {
     const filePath = path.join(dir, 'never-existed.md');
     await expect(deleteNoteFile(filePath)).resolves.toBeUndefined();
+  });
+});
+
+describe('updateNoteFile', () => {
+  it('lets concurrent writes to one file all succeed, leaving one of them whole and no temp files', async () => {
+    const id = generateId('note');
+    const filePath = path.join(dir, `${id}.md`);
+    await writeNoteFile(filePath, { id, title: 'Note' }, '');
+
+    const contents = Array.from({ length: 20 }, (_, i) => `content ${i}`);
+    await Promise.all(contents.map((c) => updateNoteFile(filePath, { id, title: 'Note' }, c)));
+
+    const result = await readNoteFile(filePath);
+    expect(contents).toContain(result.content);
+    expect(await fs.readdir(dir)).toEqual([`${id}.md`]);
   });
 });
