@@ -274,12 +274,13 @@ Unique on (`integrationId`, `sourceType`).
 | `externalId`                           | text      | Provider's stable id                                                               |
 | `externalKey`                          | text      | Human identifier, such as `ENG-123`                                                |
 | `externalUrl`                          | text      | Opens the item in the provider                                                     |
+| `parentExternalId`                     | text      | A sub-issue's parent, an occurrence's series master; null otherwise                |
 | `externalUpdatedAt`                    | timestamp | Used to skip unchanged items                                                       |
 | `state`                                | text      | `synced`, `detached`, `removed`                                                    |
 | `metadata`                             | json text | Raw status and priority labels, team, parent title, calendar id, attendee response |
 | `lastSyncedAt`, `removedAt`, settledAt | timestamp |                                                                                    |
 
-Unique on (`sourceId`, `externalId`). A `CHECK` enforces exactly one entity column, following the existing `one_link` pattern.
+Unique on (`sourceId`, `externalId`). A `CHECK` enforces exactly one entity column, following the existing `one_link` pattern. `parentExternalId` repeats the id in `metadata` so it can be indexed, on (`sourceId`, `parentExternalId`) where it is set: a parent or series master that arrives after its children finds them through it (see "Database concurrency").
 
 **Changes to existing tables**
 
@@ -629,7 +630,21 @@ Archiving instead of deleting means an issue that is briefly unassigned and reas
 
 **Telling the UI.** After each committed page the main process emits one event to the renderer: source, phase, counts and which entity types changed. The renderer refetches the affected queries. A second event carries source status for the settings page and a status indicator.
 
-**Database concurrency.** `better-sqlite3` is synchronous, so each page's transaction briefly blocks the main process. At 50 items a page this is a few milliseconds. Turn on WAL (currently commented out in `Workspace.initDb`) before shipping background writes.
+**Database concurrency.** `better-sqlite3` is synchronous, so each page's transaction blocks the main process for as long as it runs. These are the budgets for one source of 5,000 items, with the time measured by `src/main/core/tests/sync/performance.test.ts` (`DEVBRAIN_PERF=1 npx vitest run src/main/core/tests/sync/performance.test.ts`; in-memory database, Node 22, SQLite 3.53). A write that goes over its budget, or one whose time grows with the number of mirrored items, is a bug.
+
+| Synchronous write                                         | Measured            | Budget |
+| --------------------------------------------------------- | ------------------- | ------ |
+| Tasks page, 50 new issues (initial import)                | 10–15 ms, flat      | 30 ms  |
+| Tasks page, 50 changed issues                             | about 25 ms         | 50 ms  |
+| Events page, 250 new events (initial import)              | about 33 ms, flat   | 75 ms  |
+| Reconcile with nothing to resolve: plan reads, then apply | about 30 ms + 6 ms  | 75 ms  |
+| Reconcile resolving 200 issues: plan reads, then apply    | about 30 ms + 60 ms | 150 ms |
+| Cancelling 49 series with their occurrences               | about 30 ms         | 75 ms  |
+| Disconnect preview                                        | about 20 ms         | 50 ms  |
+| Disconnect keeping local copies                           | about 45 ms         | 100 ms |
+| Disconnect removing synced items (5,000 deletes)          | 200–250 ms          | 500 ms |
+
+Two things keep a page's cost flat as the table grows. A page writes its new rows with one multi-row `INSERT` per table rather than one per row, and indexes them in search without first deleting entries they cannot have (`search_index.entity_id` is not indexed, so that `DELETE` reads the whole index). A parent issue or series master that arrives after its children finds them through `external_links.parent_external_id` and `idx_external_links_source_id_parent_external_id`, in one statement per page; reading `json_extract(metadata, …)` instead read every link of the source once per new task. Changed rows are still updated one at a time, which is most of a changed page's cost. On disk, each commit also waits on the file system; turn on WAL (currently commented out in `Workspace.initDb`) before shipping background writes.
 
 ## Managing integrations
 
