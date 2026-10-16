@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import Database from 'better-sqlite3';
 import { createDb } from '../utils';
-import { ArchiveService } from '../../archive/service';
+import { ArchiveChange, ArchiveService } from '../../archive/service';
 import { NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
 import { TaskService } from '../../tasks/service';
@@ -32,6 +33,143 @@ beforeEach(async () => {
 
 afterEach(async () => {
   await fs.rm(workspacePath, { recursive: true, force: true });
+});
+
+// whether the database connection is inside a transaction now; createDb's type leaves out $client
+function inTransaction(): boolean {
+  return (db as typeof db & { $client: Database.Database }).$client.inTransaction;
+}
+
+describe('ArchiveService — onChange', () => {
+  // every change sent, with whether it was sent inside the archive's transaction
+  function record() {
+    const changes: (ArchiveChange & { inTransaction: boolean })[] = [];
+    archive.onChange((change) => changes.push({ ...change, inTransaction: inTransaction() }));
+    return changes;
+  }
+
+  // a task with a subtask, a note on each, and a note on an unrelated task
+  async function taskTree() {
+    const task = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const subtask = await tasks.createSubtask(task.id, { title: 'Child', dueDate: TOMORROW });
+    const taskNote = await notesService.createNote({ title: 'On parent', linkedTaskId: task.id });
+    const subtaskNote = await notesService.createNote({
+      title: 'On child',
+      linkedTaskId: subtask.id,
+    });
+    const other = await tasks.createTask({ title: 'Other', dueDate: TOMORROW });
+    await notesService.createNote({ title: 'On other', linkedTaskId: other.id });
+    return { task, subtask, taskNote, subtaskNote };
+  }
+
+  it('archiving and restoring a task sends its whole subtree and their notes', async () => {
+    const { task, subtask, taskNote, subtaskNote } = await taskTree();
+    const changes = record();
+
+    archive.archiveTask(task.id);
+    archive.restoreTask(task.id);
+
+    const touched = {
+      taskIds: expect.arrayContaining([task.id, subtask.id]),
+      projectIds: [],
+      noteIds: expect.arrayContaining([taskNote.id, subtaskNote.id]),
+      inTransaction: true,
+    };
+    expect(changes).toEqual([
+      { type: 'archived', ...touched },
+      { type: 'restored', ...touched },
+    ]);
+    expect(changes.map((c) => [c.taskIds.length, c.noteIds.length])).toEqual([
+      [2, 2],
+      [2, 2],
+    ]);
+  });
+
+  it('archiving and restoring a project sends its tasks and notes', async () => {
+    const project = await projects.createProject({ title: 'Apollo', dueDate: TOMORROW });
+    const task = await tasks.createTask({
+      title: 'In project',
+      dueDate: TOMORROW,
+      projectId: project.id,
+    });
+    const subtask = await tasks.createSubtask(task.id, { title: 'Child', dueDate: TOMORROW });
+    const projectNote = await notesService.createNote({ title: 'Plan', projectId: project.id });
+    const taskNote = await notesService.createNote({ title: 'Log', linkedTaskId: subtask.id });
+    await tasks.createTask({ title: 'Elsewhere', dueDate: TOMORROW });
+    const changes = record();
+
+    archive.archiveProject(project.id);
+    archive.restoreProject(project.id);
+
+    const touched = {
+      taskIds: expect.arrayContaining([task.id, subtask.id]),
+      projectIds: [project.id],
+      noteIds: expect.arrayContaining([projectNote.id, taskNote.id]),
+      inTransaction: true,
+    };
+    expect(changes).toEqual([
+      { type: 'archived', ...touched },
+      { type: 'restored', ...touched },
+    ]);
+    expect(changes.map((c) => [c.taskIds.length, c.noteIds.length])).toEqual([
+      [2, 2],
+      [2, 2],
+    ]);
+  });
+
+  it('archiving and restoring a note sends only the note', async () => {
+    const note = await notesService.createNote({ title: 'Minutes' });
+    const changes = record();
+
+    archive.archiveNote(note.id);
+    archive.restoreNote(note.id);
+
+    const touched = { taskIds: [], projectIds: [], noteIds: [note.id], inTransaction: true };
+    expect(changes).toEqual([
+      { type: 'archived', ...touched },
+      { type: 'restored', ...touched },
+    ]);
+  });
+
+  it('sends nothing when the archive or restore is refused', async () => {
+    const task = await tasks.createTask({ title: 'Active', dueDate: TOMORROW });
+    const changes = record();
+
+    expect(() => archive.restoreTask(task.id)).toThrow();
+    archive.archiveTask(task.id);
+    expect(() => archive.archiveTask(task.id)).toThrow();
+
+    expect(changes.map((c) => c.type)).toEqual(['archived']);
+  });
+
+  it('a listener that throws fails neither the archive nor the other listeners', async () => {
+    const task = await tasks.createTask({ title: 'Active', dueDate: TOMORROW });
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    archive.onChange(() => {
+      throw new Error('listener failed');
+    });
+    const changes = record();
+
+    try {
+      expect(archive.archiveTask(task.id).archivedAt).not.toBeNull();
+    } finally {
+      error.mockRestore();
+    }
+    expect(changes).toHaveLength(1);
+    expect(archive.listArchived().items.map((e) => e.id)).toEqual([task.id]);
+  });
+
+  it('stops sending to a listener once it unsubscribes', async () => {
+    const note = await notesService.createNote({ title: 'Minutes' });
+    const listener = vi.fn();
+    const unsubscribe = archive.onChange(listener);
+
+    archive.archiveNote(note.id);
+    unsubscribe();
+    archive.restoreNote(note.id);
+
+    expect(listener).toHaveBeenCalledOnce();
+  });
 });
 
 describe('ArchiveService — listArchived', () => {

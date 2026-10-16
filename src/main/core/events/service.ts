@@ -9,6 +9,7 @@ import { assertEditable, assertRowEditable, hasLinkInState, withRefs } from '../
 import { LinkState } from '../integrations/types';
 import { DEFAULT_CALENDAR_ID } from '../calendars/types';
 import { allDayDates, fromDateString, isDateString, localTimeZone } from './dates';
+import { ChangeListener, ChangeListeners } from '../shared/changes';
 
 type EventRow = typeof events.$inferSelect;
 
@@ -17,8 +18,23 @@ export interface CalendarRangeOptions {
   calendarIds?: CalendarId[];
 }
 
+// What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
+// layer will forward them to the renderer. Sent after the write commits, with the row as written.
+// `deleted` carries every row the delete removed: the event, and a series' occurrence rows.
+export type EventChange =
+  | { type: 'created'; event: Event }
+  | { type: 'updated'; event: Event }
+  | { type: 'deleted'; eventIds: EventId[] };
+
 export class EventService {
+  private readonly changes = new ChangeListeners<EventChange>('Event');
+
   constructor(private readonly db: BetterSQLite3Database) {}
+
+  // returns a function that unsubscribes the listener
+  onChange(listener: ChangeListener<EventChange>): () => void {
+    return this.changes.add(listener);
+  }
 
   async getById(id: EventId): Promise<Event> {
     const [event] = await this.db.select().from(events).where(eq(events.id, id));
@@ -56,7 +72,9 @@ export class EventService {
     };
 
     const [insertedEvent] = await this.db.insert(events).values(newEvent).returning();
-    return { ...insertedEvent, exdates: [], external: null };
+    const event: Event = { ...insertedEvent, exdates: [], external: null };
+    this.changes.emit({ type: 'created', event });
+    return event;
   }
 
   /**
@@ -93,6 +111,7 @@ export class EventService {
       .returning();
     if (!updatedEvent) throw new NotFoundError(id);
     const [withDetails] = await this.withDetails([updatedEvent]);
+    this.changes.emit({ type: 'updated', event: withDetails });
     return withDetails;
   }
 
@@ -100,12 +119,18 @@ export class EventService {
     // events have no archivedAt column (unlike notes/tasks/projects) — this
     // is a hard delete
     assertEditable(this.db, id);
-    this.db.transaction((tx) => {
+    const eventIds = this.db.transaction((tx) => {
       // a series takes its own occurrence rows with it; its cancelled ones cascade
-      tx.delete(events).where(eq(events.seriesId, id)).run();
+      const occurrences = tx
+        .delete(events)
+        .where(eq(events.seriesId, id))
+        .returning({ id: events.id })
+        .all();
       const [deleted] = tx.delete(events).where(eq(events.id, id)).returning().all();
       if (!deleted) throw new NotFoundError(id);
+      return [id, ...occurrences.map((row) => row.id)];
     });
+    this.changes.emit({ type: 'deleted', eventIds });
   }
 
   /**
