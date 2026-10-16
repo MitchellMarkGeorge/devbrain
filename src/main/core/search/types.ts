@@ -18,3 +18,10 @@ export interface SearchOptions {
   entityType: SearchEntityType[];
   limit?: number;
 }
+
+export interface RebuildResult {
+  // entries the index holds once rebuilt
+  indexed: number;
+  // active notes left out because their files couldn't be read
+  unreadableNoteIds: NoteId[];
+}
