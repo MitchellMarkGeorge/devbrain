@@ -75,7 +75,10 @@ describe('EventService — createEvent', () => {
         startAt: new Date('2026-06-10T11:00:00.000Z'),
         endAt: new Date('2026-06-10T10:00:00.000Z'),
       }),
-    ).rejects.toThrow(/endAt must not be before startAt/i);
+    ).rejects.toMatchObject({
+      code: 'invalid_input',
+      message: expect.stringMatching(/endAt must not be before startAt/i),
+    });
   });
 });
 
@@ -173,7 +176,10 @@ describe('EventService — updateEvent', () => {
     });
     await expect(
       eventsService.updateEvent(event.id, { endAt: new Date('2026-06-10T09:00:00.000Z') }),
-    ).rejects.toThrow(/endAt must not be before startAt/i);
+    ).rejects.toMatchObject({
+      code: 'invalid_input',
+      message: expect.stringMatching(/endAt must not be before startAt/i),
+    });
   });
 
   it('throws when moving startAt alone past the existing endAt', async () => {
@@ -184,7 +190,10 @@ describe('EventService — updateEvent', () => {
     });
     await expect(
       eventsService.updateEvent(event.id, { startAt: new Date('2026-06-10T12:00:00.000Z') }),
-    ).rejects.toThrow(/endAt must not be before startAt/i);
+    ).rejects.toMatchObject({
+      code: 'invalid_input',
+      message: expect.stringMatching(/endAt must not be before startAt/i),
+    });
   });
 
   it('clears recurrenceRule when explicitly set to null', async () => {

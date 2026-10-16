@@ -135,7 +135,9 @@ describe('startDevBrain — the workspace', () => {
     const logger = quietLogger();
     started = await startDevBrain({ rootPath, createIfMissing: false, workspace: {}, logger });
     expect(started!.currentWorkspace).toBeNull();
-    expect(logger.warn).toHaveBeenCalledWith(`Opening workspace ${ids[0]} failed error=Error`);
+    expect(logger.warn).toHaveBeenCalledWith(
+      `Opening workspace ${ids[0]} failed error=WorkspaceDataMissingError`,
+    );
   });
 });
 

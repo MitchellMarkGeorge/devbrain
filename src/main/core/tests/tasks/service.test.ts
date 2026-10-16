@@ -123,7 +123,10 @@ describe('TaskService — createTask', () => {
         linkedEventId: FAKE_EVENT_ID,
         linkedNoteId: FAKE_NOTE_ID,
       }),
-    ).rejects.toThrow('Tasks cannot be linked to both an event and a note');
+    ).rejects.toMatchObject({
+      code: 'invalid_input',
+      message: expect.stringContaining('Tasks cannot be linked to both an event and a note'),
+    });
   });
 
   it('creates a task linked only to a note', async () => {
@@ -676,25 +679,25 @@ describe('TaskService — updateTask', () => {
   it('updates the title', async () => {
     const task = await tasks.createTask({ title: 'Old title', dueDate: TOMORROW });
     const updated = await tasks.updateTask(task.id, { title: 'New title' });
-    expect(updated!.title).toBe('New title');
+    expect(updated.title).toBe('New title');
   });
 
   it('updates the description', async () => {
     const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
     const updated = await tasks.updateTask(task.id, { description: 'Added description' });
-    expect(updated!.description).toBe('Added description');
+    expect(updated.description).toBe('Added description');
   });
 
   it('updates the priority', async () => {
     const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
     const updated = await tasks.updateTask(task.id, { priority: TaskPriority.HIGH });
-    expect(updated!.priority).toBe(TaskPriority.HIGH);
+    expect(updated.priority).toBe(TaskPriority.HIGH);
   });
 
   it('updates the dueDate', async () => {
     const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
     const updated = await tasks.updateTask(task.id, { dueDate: NEXT_WEEK });
-    expect(updated!.dueDate!.getTime()).toBe(NEXT_WEEK.getTime());
+    expect(updated.dueDate!.getTime()).toBe(NEXT_WEEK.getTime());
   });
 
   it('updates the pullRequestUrl', async () => {
@@ -702,16 +705,23 @@ describe('TaskService — updateTask', () => {
     const updated = await tasks.updateTask(task.id, {
       pullRequestUrl: 'https://github.com/org/repo/pull/1',
     });
-    expect(updated!.pullRequestUrl).toBe('https://github.com/org/repo/pull/1');
+    expect(updated.pullRequestUrl).toBe('https://github.com/org/repo/pull/1');
   });
 
-  it('returns null for an unknown id', async () => {
-    const result = await tasks.updateTask(generateId('task'), { title: 'Ghost' });
-    expect(result).toBeNull();
+  it('throws NotFoundError for an unknown id', async () => {
+    await expect(tasks.updateTask(generateId('task'), { title: 'Ghost' })).rejects.toThrow(
+      NotFoundError,
+    );
   });
 });
 
 describe('TaskService — updateStatus', () => {
+  it('throws NotFoundError for an unknown id', async () => {
+    await expect(tasks.updateStatus(generateId('task'), TaskStatus.COMPLETED)).rejects.toThrow(
+      NotFoundError,
+    );
+  });
+
   it('updates the task status', async () => {
     const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
     const updated = await tasks.updateStatus(task.id, TaskStatus.IN_PROGRESS);
@@ -772,9 +782,11 @@ describe('TaskService — updateProject', () => {
   it('throws when called on a subtask', async () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
-    await expect(tasks.updateProject(sub.id, FAKE_PROJECT_ID)).rejects.toThrow(
-      'Subtasks inherit project context from partent task',
-    );
+    await expect(tasks.updateProject(sub.id, FAKE_PROJECT_ID)).rejects.toMatchObject({
+      code: 'task_hierarchy',
+      reason: 'inherits_context',
+      message: expect.stringContaining('Subtasks inherit project context from partent task'),
+    });
   });
 });
 
@@ -816,9 +828,11 @@ describe('TaskService — updateLinks', () => {
   it('throws when called on a subtask', async () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
-    await expect(tasks.updateLinks(sub.id, { linkedNoteId: FAKE_NOTE_ID })).rejects.toThrow(
-      'Subtasks inherit link context from partent task',
-    );
+    await expect(tasks.updateLinks(sub.id, { linkedNoteId: FAKE_NOTE_ID })).rejects.toMatchObject({
+      code: 'task_hierarchy',
+      reason: 'inherits_context',
+      message: expect.stringContaining('Subtasks inherit link context from partent task'),
+    });
   });
 
   it('throws when both linkedEventId and linkedNoteId are provided', async () => {
@@ -828,7 +842,10 @@ describe('TaskService — updateLinks', () => {
         linkedEventId: FAKE_EVENT_ID,
         linkedNoteId: FAKE_NOTE_ID,
       }),
-    ).rejects.toThrow('Tasks cannot be linked to both an event and a note');
+    ).rejects.toMatchObject({
+      code: 'invalid_input',
+      message: expect.stringContaining('Tasks cannot be linked to both an event and a note'),
+    });
   });
 });
 
@@ -846,7 +863,11 @@ describe('TaskService — promoteSubtask', () => {
 
   it('throws when the task is not a subtask', async () => {
     const task = await tasks.createTask({ title: 'Top level', dueDate: TOMORROW });
-    await expect(tasks.promoteSubtask(task.id)).rejects.toThrow('Task is not a subtask');
+    await expect(tasks.promoteSubtask(task.id)).rejects.toMatchObject({
+      code: 'task_hierarchy',
+      reason: 'not_subtask',
+      message: expect.stringContaining('Task is not a subtask'),
+    });
   });
 
   it('promoted task appears as a top-level task in listSubtasks', async () => {
@@ -861,9 +882,11 @@ describe('TaskService — promoteSubtask', () => {
 describe('TaskService — demoteTask', () => {
   it('throws when id and newParentId are the same', async () => {
     const task = await tasks.createTask({ title: 'Self', dueDate: TOMORROW });
-    await expect(tasks.demoteTask(task.id, task.id)).rejects.toThrow(
-      'Tasks cannot be their own parent',
-    );
+    await expect(tasks.demoteTask(task.id, task.id)).rejects.toMatchObject({
+      code: 'task_hierarchy',
+      reason: 'cycle',
+      message: expect.stringContaining('Tasks cannot be their own parent'),
+    });
   });
 
   it('demotes a task by setting its parentTaskId to newParentId', async () => {
@@ -921,9 +944,11 @@ describe('TaskService — demoteTask', () => {
     const sub = await tasks.createSubtask(task.id, { title: 'Sub' });
     const subSub = await tasks.createSubtask(sub.id, { title: 'Sub sub' });
     for (const id of [sub.id, subSub.id]) {
-      await expect(tasks.demoteTask(task.id, id)).rejects.toThrow(
-        'Tasks cannot become a subtask of their own subtask',
-      );
+      await expect(tasks.demoteTask(task.id, id)).rejects.toMatchObject({
+        code: 'task_hierarchy',
+        reason: 'cycle',
+        message: expect.stringContaining('Tasks cannot become a subtask of their own subtask'),
+      });
     }
     expect((await tasks.getById(task.id)).parentTaskId).toBeNull();
   });
@@ -1389,9 +1414,11 @@ describe('TaskService — undated tasks', () => {
 
   it('createSubtask throws when neither the subtask nor its parent has a due date', async () => {
     const parent = await undated('Undated parent');
-    await expect(tasks.createSubtask(parent.id, { title: 'Sub' })).rejects.toThrow(
-      'Subtasks need a due date when their parent task has none',
-    );
+    await expect(tasks.createSubtask(parent.id, { title: 'Sub' })).rejects.toMatchObject({
+      code: 'task_hierarchy',
+      reason: 'due_date_required',
+      message: expect.stringContaining('Subtasks need a due date when their parent task has none'),
+    });
   });
 
   it('createSubtask under an undated parent uses its own due date', async () => {
@@ -1519,7 +1546,9 @@ describe('TaskService — onChange', () => {
     const listener = vi.fn();
     tasks.onChange(listener);
 
-    await tasks.updateTask(generateId('task'), { title: 'Missing' });
+    await expect(tasks.updateTask(generateId('task'), { title: 'Missing' })).rejects.toThrow(
+      NotFoundError,
+    );
 
     expect(listener).not.toHaveBeenCalled();
   });

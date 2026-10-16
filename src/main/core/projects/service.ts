@@ -57,21 +57,21 @@ export class ProjectService {
       status: options.status ?? ProjectStatus.NOT_STARTED,
       completedAt: options.status === ProjectStatus.COMPLETED ? new Date() : null,
     };
-    const [project] = await this.db.insert(projects).values(newProject).returning();
+    const [row] = await this.db.insert(projects).values(newProject).returning();
+    // a new project is local, so it has no link
+    const project = { ...row, external: null };
     this.changes.emit({ type: 'created', project });
     return project;
   }
 
-  async updateProject(id: ProjectId, updates: UpdateProjectOptions): Promise<Project | null> {
+  async updateProject(id: ProjectId, updates: UpdateProjectOptions): Promise<Project> {
     assertEditable(this.db, id);
-    const [updatedProject] = await this.db
+    const [row] = await this.db
       .update(projects)
       .set(updates)
       .where(eq(projects.id, id))
       .returning();
-    if (!updatedProject) return null;
-    this.changes.emit({ type: 'updated', project: updatedProject });
-    return updatedProject;
+    return this.updated(id, row);
   }
 
   async updateStatus(id: ProjectId, newStatus: ProjectStatus): Promise<Project> {
@@ -86,9 +86,7 @@ export class ProjectService {
       })
       .where(eq(projects.id, id))
       .returning();
-    if (row) this.changes.emit({ type: 'updated', project: row });
-
-    return row;
+    return this.updated(id, row);
   }
 
   async listProjects(
@@ -193,6 +191,15 @@ export class ProjectService {
         totalTasks: 0,
       }
     );
+  }
+
+  // An update's result as every read returns it, with `external`, after sending the change. Throws
+  // NotFoundError when the update matched no row.
+  private async updated(id: ProjectId, row: Project | undefined): Promise<Project> {
+    if (!row) throw new NotFoundError(id);
+    const project = await withRef(this.db, row);
+    this.changes.emit({ type: 'updated', project });
+    return project;
   }
 
   private activeProjects(condition: SQL<unknown>) {
