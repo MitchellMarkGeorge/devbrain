@@ -237,16 +237,20 @@ export class SyncScheduler {
 
   private applyTrigger(reason: SyncTrigger, sourceId: ExternalSourceId): Promise<void> {
     switch (reason) {
-      case 'manual':
-        this.restartBackoff(sourceId);
+      case 'manual': {
+        const target = this.readSyncTarget(sourceId);
+        if (target) this.restartBackoff(sourceId, target);
         return this.requestRun(sourceId, true);
+      }
       case 'connected':
         return this.requestRun(sourceId, false);
       case 'reconnected': {
-        this.restartBackoff(sourceId);
-        const retryAt = this.readSyncTarget(sourceId)?.retryAt;
+        const target = this.readSyncTarget(sourceId);
+        if (target) this.restartBackoff(sourceId, target);
         // rate limited: the interval tick after the retry time runs it, with the backoff restarted
-        if (retryAt && retryAt.getTime() > this.timers.now()) return Promise.resolve();
+        if (target?.retryAt && target.retryAt.getTime() > this.timers.now()) {
+          return Promise.resolve();
+        }
         return this.requestRun(sourceId, false);
       }
       case 'focus':
@@ -262,9 +266,8 @@ export class SyncScheduler {
   }
 
   // failures so far no longer count toward the wait; a later success clears the record
-  private restartBackoff(sourceId: ExternalSourceId): void {
-    const target = this.readSyncTarget(sourceId);
-    if (target) this.failureCountAtBackoffRestart.set(sourceId, target.consecutiveFailures);
+  private restartBackoff(sourceId: ExternalSourceId, target: SyncTarget): void {
+    this.failureCountAtBackoffRestart.set(sourceId, target.consecutiveFailures);
   }
 
   // an interval tick: every enabled source that is not backing off runs
