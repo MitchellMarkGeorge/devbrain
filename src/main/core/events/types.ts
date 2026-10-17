@@ -80,7 +80,7 @@ export interface CreateEventOptions {
   // local days startAt and endAt fall on, endDate being the day after the last day touched
   startDate?: string;
   endDate?: string;
-  // the app's zone when left out
+  // an IANA zone; the system zone when left out
   timeZone?: string;
   location?: string;
   recurrenceRule?: string;
@@ -99,6 +99,7 @@ export interface UpdateEventOptions {
   allDay?: boolean;
   startDate?: string;
   endDate?: string;
+  // an IANA zone
   timeZone?: string;
   location?: string;
   // nullable so a recurring event can be turned back into a one-off

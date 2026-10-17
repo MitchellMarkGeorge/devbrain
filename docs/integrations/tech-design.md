@@ -95,7 +95,7 @@ All integration code runs in the main process, inside `src/main/core`, as two ne
 
 &#91;embedded content: integration and sync components in the main process\]
 
-Only the provider clients talk to the network, and only `SyncWriter` writes external rows. The existing entity services keep writing local rows and reject edits to synced ones. They are the public interface for managing their entities, which the IPC layer exposes as it is: they read and write the database only, call no provider and hold no `SyncWriter`. `SyncWriter` is used only inside `core/sync/`.
+Only the provider clients talk to the network. Writes to mirrored rows are divided by field and by link transition, not by component: `SyncWriter` alone writes provider-owned fields and the transitions sync decides, and a few user actions write DevBrain-owned fields or take a row out of sync (see **Who writes mirrored rows** below). The existing entity services keep writing local rows and reject edits to the provider-owned fields of synced ones. They are the public interface for managing their entities, which the IPC layer exposes as it is: they read and write the database only, call no provider and hold no `SyncWriter`. `SyncWriter` is used only inside `core/sync/`.
 
 | Component            | Location                                                    | Responsibility                                                                                                                                      |
 | -------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -109,10 +109,23 @@ Only the provider clients talk to the network, and only `SyncWriter` writes exte
 | Syncers              | `core/sync/syncer.ts`, `task-syncer.ts`, `event-syncer.ts`  | What a run does per source type: its cursor, modes and windows, and how it starts, pulls and applies a page. `EventSyncer` holds all calendar work. |
 | `TaskReconciler`     | `core/sync/task-reconciler.ts`                              | What a tasks source's pages cannot see: the reconcile pass, and reattaching detached tasks.                                                         |
 | `CalendarService`    | `core/calendars/service.ts`                                 | Lists calendars, shows or hides one, chooses which synced ones sync. Database only.                                                                 |
-| `SyncWriter`         | `core/sync/writer.ts`                                       | The only code allowed to write external rows. Upserts, removes, indexes for search.                                                                 |
+| `SyncWriter`         | `core/sync/writer.ts`                                       | The only code that writes provider-owned fields and sync's link transitions. Upserts, removes, restores, settles, indexes for search.               |
 | `SyncScheduler`      | `core/sync/scheduler.ts`                                    | Decides when to sync: interval, focus, open, manual. One run per source at a time.                                                                  |
 
 `Workspace` constructs `IntegrationService` and `SyncScheduler` next to `TaskService` and the rest. `Workspace.close()` stops the scheduler before closing SQLite.
+
+**Who writes mirrored rows.** Ownership is by field (the ownership rule above) and by link transition. A row with a link is written by these, and only these:
+
+| Writer                                              | Fields and transitions                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | When                           |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `SyncWriter`                                        | Provider-owned fields of `synced` rows, and the link's own sync columns (`externalUpdatedAt`, `lastSyncedAt`, `settledAt`). Transitions: new link `synced`; `synced` to `removed` (a task or project is archived, an event hidden); `removed` to `synced` (restored: a task or project is unarchived); `detached` to `synced` when the user reattaches a task, or on its own when a detached project comes back into scope; a mirrored project to `detached` or `removed` by the project lifecycle. Calendars' name, colour, zone and primary flag | Sync runs, reconcile, reattach |
+| `TaskService.updateLinks`, `NoteService`            | DevBrain-owned fields of `synced` rows: a task's `linkedNoteId` and `linkedEventId`; a note's own links to a synced task or event, and the task note (on the note row). `favoritedAt` is DevBrain's too; no service sets it yet                                                                                                                                                                                                                                                                                                                    | A user action                  |
+| `CalendarService`                                   | `selected` and `visible` on synced calendars                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | A user action                  |
+| `DetachService.detachTask`                          | `synced` to `detached` for a task and its synced subtree. The rows are untouched; from then on they are local and edited through the entity services                                                                                                                                                                                                                                                                                                                                                                                               | A user action                  |
+| `ArchiveService`                                    | `archivedAt` on local and detached rows (and their notes). It rejects `synced` rows. Restore does not look at the link, so restoring a `removed` row clears its `archivedAt` and leaves the link `removed`                                                                                                                                                                                                                                                                                                                                         | A user action                  |
+| `IntegrationService.disconnect` (`applyDisconnect`) | Deletes the mirrored rows nothing of the user's points at, with their links; makes kept children of deleted tasks top-level; `synced` to `detached` for every link left; deletes the integration's calendars left empty, and the cascade turns the rest into local calendars                                                                                                                                                                                                                                                                       | A user action                  |
+
+Everything else that changes a synced row (an edit, a status change, a move, a subtask change, an archive) is rejected with `ExternalReadOnlyError`. `SyncWriter` never writes DevBrain-owned fields, and touches a `detached` row only to reattach it.
 
 **Provider contract.** A provider is three layers, kept as separate classes:
 
@@ -411,7 +424,7 @@ The reconcile pass checks mirrored project ids as well as issue ids, so a projec
 **Task hierarchy, local and external.** A task's kind comes from its link, not from a column on `tasks`: no link is local, `synced` is external, `detached` is local again, and `removed` is archived. A subtask is any task with `parentTaskId` set.
 
 - Local tasks nest at any depth. `demoteTask` rejects a move under the task's own subtree, so the tree never cycles.
-- Synced tasks nest at any depth, as Linear does. Only `SyncWriter` writes them. A synced task points only at a parent whose link is `synced`; otherwise it is top-level and waits in metadata until the parent arrives or is restored.
+- Synced tasks nest at any depth, as Linear does. Only `SyncWriter` writes their hierarchy and other provider-owned fields. A synced task points only at a parent whose link is `synced`; otherwise it is top-level and waits in metadata until the parent arrives or is restored.
 - The two never mix. A synced task has no local children and no local parent: `createSubtask`, `demoteTask` and `promoteSubtask` reject synced rows.
 - A detached task follows the local rules from then on, with the subtree it carried over from Linear.
 
@@ -570,29 +583,32 @@ One query per run: issues assigned to the viewer with `updatedAt` or `archivedAt
 
 This query cannot see an issue that was reassigned away or deleted, because such an issue no longer matches the assignee filter. Nor can it see an issue restored from the trash: restoring clears `archivedAt` and leaves `updatedAt` unchanged, so nothing about the issue is newer than the cursor. Those are found by the reconcile pass below, not by querying mirrored ids on every run. An id list sent every 5 minutes would grow with the user's history.
 
-**Watched set.** Only some links are checked for removal, which keeps the work tied to current workload:
+**Watched set.** Only some links are checked for removal, which keeps the work tied to current workload. A link is watched when it is `synced`, not settled, and its task is open locally (neither completed nor cancelled):
 
 - `detached` and `removed` links are never checked.
-- A completed or cancelled issue older than 30 days is marked settled (`settledAt` on the link). It stays mirrored and is no longer checked.
-- The UI must show that a task is settled, because the mirror no longer vouches for it: a settled issue may since have been reassigned or deleted in Linear without DevBrain noticing.
+- A task that is closed locally is not checked, however recently it closed. The snapshot reconcile compares against holds open issues only, so every closed issue would be missing from it; checking them would mean resolving each one by id on every pass.
+- A completed or cancelled issue older than 30 days is marked settled (`settledAt` on the link). It stays mirrored. Settling does not change what is checked, as a closed task is already unwatched, but it marks the task as one the mirror no longer vouches for.
+- The UI must show that a task is settled, because a settled issue may since have been reassigned or deleted in Linear without DevBrain noticing.
 - A settled issue that is reopened while still assigned to the user comes back through the incremental query, which clears `settledAt`.
 
-The watched set is therefore open assigned issues plus issues closed in the last 30 days.
+The watched set is therefore the open assigned issues DevBrain mirrors. Issues closed in the last 30 days are mirrored (the initial sync fetches them, and the incremental query keeps them current while they stay assigned) but are not watched.
+
+**Consequence: closed history is frozen against removal until it settles.** A closed issue that is reassigned to someone else or deleted in Linear is not noticed: incremental cannot see it (it no longer matches the assignee filter) and reconcile does not check it. Its task stays as it was last seen, closed, and settles after 30 days like any other. Changes to a closed issue that stays assigned (edits, reopening, trashing) still arrive through the incremental query. So between closing and settling, the mirror vouches for a closed task's content but not for its still being the user's or still existing. Watching closed issues too is possible (resolve the watched closed ids on each reconcile pass, at one request per 100 ids); it is an open choice, not current behaviour.
 
 **Reconcile (Linear).** Removals are found by diffing against a snapshot of current assignments:
 
 1. Page through the ids of open issues assigned to the viewer, requesting the `id` field only.
-2. Compare with the watched links that are still open locally. A watched link missing from the snapshot is a candidate. In the other direction, a snapshot id with no `synced` link (its link is `removed`, or it has none) is a returning issue, such as one restored from the trash. `detached` links are skipped either way.
+2. Compare with the watched links: `synced`, not settled, and open locally. Closed tasks are never compared, even those closed in the last 30 days. A watched link missing from the snapshot is a candidate. In the other direction, a snapshot id with no `synced` link (its link is `removed`, or it has none) is a returning issue, such as one restored from the trash. `detached` links are skipped either way.
 3. Fetch the candidates and returning issues by id, in batches of 100, including archived issues.
 4. Apply the result: completed or cancelled issues are updated, reassigned ones are removed, ids that no longer resolve were deleted and are removed, and returning issues are upserted, which restores a `removed` link.
-5. Archive mirrored projects that no longer have tasks, and mark newly aged-out closed issues as settled.
+5. Archive mirrored projects that no longer have tasks, and mark closed issues past the 30-day window as settled.
 
 Cost scales with the number of open assigned issues, not with everything ever mirrored. Most passes find no candidates and make no second request.
 
-| Linear run  | When                                               | Catches                                                                                   |
-| ----------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Incremental | Every 5 minutes, on focus                          | New assignments, edits, completions, trashing                                             |
-| Reconcile   | Every 30 minutes, on workspace open, on "Sync now" | Reassigned away, deleted, restored from the trash, empty projects; trashing as a backstop |
+| Linear run  | When                                               | Catches                                                                                                 |
+| ----------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Incremental | Every 5 minutes, on focus                          | New assignments, edits, completions, trashing                                                           |
+| Reconcile   | Every 30 minutes, on workspace open, on "Sync now" | Open issues reassigned away or deleted; restored from the trash; empty projects; trashing as a backstop |
 
 The trade-off: an issue reassigned to someone else can stay in the list for up to 30 minutes, and an issue restored from the trash can take as long to reappear. "Sync now" closes the gap on demand.
 

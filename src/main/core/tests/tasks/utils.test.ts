@@ -3,7 +3,7 @@ import { generateId, TaskId } from '@common/ids';
 import { isSubtask } from '../../tasks/utils';
 import type { Task } from '../../tasks/types';
 import { TaskPriority, TaskStatus } from '../../tasks/types';
-import { localDayWindow } from '@main/core/shared/utils';
+import { localDayWindow } from '@main/core/shared/dates';
 
 describe('localDayWindow', () => {
   it('start is midnight at the beginning of the given day', () => {

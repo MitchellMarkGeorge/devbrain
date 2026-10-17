@@ -8,7 +8,7 @@ import { ProjectService } from '../projects/service';
 import { SearchService } from '../search/service';
 import { TaskService } from '../tasks/service';
 import { IntegrationService } from '../integrations/service';
-import { createIntegrationServices } from '../integrations/setup';
+import { createIntegrationServices, unavailableBrowser } from '../integrations/setup';
 import { SyncEngine } from '../sync/engine';
 import { SyncScheduler } from '../sync/scheduler';
 import { SyncStateManager } from '../sync/sync-state';
@@ -19,6 +19,7 @@ import fs from 'node:fs/promises';
 import { runMigrations } from '@main/db/migrate';
 import { fileExists } from '../local/utils';
 import { WorkspaceClosedError, WorkspaceMigrationError } from '../shared/errors';
+import { guardOpenExternal } from '../shared/untrusted';
 
 type SqliteDatabaseClient = Database.Database;
 
@@ -36,6 +37,12 @@ export class Workspace {
   // syncNow, getStatus and onProgress for the app; trigger for focus and resume. Started by
   // WorkspaceService.open, stopped by close()
   readonly sync: SyncScheduler;
+  /**
+   * Opens a link in the system browser: a synced item's provider page, a meeting link, a link in a
+   * description. Only http and https URLs are opened; anything else throws UnsafeUrlError and
+   * opens nothing (docs/security/untrusted-content.md).
+   */
+  readonly openUrl: (url: string) => Promise<void>;
 
   private constructor(
     private readonly db: BetterSQLite3Database,
@@ -78,6 +85,7 @@ export class Workspace {
       writer: new SyncWriter(db, this.search),
     });
     this.sync = new SyncScheduler({ engine, integrations, syncState });
+    this.openUrl = guardOpenExternal(options.openExternal ?? unavailableBrowser);
   }
 
   static async create(info: WorkspaceInfo, options: WorkspaceOptions = {}): Promise<Workspace> {

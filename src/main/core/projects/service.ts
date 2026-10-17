@@ -11,7 +11,7 @@ import {
 } from './types';
 import { projects } from '@main/db/schema/projects';
 import { eq, inArray, SQL, sql, and, isNull, not, desc, gt, gte, lt } from 'drizzle-orm';
-import { localDayWindow } from '../shared/utils';
+import { localDayWindow } from '../shared/dates';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { keyset, Page, PageOptions } from '../shared/pagination';
 import { NotFoundError } from '../shared/errors';

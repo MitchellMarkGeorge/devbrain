@@ -30,7 +30,6 @@ export function getDefaults(rootPath?: string): SettingsFile {
         defaultEventDuration: '15m',
         defaultView: 'week',
         firstDayOfWeek: 'monday',
-        timezone: 'Toronto UTC', // come back to this
       },
     },
     state: {

@@ -8,7 +8,13 @@ import { CreateEventOptions, Event, UpdateEventOptions } from './types';
 import { assertEditable, assertRowEditable, hasLinkInState, withRefs } from '../integrations/refs';
 import { LinkState } from '../integrations/types';
 import { DEFAULT_CALENDAR_ID } from '../calendars/types';
-import { allDayDates, fromDateString, isDateString, localTimeZone } from './dates';
+import {
+  allDayDates,
+  fromDateString,
+  isDateString,
+  isTimeZone,
+  localTimeZone,
+} from '../shared/dates';
 
 type EventRow = typeof events.$inferSelect;
 
@@ -46,7 +52,7 @@ export class EventService {
         startDate: options.startDate,
         endDate: options.endDate,
       }),
-      timeZone: options.timeZone ?? localTimeZone(),
+      timeZone: options.timeZone !== undefined ? checkTimeZone(options.timeZone) : localTimeZone(),
       location: options.location ?? null,
       recurrenceRule: options.recurrenceRule ?? null,
       ...(options.status && { status: options.status }),
@@ -70,6 +76,7 @@ export class EventService {
     if (updates.calendarId !== undefined) await this.assertLocalCalendar(updates.calendarId);
 
     const { startAt, endAt, allDay, startDate, endDate, ...rest } = updates;
+    if (rest.timeZone !== undefined) checkTimeZone(rest.timeZone);
     const timingChanged = [startAt, endAt, allDay, startDate, endDate].some((v) => v !== undefined);
     const nextAllDay = allDay ?? existing.allDay;
     const set = {
@@ -204,10 +211,16 @@ function inRange(start: Date, end: Date) {
   );
 }
 
+// an event's zone must be an IANA name: FullCalendar expands a series in it (DTSTART;TZID=…)
+function checkTimeZone(value: string): string {
+  if (!isTimeZone(value)) throw new Error(`Not an IANA time zone: ${value}`);
+  return value;
+}
+
 /**
  * An event's timing columns. A timed event keeps its instants and has no dates. An all-day event
  * takes the dates given, or else the local days its instants fall on, and its instants become
- * those dates' local midnights.
+ * the starts of those days in the system zone (see shared/dates.ts).
  */
 export function timing(input: {
   startAt: Date;

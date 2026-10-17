@@ -8,10 +8,15 @@ type StoreOptions<T extends Record<string, unknown>> = {
 };
 
 class MockStore<T extends Record<string, unknown>> {
+  // what the next store's file holds, as if written by an earlier run; taken by its constructor
+  static fileContents: Record<string, unknown> | null = null;
+
   private data: Record<string, unknown>;
 
   constructor(opts: StoreOptions<T> = {}) {
-    this.data = structuredClone(opts.defaults ?? {});
+    // like electron-store: the file's own values, over the defaults (top level only, enough here)
+    this.data = { ...structuredClone(opts.defaults ?? {}), ...MockStore.fileContents };
+    MockStore.fileContents = null;
   }
 
   get(key: string): unknown {
