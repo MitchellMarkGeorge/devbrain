@@ -73,10 +73,10 @@ export function backoffDelay(failures: number): number {
   return Math.min(BACKOFF_INITIAL_MS * 2 ** (failures - 1), BACKOFF_MAX_MS);
 }
 
-// Whether a source that starts syncing again resumes from a finished first sync, and so needs the
-// reconcile pass to catch what its incremental run can't see. A source without one gets a full
-// pass, which needs no reconcile.
-function resumesSync(target: SyncTarget | null): boolean {
+// Whether the source has finished its first sync. One that has resumes from its cursor when it
+// starts syncing again, and needs the reconcile pass to catch what that incremental run can't see.
+// One that hasn't gets a full pass, which needs no reconcile.
+function hasFinishedFirstSync(target: SyncTarget | null): boolean {
   return target?.initialSyncCompletedAt != null;
 }
 
@@ -255,7 +255,7 @@ export class SyncScheduler {
         return this.requestRun(sourceId, true);
       }
       case 'connected':
-        return this.requestRun(sourceId, resumesSync(this.readSyncTarget(sourceId)));
+        return this.requestRun(sourceId, hasFinishedFirstSync(this.readSyncTarget(sourceId)));
       case 'reconnected': {
         const target = this.readSyncTarget(sourceId);
         if (target) this.restartBackoff(sourceId, target);
@@ -263,7 +263,7 @@ export class SyncScheduler {
         if (target?.retryAt && target.retryAt.getTime() > this.timers.now()) {
           return Promise.resolve();
         }
-        return this.requestRun(sourceId, resumesSync(target));
+        return this.requestRun(sourceId, hasFinishedFirstSync(target));
       }
       case 'focus':
       case 'resume': {
