@@ -390,6 +390,27 @@ describe('Workspace — search', () => {
   });
 });
 
+describe('Workspace — concurrent note saves', () => {
+  it('indexes the last of many parallel saves to one note', async () => {
+    const workspace = await Workspace.create(makeInfo(tmpDir));
+    try {
+      const note = await workspace.notes.createNote({ title: 'Minutes' });
+      const words = Array.from({ length: 20 }, (_, i) => `word${String(i).padStart(2, '0')}`);
+
+      await Promise.all(words.map((w) => workspace.notes.updateNoteContent(note.id, w)));
+
+      const search = (query: string) =>
+        workspace.search.search({ query, entityType: ['note'] }).map(({ entityId }) => entityId);
+      const last = words[words.length - 1];
+      expect(search(last)).toEqual([note.id]);
+      for (const w of words.slice(0, -1)) expect(search(w)).toEqual([]);
+      expect((await workspace.notes.getById(note.id)).preview).toBe(last);
+    } finally {
+      await workspace.close();
+    }
+  });
+});
+
 describe('Workspace.open — failed migrations', () => {
   // the workspace lives in its own folder so the extra migrations folder sits beside it
   let workspaceDir: string;

@@ -443,6 +443,64 @@ describe('NoteService — updateNoteContent', () => {
       notesService.updateNoteContent(generateId('note'), 'content'),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
+
+  it('throws NotFoundError when the row is deleted while saving', async () => {
+    const note = await notesService.createNote({ title: 'Note' });
+    vi.spyOn(notesService, 'getById').mockResolvedValueOnce(note);
+    await db.delete(notesTable).where(eq(notesTable.id, note.id));
+
+    await expect(notesService.updateNoteContent(note.id, 'content')).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+  });
+
+  describe('concurrent saves to one note', () => {
+    const N = 20;
+    const contents = Array.from({ length: N }, (_, i) => `# Save ${i}\n\nbody **${i}**`);
+
+    it('all resolve, each with the preview of its own content', async () => {
+      const note = await notesService.createNote({ title: 'Note' });
+      const results = await Promise.all(
+        contents.map((c) => notesService.updateNoteContent(note.id, c)),
+      );
+      expect(results.map((r) => r.preview)).toEqual(
+        contents.map((_, i) => `Save ${i}\n\nbody ${i}`),
+      );
+    });
+
+    it('leave the file, the preview and the last change all from the last save', async () => {
+      const note = await notesService.createNote({ title: 'Note' });
+      const changes: NoteChange[] = [];
+      notesService.onChange((change) => changes.push(change));
+
+      await Promise.all(contents.map((c) => notesService.updateNoteContent(note.id, c)));
+
+      const fileData = await readNoteFile(notesFilePath(workspacePath, note.id));
+      expect(fileData.content).toBe(contents[N - 1]);
+      expect((await notesService.getById(note.id)).preview).toBe(`Save ${N - 1}\n\nbody ${N - 1}`);
+      // one change per save, in call order, each carrying the row it wrote
+      expect(changes.map((c) => c.type === 'updated' && c.content)).toEqual(contents);
+      expect(changes.map((c) => c.note.preview)).toEqual(
+        contents.map((_, i) => `Save ${i}\n\nbody ${i}`),
+      );
+      expect(await fs.readdir(path.join(workspacePath, 'notes'))).toEqual([`${note.id}.md`]);
+    });
+
+    it('keep going after one of them fails', async () => {
+      const note = await notesService.createNote({ title: 'Note' });
+      const getById = vi.spyOn(notesService, 'getById');
+      getById.mockRejectedValueOnce(new Error('boom'));
+
+      const results = await Promise.allSettled([
+        notesService.updateNoteContent(note.id, 'first'),
+        notesService.updateNoteContent(note.id, 'second'),
+      ]);
+
+      expect(results.map((r) => r.status)).toEqual(['rejected', 'fulfilled']);
+      const fileData = await readNoteFile(notesFilePath(workspacePath, note.id));
+      expect(fileData.content).toBe('second');
+    });
+  });
 });
 
 describe('ArchiveService — archiveNote', () => {

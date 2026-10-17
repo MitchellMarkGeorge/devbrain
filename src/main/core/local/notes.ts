@@ -1,4 +1,5 @@
 import { NoteId } from '@common/ids';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
@@ -45,9 +46,10 @@ export async function updateNoteFile(
   data: NoteFileFrontmatter,
   content: string,
 ): Promise<void> {
-  // note file writes are attomic so no errors mid write can corrupt it
+  // note file writes are attomic so no errors mid write can corrupt it. Each write gets its own
+  // temp file, so concurrent writes to one note never rename each other's content into place.
   const dir = path.dirname(filePath);
-  const tmpPath = path.join(dir, `.${path.basename(filePath)}.${process.pid}.tmp`);
+  const tmpPath = path.join(dir, `.${path.basename(filePath)}.${process.pid}.${randomUUID()}.tmp`);
 
   await fs.writeFile(tmpPath, serializeNoteFile(data, content), 'utf8');
   try {

@@ -28,6 +28,8 @@ export type NoteChange =
 export class NoteService {
   private workspaceNotesPath: string;
   private readonly changes = new ChangeListeners<NoteChange>('Note');
+  // the tail of each note's queue of content saves, removed once the queue drains
+  private readonly contentSaves = new Map<NoteId, Promise<Note>>();
 
   constructor(
     private readonly db: BetterSQLite3Database,
@@ -171,9 +173,26 @@ export class NoteService {
     return updatedNote;
   }
 
+  // Saves to one note run one at a time, in the order they were called, so the last call wins: its
+  // content is what ends up in the file, the preview and the search index. Each save's file write,
+  // preview and change come from its own content, and every call resolves with the row it wrote
+  // (or rejects with its own error, which does not stop the saves queued after it).
+  // Throws NotFoundError for an unknown or archived note, or one deleted while saving.
   async updateNoteContent(id: NoteId, content: string): Promise<Note> {
+    const previous = this.contentSaves.get(id);
+    const save = previous
+      ? previous.catch(() => undefined).then(() => this.saveNoteContent(id, content))
+      : this.saveNoteContent(id, content);
+    this.contentSaves.set(id, save);
+    try {
+      return await save;
+    } finally {
+      if (this.contentSaves.get(id) === save) this.contentSaves.delete(id);
+    }
+  }
+
+  private async saveNoteContent(id: NoteId, content: string): Promise<Note> {
     // think about this, could just pass in the title or the note object itself
-    // throws NotFoundError for an unknown or archived note
     const existing = await this.getById(id);
 
     const preview = stripMarkdown(content.trim()).slice(0, 200);
@@ -187,7 +206,8 @@ export class NoteService {
       })
       .where(eq(notes.id, id))
       .returning();
-    if (updatedNote) this.changes.emit({ type: 'updated', note: updatedNote, content });
+    if (!updatedNote) throw new NotFoundError(id);
+    this.changes.emit({ type: 'updated', note: updatedNote, content });
 
     return updatedNote;
   }
