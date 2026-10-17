@@ -931,7 +931,12 @@ describe('IntegrationService — reconnect', () => {
     expect(reconnected).toMatchObject({ id, status: IntegrationStatus.CONNECTED });
     expect(snapshot().sources).toEqual(sourcesBefore);
     expect(changes).toEqual([
-      { type: 'status_changed', integrationId: id, status: IntegrationStatus.CONNECTED },
+      {
+        type: 'status_changed',
+        integrationId: id,
+        status: IntegrationStatus.CONNECTED,
+        previous: IntegrationStatus.NEEDS_REAUTH,
+      },
     ]);
     await expect(credentials.getAuth(id)).resolves.toEqual({ authorization: 'new_api_key' });
     expect(linkOf(item)!.state).toBe(LinkState.SYNCED);

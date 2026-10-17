@@ -422,6 +422,7 @@ describe('IntegrationService — enabling and disabling', () => {
         type: 'status_changed',
         integrationId: integration.id,
         status: IntegrationStatus.DISABLED,
+        previous: IntegrationStatus.CONNECTED,
       },
       {
         type: 'source_changed',

@@ -522,6 +522,7 @@ describe('SyncEngine — failures', () => {
       type: 'status_changed',
       integrationId,
       status: IntegrationStatus.NEEDS_REAUTH,
+      previous: IntegrationStatus.CONNECTED,
     });
 
     const next = await engine.runSource(sourceId);
