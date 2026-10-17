@@ -174,6 +174,30 @@ _Found in feature 16b._
 
 `MIRRORED_EVENT_TYPES` (`src/main/core/integrations/providers/google-calendar/requests.ts`) is sent as the `eventTypes` filter on every events request. Google requires the parameters of an incremental request to match the full pass that issued its sync token, so changing the list once users have synced needs their stored tokens cleared: a migration that empties the `calendars` of every Google events cursor, or a filter version kept in the cursor and compared on each pull. Making the list a per-source setting, so a user can opt into birthdays, would need the same.
 
+### A reconnect overwrites a disable made while it runs
+
+_Found in PR #31, where reconnecting started syncing again._
+
+`IntegrationService.reconnect` (`src/main/core/integrations/service.ts`) reads the integration's status, awaits `authenticate` (one account query for an API key, the whole browser flow for OAuth, which can take minutes) and sealing the credentials, then writes the new status. It chooses that status from the row it read before the wait: disabled stays disabled, anything else becomes connected. A `setEnabled(id, false)` that lands during the wait is overwritten:
+
+| Step                              | Status       | Source | Event                                             |
+| --------------------------------- | ------------ | ------ | ------------------------------------------------- |
+| `reconnect` reads the row         | needs_reauth | on     |                                                   |
+| the user disables the integration | disabled     | off    | `needs_reauth → disabled`, `source_changed` (off) |
+| `reconnect` writes                | connected    | off    | `needs_reauth → connected`                        |
+
+- The user's disable is lost, and the integration shows connected with every source off, which only a user's own choice otherwise produces.
+- The event's `previous` is the stale status, so a listener tracking status from events gets a wrong history.
+- Nothing syncs, but only because every source is off. If reconnect ever switched sources back on, it would sync what the user just turned off.
+
+A disconnect during the wait is already safe: `CredentialStore.save` throws `NotFoundError` and the transaction rolls back. Moving to `needs_reauth` during the wait and then being overwritten with connected is correct, as the new credentials were just validated.
+
+Fixes, which can be combined:
+
+1. **Re-read the status in the write transaction** and choose the new status and `previous` from it. The transaction is synchronous, so nothing can change between the read and the write. A few lines plus a test that holds the account query open and disables meanwhile. Recommended in any case.
+2. **Refuse edits while a flow runs.** Track the integrations being connected or reconnected, and make `setEnabled` and `setSourceEnabled` throw an "integration busy" error for them. The service already does this between OAuth flows (`connecting` and `ConnectInProgressError`), but API-key reconnects are not tracked. Gives the UI a clear error when a click slips through.
+3. **Lock the controls in the UI.** While an integration connects or reconnects, its enable toggle and source switches are disabled ("Waiting for sign-in…"). The clearest experience, but not enough on its own: `markNeedsReauth` also comes from the sync engine and token refresh, and a second window or a stale view can still reach the service. Nothing in the renderer or IPC calls `reconnect` or `setEnabled` yet, so this belongs with the integrations settings screen.
+
 ### Reconnecting leaves kept tasks detached
 
 _Found in feature 15._
