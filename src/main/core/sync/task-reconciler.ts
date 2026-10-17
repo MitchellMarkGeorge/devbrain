@@ -34,8 +34,6 @@ export interface TaskReconcilerOptions {
   now?: () => Date; // injected for tests
 }
 
-const NOTHING_RESOLVED: ReconcileItems = { tasks: [], projects: [], gone: [], goneProjects: [] };
-
 /**
  * What a tasks source's pages cannot see, and putting it right: the reconcile pass, and the
  * reattach of detached tasks. Both ask the provider's TaskSource about specific tasks
@@ -62,14 +60,18 @@ export class TaskReconciler {
 
   /**
    * The reads of one reconcile pass, which finds what the incremental pull cannot: tasks
-   * reassigned away, deleted or restored from the trash, and projects that left scope. The engine
-   * runs it through TaskSyncer.reconcile, and applies the writes it returns in its transaction.
+   * reassigned away, deleted or restored from the trash, and projects edited, deleted or left out
+   * of scope. The engine runs it through TaskSyncer.reconcile, and applies the writes it returns in
+   * its transaction.
    *
    * 1. Ask the provider for the ids of the open tasks assigned to the viewer now.
-   * 2. Diff them against the watched links (planReconcile). With no candidates and no
-   *    returning tasks nothing is resolved, so most passes make one request; otherwise the
-   *    candidates and returning tasks are resolved, and the source's mirrored projects with them.
-   * 3. Return the writes: apply what was resolved, settle closed tasks past the window and run the
+   * 2. Diff them against the watched links (planReconcile), and resolve the candidates and
+   *    returning tasks, if any.
+   * 3. Resolve the source's mirrored projects, on every pass. Incremental pulls see a project only
+   *    inside a changed task, so this is what brings in a project edited or deleted while its
+   *    tasks stayed the same. Most passes resolve no tasks, so this is their one request after the
+   *    snapshot, and a source that mirrors no projects makes none.
+   * 4. Return the writes: apply what was resolved, settle closed tasks past the window and run the
    *    project lifecycle, in one call (SyncWriter.applyReconcile).
    *
    * Returns null, having written nothing, when the signal aborts between provider calls.
@@ -87,34 +89,34 @@ export class TaskReconciler {
     // 2.
     const plan = this.planReconcile(sourceId, assigned);
     const ids = [...plan.candidates, ...plan.returning];
-    let items = NOTHING_RESOLVED;
-    let skipped = 0;
-    if (ids.length > 0) {
-      const resolved = await tasks.resolveTasks(auth, ids, { signal });
-      if (signal?.aborted) return null;
-      const projects =
-        plan.projectIds.length > 0
-          ? await tasks.resolveProjects(auth, plan.projectIds, { signal })
-          : { found: [], gone: [], skipped: 0 };
-      if (signal?.aborted) return null;
-
-      // the found tasks' projects, then the requested ones, each once
-      const byId = new Map<string, ExternalProject>();
-      [...resolved.projects, ...projects.found].forEach((project) =>
-        byId.set(project.externalId, project),
-      );
-      items = {
-        tasks: resolved.found,
-        projects: [...byId.values()],
-        gone: resolved.gone,
-        goneProjects: projects.gone,
-      };
-      skipped = resolved.skipped + projects.skipped;
-    }
+    const resolved =
+      ids.length > 0
+        ? await tasks.resolveTasks(auth, ids, { signal })
+        : { found: [], projects: [], gone: [], skipped: 0 };
+    if (signal?.aborted) return null;
 
     // 3.
+    const projects =
+      plan.projectIds.length > 0
+        ? await tasks.resolveProjects(auth, plan.projectIds, { signal })
+        : { found: [], gone: [], skipped: 0 };
+    if (signal?.aborted) return null;
+
+    // the found tasks' projects, then the requested ones, each once
+    const byId = new Map<string, ExternalProject>();
+    [...resolved.projects, ...projects.found].forEach((project) =>
+      byId.set(project.externalId, project),
+    );
+    const items: ReconcileItems = {
+      tasks: resolved.found,
+      projects: [...byId.values()],
+      gone: resolved.gone,
+      goneProjects: projects.gone,
+    };
+
+    // 4.
     return {
-      skipped,
+      skipped: resolved.skipped + projects.skipped,
       apply: () => {
         const settleBefore = new Date(this.now().getTime() - CLOSED_ISSUE_WINDOW_MS);
         return this.writer.applyReconcile(sourceId, items, { settleBefore });
@@ -131,7 +133,8 @@ export class TaskReconciler {
    *   incremental query has not seen yet
    * - returning: snapshot ids with no synced link: a `removed` link (e.g. restored from the trash,
    *   which leaves updatedAt alone) or none yet. A detached link is the user's own and is skipped
-   * - projectIds: this source's synced projects, so one deleted in the provider is noticed
+   * - projectIds: this source's synced projects, so one edited or deleted in the provider is
+   *   noticed
    */
   private planReconcile(sourceId: ExternalSourceId, assignedIds: string[]): ReconcilePlan {
     const assigned = new Set(assignedIds);
