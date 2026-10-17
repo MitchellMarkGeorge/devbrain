@@ -63,8 +63,7 @@ export interface ReconcilePlan {
   // trash) or none yet (e.g. assigned since the last pull). Detached links are left out
   returning: string[];
   // external project ids of every project the source mirrors (link synced), so one edited or
-  // deleted in the provider is noticed; looked up with the other two lists, or when the project
-  // check is due
+  // deleted in the provider is noticed; looked up on every pass
   projectIds: string[];
 }
 

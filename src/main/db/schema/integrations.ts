@@ -75,8 +75,6 @@ export const externalSources = sqliteTable(
     initialSyncCompletedAt: date(), // null until the first full pass finishes
     lastSyncedAt: date(),
     lastReconciledAt: date(),
-    // when a reconcile pass last looked up every mirrored project; null until one has
-    projectsCheckedAt: date(),
     lastError: text(), // null when the last run succeeded
     consecutiveFailures: integer().notNull().default(0), // drives backoff
     // set after a rate-limited run: the provider's stated retry time, before which nothing is sent

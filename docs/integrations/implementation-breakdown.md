@@ -298,7 +298,7 @@ The only code that writes external rows. It bypasses the service guards on purpo
 - [ ] Auto-reattach: in `SyncWriter`, when a project arrives whose link is `detached`, set it back to `synced` and refresh provider-owned fields.
 - [ ] Extend the Linear provider's `lookup` to accept project ids.
 - [ ] Set `lastReconciledAt` on success.
-- [ ] Project check: with no candidates or returning issues, still look up the mirrored projects when `projectsCheckedAt` (or the initial sync) is `PROJECT_CHECK_INTERVAL_MS` old, and apply edits and deletions through `applyReconcile`. Set `projectsCheckedAt` whenever the projects were looked up, in the pass's transaction.
+- [ ] Look up the mirrored projects on every pass, even with no candidates or returning issues, and apply edits and deletions through `applyReconcile`: incremental sync sees a project only inside a changed issue.
 
 **Tests**
 
@@ -310,9 +310,9 @@ The only code that writes external rows. It bypasses the service guards on purpo
 - [ ] Project with only a local task left is detached and editable; project with nothing left is archived.
 - [ ] Detached project's Linear project returns: reattached, no duplicate, local task still inside.
 - [ ] Issue restored from the trash, with `updatedAt` unchanged: its `removed` link is restored and the task unarchived on the next reconcile.
-- [ ] No candidates, no returning issues and no project check due: `lookup` is never called.
-- [ ] Project renamed with its issues unchanged: picked up once the project check is due, not before.
-- [ ] Project deleted with its issues unchanged: retired when the project check is due.
+- [ ] No candidates and no returning issues: only the projects are looked up, and nothing at all when none are mirrored.
+- [ ] Project renamed with its issues unchanged: picked up on the next reconcile.
+- [ ] Project deleted with its issues unchanged: retired on the next reconcile.
 
 **Done when** unassigning an issue in Linear removes it locally on the next reconcile.
 

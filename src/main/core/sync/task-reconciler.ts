@@ -10,8 +10,8 @@ import { TaskSource } from '../integrations/providers/provider';
 import { ProviderRegistry } from '../integrations/providers/registry';
 import { ExternalProject, LinkState, SourceType } from '../integrations/types';
 import { TaskStatus } from '../tasks/types';
-import { CLOSED_ISSUE_WINDOW_MS, PROJECT_CHECK_INTERVAL_MS } from './constants';
-import { SyncStateManager, SyncTarget, syncSkipReason } from './sync-state';
+import { CLOSED_ISSUE_WINDOW_MS } from './constants';
+import { SyncStateManager, syncSkipReason } from './sync-state';
 import { PendingReconcile } from './syncer';
 import {
   ReattachRefusal,
@@ -67,19 +67,17 @@ export class TaskReconciler {
    * 1. Ask the provider for the ids of the open tasks assigned to the viewer now.
    * 2. Diff them against the watched links (planReconcile), and resolve the candidates and
    *    returning tasks, if any.
-   * 3. Resolve the source's mirrored projects when this pass looked up tasks, or when the project
-   *    check is due (projectCheckDue). Incremental pulls see a project only inside a changed task,
-   *    so this is what brings in a project edited or deleted while its tasks stayed the same. Most
-   *    passes do neither, and make one request.
+   * 3. Resolve the source's mirrored projects, on every pass. Incremental pulls see a project only
+   *    inside a changed task, so this is what brings in a project edited or deleted while its
+   *    tasks stayed the same. Most passes resolve no tasks, so this is their one request after the
+   *    snapshot, and a source that mirrors no projects makes none.
    * 4. Return the writes: apply what was resolved, settle closed tasks past the window and run the
-   *    project lifecycle, in one call (SyncWriter.applyReconcile). A pass that resolved the
-   *    projects records when, in the same transaction.
+   *    project lifecycle, in one call (SyncWriter.applyReconcile).
    *
    * Returns null, having written nothing, when the signal aborts between provider calls.
    */
   async reconcile(
     sourceId: ExternalSourceId,
-    target: SyncTarget,
     tasks: TaskSource,
     auth: Auth,
     signal?: AbortSignal,
@@ -98,9 +96,8 @@ export class TaskReconciler {
     if (signal?.aborted) return null;
 
     // 3.
-    const checkProjects = ids.length > 0 || this.projectCheckDue(target);
     const projects =
-      checkProjects && plan.projectIds.length > 0
+      plan.projectIds.length > 0
         ? await tasks.resolveProjects(auth, plan.projectIds, { signal })
         : { found: [], gone: [], skipped: 0 };
     if (signal?.aborted) return null;
@@ -121,22 +118,10 @@ export class TaskReconciler {
     return {
       skipped: resolved.skipped + projects.skipped,
       apply: () => {
-        const now = this.now();
-        const settleBefore = new Date(now.getTime() - CLOSED_ISSUE_WINDOW_MS);
-        const summary = this.writer.applyReconcile(sourceId, items, { settleBefore });
-        if (checkProjects) this.syncState.markProjectsChecked(sourceId, now);
-        return summary;
+        const settleBefore = new Date(this.now().getTime() - CLOSED_ISSUE_WINDOW_MS);
+        return this.writer.applyReconcile(sourceId, items, { settleBefore });
       },
     };
-  }
-
-  /**
-   * Whether a pass that looks up no tasks still has to look up the mirrored projects: the last
-   * check, or the initial sync that brought them in, is PROJECT_CHECK_INTERVAL_MS old.
-   */
-  private projectCheckDue(target: SyncTarget): boolean {
-    const last = target.projectsCheckedAt ?? target.initialSyncCompletedAt;
-    return last === null || this.now().getTime() - last.getTime() >= PROJECT_CHECK_INTERVAL_MS;
   }
 
   /**

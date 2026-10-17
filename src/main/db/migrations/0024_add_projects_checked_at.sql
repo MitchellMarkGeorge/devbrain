@@ -1,1 +1,0 @@
-ALTER TABLE `external_sources` ADD `projects_checked_at` integer;

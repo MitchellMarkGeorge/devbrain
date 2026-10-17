@@ -19,8 +19,6 @@ export interface SyncTarget {
   cursor: unknown;
   initialSyncCompletedAt: Date | null;
   retryAt: Date | null;
-  // when a reconcile pass last looked up the source's mirrored projects; null until one has
-  projectsCheckedAt: Date | null;
   // failed runs in a row; the scheduler backs off by it
   consecutiveFailures: number;
 }
@@ -87,7 +85,6 @@ export class SyncStateManager {
         cursor: externalSources.cursor,
         initialSyncCompletedAt: externalSources.initialSyncCompletedAt,
         retryAt: externalSources.retryAt,
-        projectsCheckedAt: externalSources.projectsCheckedAt,
         consecutiveFailures: externalSources.consecutiveFailures,
       })
       .from(externalSources)
@@ -161,19 +158,6 @@ export class SyncStateManager {
     this.db
       .update(externalSources)
       .set({ lastReconciledAt: at })
-      .where(eq(externalSources.id, sourceId))
-      .run();
-  }
-
-  /**
-   * Records that a reconcile pass looked up every mirrored project of the source. Emits nothing, so
-   * the pass can call it inside the transaction that applies what it found: the time commits or
-   * rolls back with it.
-   */
-  markProjectsChecked(sourceId: ExternalSourceId, at: Date): void {
-    this.db
-      .update(externalSources)
-      .set({ projectsCheckedAt: at })
       .where(eq(externalSources.id, sourceId))
       .run();
   }
