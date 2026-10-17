@@ -37,8 +37,9 @@ export interface SyncSchedulerOptions {
  * Why a sync was asked for, from outside the scheduler. Focus and resume are skipped when the
  * source's last run finished under MIN_TRIGGER_GAP_MS ago, and while it backs off or waits on a
  * rate limit. Manual always runs, includes the reconcile pass, and restarts the backoff. Connected
- * always runs: a source that was just connected or switched on gets its first sync at once.
- * Reconnected restarts the backoff and runs at once, unless the provider's retry time is ahead.
+ * always runs: a source that was just connected or switched on syncs at once, with the reconcile
+ * pass when it resumes from a finished first sync. Reconnected runs as connected does, restarts
+ * the backoff, and waits for the provider's retry time if one is ahead.
  */
 export type SyncTrigger = 'focus' | 'resume' | 'manual' | 'connected' | 'reconnected';
 
@@ -72,6 +73,13 @@ export function backoffDelay(failures: number): number {
   return Math.min(BACKOFF_INITIAL_MS * 2 ** (failures - 1), BACKOFF_MAX_MS);
 }
 
+// Whether a source that starts syncing again resumes from a finished first sync, and so needs the
+// reconcile pass to catch what its incremental run can't see. A source without one gets a full
+// pass, which needs no reconcile.
+function resumesSync(target: SyncTarget | null): boolean {
+  return target?.initialSyncCompletedAt != null;
+}
+
 // one source's run and the follow-up asked for while it was going
 interface SourceRun {
   controller: AbortController;
@@ -98,6 +106,10 @@ interface SourceRun {
  *   the failures were most likely the rejected credentials the reconnect replaced. A source whose
  *   provider retry time is ahead still waits for it. Enabling a disabled integration is not a
  *   reconnect: it sends source_changed for each source it switches on, which starts that source.
+ * - A source switched back on, or whose integration is enabled or reconnected, also runs the
+ *   reconcile pass if it has finished a first sync. Its incremental run resumes from the cursor,
+ *   which cannot show issues reassigned, trashed or deleted while it was not syncing. A source's
+ *   first sync is a full pass, so a reconcile straight after it would only repeat it.
  * - Disabling a source or its integration, or the integration moving to needs_reauth, aborts its
  *   runs, and so does disconnecting it; its sources never run again. stop() aborts everything and
  *   resolves once every run has settled.
@@ -243,7 +255,7 @@ export class SyncScheduler {
         return this.requestRun(sourceId, true);
       }
       case 'connected':
-        return this.requestRun(sourceId, false);
+        return this.requestRun(sourceId, resumesSync(this.readSyncTarget(sourceId)));
       case 'reconnected': {
         const target = this.readSyncTarget(sourceId);
         if (target) this.restartBackoff(sourceId, target);
@@ -251,7 +263,7 @@ export class SyncScheduler {
         if (target?.retryAt && target.retryAt.getTime() > this.timers.now()) {
           return Promise.resolve();
         }
-        return this.requestRun(sourceId, false);
+        return this.requestRun(sourceId, resumesSync(target));
       }
       case 'focus':
       case 'resume': {

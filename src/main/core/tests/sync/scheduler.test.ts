@@ -48,7 +48,7 @@ interface EngineCall {
 /**
  * Stands in for SyncEngine's runSource and reconcileSource. Each run takes `durationMs` on the fake
  * clock and records its outcome on the source through the real SyncStateManager, as the engine
- * does, so the scheduler reads real failure counts and retry times.
+ * does, so the scheduler reads real failure counts, retry times and whether a first sync finished.
  */
 class FakeEngine implements BaseSyncEngine {
   readonly calls: EngineCall[] = [];
@@ -71,6 +71,10 @@ class FakeEngine implements BaseSyncEngine {
       if (options.signal?.aborted) return result(sourceId, SyncRunOutcome.ABORTED);
       switch (this.outcome) {
         case SyncRunOutcome.COMPLETED:
+          // a source's first completed run is its full pass
+          if (!this.syncState.getSyncTarget(sourceId).initialSyncCompletedAt) {
+            this.syncState.saveCursor(sourceId, {}, { initialSyncCompletedAt: new Date() });
+          }
           this.syncState.recordSyncOutcome(sourceId, { ok: true, at: new Date() });
           break;
         case SyncRunOutcome.FAILED:
@@ -405,13 +409,26 @@ describe('SyncScheduler — triggers', () => {
     expect(engine.reconciles()).toHaveLength(2);
   });
 
-  it('connecting a source while started syncs it at once', async () => {
+  it('connecting a source while started syncs it at once, without reconciling its first sync', async () => {
     await start();
 
     await service.setSourceEnabled(calendarSourceId, true);
     await vi.advanceTimersByTimeAsync(0);
 
     expect(engine.runs(calendarSourceId)).toHaveLength(1);
+    expect(engine.reconciles(calendarSourceId)).toHaveLength(0);
+  });
+
+  it('a source switched back on after its first sync resumes with the reconcile pass', async () => {
+    await start();
+    await service.setSourceEnabled(linearSourceId, false);
+    await vi.advanceTimersByTimeAsync(2 * MINUTE);
+
+    await service.setSourceEnabled(linearSourceId, true);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(engine.runs().map((call) => call.at)).toEqual([0, 2]);
+    expect(engine.reconciles().map((call) => call.at)).toEqual([0, 2]);
   });
 
   it('switching a source off aborts its run', async () => {
@@ -530,7 +547,7 @@ describe('SyncScheduler — reconnect', () => {
     return service.reconnect(id, { type: AuthType.API_KEY, apiKey });
   }
 
-  it('runs each enabled source of the integration once, at once', async () => {
+  it('runs each enabled source of the integration once, at once, with the reconcile pass', async () => {
     await start();
     await vi.advanceTimersByTimeAsync(2 * MINUTE);
     service.markNeedsReauth(linearId);
@@ -539,10 +556,10 @@ describe('SyncScheduler — reconnect', () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect(engine.runs().map((call) => call.at)).toEqual([0, 2]);
+    expect(engine.reconciles().map((call) => call.at)).toEqual([0, 2]);
     // no follow-up: the next run is the 5-minute tick
     await vi.advanceTimersByTimeAsync(2 * MINUTE);
     expect(engine.runs().map((call) => call.at)).toEqual([0, 2]);
-    expect(engine.reconciles()).toHaveLength(1);
   });
 
   it("runs neither a disabled source nor another integration's", async () => {
@@ -600,6 +617,7 @@ describe('SyncScheduler — reconnect', () => {
     await vi.advanceTimersByTimeAsync(0);
 
     expect(engine.runs().map((call) => call.at)).toEqual([0, 2]);
+    expect(engine.reconciles().map((call) => call.at)).toEqual([0, 2]);
     await vi.advanceTimersByTimeAsync(2 * MINUTE);
     expect(engine.runs().map((call) => call.at)).toEqual([0, 2]);
     expect(engine.overlapped).toBe(false);
