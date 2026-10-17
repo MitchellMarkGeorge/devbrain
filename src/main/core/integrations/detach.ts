@@ -148,6 +148,8 @@ export class DetachService {
         `Task ${key} can't be reattached because its integration was disconnected`,
       );
     }
+    // read now: a disconnect while the provider answers would delete the source
+    const integrationId = this.integrationOf(link.sourceId);
 
     // 3. the provider's copy, written by sync
     const descendants = subtree.filter(
@@ -162,10 +164,8 @@ export class DetachService {
         descendants.map((row) => row.externalId!),
       );
     } catch (error) {
-      // only a reconnect fixes rejected credentials; null when a disconnect landed meanwhile
-      const integrationId =
-        error instanceof IntegrationAuthError ? this.integrationOf(link.sourceId) : null;
-      if (integrationId) {
+      // only a reconnect fixes rejected credentials
+      if (error instanceof IntegrationAuthError) {
         this.changes.emit({ type: 'credentials_rejected', taskId: id, integrationId });
       }
       throw error;
@@ -202,13 +202,15 @@ export class DetachService {
     return row.link;
   }
 
-  private integrationOf(sourceId: ExternalSourceId): IntegrationId | null {
+  /** a link's source always exists: deleting one nulls the sourceId of its links */
+  private integrationOf(sourceId: ExternalSourceId): IntegrationId {
     const row = this.db
       .select({ integrationId: externalSources.integrationId })
       .from(externalSources)
       .where(eq(externalSources.id, sourceId))
       .get();
-    return row?.integrationId ?? null;
+    if (!row) throw new NotFoundError(sourceId);
+    return row.integrationId;
   }
 
   /**
