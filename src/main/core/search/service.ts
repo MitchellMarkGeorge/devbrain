@@ -86,8 +86,10 @@ export class SearchService {
   // is deleted+inserted as one DELETE and one multi-row INSERT inside one
   // transaction, instead of a DELETE+INSERT pair per entity. Matters once
   // you're indexing more than a handful of rows at a time (e.g. a bulk
-  // (re)index or a seed script).
-  indexTasks(tasks: Task[]): void {
+  // (re)index or a seed script). `isNew` says nothing in the batch can have an entry yet (it was
+  // all inserted in the caller's transaction), so the DELETE, which reads the whole index, is
+  // skipped.
+  indexTasks(tasks: Task[], { isNew = false }: { isNew?: boolean } = {}): void {
     this.upsertIndexBatch(
       tasks.map((task) => ({
         title: task.title,
@@ -95,6 +97,7 @@ export class SearchService {
         entityId: task.id,
         entityType: 'task' as const,
       })),
+      { isNew },
     );
   }
 
@@ -128,7 +131,7 @@ export class SearchService {
     );
   }
 
-  indexEvents(events: Event[]): void {
+  indexEvents(events: Event[], { isNew = false }: { isNew?: boolean } = {}): void {
     this.upsertIndexBatch(
       events.map((event) => ({
         title: event.title,
@@ -136,6 +139,7 @@ export class SearchService {
         entityId: event.id,
         entityType: 'event' as const,
       })),
+      { isNew },
     );
   }
 
@@ -160,7 +164,7 @@ export class SearchService {
     return path.join(this.workspaceNotesPath, `${id}.md`);
   }
 
-  private upsertIndexBatch(entities: IndexEntity[]): void {
+  private upsertIndexBatch(entities: IndexEntity[], { isNew = false } = {}): void {
     if (entities.length === 0) return;
 
     // search_index is a plain (non-content-linked) fts5 table, so there's no
@@ -186,7 +190,8 @@ export class SearchService {
     const insertQuery = sql`INSERT INTO search_index (title, body, entity_id, entity_type) VALUES ${valueRows}`;
 
     this.db.transaction((tx) => {
-      tx.run(deleteQuery);
+      // entity_id is UNINDEXED, so this reads every entry in the index
+      if (!isNew) tx.run(deleteQuery);
       tx.run(insertQuery);
     });
   }

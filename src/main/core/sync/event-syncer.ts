@@ -62,8 +62,10 @@ const FRESH: CalendarSyncState = { syncToken: null, pageToken: null };
  *   next run resumes from there, even mid-calendar. Full passes are the long ones, and the ones
  *   most likely to be cut short, e.g. by closing the app during a first sync.
  * - better-sqlite3 is synchronous, so every write blocks the main process. A page of at most
- *   EVENTS_PAGE_SIZE events keeps each transaction to a few milliseconds; a whole calendar's
- *   first sync could be thousands of rows. Memory stays bounded the same way.
+ *   EVENTS_PAGE_SIZE events keeps each transaction within its budget: about 33 ms measured for
+ *   250 new events, flat as the table grows, against a budget of 75 ms (see "Database
+ *   concurrency" in docs/integrations/tech-design.md). A whole calendar's first sync could be
+ *   thousands of rows and hold the main process for seconds. Memory stays bounded the same way.
  * - The engine checks its abort signal and MAX_PAGES_PER_RUN between pulls and reports progress
  *   after each one, so an abort is seen, the cap counts, and progress moves page by page rather
  *   than calendar by calendar.
