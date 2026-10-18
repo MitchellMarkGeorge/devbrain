@@ -201,8 +201,8 @@ export class TaskReconciler {
    *
    * Any provider failure throws, rejected credentials (IntegrationAuthError) included. Unlike a
    * run, this does not move the integration to needs_reauth: that is left to the caller, so sync
-   * does not depend on IntegrationService. For now nothing does it; the typed IPC layer will (see
-   * docs/follow-ups.md).
+   * does not depend on IntegrationService. DetachService reports it, and the workspace marks the
+   * integration.
    */
   async reattachTasks(
     sourceId: ExternalSourceId,

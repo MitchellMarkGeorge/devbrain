@@ -9,12 +9,17 @@ import { fileURLToPath } from 'node:url';
 import type { WorkspaceId } from '@common/ids';
 import type { WorkspaceInfo } from '../../workspace/types';
 import { Workspace } from '../../workspace/workspace';
-import { WorkspaceClosedError, WorkspaceMigrationError } from '../../shared/errors';
+import {
+  IntegrationAuthError,
+  WorkspaceClosedError,
+  WorkspaceMigrationError,
+} from '../../shared/errors';
 import { migrationsWithExtra } from '../utils';
 import Database from 'better-sqlite3';
 import { FakeCipher } from '../__mocks__/fake-cipher';
 import { createFakeProvider, FAKE_API_KEY, fakeRegistry } from '../sync/fake-provider';
-import { AuthType, Provider } from '../../integrations/types';
+import { AuthType, IntegrationStatus, LinkState, Provider } from '../../integrations/types';
+import type { TaskLinkChange } from '../../integrations/detach';
 import { TaskPriority, TaskStatus } from '../../tasks/types';
 import { scriptedFetch } from '../integrations/linear/fake-fetch';
 import viewerFixture from '../integrations/fixtures/linear/viewer.json';
@@ -342,6 +347,92 @@ describe('Workspace — disconnect', () => {
       await workspace.integrations.disconnect(integration.id, { keepLocalCopies: false });
 
       expect(search()).toEqual([]);
+    } finally {
+      await workspace.close();
+    }
+  });
+});
+
+describe('Workspace — detach', () => {
+  it('detaches, renames and reattaches a task, keeping search up to date', async () => {
+    const provider = createFakeProvider();
+    const workspace = await Workspace.create(makeInfo(tmpDir), {
+      cipher: new FakeCipher(),
+      providers: fakeRegistry(provider),
+    });
+    try {
+      workspace.sync.start();
+      const item = issue();
+      provider.tasks.script({ tasks: [item] });
+      await workspace.integrations.connectWithApiKey(Provider.LINEAR, FAKE_API_KEY);
+      const search = (query: string) =>
+        workspace.search.search({ query, entityType: ['task'] }).map(({ entityId }) => entityId);
+      await vi.waitFor(() => expect(search('Issue')).toHaveLength(1));
+      const [{ id }] = (await workspace.tasks.listTasks()).items;
+      const changes: TaskLinkChange[] = [];
+      workspace.detach.onChange((change) => changes.push(change));
+
+      const detached = await workspace.detach.detachTask(id);
+      await workspace.tasks.updateTask(id, { title: 'Mine' });
+
+      expect(detached.external?.state).toBe(LinkState.DETACHED);
+      expect(search('Mine')).toEqual([id]);
+      expect(search('Issue')).toEqual([]);
+
+      provider.tasks.respondToLookup = () => ({ tasks: [{ ...item, title: 'Issue renamed' }] });
+      const reattached = await workspace.detach.reattachTask(id);
+
+      // Linear's copy overwrites the local one, in the index too
+      expect(reattached).toMatchObject({ title: 'Issue renamed', external: { state: 'synced' } });
+      expect(search('renamed')).toEqual([id]);
+      expect(search('Mine')).toEqual([]);
+      expect(changes.map((change) => change.type)).toEqual(['detached', 'reattached']);
+    } finally {
+      await workspace.close();
+    }
+  });
+
+  it('moves the integration to needs_reauth when Linear rejects a reattach, aborting its runs', async () => {
+    const provider = createFakeProvider();
+    const workspace = await Workspace.create(makeInfo(tmpDir), {
+      cipher: new FakeCipher(),
+      providers: fakeRegistry(provider),
+    });
+    try {
+      workspace.sync.start();
+      provider.tasks.script({ tasks: [issue()] });
+      const integration = await workspace.integrations.connectWithApiKey(
+        Provider.LINEAR,
+        FAKE_API_KEY,
+      );
+      const search = (query: string) =>
+        workspace.search.search({ query, entityType: ['task'] }).map(({ entityId }) => entityId);
+      await vi.waitFor(() => expect(search('Issue')).toHaveLength(1));
+      const [{ id }] = (await workspace.tasks.listTasks()).items;
+      await workspace.detach.detachTask(id);
+      provider.tasks.respondToLookup = () => {
+        throw new IntegrationAuthError('Linear rejected the credentials');
+      };
+
+      // a run is waiting on Linear when the reattach is rejected
+      const pulling = deferred<void>();
+      provider.tasks.script({
+        tasks: [{ ...issue(), externalId: 'issue-2', key: 'ENG-2', title: 'Late' }],
+        delayMs: 50,
+        onPull: () => pulling.resolve(),
+      });
+      const run = workspace.sync.syncNow(integration.sources[0].id);
+      await pulling.promise;
+
+      await expect(workspace.detach.reattachTask(id)).rejects.toThrow(IntegrationAuthError);
+
+      const [stored] = await workspace.integrations.list();
+      expect(stored.status).toBe(IntegrationStatus.NEEDS_REAUTH);
+      expect((await workspace.tasks.getById(id)).external?.state).toBe(LinkState.DETACHED);
+      // the run was aborted, so the page it was waiting on is never written
+      await run;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(search('Late')).toEqual([]);
     } finally {
       await workspace.close();
     }
