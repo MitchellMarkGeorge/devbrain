@@ -148,6 +148,14 @@ function searchIds(query: string): string[] {
   return search.search({ query, entityType: [] }).map((result) => result.entityId);
 }
 
+// the index's entries for synced rows, as rebuilding must reproduce them; notes are left out, since
+// these tests write them through NoteService with no workspace to index them
+function syncedEntries() {
+  return db.all(
+    sql`SELECT entity_id, entity_type, title, body FROM search_index WHERE entity_type != 'note' ORDER BY entity_id`,
+  );
+}
+
 beforeEach(async () => {
   db = createDb();
   workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-sync-writer-'));
@@ -584,6 +592,38 @@ describe('SyncWriter — removed', () => {
     expect(linkOf(proj.externalId)!.state).toBe(LinkState.SYNCED);
     expect(projectRow(projectId).archivedAt).toBeNull();
     expect(taskRow(item.externalId).projectId).toBe(projectId);
+  });
+});
+
+describe('SyncWriter — search rebuild', () => {
+  it('rebuilding gives the index sync left: inserted, updated, removed, restored and retired', () => {
+    const kept = project({ title: 'Platform' });
+    const retired = project({ title: 'Legacy' });
+    const parent = issue({ title: 'Parent', projectExternalId: kept.externalId });
+    const child = childOf(parent, { title: 'Child', description: 'nested **body**' });
+    const removed = issue({ title: 'Trashed', projectExternalId: retired.externalId });
+    const restored = issue({ title: 'Back again' });
+    writer.applyTaskPage(
+      sourceId,
+      page({ projects: [kept, retired], tasks: [parent, child, removed, restored] }),
+    );
+    writer.applyTaskPage(
+      sourceId,
+      page({ tasks: [{ ...parent, title: 'Parent renamed', updatedAt: V2 }] }),
+    );
+    writer.removeTasks(sourceId, [restored.externalId]);
+    writer.applyTaskPage(sourceId, page({ tasks: [restored], removedIds: [removed.externalId] }));
+    writer.applyReconcile(
+      sourceId,
+      { tasks: [], projects: [], gone: [], goneProjects: [retired.externalId] },
+      { settleBefore: CREATED },
+    );
+    expect(linkOf(removed.externalId)!.state).toBe(LinkState.REMOVED);
+    expect(linkOf(retired.externalId)!.state).toBe(LinkState.REMOVED);
+    const synced = syncedEntries();
+    expect(synced).toHaveLength(4);
+
+    return search.rebuild().then(() => expect(syncedEntries()).toEqual(synced));
   });
 });
 
