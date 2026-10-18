@@ -638,25 +638,28 @@ describe('ArchiveService — archiveProject', () => {
     await expect(tasks.getById(taskInB.id)).resolves.toMatchObject({ id: taskInB.id });
   });
 
-  it('overwrites archivedAt of already-archived tasks with the project archive timestamp', async () => {
-    const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
-    const task = await tasks.createTask({
-      title: 'Pre-archived',
-      dueDate: TOMORROW,
-      projectId: project.id,
-    });
-    archive.archiveTask(task.id);
+  it('keeps archivedAt of already-archived tasks instead of stamping the project archive timestamp', async () => {
+    vi.useFakeTimers({ now: new Date('2026-10-05T08:00:00Z'), toFake: ['Date'] });
+    try {
+      const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
+      const task = await tasks.createTask({
+        title: 'Pre-archived',
+        dueDate: TOMORROW,
+        projectId: project.id,
+      });
+      archive.archiveTask(task.id);
+      const archivedAt = new Date();
+      vi.setSystemTime(Date.now() + 1000);
 
-    const before = new Date();
-    archive.archiveProject(project.id);
-    const after = new Date();
+      archive.archiveProject(project.id);
 
-    // archiveProject stamps all tasks with a fresh timestamp regardless of prior archive state
-    const { tasks: tasksTable } = await import('@main/db/schema/tasks');
-    const { eq: drizzleEq } = await import('drizzle-orm');
-    const [raw] = await db.select().from(tasksTable).where(drizzleEq(tasksTable.id, task.id));
-    expect(raw.archivedAt!.getTime()).toBeGreaterThanOrEqual(before.getTime());
-    expect(raw.archivedAt!.getTime()).toBeLessThanOrEqual(after.getTime());
+      const { tasks: tasksTable } = await import('@main/db/schema/tasks');
+      const { eq: drizzleEq } = await import('drizzle-orm');
+      const [raw] = await db.select().from(tasksTable).where(drizzleEq(tasksTable.id, task.id));
+      expect(raw.archivedAt).toEqual(archivedAt);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('archives notes directly owned by the project', async () => {

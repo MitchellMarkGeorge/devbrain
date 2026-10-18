@@ -10,6 +10,15 @@ import { NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
 import { TaskService } from '../../tasks/service';
 import { InvalidCursorError } from '../../shared/pagination';
+import { and, eq } from 'drizzle-orm';
+import { NoteId, TaskId } from '@common/ids';
+import { tasks as tasksTable } from '@main/db/schema/tasks';
+import { notes as notesTable } from '@main/db/schema/notes';
+import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
+import { SearchService } from '../../search/service';
+import { SyncWriter } from '../../sync/writer';
+import { TaskPriority, TaskStatus } from '../../tasks/types';
+import { AuthType, ExternalTask, LinkState, Provider, SourceType } from '../../integrations/types';
 
 const TOMORROW = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
@@ -171,6 +180,206 @@ describe('ArchiveService — onChange', () => {
     expect(listener).toHaveBeenCalledOnce();
   });
 });
+
+describe('ArchiveService — restore brings back only what was archived with the item', () => {
+  // every archive in these tests lands on its own millisecond, as user actions do; rows archived
+  // in the same millisecond would count as one cascade
+  beforeEach(() => {
+    vi.useFakeTimers({ now: new Date('2026-10-05T08:00:00Z'), toFake: ['Date'] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function later() {
+    vi.setSystemTime(Date.now() + 1000);
+  }
+
+  function record() {
+    const changes: ArchiveChange[] = [];
+    archive.onChange((change) => changes.push(change));
+    return changes;
+  }
+
+  // the raw rows, archived or not
+  function taskRow(id: TaskId) {
+    return db.select().from(tasksTable).where(eq(tasksTable.id, id)).get()!;
+  }
+
+  function noteRow(id: NoteId) {
+    return db.select().from(notesTable).where(eq(notesTable.id, id)).get()!;
+  }
+
+  it('a subtask archived on its own stays archived when its parent is archived and restored', async () => {
+    const task = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const alone = await tasks.createSubtask(task.id, {
+      title: 'Archived alone',
+      dueDate: TOMORROW,
+    });
+    const sibling = await tasks.createSubtask(task.id, { title: 'Sibling', dueDate: TOMORROW });
+    const aloneNote = await notesService.createNote({ title: 'On alone', linkedTaskId: alone.id });
+    archive.archiveTask(alone.id);
+    const aloneArchivedAt = taskRow(alone.id).archivedAt;
+    later();
+    const changes = record();
+
+    archive.archiveTask(task.id);
+    archive.restoreTask(task.id);
+
+    expect(taskRow(task.id).archivedAt).toBeNull();
+    expect(taskRow(sibling.id).archivedAt).toBeNull();
+    expect(taskRow(alone.id).archivedAt).toEqual(aloneArchivedAt);
+    expect(noteRow(aloneNote.id).archivedAt).toEqual(aloneArchivedAt);
+    expect(changes.map((c) => [c.type, [...c.taskIds].sort(), c.noteIds])).toEqual([
+      ['archived', [task.id, sibling.id].sort(), []],
+      ['restored', [task.id, sibling.id].sort(), []],
+    ]);
+  });
+
+  it('a task and a note archived on their own stay archived when their project is restored', async () => {
+    const project = await projects.createProject({ title: 'Apollo', dueDate: TOMORROW });
+    const kept = await tasks.createTask({
+      title: 'Kept',
+      dueDate: TOMORROW,
+      projectId: project.id,
+    });
+    const alone = await tasks.createTask({
+      title: 'Archived alone',
+      dueDate: TOMORROW,
+      projectId: project.id,
+    });
+    const keptNote = await notesService.createNote({ title: 'Plan', projectId: project.id });
+    const aloneNote = await notesService.createNote({ title: 'Old', projectId: project.id });
+    archive.archiveTask(alone.id);
+    archive.archiveNote(aloneNote.id);
+    const aloneArchivedAt = taskRow(alone.id).archivedAt;
+    const noteArchivedAt = noteRow(aloneNote.id).archivedAt;
+    later();
+    const changes = record();
+
+    archive.archiveProject(project.id);
+    archive.restoreProject(project.id);
+
+    expect(taskRow(kept.id).archivedAt).toBeNull();
+    expect(noteRow(keptNote.id).archivedAt).toBeNull();
+    expect(taskRow(alone.id).archivedAt).toEqual(aloneArchivedAt);
+    expect(noteRow(aloneNote.id).archivedAt).toEqual(noteArchivedAt);
+    expect(changes.map((c) => [c.type, c.taskIds, c.projectIds, c.noteIds])).toEqual([
+      ['archived', [kept.id], [project.id], [keptNote.id]],
+      ['restored', [kept.id], [project.id], [keptNote.id]],
+    ]);
+  });
+
+  it("archiving a task doesn't re-stamp a note already archived", async () => {
+    const task = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const note = await notesService.createNote({ title: 'Old', linkedTaskId: task.id });
+    archive.archiveNote(note.id);
+    const archivedAt = noteRow(note.id).archivedAt;
+    later();
+    const changes = record();
+
+    archive.archiveTask(task.id);
+
+    expect(noteRow(note.id).archivedAt).toEqual(archivedAt);
+    expect(changes).toEqual([
+      { type: 'archived', taskIds: [task.id], projectIds: [], noteIds: [] },
+    ]);
+  });
+
+  it("archiving a project doesn't re-stamp a task or note already archived", async () => {
+    const project = await projects.createProject({ title: 'Apollo', dueDate: TOMORROW });
+    const task = await tasks.createTask({ title: 'Old', dueDate: TOMORROW, projectId: project.id });
+    const note = await notesService.createNote({ title: 'Old', projectId: project.id });
+    archive.archiveTask(task.id);
+    archive.archiveNote(note.id);
+    const taskArchivedAt = taskRow(task.id).archivedAt;
+    const noteArchivedAt = noteRow(note.id).archivedAt;
+    later();
+    const changes = record();
+
+    archive.archiveProject(project.id);
+
+    expect(taskRow(task.id).archivedAt).toEqual(taskArchivedAt);
+    expect(noteRow(note.id).archivedAt).toEqual(noteArchivedAt);
+    expect(changes).toEqual([
+      { type: 'archived', taskIds: [], projectIds: [project.id], noteIds: [] },
+    ]);
+  });
+
+  it('a subtask sync removed stays archived and removed when its detached parent is restored', async () => {
+    const search = new SearchService(db, workspacePath);
+    const writer = new SyncWriter(db, search);
+    const integrationId = db
+      .insert(integrations)
+      .values({
+        provider: Provider.LINEAR,
+        authType: AuthType.API_KEY,
+        accountId: 'org:user',
+        accountLabel: 'Ada, Acme',
+        credentials: Buffer.from('ciphertext'),
+      })
+      .returning()
+      .get().id;
+    const sourceId = db
+      .insert(externalSources)
+      .values({ integrationId, sourceType: SourceType.TASKS })
+      .returning()
+      .get().id;
+    const linkOf = (externalId: string) =>
+      db
+        .select()
+        .from(externalLinks)
+        .where(and(eq(externalLinks.sourceId, sourceId), eq(externalLinks.externalId, externalId)))
+        .get()!;
+    const parent = linearIssue('1');
+    const child = linearIssue('2', parent);
+    writer.applyTaskPage(sourceId, { projects: [], tasks: [parent, child], removedIds: [] });
+    writer.removeTasks(sourceId, [child.externalId]);
+    // detached, as DetachService leaves it
+    db.update(externalLinks)
+      .set({ state: LinkState.DETACHED })
+      .where(eq(externalLinks.id, linkOf(parent.externalId).id))
+      .run();
+    const parentId = linkOf(parent.externalId).taskId!;
+    const childId = linkOf(child.externalId).taskId!;
+    const removedAt = taskRow(childId).archivedAt;
+    expect(removedAt).not.toBeNull();
+    later();
+
+    archive.archiveTask(parentId);
+    archive.restoreTask(parentId);
+
+    expect(taskRow(parentId).archivedAt).toBeNull();
+    expect(taskRow(childId).archivedAt).toEqual(removedAt);
+    expect(linkOf(child.externalId).state).toBe(LinkState.REMOVED);
+  });
+});
+
+// a Linear issue as the mapper hands it over, optionally a sub-issue of `parent`
+function linearIssue(n: string, parent?: ExternalTask): ExternalTask {
+  return {
+    externalId: `issue-${n}`,
+    key: `ENG-${n}`,
+    url: `https://linear.app/acme/issue/ENG-${n}`,
+    title: `Issue ${n}`,
+    description: null,
+    status: TaskStatus.NOT_STARTED,
+    priority: TaskPriority.LOW,
+    statusLabel: 'Todo',
+    priorityLabel: 'Low',
+    startDate: null,
+    dueDate: null,
+    completedAt: null,
+    createdAt: new Date('2026-01-15T09:00:00Z'),
+    updatedAt: new Date('2026-10-01T12:00:00Z'),
+    parentExternalId: parent?.externalId ?? null,
+    parentKey: parent?.key ?? null,
+    parentTitle: parent?.title ?? null,
+    projectExternalId: null,
+    assignedToViewer: true,
+  };
+}
 
 describe('ArchiveService — listArchived', () => {
   it('returns an empty list when nothing is archived', async () => {
