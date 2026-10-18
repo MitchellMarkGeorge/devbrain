@@ -72,7 +72,7 @@ export class ArchiveService {
           ? tx
               .update(notes)
               .set({ archivedAt: now })
-              .where(inArray(notes.linkedTaskId, updatedTaskIds))
+              .where(and(inArray(notes.linkedTaskId, updatedTaskIds), isNull(notes.archivedAt)))
               .returning({ id: notes.id })
               .all()
               .map(({ id }) => id)
@@ -91,10 +91,12 @@ export class ArchiveService {
       if (!existing) throw new NotFoundError(id);
       if (existing.archivedAt === null) throw new NotArchivedError(id);
 
+      // rows archived with the task carry its archivedAt; ones archived on their own, or by sync,
+      // carry another and stay archived
       const updatedTasks = tx
         .update(tasks)
         .set({ archivedAt: null })
-        .where(inArray(tasks.id, subtreeOf(id)))
+        .where(and(inArray(tasks.id, subtreeOf(id)), eq(tasks.archivedAt, existing.archivedAt)))
         .returning()
         .all();
 
@@ -106,7 +108,12 @@ export class ArchiveService {
           ? tx
               .update(notes)
               .set({ archivedAt: null })
-              .where(inArray(notes.linkedTaskId, updatedTaskIds))
+              .where(
+                and(
+                  inArray(notes.linkedTaskId, updatedTaskIds),
+                  eq(notes.archivedAt, existing.archivedAt),
+                ),
+              )
               .returning({ id: notes.id })
               .all()
               .map(({ id }) => id)
@@ -137,11 +144,11 @@ export class ArchiveService {
         .returning()
         .get();
 
-      // archive all tasks (and subtasks) attached to the project
+      // archive all tasks (and subtasks) attached to the project that aren't archived already
       const updatedTaskIds = tx
         .update(tasks)
         .set({ archivedAt: now })
-        .where(eq(tasks.projectId, id))
+        .where(and(eq(tasks.projectId, id), isNull(tasks.archivedAt)))
         .returning({ id: tasks.id })
         .all()
         .map(({ id }) => id);
@@ -150,7 +157,12 @@ export class ArchiveService {
       const noteIds = tx
         .update(notes)
         .set({ archivedAt: now })
-        .where(or(eq(notes.projectId, id), inArray(notes.linkedTaskId, updatedTaskIds)))
+        .where(
+          and(
+            or(eq(notes.projectId, id), inArray(notes.linkedTaskId, updatedTaskIds)),
+            isNull(notes.archivedAt),
+          ),
+        )
         .returning({ id: notes.id })
         .all()
         .map(({ id }) => id);
@@ -176,11 +188,12 @@ export class ArchiveService {
         .returning()
         .get();
 
-      // restore all archived tasks (and subtasks) attached to the project
+      // rows archived with the project carry its archivedAt; ones archived on their own, or by
+      // sync, carry another and stay archived
       const updatedTaskIds = tx
         .update(tasks)
         .set({ archivedAt: null })
-        .where(eq(tasks.projectId, id))
+        .where(and(eq(tasks.projectId, id), eq(tasks.archivedAt, existing.archivedAt)))
         .returning({ id: tasks.id })
         .all()
         .map(({ id }) => id);
@@ -189,7 +202,12 @@ export class ArchiveService {
       const noteIds = tx
         .update(notes)
         .set({ archivedAt: null })
-        .where(or(eq(notes.projectId, id), inArray(notes.linkedTaskId, updatedTaskIds)))
+        .where(
+          and(
+            or(eq(notes.projectId, id), inArray(notes.linkedTaskId, updatedTaskIds)),
+            eq(notes.archivedAt, existing.archivedAt),
+          ),
+        )
         .returning({ id: notes.id })
         .all()
         .map(({ id }) => id);

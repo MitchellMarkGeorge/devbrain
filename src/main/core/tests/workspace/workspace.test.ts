@@ -611,6 +611,27 @@ describe('Workspace — search of archived and restored rows', () => {
     }
   });
 
+  it('a subtask archived on its own stays out of search when its parent is restored', async () => {
+    // each archive on its own millisecond, as user actions are
+    vi.useFakeTimers({ now: new Date('2026-10-05T08:00:00Z'), toFake: ['Date'] });
+    const workspace = await Workspace.create(makeInfo(tmpDir));
+    try {
+      const task = await workspace.tasks.createTask({ title: 'Draft', dueDate: new Date() });
+      const alone = await workspace.tasks.createSubtask(task.id, { title: 'Draft old' });
+      const sibling = await workspace.tasks.createSubtask(task.id, { title: 'Draft intro' });
+      workspace.archive.archiveTask(alone.id);
+      vi.setSystemTime(Date.now() + 1000);
+
+      workspace.archive.archiveTask(task.id);
+      workspace.archive.restoreTask(task.id);
+
+      expect(searchIds(workspace, 'Draft')).toEqual([task.id, sibling.id].sort());
+    } finally {
+      await workspace.close();
+      vi.useRealTimers();
+    }
+  });
+
   it('archiving and restoring a note re-indexes its content from its file', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir));
     try {
