@@ -450,6 +450,49 @@ describe('SyncWriter events — recurring series', () => {
     const moved = occurrenceOf(series, OCCURRENCE_2);
     writer.applyEventPage(sourceId, calendarId, page({ events: [moved, series] }));
     expect(eventRow(moved.externalId).seriesId).toBe(eventIdOf(series.externalId));
+    // the series is on the occurrence's link too, where adoption and removal look it up
+    expect(linkOf(moved.externalId)!.parentExternalId).toBe(series.externalId);
+    expect(linkOf(series.externalId)!.parentExternalId).toBeNull();
+  });
+
+  it('a changed occurrence moves into a series that is new in the same page', () => {
+    const series = master();
+    const moved = occurrenceOf(series, OCCURRENCE_2);
+    writer.applyEventPage(sourceId, calendarId, page({ events: [moved] }));
+
+    const summary = writer.applyEventPage(
+      sourceId,
+      calendarId,
+      page({ events: [{ ...moved, title: 'Moved again', updatedAt: V2 }, series] }),
+    );
+
+    // the new master is inserted before the occurrence is updated to point at it
+    expect(summary).toMatchObject({ inserted: 1, updated: 1 });
+    expect(eventRow(moved.externalId)).toMatchObject({
+      title: 'Moved again',
+      seriesId: eventIdOf(series.externalId),
+    });
+  });
+
+  it('adopts the occurrences of several series arriving in one page', async () => {
+    const first = master();
+    const second = master({ title: 'Standup' });
+    const waiting = [
+      occurrenceOf(first, OCCURRENCE_2),
+      occurrenceOf(first, OCCURRENCE_3, { cancelled: true }),
+      occurrenceOf(second, OCCURRENCE_2, { cancelled: true }),
+      occurrenceOf(second, OCCURRENCE_3),
+    ];
+    writer.applyEventPage(sourceId, calendarId, page({ events: waiting }));
+    expect(count(externalEventExceptions)).toBe(2);
+
+    writer.applyEventPage(sourceId, calendarId, page({ events: [first, second] }));
+
+    expect(count(externalEventExceptions)).toBe(0);
+    expect(eventRow(waiting[0].externalId).seriesId).toBe(eventIdOf(first.externalId));
+    expect(eventRow(waiting[3].externalId).seriesId).toBe(eventIdOf(second.externalId));
+    expect(await exdatesOf(first.externalId)).toEqual([OCCURRENCE_2, OCCURRENCE_3]);
+    expect(await exdatesOf(second.externalId)).toEqual([OCCURRENCE_2, OCCURRENCE_3]);
   });
 
   it('keeps what a series no longer has when its rule changes', async () => {
