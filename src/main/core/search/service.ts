@@ -7,12 +7,34 @@ import type { Event } from '../events/types';
 import type { Note } from '../notes/types';
 import type { Project } from '../projects/types';
 import type { Task } from '../tasks/types';
-import type { IndexEntity, SearchOptions, SearchResult } from './types';
+import type { IndexEntity, RebuildResult, SearchOptions, SearchResult } from './types';
 import { toFtsQuery } from './utils';
-import { sql } from 'drizzle-orm';
+import { and, inArray, isNull, not, sql, SQL } from 'drizzle-orm';
+import { tasks } from '@main/db/schema/tasks';
+import { projects } from '@main/db/schema/projects';
+import { notes } from '@main/db/schema/notes';
+import { events } from '@main/db/schema/events';
+import { hasLinkInState } from '../integrations/refs';
+import { LinkState } from '../integrations/types';
+
+// rows per INSERT when writing many entries at once: four bound values each, well under SQLite's
+// limit on variables in one statement
+const INSERT_CHUNK = 1000;
+
+// The note files read for one call, and the notes whose content a write indexed while they were
+// being read: those writes are newer than the files read, so their entries are kept.
+interface NoteFileRead {
+  bodies: Map<NoteId, string>;
+  unreadable: NoteId[];
+  written: Set<NoteId>;
+}
 
 export class SearchService {
   private workspaceNotesPath: string;
+  // one set per note file read in flight; indexNoteContent adds the note it indexes to each
+  private readonly noteWrites = new Set<Set<NoteId>>();
+  // index writes waiting on note files, until they settle; see whenIdle
+  private readonly pending = new Set<Promise<void>>();
 
   constructor(
     private readonly db: BetterSQLite3Database,
@@ -72,6 +94,72 @@ export class SearchService {
         entityType: 'note',
       },
     ]);
+    for (const written of this.noteWrites) written.add(note.id);
+  }
+
+  /**
+   * Indexes these notes from their files, for notes coming back into search with no content in
+   * hand, such as restored ones. Only notes still active once their files are read are indexed,
+   * and a note whose content a write indexed meanwhile keeps that write's entry. A file that can't
+   * be read keeps only its own note out. Returns the ids of the notes whose files couldn't be read.
+   */
+  async indexNoteFiles(ids: NoteId[]): Promise<NoteId[]> {
+    if (ids.length === 0) return [];
+    return this.withNoteFiles(inArray(notes.id, ids), ({ bodies, unreadable, written }) => {
+      const current = this.activeNotes(inArray(notes.id, [...bodies.keys()]));
+      this.upsertIndexBatch(
+        current.filter(({ id }) => !written.has(id)).map((note) => noteEntity(note, bodies)),
+      );
+      return unreadable;
+    });
+  }
+
+  /**
+   * Rebuilds the whole index from the current rows and note files, to repair one that drifted.
+   * Indexes what the services keep searchable: active tasks, projects and notes, and every event
+   * except those whose provider item was removed. The old entries are replaced in one transaction,
+   * once the note files are read, so searches see the old index until then. A note whose content a
+   * write indexed meanwhile keeps that entry; one whose file can't be read is left out and
+   * reported.
+   */
+  async rebuild(): Promise<RebuildResult> {
+    return this.withNoteFiles(undefined, ({ bodies, unreadable, written }) => {
+      const entities: IndexEntity[] = [
+        ...this.db
+          .select()
+          .from(tasks)
+          .where(isNull(tasks.archivedAt))
+          .all()
+          .map((task) => taskEntity(task)),
+        ...this.db
+          .select()
+          .from(projects)
+          .where(isNull(projects.archivedAt))
+          .all()
+          .map((project) => projectEntity(project)),
+        ...this.db
+          .select()
+          .from(events)
+          .where(not(hasLinkInState('event', events.id, LinkState.REMOVED)))
+          .all()
+          .map((event) => eventEntity(event)),
+        ...this.activeNotes(inArray(notes.id, [...bodies.keys()]))
+          .filter(({ id }) => !written.has(id))
+          .map((note) => noteEntity(note, bodies)),
+      ];
+
+      const kept = [...written].map((id) => sql`${id}`);
+      this.db.run(
+        kept.length === 0
+          ? sql`DELETE FROM search_index`
+          : sql`DELETE FROM search_index WHERE entity_id NOT IN (${sql.join(kept, sql.raw(', '))})`,
+      );
+      for (let i = 0; i < entities.length; i += INSERT_CHUNK) {
+        this.db.run(insertQuery(entities.slice(i, i + INSERT_CHUNK)));
+      }
+      const [[indexed]] = this.db.values<[number]>(sql`SELECT count(*) FROM search_index`);
+      return { indexed, unreadableNoteIds: unreadable };
+    });
   }
 
   indexProject(project: Project) {
@@ -88,55 +176,46 @@ export class SearchService {
   // you're indexing more than a handful of rows at a time (e.g. a bulk
   // (re)index or a seed script).
   indexTasks(tasks: Task[]): void {
-    this.upsertIndexBatch(
-      tasks.map((task) => ({
-        title: task.title,
-        body: task.description ?? '',
-        entityId: task.id,
-        entityType: 'task' as const,
-      })),
-    );
+    this.upsertIndexBatch(tasks.map((task) => taskEntity(task)));
   }
 
-  async indexNotes(notes: Note[]): Promise<void> {
-    // the DB only keeps a truncated plaintext preview — read each note's
-    // backing markdown file for the full body and strip its formatting so
-    // the index holds plain, searchable text. The file reads are resolved
-    // up front so the transaction below only ever does synchronous work.
-    const entities = await Promise.all(
-      notes.map(async (note) => {
-        const { content } = await readNoteFile(this.noteFilePath(note.id));
-        return {
-          title: note.title,
-          body: stripMarkdown(content.trim()),
-          entityId: note.id,
-          entityType: 'note' as const,
-        };
-      }),
-    );
-    this.upsertIndexBatch(entities);
+  indexNotes(notes: Note[]): Promise<void> {
+    return this.track(async () => {
+      // the DB only keeps a truncated plaintext preview — read each note's
+      // backing markdown file for the full body and strip its formatting so
+      // the index holds plain, searchable text. The file reads are resolved
+      // up front so the transaction below only ever does synchronous work.
+      const entities = await Promise.all(
+        notes.map(async (note) => {
+          const { content } = await readNoteFile(this.noteFilePath(note.id));
+          return {
+            title: note.title,
+            body: stripMarkdown(content.trim()),
+            entityId: note.id,
+            entityType: 'note' as const,
+          };
+        }),
+      );
+      this.upsertIndexBatch(entities);
+    });
   }
 
   indexProjects(projects: Project[]): void {
-    this.upsertIndexBatch(
-      projects.map((project) => ({
-        title: project.title,
-        body: project.description ?? '',
-        entityId: project.id,
-        entityType: 'project' as const,
-      })),
-    );
+    this.upsertIndexBatch(projects.map((project) => projectEntity(project)));
   }
 
   indexEvents(events: Event[]): void {
-    this.upsertIndexBatch(
-      events.map((event) => ({
-        title: event.title,
-        body: event.description ?? '',
-        entityId: event.id,
-        entityType: 'event' as const,
-      })),
-    );
+    this.upsertIndexBatch(events.map((event) => eventEntity(event)));
+  }
+
+  /**
+   * Resolves once every index write waiting on note files has settled: those of indexNotes,
+   * indexNoteFiles and rebuild, including ones started while waiting. Every other write is
+   * synchronous. Never rejects; each caller still gets its own call's error. The workspace waits
+   * on this before closing the database.
+   */
+  async whenIdle(): Promise<void> {
+    while (this.pending.size > 0) await Promise.all(this.pending);
   }
 
   // drops the entries for these entities, e.g. synced rows that left scope; ids with no entry
@@ -160,6 +239,69 @@ export class SearchService {
     return path.join(this.workspaceNotesPath, `${id}.md`);
   }
 
+  // the active notes matching `condition`, as they are now
+  private activeNotes(condition: SQL) {
+    return this.db
+      .select()
+      .from(notes)
+      .where(and(condition, isNull(notes.archivedAt)))
+      .all();
+  }
+
+  /**
+   * Reads the files of the active notes matching `condition` (every active note when left out),
+   * then runs `write` in one transaction. Nothing else runs between `write` reading the rows and
+   * writing the index, so it sees the notes as they are then, and which of them a write indexed
+   * while the files were read.
+   */
+  private withNoteFiles<T>(
+    condition: SQL | undefined,
+    write: (read: NoteFileRead) => T,
+  ): Promise<T> {
+    return this.track(async () => {
+      const written = new Set<NoteId>();
+      this.noteWrites.add(written);
+      try {
+        const ids = this.db
+          .select({ id: notes.id })
+          .from(notes)
+          .where(and(condition, isNull(notes.archivedAt)))
+          .all()
+          .map(({ id }) => id);
+        const files = await Promise.allSettled(
+          ids.map((id) => readNoteFile(this.noteFilePath(id))),
+        );
+
+        const bodies = new Map<NoteId, string>();
+        const unreadable: NoteId[] = [];
+        files.forEach((file, i) => {
+          if (file.status === 'fulfilled') {
+            bodies.set(ids[i], stripMarkdown(file.value.content.trim()));
+          } else {
+            unreadable.push(ids[i]);
+            console.error(`Reading note ${ids[i]} for search failed:`, file.reason);
+          }
+        });
+        return this.db.transaction(() => write({ bodies, unreadable, written }));
+      } finally {
+        this.noteWrites.delete(written);
+      }
+    });
+  }
+
+  // runs `work` and keeps it in `pending` until it settles. Its synchronous start runs now, in the
+  // caller's turn, so one started inside a transaction reads the rows that transaction sees.
+  private track<T>(work: () => Promise<T>): Promise<T> {
+    const running = work();
+    const settled: Promise<void> = running.then(
+      () => undefined,
+      () => undefined,
+    );
+    this.pending.add(settled);
+    void settled.then(() => this.pending.delete(settled));
+    return running;
+  }
+
   private upsertIndexBatch(entities: IndexEntity[]): void {
     if (entities.length === 0) return;
 
@@ -176,18 +318,48 @@ export class SearchService {
     );
     const deleteQuery = sql`DELETE FROM search_index WHERE entity_id IN (${entityIds})`;
 
-    const valueRows = sql.join(
-      entities.map(
-        ({ title, body, entityId, entityType }) =>
-          sql`(${title}, ${body}, ${entityId}, ${entityType})`,
-      ),
-      sql.raw(', '),
-    );
-    const insertQuery = sql`INSERT INTO search_index (title, body, entity_id, entity_type) VALUES ${valueRows}`;
-
     this.db.transaction((tx) => {
       tx.run(deleteQuery);
-      tx.run(insertQuery);
+      tx.run(insertQuery(entities));
     });
   }
+}
+
+function insertQuery(entities: IndexEntity[]): SQL {
+  const valueRows = sql.join(
+    entities.map(
+      ({ title, body, entityId, entityType }) =>
+        sql`(${title}, ${body}, ${entityId}, ${entityType})`,
+    ),
+    sql.raw(', '),
+  );
+  return sql`INSERT INTO search_index (title, body, entity_id, entity_type) VALUES ${valueRows}`;
+}
+
+// what each entity type puts in the index; tables' rows and the services' types both fit
+function taskEntity(task: Pick<Task, 'id' | 'title' | 'description'>): IndexEntity {
+  return { title: task.title, body: task.description ?? '', entityId: task.id, entityType: 'task' };
+}
+
+function projectEntity(project: Pick<Project, 'id' | 'title' | 'description'>): IndexEntity {
+  return {
+    title: project.title,
+    body: project.description ?? '',
+    entityId: project.id,
+    entityType: 'project',
+  };
+}
+
+function eventEntity(event: Pick<Event, 'id' | 'title' | 'description'>): IndexEntity {
+  return {
+    title: event.title,
+    body: event.description ?? '',
+    entityId: event.id,
+    entityType: 'event',
+  };
+}
+
+// a note read by withNoteFiles: its title as it is now, its body from its file
+function noteEntity(note: Pick<Note, 'id' | 'title'>, bodies: Map<NoteId, string>): IndexEntity {
+  return { title: note.title, body: bodies.get(note.id)!, entityId: note.id, entityType: 'note' };
 }

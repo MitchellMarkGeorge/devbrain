@@ -178,6 +178,14 @@ function searchIds(query: string): string[] {
   return search.search({ query, entityType: [] }).map((result) => result.entityId);
 }
 
+// the index's entries for synced rows, as rebuilding must reproduce them; notes are left out, since
+// these tests write them through NoteService with no workspace to index them
+function syncedEntries() {
+  return db.all(
+    sql`SELECT entity_id, entity_type, title, body FROM search_index WHERE entity_type != 'note' ORDER BY entity_id`,
+  );
+}
+
 async function visibleTitles(): Promise<string[]> {
   return (await events.listForCalendar(...RANGE)).map((item) => item.title).sort();
 }
@@ -543,6 +551,39 @@ describe('SyncWriter events — recurring series', () => {
 
     expect(linkOf(moved.externalId)!.state).toBe(LinkState.REMOVED);
     expect(eventRow(moved.externalId).seriesId).toBeNull();
+  });
+});
+
+describe('SyncWriter events — search rebuild', () => {
+  it('rebuilding gives the index sync left: live, updated, cancelled and kept-for-a-note', async () => {
+    const live = event({ title: 'Design review', description: 'Agenda' });
+    const updated = event({ title: 'Standup' });
+    const cancelled = event({ title: 'Lunch' });
+    const linked = event({ title: 'Interview' });
+    const series = master();
+    const moved = occurrenceOf(series, OCCURRENCE_2);
+    writer.applyEventPage(
+      sourceId,
+      calendarId,
+      page({ events: [live, updated, cancelled, linked, series, moved] }),
+    );
+    await notes.createNote({ linkedEventId: eventIdOf(linked.externalId) });
+    writer.applyEventPage(
+      sourceId,
+      calendarId,
+      page({
+        events: [{ ...updated, title: 'Standup moved', updatedAt: V2 }],
+        cancelledIds: [cancelled.externalId, linked.externalId],
+      }),
+    );
+    // kept for its note, but no longer searchable
+    expect(linkOf(linked.externalId)!.state).toBe(LinkState.REMOVED);
+    const synced = syncedEntries();
+    expect(synced).toHaveLength(4);
+
+    await search.rebuild();
+
+    expect(syncedEntries()).toEqual(synced);
   });
 });
 
