@@ -838,6 +838,40 @@ describe('Workspace — search rebuild', () => {
     }
   });
 
+  it('closing waits for a rebuild still reading note files', async () => {
+    const workspace = await Workspace.create(makeInfo(tmpDir));
+    const note = await workspace.notes.createNote({ title: 'Minutes' });
+    await workspace.notes.updateNoteContent(note.id, 'quarterly');
+    workspace['sqliteClient'].prepare('DELETE FROM search_index').run();
+
+    const rebuilding = workspace.search.rebuild();
+    await workspace.close();
+
+    await expect(rebuilding).resolves.toEqual({ indexed: 1, unreadableNoteIds: [] });
+    const reopened = await Workspace.open(makeInfo(tmpDir));
+    try {
+      expect(searchIds(reopened, 'quarterly')).toEqual([note.id]);
+    } finally {
+      await reopened.close();
+    }
+  });
+
+  it('whenIdle settles without rejecting when an index write fails', async () => {
+    const workspace = await Workspace.create(makeInfo(tmpDir));
+    try {
+      const note = await workspace.notes.createNote({ title: 'Minutes' });
+      await fs.rm(path.join(tmpDir, 'notes', `${note.id}.md`));
+
+      const indexing = workspace.search.indexNote(note);
+      const idle = workspace.search.whenIdle();
+
+      await expect(indexing).rejects.toThrow();
+      await expect(idle).resolves.toBeUndefined();
+    } finally {
+      await workspace.close();
+    }
+  });
+
   it('leaves out a note archived while the files are read', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir));
     try {

@@ -30,8 +30,6 @@ type SqliteDatabaseClient = Database.Database;
 export class Workspace {
   private readonly closing = new AbortController();
   private closePromise: Promise<void> | null = null;
-  // restored notes being indexed from their files; close waits for them before closing SQLite
-  private readonly noteIndexing = new Set<Promise<void>>();
   readonly notes: NoteService;
   readonly tasks: TaskService;
   readonly projects: ProjectService;
@@ -121,14 +119,12 @@ export class Workspace {
         this.db.select().from(projects).where(inArray(projects.id, projectIds)).all(),
       );
     }
-    // a restore has no note content in hand, so notes are read from their files after it commits
+    // a restore has no note content in hand, so notes are read from their files after it commits;
+    // close waits for it through search.whenIdle
     if (noteIds.length > 0) {
-      const indexing = this.search
+      this.search
         .indexNoteFiles(noteIds)
-        .then(() => undefined)
-        .catch((error) => console.error('Indexing restored notes failed:', error))
-        .finally(() => this.noteIndexing.delete(indexing));
-      this.noteIndexing.add(indexing);
+        .catch((error) => console.error('Indexing restored notes failed:', error));
     }
   }
 
@@ -221,16 +217,18 @@ export class Workspace {
   }
 
   /**
-   * Cancels integration authentication and waits for sync runs before closing SQLite.
-   * Authentication checks cancellation before touching the database again. Ordinary service
-   * calls are not tracked or drained. Every caller shares the same close promise.
+   * Cancels integration authentication, then waits for sync runs and for search's index writes
+   * waiting on note files, before closing SQLite. Authentication checks cancellation before
+   * touching the database again. Ordinary service calls are not tracked or drained. Every caller
+   * shares the same close promise.
    */
   close(): Promise<void> {
     if (!this.closePromise) {
       this.closing.abort(new WorkspaceClosedError());
       this.closePromise = (async () => {
         await this.sync.stop();
-        await Promise.all(this.noteIndexing);
+        // index writes waiting on note files, such as a restore's or a rebuild's
+        await this.search.whenIdle();
         this.sqliteClient.close();
       })();
     }

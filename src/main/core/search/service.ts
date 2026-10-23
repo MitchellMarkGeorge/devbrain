@@ -33,6 +33,8 @@ export class SearchService {
   private workspaceNotesPath: string;
   // one set per note file read in flight; indexNoteContent adds the note it indexes to each
   private readonly noteWrites = new Set<Set<NoteId>>();
+  // index writes waiting on note files, until they settle; see whenIdle
+  private readonly pending = new Set<Promise<void>>();
 
   constructor(
     private readonly db: BetterSQLite3Database,
@@ -177,23 +179,25 @@ export class SearchService {
     this.upsertIndexBatch(tasks.map((task) => taskEntity(task)));
   }
 
-  async indexNotes(notes: Note[]): Promise<void> {
-    // the DB only keeps a truncated plaintext preview — read each note's
-    // backing markdown file for the full body and strip its formatting so
-    // the index holds plain, searchable text. The file reads are resolved
-    // up front so the transaction below only ever does synchronous work.
-    const entities = await Promise.all(
-      notes.map(async (note) => {
-        const { content } = await readNoteFile(this.noteFilePath(note.id));
-        return {
-          title: note.title,
-          body: stripMarkdown(content.trim()),
-          entityId: note.id,
-          entityType: 'note' as const,
-        };
-      }),
-    );
-    this.upsertIndexBatch(entities);
+  indexNotes(notes: Note[]): Promise<void> {
+    return this.track(async () => {
+      // the DB only keeps a truncated plaintext preview — read each note's
+      // backing markdown file for the full body and strip its formatting so
+      // the index holds plain, searchable text. The file reads are resolved
+      // up front so the transaction below only ever does synchronous work.
+      const entities = await Promise.all(
+        notes.map(async (note) => {
+          const { content } = await readNoteFile(this.noteFilePath(note.id));
+          return {
+            title: note.title,
+            body: stripMarkdown(content.trim()),
+            entityId: note.id,
+            entityType: 'note' as const,
+          };
+        }),
+      );
+      this.upsertIndexBatch(entities);
+    });
   }
 
   indexProjects(projects: Project[]): void {
@@ -202,6 +206,16 @@ export class SearchService {
 
   indexEvents(events: Event[]): void {
     this.upsertIndexBatch(events.map((event) => eventEntity(event)));
+  }
+
+  /**
+   * Resolves once every index write waiting on note files has settled: those of indexNotes,
+   * indexNoteFiles and rebuild, including ones started while waiting. Every other write is
+   * synchronous. Never rejects; each caller still gets its own call's error. The workspace waits
+   * on this before closing the database.
+   */
+  async whenIdle(): Promise<void> {
+    while (this.pending.size > 0) await Promise.all(this.pending);
   }
 
   // drops the entries for these entities, e.g. synced rows that left scope; ids with no entry
@@ -240,35 +254,52 @@ export class SearchService {
    * writing the index, so it sees the notes as they are then, and which of them a write indexed
    * while the files were read.
    */
-  private async withNoteFiles<T>(
+  private withNoteFiles<T>(
     condition: SQL | undefined,
     write: (read: NoteFileRead) => T,
   ): Promise<T> {
-    const written = new Set<NoteId>();
-    this.noteWrites.add(written);
-    try {
-      const ids = this.db
-        .select({ id: notes.id })
-        .from(notes)
-        .where(and(condition, isNull(notes.archivedAt)))
-        .all()
-        .map(({ id }) => id);
-      const files = await Promise.allSettled(ids.map((id) => readNoteFile(this.noteFilePath(id))));
+    return this.track(async () => {
+      const written = new Set<NoteId>();
+      this.noteWrites.add(written);
+      try {
+        const ids = this.db
+          .select({ id: notes.id })
+          .from(notes)
+          .where(and(condition, isNull(notes.archivedAt)))
+          .all()
+          .map(({ id }) => id);
+        const files = await Promise.allSettled(
+          ids.map((id) => readNoteFile(this.noteFilePath(id))),
+        );
 
-      const bodies = new Map<NoteId, string>();
-      const unreadable: NoteId[] = [];
-      files.forEach((file, i) => {
-        if (file.status === 'fulfilled') {
-          bodies.set(ids[i], stripMarkdown(file.value.content.trim()));
-        } else {
-          unreadable.push(ids[i]);
-          console.error(`Reading note ${ids[i]} for search failed:`, file.reason);
-        }
-      });
-      return this.db.transaction(() => write({ bodies, unreadable, written }));
-    } finally {
-      this.noteWrites.delete(written);
-    }
+        const bodies = new Map<NoteId, string>();
+        const unreadable: NoteId[] = [];
+        files.forEach((file, i) => {
+          if (file.status === 'fulfilled') {
+            bodies.set(ids[i], stripMarkdown(file.value.content.trim()));
+          } else {
+            unreadable.push(ids[i]);
+            console.error(`Reading note ${ids[i]} for search failed:`, file.reason);
+          }
+        });
+        return this.db.transaction(() => write({ bodies, unreadable, written }));
+      } finally {
+        this.noteWrites.delete(written);
+      }
+    });
+  }
+
+  // runs `work` and keeps it in `pending` until it settles. Its synchronous start runs now, in the
+  // caller's turn, so one started inside a transaction reads the rows that transaction sees.
+  private track<T>(work: () => Promise<T>): Promise<T> {
+    const running = work();
+    const settled: Promise<void> = running.then(
+      () => undefined,
+      () => undefined,
+    );
+    this.pending.add(settled);
+    void settled.then(() => this.pending.delete(settled));
+    return running;
   }
 
   private upsertIndexBatch(entities: IndexEntity[]): void {
