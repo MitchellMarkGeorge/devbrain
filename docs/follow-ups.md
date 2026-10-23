@@ -137,12 +137,6 @@ Proposal:
 
 Design it properly with the first such feature, rather than guessing the capability shapes now.
 
-### A full resync of a calendar does not drop events deleted long ago
-
-_Found in feature 16b._
-
-After a 410, a calendar is walked again from 30 days back and its rows are matched by external id, as the design says. An event deleted while the token was stale that Google no longer reports as cancelled keeps its row. A sweep at the end of a full pass (delete this calendar's synced events not seen during the pass, by the removal rule) would close that; it needs the pass to record what it saw.
-
 ### Read `eventLabelId` for event colours
 
 _Found in feature 16b._

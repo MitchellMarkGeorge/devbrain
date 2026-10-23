@@ -126,7 +126,7 @@ function occurrenceOf(
 }
 
 function page(items: Partial<EventPageItems>): EventPageItems {
-  return { events: [], cancelledIds: [], ...items };
+  return { events: [], cancelledIds: [], fullPass: null, ...items };
 }
 
 function linkOf(externalId: string) {

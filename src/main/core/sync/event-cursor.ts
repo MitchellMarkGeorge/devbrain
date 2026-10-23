@@ -12,6 +12,10 @@ export const calendarSyncStateSchema = z.object({
   pageToken: z.string().nullable(), // resume point inside a pass
   // the lower bound of a full pass, kept while it pages so every page asks the same question
   timeMin: z.iso.datetime().optional(),
+  // a full pass's id, kept with timeMin while it pages: each page marks what it saw with it, and the
+  // last page removes what is not marked. Absent on a pass started before passes had one, which
+  // then removes nothing
+  pass: z.string().optional(),
 });
 
 export const eventCursorSchema = z.object({

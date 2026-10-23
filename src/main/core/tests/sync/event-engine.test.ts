@@ -6,7 +6,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { CalendarId, ExternalSourceId, IntegrationId } from '@common/ids';
-import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
+import {
+  externalEventExceptions,
+  externalLinks,
+  externalSources,
+  integrations,
+} from '@main/db/schema/integrations';
 import { events as eventsTable } from '@main/db/schema/events';
 import { calendars } from '@main/db/schema/calendars';
 import { createDb } from '../utils';
@@ -60,6 +65,8 @@ let workspacePath: string;
 let fetch: ReturnType<typeof scriptedFetch>;
 let service: IntegrationService;
 let engine: SyncEngine;
+// what engine was built with, so a test can build one with a lower page cap
+let engineOptions: ConstructorParameters<typeof SyncEngine>[1];
 let events: EventService;
 let notes: NoteService;
 let integrationId: IntegrationId;
@@ -102,7 +109,7 @@ async function setup() {
   writer = new SyncWriter(db, search);
   service = new IntegrationService(db, { credentials, providers, oauth });
   calendarService = new CalendarService(db);
-  engine = new SyncEngine(db, {
+  engineOptions = {
     integrations: service,
     syncState: new SyncStateManager(db),
     credentials,
@@ -110,7 +117,8 @@ async function setup() {
     writer,
     logger: LOGGER,
     now: () => NOW,
-  });
+  };
+  engine = new SyncEngine(db, engineOptions);
   events = new EventService(db);
   notes = new NoteService(db, workspacePath);
 
@@ -404,6 +412,161 @@ describe('Google Calendar sync — initial and incremental', () => {
     expect(sourceRow().cursor).toEqual({
       calendars: { [PRIMARY]: { syncToken: 'sync-fresh', pageToken: null } },
     });
+  });
+});
+
+describe('Google Calendar sync — what a full pass no longer lists', () => {
+  // a first full pass of these events, then a 410 on the next run's sync token, so the calendar
+  // starts a full pass again; returns the next run's steps after the 410
+  async function syncThenExpire(...items: unknown[]) {
+    script(CALENDARS, { body: eventsPage(items, { nextSyncToken: 'sync-1' }) });
+    await engine.runSource(sourceId);
+    return (...pages: Parameters<typeof scriptedFetch>[0]) =>
+      script(CALENDARS, { status: 410, body: expiredFixture }, ...pages);
+  }
+
+  it('removes an event the full pass after a 410 does not list', async () => {
+    const expire = await syncThenExpire(timedFixture, declinedFixture);
+
+    expire({ body: eventsPage([timedFixture], { nextSyncToken: 'sync-fresh' }) });
+    const result = await engine.runSource(sourceId);
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, removed: 1 });
+    expect(linkOf(PRIMARY, declinedFixture.id)).toBeUndefined();
+    expect(linkOf(PRIMARY, timedFixture.id)!.state).toBe(LinkState.SYNCED);
+    expect((await visible()).map((event) => event.title)).toEqual(['Design review']);
+    // the pass's id goes with the pass
+    expect(sourceRow().cursor).toEqual({
+      calendars: { [PRIMARY]: { syncToken: 'sync-fresh', pageToken: null } },
+    });
+  });
+
+  it('keeps an event a note links to, hidden, when the full pass does not list it', async () => {
+    const expire = await syncThenExpire(timedFixture);
+    const eventId = linkOf(PRIMARY, timedFixture.id)!.eventId!;
+    const note = await notes.createNote({ title: 'Review notes', linkedEventId: eventId });
+
+    expire({ body: eventsPage([], { nextSyncToken: 'sync-fresh' }) });
+    const result = await engine.runSource(sourceId);
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, removed: 1 });
+    expect(await visible()).toEqual([]);
+    expect(await events.getById(eventId)).toMatchObject({
+      title: 'Design review',
+      external: { state: LinkState.REMOVED },
+    });
+    expect((await notes.getById(note.id)).linkedEventId).toBe(eventId);
+  });
+
+  it('removes only what none of the pages of a full pass list', async () => {
+    const expire = await syncThenExpire(timedFixture, declinedFixture, meetFixture, allDayFixture);
+
+    expire(
+      { body: eventsPage([timedFixture], { nextPageToken: 'page-2' }) },
+      { body: eventsPage([meetFixture], { nextPageToken: 'page-3' }) },
+      { body: eventsPage([], { nextSyncToken: 'sync-fresh' }) },
+    );
+    const result = await engine.runSource(sourceId);
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, pages: 3, removed: 2 });
+    expect(linkOf(PRIMARY, declinedFixture.id)).toBeUndefined();
+    expect(linkOf(PRIMARY, allDayFixture.id)).toBeUndefined();
+    expect(eventCount()).toBe(2);
+  });
+
+  it('removes nothing until a full pass cut short is resumed to its end', async () => {
+    const expire = await syncThenExpire(timedFixture, declinedFixture, allDayFixture);
+
+    // the pass's first page commits, then the run fails
+    expire(
+      { body: eventsPage([timedFixture], { nextPageToken: 'page-2' }) },
+      { error: new TypeError('fetch failed') },
+    );
+    const failed = await engine.runSource(sourceId);
+    expect(failed).toMatchObject({ outcome: SyncRunOutcome.FAILED, pages: 1, removed: 0 });
+    expect(eventCount()).toBe(3);
+
+    // the next run resumes the same pass; what its first page listed counts as listed
+    script(CALENDARS, { body: eventsPage([allDayFixture], { nextSyncToken: 'sync-fresh' }) });
+    const resumed = await engine.runSource(sourceId);
+
+    expect(eventRequests()[0].params).toEqual({ ...FULL, timeMin: TIME_MIN, pageToken: 'page-2' });
+    expect(resumed).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, removed: 1 });
+    expect(linkOf(PRIMARY, declinedFixture.id)).toBeUndefined();
+    expect(linkOf(PRIMARY, timedFixture.id)!.state).toBe(LinkState.SYNCED);
+    expect(linkOf(PRIMARY, allDayFixture.id)!.state).toBe(LinkState.SYNCED);
+  });
+
+  it('removes nothing when a run stops at the page cap part-way through a full pass', async () => {
+    const expire = await syncThenExpire(timedFixture, declinedFixture);
+    const capped = new SyncEngine(db, { ...engineOptions, maxPagesPerRun: 1 });
+
+    expire({ body: eventsPage([timedFixture], { nextPageToken: 'page-2' }) });
+    const result = await capped.runSource(sourceId);
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.FAILED, pages: 1, removed: 0 });
+    expect(linkOf(PRIMARY, declinedFixture.id)!.state).toBe(LinkState.SYNCED);
+  });
+
+  it('leaves an event that ended before the full pass looked', async () => {
+    // mirrored by an earlier pass, from further back than this one looks
+    const old = {
+      ...timedFixture,
+      id: 'old0123456789',
+      summary: 'Kickoff',
+      start: { dateTime: '2026-08-03T10:00:00-04:00', timeZone: 'America/New_York' },
+      end: { dateTime: '2026-08-03T11:00:00-04:00', timeZone: 'America/New_York' },
+    };
+    const expire = await syncThenExpire(old, timedFixture);
+
+    expire({ body: eventsPage([], { nextSyncToken: 'sync-fresh' }) });
+    const result = await engine.runSource(sourceId);
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, removed: 1 });
+    expect(linkOf(PRIMARY, old.id)!.state).toBe(LinkState.SYNCED);
+    expect(linkOf(PRIMARY, timedFixture.id)).toBeUndefined();
+  });
+
+  it("replaces a series' exceptions with those the full pass lists", async () => {
+    // a cancellation parked for a series that is not mirrored
+    const orphaned = {
+      ...cancelledInstanceFixture,
+      id: 'orphan0123456789_20261019T140000Z',
+      recurringEventId: 'orphan0123456789',
+    };
+    const expire = await syncThenExpire(
+      masterFixture,
+      cancelledInstanceFixture,
+      modifiedInstanceFixture,
+      orphaned,
+    );
+    expect((await visible())[0].exdates).toEqual([CANCELLED_OCCURRENCE, MOVED_OCCURRENCE]);
+    expect(db.select().from(externalEventExceptions).all()).toHaveLength(1);
+
+    // the cancelled occurrence was restored and the moved one put back, and the orphan's series
+    // is gone, while the stale token kept Google from saying so
+    expire({ body: eventsPage([masterFixture], { nextSyncToken: 'sync-fresh' }) });
+    const result = await engine.runSource(sourceId);
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, removed: 1 });
+    expect(await visible()).toEqual([
+      { title: 'Weekly sync', recurrenceRule: SERIES_RULE, exdates: [] },
+    ]);
+    expect(linkOf(PRIMARY, modifiedInstanceFixture.id)).toBeUndefined();
+    expect(db.select().from(externalEventExceptions).all()).toEqual([]);
+  });
+
+  it('keeps the exceptions a full pass lists again, on any of its pages', async () => {
+    const expire = await syncThenExpire(masterFixture, cancelledInstanceFixture);
+
+    expire(
+      { body: eventsPage([cancelledInstanceFixture], { nextPageToken: 'page-2' }) },
+      { body: eventsPage([masterFixture], { nextSyncToken: 'sync-fresh' }) },
+    );
+    const result = await engine.runSource(sourceId);
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, removed: 0 });
+    expect((await visible())[0].exdates).toEqual([CANCELLED_OCCURRENCE]);
   });
 });
 
