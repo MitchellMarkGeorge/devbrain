@@ -42,20 +42,22 @@ export class EventService {
     return this.changes.add(listener);
   }
 
-  async getById(id: EventId): Promise<Event> {
-    const [event] = await this.db.select().from(events).where(eq(events.id, id));
+  getById(id: EventId): Event {
+    const event = this.db.select().from(events).where(eq(events.id, id)).get();
     if (!event) throw new NotFoundError(id);
-    const [withDetails] = await this.withDetails([event]);
+    const [withDetails] = this.withDetails([event]);
     return withDetails;
   }
 
-  async getByIds(ids: EventId[]): Promise<Event[]> {
-    return this.withDetails(await this.db.select().from(events).where(inArray(events.id, ids)));
+  getByIds(ids: EventId[]): Event[] {
+    return this.withDetails(this.db.select().from(events).where(inArray(events.id, ids)).all());
   }
 
-  async createEvent(options: CreateEventOptions): Promise<Event> {
+  createEvent(options: CreateEventOptions): Event {
     const calendarId = options.calendarId ?? DEFAULT_CALENDAR_ID;
-    await this.assertLocalCalendar(calendarId);
+    // synchronous from this check to the insert, so the calendar cannot become synced or be
+    // removed in between
+    this.assertLocalCalendar(calendarId);
 
     const newEvent = {
       calendarId,
@@ -77,7 +79,7 @@ export class EventService {
       color: options.color ?? null,
     };
 
-    const [insertedEvent] = await this.db.insert(events).values(newEvent).returning();
+    const insertedEvent = this.db.insert(events).values(newEvent).returning().get();
     const event: Event = { ...insertedEvent, exdates: [], external: null };
     this.changes.emit({ type: 'created', event });
     return event;
@@ -87,11 +89,11 @@ export class EventService {
    * Updates a local event. The timing is worked out again from the effective values whenever any
    * part of it changes, so an all-day event's dates and instants stay in step.
    */
-  async updateEvent(id: EventId, updates: UpdateEventOptions): Promise<Event> {
+  updateEvent(id: EventId, updates: UpdateEventOptions): Event {
     // throws NotFoundError when the event does not exist
-    const existing = await this.getById(id);
+    const existing = this.getById(id);
     assertRowEditable(existing);
-    if (updates.calendarId !== undefined) await this.assertLocalCalendar(updates.calendarId);
+    if (updates.calendarId !== undefined) this.assertLocalCalendar(updates.calendarId);
 
     const { startAt, endAt, allDay, startDate, endDate, ...rest } = updates;
     if (rest.timeZone !== undefined) checkTimeZone(rest.timeZone);
@@ -111,18 +113,14 @@ export class EventService {
         })),
     };
 
-    const [updatedEvent] = await this.db
-      .update(events)
-      .set(set)
-      .where(eq(events.id, id))
-      .returning();
+    const updatedEvent = this.db.update(events).set(set).where(eq(events.id, id)).returning().get();
     if (!updatedEvent) throw new NotFoundError(id);
-    const [withDetails] = await this.withDetails([updatedEvent]);
+    const [withDetails] = this.withDetails([updatedEvent]);
     this.changes.emit({ type: 'updated', event: withDetails });
     return withDetails;
   }
 
-  async deleteEvent(id: EventId): Promise<void> {
+  deleteEvent(id: EventId): void {
     // events have no archivedAt column (unlike notes/tasks/projects) — this
     // is a hard delete
     assertEditable(this.db, id);
@@ -155,12 +153,8 @@ export class EventService {
    * Events whose provider item was cancelled or deleted (link state `removed`) are kept only for
    * the notes linked to them, and are left out of the calendar.
    */
-  async listForCalendar(
-    start: Date,
-    end: Date,
-    options: CalendarRangeOptions = {},
-  ): Promise<Event[]> {
-    const rows = await this.db
+  listForCalendar(start: Date, end: Date, options: CalendarRangeOptions = {}): Event[] {
+    const rows = this.db
       .select({ event: events })
       .from(events)
       .innerJoin(calendars, eq(calendars.id, events.calendarId))
@@ -172,24 +166,26 @@ export class EventService {
           not(hasLinkInState('event', events.id, LinkState.REMOVED)),
         ),
       )
-      .orderBy(asc(events.startAt), asc(events.id));
+      .orderBy(asc(events.startAt), asc(events.id))
+      .all();
     return this.withDetails(rows.map((row) => row.event));
   }
 
   // a calendar events can be written to by the user: one that exists and is not synced
-  private async assertLocalCalendar(calendarId: CalendarId): Promise<void> {
-    const [calendar] = await this.db
+  private assertLocalCalendar(calendarId: CalendarId): void {
+    const calendar = this.db
       .select({ sourceId: calendars.sourceId })
       .from(calendars)
-      .where(eq(calendars.id, calendarId));
+      .where(eq(calendars.id, calendarId))
+      .get();
     if (!calendar) throw new NotFoundError(calendarId);
     // a synced calendar's events come from its provider
     if (calendar.sourceId !== null) throw new ExternalReadOnlyError(calendarId);
   }
 
   // `external` and `exdates`, each in one batched lookup
-  private async withDetails(rows: EventRow[]): Promise<Event[]> {
-    const exdates = await this.exdatesOf(
+  private withDetails(rows: EventRow[]): Event[] {
+    const exdates = this.exdatesOf(
       rows.filter((row) => row.recurrenceRule !== null).map((row) => row.id),
     );
     const withExternal = withRefs(this.db, rows);
@@ -200,22 +196,24 @@ export class EventService {
    * What each series no longer has, as FullCalendar's exdate: its cancelled occurrences, and the
    * original starts of its occurrence rows (moved or edited, removed or not), in time order.
    */
-  private async exdatesOf(seriesIds: EventId[]): Promise<Map<EventId, Date[]>> {
+  private exdatesOf(seriesIds: EventId[]): Map<EventId, Date[]> {
     const exdates = new Map<EventId, Date[]>();
     if (seriesIds.length === 0) return exdates;
     const add = (seriesId: EventId, at: Date) =>
       exdates.set(seriesId, [...(exdates.get(seriesId) ?? []), at]);
 
     // the cancelled occurrences
-    const cancelled = await this.db
+    const cancelled = this.db
       .select()
       .from(eventExceptions)
-      .where(inArray(eventExceptions.seriesId, seriesIds));
+      .where(inArray(eventExceptions.seriesId, seriesIds))
+      .all();
     // the moved or edited occurrences, by the start each replaces
-    const occurrences = await this.db
+    const occurrences = this.db
       .select({ seriesId: events.seriesId, originalStartAt: events.originalStartAt })
       .from(events)
-      .where(and(inArray(events.seriesId, seriesIds), isNotNull(events.originalStartAt)));
+      .where(and(inArray(events.seriesId, seriesIds), isNotNull(events.originalStartAt)))
+      .all();
 
     for (const row of cancelled) add(row.seriesId, row.originalStartAt);
     for (const row of occurrences) add(row.seriesId!, row.originalStartAt!);

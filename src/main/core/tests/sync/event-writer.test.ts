@@ -380,10 +380,8 @@ describe('SyncWriter events — read-only', () => {
     writer.applyEventPage(sourceId, calendarId, page({ events: [item] }));
     const id = eventIdOf(item.externalId);
 
-    await expect(events.updateEvent(id, { title: 'Mine now' })).rejects.toThrow(
-      ExternalReadOnlyError,
-    );
-    await expect(events.deleteEvent(id)).rejects.toThrow(ExternalReadOnlyError);
+    expect(() => events.updateEvent(id, { title: 'Mine now' })).toThrow(ExternalReadOnlyError);
+    expect(() => events.deleteEvent(id)).toThrow(ExternalReadOnlyError);
   });
 });
 

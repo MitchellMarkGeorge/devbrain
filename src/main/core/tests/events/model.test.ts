@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { eq } from 'drizzle-orm';
 import { CalendarId, EventId } from '@common/ids';
 import { calendars } from '@main/db/schema/calendars';
 import { eventExceptions, events } from '@main/db/schema/events';
@@ -138,15 +139,39 @@ describe('EventService — calendars and time zones', () => {
   it('refuses a calendar that does not exist, or one synced from a provider', async () => {
     const synced = syncedCalendar();
     const options = { title: 'x', startAt: MONDAY, endAt: hoursAfter(MONDAY, 1) };
-    await expect(
+    expect(() =>
       eventsService.createEvent({ ...options, calendarId: 'cal_missing' as CalendarId }),
-    ).rejects.toThrow(NotFoundError);
-    await expect(
-      eventsService.createEvent({ ...options, calendarId: synced }),
-    ).rejects.toMatchObject({
-      code: 'external_read_only',
-      message: expect.stringContaining('read-only'),
+    ).toThrow(NotFoundError);
+    expect(() => eventsService.createEvent({ ...options, calendarId: synced })).toThrow(
+      expect.objectContaining({
+        code: 'external_read_only',
+        message: expect.stringContaining('read-only'),
+      }),
+    );
+  });
+
+  it('checks the calendar and inserts with no queued work able to run in between', async () => {
+    // work queued before the call (say, a sync page whose pull just finished) that makes the
+    // default calendar synced
+    const { sourceId } = db
+      .select({ sourceId: calendars.sourceId })
+      .from(calendars)
+      .where(eq(calendars.id, syncedCalendar()))
+      .get()!;
+    queueMicrotask(() => {
+      db.update(calendars).set({ sourceId }).where(eq(calendars.id, DEFAULT_CALENDAR_ID)).run();
     });
+    const options = { title: 'x', startAt: MONDAY, endAt: hoursAfter(MONDAY, 1) };
+
+    // the check and the insert run in one go, before the queued work
+    const event = eventsService.createEvent(options);
+    expect(event.calendarId).toBe(DEFAULT_CALENDAR_ID);
+
+    // once it has run, the calendar is read-only
+    await Promise.resolve();
+    expect(() => eventsService.createEvent(options)).toThrow(
+      expect.objectContaining({ code: 'external_read_only' }),
+    );
   });
 });
 
@@ -185,24 +210,30 @@ describe('EventService — all-day events', () => {
 
   it('refuses dates that are malformed, or an end not after the start', async () => {
     const base = { title: 'x', startAt: MONDAY, endAt: MONDAY, allDay: true };
-    await expect(
+    expect(() =>
       eventsService.createEvent({ ...base, startDate: '24/12/2026', endDate: '2026-12-27' }),
-    ).rejects.toMatchObject({
-      code: 'invalid_input',
-      message: expect.stringContaining('Not a date'),
-    });
-    await expect(
+    ).toThrow(
+      expect.objectContaining({
+        code: 'invalid_input',
+        message: expect.stringContaining('Not a date'),
+      }),
+    );
+    expect(() =>
       eventsService.createEvent({ ...base, startDate: '2026-12-24', endDate: '2026-02-30' }),
-    ).rejects.toMatchObject({
-      code: 'invalid_input',
-      message: expect.stringContaining('Not a date'),
-    });
-    await expect(
+    ).toThrow(
+      expect.objectContaining({
+        code: 'invalid_input',
+        message: expect.stringContaining('Not a date'),
+      }),
+    );
+    expect(() =>
       eventsService.createEvent({ ...base, startDate: '2026-12-24', endDate: '2026-12-24' }),
-    ).rejects.toMatchObject({
-      code: 'invalid_input',
-      message: expect.stringContaining('endDate must be after startDate'),
-    });
+    ).toThrow(
+      expect.objectContaining({
+        code: 'invalid_input',
+        message: expect.stringContaining('endDate must be after startDate'),
+      }),
+    );
   });
 
   it('gives a timed event no dates', async () => {
@@ -302,7 +333,7 @@ describe('EventService — series and exdates', () => {
 
     await eventsService.deleteEvent(weekly.id);
 
-    await expect(eventsService.getById(moved)).rejects.toThrow(NotFoundError);
+    expect(() => eventsService.getById(moved)).toThrow(NotFoundError);
     expect(db.select().from(eventExceptions).all()).toEqual([]);
   });
 });
