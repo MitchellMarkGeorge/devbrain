@@ -43,14 +43,14 @@ export class NoteService {
     return this.changes.add(listener);
   }
 
-  async getById(id: NoteId): Promise<Note> {
-    const [note] = await this.activeNotes(eq(notes.id, id));
+  getById(id: NoteId): Note {
+    const note = this.activeNotes(eq(notes.id, id)).get();
     if (!note) throw new NotFoundError(id);
     return note;
   }
 
-  async getByIds(ids: NoteId[]): Promise<Note[]> {
-    return this.activeNotes(inArray(notes.id, ids));
+  getByIds(ids: NoteId[]): Note[] {
+    return this.activeNotes(inArray(notes.id, ids)).all();
   }
 
   async createNote(options: CreateNoteOptions): Promise<Note> {
@@ -77,7 +77,7 @@ export class NoteService {
 
     let insertedNote: Note;
     try {
-      [insertedNote] = await this.db.insert(notes).values(newNote).returning();
+      insertedNote = this.db.insert(notes).values(newNote).returning().get();
     } catch (err) {
       // undo the file write
       await deleteNoteFile(filePath);
@@ -88,11 +88,11 @@ export class NoteService {
     return insertedNote;
   }
 
-  async listNotes(
+  listNotes(
     filter: NoteFilterOptions = {},
     sort: NoteSortOptions = { sortBy: 'updatedAt' },
     page: PageOptions = {},
-  ): Promise<Page<Note>> {
+  ): Page<Note> {
     const clauses = [isNull(notes.archivedAt)];
 
     if (filter.projectId !== undefined) {
@@ -142,17 +142,18 @@ export class NoteService {
       page,
     );
 
-    const rows = await this.db
+    const rows = this.db
       .select()
       .from(notes)
       .where(and(...clauses, pager.after))
       .orderBy(...pager.orderBy)
-      .limit(pager.fetchLimit);
+      .limit(pager.fetchLimit)
+      .all();
 
     return pager.toPage(rows);
   }
 
-  async updateNote(id: NoteId, options: UpdateNoteOptions): Promise<Note> {
+  updateNote(id: NoteId, options: UpdateNoteOptions): Note {
     if (options.linkedEventId && options.linkedTaskId) {
       throw new InvalidInputError('Notes cannot be linked to both an event and a task');
     }
@@ -163,11 +164,12 @@ export class NoteService {
     if (options.linkedEventId !== undefined) updates.linkedEventId = options.linkedEventId;
     if (options.linkedTaskId !== undefined) updates.linkedTaskId = options.linkedTaskId;
 
-    const [updatedNote] = await this.db
+    const updatedNote = this.db
       .update(notes)
       .set(updates)
       .where(eq(notes.id, id))
-      .returning();
+      .returning()
+      .get();
     if (!updatedNote) throw new NotFoundError(id);
     this.changes.emit({ type: 'updated', note: updatedNote });
     return updatedNote;
@@ -193,19 +195,20 @@ export class NoteService {
 
   private async saveNoteContent(id: NoteId, content: string): Promise<Note> {
     // think about this, could just pass in the title or the note object itself
-    const existing = await this.getById(id);
+    const existing = this.getById(id);
 
     const preview = stripMarkdown(content.trim()).slice(0, 200);
 
     await updateNoteFile(this.noteFilePath(id), { id, title: existing.title }, content);
 
-    const [updatedNote] = await this.db
+    const updatedNote = this.db
       .update(notes)
       .set({
         preview: preview || null,
       })
       .where(eq(notes.id, id))
-      .returning();
+      .returning()
+      .get();
     if (!updatedNote) throw new NotFoundError(id);
     this.changes.emit({ type: 'updated', note: updatedNote, content });
     return updatedNote;

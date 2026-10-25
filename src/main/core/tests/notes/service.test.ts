@@ -147,13 +147,13 @@ describe('NoteService — getById', () => {
   });
 
   it('throws NotFoundError for an unknown id', async () => {
-    await expect(notesService.getById(generateId('note'))).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => notesService.getById(generateId('note'))).toThrow(NotFoundError);
   });
 
   it('throws NotFoundError for an archived note', async () => {
     const note = await notesService.createNote({ title: 'Will be archived' });
     archive.archiveNote(note.id);
-    await expect(notesService.getById(note.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => notesService.getById(note.id)).toThrow(NotFoundError);
   });
 });
 
@@ -371,19 +371,21 @@ describe('NoteService — updateNote', () => {
 
   it('throws if both linkedEventId and linkedTaskId are provided', async () => {
     const note = await notesService.createNote({ title: 'Note' });
-    await expect(
+    expect(() =>
       notesService.updateNote(note.id, {
         linkedEventId: FAKE_EVENT_ID,
         linkedTaskId: FAKE_TASK_ID,
       }),
-    ).rejects.toMatchObject({
-      code: 'invalid_input',
-      message: expect.stringMatching(/cannot be linked to both/i),
-    });
+    ).toThrow(
+      expect.objectContaining({
+        code: 'invalid_input',
+        message: expect.stringMatching(/cannot be linked to both/i),
+      }),
+    );
   });
 
   it('throws NotFoundError for an unknown id', async () => {
-    await expect(notesService.updateNote(generateId('note'), { title: 'Ghost' })).rejects.toThrow(
+    expect(() => notesService.updateNote(generateId('note'), { title: 'Ghost' })).toThrow(
       NotFoundError,
     );
   });
@@ -453,7 +455,7 @@ describe('NoteService — updateNoteContent', () => {
 
   it('throws NotFoundError when the row is deleted while saving', async () => {
     const note = await notesService.createNote({ title: 'Note' });
-    vi.spyOn(notesService, 'getById').mockResolvedValueOnce(note);
+    vi.spyOn(notesService, 'getById').mockReturnValueOnce(note);
     await db.delete(notesTable).where(eq(notesTable.id, note.id));
 
     await expect(notesService.updateNoteContent(note.id, 'content')).rejects.toBeInstanceOf(
@@ -496,7 +498,9 @@ describe('NoteService — updateNoteContent', () => {
     it('keep going after one of them fails', async () => {
       const note = await notesService.createNote({ title: 'Note' });
       const getById = vi.spyOn(notesService, 'getById');
-      getById.mockRejectedValueOnce(new Error('boom'));
+      getById.mockImplementationOnce(() => {
+        throw new Error('boom');
+      });
 
       const results = await Promise.allSettled([
         notesService.updateNoteContent(note.id, 'first'),
@@ -531,7 +535,7 @@ describe('ArchiveService — archiveNote', () => {
   it('archived note is no longer returned by NoteService.getById', async () => {
     const note = await notesService.createNote({ title: 'Gone' });
     archive.archiveNote(note.id);
-    await expect(notesService.getById(note.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => notesService.getById(note.id)).toThrow(NotFoundError);
   });
 
   it('archived note is excluded from NoteService.listNotes', async () => {
@@ -657,14 +661,14 @@ describe('NoteService — cursor pagination', () => {
 
   it('rejects invalid limit, garbage cursor and mismatched-sort cursor', async () => {
     await seed(['a', 'b', 'c']);
-    await expect(notesService.listNotes({}, undefined, { limit: -1 })).rejects.toThrow(RangeError);
-    await expect(notesService.listNotes({}, undefined, { cursor: '!!' })).rejects.toThrow(
+    expect(() => notesService.listNotes({}, undefined, { limit: -1 })).toThrow(RangeError);
+    expect(() => notesService.listNotes({}, undefined, { cursor: '!!' })).toThrow(
       InvalidCursorError,
     );
     const page = await notesService.listNotes({}, { sortBy: 'title' }, { limit: 1 });
-    await expect(
+    expect(() =>
       notesService.listNotes({}, { sortBy: 'createdAt' }, { cursor: page.nextCursor! }),
-    ).rejects.toThrow(InvalidCursorError);
+    ).toThrow(InvalidCursorError);
   });
 });
 
@@ -701,7 +705,7 @@ describe('NoteService — onChange', () => {
     const listener = vi.fn();
     notesService.onChange(listener);
 
-    await expect(notesService.updateNote(generateId('note'), { title: 'Missing' })).rejects.toThrow(
+    expect(() => notesService.updateNote(generateId('note'), { title: 'Missing' })).toThrow(
       NotFoundError,
     );
 

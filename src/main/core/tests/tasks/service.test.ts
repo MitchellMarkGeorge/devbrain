@@ -1035,7 +1035,7 @@ describe('ArchiveService — archiveTask', () => {
     const task = await tasks.createTask({ title: 'Has a note', dueDate: TOMORROW });
     const note = await notesService.createNote({ linkedTaskId: task.id });
     archive.archiveTask(task.id);
-    await expect(notesService.getById(note.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => notesService.getById(note.id)).toThrow(NotFoundError);
   });
 
   it('does not archive notes linked to a different task', async () => {
@@ -1043,7 +1043,7 @@ describe('ArchiveService — archiveTask', () => {
     const taskB = await tasks.createTask({ title: 'B', dueDate: TOMORROW });
     const noteB = await notesService.createNote({ linkedTaskId: taskB.id });
     archive.archiveTask(taskA.id);
-    await expect(notesService.getById(noteB.id)).resolves.toMatchObject({ id: noteB.id });
+    expect(notesService.getById(noteB.id)).toMatchObject({ id: noteB.id });
   });
 
   it("archives a subtask's own linked note when the parent is archived", async () => {
@@ -1051,7 +1051,7 @@ describe('ArchiveService — archiveTask', () => {
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
     const subNote = await notesService.createNote({ linkedTaskId: sub.id });
     archive.archiveTask(parent.id);
-    await expect(notesService.getById(subNote.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => notesService.getById(subNote.id)).toThrow(NotFoundError);
   });
 
   it('throws NotFoundError for an unknown task id', async () => {
@@ -1126,7 +1126,7 @@ describe('ArchiveService — restoreTask', () => {
     const note = await notesService.createNote({ linkedTaskId: task.id });
     archive.archiveTask(task.id);
     archive.restoreTask(task.id);
-    await expect(notesService.getById(note.id)).resolves.toMatchObject({ id: note.id });
+    expect(notesService.getById(note.id)).toMatchObject({ id: note.id });
   });
 
   it("restores a subtask's own linked note when the parent is restored", async () => {
@@ -1135,7 +1135,7 @@ describe('ArchiveService — restoreTask', () => {
     const subNote = await notesService.createNote({ linkedTaskId: sub.id });
     archive.archiveTask(parent.id);
     archive.restoreTask(parent.id);
-    await expect(notesService.getById(subNote.id)).resolves.toMatchObject({ id: subNote.id });
+    expect(notesService.getById(subNote.id)).toMatchObject({ id: subNote.id });
   });
 
   it('does not restore notes linked to a different task', async () => {
@@ -1145,7 +1145,7 @@ describe('ArchiveService — restoreTask', () => {
     archive.archiveNote(noteB.id);
     archive.archiveTask(taskA.id);
     archive.restoreTask(taskA.id);
-    await expect(notesService.getById(noteB.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => notesService.getById(noteB.id)).toThrow(NotFoundError);
   });
 
   it('throws NotFoundError for an unknown task id', async () => {
