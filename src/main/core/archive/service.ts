@@ -10,7 +10,7 @@ import { Note } from '../notes/types';
 import { notes } from '@main/db/schema/notes';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../shared/errors';
 import { keyset, Page, PageOptions } from '../shared/pagination';
-import { assertEditable } from '../integrations/refs';
+import { assertEditable, withRef } from '../integrations/refs';
 import { subtreeOf } from '../tasks/subtree';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import type {
@@ -80,7 +80,7 @@ export class ArchiveService {
 
       this.changes.emit({ type: 'archived', taskIds: updatedTaskIds, projectIds: [], noteIds });
       const [task] = updatedTasks.filter((t) => t.id === id);
-      return task;
+      return withRef(tx, task);
     });
   }
 
@@ -114,7 +114,7 @@ export class ArchiveService {
 
       this.changes.emit({ type: 'restored', taskIds: updatedTaskIds, projectIds: [], noteIds });
       const [task] = updatedTasks.filter((t) => t.id === id);
-      return task;
+      return withRef(tx, task);
     });
   }
 
@@ -156,7 +156,7 @@ export class ArchiveService {
         .map(({ id }) => id);
 
       this.changes.emit({ type: 'archived', taskIds: updatedTaskIds, projectIds: [id], noteIds });
-      return project;
+      return withRef(tx, project);
     });
   }
 
@@ -195,7 +195,7 @@ export class ArchiveService {
         .map(({ id }) => id);
 
       this.changes.emit({ type: 'restored', taskIds: updatedTaskIds, projectIds: [id], noteIds });
-      return project;
+      return withRef(tx, project);
     });
   }
 

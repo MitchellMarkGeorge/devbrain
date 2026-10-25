@@ -6,7 +6,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import { directoryExists, isNotFound } from '../local/utils';
-import { NotFoundError, WorkspaceNotOpenError } from '../shared/errors';
+import { NotFoundError, WorkspaceDataMissingError, WorkspaceNotOpenError } from '../shared/errors';
 import { paginateArray, Page, PageOptions } from '../shared/pagination';
 
 // TODO: opening a workspace again after it has been openedn should be as cheap as possible
@@ -117,7 +117,7 @@ export class WorkspaceService {
 
     // throw error if there is no workspace directory to delete
     if (!(await directoryExists(workspaceInfo.path))) {
-      throw new Error('Workspace directory not found');
+      throw new WorkspaceDataMissingError(id, 'Workspace directory not found');
     }
 
     // disconnect its integrations while its database is open, then close it
@@ -165,7 +165,7 @@ export class WorkspaceService {
 
     // 2. make sure the workspace directory exists
     if (!(await directoryExists(workspaceInfo.path))) {
-      throw new Error('No workspace data found');
+      throw new WorkspaceDataMissingError(id, 'No workspace data found');
     }
 
     // 3. close the workspace open now, if any: only one syncs at a time, and its runs settle first

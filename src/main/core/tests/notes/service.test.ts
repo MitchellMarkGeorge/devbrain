@@ -114,7 +114,10 @@ describe('NoteService — createNote', () => {
 
     await expect(
       notesService.createNote({ linkedEventId: eventId, linkedTaskId: taskId }),
-    ).rejects.toThrow(/cannot be linked to both/i);
+    ).rejects.toMatchObject({
+      code: 'invalid_input',
+      message: expect.stringMatching(/cannot be linked to both/i),
+    });
 
     // the notes directory should never have been created
     const notesDir = path.join(workspacePath, 'notes');
@@ -321,49 +324,49 @@ describe('NoteService — updateNote', () => {
   it('updates the title', async () => {
     const note = await notesService.createNote({ title: 'Old title' });
     const updated = await notesService.updateNote(note.id, { title: 'New title' });
-    expect(updated!.title).toBe('New title');
+    expect(updated.title).toBe('New title');
   });
 
   it('updates the projectId', async () => {
     const note = await notesService.createNote({ title: 'Note' });
     const updated = await notesService.updateNote(note.id, { projectId: FAKE_PROJECT_ID });
-    expect(updated!.projectId).toBe(FAKE_PROJECT_ID);
+    expect(updated.projectId).toBe(FAKE_PROJECT_ID);
   });
 
   it('clears the projectId when explicitly set to null', async () => {
     const note = await notesService.createNote({ title: 'Note', projectId: FAKE_PROJECT_ID });
     const updated = await notesService.updateNote(note.id, { projectId: null });
-    expect(updated!.projectId).toBeNull();
+    expect(updated.projectId).toBeNull();
   });
 
   it('persists fields that were not passed', async () => {
     const note = await notesService.createNote({ title: 'Original', projectId: FAKE_PROJECT_ID });
     const updated = await notesService.updateNote(note.id, { title: 'Changed' });
-    expect(updated!.projectId).toBe(FAKE_PROJECT_ID);
+    expect(updated.projectId).toBe(FAKE_PROJECT_ID);
   });
 
   it('sets linkedEventId', async () => {
     const note = await notesService.createNote({ title: 'Note' });
     const updated = await notesService.updateNote(note.id, { linkedEventId: FAKE_EVENT_ID });
-    expect(updated!.linkedEventId).toBe(FAKE_EVENT_ID);
+    expect(updated.linkedEventId).toBe(FAKE_EVENT_ID);
   });
 
   it('sets linkedTaskId', async () => {
     const note = await notesService.createNote({ title: 'Note' });
     const updated = await notesService.updateNote(note.id, { linkedTaskId: FAKE_TASK_ID });
-    expect(updated!.linkedTaskId).toBe(FAKE_TASK_ID);
+    expect(updated.linkedTaskId).toBe(FAKE_TASK_ID);
   });
 
   it('does not clear an existing link when updating an unrelated field', async () => {
     const note = await notesService.createNote({ title: 'Note', linkedEventId: FAKE_EVENT_ID });
     const updated = await notesService.updateNote(note.id, { title: 'Renamed' });
-    expect(updated!.linkedEventId).toBe(FAKE_EVENT_ID);
+    expect(updated.linkedEventId).toBe(FAKE_EVENT_ID);
   });
 
   it('clears an existing link when explicitly set to null', async () => {
     const note = await notesService.createNote({ title: 'Note', linkedEventId: FAKE_EVENT_ID });
     const updated = await notesService.updateNote(note.id, { linkedEventId: null });
-    expect(updated!.linkedEventId).toBeNull();
+    expect(updated.linkedEventId).toBeNull();
   });
 
   it('throws if both linkedEventId and linkedTaskId are provided', async () => {
@@ -373,12 +376,16 @@ describe('NoteService — updateNote', () => {
         linkedEventId: FAKE_EVENT_ID,
         linkedTaskId: FAKE_TASK_ID,
       }),
-    ).rejects.toThrow(/cannot be linked to both/i);
+    ).rejects.toMatchObject({
+      code: 'invalid_input',
+      message: expect.stringMatching(/cannot be linked to both/i),
+    });
   });
 
-  it('returns null for an unknown id', async () => {
-    const result = await notesService.updateNote(generateId('note'), { title: 'Ghost' });
-    expect(result).toBeNull();
+  it('throws NotFoundError for an unknown id', async () => {
+    await expect(notesService.updateNote(generateId('note'), { title: 'Ghost' })).rejects.toThrow(
+      NotFoundError,
+    );
   });
 });
 
@@ -694,7 +701,9 @@ describe('NoteService — onChange', () => {
     const listener = vi.fn();
     notesService.onChange(listener);
 
-    await notesService.updateNote(generateId('note'), { title: 'Missing' });
+    await expect(notesService.updateNote(generateId('note'), { title: 'Missing' })).rejects.toThrow(
+      NotFoundError,
+    );
 
     expect(listener).not.toHaveBeenCalled();
   });

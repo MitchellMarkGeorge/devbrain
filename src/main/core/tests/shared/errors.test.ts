@@ -15,12 +15,17 @@ import {
   IntegrationAlreadyConnectedError,
   IntegrationAuthError,
   IntegrationDisabledError,
+  InvalidInputError,
   NotArchivedError,
   NotFoundError,
+  OAuthUnavailableError,
   ProviderUnavailableError,
   RateLimitError,
   SyncPageLimitError,
+  TaskHierarchyError,
+  UnsupportedByProviderError,
   WorkspaceClosedError,
+  WorkspaceDataMissingError,
   WorkspaceMigrationError,
   WorkspaceNotOpenError,
 } from '../../shared/errors';
@@ -42,6 +47,8 @@ const integrationId = 'int_1' as IntegrationId;
 
 const errors: [CoreError, CoreErrorCode][] = [
   [new NotFoundError(taskId), 'not_found'],
+  [new InvalidInputError('An API key is required'), 'invalid_input'],
+  [new TaskHierarchyError(taskId, 'cycle', 'Tasks cannot be their own parent'), 'task_hierarchy'],
   [new AlreadyArchivedError(taskId), 'already_archived'],
   [new NotArchivedError(taskId), 'not_archived'],
   [new ExternalReadOnlyError(taskId), 'external_read_only'],
@@ -57,6 +64,11 @@ const errors: [CoreError, CoreErrorCode][] = [
     'integration_account_mismatch',
   ],
   [new IntegrationDisabledError(integrationId), 'integration_disabled'],
+  [
+    new UnsupportedByProviderError(Provider.LINEAR, "linear can't serve as a source for events"),
+    'unsupported_by_provider',
+  ],
+  [new OAuthUnavailableError('No OAuth client is configured'), 'oauth_unavailable'],
   [new RateLimitError(new Date('2026-10-14T12:00:00Z')), 'rate_limited'],
   [new SyncPageLimitError(500), 'sync_page_limit'],
   [new ProviderUnavailableError('Down'), 'provider_unavailable'],
@@ -69,6 +81,10 @@ const errors: [CoreError, CoreErrorCode][] = [
   [new MalformedNoteFileError('/notes/a.md', null), 'malformed_note_file'],
   [new DevBrainFolderError('missing', 'No DevBrain folder'), 'devbrain_folder'],
   [new WorkspaceNotOpenError('wsp_1' as WorkspaceId), 'workspace_not_open'],
+  [
+    new WorkspaceDataMissingError('wsp_1' as WorkspaceId, 'No workspace data found'),
+    'workspace_data_missing',
+  ],
   [new WorkspaceClosedError(), 'workspace_closed'],
   [
     new WorkspaceMigrationError('Failed', {

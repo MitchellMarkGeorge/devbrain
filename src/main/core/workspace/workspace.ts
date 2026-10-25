@@ -20,7 +20,11 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { runMigrations } from '@main/db/migrate';
 import { fileExists } from '../local/utils';
-import { WorkspaceClosedError, WorkspaceMigrationError } from '../shared/errors';
+import {
+  WorkspaceClosedError,
+  WorkspaceDataMissingError,
+  WorkspaceMigrationError,
+} from '../shared/errors';
 import { inArray } from 'drizzle-orm';
 import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
@@ -143,7 +147,7 @@ export class Workspace {
     // handles opening and existing workspace and backing up the exising database
     const dbPath = path.join(info.path, 'db.sqlite');
     if (!(await fileExists(dbPath))) {
-      throw new Error(`No workspace database found at ${dbPath}`);
+      throw new WorkspaceDataMissingError(info.id, `No workspace database found at ${dbPath}`);
     }
     const sqlite = new Database(dbPath);
     // use native backup method
