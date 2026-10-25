@@ -54,8 +54,8 @@ describe('WorkspaceService — real overlapping transitions', () => {
     expect(first.info.id).toBe(ids[0]);
     expect(second.info.id).toBe(ids[1]);
     expect(service.currentWorkspace).toBe(second);
-    await expect(first.tasks.listTasks()).rejects.toThrow();
-    await expect(second.tasks.listTasks()).resolves.toMatchObject({ items: [] });
+    expect(() => first.tasks.listTasks()).toThrow();
+    expect(second.tasks.listTasks()).toMatchObject({ items: [] });
   });
 
   it('switches after a pending open and closes the workspace it opened', async () => {
@@ -68,7 +68,7 @@ describe('WorkspaceService — real overlapping transitions', () => {
     await opening;
     const second = await switching;
     expect(service.currentWorkspace).toBe(second);
-    await expect(first.tasks.listTasks()).rejects.toThrow();
+    expect(() => first.tasks.listTasks()).toThrow();
   });
 
   it('waits for opening before closing, including repeated close calls', async () => {
@@ -85,7 +85,7 @@ describe('WorkspaceService — real overlapping transitions', () => {
     gate.release();
     await Promise.all([opening, closing, again]);
     expect(service.currentWorkspace).toBeNull();
-    await expect(workspace.tasks.listTasks()).rejects.toThrow();
+    expect(() => workspace.tasks.listTasks()).toThrow();
   });
 
   it('deletes a workspace whose open is still pending', async () => {
@@ -98,7 +98,7 @@ describe('WorkspaceService — real overlapping transitions', () => {
     expect(service.currentWorkspace).toBeNull();
     expect(() => service.getById(ids[0])).toThrow(NotFoundError);
     await expect(fs.stat(workspace.info.path)).rejects.toMatchObject({ code: 'ENOENT' });
-    await expect(workspace.tasks.listTasks()).rejects.toThrow();
+    expect(() => workspace.tasks.listTasks()).toThrow();
   });
 
   it('rejects an open queued behind deletion of the same workspace', async () => {
@@ -125,6 +125,6 @@ describe('WorkspaceService — real overlapping transitions', () => {
     await failed;
     const workspace = await next;
     expect(service.currentWorkspace).toBe(workspace);
-    await expect(workspace.tasks.listTasks()).resolves.toMatchObject({ items: [] });
+    expect(workspace.tasks.listTasks()).toMatchObject({ items: [] });
   });
 });

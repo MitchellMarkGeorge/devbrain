@@ -13,7 +13,7 @@ import { ProjectStatus } from '../../projects/types';
 import { Task, TaskSortOptions, TaskStatus } from '../../tasks/types';
 import { getRefs } from '../../integrations/refs';
 import { AuthType, LinkState, Provider, SourceType } from '../../integrations/types';
-import { PageOptions } from '../../shared/pagination';
+import { Page, PageOptions } from '../../shared/pagination';
 
 // The `external` field on read models and the `origin` filter. Nothing writes links yet
 // (SyncWriter does, later), so these tests insert link rows directly.
@@ -47,13 +47,11 @@ function link(entity: Entity, values: Partial<typeof externalLinks.$inferInsert>
     .run();
 }
 
-async function allPages(
-  list: (page: PageOptions) => Promise<{ items: Task[]; nextCursor: string | null }>,
-): Promise<Task[]> {
+function allPages(list: (page: PageOptions) => Page<Task>): Task[] {
   const items: Task[] = [];
   let cursor: string | undefined;
   do {
-    const page = await list({ cursor, limit: 2 });
+    const page = list({ cursor, limit: 2 });
     items.push(...page.items);
     cursor = page.nextCursor ?? undefined;
   } while (cursor);
@@ -347,7 +345,7 @@ describe('TaskService — listTasks origin filter pagination', () => {
       ['external', external],
       ['local', localTasks],
     ] as const) {
-      const paged = await allPages((page) => tasks.listTasks({ origin }, sort, page));
+      const paged = allPages((page) => tasks.listTasks({ origin }, sort, page));
       expect(paged.map((t) => t.id)).toHaveLength(new Set(paged.map((t) => t.id)).size);
       expect(ids(paged)).toEqual(ids(expected));
 

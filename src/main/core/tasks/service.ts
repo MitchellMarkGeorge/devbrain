@@ -44,18 +44,18 @@ export class TaskService {
     return this.changes.add(listener);
   }
 
-  async getById(id: TaskId): Promise<Task> {
-    const [row] = await this.activeTasks(eq(tasks.id, id)).limit(1);
+  getById(id: TaskId): Task {
+    const row = this.activeTasks(eq(tasks.id, id)).limit(1).get();
     if (!row) throw new NotFoundError(id);
     return withRef(this.db, row);
   }
 
-  async getByIds(ids: TaskId[]): Promise<Task[]> {
-    return withRefs(this.db, await this.activeTasks(inArray(tasks.id, ids)));
+  getByIds(ids: TaskId[]): Task[] {
+    return withRefs(this.db, this.activeTasks(inArray(tasks.id, ids)).all());
   }
 
   // a local task can be created in a mirrored project: it stays local and sync never touches it
-  async createTask(options: CreateTaskOptions): Promise<Task> {
+  createTask(options: CreateTaskOptions): Task {
     if (options.linkedEventId && options.linkedNoteId) {
       throw new InvalidInputError('Tasks cannot be linked to both an event and a note');
     }
@@ -77,16 +77,16 @@ export class TaskService {
       completedAt: options.status === TaskStatus.COMPLETED ? new Date() : null,
     };
 
-    const [row] = await this.db.insert(tasks).values(newTask).returning();
+    const row = this.db.insert(tasks).values(newTask).returning().get();
     // a new task is local, so it has no link
     const insertedTask = { ...row, external: null };
     this.changes.emit({ type: 'created', task: insertedTask });
     return insertedTask;
   }
 
-  async createSubtask(parentTaskId: TaskId, options: CreateSubTaskOptions): Promise<Task> {
+  createSubtask(parentTaskId: TaskId, options: CreateSubTaskOptions): Task {
     // throws NotFoundError when no task matches the provided id
-    const parentTask = await this.getById(parentTaskId);
+    const parentTask = this.getById(parentTaskId);
     // a synced parent's subtree is provider-owned; local subtasks nest at any depth
     assertRowEditable(parentTask);
 
@@ -114,17 +114,17 @@ export class TaskService {
       linkedEventId: parentTask.linkedEventId,
       completedAt: options.status === TaskStatus.COMPLETED ? new Date() : null,
     };
-    const [row] = await this.db.insert(tasks).values(newSubtask).returning();
+    const row = this.db.insert(tasks).values(newSubtask).returning().get();
     const insertedTask = { ...row, external: null };
     this.changes.emit({ type: 'created', task: insertedTask });
     return insertedTask;
   }
 
-  async listTasks(
+  listTasks(
     filter: TaskFilterOptions = {},
     sort: TaskSortOptions = { sortBy: 'createdAt' },
     page: PageOptions = {},
-  ): Promise<Page<Task>> {
+  ): Page<Task> {
     const clauses = [isNull(tasks.archivedAt)];
     if (filter.excludeSubtasks) clauses.push(isNull(tasks.parentTaskId));
     if (filter.excludeClosed) {
@@ -203,19 +203,20 @@ export class TaskService {
       page,
     );
 
-    const rows = await this.db
+    const rows = this.db
       .select()
       .from(tasks)
       .where(and(...clauses, pager.after))
       .orderBy(...pager.orderBy)
-      .limit(pager.fetchLimit);
+      .limit(pager.fetchLimit)
+      .all();
 
     // filled after the page is cut, so the lookup covers only the rows returned
     const result = pager.toPage(rows);
     return { ...result, items: withRefs(this.db, result.items) };
   }
 
-  async listSubtasks(parentTaskId: TaskId, page: PageOptions = {}): Promise<Page<Task>> {
+  listSubtasks(parentTaskId: TaskId, page: PageOptions = {}): Page<Task> {
     const pager = keyset<Task>(
       {
         sortKey: 'created',
@@ -228,27 +229,28 @@ export class TaskService {
       page,
     );
 
-    const rows = await this.db
+    const rows = this.db
       .select()
       .from(tasks)
       .where(and(eq(tasks.parentTaskId, parentTaskId), isNull(tasks.archivedAt), pager.after))
       .orderBy(...pager.orderBy)
-      .limit(pager.fetchLimit);
+      .limit(pager.fetchLimit)
+      .all();
 
     // filled after the page is cut, so the lookup covers only the rows returned
     const result = pager.toPage(rows);
     return { ...result, items: withRefs(this.db, result.items) };
   }
 
-  async updateTask(id: TaskId, updates: UpdateTaskOptions): Promise<Task> {
+  updateTask(id: TaskId, updates: UpdateTaskOptions): Task {
     assertEditable(this.db, id);
-    const [row] = await this.db.update(tasks).set(updates).where(eq(tasks.id, id)).returning();
+    const row = this.db.update(tasks).set(updates).where(eq(tasks.id, id)).returning().get();
     return this.updated(id, row);
   }
 
-  async updateStatus(id: TaskId, newStatus: TaskStatus): Promise<Task> {
+  updateStatus(id: TaskId, newStatus: TaskStatus): Task {
     assertEditable(this.db, id);
-    const [row] = await this.db
+    const row = this.db
       .update(tasks)
       .set({
         // if a task is now complete, set a new completedAt timestamp
@@ -258,15 +260,16 @@ export class TaskService {
         status: newStatus,
       })
       .where(eq(tasks.id, id))
-      .returning();
+      .returning()
+      .get();
 
     // if all the tasks in a project are marked as completed, then the project shoudl be marked as completed
     // this shoudl also happen vice versa
     return this.updated(id, row);
   }
 
-  async updateProject(id: TaskId, projectId: ProjectId | null): Promise<Task> {
-    const task = await this.getById(id);
+  updateProject(id: TaskId, projectId: ProjectId | null): Task {
+    const task = this.getById(id);
     // a synced task's project follows the provider; a local one can move into a mirrored project
     assertRowEditable(task);
 
@@ -278,18 +281,19 @@ export class TaskService {
       );
     }
 
-    const [row] = await this.db
+    const row = this.db
       .update(tasks)
       .set({
         projectId,
       })
       .where(eq(tasks.id, id))
-      .returning();
+      .returning()
+      .get();
     return this.updated(id, row);
   }
 
-  async updateLinks(id: TaskId, options: UpdateTaskLinkOptions): Promise<Task> {
-    const task = await this.getById(id);
+  updateLinks(id: TaskId, options: UpdateTaskLinkOptions): Task {
+    const task = this.getById(id);
 
     // links are DevBrain-owned, so allowed on synced tasks; external subtasks carry their own
     if (isSubtask(task) && !isSynced(task)) {
@@ -304,37 +308,39 @@ export class TaskService {
       throw new InvalidInputError('Tasks cannot be linked to both an event and a note');
     }
 
-    const [row] = await this.db
+    const row = this.db
       .update(tasks)
       .set({
         linkedEventId: options.linkedEventId ?? null,
         linkedNoteId: options.linkedNoteId ?? null,
       })
       .where(eq(tasks.id, id))
-      .returning();
+      .returning()
+      .get();
     return this.updated(id, row);
   }
 
-  async promoteSubtask(id: TaskId): Promise<Task> {
+  promoteSubtask(id: TaskId): Task {
     // makes an existing subtask a top level task
-    const task = await this.getById(id);
+    const task = this.getById(id);
     assertRowEditable(task);
 
     if (!isSubtask(task)) {
       throw new TaskHierarchyError(id, 'not_subtask', 'Task is not a subtask');
     }
 
-    const [row] = await this.db
+    const row = this.db
       .update(tasks)
       .set({
         parentTaskId: null,
       })
       .where(eq(tasks.id, id))
-      .returning();
+      .returning()
+      .get();
     return this.updated(id, row);
   }
 
-  async demoteTask(id: TaskId, newParentId: TaskId): Promise<Task> {
+  demoteTask(id: TaskId, newParentId: TaskId): Task {
     // makes an existing top level task a subtask of another task
     // the existing task will inherit the context if its new parent, even if already has its own
     if (id === newParentId) {
@@ -342,17 +348,18 @@ export class TaskService {
     }
 
     // both throw NotFoundError when the id has no active task behind it
-    const task = await this.getById(id);
-    const parentTask = await this.getById(newParentId);
+    const task = this.getById(id);
+    const parentTask = this.getById(newParentId);
     // both sides are guarded; local tasks nest at any depth
     assertRowEditable(task);
     assertRowEditable(parentTask);
 
-    const [cycle] = await this.db
+    const cycle = this.db
       .select({ id: tasks.id })
       .from(tasks)
       .where(and(eq(tasks.id, newParentId), inArray(tasks.id, subtreeOf(id))))
-      .limit(1);
+      .limit(1)
+      .get();
     if (cycle) {
       throw new TaskHierarchyError(
         id,

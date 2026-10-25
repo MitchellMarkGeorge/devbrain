@@ -116,17 +116,19 @@ describe('TaskService — createTask', () => {
   });
 
   it('throws when both linkedEventId and linkedNoteId are provided', async () => {
-    await expect(
+    expect(() =>
       tasks.createTask({
         title: 'Double linked',
         dueDate: TOMORROW,
         linkedEventId: FAKE_EVENT_ID,
         linkedNoteId: FAKE_NOTE_ID,
       }),
-    ).rejects.toMatchObject({
-      code: 'invalid_input',
-      message: expect.stringContaining('Tasks cannot be linked to both an event and a note'),
-    });
+    ).toThrow(
+      expect.objectContaining({
+        code: 'invalid_input',
+        message: expect.stringContaining('Tasks cannot be linked to both an event and a note'),
+      }),
+    );
   });
 
   it('creates a task linked only to a note', async () => {
@@ -181,9 +183,9 @@ describe('TaskService — createSubtask', () => {
   });
 
   it('throws NotFoundError when parent does not exist', async () => {
-    await expect(
-      tasks.createSubtask(generateId('task'), { title: 'Orphan' }),
-    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => tasks.createSubtask(generateId('task'), { title: 'Orphan' })).toThrow(
+      NotFoundError,
+    );
   });
 
   it('creates a subtask of a subtask, inheriting its context', async () => {
@@ -266,13 +268,13 @@ describe('TaskService — getById', () => {
   });
 
   it('throws NotFoundError for an unknown id', async () => {
-    await expect(tasks.getById(generateId('task'))).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => tasks.getById(generateId('task'))).toThrow(NotFoundError);
   });
 
   it('throws NotFoundError for an archived task', async () => {
     const task = await tasks.createTask({ title: 'Soon archived', dueDate: TOMORROW });
     archive.archiveTask(task.id);
-    await expect(tasks.getById(task.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => tasks.getById(task.id)).toThrow(NotFoundError);
   });
 });
 
@@ -709,15 +711,13 @@ describe('TaskService — updateTask', () => {
   });
 
   it('throws NotFoundError for an unknown id', async () => {
-    await expect(tasks.updateTask(generateId('task'), { title: 'Ghost' })).rejects.toThrow(
-      NotFoundError,
-    );
+    expect(() => tasks.updateTask(generateId('task'), { title: 'Ghost' })).toThrow(NotFoundError);
   });
 });
 
 describe('TaskService — updateStatus', () => {
   it('throws NotFoundError for an unknown id', async () => {
-    await expect(tasks.updateStatus(generateId('task'), TaskStatus.COMPLETED)).rejects.toThrow(
+    expect(() => tasks.updateStatus(generateId('task'), TaskStatus.COMPLETED)).toThrow(
       NotFoundError,
     );
   });
@@ -774,19 +774,19 @@ describe('TaskService — updateProject', () => {
   });
 
   it('throws NotFoundError for an unknown task id', async () => {
-    await expect(tasks.updateProject(generateId('task'), FAKE_PROJECT_ID)).rejects.toBeInstanceOf(
-      NotFoundError,
-    );
+    expect(() => tasks.updateProject(generateId('task'), FAKE_PROJECT_ID)).toThrow(NotFoundError);
   });
 
   it('throws when called on a subtask', async () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
-    await expect(tasks.updateProject(sub.id, FAKE_PROJECT_ID)).rejects.toMatchObject({
-      code: 'task_hierarchy',
-      reason: 'inherits_context',
-      message: expect.stringContaining('Subtasks inherit project context from partent task'),
-    });
+    expect(() => tasks.updateProject(sub.id, FAKE_PROJECT_ID)).toThrow(
+      expect.objectContaining({
+        code: 'task_hierarchy',
+        reason: 'inherits_context',
+        message: expect.stringContaining('Subtasks inherit project context from partent task'),
+      }),
+    );
   });
 });
 
@@ -820,32 +820,36 @@ describe('TaskService — updateLinks', () => {
   });
 
   it('throws NotFoundError for an unknown task id', async () => {
-    await expect(
-      tasks.updateLinks(generateId('task'), { linkedNoteId: FAKE_NOTE_ID }),
-    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => tasks.updateLinks(generateId('task'), { linkedNoteId: FAKE_NOTE_ID })).toThrow(
+      NotFoundError,
+    );
   });
 
   it('throws when called on a subtask', async () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
-    await expect(tasks.updateLinks(sub.id, { linkedNoteId: FAKE_NOTE_ID })).rejects.toMatchObject({
-      code: 'task_hierarchy',
-      reason: 'inherits_context',
-      message: expect.stringContaining('Subtasks inherit link context from partent task'),
-    });
+    expect(() => tasks.updateLinks(sub.id, { linkedNoteId: FAKE_NOTE_ID })).toThrow(
+      expect.objectContaining({
+        code: 'task_hierarchy',
+        reason: 'inherits_context',
+        message: expect.stringContaining('Subtasks inherit link context from partent task'),
+      }),
+    );
   });
 
   it('throws when both linkedEventId and linkedNoteId are provided', async () => {
     const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
-    await expect(
+    expect(() =>
       tasks.updateLinks(task.id, {
         linkedEventId: FAKE_EVENT_ID,
         linkedNoteId: FAKE_NOTE_ID,
       }),
-    ).rejects.toMatchObject({
-      code: 'invalid_input',
-      message: expect.stringContaining('Tasks cannot be linked to both an event and a note'),
-    });
+    ).toThrow(
+      expect.objectContaining({
+        code: 'invalid_input',
+        message: expect.stringContaining('Tasks cannot be linked to both an event and a note'),
+      }),
+    );
   });
 });
 
@@ -858,16 +862,18 @@ describe('TaskService — promoteSubtask', () => {
   });
 
   it('throws NotFoundError for an unknown task id', async () => {
-    await expect(tasks.promoteSubtask(generateId('task'))).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => tasks.promoteSubtask(generateId('task'))).toThrow(NotFoundError);
   });
 
   it('throws when the task is not a subtask', async () => {
     const task = await tasks.createTask({ title: 'Top level', dueDate: TOMORROW });
-    await expect(tasks.promoteSubtask(task.id)).rejects.toMatchObject({
-      code: 'task_hierarchy',
-      reason: 'not_subtask',
-      message: expect.stringContaining('Task is not a subtask'),
-    });
+    expect(() => tasks.promoteSubtask(task.id)).toThrow(
+      expect.objectContaining({
+        code: 'task_hierarchy',
+        reason: 'not_subtask',
+        message: expect.stringContaining('Task is not a subtask'),
+      }),
+    );
   });
 
   it('promoted task appears as a top-level task in listSubtasks', async () => {
@@ -882,11 +888,13 @@ describe('TaskService — promoteSubtask', () => {
 describe('TaskService — demoteTask', () => {
   it('throws when id and newParentId are the same', async () => {
     const task = await tasks.createTask({ title: 'Self', dueDate: TOMORROW });
-    await expect(tasks.demoteTask(task.id, task.id)).rejects.toMatchObject({
-      code: 'task_hierarchy',
-      reason: 'cycle',
-      message: expect.stringContaining('Tasks cannot be their own parent'),
-    });
+    expect(() => tasks.demoteTask(task.id, task.id)).toThrow(
+      expect.objectContaining({
+        code: 'task_hierarchy',
+        reason: 'cycle',
+        message: expect.stringContaining('Tasks cannot be their own parent'),
+      }),
+    );
   });
 
   it('demotes a task by setting its parentTaskId to newParentId', async () => {
@@ -898,16 +906,12 @@ describe('TaskService — demoteTask', () => {
 
   it('throws NotFoundError when the task to demote does not exist', async () => {
     const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    await expect(tasks.demoteTask(generateId('task'), parent.id)).rejects.toBeInstanceOf(
-      NotFoundError,
-    );
+    expect(() => tasks.demoteTask(generateId('task'), parent.id)).toThrow(NotFoundError);
   });
 
   it('throws NotFoundError when the new parent does not exist', async () => {
     const child = await tasks.createTask({ title: 'Future child', dueDate: TOMORROW });
-    await expect(tasks.demoteTask(child.id, generateId('task'))).rejects.toBeInstanceOf(
-      NotFoundError,
-    );
+    expect(() => tasks.demoteTask(child.id, generateId('task'))).toThrow(NotFoundError);
   });
 
   it('demotes a task under a subtask', async () => {
@@ -944,11 +948,13 @@ describe('TaskService — demoteTask', () => {
     const sub = await tasks.createSubtask(task.id, { title: 'Sub' });
     const subSub = await tasks.createSubtask(sub.id, { title: 'Sub sub' });
     for (const id of [sub.id, subSub.id]) {
-      await expect(tasks.demoteTask(task.id, id)).rejects.toMatchObject({
-        code: 'task_hierarchy',
-        reason: 'cycle',
-        message: expect.stringContaining('Tasks cannot become a subtask of their own subtask'),
-      });
+      expect(() => tasks.demoteTask(task.id, id)).toThrow(
+        expect.objectContaining({
+          code: 'task_hierarchy',
+          reason: 'cycle',
+          message: expect.stringContaining('Tasks cannot become a subtask of their own subtask'),
+        }),
+      );
     }
     expect((await tasks.getById(task.id)).parentTaskId).toBeNull();
   });
@@ -975,7 +981,7 @@ describe('ArchiveService — archiveTask', () => {
   it('archived task is no longer returned by TaskService.getById', async () => {
     const task = await tasks.createTask({ title: 'Gone', dueDate: TOMORROW });
     archive.archiveTask(task.id);
-    await expect(tasks.getById(task.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => tasks.getById(task.id)).toThrow(NotFoundError);
   });
 
   it('archived task is excluded from TaskService.listTasks', async () => {
@@ -1003,8 +1009,8 @@ describe('ArchiveService — archiveTask', () => {
     const subSub = await tasks.createSubtask(sub.id, { title: 'Sub sub' });
     const unrelated = await tasks.createTask({ title: 'Unrelated', dueDate: TOMORROW });
     archive.archiveTask(parent.id);
-    await expect(tasks.getById(sub.id)).rejects.toBeInstanceOf(NotFoundError);
-    await expect(tasks.getById(subSub.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => tasks.getById(sub.id)).toThrow(NotFoundError);
+    expect(() => tasks.getById(subSub.id)).toThrow(NotFoundError);
     expect((await tasks.getById(unrelated.id)).archivedAt).toBeNull();
 
     archive.restoreTask(parent.id);
@@ -1016,8 +1022,8 @@ describe('ArchiveService — archiveTask', () => {
     const sub1 = await tasks.createSubtask(parent.id, { title: 'Sub 1' });
     const sub2 = await tasks.createSubtask(parent.id, { title: 'Sub 2' });
     archive.archiveTask(parent.id);
-    await expect(tasks.getById(sub1.id)).rejects.toBeInstanceOf(NotFoundError);
-    await expect(tasks.getById(sub2.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => tasks.getById(sub1.id)).toThrow(NotFoundError);
+    expect(() => tasks.getById(sub2.id)).toThrow(NotFoundError);
     expect((await tasks.listSubtasks(parent.id)).items).toHaveLength(0);
   });
 
@@ -1257,20 +1263,18 @@ describe('TaskService — cursor pagination', () => {
 
   it('clamps limit to the maximum and rejects invalid limits', async () => {
     await seed(1);
-    await expect(tasks.listTasks({}, undefined, { limit: 0 })).rejects.toThrow(RangeError);
+    expect(() => tasks.listTasks({}, undefined, { limit: 0 })).toThrow(RangeError);
     const page = await tasks.listTasks({}, undefined, { limit: 100_000 });
     expect(page.items).toHaveLength(1);
   });
 
   it('rejects garbage cursors and cursors from a different sort', async () => {
     await seed(3);
-    await expect(tasks.listTasks({}, undefined, { cursor: 'garbage' })).rejects.toThrow(
+    expect(() => tasks.listTasks({}, undefined, { cursor: 'garbage' })).toThrow(InvalidCursorError);
+    const page = await tasks.listTasks({}, { sortBy: 'createdAt' }, { limit: 1 });
+    expect(() => tasks.listTasks({}, { sortBy: 'priority' }, { cursor: page.nextCursor! })).toThrow(
       InvalidCursorError,
     );
-    const page = await tasks.listTasks({}, { sortBy: 'createdAt' }, { limit: 1 });
-    await expect(
-      tasks.listTasks({}, { sortBy: 'priority' }, { cursor: page.nextCursor! }),
-    ).rejects.toThrow(InvalidCursorError);
   });
 
   it('listSubtasks paginates', async () => {
@@ -1414,11 +1418,15 @@ describe('TaskService — undated tasks', () => {
 
   it('createSubtask throws when neither the subtask nor its parent has a due date', async () => {
     const parent = await undated('Undated parent');
-    await expect(tasks.createSubtask(parent.id, { title: 'Sub' })).rejects.toMatchObject({
-      code: 'task_hierarchy',
-      reason: 'due_date_required',
-      message: expect.stringContaining('Subtasks need a due date when their parent task has none'),
-    });
+    expect(() => tasks.createSubtask(parent.id, { title: 'Sub' })).toThrow(
+      expect.objectContaining({
+        code: 'task_hierarchy',
+        reason: 'due_date_required',
+        message: expect.stringContaining(
+          'Subtasks need a due date when their parent task has none',
+        ),
+      }),
+    );
   });
 
   it('createSubtask under an undated parent uses its own due date', async () => {
@@ -1546,9 +1554,7 @@ describe('TaskService — onChange', () => {
     const listener = vi.fn();
     tasks.onChange(listener);
 
-    await expect(tasks.updateTask(generateId('task'), { title: 'Missing' })).rejects.toThrow(
-      NotFoundError,
-    );
+    expect(() => tasks.updateTask(generateId('task'), { title: 'Missing' })).toThrow(NotFoundError);
 
     expect(listener).not.toHaveBeenCalled();
   });
