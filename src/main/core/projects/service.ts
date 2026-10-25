@@ -152,7 +152,7 @@ export class ProjectService {
 
     // filled after the page is cut, so the lookup covers only the rows returned
     const result = pager.toPage(rows);
-    return { ...result, items: await withRefs(this.db, result.items) };
+    return { ...result, items: withRefs(this.db, result.items) };
   }
 
   async getProjectStats(id: ProjectId): Promise<ProjectStats> {
@@ -195,9 +195,9 @@ export class ProjectService {
 
   // An update's result as every read returns it, with `external`, after sending the change. Throws
   // NotFoundError when the update matched no row.
-  private async updated(id: ProjectId, row: Project | undefined): Promise<Project> {
+  private updated(id: ProjectId, row: Project | undefined): Project {
     if (!row) throw new NotFoundError(id);
-    const project = await withRef(this.db, row);
+    const project = withRef(this.db, row);
     this.changes.emit({ type: 'updated', project });
     return project;
   }

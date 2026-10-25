@@ -212,7 +212,7 @@ export class TaskService {
 
     // filled after the page is cut, so the lookup covers only the rows returned
     const result = pager.toPage(rows);
-    return { ...result, items: await withRefs(this.db, result.items) };
+    return { ...result, items: withRefs(this.db, result.items) };
   }
 
   async listSubtasks(parentTaskId: TaskId, page: PageOptions = {}): Promise<Page<Task>> {
@@ -237,7 +237,7 @@ export class TaskService {
 
     // filled after the page is cut, so the lookup covers only the rows returned
     const result = pager.toPage(rows);
-    return { ...result, items: await withRefs(this.db, result.items) };
+    return { ...result, items: withRefs(this.db, result.items) };
   }
 
   async updateTask(id: TaskId, updates: UpdateTaskOptions): Promise<Task> {
@@ -386,9 +386,9 @@ export class TaskService {
 
   // An update's result as every read returns it, with `external`, after sending the change. Throws
   // NotFoundError when the update matched no row.
-  private async updated(id: TaskId, row: Task | undefined): Promise<Task> {
+  private updated(id: TaskId, row: Task | undefined): Task {
     if (!row) throw new NotFoundError(id);
-    const task = await withRef(this.db, row);
+    const task = withRef(this.db, row);
     this.changes.emit({ type: 'updated', task });
     return task;
   }

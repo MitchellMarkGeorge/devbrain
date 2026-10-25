@@ -1,7 +1,6 @@
 import { EventId, ProjectId, TaskId } from '@common/ids';
 import { externalLinks } from '@main/db/schema/integrations';
 import { inArray, sql, SQL, SQLWrapper } from 'drizzle-orm';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { BaseSQLiteDatabase, SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { RunResult } from 'better-sqlite3';
 import { ExternalRef, LinkState } from './types';
@@ -99,17 +98,9 @@ export function assertRowEditable(row: {
  *
  * Services fill `external` after their own query, with one batched lookup per call, instead of
  * joining inside every list query: that keeps the keyset queries and the indexes behind them
- * untouched.
+ * untouched. Synchronous, so it also runs inside a transaction (`db` can be one).
  */
-export async function getRefs<T extends LinkedEntityId>(
-  db: BetterSQLite3Database,
-  ids: T[],
-): Promise<Map<T, ExternalRef>> {
-  return getRefsSync(db, ids);
-}
-
-/** `getRefs` for synchronous callers, such as a transaction (`db` can be one) */
-export function getRefsSync<T extends LinkedEntityId>(
+export function getRefs<T extends LinkedEntityId>(
   db: BaseSQLiteDatabase<'sync', RunResult>,
   ids: T[],
 ): Map<T, ExternalRef> {
@@ -143,28 +134,21 @@ export function getRefsSync<T extends LinkedEntityId>(
 }
 
 /** the rows with `external` set: the row's ref when it has a link, null when it is local */
-export async function withRefs<T extends { id: LinkedEntityId }>(
-  db: BetterSQLite3Database,
+export function withRefs<T extends { id: LinkedEntityId }>(
+  db: BaseSQLiteDatabase<'sync', RunResult>,
   rows: T[],
-): Promise<(T & { external: ExternalRef | null })[]> {
-  const refs = await getRefs(
+): (T & { external: ExternalRef | null })[] {
+  const refs = getRefs(
     db,
     rows.map((row) => row.id),
   );
   return rows.map((row) => ({ ...row, external: refs.get(row.id) ?? null }));
 }
 
-export async function withRef<T extends { id: LinkedEntityId }>(
-  db: BetterSQLite3Database,
-  row: T,
-): Promise<T & { external: ExternalRef | null }> {
-  return withRefSync(db, row);
-}
-
-/** `withRef` for synchronous callers, such as a transaction (`db` can be one) */
-export function withRefSync<T extends { id: LinkedEntityId }>(
+export function withRef<T extends { id: LinkedEntityId }>(
   db: BaseSQLiteDatabase<'sync', RunResult>,
   row: T,
 ): T & { external: ExternalRef | null } {
-  return { ...row, external: getRefsSync(db, [row.id]).get(row.id) ?? null };
+  const [withRef] = withRefs(db, [row]);
+  return withRef;
 }

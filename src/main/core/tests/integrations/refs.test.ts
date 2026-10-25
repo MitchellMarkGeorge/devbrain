@@ -256,14 +256,14 @@ describe('refs — events', () => {
 });
 
 describe('refs — getRefs', () => {
-  it('returns an empty map for no ids, without a query', async () => {
-    expect((await getRefs(db, [])).size).toBe(0);
+  it('returns an empty map for no ids, without a query', () => {
+    expect(getRefs(db, []).size).toBe(0);
   });
 
   it('rejects ids of different entity types', async () => {
     const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
     const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
-    await expect(getRefs<TaskId | ProjectId>(db, [task.id, project.id])).rejects.toThrow(
+    expect(() => getRefs<TaskId | ProjectId>(db, [task.id, project.id])).toThrow(
       'one entity type at a time',
     );
   });

@@ -185,7 +185,7 @@ export class EventService {
     const exdates = await this.exdatesOf(
       rows.filter((row) => row.recurrenceRule !== null).map((row) => row.id),
     );
-    const withExternal = await withRefs(this.db, rows);
+    const withExternal = withRefs(this.db, rows);
     return withExternal.map((row) => ({ ...row, exdates: exdates.get(row.id) ?? [] }));
   }
 
