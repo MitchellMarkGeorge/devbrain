@@ -13,7 +13,7 @@ export class CalendarService {
   constructor(private readonly db: BetterSQLite3Database) {}
 
   // every calendar: local first, then each source's primary calendar first, then by name
-  async list(): Promise<Calendar[]> {
+  list(): Calendar[] {
     return this.db
       .select()
       .from(calendars)
@@ -22,11 +22,12 @@ export class CalendarService {
         desc(calendars.isPrimary),
         asc(calendars.name),
         asc(calendars.id),
-      );
+      )
+      .all();
   }
 
-  async getById(id: CalendarId): Promise<Calendar> {
-    const [calendar] = await this.db.select().from(calendars).where(eq(calendars.id, id));
+  getById(id: CalendarId): Calendar {
+    const calendar = this.db.select().from(calendars).where(eq(calendars.id, id)).get();
     if (!calendar) throw new NotFoundError(id);
     return calendar;
   }
@@ -36,27 +37,29 @@ export class CalendarService {
    * selected calendar a full pass, and removes a deselected one's events by the removal rule (see
    * EventSyncer). A local calendar always syncs, so it is refused.
    */
-  async setSelected(id: CalendarId, selected: boolean): Promise<Calendar> {
-    const existing = await this.getById(id);
+  setSelected(id: CalendarId, selected: boolean): Calendar {
+    const existing = this.getById(id);
     if (existing.sourceId === null) {
       throw new InvalidInputError(`${id} is a local calendar, which always syncs`);
     }
-    const [calendar] = await this.db
+    const calendar = this.db
       .update(calendars)
       .set({ selected })
       .where(eq(calendars.id, id))
-      .returning();
+      .returning()
+      .get();
     if (!calendar) throw new NotFoundError(id);
     return calendar;
   }
 
   /** shows or hides a calendar's events in the calendar view; nothing is synced or removed */
-  async setVisible(id: CalendarId, visible: boolean): Promise<Calendar> {
-    const [calendar] = await this.db
+  setVisible(id: CalendarId, visible: boolean): Calendar {
+    const calendar = this.db
       .update(calendars)
       .set({ visible })
       .where(eq(calendars.id, id))
-      .returning();
+      .returning()
+      .get();
     if (!calendar) throw new NotFoundError(id);
     return calendar;
   }
