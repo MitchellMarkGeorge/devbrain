@@ -158,7 +158,7 @@ function calendarRow(externalId: string) {
 }
 
 async function exdatesOf(externalId: string): Promise<Date[]> {
-  return (await events.getById(eventIdOf(externalId))).exdates!;
+  return events.getById(eventIdOf(externalId)).exdates!;
 }
 
 function count(
@@ -187,7 +187,10 @@ function syncedEntries() {
 }
 
 async function visibleTitles(): Promise<string[]> {
-  return (await events.listForCalendar(...RANGE)).map((item) => item.title).sort();
+  return events
+    .listForCalendar(...RANGE)
+    .map((item) => item.title)
+    .sort();
 }
 
 beforeEach(async () => {
@@ -363,7 +366,7 @@ describe('SyncWriter events — insert and update', () => {
       page({ events: [{ ...item, title: 'New', updatedAt: V2 }] }),
     );
 
-    expect((await notes.getById(note.id)).linkedEventId).toBe(eventIdOf(item.externalId));
+    expect(notes.getById(note.id).linkedEventId).toBe(eventIdOf(item.externalId));
   });
 
   it('fails on an unknown source and writes nothing', () => {
@@ -653,11 +656,11 @@ describe('SyncWriter events — removal', () => {
     expect(linkOf(item.externalId)).toMatchObject({ state: LinkState.REMOVED });
     expect(linkOf(item.externalId)!.removedAt).not.toBeNull();
     expect(await visibleTitles()).toEqual([]);
-    expect(await events.getById(id)).toMatchObject({
+    expect(events.getById(id)).toMatchObject({
       title: 'Kickoff',
       external: { state: LinkState.REMOVED },
     });
-    expect((await notes.getById(note.id)).linkedEventId).toBe(id);
+    expect(notes.getById(note.id).linkedEventId).toBe(id);
     // out of search, like any event out of scope
     expect(searchIds('Kickoff')).not.toContain(id);
   });
@@ -665,7 +668,7 @@ describe('SyncWriter events — removal', () => {
   it('keeps a cancelled event a task links to', async () => {
     const item = event();
     writer.applyEventPage(sourceId, calendarId, page({ events: [item] }));
-    await tasks.createTask({
+    tasks.createTask({
       title: 'Follow up',
       dueDate: new Date('2026-10-20T00:00:00Z'),
       linkedEventId: eventIdOf(item.externalId),

@@ -179,7 +179,7 @@ function setLinkState(externalId: string, state: LinkState) {
 }
 
 async function localTaskIn(projectId: ProjectId): Promise<TaskId> {
-  const task = await new TaskService(db).createTask({ title: 'Mine', dueDate: NOW, projectId });
+  const task = new TaskService(db).createTask({ title: 'Mine', dueDate: NOW, projectId });
   return task.id;
 }
 
@@ -503,9 +503,9 @@ describe('SyncEngine reconcile — project lifecycle', () => {
     expect(projectOf(withLocal.externalId).archivedAt).toBeNull();
     // a normal local project now: editable, and the local task keeps its home
     const projects = new ProjectService(db);
-    await projects.updateProject(withLocalId, { title: 'Mine now' });
-    expect((await projects.getById(withLocalId)).title).toBe('Mine now');
-    expect((await new TaskService(db).getById(local)).projectId).toBe(withLocalId);
+    projects.updateProject(withLocalId, { title: 'Mine now' });
+    expect(projects.getById(withLocalId).title).toBe('Mine now');
+    expect(new TaskService(db).getById(local).projectId).toBe(withLocalId);
 
     expect(linkOf(empty.externalId)).toMatchObject({ state: LinkState.REMOVED });
     expect(linkOf(empty.externalId).removedAt).toEqual(expect.any(Date));
@@ -594,7 +594,7 @@ describe('SyncEngine reconcile — project lifecycle', () => {
     expect(linkOf(deleted.externalId).state).toBe(LinkState.DETACHED);
     // a synced task cannot live in a local project; the local one stays
     expect(taskOf(inDeleted.externalId).projectId).toBeNull();
-    expect((await new TaskService(db).getById(local)).projectId).toBe(deletedId);
+    expect(new TaskService(db).getById(local).projectId).toBe(deletedId);
   });
 
   it('reattaches a detached project when its Linear project returns, with no duplicate', async () => {
@@ -617,7 +617,7 @@ describe('SyncEngine reconcile — project lifecycle', () => {
     expect(linkOf(proj.externalId).state).toBe(LinkState.SYNCED);
     expect(projectOf(proj.externalId).title).toBe('Platform v2');
     expect(taskOf(arriving.externalId).projectId).toBe(projectId);
-    expect((await new TaskService(db).getById(local)).projectId).toBe(projectId);
+    expect(new TaskService(db).getById(local).projectId).toBe(projectId);
 
     // and it stays: the next reconcile finds a synced task in it
     remoteTasks.set(arriving.externalId, arriving);

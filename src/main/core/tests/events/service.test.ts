@@ -28,7 +28,7 @@ describe('EventService — createEvent', () => {
   it('creates an event and returns it with an assigned id', async () => {
     const startAt = new Date('2026-06-10T10:00:00.000Z');
     const endAt = new Date('2026-06-10T11:00:00.000Z');
-    const event = await eventsService.createEvent({ title: 'Standup', startAt, endAt });
+    const event = eventsService.createEvent({ title: 'Standup', startAt, endAt });
     expect(event.id).toBeTruthy();
     expect(event.title).toBe('Standup');
     expect(event.startAt.getTime()).toBe(startAt.getTime());
@@ -36,7 +36,7 @@ describe('EventService — createEvent', () => {
   });
 
   it('defaults optional fields to null when not provided', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Minimal',
       startAt: new Date('2026-06-10T10:00:00.000Z'),
       endAt: new Date('2026-06-10T11:00:00.000Z'),
@@ -50,7 +50,7 @@ describe('EventService — createEvent', () => {
   });
 
   it('stores the provided optional fields', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Full',
       description: 'Details',
       startAt: new Date('2026-06-10T10:00:00.000Z'),
@@ -87,12 +87,12 @@ describe('EventService — createEvent', () => {
 
 describe('EventService — getById', () => {
   it('returns the event for a valid id', async () => {
-    const created = await eventsService.createEvent({
+    const created = eventsService.createEvent({
       title: 'Find me',
       startAt: new Date('2026-06-10T10:00:00.000Z'),
       endAt: new Date('2026-06-10T11:00:00.000Z'),
     });
-    const found = await eventsService.getById(created.id);
+    const found = eventsService.getById(created.id);
     expect(found.id).toBe(created.id);
     expect(found.title).toBe('Find me');
   });
@@ -104,23 +104,23 @@ describe('EventService — getById', () => {
 
 describe('EventService — getByIds', () => {
   it('returns all events matching the provided ids', async () => {
-    const a = await eventsService.createEvent({
+    const a = eventsService.createEvent({
       title: 'A',
       startAt: new Date('2026-06-10T10:00:00.000Z'),
       endAt: new Date('2026-06-10T11:00:00.000Z'),
     });
-    const b = await eventsService.createEvent({
+    const b = eventsService.createEvent({
       title: 'B',
       startAt: new Date('2026-06-10T10:00:00.000Z'),
       endAt: new Date('2026-06-10T11:00:00.000Z'),
     });
-    await eventsService.createEvent({
+    eventsService.createEvent({
       title: 'C',
       startAt: new Date('2026-06-10T10:00:00.000Z'),
       endAt: new Date('2026-06-10T11:00:00.000Z'),
     }); // not requested
 
-    const result = await eventsService.getByIds([a.id, b.id]);
+    const result = eventsService.getByIds([a.id, b.id]);
     expect(result).toHaveLength(2);
     const ids = result.map((e) => e.id);
     expect(ids).toContain(a.id);
@@ -128,42 +128,42 @@ describe('EventService — getByIds', () => {
   });
 
   it('returns an empty array when none of the ids match', async () => {
-    const result = await eventsService.getByIds([generateId('event'), generateId('event')]);
+    const result = eventsService.getByIds([generateId('event'), generateId('event')]);
     expect(result).toHaveLength(0);
   });
 });
 
 describe('EventService — updateEvent', () => {
   it('updates the title', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Old title',
       startAt: new Date('2026-06-10T10:00:00.000Z'),
       endAt: new Date('2026-06-10T11:00:00.000Z'),
     });
-    const updated = await eventsService.updateEvent(event.id, { title: 'New title' });
+    const updated = eventsService.updateEvent(event.id, { title: 'New title' });
     expect(updated.title).toBe('New title');
   });
 
   it('persists fields that were not passed', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Original',
       description: 'Keep me',
       startAt: new Date('2026-06-10T10:00:00.000Z'),
       endAt: new Date('2026-06-10T11:00:00.000Z'),
     });
-    const updated = await eventsService.updateEvent(event.id, { title: 'Changed' });
+    const updated = eventsService.updateEvent(event.id, { title: 'Changed' });
     expect(updated.description).toBe('Keep me');
   });
 
   it('updates startAt and endAt together', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Move me',
       startAt: new Date('2026-06-10T10:00:00.000Z'),
       endAt: new Date('2026-06-10T11:00:00.000Z'),
     });
     const newStart = new Date('2026-06-11T14:00:00.000Z');
     const newEnd = new Date('2026-06-11T15:00:00.000Z');
-    const updated = await eventsService.updateEvent(event.id, {
+    const updated = eventsService.updateEvent(event.id, {
       startAt: newStart,
       endAt: newEnd,
     });
@@ -172,7 +172,7 @@ describe('EventService — updateEvent', () => {
   });
 
   it('throws when moving endAt alone before the existing startAt', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Event',
       startAt: new Date('2026-06-10T10:00:00.000Z'),
       endAt: new Date('2026-06-10T11:00:00.000Z'),
@@ -188,7 +188,7 @@ describe('EventService — updateEvent', () => {
   });
 
   it('throws when moving startAt alone past the existing endAt', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Event',
       startAt: new Date('2026-06-10T10:00:00.000Z'),
       endAt: new Date('2026-06-10T11:00:00.000Z'),
@@ -204,13 +204,13 @@ describe('EventService — updateEvent', () => {
   });
 
   it('clears recurrenceRule when explicitly set to null', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Recurring',
       startAt: new Date('2026-06-10T10:00:00.000Z'),
       endAt: new Date('2026-06-10T11:00:00.000Z'),
       recurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
     });
-    const updated = await eventsService.updateEvent(event.id, { recurrenceRule: null });
+    const updated = eventsService.updateEvent(event.id, { recurrenceRule: null });
     expect(updated.recurrenceRule).toBeNull();
   });
 
@@ -223,12 +223,12 @@ describe('EventService — updateEvent', () => {
 
 describe('EventService — deleteEvent', () => {
   it('deletes an existing event', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Delete me',
       startAt: new Date('2026-06-10T10:00:00.000Z'),
       endAt: new Date('2026-06-10T11:00:00.000Z'),
     });
-    await eventsService.deleteEvent(event.id);
+    eventsService.deleteEvent(event.id);
     expect(() => eventsService.getById(event.id)).toThrow(NotFoundError);
   });
 
@@ -250,9 +250,9 @@ describe('EventService — onChange', () => {
   it('sends each create, update and delete with what it wrote', async () => {
     const changes = record();
 
-    const event = await eventsService.createEvent({ title: 'Standup', startAt, endAt });
-    const updated = await eventsService.updateEvent(event.id, { title: 'Retro' });
-    await eventsService.deleteEvent(event.id);
+    const event = eventsService.createEvent({ title: 'Standup', startAt, endAt });
+    const updated = eventsService.updateEvent(event.id, { title: 'Retro' });
+    eventsService.deleteEvent(event.id);
 
     expect(changes).toEqual([
       { type: 'created', event },
@@ -263,7 +263,7 @@ describe('EventService — onChange', () => {
   });
 
   it("deleting a series sends its occurrence rows' ids with it", async () => {
-    const series = await eventsService.createEvent({
+    const series = eventsService.createEvent({
       title: 'Weekly',
       startAt,
       endAt,
@@ -282,7 +282,7 @@ describe('EventService — onChange', () => {
       .all();
     const changes = record();
 
-    await eventsService.deleteEvent(series.id);
+    eventsService.deleteEvent(series.id);
 
     expect(changes).toEqual([{ type: 'deleted', eventIds: [series.id, occurrence.id] }]);
   });
@@ -309,8 +309,8 @@ describe('EventService — onChange', () => {
     const changes = record();
 
     try {
-      const event = await eventsService.createEvent({ title: 'Standup', startAt, endAt });
-      expect(await eventsService.getById(event.id)).toMatchObject({ title: 'Standup' });
+      const event = eventsService.createEvent({ title: 'Standup', startAt, endAt });
+      expect(eventsService.getById(event.id)).toMatchObject({ title: 'Standup' });
     } finally {
       error.mockRestore();
     }
@@ -321,9 +321,9 @@ describe('EventService — onChange', () => {
     const listener = vi.fn();
     const unsubscribe = eventsService.onChange(listener);
 
-    const event = await eventsService.createEvent({ title: 'Standup', startAt, endAt });
+    const event = eventsService.createEvent({ title: 'Standup', startAt, endAt });
     unsubscribe();
-    await eventsService.deleteEvent(event.id);
+    eventsService.deleteEvent(event.id);
 
     expect(listener).toHaveBeenCalledOnce();
   });
@@ -331,100 +331,100 @@ describe('EventService — onChange', () => {
 
 describe('EventService — listForCalendar range', () => {
   it('includes a non-recurring event fully inside the range', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Inside',
       startAt: hoursAfter(RANGE_START, 2),
       endAt: hoursAfter(RANGE_START, 3),
     });
-    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const result = eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).toContain(event.id);
   });
 
   it('includes a non-recurring event that starts before the range and ends inside it', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Straddles start',
       startAt: hoursAfter(RANGE_START, -6), // day before, 6pm
       endAt: hoursAfter(RANGE_START, 2),
     });
-    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const result = eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).toContain(event.id);
   });
 
   it('includes a non-recurring event that starts inside the range and ends after it', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Straddles end',
       startAt: hoursAfter(RANGE_START, 20),
       endAt: hoursAfter(RANGE_START, 30), // spills into the next day
     });
-    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const result = eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).toContain(event.id);
   });
 
   it('includes a non-recurring event that spans the entire range', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Multi-day conference',
       startAt: hoursAfter(RANGE_START, -24),
       endAt: hoursAfter(RANGE_START, 48),
     });
-    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const result = eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).toContain(event.id);
   });
 
   it('excludes a non-recurring event entirely before the range', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Yesterday',
       startAt: hoursAfter(RANGE_START, -5),
       endAt: hoursAfter(RANGE_START, -2),
     });
-    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const result = eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).not.toContain(event.id);
   });
 
   it('excludes a non-recurring event entirely after the range', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Tomorrow',
       startAt: hoursAfter(RANGE_END, 2),
       endAt: hoursAfter(RANGE_END, 3),
     });
-    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const result = eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).not.toContain(event.id);
   });
 
   it('includes a recurring event whose anchor start falls before the range end', async () => {
     // e.g. a weekly standup that started long before this particular week
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Weekly standup',
       startAt: new Date('2025-01-06T10:00:00.000Z'),
       endAt: new Date('2025-01-06T10:30:00.000Z'),
       recurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
     });
-    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const result = eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).toContain(event.id);
   });
 
   it('excludes a recurring event whose anchor start is after the range end', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Future series',
       startAt: hoursAfter(RANGE_END, 24),
       endAt: hoursAfter(RANGE_END, 24.5),
       recurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
     });
-    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const result = eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).not.toContain(event.id);
   });
 
   it('orders results by startAt ascending', async () => {
-    const later = await eventsService.createEvent({
+    const later = eventsService.createEvent({
       title: 'Later',
       startAt: hoursAfter(RANGE_START, 10),
       endAt: hoursAfter(RANGE_START, 11),
     });
-    const earlier = await eventsService.createEvent({
+    const earlier = eventsService.createEvent({
       title: 'Earlier',
       startAt: hoursAfter(RANGE_START, 2),
       endAt: hoursAfter(RANGE_START, 3),
     });
-    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const result = eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result[0].id).toBe(earlier.id);
     expect(result[1].id).toBe(later.id);
   });

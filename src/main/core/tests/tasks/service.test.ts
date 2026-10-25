@@ -42,21 +42,19 @@ beforeEach(async () => {
   const projectService = new ProjectService(db);
   const eventService = new EventService(db);
 
-  FAKE_PROJECT_ID = (
-    await projectService.createProject({ title: 'Fake Project', dueDate: TOMORROW })
-  ).id;
+  FAKE_PROJECT_ID = projectService.createProject({ title: 'Fake Project', dueDate: TOMORROW }).id;
   FAKE_NOTE_ID = (await notesService.createNote({ title: 'Fake Note' })).id;
   FAKE_OTHER_NOTE_ID = (await notesService.createNote({ title: 'Fake Other Note' })).id;
-  FAKE_EVENT_ID = (
-    await eventService.createEvent({ title: 'Fake Event', startAt: TOMORROW, endAt: TOMORROW })
-  ).id;
-  FAKE_OTHER_EVENT_ID = (
-    await eventService.createEvent({
-      title: 'Fake Other Event',
-      startAt: TOMORROW,
-      endAt: TOMORROW,
-    })
-  ).id;
+  FAKE_EVENT_ID = eventService.createEvent({
+    title: 'Fake Event',
+    startAt: TOMORROW,
+    endAt: TOMORROW,
+  }).id;
+  FAKE_OTHER_EVENT_ID = eventService.createEvent({
+    title: 'Fake Other Event',
+    startAt: TOMORROW,
+    endAt: TOMORROW,
+  }).id;
 });
 
 afterEach(async () => {
@@ -65,23 +63,23 @@ afterEach(async () => {
 
 describe('TaskService — createTask', () => {
   it('creates a task and returns it with an assigned id', async () => {
-    const task = await tasks.createTask({ title: 'Buy milk', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Buy milk', dueDate: TOMORROW });
     expect(task.id).toBeTruthy();
     expect(task.title).toBe('Buy milk');
   });
 
   it('defaults status to NOT_STARTED', async () => {
-    const task = await tasks.createTask({ title: 'Default status', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Default status', dueDate: TOMORROW });
     expect(task.status).toBe(TaskStatus.NOT_STARTED);
   });
 
   it('defaults priority to LOW', async () => {
-    const task = await tasks.createTask({ title: 'Default priority', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Default priority', dueDate: TOMORROW });
     expect(task.priority).toBe(TaskPriority.LOW);
   });
 
   it('accepts explicit status and priority overrides', async () => {
-    const task = await tasks.createTask({
+    const task = tasks.createTask({
       title: 'Explicit',
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
@@ -93,7 +91,7 @@ describe('TaskService — createTask', () => {
 
   it('sets completedAt when created with COMPLETED status', async () => {
     const before = new Date();
-    const task = await tasks.createTask({
+    const task = tasks.createTask({
       title: 'Already done',
       dueDate: TOMORROW,
       status: TaskStatus.COMPLETED,
@@ -105,8 +103,8 @@ describe('TaskService — createTask', () => {
   });
 
   it('leaves completedAt null for non-COMPLETED status', async () => {
-    const notStarted = await tasks.createTask({ title: 'Not started', dueDate: TOMORROW });
-    const inProgress = await tasks.createTask({
+    const notStarted = tasks.createTask({ title: 'Not started', dueDate: TOMORROW });
+    const inProgress = tasks.createTask({
       title: 'In progress',
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
@@ -132,7 +130,7 @@ describe('TaskService — createTask', () => {
   });
 
   it('creates a task linked only to a note', async () => {
-    const task = await tasks.createTask({
+    const task = tasks.createTask({
       title: 'Note task',
       dueDate: TOMORROW,
       linkedNoteId: FAKE_NOTE_ID,
@@ -142,7 +140,7 @@ describe('TaskService — createTask', () => {
   });
 
   it('creates a task linked only to an event', async () => {
-    const task = await tasks.createTask({
+    const task = tasks.createTask({
       title: 'Event task',
       dueDate: TOMORROW,
       linkedEventId: FAKE_EVENT_ID,
@@ -152,12 +150,12 @@ describe('TaskService — createTask', () => {
   });
 
   it('sets parentTaskId to null for top-level tasks', async () => {
-    const task = await tasks.createTask({ title: 'Top level', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Top level', dueDate: TOMORROW });
     expect(task.parentTaskId).toBeNull();
   });
 
   it('stores the provided description', async () => {
-    const task = await tasks.createTask({
+    const task = tasks.createTask({
       title: 'With description',
       dueDate: TOMORROW,
       description: 'Some notes',
@@ -166,7 +164,7 @@ describe('TaskService — createTask', () => {
   });
 
   it('stores the provided projectId', async () => {
-    const task = await tasks.createTask({
+    const task = tasks.createTask({
       title: 'In project',
       dueDate: TOMORROW,
       projectId: FAKE_PROJECT_ID,
@@ -177,8 +175,8 @@ describe('TaskService — createTask', () => {
 
 describe('TaskService — createSubtask', () => {
   it('creates a subtask linked to the parent', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Subtask' });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Subtask' });
     expect(sub.parentTaskId).toBe(parent.id);
   });
 
@@ -189,62 +187,62 @@ describe('TaskService — createSubtask', () => {
   });
 
   it('creates a subtask of a subtask, inheriting its context', async () => {
-    const parent = await tasks.createTask({
+    const parent = tasks.createTask({
       title: 'Parent',
       dueDate: TOMORROW,
       projectId: FAKE_PROJECT_ID,
     });
-    const child = await tasks.createSubtask(parent.id, { title: 'Child' });
-    const grandchild = await tasks.createSubtask(child.id, { title: 'Grandchild' });
+    const child = tasks.createSubtask(parent.id, { title: 'Child' });
+    const grandchild = tasks.createSubtask(child.id, { title: 'Grandchild' });
     expect(grandchild.parentTaskId).toBe(child.id);
     expect(grandchild.projectId).toBe(FAKE_PROJECT_ID);
   });
 
   it("inherits the parent's dueDate when none is provided", async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
     expect(sub.dueDate!.getTime()).toBe(parent.dueDate!.getTime());
   });
 
   it('uses its own dueDate when one is provided', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub', dueDate: NEXT_WEEK });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub', dueDate: NEXT_WEEK });
     expect(sub.dueDate!.getTime()).toBe(NEXT_WEEK.getTime());
   });
 
   it("inherits the parent's projectId", async () => {
-    const parent = await tasks.createTask({
+    const parent = tasks.createTask({
       title: 'Parent',
       dueDate: TOMORROW,
       projectId: FAKE_PROJECT_ID,
     });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
     expect(sub.projectId).toBe(FAKE_PROJECT_ID);
   });
 
   it("inherits the parent's linkedNoteId", async () => {
-    const parent = await tasks.createTask({
+    const parent = tasks.createTask({
       title: 'Parent',
       dueDate: TOMORROW,
       linkedNoteId: FAKE_NOTE_ID,
     });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
     expect(sub.linkedNoteId).toBe(FAKE_NOTE_ID);
   });
 
   it("inherits the parent's linkedEventId", async () => {
-    const parent = await tasks.createTask({
+    const parent = tasks.createTask({
       title: 'Parent',
       dueDate: TOMORROW,
       linkedEventId: FAKE_EVENT_ID,
     });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
     expect(sub.linkedEventId).toBe(FAKE_EVENT_ID);
   });
 
   it('sets completedAt when created with COMPLETED status', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(parent.id, {
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, {
       title: 'Done sub',
       status: TaskStatus.COMPLETED,
     });
@@ -252,8 +250,8 @@ describe('TaskService — createSubtask', () => {
   });
 
   it('defaults status and priority when not provided', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
     expect(sub.status).toBe(TaskStatus.NOT_STARTED);
     expect(sub.priority).toBe(TaskPriority.LOW);
   });
@@ -261,8 +259,8 @@ describe('TaskService — createSubtask', () => {
 
 describe('TaskService — getById', () => {
   it('returns the task for a valid id', async () => {
-    const created = await tasks.createTask({ title: 'Find me', dueDate: TOMORROW });
-    const found = await tasks.getById(created.id);
+    const created = tasks.createTask({ title: 'Find me', dueDate: TOMORROW });
+    const found = tasks.getById(created.id);
     expect(found.id).toBe(created.id);
     expect(found.title).toBe('Find me');
   });
@@ -272,7 +270,7 @@ describe('TaskService — getById', () => {
   });
 
   it('throws NotFoundError for an archived task', async () => {
-    const task = await tasks.createTask({ title: 'Soon archived', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Soon archived', dueDate: TOMORROW });
     archive.archiveTask(task.id);
     expect(() => tasks.getById(task.id)).toThrow(NotFoundError);
   });
@@ -280,10 +278,10 @@ describe('TaskService — getById', () => {
 
 describe('TaskService — getByIds', () => {
   it('returns all tasks matching the provided ids', async () => {
-    const a = await tasks.createTask({ title: 'A', dueDate: TOMORROW });
-    const b = await tasks.createTask({ title: 'B', dueDate: TOMORROW });
-    await tasks.createTask({ title: 'C', dueDate: TOMORROW }); // not requested
-    const result = await tasks.getByIds([a.id, b.id]);
+    const a = tasks.createTask({ title: 'A', dueDate: TOMORROW });
+    const b = tasks.createTask({ title: 'B', dueDate: TOMORROW });
+    tasks.createTask({ title: 'C', dueDate: TOMORROW }); // not requested
+    const result = tasks.getByIds([a.id, b.id]);
     expect(result).toHaveLength(2);
     const ids = result.map((t) => t.id);
     expect(ids).toContain(a.id);
@@ -291,35 +289,35 @@ describe('TaskService — getByIds', () => {
   });
 
   it('returns an empty array when none of the ids match', async () => {
-    const result = await tasks.getByIds([generateId('task'), generateId('task')]);
+    const result = tasks.getByIds([generateId('task'), generateId('task')]);
     expect(result).toHaveLength(0);
   });
 
   it('excludes archived tasks even when their id is requested', async () => {
-    const task = await tasks.createTask({ title: 'Archived', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Archived', dueDate: TOMORROW });
     archive.archiveTask(task.id);
-    const result = await tasks.getByIds([task.id]);
+    const result = tasks.getByIds([task.id]);
     expect(result).toHaveLength(0);
   });
 });
 
 describe('TaskService — listTasks', () => {
   it('returns all non-archived tasks regardless of status by default', async () => {
-    const notStarted = await tasks.createTask({ title: 'A', dueDate: TOMORROW });
-    const inProgress = await tasks.createTask({
+    const notStarted = tasks.createTask({ title: 'A', dueDate: TOMORROW });
+    const inProgress = tasks.createTask({
       title: 'B',
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
-    const completed = await tasks.createTask({
+    const completed = tasks.createTask({
       title: 'C',
       dueDate: TOMORROW,
       status: TaskStatus.COMPLETED,
     });
-    const archived = await tasks.createTask({ title: 'D', dueDate: TOMORROW });
+    const archived = tasks.createTask({ title: 'D', dueDate: TOMORROW });
     archive.archiveTask(archived.id);
 
-    const result = (await tasks.listTasks()).items;
+    const result = tasks.listTasks().items;
     const ids = result.map((t) => t.id);
     expect(ids).toContain(notStarted.id);
     expect(ids).toContain(inProgress.id);
@@ -328,190 +326,185 @@ describe('TaskService — listTasks', () => {
   });
 
   it('filter.status returns only tasks with that status', async () => {
-    await tasks.createTask({ title: 'Not started', dueDate: TOMORROW });
-    const inProg = await tasks.createTask({
+    tasks.createTask({ title: 'Not started', dueDate: TOMORROW });
+    const inProg = tasks.createTask({
       title: 'In progress',
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = (await tasks.listTasks({ status: TaskStatus.IN_PROGRESS })).items;
+    const result = tasks.listTasks({ status: TaskStatus.IN_PROGRESS }).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(inProg.id);
   });
 
   it('filter.excludeSubtasks omits subtasks', async () => {
-    const parent = await tasks.createTask({
+    const parent = tasks.createTask({
       title: 'Parent',
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
-    const result = (
-      await tasks.listTasks({
-        excludeSubtasks: true,
-        status: TaskStatus.IN_PROGRESS,
-      })
-    ).items;
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
+    const result = tasks.listTasks({
+      excludeSubtasks: true,
+      status: TaskStatus.IN_PROGRESS,
+    }).items;
     const ids = result.map((t) => t.id);
     expect(ids).toContain(parent.id);
     expect(ids).not.toContain(sub.id);
   });
 
   it('filter.projectId=null returns tasks with no project', async () => {
-    const withProject = await tasks.createTask({
+    const withProject = tasks.createTask({
       title: 'With project',
       dueDate: TOMORROW,
       projectId: FAKE_PROJECT_ID,
       status: TaskStatus.IN_PROGRESS,
     });
-    const noProject = await tasks.createTask({
+    const noProject = tasks.createTask({
       title: 'No project',
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = (await tasks.listTasks({ projectId: null, status: TaskStatus.IN_PROGRESS }))
-      .items;
+    const result = tasks.listTasks({ projectId: null, status: TaskStatus.IN_PROGRESS }).items;
     const ids = result.map((t) => t.id);
     expect(ids).toContain(noProject.id);
     expect(ids).not.toContain(withProject.id);
   });
 
   it('filter.projectId=<id> returns tasks in that project', async () => {
-    const inProject = await tasks.createTask({
+    const inProject = tasks.createTask({
       title: 'In project',
       dueDate: TOMORROW,
       projectId: FAKE_PROJECT_ID,
       status: TaskStatus.IN_PROGRESS,
     });
-    await tasks.createTask({
+    tasks.createTask({
       title: 'No project',
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = (await tasks.listTasks({ projectId: FAKE_PROJECT_ID })).items;
+    const result = tasks.listTasks({ projectId: FAKE_PROJECT_ID }).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(inProject.id);
   });
 
   it('filter.noteId=null returns tasks not linked to any note', async () => {
-    const linked = await tasks.createTask({
+    const linked = tasks.createTask({
       title: 'Linked',
       dueDate: TOMORROW,
       linkedNoteId: FAKE_NOTE_ID,
       status: TaskStatus.IN_PROGRESS,
     });
-    const unlinked = await tasks.createTask({
+    const unlinked = tasks.createTask({
       title: 'Unlinked',
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = (await tasks.listTasks({ noteId: null, status: TaskStatus.IN_PROGRESS })).items;
+    const result = tasks.listTasks({ noteId: null, status: TaskStatus.IN_PROGRESS }).items;
     const ids = result.map((t) => t.id);
     expect(ids).toContain(unlinked.id);
     expect(ids).not.toContain(linked.id);
   });
 
   it('filter.noteId=<id> returns tasks linked to that note', async () => {
-    const linked = await tasks.createTask({
+    const linked = tasks.createTask({
       title: 'Linked',
       dueDate: TOMORROW,
       linkedNoteId: FAKE_NOTE_ID,
       status: TaskStatus.IN_PROGRESS,
     });
-    await tasks.createTask({
+    tasks.createTask({
       title: 'Other',
       dueDate: TOMORROW,
       linkedNoteId: FAKE_OTHER_NOTE_ID,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = (await tasks.listTasks({ noteId: FAKE_NOTE_ID })).items;
+    const result = tasks.listTasks({ noteId: FAKE_NOTE_ID }).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(linked.id);
   });
 
   it('filter.eventId=null returns tasks not linked to any event', async () => {
-    await tasks.createTask({
+    tasks.createTask({
       title: 'Linked',
       dueDate: TOMORROW,
       linkedEventId: FAKE_EVENT_ID,
       status: TaskStatus.IN_PROGRESS,
     });
-    const unlinked = await tasks.createTask({
+    const unlinked = tasks.createTask({
       title: 'Unlinked',
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = (await tasks.listTasks({ eventId: null, status: TaskStatus.IN_PROGRESS })).items;
+    const result = tasks.listTasks({ eventId: null, status: TaskStatus.IN_PROGRESS }).items;
     const ids = result.map((t) => t.id);
     expect(ids).toContain(unlinked.id);
   });
 
   it('filter.eventId=<id> returns tasks linked to that event', async () => {
-    const linked = await tasks.createTask({
+    const linked = tasks.createTask({
       title: 'Event task',
       dueDate: TOMORROW,
       linkedEventId: FAKE_EVENT_ID,
       status: TaskStatus.IN_PROGRESS,
     });
-    await tasks.createTask({
+    tasks.createTask({
       title: 'Other event',
       dueDate: TOMORROW,
       linkedEventId: FAKE_OTHER_EVENT_ID,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = (await tasks.listTasks({ eventId: FAKE_EVENT_ID })).items;
+    const result = tasks.listTasks({ eventId: FAKE_EVENT_ID }).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(linked.id);
   });
 
   it('filter.priority returns only tasks with that priority', async () => {
-    const high = await tasks.createTask({
+    const high = tasks.createTask({
       title: 'High',
       dueDate: TOMORROW,
       priority: TaskPriority.HIGH,
       status: TaskStatus.IN_PROGRESS,
     });
-    await tasks.createTask({
+    tasks.createTask({
       title: 'Low',
       dueDate: TOMORROW,
       priority: TaskPriority.LOW,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = (await tasks.listTasks({ priority: TaskPriority.HIGH })).items;
+    const result = tasks.listTasks({ priority: TaskPriority.HIGH }).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(high.id);
   });
 
   it('filter.dueBefore returns tasks due strictly before the date', async () => {
-    const early = await tasks.createTask({
+    const early = tasks.createTask({
       title: 'Early',
       dueDate: YESTERDAY,
       status: TaskStatus.IN_PROGRESS,
     });
-    await tasks.createTask({
+    tasks.createTask({
       title: 'Late',
       dueDate: NEXT_WEEK,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = (await tasks.listTasks({ dueBefore: TOMORROW, status: TaskStatus.IN_PROGRESS }))
-      .items;
+    const result = tasks.listTasks({ dueBefore: TOMORROW, status: TaskStatus.IN_PROGRESS }).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(early.id);
   });
 
   it('filter.dueAfter returns tasks due strictly after the date', async () => {
-    const late = await tasks.createTask({
+    const late = tasks.createTask({
       title: 'Late',
       dueDate: NEXT_WEEK,
       status: TaskStatus.IN_PROGRESS,
     });
-    await tasks.createTask({
+    tasks.createTask({
       title: 'Early',
       dueDate: YESTERDAY,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = (await tasks.listTasks({ dueAfter: TOMORROW, status: TaskStatus.IN_PROGRESS }))
-      .items;
+    const result = tasks.listTasks({ dueAfter: TOMORROW, status: TaskStatus.IN_PROGRESS }).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(late.id);
   });
@@ -519,124 +512,122 @@ describe('TaskService — listTasks', () => {
   it('filter.dueOn returns tasks due on that calendar day', async () => {
     const today = new Date();
     const midday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0);
-    const onDay = await tasks.createTask({
+    const onDay = tasks.createTask({
       title: 'Today',
       dueDate: midday,
       status: TaskStatus.IN_PROGRESS,
     });
-    await tasks.createTask({
+    tasks.createTask({
       title: 'Yesterday',
       dueDate: YESTERDAY,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = (await tasks.listTasks({ dueOn: today, status: TaskStatus.IN_PROGRESS })).items;
+    const result = tasks.listTasks({ dueOn: today, status: TaskStatus.IN_PROGRESS }).items;
     const ids = result.map((t) => t.id);
     expect(ids).toContain(onDay.id);
   });
 
   it('sort=dueDate orders by dueDate descending', async () => {
-    const early = await tasks.createTask({
+    const early = tasks.createTask({
       title: 'Early',
       dueDate: YESTERDAY,
       status: TaskStatus.IN_PROGRESS,
     });
-    const late = await tasks.createTask({
+    const late = tasks.createTask({
       title: 'Late',
       dueDate: NEXT_WEEK,
       status: TaskStatus.IN_PROGRESS,
     });
-    const result = (
-      await tasks.listTasks({ status: TaskStatus.IN_PROGRESS }, { sortBy: 'dueDate' })
-    ).items;
+    const result = tasks.listTasks({ status: TaskStatus.IN_PROGRESS }, { sortBy: 'dueDate' }).items;
     expect(result[0].id).toBe(late.id);
     expect(result[result.length - 1].id).toBe(early.id);
   });
 
   it('sort=priority orders by priority descending', async () => {
-    const high = await tasks.createTask({
+    const high = tasks.createTask({
       title: 'High',
       dueDate: TOMORROW,
       priority: TaskPriority.HIGH,
     });
-    const medium = await tasks.createTask({
+    const medium = tasks.createTask({
       title: 'Medium',
       dueDate: TOMORROW,
       priority: TaskPriority.MEDIUM,
     });
-    const low = await tasks.createTask({
+    const low = tasks.createTask({
       title: 'Low',
       dueDate: TOMORROW,
       priority: TaskPriority.LOW,
     });
-    const result = (await tasks.listTasks({}, { sortBy: 'priority' })).items;
+    const result = tasks.listTasks({}, { sortBy: 'priority' }).items;
     expect(result[0].id).toBe(high.id);
     expect(result[1].id).toBe(medium.id);
     expect(result[2].id).toBe(low.id);
   });
 
   it('sort=status orders by status descending', async () => {
-    const completed = await tasks.createTask({
+    const completed = tasks.createTask({
       title: 'Completed',
       dueDate: TOMORROW,
       status: TaskStatus.COMPLETED,
     });
-    const inProgress = await tasks.createTask({
+    const inProgress = tasks.createTask({
       title: 'In progress',
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
-    const notStarted = await tasks.createTask({
+    const notStarted = tasks.createTask({
       title: 'Not started',
       dueDate: TOMORROW,
       status: TaskStatus.NOT_STARTED,
     });
-    const result = (await tasks.listTasks({}, { sortBy: 'status' })).items;
+    const result = tasks.listTasks({}, { sortBy: 'status' }).items;
     expect(result[0].id).toBe(completed.id);
     expect(result[1].id).toBe(inProgress.id);
     expect(result[2].id).toBe(notStarted.id);
   });
 
   it('sort=updatedAt orders by updatedAt descending', async () => {
-    const a = await tasks.createTask({ title: 'A', dueDate: TOMORROW });
-    const b = await tasks.createTask({ title: 'B', dueDate: TOMORROW });
+    const a = tasks.createTask({ title: 'A', dueDate: TOMORROW });
+    const b = tasks.createTask({ title: 'B', dueDate: TOMORROW });
     // updating A triggers $onUpdate(() => new Date()) which stores ms-precision timestamp,
     // much larger than B's insert default of unixepoch() (seconds), so A sorts first
-    await tasks.updateTask(a.id, { title: 'A updated' });
-    const result = (await tasks.listTasks({}, { sortBy: 'updatedAt' })).items;
+    tasks.updateTask(a.id, { title: 'A updated' });
+    const result = tasks.listTasks({}, { sortBy: 'updatedAt' }).items;
     const ids = result.map((t) => t.id);
     expect(ids.indexOf(a.id)).toBeLessThan(ids.indexOf(b.id));
   });
 
   it('direction=asc reverses the sort order', async () => {
-    const low = await tasks.createTask({
+    const low = tasks.createTask({
       title: 'Low',
       dueDate: TOMORROW,
       priority: TaskPriority.LOW,
     });
-    const medium = await tasks.createTask({
+    const medium = tasks.createTask({
       title: 'Medium',
       dueDate: TOMORROW,
       priority: TaskPriority.MEDIUM,
     });
-    const high = await tasks.createTask({
+    const high = tasks.createTask({
       title: 'High',
       dueDate: TOMORROW,
       priority: TaskPriority.HIGH,
     });
-    const result = (await tasks.listTasks({}, { sortBy: 'priority', direction: 'asc' })).items;
+    const result = tasks.listTasks({}, { sortBy: 'priority', direction: 'asc' }).items;
     expect(result[0].id).toBe(low.id);
     expect(result[1].id).toBe(medium.id);
     expect(result[2].id).toBe(high.id);
   });
 
   it('excludes archived tasks regardless of filter', async () => {
-    const task = await tasks.createTask({
+    const task = tasks.createTask({
       title: 'Will archive',
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
     archive.archiveTask(task.id);
-    const result = (await tasks.listTasks({ status: TaskStatus.IN_PROGRESS })).items;
+    const result = tasks.listTasks({ status: TaskStatus.IN_PROGRESS }).items;
     const ids = result.map((t) => t.id);
     expect(ids).not.toContain(task.id);
   });
@@ -644,10 +635,10 @@ describe('TaskService — listTasks', () => {
 
 describe('TaskService — listSubtasks', () => {
   it('returns subtasks for the given parent id', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub1 = await tasks.createSubtask(parent.id, { title: 'Sub 1' });
-    const sub2 = await tasks.createSubtask(parent.id, { title: 'Sub 2' });
-    const result = (await tasks.listSubtasks(parent.id)).items;
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub1 = tasks.createSubtask(parent.id, { title: 'Sub 1' });
+    const sub2 = tasks.createSubtask(parent.id, { title: 'Sub 2' });
+    const result = tasks.listSubtasks(parent.id).items;
     const ids = result.map((t) => t.id);
     expect(ids).toContain(sub1.id);
     expect(ids).toContain(sub2.id);
@@ -655,56 +646,56 @@ describe('TaskService — listSubtasks', () => {
   });
 
   it('returns an empty array when the parent has no subtasks', async () => {
-    const parent = await tasks.createTask({ title: 'Lonely parent', dueDate: TOMORROW });
-    const result = (await tasks.listSubtasks(parent.id)).items;
+    const parent = tasks.createTask({ title: 'Lonely parent', dueDate: TOMORROW });
+    const result = tasks.listSubtasks(parent.id).items;
     expect(result).toHaveLength(0);
   });
 
   it('excludes archived subtasks', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
     archive.archiveTask(sub.id);
-    const result = (await tasks.listSubtasks(parent.id)).items;
+    const result = tasks.listSubtasks(parent.id).items;
     expect(result).toHaveLength(0);
   });
 
   it('does not return subtasks belonging to a different parent', async () => {
-    const parent1 = await tasks.createTask({ title: 'Parent 1', dueDate: TOMORROW });
-    const parent2 = await tasks.createTask({ title: 'Parent 2', dueDate: TOMORROW });
-    await tasks.createSubtask(parent2.id, { title: 'Sub of parent 2' });
-    const result = (await tasks.listSubtasks(parent1.id)).items;
+    const parent1 = tasks.createTask({ title: 'Parent 1', dueDate: TOMORROW });
+    const parent2 = tasks.createTask({ title: 'Parent 2', dueDate: TOMORROW });
+    tasks.createSubtask(parent2.id, { title: 'Sub of parent 2' });
+    const result = tasks.listSubtasks(parent1.id).items;
     expect(result).toHaveLength(0);
   });
 });
 
 describe('TaskService — updateTask', () => {
   it('updates the title', async () => {
-    const task = await tasks.createTask({ title: 'Old title', dueDate: TOMORROW });
-    const updated = await tasks.updateTask(task.id, { title: 'New title' });
+    const task = tasks.createTask({ title: 'Old title', dueDate: TOMORROW });
+    const updated = tasks.updateTask(task.id, { title: 'New title' });
     expect(updated.title).toBe('New title');
   });
 
   it('updates the description', async () => {
-    const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
-    const updated = await tasks.updateTask(task.id, { description: 'Added description' });
+    const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW });
+    const updated = tasks.updateTask(task.id, { description: 'Added description' });
     expect(updated.description).toBe('Added description');
   });
 
   it('updates the priority', async () => {
-    const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
-    const updated = await tasks.updateTask(task.id, { priority: TaskPriority.HIGH });
+    const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW });
+    const updated = tasks.updateTask(task.id, { priority: TaskPriority.HIGH });
     expect(updated.priority).toBe(TaskPriority.HIGH);
   });
 
   it('updates the dueDate', async () => {
-    const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
-    const updated = await tasks.updateTask(task.id, { dueDate: NEXT_WEEK });
+    const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW });
+    const updated = tasks.updateTask(task.id, { dueDate: NEXT_WEEK });
     expect(updated.dueDate!.getTime()).toBe(NEXT_WEEK.getTime());
   });
 
   it('updates the pullRequestUrl', async () => {
-    const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
-    const updated = await tasks.updateTask(task.id, {
+    const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW });
+    const updated = tasks.updateTask(task.id, {
       pullRequestUrl: 'https://github.com/org/repo/pull/1',
     });
     expect(updated.pullRequestUrl).toBe('https://github.com/org/repo/pull/1');
@@ -723,15 +714,15 @@ describe('TaskService — updateStatus', () => {
   });
 
   it('updates the task status', async () => {
-    const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
-    const updated = await tasks.updateStatus(task.id, TaskStatus.IN_PROGRESS);
+    const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW });
+    const updated = tasks.updateStatus(task.id, TaskStatus.IN_PROGRESS);
     expect(updated.status).toBe(TaskStatus.IN_PROGRESS);
   });
 
   it('sets completedAt when transitioning to COMPLETED', async () => {
-    const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW });
     const before = new Date();
-    const updated = await tasks.updateStatus(task.id, TaskStatus.COMPLETED);
+    const updated = tasks.updateStatus(task.id, TaskStatus.COMPLETED);
     const after = new Date();
     expect(updated.completedAt).not.toBeNull();
     expect(updated.completedAt!.getTime()).toBeGreaterThanOrEqual(before.getTime());
@@ -739,37 +730,37 @@ describe('TaskService — updateStatus', () => {
   });
 
   it('clears completedAt when transitioning away from COMPLETED', async () => {
-    const task = await tasks.createTask({
+    const task = tasks.createTask({
       title: 'Task',
       dueDate: TOMORROW,
       status: TaskStatus.COMPLETED,
     });
     expect(task.completedAt).not.toBeNull();
-    const updated = await tasks.updateStatus(task.id, TaskStatus.IN_PROGRESS);
+    const updated = tasks.updateStatus(task.id, TaskStatus.IN_PROGRESS);
     expect(updated.completedAt).toBeNull();
   });
 
   it('completedAt remains null when transitioning between non-COMPLETED statuses', async () => {
-    const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
-    const updated = await tasks.updateStatus(task.id, TaskStatus.IN_PROGRESS);
+    const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW });
+    const updated = tasks.updateStatus(task.id, TaskStatus.IN_PROGRESS);
     expect(updated.completedAt).toBeNull();
   });
 });
 
 describe('TaskService — updateProject', () => {
   it("updates the task's projectId", async () => {
-    const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
-    const updated = await tasks.updateProject(task.id, FAKE_PROJECT_ID);
+    const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW });
+    const updated = tasks.updateProject(task.id, FAKE_PROJECT_ID);
     expect(updated.projectId).toBe(FAKE_PROJECT_ID);
   });
 
   it('removes the project when null is passed', async () => {
-    const task = await tasks.createTask({
+    const task = tasks.createTask({
       title: 'Task',
       dueDate: TOMORROW,
       projectId: FAKE_PROJECT_ID,
     });
-    const updated = await tasks.updateProject(task.id, null);
+    const updated = tasks.updateProject(task.id, null);
     expect(updated.projectId).toBeNull();
   });
 
@@ -778,8 +769,8 @@ describe('TaskService — updateProject', () => {
   });
 
   it('throws when called on a subtask', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
     expect(() => tasks.updateProject(sub.id, FAKE_PROJECT_ID)).toThrow(
       expect.objectContaining({
         code: 'task_hierarchy',
@@ -792,26 +783,26 @@ describe('TaskService — updateProject', () => {
 
 describe('TaskService — updateLinks', () => {
   it('sets linkedNoteId on a task', async () => {
-    const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
-    const updated = await tasks.updateLinks(task.id, { linkedNoteId: FAKE_NOTE_ID });
+    const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW });
+    const updated = tasks.updateLinks(task.id, { linkedNoteId: FAKE_NOTE_ID });
     expect(updated.linkedNoteId).toBe(FAKE_NOTE_ID);
     expect(updated.linkedEventId).toBeNull();
   });
 
   it('sets linkedEventId on a task', async () => {
-    const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
-    const updated = await tasks.updateLinks(task.id, { linkedEventId: FAKE_EVENT_ID });
+    const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW });
+    const updated = tasks.updateLinks(task.id, { linkedEventId: FAKE_EVENT_ID });
     expect(updated.linkedEventId).toBe(FAKE_EVENT_ID);
     expect(updated.linkedNoteId).toBeNull();
   });
 
   it('clears both links when nulls are passed', async () => {
-    const task = await tasks.createTask({
+    const task = tasks.createTask({
       title: 'Task',
       dueDate: TOMORROW,
       linkedNoteId: FAKE_NOTE_ID,
     });
-    const updated = await tasks.updateLinks(task.id, {
+    const updated = tasks.updateLinks(task.id, {
       linkedNoteId: null,
       linkedEventId: null,
     });
@@ -826,8 +817,8 @@ describe('TaskService — updateLinks', () => {
   });
 
   it('throws when called on a subtask', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
     expect(() => tasks.updateLinks(sub.id, { linkedNoteId: FAKE_NOTE_ID })).toThrow(
       expect.objectContaining({
         code: 'task_hierarchy',
@@ -838,7 +829,7 @@ describe('TaskService — updateLinks', () => {
   });
 
   it('throws when both linkedEventId and linkedNoteId are provided', async () => {
-    const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW });
     expect(() =>
       tasks.updateLinks(task.id, {
         linkedEventId: FAKE_EVENT_ID,
@@ -855,9 +846,9 @@ describe('TaskService — updateLinks', () => {
 
 describe('TaskService — promoteSubtask', () => {
   it('sets parentTaskId to null, making the subtask a top-level task', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
-    const promoted = await tasks.promoteSubtask(sub.id);
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
+    const promoted = tasks.promoteSubtask(sub.id);
     expect(promoted.parentTaskId).toBeNull();
   });
 
@@ -866,7 +857,7 @@ describe('TaskService — promoteSubtask', () => {
   });
 
   it('throws when the task is not a subtask', async () => {
-    const task = await tasks.createTask({ title: 'Top level', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Top level', dueDate: TOMORROW });
     expect(() => tasks.promoteSubtask(task.id)).toThrow(
       expect.objectContaining({
         code: 'task_hierarchy',
@@ -877,17 +868,17 @@ describe('TaskService — promoteSubtask', () => {
   });
 
   it('promoted task appears as a top-level task in listSubtasks', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
-    await tasks.promoteSubtask(sub.id);
-    const remaining = (await tasks.listSubtasks(parent.id)).items;
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
+    tasks.promoteSubtask(sub.id);
+    const remaining = tasks.listSubtasks(parent.id).items;
     expect(remaining).toHaveLength(0);
   });
 });
 
 describe('TaskService — demoteTask', () => {
   it('throws when id and newParentId are the same', async () => {
-    const task = await tasks.createTask({ title: 'Self', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Self', dueDate: TOMORROW });
     expect(() => tasks.demoteTask(task.id, task.id)).toThrow(
       expect.objectContaining({
         code: 'task_hierarchy',
@@ -898,55 +889,55 @@ describe('TaskService — demoteTask', () => {
   });
 
   it('demotes a task by setting its parentTaskId to newParentId', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const child = await tasks.createTask({ title: 'Future child', dueDate: TOMORROW });
-    const demoted = await tasks.demoteTask(child.id, parent.id);
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const child = tasks.createTask({ title: 'Future child', dueDate: TOMORROW });
+    const demoted = tasks.demoteTask(child.id, parent.id);
     expect(demoted.parentTaskId).toBe(parent.id);
   });
 
   it('throws NotFoundError when the task to demote does not exist', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     expect(() => tasks.demoteTask(generateId('task'), parent.id)).toThrow(NotFoundError);
   });
 
   it('throws NotFoundError when the new parent does not exist', async () => {
-    const child = await tasks.createTask({ title: 'Future child', dueDate: TOMORROW });
+    const child = tasks.createTask({ title: 'Future child', dueDate: TOMORROW });
     expect(() => tasks.demoteTask(child.id, generateId('task'))).toThrow(NotFoundError);
   });
 
   it('demotes a task under a subtask', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
-    const child = await tasks.createTask({ title: 'Future child', dueDate: TOMORROW });
-    const demoted = await tasks.demoteTask(child.id, sub.id);
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
+    const child = tasks.createTask({ title: 'Future child', dueDate: TOMORROW });
+    const demoted = tasks.demoteTask(child.id, sub.id);
     expect(demoted.parentTaskId).toBe(sub.id);
   });
 
   it('demotes a task that has subtasks, carrying the new context down its subtree', async () => {
-    const task = await tasks.createTask({ title: 'Future child', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(task.id, { title: 'Sub' });
-    const subSub = await tasks.createSubtask(sub.id, { title: 'Sub sub' });
-    const newParent = await tasks.createTask({
+    const task = tasks.createTask({ title: 'Future child', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(task.id, { title: 'Sub' });
+    const subSub = tasks.createSubtask(sub.id, { title: 'Sub sub' });
+    const newParent = tasks.createTask({
       title: 'New parent',
       dueDate: TOMORROW,
       projectId: FAKE_PROJECT_ID,
       linkedNoteId: FAKE_NOTE_ID,
     });
-    const demoted = await tasks.demoteTask(task.id, newParent.id);
+    const demoted = tasks.demoteTask(task.id, newParent.id);
     expect(demoted.parentTaskId).toBe(newParent.id);
     for (const id of [task.id, sub.id, subSub.id]) {
-      const row = await tasks.getById(id);
+      const row = tasks.getById(id);
       expect(row.projectId).toBe(FAKE_PROJECT_ID);
       expect(row.linkedNoteId).toBe(FAKE_NOTE_ID);
     }
     // the subtree keeps its own shape
-    expect((await tasks.getById(subSub.id)).parentTaskId).toBe(sub.id);
+    expect(tasks.getById(subSub.id).parentTaskId).toBe(sub.id);
   });
 
   it('throws when the new parent is in the task subtree', async () => {
-    const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(task.id, { title: 'Sub' });
-    const subSub = await tasks.createSubtask(sub.id, { title: 'Sub sub' });
+    const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(task.id, { title: 'Sub' });
+    const subSub = tasks.createSubtask(sub.id, { title: 'Sub sub' });
     for (const id of [sub.id, subSub.id]) {
       expect(() => tasks.demoteTask(task.id, id)).toThrow(
         expect.objectContaining({
@@ -956,13 +947,13 @@ describe('TaskService — demoteTask', () => {
         }),
       );
     }
-    expect((await tasks.getById(task.id)).parentTaskId).toBeNull();
+    expect(tasks.getById(task.id).parentTaskId).toBeNull();
   });
 });
 
 describe('ArchiveService — archiveTask', () => {
   it('sets archivedAt to a recent timestamp', async () => {
-    const task = await tasks.createTask({ title: 'To archive', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'To archive', dueDate: TOMORROW });
     const before = new Date();
     const archived = archive.archiveTask(task.id);
     const after = new Date();
@@ -972,89 +963,89 @@ describe('ArchiveService — archiveTask', () => {
   });
 
   it('returns the updated task row', async () => {
-    const task = await tasks.createTask({ title: 'Archivable', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Archivable', dueDate: TOMORROW });
     const result = archive.archiveTask(task.id);
     expect(result.id).toBe(task.id);
     expect(result.title).toBe('Archivable');
   });
 
   it('archived task is no longer returned by TaskService.getById', async () => {
-    const task = await tasks.createTask({ title: 'Gone', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Gone', dueDate: TOMORROW });
     archive.archiveTask(task.id);
     expect(() => tasks.getById(task.id)).toThrow(NotFoundError);
   });
 
   it('archived task is excluded from TaskService.listTasks', async () => {
-    const task = await tasks.createTask({
+    const task = tasks.createTask({
       title: 'Gone',
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
     archive.archiveTask(task.id);
-    const result = (await tasks.listTasks({ status: TaskStatus.IN_PROGRESS })).items;
+    const result = tasks.listTasks({ status: TaskStatus.IN_PROGRESS }).items;
     expect(result.map((t) => t.id)).not.toContain(task.id);
   });
 
   it('archived subtask is excluded from TaskService.listSubtasks', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
     archive.archiveTask(sub.id);
-    const result = (await tasks.listSubtasks(parent.id)).items;
+    const result = tasks.listSubtasks(parent.id).items;
     expect(result).toHaveLength(0);
   });
 
   it('archives and restores subtasks at every depth', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
-    const subSub = await tasks.createSubtask(sub.id, { title: 'Sub sub' });
-    const unrelated = await tasks.createTask({ title: 'Unrelated', dueDate: TOMORROW });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
+    const subSub = tasks.createSubtask(sub.id, { title: 'Sub sub' });
+    const unrelated = tasks.createTask({ title: 'Unrelated', dueDate: TOMORROW });
     archive.archiveTask(parent.id);
     expect(() => tasks.getById(sub.id)).toThrow(NotFoundError);
     expect(() => tasks.getById(subSub.id)).toThrow(NotFoundError);
-    expect((await tasks.getById(unrelated.id)).archivedAt).toBeNull();
+    expect(tasks.getById(unrelated.id).archivedAt).toBeNull();
 
     archive.restoreTask(parent.id);
-    expect((await tasks.getById(subSub.id)).archivedAt).toBeNull();
+    expect(tasks.getById(subSub.id).archivedAt).toBeNull();
   });
 
   it('archives all subtasks when the parent task is archived', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub1 = await tasks.createSubtask(parent.id, { title: 'Sub 1' });
-    const sub2 = await tasks.createSubtask(parent.id, { title: 'Sub 2' });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub1 = tasks.createSubtask(parent.id, { title: 'Sub 1' });
+    const sub2 = tasks.createSubtask(parent.id, { title: 'Sub 2' });
     archive.archiveTask(parent.id);
     expect(() => tasks.getById(sub1.id)).toThrow(NotFoundError);
     expect(() => tasks.getById(sub2.id)).toThrow(NotFoundError);
-    expect((await tasks.listSubtasks(parent.id)).items).toHaveLength(0);
+    expect(tasks.listSubtasks(parent.id).items).toHaveLength(0);
   });
 
   it('does not overwrite archivedAt of already-archived subtasks', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Pre-archived sub' });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Pre-archived sub' });
     const archivedSub = archive.archiveTask(sub.id);
     const originalArchivedAt = archivedSub.archivedAt!.getTime();
     archive.archiveTask(parent.id);
-    const [row] = await db.select().from(tasksTable).where(eq(tasksTable.id, sub.id));
+    const row = db.select().from(tasksTable).where(eq(tasksTable.id, sub.id)).get()!;
     expect(row.archivedAt!.getTime()).toBe(originalArchivedAt);
   });
 
   it("archives the task's linked note", async () => {
-    const task = await tasks.createTask({ title: 'Has a note', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Has a note', dueDate: TOMORROW });
     const note = await notesService.createNote({ linkedTaskId: task.id });
     archive.archiveTask(task.id);
     expect(() => notesService.getById(note.id)).toThrow(NotFoundError);
   });
 
   it('does not archive notes linked to a different task', async () => {
-    const taskA = await tasks.createTask({ title: 'A', dueDate: TOMORROW });
-    const taskB = await tasks.createTask({ title: 'B', dueDate: TOMORROW });
+    const taskA = tasks.createTask({ title: 'A', dueDate: TOMORROW });
+    const taskB = tasks.createTask({ title: 'B', dueDate: TOMORROW });
     const noteB = await notesService.createNote({ linkedTaskId: taskB.id });
     archive.archiveTask(taskA.id);
     expect(notesService.getById(noteB.id)).toMatchObject({ id: noteB.id });
   });
 
   it("archives a subtask's own linked note when the parent is archived", async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
     const subNote = await notesService.createNote({ linkedTaskId: sub.id });
     archive.archiveTask(parent.id);
     expect(() => notesService.getById(subNote.id)).toThrow(NotFoundError);
@@ -1065,7 +1056,7 @@ describe('ArchiveService — archiveTask', () => {
   });
 
   it('throws AlreadyArchivedError when the task is already archived', async () => {
-    const task = await tasks.createTask({ title: 'Archive me once', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Archive me once', dueDate: TOMORROW });
     archive.archiveTask(task.id);
     expect(() => archive.archiveTask(task.id)).toThrow(AlreadyArchivedError);
   });
@@ -1073,62 +1064,62 @@ describe('ArchiveService — archiveTask', () => {
 
 describe('ArchiveService — restoreTask', () => {
   it('sets archivedAt back to null', async () => {
-    const task = await tasks.createTask({ title: 'Restore me', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Restore me', dueDate: TOMORROW });
     archive.archiveTask(task.id);
     const restored = archive.restoreTask(task.id);
     expect(restored.archivedAt).toBeNull();
   });
 
   it('returns the updated task row', async () => {
-    const task = await tasks.createTask({ title: 'Restore me', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Restore me', dueDate: TOMORROW });
     archive.archiveTask(task.id);
     const result = archive.restoreTask(task.id);
     expect(result.id).toBe(task.id);
   });
 
   it('restored task is visible via TaskService.getById', async () => {
-    const task = await tasks.createTask({ title: 'Restored', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Restored', dueDate: TOMORROW });
     archive.archiveTask(task.id);
     archive.restoreTask(task.id);
-    const found = await tasks.getById(task.id);
+    const found = tasks.getById(task.id);
     expect(found.id).toBe(task.id);
   });
 
   it('restored task appears in TaskService.listTasks', async () => {
-    const task = await tasks.createTask({
+    const task = tasks.createTask({
       title: 'Restored',
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
     archive.archiveTask(task.id);
     archive.restoreTask(task.id);
-    const result = (await tasks.listTasks({ status: TaskStatus.IN_PROGRESS })).items;
+    const result = tasks.listTasks({ status: TaskStatus.IN_PROGRESS }).items;
     expect(result.map((t) => t.id)).toContain(task.id);
   });
 
   it('restored subtask reappears in TaskService.listSubtasks', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
     archive.archiveTask(sub.id);
     archive.restoreTask(sub.id);
-    const result = (await tasks.listSubtasks(parent.id)).items;
+    const result = tasks.listSubtasks(parent.id).items;
     expect(result.map((t) => t.id)).toContain(sub.id);
   });
 
   it('restores all subtasks when the parent task is restored', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub1 = await tasks.createSubtask(parent.id, { title: 'Sub 1' });
-    const sub2 = await tasks.createSubtask(parent.id, { title: 'Sub 2' });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub1 = tasks.createSubtask(parent.id, { title: 'Sub 1' });
+    const sub2 = tasks.createSubtask(parent.id, { title: 'Sub 2' });
     archive.archiveTask(parent.id);
     archive.restoreTask(parent.id);
-    const subtasks = (await tasks.listSubtasks(parent.id)).items;
+    const subtasks = tasks.listSubtasks(parent.id).items;
     const ids = subtasks.map((t) => t.id);
     expect(ids).toContain(sub1.id);
     expect(ids).toContain(sub2.id);
   });
 
   it("restores the task's linked note", async () => {
-    const task = await tasks.createTask({ title: 'Has a note', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Has a note', dueDate: TOMORROW });
     const note = await notesService.createNote({ linkedTaskId: task.id });
     archive.archiveTask(task.id);
     archive.restoreTask(task.id);
@@ -1136,8 +1127,8 @@ describe('ArchiveService — restoreTask', () => {
   });
 
   it("restores a subtask's own linked note when the parent is restored", async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
     const subNote = await notesService.createNote({ linkedTaskId: sub.id });
     archive.archiveTask(parent.id);
     archive.restoreTask(parent.id);
@@ -1145,8 +1136,8 @@ describe('ArchiveService — restoreTask', () => {
   });
 
   it('does not restore notes linked to a different task', async () => {
-    const taskA = await tasks.createTask({ title: 'A', dueDate: TOMORROW });
-    const taskB = await tasks.createTask({ title: 'B', dueDate: TOMORROW });
+    const taskA = tasks.createTask({ title: 'A', dueDate: TOMORROW });
+    const taskB = tasks.createTask({ title: 'B', dueDate: TOMORROW });
     const noteB = await notesService.createNote({ linkedTaskId: taskB.id });
     archive.archiveNote(noteB.id);
     archive.archiveTask(taskA.id);
@@ -1159,7 +1150,7 @@ describe('ArchiveService — restoreTask', () => {
   });
 
   it('throws NotArchivedError when the task is not archived', async () => {
-    const task = await tasks.createTask({ title: 'Never archived', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Never archived', dueDate: TOMORROW });
     expect(() => archive.restoreTask(task.id)).toThrow(NotArchivedError);
   });
 });
@@ -1169,7 +1160,7 @@ describe('TaskService — cursor pagination', () => {
     const created = [];
     for (let i = 0; i < n; i++) {
       created.push(
-        await tasks.createTask({
+        tasks.createTask({
           title: `T${i}`,
           dueDate: TOMORROW,
           priority: ((i % 3) + 1) as TaskPriority,
@@ -1188,7 +1179,7 @@ describe('TaskService — cursor pagination', () => {
     let cursor: string | undefined;
     let pages = 0;
     do {
-      const page = await tasks.listTasks(filter, sort, { limit, cursor });
+      const page = tasks.listTasks(filter, sort, { limit, cursor });
       expect(page.items.length).toBeLessThanOrEqual(limit);
       ids.push(...page.items.map((t) => t.id));
       cursor = page.nextCursor ?? undefined;
@@ -1199,7 +1190,7 @@ describe('TaskService — cursor pagination', () => {
 
   it('returns a null nextCursor when everything fits in one page', async () => {
     await seed(3);
-    const page = await tasks.listTasks();
+    const page = tasks.listTasks();
     expect(page.items).toHaveLength(3);
     expect(page.nextCursor).toBeNull();
   });
@@ -1215,7 +1206,7 @@ describe('TaskService — cursor pagination', () => {
     await seed(8);
     for (const sortBy of ['priority', 'dueDate', 'status', 'createdAt', 'updatedAt'] as const) {
       for (const direction of ['asc', 'desc'] as const) {
-        const full = (await tasks.listTasks({}, { sortBy, direction }, { limit: 200 })).items;
+        const full = tasks.listTasks({}, { sortBy, direction }, { limit: 200 }).items;
         const { ids } = await collect({ sortBy, direction }, 3);
         expect(ids).toEqual(full.map((t) => t.id));
       }
@@ -1230,16 +1221,16 @@ describe('TaskService — cursor pagination', () => {
 
   it('respects filters across pages', async () => {
     await seed(5);
-    await tasks.createTask({ title: 'done', dueDate: TOMORROW, status: TaskStatus.COMPLETED });
+    tasks.createTask({ title: 'done', dueDate: TOMORROW, status: TaskStatus.COMPLETED });
     const { ids } = await collect({ sortBy: 'createdAt' }, 2, { status: TaskStatus.NOT_STARTED });
     expect(ids).toHaveLength(5);
   });
 
   it('a task created between page requests does not cause duplicates or skips', async () => {
     const created = await seed(4);
-    const first = await tasks.listTasks({}, { sortBy: 'createdAt' }, { limit: 2 });
-    await tasks.createTask({ title: 'late', dueDate: TOMORROW });
-    const second = await tasks.listTasks(
+    const first = tasks.listTasks({}, { sortBy: 'createdAt' }, { limit: 2 });
+    tasks.createTask({ title: 'late', dueDate: TOMORROW });
+    const second = tasks.listTasks(
       {},
       { sortBy: 'createdAt' },
       { limit: 2, cursor: first.nextCursor! },
@@ -1250,9 +1241,9 @@ describe('TaskService — cursor pagination', () => {
 
   it('a task archived between page requests is not returned, others are unaffected', async () => {
     const created = await seed(4);
-    const first = await tasks.listTasks({}, { sortBy: 'createdAt' }, { limit: 2 });
+    const first = tasks.listTasks({}, { sortBy: 'createdAt' }, { limit: 2 });
     archive.archiveTask(created[0].id);
-    const second = await tasks.listTasks(
+    const second = tasks.listTasks(
       {},
       { sortBy: 'createdAt' },
       { limit: 2, cursor: first.nextCursor! },
@@ -1264,27 +1255,27 @@ describe('TaskService — cursor pagination', () => {
   it('clamps limit to the maximum and rejects invalid limits', async () => {
     await seed(1);
     expect(() => tasks.listTasks({}, undefined, { limit: 0 })).toThrow(RangeError);
-    const page = await tasks.listTasks({}, undefined, { limit: 100_000 });
+    const page = tasks.listTasks({}, undefined, { limit: 100_000 });
     expect(page.items).toHaveLength(1);
   });
 
   it('rejects garbage cursors and cursors from a different sort', async () => {
     await seed(3);
     expect(() => tasks.listTasks({}, undefined, { cursor: 'garbage' })).toThrow(InvalidCursorError);
-    const page = await tasks.listTasks({}, { sortBy: 'createdAt' }, { limit: 1 });
+    const page = tasks.listTasks({}, { sortBy: 'createdAt' }, { limit: 1 });
     expect(() => tasks.listTasks({}, { sortBy: 'priority' }, { cursor: page.nextCursor! })).toThrow(
       InvalidCursorError,
     );
   });
 
   it('listSubtasks paginates', async () => {
-    const parent = await tasks.createTask({ title: 'P', dueDate: TOMORROW });
+    const parent = tasks.createTask({ title: 'P', dueDate: TOMORROW });
     const subs = [];
-    for (let i = 0; i < 5; i++) subs.push(await tasks.createSubtask(parent.id, { title: `S${i}` }));
+    for (let i = 0; i < 5; i++) subs.push(tasks.createSubtask(parent.id, { title: `S${i}` }));
     const ids: string[] = [];
     let cursor: string | undefined;
     do {
-      const page = await tasks.listSubtasks(parent.id, { limit: 2, cursor });
+      const page = tasks.listSubtasks(parent.id, { limit: 2, cursor });
       ids.push(...page.items.map((t) => t.id));
       cursor = page.nextCursor ?? undefined;
     } while (cursor);
@@ -1295,8 +1286,8 @@ describe('TaskService — cursor pagination', () => {
 describe('TaskService — undated tasks', () => {
   // local tasks always get a due date; synced ones may not, so tests clear it on the row directly
   async function undated(title: string) {
-    const task = await tasks.createTask({ title, dueDate: TOMORROW });
-    await db.update(tasksTable).set({ dueDate: null }).where(eq(tasksTable.id, task.id));
+    const task = tasks.createTask({ title, dueDate: TOMORROW });
+    db.update(tasksTable).set({ dueDate: null }).where(eq(tasksTable.id, task.id)).run();
     return { ...task, dueDate: null };
   }
 
@@ -1308,7 +1299,7 @@ describe('TaskService — undated tasks', () => {
     const ids: string[] = [];
     let cursor: string | undefined;
     do {
-      const page = await tasks.listTasks({}, { sortBy: 'dueDate', direction }, { limit, cursor });
+      const page = tasks.listTasks({}, { sortBy: 'dueDate', direction }, { limit, cursor });
       ids.push(...page.items.map((t) => t.id));
       cursor = page.nextCursor ?? undefined;
     } while (cursor);
@@ -1342,14 +1333,14 @@ describe('TaskService — undated tasks', () => {
 
   it('reads back a null dueDate', async () => {
     const task = await undated('No date');
-    expect((await tasks.getById(task.id)).dueDate).toBeNull();
+    expect(tasks.getById(task.id).dueDate).toBeNull();
   });
 
   it.each(['asc', 'desc'] as const)(
     'sorts undated tasks last when sorting by dueDate %s',
     async (direction) => {
       const all = await seedMixed();
-      const page = await tasks.listTasks({}, { sortBy: 'dueDate', direction }, { limit: 200 });
+      const page = tasks.listTasks({}, { sortBy: 'dueDate', direction }, { limit: 200 });
       expect(page.items.map((t) => t.id)).toEqual(expectedOrder(all, direction));
     },
   );
@@ -1374,15 +1365,15 @@ describe('TaskService — undated tasks', () => {
       if (direction === 'desc') nullIds.reverse();
 
       // page 1 ends on the dated task, page 2 on the first undated one
-      const first = await tasks.listTasks({}, { sortBy: 'dueDate', direction }, { limit: 1 });
-      const second = await tasks.listTasks(
+      const first = tasks.listTasks({}, { sortBy: 'dueDate', direction }, { limit: 1 });
+      const second = tasks.listTasks(
         {},
         { sortBy: 'dueDate', direction },
         { limit: 1, cursor: first.nextCursor! },
       );
       expect(second.items.map((t) => t.id)).toEqual([nullIds[0]]);
 
-      const rest = await tasks.listTasks(
+      const rest = tasks.listTasks(
         {},
         { sortBy: 'dueDate', direction },
         { limit: 10, cursor: second.nextCursor! },
@@ -1394,11 +1385,7 @@ describe('TaskService — undated tasks', () => {
 
   it('pages undated tasks under other sorts as before', async () => {
     const all = await seedMixed();
-    const page = await tasks.listTasks(
-      {},
-      { sortBy: 'createdAt', direction: 'asc' },
-      { limit: 200 },
-    );
+    const page = tasks.listTasks({}, { sortBy: 'createdAt', direction: 'asc' }, { limit: 200 });
     expect(page.items.map((t) => t.id)).toEqual(all.map((t) => t.id));
   });
 
@@ -1409,7 +1396,7 @@ describe('TaskService — undated tasks', () => {
     await undated('No date');
 
     const ids = async (filter: Parameters<TaskService['listTasks']>[0]) =>
-      (await tasks.listTasks(filter, undefined, { limit: 200 })).items.map((t) => t.id);
+      tasks.listTasks(filter, undefined, { limit: 200 }).items.map((t) => t.id);
 
     expect(await ids({ dueBefore: new Date() })).toEqual([before.id]);
     expect(await ids({ dueAfter: TOMORROW })).toEqual([after.id]);
@@ -1431,38 +1418,38 @@ describe('TaskService — undated tasks', () => {
 
   it('createSubtask under an undated parent uses its own due date', async () => {
     const parent = await undated('Undated parent');
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub', dueDate: NEXT_WEEK });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub', dueDate: NEXT_WEEK });
     expect(sub.dueDate!.getTime()).toBe(NEXT_WEEK.getTime());
   });
 });
 
 describe('TaskService — cancelled tasks', () => {
   it('moves to CANCELLED and back, with completedAt null throughout', async () => {
-    const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW });
     expect(task.completedAt).toBeNull();
 
-    const cancelled = await tasks.updateStatus(task.id, TaskStatus.CANCELLED);
+    const cancelled = tasks.updateStatus(task.id, TaskStatus.CANCELLED);
     expect(cancelled.status).toBe(TaskStatus.CANCELLED);
     expect(cancelled.completedAt).toBeNull();
 
-    const reopened = await tasks.updateStatus(task.id, TaskStatus.IN_PROGRESS);
+    const reopened = tasks.updateStatus(task.id, TaskStatus.IN_PROGRESS);
     expect(reopened.status).toBe(TaskStatus.IN_PROGRESS);
     expect(reopened.completedAt).toBeNull();
   });
 
   it('clears completedAt when a completed task is cancelled', async () => {
-    const task = await tasks.createTask({
+    const task = tasks.createTask({
       title: 'Task',
       dueDate: TOMORROW,
       status: TaskStatus.COMPLETED,
     });
     expect(task.completedAt).not.toBeNull();
-    const cancelled = await tasks.updateStatus(task.id, TaskStatus.CANCELLED);
+    const cancelled = tasks.updateStatus(task.id, TaskStatus.CANCELLED);
     expect(cancelled.completedAt).toBeNull();
   });
 
   it('createTask with CANCELLED leaves completedAt null', async () => {
-    const task = await tasks.createTask({
+    const task = tasks.createTask({
       title: 'Task',
       dueDate: TOMORROW,
       status: TaskStatus.CANCELLED,
@@ -1472,50 +1459,50 @@ describe('TaskService — cancelled tasks', () => {
   });
 
   it('listTasks({ status: CANCELLED }) returns only cancelled tasks', async () => {
-    await tasks.createTask({ title: 'Not started', dueDate: TOMORROW });
-    await tasks.createTask({
+    tasks.createTask({ title: 'Not started', dueDate: TOMORROW });
+    tasks.createTask({
       title: 'Completed',
       dueDate: TOMORROW,
       status: TaskStatus.COMPLETED,
     });
-    const cancelled = await tasks.createTask({
+    const cancelled = tasks.createTask({
       title: 'Cancelled',
       dueDate: TOMORROW,
       status: TaskStatus.CANCELLED,
     });
 
-    const page = await tasks.listTasks({ status: TaskStatus.CANCELLED });
+    const page = tasks.listTasks({ status: TaskStatus.CANCELLED });
     expect(page.items.map((t) => t.id)).toEqual([cancelled.id]);
   });
 
   it('excludeClosed hides completed and cancelled tasks together', async () => {
-    const notStarted = await tasks.createTask({ title: 'Not started', dueDate: TOMORROW });
-    const inProgress = await tasks.createTask({
+    const notStarted = tasks.createTask({ title: 'Not started', dueDate: TOMORROW });
+    const inProgress = tasks.createTask({
       title: 'In progress',
       dueDate: TOMORROW,
       status: TaskStatus.IN_PROGRESS,
     });
-    await tasks.createTask({ title: 'Completed', dueDate: TOMORROW, status: TaskStatus.COMPLETED });
-    await tasks.createTask({ title: 'Cancelled', dueDate: TOMORROW, status: TaskStatus.CANCELLED });
+    tasks.createTask({ title: 'Completed', dueDate: TOMORROW, status: TaskStatus.COMPLETED });
+    tasks.createTask({ title: 'Cancelled', dueDate: TOMORROW, status: TaskStatus.CANCELLED });
 
-    const page = await tasks.listTasks({ excludeClosed: true });
+    const page = tasks.listTasks({ excludeClosed: true });
     expect(page.items.map((t) => t.id).sort()).toEqual([notStarted.id, inProgress.id].sort());
   });
 
   it('sorts cancelled tasks after completed ones by status', async () => {
-    const cancelled = await tasks.createTask({
+    const cancelled = tasks.createTask({
       title: 'Cancelled',
       dueDate: TOMORROW,
       status: TaskStatus.CANCELLED,
     });
-    const completed = await tasks.createTask({
+    const completed = tasks.createTask({
       title: 'Completed',
       dueDate: TOMORROW,
       status: TaskStatus.COMPLETED,
     });
-    const notStarted = await tasks.createTask({ title: 'Not started', dueDate: TOMORROW });
+    const notStarted = tasks.createTask({ title: 'Not started', dueDate: TOMORROW });
 
-    const page = await tasks.listTasks({}, { sortBy: 'status', direction: 'asc' });
+    const page = tasks.listTasks({}, { sortBy: 'status', direction: 'asc' });
     expect(page.items.map((t) => t.id)).toEqual([notStarted.id, completed.id, cancelled.id]);
   });
 });
@@ -1525,15 +1512,15 @@ describe('TaskService — onChange', () => {
     const changes: TaskChange[] = [];
     tasks.onChange((change) => changes.push(change));
 
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const other = await tasks.createTask({ title: 'Other', dueDate: TOMORROW });
-    const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
-    await tasks.updateTask(parent.id, { title: 'Renamed' });
-    await tasks.updateStatus(parent.id, TaskStatus.IN_PROGRESS);
-    await tasks.updateProject(parent.id, FAKE_PROJECT_ID);
-    await tasks.updateLinks(parent.id, { linkedNoteId: FAKE_NOTE_ID });
-    await tasks.promoteSubtask(sub.id);
-    await tasks.demoteTask(sub.id, other.id);
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const other = tasks.createTask({ title: 'Other', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
+    tasks.updateTask(parent.id, { title: 'Renamed' });
+    tasks.updateStatus(parent.id, TaskStatus.IN_PROGRESS);
+    tasks.updateProject(parent.id, FAKE_PROJECT_ID);
+    tasks.updateLinks(parent.id, { linkedNoteId: FAKE_NOTE_ID });
+    tasks.promoteSubtask(sub.id);
+    tasks.demoteTask(sub.id, other.id);
 
     expect(changes.map(({ type, task }) => [type, task.id])).toEqual([
       ['created', parent.id],
@@ -1567,9 +1554,9 @@ describe('TaskService — onChange', () => {
     });
     tasks.onChange(listener);
 
-    const task = await tasks.createTask({ title: 'Kept', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Kept', dueDate: TOMORROW });
 
-    expect(await tasks.getById(task.id)).toMatchObject({ title: 'Kept' });
+    expect(tasks.getById(task.id)).toMatchObject({ title: 'Kept' });
     expect(listener).toHaveBeenCalledOnce();
     expect(error).toHaveBeenCalled();
     error.mockRestore();
@@ -1580,7 +1567,7 @@ describe('TaskService — onChange', () => {
     const unsubscribe = tasks.onChange(listener);
     unsubscribe();
 
-    await tasks.createTask({ title: 'Unheard', dueDate: TOMORROW });
+    tasks.createTask({ title: 'Unheard', dueDate: TOMORROW });
 
     expect(listener).not.toHaveBeenCalled();
   });

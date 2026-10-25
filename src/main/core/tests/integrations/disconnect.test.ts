@@ -304,7 +304,7 @@ describe('IntegrationService — disable and enable', () => {
     await syncTasks(sourceId, [issue({ updatedAt: V2 })], [project()]);
     const before = snapshot();
 
-    await service.setSourceEnabled(sourceId, false);
+    service.setSourceEnabled(sourceId, false);
     const skipped = await engine.runSource(sourceId);
 
     expect(skipped).toMatchObject({
@@ -315,7 +315,7 @@ describe('IntegrationService — disable and enable', () => {
     expect({ ...frozen, sources: [] }).toEqual({ ...before, sources: [] });
     expect(frozen.sources[0].cursor).toEqual(before.sources[0].cursor);
 
-    await service.setSourceEnabled(sourceId, true);
+    service.setSourceEnabled(sourceId, true);
     await syncTasks(sourceId, []);
 
     expect(linear.tasks.pulls).toHaveLength(2);
@@ -329,7 +329,7 @@ describe('IntegrationService — disable and enable', () => {
     await syncTasks(sourceId, [item]);
     const before = snapshot();
 
-    await service.setEnabled(id, false);
+    service.setEnabled(id, false);
     const skipped = await engine.runSource(sourceId);
 
     expect(skipped.outcome).toBe(SyncRunOutcome.SKIPPED);
@@ -337,7 +337,7 @@ describe('IntegrationService — disable and enable', () => {
     expect(snapshot().links).toEqual(before.links);
     expect(linkOf(item)!.state).toBe(LinkState.SYNCED);
 
-    await service.setEnabled(id, true);
+    service.setEnabled(id, true);
     await syncTasks(sourceId, [{ ...item, title: 'Caught up', updatedAt: V2 }]);
 
     expect(linear.tasks.pulls[1].query).toEqual({ changedSince: since });
@@ -379,7 +379,7 @@ describe('IntegrationService — disconnect, removing synced items', () => {
     expect(linkOf(plain)).toBeUndefined();
     expect(indexed()).not.toContain(plainId);
 
-    const kept = await tasks.getById(notedId);
+    const kept = tasks.getById(notedId);
     expect(kept.external).toMatchObject({
       provider: ProviderId.LINEAR,
       state: LinkState.DETACHED,
@@ -387,7 +387,7 @@ describe('IntegrationService — disconnect, removing synced items', () => {
       url: noted.url,
     });
     expect(linkOf(noted)!.sourceId).toBeNull();
-    const edited = await tasks.updateTask(notedId, { title: 'Mine' });
+    const edited = tasks.updateTask(notedId, { title: 'Mine' });
     expect(edited?.title).toBe('Mine');
   });
 
@@ -398,8 +398,8 @@ describe('IntegrationService — disconnect, removing synced items', () => {
 
     expect(db.select().from(integrations).all()).toEqual([]);
     expect(db.select().from(externalSources).all()).toEqual([]);
-    await expect(service.getById(id)).rejects.toThrow(NotFoundError);
-    await expect(service.list()).resolves.toEqual([]);
+    expect(() => service.getById(id)).toThrow(NotFoundError);
+    expect(service.list()).toEqual([]);
   });
 
   it('keeps a task the user linked to a note or an event; a kept subtask outlives its parent', async () => {
@@ -411,14 +411,14 @@ describe('IntegrationService — disconnect, removing synced items', () => {
     await syncTasks(sourceId, [parent, child, withEvent, withNote]);
     expect(taskRow(taskIdOf(child))!.parentTaskId).toBe(taskIdOf(parent));
     await notes.createNote({ title: 'Child notes', linkedTaskId: taskIdOf(child) });
-    const meeting = await events.createEvent({
+    const meeting = events.createEvent({
       title: 'Planning',
       startAt: TOMORROW,
       endAt: new Date(TOMORROW.getTime() + 3600_000),
     });
-    await tasks.updateLinks(taskIdOf(withEvent), { linkedEventId: meeting.id });
+    tasks.updateLinks(taskIdOf(withEvent), { linkedEventId: meeting.id });
     const source = await notes.createNote({ title: 'Spec' });
-    await tasks.updateLinks(taskIdOf(withNote), { linkedNoteId: source.id });
+    tasks.updateLinks(taskIdOf(withNote), { linkedNoteId: source.id });
     const childId = taskIdOf(child);
     const parentId = taskIdOf(parent);
 
@@ -444,7 +444,7 @@ describe('IntegrationService — disconnect, removing synced items', () => {
     await syncTasks(sourceId, [inMirrored, inEmpty], [mirrored, empty]);
     const projectId = projectIdOf(mirrored);
     const emptyId = projectIdOf(empty);
-    const local = await tasks.createTask({ title: 'Mine', dueDate: TOMORROW, projectId });
+    const local = tasks.createTask({ title: 'Mine', dueDate: TOMORROW, projectId });
 
     const result = await service.disconnect(id, { keepLocalCopies: false });
 
@@ -452,10 +452,10 @@ describe('IntegrationService — disconnect, removing synced items', () => {
     expect(result.kept).toEqual({ tasks: 0, projects: 1, events: 0 });
     expect(projectRow(emptyId)).toBeUndefined();
     expect(indexed()).not.toContain(emptyId);
-    const kept = await projects.getById(projectId);
+    const kept = projects.getById(projectId);
     expect(kept.external).toMatchObject({ state: LinkState.DETACHED, url: mirrored.url });
-    expect((await tasks.getById(local.id)).projectId).toBe(projectId);
-    const renamed = await projects.updateProject(projectId, { title: 'Renamed' });
+    expect(tasks.getById(local.id).projectId).toBe(projectId);
+    const renamed = projects.updateProject(projectId, { title: 'Renamed' });
     expect(renamed?.title).toBe('Renamed');
   });
 
@@ -491,7 +491,7 @@ describe('IntegrationService — disconnect, removing synced items', () => {
     const plainId = eventIdOf(plain);
     const notedId = eventIdOf(noted);
     await notes.createNote({ title: 'Meeting notes', linkedEventId: notedId });
-    await tasks.createTask({
+    tasks.createTask({
       title: 'Follow up',
       dueDate: TOMORROW,
       linkedEventId: eventIdOf(tasked),
@@ -506,11 +506,11 @@ describe('IntegrationService — disconnect, removing synced items', () => {
     expect(result.changed).toEqual(expect.arrayContaining(['event', 'calendar']));
     expect(eventRow(plainId)).toBeUndefined();
     expect(indexed()).not.toContain(plainId);
-    expect((await events.getById(notedId)).external).toMatchObject({
+    expect(events.getById(notedId).external).toMatchObject({
       provider: ProviderId.GOOGLE_CALENDAR,
       state: LinkState.DETACHED,
     });
-    const edited = await events.updateEvent(notedId, { title: 'Mine' });
+    const edited = events.updateEvent(notedId, { title: 'Mine' });
     expect(edited.title).toBe('Mine');
 
     // the calendar holding them is local now; the unselected one, which held nothing, is gone
@@ -546,7 +546,7 @@ describe('IntegrationService — disconnect, removing synced items', () => {
     const synced = issue();
     await syncTasks(tasksSource.sourceId, [detachedItem, synced]);
     await syncEvents(calendar.sourceId, [event()]);
-    await detach.detachTask(taskIdOf(detachedItem));
+    detach.detachTask(taskIdOf(detachedItem));
     const before = snapshot();
 
     const result = await service.disconnect(tasksSource.id, { keepLocalCopies: false });
@@ -582,7 +582,7 @@ describe('IntegrationService — disconnect, keeping local copies', () => {
     expect(result.kept).toEqual({ tasks: 3, projects: 1, events: 0 });
     expect(snapshot().tasks).toEqual(before.tasks);
     for (const item of items) {
-      const task = await tasks.getById(taskIdOf(item));
+      const task = tasks.getById(taskIdOf(item));
       expect(task.external).toEqual({
         provider: ProviderId.LINEAR,
         state: LinkState.DETACHED,
@@ -594,9 +594,7 @@ describe('IntegrationService — disconnect, keeping local copies', () => {
       });
       expect(linkOf(item)!.sourceId).toBeNull();
     }
-    expect((await projects.getById(projectIdOf(mirrored))).external?.state).toBe(
-      LinkState.DETACHED,
-    );
+    expect(projects.getById(projectIdOf(mirrored)).external?.state).toBe(LinkState.DETACHED);
   });
 
   it('keeps every event, detached', async () => {
@@ -632,8 +630,8 @@ describe('IntegrationService — previewDisconnect', () => {
     await notes.createNote({ title: 'Event note', linkedEventId: eventIdOf(linkedEvent) });
     const before = snapshot();
 
-    const taskPreview = await service.previewDisconnect(tasksSource.id);
-    const eventPreview = await service.previewDisconnect(calendar.id);
+    const taskPreview = service.previewDisconnect(tasksSource.id);
+    const eventPreview = service.previewDisconnect(calendar.id);
 
     expect(snapshot()).toEqual(before);
     expect(taskPreview).toEqual({
@@ -657,9 +655,7 @@ describe('IntegrationService — previewDisconnect', () => {
   });
 
   it('throws NotFoundError for an unknown integration', async () => {
-    await expect(service.previewDisconnect('int_missing' as IntegrationId)).rejects.toThrow(
-      NotFoundError,
-    );
+    expect(() => service.previewDisconnect('int_missing' as IntegrationId)).toThrow(NotFoundError);
   });
 });
 
@@ -997,7 +993,7 @@ describe('IntegrationService — reconnect', () => {
 
   it('a disabled integration stays disabled with its new credentials', async () => {
     const { id } = await connectLinear();
-    await service.setEnabled(id, false);
+    service.setEnabled(id, false);
     const changes: IntegrationChange[] = [];
     service.onChange((change) => changes.push(change));
 

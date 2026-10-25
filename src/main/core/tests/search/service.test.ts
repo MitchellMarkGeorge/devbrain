@@ -37,7 +37,7 @@ afterEach(async () => {
 
 describe('SearchService — untrusted text', () => {
   it('returns titles and bodies escaped, with only its own <b> tags', async () => {
-    const task = await taskService.createTask({
+    const task = taskService.createTask({
       title: '<img src=x onerror=alert(1)> widget & "co"',
       description: 'Body with <script>alert(1)</script> and a widget',
       dueDate: TOMORROW,
@@ -52,7 +52,7 @@ describe('SearchService — untrusted text', () => {
   });
 
   it('keeps text that holds the marker characters itself to escaped text and <b> tags', async () => {
-    const task = await taskService.createTask({
+    const task = taskService.createTask({
       title: '\u0002<i>odd</i>\u0003 widget',
       dueDate: TOMORROW,
     });
@@ -65,7 +65,7 @@ describe('SearchService — untrusted text', () => {
 
 describe('SearchService — indexTask', () => {
   it('indexes a task so it is findable by title', async () => {
-    const task = await taskService.createTask({
+    const task = taskService.createTask({
       title: 'Refactor payment pipeline',
       dueDate: TOMORROW,
     });
@@ -83,7 +83,7 @@ describe('SearchService — indexTask', () => {
   });
 
   it('indexes a task so it is findable by description', async () => {
-    const task = await taskService.createTask({
+    const task = taskService.createTask({
       title: 'Ship release',
       description: 'Coordinate with the infrastructure team on rollout',
       dueDate: TOMORROW,
@@ -96,7 +96,7 @@ describe('SearchService — indexTask', () => {
   });
 
   it('indexes with an empty body when description is null', async () => {
-    const task = await taskService.createTask({ title: 'Untitled work item', dueDate: TOMORROW });
+    const task = taskService.createTask({ title: 'Untitled work item', dueDate: TOMORROW });
     searchService.indexTask(task);
 
     const results = searchService.search({ query: 'Untitled', entityType: [] });
@@ -105,7 +105,7 @@ describe('SearchService — indexTask', () => {
   });
 
   it('re-indexing replaces the previous entry instead of duplicating it', async () => {
-    const task = await taskService.createTask({ title: 'Original title', dueDate: TOMORROW });
+    const task = taskService.createTask({ title: 'Original title', dueDate: TOMORROW });
     searchService.indexTask(task);
     searchService.indexTask({ ...task, title: 'Updated title' });
 
@@ -119,7 +119,7 @@ describe('SearchService — indexTask', () => {
 
 describe('SearchService — indexProject', () => {
   it('indexes a project so it is findable by title and description', async () => {
-    const project = await projectService.createProject({
+    const project = projectService.createProject({
       title: 'Q3 Roadmap',
       description: 'Plan the migration to the new billing provider',
       dueDate: TOMORROW,
@@ -133,7 +133,7 @@ describe('SearchService — indexProject', () => {
   });
 
   it('indexes with an empty body when description is null', async () => {
-    const project = await projectService.createProject({
+    const project = projectService.createProject({
       title: 'Untitled project',
       dueDate: TOMORROW,
     });
@@ -144,7 +144,7 @@ describe('SearchService — indexProject', () => {
   });
 
   it('re-indexing replaces the previous entry instead of duplicating it', async () => {
-    const project = await projectService.createProject({ title: 'Alpha', dueDate: TOMORROW });
+    const project = projectService.createProject({ title: 'Alpha', dueDate: TOMORROW });
     searchService.indexProject(project);
     searchService.indexProject({ ...project, title: 'Beta' });
 
@@ -155,9 +155,9 @@ describe('SearchService — indexProject', () => {
 
 describe('SearchService — removeFromIndex', () => {
   it('removes only the given entities, across entity types', async () => {
-    const kept = await taskService.createTask({ title: 'Deploy kept', dueDate: TOMORROW });
-    const task = await taskService.createTask({ title: 'Deploy removed', dueDate: TOMORROW });
-    const project = await projectService.createProject({
+    const kept = taskService.createTask({ title: 'Deploy kept', dueDate: TOMORROW });
+    const task = taskService.createTask({ title: 'Deploy removed', dueDate: TOMORROW });
+    const project = projectService.createProject({
       title: 'Deploy project',
       dueDate: TOMORROW,
     });
@@ -171,7 +171,7 @@ describe('SearchService — removeFromIndex', () => {
   });
 
   it('ignores ids with no entry and an empty list', async () => {
-    const task = await taskService.createTask({ title: 'Still here', dueDate: TOMORROW });
+    const task = taskService.createTask({ title: 'Still here', dueDate: TOMORROW });
     searchService.indexTask(task);
 
     searchService.removeFromIndex([]);
@@ -181,7 +181,7 @@ describe('SearchService — removeFromIndex', () => {
   });
 
   it('an entity removed and indexed again is findable again', async () => {
-    const task = await taskService.createTask({ title: 'Boomerang', dueDate: TOMORROW });
+    const task = taskService.createTask({ title: 'Boomerang', dueDate: TOMORROW });
     searchService.indexTask(task);
     searchService.removeFromIndex([task.id]);
     expect(searchService.search({ query: 'Boomerang', entityType: [] })).toHaveLength(0);
@@ -194,7 +194,7 @@ describe('SearchService — removeFromIndex', () => {
 
 describe('SearchService — indexEvent', () => {
   it('indexes an event so it is findable by title and description', async () => {
-    const event = await eventService.createEvent({
+    const event = eventService.createEvent({
       title: 'Design review',
       description: 'Walk through the new onboarding flow mockups',
       startAt: TOMORROW,
@@ -209,7 +209,7 @@ describe('SearchService — indexEvent', () => {
   });
 
   it('indexes with an empty body when description is null', async () => {
-    const event = await eventService.createEvent({
+    const event = eventService.createEvent({
       title: 'Quick sync',
       startAt: TOMORROW,
       endAt: TOMORROW,
@@ -221,7 +221,7 @@ describe('SearchService — indexEvent', () => {
   });
 
   it('re-indexing replaces the previous entry instead of duplicating it', async () => {
-    const event = await eventService.createEvent({
+    const event = eventService.createEvent({
       title: 'Old title',
       startAt: TOMORROW,
       endAt: TOMORROW,
@@ -264,7 +264,7 @@ describe('SearchService — indexNote', () => {
     const note = await noteService.createNote({ title: 'Draft' });
     await searchService.indexNote(note);
     await noteService.updateNoteContent(note.id, 'finalized content');
-    const updated = await noteService.getById(note.id);
+    const updated = noteService.getById(note.id);
     await searchService.indexNote(updated);
 
     const results = searchService.search({ query: 'Draft', entityType: [] });
@@ -319,19 +319,19 @@ describe('SearchService — updateIndexedTitle', () => {
 
 describe('SearchService — search', () => {
   beforeEach(async () => {
-    const task = await taskService.createTask({
+    const task = taskService.createTask({
       title: 'Widget sprint planning',
       dueDate: TOMORROW,
     });
     searchService.indexTask(task);
 
-    const project = await projectService.createProject({
+    const project = projectService.createProject({
       title: 'Widget launch',
       dueDate: TOMORROW,
     });
     searchService.indexProject(project);
 
-    const event = await eventService.createEvent({
+    const event = eventService.createEvent({
       title: 'Widget kickoff meeting',
       startAt: TOMORROW,
       endAt: TOMORROW,
@@ -377,7 +377,7 @@ describe('SearchService — search', () => {
 
 describe('SearchService — search highlighting', () => {
   it('highlights the matched term found in the body', async () => {
-    const task = await taskService.createTask({
+    const task = taskService.createTask({
       title: 'Task with a description',
       description: 'This paragraph mentions gadget somewhere in the middle of it.',
       dueDate: TOMORROW,
@@ -390,7 +390,7 @@ describe('SearchService — search highlighting', () => {
   });
 
   it('highlights the matched term found in the title', async () => {
-    const task = await taskService.createTask({
+    const task = taskService.createTask({
       title: 'Investigate the gadget recall',
       dueDate: TOMORROW,
     });
@@ -402,7 +402,7 @@ describe('SearchService — search highlighting', () => {
   });
 
   it('highlights every occurrence of the matched term in the title', async () => {
-    const project = await projectService.createProject({
+    const project = projectService.createProject({
       title: 'Widget planning for the widget launch',
       dueDate: TOMORROW,
     });
@@ -414,7 +414,7 @@ describe('SearchService — search highlighting', () => {
   });
 
   it('highlights the full matched word in the title for a prefix query', async () => {
-    const event = await eventService.createEvent({
+    const event = eventService.createEvent({
       title: 'Widget kickoff meeting',
       startAt: TOMORROW,
       endAt: TOMORROW,
@@ -441,7 +441,7 @@ describe('SearchService — search highlighting', () => {
     words.splice(20, 0, 'gizmo');
     const description = words.join(' ');
 
-    const project = await projectService.createProject({
+    const project = projectService.createProject({
       title: 'Long body project',
       description,
       dueDate: TOMORROW,
@@ -471,7 +471,7 @@ describe('SearchService — search highlighting', () => {
 
 describe('SearchService — special characters', () => {
   it('finds and highlights a title containing "++" (e.g. C++)', async () => {
-    const task = await taskService.createTask({ title: 'Learn C++ properly', dueDate: TOMORROW });
+    const task = taskService.createTask({ title: 'Learn C++ properly', dueDate: TOMORROW });
     searchService.indexTask(task);
 
     const results = searchService.search({ query: 'C++', entityType: ['task'] });
@@ -480,7 +480,7 @@ describe('SearchService — special characters', () => {
   });
 
   it('finds and highlights a title containing "#" (e.g. C#)', async () => {
-    const project = await projectService.createProject({
+    const project = projectService.createProject({
       title: 'C# style guide',
       dueDate: TOMORROW,
     });
@@ -492,7 +492,7 @@ describe('SearchService — special characters', () => {
   });
 
   it('finds and highlights a body containing an underscored identifier', async () => {
-    const task = await taskService.createTask({
+    const task = taskService.createTask({
       title: 'Rename a variable',
       description: 'Rename snake_case to camelCase throughout the module.',
       dueDate: TOMORROW,
@@ -505,8 +505,8 @@ describe('SearchService — special characters', () => {
   });
 
   it('does not conflate two different symbol-suffixed terms (C++ vs C#)', async () => {
-    const cpp = await taskService.createTask({ title: 'Learn C++', dueDate: TOMORROW });
-    const csharp = await taskService.createTask({ title: 'Learn C#', dueDate: TOMORROW });
+    const cpp = taskService.createTask({ title: 'Learn C++', dueDate: TOMORROW });
+    const csharp = taskService.createTask({ title: 'Learn C#', dueDate: TOMORROW });
     searchService.indexTasks([cpp, csharp]);
 
     const results = searchService.search({ query: 'C++', entityType: ['task'] });

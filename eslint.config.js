@@ -49,6 +49,32 @@ export default tseslint.config(
     },
   },
 
+  // Main process database access is synchronous (better-sqlite3); see "Database access" in
+  // CLAUDE.md. Type-aware, so it can tell a Promise from a plain value.
+  {
+    files: ['src/main/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        project: './tsconfig.node.json',
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      // awaiting a method that returns a plain value, e.g. a service method that only reads rows
+      '@typescript-eslint/await-thenable': 'error',
+      // a Drizzle query is thenable, so await-thenable allows it: catch the await syntactically
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'AwaitExpression > CallExpression[callee.property.name=/^(from|where|orderBy|groupBy|having|limit|offset|innerJoin|leftJoin|values|set|returning|onConflictDoUpdate|onConflictDoNothing)$/]',
+          message:
+            'better-sqlite3 is synchronous: end the query with .all(), .get() or .run() instead of awaiting it.',
+        },
+      ],
+    },
+  },
+
   // Vite config files
   {
     files: ['vite.*.config.ts', 'scripts/**/*.{ts,mts}'],

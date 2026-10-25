@@ -233,7 +233,7 @@ describe('SyncScheduler — start', () => {
   });
 
   it('a source of a disabled integration does not run', async () => {
-    await service.setEnabled(linearId, false);
+    service.setEnabled(linearId, false);
     await start();
 
     expect(engine.calls).toEqual([]);
@@ -257,7 +257,7 @@ describe('SyncScheduler — start', () => {
 
     // the caller carries on through awaits that need no I/O before it subscribes, e.g. reading the
     // integration list; without the deferral the failure is reported during these and missed
-    await service.list();
+    service.list();
     for (let step = 0; step < 20; step++) await Promise.resolve();
     const errors: (string | null)[] = [];
     syncState.onChange((change) => errors.push(change.source.lastError));
@@ -283,10 +283,12 @@ describe('SyncScheduler — start', () => {
 });
 
 describe('SyncScheduler — listing failures', () => {
-  // Nothing awaits the pass at start or a tick, so a rejection there would be unhandled, which
-  // fails the test run on its own. Each is logged and skipped instead, and the next tick retries.
+  // Nothing catches a throw from the pass at start or a tick, and the one at start runs from a
+  // timer. Each is logged and skipped instead, and the next tick retries.
   it('logs a failure to list the sources at start, and the first tick syncs as usual', async () => {
-    vi.spyOn(service, 'list').mockRejectedValueOnce(new Error('disk I/O error'));
+    vi.spyOn(service, 'list').mockImplementationOnce(() => {
+      throw new Error('disk I/O error');
+    });
 
     await start();
     expect(engine.calls).toEqual([]);
@@ -298,7 +300,9 @@ describe('SyncScheduler — listing failures', () => {
 
   it('logs a failure to list the sources on a tick, and the next tick syncs as usual', async () => {
     await start();
-    vi.spyOn(service, 'list').mockRejectedValueOnce(new Error('disk I/O error'));
+    vi.spyOn(service, 'list').mockImplementationOnce(() => {
+      throw new Error('disk I/O error');
+    });
 
     await vi.advanceTimersByTimeAsync(INCREMENTAL_INTERVAL_MS);
     expect(engine.runs().map((call) => call.at)).toEqual([0]);
@@ -378,7 +382,7 @@ describe('SyncScheduler — triggers', () => {
   });
 
   it('a manual sync of one source runs only that source', async () => {
-    await service.setSourceEnabled(calendarSourceId, true);
+    service.setSourceEnabled(calendarSourceId, true);
     await start();
 
     await scheduler.syncNow(calendarSourceId);
@@ -412,7 +416,7 @@ describe('SyncScheduler — triggers', () => {
   it('connecting a source while started syncs it at once, without reconciling its first sync', async () => {
     await start();
 
-    await service.setSourceEnabled(calendarSourceId, true);
+    service.setSourceEnabled(calendarSourceId, true);
     await vi.advanceTimersByTimeAsync(0);
 
     expect(engine.runs(calendarSourceId)).toHaveLength(1);
@@ -421,10 +425,10 @@ describe('SyncScheduler — triggers', () => {
 
   it('a source switched back on after its first sync resumes with the reconcile pass', async () => {
     await start();
-    await service.setSourceEnabled(linearSourceId, false);
+    service.setSourceEnabled(linearSourceId, false);
     await vi.advanceTimersByTimeAsync(2 * MINUTE);
 
-    await service.setSourceEnabled(linearSourceId, true);
+    service.setSourceEnabled(linearSourceId, true);
     await vi.advanceTimersByTimeAsync(0);
 
     expect(engine.runs().map((call) => call.at)).toEqual([0, 2]);
@@ -436,7 +440,7 @@ describe('SyncScheduler — triggers', () => {
     await start();
     const [run] = engine.runs();
 
-    await service.setSourceEnabled(linearSourceId, false);
+    service.setSourceEnabled(linearSourceId, false);
 
     expect(run.signal?.aborted).toBe(true);
     await vi.advanceTimersByTimeAsync(MINUTE);
@@ -448,8 +452,8 @@ describe('SyncScheduler — triggers', () => {
     engine.durationMs = MINUTE;
     await start();
 
-    await service.setSourceEnabled(linearSourceId, false);
-    await service.setSourceEnabled(linearSourceId, true);
+    service.setSourceEnabled(linearSourceId, false);
+    service.setSourceEnabled(linearSourceId, true);
     expect(engine.runs()).toHaveLength(1);
 
     await vi.advanceTimersByTimeAsync(MINUTE);
@@ -610,10 +614,10 @@ describe('SyncScheduler — reconnect', () => {
 
   it('enabling a disabled integration runs each source it switches on once', async () => {
     await start();
-    await service.setEnabled(linearId, false);
+    service.setEnabled(linearId, false);
     await vi.advanceTimersByTimeAsync(2 * MINUTE);
 
-    await service.setEnabled(linearId, true);
+    service.setEnabled(linearId, true);
     await vi.advanceTimersByTimeAsync(0);
 
     expect(engine.runs().map((call) => call.at)).toEqual([0, 2]);
@@ -629,7 +633,7 @@ describe('SyncScheduler — status and progress', () => {
     engine.durationMs = MINUTE;
     await start();
 
-    const status = await scheduler.getStatus();
+    const status = scheduler.getStatus();
     expect(status).toEqual([
       expect.objectContaining({
         sourceId: linearSourceId,
@@ -644,7 +648,7 @@ describe('SyncScheduler — status and progress', () => {
     ]);
 
     await vi.advanceTimersByTimeAsync(MINUTE);
-    const [linear] = await scheduler.getStatus();
+    const [linear] = scheduler.getStatus();
     expect(linear.running).toBe(false);
     expect(linear.lastSyncedAt).toEqual(new Date(START.getTime() + MINUTE));
   });
@@ -682,7 +686,7 @@ describe('SyncScheduler — stop', () => {
     await start();
     await scheduler.stop();
 
-    await service.setSourceEnabled(calendarSourceId, true);
+    service.setSourceEnabled(calendarSourceId, true);
     await scheduler.syncNow();
     await vi.advanceTimersByTimeAsync(RECONCILE_INTERVAL_MS);
 
@@ -718,7 +722,7 @@ describe('SyncScheduler — disconnect', () => {
   });
 
   it("leaves other integrations' sources running", async () => {
-    await service.setSourceEnabled(calendarSourceId, true);
+    service.setSourceEnabled(calendarSourceId, true);
     await start();
 
     await service.disconnect(linearId, { keepLocalCopies: false });

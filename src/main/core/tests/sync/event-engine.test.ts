@@ -186,7 +186,7 @@ function eventRequests() {
 
 // what the calendar view gets: each event's title, rule and exdates
 async function visible() {
-  const listed = await events.listForCalendar(
+  const listed = events.listForCalendar(
     new Date('2026-09-01T00:00:00Z'),
     new Date('2027-01-01T00:00:00Z'),
   );
@@ -228,7 +228,7 @@ function selected(): string[] {
 async function choose(...externalIds: string[]) {
   for (const row of db.select().from(calendars).where(eq(calendars.sourceId, sourceId)).all()) {
     const wanted = externalIds.includes(row.externalId!);
-    if (row.selected !== wanted) await calendarService.setSelected(row.id, wanted);
+    if (row.selected !== wanted) calendarService.setSelected(row.id, wanted);
   }
 }
 
@@ -247,7 +247,7 @@ afterEach(async () => {
 
 describe('Google Calendar sync — connect', () => {
   it('connects through OAuth, asking only for the account', async () => {
-    const integration = await service.getById(integrationId);
+    const integration = service.getById(integrationId);
     expect(integration).toMatchObject({
       provider: ProviderId.GOOGLE_CALENDAR,
       accountLabel: PRIMARY,
@@ -314,7 +314,7 @@ describe('Google Calendar sync — initial and incremental', () => {
     });
     expect(sourceRow().initialSyncCompletedAt).toEqual(NOW);
 
-    const offsite = await events.getById(linkOf(PRIMARY, allDayFixture.id)!.eventId!);
+    const offsite = events.getById(linkOf(PRIMARY, allDayFixture.id)!.eventId!);
     expect(offsite).toMatchObject({
       calendarId: calendarIdOf(PRIMARY),
       allDay: true,
@@ -322,15 +322,15 @@ describe('Google Calendar sync — initial and incremental', () => {
       endDate: '2026-10-16',
       startAt: new Date(2026, 9, 14),
     });
-    const meet = await events.getById(linkOf(PRIMARY, meetFixture.id)!.eventId!);
+    const meet = events.getById(linkOf(PRIMARY, meetFixture.id)!.eventId!);
     expect(meet).toMatchObject({
       meetingUrl: 'https://meet.google.com/abc-defg-hij',
       response: EventResponse.TENTATIVE,
     });
-    expect(await events.getById(linkOf(PRIMARY, declinedFixture.id)!.eventId!)).toMatchObject({
+    expect(events.getById(linkOf(PRIMARY, declinedFixture.id)!.eventId!)).toMatchObject({
       response: EventResponse.DECLINED,
     });
-    expect(await events.getById(linkOf(PRIMARY, masterFixture.id)!.eventId!)).toMatchObject({
+    expect(events.getById(linkOf(PRIMARY, masterFixture.id)!.eventId!)).toMatchObject({
       timeZone: 'America/New_York',
       recurrenceRule: SERIES_RULE,
     });
@@ -388,7 +388,7 @@ describe('Google Calendar sync — initial and incremental', () => {
     await engine.runSource(sourceId);
     const eventId = linkOf(PRIMARY, timedFixture.id)!.eventId!;
     const note = await notes.createNote({ title: 'Review notes', linkedEventId: eventId });
-    const series = await events.getById(linkOf(PRIMARY, masterFixture.id)!.eventId!);
+    const series = events.getById(linkOf(PRIMARY, masterFixture.id)!.eventId!);
 
     script(
       CALENDARS,
@@ -408,8 +408,8 @@ describe('Google Calendar sync — initial and incremental', () => {
     ]);
     expect(eventCount()).toBe(2);
     expect(linkOf(PRIMARY, timedFixture.id)!.eventId).toBe(eventId);
-    expect((await notes.getById(note.id)).linkedEventId).toBe(eventId);
-    expect(await events.getById(series.id)).toMatchObject({
+    expect(notes.getById(note.id).linkedEventId).toBe(eventId);
+    expect(events.getById(series.id)).toMatchObject({
       recurrenceRule: series.recurrenceRule,
       exdates: [CANCELLED_OCCURRENCE],
     });
@@ -456,7 +456,7 @@ describe('Google Calendar sync — what a full pass no longer lists', () => {
 
   it('keeps an event the full pass lists but cannot read, as it was', async () => {
     const expire = await syncThenExpire(timedFixture, declinedFixture);
-    const before = await events.getById(linkOf(PRIMARY, declinedFixture.id)!.eventId!);
+    const before = events.getById(linkOf(PRIMARY, declinedFixture.id)!.eventId!);
 
     // listed with no end time, so it fails validation and is skipped
     const unreadable = { ...declinedFixture, summary: 'Renamed', end: undefined };
@@ -468,7 +468,7 @@ describe('Google Calendar sync — what a full pass no longer lists', () => {
       state: LinkState.SYNCED,
       lastSyncedAt: LATER,
     });
-    expect(await events.getById(before.id)).toMatchObject({ title: before.title });
+    expect(events.getById(before.id)).toMatchObject({ title: before.title });
   });
 
   it('keeps an event a note links to, hidden, when the full pass does not list it', async () => {
@@ -481,11 +481,11 @@ describe('Google Calendar sync — what a full pass no longer lists', () => {
 
     expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, removed: 1 });
     expect(await visible()).toEqual([]);
-    expect(await events.getById(eventId)).toMatchObject({
+    expect(events.getById(eventId)).toMatchObject({
       title: 'Design review',
       external: { state: LinkState.REMOVED },
     });
-    expect((await notes.getById(note.id)).linkedEventId).toBe(eventId);
+    expect(notes.getById(note.id).linkedEventId).toBe(eventId);
   });
 
   it('removes only what none of the pages of a full pass list', async () => {
@@ -643,9 +643,7 @@ describe('Google Calendar sync — a weekly series', () => {
       },
       { title: 'Weekly sync (moved to Tuesday)', recurrenceRule: null, exdates: [] },
     ]);
-    expect(
-      await events.getById(linkOf(PRIMARY, modifiedInstanceFixture.id)!.eventId!),
-    ).toMatchObject({
+    expect(events.getById(linkOf(PRIMARY, modifiedInstanceFixture.id)!.eventId!)).toMatchObject({
       seriesId: linkOf(PRIMARY, masterFixture.id)!.eventId,
       originalStartAt: MOVED_OCCURRENCE,
     });
@@ -714,7 +712,7 @@ describe('Google Calendar sync — removal and read-only', () => {
 
     expect(result).toMatchObject({ removed: 2 });
     expect(await visible()).toEqual([]);
-    expect(await events.getById(eventId)).toMatchObject({
+    expect(events.getById(eventId)).toMatchObject({
       title: 'Design review',
       external: { state: LinkState.REMOVED },
     });
@@ -783,9 +781,7 @@ describe('Google Calendar sync — calendar selection', () => {
     script(CALENDARS, { body: eventsPage([], { nextSyncToken: 'sync-1' }) });
 
     await engine.runSource(sourceId);
-    const listed = (await calendarService.list()).filter(
-      (calendar) => calendar.sourceId === sourceId,
-    );
+    const listed = calendarService.list().filter((calendar) => calendar.sourceId === sourceId);
 
     expect(
       listed.map((calendar) => [
@@ -820,7 +816,7 @@ describe('Google Calendar sync — calendar selection', () => {
       { calendarId: PRIMARY, params: { ...FULL, syncToken: 'primary-1' } },
       { calendarId: TEAM, params: { ...FULL, timeMin: TIME_MIN } },
     ]);
-    expect(await events.getById(linkOf(TEAM, meetFixture.id)!.eventId!)).toMatchObject({
+    expect(events.getById(linkOf(TEAM, meetFixture.id)!.eventId!)).toMatchObject({
       calendarId: calendarIdOf(TEAM),
     });
   });
@@ -909,7 +905,7 @@ describe('Google Calendar sync — calendar selection', () => {
     script({ status: 401, body: { error: { code: 401 } } });
     const result = await engine.runSource(sourceId);
     expect(result).toMatchObject({ outcome: SyncRunOutcome.FAILED });
-    expect((await service.getById(integrationId)).status).toBe(IntegrationStatus.NEEDS_REAUTH);
+    expect(service.getById(integrationId).status).toBe(IntegrationStatus.NEEDS_REAUTH);
   });
 });
 

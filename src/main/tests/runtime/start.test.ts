@@ -120,7 +120,7 @@ describe('startDevBrain — the workspace', () => {
       logger: quietLogger(),
     });
     expect(started!.currentWorkspace?.info.id).toBe(ids[1]);
-    expect(await started!.currentWorkspace!.sync.getStatus()).toEqual([]);
+    expect(started!.currentWorkspace!.sync.getStatus()).toEqual([]);
   });
 
   it('opens none when none was open last time, leaving the choice to the user', async () => {

@@ -202,7 +202,7 @@ describe('SyncWriter — no link: insert', () => {
     const summary = writer.applyTaskPage(sourceId, page({ tasks: [item] }));
 
     expect(summary).toEqual({ inserted: 1, updated: 0, removed: 0, changed: ['task'] });
-    const task = await tasks.getById(taskIdOf(item.externalId));
+    const task = tasks.getById(taskIdOf(item.externalId));
     expect(task).toMatchObject({
       title: 'Fix login redirect',
       description: 'Users land on **404**',
@@ -243,7 +243,7 @@ describe('SyncWriter — no link: insert', () => {
       removed: 0,
       changed: ['project', 'task'],
     });
-    const created = await projects.getById(projectIdOf(proj.externalId));
+    const created = projects.getById(projectIdOf(proj.externalId));
     expect(created).toMatchObject({
       title: 'Checkout revamp',
       status: ProjectStatus.ACTIVE,
@@ -252,7 +252,7 @@ describe('SyncWriter — no link: insert', () => {
       createdAt: CREATED,
     });
     expect(created.external).toMatchObject({ state: LinkState.SYNCED, statusLabel: 'Started' });
-    expect((await tasks.getById(taskIdOf(item.externalId))).projectId).toBe(created.id);
+    expect(tasks.getById(taskIdOf(item.externalId)).projectId).toBe(created.id);
   });
 
   it('keeps completedAt for completed issues and leaves it null for cancelled ones', async () => {
@@ -337,7 +337,7 @@ describe('SyncWriter — synced, remote changed', () => {
     const taskId = taskIdOf(item.externalId);
     // DevBrain-owned fields, set the way the user would
     const note = await notes.createNote({ title: 'Spec notes' });
-    await tasks.updateLinks(taskId, { linkedNoteId: note.id });
+    tasks.updateLinks(taskId, { linkedNoteId: note.id });
     const favoritedAt = new Date('2026-10-01T15:00:00Z');
     db.update(tasksTable).set({ favoritedAt }).where(eq(tasksTable.id, taskId)).run();
 
@@ -359,7 +359,7 @@ describe('SyncWriter — synced, remote changed', () => {
     );
 
     expect(summary).toEqual({ inserted: 0, updated: 1, removed: 0, changed: ['task'] });
-    const task = await tasks.getById(taskId);
+    const task = tasks.getById(taskId);
     expect(task).toMatchObject({
       title: 'Final spec',
       status: TaskStatus.COMPLETED,
@@ -429,7 +429,7 @@ describe('SyncWriter — synced, remote changed', () => {
     );
 
     expect(summary).toEqual({ inserted: 0, updated: 1, removed: 0, changed: ['project'] });
-    const updated = await projects.getById(projectIdOf(proj.externalId));
+    const updated = projects.getById(projectIdOf(proj.externalId));
     expect(updated).toMatchObject({
       title: 'Q4 launch',
       status: ProjectStatus.COMPLETED,
@@ -453,7 +453,7 @@ describe('SyncWriter — synced, remote changed', () => {
     );
 
     const projectId = projectIdOf(proj.externalId);
-    expect((await projects.getById(projectId)).title).toBe('Billing');
+    expect(projects.getById(projectId).title).toBe('Billing');
     expect(taskRow(item.externalId).projectId).toBe(projectId);
   });
 
@@ -663,7 +663,7 @@ describe('SyncWriter — subtasks', () => {
       parentTitle: 'Someone else’s epic',
     });
     // listed as an ordinary top-level task
-    const page1 = await tasks.listTasks({ excludeSubtasks: true });
+    const page1 = tasks.listTasks({ excludeSubtasks: true });
     expect(page1.items.map((task) => task.id)).toEqual([taskIdOf(child.externalId)]);
   });
 

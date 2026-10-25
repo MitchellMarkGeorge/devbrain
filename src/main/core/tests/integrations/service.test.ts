@@ -293,9 +293,9 @@ describe('IntegrationService — choosing sources at connect', () => {
     });
     const tasks = integration.sources.find((source) => source.sourceType === SourceType.TASKS)!;
 
-    await service.setSourceEnabled(tasks.id, true);
+    service.setSourceEnabled(tasks.id, true);
 
-    expect(enabledByType(await service.getById(integration.id))).toEqual({
+    expect(enabledByType(service.getById(integration.id))).toEqual({
       [SourceType.TASKS]: true,
       [SourceType.VERSION_CONTROL]: true,
     });
@@ -329,11 +329,11 @@ describe('IntegrationService — choosing sources at connect', () => {
     const linear = await service.connectWithApiKey(ProviderId.LINEAR, API_KEY);
     await service.connectWithApiKey(ProviderId.GOOGLE_CALENDAR, API_KEY);
 
-    const list = await service.list();
+    const list = service.list();
     expect(list).toHaveLength(2);
     // both serve tasks at once
     expect(list.every((integration) => enabledByType(integration)[SourceType.TASKS])).toBe(true);
-    expect(enabledByType(await service.getById(linear.id))[SourceType.TASKS]).toBe(true);
+    expect(enabledByType(service.getById(linear.id))[SourceType.TASKS]).toBe(true);
   });
 });
 
@@ -378,7 +378,7 @@ describe('IntegrationService — duplicate accounts', () => {
     await service.connectWithApiKey(ProviderId.LINEAR, 'key-one');
     await service.connectWithApiKey(ProviderId.LINEAR, 'key-two');
 
-    expect(await service.list()).toHaveLength(2);
+    expect(service.list()).toHaveLength(2);
   });
 });
 
@@ -391,7 +391,7 @@ describe('IntegrationService — reads', () => {
     const first = await service.connectWithApiKey(ProviderId.LINEAR, 'key-one');
     const second = await service.connectWithApiKey(ProviderId.LINEAR, 'key-two');
 
-    const list = await service.list();
+    const list = service.list();
 
     expect(list.map((integration) => integration.id)).toEqual([first.id, second.id]);
     expect(list.every((integration) => integration.sources.length === 1)).toBe(true);
@@ -399,12 +399,12 @@ describe('IntegrationService — reads', () => {
 
   it('lists nothing in a new workspace', async () => {
     const { service } = setup();
-    expect(await service.list()).toEqual([]);
+    expect(service.list()).toEqual([]);
   });
 
   it('getById throws NotFoundError for an unknown id', async () => {
     const { service } = setup();
-    await expect(service.getById('int_missing' as IntegrationId)).rejects.toThrow(NotFoundError);
+    expect(() => service.getById('int_missing' as IntegrationId)).toThrow(NotFoundError);
   });
 });
 
@@ -420,7 +420,7 @@ describe('IntegrationService — enabling and disabling', () => {
     const { service, changes, integration } = await connected();
     const [source] = integration.sources;
 
-    const disabled = await service.setEnabled(integration.id, false);
+    const disabled = service.setEnabled(integration.id, false);
 
     expect(disabled.status).toBe(IntegrationStatus.DISABLED);
     expect(disabled.sources[0].enabled).toBe(false);
@@ -442,9 +442,9 @@ describe('IntegrationService — enabling and disabling', () => {
 
   it('enabling a disabled integration reconnects it and switches its sources back on', async () => {
     const { service, changes, integration } = await connected();
-    await service.setEnabled(integration.id, false);
+    service.setEnabled(integration.id, false);
 
-    const enabled = await service.setEnabled(integration.id, true);
+    const enabled = service.setEnabled(integration.id, true);
 
     expect(enabled.status).toBe(IntegrationStatus.CONNECTED);
     expect(enabled.sources[0].enabled).toBe(true);
@@ -460,10 +460,10 @@ describe('IntegrationService — enabling and disabling', () => {
     const { provider } = fakeProvider({ supports: [SourceType.TASKS, SourceType.VERSION_CONTROL] });
     const { service, changes } = setup(registryOf(provider));
     const integration = await service.connectWithApiKey(ProviderId.LINEAR, API_KEY);
-    await service.setEnabled(integration.id, false);
+    service.setEnabled(integration.id, false);
     changes.length = 0;
 
-    const enabled = await service.setEnabled(integration.id, true, {
+    const enabled = service.setEnabled(integration.id, true, {
       enable: [SourceType.VERSION_CONTROL],
     });
 
@@ -474,9 +474,9 @@ describe('IntegrationService — enabling and disabling', () => {
 
   it('enabling with no chosen types reconnects with every source off', async () => {
     const { service, integration } = await connected();
-    await service.setEnabled(integration.id, false);
+    service.setEnabled(integration.id, false);
 
-    const enabled = await service.setEnabled(integration.id, true, { enable: [] });
+    const enabled = service.setEnabled(integration.id, true, { enable: [] });
 
     expect(enabled.status).toBe(IntegrationStatus.CONNECTED);
     expect(enabled.sources.every((source) => !source.enabled)).toBe(true);
@@ -485,26 +485,26 @@ describe('IntegrationService — enabling and disabling', () => {
   it('rejects a source type the integration lacks, and changes nothing', async () => {
     const { service, changes, integration } = await connected();
 
-    await expect(
+    expect(() =>
       service.setEnabled(integration.id, false, { enable: [SourceType.EVENTS] }),
-    ).rejects.toMatchObject({
-      code: 'unsupported_by_provider',
-      message: expect.stringContaining(`${integration.id} has no events source`),
-    });
-    expect((await service.getById(integration.id)).status).toBe(IntegrationStatus.CONNECTED);
+    ).toThrow(
+      expect.objectContaining({
+        code: 'unsupported_by_provider',
+        message: expect.stringContaining(`${integration.id} has no events source`),
+      }),
+    );
+    expect(service.getById(integration.id).status).toBe(IntegrationStatus.CONNECTED);
     expect(changes).toEqual([]);
   });
 
   it('a source of a disabled integration cannot be switched on', async () => {
     const { service, integration } = await connected();
-    await service.setEnabled(integration.id, false);
+    service.setEnabled(integration.id, false);
 
-    const error = await service
-      .setSourceEnabled(integration.sources[0].id, true)
-      .catch((e: unknown) => e);
-
-    expect(error).toBeInstanceOf(IntegrationDisabledError);
-    expect((await service.getById(integration.id)).sources[0].enabled).toBe(false);
+    expect(() => service.setSourceEnabled(integration.sources[0].id, true)).toThrow(
+      IntegrationDisabledError,
+    );
+    expect(service.getById(integration.id).sources[0].enabled).toBe(false);
   });
 
   it('a source can still be switched off while its integration needs re-authentication', async () => {
@@ -514,14 +514,14 @@ describe('IntegrationService — enabling and disabling', () => {
       .where(eq(integrations.id, integration.id))
       .run();
 
-    const source = await service.setSourceEnabled(integration.sources[0].id, false);
+    const source = service.setSourceEnabled(integration.sources[0].id, false);
     expect(source.enabled).toBe(false);
-    expect((await service.setSourceEnabled(source.id, true)).enabled).toBe(true);
+    expect(service.setSourceEnabled(source.id, true).enabled).toBe(true);
   });
 
   it('emits nothing when the status does not change', async () => {
     const { service, changes, integration } = await connected();
-    await service.setEnabled(integration.id, true);
+    service.setEnabled(integration.id, true);
     expect(changes).toEqual([]);
   });
 
@@ -532,32 +532,28 @@ describe('IntegrationService — enabling and disabling', () => {
       .where(eq(integrations.id, integration.id))
       .run();
 
-    expect((await service.setEnabled(integration.id, true)).status).toBe(
-      IntegrationStatus.NEEDS_REAUTH,
-    );
+    expect(service.setEnabled(integration.id, true).status).toBe(IntegrationStatus.NEEDS_REAUTH);
     expect(changes).toEqual([]);
-    const disabled = await service.setEnabled(integration.id, false);
+    const disabled = service.setEnabled(integration.id, false);
     expect(disabled.status).toBe(IntegrationStatus.DISABLED);
     expect(disabled.sources[0].enabled).toBe(false);
   });
 
   it('setEnabled throws NotFoundError for an unknown id', async () => {
     const { service } = setup();
-    await expect(service.setEnabled('int_missing' as IntegrationId, false)).rejects.toThrow(
-      NotFoundError,
-    );
+    expect(() => service.setEnabled('int_missing' as IntegrationId, false)).toThrow(NotFoundError);
   });
 
   it('disabling a source flips its flag and emits the change', async () => {
     const { service, changes, integration } = await connected();
     const [source] = integration.sources;
 
-    const disabled = await service.setSourceEnabled(source.id, false);
+    const disabled = service.setSourceEnabled(source.id, false);
 
     expect(disabled).toEqual({ ...source, enabled: false });
-    expect((await service.getById(integration.id)).sources[0].enabled).toBe(false);
+    expect(service.getById(integration.id).sources[0].enabled).toBe(false);
     // the integration itself stays connected
-    expect((await service.getById(integration.id)).status).toBe(IntegrationStatus.CONNECTED);
+    expect(service.getById(integration.id).status).toBe(IntegrationStatus.CONNECTED);
     expect(changes).toEqual([
       {
         type: 'source_changed',
@@ -572,11 +568,11 @@ describe('IntegrationService — enabling and disabling', () => {
     const { service, changes, integration } = await connected();
     const [source] = integration.sources;
 
-    await service.setSourceEnabled(source.id, true);
+    service.setSourceEnabled(source.id, true);
     expect(changes).toEqual([]);
 
-    await service.setSourceEnabled(source.id, false);
-    await service.setSourceEnabled(source.id, true);
+    service.setSourceEnabled(source.id, false);
+    service.setSourceEnabled(source.id, true);
     expect(changes.map((change) => change.type === 'source_changed' && change.enabled)).toEqual([
       false,
       true,
@@ -585,9 +581,7 @@ describe('IntegrationService — enabling and disabling', () => {
 
   it('setSourceEnabled throws NotFoundError for an unknown id', async () => {
     const { service } = setup();
-    await expect(service.setSourceEnabled('src_missing' as never, false)).rejects.toThrow(
-      NotFoundError,
-    );
+    expect(() => service.setSourceEnabled('src_missing' as never, false)).toThrow(NotFoundError);
   });
 });
 
@@ -599,7 +593,7 @@ describe('IntegrationService — onChange', () => {
 
     const integration = await service.connectWithApiKey(ProviderId.LINEAR, API_KEY);
     unsubscribe();
-    await service.setEnabled(integration.id, false);
+    service.setEnabled(integration.id, false);
 
     expect(listener).toHaveBeenCalledTimes(1);
   });
@@ -659,8 +653,8 @@ describe('IntegrationService — workspaces', () => {
     try {
       await a.workspace.integrations.connectWithApiKey(ProviderId.LINEAR, API_KEY);
 
-      expect(await a.workspace.integrations.list()).toHaveLength(1);
-      expect(await b.workspace.integrations.list()).toEqual([]);
+      expect(a.workspace.integrations.list()).toHaveLength(1);
+      expect(b.workspace.integrations.list()).toEqual([]);
     } finally {
       await a.workspace.close();
       await b.workspace.close();
@@ -694,7 +688,7 @@ describe('IntegrationService — workspaces', () => {
 
     const reopened = await Workspace.open(info, { ...WORKSPACE_OPTIONS, cipher });
     try {
-      expect(await reopened.integrations.list()).toEqual([connected]);
+      expect(reopened.integrations.list()).toEqual([connected]);
     } finally {
       await reopened.close();
     }
@@ -712,7 +706,7 @@ describe('IntegrationService — workspaces', () => {
       await expect(
         workspace.integrations.connectWithApiKey(ProviderId.LINEAR, API_KEY),
       ).rejects.toThrow(IntegrationAuthError);
-      expect(await workspace.integrations.list()).toEqual([]);
+      expect(workspace.integrations.list()).toEqual([]);
     } finally {
       await workspace.close();
     }

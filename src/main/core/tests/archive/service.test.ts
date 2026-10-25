@@ -50,14 +50,14 @@ describe('ArchiveService — onChange', () => {
 
   // a task with a subtask, a note on each, and a note on an unrelated task
   async function taskTree() {
-    const task = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const subtask = await tasks.createSubtask(task.id, { title: 'Child', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const subtask = tasks.createSubtask(task.id, { title: 'Child', dueDate: TOMORROW });
     const taskNote = await notesService.createNote({ title: 'On parent', linkedTaskId: task.id });
     const subtaskNote = await notesService.createNote({
       title: 'On child',
       linkedTaskId: subtask.id,
     });
-    const other = await tasks.createTask({ title: 'Other', dueDate: TOMORROW });
+    const other = tasks.createTask({ title: 'Other', dueDate: TOMORROW });
     await notesService.createNote({ title: 'On other', linkedTaskId: other.id });
     return { task, subtask, taskNote, subtaskNote };
   }
@@ -86,16 +86,16 @@ describe('ArchiveService — onChange', () => {
   });
 
   it('archiving and restoring a project sends its tasks and notes', async () => {
-    const project = await projects.createProject({ title: 'Apollo', dueDate: TOMORROW });
-    const task = await tasks.createTask({
+    const project = projects.createProject({ title: 'Apollo', dueDate: TOMORROW });
+    const task = tasks.createTask({
       title: 'In project',
       dueDate: TOMORROW,
       projectId: project.id,
     });
-    const subtask = await tasks.createSubtask(task.id, { title: 'Child', dueDate: TOMORROW });
+    const subtask = tasks.createSubtask(task.id, { title: 'Child', dueDate: TOMORROW });
     const projectNote = await notesService.createNote({ title: 'Plan', projectId: project.id });
     const taskNote = await notesService.createNote({ title: 'Log', linkedTaskId: subtask.id });
-    await tasks.createTask({ title: 'Elsewhere', dueDate: TOMORROW });
+    tasks.createTask({ title: 'Elsewhere', dueDate: TOMORROW });
     const changes = record();
 
     archive.archiveProject(project.id);
@@ -132,7 +132,7 @@ describe('ArchiveService — onChange', () => {
   });
 
   it('sends nothing when the archive or restore is refused', async () => {
-    const task = await tasks.createTask({ title: 'Active', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Active', dueDate: TOMORROW });
     const changes = record();
 
     expect(() => archive.restoreTask(task.id)).toThrow();
@@ -143,7 +143,7 @@ describe('ArchiveService — onChange', () => {
   });
 
   it('a listener that throws fails neither the archive nor the other listeners', async () => {
-    const task = await tasks.createTask({ title: 'Active', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Active', dueDate: TOMORROW });
     const error = vi.spyOn(console, 'error').mockImplementation(() => {});
     archive.onChange(() => {
       throw new Error('listener failed');
@@ -174,16 +174,16 @@ describe('ArchiveService — onChange', () => {
 
 describe('ArchiveService — listArchived', () => {
   it('returns an empty list when nothing is archived', async () => {
-    await tasks.createTask({ title: 'Active', dueDate: TOMORROW });
-    await projects.createProject({ title: 'Active', dueDate: TOMORROW });
+    tasks.createTask({ title: 'Active', dueDate: TOMORROW });
+    projects.createProject({ title: 'Active', dueDate: TOMORROW });
     await notesService.createNote({ title: 'Active' });
 
     expect(archive.listArchived().items).toEqual([]);
   });
 
   it('returns archived tasks, projects and notes in one list', async () => {
-    const task = await tasks.createTask({ title: 'Archived task', dueDate: TOMORROW });
-    const project = await projects.createProject({
+    const task = tasks.createTask({ title: 'Archived task', dueDate: TOMORROW });
+    const project = projects.createProject({
       title: 'Archived project',
       dueDate: TOMORROW,
     });
@@ -199,8 +199,8 @@ describe('ArchiveService — listArchived', () => {
   });
 
   it('tags each row with its entity type', async () => {
-    const task = await tasks.createTask({ title: 'T', dueDate: TOMORROW });
-    const project = await projects.createProject({ title: 'P', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'T', dueDate: TOMORROW });
+    const project = projects.createProject({ title: 'P', dueDate: TOMORROW });
     const note = await notesService.createNote({ title: 'N' });
 
     archive.archiveTask(task.id);
@@ -214,7 +214,7 @@ describe('ArchiveService — listArchived', () => {
   });
 
   it('carries the title of each archived entity', async () => {
-    const task = await tasks.createTask({ title: 'My task title', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'My task title', dueDate: TOMORROW });
     archive.archiveTask(task.id);
 
     const [entity] = archive.listArchived().items;
@@ -222,7 +222,7 @@ describe('ArchiveService — listArchived', () => {
   });
 
   it('decodes archivedAt as a Date', async () => {
-    const task = await tasks.createTask({ title: 'T', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'T', dueDate: TOMORROW });
     const archived = archive.archiveTask(task.id);
 
     const [entity] = archive.listArchived().items;
@@ -231,8 +231,8 @@ describe('ArchiveService — listArchived', () => {
   });
 
   it('sorts most recently archived first, across entity types', async () => {
-    const project = await projects.createProject({ title: 'First', dueDate: TOMORROW });
-    const task = await tasks.createTask({ title: 'Second', dueDate: TOMORROW });
+    const project = projects.createProject({ title: 'First', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Second', dueDate: TOMORROW });
     const note = await notesService.createNote({ title: 'Third' });
 
     // archivedAt is stamped with Date.now() at archive time, so the writes have
@@ -248,8 +248,8 @@ describe('ArchiveService — listArchived', () => {
   });
 
   it('excludes entities that have been restored', async () => {
-    const task = await tasks.createTask({ title: 'Restored', dueDate: TOMORROW });
-    const stillArchived = await tasks.createTask({ title: 'Still archived', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Restored', dueDate: TOMORROW });
+    const stillArchived = tasks.createTask({ title: 'Still archived', dueDate: TOMORROW });
 
     archive.archiveTask(task.id);
     archive.archiveTask(stillArchived.id);
@@ -259,8 +259,8 @@ describe('ArchiveService — listArchived', () => {
   });
 
   it('lists cascade-archived children alongside the entity that triggered them', async () => {
-    const project = await projects.createProject({ title: 'Parent project', dueDate: TOMORROW });
-    const task = await tasks.createTask({
+    const project = projects.createProject({ title: 'Parent project', dueDate: TOMORROW });
+    const task = tasks.createTask({
       title: 'Task in project',
       dueDate: TOMORROW,
       projectId: project.id,
@@ -291,7 +291,7 @@ describe('ArchiveService — listArchived cursor pagination', () => {
   }
 
   it('returns a null nextCursor when everything fits', async () => {
-    const task = await tasks.createTask({ title: 'T', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'T', dueDate: TOMORROW });
     archive.archiveTask(task.id);
 
     const page = archive.listArchived();
@@ -303,8 +303,8 @@ describe('ArchiveService — listArchived cursor pagination', () => {
     // each project cascade stamps the project, its task and the task's note with
     // the same archivedAt, so pages have to break ties on id across all three tables
     for (let i = 0; i < 3; i++) {
-      const project = await projects.createProject({ title: `P${i}`, dueDate: TOMORROW });
-      const task = await tasks.createTask({
+      const project = projects.createProject({ title: `P${i}`, dueDate: TOMORROW });
+      const task = tasks.createTask({
         title: `T${i}`,
         dueDate: TOMORROW,
         projectId: project.id,
@@ -336,8 +336,7 @@ describe('ArchiveService — listArchived cursor pagination', () => {
     // a cursor from a different list (here the active-notes list) is rejected
     await notesService.createNote({ title: 'c' });
     await notesService.createNote({ title: 'd' });
-    const otherCursor = (await notesService.listNotes({}, { sortBy: 'title' }, { limit: 1 }))
-      .nextCursor!;
+    const otherCursor = notesService.listNotes({}, { sortBy: 'title' }, { limit: 1 }).nextCursor!;
     expect(() => archive.listArchived({}, { cursor: otherCursor })).toThrow(InvalidCursorError);
   });
 });
@@ -347,8 +346,8 @@ describe('ArchiveService — listArchived entity type filter', () => {
   async function seed() {
     const created: { id: string; entityType: 'tasks' | 'projects' | 'notes' }[] = [];
     for (let i = 0; i < 2; i++) {
-      const task = await tasks.createTask({ title: `T${i}`, dueDate: TOMORROW });
-      const project = await projects.createProject({ title: `P${i}`, dueDate: TOMORROW });
+      const task = tasks.createTask({ title: `T${i}`, dueDate: TOMORROW });
+      const project = projects.createProject({ title: `P${i}`, dueDate: TOMORROW });
       const note = await notesService.createNote({ title: `N${i}` });
       for (const [id, entityType, archiveIt] of [
         [task.id, 'tasks', () => archive.archiveTask(task.id)],
@@ -398,8 +397,8 @@ describe('ArchiveService — listArchived entity type filter', () => {
   });
 
   it('includes cascade-archived children under their own type', async () => {
-    const project = await projects.createProject({ title: 'Parent', dueDate: TOMORROW });
-    const task = await tasks.createTask({
+    const project = projects.createProject({ title: 'Parent', dueDate: TOMORROW });
+    const task = tasks.createTask({
       title: 'Child',
       dueDate: TOMORROW,
       projectId: project.id,

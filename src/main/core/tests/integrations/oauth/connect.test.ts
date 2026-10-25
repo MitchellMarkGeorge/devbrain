@@ -336,7 +336,7 @@ describe('IntegrationService — connectWithOAuth', () => {
       server.rejectRefresh = true;
       await expect(credentials.getAuth(id)).rejects.toThrow(IntegrationAuthError);
       expect(status(db, id)).toBe(IntegrationStatus.NEEDS_REAUTH);
-      expect((await service.getById(id)).status).toBe(IntegrationStatus.NEEDS_REAUTH);
+      expect(service.getById(id).status).toBe(IntegrationStatus.NEEDS_REAUTH);
       expect(changes.at(-1)).toEqual({
         type: 'status_changed',
         integrationId: id,
@@ -380,8 +380,8 @@ describe('IntegrationService — markNeedsReauth', () => {
     service.markNeedsReauth(connected.id);
     service.markNeedsReauth(disabled.id);
 
-    expect((await service.getById(connected.id)).status).toBe(IntegrationStatus.NEEDS_REAUTH);
-    expect((await service.getById(disabled.id)).status).toBe(IntegrationStatus.DISABLED);
+    expect(service.getById(connected.id).status).toBe(IntegrationStatus.NEEDS_REAUTH);
+    expect(service.getById(disabled.id).status).toBe(IntegrationStatus.DISABLED);
     expect(changes).toEqual([
       {
         type: 'status_changed',

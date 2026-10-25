@@ -174,7 +174,7 @@ export class SyncScheduler {
     // deferred to the next turn of the event loop; see above
     this.pendingOpenPass = this.timers.setImmediate(() => {
       this.pendingOpenPass = null;
-      void this.forEachSyncableSource((sourceId) => void this.requestRun(sourceId, true));
+      this.forEachSyncableSource((sourceId) => void this.requestRun(sourceId, true));
     });
     // One timer for both: the tick that reaches the reconcile interval adds the reconcile pass to
     // its incremental run, so a shared mark never runs the incremental sync twice.
@@ -183,7 +183,7 @@ export class SyncScheduler {
       const now = this.timers.now();
       const reconcile = now - this.lastReconcileTickAt >= RECONCILE_INTERVAL_MS;
       if (reconcile) this.lastReconcileTickAt = now;
-      void this.runIntervalTick(reconcile);
+      this.runIntervalTick(reconcile);
     }, INCREMENTAL_INTERVAL_MS);
   }
 
@@ -214,7 +214,7 @@ export class SyncScheduler {
    */
   async trigger(reason: SyncTrigger, sourceId?: ExternalSourceId): Promise<void> {
     if (!this.isStarted) return;
-    const ids = sourceId ? [sourceId] : await this.syncableSourceIds();
+    const ids = sourceId ? [sourceId] : this.syncableSourceIds();
     await Promise.all(ids.map((id) => this.applyTrigger(reason, id)));
   }
 
@@ -224,8 +224,8 @@ export class SyncScheduler {
   }
 
   /** every source of every integration, with whether a run is in flight */
-  async getStatus(): Promise<SourceSyncStatus[]> {
-    const integrations = await this.integrations.list();
+  getStatus(): SourceSyncStatus[] {
+    const integrations = this.integrations.list();
     return integrations.flatMap((integration) =>
       integration.sources.map((source) => ({
         sourceId: source.id,
@@ -283,8 +283,8 @@ export class SyncScheduler {
   }
 
   // an interval tick: every enabled source that is not backing off runs
-  private async runIntervalTick(reconcile: boolean): Promise<void> {
-    await this.forEachSyncableSource((sourceId) => {
+  private runIntervalTick(reconcile: boolean): void {
+    this.forEachSyncableSource((sourceId) => {
       const run = this.currentRuns.get(sourceId);
       // the run in flight is this tick's incremental sync; a reconcile still follows it
       if (run && !run.controller.signal.aborted && !reconcile) return;
@@ -389,7 +389,7 @@ export class SyncScheduler {
           // from disabled is enabling, which sends source_changed for each source it switches on;
           // anything else is a reconnect, which sends nothing more
           if (change.previous !== IntegrationStatus.DISABLED) {
-            void this.forEachSyncableSource(
+            this.forEachSyncableSource(
               (sourceId) => void this.applyTrigger('reconnected', sourceId),
               change.integrationId,
             );
@@ -427,8 +427,8 @@ export class SyncScheduler {
   }
 
   // sources that are switched on, of integrations that are connected; of one integration if given
-  private async syncableSourceIds(integrationId?: IntegrationId): Promise<ExternalSourceId[]> {
-    const integrations = await this.integrations.list();
+  private syncableSourceIds(integrationId?: IntegrationId): ExternalSourceId[] {
+    const integrations = this.integrations.list();
     return integrations
       .filter((integration) => integration.status === IntegrationStatus.CONNECTED)
       .filter((integration) => integrationId === undefined || integration.id === integrationId)
@@ -436,17 +436,14 @@ export class SyncScheduler {
       .map((source) => source.id);
   }
 
-  // For the pass at start, the interval ticks and reconnects, which nothing awaits: never rejects,
-  // so a failure to list the sources is logged and that pass is skipped. The next tick tries again.
-  private async forEachSyncableSource(
+  // For the pass at start, the interval ticks and reconnects: never throws, so a failure to list
+  // the sources is logged and that pass is skipped. The next tick tries again.
+  private forEachSyncableSource(
     callback: (sourceId: ExternalSourceId) => void,
     integrationId?: IntegrationId,
-  ): Promise<void> {
+  ): void {
     try {
-      const ids = await this.syncableSourceIds(integrationId);
-      // stopped while listing
-      if (!this.isStarted) return;
-      ids.forEach(callback);
+      this.syncableSourceIds(integrationId).forEach(callback);
     } catch (error) {
       // the error class only, as for a run: a message could quote stored data
       const name = error instanceof Error ? error.name : typeof error;

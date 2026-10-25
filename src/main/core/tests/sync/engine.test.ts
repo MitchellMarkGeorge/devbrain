@@ -616,14 +616,14 @@ describe('SyncEngine — failures', () => {
   });
 
   it('skips a disabled source and a disabled integration without pulling', async () => {
-    await service.setSourceEnabled(sourceId, false);
+    service.setSourceEnabled(sourceId, false);
     expect(await engine.runSource(sourceId)).toMatchObject({
       outcome: SyncRunOutcome.SKIPPED,
       skipReason: SyncSkipReason.SOURCE_DISABLED,
     });
 
-    await service.setSourceEnabled(sourceId, true);
-    await service.setEnabled(integrationId, false);
+    service.setSourceEnabled(sourceId, true);
+    service.setEnabled(integrationId, false);
     expect(await engine.runSource(sourceId)).toMatchObject({
       outcome: SyncRunOutcome.SKIPPED,
       skipReason: SyncSkipReason.INTEGRATION_DISABLED,
@@ -721,7 +721,7 @@ describe('SyncEngine — abort and concurrency', () => {
   });
 
   it('reports an abort before a skip', async () => {
-    await service.setSourceEnabled(sourceId, false);
+    service.setSourceEnabled(sourceId, false);
     const controller = new AbortController();
     controller.abort();
 

@@ -217,11 +217,11 @@ describe('DetachService — detach', () => {
     const id = idOf(item);
     expect(() => tasks.updateTask(id, { title: 'Mine' })).toThrow(ExternalReadOnlyError);
 
-    const detached = await detach.detachTask(id);
+    const detached = detach.detachTask(id);
 
     expect(detached.external?.state).toBe(LinkState.DETACHED);
     expect(detached.external?.key).toBe(item.key);
-    const updated = await tasks.updateTask(id, { title: 'Mine' });
+    const updated = tasks.updateTask(id, { title: 'Mine' });
     expect(updated?.title).toBe('Mine');
 
     // a newer copy from Linear does not overwrite the local one
@@ -235,7 +235,7 @@ describe('DetachService — detach', () => {
     const unrelated = issue();
     await sync(root, child, grandchild, unrelated);
 
-    await detach.detachTask(idOf(root));
+    detach.detachTask(idOf(root));
 
     expect([root, child, grandchild].map(stateOf)).toEqual([
       LinkState.DETACHED,
@@ -258,7 +258,7 @@ describe('DetachService — detach', () => {
     const [root, child, grandchild] = tree();
     await sync(root, child, grandchild);
 
-    await detach.detachTask(idOf(child));
+    detach.detachTask(idOf(child));
 
     expect([root, child, grandchild].map(stateOf)).toEqual([
       LinkState.SYNCED,
@@ -268,33 +268,33 @@ describe('DetachService — detach', () => {
   });
 
   it('refuses a local task, a detached one and an archived one', async () => {
-    const local = await tasks.createTask({ title: 'Local', dueDate: TOMORROW });
-    await expect(detach.detachTask(local.id)).rejects.toThrow(DetachError);
+    const local = tasks.createTask({ title: 'Local', dueDate: TOMORROW });
+    expect(() => detach.detachTask(local.id)).toThrow(DetachError);
 
     const item = issue();
     await sync(item);
-    await detach.detachTask(idOf(item));
-    await expect(detach.detachTask(idOf(item))).rejects.toThrow(/already detached/);
+    detach.detachTask(idOf(item));
+    expect(() => detach.detachTask(idOf(item))).toThrow(/already detached/);
 
     archive.archiveTask(idOf(item));
-    await expect(detach.detachTask(idOf(item))).rejects.toThrow(NotFoundError);
+    expect(() => detach.detachTask(idOf(item))).toThrow(NotFoundError);
     expect(changes).toHaveLength(1);
   });
 
   it('lets a detached three-level subtree be edited without tripping the depth guards', async () => {
     const [root, child, grandchild] = tree();
     await sync(root, child, grandchild);
-    await detach.detachTask(idOf(root));
+    detach.detachTask(idOf(root));
 
     // the middle task is a subtask with a subtask of its own, which local tasks never are
-    await tasks.updateTask(idOf(child), { title: 'Middle' });
-    await tasks.updateStatus(idOf(child), TaskStatus.IN_PROGRESS);
-    await tasks.updateTask(idOf(grandchild), { title: 'Leaf' });
-    await tasks.updateStatus(idOf(grandchild), TaskStatus.COMPLETED);
+    tasks.updateTask(idOf(child), { title: 'Middle' });
+    tasks.updateStatus(idOf(child), TaskStatus.IN_PROGRESS);
+    tasks.updateTask(idOf(grandchild), { title: 'Leaf' });
+    tasks.updateStatus(idOf(grandchild), TaskStatus.COMPLETED);
     const note = await notes.createNote({ title: 'Plan' });
-    await tasks.updateLinks(idOf(root), { linkedNoteId: note.id });
+    tasks.updateLinks(idOf(root), { linkedNoteId: note.id });
 
-    const promoted = await tasks.promoteSubtask(idOf(child));
+    const promoted = tasks.promoteSubtask(idOf(child));
     expect(promoted.parentTaskId).toBeNull();
     expect(taskOf(grandchild.externalId).parentTaskId).toBe(idOf(child));
     expect(taskOf(child.externalId)).toMatchObject({
@@ -310,10 +310,10 @@ describe('DetachService — reattach', () => {
     const item = issue({ title: 'From Linear' });
     await sync(item);
     const id = idOf(item);
-    await detach.detachTask(id);
-    await tasks.updateTask(id, { title: 'Mine', priority: TaskPriority.HIGH });
+    detach.detachTask(id);
+    tasks.updateTask(id, { title: 'Mine', priority: TaskPriority.HIGH });
     const linked = await notes.createNote({ title: 'Linked' });
-    await tasks.updateLinks(id, { linkedNoteId: linked.id });
+    tasks.updateLinks(id, { linkedNoteId: linked.id });
     const taskNote = await notes.createNote({ title: 'Task note', linkedTaskId: id });
 
     // Linear has not changed the issue since it was mirrored; the local edits still go
@@ -331,7 +331,7 @@ describe('DetachService — reattach', () => {
       statusLabel: 'In Review',
     });
     expect(linkOf(item.externalId).externalUpdatedAt).toEqual(item.updatedAt);
-    expect((await notes.getById(taskNote.id)).linkedTaskId).toBe(id);
+    expect(notes.getById(taskNote.id).linkedTaskId).toBe(id);
     expect(() => tasks.updateTask(id, { title: 'Again' })).toThrow(ExternalReadOnlyError);
     expect(changes.at(-1)).toEqual({
       type: 'reattached',
@@ -349,8 +349,8 @@ describe('DetachService — reattach', () => {
     const item = issue();
     await sync(item);
     const id = idOf(item);
-    await detach.detachTask(id);
-    await tasks.updateTask(id, { title: 'Mine' });
+    detach.detachTask(id);
+    tasks.updateTask(id, { title: 'Mine' });
 
     answerLookup([]);
     await expect(detach.reattachTask(id)).rejects.toThrow(/no longer exists/);
@@ -363,7 +363,7 @@ describe('DetachService — reattach', () => {
   it('throws for an issue no longer assigned to the viewer and leaves the task detached', async () => {
     const item = issue();
     await sync(item);
-    await detach.detachTask(idOf(item));
+    detach.detachTask(idOf(item));
 
     answerLookup([{ ...item, assignedToViewer: false }]);
     await expect(detach.reattachTask(idOf(item))).rejects.toThrow(/no longer assigned/);
@@ -375,9 +375,9 @@ describe('DetachService — reattach', () => {
   it('reattaches the detached subtree of a parent in the same call', async () => {
     const [root, child, grandchild] = tree();
     await sync(root, child, grandchild);
-    await detach.detachTask(idOf(root));
+    detach.detachTask(idOf(root));
     for (const item of [root, child, grandchild]) {
-      await tasks.updateTask(idOf(item), { title: 'Local edit' });
+      tasks.updateTask(idOf(item), { title: 'Local edit' });
     }
 
     answerLookup([root, child, grandchild]);
@@ -403,7 +403,7 @@ describe('DetachService — reattach', () => {
   it('mirrors the project the issue moved to while it was detached', async () => {
     const item = issue();
     await sync(item);
-    await detach.detachTask(idOf(item));
+    detach.detachTask(idOf(item));
 
     const proj = project({ title: 'Launch' });
     answerLookup([{ ...item, projectExternalId: proj.externalId }], [proj]);
@@ -418,7 +418,7 @@ describe('DetachService — reattach', () => {
   it('leaves a descendant that no longer resolves detached and top-level', async () => {
     const [root, child, grandchild] = tree();
     await sync(root, child, grandchild);
-    await detach.detachTask(idOf(root));
+    detach.detachTask(idOf(root));
 
     // the child was deleted in Linear; the grandchild now hangs off the root there
     answerLookup([root, { ...grandchild, parentExternalId: root.externalId }]);
@@ -437,9 +437,9 @@ describe('DetachService — reattach', () => {
     const item = issue();
     await sync(item);
     const id = idOf(item);
-    await detach.detachTask(id);
-    await tasks.updateTask(id, { title: 'Mine', dueDate: TOMORROW });
-    const local = await tasks.createSubtask(id, { title: 'Local subtask' });
+    detach.detachTask(id);
+    tasks.updateTask(id, { title: 'Mine', dueDate: TOMORROW });
+    const local = tasks.createSubtask(id, { title: 'Local subtask' });
     answerLookup([item]);
 
     await expect(detach.reattachTask(id)).rejects.toThrow(/local subtasks/);
@@ -447,17 +447,17 @@ describe('DetachService — reattach', () => {
     expect(lookups()).toEqual([]);
     expect(stateOf(item)).toBe(LinkState.DETACHED);
     expect(taskOf(item.externalId).title).toBe('Mine');
-    expect((await tasks.getById(local.id)).parentTaskId).toBe(id);
+    expect(tasks.getById(local.id).parentTaskId).toBe(id);
   });
 
   it('refuses a local subtask deeper in the detached subtree', async () => {
     const [root, child, grandchild] = tree();
     await sync(root, child, grandchild);
-    await detach.detachTask(idOf(root));
+    detach.detachTask(idOf(root));
     // the child becomes top-level, gets a local subtask, and goes back under the root by hand
-    await tasks.promoteSubtask(idOf(grandchild));
-    await tasks.updateTask(idOf(grandchild), { dueDate: TOMORROW });
-    await tasks.createSubtask(idOf(grandchild), { title: 'Local' });
+    tasks.promoteSubtask(idOf(grandchild));
+    tasks.updateTask(idOf(grandchild), { dueDate: TOMORROW });
+    tasks.createSubtask(idOf(grandchild), { title: 'Local' });
     db.update(tasksTable)
       .set({ parentTaskId: idOf(child) })
       .where(eq(tasksTable.id, idOf(grandchild)))
@@ -469,7 +469,7 @@ describe('DetachService — reattach', () => {
   });
 
   it('refuses a task that is not detached', async () => {
-    const local = await tasks.createTask({ title: 'Local', dueDate: TOMORROW });
+    const local = tasks.createTask({ title: 'Local', dueDate: TOMORROW });
     await expect(detach.reattachTask(local.id)).rejects.toThrow(DetachError);
 
     const item = issue();
@@ -480,14 +480,14 @@ describe('DetachService — reattach', () => {
   it('refuses while the integration is disabled or the source is off', async () => {
     const item = issue();
     await sync(item);
-    await detach.detachTask(idOf(item));
+    detach.detachTask(idOf(item));
     answerLookup([item]);
 
-    await service.setEnabled(integrationId, false);
+    service.setEnabled(integrationId, false);
     await expect(detach.reattachTask(idOf(item))).rejects.toThrow(/integration is disabled/);
 
-    await service.setEnabled(integrationId, true);
-    await service.setSourceEnabled(sourceId, false);
+    service.setEnabled(integrationId, true);
+    service.setSourceEnabled(sourceId, false);
     await expect(detach.reattachTask(idOf(item))).rejects.toThrow(/source is turned off/);
 
     expect(lookups()).toEqual([]);
@@ -498,7 +498,7 @@ describe('DetachService — reattach', () => {
     const item = issue();
     await sync(item);
     const id = idOf(item);
-    await detach.detachTask(id);
+    detach.detachTask(id);
     // a disconnect deletes the source, which nulls the link's sourceId
     db.update(externalLinks).set({ sourceId: null }).where(eq(externalLinks.taskId, id)).run();
 
@@ -512,7 +512,7 @@ describe('TaskReconciler — reattachTasks', () => {
   it('passes rejected credentials up and reports them, leaving the integration and the link as they were', async () => {
     const item = issue();
     await sync(item);
-    await detach.detachTask(idOf(item));
+    detach.detachTask(idOf(item));
     provider.tasks.respondToLookup = () => {
       throw new IntegrationAuthError('rejected');
     };
@@ -520,7 +520,7 @@ describe('TaskReconciler — reattachTasks', () => {
     await expect(detach.reattachTask(idOf(item))).rejects.toThrow(IntegrationAuthError);
 
     // DetachService reports it; moving the integration to needs_reauth is the workspace's job
-    expect((await service.getById(integrationId)).status).toBe(IntegrationStatus.CONNECTED);
+    expect(service.getById(integrationId).status).toBe(IntegrationStatus.CONNECTED);
     expect(stateOf(item)).toBe(LinkState.DETACHED);
     expect(changes.at(-1)).toEqual({
       type: 'credentials_rejected',
@@ -532,7 +532,7 @@ describe('TaskReconciler — reattachTasks', () => {
   it('refuses while the integration needs re-authentication', async () => {
     const item = issue();
     await sync(item);
-    await detach.detachTask(idOf(item));
+    detach.detachTask(idOf(item));
     service.markNeedsReauth(integrationId);
 
     await expect(detach.reattachTask(idOf(item))).rejects.toThrow(
@@ -545,7 +545,7 @@ describe('TaskReconciler — reattachTasks', () => {
   it("is not a run: the source's cursor and sync status stay as they were", async () => {
     const item = issue();
     await sync(item);
-    await detach.detachTask(idOf(item));
+    detach.detachTask(idOf(item));
     const before = db.select().from(externalSources).where(eq(externalSources.id, sourceId)).get();
 
     answerLookup([{ ...item, updatedAt: V2 }]);
@@ -562,7 +562,7 @@ describe('DetachService — archive', () => {
   it('archives and restores every level of a detached three-level subtree', async () => {
     const [root, child, grandchild] = tree();
     await sync(root, child, grandchild);
-    await detach.detachTask(idOf(root));
+    detach.detachTask(idOf(root));
     const note = await notes.createNote({ title: 'Leaf note', linkedTaskId: idOf(grandchild) });
 
     archive.archiveTask(idOf(root));

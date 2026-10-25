@@ -102,7 +102,7 @@ describe('dates — all-day helpers', () => {
 
 describe('EventService — calendars and time zones', () => {
   it('puts a new event in the default calendar, in the app zone, confirmed and ordinary', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Standup',
       startAt: MONDAY,
       endAt: hoursAfter(MONDAY, 1),
@@ -121,7 +121,7 @@ describe('EventService — calendars and time zones', () => {
   });
 
   it('keeps the given zone, status and kind', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Deep work',
       startAt: MONDAY,
       endAt: hoursAfter(MONDAY, 2),
@@ -177,7 +177,7 @@ describe('EventService — calendars and time zones', () => {
 
 describe('EventService — all-day events', () => {
   it('derives the dates from the instants, and moves the instants to their local midnights', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Offsite',
       startAt: new Date(2026, 9, 14, 9),
       endAt: new Date(2026, 9, 15, 17),
@@ -193,7 +193,7 @@ describe('EventService — all-day events', () => {
   });
 
   it('takes given dates over the instants', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Holiday',
       startAt: MONDAY,
       endAt: MONDAY,
@@ -237,7 +237,7 @@ describe('EventService — all-day events', () => {
   });
 
   it('gives a timed event no dates', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Call',
       startAt: MONDAY,
       endAt: hoursAfter(MONDAY, 1),
@@ -246,26 +246,26 @@ describe('EventService — all-day events', () => {
   });
 
   it('keeps the dates in step when an event turns all-day, moves, or turns timed again', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Planning',
       startAt: new Date(2026, 9, 14, 10),
       endAt: new Date(2026, 9, 14, 11),
     });
 
-    const allDay = await eventsService.updateEvent(event.id, { allDay: true });
+    const allDay = eventsService.updateEvent(event.id, { allDay: true });
     expect(allDay).toMatchObject({ startDate: '2026-10-14', endDate: '2026-10-15' });
 
-    const moved = await eventsService.updateEvent(event.id, {
+    const moved = eventsService.updateEvent(event.id, {
       startDate: '2026-10-20',
       endDate: '2026-10-22',
     });
     expect(moved).toMatchObject({ startDate: '2026-10-20', startAt: new Date(2026, 9, 20) });
 
     // a title change leaves the timing alone
-    const renamed = await eventsService.updateEvent(event.id, { title: 'Planning (moved)' });
+    const renamed = eventsService.updateEvent(event.id, { title: 'Planning (moved)' });
     expect(renamed).toMatchObject({ startDate: '2026-10-20', endDate: '2026-10-22' });
 
-    const timed = await eventsService.updateEvent(event.id, {
+    const timed = eventsService.updateEvent(event.id, {
       allDay: false,
       startAt: new Date(2026, 9, 20, 9),
       endAt: new Date(2026, 9, 20, 10),
@@ -306,18 +306,18 @@ describe('EventService — series and exdates', () => {
     db.insert(eventExceptions).values({ seriesId: weekly.id, originalStartAt: week3 }).run();
     occurrence(weekly.id, week2, new Date('2026-10-13T14:00:00.000Z'));
 
-    expect((await eventsService.getById(weekly.id)).exdates).toEqual([week2, week3]);
-    const [listed] = (await eventsService.getByIds([weekly.id])).map((event) => event.exdates);
+    expect(eventsService.getById(weekly.id).exdates).toEqual([week2, week3]);
+    const [listed] = eventsService.getByIds([weekly.id]).map((event) => event.exdates);
     expect(listed).toEqual([week2, week3]);
   });
 
   it('gives an event that is not a series no exdates', async () => {
-    const event = await eventsService.createEvent({
+    const event = eventsService.createEvent({
       title: 'Call',
       startAt: MONDAY,
       endAt: hoursAfter(MONDAY, 1),
     });
-    expect((await eventsService.getById(event.id)).exdates).toEqual([]);
+    expect(eventsService.getById(event.id).exdates).toEqual([]);
   });
 
   it('deletes a series with its occurrence rows and its cancelled occurrences', async () => {
@@ -331,7 +331,7 @@ describe('EventService — series and exdates', () => {
       .values({ seriesId: weekly.id, originalStartAt: new Date('2026-10-19T14:00:00.000Z') })
       .run();
 
-    await eventsService.deleteEvent(weekly.id);
+    eventsService.deleteEvent(weekly.id);
 
     expect(() => eventsService.getById(moved)).toThrow(NotFoundError);
     expect(db.select().from(eventExceptions).all()).toEqual([]);
@@ -344,13 +344,13 @@ describe('EventService — listForCalendar', () => {
 
   it('returns every event in the range, unpaginated and in time order', async () => {
     for (let i = 0; i < 60; i++) {
-      await eventsService.createEvent({
+      eventsService.createEvent({
         title: `Event ${i}`,
         startAt: hoursAfter(RANGE_START, i * 2),
         endAt: hoursAfter(RANGE_START, i * 2 + 1),
       });
     }
-    const listed = await eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const listed = eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(listed).toHaveLength(60);
     expect(listed[0].title).toBe('Event 0');
     expect(listed.at(-1)!.title).toBe('Event 59');
@@ -358,7 +358,7 @@ describe('EventService — listForCalendar', () => {
 
   it('leaves out hidden calendars, and can be narrowed to some calendars', async () => {
     const synced = syncedCalendar();
-    await eventsService.createEvent({
+    eventsService.createEvent({
       title: 'Local',
       startAt: MONDAY,
       endAt: hoursAfter(MONDAY, 1),
@@ -373,16 +373,16 @@ describe('EventService — listForCalendar', () => {
       .run();
 
     const titles = async (options = {}) =>
-      (await eventsService.listForCalendar(RANGE_START, RANGE_END, options)).map((e) => e.title);
+      eventsService.listForCalendar(RANGE_START, RANGE_END, options).map((e) => e.title);
     expect(await titles()).toEqual(['Local', 'Synced']);
     expect(await titles({ calendarIds: [synced] })).toEqual(['Synced']);
 
-    await calendarService.setVisible(synced, false);
+    calendarService.setVisible(synced, false);
     expect(await titles()).toEqual(['Local']);
   });
 
   it('includes a series that started before the range, with its exdates', async () => {
-    const weekly = await eventsService.createEvent({
+    const weekly = eventsService.createEvent({
       title: 'Weekly sync',
       startAt: new Date('2026-09-07T14:00:00.000Z'),
       endAt: new Date('2026-09-07T14:30:00.000Z'),
@@ -390,7 +390,7 @@ describe('EventService — listForCalendar', () => {
     });
     db.insert(eventExceptions).values({ seriesId: weekly.id, originalStartAt: MONDAY }).run();
 
-    const [listed] = await eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const [listed] = eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(listed).toMatchObject({ id: weekly.id, exdates: [MONDAY] });
   });
 });
@@ -398,11 +398,11 @@ describe('EventService — listForCalendar', () => {
 describe('CalendarService', () => {
   it('lists the default calendar, local calendars first', async () => {
     const synced = syncedCalendar({ name: 'Ada', isPrimary: true });
-    expect((await calendarService.list()).map((calendar) => calendar.id)).toEqual([
+    expect(calendarService.list().map((calendar) => calendar.id)).toEqual([
       DEFAULT_CALENDAR_ID,
       synced,
     ]);
-    expect(await calendarService.getById(DEFAULT_CALENDAR_ID)).toMatchObject({
+    expect(calendarService.getById(DEFAULT_CALENDAR_ID)).toMatchObject({
       name: 'DevBrain',
       sourceId: null,
       selected: true,
@@ -411,8 +411,8 @@ describe('CalendarService', () => {
   });
 
   it('shows and hides a calendar, and refuses one that does not exist', async () => {
-    expect((await calendarService.setVisible(DEFAULT_CALENDAR_ID, false)).visible).toBe(false);
-    expect((await calendarService.getById(DEFAULT_CALENDAR_ID)).visible).toBe(false);
+    expect(calendarService.setVisible(DEFAULT_CALENDAR_ID, false).visible).toBe(false);
+    expect(calendarService.getById(DEFAULT_CALENDAR_ID).visible).toBe(false);
     expect(() => calendarService.setVisible('cal_missing' as CalendarId, true)).toThrow(
       NotFoundError,
     );
@@ -426,14 +426,14 @@ describe('CalendarService', () => {
       .returning()
       .get();
 
-    expect(await calendarService.setSelected(synced, false)).toMatchObject({
+    expect(calendarService.setSelected(synced, false)).toMatchObject({
       id: synced,
       selected: false,
       visible: true,
     });
     // its events go at the source's next sync run, not here
-    expect(await eventsService.getById(event.id)).toMatchObject({ title: 'Standup' });
-    expect((await calendarService.setSelected(synced, true)).selected).toBe(true);
+    expect(eventsService.getById(event.id)).toMatchObject({ title: 'Standup' });
+    expect(calendarService.setSelected(synced, true).selected).toBe(true);
   });
 
   it('refuses to choose for a local calendar, which always syncs, or one that does not exist', async () => {
@@ -443,7 +443,7 @@ describe('CalendarService', () => {
         message: expect.stringContaining('always syncs'),
       }),
     );
-    expect((await calendarService.getById(DEFAULT_CALENDAR_ID)).selected).toBe(true);
+    expect(calendarService.getById(DEFAULT_CALENDAR_ID).selected).toBe(true);
     expect(() => calendarService.setSelected('cal_missing' as CalendarId, true)).toThrow(
       NotFoundError,
     );

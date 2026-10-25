@@ -317,7 +317,7 @@ describe('DevBrain — workspace options', () => {
     });
     const opened = await reloaded.workspaces.open(created.info.id);
     try {
-      expect(await opened.integrations.list()).toEqual([connected]);
+      expect(opened.integrations.list()).toEqual([connected]);
     } finally {
       await opened.close();
     }
