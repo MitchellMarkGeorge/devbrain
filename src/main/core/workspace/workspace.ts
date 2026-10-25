@@ -1,6 +1,6 @@
 import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
-import { ArchiveService } from '../archive/service';
+import { ArchiveChange, ArchiveService } from '../archive/service';
 import { EventService } from '../events/service';
 import { CalendarService } from '../calendars/service';
 import { NoteService } from '../notes/service';
@@ -21,6 +21,9 @@ import fs from 'node:fs/promises';
 import { runMigrations } from '@main/db/migrate';
 import { fileExists } from '../local/utils';
 import { WorkspaceClosedError, WorkspaceMigrationError } from '../shared/errors';
+import { inArray } from 'drizzle-orm';
+import { tasks } from '@main/db/schema/tasks';
+import { projects } from '@main/db/schema/projects';
 
 type SqliteDatabaseClient = Database.Database;
 
@@ -54,13 +57,24 @@ export class Workspace {
     this.calendars = new CalendarService(db);
     this.archive = new ArchiveService(db);
     this.search = new SearchService(db, info.path);
-    // the user's own writes; SyncWriter indexes what sync writes
-    this.tasks.onChange(({ task }) => this.search.indexTask(task));
-    this.projects.onChange(({ project }) => this.search.indexProject(project));
+    // the user's own writes; SyncWriter indexes what sync writes. An archived row stays out of
+    // search when it is written; restoring it brings it back.
+    this.tasks.onChange(({ task }) => {
+      if (task.archivedAt === null) this.search.indexTask(task);
+    });
+    this.projects.onChange(({ project }) => {
+      if (project.archivedAt === null) this.search.indexProject(project);
+    });
     this.notes.onChange(({ note, content }) => {
       if (content === undefined) this.search.updateIndexedTitle(note.id, note.title);
       else this.search.indexNoteContent(note, content);
     });
+    this.events.onChange((change) => {
+      if (change.type === 'deleted') this.search.removeFromIndex(change.eventIds);
+      else this.search.indexEvent(change.event);
+    });
+    // archived rows leave search and restored ones come back, in the archive's transaction
+    this.archive.onChange((change) => this.onArchiveChange(change));
     const { credentials, integrations, providers } = createIntegrationServices(
       db,
       options,
@@ -88,6 +102,30 @@ export class Workspace {
       integrations.markNeedsReauth(change.integrationId);
     });
     this.sync = new SyncScheduler({ engine, integrations, syncState });
+  }
+
+  private onArchiveChange({ type, taskIds, projectIds, noteIds }: ArchiveChange): void {
+    if (type === 'archived') {
+      this.search.removeFromIndex([...taskIds, ...projectIds, ...noteIds]);
+      return;
+    }
+    // sent inside the restore's transaction, on the same connection, so the rows read here are the
+    // restored ones
+    if (taskIds.length > 0) {
+      this.search.indexTasks(this.db.select().from(tasks).where(inArray(tasks.id, taskIds)).all());
+    }
+    if (projectIds.length > 0) {
+      this.search.indexProjects(
+        this.db.select().from(projects).where(inArray(projects.id, projectIds)).all(),
+      );
+    }
+    // a restore has no note content in hand, so notes are read from their files after it commits;
+    // close waits for it through search.whenIdle
+    if (noteIds.length > 0) {
+      this.search
+        .indexNoteFiles(noteIds)
+        .catch((error) => console.error('Indexing restored notes failed:', error));
+    }
   }
 
   static async create(info: WorkspaceInfo, options: WorkspaceOptions = {}): Promise<Workspace> {
@@ -179,15 +217,18 @@ export class Workspace {
   }
 
   /**
-   * Cancels integration authentication and waits for sync runs before closing SQLite.
-   * Authentication checks cancellation before touching the database again. Ordinary service
-   * calls are not tracked or drained. Every caller shares the same close promise.
+   * Cancels integration authentication, then waits for sync runs and for search's index writes
+   * waiting on note files, before closing SQLite. Authentication checks cancellation before
+   * touching the database again. Ordinary service calls are not tracked or drained. Every caller
+   * shares the same close promise.
    */
   close(): Promise<void> {
     if (!this.closePromise) {
       this.closing.abort(new WorkspaceClosedError());
       this.closePromise = (async () => {
         await this.sync.stop();
+        // index writes waiting on note files, such as a restore's or a rebuild's
+        await this.search.whenIdle();
         this.sqliteClient.close();
       })();
     }
