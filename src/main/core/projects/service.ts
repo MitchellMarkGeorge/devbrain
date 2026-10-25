@@ -37,17 +37,17 @@ export class ProjectService {
     return this.changes.add(listener);
   }
 
-  async getById(id: ProjectId): Promise<Project> {
-    const [row] = await this.activeProjects(eq(projects.id, id)).limit(1);
+  getById(id: ProjectId): Project {
+    const row = this.activeProjects(eq(projects.id, id)).limit(1).get();
     if (!row) throw new NotFoundError(id);
     return withRef(this.db, row);
   }
 
-  async getByIds(ids: ProjectId[]): Promise<Project[]> {
-    return withRefs(this.db, await this.activeProjects(inArray(projects.id, ids)));
+  getByIds(ids: ProjectId[]): Project[] {
+    return withRefs(this.db, this.activeProjects(inArray(projects.id, ids)).all());
   }
 
-  async createProject(options: CreateProjectOptions): Promise<Project> {
+  createProject(options: CreateProjectOptions): Project {
     const newProject = {
       title: options.title,
       description: options.description ?? null,
@@ -57,26 +57,22 @@ export class ProjectService {
       status: options.status ?? ProjectStatus.NOT_STARTED,
       completedAt: options.status === ProjectStatus.COMPLETED ? new Date() : null,
     };
-    const [row] = await this.db.insert(projects).values(newProject).returning();
+    const row = this.db.insert(projects).values(newProject).returning().get();
     // a new project is local, so it has no link
     const project = { ...row, external: null };
     this.changes.emit({ type: 'created', project });
     return project;
   }
 
-  async updateProject(id: ProjectId, updates: UpdateProjectOptions): Promise<Project> {
+  updateProject(id: ProjectId, updates: UpdateProjectOptions): Project {
     assertEditable(this.db, id);
-    const [row] = await this.db
-      .update(projects)
-      .set(updates)
-      .where(eq(projects.id, id))
-      .returning();
+    const row = this.db.update(projects).set(updates).where(eq(projects.id, id)).returning().get();
     return this.updated(id, row);
   }
 
-  async updateStatus(id: ProjectId, newStatus: ProjectStatus): Promise<Project> {
+  updateStatus(id: ProjectId, newStatus: ProjectStatus): Project {
     assertEditable(this.db, id);
-    const [row] = await this.db
+    const row = this.db
       .update(projects)
       .set({
         // if a project is now complete, set a new completedAt timestamp
@@ -85,15 +81,16 @@ export class ProjectService {
         status: newStatus,
       })
       .where(eq(projects.id, id))
-      .returning();
+      .returning()
+      .get();
     return this.updated(id, row);
   }
 
-  async listProjects(
+  listProjects(
     filter: ProjectFilterOptions = {},
     sort: ProjectSortOptions = { sortBy: 'createdAt' },
     page: PageOptions = {},
-  ): Promise<Page<Project>> {
+  ): Page<Project> {
     const clauses = [isNull(projects.archivedAt)];
 
     // apply easy filters
@@ -143,29 +140,30 @@ export class ProjectService {
       page,
     );
 
-    const rows = await this.db
+    const rows = this.db
       .select()
       .from(projects)
       .where(and(...clauses, pager.after))
       .orderBy(...pager.orderBy)
-      .limit(pager.fetchLimit);
+      .limit(pager.fetchLimit)
+      .all();
 
     // filled after the page is cut, so the lookup covers only the rows returned
     const result = pager.toPage(rows);
     return { ...result, items: withRefs(this.db, result.items) };
   }
 
-  async getProjectStats(id: ProjectId): Promise<ProjectStats> {
+  getProjectStats(id: ProjectId): ProjectStats {
     // to prevent N+1, this has to be a an arrow of project ids
     // throws NotFoundError for an unknown or archived project
-    await this.getById(id);
+    this.getById(id);
 
     const today = Date.now();
 
     const count = (predicate: SQL) =>
       sql<number>`coalesce(sum(case when ${predicate} then 1 else 0 end), 0)`;
 
-    const [stats] = await this.db
+    const stats = this.db
       .select({
         numOfCompleted: count(sql`${tasks.status} = ${TaskStatus.COMPLETED}`),
         numOfNotStarted: count(sql`${tasks.status} = ${TaskStatus.NOT_STARTED}`),
@@ -179,7 +177,8 @@ export class ProjectService {
         totalTasks: count(sql`${tasks.status} != ${TaskStatus.CANCELLED}`),
       })
       .from(tasks)
-      .where(and(eq(tasks.projectId, id), isNull(tasks.archivedAt)));
+      .where(and(eq(tasks.projectId, id), isNull(tasks.archivedAt)))
+      .get();
 
     return (
       stats ?? {
