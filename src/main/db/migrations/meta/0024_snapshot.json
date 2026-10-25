@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "aa7caa81-aad2-42a2-883f-55641adfc043",
+  "id": "b67fe2e3-58d7-4a8e-b7c4-e08100428501",
   "prevId": "e9875f82-07d9-4674-bc7a-db7d90e3ea9f",
   "tables": {
     "calendars": {
@@ -127,13 +127,6 @@
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "seen_in_pass": {
-          "name": "seen_in_pass",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         }
       },
@@ -403,13 +396,6 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
-        },
-        "seen_in_pass": {
-          "name": "seen_in_pass",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
         }
       },
       "indexes": {},
@@ -430,6 +416,81 @@
           "name": "external_event_exceptions_source_id_master_external_id_original_start_at_pk"
         }
       },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "external_full_pass_listed": {
+      "name": "external_full_pass_listed",
+      "columns": {
+        "source_id": {
+          "name": "source_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "calendar_id": {
+          "name": "calendar_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "pass": {
+          "name": "pass",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "original_start_at": {
+          "name": "original_start_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_external_full_pass_listed_pass": {
+          "name": "idx_external_full_pass_listed_pass",
+          "columns": ["source_id", "pass", "external_id", "original_start_at"],
+          "isUnique": false
+        },
+        "idx_external_full_pass_listed_calendar_id": {
+          "name": "idx_external_full_pass_listed_calendar_id",
+          "columns": ["calendar_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "external_full_pass_listed_source_id_external_sources_id_fk": {
+          "name": "external_full_pass_listed_source_id_external_sources_id_fk",
+          "tableFrom": "external_full_pass_listed",
+          "tableTo": "external_sources",
+          "columnsFrom": ["source_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "external_full_pass_listed_calendar_id_calendars_id_fk": {
+          "name": "external_full_pass_listed_calendar_id_calendars_id_fk",
+          "tableFrom": "external_full_pass_listed",
+          "tableTo": "calendars",
+          "columnsFrom": ["calendar_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
@@ -539,13 +600,6 @@
         "settled_at": {
           "name": "settled_at",
           "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "seen_in_pass": {
-          "name": "seen_in_pass",
-          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false

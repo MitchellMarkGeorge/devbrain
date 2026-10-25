@@ -40,7 +40,7 @@ export interface EventSyncPage extends SyncPage {
 // A full pass of one calendar, as one of its pages carries it. A full pass lists every event of
 // the calendar that ends after `from`, so what it did not list is gone from the calendar.
 export interface FullPass {
-  // marks what the pass saw, page by page; see EventCursor's pass
+  // what the pass listed is recorded under it, page by page; see EventCursor's pass
   id: string;
   // the pass's lower bound (its timeMin)
   from: Date;

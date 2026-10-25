@@ -189,6 +189,8 @@ describe('migration 0017 — integration tables', () => {
     expect(
       schemaObjects(sqlite, 'index').filter((i) => /^(integrations|external_)/.test(i)),
     ).toEqual([
+      'external_full_pass_listed.idx_external_full_pass_listed_calendar_id',
+      'external_full_pass_listed.idx_external_full_pass_listed_pass',
       'external_links.external_links_eventId_unique',
       'external_links.external_links_projectId_unique',
       'external_links.external_links_taskId_unique',

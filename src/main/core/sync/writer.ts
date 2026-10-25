@@ -8,6 +8,7 @@ import {
 } from '@common/ids';
 import {
   externalEventExceptions,
+  externalFullPassListed,
   externalLinks,
   externalSources,
   integrations,
@@ -29,7 +30,6 @@ import {
   isNotNull,
   isNull,
   lt,
-  ne,
   notExists,
   or,
   sql,
@@ -214,10 +214,8 @@ export class SyncWriter {
    *    adopts what came before it: occurrence rows, and cancelled occurrences parked for it.
    * 2. Record the cancelled occurrences against their series, or park them until it arrives.
    * 3. Remove what was cancelled or deleted, by the removal rule.
-   * 4. On the last page of a full pass, remove what the pass did not list (see sweepCalendar).
-   *
-   * A page of a full pass marks the links of its live events and the cancellations it records with
-   * the pass's id, in steps 1 and 2, which is how step 4 knows what the pass listed on every page.
+   * 4. On a page of a full pass, record what it listed (external_full_pass_listed), and on the
+   *    pass's last page remove what no page of it listed (see sweepCalendar).
    *
    * No rule text is edited: a series' rule stays as the provider wrote it, and what it no longer
    * has is in event_exceptions and its occurrence rows (EventService reads it as exdates).
@@ -229,20 +227,21 @@ export class SyncWriter {
   ): SyncSummary {
     return this.db.transaction((tx) => {
       const write = new PageWrite(tx, this.search, sourceId);
-      const pass = page.fullPass?.id ?? null;
       // 1.
       write.upsertEvents(
         calendarId,
         page.events.filter((event) => !event.cancelled),
-        pass,
       );
       // 2.
       const cancelled = page.events.filter((event) => event.cancelled);
-      write.excludeOccurrences(cancelled, pass);
+      write.excludeOccurrences(cancelled);
       // 3. a cancelled occurrence that had been moved or edited has a row of its own, which goes
       write.removeEvents([...page.cancelledIds, ...cancelled.map((event) => event.externalId)]);
       // 4.
-      if (page.fullPass?.last) write.sweepCalendar(calendarId, page.fullPass);
+      if (page.fullPass) {
+        write.recordListed(calendarId, page.fullPass, page.events);
+        if (page.fullPass.last) write.sweepCalendar(calendarId, page.fullPass);
+      }
       return write.finish();
     });
   }
@@ -698,9 +697,8 @@ class PageWrite {
    *    or removed) → update and restore. An occurrence points at its master's row, if mirrored.
    * 3. Every master inserted or restored here adopts what came before it.
    * 4. Index everything inserted or updated in one batch.
-   * 5. On a page of a full pass, mark every link of the page with the pass, whatever its state.
    */
-  upsertEvents(calendarId: CalendarId, items: ExternalEvent[], pass: string | null): void {
+  upsertEvents(calendarId: CalendarId, items: ExternalEvent[]): void {
     // 1.
     const links = this.findLinks([
       ...items.map((item) => item.externalId),
@@ -781,22 +779,6 @@ class PageWrite {
     // 4.
     this.search.indexEvents(written);
     if (written.length > 0) this.changed.add('event');
-    // 5. links only, so no event's updatedAt moves
-    if (pass !== null && items.length > 0) {
-      this.tx
-        .update(externalLinks)
-        .set({ seenInPass: pass })
-        .where(
-          and(
-            eq(externalLinks.sourceId, this.sourceId),
-            inArray(
-              externalLinks.externalId,
-              items.map((item) => item.externalId),
-            ),
-          ),
-        )
-        .run();
-    }
   }
 
   /**
@@ -809,19 +791,15 @@ class PageWrite {
       eq(externalEventExceptions.sourceId, this.sourceId),
       eq(externalEventExceptions.masterExternalId, masterExternalId),
     );
-    // with the full pass that saw each, if one did
     const starts = this.tx
-      .select({
-        originalStartAt: externalEventExceptions.originalStartAt,
-        seenInPass: externalEventExceptions.seenInPass,
-      })
+      .select({ originalStartAt: externalEventExceptions.originalStartAt })
       .from(externalEventExceptions)
       .where(parked)
       .all();
     if (starts.length > 0) {
       this.tx
         .insert(eventExceptions)
-        .values(starts.map((start) => ({ seriesId, ...start })))
+        .values(starts.map(({ originalStartAt }) => ({ seriesId, originalStartAt })))
         .onConflictDoNothing()
         .run();
       this.tx.delete(externalEventExceptions).where(parked).run();
@@ -850,59 +828,36 @@ class PageWrite {
   /**
    * Records cancelled occurrences against their series: an event_exceptions row when the master
    * is mirrored, else a parked row its arrival will take in. Ones already recorded are left as
-   * they are, so a page read twice records nothing new, except that a page of a full pass marks
-   * each with the pass.
+   * they are, so a page read twice records nothing new.
    */
-  excludeOccurrences(items: ExternalEvent[], pass: string | null): void {
+  excludeOccurrences(items: ExternalEvent[]): void {
     if (items.length === 0) return;
     const masters = this.findLinks(items.map((item) => item.recurringEventExternalId!));
     for (const item of items) {
       const master = masters.get(item.recurringEventExternalId!);
-      const originalStartAt = item.originalStartAt!;
       if (master?.eventId) {
         const recorded = this.tx
           .insert(eventExceptions)
-          .values({ seriesId: master.eventId, originalStartAt, seenInPass: pass })
+          .values({ seriesId: master.eventId, originalStartAt: item.originalStartAt! })
           .onConflictDoNothing()
           .run().changes;
         // the series shows one occurrence fewer
         if (recorded > 0) {
           this.updated += 1;
           this.changed.add('event');
-        } else if (pass !== null) {
-          this.tx
-            .update(eventExceptions)
-            .set({ seenInPass: pass })
-            .where(
-              and(
-                eq(eventExceptions.seriesId, master.eventId),
-                eq(eventExceptions.originalStartAt, originalStartAt),
-              ),
-            )
-            .run();
         }
         continue;
       }
-      const insert = this.tx.insert(externalEventExceptions).values({
-        sourceId: this.sourceId,
-        calendarId: item.calendarId,
-        masterExternalId: item.recurringEventExternalId!,
-        originalStartAt,
-        seenInPass: pass,
-      });
-      if (pass === null) insert.onConflictDoNothing().run();
-      else {
-        insert
-          .onConflictDoUpdate({
-            target: [
-              externalEventExceptions.sourceId,
-              externalEventExceptions.masterExternalId,
-              externalEventExceptions.originalStartAt,
-            ],
-            set: { seenInPass: pass },
-          })
-          .run();
-      }
+      this.tx
+        .insert(externalEventExceptions)
+        .values({
+          sourceId: this.sourceId,
+          calendarId: item.calendarId,
+          masterExternalId: item.recurringEventExternalId!,
+          originalStartAt: item.originalStartAt!,
+        })
+        .onConflictDoNothing()
+        .run();
     }
   }
 
@@ -947,28 +902,71 @@ class PageWrite {
   }
 
   /**
-   * Ends a full pass of this calendar: what it did not list is gone from the calendar. Only what
-   * the pass covered is looked at, from a day after its lower bound: an all-day event's times are
-   * local midnights, which Google reads in the calendar's zone, so one near the bound may or may
-   * not have been listed. A series whose first occurrence ends before that is not looked at either.
+   * Records what a page of a full pass listed: its live events by id, and its cancelled
+   * occurrences by series and original start. Cancelled events and series are left out, as they
+   * are removed anyway.
+   */
+  recordListed(calendarId: CalendarId, pass: FullPass, items: ExternalEvent[]): void {
+    if (items.length === 0) return;
+    const row = { sourceId: this.sourceId, calendarId, pass: pass.id };
+    this.tx
+      .insert(externalFullPassListed)
+      .values(
+        items.map((item) =>
+          item.cancelled
+            ? {
+                ...row,
+                externalId: item.recurringEventExternalId!,
+                originalStartAt: item.originalStartAt!,
+              }
+            : { ...row, externalId: item.externalId, originalStartAt: null },
+        ),
+      )
+      .run();
+  }
+
+  /**
+   * Ends a full pass of this calendar: what no page of it listed is gone from the calendar. Only
+   * what the pass covered is looked at, from a day after its lower bound: an all-day event's times
+   * are local midnights, which Google reads in the calendar's zone, so one near the bound may or
+   * may not have been listed. A series whose first occurrence ends before that is not looked at
+   * either.
    *
    * 1. Remove, by the removal rule, the calendar's synced events in the window that the pass did
-   *    not mark, with the occurrence rows of any series among them. A detached copy is the user's,
+   *    not list, with the occurrence rows of any series among them. A detached copy is the user's,
    *    and a removed event is already out of scope, so neither is looked at.
-   * 2. A series the pass listed has the cancelled occurrences it listed: forget the others in the
-   *    window, so an occurrence restored in the provider shows again.
-   * 3. Forget the cancellations parked for the calendar in the window that the pass did not list.
+   * 2. A series the pass listed has the cancelled occurrences it listed: forget its others in the
+   *    window, so an occurrence restored in the provider shows again. The same for the
+   *    cancellations parked for the calendar.
+   * 3. Delete the calendar's listing, a pass's restarted on a 410 included.
    */
   sweepCalendar(calendarId: CalendarId, pass: FullPass): void {
     const from = new Date(pass.from.getTime() + DAY_MS);
-    const unseen = or(isNull(externalLinks.seenInPass), ne(externalLinks.seenInPass, pass.id));
+    const inPass = and(
+      eq(externalFullPassListed.sourceId, this.sourceId),
+      eq(externalFullPassListed.pass, pass.id),
+    );
+    // whether the pass listed the event the outer row links to
+    const eventListed = exists(
+      this.tx
+        .select({ pass: externalFullPassListed.pass })
+        .from(externalFullPassListed)
+        .where(
+          and(
+            inPass,
+            eq(externalFullPassListed.externalId, externalLinks.externalId),
+            isNull(externalFullPassListed.originalStartAt),
+          ),
+        ),
+    );
     const synced = and(
       eq(externalLinks.sourceId, this.sourceId),
       eq(externalLinks.state, LinkState.SYNCED),
       eq(events.calendarId, calendarId),
     );
 
-    // 1. served by idx_external_links_source_id_state, with one seek per link for its event
+    // 1. served by idx_external_links_source_id_state, with one seek per link for its event and
+    // one for its listing
     const gone = this.tx
       .select({
         id: externalLinks.id,
@@ -977,7 +975,7 @@ class PageWrite {
       })
       .from(externalLinks)
       .innerJoin(events, eq(events.id, externalLinks.eventId))
-      .where(and(synced, unseen, gt(events.endAt, from)))
+      .where(and(synced, gt(events.endAt, from), sql`NOT ${eventListed}`))
       .all();
     const goneIds = new Set(gone.map((link) => link.id));
     // the occurrence rows outside the window of a series that is gone; ones the pass listed stay
@@ -989,7 +987,7 @@ class PageWrite {
           .where(
             and(
               synced,
-              unseen,
+              sql`NOT ${eventListed}`,
               inArray(
                 sql`json_extract(${externalLinks.metadata}, '$.recurringEventExternalId')`,
                 gone.map((link) => link.externalId),
@@ -1001,49 +999,88 @@ class PageWrite {
       : [];
     this.removeEventLinks([...gone, ...occurrences]);
 
-    // 2.
-    const listedSeries = this.tx
-      .select({ id: externalLinks.eventId })
+    // 2. the pass's cancellations, by series and start
+    const listed = new Set(
+      this.tx
+        .select({
+          externalId: externalFullPassListed.externalId,
+          originalStartAt: externalFullPassListed.originalStartAt,
+        })
+        .from(externalFullPassListed)
+        .where(and(inPass, isNotNull(externalFullPassListed.originalStartAt)))
+        .all()
+        .map((row) => cancellationKey(row.externalId, row.originalStartAt!)),
+    );
+    const series = this.tx
+      .select({ eventId: externalLinks.eventId, externalId: externalLinks.externalId })
       .from(externalLinks)
       .innerJoin(events, eq(events.id, externalLinks.eventId))
-      .where(and(synced, eq(externalLinks.seenInPass, pass.id)));
-    const restored = this.tx
-      .delete(eventExceptions)
-      .where(
-        and(
-          inArray(eventExceptions.seriesId, listedSeries),
-          gte(eventExceptions.originalStartAt, from),
-          or(isNull(eventExceptions.seenInPass), ne(eventExceptions.seenInPass, pass.id)),
-        ),
-      )
-      .run().changes;
-    if (restored > 0) {
-      this.updated += restored;
-      this.changed.add('event');
+      .where(and(synced, isNotNull(events.recurrenceRule), eventListed))
+      .all();
+    for (const { eventId, externalId } of series) {
+      const recorded = this.tx
+        .select({ originalStartAt: eventExceptions.originalStartAt })
+        .from(eventExceptions)
+        .where(
+          and(eq(eventExceptions.seriesId, eventId!), gte(eventExceptions.originalStartAt, from)),
+        )
+        .all();
+      for (const { originalStartAt } of recorded) {
+        if (listed.has(cancellationKey(externalId, originalStartAt))) continue;
+        this.tx
+          .delete(eventExceptions)
+          .where(
+            and(
+              eq(eventExceptions.seriesId, eventId!),
+              eq(eventExceptions.originalStartAt, originalStartAt),
+            ),
+          )
+          .run();
+        // the series shows one occurrence more
+        this.updated += 1;
+        this.changed.add('event');
+      }
     }
-
-    // 3.
     const calendar = this.tx
       .select({ externalId: calendars.externalId })
       .from(calendars)
       .where(eq(calendars.id, calendarId))
       .get();
     if (calendar?.externalId) {
-      this.tx
-        .delete(externalEventExceptions)
-        .where(
-          and(
-            eq(externalEventExceptions.sourceId, this.sourceId),
-            eq(externalEventExceptions.calendarId, calendar.externalId),
-            gte(externalEventExceptions.originalStartAt, from),
-            or(
-              isNull(externalEventExceptions.seenInPass),
-              ne(externalEventExceptions.seenInPass, pass.id),
+      const parked = and(
+        eq(externalEventExceptions.sourceId, this.sourceId),
+        eq(externalEventExceptions.calendarId, calendar.externalId),
+      );
+      const rows = this.tx
+        .select()
+        .from(externalEventExceptions)
+        .where(and(parked, gte(externalEventExceptions.originalStartAt, from)))
+        .all();
+      for (const row of rows) {
+        if (listed.has(cancellationKey(row.masterExternalId, row.originalStartAt))) continue;
+        this.tx
+          .delete(externalEventExceptions)
+          .where(
+            and(
+              parked,
+              eq(externalEventExceptions.masterExternalId, row.masterExternalId),
+              eq(externalEventExceptions.originalStartAt, row.originalStartAt),
             ),
-          ),
-        )
-        .run();
+          )
+          .run();
+      }
     }
+
+    // 3.
+    this.tx
+      .delete(externalFullPassListed)
+      .where(
+        and(
+          eq(externalFullPassListed.sourceId, this.sourceId),
+          eq(externalFullPassListed.calendarId, calendarId),
+        ),
+      )
+      .run();
   }
 
   // the source's calendar rows from a provider listing; see SyncWriter.applyCalendarList
@@ -1176,6 +1213,11 @@ class PageWrite {
       )
       .all();
     this.removeEventLinks(links);
+    // a pass cut short leaves its listing; picking the calendar again starts a new one
+    this.tx
+      .delete(externalFullPassListed)
+      .where(eq(externalFullPassListed.calendarId, calendarId))
+      .run();
     if (calendar.externalId !== null) {
       this.tx
         .delete(externalEventExceptions)
@@ -1440,6 +1482,11 @@ function eventFields(item: ExternalEvent, calendarId: CalendarId, seriesId: Even
     meetingUrl: item.meetingUrl,
     color: item.color,
   };
+}
+
+// a cancelled occurrence of a series, as a set key
+function cancellationKey(masterExternalId: string, originalStartAt: Date): string {
+  return `${masterExternalId}@${originalStartAt.getTime()}`;
 }
 
 /** the page reordered so every series master in it comes before its occurrences */

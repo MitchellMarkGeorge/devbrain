@@ -103,15 +103,16 @@ const FRESH: CalendarSyncState = { syncToken: null, pageToken: null };
  * A full pass lists every event of the calendar that ends after its timeMin, and Google reports no
  * deletion in it, so an event deleted while a change token went stale would otherwise stay. Each
  * full pass gets a random id when it starts (pass, in the cursor), and every page of it is applied
- * with that id, marking the events and cancelled occurrences it lists (SyncWriter.applyEventPage).
- * The marks commit with the page, so a pass resumed after a restart still has those of its earlier
- * pages. Its last page then removes the calendar's synced events in the window that are not
- * marked, and the cancelled occurrences the pass no longer lists.
+ * with that id, recording the events and cancelled occurrences it lists under it in
+ * external_full_pass_listed (SyncWriter.applyEventPage). The rows commit with the page, so a pass
+ * resumed after a restart still has those of its earlier pages. Its last page then removes the
+ * calendar's synced events in the window that no page listed, and the cancelled occurrences the
+ * pass no longer lists, and deletes the listing.
  *
  * Only the last page of a pass removes anything, and it is only applied once every page before it
  * was: a run that stops part-way (an abort, a failure, MAX_PAGES_PER_RUN) leaves the rest to the
- * run that resumes it. A pass restarted on a 410 gets a new id, so the marks of the pages before
- * count for nothing. The marks live in rows rather than in the cursor, since a list of every event
+ * run that resumes it. A pass restarted on a 410 gets a new id, so what the pages before listed
+ * counts for nothing. The listing is a table rather than part of the cursor, since a list of every event
  * seen would grow with the calendar and be rewritten with every page.
  *
  * Applying
@@ -285,7 +286,7 @@ export class EventSyncer implements Syncer {
   }
 
   // A full pass fixes its lower bound and its id when it starts and keeps them while it pages, so
-  // each page asks the same question and marks what it saw the same way. An incremental pass has
+  // each page asks the same question and records what it saw under the same id. An incremental pass has
   // neither.
   private withTimeMin(state: CalendarSyncState): CalendarSyncState {
     if (state.syncToken !== null || state.timeMin !== undefined) return state;

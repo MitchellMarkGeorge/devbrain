@@ -131,7 +131,7 @@ describe('EventSyncer — pull', () => {
       },
       pending: [PRIMARY],
     });
-    // the pass's id is in the cursor, so a pass resumed by a later run marks with the same one
+    // the pass's id is in the cursor, so a pass resumed by a later run records under the same one
     const { pass } = (first.nextCursor as EventCursor).calendars[PRIMARY];
     expect(first.fullPass).toEqual({ id: pass, from: new Date(TIME_MIN), last: false });
 

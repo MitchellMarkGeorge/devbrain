@@ -1,4 +1,5 @@
 import {
+  CalendarId,
   EventId,
   ExternalLinkId,
   ExternalSourceId,
@@ -30,6 +31,7 @@ import { timesamps, date, boolean } from './utils';
 import { tasks } from './tasks';
 import { projects } from './projects';
 import { events } from './events';
+import { calendars } from './calendars';
 
 // an authenticated connection between this workspace and one account on a provider
 export const integrations = sqliteTable(
@@ -122,9 +124,6 @@ export const externalLinks = sqliteTable(
     removedAt: date(),
     // a closed issue past the settle age: still mirrored, no longer checked by reconcile
     settledAt: date(),
-    // the last full pass of its calendar that listed it (an event's link only); the pass's id is in
-    // the events cursor, and its last page removes what it did not see
-    seenInPass: text(),
   },
   (table) => [
     // a null sourceId (after a disconnect) never collides, so detached copies can pile up freely
@@ -152,11 +151,41 @@ export const externalEventExceptions = sqliteTable(
     calendarId: text().notNull(), // so deselecting a calendar can drop its rows
     masterExternalId: text().notNull(),
     originalStartAt: date().notNull(),
-    // the last full pass of its calendar that listed it, as on external_links; carried over when
-    // the master arrives
-    seenInPass: text(),
   },
   (table) => [
     primaryKey({ columns: [table.sourceId, table.masterExternalId, table.originalStartAt] }),
+  ],
+);
+
+// What a full pass of a calendar has listed so far, while it pages: its events, and the cancelled
+// occurrences of its series. Each page adds its rows in the transaction that applies it, so a pass
+// resumed after a restart still has them. The pass's last page removes what is not listed and
+// deletes the calendar's rows, so the table is empty between passes (see EventSyncer).
+export const externalFullPassListed = sqliteTable(
+  'external_full_pass_listed',
+  {
+    sourceId: text()
+      .notNull()
+      .$type<ExternalSourceId>()
+      .references(() => externalSources.id, { onDelete: 'cascade' }),
+    calendarId: text()
+      .notNull()
+      .$type<CalendarId>()
+      .references((): AnySQLiteColumn => calendars.id, { onDelete: 'cascade' }),
+    pass: text().notNull(), // the pass's id, from the events cursor
+    // the provider's id of an event listed, or of the series of a cancelled occurrence
+    externalId: text().notNull(),
+    // set for a cancelled occurrence only: the start it had
+    originalStartAt: date(),
+  },
+  (table) => [
+    // the last page's lookups: is this event, or this cancellation, listed in the pass
+    index('idx_external_full_pass_listed_pass').on(
+      table.sourceId,
+      table.pass,
+      table.externalId,
+      table.originalStartAt,
+    ),
+    index('idx_external_full_pass_listed_calendar_id').on(table.calendarId),
   ],
 );

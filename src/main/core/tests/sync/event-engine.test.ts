@@ -8,6 +8,7 @@ import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { CalendarId, ExternalSourceId, IntegrationId } from '@common/ids';
 import {
   externalEventExceptions,
+  externalFullPassListed,
   externalLinks,
   externalSources,
   integrations,
@@ -418,6 +419,16 @@ describe('Google Calendar sync — initial and incremental', () => {
 describe('Google Calendar sync — what a full pass no longer lists', () => {
   // a first full pass of these events, then a 410 on the next run's sync token, so the calendar
   // starts a full pass again; returns the next run's steps after the 410
+  // the external ids the source's full passes have listed so far
+  function listing() {
+    return db
+      .select({ externalId: externalFullPassListed.externalId })
+      .from(externalFullPassListed)
+      .where(eq(externalFullPassListed.sourceId, sourceId))
+      .all()
+      .map((row) => row.externalId);
+  }
+
   async function syncThenExpire(...items: unknown[]) {
     script(CALENDARS, { body: eventsPage(items, { nextSyncToken: 'sync-1' }) });
     await engine.runSource(sourceId);
@@ -435,7 +446,8 @@ describe('Google Calendar sync — what a full pass no longer lists', () => {
     expect(linkOf(PRIMARY, declinedFixture.id)).toBeUndefined();
     expect(linkOf(PRIMARY, timedFixture.id)!.state).toBe(LinkState.SYNCED);
     expect((await visible()).map((event) => event.title)).toEqual(['Design review']);
-    // the pass's id goes with the pass
+    // the pass's id and its listing go with the pass
+    expect(listing()).toEqual([]);
     expect(sourceRow().cursor).toEqual({
       calendars: { [PRIMARY]: { syncToken: 'sync-fresh', pageToken: null } },
     });
@@ -485,6 +497,8 @@ describe('Google Calendar sync — what a full pass no longer lists', () => {
     const failed = await engine.runSource(sourceId);
     expect(failed).toMatchObject({ outcome: SyncRunOutcome.FAILED, pages: 1, removed: 0 });
     expect(eventCount()).toBe(3);
+    // what the committed page listed is kept for the run that resumes the pass
+    expect(listing()).toEqual([`${PRIMARY}:${timedFixture.id}`]);
 
     // the next run resumes the same pass; what its first page listed counts as listed
     script(CALENDARS, { body: eventsPage([allDayFixture], { nextSyncToken: 'sync-fresh' }) });
@@ -495,6 +509,23 @@ describe('Google Calendar sync — what a full pass no longer lists', () => {
     expect(linkOf(PRIMARY, declinedFixture.id)).toBeUndefined();
     expect(linkOf(PRIMARY, timedFixture.id)!.state).toBe(LinkState.SYNCED);
     expect(linkOf(PRIMARY, allDayFixture.id)!.state).toBe(LinkState.SYNCED);
+    expect(listing()).toEqual([]);
+  });
+
+  it('forgets the listing of a pass cut short when its calendar is deselected', async () => {
+    const expire = await syncThenExpire(timedFixture);
+    expire(
+      { body: eventsPage([timedFixture], { nextPageToken: 'page-2' }) },
+      { error: new TypeError('fetch failed') },
+    );
+    await engine.runSource(sourceId);
+    expect(listing()).toHaveLength(1);
+
+    await choose();
+    script(CALENDARS);
+    await engine.runSource(sourceId);
+
+    expect(listing()).toEqual([]);
   });
 
   it('removes nothing when a run stops at the page cap part-way through a full pass', async () => {
