@@ -876,15 +876,28 @@ class PageWrite {
         this.changed.add('event');
       }
 
-      // the occurrence links that recorded one of these masters in their metadata, joined to the
-      // master's link: one read of the source's links for the whole page
+      // The occurrence rows: shaped as adoptChildren's statement (see there), with `occurrence`
+      // the link of an occurrence row applied before its series, and `master` the link of the
+      // series it names:
+      //
+      //   UPDATE events SET series_id = master.event_id
+      //   FROM external_links occurrence
+      //   JOIN external_links master
+      //     ON master.source_id = occurrence.source_id
+      //    AND master.external_id = json_extract(occurrence.metadata, '$.recurringEventExternalId')
+      //   WHERE occurrence.source_id = :source
+      //     AND json_extract(occurrence.metadata, '$.recurringEventExternalId') IN (:arrived…)
+      //     AND occurrence.event_id = events.id
+      //     AND events.series_id IS NULL
       const occurrence = alias(externalLinks, 'occurrence');
       const master = alias(externalLinks, 'master');
+      // the series the occurrence's link recorded, null for an event that is not an occurrence
       const masterOf = sql`json_extract(${occurrence.metadata}, '$.recurringEventExternalId')`;
       const adopted = this.tx
         .update(events)
         .set({ seriesId: sql`${master.eventId}` })
         .from(occurrence)
+        // the master's link, by the external id the occurrence recorded: unique per source
         .innerJoin(
           master,
           and(eq(master.sourceId, occurrence.sourceId), eq(master.externalId, masterOf)),
@@ -892,8 +905,12 @@ class PageWrite {
         .where(
           and(
             eq(occurrence.sourceId, this.sourceId),
+            // occurrences of the masters that arrived in this batch, and of no others
             inArray(masterOf, batch),
+            // ties the updated row to its own link. Without it every events row pairs with every
+            // matching occurrence, and all events outside a series get put into it
             eq(occurrence.eventId, events.id),
+            // only those not in their series yet
             isNull(events.seriesId),
           ),
         )
@@ -1347,18 +1364,40 @@ class PageWrite {
    * The parent is read from the metadata JSON, which no index covers. That read costs about 1.6
    * ms at 5,000 links and 6.5 ms at 20,000; past that, an indexed parent column would be worth
    * its migration.
+   *
+   * The statement, with `child` and `parent` both aliases of external_links:
+   *
+   *   UPDATE tasks SET parent_task_id = parent.task_id
+   *   FROM external_links child
+   *   JOIN external_links parent
+   *     ON parent.source_id = child.source_id
+   *    AND parent.external_id = json_extract(child.metadata, '$.parentExternalId')
+   *   WHERE child.source_id = :source
+   *     AND json_extract(child.metadata, '$.parentExternalId') IN (:arrived…)
+   *     AND child.state = 'synced'
+   *     AND child.task_id = tasks.id
+   *     AND tasks.parent_task_id IS NULL
+   *
+   * Read it from the FROM: `child` is a waiting child's link, `parent` the link of the parent it
+   * names, and the tasks row updated is the child's own. Each child is joined to its own parent,
+   * so one statement serves every parent that arrived; the ids in `parents` only pick which
+   * children to look at. sqlite reads this source's synced links once, then finds each match's
+   * parent link and task row by a key (see tests/db/sync-adoption-plans.test.ts).
    */
   private adoptChildren(parents: Map<string, TaskId>): number {
     if (parents.size === 0) return 0;
     const child = alias(externalLinks, 'child');
     const parent = alias(externalLinks, 'parent');
+    // the parent id the child's link recorded when it was written, null for a top-level task
     const parentOf = sql`json_extract(${child.metadata}, '$.parentExternalId')`;
     let adopted = 0;
+    // one statement a page; more only for a call with over CHUNK_SIZE arrived parents
     for (const batch of chunks([...parents.keys()])) {
       adopted += this.tx
         .update(tasks)
         .set({ parentTaskId: sql`${parent.taskId}` })
         .from(child)
+        // the parent's link, by the external id the child recorded: unique per source
         .innerJoin(
           parent,
           and(eq(parent.sourceId, child.sourceId), eq(parent.externalId, parentOf)),
@@ -1366,8 +1405,12 @@ class PageWrite {
         .where(
           and(
             eq(child.sourceId, this.sourceId),
+            // children of the parents that arrived in this call, and of no others
             inArray(parentOf, batch),
+            // a detached child is the user's own, and a removed one is archived: neither moves
             eq(child.state, LinkState.SYNCED),
+            // ties the updated row to its own link. Without it every tasks row pairs with every
+            // matching child, and all top-level tasks, local ones included, get the parent
             eq(child.taskId, tasks.id),
             // only those still top-level; children already under the parent are not written again
             isNull(tasks.parentTaskId),
