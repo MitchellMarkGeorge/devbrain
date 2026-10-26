@@ -634,7 +634,21 @@ Archiving instead of deleting means an issue that is briefly unassigned and reas
 
 **Telling the UI.** After each committed page the main process emits one event to the renderer: source, phase, counts and which entity types changed. The renderer refetches the affected queries. A second event carries source status for the settings page and a status indicator.
 
-**Database concurrency.** `better-sqlite3` is synchronous, so each page's transaction briefly blocks the main process. At 50 items a page this is a few milliseconds. Turn on WAL (currently commented out in `Workspace.initDb`) before shipping background writes.
+**Database concurrency.** `better-sqlite3` is synchronous, so each page's transaction blocks the main process for as long as it runs. These are the budgets for one source of 5,000 items, with the time measured by `src/main/core/tests/sync/performance.test.ts` (`DEVBRAIN_PERF=1 npx vitest run src/main/core/tests/sync/performance.test.ts`; in-memory database, Node 22, SQLite 3.53). A write that goes over its budget, or one whose time grows with the number of mirrored items, is a bug.
+
+| Synchronous write                                         | Measured            | Budget |
+| --------------------------------------------------------- | ------------------- | ------ |
+| Tasks page, 50 new issues (initial import)                | 10–15 ms, flat      | 30 ms  |
+| Tasks page, 50 changed issues                             | about 25 ms         | 50 ms  |
+| Events page, 250 new events (initial import)              | about 33 ms, flat   | 75 ms  |
+| Reconcile with nothing to resolve: plan reads, then apply | about 30 ms + 6 ms  | 75 ms  |
+| Reconcile resolving 200 issues: plan reads, then apply    | about 30 ms + 60 ms | 150 ms |
+| Cancelling 49 series with their occurrences               | about 30 ms         | 75 ms  |
+| Disconnect preview                                        | about 20 ms         | 50 ms  |
+| Disconnect keeping local copies                           | about 45 ms         | 100 ms |
+| Disconnect removing synced items (5,000 deletes)          | 200–250 ms          | 500 ms |
+
+Two things keep a page's cost flat as the table grows. A page writes its new rows with one multi-row `INSERT` per table rather than one per row. A parent issue or series master that arrives after its children adopts them in one statement per page. That statement reads the parent ids from the source's link metadata, which no index covers, so it still reads every link of the source once a page: about 1.6 ms at 5,000 links and 6.5 ms at 20,000. Before, it read them once per new task. An indexed parent column would only pay for its migration well past those sizes. Changed rows are still updated one at a time, which is most of a changed page's cost. Indexing a page in search deletes its rows' old entries first, and `search_index.entity_id` has no index, so that reads the whole search index: about 1 ms at 5,000 entries. On disk, each commit also waits on the file system: with WAL, as `Workspace.initDb` opens the database, a page of 50 new tasks measured about 20 ms, flat, through 5,000 tasks. At 20,000 it rises to about 35 ms by the end of the import (25 ms in memory), the adoption read growing with the links.
 
 ## Managing integrations
 

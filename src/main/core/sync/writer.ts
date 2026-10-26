@@ -5,6 +5,7 @@ import {
   ExternalSourceId,
   ProjectId,
   TaskId,
+  generateId,
 } from '@common/ids';
 import {
   externalEventExceptions,
@@ -34,7 +35,7 @@ import {
   SQLWrapper,
 } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
+import { alias, BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 import { RunResult } from 'better-sqlite3';
 import { SearchService } from '../search/service';
 import {
@@ -70,6 +71,10 @@ type Tx = BaseSQLiteDatabase<'sync', RunResult>;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 type Link = typeof externalLinks.$inferSelect;
+// what an update writes to a link: the provider's fields, and synced again
+type LinkSet = Partial<typeof externalLinks.$inferInsert>;
+type TaskFields = ReturnType<typeof taskFields>;
+type EventFields = ReturnType<typeof eventFields>;
 
 /**
  * The only code that writes external rows. It writes the tables directly, past the service guards
@@ -422,8 +427,12 @@ class PageWrite {
    *    projects, in one query each.
    * 2. Walk the tasks parents first, resolving each one's parent and project, then: no link →
    *    insert; detached → skip; synced and unchanged → touch only; otherwise → update and restore.
-   * 3. Re-parent children from earlier pages whose parent was inserted or restored here.
-   * 4. Index everything inserted or updated in one batch.
+   *    A new task's id is made here, so a child later in the walk can point at it.
+   * 3. Insert the new tasks, then their links, a statement each (per chunk), before the updates:
+   *    an updated task may now point at a parent that is new in this page.
+   * 4. Update the changed and restored tasks and their links, one row at a time.
+   * 5. Re-parent children from earlier pages whose parent was inserted or restored here.
+   * 6. Index everything inserted or updated in one batch.
    */
   upsertTasks(items: ExternalTask[]): void {
     // 1. parents' links too, so a child can find a parent mirrored in an earlier page
@@ -432,11 +441,15 @@ class PageWrite {
       ...items.flatMap((item) => item.parentExternalId ?? []),
     ]);
     const projectIds = this.syncedProjectIds(items.flatMap((item) => item.projectExternalId ?? []));
-    // parents that became synced in this call, whose children in earlier pages may be waiting
-    const arrived = new Map<string, TaskId>();
-    const written: Task[] = [];
+    // external ids of the parents that became synced in this call, whose children in earlier
+    // pages may be waiting
+    const arrived = new Set<string>();
+    const newTasks: (typeof tasks.$inferInsert)[] = [];
+    const newLinks: Link[] = [];
+    const changes: { taskId: TaskId; linkId: ExternalLinkId; fields: TaskFields; link: LinkSet }[] =
+      [];
 
-    // 2. parents first, so a parent in this page is already written when its children come up
+    // 2. parents first, so a parent in this page is already resolved when its children come up
     for (const item of parentsFirst(items)) {
       const link = links.get(item.externalId);
       // a parent that is not mirrored (or not synced) leaves the child top-level; its key and
@@ -457,23 +470,24 @@ class PageWrite {
         }),
       };
 
-      // 2a. never seen: insert the task and its link; it may be the parent children are waiting for
+      // 2a. never seen: a new task and link; it may be the parent children are waiting for
       if (!link) {
-        const task = this.tx
-          .insert(tasks)
-          .values({ ...fields, createdAt: item.createdAt })
-          .returning()
-          .get();
-        const newLink = this.tx
-          .insert(externalLinks)
-          .values({ ...linkFields, ...this.newLink(), taskId: task.id })
-          .returning()
-          .get();
+        const taskId = generateId('task');
+        const newLink: Link = {
+          ...linkFields,
+          ...this.newLink(),
+          id: generateId('externalLink'),
+          taskId,
+          projectId: null,
+          eventId: null,
+          removedAt: null,
+          settledAt: null,
+        };
+        newTasks.push({ ...fields, id: taskId, createdAt: item.createdAt });
+        newLinks.push(newLink);
         // later children in this page resolve their parent from the map
         links.set(item.externalId, newLink);
-        arrived.set(item.externalId, task.id);
-        this.inserted += 1;
-        written.push(task);
+        arrived.add(item.externalId);
         continue;
       }
 
@@ -486,30 +500,42 @@ class PageWrite {
         continue;
       }
 
-      // 2d. remote changed, or a removed task came back: write the provider-owned fields and
-      // unarchive (a synced row is never archived), then mark the link synced again
+      // 2d. remote changed, or a removed task came back: written in 4. A restored task can adopt
+      // children too, and later children here see it as synced
+      const linkSet = { ...linkFields, ...resynced() };
+      changes.push({ taskId, linkId: link.id, fields, link: linkSet });
+      if (link.state === LinkState.REMOVED) arrived.add(item.externalId);
+      links.set(item.externalId, { ...link, ...linkSet });
+    }
+
+    // 3. a multi-row insert checks its foreign keys at the end, so a child may come in the same
+    // statement as its parent
+    const inserted: Task[] = [];
+    for (const chunk of chunks(newTasks)) {
+      inserted.push(...this.tx.insert(tasks).values(chunk).returning().all());
+    }
+    for (const chunk of chunks(newLinks)) this.tx.insert(externalLinks).values(chunk).run();
+    this.inserted += newTasks.length;
+
+    // 4. provider-owned fields are written and the row unarchived (a synced row is never
+    // archived); the link is marked synced again
+    const updated: Task[] = [];
+    for (const { taskId, linkId, fields, link } of changes) {
       const task = this.tx
         .update(tasks)
         .set({ ...fields, archivedAt: null })
         .where(eq(tasks.id, taskId))
         .returning()
         .get();
-      const updatedLink = this.tx
-        .update(externalLinks)
-        .set({ ...linkFields, ...resynced() })
-        .where(eq(externalLinks.id, link.id))
-        .returning()
-        .get();
-      // a restored task can adopt children too, and later children here see it as synced
-      if (link.state === LinkState.REMOVED) arrived.set(item.externalId, taskId);
-      links.set(item.externalId, updatedLink);
-      this.updated += 1;
-      written.push(task);
+      this.tx.update(externalLinks).set(link).where(eq(externalLinks.id, linkId)).run();
+      updated.push(task);
     }
+    this.updated += changes.length;
 
-    // 3. re-parenting only moves parentTaskId, so the adopted children need no re-index
+    // 5. re-parenting only moves parentTaskId, so the adopted children need no re-index
     this.updated += this.adoptChildren(arrived);
-    // 4. re-index what was written, and tell the renderer to refetch tasks
+    // 6. re-index what was written, and tell the renderer to refetch tasks
+    const written = [...inserted, ...updated];
     this.search.indexTasks(written);
     if (written.length > 0) this.changed.add('task');
   }
@@ -702,11 +728,15 @@ class PageWrite {
    * Upserts live events by the link-state table, all into one calendar.
    *
    * 1. Look up the links of the events, and of the masters of their occurrences, in one query.
-   * 2. Walk the masters first, so an occurrence finds a master inserted in this page. Per event:
+   * 2. Walk the masters first, so an occurrence finds a master that is new in this page. Per event:
    *    no link → insert; detached → skip; synced and unchanged → touch only; otherwise (changed,
-   *    or removed) → update and restore. An occurrence points at its master's row, if mirrored.
-   * 3. Every master inserted or restored here adopts what came before it.
-   * 4. Index everything inserted or updated in one batch.
+   *    or removed) → update and restore. An occurrence points at its master's row, if mirrored. A
+   *    new event's id is made here, so an occurrence later in the walk can point at it.
+   * 3. Insert the new events, then their links, a statement each (per chunk), before the updates:
+   *    an updated occurrence may now point at a master that is new in this page.
+   * 4. Update the changed and restored events and their links, one row at a time.
+   * 5. Every master inserted or restored here adopts what came before it.
+   * 6. Index everything inserted or updated in one batch.
    */
   upsertEvents(calendarId: CalendarId, items: ExternalEvent[]): void {
     // 1.
@@ -715,7 +745,14 @@ class PageWrite {
       ...items.flatMap((item) => item.recurringEventExternalId ?? []),
     ]);
     const arrived = new Map<string, EventId>();
-    const written: Event[] = [];
+    const newEvents: (typeof events.$inferInsert)[] = [];
+    const newLinks: Link[] = [];
+    const changes: {
+      eventId: EventId;
+      linkId: ExternalLinkId;
+      fields: EventFields;
+      link: LinkSet;
+    }[] = [];
 
     // 2.
     for (const item of mastersFirst(items)) {
@@ -732,23 +769,24 @@ class PageWrite {
         }),
       };
 
-      // 2a. never seen: insert the event, then its link; a master may have occurrences waiting
+      // 2a. never seen: a new event and link; a master may have occurrences waiting
       if (!link) {
-        const event = this.tx
-          .insert(events)
-          .values({ ...fields, createdAt: item.createdAt })
-          .returning()
-          .get();
-        const newLink = this.tx
-          .insert(externalLinks)
-          .values({ ...linkFields, ...this.newLink(), eventId: event.id })
-          .returning()
-          .get();
+        const eventId = generateId('event');
+        const newLink: Link = {
+          ...linkFields,
+          ...this.newLink(),
+          id: generateId('externalLink'),
+          taskId: null,
+          projectId: null,
+          eventId,
+          removedAt: null,
+          settledAt: null,
+        };
+        newEvents.push({ ...fields, id: eventId, createdAt: item.createdAt });
+        newLinks.push(newLink);
         // later occurrences in this page resolve their master from the map
         links.set(item.externalId, newLink);
-        if (item.recurrenceRule !== null) arrived.set(item.externalId, event.id);
-        this.inserted += 1;
-        written.push(event);
+        if (item.recurrenceRule !== null) arrived.set(item.externalId, eventId);
         continue;
       }
 
@@ -761,78 +799,126 @@ class PageWrite {
         continue;
       }
 
-      // 2d. remote changed, or a cancelled event came back: write the provider-owned fields, then
-      // mark the link synced again, which shows it on the calendar again
+      // 2d. remote changed, or a cancelled event came back: written in 4
+      const linkSet = { ...linkFields, ...resynced() };
+      changes.push({ eventId, linkId: link.id, fields, link: linkSet });
+      links.set(item.externalId, { ...link, ...linkSet });
+      if (link.state === LinkState.REMOVED && item.recurrenceRule !== null) {
+        arrived.set(item.externalId, eventId);
+      }
+    }
+
+    // 3. a multi-row insert checks its foreign keys at the end, so an occurrence may come in the
+    // same statement as its master
+    const inserted: Event[] = [];
+    for (const chunk of chunks(newEvents)) {
+      inserted.push(...this.tx.insert(events).values(chunk).returning().all());
+    }
+    for (const chunk of chunks(newLinks)) this.tx.insert(externalLinks).values(chunk).run();
+    this.inserted += newEvents.length;
+
+    // 4. provider-owned fields are written, then the link is marked synced again, which shows the
+    // event on the calendar again
+    const updated: Event[] = [];
+    for (const { eventId, linkId, fields, link } of changes) {
       const event = this.tx
         .update(events)
         .set(fields)
         .where(eq(events.id, eventId))
         .returning()
         .get();
-      const updatedLink = this.tx
-        .update(externalLinks)
-        .set({ ...linkFields, ...resynced() })
-        .where(eq(externalLinks.id, link.id))
-        .returning()
-        .get();
-      links.set(item.externalId, updatedLink);
-      if (link.state === LinkState.REMOVED && item.recurrenceRule !== null) {
-        arrived.set(item.externalId, eventId);
-      }
-      this.updated += 1;
-      written.push(event);
+      this.tx.update(externalLinks).set(link).where(eq(externalLinks.id, linkId)).run();
+      updated.push(event);
     }
+    this.updated += changes.length;
 
-    // 3.
-    for (const [masterExternalId, seriesId] of arrived)
-      this.adoptSeries(masterExternalId, seriesId);
-    // 4.
+    // 5.
+    this.adoptSeries(arrived);
+    // 6.
+    const written = [...inserted, ...updated];
     this.search.indexEvents(written);
     if (written.length > 0) this.changed.add('event');
   }
 
   /**
-   * A master that has just arrived takes in what came before it: occurrence rows applied without
-   * their series (adopted, as subtasks are), and cancelled occurrences parked for it (moved to
-   * event_exceptions). Both are found by the master's external id.
+   * The masters that have just arrived take in what came before them: occurrence rows applied
+   * without their series (adopted, as subtasks are), and cancelled occurrences parked for them
+   * (moved to event_exceptions). Both are found by the masters' external ids, for all of them at
+   * once.
    */
-  private adoptSeries(masterExternalId: string, seriesId: EventId): void {
-    const parked = and(
-      eq(externalEventExceptions.sourceId, this.sourceId),
-      eq(externalEventExceptions.masterExternalId, masterExternalId),
-    );
-    const starts = this.tx
-      .select({ originalStartAt: externalEventExceptions.originalStartAt })
-      .from(externalEventExceptions)
-      .where(parked)
-      .all();
-    if (starts.length > 0) {
-      this.tx
-        .insert(eventExceptions)
-        .values(starts.map(({ originalStartAt }) => ({ seriesId, originalStartAt })))
-        .onConflictDoNothing()
-        .run();
-      this.tx.delete(externalEventExceptions).where(parked).run();
-      this.changed.add('event');
-    }
-
-    // the occurrence links that recorded this master in their metadata
-    const occurrences = this.tx
-      .select({ eventId: externalLinks.eventId })
-      .from(externalLinks)
-      .where(
-        and(
-          eq(externalLinks.sourceId, this.sourceId),
-          sql`json_extract(${externalLinks.metadata}, '$.recurringEventExternalId') = ${masterExternalId}`,
-        ),
+  private adoptSeries(masters: Map<string, EventId>): void {
+    if (masters.size === 0) return;
+    for (const batch of chunks([...masters.keys()])) {
+      // served by the primary key of external_event_exceptions
+      const parked = and(
+        eq(externalEventExceptions.sourceId, this.sourceId),
+        inArray(externalEventExceptions.masterExternalId, batch),
       );
-    const adopted = this.tx
-      .update(events)
-      .set({ seriesId })
-      .where(and(inArray(events.id, occurrences), isNull(events.seriesId)))
-      .run().changes;
-    this.updated += adopted;
-    if (adopted > 0) this.changed.add('event');
+      const starts = this.tx
+        .select({
+          masterExternalId: externalEventExceptions.masterExternalId,
+          originalStartAt: externalEventExceptions.originalStartAt,
+        })
+        .from(externalEventExceptions)
+        .where(parked)
+        .all();
+      if (starts.length > 0) {
+        this.tx
+          .insert(eventExceptions)
+          .values(
+            starts.map(({ masterExternalId, originalStartAt }) => ({
+              seriesId: masters.get(masterExternalId)!,
+              originalStartAt,
+            })),
+          )
+          .onConflictDoNothing()
+          .run();
+        this.tx.delete(externalEventExceptions).where(parked).run();
+        this.changed.add('event');
+      }
+
+      // The occurrence rows: shaped as adoptChildren's statement (see there), with `occurrence`
+      // the link of an occurrence row applied before its series, and `master` the link of the
+      // series it names:
+      //
+      //   UPDATE events SET series_id = master.event_id
+      //   FROM external_links occurrence
+      //   JOIN external_links master
+      //     ON master.source_id = occurrence.source_id
+      //    AND master.external_id = json_extract(occurrence.metadata, '$.recurringEventExternalId')
+      //   WHERE occurrence.source_id = :source
+      //     AND json_extract(occurrence.metadata, '$.recurringEventExternalId') IN (:arrived…)
+      //     AND occurrence.event_id = events.id
+      //     AND events.series_id IS NULL
+      const occurrence = alias(externalLinks, 'occurrence');
+      const master = alias(externalLinks, 'master');
+      // the series the occurrence's link recorded, null for an event that is not an occurrence
+      const masterOf = sql`json_extract(${occurrence.metadata}, '$.recurringEventExternalId')`;
+      const adopted = this.tx
+        .update(events)
+        .set({ seriesId: sql`${master.eventId}` })
+        .from(occurrence)
+        // the master's link, by the external id the occurrence recorded: unique per source
+        .innerJoin(
+          master,
+          and(eq(master.sourceId, occurrence.sourceId), eq(master.externalId, masterOf)),
+        )
+        .where(
+          and(
+            eq(occurrence.sourceId, this.sourceId),
+            // occurrences of the masters that arrived in this batch, and of no others
+            inArray(masterOf, batch),
+            // ties the updated row to its own link. Without it every events row pairs with every
+            // matching occurrence, and all events outside a series get put into it
+            eq(occurrence.eventId, events.id),
+            // only those not in their series yet
+            isNull(events.seriesId),
+          ),
+        )
+        .run().changes;
+      this.updated += adopted;
+      if (adopted > 0) this.changed.add('event');
+    }
   }
 
   /**
@@ -1272,28 +1358,66 @@ class PageWrite {
 
   /**
    * Re-parents the synced children, applied in earlier pages, that recorded one of these parents
-   * in their link metadata and were left top-level because it was not mirrored then. Returns how
-   * many moved.
+   * in their link metadata and were left top-level because it was not mirrored then. One
+   * statement for all of them, joining each child to its parent's link, so the source's synced
+   * links are read once a page, not once a new task. Returns how many moved.
+   *
+   * The parent is read from the metadata JSON, which no index covers. That read costs about 1.6
+   * ms at 5,000 links and 6.5 ms at 20,000; past that, an indexed parent column would be worth
+   * its migration.
+   *
+   * The statement, with `child` and `parent` both aliases of external_links:
+   *
+   *   UPDATE tasks SET parent_task_id = parent.task_id
+   *   FROM external_links child
+   *   JOIN external_links parent
+   *     ON parent.source_id = child.source_id
+   *    AND parent.external_id = json_extract(child.metadata, '$.parentExternalId')
+   *   WHERE child.source_id = :source
+   *     AND json_extract(child.metadata, '$.parentExternalId') IN (:arrived…)
+   *     AND child.state = 'synced'
+   *     AND child.task_id = tasks.id
+   *     AND tasks.parent_task_id IS NULL
+   *
+   * Read it from the FROM: `child` is a waiting child's link, `parent` the link of the parent it
+   * names, and the tasks row updated is the child's own. Each child is joined to its own parent,
+   * so one statement serves every parent that arrived: `parentIds` only picks which children to
+   * look at, and each one's parent task comes from the parent's link. sqlite reads this source's
+   * synced links once, then finds each match's parent link and task row by a key (see
+   * tests/db/sync-adoption-plans.test.ts).
    */
-  private adoptChildren(parents: Map<string, TaskId>): number {
+  private adoptChildren(parentIds: Set<string>): number {
+    if (parentIds.size === 0) return 0;
+    const child = alias(externalLinks, 'child');
+    const parent = alias(externalLinks, 'parent');
+    // the parent id the child's link recorded when it was written, null for a top-level task
+    const parentOf = sql`json_extract(${child.metadata}, '$.parentExternalId')`;
     let adopted = 0;
-    for (const [parentExternalId, parentTaskId] of parents) {
-      // the synced links that recorded this parent in their metadata
-      const children = this.tx
-        .select({ taskId: externalLinks.taskId })
-        .from(externalLinks)
-        .where(
-          and(
-            eq(externalLinks.sourceId, this.sourceId),
-            eq(externalLinks.state, LinkState.SYNCED),
-            sql`json_extract(${externalLinks.metadata}, '$.parentExternalId') = ${parentExternalId}`,
-          ),
-        );
-      // only those still top-level; children already under the parent are not written again
+    // one statement a page; more only for a call with over CHUNK_SIZE arrived parents
+    for (const batch of chunks([...parentIds])) {
       adopted += this.tx
         .update(tasks)
-        .set({ parentTaskId })
-        .where(and(inArray(tasks.id, children), isNull(tasks.parentTaskId)))
+        .set({ parentTaskId: sql`${parent.taskId}` })
+        .from(child)
+        // the parent's link, by the external id the child recorded: unique per source
+        .innerJoin(
+          parent,
+          and(eq(parent.sourceId, child.sourceId), eq(parent.externalId, parentOf)),
+        )
+        .where(
+          and(
+            eq(child.sourceId, this.sourceId),
+            // children of the parents that arrived in this call, and of no others
+            inArray(parentOf, batch),
+            // a detached child is the user's own, and a removed one is archived: neither moves
+            eq(child.state, LinkState.SYNCED),
+            // ties the updated row to its own link. Without it every tasks row pairs with every
+            // matching child, and all top-level tasks, local ones included, get the parent
+            eq(child.taskId, tasks.id),
+            // only those still top-level; children already under the parent are not written again
+            isNull(tasks.parentTaskId),
+          ),
+        )
         .run().changes;
     }
     return adopted;
@@ -1410,6 +1534,16 @@ function entityId<K extends 'taskId' | 'projectId' | 'eventId'>(
   const id = link[key];
   if (!id) throw new Error(`External link ${link.id} does not point at a ${key.slice(0, -2)}`);
   return id as NonNullable<Link[K]>;
+}
+
+// keeps a statement's rows or ids under SQLite's bound-parameter limit
+const CHUNK_SIZE = 500;
+function chunks<T>(rows: T[]): T[][] {
+  const result: T[][] = [];
+  for (let start = 0; start < rows.length; start += CHUNK_SIZE) {
+    result.push(rows.slice(start, start + CHUNK_SIZE));
+  }
+  return result;
 }
 
 /** the page reordered so every parent in it comes before its children, at any depth */
