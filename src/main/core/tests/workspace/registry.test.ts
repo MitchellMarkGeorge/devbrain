@@ -11,6 +11,51 @@ import { recoverRegistry, writeRegistry, type WorkspaceRegistry } from '../../wo
 
 vi.mock('electron-store', () => import('../__mocks__/electron-store'));
 
+// Faults injected into node:fs, for atomically as much as our own code: vitest.config.ts inlines
+// atomically and stubborn-fs so this mock reaches them. afterEach clears them.
+const faults = vi.hoisted(() => ({
+  // the next write to a file descriptor writes half its data, then fails as on a full disk
+  writeHalfway: false,
+  // a rename onto a path this matches fails
+  failRename: null as ((to: string) => boolean) | null,
+}));
+
+vi.mock('node:fs', async (importOriginal) => {
+  const real = (await importOriginal<{ default: typeof import('node:fs') }>()).default;
+  const halfway = (data: unknown): string | null => {
+    if (!faults.writeHalfway || typeof data !== 'string') return null;
+    faults.writeHalfway = false;
+    return data.slice(0, data.length / 2);
+  };
+  const noSpace = () =>
+    Object.assign(new Error('ENOSPC: no space left on device'), { code: 'ENOSPC' });
+  const mocked: typeof import('node:fs') = {
+    ...real,
+    writeSync: ((fd: number, data: unknown, ...rest: unknown[]) => {
+      const half = halfway(data);
+      if (half === null)
+        return (real.writeSync as (...args: unknown[]) => number)(fd, data, ...rest);
+      real.writeSync(fd, half);
+      throw noSpace();
+    }) as typeof real.writeSync,
+    writeFileSync: ((file: unknown, data: unknown, ...rest: unknown[]) => {
+      const half = typeof file === 'number' ? halfway(data) : null;
+      if (half === null) {
+        return (real.writeFileSync as (...args: unknown[]) => void)(file, data, ...rest);
+      }
+      real.writeFileSync(file as number, half);
+      throw noSpace();
+    }) as typeof real.writeFileSync,
+    renameSync: (from, to) => {
+      if (faults.failRename?.(String(to))) {
+        throw Object.assign(new Error('EIO: i/o error, rename'), { code: 'EIO' });
+      }
+      real.renameSync(from, to);
+    },
+  };
+  return { ...mocked, default: mocked };
+});
+
 import { DevBrain } from '../../devbrain';
 import { WorkspaceService } from '../../workspace/service';
 
@@ -22,6 +67,8 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+  faults.writeHalfway = false;
+  faults.failRename = null;
   vi.restoreAllMocks();
   await fs.rm(path.dirname(rootPath), { recursive: true });
 });
@@ -56,15 +103,6 @@ async function strayFiles(): Promise<string[]> {
   return (await fs.readdir(rootPath)).filter((name) => !known.includes(name));
 }
 
-// makes the next write to a file descriptor stop halfway and fail, as a full disk would
-function failWriteHalfway() {
-  const realWriteFileSync = fsSync.writeFileSync;
-  return vi.spyOn(fsSync, 'writeFileSync').mockImplementationOnce((file, data) => {
-    realWriteFileSync(file, String(data).slice(0, String(data).length / 2));
-    throw Object.assign(new Error('ENOSPC: no space left on device'), { code: 'ENOSPC' });
-  });
-}
-
 describe('writeFileAtomicSync', () => {
   it('replaces the file and leaves no temp file', async () => {
     writeFileAtomicSync(registryPath(), '{"a":1}');
@@ -73,19 +111,17 @@ describe('writeFileAtomicSync', () => {
   });
 
   it('keeps the previous content when the write stops partway', async () => {
-    const write = failWriteHalfway();
+    faults.writeHalfway = true;
     expect(() =>
       writeFileAtomicSync(registryPath(), JSON.stringify({ long: 'x'.repeat(100) })),
     ).toThrow(/ENOSPC/);
-    expect(write).toHaveBeenCalled();
+    expect(faults.writeHalfway).toBe(false);
     expect(await readJson(registryPath())).toEqual({});
     expect(await strayFiles()).toEqual([]);
   });
 
   it('keeps the previous content when the rename fails', async () => {
-    vi.spyOn(fsSync, 'renameSync').mockImplementationOnce(() => {
-      throw Object.assign(new Error('EIO: i/o error, rename'), { code: 'EIO' });
-    });
+    faults.failRename = () => true;
     expect(() => writeFileAtomicSync(registryPath(), '{"a":1}')).toThrow(/EIO/);
     expect(await readJson(registryPath())).toEqual({});
     expect(await strayFiles()).toEqual([]);
@@ -100,7 +136,7 @@ describe('createFileAtomicSync', () => {
   });
 
   it('creates nothing when the write stops partway', async () => {
-    failWriteHalfway();
+    faults.writeHalfway = true;
     const target = path.join(rootPath, 'new.json');
     expect(() => createFileAtomicSync(target, '{"a":1}')).toThrow(/ENOSPC/);
     expect(fsSync.existsSync(target)).toBe(false);
@@ -119,11 +155,7 @@ describe('writeRegistry', () => {
   it('reports a failed backup write without failing, keeping the previous backup', async () => {
     const first = registryOf(makeInfo('wsp_a'));
     writeRegistry(rootPath, first);
-    const realRenameSync = fsSync.renameSync;
-    vi.spyOn(fsSync, 'renameSync').mockImplementation((from, to) => {
-      if (to === backupPath()) throw Object.assign(new Error('EIO'), { code: 'EIO' });
-      realRenameSync(from, to);
-    });
+    faults.failRename = (to) => to === backupPath();
     const report = vi.fn();
     const second = registryOf(makeInfo('wsp_a'), makeInfo('wsp_b'));
     writeRegistry(rootPath, second, report);
@@ -137,9 +169,7 @@ describe('WorkspaceService — failed registry writes', () => {
   it('a rename failure while creating a workspace leaves the previous registry', async () => {
     const existing = registryOf(makeInfo('wsp_a'));
     writeRegistry(rootPath, existing);
-    vi.spyOn(fsSync, 'renameSync').mockImplementationOnce(() => {
-      throw Object.assign(new Error('EIO'), { code: 'EIO' });
-    });
+    faults.failRename = () => true;
     const service = new WorkspaceService(rootPath);
     await expect(service.create({ name: 'New', color: '#000000' })).rejects.toThrow(/EIO/);
     expect(await readJson(registryPath())).toEqual(existing);
@@ -149,7 +179,7 @@ describe('WorkspaceService — failed registry writes', () => {
   it('a write stopping partway while creating a workspace leaves the previous registry', async () => {
     const existing = registryOf(makeInfo('wsp_a'));
     writeRegistry(rootPath, existing);
-    failWriteHalfway();
+    faults.writeHalfway = true;
     const service = new WorkspaceService(rootPath);
     await expect(service.create({ name: 'New', color: '#000000' })).rejects.toThrow(/ENOSPC/);
     expect(await readJson(registryPath())).toEqual(existing);
