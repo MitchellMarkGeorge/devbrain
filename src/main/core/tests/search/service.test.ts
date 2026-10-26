@@ -51,16 +51,15 @@ describe('SearchService — untrusted text', () => {
     expect(result.body).toBe('Body with &lt;script&gt;alert(1)&lt;/script&gt; and a <b>widget</b>');
   });
 
-  it('does not index the marker characters, so text cannot forge a match', async () => {
+  it('keeps text that holds the marker characters itself to escaped text and <b> tags', async () => {
     const task = await taskService.createTask({
-      title: 'Plain \u0002forged\u0003 widget',
+      title: '\u0002<i>odd</i>\u0003 widget',
       dueDate: TOMORROW,
     });
     searchService.indexTask(task);
-    searchService.updateIndexedTitle(task.id, 'Renamed \u0002forged\u0003 widget');
 
     const [result] = searchService.search({ query: 'widget', entityType: [] });
-    expect(result.title).toBe('Renamed forged <b>widget</b>');
+    expect(result.title).toBe('<b>&lt;i&gt;odd&lt;/i&gt;</b> <b>widget</b>');
   });
 });
 

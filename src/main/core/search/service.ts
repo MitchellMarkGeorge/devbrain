@@ -8,13 +8,7 @@ import type { Note } from '../notes/types';
 import type { Project } from '../projects/types';
 import type { Task } from '../tasks/types';
 import type { IndexEntity, RebuildResult, SearchOptions, SearchResult } from './types';
-import {
-  HIGHLIGHT_END,
-  HIGHLIGHT_START,
-  highlightToHtml,
-  stripHighlightMarkers,
-  toFtsQuery,
-} from './utils';
+import { HIGHLIGHT_END, HIGHLIGHT_START, highlightToHtml, toFtsQuery } from './utils';
 import { and, inArray, isNull, not, sql, SQL } from 'drizzle-orm';
 import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
@@ -247,9 +241,7 @@ export class SearchService {
 
   // changes an entry's title and keeps its body; an entity with no entry is ignored
   updateIndexedTitle(entityId: IndexEntity['entityId'], title: string): void {
-    this.db.run(
-      sql`UPDATE search_index SET title = ${stripHighlightMarkers(title)} WHERE entity_id = ${entityId}`,
-    );
+    this.db.run(sql`UPDATE search_index SET title = ${title} WHERE entity_id = ${entityId}`);
   }
 
   private noteFilePath(id: NoteId): string {
@@ -346,7 +338,7 @@ function insertQuery(entities: IndexEntity[]): SQL {
   const valueRows = sql.join(
     entities.map(
       ({ title, body, entityId, entityType }) =>
-        sql`(${stripHighlightMarkers(title)}, ${stripHighlightMarkers(body)}, ${entityId}, ${entityType})`,
+        sql`(${title}, ${body}, ${entityId}, ${entityType})`,
     ),
     sql.raw(', '),
   );

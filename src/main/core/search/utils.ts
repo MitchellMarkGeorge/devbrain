@@ -16,16 +16,11 @@ export function toFtsQuery(input: string): string | null {
   return phrases.length ? phrases.join(' ') : null;
 }
 
-// What FTS5's highlight() and snippet() put around a match: control characters, which no indexed
-// text holds (stripHighlightMarkers removes them before indexing), so the marked text can be
-// escaped first and the markers turned into tags after.
+// What FTS5's highlight() and snippet() put around a match: control characters, which escaping
+// leaves alone, so the marked text can be escaped first and the markers turned into tags after.
+// Indexed text that holds one itself can only move where the bold falls, never add markup.
 export const HIGHLIGHT_START = '\u0002';
 export const HIGHLIGHT_END = '\u0003';
-
-// text to index, without the marker characters
-export function stripHighlightMarkers(text: string): string {
-  return text.split(HIGHLIGHT_START).join('').split(HIGHLIGHT_END).join('');
-}
 
 /**
  * Marked text from highlight() or snippet() as HTML: every character of the text escaped, then

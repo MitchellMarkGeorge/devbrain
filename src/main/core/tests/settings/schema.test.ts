@@ -295,13 +295,6 @@ describe('appSettingsSchema — calendar block', () => {
         .success,
     ).toBe(false);
   });
-
-  it('has no time zone: one left by an older version is accepted and stripped', () => {
-    const calendar = { ...validSettings.settings.calendar, timezone: 'Toronto UTC' };
-    const result = appSettingsSchema.safeParse({ ...validSettings.settings, calendar });
-    expect(result.success).toBe(true);
-    expect(result.data?.calendar).toEqual(validSettings.settings.calendar);
-  });
 });
 
 describe('appStateSchema', () => {

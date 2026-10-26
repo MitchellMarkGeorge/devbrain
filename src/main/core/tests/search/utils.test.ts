@@ -1,11 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  HIGHLIGHT_END,
-  HIGHLIGHT_START,
-  highlightToHtml,
-  stripHighlightMarkers,
-  toFtsQuery,
-} from '../../search/utils';
+import { HIGHLIGHT_END, HIGHLIGHT_START, highlightToHtml, toFtsQuery } from '../../search/utils';
 
 describe('toFtsQuery', () => {
   it('wraps a single alphanumeric term as a quoted prefix phrase', () => {
@@ -92,11 +86,5 @@ describe('highlightToHtml', () => {
 
   it('always yields balanced, unnested tags', () => {
     expect(highlightToHtml(marked('[[a]] b] [c'))).toBe('<b>a</b> b <b>c</b>');
-  });
-});
-
-describe('stripHighlightMarkers', () => {
-  it('removes the marker characters and nothing else', () => {
-    expect(stripHighlightMarkers(`a${HIGHLIGHT_START}b${HIGHLIGHT_END}c <b>`)).toBe('abc <b>');
   });
 });
