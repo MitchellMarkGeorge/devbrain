@@ -6,7 +6,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import { CalendarId, ExternalSourceId, IntegrationId } from '@common/ids';
-import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
+import {
+  externalEventExceptions,
+  externalLinks,
+  externalSources,
+  integrations,
+} from '@main/db/schema/integrations';
 import { events as eventsTable } from '@main/db/schema/events';
 import { calendars } from '@main/db/schema/calendars';
 import { createDb } from '../utils';
@@ -60,6 +65,11 @@ let workspacePath: string;
 let fetch: ReturnType<typeof scriptedFetch>;
 let service: IntegrationService;
 let engine: SyncEngine;
+// the time the provider, the writer and the engine read; NOW unless a test moves it
+let clock: Date;
+const now = () => clock;
+// what engine was built with, so a test can build one with a lower page cap
+let engineOptions: ConstructorParameters<typeof SyncEngine>[1];
 let events: EventService;
 let notes: NoteService;
 let integrationId: IntegrationId;
@@ -89,28 +99,30 @@ const oauth: OAuthClient = {
 // selects the primary one, so every test starts with the calendar rows in place.
 async function setup() {
   fetch = scriptedFetch([{ body: userInfoFixture }, { body: primaryFixture }, CALENDARS]);
+  clock = NOW;
   db = createDb();
   workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-event-engine-'));
   const provider = createGoogleCalendarProvider({
     fetch,
-    now: () => NOW,
+    now,
     client: { clientId: 'id' },
   });
   const providers: ProviderRegistry = new Map<ProviderId, Provider>([[provider.id, provider]]);
   const credentials = new CredentialStore(db, { cipher: new FakeCipher() });
   const search = new SearchService(db, workspacePath);
-  writer = new SyncWriter(db, search);
+  writer = new SyncWriter(db, search, now);
   service = new IntegrationService(db, { credentials, providers, oauth });
   calendarService = new CalendarService(db);
-  engine = new SyncEngine(db, {
+  engineOptions = {
     integrations: service,
     syncState: new SyncStateManager(db),
     credentials,
     providers,
     writer,
     logger: LOGGER,
-    now: () => NOW,
-  });
+    now,
+  };
+  engine = new SyncEngine(db, engineOptions);
   events = new EventService(db);
   notes = new NoteService(db, workspacePath);
 
@@ -404,6 +416,212 @@ describe('Google Calendar sync — initial and incremental', () => {
     expect(sourceRow().cursor).toEqual({
       calendars: { [PRIMARY]: { syncToken: 'sync-fresh', pageToken: null } },
     });
+  });
+});
+
+describe('Google Calendar sync — what a full pass no longer lists', () => {
+  // an hour after the first sync, when the 410 comes
+  const LATER = new Date(NOW.getTime() + 60 * 60 * 1000);
+  const LATER_TIME_MIN = new Date(LATER.getTime() - EVENT_HISTORY_WINDOW_MS).toISOString();
+
+  // a first full pass of these events, then, an hour later, a 410 on the next run's sync token, so
+  // the calendar starts a full pass again; returns the next run's steps after the 410
+  async function syncThenExpire(...items: unknown[]) {
+    script(CALENDARS, { body: eventsPage(items, { nextSyncToken: 'sync-1' }) });
+    await engine.runSource(sourceId);
+    clock = LATER;
+    return (...pages: Parameters<typeof scriptedFetch>[0]) =>
+      script(CALENDARS, { status: 410, body: expiredFixture }, ...pages);
+  }
+
+  it('removes an event the full pass after a 410 does not list', async () => {
+    const expire = await syncThenExpire(timedFixture, declinedFixture);
+
+    // timedFixture is unchanged, so only its link's lastSyncedAt moves, on the pass's last page
+    expire({ body: eventsPage([timedFixture], { nextSyncToken: 'sync-fresh' }) });
+    const result = await engine.runSource(sourceId);
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, removed: 1 });
+    expect(linkOf(PRIMARY, declinedFixture.id)).toBeUndefined();
+    expect(linkOf(PRIMARY, timedFixture.id)).toMatchObject({
+      state: LinkState.SYNCED,
+      lastSyncedAt: LATER,
+    });
+    expect((await visible()).map((event) => event.title)).toEqual(['Design review']);
+    // the pass's start goes with the pass
+    expect(sourceRow().cursor).toEqual({
+      calendars: { [PRIMARY]: { syncToken: 'sync-fresh', pageToken: null } },
+    });
+  });
+
+  it('keeps an event the full pass lists but cannot read, as it was', async () => {
+    const expire = await syncThenExpire(timedFixture, declinedFixture);
+    const before = await events.getById(linkOf(PRIMARY, declinedFixture.id)!.eventId!);
+
+    // listed with no end time, so it fails validation and is skipped
+    const unreadable = { ...declinedFixture, summary: 'Renamed', end: undefined };
+    expire({ body: eventsPage([timedFixture, unreadable], { nextSyncToken: 'sync-fresh' }) });
+    const result = await engine.runSource(sourceId);
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, skipped: 1, removed: 0 });
+    expect(linkOf(PRIMARY, declinedFixture.id)).toMatchObject({
+      state: LinkState.SYNCED,
+      lastSyncedAt: LATER,
+    });
+    expect(await events.getById(before.id)).toMatchObject({ title: before.title });
+  });
+
+  it('keeps an event a note links to, hidden, when the full pass does not list it', async () => {
+    const expire = await syncThenExpire(timedFixture);
+    const eventId = linkOf(PRIMARY, timedFixture.id)!.eventId!;
+    const note = await notes.createNote({ title: 'Review notes', linkedEventId: eventId });
+
+    expire({ body: eventsPage([], { nextSyncToken: 'sync-fresh' }) });
+    const result = await engine.runSource(sourceId);
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, removed: 1 });
+    expect(await visible()).toEqual([]);
+    expect(await events.getById(eventId)).toMatchObject({
+      title: 'Design review',
+      external: { state: LinkState.REMOVED },
+    });
+    expect((await notes.getById(note.id)).linkedEventId).toBe(eventId);
+  });
+
+  it('removes only what none of the pages of a full pass list', async () => {
+    const expire = await syncThenExpire(timedFixture, declinedFixture, meetFixture, allDayFixture);
+
+    expire(
+      { body: eventsPage([timedFixture], { nextPageToken: 'page-2' }) },
+      { body: eventsPage([meetFixture], { nextPageToken: 'page-3' }) },
+      { body: eventsPage([], { nextSyncToken: 'sync-fresh' }) },
+    );
+    const result = await engine.runSource(sourceId);
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, pages: 3, removed: 2 });
+    expect(linkOf(PRIMARY, declinedFixture.id)).toBeUndefined();
+    expect(linkOf(PRIMARY, allDayFixture.id)).toBeUndefined();
+    expect(eventCount()).toBe(2);
+  });
+
+  it('removes nothing until a full pass cut short is resumed to its end', async () => {
+    const expire = await syncThenExpire(timedFixture, declinedFixture, allDayFixture);
+
+    // the pass's first page commits, then the run fails
+    expire(
+      { body: eventsPage([timedFixture], { nextPageToken: 'page-2' }) },
+      { error: new TypeError('fetch failed') },
+    );
+    const failed = await engine.runSource(sourceId);
+    expect(failed).toMatchObject({ outcome: SyncRunOutcome.FAILED, pages: 1, removed: 0 });
+    expect(eventCount()).toBe(3);
+    // the pass's start is kept for the run that resumes it
+    expect(sourceRow().cursor).toEqual({
+      calendars: {
+        [PRIMARY]: {
+          syncToken: null,
+          pageToken: 'page-2',
+          timeMin: LATER_TIME_MIN,
+          startedAt: LATER.toISOString(),
+        },
+      },
+      pending: [PRIMARY],
+    });
+
+    // the next run, a day later, resumes the same pass; what its first page listed counts as listed
+    clock = new Date(LATER.getTime() + 24 * 60 * 60 * 1000);
+    script(CALENDARS, { body: eventsPage([allDayFixture], { nextSyncToken: 'sync-fresh' }) });
+    const resumed = await engine.runSource(sourceId);
+
+    expect(eventRequests()[0].params).toEqual({
+      ...FULL,
+      timeMin: LATER_TIME_MIN,
+      pageToken: 'page-2',
+    });
+    expect(resumed).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, removed: 1 });
+    expect(linkOf(PRIMARY, declinedFixture.id)).toBeUndefined();
+    expect(linkOf(PRIMARY, timedFixture.id)!.state).toBe(LinkState.SYNCED);
+    expect(linkOf(PRIMARY, allDayFixture.id)!.state).toBe(LinkState.SYNCED);
+  });
+
+  it('keeps what a full pass lists when the clock is set back while it pages', async () => {
+    const expire = await syncThenExpire(timedFixture, declinedFixture, allDayFixture);
+    expire(
+      { body: eventsPage([timedFixture], { nextPageToken: 'page-2' }) },
+      { error: new TypeError('fetch failed') },
+    );
+    await engine.runSource(sourceId);
+
+    // set back half an hour: before the pass started, though after the first sync
+    clock = new Date(LATER.getTime() - 30 * 60 * 1000);
+    script(CALENDARS, { body: eventsPage([allDayFixture], { nextSyncToken: 'sync-fresh' }) });
+    const resumed = await engine.runSource(sourceId);
+
+    expect(resumed).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, removed: 1 });
+    expect(linkOf(PRIMARY, declinedFixture.id)).toBeUndefined();
+    // written as of the pass's start, not the earlier time the clock gave
+    expect(linkOf(PRIMARY, allDayFixture.id)).toMatchObject({
+      state: LinkState.SYNCED,
+      lastSyncedAt: LATER,
+    });
+  });
+
+  it('removes nothing when a run stops at the page cap part-way through a full pass', async () => {
+    const expire = await syncThenExpire(timedFixture, declinedFixture);
+    const capped = new SyncEngine(db, { ...engineOptions, maxPagesPerRun: 1 });
+
+    expire({ body: eventsPage([timedFixture], { nextPageToken: 'page-2' }) });
+    const result = await capped.runSource(sourceId);
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.FAILED, pages: 1, removed: 0 });
+    expect(linkOf(PRIMARY, declinedFixture.id)!.state).toBe(LinkState.SYNCED);
+  });
+
+  it('leaves an event that ended before the full pass looked', async () => {
+    // mirrored by an earlier pass, from further back than this one looks
+    const old = {
+      ...timedFixture,
+      id: 'old0123456789',
+      summary: 'Kickoff',
+      start: { dateTime: '2026-08-03T10:00:00-04:00', timeZone: 'America/New_York' },
+      end: { dateTime: '2026-08-03T11:00:00-04:00', timeZone: 'America/New_York' },
+    };
+    const expire = await syncThenExpire(old, timedFixture);
+
+    expire({ body: eventsPage([], { nextSyncToken: 'sync-fresh' }) });
+    const result = await engine.runSource(sourceId);
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, removed: 1 });
+    expect(linkOf(PRIMARY, old.id)!.state).toBe(LinkState.SYNCED);
+    expect(linkOf(PRIMARY, timedFixture.id)).toBeUndefined();
+  });
+
+  it('removes a moved occurrence the full pass no longer lists, leaving cancelled dates as recorded', async () => {
+    // a cancellation parked for a series that is not mirrored
+    const orphaned = {
+      ...cancelledInstanceFixture,
+      id: 'orphan0123456789_20261019T140000Z',
+      recurringEventId: 'orphan0123456789',
+    };
+    const expire = await syncThenExpire(
+      masterFixture,
+      cancelledInstanceFixture,
+      modifiedInstanceFixture,
+      orphaned,
+    );
+    expect((await visible())[0].exdates).toEqual([CANCELLED_OCCURRENCE, MOVED_OCCURRENCE]);
+
+    // the moved occurrence was put back while the stale token kept Google from saying so
+    expire({ body: eventsPage([masterFixture], { nextSyncToken: 'sync-fresh' }) });
+    const result = await engine.runSource(sourceId);
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, removed: 1 });
+    expect(linkOf(PRIMARY, modifiedInstanceFixture.id)).toBeUndefined();
+    // cancelled dates have no lastSyncedAt, so a full pass leaves them, and the parked one, alone
+    expect(await visible()).toEqual([
+      { title: 'Weekly sync', recurrenceRule: SERIES_RULE, exdates: [CANCELLED_OCCURRENCE] },
+    ]);
+    expect(db.select().from(externalEventExceptions).all()).toHaveLength(1);
   });
 });
 

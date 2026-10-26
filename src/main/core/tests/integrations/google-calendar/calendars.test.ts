@@ -111,12 +111,13 @@ describe('Google Calendar source — getEventPage', () => {
     ]);
   });
 
-  it('skips and counts an entry that does not validate, keeping the rest', async () => {
+  it('skips and counts an entry that does not validate, keeping the rest and its id if it has one', async () => {
     const { calendars } = source([
       { body: eventsPage([{ summary: 'no id' }, { ...timedFixture, start: {} }, allDayFixture]) },
     ]);
     const page = await calendars.getEventPage(AUTH, PRIMARY, { from: FROM });
     expect(page.skipped).toBe(2);
+    expect(page.skippedIds).toEqual([`${PRIMARY}:${timedFixture.id}`]);
     expect(page.events.map((event) => event.title)).toEqual(['Team offsite']);
   });
 

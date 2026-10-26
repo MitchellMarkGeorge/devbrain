@@ -210,6 +210,7 @@ export class FakeCalendarSource implements CalendarSource {
       events: this.events.get(calendarId) ?? [],
       cancelledIds: [],
       skipped: 0,
+      skippedIds: [],
       nextPageToken: null,
       changeToken: `change-${this.pulls.length}`,
     };

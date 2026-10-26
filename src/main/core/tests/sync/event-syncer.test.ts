@@ -121,11 +121,19 @@ describe('EventSyncer — pull', () => {
     const first = await events.pull(AUTH, null, [PRIMARY_CALENDAR]);
     expect(first.done).toBe(false);
     expect(first.nextCursor).toEqual({
-      calendars: { [PRIMARY]: { syncToken: null, pageToken: 'page-2', timeMin: TIME_MIN } },
+      calendars: {
+        [PRIMARY]: {
+          syncToken: null,
+          pageToken: 'page-2',
+          timeMin: TIME_MIN,
+          startedAt: NOW.toISOString(),
+        },
+      },
       pending: [PRIMARY],
     });
+    expect(first.fullPass).toEqual({ startedAt: NOW, from: new Date(TIME_MIN), last: false });
 
-    // time moves on between pages; the pass keeps asking the same question
+    // time moves on between pages; the pass keeps asking the same question, and keeps its start
     clock = new Date(NOW.getTime() + 60_000);
     const second = await events.pull(AUTH, first.nextCursor, [PRIMARY_CALENDAR]);
 
@@ -135,6 +143,7 @@ describe('EventSyncer — pull', () => {
     });
     expect(fetch.requests).toHaveLength(2);
     expect(second.done).toBe(true);
+    expect(second.fullPass).toEqual({ startedAt: NOW, from: new Date(TIME_MIN), last: true });
     expect(second.nextCursor).toEqual({
       calendars: { [PRIMARY]: { syncToken: 'sync-1', pageToken: null } },
     });
@@ -270,6 +279,8 @@ describe('EventSyncer — pull', () => {
     expect(page).toEqual({
       calendarExternalId: null,
       events: [],
+      skippedIds: [],
+      fullPass: null,
       cancelledIds: [],
       skipped: 0,
       done: true,

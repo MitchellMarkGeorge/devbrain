@@ -132,6 +132,9 @@ export interface CalendarEventPage {
   cancelledIds: string[];
   // items that failed to validate or map; left out of the page
   skipped: number;
+  // the ids of the skipped items that still had one: they exist, though they could not be read, so
+  // a full pass counts them as listed and removes none of them
+  skippedIds: string[];
   // the token for the next page of this pass; null on the last
   nextPageToken: string | null;
   // set on the last page of a pass only: the token to ask for the changes after it

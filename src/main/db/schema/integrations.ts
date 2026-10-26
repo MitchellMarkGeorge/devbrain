@@ -118,6 +118,9 @@ export const externalLinks = sqliteTable(
     state: text().notNull().$type<LinkState>().default(LinkState.SYNCED),
     // JSON, validated with core/integrations/schema on read
     metadata: text({ mode: 'json' }).notNull().$type<unknown>().default({}),
+    // when sync last wrote or saw the item, whether or not it changed. A calendar's full pass
+    // removes the synced events it leaves older than its start (SyncWriter.sweepCalendar), so every
+    // write of an item a provider listed must move it
     lastSyncedAt: date().notNull(),
     removedAt: date(),
     // a closed issue past the settle age: still mirrored, no longer checked by reconcile

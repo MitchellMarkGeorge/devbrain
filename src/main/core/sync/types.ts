@@ -33,6 +33,21 @@ export interface EventSyncPage extends SyncPage {
   calendarExternalId: string | null;
   events: ExternalEvent[];
   cancelledIds: string[];
+  // the provider's ids of the events it listed but could not read (see CalendarEventPage)
+  skippedIds: string[];
+  // the full pass of the calendar this page is part of; null for an incremental page
+  fullPass: FullPass | null;
+}
+
+// A full pass of one calendar, as one of its pages carries it. A full pass lists every event of
+// the calendar that ends after `from`, so what it did not list is gone from the calendar.
+export interface FullPass {
+  // when the pass started: every page of it moves lastSyncedAt on what it lists to this or later
+  startedAt: Date;
+  // the pass's lower bound (its timeMin)
+  from: Date;
+  // whether this page ends the pass, every page before it having been applied
+  last: boolean;
 }
 
 // what SyncWriter.applyTaskPage takes: the items of a pulled page, or of resolved tasks
@@ -67,8 +82,11 @@ export interface ReconcilePlan {
   projectIds: string[];
 }
 
-// what SyncWriter.applyEventPage takes: the items of a pulled page
-export type EventPageItems = Pick<EventSyncPage, 'events' | 'cancelledIds'>;
+// what SyncWriter.applyEventPage takes: the items of a pulled page, and the full pass it is part of
+export type EventPageItems = Pick<
+  EventSyncPage,
+  'events' | 'cancelledIds' | 'skippedIds' | 'fullPass'
+>;
 
 // the electron-log methods sync uses; injected in tests
 export interface SyncLogger {

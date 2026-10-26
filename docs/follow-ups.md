@@ -137,12 +137,6 @@ Proposal:
 
 Design it properly with the first such feature, rather than guessing the capability shapes now.
 
-### A full resync of a calendar does not drop events deleted long ago
-
-_Found in feature 16b._
-
-After a 410, a calendar is walked again from 30 days back and its rows are matched by external id, as the design says. An event deleted while the token was stale that Google no longer reports as cancelled keeps its row. A sweep at the end of a full pass (delete this calendar's synced events not seen during the pass, by the removal rule) would close that; it needs the pass to record what it saw.
-
 ### Read `eventLabelId` for event colours
 
 _Found in feature 16b._
@@ -160,6 +154,27 @@ The writer skips an event whose `updated` is not newer than the stored one, whic
 _Found in feature 16b._
 
 `MIRRORED_EVENT_TYPES` (`src/main/core/integrations/providers/google-calendar/requests.ts`) is sent as the `eventTypes` filter on every events request. Google requires the parameters of an incremental request to match the full pass that issued its sync token, so changing the list once users have synced needs their stored tokens cleared: a migration that empties the `calendars` of every Google events cursor, or a filter version kept in the cursor and compared on each pull. Making the list a per-source setting, so a user can opt into birthdays, would need the same.
+
+### A full pass after a 410 leaves cancelled occurrences as recorded
+
+_Found in PR #35._
+
+After a 410, a calendar's full pass removes the synced events it did not list: those whose link's `lastSyncedAt` is older than the pass's start (`PageWrite.sweepCalendar` in `src/main/core/sync/writer.ts`). Cancelled occurrences have no such time, so they are left as recorded, in `event_exceptions` and, for a series not mirrored yet, `external_event_exceptions`. An occurrence cancelled and then restored unchanged while the token was stale stays hidden. One restored with changes comes back as an occurrence row and shows; a parked one for a series that never arrives is invisible. How often Google restores an occurrence unchanged (an undo, the bin, an edit of the whole series) is not confirmed.
+
+Options:
+
+1. **`lastSyncedAt` on both cancellation tables**, written when a cancellation is recorded or listed again. The sweep then also forgets, for the series the pass listed, the cancellations in the window older than its start. The same rule as links; a migration of two nullable `ADD`s, where an empty value counts as not seen. It puts a sync column on `event_exceptions`, which local series are to use too, though the sweep only touches synced series.
+2. **The pass's cancellations in the cursor**, as `series@start` keys next to `startedAt`, compared at the end. No schema change, and cancellations in the window are few, but the cursor grows while the pass pages and is rewritten with every page, and it is a second mechanism next to `lastSyncedAt`.
+
+### Ask the provider about events a full pass would remove
+
+_Found in PR #35._
+
+A full pass lists the events that end after its `timeMin`, so it cannot tell an event deleted while the token was stale from one moved to before the window: both are left unlisted, and `PageWrite.sweepCalendar` removes both. A meeting moved more than a month back is lost from history instead of moved; it comes back if edited again. An event changed while the pass pages may also be left off every page, if Google's paging does not guarantee otherwise, and comes back with the next incremental sync.
+
+Looking up each event the sweep would remove before removing it (`events.get`, one request each) would settle both: one that is deleted or cancelled goes, one that still exists is updated instead. The candidates are normally few. It needs a lookup on `CalendarSource`, the requests made before the last page is applied (pulls fetch, applies only write), and a read of the candidates in `EventSyncer`, which `Take the calendar reads out of EventSyncer` above wants to move. `TaskReconciler.resolveTasks` is the same pattern for tasks.
+
+Whether any of this is needed rests on Google no longer reporting older deletions in a full listing with `showDeleted=true`, which its documentation implies but does not state. A live check (delete an event, then run a full listing some days later and see whether it still comes back as cancelled) would show how often a deleted event goes unreported at all.
 
 ### A reconnect overwrites a disable made while it runs
 
