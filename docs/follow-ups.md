@@ -194,6 +194,20 @@ After "keep everything as local copies", connecting the same account again re-ma
 - That is safe, but after reconnecting the user has every old task as a local copy and has to reattach each one. The UI could offer "reattach all" after a reconnect: `DetachService.reattachTask` per top-level task, which refreshes it from the provider and overwrites local edits after a confirmation.
 - Or disconnect could mark the links it detached (a `detachedBy` on the link, or a metadata key), so a later sync reattaches those and leaves the ones the user detached alone. That needs a migration and a rule for a copy edited after the disconnect.
 
+### Viewing months before the synced history
+
+_Found while planning the calendar UI._
+
+The calendar view will let users go back months or years, but a Google calendar only has events from 30 days before its first full pass onward. `EVENT_HISTORY_WINDOW_MS` (`src/main/core/sync/constants.ts`) sets the pass's `timeMin` in `EventSyncer.withTimeMin` (`src/main/core/sync/event-syncer.ts`); later passes are incremental, and nothing removes old rows, so the stored history only grows forward from that first pass. `EventService.listForCalendar` reads any range from the database, but nothing fetches a range that was never synced, so earlier months show no synced events. Local events are all stored and are unaffected.
+
+- A full resync after a 410 starts again from 30 days back. Rows from before then stay, but whether later incremental passes still report changes to them is to check (see "A full resync of a calendar does not drop events deleted long ago").
+
+Options:
+
+1. **A longer window**, e.g. one or two years. A one-line change, but every first sync pulls and writes far more events, and anything older is still missing.
+2. **Fetch on demand.** When the view asks for a range before a calendar's synced history, fetch that range from Google (`timeMin`/`timeMax`, no sync token) and apply it through `SyncWriter.applyEventPage`, recording per calendar how far back history is loaded. Keeps first syncs fast and reaches any date. Needs a place to call the provider outside a run (see "A path for provider features that are not sync") and a rule for keeping backfilled rows up to date, since the incremental pass may not cover them. Recommended.
+3. **Both**: a moderate window (6–12 months) so recent history is there offline, with on-demand fetching for anything older.
+
 ### The calendar view's FullCalendar adapter
 
 _Found in feature 16b, for the calendar UI._
