@@ -25,6 +25,7 @@ import {
   WorkspaceDataMissingError,
   WorkspaceMigrationError,
 } from '../shared/errors';
+import { errorClass } from '../shared/logger';
 import { inArray } from 'drizzle-orm';
 import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
@@ -149,7 +150,9 @@ export class Workspace {
     if (noteIds.length > 0) {
       this.search
         .indexNoteFiles(noteIds)
-        .catch((error) => console.error('Indexing restored notes failed:', error));
+        .catch((error) =>
+          console.error(`Indexing restored notes failed error=${errorClass(error)}`),
+        );
     }
   }
 

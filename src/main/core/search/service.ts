@@ -2,6 +2,7 @@ import { NoteId } from '@common/ids';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import path from 'node:path';
 import { stripMarkdown } from '../shared/markdown';
+import { errorClass } from '../shared/logger';
 import { readNoteFile } from '../local/notes';
 import type { Event } from '../events/types';
 import type { Note } from '../notes/types';
@@ -288,7 +289,10 @@ export class SearchService {
             bodies.set(ids[i], stripMarkdown(file.value.content.trim()));
           } else {
             unreadable.push(ids[i]);
-            console.error(`Reading note ${ids[i]} for search failed:`, file.reason);
+            // the class only: the error quotes the note's file path
+            console.error(
+              `Reading note ${ids[i]} for search failed error=${errorClass(file.reason)}`,
+            );
           }
         });
         return this.db.transaction(() => write({ bodies, unreadable, written }));
