@@ -313,13 +313,13 @@ describe('SyncEngine reconcile — returning issues', () => {
     expect(provider.tasks.lookups).toEqual([]);
   });
 
-  it('makes no lookup with no candidates and no returning issues', async () => {
+  it('looks up only the projects with no candidates and no returning issues', async () => {
     const proj = project();
     await seed([issue({ projectExternalId: proj.externalId }), issue()], [proj]);
 
     const result = await reconcile();
 
-    expect(provider.tasks.lookups).toEqual([]);
+    expect(provider.tasks.lookups).toEqual([{ externalIds: [], projectIds: [proj.externalId] }]);
     expect(result).toMatchObject({
       outcome: SyncRunOutcome.COMPLETED,
       inserted: 0,
@@ -327,6 +327,14 @@ describe('SyncEngine reconcile — returning issues', () => {
       removed: 0,
     });
     expect(sourceRow().lastReconciledAt).toEqual(NOW);
+  });
+
+  it('makes no lookup with no candidates, no returning issues and no mirrored projects', async () => {
+    await seed([issue(), issue()]);
+
+    await reconcile();
+
+    expect(provider.tasks.lookups).toEqual([]);
   });
 
   it('sends the source’s synced projects with the lookup', async () => {
@@ -342,6 +350,68 @@ describe('SyncEngine reconcile — returning issues', () => {
       { externalIds: [gone.externalId], projectIds: [] },
       { externalIds: [], projectIds: [proj.externalId] },
     ]);
+  });
+});
+
+describe('SyncEngine reconcile — project changes', () => {
+  it('picks up a project edited in Linear while its issues stay the same', async () => {
+    const proj = project({ title: 'Platform' });
+    await seed([issue({ projectExternalId: proj.externalId })], [proj]);
+    remoteProjects.set(proj.externalId, {
+      ...proj,
+      title: 'Platform v2',
+      status: ProjectStatus.COMPLETED,
+      statusLabel: 'Completed',
+      completedAt: V2,
+      updatedAt: V2,
+    });
+
+    const result = await reconcile();
+
+    expect(provider.tasks.lookups).toEqual([{ externalIds: [], projectIds: [proj.externalId] }]);
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, updated: 1, removed: 0 });
+    expect(projectOf(proj.externalId)).toMatchObject({
+      title: 'Platform v2',
+      status: ProjectStatus.COMPLETED,
+      archivedAt: null,
+    });
+    expect(linkOf(proj.externalId).state).toBe(LinkState.SYNCED);
+  });
+
+  it('archives a project deleted in Linear while its issues stay the same', async () => {
+    const deleted = project();
+    const kept = project();
+    const inDeleted = issue({ projectExternalId: deleted.externalId });
+    await seed([inDeleted, issue({ projectExternalId: kept.externalId })], [deleted, kept]);
+    // the issue itself is unchanged, so no incremental pull brings the deletion in
+    remoteProjects.delete(deleted.externalId);
+
+    const result = await reconcile();
+
+    expect(provider.tasks.lookups.map((lookup) => lookup.externalIds)).toEqual([[]]);
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, removed: 1 });
+    expect(linkOf(deleted.externalId).state).toBe(LinkState.REMOVED);
+    expect(projectOf(deleted.externalId).archivedAt).toBeInstanceOf(Date);
+    expect(taskOf(inDeleted.externalId)).toMatchObject({ projectId: null, archivedAt: null });
+    expect(linkOf(kept.externalId).state).toBe(LinkState.SYNCED);
+  });
+
+  it('writes nothing when aborted during the project lookup', async () => {
+    const proj = project();
+    await seed([issue({ projectExternalId: proj.externalId })], [proj]);
+    remoteProjects.set(proj.externalId, { ...proj, title: 'Renamed', updatedAt: V2 });
+    const controller = new AbortController();
+    provider.tasks.respondToLookup = (request) => {
+      controller.abort();
+      return lookupFromRemote(request);
+    };
+    assignNow();
+
+    const result = await engine.reconcileSource(sourceId, { signal: controller.signal });
+
+    expect(result.outcome).toBe(SyncRunOutcome.ABORTED);
+    expect(projectOf(proj.externalId).title).toBe(proj.title);
+    expect(sourceRow().lastReconciledAt).toBeNull();
   });
 });
 
@@ -455,7 +525,7 @@ describe('SyncEngine reconcile — project lifecycle', () => {
     expect(projectOf(proj.externalId).archivedAt).toBeNull();
   });
 
-  it('archives a project emptied by an incremental pull, on a pass with no lookup', async () => {
+  it('archives a project emptied by an incremental pull, on a pass with no task lookup', async () => {
     const proj = project();
     const trashed = issue({ projectExternalId: proj.externalId });
     await seed([trashed], [proj]);
@@ -467,7 +537,7 @@ describe('SyncEngine reconcile — project lifecycle', () => {
 
     const result = await reconcile();
 
-    expect(provider.tasks.lookups).toEqual([]);
+    expect(provider.tasks.lookups.map((lookup) => lookup.externalIds)).toEqual([[]]);
     expect(result).toMatchObject({ removed: 1, changed: ['project'] });
     expect(linkOf(proj.externalId).state).toBe(LinkState.REMOVED);
     expect(projectOf(proj.externalId).archivedAt).toBeInstanceOf(Date);

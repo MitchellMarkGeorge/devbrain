@@ -22,7 +22,7 @@ import { TaskReconciler } from '../../sync/task-reconciler';
 import { SearchService } from '../../search/service';
 import { CredentialStore } from '../../integrations/credential-store';
 import { IntegrationService } from '../../integrations/service';
-import { DetachService, TaskLinkChange } from '../../integrations/detach';
+import { DetachService, TaskLinkChange, TaskLinkStateChange } from '../../integrations/detach';
 import {
   ExternalProject,
   ExternalTask,
@@ -158,6 +158,15 @@ function stateOf(item: ExternalTask): LinkState {
   return linkOf(item.externalId).state;
 }
 
+// the detach or reattach sent at this index (negative counts from the end)
+function moved(index: number): TaskLinkStateChange {
+  const change = changes.at(index);
+  if (change?.type !== 'detached' && change?.type !== 'reattached') {
+    throw new Error(`No detach or reattach at ${index}`);
+  }
+  return change;
+}
+
 beforeEach(async () => {
   workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-detach-'));
   await fs.mkdir(path.join(workspacePath, 'notes'), { recursive: true });
@@ -242,7 +251,7 @@ describe('DetachService — detach', () => {
         changed: ['task'],
       },
     ]);
-    expect(changes[0].taskIds).toHaveLength(3);
+    expect(moved(0).taskIds).toHaveLength(3);
   });
 
   it('detaches only the subtree of a child, leaving its parent synced', async () => {
@@ -388,7 +397,7 @@ describe('DetachService — reattach', () => {
       'Grandchild',
     ]);
     expect(taskOf(grandchild.externalId).parentTaskId).toBe(idOf(child));
-    expect(changes.at(-1)?.taskIds).toHaveLength(3);
+    expect(moved(-1).taskIds).toHaveLength(3);
   });
 
   it('mirrors the project the issue moved to while it was detached', async () => {
@@ -403,7 +412,7 @@ describe('DetachService — reattach', () => {
     const mirrored = db.select().from(projectsTable).all();
     expect(mirrored.map((row) => row.title)).toEqual(['Launch']);
     expect(taskOf(item.externalId).projectId).toBe(mirrored[0].id);
-    expect(changes.at(-1)?.changed.sort()).toEqual(['project', 'task']);
+    expect(moved(-1).changed.sort()).toEqual(['project', 'task']);
   });
 
   it('leaves a descendant that no longer resolves detached and top-level', async () => {
@@ -500,7 +509,7 @@ describe('DetachService — reattach', () => {
 });
 
 describe('TaskReconciler — reattachTasks', () => {
-  it('passes rejected credentials up, leaving the integration and the link as they were', async () => {
+  it('passes rejected credentials up and reports them, leaving the integration and the link as they were', async () => {
     const item = issue();
     await sync(item);
     await detach.detachTask(idOf(item));
@@ -510,9 +519,14 @@ describe('TaskReconciler — reattachTasks', () => {
 
     await expect(detach.reattachTask(idOf(item))).rejects.toThrow(IntegrationAuthError);
 
-    // moving the integration to needs_reauth is the caller's job (the IPC layer, later)
+    // DetachService reports it; moving the integration to needs_reauth is the workspace's job
     expect((await service.getById(integrationId)).status).toBe(IntegrationStatus.CONNECTED);
     expect(stateOf(item)).toBe(LinkState.DETACHED);
+    expect(changes.at(-1)).toEqual({
+      type: 'credentials_rejected',
+      taskId: idOf(item),
+      integrationId,
+    });
   });
 
   it('refuses while the integration needs re-authentication', async () => {

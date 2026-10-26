@@ -1,7 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { generateId } from '@common/ids';
-import { EventService } from '../../events/service';
+import { EventChange, EventService } from '../../events/service';
+import { events } from '@main/db/schema/events';
 import { NotFoundError } from '../../shared/errors';
 import { createDb } from '../utils';
 
@@ -75,7 +76,10 @@ describe('EventService — createEvent', () => {
         startAt: new Date('2026-06-10T11:00:00.000Z'),
         endAt: new Date('2026-06-10T10:00:00.000Z'),
       }),
-    ).rejects.toThrow(/endAt must not be before startAt/i);
+    ).rejects.toMatchObject({
+      code: 'invalid_input',
+      message: expect.stringMatching(/endAt must not be before startAt/i),
+    });
   });
 });
 
@@ -173,7 +177,10 @@ describe('EventService — updateEvent', () => {
     });
     await expect(
       eventsService.updateEvent(event.id, { endAt: new Date('2026-06-10T09:00:00.000Z') }),
-    ).rejects.toThrow(/endAt must not be before startAt/i);
+    ).rejects.toMatchObject({
+      code: 'invalid_input',
+      message: expect.stringMatching(/endAt must not be before startAt/i),
+    });
   });
 
   it('throws when moving startAt alone past the existing endAt', async () => {
@@ -184,7 +191,10 @@ describe('EventService — updateEvent', () => {
     });
     await expect(
       eventsService.updateEvent(event.id, { startAt: new Date('2026-06-10T12:00:00.000Z') }),
-    ).rejects.toThrow(/endAt must not be before startAt/i);
+    ).rejects.toMatchObject({
+      code: 'invalid_input',
+      message: expect.stringMatching(/endAt must not be before startAt/i),
+    });
   });
 
   it('clears recurrenceRule when explicitly set to null', async () => {
@@ -220,6 +230,98 @@ describe('EventService — deleteEvent', () => {
     await expect(eventsService.deleteEvent(generateId('event'))).rejects.toBeInstanceOf(
       NotFoundError,
     );
+  });
+});
+
+describe('EventService — onChange', () => {
+  const startAt = new Date('2026-06-10T10:00:00.000Z');
+  const endAt = new Date('2026-06-10T11:00:00.000Z');
+
+  function record() {
+    const changes: EventChange[] = [];
+    eventsService.onChange((change) => changes.push(change));
+    return changes;
+  }
+
+  it('sends each create, update and delete with what it wrote', async () => {
+    const changes = record();
+
+    const event = await eventsService.createEvent({ title: 'Standup', startAt, endAt });
+    const updated = await eventsService.updateEvent(event.id, { title: 'Retro' });
+    await eventsService.deleteEvent(event.id);
+
+    expect(changes).toEqual([
+      { type: 'created', event },
+      { type: 'updated', event: updated },
+      { type: 'deleted', eventIds: [event.id] },
+    ]);
+    expect(updated.title).toBe('Retro');
+  });
+
+  it("deleting a series sends its occurrence rows' ids with it", async () => {
+    const series = await eventsService.createEvent({
+      title: 'Weekly',
+      startAt,
+      endAt,
+      recurrenceRule: 'RRULE:FREQ=WEEKLY',
+    });
+    const [occurrence] = db
+      .insert(events)
+      .values({
+        title: 'Weekly, moved',
+        startAt: hoursAfter(startAt, 24 * 7 + 1),
+        endAt: hoursAfter(endAt, 24 * 7 + 1),
+        seriesId: series.id,
+        originalStartAt: hoursAfter(startAt, 24 * 7),
+      })
+      .returning()
+      .all();
+    const changes = record();
+
+    await eventsService.deleteEvent(series.id);
+
+    expect(changes).toEqual([{ type: 'deleted', eventIds: [series.id, occurrence.id] }]);
+  });
+
+  it('sends nothing when the write is refused', async () => {
+    const changes = record();
+
+    await expect(eventsService.deleteEvent(generateId('event'))).rejects.toThrow(NotFoundError);
+    await expect(eventsService.updateEvent(generateId('event'), { title: 'Nope' })).rejects.toThrow(
+      NotFoundError,
+    );
+    await expect(
+      eventsService.createEvent({ title: 'Backwards', startAt: endAt, endAt: startAt }),
+    ).rejects.toThrow();
+
+    expect(changes).toEqual([]);
+  });
+
+  it('a listener that throws fails neither the write nor the other listeners', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    eventsService.onChange(() => {
+      throw new Error('listener failed');
+    });
+    const changes = record();
+
+    try {
+      const event = await eventsService.createEvent({ title: 'Standup', startAt, endAt });
+      expect(await eventsService.getById(event.id)).toMatchObject({ title: 'Standup' });
+    } finally {
+      error.mockRestore();
+    }
+    expect(changes).toHaveLength(1);
+  });
+
+  it('stops sending to a listener once it unsubscribes', async () => {
+    const listener = vi.fn();
+    const unsubscribe = eventsService.onChange(listener);
+
+    const event = await eventsService.createEvent({ title: 'Standup', startAt, endAt });
+    unsubscribe();
+    await eventsService.deleteEvent(event.id);
+
+    expect(listener).toHaveBeenCalledOnce();
   });
 });
 

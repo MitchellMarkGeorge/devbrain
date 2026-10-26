@@ -1,6 +1,6 @@
 import { createServer, IncomingMessage, Server, ServerResponse } from 'node:http';
 import { AddressInfo } from 'node:net';
-import { CoreError, IntegrationAuthError } from '../../shared/errors';
+import { CoreError, IntegrationAuthError, OAuthUnavailableError } from '../../shared/errors';
 import { OAUTH_CALLBACK_TIMEOUT_MS } from '../../sync/constants';
 
 // The temporary HTTP listener the browser is redirected to at the end of an OAuth flow. Bound to
@@ -90,7 +90,10 @@ export async function startLoopback(options: LoopbackOptions): Promise<LoopbackL
     res.on('close', () => {
       if (settled) server.closeAllConnections();
     });
-    const url = new URL(req.url ?? '/', redirectUri);
+    // the request target comes from whoever connected and can be any string the HTTP parser
+    // accepts, e.g. `http://[`; one that is not a URL is answered here instead of throwing
+    const url = parseTarget(req.url, redirectUri);
+    if (url === null) return send(res, 400, BAD_REQUEST_PAGE);
     if (settled || req.method !== 'GET' || url.pathname !== path) {
       return send(res, 404, NOT_FOUND_PAGE);
     }
@@ -147,7 +150,15 @@ async function listen(server: Server, ports: number[] | 'any'): Promise<number> 
       if (code !== 'EADDRINUSE' && code !== 'EACCES') throw error;
     }
   }
-  throw new Error(`None of the redirect ports is free: ${candidates.join(', ')}`);
+  throw new OAuthUnavailableError(`None of the redirect ports is free: ${candidates.join(', ')}`);
+}
+
+function parseTarget(target: string | undefined, base: string): URL | null {
+  try {
+    return new URL(target ?? '/', base);
+  } catch {
+    return null;
+  }
 }
 
 function send(res: ServerResponse, status: number, body: string): void {

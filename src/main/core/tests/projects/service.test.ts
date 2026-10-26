@@ -184,36 +184,37 @@ describe('ProjectService — updateProject', () => {
   it('updates the title', async () => {
     const project = await projects.createProject({ title: 'Old title', dueDate: TOMORROW });
     const updated = await projects.updateProject(project.id, { title: 'New title' });
-    expect(updated!.title).toBe('New title');
+    expect(updated.title).toBe('New title');
   });
 
   it('updates the description', async () => {
     const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
     const updated = await projects.updateProject(project.id, { description: 'Added description' });
-    expect(updated!.description).toBe('Added description');
+    expect(updated.description).toBe('Added description');
   });
 
   it('updates the dueDate', async () => {
     const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
     const updated = await projects.updateProject(project.id, { dueDate: NEXT_WEEK });
-    expect(updated!.dueDate!.getTime()).toBe(NEXT_WEEK.getTime());
+    expect(updated.dueDate!.getTime()).toBe(NEXT_WEEK.getTime());
   });
 
   it('updates the startDate', async () => {
     const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
     const updated = await projects.updateProject(project.id, { startDate: YESTERDAY });
-    expect(updated!.startDate!.getTime()).toBe(YESTERDAY.getTime());
+    expect(updated.startDate!.getTime()).toBe(YESTERDAY.getTime());
   });
 
   it('updates the color', async () => {
     const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
     const updated = await projects.updateProject(project.id, { color: '#00ff00' });
-    expect(updated!.color).toBe('#00ff00');
+    expect(updated.color).toBe('#00ff00');
   });
 
-  it('returns null for an unknown id', async () => {
-    const result = await projects.updateProject(generateId('project'), { title: 'Ghost' });
-    expect(result).toBeNull();
+  it('throws NotFoundError for an unknown id', async () => {
+    await expect(projects.updateProject(generateId('project'), { title: 'Ghost' })).rejects.toThrow(
+      NotFoundError,
+    );
   });
 
   it('persists only the fields that were passed', async () => {
@@ -223,12 +224,18 @@ describe('ProjectService — updateProject', () => {
       description: 'Original desc',
     });
     const updated = await projects.updateProject(project.id, { title: 'Changed' });
-    expect(updated!.description).toBe('Original desc');
-    expect(updated!.dueDate!.getTime()).toBe(TOMORROW.getTime());
+    expect(updated.description).toBe('Original desc');
+    expect(updated.dueDate!.getTime()).toBe(TOMORROW.getTime());
   });
 });
 
 describe('ProjectService — updateStatus', () => {
+  it('throws NotFoundError for an unknown id', async () => {
+    await expect(
+      projects.updateStatus(generateId('project'), ProjectStatus.COMPLETED),
+    ).rejects.toThrow(NotFoundError);
+  });
+
   it('updates the project status', async () => {
     const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
     const updated = await projects.updateStatus(project.id, ProjectStatus.ACTIVE);
@@ -1047,7 +1054,9 @@ describe('ProjectService — onChange', () => {
     const listener = vi.fn();
     projects.onChange(listener);
 
-    await projects.updateProject(generateId('project'), { title: 'Missing' });
+    await expect(
+      projects.updateProject(generateId('project'), { title: 'Missing' }),
+    ).rejects.toThrow(NotFoundError);
 
     expect(listener).not.toHaveBeenCalled();
   });

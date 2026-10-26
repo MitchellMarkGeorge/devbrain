@@ -3,12 +3,13 @@ import { calendars } from '@main/db/schema/calendars';
 import { eventExceptions, events } from '@main/db/schema/events';
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lte, not, or } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { NotFoundError } from '../shared/errors';
+import { ExternalReadOnlyError, InvalidInputError, NotFoundError } from '../shared/errors';
 import { CreateEventOptions, Event, UpdateEventOptions } from './types';
 import { assertEditable, assertRowEditable, hasLinkInState, withRefs } from '../integrations/refs';
 import { LinkState } from '../integrations/types';
 import { DEFAULT_CALENDAR_ID } from '../calendars/types';
 import { allDayDates, fromDateString, isDateString, localTimeZone } from './dates';
+import { ChangeListener, ChangeListeners } from '../shared/changes';
 
 type EventRow = typeof events.$inferSelect;
 
@@ -17,8 +18,23 @@ export interface CalendarRangeOptions {
   calendarIds?: CalendarId[];
 }
 
+// What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
+// layer will forward them to the renderer. Sent after the write commits, with the row as written.
+// `deleted` carries every row the delete removed: the event, and a series' occurrence rows.
+export type EventChange =
+  | { type: 'created'; event: Event }
+  | { type: 'updated'; event: Event }
+  | { type: 'deleted'; eventIds: EventId[] };
+
 export class EventService {
+  private readonly changes = new ChangeListeners<EventChange>('Event');
+
   constructor(private readonly db: BetterSQLite3Database) {}
+
+  // returns a function that unsubscribes the listener
+  onChange(listener: ChangeListener<EventChange>): () => void {
+    return this.changes.add(listener);
+  }
 
   async getById(id: EventId): Promise<Event> {
     const [event] = await this.db.select().from(events).where(eq(events.id, id));
@@ -56,7 +72,9 @@ export class EventService {
     };
 
     const [insertedEvent] = await this.db.insert(events).values(newEvent).returning();
-    return { ...insertedEvent, exdates: [], external: null };
+    const event: Event = { ...insertedEvent, exdates: [], external: null };
+    this.changes.emit({ type: 'created', event });
+    return event;
   }
 
   /**
@@ -93,6 +111,7 @@ export class EventService {
       .returning();
     if (!updatedEvent) throw new NotFoundError(id);
     const [withDetails] = await this.withDetails([updatedEvent]);
+    this.changes.emit({ type: 'updated', event: withDetails });
     return withDetails;
   }
 
@@ -100,12 +119,18 @@ export class EventService {
     // events have no archivedAt column (unlike notes/tasks/projects) — this
     // is a hard delete
     assertEditable(this.db, id);
-    this.db.transaction((tx) => {
+    const eventIds = this.db.transaction((tx) => {
       // a series takes its own occurrence rows with it; its cancelled ones cascade
-      tx.delete(events).where(eq(events.seriesId, id)).run();
+      const occurrences = tx
+        .delete(events)
+        .where(eq(events.seriesId, id))
+        .returning({ id: events.id })
+        .all();
       const [deleted] = tx.delete(events).where(eq(events.id, id)).returning().all();
       if (!deleted) throw new NotFoundError(id);
+      return [id, ...occurrences.map((row) => row.id)];
     });
+    this.changes.emit({ type: 'deleted', eventIds });
   }
 
   /**
@@ -151,9 +176,8 @@ export class EventService {
       .from(calendars)
       .where(eq(calendars.id, calendarId));
     if (!calendar) throw new NotFoundError(calendarId);
-    if (calendar.sourceId !== null) {
-      throw new Error(`${calendarId} is synced from a provider; its events are read-only`);
-    }
+    // a synced calendar's events come from its provider
+    if (calendar.sourceId !== null) throw new ExternalReadOnlyError(calendarId);
   }
 
   // `external` and `exdates`, each in one batched lookup
@@ -161,7 +185,7 @@ export class EventService {
     const exdates = await this.exdatesOf(
       rows.filter((row) => row.recurrenceRule !== null).map((row) => row.id),
     );
-    const withExternal = await withRefs(this.db, rows);
+    const withExternal = withRefs(this.db, rows);
     return withExternal.map((row) => ({ ...row, exdates: exdates.get(row.id) ?? [] }));
   }
 
@@ -218,7 +242,7 @@ export function timing(input: {
 }) {
   if (!input.allDay) {
     if (input.endAt.getTime() < input.startAt.getTime()) {
-      throw new Error('endAt must not be before startAt');
+      throw new InvalidInputError('endAt must not be before startAt');
     }
     return {
       startAt: input.startAt,
@@ -233,10 +257,10 @@ export function timing(input: {
   const startDate = input.startDate ?? derived.startDate;
   const endDate = input.endDate ?? derived.endDate;
   for (const value of [startDate, endDate]) {
-    if (!isDateString(value)) throw new Error(`Not a date: ${value}`);
+    if (!isDateString(value)) throw new InvalidInputError(`Not a date: ${value}`);
   }
   // the end is exclusive, so an all-day event lasts at least one day
-  if (endDate <= startDate) throw new Error('endDate must be after startDate');
+  if (endDate <= startDate) throw new InvalidInputError('endDate must be after startDate');
   return {
     startAt: fromDateString(startDate),
     endAt: fromDateString(endDate),

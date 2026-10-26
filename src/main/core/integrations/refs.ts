@@ -1,7 +1,6 @@
 import { EventId, ProjectId, TaskId } from '@common/ids';
 import { externalLinks } from '@main/db/schema/integrations';
 import { inArray, sql, SQL, SQLWrapper } from 'drizzle-orm';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { BaseSQLiteDatabase, SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { RunResult } from 'better-sqlite3';
 import { ExternalRef, LinkState } from './types';
@@ -99,12 +98,12 @@ export function assertRowEditable(row: {
  *
  * Services fill `external` after their own query, with one batched lookup per call, instead of
  * joining inside every list query: that keeps the keyset queries and the indexes behind them
- * untouched.
+ * untouched. Synchronous, so it also runs inside a transaction (`db` can be one).
  */
-export async function getRefs<T extends LinkedEntityId>(
-  db: BetterSQLite3Database,
+export function getRefs<T extends LinkedEntityId>(
+  db: BaseSQLiteDatabase<'sync', RunResult>,
   ids: T[],
-): Promise<Map<T, ExternalRef>> {
+): Map<T, ExternalRef> {
   const refs = new Map<T, ExternalRef>();
   if (ids.length === 0) return refs;
 
@@ -114,7 +113,7 @@ export async function getRefs<T extends LinkedEntityId>(
   }
   const column = LINK_COLUMNS[entity];
 
-  const links = await db
+  const links = db
     .select({
       entityId: sql<T>`${column}`,
       provider: externalLinks.provider,
@@ -125,7 +124,8 @@ export async function getRefs<T extends LinkedEntityId>(
       lastSyncedAt: externalLinks.lastSyncedAt,
     })
     .from(externalLinks)
-    .where(inArray(column, ids));
+    .where(inArray(column, ids))
+    .all();
 
   for (const { entityId, metadata, ...link } of links) {
     refs.set(entityId, { ...link, ...labelsOf(entity, metadata) });
@@ -134,21 +134,21 @@ export async function getRefs<T extends LinkedEntityId>(
 }
 
 /** the rows with `external` set: the row's ref when it has a link, null when it is local */
-export async function withRefs<T extends { id: LinkedEntityId }>(
-  db: BetterSQLite3Database,
+export function withRefs<T extends { id: LinkedEntityId }>(
+  db: BaseSQLiteDatabase<'sync', RunResult>,
   rows: T[],
-): Promise<(T & { external: ExternalRef | null })[]> {
-  const refs = await getRefs(
+): (T & { external: ExternalRef | null })[] {
+  const refs = getRefs(
     db,
     rows.map((row) => row.id),
   );
   return rows.map((row) => ({ ...row, external: refs.get(row.id) ?? null }));
 }
 
-export async function withRef<T extends { id: LinkedEntityId }>(
-  db: BetterSQLite3Database,
+export function withRef<T extends { id: LinkedEntityId }>(
+  db: BaseSQLiteDatabase<'sync', RunResult>,
   row: T,
-): Promise<T & { external: ExternalRef | null }> {
-  const [withRef] = await withRefs(db, [row]);
+): T & { external: ExternalRef | null } {
+  const [withRef] = withRefs(db, [row]);
   return withRef;
 }

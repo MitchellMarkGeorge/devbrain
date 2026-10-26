@@ -48,7 +48,7 @@ interface EngineCall {
 /**
  * Stands in for SyncEngine's runSource and reconcileSource. Each run takes `durationMs` on the fake
  * clock and records its outcome on the source through the real SyncStateManager, as the engine
- * does, so the scheduler reads real failure counts and retry times.
+ * does, so the scheduler reads real failure counts, retry times and whether a first sync finished.
  */
 class FakeEngine implements BaseSyncEngine {
   readonly calls: EngineCall[] = [];
@@ -71,6 +71,10 @@ class FakeEngine implements BaseSyncEngine {
       if (options.signal?.aborted) return result(sourceId, SyncRunOutcome.ABORTED);
       switch (this.outcome) {
         case SyncRunOutcome.COMPLETED:
+          // a source's first completed run is its full pass
+          if (!this.syncState.getSyncTarget(sourceId).initialSyncCompletedAt) {
+            this.syncState.saveCursor(sourceId, {}, { initialSyncCompletedAt: new Date() });
+          }
           this.syncState.recordSyncOutcome(sourceId, { ok: true, at: new Date() });
           break;
         case SyncRunOutcome.FAILED:
@@ -164,6 +168,7 @@ let scheduler: SyncScheduler;
 let logger: ReturnType<typeof quietLogger>;
 let linearId: IntegrationId;
 let linearSourceId: ExternalSourceId;
+let calendarId: IntegrationId;
 let calendarSourceId: ExternalSourceId;
 
 beforeEach(async () => {
@@ -183,6 +188,7 @@ beforeEach(async () => {
   const calendar = await service.connectWithApiKey(ProviderId.GOOGLE_CALENDAR, 'key', {
     enable: [],
   });
+  calendarId = calendar.id;
   calendarSourceId = calendar.sources[0].id;
 
   syncState = new SyncStateManager(db);
@@ -403,13 +409,26 @@ describe('SyncScheduler — triggers', () => {
     expect(engine.reconciles()).toHaveLength(2);
   });
 
-  it('connecting a source while started syncs it at once', async () => {
+  it('connecting a source while started syncs it at once, without reconciling its first sync', async () => {
     await start();
 
     await service.setSourceEnabled(calendarSourceId, true);
     await vi.advanceTimersByTimeAsync(0);
 
     expect(engine.runs(calendarSourceId)).toHaveLength(1);
+    expect(engine.reconciles(calendarSourceId)).toHaveLength(0);
+  });
+
+  it('a source switched back on after its first sync resumes with the reconcile pass', async () => {
+    await start();
+    await service.setSourceEnabled(linearSourceId, false);
+    await vi.advanceTimersByTimeAsync(2 * MINUTE);
+
+    await service.setSourceEnabled(linearSourceId, true);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(engine.runs().map((call) => call.at)).toEqual([0, 2]);
+    expect(engine.reconciles().map((call) => call.at)).toEqual([0, 2]);
   });
 
   it('switching a source off aborts its run', async () => {
@@ -520,6 +539,88 @@ describe('SyncScheduler — backoff', () => {
 
     await vi.advanceTimersByTimeAsync(5 * MINUTE);
     expect(engine.runs().map((call) => call.at)).toEqual([0, 15]);
+  });
+});
+
+describe('SyncScheduler — reconnect', () => {
+  function reconnect(id: IntegrationId, apiKey = FAKE_API_KEY) {
+    return service.reconnect(id, { type: AuthType.API_KEY, apiKey });
+  }
+
+  it('runs each enabled source of the integration once, at once, with the reconcile pass', async () => {
+    await start();
+    await vi.advanceTimersByTimeAsync(2 * MINUTE);
+    service.markNeedsReauth(linearId);
+
+    await reconnect(linearId);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(engine.runs().map((call) => call.at)).toEqual([0, 2]);
+    expect(engine.reconciles().map((call) => call.at)).toEqual([0, 2]);
+    // no follow-up: the next run is the 5-minute tick
+    await vi.advanceTimersByTimeAsync(2 * MINUTE);
+    expect(engine.runs().map((call) => call.at)).toEqual([0, 2]);
+  });
+
+  it("runs neither a disabled source nor another integration's", async () => {
+    await start();
+    await vi.advanceTimersByTimeAsync(2 * MINUTE);
+    service.markNeedsReauth(calendarId);
+
+    await reconnect(calendarId, 'key');
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(engine.runs(calendarSourceId)).toHaveLength(0);
+    expect(engine.runs()).toHaveLength(1);
+  });
+
+  it('ignores the backoff and restarts it', async () => {
+    engine.outcome = SyncRunOutcome.FAILED;
+    await start();
+    await vi.advanceTimersByTimeAsync(16 * MINUTE);
+    expect(source().consecutiveFailures).toBe(4);
+    service.markNeedsReauth(linearId);
+
+    // inside the 8-minute wait
+    await reconnect(linearId);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(engine.runs().map((call) => call.at)).toEqual([0, 5, 10, 15, 16]);
+
+    // failed again, but the wait starts over at 1 minute, so the 20-minute tick runs
+    await vi.advanceTimersByTimeAsync(4 * MINUTE);
+    expect(engine.runs().map((call) => call.at)).toEqual([0, 5, 10, 15, 16, 20]);
+  });
+
+  it("waits for the provider's retry time", async () => {
+    engine.outcome = SyncRunOutcome.RATE_LIMITED;
+    engine.retryAt = new Date(START.getTime() + 12 * MINUTE);
+    await start();
+    engine.outcome = SyncRunOutcome.COMPLETED;
+    await vi.advanceTimersByTimeAsync(2 * MINUTE);
+    service.markNeedsReauth(linearId);
+
+    await reconnect(linearId);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(engine.runs().map((call) => call.at)).toEqual([0]);
+
+    // the first tick after the retry time runs it
+    await vi.advanceTimersByTimeAsync(13 * MINUTE);
+    expect(engine.runs().map((call) => call.at)).toEqual([0, 15]);
+  });
+
+  it('enabling a disabled integration runs each source it switches on once', async () => {
+    await start();
+    await service.setEnabled(linearId, false);
+    await vi.advanceTimersByTimeAsync(2 * MINUTE);
+
+    await service.setEnabled(linearId, true);
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(engine.runs().map((call) => call.at)).toEqual([0, 2]);
+    expect(engine.reconciles().map((call) => call.at)).toEqual([0, 2]);
+    await vi.advanceTimersByTimeAsync(2 * MINUTE);
+    expect(engine.runs().map((call) => call.at)).toEqual([0, 2]);
+    expect(engine.overlapped).toBe(false);
   });
 });
 

@@ -1,3 +1,4 @@
+import { connect } from 'node:net';
 import { describe, it, expect, afterEach } from 'vitest';
 import {
   LoopbackListener,
@@ -28,6 +29,19 @@ describe('OAuth — loopback listener', () => {
     return fetch(`${listener.redirectUri}?${query}`);
   }
 
+  // sends a request exactly as given, which fetch would refuse to build; resolves with the raw response
+  function rawRequest(listener: LoopbackListener, target: string) {
+    return new Promise<string>((resolve, reject) => {
+      const socket = connect(portOf(listener.redirectUri), '127.0.0.1');
+      let response = '';
+      socket.setEncoding('utf8');
+      socket.on('data', (chunk) => (response += chunk));
+      socket.on('end', () => resolve(response));
+      socket.on('error', reject);
+      socket.write(`GET ${target} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n`);
+    });
+  }
+
   afterEach(() => {
     for (const listener of opened.splice(0)) listener.close();
   });
@@ -51,6 +65,16 @@ describe('OAuth — loopback listener', () => {
     const listener = await start();
     expect((await callback(listener, 'code=forged&state=wrong')).status).toBe(400);
     expect((await callback(listener, 'code=forged')).status).toBe(400);
+    expect(await isListening(portOf(listener.redirectUri))).toBe(true);
+
+    await callback(listener, `code=real&state=${STATE}`);
+    expect(await listener.code).toBe('real');
+  });
+
+  it('answers 400 to a request target that is not a valid URL, and keeps waiting', async () => {
+    const listener = await start();
+    expect(await rawRequest(listener, 'http://[')).toMatch(/^HTTP\/1\.1 400 /);
+    expect(await rawRequest(listener, '//[/callback')).toMatch(/^HTTP\/1\.1 400 /);
     expect(await isListening(portOf(listener.redirectUri))).toBe(true);
 
     await callback(listener, `code=real&state=${STATE}`);
@@ -129,7 +153,10 @@ describe('OAuth — loopback listener', () => {
   it('fails when every fixed port is busy', async () => {
     const busy = await occupyPort();
     try {
-      await expect(start({ ports: [busy.port] })).rejects.toThrow('None of the redirect ports');
+      await expect(start({ ports: [busy.port] })).rejects.toMatchObject({
+        code: 'oauth_unavailable',
+        message: expect.stringContaining('None of the redirect ports'),
+      });
     } finally {
       await busy.close();
     }

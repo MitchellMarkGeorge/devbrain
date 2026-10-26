@@ -6,6 +6,8 @@ import type { Provider } from '../integrations/shared-types';
 // free of main-only imports.
 export type CoreErrorCode =
   | 'not_found'
+  | 'invalid_input'
+  | 'task_hierarchy'
   | 'already_archived'
   | 'not_archived'
   | 'external_read_only'
@@ -15,6 +17,8 @@ export type CoreErrorCode =
   | 'connect_in_progress'
   | 'integration_account_mismatch'
   | 'integration_disabled'
+  | 'unsupported_by_provider'
+  | 'oauth_unavailable'
   | 'rate_limited'
   | 'sync_page_limit'
   | 'provider_unavailable'
@@ -26,6 +30,7 @@ export type CoreErrorCode =
   | 'malformed_note_file'
   | 'devbrain_folder'
   | 'workspace_not_open'
+  | 'workspace_data_missing'
   | 'workspace_closed'
   | 'workspace_migration';
 
@@ -39,6 +44,40 @@ export class NotFoundError<T extends EntityType> extends CoreError {
   constructor(id: Id<T>) {
     super(`No entity found with id: ${id}`);
     this.name = 'NotFoundError';
+  }
+}
+
+// arguments that can never be valid, whatever is stored: a task or note linked to both an event and
+// a note or task, an event that ends before it starts, an empty API key. Nothing was changed
+export class InvalidInputError extends CoreError {
+  readonly code = 'invalid_input';
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidInputError';
+  }
+}
+
+export type TaskHierarchyReason =
+  // a subtask of a task without a due date was given none
+  | 'due_date_required'
+  // a local subtask's project and links come from its parent
+  | 'inherits_context'
+  // promoting a task that has no parent
+  | 'not_subtask'
+  // demoting a task under itself or under one of its own subtasks
+  | 'cycle';
+
+// a change the task tree does not allow; nothing was changed
+export class TaskHierarchyError extends CoreError {
+  readonly code = 'task_hierarchy';
+  readonly taskId: TaskId;
+  readonly reason: TaskHierarchyReason;
+
+  constructor(taskId: TaskId, reason: TaskHierarchyReason, message: string) {
+    super(message);
+    this.name = 'TaskHierarchyError';
+    this.taskId = taskId;
+    this.reason = reason;
   }
 }
 
@@ -58,7 +97,8 @@ export class NotArchivedError<T extends EntityType> extends CoreError {
   }
 }
 
-// a mutation on a row an integration owns (its link is `synced`); detach it first
+// a mutation on a row an integration owns (its link is `synced`), or on an event of a synced
+// calendar; detach the row first
 export class ExternalReadOnlyError<T extends EntityType> extends CoreError {
   readonly code = 'external_read_only';
   constructor(id: Id<T>) {
@@ -136,6 +176,28 @@ export class IntegrationDisabledError extends CoreError {
   }
 }
 
+// the provider can't do what was asked: connect with that auth method, or serve that source type
+export class UnsupportedByProviderError extends CoreError {
+  readonly code = 'unsupported_by_provider';
+  readonly provider: Provider;
+
+  constructor(provider: Provider, message: string) {
+    super(message);
+    this.name = 'UnsupportedByProviderError';
+    this.provider = provider;
+  }
+}
+
+// an OAuth sign-in can't start here: no OAuth client or browser was configured, or no redirect port
+// is free. Nothing was changed
+export class OAuthUnavailableError extends CoreError {
+  readonly code = 'oauth_unavailable';
+  constructor(message: string) {
+    super(message);
+    this.name = 'OAuthUnavailableError';
+  }
+}
+
 // the provider asked us to slow down; the next attempt must wait until `retryAt`
 export class RateLimitError extends CoreError {
   readonly code = 'rate_limited';
@@ -199,6 +261,19 @@ export class WorkspaceNotOpenError extends CoreError {
   constructor(workspaceId: WorkspaceId) {
     super(`Workspace ${workspaceId} must be open to be deleted`);
     this.name = 'WorkspaceNotOpenError';
+    this.workspaceId = workspaceId;
+  }
+}
+
+// a workspace in the registry whose directory or database is gone from disk, so it can't be opened
+// or deleted through the usual path
+export class WorkspaceDataMissingError extends CoreError {
+  readonly code = 'workspace_data_missing';
+  readonly workspaceId: WorkspaceId;
+
+  constructor(workspaceId: WorkspaceId, message: string) {
+    super(message);
+    this.name = 'WorkspaceDataMissingError';
     this.workspaceId = workspaceId;
   }
 }

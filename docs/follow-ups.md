@@ -107,19 +107,6 @@ If any of these matters in the calendar UI, `EventSyncer` can expose two operati
 
 The picker's IPC handlers would call them through whatever owns the syncers (the engine, or the scheduler). Selecting a calendar would stay `CalendarService.setSelected` followed by a run.
 
-### Move a reattach's integration to `needs_reauth` in the typed IPC layer
-
-_Found in the source/syncer split._
-
-When a reattach's credentials are rejected, `TaskReconciler.reattachTasks` (`src/main/core/sync/task-reconciler.ts`) throws `IntegrationAuthError` and leaves the integration's status alone: sync no longer depends on `IntegrationService`. Nothing moves the integration to `needs_reauth` in that case for now, so a rejected key is only noticed by the next sync run (`SyncEngine` still marks it). `DetachService` is not wired into the workspace yet either.
-
-When the typed IPC layer exposes `detachTask` and `reattachTask`, its handler should catch `IntegrationAuthError` and call `IntegrationService.markNeedsReauth`, ideally through one helper shared by every handler that can reach a provider. The handler knows a task id, not an integration id, so either:
-
-1. **`IntegrationAuthError` carries the `integrationId`**, tagged where the auth was fetched (in `TaskReconciler`) without touching the integration's status. Works the same for every entry point. Recommended.
-2. **The handler looks the integration up** from the task's link (`src/main/core/integrations/refs.ts` reads links; it would also return the integration id).
-
-The same could later take `IntegrationService` out of `SyncEngine`, whose `recordFailure` marks `needs_reauth` for runs: the scheduler would do it from the run result's error instead.
-
 ### Take the calendar reads out of `EventSyncer`
 
 _Found in the source/syncer split. Subject to change: the current placement is a stopgap._
@@ -186,6 +173,30 @@ Options considered so far:
 - Not yet tried: `external_links.lastSyncedAt`, which every upsert and touch already moves. A pass could store its start time in the cursor and sweep links not synced since. It needs no new storage, but a clock that moves backwards could remove listed events, `PageWrite` takes its time from `new Date()` rather than the syncer's injected clock, and it covers links only, not `event_exceptions` or parked cancellations.
 
 Also worth settling first whether the fix is needed: it rests on Google no longer reporting older deletions in a full listing with `showDeleted=true`, which its documentation implies but does not state. A live check (delete an event, then run a full listing some days later and see whether it still comes back as cancelled) would show how often a deleted event can actually go unreported.
+
+### A reconnect overwrites a disable made while it runs
+
+_Found in PR #31, where reconnecting started syncing again._
+
+`IntegrationService.reconnect` (`src/main/core/integrations/service.ts`) reads the integration's status, awaits `authenticate` (one account query for an API key, the whole browser flow for OAuth, which can take minutes) and sealing the credentials, then writes the new status. It chooses that status from the row it read before the wait: disabled stays disabled, anything else becomes connected. A `setEnabled(id, false)` that lands during the wait is overwritten:
+
+| Step                              | Status       | Source | Event                                             |
+| --------------------------------- | ------------ | ------ | ------------------------------------------------- |
+| `reconnect` reads the row         | needs_reauth | on     |                                                   |
+| the user disables the integration | disabled     | off    | `needs_reauth → disabled`, `source_changed` (off) |
+| `reconnect` writes                | connected    | off    | `needs_reauth → connected`                        |
+
+- The user's disable is lost, and the integration shows connected with every source off, which only a user's own choice otherwise produces.
+- The event's `previous` is the stale status, so a listener tracking status from events gets a wrong history.
+- Nothing syncs, but only because every source is off. If reconnect ever switched sources back on, it would sync what the user just turned off.
+
+A disconnect during the wait is already safe: `CredentialStore.save` throws `NotFoundError` and the transaction rolls back. Moving to `needs_reauth` during the wait and then being overwritten with connected is correct, as the new credentials were just validated.
+
+Fixes, which can be combined:
+
+1. **Re-read the status in the write transaction** and choose the new status and `previous` from it. The transaction is synchronous, so nothing can change between the read and the write. A few lines plus a test that holds the account query open and disables meanwhile. Recommended in any case.
+2. **Refuse edits while a flow runs.** Track the integrations being connected or reconnected, and make `setEnabled` and `setSourceEnabled` throw an "integration busy" error for them. The service already does this between OAuth flows (`connecting` and `ConnectInProgressError`), but API-key reconnects are not tracked. Gives the UI a clear error when a click slips through.
+3. **Lock the controls in the UI.** While an integration connects or reconnects, its enable toggle and source switches are disabled ("Waiting for sign-in…"). The clearest experience, but not enough on its own: `markNeedsReauth` also comes from the sync engine and token refresh, and a second window or a stale view can still reach the service. Nothing in the renderer or IPC calls `reconnect` or `setEnabled` yet, so this belongs with the integrations settings screen.
 
 ### Reconnecting leaves kept tasks detached
 

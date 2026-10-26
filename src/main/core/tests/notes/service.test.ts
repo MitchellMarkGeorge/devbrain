@@ -114,7 +114,10 @@ describe('NoteService — createNote', () => {
 
     await expect(
       notesService.createNote({ linkedEventId: eventId, linkedTaskId: taskId }),
-    ).rejects.toThrow(/cannot be linked to both/i);
+    ).rejects.toMatchObject({
+      code: 'invalid_input',
+      message: expect.stringMatching(/cannot be linked to both/i),
+    });
 
     // the notes directory should never have been created
     const notesDir = path.join(workspacePath, 'notes');
@@ -321,49 +324,49 @@ describe('NoteService — updateNote', () => {
   it('updates the title', async () => {
     const note = await notesService.createNote({ title: 'Old title' });
     const updated = await notesService.updateNote(note.id, { title: 'New title' });
-    expect(updated!.title).toBe('New title');
+    expect(updated.title).toBe('New title');
   });
 
   it('updates the projectId', async () => {
     const note = await notesService.createNote({ title: 'Note' });
     const updated = await notesService.updateNote(note.id, { projectId: FAKE_PROJECT_ID });
-    expect(updated!.projectId).toBe(FAKE_PROJECT_ID);
+    expect(updated.projectId).toBe(FAKE_PROJECT_ID);
   });
 
   it('clears the projectId when explicitly set to null', async () => {
     const note = await notesService.createNote({ title: 'Note', projectId: FAKE_PROJECT_ID });
     const updated = await notesService.updateNote(note.id, { projectId: null });
-    expect(updated!.projectId).toBeNull();
+    expect(updated.projectId).toBeNull();
   });
 
   it('persists fields that were not passed', async () => {
     const note = await notesService.createNote({ title: 'Original', projectId: FAKE_PROJECT_ID });
     const updated = await notesService.updateNote(note.id, { title: 'Changed' });
-    expect(updated!.projectId).toBe(FAKE_PROJECT_ID);
+    expect(updated.projectId).toBe(FAKE_PROJECT_ID);
   });
 
   it('sets linkedEventId', async () => {
     const note = await notesService.createNote({ title: 'Note' });
     const updated = await notesService.updateNote(note.id, { linkedEventId: FAKE_EVENT_ID });
-    expect(updated!.linkedEventId).toBe(FAKE_EVENT_ID);
+    expect(updated.linkedEventId).toBe(FAKE_EVENT_ID);
   });
 
   it('sets linkedTaskId', async () => {
     const note = await notesService.createNote({ title: 'Note' });
     const updated = await notesService.updateNote(note.id, { linkedTaskId: FAKE_TASK_ID });
-    expect(updated!.linkedTaskId).toBe(FAKE_TASK_ID);
+    expect(updated.linkedTaskId).toBe(FAKE_TASK_ID);
   });
 
   it('does not clear an existing link when updating an unrelated field', async () => {
     const note = await notesService.createNote({ title: 'Note', linkedEventId: FAKE_EVENT_ID });
     const updated = await notesService.updateNote(note.id, { title: 'Renamed' });
-    expect(updated!.linkedEventId).toBe(FAKE_EVENT_ID);
+    expect(updated.linkedEventId).toBe(FAKE_EVENT_ID);
   });
 
   it('clears an existing link when explicitly set to null', async () => {
     const note = await notesService.createNote({ title: 'Note', linkedEventId: FAKE_EVENT_ID });
     const updated = await notesService.updateNote(note.id, { linkedEventId: null });
-    expect(updated!.linkedEventId).toBeNull();
+    expect(updated.linkedEventId).toBeNull();
   });
 
   it('throws if both linkedEventId and linkedTaskId are provided', async () => {
@@ -373,12 +376,16 @@ describe('NoteService — updateNote', () => {
         linkedEventId: FAKE_EVENT_ID,
         linkedTaskId: FAKE_TASK_ID,
       }),
-    ).rejects.toThrow(/cannot be linked to both/i);
+    ).rejects.toMatchObject({
+      code: 'invalid_input',
+      message: expect.stringMatching(/cannot be linked to both/i),
+    });
   });
 
-  it('returns null for an unknown id', async () => {
-    const result = await notesService.updateNote(generateId('note'), { title: 'Ghost' });
-    expect(result).toBeNull();
+  it('throws NotFoundError for an unknown id', async () => {
+    await expect(notesService.updateNote(generateId('note'), { title: 'Ghost' })).rejects.toThrow(
+      NotFoundError,
+    );
   });
 });
 
@@ -442,6 +449,64 @@ describe('NoteService — updateNoteContent', () => {
     await expect(
       notesService.updateNoteContent(generateId('note'), 'content'),
     ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  it('throws NotFoundError when the row is deleted while saving', async () => {
+    const note = await notesService.createNote({ title: 'Note' });
+    vi.spyOn(notesService, 'getById').mockResolvedValueOnce(note);
+    await db.delete(notesTable).where(eq(notesTable.id, note.id));
+
+    await expect(notesService.updateNoteContent(note.id, 'content')).rejects.toBeInstanceOf(
+      NotFoundError,
+    );
+  });
+
+  describe('concurrent saves to one note', () => {
+    const N = 20;
+    const contents = Array.from({ length: N }, (_, i) => `# Save ${i}\n\nbody **${i}**`);
+
+    it('all resolve, each with the preview of its own content', async () => {
+      const note = await notesService.createNote({ title: 'Note' });
+      const results = await Promise.all(
+        contents.map((c) => notesService.updateNoteContent(note.id, c)),
+      );
+      expect(results.map((r) => r.preview)).toEqual(
+        contents.map((_, i) => `Save ${i}\n\nbody ${i}`),
+      );
+    });
+
+    it('leave the file, the preview and the last change all from the last save', async () => {
+      const note = await notesService.createNote({ title: 'Note' });
+      const changes: NoteChange[] = [];
+      notesService.onChange((change) => changes.push(change));
+
+      await Promise.all(contents.map((c) => notesService.updateNoteContent(note.id, c)));
+
+      const fileData = await readNoteFile(notesFilePath(workspacePath, note.id));
+      expect(fileData.content).toBe(contents[N - 1]);
+      expect((await notesService.getById(note.id)).preview).toBe(`Save ${N - 1}\n\nbody ${N - 1}`);
+      // one change per save, in call order, each carrying the row it wrote
+      expect(changes.map((c) => c.type === 'updated' && c.content)).toEqual(contents);
+      expect(changes.map((c) => c.note.preview)).toEqual(
+        contents.map((_, i) => `Save ${i}\n\nbody ${i}`),
+      );
+      expect(await fs.readdir(path.join(workspacePath, 'notes'))).toEqual([`${note.id}.md`]);
+    });
+
+    it('keep going after one of them fails', async () => {
+      const note = await notesService.createNote({ title: 'Note' });
+      const getById = vi.spyOn(notesService, 'getById');
+      getById.mockRejectedValueOnce(new Error('boom'));
+
+      const results = await Promise.allSettled([
+        notesService.updateNoteContent(note.id, 'first'),
+        notesService.updateNoteContent(note.id, 'second'),
+      ]);
+
+      expect(results.map((r) => r.status)).toEqual(['rejected', 'fulfilled']);
+      const fileData = await readNoteFile(notesFilePath(workspacePath, note.id));
+      expect(fileData.content).toBe('second');
+    });
   });
 });
 
@@ -636,7 +701,9 @@ describe('NoteService — onChange', () => {
     const listener = vi.fn();
     notesService.onChange(listener);
 
-    await notesService.updateNote(generateId('note'), { title: 'Missing' });
+    await expect(notesService.updateNote(generateId('note'), { title: 'Missing' })).rejects.toThrow(
+      NotFoundError,
+    );
 
     expect(listener).not.toHaveBeenCalled();
   });

@@ -530,19 +530,21 @@ interface ActiveSync {
 `RunContext` carries the source id, its stored target, auth and the stored cursor. Every write of a run happens in `apply`, in the transaction that saves the page's cursor, so a run's writes and its cursor never get out of step; a run that fails before its first page has written nothing. The engine keeps each source's cursor and run outcomes through `SyncStateManager`.
 
 - `TaskSyncer` owns the task cursor (`core/sync/task-cursor.ts`) and its modes: an initial walk asks the source for open tasks and those closed within the window (`closedSince`), an incremental one for tasks changed since the cursor (`changedSince`), and each page's `latestChange` becomes the next cursor, minus the overlap. It applies pages with `SyncWriter.applyTaskPage`. Its `reconcile` hands the pass to `TaskReconciler`.
-- `TaskReconciler` holds what pages cannot see: the reconcile pass (`listOpenAssignedTaskIds`, then `resolveTasks` and `resolveProjects`) and reattach, which `DetachService` calls. Reattach is not a run, so it checks the same gate (`syncSkipReason`) itself. It throws rejected credentials without moving the integration to `needs_reauth`; the typed IPC layer will do that (see `docs/follow-ups.md`).
+- `TaskReconciler` holds what pages cannot see: the reconcile pass (`listOpenAssignedTaskIds`, then `resolveTasks` and `resolveProjects`) and reattach, which `DetachService` calls. Reattach is not a run, so it checks the same gate (`syncSkipReason`) itself. It throws rejected credentials without moving the integration to `needs_reauth`, so sync does not depend on `IntegrationService`; `DetachService` reports the rejection and the workspace marks the integration, as a run's would be.
 - `EventSyncer` owns the events cursor (`core/sync/event-cursor.ts`), the queue of calendars and a run's calendar work; see "Calendar selection".
 
 **Triggers**
 
-| Trigger                           | Behaviour                                              |
-| --------------------------------- | ------------------------------------------------------ |
-| Source enabled for the first time | Initial sync starts immediately                        |
-| Workspace opened                  | Sync every enabled source                              |
-| Interval                          | Every 5 minutes while the workspace is open            |
-| Window focus                      | Sync if the last run finished more than 60 seconds ago |
-| System resume or network back     | Same rule as focus                                     |
-| "Sync now"                        | Always runs; also runs the reconcile pass              |
+| Trigger                             | Behaviour                                                                             |
+| ----------------------------------- | ------------------------------------------------------------------------------------- |
+| Source enabled for the first time   | Initial sync starts immediately                                                       |
+| Source or integration enabled again | Syncs immediately from the saved cursor; also runs the reconcile pass                 |
+| Reconnect                           | Same as enabled again; also resets the backoff, and waits for a provider's retry time |
+| Workspace opened                    | Sync every enabled source                                                             |
+| Interval                            | Every 5 minutes while the workspace is open                                           |
+| Window focus                        | Sync if the last run finished more than 60 seconds ago                                |
+| System resume or network back       | Same rule as focus                                                                    |
+| "Sync now"                          | Always runs; also runs the reconcile pass                                             |
 
 Recommendation on "3 or 5 minutes": use 5. The focus trigger covers the case that matters, which is returning to the app after changing something in Linear. A shorter interval mostly adds requests while nobody is looking. The interval is a constant per source type, so it is cheap to tune later.
 
@@ -550,8 +552,9 @@ Recommendation on "3 or 5 minutes": use 5. The focus trigger covers the case tha
 
 - One run per source at a time. A trigger during a run is coalesced into at most one follow-up run.
 - Sources sync independently; a Google failure does not delay Linear.
-- Failures back off exponentially from 1 minute to 30 minutes. A manual sync resets the backoff.
-- A 401 moves the integration to `needs_reauth` and stops scheduling it.
+- Failures back off exponentially from 1 minute to 30 minutes. A manual sync or a reconnect resets the backoff. A reconnect resets it because the failures were most likely the credentials it replaced; keeping the backoff would hold back the sync the user just asked for by fixing them.
+- A 401 moves the integration to `needs_reauth` and stops scheduling it. A reconnect syncs its enabled sources at once, rather than waiting for the next interval or focus.
+- A source that starts syncing again after finishing its first sync (switched back on, its integration enabled or reconnected) also runs the reconcile pass. Its incremental run picks up from the saved cursor, and that query cannot see what changed while the source was not syncing: issues reassigned away, deleted or restored from the trash. The source may have been off for days, and the 30-minute reconcile tick is shared by all sources, so without this pass those issues could stay wrong for up to 30 minutes after the user turned syncing back on. A source that has never finished a first sync gets the full initial pass instead, which sees everything, so a reconcile straight after it would only repeat that work.
 - A rate-limited response waits for the provider's stated retry time before the next attempt.
 - Timers stop on `Workspace.close()`. An in-flight run is aborted through an `AbortSignal`; its uncommitted page is discarded.
 
@@ -584,17 +587,18 @@ The watched set is therefore open assigned issues plus issues closed in the last
 1. Page through the ids of open issues assigned to the viewer, requesting the `id` field only.
 2. Compare with the watched links that are still open locally. A watched link missing from the snapshot is a candidate. In the other direction, a snapshot id with no `synced` link (its link is `removed`, or it has none) is a returning issue, such as one restored from the trash. `detached` links are skipped either way.
 3. Fetch the candidates and returning issues by id, in batches of 100, including archived issues.
-4. Apply the result: completed or cancelled issues are updated, reassigned ones are removed, ids that no longer resolve were deleted and are removed, and returning issues are upserted, which restores a `removed` link.
-5. Archive mirrored projects that no longer have tasks, and mark newly aged-out closed issues as settled.
+4. Fetch the source's mirrored projects by id, in batches of 100, on every pass. Incremental sync queries issues only and sees a project only inside a changed issue, so this is what brings in a project renamed, given a new status or dates, or deleted while its issues stay the same.
+5. Apply the result: completed or cancelled issues are updated, reassigned ones are removed, ids that no longer resolve were deleted and are removed, and returning issues are upserted, which restores a `removed` link. Fetched projects are updated, and those that no longer resolve are retired like empty ones.
+6. Archive mirrored projects that no longer have tasks, and mark newly aged-out closed issues as settled.
 
-Cost scales with the number of open assigned issues, not with everything ever mirrored. Most passes find no candidates and make no second request.
+Cost scales with the number of open assigned issues and mirrored projects, not with everything ever mirrored. Most passes find no candidates, so after the snapshot they make one request, for the projects, and none for a source that mirrors no projects.
 
-| Linear run  | When                                               | Catches                                                                                   |
-| ----------- | -------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Incremental | Every 5 minutes, on focus                          | New assignments, edits, completions, trashing                                             |
-| Reconcile   | Every 30 minutes, on workspace open, on "Sync now" | Reassigned away, deleted, restored from the trash, empty projects; trashing as a backstop |
+| Linear run  | When                                                                              | Catches                                                                                                                |
+| ----------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Incremental | Every 5 minutes, on focus                                                         | New assignments, edits, completions, trashing                                                                          |
+| Reconcile   | Every 30 minutes, on workspace open, on "Sync now", when a source resumes syncing | Reassigned away, deleted, restored from the trash, empty projects, project edits and deletions; trashing as a backstop |
 
-The trade-off: an issue reassigned to someone else can stay in the list for up to 30 minutes, and an issue restored from the trash can take as long to reappear. "Sync now" closes the gap on demand.
+The trade-off: an issue reassigned to someone else can stay in the list for up to 30 minutes, and an issue restored from the trash can take as long to reappear. "Sync now" closes the gap on demand, and so does a source resuming after being switched off or reconnected, when the gap can be much longer than 30 minutes. A project edited or deleted in Linear while its issues stay the same also shows within 30 minutes.
 
 **Initial and incremental sync (Google Calendar)**
 
@@ -655,7 +659,9 @@ Reconnecting the same account later re-matches detached and removed links by `ex
 
 **Connected but not a source.** An integration with all sources disabled is valid. It holds a working connection and syncs nothing. This is the state a future GitHub connection is in when used for version control only.
 
-**Re-authentication.** In `needs_reauth`, the settings page and the status indicator show a "Reconnect" action that reruns the OAuth flow, or asks for a new API key, and keeps the same integration row, sources and cursors. If the returned account id differs, the reconnect is rejected.
+**Re-authentication.** In `needs_reauth`, the settings page and the status indicator show a "Reconnect" action that reruns the OAuth flow, or asks for a new API key, and keeps the same integration row, sources and cursors. If the returned account id differs, the reconnect is rejected. A connected integration can be reconnected too, to replace an API key before it fails or to switch from an API key to OAuth.
+
+A successful reconnect syncs the enabled sources at once, with the reconcile pass and the backoff reset (see the scheduler rules). Waiting for the next interval would leave the stale data and the old auth error on screen after the user has fixed the cause. A source rate limited before the reconnect still waits for the provider's retry time.
 
 **Deleting a workspace.** `WorkspaceService.delete` should revoke that workspace's tokens before removing the directory. Revocation is best effort; the delete proceeds if the network call fails.
 
@@ -779,6 +785,7 @@ type TaskConfig = Record<string, never>; // nothing in v1, and not read yet: eve
 | `disabled`     | User enables                          | `connected`    |
 | `connected`    | Auth rejected, or token refresh fails | `needs_reauth` |
 | `needs_reauth` | Reconnect with the same account       | `connected`    |
+| `connected`    | Reconnect with the same account       | `connected`    |
 | any            | Disconnect                            | row deleted    |
 
 **Link state transitions**

@@ -8,8 +8,11 @@ import {
   IntegrationAlreadyConnectedError,
   IntegrationAuthError,
   IntegrationDisabledError,
+  InvalidInputError,
   NotFoundError,
+  OAuthUnavailableError,
   ProviderUnavailableError,
+  UnsupportedByProviderError,
 } from '../shared/errors';
 import { REVOKE_TIMEOUT_MS } from '../sync/constants';
 import { SyncEntityType } from '../sync/types';
@@ -46,7 +49,15 @@ export type IntegrationChange =
       // every source the connection got; the scheduler starts the enabled ones
       sources: { sourceId: ExternalSourceId; enabled: boolean }[];
     }
-  | { type: 'status_changed'; integrationId: IntegrationId; status: IntegrationStatus }
+  | {
+      type: 'status_changed';
+      integrationId: IntegrationId;
+      status: IntegrationStatus;
+      // the status before; the same as `status` when a reconnect replaced a connected
+      // integration's credentials. Connected from disabled is enabling, connected from anything
+      // else a reconnect
+      previous: IntegrationStatus;
+    }
   | {
       type: 'source_changed';
       integrationId: IntegrationId;
@@ -189,7 +200,10 @@ export class IntegrationService implements BaseIntegrationService {
   ): Promise<Integration> {
     const provider = getProvider(this.providers, providerId);
     if (!provider.authMethods.includes(AuthType.API_KEY)) {
-      throw new Error(`${providerId} can't be connected with an API key`);
+      throw new UnsupportedByProviderError(
+        providerId,
+        `${providerId} can't be connected with an API key`,
+      );
     }
     const enable = sourcesToEnable(provider, options);
 
@@ -213,9 +227,12 @@ export class IntegrationService implements BaseIntegrationService {
   ): Promise<Integration> {
     const provider = getProvider(this.providers, providerId);
     if (!provider.oauth || !provider.authMethods.includes(AuthType.OAUTH)) {
-      throw new Error(`${providerId} can't be connected with OAuth`);
+      throw new UnsupportedByProviderError(
+        providerId,
+        `${providerId} can't be connected with OAuth`,
+      );
     }
-    if (!this.oauth) throw new Error('No OAuth client is configured');
+    if (!this.oauth) throw new OAuthUnavailableError('No OAuth client is configured');
     const enable = sourcesToEnable(provider, options);
     const { credentials, account } = await this.authenticate(provider, {
       type: AuthType.OAUTH,
@@ -231,8 +248,9 @@ export class IntegrationService implements BaseIntegrationService {
    * rejected with IntegrationAccountMismatchError and change nothing.
    *
    * On success the new credentials are stored and the status becomes connected, so a scheduler
-   * listening for status_changed starts syncing again from the saved cursors. A disabled
-   * integration stays disabled with the new credentials, as enabling it is the user's call.
+   * listening for status_changed starts syncing the enabled sources again from the saved cursors,
+   * at once. A disabled integration stays disabled with the new credentials, as enabling it is the
+   * user's call.
    */
   async reconnect(id: IntegrationId, using: ReconnectWith): Promise<Integration> {
     this.signal?.throwIfAborted();
@@ -261,7 +279,12 @@ export class IntegrationService implements BaseIntegrationService {
     });
 
     if (status === IntegrationStatus.CONNECTED) {
-      this.changes.emit({ type: 'status_changed', integrationId: id, status });
+      this.changes.emit({
+        type: 'status_changed',
+        integrationId: id,
+        status,
+        previous: row.status,
+      });
     }
     return this.getById(id);
   }
@@ -276,10 +299,13 @@ export class IntegrationService implements BaseIntegrationService {
     this.signal?.throwIfAborted();
     if (using.type === AuthType.API_KEY) {
       if (!provider.authMethods.includes(AuthType.API_KEY)) {
-        throw new Error(`${provider.id} can't be connected with an API key`);
+        throw new UnsupportedByProviderError(
+          provider.id,
+          `${provider.id} can't be connected with an API key`,
+        );
       }
       const key = using.apiKey.trim();
-      if (key === '') throw new Error('An API key is required');
+      if (key === '') throw new InvalidInputError('An API key is required');
       const credentials: ApiKeyCredentials = { type: AuthType.API_KEY, apiKey: key };
       const account = await provider.getAccount(toAuth(credentials), { signal: this.signal });
       this.signal?.throwIfAborted();
@@ -288,9 +314,12 @@ export class IntegrationService implements BaseIntegrationService {
 
     const config = provider.oauth;
     if (!config || !provider.authMethods.includes(AuthType.OAUTH)) {
-      throw new Error(`${provider.id} can't be connected with OAuth`);
+      throw new UnsupportedByProviderError(
+        provider.id,
+        `${provider.id} can't be connected with OAuth`,
+      );
     }
-    if (!this.oauth) throw new Error('No OAuth client is configured');
+    if (!this.oauth) throw new OAuthUnavailableError('No OAuth client is configured');
     if (this.connecting) throw new ConnectInProgressError();
     this.connecting = true;
     try {
@@ -392,7 +421,7 @@ export class IntegrationService implements BaseIntegrationService {
     options: EnableOptions = {},
   ): Promise<Integration> {
     const row = this.db
-      .select({ status: integrations.status })
+      .select({ status: integrations.status, provider: integrations.provider })
       .from(integrations)
       .where(eq(integrations.id, id))
       .get();
@@ -406,7 +435,10 @@ export class IntegrationService implements BaseIntegrationService {
     const enable = options.enable ?? sources.map((source) => source.sourceType);
     const unknown = enable.filter((type) => !sources.some((source) => source.sourceType === type));
     if (unknown.length > 0) {
-      throw new Error(`${id} has no ${unknown.join(', ')} source`);
+      throw new UnsupportedByProviderError(
+        row.provider,
+        `${id} has no ${unknown.join(', ')} source`,
+      );
     }
 
     if (enabled && row.status !== IntegrationStatus.DISABLED) return this.getById(id);
@@ -427,7 +459,7 @@ export class IntegrationService implements BaseIntegrationService {
         .all();
     });
 
-    this.changes.emit({ type: 'status_changed', integrationId: id, status });
+    this.changes.emit({ type: 'status_changed', integrationId: id, status, previous: row.status });
     for (const source of toggled) {
       this.changes.emit({
         type: 'source_changed',
@@ -547,6 +579,7 @@ export class IntegrationService implements BaseIntegrationService {
       type: 'status_changed',
       integrationId: id,
       status: IntegrationStatus.NEEDS_REAUTH,
+      previous: IntegrationStatus.CONNECTED,
     });
   }
 
@@ -610,7 +643,10 @@ function sourcesToEnable(provider: ProviderImpl, options: ConnectOptions): Sourc
   const enable = options.enable ?? provider.supports;
   const unsupported = enable.filter((sourceType) => !provider.supports.includes(sourceType));
   if (unsupported.length > 0) {
-    throw new Error(`${provider.id} can't serve as a source for ${unsupported.join(', ')}`);
+    throw new UnsupportedByProviderError(
+      provider.id,
+      `${provider.id} can't serve as a source for ${unsupported.join(', ')}`,
+    );
   }
   return enable;
 }

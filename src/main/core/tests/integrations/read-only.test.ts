@@ -18,7 +18,7 @@ import { Project, ProjectStatus } from '../../projects/types';
 import { Event } from '../../events/types';
 import { assertEditable } from '../../integrations/refs';
 import { AuthType, LinkState, Provider, SourceType } from '../../integrations/types';
-import { ExternalReadOnlyError } from '../../shared/errors';
+import { ExternalReadOnlyError, NotFoundError } from '../../shared/errors';
 
 // Read-only guards on synced rows, and local tasks in mirrored projects. Nothing writes links yet
 // (SyncWriter does, later), so these tests insert link rows directly.
@@ -268,7 +268,7 @@ describe('read-only guards — assertEditable', () => {
   it('passes an id with no row, leaving not-found to the caller', async () => {
     const missing = generateId('task');
     expect(() => assertEditable(db, missing)).not.toThrow();
-    await expect(tasks.updateTask(missing, { title: 'Edited' })).resolves.toBeNull();
+    await expect(tasks.updateTask(missing, { title: 'Edited' })).rejects.toThrow(NotFoundError);
   });
 });
 

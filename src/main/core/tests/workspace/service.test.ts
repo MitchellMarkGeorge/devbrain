@@ -6,7 +6,11 @@ import os from 'node:os';
 import path from 'node:path';
 import type { WorkspaceId } from '@common/ids';
 import type { WorkspaceInfo } from '../../workspace/types';
-import { NotFoundError, WorkspaceNotOpenError } from '../../shared/errors';
+import {
+  NotFoundError,
+  WorkspaceDataMissingError,
+  WorkspaceNotOpenError,
+} from '../../shared/errors';
 import { FakeCipher } from '../__mocks__/fake-cipher';
 
 // Mock the Workspace class so WorkspaceService tests don't need SQLite
@@ -260,6 +264,19 @@ describe('WorkspaceService — delete', () => {
     await expect(service.delete('wsp_missing' as WorkspaceId)).rejects.toThrow(NotFoundError);
   });
 
+  it('throws WorkspaceDataMissingError when the workspace directory is gone', async () => {
+    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
+    writeRegistry(tmpDir, [info]);
+
+    const { service } = await openService(info);
+    await fs.rm(info.path, { recursive: true });
+    await expect(service.delete(info.id)).rejects.toMatchObject({
+      code: 'workspace_data_missing',
+      workspaceId: info.id,
+    });
+    expect(service.listAll().items).toHaveLength(1);
+  });
+
   it('refuses a workspace that is not open, changing nothing', async () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
     const other = makeInfo({
@@ -368,14 +385,18 @@ describe('WorkspaceService — open', () => {
   it('throws when workspace id is not in registry', async () => {
     writeRegistry(tmpDir, []);
     const service = new WorkspaceService(tmpDir);
-    await expect(service.open('wsp_unknown' as WorkspaceId)).rejects.toThrow();
+    await expect(service.open('wsp_unknown' as WorkspaceId)).rejects.toThrow(NotFoundError);
   });
 
   it('throws when workspace directory does not exist', async () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_missing') });
     writeRegistry(tmpDir, [info]);
     const service = new WorkspaceService(tmpDir);
-    await expect(service.open(info.id)).rejects.toThrow();
+    await expect(service.open(info.id)).rejects.toThrow(WorkspaceDataMissingError);
+    await expect(service.open(info.id)).rejects.toMatchObject({
+      code: 'workspace_data_missing',
+      workspaceId: info.id,
+    });
   });
 
   it('sets currentWorkspace after a successful open', async () => {
