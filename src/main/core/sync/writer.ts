@@ -533,11 +533,10 @@ class PageWrite {
 
     // 5. re-parenting only moves parentTaskId, so the adopted children need no re-index
     this.updated += this.adoptChildren(arrived);
-    // 6. re-index what was written, and tell the renderer to refetch tasks. A new task has no
-    // entry to replace
-    this.search.indexTasks(inserted, { isNew: true });
-    this.search.indexTasks(updated);
-    if (inserted.length + updated.length > 0) this.changed.add('task');
+    // 6. re-index what was written, and tell the renderer to refetch tasks
+    const written = [...inserted, ...updated];
+    this.search.indexTasks(written);
+    if (written.length > 0) this.changed.add('task');
   }
 
   /**
@@ -834,10 +833,10 @@ class PageWrite {
 
     // 5.
     this.adoptSeries(arrived);
-    // 6. a new event has no entry to replace
-    this.search.indexEvents(inserted, { isNew: true });
-    this.search.indexEvents(updated);
-    if (inserted.length + updated.length > 0) this.changed.add('event');
+    // 6.
+    const written = [...inserted, ...updated];
+    this.search.indexEvents(written);
+    if (written.length > 0) this.changed.add('event');
   }
 
   /**
