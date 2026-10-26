@@ -711,17 +711,6 @@ describe('SyncWriter — subtasks', () => {
 
     expect(taskRow(child.externalId).parentTaskId).toBeNull();
     expect(linkOf(child.externalId)!.metadata).toMatchObject({ parentExternalId: null });
-    expect(linkOf(child.externalId)!.parentExternalId).toBeNull();
-  });
-
-  it("stores the parent's external id on the link, where adoption looks it up", () => {
-    const parent = issue();
-    const child = childOf(parent);
-
-    writer.applyTaskPage(sourceId, page({ tasks: [child, parent] }));
-
-    expect(linkOf(child.externalId)!.parentExternalId).toBe(parent.externalId);
-    expect(linkOf(parent.externalId)!.parentExternalId).toBeNull();
   });
 
   it('a changed child moves under a parent that is new in the same page', () => {

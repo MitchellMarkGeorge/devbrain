@@ -23,10 +23,11 @@ import {
 import { TaskPriority, TaskStatus } from '../../tasks/types';
 import { EventKind, EventStatus } from '../../events/types';
 
-// The plans of the statements SyncWriter really runs to find the items waiting for a parent or a
-// series master: each is captured as it executes, with its parameters, and explained. They must
-// find the waiting links through idx_external_links_source_id_parent_external_id, never by
-// reading every link of the source.
+// The plans of the statements SyncWriter really runs to adopt the items waiting for a parent or a
+// series master: each is captured as it executes, with its parameters, and explained. A page adopts
+// in one statement, which reads the source's links once (the parent id is in the metadata JSON,
+// which no index covers) and finds each one's parent link and row by a key. One read per page, not
+// one per new item, is what keeps a page's cost from growing with the table.
 
 const AT = new Date('2026-10-01T12:00:00Z');
 
@@ -136,16 +137,24 @@ function event(id: string, overrides: Partial<ExternalEvent> = {}): ExternalEven
   };
 }
 
-// the plan must find the waiting links through the index, and nothing by scanning a table
-function expectIndexed(detail: string) {
-  expect(detail).toContain('idx_external_links_source_id_parent_external_id');
-  expect(detail).not.toMatch(/SCAN (child|occurrence|external_links|tasks|events)\b/);
+// the waiting links are read once, by source, and each parent's link and row by a key; no table
+// is scanned whole
+function expectOneRead(detail: string, waiting: string, entity: 'tasks' | 'events') {
+  const [first, ...rest] = detail.split('\n');
+  expect(first).toMatch(new RegExp(`^SEARCH ${waiting} USING INDEX \\w+ \\(source_id=\\?`));
+  expect(rest.join('\n')).toMatch(
+    /uq_external_links_source_external_id \(source_id=\? AND external_id=\?\)/,
+  );
+  expect(rest.join('\n')).toContain(
+    `SEARCH ${entity} USING INDEX sqlite_autoindex_${entity}_1 (id=?)`,
+  );
+  expect(detail).not.toContain('SCAN');
 }
 
 beforeEach(async () => {
   db = createDb();
   client = (db as typeof db & { $client: Database.Database }).$client;
-  workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-sync-indexes-'));
+  workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-sync-adoption-'));
   writer = new SyncWriter(db, new SearchService(db, workspacePath));
 });
 
@@ -153,8 +162,8 @@ afterEach(async () => {
   await fs.rm(workspacePath, { recursive: true, force: true });
 });
 
-describe('sync indexes — adopting children', () => {
-  it('adopts every waiting child of a page in one statement, through the parent index', () => {
+describe('sync adoption plans — children', () => {
+  it('adopts every waiting child of a page in one statement, reading the links once', () => {
     const sourceId = source(Provider.LINEAR, SourceType.TASKS);
     // children of two parents that are not mirrored yet, and filler so the table is not tiny
     writer.applyTaskPage(sourceId, {
@@ -178,9 +187,7 @@ describe('sync indexes — adopting children', () => {
 
     const adoptions = executed.filter((s) => /^update "tasks"/.test(s.sql));
     expect(adoptions).toHaveLength(1);
-    expectIndexed(plan(adoptions[0]));
-    // the parent's link by its external id, and the task by its primary key
-    expect(plan(adoptions[0])).toContain('uq_external_links_source_external_id');
+    expectOneRead(plan(adoptions[0]), 'child', 'tasks');
     // and it is the statement that did the work
     const parentOf = (id: string) =>
       db
@@ -197,7 +204,7 @@ describe('sync indexes — adopting children', () => {
   });
 });
 
-describe('sync indexes — series', () => {
+describe('sync adoption plans — series', () => {
   let sourceId: ExternalSourceId;
   let calendarId: CalendarId;
 
@@ -224,7 +231,7 @@ describe('sync indexes — series', () => {
     });
   });
 
-  it('a master that arrives adopts its occurrences in one statement, through the index', () => {
+  it('a master that arrives adopts its occurrences in one statement, reading the links once', () => {
     const executed = captured(() =>
       writer.applyEventPage(sourceId, calendarId, {
         events: [event('m', { recurrenceRule: 'RRULE:FREQ=WEEKLY' })],
@@ -236,7 +243,7 @@ describe('sync indexes — series', () => {
 
     const adoptions = executed.filter((s) => /^update "events"/.test(s.sql));
     expect(adoptions).toHaveLength(1);
-    expectIndexed(plan(adoptions[0]));
+    expectOneRead(plan(adoptions[0]), 'occurrence', 'events');
     const seriesIds = db
       .select({ seriesId: eventsTable.seriesId })
       .from(eventsTable)
@@ -244,60 +251,5 @@ describe('sync indexes — series', () => {
       .all();
     expect(seriesIds).toHaveLength(1);
     expect(seriesIds[0].seriesId).not.toBeNull();
-  });
-
-  it("a cancelled series finds its occurrences' links through the index", () => {
-    writer.applyEventPage(sourceId, calendarId, {
-      events: [event('m', { recurrenceRule: 'RRULE:FREQ=WEEKLY' })],
-      cancelledIds: [],
-      skippedIds: [],
-      fullPass: null,
-    });
-
-    const executed = captured(() =>
-      writer.applyEventPage(sourceId, calendarId, {
-        events: [],
-        cancelledIds: ['m'],
-        skippedIds: [],
-        fullPass: null,
-      }),
-    );
-
-    const lookups = executed.filter(
-      (s) => /^select/.test(s.sql) && s.sql.includes('"parent_external_id" in'),
-    );
-    expect(lookups).toHaveLength(1);
-    expectIndexed(plan(lookups[0]));
-    expect(db.select().from(eventsTable).all()).toHaveLength(50);
-  });
-
-  it("a full pass's sweep finds a gone series' occurrences through the index", () => {
-    writer.applyEventPage(sourceId, calendarId, {
-      events: [event('m', { recurrenceRule: 'RRULE:FREQ=WEEKLY' })],
-      cancelledIds: [],
-      skippedIds: [],
-      fullPass: null,
-    });
-
-    // the last page of a pass that listed nothing: everything synced before it is gone
-    const executed = captured(() =>
-      writer.applyEventPage(sourceId, calendarId, {
-        events: [],
-        cancelledIds: [],
-        skippedIds: [],
-        fullPass: {
-          startedAt: new Date(Date.now() + 60 * 60 * 1000),
-          from: new Date('2026-01-01T00:00:00Z'),
-          last: true,
-        },
-      }),
-    );
-
-    const lookups = executed.filter(
-      (s) => /^select/.test(s.sql) && s.sql.includes('"parent_external_id" in'),
-    );
-    expect(lookups).toHaveLength(1);
-    expectIndexed(plan(lookups[0]));
-    expect(db.select().from(eventsTable).all()).toHaveLength(0);
   });
 });

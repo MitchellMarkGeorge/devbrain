@@ -274,13 +274,12 @@ Unique on (`integrationId`, `sourceType`).
 | `externalId`                           | text      | Provider's stable id                                                               |
 | `externalKey`                          | text      | Human identifier, such as `ENG-123`                                                |
 | `externalUrl`                          | text      | Opens the item in the provider                                                     |
-| `parentExternalId`                     | text      | A sub-issue's parent, an occurrence's series master; null otherwise                |
 | `externalUpdatedAt`                    | timestamp | Used to skip unchanged items                                                       |
 | `state`                                | text      | `synced`, `detached`, `removed`                                                    |
 | `metadata`                             | json text | Raw status and priority labels, team, parent title, calendar id, attendee response |
 | `lastSyncedAt`, `removedAt`, settledAt | timestamp |                                                                                    |
 
-Unique on (`sourceId`, `externalId`). A `CHECK` enforces exactly one entity column, following the existing `one_link` pattern. `parentExternalId` repeats the id in `metadata` so it can be indexed, on (`sourceId`, `parentExternalId`) where it is set: a parent or series master that arrives after its children finds them through it (see "Database concurrency").
+Unique on (`sourceId`, `externalId`). A `CHECK` enforces exactly one entity column, following the existing `one_link` pattern.
 
 **Changes to existing tables**
 
@@ -649,7 +648,7 @@ Archiving instead of deleting means an issue that is briefly unassigned and reas
 | Disconnect keeping local copies                           | about 45 ms         | 100 ms |
 | Disconnect removing synced items (5,000 deletes)          | 200–250 ms          | 500 ms |
 
-Two things keep a page's cost flat as the table grows. A page writes its new rows with one multi-row `INSERT` per table rather than one per row, and indexes them in search without first deleting entries they cannot have (`search_index.entity_id` is not indexed, so that `DELETE` reads the whole index). A parent issue or series master that arrives after its children finds them through `external_links.parent_external_id` and `idx_external_links_source_id_parent_external_id`, in one statement per page; reading `json_extract(metadata, …)` instead read every link of the source once per new task. Changed rows are still updated one at a time, which is most of a changed page's cost. On disk, each commit also waits on the file system: with WAL, as `Workspace.initDb` opens the database, a page of 50 new tasks measured 17–28 ms with up to 20,000 tasks mirrored, flat as the table grows.
+Two things keep a page's cost flat as the table grows. A page writes its new rows with one multi-row `INSERT` per table rather than one per row, and indexes them in search without first deleting entries they cannot have (`search_index.entity_id` is not indexed, so that `DELETE` reads the whole index). A parent issue or series master that arrives after its children adopts them in one statement per page. That statement reads the parent ids from the source's link metadata, which no index covers, so it still reads every link of the source once a page: about 1.6 ms at 5,000 links and 6.5 ms at 20,000. Before, it read them once per new task. An indexed parent column would only pay for its migration well past those sizes. Changed rows are still updated one at a time, which is most of a changed page's cost. On disk, each commit also waits on the file system: with WAL, as `Workspace.initDb` opens the database, a page of 50 new tasks measured about 20 ms, flat, through 5,000 tasks. At 20,000 it rises to about 35 ms by the end of the import (25 ms in memory), the adoption read growing with the links.
 
 ## Managing integrations
 

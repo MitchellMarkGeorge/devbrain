@@ -192,7 +192,6 @@ describe('migration 0017 — integration tables', () => {
       'external_links.external_links_eventId_unique',
       'external_links.external_links_projectId_unique',
       'external_links.external_links_taskId_unique',
-      'external_links.idx_external_links_source_id_parent_external_id',
       'external_links.idx_external_links_source_id_state',
       'external_links.uq_external_links_source_external_id',
       'external_sources.uq_external_sources_integration_type',
@@ -445,62 +444,6 @@ describe('migration 0023 — full project and linked event indexes', () => {
     );
     expect(plan('SELECT id FROM tasks WHERE project_id = ?')).toContain('idx_tasks_project_id_all');
     expect(plan('SELECT id FROM notes WHERE project_id = ?')).toContain('idx_notes_project_id_all');
-    sqlite.close();
-  });
-});
-
-describe('migrations 0024–0025 — indexed parent external id on links', () => {
-  it('fills parent_external_id from each link’s metadata, without touching other rows', () => {
-    const { sqlite, db } = openDb();
-    migrate(db, { migrationsFolder: migrationsUpTo(23) });
-    seed(sqlite);
-    sqlite.exec(`
-      INSERT INTO integrations (id, provider, auth_type, account_id, account_label, credentials)
-        VALUES ('int_a', 'linear', 'api_key', 'acct', 'Ada', x'00');
-      INSERT INTO external_sources (id, integration_id, source_type) VALUES ('src_a', 'int_a', 'tasks');
-      INSERT INTO events (id, title, start_at, end_at, series_id, original_start_at)
-        VALUES ('evt_b', 'Moved', 1000, 2000, 'evt_a', 1000);
-      INSERT INTO external_links
-        (id, source_id, provider, task_id, project_id, event_id, external_id, external_url,
-         external_updated_at, metadata, last_synced_at) VALUES
-        ('xln_child', 'src_a', 'linear', 'tsk_b', NULL, NULL, 'i-2', 'u', 1,
-         '{"statusLabel":"Todo","priorityLabel":"Low","parentExternalId":"i-1","parentKey":"ENG-1","parentTitle":"Parent"}', 1),
-        ('xln_top', 'src_a', 'linear', 'tsk_a', NULL, NULL, 'i-1', 'u', 1,
-         '{"statusLabel":"Todo","priorityLabel":"Low","parentExternalId":null,"parentKey":null,"parentTitle":null}', 1),
-        -- a detached copy a disconnect left without a source
-        ('xln_orphan', NULL, 'linear', 'tsk_c', NULL, NULL, 'i-3', 'u', 1,
-         '{"parentExternalId":"i-9"}', 1),
-        ('xln_project', 'src_a', 'linear', NULL, 'prj_a', NULL, 'p-1', 'u', 1,
-         '{"statusLabel":"Started"}', 1),
-        ('xln_master', 'src_a', 'linear', NULL, NULL, 'evt_a', 'e-1', 'u', 1,
-         '{"calendarId":"c","recurringEventExternalId":null}', 1),
-        ('xln_occurrence', 'src_a', 'linear', NULL, NULL, 'evt_b', 'e-1_1', 'u', 1,
-         '{"calendarId":"c","recurringEventExternalId":"e-1"}', 1);
-    `);
-    const links = () =>
-      sqlite.prepare(`SELECT * FROM external_links ORDER BY id`).all() as Record<string, unknown>[];
-    const before = { rows: snapshot(sqlite), links: links() };
-
-    runMigrations(sqlite, db, migrationsUpTo(25));
-
-    expect(snapshot(sqlite)).toEqual(before.rows);
-    const parents = Object.fromEntries(links().map((l) => [l.id, l.parent_external_id]));
-    expect(parents).toEqual({
-      xln_child: 'i-1',
-      xln_top: null,
-      xln_orphan: 'i-9',
-      xln_project: null,
-      xln_master: null,
-      xln_occurrence: 'e-1',
-    });
-    // every other column is as it was
-    const withoutParent = (link: Record<string, unknown>) => {
-      const rest = { ...link };
-      delete rest.parent_external_id;
-      return rest;
-    };
-    expect(links().map(withoutParent)).toEqual(before.links);
-    expect(sqlite.prepare('PRAGMA integrity_check').pluck().get()).toBe('ok');
     sqlite.close();
   });
 });

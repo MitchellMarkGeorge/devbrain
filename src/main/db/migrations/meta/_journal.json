@@ -169,20 +169,6 @@
       "when": 1791999257908,
       "tag": "0023_full_project_and_linked_event_indexes",
       "breakpoints": true
-    },
-    {
-      "idx": 24,
-      "version": "6",
-      "when": 1792186893981,
-      "tag": "0024_link_parent_external_id",
-      "breakpoints": true
-    },
-    {
-      "idx": 25,
-      "version": "6",
-      "when": 1792186898581,
-      "tag": "0025_fill_link_parent_external_id",
-      "breakpoints": true
     }
   ]
 }

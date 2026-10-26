@@ -35,7 +35,7 @@ import {
   SQLWrapper,
 } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { alias, BaseSQLiteDatabase, union } from 'drizzle-orm/sqlite-core';
+import { alias, BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 import { RunResult } from 'better-sqlite3';
 import { SearchService } from '../search/service';
 import {
@@ -369,7 +369,7 @@ class PageWrite {
       const link = links.get(item.externalId);
       // what both the insert and the update write to the link
       const linkFields = {
-        ...this.linkFields(item, null, null),
+        ...this.linkFields(item, null),
         metadata: projectLinkMetadataSchema.parse({ statusLabel: item.statusLabel }),
       };
 
@@ -459,7 +459,7 @@ class PageWrite {
         projectId: item.projectExternalId ? (projectIds.get(item.projectExternalId) ?? null) : null,
       });
       const linkFields = {
-        ...this.linkFields(item, item.key, item.parentExternalId),
+        ...this.linkFields(item, item.key),
         metadata: taskLinkMetadataSchema.parse({
           statusLabel: item.statusLabel,
           priorityLabel: item.priorityLabel,
@@ -762,7 +762,7 @@ class PageWrite {
         : undefined;
       const fields = eventFields(item, calendarId, master?.eventId ?? null);
       const linkFields = {
-        ...this.linkFields(item, null, item.recurringEventExternalId),
+        ...this.linkFields(item, null),
         metadata: eventLinkMetadataSchema.parse({
           calendarId: item.calendarId,
           recurringEventExternalId: item.recurringEventExternalId,
@@ -877,24 +877,23 @@ class PageWrite {
         this.changed.add('event');
       }
 
-      // the occurrence links that recorded one of these masters, joined to the master's link
+      // the occurrence links that recorded one of these masters in their metadata, joined to the
+      // master's link: one read of the source's links for the whole page
       const occurrence = alias(externalLinks, 'occurrence');
       const master = alias(externalLinks, 'master');
+      const masterOf = sql`json_extract(${occurrence.metadata}, '$.recurringEventExternalId')`;
       const adopted = this.tx
         .update(events)
         .set({ seriesId: sql`${master.eventId}` })
         .from(occurrence)
         .innerJoin(
           master,
-          and(
-            eq(master.sourceId, occurrence.sourceId),
-            eq(master.externalId, occurrence.parentExternalId),
-          ),
+          and(eq(master.sourceId, occurrence.sourceId), eq(master.externalId, masterOf)),
         )
         .where(
           and(
             eq(occurrence.sourceId, this.sourceId),
-            inArray(occurrence.parentExternalId, batch),
+            inArray(masterOf, batch),
             eq(occurrence.eventId, events.id),
             isNull(events.seriesId),
           ),
@@ -948,25 +947,26 @@ class PageWrite {
   removeEvents(externalIds: string[]): void {
     if (externalIds.length === 0) return;
     const ids = [...new Set(externalIds)];
-    // only synced links: a removed event is already out of scope. Two lookups, by external id and
-    // by parent: as one OR, sqlite reads every synced link of the source instead
-    const synced = (match: SQLWrapper) =>
-      this.tx
-        .select({ id: externalLinks.id, eventId: externalLinks.eventId })
-        .from(externalLinks)
-        .where(
-          and(
-            eq(externalLinks.sourceId, this.sourceId),
-            match,
-            eq(externalLinks.state, LinkState.SYNCED),
-            isNotNull(externalLinks.eventId),
+    // only synced links: a removed event is already out of scope
+    const links = this.tx
+      .select({ id: externalLinks.id, eventId: externalLinks.eventId })
+      .from(externalLinks)
+      .where(
+        and(
+          eq(externalLinks.sourceId, this.sourceId),
+          eq(externalLinks.state, LinkState.SYNCED),
+          isNotNull(externalLinks.eventId),
+          or(
+            inArray(externalLinks.externalId, ids),
+            // the occurrence rows of a cancelled series go with it
+            inArray(
+              sql`json_extract(${externalLinks.metadata}, '$.recurringEventExternalId')`,
+              ids,
+            ),
           ),
-        );
-    const links = union(
-      synced(inArray(externalLinks.externalId, ids)),
-      // the occurrence rows of a cancelled series go with it
-      synced(inArray(externalLinks.parentExternalId, ids)),
-    ).all();
+        ),
+      )
+      .all();
     this.removeEventLinks(links);
     // nothing parked for a cancelled series will be wanted
     this.tx
@@ -1049,7 +1049,7 @@ class PageWrite {
             and(
               unlisted,
               inArray(
-                externalLinks.parentExternalId,
+                sql`json_extract(${externalLinks.metadata}, '$.recurringEventExternalId')`,
                 gone.map((link) => link.externalId),
               ),
             ),
@@ -1341,14 +1341,19 @@ class PageWrite {
 
   /**
    * Re-parents the synced children, applied in earlier pages, that recorded one of these parents
-   * and were left top-level because it was not mirrored then: one statement for all of them,
-   * finding the children by idx_external_links_source_id_parent_external_id and each one's parent
-   * by its link. Returns how many moved.
+   * in their link metadata and were left top-level because it was not mirrored then. One
+   * statement for all of them, joining each child to its parent's link, so the source's synced
+   * links are read once a page, not once a new task. Returns how many moved.
+   *
+   * The parent is read from the metadata JSON, which no index covers. That read costs about 1.6
+   * ms at 5,000 links and 6.5 ms at 20,000; past that, an indexed parent column would be worth
+   * its migration.
    */
   private adoptChildren(parents: Map<string, TaskId>): number {
     if (parents.size === 0) return 0;
     const child = alias(externalLinks, 'child');
     const parent = alias(externalLinks, 'parent');
+    const parentOf = sql`json_extract(${child.metadata}, '$.parentExternalId')`;
     let adopted = 0;
     for (const batch of chunks([...parents.keys()])) {
       adopted += this.tx
@@ -1357,12 +1362,12 @@ class PageWrite {
         .from(child)
         .innerJoin(
           parent,
-          and(eq(parent.sourceId, child.sourceId), eq(parent.externalId, child.parentExternalId)),
+          and(eq(parent.sourceId, child.sourceId), eq(parent.externalId, parentOf)),
         )
         .where(
           and(
             eq(child.sourceId, this.sourceId),
-            inArray(child.parentExternalId, batch),
+            inArray(parentOf, batch),
             eq(child.state, LinkState.SYNCED),
             eq(child.taskId, tasks.id),
             // only those still top-level; children already under the parent are not written again
@@ -1378,13 +1383,11 @@ class PageWrite {
   private linkFields(
     item: ExternalTask | ExternalProject | ExternalEvent,
     externalKey: string | null,
-    parentExternalId: string | null,
   ) {
     return {
       externalId: item.externalId,
       externalKey,
       externalUrl: item.url,
-      parentExternalId,
       externalUpdatedAt: item.updatedAt,
       lastSyncedAt: this.now,
     };

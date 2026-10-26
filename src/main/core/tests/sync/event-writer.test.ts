@@ -458,9 +458,6 @@ describe('SyncWriter events — recurring series', () => {
     const moved = occurrenceOf(series, OCCURRENCE_2);
     writer.applyEventPage(sourceId, calendarId, page({ events: [moved, series] }));
     expect(eventRow(moved.externalId).seriesId).toBe(eventIdOf(series.externalId));
-    // the series is on the occurrence's link too, where adoption and removal look it up
-    expect(linkOf(moved.externalId)!.parentExternalId).toBe(series.externalId);
-    expect(linkOf(series.externalId)!.parentExternalId).toBeNull();
   });
 
   it('a changed occurrence moves into a series that is new in the same page', () => {
