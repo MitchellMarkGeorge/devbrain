@@ -441,8 +441,9 @@ class PageWrite {
       ...items.flatMap((item) => item.parentExternalId ?? []),
     ]);
     const projectIds = this.syncedProjectIds(items.flatMap((item) => item.projectExternalId ?? []));
-    // parents that became synced in this call, whose children in earlier pages may be waiting
-    const arrived = new Map<string, TaskId>();
+    // external ids of the parents that became synced in this call, whose children in earlier
+    // pages may be waiting
+    const arrived = new Set<string>();
     const newTasks: (typeof tasks.$inferInsert)[] = [];
     const newLinks: Link[] = [];
     const changes: { taskId: TaskId; linkId: ExternalLinkId; fields: TaskFields; link: LinkSet }[] =
@@ -486,7 +487,7 @@ class PageWrite {
         newLinks.push(newLink);
         // later children in this page resolve their parent from the map
         links.set(item.externalId, newLink);
-        arrived.set(item.externalId, taskId);
+        arrived.add(item.externalId);
         continue;
       }
 
@@ -503,7 +504,7 @@ class PageWrite {
       // children too, and later children here see it as synced
       const linkSet = { ...linkFields, ...resynced() };
       changes.push({ taskId, linkId: link.id, fields, link: linkSet });
-      if (link.state === LinkState.REMOVED) arrived.set(item.externalId, taskId);
+      if (link.state === LinkState.REMOVED) arrived.add(item.externalId);
       links.set(item.externalId, { ...link, ...linkSet });
     }
 
@@ -1380,19 +1381,20 @@ class PageWrite {
    *
    * Read it from the FROM: `child` is a waiting child's link, `parent` the link of the parent it
    * names, and the tasks row updated is the child's own. Each child is joined to its own parent,
-   * so one statement serves every parent that arrived; the ids in `parents` only pick which
-   * children to look at. sqlite reads this source's synced links once, then finds each match's
-   * parent link and task row by a key (see tests/db/sync-adoption-plans.test.ts).
+   * so one statement serves every parent that arrived: `parentIds` only picks which children to
+   * look at, and each one's parent task comes from the parent's link. sqlite reads this source's
+   * synced links once, then finds each match's parent link and task row by a key (see
+   * tests/db/sync-adoption-plans.test.ts).
    */
-  private adoptChildren(parents: Map<string, TaskId>): number {
-    if (parents.size === 0) return 0;
+  private adoptChildren(parentIds: Set<string>): number {
+    if (parentIds.size === 0) return 0;
     const child = alias(externalLinks, 'child');
     const parent = alias(externalLinks, 'parent');
     // the parent id the child's link recorded when it was written, null for a top-level task
     const parentOf = sql`json_extract(${child.metadata}, '$.parentExternalId')`;
     let adopted = 0;
     // one statement a page; more only for a call with over CHUNK_SIZE arrived parents
-    for (const batch of chunks([...parents.keys()])) {
+    for (const batch of chunks([...parentIds])) {
       adopted += this.tx
         .update(tasks)
         .set({ parentTaskId: sql`${parent.taskId}` })
