@@ -19,8 +19,8 @@ export const appSettingsSchema = z.object({
     defaultView: z.enum(['list', 'group', 'board']),
     showCompletedTasks: z.boolean(),
   }),
+  // no time zone: dates follow the system zone (see shared/dates.ts)
   calendar: z.object({
-    timezone: z.string(),
     defaultEventDuration: z.enum(['15m', '30m', '1h']),
     firstDayOfWeek: z.enum(['monday', 'sunday']),
     defaultView: z.enum(['month', 'week', 'day']),

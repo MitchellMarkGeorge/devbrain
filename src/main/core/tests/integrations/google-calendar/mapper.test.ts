@@ -210,6 +210,18 @@ describe('Google Calendar mapper — descriptionToMarkdown', () => {
     expect(descriptionToMarkdown('a < b\r\nc > d')).toBe('a < b\nc > d');
   });
 
+  // not a sanitiser: the renderer's Markdown rules (docs/security/untrusted-content.md) handle these
+  it('keeps escaped markup as text, and links and images whatever their target', () => {
+    expect(
+      descriptionToMarkdown(
+        '<p>&lt;img src=x onerror=alert(1)&gt; <a href="javascript:alert(1)">click</a> ' +
+          '<img src="https://t.example/p.gif"></p>',
+      ),
+    ).toBe(
+      '<img src=x onerror=alert(1)> [click](javascript:alert\\(1\\)) ![](https://t.example/p.gif)',
+    );
+  });
+
   it('turns an empty description into null', () => {
     expect(descriptionToMarkdown('<br><br>')).toBeNull();
     expect(descriptionToMarkdown('  ')).toBeNull();

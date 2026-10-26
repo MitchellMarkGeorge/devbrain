@@ -25,6 +25,7 @@ import {
   SyncPageLimitError,
   TaskHierarchyError,
   UnsupportedByProviderError,
+  UnsafeUrlError,
   WorkspaceClosedError,
   WorkspaceDataMissingError,
   WorkspaceMigrationError,
@@ -88,6 +89,7 @@ const errors: [CoreError, CoreErrorCode][] = [
     'workspace_data_missing',
   ],
   [new WorkspaceClosedError(), 'workspace_closed'],
+  [new UnsafeUrlError(), 'unsafe_url'],
   [
     new WorkspaceMigrationError('Failed', {
       committed: false,

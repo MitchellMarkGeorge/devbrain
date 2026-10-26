@@ -55,7 +55,7 @@ import { hasLinkInState } from '../integrations/refs';
 import { Task, TaskStatus } from '../tasks/types';
 import { Project, ProjectStatus } from '../projects/types';
 import { Event } from '../events/types';
-import { allDayDates } from '../events/dates';
+import { allDayDates } from '../shared/dates';
 import { NotFoundError } from '../shared/errors';
 import {
   EventPageItems,
@@ -77,9 +77,12 @@ type TaskFields = ReturnType<typeof taskFields>;
 type EventFields = ReturnType<typeof eventFields>;
 
 /**
- * The only code that writes external rows. It writes the tables directly, past the service guards
- * that reject edits to synced rows, and only ever writes provider-owned fields: `linkedNoteId`,
- * `linkedEventId` and `favoritedAt` belong to DevBrain and are never touched.
+ * The only code that writes provider-owned fields of external rows, and the link transitions sync
+ * decides (upsert, remove, restore, settle, reattach, the project lifecycle). It writes the tables
+ * directly, past the service guards that reject edits to synced rows. `linkedNoteId`,
+ * `linkedEventId` and `favoritedAt` belong to DevBrain and are never touched; user actions such
+ * as detach, archive and disconnect write their own part (see "Who writes mirrored rows" in
+ * docs/integrations/tech-design.md).
  *
  * Each call is one SQLite transaction, search index writes included. better-sqlite3 nests
  * transactions as savepoints, so the engine can wrap a call in its own transaction to save the

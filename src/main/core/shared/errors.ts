@@ -33,7 +33,8 @@ export type CoreErrorCode =
   | 'workspace_not_open'
   | 'workspace_data_missing'
   | 'workspace_closed'
-  | 'workspace_migration';
+  | 'workspace_migration'
+  | 'unsafe_url';
 
 // the base of every error class in core; a new one extends this and adds its code above
 export abstract class CoreError extends Error {
@@ -314,5 +315,15 @@ export class WorkspaceMigrationError extends CoreError {
     this.committed = details.committed;
     this.restoredFromBackup = details.restoredFromBackup;
     this.backupPath = details.backupPath;
+  }
+}
+
+// A URL that may not be opened: not http or https, or not one that safeExternalUrl accepts. Nothing
+// was opened. The URL is kept off the message, as it can carry a token
+export class UnsafeUrlError extends CoreError {
+  readonly code = 'unsafe_url';
+  constructor() {
+    super('Only http and https links can be opened');
+    this.name = 'UnsafeUrlError';
   }
 }

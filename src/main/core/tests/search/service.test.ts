@@ -35,6 +35,34 @@ afterEach(async () => {
   await fs.rm(workspacePath, { recursive: true, force: true });
 });
 
+describe('SearchService — untrusted text', () => {
+  it('returns titles and bodies escaped, with only its own <b> tags', async () => {
+    const task = await taskService.createTask({
+      title: '<img src=x onerror=alert(1)> widget & "co"',
+      description: 'Body with <script>alert(1)</script> and a widget',
+      dueDate: TOMORROW,
+    });
+    searchService.indexTask(task);
+
+    const [result] = searchService.search({ query: 'widget', entityType: [] });
+    expect(result.title).toBe(
+      '&lt;img src=x onerror=alert(1)&gt; <b>widget</b> &amp; &quot;co&quot;',
+    );
+    expect(result.body).toBe('Body with &lt;script&gt;alert(1)&lt;/script&gt; and a <b>widget</b>');
+  });
+
+  it('keeps text that holds the marker characters itself to escaped text and <b> tags', async () => {
+    const task = await taskService.createTask({
+      title: '\u0002<i>odd</i>\u0003 widget',
+      dueDate: TOMORROW,
+    });
+    searchService.indexTask(task);
+
+    const [result] = searchService.search({ query: 'widget', entityType: [] });
+    expect(result.title).toBe('<b>&lt;i&gt;odd&lt;/i&gt;</b> <b>widget</b>');
+  });
+});
+
 describe('SearchService — indexTask', () => {
   it('indexes a task so it is findable by title', async () => {
     const task = await taskService.createTask({

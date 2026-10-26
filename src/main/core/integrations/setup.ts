@@ -11,6 +11,7 @@ import {
 } from './providers/registry';
 import { IntegrationService } from './service';
 import { OAuthUnavailableError } from '../shared/errors';
+import { guardOpenExternal } from '../shared/untrusted';
 
 // Puts the integration services together for one workspace: the provider registry, the OAuth
 // client, CredentialStore with a refresher for every provider that declares OAuth, and
@@ -45,7 +46,8 @@ export function createIntegrationServices(
   const providers = options.providers ?? createProviderRegistry({ fetch: fetchFn });
   const oauth = createOAuthClient({
     fetch: fetchFn,
-    openExternal: options.openExternal ?? unavailableBrowser,
+    // only http and https URLs reach the browser
+    openExternal: guardOpenExternal(options.openExternal ?? unavailableBrowser),
     callbackTimeoutMs: options.callbackTimeoutMs,
   });
 

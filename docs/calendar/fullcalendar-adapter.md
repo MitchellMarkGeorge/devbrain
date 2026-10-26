@@ -78,6 +78,11 @@ A timed line is the instant's wall-clock time in the series' `timeZone` (`Intl.D
 - **`classNames`** from the display hints: `response` declined (dimmed), `status` tentative (outlined or hatched), `kind` focus time or out of office; perhaps `display: 'background'` for out of office.
 - **`extendedProps`**: what a click needs, such as `external` (provider and URL), `seriesId`, `originalStartAt` and `response`.
 
+### Time zone and untrusted values
+
+- **`timeZone: 'local'`**, FullCalendar's default. Core has no time zone setting: dates and day ranges are days in the system zone, which is the renderer's local zone too (see `core/shared/dates.ts`). All-day dates pass through as text; timed events are instants. Only `DTSTART`/`EXDATE` lines name a zone, the series' own `timeZone`.
+- **Colours** are parsed with `hexColorSchema`, and **`external.url` and `meetingUrl`** are opened through `Workspace.openUrl`, never set as an `href` FullCalendar follows (`url` on event input would navigate the window). Titles are text; descriptions are Markdown under the rules in [untrusted content](../security/untrusted-content.md).
+
 ## Fetching
 
 Each calendar source's `events(info)` function calls `listForCalendar(info.start, info.end, { calendarIds: [calendar.id] })` over IPC and maps the result. Series are fetched loosely (any that started before the range ends); rrule.js decides which occurrences fall in view, and a series that has ended yields none.

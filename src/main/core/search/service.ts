@@ -8,7 +8,7 @@ import type { Note } from '../notes/types';
 import type { Project } from '../projects/types';
 import type { Task } from '../tasks/types';
 import type { IndexEntity, RebuildResult, SearchOptions, SearchResult } from './types';
-import { toFtsQuery } from './utils';
+import { HIGHLIGHT_END, HIGHLIGHT_START, highlightToHtml, toFtsQuery } from './utils';
 import { and, inArray, isNull, not, sql, SQL } from 'drizzle-orm';
 import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
@@ -43,6 +43,11 @@ export class SearchService {
     this.workspaceNotesPath = path.join(workspacePath, 'notes');
   }
 
+  /**
+   * The entries matching `query`, best first. `title` and `body` are HTML: the indexed text
+   * escaped, with each match in <b>…</b> and nothing else (see highlightToHtml). Titles and bodies
+   * hold user and provider text, so they are never handed out with unescaped markup.
+   */
   search({ query, entityType, limit }: SearchOptions): SearchResult[] {
     const ftsQuery = toFtsQuery(query);
 
@@ -50,8 +55,8 @@ export class SearchService {
 
     const searchQuery = sql`
       SELECT
-        highlight(search_index, 0, '<b>', '</b>') AS title,
-        snippet(search_index, 1, '<b>', '</b>', '…', 15) as body,
+        highlight(search_index, 0, ${HIGHLIGHT_START}, ${HIGHLIGHT_END}) AS title,
+        snippet(search_index, 1, ${HIGHLIGHT_START}, ${HIGHLIGHT_END}, '…', 15) as body,
         entity_id as entityId,
         entity_type as entityType,
         bm25(search_index, 10.0, 1.0) AS rank
@@ -71,9 +76,13 @@ export class SearchService {
       searchQuery.append(sql` LIMIT ${sql.raw(limit.toString())}`);
     }
 
-    const result: SearchResult[] = this.db.all(searchQuery);
+    const rows: SearchResult[] = this.db.all(searchQuery);
 
-    return result;
+    return rows.map((row) => ({
+      ...row,
+      title: highlightToHtml(row.title),
+      body: highlightToHtml(row.body),
+    }));
   }
 
   indexTask(task: Task) {

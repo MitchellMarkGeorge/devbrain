@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { toFtsQuery } from '../../search/utils';
+import { HIGHLIGHT_END, HIGHLIGHT_START, highlightToHtml, toFtsQuery } from '../../search/utils';
 
 describe('toFtsQuery', () => {
   it('wraps a single alphanumeric term as a quoted prefix phrase', () => {
@@ -63,5 +63,28 @@ describe('toFtsQuery', () => {
         .map((w) => `"${w}"*`)
         .join(' '),
     );
+  });
+});
+
+describe('highlightToHtml', () => {
+  const marked = (text: string) =>
+    text.replaceAll('[', HIGHLIGHT_START).replaceAll(']', HIGHLIGHT_END);
+
+  it('escapes the text, then turns the markers into <b> tags', () => {
+    expect(highlightToHtml(marked('Fix <img src=x onerror=alert(1)> in [widget] & "co"'))).toBe(
+      'Fix &lt;img src=x onerror=alert(1)&gt; in <b>widget</b> &amp; &quot;co&quot;',
+    );
+  });
+
+  it('escapes markup inside a match too', () => {
+    expect(highlightToHtml(marked("[<script>]'s"))).toBe('<b>&lt;script&gt;</b>&#39;s');
+  });
+
+  it('leaves text with no matches escaped and untagged', () => {
+    expect(highlightToHtml('a <b>bold</b> claim')).toBe('a &lt;b&gt;bold&lt;/b&gt; claim');
+  });
+
+  it('always yields balanced, unnested tags', () => {
+    expect(highlightToHtml(marked('[[a]] b] [c'))).toBe('<b>a</b> b <b>c</b>');
   });
 });
