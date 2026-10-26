@@ -168,6 +168,25 @@ _Found in feature 16b._
 
 `MIRRORED_EVENT_TYPES` (`src/main/core/integrations/providers/google-calendar/requests.ts`) is sent as the `eventTypes` filter on every events request. Google requires the parameters of an incremental request to match the full pass that issued its sync token, so changing the list once users have synced needs their stored tokens cleared: a migration that empties the `calendars` of every Google events cursor, or a filter version kept in the cursor and compared on each pull. Making the list a per-source setting, so a user can opt into birthdays, would need the same.
 
+### Find a way to record a full pass's listing without a scratch table
+
+_Found in PR #35._
+
+After a 410, a calendar's full pass removes the synced events it did not list (`PageWrite.sweepCalendar` in `src/main/core/sync/writer.ts`). To know what it listed across pages, each page writes rows to `external_full_pass_listed` (`src/main/db/schema/integrations.ts`) under the pass's id from the events cursor, and the last page deletes them. It works, but it is a whole table, plus a migration, for data that only exists while a pass pages, and the Google id of each listed event is held twice meanwhile.
+
+Whatever replaces it has to keep what the current version guarantees: the record commits with its page and cursor, survives a restart mid-pass, nothing is removed after an incomplete pass (abort, failure, `MAX_PAGES_PER_RUN`), and removal stays within the pass's window and follows the removal rule.
+
+Options considered so far:
+
+- A `seen_in_pass` column on `external_links`, `event_exceptions` and `external_event_exceptions` (the PR's first commit). No extra table, but the column sits on links of tasks and projects that never use it, and the marks stay on the rows after the pass.
+- The listed ids in the cursor. Commits with the page, but the cursor is rewritten on every page and the list grows with the calendar.
+- Keeping the ids in memory and sweeping only when a whole pass ran in one run. No storage, but an interrupted pass never cleans up.
+- Wiping the calendar when the pass starts, as Google's sync guide says to. Deleting a row clears `notes.linkedEventId` and `tasks.linkedEventId` at once (`set null`), so every linked note loses its event, and events older than the window are lost for good.
+- A general `working_sets` table for durable working state. Cleaner if a second job needs it, but still a separate table.
+- Not yet tried: `external_links.lastSyncedAt`, which every upsert and touch already moves. A pass could store its start time in the cursor and sweep links not synced since. It needs no new storage, but a clock that moves backwards could remove listed events, `PageWrite` takes its time from `new Date()` rather than the syncer's injected clock, and it covers links only, not `event_exceptions` or parked cancellations.
+
+Also worth settling first whether the fix is needed: it rests on Google no longer reporting older deletions in a full listing with `showDeleted=true`, which its documentation implies but does not state. A live check (delete an event, then run a full listing some days later and see whether it still comes back as cancelled) would show how often a deleted event can actually go unreported.
+
 ### Reconnecting leaves kept tasks detached
 
 _Found in feature 15._
