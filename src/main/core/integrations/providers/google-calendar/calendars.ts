@@ -61,16 +61,23 @@ interface MappedEvents {
   events: ExternalEvent[];
   cancelledIds: string[];
   skipped: number;
+  skippedIds: string[];
 }
 
-// validates and maps entries one by one, so a bad entry is skipped instead of failing the page
+// validates and maps entries one by one, so a bad entry is skipped instead of failing the page;
+// a skipped entry's id is kept when it has one
 function mapEvents(items: unknown[], calendar: CalendarContext): MappedEvents {
-  const result: MappedEvents = { events: [], cancelledIds: [], skipped: 0 };
+  const result: MappedEvents = { events: [], cancelledIds: [], skipped: 0, skippedIds: [] };
+  const skip = (item: unknown) => {
+    result.skipped++;
+    const id = (item as { id?: unknown } | null)?.id;
+    if (typeof id === 'string') result.skippedIds.push(externalEventId(calendar.calendarId, id));
+  };
 
   for (const item of items) {
     const stub = eventStubSchema.safeParse(item);
     if (!stub.success) {
-      result.skipped++;
+      skip(item);
       continue;
     }
 
@@ -90,7 +97,7 @@ function mapEvents(items: unknown[], calendar: CalendarContext): MappedEvents {
 
     const event = eventSchema.safeParse(item);
     if (!event.success) {
-      result.skipped++;
+      skip(item);
       continue;
     }
     result.events.push(toExternalEvent(event.data, calendar));

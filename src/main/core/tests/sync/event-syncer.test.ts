@@ -281,6 +281,7 @@ describe('EventSyncer — pull', () => {
     expect(page).toEqual({
       calendarExternalId: null,
       events: [],
+      skippedIds: [],
       fullPass: null,
       cancelledIds: [],
       skipped: 0,

@@ -239,7 +239,7 @@ export class SyncWriter {
       write.removeEvents([...page.cancelledIds, ...cancelled.map((event) => event.externalId)]);
       // 4.
       if (page.fullPass) {
-        write.recordListed(calendarId, page.fullPass, page.events);
+        write.recordListed(calendarId, page.fullPass, page.events, page.skippedIds);
         if (page.fullPass.last) write.sweepCalendar(calendarId, page.fullPass);
       }
       return write.finish();
@@ -904,25 +904,30 @@ class PageWrite {
   /**
    * Records what a page of a full pass listed: its live events by id, and its cancelled
    * occurrences by series and original start. Cancelled events and series are left out, as they
-   * are removed anyway.
+   * are removed anyway. An event the provider listed but could not read (`skippedIds`) is recorded
+   * too: it still exists, so the pass must not remove the copy synced before.
    */
-  recordListed(calendarId: CalendarId, pass: FullPass, items: ExternalEvent[]): void {
-    if (items.length === 0) return;
+  recordListed(
+    calendarId: CalendarId,
+    pass: FullPass,
+    items: ExternalEvent[],
+    skippedIds: string[],
+  ): void {
     const row = { sourceId: this.sourceId, calendarId, pass: pass.id };
-    this.tx
-      .insert(externalFullPassListed)
-      .values(
-        items.map((item) =>
-          item.cancelled
-            ? {
-                ...row,
-                externalId: item.recurringEventExternalId!,
-                originalStartAt: item.originalStartAt!,
-              }
-            : { ...row, externalId: item.externalId, originalStartAt: null },
-        ),
-      )
-      .run();
+    const rows = [
+      ...items.map((item) =>
+        item.cancelled
+          ? {
+              ...row,
+              externalId: item.recurringEventExternalId!,
+              originalStartAt: item.originalStartAt!,
+            }
+          : { ...row, externalId: item.externalId, originalStartAt: null },
+      ),
+      ...skippedIds.map((externalId) => ({ ...row, externalId, originalStartAt: null })),
+    ];
+    if (rows.length === 0) return;
+    this.tx.insert(externalFullPassListed).values(rows).run();
   }
 
   /**

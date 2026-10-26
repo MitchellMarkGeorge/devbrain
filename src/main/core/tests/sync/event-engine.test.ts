@@ -453,6 +453,21 @@ describe('Google Calendar sync — what a full pass no longer lists', () => {
     });
   });
 
+  it('keeps an event the full pass lists but cannot read, as it was', async () => {
+    const expire = await syncThenExpire(timedFixture, declinedFixture);
+    const before = await events.getById(linkOf(PRIMARY, declinedFixture.id)!.eventId!);
+
+    // listed with no end time, so it fails validation and is skipped
+    const unreadable = { ...declinedFixture, summary: 'Renamed', end: undefined };
+    expire({ body: eventsPage([timedFixture, unreadable], { nextSyncToken: 'sync-fresh' }) });
+    const result = await engine.runSource(sourceId);
+
+    expect(result).toMatchObject({ outcome: SyncRunOutcome.COMPLETED, skipped: 1, removed: 0 });
+    expect(linkOf(PRIMARY, declinedFixture.id)!.state).toBe(LinkState.SYNCED);
+    expect(await events.getById(before.id)).toMatchObject({ title: before.title });
+    expect(listing()).toEqual([]);
+  });
+
   it('keeps an event a note links to, hidden, when the full pass does not list it', async () => {
     const expire = await syncThenExpire(timedFixture);
     const eventId = linkOf(PRIMARY, timedFixture.id)!.eventId!;
