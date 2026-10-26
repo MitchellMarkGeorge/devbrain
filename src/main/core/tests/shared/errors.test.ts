@@ -11,6 +11,7 @@ import {
   DetachError,
   DevBrainFolderError,
   ExternalReadOnlyError,
+  FileExistsError,
   IntegrationAccountMismatchError,
   IntegrationAlreadyConnectedError,
   IntegrationAuthError,
@@ -80,6 +81,7 @@ const errors: [CoreError, CoreErrorCode][] = [
   [new InvalidCursorError(), 'invalid_cursor'],
   [new MalformedNoteFileError('/notes/a.md', null), 'malformed_note_file'],
   [new DevBrainFolderError('missing', 'No DevBrain folder'), 'devbrain_folder'],
+  [new FileExistsError('/brain/settings.json'), 'file_exists'],
   [new WorkspaceNotOpenError('wsp_1' as WorkspaceId), 'workspace_not_open'],
   [
     new WorkspaceDataMissingError('wsp_1' as WorkspaceId, 'No workspace data found'),

@@ -29,6 +29,7 @@ export type CoreErrorCode =
   | 'invalid_cursor'
   | 'malformed_note_file'
   | 'devbrain_folder'
+  | 'file_exists'
   | 'workspace_not_open'
   | 'workspace_data_missing'
   | 'workspace_closed'
@@ -249,6 +250,19 @@ export class DevBrainFolderError extends CoreError {
     super(message);
     this.name = 'DevBrainFolderError';
     this.reason = reason;
+  }
+}
+
+// creating a file that is already there, such as a settings.json that appeared while a DevBrain
+// folder was being created; the existing file was left as it was
+export class FileExistsError extends CoreError {
+  readonly code = 'file_exists';
+  readonly path: string;
+
+  constructor(path: string) {
+    super(`A file already exists at ${path}`);
+    this.name = 'FileExistsError';
+    this.path = path;
   }
 }
 

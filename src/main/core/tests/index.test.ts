@@ -204,14 +204,23 @@ describe('openDevBrain — invalid folders', () => {
       await expect(open(tmpDir)).rejects.toMatchObject(invalid);
     });
 
-    it('refuses workspaces.json that is not JSON', async () => {
+    // with no backup and no workspace directories, the registry it stood for was empty
+    it('restores workspaces.json that is not JSON, keeping a copy of it', async () => {
       await fs.writeFile(
         path.join(tmpDir, 'settings.json'),
         JSON.stringify(VALID_SETTINGS),
         'utf8',
       );
       await fs.writeFile(path.join(tmpDir, 'workspaces.json'), 'not json', 'utf8');
-      await expect(open(tmpDir)).rejects.toMatchObject(invalid);
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const devBrain = await open(tmpDir);
+      expect(warn).toHaveBeenCalledOnce();
+      warn.mockRestore();
+      expect(devBrain.workspaces.listAll().items).toEqual([]);
+      const corrupt = (await fs.readdir(tmpDir)).filter((name) => name.includes('.corrupt-'));
+      expect(corrupt).toHaveLength(1);
+      expect(await fs.readFile(path.join(tmpDir, corrupt[0]), 'utf8')).toBe('not json');
+      await devBrain.close();
     });
   });
 });
