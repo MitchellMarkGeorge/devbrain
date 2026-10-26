@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { safeExternalUrl, safeHexColor } from '@common/safe-url';
+import { safeExternalUrl, safeUrlSchema } from '@common/safe-url';
+import { hexColorSchema } from '@common/color';
 import { escapeHtml, guardOpenExternal } from '../../shared/untrusted';
 import { UnsafeUrlError } from '../../shared/errors';
 
@@ -50,17 +51,23 @@ describe('safeExternalUrl', () => {
     expect(safeExternalUrl(url)).toBeNull();
   });
 
+  it('says why a URL with credentials is refused', () => {
+    expect(safeUrlSchema.safeParse('https://a:b@example.com').error?.issues[0].message).toBe(
+      'A URL with a user name or password cannot be opened',
+    );
+  });
+
   it('refuses what is not a string', () => {
     expect(safeExternalUrl(null)).toBeNull();
     expect(safeExternalUrl(undefined)).toBeNull();
   });
 });
 
-describe('safeHexColor', () => {
+describe('hexColorSchema', () => {
   it('accepts #rrggbb only', () => {
-    expect(safeHexColor('#1A73e8')).toBe('#1A73e8');
+    expect(hexColorSchema.safeParse('#1A73e8').data).toBe('#1A73e8');
     for (const value of ['red', '#fff', '#1a73e8;background:url(x)', 'url(https://x)', '', null]) {
-      expect(safeHexColor(value), String(value)).toBeNull();
+      expect(hexColorSchema.safeParse(value).success, String(value)).toBe(false);
     }
   });
 });

@@ -81,7 +81,7 @@ A timed line is the instant's wall-clock time in the series' `timeZone` (`Intl.D
 ### Time zone and untrusted values
 
 - **`timeZone: 'local'`**, FullCalendar's default. Core has no time zone setting: dates and day ranges are days in the system zone, which is the renderer's local zone too (see `core/shared/dates.ts`). All-day dates pass through as text; timed events are instants. Only `DTSTART`/`EXDATE` lines name a zone, the series' own `timeZone`.
-- **Colours** go through `safeHexColor`, and **`external.url` and `meetingUrl`** are opened through `Workspace.openUrl`, never set as an `href` FullCalendar follows (`url` on event input would navigate the window). Titles are text; descriptions are Markdown under the rules in [untrusted content](../security/untrusted-content.md).
+- **Colours** are parsed with `hexColorSchema`, and **`external.url` and `meetingUrl`** are opened through `Workspace.openUrl`, never set as an `href` FullCalendar follows (`url` on event input would navigate the window). Titles are text; descriptions are Markdown under the rules in [untrusted content](../security/untrusted-content.md).
 
 ## Fetching
 
