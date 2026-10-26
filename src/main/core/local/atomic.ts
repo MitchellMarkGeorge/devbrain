@@ -1,28 +1,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { randomBytes } from 'node:crypto';
 import { writeFileSync as atomicallyWriteFileSync } from 'atomically';
-import { isErrnoException } from './utils';
+import { FileExistsError } from '../shared/errors';
 
-// A temp file next to `filePath`, so linking it to the target stays on one file system. The random
-// part keeps two writers from picking the same one.
-function tempPathFor(filePath: string): string {
-  const suffix = `${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
-  return path.join(path.dirname(filePath), `.${path.basename(filePath)}.${suffix}`);
-}
-
-// writes `data` to a new file and flushes it to disk before returning
-function writeAndSync(filePath: string, data: string, flag: 'wx'): void {
-  const fd = fs.openSync(filePath, flag);
-  try {
-    fs.writeFileSync(fd, data, 'utf8');
-    fs.fsyncSync(fd);
-  } finally {
-    fs.closeSync(fd);
-  }
-}
-
-// Flushes a rename or link in `dirPath` to disk. Best effort: Windows cannot open a directory for
+// Flushes a rename in `dirPath` to disk. Best effort: Windows cannot open a directory for
 // this and some file systems refuse it, and the rename has happened either way.
 function syncDirectory(dirPath: string): void {
   if (process.platform === 'win32') return;
@@ -50,24 +31,12 @@ export function writeFileAtomicSync(filePath: string, data: string): void {
 }
 
 /**
- * Creates `filePath` holding `data`, all or nothing, and throws EEXIST when it is already there:
- * never overwrites. The temp file is hard-linked into place, which fails on an existing target. On a
- * file system without hard links it falls back to an exclusive create, which still never
- * overwrites but can leave a partial file on a crash.
+ * Creates `filePath` holding `data`, whole or not at all (see writeFileAtomicSync), and throws
+ * FileExistsError when a file is already there. The check comes before the write, so a file another
+ * process creates in between can still be replaced; DevBrain only creates files this way when
+ * setting up a new folder, where that cannot reasonably happen.
  */
 export function createFileAtomicSync(filePath: string, data: string): void {
-  const tempPath = tempPathFor(filePath);
-  try {
-    writeAndSync(tempPath, data, 'wx');
-    fs.linkSync(tempPath, filePath);
-  } catch (error) {
-    fs.rmSync(tempPath, { force: true });
-    if (isErrnoException(error) && ['EPERM', 'ENOTSUP', 'ENOSYS'].includes(error.code ?? '')) {
-      writeAndSync(filePath, data, 'wx');
-      return;
-    }
-    throw error;
-  }
-  fs.rmSync(tempPath, { force: true });
-  syncDirectory(path.dirname(filePath));
+  if (fs.existsSync(filePath)) throw new FileExistsError(filePath);
+  writeFileAtomicSync(filePath, data);
 }

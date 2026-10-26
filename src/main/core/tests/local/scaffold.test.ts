@@ -6,6 +6,7 @@ import { scaffoldDevBrain } from '../../local/scaffold';
 import { fileExists, directoryExists } from '../../local/utils';
 import { settingsFileSchema } from '../../settings/schema';
 import { workspaceRegistrySchema } from '../../workspace/schema';
+import { FileExistsError } from '../../shared/errors';
 
 let dir: string;
 
@@ -105,14 +106,14 @@ describe('scaffoldDevBrain', () => {
     it('never overwrites: an existing settings.json makes it throw and stays as it was', async () => {
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(path.join(dir, 'settings.json'), 'mine');
-      await expect(scaffoldDevBrain(dir)).rejects.toThrow(/EEXIST/);
+      await expect(scaffoldDevBrain(dir)).rejects.toThrow(FileExistsError);
       expect(await fs.readFile(path.join(dir, 'settings.json'), 'utf8')).toBe('mine');
     });
 
     it('never overwrites a scaffolded folder', async () => {
       await scaffoldDevBrain(dir);
       await fs.writeFile(path.join(dir, 'workspaces.json'), '{"kept":true}');
-      await expect(scaffoldDevBrain(dir)).rejects.toThrow(/EEXIST/);
+      await expect(scaffoldDevBrain(dir)).rejects.toThrow(FileExistsError);
       expect(await fs.readFile(path.join(dir, 'workspaces.json'), 'utf8')).toBe('{"kept":true}');
     });
   });

@@ -7,6 +7,7 @@ import type { WorkspaceId } from '@common/ids';
 import type { WorkspaceInfo } from '../../workspace/types';
 import { createFileAtomicSync, writeFileAtomicSync } from '../../local/atomic';
 import { scaffoldDevBrain } from '../../local/scaffold';
+import { FileExistsError } from '../../shared/errors';
 import { recoverRegistry, writeRegistry, type WorkspaceRegistry } from '../../workspace/registry';
 
 vi.mock('electron-store', () => import('../__mocks__/electron-store'));
@@ -130,7 +131,7 @@ describe('writeFileAtomicSync', () => {
 
 describe('createFileAtomicSync', () => {
   it('never overwrites, and leaves no temp file', async () => {
-    expect(() => createFileAtomicSync(registryPath(), '{"a":1}')).toThrow(/EEXIST/);
+    expect(() => createFileAtomicSync(registryPath(), '{"a":1}')).toThrow(FileExistsError);
     expect(await readJson(registryPath())).toEqual({});
     expect(await strayFiles()).toEqual([]);
   });
