@@ -126,16 +126,14 @@ describe('EventSyncer — pull', () => {
           syncToken: null,
           pageToken: 'page-2',
           timeMin: TIME_MIN,
-          pass: expect.any(String),
+          startedAt: NOW.toISOString(),
         },
       },
       pending: [PRIMARY],
     });
-    // the pass's id is in the cursor, so a pass resumed by a later run records under the same one
-    const { pass } = (first.nextCursor as EventCursor).calendars[PRIMARY];
-    expect(first.fullPass).toEqual({ id: pass, from: new Date(TIME_MIN), last: false });
+    expect(first.fullPass).toEqual({ startedAt: NOW, from: new Date(TIME_MIN), last: false });
 
-    // time moves on between pages; the pass keeps asking the same question
+    // time moves on between pages; the pass keeps asking the same question, and keeps its start
     clock = new Date(NOW.getTime() + 60_000);
     const second = await events.pull(AUTH, first.nextCursor, [PRIMARY_CALENDAR]);
 
@@ -145,7 +143,7 @@ describe('EventSyncer — pull', () => {
     });
     expect(fetch.requests).toHaveLength(2);
     expect(second.done).toBe(true);
-    expect(second.fullPass).toEqual({ id: pass, from: new Date(TIME_MIN), last: true });
+    expect(second.fullPass).toEqual({ startedAt: NOW, from: new Date(TIME_MIN), last: true });
     expect(second.nextCursor).toEqual({
       calendars: { [PRIMARY]: { syncToken: 'sync-1', pageToken: null } },
     });
