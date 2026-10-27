@@ -458,7 +458,6 @@ star toggle is the likely first one. The layer makes them safe:
 ## Out of scope
 
 - **More than one window.** Covered later by also broadcasting each request's `changed`.
-- **IPC request batching.** Only if profiling ever shows it is needed.
 - **Optimistic update helpers** (`patchTask` and similar), and client-generated ids for optimistic
   creates. Added per interaction once the UI exists.
 - **The renderer's rendering rules** (Markdown, URLs, colours). These come from
