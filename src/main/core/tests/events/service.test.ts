@@ -70,16 +70,18 @@ describe('EventService — createEvent', () => {
   });
 
   it('throws when endAt is before startAt', async () => {
-    await expect(
+    expect(() =>
       eventsService.createEvent({
         title: 'Backwards',
         startAt: new Date('2026-06-10T11:00:00.000Z'),
         endAt: new Date('2026-06-10T10:00:00.000Z'),
       }),
-    ).rejects.toMatchObject({
-      code: 'invalid_input',
-      message: expect.stringMatching(/endAt must not be before startAt/i),
-    });
+    ).toThrow(
+      expect.objectContaining({
+        code: 'invalid_input',
+        message: expect.stringMatching(/endAt must not be before startAt/i),
+      }),
+    );
   });
 });
 
@@ -96,7 +98,7 @@ describe('EventService — getById', () => {
   });
 
   it('throws NotFoundError for an unknown id', async () => {
-    await expect(eventsService.getById(generateId('event'))).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => eventsService.getById(generateId('event'))).toThrow(NotFoundError);
   });
 });
 
@@ -175,12 +177,14 @@ describe('EventService — updateEvent', () => {
       startAt: new Date('2026-06-10T10:00:00.000Z'),
       endAt: new Date('2026-06-10T11:00:00.000Z'),
     });
-    await expect(
+    expect(() =>
       eventsService.updateEvent(event.id, { endAt: new Date('2026-06-10T09:00:00.000Z') }),
-    ).rejects.toMatchObject({
-      code: 'invalid_input',
-      message: expect.stringMatching(/endAt must not be before startAt/i),
-    });
+    ).toThrow(
+      expect.objectContaining({
+        code: 'invalid_input',
+        message: expect.stringMatching(/endAt must not be before startAt/i),
+      }),
+    );
   });
 
   it('throws when moving startAt alone past the existing endAt', async () => {
@@ -189,12 +193,14 @@ describe('EventService — updateEvent', () => {
       startAt: new Date('2026-06-10T10:00:00.000Z'),
       endAt: new Date('2026-06-10T11:00:00.000Z'),
     });
-    await expect(
+    expect(() =>
       eventsService.updateEvent(event.id, { startAt: new Date('2026-06-10T12:00:00.000Z') }),
-    ).rejects.toMatchObject({
-      code: 'invalid_input',
-      message: expect.stringMatching(/endAt must not be before startAt/i),
-    });
+    ).toThrow(
+      expect.objectContaining({
+        code: 'invalid_input',
+        message: expect.stringMatching(/endAt must not be before startAt/i),
+      }),
+    );
   });
 
   it('clears recurrenceRule when explicitly set to null', async () => {
@@ -209,9 +215,9 @@ describe('EventService — updateEvent', () => {
   });
 
   it('throws NotFoundError for an unknown id', async () => {
-    await expect(
-      eventsService.updateEvent(generateId('event'), { title: 'Ghost' }),
-    ).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => eventsService.updateEvent(generateId('event'), { title: 'Ghost' })).toThrow(
+      NotFoundError,
+    );
   });
 });
 
@@ -223,13 +229,11 @@ describe('EventService — deleteEvent', () => {
       endAt: new Date('2026-06-10T11:00:00.000Z'),
     });
     await eventsService.deleteEvent(event.id);
-    await expect(eventsService.getById(event.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => eventsService.getById(event.id)).toThrow(NotFoundError);
   });
 
   it('throws NotFoundError for an unknown id', async () => {
-    await expect(eventsService.deleteEvent(generateId('event'))).rejects.toBeInstanceOf(
-      NotFoundError,
-    );
+    expect(() => eventsService.deleteEvent(generateId('event'))).toThrow(NotFoundError);
   });
 });
 
@@ -286,13 +290,13 @@ describe('EventService — onChange', () => {
   it('sends nothing when the write is refused', async () => {
     const changes = record();
 
-    await expect(eventsService.deleteEvent(generateId('event'))).rejects.toThrow(NotFoundError);
-    await expect(eventsService.updateEvent(generateId('event'), { title: 'Nope' })).rejects.toThrow(
+    expect(() => eventsService.deleteEvent(generateId('event'))).toThrow(NotFoundError);
+    expect(() => eventsService.updateEvent(generateId('event'), { title: 'Nope' })).toThrow(
       NotFoundError,
     );
-    await expect(
+    expect(() =>
       eventsService.createEvent({ title: 'Backwards', startAt: endAt, endAt: startAt }),
-    ).rejects.toThrow();
+    ).toThrow();
 
     expect(changes).toEqual([]);
   });

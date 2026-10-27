@@ -728,10 +728,8 @@ describe('Google Calendar sync — removal and read-only', () => {
     await engine.runSource(sourceId);
     const eventId = linkOf(PRIMARY, timedFixture.id)!.eventId!;
 
-    await expect(events.updateEvent(eventId, { title: 'Mine' })).rejects.toThrow(
-      ExternalReadOnlyError,
-    );
-    await expect(events.deleteEvent(eventId)).rejects.toThrow(ExternalReadOnlyError);
+    expect(() => events.updateEvent(eventId, { title: 'Mine' })).toThrow(ExternalReadOnlyError);
+    expect(() => events.deleteEvent(eventId)).toThrow(ExternalReadOnlyError);
   });
 });
 
