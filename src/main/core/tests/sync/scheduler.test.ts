@@ -660,6 +660,43 @@ describe('SyncScheduler — status and progress', () => {
     unsubscribe();
     expect(engine.listeners.has(listener)).toBe(false);
   });
+
+  it("onStatus receives each run's recorded outcome, and nothing once unsubscribed", async () => {
+    const listener = vi.fn();
+    const unsubscribe = scheduler.onStatus(listener);
+    await start();
+
+    expect(listener).toHaveBeenCalledOnce();
+    expect(listener).toHaveBeenCalledWith({
+      type: 'sync_status_changed',
+      integrationId: linearId,
+      sourceId: linearSourceId,
+      source: expect.objectContaining({
+        id: linearSourceId,
+        lastSyncedAt: START,
+        lastError: null,
+      }),
+    });
+
+    unsubscribe();
+    await scheduler.syncNow(linearSourceId);
+    expect(engine.runs()).toHaveLength(2);
+    expect(listener).toHaveBeenCalledOnce();
+  });
+
+  it('a status listener that throws fails neither the run nor the other listeners', async () => {
+    scheduler.onStatus(() => {
+      throw new Error('listener failed');
+    });
+    const listener = vi.fn();
+    scheduler.onStatus(listener);
+    await start();
+
+    expect(listener).toHaveBeenCalledOnce();
+    expect(source().lastSyncedAt).toEqual(START);
+    // the run went on to its reconcile pass
+    expect(engine.reconciles()).toHaveLength(1);
+  });
 });
 
 describe('SyncScheduler — stop', () => {

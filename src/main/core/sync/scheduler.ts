@@ -10,7 +10,7 @@ import {
   RECONCILE_INTERVAL_MS,
 } from './constants';
 import type { BaseSyncEngine } from './engine';
-import { SyncStateManager, SyncTarget } from './sync-state';
+import { SyncStateManager, SyncStatusListener, SyncTarget } from './sync-state';
 import { SyncLogger, SyncProgressListener, SyncRunOutcome } from './types';
 
 // The clock and timers the scheduler runs on. Defaults to the global ones, resolved at each call,
@@ -27,8 +27,8 @@ export interface SyncSchedulerOptions {
   engine: BaseSyncEngine;
   // which sources exist (list), and the changes that start and stop runs (onChange)
   integrations: BaseIntegrationService;
-  // each source's failure count and retry time, for backoff
-  syncState: Pick<SyncStateManager, 'getSyncTarget'>;
+  // each source's failure count and retry time, for backoff, and how each run ended (onStatus)
+  syncState: Pick<SyncStateManager, 'getSyncTarget' | 'onChange'>;
   timers?: SchedulerTimers;
   logger?: SyncLogger;
 }
@@ -117,7 +117,7 @@ interface SourceRun {
 export class SyncScheduler {
   private readonly engine: BaseSyncEngine;
   private readonly integrations: BaseIntegrationService;
-  private readonly syncState: Pick<SyncStateManager, 'getSyncTarget'>;
+  private readonly syncState: Pick<SyncStateManager, 'getSyncTarget' | 'onChange'>;
   private readonly timers: SchedulerTimers;
   private readonly logger: SyncLogger;
   // each source's run now, if any; one that was aborted stays here until it settles
@@ -245,6 +245,11 @@ export class SyncScheduler {
   // returns a function that unsubscribes the listener
   onProgress(listener: SyncProgressListener): () => void {
     return this.engine.onProgress(listener);
+  }
+
+  // a run recorded how it ended on its source; returns a function that unsubscribes the listener
+  onStatus(listener: SyncStatusListener): () => void {
+    return this.syncState.onChange(listener);
   }
 
   private applyTrigger(reason: SyncTrigger, sourceId: ExternalSourceId): Promise<void> {
