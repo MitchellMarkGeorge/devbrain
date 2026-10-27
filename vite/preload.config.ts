@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import { dependenciesToExternalize } from './utils';
 
@@ -19,5 +20,8 @@ export default defineConfig({
     emptyOutDir: true,
     minify: false,
     target: 'node24',
+  },
+  resolve: {
+    alias: { '@common': fileURLToPath(new URL('../src/common', import.meta.url)) },
   },
 });

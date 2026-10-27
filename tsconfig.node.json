@@ -1,6 +1,10 @@
 {
   "compilerOptions": {
     "composite": true,
+    // declarations only, read by tsconfig.web.json through its reference (AppRouter)
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "./dist/types",
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
@@ -21,6 +25,9 @@
     "src/main/**/*.ts",
     "src/preload/**/*.ts",
     "src/common/**/*.ts",
+    // JSON the sources import (test fixtures, package.json): an emitting project must list them
+    "src/main/**/*.json",
+    "package.json",
     "vite/utils.ts",
     "vite/main.config.ts",
     "vite/preload.config.ts",

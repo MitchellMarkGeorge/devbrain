@@ -9,8 +9,8 @@ import {
 } from './schema';
 
 // Provider, SourceType, AuthType, IntegrationStatus, LinkState, Integration, ExternalSource and
-// ExternalRef: the types the renderer will need, kept free of main-only imports
-export * from './shared-types';
+// ExternalRef: shared with the renderer
+export * from '@common/integrations';
 
 // Normalised items: what a provider adapter returns. Adapters map into these; SyncWriter only
 // ever sees these.

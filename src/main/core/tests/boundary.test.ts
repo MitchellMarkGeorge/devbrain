@@ -7,10 +7,11 @@ import { fileURLToPath } from 'node:url';
 // net.fetch, shell.openExternal, electron-store and electron-log), and tests pass fakes. So nothing
 // under src/main/core imports Electron or its packages.
 //
-// The integration types the renderer will need are kept free of main-only imports, so they can move
-// to src/common unchanged.
+// The integration types core shares with the renderer live in src/common, and import nothing but the
+// shared ids.
 
 const coreDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const commonDir = path.resolve(coreDir, '../../common');
 
 function sourceFiles(dir: string): string[] {
   return fs
@@ -50,8 +51,9 @@ describe('Core — module boundary', () => {
     expect(offending).toEqual([]);
   });
 
-  it('keeps the shared integration types to the shared ids', () => {
-    const file = path.join(coreDir, 'integrations/shared-types.ts');
-    expect(specifiers(fs.readFileSync(file, 'utf8'))).toEqual(['@common/ids']);
+  it('keeps the shared integration types in src/common, importing only the shared ids', () => {
+    expect(fs.existsSync(path.join(coreDir, 'integrations/shared-types.ts'))).toBe(false);
+    const file = path.join(commonDir, 'integrations.ts');
+    expect(specifiers(fs.readFileSync(file, 'utf8'))).toEqual(['./ids']);
   });
 });

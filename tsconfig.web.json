@@ -1,6 +1,8 @@
 {
   "compilerOptions": {
     "composite": true,
+    // typecheck only: nothing references this project
+    "noEmit": true,
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
@@ -11,12 +13,18 @@
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "paths": {
+      "@common/*": ["./src/common/*"],
+      // main is read as the declarations tsconfig.node.json emits, never as source
+      "@main/*": ["./dist/types/src/main/*"]
+    }
   },
   "include": [
     "src/renderer/**/*.ts",
     "src/renderer/**/*.tsx",
     "src/common/**/*.ts",
     "vite/renderer.config.ts"
-  ]
+  ],
+  "references": [{ "path": "./tsconfig.node.json" }]
 }
