@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, net, powerMonitor, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, net, powerMonitor, safeStorage, shell } from 'electron';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { config as loadEnv } from '@dotenvx/dotenvx';
@@ -10,17 +10,15 @@ import { migrationsPath } from './runtime/migrations';
 import { openElectronSettingsStore } from './runtime/settings-store';
 import { startDevBrain } from './runtime/start';
 import { closeBeforeQuit, closeCore, forwardSyncTriggers } from './runtime/lifecycle';
+import { attachRouter } from './ipc/server';
+import { appRouter } from './ipc/router';
+import { createContext } from './ipc/context';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // the repository, in development: dist/main is two levels down
 const REPO_ROOT = path.join(__dirname, '../..');
 
 loadExpandedEnv();
-
-// --- IPC handlers ---------------------------------------------------------
-// Register handlers here; expose them to the renderer in src/preload/index.ts.
-ipcMain.handle('ping', () => 'pong');
-ipcMain.handle('app:version', () => app.getVersion());
 
 function loadExpandedEnv() {
   loadEnv({
@@ -82,6 +80,23 @@ async function startCore(): Promise<DevBrain | null> {
   }
 }
 
+// --- IPC ------------------------------------------------------------------
+const ipcLog = log.scope('ipc');
+
+// The typed router (src/main/ipc/router.ts); the renderer reaches it through the generic bridge in
+// src/preload/index.ts. Attached as soon as core starts, without waiting for it, so the window's
+// first calls find their handlers.
+function attachIpc() {
+  attachRouter(appRouter, {
+    createContext,
+    // an expected failure is the renderer's to show; only the rest is a bug worth logging
+    onError: ({ path, error, serialized }) => {
+      if (serialized.code === 'internal') ipcLog.error(`IPC call ${path} failed`, error);
+    },
+    checkClone: !app.isPackaged,
+  });
+}
+
 // --- Window ---------------------------------------------------------------
 function createWindow() {
   const win = new BrowserWindow({
@@ -119,6 +134,7 @@ app.whenReady().then(async () => {
 
   const starting = startCore();
   closeBeforeQuit(app, () => closeCore(starting), devBrainLog);
+  attachIpc();
 
   const devBrain = await starting;
   if (devBrain === null) return;

@@ -1,7 +1,10 @@
-// Placeholder for the typed IPC router (docs/ipc/implementation-plan.md, milestone 2). It lets the
-// renderer's typecheck read a type exported from src/main before the real router exists.
-export type AppRouter = {
-  app: {
-    ping: () => Promise<string>;
-  };
-};
+import { createRouter } from '@common/ipc/procedure';
+import { appRouter as app } from './routers/app';
+
+// Everything the renderer can call, attached in src/main/index.ts. The renderer imports AppRouter
+// as a type only (src/renderer/ipc) and calls it through Client<AppRouter>.
+export const appRouter = createRouter({
+  app,
+});
+
+export type AppRouter = typeof appRouter;
