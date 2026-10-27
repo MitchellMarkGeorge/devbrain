@@ -10,6 +10,8 @@ export type CoreErrorCode =
   | 'task_hierarchy'
   | 'already_archived'
   | 'not_archived'
+  | 'already_favorited'
+  | 'not_favorited'
   | 'external_read_only'
   | 'detach_failed'
   | 'integration_auth'
@@ -96,6 +98,22 @@ export class NotArchivedError<T extends EntityType> extends CoreError {
   constructor(id: Id<T>) {
     super(`Entity is not archived: ${id}`);
     this.name = 'NotArchivedError';
+  }
+}
+
+export class AlreadyFavoritedError<T extends EntityType> extends CoreError {
+  readonly code = 'already_favorited';
+  constructor(id: Id<T>) {
+    super(`Entity is already favorited: ${id}`);
+    this.name = 'AlreadyFavoritedError';
+  }
+}
+
+export class NotFavoritedError<T extends EntityType> extends CoreError {
+  readonly code = 'not_favorited';
+  constructor(id: Id<T>) {
+    super(`Entity is not favorited: ${id}`);
+    this.name = 'NotFavoritedError';
   }
 }
 

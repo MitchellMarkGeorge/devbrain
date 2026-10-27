@@ -3,6 +3,8 @@ import { calendars } from '@main/db/schema/calendars';
 import { eventExceptions, events } from '@main/db/schema/events';
 import { and, asc, eq, gte, inArray, isNotNull, isNull, lte, not, or } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
+import { RunResult } from 'better-sqlite3';
 import { ExternalReadOnlyError, InvalidInputError, NotFoundError } from '../shared/errors';
 import { CreateEventOptions, Event, UpdateEventOptions } from './types';
 import { assertEditable, assertRowEditable, hasLinkInState, withRefs } from '../integrations/refs';
@@ -183,44 +185,57 @@ export class EventService {
     if (calendar.sourceId !== null) throw new ExternalReadOnlyError(calendarId);
   }
 
-  // `external` and `exdates`, each in one batched lookup
   private withDetails(rows: EventRow[]): Event[] {
-    const exdates = this.exdatesOf(
-      rows.filter((row) => row.recurrenceRule !== null).map((row) => row.id),
-    );
-    const withExternal = withRefs(this.db, rows);
-    return withExternal.map((row) => ({ ...row, exdates: exdates.get(row.id) ?? [] }));
+    return withEventDetails(this.db, rows);
   }
+}
 
-  /**
-   * What each series no longer has, as FullCalendar's exdate: its cancelled occurrences, and the
-   * original starts of its occurrence rows (moved or edited, removed or not), in time order.
-   */
-  private exdatesOf(seriesIds: EventId[]): Map<EventId, Date[]> {
-    const exdates = new Map<EventId, Date[]>();
-    if (seriesIds.length === 0) return exdates;
-    const add = (seriesId: EventId, at: Date) =>
-      exdates.set(seriesId, [...(exdates.get(seriesId) ?? []), at]);
+// An event row as the read model: `external` and `exdates`, each in one batched lookup. Shared with
+// services that write an event column of their own, such as FavoritesService. Synchronous, so it
+// also runs inside a transaction (`db` can be one).
+export function withEventDetails(
+  db: BaseSQLiteDatabase<'sync', RunResult>,
+  rows: EventRow[],
+): Event[] {
+  const exdates = exdatesOf(
+    db,
+    rows.filter((row) => row.recurrenceRule !== null).map((row) => row.id),
+  );
+  const withExternal = withRefs(db, rows);
+  return withExternal.map((row) => ({ ...row, exdates: exdates.get(row.id) ?? [] }));
+}
 
-    // the cancelled occurrences
-    const cancelled = this.db
-      .select()
-      .from(eventExceptions)
-      .where(inArray(eventExceptions.seriesId, seriesIds))
-      .all();
-    // the moved or edited occurrences, by the start each replaces
-    const occurrences = this.db
-      .select({ seriesId: events.seriesId, originalStartAt: events.originalStartAt })
-      .from(events)
-      .where(and(inArray(events.seriesId, seriesIds), isNotNull(events.originalStartAt)))
-      .all();
+/**
+ * What each series no longer has, as FullCalendar's exdate: its cancelled occurrences, and the
+ * original starts of its occurrence rows (moved or edited, removed or not), in time order.
+ */
+function exdatesOf(
+  db: BaseSQLiteDatabase<'sync', RunResult>,
+  seriesIds: EventId[],
+): Map<EventId, Date[]> {
+  const exdates = new Map<EventId, Date[]>();
+  if (seriesIds.length === 0) return exdates;
+  const add = (seriesId: EventId, at: Date) =>
+    exdates.set(seriesId, [...(exdates.get(seriesId) ?? []), at]);
 
-    for (const row of cancelled) add(row.seriesId, row.originalStartAt);
-    for (const row of occurrences) add(row.seriesId!, row.originalStartAt!);
-    // the two lists arrive one after the other, so each series' dates are put in time order
-    for (const dates of exdates.values()) dates.sort((a, b) => a.getTime() - b.getTime());
-    return exdates;
-  }
+  // the cancelled occurrences
+  const cancelled = db
+    .select()
+    .from(eventExceptions)
+    .where(inArray(eventExceptions.seriesId, seriesIds))
+    .all();
+  // the moved or edited occurrences, by the start each replaces
+  const occurrences = db
+    .select({ seriesId: events.seriesId, originalStartAt: events.originalStartAt })
+    .from(events)
+    .where(and(inArray(events.seriesId, seriesIds), isNotNull(events.originalStartAt)))
+    .all();
+
+  for (const row of cancelled) add(row.seriesId, row.originalStartAt);
+  for (const row of occurrences) add(row.seriesId!, row.originalStartAt!);
+  // the two lists arrive one after the other, so each series' dates are put in time order
+  for (const dates of exdates.values()) dates.sort((a, b) => a.getTime() - b.getTime());
+  return exdates;
 }
 
 /** the range filter of listForCalendar */

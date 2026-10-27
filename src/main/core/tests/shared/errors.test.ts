@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import type { IntegrationId, TaskId, WorkspaceId } from '@common/ids';
 import {
   AlreadyArchivedError,
+  AlreadyFavoritedError,
   ConnectInProgressError,
   CoreError,
   CoreErrorCode,
@@ -18,6 +19,7 @@ import {
   IntegrationDisabledError,
   InvalidInputError,
   NotArchivedError,
+  NotFavoritedError,
   NotFoundError,
   OAuthUnavailableError,
   ProviderUnavailableError,
@@ -53,6 +55,8 @@ const errors: [CoreError, CoreErrorCode][] = [
   [new TaskHierarchyError(taskId, 'cycle', 'Tasks cannot be their own parent'), 'task_hierarchy'],
   [new AlreadyArchivedError(taskId), 'already_archived'],
   [new NotArchivedError(taskId), 'not_archived'],
+  [new AlreadyFavoritedError(taskId), 'already_favorited'],
+  [new NotFavoritedError(taskId), 'not_favorited'],
   [new ExternalReadOnlyError(taskId), 'external_read_only'],
   [new DetachError(taskId, 'Task is local'), 'detach_failed'],
   [new IntegrationAuthError('Rejected'), 'integration_auth'],

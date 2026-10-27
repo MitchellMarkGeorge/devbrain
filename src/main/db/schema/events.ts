@@ -59,6 +59,10 @@ export const events = sqliteTable(
     index('idx_events_calendar_id').on(table.calendarId),
     // a series' occurrences, for its exdates
     index('idx_events_series_id').on(table.seriesId).where(isNotNull(table.seriesId)),
+    // keyset pagination in FavoritesService.listFavorites: only favorited rows
+    index('idx_events_favorited_at_id')
+      .on(table.favoritedAt, table.id)
+      .where(isNotNull(table.favoritedAt)),
     // an all-day event has its dates, and only an all-day event does
     check(
       'all_day_dates',

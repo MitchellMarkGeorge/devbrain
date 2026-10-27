@@ -5,7 +5,7 @@ import { timesamps, date, completedAt, archivedAt } from './utils';
 import { projects } from './projects';
 import { events } from './events';
 import { notes } from './notes';
-import { isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, isNotNull, isNull, sql } from 'drizzle-orm';
 
 // CONFIRM FILE NAMING CONVENTIONS
 
@@ -82,6 +82,11 @@ export const tasks = sqliteTable(
     index('idx_tasks_archived_at_id')
       .on(table.archivedAt, table.id)
       .where(isNotNull(table.archivedAt)),
+    // keyset pagination in FavoritesService.listFavorites: favorited rows that are not archived.
+    // `where` must match the query's filter.
+    index('idx_tasks_favorited_at_id')
+      .on(table.favoritedAt, table.id)
+      .where(and(isNotNull(table.favoritedAt), isNull(table.archivedAt))!),
 
     // make sure there is one link if any
     check(
