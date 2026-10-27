@@ -215,7 +215,7 @@ describe('startup shutdown', () => {
       started = await starting;
       await vi.waitFor(() => expect(app.quit).toHaveBeenCalledOnce());
       expect(started!.currentWorkspace).toBeNull();
-      await expect(workspace.tasks.listTasks()).rejects.toThrow();
+      expect(() => workspace.tasks.listTasks()).toThrow();
     } finally {
       release.resolve(undefined);
       spy.mockRestore();

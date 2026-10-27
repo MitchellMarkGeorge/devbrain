@@ -617,8 +617,8 @@ describe('ArchiveService — archiveProject', () => {
       projectId: project.id,
     });
     archive.archiveProject(project.id);
-    await expect(tasks.getById(t1.id)).rejects.toBeInstanceOf(NotFoundError);
-    await expect(tasks.getById(t2.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => tasks.getById(t1.id)).toThrow(NotFoundError);
+    expect(() => tasks.getById(t2.id)).toThrow(NotFoundError);
   });
 
   it('archives subtasks of tasks belonging to the project', async () => {
@@ -630,7 +630,7 @@ describe('ArchiveService — archiveProject', () => {
     });
     const sub = await tasks.createSubtask(parent.id, { title: 'Sub' });
     archive.archiveProject(project.id);
-    await expect(tasks.getById(sub.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => tasks.getById(sub.id)).toThrow(NotFoundError);
   });
 
   it('does not archive tasks belonging to a different project', async () => {
@@ -642,7 +642,7 @@ describe('ArchiveService — archiveProject', () => {
       projectId: projectB.id,
     });
     archive.archiveProject(projectA.id);
-    await expect(tasks.getById(taskInB.id)).resolves.toMatchObject({ id: taskInB.id });
+    expect(tasks.getById(taskInB.id)).toMatchObject({ id: taskInB.id });
   });
 
   it('overwrites archivedAt of already-archived tasks with the project archive timestamp', async () => {
@@ -783,8 +783,8 @@ describe('ArchiveService — restoreProject', () => {
     });
     archive.archiveProject(project.id);
     archive.restoreProject(project.id);
-    await expect(tasks.getById(t1.id)).resolves.toMatchObject({ id: t1.id });
-    await expect(tasks.getById(t2.id)).resolves.toMatchObject({ id: t2.id });
+    expect(tasks.getById(t1.id)).toMatchObject({ id: t1.id });
+    expect(tasks.getById(t2.id)).toMatchObject({ id: t2.id });
   });
 
   it('restored tasks appear in TaskService.listTasks', async () => {
@@ -834,7 +834,7 @@ describe('ArchiveService — restoreProject', () => {
     archive.archiveProject(projectA.id);
     archive.restoreProject(projectA.id);
     // taskInB was never archived, should still be visible
-    await expect(tasks.getById(taskInB.id)).resolves.toMatchObject({ id: taskInB.id });
+    expect(tasks.getById(taskInB.id)).toMatchObject({ id: taskInB.id });
   });
 
   it('restores notes directly owned by the project', async () => {

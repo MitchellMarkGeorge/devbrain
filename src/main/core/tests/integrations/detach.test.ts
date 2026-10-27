@@ -215,7 +215,7 @@ describe('DetachService — detach', () => {
     const item = issue({ title: 'From Linear' });
     await sync(item);
     const id = idOf(item);
-    await expect(tasks.updateTask(id, { title: 'Mine' })).rejects.toThrow(ExternalReadOnlyError);
+    expect(() => tasks.updateTask(id, { title: 'Mine' })).toThrow(ExternalReadOnlyError);
 
     const detached = await detach.detachTask(id);
 
@@ -332,7 +332,7 @@ describe('DetachService — reattach', () => {
     });
     expect(linkOf(item.externalId).externalUpdatedAt).toEqual(item.updatedAt);
     expect((await notes.getById(taskNote.id)).linkedTaskId).toBe(id);
-    await expect(tasks.updateTask(id, { title: 'Again' })).rejects.toThrow(ExternalReadOnlyError);
+    expect(() => tasks.updateTask(id, { title: 'Again' })).toThrow(ExternalReadOnlyError);
     expect(changes.at(-1)).toEqual({
       type: 'reattached',
       taskId: id,

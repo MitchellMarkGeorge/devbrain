@@ -235,9 +235,7 @@ describe('read-only guards — guarded methods', () => {
 
   it('leaves a synced row untouched when a write is rejected', async () => {
     link(f.task.id);
-    await expect(tasks.updateTask(f.task.id, { title: 'Edited' })).rejects.toThrow(
-      ExternalReadOnlyError,
-    );
+    expect(() => tasks.updateTask(f.task.id, { title: 'Edited' })).toThrow(ExternalReadOnlyError);
     expect(() => archive.archiveTask(f.task.id)).toThrow(ExternalReadOnlyError);
 
     const task = await tasks.getById(f.task.id);
@@ -268,7 +266,7 @@ describe('read-only guards — assertEditable', () => {
   it('passes an id with no row, leaving not-found to the caller', async () => {
     const missing = generateId('task');
     expect(() => assertEditable(db, missing)).not.toThrow();
-    await expect(tasks.updateTask(missing, { title: 'Edited' })).rejects.toThrow(NotFoundError);
+    expect(() => tasks.updateTask(missing, { title: 'Edited' })).toThrow(NotFoundError);
   });
 });
 
@@ -307,7 +305,7 @@ describe('read-only guards — local tasks in mirrored projects', () => {
   it('still rejects moving a synced task, even into a mirrored project', async () => {
     const task = await tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
     link(task.id);
-    await expect(tasks.updateProject(task.id, mirrored.id)).rejects.toThrow(ExternalReadOnlyError);
+    expect(() => tasks.updateProject(task.id, mirrored.id)).toThrow(ExternalReadOnlyError);
   });
 });
 
@@ -363,10 +361,10 @@ describe('read-only guards — links on synced rows', () => {
     link(detached, LinkState.DETACHED);
     const note = await notes.createNote({ title: 'Note' });
 
-    await expect(tasks.updateLinks(local.id, { linkedNoteId: note.id })).rejects.toThrow(
+    expect(() => tasks.updateLinks(local.id, { linkedNoteId: note.id })).toThrow(
       'Subtasks inherit link context',
     );
-    await expect(tasks.updateLinks(detached, { linkedNoteId: note.id })).rejects.toThrow(
+    expect(() => tasks.updateLinks(detached, { linkedNoteId: note.id })).toThrow(
       'Subtasks inherit link context',
     );
   });
@@ -401,9 +399,7 @@ describe('read-only guards — deep external trees', () => {
   });
 
   it('rejects writes as read-only, not as too deep', async () => {
-    await expect(tasks.createSubtask(child, { title: 'Too deep' })).rejects.toThrow(
-      ExternalReadOnlyError,
-    );
-    await expect(tasks.demoteTask(child, root)).rejects.toThrow(ExternalReadOnlyError);
+    expect(() => tasks.createSubtask(child, { title: 'Too deep' })).toThrow(ExternalReadOnlyError);
+    expect(() => tasks.demoteTask(child, root)).toThrow(ExternalReadOnlyError);
   });
 });
