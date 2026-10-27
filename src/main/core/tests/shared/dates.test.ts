@@ -211,20 +211,20 @@ describe.each(TRANSITIONS)('a DST change: $date in $tz', ({ tz, date, start, end
   it("filters tasks due on the day by the day's own length", async () => {
     const tasks = new TaskService(createDb());
     const due = async (title: string, at: number) =>
-      (await tasks.createTask({ title, dueDate: new Date(at), status: TaskStatus.NOT_STARTED })).id;
+      tasks.createTask({ title, dueDate: new Date(at), status: TaskStatus.NOT_STARTED }).id;
     const first = await due('first moment', Date.parse(start));
     // the last whole second, as due dates are stored to the second
     const last = await due('last moment', Date.parse(end) - 1000);
     await due('day before', Date.parse(start) - 1000);
     await due('day after', Date.parse(end));
 
-    const dueOn = await tasks.listTasks({ dueOn: new Date(Date.parse(start) + HOUR) });
+    const dueOn = tasks.listTasks({ dueOn: new Date(Date.parse(start) + HOUR) });
     expect(dueOn.items.map((task) => task.id).sort()).toEqual([first, last].sort());
   });
 
   it("stores an all-day event at the starts of its days and finds it in the day's range", async () => {
     const events = new EventService(createDb());
-    const event = await events.createEvent({
+    const event = events.createEvent({
       title: 'All day',
       startAt: new Date(start),
       endAt: new Date(start),
@@ -236,7 +236,7 @@ describe.each(TRANSITIONS)('a DST change: $date in $tz', ({ tz, date, start, end
     expect(event.endAt.toISOString()).toBe(end);
 
     const { startOfDay, endOfDay } = localDayWindow(new Date(start));
-    const inDay = await events.listForCalendar(startOfDay, new Date(endOfDay.getTime() - 1));
+    const inDay = events.listForCalendar(startOfDay, new Date(endOfDay.getTime() - 1));
     expect(inDay.map((found) => found.id)).toEqual([event.id]);
   });
 });
@@ -263,10 +263,10 @@ describe('EventService — time zones', () => {
     const events = new EventService(createDb());
     const startAt = new Date('2026-10-05T14:00:00.000Z');
     const options = { title: 'Standup', startAt, endAt: startAt };
-    expect((await events.createEvent(options)).timeZone).toBe(localTimeZone());
-    const inTokyo = await events.createEvent({ ...options, timeZone: 'Asia/Tokyo' });
+    expect(events.createEvent(options).timeZone).toBe(localTimeZone());
+    const inTokyo = events.createEvent({ ...options, timeZone: 'Asia/Tokyo' });
     expect(inTokyo.timeZone).toBe('Asia/Tokyo');
-    expect((await events.updateEvent(inTokyo.id, { timeZone: 'UTC' })).timeZone).toBe('UTC');
+    expect(events.updateEvent(inTokyo.id, { timeZone: 'UTC' }).timeZone).toBe('UTC');
   });
 
   it('refuses a zone that is not an IANA name, and writes nothing', async () => {

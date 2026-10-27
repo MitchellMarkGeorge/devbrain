@@ -129,13 +129,13 @@ describe('read-only guards — guarded methods', () => {
   let f: Fixture;
 
   beforeEach(async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     f = {
-      task: await tasks.createTask({ title: 'Task', dueDate: TOMORROW }),
-      other: await tasks.createTask({ title: 'Other', dueDate: TOMORROW }),
-      subtask: await tasks.createSubtask(parent.id, { title: 'Subtask' }),
-      project: await projects.createProject({ title: 'Project', dueDate: TOMORROW }),
-      event: await events.createEvent({ title: 'Event', startAt: TOMORROW, endAt: NEXT_WEEK }),
+      task: tasks.createTask({ title: 'Task', dueDate: TOMORROW }),
+      other: tasks.createTask({ title: 'Other', dueDate: TOMORROW }),
+      subtask: tasks.createSubtask(parent.id, { title: 'Subtask' }),
+      project: projects.createProject({ title: 'Project', dueDate: TOMORROW }),
+      event: events.createEvent({ title: 'Event', startAt: TOMORROW, endAt: NEXT_WEEK }),
     };
   });
 
@@ -238,7 +238,7 @@ describe('read-only guards — guarded methods', () => {
     expect(() => tasks.updateTask(f.task.id, { title: 'Edited' })).toThrow(ExternalReadOnlyError);
     expect(() => archive.archiveTask(f.task.id)).toThrow(ExternalReadOnlyError);
 
-    const task = await tasks.getById(f.task.id);
+    const task = tasks.getById(f.task.id);
     expect(task.title).toBe('Task');
     expect(task.archivedAt).toBeNull();
   });
@@ -252,9 +252,9 @@ describe('read-only guards — guarded methods', () => {
 
 describe('read-only guards — assertEditable', () => {
   it('throws only for a synced link', async () => {
-    const synced = await tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
-    const detached = await tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
-    const local = await tasks.createTask({ title: 'Local', dueDate: TOMORROW });
+    const synced = tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
+    const detached = tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
+    const local = tasks.createTask({ title: 'Local', dueDate: TOMORROW });
     link(synced.id);
     link(detached.id, LinkState.DETACHED);
 
@@ -274,36 +274,36 @@ describe('read-only guards — local tasks in mirrored projects', () => {
   let mirrored: Project;
 
   beforeEach(async () => {
-    mirrored = await projects.createProject({ title: 'Mirrored', dueDate: TOMORROW });
+    mirrored = projects.createProject({ title: 'Mirrored', dueDate: TOMORROW });
     link(mirrored.id);
   });
 
   it('creates a local task in a mirrored project and counts it in the stats', async () => {
-    const task = await tasks.createTask({
+    const task = tasks.createTask({
       title: 'Local',
       dueDate: TOMORROW,
       projectId: mirrored.id,
     });
     expect(task.projectId).toBe(mirrored.id);
 
-    const stats = await projects.getProjectStats(mirrored.id);
+    const stats = projects.getProjectStats(mirrored.id);
     expect(stats.totalTasks).toBe(1);
     expect(stats.numOfNotStarted).toBe(1);
   });
 
   it('moves a local task into a mirrored project, and it stays editable there', async () => {
-    const task = await tasks.createTask({ title: 'Local', dueDate: TOMORROW });
-    const moved = await tasks.updateProject(task.id, mirrored.id);
+    const task = tasks.createTask({ title: 'Local', dueDate: TOMORROW });
+    const moved = tasks.updateProject(task.id, mirrored.id);
     expect(moved.projectId).toBe(mirrored.id);
 
-    await tasks.updateStatus(task.id, TaskStatus.COMPLETED);
-    const stats = await projects.getProjectStats(mirrored.id);
+    tasks.updateStatus(task.id, TaskStatus.COMPLETED);
+    const stats = projects.getProjectStats(mirrored.id);
     expect(stats.numOfCompleted).toBe(1);
     expect(stats.totalTasks).toBe(1);
   });
 
   it('still rejects moving a synced task, even into a mirrored project', async () => {
-    const task = await tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
     link(task.id);
     expect(() => tasks.updateProject(task.id, mirrored.id)).toThrow(ExternalReadOnlyError);
   });
@@ -311,52 +311,46 @@ describe('read-only guards — local tasks in mirrored projects', () => {
 
 describe('read-only guards — links on synced rows', () => {
   it('links a note and an event to a synced task', async () => {
-    const task = await tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
     link(task.id);
     const note = await notes.createNote({ title: 'Note' });
-    const event = await events.createEvent({ title: 'Event', startAt: TOMORROW, endAt: NEXT_WEEK });
+    const event = events.createEvent({ title: 'Event', startAt: TOMORROW, endAt: NEXT_WEEK });
 
-    expect((await tasks.updateLinks(task.id, { linkedNoteId: note.id })).linkedNoteId).toBe(
-      note.id,
-    );
-    expect((await tasks.updateLinks(task.id, { linkedEventId: event.id })).linkedEventId).toBe(
-      event.id,
-    );
+    expect(tasks.updateLinks(task.id, { linkedNoteId: note.id }).linkedNoteId).toBe(note.id);
+    expect(tasks.updateLinks(task.id, { linkedEventId: event.id }).linkedEventId).toBe(event.id);
   });
 
   it('files a note under a synced task', async () => {
-    const task = await tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
     link(task.id);
     const note = await notes.createNote({ title: 'Task note', linkedTaskId: task.id });
     expect(note.linkedTaskId).toBe(task.id);
   });
 
   it('links a note and a task to a synced event', async () => {
-    const event = await events.createEvent({ title: 'Event', startAt: TOMORROW, endAt: NEXT_WEEK });
+    const event = events.createEvent({ title: 'Event', startAt: TOMORROW, endAt: NEXT_WEEK });
     link(event.id);
     const note = await notes.createNote({ title: 'Meeting notes', linkedEventId: event.id });
     expect(note.linkedEventId).toBe(event.id);
 
-    const task = await tasks.createTask({ title: 'Follow-up', dueDate: TOMORROW });
-    expect((await tasks.updateLinks(task.id, { linkedEventId: event.id })).linkedEventId).toBe(
-      event.id,
-    );
+    const task = tasks.createTask({ title: 'Follow-up', dueDate: TOMORROW });
+    expect(tasks.updateLinks(task.id, { linkedEventId: event.id }).linkedEventId).toBe(event.id);
   });
 
   it('lets a synced subtask carry its own links', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const child = insertChild(parent.id, 'Child');
     link(parent.id);
     link(child);
     const note = await notes.createNote({ title: 'Note' });
 
-    const updated = await tasks.updateLinks(child, { linkedNoteId: note.id });
+    const updated = tasks.updateLinks(child, { linkedNoteId: note.id });
     expect(updated.linkedNoteId).toBe(note.id);
   });
 
   it('still makes local and detached subtasks inherit links', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const local = await tasks.createSubtask(parent.id, { title: 'Local' });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const local = tasks.createSubtask(parent.id, { title: 'Local' });
     const detached = insertChild(parent.id, 'Detached');
     link(detached, LinkState.DETACHED);
     const note = await notes.createNote({ title: 'Note' });
@@ -377,25 +371,25 @@ describe('read-only guards — deep external trees', () => {
 
   beforeEach(async () => {
     // three levels, which local tasks cannot reach
-    root = (await tasks.createTask({ title: 'Root', dueDate: TOMORROW })).id;
+    root = tasks.createTask({ title: 'Root', dueDate: TOMORROW }).id;
     child = insertChild(root, 'Child');
     grandchild = insertChild(child, 'Grandchild');
     for (const id of [root, child, grandchild]) link(id);
   });
 
   it('reads every level', async () => {
-    expect((await tasks.getById(grandchild)).parentTaskId).toBe(child);
-    expect((await tasks.listSubtasks(child)).items.map((t) => t.id)).toEqual([grandchild]);
-    expect((await tasks.getByIds([root, child, grandchild])).map((t) => t.external?.state)).toEqual(
-      [LinkState.SYNCED, LinkState.SYNCED, LinkState.SYNCED],
-    );
+    expect(tasks.getById(grandchild).parentTaskId).toBe(child);
+    expect(tasks.listSubtasks(child).items.map((t) => t.id)).toEqual([grandchild]);
+    expect(tasks.getByIds([root, child, grandchild]).map((t) => t.external?.state)).toEqual([
+      LinkState.SYNCED,
+      LinkState.SYNCED,
+      LinkState.SYNCED,
+    ]);
   });
 
   it('links a note to the deepest level', async () => {
     const note = await notes.createNote({ title: 'Note' });
-    expect((await tasks.updateLinks(grandchild, { linkedNoteId: note.id })).linkedNoteId).toBe(
-      note.id,
-    );
+    expect(tasks.updateLinks(grandchild, { linkedNoteId: note.id }).linkedNoteId).toBe(note.id);
   });
 
   it('rejects writes as read-only, not as too deep', async () => {

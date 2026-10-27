@@ -35,6 +35,17 @@ Other points:
 - Cover a migration that changes existing rows in `src/main/core/tests/db/migrations.test.ts`,
   seeding a database at the migration before it.
 
+## Database access
+
+better-sqlite3 is synchronous: every query runs on the main process and returns when it is done.
+Awaiting one blocks just as long, and only opens a gap where other work can run between a check
+and the write after it.
+
+- End every Drizzle query with `.all()`, `.get()` or `.run()`; never `await` one. Put writes that
+  must commit together in a `db.transaction`, which is synchronous too.
+- A method returns a Promise only when it does real async work: file I/O (note files), the network
+  (providers, OAuth) or encryption. One that only reads or writes rows is synchronous.
+
 ## Change events
 
 A service in `src/main/core` that tells other code what it changed does so through

@@ -36,7 +36,7 @@ const makeInfo = (overrides: Partial<WorkspaceInfo> = {}): WorkspaceInfo => ({
 
 // an IntegrationService with these integrations, recording each disconnect in `calls`
 const fakeIntegrations = (ids: string[], calls: string[] = []) => ({
-  list: vi.fn(async () => ids.map((id) => ({ id }))),
+  list: vi.fn(() => ids.map((id) => ({ id }))),
   disconnect: vi.fn(async (id: string) => void calls.push(`disconnect ${id}`)),
 });
 

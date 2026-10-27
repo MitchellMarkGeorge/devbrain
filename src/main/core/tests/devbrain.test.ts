@@ -125,7 +125,7 @@ describe('DevBrain — connect, sync and close', () => {
       'lin_api_test',
     );
     await vi.waitFor(async () => {
-      const [status] = await workspace.sync.getStatus();
+      const [status] = workspace.sync.getStatus();
       expect(status).toMatchObject({ running: false, lastError: null });
       expect(status.lastSyncedAt).not.toBeNull();
     });
@@ -134,7 +134,7 @@ describe('DevBrain — connect, sync and close', () => {
     expect(fetch.requests).toHaveLength(3);
     expect(fetch.requests[1].headers.authorization).toBe('lin_api_test');
     expect(progress.map((event) => event.pages)).toEqual([1, 2]);
-    const { items } = await workspace.tasks.listTasks();
+    const { items } = workspace.tasks.listTasks();
     expect(items.length).toBeGreaterThan(0);
     expect(items.every((task) => task.external?.provider === Provider.LINEAR)).toBe(true);
     expect(items.every((task) => task.external?.state === LinkState.SYNCED)).toBe(true);
@@ -144,8 +144,8 @@ describe('DevBrain — connect, sync and close', () => {
 
     // the synced rows and the connection outlive the close
     const reopened = await devBrain.workspaces.open(id);
-    expect((await reopened.tasks.listTasks()).items).toHaveLength(items.length);
-    expect((await reopened.integrations.list()).map((i) => i.id)).toEqual([integration.id]);
+    expect(reopened.tasks.listTasks().items).toHaveLength(items.length);
+    expect(reopened.integrations.list().map((i) => i.id)).toEqual([integration.id]);
   });
 
   it('closing mid-sync waits for the run, and nothing is written after it resolves', async () => {
@@ -227,7 +227,7 @@ describe('DevBrain — disconnect during a sync', () => {
       FAKE_API_KEY,
     );
     await secondPull;
-    expect((await workspace.tasks.listTasks()).items).toHaveLength(1);
+    expect(workspace.tasks.listTasks().items).toHaveLength(1);
 
     await workspace.integrations.disconnect(integration.id, { keepLocalCopies: false });
     const dbPath = path.join(workspacePath, 'db.sqlite');
@@ -238,7 +238,7 @@ describe('DevBrain — disconnect during a sync', () => {
 
     // the second page arrives; the aborted run discards it and records nothing
     await new Promise((resolve) => setTimeout(resolve, 250));
-    expect(await workspace.sync.getStatus()).toEqual([]);
+    expect(workspace.sync.getStatus()).toEqual([]);
     expect(
       ['tasks', 'external_links', 'external_sources', 'integrations'].map((table) =>
         countRows(dbPath, table),

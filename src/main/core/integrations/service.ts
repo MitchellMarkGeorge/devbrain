@@ -129,18 +129,18 @@ type SourceRow = typeof externalSources.$inferSelect;
 // SyncScheduler, depends on this rather than the class, and tests can pass their own.
 export interface BaseIntegrationService {
   // every integration in the workspace, oldest first, each with its sources
-  list(): Promise<Integration[]>;
-  getById(id: IntegrationId): Promise<Integration>;
+  list(): Integration[];
+  getById(id: IntegrationId): Integration;
   connectWithApiKey(
     providerId: Provider,
     apiKey: string,
     options?: ConnectOptions,
   ): Promise<Integration>;
   connectWithOAuth(providerId: Provider, options?: OAuthConnectOptions): Promise<Integration>;
-  setEnabled(id: IntegrationId, enabled: boolean, options?: EnableOptions): Promise<Integration>;
-  setSourceEnabled(sourceId: ExternalSourceId, enabled: boolean): Promise<ExternalSource>;
+  setEnabled(id: IntegrationId, enabled: boolean, options?: EnableOptions): Integration;
+  setSourceEnabled(sourceId: ExternalSourceId, enabled: boolean): ExternalSource;
   reconnect(id: IntegrationId, using: ReconnectWith): Promise<Integration>;
-  previewDisconnect(id: IntegrationId): Promise<DisconnectCounts>;
+  previewDisconnect(id: IntegrationId): DisconnectCounts;
   disconnect(id: IntegrationId, options: DisconnectOptions): Promise<DisconnectResult>;
   markNeedsReauth(id: IntegrationId): void;
   // returns a function that unsubscribes the listener
@@ -179,7 +179,7 @@ export class IntegrationService implements BaseIntegrationService {
     this.signal = options.signal;
   }
 
-  async list(): Promise<Integration[]> {
+  list(): Integration[] {
     const rows = this.db
       .select()
       .from(integrations)
@@ -188,7 +188,7 @@ export class IntegrationService implements BaseIntegrationService {
     return this.withSources(rows);
   }
 
-  async getById(id: IntegrationId): Promise<Integration> {
+  getById(id: IntegrationId): Integration {
     const row = this.db.select().from(integrations).where(eq(integrations.id, id)).get();
     if (!row) throw new NotFoundError(id);
     const [integration] = this.withSources([row]);
@@ -418,11 +418,7 @@ export class IntegrationService implements BaseIntegrationService {
    * One in needs_reauth can be disabled. Enabling it while it needs re-authentication changes
    * nothing: only a reconnect clears that.
    */
-  async setEnabled(
-    id: IntegrationId,
-    enabled: boolean,
-    options: EnableOptions = {},
-  ): Promise<Integration> {
+  setEnabled(id: IntegrationId, enabled: boolean, options: EnableOptions = {}): Integration {
     const row = this.db
       .select({ status: integrations.status, provider: integrations.provider })
       .from(integrations)
@@ -478,7 +474,7 @@ export class IntegrationService implements BaseIntegrationService {
    * Switches one source on or off. A source of a disabled integration can't be switched on: enable
    * the integration, which can switch on just this source through its `enable` option.
    */
-  async setSourceEnabled(sourceId: ExternalSourceId, enabled: boolean): Promise<ExternalSource> {
+  setSourceEnabled(sourceId: ExternalSourceId, enabled: boolean): ExternalSource {
     const row = this.db
       .select()
       .from(externalSources)
@@ -518,8 +514,8 @@ export class IntegrationService implements BaseIntegrationService {
    * events would be deleted, and how many kept as local copies. Keeping everything keeps the sum.
    * Reads only; uses the same plan as disconnect, so the two agree.
    */
-  async previewDisconnect(id: IntegrationId): Promise<DisconnectCounts> {
-    await this.getById(id);
+  previewDisconnect(id: IntegrationId): DisconnectCounts {
+    this.getById(id);
     return countPlan(planDisconnect(this.db, id, { keepLocalCopies: false }));
   }
 
@@ -538,7 +534,7 @@ export class IntegrationService implements BaseIntegrationService {
    *    can meet the revoked token. Best effort: a failure never undoes the disconnect.
    */
   async disconnect(id: IntegrationId, options: DisconnectOptions): Promise<DisconnectResult> {
-    const { provider, sources } = await this.getById(id);
+    const { provider, sources } = this.getById(id);
     const sourceIds = sources.map((source) => source.id);
 
     // 1.

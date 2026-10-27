@@ -88,8 +88,8 @@ describe('refs — tasks', () => {
   let local: Task;
 
   beforeEach(async () => {
-    synced = await tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
-    local = await tasks.createTask({ title: 'Local', dueDate: TOMORROW });
+    synced = tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
+    local = tasks.createTask({ title: 'Local', dueDate: TOMORROW });
     link(
       { taskId: synced.id },
       {
@@ -111,42 +111,42 @@ describe('refs — tasks', () => {
   };
 
   it('getById returns the ref of a synced task and null for a local one', async () => {
-    expect((await tasks.getById(synced.id)).external).toEqual(expectedRef);
-    expect((await tasks.getById(local.id)).external).toBeNull();
+    expect(tasks.getById(synced.id).external).toEqual(expectedRef);
+    expect(tasks.getById(local.id).external).toBeNull();
   });
 
   it('getByIds fills each task', async () => {
-    const rows = await tasks.getByIds([synced.id, local.id]);
+    const rows = tasks.getByIds([synced.id, local.id]);
     const byId = new Map(rows.map((r) => [r.id, r.external]));
     expect(byId.get(synced.id)).toEqual(expectedRef);
     expect(byId.get(local.id)).toBeNull();
   });
 
   it('listTasks fills each task', async () => {
-    const { items } = await tasks.listTasks();
+    const { items } = tasks.listTasks();
     const byId = new Map(items.map((r) => [r.id, r.external]));
     expect(byId.get(synced.id)).toEqual(expectedRef);
     expect(byId.get(local.id)).toBeNull();
   });
 
   it('listSubtasks fills each subtask', async () => {
-    const child = await tasks.createSubtask(local.id, { title: 'Child' });
+    const child = tasks.createSubtask(local.id, { title: 'Child' });
     link({ taskId: child.id }, { externalKey: 'ENG-124' });
-    const { items } = await tasks.listSubtasks(local.id);
+    const { items } = tasks.listSubtasks(local.id);
     expect(items).toHaveLength(1);
     expect(items[0].external).toMatchObject({ key: 'ENG-124', state: LinkState.SYNCED });
   });
 
   it('keeps the ref of a detached task, with its state', async () => {
-    const detached = await tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
+    const detached = tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
     link({ taskId: detached.id }, { state: LinkState.DETACHED });
-    expect((await tasks.getById(detached.id)).external?.state).toBe(LinkState.DETACHED);
+    expect(tasks.getById(detached.id).external?.state).toBe(LinkState.DETACHED);
   });
 
   it('reads missing labels as null', async () => {
-    const bare = await tasks.createTask({ title: 'Bare', dueDate: TOMORROW });
+    const bare = tasks.createTask({ title: 'Bare', dueDate: TOMORROW });
     link({ taskId: bare.id }, { externalKey: null });
-    expect((await tasks.getById(bare.id)).external).toMatchObject({
+    expect(tasks.getById(bare.id).external).toMatchObject({
       key: null,
       statusLabel: null,
       priorityLabel: null,
@@ -154,9 +154,9 @@ describe('refs — tasks', () => {
   });
 
   it('an unreadable metadata blob costs only the labels', async () => {
-    const odd = await tasks.createTask({ title: 'Odd', dueDate: TOMORROW });
+    const odd = tasks.createTask({ title: 'Odd', dueDate: TOMORROW });
     link({ taskId: odd.id }, { metadata: { statusLabel: 42 } });
-    expect((await tasks.getById(odd.id)).external).toMatchObject({
+    expect(tasks.getById(odd.id).external).toMatchObject({
       key: expect.any(String),
       statusLabel: null,
       priorityLabel: null,
@@ -166,8 +166,8 @@ describe('refs — tasks', () => {
 
 describe('refs — projects', () => {
   it('getById, getByIds and listProjects return the ref, with the status label only', async () => {
-    const synced = await projects.createProject({ title: 'Synced', dueDate: TOMORROW });
-    const local = await projects.createProject({ title: 'Local', dueDate: TOMORROW });
+    const synced = projects.createProject({ title: 'Synced', dueDate: TOMORROW });
+    const local = projects.createProject({ title: 'Local', dueDate: TOMORROW });
     link(
       { projectId: synced.id },
       { externalKey: null, metadata: { statusLabel: 'Planned', priorityLabel: 'Ignored' } },
@@ -182,16 +182,16 @@ describe('refs — projects', () => {
       lastSyncedAt: SYNCED_AT,
     };
 
-    expect((await projects.getById(synced.id)).external).toEqual(expectedRef);
-    expect((await projects.getById(local.id)).external).toBeNull();
+    expect(projects.getById(synced.id).external).toEqual(expectedRef);
+    expect(projects.getById(local.id).external).toBeNull();
 
     const fromIds = new Map(
-      (await projects.getByIds([synced.id, local.id])).map((r) => [r.id, r.external]),
+      projects.getByIds([synced.id, local.id]).map((r) => [r.id, r.external]),
     );
     expect(fromIds.get(synced.id)).toEqual(expectedRef);
     expect(fromIds.get(local.id)).toBeNull();
 
-    const fromList = new Map((await projects.listProjects()).items.map((r) => [r.id, r.external]));
+    const fromList = new Map(projects.listProjects().items.map((r) => [r.id, r.external]));
     expect(fromList.get(synced.id)).toEqual(expectedRef);
     expect(fromList.get(local.id)).toBeNull();
   });
@@ -203,8 +203,8 @@ describe('refs — events', () => {
   const range = [new Date('2026-10-01T00:00:00Z'), new Date('2026-10-31T00:00:00Z')] as const;
 
   it('getById, getByIds and listForCalendar return the ref, with no labels', async () => {
-    const synced = await events.createEvent({ title: 'Synced', startAt: start, endAt: end });
-    const local = await events.createEvent({ title: 'Local', startAt: start, endAt: end });
+    const synced = events.createEvent({ title: 'Synced', startAt: start, endAt: end });
+    const local = events.createEvent({ title: 'Local', startAt: start, endAt: end });
     link(
       { eventId: synced.id },
       {
@@ -223,33 +223,29 @@ describe('refs — events', () => {
       lastSyncedAt: SYNCED_AT,
     };
 
-    expect((await events.getById(synced.id)).external).toEqual(expectedRef);
-    expect((await events.getById(local.id)).external).toBeNull();
+    expect(events.getById(synced.id).external).toEqual(expectedRef);
+    expect(events.getById(local.id).external).toBeNull();
 
-    const fromIds = new Map(
-      (await events.getByIds([synced.id, local.id])).map((r) => [r.id, r.external]),
-    );
+    const fromIds = new Map(events.getByIds([synced.id, local.id]).map((r) => [r.id, r.external]));
     expect(fromIds.get(synced.id)).toEqual(expectedRef);
     expect(fromIds.get(local.id)).toBeNull();
 
-    const fromRange = new Map(
-      (await events.listForCalendar(...range)).map((r) => [r.id, r.external]),
-    );
+    const fromRange = new Map(events.listForCalendar(...range).map((r) => [r.id, r.external]));
     expect(fromRange.get(synced.id)).toEqual(expectedRef);
     expect(fromRange.get(local.id)).toBeNull();
   });
 
   it('listForCalendar leaves out removed events and keeps every other kind', async () => {
-    const removed = await events.createEvent({ title: 'Removed', startAt: start, endAt: end });
-    const synced = await events.createEvent({ title: 'Synced', startAt: start, endAt: end });
-    const local = await events.createEvent({ title: 'Local', startAt: start, endAt: end });
+    const removed = events.createEvent({ title: 'Removed', startAt: start, endAt: end });
+    const synced = events.createEvent({ title: 'Synced', startAt: start, endAt: end });
+    const local = events.createEvent({ title: 'Local', startAt: start, endAt: end });
     link({ eventId: removed.id }, { state: LinkState.REMOVED, removedAt: SYNCED_AT });
     link({ eventId: synced.id });
 
-    const items = await events.listForCalendar(...range);
+    const items = events.listForCalendar(...range);
     expect(ids(items)).toEqual(ids([synced, local]));
     // still readable directly, for the notes linked to it
-    expect((await events.getById(removed.id)).external?.state).toBe(LinkState.REMOVED);
+    expect(events.getById(removed.id).external?.state).toBe(LinkState.REMOVED);
   });
 });
 
@@ -259,8 +255,8 @@ describe('refs — getRefs', () => {
   });
 
   it('rejects ids of different entity types', async () => {
-    const task = await tasks.createTask({ title: 'Task', dueDate: TOMORROW });
-    const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW });
+    const project = projects.createProject({ title: 'Project', dueDate: TOMORROW });
     expect(() => getRefs<TaskId | ProjectId>(db, [task.id, project.id])).toThrow(
       'one entity type at a time',
     );
@@ -274,33 +270,33 @@ describe('TaskService — listTasks origin filter', () => {
   let local: Task;
 
   beforeEach(async () => {
-    synced = await tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
-    detached = await tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
-    removed = await tasks.createTask({ title: 'Removed', dueDate: TOMORROW });
-    local = await tasks.createTask({ title: 'Local', dueDate: TOMORROW });
+    synced = tasks.createTask({ title: 'Synced', dueDate: TOMORROW });
+    detached = tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
+    removed = tasks.createTask({ title: 'Removed', dueDate: TOMORROW });
+    local = tasks.createTask({ title: 'Local', dueDate: TOMORROW });
     link({ taskId: synced.id });
     link({ taskId: detached.id }, { state: LinkState.DETACHED });
     link({ taskId: removed.id }, { state: LinkState.REMOVED, removedAt: SYNCED_AT });
   });
 
   it('external returns only synced tasks', async () => {
-    const { items } = await tasks.listTasks({ origin: 'external' });
+    const { items } = tasks.listTasks({ origin: 'external' });
     expect(ids(items)).toEqual(ids([synced]));
   });
 
   it('local returns every task without a synced link, detached ones included', async () => {
-    const { items } = await tasks.listTasks({ origin: 'local' });
+    const { items } = tasks.listTasks({ origin: 'local' });
     expect(ids(items)).toEqual(ids([detached, removed, local]));
     expect(items.find((t) => t.id === detached.id)?.external?.state).toBe(LinkState.DETACHED);
   });
 
   it('no origin returns both', async () => {
-    const { items } = await tasks.listTasks();
+    const { items } = tasks.listTasks();
     expect(items).toHaveLength(4);
   });
 
   it('combines with the other filters', async () => {
-    const { items } = await tasks.listTasks({ origin: 'external', excludeSubtasks: true });
+    const { items } = tasks.listTasks({ origin: 'external', excludeSubtasks: true });
     expect(ids(items)).toEqual(ids([synced]));
   });
 });
@@ -315,7 +311,7 @@ describe('TaskService — listTasks origin filter pagination', () => {
     // the two kinds interleave, so page boundaries fall between them; due dates repeat to force
     // id tiebreaks, and every fifth task is undated so the dueDate sort crosses its null boundary
     for (let i = 0; i < 12; i++) {
-      const task = await tasks.createTask({
+      const task = tasks.createTask({
         title: `Task ${i}`,
         dueDate: new Date(TOMORROW.getTime() + (i % 3) * 86_400_000),
       });
@@ -350,7 +346,7 @@ describe('TaskService — listTasks origin filter pagination', () => {
       expect(ids(paged)).toEqual(ids(expected));
 
       // the same order as one unpaged read
-      const { items } = await tasks.listTasks({ origin }, sort, { limit: 200 });
+      const { items } = tasks.listTasks({ origin }, sort, { limit: 200 });
       expect(paged.map((t) => t.id)).toEqual(items.map((t) => t.id));
     }
   });
@@ -361,7 +357,7 @@ describe('ProjectService — listProjects origin filter', () => {
     const synced: ProjectId[] = [];
     const local: ProjectId[] = [];
     for (let i = 0; i < 7; i++) {
-      const project = await projects.createProject({ title: `Project ${i}`, dueDate: TOMORROW });
+      const project = projects.createProject({ title: `Project ${i}`, dueDate: TOMORROW });
       if (i % 2 === 0) {
         link({ projectId: project.id });
         synced.push(project.id);
@@ -378,7 +374,7 @@ describe('ProjectService — listProjects origin filter', () => {
       const paged: string[] = [];
       let cursor: string | undefined;
       do {
-        const page = await projects.listProjects(
+        const page = projects.listProjects(
           { origin },
           { sortBy: 'createdAt' },
           {
@@ -401,66 +397,63 @@ describe('refs — mutation results', () => {
   const HOUR_LATER = new Date('2026-10-05T15:00:00.000Z');
 
   it('every task mutation returns external, null for a local task', async () => {
-    const parent = await tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
-    const other = await tasks.createTask({ title: 'Other', dueDate: TOMORROW });
-    const subtask = await tasks.createSubtask(parent.id, { title: 'Sub' });
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const other = tasks.createTask({ title: 'Other', dueDate: TOMORROW });
+    const subtask = tasks.createSubtask(parent.id, { title: 'Sub' });
     const results = [
       parent,
       subtask,
-      await tasks.updateTask(parent.id, { title: 'Renamed' }),
-      await tasks.updateStatus(parent.id, TaskStatus.IN_PROGRESS),
-      await tasks.updateProject(parent.id, null),
-      await tasks.updateLinks(parent.id, {}),
-      await tasks.promoteSubtask(subtask.id),
-      await tasks.demoteTask(other.id, parent.id),
+      tasks.updateTask(parent.id, { title: 'Renamed' }),
+      tasks.updateStatus(parent.id, TaskStatus.IN_PROGRESS),
+      tasks.updateProject(parent.id, null),
+      tasks.updateLinks(parent.id, {}),
+      tasks.promoteSubtask(subtask.id),
+      tasks.demoteTask(other.id, parent.id),
     ];
     for (const task of results) expect(task).toHaveProperty('external', null);
   });
 
   it("a detached task's update returns its ref", async () => {
-    const task = await tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
     link({ taskId: task.id }, { state: LinkState.DETACHED });
-    const updated = await tasks.updateTask(task.id, { title: 'Edited' });
+    const updated = tasks.updateTask(task.id, { title: 'Edited' });
     expect(updated.external?.state).toBe(LinkState.DETACHED);
-    expect((await tasks.updateStatus(task.id, TaskStatus.COMPLETED)).external?.state).toBe(
+    expect(tasks.updateStatus(task.id, TaskStatus.COMPLETED).external?.state).toBe(
       LinkState.DETACHED,
     );
   });
 
   it('every project mutation returns external, null for a local project', async () => {
-    const project = await projects.createProject({ title: 'Local', dueDate: TOMORROW });
+    const project = projects.createProject({ title: 'Local', dueDate: TOMORROW });
     expect(project).toHaveProperty('external', null);
-    expect(await projects.updateProject(project.id, { title: 'Renamed' })).toHaveProperty(
+    expect(projects.updateProject(project.id, { title: 'Renamed' })).toHaveProperty(
       'external',
       null,
     );
-    expect(await projects.updateStatus(project.id, ProjectStatus.ACTIVE)).toHaveProperty(
+    expect(projects.updateStatus(project.id, ProjectStatus.ACTIVE)).toHaveProperty(
       'external',
       null,
     );
 
-    const detached = await projects.createProject({ title: 'Detached', dueDate: TOMORROW });
+    const detached = projects.createProject({ title: 'Detached', dueDate: TOMORROW });
     link({ projectId: detached.id }, { state: LinkState.DETACHED });
-    expect((await projects.updateProject(detached.id, { title: 'Edited' })).external?.state).toBe(
+    expect(projects.updateProject(detached.id, { title: 'Edited' }).external?.state).toBe(
       LinkState.DETACHED,
     );
   });
 
   it('every event mutation returns external, null for a local event', async () => {
-    const event = await events.createEvent({ title: 'Local', startAt: MONDAY, endAt: HOUR_LATER });
+    const event = events.createEvent({ title: 'Local', startAt: MONDAY, endAt: HOUR_LATER });
     expect(event).toHaveProperty('external', null);
-    expect(await events.updateEvent(event.id, { title: 'Renamed' })).toHaveProperty(
-      'external',
-      null,
-    );
+    expect(events.updateEvent(event.id, { title: 'Renamed' })).toHaveProperty('external', null);
   });
 
   it('archiving and restoring return external', async () => {
     const archive = new ArchiveService(db);
-    const task = await tasks.createTask({ title: 'Local', dueDate: TOMORROW });
-    const detached = await tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Local', dueDate: TOMORROW });
+    const detached = tasks.createTask({ title: 'Detached', dueDate: TOMORROW });
     link({ taskId: detached.id }, { state: LinkState.DETACHED });
-    const project = await projects.createProject({ title: 'Local', dueDate: TOMORROW });
+    const project = projects.createProject({ title: 'Local', dueDate: TOMORROW });
 
     expect(archive.archiveTask(task.id)).toHaveProperty('external', null);
     expect(archive.restoreTask(task.id)).toHaveProperty('external', null);

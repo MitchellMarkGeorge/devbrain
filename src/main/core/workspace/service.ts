@@ -141,7 +141,7 @@ export class WorkspaceService {
   private async disconnectAll(workspace: Workspace): Promise<void> {
     let integrations: { id: IntegrationId }[];
     try {
-      integrations = await workspace.integrations.list();
+      integrations = workspace.integrations.list();
     } catch {
       return;
     }

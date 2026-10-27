@@ -360,7 +360,7 @@ describe.skipIf(!RUN)('sync performance — 5,000 items', () => {
     'disconnect, keepLocalCopies: %s',
     async (keepLocalCopies) => {
       const ws = await imported();
-      const preview = await timeAsync(() => ws.integrations.previewDisconnect(ws.integrationId));
+      const preview = time(() => ws.integrations.previewDisconnect(ws.integrationId));
       const disconnect = await timeAsync(() =>
         ws.integrations.disconnect(ws.integrationId, { keepLocalCopies }),
       );

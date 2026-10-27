@@ -78,7 +78,7 @@ export class DetachService {
    * Throws NotFoundError for an archived or unknown task, and DetachError for one with no link or
    * one that is not synced.
    */
-  async detachTask(id: TaskId): Promise<Task> {
+  detachTask(id: TaskId): Task {
     const taskIds = this.db.transaction((tx) => {
       const link = this.activeTaskLink(id);
       if (link.state !== LinkState.SYNCED) {
@@ -232,7 +232,7 @@ export class DetachService {
       .all();
   }
 
-  private async getTask(id: TaskId): Promise<Task> {
+  private getTask(id: TaskId): Task {
     const row = this.db.select().from(tasks).where(eq(tasks.id, id)).get();
     if (!row) throw new NotFoundError(id);
     return withRef(this.db, row);

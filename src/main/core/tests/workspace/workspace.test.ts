@@ -287,8 +287,8 @@ describe('Workspace.close — sync', () => {
 
     const reopened = await Workspace.open(info, options);
     try {
-      expect((await reopened.tasks.listTasks()).items).toEqual([]);
-      const [integration] = await reopened.integrations.list();
+      expect(reopened.tasks.listTasks().items).toEqual([]);
+      const [integration] = reopened.integrations.list();
       expect(integration.sources[0]).toMatchObject({ lastSyncedAt: null, lastError: null });
     } finally {
       await reopened.close();
@@ -369,12 +369,12 @@ describe('Workspace — detach', () => {
       const search = (query: string) =>
         workspace.search.search({ query, entityType: ['task'] }).map(({ entityId }) => entityId);
       await vi.waitFor(() => expect(search('Issue')).toHaveLength(1));
-      const [{ id }] = (await workspace.tasks.listTasks()).items;
+      const [{ id }] = workspace.tasks.listTasks().items;
       const changes: TaskLinkChange[] = [];
       workspace.detach.onChange((change) => changes.push(change));
 
-      const detached = await workspace.detach.detachTask(id);
-      await workspace.tasks.updateTask(id, { title: 'Mine' });
+      const detached = workspace.detach.detachTask(id);
+      workspace.tasks.updateTask(id, { title: 'Mine' });
 
       expect(detached.external?.state).toBe(LinkState.DETACHED);
       expect(search('Mine')).toEqual([id]);
@@ -410,8 +410,8 @@ describe('Workspace — detach', () => {
       const search = (query: string) =>
         workspace.search.search({ query, entityType: ['task'] }).map(({ entityId }) => entityId);
       await vi.waitFor(() => expect(search('Issue')).toHaveLength(1));
-      const [{ id }] = (await workspace.tasks.listTasks()).items;
-      await workspace.detach.detachTask(id);
+      const [{ id }] = workspace.tasks.listTasks().items;
+      workspace.detach.detachTask(id);
       provider.tasks.respondToLookup = () => {
         throw new IntegrationAuthError('Linear rejected the credentials');
       };
@@ -428,9 +428,9 @@ describe('Workspace — detach', () => {
 
       await expect(workspace.detach.reattachTask(id)).rejects.toThrow(IntegrationAuthError);
 
-      const [stored] = await workspace.integrations.list();
+      const [stored] = workspace.integrations.list();
       expect(stored.status).toBe(IntegrationStatus.NEEDS_REAUTH);
-      expect((await workspace.tasks.getById(id)).external?.state).toBe(LinkState.DETACHED);
+      expect(workspace.tasks.getById(id).external?.state).toBe(LinkState.DETACHED);
       // the run was aborted, so the page it was waiting on is never written
       await run;
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -450,21 +450,21 @@ describe('Workspace — search', () => {
           .search({ query, entityType: ['task', 'project', 'note'] })
           .map(({ entityId }) => entityId);
 
-      const project = await workspace.projects.createProject({
+      const project = workspace.projects.createProject({
         title: 'Apollo',
         dueDate: new Date(),
       });
-      const task = await workspace.tasks.createTask({ title: 'Draft', dueDate: new Date() });
+      const task = workspace.tasks.createTask({ title: 'Draft', dueDate: new Date() });
       const note = await workspace.notes.createNote({ title: 'Minutes' });
       expect(search('Minutes')).toEqual([note.id]);
       expect(search('Apollo')).toEqual([project.id]);
       expect(search('Draft')).toEqual([task.id]);
 
-      await workspace.projects.updateProject(project.id, { description: 'lunar' });
-      await workspace.tasks.updateTask(task.id, { title: 'Final' });
+      workspace.projects.updateProject(project.id, { description: 'lunar' });
+      workspace.tasks.updateTask(task.id, { title: 'Final' });
       await workspace.notes.updateNoteContent(note.id, 'first');
       await workspace.notes.updateNoteContent(note.id, 'second **bold**');
-      await workspace.notes.updateNote(note.id, { title: 'Agenda' });
+      workspace.notes.updateNote(note.id, { title: 'Agenda' });
 
       expect(search('lunar')).toEqual([project.id]);
       expect(search('Final')).toEqual([task.id]);
@@ -497,7 +497,7 @@ describe('Workspace — concurrent note saves', () => {
       const last = words[words.length - 1];
       expect(search(last)).toEqual([note.id]);
       for (const w of words.slice(0, -1)) expect(search(w)).toEqual([]);
-      expect((await workspace.notes.getById(note.id)).preview).toBe(last);
+      expect(workspace.notes.getById(note.id).preview).toBe(last);
     } finally {
       await workspace.close();
     }
@@ -518,23 +518,23 @@ describe('Workspace — search of events', () => {
     try {
       const startAt = new Date('2026-06-10T10:00:00.000Z');
       const endAt = new Date('2026-06-10T11:00:00.000Z');
-      const event = await workspace.events.createEvent({
+      const event = workspace.events.createEvent({
         title: 'Standup',
         description: 'daily sync',
         startAt,
         endAt,
       });
-      const other = await workspace.events.createEvent({ title: 'Standup two', startAt, endAt });
+      const other = workspace.events.createEvent({ title: 'Standup two', startAt, endAt });
       expect(searchIds(workspace, 'Standup')).toEqual([event.id, other.id].sort());
       expect(searchIds(workspace, 'daily')).toEqual([event.id]);
 
-      await workspace.events.updateEvent(event.id, { title: 'Retro', description: 'monthly' });
+      workspace.events.updateEvent(event.id, { title: 'Retro', description: 'monthly' });
       expect(searchIds(workspace, 'Retro')).toEqual([event.id]);
       expect(searchIds(workspace, 'monthly')).toEqual([event.id]);
       expect(searchIds(workspace, 'daily')).toEqual([]);
       expect(searchIds(workspace, 'Standup')).toEqual([other.id]);
 
-      await workspace.events.deleteEvent(event.id);
+      workspace.events.deleteEvent(event.id);
       expect(searchIds(workspace, 'Retro')).toEqual([]);
       expect(searchIds(workspace, 'Standup')).toEqual([other.id]);
     } finally {
@@ -547,16 +547,16 @@ describe('Workspace — search of archived and restored rows', () => {
   it('archiving drops a project, its tasks and their notes; restoring brings them back', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
-      const project = await workspace.projects.createProject({
+      const project = workspace.projects.createProject({
         title: 'Apollo',
         dueDate: new Date(),
       });
-      const task = await workspace.tasks.createTask({
+      const task = workspace.tasks.createTask({
         title: 'Apollo launch',
         dueDate: new Date(),
         projectId: project.id,
       });
-      const subtask = await workspace.tasks.createSubtask(task.id, { title: 'Apollo fuel' });
+      const subtask = workspace.tasks.createSubtask(task.id, { title: 'Apollo fuel' });
       const projectNote = await workspace.notes.createNote({
         title: 'Apollo plan',
         projectId: project.id,
@@ -566,7 +566,7 @@ describe('Workspace — search of archived and restored rows', () => {
         linkedTaskId: subtask.id,
       });
       await workspace.notes.updateNoteContent(taskNote.id, 'Apollo **telemetry**');
-      const other = await workspace.tasks.createTask({
+      const other = workspace.tasks.createTask({
         title: 'Apollo other',
         dueDate: new Date(),
       });
@@ -592,13 +592,13 @@ describe('Workspace — search of archived and restored rows', () => {
   it('archiving drops a task, its subtree and their notes; restoring brings them back', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
-      const task = await workspace.tasks.createTask({ title: 'Draft', dueDate: new Date() });
-      const subtask = await workspace.tasks.createSubtask(task.id, { title: 'Draft intro' });
+      const task = workspace.tasks.createTask({ title: 'Draft', dueDate: new Date() });
+      const subtask = workspace.tasks.createSubtask(task.id, { title: 'Draft intro' });
       const note = await workspace.notes.createNote({
         title: 'Draft notes',
         linkedTaskId: subtask.id,
       });
-      const other = await workspace.tasks.createTask({ title: 'Draft other', dueDate: new Date() });
+      const other = workspace.tasks.createTask({ title: 'Draft other', dueDate: new Date() });
       const all = [task.id, subtask.id, note.id, other.id].sort();
       expect(searchIds(workspace, 'Draft')).toEqual(all);
 
@@ -619,7 +619,7 @@ describe('Workspace — search of archived and restored rows', () => {
       const note = await workspace.notes.createNote({ title: 'Minutes' });
       await workspace.notes.updateNoteContent(note.id, 'quarterly');
       // renamed after the file was written: the restored entry takes the row's title
-      await workspace.notes.updateNote(note.id, { title: 'Agenda' });
+      workspace.notes.updateNote(note.id, { title: 'Agenda' });
       expect(searchIds(workspace, 'quarterly')).toEqual([note.id]);
 
       workspace.archive.archiveNote(note.id);
@@ -638,16 +638,16 @@ describe('Workspace — search of archived and restored rows', () => {
   it('a write to an archived task or project leaves it out of search', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
-      const project = await workspace.projects.createProject({
+      const project = workspace.projects.createProject({
         title: 'Apollo',
         dueDate: new Date(),
       });
-      const task = await workspace.tasks.createTask({ title: 'Draft', dueDate: new Date() });
+      const task = workspace.tasks.createTask({ title: 'Draft', dueDate: new Date() });
       workspace.archive.archiveProject(project.id);
       workspace.archive.archiveTask(task.id);
 
-      await workspace.projects.updateProject(project.id, { description: 'lunar' });
-      await workspace.tasks.updateTask(task.id, { description: 'lunar' });
+      workspace.projects.updateProject(project.id, { description: 'lunar' });
+      workspace.tasks.updateTask(task.id, { description: 'lunar' });
 
       expect(searchIds(workspace, 'lunar')).toEqual([]);
       workspace.archive.restoreProject(project.id);
@@ -725,7 +725,7 @@ describe('Workspace — search of archived and restored rows', () => {
       .spyOn(workspace.search, 'indexTasks')
       .mockImplementation(() => void calls.push(['index', sqlite.inTransaction]));
     try {
-      const task = await workspace.tasks.createTask({ title: 'Draft', dueDate: new Date() });
+      const task = workspace.tasks.createTask({ title: 'Draft', dueDate: new Date() });
       calls.length = 0;
 
       workspace.archive.archiveTask(task.id);
@@ -749,23 +749,23 @@ describe('Workspace — search rebuild', () => {
   it('rebuilds a drifted index from the current rows and note files', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
-      const project = await workspace.projects.createProject({
+      const project = workspace.projects.createProject({
         title: 'Apollo',
         dueDate: new Date(),
       });
-      const task = await workspace.tasks.createTask({
+      const task = workspace.tasks.createTask({
         title: 'Apollo launch',
         description: 'countdown',
         dueDate: new Date(),
       });
       const note = await workspace.notes.createNote({ title: 'Apollo plan' });
       await workspace.notes.updateNoteContent(note.id, '# Trajectory\n\n**burn** at noon');
-      const event = await workspace.events.createEvent({
+      const event = workspace.events.createEvent({
         title: 'Apollo review',
         startAt: new Date('2026-06-10T10:00:00.000Z'),
         endAt: new Date('2026-06-10T11:00:00.000Z'),
       });
-      const archivedTask = await workspace.tasks.createTask({
+      const archivedTask = workspace.tasks.createTask({
         title: 'Apollo scrapped',
         dueDate: new Date(),
       });
@@ -901,7 +901,7 @@ describe('Workspace.open — failed migrations', () => {
     await fs.mkdir(workspaceDir);
     info = makeInfo(workspaceDir);
     const created = await Workspace.create(info, OPTIONS);
-    projectId = (await created.projects.createProject({ title: 'Kept', dueDate: new Date() })).id;
+    projectId = created.projects.createProject({ title: 'Kept', dueDate: new Date() }).id;
     await created.close();
   });
 
@@ -957,7 +957,7 @@ describe('Workspace.open — failed migrations', () => {
 
     // with the bad migration gone, the restored workspace opens normally
     const opened = await Workspace.open(info, OPTIONS);
-    expect((await opened.projects.getById(projectId as never)).title).toBe('Kept');
+    expect(opened.projects.getById(projectId as never).title).toBe('Kept');
     await opened.close();
   });
 
@@ -1114,7 +1114,7 @@ describe('Workspace — integration cancellation', () => {
       }
       const reopened = await Workspace.open(info, options);
       try {
-        expect(await reopened.integrations.list()).toHaveLength(existing ? 1 : 0);
+        expect(reopened.integrations.list()).toHaveLength(existing ? 1 : 0);
       } finally {
         await reopened.close();
       }
@@ -1249,7 +1249,7 @@ describe('Workspace — failed opening cleanup', () => {
     await rejected;
     const reopened = await Workspace.open(makeInfo(tmpDir), OPTIONS);
     try {
-      expect(await reopened.integrations.list()).toEqual([]);
+      expect(reopened.integrations.list()).toEqual([]);
     } finally {
       await reopened.close();
     }

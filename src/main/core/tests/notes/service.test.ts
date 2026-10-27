@@ -44,16 +44,17 @@ beforeEach(async () => {
   const eventService = new EventService(db);
   const taskService = new TaskService(db);
 
-  FAKE_PROJECT_ID = (
-    await projectService.createProject({ title: 'Fake Project', dueDate: TOMORROW })
-  ).id;
-  FAKE_OTHER_PROJECT_ID = (
-    await projectService.createProject({ title: 'Fake Other Project', dueDate: TOMORROW })
-  ).id;
-  FAKE_EVENT_ID = (
-    await eventService.createEvent({ title: 'Fake Event', startAt: TOMORROW, endAt: TOMORROW })
-  ).id;
-  FAKE_TASK_ID = (await taskService.createTask({ title: 'Fake Task', dueDate: TOMORROW })).id;
+  FAKE_PROJECT_ID = projectService.createProject({ title: 'Fake Project', dueDate: TOMORROW }).id;
+  FAKE_OTHER_PROJECT_ID = projectService.createProject({
+    title: 'Fake Other Project',
+    dueDate: TOMORROW,
+  }).id;
+  FAKE_EVENT_ID = eventService.createEvent({
+    title: 'Fake Event',
+    startAt: TOMORROW,
+    endAt: TOMORROW,
+  }).id;
+  FAKE_TASK_ID = taskService.createTask({ title: 'Fake Task', dueDate: TOMORROW }).id;
 });
 
 afterEach(async () => {
@@ -141,7 +142,7 @@ describe('NoteService — createNote', () => {
 describe('NoteService — getById', () => {
   it('returns the note for a valid id', async () => {
     const created = await notesService.createNote({ title: 'Find me' });
-    const found = await notesService.getById(created.id);
+    const found = notesService.getById(created.id);
     expect(found.id).toBe(created.id);
     expect(found.title).toBe('Find me');
   });
@@ -162,7 +163,7 @@ describe('NoteService — getByIds', () => {
     const a = await notesService.createNote({ title: 'A' });
     const b = await notesService.createNote({ title: 'B' });
     await notesService.createNote({ title: 'C' }); // not requested
-    const result = await notesService.getByIds([a.id, b.id]);
+    const result = notesService.getByIds([a.id, b.id]);
     expect(result).toHaveLength(2);
     const ids = result.map((n) => n.id);
     expect(ids).toContain(a.id);
@@ -170,14 +171,14 @@ describe('NoteService — getByIds', () => {
   });
 
   it('returns an empty array when none of the ids match', async () => {
-    const result = await notesService.getByIds([generateId('note'), generateId('note')]);
+    const result = notesService.getByIds([generateId('note'), generateId('note')]);
     expect(result).toHaveLength(0);
   });
 
   it('excludes archived notes even when their id is requested', async () => {
     const note = await notesService.createNote({ title: 'Archived' });
     archive.archiveNote(note.id);
-    const result = await notesService.getByIds([note.id]);
+    const result = notesService.getByIds([note.id]);
     expect(result).toHaveLength(0);
   });
 });
@@ -189,7 +190,7 @@ describe('NoteService — listNotes', () => {
     const archived = await notesService.createNote({ title: 'Archived' });
     archive.archiveNote(archived.id);
 
-    const result = (await notesService.listNotes()).items;
+    const result = notesService.listNotes().items;
     const ids = result.map((n) => n.id);
     expect(ids).toContain(a.id);
     expect(ids).toContain(b.id);
@@ -202,7 +203,7 @@ describe('NoteService — listNotes', () => {
       projectId: FAKE_PROJECT_ID,
     });
     await notesService.createNote({ title: 'No project' });
-    const result = (await notesService.listNotes({ projectId: FAKE_PROJECT_ID })).items;
+    const result = notesService.listNotes({ projectId: FAKE_PROJECT_ID }).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(inProject.id);
   });
@@ -210,7 +211,7 @@ describe('NoteService — listNotes', () => {
   it('filter.projectId: null returns only notes without a project', async () => {
     await notesService.createNote({ title: 'In project', projectId: FAKE_PROJECT_ID });
     const noProject = await notesService.createNote({ title: 'No project' });
-    const result = (await notesService.listNotes({ projectId: null })).items;
+    const result = notesService.listNotes({ projectId: null }).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(noProject.id);
   });
@@ -221,7 +222,7 @@ describe('NoteService — listNotes', () => {
       linkedEventId: FAKE_EVENT_ID,
     });
     await notesService.createNote({ title: 'Unlinked' });
-    const result = (await notesService.listNotes({ linkedEventId: FAKE_EVENT_ID })).items;
+    const result = notesService.listNotes({ linkedEventId: FAKE_EVENT_ID }).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(linked.id);
   });
@@ -229,14 +230,14 @@ describe('NoteService — listNotes', () => {
   it('filter.linkedEventId: null returns only notes without a linked event', async () => {
     await notesService.createNote({ title: 'Linked', linkedEventId: FAKE_EVENT_ID });
     const unlinked = await notesService.createNote({ title: 'Unlinked' });
-    const result = (await notesService.listNotes({ linkedEventId: null })).items;
+    const result = notesService.listNotes({ linkedEventId: null }).items;
     expect(result.map((n) => n.id)).toContain(unlinked.id);
   });
 
   it('filter.linkedTaskId returns only notes linked to that task', async () => {
     const linked = await notesService.createNote({ title: 'Linked', linkedTaskId: FAKE_TASK_ID });
     await notesService.createNote({ title: 'Unlinked' });
-    const result = (await notesService.listNotes({ linkedTaskId: FAKE_TASK_ID })).items;
+    const result = notesService.listNotes({ linkedTaskId: FAKE_TASK_ID }).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(linked.id);
   });
@@ -244,15 +245,15 @@ describe('NoteService — listNotes', () => {
   it('filter.linkedTaskId: null returns only notes without a linked task', async () => {
     await notesService.createNote({ title: 'Linked', linkedTaskId: FAKE_TASK_ID });
     const unlinked = await notesService.createNote({ title: 'Unlinked' });
-    const result = (await notesService.listNotes({ linkedTaskId: null })).items;
+    const result = notesService.listNotes({ linkedTaskId: null }).items;
     expect(result.map((n) => n.id)).toContain(unlinked.id);
   });
 
   it('defaults to sorting by updatedAt descending', async () => {
     const a = await notesService.createNote({ title: 'A' });
     const b = await notesService.createNote({ title: 'B' });
-    await notesService.updateNote(a.id, { title: 'A updated' });
-    const result = (await notesService.listNotes()).items;
+    notesService.updateNote(a.id, { title: 'A updated' });
+    const result = notesService.listNotes().items;
     const ids = result.map((n) => n.id);
     expect(ids.indexOf(a.id)).toBeLessThan(ids.indexOf(b.id));
   });
@@ -264,16 +265,16 @@ describe('NoteService — listNotes', () => {
     // the DB's createdAt default only has whole-second resolution, so two
     // notes created back-to-back in a test can tie — pin explicit, distinct
     // timestamps to make the ordering assertion deterministic
-    await db
-      .update(notesTable)
+    db.update(notesTable)
       .set({ createdAt: new Date('2024-01-01') })
-      .where(eq(notesTable.id, first.id));
-    await db
-      .update(notesTable)
+      .where(eq(notesTable.id, first.id))
+      .run();
+    db.update(notesTable)
       .set({ createdAt: new Date('2024-01-02') })
-      .where(eq(notesTable.id, second.id));
+      .where(eq(notesTable.id, second.id))
+      .run();
 
-    const result = (await notesService.listNotes({}, { sortBy: 'createdAt' })).items;
+    const result = notesService.listNotes({}, { sortBy: 'createdAt' }).items;
     expect(result[0].id).toBe(second.id);
     expect(result[result.length - 1].id).toBe(first.id);
   });
@@ -282,14 +283,14 @@ describe('NoteService — listNotes', () => {
     await notesService.createNote({ title: 'Banana' });
     await notesService.createNote({ title: 'Apple' });
     await notesService.createNote({ title: 'Cherry' });
-    const result = (await notesService.listNotes({}, { sortBy: 'title', direction: 'asc' })).items;
+    const result = notesService.listNotes({}, { sortBy: 'title', direction: 'asc' }).items;
     expect(result.map((n) => n.title)).toEqual(['Apple', 'Banana', 'Cherry']);
   });
 
   it('direction defaults to desc for sort=title', async () => {
     await notesService.createNote({ title: 'Banana' });
     await notesService.createNote({ title: 'Apple' });
-    const result = (await notesService.listNotes({}, { sortBy: 'title' })).items;
+    const result = notesService.listNotes({}, { sortBy: 'title' }).items;
     expect(result[0].title).toBe('Banana');
   });
 
@@ -299,7 +300,7 @@ describe('NoteService — listNotes', () => {
       projectId: FAKE_PROJECT_ID,
     });
     archive.archiveNote(note.id);
-    const result = (await notesService.listNotes({ projectId: FAKE_PROJECT_ID })).items;
+    const result = notesService.listNotes({ projectId: FAKE_PROJECT_ID }).items;
     expect(result.map((n) => n.id)).not.toContain(note.id);
   });
 
@@ -308,11 +309,9 @@ describe('NoteService — listNotes', () => {
     const a = await notesService.createNote({ title: 'A', projectId: FAKE_PROJECT_ID });
     await notesService.createNote({ title: 'Other project', projectId: FAKE_OTHER_PROJECT_ID });
 
-    const result = (
-      await notesService.listNotes(
-        { projectId: FAKE_PROJECT_ID },
-        { sortBy: 'title', direction: 'asc' },
-      )
+    const result = notesService.listNotes(
+      { projectId: FAKE_PROJECT_ID },
+      { sortBy: 'title', direction: 'asc' },
     ).items;
     expect(result).toHaveLength(2);
     expect(result[0].id).toBe(a.id);
@@ -323,49 +322,49 @@ describe('NoteService — listNotes', () => {
 describe('NoteService — updateNote', () => {
   it('updates the title', async () => {
     const note = await notesService.createNote({ title: 'Old title' });
-    const updated = await notesService.updateNote(note.id, { title: 'New title' });
+    const updated = notesService.updateNote(note.id, { title: 'New title' });
     expect(updated.title).toBe('New title');
   });
 
   it('updates the projectId', async () => {
     const note = await notesService.createNote({ title: 'Note' });
-    const updated = await notesService.updateNote(note.id, { projectId: FAKE_PROJECT_ID });
+    const updated = notesService.updateNote(note.id, { projectId: FAKE_PROJECT_ID });
     expect(updated.projectId).toBe(FAKE_PROJECT_ID);
   });
 
   it('clears the projectId when explicitly set to null', async () => {
     const note = await notesService.createNote({ title: 'Note', projectId: FAKE_PROJECT_ID });
-    const updated = await notesService.updateNote(note.id, { projectId: null });
+    const updated = notesService.updateNote(note.id, { projectId: null });
     expect(updated.projectId).toBeNull();
   });
 
   it('persists fields that were not passed', async () => {
     const note = await notesService.createNote({ title: 'Original', projectId: FAKE_PROJECT_ID });
-    const updated = await notesService.updateNote(note.id, { title: 'Changed' });
+    const updated = notesService.updateNote(note.id, { title: 'Changed' });
     expect(updated.projectId).toBe(FAKE_PROJECT_ID);
   });
 
   it('sets linkedEventId', async () => {
     const note = await notesService.createNote({ title: 'Note' });
-    const updated = await notesService.updateNote(note.id, { linkedEventId: FAKE_EVENT_ID });
+    const updated = notesService.updateNote(note.id, { linkedEventId: FAKE_EVENT_ID });
     expect(updated.linkedEventId).toBe(FAKE_EVENT_ID);
   });
 
   it('sets linkedTaskId', async () => {
     const note = await notesService.createNote({ title: 'Note' });
-    const updated = await notesService.updateNote(note.id, { linkedTaskId: FAKE_TASK_ID });
+    const updated = notesService.updateNote(note.id, { linkedTaskId: FAKE_TASK_ID });
     expect(updated.linkedTaskId).toBe(FAKE_TASK_ID);
   });
 
   it('does not clear an existing link when updating an unrelated field', async () => {
     const note = await notesService.createNote({ title: 'Note', linkedEventId: FAKE_EVENT_ID });
-    const updated = await notesService.updateNote(note.id, { title: 'Renamed' });
+    const updated = notesService.updateNote(note.id, { title: 'Renamed' });
     expect(updated.linkedEventId).toBe(FAKE_EVENT_ID);
   });
 
   it('clears an existing link when explicitly set to null', async () => {
     const note = await notesService.createNote({ title: 'Note', linkedEventId: FAKE_EVENT_ID });
-    const updated = await notesService.updateNote(note.id, { linkedEventId: null });
+    const updated = notesService.updateNote(note.id, { linkedEventId: null });
     expect(updated.linkedEventId).toBeNull();
   });
 
@@ -456,7 +455,7 @@ describe('NoteService — updateNoteContent', () => {
   it('throws NotFoundError when the row is deleted while saving', async () => {
     const note = await notesService.createNote({ title: 'Note' });
     vi.spyOn(notesService, 'getById').mockReturnValueOnce(note);
-    await db.delete(notesTable).where(eq(notesTable.id, note.id));
+    db.delete(notesTable).where(eq(notesTable.id, note.id)).run();
 
     await expect(notesService.updateNoteContent(note.id, 'content')).rejects.toBeInstanceOf(
       NotFoundError,
@@ -486,7 +485,7 @@ describe('NoteService — updateNoteContent', () => {
 
       const fileData = await readNoteFile(notesFilePath(workspacePath, note.id));
       expect(fileData.content).toBe(contents[N - 1]);
-      expect((await notesService.getById(note.id)).preview).toBe(`Save ${N - 1}\n\nbody ${N - 1}`);
+      expect(notesService.getById(note.id).preview).toBe(`Save ${N - 1}\n\nbody ${N - 1}`);
       // one change per save, in call order, each carrying the row it wrote
       expect(changes.map((c) => c.type === 'updated' && c.content)).toEqual(contents);
       expect(changes.map((c) => c.note.preview)).toEqual(
@@ -541,7 +540,7 @@ describe('ArchiveService — archiveNote', () => {
   it('archived note is excluded from NoteService.listNotes', async () => {
     const note = await notesService.createNote({ title: 'Gone', projectId: FAKE_PROJECT_ID });
     archive.archiveNote(note.id);
-    const result = (await notesService.listNotes({ projectId: FAKE_PROJECT_ID })).items;
+    const result = notesService.listNotes({ projectId: FAKE_PROJECT_ID }).items;
     expect(result.map((n) => n.id)).not.toContain(note.id);
   });
 
@@ -582,7 +581,7 @@ describe('ArchiveService — restoreNote', () => {
     const note = await notesService.createNote({ title: 'Restored' });
     archive.archiveNote(note.id);
     archive.restoreNote(note.id);
-    const found = await notesService.getById(note.id);
+    const found = notesService.getById(note.id);
     expect(found.id).toBe(note.id);
   });
 
@@ -590,7 +589,7 @@ describe('ArchiveService — restoreNote', () => {
     const note = await notesService.createNote({ title: 'Restored', projectId: FAKE_PROJECT_ID });
     archive.archiveNote(note.id);
     archive.restoreNote(note.id);
-    const result = (await notesService.listNotes({ projectId: FAKE_PROJECT_ID })).items;
+    const result = notesService.listNotes({ projectId: FAKE_PROJECT_ID }).items;
     expect(result.map((n) => n.id)).toContain(note.id);
   });
 
@@ -615,7 +614,7 @@ describe('NoteService — cursor pagination', () => {
     const ids: string[] = [];
     let cursor: string | undefined;
     do {
-      const page = await notesService.listNotes({}, sort, { limit, cursor });
+      const page = notesService.listNotes({}, sort, { limit, cursor });
       expect(page.items.length).toBeLessThanOrEqual(limit);
       ids.push(...page.items.map((n) => n.id));
       cursor = page.nextCursor ?? undefined;
@@ -625,7 +624,7 @@ describe('NoteService — cursor pagination', () => {
 
   it('returns a null nextCursor when everything fits', async () => {
     await seed(['a', 'b']);
-    const page = await notesService.listNotes();
+    const page = notesService.listNotes();
     expect(page.items).toHaveLength(2);
     expect(page.nextCursor).toBeNull();
   });
@@ -634,8 +633,7 @@ describe('NoteService — cursor pagination', () => {
     await seed(['b', 'a', 'b', 'c', 'a', 'b', 'd']);
     for (const sortBy of ['title', 'createdAt', 'updatedAt'] as const) {
       for (const direction of ['asc', 'desc'] as const) {
-        const full = (await notesService.listNotes({}, { sortBy, direction }, { limit: 200 }))
-          .items;
+        const full = notesService.listNotes({}, { sortBy, direction }, { limit: 200 }).items;
         expect(await collect({ sortBy, direction }, 2)).toEqual(full.map((n) => n.id));
       }
     }
@@ -649,7 +647,7 @@ describe('NoteService — cursor pagination', () => {
     const ids: string[] = [];
     let cursor: string | undefined;
     do {
-      const page = await notesService.listNotes({ projectId: FAKE_PROJECT_ID }, undefined, {
+      const page = notesService.listNotes({ projectId: FAKE_PROJECT_ID }, undefined, {
         limit: 3,
         cursor,
       });
@@ -665,7 +663,7 @@ describe('NoteService — cursor pagination', () => {
     expect(() => notesService.listNotes({}, undefined, { cursor: '!!' })).toThrow(
       InvalidCursorError,
     );
-    const page = await notesService.listNotes({}, { sortBy: 'title' }, { limit: 1 });
+    const page = notesService.listNotes({}, { sortBy: 'title' }, { limit: 1 });
     expect(() =>
       notesService.listNotes({}, { sortBy: 'createdAt' }, { cursor: page.nextCursor! }),
     ).toThrow(InvalidCursorError);
@@ -685,7 +683,7 @@ describe('NoteService — onChange', () => {
     });
 
     const note = await notesService.createNote({ title: 'Note' });
-    await notesService.updateNote(note.id, { title: 'Renamed' });
+    notesService.updateNote(note.id, { title: 'Renamed' });
     await notesService.updateNoteContent(note.id, 'Some **content**');
 
     expect(changes.map(({ type, note }) => [type, note.id])).toEqual([
