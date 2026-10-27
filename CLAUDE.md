@@ -45,8 +45,6 @@ and the write after it.
   must commit together in a `db.transaction`, which is synchronous too.
 - A method returns a Promise only when it does real async work: file I/O (note files), the network
   (providers, OAuth) or encryption. One that only reads or writes rows is synchronous.
-- Lint enforces both: `@typescript-eslint/await-thenable` flags an `await` on a value that is not a
-  Promise, and a `no-restricted-syntax` rule flags an awaited query, which is thenable.
 
 ## Change events
 
