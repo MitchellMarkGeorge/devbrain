@@ -14,7 +14,7 @@ import { ProjectService } from '../../projects/service';
 import { TaskService } from '../../tasks/service';
 import { AuthType, LinkState, Provider, SourceType } from '../../integrations/types';
 import { InvalidCursorError } from '../../shared/pagination';
-import { AlreadyFavoritedError, NotFavoritedError, NotFoundError } from '../../shared/errors';
+import { NotFoundError } from '../../shared/errors';
 import type { FavoritableEntityType } from '../../favorites/types';
 
 const TOMORROW = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -117,14 +117,28 @@ describe('FavoritesService — favorite and unfavorite', () => {
     expect(favorites.favoriteNote(note.id).updatedAt).toEqual(note.updatedAt);
   });
 
-  it('refuses an entity that does not exist, or is already in the state asked for', () => {
-    const task = tasks.createTask({ title: 'T', dueDate: TOMORROW });
-
+  it('refuses an entity that does not exist', () => {
     expect(() => favorites.favoriteTask('tsk_missing' as TaskId)).toThrow(NotFoundError);
     expect(() => favorites.unfavoriteEvent('evt_missing' as EventId)).toThrow(NotFoundError);
-    expect(() => favorites.unfavoriteTask(task.id)).toThrow(NotFavoritedError);
-    favorites.favoriteTask(task.id);
-    expect(() => favorites.favoriteTask(task.id)).toThrow(AlreadyFavoritedError);
+  });
+
+  it('is idempotent: favoriting again keeps the first favoritedAt', async () => {
+    const task = tasks.createTask({ title: 'T', dueDate: TOMORROW });
+    const event = createEvent('E');
+
+    expect(favorites.unfavoriteTask(task.id).favoritedAt).toBeNull();
+    const first = favorites.favoriteTask(task.id);
+    const firstEvent = favorites.favoriteEvent(event.id);
+    await tick();
+
+    const again = favorites.favoriteTask(task.id);
+    expect(again.favoritedAt).toEqual(first.favoritedAt);
+    expect(again.external).toBeNull();
+    expect(favorites.favoriteEvent(event.id)).toEqual(firstEvent);
+    expect(tasks.getById(task.id).favoritedAt).toEqual(first.favoritedAt);
+
+    favorites.unfavoriteTask(task.id);
+    expect(favorites.unfavoriteTask(task.id).favoritedAt).toBeNull();
   });
 
   it('changes only the entity named, with no cascade', async () => {
@@ -171,13 +185,18 @@ describe('FavoritesService — onChange', () => {
     ]);
   });
 
-  it('sends nothing when the change is refused', () => {
+  it('sends nothing when nothing changed or the entity is missing', () => {
     const task = tasks.createTask({ title: 'T', dueDate: TOMORROW });
+    favorites.favoriteTask(task.id);
     const listener = vi.fn();
     favorites.onChange(listener);
 
-    expect(() => favorites.unfavoriteTask(task.id)).toThrow();
-    expect(listener).not.toHaveBeenCalled();
+    favorites.favoriteTask(task.id);
+    favorites.unfavoriteTask(task.id);
+    favorites.unfavoriteTask(task.id);
+    expect(() => favorites.favoriteTask('tsk_missing' as TaskId)).toThrow();
+
+    expect(listener.mock.calls.map(([change]) => change.type)).toEqual(['unfavorited']);
   });
 
   it('a listener that throws does not fail the favorite', () => {

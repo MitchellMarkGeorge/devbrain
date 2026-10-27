@@ -15,7 +15,7 @@ import { Note } from '../notes/types';
 import { Project } from '../projects/types';
 import { Task } from '../tasks/types';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
-import { AlreadyFavoritedError, NotFavoritedError, NotFoundError } from '../shared/errors';
+import { NotFoundError } from '../shared/errors';
 import { keyset, Page, PageOptions } from '../shared/pagination';
 import type {
   FavoritableEntityType,
@@ -38,6 +38,9 @@ export type FavoriteChange =
  * task, project or event can be favorited like a local one. Favoriting leaves `updatedAt` as it
  * was: it is not an edit of the entity, and must not move it in the lists sorted by last update.
  *
+ * Both are idempotent: favoriting a favorite or unfavoriting what is not one changes nothing, and
+ * sends no change.
+ *
  * An archived entity keeps its favorite, but is left out of listFavorites until it is restored.
  */
 export class FavoritesService {
@@ -51,61 +54,41 @@ export class FavoritesService {
   }
 
   favoriteTask(id: TaskId): Task {
-    const task = this.db.transaction((tx) => withRef(tx, this.setFavorited(tx, tasks, id, true)));
-    this.emitFavorited('tasks', task);
-    return task;
+    return this.setAndSend(tasks, 'tasks', id, true, withRef);
   }
 
   unfavoriteTask(id: TaskId): Task {
-    const task = this.db.transaction((tx) => withRef(tx, this.setFavorited(tx, tasks, id, false)));
-    this.changes.emit({ type: 'unfavorited', entityType: 'tasks', id });
-    return task;
+    return this.setAndSend(tasks, 'tasks', id, false, withRef);
   }
 
   favoriteProject(id: ProjectId): Project {
-    const project = this.db.transaction((tx) =>
-      withRef(tx, this.setFavorited(tx, projects, id, true)),
-    );
-    this.emitFavorited('projects', project);
-    return project;
+    return this.setAndSend(projects, 'projects', id, true, withRef);
   }
 
   unfavoriteProject(id: ProjectId): Project {
-    const project = this.db.transaction((tx) =>
-      withRef(tx, this.setFavorited(tx, projects, id, false)),
-    );
-    this.changes.emit({ type: 'unfavorited', entityType: 'projects', id });
-    return project;
+    return this.setAndSend(projects, 'projects', id, false, withRef);
   }
 
   favoriteNote(id: NoteId): Note {
-    const note = this.setFavorited(this.db, notes, id, true);
-    this.emitFavorited('notes', note);
-    return note;
+    return this.setAndSend(notes, 'notes', id, true, (_, row) => row);
   }
 
   unfavoriteNote(id: NoteId): Note {
-    const note = this.setFavorited(this.db, notes, id, false);
-    this.changes.emit({ type: 'unfavorited', entityType: 'notes', id });
-    return note;
+    return this.setAndSend(notes, 'notes', id, false, (_, row) => row);
   }
 
   favoriteEvent(id: EventId): Event {
-    const event = this.db.transaction((tx) => {
-      const row = this.setFavorited(tx, events, id, true);
-      return withEventDetails(tx, [row])[0];
-    });
-    this.emitFavorited('events', event);
-    return event;
+    return this.setAndSend(events, 'events', id, true, (tx, row) => withEventDetails(tx, [row])[0]);
   }
 
   unfavoriteEvent(id: EventId): Event {
-    const event = this.db.transaction((tx) => {
-      const row = this.setFavorited(tx, events, id, false);
-      return withEventDetails(tx, [row])[0];
-    });
-    this.changes.emit({ type: 'unfavorited', entityType: 'events', id });
-    return event;
+    return this.setAndSend(
+      events,
+      'events',
+      id,
+      false,
+      (tx, row) => withEventDetails(tx, [row])[0],
+    );
   }
 
   /**
@@ -151,43 +134,59 @@ export class FavoritesService {
   }
 
   /**
-   * Stamps or clears `favoritedAt` on one row and returns it as written. Throws NotFoundError when
-   * there is no such row, and AlreadyFavoritedError or NotFavoritedError when it is already in the
-   * state asked for. `db` can be a transaction.
+   * Favorites or unfavorites one row and returns it as `toModel` shapes it, sending the change
+   * after the commit. A row already in the state asked for is returned as it is, unwritten, and
+   * nothing is sent: favoriting again keeps the first favoritedAt. Throws NotFoundError when there
+   * is no such row.
    */
+  private setAndSend<T extends FavoritableTable, M extends { favoritedAt: Date | null }>(
+    table: T,
+    entityType: FavoritableEntityType,
+    id: FavoritableId,
+    favorite: boolean,
+    toModel: (db: BaseSQLiteDatabase<'sync', RunResult>, row: T['$inferSelect']) => M,
+  ): M {
+    const { model, changed } = this.db.transaction((tx) => {
+      const { row, changed } = this.setFavorited(tx, table, id, favorite);
+      return { model: toModel(tx, row), changed };
+    });
+    if (changed) {
+      this.changes.emit(
+        model.favoritedAt === null
+          ? { type: 'unfavorited', entityType, id }
+          : { type: 'favorited', entityType, id, favoritedAt: model.favoritedAt },
+      );
+    }
+    return model;
+  }
+
+  /** stamps or clears `favoritedAt` on one row, writing only when it is not already so */
   private setFavorited<T extends FavoritableTable>(
     db: BaseSQLiteDatabase<'sync', RunResult>,
     table: T,
     id: FavoritableId,
     favorite: boolean,
-  ): T['$inferSelect'] {
+  ): { row: T['$inferSelect']; changed: boolean } {
     // the tables are typed apart; for these shared columns they behave alike
     const t = table as typeof tasks;
     const existing = db
-      .select({ favoritedAt: t.favoritedAt, updatedAt: t.updatedAt })
+      .select()
       .from(t)
       .where(eq(t.id, id as TaskId))
       .get();
     if (!existing) throw new NotFoundError(id);
-    if (favorite && existing.favoritedAt !== null) throw new AlreadyFavoritedError(id);
-    if (!favorite && existing.favoritedAt === null) throw new NotFavoritedError(id);
+    if ((existing.favoritedAt !== null) === favorite) {
+      return { row: existing as T['$inferSelect'], changed: false };
+    }
 
-    return (
-      db
-        .update(t)
-        // updatedAt is set to what it was, or its $onUpdate would stamp it with now
-        .set({ favoritedAt: favorite ? new Date() : null, updatedAt: existing.updatedAt })
-        .where(eq(t.id, id as TaskId))
-        .returning()
-        .get() as T['$inferSelect']
-    );
-  }
-
-  private emitFavorited(
-    entityType: FavoritableEntityType,
-    row: { id: FavoritableId; favoritedAt: Date | null },
-  ): void {
-    this.changes.emit({ type: 'favorited', entityType, id: row.id, favoritedAt: row.favoritedAt! });
+    const row = db
+      .update(t)
+      // updatedAt is set to what it was, or its $onUpdate would stamp it with now
+      .set({ favoritedAt: favorite ? new Date() : null, updatedAt: existing.updatedAt })
+      .where(eq(t.id, id as TaskId))
+      .returning()
+      .get();
+    return { row: row as T['$inferSelect'], changed: true };
   }
 
   private favoritedPager(table: FavoritableTable, page: PageOptions) {
