@@ -1088,9 +1088,9 @@ describe('Workspace — integration cancellation', () => {
       });
       expect(getAccount).toHaveBeenCalledOnce();
       // An unrelated operation can finish while the provider call is outstanding.
-      await expect(
+      expect(
         workspace.projects.createProject({ title: 'Concurrent', dueDate: new Date() }),
-      ).resolves.toMatchObject({ title: 'Concurrent' });
+      ).toMatchObject({ title: 'Concurrent' });
       const closeSqlite = vi.spyOn(Database.prototype, 'close');
       try {
         const closing = workspace.close();

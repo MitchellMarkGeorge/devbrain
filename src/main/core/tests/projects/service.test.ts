@@ -145,13 +145,13 @@ describe('ProjectService — getById', () => {
   });
 
   it('throws NotFoundError for an unknown id', async () => {
-    await expect(projects.getById(generateId('project'))).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => projects.getById(generateId('project'))).toThrow(NotFoundError);
   });
 
   it('throws NotFoundError for an archived project', async () => {
     const project = await projects.createProject({ title: 'Will be archived', dueDate: TOMORROW });
     archive.archiveProject(project.id);
-    await expect(projects.getById(project.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => projects.getById(project.id)).toThrow(NotFoundError);
   });
 });
 
@@ -212,7 +212,7 @@ describe('ProjectService — updateProject', () => {
   });
 
   it('throws NotFoundError for an unknown id', async () => {
-    await expect(projects.updateProject(generateId('project'), { title: 'Ghost' })).rejects.toThrow(
+    expect(() => projects.updateProject(generateId('project'), { title: 'Ghost' })).toThrow(
       NotFoundError,
     );
   });
@@ -231,9 +231,9 @@ describe('ProjectService — updateProject', () => {
 
 describe('ProjectService — updateStatus', () => {
   it('throws NotFoundError for an unknown id', async () => {
-    await expect(
-      projects.updateStatus(generateId('project'), ProjectStatus.COMPLETED),
-    ).rejects.toThrow(NotFoundError);
+    expect(() => projects.updateStatus(generateId('project'), ProjectStatus.COMPLETED)).toThrow(
+      NotFoundError,
+    );
   });
 
   it('updates the project status', async () => {
@@ -425,15 +425,13 @@ describe('ProjectService — listProjects', () => {
 
 describe('ProjectService — getProjectStats', () => {
   it('throws NotFoundError for an unknown project id', async () => {
-    await expect(projects.getProjectStats(generateId('project'))).rejects.toBeInstanceOf(
-      NotFoundError,
-    );
+    expect(() => projects.getProjectStats(generateId('project'))).toThrow(NotFoundError);
   });
 
   it('throws NotFoundError for an archived project', async () => {
     const project = await projects.createProject({ title: 'Project', dueDate: TOMORROW });
     archive.archiveProject(project.id);
-    await expect(projects.getProjectStats(project.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => projects.getProjectStats(project.id)).toThrow(NotFoundError);
   });
 
   it('counts tasks grouped by status', async () => {
@@ -594,7 +592,7 @@ describe('ArchiveService — archiveProject', () => {
   it('archived project is no longer returned by ProjectService.getById', async () => {
     const project = await projects.createProject({ title: 'Gone', dueDate: TOMORROW });
     archive.archiveProject(project.id);
-    await expect(projects.getById(project.id)).rejects.toBeInstanceOf(NotFoundError);
+    expect(() => projects.getById(project.id)).toThrow(NotFoundError);
   });
 
   it('archived project is excluded from ProjectService.listProjects', async () => {
@@ -937,14 +935,12 @@ describe('ProjectService — cursor pagination', () => {
 
   it('rejects invalid limit, garbage cursor and mismatched-sort cursor', async () => {
     await seed(3);
-    await expect(projects.listProjects({}, undefined, { limit: 0 })).rejects.toThrow(RangeError);
-    await expect(projects.listProjects({}, undefined, { cursor: 'x' })).rejects.toThrow(
-      InvalidCursorError,
-    );
+    expect(() => projects.listProjects({}, undefined, { limit: 0 })).toThrow(RangeError);
+    expect(() => projects.listProjects({}, undefined, { cursor: 'x' })).toThrow(InvalidCursorError);
     const page = await projects.listProjects({}, { sortBy: 'createdAt' }, { limit: 1 });
-    await expect(
+    expect(() =>
       projects.listProjects({}, { sortBy: 'status' }, { cursor: page.nextCursor! }),
-    ).rejects.toThrow(InvalidCursorError);
+    ).toThrow(InvalidCursorError);
   });
 });
 
@@ -1054,9 +1050,9 @@ describe('ProjectService — onChange', () => {
     const listener = vi.fn();
     projects.onChange(listener);
 
-    await expect(
-      projects.updateProject(generateId('project'), { title: 'Missing' }),
-    ).rejects.toThrow(NotFoundError);
+    expect(() => projects.updateProject(generateId('project'), { title: 'Missing' })).toThrow(
+      NotFoundError,
+    );
 
     expect(listener).not.toHaveBeenCalled();
   });
