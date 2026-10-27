@@ -8,6 +8,13 @@ import fsSync from 'node:fs';
 import { directoryExists, isNotFound } from '../local/utils';
 import { NotFoundError, WorkspaceDataMissingError, WorkspaceNotOpenError } from '../shared/errors';
 import { paginateArray, Page, PageOptions } from '../shared/pagination';
+import { ChangeListener, ChangeListeners } from '../shared/changes';
+
+// The open workspace changed. A switch sends `closed` for the old workspace before `opened` for the
+// new one, in the order the transitions ran.
+export type WorkspaceChange =
+  | { type: 'opened'; workspace: Workspace }
+  | { type: 'closed'; workspaceId: WorkspaceId };
 
 // TODO: opening a workspace again after it has been openedn should be as cheap as possible
 // if possible, workspaces should be "cached" here
@@ -16,6 +23,7 @@ export class WorkspaceService {
   private current: Workspace | null = null;
   private transition: Promise<unknown> = Promise.resolve();
   private workspacesFilePath: string;
+  private readonly changes: ChangeListeners<WorkspaceChange>;
 
   get currentWorkspace(): Workspace | null {
     return this.current;
@@ -34,6 +42,15 @@ export class WorkspaceService {
     private readonly workspaceOptions: WorkspaceOptions,
   ) {
     this.workspacesFilePath = path.join(rootPath, REGISTRY_FILE);
+    this.changes = new ChangeListeners('Workspace', { logger: workspaceOptions.logger });
+  }
+
+  /**
+   * Sends `opened` once a workspace is current and `closed` once the current one has closed, by
+   * open, switch, close or delete. Returns a function that unsubscribes the listener.
+   */
+  onChange(listener: ChangeListener<WorkspaceChange>): () => void {
+    return this.changes.add(listener);
   }
 
   private readWorkspaceFile(): WorkspaceRegistry {
@@ -179,11 +196,12 @@ export class WorkspaceService {
       this.writeWorkspaceFile(workspaces);
       workspace.sync.start();
       this.current = workspace;
-      return workspace;
     } catch (error) {
       await workspace.close();
       throw error;
     }
+    this.changes.emit({ type: 'opened', workspace });
+    return workspace;
   }
 
   async switch(id: WorkspaceId): Promise<Workspace> {
@@ -199,11 +217,16 @@ export class WorkspaceService {
     return this.serialize(() => this.closeCurrent());
   }
 
-  // closes the current workspace, waiting for its sync runs to settle
+  // Closes the current workspace, waiting for its sync runs to settle. Sends `closed` even when
+  // closing fails: the workspace is no longer current either way.
   private async closeCurrent(): Promise<void> {
     const current = this.currentWorkspace;
     if (!current) return;
     this.current = null;
-    await current.close();
+    try {
+      await current.close();
+    } finally {
+      this.changes.emit({ type: 'closed', workspaceId: current.info.id });
+    }
   }
 }
