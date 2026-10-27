@@ -382,7 +382,7 @@ describe('CalendarService', () => {
   it('shows and hides a calendar, and refuses one that does not exist', async () => {
     expect((await calendarService.setVisible(DEFAULT_CALENDAR_ID, false)).visible).toBe(false);
     expect((await calendarService.getById(DEFAULT_CALENDAR_ID)).visible).toBe(false);
-    await expect(calendarService.setVisible('cal_missing' as CalendarId, true)).rejects.toThrow(
+    expect(() => calendarService.setVisible('cal_missing' as CalendarId, true)).toThrow(
       NotFoundError,
     );
   });
@@ -406,12 +406,14 @@ describe('CalendarService', () => {
   });
 
   it('refuses to choose for a local calendar, which always syncs, or one that does not exist', async () => {
-    await expect(calendarService.setSelected(DEFAULT_CALENDAR_ID, false)).rejects.toMatchObject({
-      code: 'invalid_input',
-      message: expect.stringContaining('always syncs'),
-    });
+    expect(() => calendarService.setSelected(DEFAULT_CALENDAR_ID, false)).toThrow(
+      expect.objectContaining({
+        code: 'invalid_input',
+        message: expect.stringContaining('always syncs'),
+      }),
+    );
     expect((await calendarService.getById(DEFAULT_CALENDAR_ID)).selected).toBe(true);
-    await expect(calendarService.setSelected('cal_missing' as CalendarId, true)).rejects.toThrow(
+    expect(() => calendarService.setSelected('cal_missing' as CalendarId, true)).toThrow(
       NotFoundError,
     );
   });
