@@ -5,8 +5,7 @@ import { projects } from '@main/db/schema/projects';
 import { tasks } from '@main/db/schema/tasks';
 import { and, eq, isNotNull, isNull, not, SQL, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { BaseSQLiteDatabase, unionAll } from 'drizzle-orm/sqlite-core';
-import { RunResult } from 'better-sqlite3';
+import { unionAll } from 'drizzle-orm/sqlite-core';
 import { Event } from '../events/types';
 import { withEventDetails } from '../events/service';
 import { hasLinkInState, withRef } from '../integrations/refs';
@@ -54,41 +53,155 @@ export class FavoritesService {
   }
 
   favoriteTask(id: TaskId): Task {
-    return this.setAndSend(tasks, 'tasks', id, true, withRef);
+    const existing = this.db.select().from(tasks).where(eq(tasks.id, id)).get();
+    if (!existing) throw new NotFoundError(id);
+    // already a favorite: keep the first favoritedAt and send nothing
+    if (existing.favoritedAt !== null) return withRef(this.db, existing);
+
+    const task = this.db
+      .update(tasks)
+      // updatedAt is set to what it was, or its $onUpdate would stamp it with now
+      .set({ favoritedAt: new Date(), updatedAt: existing.updatedAt })
+      .where(eq(tasks.id, id))
+      .returning()
+      .get();
+    this.changes.emit({
+      type: 'favorited',
+      entityType: 'tasks',
+      id,
+      favoritedAt: task.favoritedAt!,
+    });
+    return withRef(this.db, task);
   }
 
   unfavoriteTask(id: TaskId): Task {
-    return this.setAndSend(tasks, 'tasks', id, false, withRef);
+    const existing = this.db.select().from(tasks).where(eq(tasks.id, id)).get();
+    if (!existing) throw new NotFoundError(id);
+    // not a favorite: nothing to clear
+    if (existing.favoritedAt === null) return withRef(this.db, existing);
+
+    const task = this.db
+      .update(tasks)
+      .set({ favoritedAt: null, updatedAt: existing.updatedAt })
+      .where(eq(tasks.id, id))
+      .returning()
+      .get();
+    this.changes.emit({ type: 'unfavorited', entityType: 'tasks', id });
+    return withRef(this.db, task);
   }
 
   favoriteProject(id: ProjectId): Project {
-    return this.setAndSend(projects, 'projects', id, true, withRef);
+    const existing = this.db.select().from(projects).where(eq(projects.id, id)).get();
+    if (!existing) throw new NotFoundError(id);
+    // already a favorite: keep the first favoritedAt and send nothing
+    if (existing.favoritedAt !== null) return withRef(this.db, existing);
+
+    const project = this.db
+      .update(projects)
+      // updatedAt is set to what it was, or its $onUpdate would stamp it with now
+      .set({ favoritedAt: new Date(), updatedAt: existing.updatedAt })
+      .where(eq(projects.id, id))
+      .returning()
+      .get();
+    this.changes.emit({
+      type: 'favorited',
+      entityType: 'projects',
+      id,
+      favoritedAt: project.favoritedAt!,
+    });
+    return withRef(this.db, project);
   }
 
   unfavoriteProject(id: ProjectId): Project {
-    return this.setAndSend(projects, 'projects', id, false, withRef);
+    const existing = this.db.select().from(projects).where(eq(projects.id, id)).get();
+    if (!existing) throw new NotFoundError(id);
+    // not a favorite: nothing to clear
+    if (existing.favoritedAt === null) return withRef(this.db, existing);
+
+    const project = this.db
+      .update(projects)
+      .set({ favoritedAt: null, updatedAt: existing.updatedAt })
+      .where(eq(projects.id, id))
+      .returning()
+      .get();
+    this.changes.emit({ type: 'unfavorited', entityType: 'projects', id });
+    return withRef(this.db, project);
   }
 
   favoriteNote(id: NoteId): Note {
-    return this.setAndSend(notes, 'notes', id, true, (_, row) => row);
+    const existing = this.db.select().from(notes).where(eq(notes.id, id)).get();
+    if (!existing) throw new NotFoundError(id);
+    // already a favorite: keep the first favoritedAt and send nothing
+    if (existing.favoritedAt !== null) return existing;
+
+    const note = this.db
+      .update(notes)
+      // updatedAt is set to what it was, or its $onUpdate would stamp it with now
+      .set({ favoritedAt: new Date(), updatedAt: existing.updatedAt })
+      .where(eq(notes.id, id))
+      .returning()
+      .get();
+    this.changes.emit({
+      type: 'favorited',
+      entityType: 'notes',
+      id,
+      favoritedAt: note.favoritedAt!,
+    });
+    return note;
   }
 
   unfavoriteNote(id: NoteId): Note {
-    return this.setAndSend(notes, 'notes', id, false, (_, row) => row);
+    const existing = this.db.select().from(notes).where(eq(notes.id, id)).get();
+    if (!existing) throw new NotFoundError(id);
+    // not a favorite: nothing to clear
+    if (existing.favoritedAt === null) return existing;
+
+    const note = this.db
+      .update(notes)
+      .set({ favoritedAt: null, updatedAt: existing.updatedAt })
+      .where(eq(notes.id, id))
+      .returning()
+      .get();
+    this.changes.emit({ type: 'unfavorited', entityType: 'notes', id });
+    return note;
   }
 
   favoriteEvent(id: EventId): Event {
-    return this.setAndSend(events, 'events', id, true, (tx, row) => withEventDetails(tx, [row])[0]);
+    const existing = this.db.select().from(events).where(eq(events.id, id)).get();
+    if (!existing) throw new NotFoundError(id);
+    // already a favorite: keep the first favoritedAt and send nothing
+    if (existing.favoritedAt !== null) return withEventDetails(this.db, [existing])[0];
+
+    const event = this.db
+      .update(events)
+      // updatedAt is set to what it was, or its $onUpdate would stamp it with now
+      .set({ favoritedAt: new Date(), updatedAt: existing.updatedAt })
+      .where(eq(events.id, id))
+      .returning()
+      .get();
+    this.changes.emit({
+      type: 'favorited',
+      entityType: 'events',
+      id,
+      favoritedAt: event.favoritedAt!,
+    });
+    return withEventDetails(this.db, [event])[0];
   }
 
   unfavoriteEvent(id: EventId): Event {
-    return this.setAndSend(
-      events,
-      'events',
-      id,
-      false,
-      (tx, row) => withEventDetails(tx, [row])[0],
-    );
+    const existing = this.db.select().from(events).where(eq(events.id, id)).get();
+    if (!existing) throw new NotFoundError(id);
+    // not a favorite: nothing to clear
+    if (existing.favoritedAt === null) return withEventDetails(this.db, [existing])[0];
+
+    const event = this.db
+      .update(events)
+      .set({ favoritedAt: null, updatedAt: existing.updatedAt })
+      .where(eq(events.id, id))
+      .returning()
+      .get();
+    this.changes.emit({ type: 'unfavorited', entityType: 'events', id });
+    return withEventDetails(this.db, [event])[0];
   }
 
   /**
@@ -131,62 +244,6 @@ export class FavoritesService {
 
     // favoritedAt is nullable, but every branch filters on IS NOT NULL
     return pager.toPage(rows as FavoritedEntity[]);
-  }
-
-  /**
-   * Favorites or unfavorites one row and returns it as `toModel` shapes it, sending the change
-   * after the commit. A row already in the state asked for is returned as it is, unwritten, and
-   * nothing is sent: favoriting again keeps the first favoritedAt. Throws NotFoundError when there
-   * is no such row.
-   */
-  private setAndSend<T extends FavoritableTable, M extends { favoritedAt: Date | null }>(
-    table: T,
-    entityType: FavoritableEntityType,
-    id: FavoritableId,
-    favorite: boolean,
-    toModel: (db: BaseSQLiteDatabase<'sync', RunResult>, row: T['$inferSelect']) => M,
-  ): M {
-    const { model, changed } = this.db.transaction((tx) => {
-      const { row, changed } = this.setFavorited(tx, table, id, favorite);
-      return { model: toModel(tx, row), changed };
-    });
-    if (changed) {
-      this.changes.emit(
-        model.favoritedAt === null
-          ? { type: 'unfavorited', entityType, id }
-          : { type: 'favorited', entityType, id, favoritedAt: model.favoritedAt },
-      );
-    }
-    return model;
-  }
-
-  /** stamps or clears `favoritedAt` on one row, writing only when it is not already so */
-  private setFavorited<T extends FavoritableTable>(
-    db: BaseSQLiteDatabase<'sync', RunResult>,
-    table: T,
-    id: FavoritableId,
-    favorite: boolean,
-  ): { row: T['$inferSelect']; changed: boolean } {
-    // the tables are typed apart; for these shared columns they behave alike
-    const t = table as typeof tasks;
-    const existing = db
-      .select()
-      .from(t)
-      .where(eq(t.id, id as TaskId))
-      .get();
-    if (!existing) throw new NotFoundError(id);
-    if ((existing.favoritedAt !== null) === favorite) {
-      return { row: existing as T['$inferSelect'], changed: false };
-    }
-
-    const row = db
-      .update(t)
-      // updatedAt is set to what it was, or its $onUpdate would stamp it with now
-      .set({ favoritedAt: favorite ? new Date() : null, updatedAt: existing.updatedAt })
-      .where(eq(t.id, id as TaskId))
-      .returning()
-      .get();
-    return { row: row as T['$inferSelect'], changed: true };
   }
 
   private favoritedPager(table: FavoritableTable, page: PageOptions) {
