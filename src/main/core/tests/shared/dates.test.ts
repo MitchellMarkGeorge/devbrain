@@ -273,13 +273,16 @@ describe('EventService — time zones', () => {
     const events = new EventService(createDb());
     const startAt = new Date('2026-10-05T14:00:00.000Z');
     const options = { title: 'Standup', startAt, endAt: startAt };
-    await expect(events.createEvent({ ...options, timeZone: 'Toronto UTC' })).rejects.toMatchObject(
-      { code: 'invalid_input', message: 'Not an IANA time zone: Toronto UTC' },
+    expect(() => events.createEvent({ ...options, timeZone: 'Toronto UTC' })).toThrow(
+      expect.objectContaining({
+        code: 'invalid_input',
+        message: 'Not an IANA time zone: Toronto UTC',
+      }),
     );
-    const event = await events.createEvent(options);
-    await expect(events.updateEvent(event.id, { timeZone: '+05:00' })).rejects.toThrow(
+    const event = events.createEvent(options);
+    expect(() => events.updateEvent(event.id, { timeZone: '+05:00' })).toThrow(
       'Not an IANA time zone',
     );
-    expect((await events.getById(event.id)).timeZone).toBe(localTimeZone());
+    expect(events.getById(event.id).timeZone).toBe(localTimeZone());
   });
 });
