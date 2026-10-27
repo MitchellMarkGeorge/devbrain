@@ -1,0 +1,4 @@
+CREATE INDEX `idx_events_favorited_at_id` ON `events` (`favorited_at`,`id`) WHERE "events"."favorited_at" is not null;--> statement-breakpoint
+CREATE INDEX `idx_notes_favorited_at_id` ON `notes` (`favorited_at`,`id`) WHERE ("notes"."favorited_at" is not null and "notes"."archived_at" is null);--> statement-breakpoint
+CREATE INDEX `idx_projects_favorited_at_id` ON `projects` (`favorited_at`,`id`) WHERE ("projects"."favorited_at" is not null and "projects"."archived_at" is null);--> statement-breakpoint
+CREATE INDEX `idx_tasks_favorited_at_id` ON `tasks` (`favorited_at`,`id`) WHERE ("tasks"."favorited_at" is not null and "tasks"."archived_at" is null);

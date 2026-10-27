@@ -4,6 +4,7 @@ import { SQLiteColumn, unionAll } from 'drizzle-orm/sqlite-core';
 import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
 import { notes } from '@main/db/schema/notes';
+import { events } from '@main/db/schema/events';
 import { createDb } from '../utils';
 import { keyset } from '../../shared/pagination';
 import { hasLinkInState, LinkedEntity } from '../../integrations/refs';
@@ -236,6 +237,71 @@ describe('pagination index — archive.listArchived filtered to one entity type'
       .limit(pager.fetchLimit);
     const detail = plan(query).join('\n');
     expect(detail).toContain(index);
+    expect(detail).not.toContain('TEMP B-TREE');
+  });
+});
+
+describe('pagination index — favorites.listFavorites', () => {
+  // mirrors the branches of FavoritesService.listFavorites: favorited rows that are not archived,
+  // or for events not removed by their provider
+  type Table = typeof tasks | typeof projects | typeof notes | typeof events;
+  const branch = (table: Table, withCursor: boolean) => {
+    const pager = keyset<{ v: unknown; id: string }>(
+      {
+        sortKey: 'favoritedAt',
+        sortColumn: table.favoritedAt,
+        idColumn: table.id,
+        direction: 'desc',
+        sortValue: (r) => r.v,
+        id: (r) => r.id,
+      },
+      {
+        cursor: withCursor ? cursorFor(table.favoritedAt, 'favoritedAt', new Date()) : undefined,
+      },
+    );
+    const shown =
+      table === events
+        ? not(hasLinkInState('event', events.id, LinkState.REMOVED))
+        : isNull((table as typeof tasks).archivedAt);
+    return {
+      pager,
+      query: db
+        .select({
+          id: sql`${table.id}`.as('id'),
+          title: table.title,
+          favoritedAt: table.favoritedAt,
+        })
+        .from(table as typeof tasks)
+        .where(and(isNotNull(table.favoritedAt), shown, pager.after)),
+    };
+  };
+
+  it.each([false, true])('with cursor: %s, uses the per-table favorited indexes', (withCursor) => {
+    const query = unionAll(
+      branch(tasks, withCursor).query,
+      branch(projects, withCursor).query,
+      branch(notes, withCursor).query,
+      branch(events, withCursor).query,
+    )
+      .orderBy(sql`favorited_at desc`, sql`id desc`)
+      .limit(51);
+    const detail = plan(query).join('\n');
+    expect(detail).toContain('MERGE (UNION ALL)');
+    for (const name of ['tasks', 'projects', 'notes', 'events']) {
+      expect(detail).toContain(`idx_${name}_favorited_at_id`);
+    }
+    if (!withCursor) expect(detail).not.toContain('TEMP B-TREE');
+  });
+
+  it.each([
+    ['tasks', tasks],
+    ['projects', projects],
+    ['notes', notes],
+    ['events', events],
+  ] as const)('%s: first page reads the favorited index in order', (name, table) => {
+    const { pager, query } = branch(table, false);
+    const detail = plan(query.orderBy(...pager.orderBy).limit(pager.fetchLimit)).join('\n');
+    expect(detail).toContain(`idx_${name}_favorited_at_id`);
     expect(detail).not.toContain('TEMP B-TREE');
   });
 });

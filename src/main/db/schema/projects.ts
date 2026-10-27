@@ -2,7 +2,7 @@ import { ProjectId, generateId } from '@common/ids';
 import { sqliteTable, text, integer, index, check } from 'drizzle-orm/sqlite-core';
 import { timesamps, completedAt, archivedAt, date } from './utils';
 import { ProjectStatus } from '@main/core/projects/types';
-import { isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, isNotNull, isNull, sql } from 'drizzle-orm';
 
 export const projects = sqliteTable(
   'projects',
@@ -49,6 +49,11 @@ export const projects = sqliteTable(
     index('idx_projects_archived_at_id')
       .on(table.archivedAt, table.id)
       .where(isNotNull(table.archivedAt)),
+    // keyset pagination in FavoritesService.listFavorites: favorited rows that are not archived.
+    // `where` must match the query's filter.
+    index('idx_projects_favorited_at_id')
+      .on(table.favoritedAt, table.id)
+      .where(and(isNotNull(table.favoritedAt), isNull(table.archivedAt))!),
 
     // completedAt only has a value if the task's status is completed
     check(

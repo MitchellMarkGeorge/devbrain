@@ -2,6 +2,7 @@ import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
 import { ArchiveChange, ArchiveService } from '../archive/service';
 import { EventService } from '../events/service';
+import { FavoritesService } from '../favorites/service';
 import { CalendarService } from '../calendars/service';
 import { NoteService } from '../notes/service';
 import { ProjectService } from '../projects/service';
@@ -47,6 +48,7 @@ export class Workspace {
   readonly events: EventService;
   readonly calendars: CalendarService;
   readonly archive: ArchiveService;
+  readonly favorites: FavoritesService;
   readonly search: SearchService;
   readonly integrations: IntegrationService;
   // detachTask and reattachTask for external tasks, and onChange
@@ -73,6 +75,7 @@ export class Workspace {
     this.events = new EventService(db);
     this.calendars = new CalendarService(db);
     this.archive = new ArchiveService(db);
+    this.favorites = new FavoritesService(db);
     this.search = new SearchService(db, info.path);
     // the user's own writes; SyncWriter indexes what sync writes. An archived row stays out of
     // search when it is written; restoring it brings it back.
