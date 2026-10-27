@@ -39,15 +39,25 @@ export class LinearApiError extends CoreError {
   }
 }
 
-interface GraphQLError {
-  message?: string;
-  extensions?: { code?: string; type?: string };
-}
+// the GraphQL response envelope; `data` is validated by each request's own schema
+const graphQLBodySchema = z.object({
+  data: z.unknown().optional(),
+  errors: z
+    .array(
+      z.object({
+        message: z.string().optional(),
+        extensions: z
+          .object({ code: z.string().optional(), type: z.string().optional() })
+          .optional(),
+      }),
+    )
+    .optional(),
+});
 
-interface GraphQLBody {
-  data?: unknown;
-  errors?: GraphQLError[];
-}
+type GraphQLBody = z.infer<typeof graphQLBodySchema>;
+
+// a body that is not a GraphQL envelope is null, with what was wrong with it
+type ReadBody = { body: GraphQLBody } | { body: null; problem: string };
 
 export interface LinearClientOptions {
   fetch: FetchFn;
@@ -98,7 +108,8 @@ export class LinearClient {
       throw new IntegrationAuthError('Linear rejected the credentials');
     }
 
-    const body = await readBody(response, signal);
+    const read = await readBody(response, signal);
+    const body = read.body;
     // Linear reports rate limiting as a 400 with a GraphQL error code, not a 429
     if (hasError(body, RATE_LIMITED) || response.status === 429) {
       throw new RateLimitError(this.retryAt(response.headers));
@@ -111,11 +122,11 @@ export class LinearClient {
       const messages = body?.errors?.map((error) => error.message).filter(Boolean);
       throw new LinearApiError(response.status, messages?.join('; ') || response.statusText);
     }
-    if (!body) {
-      throw new LinearApiError(response.status, 'response was not JSON');
+    if (read.body === null) {
+      throw new LinearApiError(response.status, read.problem);
     }
 
-    const parsed = schema.safeParse(body.data);
+    const parsed = schema.safeParse(read.body.data);
     if (!parsed.success) {
       throw new LinearApiError(response.status, `unexpected response: ${parsed.error.message}`);
     }
@@ -145,10 +156,7 @@ function hasError(body: GraphQLBody | null, kind: { code: string; type: string }
   );
 }
 
-async function readBody(
-  response: Response,
-  signal: AbortSignal | undefined,
-): Promise<GraphQLBody | null> {
+async function readBody(response: Response, signal: AbortSignal | undefined): Promise<ReadBody> {
   let text: string;
   try {
     text = await response.text();
@@ -157,11 +165,17 @@ async function readBody(
     // the connection dropped or the timeout fired while the body was streaming
     throw new ProviderUnavailableError('Linear could not be reached', { cause: error });
   }
+  let json: unknown;
   try {
-    return JSON.parse(text) as GraphQLBody;
+    json = JSON.parse(text);
   } catch {
-    return null;
+    return { body: null, problem: 'response was not JSON' };
   }
+  const parsed = graphQLBodySchema.safeParse(json);
+  if (!parsed.success) {
+    return { body: null, problem: `unexpected response envelope: ${parsed.error.message}` };
+  }
+  return { body: parsed.data };
 }
 
 // the reset headers carry a UTC epoch time in milliseconds; seconds are accepted too

@@ -1,4 +1,4 @@
-import { deferred } from '../utils';
+import { deferred, WORKSPACE_OPTIONS } from '../utils';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
@@ -79,47 +79,47 @@ async function setOpenWorkspace(service: WorkspaceService, workspace: { info: Wo
 
 describe('WorkspaceService — registry reads', () => {
   it('listAll() returns empty array when workspaces.json is absent', () => {
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     expect(service.listAll().items).toEqual([]);
   });
 
   it('listAll() returns all workspace infos', () => {
     const infos = [makeInfo(), makeInfo({ id: 'wsp_test002' as WorkspaceId, name: 'Second' })];
     writeRegistry(tmpDir, infos);
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     expect(service.listAll().items).toHaveLength(2);
   });
 
   it('getById() returns matching workspace info', () => {
     const info = makeInfo();
     writeRegistry(tmpDir, [info]);
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     expect(service.getById(info.id)).toMatchObject({ id: info.id, name: info.name });
   });
 
   it('getById() throws NotFoundError for unknown id', () => {
     writeRegistry(tmpDir, [makeInfo()]);
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     expect(() => service.getById('wsp_unknown' as WorkspaceId)).toThrow(NotFoundError);
   });
 
   it('getByName() returns matching workspace info', () => {
     const info = makeInfo({ name: 'Unique Name' });
     writeRegistry(tmpDir, [info]);
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     expect(service.getByName('Unique Name')).toMatchObject({ id: info.id });
   });
 
   it('getByName() returns null for unknown name', () => {
     writeRegistry(tmpDir, [makeInfo()]);
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     expect(service.getByName('Unknown')).toBeNull();
   });
 
   it('getByName() is case-sensitive', () => {
     const info = makeInfo({ name: 'MyWorkspace' });
     writeRegistry(tmpDir, [info]);
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     expect(service.getByName('myworkspace')).toBeNull();
     expect(service.getByName('MYWORKSPACE')).toBeNull();
     expect(service.getByName('MyWorkspace')).not.toBeNull();
@@ -135,7 +135,7 @@ describe('WorkspaceService — create', () => {
     const fakeWorkspace = { info: makeInfo(), close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.create).mockResolvedValue(fakeWorkspace as never);
 
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await service.create({ name: 'New WS', color: '#ff0000' });
 
     expect(service.listAll().items).toHaveLength(1);
@@ -149,7 +149,7 @@ describe('WorkspaceService — create', () => {
     const fakeWorkspace = { info: makeInfo(), close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.create).mockResolvedValue(fakeWorkspace as never);
 
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await service.create({ name: 'Coloured', color: '#aabbcc' });
 
     expect(service.listAll().items[0].color).toBe('#aabbcc');
@@ -165,7 +165,7 @@ describe('WorkspaceService — create', () => {
       sync: { start: vi.fn() },
     } as never);
 
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await service.create({ name: 'WS 1', color: '#000000' });
     await service.create({ name: 'WS 2', color: '#000000' });
 
@@ -181,7 +181,7 @@ describe('WorkspaceService — create', () => {
     const fakeWorkspace = { info: makeInfo(), close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.create).mockResolvedValue(fakeWorkspace as never);
 
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await service.create({ name: 'Check Args', color: '#000' });
 
     expect(Workspace.create).toHaveBeenCalledOnce();
@@ -201,7 +201,7 @@ describe('WorkspaceService — create', () => {
       sync: { start: vi.fn() },
     } as never);
 
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await service.create({ name: 'Timestamp', color: '#000000' });
     const after = Date.now();
 
@@ -220,7 +220,7 @@ describe('WorkspaceService — create', () => {
       sync: { start: vi.fn() },
     } as never);
 
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await service.create({ name: 'New', color: '#000000' });
 
     expect(service.listAll().items[0].lastOpenedAt).toBeNull();
@@ -231,7 +231,7 @@ describe('WorkspaceService — delete', () => {
   // a service whose open workspace is `info`, as WorkspaceService.open leaves it
   async function openService(info: WorkspaceInfo, integrations = fakeIntegrations([])) {
     const workspace = { info, close: vi.fn(), integrations };
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await setOpenWorkspace(service, workspace);
     return { service, workspace };
   }
@@ -260,7 +260,7 @@ describe('WorkspaceService — delete', () => {
 
   it('throws when no matching workspace exists in registry', async () => {
     writeRegistry(tmpDir, []);
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await expect(service.delete('wsp_missing' as WorkspaceId)).rejects.toThrow(NotFoundError);
   });
 
@@ -287,7 +287,7 @@ describe('WorkspaceService — delete', () => {
     await fs.mkdir(info.path, { recursive: true });
 
     // nothing open, then another workspace open
-    await expect(new WorkspaceService(tmpDir).delete(info.id)).rejects.toThrow(
+    await expect(new WorkspaceService(tmpDir, WORKSPACE_OPTIONS).delete(info.id)).rejects.toThrow(
       WorkspaceNotOpenError,
     );
     const { service, workspace } = await openService(other);
@@ -384,14 +384,14 @@ describe('WorkspaceService — delete', () => {
 describe('WorkspaceService — open', () => {
   it('throws when workspace id is not in registry', async () => {
     writeRegistry(tmpDir, []);
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await expect(service.open('wsp_unknown' as WorkspaceId)).rejects.toThrow(NotFoundError);
   });
 
   it('throws when workspace directory does not exist', async () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_missing') });
     writeRegistry(tmpDir, [info]);
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await expect(service.open(info.id)).rejects.toThrow(WorkspaceDataMissingError);
     await expect(service.open(info.id)).rejects.toMatchObject({
       code: 'workspace_data_missing',
@@ -407,7 +407,7 @@ describe('WorkspaceService — open', () => {
     const fakeWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.open).mockResolvedValue(fakeWorkspace as never);
 
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await service.open(info.id);
 
     expect(service.currentWorkspace).toBe(fakeWorkspace);
@@ -422,7 +422,7 @@ describe('WorkspaceService — open', () => {
     vi.mocked(Workspace.open).mockResolvedValue(fakeWorkspace as never);
 
     const before = Date.now();
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await service.open(info.id);
     const after = Date.now();
 
@@ -440,7 +440,7 @@ describe('WorkspaceService — open', () => {
     const fakeWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.open).mockResolvedValue(fakeWorkspace as never);
 
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     const result = await service.open(info.id);
 
     expect(result).toBe(fakeWorkspace);
@@ -457,7 +457,7 @@ describe('WorkspaceService — open', () => {
       sync: { start: vi.fn() },
     } as never);
 
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await service.open(info.id);
 
     expect(Workspace.open).toHaveBeenCalledOnce();
@@ -474,7 +474,7 @@ describe('WorkspaceService — sync', () => {
     const fakeWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.open).mockResolvedValue(fakeWorkspace as never);
 
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await service.open(info.id);
 
     expect(fakeWorkspace.sync.start).toHaveBeenCalledOnce();
@@ -484,7 +484,7 @@ describe('WorkspaceService — sync', () => {
     const created = { info: makeInfo(), close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.create).mockResolvedValue(created as never);
 
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await service.create({ name: 'New', color: '#000000' });
 
     expect(created.sync.start).not.toHaveBeenCalled();
@@ -503,7 +503,7 @@ describe('WorkspaceService — sync', () => {
     const nextWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
 
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await setOpenWorkspace(service, prevWorkspace);
 
     const switching = service.switch(info.id);
@@ -528,7 +528,7 @@ describe('WorkspaceService — sync', () => {
       sync: { start: vi.fn() },
     } as never);
 
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await setOpenWorkspace(service, prevWorkspace);
     await service.open(info.id);
 
@@ -546,7 +546,7 @@ describe('WorkspaceService — sync', () => {
       close: vi.fn(() => new Promise<void>((resolve) => (finishClose = resolve))),
       integrations: fakeIntegrations([]),
     };
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await setOpenWorkspace(service, current);
 
     const deleting = service.delete(info.id);
@@ -574,7 +574,7 @@ describe('WorkspaceService — switch', () => {
     const nextWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
 
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await setOpenWorkspace(service, prevWorkspace);
 
     await service.switch(info.id);
@@ -591,7 +591,7 @@ describe('WorkspaceService — switch', () => {
     const nextWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
 
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     const result = await service.switch(info.id);
 
     expect(result).toBe(nextWorkspace);
@@ -605,7 +605,7 @@ describe('WorkspaceService — switch', () => {
     const nextWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
 
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     expect(service.currentWorkspace).toBeNull();
 
     await expect(service.switch(info.id)).resolves.toBe(nextWorkspace);
@@ -613,13 +613,13 @@ describe('WorkspaceService — switch', () => {
 
   it('throws when the target workspace does not exist', async () => {
     writeRegistry(tmpDir, []);
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await expect(service.switch('wsp_nope' as WorkspaceId)).rejects.toThrow();
   });
 });
 
 describe('WorkspaceService — workspace options', () => {
-  const options = { cipher: new FakeCipher(), fetch: vi.fn() };
+  const options = { ...WORKSPACE_OPTIONS, cipher: new FakeCipher(), fetch: vi.fn() };
 
   it('passes its options to every workspace it creates', async () => {
     writeRegistry(tmpDir, []);
@@ -649,21 +649,6 @@ describe('WorkspaceService — workspace options', () => {
 
     expect(vi.mocked(Workspace.open)).toHaveBeenCalledWith(info, options);
   });
-
-  it('passes empty options when given none', async () => {
-    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
-    writeRegistry(tmpDir, [info]);
-    await fs.mkdir(info.path, { recursive: true });
-    vi.mocked(Workspace.open).mockResolvedValue({
-      info,
-      close: vi.fn(),
-      sync: { start: vi.fn() },
-    } as never);
-
-    await new WorkspaceService(tmpDir).open(info.id);
-
-    expect(vi.mocked(Workspace.open)).toHaveBeenCalledWith(info, {});
-  });
 });
 
 describe('WorkspaceService — cursor pagination', () => {
@@ -678,14 +663,14 @@ describe('WorkspaceService — cursor pagination', () => {
 
   it('returns a null nextCursor when everything fits', () => {
     writeRegistry(tmpDir, infos);
-    const page = new WorkspaceService(tmpDir).listAll();
+    const page = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS).listAll();
     expect(page.items).toHaveLength(5);
     expect(page.nextCursor).toBeNull();
   });
 
   it('pages through every workspace exactly once', () => {
     writeRegistry(tmpDir, infos);
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     const ids: string[] = [];
     let cursor: string | undefined;
     let pages = 0;
@@ -701,7 +686,7 @@ describe('WorkspaceService — cursor pagination', () => {
 
   it('rejects invalid limit and garbage cursor', () => {
     writeRegistry(tmpDir, infos);
-    const service = new WorkspaceService(tmpDir);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     expect(() => service.listAll({ limit: 0 })).toThrow(RangeError);
     expect(() => service.listAll({ cursor: 'bad' })).toThrow();
   });
@@ -724,7 +709,7 @@ describe('WorkspaceService — overlapping transitions', () => {
       sync: { start: vi.fn() },
       integrations: fakeIntegrations([]),
     }));
-    return { service: new WorkspaceService(tmpDir), infos, workspaces };
+    return { service: new WorkspaceService(tmpDir, WORKSPACE_OPTIONS), infos, workspaces };
   }
 
   it('serializes open, switch and close, including repeated closes', async () => {

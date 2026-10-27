@@ -42,6 +42,7 @@ import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { config as loadEnvFile } from '@dotenvx/dotenvx';
 import { openDevBrain } from '@main/core';
+import { openElectronSettingsStore } from '@main/runtime/settings-store';
 import { devCipher } from '@main/runtime/dev-cipher';
 import { Provider } from '@main/core/integrations/types';
 import type { Workspace } from '@main/core/workspace/workspace';
@@ -989,16 +990,15 @@ async function main() {
     process.exit(1);
   }
 
-  process.env.DB_MIGRATIONS_PATH = MIGRATIONS_PATH;
-
   console.log(`Seeding dev workspace at ${ROOT_PATH}${RESET ? ' (--reset)' : ''} [seed=${SEED}]`);
 
   // --reset wipes the folder here: opening a DevBrain folder never deletes anything
   if (alreadyExists) await fs.rm(ROOT_PATH, { recursive: true, force: true });
   const devBrain = await openDevBrain({
+    settingsStore: openElectronSettingsStore,
     path: ROOT_PATH,
     createIfMissing: true,
-    workspace: { cipher: devCipher, fetch },
+    workspace: { migrationsPath: MIGRATIONS_PATH, cipher: devCipher, fetch },
   });
   const workspace = await devBrain.workspaces.create({
     name: WORKSPACE_NAME,

@@ -46,7 +46,7 @@ export const integrations = sqliteTable(
     status: text().notNull().$type<IntegrationStatus>().default(IntegrationStatus.CONNECTED),
     // safeStorage ciphertext; never leaves the main process
     credentials: blob({ mode: 'buffer' }).notNull(),
-    scopes: text(), // granted scopes; null for API keys
+    scopes: text(), // granted scopes, space-separated; null for API keys
     // no favoritedAt: integrations are not favouritable
     updatedAt: timesamps.updatedAt,
     createdAt: timesamps.createdAt,

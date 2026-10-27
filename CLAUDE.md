@@ -48,5 +48,6 @@ own:
 - Make the change a discriminated union with a `type`, carrying ids and rows, never credentials.
 - Wire services together by subscribing where they are built (`Workspace`,
   `createIntegrationServices`), not by passing hooks into constructors.
-- A listener that throws is logged and never fails the call; pass a reporter as the second
-  argument when the default `console.error` line could leak data (see `SyncEngine`).
+- A listener that throws is logged by its error class only and never fails the call. Pass
+  `{ logger }` to send that line to the service's logger, or `{ report }` to replace it with one
+  that adds context such as the id the change was about (see `SyncEngine`).

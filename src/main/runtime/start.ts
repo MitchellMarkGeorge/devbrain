@@ -1,5 +1,5 @@
 import type { WorkspaceId } from '@common/ids';
-import { DevBrain, openDevBrain, type WorkspaceOptions } from '@main/core';
+import { DevBrain, openDevBrain, type OpenSettingsStore, type WorkspaceOptions } from '@main/core';
 import { DevBrainFolderError } from '@main/core/shared/errors';
 import type { SyncLogger } from '@main/core/sync/types';
 
@@ -9,6 +9,8 @@ export interface StartDevBrainOptions {
   // Creates a DevBrain folder when there is none (or only an empty directory), as on the packaged
   // app's first run. Off in development, where the folder comes from `npm run seed:dev`.
   createIfMissing: boolean;
+  // opens the folder's settings file: electron-store in the app
+  settingsStore: OpenSettingsStore;
   // the cipher, fetch and browser opener every workspace gets
   workspace: WorkspaceOptions;
   logger: Pick<SyncLogger, 'info' | 'warn'>;
@@ -26,6 +28,7 @@ export async function startDevBrain(options: StartDevBrainOptions): Promise<DevB
   try {
     devBrain = await openDevBrain({
       path: rootPath,
+      settingsStore: options.settingsStore,
       createIfMissing: options.createIfMissing,
       workspace: options.workspace,
     });

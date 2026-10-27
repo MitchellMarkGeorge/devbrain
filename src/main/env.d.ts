@@ -6,7 +6,7 @@ declare global {
       DEVBRAIN_PATH: string;
       NODE_ENV: 'development' | 'production';
       VITE_DEV_SERVER_URL: string;
-      DB_MIGRATIONS_PATH: string;
+      DB_MIGRATIONS_PATH?: string;
     }
   }
 }

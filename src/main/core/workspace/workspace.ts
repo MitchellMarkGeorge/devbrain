@@ -25,6 +25,7 @@ import {
   WorkspaceDataMissingError,
   WorkspaceMigrationError,
 } from '../shared/errors';
+import { errorClass } from '../shared/logger';
 import { inArray } from 'drizzle-orm';
 import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
@@ -105,19 +106,27 @@ export class Workspace {
     });
     const syncState = new SyncStateManager(db);
     const writer = new SyncWriter(db, this.search);
-    const engine = new SyncEngine(db, { integrations, syncState, credentials, providers, writer });
+    const { logger } = options;
+    const engine = new SyncEngine(db, {
+      integrations,
+      syncState,
+      credentials,
+      providers,
+      writer,
+      logger,
+    });
     // a reattach writes through SyncWriter, which indexes it, and a detach changes no indexed field;
     // edits to a detached task go through TaskService like any other
     this.detach = new DetachService(
       db,
-      new TaskReconciler({ db, syncState, credentials, providers, writer }),
+      new TaskReconciler({ db, syncState, credentials, providers, writer, logger }),
     );
     // rejected credentials stop every source of the integration until a reconnect, as in a run
     this.detach.onChange((change) => {
       if (change.type !== 'credentials_rejected') return;
       integrations.markNeedsReauth(change.integrationId);
     });
-    this.sync = new SyncScheduler({ engine, integrations, syncState });
+    this.sync = new SyncScheduler({ engine, integrations, syncState, logger });
     this.openUrl = guardOpenExternal(options.openExternal ?? noBrowser);
   }
 
@@ -141,11 +150,13 @@ export class Workspace {
     if (noteIds.length > 0) {
       this.search
         .indexNoteFiles(noteIds)
-        .catch((error) => console.error('Indexing restored notes failed:', error));
+        .catch((error) =>
+          console.error(`Indexing restored notes failed error=${errorClass(error)}`),
+        );
     }
   }
 
-  static async create(info: WorkspaceInfo, options: WorkspaceOptions = {}): Promise<Workspace> {
+  static async create(info: WorkspaceInfo, options: WorkspaceOptions): Promise<Workspace> {
     // just handles creating the db file (including running migrations)
     const dbPath = path.join(info.path, 'db.sqlite');
     if (await fileExists(dbPath)) {
@@ -156,7 +167,7 @@ export class Workspace {
     return Workspace.initDb(sqlite, info, options, { dbPath, backupPath: null });
   }
 
-  static async open(info: WorkspaceInfo, options: WorkspaceOptions = {}): Promise<Workspace> {
+  static async open(info: WorkspaceInfo, options: WorkspaceOptions): Promise<Workspace> {
     // handles opening and existing workspace and backing up the exising database
     const dbPath = path.join(info.path, 'db.sqlite');
     if (!(await fileExists(dbPath))) {
@@ -187,7 +198,7 @@ export class Workspace {
       sqliteClient.pragma('journal_mode = WAL');
       const db = drizzle({ client: sqliteClient, casing: 'snake_case' });
       // leaves foreign keys on once migrations have run
-      runMigrations(sqliteClient, db, process.env.DB_MIGRATIONS_PATH);
+      runMigrations(sqliteClient, db, options.migrationsPath);
       return new Workspace(db, sqliteClient, info, options);
     } catch (error) {
       sqliteClient.close();

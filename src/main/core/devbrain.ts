@@ -1,5 +1,6 @@
 import nodePath from 'node:path';
 import { SettingsService } from './settings/service';
+import type { OpenSettingsStore } from './settings/store';
 import { WorkspaceService } from './workspace/service';
 import type { WorkspaceOptions } from './workspace/types';
 import { devBrainFolderState, validateDevBrainFolderStructure } from './local/validate';
@@ -10,11 +11,13 @@ import { DevBrainFolderError } from './shared/errors';
 export interface OpenDevBrainOptions {
   // the DevBrain folder: settings.json, workspaces.json and the workspaces; must be absolute
   path: string;
+  // opens the folder's settings file; the main process passes electron-store
+  settingsStore: OpenSettingsStore;
   // creates a DevBrain folder when there is none at `path`, or only an empty directory; without
   // it, a missing folder is refused
   createIfMissing?: boolean;
-  // the secret cipher, fetch and provider registry every workspace gets
-  workspace?: WorkspaceOptions;
+  // the migrations folder, secret cipher, fetch and provider registry every workspace gets
+  workspace: WorkspaceOptions;
 }
 
 export class DevBrain {
@@ -22,8 +25,12 @@ export class DevBrain {
   readonly workspaces: WorkspaceService;
 
   // through DevBrain.open only, so a DevBrain always sits on a valid folder
-  private constructor(rootPath: string, options: WorkspaceOptions) {
-    this.settings = new SettingsService(rootPath);
+  private constructor(
+    rootPath: string,
+    openSettingsStore: OpenSettingsStore,
+    options: WorkspaceOptions,
+  ) {
+    this.settings = new SettingsService(rootPath, openSettingsStore);
     this.workspaces = new WorkspaceService(rootPath, options);
   }
 
@@ -36,8 +43,9 @@ export class DevBrain {
    */
   static async open({
     path,
+    settingsStore,
     createIfMissing = false,
-    workspace = {},
+    workspace,
   }: OpenDevBrainOptions): Promise<DevBrain> {
     if (!nodePath.isAbsolute(path)) {
       throw new DevBrainFolderError(
@@ -56,7 +64,7 @@ export class DevBrain {
     } else {
       throw new DevBrainFolderError('missing', `No DevBrain folder at ${path}`);
     }
-    return new DevBrain(path, workspace);
+    return new DevBrain(path, settingsStore, workspace);
   }
 
   public get currentWorkspace() {

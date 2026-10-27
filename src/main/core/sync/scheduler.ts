@@ -1,5 +1,5 @@
 import { ExternalSourceId, IntegrationId } from '@common/ids';
-import log from 'electron-log';
+import { consoleLogger } from '../shared/logger';
 import { BaseIntegrationService, IntegrationChange } from '../integrations/service';
 import { IntegrationStatus, Provider, SourceType } from '../integrations/types';
 import {
@@ -144,7 +144,7 @@ export class SyncScheduler {
     this.integrations = options.integrations;
     this.syncState = options.syncState;
     this.timers = options.timers ?? globalTimers;
-    this.logger = options.logger ?? log.scope('sync');
+    this.logger = options.logger ?? consoleLogger;
   }
 
   /**

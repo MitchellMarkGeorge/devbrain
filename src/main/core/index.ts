@@ -6,6 +6,8 @@ export type {
   WorkspaceOptions,
 } from './workspace/types';
 export type { AppSettings, AppState } from './settings/types';
+export type { OpenSettingsStore, SettingsStore } from './settings/store';
+export type { Logger } from './shared/logger';
 export { InvalidCursorError } from './shared/pagination';
 export type { Page, PageOptions } from './shared/pagination';
 

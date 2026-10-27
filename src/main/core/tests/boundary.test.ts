@@ -4,9 +4,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 // Core runs in plain Node: the main process passes in what it needs from Electron (safeStorage,
-// net.fetch, shell.openExternal), and tests pass fakes. So nothing under src/main/core imports
-// Electron. electron-log and electron-store are the exceptions: they work outside Electron, and
-// tests mock electron-store.
+// net.fetch, shell.openExternal, electron-store and electron-log), and tests pass fakes. So nothing
+// under src/main/core imports Electron or its packages.
 //
 // The integration types the renderer will need are kept free of main-only imports, so they can move
 // to src/common unchanged.
@@ -42,10 +41,10 @@ describe('Core — module boundary', () => {
     expect(relative.some((file) => file.startsWith(`tests${path.sep}`))).toBe(true);
   });
 
-  it('imports no Electron module anywhere under src/main/core', () => {
+  it('imports no Electron module or package anywhere under src/main/core', () => {
     const offending = files.flatMap((file) =>
       specifiers(fs.readFileSync(file, 'utf8'))
-        .filter((specifier) => specifier === 'electron' || specifier.startsWith('electron/'))
+        .filter((specifier) => /^electron($|[/-])/.test(specifier))
         .map((specifier) => `${path.relative(coreDir, file)}: ${specifier}`),
     );
     expect(offending).toEqual([]);

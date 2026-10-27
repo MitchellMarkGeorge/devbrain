@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { stripMarkdown } from '../../shared/markdown';
 
 describe('stripMarkdown — empty input', () => {
@@ -157,6 +157,13 @@ describe('stripMarkdown — error handling', () => {
     // options is intentionally malformed to force an exception inside the try block
     const malformed = { htmlTagsToSkip: null } as unknown as { htmlTagsToSkip: string[] };
     expect(stripMarkdown('<div>text</div>', malformed)).toBe('<div>text</div>');
+  });
+
+  it('logs the failure by its class only, never the markdown', () => {
+    const malformed = { htmlTagsToSkip: null } as unknown as { htmlTagsToSkip: string[] };
+    const logger = { error: vi.fn() };
+    stripMarkdown('<div>private note</div>', { ...malformed, logger });
+    expect(logger.error).toHaveBeenCalledExactlyOnceWith('stripMarkdown failed error=TypeError');
   });
 
   it('rethrows when throwError is set', () => {

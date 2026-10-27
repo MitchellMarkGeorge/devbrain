@@ -1,15 +1,11 @@
 import { getDefaults } from './defaults';
+import type { OpenSettingsStore, SettingsStore } from './store';
 import type { DotPathValue, DotPaths, SettingsFile } from './types';
-import Store from 'electron-store'; // do I need this? Should I just build my own lightweight version?
 
 export class SettingsService {
-  private store: Store<SettingsFile>;
-  constructor(rootPath: string) {
-    this.store = new Store({
-      name: 'settings',
-      cwd: rootPath,
-      defaults: getDefaults(rootPath),
-    });
+  private store: SettingsStore;
+  constructor(rootPath: string, openStore: OpenSettingsStore) {
+    this.store = openStore(rootPath, getDefaults(rootPath));
   }
 
   get<P extends DotPaths<SettingsFile>>(key: P): DotPathValue<SettingsFile, P> {
