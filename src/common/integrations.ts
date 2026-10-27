@@ -1,8 +1,7 @@
-import { ExternalSourceId, IntegrationId } from '@common/ids';
+import type { ExternalSourceId, IntegrationId } from './ids';
 
-// The integration types the renderer will need, to show connections, their sources and the badge
-// on a synced row. They import nothing but the shared ids, so this file can move to src/common as
-// it is when the IPC layer is built. ./types re-exports all of it; core imports from there.
+// The integration types the renderer needs, to show connections, their sources and the badge on a
+// synced row. Core's integrations/types re-exports all of it, and core imports from there.
 
 // string values, as they are stored in the integration tables' text columns
 

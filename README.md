@@ -68,7 +68,7 @@ electron-builder.yml      Packaging config (macOS DMG, Windows NSIS, Linux AppIm
 npm run dev            # Start Vite dev server + Electron (HMR in renderer, auto-restart on main/preload changes)
 npm run build          # Build main, preload, and renderer into dist/
 npm run compile        # build + package with electron-builder into release/
-npm run typecheck      # Type-check all source files without emitting (tsc --noEmit)
+npm run typecheck      # Type-check all source files (tsc --build; emits only main's .d.ts to dist/types)
 npm run lint           # Lint all TypeScript/JavaScript files
 npm run lint:fix       # Lint and auto-fix
 npm run format         # Format all files with Prettier
