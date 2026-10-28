@@ -21,7 +21,7 @@ function call(path: string, input?: unknown, type: 'query' | 'mutation' = 'query
 
 function attach(
   router: Parameters<typeof attachRouter>[0],
-  options: { checkClone?: boolean; onError?: (info: IpcErrorInfo) => void } = {},
+  options: { onError?: (info: IpcErrorInfo) => void } = {},
 ) {
   return attachRouter(router, { createContext, ...options });
 }
@@ -172,17 +172,6 @@ describe('attachRouter', () => {
       ok: false,
       changed: ['task'],
     });
-  });
-
-  it('with checkClone, fails a result IPC cannot send, naming the path', async () => {
-    attach(t.router({ app: t.router({ fn: t.procedure.query(() => ({ run: () => 1 })) }) }), {
-      checkClone: true,
-    });
-
-    const result = await call('app.fn');
-
-    expect(result).toMatchObject({ ok: false, error: { data: { code: 'internal' } } });
-    expect(!result.ok && result.error.message).toMatch(/'app\.fn' returned a value IPC can't send/);
   });
 
   it('answers an unknown path, a wrong type and a malformed request with internal', async () => {

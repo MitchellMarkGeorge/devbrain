@@ -94,7 +94,6 @@ function attachIpc() {
       if (shape.data.code === 'internal')
         ipcLog.error(`IPC call ${path} failed`, error.cause ?? error);
     },
-    checkClone: !app.isPackaged,
   });
 }
 

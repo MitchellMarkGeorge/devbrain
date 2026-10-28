@@ -212,14 +212,13 @@ request ids.
    - `trpc.ts`: `initTRPC.context<AppContext>()` with an `errorFormatter` that serializes what the
      resolver threw (tRPC's `cause`) into the shape's `data`. A failed input parse (`BAD_REQUEST`
      with `issues`) becomes core's `invalid_input` with the issues.
-4. **`src/main/ipc/server.ts`:** `attachRouter(router, { createContext, onError, checkClone })`
+4. **`src/main/ipc/server.ts`:** `attachRouter(router, { createContext, onError })`
    registers one `ipc:call` handler:
    - It runs the request with `callTRPCProcedure`. Main trusts nothing from the renderer: only
      queries and mutations run, and tRPC answers an unknown path or a type that isn't the
      procedure's with `NOT_FOUND`. Each fails as `internal`.
    - `createContext({ event, changes })` is typed from the router. `changes.record()` fills the
      response's `changed`, on failure too; milestone 3 fills it from core's events as well.
-   - In development only, a `structuredClone` check on each result, with an error naming the path.
    - A disposer that removes the handler.
 5. **`src/preload/index.ts`:**
    - `exposeBridge()` provides `invoke({ path, type, input })` and `subscribe(name, cb)`.
@@ -242,7 +241,7 @@ request ids.
   `IntegrationAlreadyConnectedError` (`integrationId`), and a plain `Error`.
 - The transport: success, `invalid_input`, a `CoreError` round-trip, an `IpcError` from a
   middleware, `internal`, middleware order, `changed` on success and failure, an unknown path, a
-  wrong type, a malformed request, and the clone check.
+  wrong type, and a malformed request.
 - The link: the request sent, unwrapping, the error's `data`, a failed invoke, a missing bridge,
   `await` on a router node not hanging, `onChanged` being awaited before resolving and throwing.
 - The preload: the request forwarded, the payload alone passed to listeners, and a bundle that

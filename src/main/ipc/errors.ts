@@ -4,7 +4,7 @@ import { CoreError } from '@main/core/shared/errors';
 export const INTERNAL_ERROR_MESSAGE = 'Something went wrong';
 
 // A failure of the IPC layer's own, with one of our codes: `no_workspace_open`, `cancelled`, or a
-// result IPC can't send. serializeError keeps it as it is
+// request main refuses. serializeError keeps it as it is
 export class IpcError extends Error {
   readonly code: IpcErrorCode;
   readonly data: Record<string, unknown>;

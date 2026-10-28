@@ -31,9 +31,6 @@ export interface AttachRouterOptions<TRouter extends AnyTRPCRouter> {
   }) => inferRouterContext<TRouter> | Promise<inferRouterContext<TRouter>>;
   // every failed call, to log; it never changes the response
   onError?: (info: IpcErrorInfo) => void;
-  // checks each result can be sent (structuredClone) and fails naming the path if not, rather
-  // than with Electron's own error. For development: it clones every result once more
-  checkClone?: boolean;
 }
 
 // Registers the call handler. Returns the function that removes it.
@@ -66,7 +63,6 @@ export function attachRouter<TRouter extends AnyTRPCRouter>(
         signal: undefined,
         batchIndex: 0,
       });
-      if (options.checkClone) checkClone(path, data);
       return { ok: true, data, changed: [...changed] };
     } catch (cause) {
       const error = getTRPCErrorFromUnknown(cause);
@@ -88,14 +84,4 @@ export function attachRouter<TRouter extends AnyTRPCRouter>(
   );
 
   return () => ipcMain.removeHandler(IPC_CALL_CHANNEL);
-}
-
-function checkClone(path: string, output: unknown): void {
-  try {
-    structuredClone(output);
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    // an IpcError keeps its message, so the path reaches the renderer's console
-    throw new IpcError('internal', `'${path}' returned a value IPC can't send: ${reason}`);
-  }
 }
