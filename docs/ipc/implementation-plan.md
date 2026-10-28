@@ -78,7 +78,7 @@ src/main/ipc/
   zod.ts                    zId(entity), zPage
   broadcaster.ts            Broadcaster, webContentsBroadcaster
   changes/
-    scope.ts                ChangeScope, withChangeScope, withLocalScope, openScope
+    scope.ts                ChangeScope, withChangeScope, openScope
                             (AsyncLocalStorage)
     entities.ts             WorkspaceChange, subscribeToWorkspace, changedEntities
     router.ts               ChangeRouter
@@ -127,15 +127,14 @@ each change goes: into the response of the mutation that caused it, or out as a 
 - **Changes emitted inside a transaction** (`ArchiveChange`, `disconnected`). The listener runs
   before the commit, but the main process is single-threaded and the transaction synchronous: the
   response or broadcast cannot reach the renderer, nor its refetch run, until the commit is done.
-- **No gaps.** Every service that writes announces it, so no handler needs
-  `ctx.changes.record(...)`. Milestone 3 added the ones that were missing: the workspace registry
-  (`WorkspaceService`'s `opened`, `created` and `deleted` each route `workspace`), the settings
-  (`SettingsService.onChange`: a write under `settings.` routes `settings`, one to `state.` routes
-  nothing) and the calendars (`CalendarService.onChange`, `calendar`). `ctx.changes` remains for a
-  write no service announces; a record made after the scope closed is dropped, so work that
-  outlives its call reports through core's events.
-- **Queries** open no scope that core's changes find. What a query's handler records still goes in
-  its response, and anything core announces while it runs is broadcast.
+- **No gaps.** Every service that writes announces it, so a handler never reports a change itself,
+  and the context has no `changes`. Milestone 3 added the ones that were missing: the workspace
+  registry (`WorkspaceService`'s `opened`, `created` and `deleted` each route `workspace`), the
+  settings (`SettingsService.onChange`: a write under `settings.` routes `settings`, one to
+  `state.` routes nothing) and the calendars (`CalendarService.onChange`, `calendar`). A new write
+  that no service announces gets an event in core.
+- **Queries** open no scope: what core announces while one runs is broadcast, and its `changed`
+  is always empty.
 - **Over-reporting is safe.** It only costs a refetch. When in doubt, a mapping returns more.
 
 The mapping is one exhaustive `switch` over the sources, with an `assertNever` default, so a new
@@ -237,7 +236,8 @@ request ids.
      queries and mutations run, and tRPC answers an unknown path or a type that isn't the
      procedure's with `NOT_FOUND`. Each fails as `internal`.
    - `createContext({ event, changes })` is typed from the router. `changes.record()` fills the
-     response's `changed`, on failure too; milestone 3 fills it from core's events as well.
+     response's `changed`, on failure too. (Milestone 3 fills it from core's events instead, and
+     dropped `changes` from the context.)
    - A disposer that removes the handler.
 5. **`src/preload/index.ts`:**
    - `exposeBridge()` provides `invoke({ path, type, input })` and `subscribe(name, cb)`.
@@ -292,16 +292,16 @@ correct type.
    - `route(entities)`: adds to the open scope, or broadcasts `db.changes`.
    - It also broadcasts the deltas: `integrations.changed`, `sync.progress`, `sources.changed`.
 5. **The transport** wraps each mutation's `callTRPCProcedure` in `withChangeScope` and returns
-   the scope's `changed` on success and on failure. `ctx.changes.record()` adds to the same scope:
-   the context is built inside it, and the scope is the `ChangeRecorder` milestone 2 passed to
-   `createContext`. A query runs in `withLocalScope`, which only its handler records into.
+   the scope's `changed` on success and on failure; the `ChangeRouter` fills it from core's events.
+   `createContext` takes only the event: the `ChangeRecorder` milestone 2 passed it is gone, as no
+   handler records a change itself. A query runs outside any scope, with `changed: []`.
    (A tRPC middleware can't do this: it can only return the resolver's output, with no room for
    `changed` beside it.)
 6. **Context and middleware** (tRPC middleware, built with `t.middleware`):
-   - `createContext({ event, changes, devBrain: startCore(), log })` returns
-     `{ event, devBrain, workspace: devBrain.currentWorkspace, changes, log }`, read fresh on every
-     call; `src/main/index.ts` passes attachRouter `(call) => createContext({ ...call, devBrain,
-log })`. It awaits `startCore()`, so calls made while core starts wait for it.
+   - `createContext({ event, devBrain: startCore(), log })` returns
+     `{ event, devBrain, workspace: devBrain.currentWorkspace, log }`, read fresh on every call.
+     `src/main/index.ts` binds DevBrain and the logger where it attaches the router. It awaits
+     `startCore()`, so calls made while core starts wait for it.
    - No sender guard: the window is sandboxed and can't open windows or navigate (step 7), so
      only the app's page can be in it to call main. (The plan first had a `senderGuard` checking
      each call's frame URL; milestone 3 dropped it as a second check of the same thing.)
@@ -460,7 +460,8 @@ route.
    checklist:
    - Add the procedure to its feature router, with an input schema.
    - Return what core returns.
-   - Call `ctx.changes.record()` only if the service emits nothing.
+   - Make sure the service announces what it writes (`ChangeListeners`), and that
+     `changedEntities` maps it: handlers never report changes themselves.
    - Update `affects` only when a new entity or view is involved.
 2. In `docs/integrations/tech-design.md`, replace "IPC contract (deferred)" with a pointer to the
    router and the `AppEvents` names.

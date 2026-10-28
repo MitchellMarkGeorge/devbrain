@@ -60,14 +60,15 @@ describe('the base procedures', () => {
     );
   });
 
-  it("return a mutation's own records and core's changes in one changed", async () => {
+  it("return core's changes in a mutation's changed, and broadcast a query's", async () => {
     await devBrain.workspaces.open(await createWorkspace(devBrain, 'A'));
     broadcaster.sent.length = 0;
     attach(
       t.router({
         create: wsProcedure.mutation(({ ctx }) => {
           ctx.workspace.tasks.createTask({ title: 'Routed', dueDate: DUE });
-          ctx.changes.record('calendar');
+          const [calendar] = ctx.workspace.calendars.list();
+          ctx.workspace.calendars.setVisible(calendar.id, false);
           return null;
         }),
         failing: wsProcedure.mutation(({ ctx }) => {

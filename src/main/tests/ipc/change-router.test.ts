@@ -221,11 +221,12 @@ describe('withChangeScope', () => {
   it('is open only while its function runs, awaits included', async () => {
     let during: unknown;
     let afterAwait: unknown;
-    const result = await withChangeScope(async (scope) => {
-      during = openScope() === scope;
+    const result = await withChangeScope(async () => {
+      const scope = openScope();
+      during = scope !== undefined;
       await new Promise((resolve) => setTimeout(resolve, 1));
       afterAwait = openScope() === scope;
-      scope.record('task');
+      scope?.record('task');
     });
 
     expect([during, afterAwait]).toEqual([true, true]);

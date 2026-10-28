@@ -10,6 +10,7 @@ import { attachRouter } from '@main/ipc/server';
 import type { IpcErrorInfo } from '@main/ipc/server';
 import { appRouter } from '@main/ipc/router';
 import { t } from '@main/ipc/trpc';
+import { openScope } from '@main/ipc/changes/scope';
 import { invokeHandler, ipcHandlers, resetElectronMock } from '../__mocks__/electron';
 import { testContext } from './helpers';
 
@@ -149,16 +150,22 @@ describe('attachRouter', () => {
     expect(order).toEqual(['first save mutation', 'second grace', 'resolver', 'first after']);
   });
 
-  it('returns what the call recorded as changed, on success and on failure', async () => {
+  // the ChangeRouter records core's changes into the open scope, as these do
+  it("returns what was recorded in a mutation's scope, on success and on failure", async () => {
+    let scopeInQuery: unknown = 'unset';
     attach(
       t.router({
-        archive: t.procedure.mutation(({ ctx }) => {
-          ctx.changes.record('task', 'note', 'task');
+        archive: t.procedure.mutation(() => {
+          openScope()?.record('task', 'note', 'task');
           return null;
         }),
-        failsAfterWriting: t.procedure.mutation(({ ctx }) => {
-          ctx.changes.record('task');
+        failsAfterWriting: t.procedure.mutation(() => {
+          openScope()?.record('task');
           throw new Error('after the commit');
+        }),
+        read: t.procedure.query(() => {
+          scopeInQuery = openScope();
+          return null;
         }),
       }),
     );
@@ -172,6 +179,9 @@ describe('attachRouter', () => {
       ok: false,
       changed: ['task'],
     });
+    // a query opens none
+    expect(await call('read')).toEqual({ ok: true, data: null, changed: [] });
+    expect(scopeInQuery).toBeUndefined();
   });
 
   it('answers an unknown path, a wrong type and a malformed request with internal', async () => {

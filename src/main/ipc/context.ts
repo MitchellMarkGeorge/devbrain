@@ -1,6 +1,5 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { DevBrain, Workspace } from '@main/core';
-import type { ChangeRecorder } from './server';
 
 // where the logging middleware writes each call
 export interface IpcLogger {
@@ -16,28 +15,24 @@ export interface AppContext {
   devBrain: DevBrain | null;
   // the workspace open when the call arrived, read fresh on every call
   workspace: Workspace | null;
-  // the call's change scope: adds to its `changed`, for a service that emits nothing
-  changes: ChangeRecorder;
   log: IpcLogger;
 }
 
 export interface CreateContextOptions {
   event: IpcMainInvokeEvent;
-  changes: ChangeRecorder;
   // what startCore() returns; awaited on every call, so calls made while core starts wait for it
   devBrain: Promise<DevBrain | null> | DevBrain | null;
   log: IpcLogger;
 }
 
-// Builds a call's context. attachRouter passes the event and the change scope; whoever attaches
-// the router adds DevBrain and the logger
+// Builds a call's context. attachRouter passes the event; whoever attaches the router adds DevBrain
+// and the logger
 export async function createContext(options: CreateContextOptions): Promise<AppContext> {
   const devBrain = await options.devBrain;
   return {
     event: options.event,
     devBrain,
     workspace: devBrain?.currentWorkspace ?? null,
-    changes: options.changes,
     log: options.log,
   };
 }
