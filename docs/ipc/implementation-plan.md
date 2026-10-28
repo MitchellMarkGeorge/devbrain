@@ -173,13 +173,11 @@ This blocks everything else, so it comes first.
 
 1. Add `@common` to `tsconfig.web.json` `paths` and to `vite/preload.config.ts` and
    `vite/renderer.config.ts`. The main config already uses `tsconfigPaths`.
-2. Let the renderer typecheck against `AppRouter`:
-   - `tsconfig.node.json`: `declaration` and `emitDeclarationOnly`, `outDir: dist/types`.
-   - `tsconfig.web.json`: a `references` entry to the node project, and `@main/*` mapped to the
-     emitted `.d.ts`.
-   - `typecheck` becomes `tsc --build`, and `dist/types` is gitignored.
-   - **Spike first.** If project references don't work out, fall back to a separate contract
-     tsconfig. Decide within this milestone.
+2. Let the renderer typecheck against `AppRouter`: `tsconfig.web.json` maps `@main/*` to
+   `src/main`, which the renderer imports only as `import type { AppRouter }`. Neither project
+   emits anything. An ESLint rule (`no-restricted-imports` with `allowTypeImports`) rejects a value
+   import, which Vite would bundle. (Milestone 1 first emitted main's declarations for the renderer to read; Milestone 2
+   dropped that as more than the one type import needs.)
 3. Vitest: add `src/common/**/*.test.ts` and `src/renderer/**/*.test.ts` to `include`, and add an
    `electron` mock (`ipcMain.handle`/`removeHandler`, `BrowserWindow.getAllWindows`).
 4. Make core changes 3 and 4 (move the shared types and the `CoreErrorCode` union).

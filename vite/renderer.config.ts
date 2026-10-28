@@ -10,8 +10,8 @@ export default defineConfig({
   envDir: '../..',
   plugins: [react()],
   resolve: {
-    // only @common: the renderer imports src/main for types alone (tsconfig.web.json maps @main to
-    // its declarations), so an @main value import fails the build instead of bundling main code
+    // only @common: the renderer imports src/main for types alone (`import type { AppRouter }`);
+    // ESLint rejects a value import, which Vite would otherwise bundle
     alias: { '@common': fileURLToPath(new URL('../src/common', import.meta.url)) },
   },
   build: {

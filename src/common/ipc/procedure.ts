@@ -7,9 +7,6 @@ import type { InferSchemaInput, InferSchemaOutput, StandardSchemaV1 } from './ty
 //   const router = t.router({
 //     get: t.procedure.input(z.object({ id: z.string() })).query(({ ctx, input }) => …),
 //   });
-//
-// The types the renderer reads stay structural (no classes or unique symbols): it sees main's
-// declarations and its own copy of this file, which must agree.
 
 // The context every procedure's resolver and middleware receive, built per call by attachRouter's
 // `createContext`.

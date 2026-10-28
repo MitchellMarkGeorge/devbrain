@@ -5,8 +5,6 @@ directories:
   buildResources: build
 files:
   - dist/**
-  # declarations emitted by typecheck (tsconfig.node.json), not part of the app
-  - '!dist/types/**'
   - package.json
 extraResources:
   - from: .env

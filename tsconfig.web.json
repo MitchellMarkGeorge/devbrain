@@ -1,7 +1,6 @@
 {
   "compilerOptions": {
-    "composite": true,
-    // typecheck only: nothing references this project
+    // typecheck only
     "noEmit": true,
     "target": "ES2022",
     "module": "ESNext",
@@ -16,8 +15,8 @@
     "forceConsistentCasingInFileNames": true,
     "paths": {
       "@common/*": ["./src/common/*"],
-      // main is read as the declarations tsconfig.node.json emits, never as source
-      "@main/*": ["./dist/types/src/main/*"]
+      // types only: the renderer imports `type AppRouter` from main; ESLint rejects a value import
+      "@main/*": ["./src/main/*"]
     }
   },
   "include": [
@@ -25,6 +24,5 @@
     "src/renderer/**/*.tsx",
     "src/common/**/*.ts",
     "vite/renderer.config.ts"
-  ],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  ]
 }

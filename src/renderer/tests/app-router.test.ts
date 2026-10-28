@@ -2,8 +2,8 @@ import { describe, expectTypeOf, it } from 'vitest';
 import type { Client } from '@common/ipc/client-types';
 import type { AppRouter } from '@main/ipc/router';
 
-// Checked by `npm run typecheck`, which reads AppRouter from main's emitted declarations
-// (tsconfig.web.json): a wrong router type fails the renderer's typecheck.
+// Checked by `npm run typecheck`, which reads AppRouter from main's source (tsconfig.web.json maps
+// @main to it): a wrong router type fails the renderer's typecheck.
 describe('AppRouter', () => {
   it('is readable from the renderer', () => {
     expectTypeOf<ReturnType<Client<AppRouter>['app']['ping']>>().toEqualTypeOf<Promise<string>>();

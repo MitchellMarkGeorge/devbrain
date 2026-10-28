@@ -36,6 +36,20 @@ export default tseslint.config(
       ...reactPlugin.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
       'react/react-in-jsx-scope': 'off', // not needed with React 17+ JSX transform
+      // main's code never runs in the renderer: it imports from src/main only as a type
+      // (`import type { AppRouter }`). Vite would bundle a value import, Electron with it
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@main/*', '**/main/*'],
+              allowTypeImports: true,
+              message: 'The renderer imports from src/main as a type only (import type).',
+            },
+          ],
+        },
+      ],
     },
   },
 
