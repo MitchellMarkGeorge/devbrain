@@ -17,16 +17,30 @@ describe('the preload bridge', () => {
     });
   });
 
-  it('invokes a path on its own channel, with the input', async () => {
+  it('invokes the call channel with the path, type and input only', async () => {
     const result = { ok: true, data: 'pong', changed: [] };
     ipcRenderer.invoke.mockResolvedValue(result);
+    const request = { path: 'app.ping', type: 'query' as const, input: 1, extra: 'dropped' };
 
-    expect(await createBridge().invoke('app.ping', undefined)).toBe(result);
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith('ipc:app.ping', undefined);
+    expect(await createBridge().invoke(request)).toBe(result);
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('ipc:call', {
+      path: 'app.ping',
+      type: 'query',
+      input: 1,
+    });
   });
 
   it.each(['../secret', 'app:ping', '', 'a b'])("rejects the path '%s'", (path) => {
-    expect(() => createBridge().invoke(path, undefined)).toThrow(/Invalid IPC path/);
+    expect(() => createBridge().invoke({ path, type: 'query', input: undefined })).toThrow(
+      /Invalid IPC path/,
+    );
+    expect(ipcRenderer.invoke).not.toHaveBeenCalled();
+  });
+
+  it('rejects a type other than query or mutation', () => {
+    const request = { path: 'live', type: 'subscription', input: undefined };
+
+    expect(() => createBridge().invoke(request as never)).toThrow(/Invalid IPC call type/);
     expect(ipcRenderer.invoke).not.toHaveBeenCalled();
   });
 

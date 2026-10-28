@@ -36,9 +36,17 @@ export type IpcResult<T> =
   | { ok: true; data: T; changed: ChangedEntity[] }
   | { ok: false; error: IpcErrorShape; changed: ChangedEntity[] };
 
+// One call, as the renderer sends it on IPC_CALL_CHANNEL: tRPC's operation, without what IPC
+// doesn't need. Subscriptions don't run over IPC
+export interface IpcRequest {
+  path: string;
+  type: 'query' | 'mutation';
+  input: unknown;
+}
+
 // What the preload exposes on `window` (IPC_BRIDGE_KEY). Generic: nothing in it is per route.
 export interface IpcBridge {
-  invoke(path: string, input: unknown): Promise<IpcResult<unknown>>;
+  invoke(request: IpcRequest): Promise<IpcResult<unknown>>;
   // returns the function that unsubscribes
   subscribe(name: string, listener: (payload: unknown) => void): () => void;
 }

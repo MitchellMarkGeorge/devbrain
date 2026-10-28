@@ -14,8 +14,8 @@ export interface IpcLinkOptions {
   bridge?: IpcBridge;
 }
 
-// tRPC's transport over the preload bridge: each call invokes `ipc:<path>` (src/main/ipc/server.ts)
-// and unwraps its IpcResult envelope.
+// tRPC's transport over the preload bridge: each call is one invoke on IPC_CALL_CHANNEL
+// (src/main/ipc/server.ts), whose IpcResult envelope it unwraps.
 export function ipcLink<TRouter extends AnyTRPCRouter>(
   options: IpcLinkOptions = {},
 ): TRPCLink<TRouter> {
@@ -28,9 +28,10 @@ export function ipcLink<TRouter extends AnyTRPCRouter>(
           }
           let result: IpcResult<unknown>;
           try {
-            result = await (options.bridge ?? defaultBridge()).invoke(op.path, op.input);
+            const bridge = options.bridge ?? defaultBridge();
+            result = await bridge.invoke({ path: op.path, type: op.type, input: op.input });
           } catch (error) {
-            // no handler for the path, or a result Electron could not clone
+            // no bridge, the preload refused the request, or a result Electron could not clone
             throw TRPCClientError.from(error instanceof Error ? error : new Error(String(error)));
           }
           await options.onChanged?.(result.changed);

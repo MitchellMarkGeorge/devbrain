@@ -15,8 +15,8 @@ import { invokeHandler, ipcHandlers, resetElectronMock } from '../__mocks__/elec
 
 const event = {} as IpcMainInvokeEvent;
 
-function call(path: string, input?: unknown) {
-  return invokeHandler(`ipc:${path}`, event, input) as Promise<IpcResult<unknown>>;
+function call(path: string, input?: unknown, type: 'query' | 'mutation' = 'query') {
+  return invokeHandler('ipc:call', event, { path, type, input }) as Promise<IpcResult<unknown>>;
 }
 
 function attach(
@@ -76,7 +76,7 @@ describe('attachRouter', () => {
       }),
     );
 
-    expect(await call('sync')).toMatchObject({
+    expect(await call('sync', undefined, 'mutation')).toMatchObject({
       ok: false,
       error: {
         message: expect.stringContaining('2026'),
@@ -145,7 +145,7 @@ describe('attachRouter', () => {
       });
     attach(t.router({ save: procedure }));
 
-    expect(await call('save')).toMatchObject({ ok: true, data: 'grace' });
+    expect(await call('save', undefined, 'mutation')).toMatchObject({ ok: true, data: 'grace' });
     expect(order).toEqual(['first save mutation', 'second grace', 'resolver', 'first after']);
   });
 
@@ -163,8 +163,15 @@ describe('attachRouter', () => {
       }),
     );
 
-    expect(await call('archive')).toEqual({ ok: true, data: null, changed: ['task', 'note'] });
-    expect(await call('failsAfterWriting')).toMatchObject({ ok: false, changed: ['task'] });
+    expect(await call('archive', undefined, 'mutation')).toEqual({
+      ok: true,
+      data: null,
+      changed: ['task', 'note'],
+    });
+    expect(await call('failsAfterWriting', undefined, 'mutation')).toMatchObject({
+      ok: false,
+      changed: ['task'],
+    });
   });
 
   it('with checkClone, fails a result IPC cannot send, naming the path', async () => {
@@ -178,25 +185,33 @@ describe('attachRouter', () => {
     expect(!result.ok && result.error.message).toMatch(/'app\.fn' returned a value IPC can't send/);
   });
 
-  it('refuses subscriptions', () => {
-    const router = t.router({
-      live: t.procedure.subscription(async function* () {}),
-    });
+  it('answers an unknown path, a wrong type and a malformed request with internal', async () => {
+    const onError = vi.fn();
+    attach(
+      t.router({
+        get: t.procedure.query(() => 1),
+        live: t.procedure.subscription(async function* () {}),
+      }),
+      { onError },
+    );
+    const internal = { ok: false, error: { data: { code: 'internal' } } };
 
-    expect(() => attach(router)).toThrow(/subscriptions/);
+    expect(await call('nope')).toMatchObject(internal);
+    expect(await call('get', undefined, 'mutation')).toMatchObject(internal);
+    expect(await call('live')).toMatchObject(internal);
+    expect(await invokeHandler('ipc:call', event, 'app.ping')).toMatchObject(internal);
+    expect(onError.mock.calls[0][0].error.code).toBe('NOT_FOUND');
   });
 
-  it('registers one handler per path, and the disposer removes them all', () => {
-    const detach = attach(
-      t.router({ a: t.procedure.query(() => 1), b: t.router({ c: t.procedure.query(() => 2) }) }),
-    );
+  it('registers one handler, and the disposer removes it', () => {
+    const detach = attach(t.router({ a: t.procedure.query(() => 1) }));
 
-    expect([...ipcHandlers.keys()].sort()).toEqual(['ipc:a', 'ipc:b.c']);
+    expect([...ipcHandlers.keys()]).toEqual(['ipc:call']);
 
     detach();
 
     expect(ipcHandlers.size).toBe(0);
-    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(2);
+    expect(ipcMain.removeHandler).toHaveBeenCalledWith('ipc:call');
   });
 });
 

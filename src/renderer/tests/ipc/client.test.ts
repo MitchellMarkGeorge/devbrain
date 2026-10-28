@@ -47,7 +47,11 @@ describe('ipcLink', () => {
     const bridge = fakeBridge({ ok: true, data: { id: 'tsk_1' }, changed: [] });
 
     expect(await client({ bridge }).tasks.get.query({ id: 'tsk_1' })).toEqual({ id: 'tsk_1' });
-    expect(bridge.invoke).toHaveBeenCalledWith('tasks.get', { id: 'tsk_1' });
+    expect(bridge.invoke).toHaveBeenCalledWith({
+      path: 'tasks.get',
+      type: 'query',
+      input: { id: 'tsk_1' },
+    });
   });
 
   it('calls app.ping with no input', async () => {
@@ -55,7 +59,11 @@ describe('ipcLink', () => {
     const ipc = createTRPCClient<AppRouter>({ links: [ipcLink({ bridge })] });
 
     expect(await ipc.app.ping.query()).toBe('pong');
-    expect(bridge.invoke).toHaveBeenCalledWith('app.ping', undefined);
+    expect(bridge.invoke).toHaveBeenCalledWith({
+      path: 'app.ping',
+      type: 'query',
+      input: undefined,
+    });
   });
 
   it('throws a TRPCClientError carrying our serialized error as data', async () => {
@@ -70,14 +78,18 @@ describe('ipcLink', () => {
     });
   });
 
-  it('turns a failed invoke (no handler) into a TRPCClientError', async () => {
+  it('turns a failed invoke into a TRPCClientError', async () => {
     const bridge = fakeBridge();
-    bridge.invoke.mockRejectedValue(new Error("No handler registered for 'ipc:x'"));
+    bridge.invoke.mockRejectedValue(new Error('An object could not be cloned.'));
 
     await expect(client({ bridge }).tasks.get.query({ id: 'x' })).rejects.toMatchObject({
       name: 'TRPCClientError',
-      message: "No handler registered for 'ipc:x'",
+      message: 'An object could not be cloned.',
     });
+  });
+
+  it('says so when the preload exposed no bridge', async () => {
+    await expect(client({}).tasks.get.query({ id: 'x' })).rejects.toThrow(/No IPC bridge/);
   });
 
   it('does not hang when a router node is awaited', async () => {
