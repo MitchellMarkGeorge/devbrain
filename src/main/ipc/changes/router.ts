@@ -1,6 +1,7 @@
 import type { ChangedEntity } from '@common/changes';
 import type { WorkspaceId } from '@common/ids';
 import type { DevBrain, Workspace } from '@main/core';
+import type { SettingsChange } from '@main/core/settings/service';
 import type { WorkspaceChange as WorkspaceLifecycleChange } from '@main/core/workspace/service';
 import type { Broadcaster } from '../broadcaster';
 import {
@@ -29,15 +30,18 @@ export class ChangeRouter {
 
   /**
    * Follows the workspace open now, if any, then whichever one is open after each open, close or
-   * delete; the old workspace's changes are no longer routed once it has closed. Returns
-   * the function that stops following.
+   * delete; the old workspace's changes are no longer routed once it has closed. Also routes the
+   * registry's and the settings' changes. Returns the function that stops following.
    */
-  attach(devBrain: Pick<DevBrain, 'workspaces'>): () => void {
+  attach(devBrain: Pick<DevBrain, 'workspaces' | 'settings'>): () => void {
     const current = devBrain.workspaces.currentWorkspace;
     if (current !== null) this.follow(current);
-    const unsubscribe = devBrain.workspaces.onChange((change) => this.onWorkspaceChange(change));
+    const unsubscribes = [
+      devBrain.workspaces.onChange((change) => this.onWorkspaceChange(change)),
+      devBrain.settings.onChange((change) => this.onSettingsChange(change)),
+    ];
     return () => {
-      unsubscribe();
+      unsubscribes.forEach((unsubscribe) => unsubscribe());
       this.unfollow();
     };
   }
@@ -65,6 +69,23 @@ export class ChangeRouter {
       case 'closed':
         if (this.followed?.id === change.workspaceId) this.unfollow();
         this.broadcaster.send('workspace.changed', { id: null });
+        return;
+      default:
+        assertNever(change);
+    }
+  }
+
+  // the user's settings; the app's state beside them in the file is main's, which the renderer
+  // never reads
+  private onSettingsChange(change: SettingsChange): void {
+    switch (change.type) {
+      case 'updated':
+        if (change.key === 'settings' || change.key.startsWith('settings.')) {
+          this.route(['settings']);
+        }
+        return;
+      case 'reset':
+        this.route(['settings']);
         return;
       default:
         assertNever(change);

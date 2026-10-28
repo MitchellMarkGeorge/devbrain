@@ -127,9 +127,10 @@ each change goes: into the response of the mutation that caused it, or out as a 
 - **Changes emitted inside a transaction** (`ArchiveChange`, `disconnected`). The listener runs
   before the commit, but the main process is single-threaded and the transaction synchronous: the
   response or broadcast cannot reach the renderer, nor its refetch run, until the commit is done.
-- **Gaps.** `CalendarService` and `SettingsService` emit nothing. Their handlers call
-  `ctx.changes.record(...)`: `calendar` and `settings`. The workspace registry is announced by
-  `WorkspaceService`: `opened`, `created` and `deleted` each route `workspace`. `ctx.changes` is
+- **Gaps.** `CalendarService` emits nothing, so its handlers call `ctx.changes.record('calendar')`.
+  The workspace registry is announced by `WorkspaceService` (`opened`, `created` and `deleted`
+  each route `workspace`), and the settings by `SettingsService.onChange` (milestone 3 added it:
+  a write under `settings.` routes `settings`, one to `state.` routes nothing). `ctx.changes` is
   the call's scope; a record made after the scope closed is dropped, so work that outlives its call
   reports through core's events.
 - **Queries** open no scope that core's changes find. What a query's handler records still goes in
@@ -153,6 +154,7 @@ note, project or event change maps the same whatever its type:
 | `IntegrationChange`                              | `integration` and `externalSource`, plus `changed` on `disconnected` |
 | `SyncProgress`                                   | `summary.changed`                                                    |
 | `WorkspaceChange` `opened`, `created`, `deleted` | `workspace` (the registry)                                           |
+| `SettingsChange` (`settings.*` key, or a reset)  | `settings`; a `state.*` key routes nothing                           |
 | `SyncStatusChange` (`onStatus`)                  | `externalSource` (its `lastSyncedAt`, `lastError`, `retryAt`)        |
 
 The router also broadcasts deltas for status UI, whatever the scope: `integrations.changed`

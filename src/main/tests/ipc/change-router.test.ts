@@ -191,6 +191,22 @@ describe('ChangeRouter', () => {
   });
 });
 
+describe('ChangeRouter — settings', () => {
+  it("routes a write to the user's settings, and ignores the app's state", async () => {
+    detach = new ChangeRouter(broadcaster).attach(devBrain);
+
+    const user = await withChangeScope(() =>
+      devBrain.settings.set('settings.general.timeFormat', '24'),
+    );
+    const state = await withChangeScope(() => devBrain.settings.set('state.lastPage', '/tasks'));
+    devBrain.settings.set('settings.theme', 'dark');
+
+    expect(user.changed).toEqual(['settings']);
+    expect(state.changed).toEqual([]);
+    expect(broadcaster.named('db.changes')).toEqual([{ entities: ['settings'] }]);
+  });
+});
+
 describe('withChangeScope', () => {
   it('is open only while its function runs, awaits included', async () => {
     let during: unknown;
