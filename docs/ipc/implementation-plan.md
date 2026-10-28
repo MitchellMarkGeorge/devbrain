@@ -71,7 +71,7 @@ src/common/
 src/main/ipc/
   trpc.ts                   t (initTRPC, errorFormatter)
   procedures.ts             publicProcedure, devBrainProcedure, wsProcedure
-  errors.ts                 IpcError, serializeError, serializeTRPCError
+  errors.ts                 IpcError, serializeError
   server.ts                 attachRouter: the transport over ipcMain
   context.ts                AppContext, createContext
   middleware.ts             logging, requireDevBrain, requireWorkspace
@@ -303,7 +303,9 @@ log })`. It awaits `startCore()`, so calls made while core starts wait for it.
    - No sender guard: the window is sandboxed and can't open windows or navigate (step 7), so
      only the app's page can be in it to call main. (The plan first had a `senderGuard` checking
      each call's frame URL; milestone 3 dropped it as a second check of the same thing.)
-   - `logging`: path, duration and error code, never the input; success at debug, failure at warn.
+   - `logging`: each call's path and duration at debug, never the input. A failure is logged once,
+     by attachRouter's `onError` in `src/main/index.ts`, with the code the renderer gets: warn for
+     an expected one, error (with the original) for `internal`.
    - `requireDevBrain` → `devbrain_unavailable` when `startCore()` returned `null`;
      `requireWorkspace` → that, or `no_workspace_open`. Each narrows the context.
    - Base procedures in `procedures.ts` (`trpc.ts` holds `t`, which the middleware imports), each

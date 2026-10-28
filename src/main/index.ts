@@ -91,10 +91,13 @@ const ipcLog = log.scope('ipc');
 function attachIpc(devBrain: Promise<DevBrain | null>) {
   attachRouter(appRouter, {
     createContext: (call) => createContext({ ...call, devBrain, log: ipcLog }),
-    // an expected failure is the renderer's to show; only the rest is a bug worth logging
+    // Every failure, once, with the code the renderer gets. An expected one (not_found,
+    // invalid_input, …) is the renderer's to show; anything internal is a bug, logged with the
+    // original error
     onError: ({ path, error, shape }) => {
-      if (shape.data.code === 'internal')
-        ipcLog.error(`IPC call ${path} failed`, error.cause ?? error);
+      const { code } = shape.data;
+      if (code === 'internal') ipcLog.error(`IPC call ${path} failed`, error.cause ?? error);
+      else ipcLog.warn(`IPC call ${path} failed error=${code}`);
     },
   });
 }

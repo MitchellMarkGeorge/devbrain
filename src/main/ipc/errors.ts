@@ -1,4 +1,3 @@
-import type { StandardSchemaV1Error, TRPCError } from '@trpc/server';
 import type { IpcErrorCode, SerializedError } from '@common/ipc/types';
 import { CoreError } from '@main/core/shared/errors';
 
@@ -42,37 +41,4 @@ function ownFields(error: Error): Record<string, unknown> {
     data[key] = value;
   }
   return data;
-}
-
-/**
- * What the renderer sees of a failure tRPC caught: core's invalid_input, with the issues, for an
- * input that failed to parse, and what the resolver or a middleware threw (the TRPCError's cause)
- * for anything else. The router's errorFormatter puts this in the error shape's `data`.
- */
-export function serializeTRPCError(error: TRPCError): SerializedError {
-  // A failed input parse is BAD_REQUEST, its cause the validator's error (a ZodError, or tRPC's
-  // StandardSchemaV1Error), both with `issues`. Anything else: what the resolver threw is the
-  // cause, which tRPC wrapped
-  const issues = (error.cause as { issues?: StandardSchemaV1Error['issues'] } | undefined)?.issues;
-  return error.code === 'BAD_REQUEST' && Array.isArray(issues)
-    ? invalidInput(issues)
-    : serializeError(error.cause ?? error);
-}
-
-// core's invalid_input, with the issues in `data`
-function invalidInput(issues: StandardSchemaV1Error['issues']): SerializedError {
-  return {
-    code: 'invalid_input',
-    message: issues.length === 1 ? `Invalid input: ${issues[0].message}` : 'Invalid input',
-    data: {
-      issues: issues.map((issue) => ({
-        message: issue.message,
-        // path segments may be symbols or { key } objects, which don't cross IPC
-        path: (issue.path ?? []).map((segment) => {
-          const key = typeof segment === 'object' ? segment.key : segment;
-          return typeof key === 'number' ? key : String(key);
-        }),
-      })),
-    },
-  };
 }

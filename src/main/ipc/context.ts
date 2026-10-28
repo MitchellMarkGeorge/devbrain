@@ -2,10 +2,9 @@ import type { IpcMainInvokeEvent } from 'electron';
 import type { DevBrain, Workspace } from '@main/core';
 import type { ChangeRecorder } from './server';
 
-// where the logging middleware writes: each call at debug, a failed one at warn
+// where the logging middleware writes each call
 export interface IpcLogger {
   debug(...params: unknown[]): void;
-  warn(...params: unknown[]): void;
 }
 
 // What every resolver gets, built per call. A route that needs DevBrain or a workspace starts from

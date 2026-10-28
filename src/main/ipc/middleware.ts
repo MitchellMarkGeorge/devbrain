@@ -1,16 +1,16 @@
-import { IpcError, serializeTRPCError } from './errors';
+import { IpcError } from './errors';
 import { t } from './trpc';
 
 // The middleware every route runs through its base procedure (procedures.ts).
 
-// path, duration and, on failure, the error code: never the input, which may be a note's content
-// or an API key
+// every call's path and duration, never its input, which may be a note's content or an API key.
+// A failure's code is logged by attachRouter's onError (src/main/index.ts), from the error the
+// response carries
 export const logging = t.middleware(async ({ ctx, path, type, next }) => {
   const started = performance.now();
   const result = await next();
   const took = `${Math.round(performance.now() - started)}ms`;
-  if (result.ok) ctx.log.debug(`${type} ${path} ${took}`);
-  else ctx.log.warn(`${type} ${path} ${took} error=${serializeTRPCError(result.error).code}`);
+  ctx.log.debug(`${type} ${path} ${took}${result.ok ? '' : ' failed'}`);
   return result;
 });
 

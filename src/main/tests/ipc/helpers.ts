@@ -16,7 +16,7 @@ import { invokeHandler } from '../__mocks__/electron';
 // a DevBrain folder in a temporary directory.
 
 export function testContext(devBrain: DevBrain | null = null) {
-  const log = { debug: vi.fn(), warn: vi.fn() };
+  const log = { debug: vi.fn() };
   return (call: Pick<CreateContextOptions, 'event' | 'changes'>) =>
     createContext({ ...call, devBrain, log });
 }
