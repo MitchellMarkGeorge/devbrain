@@ -89,7 +89,13 @@ describe('ipcLink', () => {
   });
 
   it('says so when the preload exposed no bridge', async () => {
-    await expect(client({}).tasks.get.query({ id: 'x' })).rejects.toThrow(/No IPC bridge/);
+    // tests run in Node, which has no window
+    vi.stubGlobal('window', {});
+    try {
+      await expect(client({}).tasks.get.query({ id: 'x' })).rejects.toThrow(/No IPC bridge/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('does not hang when a router node is awaited', async () => {
