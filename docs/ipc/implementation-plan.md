@@ -1,39 +1,40 @@
 # Typed IPC layer: implementation plan
 
-The renderer calls core through one typed router and stays current when core changes data, whether
-the change comes from the user or from sync. The IPC layer is a thin shell: handlers call core's
+The renderer calls core through one typed tRPC router and stays current when core changes data,
+whether the change comes from the user or from sync. The IPC layer is a thin shell: handlers call core's
 existing services, and core's existing `ChangeListeners` events tell the renderer what to refetch.
 
 ## Decisions
 
-| Area             | Decision                                                                                                                                                                                                                                                                                                               |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Location         | In this repository, split by process: `src/common/ipc`, `src/main/ipc`, `src/preload`, `src/renderer/ipc`.                                                                                                                                                                                                             |
-| Transport        | A tRPC-style router defined once in main. One `ipc:<path>` channel per procedure. A generic preload bridge with no code per route.                                                                                                                                                                                     |
-| Contract         | `AppRouter` imported type-only by the renderer. Runtime values the renderer needs (enums, error codes, schemas) live in `src/common`.                                                                                                                                                                                  |
-| Procedures       | `.query()` and `.mutation()`. Only mutations open a change scope.                                                                                                                                                                                                                                                      |
-| Validation       | Standard Schema (Zod v4). The client sees the schema's input type, the resolver its parsed output. A failure throws core's `invalid_input`.                                                                                                                                                                            |
-| Errors           | An envelope `{ ok, data \| error, changed }`. `IpcErrorCode = CoreErrorCode \| 'no_workspace_open' \| 'devbrain_unavailable' \| 'cancelled' \| 'internal'`. A `CoreError` keeps its message and its own fields; anything else becomes `internal` with a generic message.                                               |
-| Cancellation     | Only for an OAuth sign-in waiting on the browser: a dedicated `integrations.cancelConnect` mutation aborts the flow `connect` or `reconnect` started (one per workspace), and that call fails with `cancelled`. Nothing else is cancellable: database calls are synchronous, and provider calls time out on their own. |
-| Data layer       | React Query with an adapter: `queryOptions`, `infiniteQueryOptions`, `mutationOptions`, `queryKey`, `pathKey`.                                                                                                                                                                                                         |
-| Change reporting | A `ChangeRouter` in main subscribes to the open workspace's `onChange` streams and maps each change to `ChangedEntity[]`. Changes made during a mutation return in its response; everything else is broadcast as `db.changes`.                                                                                         |
-| Invalidation     | A renderer-side `affects` map from entity types to query paths, plus `compile()` and one `invalidateQueries` call with a prefix predicate. Broadcasts are coalesced (16 ms trailing, 250 ms at most) and held while mutations are pending.                                                                             |
-| Push events      | Deltas only: `db.changes`, `sync.progress`, `integrations.changed`, `sources.changed`, `workspace.changed`. The renderer refetches instead of applying snapshots.                                                                                                                                                      |
-| Windows          | One window. Moving to several later means broadcasting each request's `changed` to the other windows as well.                                                                                                                                                                                                          |
+| Area             | Decision                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Location         | In this repository, split by process: `src/common/ipc`, `src/main/ipc`, `src/preload`, `src/renderer/ipc`.                                                                                                                                                                                                                                                                                                                 |
+| Transport        | tRPC v11 routers in main, run over Electron IPC by a small transport of our own (`server.ts`, `ipcLink`), modelled on electron-trpc, whose adapters are stale. One `ipc:call` channel: each request names its procedure, which tRPC finds. A generic preload bridge with no code per route.                                                                                                                                |
+| Contract         | `AppRouter` imported type-only by the renderer. Runtime values the renderer needs (enums, error codes, schemas) live in `src/common`.                                                                                                                                                                                                                                                                                      |
+| Procedures       | tRPC's `.query()` and `.mutation()`. Only mutations open a change scope. Subscriptions don't run over IPC (see Out of scope).                                                                                                                                                                                                                                                                                              |
+| Validation       | tRPC's `.input()` with Zod v4. The client sees the schema's input type, the resolver its parsed output. A failure becomes core's `invalid_input`, with the issues.                                                                                                                                                                                                                                                         |
+| Errors           | An envelope `{ ok, data \| error, changed }`. `IpcErrorCode = CoreErrorCode \| 'no_workspace_open' \| 'devbrain_unavailable' \| 'cancelled' \| 'internal'`. A `CoreError` keeps its message and its own fields; anything else becomes `internal` with a generic message. The router's `errorFormatter` puts this in the `data` of tRPC's error shape, so the renderer reads `err.data.code` on a `TRPCClientError`, typed. |
+| Cancellation     | Only for an OAuth sign-in waiting on the browser: a dedicated `integrations.cancelConnect` mutation aborts the flow `connect` or `reconnect` started (one per workspace), and that call fails with `cancelled`. Nothing else is cancellable: database calls are synchronous, and provider calls time out on their own.                                                                                                     |
+| Data layer       | tRPC's React Query integration (`@trpc/tanstack-react-query`): `queryOptions`, `infiniteQueryOptions`, `mutationOptions`, `queryKey`, `pathKey` per route.                                                                                                                                                                                                                                                                 |
+| Change reporting | A `ChangeRouter` in main subscribes to the open workspace's `onChange` streams and maps each change to `ChangedEntity[]`. Changes made during a mutation return in its response; everything else is broadcast as `db.changes`.                                                                                                                                                                                             |
+| Invalidation     | A renderer-side `affects` map from entity types to query paths, plus `compile()` and one `invalidateQueries` call with a prefix predicate. Broadcasts are coalesced (16 ms trailing, 250 ms at most) and held while mutations are pending.                                                                                                                                                                                 |
+| Push events      | Deltas only: `db.changes`, `sync.progress`, `integrations.changed`, `sources.changed`, `workspace.changed`. The renderer refetches instead of applying snapshots. A plain broadcast on `ipc-event:<name>`, not tRPC subscriptions: they go to the whole app and take no input.                                                                                                                                             |
+| Windows          | One window. Moving to several later means broadcasting each request's `changed` to the other windows as well.                                                                                                                                                                                                                                                                                                              |
 
 ## How it fits together
 
 ```
 renderer                         preload                 main
 ─────────────────────────        ───────────────         ─────────────────────────────────────────
-createClient<AppRouter>()  ───►  bridge.invoke    ───►   attachRouter(appRouter)
-  .tasks.updateStatus(input)                               context: { devBrain, workspace, changes }
-                                                           validate → middleware → resolver
-                                                           mutation → withChangeScope(...)
+createTRPCClient<AppRouter>      bridge.invoke    ───►   attachRouter(appRouter): 'ipc:call'
+  .tasks.updateStatus.mutate()   { path, type,             context: { devBrain, workspace, changes }
+  → ipcLink                ───►    input }                 mutation → withChangeScope(
+                                                             callTRPCProcedure: validate → middleware
+                                                               → resolver)
                                                              resolver → workspace.tasks.updateStatus()
                                                                TaskService emits { type: 'updated' }
                                                                  ChangeRouter → scope gets ['task']
-  ◄── { ok, data, changed: ['task'] } ◄─────────────────── response
+  ipcLink ◄── { ok, data, changed: ['task'] } ◄──────────── response
   invalidateFor(['task'])
     → refetch mounted queries
     → then the mutation resolves
@@ -44,7 +45,7 @@ createEventClient<AppEvents>() ◄── bridge.subscribe ◄──── Change
 
 Two flows, start to finish:
 
-- **The user archives a task.** The server opens a change scope and calls
+- **The user archives a task.** The transport opens a change scope and calls
   `workspace.archive.archiveTask(id)`. `ArchiveService` archives the task and its linked note and
   emits `archived` with both ids. The `ChangeRouter` hears it inside the open scope and adds
   `['task', 'note']`. The response carries `changed: ['task', 'note']`; the client invalidates the
@@ -63,17 +64,16 @@ src/common/
   errors.ts                 CoreErrorCode (moved from core)
   integrations.ts           Provider, IntegrationStatus, … (moved from core/integrations/shared-types.ts)
   ipc/
-    constants.ts            channel and event prefixes, bridge key
-    types.ts                IpcResult, SerializedError, IpcErrorCode, StandardSchemaV1 (inlined)
+    constants.ts            the call channel, event prefix, bridge key
+    types.ts                IpcRequest, IpcResult, IpcErrorShape, SerializedError, IpcErrorCode,
+                            IpcBridge
     errors.ts               IpcError, serializeError
-    procedure.ts            initIpc, ProcedureBuilder, Procedure, createRouter, RouterContext
-    client-types.ts         Client<TRouter>, inferInput, inferOutput
 
 src/main/ipc/
-  server.ts                 flatten, execute, attachRouter
+  trpc.ts                   t (initTRPC, errorFormatter), publicQuery/Mutation, wsQuery/Mutation
+  server.ts                 attachRouter: the transport over ipcMain
   context.ts                AppContext, createContext
   middleware.ts             senderGuard, logging, requireWorkspace
-  init.ts                   t, publicQuery/Mutation, wsQuery/Mutation
   zod.ts                    zId(entity), shared input schemas
   broadcaster.ts            Broadcaster over webContents
   changes/
@@ -87,9 +87,10 @@ src/main/ipc/
 src/preload/index.ts        exposeBridge()
 
 src/renderer/ipc/
-  client.ts                 createClient (proxy, envelope, onChanged)
+  link.ts                   ipcLink (tRPC link: envelope, onChanged)
+  bridge.ts                 the preload's bridge, read at call time
   events.ts                 createEventClient
-  query.ts                  createQueryUtils (TanStack adapter)
+  index.ts                  ipc (createTRPCClient), events, trpc (createTRPCOptionsProxy)
 src/renderer/data/
   invalidation.ts           affects, isPrefix, compile, invalidateFor
   changes.ts                applyChanges, the db.changes listener, coalescing, deferral
@@ -176,8 +177,8 @@ This blocks everything else, so it comes first.
 2. Let the renderer typecheck against `AppRouter`: `tsconfig.web.json` maps `@main/*` to
    `src/main`, which the renderer imports only as `import type { AppRouter }`. Neither project
    emits anything. An ESLint rule (`no-restricted-imports` with `allowTypeImports`) rejects a value
-   import, which Vite would bundle. (Milestone 1 first emitted main's declarations for the renderer to read; Milestone 2
-   dropped that as more than the one type import needs.)
+   import, which Vite would bundle. (Milestone 1 first emitted main's declarations for the renderer
+   to read; milestone 2 dropped that as more than the one type import needs.)
 3. Vitest: add `src/common/**/*.test.ts` and `src/renderer/**/*.test.ts` to `include`, and add an
    `electron` mock (`ipcMain.handle`/`removeHandler`, `BrowserWindow.getAllWindows`).
 4. Make core changes 3 and 4 (move the shared types and the `CoreErrorCode` union).
@@ -186,56 +187,70 @@ This blocks everything else, so it comes first.
 **Tests**
 
 - `boundary.test.ts` checks the new location of the shared types.
-- A renderer type test: `Client<AppRouter>['app']['ping']` returns `Promise<string>`.
+- A renderer type test: `app.ping`'s output, read from `AppRouter`, is `string`.
 
 **Done when** `npm run typecheck`, `lint`, `test` and all three Vite builds pass, and a wrong router
 output type fails the renderer's typecheck.
 
-## Milestone 2: The IPC library
+## Milestone 2: tRPC over IPC
+
+tRPC owns the router, validation, middleware, the client and their types. What it has no Electron
+transport for is ours: one IPC channel carrying each call, and the envelope with `changed`. The
+transport is modelled on electron-trpc, without its subscriptions: a call is one `invoke`, with no
+request ids.
 
 **Steps**
 
-1. **`src/common/ipc`:**
-   - Constants and the result types.
+1. Install `@trpc/server` and `@trpc/client`.
+2. **`src/common/ipc`:**
+   - Constants (`ipc:call`, the event prefix, the bridge key, the name pattern) and the types:
+     `IpcRequest` (`path`, `type`, `input`), `IpcResult`, `IpcErrorShape`, `IpcBridge`.
    - `serializeError`: a `CoreError` keeps `code` and `message`, and its own fields go into `data`
-     (without `cause` or `stack`). Anything else becomes `internal` with "Something went wrong".
-   - Builder: `.input(schema)`, `.use(middleware)`, `.query(resolver)`, `.mutation(resolver)`.
-     Resolvers receive `{ ctx, input }`. `initIpc`, `createRouter`, `RouterContext`.
-   - `Client<TRouter>`: `(input) => Promise<Output>`, with no argument for `void` inputs.
-2. **`src/main/ipc/server.ts`:**
-   - `flatten`: throw on duplicate paths or reserved segment names (`then`, `queryKey`, `pathKey`,
-     `queryOptions`, `infiniteQueryOptions`, `mutationOptions`).
-   - `attachRouter(router, { createContext, onError })`, which registers one handler per path. Per
-     call it validates the input (failure → `invalid_input` with the
-     issues in `data`), runs the middleware chain (`next()` may only be called once) and returns the
-     envelope. `changed` is `[]` here; milestone 3 fills it.
+     (without `cause` or `stack`). An `IpcError` is kept as it is. Anything else becomes `internal`
+     with "Something went wrong".
+3. **`src/main/ipc/trpc.ts`:** `initTRPC.context<AppContext>()` with an `errorFormatter` that
+   serializes what the resolver threw (tRPC's `cause`) into the shape's `data`. A failed input
+   parse (`BAD_REQUEST` with `issues`) becomes core's `invalid_input` with the issues.
+4. **`src/main/ipc/server.ts`:** `attachRouter(router, { createContext, onError, checkClone })`
+   registers one `ipc:call` handler:
+   - It checks the request's shape, then runs it with `callTRPCProcedure`. An unknown path, a type
+     that isn't the procedure's, a subscription or a malformed request fails as `internal`.
+   - `createContext({ event, changes })` is typed from the router. `changes.record()` fills the
+     response's `changed`, on failure too; milestone 3 fills it from core's events as well.
    - In development only, a `structuredClone` check on each result, with an error naming the path.
-   - A disposer that removes every handler.
-3. **`src/preload/index.ts`:**
-   - `exposeBridge()` provides `invoke(path, input)` and `subscribe(name, cb)`.
-   - It checks path and name strings against `/^[a-zA-Z0-9_.]+$/` and passes only the payload to
-     listeners, never the `IpcRendererEvent`.
+   - A disposer that removes the handler.
+5. **`src/preload/index.ts`:**
+   - `exposeBridge()` provides `invoke({ path, type, input })` and `subscribe(name, cb)`.
+   - It checks paths and event names against `/^[a-zA-Z0-9_.]+$/` and the type against `query` and
+     `mutation`, forwards only those three fields, and passes only the payload to listeners, never
+     the `IpcRendererEvent`.
    - Replace the hand-written `api` and update `src/renderer/env.d.ts`.
-4. **`src/renderer/ipc`:**
-   - `createClient({ onChanged })`, a recursive proxy. It returns `undefined` for `then` and symbol
-     keys, unwraps the envelope, and waits on `onChanged(changed)` before resolving or throwing.
+6. **`src/renderer/ipc`:**
+   - `ipcLink({ onChanged })`: a tRPC link that invokes the bridge, unwraps the envelope, waits on
+     `onChanged(changed)`, then resolves or throws a `TRPCClientError` carrying our error as
+     `data`. A missing bridge fails with an error pointing at the preload.
+   - `ipc = createTRPCClient<AppRouter>({ links: [ipcLink()] })`.
    - `createEventClient<AppEvents>().on(name, cb)` returns an unsubscribe function.
-5. **The first route:** `app.ping` and `app.version` through `attachRouter`, replacing the two
-   `ipcMain.handle` calls in `src/main/index.ts`.
+7. **The first route:** `app.ping` and `app.version`, replacing the two `ipcMain.handle` calls in
+   `src/main/index.ts`. `attachRouter` runs right after `startCore()` is called, so the window's
+   first calls find the handler.
 
 **Tests**
 
-- Type inference: inputs, outputs, Zod defaults, `void` inputs, context narrowing through `.use()`.
 - `serializeError` on `RateLimitError` (`retryAt`), `DevBrainFolderError` (`reason`),
   `IntegrationAlreadyConnectedError` (`integrationId`), and a plain `Error`.
-- The server: success, `invalid_input`, a `CoreError` round-trip, `internal`, middleware order and
-  short-circuit, and the clone check.
-- The client: path building, unwrapping, `IpcError` reconstruction, `await` on a router node not
-  hanging, `onChanged` being awaited.
-- The preload bundle `require`s only `electron`.
+- The transport: success, `invalid_input`, a `CoreError` round-trip, an `IpcError` from a
+  middleware, `internal`, middleware order, `changed` on success and failure, an unknown path, a
+  wrong type, a malformed request, and the clone check.
+- The link: the request sent, unwrapping, the error's `data`, a failed invoke, a missing bridge,
+  `await` on a router node not hanging, `onChanged` being awaited before resolving and throwing.
+- The preload: the request forwarded, bad paths and types refused, and a bundle that `require`s
+  only `electron`.
+- Types: `app.ping`'s output from `AppRouter`, and a `TRPCClientError<AppRouter>`'s `data.code`
+  is `IpcErrorCode`.
 
-**Done when** the running app's renderer calls `ipc.app.ping()` and gets `'pong'` with the correct
-type.
+**Done when** the running app's renderer calls `ipc.app.ping.query()` and gets `'pong'` with the
+correct type.
 
 ## Milestone 3: Change router and wiring into the app
 
@@ -257,20 +272,25 @@ type.
    - `route(entities)`: adds to the open scope, or broadcasts `db.changes`.
    - `record(...entities)`: for handlers whose service emits nothing.
    - It also broadcasts the deltas: `integrations.changed`, `sync.progress`, `sources.changed`.
-5. **The server** wraps every mutation in `withChangeScope` and returns `changed` on success and on
-   failure.
-6. **Context and middleware:**
-   - `createContext = () => ({ devBrain, workspace: devBrain.currentWorkspace, changes, log })`,
-     read fresh on every call.
+5. **The transport** wraps each mutation's `callTRPCProcedure` in `withChangeScope` and returns
+   the scope's `changed` on success and on failure. `ctx.changes.record()` adds to the same scope.
+   (A tRPC middleware can't do this: it can only return the resolver's output, with no room for
+   `changed` beside it.)
+6. **Context and middleware** (tRPC middleware, built with `t.middleware`):
+   - `createContext({ event, changes })` returns
+     `{ event, devBrain, workspace: devBrain.currentWorkspace, changes, log }`, read fresh on every
+     call. It awaits `startCore()`, so calls made while core starts wait for
+     it.
    - `senderGuard`: the app's own page only (the dev server URL, or `file://…/renderer/index.html`).
    - `logging`: path, duration and error code, never the input.
    - `requireWorkspace` → `no_workspace_open`. If `startCore()` returned `null`, every route that
      needs `DevBrain` fails with `devbrain_unavailable`.
-   - Base procedures: `publicQuery`/`publicMutation` and `wsQuery`/`wsMutation`.
+   - Base procedures in `trpc.ts`: `publicQuery`/`publicMutation` and `wsQuery`/`wsMutation`
+     (`t.procedure.use(...)`).
    - `zId(entity)`, which checks the prefix from `src/common/ids.ts`.
 7. **`src/main/index.ts`:**
-   - Once `startCore()` resolves, create the `Broadcaster`, call `ChangeRouter.attach`, and call
-     `attachRouter`.
+   - Once `startCore()` resolves, create the `Broadcaster` and call `ChangeRouter.attach`.
+     `attachRouter` stays where milestone 2 put it.
    - Window hardening from `docs/security/untrusted-content.md`: `setWindowOpenHandler` → deny, and
      a `will-navigate` guard that only allows the app's own pages.
 8. **The first real routes:**
@@ -298,15 +318,16 @@ response carries `changed`.
 
 **Steps**
 
-1. Install `@tanstack/react-query` and `@tanstack/react-query-devtools`.
-2. **`createQueryUtils<AppRouter>()`:**
-   - Queries: `queryKey(input?)` → `[...path, input]`, `queryOptions(input, opts?)`, and
-     `infiniteQueryOptions(input, opts?)` built on `Page<T>` cursors.
-   - Mutations: `mutationOptions(opts?)`.
-   - Router nodes: `pathKey()` → `[...path]`.
-   - The types only offer each option builder on the matching procedure kind. React Query's
-     `signal` is not passed on: no call is cancellable through it.
-3. **`invalidation.ts`:**
+1. Install `@tanstack/react-query`, `@tanstack/react-query-devtools` and
+   `@trpc/tanstack-react-query`.
+2. **Check first** that tRPC's React Query integration runs over `ipcLink`: one query and one
+   mutation, in a test component. Milestone 2 did not cover it.
+3. **`trpc = createTRPCOptionsProxy<AppRouter>({ client: ipc, queryClient })`** in
+   `src/renderer/ipc/index.ts`. It gives each query `queryOptions`, `infiniteQueryOptions` and
+   `queryKey`, each mutation `mutationOptions`, and each router `pathKey`. `infiniteQueryOptions`
+   works on core's lists as they are: they take `cursor` and return `{ items, nextCursor }`. React
+   Query's `signal` reaches the link and is ignored: no call is cancellable through it.
+4. **`invalidation.ts`:**
    - `affects: Record<ChangedEntity, Path[]>`, keyed at router level:
 
      | Entity           | Paths                                                 |
@@ -320,9 +341,10 @@ response carries `changed`.
      | `externalSource` | `integrations`, `sources`, `sync`                     |
 
    - `isPrefix`, `compile` (merge, deduplicate, drop covered prefixes), and
-     `invalidateFor(entities)` as one predicate call.
+     `invalidateFor(entities)` as one predicate call. tRPC's query keys start with the path array
+     (`[['tasks', 'get'], { input, type }]`), so the predicate matches a prefix of that.
 
-4. **`changes.ts`:**
+5. **`changes.ts`:**
    - One dirty set.
    - `applyChanges(changed)`, the client's `onChanged`: if this is the only mutation in flight,
      invalidate and wait for the refetch; otherwise add to the dirty set.
@@ -330,8 +352,8 @@ response carries `changed`.
    - Flushing: 16 ms trailing, 250 ms at most, held while `isMutating() > 0`, and rescheduled when
      the mutation cache settles.
    - `workspace.changed` → `qc.clear()`.
-5. **`main.tsx`:** create the client with `onChanged: applyChanges`, the `QueryClientProvider` and
-   the devtools in development, and start the listeners once.
+6. **`main.tsx`:** create the client with `ipcLink({ onChanged: applyChanges })`, the
+   `QueryClientProvider` and the devtools in development, and start the listeners once.
 
 **Tests** (Node, with fake timers)
 
@@ -340,8 +362,8 @@ response carries `changed`.
   while a mutation is pending.
 - `applyChanges` waits for the refetch when it is the only mutation in flight and defers when others
   are pending.
-- `invalidateFor(['task'])` matches `['tasks', …]`, `['projects', …]` and `['favorites', …]` keys
-  and leaves `['notes', …]` alone.
+- `invalidateFor(['task'])` matches `[['tasks', …], …]`, `[['projects', …], …]` and
+  `[['favorites', …], …]` keys and leaves `[['notes', …], …]` alone.
 
 **Done when** a test component's mutation and a simulated `db.changes` broadcast both refetch the
 right mounted queries.
@@ -410,8 +432,9 @@ route.
    router and the `AppEvents` names.
 3. In `docs/follow-ups.md`, close the calendar-selection sync item and the delta-vs-snapshot item
    for `IntegrationChange`.
-4. Add a short "IPC" section to `CLAUDE.md`: core never imports from `src/main/ipc`; handlers return
-   core's data as it is; a new change type must be added to `changedEntities`.
+4. Add a short "IPC" section to `CLAUDE.md`: core never imports from `src/main/ipc`; the renderer
+   imports from `src/main` as a type only; handlers return core's data as it is; a new change type
+   must be added to `changedEntities`.
 
 ---
 
@@ -441,7 +464,7 @@ star toggle is the likely first one. The layer makes them safe:
 | #    | Contents                                                                                                                | Depends on                  |
 | ---- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------- |
 | 1    | Milestone 1: setup, aliases, Vitest, moving shared types                                                                | none                        |
-| 2    | Milestone 2: the IPC library and `app.ping`                                                                             | 1                           |
+| 2    | Milestone 2: tRPC over IPC and `app.ping`                                                                               | 1                           |
 | 3    | Core changes 1 and 2 (`WorkspaceService.onChange`, `SyncScheduler.onStatus`)                                            | none; can run alongside 1–2 |
 | 4    | Milestone 3: change router, context, middleware, window hardening, workspace/settings/openUrl routes                    | 2, 3                        |
 | 5    | Milestone 4: React Query and invalidation                                                                               | 4                           |
@@ -451,6 +474,10 @@ star toggle is the likely first one. The layer makes them safe:
 ## Out of scope
 
 - **More than one window.** Covered later by also broadcasting each request's `changed`.
+- **tRPC subscriptions.** The push events go to the whole app and take no input, so a broadcast
+  serves them. Subscriptions would need the transport to manage each one's lifetime (start, stop,
+  cleanup when a window reloads or closes), as electron-trpc's `createIPCHandler` does; that is the
+  model if a view ever needs a stream of its own.
 - **Optimistic update helpers** (`patchTask` and similar), and client-generated ids for optimistic
   creates. Added per interaction once the UI exists.
 - **The renderer's rendering rules** (Markdown, URLs, colours). These come from
