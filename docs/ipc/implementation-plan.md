@@ -321,7 +321,8 @@ response carries `changed`.
 1. Install `@tanstack/react-query`, `@tanstack/react-query-devtools` and
    `@trpc/tanstack-react-query`.
 2. **Check first** that tRPC's React Query integration runs over `ipcLink`: one query and one
-   mutation, in a test component. Milestone 2 did not cover it.
+   mutation, in a test component. Milestone 2 did not cover it. (It does, with no changes to the
+   link.)
 3. **`trpc = createTRPCOptionsProxy<AppRouter>({ client: ipc, queryClient })`** in
    `src/renderer/ipc/index.ts`. It gives each query `queryOptions`, `infiniteQueryOptions` and
    `queryKey`, each mutation `mutationOptions`, and each router `pathKey`. `infiniteQueryOptions`
@@ -344,19 +345,28 @@ response carries `changed`.
      `invalidateFor(entities)` as one predicate call. tRPC's query keys start with the path array
      (`[['tasks', 'get'], { input, type }]`), so the predicate matches a prefix of that.
 
-5. **`changes.ts`:**
+5. **`changes.ts`:** `createChangeSync(queryClient)`, and the app's instance bound to the
+   `QueryClient` in `queryClient.ts`.
    - One dirty set.
-   - `applyChanges(changed)`, the client's `onChanged`: if this is the only mutation in flight,
-     invalidate and wait for the refetch; otherwise add to the dirty set.
+   - `applyChanges(changed)`, the client's `onChanged`: an empty `changed` (every query's) does
+     nothing; if this is the only mutation in flight, invalidate what it changed and what the dirty
+     set holds, and wait for the refetch; otherwise add to the dirty set.
    - A `db.changes` listener that adds to the dirty set.
    - Flushing: 16 ms trailing, 250 ms at most, held while `isMutating() > 0`, and rescheduled when
      the mutation cache settles.
-   - `workspace.changed` → `qc.clear()`.
-6. **`main.tsx`:** create the client with `ipcLink({ onChanged: applyChanges })`, the
-   `QueryClientProvider` and the devtools in development, and start the listeners once.
+   - `workspace.changed` → drop the dirty set and `qc.resetQueries()`. Not `qc.clear()`: it
+     removes the queries but a mounted one keeps showing the old workspace's data until something
+     renders it again; `resetQueries` drops all data and refetches the mounted queries.
+6. **`queryClient.ts`:** the `QueryClient`, with `retry: false` (a call to main that fails gives the
+   same answer again) and `refetchOnWindowFocus: false` (invalidation keeps data current).
+7. **`ipc/index.ts`:** the client with `ipcLink({ onChanged: applyChanges })`, next to `trpc`, which
+   needs it. **`main.tsx`:** the `QueryClientProvider` and the devtools in development, and the
+   listeners started once, outside React.
 
-**Tests** (Node, with fake timers)
+**Tests** (Node, with fake timers; the component tests run in `happy-dom` with
+`@testing-library/react`, over a fake bridge and a test-only router)
 
+- A test component's query and mutation through `ipcLink`, and the query key's shape.
 - `compile` and `isPrefix` edge cases.
 - A burst gives one flush; a steady stream still flushes at least every 250 ms; nothing flushes
   while a mutation is pending.
@@ -364,6 +374,7 @@ response carries `changed`.
   are pending.
 - `invalidateFor(['task'])` matches `[['tasks', …], …]`, `[['projects', …], …]` and
   `[['favorites', …], …]` keys and leaves `[['notes', …], …]` alone.
+- `workspace.changed` refetches a mounted query.
 
 **Done when** a test component's mutation and a simulated `db.changes` broadcast both refetch the
 right mounted queries.

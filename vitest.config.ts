@@ -19,7 +19,12 @@ export default defineConfig({
   test: {
     environment: 'node',
     // core's tests, the main process's own in src/main/tests, and the shared and renderer code's
-    include: ['src/main/**/*.test.ts', 'src/common/**/*.test.ts', 'src/renderer/**/*.test.ts'],
+    include: [
+      'src/main/**/*.test.ts',
+      'src/common/**/*.test.ts',
+      'src/renderer/**/*.test.ts',
+      'src/renderer/**/*.test.tsx',
+    ],
     // run through vite rather than Node, so a test's vi.mock('node:fs') reaches the fs calls they
     // make (see tests/workspace/registry.test.ts)
     server: { deps: { inline: ['atomically', 'stubborn-fs'] } },
