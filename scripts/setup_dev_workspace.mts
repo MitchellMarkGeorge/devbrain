@@ -1000,10 +1000,12 @@ async function main() {
     createIfMissing: true,
     workspace: { migrationsPath: MIGRATIONS_PATH, cipher: devCipher, fetch },
   });
-  const workspace = await devBrain.workspaces.create({
+  const created = await devBrain.workspaces.create({
     name: WORKSPACE_NAME,
     color: pick(PALETTE),
   });
+  // create leaves it closed; seed it open
+  const workspace = await devBrain.workspaces.open(created.id);
 
   try {
     console.log('Creating projects...');
@@ -1043,7 +1045,7 @@ async function main() {
 
     const linear = await connectLinear(workspace);
 
-    await workspace.close();
+    await devBrain.close();
 
     const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
     console.log('');
@@ -1061,7 +1063,7 @@ async function main() {
     console.log(`Path: ${ROOT_PATH}`);
     console.log(`Elapsed: ${elapsedSeconds}s`);
   } catch (err) {
-    await workspace.close();
+    await devBrain.close();
     throw err;
   }
 }

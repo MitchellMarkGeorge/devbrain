@@ -311,7 +311,8 @@ correct type.
 8. **The first real routes:**
    - `workspaces`: `list`, `current`, `open`, `switch`, `create`, `delete`. These return
      `WorkspaceInfo`, never a `Workspace`, and record `workspace`. `create` doesn't open the new
-     workspace (core hands it back open; the route closes it). `open` and `switch` write
+     workspace: core's `WorkspaceService.create` now closes the database it created and returns
+     the info, so a workspace is only ever open through `open` or `switch`. `open` and `switch` write
      `state.lastWorkspaceId`, which `startDevBrain` reopens at launch and nothing wrote before, and
      `delete` clears it.
    - `settings`: `get` returns the user's settings; `update` takes the whole settings object,

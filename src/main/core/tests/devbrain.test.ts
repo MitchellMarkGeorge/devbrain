@@ -67,11 +67,9 @@ async function devBrainWith(provider: FakeProvider): Promise<DevBrain> {
   });
 }
 
-// registers a workspace and closes it, as create leaves it open; returns its info
-async function createWorkspace(name: string) {
-  const created = await devBrain.workspaces.create({ name, color: '#000000' });
-  await created.close();
-  return created.info;
+// registers a workspace, which create leaves closed; returns its info
+function createWorkspace(name: string) {
+  return devBrain.workspaces.create({ name, color: '#000000' });
 }
 
 // Opens a workspace and lets its open pass run, which it defers to the next turn of the event loop.

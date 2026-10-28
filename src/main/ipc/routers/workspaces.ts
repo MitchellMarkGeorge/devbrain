@@ -40,10 +40,7 @@ export const workspacesRouter = t.router({
     .input(z.object({ name: z.string().trim().min(1), color: hexColorSchema }))
     .mutation(async ({ ctx, input }): Promise<WorkspaceEntry> => {
       ctx.changes.record('workspace');
-      const workspace = await ctx.devBrain.workspaces.create(input);
-      // core hands back the new workspace's database open; it isn't the current workspace
-      await workspace.close();
-      return workspace.info;
+      return ctx.devBrain.workspaces.create(input);
     }),
 
   // only the open workspace can be deleted (core's workspace_not_open otherwise)

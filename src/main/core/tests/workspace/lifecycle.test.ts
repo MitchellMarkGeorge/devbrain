@@ -18,9 +18,8 @@ beforeEach(async () => {
   service = new WorkspaceService(root, WORKSPACE_OPTIONS);
   ids = [];
   for (const name of ['A', 'B']) {
-    const workspace = await service.create({ name, color: '#000000' });
-    ids.push(workspace.info.id);
-    await workspace.close();
+    const info = await service.create({ name, color: '#000000' });
+    ids.push(info.id);
   }
 });
 

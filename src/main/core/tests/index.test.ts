@@ -307,15 +307,16 @@ describe('DevBrain — workspace options', () => {
       workspace: { ...WORKSPACE_OPTIONS, cipher, fetch },
     });
     const created = await brain.workspaces.create({ name: 'Work', color: '#000000' });
-    const connected = await created.integrations.connectWithApiKey(Provider.LINEAR, API_KEY);
-    await created.close();
+    const workspace = await brain.workspaces.open(created.id);
+    const connected = await workspace.integrations.connectWithApiKey(Provider.LINEAR, API_KEY);
+    await brain.workspaces.close();
 
     const reloaded = await openDevBrain({
       settingsStore: openMemorySettingsStore,
       path: initPath,
       workspace: { ...WORKSPACE_OPTIONS, cipher },
     });
-    const opened = await reloaded.workspaces.open(created.info.id);
+    const opened = await reloaded.workspaces.open(created.id);
     try {
       expect(opened.integrations.list()).toEqual([connected]);
     } finally {

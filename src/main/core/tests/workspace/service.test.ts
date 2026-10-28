@@ -480,14 +480,20 @@ describe('WorkspaceService — sync', () => {
     expect(fakeWorkspace.sync.start).toHaveBeenCalledOnce();
   });
 
-  it('create does not start syncing: only the open workspace syncs', async () => {
+  it('create leaves the workspace closed and not current: only an opened one is', async () => {
     const created = { info: makeInfo(), close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.create).mockResolvedValue(created as never);
-
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
-    await service.create({ name: 'New', color: '#000000' });
+    const opened = vi.fn();
+    service.onChange(opened);
+
+    const info = await service.create({ name: 'New', color: '#000000' });
 
     expect(created.sync.start).not.toHaveBeenCalled();
+    expect(created.close).toHaveBeenCalledOnce();
+    expect(service.currentWorkspace).toBeNull();
+    expect(opened).not.toHaveBeenCalled();
+    expect(info).toEqual(service.getById(info.id));
   });
 
   it('switch waits for the current workspace to close before opening the next', async () => {

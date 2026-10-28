@@ -74,7 +74,6 @@ export async function tempDevBrain(
 
 // a new workspace in `devBrain`, closed, as the registry keeps it
 export async function createWorkspace(devBrain: DevBrain, name: string) {
-  const workspace = await devBrain.workspaces.create({ name, color: '#000000' });
-  await workspace.close();
-  return workspace.info.id;
+  const info = await devBrain.workspaces.create({ name, color: '#000000' });
+  return info.id;
 }

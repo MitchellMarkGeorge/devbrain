@@ -34,9 +34,8 @@ async function folderWith(...names: string[]): Promise<{ devBrain: DevBrain; ids
   });
   const ids: WorkspaceId[] = [];
   for (const name of names) {
-    const workspace = await devBrain.workspaces.create({ name, color: '#000000' });
-    await workspace.close();
-    ids.push(workspace.info.id);
+    const info = await devBrain.workspaces.create({ name, color: '#000000' });
+    ids.push(info.id);
   }
   return { devBrain, ids };
 }

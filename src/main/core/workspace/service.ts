@@ -90,7 +90,11 @@ export class WorkspaceService {
     return Object.values(this.readWorkspaceFile()).find((info) => info.name === name) ?? null;
   }
 
-  async create(options: CreateWorkspaceOptions) {
+  /**
+   * Registers a new workspace and creates its database, running migrations, then closes it.
+   * Creating never opens a workspace: open (or switch) to it to use it. Returns its info.
+   */
+  async create(options: CreateWorkspaceOptions): Promise<WorkspaceInfo> {
     const id = generateId('workspace');
     const workspacePath = path.join(this.rootPath, 'workspaces', id);
 
@@ -111,8 +115,10 @@ export class WorkspaceService {
     workspaces[id] = workspaceInfo;
     this.writeWorkspaceFile(workspaces);
 
-    // create workspace db file and run migrations
-    return await Workspace.create(workspaceInfo, this.workspaceOptions);
+    // create workspace db file and run migrations, then close it until it is opened
+    const workspace = await Workspace.create(workspaceInfo, this.workspaceOptions);
+    await workspace.close();
+    return workspaceInfo;
   }
 
   /**
