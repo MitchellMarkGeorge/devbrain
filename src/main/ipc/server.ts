@@ -6,12 +6,16 @@ import type { ChangedEntity } from '@common/changes';
 import { IPC_CALL_CHANNEL } from '@common/ipc/constants';
 import type { IpcErrorShape, IpcRequest, IpcResult } from '@common/ipc/types';
 import { IpcError } from './errors';
+import { withChangeScope, withLocalScope } from './changes/scope';
 
 // tRPC's router behind ipcMain, on one channel: each request names its procedure, which tRPC finds,
 // validates the input for, and runs with its middleware. This only carries the call and its
 // `changed` across IPC, answering with an IpcResult envelope. Modelled on electron-trpc, without
 // subscriptions, so a call is one invoke and needs no request ids.
 
+// What a call's context records its changes with: the call's ChangeScope. A mutation's `changed`
+// is what its handler records here and what core announced while it ran (the ChangeRouter adds
+// those to the same scope), on success and on failure.
 export interface ChangeRecorder {
   record(...entities: ChangedEntity[]): void;
 }
@@ -42,19 +46,16 @@ export function attachRouter<TRouter extends AnyTRPCRouter>(
     event: IpcMainInvokeEvent,
     { path, type, input }: IpcRequest,
   ): Promise<IpcResult<unknown>> => {
-    const changed = new Set<ChangedEntity>();
-    const changes: ChangeRecorder = {
-      record: (...entities) => entities.forEach((entity) => changed.add(entity)),
-    };
     let ctx: inferRouterContext<TRouter> | undefined;
-    try {
+    // the context is built inside the scope, so ctx.changes is the scope core's changes go into
+    const run = async (changes: ChangeRecorder): Promise<unknown> => {
       // the request comes from the renderer, which is not trusted: tRPC would start a subscription,
       // and answers any other unknown path or type with NOT_FOUND
       if (type !== 'query' && type !== 'mutation') {
         throw new IpcError('internal', 'Only queries and mutations run over IPC');
       }
       ctx = await options.createContext({ event, changes });
-      const data: unknown = await callTRPCProcedure({
+      return callTRPCProcedure({
         router,
         path,
         type,
@@ -63,20 +64,24 @@ export function attachRouter<TRouter extends AnyTRPCRouter>(
         signal: undefined,
         batchIndex: 0,
       });
-      return { ok: true, data, changed: [...changed] };
-    } catch (cause) {
-      const error = getTRPCErrorFromUnknown(cause);
-      const shape = getTRPCErrorShape({
-        config: router._def._config,
-        error,
-        type,
-        path,
-        input,
-        ctx,
-      }) as IpcErrorShape;
-      options.onError?.({ path, error, shape });
-      return { ok: false, error: shape, changed: [...changed] };
-    }
+    };
+    // Only a mutation opens a scope that core's changes find (openScope). A query changes nothing
+    // on purpose: what its call does record goes in its response, and anything core announces
+    // while it runs is broadcast
+    const result = type === 'mutation' ? await withChangeScope(run) : await withLocalScope(run);
+    if (result.ok) return { ok: true, data: result.value, changed: result.changed };
+
+    const error = getTRPCErrorFromUnknown(result.error);
+    const shape = getTRPCErrorShape({
+      config: router._def._config,
+      error,
+      type,
+      path,
+      input,
+      ctx,
+    }) as IpcErrorShape;
+    options.onError?.({ path, error, shape });
+    return { ok: false, error: shape, changed: result.changed };
   };
 
   ipcMain.handle(IPC_CALL_CHANNEL, (event, request: IpcRequest | null | undefined) =>

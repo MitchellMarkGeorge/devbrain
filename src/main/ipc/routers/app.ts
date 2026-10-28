@@ -1,7 +1,8 @@
 import { app } from 'electron';
+import { publicQuery } from '../procedures';
 import { t } from '../trpc';
 
 export const appRouter = t.router({
-  ping: t.procedure.query(() => 'pong'),
-  version: t.procedure.query(() => app.getVersion()),
+  ping: publicQuery.query(() => 'pong'),
+  version: publicQuery.query(() => app.getVersion()),
 });

@@ -1,19 +1,54 @@
 import type { IpcMainInvokeEvent } from 'electron';
-import type { ChangedEntity } from '@common/changes';
+import type { DevBrain, Workspace } from '@main/core';
+import type { AppPages } from './app-pages';
+import type { ChangeRecorder } from './server';
 
-// What every resolver gets, built per call. Milestone 3 of docs/ipc/implementation-plan.md adds
-// DevBrain and the open workspace.
+// where the logging middleware writes: each call at debug, a failed one at warn
+export interface IpcLogger {
+  debug(...params: unknown[]): void;
+  warn(...params: unknown[]): void;
+}
+
+// What every resolver gets, built per call. A route that needs DevBrain or a workspace starts from
+// a base procedure (procedures.ts) whose middleware narrows these to non-null.
 export interface AppContext {
   // the call's own event: who sent it (senderFrame), for the sender guard
   event: IpcMainInvokeEvent;
-  // adds to the call's `changed`, for a service that emits nothing (milestone 3 fills `changed`
-  // from core's own change events too)
-  changes: { record(...entities: ChangedEntity[]): void };
+  // null when DevBrain failed to start (startCore() returned null)
+  devBrain: DevBrain | null;
+  // the workspace open when the call arrived, read fresh on every call
+  workspace: Workspace | null;
+  // the call's change scope: adds to its `changed`, for a service that emits nothing
+  changes: ChangeRecorder;
+  log: IpcLogger;
+  // the pages allowed to call main
+  appPages: AppPages;
 }
 
-export function createContext(opts: {
-  event: IpcMainInvokeEvent;
-  changes: AppContext['changes'];
-}): AppContext {
-  return { event: opts.event, changes: opts.changes };
+export interface ContextOptions {
+  // what startCore() returns; awaited on every call, so calls made while core starts wait for it
+  devBrain: Promise<DevBrain | null> | DevBrain | null;
+  appPages: AppPages;
+  log: IpcLogger;
+}
+
+// attachRouter's createContext
+export function contextFactory(options: ContextOptions) {
+  return async ({
+    event,
+    changes,
+  }: {
+    event: IpcMainInvokeEvent;
+    changes: ChangeRecorder;
+  }): Promise<AppContext> => {
+    const devBrain = await options.devBrain;
+    return {
+      event,
+      devBrain,
+      workspace: devBrain?.currentWorkspace ?? null,
+      changes,
+      log: options.log,
+      appPages: options.appPages,
+    };
+  };
 }

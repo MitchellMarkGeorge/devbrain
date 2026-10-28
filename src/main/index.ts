@@ -12,7 +12,10 @@ import { startDevBrain } from './runtime/start';
 import { closeBeforeQuit, closeCore, forwardSyncTriggers } from './runtime/lifecycle';
 import { attachRouter } from './ipc/server';
 import { appRouter } from './ipc/router';
-import { createContext } from './ipc/context';
+import { contextFactory } from './ipc/context';
+import { appPages } from './ipc/app-pages';
+import { webContentsBroadcaster } from './ipc/broadcaster';
+import { ChangeRouter } from './ipc/changes/router';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // the repository, in development: dist/main is two levels down
@@ -83,12 +86,19 @@ async function startCore(): Promise<DevBrain | null> {
 // --- IPC ------------------------------------------------------------------
 const ipcLog = log.scope('ipc');
 
+// The pages that may call main and that the window may show: the dev server's, or the built
+// renderer's index.html
+const pages = appPages({
+  devServerUrl: process.env.VITE_DEV_SERVER_URL,
+  indexHtml: path.join(__dirname, '../renderer/index.html'),
+});
+
 // The typed router (src/main/ipc/router.ts); the renderer reaches it through the generic bridge in
 // src/preload/index.ts. Attached as soon as core starts, without waiting for it, so the window's
-// first calls find their handlers.
-function attachIpc() {
+// first calls find their handlers; each call's context waits for core.
+function attachIpc(devBrain: Promise<DevBrain | null>) {
   attachRouter(appRouter, {
-    createContext,
+    createContext: contextFactory({ devBrain, appPages: pages, log: ipcLog }),
     // an expected failure is the renderer's to show; only the rest is a bug worth logging
     onError: ({ path, error, shape }) => {
       if (shape.data.code === 'internal')
@@ -115,6 +125,7 @@ function createWindow() {
   });
 
   win.on('ready-to-show', () => win.show());
+  hardenWindow(win);
 
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL);
@@ -122,6 +133,16 @@ function createWindow() {
   } else {
     win.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
+}
+
+// The window shows the app's own pages and nothing else (docs/security/untrusted-content.md): a link
+// that escapes the renderer's rules can't open a window or load a remote page inside DevBrain.
+// Links open in the browser through workspace.openUrl only.
+function hardenWindow(win: BrowserWindow) {
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-navigate', (event) => {
+    if (!pages.includes(event.url)) event.preventDefault();
+  });
 }
 
 // --- App lifecycle --------------------------------------------------------
@@ -134,10 +155,14 @@ app.whenReady().then(async () => {
 
   const starting = startCore();
   closeBeforeQuit(app, () => closeCore(starting), devBrainLog);
-  attachIpc();
+  attachIpc(starting);
 
   const devBrain = await starting;
   if (devBrain === null) return;
+  // core's changes go into the responses of the calls that made them, the rest out to the window,
+  // following the open workspace from the one startDevBrain opened. Attached before any call's
+  // context resolves, as this await on `starting` was registered before any call arrived
+  new ChangeRouter(webContentsBroadcaster()).attach(devBrain);
   // window focus and system resume sync the workspace open at the time, if any
   forwardSyncTriggers({ app, powerMonitor }, devBrain, devBrainLog);
 });

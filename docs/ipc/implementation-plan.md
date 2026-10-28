@@ -69,16 +69,19 @@ src/common/
                             IpcBridge
 
 src/main/ipc/
-  trpc.ts                   t (initTRPC, errorFormatter), publicQuery/Mutation, wsQuery/Mutation
-  errors.ts                 IpcError, serializeError
+  trpc.ts                   t (initTRPC, errorFormatter)
+  procedures.ts             publicQuery/Mutation, devBrainQuery/Mutation, wsQuery/Mutation
+  errors.ts                 IpcError, serializeError, serializeTRPCError
   server.ts                 attachRouter: the transport over ipcMain
-  context.ts                AppContext, createContext
-  middleware.ts             senderGuard, logging, requireWorkspace
-  zod.ts                    zId(entity), shared input schemas
-  broadcaster.ts            Broadcaster over webContents
+  context.ts                AppContext, contextFactory
+  middleware.ts             senderGuard, logging, requireDevBrain, requireWorkspace
+  app-pages.ts              appPages: the pages allowed to call main and to load in the window
+  zod.ts                    zId(entity), zPage
+  broadcaster.ts            Broadcaster, webContentsBroadcaster
   changes/
-    scope.ts                withChangeScope, openScope (AsyncLocalStorage)
-    entities.ts             WorkspaceChange, changedEntities (exhaustive)
+    scope.ts                ChangeScope, withChangeScope, withLocalScope, openScope
+                            (AsyncLocalStorage)
+    entities.ts             WorkspaceChange, subscribeToWorkspace, changedEntities (exhaustive)
     router.ts               ChangeRouter
   routers/                  app, workspaces, settings, tasks, archive, favorites, notes, projects,
                             events, calendars, integrations, sources, sync, search
@@ -126,7 +129,11 @@ each change goes: into the response of the mutation that caused it, or out as a 
   before the commit, but the main process is single-threaded and the transaction synchronous: the
   response or broadcast cannot reach the renderer, nor its refetch run, until the commit is done.
 - **Gaps.** `CalendarService`, `SettingsService` and the workspace registry emit nothing. Their
-  handlers call `ctx.changes.record(...)`.
+  handlers call `ctx.changes.record(...)`: `calendar`, `settings` and `workspace`. `ctx.changes` is
+  the call's scope; a record made after the scope closed is dropped, so work that outlives its call
+  reports through core's events.
+- **Queries** open no scope that core's changes find. What a query's handler records still goes in
+  its response, and anything core announces while it runs is broadcast.
 - **Over-reporting is safe.** It only costs a refetch. When in doubt, a mapping returns more.
 
 The mapping is one exhaustive `switch` per change union, with `assertNever` defaults, so a new
@@ -143,10 +150,12 @@ change type fails typecheck until it is handled:
 | `TaskLinkChange` (detach, reattach) | `task` plus its `changed`; `credentials_rejected` → `integration`    |
 | `IntegrationChange`                 | `integration` and `externalSource`, plus `changed` on `disconnected` |
 | `SyncProgress`                      | `summary.changed`                                                    |
+| `SyncStatusChange` (`onStatus`)     | `externalSource` (its `lastSyncedAt`, `lastError`, `retryAt`)        |
 
 The router also broadcasts deltas for status UI, whatever the scope: `integrations.changed`
 (`integrationId`, `type`), `sync.progress` (`sourceId`, `phase`, `itemsApplied`), `sources.changed`
-(`sourceId`) and `workspace.changed` (`id`, or `null` on close).
+(`sourceId`, on a `source_changed` and on each sync status) and `workspace.changed` (`id`, or
+`null` on close; a switch sends `null`, then the new id).
 
 ## Changes to core
 
@@ -262,7 +271,8 @@ correct type.
    `changed` is filled on failures too. `openScope()` returns the scope only while it is open.
 3. **`changes/entities.ts`:**
    - The `WorkspaceChange` union, tagged by source: tasks, notes, projects, events, archive,
-     favorites, detach, integrations, sync.
+     favorites, detach, integrations, sync (`onProgress`) and syncStatus (`onStatus`), with
+     `subscribeToWorkspace` subscribing to all of them.
    - `changedEntities`, an exhaustive `switch` per source and per `type`, with `assertNever`
      defaults (see the mapping table above).
 4. **`changes/router.ts`:** `ChangeRouter`.
@@ -273,21 +283,27 @@ correct type.
    - `record(...entities)`: for handlers whose service emits nothing.
    - It also broadcasts the deltas: `integrations.changed`, `sync.progress`, `sources.changed`.
 5. **The transport** wraps each mutation's `callTRPCProcedure` in `withChangeScope` and returns
-   the scope's `changed` on success and on failure. `ctx.changes.record()` adds to the same scope.
+   the scope's `changed` on success and on failure. `ctx.changes.record()` adds to the same scope:
+   the context is built inside it, and the scope is the `ChangeRecorder` milestone 2 passed to
+   `createContext`. A query runs in `withLocalScope`, which only its handler records into.
    (A tRPC middleware can't do this: it can only return the resolver's output, with no room for
    `changed` beside it.)
 6. **Context and middleware** (tRPC middleware, built with `t.middleware`):
-   - `createContext({ event, changes })` returns
-     `{ event, devBrain, workspace: devBrain.currentWorkspace, changes, log }`, read fresh on every
-     call. It awaits `startCore()`, so calls made while core starts wait for
+   - `contextFactory({ devBrain: startCore(), appPages, log })` is attachRouter's `createContext`,
+     returning `{ event, devBrain, workspace: devBrain.currentWorkspace, changes, log, appPages }`,
+     read fresh on every call. It awaits `startCore()`, so calls made while core starts wait for
      it.
-   - `senderGuard`: the app's own page only (the dev server URL, or `file://…/renderer/index.html`).
-   - `logging`: path, duration and error code, never the input.
-   - `requireWorkspace` → `no_workspace_open`. If `startCore()` returned `null`, every route that
-     needs `DevBrain` fails with `devbrain_unavailable`.
-   - Base procedures in `trpc.ts`: `publicQuery`/`publicMutation` and `wsQuery`/`wsMutation`
-     (`t.procedure.use(...)`).
-   - `zId(entity)`, which checks the prefix from `src/common/ids.ts`.
+   - `senderGuard`: the app's own page only (any page on the dev server's origin, or
+     `file://…/renderer/index.html`), from `appPages`, which the window's `will-navigate` guard
+     shares. A refused frame fails as `internal`.
+   - `logging`: path, duration and error code, never the input; success at debug, failure at warn.
+   - `requireDevBrain` → `devbrain_unavailable` when `startCore()` returned `null`;
+     `requireWorkspace` → that, or `no_workspace_open`. Each narrows the context.
+   - Base procedures in `procedures.ts` (`trpc.ts` holds `t`, which the middleware imports):
+     `publicQuery`/`publicMutation`, `devBrainQuery`/`devBrainMutation` (workspaces, settings) and
+     `wsQuery`/`wsMutation`. Routes never use `t.procedure`; `app.ping` and `app.version` are
+     public ones.
+   - `zId(entity)`, which checks the prefix with `isId` from `src/common/ids.ts`.
 7. **`src/main/index.ts`:**
    - Once `startCore()` resolves, create the `Broadcaster` and call `ChangeRouter.attach`.
      `attachRouter` stays where milestone 2 put it.
@@ -295,9 +311,13 @@ correct type.
      a `will-navigate` guard that only allows the app's own pages.
 8. **The first real routes:**
    - `workspaces`: `list`, `current`, `open`, `switch`, `create`, `delete`. These return
-     `WorkspaceInfo`, never a `Workspace`, and call `ctx.changes.record()` where nothing emits.
+     `WorkspaceInfo`, never a `Workspace`, and record `workspace`. `create` doesn't open the new
+     workspace (core hands it back open; the route closes it). `open` and `switch` write
+     `state.lastWorkspaceId`, which `startDevBrain` reopens at launch and nothing wrote before, and
+     `delete` clears it; those record `settings` too.
    - `settings`: `get` returns the whole settings file; `update` takes a patch validated against
-     `core/settings/schema.ts`.
+     `core/settings/schema.ts` (strict: an unknown key is refused), writes each value it carries
+     and returns the file. Of the state, only `lastPage` is the renderer's to write.
    - `workspace.openUrl`, which goes through core's `guardOpenExternal`.
 
 **Tests** (in `src/main/tests/ipc/`, with an in-memory workspace and a fake `Broadcaster`)
@@ -339,6 +359,8 @@ response carries `changed`.
      | `calendar`       | `calendars`, `events`                                 |
      | `integration`    | `integrations`, `sync`                                |
      | `externalSource` | `integrations`, `sources`, `sync`                     |
+     | `workspace`      | `workspaces`                                          |
+     | `settings`       | `settings`                                            |
 
    - `isPrefix`, `compile` (merge, deduplicate, drop covered prefixes), and
      `invalidateFor(entities)` as one predicate call. tRPC's query keys start with the path array
