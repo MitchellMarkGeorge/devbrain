@@ -6,8 +6,6 @@ import { t } from '../trpc';
 import { zId, zPage } from '../zod';
 
 // The workspace registry. These return a workspace's WorkspaceInfo, never the Workspace itself.
-// WorkspaceService announces each registry write (`opened`, `created`, `deleted`), which the
-// ChangeRouter reports as `workspace`.
 
 const byId = z.object({ id: zId('workspace') });
 

@@ -492,7 +492,8 @@ describe('WorkspaceService — sync', () => {
     expect(created.sync.start).not.toHaveBeenCalled();
     expect(created.close).toHaveBeenCalledOnce();
     expect(service.currentWorkspace).toBeNull();
-    expect(types).toEqual(['created']);
+    // it never became current, so neither opened nor closed is sent
+    expect(types).toEqual([]);
     expect(info).toEqual(service.getById(info.id));
   });
 
@@ -718,13 +719,11 @@ describe('WorkspaceService — onChange', () => {
     const changes: WorkspaceChange[] = [];
     service.onChange((change) => {
       changes.push(change);
-      const id =
+      log.push(
         change.type === 'opened'
-          ? change.workspace.info.id
-          : change.type === 'created'
-            ? change.workspace.id
-            : change.workspaceId;
-      log.push(`${change.type} ${id}`);
+          ? `opened ${change.workspace.info.id}`
+          : `closed ${change.workspaceId}`,
+      );
     });
     return { service, infos, workspaces, changes, log };
   }
@@ -774,42 +773,37 @@ describe('WorkspaceService — onChange', () => {
     expect(log.slice(-2)).toEqual(['close wsp_first', 'closed wsp_first']);
   });
 
-  it('delete sends closed once the workspace has closed, then deleted once it is unregistered', async () => {
+  it('delete sends closed once the workspace has closed', async () => {
     const { service, infos, workspaces, changes, log } = await setup();
     vi.mocked(Workspace.open).mockResolvedValueOnce(workspaces[0] as never);
     await service.open(infos[0].id);
-    let registeredWhenSent: boolean | null = null;
-    service.onChange((change) => {
-      if (change.type === 'deleted') registeredWhenSent = service.getByName('first') !== null;
-    });
 
     await service.delete(infos[0].id);
 
     expect(changes).toEqual([
       { type: 'opened', workspace: workspaces[0] },
       { type: 'closed', workspaceId: infos[0].id },
-      { type: 'deleted', workspaceId: infos[0].id },
     ]);
-    expect(log.slice(-3)).toEqual(['close wsp_first', 'closed wsp_first', 'deleted wsp_first']);
-    expect(registeredWhenSent).toBe(false);
+    expect(log.slice(-2)).toEqual(['close wsp_first', 'closed wsp_first']);
   });
 
-  it('create sends created last, once the database exists and the registry has the workspace', async () => {
-    const { service, changes, log } = await setup();
-    let registeredWhenSent: boolean | null = null;
-    service.onChange((change) => {
-      if (change.type === 'created') registeredWhenSent = service.getByName('New') !== null;
-    });
-    vi.mocked(Workspace.create).mockImplementationOnce(async (info) => {
-      log.push('database created');
-      return { info, close: vi.fn(async () => void log.push('database closed')) } as never;
-    });
+  it('create registers the workspace only once its database is created and closed', async () => {
+    const { service } = await setup();
+    let registeredWhenClosed: boolean | null = null;
+    vi.mocked(Workspace.create).mockImplementationOnce(
+      async (info) =>
+        ({
+          info,
+          close: vi.fn(async () => {
+            registeredWhenClosed = service.getByName('New') !== null;
+          }),
+        }) as never,
+    );
 
     const info = await service.create({ name: 'New', color: '#000000' });
 
-    expect(changes).toEqual([{ type: 'created', workspace: info }]);
-    expect(log).toEqual(['database created', 'database closed', `created ${info.id}`]);
-    expect(registeredWhenSent).toBe(true);
+    expect(registeredWhenClosed).toBe(false);
+    expect(service.getById(info.id)).toEqual(info);
   });
 
   it('a create whose database fails registers nothing, removes its directory and sends nothing', async () => {

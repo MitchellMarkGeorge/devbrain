@@ -1,4 +1,5 @@
 import type { IpcMainInvokeEvent } from 'electron';
+import type { ChangedEntity } from '@common/changes';
 import type { DevBrain, Workspace } from '@main/core';
 
 // where the logging middleware writes each call
@@ -15,24 +16,29 @@ export interface AppContext {
   devBrain: DevBrain | null;
   // the workspace open when the call arrived, read fresh on every call
   workspace: Workspace | null;
+  // adds to the call's `changed` (milestone 2's recorder; how changes reach the renderer is still
+  // to be decided, see docs/ipc/implementation-plan.md)
+  changes: { record(...entities: ChangedEntity[]): void };
   log: IpcLogger;
 }
 
 export interface CreateContextOptions {
   event: IpcMainInvokeEvent;
+  changes: AppContext['changes'];
   // what startCore() returns; awaited on every call, so calls made while core starts wait for it
   devBrain: Promise<DevBrain | null> | DevBrain | null;
   log: IpcLogger;
 }
 
-// Builds a call's context. attachRouter passes the event; whoever attaches the router adds DevBrain
-// and the logger
+// Builds a call's context. attachRouter passes the event and the call's recorder; whoever attaches
+// the router adds DevBrain and the logger
 export async function createContext(options: CreateContextOptions): Promise<AppContext> {
   const devBrain = await options.devBrain;
   return {
     event: options.event,
     devBrain,
     workspace: devBrain?.currentWorkspace ?? null,
+    changes: options.changes,
     log: options.log,
   };
 }

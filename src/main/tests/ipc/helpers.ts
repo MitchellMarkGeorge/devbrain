@@ -3,21 +3,20 @@ import os from 'node:os';
 import path from 'node:path';
 import { vi } from 'vitest';
 import type { IpcMainInvokeEvent } from 'electron';
-import type { AppEventName, AppEvents } from '@common/events';
 import type { IpcResult } from '@common/ipc/types';
 import { openDevBrain, type DevBrain, type WorkspaceOptions } from '@main/core';
 import { openMemorySettingsStore } from '@main/core/tests/__mocks__/memory-settings-store';
 import { WORKSPACE_OPTIONS } from '@main/core/tests/utils';
-import type { Broadcaster } from '@main/ipc/broadcaster';
 import { createContext, type CreateContextOptions } from '@main/ipc/context';
 import { invokeHandler } from '../__mocks__/electron';
 
-// What the IPC tests share: a context over a DevBrain, a broadcaster that keeps what it sent, and
-// a DevBrain folder in a temporary directory.
+// What the IPC tests share: a context over a DevBrain, and a DevBrain folder in a temporary
+// directory.
 
 export function testContext(devBrain: DevBrain | null = null) {
   const log = { debug: vi.fn() };
-  return (call: Pick<CreateContextOptions, 'event'>) => createContext({ ...call, devBrain, log });
+  return (call: Pick<CreateContextOptions, 'event' | 'changes'>) =>
+    createContext({ ...call, devBrain, log });
 }
 
 // calls a procedure through the transport, as the renderer's link would
@@ -28,29 +27,6 @@ export function call<T = unknown>(
 ): Promise<IpcResult<T>> {
   const event = {} as IpcMainInvokeEvent;
   return invokeHandler('ipc:call', event, { path, type, input }) as Promise<IpcResult<T>>;
-}
-
-export interface Sent<N extends AppEventName = AppEventName> {
-  name: N;
-  payload: AppEvents[N];
-}
-
-export function fakeBroadcaster(): Broadcaster & {
-  sent: Sent[];
-  named<N extends AppEventName>(name: N): AppEvents[N][];
-} {
-  const sent: Sent[] = [];
-  return {
-    sent,
-    send(name, payload) {
-      sent.push({ name, payload } as Sent);
-    },
-    named<N extends AppEventName>(name: N) {
-      return sent
-        .filter((event) => event.name === name)
-        .map((event) => event.payload as AppEvents[N]);
-    },
-  };
 }
 
 // a new DevBrain folder in a temporary directory; `cleanup` closes it and removes the directory

@@ -76,11 +76,10 @@ src/main/ipc/
   context.ts                AppContext, createContext
   middleware.ts             logging, requireDevBrain, requireWorkspace
   zod.ts                    zId(entity), zPage
-  broadcaster.ts            Broadcaster, webContentsBroadcaster
+  broadcaster.ts            Broadcaster over webContents
   changes/
-    scope.ts                ChangeScope, withChangeScope, openScope
-                            (AsyncLocalStorage)
-    entities.ts             WorkspaceChange, subscribeToWorkspace, changedEntities
+    scope.ts                withChangeScope, openScope (AsyncLocalStorage)
+    entities.ts             WorkspaceChange, changedEntities (exhaustive)
     router.ts               ChangeRouter
   routers/                  app, workspaces, settings, tasks, archive, favorites, notes, projects,
                             events, calendars, integrations, sources, sync, search
@@ -127,41 +126,28 @@ each change goes: into the response of the mutation that caused it, or out as a 
 - **Changes emitted inside a transaction** (`ArchiveChange`, `disconnected`). The listener runs
   before the commit, but the main process is single-threaded and the transaction synchronous: the
   response or broadcast cannot reach the renderer, nor its refetch run, until the commit is done.
-- **No gaps.** Every service that writes announces it, so a handler never reports a change itself,
-  and the context has no `changes`. Milestone 3 added the ones that were missing: the workspace
-  registry (`WorkspaceService`'s `opened`, `created` and `deleted` each route `workspace`), the
-  settings (`SettingsService.onChange`: a write under `settings.` routes `settings`, one to
-  `state.` routes nothing) and the calendars (`CalendarService.onChange`, `calendar`). A new write
-  that no service announces gets an event in core.
-- **Queries** open no scope: what core announces while one runs is broadcast, and its `changed`
-  is always empty.
+- **Gaps.** `CalendarService`, `SettingsService` and the workspace registry emit nothing. Their
+  handlers call `ctx.changes.record(...)`.
 - **Over-reporting is safe.** It only costs a refetch. When in doubt, a mapping returns more.
 
-The mapping is one exhaustive `switch` over the sources, with an `assertNever` default, so a new
-source fails typecheck until it is handled. Within a source, it switches on `type` only where the
-answer depends on it (detach, integrations), so a new type there fails typecheck too; every task,
-note, project or event change maps the same whatever its type:
+The mapping is one exhaustive `switch` per change union, with `assertNever` defaults, so a new
+change type fails typecheck until it is handled:
 
-| Core change                                      | `ChangedEntity[]`                                                    |
-| ------------------------------------------------ | -------------------------------------------------------------------- |
-| `TaskChange`                                     | `task`                                                               |
-| `NoteChange`                                     | `note`                                                               |
-| `ProjectChange`                                  | `project`                                                            |
-| `EventChange`                                    | `event`                                                              |
-| `ArchiveChange`                                  | each of `task`, `project`, `note` whose id list is not empty         |
-| `FavoriteChange`                                 | the favorited entity's type (`tasks` → `task`, …)                    |
-| `TaskLinkChange` (detach, reattach)              | `task` plus its `changed`; `credentials_rejected` → `integration`    |
-| `IntegrationChange`                              | `integration` and `externalSource`, plus `changed` on `disconnected` |
-| `SyncProgress`                                   | `summary.changed`                                                    |
-| `WorkspaceChange` `opened`, `created`, `deleted` | `workspace` (the registry)                                           |
-| `SettingsChange` (`settings.*` key, or a reset)  | `settings`; a `state.*` key routes nothing                           |
-| `CalendarChange`                                 | `calendar`                                                           |
-| `SyncStatusChange` (`onStatus`)                  | `externalSource` (its `lastSyncedAt`, `lastError`, `retryAt`)        |
+| Core change                         | `ChangedEntity[]`                                                    |
+| ----------------------------------- | -------------------------------------------------------------------- |
+| `TaskChange`                        | `task`                                                               |
+| `NoteChange`                        | `note`                                                               |
+| `ProjectChange`                     | `project`                                                            |
+| `EventChange`                       | `event`                                                              |
+| `ArchiveChange`                     | each of `task`, `project`, `note` whose id list is not empty         |
+| `FavoriteChange`                    | the favorited entity's type (`tasks` → `task`, …)                    |
+| `TaskLinkChange` (detach, reattach) | `task` plus its `changed`; `credentials_rejected` → `integration`    |
+| `IntegrationChange`                 | `integration` and `externalSource`, plus `changed` on `disconnected` |
+| `SyncProgress`                      | `summary.changed`                                                    |
 
 The router also broadcasts deltas for status UI, whatever the scope: `integrations.changed`
 (`integrationId`, `type`), `sync.progress` (`sourceId`, `phase`, `itemsApplied`), `sources.changed`
-(`sourceId`, on a `source_changed` and on each sync status) and `workspace.changed` (`id`, or
-`null` on close; a switch sends `null`, then the new id).
+(`sourceId`) and `workspace.changed` (`id`, or `null` on close).
 
 ## Changes to core
 
@@ -172,9 +158,6 @@ existing conventions:
    `{ type: 'opened'; workspace: Workspace } | { type: 'closed'; workspaceId: WorkspaceId }`. It
    emits `opened` once the workspace is current and `closed` once it has closed. The change router
    follows the open workspace through it, including the one `startDevBrain` opens at launch.
-   Milestone 3 added `{ type: 'created'; workspace: WorkspaceInfo }` and
-   `{ type: 'deleted'; workspaceId }`, each sent once the registry has been written, so the
-   workspace routes need no `record`.
 2. **`SyncScheduler.onStatus`**, which passes on `SyncStateManager`'s `sync_status_changed`. Today
    nothing outside `Workspace`'s constructor can subscribe to source status.
 3. **Move `integrations/shared-types.ts` to `src/common/integrations.ts`**, with a re-export in
@@ -236,8 +219,7 @@ request ids.
      queries and mutations run, and tRPC answers an unknown path or a type that isn't the
      procedure's with `NOT_FOUND`. Each fails as `internal`.
    - `createContext({ event, changes })` is typed from the router. `changes.record()` fills the
-     response's `changed`, on failure too. (Milestone 3 fills it from core's events instead, and
-     dropped `changes` from the context.)
+     response's `changed`, on failure too; milestone 3 fills it from core's events as well.
    - A disposer that removes the handler.
 5. **`src/preload/index.ts`:**
    - `exposeBridge()` provides `invoke({ path, type, input })` and `subscribe(name, cb)`.
@@ -273,6 +255,13 @@ correct type.
 
 ## Milestone 3: Change router and wiring into the app
 
+> **Status (PR 4):** steps 6–8 are done, except attaching the `ChangeRouter` in step 7. Steps 2–5,
+> that attach and the change tests below are deferred: how the renderer learns what changed is
+> still to be decided. The candidates are the recorded changes this plan describes, a renderer-side
+> map of what each mutation invalidates, and refetching every query on screen after any write
+> (with sync pushing one event). Until then `changed` is always empty: milestone 2's
+> `ctx.changes` is there, and no route records anything. Step 1 landed in PR 3.
+
 **Steps**
 
 1. Make core changes 1 and 2 (`WorkspaceService.onChange`, `SyncScheduler.onStatus`), each with
@@ -281,26 +270,24 @@ correct type.
    `changed` is filled on failures too. `openScope()` returns the scope only while it is open.
 3. **`changes/entities.ts`:**
    - The `WorkspaceChange` union, tagged by source: tasks, notes, projects, events, archive,
-     favorites, detach, integrations, sync (`onProgress`) and syncStatus (`onStatus`), with
-     `subscribeToWorkspace` subscribing to all of them.
-   - `changedEntities`, an exhaustive `switch` per source, and per `type` where the answer
-     depends on it, with `assertNever` defaults (see the mapping table above).
+     favorites, detach, integrations, sync.
+   - `changedEntities`, an exhaustive `switch` per source and per `type`, with `assertNever`
+     defaults (see the mapping table above).
 4. **`changes/router.ts`:** `ChangeRouter`.
    - `attach(devBrain)`: subscribes to the current workspace now, then follows
      `workspaces.onChange`, subscribing on `opened` and unsubscribing on `closed`. It broadcasts
      `workspace.changed`.
    - `route(entities)`: adds to the open scope, or broadcasts `db.changes`.
+   - `record(...entities)`: for handlers whose service emits nothing.
    - It also broadcasts the deltas: `integrations.changed`, `sync.progress`, `sources.changed`.
 5. **The transport** wraps each mutation's `callTRPCProcedure` in `withChangeScope` and returns
-   the scope's `changed` on success and on failure; the `ChangeRouter` fills it from core's events.
-   `createContext` takes only the event: the `ChangeRecorder` milestone 2 passed it is gone, as no
-   handler records a change itself. A query runs outside any scope, with `changed: []`.
+   the scope's `changed` on success and on failure. `ctx.changes.record()` adds to the same scope.
    (A tRPC middleware can't do this: it can only return the resolver's output, with no room for
    `changed` beside it.)
 6. **Context and middleware** (tRPC middleware, built with `t.middleware`):
-   - `createContext({ event, devBrain: startCore(), log })` returns
-     `{ event, devBrain, workspace: devBrain.currentWorkspace, log }`, read fresh on every call.
-     `src/main/index.ts` binds DevBrain and the logger where it attaches the router. It awaits
+   - `createContext({ event, changes, devBrain: startCore(), log })` returns
+     `{ event, devBrain, workspace: devBrain.currentWorkspace, changes, log }`, read fresh on every
+     call. `src/main/index.ts` binds DevBrain and the logger where it attaches the router. It awaits
      `startCore()`, so calls made while core starts wait for it.
    - No sender guard: the window is sandboxed and can't open windows or navigate (step 7), so
      only the app's page can be in it to call main. (The plan first had a `senderGuard` checking
@@ -321,10 +308,10 @@ correct type.
      a `will-navigate` guard that cancels every navigation but a reload of the current page. The
      app routes within its page, which is no navigation.
 8. **The first real routes:**
-   - `workspaces`: `list`, `current`, `open`, `create`, `delete`. These return
-     `WorkspaceInfo`, never a `Workspace`; `workspace` comes back in `changed` from core's events. `create` doesn't open the new
-     workspace: core's `WorkspaceService.create` now closes the database it created and returns
-     the info, so a workspace is only ever open through `open`, which closes the open one first (core's
+   - `workspaces`: `list`, `current`, `open`, `create`, `delete`. These return `WorkspaceInfo`,
+     never a `Workspace`. `create` doesn't open the new workspace: core's `WorkspaceService.create`
+     now registers it only once its database is created, closes that database and returns the
+     info, so a workspace is only ever open through `open`, which closes the open one first (core's
      `WorkspaceService.switch`, which only called `open`, is gone). `open` writes
      `state.lastWorkspaceId`, which `startDevBrain` reopens at launch and nothing wrote before, and
      `delete` clears it.
@@ -371,8 +358,6 @@ response carries `changed`.
      | `calendar`       | `calendars`, `events`                                 |
      | `integration`    | `integrations`, `sync`                                |
      | `externalSource` | `integrations`, `sources`, `sync`                     |
-     | `workspace`      | `workspaces`                                          |
-     | `settings`       | `settings`                                            |
 
    - `isPrefix`, `compile` (merge, deduplicate, drop covered prefixes), and
      `invalidateFor(entities)` as one predicate call. tRPC's query keys start with the path array
@@ -416,7 +401,7 @@ synchronous.
 | `projects`     | `list`, `get`, `create`, `update`, `updateStatus`, `stats`, `setFavorite`                                                                                                           |                                                                                                                                                                                                                 |
 | `events`       | `listForCalendar`, `get`, `create`, `update`, `delete`, `setFavorite`                                                                                                               |                                                                                                                                                                                                                 |
 | `favorites`    | `list` (infinite, with the `entityType` filter)                                                                                                                                     | `listFavorites`. Favoriting itself is each entity router's `setFavorite`.                                                                                                                                       |
-| `calendars`    | `list`, `setVisible`, `setSelected`                                                                                                                                                 | `CalendarService` announces both writes (milestone 3). `setSelected` also calls `workspace.sync.syncNow(sourceId)` when the calendar has a source.                                                              |
+| `calendars`    | `list`, `setVisible`, `setSelected`                                                                                                                                                 | `CalendarService` emits nothing, so these call `ctx.changes.record('calendar')`. `setSelected` also calls `workspace.sync.syncNow(sourceId)` when the calendar has a source.                                    |
 | `integrations` | `list`, `get`, `connect` (API key or OAuth), `reconnect`, `cancelConnect`, `setEnabled`, `previewDisconnect`, `disconnect`                                                          | An OAuth `connect` or `reconnect` keeps its flow's `AbortController` in the router; `cancelConnect` aborts it (one flow per workspace, so no id), and the aborted call maps core's `AbortError` to `cancelled`. |
 | `sources`      | `setEnabled`                                                                                                                                                                        |                                                                                                                                                                                                                 |
 | `sync`         | `now`, `status`                                                                                                                                                                     |                                                                                                                                                                                                                 |
@@ -460,8 +445,7 @@ route.
    checklist:
    - Add the procedure to its feature router, with an input schema.
    - Return what core returns.
-   - Make sure the service announces what it writes (`ChangeListeners`), and that
-     `changedEntities` maps it: handlers never report changes themselves.
+   - Call `ctx.changes.record()` only if the service emits nothing.
    - Update `affects` only when a new entity or view is involved.
 2. In `docs/integrations/tech-design.md`, replace "IPC contract (deferred)" with a pointer to the
    router and the `AppEvents` names.
@@ -501,7 +485,7 @@ star toggle is the likely first one. The layer makes them safe:
 | 1    | Milestone 1: setup, aliases, Vitest, moving shared types                                                                | none                        |
 | 2    | Milestone 2: tRPC over IPC and `app.ping`                                                                               | 1                           |
 | 3    | Core changes 1 and 2 (`WorkspaceService.onChange`, `SyncScheduler.onStatus`)                                            | none; can run alongside 1–2 |
-| 4    | Milestone 3: change router, context, middleware, window hardening, workspace/settings/openUrl routes                    | 2, 3                        |
+| 4    | Milestone 3: context, middleware, window hardening, workspace/settings/openUrl routes (change router deferred)          | 2, 3                        |
 | 5    | Milestone 4: React Query and invalidation                                                                               | 4                           |
 | 6a–c | Milestone 5: tasks + archive; integrations + sources + sync + calendars; notes + projects + events + favorites + search | 5                           |
 | 7    | Milestone 6: documentation                                                                                              | 6                           |

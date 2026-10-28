@@ -1,32 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
 import type { DevBrain, WorkspaceEntry } from '@main/core';
-import { ChangeRouter } from '@main/ipc/changes/router';
-import { wsProcedure } from '@main/ipc/procedures';
 import { appRouter } from '@main/ipc/router';
 import { attachRouter } from '@main/ipc/server';
-import { t } from '@main/ipc/trpc';
 import { resetElectronMock } from '../__mocks__/electron';
-import { call, createWorkspace, fakeBroadcaster, tempDevBrain, testContext } from './helpers';
+import { call, createWorkspace, tempDevBrain, testContext } from './helpers';
 
 // The first routes end to end, through the transport, over a real DevBrain folder.
 
-const DUE = new Date('2026-11-01T00:00:00.000Z');
-
 let devBrain: DevBrain;
 let cleanup: () => Promise<void>;
-let broadcaster: ReturnType<typeof fakeBroadcaster>;
-let detachChanges: () => void;
 const openExternal = vi.fn(async () => {});
 
 beforeEach(async () => {
   ({ devBrain, cleanup } = await tempDevBrain({ openExternal }));
-  broadcaster = fakeBroadcaster();
-  detachChanges = new ChangeRouter(broadcaster).attach(devBrain);
 });
 
 afterEach(async () => {
-  detachChanges();
   resetElectronMock();
   openExternal.mockClear();
   await cleanup();
@@ -59,44 +49,6 @@ describe('the base procedures', () => {
       'no_workspace_open',
     );
   });
-
-  it("return core's changes in a mutation's changed, and broadcast a query's", async () => {
-    await devBrain.workspaces.open(await createWorkspace(devBrain, 'A'));
-    broadcaster.sent.length = 0;
-    attach(
-      t.router({
-        create: wsProcedure.mutation(({ ctx }) => {
-          ctx.workspace.tasks.createTask({ title: 'Routed', dueDate: DUE });
-          const [calendar] = ctx.workspace.calendars.list();
-          ctx.workspace.calendars.setVisible(calendar.id, false);
-          return null;
-        }),
-        failing: wsProcedure.mutation(({ ctx }) => {
-          ctx.workspace.tasks.createTask({ title: 'Committed', dueDate: DUE });
-          throw new Error('after the commit');
-        }),
-        // a query opens no scope: what core announces while it runs is broadcast
-        sneaky: wsProcedure.query(({ ctx }) => {
-          ctx.workspace.tasks.createTask({ title: 'From a query', dueDate: DUE });
-          return null;
-        }),
-      }),
-    );
-
-    expect(await call('create', undefined, 'mutation')).toEqual({
-      ok: true,
-      data: null,
-      changed: ['task', 'calendar'],
-    });
-    expect(await call('failing', undefined, 'mutation')).toMatchObject({
-      ok: false,
-      changed: ['task'],
-    });
-    expect(broadcaster.named('db.changes')).toEqual([]);
-
-    expect(await call('sneaky')).toEqual({ ok: true, data: null, changed: [] });
-    expect(broadcaster.named('db.changes')).toEqual([{ entities: ['task'] }]);
-  });
 });
 
 describe('workspaces', () => {
@@ -111,7 +63,6 @@ describe('workspaces', () => {
     expect(created).toMatchObject({
       ok: true,
       data: { name: 'Work', color: '#112233', lastOpenedAt: null },
-      changed: ['workspace'],
     });
     const work = (created as { data: WorkspaceEntry }).data.id;
     const home = await createWorkspace(devBrain, 'Home');
@@ -123,7 +74,6 @@ describe('workspaces', () => {
     expect(await call('workspaces.open', { id: work }, 'mutation')).toMatchObject({
       ok: true,
       data: { id: work },
-      changed: ['workspace'],
     });
     expect(await call('workspaces.current')).toMatchObject({ data: { id: work } });
     expect(devBrain.settings.get('state.lastWorkspaceId')).toBe(work);
@@ -133,28 +83,22 @@ describe('workspaces', () => {
       data: { id: home },
     });
     expect(devBrain.settings.get('state.lastWorkspaceId')).toBe(home);
-    expect(broadcaster.named('workspace.changed')).toEqual([
-      { id: work },
-      { id: null },
-      { id: home },
-    ]);
 
     expect(await call('workspaces.delete', { id: home }, 'mutation')).toEqual({
       ok: true,
       data: undefined,
-      changed: ['workspace'],
+      changed: [],
     });
     expect(devBrain.settings.get('state.lastWorkspaceId')).toBeNull();
     expect(await call('workspaces.current')).toMatchObject({ data: null });
   });
 
-  it("passes core's errors through, reporting nothing when the registry wasn't written", async () => {
+  it("passes core's errors through", async () => {
     const closed = await createWorkspace(devBrain, 'Closed');
 
     expect(await call('workspaces.delete', { id: closed }, 'mutation')).toMatchObject({
       ok: false,
       error: { data: { code: 'workspace_not_open' } },
-      changed: [],
     });
     expect(
       code(await call('workspaces.open', { id: 'wsp_missing' as WorkspaceId }, 'mutation')),
@@ -190,7 +134,7 @@ describe('settings', () => {
     expect(await call('settings.update', changed, 'mutation')).toEqual({
       ok: true,
       data: changed,
-      changed: ['settings'],
+      changed: [],
     });
     expect(devBrain.settings.get('settings.general.timeFormat')).toBe('24');
   });
@@ -205,7 +149,6 @@ describe('settings', () => {
       expect(await call('settings.update', input, 'mutation')).toMatchObject({
         ok: false,
         error: { data: { code: 'invalid_input' } },
-        changed: [],
       });
     }
     expect(devBrain.settings.get('settings')).toEqual(settings);

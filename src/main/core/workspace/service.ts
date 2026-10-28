@@ -10,15 +10,11 @@ import { NotFoundError, WorkspaceDataMissingError, WorkspaceNotOpenError } from 
 import { paginateArray, Page, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 
-// The open workspace or the registry changed. Opening one while another is open sends `closed` for
-// the old one before `opened` for the new one, in the order the transitions ran. `opened` also
-// means the registry was written (the workspace's lastOpenedAt); `created` and `deleted` are sent
-// once the registry has the workspace, or no longer has it.
+// The open workspace changed. Opening one while another is open sends `closed` for the old one
+// before `opened` for the new one, in the order the transitions ran.
 export type WorkspaceChange =
   | { type: 'opened'; workspace: Workspace }
-  | { type: 'closed'; workspaceId: WorkspaceId }
-  | { type: 'created'; workspace: WorkspaceInfo }
-  | { type: 'deleted'; workspaceId: WorkspaceId };
+  | { type: 'closed'; workspaceId: WorkspaceId };
 
 // TODO: opening a workspace again after it has been openedn should be as cheap as possible
 // if possible, workspaces should be "cached" here
@@ -51,8 +47,7 @@ export class WorkspaceService {
 
   /**
    * Sends `opened` once a workspace is current and `closed` once the current one has closed, by
-   * open, close or delete; `created` and `deleted` once the registry has been written. Returns a
-   * function that unsubscribes the listener.
+   * open, close or delete. Returns a function that unsubscribes the listener.
    */
   onChange(listener: ChangeListener<WorkspaceChange>): () => void {
     return this.changes.add(listener);
@@ -129,7 +124,6 @@ export class WorkspaceService {
       await fs.rm(workspacePath, { recursive: true, force: true });
       throw error;
     }
-    this.changes.emit({ type: 'created', workspace: workspaceInfo });
     return workspaceInfo;
   }
 
@@ -166,7 +160,6 @@ export class WorkspaceService {
     // remove workspace from workspaces file
     delete workspaces[id];
     this.writeWorkspaceFile(workspaces);
-    this.changes.emit({ type: 'deleted', workspaceId: id });
   }
 
   /**

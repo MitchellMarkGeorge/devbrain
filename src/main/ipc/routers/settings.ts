@@ -4,8 +4,7 @@ import { devBrainProcedure } from '../procedures';
 import { t } from '../trpc';
 
 // The user's settings. The app's state beside them in the settings file is main's alone (the
-// workspaces routes write lastWorkspaceId). SettingsService announces each write, which the
-// ChangeRouter reports as `settings`.
+// workspaces routes write lastWorkspaceId).
 export const settingsRouter = t.router({
   get: devBrainProcedure.query(({ ctx }): AppSettings => ctx.devBrain.settings.get('settings')),
 

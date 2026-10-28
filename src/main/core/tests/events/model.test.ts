@@ -418,24 +418,6 @@ describe('CalendarService', () => {
     );
   });
 
-  it('sends each write after it is made, with the row as written, and nothing for a refused one', async () => {
-    const synced = syncedCalendar({ selected: true });
-    const changes: unknown[] = [];
-    calendarService.onChange((change) =>
-      changes.push({ ...change, stored: calendarService.getById(change.calendar.id) }),
-    );
-
-    const hidden = calendarService.setVisible(DEFAULT_CALENDAR_ID, false);
-    const deselected = calendarService.setSelected(synced, false);
-    expect(() => calendarService.setSelected(DEFAULT_CALENDAR_ID, false)).toThrow();
-    expect(() => calendarService.setVisible('cal_missing' as CalendarId, true)).toThrow();
-
-    expect(changes).toEqual([
-      { type: 'updated', calendar: hidden, stored: hidden },
-      { type: 'updated', calendar: deselected, stored: deselected },
-    ]);
-  });
-
   it('chooses whether a synced calendar syncs, touching only the column', async () => {
     const synced = syncedCalendar({ selected: true });
     const event = db

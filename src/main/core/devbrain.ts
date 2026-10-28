@@ -30,7 +30,7 @@ export class DevBrain {
     openSettingsStore: OpenSettingsStore,
     options: WorkspaceOptions,
   ) {
-    this.settings = new SettingsService(rootPath, openSettingsStore, { logger: options.logger });
+    this.settings = new SettingsService(rootPath, openSettingsStore);
     this.workspaces = new WorkspaceService(rootPath, options);
   }
 

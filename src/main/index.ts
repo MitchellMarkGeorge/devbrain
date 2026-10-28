@@ -13,8 +13,6 @@ import { closeBeforeQuit, closeCore, forwardSyncTriggers } from './runtime/lifec
 import { attachRouter } from './ipc/server';
 import { appRouter } from './ipc/router';
 import { createContext } from './ipc/context';
-import { webContentsBroadcaster } from './ipc/broadcaster';
-import { ChangeRouter } from './ipc/changes/router';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // the repository, in development: dist/main is two levels down
@@ -155,10 +153,6 @@ app.whenReady().then(async () => {
 
   const devBrain = await starting;
   if (devBrain === null) return;
-  // core's changes go into the responses of the calls that made them, the rest out to the window,
-  // following the open workspace from the one startDevBrain opened. Attached before any call's
-  // context resolves, as this await on `starting` was registered before any call arrived
-  new ChangeRouter(webContentsBroadcaster()).attach(devBrain);
   // window focus and system resume sync the workspace open at the time, if any
   forwardSyncTriggers({ app, powerMonitor }, devBrain, devBrainLog);
 });
