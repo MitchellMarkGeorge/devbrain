@@ -100,7 +100,7 @@ describe('the base procedures', () => {
 describe('workspaces', () => {
   beforeEach(() => attach());
 
-  it('creates, lists, opens, switches and deletes, returning WorkspaceInfo', async () => {
+  it('creates, lists, opens one then another, and deletes, returning WorkspaceInfo', async () => {
     const created = await call<WorkspaceEntry>(
       'workspaces.create',
       { name: ' Work ', color: '#112233' },
@@ -126,7 +126,7 @@ describe('workspaces', () => {
     expect(await call('workspaces.current')).toMatchObject({ data: { id: work } });
     expect(devBrain.settings.get('state.lastWorkspaceId')).toBe(work);
 
-    expect(await call('workspaces.switch', { id: home }, 'mutation')).toMatchObject({
+    expect(await call('workspaces.open', { id: home }, 'mutation')).toMatchObject({
       ok: true,
       data: { id: home },
     });

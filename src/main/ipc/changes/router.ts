@@ -28,8 +28,8 @@ export class ChangeRouter {
   constructor(private readonly broadcaster: Broadcaster) {}
 
   /**
-   * Follows the workspace open now, if any, then whichever one is open after each open, switch,
-   * close or delete; the old workspace's changes are no longer routed once it has closed. Returns
+   * Follows the workspace open now, if any, then whichever one is open after each open, close or
+   * delete; the old workspace's changes are no longer routed once it has closed. Returns
    * the function that stops following.
    */
   attach(devBrain: Pick<DevBrain, 'workspaces'>): () => void {

@@ -10,8 +10,8 @@ import { NotFoundError, WorkspaceDataMissingError, WorkspaceNotOpenError } from 
 import { paginateArray, Page, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 
-// The open workspace changed. A switch sends `closed` for the old workspace before `opened` for the
-// new one, in the order the transitions ran.
+// The open workspace changed. Opening one while another is open sends `closed` for the old one
+// before `opened` for the new one, in the order the transitions ran.
 export type WorkspaceChange =
   | { type: 'opened'; workspace: Workspace }
   | { type: 'closed'; workspaceId: WorkspaceId };
@@ -47,7 +47,7 @@ export class WorkspaceService {
 
   /**
    * Sends `opened` once a workspace is current and `closed` once the current one has closed, by
-   * open, switch, close or delete. Returns a function that unsubscribes the listener.
+   * open, close or delete. Returns a function that unsubscribes the listener.
    */
   onChange(listener: ChangeListener<WorkspaceChange>): () => void {
     return this.changes.add(listener);
@@ -92,7 +92,7 @@ export class WorkspaceService {
 
   /**
    * Registers a new workspace and creates its database, running migrations, then closes it.
-   * Creating never opens a workspace: open (or switch) to it to use it. Returns its info.
+   * Creating never opens a workspace: open it to use it. Returns its info.
    */
   async create(options: CreateWorkspaceOptions): Promise<WorkspaceInfo> {
     const id = generateId('workspace');
@@ -208,11 +208,6 @@ export class WorkspaceService {
     }
     this.changes.emit({ type: 'opened', workspace });
     return workspace;
-  }
-
-  async switch(id: WorkspaceId): Promise<Workspace> {
-    // open closes the current workspace first
-    return this.open(id);
   }
 
   /**

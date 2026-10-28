@@ -309,10 +309,11 @@ correct type.
      a `will-navigate` guard that cancels every navigation but a reload of the current page. The
      app routes within its page, which is no navigation.
 8. **The first real routes:**
-   - `workspaces`: `list`, `current`, `open`, `switch`, `create`, `delete`. These return
+   - `workspaces`: `list`, `current`, `open`, `create`, `delete`. These return
      `WorkspaceInfo`, never a `Workspace`, and record `workspace`. `create` doesn't open the new
      workspace: core's `WorkspaceService.create` now closes the database it created and returns
-     the info, so a workspace is only ever open through `open` or `switch`. `open` and `switch` write
+     the info, so a workspace is only ever open through `open`, which closes the open one first (core's
+     `WorkspaceService.switch`, which only called `open`, is gone). `open` writes
      `state.lastWorkspaceId`, which `startDevBrain` reopens at launch and nothing wrote before, and
      `delete` clears it.
    - `settings`: `get` returns the user's settings; `update` takes the whole settings object,

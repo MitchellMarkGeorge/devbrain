@@ -195,7 +195,7 @@ describe('DevBrain — switching workspaces', () => {
     await workspace.integrations.connectWithApiKey(Provider.LINEAR, FAKE_API_KEY);
     await pulled;
 
-    const opened = await devBrain.workspaces.switch(second.id);
+    const opened = await devBrain.workspaces.open(second.id);
 
     // the switch resolved only once the first workspace's pull had answered and its run settled,
     // discarding the page

@@ -61,7 +61,7 @@ describe('WorkspaceService — real overlapping transitions', () => {
     const gate = holdOpen();
     const opening = service.open(ids[0]);
     const first = await gate.reached;
-    const switching = service.switch(ids[1]);
+    const switching = service.open(ids[1]);
     expect(service.currentWorkspace).toBeNull();
     gate.release();
     await opening;

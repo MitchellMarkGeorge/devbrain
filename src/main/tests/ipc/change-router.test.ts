@@ -125,7 +125,7 @@ describe('ChangeRouter', () => {
   it("follows a switch: the old workspace's changes are ignored, the new one's routed", async () => {
     const first = await openAndAttach(ids[0]);
 
-    const second = await devBrain.workspaces.switch(ids[1]);
+    const second = await devBrain.workspaces.open(ids[1]);
     broadcaster.sent.length = 0;
     emitTaskChange(first, {
       type: 'created',
@@ -139,7 +139,7 @@ describe('ChangeRouter', () => {
   it('broadcasts workspace.changed on close and on open, in order', async () => {
     await openAndAttach(ids[0]);
 
-    await devBrain.workspaces.switch(ids[1]);
+    await devBrain.workspaces.open(ids[1]);
     await devBrain.workspaces.close();
 
     expect(broadcaster.named('workspace.changed')).toEqual([

@@ -1,8 +1,6 @@
 import { z } from 'zod';
 import { hexColorSchema } from '@common/color';
-import type { WorkspaceId } from '@common/ids';
-import type { DevBrain, Workspace, WorkspaceEntry } from '@main/core';
-import type { ChangeRecorder } from '../server';
+import type { WorkspaceEntry } from '@main/core';
 import { devBrainProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId, zPage } from '../zod';
@@ -22,18 +20,16 @@ export const workspacesRouter = t.router({
   // the open workspace, or null
   current: devBrainProcedure.query(({ ctx }) => ctx.devBrain.currentWorkspace?.info ?? null),
 
-  // closes the open one first, if any
-  open: devBrainProcedure
-    .input(byId)
-    .mutation(({ ctx, input }) =>
-      opened(ctx, input.id, () => ctx.devBrain.workspaces.open(input.id)),
-    ),
-
-  switch: devBrainProcedure
-    .input(byId)
-    .mutation(({ ctx, input }) =>
-      opened(ctx, input.id, () => ctx.devBrain.workspaces.switch(input.id)),
-    ),
+  // closes the open one first, if any, and remembers the new one, so the app reopens it at the next
+  // start (startDevBrain)
+  open: devBrainProcedure.input(byId).mutation(async ({ ctx, input }): Promise<WorkspaceEntry> => {
+    // lastOpenedAt, and the open workspace's own rows: the renderer starts over on workspace.changed
+    ctx.changes.record('workspace');
+    const workspace = await ctx.devBrain.workspaces.open(input.id);
+    // main's own state, which the renderer never reads, so not recorded
+    ctx.devBrain.settings.set('state.lastWorkspaceId', input.id);
+    return workspace.info;
+  }),
 
   // creates the workspace without opening it: open it next to use it
   create: devBrainProcedure
@@ -52,17 +48,3 @@ export const workspacesRouter = t.router({
     }
   }),
 });
-
-// Opens a workspace and remembers it, so the app reopens it at the next start (startDevBrain)
-async function opened(
-  ctx: { devBrain: DevBrain; changes: ChangeRecorder },
-  id: WorkspaceId,
-  open: () => Promise<Workspace>,
-): Promise<WorkspaceEntry> {
-  // lastOpenedAt, and the open workspace's own rows: the renderer starts over on workspace.changed
-  ctx.changes.record('workspace');
-  const workspace = await open();
-  // main's own state, which the renderer never reads, so not recorded
-  ctx.devBrain.settings.set('state.lastWorkspaceId', id);
-  return workspace.info;
-}

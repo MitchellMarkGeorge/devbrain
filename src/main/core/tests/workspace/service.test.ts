@@ -496,7 +496,7 @@ describe('WorkspaceService — sync', () => {
     expect(info).toEqual(service.getById(info.id));
   });
 
-  it('switch waits for the current workspace to close before opening the next', async () => {
+  it('open waits for the current workspace to close before opening the next', async () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
     writeRegistry(tmpDir, [info]);
     await fs.mkdir(info.path, { recursive: true });
@@ -512,7 +512,7 @@ describe('WorkspaceService — sync', () => {
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await setOpenWorkspace(service, prevWorkspace);
 
-    const switching = service.switch(info.id);
+    const switching = service.open(info.id);
     await vi.waitFor(() => expect(prevWorkspace.close).toHaveBeenCalled());
     await new Promise((resolve) => setImmediate(resolve));
     expect(Workspace.open).toHaveBeenCalledOnce();
@@ -566,7 +566,7 @@ describe('WorkspaceService — sync', () => {
   });
 });
 
-describe('WorkspaceService — switch', () => {
+describe('WorkspaceService — opening while another is open', () => {
   it('closes current workspace before opening new one', async () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
     writeRegistry(tmpDir, [info]);
@@ -583,7 +583,7 @@ describe('WorkspaceService — switch', () => {
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     await setOpenWorkspace(service, prevWorkspace);
 
-    await service.switch(info.id);
+    await service.open(info.id);
 
     expect(prevWorkspace.close).toHaveBeenCalled();
     expect(service.currentWorkspace).toBe(nextWorkspace);
@@ -598,7 +598,7 @@ describe('WorkspaceService — switch', () => {
     vi.mocked(Workspace.open).mockResolvedValue(nextWorkspace as never);
 
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
-    const result = await service.switch(info.id);
+    const result = await service.open(info.id);
 
     expect(result).toBe(nextWorkspace);
   });
@@ -614,13 +614,13 @@ describe('WorkspaceService — switch', () => {
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     expect(service.currentWorkspace).toBeNull();
 
-    await expect(service.switch(info.id)).resolves.toBe(nextWorkspace);
+    await expect(service.open(info.id)).resolves.toBe(nextWorkspace);
   });
 
   it('throws when the target workspace does not exist', async () => {
     writeRegistry(tmpDir, []);
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
-    await expect(service.switch('wsp_nope' as WorkspaceId)).rejects.toThrow();
+    await expect(service.open('wsp_nope' as WorkspaceId)).rejects.toThrow();
   });
 });
 
@@ -739,14 +739,14 @@ describe('WorkspaceService — onChange', () => {
     expect(currentWhenSent).toBe(workspaces[0]);
   });
 
-  it('switch sends closed for the old workspace, once it has closed, before opened for the new one', async () => {
+  it('opening another sends closed for the old workspace, once it has closed, before opened for the new one', async () => {
     const { service, infos, workspaces, changes, log } = await setup();
     vi.mocked(Workspace.open)
       .mockResolvedValueOnce(workspaces[0] as never)
       .mockResolvedValueOnce(workspaces[1] as never);
     await service.open(infos[0].id);
 
-    await service.switch(infos[1].id);
+    await service.open(infos[1].id);
 
     expect(changes).toEqual([
       { type: 'opened', workspace: workspaces[0] },
@@ -872,14 +872,14 @@ describe('WorkspaceService — overlapping transitions', () => {
     return { service: new WorkspaceService(tmpDir, WORKSPACE_OPTIONS), infos, workspaces };
   }
 
-  it('serializes open, switch and close, including repeated closes', async () => {
+  it('serializes opens and closes, including repeated closes', async () => {
     const { service, infos, workspaces } = await setup();
     const opening = deferred<Workspace>();
     vi.mocked(Workspace.open)
       .mockReturnValueOnce(opening.promise)
       .mockResolvedValueOnce(workspaces[1] as never);
     const first = service.open(infos[0].id);
-    const switching = service.switch(infos[1].id);
+    const switching = service.open(infos[1].id);
     const closing = service.close();
     const closingAgain = service.close();
     await vi.waitFor(() => expect(Workspace.open).toHaveBeenCalledOnce());
@@ -900,7 +900,7 @@ describe('WorkspaceService — overlapping transitions', () => {
     const closed = deferred<void>();
     workspaces[0].close.mockReturnValueOnce(closed.promise);
     const deleting = service.delete(infos[0].id);
-    const switching = service.switch(infos[1].id);
+    const switching = service.open(infos[1].id);
     await vi.waitFor(() => expect(workspaces[0].close).toHaveBeenCalledOnce());
     expect(Workspace.open).toHaveBeenCalledOnce();
     expect(fsSync.existsSync(infos[0].path)).toBe(true);
