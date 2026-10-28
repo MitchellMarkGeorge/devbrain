@@ -314,9 +314,11 @@ correct type.
      workspace (core hands it back open; the route closes it). `open` and `switch` write
      `state.lastWorkspaceId`, which `startDevBrain` reopens at launch and nothing wrote before, and
      `delete` clears it; those record `settings` too.
-   - `settings`: `get` returns the whole settings file; `update` takes the whole `settings`
-     object, validated by `appSettingsSchema` from `core/settings/schema.ts`, saves it and returns
-     the file. The state (`lastPage`) gets its own route when a view needs it.
+   - `settings`: the user's settings and the app's state, apart. `get` returns the settings;
+     `update` takes the whole settings object, validated by `appSettingsSchema` from
+     `core/settings/schema.ts`, saves it and returns it. `getState` returns the state;
+     `updateState` writes `lastPage` and returns the state. `lastWorkspaceId` is main's, written
+     by the workspaces routes.
    - `workspace.openUrl`, which goes through core's `guardOpenExternal`.
 
 **Tests** (in `src/main/tests/ipc/`, with an in-memory workspace and a fake `Broadcaster`)

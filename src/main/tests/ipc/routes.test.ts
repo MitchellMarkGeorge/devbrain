@@ -173,25 +173,21 @@ describe('workspaces', () => {
 describe('settings', () => {
   beforeEach(() => attach());
 
-  it('gets the whole file', async () => {
-    const result = await call('settings.get');
-
-    expect(result).toMatchObject({
+  it('gets the settings', async () => {
+    expect(await call('settings.get')).toMatchObject({
       ok: true,
-      data: {
-        settings: { theme: 'dark', general: { timeFormat: expect.any(String) } },
-        state: { lastWorkspaceId: null },
-      },
+      data: { theme: 'dark', general: { timeFormat: expect.any(String) } },
+      changed: [],
     });
   });
 
-  it('replaces the settings and returns the file', async () => {
+  it('replaces the settings and returns them', async () => {
     const settings = devBrain.settings.get('settings');
     const changed = { ...settings, general: { ...settings.general, timeFormat: '24' as const } };
 
-    expect(await call('settings.update', changed, 'mutation')).toMatchObject({
+    expect(await call('settings.update', changed, 'mutation')).toEqual({
       ok: true,
-      data: { settings: changed, state: { lastWorkspaceId: null } },
+      data: changed,
       changed: ['settings'],
     });
     expect(devBrain.settings.get('settings.general.timeFormat')).toBe('24');
@@ -211,6 +207,29 @@ describe('settings', () => {
       });
     }
     expect(devBrain.settings.get('settings')).toEqual(settings);
+  });
+
+  it('gets the state, and updates the last page alone', async () => {
+    expect(await call('settings.getState')).toEqual({
+      ok: true,
+      data: { lastWorkspaceId: null, lastPage: null },
+      changed: [],
+    });
+
+    expect(
+      await call(
+        'settings.updateState',
+        { lastPage: '/tasks', lastWorkspaceId: 'wsp_x' },
+        'mutation',
+      ),
+    ).toEqual({
+      ok: true,
+      data: { lastWorkspaceId: null, lastPage: '/tasks' },
+      changed: ['settings'],
+    });
+    expect(code(await call('settings.updateState', { lastPage: 42 }, 'mutation'))).toBe(
+      'invalid_input',
+    );
   });
 });
 
