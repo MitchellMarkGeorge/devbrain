@@ -1,12 +1,11 @@
 /// <reference types="vite/client" />
 
-// Types for the bridge exposed in src/preload/index.ts.
-// Importing the Api type from preload keeps these in lockstep automatically.
-import type { Api } from '../preload';
+import type { IpcBridge } from '@common/ipc/types';
 
 declare global {
   interface Window {
-    api: Api;
+    // exposed by src/preload/index.ts under IPC_BRIDGE_KEY; called through src/renderer/ipc
+    ipcBridge: IpcBridge;
   }
 }
 

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
+import { ipc } from './ipc';
 
 export function App() {
   const [version, setVersion] = useState('…');
   const [pong, setPong] = useState('');
 
   useEffect(() => {
-    window.api.getVersion().then(setVersion);
+    ipc.app.version.query().then(setVersion);
   }, []);
 
   return (
@@ -13,7 +14,7 @@ export function App() {
       <h1>Electron + Vite + React</h1>
       <div>This is cool</div>
       <p>App version: {version}</p>
-      <button onClick={() => window.api.ping().then(setPong)}>Send ping</button>
+      <button onClick={() => ipc.app.ping.query().then(setPong)}>Send ping</button>
       {pong && <p>Main replied: {pong}</p>}
     </main>
   );
