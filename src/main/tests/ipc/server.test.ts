@@ -2,21 +2,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import type { IpcMainInvokeEvent } from 'electron';
 import { ipcMain } from 'electron';
-import { initIpc } from '@common/ipc/procedure';
+import { TRPCError } from '@trpc/server';
+import { IpcError } from '@common/ipc/errors';
 import type { IpcResult } from '@common/ipc/types';
 import { RateLimitError } from '@main/core/shared/errors';
-import { attachRouter, flatten } from '@main/ipc/server';
+import { attachRouter } from '@main/ipc/server';
 import type { IpcErrorInfo } from '@main/ipc/server';
 import { appRouter } from '@main/ipc/router';
 import { createContext } from '@main/ipc/context';
+import { t } from '@main/ipc/trpc';
 import { invokeHandler, ipcHandlers, resetElectronMock } from '../__mocks__/electron';
-
-interface Ctx {
-  user: string | null;
-  log: string[];
-}
-
-const t = initIpc<Ctx>();
 
 const event = {} as IpcMainInvokeEvent;
 
@@ -26,55 +21,10 @@ function call(path: string, input?: unknown) {
 
 function attach(
   router: Parameters<typeof attachRouter>[0],
-  options: {
-    ctx?: Partial<Ctx>;
-    checkClone?: boolean;
-    onError?: (info: IpcErrorInfo) => void;
-  } = {},
+  options: { checkClone?: boolean; onError?: (info: IpcErrorInfo) => void } = {},
 ) {
-  return attachRouter(router, {
-    createContext: () => ({ user: 'ada', log: [], ...options.ctx }),
-    onError: options.onError,
-    checkClone: options.checkClone,
-  });
+  return attachRouter(router, { createContext, ...options });
 }
-
-describe('flatten', () => {
-  it('lists procedures by dotted path', () => {
-    const procedure = t.procedure.query(() => null);
-    const paths = flatten(
-      t.router({ app: t.router({ ping: procedure, deep: t.router({ x: procedure }) }) }),
-    );
-
-    expect([...paths.keys()]).toEqual(['app.ping', 'app.deep.x']);
-  });
-
-  it.each([
-    'then',
-    'queryKey',
-    'pathKey',
-    'queryOptions',
-    'infiniteQueryOptions',
-    'mutationOptions',
-  ])("throws on the reserved segment '%s'", (key) => {
-    const router = t.router({ tasks: t.router({ [key]: t.procedure.query(() => null) }) });
-
-    expect(() => flatten(router)).toThrow(/reserved/);
-  });
-
-  it('throws on a reserved name used for a router too', () => {
-    const router = t.router({ then: t.router({ x: t.procedure.query(() => null) }) });
-
-    expect(() => flatten(router)).toThrow(/reserved/);
-  });
-
-  it('throws on a key with a dot, which would define a nested path twice', () => {
-    const procedure = t.procedure.query(() => null);
-    const router = t.router({ a: t.router({ b: procedure }), 'a.b': procedure });
-
-    expect(() => flatten(router)).toThrow(/letters, digits/);
-  });
-});
 
 describe('attachRouter', () => {
   afterEach(() => resetElectronMock());
@@ -85,22 +35,16 @@ describe('attachRouter', () => {
     expect(await call('app.ping')).toEqual({ ok: true, data: 'pong', changed: [] });
   });
 
-  it('gives the resolver the parsed input and the context', async () => {
-    const resolver = vi.fn(({ ctx, input }: { ctx: Ctx; input: { limit: number } }) => ({
-      user: ctx.user,
-      limit: input.limit,
-    }));
+  it('gives the resolver the parsed input', async () => {
     attach(
       t.router({
-        list: t.procedure.input(z.object({ limit: z.number().default(10) })).query(resolver),
+        list: t.procedure
+          .input(z.object({ limit: z.number().default(10) }))
+          .query(({ input }) => input.limit),
       }),
     );
 
-    expect(await call('list', {})).toEqual({
-      ok: true,
-      data: { user: 'ada', limit: 10 },
-      changed: [],
-    });
+    expect(await call('list', {})).toMatchObject({ ok: true, data: 10 });
   });
 
   it('answers invalid_input with the issues, without running the resolver', async () => {
@@ -112,8 +56,10 @@ describe('attachRouter', () => {
     expect(result).toMatchObject({
       ok: false,
       error: {
-        code: 'invalid_input',
-        data: { issues: [{ path: ['id'], message: expect.any(String) }] },
+        data: {
+          code: 'invalid_input',
+          data: { issues: [{ path: ['id'], message: expect.any(String) }] },
+        },
       },
       changed: [],
     });
@@ -130,11 +76,27 @@ describe('attachRouter', () => {
       }),
     );
 
-    expect(await call('sync')).toEqual({
+    expect(await call('sync')).toMatchObject({
       ok: false,
-      error: { code: 'rate_limited', message: expect.stringContaining('2026'), data: { retryAt } },
-      changed: [],
+      error: {
+        message: expect.stringContaining('2026'),
+        data: { code: 'rate_limited', message: expect.stringContaining('2026'), data: { retryAt } },
+      },
     });
+  });
+
+  it('keeps an IpcError thrown by a middleware, which stops the call', async () => {
+    const resolver = vi.fn(() => null);
+    const guarded = t.procedure.use(() => {
+      throw new IpcError('no_workspace_open', 'Open a workspace first');
+    });
+    attach(t.router({ guarded: guarded.query(resolver) }));
+
+    expect(await call('guarded')).toMatchObject({
+      ok: false,
+      error: { data: { code: 'no_workspace_open', message: 'Open a workspace first' } },
+    });
+    expect(resolver).not.toHaveBeenCalled();
   });
 
   it('answers internal for anything else, and reports the original to onError', async () => {
@@ -142,24 +104,26 @@ describe('attachRouter', () => {
     const thrown = new Error('database is locked');
     attach(
       t.router({
-        broken: t.procedure.query(async () => {
+        broken: t.procedure.query(() => {
           throw thrown;
+        }),
+        trpcError: t.procedure.query(() => {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'internal detail' });
         }),
       }),
       { onError },
     );
 
-    expect(await call('broken')).toEqual({
+    expect(await call('broken')).toMatchObject({
       ok: false,
-      error: { code: 'internal', message: 'Something went wrong', data: {} },
-      changed: [],
+      error: {
+        message: 'Something went wrong',
+        data: { code: 'internal', message: 'Something went wrong', data: {} },
+      },
     });
-    expect(onError).toHaveBeenCalledWith({
-      path: 'broken',
-      type: 'query',
-      error: thrown,
-      serialized: expect.objectContaining({ code: 'internal' }),
-    });
+    expect(onError.mock.calls[0][0]).toMatchObject({ path: 'broken', error: { cause: thrown } });
+    // a TRPCError thrown directly is not one of ours either
+    expect(await call('trpcError')).toMatchObject({ error: { data: { code: 'internal' } } });
   });
 
   it('runs middleware in order, around the resolver, with the context each one adds', async () => {
@@ -185,37 +149,22 @@ describe('attachRouter', () => {
     expect(order).toEqual(['first save mutation', 'second grace', 'resolver', 'first after']);
   });
 
-  it('stops at a middleware that throws', async () => {
-    const later = vi.fn(({ next }) => next());
-    const resolver = vi.fn(() => null);
-    const procedure = t.procedure
-      .use(({ ctx, next }) => {
-        if (ctx.user === null) throw new RateLimitError(new Date(0));
-        return next();
-      })
-      .use(later)
-      .query(resolver);
-    attach(t.router({ guarded: procedure }), { ctx: { user: null } });
+  it('returns what the call recorded as changed, on success and on failure', async () => {
+    attach(
+      t.router({
+        archive: t.procedure.mutation(({ ctx }) => {
+          ctx.changes.record('task', 'note', 'task');
+          return null;
+        }),
+        failsAfterWriting: t.procedure.mutation(({ ctx }) => {
+          ctx.changes.record('task');
+          throw new Error('after the commit');
+        }),
+      }),
+    );
 
-    expect(await call('guarded')).toMatchObject({ ok: false, error: { code: 'rate_limited' } });
-    expect(later).not.toHaveBeenCalled();
-    expect(resolver).not.toHaveBeenCalled();
-  });
-
-  it('fails a call whose middleware calls next() twice', async () => {
-    const resolver = vi.fn(() => null);
-    const onError = vi.fn();
-    const procedure = t.procedure
-      .use(async ({ next }) => {
-        await next();
-        return next();
-      })
-      .query(resolver);
-    attach(t.router({ twice: procedure }), { onError });
-
-    expect(await call('twice')).toMatchObject({ ok: false, error: { code: 'internal' } });
-    expect(resolver).toHaveBeenCalledTimes(1);
-    expect(onError.mock.calls[0][0].error.message).toMatch(/next\(\) twice/);
+    expect(await call('archive')).toEqual({ ok: true, data: null, changed: ['task', 'note'] });
+    expect(await call('failsAfterWriting')).toMatchObject({ ok: false, changed: ['task'] });
   });
 
   it('with checkClone, fails a result IPC cannot send, naming the path', async () => {
@@ -225,14 +174,16 @@ describe('attachRouter', () => {
 
     const result = await call('app.fn');
 
-    expect(result).toMatchObject({ ok: false, error: { code: 'internal' } });
+    expect(result).toMatchObject({ ok: false, error: { data: { code: 'internal' } } });
     expect(!result.ok && result.error.message).toMatch(/'app\.fn' returned a value IPC can't send/);
   });
 
-  it('without checkClone, leaves the result to Electron', async () => {
-    attach(t.router({ fn: t.procedure.query(() => ({ run: () => 1 })) }));
+  it('refuses subscriptions', () => {
+    const router = t.router({
+      live: t.procedure.subscription(async function* () {}),
+    });
 
-    expect(await call('fn')).toMatchObject({ ok: true });
+    expect(() => attach(router)).toThrow(/subscriptions/);
   });
 
   it('registers one handler per path, and the disposer removes them all', () => {

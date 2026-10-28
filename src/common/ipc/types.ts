@@ -22,11 +22,19 @@ export interface SerializedError {
   data: Record<string, unknown>;
 }
 
+// A failure as tRPC's client reads it (its error shape): the tRPC code, and our serialized error as
+// `data`, put there by the router's errorFormatter (src/main/ipc/trpc.ts).
+export interface IpcErrorShape {
+  code: number;
+  message: string;
+  data: SerializedError;
+}
+
 // What every procedure's channel answers with. `changed` lists the kinds of rows the call changed,
 // on failure too, so the renderer refetches whatever did commit.
 export type IpcResult<T> =
   | { ok: true; data: T; changed: ChangedEntity[] }
-  | { ok: false; error: SerializedError; changed: ChangedEntity[] };
+  | { ok: false; error: IpcErrorShape; changed: ChangedEntity[] };
 
 // What the preload exposes on `window` (IPC_BRIDGE_KEY). Generic: nothing in it is per route.
 export interface IpcBridge {
@@ -34,39 +42,3 @@ export interface IpcBridge {
   // returns the function that unsubscribes
   subscribe(name: string, listener: (payload: unknown) => void): () => void;
 }
-
-// Standard Schema v1 (https://standardschema.dev), inlined as its spec recommends rather than
-// added as a dependency. Zod v4 schemas implement it.
-export interface StandardSchemaV1<Input = unknown, Output = Input> {
-  readonly '~standard': StandardSchemaProps<Input, Output>;
-}
-
-export interface StandardSchemaProps<Input = unknown, Output = Input> {
-  readonly version: 1;
-  readonly vendor: string;
-  readonly validate: (
-    value: unknown,
-  ) => StandardSchemaResult<Output> | Promise<StandardSchemaResult<Output>>;
-  readonly types?: StandardSchemaTypes<Input, Output> | undefined;
-}
-
-export type StandardSchemaResult<Output> =
-  | { readonly value: Output; readonly issues?: undefined }
-  | { readonly issues: ReadonlyArray<StandardSchemaIssue> };
-
-export interface StandardSchemaIssue {
-  readonly message: string;
-  readonly path?: ReadonlyArray<PropertyKey | { readonly key: PropertyKey }> | undefined;
-}
-
-export interface StandardSchemaTypes<Input = unknown, Output = Input> {
-  readonly input: Input;
-  readonly output: Output;
-}
-
-export type InferSchemaInput<S extends StandardSchemaV1> = NonNullable<
-  S['~standard']['types']
->['input'];
-export type InferSchemaOutput<S extends StandardSchemaV1> = NonNullable<
-  S['~standard']['types']
->['output'];

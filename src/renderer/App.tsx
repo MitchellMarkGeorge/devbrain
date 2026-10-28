@@ -6,7 +6,7 @@ export function App() {
   const [pong, setPong] = useState('');
 
   useEffect(() => {
-    ipc.app.version().then(setVersion);
+    ipc.app.version.query().then(setVersion);
   }, []);
 
   return (
@@ -14,7 +14,7 @@ export function App() {
       <h1>Electron + Vite + React</h1>
       <div>This is cool</div>
       <p>App version: {version}</p>
-      <button onClick={() => ipc.app.ping().then(setPong)}>Send ping</button>
+      <button onClick={() => ipc.app.ping.query().then(setPong)}>Send ping</button>
       {pong && <p>Main replied: {pong}</p>}
     </main>
   );

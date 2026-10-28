@@ -7,14 +7,3 @@ export const IPC_BRIDGE_KEY = 'ipcBridge';
 
 // what the preload accepts as a procedure path or an event name
 export const IPC_NAME_PATTERN = /^[a-zA-Z0-9_.]+$/;
-
-// router keys the renderer's client and query helpers use for their own properties (`then` so
-// that awaiting a router node doesn't hang); a router may not use them
-export const RESERVED_SEGMENTS: readonly string[] = [
-  'then',
-  'queryKey',
-  'pathKey',
-  'queryOptions',
-  'infiniteQueryOptions',
-  'mutationOptions',
-];

@@ -1,61 +1,33 @@
 import { ipcMain } from 'electron';
 import type { IpcMainInvokeEvent } from 'electron';
-import { IPC_CHANNEL_PREFIX, RESERVED_SEGMENTS } from '@common/ipc/constants';
-import { IpcError, serializeError } from '@common/ipc/errors';
-import { isProcedure } from '@common/ipc/procedure';
-import type {
-  AnyProcedure,
-  MiddlewareNext,
-  MiddlewareResult,
-  ProcedureType,
-  RouterContext,
-  RouterRecord,
-} from '@common/ipc/procedure';
-import type { IpcResult, SerializedError, StandardSchemaIssue } from '@common/ipc/types';
-import { InvalidInputError } from '@main/core/shared/errors';
+import { callTRPCProcedure, getTRPCErrorFromUnknown, getTRPCErrorShape } from '@trpc/server';
+import type { AnyTRPCRouter, inferRouterContext, TRPCError } from '@trpc/server';
+import type { ChangedEntity } from '@common/changes';
+import { IPC_CHANNEL_PREFIX, IPC_NAME_PATTERN } from '@common/ipc/constants';
+import { IpcError } from '@common/ipc/errors';
+import type { IpcErrorShape, IpcResult } from '@common/ipc/types';
 
-// Runs the router defined with initIpc (src/common/ipc/procedure.ts) behind ipcMain: one handler
-// per procedure, on `ipc:<path>`, answering with an IpcResult envelope.
+// tRPC's router behind ipcMain: one handler per procedure, on `ipc:<path>`, answering with an
+// IpcResult envelope. tRPC validates the input, runs the middleware and the resolver; this only
+// carries the call and its `changed` across IPC.
 
-const SEGMENT_PATTERN = /^[a-zA-Z0-9_]+$/;
-
-// A router's procedures by dotted path. Throws on a key the client can't call (a reserved name, or
-// one with characters the preload rejects) and on a path defined twice.
-export function flatten(router: RouterRecord): Map<string, AnyProcedure> {
-  const procedures = new Map<string, AnyProcedure>();
-  const visit = (record: RouterRecord, prefix: string[]) => {
-    for (const [key, value] of Object.entries(record)) {
-      const path = [...prefix, key];
-      const dotted = path.join('.');
-      if (RESERVED_SEGMENTS.includes(key)) {
-        throw new Error(`'${dotted}': '${key}' is reserved by the IPC client`);
-      }
-      if (!SEGMENT_PATTERN.test(key)) {
-        throw new Error(`'${dotted}': a router key may only hold letters, digits and _`);
-      }
-      if (isProcedure(value)) {
-        if (procedures.has(dotted)) throw new Error(`'${dotted}' is defined twice`);
-        procedures.set(dotted, value);
-      } else {
-        visit(value, path);
-      }
-    }
-  };
-  visit(router, []);
-  return procedures;
+export interface ChangeRecorder {
+  record(...entities: ChangedEntity[]): void;
 }
 
 export interface IpcErrorInfo {
   path: string;
-  type: ProcedureType;
-  // what was thrown, before serializing: an `internal` one's details are only here
-  error: unknown;
-  serialized: SerializedError;
+  // what tRPC caught: what the resolver threw is its `cause`
+  error: TRPCError;
+  shape: IpcErrorShape;
 }
 
-export interface AttachRouterOptions<TCtx extends RouterContext> {
-  // read on every call
-  createContext: (event: IpcMainInvokeEvent) => TCtx | Promise<TCtx>;
+export interface AttachRouterOptions<TRouter extends AnyTRPCRouter> {
+  // read on every call; typed from the router, so it must build the context its procedures use
+  createContext: (opts: {
+    event: IpcMainInvokeEvent;
+    changes: ChangeRecorder;
+  }) => inferRouterContext<TRouter> | Promise<inferRouterContext<TRouter>>;
   // every failed call, to log; it never changes the response
   onError?: (info: IpcErrorInfo) => void;
   // checks each result can be sent (structuredClone) and fails naming the path if not, rather
@@ -63,81 +35,52 @@ export interface AttachRouterOptions<TCtx extends RouterContext> {
   checkClone?: boolean;
 }
 
-// a validation failure: core's invalid_input, with the schema's issues in `data`
-export class InputValidationError extends InvalidInputError {
-  readonly issues: { message: string; path: (string | number)[] }[];
-
-  constructor(issues: ReadonlyArray<StandardSchemaIssue>) {
-    super(issues.length === 1 ? `Invalid input: ${issues[0].message}` : 'Invalid input');
-    this.name = 'InputValidationError';
-    // path segments may be symbols or { key } objects, which don't cross IPC
-    this.issues = issues.map((issue) => ({
-      message: issue.message,
-      path: (issue.path ?? []).map((segment) => {
-        const key = typeof segment === 'object' ? segment.key : segment;
-        return typeof key === 'number' ? key : String(key);
-      }),
-    }));
-  }
-}
-
 // Registers a handler per procedure. Returns the function that removes them.
-export function attachRouter<TCtx extends RouterContext>(
-  router: RouterRecord,
-  options: AttachRouterOptions<TCtx>,
+export function attachRouter<TRouter extends AnyTRPCRouter>(
+  router: TRouter,
+  options: AttachRouterOptions<TRouter>,
 ): () => void {
-  const procedures = flatten(router);
+  const channels: string[] = [];
 
-  const execute = async (
-    path: string,
-    procedure: AnyProcedure,
-    event: IpcMainInvokeEvent,
-    rawInput: unknown,
-  ): Promise<IpcResult<unknown>> => {
-    const { type, inputSchema, middlewares, resolver } = procedure._def;
+  for (const [path, procedure] of Object.entries(router._def.procedures)) {
+    const { type } = (procedure as { _def: { type: 'query' | 'mutation' | 'subscription' } })._def;
+    if (type === 'subscription') throw new Error(`'${path}': subscriptions don't run over IPC`);
+    if (!IPC_NAME_PATTERN.test(path)) throw new Error(`'${path}': the preload rejects this path`);
 
-    try {
-      const ctx = await options.createContext(event);
-
-      let input: unknown = rawInput;
-      if (inputSchema !== undefined) {
-        const result = await inputSchema['~standard'].validate(rawInput);
-        if (result.issues !== undefined) throw new InputValidationError(result.issues);
-        input = result.value;
-      }
-
-      const run = async (index: number, current: object): Promise<MiddlewareResult<unknown>> => {
-        if (index === middlewares.length) {
-          return { output: await resolver({ ctx: current, input }) };
-        }
-        let called = false;
-        const next = (opts?: { ctx: object }) => {
-          if (called) throw new Error(`'${path}': a middleware called next() twice`);
-          called = true;
-          return run(index + 1, opts === undefined ? current : { ...current, ...opts.ctx });
-        };
-        return middlewares[index]({
-          ctx: current,
+    const channel = `${IPC_CHANNEL_PREFIX}${path}`;
+    ipcMain.handle(channel, async (event, input: unknown): Promise<IpcResult<unknown>> => {
+      const changed = new Set<ChangedEntity>();
+      const changes: ChangeRecorder = {
+        record: (...entities) => entities.forEach((entity) => changed.add(entity)),
+      };
+      let ctx: inferRouterContext<TRouter> | undefined;
+      try {
+        ctx = await options.createContext({ event, changes });
+        const data: unknown = await callTRPCProcedure({
+          router,
           path,
           type,
-          next: next as MiddlewareNext<object>,
+          ctx,
+          getRawInput: async () => input,
+          signal: undefined,
+          batchIndex: 0,
         });
-      };
-
-      const { output } = await run(0, ctx);
-      if (options.checkClone) checkClone(path, output);
-      return { ok: true, data: output, changed: [] };
-    } catch (error) {
-      const serialized: SerializedError = serializeError(error);
-      options.onError?.({ path, type, error, serialized });
-      return { ok: false, error: serialized, changed: [] };
-    }
-  };
-
-  const channels: string[] = [];
-  for (const [path, procedure] of procedures) {
-    const channel = `${IPC_CHANNEL_PREFIX}${path}`;
-    ipcMain.handle(channel, (event, input: unknown) => execute(path, procedure, event, input));
+        if (options.checkClone) checkClone(path, data);
+        return { ok: true, data, changed: [...changed] };
+      } catch (cause) {
+        const error = getTRPCErrorFromUnknown(cause);
+        const shape = getTRPCErrorShape({
+          config: router._def._config,
+          error,
+          type,
+          path,
+          input,
+          ctx,
+        }) as IpcErrorShape;
+        options.onError?.({ path, error, shape });
+        return { ok: false, error: shape, changed: [...changed] };
+      }
+    });
     channels.push(channel);
   }
 
