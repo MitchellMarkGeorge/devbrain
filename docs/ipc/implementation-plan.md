@@ -6,20 +6,20 @@ existing services, and core's existing `ChangeListeners` events tell the rendere
 
 ## Decisions
 
-| Area             | Decision                                                                                                                                                                                                                                                                 |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Location         | In this repository, split by process: `src/common/ipc`, `src/main/ipc`, `src/preload`, `src/renderer/ipc`.                                                                                                                                                               |
-| Transport        | A tRPC-style router defined once in main. One `ipc:<path>` channel per procedure. A generic preload bridge with no code per route.                                                                                                                                       |
-| Contract         | `AppRouter` imported type-only by the renderer. Runtime values the renderer needs (enums, error codes, schemas) live in `src/common`.                                                                                                                                    |
-| Procedures       | `.query()` and `.mutation()`. Only mutations open a change scope.                                                                                                                                                                                                        |
-| Validation       | Standard Schema (Zod v4). The client sees the schema's input type, the resolver its parsed output. A failure throws core's `invalid_input`.                                                                                                                              |
-| Errors           | An envelope `{ ok, data \| error, changed }`. `IpcErrorCode = CoreErrorCode \| 'no_workspace_open' \| 'devbrain_unavailable' \| 'cancelled' \| 'internal'`. A `CoreError` keeps its message and its own fields; anything else becomes `internal` with a generic message. |
-| Cancellation     | Generic: the client takes an `AbortSignal`, and the resolver receives `signal`. It replaces a separate `cancelConnect` route.                                                                                                                                            |
-| Data layer       | React Query with an adapter: `queryOptions`, `infiniteQueryOptions`, `mutationOptions`, `queryKey`, `pathKey`.                                                                                                                                                           |
-| Change reporting | A `ChangeRouter` in main subscribes to the open workspace's `onChange` streams and maps each change to `ChangedEntity[]`. Changes made during a mutation return in its response; everything else is broadcast as `db.changes`.                                           |
-| Invalidation     | A renderer-side `affects` map from entity types to query paths, plus `compile()` and one `invalidateQueries` call with a prefix predicate. Broadcasts are coalesced (16 ms trailing, 250 ms at most) and held while mutations are pending.                               |
-| Push events      | Deltas only: `db.changes`, `sync.progress`, `integrations.changed`, `sources.changed`, `workspace.changed`. The renderer refetches instead of applying snapshots.                                                                                                        |
-| Windows          | One window. Moving to several later means broadcasting each request's `changed` to the other windows as well.                                                                                                                                                            |
+| Area             | Decision                                                                                                                                                                                                                                                                                                               |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Location         | In this repository, split by process: `src/common/ipc`, `src/main/ipc`, `src/preload`, `src/renderer/ipc`.                                                                                                                                                                                                             |
+| Transport        | A tRPC-style router defined once in main. One `ipc:<path>` channel per procedure. A generic preload bridge with no code per route.                                                                                                                                                                                     |
+| Contract         | `AppRouter` imported type-only by the renderer. Runtime values the renderer needs (enums, error codes, schemas) live in `src/common`.                                                                                                                                                                                  |
+| Procedures       | `.query()` and `.mutation()`. Only mutations open a change scope.                                                                                                                                                                                                                                                      |
+| Validation       | Standard Schema (Zod v4). The client sees the schema's input type, the resolver its parsed output. A failure throws core's `invalid_input`.                                                                                                                                                                            |
+| Errors           | An envelope `{ ok, data \| error, changed }`. `IpcErrorCode = CoreErrorCode \| 'no_workspace_open' \| 'devbrain_unavailable' \| 'cancelled' \| 'internal'`. A `CoreError` keeps its message and its own fields; anything else becomes `internal` with a generic message.                                               |
+| Cancellation     | Only for an OAuth sign-in waiting on the browser: a dedicated `integrations.cancelConnect` mutation aborts the flow `connect` or `reconnect` started (one per workspace), and that call fails with `cancelled`. Nothing else is cancellable: database calls are synchronous, and provider calls time out on their own. |
+| Data layer       | React Query with an adapter: `queryOptions`, `infiniteQueryOptions`, `mutationOptions`, `queryKey`, `pathKey`.                                                                                                                                                                                                         |
+| Change reporting | A `ChangeRouter` in main subscribes to the open workspace's `onChange` streams and maps each change to `ChangedEntity[]`. Changes made during a mutation return in its response; everything else is broadcast as `db.changes`.                                                                                         |
+| Invalidation     | A renderer-side `affects` map from entity types to query paths, plus `compile()` and one `invalidateQueries` call with a prefix predicate. Broadcasts are coalesced (16 ms trailing, 250 ms at most) and held while mutations are pending.                                                                             |
+| Push events      | Deltas only: `db.changes`, `sync.progress`, `integrations.changed`, `sources.changed`, `workspace.changed`. The renderer refetches instead of applying snapshots.                                                                                                                                                      |
+| Windows          | One window. Moving to several later means broadcasting each request's `changed` to the other windows as well.                                                                                                                                                                                                          |
 
 ## How it fits together
 
@@ -63,14 +63,14 @@ src/common/
   errors.ts                 CoreErrorCode (moved from core)
   integrations.ts           Provider, IntegrationStatus, … (moved from core/integrations/shared-types.ts)
   ipc/
-    constants.ts            channel and event prefixes, cancel channel, bridge key
+    constants.ts            channel and event prefixes, bridge key
     types.ts                IpcResult, SerializedError, IpcErrorCode, StandardSchemaV1 (inlined)
     errors.ts               IpcError, serializeError
     procedure.ts            initIpc, ProcedureBuilder, Procedure, createRouter, RouterContext
     client-types.ts         Client<TRouter>, inferInput, inferOutput
 
 src/main/ipc/
-  server.ts                 flatten, execute, attachRouter, cancel handling
+  server.ts                 flatten, execute, attachRouter
   context.ts                AppContext, createContext
   middleware.ts             senderGuard, logging, requireWorkspace
   init.ts                   t, publicQuery/Mutation, wsQuery/Mutation
@@ -87,7 +87,7 @@ src/main/ipc/
 src/preload/index.ts        exposeBridge()
 
 src/renderer/ipc/
-  client.ts                 createClient (proxy, envelope, cancel, onChanged)
+  client.ts                 createClient (proxy, envelope, onChanged)
   events.ts                 createEventClient
   query.ts                  createQueryUtils (TanStack adapter)
 src/renderer/data/
@@ -202,30 +202,25 @@ output type fails the renderer's typecheck.
    - `serializeError`: a `CoreError` keeps `code` and `message`, and its own fields go into `data`
      (without `cause` or `stack`). Anything else becomes `internal` with "Something went wrong".
    - Builder: `.input(schema)`, `.use(middleware)`, `.query(resolver)`, `.mutation(resolver)`.
-     Resolvers receive `{ ctx, input, signal }`. `initIpc`, `createRouter`, `RouterContext`.
-   - `Client<TRouter>`: `(input, { signal }?) => Promise<Output>`, with no argument for `void`
-     inputs.
+     Resolvers receive `{ ctx, input }`. `initIpc`, `createRouter`, `RouterContext`.
+   - `Client<TRouter>`: `(input) => Promise<Output>`, with no argument for `void` inputs.
 2. **`src/main/ipc/server.ts`:**
    - `flatten`: throw on duplicate paths or reserved segment names (`then`, `queryKey`, `pathKey`,
      `queryOptions`, `infiniteQueryOptions`, `mutationOptions`).
    - `attachRouter(router, { createContext, onError })`, which registers one handler per path. Per
-     call it creates an `AbortController`, validates the input (failure → `invalid_input` with the
+     call it validates the input (failure → `invalid_input` with the
      issues in `data`), runs the middleware chain (`next()` may only be called once) and returns the
      envelope. `changed` is `[]` here; milestone 3 fills it.
-   - An `ipc:cancel` handler that aborts by request id. A resolver failing after an abort gives
-     `cancelled`.
    - In development only, a `structuredClone` check on each result, with an error naming the path.
    - A disposer that removes every handler.
 3. **`src/preload/index.ts`:**
-   - `exposeBridge()` provides `invoke(path, input, requestId)`, `cancel(requestId)` and
-     `subscribe(name, cb)`.
+   - `exposeBridge()` provides `invoke(path, input)` and `subscribe(name, cb)`.
    - It checks path and name strings against `/^[a-zA-Z0-9_.]+$/` and passes only the payload to
      listeners, never the `IpcRendererEvent`.
    - Replace the hand-written `api` and update `src/renderer/env.d.ts`.
 4. **`src/renderer/ipc`:**
    - `createClient({ onChanged })`, a recursive proxy. It returns `undefined` for `then` and symbol
-     keys, generates a request id per call, forwards an abort to `bridge.cancel`, unwraps the
-     envelope, and waits on `onChanged(changed)` before resolving or throwing.
+     keys, unwraps the envelope, and waits on `onChanged(changed)` before resolving or throwing.
    - `createEventClient<AppEvents>().on(name, cb)` returns an unsubscribe function.
 5. **The first route:** `app.ping` and `app.version` through `attachRouter`, replacing the two
    `ipcMain.handle` calls in `src/main/index.ts`.
@@ -236,7 +231,7 @@ output type fails the renderer's typecheck.
 - `serializeError` on `RateLimitError` (`retryAt`), `DevBrainFolderError` (`reason`),
   `IntegrationAlreadyConnectedError` (`integrationId`), and a plain `Error`.
 - The server: success, `invalid_input`, a `CoreError` round-trip, `internal`, middleware order and
-  short-circuit, a cancel, and the clone check.
+  short-circuit, and the clone check.
 - The client: path building, unwrapping, `IpcError` reconstruction, `await` on a router node not
   hanging, `onChanged` being awaited.
 - The preload bundle `require`s only `electron`.
@@ -311,8 +306,8 @@ response carries `changed`.
      `infiniteQueryOptions(input, opts?)` built on `Page<T>` cursors.
    - Mutations: `mutationOptions(opts?)`.
    - Router nodes: `pathKey()` → `[...path]`.
-   - Each passes React Query's `signal` to the client. The types only offer each option builder on
-     the matching procedure kind.
+   - The types only offer each option builder on the matching procedure kind. React Query's
+     `signal` is not passed on: no call is cancellable through it.
 3. **`invalidation.ts`:**
    - `affects: Record<ChangedEntity, Path[]>`, keyed at router level:
 
@@ -359,19 +354,19 @@ Each router is a thin layer: an input schema, a call to `ctx.workspace.<service>
 core's return value. Most handlers are synchronous one-liners, since core's database access is
 synchronous.
 
-| Router         | Procedures                                                                                                                                                                          | Notes                                                                                                                                                                        |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tasks`        | `list` (infinite), `get`, `subtasks`, `create`, `createSubtask`, `update`, `updateStatus`, `updateProject`, `updateLinks`, `promote`, `demote`, `setFavorite`, `detach`, `reattach` | `detach`/`reattach` call `workspace.detach`. Core already moves a rejected reattach to `needs_reauth`.                                                                       |
-| `archive`      | `archiveTask`, `restoreTask`, `archiveProject`, `restoreProject`, `archiveNote`, `restoreNote`, `listArchived`                                                                      | Cascades come back in `changed` from `ArchiveChange`.                                                                                                                        |
-| `notes`        | `list`, `get`, `create`, `update`, `updateContent`, `setFavorite`                                                                                                                   | `updateContent` is async (a file write); core serializes concurrent saves.                                                                                                   |
-| `projects`     | `list`, `get`, `create`, `update`, `updateStatus`, `stats`, `setFavorite`                                                                                                           |                                                                                                                                                                              |
-| `events`       | `listForCalendar`, `get`, `create`, `update`, `delete`, `setFavorite`                                                                                                               |                                                                                                                                                                              |
-| `favorites`    | `list` (infinite, with the `entityType` filter)                                                                                                                                     | `listFavorites`. Favoriting itself is each entity router's `setFavorite`.                                                                                                    |
-| `calendars`    | `list`, `setVisible`, `setSelected`                                                                                                                                                 | `CalendarService` emits nothing, so these call `ctx.changes.record('calendar')`. `setSelected` also calls `workspace.sync.syncNow(sourceId)` when the calendar has a source. |
-| `integrations` | `list`, `get`, `connect` (API key or OAuth, cancellable through `signal`), `reconnect`, `setEnabled`, `previewDisconnect`, `disconnect`                                             |                                                                                                                                                                              |
-| `sources`      | `setEnabled`                                                                                                                                                                        |                                                                                                                                                                              |
-| `sync`         | `now`, `status`                                                                                                                                                                     |                                                                                                                                                                              |
-| `search`       | `search`                                                                                                                                                                            | Results contain the one allowed HTML (`<b>` highlights), per `docs/security/untrusted-content.md`.                                                                           |
+| Router         | Procedures                                                                                                                                                                          | Notes                                                                                                                                                                                                           |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tasks`        | `list` (infinite), `get`, `subtasks`, `create`, `createSubtask`, `update`, `updateStatus`, `updateProject`, `updateLinks`, `promote`, `demote`, `setFavorite`, `detach`, `reattach` | `detach`/`reattach` call `workspace.detach`. Core already moves a rejected reattach to `needs_reauth`.                                                                                                          |
+| `archive`      | `archiveTask`, `restoreTask`, `archiveProject`, `restoreProject`, `archiveNote`, `restoreNote`, `listArchived`                                                                      | Cascades come back in `changed` from `ArchiveChange`.                                                                                                                                                           |
+| `notes`        | `list`, `get`, `create`, `update`, `updateContent`, `setFavorite`                                                                                                                   | `updateContent` is async (a file write); core serializes concurrent saves.                                                                                                                                      |
+| `projects`     | `list`, `get`, `create`, `update`, `updateStatus`, `stats`, `setFavorite`                                                                                                           |                                                                                                                                                                                                                 |
+| `events`       | `listForCalendar`, `get`, `create`, `update`, `delete`, `setFavorite`                                                                                                               |                                                                                                                                                                                                                 |
+| `favorites`    | `list` (infinite, with the `entityType` filter)                                                                                                                                     | `listFavorites`. Favoriting itself is each entity router's `setFavorite`.                                                                                                                                       |
+| `calendars`    | `list`, `setVisible`, `setSelected`                                                                                                                                                 | `CalendarService` emits nothing, so these call `ctx.changes.record('calendar')`. `setSelected` also calls `workspace.sync.syncNow(sourceId)` when the calendar has a source.                                    |
+| `integrations` | `list`, `get`, `connect` (API key or OAuth), `reconnect`, `cancelConnect`, `setEnabled`, `previewDisconnect`, `disconnect`                                                          | An OAuth `connect` or `reconnect` keeps its flow's `AbortController` in the router; `cancelConnect` aborts it (one flow per workspace, so no id), and the aborted call maps core's `AbortError` to `cancelled`. |
+| `sources`      | `setEnabled`                                                                                                                                                                        |                                                                                                                                                                                                                 |
+| `sync`         | `now`, `status`                                                                                                                                                                     |                                                                                                                                                                                                                 |
+| `search`       | `search`                                                                                                                                                                            | Results contain the one allowed HTML (`<b>` highlights), per `docs/security/untrusted-content.md`.                                                                                                              |
 
 **`setFavorite`** takes the state wanted, not a flip of what is stored, so a double click or a stale
 view cannot leave it the opposite of what the user saw. The star button passes the opposite of what

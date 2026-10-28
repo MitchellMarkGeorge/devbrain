@@ -13,28 +13,21 @@ describe('the preload bridge', () => {
 
     expect(contextBridge.exposeInMainWorld).toHaveBeenCalledWith('ipcBridge', {
       invoke: expect.any(Function),
-      cancel: expect.any(Function),
       subscribe: expect.any(Function),
     });
   });
 
-  it('invokes a path on its own channel, with the input and request id', async () => {
+  it('invokes a path on its own channel, with the input', async () => {
     const result = { ok: true, data: 'pong', changed: [] };
     ipcRenderer.invoke.mockResolvedValue(result);
 
-    expect(await createBridge().invoke('app.ping', undefined, 'req-1')).toBe(result);
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith('ipc:app.ping', undefined, 'req-1');
+    expect(await createBridge().invoke('app.ping', undefined)).toBe(result);
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('ipc:app.ping', undefined);
   });
 
   it.each(['../secret', 'app:ping', '', 'a b'])("rejects the path '%s'", (path) => {
-    expect(() => createBridge().invoke(path, undefined, 'req-1')).toThrow(/Invalid IPC path/);
+    expect(() => createBridge().invoke(path, undefined)).toThrow(/Invalid IPC path/);
     expect(ipcRenderer.invoke).not.toHaveBeenCalled();
-  });
-
-  it('cancels on the cancel channel', () => {
-    createBridge().cancel('req-1');
-
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith('ipc:cancel', 'req-1');
   });
 
   it('passes listeners the payload only, and unsubscribes', () => {

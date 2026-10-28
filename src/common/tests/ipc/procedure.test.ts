@@ -41,9 +41,7 @@ describe('the procedure builder', () => {
     const router = t.router({ ping: t.procedure.query(() => 'pong') });
 
     expectTypeOf<Client<typeof router>['ping']>().toBeCallableWith();
-    expectTypeOf<Client<typeof router>['ping']>().toBeCallableWith(undefined, {
-      signal: new AbortController().signal,
-    });
+    expectTypeOf<Client<typeof router>['ping']>().toBeCallableWith(undefined);
   });
 
   it('requires an input unless the schema accepts undefined', () => {

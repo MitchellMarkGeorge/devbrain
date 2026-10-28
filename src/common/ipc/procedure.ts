@@ -40,7 +40,6 @@ export interface MiddlewareOptions<TCtx> {
   ctx: TCtx;
   path: string;
   type: ProcedureType;
-  signal: AbortSignal;
   // runs the rest of the chain, at most once; `ctx` is merged into the context it gets. To stop
   // the call, throw instead
   next: MiddlewareNext<TCtx>;
@@ -53,8 +52,6 @@ export type Middleware<TCtx, TNextCtx> = (
 export interface ResolverOptions<TCtx, TInput> {
   ctx: TCtx;
   input: TInput;
-  // aborted when the renderer cancels the call
-  signal: AbortSignal;
 }
 
 export type Resolver<TCtx, TInput, TOutput> = (opts: ResolverOptions<TCtx, TInput>) => TOutput;

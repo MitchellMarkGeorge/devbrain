@@ -8,7 +8,8 @@ export type IpcErrorCode =
   | 'no_workspace_open'
   // DevBrain failed to start, so nothing that needs it can run
   | 'devbrain_unavailable'
-  // the caller aborted the call, and the resolver failed because of it
+  // the user cancelled what the call was waiting on: an OAuth sign-in, through
+  // integrations.cancelConnect
   | 'cancelled'
   // anything not thrown on purpose; its message is generic
   | 'internal';
@@ -29,8 +30,7 @@ export type IpcResult<T> =
 
 // What the preload exposes on `window` (IPC_BRIDGE_KEY). Generic: nothing in it is per route.
 export interface IpcBridge {
-  invoke(path: string, input: unknown, requestId: string): Promise<IpcResult<unknown>>;
-  cancel(requestId: string): void;
+  invoke(path: string, input: unknown): Promise<IpcResult<unknown>>;
   // returns the function that unsubscribes
   subscribe(name: string, listener: (payload: unknown) => void): () => void;
 }

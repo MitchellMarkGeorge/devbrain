@@ -1,5 +1,5 @@
 import type { ChangedEntity } from '@common/changes';
-import type { CallOptions, Client } from '@common/ipc/client-types';
+import type { Client } from '@common/ipc/client-types';
 import { IPC_BRIDGE_KEY } from '@common/ipc/constants';
 import { IpcError } from '@common/ipc/errors';
 import type { RouterRecord } from '@common/ipc/procedure';
@@ -25,23 +25,14 @@ export function createClient<TRouter extends RouterRecord>(
 ): Client<TRouter> {
   const bridge = () => options.bridge ?? defaultBridge();
 
-  const call = async (path: string, input: unknown, callOptions?: CallOptions) => {
-    const signal = callOptions?.signal;
-    if (signal?.aborted) throw cancelled();
-
-    const requestId = crypto.randomUUID();
-    const onAbort = () => bridge().cancel(requestId);
-    signal?.addEventListener('abort', onAbort, { once: true });
-
+  const call = async (path: string, input: unknown) => {
     let result: IpcResult<unknown>;
     try {
-      result = await bridge().invoke(path, input, requestId);
+      result = await bridge().invoke(path, input);
     } catch (error) {
       // no handler for the path, or a result Electron could not clone
       const message = error instanceof Error ? error.message : String(error);
       throw new IpcError('internal', message, {}, { cause: error });
-    } finally {
-      signal?.removeEventListener('abort', onAbort);
     }
 
     await options.onChanged?.(result.changed);
@@ -52,7 +43,7 @@ export function createClient<TRouter extends RouterRecord>(
   return createNode(call, []) as Client<TRouter>;
 }
 
-type Call = (path: string, input: unknown, options?: CallOptions) => Promise<unknown>;
+type Call = (path: string, input: unknown) => Promise<unknown>;
 
 function createNode(call: Call, path: readonly string[]): unknown {
   // a function, so the node can be called as well as read from
@@ -64,11 +55,7 @@ function createNode(call: Call, path: readonly string[]): unknown {
       return createNode(call, [...path, key]);
     },
     apply(_target, _this, args: unknown[]) {
-      return call(path.join('.'), args[0], args[1] as CallOptions | undefined);
+      return call(path.join('.'), args[0]);
     },
   });
-}
-
-function cancelled(): IpcError {
-  return new IpcError('cancelled', 'The call was cancelled');
 }

@@ -12,7 +12,6 @@ import { createEventClient } from '../../ipc/events';
 function fakeBridge(result: IpcResult<unknown> = { ok: true, data: null, changed: [] }) {
   return {
     invoke: vi.fn<IpcBridge['invoke']>(async () => result),
-    cancel: vi.fn<IpcBridge['cancel']>(),
     subscribe: vi.fn<IpcBridge['subscribe']>(() => () => {}),
   };
 }
@@ -26,12 +25,12 @@ type TestRouter = AppRouter & {
 };
 
 describe('createClient', () => {
-  it('invokes the dotted path with the input and a request id', async () => {
+  it('invokes the dotted path with the input', async () => {
     const bridge = fakeBridge({ ok: true, data: { id: 'tsk_1' }, changed: [] });
     const client = createClient<TestRouter>({ bridge });
 
     expect(await client.tasks.get({ id: 'tsk_1' })).toEqual({ id: 'tsk_1' });
-    expect(bridge.invoke).toHaveBeenCalledWith('tasks.get', { id: 'tsk_1' }, expect.any(String));
+    expect(bridge.invoke).toHaveBeenCalledWith('tasks.get', { id: 'tsk_1' });
   });
 
   it('calls a procedure with no input', async () => {
@@ -39,18 +38,7 @@ describe('createClient', () => {
     const client = createClient<AppRouter>({ bridge });
 
     expect(await client.app.ping()).toBe('pong');
-    expect(bridge.invoke).toHaveBeenCalledWith('app.ping', undefined, expect.any(String));
-  });
-
-  it('gives each call its own request id', async () => {
-    const bridge = fakeBridge();
-    const client = createClient<AppRouter>({ bridge });
-
-    await client.app.ping();
-    await client.app.ping();
-
-    const [first, second] = bridge.invoke.mock.calls.map((args) => args[2]);
-    expect(first).not.toBe(second);
+    expect(bridge.invoke).toHaveBeenCalledWith('app.ping', undefined);
   });
 
   it('throws an IpcError rebuilt from the envelope', async () => {
@@ -137,46 +125,6 @@ describe('createClient', () => {
     await client.tasks.archive({ id: 'tsk_1' }).catch(() => order.push('rejected'));
 
     expect(order).toEqual(['onChanged task', 'rejected']);
-  });
-
-  it('forwards an abort to bridge.cancel with the call’s request id', async () => {
-    let answer!: (result: IpcResult<unknown>) => void;
-    const bridge = fakeBridge();
-    bridge.invoke.mockImplementation(() => new Promise((resolve) => (answer = resolve)));
-    const client = createClient<AppRouter>({ bridge });
-    const controller = new AbortController();
-
-    const pending = client.app.ping(undefined, { signal: controller.signal });
-    controller.abort();
-    answer({
-      ok: false,
-      error: { code: 'cancelled', message: 'The call was cancelled', data: {} },
-      changed: [],
-    });
-
-    await expect(pending).rejects.toMatchObject({ code: 'cancelled' });
-    expect(bridge.cancel).toHaveBeenCalledWith(bridge.invoke.mock.calls[0][2]);
-  });
-
-  it('does not invoke when the signal is already aborted', async () => {
-    const bridge = fakeBridge();
-    const client = createClient<AppRouter>({ bridge });
-
-    await expect(client.app.ping(undefined, { signal: AbortSignal.abort() })).rejects.toMatchObject(
-      { code: 'cancelled' },
-    );
-    expect(bridge.invoke).not.toHaveBeenCalled();
-  });
-
-  it('stops listening to the signal once the call settles', async () => {
-    const bridge = fakeBridge();
-    const client = createClient<AppRouter>({ bridge });
-    const controller = new AbortController();
-
-    await client.app.ping(undefined, { signal: controller.signal });
-    controller.abort();
-
-    expect(bridge.cancel).not.toHaveBeenCalled();
   });
 });
 

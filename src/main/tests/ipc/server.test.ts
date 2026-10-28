@@ -18,14 +18,10 @@ interface Ctx {
 
 const t = initIpc<Ctx>();
 
-function eventFrom(senderId: number): IpcMainInvokeEvent {
-  return { sender: { id: senderId } } as IpcMainInvokeEvent;
-}
+const event = {} as IpcMainInvokeEvent;
 
-const event = eventFrom(1);
-
-function call(path: string, input?: unknown, requestId = 'req-1', from = event) {
-  return invokeHandler(`ipc:${path}`, from, input, requestId) as Promise<IpcResult<unknown>>;
+function call(path: string, input?: unknown) {
+  return invokeHandler(`ipc:${path}`, event, input) as Promise<IpcResult<unknown>>;
 }
 
 function attach(
@@ -41,13 +37,6 @@ function attach(
     onError: options.onError,
     checkClone: options.checkClone,
   });
-}
-
-// resolves once the test calls `release`, for calls that must still be running
-function gate() {
-  let release!: () => void;
-  const opened = new Promise<void>((resolve) => (release = resolve));
-  return { opened, release };
 }
 
 describe('flatten', () => {
@@ -84,13 +73,6 @@ describe('flatten', () => {
     const router = t.router({ a: t.router({ b: procedure }), 'a.b': procedure });
 
     expect(() => flatten(router)).toThrow(/letters, digits/);
-  });
-
-  it('throws on a top-level cancel, the cancel channel', () => {
-    expect(() => flatten(t.router({ cancel: t.procedure.query(() => null) }))).toThrow(/cancel/);
-    expect(() =>
-      flatten(t.router({ sync: t.router({ cancel: t.procedure.query(() => null) }) })),
-    ).not.toThrow();
   });
 });
 
@@ -236,73 +218,6 @@ describe('attachRouter', () => {
     expect(onError.mock.calls[0][0].error.message).toMatch(/next\(\) twice/);
   });
 
-  it('aborts the call with the request id cancelled, and answers cancelled', async () => {
-    const started = gate();
-    attach(
-      t.router({
-        connect: t.procedure.mutation(
-          ({ signal }) =>
-            new Promise((_resolve, reject) => {
-              started.release();
-              signal.addEventListener('abort', () => reject(new Error('aborted by signal')));
-            }),
-        ),
-      }),
-    );
-
-    const pending = call('connect', undefined, 'req-7');
-    await started.opened;
-    await invokeHandler('ipc:cancel', event, 'req-7');
-
-    expect(await pending).toEqual({
-      ok: false,
-      error: { code: 'cancelled', message: 'The call was cancelled', data: {} },
-      changed: [],
-    });
-  });
-
-  it("only cancels the sender's own call", async () => {
-    const started = gate();
-    const signals: AbortSignal[] = [];
-    attach(
-      t.router({
-        wait: t.procedure.query(async ({ signal }) => {
-          signals.push(signal);
-          await started.opened;
-          return signal.aborted;
-        }),
-      }),
-    );
-
-    const pending = call('wait', undefined, 'req-1', eventFrom(1));
-    await invokeHandler('ipc:cancel', eventFrom(2), 'req-1');
-    await invokeHandler('ipc:cancel', event, 'other');
-    started.release();
-
-    expect(await pending).toMatchObject({ ok: true, data: false });
-  });
-
-  it('keeps the result of a resolver that finished despite the abort', async () => {
-    const started = gate();
-    const finish = gate();
-    attach(
-      t.router({
-        save: t.procedure.mutation(async () => {
-          started.release();
-          await finish.opened;
-          return 'saved';
-        }),
-      }),
-    );
-
-    const pending = call('save', undefined, 'req-2');
-    await started.opened;
-    await invokeHandler('ipc:cancel', event, 'req-2');
-    finish.release();
-
-    expect(await pending).toMatchObject({ ok: true, data: 'saved' });
-  });
-
   it('with checkClone, fails a result IPC cannot send, naming the path', async () => {
     attach(t.router({ app: t.router({ fn: t.procedure.query(() => ({ run: () => 1 })) }) }), {
       checkClone: true,
@@ -320,38 +235,17 @@ describe('attachRouter', () => {
     expect(await call('fn')).toMatchObject({ ok: true });
   });
 
-  it('registers one handler per path plus cancel, and the disposer removes them all', () => {
+  it('registers one handler per path, and the disposer removes them all', () => {
     const detach = attach(
       t.router({ a: t.procedure.query(() => 1), b: t.router({ c: t.procedure.query(() => 2) }) }),
     );
 
-    expect([...ipcHandlers.keys()].sort()).toEqual(['ipc:a', 'ipc:b.c', 'ipc:cancel']);
+    expect([...ipcHandlers.keys()].sort()).toEqual(['ipc:a', 'ipc:b.c']);
 
     detach();
 
     expect(ipcHandlers.size).toBe(0);
-    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(3);
-  });
-
-  it('aborts the calls still running when detached', async () => {
-    const started = gate();
-    const detach = attach(
-      t.router({
-        wait: t.procedure.query(
-          ({ signal }) =>
-            new Promise((_resolve, reject) => {
-              started.release();
-              signal.addEventListener('abort', () => reject(new Error('aborted')));
-            }),
-        ),
-      }),
-    );
-
-    const pending = call('wait');
-    await started.opened;
-    detach();
-
-    expect(await pending).toMatchObject({ ok: false, error: { code: 'cancelled' } });
+    expect(ipcMain.removeHandler).toHaveBeenCalledTimes(2);
   });
 });
 

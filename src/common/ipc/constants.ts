@@ -2,8 +2,6 @@
 // `ipc:<path>`; each push event is sent on `ipc-event:<name>`.
 export const IPC_CHANNEL_PREFIX = 'ipc:';
 export const IPC_EVENT_PREFIX = 'ipc-event:';
-// aborts a call in flight by its request id; `cancel` can't be a top-level procedure name for it
-export const IPC_CANCEL_CHANNEL = `${IPC_CHANNEL_PREFIX}cancel`;
 // the key the preload exposes the bridge under, on `window`
 export const IPC_BRIDGE_KEY = 'ipcBridge';
 

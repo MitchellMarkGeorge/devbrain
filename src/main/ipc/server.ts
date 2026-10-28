@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron';
 import type { IpcMainInvokeEvent } from 'electron';
-import { IPC_CANCEL_CHANNEL, IPC_CHANNEL_PREFIX, RESERVED_SEGMENTS } from '@common/ipc/constants';
+import { IPC_CHANNEL_PREFIX, RESERVED_SEGMENTS } from '@common/ipc/constants';
 import { IpcError, serializeError } from '@common/ipc/errors';
 import { isProcedure } from '@common/ipc/procedure';
 import type {
@@ -19,9 +19,8 @@ import { InvalidInputError } from '@main/core/shared/errors';
 
 const SEGMENT_PATTERN = /^[a-zA-Z0-9_]+$/;
 
-// A router's procedures by dotted path. Throws on a key the client can't call (a reserved name,
-// one with characters the preload rejects, `cancel` at the top, which is the cancel channel) and
-// on a path defined twice.
+// A router's procedures by dotted path. Throws on a key the client can't call (a reserved name, or
+// one with characters the preload rejects) and on a path defined twice.
 export function flatten(router: RouterRecord): Map<string, AnyProcedure> {
   const procedures = new Map<string, AnyProcedure>();
   const visit = (record: RouterRecord, prefix: string[]) => {
@@ -33,9 +32,6 @@ export function flatten(router: RouterRecord): Map<string, AnyProcedure> {
       }
       if (!SEGMENT_PATTERN.test(key)) {
         throw new Error(`'${dotted}': a router key may only hold letters, digits and _`);
-      }
-      if (`${IPC_CHANNEL_PREFIX}${dotted}` === IPC_CANCEL_CHANNEL) {
-        throw new Error(`'${dotted}' is the cancel channel`);
       }
       if (isProcedure(value)) {
         if (procedures.has(dotted)) throw new Error(`'${dotted}' is defined twice`);
@@ -85,31 +81,20 @@ export class InputValidationError extends InvalidInputError {
   }
 }
 
-const CANCELLED_MESSAGE = 'The call was cancelled';
-
-// Registers a handler per procedure and the cancel handler. Returns the function that removes them
-// and aborts the calls still running.
+// Registers a handler per procedure. Returns the function that removes them.
 export function attachRouter<TCtx extends RouterContext>(
   router: RouterRecord,
   options: AttachRouterOptions<TCtx>,
 ): () => void {
   const procedures = flatten(router);
-  // calls in flight, by sender and request id: two windows' ids may collide
-  const inFlight = new Map<string, AbortController>();
-  const keyOf = (event: IpcMainInvokeEvent, requestId: string) => `${event.sender.id}:${requestId}`;
 
   const execute = async (
     path: string,
     procedure: AnyProcedure,
     event: IpcMainInvokeEvent,
     rawInput: unknown,
-    requestId: unknown,
   ): Promise<IpcResult<unknown>> => {
-    const controller = new AbortController();
-    const key = typeof requestId === 'string' ? keyOf(event, requestId) : undefined;
-    if (key !== undefined) inFlight.set(key, controller);
     const { type, inputSchema, middlewares, resolver } = procedure._def;
-    const { signal } = controller;
 
     try {
       const ctx = await options.createContext(event);
@@ -123,7 +108,7 @@ export function attachRouter<TCtx extends RouterContext>(
 
       const run = async (index: number, current: object): Promise<MiddlewareResult<unknown>> => {
         if (index === middlewares.length) {
-          return { output: await resolver({ ctx: current, input, signal }) };
+          return { output: await resolver({ ctx: current, input }) };
         }
         let called = false;
         const next = (opts?: { ctx: object }) => {
@@ -135,7 +120,6 @@ export function attachRouter<TCtx extends RouterContext>(
           ctx: current,
           path,
           type,
-          signal,
           next: next as MiddlewareNext<object>,
         });
       };
@@ -144,34 +128,21 @@ export function attachRouter<TCtx extends RouterContext>(
       if (options.checkClone) checkClone(path, output);
       return { ok: true, data: output, changed: [] };
     } catch (error) {
-      const serialized: SerializedError = signal.aborted
-        ? { code: 'cancelled', message: CANCELLED_MESSAGE, data: {} }
-        : serializeError(error);
+      const serialized: SerializedError = serializeError(error);
       options.onError?.({ path, type, error, serialized });
       return { ok: false, error: serialized, changed: [] };
-    } finally {
-      if (key !== undefined && inFlight.get(key) === controller) inFlight.delete(key);
     }
   };
 
   const channels: string[] = [];
   for (const [path, procedure] of procedures) {
     const channel = `${IPC_CHANNEL_PREFIX}${path}`;
-    ipcMain.handle(channel, (event, input: unknown, requestId: unknown) =>
-      execute(path, procedure, event, input, requestId),
-    );
+    ipcMain.handle(channel, (event, input: unknown) => execute(path, procedure, event, input));
     channels.push(channel);
   }
-  ipcMain.handle(IPC_CANCEL_CHANNEL, (event, requestId: unknown) => {
-    if (typeof requestId !== 'string') return;
-    inFlight.get(keyOf(event, requestId))?.abort();
-  });
-  channels.push(IPC_CANCEL_CHANNEL);
 
   return () => {
     for (const channel of channels) ipcMain.removeHandler(channel);
-    for (const controller of inFlight.values()) controller.abort();
-    inFlight.clear();
   };
 }
 

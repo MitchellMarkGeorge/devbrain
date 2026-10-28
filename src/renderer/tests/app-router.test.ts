@@ -13,8 +13,6 @@ describe('AppRouter', () => {
   });
 
   it('calls app.ping with no input', () => {
-    expectTypeOf<Parameters<Client<AppRouter>['app']['ping']>>().toEqualTypeOf<
-      [input?: void, options?: { signal?: AbortSignal }]
-    >();
+    expectTypeOf<Parameters<Client<AppRouter>['app']['ping']>>().toEqualTypeOf<[input?: void]>();
   });
 });

@@ -2,7 +2,6 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { IpcRendererEvent } from 'electron';
 import {
   IPC_BRIDGE_KEY,
-  IPC_CANCEL_CHANNEL,
   IPC_CHANNEL_PREFIX,
   IPC_EVENT_PREFIX,
   IPC_NAME_PATTERN,
@@ -21,15 +20,11 @@ function checkName(kind: string, name: unknown): asserts name is string {
 
 export function createBridge(): IpcBridge {
   return {
-    invoke(path, input, requestId) {
+    invoke(path, input) {
       checkName('path', path);
-      return ipcRenderer.invoke(`${IPC_CHANNEL_PREFIX}${path}`, input, requestId) as Promise<
+      return ipcRenderer.invoke(`${IPC_CHANNEL_PREFIX}${path}`, input) as Promise<
         IpcResult<unknown>
       >;
-    },
-    cancel(requestId) {
-      // nothing to report back: the call itself answers `cancelled`
-      ipcRenderer.invoke(IPC_CANCEL_CHANNEL, requestId).catch(() => {});
     },
     subscribe(name, listener) {
       checkName('event', name);
