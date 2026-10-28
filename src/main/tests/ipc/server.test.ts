@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { IpcMainInvokeEvent } from 'electron';
 import { ipcMain } from 'electron';
 import { TRPCError } from '@trpc/server';
-import { IpcError } from '@common/ipc/errors';
+import { IpcError } from '@main/ipc/errors';
 import type { IpcResult } from '@common/ipc/types';
 import { RateLimitError } from '@main/core/shared/errors';
 import { attachRouter } from '@main/ipc/server';
@@ -200,6 +200,7 @@ describe('attachRouter', () => {
     expect(await call('get', undefined, 'mutation')).toMatchObject(internal);
     expect(await call('live')).toMatchObject(internal);
     expect(await invokeHandler('ipc:call', event, 'app.ping')).toMatchObject(internal);
+    expect(await invokeHandler('ipc:call', event, null)).toMatchObject(internal);
     expect(onError.mock.calls[0][0].error.code).toBe('NOT_FOUND');
   });
 

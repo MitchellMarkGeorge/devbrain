@@ -17,31 +17,13 @@ describe('the preload bridge', () => {
     });
   });
 
-  it('invokes the call channel with the path, type and input only', async () => {
+  it('invokes the call channel with the request', async () => {
     const result = { ok: true, data: 'pong', changed: [] };
     ipcRenderer.invoke.mockResolvedValue(result);
-    const request = { path: 'app.ping', type: 'query' as const, input: 1, extra: 'dropped' };
+    const request = { path: 'app.ping', type: 'query' as const, input: 1 };
 
     expect(await createBridge().invoke(request)).toBe(result);
-    expect(ipcRenderer.invoke).toHaveBeenCalledWith('ipc:call', {
-      path: 'app.ping',
-      type: 'query',
-      input: 1,
-    });
-  });
-
-  it.each(['../secret', 'app:ping', '', 'a b'])("rejects the path '%s'", (path) => {
-    expect(() => createBridge().invoke({ path, type: 'query', input: undefined })).toThrow(
-      /Invalid IPC path/,
-    );
-    expect(ipcRenderer.invoke).not.toHaveBeenCalled();
-  });
-
-  it('rejects a type other than query or mutation', () => {
-    const request = { path: 'live', type: 'subscription', input: undefined };
-
-    expect(() => createBridge().invoke(request as never)).toThrow(/Invalid IPC call type/);
-    expect(ipcRenderer.invoke).not.toHaveBeenCalled();
+    expect(ipcRenderer.invoke).toHaveBeenCalledWith('ipc:call', request);
   });
 
   it('passes listeners the payload only, and unsubscribes', () => {
@@ -55,11 +37,6 @@ describe('the preload bridge', () => {
     expect(channel).toBe('ipc-event:db.changes');
     expect(listener).toHaveBeenCalledWith({ entities: ['task'] });
     expect(ipcRenderer.removeListener).toHaveBeenCalledWith('ipc-event:db.changes', handler);
-  });
-
-  it('rejects an event name outside the allowed characters', () => {
-    expect(() => createBridge().subscribe('db/changes', vi.fn())).toThrow(/Invalid IPC event/);
-    expect(ipcRenderer.on).not.toHaveBeenCalled();
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { IpcError, serializeError } from '@common/ipc/errors';
+import { IpcError, serializeError } from '@main/ipc/errors';
 import {
   DevBrainFolderError,
   IntegrationAlreadyConnectedError,
@@ -57,8 +57,11 @@ describe('serializeError', () => {
 
   it('turns an error with a code core does not use, and a non-error, into internal', () => {
     const systemError = Object.assign(new Error('ENOENT: /secret'), { code: 'ENOENT' });
+    // a core code on an error that isn't a CoreError
+    const lookalike = Object.assign(new Error('SELECT … FROM tasks'), { code: 'not_found' });
 
     expect(serializeError(systemError).code).toBe('internal');
+    expect(serializeError(lookalike).code).toBe('internal');
     expect(serializeError({ code: 'not_found', message: 'not an Error' }).code).toBe('internal');
     expect(serializeError('boom').code).toBe('internal');
   });

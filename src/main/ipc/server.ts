@@ -4,8 +4,8 @@ import { callTRPCProcedure, getTRPCErrorFromUnknown, getTRPCErrorShape } from '@
 import type { AnyTRPCRouter, inferRouterContext, TRPCError } from '@trpc/server';
 import type { ChangedEntity } from '@common/changes';
 import { IPC_CALL_CHANNEL } from '@common/ipc/constants';
-import { IpcError } from '@common/ipc/errors';
 import type { IpcErrorShape, IpcRequest, IpcResult } from '@common/ipc/types';
+import { IpcError } from './errors';
 
 // tRPC's router behind ipcMain, on one channel: each request names its procedure, which tRPC finds,
 // validates the input for, and runs with its middleware. This only carries the call and its
@@ -51,8 +51,12 @@ export function attachRouter<TRouter extends AnyTRPCRouter>(
     };
     let ctx: inferRouterContext<TRouter> | undefined;
     try {
+      // the request comes from the renderer, which is not trusted: tRPC would start a subscription,
+      // and answers any other unknown path or type with NOT_FOUND
+      if (type !== 'query' && type !== 'mutation') {
+        throw new IpcError('internal', 'Only queries and mutations run over IPC');
+      }
       ctx = await options.createContext({ event, changes });
-      // an unknown path, or a type that isn't the procedure's, throws tRPC's NOT_FOUND
       const data: unknown = await callTRPCProcedure({
         router,
         path,
@@ -79,19 +83,11 @@ export function attachRouter<TRouter extends AnyTRPCRouter>(
     }
   };
 
-  ipcMain.handle(IPC_CALL_CHANNEL, (event, request: unknown) =>
-    // the renderer is not trusted with the request's shape (the preload checks it too); a bad one
-    // runs as a call to no procedure, which fails as one
-    execute(event, isRequest(request) ? request : { path: '', type: 'query', input: undefined }),
+  ipcMain.handle(IPC_CALL_CHANNEL, (event, request: IpcRequest | null | undefined) =>
+    execute(event, request ?? { path: '', type: 'query', input: undefined }),
   );
 
   return () => ipcMain.removeHandler(IPC_CALL_CHANNEL);
-}
-
-function isRequest(value: unknown): value is IpcRequest {
-  if (typeof value !== 'object' || value === null) return false;
-  const { path, type } = value as Partial<IpcRequest>;
-  return typeof path === 'string' && (type === 'query' || type === 'mutation');
 }
 
 function checkClone(path: string, output: unknown): void {

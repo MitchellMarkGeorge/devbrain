@@ -31,7 +31,7 @@ export function ipcLink<TRouter extends AnyTRPCRouter>(
             const bridge = options.bridge ?? defaultBridge();
             result = await bridge.invoke({ path: op.path, type: op.type, input: op.input });
           } catch (error) {
-            // no bridge, the preload refused the request, or a result Electron could not clone
+            // no bridge, or a request or result Electron could not clone
             throw TRPCClientError.from(error instanceof Error ? error : new Error(String(error)));
           }
           await options.onChanged?.(result.changed);

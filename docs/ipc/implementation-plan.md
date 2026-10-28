@@ -67,10 +67,10 @@ src/common/
     constants.ts            the call channel, event prefix, bridge key
     types.ts                IpcRequest, IpcResult, IpcErrorShape, SerializedError, IpcErrorCode,
                             IpcBridge
-    errors.ts               IpcError, serializeError
 
 src/main/ipc/
   trpc.ts                   t (initTRPC, errorFormatter), publicQuery/Mutation, wsQuery/Mutation
+  errors.ts                 IpcError, serializeError
   server.ts                 attachRouter: the transport over ipcMain
   context.ts                AppContext, createContext
   middleware.ts             senderGuard, logging, requireWorkspace
@@ -202,28 +202,29 @@ request ids.
 **Steps**
 
 1. Install `@trpc/server` and `@trpc/client`.
-2. **`src/common/ipc`:**
-   - Constants (`ipc:call`, the event prefix, the bridge key, the name pattern) and the types:
-     `IpcRequest` (`path`, `type`, `input`), `IpcResult`, `IpcErrorShape`, `IpcBridge`.
-   - `serializeError`: a `CoreError` keeps `code` and `message`, and its own fields go into `data`
-     (without `cause` or `stack`). An `IpcError` is kept as it is. Anything else becomes `internal`
-     with "Something went wrong".
-3. **`src/main/ipc/trpc.ts`:** `initTRPC.context<AppContext>()` with an `errorFormatter` that
-   serializes what the resolver threw (tRPC's `cause`) into the shape's `data`. A failed input
-   parse (`BAD_REQUEST` with `issues`) becomes core's `invalid_input` with the issues.
+2. **`src/common/ipc`:** constants (`ipc:call`, the event prefix, the bridge key) and the types the
+   renderer reads: `IpcRequest` (`path`, `type`, `input`), `IpcResult`, `IpcErrorShape`,
+   `SerializedError`, `IpcErrorCode`, `IpcBridge`.
+3. **`src/main/ipc`, errors:**
+   - `errors.ts`: `serializeError`. A `CoreError` keeps `code` and `message`, and its own fields go
+     into `data` (without `cause` or `stack`). An `IpcError`, for the layer's own failures, is kept
+     as it is. Anything else becomes `internal` with "Something went wrong", and main logs it.
+   - `trpc.ts`: `initTRPC.context<AppContext>()` with an `errorFormatter` that serializes what the
+     resolver threw (tRPC's `cause`) into the shape's `data`. A failed input parse (`BAD_REQUEST`
+     with `issues`) becomes core's `invalid_input` with the issues.
 4. **`src/main/ipc/server.ts`:** `attachRouter(router, { createContext, onError, checkClone })`
    registers one `ipc:call` handler:
-   - It checks the request's shape, then runs it with `callTRPCProcedure`. An unknown path, a type
-     that isn't the procedure's, a subscription or a malformed request fails as `internal`.
+   - It runs the request with `callTRPCProcedure`. Main trusts nothing from the renderer: only
+     queries and mutations run, and tRPC answers an unknown path or a type that isn't the
+     procedure's with `NOT_FOUND`. Each fails as `internal`.
    - `createContext({ event, changes })` is typed from the router. `changes.record()` fills the
      response's `changed`, on failure too; milestone 3 fills it from core's events as well.
    - In development only, a `structuredClone` check on each result, with an error naming the path.
    - A disposer that removes the handler.
 5. **`src/preload/index.ts`:**
    - `exposeBridge()` provides `invoke({ path, type, input })` and `subscribe(name, cb)`.
-   - It checks paths and event names against `/^[a-zA-Z0-9_.]+$/` and the type against `query` and
-     `mutation`, forwards only those three fields, and passes only the payload to listeners, never
-     the `IpcRendererEvent`.
+   - It passes only the payload to listeners, never the `IpcRendererEvent`. It checks nothing:
+     the channel names are fixed, and main checks the requests.
    - Replace the hand-written `api` and update `src/renderer/env.d.ts`.
 6. **`src/renderer/ipc`:**
    - `ipcLink({ onChanged })`: a tRPC link that invokes the bridge, unwraps the envelope, waits on
@@ -244,8 +245,8 @@ request ids.
   wrong type, a malformed request, and the clone check.
 - The link: the request sent, unwrapping, the error's `data`, a failed invoke, a missing bridge,
   `await` on a router node not hanging, `onChanged` being awaited before resolving and throwing.
-- The preload: the request forwarded, bad paths and types refused, and a bundle that `require`s
-  only `electron`.
+- The preload: the request forwarded, the payload alone passed to listeners, and a bundle that
+  `require`s only `electron`.
 - Types: `app.ping`'s output from `AppRouter`, and a `TRPCClientError<AppRouter>`'s `data.code`
   is `IpcErrorCode`.
 
