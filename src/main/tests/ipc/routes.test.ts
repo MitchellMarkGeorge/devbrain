@@ -62,6 +62,7 @@ describe('the base procedures', () => {
 
   it("return a mutation's own records and core's changes in one changed", async () => {
     await devBrain.workspaces.open(await createWorkspace(devBrain, 'A'));
+    broadcaster.sent.length = 0;
     attach(
       t.router({
         create: wsProcedure.mutation(({ ctx }) => {
@@ -146,13 +147,13 @@ describe('workspaces', () => {
     expect(await call('workspaces.current')).toMatchObject({ data: null });
   });
 
-  it("passes core's errors through, and still reports what may have changed", async () => {
+  it("passes core's errors through, reporting nothing when the registry wasn't written", async () => {
     const closed = await createWorkspace(devBrain, 'Closed');
 
     expect(await call('workspaces.delete', { id: closed }, 'mutation')).toMatchObject({
       ok: false,
       error: { data: { code: 'workspace_not_open' } },
-      changed: ['workspace'],
+      changed: [],
     });
     expect(
       code(await call('workspaces.open', { id: 'wsp_missing' as WorkspaceId }, 'mutation')),

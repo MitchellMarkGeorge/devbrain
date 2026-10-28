@@ -127,8 +127,9 @@ each change goes: into the response of the mutation that caused it, or out as a 
 - **Changes emitted inside a transaction** (`ArchiveChange`, `disconnected`). The listener runs
   before the commit, but the main process is single-threaded and the transaction synchronous: the
   response or broadcast cannot reach the renderer, nor its refetch run, until the commit is done.
-- **Gaps.** `CalendarService`, `SettingsService` and the workspace registry emit nothing. Their
-  handlers call `ctx.changes.record(...)`: `calendar`, `settings` and `workspace`. `ctx.changes` is
+- **Gaps.** `CalendarService` and `SettingsService` emit nothing. Their handlers call
+  `ctx.changes.record(...)`: `calendar` and `settings`. The workspace registry is announced by
+  `WorkspaceService`: `opened`, `created` and `deleted` each route `workspace`. `ctx.changes` is
   the call's scope; a record made after the scope closed is dropped, so work that outlives its call
   reports through core's events.
 - **Queries** open no scope that core's changes find. What a query's handler records still goes in
@@ -140,18 +141,19 @@ source fails typecheck until it is handled. Within a source, it switches on `typ
 answer depends on it (detach, integrations), so a new type there fails typecheck too; every task,
 note, project or event change maps the same whatever its type:
 
-| Core change                         | `ChangedEntity[]`                                                    |
-| ----------------------------------- | -------------------------------------------------------------------- |
-| `TaskChange`                        | `task`                                                               |
-| `NoteChange`                        | `note`                                                               |
-| `ProjectChange`                     | `project`                                                            |
-| `EventChange`                       | `event`                                                              |
-| `ArchiveChange`                     | each of `task`, `project`, `note` whose id list is not empty         |
-| `FavoriteChange`                    | the favorited entity's type (`tasks` → `task`, …)                    |
-| `TaskLinkChange` (detach, reattach) | `task` plus its `changed`; `credentials_rejected` → `integration`    |
-| `IntegrationChange`                 | `integration` and `externalSource`, plus `changed` on `disconnected` |
-| `SyncProgress`                      | `summary.changed`                                                    |
-| `SyncStatusChange` (`onStatus`)     | `externalSource` (its `lastSyncedAt`, `lastError`, `retryAt`)        |
+| Core change                                      | `ChangedEntity[]`                                                    |
+| ------------------------------------------------ | -------------------------------------------------------------------- |
+| `TaskChange`                                     | `task`                                                               |
+| `NoteChange`                                     | `note`                                                               |
+| `ProjectChange`                                  | `project`                                                            |
+| `EventChange`                                    | `event`                                                              |
+| `ArchiveChange`                                  | each of `task`, `project`, `note` whose id list is not empty         |
+| `FavoriteChange`                                 | the favorited entity's type (`tasks` → `task`, …)                    |
+| `TaskLinkChange` (detach, reattach)              | `task` plus its `changed`; `credentials_rejected` → `integration`    |
+| `IntegrationChange`                              | `integration` and `externalSource`, plus `changed` on `disconnected` |
+| `SyncProgress`                                   | `summary.changed`                                                    |
+| `WorkspaceChange` `opened`, `created`, `deleted` | `workspace` (the registry)                                           |
+| `SyncStatusChange` (`onStatus`)                  | `externalSource` (its `lastSyncedAt`, `lastError`, `retryAt`)        |
 
 The router also broadcasts deltas for status UI, whatever the scope: `integrations.changed`
 (`integrationId`, `type`), `sync.progress` (`sourceId`, `phase`, `itemsApplied`), `sources.changed`
@@ -167,6 +169,9 @@ existing conventions:
    `{ type: 'opened'; workspace: Workspace } | { type: 'closed'; workspaceId: WorkspaceId }`. It
    emits `opened` once the workspace is current and `closed` once it has closed. The change router
    follows the open workspace through it, including the one `startDevBrain` opens at launch.
+   Milestone 3 added `{ type: 'created'; workspace: WorkspaceInfo }` and
+   `{ type: 'deleted'; workspaceId }`, each sent once the registry has been written, so the
+   workspace routes need no `record`.
 2. **`SyncScheduler.onStatus`**, which passes on `SyncStateManager`'s `sync_status_changed`. Today
    nothing outside `Workspace`'s constructor can subscribe to source status.
 3. **Move `integrations/shared-types.ts` to `src/common/integrations.ts`**, with a re-export in
@@ -310,7 +315,7 @@ correct type.
      app routes within its page, which is no navigation.
 8. **The first real routes:**
    - `workspaces`: `list`, `current`, `open`, `create`, `delete`. These return
-     `WorkspaceInfo`, never a `Workspace`, and record `workspace`. `create` doesn't open the new
+     `WorkspaceInfo`, never a `Workspace`; `workspace` comes back in `changed` from core's events. `create` doesn't open the new
      workspace: core's `WorkspaceService.create` now closes the database it created and returns
      the info, so a workspace is only ever open through `open`, which closes the open one first (core's
      `WorkspaceService.switch`, which only called `open`, is gone). `open` writes

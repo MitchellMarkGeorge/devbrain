@@ -484,15 +484,15 @@ describe('WorkspaceService — sync', () => {
     const created = { info: makeInfo(), close: vi.fn(), sync: { start: vi.fn() } };
     vi.mocked(Workspace.create).mockResolvedValue(created as never);
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
-    const opened = vi.fn();
-    service.onChange(opened);
+    const types: string[] = [];
+    service.onChange((change) => types.push(change.type));
 
     const info = await service.create({ name: 'New', color: '#000000' });
 
     expect(created.sync.start).not.toHaveBeenCalled();
     expect(created.close).toHaveBeenCalledOnce();
     expect(service.currentWorkspace).toBeNull();
-    expect(opened).not.toHaveBeenCalled();
+    expect(types).toEqual(['created']);
     expect(info).toEqual(service.getById(info.id));
   });
 
@@ -718,11 +718,13 @@ describe('WorkspaceService — onChange', () => {
     const changes: WorkspaceChange[] = [];
     service.onChange((change) => {
       changes.push(change);
-      log.push(
+      const id =
         change.type === 'opened'
-          ? `opened ${change.workspace.info.id}`
-          : `closed ${change.workspaceId}`,
-      );
+          ? change.workspace.info.id
+          : change.type === 'created'
+            ? change.workspace.id
+            : change.workspaceId;
+      log.push(`${change.type} ${id}`);
     });
     return { service, infos, workspaces, changes, log };
   }
@@ -772,18 +774,41 @@ describe('WorkspaceService — onChange', () => {
     expect(log.slice(-2)).toEqual(['close wsp_first', 'closed wsp_first']);
   });
 
-  it('delete sends closed once the workspace has closed', async () => {
+  it('delete sends closed once the workspace has closed, then deleted once it is unregistered', async () => {
     const { service, infos, workspaces, changes, log } = await setup();
     vi.mocked(Workspace.open).mockResolvedValueOnce(workspaces[0] as never);
     await service.open(infos[0].id);
+    let registeredWhenSent: boolean | null = null;
+    service.onChange((change) => {
+      if (change.type === 'deleted') registeredWhenSent = service.getByName('first') !== null;
+    });
 
     await service.delete(infos[0].id);
 
     expect(changes).toEqual([
       { type: 'opened', workspace: workspaces[0] },
       { type: 'closed', workspaceId: infos[0].id },
+      { type: 'deleted', workspaceId: infos[0].id },
     ]);
-    expect(log.slice(-2)).toEqual(['close wsp_first', 'closed wsp_first']);
+    expect(log.slice(-3)).toEqual(['close wsp_first', 'closed wsp_first', 'deleted wsp_first']);
+    expect(registeredWhenSent).toBe(false);
+  });
+
+  it('create sends created once the registry has the workspace, before its database exists', async () => {
+    const { service, changes } = await setup();
+    let registeredWhenSent: boolean | null = null;
+    service.onChange((change) => {
+      if (change.type === 'created') registeredWhenSent = service.getByName('New') !== null;
+    });
+    vi.mocked(Workspace.create).mockRejectedValueOnce(new Error('migration failed'));
+
+    await expect(service.create({ name: 'New', color: '#000000' })).rejects.toThrow(
+      'migration failed',
+    );
+
+    // it is registered even though creating its database failed, so the change is still sent
+    expect(changes).toEqual([{ type: 'created', workspace: service.getByName('New') }]);
+    expect(registeredWhenSent).toBe(true);
   });
 
   it('sends nothing when nothing changes', async () => {

@@ -6,9 +6,8 @@ import { t } from '../trpc';
 import { zId, zPage } from '../zod';
 
 // The workspace registry. These return a workspace's WorkspaceInfo, never the Workspace itself.
-// The registry announces nothing but `opened` and `closed` (which the ChangeRouter broadcasts as
-// workspace.changed), so each mutation records `workspace`, before its first await: a call that
-// fails part way may still have written the registry.
+// WorkspaceService announces each registry write (`opened`, `created`, `deleted`), which the
+// ChangeRouter reports as `workspace`.
 
 const byId = z.object({ id: zId('workspace') });
 
@@ -23,8 +22,6 @@ export const workspacesRouter = t.router({
   // closes the open one first, if any, and remembers the new one, so the app reopens it at the next
   // start (startDevBrain)
   open: devBrainProcedure.input(byId).mutation(async ({ ctx, input }): Promise<WorkspaceEntry> => {
-    // lastOpenedAt, and the open workspace's own rows: the renderer starts over on workspace.changed
-    ctx.changes.record('workspace');
     const workspace = await ctx.devBrain.workspaces.open(input.id);
     // main's own state, which the renderer never reads, so not recorded
     ctx.devBrain.settings.set('state.lastWorkspaceId', input.id);
@@ -34,14 +31,10 @@ export const workspacesRouter = t.router({
   // creates the workspace without opening it: open it next to use it
   create: devBrainProcedure
     .input(z.object({ name: z.string().trim().min(1), color: hexColorSchema }))
-    .mutation(async ({ ctx, input }): Promise<WorkspaceEntry> => {
-      ctx.changes.record('workspace');
-      return ctx.devBrain.workspaces.create(input);
-    }),
+    .mutation(({ ctx, input }): Promise<WorkspaceEntry> => ctx.devBrain.workspaces.create(input)),
 
   // only the open workspace can be deleted (core's workspace_not_open otherwise)
   delete: devBrainProcedure.input(byId).mutation(async ({ ctx, input }): Promise<void> => {
-    ctx.changes.record('workspace');
     await ctx.devBrain.workspaces.delete(input.id);
     if (ctx.devBrain.settings.get('state.lastWorkspaceId') === input.id) {
       ctx.devBrain.settings.set('state.lastWorkspaceId', null);

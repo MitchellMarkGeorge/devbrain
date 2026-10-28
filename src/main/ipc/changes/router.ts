@@ -54,7 +54,13 @@ export class ChangeRouter {
     switch (change.type) {
       case 'opened':
         this.follow(change.workspace);
+        // its lastOpenedAt in the registry
+        this.route(['workspace']);
         this.broadcaster.send('workspace.changed', { id: change.workspace.info.id });
+        return;
+      case 'created':
+      case 'deleted':
+        this.route(['workspace']);
         return;
       case 'closed':
         if (this.followed?.id === change.workspaceId) this.unfollow();
