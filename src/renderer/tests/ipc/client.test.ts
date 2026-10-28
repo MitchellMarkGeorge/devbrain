@@ -1,12 +1,14 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, expectTypeOf, it, vi } from 'vitest';
+import { createTRPCClient, TRPCClientError } from '@trpc/client';
+import { initTRPC } from '@trpc/server';
+import { z } from 'zod';
 import type { ChangedEntity } from '@common/changes';
 import type { AppEvents } from '@common/events';
-import { IpcError } from '@common/ipc/errors';
-import type { Procedure } from '@common/ipc/procedure';
-import type { IpcBridge, IpcResult } from '@common/ipc/types';
+import type { IpcBridge, IpcErrorCode, IpcResult } from '@common/ipc/types';
 import type { AppRouter } from '@main/ipc/router';
-import { createClient } from '../../ipc/client';
 import { createEventClient } from '../../ipc/events';
+import { ipcLink } from '../../ipc/link';
+import type { IpcLinkOptions } from '../../ipc/link';
 
 // a bridge whose invoke answers with `result`
 function fakeBridge(result: IpcResult<unknown> = { ok: true, data: null, changed: [] }) {
@@ -16,72 +18,86 @@ function fakeBridge(result: IpcResult<unknown> = { ok: true, data: null, changed
   };
 }
 
-// a router type to call through, beyond app.*; only its shape matters here
-type TestRouter = AppRouter & {
-  tasks: {
-    get: Procedure<'query', { id: string }, { id: string }>;
-    archive: Procedure<'mutation', { id: string }, null>;
-  };
+// a router to call through, beyond app.*; only its type is used, the fake bridge answers
+const t = initTRPC.create();
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- read as a type
+const testRouter = t.router({
+  tasks: t.router({
+    get: t.procedure.input(z.object({ id: z.string() })).query(({ input }) => input),
+    archive: t.procedure.input(z.object({ id: z.string() })).mutation(() => null),
+  }),
+});
+
+function client(options: IpcLinkOptions) {
+  return createTRPCClient<typeof testRouter>({ links: [ipcLink(options)] });
+}
+
+const rateLimited: IpcResult<unknown> = {
+  ok: false,
+  error: {
+    code: -32603,
+    message: 'Slow down',
+    data: { code: 'rate_limited', message: 'Slow down', data: { retryAt: new Date(0) } },
+  },
+  changed: [],
 };
 
-describe('createClient', () => {
-  it('invokes the dotted path with the input', async () => {
+describe('ipcLink', () => {
+  it('invokes the dotted path with the input, and unwraps the data', async () => {
     const bridge = fakeBridge({ ok: true, data: { id: 'tsk_1' }, changed: [] });
-    const client = createClient<TestRouter>({ bridge });
 
-    expect(await client.tasks.get({ id: 'tsk_1' })).toEqual({ id: 'tsk_1' });
-    expect(bridge.invoke).toHaveBeenCalledWith('tasks.get', { id: 'tsk_1' });
+    expect(await client({ bridge }).tasks.get.query({ id: 'tsk_1' })).toEqual({ id: 'tsk_1' });
+    expect(bridge.invoke).toHaveBeenCalledWith({
+      path: 'tasks.get',
+      type: 'query',
+      input: { id: 'tsk_1' },
+    });
   });
 
-  it('calls a procedure with no input', async () => {
+  it('calls app.ping with no input', async () => {
     const bridge = fakeBridge({ ok: true, data: 'pong', changed: [] });
-    const client = createClient<AppRouter>({ bridge });
+    const ipc = createTRPCClient<AppRouter>({ links: [ipcLink({ bridge })] });
 
-    expect(await client.app.ping()).toBe('pong');
-    expect(bridge.invoke).toHaveBeenCalledWith('app.ping', undefined);
-  });
-
-  it('throws an IpcError rebuilt from the envelope', async () => {
-    const retryAt = new Date(0);
-    const bridge = fakeBridge({
-      ok: false,
-      error: { code: 'rate_limited', message: 'Slow down', data: { retryAt } },
-      changed: [],
+    expect(await ipc.app.ping.query()).toBe('pong');
+    expect(bridge.invoke).toHaveBeenCalledWith({
+      path: 'app.ping',
+      type: 'query',
+      input: undefined,
     });
-    const client = createClient<AppRouter>({ bridge });
-
-    const error = await client.app.ping().catch((e: unknown) => e);
-
-    expect(error).toBeInstanceOf(IpcError);
-    expect(error).toMatchObject({ code: 'rate_limited', message: 'Slow down', data: { retryAt } });
   });
 
-  it('turns a failed invoke (no handler) into an internal IpcError', async () => {
+  it('throws a TRPCClientError carrying our serialized error as data', async () => {
+    const error = await client({ bridge: fakeBridge(rateLimited) })
+      .tasks.get.query({ id: 'tsk_1' })
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(TRPCClientError);
+    expect(error).toMatchObject({
+      message: 'Slow down',
+      data: { code: 'rate_limited', data: { retryAt: new Date(0) } },
+    });
+  });
+
+  it('turns a failed invoke into a TRPCClientError', async () => {
     const bridge = fakeBridge();
-    bridge.invoke.mockRejectedValue(new Error("No handler registered for 'ipc:x'"));
-    const client = createClient<AppRouter>({ bridge });
+    bridge.invoke.mockRejectedValue(new Error('An object could not be cloned.'));
 
-    await expect(client.app.ping()).rejects.toMatchObject({
-      name: 'IpcError',
-      code: 'internal',
-      message: "No handler registered for 'ipc:x'",
+    await expect(client({ bridge }).tasks.get.query({ id: 'x' })).rejects.toMatchObject({
+      name: 'TRPCClientError',
+      message: 'An object could not be cloned.',
     });
+  });
+
+  it('says so when the preload exposed no bridge', async () => {
+    await expect(client({}).tasks.get.query({ id: 'x' })).rejects.toThrow(/No IPC bridge/);
   });
 
   it('does not hang when a router node is awaited', async () => {
-    const client = createClient<AppRouter>({ bridge: fakeBridge() });
+    const ipc = client({ bridge: fakeBridge() });
 
-    expect((client.app as unknown as { then: unknown }).then).toBeUndefined();
     // with a `then`, this would wait on a call that never settles, and time out
-    const node: unknown = await client.app;
+    const node: unknown = await ipc.tasks;
     expect(typeof node).toBe('function');
-  });
-
-  it('returns undefined for symbol keys', () => {
-    const client = createClient<AppRouter>({ bridge: fakeBridge() });
-
-    expect((client.app as unknown as Record<symbol, unknown>)[Symbol.toPrimitive]).toBeUndefined();
-    expect((client as unknown as Record<symbol, unknown>)[Symbol.iterator]).toBeUndefined();
   });
 
   it('waits on onChanged before resolving', async () => {
@@ -98,9 +114,10 @@ describe('createClient', () => {
         }),
     );
     const bridge = fakeBridge({ ok: true, data: null, changed: ['task', 'note'] });
-    const client = createClient<TestRouter>({ bridge, onChanged });
 
-    const pending = client.tasks.archive({ id: 'tsk_1' }).then(() => order.push('resolved'));
+    const pending = client({ bridge, onChanged })
+      .tasks.archive.mutate({ id: 'tsk_1' })
+      .then(() => order.push('resolved'));
     await vi.waitFor(() => expect(onChanged).toHaveBeenCalled());
     expect(order).toEqual(['onChanged task,note']);
     finishRefetch();
@@ -115,16 +132,28 @@ describe('createClient', () => {
       await Promise.resolve();
       order.push(`onChanged ${changed.join()}`);
     });
-    const bridge = fakeBridge({
-      ok: false,
-      error: { code: 'internal', message: 'Something went wrong', data: {} },
-      changed: ['task'],
-    });
-    const client = createClient<TestRouter>({ bridge, onChanged });
+    const bridge = fakeBridge({ ...rateLimited, changed: ['task'] });
 
-    await client.tasks.archive({ id: 'tsk_1' }).catch(() => order.push('rejected'));
+    await client({ bridge, onChanged })
+      .tasks.archive.mutate({ id: 'tsk_1' })
+      .catch(() => order.push('rejected'));
 
     expect(order).toEqual(['onChanged task', 'rejected']);
+  });
+});
+
+// Checked by `npm run typecheck`
+describe('the app client types', () => {
+  type Ipc = ReturnType<typeof createTRPCClient<AppRouter>>;
+
+  it('types app.ping', () => {
+    expectTypeOf<ReturnType<Ipc['app']['ping']['query']>>().toEqualTypeOf<Promise<string>>();
+  });
+
+  it("types a failure's data as our serialized error", () => {
+    expectTypeOf<
+      NonNullable<TRPCClientError<AppRouter>['data']>['code']
+    >().toEqualTypeOf<IpcErrorCode>();
   });
 });
 

@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { IpcRendererEvent } from 'electron';
 import {
   IPC_BRIDGE_KEY,
-  IPC_CHANNEL_PREFIX,
+  IPC_CALL_CHANNEL,
   IPC_EVENT_PREFIX,
   IPC_NAME_PATTERN,
 } from '@common/ipc/constants';
@@ -20,9 +20,12 @@ function checkName(kind: string, name: unknown): asserts name is string {
 
 export function createBridge(): IpcBridge {
   return {
-    invoke(path, input) {
+    invoke({ path, type, input }) {
       checkName('path', path);
-      return ipcRenderer.invoke(`${IPC_CHANNEL_PREFIX}${path}`, input) as Promise<
+      if (type !== 'query' && type !== 'mutation')
+        throw new Error(`Invalid IPC call type: ${type}`);
+      // a new object: only these fields reach main
+      return ipcRenderer.invoke(IPC_CALL_CHANNEL, { path, type, input }) as Promise<
         IpcResult<unknown>
       >;
     },

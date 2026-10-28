@@ -69,6 +69,8 @@
   },
   "dependencies": {
     "@dotenvx/dotenvx": "^1.75.1",
+    "@trpc/client": "^11.19.0",
+    "@trpc/server": "^11.19.0",
     "atomically": "^2.1.1",
     "better-sqlite3": "^12.11.1",
     "drizzle-orm": "^0.45.2",

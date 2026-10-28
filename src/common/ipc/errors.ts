@@ -3,8 +3,8 @@ import type { IpcErrorCode, SerializedError } from './types';
 
 export const INTERNAL_ERROR_MESSAGE = 'Something went wrong';
 
-// A failed call, as the renderer's client throws it, and as main's own code throws an IPC-level
-// failure (`no_workspace_open`, `cancelled`). `data` holds the original error's own fields.
+// An IPC-level failure main's own code throws (`no_workspace_open`, `cancelled`), kept as it is by
+// serializeError. `data` holds fields the renderer may read.
 export class IpcError extends Error {
   readonly code: IpcErrorCode;
   readonly data: Record<string, unknown>;
@@ -19,10 +19,6 @@ export class IpcError extends Error {
     this.name = 'IpcError';
     this.code = code;
     this.data = data;
-  }
-
-  static fromSerialized(error: SerializedError): IpcError {
-    return new IpcError(error.code, error.message, error.data);
   }
 }
 

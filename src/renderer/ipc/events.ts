@@ -1,5 +1,5 @@
 import type { IpcBridge } from '@common/ipc/types';
-import { defaultBridge } from './client';
+import { defaultBridge } from './bridge';
 
 export interface EventClient<TEvents> {
   // returns the function that unsubscribes
