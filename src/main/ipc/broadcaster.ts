@@ -9,12 +9,10 @@ export interface Broadcaster {
 
 // Every open window's page, on `ipc-event:<name>`, which the preload's bridge.subscribe listens on.
 // A window being torn down is skipped.
-export function webContentsBroadcaster(
-  windows: () => BrowserWindow[] = () => BrowserWindow.getAllWindows(),
-): Broadcaster {
+export function webContentsBroadcaster(): Broadcaster {
   return {
     send(name, payload) {
-      for (const window of windows()) {
+      for (const window of BrowserWindow.getAllWindows()) {
         if (window.isDestroyed() || window.webContents.isDestroyed()) continue;
         window.webContents.send(`${IPC_EVENT_PREFIX}${name}`, payload);
       }
