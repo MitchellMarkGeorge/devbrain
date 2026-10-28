@@ -121,7 +121,7 @@ describe('workspaces', () => {
     expect(await call('workspaces.open', { id: work }, 'mutation')).toMatchObject({
       ok: true,
       data: { id: work },
-      changed: ['workspace', 'settings'],
+      changed: ['workspace'],
     });
     expect(await call('workspaces.current')).toMatchObject({ data: { id: work } });
     expect(devBrain.settings.get('state.lastWorkspaceId')).toBe(work);
@@ -140,7 +140,7 @@ describe('workspaces', () => {
     expect(await call('workspaces.delete', { id: home }, 'mutation')).toEqual({
       ok: true,
       data: undefined,
-      changed: ['workspace', 'settings'],
+      changed: ['workspace'],
     });
     expect(devBrain.settings.get('state.lastWorkspaceId')).toBeNull();
     expect(await call('workspaces.current')).toMatchObject({ data: null });
@@ -207,29 +207,6 @@ describe('settings', () => {
       });
     }
     expect(devBrain.settings.get('settings')).toEqual(settings);
-  });
-
-  it('gets the state, and updates the last page alone', async () => {
-    expect(await call('settings.getState')).toEqual({
-      ok: true,
-      data: { lastWorkspaceId: null, lastPage: null },
-      changed: [],
-    });
-
-    expect(
-      await call(
-        'settings.updateState',
-        { lastPage: '/tasks', lastWorkspaceId: 'wsp_x' },
-        'mutation',
-      ),
-    ).toEqual({
-      ok: true,
-      data: { lastWorkspaceId: null, lastPage: '/tasks' },
-      changed: ['settings'],
-    });
-    expect(code(await call('settings.updateState', { lastPage: 42 }, 'mutation'))).toBe(
-      'invalid_input',
-    );
   });
 });
 

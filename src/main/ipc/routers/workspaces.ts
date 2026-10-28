@@ -52,7 +52,6 @@ export const workspacesRouter = t.router({
     await ctx.devBrain.workspaces.delete(input.id);
     if (ctx.devBrain.settings.get('state.lastWorkspaceId') === input.id) {
       ctx.devBrain.settings.set('state.lastWorkspaceId', null);
-      ctx.changes.record('settings');
     }
   }),
 });
@@ -66,7 +65,7 @@ async function opened(
   // lastOpenedAt, and the open workspace's own rows: the renderer starts over on workspace.changed
   ctx.changes.record('workspace');
   const workspace = await open();
+  // main's own state, which the renderer never reads, so not recorded
   ctx.devBrain.settings.set('state.lastWorkspaceId', id);
-  ctx.changes.record('settings');
   return workspace.info;
 }
