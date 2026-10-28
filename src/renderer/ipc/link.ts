@@ -3,7 +3,7 @@ import type { TRPCLink } from '@trpc/client';
 import type { AnyTRPCRouter } from '@trpc/server';
 import { observable } from '@trpc/server/observable';
 import type { ChangedEntity } from '@common/changes';
-import type { IpcBridge, IpcResult } from '@common/ipc/types';
+import type { IpcBridge } from '@common/ipc/types';
 import { defaultBridge } from './bridge';
 
 export interface IpcLinkOptions {
@@ -26,19 +26,16 @@ export function ipcLink<TRouter extends AnyTRPCRouter>(
           if (op.type === 'subscription') {
             throw new TRPCClientError("Subscriptions don't run over IPC");
           }
-          let result: IpcResult<unknown>;
-          try {
-            const bridge = options.bridge ?? defaultBridge();
-            result = await bridge.invoke({ path: op.path, type: op.type, input: op.input });
-          } catch (error) {
-            // no bridge, or a request or result Electron could not clone
-            throw TRPCClientError.from(error instanceof Error ? error : new Error(String(error)));
-          }
+          const bridge = options.bridge ?? defaultBridge();
+          const result = await bridge.invoke({ path: op.path, type: op.type, input: op.input });
           await options.onChanged?.(result.changed);
           if (!result.ok) throw TRPCClientError.from({ error: result.error });
           observer.next({ result: { type: 'data', data: result.data } });
           observer.complete();
         };
+        // run is async, so its failures are a rejection: pass each to tRPC as a TRPCClientError,
+        // or the call would never settle. Covers no bridge, a request or result Electron could not
+        // send, onChanged throwing, and an error envelope (already a TRPCClientError, kept as is)
         run().catch((error: unknown) => observer.error(TRPCClientError.from(error as Error)));
       });
 }
