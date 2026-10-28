@@ -1,6 +1,7 @@
 import type { ChangedEntity } from '@common/changes';
 import type { Workspace } from '@main/core';
 import type { ArchiveChange } from '@main/core/archive/service';
+import type { CalendarChange } from '@main/core/calendars/service';
 import type { EventChange } from '@main/core/events/service';
 import type { FavoriteChange } from '@main/core/favorites/service';
 import type { FavoritableEntityType } from '@main/core/favorites/types';
@@ -20,6 +21,7 @@ export type WorkspaceChange =
   | { source: 'notes'; change: NoteChange }
   | { source: 'projects'; change: ProjectChange }
   | { source: 'events'; change: EventChange }
+  | { source: 'calendars'; change: CalendarChange }
   | { source: 'archive'; change: ArchiveChange }
   | { source: 'favorites'; change: FavoriteChange }
   | { source: 'detach'; change: TaskLinkChange }
@@ -37,6 +39,7 @@ export function subscribeToWorkspace(
     workspace.notes.onChange((change) => listener({ source: 'notes', change })),
     workspace.projects.onChange((change) => listener({ source: 'projects', change })),
     workspace.events.onChange((change) => listener({ source: 'events', change })),
+    workspace.calendars.onChange((change) => listener({ source: 'calendars', change })),
     workspace.archive.onChange((change) => listener({ source: 'archive', change })),
     workspace.favorites.onChange((change) => listener({ source: 'favorites', change })),
     workspace.detach.onChange((change) => listener({ source: 'detach', change })),
@@ -70,6 +73,8 @@ export function changedEntities({ source, change }: WorkspaceChange): ChangedEnt
       return ['project'];
     case 'events':
       return ['event'];
+    case 'calendars':
+      return ['calendar'];
     case 'archive':
       // an archive or restore cascades (a task's subtree and linked notes, a project's tasks and
       // notes): each kind whose ids came back

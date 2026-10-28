@@ -149,6 +149,16 @@ describe('ChangeRouter', () => {
     ]);
   });
 
+  it("returns a calendar's change in changed", async () => {
+    const workspace = await openAndAttach();
+    const [calendar] = workspace.calendars.list();
+
+    const result = await withChangeScope(() => workspace.calendars.setVisible(calendar.id, false));
+
+    expect(result.changed).toEqual(['calendar']);
+    expect(broadcaster.named('db.changes')).toEqual([]);
+  });
+
   it('picks up a workspace that was already open before it attached', async () => {
     // openAndAttach opens first, as startDevBrain does before IPC attaches
     const workspace = await openAndAttach();

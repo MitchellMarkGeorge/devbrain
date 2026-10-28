@@ -2,15 +2,28 @@ import { CalendarId } from '@common/ids';
 import { calendars } from '@main/db/schema/calendars';
 import { asc, desc, eq } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { InvalidInputError, NotFoundError } from '../shared/errors';
 import { Calendar } from './types';
+
+// What a write changed, for in-process subscribers such as the IPC layer forwarding it to the
+// renderer. Sent after the write, with the row as written. Sync's writes to the table are reported
+// by its progress instead (SyncSummary.changed).
+export type CalendarChange = { type: 'updated'; calendar: Calendar };
 
 // The calendars events belong to, local and synced: the public interface for managing them. It
 // reads and writes the calendars table only. Synced calendars' rows come from their provider
 // through the sync engine (SyncWriter.applyCalendarList); here the user shows or hides any calendar
 // and chooses which synced ones sync.
 export class CalendarService {
+  private readonly changes = new ChangeListeners<CalendarChange>('Calendar');
+
   constructor(private readonly db: BetterSQLite3Database) {}
+
+  // returns a function that unsubscribes the listener
+  onChange(listener: ChangeListener<CalendarChange>): () => void {
+    return this.changes.add(listener);
+  }
 
   // every calendar: local first, then each source's primary calendar first, then by name
   list(): Calendar[] {
@@ -49,6 +62,7 @@ export class CalendarService {
       .returning()
       .get();
     if (!calendar) throw new NotFoundError(id);
+    this.changes.emit({ type: 'updated', calendar });
     return calendar;
   }
 
@@ -61,6 +75,7 @@ export class CalendarService {
       .returning()
       .get();
     if (!calendar) throw new NotFoundError(id);
+    this.changes.emit({ type: 'updated', calendar });
     return calendar;
   }
 }

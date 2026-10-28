@@ -127,12 +127,13 @@ each change goes: into the response of the mutation that caused it, or out as a 
 - **Changes emitted inside a transaction** (`ArchiveChange`, `disconnected`). The listener runs
   before the commit, but the main process is single-threaded and the transaction synchronous: the
   response or broadcast cannot reach the renderer, nor its refetch run, until the commit is done.
-- **Gaps.** `CalendarService` emits nothing, so its handlers call `ctx.changes.record('calendar')`.
-  The workspace registry is announced by `WorkspaceService` (`opened`, `created` and `deleted`
-  each route `workspace`), and the settings by `SettingsService.onChange` (milestone 3 added it:
-  a write under `settings.` routes `settings`, one to `state.` routes nothing). `ctx.changes` is
-  the call's scope; a record made after the scope closed is dropped, so work that outlives its call
-  reports through core's events.
+- **No gaps.** Every service that writes announces it, so no handler needs
+  `ctx.changes.record(...)`. Milestone 3 added the ones that were missing: the workspace registry
+  (`WorkspaceService`'s `opened`, `created` and `deleted` each route `workspace`), the settings
+  (`SettingsService.onChange`: a write under `settings.` routes `settings`, one to `state.` routes
+  nothing) and the calendars (`CalendarService.onChange`, `calendar`). `ctx.changes` remains for a
+  write no service announces; a record made after the scope closed is dropped, so work that
+  outlives its call reports through core's events.
 - **Queries** open no scope that core's changes find. What a query's handler records still goes in
   its response, and anything core announces while it runs is broadcast.
 - **Over-reporting is safe.** It only costs a refetch. When in doubt, a mapping returns more.
@@ -155,6 +156,7 @@ note, project or event change maps the same whatever its type:
 | `SyncProgress`                                   | `summary.changed`                                                    |
 | `WorkspaceChange` `opened`, `created`, `deleted` | `workspace` (the registry)                                           |
 | `SettingsChange` (`settings.*` key, or a reset)  | `settings`; a `state.*` key routes nothing                           |
+| `CalendarChange`                                 | `calendar`                                                           |
 | `SyncStatusChange` (`onStatus`)                  | `externalSource` (its `lastSyncedAt`, `lastError`, `retryAt`)        |
 
 The router also broadcasts deltas for status UI, whatever the scope: `integrations.changed`
@@ -414,7 +416,7 @@ synchronous.
 | `projects`     | `list`, `get`, `create`, `update`, `updateStatus`, `stats`, `setFavorite`                                                                                                           |                                                                                                                                                                                                                 |
 | `events`       | `listForCalendar`, `get`, `create`, `update`, `delete`, `setFavorite`                                                                                                               |                                                                                                                                                                                                                 |
 | `favorites`    | `list` (infinite, with the `entityType` filter)                                                                                                                                     | `listFavorites`. Favoriting itself is each entity router's `setFavorite`.                                                                                                                                       |
-| `calendars`    | `list`, `setVisible`, `setSelected`                                                                                                                                                 | `CalendarService` emits nothing, so these call `ctx.changes.record('calendar')`. `setSelected` also calls `workspace.sync.syncNow(sourceId)` when the calendar has a source.                                    |
+| `calendars`    | `list`, `setVisible`, `setSelected`                                                                                                                                                 | `CalendarService` announces both writes (milestone 3). `setSelected` also calls `workspace.sync.syncNow(sourceId)` when the calendar has a source.                                                              |
 | `integrations` | `list`, `get`, `connect` (API key or OAuth), `reconnect`, `cancelConnect`, `setEnabled`, `previewDisconnect`, `disconnect`                                                          | An OAuth `connect` or `reconnect` keeps its flow's `AbortController` in the router; `cancelConnect` aborts it (one flow per workspace, so no id), and the aborted call maps core's `AbortError` to `cancelled`. |
 | `sources`      | `setEnabled`                                                                                                                                                                        |                                                                                                                                                                                                                 |
 | `sync`         | `now`, `status`                                                                                                                                                                     |                                                                                                                                                                                                                 |

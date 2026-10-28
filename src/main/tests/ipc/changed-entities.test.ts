@@ -8,6 +8,11 @@ import { changedEntities, type WorkspaceChange } from '@main/ipc/changes/entitie
 const cases: [string, unknown, ChangedEntity[]][] = [
   ['an event delete', { source: 'events', change: { type: 'deleted', eventIds: [] } }, ['event']],
   [
+    'a calendar update',
+    { source: 'calendars', change: { type: 'updated', calendar: {} } },
+    ['calendar'],
+  ],
+  [
     'a project-only archive',
     {
       source: 'archive',
