@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { IpcRendererEvent } from 'electron';
 import { IPC_BRIDGE_KEY, IPC_CALL_CHANNEL, IPC_EVENT_PREFIX } from '@common/ipc/constants';
-import type { IpcBridge, IpcResult } from '@common/ipc/types';
+import type { IpcBridge } from '@common/ipc/types';
 
 // The renderer's only way to main: a generic bridge, with nothing in it per route. The typed client
 // (src/renderer/ipc) builds the requests; main checks them, as it trusts nothing from the renderer.
@@ -11,7 +11,7 @@ import type { IpcBridge, IpcResult } from '@common/ipc/types';
 export function createBridge(): IpcBridge {
   return {
     invoke(request) {
-      return ipcRenderer.invoke(IPC_CALL_CHANNEL, request) as Promise<IpcResult<unknown>>;
+      return ipcRenderer.invoke(IPC_CALL_CHANNEL, request);
     },
     subscribe(name, listener) {
       const channel = `${IPC_EVENT_PREFIX}${name}`;
