@@ -11,7 +11,7 @@ import type { IpcErrorInfo } from '@main/ipc/server';
 import { appRouter } from '@main/ipc/router';
 import { t } from '@main/ipc/trpc';
 import { invokeHandler, ipcHandlers, resetElectronMock } from '../__mocks__/electron';
-import { eventFrom, testContext } from './helpers';
+import { testContext } from './helpers';
 
 const event = {} as IpcMainInvokeEvent;
 
@@ -210,10 +210,8 @@ describe('the app router', () => {
 
   it('answers app.ping and app.version', async () => {
     attachRouter(appRouter, { createContext: testContext() });
-    const fromApp = (path: string) =>
-      invokeHandler('ipc:call', eventFrom(), { path, type: 'query' });
 
-    expect(await fromApp('app.ping')).toEqual({ ok: true, data: 'pong', changed: [] });
-    expect(await fromApp('app.version')).toEqual({ ok: true, data: '0.0.0-test', changed: [] });
+    expect(await call('app.ping')).toEqual({ ok: true, data: 'pong', changed: [] });
+    expect(await call('app.version')).toEqual({ ok: true, data: '0.0.0-test', changed: [] });
   });
 });

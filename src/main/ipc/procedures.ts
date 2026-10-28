@@ -1,21 +1,14 @@
-import { logging, requireDevBrain, requireWorkspace, senderGuard } from './middleware';
+import { logging, requireDevBrain, requireWorkspace } from './middleware';
 import { t } from './trpc';
 
-// What every route is built from. Each logs the call and refuses a page that is not the app's own;
-// the DevBrain and workspace ones also fail with devbrain_unavailable when core did not start, and
-// the workspace ones with no_workspace_open while none is open. A query and a mutation share a
-// builder: the names say which a route is.
+// What every route is built from, for a query or a mutation alike. Each logs the call; the
+// DevBrain and workspace ones also fail with devbrain_unavailable when core did not start, and the
+// workspace one with no_workspace_open while none is open.
 
-const publicProcedure = t.procedure.use(logging).use(senderGuard);
-export const publicQuery = publicProcedure;
-export const publicMutation = publicProcedure;
+export const publicProcedure = t.procedure.use(logging);
 
 // ctx.devBrain is set
-const devBrainProcedure = publicProcedure.use(requireDevBrain);
-export const devBrainQuery = devBrainProcedure;
-export const devBrainMutation = devBrainProcedure;
+export const devBrainProcedure = publicProcedure.use(requireDevBrain);
 
 // ctx.devBrain and ctx.workspace are set
-const wsProcedure = publicProcedure.use(requireWorkspace);
-export const wsQuery = wsProcedure;
-export const wsMutation = wsProcedure;
+export const wsProcedure = publicProcedure.use(requireWorkspace);

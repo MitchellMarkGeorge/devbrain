@@ -8,25 +8,15 @@ import type { IpcResult } from '@common/ipc/types';
 import { openDevBrain, type DevBrain, type WorkspaceOptions } from '@main/core';
 import { openMemorySettingsStore } from '@main/core/tests/__mocks__/memory-settings-store';
 import { WORKSPACE_OPTIONS } from '@main/core/tests/utils';
-import { appPages } from '@main/ipc/app-pages';
 import type { Broadcaster } from '@main/ipc/broadcaster';
 import { contextFactory } from '@main/ipc/context';
 import { invokeHandler } from '../__mocks__/electron';
 
-// What the IPC tests share: the app's page, a context over a DevBrain, a broadcaster that keeps
-// what it sent, and a DevBrain folder in a temporary directory.
-
-export const APP_URL = 'http://localhost:5173/';
-
-export const testPages = appPages({ devServerUrl: APP_URL, indexHtml: '/app/renderer/index.html' });
-
-// an invoke from a frame showing `url`, the app's own page by default
-export function eventFrom(url: string | null = APP_URL): IpcMainInvokeEvent {
-  return { senderFrame: url === null ? null : { url } } as unknown as IpcMainInvokeEvent;
-}
+// What the IPC tests share: a context over a DevBrain, a broadcaster that keeps what it sent, and
+// a DevBrain folder in a temporary directory.
 
 export function testContext(devBrain: DevBrain | null = null) {
-  return contextFactory({ devBrain, appPages: testPages, log: { debug: vi.fn(), warn: vi.fn() } });
+  return contextFactory({ devBrain, log: { debug: vi.fn(), warn: vi.fn() } });
 }
 
 // calls a procedure through the transport, as the renderer's link would
@@ -34,8 +24,8 @@ export function call<T = unknown>(
   path: string,
   input?: unknown,
   type: 'query' | 'mutation' = 'query',
-  event: IpcMainInvokeEvent = eventFrom(),
 ): Promise<IpcResult<T>> {
+  const event = {} as IpcMainInvokeEvent;
   return invokeHandler('ipc:call', event, { path, type, input }) as Promise<IpcResult<T>>;
 }
 

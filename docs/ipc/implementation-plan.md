@@ -70,18 +70,17 @@ src/common/
 
 src/main/ipc/
   trpc.ts                   t (initTRPC, errorFormatter)
-  procedures.ts             publicQuery/Mutation, devBrainQuery/Mutation, wsQuery/Mutation
+  procedures.ts             publicProcedure, devBrainProcedure, wsProcedure
   errors.ts                 IpcError, serializeError, serializeTRPCError
   server.ts                 attachRouter: the transport over ipcMain
   context.ts                AppContext, contextFactory
-  middleware.ts             senderGuard, logging, requireDevBrain, requireWorkspace
-  app-pages.ts              appPages: the pages allowed to call main and to load in the window
+  middleware.ts             logging, requireDevBrain, requireWorkspace
   zod.ts                    zId(entity), zPage
   broadcaster.ts            Broadcaster, webContentsBroadcaster
   changes/
     scope.ts                ChangeScope, withChangeScope, withLocalScope, openScope
                             (AsyncLocalStorage)
-    entities.ts             WorkspaceChange, subscribeToWorkspace, changedEntities (exhaustive)
+    entities.ts             WorkspaceChange, subscribeToWorkspace, changedEntities
     router.ts               ChangeRouter
   routers/                  app, workspaces, settings, tasks, archive, favorites, notes, projects,
                             events, calendars, integrations, sources, sync, search
@@ -136,8 +135,10 @@ each change goes: into the response of the mutation that caused it, or out as a 
   its response, and anything core announces while it runs is broadcast.
 - **Over-reporting is safe.** It only costs a refetch. When in doubt, a mapping returns more.
 
-The mapping is one exhaustive `switch` per change union, with `assertNever` defaults, so a new
-change type fails typecheck until it is handled:
+The mapping is one exhaustive `switch` over the sources, with an `assertNever` default, so a new
+source fails typecheck until it is handled. Within a source, it switches on `type` only where the
+answer depends on it (detach, integrations), so a new type there fails typecheck too; every task,
+note, project or event change maps the same whatever its type:
 
 | Core change                         | `ChangedEntity[]`                                                    |
 | ----------------------------------- | -------------------------------------------------------------------- |
@@ -273,14 +274,13 @@ correct type.
    - The `WorkspaceChange` union, tagged by source: tasks, notes, projects, events, archive,
      favorites, detach, integrations, sync (`onProgress`) and syncStatus (`onStatus`), with
      `subscribeToWorkspace` subscribing to all of them.
-   - `changedEntities`, an exhaustive `switch` per source and per `type`, with `assertNever`
-     defaults (see the mapping table above).
+   - `changedEntities`, an exhaustive `switch` per source, and per `type` where the answer
+     depends on it, with `assertNever` defaults (see the mapping table above).
 4. **`changes/router.ts`:** `ChangeRouter`.
    - `attach(devBrain)`: subscribes to the current workspace now, then follows
      `workspaces.onChange`, subscribing on `opened` and unsubscribing on `closed`. It broadcasts
      `workspace.changed`.
    - `route(entities)`: adds to the open scope, or broadcasts `db.changes`.
-   - `record(...entities)`: for handlers whose service emits nothing.
    - It also broadcasts the deltas: `integrations.changed`, `sync.progress`, `sources.changed`.
 5. **The transport** wraps each mutation's `callTRPCProcedure` in `withChangeScope` and returns
    the scope's `changed` on success and on failure. `ctx.changes.record()` adds to the same scope:
@@ -289,35 +289,34 @@ correct type.
    (A tRPC middleware can't do this: it can only return the resolver's output, with no room for
    `changed` beside it.)
 6. **Context and middleware** (tRPC middleware, built with `t.middleware`):
-   - `contextFactory({ devBrain: startCore(), appPages, log })` is attachRouter's `createContext`,
-     returning `{ event, devBrain, workspace: devBrain.currentWorkspace, changes, log, appPages }`,
-     read fresh on every call. It awaits `startCore()`, so calls made while core starts wait for
-     it.
-   - `senderGuard`: the app's own page only (any page on the dev server's origin, or
-     `file://…/renderer/index.html`), from `appPages`, which the window's `will-navigate` guard
-     shares. A refused frame fails as `internal`.
+   - `contextFactory({ devBrain: startCore(), log })` is attachRouter's `createContext`, returning
+     `{ event, devBrain, workspace: devBrain.currentWorkspace, changes, log }`, read fresh on every
+     call. It awaits `startCore()`, so calls made while core starts wait for it.
+   - No sender guard: the window is sandboxed and can't open windows or navigate (step 7), so
+     only the app's page can be in it to call main. (The plan first had a `senderGuard` checking
+     each call's frame URL; milestone 3 dropped it as a second check of the same thing.)
    - `logging`: path, duration and error code, never the input; success at debug, failure at warn.
    - `requireDevBrain` → `devbrain_unavailable` when `startCore()` returned `null`;
      `requireWorkspace` → that, or `no_workspace_open`. Each narrows the context.
-   - Base procedures in `procedures.ts` (`trpc.ts` holds `t`, which the middleware imports):
-     `publicQuery`/`publicMutation`, `devBrainQuery`/`devBrainMutation` (workspaces, settings) and
-     `wsQuery`/`wsMutation`. Routes never use `t.procedure`; `app.ping` and `app.version` are
-     public ones.
+   - Base procedures in `procedures.ts` (`trpc.ts` holds `t`, which the middleware imports), each
+     for a query or a mutation: `publicProcedure`, `devBrainProcedure` (workspaces, settings) and
+     `wsProcedure`. Routes never use `t.procedure`; `app.ping` and `app.version` are public ones.
    - `zId(entity)`, which checks the prefix with `isId` from `src/common/ids.ts`.
 7. **`src/main/index.ts`:**
    - Once `startCore()` resolves, create the `Broadcaster` and call `ChangeRouter.attach`.
      `attachRouter` stays where milestone 2 put it.
    - Window hardening from `docs/security/untrusted-content.md`: `setWindowOpenHandler` → deny, and
-     a `will-navigate` guard that only allows the app's own pages.
+     a `will-navigate` guard that cancels every navigation but a reload of the current page. The
+     app routes within its page, which is no navigation.
 8. **The first real routes:**
    - `workspaces`: `list`, `current`, `open`, `switch`, `create`, `delete`. These return
      `WorkspaceInfo`, never a `Workspace`, and record `workspace`. `create` doesn't open the new
      workspace (core hands it back open; the route closes it). `open` and `switch` write
      `state.lastWorkspaceId`, which `startDevBrain` reopens at launch and nothing wrote before, and
      `delete` clears it; those record `settings` too.
-   - `settings`: `get` returns the whole settings file; `update` takes a patch validated against
-     `core/settings/schema.ts` (strict: an unknown key is refused), writes each value it carries
-     and returns the file. Of the state, only `lastPage` is the renderer's to write.
+   - `settings`: `get` returns the whole settings file; `update` takes the whole `settings`
+     object, validated by `appSettingsSchema` from `core/settings/schema.ts`, saves it and returns
+     the file. The state (`lastPage`) gets its own route when a view needs it.
    - `workspace.openUrl`, which goes through core's `guardOpenExternal`.
 
 **Tests** (in `src/main/tests/ipc/`, with an in-memory workspace and a fake `Broadcaster`)
@@ -329,7 +328,6 @@ correct type.
 - A mutation that throws after one committed write returns that write's type in `changed`.
 - After a workspace switch, the old workspace's changes are ignored and the new one's are routed.
 - `attach` picks up a workspace that was already open before IPC attached.
-- `senderGuard` rejects a frame from another origin.
 
 **Done when** the renderer can switch workspaces and see `workspace.changed`, and an archive's
 response carries `changed`.
@@ -415,7 +413,7 @@ view cannot leave it the opposite of what the user saw. The star button passes t
 it shows:
 
 ```ts
-setFavorite: wsMutation
+setFavorite: wsProcedure
   .input(z.object({ id: zId('task'), favorite: z.boolean() }))
   .mutation(({ ctx, input }) =>
     input.favorite

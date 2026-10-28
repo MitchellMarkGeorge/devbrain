@@ -56,22 +56,30 @@ const FAVORITABLE: Record<FavoritableEntityType, ChangedEntity> = {
 
 /**
  * The kinds of rows a change wrote, for the renderer to refetch. When in doubt this returns more:
- * over-reporting only costs a refetch, and missing one leaves a view stale.
+ * over-reporting only costs a refetch, and missing one leaves a view stale. A service whose every
+ * change writes the same kind maps without looking at `type`; detach and integrations switch on it,
+ * so a new type there fails typecheck until it is mapped.
  */
 export function changedEntities({ source, change }: WorkspaceChange): ChangedEntity[] {
   switch (source) {
     case 'tasks':
-      return taskEntities(change);
+      return ['task'];
     case 'notes':
-      return noteEntities(change);
+      return ['note'];
     case 'projects':
-      return projectEntities(change);
+      return ['project'];
     case 'events':
-      return eventEntities(change);
+      return ['event'];
     case 'archive':
-      return archiveEntities(change);
+      // an archive or restore cascades (a task's subtree and linked notes, a project's tasks and
+      // notes): each kind whose ids came back
+      return [
+        ...(change.taskIds.length > 0 ? (['task'] as const) : []),
+        ...(change.projectIds.length > 0 ? (['project'] as const) : []),
+        ...(change.noteIds.length > 0 ? (['note'] as const) : []),
+      ];
     case 'favorites':
-      return favoriteEntities(change);
+      return [FAVORITABLE[change.entityType]];
     case 'detach':
       return detachEntities(change);
     case 'integrations':
@@ -84,74 +92,6 @@ export function changedEntities({ source, change }: WorkspaceChange): ChangedEnt
       return ['externalSource'];
     default:
       return assertNever(source);
-  }
-}
-
-function taskEntities(change: TaskChange): ChangedEntity[] {
-  switch (change.type) {
-    case 'created':
-    case 'updated':
-      return ['task'];
-    default:
-      return assertNever(change);
-  }
-}
-
-function noteEntities(change: NoteChange): ChangedEntity[] {
-  switch (change.type) {
-    case 'created':
-    case 'updated':
-      return ['note'];
-    default:
-      return assertNever(change);
-  }
-}
-
-function projectEntities(change: ProjectChange): ChangedEntity[] {
-  switch (change.type) {
-    case 'created':
-    case 'updated':
-      return ['project'];
-    default:
-      return assertNever(change);
-  }
-}
-
-function eventEntities(change: EventChange): ChangedEntity[] {
-  switch (change.type) {
-    case 'created':
-    case 'updated':
-    case 'deleted':
-      return ['event'];
-    default:
-      return assertNever(change);
-  }
-}
-
-// an archive cascades (a task's subtree and linked notes, a project's tasks and notes): each kind
-// whose ids came back
-function archiveEntities(change: ArchiveChange): ChangedEntity[] {
-  switch (change.type) {
-    case 'archived':
-    case 'restored': {
-      const entities: ChangedEntity[] = [];
-      if (change.taskIds.length > 0) entities.push('task');
-      if (change.projectIds.length > 0) entities.push('project');
-      if (change.noteIds.length > 0) entities.push('note');
-      return entities;
-    }
-    default:
-      return assertNever(change);
-  }
-}
-
-function favoriteEntities(change: FavoriteChange): ChangedEntity[] {
-  switch (change.type) {
-    case 'favorited':
-    case 'unfavorited':
-      return [FAVORITABLE[change.entityType]];
-    default:
-      return assertNever(change);
   }
 }
 

@@ -2,19 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
 import type { DevBrain, WorkspaceEntry } from '@main/core';
 import { ChangeRouter } from '@main/ipc/changes/router';
-import { wsMutation, wsQuery } from '@main/ipc/procedures';
+import { wsProcedure } from '@main/ipc/procedures';
 import { appRouter } from '@main/ipc/router';
 import { attachRouter } from '@main/ipc/server';
 import { t } from '@main/ipc/trpc';
 import { resetElectronMock } from '../__mocks__/electron';
-import {
-  call,
-  createWorkspace,
-  eventFrom,
-  fakeBroadcaster,
-  tempDevBrain,
-  testContext,
-} from './helpers';
+import { call, createWorkspace, fakeBroadcaster, tempDevBrain, testContext } from './helpers';
 
 // The first routes end to end, through the transport, over a real DevBrain folder.
 
@@ -47,16 +40,6 @@ const code = (result: { ok: boolean }) =>
   (result as { error?: { data: { code: string } } }).error?.data.code;
 
 describe('the base procedures', () => {
-  it('refuse a frame from another origin, or none, before anything runs', async () => {
-    attach();
-
-    expect(
-      code(await call('app.ping', undefined, 'query', eventFrom('https://evil.example/'))),
-    ).toBe('internal');
-    expect(code(await call('app.ping', undefined, 'query', eventFrom(null)))).toBe('internal');
-    expect(await call('app.ping')).toEqual({ ok: true, data: 'pong', changed: [] });
-  });
-
   it('fail with devbrain_unavailable when core did not start', async () => {
     attachRouter(appRouter, { createContext: testContext(null) });
 
@@ -81,17 +64,17 @@ describe('the base procedures', () => {
     await devBrain.workspaces.open(await createWorkspace(devBrain, 'A'));
     attach(
       t.router({
-        create: wsMutation.mutation(({ ctx }) => {
+        create: wsProcedure.mutation(({ ctx }) => {
           ctx.workspace.tasks.createTask({ title: 'Routed', dueDate: DUE });
           ctx.changes.record('calendar');
           return null;
         }),
-        failing: wsMutation.mutation(({ ctx }) => {
+        failing: wsProcedure.mutation(({ ctx }) => {
           ctx.workspace.tasks.createTask({ title: 'Committed', dueDate: DUE });
           throw new Error('after the commit');
         }),
         // a query opens no scope: what core announces while it runs is broadcast
-        sneaky: wsQuery.query(({ ctx }) => {
+        sneaky: wsProcedure.query(({ ctx }) => {
           ctx.workspace.tasks.createTask({ title: 'From a query', dueDate: DUE });
           return null;
         }),
@@ -202,41 +185,32 @@ describe('settings', () => {
     });
   });
 
-  it('writes the values a patch carries, leaves the rest, and returns the file', async () => {
-    const before = devBrain.settings.get('settings.general');
+  it('replaces the settings and returns the file', async () => {
+    const settings = devBrain.settings.get('settings');
+    const changed = { ...settings, general: { ...settings.general, timeFormat: '24' as const } };
 
-    const result = await call(
-      'settings.update',
-      { settings: { general: { timeFormat: '24' } }, state: { lastPage: '/tasks' } },
-      'mutation',
-    );
-
-    expect(result).toMatchObject({
+    expect(await call('settings.update', changed, 'mutation')).toMatchObject({
       ok: true,
-      data: {
-        settings: { general: { ...before, timeFormat: '24' } },
-        state: { lastPage: '/tasks' },
-      },
+      data: { settings: changed, state: { lastWorkspaceId: null } },
       changed: ['settings'],
     });
     expect(devBrain.settings.get('settings.general.timeFormat')).toBe('24');
   });
 
-  it("refuses a value core's schema refuses, an unknown key and the state main keeps", async () => {
+  it("refuses settings core's schema refuses, writing nothing", async () => {
+    const settings = devBrain.settings.get('settings');
     const refused = [
-      { settings: { general: { timeFormat: '13' } } },
-      { settings: { general: { colour: 'blue' } } },
-      { settings: { unknown: true } },
-      { state: { lastWorkspaceId: 'wsp_1' } },
+      { ...settings, general: { ...settings.general, timeFormat: '13' } },
+      { ...settings, general: undefined },
     ];
-    for (const patch of refused) {
-      expect(await call('settings.update', patch, 'mutation')).toMatchObject({
+    for (const input of refused) {
+      expect(await call('settings.update', input, 'mutation')).toMatchObject({
         ok: false,
         error: { data: { code: 'invalid_input' } },
         changed: [],
       });
     }
-    expect(devBrain.settings.get('settings.general.timeFormat')).not.toBe('13');
+    expect(devBrain.settings.get('settings')).toEqual(settings);
   });
 });
 

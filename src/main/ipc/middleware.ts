@@ -14,14 +14,6 @@ export const logging = t.middleware(async ({ ctx, path, type, next }) => {
   return result;
 });
 
-// only the app's own page may call main: not a frame some other page managed to load
-export const senderGuard = t.middleware(({ ctx, next }) => {
-  if (!ctx.appPages.includes(ctx.event.senderFrame?.url)) {
-    throw new IpcError('internal', "This page can't call DevBrain");
-  }
-  return next();
-});
-
 export const requireDevBrain = t.middleware(({ ctx, next }) => {
   const { devBrain } = ctx;
   if (devBrain === null) throw devBrainUnavailable();

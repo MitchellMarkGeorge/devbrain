@@ -50,11 +50,6 @@ export class ChangeRouter {
     else this.broadcaster.send('db.changes', { entities: [...new Set(entities)] });
   }
 
-  // for a change no service announces, made outside a handler (a handler uses ctx.changes)
-  record(...entities: ChangedEntity[]): void {
-    this.route(entities);
-  }
-
   private onWorkspaceChange(change: WorkspaceLifecycleChange): void {
     switch (change.type) {
       case 'opened':

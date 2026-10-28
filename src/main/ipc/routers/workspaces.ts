@@ -3,7 +3,7 @@ import { hexColorSchema } from '@common/color';
 import type { WorkspaceId } from '@common/ids';
 import type { DevBrain, Workspace, WorkspaceEntry } from '@main/core';
 import type { ChangeRecorder } from '../server';
-import { devBrainMutation, devBrainQuery } from '../procedures';
+import { devBrainProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId, zPage } from '../zod';
 
@@ -15,28 +15,28 @@ import { zId, zPage } from '../zod';
 const byId = z.object({ id: zId('workspace') });
 
 export const workspacesRouter = t.router({
-  list: devBrainQuery
+  list: devBrainProcedure
     .input(zPage)
     .query(({ ctx, input }) => ctx.devBrain.workspaces.listAll(input)),
 
   // the open workspace, or null
-  current: devBrainQuery.query(({ ctx }) => ctx.devBrain.currentWorkspace?.info ?? null),
+  current: devBrainProcedure.query(({ ctx }) => ctx.devBrain.currentWorkspace?.info ?? null),
 
   // closes the open one first, if any
-  open: devBrainMutation
+  open: devBrainProcedure
     .input(byId)
     .mutation(({ ctx, input }) =>
       opened(ctx, input.id, () => ctx.devBrain.workspaces.open(input.id)),
     ),
 
-  switch: devBrainMutation
+  switch: devBrainProcedure
     .input(byId)
     .mutation(({ ctx, input }) =>
       opened(ctx, input.id, () => ctx.devBrain.workspaces.switch(input.id)),
     ),
 
   // creates the workspace without opening it: open it next to use it
-  create: devBrainMutation
+  create: devBrainProcedure
     .input(z.object({ name: z.string().trim().min(1), color: hexColorSchema }))
     .mutation(async ({ ctx, input }): Promise<WorkspaceEntry> => {
       ctx.changes.record('workspace');
@@ -47,7 +47,7 @@ export const workspacesRouter = t.router({
     }),
 
   // only the open workspace can be deleted (core's workspace_not_open otherwise)
-  delete: devBrainMutation.input(byId).mutation(async ({ ctx, input }): Promise<void> => {
+  delete: devBrainProcedure.input(byId).mutation(async ({ ctx, input }): Promise<void> => {
     ctx.changes.record('workspace');
     await ctx.devBrain.workspaces.delete(input.id);
     if (ctx.devBrain.settings.get('state.lastWorkspaceId') === input.id) {
