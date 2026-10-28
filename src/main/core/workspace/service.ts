@@ -115,16 +115,21 @@ export class WorkspaceService {
       lastOpenedAt: null,
     };
 
-    // add new workspace info to workspace file
-    const workspaces = this.readWorkspaceFile();
-    workspaces[id] = workspaceInfo;
-    this.writeWorkspaceFile(workspaces);
-    // registered now, even if creating its database fails below
+    // The database first, then the registry: a workspace is registered only once it can be opened.
+    // If any step fails, nothing is registered, and the half-made directory goes too, or
+    // recoverRegistry would register it again from the directories it finds.
+    try {
+      // create workspace db file and run migrations, then close it until it is opened
+      const workspace = await Workspace.create(workspaceInfo, this.workspaceOptions);
+      await workspace.close();
+      const workspaces = this.readWorkspaceFile();
+      workspaces[id] = workspaceInfo;
+      this.writeWorkspaceFile(workspaces);
+    } catch (error) {
+      await fs.rm(workspacePath, { recursive: true, force: true });
+      throw error;
+    }
     this.changes.emit({ type: 'created', workspace: workspaceInfo });
-
-    // create workspace db file and run migrations, then close it until it is opened
-    const workspace = await Workspace.create(workspaceInfo, this.workspaceOptions);
-    await workspace.close();
     return workspaceInfo;
   }
 

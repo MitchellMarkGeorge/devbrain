@@ -794,21 +794,40 @@ describe('WorkspaceService — onChange', () => {
     expect(registeredWhenSent).toBe(false);
   });
 
-  it('create sends created once the registry has the workspace, before its database exists', async () => {
-    const { service, changes } = await setup();
+  it('create sends created last, once the database exists and the registry has the workspace', async () => {
+    const { service, changes, log } = await setup();
     let registeredWhenSent: boolean | null = null;
     service.onChange((change) => {
       if (change.type === 'created') registeredWhenSent = service.getByName('New') !== null;
     });
-    vi.mocked(Workspace.create).mockRejectedValueOnce(new Error('migration failed'));
+    vi.mocked(Workspace.create).mockImplementationOnce(async (info) => {
+      log.push('database created');
+      return { info, close: vi.fn(async () => void log.push('database closed')) } as never;
+    });
+
+    const info = await service.create({ name: 'New', color: '#000000' });
+
+    expect(changes).toEqual([{ type: 'created', workspace: info }]);
+    expect(log).toEqual(['database created', 'database closed', `created ${info.id}`]);
+    expect(registeredWhenSent).toBe(true);
+  });
+
+  it('a create whose database fails registers nothing, removes its directory and sends nothing', async () => {
+    const { service, changes } = await setup();
+    let createdPath: string | null = null;
+    vi.mocked(Workspace.create).mockImplementationOnce(async (info) => {
+      createdPath = info.path;
+      throw new Error('migration failed');
+    });
 
     await expect(service.create({ name: 'New', color: '#000000' })).rejects.toThrow(
       'migration failed',
     );
 
-    // it is registered even though creating its database failed, so the change is still sent
-    expect(changes).toEqual([{ type: 'created', workspace: service.getByName('New') }]);
-    expect(registeredWhenSent).toBe(true);
+    expect(service.getByName('New')).toBeNull();
+    expect(createdPath).not.toBeNull();
+    expect(fsSync.existsSync(createdPath!)).toBe(false);
+    expect(changes).toEqual([]);
   });
 
   it('sends nothing when nothing changes', async () => {

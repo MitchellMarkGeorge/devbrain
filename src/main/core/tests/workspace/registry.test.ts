@@ -168,6 +168,11 @@ describe('writeRegistry', () => {
 });
 
 describe('WorkspaceService — failed registry writes', () => {
+  // the directories under workspaces/, which create makes before writing the registry
+  async function workspaceDirectories(): Promise<string[]> {
+    return fs.readdir(path.join(rootPath, 'workspaces')).catch(() => []);
+  }
+
   it('a rename failure while creating a workspace leaves the previous registry', async () => {
     const existing = registryOf(makeInfo('wsp_a'));
     writeRegistry(rootPath, existing);
@@ -176,6 +181,8 @@ describe('WorkspaceService — failed registry writes', () => {
     await expect(service.create({ name: 'New', color: '#000000' })).rejects.toThrow(/EIO/);
     expect(await readJson(registryPath())).toEqual(existing);
     expect(service.listAll().items.map((info) => info.id)).toEqual(['wsp_a']);
+    // its directory, database included, is removed, so recoverRegistry can't bring it back
+    expect(await workspaceDirectories()).toEqual([]);
   });
 
   it('a write stopping partway while creating a workspace leaves the previous registry', async () => {
@@ -185,6 +192,7 @@ describe('WorkspaceService — failed registry writes', () => {
     const service = new WorkspaceService(rootPath, WORKSPACE_OPTIONS);
     await expect(service.create({ name: 'New', color: '#000000' })).rejects.toThrow(/ENOSPC/);
     expect(await readJson(registryPath())).toEqual(existing);
+    expect(await workspaceDirectories()).toEqual([]);
   });
 });
 
