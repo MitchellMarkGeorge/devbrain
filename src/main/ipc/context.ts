@@ -22,28 +22,23 @@ export interface AppContext {
   log: IpcLogger;
 }
 
-export interface ContextOptions {
+export interface CreateContextOptions {
+  event: IpcMainInvokeEvent;
+  changes: ChangeRecorder;
   // what startCore() returns; awaited on every call, so calls made while core starts wait for it
   devBrain: Promise<DevBrain | null> | DevBrain | null;
   log: IpcLogger;
 }
 
-// attachRouter's createContext
-export function contextFactory(options: ContextOptions) {
-  return async ({
-    event,
-    changes,
-  }: {
-    event: IpcMainInvokeEvent;
-    changes: ChangeRecorder;
-  }): Promise<AppContext> => {
-    const devBrain = await options.devBrain;
-    return {
-      event,
-      devBrain,
-      workspace: devBrain?.currentWorkspace ?? null,
-      changes,
-      log: options.log,
-    };
+// Builds a call's context. attachRouter passes the event and the change scope; whoever attaches
+// the router adds DevBrain and the logger
+export async function createContext(options: CreateContextOptions): Promise<AppContext> {
+  const devBrain = await options.devBrain;
+  return {
+    event: options.event,
+    devBrain,
+    workspace: devBrain?.currentWorkspace ?? null,
+    changes: options.changes,
+    log: options.log,
   };
 }

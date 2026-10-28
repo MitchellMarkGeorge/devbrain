@@ -73,7 +73,7 @@ src/main/ipc/
   procedures.ts             publicProcedure, devBrainProcedure, wsProcedure
   errors.ts                 IpcError, serializeError, serializeTRPCError
   server.ts                 attachRouter: the transport over ipcMain
-  context.ts                AppContext, contextFactory
+  context.ts                AppContext, createContext
   middleware.ts             logging, requireDevBrain, requireWorkspace
   zod.ts                    zId(entity), zPage
   broadcaster.ts            Broadcaster, webContentsBroadcaster
@@ -296,9 +296,10 @@ correct type.
    (A tRPC middleware can't do this: it can only return the resolver's output, with no room for
    `changed` beside it.)
 6. **Context and middleware** (tRPC middleware, built with `t.middleware`):
-   - `contextFactory({ devBrain: startCore(), log })` is attachRouter's `createContext`, returning
+   - `createContext({ event, changes, devBrain: startCore(), log })` returns
      `{ event, devBrain, workspace: devBrain.currentWorkspace, changes, log }`, read fresh on every
-     call. It awaits `startCore()`, so calls made while core starts wait for it.
+     call; `src/main/index.ts` passes attachRouter `(call) => createContext({ ...call, devBrain,
+log })`. It awaits `startCore()`, so calls made while core starts wait for it.
    - No sender guard: the window is sandboxed and can't open windows or navigate (step 7), so
      only the app's page can be in it to call main. (The plan first had a `senderGuard` checking
      each call's frame URL; milestone 3 dropped it as a second check of the same thing.)

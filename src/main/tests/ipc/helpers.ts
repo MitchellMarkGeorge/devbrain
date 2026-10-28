@@ -9,14 +9,16 @@ import { openDevBrain, type DevBrain, type WorkspaceOptions } from '@main/core';
 import { openMemorySettingsStore } from '@main/core/tests/__mocks__/memory-settings-store';
 import { WORKSPACE_OPTIONS } from '@main/core/tests/utils';
 import type { Broadcaster } from '@main/ipc/broadcaster';
-import { contextFactory } from '@main/ipc/context';
+import { createContext, type CreateContextOptions } from '@main/ipc/context';
 import { invokeHandler } from '../__mocks__/electron';
 
 // What the IPC tests share: a context over a DevBrain, a broadcaster that keeps what it sent, and
 // a DevBrain folder in a temporary directory.
 
 export function testContext(devBrain: DevBrain | null = null) {
-  return contextFactory({ devBrain, log: { debug: vi.fn(), warn: vi.fn() } });
+  const log = { debug: vi.fn(), warn: vi.fn() };
+  return (call: Pick<CreateContextOptions, 'event' | 'changes'>) =>
+    createContext({ ...call, devBrain, log });
 }
 
 // calls a procedure through the transport, as the renderer's link would

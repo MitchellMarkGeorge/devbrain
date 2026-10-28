@@ -12,7 +12,7 @@ import { startDevBrain } from './runtime/start';
 import { closeBeforeQuit, closeCore, forwardSyncTriggers } from './runtime/lifecycle';
 import { attachRouter } from './ipc/server';
 import { appRouter } from './ipc/router';
-import { contextFactory } from './ipc/context';
+import { createContext } from './ipc/context';
 import { webContentsBroadcaster } from './ipc/broadcaster';
 import { ChangeRouter } from './ipc/changes/router';
 
@@ -90,7 +90,7 @@ const ipcLog = log.scope('ipc');
 // first calls find their handlers; each call's context waits for core.
 function attachIpc(devBrain: Promise<DevBrain | null>) {
   attachRouter(appRouter, {
-    createContext: contextFactory({ devBrain, log: ipcLog }),
+    createContext: (call) => createContext({ ...call, devBrain, log: ipcLog }),
     // an expected failure is the renderer's to show; only the rest is a bug worth logging
     onError: ({ path, error, shape }) => {
       if (shape.data.code === 'internal')
