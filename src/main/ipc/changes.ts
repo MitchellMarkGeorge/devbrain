@@ -56,14 +56,15 @@ export class ChangeTracker {
     const current = devBrain.currentWorkspace;
     let stopListeningToWorkspace = current ? this.listenToWorkspace(current) : () => {};
     const unsubscribe = devBrain.workspaces.onChange((change) => {
-      // the registry changed; for a new workspace, nothing else did
+      // the registry changed: the workspace list refetches; for a new workspace, nothing else did
       this.recordChange('workspace');
       if (change.type === 'created') return;
       stopListeningToWorkspace();
       stopListeningToWorkspace =
         change.type === 'opened' ? this.listenToWorkspace(change.workspace) : () => {};
       const id = change.type === 'opened' ? change.workspace.info.id : null;
-      this.sendToWindows('workspace.changed', { id }, this.currentMutation()?.window);
+      // to every window, the one that switched too: this event alone says which workspace is open
+      this.sendToWindows('workspace.changed', { id });
     });
     this.stopWatching = () => {
       unsubscribe();

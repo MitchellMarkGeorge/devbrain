@@ -23,7 +23,7 @@ describes what was built from it.
 | Change reporting | A `ChangeTracker` in main (`src/main/ipc/changes.ts`) subscribes to the open workspace's `onChange` streams and maps each change to `ChangedEntity[]`. Changes come only from core's services: procedures report nothing. Changes made during a mutation return in its response and go to the other windows as `db.changes`; everything else (sync, work a mutation left running) is batched per turn of the event loop and sent as one `db.changes`. |
 | Invalidation     | A renderer-side `ENTITIES_READ_BY_ROUTE` table, saying which entities each router's queries read, and one `invalidateQueries` call with a predicate. A route not in the table refetches on any change, so a new route is never stale. The renderer neither coalesces nor defers: main batches background changes, and a mutation's own changes are refetched before it resolves.                                                                      |
 | Push events      | Deltas only, as a plain broadcast on `ipc-event:<name>`, not tRPC subscriptions: they go to the whole app and take no input. The renderer refetches instead of applying snapshots. Sent today: `db.changes` and `workspace.changed`. Declared for status UI and not sent yet: `sync.progress`, `integrations.changed`, `sources.changed`.                                                                                                             |
-| Windows          | One window for now. The tracker already sends each mutation's changes to the other windows, and `workspace.changed` to every window but the one that switched.                                                                                                                                                                                                                                                                                        |
+| Windows          | One window for now. The tracker already sends each mutation's changes to the other windows, and `workspace.changed` to every window.                                                                                                                                                                                                                                                                                                                  |
 
 ## How it fits together
 
@@ -154,8 +154,10 @@ that caused it, or into the background batch.
 | `SyncStatusChange`                  | `externalSource`                                                     |
 | `WorkspaceChange`                   | `workspace`; `opened` and `closed` also send `workspace.changed`     |
 
-`workspace.changed` (`id`, or `null` on close) goes to every window but the one whose mutation
-switched; that window learns of it from `workspace` in its response. The status deltas the plan
+`workspace.changed` (`id`, or `null` on close) goes to every window, the one whose mutation switched
+too: it alone says which workspace is open. Main sends it while the mutation runs, before the
+response, and the renderer resets on it; if it ever arrived after the response, the switching
+window would show the old workspace's data for a moment before resetting. The status deltas the plan
 also listed (`integrations.changed`, `sync.progress`, `sources.changed`) are declared in
 `AppEvents` but not sent yet: they come with the status UI.
 
@@ -392,14 +394,15 @@ response carries `changed`. Both are done.
      | `app`, `settings`, `workspace` | nothing                            |
 
    - `onChanged(entities)` invalidates every cached query whose route reads one of them, in one
-     `invalidateQueries` call with a predicate on the key's path (`[['tasks', 'get'], { input,
-type }]`). React Query refetches the mounted ones; the promise resolves once they have.
+     `invalidateQueries` call with a predicate on the path a tRPC query key starts with
+     (`['tasks', 'get']`). React Query refetches the mounted ones; the promise resolves once they
+     have.
    - **Workspace switch.** `workspace.changed` carries the open workspace's id. When it differs from
      the one whose data is cached, every query outside `app`, `settings` and `workspaces` is reset:
-     `resetQueries` cancels what is in flight, clears the data and refetches what is mounted. A
-     mutation's response only says `workspace`, which a switch and a new workspace both report, so
-     the invalidator then asks main which workspace is open (`currentWorkspaceId`) and resets only
-     if it changed.
+     `resetQueries` cancels what is in flight, clears the data and refetches what is mounted; the
+     `workspaces` queries (which one is open) refetch too.
+     `workspace` in a mutation's response, which a switch and a new workspace both report, only
+     refetches the `workspaces` queries.
 
 4. **`main.tsx`:** the `QueryClientProvider`, and `queryInvalidator.listen(events)` once. The link is
    built with `ipcLink({ onChanged: queryInvalidator.onChanged })`.
@@ -411,8 +414,7 @@ type }]`). React Query refetches the mounted ones; the promise resolves once the
 - A calendar change refetches the calendar view; an inactive query is marked stale, not fetched; an
   unlisted route refetches on any change.
 - A switch resets workspace data and keeps `settings`; the same workspace keeps everything; a
-  mutation reporting `workspace` resets only when the open one changed, and resets when it can't
-  tell.
+  mutation reporting `workspace` refetches only the workspace list.
 - `listen` refetches on `db.changes`, resets on `workspace.changed`, and stops when told.
 
 **Done when** a mutation and a `db.changes` event both refetch the right mounted queries. Both are

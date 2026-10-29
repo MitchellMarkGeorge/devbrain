@@ -24,10 +24,9 @@ five ways:
 - **Only mutations are tracked.** `attachRouter` hands each mutation to the tracker's
   `trackMutation()`. A query changes nothing, so it runs untracked, and anything it did change
   would be sent as a background change instead.
-- **`workspace` is an entity too.** A mutation that switches workspace, or creates one, reports it.
-  The renderer then asks which workspace is open and drops its cache only if that changed, so
-  creating a workspace doesn't wipe the cache. `workspace.changed` still reaches the other
-  windows.
+- **`workspace` is an entity too.** A mutation that switches workspace, or creates one, reports
+  it, which refetches the workspace list. Which workspace is open comes only from
+  `workspace.changed`, sent to every window, so creating a workspace doesn't wipe the cache.
 - **Background changes go out once per turn of the event loop** (`setImmediate`), not every 50 ms.
   That merges the several events of one write without delaying them; sync pages are separated by
   network fetches anyway, so a longer window rarely merged two.

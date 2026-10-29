@@ -17,7 +17,6 @@ const HOME = 'wsp_home' as WorkspaceId;
 
 let queryClient: QueryClient;
 let fetches: Map<string, number>;
-let currentWorkspaceId: ReturnType<typeof vi.fn<() => Promise<WorkspaceId | null>>>;
 let onError: ReturnType<typeof vi.fn<(error: unknown) => void>>;
 let queryInvalidator: QueryInvalidator;
 const unsubscribes: (() => void)[] = [];
@@ -25,9 +24,8 @@ const unsubscribes: (() => void)[] = [];
 beforeEach(() => {
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   fetches = new Map();
-  currentWorkspaceId = vi.fn(async () => WORK);
   onError = vi.fn<(error: unknown) => void>();
-  queryInvalidator = createQueryInvalidator({ queryClient, currentWorkspaceId, onError });
+  queryInvalidator = createQueryInvalidator({ queryClient, onError });
 });
 
 afterEach(() => {
@@ -135,11 +133,12 @@ describe('the reads table', () => {
 });
 
 describe('switching workspace', () => {
-  it('drops what was cached for the old one, and keeps what belongs to none', async () => {
+  it('drops what was cached for the old one, refetches the workspace queries, and keeps the rest', async () => {
     await queryInvalidator.workspaceOpened(WORK);
     await query('tasks.list');
     await query('notes.list', { active: false });
     await query('settings.get');
+    await query('workspaces.current');
 
     await queryInvalidator.workspaceOpened(HOME);
 
@@ -147,6 +146,8 @@ describe('switching workspace', () => {
     expect(data('tasks.list')).toBe('tasks.list #2');
     expect(data('notes.list')).toBeUndefined();
     expect(count('settings.get')).toBe(1);
+    // which workspace is open changed, so the workspace queries refetch too
+    expect(count('workspaces.current')).toBe(2);
   });
 
   it('keeps everything when the workspace said to be open already is', async () => {
@@ -158,31 +159,16 @@ describe('switching workspace', () => {
     expect(count('tasks.list')).toBe(1);
   });
 
-  it('asks which is open when a call reports workspace, and resets only on a switch', async () => {
+  it('only refetches the workspace list for a call reporting workspace', async () => {
     await queryInvalidator.workspaceOpened(WORK);
     await query('tasks.list');
     await query('workspaces.list');
 
-    // a workspace was created: the list changes, the open one does not
+    // a workspace was created, or a switch whose workspace.changed resets the rest
     await queryInvalidator.onChanged(['workspace']);
+
     expect(count('workspaces.list')).toBe(2);
     expect(count('tasks.list')).toBe(1);
-
-    currentWorkspaceId.mockResolvedValue(HOME);
-    await queryInvalidator.onChanged(['workspace']);
-    expect(count('tasks.list')).toBe(2);
-  });
-
-  it('drops the workspace data when it cannot tell which is open', async () => {
-    await queryInvalidator.workspaceOpened(WORK);
-    await query('tasks.list');
-    const failure = new Error('no answer');
-    currentWorkspaceId.mockRejectedValue(failure);
-
-    await queryInvalidator.onChanged(['workspace']);
-
-    expect(onError).toHaveBeenCalledWith(failure);
-    expect(count('tasks.list')).toBe(2);
   });
 });
 

@@ -15,10 +15,7 @@ import { ipcLink } from './link';
 export const queryClient = new QueryClient();
 export const events = createEventClient<AppEvents>();
 
-export const queryInvalidator = createQueryInvalidator({
-  queryClient,
-  currentWorkspaceId: async () => (await ipc.workspaces.current.query())?.id ?? null,
-});
+export const queryInvalidator = createQueryInvalidator({ queryClient });
 
 export const ipc = createTRPCClient<AppRouter>({
   links: [ipcLink({ onChanged: (changed) => queryInvalidator.onChanged(changed) })],

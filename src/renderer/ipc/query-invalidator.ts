@@ -56,8 +56,6 @@ export interface QueryInvalidator {
 
 export interface QueryInvalidatorOptions {
   queryClient: QueryClient;
-  // the workspace open now, asked when a call reports `workspace`
-  currentWorkspaceId: () => Promise<WorkspaceId | null>;
   // where an event's failed refetch goes; the console by default
   onError?: (error: unknown) => void;
 }
@@ -89,25 +87,15 @@ export function createQueryInvalidator(options: QueryInvalidatorOptions): QueryI
   async function workspaceOpened(id: WorkspaceId | null): Promise<void> {
     if (id === cachedWorkspaceId) return;
     cachedWorkspaceId = id;
-    await dropWorkspaceData();
+    // the old workspace's data goes, and the workspace queries (which one is open) refetch
+    await Promise.all([dropWorkspaceData(), invalidateQueriesReading(['workspace'])]);
   }
 
+  // `workspace` here only refetches the workspace list: which workspace is open comes from
+  // `workspace.changed` alone, through workspaceOpened
   async function onChanged(entities: readonly ChangedEntity[]): Promise<void> {
     if (entities.length === 0) return;
     await invalidateQueriesReading(entities);
-    if (!entities.includes('workspace')) return;
-    // a switch, or only the list changing: which one is open now says
-    let openWorkspaceId: WorkspaceId | null;
-    try {
-      openWorkspaceId = await options.currentWorkspaceId();
-    } catch (error) {
-      onError(error);
-      // not knowing which is open, nothing cached can be trusted
-      cachedWorkspaceId = undefined;
-      await dropWorkspaceData();
-      return;
-    }
-    await workspaceOpened(openWorkspaceId);
   }
 
   return {

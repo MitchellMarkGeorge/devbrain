@@ -214,8 +214,8 @@ describe('switching workspace', () => {
 
     await devBrain.workspaces.open(next);
 
-    expect(sendToWindows).toHaveBeenCalledWith('workspace.changed', { id: null }, undefined);
-    expect(sendToWindows).toHaveBeenCalledWith('workspace.changed', { id: next }, undefined);
+    expect(sendToWindows).toHaveBeenCalledWith('workspace.changed', { id: null });
+    expect(sendToWindows).toHaveBeenCalledWith('workspace.changed', { id: next });
     await afterBackgroundBatchSent();
     sendToWindows.mockReset();
     workspace().tasks.createTask({ title: 'Here', dueDate: DUE });
@@ -224,7 +224,7 @@ describe('switching workspace', () => {
     expect(old).not.toBe(workspace());
   });
 
-  it('returns workspace in the switching mutation, and tells only the other windows', async () => {
+  it('returns workspace in the switching mutation, and sends workspace.changed to every window', async () => {
     attach();
     const next = await createWorkspace(devBrain, 'Home');
     const event = { sender: 'window-a' } as unknown as IpcMainInvokeEvent;
@@ -236,7 +236,7 @@ describe('switching workspace', () => {
     })) as IpcResult<unknown>;
 
     expect(result).toMatchObject({ ok: true, changed: ['workspace'] });
-    expect(sendToWindows).toHaveBeenCalledWith('workspace.changed', { id: next }, 'window-a');
+    expect(sendToWindows).toHaveBeenCalledWith('workspace.changed', { id: next });
   });
 
   it('reports a new workspace, which core announces, without saying the open one changed', async () => {
@@ -249,11 +249,7 @@ describe('switching workspace', () => {
     })) as IpcResult<unknown>;
 
     expect(result).toMatchObject({ ok: true, changed: ['workspace'] });
-    expect(sendToWindows).not.toHaveBeenCalledWith(
-      'workspace.changed',
-      expect.anything(),
-      undefined,
-    );
+    expect(sendToWindows.mock.calls.filter(([name]) => name === 'workspace.changed')).toEqual([]);
   });
 });
 
