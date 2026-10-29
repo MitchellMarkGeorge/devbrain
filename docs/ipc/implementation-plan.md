@@ -234,7 +234,8 @@ request ids.
    - `createEventClient<AppEvents>().on(name, cb)` returns an unsubscribe function.
 7. **The first route:** `app.ping` and `app.version`, replacing the two `ipcMain.handle` calls in
    `src/main/index.ts`. `attachRouter` runs right after `startCore()` is called, so the window's
-   first calls find the handler.
+   first calls find the handler. (Milestone 3 attaches it once DevBrain is loaded, before the
+   window is created.)
 
 **Tests**
 
@@ -285,17 +286,18 @@ correct type.
    (A tRPC middleware can't do this: it can only return the resolver's output, with no room for
    `changed` beside it.)
 6. **Context and middleware** (tRPC middleware, built with `t.middleware`):
-   - `createContext({ event, changes, devBrain: startCore(), log })` returns
+   - `createContext({ event, changes, devBrain, log })` returns
      `{ event, devBrain, workspace: devBrain.currentWorkspace, changes, log }`, read fresh on every
-     call. `src/main/index.ts` binds DevBrain and the logger where it attaches the router. It awaits
-     `startCore()`, so calls made while core starts wait for it.
+     call. `src/main/index.ts` binds the loaded DevBrain (or `null`) and the logger where it
+     attaches the router. Startup's order (step 7) means no call arrives before DevBrain is
+     loaded and the last workspace open, so there is nothing to wait for.
    - No sender guard: the window is sandboxed and can't open windows or navigate (step 7), so
      only the app's page can be in it to call main. (The plan first had a `senderGuard` checking
      each call's frame URL; milestone 3 dropped it as a second check of the same thing.)
    - `logging`: each call's path and duration at debug, never the input. A failure is logged once,
      by attachRouter's `onError` in `src/main/index.ts`, with the code the renderer gets: warn for
      an expected one, error (with the original) for `internal`.
-   - `requireDevBrain` → `devbrain_unavailable` when `startCore()` returned `null`;
+   - `requireDevBrain` → `devbrain_unavailable` when DevBrain could not be loaded;
      `requireWorkspace` → that, or `no_workspace_open`. Each narrows the context.
    - Base procedures in `procedures.ts` (`trpc.ts` holds `t`, which the middleware imports), each
      for a query or a mutation: `publicProcedure`, `devBrainProcedure` (workspaces, settings) and
@@ -303,11 +305,14 @@ correct type.
    - `zId(entity)`, which checks the prefix with `isId` from `src/common/ids.ts`.
 7. **`src/main/index.ts`:**
    - Startup is split in two (`src/main/runtime/start.ts`): `loadDevBrain` opens the DevBrain
-     folder with no workspace open, and `openLastWorkspace` reopens the last one. `startCore` runs
-     them in order and attaches what follows DevBrain in between (today the focus and resume sync
-     triggers), so it is in place before any workspace opens. The `ChangeRouter`, when it comes,
-     attaches there too, and needs no "pick up the workspace already open" case. `attachRouter`
-     stays where milestone 2 put it, and each call's context still waits for all of startup.
+     folder with no workspace open, and `openLastWorkspace` reopens the last one. `index.ts` runs,
+     in order: load DevBrain; attach everything that follows it (the router, the quit hook, the
+     focus and resume sync triggers); reopen the last workspace; create the window. Everything is
+     attached before any workspace opens, and the window's first calls find the router and that
+     workspace already open, so nothing passes a startup promise around. The `ChangeRouter`, when
+     it comes, attaches with the rest, and needs no "pick up the workspace already open" case. The
+     quit hook calls `devBrain.close()`, which waits for a workspace still opening, as
+     `WorkspaceService` queues its transitions.
    - Window hardening from `docs/security/untrusted-content.md`: `setWindowOpenHandler` → deny, and
      a `will-navigate` guard that cancels every navigation but a reload of the current page. The
      app routes within its page, which is no navigation.

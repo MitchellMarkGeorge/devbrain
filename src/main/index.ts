@@ -9,7 +9,7 @@ import { createSafeStorageCipher } from './runtime/safe-storage-cipher';
 import { migrationsPath } from './runtime/migrations';
 import { openElectronSettingsStore } from './runtime/settings-store';
 import { loadDevBrain, openLastWorkspace } from './runtime/start';
-import { closeBeforeQuit, closeCore, forwardSyncTriggers } from './runtime/lifecycle';
+import { closeBeforeQuit, forwardSyncTriggers } from './runtime/lifecycle';
 import { attachRouter } from './ipc/server';
 import { appRouter } from './ipc/router';
 import { createContext } from './ipc/context';
@@ -48,7 +48,7 @@ function devBrainRootPath(): string {
   return process.env.DEVBRAIN_PATH ?? path.join(os.homedir(), '.devbrain');
 }
 
-// Opens the DevBrain folder, and no workspace yet (startCore opens the last one). Must run after
+// Opens the DevBrain folder, and no workspace yet (openLastWorkspace opens one). Must run after
 // `ready`: net.fetch and safeStorage's async API are only usable from then. Null when there is no
 // DevBrain folder in development, or the folder is invalid. Never rejects: a failure is logged,
 // and the window stays up.
@@ -81,26 +81,12 @@ async function loadCore(): Promise<DevBrain | null> {
   }
 }
 
-// Loads DevBrain, attaches what follows it, then opens the workspace open last time. Resolves
-// once startup is done, to null when DevBrain is unavailable. Never rejects.
-async function startCore(): Promise<DevBrain | null> {
-  const devBrain = await loadCore();
-  if (devBrain === null) return null;
-  // attached before any workspace opens, so they follow every workspace from the first: window
-  // focus and system resume sync the workspace open at the time, if any
-  forwardSyncTriggers({ app, powerMonitor }, devBrain, devBrainLog);
-  await openLastWorkspace(devBrain, devBrainLog);
-  return devBrain;
-}
-
 // --- IPC ------------------------------------------------------------------
 const ipcLog = log.scope('ipc');
 
 // The typed router (src/main/ipc/router.ts); the renderer reaches it through the generic bridge in
-// src/preload/index.ts. Attached as soon as startup begins, so the window's first calls find their
-// handler. Each call's context waits for startup to finish, so the first calls see the workspace it
-// reopens rather than none.
-function attachIpc(devBrain: Promise<DevBrain | null>) {
+// src/preload/index.ts. Attached before the window is created, so its first calls find it.
+function attachIpc(devBrain: DevBrain | null) {
   attachRouter(appRouter, {
     createContext: (call) => createContext({ ...call, devBrain, log: ipcLog }),
     // Every failure, once, with the code the renderer gets. An expected one (not_found,
@@ -154,16 +140,27 @@ function hardenWindow(win: BrowserWindow) {
 }
 
 // --- App lifecycle --------------------------------------------------------
+// Startup, in order: load DevBrain; attach everything that follows it, before anything starts;
+// reopen the last workspace; then create the window, whose first calls find the router and that
+// workspace already open.
 app.whenReady().then(async () => {
   configureLogging();
+
+  const devBrain = await loadCore();
+  attachIpc(devBrain);
+  if (devBrain !== null) {
+    // Holds the quit until DevBrain has closed. A close waits for a workspace still opening, as
+    // WorkspaceService queues its transitions
+    closeBeforeQuit(app, () => devBrain.close(), devBrainLog);
+    // window focus and system resume sync the workspace open at the time, if any
+    forwardSyncTriggers({ app, powerMonitor }, devBrain, devBrainLog);
+    await openLastWorkspace(devBrain, devBrainLog);
+  }
+
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
-
-  const starting = startCore();
-  closeBeforeQuit(app, () => closeCore(starting), devBrainLog);
-  attachIpc(starting);
 });
 
 app.on('window-all-closed', () => {

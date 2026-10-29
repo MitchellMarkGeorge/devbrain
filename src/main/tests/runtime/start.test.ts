@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { Workspace } from '@main/core/workspace/workspace';
 import { deferred } from '@main/core/tests/utils';
-import { closeBeforeQuit, closeCore } from '../../runtime/lifecycle';
+import { closeBeforeQuit } from '../../runtime/lifecycle';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -212,30 +212,31 @@ describe('startup shutdown', () => {
       return workspace;
     });
     try {
-      // the app's startup: load DevBrain, then open the last workspace
-      const starting = (async () => {
-        const loaded = await loadDevBrain({
-          settingsStore: openFileSettingsStore,
-          rootPath,
-          createIfMissing: false,
-          workspace: WORKSPACE_OPTIONS,
-          logger: quietLogger(),
-        });
-        await openLastWorkspace(loaded!, quietLogger());
-        return loaded;
-      })();
-      const workspace = await opening.promise;
+      // as src/main/index.ts starts: load DevBrain, hook quit to its close, then open
+      const loaded = await loadDevBrain({
+        settingsStore: openFileSettingsStore,
+        rootPath,
+        createIfMissing: false,
+        workspace: WORKSPACE_OPTIONS,
+        logger: quietLogger(),
+      });
+      started = loaded;
       const app = Object.assign(new EventEmitter(), { quit: vi.fn<() => void>() });
-      closeBeforeQuit(app, () => closeCore(starting), quietLogger());
+      closeBeforeQuit(app, () => loaded!.close(), quietLogger());
+      const reopening = openLastWorkspace(loaded!, quietLogger());
+      const workspace = await opening.promise;
+
       const event = { preventDefault: vi.fn() };
       app.emit('before-quit', event);
       app.emit('before-quit', event);
       expect(event.preventDefault).toHaveBeenCalledTimes(2);
       expect(app.quit).not.toHaveBeenCalled();
+
+      // the close waits for the open to finish, then closes the workspace it opened
       release.resolve(undefined);
-      started = await starting;
+      await reopening;
       await vi.waitFor(() => expect(app.quit).toHaveBeenCalledOnce());
-      expect(started!.currentWorkspace).toBeNull();
+      expect(loaded!.currentWorkspace).toBeNull();
       expect(() => workspace.tasks.listTasks()).toThrow();
     } finally {
       release.resolve(undefined);

@@ -12,7 +12,7 @@ export interface IpcLogger {
 export interface AppContext {
   // the call's own event
   event: IpcMainInvokeEvent;
-  // null when DevBrain failed to start (startCore() returned null)
+  // null when DevBrain could not be loaded (loadCore() in src/main/index.ts returned null)
   devBrain: DevBrain | null;
   // the workspace open when the call arrived, read fresh on every call
   workspace: Workspace | null;
@@ -25,15 +25,15 @@ export interface AppContext {
 export interface CreateContextOptions {
   event: IpcMainInvokeEvent;
   changes: AppContext['changes'];
-  // what startCore() returns; awaited on every call, so calls made while core starts wait for it
-  devBrain: Promise<DevBrain | null> | DevBrain | null;
+  // null when DevBrain could not be loaded
+  devBrain: DevBrain | null;
   log: IpcLogger;
 }
 
 // Builds a call's context. attachRouter passes the event and the call's recorder; whoever attaches
 // the router adds DevBrain and the logger
-export async function createContext(options: CreateContextOptions): Promise<AppContext> {
-  const devBrain = await options.devBrain;
+export function createContext(options: CreateContextOptions): AppContext {
+  const { devBrain } = options;
   return {
     event: options.event,
     devBrain,
