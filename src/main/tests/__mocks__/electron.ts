@@ -21,7 +21,26 @@ export const ipcMain = {
   removeHandler: vi.fn((channel: string) => {
     ipcHandlers.delete(channel);
   }),
+  // ipcMain.on's listeners, for the synchronous boot message (src/main/ipc/boot.ts)
+  on: vi.fn((channel: string, listener: SyncListener) => {
+    syncListeners.set(channel, listener);
+  }),
+  removeListener: vi.fn((channel: string, listener: SyncListener) => {
+    if (syncListeners.get(channel) === listener) syncListeners.delete(channel);
+  }),
 };
+
+type SyncListener = (event: { returnValue: unknown }) => void;
+const syncListeners = new Map<string, SyncListener>();
+
+/** Sends a synchronous message to the listener on `channel`, as `ipcRenderer.sendSync` would. */
+export function sendSyncToMain(channel: string): unknown {
+  const listener = syncListeners.get(channel);
+  if (listener === undefined) throw new Error(`No listener on '${channel}'`);
+  const event = { returnValue: undefined as unknown };
+  listener(event);
+  return event.returnValue;
+}
 
 export const app = {
   getVersion: vi.fn(() => '0.0.0-test'),
@@ -32,6 +51,7 @@ export const ipcRenderer = {
   invoke: vi.fn<(channel: string, ...args: unknown[]) => Promise<unknown>>(async () => undefined),
   on: vi.fn(),
   removeListener: vi.fn(),
+  sendSync: vi.fn<(channel: string) => unknown>(),
 };
 
 export const contextBridge = {
@@ -56,12 +76,16 @@ export async function invokeHandler(
 /** Removes every handler and clears the mocks' calls and implementations set by a test. */
 export function resetElectronMock(): void {
   ipcHandlers.clear();
+  syncListeners.clear();
   ipcMain.handle.mockClear();
   ipcMain.removeHandler.mockClear();
+  ipcMain.on.mockClear();
+  ipcMain.removeListener.mockClear();
   ipcRenderer.invoke.mockReset();
   ipcRenderer.invoke.mockImplementation(async () => undefined);
   ipcRenderer.on.mockReset();
   ipcRenderer.removeListener.mockReset();
+  ipcRenderer.sendSync.mockReset();
   contextBridge.exposeInMainWorld.mockReset();
   BrowserWindow.getAllWindows.mockReset();
   BrowserWindow.getAllWindows.mockImplementation(() => []);

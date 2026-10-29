@@ -7,7 +7,35 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
     />
-    <title>My Electron App</title>
+    <title>DevBrain</title>
+    <style>
+      /* the window's backgroundColor in src/main/index.ts matches --bg, so nothing flashes */
+      :root {
+        color-scheme: light dark;
+        --bg: #ffffff;
+        --surface: #f4f4f5;
+        --text: #18181b;
+        --muted: #71717a;
+        --border: #d4d4d8;
+        --error: #c62828;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #1e1e1e;
+          --surface: #2a2a2d;
+          --text: #f4f4f5;
+          --muted: #a1a1aa;
+          --border: #3f3f46;
+          --error: #ff8a80;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: system-ui, sans-serif;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>

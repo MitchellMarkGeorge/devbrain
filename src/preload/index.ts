@@ -1,6 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { IpcRendererEvent } from 'electron';
-import { IPC_BRIDGE_KEY, IPC_CALL_CHANNEL, IPC_EVENT_PREFIX } from '@common/ipc/constants';
+import {
+  IPC_BOOT_CHANNEL,
+  IPC_BRIDGE_KEY,
+  IPC_CALL_CHANNEL,
+  IPC_EVENT_PREFIX,
+} from '@common/ipc/constants';
 import type { IpcBridge } from '@common/ipc/types';
 
 // The renderer's only way to main: a generic bridge, with nothing in it per route. The typed client
@@ -21,6 +26,11 @@ export function createBridge(): IpcBridge {
       return () => {
         ipcRenderer.removeListener(channel, handler);
       };
+    },
+    // Synchronous, so the page's first render has it. Main answers from what it holds in memory and
+    // the registry file, so the wait is short, and it is asked once per page load
+    boot() {
+      return ipcRenderer.sendSync(IPC_BOOT_CHANNEL);
     },
   };
 }

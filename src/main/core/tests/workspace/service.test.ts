@@ -1001,3 +1001,63 @@ describe('WorkspaceService — overlapping transitions', () => {
     expect(service.currentWorkspace).toBe(workspaces[1]);
   });
 });
+
+describe('WorkspaceService — openIfNoneOpen', () => {
+  const fakeOf = (info: WorkspaceInfo) => ({ info, close: vi.fn(), sync: { start: vi.fn() } });
+
+  it('opens the workspace it is given while none is open', async () => {
+    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
+    writeRegistry(tmpDir, [info]);
+    await fs.mkdir(info.path, { recursive: true });
+    const workspace = fakeOf(info);
+    vi.mocked(Workspace.open).mockResolvedValue(workspace as never);
+
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
+    await expect(service.openIfNoneOpen(() => info.id)).resolves.toBe(workspace);
+    expect(service.currentWorkspace).toBe(workspace);
+  });
+
+  it('returns null, opening nothing, when it is given none', async () => {
+    writeRegistry(tmpDir, []);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
+    await expect(service.openIfNoneOpen(() => null)).resolves.toBeNull();
+    expect(Workspace.open).not.toHaveBeenCalled();
+  });
+
+  it('returns the open workspace without asking for an id or reopening it', async () => {
+    const open = fakeOf(makeInfo({ id: 'wsp_open' as WorkspaceId }));
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
+    await setOpenWorkspace(service, open);
+    const chooseId = vi.fn(() => 'wsp_other' as WorkspaceId);
+
+    await expect(service.openIfNoneOpen(chooseId)).resolves.toBe(open);
+    expect(chooseId).not.toHaveBeenCalled();
+    expect(open.close).not.toHaveBeenCalled();
+    expect(Workspace.open).toHaveBeenCalledOnce();
+  });
+
+  it('opens once when called twice at once: the second finds the first one open', async () => {
+    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
+    writeRegistry(tmpDir, [info]);
+    await fs.mkdir(info.path, { recursive: true });
+    const opening = deferred<unknown>();
+    vi.mocked(Workspace.open).mockReturnValue(opening.promise as never);
+
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
+    const first = service.openIfNoneOpen(() => info.id);
+    const second = service.openIfNoneOpen(() => info.id);
+    const workspace = fakeOf(info);
+    opening.resolve(workspace);
+
+    await expect(Promise.all([first, second])).resolves.toEqual([workspace, workspace]);
+    expect(Workspace.open).toHaveBeenCalledOnce();
+  });
+
+  it('throws what open throws', async () => {
+    writeRegistry(tmpDir, []);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
+    await expect(service.openIfNoneOpen(() => 'wsp_gone' as WorkspaceId)).rejects.toThrow(
+      NotFoundError,
+    );
+  });
+});
