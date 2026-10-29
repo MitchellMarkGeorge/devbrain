@@ -36,10 +36,12 @@ export interface SyncSchedulerOptions {
 /**
  * Why a sync was asked for, from outside the scheduler. Focus and resume are skipped when the
  * source's last run finished under MIN_TRIGGER_GAP_MS ago, and while it backs off or waits on a
- * rate limit. Manual always runs, includes the reconcile pass, and restarts the backoff. Connected
- * always runs: a source that was just connected or switched on syncs at once, with the reconcile
- * pass when it resumes from a finished first sync. Reconnected runs as connected does, restarts
- * the backoff, and waits for the provider's retry time if one is ahead.
+ * rate limit. Manual ignores the gap and the backoff, includes the reconcile pass, and restarts
+ * the backoff. Connected ignores the gap and the backoff too: a source that was just connected or
+ * switched on, or whose calendar selection changed, syncs at once, with the reconcile pass when it
+ * resumes from a finished first sync. Reconnected runs as connected does, restarts the backoff,
+ * and waits for the provider's retry time if one is ahead. No trigger gets past a rate limit:
+ * SyncEngine skips every run before the provider's retry time.
  */
 export type SyncTrigger = 'focus' | 'resume' | 'manual' | 'connected' | 'reconnected';
 
@@ -100,7 +102,9 @@ interface SourceRun {
  * - Sources run independently: one source's failure or backoff never delays another.
  * - Failures back off: interval, focus and resume runs are skipped until BACKOFF_INITIAL_MS,
  *   doubling with each failure in a row to BACKOFF_MAX_MS, has passed since the last run finished.
- * - After a rate-limited run nothing but a manual sync starts before the provider's retry time.
+ * - After a rate-limited run, no interval, focus or resume run starts before the provider's retry
+ *   time. A manual or connected trigger still asks SyncEngine for a run, which skips it until then:
+ *   nothing reaches the provider before its retry time.
  * - A reconnect (status_changed to connected from anything but disabled) runs the integration's
  *   enabled sources at once, as connecting does, and restarts their backoff as a manual sync does:
  *   the failures were most likely the rejected credentials the reconnect replaced. A source whose

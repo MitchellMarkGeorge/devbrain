@@ -464,7 +464,7 @@ interface OAuthClient {
 - [ ] `refresh` keeps the old refresh token when the response omits a new one, and maps `invalid_grant` to `IntegrationAuthError`.
 - [ ] `revoke` is a no-op when `revokeUrl` is absent.
 - [ ] Add `oauth?: OAuthConfig` to the `Provider` interface. `authMethods` includes `oauth` exactly when it is set.
-- [ ] Add `IntegrationService.connectWithOAuth(providerId, { signal })`: look up the provider's config, call `OAuthClient.authorize`, call `getAccount`, then store exactly as the API key path does. No provider-specific branch.
+- [ ] Add `IntegrationService.connectWithOAuth(providerId)`, cancelled through `cancelConnect()`: look up the provider's config, call `OAuthClient.authorize`, call `getAccount`, then store exactly as the API key path does. No provider-specific branch.
 - [ ] Wire `CredentialStore.getAuth` to `OAuthClient.refresh` through the provider's config, so refresh is generic too.
 - [ ] Wire disconnect to `OAuthClient.revoke`.
 - [ ] Allow only one connect flow at a time per workspace.

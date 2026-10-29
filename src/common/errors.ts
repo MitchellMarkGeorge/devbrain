@@ -12,6 +12,8 @@ export type CoreErrorCode =
   | 'integration_auth'
   | 'integration_already_connected'
   | 'connect_in_progress'
+  // an OAuth sign-in the user cancelled while it waited on the browser
+  | 'cancelled'
   | 'integration_account_mismatch'
   | 'integration_disabled'
   | 'unsupported_by_provider'

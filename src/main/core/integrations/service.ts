@@ -3,6 +3,7 @@ import { externalSources, integrations } from '@main/db/schema/integrations';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
+  ConnectCancelledError,
   ConnectInProgressError,
   IntegrationAccountMismatchError,
   IntegrationAlreadyConnectedError,
@@ -80,9 +81,7 @@ export type IntegrationChange =
 export type IntegrationChangeListener = ChangeListener<IntegrationChange>;
 
 // what a reconnect authenticates with: a new API key, or the provider's OAuth flow run again
-export type ReconnectWith =
-  | { type: AuthType.API_KEY; apiKey: string }
-  | { type: AuthType.OAUTH; signal?: AbortSignal };
+export type ReconnectWith = { type: AuthType.API_KEY; apiKey: string } | { type: AuthType.OAUTH };
 
 export interface DisconnectOptions {
   // true keeps every synced item as a detached local copy; false (the default choice in the
@@ -101,17 +100,12 @@ export interface ConnectOptions {
   // The source types to switch on, from those the provider supports; defaults to all of them.
   // Every supported type still gets a source, created disabled when left out, so turning it on
   // later is setSourceEnabled and needs no reconnect. An empty list connects without syncing.
-  enable?: SourceType[];
-}
-
-export interface OAuthConnectOptions extends ConnectOptions {
-  // cancels the flow while it waits on the browser; the later IPC channel is integrations:cancelConnect
-  signal?: AbortSignal;
+  enableSources?: SourceType[];
 }
 
 export interface EnableOptions {
   // the source types to switch back on when a disabled integration is enabled; defaults to all
-  enable?: SourceType[];
+  enableSources?: SourceType[];
 }
 
 export interface IntegrationServiceOptions {
@@ -136,13 +130,14 @@ export interface BaseIntegrationService {
     apiKey: string,
     options?: ConnectOptions,
   ): Promise<Integration>;
-  connectWithOAuth(providerId: Provider, options?: OAuthConnectOptions): Promise<Integration>;
+  connectWithOAuth(providerId: Provider, options?: ConnectOptions): Promise<Integration>;
   setEnabled(id: IntegrationId, enabled: boolean, options?: EnableOptions): Integration;
   setSourceEnabled(sourceId: ExternalSourceId, enabled: boolean): ExternalSource;
   reconnect(id: IntegrationId, using: ReconnectWith): Promise<Integration>;
   previewDisconnect(id: IntegrationId): DisconnectCounts;
   disconnect(id: IntegrationId, options: DisconnectOptions): Promise<DisconnectResult>;
   markNeedsReauth(id: IntegrationId): void;
+  cancelConnect(): boolean;
   // returns a function that unsubscribes the listener
   onChange(listener: IntegrationChangeListener): () => void;
 }
@@ -165,8 +160,9 @@ export class IntegrationService implements BaseIntegrationService {
   // a failing listener must not fail the call or the others; `disconnected` is sent inside its
   // transaction, and the removal stands even if a listener throws
   private readonly changes = new ChangeListeners<IntegrationChange>('Integration');
-  // set while an OAuth connect waits on the browser; one flow per workspace at a time
-  private connecting = false;
+  // The OAuth flow running now, from the browser until the account query has answered; one per
+  // workspace at a time. cancelConnect aborts it.
+  private oauthFlow: AbortController | null = null;
   private readonly signal?: AbortSignal;
 
   constructor(
@@ -198,7 +194,7 @@ export class IntegrationService implements BaseIntegrationService {
   /**
    * Validates the key with the provider, then stores the integration, its encrypted credentials and
    * one source per type the provider supports, in one transaction. Only the types in
-   * `options.enable` are switched on (all of them by default). A rejected key throws the provider's
+   * `options.enableSources` are switched on (all of them by default). A rejected key throws the provider's
    * IntegrationAuthError and writes nothing.
    */
   async connectWithApiKey(
@@ -222,14 +218,11 @@ export class IntegrationService implements BaseIntegrationService {
 
   /**
    * Runs the provider's OAuth flow in the system browser, then stores the integration exactly as
-   * connectWithApiKey does. Resolves when the flow ends; `options.signal` cancels it while it waits
-   * on the browser. Only one OAuth connect runs at a time in a workspace: a second one throws
+   * connectWithApiKey does. Resolves when the flow ends; cancelConnect cancels it while it waits on
+   * the browser. Only one OAuth connect runs at a time in a workspace: a second one throws
    * ConnectInProgressError. Nothing is written unless the flow and the account query succeed.
    */
-  async connectWithOAuth(
-    providerId: Provider,
-    options: OAuthConnectOptions = {},
-  ): Promise<Integration> {
+  async connectWithOAuth(providerId: Provider, options: ConnectOptions = {}): Promise<Integration> {
     const provider = getProvider(this.providers, providerId);
     if (!provider.oauth || !provider.authMethods.includes(AuthType.OAUTH)) {
       throw new UnsupportedByProviderError(
@@ -239,10 +232,7 @@ export class IntegrationService implements BaseIntegrationService {
     }
     if (!this.oauth) throw new OAuthUnavailableError('No OAuth client is configured');
     const enable = sourcesToEnable(provider, options);
-    const authenticated = await this.authenticate(provider, {
-      type: AuthType.OAUTH,
-      signal: options.signal,
-    });
+    const authenticated = await this.authenticate(provider, { type: AuthType.OAUTH });
     return this.store(provider, authenticated, enable);
   }
 
@@ -322,11 +312,14 @@ export class IntegrationService implements BaseIntegrationService {
       );
     }
     if (!this.oauth) throw new OAuthUnavailableError('No OAuth client is configured');
-    if (this.connecting) throw new ConnectInProgressError();
-    this.connecting = true;
+    if (this.oauthFlow) throw new ConnectInProgressError();
+    const flow = new AbortController();
+    this.oauthFlow = flow;
     try {
-      const signals = [using.signal, this.signal].filter((s): s is AbortSignal => !!s);
-      const signal = AbortSignal.any(signals);
+      // The flow stops when cancelConnect aborts it (ConnectCancelledError) or the workspace
+      // closes (WorkspaceClosedError); the OAuth client and providers reject with the reason of
+      // whichever came first. A service built without a workspace has no closing signal.
+      const signal = this.signal ? AbortSignal.any([flow.signal, this.signal]) : flow.signal;
       const tokens = await this.oauth.authorize(config, { signal });
       signal.throwIfAborted();
       if (!tokens.refreshToken) {
@@ -343,7 +336,7 @@ export class IntegrationService implements BaseIntegrationService {
       // space-separated, as RFC 6749 writes them
       return { credentials, account, scopes: tokens.scopes.join(' ') };
     } finally {
-      this.connecting = false;
+      this.oauthFlow = null;
     }
   }
 
@@ -413,7 +406,7 @@ export class IntegrationService implements BaseIntegrationService {
   /**
    * Disabling switches the integration and all of its sources off, so a disabled integration never
    * has a source that looks on. Enabling a disabled one reconnects it and switches its sources back
-   * on: those in `options.enable`, or all of them by default. Sources resume from their cursors.
+   * on: those in `options.enableSources`, or all of them by default. Sources resume from their cursors.
    *
    * One in needs_reauth can be disabled. Enabling it while it needs re-authentication changes
    * nothing: only a reconnect clears that.
@@ -431,7 +424,7 @@ export class IntegrationService implements BaseIntegrationService {
       .from(externalSources)
       .where(eq(externalSources.integrationId, id))
       .all();
-    const enable = options.enable ?? sources.map((source) => source.sourceType);
+    const enable = options.enableSources ?? sources.map((source) => source.sourceType);
     const unknown = enable.filter((type) => !sources.some((source) => source.sourceType === type));
     if (unknown.length > 0) {
       throw new UnsupportedByProviderError(
@@ -472,7 +465,7 @@ export class IntegrationService implements BaseIntegrationService {
 
   /**
    * Switches one source on or off. A source of a disabled integration can't be switched on: enable
-   * the integration, which can switch on just this source through its `enable` option.
+   * the integration, which can switch on just this source through its `enableSources` option.
    */
   setSourceEnabled(sourceId: ExternalSourceId, enabled: boolean): ExternalSource {
     const row = this.db
@@ -582,6 +575,17 @@ export class IntegrationService implements BaseIntegrationService {
     });
   }
 
+  /**
+   * Cancels the OAuth connect or reconnect waiting on the browser, if any: its call rejects with
+   * ConnectCancelledError and stores nothing. Returns whether one was running. Once the flow has
+   * its tokens and the account, storing them is a database write and can't be cancelled.
+   */
+  cancelConnect(): boolean {
+    const flow = this.oauthFlow;
+    flow?.abort(new ConnectCancelledError());
+    return flow !== null;
+  }
+
   // returns a function that unsubscribes the listener
   onChange(listener: IntegrationChangeListener): () => void {
     return this.changes.add(listener);
@@ -639,7 +643,7 @@ export class IntegrationService implements BaseIntegrationService {
 
 // the types a connect switches on: those asked for, all supported ones by default
 function sourcesToEnable(provider: ProviderImpl, options: ConnectOptions): SourceType[] {
-  const enable = options.enable ?? provider.supports;
+  const enable = options.enableSources ?? provider.supports;
   const unsupported = enable.filter((sourceType) => !provider.supports.includes(sourceType));
   if (unsupported.length > 0) {
     throw new UnsupportedByProviderError(

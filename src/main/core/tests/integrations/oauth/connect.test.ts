@@ -23,6 +23,7 @@ import {
   SourceType,
 } from '../../../integrations/types';
 import {
+  ConnectCancelledError,
   ConnectInProgressError,
   IntegrationAuthError,
   ProviderUnavailableError,
@@ -201,7 +202,9 @@ describe('IntegrationService — connectWithOAuth', () => {
 
   it('switches on only the chosen source types', async () => {
     const { service } = setup();
-    const integration = await service.connectWithOAuth(ProviderId.GOOGLE_CALENDAR, { enable: [] });
+    const integration = await service.connectWithOAuth(ProviderId.GOOGLE_CALENDAR, {
+      enableSources: [],
+    });
     expect(integration.sources).toEqual([
       expect.objectContaining({ sourceType: SourceType.EVENTS, enabled: false }),
     ]);
@@ -265,23 +268,52 @@ describe('IntegrationService — connectWithOAuth', () => {
     );
   });
 
-  it('cancels through the signal, writes nothing and lets the next connect run', async () => {
-    const browser = heldBrowser();
-    const { db, service } = setup({ openExternal: browser.openExternal });
-    const controller = new AbortController();
+  describe('cancelConnect', () => {
+    it('cancels a waiting connect, which rejects and writes nothing, then frees the slot', async () => {
+      const browser = heldBrowser();
+      const { db, service, changes } = setup({ openExternal: browser.openExternal });
+      expect(service.cancelConnect()).toBe(false);
 
-    const flow = service.connectWithOAuth(ProviderId.GOOGLE_CALENDAR, {
-      signal: controller.signal,
+      const flow = service.connectWithOAuth(ProviderId.GOOGLE_CALENDAR);
+      await vi.waitFor(() => expect(browser.opened).toHaveBeenCalled());
+      expect(service.cancelConnect()).toBe(true);
+
+      await expect(flow).rejects.toMatchObject({
+        name: 'ConnectCancelledError',
+        code: 'cancelled',
+      });
+      expect(db.select().from(integrations).all()).toHaveLength(0);
+      expect(server.tokenRequests).toHaveLength(0);
+      expect(changes).toEqual([]);
+      expect(service.cancelConnect()).toBe(false);
+
+      browser.release();
+      await expect(service.connectWithOAuth(ProviderId.GOOGLE_CALENDAR)).resolves.toMatchObject({
+        status: IntegrationStatus.CONNECTED,
+      });
     });
-    await vi.waitFor(() => expect(browser.opened).toHaveBeenCalled());
-    controller.abort();
-    await expect(flow).rejects.toThrow(expect.objectContaining({ name: 'AbortError' }));
-    expect(db.select().from(integrations).all()).toHaveLength(0);
-    expect(server.tokenRequests).toHaveLength(0);
 
-    browser.release();
-    await expect(service.connectWithOAuth(ProviderId.GOOGLE_CALENDAR)).resolves.toMatchObject({
-      status: IntegrationStatus.CONNECTED,
+    it('cancels a waiting OAuth reconnect, keeping the stored credentials', async () => {
+      const { provider } = oauthProvider({
+        authMethods: [AuthType.OAUTH, AuthType.API_KEY],
+        getAccount: async (auth) => {
+          if (auth.authorization === 'key' || /^Bearer access-\d+$/.test(auth.authorization)) {
+            return ACCOUNT;
+          }
+          throw new IntegrationAuthError('rejected');
+        },
+      });
+      const browser = heldBrowser();
+      const { db, cipher, service } = setup({ provider, openExternal: browser.openExternal });
+      const { id } = await service.connectWithApiKey(ProviderId.GOOGLE_CALENDAR, 'key');
+
+      const flow = service.reconnect(id, { type: AuthType.OAUTH });
+      await vi.waitFor(() => expect(browser.opened).toHaveBeenCalled());
+      expect(service.cancelConnect()).toBe(true);
+
+      await expect(flow).rejects.toBeInstanceOf(ConnectCancelledError);
+      // the browser is never released: a late visit would reach the server during the next test
+      expect(await storedCredentials(cipher, db, id)).toMatchObject({ apiKey: 'key' });
     });
   });
 

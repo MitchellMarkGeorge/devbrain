@@ -460,10 +460,26 @@ describe('CalendarService', () => {
 
     expect(changes).toEqual([
       {
-        type: 'updated',
+        type: 'visibility_changed',
         calendar: expect.objectContaining({ id: DEFAULT_CALENDAR_ID, visible: false }),
       },
-      { type: 'updated', calendar: expect.objectContaining({ id: synced, selected: false }) },
+      {
+        type: 'selection_changed',
+        calendar: expect.objectContaining({ id: synced, selected: false }),
+      },
     ]);
+  });
+
+  it('changes and announces nothing when a calendar already has the value', () => {
+    const synced = syncedCalendar({ selected: true });
+    const before = calendarService.getById(synced);
+    const changes: unknown[] = [];
+    calendarService.onChange((change) => changes.push(change));
+
+    expect(calendarService.setSelected(synced, true)).toEqual(before);
+    expect(calendarService.setVisible(synced, true)).toEqual(before);
+
+    expect(changes).toEqual([]);
+    expect(calendarService.getById(synced).updatedAt).toEqual(before.updatedAt);
   });
 });

@@ -121,6 +121,16 @@ export class ConnectInProgressError extends CoreError {
   }
 }
 
+// an OAuth connect or reconnect cancelled through cancelConnect while it waited on the browser;
+// nothing was stored
+export class ConnectCancelledError extends CoreError {
+  readonly code = 'cancelled';
+  constructor() {
+    super('The sign-in was cancelled');
+    this.name = 'ConnectCancelledError';
+  }
+}
+
 // a reconnect whose credentials belong to another account than the integration's; nothing changed
 export class IntegrationAccountMismatchError extends CoreError {
   readonly code = 'integration_account_mismatch';
