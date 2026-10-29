@@ -6,7 +6,7 @@ import type { WorkspaceId } from '@common/ids';
 import type { EventClient } from '../../ipc/events';
 import {
   createQueryInvalidator,
-  kindsReadBy,
+  entitiesReadBy,
   type QueryInvalidator,
 } from '../../ipc/query-invalidator';
 
@@ -128,9 +128,9 @@ describe('onChanged', () => {
 
 describe('the reads table', () => {
   it('lets a full path override its router', () => {
-    expect(kindsReadBy(['tasks', 'list'])).toEqual(['task', 'project']);
-    expect(kindsReadBy(['unknown', 'list'])).toBe('everything');
-    expect(kindsReadBy(['app', 'version'])).toEqual([]);
+    expect(entitiesReadBy(['tasks', 'list'])).toEqual(['task', 'project']);
+    expect(entitiesReadBy(['unknown', 'list'])).toBe('everything');
+    expect(entitiesReadBy(['app', 'version'])).toEqual([]);
   });
 });
 

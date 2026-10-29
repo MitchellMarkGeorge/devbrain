@@ -5,14 +5,14 @@ import type { WorkspaceId } from '@common/ids';
 import type { EventClient } from './events';
 
 // Keeps what the renderer has cached in step with main (docs/ipc/change-propagation-research.md).
-// Main says which kinds of rows changed: in a call's response, which the link hands to `onChanged`
+// Main says which entities changed: in a call's response, which the link hands to `onChanged`
 // before the call settles, and as `db.changes` for the rest. Each cached query whose route reads
-// one of those kinds is invalidated, and React Query refetches the ones on screen.
+// one of those entities is invalidated, and React Query refetches the ones on screen.
 
-// The kinds each route reads, by router, or by full path to override its router. A route listed
+// The entities each route reads, by router, or by full path to override its router. A route listed
 // nowhere is refetched on every change: correct by default, and a line here makes it cheaper.
-// Read across kinds wherever a view shows one kind's rows inside another's.
-export const KINDS_READ_BY_ROUTE: Readonly<Record<string, readonly ChangedEntity[]>> = {
+// Read across entities wherever a view shows one entity's rows inside another's.
+export const ENTITIES_READ_BY_ROUTE: Readonly<Record<string, readonly ChangedEntity[]>> = {
   app: [],
   settings: [],
   workspaces: ['workspace'],
@@ -41,13 +41,13 @@ function routePathOf(query: Query): string[] {
   return Array.isArray(path) ? path.map(String) : [];
 }
 
-export function kindsReadBy(path: readonly string[]): readonly ChangedEntity[] | 'everything' {
-  return KINDS_READ_BY_ROUTE[path.join('.')] ?? KINDS_READ_BY_ROUTE[path[0]] ?? 'everything';
+export function entitiesReadBy(path: readonly string[]): readonly ChangedEntity[] | 'everything' {
+  return ENTITIES_READ_BY_ROUTE[path.join('.')] ?? ENTITIES_READ_BY_ROUTE[path[0]] ?? 'everything';
 }
 
 export interface QueryInvalidator {
-  /** Invalidates the queries reading these kinds; resolves once the active ones refetched. */
-  onChanged(kinds: readonly ChangedEntity[]): Promise<void>;
+  /** Invalidates the queries reading these entities; resolves once the active ones refetched. */
+  onChanged(entities: readonly ChangedEntity[]): Promise<void>;
   /** Drops what was cached for another workspace when `id` is not the one known to be open. */
   workspaceOpened(id: WorkspaceId | null): Promise<void>;
   /** Follows main's events; returns the function that stops. */
@@ -68,11 +68,13 @@ export function createQueryInvalidator(options: QueryInvalidatorOptions): QueryI
   // the workspace whose data is cached; unknown until main first says
   let cachedWorkspaceId: WorkspaceId | null | undefined;
 
-  function invalidateQueriesReading(kinds: readonly ChangedEntity[]): Promise<void> {
+  function invalidateQueriesReading(entities: readonly ChangedEntity[]): Promise<void> {
     return queryClient.invalidateQueries({
       predicate: (query) => {
-        const kindsRead = kindsReadBy(routePathOf(query));
-        return kindsRead === 'everything' || kindsRead.some((kind) => kinds.includes(kind));
+        const entitiesRead = entitiesReadBy(routePathOf(query));
+        return (
+          entitiesRead === 'everything' || entitiesRead.some((entity) => entities.includes(entity))
+        );
       },
     });
   }
@@ -90,10 +92,10 @@ export function createQueryInvalidator(options: QueryInvalidatorOptions): QueryI
     await dropWorkspaceData();
   }
 
-  async function onChanged(kinds: readonly ChangedEntity[]): Promise<void> {
-    if (kinds.length === 0) return;
-    await invalidateQueriesReading(kinds);
-    if (!kinds.includes('workspace')) return;
+  async function onChanged(entities: readonly ChangedEntity[]): Promise<void> {
+    if (entities.length === 0) return;
+    await invalidateQueriesReading(entities);
+    if (!entities.includes('workspace')) return;
     // a switch, or only the list changing: which one is open now says
     let openWorkspaceId: WorkspaceId | null;
     try {

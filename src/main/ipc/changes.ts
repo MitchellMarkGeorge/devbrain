@@ -23,28 +23,29 @@ interface RunningMutation {
   // set once it has answered: what it left running (a sync run after a connect) changes rows in
   // the background from then on
   answered: boolean;
-  addKinds(kinds: ChangedEntity[]): void;
+  addEntities(entities: ChangedEntity[]): void;
 }
 
 /**
- * Turns what core's services change into the kinds of rows the renderer refetches for
+ * Turns what core's services change into the entities the renderer refetches for
  * (docs/ipc/change-propagation-research.md). It listens to every service of the open workspace,
  * following a switch.
  *
  * - A change made while an IPC mutation runs goes in that mutation's `changed`, so the renderer
  *   refetches before the mutation settles. Once it has answered, the other windows get the same
- *   kinds as a `db.changes` event.
+ *   entities as a `db.changes` event.
  * - A change made outside any mutation (sync, work a mutation left running) is a background
- *   change. The kinds of every background change in one turn of the event loop go out together as
- *   one `db.changes`, so the several events of one write (a sync page that writes tasks and
- *   projects) refetch once.
+ *   change. The entities of every background change in one turn of the event loop go out
+ *   together as one `db.changes`, so the several events of one write (a sync page that writes
+ *   tasks and projects) refetch once.
  */
 export class ChangeTracker {
   private readonly runningMutation = new AsyncLocalStorage<RunningMutation>();
-  // what changed in the background since the last send
-  private readonly backgroundKinds = new Set<ChangedEntity>();
-  // the send at the end of this turn of the event loop, once a background change is waiting
-  private backgroundSend: NodeJS.Immediate | null = null;
+  // The entities changed in the background during this turn of the event loop, batched to go out
+  // together as one `db.changes` at its end.
+  private readonly backgroundBatch = new Set<ChangedEntity>();
+  // the batch's send, scheduled by the first background change of the turn
+  private scheduledBatchSend: NodeJS.Immediate | null = null;
   private stopWatching: (() => void) | null = null;
 
   constructor(private readonly sendToWindows: SendToWindows) {}
@@ -73,51 +74,52 @@ export class ChangeTracker {
   }
 
   /**
-   * Runs one IPC mutation from `window`, giving `onChange` the kinds of rows core changes while it
-   * runs. Once it has settled, the other windows get those kinds as a `db.changes` event.
+   * Runs one IPC mutation from `window`, giving `onChange` the entities core changes while it runs.
+   * Once it has settled, the other windows get those entities as a `db.changes` event.
    */
   async trackMutation<T>(
     window: unknown,
-    onChange: (kinds: ChangedEntity[]) => void,
+    onChange: (entities: ChangedEntity[]) => void,
     run: () => Promise<T>,
   ): Promise<T> {
-    const changedKinds = new Set<ChangedEntity>();
+    const changedEntities = new Set<ChangedEntity>();
     const mutation: RunningMutation = {
       window,
       answered: false,
-      addKinds: (kinds) => {
-        kinds.forEach((kind) => changedKinds.add(kind));
-        onChange(kinds);
+      addEntities: (entities) => {
+        entities.forEach((entity) => changedEntities.add(entity));
+        onChange(entities);
       },
     };
     try {
       return await this.runningMutation.run(mutation, run);
     } finally {
       mutation.answered = true;
-      if (changedKinds.size > 0) {
-        this.sendToWindows('db.changes', { entities: [...changedKinds] }, window);
+      if (changedEntities.size > 0) {
+        this.sendToWindows('db.changes', { entities: [...changedEntities] }, window);
       }
     }
   }
 
-  // to the running mutation's response, or to this turn's background send
-  private recordChange(...kinds: ChangedEntity[]): void {
-    if (kinds.length === 0) return;
+  // to the running mutation's response, or to this turn's background batch
+  private recordChange(...entities: ChangedEntity[]): void {
+    if (entities.length === 0) return;
     const mutation = this.currentMutation();
     if (mutation) {
-      mutation.addKinds(kinds);
+      mutation.addEntities(entities);
       return;
     }
-    kinds.forEach((kind) => this.backgroundKinds.add(kind));
-    this.backgroundSend ??= setImmediate(() => this.sendBackgroundKinds());
+    entities.forEach((entity) => this.backgroundBatch.add(entity));
+    this.scheduledBatchSend ??= setImmediate(() => this.sendBackgroundBatch());
   }
 
-  private sendBackgroundKinds(): void {
-    this.backgroundSend = null;
-    if (this.backgroundKinds.size === 0) return;
-    const kinds = [...this.backgroundKinds];
-    this.backgroundKinds.clear();
-    this.sendToWindows('db.changes', { entities: kinds });
+  // sends the turn's batch as one `db.changes`, and starts the next batch empty
+  private sendBackgroundBatch(): void {
+    this.scheduledBatchSend = null;
+    if (this.backgroundBatch.size === 0) return;
+    const entities = [...this.backgroundBatch];
+    this.backgroundBatch.clear();
+    this.sendToWindows('db.changes', { entities });
   }
 
   // the mutation the calling code runs for, until it has answered
@@ -135,11 +137,11 @@ export class ChangeTracker {
       workspace.notes.onChange(() => this.recordChange('note')),
       workspace.events.onChange(() => this.recordChange('event')),
       workspace.calendars.onChange(() => this.recordChange('calendar')),
-      workspace.archive.onChange((change) => this.recordChange(...kindsOfArchiveChange(change))),
-      workspace.favorites.onChange((change) => this.recordChange(kindOfFavoriteChange(change))),
-      workspace.detach.onChange((change) => this.recordChange(...kindsOfTaskLinkChange(change))),
+      workspace.archive.onChange((change) => this.recordChange(...entitiesOfArchiveChange(change))),
+      workspace.favorites.onChange((change) => this.recordChange(entityOfFavoriteChange(change))),
+      workspace.detach.onChange((change) => this.recordChange(...entitiesOfTaskLinkChange(change))),
       workspace.integrations.onChange((change) =>
-        this.recordChange(...kindsOfIntegrationChange(change)),
+        this.recordChange(...entitiesOfIntegrationChange(change)),
       ),
       // each committed page, with what it wrote
       sync.onProgress((progress) => this.recordChange(...progress.summary.changed)),
@@ -150,37 +152,37 @@ export class ChangeTracker {
   }
 }
 
-export function kindsOfArchiveChange({
+export function entitiesOfArchiveChange({
   taskIds,
   projectIds,
   noteIds,
 }: ArchiveChange): ChangedEntity[] {
-  const kinds: ChangedEntity[] = [];
-  if (taskIds.length > 0) kinds.push('task');
-  if (projectIds.length > 0) kinds.push('project');
-  if (noteIds.length > 0) kinds.push('note');
-  return kinds;
+  const entities: ChangedEntity[] = [];
+  if (taskIds.length > 0) entities.push('task');
+  if (projectIds.length > 0) entities.push('project');
+  if (noteIds.length > 0) entities.push('note');
+  return entities;
 }
 
-const FAVORITE_KINDS = {
+const FAVORITE_ENTITIES = {
   tasks: 'task',
   projects: 'project',
   notes: 'note',
   events: 'event',
 } as const satisfies Record<FavoriteChange['entityType'], ChangedEntity>;
 
-export function kindOfFavoriteChange(change: FavoriteChange): ChangedEntity {
-  return FAVORITE_KINDS[change.entityType];
+export function entityOfFavoriteChange(change: FavoriteChange): ChangedEntity {
+  return FAVORITE_ENTITIES[change.entityType];
 }
 
-export function kindsOfTaskLinkChange(change: TaskLinkChange): ChangedEntity[] {
+export function entitiesOfTaskLinkChange(change: TaskLinkChange): ChangedEntity[] {
   // rejected credentials move the integration to needs_reauth, which it reports itself
   if (change.type === 'credentials_rejected') return ['integration'];
   return ['task', ...change.changed];
 }
 
-export function kindsOfIntegrationChange(change: IntegrationChange): ChangedEntity[] {
-  const kinds: ChangedEntity[] = ['integration', 'externalSource'];
-  if (change.type === 'disconnected') kinds.push(...change.changed);
-  return kinds;
+export function entitiesOfIntegrationChange(change: IntegrationChange): ChangedEntity[] {
+  const entities: ChangedEntity[] = ['integration', 'externalSource'];
+  if (change.type === 'disconnected') entities.push(...change.changed);
+  return entities;
 }

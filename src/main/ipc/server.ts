@@ -66,7 +66,7 @@ export function attachRouter<TRouter extends AnyTRPCRouter>(
       const data: unknown = tracker
         ? await tracker.trackMutation(
             event.sender,
-            (kinds) => kinds.forEach((kind) => changed.add(kind)),
+            (entities) => entities.forEach((entity) => changed.add(entity)),
             run,
           )
         : await run();

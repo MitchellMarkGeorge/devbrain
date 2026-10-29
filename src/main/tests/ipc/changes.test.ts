@@ -6,10 +6,10 @@ import type { DevBrain, Workspace } from '@main/core';
 import { DEFAULT_CALENDAR_ID } from '@main/core/calendars/types';
 import {
   ChangeTracker,
-  kindOfFavoriteChange,
-  kindsOfArchiveChange,
-  kindsOfIntegrationChange,
-  kindsOfTaskLinkChange,
+  entityOfFavoriteChange,
+  entitiesOfArchiveChange,
+  entitiesOfIntegrationChange,
+  entitiesOfTaskLinkChange,
 } from '@main/ipc/changes';
 import { appRouter } from '@main/ipc/router';
 import { attachRouter } from '@main/ipc/server';
@@ -84,18 +84,18 @@ function sentChanges() {
     }));
 }
 
-// background changes go out at the end of the event loop's turn
-function afterBackgroundSend() {
+// background changes are batched per turn of the event loop and sent at its end
+function afterBackgroundBatchSent() {
   return new Promise<void>((resolve) => setImmediate(resolve));
 }
 
 describe('a mutation', () => {
   beforeEach(() => attach());
 
-  it("returns a cascade's kinds in its own response, and sends them only to the other windows", async () => {
+  it("returns a cascade's entities in its own response, and sends them only to the other windows", async () => {
     const task = workspace().tasks.createTask({ title: 'Ship', dueDate: DUE });
     await workspace().notes.createNote({ title: 'Plan', linkedTaskId: task.id });
-    await afterBackgroundSend();
+    await afterBackgroundBatchSent();
     sendToWindows.mockReset();
 
     const result = await act((ws) => ws.archive.archiveTask(task.id), 'window-a');
@@ -137,7 +137,7 @@ describe('a mutation', () => {
     );
 
     expect(result).toMatchObject({ ok: true, changed: [] });
-    await afterBackgroundSend();
+    await afterBackgroundBatchSent();
     expect(sentChanges()).toEqual([{ entities: ['calendar'], skipWindow: undefined }]);
   });
 
@@ -153,7 +153,7 @@ describe('a mutation', () => {
     startLater();
     // the task is written in the microtask after this, which then schedules the send
     await started;
-    await afterBackgroundSend();
+    await afterBackgroundBatchSent();
 
     expect(result.changed).toEqual([]);
     expect(sentChanges()).toEqual([{ entities: ['task'], skipWindow: undefined }]);
@@ -173,13 +173,13 @@ describe('a mutation', () => {
     const result = await pending;
 
     expect(result.changed).toEqual(['event']);
-    await afterBackgroundSend();
+    await afterBackgroundBatchSent();
     expect(sentChanges()).toContainEqual({ entities: ['project'], skipWindow: undefined });
   });
 });
 
 describe('changes outside any mutation', () => {
-  it('are sent together, once per turn of the event loop', async () => {
+  it('are batched into one db.changes per turn of the event loop', async () => {
     const ws = workspace();
 
     const task = ws.tasks.createTask({ title: 'One', dueDate: DUE });
@@ -187,11 +187,11 @@ describe('changes outside any mutation', () => {
     ws.events.createEvent({ title: 'Standup', startAt: DUE, endAt: DUE });
     expect(sentChanges()).toEqual([]);
 
-    await afterBackgroundSend();
+    await afterBackgroundBatchSent();
     expect(sentChanges()).toEqual([{ entities: ['task', 'event'], skipWindow: undefined }]);
 
     ws.calendars.setVisible(DEFAULT_CALENDAR_ID, false);
-    await afterBackgroundSend();
+    await afterBackgroundBatchSent();
     expect(sentChanges()).toEqual([
       { entities: ['task', 'event'], skipWindow: undefined },
       { entities: ['calendar'], skipWindow: undefined },
@@ -201,7 +201,7 @@ describe('changes outside any mutation', () => {
   it('send nothing once the tracker stops watching', async () => {
     tracker.watch(devBrain)();
     workspace().tasks.createTask({ title: 'Unseen', dueDate: DUE });
-    await afterBackgroundSend();
+    await afterBackgroundBatchSent();
 
     expect(sentChanges()).toEqual([]);
   });
@@ -216,10 +216,10 @@ describe('switching workspace', () => {
 
     expect(sendToWindows).toHaveBeenCalledWith('workspace.changed', { id: null }, undefined);
     expect(sendToWindows).toHaveBeenCalledWith('workspace.changed', { id: next }, undefined);
-    await afterBackgroundSend();
+    await afterBackgroundBatchSent();
     sendToWindows.mockReset();
     workspace().tasks.createTask({ title: 'Here', dueDate: DUE });
-    await afterBackgroundSend();
+    await afterBackgroundBatchSent();
     expect(sentChanges()).toEqual([{ entities: ['task'], skipWindow: undefined }]);
     expect(old).not.toBe(workspace());
   });
@@ -257,15 +257,15 @@ describe('switching workspace', () => {
   });
 });
 
-describe('the kinds of each change', () => {
+describe('the entities of each change', () => {
   const none = { taskIds: [], projectIds: [], noteIds: [] };
 
   it('names what an archive cascaded to', () => {
     expect(
-      kindsOfArchiveChange({ type: 'archived', ...none, taskIds: ['tsk_1' as never] }),
+      entitiesOfArchiveChange({ type: 'archived', ...none, taskIds: ['tsk_1' as never] }),
     ).toEqual(['task']);
     expect(
-      kindsOfArchiveChange({
+      entitiesOfArchiveChange({
         type: 'restored',
         taskIds: ['tsk_1' as never],
         projectIds: ['prj_1' as never],
@@ -276,10 +276,10 @@ describe('the kinds of each change', () => {
 
   it('maps favorites, task links and integrations', () => {
     expect(
-      kindOfFavoriteChange({ type: 'unfavorited', entityType: 'events', id: 'evt_1' as never }),
+      entityOfFavoriteChange({ type: 'unfavorited', entityType: 'events', id: 'evt_1' as never }),
     ).toBe('event');
     expect(
-      kindsOfTaskLinkChange({
+      entitiesOfTaskLinkChange({
         type: 'reattached',
         taskId: 'tsk_1' as never,
         taskIds: [],
@@ -287,18 +287,18 @@ describe('the kinds of each change', () => {
       } as never),
     ).toEqual(['task', 'task', 'project']);
     expect(
-      kindsOfTaskLinkChange({
+      entitiesOfTaskLinkChange({
         type: 'credentials_rejected',
         taskId: 'tsk_1' as never,
         integrationId: 'int_1' as never,
       }),
     ).toEqual(['integration']);
-    const disconnected = kindsOfIntegrationChange({
+    const disconnected = entitiesOfIntegrationChange({
       type: 'disconnected',
       changed: ['task', 'event'],
     } as never);
     expect(disconnected).toEqual(['integration', 'externalSource', 'task', 'event']);
-    expect(kindsOfIntegrationChange({ type: 'source_changed' } as never)).toEqual([
+    expect(entitiesOfIntegrationChange({ type: 'source_changed' } as never)).toEqual([
       'integration',
       'externalSource',
     ]);

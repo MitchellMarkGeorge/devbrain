@@ -13,8 +13,9 @@ When a route isn't in the table, it is refetched on every change, so a route tha
 still shows correct data. Estimated size: about 250 lines of code, plus tests.
 
 **Status: implemented** in `src/main/ipc/changes.ts` (`ChangeTracker`, the sketch's `ChangeHub`)
-and `src/renderer/ipc/query-invalidator.ts` (`KINDS_READ_BY_ROUTE`, the sketch's `READS`). It
-differs from the sketch in section 6 in five ways:
+and `src/renderer/ipc/query-invalidator.ts` (`ENTITIES_READ_BY_ROUTE`, the sketch's `READS`).
+The code calls what changed **entities** (a `ChangedEntity`), where the sections below say kinds.
+It differs from the sketch in section 6 in five ways:
 
 - **Changes come only from core's services.** Procedures have no `ctx.changes` recorder. A write
   that needs to reach the renderer is announced by its service, as `WorkspaceService.create` now
@@ -22,7 +23,7 @@ differs from the sketch in section 6 in five ways:
 - **Only mutations are tracked.** `attachRouter` hands each mutation to the tracker's
   `trackMutation()`. A query changes nothing, so it runs untracked, and anything it did change
   would be sent as a background change instead.
-- **`workspace` is a kind too.** A mutation that switches workspace, or creates one, reports it.
+- **`workspace` is an entity too.** A mutation that switches workspace, or creates one, reports it.
   The renderer then asks which workspace is open and drops its cache only if that changed, so
   creating a workspace doesn't wipe the cache. `workspace.changed` still reaches the other
   windows.

@@ -86,7 +86,7 @@ async function loadCore(): Promise<DevBrain | null> {
 // --- IPC ------------------------------------------------------------------
 const ipcLog = log.scope('ipc');
 
-// What core changes, as the kinds of rows the renderer refetches for: in each mutation's response,
+// What core changes, as the entities the renderer refetches for: in each mutation's response,
 // and pushed to every window for the rest (src/main/ipc/changes.ts)
 const changeTracker = new ChangeTracker((name, payload, skipWindow) => {
   for (const win of BrowserWindow.getAllWindows()) {
