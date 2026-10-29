@@ -21,7 +21,7 @@ export const workspacesRouter = t.router({
   // start (openLastWorkspace)
   open: devBrainProcedure.input(byId).mutation(async ({ ctx, input }): Promise<WorkspaceEntry> => {
     const workspace = await ctx.devBrain.workspaces.open(input.id);
-    // main's own state, which the renderer never reads, so not recorded
+    // main's own state, which the renderer never reads
     ctx.devBrain.settings.set('state.lastWorkspaceId', input.id);
     return workspace.info;
   }),

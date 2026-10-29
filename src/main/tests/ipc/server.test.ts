@@ -4,10 +4,11 @@ import type { IpcMainInvokeEvent } from 'electron';
 import { ipcMain } from 'electron';
 import { TRPCError } from '@trpc/server';
 import { IpcError } from '@main/ipc/errors';
+import type { ChangedEntity } from '@common/changes';
 import type { IpcResult } from '@common/ipc/types';
 import { RateLimitError } from '@main/core/shared/errors';
+import type { ChangeTracker } from '@main/ipc/changes';
 import { attachRouter } from '@main/ipc/server';
-import type { IpcErrorInfo } from '@main/ipc/server';
 import { appRouter } from '@main/ipc/router';
 import { t } from '@main/ipc/trpc';
 import { invokeHandler, ipcHandlers, resetElectronMock } from '../__mocks__/electron';
@@ -21,7 +22,7 @@ function call(path: string, input?: unknown, type: 'query' | 'mutation' = 'query
 
 function attach(
   router: Parameters<typeof attachRouter>[0],
-  options: { onError?: (info: IpcErrorInfo) => void } = {},
+  options: Omit<Parameters<typeof attachRouter>[1], 'createContext'> = {},
 ) {
   return attachRouter(router, { createContext: testContext(), ...options });
 }
@@ -149,18 +150,36 @@ describe('attachRouter', () => {
     expect(order).toEqual(['first save mutation', 'second grace', 'resolver', 'first after']);
   });
 
-  it('returns what the call recorded as changed, on success and on failure', async () => {
+  it('returns what the change tracker heard during a mutation, on success and on failure', async () => {
+    // stands in for ChangeTracker: whatever a resolver calls `write` with, core announced
+    let onChange: ((entities: ChangedEntity[]) => void) | null = null;
+    const write = (...entities: ChangedEntity[]) => onChange?.(entities);
+    let tracked = 0;
+    const changeTracker: Pick<ChangeTracker, 'trackMutation'> = {
+      async trackMutation(_window, listener, run) {
+        tracked += 1;
+        onChange = listener;
+        try {
+          return await run();
+        } finally {
+          onChange = null;
+        }
+      },
+    };
     attach(
       t.router({
-        archive: t.procedure.mutation(({ ctx }) => {
-          ctx.changes.record('task', 'note', 'task');
+        archive: t.procedure.mutation(() => {
+          write('task', 'note');
+          write('task');
           return null;
         }),
-        failsAfterWriting: t.procedure.mutation(({ ctx }) => {
-          ctx.changes.record('task');
+        failsAfterWriting: t.procedure.mutation(() => {
+          write('task');
           throw new Error('after the commit');
         }),
+        list: t.procedure.query(() => []),
       }),
+      { changeTracker },
     );
 
     expect(await call('archive', undefined, 'mutation')).toEqual({
@@ -172,6 +191,9 @@ describe('attachRouter', () => {
       ok: false,
       changed: ['task'],
     });
+    // a query changes nothing, so it is not tracked
+    expect(await call('list')).toEqual({ ok: true, data: [], changed: [] });
+    expect(tracked).toBe(2);
   });
 
   it('answers an unknown path, a wrong type and a malformed request with internal', async () => {

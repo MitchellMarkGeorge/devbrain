@@ -153,7 +153,7 @@ describe('the app client types', () => {
   type Ipc = ReturnType<typeof createTRPCClient<AppRouter>>;
 
   it('types app.ping', () => {
-    expectTypeOf<ReturnType<Ipc['app']['ping']['query']>>().toEqualTypeOf<Promise<string>>();
+    expectTypeOf<Awaited<ReturnType<Ipc['app']['ping']['query']>>>().toEqualTypeOf<string>();
   });
 
   it("types a failure's data as our serialized error", () => {

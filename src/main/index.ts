@@ -1,4 +1,5 @@
 import { app, BrowserWindow, net, powerMonitor, safeStorage, shell } from 'electron';
+import { IPC_EVENT_PREFIX } from '@common/ipc/constants';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { config as loadEnv } from '@dotenvx/dotenvx';
@@ -11,6 +12,7 @@ import { openElectronSettingsStore } from './runtime/settings-store';
 import { loadDevBrain, openLastWorkspace } from './runtime/start';
 import { closeBeforeQuit, forwardSyncTriggers } from './runtime/lifecycle';
 import { attachRouter } from './ipc/server';
+import { ChangeTracker } from './ipc/changes';
 import { appRouter } from './ipc/router';
 import { createContext } from './ipc/context';
 
@@ -84,11 +86,21 @@ async function loadCore(): Promise<DevBrain | null> {
 // --- IPC ------------------------------------------------------------------
 const ipcLog = log.scope('ipc');
 
+// What core changes, as the entities the renderer refetches for: in each mutation's response,
+// and pushed to every window for the rest (src/main/ipc/changes.ts)
+const changeTracker = new ChangeTracker((name, payload, skipWindow) => {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.isDestroyed() || win.webContents === skipWindow) continue;
+    win.webContents.send(`${IPC_EVENT_PREFIX}${name}`, payload);
+  }
+});
+
 // The typed router (src/main/ipc/router.ts); the renderer reaches it through the generic bridge in
 // src/preload/index.ts. Attached before the window is created, so its first calls find it.
 function attachIpc(devBrain: DevBrain | null) {
   attachRouter(appRouter, {
     createContext: (call) => createContext({ ...call, devBrain, log: ipcLog }),
+    changeTracker,
     // Every failure, once, with the code the renderer gets. An expected one (not_found,
     // invalid_input, …) is the renderer's to show; anything internal is a bug, logged with the
     // original error
@@ -149,6 +161,8 @@ app.whenReady().then(async () => {
   const devBrain = await loadCore();
   attachIpc(devBrain);
   if (devBrain !== null) {
+    // before the last workspace opens, so the tracker follows it from the start
+    changeTracker.watch(devBrain);
     // Holds the quit until DevBrain has closed. A close waits for a workspace still opening, as
     // WorkspaceService queues its transitions
     closeBeforeQuit(app, () => devBrain.close(), devBrainLog);
