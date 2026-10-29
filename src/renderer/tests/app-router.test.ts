@@ -10,4 +10,15 @@ describe('AppRouter', () => {
     expectTypeOf<inferRouterOutputs<AppRouter>['app']['version']>().toEqualTypeOf<string>();
     expectTypeOf<inferRouterInputs<AppRouter>['app']['ping']>().toEqualTypeOf<void>();
   });
+
+  it("takes the cursor of core's paged lists at the top of their input, for infinite queries", () => {
+    type Inputs = inferRouterInputs<AppRouter>;
+    type Cursor = string | null | undefined;
+    // an input that may be left out is `void | …`
+    type Given<T> = Exclude<T, void | undefined>;
+    expectTypeOf<Given<Inputs['notes']['list']>['cursor']>().toEqualTypeOf<Cursor>();
+    expectTypeOf<Given<Inputs['projects']['list']>['cursor']>().toEqualTypeOf<Cursor>();
+    expectTypeOf<Given<Inputs['favorites']['list']>['cursor']>().toEqualTypeOf<Cursor>();
+    expectTypeOf<Given<Inputs['workspaces']['list']>['cursor']>().toEqualTypeOf<Cursor>();
+  });
 });

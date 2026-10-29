@@ -10,9 +10,13 @@ export function zId<T extends EntityType>(entity: T) {
 
 // core's PageOptions: `cursor` from the previous page's nextCursor, and how many to return (core
 // caps it). A list with filters spreads these next to them, keeping `cursor` at the top of its input
-// as infiniteQueryOptions expects.
+// as infiniteQueryOptions expects. A null cursor, which tRPC's infinite queries can send for the
+// first page, is the first page.
 export const zPageFields = {
-  cursor: z.string().optional(),
+  cursor: z
+    .string()
+    .nullish()
+    .transform((cursor) => cursor ?? undefined),
   limit: z.number().int().positive().optional(),
 };
 

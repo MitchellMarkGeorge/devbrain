@@ -106,7 +106,8 @@ that caused it, or into the background batch.
 
 ```
      workspace services' onChange / onProgress / onStatus
-     (tasks, notes, projects, events, calendars, archive, favorites, detach, integrations, sync)
+     (tasks, notes, projects, events, calendars, archive, favorites, search, detach,
+      integrations, sync)
                                 │
                                 ▼
                  recordChange(entitiesOf…Change(change))
@@ -148,6 +149,7 @@ that caused it, or into the background batch.
 | `CalendarChange`                    | `calendar`                                                           |
 | `ArchiveChange`                     | each of `task`, `project`, `note` whose id list is not empty         |
 | `FavoriteChange`                    | the favorited entity's type (`tasks` → `task`, …)                    |
+| `SearchChange`                      | `note`; `rebuilt` → `task`, `project`, `note`, `event`               |
 | `TaskLinkChange` (detach, reattach) | `task` plus its `changed`; `credentials_rejected` → `integration`    |
 | `IntegrationChange`                 | `integration` and `externalSource`, plus `changed` on `disconnected` |
 | `SyncProgress`                      | `summary.changed`                                                    |
@@ -171,7 +173,7 @@ The tracker also sends the status deltas, at once and to every window, beside th
 
 ## Changes to core
 
-Core stays free of IPC and Electron (`boundary.test.ts`). It gets six small changes, all following
+Core stays free of IPC and Electron (`boundary.test.ts`). It gets seven small changes, all following
 existing conventions:
 
 1. **`WorkspaceService.onChange`**, built on `ChangeListeners`:
@@ -190,6 +192,9 @@ existing conventions:
    listens for `selection_changed` and syncs a synced calendar's source (milestone 5).
 6. **`WorkspaceService` sends `created`** once a new workspace is registered, so the workspace list
    refreshes without the route reporting it.
+7. **`SearchService.onChange`**: the index writes that wait on note files, which finish after the
+   change that caused them, send `notes_indexed` (a restored note's entry) or `rebuilt`. Without it
+   an open search would miss a restored note until something else changed.
 
 ---
 

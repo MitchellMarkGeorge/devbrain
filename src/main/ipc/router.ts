@@ -2,7 +2,12 @@ import { t } from './trpc';
 import { appRouter as app } from './routers/app';
 import { archiveRouter as archive } from './routers/archive';
 import { calendarsRouter as calendars } from './routers/calendars';
+import { eventsRouter as events } from './routers/events';
+import { favoritesRouter as favorites } from './routers/favorites';
 import { integrationsRouter as integrations } from './routers/integrations';
+import { notesRouter as notes } from './routers/notes';
+import { projectsRouter as projects } from './routers/projects';
+import { searchRouter as search } from './routers/search';
 import { settingsRouter as settings } from './routers/settings';
 import { sourcesRouter as sources } from './routers/sources';
 import { syncRouter as sync } from './routers/sync';
@@ -23,6 +28,11 @@ export const appRouter = t.router({
   integrations,
   sources,
   sync,
+  notes,
+  projects,
+  events,
+  favorites,
+  search,
 });
 
 export type AppRouter = typeof appRouter;

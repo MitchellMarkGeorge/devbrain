@@ -3,7 +3,7 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { SearchService } from '../../search/service';
+import { SearchService, type SearchChange } from '../../search/service';
 import { NoteService } from '../../notes/service';
 import { TaskService } from '../../tasks/service';
 import { ProjectService } from '../../projects/service';
@@ -512,5 +512,52 @@ describe('SearchService — special characters', () => {
     const results = searchService.search({ query: 'C++', entityType: ['task'] });
     expect(results).toHaveLength(1);
     expect(results[0].entityId).toBe(cpp.id);
+  });
+});
+
+describe('SearchService — onChange', () => {
+  it('sends the notes indexed from their files once the entries are written', async () => {
+    const note = await noteService.createNote({ title: 'Restored' });
+    await noteService.updateNoteContent(note.id, 'from the file');
+    const changes: SearchChange[] = [];
+    searchService.onChange((change) => {
+      changes.push(change);
+      // the entry is written before the change is sent
+      expect(searchService.search({ query: 'file', entityType: ['note'] })).toHaveLength(1);
+    });
+
+    await searchService.indexNoteFiles([note.id]);
+
+    expect(changes).toEqual([{ type: 'notes_indexed', noteIds: [note.id] }]);
+  });
+
+  it('sends nothing when no note was indexed', async () => {
+    const changes: SearchChange[] = [];
+    searchService.onChange((change) => changes.push(change));
+
+    // an unknown note has no file to read
+    await searchService.indexNoteFiles([generateId('note')]);
+
+    expect(changes).toEqual([]);
+  });
+
+  it('sends rebuilt once a rebuild has replaced the index', async () => {
+    const changes: SearchChange[] = [];
+    searchService.onChange((change) => changes.push(change));
+
+    await searchService.rebuild();
+
+    expect(changes).toEqual([{ type: 'rebuilt' }]);
+  });
+
+  it('sends nothing for the writes that run inside the change causing them', async () => {
+    const note = await noteService.createNote({ title: 'Inline' });
+    const changes: SearchChange[] = [];
+    searchService.onChange((change) => changes.push(change));
+
+    searchService.indexNoteContent(note, 'body');
+    searchService.indexTask(taskService.createTask({ title: 'Task', dueDate: TOMORROW }));
+
+    expect(changes).toEqual([]);
   });
 });
