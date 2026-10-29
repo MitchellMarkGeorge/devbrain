@@ -146,35 +146,6 @@ describe('ipcLink', () => {
 
     expect(order).toEqual(['onChanged task', 'rejected']);
   });
-
-  it('settles without waiting on onChanged for a call made with awaitChanges: false', async () => {
-    let finishRefetch!: () => void;
-    const onChanged = vi.fn(() => new Promise<void>((resolve) => (finishRefetch = resolve)));
-    const onError = vi.fn();
-    const bridge = fakeBridge({ ok: true, data: null, changed: ['note'] });
-
-    await client({ bridge, onChanged, onError }).tasks.archive.mutate(
-      { id: 'tsk_1' },
-      { context: { awaitChanges: false } },
-    );
-
-    expect(onChanged).toHaveBeenCalledWith(['note']);
-    finishRefetch();
-  });
-
-  it('reports a failed onChanged that nothing waited on', async () => {
-    const failure = new Error('refetch failed');
-    const onError = vi.fn();
-    const bridge = fakeBridge({ ok: true, data: null, changed: ['note'] });
-
-    await client({
-      bridge,
-      onChanged: () => Promise.reject(failure),
-      onError,
-    }).tasks.archive.mutate({ id: 'tsk_1' }, { context: { awaitChanges: false } });
-
-    await vi.waitFor(() => expect(onError).toHaveBeenCalledWith(failure));
-  });
 });
 
 // Checked by `npm run typecheck`

@@ -29,6 +29,9 @@ section 6 in four ways:
   flight and refetches what is mounted. Removing a mounted query would leave its component showing
   nothing until it remounts.
 
+The autosave opt-out from section 6 (a mutation that doesn't wait on refetches) is left until the
+note editor needs it.
+
 ## 1. The problem
 
 The renderer will cache query results in TanStack Query through `@trpc/tanstack-react-query`. After
