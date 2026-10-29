@@ -100,29 +100,57 @@ describe('Linear client — errors', () => {
     expect(error).not.toBeInstanceOf(IntegrationAuthError);
   });
 
-  it('maps a 400 with code RATELIMITED to RateLimitError with the reset time', async () => {
-    const reset = new Date('2026-10-07T12:30:00.000Z');
+  // RATELIMITED as Linear documents it: a 429 with Retry-After in seconds
+  it('maps a 429 with code RATELIMITED to RateLimitError, waiting for Retry-After', async () => {
     const fetch = scriptedFetch([
-      {
-        status: 400,
-        body: rateLimitedFixture,
-        headers: { 'X-RateLimit-Requests-Reset': String(reset.getTime()) },
-      },
+      { status: 429, body: rateLimitedFixture, headers: { 'Retry-After': '120' } },
     ]);
     const error = await client(fetch)
       .request(API_KEY, 'query', {}, anything)
       .catch((e: unknown) => e);
     expect(error).toBeInstanceOf(RateLimitError);
-    expect((error as RateLimitError).retryAt).toEqual(reset);
+    expect((error as RateLimitError).retryAt).toEqual(new Date('2026-10-07T12:02:00.000Z'));
   });
 
-  it('waits for the later reset when both limits report one', async () => {
+  it('still maps a 400 with code RATELIMITED to RateLimitError', async () => {
+    const fetch = scriptedFetch([
+      { status: 400, body: rateLimitedFixture, headers: { 'Retry-After': '30' } },
+    ]);
+    const error = (await client(fetch)
+      .request(API_KEY, 'query', {}, anything)
+      .catch((e: unknown) => e)) as RateLimitError;
+    expect(error).toBeInstanceOf(RateLimitError);
+    expect(error.retryAt).toEqual(new Date('2026-10-07T12:00:30.000Z'));
+  });
+
+  it('prefers Retry-After over the reset headers', async () => {
     const fetch = scriptedFetch([
       {
-        status: 400,
+        status: 429,
         body: rateLimitedFixture,
         headers: {
+          'Retry-After': '90',
+          'X-RateLimit-Requests-Remaining': '0',
           'X-RateLimit-Requests-Reset': String(Date.parse('2026-10-07T12:30:00Z')),
+          'X-RateLimit-Complexity-Reset': String(Date.parse('2026-10-07T12:45:00Z')),
+        },
+      },
+    ]);
+    const error = (await client(fetch)
+      .request(API_KEY, 'query', {}, anything)
+      .catch((e: unknown) => e)) as RateLimitError;
+    expect(error.retryAt).toEqual(new Date('2026-10-07T12:01:30.000Z'));
+  });
+
+  it('waits for the reset of the limit that ran out when there is no Retry-After', async () => {
+    const fetch = scriptedFetch([
+      {
+        status: 429,
+        body: rateLimitedFixture,
+        headers: {
+          'X-RateLimit-Requests-Remaining': '1200',
+          'X-RateLimit-Requests-Reset': String(Date.parse('2026-10-07T12:10:00Z')),
+          'X-RateLimit-Complexity-Remaining': '0',
           'X-RateLimit-Complexity-Reset': String(Date.parse('2026-10-07T12:45:00Z')),
         },
       },
@@ -133,14 +161,79 @@ describe('Linear client — errors', () => {
     expect(error.retryAt).toEqual(new Date('2026-10-07T12:45:00Z'));
   });
 
-  it('falls back to Retry-After when no reset header is sent', async () => {
+  it('checks the request limit before the complexity limit when both ran out', async () => {
     const fetch = scriptedFetch([
-      { status: 400, body: rateLimitedFixture, headers: { 'Retry-After': '120' } },
+      {
+        status: 429,
+        body: rateLimitedFixture,
+        headers: {
+          'X-RateLimit-Requests-Remaining': '0',
+          'X-RateLimit-Requests-Reset': String(Date.parse('2026-10-07T12:30:00Z')),
+          'X-RateLimit-Complexity-Remaining': '0',
+          'X-RateLimit-Complexity-Reset': String(Date.parse('2026-10-07T12:20:00Z')),
+        },
+      },
     ]);
     const error = (await client(fetch)
       .request(API_KEY, 'query', {}, anything)
       .catch((e: unknown) => e)) as RateLimitError;
-    expect(error.retryAt).toEqual(new Date('2026-10-07T12:02:00.000Z'));
+    expect(error.retryAt).toEqual(new Date('2026-10-07T12:30:00Z'));
+  });
+
+  it("waits for an endpoint's own reset when its limit ran out", async () => {
+    const fetch = scriptedFetch([
+      {
+        status: 429,
+        body: rateLimitedFixture,
+        headers: {
+          'X-RateLimit-Endpoint-Name': 'issueCreate',
+          'X-RateLimit-Endpoint-Requests-Remaining': '0',
+          'X-RateLimit-Endpoint-Requests-Reset': String(Date.parse('2026-10-07T12:05:00Z')),
+          'X-RateLimit-Requests-Remaining': '0',
+          'X-RateLimit-Requests-Reset': String(Date.parse('2026-10-07T12:30:00Z')),
+        },
+      },
+    ]);
+    const error = (await client(fetch)
+      .request(API_KEY, 'query', {}, anything)
+      .catch((e: unknown) => e)) as RateLimitError;
+    expect(error.retryAt).toEqual(new Date('2026-10-07T12:05:00Z'));
+  });
+
+  it('waits for the earliest reset when no Remaining header says which ran out', async () => {
+    const fetch = scriptedFetch([
+      {
+        status: 429,
+        body: rateLimitedFixture,
+        headers: {
+          'X-RateLimit-Requests-Reset': String(Date.parse('2026-10-07T12:30:00Z')),
+          'X-RateLimit-Complexity-Reset': String(Date.parse('2026-10-07T12:15:00Z')),
+        },
+      },
+    ]);
+    const error = (await client(fetch)
+      .request(API_KEY, 'query', {}, anything)
+      .catch((e: unknown) => e)) as RateLimitError;
+    expect(error.retryAt).toEqual(new Date('2026-10-07T12:15:00Z'));
+  });
+
+  it('ignores invalid and past reset times', async () => {
+    const fetch = scriptedFetch([
+      {
+        status: 429,
+        body: rateLimitedFixture,
+        headers: {
+          'X-RateLimit-Requests-Remaining': '0',
+          'X-RateLimit-Requests-Reset': String(Date.parse('2026-10-07T11:00:00Z')),
+          'X-RateLimit-Complexity-Reset': 'soon',
+          'X-RateLimit-Endpoint-Requests-Reset': String(Date.parse('2026-10-07T12:20:00Z')),
+        },
+      },
+    ]);
+    const error = (await client(fetch)
+      .request(API_KEY, 'query', {}, anything)
+      .catch((e: unknown) => e)) as RateLimitError;
+    expect(error.retryAt).toEqual(new Date('2026-10-07T12:20:00Z'));
   });
 
   it('recognises a rate limit reported only through extensions.type', async () => {
@@ -155,12 +248,30 @@ describe('Linear client — errors', () => {
     );
   });
 
-  it('falls back to a short wait when no reset header is sent', async () => {
-    const fetch = scriptedFetch([{ status: 400, body: rateLimitedFixture }]);
+  it('falls back to a short wait when nothing usable is sent', async () => {
+    const fetch = scriptedFetch([
+      {
+        status: 429,
+        body: rateLimitedFixture,
+        headers: {
+          'Retry-After': 'later',
+          'X-RateLimit-Requests-Remaining': '0',
+          'X-RateLimit-Requests-Reset': String(Date.parse('2026-10-07T11:59:00Z')),
+        },
+      },
+    ]);
     const error = (await client(fetch)
       .request(API_KEY, 'query', {}, anything)
       .catch((e: unknown) => e)) as RateLimitError;
     expect(error).toBeInstanceOf(RateLimitError);
+    expect(error.retryAt).toEqual(new Date('2026-10-07T12:01:00.000Z'));
+  });
+
+  it('falls back to a short wait when no rate-limit header is sent', async () => {
+    const fetch = scriptedFetch([{ status: 429, body: rateLimitedFixture }]);
+    const error = (await client(fetch)
+      .request(API_KEY, 'query', {}, anything)
+      .catch((e: unknown) => e)) as RateLimitError;
     expect(error.retryAt).toEqual(new Date('2026-10-07T12:01:00.000Z'));
   });
 

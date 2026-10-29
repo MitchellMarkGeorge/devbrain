@@ -20,12 +20,18 @@ export const LINEAR_GRAPHQL_URL = 'https://api.linear.app/graphql';
 export const RATE_LIMITED = { code: 'RATELIMITED', type: 'ratelimited' };
 // an unknown or revoked key may come back as a 400 with this error instead of a 401
 export const AUTHENTICATION_ERROR = { code: 'AUTHENTICATION_ERROR', type: 'authentication error' };
-export const RATE_LIMIT_RESET_HEADERS = [
-  'X-RateLimit-Requests-Reset',
-  'X-RateLimit-Complexity-Reset',
-];
-// seconds to wait, used when neither reset header is sent
+// seconds to wait before retrying, sent with a rate-limited response
 export const RETRY_AFTER_HEADER = 'Retry-After';
+// each limit's remaining budget and the time its window resets (UTC epoch ms), in the order they
+// are checked for the one that ran out: an endpoint's own limit, then requests, then complexity
+export const RATE_LIMIT_HEADERS = [
+  {
+    remaining: 'X-RateLimit-Endpoint-Requests-Remaining',
+    reset: 'X-RateLimit-Endpoint-Requests-Reset',
+  },
+  { remaining: 'X-RateLimit-Requests-Remaining', reset: 'X-RateLimit-Requests-Reset' },
+  { remaining: 'X-RateLimit-Complexity-Remaining', reset: 'X-RateLimit-Complexity-Reset' },
+];
 
 // a GraphQL error that is not one of the mapped cases, e.g. a query the schema rejects
 export class LinearApiError extends CoreError {
@@ -110,7 +116,8 @@ export class LinearClient {
 
     const read = await readBody(response, signal);
     const body = read.body;
-    // Linear reports rate limiting as a 400 with a GraphQL error code, not a 429
+    // Linear documents a 429 with a RATELIMITED GraphQL error; the code alone is accepted too, in
+    // case it comes with another status
     if (hasError(body, RATE_LIMITED) || response.status === 429) {
       throw new RateLimitError(this.retryAt(response.headers));
     }
@@ -133,18 +140,30 @@ export class LinearClient {
     return parsed.data;
   }
 
-  // the later of the reset headers, so neither limit is hit again on the next attempt; then
-  // Retry-After; then a short default
+  // Retry-After, as Linear asks; then the reset of the limit that ran out; then the earliest reset
+  // sent; then a short default. Retry-After is relative, so it is not affected by clock skew, and
+  // a reset is when the whole window refills, which the leaky bucket does not wait for
   private retryAt(headers: Headers): Date {
-    const resets = RATE_LIMIT_RESET_HEADERS.map((name) => parseResetTime(headers.get(name))).filter(
-      (time): time is number => time !== null,
-    );
-    if (resets.length > 0) {
-      return new Date(Math.max(...resets));
-    }
+    const now = this.now().getTime();
     const retryAfter = Number(headers.get(RETRY_AFTER_HEADER));
-    const wait = retryAfter > 0 ? retryAfter * 1000 : BACKOFF_INITIAL_MS;
-    return new Date(this.now().getTime() + wait);
+    if (Number.isFinite(retryAfter) && retryAfter > 0) {
+      return new Date(now + retryAfter * 1000);
+    }
+
+    // only the limits with a reset still ahead; a missing, invalid or past one is ignored
+    const limits = RATE_LIMIT_HEADERS.flatMap((limit) => {
+      const reset = parseResetTime(headers.get(limit.reset));
+      if (reset === null || reset <= now) return [];
+      return [{ reset, exhausted: isExhausted(headers.get(limit.remaining)) }];
+    });
+    const exhausted = limits.find((limit) => limit.exhausted);
+    if (exhausted) {
+      return new Date(exhausted.reset);
+    }
+    if (limits.length > 0) {
+      return new Date(Math.min(...limits.map((limit) => limit.reset)));
+    }
+    return new Date(now + BACKOFF_INITIAL_MS);
   }
 }
 
@@ -176,6 +195,11 @@ async function readBody(response: Response, signal: AbortSignal | undefined): Pr
     return { body: null, problem: `unexpected response envelope: ${parsed.error.message}` };
   }
   return { body: parsed.data };
+}
+
+// a Remaining header of 0 names the limit that ran out
+function isExhausted(value: string | null): boolean {
+  return value !== null && value.trim() !== '' && Number(value) === 0;
 }
 
 // the reset headers carry a UTC epoch time in milliseconds; seconds are accepted too
