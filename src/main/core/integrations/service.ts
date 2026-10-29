@@ -81,9 +81,7 @@ export type IntegrationChange =
 export type IntegrationChangeListener = ChangeListener<IntegrationChange>;
 
 // what a reconnect authenticates with: a new API key, or the provider's OAuth flow run again
-export type ReconnectWith =
-  | { type: AuthType.API_KEY; apiKey: string }
-  | { type: AuthType.OAUTH; signal?: AbortSignal };
+export type ReconnectWith = { type: AuthType.API_KEY; apiKey: string } | { type: AuthType.OAUTH };
 
 export interface DisconnectOptions {
   // true keeps every synced item as a detached local copy; false (the default choice in the
@@ -103,11 +101,6 @@ export interface ConnectOptions {
   // Every supported type still gets a source, created disabled when left out, so turning it on
   // later is setSourceEnabled and needs no reconnect. An empty list connects without syncing.
   enableSources?: SourceType[];
-}
-
-export interface OAuthConnectOptions extends ConnectOptions {
-  // cancels the flow while it waits on the browser, as cancelConnect does
-  signal?: AbortSignal;
 }
 
 export interface EnableOptions {
@@ -137,7 +130,7 @@ export interface BaseIntegrationService {
     apiKey: string,
     options?: ConnectOptions,
   ): Promise<Integration>;
-  connectWithOAuth(providerId: Provider, options?: OAuthConnectOptions): Promise<Integration>;
+  connectWithOAuth(providerId: Provider, options?: ConnectOptions): Promise<Integration>;
   setEnabled(id: IntegrationId, enabled: boolean, options?: EnableOptions): Integration;
   setSourceEnabled(sourceId: ExternalSourceId, enabled: boolean): ExternalSource;
   reconnect(id: IntegrationId, using: ReconnectWith): Promise<Integration>;
@@ -225,14 +218,11 @@ export class IntegrationService implements BaseIntegrationService {
 
   /**
    * Runs the provider's OAuth flow in the system browser, then stores the integration exactly as
-   * connectWithApiKey does. Resolves when the flow ends; cancelConnect or `options.signal` cancels it while it waits
-   * on the browser. Only one OAuth connect runs at a time in a workspace: a second one throws
+   * connectWithApiKey does. Resolves when the flow ends; cancelConnect cancels it while it waits on
+   * the browser. Only one OAuth connect runs at a time in a workspace: a second one throws
    * ConnectInProgressError. Nothing is written unless the flow and the account query succeed.
    */
-  async connectWithOAuth(
-    providerId: Provider,
-    options: OAuthConnectOptions = {},
-  ): Promise<Integration> {
+  async connectWithOAuth(providerId: Provider, options: ConnectOptions = {}): Promise<Integration> {
     const provider = getProvider(this.providers, providerId);
     if (!provider.oauth || !provider.authMethods.includes(AuthType.OAUTH)) {
       throw new UnsupportedByProviderError(
@@ -242,10 +232,7 @@ export class IntegrationService implements BaseIntegrationService {
     }
     if (!this.oauth) throw new OAuthUnavailableError('No OAuth client is configured');
     const enable = sourcesToEnable(provider, options);
-    const authenticated = await this.authenticate(provider, {
-      type: AuthType.OAUTH,
-      signal: options.signal,
-    });
+    const authenticated = await this.authenticate(provider, { type: AuthType.OAUTH });
     return this.store(provider, authenticated, enable);
   }
 
@@ -329,10 +316,10 @@ export class IntegrationService implements BaseIntegrationService {
     const flow = new AbortController();
     this.oauthFlow = flow;
     try {
-      const signals = [flow.signal, using.signal, this.signal].filter((s): s is AbortSignal => !!s);
-      // the OAuth client and providers reject with the reason of whichever signal aborted first:
-      // ConnectCancelledError from cancelConnect, WorkspaceClosedError from a close
-      const signal = AbortSignal.any(signals);
+      // The flow stops when cancelConnect aborts it (ConnectCancelledError) or the workspace
+      // closes (WorkspaceClosedError); the OAuth client and providers reject with the reason of
+      // whichever came first. A service built without a workspace has no closing signal.
+      const signal = this.signal ? AbortSignal.any([flow.signal, this.signal]) : flow.signal;
       const tokens = await this.oauth.authorize(config, { signal });
       signal.throwIfAborted();
       if (!tokens.refreshToken) {

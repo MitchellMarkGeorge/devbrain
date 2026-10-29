@@ -268,26 +268,6 @@ describe('IntegrationService — connectWithOAuth', () => {
     );
   });
 
-  it('cancels through the signal, writes nothing and lets the next connect run', async () => {
-    const browser = heldBrowser();
-    const { db, service } = setup({ openExternal: browser.openExternal });
-    const controller = new AbortController();
-
-    const flow = service.connectWithOAuth(ProviderId.GOOGLE_CALENDAR, {
-      signal: controller.signal,
-    });
-    await vi.waitFor(() => expect(browser.opened).toHaveBeenCalled());
-    controller.abort();
-    await expect(flow).rejects.toThrow(expect.objectContaining({ name: 'AbortError' }));
-    expect(db.select().from(integrations).all()).toHaveLength(0);
-    expect(server.tokenRequests).toHaveLength(0);
-
-    browser.release();
-    await expect(service.connectWithOAuth(ProviderId.GOOGLE_CALENDAR)).resolves.toMatchObject({
-      status: IntegrationStatus.CONNECTED,
-    });
-  });
-
   describe('cancelConnect', () => {
     it('cancels a waiting connect, which rejects and writes nothing, then frees the slot', async () => {
       const browser = heldBrowser();
