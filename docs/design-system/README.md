@@ -276,20 +276,21 @@ Every part below exists in `@base-ui/react` 1.9. Styles key off the listed attri
 
 ### 5.3 DevBrain components
 
-| Component                                | Built from                                                          | Notes                                                                     |
-| ---------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| StatusIcon, PriorityIcon, HealthIcon     | Lucide icons in domain colours                                      | One shape per state; map to `TaskStatus`, `TaskPriority`, `ProjectHealth` |
-| ProgressRing                             | SVG on an `--input` track                                           | Subtask "3/4" in rows; project progress                                   |
-| EntityPill                               | outline Badge                                                       | Links to a project, note, task or event                                   |
-| PropertyPanel                            | Card + pills opening Dropdown Menu, Popover + Calendar, Command     | Unset properties show "+ Add …"                                           |
-| TaskRow, EventRow, NoteRow, ProjectRow   | 48px row, Checkbox, icons, pills                                    | 12px medium names, `--accent` hover and selection                         |
-| GroupHeading                             | 40px `--muted` band                                                 | "Due now", "Due today", "Coming up"                                       |
-| ScheduleCard, NoteCard, ProjectCard      | compact Card                                                        | Home summary                                                              |
-| SettingsGroup                            | Card of label + description + control rows                          | Settings                                                                  |
-| WorkspaceTile, SwatchPicker              | letter tile (20px, 4px corners; 60–72px on onboarding); radio group | Workspace identity                                                        |
-| EventBlock, all-day row, time grid       | FullCalendar themed with tokens                                     | See [the adapter spec](../calendar/fullcalendar-adapter.md)               |
-| Editor toolbar, slash menu, link popover | Toggle Group, Command, Popover                                      | Note editing                                                              |
-| Splash, onboarding                       | Logomark, Card, Input, SwatchPicker, Button                         | Welcome flow                                                              |
+| Component                                | Built from                                                                                   | Notes                                                                                                                                                     |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| StatusIcon, PriorityIcon, HealthIcon     | Lucide icons in domain colours                                                               | One shape per state; map to `TaskStatus`, `TaskPriority`, `ProjectHealth`                                                                                 |
+| ProgressRing                             | SVG on an `--input` track                                                                    | Subtask "3/4" in rows; project progress                                                                                                                   |
+| EntityPill                               | outline Badge                                                                                | Links to a project, note, task or event                                                                                                                   |
+| PropertyPanel                            | Card + pills opening Dropdown Menu, Popover + Calendar, Command                              | Unset properties show "+ Add …"                                                                                                                           |
+| TaskRow, EventRow, NoteRow, ProjectRow   | 48px row, Checkbox, icons, pills                                                             | 12px medium names, `--accent` hover and selection                                                                                                         |
+| GroupHeading                             | 40px `--muted` band                                                                          | "Due now", "Due today", "Coming up"                                                                                                                       |
+| BoardColumn, BoardCard                   | Card on `--neutral-900` with a `--neutral-800` border; cards on `--background` with a border | The Figma board (Tasks page): status icon, name and count above each column; a card has link pills, the title with a subtask pill, then priority and date |
+| ScheduleCard, NoteCard, ProjectCard      | compact Card                                                                                 | Home summary                                                                                                                                              |
+| SettingsGroup                            | Card of label + description + control rows                                                   | Settings                                                                                                                                                  |
+| WorkspaceTile, SwatchPicker              | letter tile (20px, 4px corners; 60–72px on onboarding); radio group                          | Workspace identity                                                                                                                                        |
+| EventBlock, all-day row, time grid       | FullCalendar themed with tokens                                                              | See [the adapter spec](../calendar/fullcalendar-adapter.md)                                                                                               |
+| Editor toolbar, slash menu, link popover | Toggle Group, Command, Popover                                                               | Note editing                                                                                                                                              |
+| Splash, onboarding                       | Logomark, Card, Input, SwatchPicker, Button                                                  | Welcome flow                                                                                                                                              |
 
 ---
 
@@ -333,7 +334,7 @@ Every part below exists in `@base-ui/react` 1.9. Styles key off the listed attri
 1. **Cancelled task status.** `TaskStatus.CANCELLED` has no design; `--status-cancelled` and a slashed circle are placeholders.
 2. **Project status vs health.** Figma's "Project Status" pill matches `ProjectHealth`; `ProjectStatus` (Not started, On hold, Active, Completed) has no design.
 3. **Light theme screens** are not designed; the tokens support them.
-4. **Views.** The Tasks toolbar shows list, grid and board toggles; only list is designed.
+4. **Views.** The Tasks toolbar shows list, grid and board toggles. List and board are designed (the board on the Tasks page: filled status columns of outlined cards); grid is not.
 5. **Integrations and Help pages** are in the sidebar but not designed.
 6. **Notes left in the Figma file:** "Should we have a default Backlog status?", "144 vs 128???", "Change padding on icons", "Empty state for no project and no note???", "Menu item: Link project, toggle linked tasks", "Unlink note".
 
