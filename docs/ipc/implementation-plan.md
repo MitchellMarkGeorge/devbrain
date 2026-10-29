@@ -22,7 +22,7 @@ describes what was built from it.
 | Data layer       | tRPC's React Query integration (`@trpc/tanstack-react-query`): `queryOptions`, `infiniteQueryOptions`, `mutationOptions`, `queryKey`, `pathKey` per route.                                                                                                                                                                                                                                                                                            |
 | Change reporting | A `ChangeTracker` in main (`src/main/ipc/changes.ts`) subscribes to the open workspace's `onChange` streams and maps each change to `ChangedEntity[]`. Changes come only from core's services: procedures report nothing. Changes made during a mutation return in its response and go to the other windows as `db.changes`; everything else (sync, work a mutation left running) is batched per turn of the event loop and sent as one `db.changes`. |
 | Invalidation     | A renderer-side `ENTITIES_READ_BY_ROUTE` table, saying which entities each router's queries read, and one `invalidateQueries` call with a predicate. A route not in the table refetches on any change, so a new route is never stale. The renderer neither coalesces nor defers: main batches background changes, and a mutation's own changes are refetched before it resolves.                                                                      |
-| Push events      | Deltas only, as a plain broadcast on `ipc-event:<name>`, not tRPC subscriptions: they go to the whole app and take no input. The renderer refetches instead of applying snapshots. Sent today: `db.changes` and `workspace.changed`. Declared for status UI and not sent yet: `sync.progress`, `integrations.changed`, `sources.changed`.                                                                                                             |
+| Push events      | Deltas only, as a plain broadcast on `ipc-event:<name>`, not tRPC subscriptions: they go to the whole app and take no input. The renderer refetches instead of applying snapshots. `db.changes` and `workspace.changed` keep data fresh; `sync.progress`, `integrations.changed` and `sources.changed` are status deltas for a status UI (milestone 5).                                                                                               |
 | Windows          | One window for now. The tracker already sends each mutation's changes to the other windows, and `workspace.changed` to every window.                                                                                                                                                                                                                                                                                                                  |
 
 ## How it fits together
@@ -157,9 +157,17 @@ that caused it, or into the background batch.
 `workspace.changed` (`id`, or `null` on close) goes to every window, the one whose mutation switched
 too: it alone says which workspace is open. Main sends it while the mutation runs, before the
 response, and the renderer resets on it; if it ever arrived after the response, the switching
-window would show the old workspace's data for a moment before resetting. The status deltas the plan
-also listed (`integrations.changed`, `sync.progress`, `sources.changed`) are declared in
-`AppEvents` but not sent yet: they come with the status UI.
+window would show the old workspace's data for a moment before resetting.
+
+The tracker also sends the status deltas, at once and to every window, beside the entities above
+(milestone 5). They carry ids and status, never credentials:
+
+| Core change                                    | Event                                                |
+| ---------------------------------------------- | ---------------------------------------------------- |
+| `SyncProgress`                                 | `sync.progress`: `sourceId`, `phase`, `itemsApplied` |
+| `IntegrationChange`                            | `integrations.changed`: `integrationId`, `type`      |
+| `IntegrationChange` `source_changed`           | also `sources.changed`: `sourceId`                   |
+| `SyncStatusChange` (a run recorded its ending) | `sources.changed`: `sourceId`                        |
 
 ## Changes to core
 
@@ -278,7 +286,7 @@ correct type.
 > (`docs/ipc/change-propagation-research.md`). It is built as the steps below describe, except: one
 > `ChangeTracker` in `src/main/ipc/changes.ts` instead of a `changes/` folder; no `ctx.changes`, so
 > a write that no service announced gets an `onChange` on its service instead; the status deltas
-> are not sent yet; and the mappings are plain functions per change type rather than `assertNever`
+> came later, with milestone 5's integration routes; and the mappings are plain functions per change type rather than `assertNever`
 > switches.
 
 **Steps**
@@ -439,6 +447,13 @@ synchronous.
 | `sources`      | `setEnabled`                                                                                                                                                                        |                                                                                                                                                                                                                 |
 | `sync`         | `now`, `status`                                                                                                                                                                     |                                                                                                                                                                                                                 |
 | `search`       | `search`                                                                                                                                                                            | Results contain the one allowed HTML (`<b>` highlights), per `docs/security/untrusted-content.md`.                                                                                                              |
+
+> **Status:** `integrations`, `sources`, `sync` and `calendars` (PR 6b) are built, with the status
+> deltas. The OAuth flow's `AbortController` lives in `routers/integrations.ts`, keyed by workspace.
+> `sync.now` resolves once its runs have ended, so what they wrote comes back in `changed`;
+> `calendars.setSelected` leaves its source's sync running after the response. `sources` has no
+> query, so it has no line in `ENTITIES_READ_BY_ROUTE`; `integrations.previewDisconnect` has its
+> own, as it counts synced rows. Core needed no change.
 
 **`setFavorite`** takes the state wanted, not a flip of what is stored, so a double click or a stale
 view cannot leave it the opposite of what the user saw. The star button passes the opposite of what

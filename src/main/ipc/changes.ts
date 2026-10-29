@@ -6,6 +6,7 @@ import type { ArchiveChange } from '@main/core/archive/service';
 import type { FavoriteChange } from '@main/core/favorites/service';
 import type { TaskLinkChange } from '@main/core/integrations/detach';
 import type { IntegrationChange } from '@main/core/integrations/service';
+import type { SyncProgress } from '@main/core/sync/types';
 
 // Sends an event to the app's windows, skipping `skipWindow` when given: the window a mutation came
 // from, which has these changes in its response already. The tracker never sees a window:
@@ -36,6 +37,10 @@ interface RunningMutation {
  *   change. The entities of every background change in one turn of the event loop go out
  *   together as one `db.changes`, so the several events of one write (a sync page that writes
  *   tasks and projects) refetch once.
+ * - For a status UI, it also sends what integrations and sync report as deltas, at once and to
+ *   every window: `sync.progress` per committed page, `integrations.changed` per integration
+ *   change, and `sources.changed` when a source is switched on or off or a run records how it
+ *   ended. Ids and status only, never credentials.
  */
 export class ChangeTracker {
   private readonly runningMutation = new AsyncLocalStorage<RunningMutation>();
@@ -138,16 +143,43 @@ export class ChangeTracker {
       workspace.archive.onChange((change) => this.recordChange(...entitiesOfArchiveChange(change))),
       workspace.favorites.onChange((change) => this.recordChange(entityOfFavoriteChange(change))),
       workspace.detach.onChange((change) => this.recordChange(...entitiesOfTaskLinkChange(change))),
-      workspace.integrations.onChange((change) =>
-        this.recordChange(...entitiesOfIntegrationChange(change)),
-      ),
+      workspace.integrations.onChange((change) => {
+        this.recordChange(...entitiesOfIntegrationChange(change));
+        this.sendIntegrationStatus(change);
+      }),
       // each committed page, with what it wrote
-      sync.onProgress((progress) => this.recordChange(...progress.summary.changed)),
-      // a source's cursor, status or error
-      sync.onStatus(() => this.recordChange('externalSource')),
+      sync.onProgress((progress) => {
+        this.recordChange(...progress.summary.changed);
+        this.sendToWindows('sync.progress', syncProgressEvent(progress));
+      }),
+      // how a source's run ended: its last sync, error and retry time
+      sync.onStatus(({ sourceId }) => {
+        this.recordChange('externalSource');
+        this.sendToWindows('sources.changed', { sourceId });
+      }),
     ];
     return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
   }
+
+  // The status deltas, for a status UI: sent at once to every window, the one whose mutation
+  // caused them too, beside the entities the change maps to. A source switched on or off is also a
+  // change of its own row.
+  private sendIntegrationStatus(change: IntegrationChange): void {
+    const { integrationId, type } = change;
+    this.sendToWindows('integrations.changed', { integrationId, type });
+    if (change.type === 'source_changed') {
+      this.sendToWindows('sources.changed', { sourceId: change.sourceId });
+    }
+  }
+}
+
+// a committed page as the status UI shows it: how far the run has got, not what it wrote
+export function syncProgressEvent({
+  sourceId,
+  phase,
+  itemsApplied,
+}: SyncProgress): AppEvents['sync.progress'] {
+  return { sourceId, phase, itemsApplied };
 }
 
 export function entitiesOfArchiveChange({

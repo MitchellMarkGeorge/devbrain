@@ -24,11 +24,21 @@ export const ENTITIES_READ_BY_ROUTE: Readonly<Record<string, readonly ChangedEnt
   notes: ['note', 'task', 'project'],
   // the calendar view shows only visible calendars
   events: ['event', 'calendar'],
-  calendars: ['calendar'],
+  // a disconnect turns its calendars into local ones
+  calendars: ['calendar', 'externalSource'],
   favorites: ['task', 'project', 'note', 'event'],
   archive: ['task', 'project', 'note'],
   search: ['task', 'project', 'note', 'event'],
   integrations: ['integration', 'externalSource'],
+  // counts the synced rows a disconnect would delete or keep, and those notes point at
+  'integrations.previewDisconnect': [
+    'integration',
+    'externalSource',
+    'task',
+    'project',
+    'event',
+    'note',
+  ],
   sync: ['integration', 'externalSource'],
 };
 
