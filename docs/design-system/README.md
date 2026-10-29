@@ -139,7 +139,9 @@ All values come from the Figma variables (`color/neutral/*`, `font/*`, `shadcn c
 | `--ring`                                 | neutral-600       | neutral-400 | Focus outline                                            |
 | `--sidebar*`                             | see tokens.css    |             | Sidebar surface, items, active item                      |
 
-**Contrast note.** `--subtle-foreground` (neutral-600 on neutral-950) is about 2.6:1, below WCAG AA. Figma uses it for dates and descriptions; keep it for secondary metadata only and use `--muted-foreground` for anything a user must read (dialog descriptions, settings help text, empty states).
+**Light theme status colours.** On white the Figma status colours fall below 3:1, so the light theme swaps each for its 700 shade (`--orange-700`, `--amber-700`, `--lime-700`, `--green-700`, `--emerald-700`) and red-600.
+
+**Contrast note.** `--muted-foreground` (neutral-500 on neutral-950) is 4.2:1, just under AA for small text, and `--subtle-foreground` (neutral-600) is about 2.5:1, below WCAG AA. Figma uses it for dates and descriptions; keep it for secondary metadata only and use `--muted-foreground` for anything a user must read (dialog descriptions, settings help text, empty states).
 
 ### 3.2 Colour: domain
 
