@@ -16,27 +16,22 @@ _Found in feature 10 (PR #15)._
 - Move `SyncLogger` (`src/main/core/sync/engine.ts`) to a neutral place such as `src/main/core/shared/logger.ts`, so the service and the engine share one logger type and the service does not import from `sync/`.
 - `stripMarkdown` (`src/main/core/shared/markdown.ts`) also uses `console.error`, if the same rule should apply everywhere in core.
 
-### Make the `IntegrationChange` payloads consistent
+### Make the sync status payload a delta
 
-_Found in feature 10 (PR #15). Worth settling before the scheduler (feature 13) subscribes to these events._
+_Found in feature 10 (PR #15). Narrowed by the IPC work._
 
-`connected`, `status_changed` and `source_changed` are deltas: ids plus the one thing that changed, as the comment on `IntegrationChange` promises ("Ids and flags only"). `sync_status_changed`, added in feature 10, instead carries a full `ExternalSource` snapshot. (Since feature 16b it comes from `SyncStateManager` in `src/main/core/sync/sync-state.ts`, which owns the sync state on `external_sources`, not from `IntegrationService`; a listener that wants both subscribes to both.)
+The renderer side is settled: the IPC layer forwards every integration and sync change as a delta carrying ids (`integrations.changed`, `sources.changed` and `sync.progress` in `src/common/events.ts`, sent by the `ChangeTracker` in `src/main/ipc/changes.ts`), and the renderer refetches `integrations.list` or `sync.status` instead of applying a snapshot. No error text rides an event. What is left is core's own consistency:
 
-- It mixes two conventions, so a listener has to handle both, and the comment on the type is no longer true.
+- `IntegrationChange` is all deltas, as its comment promises, but `SyncStatusChange` (`src/main/core/sync/sync-state.ts`) still carries a full `ExternalSource` snapshot, so a listener of both handles two conventions.
 - Its top-level `sourceId` always equals `source.id`.
-- `source.lastError` is a free-text error message. The engine keeps error messages out of the log because they can quote a provider's response, but this one reaches every listener and, through IPC later, the renderer.
-- The IPC contract in `docs/integrations/tech-design.md` uses snapshots (`'integrations:changed': Integration`, `'sources:changed': ExternalSource`), so whichever convention core settles on decides whether the IPC layer forwards events as they are or looks each one up.
+- `source.lastError` is free text, which can quote a provider's response, sent to every in-process listener.
 
-Options:
-
-1. **All deltas.** `sync_status_changed` becomes `{ integrationId, sourceId, ok, lastSyncedAt, retryAt }`, and anything that needs the error text or the whole source calls `getById`. Keeps free text off events and leaves the snapshot question to the IPC layer. Recommended.
-2. **All snapshots.** Every event carries the `Integration` or `ExternalSource` it changed, matching the IPC contract. Touches feature 7's events and tests.
-3. **Keep the snapshot and only drop the duplicate `sourceId`.** Smallest change, but leaves the mixed convention.
+Making it `{ integrationId, sourceId, ok, lastSyncedAt, retryAt }`, with anything that needs the error text calling `getById`, would remove all three. Nothing outside core reads the snapshot: the tracker forwards `sourceId` only.
 
 Two smaller points about the same events:
 
-- `connected` lists its sources as `{ sourceId, enabled }` with no `sourceType`, so once there are events sources the scheduler needs a lookup to tell a tasks source from an events source.
-- One action can emit several events in a row: `setEnabled` sends `status_changed` and then a `source_changed` per toggled source, and a rejected key sends `sync_status_changed` and then `status_changed`. Each is accurate, but a listener reacting to the first cannot tell more are coming.
+- `connected` lists its sources as `{ sourceId, enabled }` with no `sourceType`, so a listener needs a lookup to tell a tasks source from an events source.
+- One action can emit several events in a row: `setEnabled` sends `status_changed` and then a `source_changed` per toggled source, and a rejected key sends `sync_status_changed` and then `status_changed`. Each is accurate, but a listener reacting to the first cannot tell more are coming. Over IPC this costs nothing: the tracker sends the entities of one turn as one `db.changes`.
 
 ### One owner for the provider registry and credential store
 
@@ -78,16 +73,10 @@ Three entry points talk to a task provider: `SyncEngine.runSource` and `SyncEngi
 Proposal:
 
 1. **One helper that opens a source for a call outside a run:** returns `{ target, tasks, auth }` or a `SyncSkipReason`, and marks `needs_reauth` on `IntegrationAuthError`. Any new entry point then gets the same rules for a source that is off, disabled, needs reauth, is rate limited or is unsupported. It could also be the `withConnection` path in "A path for provider features that are not sync" below.
-2. **A public `refreshTasks(sourceId, externalIds)`** that resolves the issues and applies them through `writer.applyTaskPage`, which already handles updated, reassigned and gone issues. This would be a per-task "Sync now", for example a refresh button on the task detail. It isn't in the design: "Sync now" in `docs/integrations/tech-design.md` is per source, `runSource` then `reconcileSource` behind the scheduler's manual trigger. Adding it means a line in the design and a channel in the IPC list.
+2. **A public `refreshTasks(sourceId, externalIds)`** that resolves the issues and applies them through `writer.applyTaskPage`, which already handles updated, reassigned and gone issues. This would be a per-task "Sync now", for example a refresh button on the task detail. It isn't in the design: "Sync now" in `docs/integrations/tech-design.md` is per source, `runSource` then `reconcileSource` behind the scheduler's manual trigger. Adding it means a line in the design and a route in the `sync` router.
 3. **Reattach as an option on that path:** `refreshTasks(sourceId, ids, { reattach: rootExternalId })`. The writer flips the detached links in the same transaction as the page apply. The only reattach-specific code left would be the root checks (gone, unassigned, unreadable) and the link-state change.
 
 Items 1 and 3 are refactors with no change in behaviour, covered by the existing engine, reconcile and detach tests. Item 2 is a product decision.
-
-### Start a sync when the calendar selection changes
-
-_Found in feature 16b._
-
-`CalendarService.setSelected` only flips the `selected` column: a selected calendar gets its first pass, and a deselected one's events are removed, at the next sync run of its source (`EventSyncer`). Nothing triggers that run yet, so the change waits for the next interval or focus trigger. The IPC handler for `calendars:setSelected` should ask the scheduler (feature 13) for a run of the calendar's source right after the change; so should a "refresh" in the calendar picker. There is no change event to listen for: the handler has the calendar, and its `sourceId`, already.
 
 ### Calendar changes wait for a sync run
 
@@ -95,9 +84,8 @@ _Found in feature 16b. Not a priority._
 
 Feature 16b moved the calendar work out of `IntegrationService` so that services only read and write the database and `SyncWriter` stays inside `src/main/core/sync/`. Every calendar operation that needs the provider or the writer now happens at the start of a run, in `EventSyncer`. That changed some behaviour:
 
-- **Deselecting a calendar removes its events at the next run, not at once.** Until then they stay in the calendar view.
+- **Deselecting a calendar removes its events when the run it starts reaches its first page, not at once.** `Workspace` starts a run of the source on `selection_changed`; until it writes, the events stay in the calendar view.
 - **Refreshing the picker means running a sync.** New or renamed calendars appear when the run's listing stores them; the run's result has `'calendar'` in `changed`.
-- **There is no `calendars_changed` event.** `IntegrationService.setCalendars` emitted one; the caller of `CalendarService.setSelected` now knows what changed and notifies the renderer and the scheduler itself.
 - **A run that does not reach its first page does not clean up.** The clean-up is written with the run's first page, so with the integration disabled or needing reauth (the run is skipped), or offline (it fails before a page), a deselected calendar's events stay until a run gets that far.
 
 If any of these matters in the calendar UI, `EventSyncer` can expose two operations beside `start`, keeping both rules:
@@ -198,7 +186,7 @@ Fixes, which can be combined:
 
 1. **Re-read the status in the write transaction** and choose the new status and `previous` from it. The transaction is synchronous, so nothing can change between the read and the write. A few lines plus a test that holds the account query open and disables meanwhile. Recommended in any case.
 2. **Refuse edits while a flow runs.** Track the integrations being connected or reconnected, and make `setEnabled` and `setSourceEnabled` throw an "integration busy" error for them. The service already does this between OAuth flows (`connecting` and `ConnectInProgressError`), but API-key reconnects are not tracked. Gives the UI a clear error when a click slips through.
-3. **Lock the controls in the UI.** While an integration connects or reconnects, its enable toggle and source switches are disabled ("Waiting for sign-in…"). The clearest experience, but not enough on its own: `markNeedsReauth` also comes from the sync engine and token refresh, and a second window or a stale view can still reach the service. Nothing in the renderer or IPC calls `reconnect` or `setEnabled` yet, so this belongs with the integrations settings screen.
+3. **Lock the controls in the UI.** While an integration connects or reconnects, its enable toggle and source switches are disabled ("Waiting for sign-in…"). The clearest experience, but not enough on its own: `markNeedsReauth` also comes from the sync engine and token refresh, and a second window or a stale view can still reach the service. The `integrations.reconnect` and `integrations.setEnabled` routes exist, but no view calls them yet, so this belongs with the integrations settings screen.
 
 ### Reconnecting leaves kept tasks detached
 
