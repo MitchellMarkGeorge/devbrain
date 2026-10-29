@@ -1,6 +1,8 @@
 import { t } from './trpc';
 import { appRouter as app } from './routers/app';
+import { archiveRouter as archive } from './routers/archive';
 import { settingsRouter as settings } from './routers/settings';
+import { tasksRouter as tasks } from './routers/tasks';
 import { workspaceRouter as workspace } from './routers/workspace';
 import { workspacesRouter as workspaces } from './routers/workspaces';
 
@@ -11,6 +13,8 @@ export const appRouter = t.router({
   workspaces,
   workspace,
   settings,
+  tasks,
+  archive,
 });
 
 export type AppRouter = typeof appRouter;

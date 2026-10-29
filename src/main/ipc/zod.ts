@@ -9,10 +9,11 @@ export function zId<T extends EntityType>(entity: T) {
 }
 
 // core's PageOptions: `cursor` from the previous page's nextCursor, and how many to return (core
-// caps it)
-export const zPage = z
-  .object({
-    cursor: z.string().optional(),
-    limit: z.number().int().positive().optional(),
-  })
-  .optional();
+// caps it). A list with filters spreads these next to them, keeping `cursor` at the top of its input
+// as infiniteQueryOptions expects.
+export const zPageFields = {
+  cursor: z.string().optional(),
+  limit: z.number().int().positive().optional(),
+};
+
+export const zPage = z.object(zPageFields).optional();
