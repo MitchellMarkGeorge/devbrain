@@ -9,6 +9,7 @@ import {
   entityOfFavoriteChange,
   entitiesOfArchiveChange,
   entitiesOfIntegrationChange,
+  entitiesOfSearchChange,
   entitiesOfTaskLinkChange,
 } from '@main/ipc/changes';
 import { appRouter } from '@main/ipc/router';
@@ -198,6 +199,29 @@ describe('changes outside any mutation', () => {
     ]);
   });
 
+  it("include a restored note's search entry, written once its file is read", async () => {
+    const ws = workspace();
+    const note = await ws.notes.createNote({ title: 'Plan' });
+    await ws.notes.updateNoteContent(note.id, 'quarterly roadmap');
+    ws.archive.archiveNote(note.id);
+    await afterBackgroundBatchSent();
+    sendToWindows.mockReset();
+
+    attach();
+    const restored = await act((w) => w.archive.restoreNote(note.id), 'window-a');
+    expect(restored.changed).toEqual(['note']);
+    // the search entry comes back after the response, from the note's file
+    await ws.search.whenIdle();
+    await afterBackgroundBatchSent();
+
+    expect(ws.search.search({ query: 'roadmap', entityType: ['note'] })).toHaveLength(1);
+    // to every window, the one that restored it too
+    expect(sentChanges()).toEqual([
+      { entities: ['note'], skipWindow: 'window-a' },
+      { entities: ['note'], skipWindow: undefined },
+    ]);
+  });
+
   it('send nothing once the tracker stops watching', async () => {
     tracker.watch(devBrain)();
     workspace().tasks.createTask({ title: 'Unseen', dueDate: DUE });
@@ -268,6 +292,18 @@ describe('the entities of each change', () => {
         noteIds: ['nte_1' as never],
       }),
     ).toEqual(['task', 'project', 'note']);
+  });
+
+  it('names what a search index write covered', () => {
+    expect(entitiesOfSearchChange({ type: 'notes_indexed', noteIds: ['nte_1' as never] })).toEqual([
+      'note',
+    ]);
+    expect(entitiesOfSearchChange({ type: 'rebuilt' })).toEqual([
+      'task',
+      'project',
+      'note',
+      'event',
+    ]);
   });
 
   it('maps favorites, task links and integrations', () => {
