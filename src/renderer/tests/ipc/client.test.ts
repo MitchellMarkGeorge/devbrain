@@ -15,7 +15,6 @@ function fakeBridge(result: IpcResult<unknown> = { ok: true, data: null, changed
   return {
     invoke: vi.fn<IpcBridge['invoke']>(async () => result),
     subscribe: vi.fn<IpcBridge['subscribe']>(() => () => {}),
-    boot: vi.fn<IpcBridge['boot']>(() => null),
   };
 }
 

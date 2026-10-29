@@ -243,3 +243,22 @@ _Found in feature 16b, for the calendar UI._
 Neither is reachable yet: `CreateEventOptions` and `UpdateEventOptions` take no `seriesId` or `originalStartAt`, so only sync creates occurrence rows, and synced events are read-only.
 
 When local occurrence rows exist, `deleteEvent` should also follow the removal rule for them. Today it deletes every occurrence row of the series, and a note linked to one only loses its link. The schema's intent (`events.seriesId` is set null when its series goes) is that an occurrence a note or task links to survives as a one-off: delete the unlinked occurrence rows, and keep the linked ones with `seriesId` cleared.
+
+## App startup
+
+### Give each page load a boot snapshot
+
+_Found while moving the startup open of the last workspace to the renderer (PR #61)._
+
+The renderer opens the last workspace itself (`workspaces.openLast`), so on load it has to learn what main holds before it can choose a screen. Without help it shows a splash while `workspaces.current` and `workspaces.list` answer, then picks the workspace, the picker or the create page. Those calls take milliseconds, but the splash flashes for a frame or two where it is not needed: on a reload (Cmd+R, or Vite in development) or a recreated window, with a workspace already open. At startup the splash also starts without the last workspace's name and colour.
+
+A boot snapshot removes that: the page reads what main holds synchronously as it loads, and seeds the query cache with it before the first render.
+
+- **Main** (`src/main/ipc/boot.ts`): `bootSnapshot(devBrain)` returns `{ devBrainAvailable, current, last, workspaces }`. `last` is the workspace `openLast` would open while none is open (`lastOpenedWorkspace`), and `workspaces` is the first page of `workspaces.list`. Workspace info only. `attachBoot` answers an `ipcMain.on('ipc:boot')` message with it, setting `event.returnValue` to `null` when building it throws, so the page never waits forever.
+- **Preload and bridge**: `IPC_BOOT_CHANNEL` in `src/common/ipc/constants.ts`, and `boot(): unknown` on `IpcBridge`, calling `ipcRenderer.sendSync`. It is the one route-specific member of an otherwise generic bridge, and the one synchronous message.
+- **Renderer**: before `render`, read it (`null` without a bridge or on failure), then `setQueryData` for `workspaces.current` and `workspaces.list`, with `staleTime: Infinity` on the `workspaces` router. Main pushes every change to those queries (`workspace` entities and `workspace.changed`), so they need no refetch on mount. Choose the screen from it: `current` set means show the workspace and skip `openLast`.
+- **Tests**: the electron mock needs `ipcMain.on` / `removeListener` and `ipcRenderer.sendSync`, and every fake `IpcBridge` gains `boot`.
+
+Commit `97093aa` on PR #61's branch had all of this, with tests, before it was taken out of that PR.
+
+Worth doing once the startup screens exist, if the flash on reload shows. Hiding the window on macOS instead of closing it (PR #61) already covers the most common case, reopening the window from the Dock.

@@ -12,7 +12,6 @@ import { openElectronSettingsStore } from './runtime/settings-store';
 import { loadDevBrain } from './runtime/start';
 import { closeBeforeQuit, forwardSyncTriggers } from './runtime/lifecycle';
 import { attachRouter } from './ipc/server';
-import { attachBoot, bootSnapshot } from './ipc/boot';
 import { ChangeTracker } from './ipc/changes';
 import { appRouter } from './ipc/router';
 import { createContext } from './ipc/context';
@@ -111,11 +110,6 @@ function attachIpc(devBrain: DevBrain | null) {
       else ipcLog.warn(`IPC call ${path} failed error=${code}`);
     },
   });
-  // what each page load renders first, read fresh every time (src/main/ipc/boot.ts)
-  attachBoot(
-    () => bootSnapshot(devBrain),
-    (error) => ipcLog.error('Building the boot snapshot failed', error),
-  );
 }
 
 // --- Window ---------------------------------------------------------------

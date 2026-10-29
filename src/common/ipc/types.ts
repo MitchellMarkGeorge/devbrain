@@ -46,7 +46,4 @@ export interface IpcBridge {
   invoke(request: IpcRequest): Promise<IpcResult<unknown>>;
   // returns the function that unsubscribes
   subscribe(name: string, listener: (payload: unknown) => void): () => void;
-  // What the page needs for its first render, read synchronously from main as it loads: main's
-  // BootSnapshot (src/main/ipc/boot.ts), or null when main could not build one
-  boot(): unknown;
 }
