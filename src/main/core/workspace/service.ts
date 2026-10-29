@@ -189,6 +189,19 @@ export class WorkspaceService {
     return this.serialize(() => this.openWorkspace(id));
   }
 
+  /**
+   * Returns the open workspace, or, while none is open, opens the one `chooseId` picks: null when it
+   * picks none. Queued with the other transitions, so a second call waits for the first and finds
+   * its workspace open rather than opening it again. Throws what open throws.
+   */
+  openIfNoneOpen(chooseId: () => WorkspaceId | null): Promise<Workspace | null> {
+    return this.serialize(async () => {
+      if (this.current) return this.current;
+      const id = chooseId();
+      return id === null ? null : this.openWorkspace(id);
+    });
+  }
+
   private async openWorkspace(id: WorkspaceId): Promise<Workspace> {
     // 1. get info from the registry (throws NotFoundError when absent)
     const workspaceInfo = this.getById(id);

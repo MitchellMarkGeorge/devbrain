@@ -9,7 +9,7 @@ import type { DevBrain } from '@main/core';
 import { createSafeStorageCipher } from './runtime/safe-storage-cipher';
 import { migrationsPath } from './runtime/migrations';
 import { openElectronSettingsStore } from './runtime/settings-store';
-import { loadDevBrain, openLastWorkspace } from './runtime/start';
+import { loadDevBrain } from './runtime/start';
 import { closeBeforeQuit, forwardSyncTriggers } from './runtime/lifecycle';
 import { attachRouter } from './ipc/server';
 import { ChangeTracker } from './ipc/changes';
@@ -50,10 +50,10 @@ function devBrainRootPath(): string {
   return process.env.DEVBRAIN_PATH ?? path.join(os.homedir(), '.devbrain');
 }
 
-// Opens the DevBrain folder, and no workspace yet (openLastWorkspace opens one). Must run after
-// `ready`: net.fetch and safeStorage's async API are only usable from then. Null when there is no
-// DevBrain folder in development, or the folder is invalid. Never rejects: a failure is logged,
-// and the window stays up.
+// Opens the DevBrain folder, and no workspace yet: the renderer opens one (workspaces.openLast).
+// Must run after `ready`: net.fetch and safeStorage's async API are only usable from then. Null
+// when there is no DevBrain folder in development, or the folder is invalid. Never rejects: a
+// failure is logged, and the window stays up.
 async function loadCore(): Promise<DevBrain | null> {
   try {
     return await loadDevBrain({
@@ -113,6 +113,12 @@ function attachIpc(devBrain: DevBrain | null) {
 }
 
 // --- Window ---------------------------------------------------------------
+// The app's one window. On macOS, closing it hides it instead, as the app keeps running with no
+// window: clicking the Dock icon shows it again as it was, with nothing to reload or refetch.
+let mainWindow: BrowserWindow | null = null;
+// set once the app starts quitting, when a close really closes
+let quitting = false;
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
@@ -130,6 +136,15 @@ function createWindow() {
   });
 
   win.on('ready-to-show', () => win.show());
+  win.on('close', (event) => {
+    if (process.platform !== 'darwin' || quitting) return;
+    event.preventDefault();
+    win.hide();
+  });
+  win.on('closed', () => {
+    if (mainWindow === win) mainWindow = null;
+  });
+  mainWindow = win;
   hardenWindow(win);
 
   if (process.env.VITE_DEV_SERVER_URL) {
@@ -153,8 +168,8 @@ function hardenWindow(win: BrowserWindow) {
 
 // --- App lifecycle --------------------------------------------------------
 // Startup, in order: load DevBrain; attach everything that follows it, before anything starts;
-// reopen the last workspace; then create the window, whose first calls find the router and that
-// workspace already open.
+// then create the window, whose first calls find the router. The renderer reopens the last
+// workspace itself (workspaces.openLast), so a slow open never holds the window back.
 app.whenReady().then(async () => {
   configureLogging();
 
@@ -168,13 +183,20 @@ app.whenReady().then(async () => {
     closeBeforeQuit(app, () => devBrain.close(), devBrainLog);
     // window focus and system resume sync the workspace open at the time, if any
     forwardSyncTriggers({ app, powerMonitor }, devBrain, devBrainLog);
-    await openLastWorkspace(devBrain, devBrainLog);
   }
 
   createWindow();
+  // the Dock icon on macOS: shows the hidden window, or makes one if it is gone
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (mainWindow !== null && !mainWindow.isDestroyed()) mainWindow.show();
+    else createWindow();
   });
+});
+
+// The first before-quit is held while DevBrain closes (closeBeforeQuit), and the window stays up
+// meanwhile; the window closes for real on the quit that follows.
+app.on('before-quit', () => {
+  quitting = true;
 });
 
 app.on('window-all-closed', () => {

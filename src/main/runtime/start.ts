@@ -1,5 +1,11 @@
 import type { WorkspaceId } from '@common/ids';
-import { DevBrain, openDevBrain, type OpenSettingsStore, type WorkspaceOptions } from '@main/core';
+import {
+  DevBrain,
+  openDevBrain,
+  type OpenSettingsStore,
+  type Workspace,
+  type WorkspaceOptions,
+} from '@main/core';
 import { DevBrainFolderError } from '@main/core/shared/errors';
 import type { SyncLogger } from '@main/core/sync/types';
 
@@ -18,8 +24,8 @@ export interface LoadDevBrainOptions {
 
 /**
  * Opens the DevBrain folder, and no workspace: whatever follows DevBrain (sync triggers, change
- * listeners) attaches to it before openLastWorkspace opens one. Returns null when there is no
- * folder and none is to be created. Throws when the folder is invalid.
+ * listeners) attaches to it before the renderer opens one (openLastWorkspace). Returns null when
+ * there is no folder and none is to be created. Throws when the folder is invalid.
  */
 export async function loadDevBrain(options: LoadDevBrainOptions): Promise<DevBrain | null> {
   try {
@@ -39,26 +45,14 @@ export async function loadDevBrain(options: LoadDevBrainOptions): Promise<DevBra
 }
 
 /**
- * Opens the workspace open last time, which starts syncing it, when it is still registered.
- * Otherwise none is opened: the user picks one. Never throws: a workspace that fails to open (e.g.
- * a failed migration) is logged and leaves none open.
+ * Opens the workspace open last time, which starts syncing it, when it is still registered and no
+ * workspace is open yet. The renderer calls it once it has loaded (workspaces.openLast). Returns
+ * the open workspace: the one already open when there is one, so a reload or a second window never
+ * reopens it. Null when none was open last time or it has been deleted since: the user picks one.
+ * Throws when the workspace fails to open (e.g. a failed migration), leaving none open.
  */
-export async function openLastWorkspace(
-  devBrain: DevBrain,
-  logger: Pick<SyncLogger, 'info' | 'warn'>,
-): Promise<void> {
-  const id = lastOpenedWorkspace(devBrain);
-  if (id === null) {
-    logger.info('No workspace was open last time; none opened');
-    return;
-  }
-  try {
-    const workspace = await devBrain.workspaces.open(id);
-    logger.info(`Opened workspace ${workspace.info.id}`);
-  } catch (error) {
-    const name = error instanceof Error ? error.name : typeof error;
-    logger.warn(`Opening workspace ${id} failed error=${name}`);
-  }
+export function openLastWorkspace(devBrain: DevBrain): Promise<Workspace | null> {
+  return devBrain.workspaces.openIfNoneOpen(() => lastOpenedWorkspace(devBrain));
 }
 
 /**
