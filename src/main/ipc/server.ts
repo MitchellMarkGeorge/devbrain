@@ -29,7 +29,7 @@ export interface AttachRouterOptions<TRouter extends AnyTRPCRouter> {
   // every failed call, to log; it never changes the response
   onError?: (info: IpcErrorInfo) => void;
   // runs each mutation, collecting what core changed in it; without one, `changed` stays empty
-  changeTracker?: Pick<ChangeTracker, 'track'>;
+  changeTracker?: Pick<ChangeTracker, 'trackMutation'>;
 }
 
 // Registers the call handler. Returns the function that removes it.
@@ -64,9 +64,9 @@ export function attachRouter<TRouter extends AnyTRPCRouter>(
       // renderer refetches whatever did commit
       const tracker = type === 'mutation' ? options.changeTracker : undefined;
       const data: unknown = tracker
-        ? await tracker.track(
+        ? await tracker.trackMutation(
             event.sender,
-            (entities) => entities.forEach((entity) => changed.add(entity)),
+            (kinds) => kinds.forEach((kind) => changed.add(kind)),
             run,
           )
         : await run();

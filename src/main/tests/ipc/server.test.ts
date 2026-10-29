@@ -155,8 +155,8 @@ describe('attachRouter', () => {
     let onChange: ((entities: ChangedEntity[]) => void) | null = null;
     const write = (...entities: ChangedEntity[]) => onChange?.(entities);
     let tracked = 0;
-    const changeTracker: Pick<ChangeTracker, 'track'> = {
-      async track(_origin, listener, run) {
+    const changeTracker: Pick<ChangeTracker, 'trackMutation'> = {
+      async trackMutation(_window, listener, run) {
         tracked += 1;
         onChange = listener;
         try {

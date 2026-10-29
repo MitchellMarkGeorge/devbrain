@@ -7,142 +7,154 @@ import type { FavoriteChange } from '@main/core/favorites/service';
 import type { TaskLinkChange } from '@main/core/integrations/detach';
 import type { IntegrationChange } from '@main/core/integrations/service';
 
-// Sends an event to every window but `except`, the one a mutation came from, if given. The tracker
-// never sees a window: src/main/index.ts sends through webContents.
-export type PushEvent = <K extends AppEventName>(
+// Sends an event to the app's windows, skipping `skipWindow` when given: the window a mutation came
+// from, which has these changes in its response already. The tracker never sees a window:
+// src/main/index.ts sends through webContents.
+export type SendToWindows = <K extends AppEventName>(
   name: K,
   payload: AppEvents[K],
-  except?: unknown,
+  skipWindow?: unknown,
 ) => void;
 
-// How long the tracker gathers changes made outside any mutation before sending them as one
-// `db.changes`, so a sync run's pages, or a cascade of events, refetch once.
-export const PUSH_DELAY_MS = 50;
-
-interface MutationScope {
-  record(entities: ChangedEntity[]): void;
-  // the mutation's window, which gets these in its response rather than as an event
-  origin: unknown;
-  // set once the mutation has answered: what it started and still runs (a sync run after a
-  // connect) is pushed from then on
-  done: boolean;
+// An IPC mutation the tracker is running, found through the async context of the code that runs it.
+interface RunningMutation {
+  // the window that called it
+  window: unknown;
+  // set once it has answered: what it left running (a sync run after a connect) changes rows in
+  // the background from then on
+  answered: boolean;
+  addKinds(kinds: ChangedEntity[]): void;
 }
 
 /**
  * Turns what core's services change into the kinds of rows the renderer refetches for
  * (docs/ipc/change-propagation-research.md). It listens to every service of the open workspace,
- * following a switch. A change made while an IPC mutation runs goes in that mutation's `changed`,
- * so the renderer refetches before the mutation settles; every other change (sync, work a
- * mutation left running) is pushed to the windows as `db.changes`, gathered for PUSH_DELAY_MS. A
- * mutation's changes are also pushed to the other windows.
+ * following a switch.
+ *
+ * - A change made while an IPC mutation runs goes in that mutation's `changed`, so the renderer
+ *   refetches before the mutation settles. Once it has answered, the other windows get the same
+ *   kinds as a `db.changes` event.
+ * - A change made outside any mutation (sync, work a mutation left running) is a background
+ *   change. The kinds of every background change in one turn of the event loop go out together as
+ *   one `db.changes`, so the several events of one write (a sync page that writes tasks and
+ *   projects) refetch once.
  */
 export class ChangeTracker {
-  private readonly mutations = new AsyncLocalStorage<MutationScope>();
-  private readonly pending = new Set<ChangedEntity>();
-  private timer: ReturnType<typeof setTimeout> | null = null;
+  private readonly runningMutation = new AsyncLocalStorage<RunningMutation>();
+  // what changed in the background since the last send
+  private readonly backgroundKinds = new Set<ChangedEntity>();
+  // the send at the end of this turn of the event loop, once a background change is waiting
+  private backgroundSend: NodeJS.Immediate | null = null;
   private stopWatching: (() => void) | null = null;
 
-  constructor(private readonly push: PushEvent) {}
+  constructor(private readonly sendToWindows: SendToWindows) {}
 
   /** Follows `devBrain`'s workspaces from now on. Returns the function that stops. */
   watch(devBrain: Pick<DevBrain, 'currentWorkspace' | 'workspaces'>): () => void {
     this.stopWatching?.();
     const current = devBrain.currentWorkspace;
-    let detach = current ? this.attach(current) : () => {};
+    let stopListeningToWorkspace = current ? this.listenToWorkspace(current) : () => {};
     const unsubscribe = devBrain.workspaces.onChange((change) => {
       // the registry changed; for a new workspace, nothing else did
-      this.record('workspace');
+      this.recordChange('workspace');
       if (change.type === 'created') return;
-      detach();
-      detach = change.type === 'opened' ? this.attach(change.workspace) : () => {};
+      stopListeningToWorkspace();
+      stopListeningToWorkspace =
+        change.type === 'opened' ? this.listenToWorkspace(change.workspace) : () => {};
       const id = change.type === 'opened' ? change.workspace.info.id : null;
-      this.push('workspace.changed', { id }, this.liveScope()?.origin);
+      this.sendToWindows('workspace.changed', { id }, this.currentMutation()?.window);
     });
     this.stopWatching = () => {
       unsubscribe();
-      detach();
+      stopListeningToWorkspace();
       this.stopWatching = null;
     };
     return this.stopWatching;
   }
 
   /**
-   * Runs one IPC mutation, giving `onChange` what core changes while it runs. Once it has settled,
-   * those changes are pushed to the other windows.
+   * Runs one IPC mutation from `window`, giving `onChange` the kinds of rows core changes while it
+   * runs. Once it has settled, the other windows get those kinds as a `db.changes` event.
    */
-  async track<T>(
-    origin: unknown,
-    onChange: (entities: ChangedEntity[]) => void,
+  async trackMutation<T>(
+    window: unknown,
+    onChange: (kinds: ChangedEntity[]) => void,
     run: () => Promise<T>,
   ): Promise<T> {
-    const changed = new Set<ChangedEntity>();
-    const scope: MutationScope = {
-      origin,
-      done: false,
-      record: (entities) => {
-        entities.forEach((entity) => changed.add(entity));
-        onChange(entities);
+    const changedKinds = new Set<ChangedEntity>();
+    const mutation: RunningMutation = {
+      window,
+      answered: false,
+      addKinds: (kinds) => {
+        kinds.forEach((kind) => changedKinds.add(kind));
+        onChange(kinds);
       },
     };
     try {
-      return await this.mutations.run(scope, run);
+      return await this.runningMutation.run(mutation, run);
     } finally {
-      scope.done = true;
-      if (changed.size > 0) this.push('db.changes', { entities: [...changed] }, origin);
+      mutation.answered = true;
+      if (changedKinds.size > 0) {
+        this.sendToWindows('db.changes', { entities: [...changedKinds] }, window);
+      }
     }
   }
 
-  /** Records a change: in the running mutation's response, or in the next `db.changes`. */
-  record(...entities: ChangedEntity[]): void {
-    if (entities.length === 0) return;
-    const scope = this.liveScope();
-    if (scope) {
-      scope.record(entities);
+  // to the running mutation's response, or to this turn's background send
+  private recordChange(...kinds: ChangedEntity[]): void {
+    if (kinds.length === 0) return;
+    const mutation = this.currentMutation();
+    if (mutation) {
+      mutation.addKinds(kinds);
       return;
     }
-    entities.forEach((entity) => this.pending.add(entity));
-    this.timer ??= setTimeout(() => this.flush(), PUSH_DELAY_MS);
+    kinds.forEach((kind) => this.backgroundKinds.add(kind));
+    this.backgroundSend ??= setImmediate(() => this.sendBackgroundKinds());
   }
 
-  /** Sends what is waiting now. */
-  flush(): void {
-    if (this.timer !== null) clearTimeout(this.timer);
-    this.timer = null;
-    if (this.pending.size === 0) return;
-    const entities = [...this.pending];
-    this.pending.clear();
-    this.push('db.changes', { entities });
+  private sendBackgroundKinds(): void {
+    this.backgroundSend = null;
+    if (this.backgroundKinds.size === 0) return;
+    const kinds = [...this.backgroundKinds];
+    this.backgroundKinds.clear();
+    this.sendToWindows('db.changes', { entities: kinds });
   }
 
-  // the mutation this code runs for, while it has not answered
-  private liveScope(): MutationScope | undefined {
-    const scope = this.mutations.getStore();
-    return scope && !scope.done ? scope : undefined;
+  // the mutation the calling code runs for, until it has answered
+  private currentMutation(): RunningMutation | undefined {
+    const mutation = this.runningMutation.getStore();
+    return mutation && !mutation.answered ? mutation : undefined;
   }
 
   // listens to every service of `workspace` that changes rows; returns the function that stops
-  private attach(workspace: Workspace): () => void {
+  private listenToWorkspace(workspace: Workspace): () => void {
     const { sync } = workspace;
     const unsubscribes = [
-      workspace.tasks.onChange(() => this.record('task')),
-      workspace.projects.onChange(() => this.record('project')),
-      workspace.notes.onChange(() => this.record('note')),
-      workspace.events.onChange(() => this.record('event')),
-      workspace.calendars.onChange(() => this.record('calendar')),
-      workspace.archive.onChange((change) => this.record(...archiveKinds(change))),
-      workspace.favorites.onChange((change) => this.record(favoriteKind(change))),
-      workspace.detach.onChange((change) => this.record(...taskLinkKinds(change))),
-      workspace.integrations.onChange((change) => this.record(...integrationKinds(change))),
+      workspace.tasks.onChange(() => this.recordChange('task')),
+      workspace.projects.onChange(() => this.recordChange('project')),
+      workspace.notes.onChange(() => this.recordChange('note')),
+      workspace.events.onChange(() => this.recordChange('event')),
+      workspace.calendars.onChange(() => this.recordChange('calendar')),
+      workspace.archive.onChange((change) => this.recordChange(...kindsOfArchiveChange(change))),
+      workspace.favorites.onChange((change) => this.recordChange(kindOfFavoriteChange(change))),
+      workspace.detach.onChange((change) => this.recordChange(...kindsOfTaskLinkChange(change))),
+      workspace.integrations.onChange((change) =>
+        this.recordChange(...kindsOfIntegrationChange(change)),
+      ),
       // each committed page, with what it wrote
-      sync.onProgress((progress) => this.record(...progress.summary.changed)),
+      sync.onProgress((progress) => this.recordChange(...progress.summary.changed)),
       // a source's cursor, status or error
-      sync.onStatus(() => this.record('externalSource')),
+      sync.onStatus(() => this.recordChange('externalSource')),
     ];
     return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
   }
 }
 
-export function archiveKinds({ taskIds, projectIds, noteIds }: ArchiveChange): ChangedEntity[] {
+export function kindsOfArchiveChange({
+  taskIds,
+  projectIds,
+  noteIds,
+}: ArchiveChange): ChangedEntity[] {
   const kinds: ChangedEntity[] = [];
   if (taskIds.length > 0) kinds.push('task');
   if (projectIds.length > 0) kinds.push('project');
@@ -157,17 +169,17 @@ const FAVORITE_KINDS = {
   events: 'event',
 } as const satisfies Record<FavoriteChange['entityType'], ChangedEntity>;
 
-export function favoriteKind(change: FavoriteChange): ChangedEntity {
+export function kindOfFavoriteChange(change: FavoriteChange): ChangedEntity {
   return FAVORITE_KINDS[change.entityType];
 }
 
-export function taskLinkKinds(change: TaskLinkChange): ChangedEntity[] {
+export function kindsOfTaskLinkChange(change: TaskLinkChange): ChangedEntity[] {
   // rejected credentials move the integration to needs_reauth, which it reports itself
   if (change.type === 'credentials_rejected') return ['integration'];
   return ['task', ...change.changed];
 }
 
-export function integrationKinds(change: IntegrationChange): ChangedEntity[] {
+export function kindsOfIntegrationChange(change: IntegrationChange): ChangedEntity[] {
   const kinds: ChangedEntity[] = ['integration', 'externalSource'];
   if (change.type === 'disconnected') kinds.push(...change.changed);
   return kinds;

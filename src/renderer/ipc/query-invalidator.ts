@@ -12,7 +12,7 @@ import type { EventClient } from './events';
 // The kinds each route reads, by router, or by full path to override its router. A route listed
 // nowhere is refetched on every change: correct by default, and a line here makes it cheaper.
 // Read across kinds wherever a view shows one kind's rows inside another's.
-export const READS: Readonly<Record<string, readonly ChangedEntity[]>> = {
+export const KINDS_READ_BY_ROUTE: Readonly<Record<string, readonly ChangedEntity[]>> = {
   app: [],
   settings: [],
   workspaces: ['workspace'],
@@ -33,21 +33,21 @@ export const READS: Readonly<Record<string, readonly ChangedEntity[]>> = {
 };
 
 // Routers whose data belongs to no workspace, kept when the open one changes.
-const APP_WIDE = new Set(['app', 'settings', 'workspaces']);
+const ROUTERS_OUTSIDE_WORKSPACES = new Set(['app', 'settings', 'workspaces']);
 
 // a tRPC query key starts with its path, split: [['tasks', 'list'], { input, type }]
-function pathOf(query: Query): string[] {
+function routePathOf(query: Query): string[] {
   const [path] = query.queryKey;
   return Array.isArray(path) ? path.map(String) : [];
 }
 
-export function readsOf(path: readonly string[]): readonly ChangedEntity[] | 'everything' {
-  return READS[path.join('.')] ?? READS[path[0]] ?? 'everything';
+export function kindsReadBy(path: readonly string[]): readonly ChangedEntity[] | 'everything' {
+  return KINDS_READ_BY_ROUTE[path.join('.')] ?? KINDS_READ_BY_ROUTE[path[0]] ?? 'everything';
 }
 
 export interface QueryInvalidator {
-  /** Invalidates the queries reading what changed; resolves once the active ones refetched. */
-  onChanged(changed: readonly ChangedEntity[]): Promise<void>;
+  /** Invalidates the queries reading these kinds; resolves once the active ones refetched. */
+  onChanged(kinds: readonly ChangedEntity[]): Promise<void>;
   /** Drops what was cached for another workspace when `id` is not the one known to be open. */
   workspaceOpened(id: WorkspaceId | null): Promise<void>;
   /** Follows main's events; returns the function that stops. */
@@ -66,50 +66,53 @@ export function createQueryInvalidator(options: QueryInvalidatorOptions): QueryI
   const { queryClient } = options;
   const onError = options.onError ?? ((error: unknown) => console.error(error));
   // the workspace whose data is cached; unknown until main first says
-  let openId: WorkspaceId | null | undefined;
+  let cachedWorkspaceId: WorkspaceId | null | undefined;
 
-  function invalidate(changed: readonly ChangedEntity[]): Promise<void> {
+  function invalidateQueriesReading(kinds: readonly ChangedEntity[]): Promise<void> {
     return queryClient.invalidateQueries({
       predicate: (query) => {
-        const reads = readsOf(pathOf(query));
-        return reads === 'everything' || reads.some((kind) => changed.includes(kind));
+        const kindsRead = kindsReadBy(routePathOf(query));
+        return kindsRead === 'everything' || kindsRead.some((kind) => kinds.includes(kind));
       },
     });
   }
 
-  async function workspaceOpened(id: WorkspaceId | null): Promise<void> {
-    if (id === openId) return;
-    openId = id;
-    // cancels what is in flight for the old one, clears it, and refetches what is on screen
-    await queryClient.resetQueries({ predicate: (query) => !APP_WIDE.has(pathOf(query)[0]) });
+  // cancels what is in flight for the old workspace, clears it, and refetches what is on screen
+  function dropWorkspaceData(): Promise<void> {
+    return queryClient.resetQueries({
+      predicate: (query) => !ROUTERS_OUTSIDE_WORKSPACES.has(routePathOf(query)[0]),
+    });
   }
 
-  async function onChanged(changed: readonly ChangedEntity[]): Promise<void> {
-    if (changed.length === 0) return;
-    await invalidate(changed);
-    if (!changed.includes('workspace')) return;
+  async function workspaceOpened(id: WorkspaceId | null): Promise<void> {
+    if (id === cachedWorkspaceId) return;
+    cachedWorkspaceId = id;
+    await dropWorkspaceData();
+  }
+
+  async function onChanged(kinds: readonly ChangedEntity[]): Promise<void> {
+    if (kinds.length === 0) return;
+    await invalidateQueriesReading(kinds);
+    if (!kinds.includes('workspace')) return;
     // a switch, or only the list changing: which one is open now says
-    let id: WorkspaceId | null | undefined;
+    let openWorkspaceId: WorkspaceId | null;
     try {
-      id = await options.currentWorkspaceId();
+      openWorkspaceId = await options.currentWorkspaceId();
     } catch (error) {
       onError(error);
-      id = undefined;
-    }
-    if (id === undefined) {
       // not knowing which is open, nothing cached can be trusted
-      openId = undefined;
-      await queryClient.resetQueries({ predicate: (query) => !APP_WIDE.has(pathOf(query)[0]) });
-    } else {
-      await workspaceOpened(id);
+      cachedWorkspaceId = undefined;
+      await dropWorkspaceData();
+      return;
     }
+    await workspaceOpened(openWorkspaceId);
   }
 
   return {
     onChanged,
     workspaceOpened,
     listen(events) {
-      const off = [
+      const unsubscribes = [
         events.on('db.changes', ({ entities }) => {
           onChanged(entities).catch(onError);
         }),
@@ -117,7 +120,7 @@ export function createQueryInvalidator(options: QueryInvalidatorOptions): QueryI
           workspaceOpened(id).catch(onError);
         }),
       ];
-      return () => off.forEach((unsubscribe) => unsubscribe());
+      return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
     },
   };
 }

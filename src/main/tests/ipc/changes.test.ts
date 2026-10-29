@@ -5,12 +5,11 @@ import type { IpcResult } from '@common/ipc/types';
 import type { DevBrain, Workspace } from '@main/core';
 import { DEFAULT_CALENDAR_ID } from '@main/core/calendars/types';
 import {
-  archiveKinds,
   ChangeTracker,
-  favoriteKind,
-  integrationKinds,
-  PUSH_DELAY_MS,
-  taskLinkKinds,
+  kindOfFavoriteChange,
+  kindsOfArchiveChange,
+  kindsOfIntegrationChange,
+  kindsOfTaskLinkChange,
 } from '@main/ipc/changes';
 import { appRouter } from '@main/ipc/router';
 import { attachRouter } from '@main/ipc/server';
@@ -25,21 +24,22 @@ import { createWorkspace, tempDevBrain, testContext } from './helpers';
 let devBrain: DevBrain;
 let cleanup: () => Promise<void>;
 let tracker: ChangeTracker;
-// a new one per test: a previous test's tracker may still flush what its cleanup changed
-let push: Mock<(name: AppEventName, payload: AppEvents[AppEventName], except?: unknown) => void>;
+// a new one per test: a previous test's tracker may still send what its cleanup changed
+let sendToWindows: Mock<
+  (name: AppEventName, payload: AppEvents[AppEventName], skipWindow?: unknown) => void
+>;
 
 const DUE = new Date('2026-11-02T00:00:00.000Z');
 
 beforeEach(async () => {
   ({ devBrain, cleanup } = await tempDevBrain());
   await devBrain.workspaces.open(await createWorkspace(devBrain, 'Work'));
-  push = vi.fn();
-  tracker = new ChangeTracker(push);
+  sendToWindows = vi.fn();
+  tracker = new ChangeTracker(sendToWindows);
   tracker.watch(devBrain);
 });
 
 afterEach(async () => {
-  vi.useRealTimers();
   resetElectronMock();
   await cleanup();
 });
@@ -74,31 +74,36 @@ function act(
   }) as Promise<IpcResult<unknown>>;
 }
 
-// the db.changes events pushed so far, with the window each skipped
-function pushedChanges() {
-  return push.mock.calls
+// the db.changes events sent so far, with the window each skipped
+function sentChanges() {
+  return sendToWindows.mock.calls
     .filter(([name]) => name === 'db.changes')
-    .map(([, payload, except]) => ({
+    .map(([, payload, skipWindow]) => ({
       entities: (payload as AppEvents['db.changes']).entities,
-      except,
+      skipWindow,
     }));
+}
+
+// background changes go out at the end of the event loop's turn
+function afterBackgroundSend() {
+  return new Promise<void>((resolve) => setImmediate(resolve));
 }
 
 describe('a mutation', () => {
   beforeEach(() => attach());
 
-  it("returns a cascade's kinds in its own response, and pushes nothing to its window", async () => {
+  it("returns a cascade's kinds in its own response, and sends them only to the other windows", async () => {
     const task = workspace().tasks.createTask({ title: 'Ship', dueDate: DUE });
     await workspace().notes.createNote({ title: 'Plan', linkedTaskId: task.id });
-    tracker.flush();
-    push.mockReset();
+    await afterBackgroundSend();
+    sendToWindows.mockReset();
 
     const result = await act((ws) => ws.archive.archiveTask(task.id), 'window-a');
 
     expect(result).toMatchObject({ ok: true });
     expect([...result.changed].sort()).toEqual(['note', 'task']);
     // the other windows learn of it as an event; the caller already has it
-    expect(pushedChanges()).toEqual([{ entities: result.changed, except: 'window-a' }]);
+    expect(sentChanges()).toEqual([{ entities: result.changed, skipWindow: 'window-a' }]);
   });
 
   it('returns what it changed after an await, as note content saves do', async () => {
@@ -124,7 +129,7 @@ describe('a mutation', () => {
     expect(result.changed).toEqual(['calendar']);
   });
 
-  it('is a mutation: a query is not tracked, so what one changed is pushed', async () => {
+  it('leaves a query untracked, so what one changed is sent in the background', async () => {
     const result = await act(
       (ws) => ws.calendars.setVisible(DEFAULT_CALENDAR_ID, false),
       'w',
@@ -132,28 +137,26 @@ describe('a mutation', () => {
     );
 
     expect(result).toMatchObject({ ok: true, changed: [] });
-    tracker.flush();
-    expect(pushedChanges()).toEqual([{ entities: ['calendar'], except: undefined }]);
+    await afterBackgroundSend();
+    expect(sentChanges()).toEqual([{ entities: ['calendar'], skipWindow: undefined }]);
   });
 
-  it('pushes what it left running once it has answered, rather than in its response', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-    let later!: () => void;
-    const started = new Promise<void>((resolve) => (later = resolve));
+  it('sends what it left running once it has answered in the background, not in its response', async () => {
+    let startLater!: () => void;
+    const started = new Promise<void>((resolve) => (startLater = resolve));
 
-    // like a connect whose sync run outlives it: the work inherits the call's async context
+    // like a connect whose sync run outlives it: the work inherits the mutation's async context
     const result = await act((ws) => {
       void started.then(() => ws.tasks.createTask({ title: 'Synced', dueDate: DUE }));
       return null;
     });
-    later();
+    startLater();
+    // the task is written in the microtask after this, which then schedules the send
     await started;
-    await Promise.resolve();
+    await afterBackgroundSend();
 
     expect(result.changed).toEqual([]);
-    expect(pushedChanges()).toEqual([]);
-    vi.advanceTimersByTime(PUSH_DELAY_MS);
-    expect(pushedChanges()).toEqual([{ entities: ['task'], except: undefined }]);
+    expect(sentChanges()).toEqual([{ entities: ['task'], skipWindow: undefined }]);
   });
 
   it('leaves out what something else changed while it waited', async () => {
@@ -170,52 +173,54 @@ describe('a mutation', () => {
     const result = await pending;
 
     expect(result.changed).toEqual(['event']);
-    tracker.flush();
-    expect(pushedChanges()).toContainEqual({ entities: ['project'], except: undefined });
+    await afterBackgroundSend();
+    expect(sentChanges()).toContainEqual({ entities: ['project'], skipWindow: undefined });
   });
 });
 
 describe('changes outside any mutation', () => {
-  it('are gathered into one db.changes per PUSH_DELAY_MS', () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  it('are sent together, once per turn of the event loop', async () => {
     const ws = workspace();
 
     const task = ws.tasks.createTask({ title: 'One', dueDate: DUE });
     ws.tasks.updateTask(task.id, { title: 'Two' });
     ws.events.createEvent({ title: 'Standup', startAt: DUE, endAt: DUE });
-    expect(pushedChanges()).toEqual([]);
+    expect(sentChanges()).toEqual([]);
 
-    vi.advanceTimersByTime(PUSH_DELAY_MS);
-    expect(pushedChanges()).toEqual([{ entities: ['task', 'event'], except: undefined }]);
+    await afterBackgroundSend();
+    expect(sentChanges()).toEqual([{ entities: ['task', 'event'], skipWindow: undefined }]);
 
     ws.calendars.setVisible(DEFAULT_CALENDAR_ID, false);
-    vi.advanceTimersByTime(PUSH_DELAY_MS);
-    expect(pushedChanges()).toHaveLength(2);
+    await afterBackgroundSend();
+    expect(sentChanges()).toEqual([
+      { entities: ['task', 'event'], skipWindow: undefined },
+      { entities: ['calendar'], skipWindow: undefined },
+    ]);
   });
 
-  it('push nothing once the tracker stops watching', () => {
+  it('send nothing once the tracker stops watching', async () => {
     tracker.watch(devBrain)();
     workspace().tasks.createTask({ title: 'Unseen', dueDate: DUE });
-    tracker.flush();
+    await afterBackgroundSend();
 
-    expect(pushedChanges()).toEqual([]);
+    expect(sentChanges()).toEqual([]);
   });
 });
 
 describe('switching workspace', () => {
-  it('pushes workspace.changed, and follows the new workspace', async () => {
+  it('sends workspace.changed, and follows the new workspace', async () => {
     const old = workspace();
     const next = await createWorkspace(devBrain, 'Home');
 
     await devBrain.workspaces.open(next);
 
-    expect(push).toHaveBeenCalledWith('workspace.changed', { id: null }, undefined);
-    expect(push).toHaveBeenCalledWith('workspace.changed', { id: next }, undefined);
-    tracker.flush();
-    push.mockReset();
+    expect(sendToWindows).toHaveBeenCalledWith('workspace.changed', { id: null }, undefined);
+    expect(sendToWindows).toHaveBeenCalledWith('workspace.changed', { id: next }, undefined);
+    await afterBackgroundSend();
+    sendToWindows.mockReset();
     workspace().tasks.createTask({ title: 'Here', dueDate: DUE });
-    tracker.flush();
-    expect(pushedChanges()).toEqual([{ entities: ['task'], except: undefined }]);
+    await afterBackgroundSend();
+    expect(sentChanges()).toEqual([{ entities: ['task'], skipWindow: undefined }]);
     expect(old).not.toBe(workspace());
   });
 
@@ -231,7 +236,7 @@ describe('switching workspace', () => {
     })) as IpcResult<unknown>;
 
     expect(result).toMatchObject({ ok: true, changed: ['workspace'] });
-    expect(push).toHaveBeenCalledWith('workspace.changed', { id: next }, 'window-a');
+    expect(sendToWindows).toHaveBeenCalledWith('workspace.changed', { id: next }, 'window-a');
   });
 
   it('reports a new workspace, which core announces, without saying the open one changed', async () => {
@@ -244,7 +249,11 @@ describe('switching workspace', () => {
     })) as IpcResult<unknown>;
 
     expect(result).toMatchObject({ ok: true, changed: ['workspace'] });
-    expect(push).not.toHaveBeenCalledWith('workspace.changed', expect.anything(), undefined);
+    expect(sendToWindows).not.toHaveBeenCalledWith(
+      'workspace.changed',
+      expect.anything(),
+      undefined,
+    );
   });
 });
 
@@ -252,11 +261,11 @@ describe('the kinds of each change', () => {
   const none = { taskIds: [], projectIds: [], noteIds: [] };
 
   it('names what an archive cascaded to', () => {
-    expect(archiveKinds({ type: 'archived', ...none, taskIds: ['tsk_1' as never] })).toEqual([
-      'task',
-    ]);
     expect(
-      archiveKinds({
+      kindsOfArchiveChange({ type: 'archived', ...none, taskIds: ['tsk_1' as never] }),
+    ).toEqual(['task']);
+    expect(
+      kindsOfArchiveChange({
         type: 'restored',
         taskIds: ['tsk_1' as never],
         projectIds: ['prj_1' as never],
@@ -266,11 +275,11 @@ describe('the kinds of each change', () => {
   });
 
   it('maps favorites, task links and integrations', () => {
-    expect(favoriteKind({ type: 'unfavorited', entityType: 'events', id: 'evt_1' as never })).toBe(
-      'event',
-    );
     expect(
-      taskLinkKinds({
+      kindOfFavoriteChange({ type: 'unfavorited', entityType: 'events', id: 'evt_1' as never }),
+    ).toBe('event');
+    expect(
+      kindsOfTaskLinkChange({
         type: 'reattached',
         taskId: 'tsk_1' as never,
         taskIds: [],
@@ -278,18 +287,18 @@ describe('the kinds of each change', () => {
       } as never),
     ).toEqual(['task', 'task', 'project']);
     expect(
-      taskLinkKinds({
+      kindsOfTaskLinkChange({
         type: 'credentials_rejected',
         taskId: 'tsk_1' as never,
         integrationId: 'int_1' as never,
       }),
     ).toEqual(['integration']);
-    const disconnected = integrationKinds({
+    const disconnected = kindsOfIntegrationChange({
       type: 'disconnected',
       changed: ['task', 'event'],
     } as never);
     expect(disconnected).toEqual(['integration', 'externalSource', 'task', 'event']);
-    expect(integrationKinds({ type: 'source_changed' } as never)).toEqual([
+    expect(kindsOfIntegrationChange({ type: 'source_changed' } as never)).toEqual([
       'integration',
       'externalSource',
     ]);
