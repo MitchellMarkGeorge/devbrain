@@ -3,7 +3,7 @@ import { DevBrain, openDevBrain, type OpenSettingsStore, type WorkspaceOptions }
 import { DevBrainFolderError } from '@main/core/shared/errors';
 import type { SyncLogger } from '@main/core/sync/types';
 
-export interface StartDevBrainOptions {
+export interface LoadDevBrainOptions {
   // the DevBrain folder: settings.json, workspaces.json and the workspaces
   rootPath: string;
   // Creates a DevBrain folder when there is none (or only an empty directory), as on the packaged
@@ -13,35 +13,44 @@ export interface StartDevBrainOptions {
   settingsStore: OpenSettingsStore;
   // the cipher, fetch and browser opener every workspace gets
   workspace: WorkspaceOptions;
-  logger: Pick<SyncLogger, 'info' | 'warn'>;
+  logger: Pick<SyncLogger, 'warn'>;
 }
 
 /**
- * Opens the DevBrain folder and, when the workspace open last time is still registered, that
- * workspace, which starts syncing it. Otherwise no workspace is opened: the user picks one. Returns
- * null when there is no folder and none is to be created. Throws when the folder is invalid. A
- * workspace that fails to open (e.g. a failed migration) is logged and leaves none open.
+ * Opens the DevBrain folder, and no workspace: whatever follows DevBrain (sync triggers, change
+ * listeners) attaches to it before openLastWorkspace opens one. Returns null when there is no
+ * folder and none is to be created. Throws when the folder is invalid.
  */
-export async function startDevBrain(options: StartDevBrainOptions): Promise<DevBrain | null> {
-  const { rootPath, logger } = options;
-  let devBrain: DevBrain;
+export async function loadDevBrain(options: LoadDevBrainOptions): Promise<DevBrain | null> {
   try {
-    devBrain = await openDevBrain({
-      path: rootPath,
+    return await openDevBrain({
+      path: options.rootPath,
       settingsStore: options.settingsStore,
       createIfMissing: options.createIfMissing,
       workspace: options.workspace,
     });
   } catch (error) {
     if (!(error instanceof DevBrainFolderError && error.reason === 'missing')) throw error;
-    logger.warn(`No DevBrain folder at ${rootPath}; run \`npm run seed:dev\` to create one`);
+    options.logger.warn(
+      `No DevBrain folder at ${options.rootPath}; run \`npm run seed:dev\` to create one`,
+    );
     return null;
   }
+}
 
+/**
+ * Opens the workspace open last time, which starts syncing it, when it is still registered.
+ * Otherwise none is opened: the user picks one. Never throws: a workspace that fails to open (e.g.
+ * a failed migration) is logged and leaves none open.
+ */
+export async function openLastWorkspace(
+  devBrain: DevBrain,
+  logger: Pick<SyncLogger, 'info' | 'warn'>,
+): Promise<void> {
   const id = lastOpenedWorkspace(devBrain);
   if (id === null) {
     logger.info('No workspace was open last time; none opened');
-    return devBrain;
+    return;
   }
   try {
     const workspace = await devBrain.workspaces.open(id);
@@ -50,7 +59,6 @@ export async function startDevBrain(options: StartDevBrainOptions): Promise<DevB
     const name = error instanceof Error ? error.name : typeof error;
     logger.warn(`Opening workspace ${id} failed error=${name}`);
   }
-  return devBrain;
 }
 
 /**

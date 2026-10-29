@@ -23,6 +23,7 @@
  *   npm run seed:dev                              # create workspace at DEV_PATH (from .env)
  *   npm run seed:dev -- --reset                    # wipe and recreate it
  *   npm run seed:dev -- --path .dev2 --name Perf    # override .env for this run
+ *   npm run seed:dev -- --path=.dev2 --name=Perf    # the same
  *   npm run seed:dev -- --seed 7                    # different dataset shape
  *
  * DEV_PATH and DEV_WORKSPACE_NAME are read from the repo's .env file (same
@@ -31,7 +32,7 @@
  *
  * When DEV_LINEAR_API_KEY is set, the workspace is also connected to that
  * Linear account through IntegrationService.connectWithApiKey, so a seeded
- * workspace starts connected. The key is stored with a dev-only cipher
+ * workspace starts connected, and waits for that first sync to finish. The key is stored with a dev-only cipher
  * (src/main/runtime/dev-cipher.ts), not safeStorage, which only exists inside
  * Electron. The app, run with `npm run dev`, reads it and stores it again
  * under safeStorage the first time it syncs.
@@ -40,6 +41,7 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { config as loadEnvFile } from '@dotenvx/dotenvx';
 import { openDevBrain } from '@main/core';
 import { openElectronSettingsStore } from '@main/runtime/settings-store';
@@ -67,7 +69,10 @@ loadEnvFile({ path: path.join(REPO_ROOT, '.env') });
 
 const argv = process.argv.slice(2);
 const hasFlag = (name: string) => argv.includes(`--${name}`);
+// `--name value` or `--name=value`
 const getOpt = (name: string, fallback: string): string => {
+  const inline = argv.find((arg) => arg.startsWith(`--${name}=`));
+  if (inline !== undefined) return inline.slice(`--${name}=`.length);
   const idx = argv.indexOf(`--${name}`);
   if (idx === -1 || idx === argv.length - 1) return fallback;
   return argv[idx + 1];
@@ -964,11 +969,26 @@ async function connectLinear(workspace: Workspace): Promise<string> {
       Provider.LINEAR,
       LINEAR_API_KEY,
     );
-    return `connected as ${integration.accountLabel} (${integration.id})`;
+    // connecting starts each source's first sync; closing the workspace would abort it
+    console.log('Syncing Linear...');
+    await whenSyncIdle(workspace);
+    const errors = workspace.sync
+      .getStatus()
+      .filter((source) => source.integrationId === integration.id && source.lastError !== null)
+      .map((source) => `${source.sourceType}: ${source.lastError}`);
+    const synced = errors.length === 0 ? 'synced' : `sync failed (${errors.join('; ')})`;
+    return `connected as ${integration.accountLabel} (${integration.id}), ${synced}`;
   } catch (err) {
     const message = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
     console.warn(`Connecting Linear failed, so the workspace is not connected. ${message}`);
     return 'not connected (connect failed)';
+  }
+}
+
+// resolves once no source of the workspace has a sync run in flight
+async function whenSyncIdle(workspace: Workspace): Promise<void> {
+  while (workspace.sync.getStatus().some((source) => source.running)) {
+    await sleep(200);
   }
 }
 
@@ -1000,10 +1020,12 @@ async function main() {
     createIfMissing: true,
     workspace: { migrationsPath: MIGRATIONS_PATH, cipher: devCipher, fetch },
   });
-  const workspace = await devBrain.workspaces.create({
+  const created = await devBrain.workspaces.create({
     name: WORKSPACE_NAME,
     color: pick(PALETTE),
   });
+  // create leaves it closed; seed it open
+  const workspace = await devBrain.workspaces.open(created.id);
 
   try {
     console.log('Creating projects...');
@@ -1043,7 +1065,7 @@ async function main() {
 
     const linear = await connectLinear(workspace);
 
-    await workspace.close();
+    await devBrain.close();
 
     const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
     console.log('');
@@ -1061,7 +1083,7 @@ async function main() {
     console.log(`Path: ${ROOT_PATH}`);
     console.log(`Elapsed: ${elapsedSeconds}s`);
   } catch (err) {
-    await workspace.close();
+    await devBrain.close();
     throw err;
   }
 }

@@ -80,9 +80,3 @@ export function closeBeforeQuit(
       });
   });
 }
-
-// Startup can still be opening a workspace when quit arrives. Drain startup before closing it.
-export async function closeCore(starting: Promise<DevBrain | null>): Promise<void> {
-  const devBrain = await starting;
-  await devBrain?.close();
-}

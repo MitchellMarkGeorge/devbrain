@@ -8,8 +8,8 @@ import type { DevBrain } from '@main/core';
 import { createSafeStorageCipher } from './runtime/safe-storage-cipher';
 import { migrationsPath } from './runtime/migrations';
 import { openElectronSettingsStore } from './runtime/settings-store';
-import { startDevBrain } from './runtime/start';
-import { closeBeforeQuit, closeCore, forwardSyncTriggers } from './runtime/lifecycle';
+import { loadDevBrain, openLastWorkspace } from './runtime/start';
+import { closeBeforeQuit, forwardSyncTriggers } from './runtime/lifecycle';
 import { attachRouter } from './ipc/server';
 import { appRouter } from './ipc/router';
 import { createContext } from './ipc/context';
@@ -48,12 +48,13 @@ function devBrainRootPath(): string {
   return process.env.DEVBRAIN_PATH ?? path.join(os.homedir(), '.devbrain');
 }
 
-// Must run after `ready`: net.fetch and safeStorage's async API are only usable from then. Null
-// when there is no DevBrain folder in development, or starting failed. Never rejects: a failure is
-// logged, and the window stays up.
-async function startCore(): Promise<DevBrain | null> {
+// Opens the DevBrain folder, and no workspace yet (openLastWorkspace opens one). Must run after
+// `ready`: net.fetch and safeStorage's async API are only usable from then. Null when there is no
+// DevBrain folder in development, or the folder is invalid. Never rejects: a failure is logged,
+// and the window stays up.
+async function loadCore(): Promise<DevBrain | null> {
   try {
-    return await startDevBrain({
+    return await loadDevBrain({
       rootPath: devBrainRootPath(),
       createIfMissing: app.isPackaged,
       settingsStore: openElectronSettingsStore,
@@ -75,7 +76,7 @@ async function startCore(): Promise<DevBrain | null> {
       logger: devBrainLog,
     });
   } catch (error) {
-    devBrainLog.error('Starting DevBrain failed', error);
+    devBrainLog.error('Loading DevBrain failed', error);
     return null;
   }
 }
@@ -84,15 +85,17 @@ async function startCore(): Promise<DevBrain | null> {
 const ipcLog = log.scope('ipc');
 
 // The typed router (src/main/ipc/router.ts); the renderer reaches it through the generic bridge in
-// src/preload/index.ts. Attached as soon as core starts, without waiting for it, so the window's
-// first calls find their handlers.
-function attachIpc() {
+// src/preload/index.ts. Attached before the window is created, so its first calls find it.
+function attachIpc(devBrain: DevBrain | null) {
   attachRouter(appRouter, {
-    createContext,
-    // an expected failure is the renderer's to show; only the rest is a bug worth logging
+    createContext: (call) => createContext({ ...call, devBrain, log: ipcLog }),
+    // Every failure, once, with the code the renderer gets. An expected one (not_found,
+    // invalid_input, …) is the renderer's to show; anything internal is a bug, logged with the
+    // original error
     onError: ({ path, error, shape }) => {
-      if (shape.data.code === 'internal')
-        ipcLog.error(`IPC call ${path} failed`, error.cause ?? error);
+      const { code } = shape.data;
+      if (code === 'internal') ipcLog.error(`IPC call ${path} failed`, error.cause ?? error);
+      else ipcLog.warn(`IPC call ${path} failed error=${code}`);
     },
   });
 }
@@ -115,6 +118,7 @@ function createWindow() {
   });
 
   win.on('ready-to-show', () => win.show());
+  hardenWindow(win);
 
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL);
@@ -124,22 +128,39 @@ function createWindow() {
   }
 }
 
+// The window shows the app's page and nothing else (docs/security/untrusted-content.md): a link
+// that escapes the renderer's rules can't open a window or load another page inside DevBrain.
+// Links open in the browser through workspace.openUrl only. The app routes within its page, which
+// is no navigation; reloading it (as Vite does in development) is the one allowed.
+function hardenWindow(win: BrowserWindow) {
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  win.webContents.on('will-navigate', (event) => {
+    if (event.url !== win.webContents.getURL()) event.preventDefault();
+  });
+}
+
 // --- App lifecycle --------------------------------------------------------
+// Startup, in order: load DevBrain; attach everything that follows it, before anything starts;
+// reopen the last workspace; then create the window, whose first calls find the router and that
+// workspace already open.
 app.whenReady().then(async () => {
   configureLogging();
+
+  const devBrain = await loadCore();
+  attachIpc(devBrain);
+  if (devBrain !== null) {
+    // Holds the quit until DevBrain has closed. A close waits for a workspace still opening, as
+    // WorkspaceService queues its transitions
+    closeBeforeQuit(app, () => devBrain.close(), devBrainLog);
+    // window focus and system resume sync the workspace open at the time, if any
+    forwardSyncTriggers({ app, powerMonitor }, devBrain, devBrainLog);
+    await openLastWorkspace(devBrain, devBrainLog);
+  }
+
   createWindow();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
-
-  const starting = startCore();
-  closeBeforeQuit(app, () => closeCore(starting), devBrainLog);
-  attachIpc();
-
-  const devBrain = await starting;
-  if (devBrain === null) return;
-  // window focus and system resume sync the workspace open at the time, if any
-  forwardSyncTriggers({ app, powerMonitor }, devBrain, devBrainLog);
 });
 
 app.on('window-all-closed', () => {

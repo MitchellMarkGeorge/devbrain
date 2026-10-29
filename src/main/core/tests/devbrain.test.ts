@@ -67,11 +67,9 @@ async function devBrainWith(provider: FakeProvider): Promise<DevBrain> {
   });
 }
 
-// registers a workspace and closes it, as create leaves it open; returns its info
-async function createWorkspace(name: string) {
-  const created = await devBrain.workspaces.create({ name, color: '#000000' });
-  await created.close();
-  return created.info;
+// registers a workspace, which create leaves closed; returns its info
+function createWorkspace(name: string) {
+  return devBrain.workspaces.create({ name, color: '#000000' });
 }
 
 // Opens a workspace and lets its open pass run, which it defers to the next turn of the event loop.
@@ -197,7 +195,7 @@ describe('DevBrain — switching workspaces', () => {
     await workspace.integrations.connectWithApiKey(Provider.LINEAR, FAKE_API_KEY);
     await pulled;
 
-    const opened = await devBrain.workspaces.switch(second.id);
+    const opened = await devBrain.workspaces.open(second.id);
 
     // the switch resolved only once the first workspace's pull had answered and its run settled,
     // discarding the page

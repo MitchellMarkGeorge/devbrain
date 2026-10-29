@@ -69,12 +69,13 @@ src/common/
                             IpcBridge
 
 src/main/ipc/
-  trpc.ts                   t (initTRPC, errorFormatter), publicQuery/Mutation, wsQuery/Mutation
+  trpc.ts                   t (initTRPC, errorFormatter)
+  procedures.ts             publicProcedure, devBrainProcedure, wsProcedure
   errors.ts                 IpcError, serializeError
   server.ts                 attachRouter: the transport over ipcMain
   context.ts                AppContext, createContext
-  middleware.ts             senderGuard, logging, requireWorkspace
-  zod.ts                    zId(entity), shared input schemas
+  middleware.ts             logging, requireDevBrain, requireWorkspace
+  zod.ts                    zId(entity), zPage
   broadcaster.ts            Broadcaster over webContents
   changes/
     scope.ts                withChangeScope, openScope (AsyncLocalStorage)
@@ -156,7 +157,7 @@ existing conventions:
 1. **`WorkspaceService.onChange`**, built on `ChangeListeners`:
    `{ type: 'opened'; workspace: Workspace } | { type: 'closed'; workspaceId: WorkspaceId }`. It
    emits `opened` once the workspace is current and `closed` once it has closed. The change router
-   follows the open workspace through it, including the one `startDevBrain` opens at launch.
+   follows the open workspace through it, including the one `openLastWorkspace` opens at launch.
 2. **`SyncScheduler.onStatus`**, which passes on `SyncStateManager`'s `sync_status_changed`. Today
    nothing outside `Workspace`'s constructor can subscribe to source status.
 3. **Move `integrations/shared-types.ts` to `src/common/integrations.ts`**, with a re-export in
@@ -233,7 +234,8 @@ request ids.
    - `createEventClient<AppEvents>().on(name, cb)` returns an unsubscribe function.
 7. **The first route:** `app.ping` and `app.version`, replacing the two `ipcMain.handle` calls in
    `src/main/index.ts`. `attachRouter` runs right after `startCore()` is called, so the window's
-   first calls find the handler.
+   first calls find the handler. (Milestone 3 attaches it once DevBrain is loaded, before the
+   window is created.)
 
 **Tests**
 
@@ -253,6 +255,13 @@ request ids.
 correct type.
 
 ## Milestone 3: Change router and wiring into the app
+
+> **Status (PR 4):** steps 6–8 are done, except attaching the `ChangeRouter` in step 7. Steps 2–5,
+> that attach and the change tests below are deferred: how the renderer learns what changed is
+> still to be decided. The candidates are the recorded changes this plan describes, a renderer-side
+> map of what each mutation invalidates, and refetching every query on screen after any write
+> (with sync pushing one event). Until then `changed` is always empty: milestone 2's
+> `ctx.changes` is there, and no route records anything. Step 1 landed in PR 3.
 
 **Steps**
 
@@ -277,27 +286,47 @@ correct type.
    (A tRPC middleware can't do this: it can only return the resolver's output, with no room for
    `changed` beside it.)
 6. **Context and middleware** (tRPC middleware, built with `t.middleware`):
-   - `createContext({ event, changes })` returns
+   - `createContext({ event, changes, devBrain, log })` returns
      `{ event, devBrain, workspace: devBrain.currentWorkspace, changes, log }`, read fresh on every
-     call. It awaits `startCore()`, so calls made while core starts wait for
-     it.
-   - `senderGuard`: the app's own page only (the dev server URL, or `file://…/renderer/index.html`).
-   - `logging`: path, duration and error code, never the input.
-   - `requireWorkspace` → `no_workspace_open`. If `startCore()` returned `null`, every route that
-     needs `DevBrain` fails with `devbrain_unavailable`.
-   - Base procedures in `trpc.ts`: `publicQuery`/`publicMutation` and `wsQuery`/`wsMutation`
-     (`t.procedure.use(...)`).
-   - `zId(entity)`, which checks the prefix from `src/common/ids.ts`.
+     call. `src/main/index.ts` binds the loaded DevBrain (or `null`) and the logger where it
+     attaches the router. Startup's order (step 7) means no call arrives before DevBrain is
+     loaded and the last workspace open, so there is nothing to wait for.
+   - No sender guard: the window is sandboxed and can't open windows or navigate (step 7), so
+     only the app's page can be in it to call main. (The plan first had a `senderGuard` checking
+     each call's frame URL; milestone 3 dropped it as a second check of the same thing.)
+   - `logging`: each call's path and duration at debug, never the input. A failure is logged once,
+     by attachRouter's `onError` in `src/main/index.ts`, with the code the renderer gets: warn for
+     an expected one, error (with the original) for `internal`.
+   - `requireDevBrain` → `devbrain_unavailable` when DevBrain could not be loaded;
+     `requireWorkspace` → that, or `no_workspace_open`. Each narrows the context.
+   - Base procedures in `procedures.ts` (`trpc.ts` holds `t`, which the middleware imports), each
+     for a query or a mutation: `publicProcedure`, `devBrainProcedure` (workspaces, settings) and
+     `wsProcedure`. Routes never use `t.procedure`; `app.ping` and `app.version` are public ones.
+   - `zId(entity)`, which checks the prefix with `isId` from `src/common/ids.ts`.
 7. **`src/main/index.ts`:**
-   - Once `startCore()` resolves, create the `Broadcaster` and call `ChangeRouter.attach`.
-     `attachRouter` stays where milestone 2 put it.
+   - Startup is split in two (`src/main/runtime/start.ts`): `loadDevBrain` opens the DevBrain
+     folder with no workspace open, and `openLastWorkspace` reopens the last one. `index.ts` runs,
+     in order: load DevBrain; attach everything that follows it (the router, the quit hook, the
+     focus and resume sync triggers); reopen the last workspace; create the window. Everything is
+     attached before any workspace opens, and the window's first calls find the router and that
+     workspace already open, so nothing passes a startup promise around. The `ChangeRouter`, when
+     it comes, attaches with the rest, and needs no "pick up the workspace already open" case. The
+     quit hook calls `devBrain.close()`, which waits for a workspace still opening, as
+     `WorkspaceService` queues its transitions.
    - Window hardening from `docs/security/untrusted-content.md`: `setWindowOpenHandler` → deny, and
-     a `will-navigate` guard that only allows the app's own pages.
+     a `will-navigate` guard that cancels every navigation but a reload of the current page. The
+     app routes within its page, which is no navigation.
 8. **The first real routes:**
-   - `workspaces`: `list`, `current`, `open`, `switch`, `create`, `delete`. These return
-     `WorkspaceInfo`, never a `Workspace`, and call `ctx.changes.record()` where nothing emits.
-   - `settings`: `get` returns the whole settings file; `update` takes a patch validated against
-     `core/settings/schema.ts`.
+   - `workspaces`: `list`, `current`, `open`, `create`, `delete`. These return `WorkspaceInfo`,
+     never a `Workspace`. `create` doesn't open the new workspace: core's `WorkspaceService.create`
+     now registers it only once its database is created, closes that database and returns the
+     info, so a workspace is only ever open through `open`, which closes the open one first (core's
+     `WorkspaceService.switch`, which only called `open`, is gone). `open` writes
+     `state.lastWorkspaceId`, which `openLastWorkspace` reopens at launch and nothing wrote before, and
+     `delete` clears it.
+   - `settings`: `get` returns the user's settings; `update` takes the whole settings object,
+     validated by `appSettingsSchema` from `core/settings/schema.ts`, saves it and returns it. The
+     app's state beside them in the settings file (`state`) has no route: only main uses it.
    - `workspace.openUrl`, which goes through core's `guardOpenExternal`.
 
 **Tests** (in `src/main/tests/ipc/`, with an in-memory workspace and a fake `Broadcaster`)
@@ -309,7 +338,6 @@ correct type.
 - A mutation that throws after one committed write returns that write's type in `changed`.
 - After a workspace switch, the old workspace's changes are ignored and the new one's are routed.
 - `attach` picks up a workspace that was already open before IPC attached.
-- `senderGuard` rejects a frame from another origin.
 
 **Done when** the renderer can switch workspaces and see `workspace.changed`, and an archive's
 response carries `changed`.
@@ -393,7 +421,7 @@ view cannot leave it the opposite of what the user saw. The star button passes t
 it shows:
 
 ```ts
-setFavorite: wsMutation
+setFavorite: wsProcedure
   .input(z.object({ id: zId('task'), favorite: z.boolean() }))
   .mutation(({ ctx, input }) =>
     input.favorite
@@ -466,7 +494,7 @@ star toggle is the likely first one. The layer makes them safe:
 | 1    | Milestone 1: setup, aliases, Vitest, moving shared types                                                                | none                        |
 | 2    | Milestone 2: tRPC over IPC and `app.ping`                                                                               | 1                           |
 | 3    | Core changes 1 and 2 (`WorkspaceService.onChange`, `SyncScheduler.onStatus`)                                            | none; can run alongside 1–2 |
-| 4    | Milestone 3: change router, context, middleware, window hardening, workspace/settings/openUrl routes                    | 2, 3                        |
+| 4    | Milestone 3: context, middleware, window hardening, workspace/settings/openUrl routes (change router deferred)          | 2, 3                        |
 | 5    | Milestone 4: React Query and invalidation                                                                               | 4                           |
 | 6a–c | Milestone 5: tasks + archive; integrations + sources + sync + calendars; notes + projects + events + favorites + search | 5                           |
 | 7    | Milestone 6: documentation                                                                                              | 6                           |

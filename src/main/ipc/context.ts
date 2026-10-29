@@ -1,19 +1,44 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { ChangedEntity } from '@common/changes';
+import type { DevBrain, Workspace } from '@main/core';
 
-// What every resolver gets, built per call. Milestone 3 of docs/ipc/implementation-plan.md adds
-// DevBrain and the open workspace.
-export interface AppContext {
-  // the call's own event: who sent it (senderFrame), for the sender guard
-  event: IpcMainInvokeEvent;
-  // adds to the call's `changed`, for a service that emits nothing (milestone 3 fills `changed`
-  // from core's own change events too)
-  changes: { record(...entities: ChangedEntity[]): void };
+// where the logging middleware writes each call
+export interface IpcLogger {
+  debug(...params: unknown[]): void;
 }
 
-export function createContext(opts: {
+// What every resolver gets, built per call. A route that needs DevBrain or a workspace starts from
+// a base procedure (procedures.ts) whose middleware narrows these to non-null.
+export interface AppContext {
+  // the call's own event
+  event: IpcMainInvokeEvent;
+  // null when DevBrain could not be loaded (loadCore() in src/main/index.ts returned null)
+  devBrain: DevBrain | null;
+  // the workspace open when the call arrived, read fresh on every call
+  workspace: Workspace | null;
+  // adds to the call's `changed` (milestone 2's recorder; how changes reach the renderer is still
+  // to be decided, see docs/ipc/implementation-plan.md)
+  changes: { record(...entities: ChangedEntity[]): void };
+  log: IpcLogger;
+}
+
+export interface CreateContextOptions {
   event: IpcMainInvokeEvent;
   changes: AppContext['changes'];
-}): AppContext {
-  return { event: opts.event, changes: opts.changes };
+  // null when DevBrain could not be loaded
+  devBrain: DevBrain | null;
+  log: IpcLogger;
+}
+
+// Builds a call's context. attachRouter passes the event and the call's recorder; whoever attaches
+// the router adds DevBrain and the logger
+export function createContext(options: CreateContextOptions): AppContext {
+  const { devBrain } = options;
+  return {
+    event: options.event,
+    devBrain,
+    workspace: devBrain?.currentWorkspace ?? null,
+    changes: options.changes,
+    log: options.log,
+  };
 }

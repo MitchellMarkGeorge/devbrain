@@ -10,8 +10,8 @@ import { NotFoundError, WorkspaceDataMissingError, WorkspaceNotOpenError } from 
 import { paginateArray, Page, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 
-// The open workspace changed. A switch sends `closed` for the old workspace before `opened` for the
-// new one, in the order the transitions ran.
+// The open workspace changed. Opening one while another is open sends `closed` for the old one
+// before `opened` for the new one, in the order the transitions ran.
 export type WorkspaceChange =
   | { type: 'opened'; workspace: Workspace }
   | { type: 'closed'; workspaceId: WorkspaceId };
@@ -47,7 +47,7 @@ export class WorkspaceService {
 
   /**
    * Sends `opened` once a workspace is current and `closed` once the current one has closed, by
-   * open, switch, close or delete. Returns a function that unsubscribes the listener.
+   * open, close or delete. Returns a function that unsubscribes the listener.
    */
   onChange(listener: ChangeListener<WorkspaceChange>): () => void {
     return this.changes.add(listener);
@@ -90,7 +90,11 @@ export class WorkspaceService {
     return Object.values(this.readWorkspaceFile()).find((info) => info.name === name) ?? null;
   }
 
-  async create(options: CreateWorkspaceOptions) {
+  /**
+   * Registers a new workspace and creates its database, running migrations, then closes it.
+   * Creating never opens a workspace: open it to use it. Returns its info.
+   */
+  async create(options: CreateWorkspaceOptions): Promise<WorkspaceInfo> {
     const id = generateId('workspace');
     const workspacePath = path.join(this.rootPath, 'workspaces', id);
 
@@ -106,13 +110,21 @@ export class WorkspaceService {
       lastOpenedAt: null,
     };
 
-    // add new workspace info to workspace file
-    const workspaces = this.readWorkspaceFile();
-    workspaces[id] = workspaceInfo;
-    this.writeWorkspaceFile(workspaces);
-
-    // create workspace db file and run migrations
-    return await Workspace.create(workspaceInfo, this.workspaceOptions);
+    // The database first, then the registry: a workspace is registered only once it can be opened.
+    // If any step fails, nothing is registered, and the half-made directory goes too, or
+    // recoverRegistry would register it again from the directories it finds.
+    try {
+      // create workspace db file and run migrations, then close it until it is opened
+      const workspace = await Workspace.create(workspaceInfo, this.workspaceOptions);
+      await workspace.close();
+      const workspaces = this.readWorkspaceFile();
+      workspaces[id] = workspaceInfo;
+      this.writeWorkspaceFile(workspaces);
+    } catch (error) {
+      await fs.rm(workspacePath, { recursive: true, force: true });
+      throw error;
+    }
+    return workspaceInfo;
   }
 
   /**
@@ -202,11 +214,6 @@ export class WorkspaceService {
     }
     this.changes.emit({ type: 'opened', workspace });
     return workspace;
-  }
-
-  async switch(id: WorkspaceId): Promise<Workspace> {
-    // open closes the current workspace first
-    return this.open(id);
   }
 
   /**

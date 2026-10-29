@@ -9,9 +9,9 @@ import { RateLimitError } from '@main/core/shared/errors';
 import { attachRouter } from '@main/ipc/server';
 import type { IpcErrorInfo } from '@main/ipc/server';
 import { appRouter } from '@main/ipc/router';
-import { createContext } from '@main/ipc/context';
 import { t } from '@main/ipc/trpc';
 import { invokeHandler, ipcHandlers, resetElectronMock } from '../__mocks__/electron';
+import { testContext } from './helpers';
 
 const event = {} as IpcMainInvokeEvent;
 
@@ -23,7 +23,7 @@ function attach(
   router: Parameters<typeof attachRouter>[0],
   options: { onError?: (info: IpcErrorInfo) => void } = {},
 ) {
-  return attachRouter(router, { createContext, ...options });
+  return attachRouter(router, { createContext: testContext(), ...options });
 }
 
 describe('attachRouter', () => {
@@ -209,7 +209,7 @@ describe('the app router', () => {
   afterEach(() => resetElectronMock());
 
   it('answers app.ping and app.version', async () => {
-    attachRouter(appRouter, { createContext });
+    attachRouter(appRouter, { createContext: testContext() });
 
     expect(await call('app.ping')).toEqual({ ok: true, data: 'pong', changed: [] });
     expect(await call('app.version')).toEqual({ ok: true, data: '0.0.0-test', changed: [] });

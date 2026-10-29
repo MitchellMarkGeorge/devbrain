@@ -6,6 +6,7 @@ import { serializeError } from './errors';
 
 // The tRPC instance every router in src/main/ipc/routers is built with. Its errorFormatter puts our
 // own serialized error in the shape's `data`, which the renderer's TRPCClientError carries, typed.
+// Routes start from the base procedures in procedures.ts, never t.procedure.
 export const t = initTRPC.context<AppContext>().create({
   errorFormatter({ shape, error }) {
     // A failed input parse is BAD_REQUEST, its cause the validator's error (a ZodError, or tRPC's

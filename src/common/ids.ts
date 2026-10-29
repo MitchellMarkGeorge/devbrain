@@ -35,6 +35,16 @@ export type IntegrationId = Id<'integration'>;
 export type ExternalSourceId = Id<'externalSource'>;
 export type ExternalLinkId = Id<'externalLink'>;
 
+// whether `value` has the shape of an id of this type: its prefix, then anything. Checks the shape
+// only, never that the row exists
+export function isId<T extends EntityType>(type: T, value: unknown): value is Id<T> {
+  return (
+    typeof value === 'string' &&
+    value.startsWith(`${PREFIX[type]}_`) &&
+    value.length > PREFIX[type].length + 1
+  );
+}
+
 export function generateId<T extends EntityType>(type: T): Id<T> {
   return `${PREFIX[type]}_${uuidv7()}` as Id<T>;
 }
