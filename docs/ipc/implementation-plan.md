@@ -157,7 +157,7 @@ existing conventions:
 1. **`WorkspaceService.onChange`**, built on `ChangeListeners`:
    `{ type: 'opened'; workspace: Workspace } | { type: 'closed'; workspaceId: WorkspaceId }`. It
    emits `opened` once the workspace is current and `closed` once it has closed. The change router
-   follows the open workspace through it, including the one `startDevBrain` opens at launch.
+   follows the open workspace through it, including the one `openLastWorkspace` opens at launch.
 2. **`SyncScheduler.onStatus`**, which passes on `SyncStateManager`'s `sync_status_changed`. Today
    nothing outside `Workspace`'s constructor can subscribe to source status.
 3. **Move `integrations/shared-types.ts` to `src/common/integrations.ts`**, with a re-export in
@@ -302,8 +302,12 @@ correct type.
      `wsProcedure`. Routes never use `t.procedure`; `app.ping` and `app.version` are public ones.
    - `zId(entity)`, which checks the prefix with `isId` from `src/common/ids.ts`.
 7. **`src/main/index.ts`:**
-   - Once `startCore()` resolves, create the `Broadcaster` and call `ChangeRouter.attach`.
-     `attachRouter` stays where milestone 2 put it.
+   - Startup is split in two (`src/main/runtime/start.ts`): `loadDevBrain` opens the DevBrain
+     folder with no workspace open, and `openLastWorkspace` reopens the last one. `startCore` runs
+     them in order and attaches what follows DevBrain in between (today the focus and resume sync
+     triggers), so it is in place before any workspace opens. The `ChangeRouter`, when it comes,
+     attaches there too, and needs no "pick up the workspace already open" case. `attachRouter`
+     stays where milestone 2 put it, and each call's context still waits for all of startup.
    - Window hardening from `docs/security/untrusted-content.md`: `setWindowOpenHandler` → deny, and
      a `will-navigate` guard that cancels every navigation but a reload of the current page. The
      app routes within its page, which is no navigation.
@@ -313,7 +317,7 @@ correct type.
      now registers it only once its database is created, closes that database and returns the
      info, so a workspace is only ever open through `open`, which closes the open one first (core's
      `WorkspaceService.switch`, which only called `open`, is gone). `open` writes
-     `state.lastWorkspaceId`, which `startDevBrain` reopens at launch and nothing wrote before, and
+     `state.lastWorkspaceId`, which `openLastWorkspace` reopens at launch and nothing wrote before, and
      `delete` clears it.
    - `settings`: `get` returns the user's settings; `update` takes the whole settings object,
      validated by `appSettingsSchema` from `core/settings/schema.ts`, saves it and returns it. The

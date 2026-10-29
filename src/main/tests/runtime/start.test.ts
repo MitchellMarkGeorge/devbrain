@@ -10,7 +10,7 @@ import type { WorkspaceId } from '@common/ids';
 import { WORKSPACE_OPTIONS } from '@main/core/tests/utils';
 import { openFileSettingsStore } from './__mocks__/file-store';
 import { DevBrain, openDevBrain } from '@main/core';
-import { lastOpenedWorkspace, startDevBrain } from '../../runtime/start';
+import { lastOpenedWorkspace, loadDevBrain, openLastWorkspace } from '../../runtime/start';
 
 // Which DevBrain folder and workspace the app opens at start. Settings are kept in the folder's
 // settings.json, as electron-store keeps them, so a setting one DevBrain writes is read at the next
@@ -51,10 +51,10 @@ afterEach(async () => {
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
-describe('startDevBrain — the folder', () => {
+describe('loadDevBrain', () => {
   it('returns null and says how to make one when there is none to load', async () => {
     const logger = quietLogger();
-    started = await startDevBrain({
+    started = await loadDevBrain({
       settingsStore: openFileSettingsStore,
       rootPath,
       createIfMissing: false,
@@ -67,7 +67,7 @@ describe('startDevBrain — the folder', () => {
   });
 
   it('creates an empty one on first run when asked to, opening nothing', async () => {
-    started = await startDevBrain({
+    started = await loadDevBrain({
       settingsStore: openFileSettingsStore,
       rootPath,
       createIfMissing: true,
@@ -81,7 +81,7 @@ describe('startDevBrain — the folder', () => {
 
   it('creates one in an empty directory', async () => {
     await fs.mkdir(rootPath);
-    started = await startDevBrain({
+    started = await loadDevBrain({
       settingsStore: openFileSettingsStore,
       rootPath,
       createIfMissing: true,
@@ -91,11 +91,24 @@ describe('startDevBrain — the folder', () => {
     expect(started!.workspaces.listAll().items).toEqual([]);
   });
 
+  it('opens no workspace, even the one open last time: openLastWorkspace does', async () => {
+    const { devBrain, ids } = await folderWith('Last');
+    devBrain.settings.set('state.lastWorkspaceId', ids[0]);
+    started = await loadDevBrain({
+      settingsStore: openFileSettingsStore,
+      rootPath,
+      createIfMissing: false,
+      workspace: WORKSPACE_OPTIONS,
+      logger: quietLogger(),
+    });
+    expect(started!.currentWorkspace).toBeNull();
+  });
+
   it('throws for a folder that is not a DevBrain folder, changing nothing', async () => {
     await fs.mkdir(rootPath);
     await fs.writeFile(path.join(rootPath, 'notes.txt'), 'mine');
     await expect(
-      startDevBrain({
+      loadDevBrain({
         settingsStore: openFileSettingsStore,
         rootPath,
         createIfMissing: true,
@@ -107,17 +120,18 @@ describe('startDevBrain — the folder', () => {
   });
 });
 
-describe('startDevBrain — the workspace', () => {
+describe('openLastWorkspace', () => {
   it('reopens the workspace open last time, which starts syncing', async () => {
     const { devBrain, ids } = await folderWith('First', 'Last');
     devBrain.settings.set('state.lastWorkspaceId', ids[1]);
-    started = await startDevBrain({
+    started = await loadDevBrain({
       settingsStore: openFileSettingsStore,
       rootPath,
       createIfMissing: false,
       workspace: WORKSPACE_OPTIONS,
       logger: quietLogger(),
     });
+    await openLastWorkspace(started!, quietLogger());
     expect(started!.currentWorkspace?.info.id).toBe(ids[1]);
     expect(started!.currentWorkspace!.sync.getStatus()).toEqual([]);
   });
@@ -125,13 +139,14 @@ describe('startDevBrain — the workspace', () => {
   it('opens none when none was open last time, leaving the choice to the user', async () => {
     await folderWith('First', 'Second');
     const logger = quietLogger();
-    started = await startDevBrain({
+    started = await loadDevBrain({
       settingsStore: openFileSettingsStore,
       rootPath,
       createIfMissing: false,
       workspace: WORKSPACE_OPTIONS,
-      logger,
+      logger: quietLogger(),
     });
+    await openLastWorkspace(started!, logger);
     expect(started!.currentWorkspace).toBeNull();
     expect(logger.info).toHaveBeenCalledWith('No workspace was open last time; none opened');
   });
@@ -139,13 +154,14 @@ describe('startDevBrain — the workspace', () => {
   it('opens none when the last workspace has been deleted since', async () => {
     const { devBrain } = await folderWith('First');
     devBrain.settings.set('state.lastWorkspaceId', 'wsp_gone');
-    started = await startDevBrain({
+    started = await loadDevBrain({
       settingsStore: openFileSettingsStore,
       rootPath,
       createIfMissing: false,
       workspace: WORKSPACE_OPTIONS,
       logger: quietLogger(),
     });
+    await openLastWorkspace(started!, quietLogger());
     expect(started!.currentWorkspace).toBeNull();
   });
 
@@ -154,13 +170,14 @@ describe('startDevBrain — the workspace', () => {
     devBrain.settings.set('state.lastWorkspaceId', ids[0]);
     await fs.rm(devBrain.workspaces.getById(ids[0]).path, { recursive: true });
     const logger = quietLogger();
-    started = await startDevBrain({
+    started = await loadDevBrain({
       settingsStore: openFileSettingsStore,
       rootPath,
       createIfMissing: false,
       workspace: WORKSPACE_OPTIONS,
-      logger,
+      logger: quietLogger(),
     });
+    await openLastWorkspace(started!, logger);
     expect(started!.currentWorkspace).toBeNull();
     expect(logger.warn).toHaveBeenCalledWith(
       `Opening workspace ${ids[0]} failed error=WorkspaceDataMissingError`,
@@ -195,13 +212,18 @@ describe('startup shutdown', () => {
       return workspace;
     });
     try {
-      const starting = startDevBrain({
-        settingsStore: openFileSettingsStore,
-        rootPath,
-        createIfMissing: false,
-        workspace: WORKSPACE_OPTIONS,
-        logger: quietLogger(),
-      });
+      // the app's startup: load DevBrain, then open the last workspace
+      const starting = (async () => {
+        const loaded = await loadDevBrain({
+          settingsStore: openFileSettingsStore,
+          rootPath,
+          createIfMissing: false,
+          workspace: WORKSPACE_OPTIONS,
+          logger: quietLogger(),
+        });
+        await openLastWorkspace(loaded!, quietLogger());
+        return loaded;
+      })();
       const workspace = await opening.promise;
       const app = Object.assign(new EventEmitter(), { quit: vi.fn<() => void>() });
       closeBeforeQuit(app, () => closeCore(starting), quietLogger());
