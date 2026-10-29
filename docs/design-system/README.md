@@ -2,7 +2,7 @@
 
 DevBrain's interface is **shadcn/ui components drawn in DevBrain's own design language**: the dark, quiet look of the [DevBrain v1 Figma file](https://www.figma.com/design/w9WtYAUXkkzqKIMAzFo08I/DevBrain-v1).
 
-- **Components** are shadcn/ui's (new-york-v4): the same names, variants (`variant`, `size`, `asChild`), Radix primitives and theme variable names. Their look (corners, heights, text sizes, outlines) comes from the Figma file. The app styles them with CSS Modules instead of Tailwind.
+- **Components** follow shadcn/ui (new-york-v4): the same names, `variant` and `size` props and theme variable names. Their behaviour comes from **Base UI** ([`@base-ui/react`](https://base-ui.com)) instead of Radix, and their look (corners, heights, text sizes, outlines) from the Figma file. The app styles them with CSS Modules instead of Tailwind.
 - **Tokens** live in [`tokens.json`](tokens.json) and are generated into [`src/renderer/styles/tokens.css`](../../src/renderer/styles/tokens.css) with `npm run tokens`. Every colour is a Tailwind v4 colour.
 - **The visual reference** is the [DevBrain design system page](https://claude.ai/artifact/4hf6qVrE4z8cmsCGJpNjt2): live previews of every component in both themes, built from the same `tokens.json`.
 
@@ -27,54 +27,60 @@ DevBrain's interface is **shadcn/ui components drawn in DevBrain's own design la
 3. **Colour means something.** Neutrals carry the UI. Colour is reserved for task status, priority, project health, due dates and user-picked colours.
 4. **Dense but legible.** The interface lives at 12–14px (rows, pills, buttons at 12px; navigation and menus at 14px); titles jump to 24–30px. Rows are 48px.
 5. **One shape language.** 12px corners for anything you click or open as a whole (buttons, pills, cards, menus, dialogs); 8px for items inside them (menu items, sidebar items, inputs); 4px for tiny things (checkbox, small tile).
-6. **Keyboard reachable.** Radix handles focus, arrow keys and Escape; shadcn's focus ring is on every control.
+6. **Keyboard reachable.** Base UI handles focus, arrow keys, typeahead and Escape; shadcn's focus ring is on every control.
 
 ---
 
 ## 2. Building shadcn components without Tailwind
 
-shadcn/ui is copied into the project, one file per component. Keep that model and change only the styling layer.
+shadcn/ui is copied into the project, one file per component. Keep that model, swap Radix for Base UI and change the styling layer.
 
-| shadcn                                       | DevBrain                                                               |
-| -------------------------------------------- | ---------------------------------------------------------------------- |
-| Radix primitives (`radix-ui`)                | Same                                                                   |
-| `cva()` variants in `className`              | `data-variant` / `data-size` attributes, styled in a CSS Module        |
-| Tailwind classes                             | Values from tokens (`--control-md`, `--radius-lg`, `--border-strong`)  |
-| `bg-primary/90`, `ring-ring/50`              | `color-mix(in oklab, var(--primary) 90%, transparent)`                 |
-| `dark:` variants                             | `:root:not([data-theme='light']) .x { … }` (dark is the default theme) |
-| `cn()` (clsx + tailwind-merge)               | `clsx`                                                                 |
-| `globals.css` theme                          | `tokens.css`, generated from `tokens.json`                             |
-| `components/ui/*.tsx`                        | `src/renderer/components/ui/*.tsx` + `*.module.css`                    |
-| Sonner, cmdk, react-day-picker, lucide-react | Same libraries                                                         |
+| shadcn                                         | DevBrain                                                                                 |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Radix primitives (`radix-ui`)                  | Base UI parts (`@base-ui/react`), mapped in [5.2](#52-base-ui-parts)                     |
+| `asChild` + Radix `Slot`                       | Base UI's `render` prop (`useRender` for DevBrain's own components)                      |
+| Radix `data-state="open"`, `"checked"`, `"on"` | Base UI's `data-open`, `data-checked`, `data-pressed`, `data-active`, `data-highlighted` |
+| `tw-animate-css` enter/exit classes            | Transitions on `[data-starting-style]` and `[data-ending-style]`                         |
+| `cva()` variants in `className`                | `data-variant` / `data-size` attributes, styled in a CSS Module                          |
+| Tailwind classes                               | Values from tokens (`--control-md`, `--radius-lg`, `--border-strong`)                    |
+| `bg-primary/90`, `ring-ring/50`                | `color-mix(in oklab, var(--primary) 90%, transparent)`                                   |
+| `dark:` variants                               | `:root:not([data-theme='light']) .x { … }` (dark is the default theme)                   |
+| `cn()` (clsx + tailwind-merge)                 | `clsx`                                                                                   |
+| `globals.css` theme                            | `tokens.css`, generated from `tokens.json`                                               |
+| `components/ui/*.tsx`                          | `src/renderer/components/ui/*.tsx` + `*.module.css`                                      |
+| Sheet, Sonner, cmdk                            | Base UI Drawer, Toast and Autocomplete                                                   |
+| react-day-picker, lucide-react                 | Same libraries (Base UI has no calendar)                                                 |
 
-shadcn's Button, in DevBrain's look:
+shadcn's Button on Base UI, in DevBrain's look:
 
 ```tsx
 // src/renderer/components/ui/button.tsx
-import { Slot } from 'radix-ui';
+import { Button as BaseButton } from '@base-ui/react/button';
 import clsx from 'clsx';
 import styles from './button.module.css';
 
-type ButtonProps = React.ComponentProps<'button'> & {
+type ButtonProps = BaseButton.Props & {
   variant?: 'default' | 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive' | 'link';
   size?: 'default' | 'sm' | 'lg' | 'xs' | 'icon' | 'icon-sm' | 'icon-xs';
-  asChild?: boolean;
 };
 
+// `render` (from Base UI) replaces shadcn's `asChild`:
+// <Button render={<div />} nativeButton={false}>, <Menu.Trigger render={<Button />}>
 export function Button({
   variant = 'default',
   size = 'default',
-  asChild,
   className,
   ...props
 }: ButtonProps) {
-  const Comp = asChild ? Slot.Root : 'button';
   return (
-    <Comp
+    <BaseButton
       data-slot="button"
       data-variant={variant}
       data-size={size}
-      className={clsx(styles.button, className)}
+      // Base UI's className may be a function of the button's state
+      className={(state) =>
+        clsx(styles.button, typeof className === 'function' ? className(state) : className)
+      }
       {...props}
     />
   );
@@ -117,9 +123,32 @@ export function Button({
   border-color: var(--ring);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
-.button:disabled {
+.button[data-disabled] {
   opacity: 0.5;
   pointer-events: none;
+}
+```
+
+State styles target Base UI's attributes. A checkbox, for example:
+
+```css
+.checkbox {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.checkbox[data-checked] {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.popup[data-starting-style],
+.popup[data-ending-style] {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.popup {
+  transition:
+    opacity var(--duration-normal),
+    transform var(--duration-normal);
 }
 ```
 
@@ -212,7 +241,7 @@ Each status also has its own icon shape. The light theme uses the 700 steps beca
 | Popover, Tooltip                             | `--popover` with `--border-strong`; tooltips 12px medium, 8px corners, dark (not shadcn's inverted)                                                                                                                                                                                                      | Filters, date picker, link editor; icon buttons                                                                               |
 | Dialog, Alert Dialog                         | `--popover`, `--border-strong`, 12px corners, `--shadow-2xl`, 24px padding; 14px medium title, 12px description; `ghost` Close + action                                                                                                                                                                  | Create task / event; "Delete Task?"                                                                                           |
 | Sheet                                        | 380px panel, `--popover`, `--border-strong`, 12px corners; header with expand and close icon buttons                                                                                                                                                                                                     | Event and task details                                                                                                        |
-| Sonner                                       | 356px, `--popover`, `--border-strong`, 12px corners; 14px title, 12px description; small default action button                                                                                                                                                                                           | Feedback with Undo                                                                                                            |
+| Toast                                        | 356px, `--popover`, `--border-strong`, 12px corners; 14px title, 12px description; small default action button                                                                                                                                                                                           | Feedback with Undo                                                                                                            |
 | Card                                         | flat: `--card`, `--border`, 12px corners, 16px padding, no shadow; `compact` size                                                                                                                                                                                                                        | Home summary, properties panel, settings groups                                                                               |
 | Sidebar                                      | 288px; 36px nav items with 8px corners, active = `--sidebar-accent` + `--border-strong` outline; Recents and Favorites entries are the same 36px items under 14px group labels                                                                                                                           | App navigation                                                                                                                |
 | Breadcrumb                                   | 14px section, 12px chevron, current item muted with its entity icon                                                                                                                                                                                                                                      | Top bar                                                                                                                       |
@@ -220,7 +249,32 @@ Each status also has its own icon shape. The light theme uses the 700 steps beca
 | Progress                                     | 3px bar in the project's health colour                                                                                                                                                                                                                                                                   | Project progress                                                                                                              |
 | Separator, Skeleton, Scroll Area, Kbd        | shadcn, in tokens                                                                                                                                                                                                                                                                                        | Panels, loading, long lists, shortcuts                                                                                        |
 
-### 5.2 DevBrain components
+### 5.2 Base UI parts
+
+Every part below exists in `@base-ui/react` 1.9. Styles key off the listed attributes.
+
+| Component                                              | Base UI parts                                                                                                                                                   | State attributes                                                   |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| Button                                                 | `Button` (`render`, `nativeButton`)                                                                                                                             | `data-disabled`                                                    |
+| Toggle Group                                           | `ToggleGroup`, `Toggle`                                                                                                                                         | `data-pressed`                                                     |
+| Tabs                                                   | `Tabs.Root`, `.List`, `.Tab`, `.Panel`, `.Indicator` (the `line` underline)                                                                                     | `data-active` on the tab                                           |
+| Input, Textarea, Label                                 | `Field.Root`, `.Label`, `.Control`, `.Description`, `.Error`; `Input`                                                                                           | `data-invalid`, `data-focused`, `data-touched`                     |
+| Checkbox                                               | `Checkbox.Root`, `.Indicator`                                                                                                                                   | `data-checked` / `data-unchecked`, `data-indeterminate`            |
+| Switch                                                 | `Switch.Root`, `.Thumb`                                                                                                                                         | `data-checked` / `data-unchecked`                                  |
+| Dropdown Menu                                          | `Menu.Root`, `.Trigger`, `.Portal`, `.Positioner`, `.Popup`, `.Item`, `.Group`, `.GroupLabel`, `.Separator`, `.CheckboxItem`, `.SubmenuRoot`, `.SubmenuTrigger` | `data-highlighted`, `data-checked`, `data-popup-open`, `data-open` |
+| Context Menu                                           | `ContextMenu` with the same parts                                                                                                                               | same                                                               |
+| Select                                                 | `Select.Root`, `.Trigger`, `.Value`, `.Popup`, `.Item`, `.ItemIndicator`                                                                                        | `data-highlighted`, `data-selected`, `data-placeholder`            |
+| Command palette, pickers                               | `Autocomplete` in a `Dialog` (Base UI's command-palette pattern); `Combobox` for project and note pickers                                                       | `data-highlighted`, `data-selected`                                |
+| Popover, Tooltip                                       | `Popover.*`, `Tooltip.Provider`, `Tooltip.*` (`Root`, `Trigger`, `Positioner`, `Popup`, `Arrow`)                                                                | `data-open`, `data-side`, `data-starting-style`                    |
+| Dialog, Alert Dialog                                   | `Dialog.*`, `AlertDialog.*` (`Root`, `Trigger`, `Portal`, `Backdrop`, `Popup`, `Title`, `Description`, `Close`)                                                 | `data-open`, `data-starting-style` / `data-ending-style`           |
+| Sheet                                                  | `Drawer` with `swipeDirection="right"`                                                                                                                          | `data-open`, `data-swiping`                                        |
+| Toast                                                  | `Toast.Provider`, `.Viewport`, `.Root`, `.Title`, `.Description`, `.Action`, `.Close`; tone as the toast `type`                                                 | `data-type`, `data-starting-style` / `data-ending-style`           |
+| Progress                                               | `Progress.Root`, `.Track`, `.Indicator`                                                                                                                         | `data-complete`                                                    |
+| Separator, Scroll Area, Avatar, Collapsible            | `Separator`, `ScrollArea.*`, `Avatar.*`, `Collapsible.*` (sidebar groups)                                                                                       | `data-orientation`, `data-scrolling`                               |
+| Badge, Card, Kbd, Breadcrumb, Skeleton, Sidebar layout | Plain markup; interactive badges render as a trigger via `render`                                                                                               | `data-active` on the current sidebar item                          |
+| Calendar                                               | None: react-day-picker inside a `Popover`                                                                                                                       |                                                                    |
+
+### 5.3 DevBrain components
 
 | Component                                | Built from                                                          | Notes                                                                     |
 | ---------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------- |
@@ -287,9 +341,9 @@ Each status also has its own icon shape. The light theme uses the 700 steps beca
 
 ## 9. Build order
 
-1. Load `tokens.css`, Inter and Geist Mono; base styles (body font and background, `border-color: var(--border)` on everything, the focus ring).
+1. Add `@base-ui/react`; load `tokens.css`, Inter and Geist Mono; base styles (body font and background, `border-color: var(--border)` on everything, the focus ring).
 2. shadcn basics in DevBrain's look: Button, Badge, Separator, Label, Input, Textarea, Checkbox, Switch, Toggle Group, Tabs, Tooltip, Skeleton.
-3. Overlays: Dropdown Menu, Context Menu, Popover, Select, Command, Dialog, Alert Dialog, Sheet, Sonner.
+3. Overlays on Base UI: Menu, Context Menu, Popover, Select, Autocomplete (command palette), Dialog, Alert Dialog, Drawer (sheet), Toast.
 4. Shell: Sidebar with the workspace switcher, Breadcrumb, page title, toolbar.
 5. DevBrain atoms: status, priority and health icons, ProgressRing, EntityPill.
 6. Lists: TaskRow, GroupHeading, EventRow, NoteRow, ProjectRow with keyboard navigation.
