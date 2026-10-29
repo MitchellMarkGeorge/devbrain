@@ -448,4 +448,22 @@ describe('CalendarService', () => {
       NotFoundError,
     );
   });
+
+  it('tells its listeners about each calendar it changed, and nothing about a refusal', () => {
+    const synced = syncedCalendar({ selected: true });
+    const changes: unknown[] = [];
+    calendarService.onChange((change) => changes.push(change));
+
+    calendarService.setVisible(DEFAULT_CALENDAR_ID, false);
+    calendarService.setSelected(synced, false);
+    expect(() => calendarService.setSelected(DEFAULT_CALENDAR_ID, false)).toThrow();
+
+    expect(changes).toEqual([
+      {
+        type: 'updated',
+        calendar: expect.objectContaining({ id: DEFAULT_CALENDAR_ID, visible: false }),
+      },
+      { type: 'updated', calendar: expect.objectContaining({ id: synced, selected: false }) },
+    ]);
+  });
 });

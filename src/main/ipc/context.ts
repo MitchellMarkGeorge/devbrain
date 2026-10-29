@@ -16,8 +16,8 @@ export interface AppContext {
   devBrain: DevBrain | null;
   // the workspace open when the call arrived, read fresh on every call
   workspace: Workspace | null;
-  // adds to the call's `changed` (milestone 2's recorder; how changes reach the renderer is still
-  // to be decided, see docs/ipc/implementation-plan.md)
+  // adds to the call's `changed`, for a write core announces no change for. What core's services
+  // announce is added by the ChangeHub (./changes.ts) without this
   changes: { record(...entities: ChangedEntity[]): void };
   log: IpcLogger;
 }

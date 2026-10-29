@@ -8,8 +8,11 @@ import { defaultBridge } from './bridge';
 
 export interface IpcLinkOptions {
   // given each call's `changed`, success or failure; the call settles once it does, so what it
-  // changed is refetched before the caller sees the result
+  // changed is refetched before the caller sees the result. A call made with the context
+  // `{ awaitChanges: false }` (a note's autosave) settles without waiting
   onChanged?: (changed: ChangedEntity[]) => void | Promise<void>;
+  // where a failed onChanged that nothing waited on goes; the console by default
+  onError?: (error: unknown) => void;
   // the preload's bridge, read at call time by default; tests pass their own
   bridge?: IpcBridge;
 }
@@ -28,7 +31,13 @@ export function ipcLink<TRouter extends AnyTRPCRouter>(
           }
           const bridge = options.bridge ?? defaultBridge();
           const result = await bridge.invoke({ path: op.path, type: op.type, input: op.input });
-          await options.onChanged?.(result.changed);
+          if (op.context.awaitChanges === false) {
+            Promise.resolve()
+              .then(() => options.onChanged?.(result.changed))
+              .catch(options.onError ?? ((error: unknown) => console.error(error)));
+          } else {
+            await options.onChanged?.(result.changed);
+          }
           if (!result.ok) throw TRPCClientError.from({ error: result.error });
           observer.next({ result: { type: 'data', data: result.data } });
           observer.complete();

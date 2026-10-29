@@ -16,6 +16,16 @@ export interface ChangeRecorder {
   record(...entities: ChangedEntity[]): void;
 }
 
+// Runs each call so that what it changes reaches its recorder: the ChangeHub (./changes.ts) adds
+// core's changes. `run` builds the context with the recorder it is given.
+export interface CallTracker {
+  track<T>(
+    origin: IpcMainInvokeEvent['sender'],
+    changes: ChangeRecorder,
+    run: (changes: ChangeRecorder) => Promise<T>,
+  ): Promise<T>;
+}
+
 export interface IpcErrorInfo {
   path: string;
   // what tRPC caught: what the resolver threw is its `cause`
@@ -31,6 +41,8 @@ export interface AttachRouterOptions<TRouter extends AnyTRPCRouter> {
   }) => inferRouterContext<TRouter> | Promise<inferRouterContext<TRouter>>;
   // every failed call, to log; it never changes the response
   onError?: (info: IpcErrorInfo) => void;
+  // without one, a call's `changed` is only what its resolver records
+  tracker?: CallTracker;
 }
 
 // Registers the call handler. Returns the function that removes it.
@@ -53,16 +65,21 @@ export function attachRouter<TRouter extends AnyTRPCRouter>(
       if (type !== 'query' && type !== 'mutation') {
         throw new IpcError('internal', 'Only queries and mutations run over IPC');
       }
-      ctx = await options.createContext({ event, changes });
-      const data: unknown = await callTRPCProcedure({
-        router,
-        path,
-        type,
-        ctx,
-        getRawInput: async () => input,
-        signal: undefined,
-        batchIndex: 0,
-      });
+      const run = async (recorder: ChangeRecorder): Promise<unknown> => {
+        ctx = await options.createContext({ event, changes: recorder });
+        return callTRPCProcedure({
+          router,
+          path,
+          type,
+          ctx,
+          getRawInput: async () => input,
+          signal: undefined,
+          batchIndex: 0,
+        });
+      };
+      const data = await (options.tracker
+        ? options.tracker.track(event.sender, changes, run)
+        : run(changes));
       return { ok: true, data, changed: [...changed] };
     } catch (cause) {
       const error = getTRPCErrorFromUnknown(cause);

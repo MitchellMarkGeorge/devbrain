@@ -26,10 +26,15 @@ export const workspacesRouter = t.router({
     return workspace.info;
   }),
 
-  // creates the workspace without opening it: open it next to use it
+  // creates the workspace without opening it: open it next to use it. The registry announces no
+  // change, so the call records that the list changed; opening and closing are announced by core
   create: devBrainProcedure
     .input(z.object({ name: z.string().trim().min(1), color: hexColorSchema }))
-    .mutation(({ ctx, input }): Promise<WorkspaceEntry> => ctx.devBrain.workspaces.create(input)),
+    .mutation(async ({ ctx, input }): Promise<WorkspaceEntry> => {
+      const workspace = await ctx.devBrain.workspaces.create(input);
+      ctx.changes.record('workspace');
+      return workspace;
+    }),
 
   // only the open workspace can be deleted (core's workspace_not_open otherwise)
   delete: devBrainProcedure.input(byId).mutation(async ({ ctx, input }): Promise<void> => {
