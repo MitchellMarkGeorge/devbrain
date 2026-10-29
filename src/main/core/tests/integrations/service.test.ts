@@ -259,7 +259,7 @@ describe('IntegrationService — choosing sources at connect', () => {
     const { service, changes } = setup(registryOf(twoRoles().provider));
 
     const integration = await service.connectWithApiKey(ProviderId.LINEAR, API_KEY, {
-      enable: [SourceType.VERSION_CONTROL],
+      enableSources: [SourceType.VERSION_CONTROL],
     });
 
     expect(enabledByType(integration)).toEqual({
@@ -278,7 +278,7 @@ describe('IntegrationService — choosing sources at connect', () => {
     const { service } = setup(registryOf(twoRoles().provider));
 
     const integration = await service.connectWithApiKey(ProviderId.LINEAR, API_KEY, {
-      enable: [],
+      enableSources: [],
     });
 
     expect(integration.status).toBe(IntegrationStatus.CONNECTED);
@@ -289,7 +289,7 @@ describe('IntegrationService — choosing sources at connect', () => {
   it('a source left off at connect can be switched on later', async () => {
     const { service, changes } = setup(registryOf(twoRoles().provider));
     const integration = await service.connectWithApiKey(ProviderId.LINEAR, API_KEY, {
-      enable: [SourceType.VERSION_CONTROL],
+      enableSources: [SourceType.VERSION_CONTROL],
     });
     const tasks = integration.sources.find((source) => source.sourceType === SourceType.TASKS)!;
 
@@ -312,7 +312,7 @@ describe('IntegrationService — choosing sources at connect', () => {
     const { db, service } = setup(registryOf(provider));
 
     await expect(
-      service.connectWithApiKey(ProviderId.LINEAR, API_KEY, { enable: [SourceType.EVENTS] }),
+      service.connectWithApiKey(ProviderId.LINEAR, API_KEY, { enableSources: [SourceType.EVENTS] }),
     ).rejects.toMatchObject({
       code: 'unsupported_by_provider',
       message: expect.stringContaining("linear can't serve as a source for events"),
@@ -464,7 +464,7 @@ describe('IntegrationService — enabling and disabling', () => {
     changes.length = 0;
 
     const enabled = service.setEnabled(integration.id, true, {
-      enable: [SourceType.VERSION_CONTROL],
+      enableSources: [SourceType.VERSION_CONTROL],
     });
 
     const flags = Object.fromEntries(enabled.sources.map((s) => [s.sourceType, s.enabled]));
@@ -476,7 +476,7 @@ describe('IntegrationService — enabling and disabling', () => {
     const { service, integration } = await connected();
     service.setEnabled(integration.id, false);
 
-    const enabled = service.setEnabled(integration.id, true, { enable: [] });
+    const enabled = service.setEnabled(integration.id, true, { enableSources: [] });
 
     expect(enabled.status).toBe(IntegrationStatus.CONNECTED);
     expect(enabled.sources.every((source) => !source.enabled)).toBe(true);
@@ -486,7 +486,7 @@ describe('IntegrationService — enabling and disabling', () => {
     const { service, changes, integration } = await connected();
 
     expect(() =>
-      service.setEnabled(integration.id, false, { enable: [SourceType.EVENTS] }),
+      service.setEnabled(integration.id, false, { enableSources: [SourceType.EVENTS] }),
     ).toThrow(
       expect.objectContaining({
         code: 'unsupported_by_provider',

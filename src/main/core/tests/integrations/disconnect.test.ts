@@ -345,7 +345,7 @@ describe('IntegrationService — disable and enable', () => {
 
   it('an integration with every source off stays connected and syncs nothing', async () => {
     const integration = await service.connectWithApiKey(ProviderId.LINEAR, FAKE_API_KEY, {
-      enable: [],
+      enableSources: [],
     });
 
     const result = await engine.runSource(integration.sources[0].id);

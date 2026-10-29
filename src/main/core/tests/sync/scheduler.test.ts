@@ -186,7 +186,7 @@ beforeEach(async () => {
   linearId = linear.id;
   linearSourceId = linear.sources[0].id;
   const calendar = await service.connectWithApiKey(ProviderId.GOOGLE_CALENDAR, 'key', {
-    enable: [],
+    enableSources: [],
   });
   calendarId = calendar.id;
   calendarSourceId = calendar.sources[0].id;

@@ -101,7 +101,7 @@ export interface ConnectOptions {
   // The source types to switch on, from those the provider supports; defaults to all of them.
   // Every supported type still gets a source, created disabled when left out, so turning it on
   // later is setSourceEnabled and needs no reconnect. An empty list connects without syncing.
-  enable?: SourceType[];
+  enableSources?: SourceType[];
 }
 
 export interface OAuthConnectOptions extends ConnectOptions {
@@ -111,7 +111,7 @@ export interface OAuthConnectOptions extends ConnectOptions {
 
 export interface EnableOptions {
   // the source types to switch back on when a disabled integration is enabled; defaults to all
-  enable?: SourceType[];
+  enableSources?: SourceType[];
 }
 
 export interface IntegrationServiceOptions {
@@ -198,7 +198,7 @@ export class IntegrationService implements BaseIntegrationService {
   /**
    * Validates the key with the provider, then stores the integration, its encrypted credentials and
    * one source per type the provider supports, in one transaction. Only the types in
-   * `options.enable` are switched on (all of them by default). A rejected key throws the provider's
+   * `options.enableSources` are switched on (all of them by default). A rejected key throws the provider's
    * IntegrationAuthError and writes nothing.
    */
   async connectWithApiKey(
@@ -413,7 +413,7 @@ export class IntegrationService implements BaseIntegrationService {
   /**
    * Disabling switches the integration and all of its sources off, so a disabled integration never
    * has a source that looks on. Enabling a disabled one reconnects it and switches its sources back
-   * on: those in `options.enable`, or all of them by default. Sources resume from their cursors.
+   * on: those in `options.enableSources`, or all of them by default. Sources resume from their cursors.
    *
    * One in needs_reauth can be disabled. Enabling it while it needs re-authentication changes
    * nothing: only a reconnect clears that.
@@ -431,7 +431,7 @@ export class IntegrationService implements BaseIntegrationService {
       .from(externalSources)
       .where(eq(externalSources.integrationId, id))
       .all();
-    const enable = options.enable ?? sources.map((source) => source.sourceType);
+    const enable = options.enableSources ?? sources.map((source) => source.sourceType);
     const unknown = enable.filter((type) => !sources.some((source) => source.sourceType === type));
     if (unknown.length > 0) {
       throw new UnsupportedByProviderError(
@@ -472,7 +472,7 @@ export class IntegrationService implements BaseIntegrationService {
 
   /**
    * Switches one source on or off. A source of a disabled integration can't be switched on: enable
-   * the integration, which can switch on just this source through its `enable` option.
+   * the integration, which can switch on just this source through its `enableSources` option.
    */
   setSourceEnabled(sourceId: ExternalSourceId, enabled: boolean): ExternalSource {
     const row = this.db
@@ -639,7 +639,7 @@ export class IntegrationService implements BaseIntegrationService {
 
 // the types a connect switches on: those asked for, all supported ones by default
 function sourcesToEnable(provider: ProviderImpl, options: ConnectOptions): SourceType[] {
-  const enable = options.enable ?? provider.supports;
+  const enable = options.enableSources ?? provider.supports;
   const unsupported = enable.filter((sourceType) => !provider.supports.includes(sourceType));
   if (unsupported.length > 0) {
     throw new UnsupportedByProviderError(

@@ -201,7 +201,9 @@ describe('IntegrationService — connectWithOAuth', () => {
 
   it('switches on only the chosen source types', async () => {
     const { service } = setup();
-    const integration = await service.connectWithOAuth(ProviderId.GOOGLE_CALENDAR, { enable: [] });
+    const integration = await service.connectWithOAuth(ProviderId.GOOGLE_CALENDAR, {
+      enableSources: [],
+    });
     expect(integration.sources).toEqual([
       expect.objectContaining({ sourceType: SourceType.EVENTS, enabled: false }),
     ]);

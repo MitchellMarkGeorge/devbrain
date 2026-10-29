@@ -14,16 +14,20 @@ import { zId } from '../zod';
 const byId = z.object({ id: zId('integration') });
 
 // the source types to switch on; core's default, every type the provider supports, when left out
-const zEnable = z.array(z.enum(SourceType)).optional();
+const zEnableSources = z.array(z.enum(SourceType)).optional();
 
 const zConnect = z.discriminatedUnion('auth', [
   z.object({
     auth: z.literal(AuthType.API_KEY),
     provider: z.enum(Provider),
     apiKey: z.string(),
-    enable: zEnable,
+    enableSources: zEnableSources,
   }),
-  z.object({ auth: z.literal(AuthType.OAUTH), provider: z.enum(Provider), enable: zEnable }),
+  z.object({
+    auth: z.literal(AuthType.OAUTH),
+    provider: z.enum(Provider),
+    enableSources: zEnableSources,
+  }),
 ]);
 
 const zReconnect = z.discriminatedUnion('auth', [
@@ -75,10 +79,12 @@ export const integrationsRouter = t.router({
   connect: wsProcedure.input(zConnect).mutation(({ ctx, input }) => {
     const { integrations } = ctx.workspace;
     if (input.auth === AuthType.API_KEY) {
-      return integrations.connectWithApiKey(input.provider, input.apiKey, { enable: input.enable });
+      return integrations.connectWithApiKey(input.provider, input.apiKey, {
+        enableSources: input.enableSources,
+      });
     }
     return runOAuthFlow(ctx.workspace, (signal) =>
-      integrations.connectWithOAuth(input.provider, { enable: input.enable, signal }),
+      integrations.connectWithOAuth(input.provider, { enableSources: input.enableSources, signal }),
     );
   }),
 
@@ -101,11 +107,15 @@ export const integrationsRouter = t.router({
     return flow !== undefined;
   }),
 
-  // disabling switches every source off; enabling switches back on those in `enable`, or all
+  // disabling switches every source off; enabling switches back on those in `enableSources`, or all
   setEnabled: wsProcedure
-    .input(z.object({ id: zId('integration'), enabled: z.boolean(), enable: zEnable }))
+    .input(
+      z.object({ id: zId('integration'), enabled: z.boolean(), enableSources: zEnableSources }),
+    )
     .mutation(({ ctx, input }) =>
-      ctx.workspace.integrations.setEnabled(input.id, input.enabled, { enable: input.enable }),
+      ctx.workspace.integrations.setEnabled(input.id, input.enabled, {
+        enableSources: input.enableSources,
+      }),
     ),
 
   // what disconnecting with "remove synced items" would delete and keep, for the dialog
