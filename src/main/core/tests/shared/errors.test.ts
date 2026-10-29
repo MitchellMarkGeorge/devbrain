@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import type { IntegrationId, TaskId, WorkspaceId } from '@common/ids';
 import {
   AlreadyArchivedError,
+  ConnectCancelledError,
   ConnectInProgressError,
   CoreError,
   CoreErrorCode,
@@ -61,6 +62,7 @@ const errors: [CoreError, CoreErrorCode][] = [
     'integration_already_connected',
   ],
   [new ConnectInProgressError(), 'connect_in_progress'],
+  [new ConnectCancelledError(), 'cancelled'],
   [
     new IntegrationAccountMismatchError(integrationId, 'Ada', 'Bob'),
     'integration_account_mismatch',

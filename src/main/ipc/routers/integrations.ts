@@ -1,8 +1,5 @@
 import { z } from 'zod';
 import { AuthType, Provider, SourceType } from '@common/integrations';
-import type { Workspace } from '@main/core';
-import { ConnectInProgressError } from '@main/core/shared/errors';
-import { IpcError } from '../errors';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId } from '../zod';
@@ -35,36 +32,6 @@ const zReconnect = z.discriminatedUnion('auth', [
   z.object({ auth: z.literal(AuthType.OAUTH), id: zId('integration') }),
 ]);
 
-// The OAuth sign-in each workspace is waiting on, so cancelConnect can abort it. Core runs one at a
-// time per workspace (ConnectInProgressError), so it needs no id.
-const oauthFlows = new WeakMap<Workspace, AbortController>();
-
-// Runs an OAuth connect or reconnect, keeping its AbortController until it settles. A flow
-// cancelled through cancelConnect fails with `cancelled`, not core's AbortError.
-async function runOAuthFlow<T>(
-  workspace: Workspace,
-  run: (signal: AbortSignal) => Promise<T>,
-): Promise<T> {
-  if (oauthFlows.has(workspace)) throw new ConnectInProgressError();
-  const controller = new AbortController();
-  oauthFlows.set(workspace, controller);
-  try {
-    return await run(controller.signal);
-  } catch (error) {
-    if (controller.signal.aborted && isAbortError(error)) {
-      throw new IpcError('cancelled', 'The sign-in was cancelled');
-    }
-    throw error;
-  } finally {
-    oauthFlows.delete(workspace);
-  }
-}
-
-// what an AbortController aborted without a reason rejects with
-function isAbortError(error: unknown): boolean {
-  return error instanceof Error && error.name === 'AbortError';
-}
-
 export const integrationsRouter = t.router({
   // every integration, oldest first, each with its sources
   list: wsProcedure.query(({ ctx }) => ctx.workspace.integrations.list()),
@@ -83,9 +50,7 @@ export const integrationsRouter = t.router({
         enableSources: input.enableSources,
       });
     }
-    return runOAuthFlow(ctx.workspace, (signal) =>
-      integrations.connectWithOAuth(input.provider, { enableSources: input.enableSources, signal }),
-    );
+    return integrations.connectWithOAuth(input.provider, { enableSources: input.enableSources });
   }),
 
   // re-authenticates the same account, keeping the integration's sources and cursors
@@ -94,18 +59,12 @@ export const integrationsRouter = t.router({
     if (input.auth === AuthType.API_KEY) {
       return integrations.reconnect(input.id, { type: AuthType.API_KEY, apiKey: input.apiKey });
     }
-    return runOAuthFlow(ctx.workspace, (signal) =>
-      integrations.reconnect(input.id, { type: AuthType.OAUTH, signal }),
-    );
+    return integrations.reconnect(input.id, { type: AuthType.OAUTH });
   }),
 
   // Aborts the OAuth sign-in this workspace is waiting on, whose call then fails with `cancelled`.
-  // Returns whether there was one.
-  cancelConnect: wsProcedure.mutation(({ ctx }): boolean => {
-    const flow = oauthFlows.get(ctx.workspace);
-    flow?.abort();
-    return flow !== undefined;
-  }),
+  // Core runs one at a time per workspace, so it takes no id. Returns whether there was one.
+  cancelConnect: wsProcedure.mutation(({ ctx }) => ctx.workspace.integrations.cancelConnect()),
 
   // disabling switches every source off; enabling switches back on those in `enableSources`, or all
   setEnabled: wsProcedure

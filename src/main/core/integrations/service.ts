@@ -3,6 +3,7 @@ import { externalSources, integrations } from '@main/db/schema/integrations';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
+  ConnectCancelledError,
   ConnectInProgressError,
   IntegrationAccountMismatchError,
   IntegrationAlreadyConnectedError,
@@ -105,7 +106,7 @@ export interface ConnectOptions {
 }
 
 export interface OAuthConnectOptions extends ConnectOptions {
-  // cancels the flow while it waits on the browser; the later IPC channel is integrations:cancelConnect
+  // cancels the flow while it waits on the browser, as cancelConnect does
   signal?: AbortSignal;
 }
 
@@ -143,6 +144,7 @@ export interface BaseIntegrationService {
   previewDisconnect(id: IntegrationId): DisconnectCounts;
   disconnect(id: IntegrationId, options: DisconnectOptions): Promise<DisconnectResult>;
   markNeedsReauth(id: IntegrationId): void;
+  cancelConnect(): boolean;
   // returns a function that unsubscribes the listener
   onChange(listener: IntegrationChangeListener): () => void;
 }
@@ -165,8 +167,9 @@ export class IntegrationService implements BaseIntegrationService {
   // a failing listener must not fail the call or the others; `disconnected` is sent inside its
   // transaction, and the removal stands even if a listener throws
   private readonly changes = new ChangeListeners<IntegrationChange>('Integration');
-  // set while an OAuth connect waits on the browser; one flow per workspace at a time
-  private connecting = false;
+  // The OAuth flow running now, from the browser until the account query has answered; one per
+  // workspace at a time. cancelConnect aborts it.
+  private oauthFlow: AbortController | null = null;
   private readonly signal?: AbortSignal;
 
   constructor(
@@ -222,7 +225,7 @@ export class IntegrationService implements BaseIntegrationService {
 
   /**
    * Runs the provider's OAuth flow in the system browser, then stores the integration exactly as
-   * connectWithApiKey does. Resolves when the flow ends; `options.signal` cancels it while it waits
+   * connectWithApiKey does. Resolves when the flow ends; cancelConnect or `options.signal` cancels it while it waits
    * on the browser. Only one OAuth connect runs at a time in a workspace: a second one throws
    * ConnectInProgressError. Nothing is written unless the flow and the account query succeed.
    */
@@ -322,10 +325,13 @@ export class IntegrationService implements BaseIntegrationService {
       );
     }
     if (!this.oauth) throw new OAuthUnavailableError('No OAuth client is configured');
-    if (this.connecting) throw new ConnectInProgressError();
-    this.connecting = true;
+    if (this.oauthFlow) throw new ConnectInProgressError();
+    const flow = new AbortController();
+    this.oauthFlow = flow;
     try {
-      const signals = [using.signal, this.signal].filter((s): s is AbortSignal => !!s);
+      const signals = [flow.signal, using.signal, this.signal].filter((s): s is AbortSignal => !!s);
+      // the OAuth client and providers reject with the reason of whichever signal aborted first:
+      // ConnectCancelledError from cancelConnect, WorkspaceClosedError from a close
       const signal = AbortSignal.any(signals);
       const tokens = await this.oauth.authorize(config, { signal });
       signal.throwIfAborted();
@@ -343,7 +349,7 @@ export class IntegrationService implements BaseIntegrationService {
       // space-separated, as RFC 6749 writes them
       return { credentials, account, scopes: tokens.scopes.join(' ') };
     } finally {
-      this.connecting = false;
+      this.oauthFlow = null;
     }
   }
 
@@ -580,6 +586,17 @@ export class IntegrationService implements BaseIntegrationService {
       status: IntegrationStatus.NEEDS_REAUTH,
       previous: IntegrationStatus.CONNECTED,
     });
+  }
+
+  /**
+   * Cancels the OAuth connect or reconnect waiting on the browser, if any: its call rejects with
+   * ConnectCancelledError and stores nothing. Returns whether one was running. Once the flow has
+   * its tokens and the account, storing them is a database write and can't be cancelled.
+   */
+  cancelConnect(): boolean {
+    const flow = this.oauthFlow;
+    flow?.abort(new ConnectCancelledError());
+    return flow !== null;
   }
 
   // returns a function that unsubscribes the listener

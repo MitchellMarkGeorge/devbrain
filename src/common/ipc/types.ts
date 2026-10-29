@@ -8,9 +8,6 @@ export type IpcErrorCode =
   | 'no_workspace_open'
   // DevBrain failed to start, so nothing that needs it can run
   | 'devbrain_unavailable'
-  // the user cancelled what the call was waiting on: an OAuth sign-in, through
-  // integrations.cancelConnect
-  | 'cancelled'
   // anything not thrown on purpose; its message is generic
   | 'internal';
 
