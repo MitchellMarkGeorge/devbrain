@@ -1,21 +1,20 @@
 # DevBrain design system
 
-DevBrain's interface is **shadcn/ui with a DevBrain theme on top**, plus a small set of DevBrain components built from shadcn parts.
+DevBrain's interface is **shadcn/ui components drawn in DevBrain's own design language**: the dark, quiet look of the [DevBrain v1 Figma file](https://www.figma.com/design/w9WtYAUXkkzqKIMAzFo08I/DevBrain-v1).
 
-- **Components** are shadcn/ui (new-york-v4): same names, anatomy, sizes, radii, type, states and Radix primitives. The app styles them with CSS Modules instead of Tailwind.
-- **Tokens** live in [`tokens.json`](tokens.json) and are generated into [`src/renderer/styles/tokens.css`](../../src/renderer/styles/tokens.css) with `npm run tokens`. Colour variables use shadcn's names; every colour is a Tailwind v4 colour.
-- **The visual reference** with live previews of every component in both themes is the [DevBrain design system page](https://claude.ai/artifact/4hf6qVrE4z8cmsCGJpNjt2), built from the same `tokens.json`.
-- **Sources**: shadcn/ui's new-york-v4 component source and theme (a July 2025 snapshot of the registry), Tailwind v4's palette, and the [DevBrain v1 Figma file](https://www.figma.com/design/w9WtYAUXkkzqKIMAzFo08I/DevBrain-v1) for the screens, the dark look and the DevBrain components.
+- **Components** are shadcn/ui's (new-york-v4): the same names, variants (`variant`, `size`, `asChild`), Radix primitives and theme variable names. Their look (corners, heights, text sizes, outlines) comes from the Figma file. The app styles them with CSS Modules instead of Tailwind.
+- **Tokens** live in [`tokens.json`](tokens.json) and are generated into [`src/renderer/styles/tokens.css`](../../src/renderer/styles/tokens.css) with `npm run tokens`. Every colour is a Tailwind v4 colour.
+- **The visual reference** is the [DevBrain design system page](https://claude.ai/artifact/4hf6qVrE4z8cmsCGJpNjt2): live previews of every component in both themes, built from the same `tokens.json`.
 
 ## Contents
 
 1. [Principles](#1-principles)
 2. [Building shadcn components without Tailwind](#2-building-shadcn-components-without-tailwind)
-3. [Theme](#3-theme)
-4. [Type, space and shape](#4-type-space-and-shape)
+3. [Colour](#3-colour)
+4. [Type, size and shape](#4-type-size-and-shape)
 5. [Components](#5-components)
 6. [Where each screen uses what](#6-where-each-screen-uses-what)
-7. [Where this differs from the Figma file](#7-where-this-differs-from-the-figma-file)
+7. [Where this differs from shadcn and from Figma](#7-where-this-differs-from-shadcn-and-from-figma)
 8. [Open questions](#8-open-questions)
 9. [Build order](#9-build-order)
 
@@ -23,31 +22,32 @@ DevBrain's interface is **shadcn/ui with a DevBrain theme on top**, plus a small
 
 ## 1. Principles
 
-1. **shadcn first.** Use the shadcn component and its variants before making anything new. A DevBrain component is a composition of shadcn parts (a task row is a table row of a Checkbox, icons and Badges), not a new visual language.
-2. **Change the theme, not the component.** DevBrain's look comes from the theme variables. A component's CSS reads `--primary`, `--border`, `--radius-md`; it never hard-codes a colour or size.
-3. **Colour means something.** Neutrals carry the UI. Colour is reserved for task status, priority, project health, due dates and user-picked calendar/workspace colours.
-4. **Dark first.** Every DevBrain screen is dark; the light theme is shadcn's and works without extra effort.
-5. **Keyboard reachable.** Radix primitives give focus management, arrow keys and Escape; shadcn's focus ring is on every control.
+1. **shadcn's structure, DevBrain's look.** Start from the shadcn component and keep its API and behaviour; give it the Figma styling through tokens and its CSS Module.
+2. **Quiet chrome.** Surfaces are near-black; structure comes from 1px lines (`--border`, `--border-strong`), not fills. Shadows only on floating layers.
+3. **Colour means something.** Neutrals carry the UI. Colour is reserved for task status, priority, project health, due dates and user-picked colours.
+4. **Dense but legible.** The interface lives at 12–14px (rows, pills, buttons at 12px; navigation and menus at 14px); titles jump to 24–30px. Rows are 48px.
+5. **One shape language.** 12px corners for anything you click or open as a whole (buttons, pills, cards, menus, dialogs); 8px for items inside them (menu items, sidebar items, inputs); 4px for tiny things (checkbox, small tile).
+6. **Keyboard reachable.** Radix handles focus, arrow keys and Escape; shadcn's focus ring is on every control.
 
 ---
 
 ## 2. Building shadcn components without Tailwind
 
-shadcn/ui is not a package: you copy each component's file into the project. Keep that model and change only the styling layer.
+shadcn/ui is copied into the project, one file per component. Keep that model and change only the styling layer.
 
-| shadcn                                       | DevBrain                                                                 |
-| -------------------------------------------- | ------------------------------------------------------------------------ |
-| Radix primitives (`radix-ui`)                | Same                                                                     |
-| `cva()` variants in `className`              | `data-variant` / `data-size` attributes, styled in a CSS Module          |
-| Tailwind classes (`h-9 px-4 rounded-md`)     | The same values from tokens (`--control-md`, `--space-4`, `--radius-md`) |
-| `bg-primary/90`, `ring-ring/50`              | `color-mix(in oklab, var(--primary) 90%, transparent)`                   |
-| `dark:` variants                             | `:root:not([data-theme='light']) .x { … }` (dark is the default theme)   |
-| `cn()` (clsx + tailwind-merge)               | `clsx`                                                                   |
-| `globals.css` theme                          | `tokens.css`, generated from `tokens.json`                               |
-| `components/ui/*.tsx`                        | `src/renderer/components/ui/*.tsx` + `*.module.css`                      |
-| Sonner, cmdk, react-day-picker, lucide-react | Same libraries                                                           |
+| shadcn                                       | DevBrain                                                               |
+| -------------------------------------------- | ---------------------------------------------------------------------- |
+| Radix primitives (`radix-ui`)                | Same                                                                   |
+| `cva()` variants in `className`              | `data-variant` / `data-size` attributes, styled in a CSS Module        |
+| Tailwind classes                             | Values from tokens (`--control-md`, `--radius-lg`, `--border-strong`)  |
+| `bg-primary/90`, `ring-ring/50`              | `color-mix(in oklab, var(--primary) 90%, transparent)`                 |
+| `dark:` variants                             | `:root:not([data-theme='light']) .x { … }` (dark is the default theme) |
+| `cn()` (clsx + tailwind-merge)               | `clsx`                                                                 |
+| `globals.css` theme                          | `tokens.css`, generated from `tokens.json`                             |
+| `components/ui/*.tsx`                        | `src/renderer/components/ui/*.tsx` + `*.module.css`                    |
+| Sonner, cmdk, react-day-picker, lucide-react | Same libraries                                                         |
 
-shadcn's Button as a CSS Module:
+shadcn's Button, in DevBrain's look:
 
 ```tsx
 // src/renderer/components/ui/button.tsx
@@ -56,8 +56,8 @@ import clsx from 'clsx';
 import styles from './button.module.css';
 
 type ButtonProps = React.ComponentProps<'button'> & {
-  variant?: 'default' | 'secondary' | 'outline' | 'ghost' | 'destructive' | 'link';
-  size?: 'default' | 'sm' | 'lg' | 'icon' | 'xs' | 'icon-sm' | 'icon-xs';
+  variant?: 'default' | 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive' | 'link';
+  size?: 'default' | 'sm' | 'lg' | 'xs' | 'icon' | 'icon-sm' | 'icon-xs';
   asChild?: boolean;
 };
 
@@ -82,40 +82,35 @@ export function Button({
 ```
 
 ```css
-/* button.module.css: shadcn's buttonVariants */
+/* button.module.css */
 .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
-  height: var(--control-md); /* h-9 */
-  padding: 0 var(--space-4); /* px-4 */
+  gap: var(--space-1-5);
+  height: var(--control-md); /* 34px */
+  padding: 0 var(--space-3);
   border: 1px solid transparent;
-  border-radius: var(--radius-md); /* rounded-md */
-  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
-  transition:
-    background-color var(--duration-fast),
-    box-shadow var(--duration-fast);
+  border-radius: var(--radius-lg); /* 12px */
+  font: var(--font-weight-semibold) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  transition: background-color var(--duration-fast);
 }
-.button:has(> svg) {
-  padding: 0 var(--space-3); /* has-[>svg]:px-3 */
+/* DevBrain's default is the Figma quiet button; shadcn's filled default is `primary` */
+.button[data-variant='default'],
+.button[data-variant='destructive'] {
+  background: var(--secondary);
+  border-color: var(--border-strong);
+  color: var(--secondary-foreground);
 }
-.button[data-variant='default'] {
+.button[data-variant='destructive'] {
+  color: var(--destructive);
+}
+.button[data-variant='primary'] {
   background: var(--primary);
   color: var(--primary-foreground);
-  box-shadow: var(--shadow-xs);
 }
-.button[data-variant='default']:hover {
-  background: color-mix(in oklab, var(--primary) 90%, transparent);
-}
-.button[data-variant='outline'] {
-  background: var(--background);
-  border-color: var(--border);
-  box-shadow: var(--shadow-xs);
-}
-:root:not([data-theme='light']) .button[data-variant='outline'] {
-  background: color-mix(in oklab, var(--input) 30%, transparent); /* dark:bg-input/30 */
-  border-color: var(--input);
+.button[data-variant='ghost']:hover {
+  background: var(--accent);
 }
 .button:focus-visible {
   outline: none;
@@ -128,33 +123,32 @@ export function Button({
 }
 ```
 
-The design system page's `components/bundle.css` has this translation for every component listed in section 5.
+The design system page's `components/bundle.css` has this translation for every component in section 5.
 
 ---
 
-## 3. Theme
+## 3. Colour
 
-`tokens.json` holds every colour with a usage note; `npm run tokens` writes `tokens.css`.
+`tokens.json` holds every colour with a usage note. Variable names are shadcn's; values are Tailwind v4.
 
-### 3.1 How DevBrain differs from shadcn's neutral theme
+### 3.1 Theme
 
-The light theme is shadcn's neutral light theme, except `--ring` (neutral-500 instead of neutral-400, which is 2.6:1 on white). The dark theme is shadcn's neutral dark theme with these overrides, so it matches the DevBrain screens:
+The light theme is shadcn's neutral light theme (with `--ring` at neutral-500, since neutral-400 is 2.6:1 on white). The dark theme is the Figma file's, which differs from shadcn's neutral dark theme here:
 
-| Variable               | shadcn dark | DevBrain dark | Why                                                |
-| ---------------------- | ----------- | ------------- | -------------------------------------------------- |
-| `--foreground`         | neutral-50  | neutral-200   | Softer body text in long lists, as in Figma        |
-| `--card`               | neutral-900 | neutral-950   | Cards are outlined on the page, not filled         |
-| `--secondary`          | neutral-800 | neutral-900   | Figma's filled controls and hover are neutral-900  |
-| `--muted`, `--accent`  | neutral-800 | neutral-900   | Same                                               |
-| `--border`             | white 10%   | neutral-900   | Figma uses solid neutral-900 lines                 |
-| `--input`              | white 15%   | neutral-800   | Solid equivalent; inputs still fill with it at 30% |
-| `--sidebar`            | neutral-900 | neutral-950   | The sidebar sits on the page colour                |
-| `--sidebar-foreground` | neutral-50  | neutral-400   | Inactive navigation is quiet                       |
-| `--sidebar-accent`     | neutral-800 | neutral-900   | Matches `--accent`                                 |
+| Variable                                                 | shadcn dark | DevBrain dark | Figma use                                         |
+| -------------------------------------------------------- | ----------- | ------------- | ------------------------------------------------- |
+| `--foreground`                                           | neutral-50  | neutral-200   | Body text                                         |
+| `--card`, `--sidebar`                                    | neutral-900 | neutral-950   | Cards and the sidebar sit on the page colour      |
+| `--secondary`, `--muted`, `--accent`, `--sidebar-accent` | neutral-800 | neutral-900   | Button fill, hover, selected nav item, group band |
+| `--border`                                               | white 10%   | neutral-900   | Row lines, pills, cards, checkbox                 |
+| `--input`                                                | white 15%   | neutral-800   | Input outline                                     |
+| `--sidebar-foreground`                                   | neutral-50  | neutral-400   | Inactive navigation                               |
 
-Unchanged from shadcn: `--background`, `--popover`, `--primary`, `--muted-foreground`, `--destructive`, `--ring`, `--sidebar-primary`.
+Unchanged from shadcn: `--background`, `--popover`, `--primary`, `--muted-foreground`, `--destructive`, `--ring`.
 
-DevBrain additions: `--foreground-strong` (titles and row names), `--subtle-foreground` (skippable metadata; 4.2:1 in dark, never for instructions or errors) and `--backdrop` (shadcn's `bg-black/50` as a variable).
+DevBrain additions: `--border-strong` (neutral-800: outlines of buttons, menus, dialogs, toasts and the selected nav item), `--foreground-strong` (titles and row names), `--subtle-foreground` (skippable metadata, 4.2:1 in dark; never instructions or errors) and `--backdrop`.
+
+Surfaces: page, sidebar, lists and cards on `--background`; menus, popovers, tooltips, dialogs, sheets and toasts on `--popover` (Figma draws dialogs and toasts on #111; neutral-900 is the nearest Tailwind step).
 
 ### 3.2 DevBrain colours
 
@@ -164,152 +158,139 @@ DevBrain additions: `--foreground-strong` (titles and row names), `--subtle-fore
 | Priority (`TaskPriority`)  | `--priority-high`, `-medium`, `-low`                                           | red-500, amber-500, emerald-600                          | red-600, amber-700, emerald-700 |
 | Health (`ProjectHealth`)   | `--health-on-track`, `-at-risk`, `-off-track`, `-not-started`, `-completed`    | lime-500, amber-500, red-500, neutral-500, green-500     | 700 steps                       |
 | Dates                      | `--date-today`, `--date-overdue`, `--now-indicator`                            | amber-500, red-500, red-600                              | amber-700, red-600              |
-| Swatches                   | `--swatch-red/amber/green/blue/indigo/pink` and `--swatch-*-tile`              | Tailwind 500 steps; tiles use the 950 step               | same                            |
+| Swatches                   | `--swatch-red/amber/green/blue/indigo/pink`, `--swatch-*-tile`                 | Tailwind 500 steps; tiles the 950 step                   | same                            |
 
-Each status also has its own icon shape, so colour is never the only signal. The light theme uses the 700 step because the 500s fall below 3:1 on white. The swatch check mark is `--neutral-950` (white is under 3:1 on amber and green). The one non-Tailwind colour is `--platform-linear`, Linear's brand colour.
+Each status also has its own icon shape. The light theme uses the 700 steps because the 500s fall below 3:1 on white. The one non-Tailwind colour is `--platform-linear` (Linear's brand colour).
 
 ---
 
-## 4. Type, space and shape
+## 4. Type, size and shape
 
-**Type.** Inter for the interface (shadcn's own site uses Geist; DevBrain keeps the Inter of its designs) and Geist Mono for code. Components use shadcn's sizes; pages use shadcn's typography styles.
+**Type.** Inter, and Geist Mono for code. From the Figma text styles:
 
-| Style          | Size / line | Weight               | Used for                                        |
-| -------------- | ----------- | -------------------- | ----------------------------------------------- |
-| `page-title`   | 30 / 36     | 600, tracking-tight  | Page and document titles (shadcn typography h2) |
-| `heading-1`    | 24 / 32     | 600, tracking-tight  | Note H1, calendar day title (h3)                |
-| `heading-2`    | 20 / 28     | 600, tracking-tight  | Note H2 (h4)                                    |
-| `heading-3`    | 18 / 28     | 600                  | Note H3 (DevBrain addition)                     |
-| `dialog-title` | 18 / 18     | 600                  | Dialog and alert dialog titles                  |
-| `card-title`   | 16 / 16     | 600                  | Card and sheet titles, Home section headings    |
-| `lead`         | 20 / 28     | 400                  | Subtitle under a page title, `muted-foreground` |
-| `paragraph`    | 16 / 28     | 400                  | Note and description text                       |
-| `body`         | 14 / 20     | 400                  | Menu items, inputs, row names, sidebar items    |
-| `control`      | 14 / 20     | 500                  | Buttons, tabs, toggles, menu labels             |
-| `label`        | 14 / 14     | 500                  | Form labels                                     |
-| `badge`        | 12 / 16     | 500                  | Badges, sidebar group labels                    |
-| `caption`      | 12 / 16     | 400                  | Dates, keys, tooltips, hints                    |
-| `shortcut`     | 12 / 16     | 400, tracking-widest | Menu shortcuts                                  |
-| `code`         | 14 / 20     | 600 mono             | Inline code on `muted`                          |
+| Style             | Size / line  | Weight   | Used for                                                   |
+| ----------------- | ------------ | -------- | ---------------------------------------------------------- |
+| `page-title`      | 30 / 36      | 600      | Home greeting, Settings                                    |
+| `document-title`  | 24 / 32      | 600      | Task, note, project and day titles                         |
+| `dialog-title`    | 20 / 28      | 500      | Onboarding titles                                          |
+| `section-heading` | 14 / 20      | 500      | Home and Settings sections; dialog, sheet and toast titles |
+| `body`            | 14 / 20      | 400      | Sidebar navigation, note text                              |
+| `menu-item`       | 14 / 20      | 500      | Menu items, segmented tabs                                 |
+| `row`             | 12 / 16      | 500      | Row names, pill labels, inputs                             |
+| `button`          | 12 / 16      | 600      | Button labels                                              |
+| `menu-label`      | 12 / 16      | 600      | Menu group labels                                          |
+| `meta`            | 12 / 16      | 400      | Dates, keys, descriptions, hints, tooltips                 |
+| `editor-h1/2/3`   | 24 / 20 / 18 | 600      | Note headings (sizes inferred from layer heights)          |
+| `code`            | 13 / 20      | 400 mono | Code (not specified in Figma)                              |
 
-**Space.** Tailwind's 4px scale (`--space-*`).
+**Sizes** (measured from the Figma screens): pills `--control-xs` 24px; menu items, inputs and editor toolbar buttons `--control-sm` 32px; buttons, toolbar controls and segmented controls `--control-md` 34px; sidebar items `--control-lg` 36px; in-row buttons ("+ Add") `--control-2xs` 22px; rows `--row-height` 48px; group headings `--group-height` 40px. Widths: sidebar 288px, menus 224px (180px short), alert dialogs 480px (create task 600px), details panel 380px, toasts 356px.
 
-**Sizes.** shadcn's heights: `--control-md` 36px (default button, input, select, tab list), `--control-sm` 32px (small button, sidebar item, calendar day), `--control-lg` 40px; DevBrain adds `--control-xs` 24px for in-row actions and `--row-height` 48px for list rows. Widths: `--sidebar-width` 16rem, `--popover-width` 18rem, `--dialog-width` 32rem, `--sheet-width` 24rem, `--toast-width` 356px.
+**Corners.** `--radius-lg` 12px (buttons, pills, cards, menus, popovers, dialogs, sheets, toasts, segmented tracks), `--radius-md` 8px (menu items, sidebar items, inputs, segmented thumbs, tooltips, swatches), `--radius-sm` 4px (checkbox, small tile, today in the calendar), `--radius-xs` 2px (colour bars), `--radius-xl` 16px (large workspace tile).
 
-**Radius.** shadcn's scale from one base, `--radius` (10px): `--radius-sm` 6px (menu items), `--radius-md` 8px (buttons, inputs, badges, popovers, tooltips), `--radius-lg` 10px (dialogs, tab lists), `--radius-xl` 14px (cards), plus `--radius-checkbox` 4px and `--radius-full`. Change `--radius` to make the whole system rounder (the Figma screens are closer to 12px).
+**Shadows.** Only floating layers: `--shadow-md` for menus, popovers and tooltips; `--shadow-2xl` for dialogs, sheets and toasts. Buttons and cards are flat.
 
-**Shadows.** Tailwind v4: `--shadow-xs` controls, `--shadow-sm` cards and the active tab, `--shadow-md` menus and popovers, `--shadow-lg` dialogs, sheets and toasts.
+**Motion.** 100ms hover and press; menus, popovers and tooltips fade with a 4px slide in 150ms; dialogs, sheets and toasts 250ms. Off under `prefers-reduced-motion`.
 
-**Motion.** shadcn's (tw-animate-css): overlays fade, zoom from 95% and slide 8px from their trigger side; dialogs 200ms, sheets 500ms in / 300ms out; colour changes 150ms. Off under `prefers-reduced-motion`.
-
-**Icons.** Lucide (`lucide-react`) at shadcn's defaults: 16px, stroke 2; 12px inside badges and xs buttons. The Figma screens draw Bootstrap Icons; use the Lucide equivalent (house-door → `House`, check-circle → `CircleCheck`, file-earmark-text → `FileText`, lightning → `Zap`, three-dots → `Ellipsis`, arrow-return-right → `CornerDownRight`). The DevBrain logomark is [`src/renderer/assets/devbrain-logomark.svg`](../../src/renderer/assets/devbrain-logomark.svg).
+**Icons.** Lucide (`lucide-react`, shadcn's set) at stroke 1.75 to match the light Bootstrap Icons in the Figma screens: 16px for navigation, status and rows, 12px inside pills, menus and small buttons. Mapping: house-door → `House`, check-circle → `CircleCheck`, file-earmark-text → `FileText`, lightning → `Zap`, three-dots → `Ellipsis`, arrow-return-right → `CornerDownRight`. The DevBrain logomark is [`src/renderer/assets/devbrain-logomark.svg`](../../src/renderer/assets/devbrain-logomark.svg).
 
 ---
 
 ## 5. Components
 
-### 5.1 shadcn components to add
+### 5.1 shadcn components, in DevBrain's look
 
-Install with the shadcn CLI or copy from its registry, then translate the classes as in section 2. "Addition" marks what DevBrain adds to a shadcn component.
-
-| Component                                          | Variants and sizes used                                                                                                             | Used for                                                                                                    |
-| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Button                                             | `default`, `secondary`, `outline`, `ghost`, `destructive`, `link`; `default`/`sm`/`lg`/`icon`. Addition: `xs`, `icon-sm`, `icon-xs` | `outline` for "New Task", "Show in Finder", filters; `default` for dialog confirms; `link` for "View all →" |
-| Button Group                                       | outline buttons joined                                                                                                              | Settings export split button, calendar ‹ Today ›                                                            |
-| Badge                                              | `default`, `secondary`, `destructive`, `outline`. Addition: icon node, muted prefix, colour bar                                     | Every pill: projects, status, dates, counts                                                                 |
-| Toggle, Toggle Group                               | `default`, `outline`; `default`/`sm`                                                                                                | Month/Week/Day, list/grid/board, Home quick filters                                                         |
-| Tabs                                               | shadcn tabs. Addition: `line` variant                                                                                               | Settings sections; `line` for project Overview / Tasks / Notes                                              |
-| Input, Textarea, Label                             | shadcn                                                                                                                              | Workspace name, link editor, descriptions                                                                   |
-| Checkbox, Switch                                   | shadcn                                                                                                                              | Row selection, to-do blocks; "Create more", sync and preference toggles                                     |
-| Select                                             | shadcn (`default`/`sm` trigger)                                                                                                     | Sort, settings options                                                                                      |
-| Dropdown Menu, Context Menu                        | shadcn; checkbox items, submenus, shortcuts, `destructive` items                                                                    | Row "…" menus, right-click menus, "Turn into"                                                               |
-| Popover                                            | shadcn                                                                                                                              | Filter builder, date picker, link editor                                                                    |
-| Command                                            | shadcn (cmdk)                                                                                                                       | ⌘K search, editor slash menu, "Link to…", project picker                                                    |
-| Calendar                                           | shadcn (react-day-picker)                                                                                                           | Calendar sidebar, date pickers                                                                              |
-| Dialog, Alert Dialog                               | shadcn                                                                                                                              | Create task / event; destructive confirmations                                                              |
-| Sheet                                              | right side                                                                                                                          | Event and task details                                                                                      |
-| Sonner                                             | shadcn's toaster                                                                                                                    | Feedback with Undo                                                                                          |
-| Tooltip                                            | shadcn (inverted, `primary` ground)                                                                                                 | Icon buttons, truncated names                                                                               |
-| Card                                               | shadcn. Addition: `compact` size                                                                                                    | Home sections, properties panel, settings groups                                                            |
-| Sidebar                                            | shadcn, with the team-switcher header block                                                                                         | App navigation, Recents, Favorites                                                                          |
-| Breadcrumb                                         | shadcn. Addition: entity icon on the current page                                                                                   | Top bar                                                                                                     |
-| Separator, Skeleton, Progress, Scroll Area, Avatar | shadcn                                                                                                                              | Panels, loading, imports, long lists                                                                        |
-| Kbd, Field, Empty                                  | added to shadcn in late 2025; the design system follows their look but they were not checked against shadcn's source                | Shortcuts, form fields, empty states                                                                        |
+| Component                                    | DevBrain look                                                                                                                                                                                                                                                                                            | Used for                                                                                                                      |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Button                                       | `default` is the quiet button (`--secondary` + `--border-strong`, 34px, 12px semibold, 12px corners); `primary` is shadcn's filled one; `outline`, `secondary`, `ghost`, `destructive` (red text, no fill), `link`. Sizes `default` 34, `sm` 28, `lg` 36, `xs` 22, `icon` 34, `icon-sm` 32, `icon-xs` 24 | "New Task", "Show in Finder", dialog confirms (`default`); Filter, Sort (`outline`); "Close" (`ghost`); "View all →" (`link`) |
+| Button Group                                 | joined default buttons                                                                                                                                                                                                                                                                                   | Export split button, ← Today →                                                                                                |
+| Badge                                        | `outline` is the DevBrain pill (24px, 12px corners, `--background` with `--border`, 12px medium); adds icon, muted prefix, colour bar                                                                                                                                                                    | Every pill: projects, status, dates, counts                                                                                   |
+| Toggle Group, Tabs                           | one segmented control: 34px `--background` track with `--border`, 8px `--secondary` thumb; toggles 12px, tabs 14px. Tabs add a `line` variant                                                                                                                                                            | Month/Week/Day, views, quick filters; Settings sections; project sub-pages                                                    |
+| Input, Textarea, Label                       | 32px, 8px corners, `--input` outline, 12px text                                                                                                                                                                                                                                                          | Workspace name, link editor, descriptions                                                                                     |
+| Checkbox                                     | 16px, 4px corners, `--border` outline                                                                                                                                                                                                                                                                    | Row selection, to-do blocks                                                                                                   |
+| Switch                                       | 28×16 track, 10px thumb                                                                                                                                                                                                                                                                                  | "Create more", sync and preference toggles                                                                                    |
+| Select, Dropdown Menu, Context Menu, Command | `--popover`, `--border-strong`, 12px corners, `--shadow-md`, 4px padding; 32px items with 8px corners, 12px icons, 14px medium labels in `--muted-foreground`; 12px semibold group labels; mono shortcut hints                                                                                           | Sort, row and right-click menus, "Turn into", slash menu, ⌘K                                                                  |
+| Popover, Tooltip                             | `--popover` with `--border-strong`; tooltips 12px medium, 8px corners, dark (not shadcn's inverted)                                                                                                                                                                                                      | Filters, date picker, link editor; icon buttons                                                                               |
+| Dialog, Alert Dialog                         | `--popover`, `--border-strong`, 12px corners, `--shadow-2xl`, 24px padding; 14px medium title, 12px description; `ghost` Close + action                                                                                                                                                                  | Create task / event; "Delete Task?"                                                                                           |
+| Sheet                                        | 380px panel, `--popover`, `--border-strong`, 12px corners; header with expand and close icon buttons                                                                                                                                                                                                     | Event and task details                                                                                                        |
+| Sonner                                       | 356px, `--popover`, `--border-strong`, 12px corners; 14px title, 12px description; small default action button                                                                                                                                                                                           | Feedback with Undo                                                                                                            |
+| Card                                         | flat: `--card`, `--border`, 12px corners, 16px padding, no shadow; `compact` size                                                                                                                                                                                                                        | Home summary, properties panel, settings groups                                                                               |
+| Sidebar                                      | 288px; 36px nav items with 8px corners, active = `--sidebar-accent` + `--border-strong` outline; 14px group labels; 32px 12px recents                                                                                                                                                                    | App navigation                                                                                                                |
+| Breadcrumb                                   | 14px section, 12px chevron, current item muted with its entity icon                                                                                                                                                                                                                                      | Top bar                                                                                                                       |
+| Calendar                                     | 12px numerals, single-letter weekdays, today on a red (`--now-indicator`) square                                                                                                                                                                                                                         | Calendar sidebar, date pickers                                                                                                |
+| Progress                                     | 3px bar in the project's health colour                                                                                                                                                                                                                                                                   | Project progress                                                                                                              |
+| Separator, Skeleton, Scroll Area, Kbd        | shadcn, in tokens                                                                                                                                                                                                                                                                                        | Panels, loading, long lists, shortcuts                                                                                        |
 
 ### 5.2 DevBrain components
 
-| Component                                             | Built from                                                                               | Notes                                                                         |
-| ----------------------------------------------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| StatusIcon, PriorityIcon, HealthIcon                  | Lucide icons in domain colours                                                           | One shape per state; map 1:1 to `TaskStatus`, `TaskPriority`, `ProjectHealth` |
-| ProgressRing                                          | SVG on an `--input` track                                                                | Subtask "3/4" in rows; project progress                                       |
-| EntityPill                                            | outline Badge                                                                            | Link to a project, note, task or event; opens it                              |
-| PropertyPanel                                         | Card + outline Badges opening Dropdown Menu, Popover + Calendar, Command                 | Unset properties show "+ Add …"                                               |
-| TaskRow, EventRow, NoteRow, ProjectRow                | shadcn table-row pattern (border-b, hover `muted`/50, selected `muted`), Checkbox, Badge | 48px (`--row-height`), 14px names, 12px dates                                 |
-| GroupHeading                                          | table-header pattern on `muted`/50                                                       | "Due now", "Due today", "Coming up"; sticky, collapsible                      |
-| ScheduleCard, NoteCard, ProjectCard                   | compact Card                                                                             | Home summary                                                                  |
-| SettingsGroup                                         | Card with rows of Label + description + control                                          | Settings                                                                      |
-| WorkspaceTile, SwatchPicker                           | shadcn sidebar block's team logo (size-8, `rounded-lg`); radio group                     | Workspace identity                                                            |
-| EventBlock, all-day row, time grid                    | FullCalendar, themed with tokens                                                         | See [the adapter spec](../calendar/fullcalendar-adapter.md)                   |
-| Editor (formatting toolbar, slash menu, link popover) | Toggle Group, Command, Popover                                                           | Note editing                                                                  |
-| Splash, onboarding                                    | Logomark, Card, Input, SwatchPicker, Button                                              | Welcome flow                                                                  |
+| Component                                | Built from                                                          | Notes                                                                     |
+| ---------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| StatusIcon, PriorityIcon, HealthIcon     | Lucide icons in domain colours                                      | One shape per state; map to `TaskStatus`, `TaskPriority`, `ProjectHealth` |
+| ProgressRing                             | SVG on an `--input` track                                           | Subtask "3/4" in rows; project progress                                   |
+| EntityPill                               | outline Badge                                                       | Links to a project, note, task or event                                   |
+| PropertyPanel                            | Card + pills opening Dropdown Menu, Popover + Calendar, Command     | Unset properties show "+ Add …"                                           |
+| TaskRow, EventRow, NoteRow, ProjectRow   | 48px row, Checkbox, icons, pills                                    | 12px medium names, `--accent` hover and selection                         |
+| GroupHeading                             | 40px `--muted` band                                                 | "Due now", "Due today", "Coming up"                                       |
+| ScheduleCard, NoteCard, ProjectCard      | compact Card                                                        | Home summary                                                              |
+| SettingsGroup                            | Card of label + description + control rows                          | Settings                                                                  |
+| WorkspaceTile, SwatchPicker              | letter tile (20px, 4px corners; 60–72px on onboarding); radio group | Workspace identity                                                        |
+| EventBlock, all-day row, time grid       | FullCalendar themed with tokens                                     | See [the adapter spec](../calendar/fullcalendar-adapter.md)               |
+| Editor toolbar, slash menu, link popover | Toggle Group, Command, Popover                                      | Note editing                                                              |
+| Splash, onboarding                       | Logomark, Card, Input, SwatchPicker, Button                         | Welcome flow                                                              |
 
 ---
 
 ## 6. Where each screen uses what
 
-| Figma page          | Components                                                                                                                                                                    |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Welcome             | Logomark, Card, Input, SwatchPicker, WorkspaceTile, Button                                                                                                                    |
-| Loading/Splash      | Logomark (pulsing)                                                                                                                                                            |
-| Home (final), Inbox | Sidebar, page title + lead, Toggle Group (quick filters), GroupHeading, TaskRow, EventRow, ScheduleCard, NoteCard                                                             |
-| Tasks               | Breadcrumb, toolbar (Popover filter, Select sort, Toggle Group views, Button), TaskRow, Sheet / document page with PropertyPanel, Dialog (create), Context Menu, Alert Dialog |
-| Notes               | NoteRow, document page, EntityPill, Editor, Dropdown Menu                                                                                                                     |
-| Project             | ProjectRow, line Tabs, HealthIcon Badge, ProgressRing, TaskRow, Context Menu with submenus                                                                                    |
-| Calendar            | Button Group, Toggle Group, FullCalendar with EventBlock, Calendar, Sheet (event details)                                                                                     |
-| Archive             | rows with Restore and Delete actions                                                                                                                                          |
-| Settings            | Tabs, SettingsGroup, Button Group, Select, Switch                                                                                                                             |
-| Editor              | Editor toolbar, Command (slash menu), Popover (links), Dropdown Menu ("Turn into")                                                                                            |
+| Figma page          | Components                                                                                                                                                            |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Welcome             | Logomark, Input, SwatchPicker, WorkspaceTile, Button                                                                                                                  |
+| Loading/Splash      | Logomark (pulsing)                                                                                                                                                    |
+| Home (final), Inbox | Sidebar, page title, Toggle Group (quick filters), GroupHeading, TaskRow, EventRow, ScheduleCard, NoteCard                                                            |
+| Tasks               | Breadcrumb, toolbar (Popover filter, Select sort, Toggle Group views, Button), TaskRow, document page with PropertyPanel, Dialog (create), Context Menu, Alert Dialog |
+| Notes               | NoteRow, document page, EntityPill, editor, Dropdown Menu                                                                                                             |
+| Project             | ProjectRow, line Tabs, HealthIcon pill, ProgressRing, TaskRow, Context Menu with submenus                                                                             |
+| Calendar            | Button Group, Toggle Group, FullCalendar with EventBlock, Calendar, Sheet (event details)                                                                             |
+| Archive             | rows with Restore and Delete actions                                                                                                                                  |
+| Settings            | Tabs, SettingsGroup, Button Group, Select, Switch                                                                                                                     |
+| Editor              | toolbar, Command (slash menu), Popover (links), Dropdown Menu ("Turn into")                                                                                           |
 
 ---
 
-## 7. Where this differs from the Figma file
+## 7. Where this differs from shadcn and from Figma
 
-Building on shadcn changes some values the Figma file drew differently. Each comes from shadcn's source, and each can be tuned through a token if the design should win.
+**From shadcn's defaults** (the Figma design language wins): `default` button is quiet and bordered (filled moves to `primary`); `destructive` is red text, not a red fill; 12px corners instead of shadcn's 8–14px; 34px controls and 12px labels instead of 36px and 14px; badges are 24px pills; Tabs and Toggle Group share one segmented look; tooltips are dark, not inverted; dialogs, sheets and toasts sit on `--popover` with `--border-strong`; cards are flat; sidebar 288px with outlined active item; calendar "today" is red.
 
-| Thing               | Figma                         | Now (shadcn)                                         | Token to change        |
-| ------------------- | ----------------------------- | ---------------------------------------------------- | ---------------------- |
-| Corner radius       | 12px on buttons, pills, cards | 8px buttons/badges, 14px cards                       | `--radius`             |
-| Button height       | 34px, 12px semibold labels    | 36px (`sm` 32px), 14px medium labels                 | `--control-md`         |
-| Main action button  | quiet bordered button         | `outline` variant (`default` is filled)              | none: pick the variant |
-| Pills               | fully rounded, 24px           | Badge: `rounded-md`, 22px                            | `--radius`             |
-| Row text            | 12px medium                   | 14px regular (`body`)                                | none                   |
-| Sidebar width       | 288px                         | 256px (16rem)                                        | `--sidebar-width`      |
-| Active sidebar item | filled with an outline        | filled, medium weight, no outline                    | none                   |
-| Tooltip             | dark popover                  | inverted (`primary` ground)                          | none                   |
-| Dialogs and sheets  | #111 surface                  | `background` with a border                           | none                   |
-| Mini calendar today | red square                    | `accent` square; red only for the time-grid now line | none                   |
-| Focus               | not designed                  | shadcn's 3px ring at 50%                             | `--ring`               |
+**From the Figma file** (by choice or by earlier decisions):
+
+| Thing                    | Figma                             | Here                        | Why                        |
+| ------------------------ | --------------------------------- | --------------------------- | -------------------------- |
+| Dialog and toast surface | #111                              | neutral-900                 | Nearest Tailwind colour    |
+| Secondary text           | neutral-500, metadata neutral-600 | neutral-400 and neutral-500 | Contrast (shadcn's values) |
+| Swatches                 | Tailwind v3 hex                   | Tailwind v4 500 steps       | Tailwind v4 palette        |
+| Icons                    | Bootstrap Icons                   | Lucide at stroke 1.75       | shadcn's icon set          |
+| Switch                   | 18×10                             | 28×16                       | Big enough to click        |
+| Focus                    | not designed                      | shadcn's 3px ring           | Keyboard access            |
+| Editor heading sizes     | layer heights only                | 24 / 20 / 18px              | Inferred                   |
 
 ---
 
 ## 8. Open questions
 
-1. **Cancelled task status.** `TaskStatus.CANCELLED` exists in the data model but has no design; `--status-cancelled` and a slashed circle are placeholders.
-2. **Project status vs health.** Figma's "Project Status" pill matches `ProjectHealth`. `ProjectStatus` (Not started, On hold, Active, Completed) has no design.
+1. **Cancelled task status.** `TaskStatus.CANCELLED` has no design; `--status-cancelled` and a slashed circle are placeholders.
+2. **Project status vs health.** Figma's "Project Status" pill matches `ProjectHealth`; `ProjectStatus` (Not started, On hold, Active, Completed) has no design.
 3. **Light theme screens** are not designed; the tokens support them.
 4. **Views.** The Tasks toolbar shows list, grid and board toggles; only list is designed.
 5. **Integrations and Help pages** are in the sidebar but not designed.
 6. **Notes left in the Figma file:** "Should we have a default Backlog status?", "144 vs 128???", "Change padding on icons", "Empty state for no project and no note???", "Menu item: Link project, toggle linked tasks", "Unlink note".
-7. **Section 7's differences.** Confirm each is wanted, or tune the token.
 
 ---
 
 ## 9. Build order
 
-1. Load `tokens.css`, Inter and Geist Mono; base styles (body font and background, `border-color: var(--border)` on everything, shadcn's focus ring).
-2. shadcn basics: Button, Badge, Separator, Label, Input, Textarea, Checkbox, Switch, Toggle, Toggle Group, Tabs, Tooltip, Skeleton.
+1. Load `tokens.css`, Inter and Geist Mono; base styles (body font and background, `border-color: var(--border)` on everything, the focus ring).
+2. shadcn basics in DevBrain's look: Button, Badge, Separator, Label, Input, Textarea, Checkbox, Switch, Toggle Group, Tabs, Tooltip, Skeleton.
 3. Overlays: Dropdown Menu, Context Menu, Popover, Select, Command, Dialog, Alert Dialog, Sheet, Sonner.
-4. Shell: Sidebar (with the workspace switcher), Breadcrumb, page title, toolbar.
+4. Shell: Sidebar with the workspace switcher, Breadcrumb, page title, toolbar.
 5. DevBrain atoms: status, priority and health icons, ProgressRing, EntityPill.
 6. Lists: TaskRow, GroupHeading, EventRow, NoteRow, ProjectRow with keyboard navigation.
 7. Documents: PropertyPanel, Calendar and date picker, Card; Home cards.
