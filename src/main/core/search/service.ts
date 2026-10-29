@@ -17,7 +17,6 @@ import { notes } from '@main/db/schema/notes';
 import { events } from '@main/db/schema/events';
 import { hasLinkInState } from '../integrations/refs';
 import { LinkState } from '../integrations/types';
-import { ChangeListener, ChangeListeners } from '../shared/changes';
 
 // rows per INSERT when writing many entries at once: four bound values each, well under SQLite's
 // limit on variables in one statement
@@ -31,14 +30,7 @@ interface NoteFileRead {
   written: Set<NoteId>;
 }
 
-// What an index write that finished after its cause changed, for in-process subscribers such as the
-// IPC layer, so open searches refetch. Only the writes that wait on note files send one: every
-// other index write runs inside the change that caused it, which subscribers hear already.
-// `notes_indexed` carries the notes whose entries were written; `rebuilt` replaced every entry.
-export type SearchChange = { type: 'notes_indexed'; noteIds: NoteId[] } | { type: 'rebuilt' };
-
 export class SearchService {
-  private readonly changes = new ChangeListeners<SearchChange>('Search');
   private workspaceNotesPath: string;
   // one set per note file read in flight; indexNoteContent adds the note it indexes to each
   private readonly noteWrites = new Set<Set<NoteId>>();
@@ -50,11 +42,6 @@ export class SearchService {
     workspacePath: string,
   ) {
     this.workspaceNotesPath = path.join(workspacePath, 'notes');
-  }
-
-  // returns a function that unsubscribes the listener
-  onChange(listener: ChangeListener<SearchChange>): () => void {
-    return this.changes.add(listener);
   }
 
   /**
@@ -128,20 +115,13 @@ export class SearchService {
    */
   async indexNoteFiles(ids: NoteId[]): Promise<NoteId[]> {
     if (ids.length === 0) return [];
-    const { unreadable, noteIds } = await this.withNoteFiles(
-      inArray(notes.id, ids),
-      ({ bodies, unreadable, written }) => {
-        const current = this.activeNotes(inArray(notes.id, [...bodies.keys()]));
-        const entities = current
-          .filter(({ id }) => !written.has(id))
-          .map((note) => noteEntity(note, bodies));
-        this.upsertIndexBatch(entities);
-        return { unreadable, noteIds: entities.map(({ entityId }) => entityId as NoteId) };
-      },
-    );
-    // once the transaction has committed
-    this.emitNotesIndexed(noteIds);
-    return unreadable;
+    return this.withNoteFiles(inArray(notes.id, ids), ({ bodies, unreadable, written }) => {
+      const current = this.activeNotes(inArray(notes.id, [...bodies.keys()]));
+      this.upsertIndexBatch(
+        current.filter(({ id }) => !written.has(id)).map((note) => noteEntity(note, bodies)),
+      );
+      return unreadable;
+    });
   }
 
   /**
@@ -153,7 +133,7 @@ export class SearchService {
    * reported.
    */
   async rebuild(): Promise<RebuildResult> {
-    const result = await this.withNoteFiles(undefined, ({ bodies, unreadable, written }) => {
+    return this.withNoteFiles(undefined, ({ bodies, unreadable, written }) => {
       const entities: IndexEntity[] = [
         ...this.db
           .select()
@@ -190,8 +170,6 @@ export class SearchService {
       const [[indexed]] = this.db.values<[number]>(sql`SELECT count(*) FROM search_index`);
       return { indexed, unreadableNoteIds: unreadable };
     });
-    this.changes.emit({ type: 'rebuilt' });
-    return result;
   }
 
   indexProject(project: Project) {
@@ -229,7 +207,6 @@ export class SearchService {
         }),
       );
       this.upsertIndexBatch(entities);
-      this.emitNotesIndexed(notes.map(({ id }) => id));
     });
   }
 
@@ -323,10 +300,6 @@ export class SearchService {
         this.noteWrites.delete(written);
       }
     });
-  }
-
-  private emitNotesIndexed(noteIds: NoteId[]): void {
-    if (noteIds.length > 0) this.changes.emit({ type: 'notes_indexed', noteIds });
   }
 
   // runs `work` and keeps it in `pending` until it settles. Its synchronous start runs now, in the

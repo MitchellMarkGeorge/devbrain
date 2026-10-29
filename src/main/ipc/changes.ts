@@ -6,7 +6,6 @@ import type { ArchiveChange } from '@main/core/archive/service';
 import type { FavoriteChange } from '@main/core/favorites/service';
 import type { TaskLinkChange } from '@main/core/integrations/detach';
 import type { IntegrationChange } from '@main/core/integrations/service';
-import type { SearchChange } from '@main/core/search/service';
 import type { SyncProgress } from '@main/core/sync/types';
 
 // Sends an event to the app's windows, skipping `skipWindow` when given: the window a mutation came
@@ -143,8 +142,6 @@ export class ChangeTracker {
       workspace.calendars.onChange(() => this.recordChange('calendar')),
       workspace.archive.onChange((change) => this.recordChange(...entitiesOfArchiveChange(change))),
       workspace.favorites.onChange((change) => this.recordChange(entityOfFavoriteChange(change))),
-      // index writes that finish after the change that caused them, such as a restored note's
-      workspace.search.onChange((change) => this.recordChange(...entitiesOfSearchChange(change))),
       workspace.detach.onChange((change) => this.recordChange(...entitiesOfTaskLinkChange(change))),
       workspace.integrations.onChange((change) => {
         this.recordChange(...entitiesOfIntegrationChange(change));
@@ -206,11 +203,6 @@ const FAVORITE_ENTITIES = {
 
 export function entityOfFavoriteChange(change: FavoriteChange): ChangedEntity {
   return FAVORITE_ENTITIES[change.entityType];
-}
-
-// the entities whose search entries changed: search reads them all
-export function entitiesOfSearchChange(change: SearchChange): ChangedEntity[] {
-  return change.type === 'notes_indexed' ? ['note'] : ['task', 'project', 'note', 'event'];
 }
 
 export function entitiesOfTaskLinkChange(change: TaskLinkChange): ChangedEntity[] {
