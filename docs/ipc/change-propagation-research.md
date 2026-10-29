@@ -15,7 +15,8 @@ still shows correct data. Estimated size: about 250 lines of code, plus tests.
 **Status: implemented** in `src/main/ipc/changes.ts` (`ChangeTracker`, the sketch's `ChangeHub`)
 and `src/renderer/ipc/query-invalidator.ts` (`ENTITIES_READ_BY_ROUTE`, the sketch's `READS`).
 The code calls what changed **entities** (a `ChangedEntity`), where the sections below say kinds.
-It differs from the sketch in section 6 in five ways:
+`docs/ipc/implementation-plan.md` describes it as built. It differs from the sketch in section 6 in
+five ways:
 
 - **Changes come only from core's services.** Procedures have no `ctx.changes` recorder. A write
   that needs to reach the renderer is announced by its service, as `WorkspaceService.create` now

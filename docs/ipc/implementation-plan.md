@@ -4,22 +4,26 @@ The renderer calls core through one typed tRPC router and stays current when cor
 whether the change comes from the user or from sync. The IPC layer is a thin shell: handlers call core's
 existing services, and core's existing `ChangeListeners` events tell the renderer what to refetch.
 
+How the renderer stays current was researched separately, with a survey of other approaches and
+measurements of what refetching costs: `docs/ipc/change-propagation-research.md`. This plan
+describes what was built from it.
+
 ## Decisions
 
-| Area             | Decision                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Location         | In this repository, split by process: `src/common/ipc`, `src/main/ipc`, `src/preload`, `src/renderer/ipc`.                                                                                                                                                                                                                                                                                                                 |
-| Transport        | tRPC v11 routers in main, run over Electron IPC by a small transport of our own (`server.ts`, `ipcLink`), modelled on electron-trpc, whose adapters are stale. One `ipc:call` channel: each request names its procedure, which tRPC finds. A generic preload bridge with no code per route.                                                                                                                                |
-| Contract         | `AppRouter` imported type-only by the renderer. Runtime values the renderer needs (enums, error codes, schemas) live in `src/common`.                                                                                                                                                                                                                                                                                      |
-| Procedures       | tRPC's `.query()` and `.mutation()`. Only mutations open a change scope. Subscriptions don't run over IPC (see Out of scope).                                                                                                                                                                                                                                                                                              |
-| Validation       | tRPC's `.input()` with Zod v4. The client sees the schema's input type, the resolver its parsed output. A failure becomes core's `invalid_input`, with the issues.                                                                                                                                                                                                                                                         |
-| Errors           | An envelope `{ ok, data \| error, changed }`. `IpcErrorCode = CoreErrorCode \| 'no_workspace_open' \| 'devbrain_unavailable' \| 'cancelled' \| 'internal'`. A `CoreError` keeps its message and its own fields; anything else becomes `internal` with a generic message. The router's `errorFormatter` puts this in the `data` of tRPC's error shape, so the renderer reads `err.data.code` on a `TRPCClientError`, typed. |
-| Cancellation     | Only for an OAuth sign-in waiting on the browser: a dedicated `integrations.cancelConnect` mutation aborts the flow `connect` or `reconnect` started (one per workspace), and that call fails with `cancelled`. Nothing else is cancellable: database calls are synchronous, and provider calls time out on their own.                                                                                                     |
-| Data layer       | tRPC's React Query integration (`@trpc/tanstack-react-query`): `queryOptions`, `infiniteQueryOptions`, `mutationOptions`, `queryKey`, `pathKey` per route.                                                                                                                                                                                                                                                                 |
-| Change reporting | A `ChangeRouter` in main subscribes to the open workspace's `onChange` streams and maps each change to `ChangedEntity[]`. Changes made during a mutation return in its response; everything else is broadcast as `db.changes`.                                                                                                                                                                                             |
-| Invalidation     | A renderer-side `affects` map from entity types to query paths, plus `compile()` and one `invalidateQueries` call with a prefix predicate. Broadcasts are coalesced (16 ms trailing, 250 ms at most) and held while mutations are pending.                                                                                                                                                                                 |
-| Push events      | Deltas only: `db.changes`, `sync.progress`, `integrations.changed`, `sources.changed`, `workspace.changed`. The renderer refetches instead of applying snapshots. A plain broadcast on `ipc-event:<name>`, not tRPC subscriptions: they go to the whole app and take no input.                                                                                                                                             |
-| Windows          | One window. Moving to several later means broadcasting each request's `changed` to the other windows as well.                                                                                                                                                                                                                                                                                                              |
+| Area             | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Location         | In this repository, split by process: `src/common/ipc`, `src/main/ipc`, `src/preload`, `src/renderer/ipc`.                                                                                                                                                                                                                                                                                                                                            |
+| Transport        | tRPC v11 routers in main, run over Electron IPC by a small transport of our own (`server.ts`, `ipcLink`), modelled on electron-trpc, whose adapters are stale. One `ipc:call` channel: each request names its procedure, which tRPC finds. A generic preload bridge with no code per route.                                                                                                                                                           |
+| Contract         | `AppRouter` imported type-only by the renderer. Runtime values the renderer needs (enums, error codes, schemas) live in `src/common`.                                                                                                                                                                                                                                                                                                                 |
+| Procedures       | tRPC's `.query()` and `.mutation()`. Only mutations open a change scope. Subscriptions don't run over IPC (see Out of scope).                                                                                                                                                                                                                                                                                                                         |
+| Validation       | tRPC's `.input()` with Zod v4. The client sees the schema's input type, the resolver its parsed output. A failure becomes core's `invalid_input`, with the issues.                                                                                                                                                                                                                                                                                    |
+| Errors           | An envelope `{ ok, data \| error, changed }`. `IpcErrorCode = CoreErrorCode \| 'no_workspace_open' \| 'devbrain_unavailable' \| 'cancelled' \| 'internal'`. A `CoreError` keeps its message and its own fields; anything else becomes `internal` with a generic message. The router's `errorFormatter` puts this in the `data` of tRPC's error shape, so the renderer reads `err.data.code` on a `TRPCClientError`, typed.                            |
+| Cancellation     | Only for an OAuth sign-in waiting on the browser: a dedicated `integrations.cancelConnect` mutation aborts the flow `connect` or `reconnect` started (one per workspace), and that call fails with `cancelled`. Nothing else is cancellable: database calls are synchronous, and provider calls time out on their own.                                                                                                                                |
+| Data layer       | tRPC's React Query integration (`@trpc/tanstack-react-query`): `queryOptions`, `infiniteQueryOptions`, `mutationOptions`, `queryKey`, `pathKey` per route.                                                                                                                                                                                                                                                                                            |
+| Change reporting | A `ChangeTracker` in main (`src/main/ipc/changes.ts`) subscribes to the open workspace's `onChange` streams and maps each change to `ChangedEntity[]`. Changes come only from core's services: procedures report nothing. Changes made during a mutation return in its response and go to the other windows as `db.changes`; everything else (sync, work a mutation left running) is batched per turn of the event loop and sent as one `db.changes`. |
+| Invalidation     | A renderer-side `ENTITIES_READ_BY_ROUTE` table, saying which entities each router's queries read, and one `invalidateQueries` call with a predicate. A route not in the table refetches on any change, so a new route is never stale. The renderer neither coalesces nor defers: main batches background changes, and a mutation's own changes are refetched before it resolves.                                                                      |
+| Push events      | Deltas only, as a plain broadcast on `ipc-event:<name>`, not tRPC subscriptions: they go to the whole app and take no input. The renderer refetches instead of applying snapshots. Sent today: `db.changes` and `workspace.changed`. Declared for status UI and not sent yet: `sync.progress`, `integrations.changed`, `sources.changed`.                                                                                                             |
+| Windows          | One window for now. The tracker already sends each mutation's changes to the other windows, and `workspace.changed` to every window but the one that switched.                                                                                                                                                                                                                                                                                        |
 
 ## How it fits together
 
@@ -27,33 +31,35 @@ existing services, and core's existing `ChangeListeners` events tell the rendere
 renderer                         preload                 main
 ─────────────────────────        ───────────────         ─────────────────────────────────────────
 createTRPCClient<AppRouter>      bridge.invoke    ───►   attachRouter(appRouter): 'ipc:call'
-  .tasks.updateStatus.mutate()   { path, type,             context: { devBrain, workspace, changes }
-  → ipcLink                ───►    input }                 mutation → withChangeScope(
+  .tasks.updateStatus.mutate()   { path, type,             context: { devBrain, workspace, log }
+  → ipcLink                ───►    input }                 mutation → changeTracker.trackMutation(
                                                              callTRPCProcedure: validate → middleware
                                                                → resolver)
                                                              resolver → workspace.tasks.updateStatus()
                                                                TaskService emits { type: 'updated' }
-                                                                 ChangeRouter → scope gets ['task']
+                                                                 ChangeTracker → mutation gets ['task']
   ipcLink ◄── { ok, data, changed: ['task'] } ◄──────────── response
-  invalidateFor(['task'])
+  queryInvalidator.onChanged(['task'])
     → refetch mounted queries
     → then the mutation resolves
 
-createEventClient<AppEvents>() ◄── bridge.subscribe ◄──── ChangeRouter.broadcast('db.changes', …)
-  → coalesce → invalidateFor(...)                          (sync pages, work after a response)
+createEventClient<AppEvents>() ◄── bridge.subscribe ◄──── ChangeTracker: one 'db.changes' per turn
+  → queryInvalidator.onChanged(...)                        (sync pages, work after a response)
 ```
 
 Two flows, start to finish:
 
-- **The user archives a task.** The transport opens a change scope and calls
-  `workspace.archive.archiveTask(id)`. `ArchiveService` archives the task and its linked note and
-  emits `archived` with both ids. The `ChangeRouter` hears it inside the open scope and adds
-  `['task', 'note']`. The response carries `changed: ['task', 'note']`; the client invalidates the
-  affected queries, waits for the mounted ones to refetch, then resolves the mutation.
+- **The user archives a task.** The transport runs the mutation through
+  `changeTracker.trackMutation`, which calls `workspace.archive.archiveTask(id)`. `ArchiveService`
+  archives the task and its linked note and emits `archived` with both ids. The `ChangeTracker`
+  hears it while the mutation runs and adds `['task', 'note']`. The response carries
+  `changed: ['task', 'note']`; the client invalidates the queries that read either, waits for the
+  mounted ones to refetch, then resolves the mutation.
 - **A Linear sync updates tasks.** The scheduler runs a sync, and `SyncEngine` commits a page and
-  emits progress with `summary.changed: ['task', 'project']`. No mutation scope is open, so the
-  `ChangeRouter` broadcasts `db.changes`. The renderer coalesces it with any others and invalidates,
-  so a favorited synced task updates in the sidebar with no code written for that case.
+  emits progress with `summary.changed: ['task', 'project']`. No mutation is running, so the
+  `ChangeTracker` adds them to this turn's background batch, which goes out as one `db.changes`. The
+  renderer invalidates, so a favorited synced task updates in the sidebar with no code written for
+  that case.
 
 ## File layout
 
@@ -76,11 +82,7 @@ src/main/ipc/
   context.ts                AppContext, createContext
   middleware.ts             logging, requireDevBrain, requireWorkspace
   zod.ts                    zId(entity), zPage
-  broadcaster.ts            Broadcaster over webContents
-  changes/
-    scope.ts                withChangeScope, openScope (AsyncLocalStorage)
-    entities.ts             WorkspaceChange, changedEntities (exhaustive)
-    router.ts               ChangeRouter
+  changes.ts                ChangeTracker, and the entities of each core change
   routers/                  app, workspaces, settings, tasks, archive, favorites, notes, projects,
                             events, calendars, integrations, sources, sync, search
   router.ts                 appRouter, AppRouter
@@ -91,47 +93,51 @@ src/renderer/ipc/
   link.ts                   ipcLink (tRPC link: envelope, onChanged)
   bridge.ts                 the preload's bridge, read at call time
   events.ts                 createEventClient
-  index.ts                  ipc (createTRPCClient), events, trpc (createTRPCOptionsProxy)
-src/renderer/data/
-  invalidation.ts           affects, isPrefix, compile, invalidateFor
-  changes.ts                applyChanges, the db.changes listener, coalescing, deferral
-  queryClient.ts            QueryClient, provider setup
+  query-invalidator.ts      ENTITIES_READ_BY_ROUTE, createQueryInvalidator
+  index.ts                  queryClient, events, queryInvalidator, ipc (createTRPCClient),
+                            trpc (createTRPCOptionsProxy)
 ```
 
-## The change router
+## The change tracker
 
-Core already announces every change through `ChangeListeners`. The `ChangeRouter` decides only where
-each change goes: into the response of the mutation that caused it, or out as a broadcast.
+Core already announces every change through `ChangeListeners`. The `ChangeTracker`
+(`src/main/ipc/changes.ts`) decides only where each change goes: into the response of the mutation
+that caused it, or into the background batch.
 
 ```
-     workspace services' onChange / onProgress
-     (tasks, notes, projects, events, archive, favorites, detach, integrations, sync)
+     workspace services' onChange / onProgress / onStatus
+     (tasks, notes, projects, events, calendars, archive, favorites, detach, integrations, sync)
                                 │
                                 ▼
-                 changeRouter: entities = changedEntities(change)
+                 recordChange(entitiesOf…Change(change))
                                 │
-          inside an open mutation scope? (AsyncLocalStorage)
+          inside a running mutation that hasn't answered? (AsyncLocalStorage)
              │ yes                                  │ no
              ▼                                      ▼
-  add to that request's `changed`      broadcast 'db.changes' { entities }
+  add to that mutation's `changed`;     add to this turn's background batch;
+  once it answers, send them to the     setImmediate sends the batch as one
+  other windows as 'db.changes'         'db.changes' when the turn ends
 ```
 
+- **Only mutations.** `attachRouter` runs each mutation through `trackMutation`. A query changes
+  nothing, so it is not tracked; if one ever did write, its change would go out in the batch.
+- **Only services.** Procedures have no `ctx.changes`. A write the renderer must hear about is
+  announced by the service that makes it.
 - **Attribution.** `ChangeListeners.emit` runs listeners synchronously in the async context of
   whatever caused the change, so `AsyncLocalStorage.getStore()` inside the listener returns the
-  scope of the mutation responsible, if there is one.
-- **Closed scopes.** A scope closes when its response is built. Work that started inside a request
-  but finishes later (a sync run started by `sync.now`, a reconnect or a calendar selection) carries
-  the request's async context forward; once the scope is closed, its changes are broadcast instead of
-  being lost.
+  mutation responsible, if there is one, including after an `await` (a note file write).
+- **Answered mutations.** Work that started inside a mutation but finishes later (a sync run
+  started by a connect) carries the mutation's async context forward. Once the mutation has
+  answered, its changes go in the background batch instead of being lost.
+- **Batching per turn.** One write often emits several events in the same turn: the last sync page's
+  progress, then the run's status. `setImmediate` waits until the turn's synchronous work and
+  microtasks are done, so they go out together and the renderer refetches once. A microtask would
+  fire before the status change; a timer would only add delay, since pages are separated by network
+  fetches anyway.
 - **Changes emitted inside a transaction** (`ArchiveChange`, `disconnected`). The listener runs
   before the commit, but the main process is single-threaded and the transaction synchronous: the
-  response or broadcast cannot reach the renderer, nor its refetch run, until the commit is done.
-- **Gaps.** `CalendarService`, `SettingsService` and the workspace registry emit nothing. Their
-  handlers call `ctx.changes.record(...)`.
+  response or batch cannot reach the renderer, nor its refetch run, until the commit is done.
 - **Over-reporting is safe.** It only costs a refetch. When in doubt, a mapping returns more.
-
-The mapping is one exhaustive `switch` per change union, with `assertNever` defaults, so a new
-change type fails typecheck until it is handled:
 
 | Core change                         | `ChangedEntity[]`                                                    |
 | ----------------------------------- | -------------------------------------------------------------------- |
@@ -139,19 +145,23 @@ change type fails typecheck until it is handled:
 | `NoteChange`                        | `note`                                                               |
 | `ProjectChange`                     | `project`                                                            |
 | `EventChange`                       | `event`                                                              |
+| `CalendarChange`                    | `calendar`                                                           |
 | `ArchiveChange`                     | each of `task`, `project`, `note` whose id list is not empty         |
 | `FavoriteChange`                    | the favorited entity's type (`tasks` → `task`, …)                    |
 | `TaskLinkChange` (detach, reattach) | `task` plus its `changed`; `credentials_rejected` → `integration`    |
 | `IntegrationChange`                 | `integration` and `externalSource`, plus `changed` on `disconnected` |
 | `SyncProgress`                      | `summary.changed`                                                    |
+| `SyncStatusChange`                  | `externalSource`                                                     |
+| `WorkspaceChange`                   | `workspace`; `opened` and `closed` also send `workspace.changed`     |
 
-The router also broadcasts deltas for status UI, whatever the scope: `integrations.changed`
-(`integrationId`, `type`), `sync.progress` (`sourceId`, `phase`, `itemsApplied`), `sources.changed`
-(`sourceId`) and `workspace.changed` (`id`, or `null` on close).
+`workspace.changed` (`id`, or `null` on close) goes to every window but the one whose mutation
+switched; that window learns of it from `workspace` in its response. The status deltas the plan
+also listed (`integrations.changed`, `sync.progress`, `sources.changed`) are declared in
+`AppEvents` but not sent yet: they come with the status UI.
 
 ## Changes to core
 
-Core stays free of IPC and Electron (`boundary.test.ts`). It gets four small changes, all following
+Core stays free of IPC and Electron (`boundary.test.ts`). It gets six small changes, all following
 existing conventions:
 
 1. **`WorkspaceService.onChange`**, built on `ChangeListeners`:
@@ -164,6 +174,10 @@ existing conventions:
    core, and point `boundary.test.ts` at the new location.
 4. **Move the `CoreErrorCode` union to `src/common/errors.ts`.** `core/shared/errors.ts` imports it
    from there.
+5. **`CalendarService.onChange`**: `setVisible` and `setSelected` send `{ type: 'updated'; calendar }`.
+   Nothing announced them before, so hiding a calendar would have refreshed nothing.
+6. **`WorkspaceService` sends `created`** once a new workspace is registered, so the workspace list
+   refreshes without the route reporting it.
 
 ---
 
@@ -218,8 +232,9 @@ request ids.
    - It runs the request with `callTRPCProcedure`. Main trusts nothing from the renderer: only
      queries and mutations run, and tRPC answers an unknown path or a type that isn't the
      procedure's with `NOT_FOUND`. Each fails as `internal`.
-   - `createContext({ event, changes })` is typed from the router. `changes.record()` fills the
-     response's `changed`, on failure too; milestone 3 fills it from core's events as well.
+   - `createContext({ event })` is typed from the router. (Milestone 2 first passed a
+     `changes.record()` recorder for resolvers to fill `changed`; the change tracking of milestone 3
+     replaced it, so `changed` now comes from core's events alone.)
    - A disposer that removes the handler.
 5. **`src/preload/index.ts`:**
    - `exposeBridge()` provides `invoke({ path, type, input })` and `subscribe(name, cb)`.
@@ -256,39 +271,32 @@ correct type.
 
 ## Milestone 3: Change router and wiring into the app
 
-> **Status (PR 4):** steps 6–8 are done, except attaching the `ChangeRouter` in step 7. Steps 2–5,
-> that attach and the change tests below are deferred: how the renderer learns what changed is
-> still to be decided. The candidates are the recorded changes this plan describes, a renderer-side
-> map of what each mutation invalidates, and refetching every query on screen after any write
-> (with sync pushing one event). Until then `changed` is always empty: milestone 2's
-> `ctx.changes` is there, and no route records anything. Step 1 landed in PR 3.
+> **Status:** steps 1 and 6–8 landed in PRs 3 and 4. The change tracking of steps 2–5 landed in
+> GitHub PR #56, with milestone 4, after a separate research pass
+> (`docs/ipc/change-propagation-research.md`). It is built as the steps below describe, except: one
+> `ChangeTracker` in `src/main/ipc/changes.ts` instead of a `changes/` folder; no `ctx.changes`, so
+> a write that no service announced gets an `onChange` on its service instead; the status deltas
+> are not sent yet; and the mappings are plain functions per change type rather than `assertNever`
+> switches.
 
 **Steps**
 
 1. Make core changes 1 and 2 (`WorkspaceService.onChange`, `SyncScheduler.onStatus`), each with
    tests next to the existing ones.
-2. **`changes/scope.ts`:** `withChangeScope(fn)` returns `{ ok, value | error, changed }`, and
-   `changed` is filled on failures too. `openScope()` returns the scope only while it is open.
-3. **`changes/entities.ts`:**
-   - The `WorkspaceChange` union, tagged by source: tasks, notes, projects, events, archive,
-     favorites, detach, integrations, sync.
-   - `changedEntities`, an exhaustive `switch` per source and per `type`, with `assertNever`
-     defaults (see the mapping table above).
-4. **`changes/router.ts`:** `ChangeRouter`.
-   - `attach(devBrain)`: subscribes to the current workspace now, then follows
-     `workspaces.onChange`, subscribing on `opened` and unsubscribing on `closed`. It broadcasts
-     `workspace.changed`.
-   - `route(entities)`: adds to the open scope, or broadcasts `db.changes`.
-   - `record(...entities)`: for handlers whose service emits nothing.
-   - It also broadcasts the deltas: `integrations.changed`, `sync.progress`, `sources.changed`.
-5. **The transport** wraps each mutation's `callTRPCProcedure` in `withChangeScope` and returns
-   the scope's `changed` on success and on failure. `ctx.changes.record()` adds to the same scope.
-   (A tRPC middleware can't do this: it can only return the resolver's output, with no room for
-   `changed` beside it.)
+2. **`ChangeTracker.trackMutation(window, onChange, run)`** runs a mutation inside an
+   `AsyncLocalStorage` scope and gives `onChange` every entity core changes while it runs, on
+   failure too. Once the mutation has answered, its scope stops collecting.
+3. **The mappings** (`entitiesOfArchiveChange`, `entityOfFavoriteChange`,
+   `entitiesOfTaskLinkChange`, `entitiesOfIntegrationChange`): see the table above.
+4. **`ChangeTracker.watch(devBrain)`** subscribes to the current workspace now, then follows
+   `workspaces.onChange`, subscribing on `opened`, unsubscribing on `closed`, and sending
+   `workspace.changed`. Changes outside a mutation go in the background batch.
+5. **The transport** passes each mutation to `changeTracker.trackMutation` and returns its
+   `changed` on success and on failure; queries run untracked. (A tRPC middleware can't do this: it
+   can only return the resolver's output, with no room for `changed` beside it.)
 6. **Context and middleware** (tRPC middleware, built with `t.middleware`):
-   - `createContext({ event, changes, devBrain, log })` returns
-     `{ event, devBrain, workspace: devBrain.currentWorkspace, changes, log }`, read fresh on every
-     call. `src/main/index.ts` binds the loaded DevBrain (or `null`) and the logger where it
+   - `createContext({ event, devBrain, log })` returns
+     `{ event, devBrain, workspace: devBrain.currentWorkspace, log }`, read fresh on every call. `src/main/index.ts` binds the loaded DevBrain (or `null`) and the logger where it
      attaches the router. Startup's order (step 7) means no call arrives before DevBrain is
      loaded and the last workspace open, so there is nothing to wait for.
    - No sender guard: the window is sandboxed and can't open windows or navigate (step 7), so
@@ -309,8 +317,8 @@ correct type.
      in order: load DevBrain; attach everything that follows it (the router, the quit hook, the
      focus and resume sync triggers); reopen the last workspace; create the window. Everything is
      attached before any workspace opens, and the window's first calls find the router and that
-     workspace already open, so nothing passes a startup promise around. The `ChangeRouter`, when
-     it comes, attaches with the rest, and needs no "pick up the workspace already open" case. The
+     workspace already open, so nothing passes a startup promise around. The `ChangeTracker`
+     starts watching with the rest, before the last workspace opens. The
      quit hook calls `devBrain.close()`, which waits for a workspace still opening, as
      `WorkspaceService` queues its transitions.
    - Window hardening from `docs/security/untrusted-content.md`: `setWindowOpenHandler` → deny, and
@@ -329,72 +337,86 @@ correct type.
      app's state beside them in the settings file (`state`) has no route: only main uses it.
    - `workspace.openUrl`, which goes through core's `guardOpenExternal`.
 
-**Tests** (in `src/main/tests/ipc/`, with an in-memory workspace and a fake `Broadcaster`)
+**Tests** (`src/main/tests/ipc/changes.test.ts`, over a real DevBrain folder, with a fake
+`sendToWindows`)
 
-- Archiving a task with a linked note returns `changed: ['task', 'note']` and broadcasts nothing.
-- Favoriting a task returns `changed: ['task']`; favoriting it again returns `[]`.
-- A sync progress event outside any scope broadcasts `db.changes` with `summary.changed`.
-- A change emitted after the scope closed is broadcast.
-- A mutation that throws after one committed write returns that write's type in `changed`.
-- After a workspace switch, the old workspace's changes are ignored and the new one's are routed.
-- `attach` picks up a workspace that was already open before IPC attached.
+- Archiving a task with a linked note returns `changed` with `task` and `note`, sent only to the
+  other windows.
+- A note created after an `await` is in its mutation's `changed`.
+- A mutation that throws after one committed write returns that write's entity in `changed`.
+- Hiding a calendar returns `calendar`; a query that changes something is not tracked.
+- Work a mutation left running is sent in the background once it has answered; a write made while a
+  mutation waits stays out of its `changed`.
+- Several background changes in one turn are sent as one `db.changes`; nothing is sent once the
+  tracker stops watching.
+- A switch sends `workspace.changed` and follows the new workspace; the switching mutation returns
+  `workspace`; creating a workspace returns `workspace` without `workspace.changed`.
 
 **Done when** the renderer can switch workspaces and see `workspace.changed`, and an archive's
-response carries `changed`.
+response carries `changed`. Both are done.
 
 ## Milestone 4: React Query and invalidation
 
+> **Status:** landed in GitHub PR #56. It is simpler than first planned: no `affects`/`compile`, no
+> renderer-side coalescing or deferral, and no devtools yet.
+
 **Steps**
 
-1. Install `@tanstack/react-query`, `@tanstack/react-query-devtools` and
-   `@trpc/tanstack-react-query`.
-2. **Check first** that tRPC's React Query integration runs over `ipcLink`: one query and one
-   mutation, in a test component. Milestone 2 did not cover it.
-3. **`trpc = createTRPCOptionsProxy<AppRouter>({ client: ipc, queryClient })`** in
+1. Install `@tanstack/react-query` and `@trpc/tanstack-react-query`, which requires tRPC 11.22.1.
+2. **`trpc = createTRPCOptionsProxy<AppRouter>({ client: ipc, queryClient })`** in
    `src/renderer/ipc/index.ts`. It gives each query `queryOptions`, `infiniteQueryOptions` and
    `queryKey`, each mutation `mutationOptions`, and each router `pathKey`. `infiniteQueryOptions`
    works on core's lists as they are: they take `cursor` and return `{ items, nextCursor }`. React
-   Query's `signal` reaches the link and is ignored: no call is cancellable through it.
-4. **`invalidation.ts`:**
-   - `affects: Record<ChangedEntity, Path[]>`, keyed at router level:
+   Query's `signal` reaches the link and is ignored: no call is cancellable through it. `App.tsx`
+   uses `useQuery` over the link, in the running app.
+3. **`query-invalidator.ts`:**
+   - `ENTITIES_READ_BY_ROUTE`: the entities each router's queries read, keyed by router, or by full
+     path to override its router. Main says which entities changed, but the cache is keyed by
+     route, and many views read entities other than their own (the calendar view filters on
+     `calendars.visible`, project stats count tasks, favorites and search span everything), so the
+     renderer needs this map from one to the other. A router missing from it refetches on every
+     change.
 
-     | Entity           | Paths                                                 |
-     | ---------------- | ----------------------------------------------------- |
-     | `task`           | `tasks`, `projects`, `favorites`, `search`, `archive` |
-     | `note`           | `notes`, `favorites`, `search`, `archive`             |
-     | `project`        | `projects`, `tasks`, `favorites`, `search`, `archive` |
-     | `event`          | `events`, `favorites`, `search`                       |
-     | `calendar`       | `calendars`, `events`                                 |
-     | `integration`    | `integrations`, `sync`                                |
-     | `externalSource` | `integrations`, `sources`, `sync`                     |
+     | Router                         | Reads                              |
+     | ------------------------------ | ---------------------------------- |
+     | `tasks`                        | `task`, `project`                  |
+     | `projects`                     | `project`, `task`                  |
+     | `notes`                        | `note`, `task`, `project`          |
+     | `events`                       | `event`, `calendar`                |
+     | `calendars`                    | `calendar`                         |
+     | `favorites`                    | `task`, `project`, `note`, `event` |
+     | `archive`                      | `task`, `project`, `note`          |
+     | `search`                       | `task`, `project`, `note`, `event` |
+     | `integrations`, `sync`         | `integration`, `externalSource`    |
+     | `workspaces`                   | `workspace`                        |
+     | `app`, `settings`, `workspace` | nothing                            |
 
-   - `isPrefix`, `compile` (merge, deduplicate, drop covered prefixes), and
-     `invalidateFor(entities)` as one predicate call. tRPC's query keys start with the path array
-     (`[['tasks', 'get'], { input, type }]`), so the predicate matches a prefix of that.
+   - `onChanged(entities)` invalidates every cached query whose route reads one of them, in one
+     `invalidateQueries` call with a predicate on the key's path (`[['tasks', 'get'], { input,
+type }]`). React Query refetches the mounted ones; the promise resolves once they have.
+   - **Workspace switch.** `workspace.changed` carries the open workspace's id. When it differs from
+     the one whose data is cached, every query outside `app`, `settings` and `workspaces` is reset:
+     `resetQueries` cancels what is in flight, clears the data and refetches what is mounted. A
+     mutation's response only says `workspace`, which a switch and a new workspace both report, so
+     the invalidator then asks main which workspace is open (`currentWorkspaceId`) and resets only
+     if it changed.
 
-5. **`changes.ts`:**
-   - One dirty set.
-   - `applyChanges(changed)`, the client's `onChanged`: if this is the only mutation in flight,
-     invalidate and wait for the refetch; otherwise add to the dirty set.
-   - A `db.changes` listener that adds to the dirty set.
-   - Flushing: 16 ms trailing, 250 ms at most, held while `isMutating() > 0`, and rescheduled when
-     the mutation cache settles.
-   - `workspace.changed` → `qc.clear()`.
-6. **`main.tsx`:** create the client with `ipcLink({ onChanged: applyChanges })`, the
-   `QueryClientProvider` and the devtools in development, and start the listeners once.
+4. **`main.tsx`:** the `QueryClientProvider`, and `queryInvalidator.listen(events)` once. The link is
+   built with `ipcLink({ onChanged: queryInvalidator.onChanged })`.
 
-**Tests** (Node, with fake timers)
+**Tests** (`src/renderer/tests/ipc/query-invalidator.test.ts`, Node, over a real `QueryClient`)
 
-- `compile` and `isPrefix` edge cases.
-- A burst gives one flush; a steady stream still flushes at least every 250 ms; nothing flushes
-  while a mutation is pending.
-- `applyChanges` waits for the refetch when it is the only mutation in flight and defers when others
-  are pending.
-- `invalidateFor(['task'])` matches `[['tasks', …], …]`, `[['projects', …], …]` and
-  `[['favorites', …], …]` keys and leaves `[['notes', …], …]` alone.
+- `onChanged(['task'])` refetches active `tasks` and `favorites` queries, not `events` or `app`, and
+  resolves once the refetches have landed.
+- A calendar change refetches the calendar view; an inactive query is marked stale, not fetched; an
+  unlisted route refetches on any change.
+- A switch resets workspace data and keeps `settings`; the same workspace keeps everything; a
+  mutation reporting `workspace` resets only when the open one changed, and resets when it can't
+  tell.
+- `listen` refetches on `db.changes`, resets on `workspace.changed`, and stops when told.
 
-**Done when** a test component's mutation and a simulated `db.changes` broadcast both refetch the
-right mounted queries.
+**Done when** a mutation and a `db.changes` event both refetch the right mounted queries. Both are
+covered by tests; the end-to-end check in Electron so far is a workspace switch from a second window.
 
 ## Milestone 5: Routes by feature
 
@@ -410,7 +432,7 @@ synchronous.
 | `projects`     | `list`, `get`, `create`, `update`, `updateStatus`, `stats`, `setFavorite`                                                                                                           |                                                                                                                                                                                                                 |
 | `events`       | `listForCalendar`, `get`, `create`, `update`, `delete`, `setFavorite`                                                                                                               |                                                                                                                                                                                                                 |
 | `favorites`    | `list` (infinite, with the `entityType` filter)                                                                                                                                     | `listFavorites`. Favoriting itself is each entity router's `setFavorite`.                                                                                                                                       |
-| `calendars`    | `list`, `setVisible`, `setSelected`                                                                                                                                                 | `CalendarService` emits nothing, so these call `ctx.changes.record('calendar')`. `setSelected` also calls `workspace.sync.syncNow(sourceId)` when the calendar has a source.                                    |
+| `calendars`    | `list`, `setVisible`, `setSelected`                                                                                                                                                 | `CalendarService` announces both. `setSelected` also calls `workspace.sync.syncNow(sourceId)` when the calendar has a source.                                                                                   |
 | `integrations` | `list`, `get`, `connect` (API key or OAuth), `reconnect`, `cancelConnect`, `setEnabled`, `previewDisconnect`, `disconnect`                                                          | An OAuth `connect` or `reconnect` keeps its flow's `AbortController` in the router; `cancelConnect` aborts it (one flow per workspace, so no id), and the aborted call maps core's `AbortError` to `cancelled`. |
 | `sources`      | `setEnabled`                                                                                                                                                                        |                                                                                                                                                                                                                 |
 | `sync`         | `now`, `status`                                                                                                                                                                     |                                                                                                                                                                                                                 |
@@ -443,7 +465,10 @@ events, favorites and search.
 - One end-to-end test through `attachRouter` with an in-memory workspace: a successful call, a
   `CoreError` code that reaches the renderer (for example `external_read_only` on a synced task),
   and the expected `changed`.
-- A new entity type, if any, goes into `ChangedEntity`, `changedEntities` and `affects`.
+- A new entity type, if any, goes into `ChangedEntity`, the `ChangeTracker`'s mappings and
+  `ENTITIES_READ_BY_ROUTE`.
+- A router whose queries read entities other than its own gets a line in `ENTITIES_READ_BY_ROUTE`;
+  without one it refetches on every change.
 
 **Done when** every operation listed in `docs/integrations/tech-design.md` § "IPC contract" has a
 route.
@@ -454,15 +479,15 @@ route.
    checklist:
    - Add the procedure to its feature router, with an input schema.
    - Return what core returns.
-   - Call `ctx.changes.record()` only if the service emits nothing.
-   - Update `affects` only when a new entity or view is involved.
+   - If the service emits nothing for a write, add an `onChange` to the service, not the route.
+   - Add the router to `ENTITIES_READ_BY_ROUTE` with the entities its queries read.
 2. In `docs/integrations/tech-design.md`, replace "IPC contract (deferred)" with a pointer to the
    router and the `AppEvents` names.
 3. In `docs/follow-ups.md`, close the calendar-selection sync item and the delta-vs-snapshot item
    for `IntegrationChange`.
 4. Add a short "IPC" section to `CLAUDE.md`: core never imports from `src/main/ipc`; the renderer
    imports from `src/main` as a type only; handlers return core's data as it is; a new change type
-   must be added to `changedEntities`.
+   must be mapped in the `ChangeTracker`.
 
 ---
 
@@ -472,10 +497,12 @@ An optimistic update patches the renderer's cache when the user acts, before the
 and is replaced by real data afterwards. These are written per interaction in the renderer; the
 star toggle is the likely first one. The layer makes them safe:
 
-- **What the layer guarantees.** `applyChanges` defers while other mutations are pending, so one
-  mutation's refetch cannot overwrite another's patch with data from before it committed. A mutation
-  resolves only after its `changed` has been refetched, so the swap from patch to real data has no
-  gap. `changed` is returned on failure too, so whatever did commit is refetched.
+- **What the layer guarantees.** A mutation resolves only after its `changed` has been refetched,
+  so the swap from patch to real data has no gap. `changed` is returned on failure too, so whatever
+  did commit is refetched.
+- **What it doesn't.** Nothing defers a refetch while other mutations are pending, as first
+  planned. With two mutations in flight, the first's refetch can briefly overwrite the second's
+  patch until the second's own refetch lands. Add deferral when a view shows this.
 - **What each optimistic mutation must do.** In `onMutate`, call `cancelQueries` and patch fields
   only; never add or remove list items, which the refetch does. Roll back in `onError`, by restoring
   a snapshot or invalidating the affected paths: a failure that committed nothing returns
@@ -495,13 +522,14 @@ star toggle is the likely first one. The layer makes them safe:
 | 2    | Milestone 2: tRPC over IPC and `app.ping`                                                                               | 1                           |
 | 3    | Core changes 1 and 2 (`WorkspaceService.onChange`, `SyncScheduler.onStatus`)                                            | none; can run alongside 1–2 |
 | 4    | Milestone 3: context, middleware, window hardening, workspace/settings/openUrl routes (change router deferred)          | 2, 3                        |
-| 5    | Milestone 4: React Query and invalidation                                                                               | 4                           |
+| 5    | Milestone 4, with milestone 3's change tracking: GitHub PR #56                                                          | 4                           |
 | 6a–c | Milestone 5: tasks + archive; integrations + sources + sync + calendars; notes + projects + events + favorites + search | 5                           |
 | 7    | Milestone 6: documentation                                                                                              | 6                           |
 
 ## Out of scope
 
-- **More than one window.** Covered later by also broadcasting each request's `changed`.
+- **More than one window.** The tracker already sends each mutation's changes to the other
+  windows; opening a second window is what remains.
 - **tRPC subscriptions.** The push events go to the whole app and take no input, so a broadcast
   serves them. Subscriptions would need the transport to manage each one's lifetime (start, stop,
   cleanup when a window reloads or closes), as electron-trpc's `createIPCHandler` does; that is the
