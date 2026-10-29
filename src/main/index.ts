@@ -1,4 +1,4 @@
-import { app, BrowserWindow, nativeTheme, net, powerMonitor, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, net, powerMonitor, safeStorage, shell } from 'electron';
 import { IPC_EVENT_PREFIX } from '@common/ipc/constants';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -130,8 +130,6 @@ function createWindow() {
     width: 1200,
     height: 800,
     show: false,
-    // the splash's background (src/renderer/index.html), so nothing flashes before the page paints
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#1e1e1e' : '#ffffff',
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
@@ -176,8 +174,8 @@ function hardenWindow(win: BrowserWindow) {
 
 // --- App lifecycle --------------------------------------------------------
 // Startup, in order: load DevBrain; attach everything that follows it, before anything starts;
-// then create the window, whose first calls find the router. The window shows the splash at once
-// and reopens the last workspace itself (workspaces.openLast), so a slow open never holds it back.
+// then create the window, whose first calls find the router. The renderer reopens the last
+// workspace itself (workspaces.openLast), so a slow open never holds the window back.
 app.whenReady().then(async () => {
   configureLogging();
 

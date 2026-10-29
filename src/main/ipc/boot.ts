@@ -5,15 +5,15 @@ import type { Page } from '@main/core/shared/pagination';
 import { lastOpenedWorkspace } from '../runtime/start';
 
 // What a page needs for its first render, so it shows the right screen at once rather than a
-// loading state: the renderer seeds its query cache with it (src/renderer/ipc/boot.ts). Read again
-// on every page load, so a reload sees the workspace open now. Workspace info only: names, colors
-// and ids, never anything from a workspace's database.
+// loading state: the renderer can seed its query cache with it. Read again on every page load, so
+// a reload sees the workspace open now. Workspace info only: names, colors and ids, never anything
+// from a workspace's database.
 export interface BootSnapshot {
   // false when DevBrain could not be loaded: nothing that needs it can run
   devBrainAvailable: boolean;
   // the open workspace: what workspaces.current answers
   current: WorkspaceEntry | null;
-  // the workspace workspaces.openLast would open, while none is open: the splash shows it
+  // the workspace workspaces.openLast would open, while none is open, for a splash to show
   last: WorkspaceEntry | null;
   // what workspaces.list answers for its first page
   workspaces: Page<WorkspaceEntry>;
