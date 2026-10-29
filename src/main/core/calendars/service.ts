@@ -7,9 +7,12 @@ import { InvalidInputError, NotFoundError } from '../shared/errors';
 import { Calendar } from './types';
 
 // What the user changed on a calendar, for in-process subscribers: the IPC layer tells the
-// renderer, whose calendar view reads `visible`. Sync's own writes to calendars are reported by its
-// progress.
-export type CalendarChange = { type: 'updated'; calendar: Calendar };
+// renderer, whose calendar view reads `visible`, and the workspace syncs a synced calendar's source
+// when its selection changes. Sent only when the value changed. Sync's own writes to calendars are
+// reported by its progress.
+export type CalendarChange =
+  | { type: 'visibility_changed'; calendar: Calendar }
+  | { type: 'selection_changed'; calendar: Calendar };
 
 // The calendars events belong to, local and synced: the public interface for managing them. It
 // reads and writes the calendars table only. Synced calendars' rows come from their provider
@@ -46,15 +49,17 @@ export class CalendarService {
   }
 
   /**
-   * Whether a synced calendar syncs. Flips the column only: the next sync run of its source gives a
-   * selected calendar a full pass, and removes a deselected one's events by the removal rule (see
-   * EventSyncer). A local calendar always syncs, so it is refused.
+   * Whether a synced calendar syncs. Flips the column only, and announces it; the workspace then
+   * asks for a run of its source, which gives a selected calendar a full pass and removes a
+   * deselected one's events by the removal rule (see EventSyncer). A local calendar always syncs,
+   * so it is refused. Setting the value it already has changes and announces nothing.
    */
   setSelected(id: CalendarId, selected: boolean): Calendar {
     const existing = this.getById(id);
     if (existing.sourceId === null) {
       throw new InvalidInputError(`${id} is a local calendar, which always syncs`);
     }
+    if (existing.selected === selected) return existing;
     const calendar = this.db
       .update(calendars)
       .set({ selected })
@@ -62,12 +67,17 @@ export class CalendarService {
       .returning()
       .get();
     if (!calendar) throw new NotFoundError(id);
-    this.changes.emit({ type: 'updated', calendar });
+    this.changes.emit({ type: 'selection_changed', calendar });
     return calendar;
   }
 
-  /** shows or hides a calendar's events in the calendar view; nothing is synced or removed */
+  /**
+   * Shows or hides a calendar's events in the calendar view; nothing is synced or removed. Setting
+   * the value it already has changes and announces nothing.
+   */
   setVisible(id: CalendarId, visible: boolean): Calendar {
+    const existing = this.getById(id);
+    if (existing.visible === visible) return existing;
     const calendar = this.db
       .update(calendars)
       .set({ visible })
@@ -75,7 +85,7 @@ export class CalendarService {
       .returning()
       .get();
     if (!calendar) throw new NotFoundError(id);
-    this.changes.emit({ type: 'updated', calendar });
+    this.changes.emit({ type: 'visibility_changed', calendar });
     return calendar;
   }
 }

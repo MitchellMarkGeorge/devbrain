@@ -482,13 +482,23 @@ describe('calendars', () => {
     expect(result.changed).toEqual([]);
   });
 
-  it('selects a synced calendar and syncs its source', async () => {
+  it('deselects a synced calendar, and core syncs its source; hiding one syncs nothing', async () => {
     const { sources } = await connectCalendar();
+    const sourceId = sources[0].id;
     const synced = data<Calendar[]>(await call('calendars.list')).find(
       (calendar) => calendar.sourceId !== null,
     )!;
-    expect(synced.sourceId).toBe(sources[0].id);
-    const syncNow = vi.spyOn(workspace().sync, 'syncNow');
+    expect(synced.sourceId).toBe(sourceId);
+    const trigger = vi.spyOn(workspace().sync, 'trigger');
+    sendToWindows.mockClear();
+
+    const hidden = await call(
+      'calendars.setVisible',
+      { id: synced.id, visible: false },
+      'mutation',
+    );
+    expect(hidden.changed).toEqual(['calendar']);
+    expect(trigger).not.toHaveBeenCalled();
 
     const result = await call(
       'calendars.setSelected',
@@ -498,6 +508,17 @@ describe('calendars', () => {
 
     expect(data(result)).toMatchObject({ id: synced.id, selected: false });
     expect(result.changed).toContain('calendar');
-    expect(syncNow).toHaveBeenCalledExactlyOnceWith(sources[0].id);
+    expect(trigger).toHaveBeenCalledExactlyOnceWith('connected', sourceId);
+    // the run ends and records it on the source
+    await vi.waitFor(() => expect(sent('sources.changed')).toContainEqual({ sourceId }));
+
+    // the value it already has: nothing changes, and nothing syncs
+    const again = await call(
+      'calendars.setSelected',
+      { id: synced.id, selected: false },
+      'mutation',
+    );
+    expect(again).toMatchObject({ ok: true, changed: [] });
+    expect(trigger).toHaveBeenCalledOnce();
   });
 });

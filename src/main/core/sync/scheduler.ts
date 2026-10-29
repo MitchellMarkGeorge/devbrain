@@ -37,7 +37,8 @@ export interface SyncSchedulerOptions {
  * Why a sync was asked for, from outside the scheduler. Focus and resume are skipped when the
  * source's last run finished under MIN_TRIGGER_GAP_MS ago, and while it backs off or waits on a
  * rate limit. Manual always runs, includes the reconcile pass, and restarts the backoff. Connected
- * always runs: a source that was just connected or switched on syncs at once, with the reconcile
+ * always runs: a source that was just connected or switched on, or whose calendar selection
+ * changed, syncs at once, with the reconcile
  * pass when it resumes from a finished first sync. Reconnected runs as connected does, restarts
  * the backoff, and waits for the provider's retry time if one is ahead.
  */

@@ -130,6 +130,13 @@ export class Workspace {
       integrations.markNeedsReauth(change.integrationId);
     });
     this.sync = new SyncScheduler({ engine, integrations, syncState, logger });
+    // A synced calendar chosen or dropped syncs its source at once, as a newly switched-on source
+    // does: the run gives a selected calendar a full pass and removes a deselected one's events.
+    this.calendars.onChange((change) => {
+      const { sourceId } = change.calendar;
+      if (change.type !== 'selection_changed' || sourceId === null) return;
+      void this.sync.trigger('connected', sourceId);
+    });
     this.openUrl = guardOpenExternal(options.openExternal ?? noBrowser);
   }
 

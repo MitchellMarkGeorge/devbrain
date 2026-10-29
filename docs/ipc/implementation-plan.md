@@ -184,8 +184,10 @@ existing conventions:
    core, and point `boundary.test.ts` at the new location.
 4. **Move the `CoreErrorCode` union to `src/common/errors.ts`.** `core/shared/errors.ts` imports it
    from there.
-5. **`CalendarService.onChange`**: `setVisible` and `setSelected` send `{ type: 'updated'; calendar }`.
-   Nothing announced them before, so hiding a calendar would have refreshed nothing.
+5. **`CalendarService.onChange`**: `setVisible` sends `{ type: 'visibility_changed'; calendar }` and
+   `setSelected` `{ type: 'selection_changed'; calendar }`, each only when the value changed.
+   Nothing announced them before, so hiding a calendar would have refreshed nothing. `Workspace`
+   listens for `selection_changed` and syncs a synced calendar's source (milestone 5).
 6. **`WorkspaceService` sends `created`** once a new workspace is registered, so the workspace list
    refreshes without the route reporting it.
 
@@ -442,7 +444,7 @@ synchronous.
 | `projects`     | `list`, `get`, `create`, `update`, `updateStatus`, `stats`, `setFavorite`                                                                                                           |                                                                                                                                                                                                  |
 | `events`       | `listForCalendar`, `get`, `create`, `update`, `delete`, `setFavorite`                                                                                                               |                                                                                                                                                                                                  |
 | `favorites`    | `list` (infinite, with the `entityType` filter)                                                                                                                                     | `listFavorites`. Favoriting itself is each entity router's `setFavorite`.                                                                                                                        |
-| `calendars`    | `list`, `setVisible`, `setSelected`                                                                                                                                                 | `CalendarService` announces both. `setSelected` also calls `workspace.sync.syncNow(sourceId)` when the calendar has a source.                                                                    |
+| `calendars`    | `list`, `setVisible`, `setSelected`                                                                                                                                                 | `CalendarService` announces both. A synced calendar's `selection_changed` makes `Workspace` sync its source (the `connected` trigger), so the route only calls `setSelected`.                    |
 | `integrations` | `list`, `get`, `connect` (API key or OAuth), `reconnect`, `cancelConnect`, `setEnabled`, `previewDisconnect`, `disconnect`                                                          | `IntegrationService` keeps the OAuth flow's `AbortController`; `cancelConnect` calls its `cancelConnect` (one flow per workspace, so no id), and the aborted call fails with core's `cancelled`. |
 | `sources`      | `setEnabled`                                                                                                                                                                        |                                                                                                                                                                                                  |
 | `sync`         | `now`, `status`                                                                                                                                                                     |                                                                                                                                                                                                  |
@@ -452,10 +454,12 @@ synchronous.
 > deltas. The OAuth flow's `AbortController` lives in `IntegrationService`, beside its one-flow rule,
 > and `cancelConnect` is a core method.
 > `sync.now` resolves once its runs have ended, so what they wrote comes back in `changed`;
-> `calendars.setSelected` leaves its source's sync running after the response. `sources` has no
+> `calendars.setSelected` leaves the sync of its source, started by core's `Workspace` listener on
+> `selection_changed`, running after the response. `sources` has no
 > query, so it has no line in `ENTITIES_READ_BY_ROUTE`; `integrations.previewDisconnect` has its
 > own, as it counts synced rows. Core gained `cancelConnect` and `ConnectCancelledError`, whose
-> `cancelled` moved from the IPC layer's codes to `CoreErrorCode`.
+> `cancelled` moved from the IPC layer's codes to `CoreErrorCode`; `CalendarChange` split into
+> `visibility_changed` and `selection_changed`, sent only for a real change.
 
 **`setFavorite`** takes the state wanted, not a flip of what is stored, so a double click or a stale
 view cannot leave it the opposite of what the user saw. The star button passes the opposite of what
