@@ -113,59 +113,59 @@ Rules:
 
 ## 3. Tokens
 
-All values come from the Figma variables (`color/neutral/*`, `font/*`, `shadcn colors/*`, `Default/*`) unless marked _added_.
+Every colour is a Tailwind v4 palette colour, named the way shadcn/ui's neutral theme names it. Where the Figma file used an older Tailwind v3 value (its `Default/*` variables) or an off-scale grey, the token uses the matching v4 step instead. Values marked _added_ have no Figma variable.
 
 ### 3.1 Colour: semantic
 
-| Token                                    | Dark              | Light       | Used for                                                 |
-| ---------------------------------------- | ----------------- | ----------- | -------------------------------------------------------- |
-| `--background`                           | neutral-950       | white       | App, sidebar, lists, cards                               |
-| `--foreground`                           | neutral-200       | neutral-950 | Body text, menu items, pill labels                       |
-| `--foreground-strong` _added_            | neutral-100       | neutral-950 | Page and document titles, row names, sidebar entries     |
-| `--muted-foreground`                     | neutral-500       | neutral-600 | Inactive nav, secondary labels, placeholders, pill icons |
-| `--subtle-foreground` _added_            | neutral-600       | neutral-500 | Dates, descriptions, hints, "Linked to", issue keys      |
-| `--card`                                 | neutral-950       | white       | Schedule, note and project cards; settings groups        |
-| `--popover`                              | neutral-900       | white       | Dropdown, context menu, select, combobox, slash menu     |
-| `--overlay` _added_                      | #111              | white       | Dialog, sheet/aside, toast                               |
-| `--primary` / `--primary-foreground`     | neutral-200 / 900 | 900 / 50    | Checked checkbox, switch on, the one emphasised button   |
-| `--secondary` / `--secondary-foreground` | neutral-900 / 200 | 100 / 900   | Default button, selected nav item, segmented thumb       |
-| `--muted`                                | neutral-900       | neutral-100 | Group heading band, all-day row, code block              |
-| `--accent` / `--accent-foreground`       | neutral-900 / 100 | 100 / 900   | Hover on rows and menu items, highlighted menu item      |
-| `--hover` _added_                        | #1c1c1c           | neutral-100 | Hover on something already `--secondary`                 |
-| `--destructive`                          | red-500           | red-600     | Delete actions (text colour, not a red fill)             |
-| `--border`                               | neutral-900       | neutral-200 | Row dividers, pills, cards, sidebar edge, checkbox       |
-| `--border-strong` _added_                | neutral-800       | neutral-200 | Buttons, popovers, dialogs, selected nav item, inputs    |
-| `--input`                                | neutral-800       | neutral-200 | Input and select borders                                 |
-| `--ring`                                 | neutral-500       | neutral-500 | Focus outline                                            |
-| `--sidebar*`                             | see tokens.css    |             | Sidebar surface, items, active item                      |
+| Token                                    | Dark              | Light       | Used for                                                                        |
+| ---------------------------------------- | ----------------- | ----------- | ------------------------------------------------------------------------------- |
+| `--background`                           | neutral-950       | white       | App, sidebar, lists, cards                                                      |
+| `--foreground`                           | neutral-200       | neutral-950 | Body text, menu items, pill labels                                              |
+| `--foreground-strong` _added_            | neutral-100       | neutral-950 | Page and document titles, row names, sidebar entries                            |
+| `--muted-foreground`                     | neutral-400       | neutral-500 | Inactive nav, secondary labels, placeholders, descriptions (shadcn's values)    |
+| `--subtle-foreground` _added_            | neutral-500       | neutral-500 | Dates, hints, "Linked to", issue keys                                           |
+| `--card`                                 | neutral-950       | white       | Schedule, note and project cards; settings groups                               |
+| `--popover`                              | neutral-900       | white       | Dropdown, context menu, select, combobox, slash menu                            |
+| `--overlay` _added_                      | neutral-900       | white       | Dialog, sheet/aside, toast (shadcn's dark card step; Figma's #111 is off-scale) |
+| `--primary` / `--primary-foreground`     | neutral-200 / 900 | 900 / 50    | Checked checkbox, switch on, the one emphasised button                          |
+| `--secondary` / `--secondary-foreground` | neutral-900 / 200 | 100 / 900   | Default button, selected nav item, segmented thumb                              |
+| `--muted`                                | neutral-900       | neutral-100 | Group heading band, all-day row, code block                                     |
+| `--accent` / `--accent-foreground`       | neutral-900 / 100 | 100 / 900   | Hover on rows and menu items, highlighted menu item                             |
+| `--hover` _added_                        | neutral-800       | neutral-100 | Hover on something already `--secondary` (shadcn's dark accent)                 |
+| `--destructive`                          | red-500           | red-600     | Delete actions (text colour, not a red fill)                                    |
+| `--border`                               | neutral-900       | neutral-200 | Row dividers, pills, cards, sidebar edge, checkbox                              |
+| `--border-strong` _added_                | neutral-800       | neutral-200 | Buttons, popovers, dialogs, selected nav item, inputs                           |
+| `--input`                                | neutral-800       | neutral-200 | Input and select borders                                                        |
+| `--ring`                                 | neutral-500       | neutral-500 | Focus outline                                                                   |
+| `--sidebar*`                             | see tokens.css    |             | Sidebar surface, items, active item                                             |
 
-**Light theme status colours.** On white the Figma status colours fall below 3:1, so the light theme swaps each for its 700 shade (`--orange-700`, `--amber-700`, `--lime-700`, `--green-700`, `--emerald-700`) and red-600.
+**Light theme.** shadcn's neutral light theme. On white the Figma status colours fall below 3:1, so the light theme swaps each for its Tailwind 700 step (`--orange-700`, `--amber-700`, `--lime-700`, `--green-700`, `--emerald-700`) and red-600. `--ring` is neutral-500 rather than shadcn's neutral-400, which is only 2.6:1 on white.
 
-**Contrast note.** `--muted-foreground` (neutral-500 on neutral-950) is 4.2:1, just under AA for small text, and `--subtle-foreground` (neutral-600) is about 2.5:1, below WCAG AA. Figma uses it for dates and descriptions; keep it for secondary metadata only and use `--muted-foreground` for anything a user must read (dialog descriptions, settings help text, empty states).
+**Contrast note.** Text tokens meet WCAG AA (4.5:1) in both themes except `--subtle-foreground` in dark (neutral-500 on neutral-950, 4.2:1), the nearest Tailwind step. Figma used neutral-600 there (2.5:1). Keep it for metadata a reader can skip and use `--muted-foreground` for anything a user must read (dialog descriptions, settings help text, empty states).
 
 ### 3.2 Colour: domain
 
-| Group                                          | Token                                       | Value                 | Shown as                                               |
-| ---------------------------------------------- | ------------------------------------------- | --------------------- | ------------------------------------------------------ |
-| Task status (`TaskStatus`)                     | `--status-not-started`                      | neutral-500           | Empty circle                                           |
-|                                                | `--status-in-progress`                      | orange-500 `#ff6900`  | Activity / pulse line                                  |
-|                                                | `--status-completed`                        | green-500 `#00c951`   | Filled check circle; name struck through and muted     |
-|                                                | `--status-cancelled`                        | neutral-600           | _Not designed yet_: suggest a slashed circle           |
-|                                                | `--status-overdue`                          | red-500 `#fb2c36`     | Flag (derived, not stored)                             |
-| Priority (`TaskPriority`)                      | `--priority-high`                           | red-500               | Double chevron up                                      |
-|                                                | `--priority-medium`                         | amber-500 `#f59e0b`   | Equals sign                                            |
-|                                                | `--priority-low`                            | emerald-600 `#009966` | Chevron down                                           |
-| Project health (`ProjectHealth`)               | `--health-on-track`                         | lime-500 `#7ccf00`    | Clock / pulse                                          |
-|                                                | `--health-at-risk`                          | amber-500             | Warning circle                                         |
-|                                                | `--health-off-track`                        | red-500               | X circle                                               |
-|                                                | `--health-not-started`                      | neutral-500           | Empty circle                                           |
-|                                                | `--health-completed`                        | green-500             | Filled check circle                                    |
-| Dates                                          | `--date-today`                              | amber-500             | "Today", "In 3 hours"                                  |
-|                                                | `--date-overdue`                            | red-500               | Overdue date, "In 5 minutes"                           |
-|                                                | `--now-indicator`                           | red-600 `#e7000b`     | Calendar current-time line, today in the mini calendar |
-| Swatches (workspace, calendar, event, project) | `--swatch-red/amber/green/blue/indigo/pink` | Figma `Default/*-500` | Colour bar, tile, dot                                  |
+| Group                                          | Token                                       | Value                                    | Shown as                                               |
+| ---------------------------------------------- | ------------------------------------------- | ---------------------------------------- | ------------------------------------------------------ |
+| Task status (`TaskStatus`)                     | `--status-not-started`                      | neutral-500                              | Empty circle                                           |
+|                                                | `--status-in-progress`                      | orange-500 `#ff6900`                     | Activity / pulse line                                  |
+|                                                | `--status-completed`                        | green-500 `#00c951`                      | Filled check circle; name struck through and muted     |
+|                                                | `--status-cancelled`                        | neutral-600                              | _Not designed yet_: suggest a slashed circle           |
+|                                                | `--status-overdue`                          | red-500 `#fb2c36`                        | Flag (derived, not stored)                             |
+| Priority (`TaskPriority`)                      | `--priority-high`                           | red-500                                  | Double chevron up                                      |
+|                                                | `--priority-medium`                         | amber-500 `#f59e0b`                      | Equals sign                                            |
+|                                                | `--priority-low`                            | emerald-600 `#009966`                    | Chevron down                                           |
+| Project health (`ProjectHealth`)               | `--health-on-track`                         | lime-500 `#7ccf00`                       | Clock / pulse                                          |
+|                                                | `--health-at-risk`                          | amber-500                                | Warning circle                                         |
+|                                                | `--health-off-track`                        | red-500                                  | X circle                                               |
+|                                                | `--health-not-started`                      | neutral-500                              | Empty circle                                           |
+|                                                | `--health-completed`                        | green-500                                | Filled check circle                                    |
+| Dates                                          | `--date-today`                              | amber-500                                | "Today", "In 3 hours"                                  |
+|                                                | `--date-overdue`                            | red-500                                  | Overdue date, "In 5 minutes"                           |
+|                                                | `--now-indicator`                           | red-600 `#e7000b`                        | Calendar current-time line, today in the mini calendar |
+| Swatches (workspace, calendar, event, project) | `--swatch-red/amber/green/blue/indigo/pink` | Tailwind v4 500 steps (green is emerald) | Colour bar, dot, swatch                                |
 
-Swatch tiles (the workspace letter tile) use a tint of the swatch: `background: color-mix(in srgb, var(--swatch-green) var(--swatch-tint-amount), var(--background)); color: var(--white)`. Figma's green tile is `#052e16` (green-950); the tint formula reproduces it for every swatch without a hand-picked 950 per colour.
+Workspace letter tiles sit on the swatch's Tailwind 950 step (`--swatch-<name>-tile`) with a `--white` letter, 15:1 or more for every swatch, as Figma's green tile does. A swatch's selected check mark is `--neutral-950`, since white is under 3:1 on amber and green. The one non-Tailwind colour is `--platform-linear`, Linear's brand colour.
 
 ### 3.3 Typography
 
@@ -245,7 +245,7 @@ Lucide, 1.5px stroke. 16px for navigation, status and row icons; 12px inside pil
 | Archive / restore / delete | archive, arrow-counterclockwise, trash3                                                              | `Archive`, `RotateCcw`, `Trash2`                                                                                 |
 | Editor                     | type, type-h1…, list-ul, list-ol, list-check, code-slash, quote, link-45deg, table, image, paperclip | `Type`, `Heading1`…, `List`, `ListOrdered`, `ListChecks`, `Code`, `Quote`, `Link`, `Table`, `Image`, `Paperclip` |
 
-Brand marks (Linear, GitHub, Google, the DevBrain logomark) stay as SVG assets in `src/renderer/assets/`.
+Brand marks (Linear, GitHub, Google) stay as SVG assets in `src/renderer/assets/`. The DevBrain logomark is [`src/renderer/assets/devbrain-logomark.svg`](../../src/renderer/assets/devbrain-logomark.svg) (white, 40×48); inline it with `fill="currentColor"` so it follows `--foreground-strong` in both themes.
 
 ---
 
@@ -377,7 +377,7 @@ The calendar grid itself is FullCalendar (see [the adapter spec](../calendar/ful
 
 | Component           | Spec                                                                                                                               |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **Logomark**        | SVG, 42×48 (onboarding), 72×82 (splash).                                                                                           |
+| **Logomark**        | `devbrain-logomark.svg`, 40×48: 20×24 beside the name, 40×48 on onboarding, 60×72 on the splash.                                   |
 | **SplashScreen**    | Centred pulsing Logomark on `--background`.                                                                                        |
 | **OnboardingCard**  | Centred column: Logomark, title, subtitle, content (WorkspaceTile + Input + SwatchPicker, or a workspace list), full-width Button. |
 | **WorkspacePicker** | Bordered list of workspaces (tile + name), separator, "+ New Workspace".                                                           |

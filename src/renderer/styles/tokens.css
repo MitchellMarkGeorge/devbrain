@@ -19,7 +19,10 @@
 :root {
   /* ---------- 1. Primitives ---------- */
 
-  /* Neutral: Tailwind's neutral scale, as the Figma variables use it */
+  /*
+   * Tailwind v4's palette, as hex of its oklch values. Only Tailwind colours belong here:
+   * a value off this scale is a bug.
+   */
   --neutral-50: #fafafa;
   --neutral-100: #f5f5f5;
   --neutral-200: #e5e5e5;
@@ -29,32 +32,33 @@
   --neutral-600: #525252;
   --neutral-700: #404040;
   --neutral-800: #262626;
-  --neutral-850: #1c1c1c; /* hover on a neutral-900 surface; not in Figma */
   --neutral-900: #171717;
-  --neutral-925: #111111; /* dialog, sheet and toast surface */
   --neutral-950: #0a0a0a;
   --white: #ffffff;
   --black: #000000;
 
-  /* Accents used by status, priority, entity and calendar colours */
   --red-500: #fb2c36;
   --red-600: #e7000b;
+  --red-950: #460809;
   --orange-500: #ff6900;
-  --orange-700: #ca3500; /* light-theme status colours: legible on white (not in Figma) */
+  --orange-700: #ca3500;
+  --amber-500: #fe9a00;
   --amber-700: #bb4d00;
-  --lime-700: #497d00;
-  --green-700: #008236;
-  --emerald-700: #007a55;
-  --amber-500: #f59e0b;
+  --amber-950: #461901;
   --lime-500: #7ccf00;
-  --green-500: #00c951;
-  --green-600: #00a63e;
-  --green-950: #052e16;
-  --emerald-500: #10b981;
+  --lime-700: #497d00;
+  --green-500: #00c950;
+  --green-700: #008236;
+  --emerald-500: #00bc7d;
   --emerald-600: #009966;
-  --blue-500: #3b82f6;
-  --indigo-500: #6366f1;
-  --pink-500: #ec4899;
+  --emerald-700: #007a55;
+  --emerald-950: #002c22;
+  --blue-500: #2b7fff;
+  --blue-950: #162456;
+  --indigo-500: #615fff;
+  --indigo-950: #1e1a4d;
+  --pink-500: #f6339a;
+  --pink-950: #510424;
 
   /* ---------- Typography ---------- */
 
@@ -152,7 +156,7 @@
   --status-not-started: var(--neutral-500);
   --status-in-progress: var(--orange-500);
   --status-completed: var(--green-500);
-  --status-cancelled: var(--neutral-600);
+  --status-cancelled: var(--neutral-500);
   --status-overdue: var(--red-500);
 
   /* Task priority (TaskPriority) */
@@ -173,12 +177,13 @@
   --now-indicator: var(--red-600); /* calendar current-time line, today in mini calendar */
 
   /* Integrations: the icon keeps its brand mark; these tint text or a small dot */
-  --platform-linear: #5e6ad2;
+  --platform-linear: #5e6ad2; /* Linear's brand colour, the one non-Tailwind value */
   --platform-github: var(--neutral-200);
 
   /*
-   * Workspace, calendar and event colours a user can pick.
-   * A colour is stored by name; the tile tint is derived so any swatch works in both themes.
+   * Workspace, calendar and event colours a user can pick (Tailwind 500 steps). A colour is
+   * stored by name. The workspace letter tile sits on the 950 step with a white letter
+   * (15:1 or more), as Figma's green tile does; a swatch's check mark is neutral-950.
    */
   --swatch-red: var(--red-500);
   --swatch-amber: var(--amber-500);
@@ -186,6 +191,12 @@
   --swatch-blue: var(--blue-500);
   --swatch-indigo: var(--indigo-500);
   --swatch-pink: var(--pink-500);
+  --swatch-red-tile: var(--red-950);
+  --swatch-amber-tile: var(--amber-950);
+  --swatch-green-tile: var(--emerald-950);
+  --swatch-blue-tile: var(--blue-950);
+  --swatch-indigo-tile: var(--indigo-950);
+  --swatch-pink-tile: var(--pink-950);
 }
 
 /* ---------- 2. Semantic: dark (default) ---------- */
@@ -204,9 +215,9 @@
   --popover: var(--neutral-900); /* dropdown, context menu, select, combobox */
   --popover-foreground: var(--neutral-200);
 
-  --overlay: var(--neutral-925); /* dialog, sheet / aside, toast */
+  --overlay: var(--neutral-900); /* dialog, sheet / aside, toast (shadcn's dark card) */
   --overlay-foreground: var(--neutral-200);
-  --backdrop: rgb(0 0 0 / 0.6);
+  --backdrop: rgb(0 0 0 / 0.5); /* shadcn: black/50 */
 
   /* DevBrain's buttons are quiet: the "primary" filled button is light on dark */
   --primary: var(--neutral-200);
@@ -216,8 +227,8 @@
   --secondary-foreground: var(--neutral-200);
 
   --muted: var(--neutral-900); /* group-heading band, all-day row, code block */
-  --muted-foreground: var(--neutral-500); /* secondary text, inactive nav, placeholder */
-  --subtle-foreground: var(--neutral-600); /* dates, descriptions, hints (see contrast note) */
+  --muted-foreground: var(--neutral-400); /* shadcn; 7.7:1. Secondary text, inactive nav */
+  --subtle-foreground: var(--neutral-500); /* 4.2:1: skippable metadata only */
 
   --accent: var(--neutral-900); /* hover on rows and menu items */
   --accent-foreground: var(--neutral-100);
@@ -228,22 +239,20 @@
   --border: var(--neutral-900); /* row dividers, pills, cards, sidebar edge */
   --border-strong: var(--neutral-800); /* buttons, popovers, dialogs, selected nav */
   --input: var(--neutral-800);
-  --ring: var(--neutral-500); /* 3:1 or more on every surface */
+  --ring: var(--neutral-500); /* shadcn; 3:1 or more on every surface */
 
   --sidebar: var(--neutral-950);
-  --sidebar-foreground: var(--neutral-500);
+  --sidebar-foreground: var(--neutral-400);
   --sidebar-accent: var(--neutral-900);
   --sidebar-accent-foreground: var(--neutral-200);
   --sidebar-border: var(--neutral-900);
   --sidebar-item-foreground: var(--neutral-100); /* recents / favorites entries */
 
-  --hover: var(--neutral-850);
+  --hover: var(--neutral-800); /* shadcn's dark accent */
 
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); /* Tailwind v4 */
   --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
-
-  --swatch-tint-amount: 22%; /* workspace tile background = swatch mixed into the background */
 }
 
 /* ---------- 2. Semantic: light (shadcn neutral) ---------- */
@@ -263,7 +272,7 @@
 
   --overlay: var(--white);
   --overlay-foreground: var(--neutral-950);
-  --backdrop: rgb(0 0 0 / 0.4);
+  --backdrop: rgb(0 0 0 / 0.5);
 
   --primary: var(--neutral-900);
   --primary-foreground: var(--neutral-50);
@@ -272,8 +281,8 @@
   --secondary-foreground: var(--neutral-900);
 
   --muted: var(--neutral-100);
-  --muted-foreground: var(--neutral-600);
-  --subtle-foreground: var(--neutral-500);
+  --muted-foreground: var(--neutral-500); /* shadcn; 4.7:1 */
+  --subtle-foreground: var(--neutral-500); /* neutral-400 would be 2.6:1 */
 
   --accent: var(--neutral-100);
   --accent-foreground: var(--neutral-900);
@@ -284,10 +293,10 @@
   --border: var(--neutral-200);
   --border-strong: var(--neutral-200);
   --input: var(--neutral-200);
-  --ring: var(--neutral-500);
+  --ring: var(--neutral-500); /* shadcn uses neutral-400, which is 2.6:1 on white */
 
   --sidebar: var(--neutral-50);
-  --sidebar-foreground: var(--neutral-600);
+  --sidebar-foreground: var(--neutral-500);
   --sidebar-accent: var(--neutral-100);
   --sidebar-accent-foreground: var(--neutral-900);
   --sidebar-border: var(--neutral-200);
@@ -296,10 +305,8 @@
   --hover: var(--neutral-100);
 
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); /* Tailwind v4 */
   --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
-
-  --swatch-tint-amount: 16%;
 
   /* status colours darkened so icons and text stay legible on white */
   --status-in-progress: var(--orange-700);
