@@ -6,55 +6,56 @@ import type { ArchiveChange } from '@main/core/archive/service';
 import type { FavoriteChange } from '@main/core/favorites/service';
 import type { TaskLinkChange } from '@main/core/integrations/detach';
 import type { IntegrationChange } from '@main/core/integrations/service';
-import type { ChangeRecorder } from './server';
 
-// Sends an event to every window but `except`, the one a call came from, if given. The hub never
-// sees a window: src/main/index.ts sends through webContents.
+// Sends an event to every window but `except`, the one a mutation came from, if given. The tracker
+// never sees a window: src/main/index.ts sends through webContents.
 export type PushEvent = <K extends AppEventName>(
   name: K,
   payload: AppEvents[K],
   except?: unknown,
 ) => void;
 
-// How long the hub gathers changes made outside any call before sending them as one `db.changes`,
-// so a sync run's pages, or a cascade of events, refetch once.
+// How long the tracker gathers changes made outside any mutation before sending them as one
+// `db.changes`, so a sync run's pages, or a cascade of events, refetch once.
 export const PUSH_DELAY_MS = 50;
 
-interface CallScope {
-  record(...entities: ChangedEntity[]): void;
-  // the call's window, which gets these in its response rather than as an event
+interface MutationScope {
+  record(entities: ChangedEntity[]): void;
+  // the mutation's window, which gets these in its response rather than as an event
   origin: unknown;
-  // set once the call has answered: what it started and still runs (a sync run after a connect)
-  // is pushed from then on
+  // set once the mutation has answered: what it started and still runs (a sync run after a
+  // connect) is pushed from then on
   done: boolean;
 }
 
 /**
- * Turns what core changes into the kinds of rows the renderer refetches for
+ * Turns what core's services change into the kinds of rows the renderer refetches for
  * (docs/ipc/change-propagation-research.md). It listens to every service of the open workspace,
- * following a switch. A change made during an IPC call goes in that call's `changed`, so the
- * renderer refetches before the call settles; every other change (sync, work a call left running)
- * is pushed to the windows as `db.changes`, gathered for PUSH_DELAY_MS. A call's changes are also
- * pushed to the other windows.
+ * following a switch. A change made while an IPC mutation runs goes in that mutation's `changed`,
+ * so the renderer refetches before the mutation settles; every other change (sync, work a
+ * mutation left running) is pushed to the windows as `db.changes`, gathered for PUSH_DELAY_MS. A
+ * mutation's changes are also pushed to the other windows.
  */
-export class ChangeHub {
-  private readonly calls = new AsyncLocalStorage<CallScope>();
+export class ChangeTracker {
+  private readonly mutations = new AsyncLocalStorage<MutationScope>();
   private readonly pending = new Set<ChangedEntity>();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private stopWatching: (() => void) | null = null;
 
   constructor(private readonly push: PushEvent) {}
 
-  /** Follows `devBrain`'s open workspace from now on. Returns the function that stops. */
+  /** Follows `devBrain`'s workspaces from now on. Returns the function that stops. */
   watch(devBrain: Pick<DevBrain, 'currentWorkspace' | 'workspaces'>): () => void {
     this.stopWatching?.();
     const current = devBrain.currentWorkspace;
     let detach = current ? this.attach(current) : () => {};
     const unsubscribe = devBrain.workspaces.onChange((change) => {
+      // the registry changed; for a new workspace, nothing else did
+      this.record('workspace');
+      if (change.type === 'created') return;
       detach();
       detach = change.type === 'opened' ? this.attach(change.workspace) : () => {};
       const id = change.type === 'opened' ? change.workspace.info.id : null;
-      this.record('workspace');
       this.push('workspace.changed', { id }, this.liveScope()?.origin);
     });
     this.stopWatching = () => {
@@ -66,37 +67,37 @@ export class ChangeHub {
   }
 
   /**
-   * Runs one IPC call. Changes made in it, by core or through the recorder `run` gets, go to
-   * `changes`, the call's own; once it has settled they are pushed to the other windows.
+   * Runs one IPC mutation, giving `onChange` what core changes while it runs. Once it has settled,
+   * those changes are pushed to the other windows.
    */
   async track<T>(
     origin: unknown,
-    changes: ChangeRecorder,
-    run: (changes: ChangeRecorder) => Promise<T>,
+    onChange: (entities: ChangedEntity[]) => void,
+    run: () => Promise<T>,
   ): Promise<T> {
     const changed = new Set<ChangedEntity>();
-    const scope: CallScope = {
+    const scope: MutationScope = {
       origin,
       done: false,
-      record: (...entities) => {
+      record: (entities) => {
         entities.forEach((entity) => changed.add(entity));
-        changes.record(...entities);
+        onChange(entities);
       },
     };
     try {
-      return await this.calls.run(scope, () => run({ record: scope.record }));
+      return await this.mutations.run(scope, run);
     } finally {
       scope.done = true;
       if (changed.size > 0) this.push('db.changes', { entities: [...changed] }, origin);
     }
   }
 
-  /** Records a change: in the running call's response, or in the next `db.changes`. */
+  /** Records a change: in the running mutation's response, or in the next `db.changes`. */
   record(...entities: ChangedEntity[]): void {
     if (entities.length === 0) return;
     const scope = this.liveScope();
     if (scope) {
-      scope.record(...entities);
+      scope.record(entities);
       return;
     }
     entities.forEach((entity) => this.pending.add(entity));
@@ -113,9 +114,9 @@ export class ChangeHub {
     this.push('db.changes', { entities });
   }
 
-  // the call this code runs for, while it has not answered
-  private liveScope(): CallScope | undefined {
-    const scope = this.calls.getStore();
+  // the mutation this code runs for, while it has not answered
+  private liveScope(): MutationScope | undefined {
+    const scope = this.mutations.getStore();
     return scope && !scope.done ? scope : undefined;
   }
 

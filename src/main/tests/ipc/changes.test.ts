@@ -1,13 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { IpcMainInvokeEvent } from 'electron';
-import type { ChangedEntity } from '@common/changes';
 import type { AppEventName, AppEvents } from '@common/events';
 import type { IpcResult } from '@common/ipc/types';
 import type { DevBrain, Workspace } from '@main/core';
 import { DEFAULT_CALENDAR_ID } from '@main/core/calendars/types';
 import {
   archiveKinds,
-  ChangeHub,
+  ChangeTracker,
   favoriteKind,
   integrationKinds,
   PUSH_DELAY_MS,
@@ -20,13 +19,13 @@ import { wsProcedure } from '@main/ipc/procedures';
 import { invokeHandler, resetElectronMock } from '../__mocks__/electron';
 import { createWorkspace, tempDevBrain, testContext } from './helpers';
 
-// What reaches the renderer when core changes rows: the hub over a real DevBrain folder, through
-// the transport.
+// What reaches the renderer when core changes rows: the change tracker over a real DevBrain folder,
+// through the transport.
 
 let devBrain: DevBrain;
 let cleanup: () => Promise<void>;
-let hub: ChangeHub;
-// a new one per test: a previous test's hub may still flush what its cleanup changed
+let tracker: ChangeTracker;
+// a new one per test: a previous test's tracker may still flush what its cleanup changed
 let push: Mock<(name: AppEventName, payload: AppEvents[AppEventName], except?: unknown) => void>;
 
 const DUE = new Date('2026-11-02T00:00:00.000Z');
@@ -35,8 +34,8 @@ beforeEach(async () => {
   ({ devBrain, cleanup } = await tempDevBrain());
   await devBrain.workspaces.open(await createWorkspace(devBrain, 'Work'));
   push = vi.fn();
-  hub = new ChangeHub(push);
-  hub.watch(devBrain);
+  tracker = new ChangeTracker(push);
+  tracker.watch(devBrain);
 });
 
 afterEach(async () => {
@@ -49,25 +48,28 @@ function workspace(): Workspace {
   return devBrain.currentWorkspace!;
 }
 
-type Ctx = { changes: { record(...entities: ChangedEntity[]): void } };
-
-// the app's routes, and one whose mutation does what a test passes it, against the open workspace
-let action: (ws: Workspace, ctx: Ctx) => unknown;
+// the app's routes, and two that do what a test passes them, against the open workspace
+let action: (ws: Workspace) => unknown;
 const testRouter = t.router({
   ...appRouter._def.record,
-  act: wsProcedure.mutation(({ ctx }) => action(ctx.workspace, ctx)),
+  act: wsProcedure.mutation(({ ctx }) => action(ctx.workspace)),
+  peek: wsProcedure.query(({ ctx }) => action(ctx.workspace)),
 });
 
 function attach() {
-  attachRouter(testRouter, { createContext: testContext(devBrain), tracker: hub });
+  attachRouter(testRouter, { createContext: testContext(devBrain), changeTracker: tracker });
 }
 
-function act(run: (ws: Workspace, ctx: Ctx) => unknown, sender: unknown = undefined) {
+function act(
+  run: (ws: Workspace) => unknown,
+  sender: unknown = undefined,
+  type: 'mutation' | 'query' = 'mutation',
+) {
   action = run;
   const event = { sender } as IpcMainInvokeEvent;
   return invokeHandler('ipc:call', event, {
-    path: 'act',
-    type: 'mutation',
+    path: type === 'mutation' ? 'act' : 'peek',
+    type,
     input: undefined,
   }) as Promise<IpcResult<unknown>>;
 }
@@ -82,13 +84,13 @@ function pushedChanges() {
     }));
 }
 
-describe('a call', () => {
+describe('a mutation', () => {
   beforeEach(() => attach());
 
   it("returns a cascade's kinds in its own response, and pushes nothing to its window", async () => {
     const task = workspace().tasks.createTask({ title: 'Ship', dueDate: DUE });
     await workspace().notes.createNote({ title: 'Plan', linkedTaskId: task.id });
-    hub.flush();
+    tracker.flush();
     push.mockReset();
 
     const result = await act((ws) => ws.archive.archiveTask(task.id), 'window-a');
@@ -122,14 +124,16 @@ describe('a call', () => {
     expect(result.changed).toEqual(['calendar']);
   });
 
-  it('keeps what its resolver records, beside what core announced', async () => {
-    const result = await act((ws, ctx) => {
-      ws.projects.createProject({ title: 'Q4', dueDate: DUE });
-      ctx.changes.record('integration');
-      return null;
-    });
+  it('is a mutation: a query is not tracked, so what one changed is pushed', async () => {
+    const result = await act(
+      (ws) => ws.calendars.setVisible(DEFAULT_CALENDAR_ID, false),
+      'w',
+      'query',
+    );
 
-    expect(result.changed).toEqual(['project', 'integration']);
+    expect(result).toMatchObject({ ok: true, changed: [] });
+    tracker.flush();
+    expect(pushedChanges()).toEqual([{ entities: ['calendar'], except: undefined }]);
   });
 
   it('pushes what it left running once it has answered, rather than in its response', async () => {
@@ -166,12 +170,12 @@ describe('a call', () => {
     const result = await pending;
 
     expect(result.changed).toEqual(['event']);
-    hub.flush();
+    tracker.flush();
     expect(pushedChanges()).toContainEqual({ entities: ['project'], except: undefined });
   });
 });
 
-describe('changes outside any call', () => {
+describe('changes outside any mutation', () => {
   it('are gathered into one db.changes per PUSH_DELAY_MS', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const ws = workspace();
@@ -189,10 +193,10 @@ describe('changes outside any call', () => {
     expect(pushedChanges()).toHaveLength(2);
   });
 
-  it('push nothing once the hub stops watching', () => {
-    hub.watch(devBrain)();
+  it('push nothing once the tracker stops watching', () => {
+    tracker.watch(devBrain)();
     workspace().tasks.createTask({ title: 'Unseen', dueDate: DUE });
-    hub.flush();
+    tracker.flush();
 
     expect(pushedChanges()).toEqual([]);
   });
@@ -207,15 +211,15 @@ describe('switching workspace', () => {
 
     expect(push).toHaveBeenCalledWith('workspace.changed', { id: null }, undefined);
     expect(push).toHaveBeenCalledWith('workspace.changed', { id: next }, undefined);
-    hub.flush();
+    tracker.flush();
     push.mockReset();
     workspace().tasks.createTask({ title: 'Here', dueDate: DUE });
-    hub.flush();
+    tracker.flush();
     expect(pushedChanges()).toEqual([{ entities: ['task'], except: undefined }]);
     expect(old).not.toBe(workspace());
   });
 
-  it('returns workspace in the switching call, and tells only the other windows', async () => {
+  it('returns workspace in the switching mutation, and tells only the other windows', async () => {
     attach();
     const next = await createWorkspace(devBrain, 'Home');
     const event = { sender: 'window-a' } as unknown as IpcMainInvokeEvent;
@@ -230,7 +234,7 @@ describe('switching workspace', () => {
     expect(push).toHaveBeenCalledWith('workspace.changed', { id: next }, 'window-a');
   });
 
-  it('records a new workspace in the list', async () => {
+  it('reports a new workspace, which core announces, without saying the open one changed', async () => {
     attach();
 
     const result = (await invokeHandler('ipc:call', {} as IpcMainInvokeEvent, {
@@ -240,6 +244,7 @@ describe('switching workspace', () => {
     })) as IpcResult<unknown>;
 
     expect(result).toMatchObject({ ok: true, changed: ['workspace'] });
+    expect(push).not.toHaveBeenCalledWith('workspace.changed', expect.anything(), undefined);
   });
 });
 

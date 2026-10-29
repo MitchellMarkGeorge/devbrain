@@ -174,6 +174,28 @@ describe('WorkspaceService — create', () => {
     expect(all[0].id).not.toBe(all[1].id);
   });
 
+  it('sends created once the workspace is registered, and nothing when creating fails', async () => {
+    writeRegistry(tmpDir, []);
+    await fs.mkdir(path.join(tmpDir, 'workspaces'));
+    vi.mocked(Workspace.create)
+      .mockResolvedValueOnce({ info: makeInfo(), close: vi.fn() } as never)
+      .mockRejectedValueOnce(new Error('migration failed'));
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
+    const sent: { type: string; registered: boolean }[] = [];
+    service.onChange((change) =>
+      sent.push({
+        type: change.type,
+        registered: change.type === 'created' && service.listAll().items.length === 1,
+      }),
+    );
+
+    const created = await service.create({ name: 'New WS', color: '#ff0000' });
+    await expect(service.create({ name: 'Broken', color: '#ff0000' })).rejects.toThrow();
+
+    expect(sent).toEqual([{ type: 'created', registered: true }]);
+    expect(created.name).toBe('New WS');
+  });
+
   it('calls Workspace.create with the generated workspace info', async () => {
     writeRegistry(tmpDir, []);
     await fs.mkdir(path.join(tmpDir, 'workspaces'));
@@ -492,8 +514,8 @@ describe('WorkspaceService — sync', () => {
     expect(created.sync.start).not.toHaveBeenCalled();
     expect(created.close).toHaveBeenCalledOnce();
     expect(service.currentWorkspace).toBeNull();
-    // it never became current, so neither opened nor closed is sent
-    expect(types).toEqual([]);
+    // it never became current, so neither opened nor closed is sent, only that it was registered
+    expect(types).toEqual(['created']);
     expect(info).toEqual(service.getById(info.id));
   });
 
@@ -719,11 +741,8 @@ describe('WorkspaceService — onChange', () => {
     const changes: WorkspaceChange[] = [];
     service.onChange((change) => {
       changes.push(change);
-      log.push(
-        change.type === 'opened'
-          ? `opened ${change.workspace.info.id}`
-          : `closed ${change.workspaceId}`,
-      );
+      if (change.type === 'opened') log.push(`opened ${change.workspace.info.id}`);
+      if (change.type === 'closed') log.push(`closed ${change.workspaceId}`);
     });
     return { service, infos, workspaces, changes, log };
   }

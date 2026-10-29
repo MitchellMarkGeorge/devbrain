@@ -4,7 +4,7 @@ import type { EntityType } from './ids';
 // changed, and the `db.changes` event the ones changed outside any mutation (a sync page, work that
 // finished after its response). Over-reporting only costs a refetch. `workspace` is the registry
 // or which workspace is open: the renderer checks which one is open, and drops what it cached for
-// another (src/renderer/ipc/freshness.ts).
+// another (src/renderer/ipc/query-invalidator.ts).
 export type ChangedEntity = Extract<
   EntityType,
   | 'task'

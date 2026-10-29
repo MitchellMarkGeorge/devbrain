@@ -10,9 +10,10 @@ import { NotFoundError, WorkspaceDataMissingError, WorkspaceNotOpenError } from 
 import { paginateArray, Page, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 
-// The open workspace changed. Opening one while another is open sends `closed` for the old one
-// before `opened` for the new one, in the order the transitions ran.
+// A workspace was registered, or the open workspace changed. Opening one while another is open
+// sends `closed` for the old one before `opened` for the new one, in the order the transitions ran.
 export type WorkspaceChange =
+  | { type: 'created'; workspace: WorkspaceInfo }
   | { type: 'opened'; workspace: Workspace }
   | { type: 'closed'; workspaceId: WorkspaceId };
 
@@ -124,6 +125,7 @@ export class WorkspaceService {
       await fs.rm(workspacePath, { recursive: true, force: true });
       throw error;
     }
+    this.changes.emit({ type: 'created', workspace: workspaceInfo });
     return workspaceInfo;
   }
 

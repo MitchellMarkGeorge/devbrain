@@ -4,7 +4,11 @@ import type { ChangedEntity } from '@common/changes';
 import type { AppEvents } from '@common/events';
 import type { WorkspaceId } from '@common/ids';
 import type { EventClient } from '../../ipc/events';
-import { createFreshness, readsOf, type Freshness } from '../../ipc/freshness';
+import {
+  createQueryInvalidator,
+  readsOf,
+  type QueryInvalidator,
+} from '../../ipc/query-invalidator';
 
 // What the renderer refetches when main says what changed, over a real QueryClient.
 
@@ -15,7 +19,7 @@ let queryClient: QueryClient;
 let fetches: Map<string, number>;
 let currentWorkspaceId: ReturnType<typeof vi.fn<() => Promise<WorkspaceId | null>>>;
 let onError: ReturnType<typeof vi.fn<(error: unknown) => void>>;
-let freshness: Freshness;
+let queryInvalidator: QueryInvalidator;
 const unsubscribes: (() => void)[] = [];
 
 beforeEach(() => {
@@ -23,7 +27,7 @@ beforeEach(() => {
   fetches = new Map();
   currentWorkspaceId = vi.fn(async () => WORK);
   onError = vi.fn<(error: unknown) => void>();
-  freshness = createFreshness({ queryClient, currentWorkspaceId, onError });
+  queryInvalidator = createQueryInvalidator({ queryClient, currentWorkspaceId, onError });
 });
 
 afterEach(() => {
@@ -72,7 +76,7 @@ describe('onChanged', () => {
       ),
     );
 
-    await freshness.onChanged(['task']);
+    await queryInvalidator.onChanged(['task']);
 
     expect(count('tasks.list')).toBe(2);
     expect(count('favorites.list')).toBe(2);
@@ -83,7 +87,7 @@ describe('onChanged', () => {
   it('resolves once the refetches have landed', async () => {
     await query('tasks.list');
 
-    await freshness.onChanged(['task']);
+    await queryInvalidator.onChanged(['task']);
 
     expect(data('tasks.list')).toBe('tasks.list #2');
   });
@@ -91,7 +95,7 @@ describe('onChanged', () => {
   it('refetches a calendar view when a calendar is shown or hidden', async () => {
     await query('events.listForCalendar');
 
-    await freshness.onChanged(['calendar']);
+    await queryInvalidator.onChanged(['calendar']);
 
     expect(count('events.listForCalendar')).toBe(2);
   });
@@ -99,7 +103,7 @@ describe('onChanged', () => {
   it('marks an inactive query stale without fetching it', async () => {
     await query('notes.list', { active: false });
 
-    await freshness.onChanged(['note']);
+    await queryInvalidator.onChanged(['note']);
 
     expect(count('notes.list')).toBe(1);
     expect(queryClient.getQueryState(key('notes.list'))?.isInvalidated).toBe(true);
@@ -108,7 +112,7 @@ describe('onChanged', () => {
   it('refetches a route it knows nothing about on every change', async () => {
     await query('newFeature.list');
 
-    await freshness.onChanged(['integration']);
+    await queryInvalidator.onChanged(['integration']);
 
     expect(count('newFeature.list')).toBe(2);
   });
@@ -116,7 +120,7 @@ describe('onChanged', () => {
   it('does nothing for a call that changed nothing', async () => {
     await query('newFeature.list');
 
-    await freshness.onChanged([]);
+    await queryInvalidator.onChanged([]);
 
     expect(count('newFeature.list')).toBe(1);
   });
@@ -132,12 +136,12 @@ describe('the reads table', () => {
 
 describe('switching workspace', () => {
   it('drops what was cached for the old one, and keeps what belongs to none', async () => {
-    await freshness.workspaceOpened(WORK);
+    await queryInvalidator.workspaceOpened(WORK);
     await query('tasks.list');
     await query('notes.list', { active: false });
     await query('settings.get');
 
-    await freshness.workspaceOpened(HOME);
+    await queryInvalidator.workspaceOpened(HOME);
 
     // the active one loads again from the new workspace; the inactive one waits to be shown
     expect(data('tasks.list')).toBe('tasks.list #2');
@@ -146,36 +150,36 @@ describe('switching workspace', () => {
   });
 
   it('keeps everything when the workspace said to be open already is', async () => {
-    await freshness.workspaceOpened(WORK);
+    await queryInvalidator.workspaceOpened(WORK);
     await query('tasks.list');
 
-    await freshness.workspaceOpened(WORK);
+    await queryInvalidator.workspaceOpened(WORK);
 
     expect(count('tasks.list')).toBe(1);
   });
 
   it('asks which is open when a call reports workspace, and resets only on a switch', async () => {
-    await freshness.workspaceOpened(WORK);
+    await queryInvalidator.workspaceOpened(WORK);
     await query('tasks.list');
     await query('workspaces.list');
 
     // a workspace was created: the list changes, the open one does not
-    await freshness.onChanged(['workspace']);
+    await queryInvalidator.onChanged(['workspace']);
     expect(count('workspaces.list')).toBe(2);
     expect(count('tasks.list')).toBe(1);
 
     currentWorkspaceId.mockResolvedValue(HOME);
-    await freshness.onChanged(['workspace']);
+    await queryInvalidator.onChanged(['workspace']);
     expect(count('tasks.list')).toBe(2);
   });
 
   it('drops the workspace data when it cannot tell which is open', async () => {
-    await freshness.workspaceOpened(WORK);
+    await queryInvalidator.workspaceOpened(WORK);
     await query('tasks.list');
     const failure = new Error('no answer');
     currentWorkspaceId.mockRejectedValue(failure);
 
-    await freshness.onChanged(['workspace']);
+    await queryInvalidator.onChanged(['workspace']);
 
     expect(onError).toHaveBeenCalledWith(failure);
     expect(count('tasks.list')).toBe(2);
@@ -198,7 +202,7 @@ describe('listen', () => {
 
   it('refetches on db.changes and resets on workspace.changed, until stopped', async () => {
     const events = fakeEvents();
-    const stop = freshness.listen(events.client);
+    const stop = queryInvalidator.listen(events.client);
     await query('tasks.list');
 
     events.send('db.changes', { entities: ['task'] as ChangedEntity[] });

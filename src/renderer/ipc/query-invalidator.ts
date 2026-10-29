@@ -45,7 +45,7 @@ export function readsOf(path: readonly string[]): readonly ChangedEntity[] | 'ev
   return READS[path.join('.')] ?? READS[path[0]] ?? 'everything';
 }
 
-export interface Freshness {
+export interface QueryInvalidator {
   /** Invalidates the queries reading what changed; resolves once the active ones refetched. */
   onChanged(changed: readonly ChangedEntity[]): Promise<void>;
   /** Drops what was cached for another workspace when `id` is not the one known to be open. */
@@ -54,7 +54,7 @@ export interface Freshness {
   listen(events: EventClient<AppEvents>): () => void;
 }
 
-export interface FreshnessOptions {
+export interface QueryInvalidatorOptions {
   queryClient: QueryClient;
   // the workspace open now, asked when a call reports `workspace`
   currentWorkspaceId: () => Promise<WorkspaceId | null>;
@@ -62,7 +62,7 @@ export interface FreshnessOptions {
   onError?: (error: unknown) => void;
 }
 
-export function createFreshness(options: FreshnessOptions): Freshness {
+export function createQueryInvalidator(options: QueryInvalidatorOptions): QueryInvalidator {
   const { queryClient } = options;
   const onError = options.onError ?? ((error: unknown) => console.error(error));
   // the workspace whose data is cached; unknown until main first says

@@ -12,17 +12,20 @@ coalesced push event. The renderer needs a small table that says which routes re
 When a route isn't in the table, it is refetched on every change, so a route that isn't listed
 still shows correct data. Estimated size: about 250 lines of code, plus tests.
 
-**Status: implemented** in `src/main/ipc/changes.ts` (the hub) and `src/renderer/ipc/freshness.ts`
-(the reads table). It differs from the sketch in section 6 in three ways:
+**Status: implemented** in `src/main/ipc/changes.ts` (`ChangeTracker`, the sketch's `ChangeHub`)
+and `src/renderer/ipc/query-invalidator.ts` (the reads table). It differs from the sketch in
+section 6 in four ways:
 
-- `workspace` is a kind too. A call that switches workspace, or changes the registry, reports
-  it. The renderer then asks which workspace is open and drops its cache only if that changed, so
+- **Changes come only from core's services.** Procedures have no `ctx.changes` recorder. A write
+  that needs to reach the renderer is announced by its service, as `WorkspaceService.create` now
+  does with `created`.
+- **Only mutations are tracked.** `attachRouter` hands each mutation to the tracker's `track()`. A
+  query changes nothing, so it runs untracked, and anything it did change would be pushed instead.
+- **`workspace` is a kind too.** A mutation that switches workspace, or creates one, reports it.
+  The renderer then asks which workspace is open and drops its cache only if that changed, so
   creating a workspace doesn't wipe the cache. `workspace.changed` still reaches the other
   windows.
-- `attachRouter` takes a `tracker`: the hub's `track()` runs the call and gives it the recorder its
-  context uses. So kinds a route records itself (`ctx.changes.record`) are also pushed to the other
-  windows.
-- A switch uses `resetQueries`, not `cancelQueries` plus `removeQueries`. It cancels what is in
+- **A switch uses `resetQueries`**, not `cancelQueries` plus `removeQueries`. It cancels what is in
   flight and refetches what is mounted. Removing a mounted query would leave its component showing
   nothing until it remounts.
 
@@ -504,7 +507,7 @@ already requires.
   shows up in profiles, raise the push interval during an initial sync, or narrow the calendar's
   range.
 - **Sync status UI.** Showing progress needs `sync.progress`/`sources.changed` as data events,
-  separate from freshness. Decide when the UI exists.
+  separate from queryInvalidator. Decide when the UI exists.
 - **Settings.** No kind covers them. The `settings.update` mutation can `setQueryData` from its
   return value. Add a `settings` kind only if a second window needs it.
 - **`AsyncLocalStorage` in Electron's main.** It is standard Node and stable, but attribution
