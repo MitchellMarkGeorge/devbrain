@@ -1,0 +1,306 @@
+/*
+ * DevBrain design tokens.
+ *
+ * Plain CSS custom properties: no Tailwind. Names follow shadcn/ui's theme variables
+ * (--background, --popover, --muted-foreground, ...) so shadcn components can be ported by
+ * swapping their utility classes for these variables. Values come from the DevBrain v1 Figma file.
+ *
+ * Dark is the default theme (every finished screen in Figma is dark). Set data-theme="light"
+ * on <html> for the light theme, which uses shadcn's neutral palette.
+ *
+ * Layers:
+ *   1. Primitives  --neutral-*, --red-*, ...   raw palette; never used directly by components
+ *   2. Semantic    --background, --border, ... what components use; differs per theme
+ *   3. Domain      --status-*, --priority-*   DevBrain meanings (task status, priority, ...)
+ *
+ * See docs/design-system/README.md for how each token is used.
+ */
+
+:root {
+  /* ---------- 1. Primitives ---------- */
+
+  /* Neutral: Tailwind's neutral scale, as the Figma variables use it */
+  --neutral-50: #fafafa;
+  --neutral-100: #f5f5f5;
+  --neutral-200: #e5e5e5;
+  --neutral-300: #d4d4d4;
+  --neutral-400: #a1a1a1;
+  --neutral-500: #737373;
+  --neutral-600: #525252;
+  --neutral-700: #404040;
+  --neutral-800: #262626;
+  --neutral-850: #1c1c1c; /* hover on a neutral-900 surface; not in Figma */
+  --neutral-900: #171717;
+  --neutral-925: #111111; /* dialog, sheet and toast surface */
+  --neutral-950: #0a0a0a;
+  --white: #ffffff;
+  --black: #000000;
+
+  /* Accents used by status, priority, entity and calendar colours */
+  --red-500: #fb2c36;
+  --red-600: #e7000b;
+  --orange-500: #ff6900;
+  --amber-500: #f59e0b;
+  --lime-500: #7ccf00;
+  --green-500: #00c951;
+  --green-600: #00a63e;
+  --green-950: #052e16;
+  --emerald-500: #10b981;
+  --emerald-600: #009966;
+  --blue-500: #3b82f6;
+  --indigo-500: #6366f1;
+  --pink-500: #ec4899;
+
+  /* ---------- Typography ---------- */
+
+  --font-sans:
+    'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Consolas, monospace;
+
+  /* size / line-height pairs (Figma text styles text-xs ... text-3xl) */
+  --text-xs: 12px;
+  --text-xs-leading: 16px;
+  --text-sm: 14px;
+  --text-sm-leading: 20px;
+  --text-base: 16px;
+  --text-base-leading: 24px;
+  --text-lg: 18px;
+  --text-lg-leading: 28px;
+  --text-xl: 20px;
+  --text-xl-leading: 28px;
+  --text-2xl: 24px;
+  --text-2xl-leading: 32px;
+  --text-3xl: 30px;
+  --text-3xl-leading: 36px;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  --tracking-tight: -0.01em; /* page titles (2xl, 3xl) */
+  --tracking-normal: 0;
+
+  /* ---------- Spacing (4px grid; 2px for hairline nudges) ---------- */
+
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-1-5: 6px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ---------- Radius ---------- */
+
+  --radius-xs: 2px; /* colour bars, progress track */
+  --radius-sm: 4px; /* checkbox, small workspace tile, kbd */
+  --radius-md: 8px; /* menu item, sidebar item, input, icon button */
+  --radius-lg: 12px; /* button, pill, card, popover, dialog, toast */
+  --radius-xl: 16px; /* large workspace tile (onboarding) */
+  --radius-full: 999px; /* switch, avatar, dot */
+
+  /* ---------- Sizes ---------- */
+
+  --icon-xs: 12px; /* inside pills, menu items, sidebar sub-items */
+  --icon-sm: 16px; /* default: nav, status, priority, row icons */
+  --icon-md: 20px;
+
+  --control-xs: 24px; /* pill, small button, icon button in sidebar */
+  --control-sm: 28px; /* menu-row height in compact menus */
+  --control-md: 32px; /* default button, input, menu item, segmented control */
+  --control-lg: 36px; /* sidebar nav item, toolbar (filter / sort bar) */
+
+  --row-height: 40px; /* task, note, project, event rows */
+  --group-heading-height: 40px;
+
+  --sidebar-width: 288px;
+  --titlebar-height: 40px; /* traffic lights + back / forward */
+  --breadcrumb-height: 36px;
+  --aside-width: 380px; /* details panel (event, task) */
+  --content-max-width: 1024px; /* note / task document column */
+
+  /* ---------- Motion ---------- */
+
+  --duration-fast: 100ms; /* hover, press */
+  --duration-normal: 150ms; /* menus, popovers, tooltips */
+  --duration-slow: 250ms; /* dialogs, sheets, toasts */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* ---------- Z-index ---------- */
+
+  --z-sticky: 10;
+  --z-dropdown: 50;
+  --z-overlay: 100;
+  --z-modal: 110;
+  --z-toast: 120;
+  --z-tooltip: 130;
+
+  /* ---------- 3. Domain (theme independent) ---------- */
+
+  /* Task status (TaskStatus + derived overdue) */
+  --status-not-started: var(--neutral-500);
+  --status-in-progress: var(--orange-500);
+  --status-completed: var(--green-500);
+  --status-cancelled: var(--neutral-600);
+  --status-overdue: var(--red-500);
+
+  /* Task priority (TaskPriority) */
+  --priority-high: var(--red-500);
+  --priority-medium: var(--amber-500);
+  --priority-low: var(--emerald-600);
+
+  /* Project health (ProjectHealth) */
+  --health-on-track: var(--lime-500);
+  --health-at-risk: var(--amber-500);
+  --health-off-track: var(--red-500);
+  --health-not-started: var(--neutral-500);
+  --health-completed: var(--green-500);
+
+  /* Dates and time-sensitive text */
+  --date-today: var(--amber-500);
+  --date-overdue: var(--red-500);
+  --now-indicator: var(--red-600); /* calendar current-time line, today in mini calendar */
+
+  /* Integrations: the icon keeps its brand mark; these tint text or a small dot */
+  --platform-linear: #5e6ad2;
+  --platform-github: var(--neutral-200);
+
+  /*
+   * Workspace, calendar and event colours a user can pick.
+   * A colour is stored by name; the tile tint is derived so any swatch works in both themes.
+   */
+  --swatch-red: var(--red-500);
+  --swatch-amber: var(--amber-500);
+  --swatch-green: var(--emerald-500);
+  --swatch-blue: var(--blue-500);
+  --swatch-indigo: var(--indigo-500);
+  --swatch-pink: var(--pink-500);
+}
+
+/* ---------- 2. Semantic: dark (default) ---------- */
+
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --background: var(--neutral-950); /* app, sidebar, list, card */
+  --foreground: var(--neutral-200); /* body text */
+  --foreground-strong: var(--neutral-100); /* titles, list item names */
+
+  --card: var(--neutral-950);
+  --card-foreground: var(--neutral-200);
+
+  --popover: var(--neutral-900); /* dropdown, context menu, select, combobox */
+  --popover-foreground: var(--neutral-200);
+
+  --overlay: var(--neutral-925); /* dialog, sheet / aside, toast */
+  --overlay-foreground: var(--neutral-200);
+  --backdrop: rgb(0 0 0 / 0.6);
+
+  /* DevBrain's buttons are quiet: the "primary" filled button is light on dark */
+  --primary: var(--neutral-200);
+  --primary-foreground: var(--neutral-900);
+
+  --secondary: var(--neutral-900); /* default button, selected nav item, segmented thumb */
+  --secondary-foreground: var(--neutral-200);
+
+  --muted: var(--neutral-900); /* group-heading band, all-day row, code block */
+  --muted-foreground: var(--neutral-500); /* secondary text, inactive nav, placeholder */
+  --subtle-foreground: var(--neutral-600); /* dates, descriptions, hints (see contrast note) */
+
+  --accent: var(--neutral-900); /* hover on rows and menu items */
+  --accent-foreground: var(--neutral-100);
+
+  --destructive: var(--red-500);
+  --destructive-foreground: var(--white);
+
+  --border: var(--neutral-900); /* row dividers, pills, cards, sidebar edge */
+  --border-strong: var(--neutral-800); /* buttons, popovers, dialogs, selected nav */
+  --input: var(--neutral-800);
+  --ring: var(--neutral-600);
+
+  --sidebar: var(--neutral-950);
+  --sidebar-foreground: var(--neutral-500);
+  --sidebar-accent: var(--neutral-900);
+  --sidebar-accent-foreground: var(--neutral-200);
+  --sidebar-border: var(--neutral-900);
+  --sidebar-item-foreground: var(--neutral-100); /* recents / favorites entries */
+
+  --hover: var(--neutral-850);
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+
+  --swatch-tint-amount: 22%; /* workspace tile background = swatch mixed into the background */
+}
+
+/* ---------- 2. Semantic: light (shadcn neutral) ---------- */
+
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --background: var(--white);
+  --foreground: var(--neutral-950);
+  --foreground-strong: var(--neutral-950);
+
+  --card: var(--white);
+  --card-foreground: var(--neutral-950);
+
+  --popover: var(--white);
+  --popover-foreground: var(--neutral-950);
+
+  --overlay: var(--white);
+  --overlay-foreground: var(--neutral-950);
+  --backdrop: rgb(0 0 0 / 0.4);
+
+  --primary: var(--neutral-900);
+  --primary-foreground: var(--neutral-50);
+
+  --secondary: var(--neutral-100);
+  --secondary-foreground: var(--neutral-900);
+
+  --muted: var(--neutral-100);
+  --muted-foreground: var(--neutral-500);
+  --subtle-foreground: var(--neutral-400);
+
+  --accent: var(--neutral-100);
+  --accent-foreground: var(--neutral-900);
+
+  --destructive: var(--red-600);
+  --destructive-foreground: var(--white);
+
+  --border: var(--neutral-200);
+  --border-strong: var(--neutral-200);
+  --input: var(--neutral-200);
+  --ring: var(--neutral-400);
+
+  --sidebar: var(--neutral-50);
+  --sidebar-foreground: var(--neutral-500);
+  --sidebar-accent: var(--neutral-100);
+  --sidebar-accent-foreground: var(--neutral-900);
+  --sidebar-border: var(--neutral-200);
+  --sidebar-item-foreground: var(--neutral-900);
+
+  --hover: var(--neutral-100);
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06);
+  --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+
+  --swatch-tint-amount: 16%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-normal: 0ms;
+    --duration-slow: 0ms;
+  }
+}
