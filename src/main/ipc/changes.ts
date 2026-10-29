@@ -18,8 +18,6 @@ export type SendToWindows = <K extends AppEventName>(
 
 // An IPC mutation the tracker is running, found through the async context of the code that runs it.
 interface RunningMutation {
-  // the window that called it
-  window: unknown;
   // set once it has answered: what it left running (a sync run after a connect) changes rows in
   // the background from then on
   answered: boolean;
@@ -85,7 +83,6 @@ export class ChangeTracker {
   ): Promise<T> {
     const changedEntities = new Set<ChangedEntity>();
     const mutation: RunningMutation = {
-      window,
       answered: false,
       addEntities: (entities) => {
         entities.forEach((entity) => changedEntities.add(entity));
