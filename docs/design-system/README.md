@@ -122,8 +122,8 @@ All values come from the Figma variables (`color/neutral/*`, `font/*`, `shadcn c
 | `--background`                           | neutral-950       | white       | App, sidebar, lists, cards                               |
 | `--foreground`                           | neutral-200       | neutral-950 | Body text, menu items, pill labels                       |
 | `--foreground-strong` _added_            | neutral-100       | neutral-950 | Page and document titles, row names, sidebar entries     |
-| `--muted-foreground`                     | neutral-500       | neutral-500 | Inactive nav, secondary labels, placeholders, pill icons |
-| `--subtle-foreground` _added_            | neutral-600       | neutral-400 | Dates, descriptions, hints, "Linked to", issue keys      |
+| `--muted-foreground`                     | neutral-500       | neutral-600 | Inactive nav, secondary labels, placeholders, pill icons |
+| `--subtle-foreground` _added_            | neutral-600       | neutral-500 | Dates, descriptions, hints, "Linked to", issue keys      |
 | `--card`                                 | neutral-950       | white       | Schedule, note and project cards; settings groups        |
 | `--popover`                              | neutral-900       | white       | Dropdown, context menu, select, combobox, slash menu     |
 | `--overlay` _added_                      | #111              | white       | Dialog, sheet/aside, toast                               |
@@ -136,7 +136,7 @@ All values come from the Figma variables (`color/neutral/*`, `font/*`, `shadcn c
 | `--border`                               | neutral-900       | neutral-200 | Row dividers, pills, cards, sidebar edge, checkbox       |
 | `--border-strong` _added_                | neutral-800       | neutral-200 | Buttons, popovers, dialogs, selected nav item, inputs    |
 | `--input`                                | neutral-800       | neutral-200 | Input and select borders                                 |
-| `--ring`                                 | neutral-600       | neutral-400 | Focus outline                                            |
+| `--ring`                                 | neutral-500       | neutral-500 | Focus outline                                            |
 | `--sidebar*`                             | see tokens.css    |             | Sidebar surface, items, active item                      |
 
 **Light theme status colours.** On white the Figma status colours fall below 3:1, so the light theme swaps each for its 700 shade (`--orange-700`, `--amber-700`, `--lime-700`, `--green-700`, `--emerald-700`) and red-600.
