@@ -529,7 +529,7 @@ describe('SyncScheduler — backoff', () => {
     expect(source().consecutiveFailures).toBe(0);
   });
 
-  it('after a rate limit, nothing but a manual sync runs before the retry time', async () => {
+  it('after a rate limit, no automatic run starts before the retry time', async () => {
     engine.outcome = SyncRunOutcome.RATE_LIMITED;
     engine.retryAt = new Date(START.getTime() + 12 * MINUTE);
     await start();
@@ -543,6 +543,20 @@ describe('SyncScheduler — backoff', () => {
 
     await vi.advanceTimersByTimeAsync(5 * MINUTE);
     expect(engine.runs().map((call) => call.at)).toEqual([0, 15]);
+  });
+
+  it('leaves a manual sync during a rate limit to the engine, which skips it', async () => {
+    engine.outcome = SyncRunOutcome.RATE_LIMITED;
+    engine.retryAt = new Date(START.getTime() + 12 * MINUTE);
+    await start();
+
+    await vi.advanceTimersByTimeAsync(5 * MINUTE);
+    await scheduler.syncNow();
+
+    // The scheduler asks for the run; this fake engine has no gate. The real one skips it before
+    // the retry time (engine.test.ts, "stores retryAt on a rate limit and does not pull again
+    // before it").
+    expect(engine.runs().map((call) => call.at)).toEqual([0, 5]);
   });
 });
 
