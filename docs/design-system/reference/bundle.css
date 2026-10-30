@@ -1642,23 +1642,31 @@ button.db-badge[data-variant='outline']:hover {
   line-height: 16px;
 }
 
-/* entity pills in a row sit on the row's tone; a hovered or selected row strengthens their edge,
-   and the pill itself takes a tone of its own when pointed at or pressed */
-.dbl-side .db-badge[data-variant='outline'] {
-  background: transparent;
+/* entity pills in a row (as Linear draws them): a chip with its own fill and a faint edge, so it
+   stays a recessed chip when the row lightens on hover or selection; pointing at the pill lifts it */
+:root {
+  --pill-fill: color-mix(in oklab, var(--neutral-900) 55%, var(--neutral-950));
+  --pill-edge: color-mix(in oklab, var(--foreground) 9%, transparent);
+  --pill-fill-hover: color-mix(in oklab, var(--neutral-800) 60%, var(--neutral-900));
+  --pill-edge-hover: color-mix(in oklab, var(--foreground) 18%, transparent);
 }
-.dbl-row:hover .dbl-side .db-badge[data-variant='outline'],
-.dbl-row[data-state] .dbl-side .db-badge[data-variant='outline'],
-.dbl-row[data-selected] .dbl-side .db-badge[data-variant='outline'],
-.dbl-row[data-menu-open] .dbl-side .db-badge[data-variant='outline'] {
-  border-color: var(--border-strong);
+.dbl-side .db-badge[data-variant='outline'] {
+  background: var(--pill-fill);
+  border-color: var(--pill-edge);
+  transition:
+    background-color 100ms,
+    border-color 100ms,
+    color 100ms;
 }
 .dbl-side button.db-badge[data-variant='outline']:hover {
-  background: var(--row-control-hover);
-  border-color: var(--input);
+  background: var(--pill-fill-hover);
+  border-color: var(--pill-edge-hover);
+}
+.dbl-side button.db-badge[data-variant='outline']:hover .db-badge-text {
+  color: var(--foreground-strong);
 }
 .dbl-side button.db-badge[data-variant='outline']:active {
-  background: color-mix(in oklab, var(--foreground) 16%, transparent);
+  background: color-mix(in oklab, var(--pill-fill-hover) 80%, var(--foreground));
 }
 
 /* StatusMenu */
@@ -1930,4 +1938,6 @@ button.db-badge[data-variant='outline']:hover {
   --card-fill: color-mix(in oklab, var(--neutral-100) 70%, var(--background));
   --card-fill-hover: var(--neutral-100);
   --card-fill-done: color-mix(in oklab, var(--neutral-100) 35%, var(--background));
+  --pill-fill: var(--white);
+  --pill-fill-hover: var(--neutral-50);
 }
