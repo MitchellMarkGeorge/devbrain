@@ -1,7 +1,5 @@
-import { TaskId } from '@common/ids';
 import { eq, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { tasks } from '@main/db/schema/tasks';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { NotFoundError } from '../shared/errors';
 import { Page, PageOptions } from '../shared/pagination';
@@ -45,14 +43,12 @@ export class RecentsService {
    */
   recordView(id: RecentId): RecentEntity {
     const entityType = stampedEntityTypeOf(id);
-    // the four tables share the columns written and returned here, so the table, and the id with
-    // it, are typed as the tasks table's
-    const table = STAMPED_TABLES[entityType] as typeof tasks;
+    const table = STAMPED_TABLES[entityType];
     const row = this.db
       .update(table)
       // updatedAt is set to what it was, or its $onUpdate would stamp it with now
       .set({ viewedAt: new Date(), updatedAt: sql`${table.updatedAt}` })
-      .where(eq(table.id, id as TaskId))
+      .where(eq(table.id, id))
       .returning({ title: table.title, viewedAt: table.viewedAt })
       .get();
     if (!row) throw new NotFoundError(id);
