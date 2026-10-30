@@ -49,7 +49,7 @@ DevBrain Nova Lists is DevBrain Nova with the quiet list direction's behaviours.
 - **Row states.** Rest, hover (`accent`), selected (`row-selected` with `row-selected-foreground` titles; neighbouring selected rows join into one block), keyboard focus (Nova's ring around the whole row), completed (struck through in `muted-foreground`), overdue (flag and `date-overdue`), subtask (indented).
 - **Selection bar.** While rows are selected, a `SelectionBar` floats over the bottom of the list: the count, then Status, Priority, Due date, Move, more, and clear.
 - **Grouped list.** `GroupHeading` is a tile, a title over a subtitle ("Overdue · Oldest due Sep 28", "Mitchell / Jesse 1:1 · Event · Today, 10:00 AM"), an xs "Add task", done/total and a progress bar.
-- **Board.** Nova's filled `BoardColumn`s hold `BoardCard`s: the linked event or note as a quiet line, the title, then one line of priority, subtasks, project and date. Completed cards drop their fill; each open column ends with a dashed "Add task" slot.
+- **Board.** Open `BoardColumn`s (no panel, 24px apart) hold borderless filled `BoardCard`s: the linked event or note as a quiet line, the title, then one line of priority, subtasks, project and date. Hover lightens the card and adds an outline; completed cards go darker; each open column ends with a dashed "Add task" slot.
 - **Toolbar values.** Toolbar buttons show their current choice after the label ("Filter Assigned to me", "Sort Due date"), still Nova's quiet button. The main action stays the quiet `default` "New Task", not `primary`.
 
 ## How this system is built

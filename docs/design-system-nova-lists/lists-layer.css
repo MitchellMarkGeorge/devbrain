@@ -284,32 +284,35 @@
   background: var(--muted-foreground);
 }
 
-/* ---------- Board: Nova's filled columns, the direction's cards ---------- */
+/* ---------- Board: the direction's open columns and borderless cards ---------- */
+:root {
+  --card-fill: color-mix(in oklab, var(--neutral-900) 60%, var(--background));
+  --card-fill-hover: color-mix(in oklab, var(--neutral-800) 20%, var(--neutral-900));
+  --card-fill-done: color-mix(in oklab, var(--neutral-900) 30%, var(--background));
+}
 .dbl-board {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 24px;
   align-items: start;
 }
 .dbl-col {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 12px;
-  border: 1px solid var(--edge);
-  border-radius: var(--radius-xl);
-  background: var(--secondary);
+  min-width: 0;
 }
 .dbl-colhead {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 2px 0 4px;
-  color: var(--foreground);
+  padding: 0 4px;
+  color: var(--foreground-strong);
   font: 500 14px/20px var(--font-sans);
 }
 .dbl-colhead .db-btn {
   margin-left: auto;
+  color: var(--muted-foreground);
 }
 .dbl-colcount {
   color: var(--muted-foreground);
@@ -319,21 +322,22 @@
 .dbl-cards {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 .dbl-card {
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 12px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid transparent;
   border-radius: var(--radius-lg);
-  background: var(--background);
+  background: var(--card-fill);
   outline: none;
 }
 .dbl-card:hover,
 .dbl-card[data-state='hover'] {
-  background: var(--accent);
+  background: var(--card-fill-hover);
+  border-color: var(--border-strong);
 }
 .dbl-card:focus-visible,
 .dbl-card[data-state='focus'] {
@@ -341,7 +345,7 @@
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 .dbl-card[data-completed] {
-  background: transparent;
+  background: var(--card-fill-done);
 }
 .dbl-card[data-completed] .dbl-ctitle {
   color: var(--muted-foreground);
@@ -394,7 +398,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 36px;
+  height: 40px;
   padding: 0 12px;
   border: 1px dashed var(--border-strong);
   border-radius: var(--radius-lg);
