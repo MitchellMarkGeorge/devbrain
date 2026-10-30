@@ -36,6 +36,40 @@ export interface Task extends Model<TaskId>, Archivable, Completeable {
   // set on every read: the link to the provider item it mirrors, or null for a local task
   external?: ExternalRef | null;
 }
+// What a task row shows beside the task's own fields, returned by listTasks and listSubtasks.
+export interface TaskListItem extends Task {
+  // counts of the task's direct, unarchived subtasks; null when it has none. Cancelled subtasks
+  // are left out of both counts, as in project stats
+  subtaskProgress: SubtaskProgress | null;
+  // the parent of a subtask; null for a top-level task
+  parentTask: TaskParentSummary | null;
+  project: TaskProjectSummary | null;
+  // the event or note the task is linked to
+  link: TaskLinkSummary | null;
+}
+
+export interface SubtaskProgress {
+  completed: number;
+  total: number;
+}
+
+export interface TaskParentSummary {
+  id: TaskId;
+  title: string;
+  status: TaskStatus;
+}
+
+export interface TaskProjectSummary {
+  id: ProjectId;
+  title: string;
+  color: string | null;
+}
+
+export type TaskLinkSummary =
+  // color: the event's own, or else its calendar's
+  | { type: 'event'; id: EventId; title: string; startAt: Date; color: string | null }
+  | { type: 'note'; id: NoteId; title: string };
+
 export interface CreateTaskOptions {
   title: string;
   description?: string;

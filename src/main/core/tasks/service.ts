@@ -7,6 +7,7 @@ import {
   CreateTaskOptions,
   Task,
   TaskFilterOptions,
+  TaskListItem,
   TaskPriority,
   TaskSortOptions,
   TaskStatus,
@@ -16,6 +17,7 @@ import {
 import { InvalidInputError, NotFoundError, TaskHierarchyError } from '../shared/errors';
 import { isSubtask } from './utils';
 import { subtreeOf } from './subtree';
+import { withListDetails } from './details';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { localDayWindow } from '../shared/dates';
 import { keyset, Page, PageOptions } from '../shared/pagination';
@@ -124,7 +126,7 @@ export class TaskService {
     filter: TaskFilterOptions = {},
     sort: TaskSortOptions = { sortBy: 'createdAt' },
     page: PageOptions = {},
-  ): Page<Task> {
+  ): Page<TaskListItem> {
     const clauses = [isNull(tasks.archivedAt)];
     if (filter.excludeSubtasks) clauses.push(isNull(tasks.parentTaskId));
     if (filter.excludeClosed) {
@@ -211,12 +213,12 @@ export class TaskService {
       .limit(pager.fetchLimit)
       .all();
 
-    // filled after the page is cut, so the lookup covers only the rows returned
+    // filled after the page is cut, so the lookups cover only the rows returned
     const result = pager.toPage(rows);
-    return { ...result, items: withRefs(this.db, result.items) };
+    return { ...result, items: withListDetails(this.db, withRefs(this.db, result.items)) };
   }
 
-  listSubtasks(parentTaskId: TaskId, page: PageOptions = {}): Page<Task> {
+  listSubtasks(parentTaskId: TaskId, page: PageOptions = {}): Page<TaskListItem> {
     const pager = keyset<Task>(
       {
         sortKey: 'created',
@@ -237,9 +239,9 @@ export class TaskService {
       .limit(pager.fetchLimit)
       .all();
 
-    // filled after the page is cut, so the lookup covers only the rows returned
+    // filled after the page is cut, so the lookups cover only the rows returned
     const result = pager.toPage(rows);
-    return { ...result, items: withRefs(this.db, result.items) };
+    return { ...result, items: withListDetails(this.db, withRefs(this.db, result.items)) };
   }
 
   updateTask(id: TaskId, updates: UpdateTaskOptions): Task {

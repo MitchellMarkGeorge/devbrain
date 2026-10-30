@@ -668,6 +668,108 @@ describe('TaskService — listSubtasks', () => {
   });
 });
 
+describe('TaskService — list row details', () => {
+  it('gives a parent its subtask progress, leaving out cancelled and archived subtasks', () => {
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    tasks.createSubtask(parent.id, { title: 'Done', status: TaskStatus.COMPLETED });
+    tasks.createSubtask(parent.id, { title: 'Open' });
+    tasks.createSubtask(parent.id, { title: 'Dropped', status: TaskStatus.CANCELLED });
+    archive.archiveTask(tasks.createSubtask(parent.id, { title: 'Archived' }).id);
+    const plain = tasks.createTask({ title: 'Plain', dueDate: TOMORROW });
+
+    const items = tasks.listTasks({ excludeSubtasks: true }).items;
+
+    expect(items.find((t) => t.id === parent.id)?.subtaskProgress).toEqual({
+      completed: 1,
+      total: 2,
+    });
+    expect(items.find((t) => t.id === plain.id)?.subtaskProgress).toBeNull();
+  });
+
+  it('gives a subtask its parent, and a top-level task none', () => {
+    const parent = tasks.createTask({
+      title: 'Parent',
+      dueDate: TOMORROW,
+      status: TaskStatus.IN_PROGRESS,
+    });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
+
+    const items = tasks.listTasks().items;
+
+    expect(items.find((t) => t.id === sub.id)?.parentTask).toEqual({
+      id: parent.id,
+      title: 'Parent',
+      status: TaskStatus.IN_PROGRESS,
+    });
+    expect(items.find((t) => t.id === parent.id)?.parentTask).toBeNull();
+  });
+
+  it('gives a task its project and its linked note', () => {
+    const task = tasks.createTask({
+      title: 'Linked',
+      dueDate: TOMORROW,
+      projectId: FAKE_PROJECT_ID,
+      linkedNoteId: FAKE_NOTE_ID,
+    });
+
+    const [item] = tasks.listTasks().items.filter((t) => t.id === task.id);
+
+    expect(item.project).toEqual({ id: FAKE_PROJECT_ID, title: 'Fake Project', color: null });
+    expect(item.link).toEqual({ type: 'note', id: FAKE_NOTE_ID, title: 'Fake Note' });
+  });
+
+  it("gives a task its linked event, in the event's own colour", () => {
+    const event = new EventService(db).createEvent({
+      title: 'Mitchell/Jesse 1:1',
+      startAt: TOMORROW,
+      endAt: TOMORROW,
+      color: '#22c55e',
+    });
+    const task = tasks.createTask({ title: 'Prep', dueDate: TOMORROW, linkedEventId: event.id });
+
+    const [item] = tasks.listTasks().items.filter((t) => t.id === task.id);
+
+    expect(item.link).toMatchObject({
+      type: 'event',
+      id: event.id,
+      title: 'Mitchell/Jesse 1:1',
+      color: '#22c55e',
+    });
+  });
+
+  it('leaves out a linked note that is archived', async () => {
+    const task = tasks.createTask({
+      title: 'Linked',
+      dueDate: TOMORROW,
+      linkedNoteId: FAKE_NOTE_ID,
+    });
+    archive.archiveNote(FAKE_NOTE_ID);
+
+    const [item] = tasks.listTasks().items.filter((t) => t.id === task.id);
+
+    expect(item.link).toBeNull();
+  });
+
+  it('fills the same details on subtasks', () => {
+    const parent = tasks.createTask({
+      title: 'Parent',
+      dueDate: TOMORROW,
+      projectId: FAKE_PROJECT_ID,
+      linkedEventId: FAKE_EVENT_ID,
+    });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
+    tasks.createSubtask(sub.id, { title: 'Grandchild', status: TaskStatus.COMPLETED });
+
+    const [item] = tasks.listSubtasks(parent.id).items;
+
+    expect(item.id).toBe(sub.id);
+    expect(item.subtaskProgress).toEqual({ completed: 1, total: 1 });
+    expect(item.parentTask?.id).toBe(parent.id);
+    expect(item.project?.id).toBe(FAKE_PROJECT_ID);
+    expect(item.link).toMatchObject({ type: 'event', id: FAKE_EVENT_ID, title: 'Fake Event' });
+  });
+});
+
 describe('TaskService — updateTask', () => {
   it('updates the title', async () => {
     const task = tasks.createTask({ title: 'Old title', dueDate: TOMORROW });
