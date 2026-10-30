@@ -1,0 +1,422 @@
+/*
+ * DevBrain Nova Lists: the quiet list behaviours drawn in DevBrain Nova. Loaded after the Nova
+ * layer. Lists lose their strokes and use tone; everything else (controls, pills, cards, menus,
+ * sidebar, toolbar) keeps Nova's outlines and quiet buttons.
+ */
+:root {
+  /* Selection, option D: a light tint over the ground, with the title brightened */
+  --row-hover: var(--accent);
+  --row-control-hover: color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+
+/* ---------- strokeless lists: no line between rows, no group band ---------- */
+.db-list {
+  border-top: 0;
+}
+.db-row {
+  border-bottom: 0;
+  border-radius: var(--radius-md);
+}
+.db-row:hover {
+  background: var(--row-hover);
+}
+
+/* ---------- TaskRow ---------- */
+.dbl-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.dbl-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--row-height);
+  padding: 0 12px 0 36px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--foreground-strong);
+  font: 400 14px/20px var(--font-sans);
+  outline: none;
+  cursor: default;
+}
+.dbl-row.dbl-sub {
+  padding-left: 64px;
+}
+.dbl-row:hover,
+.dbl-row[data-state='hover'],
+.dbl-row[data-menu-open] {
+  background: var(--row-hover);
+}
+/* the real selected state (option D); neighbours join into one block */
+.dbl-row[data-join-prev] {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.dbl-row[data-join-next] {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+/* keyboard focus outlines the whole row with Nova's ring */
+.dbl-row:focus-visible,
+.dbl-row[data-state='focus'] {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+  z-index: 1;
+}
+.dbl-row[data-completed] .dbl-name {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+
+/* leading strip: the checkbox shows on hover, focus, and on every row while selecting */
+.dbl-check {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  margin-top: -8px;
+  display: none;
+}
+.dbl-sub .dbl-check {
+  left: 38px;
+}
+.dbl-row:hover .dbl-check,
+.dbl-row:focus-visible .dbl-check,
+.dbl-row[data-state] .dbl-check,
+.dbl-row[data-selected] .dbl-check,
+.dbl-list[data-selecting] .dbl-check {
+  display: inline-grid;
+}
+
+/* the status icon is a button that opens the status menu */
+.dbl-status {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-left: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.dbl-status:hover,
+.dbl-status[aria-expanded='true'] {
+  background: var(--row-control-hover);
+}
+.dbl-status:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+/* the title first; key and subtasks after it */
+.dbl-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.dbl-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dbl-title .db-key {
+  flex: none;
+  font-size: 12px;
+  line-height: 16px;
+}
+.dbl-subs {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted-foreground);
+  font: 400 12px/16px var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+/* entity pills, priority and date on the right */
+.dbl-side {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+.dbl-pri {
+  display: grid;
+  place-items: center;
+  width: 20px;
+}
+.dbl-side .db-date {
+  min-width: 44px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* StatusMenu */
+.dbl-status-menu {
+  position: absolute;
+  z-index: 20;
+  left: 22px;
+  top: calc(100% - 2px);
+  width: 200px;
+}
+.dbl-status-menu.dbl-static {
+  position: static;
+}
+.dbl-menu-icon {
+  display: grid;
+  place-items: center;
+  width: 16px;
+}
+.dbl-tick {
+  margin-left: auto;
+  display: flex;
+  color: var(--foreground);
+}
+.db-menu-item[aria-checked='true'] {
+  background: var(--accent);
+}
+
+/* SelectionBar: floats over the bottom of the list */
+.dbl-selbar {
+  position: sticky;
+  bottom: 16px;
+  z-index: 15;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 12px;
+  padding: 4px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-xl);
+  background: var(--popover);
+  box-shadow: var(--shadow-2xl);
+}
+.dbl-selbar.dbl-static {
+  position: static;
+  width: max-content;
+  max-width: 100%;
+}
+.dbl-selcount {
+  padding: 0 8px 0 10px;
+  color: var(--foreground-strong);
+  font: 500 14px/20px var(--font-sans);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.dbl-selsep {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--border-strong);
+}
+.dbl-selbar .db-btn {
+  color: var(--muted-foreground);
+}
+.dbl-selbar .db-btn:hover {
+  color: var(--foreground);
+}
+
+/* ---------- GroupHeading: the grouped list layout ---------- */
+.dbl-group {
+  display: grid;
+  grid-template-columns: 16px 32px minmax(0, 1fr) auto auto 80px;
+  align-items: center;
+  column-gap: 12px;
+  padding: 0 12px 0 10px;
+  margin: 24px 0 6px;
+}
+.dbl-group:first-child {
+  margin-top: 0;
+}
+.dbl-chev {
+  color: var(--muted-foreground);
+}
+.dbl-tile {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--secondary);
+  color: var(--muted-foreground);
+}
+.dbl-tile .db-bar {
+  align-self: center;
+}
+.dbl-gtitle {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dbl-glabel {
+  color: var(--foreground-strong);
+  font: 500 14px/20px var(--font-sans);
+}
+.dbl-gsub {
+  color: var(--muted-foreground);
+  font: 400 12px/16px var(--font-sans);
+}
+.dbl-gcount {
+  color: var(--muted-foreground);
+  font: 400 12px/16px var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+.dbl-gbar {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--muted);
+  overflow: hidden;
+}
+.dbl-gbar > span {
+  display: block;
+  height: 100%;
+  background: var(--muted-foreground);
+}
+
+/* ---------- Board: Nova's filled columns, the direction's cards ---------- */
+.dbl-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.dbl-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-xl);
+  background: var(--secondary);
+}
+.dbl-colhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px 0 4px;
+  color: var(--foreground);
+  font: 500 14px/20px var(--font-sans);
+}
+.dbl-colhead .db-btn {
+  margin-left: auto;
+}
+.dbl-colcount {
+  color: var(--muted-foreground);
+  font: 400 12px/16px var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+.dbl-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dbl-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--background);
+  outline: none;
+}
+.dbl-card:hover,
+.dbl-card[data-state='hover'] {
+  background: var(--accent);
+}
+.dbl-card:focus-visible,
+.dbl-card[data-state='focus'] {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.dbl-card[data-completed] {
+  background: transparent;
+}
+.dbl-card[data-completed] .dbl-ctitle {
+  color: var(--muted-foreground);
+}
+.dbl-clink {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--muted-foreground);
+  font: 400 12px/16px var(--font-sans);
+}
+.dbl-clink > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dbl-clink .db-bar {
+  align-self: center;
+}
+.dbl-ctitle {
+  color: var(--foreground-strong);
+  font: 400 14px/20px var(--font-sans);
+}
+.dbl-cmeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--muted-foreground);
+  font: 400 12px/16px var(--font-sans);
+}
+.dbl-cproj {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.dbl-cproj > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dbl-cmeta .db-date {
+  margin-left: auto;
+  min-width: 0;
+  font-size: 12px;
+}
+.dbl-slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--muted-foreground);
+  font: 400 14px/20px var(--font-sans);
+  cursor: pointer;
+}
+.dbl-slot:hover {
+  color: var(--foreground);
+  border-color: var(--input);
+}
+
+/* ---------- toolbar buttons that show their value ---------- */
+.db-btn-has-value {
+  gap: 6px;
+}
+.db-btn-label {
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+.db-btn-value {
+  color: var(--foreground);
+  font-weight: 500;
+}
