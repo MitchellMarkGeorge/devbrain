@@ -123,6 +123,14 @@ describe('a mutation', () => {
     expect(result).toMatchObject({ ok: false, changed: ['task'] });
   });
 
+  it('reports a view as recent alone, so the lists of that entity are not refetched', async () => {
+    const task = workspace().tasks.createTask({ title: 'Ship', dueDate: DUE });
+
+    const result = await act((ws) => ws.recents.recordView(task.id));
+
+    expect(result.changed).toEqual(['recent']);
+  });
+
   it('reports a calendar shown or hidden', async () => {
     const result = await act((ws) => ws.calendars.setVisible(DEFAULT_CALENDAR_ID, false));
 

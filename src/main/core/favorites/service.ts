@@ -3,19 +3,18 @@ import { events } from '@main/db/schema/events';
 import { notes } from '@main/db/schema/notes';
 import { projects } from '@main/db/schema/projects';
 import { tasks } from '@main/db/schema/tasks';
-import { and, eq, isNotNull, isNull, not, SQL, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { unionAll } from 'drizzle-orm/sqlite-core';
 import { Event } from '../events/types';
 import { withEventDetails } from '../events/service';
-import { hasLinkInState, withRef } from '../integrations/refs';
-import { LinkState } from '../integrations/types';
+import { withRef } from '../integrations/refs';
 import { Note } from '../notes/types';
 import { Project } from '../projects/types';
 import { Task } from '../tasks/types';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { NotFoundError } from '../shared/errors';
-import { keyset, Page, PageOptions } from '../shared/pagination';
+import { Page, PageOptions } from '../shared/pagination';
+import { listByStamp } from '../shared/stamped';
 import type {
   FavoritableEntityType,
   FavoritableId,
@@ -216,79 +215,6 @@ export class FavoritesService {
     filter: FavoritesFilterOptions = {},
     page: PageOptions = {},
   ): Page<FavoritedEntity> {
-    // built like ArchiveService.listArchived: one pager per table, with the cursor condition pushed
-    // into each branch of the union so each can seek its own (favorited_at, id) index. ids carry a
-    // per-entity prefix, so they are unique across the tables and still a valid tiebreaker.
-    const entityType = filter.entityType ?? 'all';
-
-    if (entityType !== 'all') {
-      // a single table needs no union, so it can order by its own columns
-      const pager = this.favoritedPager(FAVORITABLE_TABLES[entityType], page);
-      const rows = this.favoritedBranch(entityType, pager.after)
-        .orderBy(...pager.orderBy)
-        .limit(pager.fetchLimit)
-        .all();
-      return pager.toPage(rows as FavoritedEntity[]);
-    }
-
-    const pager = this.favoritedPager(tasks, page);
-    const branch = (type: FavoritableEntityType) =>
-      this.favoritedBranch(type, this.favoritedPager(FAVORITABLE_TABLES[type], page).after);
-
-    // a compound select resolves ORDER BY against the *result* column names of its left-most
-    // branch, so these have to be the bare column names, not pager.orderBy
-    const rows = unionAll(branch('tasks'), branch('projects'), branch('notes'), branch('events'))
-      .orderBy(sql`favorited_at desc`, sql`id desc`)
-      .limit(pager.fetchLimit)
-      .all();
-
-    // favoritedAt is nullable, but every branch filters on IS NOT NULL
-    return pager.toPage(rows as FavoritedEntity[]);
-  }
-
-  private favoritedPager(table: FavoritableTable, page: PageOptions) {
-    return keyset<FavoritedEntity>(
-      {
-        sortKey: 'favoritedAt',
-        sortColumn: table.favoritedAt,
-        idColumn: table.id,
-        direction: 'desc',
-        sortValue: (row) => row.favoritedAt,
-        id: (row) => row.id,
-      },
-      page,
-    );
-  }
-
-  /** the favorited rows of one table, shaped as FavoritedEntity summaries */
-  private favoritedBranch(type: FavoritableEntityType, after: SQL | undefined) {
-    const table = FAVORITABLE_TABLES[type];
-    // the favorited rows the list shows; matches the partial index of each table
-    const shown =
-      type === 'events'
-        ? not(hasLinkInState('event', events.id, LinkState.REMOVED))
-        : isNull((table as ArchivableTable).archivedAt);
-    return this.db
-      .select({
-        // widened to FavoritableId because the union carries all four id types, and drizzle infers
-        // the compound row's shape from the first select
-        id: sql<FavoritableId>`${table.id}`.as('id'),
-        entityType: sql<FavoritableEntityType>`${type}`,
-        title: table.title,
-        favoritedAt: table.favoritedAt,
-      })
-      .from(table)
-      .where(and(isNotNull(table.favoritedAt), shown, after))
-      .$dynamic();
+    return listByStamp(this.db, 'favoritedAt', filter.entityType ?? 'all', page);
   }
 }
-
-type ArchivableTable = typeof tasks | typeof projects | typeof notes;
-type FavoritableTable = ArchivableTable | typeof events;
-
-const FAVORITABLE_TABLES: Record<FavoritableEntityType, FavoritableTable> = {
-  tasks,
-  projects,
-  notes,
-  events,
-};

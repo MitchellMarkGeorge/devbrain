@@ -6,6 +6,7 @@ import type { DevBrain, Workspace } from '@main/core';
 import type { Event } from '@main/core/events/types';
 import type { FavoritedEntity } from '@main/core/favorites/types';
 import type { Note } from '@main/core/notes/types';
+import type { RecentEntity } from '@main/core/recents/types';
 import { ProjectStatus, type Project, type ProjectStats } from '@main/core/projects/types';
 import type { SearchResult } from '@main/core/search/types';
 import type { Page } from '@main/core/shared/pagination';
@@ -17,7 +18,7 @@ import { attachRouter } from '@main/ipc/server';
 import { resetElectronMock } from '../__mocks__/electron';
 import { call, createWorkspace, tempDevBrain, testContext } from './helpers';
 
-// The notes, projects, events, favorites and search routes end to end, through the transport and
+// The notes, projects, events, favorites, recents and search routes end to end, through the transport and
 // the change tracker, over a real DevBrain folder.
 
 let devBrain: DevBrain;
@@ -387,6 +388,81 @@ describe('favorites', () => {
       error: { data: { code: 'invalid_cursor' } },
     });
     expect(await call('favorites.list', { entityType: 'calendars' })).toMatchObject({
+      ok: false,
+      error: { data: { code: 'invalid_input' } },
+    });
+  });
+});
+
+describe('recents', () => {
+  it('records a view of each entity type, reporting recent alone', async () => {
+    const ws = workspace();
+    const task = ws.tasks.createTask({ title: 'Ship', dueDate: DUE });
+    const note = await ws.notes.createNote({ title: 'Plan' });
+    const event = ws.events.createEvent({ title: 'Standup', startAt: NINE, endAt: TEN });
+
+    expect(await mutate('recents.recordView', { id: task.id })).toMatchObject({
+      ok: true,
+      data: { id: task.id, entityType: 'tasks', title: 'Ship', viewedAt: expect.any(Date) },
+      changed: ['recent'],
+    });
+    expect(await mutate('recents.recordView', { id: note.id })).toMatchObject({
+      ok: true,
+      data: { entityType: 'notes' },
+    });
+    expect(await mutate('recents.recordView', { id: event.id })).toMatchObject({
+      ok: true,
+      data: { entityType: 'events' },
+    });
+  });
+
+  it("refuses an id of another kind, and passes core's not_found", async () => {
+    const calendarId = workspace().calendars.list()[0].id;
+    expect(await mutate('recents.recordView', { id: calendarId })).toMatchObject({
+      ok: false,
+      error: { data: { code: 'invalid_input' } },
+      changed: [],
+    });
+    expect(await mutate('recents.recordView', { id: 'tsk_missing' })).toMatchObject({
+      ok: false,
+      error: { data: { code: 'not_found' } },
+      changed: [],
+    });
+  });
+
+  it('lists the recents, most recent first, a page at a time and by entity type', async () => {
+    const ws = workspace();
+    const note = await ws.notes.createNote({ title: 'Plan' });
+    const project = ws.projects.createProject({ title: 'Launch', dueDate: DUE });
+    await mutate('recents.recordView', { id: note.id });
+    // viewedAt is stored to the millisecond
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await mutate('recents.recordView', { id: project.id });
+
+    const first = await call<Page<RecentEntity>>('recents.list', { limit: 1 });
+    expect(first).toMatchObject({
+      ok: true,
+      data: { items: [{ id: project.id, entityType: 'projects', title: 'Launch' }] },
+      changed: [],
+    });
+    const second = await data<Page<RecentEntity>>('recents.list', {
+      limit: 1,
+      cursor: (first as { data: Page<RecentEntity> }).data.nextCursor,
+    });
+    expect(second).toMatchObject({ items: [{ id: note.id }], nextCursor: null });
+    expect(await data<Page<RecentEntity>>('recents.list', { cursor: null })).toMatchObject({
+      items: [{ id: project.id }, { id: note.id }],
+    });
+    const notes = await data<Page<RecentEntity>>('recents.list', { entityType: 'notes' });
+    expect(notes.items.map(({ id }) => id)).toEqual([note.id]);
+  });
+
+  it("passes core's invalid_cursor, and refuses an unknown entity type", async () => {
+    expect(await call('recents.list', { cursor: 'not-a-cursor' })).toMatchObject({
+      ok: false,
+      error: { data: { code: 'invalid_cursor' } },
+    });
+    expect(await call('recents.list', { entityType: 'calendars' })).toMatchObject({
       ok: false,
       error: { data: { code: 'invalid_input' } },
     });

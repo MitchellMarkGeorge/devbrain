@@ -241,22 +241,30 @@ describe('pagination index — archive.listArchived filtered to one entity type'
   });
 });
 
-describe('pagination index — favorites.listFavorites', () => {
-  // mirrors the branches of FavoritesService.listFavorites: favorited rows that are not archived,
+describe.each([
+  {
+    list: 'favorites.listFavorites',
+    stamp: 'favoritedAt',
+    column: 'favorited_at',
+    name: 'favorited',
+  },
+  { list: 'recents.listRecents', stamp: 'viewedAt', column: 'viewed_at', name: 'viewed' },
+] as const)('pagination index — $list', ({ stamp, column, name }) => {
+  // mirrors the branches of listByStamp (shared/stamped.ts): stamped rows that are not archived,
   // or for events not removed by their provider
   type Table = typeof tasks | typeof projects | typeof notes | typeof events;
   const branch = (table: Table, withCursor: boolean) => {
     const pager = keyset<{ v: unknown; id: string }>(
       {
-        sortKey: 'favoritedAt',
-        sortColumn: table.favoritedAt,
+        sortKey: stamp,
+        sortColumn: table[stamp],
         idColumn: table.id,
         direction: 'desc',
         sortValue: (r) => r.v,
         id: (r) => r.id,
       },
       {
-        cursor: withCursor ? cursorFor(table.favoritedAt, 'favoritedAt', new Date()) : undefined,
+        cursor: withCursor ? cursorFor(table[stamp], stamp, new Date()) : undefined,
       },
     );
     const shown =
@@ -269,26 +277,26 @@ describe('pagination index — favorites.listFavorites', () => {
         .select({
           id: sql`${table.id}`.as('id'),
           title: table.title,
-          favoritedAt: table.favoritedAt,
+          [stamp]: table[stamp],
         })
         .from(table as typeof tasks)
-        .where(and(isNotNull(table.favoritedAt), shown, pager.after)),
+        .where(and(isNotNull(table[stamp]), shown, pager.after)),
     };
   };
 
-  it.each([false, true])('with cursor: %s, uses the per-table favorited indexes', (withCursor) => {
+  it.each([false, true])(`with cursor: %s, uses the per-table ${name} indexes`, (withCursor) => {
     const query = unionAll(
       branch(tasks, withCursor).query,
       branch(projects, withCursor).query,
       branch(notes, withCursor).query,
       branch(events, withCursor).query,
     )
-      .orderBy(sql`favorited_at desc`, sql`id desc`)
+      .orderBy(sql.raw(`${column} desc`), sql`id desc`)
       .limit(51);
     const detail = plan(query).join('\n');
     expect(detail).toContain('MERGE (UNION ALL)');
-    for (const name of ['tasks', 'projects', 'notes', 'events']) {
-      expect(detail).toContain(`idx_${name}_favorited_at_id`);
+    for (const table of ['tasks', 'projects', 'notes', 'events']) {
+      expect(detail).toContain(`idx_${table}_${name}_at_id`);
     }
     if (!withCursor) expect(detail).not.toContain('TEMP B-TREE');
   });
@@ -298,10 +306,10 @@ describe('pagination index — favorites.listFavorites', () => {
     ['projects', projects],
     ['notes', notes],
     ['events', events],
-  ] as const)('%s: first page reads the favorited index in order', (name, table) => {
-    const { pager, query } = branch(table, false);
+  ] as const)(`%s: first page reads the ${name} index in order`, (table, schema) => {
+    const { pager, query } = branch(schema, false);
     const detail = plan(query.orderBy(...pager.orderBy).limit(pager.fetchLimit)).join('\n');
-    expect(detail).toContain(`idx_${name}_favorited_at_id`);
+    expect(detail).toContain(`idx_${table}_${name}_at_id`);
     expect(detail).not.toContain('TEMP B-TREE');
   });
 });

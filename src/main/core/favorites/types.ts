@@ -1,8 +1,8 @@
-import type { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
+import type { StampedEntity, StampedEntityType, StampedId } from '../shared/stamped';
 
-export type FavoritableId = TaskId | ProjectId | NoteId | EventId;
+export type FavoritableId = StampedId;
 
-export type FavoritableEntityType = 'tasks' | 'projects' | 'notes' | 'events';
+export type FavoritableEntityType = StampedEntityType;
 
 export interface FavoritesFilterOptions {
   /** restrict the list to one kind of entity (defaults to 'all') */
@@ -14,9 +14,4 @@ export interface FavoritesFilterOptions {
  * archive view: the four tables share only these columns, so this is what a UNION across them can
  * carry. Callers that need the whole entity can follow up with the owning service's getByIds.
  */
-export interface FavoritedEntity {
-  id: FavoritableId;
-  entityType: FavoritableEntityType;
-  title: string;
-  favoritedAt: Date;
-}
+export type FavoritedEntity = StampedEntity<'favoritedAt'>;

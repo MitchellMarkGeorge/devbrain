@@ -54,6 +54,11 @@ export const projects = sqliteTable(
     index('idx_projects_favorited_at_id')
       .on(table.favoritedAt, table.id)
       .where(and(isNotNull(table.favoritedAt), isNull(table.archivedAt))!),
+    // keyset pagination in RecentsService.listRecents: viewed rows that are not archived.
+    // `where` must match the query's filter.
+    index('idx_projects_viewed_at_id')
+      .on(table.viewedAt, table.id)
+      .where(and(isNotNull(table.viewedAt), isNull(table.archivedAt))!),
 
     // completedAt only has a value if the task's status is completed
     check(

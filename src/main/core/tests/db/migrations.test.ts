@@ -412,7 +412,8 @@ describe('migration 0022 — full parent_task_id index', () => {
     seed(sqlite);
     const before = snapshot(sqlite);
 
-    runMigrations(sqlite, db, MIGRATIONS_PATH);
+    // stops at 0022, so a later migration's new columns aren't in the rows compared
+    runMigrations(sqlite, db, migrationsUpTo(22));
 
     expect(snapshot(sqlite)).toEqual(before);
     const index = sqlite
@@ -431,7 +432,8 @@ describe('migration 0023 — full project and linked event indexes', () => {
     seed(sqlite);
     const before = snapshot(sqlite);
 
-    runMigrations(sqlite, db, MIGRATIONS_PATH);
+    // stops at 0023, so a later migration's new columns aren't in the rows compared
+    runMigrations(sqlite, db, migrationsUpTo(23));
 
     expect(snapshot(sqlite)).toEqual(before);
     // a lookup with no archived filter, as a disconnect's and a foreign key's are, uses them
@@ -444,6 +446,27 @@ describe('migration 0023 — full project and linked event indexes', () => {
     );
     expect(plan('SELECT id FROM tasks WHERE project_id = ?')).toContain('idx_tasks_project_id_all');
     expect(plan('SELECT id FROM notes WHERE project_id = ?')).toContain('idx_notes_project_id_all');
+    sqlite.close();
+  });
+});
+
+describe('migration 0025 — viewed_at', () => {
+  it('adds a null viewed_at to every existing row, keeping the rest, and indexes it', () => {
+    const { sqlite, db } = openDb();
+    migrate(db, { migrationsFolder: migrationsUpTo(24) });
+    seed(sqlite);
+    const before = snapshot(sqlite);
+
+    runMigrations(sqlite, db, migrationsUpTo(25));
+
+    const notViewed = (rows: unknown[]) =>
+      rows.map((row) => ({ ...(row as object), viewed_at: null }));
+    expect(snapshot(sqlite)).toEqual(
+      Object.fromEntries(TABLES.map((t) => [t, notViewed(before[t])])),
+    );
+    for (const table of TABLES) {
+      expect(schemaObjects(sqlite, 'index')).toContain(`${table}.idx_${table}_viewed_at_id`);
+    }
     sqlite.close();
   });
 });

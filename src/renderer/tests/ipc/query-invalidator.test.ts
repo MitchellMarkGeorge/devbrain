@@ -82,6 +82,19 @@ describe('onChanged', () => {
     expect(count('app.version')).toBe(1);
   });
 
+  it('refetches only the recents when an entity is viewed, and the recents when one is edited', async () => {
+    await Promise.all(['tasks.list', 'recents.list'].map((path) => query(path)));
+
+    await queryInvalidator.onChanged(['recent']);
+
+    expect(count('recents.list')).toBe(2);
+    expect(count('tasks.list')).toBe(1);
+
+    await queryInvalidator.onChanged(['task']);
+
+    expect(count('recents.list')).toBe(3);
+  });
+
   it('resolves once the refetches have landed', async () => {
     await query('tasks.list');
 

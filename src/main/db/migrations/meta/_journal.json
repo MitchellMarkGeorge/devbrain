@@ -176,6 +176,13 @@
       "when": 1793115999769,
       "tag": "0024_favorites_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1793392378179,
+      "tag": "0025_add_viewed_at",
+      "breakpoints": true
     }
   ]
 }

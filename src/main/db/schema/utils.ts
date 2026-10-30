@@ -14,6 +14,8 @@ export const timesamps = {
     .notNull()
     .default(sql`(unixepoch() * 1000)`),
   favoritedAt: date(),
+  // when the entity was last opened, for the sidebar's Recents (RecentsService)
+  viewedAt: date(),
 };
 
 export const archivedAt = {

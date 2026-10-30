@@ -7,6 +7,7 @@ import { favoritesRouter as favorites } from './routers/favorites';
 import { integrationsRouter as integrations } from './routers/integrations';
 import { notesRouter as notes } from './routers/notes';
 import { projectsRouter as projects } from './routers/projects';
+import { recentsRouter as recents } from './routers/recents';
 import { searchRouter as search } from './routers/search';
 import { settingsRouter as settings } from './routers/settings';
 import { sourcesRouter as sources } from './routers/sources';
@@ -32,6 +33,7 @@ export const appRouter = t.router({
   projects,
   events,
   favorites,
+  recents,
   search,
 });
 
