@@ -1,17 +1,18 @@
-# DevBrain Nova Lists design system
+# DevBrain Nova design system
 
-A third option, kept beside [DevBrain Nova](../design-system-nova/README.md) and
-[the DevBrain design system](../design-system/README.md) for comparison. Nothing in `src/` uses it yet.
+> **Superseded.** This is DevBrain Nova, kept for reference. The current system is the [DevBrain design system](../../README.md).
 
-- `tokens.json`: DevBrain Nova's tokens plus `row-selected` and `row-selected-foreground`.
-- `lists-layer.css`: loaded after Nova's `nova-layer.css`; it only changes lists, rows, group
-  headings, the board and toolbar buttons with a value.
-- `lists-components.js`: reference implementations of `TaskRow`, `TaskList`, `StatusMenu`,
-  `SelectionBar`, `GroupHeading`, `BoardColumn`, `BoardCard` and `Button`'s `value`, as drawn in the
-  design system preview. In the app they become React components on Base UI (Checkbox, Menu,
-  Toolbar).
+An alternative to [the DevBrain design system](../devbrain-v1/README.md), kept beside it for
+comparison.
 
-DevBrain Nova Lists is DevBrain Nova with the quiet list direction's behaviours. Everything you see outside a list is Nova (its sizes, type, corners, outlines, quiet buttons, entity pills, sidebar and toolbar); lists drop their strokes and gain a clickable status, a real selected state, whole-row focus, a grouped layout and a calmer board card. It sits beside DevBrain Nova and the DevBrain Design System for comparison.
+- `tokens.json`: the same token families and names as `../devbrain-v1/tokens.json`, with Nova's
+  radius, size and type values and one added colour, `edge`.
+- `nova-layer.css`: the style layer, loaded after the DevBrain component stylesheet. In the app it
+  becomes the stylesheet that fills shadcn's `cn-*` class hooks (see "How this system is built").
+- Source: shadcn's v4 registry, `apps/v4/registry/styles/style-nova.css` and the Base UI components
+  in `apps/v4/registry/bases/base/ui`.
+
+DevBrain Nova is DevBrain's design system rebased on shadcn's **Nova** style ("reduced padding and margins"): shadcn's current component sizes, corners and spacing, with DevBrain's colours, glyphs and signature components kept so the app still looks like DevBrain. It sits beside the DevBrain Design System so the two can be compared; the components, tokens and names are the same, and only the values below differ.
 
 ## What comes from Nova and what stays DevBrain
 
@@ -28,7 +29,7 @@ DevBrain Nova Lists is DevBrain Nova with the quiet list direction's behaviours.
 
 **Kept from DevBrain** (these make it DevBrain, not stock shadcn):
 
-- **Colour.** Every colour token: the near-black neutral ground, `foreground` at neutral-200, the status, priority, health and date colours, the six swatches, and the red `now-indicator`. (Nova Lists moves red to one shade in dark and the tiles to the 900 steps: see Colour.)
+- **Colour.** Every colour token: the near-black neutral ground, `foreground` at neutral-200, the status, priority, health and date colours, the six swatches and their tiles, and the red `now-indicator`.
 - **Type family.** Inter for everything; 30px and 24px titles.
 - **The logomark.**
 - **Glyphs.** `StatusIcon`, `PriorityIcon`, `HealthIcon` and `ProgressRing`, each status with its own shape and colour.
@@ -36,21 +37,9 @@ DevBrain Nova Lists is DevBrain Nova with the quiet list direction's behaviours.
 - **Entity pills.** Every relation is an outlined pill on the page colour, with an entity icon or the calendar's colour bar.
 - **The segmented control.** `ToggleGroup` and `Tabs` are outlined segments on the page colour (Nova's are a muted track).
 - **The dark tooltip.** Nova inverts tooltips; DevBrain keeps them dark with an outline.
-- **Lists.** Entity pills, priority and date on the right of every row (the rows themselves follow the list behaviours below).
+- **Lists.** Task and event rows with a line beneath, a hover tone and `muted` group bands.
 - **Planning views.** The board, the time grid, event blocks and the mini calendar with its red "today".
 - **Sidebar.** The workspace tile, the outlined active item, and full-size Recents and Favorites.
-
-## Lists (what Nova Lists adds)
-
-- **Strokeless rows.** No line between rows and no group band. A row is a 40px block with `radius-md` corners: `accent` on hover, `row-selected` when selected. Space separates groups (24px above each heading).
-- **Title first.** The task name leads; the issue key (12px `subtle-foreground`) and the subtask count follow it. Entity pills, priority and date stay on the right, as in Nova.
-- **The status icon is a button.** Clicking it, or pressing `S` on a focused row, opens the `StatusMenu`; `1`, `2`, `3` pick. Overdue shows as the flag until the task is started or done.
-- **Leading control.** The selection checkbox lives in a strip left of the status icon. It appears on hover and keyboard focus, and on every row once anything is selected. `X` toggles the focused row.
-- **Row states.** Rest, hover (`accent`), selected (`row-selected` with `row-selected-foreground` titles; neighbouring selected rows join into one block), keyboard focus (Nova's ring around the whole row), completed (struck through in `muted-foreground`), overdue (flag and `date-overdue`), subtask (indented).
-- **Selection bar.** While rows are selected, a `SelectionBar` floats over the bottom of the list: the count, then Status, Priority, Due date, Move, more, and clear.
-- **Grouped list.** `GroupHeading` is a tile, a title over a subtitle ("Overdue · Oldest due Sep 28", "Mitchell / Jesse 1:1 · Event · Today, 10:00 AM"), an xs "Add task", done/total and a progress bar.
-- **Board.** Open `BoardColumn`s (no panel, 24px apart) hold borderless filled `BoardCard`s: the linked event or note as a quiet line, the title, then one line of priority, subtasks, project and date. Hover lightens the card and adds an outline; completed cards go darker; each open column ends with a dashed "Add task" slot.
-- **Toolbar values.** Toolbar buttons show their current choice after the label ("Filter Assigned to me", "Sort Due date"), still Nova's quiet button. The main action stays the quiet `default` "New Task", not `primary`.
 
 ## How this system is built
 
@@ -72,8 +61,6 @@ DevBrain Nova Lists is DevBrain Nova with the quiet list direction's behaviours.
 - Dark is the primary theme. Pages, the sidebar, lists and cards sit on `background`; menus, popovers, tooltips, dialogs, sheets and toasts on `popover`.
 - Text: `foreground` for body, `foreground-strong` for titles and row names, `muted-foreground` for labels, descriptions and menu icons, `subtle-foreground` for metadata a reader can skip.
 - Lines: `border` between rows and around pills; `input` around fields and the quiet button; `edge` around anything raised.
-- **One red.** In dark, overdue, high priority, off track and delete all use `red-400` (6.2:1 on `popover`); light uses `red-600` throughout. The calendar's today and the time grid's now line keep `now-indicator` (`red-600`), which carries a white number.
-- **Workspace tiles** sit on the 900 step of their swatch (`swatch-*-tile`), so a 20px tile reads as colour; the white letter stays above 9:1.
 - Status colours keep one meaning each (`status-*`, `priority-*`, `health-*`, `date-today`, `date-overdue`), each with its own icon shape. Users pick from the six `swatch-*` colours, shown as 3px bars, dots and swatches.
 
 ## Type
