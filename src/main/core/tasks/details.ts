@@ -4,7 +4,7 @@ import { events } from '@main/db/schema/events';
 import { notes } from '@main/db/schema/notes';
 import { projects } from '@main/db/schema/projects';
 import { tasks } from '@main/db/schema/tasks';
-import { and, eq, inArray, isNull, SQL, sql } from 'drizzle-orm';
+import { and, count, eq, inArray, isNull, ne, SQL, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { SubtaskListItem, Task, TaskListItem, TaskLinkSummary, TaskStatus } from './types';
 
@@ -51,8 +51,7 @@ export function withSubtaskListDetails(db: BetterSQLite3Database, rows: Task[]):
       .select({
         parentTaskId: tasks.parentTaskId,
         completed: countWhere(sql`${tasks.status} = ${TaskStatus.COMPLETED}`),
-        // cancelled subtasks are left out so they do not dilute progress, as in project stats
-        total: countWhere(sql`${tasks.status} != ${TaskStatus.CANCELLED}`),
+        total: count(),
       })
       .from(tasks)
       .where(
@@ -62,6 +61,9 @@ export function withSubtaskListDetails(db: BetterSQLite3Database, rows: Task[]):
             rows.map((row) => row.id),
           ),
           isNull(tasks.archivedAt),
+          // cancelled subtasks are left out so they do not dilute progress, as in project stats.
+          // A task whose subtasks are all cancelled gets no group, so its progress is null
+          ne(tasks.status, TaskStatus.CANCELLED),
         ),
       )
       .groupBy(tasks.parentTaskId)

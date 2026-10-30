@@ -686,6 +686,16 @@ describe('TaskService — list row details', () => {
     expect(items.find((t) => t.id === plain.id)?.subtaskProgress).toBeNull();
   });
 
+  it('gives no progress to a parent whose subtasks are all cancelled', () => {
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    tasks.createSubtask(parent.id, { title: 'Dropped', status: TaskStatus.CANCELLED });
+    tasks.createSubtask(parent.id, { title: 'Also dropped', status: TaskStatus.CANCELLED });
+
+    const [item] = tasks.listTasks().items.filter((t) => t.id === parent.id);
+
+    expect(item.subtaskProgress).toBeNull();
+  });
+
   it('gives a subtask its parent, and a top-level task none', () => {
     const parent = tasks.createTask({
       title: 'Parent',
