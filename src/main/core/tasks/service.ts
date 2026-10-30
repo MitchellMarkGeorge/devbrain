@@ -7,6 +7,7 @@ import {
   CreateTaskOptions,
   Task,
   TaskFilterOptions,
+  SubtaskListItem,
   TaskListItem,
   TaskPriority,
   TaskSortOptions,
@@ -17,7 +18,7 @@ import {
 import { InvalidInputError, NotFoundError, TaskHierarchyError } from '../shared/errors';
 import { isSubtask } from './utils';
 import { subtreeOf } from './subtree';
-import { withListDetails } from './details';
+import { withListDetails, withSubtaskListDetails } from './details';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { localDayWindow } from '../shared/dates';
 import { keyset, Page, PageOptions } from '../shared/pagination';
@@ -218,7 +219,7 @@ export class TaskService {
     return { ...result, items: withListDetails(this.db, withRefs(this.db, result.items)) };
   }
 
-  listSubtasks(parentTaskId: TaskId, page: PageOptions = {}): Page<TaskListItem> {
+  listSubtasks(parentTaskId: TaskId, page: PageOptions = {}): Page<SubtaskListItem> {
     const pager = keyset<Task>(
       {
         sortKey: 'created',
@@ -241,7 +242,7 @@ export class TaskService {
 
     // filled after the page is cut, so the lookups cover only the rows returned
     const result = pager.toPage(rows);
-    return { ...result, items: withListDetails(this.db, withRefs(this.db, result.items)) };
+    return { ...result, items: withSubtaskListDetails(this.db, withRefs(this.db, result.items)) };
   }
 
   updateTask(id: TaskId, updates: UpdateTaskOptions): Task {

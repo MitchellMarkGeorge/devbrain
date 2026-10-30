@@ -6,7 +6,7 @@ import { projects } from '@main/db/schema/projects';
 import { tasks } from '@main/db/schema/tasks';
 import { and, eq, inArray, isNull, SQL, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { Task, TaskListItem, TaskLinkSummary, TaskStatus } from './types';
+import { SubtaskListItem, Task, TaskListItem, TaskLinkSummary, TaskStatus } from './types';
 
 // counts the rows matching `predicate`; count(<boolean>) would count every row
 const countWhere = (predicate: SQL) =>
@@ -17,11 +17,33 @@ const unique = <T>(values: (T | null)[]): T[] => [
 ];
 
 /**
- * Adds what a task row shows beside its own fields: its subtask progress, its parent, its project
- * and its link. One query per kind for the whole page, never one per row. Archived parents,
- * subtasks, projects and notes are left out, as every list leaves them out.
+ * Adds what a task row in the task list shows beside its own fields: its subtask progress, its
+ * parent, its project and its link. One query per kind for the whole page, never one per row.
+ * Archived parents, subtasks, projects and notes are left out, as every list leaves them out.
  */
 export function withListDetails(db: BetterSQLite3Database, rows: Task[]): TaskListItem[] {
+  const parentIds = unique<TaskId>(rows.map((row) => row.parentTaskId));
+  const parents = new Map(
+    parentIds.length === 0
+      ? []
+      : db
+          .select({ id: tasks.id, title: tasks.title, status: tasks.status })
+          .from(tasks)
+          .where(and(inArray(tasks.id, parentIds), isNull(tasks.archivedAt)))
+          .all()
+          .map((parent) => [parent.id, parent]),
+  );
+
+  return withSubtaskListDetails(db, rows).map((row) => ({
+    ...row,
+    parentTask: (row.parentTaskId && parents.get(row.parentTaskId)) || null,
+  }));
+}
+
+/**
+ * The same, for a task's subtask list: everything but the parent, which is the task being viewed.
+ */
+export function withSubtaskListDetails(db: BetterSQLite3Database, rows: Task[]): SubtaskListItem[] {
   if (rows.length === 0) return [];
 
   const progress = new Map(
@@ -45,18 +67,6 @@ export function withListDetails(db: BetterSQLite3Database, rows: Task[]): TaskLi
       .groupBy(tasks.parentTaskId)
       .all()
       .map(({ parentTaskId, ...counts }) => [parentTaskId as TaskId, counts]),
-  );
-
-  const parentIds = unique<TaskId>(rows.map((row) => row.parentTaskId));
-  const parents = new Map(
-    parentIds.length === 0
-      ? []
-      : db
-          .select({ id: tasks.id, title: tasks.title, status: tasks.status })
-          .from(tasks)
-          .where(and(inArray(tasks.id, parentIds), isNull(tasks.archivedAt)))
-          .all()
-          .map((parent) => [parent.id, parent]),
   );
 
   const projectIds = unique<ProjectId>(rows.map((row) => row.projectId));
@@ -109,7 +119,6 @@ export function withListDetails(db: BetterSQLite3Database, rows: Task[]): TaskLi
     return {
       ...row,
       subtaskProgress: progress.get(row.id) ?? null,
-      parentTask: (row.parentTaskId && parents.get(row.parentTaskId)) || null,
       project: (row.projectId && projectsById.get(row.projectId)) || null,
       link,
     };

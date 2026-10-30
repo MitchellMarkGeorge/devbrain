@@ -750,7 +750,7 @@ describe('TaskService — list row details', () => {
     expect(item.link).toBeNull();
   });
 
-  it('fills the same details on subtasks', () => {
+  it('fills the same details on subtasks, without their parent', () => {
     const parent = tasks.createTask({
       title: 'Parent',
       dueDate: TOMORROW,
@@ -764,7 +764,7 @@ describe('TaskService — list row details', () => {
 
     expect(item.id).toBe(sub.id);
     expect(item.subtaskProgress).toEqual({ completed: 1, total: 1 });
-    expect(item.parentTask?.id).toBe(parent.id);
+    expect(item).not.toHaveProperty('parentTask');
     expect(item.project?.id).toBe(FAKE_PROJECT_ID);
     expect(item.link).toMatchObject({ type: 'event', id: FAKE_EVENT_ID, title: 'Fake Event' });
   });
