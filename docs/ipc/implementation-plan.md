@@ -8,6 +8,9 @@ How the renderer stays current was researched separately, with a survey of other
 measurements of what refetching costs: `docs/ipc/change-propagation-research.md`. This plan
 describes what was built from it.
 
+> **Status:** all six milestones are done. The reference for the layer as built is now
+> `docs/ipc/design.md`; this plan is kept for the reasoning behind it and for its status notes.
+
 ## Decisions
 
 | Area             | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -389,19 +392,20 @@ response carries `changed`. Both are done.
      renderer needs this map from one to the other. A router missing from it refetches on every
      change.
 
-     | Router                         | Reads                              |
-     | ------------------------------ | ---------------------------------- |
-     | `tasks`                        | `task`, `project`                  |
-     | `projects`                     | `project`, `task`                  |
-     | `notes`                        | `note`, `task`, `project`          |
-     | `events`                       | `event`, `calendar`                |
-     | `calendars`                    | `calendar`                         |
-     | `favorites`                    | `task`, `project`, `note`, `event` |
-     | `archive`                      | `task`, `project`, `note`          |
-     | `search`                       | `task`, `project`, `note`, `event` |
-     | `integrations`, `sync`         | `integration`, `externalSource`    |
-     | `workspaces`                   | `workspace`                        |
-     | `app`, `settings`, `workspace` | nothing                            |
+     | Router                           | Reads                                  |
+     | -------------------------------- | -------------------------------------- |
+     | `tasks`                          | `task`, `project`                      |
+     | `projects`                       | `project`, `task`                      |
+     | `notes`                          | `note`, `task`, `project`              |
+     | `events`                         | `event`, `calendar`                    |
+     | `calendars`                      | `calendar`, `externalSource`           |
+     | `favorites`                      | `task`, `project`, `note`, `event`     |
+     | `archive`                        | `task`, `project`, `note`              |
+     | `search`                         | `task`, `project`, `note`, `event`     |
+     | `integrations`, `sync`           | `integration`, `externalSource`        |
+     | `integrations.previewDisconnect` | everything but `calendar`, `workspace` |
+     | `workspaces`                     | `workspace`                            |
+     | `app`, `settings`, `workspace`   | nothing                                |
 
    - `onChanged(entities)` invalidates every cached query whose route reads one of them, in one
      `invalidateQueries` call with a predicate on the path a tRPC query key starts with
@@ -497,6 +501,16 @@ events, favorites and search.
 route.
 
 ## Milestone 6: Documentation
+
+> **Status:** done. `docs/ipc/design.md` describes the layer as built and ends with the
+> "adding a route" checklist, which also asks for an end-to-end test that checks `changed`. The
+> integrations design points to the routers and the `AppEvents` names; `docs/follow-ups.md` drops
+> the calendar-selection sync item and narrows the payload item to `SyncStatusChange`'s snapshot,
+> which core still sends (the IPC layer forwards only its `sourceId`); `CLAUDE.md` has an "IPC"
+> section. The reads table in milestone 4 was brought up to date with the code: `calendars` also
+> reads `externalSource`, and `integrations.previewDisconnect` has its own line. Since milestone 3, startup
+> changed (PR #61): main no longer reopens the last workspace before creating the window; the
+> renderer's first call, `workspaces.openLast`, does.
 
 1. Write `docs/ipc/design.md`, the reference for the layer as built, with a short "adding a route"
    checklist:

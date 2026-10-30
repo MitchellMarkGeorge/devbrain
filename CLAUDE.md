@@ -71,3 +71,19 @@ UI work follows the DevBrain design system in `docs/design-system/README.md`: to
 build in `docs/design-system/reference/`. The live version, with a preview of every component, is
 https://claude.ai/artifact/9ZGwb8KzWqLyDsnPnoTLav. `docs/design-system/archive/` holds superseded
 systems; don't build from them.
+
+## IPC
+
+The renderer reaches core through the typed tRPC router in `src/main/ipc`, run over Electron IPC.
+`docs/ipc/design.md` describes it and ends with a checklist for adding a route.
+
+- Core never imports from `src/main/ipc`: the IPC layer depends on core, not the other way round.
+- The renderer imports from `src/main` as a type only (`import type { AppRouter }`); ESLint
+  rejects a value import. Runtime values both sides need (enums, error codes, schemas) live in
+  `src/common`.
+- Handlers return core's data as it is: one call to a service, with an input schema, and no
+  reshaping or extra lookups.
+- A write the renderer must hear about is announced by its service through `onChange`, never by a
+  route: the `ChangeTracker` (`src/main/ipc/changes.ts`) only hears core's events.
+- A new core change type must be mapped to its `ChangedEntity` list in the `ChangeTracker`, and a
+  new router added to `ENTITIES_READ_BY_ROUTE` (`src/renderer/ipc/query-invalidator.ts`).

@@ -17,7 +17,7 @@ The design rests on six decisions:
 
 The largest required change to existing code is making `tasks.dueDate` and `projects.dueDate` nullable. Linear issues and projects often have no due date.
 
-**Scope of the current build.** Core only: the data model, integrations, credentials, providers and sync, in `src/main/core`, plus the main-process wiring core needs to run. IPC is being built separately with a dedicated typed solution, and the UI comes later. The IPC contract and UI notes further down are kept as requirements for that later work, not as part of this build.
+**Scope of the current build.** Core and IPC: the data model, integrations, credentials, providers and sync in `src/main/core`, the main-process wiring core needs to run, and the typed IPC layer that exposes it to the renderer (`docs/ipc/design.md`). The UI comes later; the UI notes further down are kept as requirements for it.
 
 ## Goals and non-goals
 
@@ -43,23 +43,23 @@ The largest required change to existing code is making `tasks.dueDate` and `proj
 
 ## Current state
 
-The core services are built and tested; the API layer and UI are not. These facts from the codebase shape the design.
+The facts from the codebase, before integrations, that shaped the design. Core and the IPC layer have since been built; the UI has not.
 
-| Area              | Today                                                                                                                                    | Consequence for integrations                                                                            |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Workspace storage | Each workspace owns a `db.sqlite` under `workspaces/<id>/`, opened by `Workspace.open`                                                   | Integration tables go in the workspace database. Scoping is free.                                       |
-| Open workspaces   | `WorkspaceService` holds one `currentWorkspace`                                                                                          | Sync runs only for the open workspace.                                                                  |
-| Tasks             | `dueDate` is `NOT NULL`; statuses are NOT_STARTED, IN_PROGRESS, COMPLETED; priorities are LOW, MEDIUM, HIGH                              | Due date must become nullable. Linear's richer states and priorities need a mapping plus the raw label. |
-| Subtasks          | `createSubtask` and `demoteTask` allow one level only                                                                                    | Depth guards must apply to local tasks only.                                                            |
-| Task links        | One of `linkedEventId` or `linkedNoteId`; subtasks inherit the parent's project and links                                                | Links are local-owned fields that sync must never overwrite.                                            |
-| Projects          | `dueDate` is `NOT NULL`; four statuses                                                                                                   | Same nullability change. Linear project states map onto the four.                                       |
-| Events            | `reccurrenceRule` stores RFC 5545 lines, chosen to match Google Calendar; no `archivedAt`, deletes are hard                              | Recurring masters map directly. Removal needs a soft state on the link row.                             |
-| Search            | FTS5 `search_index`; services call `indexTask`, `indexEvents` and friends explicitly                                                     | The sync writer must index what it upserts and remove what it deletes.                                  |
-| Timestamps        | `updatedAt` uses `$onUpdate(() => new Date())`                                                                                           | Sync must skip unchanged rows, or every poll rewrites `updatedAt`.                                      |
-| Database open     | Native backup to `db.sqlite.backup` on every open; WAL is off                                                                            | Encrypted credentials are copied into the backup. WAL should be on before background writes start.      |
-| Core dependencies | `src/main/core` does not import Electron; tests mock `electron-store`                                                                    | Secret storage and HTTP must be injected interfaces.                                                    |
-| API and UI        | `schema.graphql` exists but GraphQL has been dropped for a custom typed IPC layer; `graphql/schema.ts` is empty; IPC exposes `ping` only | Integration channels and sync events are added to the custom typed IPC contract. GraphQL is not used.   |
-| IDs               | Prefixed UUIDv7 (`tsk_`, `prj_`, `evt_`) via `generateId`                                                                                | Add `int_`, `src_` and `xln_` prefixes.                                                                 |
+| Area              | Today                                                                                                       | Consequence for integrations                                                                            |
+| ----------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Workspace storage | Each workspace owns a `db.sqlite` under `workspaces/<id>/`, opened by `Workspace.open`                      | Integration tables go in the workspace database. Scoping is free.                                       |
+| Open workspaces   | `WorkspaceService` holds one `currentWorkspace`                                                             | Sync runs only for the open workspace.                                                                  |
+| Tasks             | `dueDate` is `NOT NULL`; statuses are NOT_STARTED, IN_PROGRESS, COMPLETED; priorities are LOW, MEDIUM, HIGH | Due date must become nullable. Linear's richer states and priorities need a mapping plus the raw label. |
+| Subtasks          | `createSubtask` and `demoteTask` allow one level only                                                       | Depth guards must apply to local tasks only.                                                            |
+| Task links        | One of `linkedEventId` or `linkedNoteId`; subtasks inherit the parent's project and links                   | Links are local-owned fields that sync must never overwrite.                                            |
+| Projects          | `dueDate` is `NOT NULL`; four statuses                                                                      | Same nullability change. Linear project states map onto the four.                                       |
+| Events            | `reccurrenceRule` stores RFC 5545 lines, chosen to match Google Calendar; no `archivedAt`, deletes are hard | Recurring masters map directly. Removal needs a soft state on the link row.                             |
+| Search            | FTS5 `search_index`; services call `indexTask`, `indexEvents` and friends explicitly                        | The sync writer must index what it upserts and remove what it deletes.                                  |
+| Timestamps        | `updatedAt` uses `$onUpdate(() => new Date())`                                                              | Sync must skip unchanged rows, or every poll rewrites `updatedAt`.                                      |
+| Database open     | Native backup to `db.sqlite.backup` on every open; WAL is off                                               | Encrypted credentials are copied into the backup. WAL should be on before background writes start.      |
+| Core dependencies | `src/main/core` does not import Electron; tests mock `electron-store`                                       | Secret storage and HTTP must be injected interfaces.                                                    |
+| API and UI        | GraphQL was dropped for a custom typed IPC layer, which then exposed `ping` only                            | Integration operations and sync events are part of that layer (see **IPC** below). GraphQL is not used. |
+| IDs               | Prefixed UUIDv7 (`tsk_`, `prj_`, `evt_`) via `generateId`                                                   | Add `int_`, `src_` and `xln_` prefixes.                                                                 |
 
 **Changed in `main` since 2 October.** Keyset pagination was added in `core/shared/pagination.ts`, and every list method now returns a `Page`. Its `keyset` helper assumes non-null sort values, which matters for nullable due dates. Migrations now run to `0015`. `tests/db/pagination-indexes.test.ts` asserts the index each list query uses. The GraphQL schema file was removed.
 
@@ -648,7 +648,7 @@ How a run walks the calendars: each `pull` asks the source for one page of one c
 
 Archiving instead of deleting means an issue that is briefly unassigned and reassigned comes back with its notes intact.
 
-**Telling the UI.** After each committed page the main process emits one event to the renderer: source, phase, counts and which entity types changed. The renderer refetches the affected queries. A second event carries source status for the settings page and a status indicator.
+**Telling the UI.** Each committed page reports the entity types it changed, which reach the renderer in a `db.changes` event, batched with the other changes of the same event-loop turn; the renderer refetches the queries that read them. A `sync.progress` event carries the source, phase and items applied for a status indicator, and `sources.changed` says a run recorded how it ended, so the settings page refetches `sync.status`. See `docs/ipc/design.md`.
 
 **Database concurrency.** `better-sqlite3` is synchronous, so each page's transaction blocks the main process for as long as it runs. These are the budgets for one source of 5,000 items, with the time measured by `src/main/core/tests/sync/performance.test.ts` (`DEVBRAIN_PERF=1 npx vitest run src/main/core/tests/sync/performance.test.ts`; in-memory database, Node 22, SQLite 3.53). A write that goes over its budget, or one whose time grows with the number of mirrored items, is a bug.
 
@@ -1007,81 +1007,34 @@ Most work is new code. Changes to existing files are small but touch every entit
 
 **Modified**
 
-| File                                                          | Change                                                                                                                                                                                                    |
-| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/common/ids.ts`                                           | Add `integration`, `externalSource`, `externalLink` entity types and prefixes                                                                                                                             |
-| `core/shared/errors.ts`                                       | Add `ExternalReadOnlyError`, `IntegrationAuthError`                                                                                                                                                       |
-| `db/schema/tasks.ts`, `projects.ts`                           | `dueDate` nullable                                                                                                                                                                                        |
-| `core/tasks/types.ts`, `projects/types.ts`, `events/types.ts` | `dueDate: Date \| null`; optional `external: ExternalRef`; `origin` filter                                                                                                                                |
-| `core/tasks/service.ts`                                       | Read-only guards on mutations; depth guards scoped to local tasks; ref lookup for `external`; null due dates sort last; CANCELLED status in filters and sorting; local tasks allowed in mirrored projects |
-| `core/projects/service.ts`                                    | Read-only guards; ref lookup; overdue stats ignore null due dates; cancelled tasks counted separately                                                                                                     |
-| `core/events/service.ts`                                      | Read-only guards; ref lookup; `listForCalendar` hides `removed`                                                                                                                                           |
-| `core/archive/service.ts`                                     | Reject archiving synced items; `listArchived` labels removed external items                                                                                                                               |
-| `core/search/service.ts`                                      | Add removal from the index by entity id, if not already present                                                                                                                                           |
-| `core/workspace/workspace.ts`                                 | Construct `IntegrationService` and `SyncScheduler`; enable WAL; stop the scheduler in `close()`                                                                                                           |
-| `core/workspace/service.ts`                                   | Revoke tokens on workspace delete                                                                                                                                                                         |
-| `core/settings/schema.ts`                                     | No change. Integration state is per workspace, not global settings                                                                                                                                        |
-| `src/main/index.ts`                                           | Pass `safeStorage`, `fetch` and `shell.openExternal` into core; forward window focus and `powerMonitor` resume to the scheduler; forward sync events to the renderer                                      |
-| `src/preload/index.ts`                                        | Expose a sync event subscription                                                                                                                                                                          |
-| `src/common/ipc.ts`                                           | Proposed home for the shared channel contract below, imported by main, preload and renderer                                                                                                               |
-| `.env.template`                                               | `DEV_LINEAR_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`                                                                                                                                          |
+| File                                                          | Change                                                                                                                                                                                                     |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/common/ids.ts`                                           | Add `integration`, `externalSource`, `externalLink` entity types and prefixes                                                                                                                              |
+| `core/shared/errors.ts`                                       | Add `ExternalReadOnlyError`, `IntegrationAuthError`                                                                                                                                                        |
+| `db/schema/tasks.ts`, `projects.ts`                           | `dueDate` nullable                                                                                                                                                                                         |
+| `core/tasks/types.ts`, `projects/types.ts`, `events/types.ts` | `dueDate: Date \| null`; optional `external: ExternalRef`; `origin` filter                                                                                                                                 |
+| `core/tasks/service.ts`                                       | Read-only guards on mutations; depth guards scoped to local tasks; ref lookup for `external`; null due dates sort last; CANCELLED status in filters and sorting; local tasks allowed in mirrored projects  |
+| `core/projects/service.ts`                                    | Read-only guards; ref lookup; overdue stats ignore null due dates; cancelled tasks counted separately                                                                                                      |
+| `core/events/service.ts`                                      | Read-only guards; ref lookup; `listForCalendar` hides `removed`                                                                                                                                            |
+| `core/archive/service.ts`                                     | Reject archiving synced items; `listArchived` labels removed external items                                                                                                                                |
+| `core/search/service.ts`                                      | Add removal from the index by entity id, if not already present                                                                                                                                            |
+| `core/workspace/workspace.ts`                                 | Construct `IntegrationService` and `SyncScheduler`; enable WAL; stop the scheduler in `close()`                                                                                                            |
+| `core/workspace/service.ts`                                   | Revoke tokens on workspace delete                                                                                                                                                                          |
+| `core/settings/schema.ts`                                     | No change. Integration state is per workspace, not global settings                                                                                                                                         |
+| `src/main/index.ts`                                           | Pass `safeStorage`, `fetch` and `shell.openExternal` into core; forward window focus and `powerMonitor` resume to the scheduler; attach the IPC router and the `ChangeTracker`, which forwards sync events |
+| `src/preload/index.ts`                                        | Expose the generic IPC bridge, with an event subscription                                                                                                                                                  |
+| `src/common/ipc`, `src/common/events.ts`                      | The shared IPC contract (request, envelope, error codes) and the push events, imported by main, preload and renderer                                                                                       |
+| `.env.template`                                               | `DEV_LINEAR_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`                                                                                                                                           |
 
-**IPC contract (deferred).** Not part of the current build. IPC will be implemented separately with a dedicated typed solution. The shapes below record what the integration feature will need from it: request channels the renderer invokes and push events the main process sends. Treat them as requirements to fit to that solution, not as its design. Until then, the same operations are plain methods and in-process events on the core services.
+**IPC.** Built as the typed tRPC layer described in `docs/ipc/design.md`. The integration operations are routes in `src/main/ipc/routers`: `integrations` (`list`, `get`, `connect`, `reconnect`, `cancelConnect`, `setEnabled`, `previewDisconnect`, `disconnect`), `sources` (`setEnabled`), `calendars` (`list`, `setVisible`, `setSelected`), `sync` (`now`, `status`), and `tasks.detach` and `tasks.reattach`. Each returns what the core service returns, which never holds credentials.
 
-```ts
-// request/response
-interface IntegrationChannels {
-  'integrations:list': () => Integration[];
-  // API key: resolves after validation. OAuth: resolves when the loopback flow ends
-  'integrations:connect': (input: { provider: Provider; apiKey?: string }) => Integration;
-  'integrations:cancelConnect': (input: { provider: Provider }) => void;
-  'integrations:setEnabled': (input: { id: IntegrationId; enabled: boolean }) => Integration;
-  'integrations:disconnect': (input: { id: IntegrationId; keepLocalCopies: boolean }) => void;
+Main pushes the events in `AppEvents` (`src/common/events.ts`). Each is a delta carrying ids, not a snapshot; the renderer refetches what it shows:
 
-  'sources:setEnabled': (input: { id: ExternalSourceId; enabled: boolean }) => ExternalSource;
-  // CalendarService: rows only. A selection change and a refresh both ask the scheduler for a run
-  // of the calendar's source, which lists calendars and applies the selection
-  'calendars:list': () => Calendar[];
-  'calendars:setVisible': (input: { id: CalendarId; visible: boolean }) => Calendar;
-  'calendars:setSelected': (input: { id: CalendarId; selected: boolean }) => Calendar;
-
-  'sync:now': (input: { sourceId?: ExternalSourceId }) => void;
-  'tasks:detach': (input: { id: TaskId }) => Task;
-  'tasks:reattach': (input: { id: TaskId }) => Task;
-}
-
-// push events
-interface IntegrationEvents {
-  'sync:progress': {
-    sourceId: ExternalSourceId;
-    phase: 'initial' | 'incremental' | 'reconcile';
-    itemsApplied: number;
-    changed: ('task' | 'project' | 'event')[]; // what the renderer should refetch
-  };
-  'sources:changed': ExternalSource; // enabled, lastSyncedAt, lastError
-  'integrations:changed': Integration; // status, such as needs_reauth
-}
-
-interface Integration {
-  id: IntegrationId;
-  provider: Provider;
-  authType: 'oauth' | 'api_key';
-  accountLabel: string;
-  status: 'connected' | 'disabled' | 'needs_reauth';
-  sources: ExternalSource[];
-}
-
-interface ExternalSource {
-  id: ExternalSourceId;
-  sourceType: 'tasks' | 'events' | 'version_control';
-  enabled: boolean;
-  initialSyncCompleted: boolean;
-  lastSyncedAt: Date | null;
-  lastError: string | null;
-}
-```
-
-Existing task, project and event payloads gain the optional `external: ExternalRef` field from the data model section. No channel ever returns credentials.
+- `db.changes`: the entity types changed outside a mutation's response, such as by a sync page.
+- `sync.progress`: `sourceId`, `phase` and `itemsApplied`, after each committed page.
+- `integrations.changed`: `integrationId` and the change's `type`.
+- `sources.changed`: `sourceId`, when a source is switched on or off or a run records how it ended.
+- `workspace.changed`: the open workspace's id, or `null`.
 
 **UI (deferred).** Not part of the current build. What the views will need once they exist:
 
@@ -1191,11 +1144,11 @@ The step-by-step breakdown of every feature is in Implementation breakdown.
 1. **Foundations.** Schema and migration for the three tables. Nullable `dueDate` with every caller fixed. New id prefixes and errors. `ExternalRef` on read models. Read-only guards in the task, project, event and archive services. Enable WAL.
 2. **Integrations and credentials.** `IntegrationService`, `CredentialStore` with the injected cipher, Linear API key connect and validation, enable, disable, disconnect.
 3. **Sync engine with Linear tasks.** Linear client and mapper, `SyncWriter`, `SyncEngine`, initial and incremental sync, reconcile, removal policy, search indexing, detach and reattach.
-4. **Scheduler and app wiring.** `SyncScheduler`, focus and resume triggers in `src/main/index.ts`, renderer events, typed IPC channels and handlers.
+4. **Scheduler and app wiring.** `SyncScheduler`, focus and resume triggers in `src/main/index.ts`. Renderer events and the IPC routes came with the typed IPC layer (`docs/ipc/implementation-plan.md`).
 5. **OAuth and Google Calendar.** PKCE and loopback module, Google provider with calendar selection, sync tokens and recurring events. Linear OAuth is deferred.
 6. **UI.** Integrations settings page, badges and read-only states, sync indicator, disconnect dialog.
 
-The IPC part of phase 4 and all of phase 6 are deferred. Phase 4 in the current build is the scheduler and the main-process wiring only.
+Phases 1 to 5 are built, and the IPC layer with them. Phase 6 waits for the UI.
 
 Start Google's OAuth verification during phase 1; it is the only item with an external lead time.
 
