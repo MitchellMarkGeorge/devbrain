@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { hexColorSchema } from '@common/color';
 import type { WorkspaceEntry } from '@main/core';
+import { openLastWorkspace } from '../../runtime/start';
 import { devBrainProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId, zPage } from '../zod';
@@ -25,6 +26,14 @@ export const workspacesRouter = t.router({
     ctx.devBrain.settings.set('state.lastWorkspaceId', input.id);
     return workspace.info;
   }),
+
+  // The renderer's first call once it has loaded: opens the workspace open last time while none is
+  // open, and returns the open one, or null when there is none to open (the user picks one). A
+  // reload or a second window gets the workspace already open, never reopened.
+  openLast: devBrainProcedure.mutation(
+    async ({ ctx }): Promise<WorkspaceEntry | null> =>
+      (await openLastWorkspace(ctx.devBrain))?.info ?? null,
+  ),
 
   // creates the workspace without opening it: open it next to use it
   create: devBrainProcedure

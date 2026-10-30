@@ -91,7 +91,7 @@ describe('loadDevBrain', () => {
     expect(started!.workspaces.listAll().items).toEqual([]);
   });
 
-  it('opens no workspace, even the one open last time: openLastWorkspace does', async () => {
+  it('opens no workspace, even the one open last time: the renderer asks (openLastWorkspace)', async () => {
     const { devBrain, ids } = await folderWith('Last');
     devBrain.settings.set('state.lastWorkspaceId', ids[0]);
     started = await loadDevBrain({
@@ -121,67 +121,77 @@ describe('loadDevBrain', () => {
 });
 
 describe('openLastWorkspace', () => {
-  it('reopens the workspace open last time, which starts syncing', async () => {
-    const { devBrain, ids } = await folderWith('First', 'Last');
-    devBrain.settings.set('state.lastWorkspaceId', ids[1]);
-    started = await loadDevBrain({
+  const load = async () =>
+    (started = await loadDevBrain({
       settingsStore: openFileSettingsStore,
       rootPath,
       createIfMissing: false,
       workspace: WORKSPACE_OPTIONS,
       logger: quietLogger(),
-    });
-    await openLastWorkspace(started!, quietLogger());
-    expect(started!.currentWorkspace?.info.id).toBe(ids[1]);
-    expect(started!.currentWorkspace!.sync.getStatus()).toEqual([]);
+    }))!;
+
+  it('reopens the workspace open last time, which starts syncing', async () => {
+    const { devBrain, ids } = await folderWith('First', 'Last');
+    devBrain.settings.set('state.lastWorkspaceId', ids[1]);
+    const loaded = await load();
+    const opened = await openLastWorkspace(loaded);
+    expect(opened?.info.id).toBe(ids[1]);
+    expect(loaded.currentWorkspace).toBe(opened);
+    expect(loaded.currentWorkspace!.sync.getStatus()).toEqual([]);
   });
 
   it('opens none when none was open last time, leaving the choice to the user', async () => {
     await folderWith('First', 'Second');
-    const logger = quietLogger();
-    started = await loadDevBrain({
-      settingsStore: openFileSettingsStore,
-      rootPath,
-      createIfMissing: false,
-      workspace: WORKSPACE_OPTIONS,
-      logger: quietLogger(),
-    });
-    await openLastWorkspace(started!, logger);
-    expect(started!.currentWorkspace).toBeNull();
-    expect(logger.info).toHaveBeenCalledWith('No workspace was open last time; none opened');
+    const loaded = await load();
+    expect(await openLastWorkspace(loaded)).toBeNull();
+    expect(loaded.currentWorkspace).toBeNull();
   });
 
   it('opens none when the last workspace has been deleted since', async () => {
     const { devBrain } = await folderWith('First');
     devBrain.settings.set('state.lastWorkspaceId', 'wsp_gone');
-    started = await loadDevBrain({
-      settingsStore: openFileSettingsStore,
-      rootPath,
-      createIfMissing: false,
-      workspace: WORKSPACE_OPTIONS,
-      logger: quietLogger(),
-    });
-    await openLastWorkspace(started!, quietLogger());
-    expect(started!.currentWorkspace).toBeNull();
+    const loaded = await load();
+    expect(await openLastWorkspace(loaded)).toBeNull();
+    expect(loaded.currentWorkspace).toBeNull();
   });
 
-  it('logs a workspace that fails to open and leaves none open', async () => {
+  it('returns the workspace already open, never reopening it, as on a reload', async () => {
+    const { devBrain, ids } = await folderWith('First', 'Last');
+    devBrain.settings.set('state.lastWorkspaceId', ids[1]);
+    const loaded = await load();
+    const first = await loaded.workspaces.open(ids[0]);
+    const spy = vi.spyOn(Workspace, 'open');
+    try {
+      expect(await openLastWorkspace(loaded)).toBe(first);
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('opens once when asked twice at once, as StrictMode or two windows would', async () => {
+    const { devBrain, ids } = await folderWith('Last');
+    devBrain.settings.set('state.lastWorkspaceId', ids[0]);
+    const loaded = await load();
+    const spy = vi.spyOn(Workspace, 'open');
+    try {
+      const [a, b] = await Promise.all([openLastWorkspace(loaded), openLastWorkspace(loaded)]);
+      expect(a).toBe(b);
+      expect(spy).toHaveBeenCalledOnce();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('throws for a workspace that fails to open, leaving none open', async () => {
     const { devBrain, ids } = await folderWith('Dev');
     devBrain.settings.set('state.lastWorkspaceId', ids[0]);
     await fs.rm(devBrain.workspaces.getById(ids[0]).path, { recursive: true });
-    const logger = quietLogger();
-    started = await loadDevBrain({
-      settingsStore: openFileSettingsStore,
-      rootPath,
-      createIfMissing: false,
-      workspace: WORKSPACE_OPTIONS,
-      logger: quietLogger(),
+    const loaded = await load();
+    await expect(openLastWorkspace(loaded)).rejects.toMatchObject({
+      name: 'WorkspaceDataMissingError',
     });
-    await openLastWorkspace(started!, logger);
-    expect(started!.currentWorkspace).toBeNull();
-    expect(logger.warn).toHaveBeenCalledWith(
-      `Opening workspace ${ids[0]} failed error=WorkspaceDataMissingError`,
-    );
+    expect(loaded.currentWorkspace).toBeNull();
   });
 });
 
@@ -212,7 +222,7 @@ describe('startup shutdown', () => {
       return workspace;
     });
     try {
-      // as src/main/index.ts starts: load DevBrain, hook quit to its close, then open
+      // as the app starts: load DevBrain, hook quit to its close, then the renderer's openLast
       const loaded = await loadDevBrain({
         settingsStore: openFileSettingsStore,
         rootPath,
@@ -223,7 +233,7 @@ describe('startup shutdown', () => {
       started = loaded;
       const app = Object.assign(new EventEmitter(), { quit: vi.fn<() => void>() });
       closeBeforeQuit(app, () => loaded!.close(), quietLogger());
-      const reopening = openLastWorkspace(loaded!, quietLogger());
+      const reopening = openLastWorkspace(loaded!);
       const workspace = await opening.promise;
 
       const event = { preventDefault: vi.fn() };

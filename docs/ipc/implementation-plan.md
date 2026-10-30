@@ -508,7 +508,9 @@ route.
 > the calendar-selection sync item and narrows the payload item to `SyncStatusChange`'s snapshot,
 > which core still sends (the IPC layer forwards only its `sourceId`); `CLAUDE.md` has an "IPC"
 > section. The reads table in milestone 4 was brought up to date with the code: `calendars` also
-> reads `externalSource`, and `integrations.previewDisconnect` has its own line.
+> reads `externalSource`, and `integrations.previewDisconnect` has its own line. Since milestone 3, startup
+> changed (PR #61): main no longer reopens the last workspace before creating the window; the
+> renderer's first call, `workspaces.openLast`, does.
 
 1. Write `docs/ipc/design.md`, the reference for the layer as built, with a short "adding a route"
    checklist:

@@ -1,0 +1,1948 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Geist+Mono:wght@400;600&display=swap');
+
+/*
+ * DevBrain components: shadcn/ui's components and variants on Base UI primitives, styled in
+ * the DevBrain Figma file's design language. States use Base UI's data attributes
+ * (data-checked, data-pressed, data-active, data-highlighted, data-open, ...), so these rules
+ * apply unchanged to real Base UI parts. Values come from tokens.css. Class prefix db-.
+ */
+
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+}
+body {
+  margin: 0;
+  padding: var(--space-4);
+}
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border-color: var(--border);
+}
+.db-row-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.db-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+.db-stack-fill {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.db-caption {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* Focus: shadcn's ring (border turns ring, 3px ring at 50%) */
+.db-btn:focus-visible,
+.db-input:focus-visible,
+.db-textarea:focus-visible,
+.db-check:focus-visible,
+.db-switch:focus-visible,
+.db-toggle:focus-visible,
+.db-tab:focus-visible,
+.db-swatch:focus-visible,
+.db-badge:focus-visible,
+.db-sidebar-btn:focus-visible {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+.db-icon {
+  flex: none;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Button (shadcn button; Figma: quiet bordered, 34px, 12px semibold) */
+.db-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  gap: var(--space-1-5);
+  height: var(--control-md);
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--secondary-foreground);
+  font: 600 12px/16px var(--font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 100ms,
+    color 100ms;
+}
+.db-btn[data-size='sm'] {
+  height: 28px;
+  padding: 0 10px;
+}
+.db-btn[data-size='lg'] {
+  height: var(--control-lg);
+  padding: 0 var(--space-4);
+}
+.db-btn[data-size='xs'] {
+  height: var(--control-2xs);
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+}
+.db-btn[data-size='icon'] {
+  width: var(--control-md);
+  padding: 0;
+}
+.db-btn[data-size='icon-sm'] {
+  width: var(--control-sm);
+  height: var(--control-sm);
+  padding: 0;
+  border-radius: var(--radius-md);
+}
+.db-btn[data-size='icon-xs'] {
+  width: var(--control-xs);
+  height: var(--control-xs);
+  padding: 0;
+  border-radius: var(--radius-md);
+}
+.db-btn[data-variant='default'],
+.db-btn[data-variant='destructive'] {
+  background: var(--secondary);
+  border-color: var(--border-strong);
+}
+.db-btn[data-variant='default']:hover,
+.db-btn[data-variant='destructive']:hover {
+  background: color-mix(in oklab, var(--border-strong) 50%, var(--secondary));
+}
+.db-btn[data-variant='destructive'] {
+  color: var(--destructive);
+}
+.db-btn[data-variant='primary'] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.db-btn[data-variant='primary']:hover {
+  background: color-mix(in oklab, var(--primary) 90%, transparent);
+}
+.db-btn[data-variant='secondary'] {
+  background: var(--secondary);
+}
+.db-btn[data-variant='secondary']:hover {
+  background: color-mix(in oklab, var(--border-strong) 50%, var(--secondary));
+}
+.db-btn[data-variant='outline'] {
+  background: var(--background);
+  border-color: var(--border);
+}
+.db-btn[data-variant='outline']:hover,
+.db-btn[data-variant='ghost']:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.db-btn[data-variant='ghost'] {
+  color: var(--foreground);
+}
+.db-btn[data-variant='link'] {
+  height: auto;
+  padding: 0;
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+.db-btn[data-variant='link']:hover {
+  color: var(--foreground);
+}
+.db-btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.db-btn > svg {
+  pointer-events: none;
+}
+
+/* ButtonGroup */
+.db-btn-group {
+  display: inline-flex;
+  width: fit-content;
+}
+.db-btn-group > .db-btn:not(:first-child) {
+  margin-left: -1px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.db-btn-group > .db-btn:not(:last-child) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+/* Badge (shadcn badge; Figma: 24px pill on the page colour) */
+.db-badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: var(--space-1-5);
+  width: fit-content;
+  max-width: 240px;
+  height: var(--control-xs);
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  font: 500 12px/16px var(--font-sans);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.db-badge > svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.db-badge[data-variant='default'] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.db-badge[data-variant='secondary'] {
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+}
+.db-badge[data-variant='destructive'] {
+  background: color-mix(in oklab, var(--destructive) 15%, transparent);
+  color: var(--destructive);
+}
+.db-badge[data-variant='outline'] {
+  background: var(--background);
+  border-color: var(--border);
+  color: var(--foreground);
+}
+button.db-badge {
+  cursor: pointer;
+}
+button.db-badge[data-variant='outline']:hover {
+  background: var(--accent);
+}
+.db-badge-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.db-badge-muted {
+  color: var(--muted-foreground);
+}
+.db-bar {
+  flex: none;
+  width: 3px;
+  align-self: stretch;
+  border-radius: var(--radius-xs);
+}
+.db-badge .db-bar {
+  height: 12px;
+  align-self: center;
+}
+
+/* ToggleGroup and Tabs (Figma: one segmented control on the page colour) */
+.db-toggle-group,
+.db-tabs-list {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 2px;
+  width: fit-content;
+  height: var(--control-md);
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--background);
+}
+.db-toggle,
+.db-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1-5);
+  height: 100%;
+  padding: 0 var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted-foreground);
+  font: 500 12px/16px var(--font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.db-toggle:not([aria-label]):has(> svg:only-child),
+.db-toggle[aria-label] {
+  padding: 0 var(--space-2);
+}
+.db-tab {
+  font-size: 14px;
+  line-height: 20px;
+}
+.db-toggle:hover,
+.db-tab:hover {
+  color: var(--foreground);
+}
+.db-toggle[data-pressed],
+.db-tab[data-active] {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+.db-tabs-line {
+  display: flex;
+  gap: var(--space-6);
+  border-bottom: 1px solid var(--border);
+}
+.db-tabs-line .db-tab {
+  height: auto;
+  padding: 0 0 var(--space-2);
+  margin-bottom: -1px;
+  border-width: 0 0 2px;
+  border-radius: 0;
+  font-size: 12px;
+  line-height: 16px;
+}
+.db-tabs-line .db-tab[data-active] {
+  background: none;
+  border-color: var(--foreground);
+  color: var(--foreground-strong);
+}
+
+/* Input / Textarea / Label (Figma: 32px, 8px corners, 12px text) */
+.db-input,
+.db-textarea {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
+  background: var(--background);
+  color: var(--foreground);
+  font: 400 12px/16px var(--font-sans);
+}
+.db-input {
+  height: var(--control-sm);
+}
+.db-textarea {
+  min-height: 64px;
+  padding: var(--space-2) var(--space-3);
+  resize: vertical;
+}
+.db-textarea[data-variant='ghost'] {
+  border-color: transparent;
+  padding: 0;
+  font-size: 14px;
+  line-height: 20px;
+}
+.db-input::placeholder,
+.db-textarea::placeholder {
+  color: var(--muted-foreground);
+}
+.db-input[aria-invalid='true'] {
+  border-color: var(--destructive);
+}
+.db-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--foreground);
+  font: 500 12px/16px var(--font-sans);
+}
+.db-field {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: 320px;
+}
+.db-field-error {
+  color: var(--destructive);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* Checkbox (Figma: 16px, 4px corners, neutral-900 outline) */
+.db-check {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--primary-foreground);
+  cursor: pointer;
+}
+.db-check[data-checked] {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+/* Switch */
+.db-switch-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--muted-foreground);
+  font: 400 12px/16px var(--font-sans);
+}
+.db-switch {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 16px;
+  padding: 2px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+  cursor: pointer;
+  transition: background-color 150ms;
+}
+.db-switch[data-checked] {
+  background: var(--primary);
+}
+.db-switch-thumb {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--foreground);
+  transition: transform 150ms;
+}
+.db-switch-thumb[data-checked] {
+  background: var(--primary-foreground);
+  transform: translateX(12px);
+}
+
+/* Menus: DropdownMenu, ContextMenu, Select content, Command (Figma dropdowns) */
+.db-menu,
+.db-command {
+  width: var(--menu-width);
+  max-width: 100%;
+  padding: var(--space-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-md);
+}
+.db-menu-label {
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  color: var(--foreground);
+  font: 600 12px/16px var(--font-sans);
+}
+.db-menu-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: var(--control-sm);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted-foreground);
+  font: 500 14px/20px var(--font-sans);
+  text-align: left;
+  cursor: default;
+  outline: none;
+}
+.db-menu-item > svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.db-menu-item:hover,
+.db-menu-item:focus-visible,
+.db-menu-item[data-highlighted] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.db-menu-item[data-inset='true'] {
+  padding-left: var(--space-6);
+}
+.db-menu-indicator {
+  position: absolute;
+  left: var(--space-2);
+  display: flex;
+}
+.db-menu-indicator > svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.db-menu-item[data-variant='destructive'] {
+  color: var(--destructive);
+}
+.db-menu-shortcut {
+  margin-left: auto;
+  color: var(--subtle-foreground);
+  font: 400 12px/16px var(--font-mono);
+}
+.db-menu-sep {
+  height: 1px;
+  margin: var(--space-1) calc(var(--space-1) * -1);
+  background: var(--border-strong);
+}
+.db-command {
+  padding: 0;
+  overflow: hidden;
+}
+.db-command-input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-md);
+  padding: 0 var(--space-3);
+  border-bottom: 1px solid var(--border-strong);
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.db-command-group {
+  padding: var(--space-1);
+}
+.db-command-heading {
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  color: var(--foreground);
+  font: 600 12px/16px var(--font-sans);
+}
+
+/* Popover / Tooltip (Figma: dark popover with an outline) */
+.db-popover {
+  width: 288px;
+  max-width: 100%;
+  padding: var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  box-shadow: var(--shadow-md);
+}
+.db-tooltip {
+  display: inline-block;
+  width: fit-content;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--popover);
+  color: var(--foreground);
+  font: 500 12px/16px var(--font-sans);
+  box-shadow: var(--shadow-md);
+}
+
+/* Dialog / AlertDialog (Figma "Delete Task?") */
+.db-dialog {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--dialog-width);
+  padding: var(--space-6);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  box-shadow: var(--shadow-2xl);
+}
+.db-dialog-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.db-dialog-title {
+  margin: 0;
+  color: var(--foreground-strong);
+  font: 500 14px/20px var(--font-sans);
+}
+.db-dialog-desc {
+  margin: 0;
+  color: var(--muted-foreground);
+  font: 400 12px/16px var(--font-sans);
+}
+.db-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+.db-dialog-close {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+}
+
+/* Sheet (Figma "Event Details" panel) */
+.db-sheet {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--sheet-width);
+  padding: var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  box-shadow: var(--shadow-2xl);
+}
+.db-sheet-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.db-sheet-title {
+  flex: 1;
+  margin: 0;
+  color: var(--foreground);
+  font: 400 14px/20px var(--font-sans);
+}
+.db-sheet-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.db-sheet-name {
+  display: flex;
+  gap: var(--space-3);
+  color: var(--foreground-strong);
+  font: 500 20px/28px var(--font-sans);
+}
+
+/* Toast (Base UI Toast; Figma toast) */
+.db-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: var(--toast-width);
+  max-width: 100%;
+  padding: var(--space-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  box-shadow: var(--shadow-2xl);
+}
+.db-toast-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+}
+.db-toast-title {
+  color: var(--foreground);
+  font: 500 14px/20px var(--font-sans);
+}
+.db-toast-desc {
+  color: var(--subtle-foreground);
+  font: 400 12px/16px var(--font-sans);
+}
+
+/* Card (Figma: outlined, 12px corners, no shadow) */
+.db-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  color: var(--card-foreground);
+}
+.db-card-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--space-1);
+}
+.db-card-title {
+  color: var(--foreground-strong);
+  font: 500 14px/20px var(--font-sans);
+}
+.db-card-desc {
+  grid-column: 1;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 16px;
+}
+.db-card-action {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: start;
+}
+.db-card[data-size='compact'] {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+.db-card[data-size='compact'][data-layout='stack'] {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-2);
+  padding: var(--space-4);
+}
+.db-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-2);
+}
+.db-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.db-card-name {
+  color: var(--foreground-strong);
+  font: 500 14px/20px var(--font-sans);
+}
+.db-card-meta {
+  color: var(--subtle-foreground);
+  font-size: 12px;
+  line-height: 16px;
+}
+.db-card-meta b {
+  color: var(--date-today);
+  font-weight: 500;
+}
+.db-card-top {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+.db-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Separator, Skeleton, Progress (Figma: 3px bar), Kbd */
+.db-sep {
+  height: 1px;
+  width: 100%;
+  background: var(--border);
+}
+.db-skeleton {
+  border-radius: var(--radius-md);
+  background: var(--muted);
+  animation: db-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes db-pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .db-skeleton {
+    animation: none;
+  }
+}
+.db-progress {
+  height: 3px;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-xs);
+  background: var(--border-strong);
+}
+.db-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--health-on-track);
+}
+.db-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  min-width: 20px;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  font: 500 12px/1 var(--font-sans);
+}
+
+/* Breadcrumb (Figma top bar) */
+.db-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--foreground);
+  font: 400 14px/20px var(--font-sans);
+}
+.db-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.db-crumb-sep {
+  color: var(--subtle-foreground);
+}
+.db-crumb-page {
+  color: var(--muted-foreground);
+}
+
+/* Sidebar (shadcn sidebar; Figma navigation) */
+.db-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  width: var(--sidebar-width);
+  max-width: 100%;
+  padding: 0 var(--space-3);
+  background: var(--sidebar);
+  color: var(--sidebar-foreground);
+}
+.db-sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  color: var(--foreground);
+  font: 500 14px/20px var(--font-sans);
+}
+.db-sidebar-header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.db-sidebar-group,
+.db-sidebar-menu {
+  display: flex;
+  flex-direction: column;
+}
+.db-sidebar-group {
+  gap: var(--space-2);
+}
+.db-sidebar-group-label {
+  padding: 0 var(--space-2);
+  color: var(--sidebar-foreground);
+  font: 400 14px/20px var(--font-sans);
+}
+.db-sidebar-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: var(--control-lg);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  font: 400 14px/20px var(--font-sans);
+  text-align: left;
+  overflow: hidden;
+  cursor: pointer;
+}
+.db-sidebar-btn > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.db-sidebar-btn:hover {
+  color: var(--sidebar-accent-foreground);
+}
+.db-sidebar-btn[data-active] {
+  background: var(--sidebar-accent);
+  border-color: var(--border-strong);
+  color: var(--sidebar-accent-foreground);
+}
+.db-sidebar-btn .db-bar {
+  height: 16px;
+  margin: 0 6px 0 7px; /* centred in the 16px icon slot */
+  align-self: center;
+}
+
+/* Workspace tile and swatches */
+.db-tile {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  color: var(--white);
+  font-family: var(--font-sans);
+  font-weight: 500;
+}
+.db-swatches {
+  display: flex;
+  gap: var(--space-4);
+}
+.db-swatch {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--neutral-950);
+  cursor: pointer;
+}
+.db-swatch[data-checked] {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}
+
+/* Rows (Figma task item: 48px, 12px medium) */
+.db-list {
+  border-top: 1px solid var(--border);
+}
+.db-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--row-height);
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground-strong);
+  font: 500 12px/16px var(--font-sans);
+}
+.db-row:hover,
+.db-row[data-selected] {
+  background: var(--accent);
+}
+.db-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.db-row-side {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+}
+.db-row-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.db-row-name[data-completed='true'] {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+.db-row-time,
+.db-key,
+.db-date {
+  color: var(--subtle-foreground);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.db-date {
+  min-width: 32px;
+  text-align: right;
+}
+.db-date[data-tone='today'] {
+  color: var(--date-today);
+}
+.db-date[data-tone='overdue'] {
+  color: var(--date-overdue);
+}
+.db-subtask-arrow {
+  color: var(--subtle-foreground);
+}
+.db-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--group-height);
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--muted);
+  color: var(--foreground);
+  font: 500 12px/16px var(--font-sans);
+}
+.db-group-count,
+.db-group-hint {
+  color: var(--subtle-foreground);
+  font-weight: 400;
+}
+.db-group-hint {
+  margin-left: auto;
+}
+
+/* Property panel and settings */
+.db-props {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.db-prop {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.db-prop-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.db-settings-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+.db-settings-row:first-child {
+  border-top: 0;
+}
+.db-settings-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.db-settings-value {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+/* Calendar (Figma mini calendar) */
+.db-cal {
+  width: 220px;
+  font: 400 12px/16px var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+.db-cal-head {
+  margin-bottom: var(--space-3);
+  color: var(--muted-foreground);
+  font-size: 14px;
+  line-height: 20px;
+}
+.db-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  row-gap: var(--space-2);
+  text-align: center;
+}
+.db-cal-dow {
+  color: var(--subtle-foreground);
+}
+.db-cal-day {
+  justify-self: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  color: var(--foreground);
+  line-height: 22px;
+  cursor: pointer;
+}
+.db-cal-day[data-outside] {
+  color: var(--subtle-foreground);
+}
+.db-cal-day[data-selected] {
+  background: var(--secondary);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+}
+.db-cal-day[data-today] {
+  background: var(--now-indicator);
+  color: var(--white);
+}
+
+/* Calendar event block and current-time line */
+.db-event {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--muted);
+  color: var(--foreground);
+  font: 500 12px/16px var(--font-sans);
+}
+.db-event-time {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  color: var(--subtle-foreground);
+  font-weight: 400;
+}
+.db-now {
+  height: 1px;
+  width: 100%;
+  background: var(--now-indicator);
+}
+
+/*
+ * DevBrain Nova: the DevBrain components restyled on shadcn's Nova style (shadcn v4 registry,
+ * apps/v4/registry/styles/style-nova.css). Loaded after the DevBrain stylesheet.
+ *
+ * Taken from Nova: control sizes (32px default), 14px medium control text, the 10px radius
+ * scale, translucent edges on raised surfaces, the input fill, the tinted destructive button,
+ * dialog footer band, card and menu spacing.
+ * Kept from DevBrain: every colour token, Inter, the logomark, status/priority/health glyphs and
+ * the progress ring, the quiet bordered default button, outlined entity pills with colour bars,
+ * the segmented control on the page colour, the dark tooltip, task rows and group bands, the
+ * board, the calendar with its red "today", and the sidebar's workspace tile, outlined active
+ * item and full-size Recents and Favorites.
+ */
+
+/* ---------- tokens: Nova's scale (shadcn --radius 0.625rem) ---------- */
+:root {
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --control-2xs: 24px;
+  --control-xs: 24px;
+  --control-sm: 28px;
+  --control-md: 32px;
+  --control-lg: 36px;
+  --sidebar-width: 256px;
+  --dialog-width: 384px;
+  /* Nova's ring-1 ring-foreground/10: an edge that reads on any surface */
+  --edge: color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+
+/* ---------- buttons: Nova sizes and type; DevBrain's quiet default stays ---------- */
+.db-btn {
+  height: 32px;
+  gap: 6px;
+  padding: 0 10px;
+  border-radius: var(--radius-lg);
+  font: 500 14px/20px var(--font-sans);
+}
+.db-btn > svg {
+  width: 16px;
+  height: 16px;
+}
+.db-btn[data-size='sm'] {
+  height: 28px;
+  gap: 4px;
+  padding: 0 10px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+}
+.db-btn[data-size='lg'] {
+  height: 36px;
+  padding: 0 10px;
+}
+.db-btn[data-size='xs'] {
+  height: 24px;
+  gap: 4px;
+  padding: 0 8px;
+  border-radius: var(--radius-md);
+  font: 500 12px/16px var(--font-sans);
+}
+.db-btn[data-size='xs'] > svg {
+  width: 12px;
+  height: 12px;
+}
+.db-btn[data-size='icon'] {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
+.db-btn[data-size='icon-sm'] {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: var(--radius-md);
+}
+.db-btn[data-size='icon-xs'] {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: var(--radius-md);
+}
+.db-btn[data-size='icon-xs'] > svg {
+  width: 12px;
+  height: 12px;
+}
+/* default keeps the DevBrain quiet look, drawn as Nova's dark outline button (input/30 fill, input edge) */
+.db-btn[data-variant='default'] {
+  background: color-mix(in oklab, var(--input) 30%, transparent);
+  border-color: var(--input);
+}
+.db-btn[data-variant='default']:hover {
+  background: color-mix(in oklab, var(--input) 50%, transparent);
+}
+.db-btn[data-variant='outline'] {
+  background: var(--background);
+  border-color: var(--border);
+}
+/* Nova destructive: a tint, never a solid red */
+.db-btn[data-variant='destructive'] {
+  background: color-mix(in oklab, var(--destructive) 20%, transparent);
+  border-color: transparent;
+  color: var(--destructive);
+}
+.db-btn[data-variant='destructive']:hover {
+  background: color-mix(in oklab, var(--destructive) 30%, transparent);
+}
+.db-btn[data-variant='ghost']:hover {
+  background: color-mix(in oklab, var(--muted) 50%, transparent);
+}
+.db-btn[data-variant='primary']:hover {
+  background: color-mix(in oklab, var(--primary) 80%, transparent);
+}
+.db-btn[data-variant='link'] {
+  height: auto;
+  padding: 0;
+  font-weight: 500;
+}
+
+/* ---------- badges and entity pills: DevBrain's outlined pill, Nova's type ---------- */
+.db-badge {
+  height: 24px;
+  padding: 0 10px;
+  gap: 6px;
+  border-radius: 999px;
+  font: 500 12px/16px var(--font-sans);
+}
+.db-badge[data-variant='default'],
+.db-badge[data-variant='secondary'],
+.db-badge[data-variant='destructive'] {
+  height: 20px;
+  padding: 0 8px;
+  gap: 4px;
+}
+
+/* ---------- segmented control: DevBrain's outlined segments on the page colour, Nova's 32px ---------- */
+.db-toggle-group,
+.db-tabs-list {
+  height: 32px;
+  padding: 3px;
+  border-radius: var(--radius-lg);
+}
+.db-toggle,
+.db-tab {
+  padding: 0 8px;
+  border-radius: var(--radius-md);
+  font: 500 14px/20px var(--font-sans);
+}
+.db-toggle > svg,
+.db-tab > svg {
+  width: 16px;
+  height: 16px;
+}
+.db-toggle[aria-label],
+.db-toggle:not([aria-label]):has(> svg:only-child) {
+  padding: 0 6px;
+}
+.db-toggle[data-pressed],
+.db-tab[data-active] {
+  background: var(--secondary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* ---------- fields: Nova input (32px, 10px corners, input/30 fill, 14px) ---------- */
+.db-input,
+.db-textarea {
+  padding: 0 10px;
+  border-color: var(--input);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--input) 30%, transparent);
+  font: 400 14px/20px var(--font-sans);
+}
+.db-input {
+  height: 32px;
+}
+.db-textarea {
+  padding: 8px 10px;
+}
+.db-textarea[data-variant='ghost'] {
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+}
+.db-label {
+  font: 500 14px/14px var(--font-sans);
+}
+.db-field-error {
+  font-size: 14px;
+  line-height: 20px;
+}
+.db-check {
+  border-color: var(--input);
+  background: color-mix(in oklab, var(--input) 30%, transparent);
+  border-radius: 4px;
+}
+.db-check[data-checked] {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+/* ---------- menus, command, popover: Nova spacing and translucent edge ---------- */
+.db-menu,
+.db-command {
+  border-color: var(--edge);
+  border-radius: var(--radius-lg);
+}
+.db-menu-label {
+  padding: 4px 6px;
+  color: var(--muted-foreground);
+  font: 500 12px/16px var(--font-sans);
+}
+.db-menu-item {
+  height: 28px;
+  gap: 6px;
+  padding: 0 6px;
+  border-radius: var(--radius-md);
+  font: 400 14px/20px var(--font-sans);
+}
+.db-menu-item:not([data-variant='destructive']) {
+  color: var(--foreground);
+}
+.db-menu-item > svg {
+  width: 16px;
+  height: 16px;
+  color: var(--muted-foreground);
+}
+.db-menu-item[data-variant='destructive'] > svg {
+  color: var(--destructive);
+}
+.db-menu-item[data-inset='true'] {
+  padding-left: 28px;
+}
+.db-menu-shortcut {
+  color: var(--muted-foreground);
+  font: 400 12px/16px var(--font-sans);
+  letter-spacing: 0.1em;
+}
+.db-menu-sep {
+  margin: 4px -4px;
+  background: var(--border);
+}
+.db-command-input {
+  font-size: 14px;
+}
+.db-popover {
+  padding: 10px;
+  border-color: var(--edge);
+  border-radius: var(--radius-lg);
+}
+/* the dark tooltip is DevBrain's (Nova inverts it); only the corners follow Nova */
+.db-tooltip {
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+}
+
+/* ---------- dialog, sheet, toast: Nova shape (16px padding, 14px corners, footer band) ---------- */
+.db-dialog {
+  gap: 16px;
+  padding: 16px;
+  border-color: var(--edge);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+.db-dialog-title {
+  font: 500 16px/16px var(--font-sans);
+}
+.db-dialog-desc {
+  font: 400 14px/20px var(--font-sans);
+}
+.db-dialog-header {
+  gap: 8px;
+}
+.db-dialog-footer {
+  margin: 0 -16px -16px;
+  padding: 16px;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in oklab, var(--muted) 50%, transparent);
+}
+.db-dialog-close {
+  top: 8px;
+  right: 8px;
+}
+.db-sheet {
+  border-color: var(--edge);
+  border-radius: var(--radius-xl);
+}
+.db-sheet-title {
+  font: 500 16px/24px var(--font-sans);
+}
+.db-toast {
+  padding: 14px 16px;
+  border-color: var(--edge);
+  border-radius: var(--radius-xl);
+}
+.db-toast-desc {
+  color: var(--muted-foreground);
+  font: 400 14px/20px var(--font-sans);
+}
+
+/* ---------- cards: Nova card (16px spacing, 14px corners, translucent edge, 16px title) ---------- */
+.db-card {
+  gap: 16px;
+  padding: 16px;
+  border-color: var(--edge);
+  border-radius: var(--radius-xl);
+}
+.db-card-title {
+  font: 500 16px/22px var(--font-sans);
+}
+.db-card-desc {
+  font-size: 14px;
+  line-height: 20px;
+}
+.db-card[data-size='compact'] {
+  padding: 12px;
+  gap: 12px;
+}
+.db-card[data-size='compact'][data-layout='stack'] {
+  padding: 12px;
+  gap: 8px;
+}
+
+/* ---------- small parts ---------- */
+.db-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--muted);
+}
+.db-kbd {
+  border-color: transparent;
+  background: var(--muted);
+  border-radius: 6px;
+}
+
+/* ---------- sidebar: DevBrain's (tile, outlined active item, full-size groups) at Nova's 32px ---------- */
+.db-sidebar-btn {
+  height: 32px;
+  gap: 8px;
+  padding: 0 8px;
+  border-radius: var(--radius-md);
+}
+.db-sidebar-btn > svg {
+  width: 16px;
+  height: 16px;
+}
+.db-sidebar-group-label {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  color: color-mix(in oklab, var(--sidebar-foreground) 70%, transparent);
+  font: 500 12px/16px var(--font-sans);
+}
+.db-sidebar-group {
+  gap: 0;
+}
+.db-sidebar {
+  gap: 16px;
+}
+
+/* ---------- rows and group bands: DevBrain anatomy at Nova density and type ---------- */
+.db-row {
+  font: 400 14px/20px var(--font-sans);
+}
+.db-row .db-key,
+.db-row .db-date,
+.db-row-time {
+  font-size: 12px;
+  line-height: 16px;
+}
+.db-group {
+  font: 500 14px/20px var(--font-sans);
+}
+.db-group-count,
+.db-group-hint {
+  font-size: 12px;
+}
+
+/* ---------- calendar: Nova's 28px cells and 8px corners; DevBrain's red today ---------- */
+.db-cal {
+  width: 224px;
+  font-size: 13px;
+}
+.db-cal-day {
+  width: 28px;
+  height: 28px;
+  line-height: 28px;
+  border-radius: var(--radius-md);
+}
+.db-cal-grid {
+  row-gap: 2px;
+}
+
+/*
+ * DevBrain Nova Lists: the quiet list behaviours drawn in DevBrain Nova. Loaded after the Nova
+ * layer. Lists lose their strokes and use tone; everything else (controls, pills, cards, menus,
+ * sidebar, toolbar) keeps Nova's outlines and quiet buttons.
+ */
+:root {
+  /* Selection, option D: a light tint over the ground, with the title brightened */
+  --row-hover: var(--accent);
+  --row-control-hover: color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+
+/* ---------- strokeless lists: no line between rows, no group band ---------- */
+.db-list {
+  border-top: 0;
+}
+.db-row {
+  border-bottom: 0;
+  border-radius: var(--radius-md);
+}
+.db-row:hover {
+  background: var(--row-hover);
+}
+
+/* ---------- TaskRow ---------- */
+.dbl-list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.dbl-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--row-height);
+  padding: 0 12px 0 36px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--foreground-strong);
+  font: 400 14px/20px var(--font-sans);
+  outline: none;
+  cursor: default;
+}
+.dbl-row.dbl-sub {
+  padding-left: 64px;
+}
+.dbl-row:hover,
+.dbl-row[data-state='hover'],
+.dbl-row[data-menu-open] {
+  background: var(--row-hover);
+}
+/* the real selected state (option D); neighbours join into one block */
+.dbl-row[data-join-prev] {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.dbl-row[data-join-next] {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+/* keyboard focus outlines the whole row with Nova's ring */
+.dbl-row:focus-visible,
+.dbl-row[data-state='focus'] {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+  z-index: 1;
+}
+.dbl-row[data-completed] .dbl-name {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+
+/* leading strip: the checkbox shows on hover, focus, and on every row while selecting */
+.dbl-check {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  margin-top: -8px;
+  display: none;
+}
+.dbl-sub .dbl-check {
+  left: 38px;
+}
+.dbl-row:hover .dbl-check,
+.dbl-row:focus-visible .dbl-check,
+.dbl-row[data-state] .dbl-check,
+.dbl-row[data-selected] .dbl-check,
+.dbl-list[data-selecting] .dbl-check {
+  display: inline-grid;
+}
+
+/* the status icon is a button that opens the status menu */
+.dbl-status {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-left: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.dbl-status:hover,
+.dbl-status[aria-expanded='true'] {
+  background: var(--row-control-hover);
+}
+.dbl-status:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+/* the title first; key and subtasks after it */
+.dbl-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.dbl-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dbl-title .db-key {
+  flex: none;
+  font-size: 12px;
+  line-height: 16px;
+}
+.dbl-subs {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted-foreground);
+  font: 400 12px/16px var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+/* entity pills, priority and date on the right */
+.dbl-side {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+}
+.dbl-pri {
+  display: grid;
+  place-items: center;
+  width: 20px;
+}
+.dbl-side .db-date {
+  min-width: 44px;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* EntityPill (as Linear draws them): a chip on the page colour with a faint edge, so it reads as
+   transparent on the page and as a recessed chip on a hovered or selected row; pointing at it lifts
+   it part of the way to the row's hover tone. One rule for both themes. */
+:root {
+  --pill-fill: var(--background);
+  --pill-edge: color-mix(in oklab, var(--foreground) 9%, transparent);
+  --pill-fill-hover: color-mix(in oklab, var(--accent) 60%, var(--background));
+  --pill-edge-hover: color-mix(in oklab, var(--foreground) 13%, transparent);
+}
+.db-entity {
+  background: var(--pill-fill);
+  border-color: var(--pill-edge);
+  transition:
+    background-color 100ms,
+    border-color 100ms,
+    color 100ms;
+}
+button.db-entity:hover {
+  background: var(--pill-fill-hover);
+  border-color: var(--pill-edge-hover);
+}
+button.db-entity:hover .db-badge-muted {
+  color: var(--foreground);
+}
+button.db-entity:active {
+  background: color-mix(in oklab, var(--pill-fill-hover) 92%, var(--foreground));
+}
+
+/* project colours are the swatch-* 500 steps; in light theme they are darkened so green and amber
+   icons keep 3:1 on white */
+[data-theme='light'] .db-entity-project .db-icon,
+[data-theme='light'] .dbl-cproj .db-icon,
+[data-theme='light'] .db-sidebar-btn .db-icon[style*='--swatch-'] {
+  filter: brightness(0.72);
+}
+
+/* StatusMenu */
+.dbl-status-menu {
+  position: absolute;
+  z-index: 20;
+  left: 22px;
+  top: calc(100% - 2px);
+  width: 200px;
+}
+.dbl-status-menu.dbl-static {
+  position: static;
+}
+.dbl-menu-icon {
+  display: grid;
+  place-items: center;
+  width: 16px;
+}
+.dbl-tick {
+  margin-left: auto;
+  display: flex;
+  color: var(--foreground);
+}
+.db-menu-item[aria-checked='true'] {
+  background: var(--accent);
+}
+
+/* SelectionBar: floats over the bottom of the list */
+.dbl-selbar {
+  position: sticky;
+  bottom: 16px;
+  z-index: 15;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 12px;
+  padding: 4px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-xl);
+  background: var(--popover);
+  box-shadow: var(--shadow-2xl);
+}
+.dbl-selbar.dbl-static {
+  position: static;
+  width: max-content;
+  max-width: 100%;
+}
+.dbl-selcount {
+  padding: 0 8px 0 10px;
+  color: var(--foreground-strong);
+  font: 500 14px/20px var(--font-sans);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.dbl-selsep {
+  width: 1px;
+  height: 18px;
+  margin: 0 4px;
+  background: var(--border-strong);
+}
+.dbl-selbar .db-btn {
+  color: var(--muted-foreground);
+}
+.dbl-selbar .db-btn:hover {
+  color: var(--foreground);
+}
+
+/* ---------- GroupHeading: the grouped list layout ---------- */
+.dbl-group {
+  display: grid;
+  grid-template-columns: 16px 32px minmax(0, 1fr) auto auto 80px;
+  align-items: center;
+  column-gap: 12px;
+  padding: 0 12px 0 10px;
+  margin: var(--group-gap) 0 6px;
+}
+.dbl-group:first-child {
+  margin-top: 0;
+}
+.dbl-chev {
+  color: var(--muted-foreground);
+}
+.dbl-tile {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--secondary);
+  color: var(--muted-foreground);
+}
+.dbl-tile .db-bar {
+  align-self: center;
+}
+.dbl-gtitle {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.dbl-glabel {
+  color: var(--foreground-strong);
+  font: 500 14px/20px var(--font-sans);
+}
+.dbl-gsub {
+  color: var(--muted-foreground);
+  font: 400 12px/16px var(--font-sans);
+}
+.dbl-gcount {
+  color: var(--muted-foreground);
+  font: 400 12px/16px var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+.dbl-gbar {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--muted);
+  overflow: hidden;
+}
+.dbl-gbar > span {
+  display: block;
+  height: 100%;
+  background: var(--muted-foreground);
+}
+
+/* ---------- Board: the direction's open columns and borderless cards ---------- */
+:root {
+  --card-fill: color-mix(in oklab, var(--neutral-900) 60%, var(--background));
+  --card-fill-hover: color-mix(in oklab, var(--neutral-800) 20%, var(--neutral-900));
+  --card-fill-done: color-mix(in oklab, var(--neutral-900) 30%, var(--background));
+}
+.dbl-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+.dbl-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.dbl-colhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px;
+  color: var(--foreground-strong);
+  font: 500 14px/20px var(--font-sans);
+}
+.dbl-colhead .db-btn {
+  margin-left: auto;
+  color: var(--muted-foreground);
+}
+.dbl-colcount {
+  color: var(--muted-foreground);
+  font: 400 12px/16px var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+.dbl-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dbl-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: var(--card-fill);
+  outline: none;
+}
+.dbl-card:hover,
+.dbl-card[data-state='hover'] {
+  background: var(--card-fill-hover);
+  border-color: var(--border-strong);
+}
+.dbl-card:focus-visible,
+.dbl-card[data-state='focus'] {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.dbl-card[data-completed] {
+  background: var(--card-fill-done);
+}
+.dbl-card[data-completed] .dbl-ctitle {
+  color: var(--muted-foreground);
+}
+.dbl-clink {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--muted-foreground);
+  font: 400 12px/16px var(--font-sans);
+}
+.dbl-clink > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dbl-clink .db-bar {
+  align-self: center;
+}
+.dbl-ctitle {
+  color: var(--foreground-strong);
+  font: 400 14px/20px var(--font-sans);
+}
+.dbl-cmeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--muted-foreground);
+  font: 400 12px/16px var(--font-sans);
+}
+.dbl-cproj {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.dbl-cproj > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dbl-cmeta .db-date {
+  margin-left: auto;
+  min-width: 0;
+  font-size: 12px;
+}
+.dbl-slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--muted-foreground);
+  font: 400 14px/20px var(--font-sans);
+  cursor: pointer;
+}
+.dbl-slot:hover {
+  color: var(--foreground);
+  border-color: var(--input);
+}
+
+/* ---------- toolbar buttons that show their value ---------- */
+.db-btn-has-value {
+  gap: 6px;
+}
+.db-btn-label {
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+.db-btn-value {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+/* light theme: lighter card fills */
+[data-theme='light'] {
+  --card-fill: color-mix(in oklab, var(--neutral-100) 70%, var(--background));
+  --card-fill-hover: var(--neutral-100);
+  --card-fill-done: color-mix(in oklab, var(--neutral-100) 35%, var(--background));
+}

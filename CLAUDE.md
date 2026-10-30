@@ -63,6 +63,15 @@ own:
   `{ logger }` to send that line to the service's logger, or `{ report }` to replace it with one
   that adds context such as the id the change was about (see `SyncEngine`).
 
+## Design system
+
+UI work follows the DevBrain design system in `docs/design-system/README.md`: tokens in
+`docs/design-system/tokens.json` (generated into `src/renderer/styles/tokens.css` with
+`npm run tokens`), per-component guides in `docs/design-system/components/`, and the reference
+build in `docs/design-system/reference/`. The live version, with a preview of every component, is
+https://claude.ai/artifact/9ZGwb8KzWqLyDsnPnoTLav. `docs/design-system/archive/` holds superseded
+systems; don't build from them.
+
 ## IPC
 
 The renderer reaches core through the typed tRPC router in `src/main/ipc`, run over Electron IPC.

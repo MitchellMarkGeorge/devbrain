@@ -63,9 +63,9 @@ ipcLink ◄───────────────────────
 
 The context ([`context.ts`](../../src/main/ipc/context.ts)) is built fresh for every call:
 `{ event, devBrain, workspace, log }`. `workspace` is whichever workspace is open when the call
-arrives. [`src/main/index.ts`](../../src/main/index.ts) loads DevBrain, attaches the router and
-the tracker, reopens the last workspace and only then creates the window, so a call never arrives
-before DevBrain is ready.
+arrives. [`src/main/index.ts`](../../src/main/index.ts) loads DevBrain and attaches the router
+and the tracker before it creates the window, so a call never arrives before DevBrain is ready. No
+workspace is open yet: the renderer's first call, `workspaces.openLast`, reopens the last one.
 
 ### The envelope and errors
 
@@ -136,6 +136,8 @@ not obvious from one file:
   nothing for a repeat, which returns `changed: []`.
 - **`workspaces`** returns `WorkspaceInfo`, never a `Workspace`. `create` doesn't open the new
   workspace; `open` closes the open one first and remembers the new one for the next launch.
+  `openLast` is the renderer's first call: it opens the workspace open last time while none is
+  open, and otherwise returns the one already open, so a reload never reopens it.
 - **Long-running mutations.** `integrations.connect` with OAuth resolves when the browser flow ends;
   `integrations.cancelConnect` aborts it, and the waiting call fails with `cancelled`. `sync.now`
   resolves once its runs have ended, so what they wrote comes back in its `changed`.
@@ -242,8 +244,8 @@ mutation's own changes are refetched before it resolves. `main.tsx` calls
 
 ### A workspace switch
 
-1. `workspaces.open` calls core's `WorkspaceService.open`, which closes the open workspace and
-   opens the new one. The tracker hears `closed` and then `opened`: it stops listening to the old
+1. `workspaces.open` (or `workspaces.openLast` at launch) opens the workspace through core's `WorkspaceService`, closing
+   the open one first, if any. The tracker hears `closed` and then `opened`: it stops listening to the old
    workspace's services, starts listening to the new one's, and sends `workspace.changed` to every
    window for each.
 2. `workspace.changed` is sent while the mutation runs, so it reaches the switching window before
