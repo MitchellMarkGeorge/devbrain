@@ -1,6 +1,6 @@
 # TaskRow
 
-One task in a strokeless list: no line beneath, a 40px row with 8px corners that takes `accent` on hover, and its own selected tone.
+One task in a strokeless list: no line beneath, a `row-height` (48px) row with 8px corners that takes `accent` on hover, and its own selected tone.
 
 - **Leading control.** The status icon is a button: click it (or press `S` on a focused row) for the `StatusMenu`, then `1`, `2` or `3`. The selection checkbox sits in a strip to its left and shows on hover, on keyboard focus, and on every row while any row is selected (`X` toggles the focused row).
 - **Title first.** The name in 14px `foreground-strong`, then the issue key (12px `subtle-foreground`) and the subtask count (`corner-down-right` 3/4) after it.

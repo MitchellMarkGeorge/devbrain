@@ -1108,8 +1108,6 @@ button.db-badge[data-variant='outline']:hover {
   --control-sm: 28px;
   --control-md: 32px;
   --control-lg: 36px;
-  --row-height: 40px;
-  --group-height: 36px;
   --sidebar-width: 256px;
   --dialog-width: 384px;
   /* Nova's ring-1 ring-foreground/10: an edge that reads on any surface */
@@ -1751,7 +1749,7 @@ button.db-entity:active {
   align-items: center;
   column-gap: 12px;
   padding: 0 12px 0 10px;
-  margin: 24px 0 6px;
+  margin: var(--group-gap) 0 6px;
 }
 .dbl-group:first-child {
   margin-top: 0;

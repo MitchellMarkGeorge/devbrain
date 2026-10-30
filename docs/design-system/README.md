@@ -19,13 +19,13 @@ https://claude.ai/artifact/9ZGwb8KzWqLyDsnPnoTLav
 - The implementation notes in the [v1 spec](archive/devbrain-v1/README.md) (Base UI parts, the
   `data-variant`/`data-size` Button pattern, styling without Tailwind) still apply.
 
-DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs and signature components, plus the quiet list behaviours. Everything you see outside a list is Nova (its sizes, type, corners, outlines, quiet buttons, entity pills, sidebar and toolbar); lists drop their strokes and gain a clickable status, a real selected state, whole-row focus, a grouped layout and a calmer board card.
+DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs and signature components, plus the quiet list behaviours. (It was developed as "DevBrain Nova Lists" and replaces the first DevBrain system and DevBrain Nova.) Everything you see outside a list is Nova (its sizes, type, corners, outlines, quiet buttons, entity pills, sidebar and toolbar); lists drop their strokes and gain a clickable status, a real selected state, whole-row focus, a grouped layout and a calmer board card.
 
 ## What comes from Nova and what stays DevBrain
 
 **From Nova** (shadcn v4 registry, `style-nova.css`):
 
-- **Sizes.** 32px is the default for buttons, inputs, selects, segmented controls and sidebar items; 28px `sm` and menu items; 24px `xs`, `icon-xs` and pills; 36px `lg`. Rows are 40px.
+- **Sizes.** 32px is the default for buttons, inputs, selects, segmented controls and sidebar items; 28px `sm` and menu items; 24px `xs`, `icon-xs` and pills; 36px `lg`. Rows are 48px (`row-height`).
 - **Type.** Controls, menus, inputs, labels, rows and descriptions use 14px (`text-sm`): medium for buttons, labels and tabs, regular for rows and menu items. Badges, metadata, shortcuts and menu labels use 12px. Dialog and card titles are 16px medium.
 - **Corners.** shadcn's 10px radius scale: `radius-md` (8px) for items inside a control, `radius-lg` (10px) for controls, menus and popovers, `radius-xl` (14px) for cards, dialogs, sheets and toasts.
 - **Edges.** Raised surfaces (cards, menus, popovers, dialogs, sheets, toasts) take the translucent `edge` outline, Nova's `ring-foreground/10`, instead of a solid line, so they read on any ground.
@@ -50,7 +50,7 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 
 ## Lists
 
-- **Strokeless rows.** No line between rows and no group band. A row is a 40px block with `radius-md` corners: `accent` on hover, `row-selected` when selected. Space separates groups (24px above each heading).
+- **Strokeless rows.** No line between rows and no group band. A row is a `row-height` (48px) block with `radius-md` corners: `accent` on hover, `row-selected` when selected. Space separates groups (`group-gap`, 32px above each heading). List density is these two tokens: 48px rows with a 32px gap, or 40px rows with a 24px gap.
 - **Title first.** The task name leads; the issue key (12px `subtle-foreground`) and the subtask count follow it. Entity pills, priority and date stay on the right, as in Nova.
 - **The status icon is a button.** Clicking it, or pressing `S` on a focused row, opens the `StatusMenu`; `1`, `2`, `3` pick. Overdue shows as the flag until the task is started or done.
 - **Leading control.** The selection checkbox lives in a strip left of the status icon. It appears on hover and keyboard focus, and on every row once anything is selected. `X` toggles the focused row.
@@ -93,14 +93,14 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 ## Space, size and shape
 
 - 4px spacing scale (`space-*`).
-- Heights: `control-xs` (24px) pills and xs buttons, `control-sm` (28px) sm buttons and menu items, `control-md` (32px) buttons, inputs, segmented controls and sidebar items, `control-lg` (36px) lg buttons, `row-height` (40px), `group-height` (36px).
+- Heights: `control-xs` (24px) pills and xs buttons, `control-sm` (28px) sm buttons and menu items, `control-md` (32px) buttons, inputs, segmented controls and sidebar items, `control-lg` (36px) lg buttons, `row-height` (48px) and `group-gap` (32px) for list density, `group-height` (36px).
 - Corners: `radius-md` (8px) inside controls, `radius-lg` (10px) controls and menus, `radius-xl` (14px) surfaces, `radius-full` pills.
 - Shadows only on floating layers: `shadow-md` for menus and tooltips, `shadow-2xl` for dialogs, sheets and toasts.
 - Layout: a `sidebar-width` (256px) sidebar; lists run edge to edge; details open in a `sheet-width` (380px) panel.
 
 ## Components
 
-- Reach for the shadcn component first; DevBrain components are compositions of them (a task row is a Checkbox, icons and pills on a 40px row).
+- Reach for the shadcn component first; DevBrain components are compositions of them (a task row is a Checkbox, icons and pills on a `row-height` row).
 - Every relation and property is a pill. Plain text is never clickable.
 - `ToggleGroup` for an immediate choice from a short set; `Tabs` for sections.
 - Confirm irreversible actions in an AlertDialog; offer Undo in a Toast for reversible ones.

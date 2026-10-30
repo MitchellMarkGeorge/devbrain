@@ -117,8 +117,9 @@
   --control-sm: 28px;
   --control-md: 32px;
   --control-lg: 36px;
-  --row-height: 40px;
+  --row-height: 48px;
   --group-height: 36px;
+  --group-gap: 32px;
   --sidebar-width: 256px;
   --menu-width: 224px;
   --dialog-width: 384px;
