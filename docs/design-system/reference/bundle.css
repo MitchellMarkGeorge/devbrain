@@ -1642,6 +1642,25 @@ button.db-badge[data-variant='outline']:hover {
   line-height: 16px;
 }
 
+/* entity pills in a row sit on the row's tone; a hovered or selected row strengthens their edge,
+   and the pill itself takes a tone of its own when pointed at or pressed */
+.dbl-side .db-badge[data-variant='outline'] {
+  background: transparent;
+}
+.dbl-row:hover .dbl-side .db-badge[data-variant='outline'],
+.dbl-row[data-state] .dbl-side .db-badge[data-variant='outline'],
+.dbl-row[data-selected] .dbl-side .db-badge[data-variant='outline'],
+.dbl-row[data-menu-open] .dbl-side .db-badge[data-variant='outline'] {
+  border-color: var(--border-strong);
+}
+.dbl-side button.db-badge[data-variant='outline']:hover {
+  background: var(--row-control-hover);
+  border-color: var(--input);
+}
+.dbl-side button.db-badge[data-variant='outline']:active {
+  background: color-mix(in oklab, var(--foreground) 16%, transparent);
+}
+
 /* StatusMenu */
 .dbl-status-menu {
   position: absolute;
