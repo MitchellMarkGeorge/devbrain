@@ -38,6 +38,8 @@ export interface Task extends Model<TaskId>, Archivable, Completeable {
 }
 // What a row in a task's subtask list shows beside the task's own fields, from listSubtasks.
 export interface SubtaskListItem extends Task {
+  // always set on a listed task: null for a local one
+  external: ExternalRef | null;
   // counts of the task's direct, unarchived subtasks, leaving out cancelled ones as project stats
   // do; null when none are left
   subtaskProgress: SubtaskProgress | null;

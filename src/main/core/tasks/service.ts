@@ -216,7 +216,7 @@ export class TaskService {
 
     // filled after the page is cut, so the lookups cover only the rows returned
     const result = pager.toPage(rows);
-    return { ...result, items: withListDetails(this.db, withRefs(this.db, result.items)) };
+    return { ...result, items: withListDetails(this.db, result.items) };
   }
 
   listSubtasks(parentTaskId: TaskId, page: PageOptions = {}): Page<SubtaskListItem> {
@@ -242,7 +242,7 @@ export class TaskService {
 
     // filled after the page is cut, so the lookups cover only the rows returned
     const result = pager.toPage(rows);
-    return { ...result, items: withSubtaskListDetails(this.db, withRefs(this.db, result.items)) };
+    return { ...result, items: withSubtaskListDetails(this.db, result.items) };
   }
 
   updateTask(id: TaskId, updates: UpdateTaskOptions): Task {

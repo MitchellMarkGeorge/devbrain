@@ -6,6 +6,7 @@ import { projects } from '@main/db/schema/projects';
 import { tasks } from '@main/db/schema/tasks';
 import { and, count, eq, inArray, isNull, ne, SQL, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { withRefs } from '../integrations/refs';
 import { SubtaskListItem, Task, TaskListItem, TaskLinkSummary, TaskStatus } from './types';
 
 // counts the rows matching `predicate`; count(<boolean>) would count every row
@@ -17,9 +18,10 @@ const unique = <T>(values: (T | null)[]): T[] => [
 ];
 
 /**
- * Adds what a task row in the task list shows beside its own fields: its subtask progress, its
- * parent, its project and its link. One query per kind for the whole page, never one per row.
- * Archived parents, subtasks, projects and notes are left out, as every list leaves them out.
+ * Adds everything a task row in the task list shows beside its own fields: its provider ref
+ * (`external`, from withRefs), its subtask progress, its parent, its project and its link. One
+ * query per kind for the whole page, never one per row. Archived parents, subtasks, projects and
+ * notes are left out, as every list leaves them out.
  */
 export function withListDetails(db: BetterSQLite3Database, rows: Task[]): TaskListItem[] {
   const parentIds = unique<TaskId>(rows.map((row) => row.parentTaskId));
@@ -114,7 +116,7 @@ export function withSubtaskListDetails(db: BetterSQLite3Database, rows: Task[]):
           .map((event) => [event.id, { type: 'event' as const, ...event }]),
   );
 
-  return rows.map((row) => {
+  return withRefs(db, rows).map((row) => {
     let link: TaskLinkSummary | null = null;
     if (row.linkedEventId) link = eventsById.get(row.linkedEventId) ?? null;
     else if (row.linkedNoteId) link = notesById.get(row.linkedNoteId) ?? null;
