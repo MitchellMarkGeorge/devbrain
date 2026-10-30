@@ -366,20 +366,22 @@ describe('favorites', () => {
     const first = await call<Page<FavoritedEntity>>('favorites.list', { limit: 1 });
     expect(first).toMatchObject({
       ok: true,
-      data: { items: [{ id: project.id, entityType: 'projects', title: 'Launch' }] },
+      data: {
+        items: [{ entityType: 'projects', entity: { id: project.id, title: 'Launch' } }],
+      },
       changed: [],
     });
     const second = await data<Page<FavoritedEntity>>('favorites.list', {
       limit: 1,
       cursor: (first as { data: Page<FavoritedEntity> }).data.nextCursor,
     });
-    expect(second).toMatchObject({ items: [{ id: note.id }], nextCursor: null });
+    expect(second).toMatchObject({ items: [{ entity: { id: note.id } }], nextCursor: null });
     // tRPC's infinite queries can start from a null cursor
     expect(await data<Page<FavoritedEntity>>('favorites.list', { cursor: null })).toMatchObject({
-      items: [{ id: project.id }, { id: note.id }],
+      items: [{ entity: { id: project.id } }, { entity: { id: note.id } }],
     });
     const notes = await data<Page<FavoritedEntity>>('favorites.list', { entityType: 'notes' });
-    expect(notes.items.map(({ id }) => id)).toEqual([note.id]);
+    expect(notes.items.map(({ entity }) => entity.id)).toEqual([note.id]);
   });
 
   it("passes core's invalid_cursor, and refuses an unknown entity type", async () => {
@@ -403,7 +405,11 @@ describe('recents', () => {
 
     expect(await mutate('recents.recordView', { id: task.id })).toMatchObject({
       ok: true,
-      data: { id: task.id, entityType: 'tasks', title: 'Ship', viewedAt: expect.any(Date) },
+      data: {
+        entityType: 'tasks',
+        entity: { id: task.id, title: 'Ship' },
+        viewedAt: expect.any(Date),
+      },
       changed: ['recent'],
     });
     expect(await mutate('recents.recordView', { id: note.id })).toMatchObject({
@@ -442,19 +448,21 @@ describe('recents', () => {
     const first = await call<Page<RecentEntity>>('recents.list', { limit: 1 });
     expect(first).toMatchObject({
       ok: true,
-      data: { items: [{ id: project.id, entityType: 'projects', title: 'Launch' }] },
+      data: {
+        items: [{ entityType: 'projects', entity: { id: project.id, title: 'Launch' } }],
+      },
       changed: [],
     });
     const second = await data<Page<RecentEntity>>('recents.list', {
       limit: 1,
       cursor: (first as { data: Page<RecentEntity> }).data.nextCursor,
     });
-    expect(second).toMatchObject({ items: [{ id: note.id }], nextCursor: null });
+    expect(second).toMatchObject({ items: [{ entity: { id: note.id } }], nextCursor: null });
     expect(await data<Page<RecentEntity>>('recents.list', { cursor: null })).toMatchObject({
-      items: [{ id: project.id }, { id: note.id }],
+      items: [{ entity: { id: project.id } }, { entity: { id: note.id } }],
     });
     const notes = await data<Page<RecentEntity>>('recents.list', { entityType: 'notes' });
-    expect(notes.items.map(({ id }) => id)).toEqual([note.id]);
+    expect(notes.items.map(({ entity }) => entity.id)).toEqual([note.id]);
   });
 
   it("passes core's invalid_cursor, and refuses an unknown entity type", async () => {

@@ -3,7 +3,7 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { NotFoundError } from '../shared/errors';
 import { Page, PageOptions } from '../shared/pagination';
-import { listByStamp, STAMPED_TABLES, stampedEntityTypeOf } from '../shared/stamped';
+import { listByStamp, STAMPED_TABLES, stampedEntityTypeOf, withEntities } from '../shared/stamped';
 import type { RecentEntity, RecentEntityType, RecentId, RecentsFilterOptions } from './types';
 
 // What recording a view changed, for in-process subscribers such as the IPC layer forwarding it to
@@ -38,7 +38,7 @@ export class RecentsService {
 
   /**
    * Stamps the entity's `viewedAt` with now, whichever of the four types its id names, and returns
-   * its summary as listRecents shows it. Every call stamps, so viewing an entity again moves it back
+   * it as listRecents shows it. Every call stamps, so viewing an entity again moves it back
    * to the top.
    */
   recordView(id: RecentId): RecentEntity {
@@ -49,13 +49,14 @@ export class RecentsService {
       // updatedAt is set to what it was, or its $onUpdate would stamp it with now
       .set({ viewedAt: new Date(), updatedAt: sql`${table.updatedAt}` })
       .where(eq(table.id, id))
-      .returning({ title: table.title, viewedAt: table.viewedAt })
+      .returning({ viewedAt: table.viewedAt })
       .get();
     if (!row) throw new NotFoundError(id);
 
     const viewedAt = row.viewedAt!;
     this.changes.emit({ type: 'viewed', entityType, id, viewedAt });
-    return { id, entityType, title: row.title, viewedAt };
+    const [recent] = withEntities(this.db, 'viewedAt', [{ id, entityType, viewedAt }]);
+    return recent;
   }
 
   /**

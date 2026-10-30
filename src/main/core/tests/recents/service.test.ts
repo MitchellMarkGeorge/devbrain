@@ -2,10 +2,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { EventId, NoteId, TaskId } from '@common/ids';
+import Database from 'better-sqlite3';
+import { BetterSQLite3Database, drizzle } from 'drizzle-orm/better-sqlite3';
+import { runMigrations } from '@main/db/migrate';
+import { EventId, TaskId } from '@common/ids';
 import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
-import { createDb } from '../utils';
+import { createDb, MIGRATIONS_PATH } from '../utils';
 import { RecentChange, RecentsService } from '../../recents/service';
 import { ArchiveService } from '../../archive/service';
 import { EventService } from '../../events/service';
@@ -13,6 +15,7 @@ import { FavoritesService } from '../../favorites/service';
 import { NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
 import { TaskService } from '../../tasks/service';
+import { TaskStatus } from '../../tasks/types';
 import { AuthType, LinkState, Provider, SourceType } from '../../integrations/types';
 import { InvalidCursorError } from '../../shared/pagination';
 import { NotFoundError } from '../../shared/errors';
@@ -75,22 +78,24 @@ async function oneOfEach(suffix = '') {
 }
 
 describe('RecentsService — recordView', () => {
-  it('stamps viewedAt on each entity type and returns its summary', async () => {
-    for (const entity of await oneOfEach()) {
-      const viewed = recents.recordView(entity.id);
+  it('stamps viewedAt on each entity type and returns the entity as its service reads it', async () => {
+    const [task, project, note, event] = await oneOfEach();
+    const cases = [
+      [task, () => tasks.getById(task.id)],
+      [project, () => projects.getById(project.id)],
+      [note, () => notesService.getById(note.id)],
+      [event, () => events.getById(event.id)],
+    ] as const;
+
+    for (const [created, read] of cases) {
+      const viewed = recents.recordView(created.id);
       expect(viewed).toEqual({
-        id: entity.id,
-        entityType: entity.entityType,
-        title: entity.title,
+        entityType: created.entityType,
+        entity: read(),
         viewedAt: expect.any(Date),
       });
+      expect(viewed.entity.viewedAt).toEqual(viewed.viewedAt);
     }
-    const [task, , note, event] = await oneOfEach('2');
-    const viewedAt = recents.recordView(task.id).viewedAt;
-    expect(tasks.getById(task.id as TaskId).viewedAt).toEqual(viewedAt);
-    recents.recordView(note.id);
-    expect(notesService.getById(note.id as NoteId).viewedAt).toBeInstanceOf(Date);
-    expect(events.getById(event.id as EventId).viewedAt).toBeNull();
   });
 
   it('leaves updatedAt and favoritedAt as they were', async () => {
@@ -118,7 +123,7 @@ describe('RecentsService — recordView', () => {
 
     const again = recents.recordView(task.id);
     expect(again.viewedAt.getTime()).toBeGreaterThan(first.viewedAt.getTime());
-    expect(recents.listRecents().items.map((e) => e.id)).toEqual([task.id, project.id]);
+    expect(recents.listRecents().items.map((e) => e.entity.id)).toEqual([task.id, project.id]);
   });
 
   it('refuses an entity that does not exist, sending nothing', () => {
@@ -135,7 +140,7 @@ describe('RecentsService — recordView', () => {
     link({ taskId: task.id }, LinkState.SYNCED);
 
     expect(recents.recordView(task.id).viewedAt).toBeInstanceOf(Date);
-    expect(recents.listRecents().items.map((e) => e.id)).toEqual([task.id]);
+    expect(recents.listRecents().items.map((e) => e.entity.id)).toEqual([task.id]);
   });
 });
 
@@ -166,7 +171,7 @@ describe('RecentsService — onChange', () => {
     } finally {
       error.mockRestore();
     }
-    expect(recents.listRecents().items.map((e) => e.id)).toEqual([task.id]);
+    expect(recents.listRecents().items.map((e) => e.entity.id)).toEqual([task.id]);
   });
 });
 
@@ -192,7 +197,9 @@ describe('RecentsService — listRecents', () => {
     recents.recordView(task.id);
     tasks.updateTask(task.id, { title: 'After' });
 
-    expect(recents.listRecents().items).toMatchObject([{ id: task.id, title: 'After' }]);
+    expect(recents.listRecents().items).toMatchObject([
+      { entityType: 'tasks', entity: { id: task.id, title: 'After' } },
+    ]);
   });
 
   it('leaves out archived entities until they are restored', async () => {
@@ -205,7 +212,7 @@ describe('RecentsService — listRecents', () => {
     expect(recents.listRecents({ entityType: 'tasks' }).items).toEqual([]);
 
     archive.restoreProject(project.id);
-    expect(recents.listRecents().items.map((e) => e.id)).toEqual([task.id]);
+    expect(recents.listRecents().items.map((e) => e.entity.id)).toEqual([task.id]);
   });
 
   it('leaves out events whose provider item was removed, and deleted ones', () => {
@@ -216,8 +223,10 @@ describe('RecentsService — listRecents', () => {
     link({ eventId: removed.id }, LinkState.REMOVED);
     events.deleteEvent(deleted.id);
 
-    expect(recents.listRecents().items.map((e) => e.id)).toEqual([kept.id]);
-    expect(recents.listRecents({ entityType: 'events' }).items.map((e) => e.id)).toEqual([kept.id]);
+    expect(recents.listRecents().items.map((e) => e.entity.id)).toEqual([kept.id]);
+    expect(recents.listRecents({ entityType: 'events' }).items.map((e) => e.entity.id)).toEqual([
+      kept.id,
+    ]);
   });
 
   it('is independent of favorites', async () => {
@@ -225,8 +234,8 @@ describe('RecentsService — listRecents', () => {
     favorites.favoriteTask(task.id as TaskId);
     recents.recordView(project.id);
 
-    expect(recents.listRecents().items.map((e) => e.id)).toEqual([project.id]);
-    expect(favorites.listFavorites().items.map((e) => e.id)).toEqual([task.id]);
+    expect(recents.listRecents().items.map((e) => e.entity.id)).toEqual([project.id]);
+    expect(favorites.listFavorites().items.map((e) => e.entity.id)).toEqual([task.id]);
   });
 
   it.each(['tasks', 'projects', 'notes', 'events'] as const)(
@@ -238,7 +247,7 @@ describe('RecentsService — listRecents', () => {
         await tick();
       }
 
-      expect(recents.listRecents({ entityType }).items.map((e) => e.id)).toEqual(
+      expect(recents.listRecents({ entityType }).items.map((e) => e.entity.id)).toEqual(
         created
           .filter((e) => e.entityType === entityType)
           .map((e) => e.id)
@@ -246,6 +255,85 @@ describe('RecentsService — listRecents', () => {
       );
     },
   );
+});
+
+describe('RecentsService — what an entry carries', () => {
+  it('carries what the sidebar draws: status and due date, colours, calendar and link', async () => {
+    const task = tasks.createTask({
+      title: 'Ship',
+      dueDate: TOMORROW,
+      status: TaskStatus.IN_PROGRESS,
+    });
+    link({ taskId: task.id }, LinkState.SYNCED);
+    const project = projects.createProject({ title: 'Launch', dueDate: TOMORROW, color: 'blue' });
+    const event = events.createEvent({
+      title: 'Standup',
+      startAt: TOMORROW,
+      endAt: new Date(TOMORROW.getTime() + 60 * 60 * 1000),
+      recurrenceRule: 'RRULE:FREQ=DAILY',
+      color: 'green',
+    });
+    for (const id of [task.id, project.id, event.id]) {
+      recents.recordView(id);
+      await tick();
+    }
+
+    const [eventEntry, projectEntry, taskEntry] = recents.listRecents().items;
+    if (taskEntry.entityType !== 'tasks') throw new Error('expected a task');
+    expect(taskEntry.entity).toMatchObject({ status: TaskStatus.IN_PROGRESS, dueDate: TOMORROW });
+    expect(taskEntry.entity.external?.state).toBe(LinkState.SYNCED);
+    if (projectEntry.entityType !== 'projects') throw new Error('expected a project');
+    expect(projectEntry.entity.color).toBe('blue');
+    if (eventEntry.entityType !== 'events') throw new Error('expected an event');
+    expect(eventEntry.entity).toMatchObject({
+      color: 'green',
+      calendarId: event.calendarId,
+      exdates: [],
+      external: null,
+    });
+  });
+
+  it('reads a page in the same number of queries whatever its length', async () => {
+    // a database that counts the queries run on it
+    const sqlite = new Database(':memory:');
+    let queries = 0;
+    const counted = drizzle({
+      client: sqlite,
+      casing: 'snake_case',
+      logger: { logQuery: () => (queries += 1) },
+    });
+    runMigrations(sqlite, counted, MIGRATIONS_PATH);
+    const countedRecents = new RecentsService(counted);
+    const countedTasks = new TaskService(counted);
+    const countedProjects = new ProjectService(counted);
+    const countedNotes = new NoteService(counted, workspacePath);
+    const countedEvents = new EventService(counted);
+
+    // ten of each type, viewed in turn so every page holds all four; the events are series, so
+    // their exdates are read too
+    for (let i = 0; i < 10; i++) {
+      const ids = [
+        countedTasks.createTask({ title: `T${i}`, dueDate: TOMORROW }).id,
+        countedProjects.createProject({ title: `P${i}`, dueDate: TOMORROW }).id,
+        (await countedNotes.createNote({ title: `N${i}` })).id,
+        countedEvents.createEvent({
+          title: `E${i}`,
+          startAt: TOMORROW,
+          endAt: new Date(TOMORROW.getTime() + 60 * 60 * 1000),
+          recurrenceRule: 'RRULE:FREQ=WEEKLY',
+        }).id,
+      ];
+      for (const id of ids) countedRecents.recordView(id);
+    }
+    const queriesFor = (limit: number) => {
+      const before = queries;
+      expect(countedRecents.listRecents({}, { limit }).items).toHaveLength(limit);
+      return queries - before;
+    };
+
+    expect(queriesFor(40)).toBe(queriesFor(4));
+    sqlite.close();
+  });
 });
 
 describe('RecentsService — listRecents cursor pagination', () => {
@@ -271,7 +359,9 @@ describe('RecentsService — listRecents cursor pagination', () => {
     "pages through the '%s' filter in the unpaginated order",
     async (entityType: RecentEntityType | 'all') => {
       await seed();
-      const full = recents.listRecents({ entityType }, { limit: 200 }).items.map((e) => e.id);
+      const full = recents
+        .listRecents({ entityType }, { limit: 200 })
+        .items.map((e) => e.entity.id);
       expect(full).toHaveLength(entityType === 'all' ? 12 : 3);
       expect(new Set(full).size).toBe(full.length);
 
@@ -281,7 +371,7 @@ describe('RecentsService — listRecents cursor pagination', () => {
         do {
           const page = recents.listRecents({ entityType }, { limit, cursor });
           expect(page.items.length).toBeLessThanOrEqual(limit);
-          ids.push(...page.items.map((e) => e.id));
+          ids.push(...page.items.map((e) => e.entity.id));
           cursor = page.nextCursor ?? undefined;
         } while (cursor);
         expect(ids).toEqual(full);

@@ -10,8 +10,7 @@ export interface RecentsFilterOptions {
 }
 
 /**
- * A single row in the recents list: the same lightweight summary as a favorite, with when the
- * entity was last viewed. Callers that need the whole entity can follow up with the owning
- * service's getByIds.
+ * A single row in the recents list: the whole entity under `entity`, as its service reads it, and
+ * when it was last viewed. Narrow on `entityType` to get the entity's type.
  */
 export type RecentEntity = StampedEntity<'viewedAt'>;

@@ -134,6 +134,10 @@ not obvious from one file:
 - **`setFavorite`** (tasks, projects, notes, events) takes the state wanted, not a toggle, so a
   double click or a stale view can't flip it back. Core's favorite methods are idempotent and emit
   nothing for a repeat, which returns `changed: []`.
+- **`favorites.list`** and **`recents.list`** return each entry's whole entity under `entity`, as
+  its own router's `get` would, narrowed by `entityType`: what a row draws (a task's status, a
+  project's colour, an event's colour and calendar) is all there. Core picks the page in one query
+  and reads each entity type on it in one batched lookup, so a longer page costs no more queries.
 - **`recents.recordView`** takes any task, project, note or event id and stamps it as viewed now;
   the renderer calls it when a page for one opens. It reports `changed: ['recent']`, never the
   entity's own kind, so a view refetches the recents list and not every list of that entity.

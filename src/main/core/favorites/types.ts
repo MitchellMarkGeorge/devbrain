@@ -10,8 +10,7 @@ export interface FavoritesFilterOptions {
 }
 
 /**
- * A single row in the favorites view. A lightweight summary rather than the full row, as in the
- * archive view: the four tables share only these columns, so this is what a UNION across them can
- * carry. Callers that need the whole entity can follow up with the owning service's getByIds.
+ * A single row in the favorites view: the whole entity under `entity`, as its service reads it, and
+ * when it was favorited. Narrow on `entityType` to get the entity's type.
  */
 export type FavoritedEntity = StampedEntity<'favoritedAt'>;

@@ -15,14 +15,14 @@ const ENTITY_TYPES = [
 ] as const satisfies readonly RecentEntityType[];
 
 export const recentsRouter = t.router({
-  // summaries, most recently viewed first, of one entity type or all of them
+  // the viewed entities, most recently viewed first, of one entity type or all of them
   list: wsProcedure
     .input(z.object({ entityType: z.enum([...ENTITY_TYPES, 'all']).optional(), ...zPageFields }))
     .query(
       ({ ctx, input: { entityType, ...page } }): Page<RecentEntity> =>
         ctx.workspace.recents.listRecents({ entityType }, page),
     ),
-  // a task, project, note or event was opened; returns its summary as `list` shows it
+  // a task, project, note or event was opened; returns it as `list` shows it
   recordView: wsProcedure
     .input(
       z.object({

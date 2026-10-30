@@ -15,7 +15,7 @@ const ENTITY_TYPES = [
 ] as const satisfies readonly FavoritableEntityType[];
 
 export const favoritesRouter = t.router({
-  // summaries, most recently favorited first, of one entity type or all of them
+  // the favorited entities, most recently favorited first, of one entity type or all of them
   list: wsProcedure
     .input(z.object({ entityType: z.enum([...ENTITY_TYPES, 'all']).optional(), ...zPageFields }))
     .query(

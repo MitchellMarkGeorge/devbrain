@@ -276,7 +276,6 @@ describe.each([
       query: db
         .select({
           id: sql`${table.id}`.as('id'),
-          title: table.title,
           [stamp]: table[stamp],
         })
         .from(table as typeof tasks)
