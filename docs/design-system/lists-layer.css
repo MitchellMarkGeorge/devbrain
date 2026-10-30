@@ -161,13 +161,13 @@
   line-height: 16px;
 }
 
-/* EntityPill (as Linear draws them): a chip with its own fill and a faint edge, so it stays a
-   recessed chip on a hovered or selected row and reads the same in the properties card; pointing
-   at it lifts it a little */
+/* EntityPill (as Linear draws them): a chip on the page colour with a faint edge, so it reads as
+   transparent on the page and as a recessed chip on a hovered or selected row; pointing at it lifts
+   it part of the way to the row's hover tone. One rule for both themes. */
 :root {
-  --pill-fill: color-mix(in oklab, var(--neutral-900) 55%, var(--neutral-950));
+  --pill-fill: var(--background);
   --pill-edge: color-mix(in oklab, var(--foreground) 9%, transparent);
-  --pill-fill-hover: color-mix(in oklab, var(--neutral-900) 85%, var(--neutral-800));
+  --pill-fill-hover: color-mix(in oklab, var(--accent) 60%, var(--background));
   --pill-edge-hover: color-mix(in oklab, var(--foreground) 13%, transparent);
 }
 .db-entity {
@@ -192,7 +192,8 @@ button.db-entity:active {
 /* project colours are the swatch-* 500 steps; in light theme they are darkened so green and amber
    icons keep 3:1 on white */
 [data-theme='light'] .db-entity-project .db-icon,
-[data-theme='light'] .dbl-cproj .db-icon {
+[data-theme='light'] .dbl-cproj .db-icon,
+[data-theme='light'] .db-sidebar-btn .db-icon[style*='--swatch-'] {
   filter: brightness(0.72);
 }
 
@@ -465,6 +466,4 @@ button.db-entity:active {
   --card-fill: color-mix(in oklab, var(--neutral-100) 70%, var(--background));
   --card-fill-hover: var(--neutral-100);
   --card-fill-done: color-mix(in oklab, var(--neutral-100) 35%, var(--background));
-  --pill-fill: var(--white);
-  --pill-fill-hover: color-mix(in oklab, var(--neutral-100) 60%, var(--white));
 }
