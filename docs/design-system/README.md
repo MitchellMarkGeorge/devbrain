@@ -9,14 +9,13 @@ https://claude.ai/artifact/9ZGwb8KzWqLyDsnPnoTLav
 
 ## Files
 
-- `tokens.json`: the token source. `npm run tokens` generates `src/renderer/styles/tokens.css` from it.
-- `nova-layer.css` and `lists-layer.css`: the two style layers on top of the DevBrain component
-  styles, in that order. Nova sets shadcn Nova's sizes, type, corners and edges; Lists adds the list
-  behaviours.
-- `reference/`: the complete built preview from the design system page: `bundle.css` (component
-  styles with both layers), `bundle.js` (every component as a small React reference
-  implementation) and `index.d.ts` (their props). Build the app's components to match these.
+- `tokens.json`: the token source, and the only file here the app uses. `npm run tokens` generates
+  `src/renderer/styles/tokens.css` from it.
 - `components/`: the usage guide for each component.
+- `reference/`: the stylesheet and preview components behind the design system page, for
+  reference only; nothing imports them. `bundle.css` is how every component looks, `bundle.js`
+  draws each one as a small React stand-in and `index.d.ts` lists their props. The app builds its
+  own components in `src/` (Base UI and CSS Modules, styled with the tokens) to match them.
 - The implementation notes in the [v1 spec](archive/devbrain-v1/README.md) (Base UI parts, the
   `data-variant`/`data-size` Button pattern, styling without Tailwind) still apply.
 
