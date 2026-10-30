@@ -28,7 +28,7 @@ DevBrain Nova Lists is DevBrain Nova with the quiet list direction's behaviours.
 
 **Kept from DevBrain** (these make it DevBrain, not stock shadcn):
 
-- **Colour.** Every colour token: the near-black neutral ground, `foreground` at neutral-200, the status, priority, health and date colours, the six swatches and their tiles, and the red `now-indicator`.
+- **Colour.** Every colour token: the near-black neutral ground, `foreground` at neutral-200, the status, priority, health and date colours, the six swatches, and the red `now-indicator`. (Nova Lists moves red to one shade in dark and the tiles to the 900 steps: see Colour.)
 - **Type family.** Inter for everything; 30px and 24px titles.
 - **The logomark.**
 - **Glyphs.** `StatusIcon`, `PriorityIcon`, `HealthIcon` and `ProgressRing`, each status with its own shape and colour.
@@ -36,7 +36,7 @@ DevBrain Nova Lists is DevBrain Nova with the quiet list direction's behaviours.
 - **Entity pills.** Every relation is an outlined pill on the page colour, with an entity icon or the calendar's colour bar.
 - **The segmented control.** `ToggleGroup` and `Tabs` are outlined segments on the page colour (Nova's are a muted track).
 - **The dark tooltip.** Nova inverts tooltips; DevBrain keeps them dark with an outline.
-- **Lists.** Task and event rows with a line beneath, a hover tone and `muted` group bands.
+- **Lists.** Entity pills, priority and date on the right of every row (the rows themselves follow the list behaviours below).
 - **Planning views.** The board, the time grid, event blocks and the mini calendar with its red "today".
 - **Sidebar.** The workspace tile, the outlined active item, and full-size Recents and Favorites.
 
@@ -72,6 +72,8 @@ DevBrain Nova Lists is DevBrain Nova with the quiet list direction's behaviours.
 - Dark is the primary theme. Pages, the sidebar, lists and cards sit on `background`; menus, popovers, tooltips, dialogs, sheets and toasts on `popover`.
 - Text: `foreground` for body, `foreground-strong` for titles and row names, `muted-foreground` for labels, descriptions and menu icons, `subtle-foreground` for metadata a reader can skip.
 - Lines: `border` between rows and around pills; `input` around fields and the quiet button; `edge` around anything raised.
+- **One red.** In dark, overdue, high priority, off track and delete all use `red-400` (6.2:1 on `popover`); light uses `red-600` throughout. The calendar's today and the time grid's now line keep `now-indicator` (`red-600`), which carries a white number.
+- **Workspace tiles** sit on the 900 step of their swatch (`swatch-*-tile`), so a 20px tile reads as colour; the white letter stays above 9:1.
 - Status colours keep one meaning each (`status-*`, `priority-*`, `health-*`, `date-today`, `date-overdue`), each with its own icon shape. Users pick from the six `swatch-*` colours, shown as 3px bars, dots and swatches.
 
 ## Type
