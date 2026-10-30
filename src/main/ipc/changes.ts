@@ -142,6 +142,7 @@ export class ChangeTracker {
       workspace.calendars.onChange(() => this.recordChange('calendar')),
       workspace.archive.onChange((change) => this.recordChange(...entitiesOfArchiveChange(change))),
       workspace.favorites.onChange((change) => this.recordChange(entityOfFavoriteChange(change))),
+      workspace.recents.onChange(() => this.recordChange('recent')),
       workspace.detach.onChange((change) => this.recordChange(...entitiesOfTaskLinkChange(change))),
       workspace.integrations.onChange((change) => {
         this.recordChange(...entitiesOfIntegrationChange(change));

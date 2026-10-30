@@ -153,7 +153,7 @@ describe('FavoritesService — favorite and unfavorite', () => {
     expect(
       favorites
         .listFavorites()
-        .items.map((e) => e.id)
+        .items.map((e) => e.entity.id)
         .sort(),
     ).toEqual([project.id, task.id].sort());
   });
@@ -211,7 +211,7 @@ describe('FavoritesService — onChange', () => {
     } finally {
       error.mockRestore();
     }
-    expect(favorites.listFavorites().items.map((e) => e.id)).toEqual([task.id]);
+    expect(favorites.listFavorites().items.map((e) => e.entity.id)).toEqual([task.id]);
   });
 });
 
@@ -221,9 +221,9 @@ describe('FavoritesService — listFavorites', () => {
     expect(favorites.listFavorites().items).toEqual([]);
   });
 
-  it('returns every entity type, most recently favorited first, with its summary', async () => {
+  it('returns every entity type, most recently favorited first, as its service reads it', async () => {
     const created = await oneOfEach();
-    const favorited: { title: string; favoritedAt: Date | null }[] = [];
+    const favorited: { favoritedAt: Date | null }[] = [];
     for (const entity of created) {
       favorited.push(entity.favorite());
       await tick();
@@ -233,9 +233,8 @@ describe('FavoritesService — listFavorites', () => {
     expect(items).toEqual(
       created
         .map((entity, i) => ({
-          id: entity.id,
           entityType: entity.entityType,
-          title: favorited[i].title,
+          entity: favorited[i],
           favoritedAt: favorited[i].favoritedAt,
         }))
         .reverse(),
@@ -249,7 +248,7 @@ describe('FavoritesService — listFavorites', () => {
     project.favorite();
     favorites.unfavoriteTask(task.id as TaskId);
 
-    expect(favorites.listFavorites().items.map((e) => e.id)).toEqual([project.id]);
+    expect(favorites.listFavorites().items.map((e) => e.entity.id)).toEqual([project.id]);
   });
 
   it('leaves out archived entities until they are restored', async () => {
@@ -262,7 +261,7 @@ describe('FavoritesService — listFavorites', () => {
     expect(favorites.listFavorites({ entityType: 'tasks' }).items).toEqual([]);
 
     archive.restoreProject(project.id);
-    expect(favorites.listFavorites().items.map((e) => e.id)).toEqual([task.id]);
+    expect(favorites.listFavorites().items.map((e) => e.entity.id)).toEqual([task.id]);
   });
 
   it('leaves out events whose provider item was removed', () => {
@@ -272,10 +271,10 @@ describe('FavoritesService — listFavorites', () => {
     favorites.favoriteEvent(removed.id);
     link({ eventId: removed.id }, LinkState.REMOVED);
 
-    expect(favorites.listFavorites().items.map((e) => e.id)).toEqual([kept.id]);
-    expect(favorites.listFavorites({ entityType: 'events' }).items.map((e) => e.id)).toEqual([
-      kept.id,
-    ]);
+    expect(favorites.listFavorites().items.map((e) => e.entity.id)).toEqual([kept.id]);
+    expect(favorites.listFavorites({ entityType: 'events' }).items.map((e) => e.entity.id)).toEqual(
+      [kept.id],
+    );
   });
 
   it.each(['tasks', 'projects', 'notes', 'events'] as const)(
@@ -288,7 +287,7 @@ describe('FavoritesService — listFavorites', () => {
       }
 
       const items = favorites.listFavorites({ entityType }).items;
-      expect(items.map((e) => e.id)).toEqual(
+      expect(items.map((e) => e.entity.id)).toEqual(
         created
           .filter((e) => e.entityType === entityType)
           .map((e) => e.id)
@@ -320,7 +319,9 @@ describe('FavoritesService — listFavorites cursor pagination', () => {
     "pages through the '%s' filter in the unpaginated order",
     async (entityType: FavoritableEntityType | 'all') => {
       await seed();
-      const full = favorites.listFavorites({ entityType }, { limit: 200 }).items.map((e) => e.id);
+      const full = favorites
+        .listFavorites({ entityType }, { limit: 200 })
+        .items.map((e) => e.entity.id);
       expect(full).toHaveLength(entityType === 'all' ? 12 : 3);
       expect(new Set(full).size).toBe(full.length);
 
@@ -330,7 +331,7 @@ describe('FavoritesService — listFavorites cursor pagination', () => {
         do {
           const page = favorites.listFavorites({ entityType }, { limit, cursor });
           expect(page.items.length).toBeLessThanOrEqual(limit);
-          ids.push(...page.items.map((e) => e.id));
+          ids.push(...page.items.map((e) => e.entity.id));
           cursor = page.nextCursor ?? undefined;
         } while (cursor);
         expect(ids).toEqual(full);

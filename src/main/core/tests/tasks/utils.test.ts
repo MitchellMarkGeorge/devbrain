@@ -98,6 +98,7 @@ const makeTask = (parentTaskId: TaskId | null): Task => ({
   createdAt: new Date(),
   updatedAt: new Date(),
   favoritedAt: null,
+  viewedAt: null,
 });
 
 describe('isSubtask', () => {

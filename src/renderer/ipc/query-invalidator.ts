@@ -27,6 +27,8 @@ export const ENTITIES_READ_BY_ROUTE: Readonly<Record<string, readonly ChangedEnt
   // a disconnect turns its calendars into local ones
   calendars: ['calendar', 'externalSource'],
   favorites: ['task', 'project', 'note', 'event'],
+  // titles come from the entities, so an edit or archive changes the list too
+  recents: ['recent', 'task', 'project', 'note', 'event'],
   archive: ['task', 'project', 'note'],
   search: ['task', 'project', 'note', 'event'],
   integrations: ['integration', 'externalSource'],

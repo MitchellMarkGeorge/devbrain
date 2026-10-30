@@ -128,12 +128,19 @@ There is no sender check: the window is sandboxed, denies new windows and cancel
 [`router.ts`](../../src/main/ipc/router.ts) merges one router per feature, in
 [`src/main/ipc/routers`](../../src/main/ipc/routers): `app`, `workspaces`, `workspace`, `settings`,
 `tasks`, `archive`, `calendars`, `integrations`, `sources`, `sync`, `notes`, `projects`, `events`,
-`favorites` and `search`. Each file's comments say what its procedures do. A few points that are
+`favorites`, `recents` and `search`. Each file's comments say what its procedures do. A few points that are
 not obvious from one file:
 
 - **`setFavorite`** (tasks, projects, notes, events) takes the state wanted, not a toggle, so a
   double click or a stale view can't flip it back. Core's favorite methods are idempotent and emit
   nothing for a repeat, which returns `changed: []`.
+- **`favorites.list`** and **`recents.list`** return each entry's whole entity under `entity`, as
+  its own router's `get` would, narrowed by `entityType`: what a row draws (a task's status, a
+  project's colour, an event's colour and calendar) is all there. Core picks the page in one query
+  and reads each entity type on it in one batched lookup, so a longer page costs no more queries.
+- **`recents.recordView`** takes any task, project, note or event id and stamps it as viewed now;
+  the renderer calls it when a page for one opens. It reports `changed: ['recent']`, never the
+  entity's own kind, so a view refetches the recents list and not every list of that entity.
 - **`workspaces`** returns `WorkspaceInfo`, never a `Workspace`. `create` doesn't open the new
   workspace; `open` closes the open one first and remembers the new one for the next launch.
   `openLast` is the renderer's first call: it opens the workspace open last time while none is
@@ -153,7 +160,7 @@ not obvious from one file:
 
 [`ChangeTracker`](../../src/main/ipc/changes.ts) listens to every service of the open workspace
 that changes rows (`tasks`, `projects`, `notes`, `events`, `calendars`, `archive`, `favorites`,
-`detach`, `integrations`, and the sync scheduler's `onProgress` and `onStatus`), and to
+`recents`, `detach`, `integrations`, and the sync scheduler's `onProgress` and `onStatus`), and to
 `devBrain.workspaces.onChange`. It maps each change to `ChangedEntity[]` and decides where those go:
 
 ```
@@ -197,6 +204,7 @@ The rules that shape it:
 | `EventChange`, `CalendarChange`             | `event`, `calendar`                                               |
 | `ArchiveChange`                             | each of `task`, `project`, `note` whose id list is not empty      |
 | `FavoriteChange`                            | the favorited entity's type                                       |
+| `RecentChange` (a view recorded)            | `recent`                                                          |
 | `TaskLinkChange` (detach, reattach)         | `task` plus its `changed`; `credentials_rejected` → `integration` |
 | `IntegrationChange`                         | `integration`, `externalSource`, plus `changed` on `disconnected` |
 | `SyncProgress` (a committed page)           | its `summary.changed`                                             |

@@ -6,6 +6,7 @@ export interface Model<T extends Id<EntityType>> {
   updatedAt: Date;
   createdAt: Date;
   favoritedAt: Date | null;
+  viewedAt: Date | null;
 }
 
 export interface Archivable {

@@ -63,6 +63,8 @@ export const events = sqliteTable(
     index('idx_events_favorited_at_id')
       .on(table.favoritedAt, table.id)
       .where(isNotNull(table.favoritedAt)),
+    // keyset pagination in RecentsService.listRecents: only viewed rows
+    index('idx_events_viewed_at_id').on(table.viewedAt, table.id).where(isNotNull(table.viewedAt)),
     // an all-day event has its dates, and only an all-day event does
     check(
       'all_day_dates',

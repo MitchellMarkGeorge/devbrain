@@ -57,6 +57,11 @@ export const notes = sqliteTable(
     index('idx_notes_favorited_at_id')
       .on(table.favoritedAt, table.id)
       .where(and(isNotNull(table.favoritedAt), isNull(table.archivedAt))!),
+    // keyset pagination in RecentsService.listRecents: viewed rows that are not archived.
+    // `where` must match the query's filter.
+    index('idx_notes_viewed_at_id')
+      .on(table.viewedAt, table.id)
+      .where(and(isNotNull(table.viewedAt), isNull(table.archivedAt))!),
 
     // make sure there is one link if any
     check(
