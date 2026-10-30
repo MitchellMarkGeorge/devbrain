@@ -1642,15 +1642,16 @@ button.db-badge[data-variant='outline']:hover {
   line-height: 16px;
 }
 
-/* entity pills in a row (as Linear draws them): a chip with its own fill and a faint edge, so it
-   stays a recessed chip when the row lightens on hover or selection; pointing at the pill lifts it */
+/* EntityPill (as Linear draws them): a chip with its own fill and a faint edge, so it stays a
+   recessed chip on a hovered or selected row and reads the same in the properties card; pointing
+   at it lifts it a little */
 :root {
   --pill-fill: color-mix(in oklab, var(--neutral-900) 55%, var(--neutral-950));
   --pill-edge: color-mix(in oklab, var(--foreground) 9%, transparent);
-  --pill-fill-hover: color-mix(in oklab, var(--neutral-800) 60%, var(--neutral-900));
-  --pill-edge-hover: color-mix(in oklab, var(--foreground) 18%, transparent);
+  --pill-fill-hover: color-mix(in oklab, var(--neutral-900) 85%, var(--neutral-800));
+  --pill-edge-hover: color-mix(in oklab, var(--foreground) 13%, transparent);
 }
-.dbl-side .db-badge[data-variant='outline'] {
+.db-entity {
   background: var(--pill-fill);
   border-color: var(--pill-edge);
   transition:
@@ -1658,15 +1659,22 @@ button.db-badge[data-variant='outline']:hover {
     border-color 100ms,
     color 100ms;
 }
-.dbl-side button.db-badge[data-variant='outline']:hover {
+button.db-entity:hover {
   background: var(--pill-fill-hover);
   border-color: var(--pill-edge-hover);
 }
-.dbl-side button.db-badge[data-variant='outline']:hover .db-badge-text {
-  color: var(--foreground-strong);
+button.db-entity:hover .db-badge-muted {
+  color: var(--foreground);
 }
-.dbl-side button.db-badge[data-variant='outline']:active {
-  background: color-mix(in oklab, var(--pill-fill-hover) 80%, var(--foreground));
+button.db-entity:active {
+  background: color-mix(in oklab, var(--pill-fill-hover) 92%, var(--foreground));
+}
+
+/* project colours are the swatch-* 500 steps; in light theme they are darkened so green and amber
+   icons keep 3:1 on white */
+[data-theme='light'] .db-entity-project .db-icon,
+[data-theme='light'] .dbl-cproj .db-icon {
+  filter: brightness(0.72);
 }
 
 /* StatusMenu */
@@ -1939,5 +1947,5 @@ button.db-badge[data-variant='outline']:hover {
   --card-fill-hover: var(--neutral-100);
   --card-fill-done: color-mix(in oklab, var(--neutral-100) 35%, var(--background));
   --pill-fill: var(--white);
-  --pill-fill-hover: var(--neutral-50);
+  --pill-fill-hover: color-mix(in oklab, var(--neutral-100) 60%, var(--white));
 }

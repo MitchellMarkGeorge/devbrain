@@ -1212,6 +1212,33 @@
     );
   }
 
+  /* EntityPill: the chip every relation uses (rows, the properties card, document headers).
+     A project's folder icon takes the project's colour; an event shows its calendar's bar. */
+  var ENTITY = {
+    project: { icon: 'folder' },
+    note: { icon: 'file-text' },
+    task: { icon: 'activity', color: 'var(--status-in-progress)' },
+  };
+  function EntityPill(props) {
+    var e = ENTITY[props.type] || {};
+    var ev = props.type === 'event';
+    return h(
+      NS.Badge,
+      {
+        variant: 'outline',
+        asButton: true,
+        className:
+          props.type === 'project' && props.color ? 'db-entity db-entity-project' : 'db-entity',
+        icon: ev ? undefined : e.icon,
+        iconColor: props.type === 'project' ? props.color || e.color : e.color,
+        barColor: ev ? props.color || 'var(--swatch-green)' : undefined,
+        prefix: props.prefix,
+        muted: !ev,
+      },
+      props.children,
+    );
+  }
+
   var STATUS_ITEMS = [
     ['not-started', 'Not started', '1'],
     ['in-progress', 'In progress', '2'],
@@ -1372,7 +1399,7 @@
       h(
         'div',
         { className: 'dbl-side' },
-        t.project ? h(NS.EntityPill, { type: 'project' }, t.project) : null,
+        t.project ? h(NS.EntityPill, { type: 'project', color: t.projectColor }, t.project) : null,
         t.event ? h(NS.EntityPill, { type: 'event', color: t.eventColor }, t.event) : null,
         t.note ? h(NS.EntityPill, { type: 'note' }, t.note) : null,
         h(
@@ -1620,7 +1647,7 @@
           ? h(
               'span',
               { className: 'dbl-cproj' },
-              h(Icon, { name: 'folder', size: 12 }),
+              h(Icon, { name: 'folder', size: 12, color: t.projectColor }),
               h('span', null, t.project),
             )
           : null,
@@ -1635,6 +1662,7 @@
 
   Object.assign(NS, {
     Button: Button,
+    EntityPill: EntityPill,
     StatusMenu: StatusMenu,
     TaskRow: TaskRow,
     TaskList: TaskList,

@@ -189,7 +189,7 @@ export interface ProgressRingProps {
 }
 export interface EntityPillProps {
   type: 'project' | 'note' | 'task' | 'event';
-  color?: string;
+  /** a project's icon or an event's bar: a swatch-* colour */ color?: string;
   prefix?: string;
   children: Node;
 }
@@ -204,6 +204,7 @@ export interface Task {
   parent?: string;
   subtasks?: [number, number];
   project?: string;
+  projectColor?: string;
   event?: string;
   eventColor?: string;
   note?: string;
