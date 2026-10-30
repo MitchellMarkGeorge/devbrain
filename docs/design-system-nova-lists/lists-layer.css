@@ -424,3 +424,10 @@
   color: var(--foreground);
   font-weight: 500;
 }
+
+/* light theme: lighter card fills */
+[data-theme='light'] {
+  --card-fill: color-mix(in oklab, var(--neutral-100) 70%, var(--background));
+  --card-fill-hover: var(--neutral-100);
+  --card-fill-done: color-mix(in oklab, var(--neutral-100) 35%, var(--background));
+}
