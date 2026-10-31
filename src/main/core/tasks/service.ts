@@ -1,5 +1,7 @@
 import { ProjectId, TaskId } from '@common/ids';
 import { tasks } from '@main/db/schema/tasks';
+import { notes } from '@main/db/schema/notes';
+import { externalLinks } from '@main/db/schema/integrations';
 import { eq, inArray, notInArray, and, isNull, not, SQL, lt, gt, gte, desc } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
@@ -10,12 +12,19 @@ import {
   SubtaskListItem,
   TaskListItem,
   TaskPriority,
+  TaskDeleteResult,
   TaskSortOptions,
   TaskStatus,
   UpdateTaskLinkOptions,
   UpdateTaskOptions,
 } from './types';
-import { InvalidInputError, NotFoundError, TaskHierarchyError } from '../shared/errors';
+import {
+  ExternalReadOnlyError,
+  InvalidInputError,
+  NotArchivedError,
+  NotFoundError,
+  TaskHierarchyError,
+} from '../shared/errors';
 import { isSubtask } from './utils';
 import { subtreeOf } from './subtree';
 import { withListDetails, withSubtaskListDetails } from './details';
@@ -35,7 +44,12 @@ import { ChangeListener, ChangeListeners } from '../shared/changes';
 
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
 // layer will forward them to the renderer. Sent after the write commits, with the row as written.
-export type TaskChange = { type: 'created'; task: Task } | { type: 'updated'; task: Task };
+// `deleted` is sent as the delete's last step, inside its transaction, so search drops the rows in
+// the same commit (as an archive does).
+export type TaskChange =
+  | { type: 'created'; task: Task }
+  | { type: 'updated'; task: Task }
+  | ({ type: 'deleted' } & TaskDeleteResult);
 
 export class TaskService {
   private readonly changes = new ChangeListeners<TaskChange>('Task');
@@ -392,6 +406,64 @@ export class TaskService {
     });
     // only the demoted task is sent: its subtree's new context changes nothing searchable
     return this.updated(id, row);
+  }
+
+  /**
+   * Deletes an archived task for good (the UI calls archived items "in the trash"; deleting is
+   * only offered there), with every task below it at any depth: the `parentTaskId` foreign key
+   * cascades. The task and everything below it must be archived, or it throws NotArchivedError:
+   * archiving takes the whole subtree along, but sync archives a removed task on its own and can
+   * leave synced subtasks live under it, which a delete must not take with it.
+   *
+   * What only pointed at them is kept, by the foreign keys' `set null`: their task notes lose
+   * `linkedTaskId` (so a task still has at most one task note, now none), and nothing else links to
+   * a task. Their external links cascade; favorites and recents are columns of the rows and go
+   * with them.
+   *
+   * Synced tasks: a synced task belongs to its provider, is never archived, and leaves only
+   * through sync; it is refused (ExternalReadOnlyError is checked too, as archive does). A detached
+   * task is the user's own copy, and deleting it deletes only that copy: nothing is recorded for
+   * sync. If the provider later sends the same item again (it is still assigned and changes, or is
+   * assigned again), sync treats it as never mirrored and adds it as a new synced task. The same
+   * holds for a removed task (archived by sync).
+   *
+   * Throws NotFoundError for an unknown id, and NotArchivedError for one not in the trash.
+   */
+  deleteTask(id: TaskId): TaskDeleteResult {
+    return this.db.transaction((tx) => {
+      // the task first: subtreeOf starts from the id itself
+      const subtree = tx
+        .select({
+          taskId: tasks.id,
+          archivedAt: tasks.archivedAt,
+          state: externalLinks.state,
+        })
+        .from(tasks)
+        .leftJoin(externalLinks, eq(externalLinks.taskId, tasks.id))
+        .where(inArray(tasks.id, subtreeOf(id)))
+        .all();
+      if (!subtree.some((row) => row.taskId === id)) throw new NotFoundError(id);
+      if (subtree.some((row) => row.archivedAt === null)) throw new NotArchivedError(id);
+      // a synced task is never archived; checked anyway, as archive does
+      if (subtree.some((row) => row.state === LinkState.SYNCED)) {
+        throw new ExternalReadOnlyError(id);
+      }
+
+      const taskIds = [id, ...subtree.map((row) => row.taskId).filter((taskId) => taskId !== id)];
+      // read before the delete clears their link
+      const unlinkedNoteIds = tx
+        .select({ id: notes.id })
+        .from(notes)
+        .where(inArray(notes.linkedTaskId, taskIds))
+        .all()
+        .map((row) => row.id);
+
+      tx.delete(tasks).where(inArray(tasks.id, taskIds)).run();
+
+      const result: TaskDeleteResult = { taskIds, unlinkedNoteIds };
+      this.changes.emit({ type: 'deleted', ...result });
+      return result;
+    });
   }
 
   // An update's result as every read returns it, with `external`, after sending the change. Throws

@@ -32,6 +32,7 @@ import {
   Provider as ProviderId,
 } from '../../integrations/types';
 import { TaskService } from '../../tasks/service';
+import { ArchiveService } from '../../archive/service';
 import { ProjectService } from '../../projects/service';
 import { TaskPriority, TaskStatus } from '../../tasks/types';
 import { ProjectStatus } from '../../projects/types';
@@ -311,6 +312,24 @@ describe('SyncEngine reconcile — returning issues', () => {
     await reconcile();
 
     expect(provider.tasks.lookups).toEqual([]);
+  });
+
+  it('mirrors a detached task the user deleted again, as a new task, if Linear still assigns it', async () => {
+    const deleted = issue();
+    await seed([deleted]);
+    setLinkState(deleted.externalId, LinkState.DETACHED);
+    const taskId = linkOf(deleted.externalId).taskId!;
+    new ArchiveService(db).archiveTask(taskId);
+    new TaskService(db).deleteTask(taskId);
+
+    // still assigned in Linear, with no link here: the user deleted only their copy
+    await reconcile();
+
+    expect(provider.tasks.lookups.map((lookup) => lookup.externalIds)).toEqual([
+      [deleted.externalId],
+    ]);
+    expect(linkOf(deleted.externalId).state).toBe(LinkState.SYNCED);
+    expect(linkOf(deleted.externalId).taskId).not.toBe(taskId);
   });
 
   it('looks up only the projects with no candidates and no returning issues', async () => {

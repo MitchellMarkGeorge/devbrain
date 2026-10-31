@@ -9,6 +9,9 @@ import {
   entityOfFavoriteChange,
   entitiesOfArchiveChange,
   entitiesOfIntegrationChange,
+  entitiesOfNoteChange,
+  entitiesOfProjectChange,
+  entitiesOfTaskChange,
   entitiesOfTaskLinkChange,
 } from '@main/ipc/changes';
 import { appRouter } from '@main/ipc/router';
@@ -299,6 +302,56 @@ describe('the entities of each change', () => {
         noteIds: ['nte_1' as never],
       }),
     ).toEqual(['task', 'project', 'note']);
+  });
+
+  it('names what a delete removed, and the kinds of rows that lost a link to it', () => {
+    const task = { type: 'updated' } as never;
+    expect(entitiesOfTaskChange(task)).toEqual(['task']);
+    expect(
+      entitiesOfTaskChange({ type: 'deleted', taskIds: ['tsk_1' as never], unlinkedNoteIds: [] }),
+    ).toEqual(['task']);
+    expect(
+      entitiesOfTaskChange({
+        type: 'deleted',
+        taskIds: ['tsk_1' as never],
+        unlinkedNoteIds: ['nte_1' as never],
+      }),
+    ).toEqual(['task', 'note']);
+    expect(entitiesOfProjectChange({ type: 'created' } as never)).toEqual(['project']);
+    expect(
+      entitiesOfProjectChange({
+        type: 'deleted',
+        projectId: 'prj_1' as never,
+        unfiledTaskIds: ['tsk_1' as never],
+        unfiledNoteIds: ['nte_1' as never],
+      }),
+    ).toEqual(['project', 'task', 'note']);
+    expect(entitiesOfNoteChange({ type: 'updated' } as never)).toEqual(['note']);
+    expect(
+      entitiesOfNoteChange({
+        type: 'deleted',
+        noteId: 'nte_1' as never,
+        linkedTaskId: null,
+        unlinkedTaskIds: ['tsk_1' as never],
+      }),
+    ).toEqual(['note', 'task']);
+    // a task note: its task has none now
+    expect(
+      entitiesOfNoteChange({
+        type: 'deleted',
+        noteId: 'nte_1' as never,
+        linkedTaskId: 'tsk_1' as never,
+        unlinkedTaskIds: [],
+      }),
+    ).toEqual(['note', 'task']);
+    expect(
+      entitiesOfNoteChange({
+        type: 'deleted',
+        noteId: 'nte_1' as never,
+        linkedTaskId: null,
+        unlinkedTaskIds: [],
+      }),
+    ).toEqual(['note']);
   });
 
   it('maps favorites, task links and integrations', () => {

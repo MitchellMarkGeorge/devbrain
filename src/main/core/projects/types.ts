@@ -1,4 +1,4 @@
-import { ProjectId } from '@common/ids';
+import { NoteId, ProjectId, TaskId } from '@common/ids';
 import { Archivable, Completeable, Model } from '../shared/model';
 import type { ExternalRef } from '../integrations/types';
 
@@ -73,4 +73,14 @@ export interface ProjectStats {
   numOfOverdue: number;
   // excludes cancelled tasks, so progress is numOfCompleted / totalTasks
   totalTasks: number;
+}
+
+/**
+ * What deleting a project changed: the project is gone, and its tasks and notes, kept, lost it
+ * (`unfiledTaskIds`, `unfiledNoteIds`).
+ */
+export interface ProjectDeleteResult {
+  projectId: ProjectId;
+  unfiledTaskIds: TaskId[];
+  unfiledNoteIds: NoteId[];
 }

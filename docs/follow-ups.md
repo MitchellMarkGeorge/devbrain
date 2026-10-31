@@ -263,3 +263,27 @@ The "Open folder…" branch (`claude/open-workspace-folder`, not merged when thi
 
 - In `WorkspaceService.updateWorkspace` (marked `TODO(manifest)`), call `writeManifest(updated.path, updated)` after the registry write. Best effort, like `ensureManifest` on open: log a failure by its error class and keep the update, since the registry is what this computer reads.
 - Test in `src/main/core/tests/workspace/service.test.ts` that a rename and a recolour rewrite `workspace.json`, and that an unwritable folder still updates the registry.
+
+## Deleting
+
+### Rename archive to trash in code
+
+_Found while adding permanent delete._
+
+The UI now calls archiving "moving to trash", and permanent delete is only offered on the Trash
+page. The code still says archive: `ArchiveService`, the `archive` router (`archiveTask`,
+`listArchived`, …), `archivedAt`, `AlreadyArchivedError`/`NotArchivedError` and the `not_archived`
+code the deletes use. Renaming them touches the schema's column names (a rename migration) and every
+caller, so it was left for its own change.
+
+### Empty trash
+
+_Found while adding permanent delete._
+
+The Trash page's design has room for an "Empty trash" action that deletes every archived item.
+It was left out: it crosses three services (`TaskService.deleteTask`, `ProjectService.deleteProject`,
+`NoteService.deleteNote`), the notes' files are removed one by one after the rows commit, and a
+partial failure needs a decision (stop, or carry on and report). See [deleting.md](deleting.md).
+Options: a `Workspace`-level method that deletes the rows of all three in one transaction and then
+the files, sending one change per service; or let the renderer page through `archive.listArchived`
+and delete each item.
