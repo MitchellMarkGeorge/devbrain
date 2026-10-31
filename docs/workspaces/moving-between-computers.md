@@ -2,8 +2,12 @@
 
 A workspace is one folder: `<DevBrain folder>/workspaces/<wsp_id>/`, holding its database
 (`db.sqlite`), its notes (`notes/`) and a manifest (`workspace.json`). To move a workspace to another
-computer, bring that folder over, then choose **Open folder…** in the workspace switcher (or **Open
-Existing Folder…** on the Welcome screen) and pick it.
+computer, bring that folder over, then choose **Open folder…** and pick it.
+
+The renderer's **Open folder…** (in the workspace switcher, and **Open Existing Folder…** on the
+Welcome screen, as in Figma) is still to be built. It calls `workspaces.importFolder`, which shows
+the folder dialog in the main process and adds the folder picked, then `workspaces.open` with the id
+returned. `importFolder` returns null when the dialog is cancelled.
 
 ## Steps
 
