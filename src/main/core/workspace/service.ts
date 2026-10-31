@@ -157,19 +157,29 @@ export class WorkspaceService {
     return this.serialize(async () => this.updateWorkspace(id, options));
   }
 
-  private updateWorkspace(id: WorkspaceId, options: UpdateWorkspaceOptions): WorkspaceInfo {
-    const changes = validateUpdate(options);
+  private updateWorkspace(id: WorkspaceId, { name, color }: UpdateWorkspaceOptions): WorkspaceInfo {
+    const trimmedName = name?.trim();
+    if (trimmedName === '') throw new InvalidInputError('A workspace name cannot be empty');
+    if (color !== undefined && !hexColorSchema.safeParse(color).success) {
+      throw new InvalidInputError(`Not a #rrggbb colour: ${color}`);
+    }
     const workspaces = this.readWorkspaceFile();
     const info = workspaces[id];
     if (!info) throw new NotFoundError(id);
-    const updated: WorkspaceInfo = { ...info, ...changes };
+    const updated: WorkspaceInfo = {
+      ...info,
+      name: trimmedName ?? info.name,
+      color: color ?? info.color,
+    };
     if (updated.name === info.name && updated.color === info.color) return info;
 
     workspaces[id] = updated;
     this.writeWorkspaceFile(workspaces);
     // TODO(manifest): once claude/open-workspace-folder merges, write the folder's manifest here
     // too (docs/follow-ups.md, "Renaming a workspace keeps its manifest in step").
-    if (this.current?.info.id === id) Object.assign(this.current.info, changes);
+    if (this.current?.info.id === id) {
+      Object.assign(this.current.info, { name: updated.name, color: updated.color });
+    }
     this.changes.emit({ type: 'updated', workspace: updated });
     return updated;
   }
@@ -296,20 +306,4 @@ export class WorkspaceService {
       this.changes.emit({ type: 'closed', workspaceId: current.info.id });
     }
   }
-}
-
-// the fields of an update, the name trimmed; throws InvalidInputError for an invalid one
-function validateUpdate({ name, color }: UpdateWorkspaceOptions): UpdateWorkspaceOptions {
-  const changes: UpdateWorkspaceOptions = {};
-  if (name !== undefined) {
-    changes.name = name.trim();
-    if (changes.name === '') throw new InvalidInputError('A workspace name cannot be empty');
-  }
-  if (color !== undefined) {
-    if (!hexColorSchema.safeParse(color).success) {
-      throw new InvalidInputError(`Not a #rrggbb colour: ${color}`);
-    }
-    changes.color = color;
-  }
-  return changes;
 }
