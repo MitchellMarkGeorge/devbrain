@@ -9,6 +9,8 @@ import { NoteService } from '../notes/service';
 import { ProjectService } from '../projects/service';
 import { SearchService } from '../search/service';
 import { TaskService } from '../tasks/service';
+import { TransferService } from '../transfer/service';
+import { FALLBACK_TASK_DEFAULTS } from '../tasks/defaults';
 import { DetachService } from '../integrations/detach';
 import { IntegrationService } from '../integrations/service';
 import { createIntegrationServices } from '../integrations/setup';
@@ -52,6 +54,8 @@ export class Workspace {
   readonly favorites: FavoritesService;
   readonly recents: RecentsService;
   readonly search: SearchService;
+  // importing tasks and notes from files, and exporting them (docs/import-export.md)
+  readonly transfer: TransferService;
   readonly integrations: IntegrationService;
   // detachTask and reattachTask for external tasks, and onChange
   readonly detach: DetachService;
@@ -80,6 +84,13 @@ export class Workspace {
     this.favorites = new FavoritesService(db);
     this.recents = new RecentsService(db);
     this.search = new SearchService(db, info.path);
+    // imports create through the services, so search and the change events follow them
+    this.transfer = new TransferService({
+      tasks: this.tasks,
+      notes: this.notes,
+      projects: this.projects,
+      taskDefaults: options.taskDefaults ?? (() => FALLBACK_TASK_DEFAULTS),
+    });
     // the user's own writes; SyncWriter indexes what sync writes. An archived row stays out of
     // search when it is written; restoring it brings it back.
     this.tasks.onChange(({ task }) => {

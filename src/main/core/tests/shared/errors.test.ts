@@ -27,6 +27,7 @@ import {
   TaskHierarchyError,
   UnsupportedByProviderError,
   UnsafeUrlError,
+  ImportFileError,
   WorkspaceClosedError,
   WorkspaceDataMissingError,
   WorkspaceMigrationError,
@@ -92,6 +93,7 @@ const errors: [CoreError, CoreErrorCode][] = [
   ],
   [new WorkspaceClosedError(), 'workspace_closed'],
   [new UnsafeUrlError(), 'unsafe_url'],
+  [new ImportFileError('too_large', 'tasks.csv', 'tasks.csv is too large'), 'import_file'],
   [
     new WorkspaceMigrationError('Failed', {
       committed: false,

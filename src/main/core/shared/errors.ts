@@ -306,3 +306,31 @@ export class UnsafeUrlError extends CoreError {
     this.name = 'UnsafeUrlError';
   }
 }
+
+export type ImportFileReason =
+  // over the size or count limit for its kind (see core/transfer/limits.ts)
+  | 'too_large'
+  // not a regular file, or it could not be read
+  | 'unreadable'
+  // not UTF-8 text
+  | 'not_text'
+  // not a kind of file this import takes, by its extension
+  | 'unsupported_type'
+  // a CSV without a title column, JSON that does not parse or is not a task list, a newer format
+  | 'malformed';
+
+// An import file DevBrain can't read as a whole; nothing was imported from it. A bad row or a bad
+// note among good ones is reported in the import's summary instead. The message names the file by
+// its base name only.
+export class ImportFileError extends CoreError {
+  readonly code = 'import_file';
+  readonly reason: ImportFileReason;
+  readonly fileName: string;
+
+  constructor(reason: ImportFileReason, fileName: string, message: string) {
+    super(message);
+    this.name = 'ImportFileError';
+    this.reason = reason;
+    this.fileName = fileName;
+  }
+}

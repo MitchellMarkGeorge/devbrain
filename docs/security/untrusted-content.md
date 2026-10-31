@@ -39,6 +39,10 @@ DevBrain's own syntax (local links between notes and tasks) is resolved by the r
 
 The main process should back this up at the window level: deny `window.open` with `setWindowOpenHandler` and cancel `will-navigate` to anything other than the app's own pages, so a link that escapes the rules above still cannot load a remote page inside DevBrain or reach `shell.openExternal` unchecked.
 
+## Imported files
+
+Files the user imports (tasks from CSV or JSON, notes from Markdown) are untrusted the same way: their fields become titles, descriptions and note content, rendered by the rules above. Core caps their size, reads only UTF-8 text, and never takes a path from inside one; an export builds its file names from titles so they can't leave the folder chosen. The details are in [import-export.md](../import-export.md#safety).
+
 ## Changing this contract
 
 A new field from a provider defaults to text. Making it Markdown, a URL or a colour means adding it to the table above, and a new kind of rendering (HTML from core other than search) needs escaping in core and a test in `core/tests/shared/untrusted.test.ts` or beside the service that produces it.

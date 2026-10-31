@@ -1,5 +1,6 @@
 import type { IpcMainInvokeEvent } from 'electron';
 import type { DevBrain, Workspace } from '@main/core';
+import { noDesktop, type Desktop } from './desktop';
 
 // where the logging middleware writes each call
 export interface IpcLogger {
@@ -15,6 +16,8 @@ export interface AppContext {
   devBrain: DevBrain | null;
   // the workspace open when the call arrived, read fresh on every call
   workspace: Workspace | null;
+  // the file manager and the system dialogs, modal to the window that called
+  desktop: Desktop;
   log: IpcLogger;
 }
 
@@ -22,6 +25,8 @@ export interface CreateContextOptions {
   event: IpcMainInvokeEvent;
   // null when DevBrain could not be loaded
   devBrain: DevBrain | null;
+  // none when not given: every call to it fails
+  desktop?: Desktop;
   log: IpcLogger;
 }
 
@@ -33,6 +38,7 @@ export function createContext(options: CreateContextOptions): AppContext {
     event: options.event,
     devBrain,
     workspace: devBrain?.currentWorkspace ?? null,
+    desktop: options.desktop ?? noDesktop,
     log: options.log,
   };
 }

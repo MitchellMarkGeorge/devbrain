@@ -1,10 +1,10 @@
 import { generateId, NoteId } from '@common/ids';
 import { notes } from '@main/db/schema/notes';
-import { SQL, and, isNull, desc, eq, inArray } from 'drizzle-orm';
+import { SQL, and, isNull, asc, desc, eq, inArray } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import path from 'node:path';
-import { deleteNoteFile, updateNoteFile, writeNoteFile } from '../local/notes';
+import { deleteNoteFile, readNoteFile, updateNoteFile, writeNoteFile } from '../local/notes';
 import {
   CreateNoteOptions,
   Note,
@@ -18,6 +18,11 @@ import { InvalidInputError, NotFoundError } from '../shared/errors';
 import { keyset, Page, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { withNoteListDetails } from './details';
+
+// what a note row shows of its markdown, or null for an empty note
+function previewOf(content: string): string | null {
+  return stripMarkdown(content.trim()).slice(0, 200) || null;
+}
 
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
 // layer will forward them to the renderer. Sent after both the note's file and its row are written,
@@ -56,38 +61,81 @@ export class NoteService {
   }
 
   async createNote(options: CreateNoteOptions): Promise<Note> {
-    if (options.linkedEventId && options.linkedTaskId) {
-      throw new InvalidInputError('Notes cannot be linked to both an event and a task');
+    const [note] = await this.createNotes([options]);
+    return note;
+  }
+
+  /**
+   * Creates notes, all or none: every file is written first, then every row in one transaction, and
+   * on any failure the files written are removed again. A `created` is sent for each note, with its
+   * content, as the transaction's last step, so the search index commits with the rows. Returns the
+   * notes in the order given. Throws InvalidInputError for a note linked to both an event and a task.
+   */
+  async createNotes(batch: CreateNoteOptions[]): Promise<Note[]> {
+    for (const options of batch) {
+      if (options.linkedEventId && options.linkedTaskId) {
+        throw new InvalidInputError('Notes cannot be linked to both an event and a task');
+      }
     }
 
-    const newNoteId = generateId('note');
-    const filePath = this.noteFilePath(newNoteId);
-    const title = options.title ?? '';
+    const prepared = batch.map((options) => {
+      const id = generateId('note');
+      const content = options.content ?? '';
+      return {
+        content,
+        row: {
+          id,
+          title: options.title ?? '',
+          filePath: this.noteFilePath(id),
+          preview: previewOf(content),
+          projectId: options.projectId ?? null,
+          // either, not both
+          linkedTaskId: options.linkedTaskId ?? null,
+          linkedEventId: options.linkedEventId ?? null,
+        },
+      };
+    });
 
-    // write the file first then update the DB
-    await writeNoteFile(filePath, { id: newNoteId, title }, '');
-
-    const newNote = {
-      id: newNoteId,
-      title,
-      projectId: options.projectId ?? null,
-      filePath,
-      // either, not both
-      linkedTaskId: options.linkedTaskId ?? null,
-      linkedEventId: options.linkedEventId ?? null,
-    };
-
-    let insertedNote: Note;
+    const written: string[] = [];
     try {
-      insertedNote = this.db.insert(notes).values(newNote).returning().get();
+      // write the files first then update the DB
+      for (const { row, content } of prepared) {
+        await writeNoteFile(row.filePath, { id: row.id, title: row.title }, content);
+        written.push(row.filePath);
+      }
+      return this.db.transaction((tx) => {
+        const created = prepared.map(({ row, content }) => ({
+          note: tx.insert(notes).values(row).returning().get(),
+          content,
+        }));
+        for (const { note, content } of created) {
+          this.changes.emit({ type: 'created', note, content });
+        }
+        return created.map(({ note }) => note);
+      });
     } catch (err) {
-      // undo the file write
-      await deleteNoteFile(filePath);
+      // undo the file writes
+      await Promise.all(written.map((filePath) => deleteNoteFile(filePath)));
       throw err;
     }
-    // the file is written empty
-    this.changes.emit({ type: 'created', note: insertedNote, content: '' });
-    return insertedNote;
+  }
+
+  // Every active (unarchived) note, oldest first: what an export writes. Not paged.
+  listAll(): Note[] {
+    return this.db
+      .select()
+      .from(notes)
+      .where(isNull(notes.archivedAt))
+      .orderBy(asc(notes.createdAt), asc(notes.id))
+      .all();
+  }
+
+  // The markdown of an active note, read from its file, without the file's front matter. Throws
+  // NotFoundError for an unknown or archived note, MalformedNoteFileError for a damaged file.
+  async readContent(id: NoteId): Promise<string> {
+    this.getById(id);
+    const { content } = await readNoteFile(this.noteFilePath(id));
+    return content;
   }
 
   listNotes(
@@ -201,14 +249,12 @@ export class NoteService {
     // think about this, could just pass in the title or the note object itself
     const existing = this.getById(id);
 
-    const preview = stripMarkdown(content.trim()).slice(0, 200);
-
     await updateNoteFile(this.noteFilePath(id), { id, title: existing.title }, content);
 
     const updatedNote = this.db
       .update(notes)
       .set({
-        preview: preview || null,
+        preview: previewOf(content),
       })
       .where(eq(notes.id, id))
       .returning()

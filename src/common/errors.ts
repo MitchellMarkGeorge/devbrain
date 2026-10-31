@@ -33,4 +33,6 @@ export type CoreErrorCode =
   | 'workspace_data_missing'
   | 'workspace_closed'
   | 'workspace_migration'
-  | 'unsafe_url';
+  | 'unsafe_url'
+  // an import file DevBrain can't read: too large, not text, malformed, or of an unknown kind
+  | 'import_file';

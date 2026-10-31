@@ -43,6 +43,8 @@ export const ENTITIES_READ_BY_ROUTE: Readonly<Record<string, readonly ChangedEnt
     'note',
   ],
   sync: ['integration', 'externalSource'],
+  // mutations only: imports report the tasks and notes they create
+  transfer: [],
 };
 
 // Routers whose data belongs to no workspace, kept when the open one changes.

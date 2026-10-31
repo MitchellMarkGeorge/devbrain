@@ -10,7 +10,7 @@ import {
   UpdateProjectOptions,
 } from './types';
 import { projects } from '@main/db/schema/projects';
-import { eq, inArray, SQL, sql, and, isNull, not, desc, gt, gte, lt } from 'drizzle-orm';
+import { eq, inArray, SQL, sql, and, isNull, not, asc, desc, gt, gte, lt } from 'drizzle-orm';
 import { localDayWindow } from '../shared/dates';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { keyset, Page, PageOptions } from '../shared/pagination';
@@ -50,6 +50,18 @@ export class ProjectService {
 
   getByIds(ids: ProjectId[]): Project[] {
     return withExternalRefs(this.db, this.activeProjects(inArray(projects.id, ids)).all());
+  }
+
+  // Every active (unarchived) project, synced ones included, oldest first: what an import matches
+  // project titles against and an export names tasks' projects from. Not paged.
+  listAll(): Project[] {
+    const rows = this.db
+      .select()
+      .from(projects)
+      .where(isNull(projects.archivedAt))
+      .orderBy(asc(projects.createdAt), asc(projects.id))
+      .all();
+    return withExternalRefs(this.db, rows);
   }
 
   createProject(options: CreateProjectOptions): Project {

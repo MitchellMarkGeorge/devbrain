@@ -1,4 +1,4 @@
-import { app, BrowserWindow, net, powerMonitor, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, dialog, net, powerMonitor, safeStorage, shell } from 'electron';
 import { IPC_EVENT_PREFIX } from '@common/ipc/constants';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -11,6 +11,7 @@ import { migrationsPath } from './runtime/migrations';
 import { openElectronSettingsStore } from './runtime/settings-store';
 import { loadDevBrain } from './runtime/start';
 import { closeBeforeQuit, forwardSyncTriggers } from './runtime/lifecycle';
+import { createElectronDesktop } from './runtime/desktop';
 import { attachRouter } from './ipc/server';
 import { ChangeTracker } from './ipc/changes';
 import { appRouter } from './ipc/router';
@@ -99,7 +100,17 @@ const changeTracker = new ChangeTracker((name, payload, skipWindow) => {
 // src/preload/index.ts. Attached before the window is created, so its first calls find it.
 function attachIpc(devBrain: DevBrain | null) {
   attachRouter(appRouter, {
-    createContext: (call) => createContext({ ...call, devBrain, log: ipcLog }),
+    // the dialogs are modal to the window the call came from
+    createContext: (call) =>
+      createContext({
+        ...call,
+        devBrain,
+        desktop: createElectronDesktop(
+          { dialog, shell },
+          BrowserWindow.fromWebContents(call.event.sender),
+        ),
+        log: ipcLog,
+      }),
     changeTracker,
     // Every failure, once, with the code the renderer gets. An expected one (not_found,
     // invalid_input, …) is the renderer's to show; anything internal is a bug, logged with the

@@ -1,10 +1,25 @@
 import { ProjectId, TaskId } from '@common/ids';
 import { tasks } from '@main/db/schema/tasks';
-import { eq, inArray, notInArray, and, isNull, not, SQL, lt, gt, gte, desc } from 'drizzle-orm';
+import {
+  eq,
+  inArray,
+  notInArray,
+  and,
+  isNull,
+  not,
+  SQL,
+  lt,
+  gt,
+  gte,
+  desc,
+  asc,
+} from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   CreateSubTaskOptions,
+  CreateSubtaskTreeOptions,
   CreateTaskOptions,
+  CreateTaskTreeOptions,
   Task,
   TaskFilterOptions,
   SubtaskListItem,
@@ -33,6 +48,60 @@ import {
 import { LinkState } from '../integrations/types';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 
+type NewTaskValues = typeof tasks.$inferInsert;
+
+// The row createTask inserts: a local top-level task. Throws InvalidInputError for both links.
+function newTaskValues(options: CreateTaskOptions): NewTaskValues {
+  if (options.linkedEventId && options.linkedNoteId) {
+    throw new InvalidInputError('Tasks cannot be linked to both an event and a note');
+  }
+  return {
+    title: options.title,
+    description: options.description ?? null,
+    status: options.status ?? TaskStatus.NOT_STARTED,
+    priority: options.priority ?? TaskPriority.LOW,
+    dueDate: options.dueDate,
+    startDate: options.startDate ?? null,
+    // subtasts are created seperately
+    parentTaskId: null,
+    projectId: options.projectId ?? null,
+    // only one of theses should be defined if at all
+    linkedNoteId: options.linkedNoteId ?? null,
+    linkedEventId: options.linkedEventId ?? null,
+    pullRequestUrl: options.pullRequestUrl ?? null,
+    completedAt: options.status === TaskStatus.COMPLETED ? new Date() : null,
+  };
+}
+
+// The row createSubtask inserts under `parent`. Throws TaskHierarchyError when neither has a due
+// date.
+function newSubtaskValues(parent: Task, options: CreateSubTaskOptions): NewTaskValues {
+  // inherit the parent's due date when none is provided; local tasks always need one
+  const dueDate = options.dueDate ?? parent.dueDate;
+  if (dueDate === null) {
+    throw new TaskHierarchyError(
+      parent.id,
+      'due_date_required',
+      'Subtasks need a due date when their parent task has none',
+    );
+  }
+  return {
+    title: options.title,
+    description: options.description ?? null,
+    status: options.status ?? TaskStatus.NOT_STARTED,
+    priority: options.priority ?? TaskPriority.LOW,
+    dueDate,
+    startDate: options.startDate ?? null,
+    // inherit the parents context by default
+    parentTaskId: parent.id,
+    projectId: parent.projectId,
+    linkedNoteId: parent.linkedNoteId,
+    linkedEventId: parent.linkedEventId,
+    pullRequestUrl: options.pullRequestUrl ?? null,
+    completedAt: options.status === TaskStatus.COMPLETED ? new Date() : null,
+  };
+}
+
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
 // layer will forward them to the renderer. Sent after the write commits, with the row as written.
 export type TaskChange = { type: 'created'; task: Task } | { type: 'updated'; task: Task };
@@ -59,28 +128,7 @@ export class TaskService {
 
   // a local task can be created in a mirrored project: it stays local and sync never touches it
   createTask(options: CreateTaskOptions): Task {
-    if (options.linkedEventId && options.linkedNoteId) {
-      throw new InvalidInputError('Tasks cannot be linked to both an event and a note');
-    }
-
-    const newTask = {
-      title: options.title,
-      description: options.description ?? null,
-      status: options.status ?? TaskStatus.NOT_STARTED,
-      priority: options.priority ?? TaskPriority.LOW,
-      dueDate: options.dueDate,
-      startDate: options.startDate ?? null,
-      // subtasts are created seperately
-      parentTaskId: null,
-      projectId: options.projectId ?? null,
-      // only one of theses should be defined if at all
-      linkedNoteId: options.linkedNoteId ?? null,
-      linkedEventId: options.linkedEventId ?? null,
-
-      completedAt: options.status === TaskStatus.COMPLETED ? new Date() : null,
-    };
-
-    const row = this.db.insert(tasks).values(newTask).returning().get();
+    const row = this.db.insert(tasks).values(newTaskValues(options)).returning().get();
     // a new task is local, so it has no link
     const insertedTask = { ...row, external: null };
     this.changes.emit({ type: 'created', task: insertedTask });
@@ -93,34 +141,56 @@ export class TaskService {
     // a synced parent's subtree is provider-owned; local subtasks nest at any depth
     assertRowEditable(parentTask);
 
-    // inherit the parent's due date when none is provided; local tasks always need one
-    const dueDate = options.dueDate ?? parentTask.dueDate;
-    if (dueDate === null) {
-      throw new TaskHierarchyError(
-        parentTaskId,
-        'due_date_required',
-        'Subtasks need a due date when their parent task has none',
-      );
-    }
-
-    const newSubtask = {
-      title: options.title,
-      description: options.description ?? null,
-      status: options.status ?? TaskStatus.NOT_STARTED,
-      priority: options.priority ?? TaskPriority.LOW,
-      dueDate,
-      startDate: options.startDate ?? null,
-      // inherit the parents context by default
-      parentTaskId: parentTaskId,
-      projectId: parentTask.projectId,
-      linkedNoteId: parentTask.linkedNoteId,
-      linkedEventId: parentTask.linkedEventId,
-      completedAt: options.status === TaskStatus.COMPLETED ? new Date() : null,
-    };
-    const row = this.db.insert(tasks).values(newSubtask).returning().get();
+    const row = this.db
+      .insert(tasks)
+      .values(newSubtaskValues(parentTask, options))
+      .returning()
+      .get();
     const insertedTask = { ...row, external: null };
     this.changes.emit({ type: 'created', task: insertedTask });
     return insertedTask;
+  }
+
+  /**
+   * Creates tasks with their subtrees, all in one transaction: every task is created, or none is
+   * when one is refused (InvalidInputError, TaskHierarchyError). Each is checked and filled as
+   * createTask and createSubtask do. A `created` is sent for each task, in the order created, as the
+   * transaction's last step, so what listeners write (the search index) commits with the rows.
+   * Returns the tasks in that order: each before its subtasks, depth first.
+   */
+  createTaskTrees(trees: CreateTaskTreeOptions[]): Task[] {
+    return this.db.transaction((tx) => {
+      const created: Task[] = [];
+      const insert = (values: NewTaskValues): Task => {
+        const row = tx.insert(tasks).values(values).returning().get();
+        const task = { ...row, external: null };
+        created.push(task);
+        return task;
+      };
+      const insertSubtasks = (parent: Task, subtasks: CreateSubtaskTreeOptions[] = []) => {
+        for (const subtask of subtasks) {
+          insertSubtasks(insert(newSubtaskValues(parent, subtask)), subtask.subtasks);
+        }
+      };
+      for (const tree of trees) insertSubtasks(insert(newTaskValues(tree)), tree.subtasks);
+
+      for (const task of created) this.changes.emit({ type: 'created', task });
+      return created;
+    });
+  }
+
+  /**
+   * Every active (unarchived) task, synced ones included, with `external` set, oldest first: what
+   * an export writes. Not paged; a workspace's tasks fit in memory.
+   */
+  listAll(): Task[] {
+    const rows = this.db
+      .select()
+      .from(tasks)
+      .where(isNull(tasks.archivedAt))
+      .orderBy(asc(tasks.createdAt), asc(tasks.id))
+      .all();
+    return withExternalRefs(this.db, rows);
   }
 
   listTasks(

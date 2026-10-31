@@ -10,4 +10,8 @@ export const workspaceRouter = t.router({
   openUrl: wsProcedure
     .input(z.object({ url: z.string() }))
     .mutation(({ ctx, input }) => ctx.workspace.openUrl(input.url)),
+
+  // Shows the open workspace's folder (its database and note files) in the file manager. The path
+  // is the workspace's own, never input
+  showInFolder: wsProcedure.mutation(({ ctx }) => ctx.desktop.openFolder(ctx.workspace.info.path)),
 });

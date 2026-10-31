@@ -6,7 +6,8 @@ import { dump, load } from 'js-yaml';
 // (no legacy `= yaml =` form, since this format is only ever written by us),
 // and there's no "allowUnsafe" toggle — js-yaml v4+'s `load` is safe by
 // default, so there's nothing to opt out of.
-const FRONTMATTER_PATTERN = /^\ufeff?---$([\s\S]*?)^(?:---|\.\.\.)\s*$(?:\n)?/m;
+// Only the closing delimiter's own line is consumed, so blank lines that open the body are kept.
+const FRONTMATTER_PATTERN = /^\ufeff?---$([\s\S]*?)^(?:---|\.\.\.)[ \t]*$(?:\n)?/m;
 
 export interface FrontmatterDocument<T extends Record<string, unknown>> {
   data: T;
@@ -20,14 +21,15 @@ export interface FrontmatterDocument<T extends Record<string, unknown>> {
  * doesn't depend on which OS wrote the file or which OS is reading it (as
  * opposed to only handling `\r` when the *running* platform is Windows).
  * A leading UTF-8 byte order mark, which some editors add automatically, is
- * also tolerated.
+ * also tolerated. Throws js-yaml's YAMLException for front matter that is not valid YAML.
  */
 export function extractFrontmatter<T extends Record<string, unknown>>(
   raw: string,
 ): FrontmatterDocument<T> {
   const normalized = raw.replace(/\r\n/g, '\n');
   const match = FRONTMATTER_PATTERN.exec(normalized);
-  if (!match) {
+  // front matter opens the document: a `---` rule further down is part of the body
+  if (!match || match.index !== 0) {
     return { data: {} as T, content: normalized };
   }
 
