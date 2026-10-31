@@ -185,6 +185,24 @@ describe('WorkspaceService — failed registry writes', () => {
     expect(await workspaceDirectories()).toEqual([]);
   });
 
+  it('a rename failure while updating a workspace leaves the previous registry and sends nothing', async () => {
+    const existing = registryOf(makeInfo('wsp_a'));
+    writeRegistry(rootPath, existing);
+    const service = new WorkspaceService(rootPath, WORKSPACE_OPTIONS);
+    const changes = vi.fn();
+    service.onChange(changes);
+    faults.failRename = () => true;
+
+    await expect(service.update('wsp_a' as WorkspaceId, { name: 'Renamed' })).rejects.toThrow(
+      /EIO/,
+    );
+
+    faults.failRename = null;
+    expect(await readJson(registryPath())).toEqual(existing);
+    expect(service.getById('wsp_a' as WorkspaceId)).toEqual(existing['wsp_a' as WorkspaceId]);
+    expect(changes).not.toHaveBeenCalled();
+  });
+
   it('a write stopping partway while creating a workspace leaves the previous registry', async () => {
     const existing = registryOf(makeInfo('wsp_a'));
     writeRegistry(rootPath, existing);

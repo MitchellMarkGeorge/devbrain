@@ -139,6 +139,52 @@ describe('workspaces', () => {
     ).toBe('not_found');
   });
 
+  it('renames and recolours a workspace, open or not', async () => {
+    const work = await createWorkspace(devBrain, 'Work');
+    const home = await createWorkspace(devBrain, 'Home');
+    await devBrain.workspaces.open(work);
+
+    expect(
+      await call(
+        'workspaces.update',
+        { id: work, name: ' Day job ', color: '#2b7fff' },
+        'mutation',
+      ),
+    ).toMatchObject({
+      ok: true,
+      data: { id: work, name: 'Day job', color: '#2b7fff' },
+    });
+    expect(await call('workspaces.current')).toMatchObject({
+      data: { id: work, name: 'Day job', color: '#2b7fff' },
+    });
+
+    expect(
+      await call('workspaces.update', { id: home, color: '#f6339a' }, 'mutation'),
+    ).toMatchObject({
+      ok: true,
+      data: { id: home, name: 'Home', color: '#f6339a' },
+    });
+    const list = await call<{ items: WorkspaceEntry[] }>('workspaces.list', {});
+    expect(list.ok && list.data.items.map(({ name, color }) => [name, color])).toEqual([
+      ['Day job', '#2b7fff'],
+      ['Home', '#f6339a'],
+    ]);
+  });
+
+  it('refuses to update an unknown workspace, a blank name and a colour that is not #rrggbb', async () => {
+    const work = await createWorkspace(devBrain, 'Work');
+    expect(
+      code(await call('workspaces.update', { id: 'wsp_missing', name: 'X' }, 'mutation')),
+    ).toBe('not_found');
+    expect(code(await call('workspaces.update', { id: work, name: '  ' }, 'mutation'))).toBe(
+      'invalid_input',
+    );
+    expect(code(await call('workspaces.update', { id: work, color: 'blue' }, 'mutation'))).toBe(
+      'invalid_input',
+    );
+    expect(devBrain.workspaces.getById(work).name).toBe('Work');
+  });
+
   it('refuses an id of another entity, a blank name and a colour that is not #rrggbb', async () => {
     expect(code(await call('workspaces.open', { id: 'tsk_1' }, 'mutation'))).toBe('invalid_input');
     expect(
