@@ -5,7 +5,8 @@ import { zId, zPageFields } from '../zod';
 
 // Archiving and restoring tasks, projects and notes, and the archive view's list. A task or project
 // takes what hangs off it along (subtasks, its tasks, linked notes); the response's `changed` names
-// each kind of row the cascade stamped.
+// each kind of row the cascade stamped. Deleting an archived item for good is each entity's own
+// `delete` (tasks.delete, projects.delete, notes.delete).
 
 const taskId = z.object({ id: zId('task') });
 const projectId = z.object({ id: zId('project') });

@@ -141,3 +141,13 @@ export interface UpdateTaskLinkOptions {
 }
 
 export type TaskRow = InferSelectModel<typeof tasks>; // raw row shape
+
+/**
+ * What deleting a task removed: the task and every task below it at any depth (`taskIds`, the task
+ * asked for first), and the notes that were the task note of one of them, kept with their link
+ * cleared (`unlinkedNoteIds`).
+ */
+export interface TaskDeleteResult {
+  taskIds: TaskId[];
+  unlinkedNoteIds: NoteId[];
+}

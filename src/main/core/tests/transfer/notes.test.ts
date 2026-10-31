@@ -131,7 +131,9 @@ describe('importing Markdown files', () => {
       await write('a.md', 'Alpha'),
       await write('b.md', 'Beta'),
     ]);
-    expect(seen.map((change) => [change.type, change.content])).toEqual([
+    expect(
+      seen.map((change) => [change.type, change.type === 'deleted' ? null : change.content]),
+    ).toEqual([
       ['created', 'Alpha'],
       ['created', 'Beta'],
     ]);

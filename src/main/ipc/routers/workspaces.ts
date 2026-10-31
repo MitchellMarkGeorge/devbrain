@@ -40,6 +40,20 @@ export const workspacesRouter = t.router({
     .input(z.object({ name: z.string().trim().min(1), color: hexColorSchema }))
     .mutation(({ ctx, input }): Promise<WorkspaceEntry> => ctx.devBrain.workspaces.create(input)),
 
+  // renames or recolours any workspace, open or not; a field left out keeps its value
+  update: devBrainProcedure
+    .input(
+      z.object({
+        id: zId('workspace'),
+        name: z.string().trim().min(1).optional(),
+        color: hexColorSchema.optional(),
+      }),
+    )
+    .mutation(
+      ({ ctx, input: { id, ...options } }): Promise<WorkspaceEntry> =>
+        ctx.devBrain.workspaces.update(id, options),
+    ),
+
   // only the open workspace can be deleted (core's workspace_not_open otherwise)
   delete: devBrainProcedure.input(byId).mutation(async ({ ctx, input }): Promise<void> => {
     await ctx.devBrain.workspaces.delete(input.id);

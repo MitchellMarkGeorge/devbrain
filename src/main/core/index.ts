@@ -3,6 +3,7 @@ export type { Workspace } from './workspace/workspace';
 export type {
   WorkspaceInfo as WorkspaceEntry,
   CreateWorkspaceOptions,
+  UpdateWorkspaceOptions,
   WorkspaceOptions,
 } from './workspace/types';
 export type { AppSettings, AppState } from './settings/types';

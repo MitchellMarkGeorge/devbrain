@@ -1,5 +1,6 @@
 import { generateId, NoteId } from '@common/ids';
 import { notes } from '@main/db/schema/notes';
+import { tasks } from '@main/db/schema/tasks';
 import { SQL, and, isNull, asc, desc, eq, inArray } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
@@ -8,16 +9,18 @@ import { deleteNoteFile, readNoteFile, updateNoteFile, writeNoteFile } from '../
 import {
   CreateNoteOptions,
   Note,
+  NoteDeleteResult,
   NoteFilterOptions,
   NoteListItem,
   NoteSortOptions,
   UpdateNoteOptions,
 } from './types';
 import { stripMarkdown } from '../shared/markdown';
-import { InvalidInputError, NotFoundError } from '../shared/errors';
+import { InvalidInputError, NotArchivedError, NotFoundError } from '../shared/errors';
 import { keyset, Page, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { withNoteListDetails } from './details';
+import { consoleLogger, errorClass, type Logger } from '../shared/logger';
 
 // what a note row shows of its markdown, or null for an empty note
 function previewOf(content: string): string | null {
@@ -27,20 +30,24 @@ function previewOf(content: string): string | null {
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
 // layer will forward them to the renderer. Sent after both the note's file and its row are written,
 // with the row as written. `content` is the note's new markdown when the write changed it; a write
-// that leaves the body alone (a rename, a new project or link) has none.
+// that leaves the body alone (a rename, a new project or link) has none. `deleted` is sent as the
+// delete's last step, inside its transaction, so search drops the note in the same commit; the
+// file is removed after.
 export type NoteChange =
   | { type: 'created'; note: Note; content: string }
-  | { type: 'updated'; note: Note; content?: string };
+  | { type: 'updated'; note: Note; content?: string }
+  | ({ type: 'deleted' } & Omit<NoteDeleteResult, 'fileRemoved'>);
 
 export class NoteService {
   private workspaceNotesPath: string;
   private readonly changes = new ChangeListeners<NoteChange>('Note');
-  // the tail of each note's queue of content saves, removed once the queue drains
-  private readonly contentSaves = new Map<NoteId, Promise<Note>>();
+  // the tail of each note's queue of content saves (and a delete), removed once the queue drains
+  private readonly contentSaves = new Map<NoteId, Promise<unknown>>();
 
   constructor(
     private readonly db: BetterSQLite3Database,
     workspacePath: string,
+    private readonly logger: Pick<Logger, 'warn'> = consoleLogger,
   ) {
     this.workspaceNotesPath = path.join(workspacePath, 'notes');
   }
@@ -243,6 +250,72 @@ export class NoteService {
     } finally {
       if (this.contentSaves.get(id) === save) this.contentSaves.delete(id);
     }
+  }
+
+  /**
+   * Deletes an archived note for good (the UI calls archived items "in the trash"; deleting is
+   * only offered there): its row, then its markdown file. An active one throws NotArchivedError.
+   * Tasks that link to it are kept and lose the link, by the foreign key's `set null`. Favorites
+   * and recents are columns of the row and go with it.
+   *
+   * It waits behind the note's content saves already queued, so none writes the file again after
+   * it is removed; a save called after it finds no note and throws NotFoundError.
+   *
+   * The file goes after the row's transaction commits, so a failed delete never leaves a row
+   * without its file. If removing the file then fails, the delete has still happened and is not
+   * undone or reported as an error: the note is gone from the app, the call resolves with
+   * `fileRemoved: false`, and the failure is logged. The file stays in the notes folder, which
+   * nothing reads without a row. A file already missing counts as removed.
+   *
+   * Throws NotFoundError for an unknown id, and NotArchivedError for one not in the trash.
+   */
+  async deleteNote(id: NoteId): Promise<NoteDeleteResult> {
+    const previous = this.contentSaves.get(id);
+    const deletion = previous
+      ? previous.catch(() => undefined).then(() => this.removeNote(id))
+      : this.removeNote(id);
+    this.contentSaves.set(id, deletion);
+    try {
+      return await deletion;
+    } finally {
+      if (this.contentSaves.get(id) === deletion) this.contentSaves.delete(id);
+    }
+  }
+
+  private async removeNote(id: NoteId): Promise<NoteDeleteResult> {
+    const { linkedTaskId, unlinkedTaskIds } = this.db.transaction((tx) => {
+      const existing = tx
+        .select({ archivedAt: notes.archivedAt, linkedTaskId: notes.linkedTaskId })
+        .from(notes)
+        .where(eq(notes.id, id))
+        .get();
+      if (!existing) throw new NotFoundError(id);
+      if (existing.archivedAt === null) throw new NotArchivedError(id);
+
+      // read before the delete clears their link: tasks made from the note, subtasks included
+      const linked = tx
+        .select({ id: tasks.id })
+        .from(tasks)
+        .where(eq(tasks.linkedNoteId, id))
+        .all()
+        .map((row) => row.id);
+      tx.delete(notes).where(eq(notes.id, id)).run();
+      const change = { noteId: id, linkedTaskId: existing.linkedTaskId, unlinkedTaskIds: linked };
+      this.changes.emit({ type: 'deleted', ...change });
+      return change;
+    });
+
+    // the path the app reads and writes, not the stored filePath, which can predate a move of the
+    // workspace folder
+    let fileRemoved = true;
+    try {
+      await deleteNoteFile(this.noteFilePath(id));
+    } catch (error) {
+      fileRemoved = false;
+      // the class only: the error quotes the note's file path
+      this.logger.warn(`Removing deleted note ${id}'s file failed error=${errorClass(error)}`);
+    }
+    return { noteId: id, linkedTaskId, unlinkedTaskIds, fileRemoved };
   }
 
   private async saveNoteContent(id: NoteId, content: string): Promise<Note> {

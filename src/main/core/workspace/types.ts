@@ -20,6 +20,9 @@ export interface CreateWorkspaceOptions {
   color: string;
 }
 
+// what WorkspaceService.update changes; a field left out keeps its value
+export type UpdateWorkspaceOptions = Partial<CreateWorkspaceOptions>;
+
 // What a workspace needs from outside core. The main process passes the migrations folder,
 // safeStorage, net.fetch and shell.openExternal (feature 14); tests pass fakes. All but the
 // migrations folder are optional, so callers that never connect anything pass none of them.

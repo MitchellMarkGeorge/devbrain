@@ -250,3 +250,40 @@ A boot snapshot removes that: the page reads what main holds synchronously as it
 Commit `97093aa` on PR #61's branch had all of this, with tests, before it was taken out of that PR.
 
 Worth doing once the startup screens exist, if the flash on reload shows. Hiding the window on macOS instead of closing it (PR #61) already covers the most common case, reopening the window from the Dock.
+
+## Workspaces
+
+### Renaming a workspace keeps its manifest in step
+
+_Found while adding rename and recolour (`WorkspaceService.update`)._
+
+The "Open folder…" branch (`claude/open-workspace-folder`, not merged when this was written) adds a manifest, `workspace.json`, in each workspace folder: a copy of the workspace's id, name, colour and creation time, so a folder moved to another computer keeps its name and colour. It writes the manifest on create and import, and `ensureManifest` rewrites it on open when it differs from the registry.
+
+`update` writes only the registry, as the manifest doesn't exist on `main` yet. Until it does, a rename reaches the manifest at the next open, so a folder copied to another computer before then carries the old name and colour. Once both have merged:
+
+- In `WorkspaceService.updateWorkspace` (marked `TODO(manifest)`), call `writeManifest(updated.path, updated)` after the registry write. Best effort, like `ensureManifest` on open: log a failure by its error class and keep the update, since the registry is what this computer reads.
+- Test in `src/main/core/tests/workspace/service.test.ts` that a rename and a recolour rewrite `workspace.json`, and that an unwritable folder still updates the registry.
+
+## Deleting
+
+### Rename archive to trash in code
+
+_Found while adding permanent delete._
+
+The UI now calls archiving "moving to trash", and permanent delete is only offered on the Trash
+page. The code still says archive: `ArchiveService`, the `archive` router (`archiveTask`,
+`listArchived`, …), `archivedAt`, `AlreadyArchivedError`/`NotArchivedError` and the `not_archived`
+code the deletes use. Renaming them touches the schema's column names (a rename migration) and every
+caller, so it was left for its own change.
+
+### Empty trash
+
+_Found while adding permanent delete._
+
+The Trash page's design has room for an "Empty trash" action that deletes every archived item.
+It was left out: it crosses three services (`TaskService.deleteTask`, `ProjectService.deleteProject`,
+`NoteService.deleteNote`), the notes' files are removed one by one after the rows commit, and a
+partial failure needs a decision (stop, or carry on and report). See [deleting.md](deleting.md).
+Options: a `Workspace`-level method that deletes the rows of all three in one transaction and then
+the files, sending one change per service; or let the renderer page through `archive.listArchived`
+and delete each item.

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Note, NoteListItem } from '@main/core/notes/types';
+import type { Note, NoteDeleteResult, NoteListItem } from '@main/core/notes/types';
 import type { Page } from '@main/core/shared/pagination';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
@@ -58,6 +58,17 @@ export const notesRouter = t.router({
     .mutation(
       ({ ctx, input }): Promise<Note> =>
         ctx.workspace.notes.updateNoteContent(input.id, input.content),
+    ),
+
+  // Deletes an archived (trashed) note for good; an active one fails with not_archived. Its row
+  // goes, then its file, after any save already in flight. Tasks linked to it are kept: the task
+  // it was the task note of (`linkedTaskId`) has none now, and tasks made from it lose the link
+  // (`unlinkedTaskIds`). If the file can't be removed the note is still deleted and `fileRemoved`
+  // is false.
+  delete: wsProcedure
+    .input(byId)
+    .mutation(
+      ({ ctx, input }): Promise<NoteDeleteResult> => ctx.workspace.notes.deleteNote(input.id),
     ),
 
   // the state wanted, not a toggle: a repeat changes nothing

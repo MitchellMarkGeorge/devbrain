@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { safeUrlSchema } from '@common/safe-url';
-import { TaskPriority, TaskStatus } from '@main/core/tasks/types';
+import { TaskPriority, TaskStatus, type TaskDeleteResult } from '@main/core/tasks/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId, zPageFields } from '../zod';
@@ -133,6 +133,15 @@ export const tasksRouter = t.router({
         ? ctx.workspace.favorites.favoriteTask(input.id)
         : ctx.workspace.favorites.unfavoriteTask(input.id),
     ),
+
+  // Deletes an archived (trashed) task for good, with its subtasks at any depth; an active one
+  // fails with not_archived. The response's `taskIds` lists every task removed, for the renderer to
+  // drop. Its task notes are kept, unlinked (`unlinkedNoteIds`). A detached task is the user's own
+  // copy: deleting it records nothing, so if Linear sends the issue again it syncs back as a new
+  // task. Asking the user to confirm (general.confirmBeforeDeleting) is the renderer's.
+  delete: wsProcedure
+    .input(byId)
+    .mutation(({ ctx, input }): TaskDeleteResult => ctx.workspace.tasks.deleteTask(input.id)),
 
   // makes a synced task and its synced subtree local, editable copies
   detach: wsProcedure
