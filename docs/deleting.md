@@ -1,16 +1,18 @@
 # Deleting tasks, projects and notes
 
-Archiving puts an item away and can be undone. Deleting removes it for good. Both work from an
-item's own page and from the archive view, so an item can be deleted whether or not it is archived
-(Figma, "v2 Screens": "Task detail — delete confirm" and "Archive – row right-click menu").
+The UI calls archiving "moving to trash": it sets `archivedAt` and can be undone. Deleting removes
+an item for good, and is only offered on the Trash page, for items already in the trash (Figma,
+"v2 Screens": "Trash – row right-click menu" and "Trash — delete permanently confirm"). Menus and
+detail views offer "Move to trash" and no delete. So core deletes only archived items and refuses
+an active one with `NotArchivedError` (`not_archived`), the error restore already uses. The code
+still says "archive"; renaming it to trash is a follow-up.
 
 ## Where it lives
 
 `TaskService.deleteTask`, `ProjectService.deleteProject` and `NoteService.deleteNote`, exposed as
 `tasks.delete`, `projects.delete` and `notes.delete`, like `EventService.deleteEvent` and
-`events.delete`. They are on each entity's service rather than the archive service because a delete
-is not an archive operation (it works on active items too) and because each needs what only its own
-service has: the task tree and its sync rules for tasks, and for notes the notes folder and the
+`events.delete`. They are on each entity's service rather than the archive service because each
+needs what only its own service has: the task tree and its sync rules for tasks, and for notes the notes folder and the
 queue of content saves the delete must wait behind.
 
 Each delete runs in one transaction and sends a `deleted` change as its last step, inside it, so
@@ -25,9 +27,12 @@ it.
 | Deleted | Removed with it                                                  | Kept, with the reference cleared                                |
 | ------- | ---------------------------------------------------------------- | --------------------------------------------------------------- |
 | Task    | Its subtasks at any depth (`parentTaskId` cascades); their links | Their task notes (`notes.linkedTaskId` set null)                |
-| Project | Its external link                                                | Its tasks and notes (`projectId` set null), archived or not     |
+| Project | Its external link                                                | Its tasks and notes (`projectId` set null)                      |
 | Note    | Its markdown file, after the commit                              | Tasks made from it, subtasks included (`linkedNoteId` set null) |
 
+- **Only from the trash.** A task needs its whole subtree archived. Archiving takes the subtree
+  along, but sync archives a removed Linear task on its own and can leave synced subtasks live under
+  it; deleting it would take those with it, so it is refused until they are gone too.
 - The response lists every id removed (a task's whole subtree) and every row that lost a link.
 - **Projects keep their tasks and notes.** They are the user's own work, and a project is a
   grouping. Deleting them too is a delete of each. Archived ones stay archived.
@@ -44,13 +49,13 @@ it.
 
 ## Synced items
 
-| Link state                     | Delete                                                                             |
-| ------------------------------ | ---------------------------------------------------------------------------------- |
-| none (local)                   | Allowed                                                                            |
-| `synced`                       | Refused with `external_read_only`, as for an archive: detach first                 |
-| `detached` task                | Allowed, and recorded in `deleted_external_tasks` so sync does not mirror it again |
-| `removed` (archived by sync)   | Allowed, nothing recorded                                                          |
-| `detached` / `removed` project | Allowed, nothing recorded                                                          |
+| Link state                     | Delete                                                                               |
+| ------------------------------ | ------------------------------------------------------------------------------------ |
+| none (local)                   | Allowed                                                                              |
+| `synced`                       | Never archived, so refused with `not_archived` (`external_read_only` is checked too) |
+| `detached` task                | Allowed, and recorded in `deleted_external_tasks` so sync does not mirror it again   |
+| `removed` (archived by sync)   | Allowed, nothing recorded                                                            |
+| `detached` / `removed` project | Allowed, nothing recorded                                                            |
 
 Deleting a row deletes its link, so with nothing else sync would see the item as never mirrored and
 insert it again the next time the provider reports it. That is right for a `removed` item: it left
@@ -73,5 +78,5 @@ recorded item that has no link, and reconcile does not look it up as returning.
 
 ## Not done
 
-"Empty archive" (delete every archived item) is left out. It would cross three services, including
+"Empty trash" (delete every archived item) is left out. It would cross three services, including
 the notes' files, and the archive view can delete items one by one meanwhile.

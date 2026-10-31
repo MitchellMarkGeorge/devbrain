@@ -151,8 +151,9 @@ not obvious from one file:
 - **Work left running.** The first sync after `integrations.connect`, `sources.setEnabled` or
   `calendars.setSelected` goes on after the response. What it writes reaches the renderer as
   `db.changes`.
-- **`tasks.delete`, `projects.delete`, `notes.delete`** delete for good, active or archived; the
-  archive view's "Delete permanently" calls them too. Each returns the ids it removed (a task's
+- **`tasks.delete`, `projects.delete`, `notes.delete`** delete an archived item for good and refuse an
+  active one with `not_archived`: the UI calls the archive "Trash", and only the Trash page offers
+  delete. Each returns the ids it removed (a task's
   whole subtree) and those of the rows that only lost a link to it. Asking the user to confirm
   (`general.confirmBeforeDeleting`) is the renderer's; core never reads that setting. See
   [docs/deleting.md](../deleting.md).

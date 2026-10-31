@@ -266,11 +266,21 @@ The "Open folder…" branch (`claude/open-workspace-folder`, not merged when thi
 
 ## Deleting
 
-### Empty archive
+### Rename archive to trash in code
 
 _Found while adding permanent delete._
 
-The archive view's design has room for an "Empty archive" action that deletes every archived item.
+The UI now calls archiving "moving to trash", and permanent delete is only offered on the Trash
+page. The code still says archive: `ArchiveService`, the `archive` router (`archiveTask`,
+`listArchived`, …), `archivedAt`, `AlreadyArchivedError`/`NotArchivedError` and the `not_archived`
+code the deletes use. Renaming them touches the schema's column names (a rename migration) and every
+caller, so it was left for its own change.
+
+### Empty trash
+
+_Found while adding permanent delete._
+
+The Trash page's design has room for an "Empty trash" action that deletes every archived item.
 It was left out: it crosses three services (`TaskService.deleteTask`, `ProjectService.deleteProject`,
 `NoteService.deleteNote`), the notes' files are removed one by one after the rows commit, and a
 partial failure needs a decision (stop, or carry on and report). See [deleting.md](deleting.md).

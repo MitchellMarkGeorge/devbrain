@@ -15,7 +15,7 @@ import { eq, inArray, SQL, sql, and, isNull, not, desc, gt, gte, lt } from 'driz
 import { localDayWindow } from '../shared/dates';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { keyset, Page, PageOptions } from '../shared/pagination';
-import { NotFoundError } from '../shared/errors';
+import { NotArchivedError, NotFoundError } from '../shared/errors';
 import { tasks } from '@main/db/schema/tasks';
 import { notes } from '@main/db/schema/notes';
 import { TaskStatus } from '../tasks/types';
@@ -203,7 +203,8 @@ export class ProjectService {
   }
 
   /**
-   * Deletes a project for good, active or archived. Its tasks and notes are the user's and are
+   * Deletes an archived project for good (the UI calls archived items "in the trash"; deleting is
+   * only offered there). An active one throws NotArchivedError. Its tasks and notes are the user's and are
    * kept: the foreign keys' `set null` takes the project off them, and they stay as they were
    * otherwise (archived ones stay archived, in the archive view, where each can be restored on its
    * own). Its external link cascades; favorites and recents are columns of the row and go with it.
@@ -214,16 +215,18 @@ export class ProjectService {
    * it is needed again and comes back as a new project. A project that is not synced holds no
    * synced tasks (sync moves them out before detaching it), so no provider-owned field is written.
    *
-   * Throws NotFoundError for an unknown id.
+   * Throws NotFoundError for an unknown id, and NotArchivedError for one not in the trash.
    */
   deleteProject(id: ProjectId): ProjectDeleteResult {
     return this.db.transaction((tx) => {
       const existing = tx
-        .select({ id: projects.id })
+        .select({ archivedAt: projects.archivedAt })
         .from(projects)
         .where(eq(projects.id, id))
         .get();
       if (!existing) throw new NotFoundError(id);
+      if (existing.archivedAt === null) throw new NotArchivedError(id);
+      // a synced project is never archived; checked anyway, as archive does
       assertEditable(tx, id);
 
       // read before the delete clears their project; served by the full project_id indexes

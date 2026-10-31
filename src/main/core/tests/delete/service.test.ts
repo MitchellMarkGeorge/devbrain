@@ -35,11 +35,11 @@ import {
   Provider,
   SourceType,
 } from '../../integrations/types';
-import { ExternalReadOnlyError, NotFoundError } from '../../shared/errors';
+import { ExternalReadOnlyError, NotArchivedError, NotFoundError } from '../../shared/errors';
 
 // Permanent deletion of tasks, projects and notes (TaskService.deleteTask,
-// ProjectService.deleteProject, NoteService.deleteNote). Search is kept in step by the workspace,
-// which tests/workspace covers.
+// ProjectService.deleteProject, NoteService.deleteNote), only from the trash: an item must be
+// archived first. Search is kept in step by the workspace, which tests/workspace covers.
 
 const TOMORROW = new Date(Date.now() + 86_400_000);
 const CREATED = new Date('2026-01-15T09:00:00Z');
@@ -204,6 +204,7 @@ describe('TaskService.deleteTask', () => {
     const sub = tasks.createSubtask(task.id, { title: 'Child' });
     const grandchild = tasks.createSubtask(sub.id, { title: 'Grandchild' });
     const other = tasks.createTask({ title: 'Other', dueDate: TOMORROW });
+    archive.archiveTask(task.id);
 
     const result = tasks.deleteTask(task.id);
 
@@ -219,6 +220,7 @@ describe('TaskService.deleteTask', () => {
     const task = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = tasks.createSubtask(task.id, { title: 'Child' });
     const sibling = tasks.createSubtask(task.id, { title: 'Sibling' });
+    archive.archiveTask(sub.id);
 
     expect(tasks.deleteTask(sub.id).taskIds).toEqual([sub.id]);
     expect(taskRow(task.id)).toBeDefined();
@@ -232,11 +234,17 @@ describe('TaskService.deleteTask', () => {
     const subNote = await notes.createNote({ title: 'On child', linkedTaskId: sub.id });
     const other = tasks.createTask({ title: 'Other', dueDate: TOMORROW });
     const otherNote = await notes.createNote({ title: 'On other', linkedTaskId: other.id });
+    // the notes go to the trash with the task
+    archive.archiveTask(task.id);
 
     const result = tasks.deleteTask(task.id);
 
     expect([...result.unlinkedNoteIds].sort()).toEqual([taskNote.id, subNote.id].sort());
-    expect(noteRow(taskNote.id)).toMatchObject({ linkedTaskId: null, archivedAt: null });
+    // still in the trash, where each can be restored or deleted on its own
+    expect(noteRow(taskNote.id)).toMatchObject({
+      linkedTaskId: null,
+      archivedAt: expect.any(Date),
+    });
     expect(noteRow(subNote.id)).toMatchObject({ linkedTaskId: null });
     expect(noteRow(otherNote.id)).toMatchObject({ linkedTaskId: other.id });
     // the note files are the user's and stay
@@ -247,20 +255,27 @@ describe('TaskService.deleteTask', () => {
     expect(() => notes.updateNote(subNote.id, { linkedTaskId: fresh.id })).toThrow();
   });
 
-  it('deletes an archived task, whose archived note stays archived, unlinked', async () => {
+  it('refuses an active task with not_archived, changing nothing', async () => {
     const task = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = tasks.createSubtask(task.id, { title: 'Child' });
     const taskNote = await notes.createNote({ title: 'On parent', linkedTaskId: task.id });
+    const listener = vi.fn();
+    tasks.onChange(listener);
+
+    expect(() => tasks.deleteTask(task.id)).toThrow(NotArchivedError);
+    expect(() => tasks.deleteTask(sub.id)).toThrow(NotArchivedError);
+    expect(taskRows([task.id, sub.id])).toHaveLength(2);
+    expect(noteRow(taskNote.id)).toMatchObject({ linkedTaskId: task.id });
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('leaves the trash with the rest of what was archived along', async () => {
+    const task = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const taskNote = await notes.createNote({ title: 'On parent', linkedTaskId: task.id });
     archive.archiveTask(task.id);
 
-    const result = tasks.deleteTask(task.id);
+    tasks.deleteTask(task.id);
 
-    expect([...result.taskIds].sort()).toEqual([task.id, sub.id].sort());
-    expect(taskRows([task.id, sub.id])).toEqual([]);
-    expect(noteRow(taskNote.id)).toMatchObject({
-      linkedTaskId: null,
-      archivedAt: expect.any(Date),
-    });
     expect(archive.listArchived().items.map((item) => item.id)).toEqual([taskNote.id]);
   });
 
@@ -280,6 +295,7 @@ describe('TaskService.deleteTask', () => {
     favorites.favoriteTask(kept.id);
     recents.recordView(task.id);
     recents.recordView(kept.id);
+    archive.archiveTask(task.id);
 
     tasks.deleteTask(task.id);
 
@@ -289,6 +305,7 @@ describe('TaskService.deleteTask', () => {
 
   it('throws NotFoundError for an unknown task, and for one already deleted', () => {
     const task = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    archive.archiveTask(task.id);
     tasks.deleteTask(task.id);
 
     expect(() => tasks.deleteTask(task.id)).toThrow(NotFoundError);
@@ -299,6 +316,7 @@ describe('TaskService.deleteTask', () => {
     const task = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = tasks.createSubtask(task.id, { title: 'Child' });
     const taskNote = await notes.createNote({ title: 'On parent', linkedTaskId: task.id });
+    archive.archiveTask(task.id);
     const changes: (TaskChange & { inTransaction: boolean })[] = [];
     tasks.onChange((change) => changes.push({ ...change, inTransaction: inTransaction() }));
 
@@ -318,16 +336,32 @@ describe('TaskService.deleteTask', () => {
 });
 
 describe('TaskService.deleteTask — synced tasks', () => {
-  it('refuses a synced task with external_read_only, changing nothing', () => {
+  it('refuses a synced task, which is never in the trash, changing nothing', () => {
     const parent = issue();
     const child = issue({ parentExternalId: parent.externalId });
     writer.applyTaskPage(sourceId, page({ tasks: [parent, child] }));
     const taskId = linkOf(parent.externalId)!.taskId!;
 
-    expect(() => tasks.deleteTask(taskId)).toThrow(ExternalReadOnlyError);
+    expect(() => tasks.deleteTask(taskId)).toThrow(NotArchivedError);
+    // and it cannot be put there: archive refuses it
+    expect(() => archive.archiveTask(taskId)).toThrow(ExternalReadOnlyError);
     expect(taskRow(taskId)).toBeDefined();
     expect(linkOf(child.externalId)!.state).toBe(LinkState.SYNCED);
     expect(tombstones()).toEqual([]);
+  });
+
+  it('refuses a removed task while synced subtasks are still live under it', () => {
+    const parent = issue();
+    const child = issue({ parentExternalId: parent.externalId });
+    writer.applyTaskPage(sourceId, page({ tasks: [parent, child] }));
+    // sync archives the parent alone
+    writer.applyTaskPage(sourceId, page({ removedIds: [parent.externalId] }));
+    const taskId = linkOf(parent.externalId)!.taskId!;
+    const childId = linkOf(child.externalId)!.taskId!;
+    expect(taskRow(taskId)?.archivedAt).not.toBeNull();
+
+    expect(() => tasks.deleteTask(taskId)).toThrow(NotArchivedError);
+    expect(taskRow(childId)).toMatchObject({ archivedAt: null });
   });
 
   it('deletes a detached task and its detached subtree, and sync does not mirror them again', () => {
@@ -339,6 +373,7 @@ describe('TaskService.deleteTask — synced tasks', () => {
     setLinkState(child.externalId, LinkState.DETACHED);
     const taskId = linkOf(parent.externalId)!.taskId!;
     const childId = linkOf(child.externalId)!.taskId!;
+    archive.archiveTask(taskId);
 
     expect(tasks.deleteTask(taskId).taskIds).toEqual([taskId, childId]);
     // the links went with the tasks
@@ -374,6 +409,7 @@ describe('TaskService.deleteTask — synced tasks', () => {
     writer.applyTaskPage(sourceId, page({ tasks: [item] }));
     setLinkState(item.externalId, LinkState.DETACHED);
     const taskId = linkOf(item.externalId)!.taskId!;
+    archive.archiveTask(taskId);
     tasks.deleteTask(taskId);
 
     // reassigned in Linear: sync forgets the delete
@@ -394,6 +430,7 @@ describe('TaskService.deleteTask — synced tasks', () => {
     const item = issue();
     writer.applyTaskPage(sourceId, page({ tasks: [item] }));
     setLinkState(item.externalId, LinkState.DETACHED);
+    archive.archiveTask(linkOf(item.externalId)!.taskId!);
     tasks.deleteTask(linkOf(item.externalId)!.taskId!);
 
     writer.applyTaskPage(sourceId, page({ removedIds: [item.externalId] }));
@@ -408,6 +445,7 @@ describe('TaskService.deleteTask — synced tasks', () => {
     // what a disconnect keeping local copies leaves
     db.update(externalLinks).set({ sourceId: null }).run();
     const taskId = db.select().from(externalLinks).get()!.taskId!;
+    archive.archiveTask(taskId);
 
     tasks.deleteTask(taskId);
 
@@ -438,6 +476,7 @@ describe('TaskService.deleteTask — synced tasks', () => {
     setLinkState(item.externalId, LinkState.DETACHED);
     const taskId = linkOf(item.externalId)!.taskId!;
     const local = tasks.createSubtask(taskId, { title: 'Mine', dueDate: TOMORROW });
+    archive.archiveTask(local.id);
 
     expect(tasks.deleteTask(local.id).taskIds).toEqual([local.id]);
     expect(tombstones()).toEqual([]);
@@ -457,6 +496,8 @@ describe('ProjectService.deleteProject', () => {
       dueDate: TOMORROW,
       projectId: otherProject.id,
     });
+    // its tasks and notes go to the trash with it
+    archive.archiveProject(proj.id);
 
     const result = projects.deleteProject(proj.id);
 
@@ -464,35 +505,35 @@ describe('ProjectService.deleteProject', () => {
     expect([...result.unfiledTaskIds].sort()).toEqual([task.id, sub.id].sort());
     expect(result.unfiledNoteIds).toEqual([note.id]);
     expect(projectRow(proj.id)).toBeUndefined();
-    expect(taskRow(task.id)).toMatchObject({ projectId: null, archivedAt: null });
-    expect(taskRow(sub.id)).toMatchObject({ projectId: null, parentTaskId: task.id });
-    expect(noteRow(note.id)).toMatchObject({ projectId: null });
-    expect(taskRow(otherTask.id)).toMatchObject({ projectId: otherProject.id });
-  });
-
-  it('deletes an archived project, whose archived tasks and notes stay archived', async () => {
-    const proj = projects.createProject({ title: 'Launch', dueDate: TOMORROW });
-    const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW, projectId: proj.id });
-    const note = await notes.createNote({ title: 'Plan', projectId: proj.id });
-    archive.archiveProject(proj.id);
-
-    projects.deleteProject(proj.id);
-
-    expect(projectRow(proj.id)).toBeUndefined();
+    // still in the trash, without the project, where each can be restored on its own
     expect(taskRow(task.id)).toMatchObject({ projectId: null, archivedAt: expect.any(Date) });
+    expect(taskRow(sub.id)).toMatchObject({ projectId: null, parentTaskId: task.id });
     expect(noteRow(note.id)).toMatchObject({ projectId: null, archivedAt: expect.any(Date) });
+    expect(taskRow(otherTask.id)).toMatchObject({ projectId: otherProject.id, archivedAt: null });
     expect(
       archive
         .listArchived()
         .items.map((item) => item.id)
         .sort(),
-    ).toEqual([task.id, note.id].sort());
+    ).toEqual([task.id, sub.id, note.id].sort());
+    archive.restoreTask(task.id);
+    expect(tasks.getById(task.id).projectId).toBeNull();
+  });
+
+  it('refuses an active project with not_archived', () => {
+    const proj = projects.createProject({ title: 'Launch', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW, projectId: proj.id });
+
+    expect(() => projects.deleteProject(proj.id)).toThrow(NotArchivedError);
+    expect(projectRow(proj.id)).toBeDefined();
+    expect(taskRow(task.id)).toMatchObject({ projectId: proj.id });
   });
 
   it('takes the project out of favorites and recents', () => {
     const proj = projects.createProject({ title: 'Launch', dueDate: TOMORROW });
     favorites.favoriteProject(proj.id);
     recents.recordView(proj.id);
+    archive.archiveProject(proj.id);
 
     projects.deleteProject(proj.id);
 
@@ -500,7 +541,7 @@ describe('ProjectService.deleteProject', () => {
     expect(recents.listRecents().items).toEqual([]);
   });
 
-  it('refuses a synced project with external_read_only', () => {
+  it('refuses a synced project, which is never in the trash', () => {
     const proj = project();
     writer.applyTaskPage(
       sourceId,
@@ -508,7 +549,8 @@ describe('ProjectService.deleteProject', () => {
     );
     const projectId = linkOf(proj.externalId)!.projectId!;
 
-    expect(() => projects.deleteProject(projectId)).toThrow(ExternalReadOnlyError);
+    expect(() => projects.deleteProject(projectId)).toThrow(NotArchivedError);
+    expect(() => archive.archiveProject(projectId)).toThrow(ExternalReadOnlyError);
     expect(projectRow(projectId)).toBeDefined();
   });
 
@@ -521,6 +563,7 @@ describe('ProjectService.deleteProject', () => {
     setLinkState(proj.externalId, LinkState.DETACHED);
     writer.applyTaskPage(sourceId, page({ removedIds: [item.externalId] }));
     const local = tasks.createTask({ title: 'Mine', dueDate: TOMORROW, projectId });
+    archive.archiveProject(projectId);
 
     expect(projects.deleteProject(projectId).unfiledTaskIds.sort()).toEqual(
       [local.id, linkOf(item.externalId)!.taskId!].sort(),
@@ -541,6 +584,7 @@ describe('ProjectService.deleteProject', () => {
   it('sends what it changed, as the last step of its transaction', () => {
     const proj = projects.createProject({ title: 'Launch', dueDate: TOMORROW });
     const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW, projectId: proj.id });
+    archive.archiveProject(proj.id);
     const changes: (ProjectChange & { inTransaction: boolean })[] = [];
     projects.onChange((change) => changes.push({ ...change, inTransaction: inTransaction() }));
 
@@ -569,6 +613,7 @@ describe('NoteService.deleteNote', () => {
     });
     const sub = tasks.createSubtask(task.id, { title: 'Child' });
     const other = await notes.createNote({ title: 'Other' });
+    archive.archiveNote(note.id);
 
     const result = await notes.deleteNote(note.id);
 
@@ -585,20 +630,27 @@ describe('NoteService.deleteNote', () => {
   it("deletes a task note, and the task's link with it", async () => {
     const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW });
     const note = await notes.createNote({ title: 'Task note', linkedTaskId: task.id });
+    archive.archiveNote(note.id);
 
     expect((await notes.deleteNote(note.id)).unlinkedTaskIds).toEqual([]);
     expect(taskRow(task.id)).toBeDefined();
     expect(notes.listNotes({ linkedTaskId: task.id }).items).toEqual([]);
   });
 
-  it('deletes an archived note', async () => {
+  it('refuses an active note with not_archived, keeping its file', async () => {
+    const note = await notes.createNote({ title: 'Spec' });
+
+    await expect(notes.deleteNote(note.id)).rejects.toThrow(NotArchivedError);
+    expect(noteRow(note.id)).toBeDefined();
+    expect(await exists(noteFile(note.id))).toBe(true);
+  });
+
+  it('leaves the trash', async () => {
     const note = await notes.createNote({ title: 'Spec' });
     archive.archiveNote(note.id);
 
     await notes.deleteNote(note.id);
 
-    expect(noteRow(note.id)).toBeUndefined();
-    expect(await exists(noteFile(note.id))).toBe(false);
     expect(archive.listArchived().items).toEqual([]);
   });
 
@@ -606,6 +658,7 @@ describe('NoteService.deleteNote', () => {
     const note = await notes.createNote({ title: 'Spec' });
     favorites.favoriteNote(note.id);
     recents.recordView(note.id);
+    archive.archiveNote(note.id);
 
     await notes.deleteNote(note.id);
 
@@ -615,6 +668,7 @@ describe('NoteService.deleteNote', () => {
 
   it('throws NotFoundError for an unknown note, and for one already deleted', async () => {
     const note = await notes.createNote({ title: 'Spec' });
+    archive.archiveNote(note.id);
     await notes.deleteNote(note.id);
 
     await expect(notes.deleteNote(note.id)).rejects.toThrow(NotFoundError);
@@ -624,6 +678,7 @@ describe('NoteService.deleteNote', () => {
   it('counts a file already missing as removed', async () => {
     const note = await notes.createNote({ title: 'Spec' });
     await fs.rm(noteFile(note.id));
+    archive.archiveNote(note.id);
 
     expect((await notes.deleteNote(note.id)).fileRemoved).toBe(true);
   });
@@ -636,6 +691,7 @@ describe('NoteService.deleteNote', () => {
     await fs.rm(noteFile(note.id));
     await fs.mkdir(noteFile(note.id));
     await fs.writeFile(path.join(noteFile(note.id), 'inside'), '');
+    archive.archiveNote(note.id);
 
     const result = await notes.deleteNote(note.id);
 
@@ -646,18 +702,17 @@ describe('NoteService.deleteNote', () => {
     expect(logger.warn.mock.calls[0][0]).not.toContain(workspacePath);
   });
 
-  it('waits for content saves already queued, so none writes the file back', async () => {
+  it('waits for a content save still writing, so it does not write the file back', async () => {
     const note = await notes.createNote({ title: 'Spec' });
 
-    const saves = [
-      notes.updateNoteContent(note.id, 'one'),
-      notes.updateNoteContent(note.id, 'two'),
-    ];
+    // saving when the note is trashed and deleted at once
+    const save = notes.updateNoteContent(note.id, 'one');
+    archive.archiveNote(note.id);
     const deletion = notes.deleteNote(note.id);
     // called after the delete: finds no note
     const late = notes.updateNoteContent(note.id, 'three');
 
-    await expect(Promise.all(saves)).resolves.toHaveLength(2);
+    await expect(save).resolves.toMatchObject({ id: note.id });
     expect((await deletion).fileRemoved).toBe(true);
     await expect(late).rejects.toThrow(NotFoundError);
     expect(await exists(noteFile(note.id))).toBe(false);
@@ -667,6 +722,7 @@ describe('NoteService.deleteNote', () => {
   it('sends the delete inside its transaction, before the file is removed', async () => {
     const note = await notes.createNote({ title: 'Spec' });
     const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW, linkedNoteId: note.id });
+    archive.archiveNote(note.id);
     const changes: (NoteChange & { inTransaction: boolean })[] = [];
     notes.onChange((change) => changes.push({ ...change, inTransaction: inTransaction() }));
 

@@ -544,7 +544,7 @@ describe('Workspace — search of events', () => {
 });
 
 describe('Workspace — permanent delete', () => {
-  it('drops a deleted task and its subtasks from search, and unlinks its task note', async () => {
+  it('keeps a deleted task and its subtasks out of search, and unlinks its task note', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const dueDate = new Date('2026-12-01T00:00:00Z');
@@ -553,18 +553,24 @@ describe('Workspace — permanent delete', () => {
       const kept = workspace.tasks.createTask({ title: 'Doomed survivor', dueDate });
       const note = await workspace.notes.createNote({ title: 'Notes', linkedTaskId: task.id });
       expect(searchIds(workspace, 'Doomed')).toEqual([task.id, sub.id, kept.id].sort());
+      // deleting is only from the trash
+      expect(() => workspace.tasks.deleteTask(task.id)).toThrow(/not archived/);
+      workspace.archive.archiveTask(task.id);
 
       workspace.tasks.deleteTask(task.id);
+      await workspace.search.rebuild();
 
       expect(searchIds(workspace, 'Doomed')).toEqual([kept.id]);
-      // the workspace's connection enforces foreign keys: the note's link was set null
+      // the workspace's connection enforces foreign keys: the note's link was set null; it went to
+      // the trash with the task and comes back on its own
+      workspace.archive.restoreNote(note.id);
       expect(workspace.notes.getById(note.id).linkedTaskId).toBeNull();
     } finally {
       await workspace.close();
     }
   });
 
-  it('drops a deleted project from search, keeping its tasks searchable', async () => {
+  it('keeps a deleted project out of search; its tasks come back from the trash without it', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const dueDate = new Date('2026-12-01T00:00:00Z');
@@ -575,7 +581,10 @@ describe('Workspace — permanent delete', () => {
         projectId: project.id,
       });
 
+      workspace.archive.archiveProject(project.id);
+
       workspace.projects.deleteProject(project.id);
+      workspace.archive.restoreTask(task.id);
 
       expect(searchIds(workspace, 'Doomed')).toEqual([task.id]);
       expect(workspace.tasks.getById(task.id).projectId).toBeNull();
@@ -584,17 +593,15 @@ describe('Workspace — permanent delete', () => {
     }
   });
 
-  it('drops a deleted note from search, active or archived, and removes its file', async () => {
+  it('keeps a deleted note out of search and removes its file', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const note = await workspace.notes.createNote({ title: 'Doomed note' });
       await workspace.notes.updateNoteContent(note.id, 'secret body');
-      const archived = await workspace.notes.createNote({ title: 'Doomed archived' });
-      workspace.archive.archiveNote(archived.id);
       expect(searchIds(workspace, 'secret')).toEqual([note.id]);
+      workspace.archive.archiveNote(note.id);
 
       await workspace.notes.deleteNote(note.id);
-      await workspace.notes.deleteNote(archived.id);
 
       expect(searchIds(workspace, 'secret')).toEqual([]);
       expect(searchIds(workspace, 'Doomed')).toEqual([]);
@@ -626,8 +633,10 @@ describe('Workspace — permanent delete', () => {
       await vi.waitFor(() => expect(workspace.tasks.listTasks().items).toHaveLength(1));
       const [{ id }] = workspace.tasks.listTasks().items;
 
-      expect(() => workspace.tasks.deleteTask(id)).toThrow(/read-only/);
+      // a synced task can't be put in the trash; detached, it can
+      expect(() => workspace.archive.archiveTask(id)).toThrow(/read-only/);
       workspace.detach.detachTask(id);
+      workspace.archive.archiveTask(id);
       workspace.tasks.deleteTask(id);
 
       // still assigned, and edited in Linear since

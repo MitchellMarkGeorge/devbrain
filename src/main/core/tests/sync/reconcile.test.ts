@@ -32,6 +32,7 @@ import {
   Provider as ProviderId,
 } from '../../integrations/types';
 import { TaskService } from '../../tasks/service';
+import { ArchiveService } from '../../archive/service';
 import { ProjectService } from '../../projects/service';
 import { TaskPriority, TaskStatus } from '../../tasks/types';
 import { ProjectStatus } from '../../projects/types';
@@ -318,6 +319,7 @@ describe('SyncEngine reconcile — returning issues', () => {
     await seed([deleted]);
     setLinkState(deleted.externalId, LinkState.DETACHED);
     const taskId = linkOf(deleted.externalId).taskId!;
+    new ArchiveService(db).archiveTask(taskId);
     new TaskService(db).deleteTask(taskId);
 
     // still assigned in Linear, with no link here

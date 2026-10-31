@@ -7,7 +7,8 @@ import { resetElectronMock } from '../__mocks__/electron';
 import { call, createWorkspace, tempDevBrain, testContext } from './helpers';
 
 // tasks.delete, projects.delete and notes.delete end to end, through the transport, over a real
-// DevBrain folder. Each mutation's `changed` names what was removed and what lost a link to it.
+// DevBrain folder. Only an archived (trashed) item can be deleted. Each mutation's `changed` names
+// what was removed and what lost a link to it.
 
 let devBrain: DevBrain;
 let cleanup: () => Promise<void>;
@@ -41,24 +42,29 @@ describe('tasks.delete', () => {
     const task = workspace().tasks.createTask({ title: 'Ship', dueDate: DUE });
     const sub = workspace().tasks.createSubtask(task.id, { title: 'Part' });
     const note = await workspace().notes.createNote({ title: 'Notes', linkedTaskId: task.id });
+    workspace().archive.archiveTask(task.id);
 
     expect(await mutate('tasks.delete', { id: task.id })).toMatchObject({
       ok: true,
       data: { taskIds: [task.id, sub.id], unlinkedNoteIds: [note.id] },
       changed: ['task', 'note'],
     });
-    expect(code(await call('tasks.get', { id: sub.id }))).toBe('not_found');
+    // only the note is left in the trash
+    expect(
+      workspace()
+        .archive.listArchived()
+        .items.map((item) => item.id),
+    ).toEqual([note.id]);
   });
 
-  it('deletes an archived task from the archive view', async () => {
+  it('refuses an active task with not_archived, reporting no change', async () => {
     const task = workspace().tasks.createTask({ title: 'Ship', dueDate: DUE });
-    workspace().archive.archiveTask(task.id);
 
-    expect(await mutate('tasks.delete', { id: task.id })).toMatchObject({
-      ok: true,
-      changed: ['task'],
-    });
-    expect(workspace().archive.listArchived().items).toEqual([]);
+    const result = await mutate('tasks.delete', { id: task.id });
+
+    expect(code(result)).toBe('not_archived');
+    expect(result.changed).toEqual([]);
+    expect(workspace().tasks.getById(task.id)).toBeDefined();
   });
 
   it('fails with not_found and invalid_input', async () => {
@@ -72,6 +78,8 @@ describe('projects.delete', () => {
     const project = workspace().projects.createProject({ title: 'App', dueDate: DUE });
     const task = workspace().tasks.createTask({ title: 'In', dueDate: DUE, projectId: project.id });
     const note = await workspace().notes.createNote({ title: 'Plan', projectId: project.id });
+    expect(code(await mutate('projects.delete', { id: project.id }))).toBe('not_archived');
+    workspace().archive.archiveProject(project.id);
 
     const result = await mutate('projects.delete', { id: project.id });
 
@@ -80,7 +88,7 @@ describe('projects.delete', () => {
       data: { projectId: project.id, unfiledTaskIds: [task.id], unfiledNoteIds: [note.id] },
     });
     expect([...result.changed].sort()).toEqual(['note', 'project', 'task']);
-    expect(workspace().tasks.getById(task.id).projectId).toBeNull();
+    expect(workspace().archive.restoreTask(task.id).projectId).toBeNull();
     expect(code(await mutate('projects.delete', { id: project.id }))).toBe('not_found');
   });
 });
@@ -93,6 +101,8 @@ describe('notes.delete', () => {
       dueDate: DUE,
       linkedNoteId: note.id,
     });
+    expect(code(await mutate('notes.delete', { id: note.id }))).toBe('not_archived');
+    workspace().archive.archiveNote(note.id);
 
     expect(await mutate('notes.delete', { id: note.id })).toMatchObject({
       ok: true,

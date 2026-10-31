@@ -21,6 +21,7 @@ import {
 import {
   ExternalReadOnlyError,
   InvalidInputError,
+  NotArchivedError,
   NotFoundError,
   TaskHierarchyError,
 } from '../shared/errors';
@@ -408,8 +409,11 @@ export class TaskService {
   }
 
   /**
-   * Deletes a task for good, active or archived, with every task below it at any depth: the
-   * `parentTaskId` foreign key cascades. What only pointed at them is kept, by the foreign keys'
+   * Deletes an archived task for good (the UI calls archived items "in the trash"; deleting is
+   * only offered there), with every task below it at any depth: the `parentTaskId` foreign key
+   * cascades. The task and everything below it must be archived, or it throws NotArchivedError:
+   * archiving takes the whole subtree along, but sync archives a removed task on its own and can
+   * leave synced subtasks live under it, which a delete must not take with it. What only pointed at them is kept, by the foreign keys'
    * `set null`: their task notes lose `linkedTaskId` (so a task still has at most one task note,
    * now none), and nothing else links to a task. Their external links cascade; favorites and
    * recents are columns of the rows and go with them.
@@ -423,7 +427,7 @@ export class TaskService {
    * deleted with nothing recorded: if its issue is assigned again it comes back as a new task, as
    * it would have come back restored.
    *
-   * Throws NotFoundError for an unknown id.
+   * Throws NotFoundError for an unknown id, and NotArchivedError for one not in the trash.
    */
   deleteTask(id: TaskId): TaskDeleteResult {
     return this.db.transaction((tx) => {
@@ -431,6 +435,7 @@ export class TaskService {
       const subtree = tx
         .select({
           taskId: tasks.id,
+          archivedAt: tasks.archivedAt,
           state: externalLinks.state,
           provider: externalLinks.provider,
           externalId: externalLinks.externalId,
@@ -440,6 +445,8 @@ export class TaskService {
         .where(inArray(tasks.id, subtreeOf(id)))
         .all();
       if (!subtree.some((row) => row.taskId === id)) throw new NotFoundError(id);
+      if (subtree.some((row) => row.archivedAt === null)) throw new NotArchivedError(id);
+      // a synced task is never archived; checked anyway, as archive does
       if (subtree.some((row) => row.state === LinkState.SYNCED)) {
         throw new ExternalReadOnlyError(id);
       }

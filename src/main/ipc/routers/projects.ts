@@ -85,7 +85,7 @@ export const projectsRouter = t.router({
       ({ ctx, input }): Project => ctx.workspace.projects.updateStatus(input.id, input.status),
     ),
 
-  // Deletes the project for good, active or archived. Its tasks and notes are the user's own work
+  // Deletes an archived (trashed) project for good, else not_archived. Its tasks and notes are the user's own work
   // and are kept, only without a project (`unfiledTaskIds`, `unfiledNoteIds`); archived ones stay
   // archived. Deleting them too is a separate delete of each. A synced project fails with
   // external_read_only.

@@ -134,7 +134,7 @@ export const tasksRouter = t.router({
         : ctx.workspace.favorites.unfavoriteTask(input.id),
     ),
 
-  // Deletes the task for good, active or archived, with its subtasks at any depth: the response's
+  // Deletes an archived (trashed) task for good, else not_archived, with its subtasks at any depth: the response's
   // `taskIds` lists every one removed, for the renderer to drop. Its task notes are kept, unlinked
   // (`unlinkedNoteIds`). A synced task fails with external_read_only: detach it first. A detached
   // one is remembered, so sync does not bring it back while it stays assigned to the user. Asking

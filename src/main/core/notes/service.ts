@@ -16,7 +16,7 @@ import {
   UpdateNoteOptions,
 } from './types';
 import { stripMarkdown } from '../shared/markdown';
-import { InvalidInputError, NotFoundError } from '../shared/errors';
+import { InvalidInputError, NotArchivedError, NotFoundError } from '../shared/errors';
 import { keyset, Page, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { withNoteListDetails } from './details';
@@ -205,7 +205,8 @@ export class NoteService {
   }
 
   /**
-   * Deletes a note for good, active or archived: its row, then its markdown file. Tasks that link
+   * Deletes an archived note for good (the UI calls archived items "in the trash"; deleting is
+   * only offered there): its row, then its markdown file. An active one throws NotArchivedError. Tasks that link
    * to it are kept and lose the link, by the foreign key's `set null`. Favorites and recents are
    * columns of the row and go with it.
    *
@@ -218,7 +219,7 @@ export class NoteService {
    * `fileRemoved: false`, and the failure is logged. The file stays in the notes folder, which
    * nothing reads without a row. A file already missing counts as removed.
    *
-   * Throws NotFoundError for an unknown id.
+   * Throws NotFoundError for an unknown id, and NotArchivedError for one not in the trash.
    */
   async deleteNote(id: NoteId): Promise<NoteDeleteResult> {
     const previous = this.contentSaves.get(id);
@@ -235,8 +236,13 @@ export class NoteService {
 
   private async removeNote(id: NoteId): Promise<NoteDeleteResult> {
     const unlinkedTaskIds = this.db.transaction((tx) => {
-      const existing = tx.select({ id: notes.id }).from(notes).where(eq(notes.id, id)).get();
+      const existing = tx
+        .select({ archivedAt: notes.archivedAt })
+        .from(notes)
+        .where(eq(notes.id, id))
+        .get();
       if (!existing) throw new NotFoundError(id);
+      if (existing.archivedAt === null) throw new NotArchivedError(id);
 
       // read before the delete clears their link: tasks made from the note, subtasks included
       const linked = tx
