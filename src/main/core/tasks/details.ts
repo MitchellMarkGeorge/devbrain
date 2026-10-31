@@ -1,21 +1,20 @@
-import { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
-import { calendars } from '@main/db/schema/calendars';
-import { events } from '@main/db/schema/events';
-import { notes } from '@main/db/schema/notes';
-import { projects } from '@main/db/schema/projects';
+import { TaskId } from '@common/ids';
 import { tasks } from '@main/db/schema/tasks';
-import { and, count, eq, inArray, isNull, ne, SQL, sql } from 'drizzle-orm';
+import { and, count, inArray, isNull, ne, SQL, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { withRefs } from '../integrations/refs';
+import {
+  eventSummaries,
+  noteSummaries,
+  projectSummaries,
+  taskSummaries,
+  uniqueIds,
+} from '../shared/summaries';
 import { SubtaskListItem, Task, TaskListItem, TaskLinkSummary, TaskStatus } from './types';
 
 // counts the rows matching `predicate`; count(<boolean>) would count every row
 const countWhere = (predicate: SQL) =>
   sql<number>`coalesce(sum(case when ${predicate} then 1 else 0 end), 0)`;
-
-const unique = <T>(values: (T | null)[]): T[] => [
-  ...new Set(values.filter((value): value is T => value !== null)),
-];
 
 /**
  * Adds everything a task row in the task list shows beside its own fields: its provider ref
@@ -24,18 +23,7 @@ const unique = <T>(values: (T | null)[]): T[] => [
  * notes are left out, as every list leaves them out.
  */
 export function withListDetails(db: BetterSQLite3Database, rows: Task[]): TaskListItem[] {
-  const parentIds = unique<TaskId>(rows.map((row) => row.parentTaskId));
-  const parents = new Map(
-    parentIds.length === 0
-      ? []
-      : db
-          .select({ id: tasks.id, title: tasks.title, status: tasks.status })
-          .from(tasks)
-          .where(and(inArray(tasks.id, parentIds), isNull(tasks.archivedAt)))
-          .all()
-          .map((parent) => [parent.id, parent]),
-  );
-
+  const parents = taskSummaries(db, uniqueIds(rows.map((row) => row.parentTaskId)));
   return withSubtaskListDetails(db, rows).map((row) => ({
     ...row,
     parentTask: (row.parentTaskId && parents.get(row.parentTaskId)) || null,
@@ -72,58 +60,20 @@ export function withSubtaskListDetails(db: BetterSQLite3Database, rows: Task[]):
       .all()
       .map(({ parentTaskId, ...counts }) => [parentTaskId as TaskId, counts]),
   );
-
-  const projectIds = unique<ProjectId>(rows.map((row) => row.projectId));
-  const projectsById = new Map(
-    projectIds.length === 0
-      ? []
-      : db
-          .select({ id: projects.id, title: projects.title, color: projects.color })
-          .from(projects)
-          .where(and(inArray(projects.id, projectIds), isNull(projects.archivedAt)))
-          .all()
-          .map((project) => [project.id, project]),
-  );
-
-  const noteIds = unique<NoteId>(rows.map((row) => row.linkedNoteId));
-  const notesById = new Map(
-    noteIds.length === 0
-      ? []
-      : db
-          .select({ id: notes.id, title: notes.title })
-          .from(notes)
-          .where(and(inArray(notes.id, noteIds), isNull(notes.archivedAt)))
-          .all()
-          .map((note) => [note.id, { type: 'note' as const, ...note }]),
-  );
-
-  const eventIds = unique<EventId>(rows.map((row) => row.linkedEventId));
-  const eventsById = new Map(
-    eventIds.length === 0
-      ? []
-      : db
-          .select({
-            id: events.id,
-            title: events.title,
-            startAt: events.startAt,
-            // the event's own colour overrides its calendar's
-            color: sql<string | null>`coalesce(${events.color}, ${calendars.color})`,
-          })
-          .from(events)
-          .innerJoin(calendars, eq(events.calendarId, calendars.id))
-          .where(inArray(events.id, eventIds))
-          .all()
-          .map((event) => [event.id, { type: 'event' as const, ...event }]),
-  );
+  const projects = projectSummaries(db, uniqueIds(rows.map((row) => row.projectId)));
+  const events = eventSummaries(db, uniqueIds(rows.map((row) => row.linkedEventId)));
+  const notes = noteSummaries(db, uniqueIds(rows.map((row) => row.linkedNoteId)));
 
   return withRefs(db, rows).map((row) => {
     let link: TaskLinkSummary | null = null;
-    if (row.linkedEventId) link = eventsById.get(row.linkedEventId) ?? null;
-    else if (row.linkedNoteId) link = notesById.get(row.linkedNoteId) ?? null;
+    const event = row.linkedEventId && events.get(row.linkedEventId);
+    const note = row.linkedNoteId && notes.get(row.linkedNoteId);
+    if (event) link = { type: 'event', ...event };
+    else if (note) link = { type: 'note', ...note };
     return {
       ...row,
       subtaskProgress: progress.get(row.id) ?? null,
-      project: (row.projectId && projectsById.get(row.projectId)) || null,
+      project: (row.projectId && projects.get(row.projectId)) || null,
       link,
     };
   });

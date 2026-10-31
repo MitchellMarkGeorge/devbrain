@@ -3,6 +3,7 @@ import { Archivable, Completeable, Model } from '../shared/model';
 import { tasks } from '@main/db/schema/tasks';
 import { InferSelectModel } from 'drizzle-orm';
 import type { ExternalRef } from '../integrations/types';
+import type { EventSummary, NoteSummary, ProjectSummary, TaskSummary } from '../shared/summaries';
 
 export enum TaskPriority {
   // migrated to ints so sorting works
@@ -43,7 +44,7 @@ export interface SubtaskListItem extends Task {
   // counts of the task's direct, unarchived subtasks, leaving out cancelled ones as project stats
   // do; null when none are left
   subtaskProgress: SubtaskProgress | null;
-  project: TaskProjectSummary | null;
+  project: ProjectSummary | null;
   // the event or note the task is linked to
   link: TaskLinkSummary | null;
 }
@@ -51,7 +52,7 @@ export interface SubtaskListItem extends Task {
 // A row in the task list, from listTasks: a subtask also names its parent.
 export interface TaskListItem extends SubtaskListItem {
   // the parent of a subtask; null for a top-level task
-  parentTask: TaskParentSummary | null;
+  parentTask: TaskSummary | null;
 }
 
 export interface SubtaskProgress {
@@ -59,22 +60,7 @@ export interface SubtaskProgress {
   total: number;
 }
 
-export interface TaskParentSummary {
-  id: TaskId;
-  title: string;
-  status: TaskStatus;
-}
-
-export interface TaskProjectSummary {
-  id: ProjectId;
-  title: string;
-  color: string | null;
-}
-
-export type TaskLinkSummary =
-  // color: the event's own, or else its calendar's
-  | { type: 'event'; id: EventId; title: string; startAt: Date; color: string | null }
-  | { type: 'note'; id: NoteId; title: string };
+export type TaskLinkSummary = ({ type: 'event' } & EventSummary) | ({ type: 'note' } & NoteSummary);
 
 export interface CreateTaskOptions {
   title: string;
