@@ -134,7 +134,7 @@ export function getRefs<T extends LinkedEntityId>(
 }
 
 /** the rows with `external` set: the row's ref when it has a link, null when it is local */
-export function withRefs<T extends { id: LinkedEntityId }>(
+export function withExternalRefs<T extends { id: LinkedEntityId }>(
   db: BaseSQLiteDatabase<'sync', RunResult>,
   rows: T[],
 ): (T & { external: ExternalRef | null })[] {
@@ -145,10 +145,10 @@ export function withRefs<T extends { id: LinkedEntityId }>(
   return rows.map((row) => ({ ...row, external: refs.get(row.id) ?? null }));
 }
 
-export function withRef<T extends { id: LinkedEntityId }>(
+export function withExternalRef<T extends { id: LinkedEntityId }>(
   db: BaseSQLiteDatabase<'sync', RunResult>,
   row: T,
 ): T & { external: ExternalRef | null } {
-  const [withRef] = withRefs(db, [row]);
-  return withRef;
+  const [result] = withExternalRefs(db, [row]);
+  return result;
 }

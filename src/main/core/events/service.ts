@@ -7,7 +7,12 @@ import { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 import { RunResult } from 'better-sqlite3';
 import { ExternalReadOnlyError, InvalidInputError, NotFoundError } from '../shared/errors';
 import { CreateEventOptions, Event, UpdateEventOptions } from './types';
-import { assertEditable, assertRowEditable, hasLinkInState, withRefs } from '../integrations/refs';
+import {
+  assertEditable,
+  assertRowEditable,
+  hasLinkInState,
+  withExternalRefs,
+} from '../integrations/refs';
 import { LinkState } from '../integrations/types';
 import { DEFAULT_CALENDAR_ID } from '../calendars/types';
 import {
@@ -201,7 +206,7 @@ export function withEventDetails(
     db,
     rows.filter((row) => row.recurrenceRule !== null).map((row) => row.id),
   );
-  const withExternal = withRefs(db, rows);
+  const withExternal = withExternalRefs(db, rows);
   return withExternal.map((row) => ({ ...row, exdates: exdates.get(row.id) ?? [] }));
 }
 

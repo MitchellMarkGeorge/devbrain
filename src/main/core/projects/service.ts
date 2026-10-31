@@ -17,7 +17,12 @@ import { keyset, Page, PageOptions } from '../shared/pagination';
 import { NotFoundError } from '../shared/errors';
 import { tasks } from '@main/db/schema/tasks';
 import { TaskStatus } from '../tasks/types';
-import { assertEditable, hasLinkInState, withRef, withRefs } from '../integrations/refs';
+import {
+  assertEditable,
+  hasLinkInState,
+  withExternalRef,
+  withExternalRefs,
+} from '../integrations/refs';
 import { LinkState } from '../integrations/types';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 
@@ -40,11 +45,11 @@ export class ProjectService {
   getById(id: ProjectId): Project {
     const row = this.activeProjects(eq(projects.id, id)).limit(1).get();
     if (!row) throw new NotFoundError(id);
-    return withRef(this.db, row);
+    return withExternalRef(this.db, row);
   }
 
   getByIds(ids: ProjectId[]): Project[] {
-    return withRefs(this.db, this.activeProjects(inArray(projects.id, ids)).all());
+    return withExternalRefs(this.db, this.activeProjects(inArray(projects.id, ids)).all());
   }
 
   createProject(options: CreateProjectOptions): Project {
@@ -150,7 +155,7 @@ export class ProjectService {
 
     // filled after the page is cut, so the lookup covers only the rows returned
     const result = pager.toPage(rows);
-    return { ...result, items: withRefs(this.db, result.items) };
+    return { ...result, items: withExternalRefs(this.db, result.items) };
   }
 
   getProjectStats(id: ProjectId): ProjectStats {
@@ -196,7 +201,7 @@ export class ProjectService {
   // NotFoundError when the update matched no row.
   private updated(id: ProjectId, row: Project | undefined): Project {
     if (!row) throw new NotFoundError(id);
-    const project = withRef(this.db, row);
+    const project = withExternalRef(this.db, row);
     this.changes.emit({ type: 'updated', project });
     return project;
   }

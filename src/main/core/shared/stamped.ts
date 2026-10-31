@@ -8,7 +8,7 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { unionAll } from 'drizzle-orm/sqlite-core';
 import { withEventDetails } from '../events/service';
 import type { Event } from '../events/types';
-import { hasLinkInState, withRefs } from '../integrations/refs';
+import { hasLinkInState, withExternalRefs } from '../integrations/refs';
 import { LinkState } from '../integrations/types';
 import type { Note } from '../notes/types';
 import type { Project } from '../projects/types';
@@ -154,14 +154,14 @@ export function withEntities<S extends Stamp>(
   const taskIds = idsOf<TaskId>('tasks');
   if (taskIds.length > 0) {
     const rows = db.select().from(tasks).where(inArray(tasks.id, taskIds)).all();
-    for (const entity of withRefs(db, rows)) {
+    for (const entity of withExternalRefs(db, rows)) {
       entries.set(entity.id, { entityType: 'tasks', entity });
     }
   }
   const projectIds = idsOf<ProjectId>('projects');
   if (projectIds.length > 0) {
     const rows = db.select().from(projects).where(inArray(projects.id, projectIds)).all();
-    for (const entity of withRefs(db, rows)) {
+    for (const entity of withExternalRefs(db, rows)) {
       entries.set(entity.id, { entityType: 'projects', entity });
     }
   }

@@ -27,8 +27,8 @@ import {
   assertRowEditable,
   hasLinkInState,
   isSynced,
-  withRef,
-  withRefs,
+  withExternalRef,
+  withExternalRefs,
 } from '../integrations/refs';
 import { LinkState } from '../integrations/types';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
@@ -50,11 +50,11 @@ export class TaskService {
   getById(id: TaskId): Task {
     const row = this.activeTasks(eq(tasks.id, id)).limit(1).get();
     if (!row) throw new NotFoundError(id);
-    return withRef(this.db, row);
+    return withExternalRef(this.db, row);
   }
 
   getByIds(ids: TaskId[]): Task[] {
-    return withRefs(this.db, this.activeTasks(inArray(tasks.id, ids)).all());
+    return withExternalRefs(this.db, this.activeTasks(inArray(tasks.id, ids)).all());
   }
 
   // a local task can be created in a mirrored project: it stays local and sync never touches it
@@ -398,7 +398,7 @@ export class TaskService {
   // NotFoundError when the update matched no row.
   private updated(id: TaskId, row: Task | undefined): Task {
     if (!row) throw new NotFoundError(id);
-    const task = withRef(this.db, row);
+    const task = withExternalRef(this.db, row);
     this.changes.emit({ type: 'updated', task });
     return task;
   }

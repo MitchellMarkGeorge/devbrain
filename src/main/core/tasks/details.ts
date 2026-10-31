@@ -2,7 +2,7 @@ import { TaskId } from '@common/ids';
 import { tasks } from '@main/db/schema/tasks';
 import { and, count, inArray, isNull, ne, SQL, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { withRefs } from '../integrations/refs';
+import { withExternalRefs } from '../integrations/refs';
 import {
   eventSummaries,
   noteSummaries,
@@ -18,7 +18,7 @@ const countWhere = (predicate: SQL) =>
 
 /**
  * Adds everything a task row in the task list shows beside its own fields: its provider ref
- * (`external`, from withRefs), its subtask progress, its parent, its project and its link. One
+ * (`external`, from withExternalRefs), its subtask progress, its parent, its project and its link. One
  * query per kind for the whole page, never one per row. Archived parents, subtasks, projects and
  * notes are left out, as every list leaves them out.
  */
@@ -64,7 +64,7 @@ export function withSubtaskListDetails(db: BetterSQLite3Database, rows: Task[]):
   const events = eventSummaries(db, uniqueIds(rows.map((row) => row.linkedEventId)));
   const notes = noteSummaries(db, uniqueIds(rows.map((row) => row.linkedNoteId)));
 
-  return withRefs(db, rows).map((row) => {
+  return withExternalRefs(db, rows).map((row) => {
     let link: TaskLinkSummary | null = null;
     const event = row.linkedEventId && events.get(row.linkedEventId);
     const note = row.linkedNoteId && notes.get(row.linkedNoteId);
