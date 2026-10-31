@@ -173,7 +173,7 @@
   --muted: var(--neutral-900);
   --muted-foreground: var(--neutral-400);
   --subtle-foreground: var(--neutral-500); /* DevBrain addition */
-  --accent: var(--neutral-900);
+  --accent: var(--neutral-800);
   --accent-foreground: var(--neutral-100);
   --destructive: var(--red-400);
   --border: var(--neutral-900);

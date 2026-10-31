@@ -1484,7 +1484,7 @@ button.db-badge[data-variant='outline']:hover {
  */
 :root {
   /* Selection, option D: a light tint over the ground, with the title brightened */
-  --row-hover: var(--accent);
+  --row-hover: var(--row-selected);
   --row-control-hover: color-mix(in oklab, var(--foreground) 10%, transparent);
 }
 
