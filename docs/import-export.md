@@ -232,7 +232,7 @@ Imported files are untrusted input, like synced content
 ([security/untrusted-content.md](security/untrusted-content.md)):
 
 - **Size caps** (`limits.ts`), checked before a file is read and again while reading, so a file that
-  grows meanwhile is caught: 10 MB and 20,000 tasks for a task file; 5 MB per note file; 1,000 note
+  grows meanwhile is caught: 10 MB and 10,000 tasks for a task file; 5 MB per note file; 1,000 note
   files and 50 MB per note import.
 - **Text only.** A file must be UTF-8 without NUL bytes, and must be a regular file (a symlink is
   followed to what it points at; a directory, FIFO or device is refused before it is opened).
@@ -254,3 +254,31 @@ Imports go through `TaskService.createTaskTrees` and `NoteService.createNotes`, 
 the same transaction, the IPC layer reports `changed: ['task']` or `['note']`, and the renderer
 refetches, exactly as for items created by hand. Imported items are not marked as viewed, so they
 don't appear in Recents until opened, like any new item.
+
+## How long an import takes
+
+An import runs on the main process from start to end, as every database write does: better-sqlite3
+is synchronous, and the rows go in one transaction so the import is all or nothing. Nothing else in
+the app runs meanwhile, so the cost is kept small and in proportion to the rows:
+
+- **Parsing** is synchronous too. At the size limit it takes about 0.2 s, too little to be worth a
+  streaming parser that yields between chunks.
+- **Rows go in a few hundred per statement.** `createTaskTrees` builds every row first, with its id,
+  so a subtask can name its parent before anything is written, then inserts them 500 at a time.
+- **Search only inserts.** A created task or note has no entry yet, so the workspace indexes it with
+  `indexCreatedTask` / `indexCreatedNote`, which insert without deleting first. Replacing an entry
+  deletes by `entity_id`, which the FTS5 table can't index, so that delete reads the whole index;
+  done per row, it made an import's cost grow with the square of its rows.
+- **The cap** is 10,000 tasks per file, which bounds the pause.
+
+Measured on a workspace database file (WAL, search kept in step), tasks with 350-character
+descriptions, a quarter of them top-level with three subtasks each:
+
+| Tasks          | Import (parse, check, write, index) |
+| -------------- | ----------------------------------- |
+| 2,500          | about 0.3 s                         |
+| 10,000 (limit) | about 1 s                           |
+
+Before batching and insert-only indexing, 20,000 tasks took 38 s, 2,000 took 0.85 s.
+`tests/transfer/performance.test.ts` checks the limit stays within a few seconds and that four times
+the rows costs about four times as long; run it with `DEVBRAIN_PERF=1`.

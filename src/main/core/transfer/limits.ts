@@ -7,7 +7,7 @@ const MiB = 1024 * 1024;
 // one CSV or JSON file of tasks
 export const MAX_TASK_FILE_BYTES = 10 * MiB;
 // tasks in one file, subtasks included
-export const MAX_TASK_ROWS = 20_000;
+export const MAX_TASK_ROWS = 10_000;
 // how deep subtasks nest in an import; a deeper one is reported, not imported
 export const MAX_TASK_DEPTH = 32;
 // one Markdown file

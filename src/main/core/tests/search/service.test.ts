@@ -297,6 +297,27 @@ describe('SearchService — indexNoteContent', () => {
   });
 });
 
+describe('SearchService — indexCreatedTask and indexCreatedNote', () => {
+  it('index a new row, and a later edit replaces that entry rather than adding one', async () => {
+    const task = taskService.createTask({ title: 'Quarterly report', dueDate: new Date() });
+    searchService.indexCreatedTask(task);
+    searchService.indexTask({ ...task, description: 'revenue figures' });
+    expect(searchService.search({ query: 'Quarterly', entityType: ['task'] })).toEqual([
+      expect.objectContaining({ entityId: task.id, body: 'revenue figures' }),
+    ]);
+
+    const note = await noteService.createNote({ title: 'Retro' });
+    searchService.indexCreatedNote(note, '# What went **well**');
+    expect(searchService.search({ query: 'well', entityType: ['note'] })).toEqual([
+      expect.objectContaining({ entityId: note.id, title: 'Retro' }),
+    ]);
+    searchService.indexNoteContent(note, 'replaced');
+    expect(searchService.search({ query: 'Retro', entityType: ['note'] })).toEqual([
+      expect.objectContaining({ body: 'replaced' }),
+    ]);
+  });
+});
+
 describe('SearchService — updateIndexedTitle', () => {
   it('changes the title and keeps the body', async () => {
     const note = await noteService.createNote({ title: 'Old' });

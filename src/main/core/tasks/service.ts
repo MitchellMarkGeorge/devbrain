@@ -1,4 +1,4 @@
-import { ProjectId, TaskId } from '@common/ids';
+import { generateId, ProjectId, TaskId } from '@common/ids';
 import { tasks } from '@main/db/schema/tasks';
 import { notes } from '@main/db/schema/notes';
 import { externalLinks } from '@main/db/schema/integrations';
@@ -59,6 +59,13 @@ import { ChangeListener, ChangeListeners } from '../shared/changes';
 
 type NewTaskValues = typeof tasks.$inferInsert;
 
+// what a subtask takes from its parent
+type SubtaskParent = Pick<Task, 'id' | 'dueDate' | 'projectId' | 'linkedNoteId' | 'linkedEventId'>;
+
+// rows per INSERT in createTaskTrees: about 15 bound values each, well under SQLite's limit on
+// variables in one statement
+const INSERT_CHUNK = 500;
+
 // The row createTask inserts: a local top-level task. Throws InvalidInputError for both links.
 function newTaskValues(options: CreateTaskOptions): NewTaskValues {
   if (options.linkedEventId && options.linkedNoteId) {
@@ -84,7 +91,7 @@ function newTaskValues(options: CreateTaskOptions): NewTaskValues {
 
 // The row createSubtask inserts under `parent`. Throws TaskHierarchyError when neither has a due
 // date.
-function newSubtaskValues(parent: Task, options: CreateSubTaskOptions): NewTaskValues {
+function newSubtaskValues(parent: SubtaskParent, options: CreateSubTaskOptions): NewTaskValues {
   // inherit the parent's due date when none is provided; local tasks always need one
   const dueDate = options.dueDate ?? parent.dueDate;
   if (dueDate === null) {
@@ -173,21 +180,40 @@ export class TaskService {
    * Returns the tasks in that order: each before its subtasks, depth first.
    */
   createTaskTrees(trees: CreateTaskTreeOptions[]): Task[] {
-    return this.db.transaction((tx) => {
-      const created: Task[] = [];
-      const insert = (values: NewTaskValues): Task => {
-        const row = tx.insert(tasks).values(values).returning().get();
-        const task = { ...row, external: null };
-        created.push(task);
-        return task;
+    // Every row is built first, its id generated so its subtasks can name it, parents before their
+    // subtasks; then they go in a few hundred per statement. One insert per row would cost an
+    // import of the largest size several seconds.
+    const rows: (NewTaskValues & { id: TaskId })[] = [];
+    const add = (values: NewTaskValues): SubtaskParent => {
+      const row = { ...values, id: generateId('task') };
+      rows.push(row);
+      return {
+        id: row.id,
+        dueDate: row.dueDate ?? null,
+        projectId: row.projectId ?? null,
+        linkedNoteId: row.linkedNoteId ?? null,
+        linkedEventId: row.linkedEventId ?? null,
       };
-      const insertSubtasks = (parent: Task, subtasks: CreateSubtaskTreeOptions[] = []) => {
-        for (const subtask of subtasks) {
-          insertSubtasks(insert(newSubtaskValues(parent, subtask)), subtask.subtasks);
-        }
-      };
-      for (const tree of trees) insertSubtasks(insert(newTaskValues(tree)), tree.subtasks);
+    };
+    const addSubtasks = (parent: SubtaskParent, subtasks: CreateSubtaskTreeOptions[] = []) => {
+      for (const subtask of subtasks) {
+        addSubtasks(add(newSubtaskValues(parent, subtask)), subtask.subtasks);
+      }
+    };
+    for (const tree of trees) addSubtasks(add(newTaskValues(tree)), tree.subtasks);
 
+    return this.db.transaction((tx) => {
+      const inserted = new Map<TaskId, Task>();
+      for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
+        const chunk = tx
+          .insert(tasks)
+          .values(rows.slice(i, i + INSERT_CHUNK))
+          .returning()
+          .all();
+        for (const row of chunk) inserted.set(row.id, { ...row, external: null });
+      }
+      // RETURNING gives no order, so the tasks are put back in the order built
+      const created = rows.map(({ id }) => inserted.get(id)!);
       for (const task of created) this.changes.emit({ type: 'created', task });
       return created;
     });

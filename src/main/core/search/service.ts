@@ -90,8 +90,32 @@ export class SearchService {
     this.indexTasks([task]);
   }
 
+  /**
+   * Indexes a task just created, which has no entry yet. Only inserts: replacing an entry first
+   * deletes by entity_id, which FTS5 can't index, so that delete reads the whole index, and doing
+   * it for every row of an import made the import quadratic.
+   */
+  indexCreatedTask(task: Task): void {
+    this.db.run(insertQuery([taskEntity(task)]));
+  }
+
   async indexNote(note: Note) {
     await this.indexNotes([note]);
+  }
+
+  // a note just created, from its markdown; only inserts, as indexCreatedTask does
+  indexCreatedNote(note: Note, content: string): void {
+    this.db.run(
+      insertQuery([
+        {
+          title: note.title,
+          body: stripMarkdown(content.trim()),
+          entityId: note.id,
+          entityType: 'note',
+        },
+      ]),
+    );
+    for (const written of this.noteWrites) written.add(note.id);
   }
 
   // indexes a note from its markdown, for a write that has it in hand; indexNotes reads the files
