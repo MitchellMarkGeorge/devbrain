@@ -7,6 +7,7 @@ import path from 'node:path';
 import type { WorkspaceId } from '@common/ids';
 import type { WorkspaceInfo } from '../../workspace/types';
 import {
+  InvalidInputError,
   NotFoundError,
   WorkspaceDataMissingError,
   WorkspaceNotOpenError,
@@ -246,6 +247,162 @@ describe('WorkspaceService — create', () => {
     await service.create({ name: 'New', color: '#000000' });
 
     expect(service.listAll().items[0].lastOpenedAt).toBeNull();
+  });
+});
+
+describe('WorkspaceService — update', () => {
+  // two workspaces in the registry, and a service recording every change it sends
+  function setup() {
+    const infos = [
+      makeInfo({ id: 'wsp_first' as WorkspaceId, name: 'First', color: '#fb2c36' }),
+      makeInfo({ id: 'wsp_second' as WorkspaceId, name: 'Second', color: '#2b7fff' }),
+    ];
+    writeRegistry(tmpDir, infos);
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
+    const changes: WorkspaceChange[] = [];
+    service.onChange((change) => changes.push(change));
+    return { service, infos, changes };
+  }
+
+  const readRegistryFile = (file = 'workspaces.json') =>
+    JSON.parse(fsSync.readFileSync(path.join(tmpDir, file), 'utf8'));
+
+  it('renames a workspace, trimming the name, and keeps its colour', async () => {
+    const { service, infos } = setup();
+
+    const updated = await service.update(infos[0].id, { name: '  Side projects ' });
+
+    expect(updated).toEqual({ ...infos[0], name: 'Side projects' });
+    expect(service.getById(infos[0].id)).toEqual(updated);
+    expect(service.getById(infos[1].id)).toEqual(infos[1]);
+  });
+
+  it('recolours a workspace and keeps its name', async () => {
+    const { service, infos } = setup();
+
+    const updated = await service.update(infos[0].id, { color: '#00bc7d' });
+
+    expect(updated).toEqual({ ...infos[0], color: '#00bc7d' });
+    expect(service.getById(infos[0].id)).toEqual(updated);
+  });
+
+  it('changes both at once', async () => {
+    const { service, infos } = setup();
+    const updated = await service.update(infos[1].id, { name: 'Work', color: '#615fff' });
+    expect(service.getById(infos[1].id)).toEqual({ ...infos[1], name: 'Work', color: '#615fff' });
+    expect(updated).toEqual(service.getById(infos[1].id));
+  });
+
+  it('writes the registry and its backup, keeping every other field', async () => {
+    const { service, infos } = setup();
+
+    await service.update(infos[0].id, { name: 'Renamed', color: '#f6339a' });
+
+    const expected = makeRegistry([{ ...infos[0], name: 'Renamed', color: '#f6339a' }, infos[1]]);
+    expect(readRegistryFile()).toEqual(expected);
+    expect(readRegistryFile('workspaces.json.bak')).toEqual(expected);
+  });
+
+  it('sends updated with the new info once the registry is written', async () => {
+    const { service, infos, changes } = setup();
+    let registeredWhenSent: WorkspaceInfo | undefined;
+    service.onChange(() => (registeredWhenSent = service.getById(infos[0].id)));
+
+    const updated = await service.update(infos[0].id, { name: 'Renamed' });
+
+    expect(changes).toEqual([{ type: 'updated', workspace: updated }]);
+    expect(registeredWhenSent).toEqual(updated);
+  });
+
+  it('updates the open workspace’s info when it is the one changed', async () => {
+    const { service, infos } = setup();
+    const open = { info: { ...infos[0] }, sync: { start: vi.fn() } };
+    await setOpenWorkspace(service, open);
+
+    await service.update(infos[0].id, { name: 'Renamed', color: '#fe9a00' });
+
+    expect(service.currentWorkspace).toBe(open);
+    expect(open.info).toMatchObject({ id: infos[0].id, name: 'Renamed', color: '#fe9a00' });
+  });
+
+  it('leaves the open workspace’s info alone when another one is changed', async () => {
+    const { service, infos } = setup();
+    const open = { info: { ...infos[0] }, sync: { start: vi.fn() } };
+    await setOpenWorkspace(service, open);
+
+    await service.update(infos[1].id, { name: 'Other' });
+
+    expect(open.info).toMatchObject({ name: 'First', color: '#fb2c36' });
+  });
+
+  it('writes and sends nothing when no value changes', async () => {
+    const { service, infos, changes } = setup();
+    // an old mtime, which a write would replace
+    fsSync.utimesSync(path.join(tmpDir, 'workspaces.json'), 0, 0);
+
+    expect(await service.update(infos[0].id, { name: ' First ', color: '#fb2c36' })).toEqual(
+      infos[0],
+    );
+    expect(await service.update(infos[0].id, {})).toEqual(infos[0]);
+
+    expect(changes).toEqual([]);
+    expect(fsSync.statSync(path.join(tmpDir, 'workspaces.json')).mtimeMs).toBe(0);
+    expect(fsSync.existsSync(path.join(tmpDir, 'workspaces.json.bak'))).toBe(false);
+  });
+
+  it.each([
+    ['an empty name', { name: '' }],
+    ['a blank name', { name: '   ' }],
+    ['a colour that is not #rrggbb', { color: 'red' }],
+    ['a short hex colour', { color: '#fff' }],
+    ['a colour with alpha', { color: '#fb2c36ff' }],
+  ])('refuses %s, changing nothing', async (_label, options) => {
+    const { service, infos, changes } = setup();
+    const registry = readRegistryFile();
+
+    await expect(service.update(infos[0].id, options)).rejects.toBeInstanceOf(InvalidInputError);
+
+    expect(readRegistryFile()).toEqual(registry);
+    expect(changes).toEqual([]);
+  });
+
+  it('refuses an invalid value even when the other one is valid', async () => {
+    const { service, infos } = setup();
+    await expect(
+      service.update(infos[0].id, { name: 'Fine', color: 'nope' }),
+    ).rejects.toBeInstanceOf(InvalidInputError);
+    expect(service.getById(infos[0].id)).toEqual(infos[0]);
+  });
+
+  it('throws NotFoundError for an unknown id, changing nothing', async () => {
+    const { service, changes } = setup();
+    const registry = readRegistryFile();
+
+    await expect(
+      service.update('wsp_missing' as WorkspaceId, { name: 'Ghost' }),
+    ).rejects.toBeInstanceOf(NotFoundError);
+
+    expect(readRegistryFile()).toEqual(registry);
+    expect(changes).toEqual([]);
+  });
+
+  it('waits for a running transition, so it never writes over the registry mid-open', async () => {
+    const { service, infos } = setup();
+    const opening = deferred<unknown>();
+    vi.mocked(Workspace.open).mockReturnValueOnce(opening.promise as never);
+    // infos[0].path is under /fake, so point it at a real directory first
+    writeRegistry(tmpDir, [{ ...infos[0], path: tmpDir }, infos[1]]);
+
+    const open = service.open(infos[0].id);
+    const update = service.update(infos[0].id, { name: 'Renamed' });
+    opening.resolve({ info: { ...infos[0], path: tmpDir }, sync: { start: vi.fn() } });
+    await Promise.all([open, update]);
+
+    // open's lastOpenedAt write and the rename both landed
+    const saved = service.getById(infos[0].id);
+    expect(saved.name).toBe('Renamed');
+    expect(saved.lastOpenedAt).not.toBeNull();
+    expect(service.currentWorkspace?.info.name).toBe('Renamed');
   });
 });
 

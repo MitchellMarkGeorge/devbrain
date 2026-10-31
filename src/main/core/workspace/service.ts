@@ -1,19 +1,32 @@
 import { generateId, type IntegrationId, type WorkspaceId } from '@common/ids';
-import type { CreateWorkspaceOptions, WorkspaceInfo, WorkspaceOptions } from './types';
+import { hexColorSchema } from '@common/color';
+import type {
+  CreateWorkspaceOptions,
+  UpdateWorkspaceOptions,
+  WorkspaceInfo,
+  WorkspaceOptions,
+} from './types';
 import { parseRegistry, REGISTRY_FILE, writeRegistry, type WorkspaceRegistry } from './registry';
 import { Workspace } from './workspace';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import { directoryExists, isNotFound } from '../local/utils';
-import { NotFoundError, WorkspaceDataMissingError, WorkspaceNotOpenError } from '../shared/errors';
+import {
+  InvalidInputError,
+  NotFoundError,
+  WorkspaceDataMissingError,
+  WorkspaceNotOpenError,
+} from '../shared/errors';
 import { paginateArray, Page, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 
-// A workspace was registered, or the open workspace changed. Opening one while another is open
-// sends `closed` for the old one before `opened` for the new one, in the order the transitions ran.
+// A workspace was registered or renamed/recoloured, or the open workspace changed. Opening one
+// while another is open sends `closed` for the old one before `opened` for the new one, in the
+// order the transitions ran.
 export type WorkspaceChange =
   | { type: 'created'; workspace: WorkspaceInfo }
+  | { type: 'updated'; workspace: WorkspaceInfo }
   | { type: 'opened'; workspace: Workspace }
   | { type: 'closed'; workspaceId: WorkspaceId };
 
@@ -47,7 +60,8 @@ export class WorkspaceService {
   }
 
   /**
-   * Sends `opened` once a workspace is current and `closed` once the current one has closed, by
+   * Sends `created` once a workspace is registered, `updated` once its new name or colour is in the
+   * registry, `opened` once a workspace is current and `closed` once the current one has closed, by
    * open, close or delete. Returns a function that unsubscribes the listener.
    */
   onChange(listener: ChangeListener<WorkspaceChange>): () => void {
@@ -127,6 +141,37 @@ export class WorkspaceService {
     }
     this.changes.emit({ type: 'created', workspace: workspaceInfo });
     return workspaceInfo;
+  }
+
+  /**
+   * Renames or recolours a workspace, open or not, and returns its updated info. The name is
+   * trimmed and must not be empty; the colour must be #rrggbb. Any colour is accepted, not only the
+   * six the settings screen offers: workspaces created or recovered before keep theirs. When this
+   * is the open workspace, its `info` changes too. Writes nothing and sends nothing when neither
+   * value changes.
+   *
+   * Throws InvalidInputError for an empty name or an invalid colour, and NotFoundError for an
+   * unknown id.
+   */
+  update(id: WorkspaceId, options: UpdateWorkspaceOptions): Promise<WorkspaceInfo> {
+    return this.serialize(async () => this.updateWorkspace(id, options));
+  }
+
+  private updateWorkspace(id: WorkspaceId, options: UpdateWorkspaceOptions): WorkspaceInfo {
+    const changes = validateUpdate(options);
+    const workspaces = this.readWorkspaceFile();
+    const info = workspaces[id];
+    if (!info) throw new NotFoundError(id);
+    const updated: WorkspaceInfo = { ...info, ...changes };
+    if (updated.name === info.name && updated.color === info.color) return info;
+
+    workspaces[id] = updated;
+    this.writeWorkspaceFile(workspaces);
+    // TODO(manifest): once claude/open-workspace-folder merges, write the folder's manifest here
+    // too (docs/follow-ups.md, "Renaming a workspace keeps its manifest in step").
+    if (this.current?.info.id === id) Object.assign(this.current.info, changes);
+    this.changes.emit({ type: 'updated', workspace: updated });
+    return updated;
   }
 
   /**
@@ -251,4 +296,20 @@ export class WorkspaceService {
       this.changes.emit({ type: 'closed', workspaceId: current.info.id });
     }
   }
+}
+
+// the fields of an update, the name trimmed; throws InvalidInputError for an invalid one
+function validateUpdate({ name, color }: UpdateWorkspaceOptions): UpdateWorkspaceOptions {
+  const changes: UpdateWorkspaceOptions = {};
+  if (name !== undefined) {
+    changes.name = name.trim();
+    if (changes.name === '') throw new InvalidInputError('A workspace name cannot be empty');
+  }
+  if (color !== undefined) {
+    if (!hexColorSchema.safeParse(color).success) {
+      throw new InvalidInputError(`Not a #rrggbb colour: ${color}`);
+    }
+    changes.color = color;
+  }
+  return changes;
 }

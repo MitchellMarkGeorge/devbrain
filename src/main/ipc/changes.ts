@@ -59,9 +59,10 @@ export class ChangeTracker {
     const current = devBrain.currentWorkspace;
     let stopListeningToWorkspace = current ? this.listenToWorkspace(current) : () => {};
     const unsubscribe = devBrain.workspaces.onChange((change) => {
-      // the registry changed: the workspace list refetches; for a new workspace, nothing else did
+      // the registry changed: the workspace list refetches; for a new, renamed or recoloured
+      // workspace, nothing else did
       this.recordChange('workspace');
-      if (change.type === 'created') return;
+      if (change.type === 'created' || change.type === 'updated') return;
       stopListeningToWorkspace();
       stopListeningToWorkspace =
         change.type === 'opened' ? this.listenToWorkspace(change.workspace) : () => {};

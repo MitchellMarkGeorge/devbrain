@@ -259,6 +259,29 @@ describe('switching workspace', () => {
     expect(result).toMatchObject({ ok: true, changed: ['workspace'] });
     expect(sendToWindows.mock.calls.filter(([name]) => name === 'workspace.changed')).toEqual([]);
   });
+
+  it('reports a renamed open workspace without saying another one opened, and keeps following it', async () => {
+    attach();
+    const open = workspace();
+
+    const result = (await invokeHandler('ipc:call', {} as IpcMainInvokeEvent, {
+      path: 'workspaces.update',
+      type: 'mutation',
+      input: { id: open.info.id, name: 'Renamed' },
+    })) as IpcResult<unknown>;
+
+    expect(result).toMatchObject({ ok: true, changed: ['workspace'] });
+    expect(sendToWindows.mock.calls.filter(([name]) => name === 'workspace.changed')).toEqual([]);
+    expect(workspace()).toBe(open);
+    expect(open.info.name).toBe('Renamed');
+
+    // still listening to its services
+    await afterBackgroundBatchSent();
+    sendToWindows.mockReset();
+    workspace().tasks.createTask({ title: 'After', dueDate: DUE });
+    await afterBackgroundBatchSent();
+    expect(sentChanges()).toEqual([{ entities: ['task'], skipWindow: undefined }]);
+  });
 });
 
 describe('the entities of each change', () => {
