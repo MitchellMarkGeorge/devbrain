@@ -51,7 +51,6 @@
   --emerald-900: #004f3b;
   --emerald-950: #002c22;
   --blue-500: #2b7fff;
-  --blue-600: #155dfc;
   --blue-900: #1c398e;
   --blue-950: #162456;
   --indigo-500: #615fff;
@@ -167,8 +166,8 @@
   --card-foreground: var(--neutral-200);
   --popover: var(--neutral-900);
   --popover-foreground: var(--neutral-200);
-  --primary: var(--blue-500);
-  --primary-foreground: var(--white);
+  --primary: var(--neutral-200);
+  --primary-foreground: var(--neutral-900);
   --secondary: var(--neutral-900);
   --secondary-foreground: var(--neutral-200);
   --muted: var(--neutral-900);
@@ -183,7 +182,7 @@
   --row-selected: rgba(229, 229, 229, 0.07);
   --row-selected-foreground: #ffffff;
   --input: var(--neutral-800);
-  --ring: var(--blue-500);
+  --ring: var(--neutral-500);
   --sidebar: var(--neutral-950); /* overrides shadcn neutral-900 */
   --sidebar-foreground: var(--neutral-400); /* overrides shadcn foreground */
   --sidebar-primary: var(--neutral-200);
@@ -191,7 +190,7 @@
   --sidebar-accent: var(--neutral-900);
   --sidebar-accent-foreground: var(--neutral-100);
   --sidebar-border: var(--neutral-900);
-  --sidebar-ring: var(--blue-500);
+  --sidebar-ring: var(--neutral-500);
   --backdrop: rgba(0, 0, 0, 0.5);
 
   --status-not-started: var(--neutral-500);
@@ -221,8 +220,8 @@
   --card-foreground: var(--neutral-950);
   --popover: var(--white);
   --popover-foreground: var(--neutral-950);
-  --primary: var(--blue-600);
-  --primary-foreground: var(--white);
+  --primary: var(--neutral-900);
+  --primary-foreground: var(--neutral-50);
   --secondary: var(--neutral-100);
   --secondary-foreground: var(--neutral-900);
   --muted: var(--neutral-100);
@@ -237,7 +236,7 @@
   --row-selected: rgba(10, 10, 10, 0.05);
   --row-selected-foreground: #0a0a0a;
   --input: var(--neutral-200);
-  --ring: var(--blue-600);
+  --ring: var(--neutral-500);
   --sidebar: var(--neutral-50);
   --sidebar-foreground: var(--neutral-500);
   --sidebar-primary: var(--neutral-900);
@@ -245,7 +244,7 @@
   --sidebar-accent: var(--neutral-100);
   --sidebar-accent-foreground: var(--neutral-900);
   --sidebar-border: var(--neutral-200);
-  --sidebar-ring: var(--blue-600);
+  --sidebar-ring: var(--neutral-500);
   --backdrop: rgba(0, 0, 0, 0.5);
 
   --status-not-started: var(--neutral-500);

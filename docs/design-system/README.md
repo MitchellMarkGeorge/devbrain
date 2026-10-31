@@ -32,7 +32,7 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - **Fields.** Inputs and checkboxes sit on an `input` fill at 30% with an `input` outline, so they are findable at rest.
 - **Destructive.** `destructive` is a red tint (20%) with red text, never a solid red.
 - **Dialogs.** 16px padding and gap, 384px wide, with the actions in a footer band (`muted` at 50% over a `border` line).
-- **Focus.** shadcn's ring: the border turns `ring` with a 3px `ring` halo at 50%. `ring` is DevBrain's brand blue (see Colour).
+- **Focus.** shadcn's ring, unchanged: the border turns `ring` with a 3px `ring` halo at 50%.
 
 **Kept from DevBrain** (these make it DevBrain, not stock shadcn):
 
@@ -80,7 +80,7 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - Dark is the primary theme. Pages, the sidebar, lists and cards sit on `background`; menus, popovers, tooltips, dialogs, sheets and toasts on `popover`.
 - Text: `foreground` for body, `foreground-strong` for titles and row names, `muted-foreground` for labels, descriptions and menu icons, `subtle-foreground` for metadata a reader can skip.
 - Lines: `border` between rows and around pills; `input` around fields and the quiet button; `edge` around anything raised.
-- **Brand blue.** `primary` (`blue-500` in dark, `blue-600` in light, with white `primary-foreground`) and `ring` are the only blue: the rare filled button, a checked checkbox, a switch that is on, and the focus ring. Hover and highlight stay neutral: `accent` is `neutral-800` in dark, so it shows on `popover` (`neutral-900`) as well as on the page.
+- Hover and highlight: `accent` is `neutral-800` in dark, so a highlighted item shows on `popover` (`neutral-900`) as well as on the page.
 - **One red.** In dark, overdue, high priority, off track and delete all use `red-400` (6.2:1 on `popover`); light uses `red-600` throughout. The calendar's today and the time grid's now line keep `now-indicator` (`red-600`), which carries a white number.
 - **Workspace tiles** sit on the 900 step of their swatch (`swatch-*-tile`), so a 20px tile reads as colour; the white letter stays above 9:1.
 - Status colours keep one meaning each (`status-*`, `priority-*`, `health-*`, `date-today`, `date-overdue`), each with its own icon shape. Users pick from the six `swatch-*` colours, shown as 3px bars, dots and swatches.
