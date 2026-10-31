@@ -46,3 +46,14 @@ export interface UpdateNoteOptions {
   linkedEventId?: EventId | null;
   linkedTaskId?: TaskId | null;
 }
+
+/**
+ * What deleting a note changed: the note is gone, and the tasks that linked to it, kept, lost the
+ * link (`unlinkedTaskIds`). `fileRemoved` is false when the row was deleted but its markdown file
+ * could not be removed; the file is left behind in the notes folder, where nothing reads it.
+ */
+export interface NoteDeleteResult {
+  noteId: NoteId;
+  unlinkedTaskIds: TaskId[];
+  fileRemoved: boolean;
+}

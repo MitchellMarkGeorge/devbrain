@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { safeUrlSchema } from '@common/safe-url';
-import { TaskPriority, TaskStatus } from '@main/core/tasks/types';
+import { TaskPriority, TaskStatus, type TaskDeleteResult } from '@main/core/tasks/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId, zPageFields } from '../zod';
@@ -133,6 +133,15 @@ export const tasksRouter = t.router({
         ? ctx.workspace.favorites.favoriteTask(input.id)
         : ctx.workspace.favorites.unfavoriteTask(input.id),
     ),
+
+  // Deletes the task for good, active or archived, with its subtasks at any depth: the response's
+  // `taskIds` lists every one removed, for the renderer to drop. Its task notes are kept, unlinked
+  // (`unlinkedNoteIds`). A synced task fails with external_read_only: detach it first. A detached
+  // one is remembered, so sync does not bring it back while it stays assigned to the user. Asking
+  // the user to confirm (general.confirmBeforeDeleting) is the renderer's.
+  delete: wsProcedure
+    .input(byId)
+    .mutation(({ ctx, input }): TaskDeleteResult => ctx.workspace.tasks.deleteTask(input.id)),
 
   // makes a synced task and its synced subtree local, editable copies
   detach: wsProcedure

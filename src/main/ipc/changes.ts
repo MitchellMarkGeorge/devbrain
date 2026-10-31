@@ -6,6 +6,9 @@ import type { ArchiveChange } from '@main/core/archive/service';
 import type { FavoriteChange } from '@main/core/favorites/service';
 import type { TaskLinkChange } from '@main/core/integrations/detach';
 import type { IntegrationChange } from '@main/core/integrations/service';
+import type { NoteChange } from '@main/core/notes/service';
+import type { ProjectChange } from '@main/core/projects/service';
+import type { TaskChange } from '@main/core/tasks/service';
 import type { SyncProgress } from '@main/core/sync/types';
 
 // Sends an event to the app's windows, skipping `skipWindow` when given: the window a mutation came
@@ -136,9 +139,11 @@ export class ChangeTracker {
   private listenToWorkspace(workspace: Workspace): () => void {
     const { sync } = workspace;
     const unsubscribes = [
-      workspace.tasks.onChange(() => this.recordChange('task')),
-      workspace.projects.onChange(() => this.recordChange('project')),
-      workspace.notes.onChange(() => this.recordChange('note')),
+      workspace.tasks.onChange((change) => this.recordChange(...entitiesOfTaskChange(change))),
+      workspace.projects.onChange((change) =>
+        this.recordChange(...entitiesOfProjectChange(change)),
+      ),
+      workspace.notes.onChange((change) => this.recordChange(...entitiesOfNoteChange(change))),
       workspace.events.onChange(() => this.recordChange('event')),
       workspace.calendars.onChange(() => this.recordChange('calendar')),
       workspace.archive.onChange((change) => this.recordChange(...entitiesOfArchiveChange(change))),
@@ -182,6 +187,26 @@ export function syncProgressEvent({
   itemsApplied,
 }: SyncProgress): AppEvents['sync.progress'] {
   return { sourceId, phase, itemsApplied };
+}
+
+// A delete also changes the rows that pointed at what it removed: a deleted task's notes lose their
+// link, a deleted project's tasks and notes their project, a deleted note's tasks their link.
+export function entitiesOfTaskChange(change: TaskChange): ChangedEntity[] {
+  if (change.type !== 'deleted' || change.unlinkedNoteIds.length === 0) return ['task'];
+  return ['task', 'note'];
+}
+
+export function entitiesOfProjectChange(change: ProjectChange): ChangedEntity[] {
+  const entities: ChangedEntity[] = ['project'];
+  if (change.type !== 'deleted') return entities;
+  if (change.unfiledTaskIds.length > 0) entities.push('task');
+  if (change.unfiledNoteIds.length > 0) entities.push('note');
+  return entities;
+}
+
+export function entitiesOfNoteChange(change: NoteChange): ChangedEntity[] {
+  if (change.type !== 'deleted' || change.unlinkedTaskIds.length === 0) return ['note'];
+  return ['note', 'task'];
 }
 
 export function entitiesOfArchiveChange({

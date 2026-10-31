@@ -3,6 +3,7 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   CreateProjectOptions,
   Project,
+  ProjectDeleteResult,
   ProjectFilterOptions,
   ProjectSortOptions,
   ProjectStats,
@@ -16,6 +17,7 @@ import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { keyset, Page, PageOptions } from '../shared/pagination';
 import { NotFoundError } from '../shared/errors';
 import { tasks } from '@main/db/schema/tasks';
+import { notes } from '@main/db/schema/notes';
 import { TaskStatus } from '../tasks/types';
 import {
   assertEditable,
@@ -28,9 +30,12 @@ import { ChangeListener, ChangeListeners } from '../shared/changes';
 
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
 // layer will forward them to the renderer. Sent after the write commits, with the row as written.
+// `deleted` is sent as the delete's last step, inside its transaction, so search drops the row in
+// the same commit (as an archive does).
 export type ProjectChange =
   | { type: 'created'; project: Project }
-  | { type: 'updated'; project: Project };
+  | { type: 'updated'; project: Project }
+  | ({ type: 'deleted' } & ProjectDeleteResult);
 
 export class ProjectService {
   private readonly changes = new ChangeListeners<ProjectChange>('Project');
@@ -195,6 +200,52 @@ export class ProjectService {
         totalTasks: 0,
       }
     );
+  }
+
+  /**
+   * Deletes a project for good, active or archived. Its tasks and notes are the user's and are
+   * kept: the foreign keys' `set null` takes the project off them, and they stay as they were
+   * otherwise (archived ones stay archived, in the archive view, where each can be restored on its
+   * own). Its external link cascades; favorites and recents are columns of the row and go with it.
+   *
+   * A synced project leaves only through sync, as for an archive, so it throws
+   * ExternalReadOnlyError. A detached or removed one can be deleted, and nothing is recorded for
+   * sync: a project is mirrored only to hold the user's synced tasks, so if Linear brings one back
+   * it is needed again and comes back as a new project. A project that is not synced holds no
+   * synced tasks (sync moves them out before detaching it), so no provider-owned field is written.
+   *
+   * Throws NotFoundError for an unknown id.
+   */
+  deleteProject(id: ProjectId): ProjectDeleteResult {
+    return this.db.transaction((tx) => {
+      const existing = tx
+        .select({ id: projects.id })
+        .from(projects)
+        .where(eq(projects.id, id))
+        .get();
+      if (!existing) throw new NotFoundError(id);
+      assertEditable(tx, id);
+
+      // read before the delete clears their project; served by the full project_id indexes
+      const unfiledTaskIds = tx
+        .select({ id: tasks.id })
+        .from(tasks)
+        .where(eq(tasks.projectId, id))
+        .all()
+        .map((row) => row.id);
+      const unfiledNoteIds = tx
+        .select({ id: notes.id })
+        .from(notes)
+        .where(eq(notes.projectId, id))
+        .all()
+        .map((row) => row.id);
+
+      tx.delete(projects).where(eq(projects.id, id)).run();
+
+      const result: ProjectDeleteResult = { projectId: id, unfiledTaskIds, unfiledNoteIds };
+      this.changes.emit({ type: 'deleted', ...result });
+      return result;
+    });
   }
 
   // An update's result as every read returns it, with `external`, after sending the change. Throws

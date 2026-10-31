@@ -554,7 +554,7 @@ describe('NoteService — updateNoteContent', () => {
       expect(notesService.getById(note.id).preview).toBe(`Save ${N - 1}\n\nbody ${N - 1}`);
       // one change per save, in call order, each carrying the row it wrote
       expect(changes.map((c) => c.type === 'updated' && c.content)).toEqual(contents);
-      expect(changes.map((c) => c.note.preview)).toEqual(
+      expect(changes.map((c) => c.type !== 'deleted' && c.note.preview)).toEqual(
         contents.map((_, i) => `Save ${i}\n\nbody ${i}`),
       );
       expect(await fs.readdir(path.join(workspacePath, 'notes'))).toEqual([`${note.id}.md`]);
@@ -743,6 +743,7 @@ describe('NoteService — onChange', () => {
     notesService.onChange((change) => {
       changes.push(change);
       // the file is written before the change is sent; read synchronously at send time
+      if (change.type === 'deleted') return;
       contentWhenSent.push(
         fsSync.readFileSync(notesFilePath(workspacePath, change.note.id), 'utf8'),
       );
@@ -752,7 +753,7 @@ describe('NoteService — onChange', () => {
     notesService.updateNote(note.id, { title: 'Renamed' });
     await notesService.updateNoteContent(note.id, 'Some **content**');
 
-    expect(changes.map(({ type, note }) => [type, note.id])).toEqual([
+    expect(changes.map((c) => [c.type, c.type !== 'deleted' && c.note.id])).toEqual([
       ['created', note.id],
       ['updated', note.id],
       ['updated', note.id],

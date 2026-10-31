@@ -1,6 +1,11 @@
 import { ExternalSourceId } from '@common/ids';
 import { consoleLogger } from '../shared/logger';
-import { externalLinks } from '@main/db/schema/integrations';
+import {
+  deletedExternalTasks,
+  externalLinks,
+  externalSources,
+  integrations,
+} from '@main/db/schema/integrations';
 import { tasks as tasksTable } from '@main/db/schema/tasks';
 import { and, eq, inArray, isNotNull, isNull, notInArray } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
@@ -132,7 +137,8 @@ export class TaskReconciler {
    *   snapshot, so reassigned, deleted or trashed since the last run, or closed in a way the
    *   incremental query has not seen yet
    * - returning: snapshot ids with no synced link: a `removed` link (e.g. restored from the trash,
-   *   which leaves updatedAt alone) or none yet. A detached link is the user's own and is skipped
+   *   which leaves updatedAt alone) or none yet. A detached link is the user's own and is skipped,
+   *   as is a task the user detached and then deleted (deleted_external_tasks)
    * - projectIds: this source's synced projects, so one edited or deleted in the provider is
    *   noticed
    */
@@ -158,7 +164,27 @@ export class TaskReconciler {
 
     // the snapshot's links, by uq_external_links_source_external_id
     const known = new Map<string, LinkState>();
+    const deleted = new Set<string>();
+    const provider = this.db
+      .select({ provider: integrations.provider })
+      .from(externalSources)
+      .innerJoin(integrations, eq(integrations.id, externalSources.integrationId))
+      .where(eq(externalSources.id, sourceId))
+      .get()?.provider;
     for (const batch of chunks([...assigned])) {
+      if (provider !== undefined) {
+        this.db
+          .select({ externalId: deletedExternalTasks.externalId })
+          .from(deletedExternalTasks)
+          .where(
+            and(
+              eq(deletedExternalTasks.provider, provider),
+              inArray(deletedExternalTasks.externalId, batch),
+            ),
+          )
+          .all()
+          .forEach((row) => deleted.add(row.externalId));
+      }
       const links = this.db
         .select({ externalId: externalLinks.externalId, state: externalLinks.state })
         .from(externalLinks)
@@ -168,7 +194,8 @@ export class TaskReconciler {
     }
     const returning = [...assigned].filter((externalId) => {
       const state = known.get(externalId);
-      return state === undefined || state === LinkState.REMOVED;
+      if (state === undefined) return !deleted.has(externalId);
+      return state === LinkState.REMOVED;
     });
 
     // served by idx_external_links_source_id_state

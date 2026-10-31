@@ -313,6 +313,20 @@ describe('SyncEngine reconcile — returning issues', () => {
     expect(provider.tasks.lookups).toEqual([]);
   });
 
+  it('never treats a detached task the user deleted as returning, so it is not mirrored again', async () => {
+    const deleted = issue();
+    await seed([deleted]);
+    setLinkState(deleted.externalId, LinkState.DETACHED);
+    const taskId = linkOf(deleted.externalId).taskId!;
+    new TaskService(db).deleteTask(taskId);
+
+    // still assigned in Linear, with no link here
+    await reconcile();
+
+    expect(provider.tasks.lookups).toEqual([]);
+    expect(db.select().from(tasksTable).all()).toEqual([]);
+  });
+
   it('looks up only the projects with no candidates and no returning issues', async () => {
     const proj = project();
     await seed([issue({ projectExternalId: proj.externalId }), issue()], [proj]);

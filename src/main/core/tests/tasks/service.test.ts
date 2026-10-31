@@ -1634,7 +1634,7 @@ describe('TaskService — onChange', () => {
     tasks.promoteSubtask(sub.id);
     tasks.demoteTask(sub.id, other.id);
 
-    expect(changes.map(({ type, task }) => [type, task.id])).toEqual([
+    expect(changes.map((c) => [c.type, c.type !== 'deleted' && c.task.id])).toEqual([
       ['created', parent.id],
       ['created', other.id],
       ['created', sub.id],

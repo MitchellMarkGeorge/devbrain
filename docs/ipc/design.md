@@ -151,6 +151,11 @@ not obvious from one file:
 - **Work left running.** The first sync after `integrations.connect`, `sources.setEnabled` or
   `calendars.setSelected` goes on after the response. What it writes reaches the renderer as
   `db.changes`.
+- **`tasks.delete`, `projects.delete`, `notes.delete`** delete for good, active or archived; the
+  archive view's "Delete permanently" calls them too. Each returns the ids it removed (a task's
+  whole subtree) and those of the rows that only lost a link to it. Asking the user to confirm
+  (`general.confirmBeforeDeleting`) is the renderer's; core never reads that setting. See
+  [docs/deleting.md](../deleting.md).
 - **`search.search`** returns the only HTML core produces: escaped text with matches in `<b>`
   (see [untrusted-content.md](../security/untrusted-content.md)).
 
@@ -198,18 +203,18 @@ The rules that shape it:
   commit.
 - **Over-reporting is safe.** It only costs a refetch, so a mapping returns more when in doubt.
 
-| Core change                                 | `ChangedEntity[]`                                                 |
-| ------------------------------------------- | ----------------------------------------------------------------- |
-| `TaskChange`, `NoteChange`, `ProjectChange` | `task`, `note`, `project`                                         |
-| `EventChange`, `CalendarChange`             | `event`, `calendar`                                               |
-| `ArchiveChange`                             | each of `task`, `project`, `note` whose id list is not empty      |
-| `FavoriteChange`                            | the favorited entity's type                                       |
-| `RecentChange` (a view recorded)            | `recent`                                                          |
-| `TaskLinkChange` (detach, reattach)         | `task` plus its `changed`; `credentials_rejected` → `integration` |
-| `IntegrationChange`                         | `integration`, `externalSource`, plus `changed` on `disconnected` |
-| `SyncProgress` (a committed page)           | its `summary.changed`                                             |
-| `SyncStatusChange` (a run recorded its end) | `externalSource`                                                  |
-| `WorkspaceChange`                           | `workspace`                                                       |
+| Core change                                 | `ChangedEntity[]`                                                                                                                                    |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TaskChange`, `NoteChange`, `ProjectChange` | `task`, `note`, `project`; a `deleted` one also names the kinds that lost a link to it (a task's notes, a project's tasks and notes, a note's tasks) |
+| `EventChange`, `CalendarChange`             | `event`, `calendar`                                                                                                                                  |
+| `ArchiveChange`                             | each of `task`, `project`, `note` whose id list is not empty                                                                                         |
+| `FavoriteChange`                            | the favorited entity's type                                                                                                                          |
+| `RecentChange` (a view recorded)            | `recent`                                                                                                                                             |
+| `TaskLinkChange` (detach, reattach)         | `task` plus its `changed`; `credentials_rejected` → `integration`                                                                                    |
+| `IntegrationChange`                         | `integration`, `externalSource`, plus `changed` on `disconnected`                                                                                    |
+| `SyncProgress` (a committed page)           | its `summary.changed`                                                                                                                                |
+| `SyncStatusChange` (a run recorded its end) | `externalSource`                                                                                                                                     |
+| `WorkspaceChange`                           | `workspace`                                                                                                                                          |
 
 ### Push events
 
