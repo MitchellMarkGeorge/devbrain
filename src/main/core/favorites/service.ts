@@ -7,7 +7,7 @@ import { eq } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { Event } from '../events/types';
 import { withEventDetails } from '../events/service';
-import { withRef } from '../integrations/refs';
+import { withExternalRef } from '../integrations/refs';
 import { Note } from '../notes/types';
 import { Project } from '../projects/types';
 import { Task } from '../tasks/types';
@@ -55,7 +55,7 @@ export class FavoritesService {
     const existing = this.db.select().from(tasks).where(eq(tasks.id, id)).get();
     if (!existing) throw new NotFoundError(id);
     // already a favorite: keep the first favoritedAt and send nothing
-    if (existing.favoritedAt !== null) return withRef(this.db, existing);
+    if (existing.favoritedAt !== null) return withExternalRef(this.db, existing);
 
     const task = this.db
       .update(tasks)
@@ -70,14 +70,14 @@ export class FavoritesService {
       id,
       favoritedAt: task.favoritedAt!,
     });
-    return withRef(this.db, task);
+    return withExternalRef(this.db, task);
   }
 
   unfavoriteTask(id: TaskId): Task {
     const existing = this.db.select().from(tasks).where(eq(tasks.id, id)).get();
     if (!existing) throw new NotFoundError(id);
     // not a favorite: nothing to clear
-    if (existing.favoritedAt === null) return withRef(this.db, existing);
+    if (existing.favoritedAt === null) return withExternalRef(this.db, existing);
 
     const task = this.db
       .update(tasks)
@@ -86,14 +86,14 @@ export class FavoritesService {
       .returning()
       .get();
     this.changes.emit({ type: 'unfavorited', entityType: 'tasks', id });
-    return withRef(this.db, task);
+    return withExternalRef(this.db, task);
   }
 
   favoriteProject(id: ProjectId): Project {
     const existing = this.db.select().from(projects).where(eq(projects.id, id)).get();
     if (!existing) throw new NotFoundError(id);
     // already a favorite: keep the first favoritedAt and send nothing
-    if (existing.favoritedAt !== null) return withRef(this.db, existing);
+    if (existing.favoritedAt !== null) return withExternalRef(this.db, existing);
 
     const project = this.db
       .update(projects)
@@ -108,14 +108,14 @@ export class FavoritesService {
       id,
       favoritedAt: project.favoritedAt!,
     });
-    return withRef(this.db, project);
+    return withExternalRef(this.db, project);
   }
 
   unfavoriteProject(id: ProjectId): Project {
     const existing = this.db.select().from(projects).where(eq(projects.id, id)).get();
     if (!existing) throw new NotFoundError(id);
     // not a favorite: nothing to clear
-    if (existing.favoritedAt === null) return withRef(this.db, existing);
+    if (existing.favoritedAt === null) return withExternalRef(this.db, existing);
 
     const project = this.db
       .update(projects)
@@ -124,7 +124,7 @@ export class FavoritesService {
       .returning()
       .get();
     this.changes.emit({ type: 'unfavorited', entityType: 'projects', id });
-    return withRef(this.db, project);
+    return withExternalRef(this.db, project);
   }
 
   favoriteNote(id: NoteId): Note {

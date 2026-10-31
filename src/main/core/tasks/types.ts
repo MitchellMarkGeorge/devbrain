@@ -3,6 +3,7 @@ import { Archivable, Completeable, Model } from '../shared/model';
 import { tasks } from '@main/db/schema/tasks';
 import { InferSelectModel } from 'drizzle-orm';
 import type { ExternalRef } from '../integrations/types';
+import type { EventSummary, NoteSummary, ProjectSummary, TaskSummary } from '../shared/summaries';
 
 export enum TaskPriority {
   // migrated to ints so sorting works
@@ -36,6 +37,31 @@ export interface Task extends Model<TaskId>, Archivable, Completeable {
   // set on every read: the link to the provider item it mirrors, or null for a local task
   external?: ExternalRef | null;
 }
+// What a row in a task's subtask list shows beside the task's own fields, from listSubtasks.
+export interface SubtaskListItem extends Task {
+  // always set on a listed task: null for a local one
+  external: ExternalRef | null;
+  // counts of the task's direct, unarchived subtasks, leaving out cancelled ones as project stats
+  // do; null when none are left
+  subtaskProgress: SubtaskProgress | null;
+  project: ProjectSummary | null;
+  // the event or note the task is linked to
+  link: TaskLinkSummary | null;
+}
+
+// A row in the task list, from listTasks: a subtask also names its parent.
+export interface TaskListItem extends SubtaskListItem {
+  // the parent of a subtask; null for a top-level task
+  parentTask: TaskSummary | null;
+}
+
+export interface SubtaskProgress {
+  completed: number;
+  total: number;
+}
+
+export type TaskLinkSummary = ({ type: 'event' } & EventSummary) | ({ type: 'note' } & NoteSummary);
+
 export interface CreateTaskOptions {
   title: string;
   description?: string;

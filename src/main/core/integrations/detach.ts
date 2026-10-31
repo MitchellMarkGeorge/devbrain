@@ -9,7 +9,7 @@ import { subtreeOf } from '../tasks/subtree';
 import { Task } from '../tasks/types';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { DetachError, IntegrationAuthError, NotFoundError } from '../shared/errors';
-import { withRef } from './refs';
+import { withExternalRef } from './refs';
 import { LinkState } from './types';
 
 // A detach or reattach; the IPC layer will forward it so the renderer refetches the tasks, and the
@@ -235,6 +235,6 @@ export class DetachService {
   private getTask(id: TaskId): Task {
     const row = this.db.select().from(tasks).where(eq(tasks.id, id)).get();
     if (!row) throw new NotFoundError(id);
-    return withRef(this.db, row);
+    return withExternalRef(this.db, row);
   }
 }

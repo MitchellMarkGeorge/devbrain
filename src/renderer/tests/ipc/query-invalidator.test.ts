@@ -139,7 +139,13 @@ describe('onChanged', () => {
 
 describe('the reads table', () => {
   it('lets a full path override its router', () => {
-    expect(entitiesReadBy(['tasks', 'list'])).toEqual(['task', 'project']);
+    expect(entitiesReadBy(['tasks', 'list'])).toEqual([
+      'task',
+      'project',
+      'note',
+      'event',
+      'calendar',
+    ]);
     expect(entitiesReadBy(['unknown', 'list'])).toBe('everything');
     expect(entitiesReadBy(['app', 'version'])).toEqual([]);
   });

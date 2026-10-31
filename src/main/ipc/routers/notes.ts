@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Note } from '@main/core/notes/types';
+import type { Note, NoteListItem } from '@main/core/notes/types';
 import type { Page } from '@main/core/shared/pagination';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
@@ -32,7 +32,7 @@ export const notesRouter = t.router({
       }),
     )
     .query(
-      ({ ctx, input: { filter, sort, ...page } }): Page<Note> =>
+      ({ ctx, input: { filter, sort, ...page } }): Page<NoteListItem> =>
         ctx.workspace.notes.listNotes(filter, sort, page),
     ),
 

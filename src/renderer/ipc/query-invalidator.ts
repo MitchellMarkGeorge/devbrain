@@ -17,11 +17,12 @@ export const ENTITIES_READ_BY_ROUTE: Readonly<Record<string, readonly ChangedEnt
   settings: [],
   workspaces: ['workspace'],
   workspace: [],
-  // a task shows its project
-  tasks: ['task', 'project'],
+  // a task row shows its project, its linked event (in its calendar's colour) or note
+  tasks: ['task', 'project', 'note', 'event', 'calendar'],
   // stats count tasks
   projects: ['project', 'task'],
-  notes: ['note', 'task', 'project'],
+  // a note row shows its project, its linked task or event (in its calendar's colour)
+  notes: ['note', 'task', 'project', 'event', 'calendar'],
   // the calendar view shows only visible calendars
   events: ['event', 'calendar'],
   // a disconnect turns its calendars into local ones

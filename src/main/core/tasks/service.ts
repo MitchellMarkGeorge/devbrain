@@ -7,6 +7,8 @@ import {
   CreateTaskOptions,
   Task,
   TaskFilterOptions,
+  SubtaskListItem,
+  TaskListItem,
   TaskPriority,
   TaskSortOptions,
   TaskStatus,
@@ -16,6 +18,7 @@ import {
 import { InvalidInputError, NotFoundError, TaskHierarchyError } from '../shared/errors';
 import { isSubtask } from './utils';
 import { subtreeOf } from './subtree';
+import { withListDetails, withSubtaskListDetails } from './details';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { localDayWindow } from '../shared/dates';
 import { keyset, Page, PageOptions } from '../shared/pagination';
@@ -24,8 +27,8 @@ import {
   assertRowEditable,
   hasLinkInState,
   isSynced,
-  withRef,
-  withRefs,
+  withExternalRef,
+  withExternalRefs,
 } from '../integrations/refs';
 import { LinkState } from '../integrations/types';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
@@ -47,11 +50,11 @@ export class TaskService {
   getById(id: TaskId): Task {
     const row = this.activeTasks(eq(tasks.id, id)).limit(1).get();
     if (!row) throw new NotFoundError(id);
-    return withRef(this.db, row);
+    return withExternalRef(this.db, row);
   }
 
   getByIds(ids: TaskId[]): Task[] {
-    return withRefs(this.db, this.activeTasks(inArray(tasks.id, ids)).all());
+    return withExternalRefs(this.db, this.activeTasks(inArray(tasks.id, ids)).all());
   }
 
   // a local task can be created in a mirrored project: it stays local and sync never touches it
@@ -124,7 +127,7 @@ export class TaskService {
     filter: TaskFilterOptions = {},
     sort: TaskSortOptions = { sortBy: 'createdAt' },
     page: PageOptions = {},
-  ): Page<Task> {
+  ): Page<TaskListItem> {
     const clauses = [isNull(tasks.archivedAt)];
     if (filter.excludeSubtasks) clauses.push(isNull(tasks.parentTaskId));
     if (filter.excludeClosed) {
@@ -211,12 +214,12 @@ export class TaskService {
       .limit(pager.fetchLimit)
       .all();
 
-    // filled after the page is cut, so the lookup covers only the rows returned
+    // filled after the page is cut, so the lookups cover only the rows returned
     const result = pager.toPage(rows);
-    return { ...result, items: withRefs(this.db, result.items) };
+    return { ...result, items: withListDetails(this.db, result.items) };
   }
 
-  listSubtasks(parentTaskId: TaskId, page: PageOptions = {}): Page<Task> {
+  listSubtasks(parentTaskId: TaskId, page: PageOptions = {}): Page<SubtaskListItem> {
     const pager = keyset<Task>(
       {
         sortKey: 'created',
@@ -237,9 +240,9 @@ export class TaskService {
       .limit(pager.fetchLimit)
       .all();
 
-    // filled after the page is cut, so the lookup covers only the rows returned
+    // filled after the page is cut, so the lookups cover only the rows returned
     const result = pager.toPage(rows);
-    return { ...result, items: withRefs(this.db, result.items) };
+    return { ...result, items: withSubtaskListDetails(this.db, result.items) };
   }
 
   updateTask(id: TaskId, updates: UpdateTaskOptions): Task {
@@ -395,7 +398,7 @@ export class TaskService {
   // NotFoundError when the update matched no row.
   private updated(id: TaskId, row: Task | undefined): Task {
     if (!row) throw new NotFoundError(id);
-    const task = withRef(this.db, row);
+    const task = withExternalRef(this.db, row);
     this.changes.emit({ type: 'updated', task });
     return task;
   }

@@ -11,10 +11,13 @@ import { ArchiveService } from '../../archive/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
 import { TaskService } from '../../tasks/service';
+import { TaskStatus } from '../../tasks/types';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../../shared/errors';
 import { fileExists } from '../../local/utils';
 import { readNoteFile } from '../../local/notes';
 import { notes as notesTable } from '@main/db/schema/notes';
+import { tasks as tasksTable } from '@main/db/schema/tasks';
+import { projects as projectsTable } from '@main/db/schema/projects';
 import { createDb } from '../utils';
 import { InvalidCursorError } from '../../shared/pagination';
 
@@ -316,6 +319,69 @@ describe('NoteService — listNotes', () => {
     expect(result).toHaveLength(2);
     expect(result[0].id).toBe(a.id);
     expect(result[1].id).toBe(b.id);
+  });
+});
+
+describe('NoteService — list row details', () => {
+  it('gives a note its project and its linked task', async () => {
+    const note = await notesService.createNote({
+      title: 'Linked',
+      projectId: FAKE_PROJECT_ID,
+      linkedTaskId: FAKE_TASK_ID,
+    });
+
+    const [item] = notesService.listNotes().items.filter((n) => n.id === note.id);
+
+    expect(item.project).toEqual({ id: FAKE_PROJECT_ID, title: 'Fake Project', color: null });
+    expect(item.link).toEqual({
+      type: 'task',
+      id: FAKE_TASK_ID,
+      title: 'Fake Task',
+      status: TaskStatus.NOT_STARTED,
+    });
+  });
+
+  it("gives a note its linked event, in the event's own colour", async () => {
+    const event = new EventService(db).createEvent({
+      title: 'Mitchell/Jesse 1:1',
+      startAt: TOMORROW,
+      endAt: TOMORROW,
+      color: '#22c55e',
+    });
+    const note = await notesService.createNote({ title: 'Minutes', linkedEventId: event.id });
+
+    const [item] = notesService.listNotes().items.filter((n) => n.id === note.id);
+
+    expect(item.link).toEqual({
+      type: 'event',
+      id: event.id,
+      title: 'Mitchell/Jesse 1:1',
+      startAt: TOMORROW,
+      color: '#22c55e',
+    });
+    expect(item.project).toBeNull();
+  });
+
+  it('leaves out a linked task or project that is archived', async () => {
+    const note = await notesService.createNote({
+      title: 'Linked',
+      projectId: FAKE_OTHER_PROJECT_ID,
+      linkedTaskId: FAKE_TASK_ID,
+    });
+    // archiving either through ArchiveService archives the note too, so only the rows are set
+    db.update(tasksTable)
+      .set({ archivedAt: new Date() })
+      .where(eq(tasksTable.id, FAKE_TASK_ID))
+      .run();
+    db.update(projectsTable)
+      .set({ archivedAt: new Date() })
+      .where(eq(projectsTable.id, FAKE_OTHER_PROJECT_ID))
+      .run();
+
+    const [item] = notesService.listNotes().items.filter((n) => n.id === note.id);
+
+    expect(item.link).toBeNull();
+    expect(item.project).toBeNull();
   });
 });
 

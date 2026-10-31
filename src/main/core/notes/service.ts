@@ -9,6 +9,7 @@ import {
   CreateNoteOptions,
   Note,
   NoteFilterOptions,
+  NoteListItem,
   NoteSortOptions,
   UpdateNoteOptions,
 } from './types';
@@ -16,6 +17,7 @@ import { stripMarkdown } from '../shared/markdown';
 import { InvalidInputError, NotFoundError } from '../shared/errors';
 import { keyset, Page, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
+import { withNoteListDetails } from './details';
 
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
 // layer will forward them to the renderer. Sent after both the note's file and its row are written,
@@ -92,7 +94,7 @@ export class NoteService {
     filter: NoteFilterOptions = {},
     sort: NoteSortOptions = { sortBy: 'updatedAt' },
     page: PageOptions = {},
-  ): Page<Note> {
+  ): Page<NoteListItem> {
     const clauses = [isNull(notes.archivedAt)];
 
     if (filter.projectId !== undefined) {
@@ -150,7 +152,9 @@ export class NoteService {
       .limit(pager.fetchLimit)
       .all();
 
-    return pager.toPage(rows);
+    // filled after the page is cut, so the lookups cover only the rows returned
+    const result = pager.toPage(rows);
+    return { ...result, items: withNoteListDetails(this.db, result.items) };
   }
 
   updateNote(id: NoteId, options: UpdateNoteOptions): Note {

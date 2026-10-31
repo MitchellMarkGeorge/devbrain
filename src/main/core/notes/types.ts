@@ -1,5 +1,6 @@
 import { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
 import { Archivable, Model } from '../shared/model';
+import type { EventSummary, ProjectSummary, TaskSummary } from '../shared/summaries';
 
 export interface Note extends Model<NoteId>, Archivable {
   title: string; // think about untitled notes
@@ -8,6 +9,15 @@ export interface Note extends Model<NoteId>, Archivable {
   linkedEventId: EventId | null;
   linkedTaskId: TaskId | null;
 }
+
+// What a note row shows beside the note's own fields, returned by listNotes.
+export interface NoteListItem extends Note {
+  project: ProjectSummary | null;
+  // the event or task the note is linked to
+  link: NoteLinkSummary | null;
+}
+
+export type NoteLinkSummary = ({ type: 'event' } & EventSummary) | ({ type: 'task' } & TaskSummary);
 
 export interface CreateNoteOptions {
   title?: string;
