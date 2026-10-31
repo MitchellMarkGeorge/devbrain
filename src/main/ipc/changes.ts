@@ -190,7 +190,8 @@ export function syncProgressEvent({
 }
 
 // A delete also changes the rows that pointed at what it removed: a deleted task's notes lose their
-// link, a deleted project's tasks and notes their project, a deleted note's tasks their link.
+// link, a deleted project's tasks and notes their project, a deleted note's tasks their link (or
+// their task note).
 export function entitiesOfTaskChange(change: TaskChange): ChangedEntity[] {
   if (change.type !== 'deleted' || change.unlinkedNoteIds.length === 0) return ['task'];
   return ['task', 'note'];
@@ -205,8 +206,10 @@ export function entitiesOfProjectChange(change: ProjectChange): ChangedEntity[] 
 }
 
 export function entitiesOfNoteChange(change: NoteChange): ChangedEntity[] {
-  if (change.type !== 'deleted' || change.unlinkedTaskIds.length === 0) return ['note'];
-  return ['note', 'task'];
+  if (change.type !== 'deleted') return ['note'];
+  // a task note's task, or the tasks made from the note
+  const tasksChanged = change.linkedTaskId !== null || change.unlinkedTaskIds.length > 0;
+  return tasksChanged ? ['note', 'task'] : ['note'];
 }
 
 export function entitiesOfArchiveChange({

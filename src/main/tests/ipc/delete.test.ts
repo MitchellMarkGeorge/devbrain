@@ -106,9 +106,22 @@ describe('notes.delete', () => {
 
     expect(await mutate('notes.delete', { id: note.id })).toMatchObject({
       ok: true,
-      data: { noteId: note.id, unlinkedTaskIds: [task.id], fileRemoved: true },
+      data: { noteId: note.id, linkedTaskId: null, unlinkedTaskIds: [task.id], fileRemoved: true },
       changed: ['note', 'task'],
     });
     expect(code(await mutate('notes.delete', { id: note.id }))).toBe('not_found');
+  });
+
+  it("names a task note's task, which refetches tasks", async () => {
+    const task = workspace().tasks.createTask({ title: 'Ship', dueDate: DUE });
+    const note = await workspace().notes.createNote({ title: 'Notes', linkedTaskId: task.id });
+    workspace().archive.archiveNote(note.id);
+
+    expect(await mutate('notes.delete', { id: note.id })).toMatchObject({
+      ok: true,
+      data: { noteId: note.id, linkedTaskId: task.id, unlinkedTaskIds: [] },
+      changed: ['note', 'task'],
+    });
+    expect(workspace().tasks.getById(task.id)).toBeDefined();
   });
 });

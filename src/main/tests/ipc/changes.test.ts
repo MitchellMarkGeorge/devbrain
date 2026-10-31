@@ -331,9 +331,27 @@ describe('the entities of each change', () => {
       entitiesOfNoteChange({
         type: 'deleted',
         noteId: 'nte_1' as never,
+        linkedTaskId: null,
         unlinkedTaskIds: ['tsk_1' as never],
       }),
     ).toEqual(['note', 'task']);
+    // a task note: its task has none now
+    expect(
+      entitiesOfNoteChange({
+        type: 'deleted',
+        noteId: 'nte_1' as never,
+        linkedTaskId: 'tsk_1' as never,
+        unlinkedTaskIds: [],
+      }),
+    ).toEqual(['note', 'task']);
+    expect(
+      entitiesOfNoteChange({
+        type: 'deleted',
+        noteId: 'nte_1' as never,
+        linkedTaskId: null,
+        unlinkedTaskIds: [],
+      }),
+    ).toEqual(['note']);
   });
 
   it('maps favorites, task links and integrations', () => {

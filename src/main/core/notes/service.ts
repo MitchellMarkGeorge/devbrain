@@ -235,9 +235,9 @@ export class NoteService {
   }
 
   private async removeNote(id: NoteId): Promise<NoteDeleteResult> {
-    const unlinkedTaskIds = this.db.transaction((tx) => {
+    const { linkedTaskId, unlinkedTaskIds } = this.db.transaction((tx) => {
       const existing = tx
-        .select({ archivedAt: notes.archivedAt })
+        .select({ archivedAt: notes.archivedAt, linkedTaskId: notes.linkedTaskId })
         .from(notes)
         .where(eq(notes.id, id))
         .get();
@@ -252,8 +252,9 @@ export class NoteService {
         .all()
         .map((row) => row.id);
       tx.delete(notes).where(eq(notes.id, id)).run();
-      this.changes.emit({ type: 'deleted', noteId: id, unlinkedTaskIds: linked });
-      return linked;
+      const change = { noteId: id, linkedTaskId: existing.linkedTaskId, unlinkedTaskIds: linked };
+      this.changes.emit({ type: 'deleted', ...change });
+      return change;
     });
 
     // the path the app reads and writes, not the stored filePath, which can predate a move of the
@@ -266,7 +267,7 @@ export class NoteService {
       // the class only: the error quotes the note's file path
       this.logger.warn(`Removing deleted note ${id}'s file failed error=${errorClass(error)}`);
     }
-    return { noteId: id, unlinkedTaskIds, fileRemoved };
+    return { noteId: id, linkedTaskId, unlinkedTaskIds, fileRemoved };
   }
 
   private async saveNoteContent(id: NoteId, content: string): Promise<Note> {

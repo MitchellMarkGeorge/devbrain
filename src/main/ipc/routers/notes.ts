@@ -61,7 +61,8 @@ export const notesRouter = t.router({
     ),
 
   // Deletes an archived (trashed) note for good; an active one fails with not_archived. Its row
-  // goes, then its file, after any save already in flight. Tasks linked to it are kept, unlinked
+  // goes, then its file, after any save already in flight. Tasks linked to it are kept: the task
+  // it was the task note of (`linkedTaskId`) has none now, and tasks made from it lose the link
   // (`unlinkedTaskIds`). If the file can't be removed the note is still deleted and `fileRemoved`
   // is false.
   delete: wsProcedure

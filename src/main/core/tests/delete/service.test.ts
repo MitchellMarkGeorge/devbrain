@@ -559,14 +559,28 @@ describe('NoteService.deleteNote', () => {
     expect(await exists(noteFile(other.id))).toBe(true);
   });
 
-  it("deletes a task note, and the task's link with it", async () => {
+  it('deletes a task note, naming its task, which is kept with no task note', async () => {
     const task = tasks.createTask({ title: 'Task', dueDate: TOMORROW });
     const note = await notes.createNote({ title: 'Task note', linkedTaskId: task.id });
+    const before = taskRow(task.id)!;
     archive.archiveNote(note.id);
 
-    expect((await notes.deleteNote(note.id)).unlinkedTaskIds).toEqual([]);
-    expect(taskRow(task.id)).toBeDefined();
+    const result = await notes.deleteNote(note.id);
+
+    expect(result).toMatchObject({ linkedTaskId: task.id, unlinkedTaskIds: [] });
+    // the link lived on the note: the task row is not written
+    expect(taskRow(task.id)).toEqual(before);
     expect(notes.listNotes({ linkedTaskId: task.id }).items).toEqual([]);
+    // the task can take a new task note
+    const next = await notes.createNote({ title: 'New task note', linkedTaskId: task.id });
+    expect(noteRow(next.id)).toMatchObject({ linkedTaskId: task.id });
+  });
+
+  it('names no task for a note that was not a task note', async () => {
+    const note = await notes.createNote({ title: 'Loose' });
+    archive.archiveNote(note.id);
+
+    expect((await notes.deleteNote(note.id)).linkedTaskId).toBeNull();
   });
 
   it('refuses an active note with not_archived, keeping its file', async () => {
@@ -661,7 +675,13 @@ describe('NoteService.deleteNote', () => {
     await notes.deleteNote(note.id);
 
     expect(changes).toEqual([
-      { type: 'deleted', noteId: note.id, unlinkedTaskIds: [task.id], inTransaction: true },
+      {
+        type: 'deleted',
+        noteId: note.id,
+        linkedTaskId: null,
+        unlinkedTaskIds: [task.id],
+        inTransaction: true,
+      },
     ]);
   });
 });

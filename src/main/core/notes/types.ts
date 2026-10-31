@@ -48,12 +48,16 @@ export interface UpdateNoteOptions {
 }
 
 /**
- * What deleting a note changed: the note is gone, and the tasks that linked to it, kept, lost the
- * link (`unlinkedTaskIds`). `fileRemoved` is false when the row was deleted but its markdown file
- * could not be removed; the file is left behind in the notes folder, where nothing reads it.
+ * What deleting a note changed: the note is gone, and the tasks it was linked with, kept, lost the
+ * link. `linkedTaskId` is the task the note was the task note of (null when it was not one): that
+ * task now has no task note. `unlinkedTaskIds` are the tasks made from the note
+ * (`tasks.linkedNoteId`), subtasks included. `fileRemoved` is false when the row was deleted but
+ * its markdown file could not be removed; the file is left behind in the notes folder, where
+ * nothing reads it.
  */
 export interface NoteDeleteResult {
   noteId: NoteId;
+  linkedTaskId: TaskId | null;
   unlinkedTaskIds: TaskId[];
   fileRemoved: boolean;
 }

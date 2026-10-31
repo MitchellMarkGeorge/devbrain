@@ -24,11 +24,11 @@ deleted kind plus the kinds that lost a link to it.
 Foreign keys do the work; `runMigrations` leaves them on for the connection, and the tests check
 it.
 
-| Deleted | Removed with it                                                  | Kept, with the reference cleared                                |
-| ------- | ---------------------------------------------------------------- | --------------------------------------------------------------- |
-| Task    | Its subtasks at any depth (`parentTaskId` cascades); their links | Their task notes (`notes.linkedTaskId` set null)                |
-| Project | Its external link                                                | Its tasks and notes (`projectId` set null)                      |
-| Note    | Its markdown file, after the commit                              | Tasks made from it, subtasks included (`linkedNoteId` set null) |
+| Deleted | Removed with it                                                  | Kept, with the reference cleared                                                                                      |
+| ------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Task    | Its subtasks at any depth (`parentTaskId` cascades); their links | Their task notes (`notes.linkedTaskId` set null)                                                                      |
+| Project | Its external link                                                | Its tasks and notes (`projectId` set null)                                                                            |
+| Note    | Its markdown file, after the commit                              | Tasks made from it, subtasks included (`linkedNoteId` set null); the task it was the task note of, which now has none |
 
 - **Only from the trash.** A task needs its whole subtree archived. Archiving takes the subtree
   along, but sync archives a removed Linear task on its own and can leave synced subtasks live under
@@ -38,6 +38,8 @@ it.
   grouping. Deleting them too is a delete of each. Archived ones stay archived.
 - **One task note per task** still holds: `notes.linkedTaskId` is unique, and a delete only clears
   it. A freed note can become another task's task note.
+- **Deleting a task note** leaves its task as it was: the link lives on the note, so the task row
+  is not written. The response's `linkedTaskId` names the task, which can then take a new task note.
 - **Search, favorites and recents.** Favorites and recents are columns of the rows and go with them.
   Search entries are removed through the change.
 - **A note's file** is removed after the row's transaction commits, so a failed delete never leaves
