@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { settingsFileSchema, appStateSchema, appSettingsSchema } from '../../settings/schema';
 import type { SettingsFile } from '../../settings/types';
+import { getDefaults } from '../../settings/defaults';
 import { TaskPriority } from '../../tasks/types';
 
 const validSettings: SettingsFile = {
@@ -26,6 +27,7 @@ const validSettings: SettingsFile = {
       defaultEventDuration: '30m',
       firstDayOfWeek: 'monday',
       defaultView: 'week',
+      showWeekends: true,
     },
   },
   state: {
@@ -294,6 +296,34 @@ describe('appSettingsSchema — calendar block', () => {
       appSettingsSchema.safeParse(withCalendar({ defaultView: 'agenda' as never }).settings)
         .success,
     ).toBe(false);
+  });
+
+  it('accepts true and false for showWeekends', () => {
+    for (const showWeekends of [true, false]) {
+      expect(appSettingsSchema.safeParse(withCalendar({ showWeekends }).settings).success).toBe(
+        true,
+      );
+    }
+  });
+
+  it('rejects a non-boolean for showWeekends', () => {
+    expect(
+      appSettingsSchema.safeParse(withCalendar({ showWeekends: 'false' as never }).settings)
+        .success,
+    ).toBe(false);
+  });
+
+  it('gives a settings file written before showWeekends the default', () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { showWeekends, ...calendar } = validSettings.settings.calendar;
+    const result = settingsFileSchema.safeParse({
+      ...validSettings,
+      settings: { ...validSettings.settings, calendar },
+    });
+    expect(result.success).toBe(true);
+    expect(result.data?.settings.calendar.showWeekends).toBe(
+      getDefaults('/root').settings.calendar.showWeekends,
+    );
   });
 });
 

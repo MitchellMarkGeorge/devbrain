@@ -173,6 +173,33 @@ describe('settings', () => {
     expect(devBrain.settings.get('settings.general.timeFormat')).toBe('24');
   });
 
+  it('turns showWeekends off and back on', async () => {
+    const settings = devBrain.settings.get('settings');
+    expect(settings.calendar.showWeekends).toBe(true);
+
+    for (const showWeekends of [false, true]) {
+      const changed = { ...settings, calendar: { ...settings.calendar, showWeekends } };
+      expect(await call('settings.update', changed, 'mutation')).toMatchObject({
+        ok: true,
+        data: changed,
+      });
+      expect(devBrain.settings.get('settings.calendar.showWeekends')).toBe(showWeekends);
+    }
+  });
+
+  it('takes settings without showWeekends, as a renderer from before it sends, as the default', async () => {
+    const settings = devBrain.settings.get('settings');
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { showWeekends, ...calendar } = settings.calendar;
+
+    expect(await call('settings.update', { ...settings, calendar }, 'mutation')).toEqual({
+      ok: true,
+      data: settings,
+      changed: [],
+    });
+    expect(devBrain.settings.get('settings.calendar.showWeekends')).toBe(true);
+  });
+
   it("refuses settings core's schema refuses, writing nothing", async () => {
     const settings = devBrain.settings.get('settings');
     const refused = [

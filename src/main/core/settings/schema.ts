@@ -24,6 +24,9 @@ export const appSettingsSchema = z.object({
     defaultEventDuration: z.enum(['15m', '30m', '1h']),
     firstDayOfWeek: z.enum(['monday', 'sunday']),
     defaultView: z.enum(['month', 'week', 'day']),
+    // added after the first settings files were written: one without it takes the default (see
+    // SettingsService, which writes it into the file)
+    showWeekends: z.boolean().default(true),
   }),
 });
 
