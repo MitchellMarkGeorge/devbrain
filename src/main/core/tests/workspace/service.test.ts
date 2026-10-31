@@ -254,8 +254,18 @@ describe('WorkspaceService — update', () => {
   // two workspaces in the registry, and a service recording every change it sends
   function setup() {
     const infos = [
-      makeInfo({ id: 'wsp_first' as WorkspaceId, name: 'First', color: '#fb2c36' }),
-      makeInfo({ id: 'wsp_second' as WorkspaceId, name: 'Second', color: '#2b7fff' }),
+      makeInfo({
+        id: 'wsp_first' as WorkspaceId,
+        name: 'First',
+        color: '#fb2c36',
+        path: path.join(tmpDir, 'wsp_first'),
+      }),
+      makeInfo({
+        id: 'wsp_second' as WorkspaceId,
+        name: 'Second',
+        color: '#2b7fff',
+        path: path.join(tmpDir, 'wsp_second'),
+      }),
     ];
     writeRegistry(tmpDir, infos);
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
@@ -388,14 +398,13 @@ describe('WorkspaceService — update', () => {
 
   it('waits for a running transition, so it never writes over the registry mid-open', async () => {
     const { service, infos } = setup();
+    await fs.mkdir(infos[0].path);
     const opening = deferred<unknown>();
     vi.mocked(Workspace.open).mockReturnValueOnce(opening.promise as never);
-    // infos[0].path is under /fake, so point it at a real directory first
-    writeRegistry(tmpDir, [{ ...infos[0], path: tmpDir }, infos[1]]);
 
     const open = service.open(infos[0].id);
     const update = service.update(infos[0].id, { name: 'Renamed' });
-    opening.resolve({ info: { ...infos[0], path: tmpDir }, sync: { start: vi.fn() } });
+    opening.resolve({ info: { ...infos[0] }, sync: { start: vi.fn() } });
     await Promise.all([open, update]);
 
     // open's lastOpenedAt write and the rename both landed
