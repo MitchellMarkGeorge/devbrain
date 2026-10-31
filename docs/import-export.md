@@ -242,7 +242,7 @@ Imported files are untrusted input, like synced content
 - **Export names** are built from titles by `safeFileName` and checked by `childPath` to land
   directly inside the export folder, so a title like `../../x` can't write anywhere else.
 - **Parsing.** JSON is read with `JSON.parse` and only known keys, own properties only, are read.
-  Front matter is read with js-yaml's safe `load`. CSV is parsed by a small RFC 4180 reader.
+  Front matter is read with js-yaml's safe `load`. CSV is parsed by `csv-parse`.
 - **Rendering.** Imported titles, descriptions and note content are text and Markdown like any
   other, and follow the rendering rules in untrusted-content.md.
 - **Messages** name a file by its base name only, never its full path.

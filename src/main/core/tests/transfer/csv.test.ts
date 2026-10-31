@@ -9,7 +9,7 @@ describe('CSV', () => {
       ['Say "hi"', '  padded  '],
       ['', 'empty first cell'],
     ];
-    expect(parseCsv(formatCsv(rows))).toEqual({ records: rows, unclosedQuoteRow: null });
+    expect(parseCsv(formatCsv(rows))).toEqual({ records: rows, problem: null });
   });
 
   it('reads LF, CRLF and CR line endings, and a last line without one', () => {
@@ -27,7 +27,7 @@ describe('CSV', () => {
   });
 
   it('reports the record whose quoted field never closes', () => {
-    expect(parseCsv('a\n"b\nc').unclosedQuoteRow).toBe(2);
+    expect(parseCsv('a\n"b\nc').problem).toBe('row 2 has a quote that never closes');
   });
 
   it('guards cells a spreadsheet would run as formulas, and round-trips them', () => {

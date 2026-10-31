@@ -225,14 +225,8 @@ function tooManyRows(fileName: string): ImportFileError {
  * and (too_large) for too many rows.
  */
 export function parseTasksCsv(text: string, fileName: string): ParsedTaskFile {
-  const { records, unclosedQuoteRow } = parseCsv(text);
-  if (unclosedQuoteRow !== null) {
-    throw new ImportFileError(
-      'malformed',
-      fileName,
-      `${fileName}: row ${unclosedQuoteRow} has a quote that never closes`,
-    );
-  }
+  const { records, problem } = parseCsv(text);
+  if (problem !== null) throw new ImportFileError('malformed', fileName, `${fileName}: ${problem}`);
   const [header = [], ...rows] = records;
   const columns = header.map((name) => CSV_FIELDS[headerKey(name)] ?? null);
   if (!columns.includes('title')) {

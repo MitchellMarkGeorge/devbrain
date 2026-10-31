@@ -1,3 +1,5 @@
+import { CsvError, parse } from 'csv-parse/sync';
+
 // RFC 4180 CSV, as spreadsheets read and write it: comma-separated, a field quoted when it holds a
 // comma, a quote or a line break, and a quote inside a quoted field doubled.
 
@@ -27,59 +29,32 @@ export function formatCsv(rows: string[][]): string {
 }
 
 /**
- * The records of CSV text, each a list of cells, guarded cells unguarded. Accepts LF, CRLF and CR
- * line endings, and line breaks inside quoted fields (one record, as in a spreadsheet). A quote in
- * the middle of an unquoted field is kept as text. Returns the number of the record whose quoted
- * field never closes as `unclosedQuoteRow`, with the records before it.
+ * The records of CSV text, each a list of cells, guarded cells unguarded, or what makes the text
+ * unreadable as CSV. Parsed by csv-parse: LF, CRLF and CR line endings, line breaks inside quoted
+ * fields (one record, as in a spreadsheet), rows of different lengths, and a quote in the middle of
+ * an unquoted field kept as text. A blank line is a record of one empty cell, so record numbers stay
+ * the spreadsheet's rows.
  */
-export function parseCsv(text: string): { records: string[][]; unclosedQuoteRow: number | null } {
-  const records: string[][] = [];
-  let record: string[] = [];
-  let cell = '';
-  let quoted = false;
-  let i = 0;
-
-  const endCell = () => {
-    record.push(unguardCell(cell));
-    cell = '';
-  };
-  const endRecord = () => {
-    endCell();
-    records.push(record);
-    record = [];
-  };
-
-  while (i < text.length) {
-    const char = text[i];
-    if (quoted) {
-      if (char === '"') {
-        if (text[i + 1] === '"') {
-          cell += '"';
-          i += 2;
-          continue;
-        }
-        quoted = false;
-        i += 1;
-        continue;
-      }
-      cell += char;
-      i += 1;
-      continue;
-    }
-    if (char === '"' && cell === '') {
-      quoted = true;
-    } else if (char === ',') {
-      endCell();
-    } else if (char === '\r' || char === '\n') {
-      endRecord();
-      if (char === '\r' && text[i + 1] === '\n') i += 1;
-    } else {
-      cell += char;
-    }
-    i += 1;
+export function parseCsv(text: string): { records: string[][]; problem: string | null } {
+  try {
+    const records: string[][] = parse(text, {
+      bom: true,
+      record_delimiter: ['\r\n', '\n', '\r'],
+      relax_column_count: true,
+      relax_quotes: true,
+    });
+    return { records: records.map((record) => record.map(unguardCell)), problem: null };
+  } catch (error) {
+    if (!(error instanceof CsvError)) throw error;
+    // `records` counts the records read before the one that failed
+    const row = error.records;
+    const where = typeof row === 'number' ? `row ${row + 1}` : 'a row';
+    return {
+      records: [],
+      problem:
+        error.code === 'CSV_QUOTE_NOT_CLOSED'
+          ? `${where} has a quote that never closes`
+          : `${where} is not valid CSV`,
+    };
   }
-  if (quoted) return { records, unclosedQuoteRow: records.length + 1 };
-  // a last line without a line break; a trailing line break adds no record
-  if (cell !== '' || record.length > 0) endRecord();
-  return { records, unclosedQuoteRow: null };
 }
