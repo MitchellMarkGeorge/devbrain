@@ -204,16 +204,16 @@ export class ProjectService {
 
   /**
    * Deletes an archived project for good (the UI calls archived items "in the trash"; deleting is
-   * only offered there). An active one throws NotArchivedError. Its tasks and notes are the user's and are
-   * kept: the foreign keys' `set null` takes the project off them, and they stay as they were
-   * otherwise (archived ones stay archived, in the archive view, where each can be restored on its
-   * own). Its external link cascades; favorites and recents are columns of the row and go with it.
+   * only offered there). An active one throws NotArchivedError. Its tasks and notes are the user's
+   * and are kept: the foreign keys' `set null` takes the project off them, and they stay as they
+   * were otherwise (archived with it, in the trash, where each can be restored on its own). Its
+   * external link cascades; favorites and recents are columns of the row and go with it.
    *
-   * A synced project leaves only through sync, as for an archive, so it throws
-   * ExternalReadOnlyError. A detached or removed one can be deleted, and nothing is recorded for
-   * sync: a project is mirrored only to hold the user's synced tasks, so if Linear brings one back
-   * it is needed again and comes back as a new project. A project that is not synced holds no
-   * synced tasks (sync moves them out before detaching it), so no provider-owned field is written.
+   * A synced project belongs to its provider and is never archived, so it is refused
+   * (ExternalReadOnlyError is checked too, as archive does). A detached or removed one is the
+   * user's own and can be deleted, with nothing recorded for sync: if Linear sends the project
+   * again, it comes back as a new project. A project that is not synced holds no synced tasks
+   * (sync moves them out before detaching it), so no provider-owned field is written.
    *
    * Throws NotFoundError for an unknown id, and NotArchivedError for one not in the trash.
    */

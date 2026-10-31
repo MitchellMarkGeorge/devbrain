@@ -157,19 +157,3 @@ export const externalEventExceptions = sqliteTable(
     primaryKey({ columns: [table.sourceId, table.masterExternalId, table.originalStartAt] }),
   ],
 );
-
-// Tasks the user detached from a provider and then deleted, by provider and the provider's id, so
-// sync does not mirror them again (TaskService.deleteTask, SyncWriter.upsertTasks). Keyed like the
-// detached copies a disconnect leaves, which a reconnect matches by provider and id, so a deleted
-// one stays deleted across a reconnect too. A row lasts while the item is assigned to the user:
-// sync drops it once the provider reports the item gone or reassigned, so an item assigned again
-// later comes back as a new task.
-export const deletedExternalTasks = sqliteTable(
-  'deleted_external_tasks',
-  {
-    provider: text().notNull().$type<Provider>(),
-    externalId: text().notNull(),
-    deletedAt: date().notNull(),
-  },
-  (table) => [primaryKey({ columns: [table.provider, table.externalId] })],
-);

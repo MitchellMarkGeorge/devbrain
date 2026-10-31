@@ -134,11 +134,11 @@ export const tasksRouter = t.router({
         : ctx.workspace.favorites.unfavoriteTask(input.id),
     ),
 
-  // Deletes an archived (trashed) task for good, else not_archived, with its subtasks at any depth: the response's
-  // `taskIds` lists every one removed, for the renderer to drop. Its task notes are kept, unlinked
-  // (`unlinkedNoteIds`). A synced task fails with external_read_only: detach it first. A detached
-  // one is remembered, so sync does not bring it back while it stays assigned to the user. Asking
-  // the user to confirm (general.confirmBeforeDeleting) is the renderer's.
+  // Deletes an archived (trashed) task for good, with its subtasks at any depth; an active one
+  // fails with not_archived. The response's `taskIds` lists every task removed, for the renderer to
+  // drop. Its task notes are kept, unlinked (`unlinkedNoteIds`). A detached task is the user's own
+  // copy: deleting it records nothing, so if Linear sends the issue again it syncs back as a new
+  // task. Asking the user to confirm (general.confirmBeforeDeleting) is the renderer's.
   delete: wsProcedure
     .input(byId)
     .mutation(({ ctx, input }): TaskDeleteResult => ctx.workspace.tasks.deleteTask(input.id)),

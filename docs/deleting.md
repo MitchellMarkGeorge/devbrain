@@ -49,32 +49,24 @@ it.
 
 ## Synced items
 
-| Link state                     | Delete                                                                               |
-| ------------------------------ | ------------------------------------------------------------------------------------ |
-| none (local)                   | Allowed                                                                              |
-| `synced`                       | Never archived, so refused with `not_archived` (`external_read_only` is checked too) |
-| `detached` task                | Allowed, and recorded in `deleted_external_tasks` so sync does not mirror it again   |
-| `removed` (archived by sync)   | Allowed, nothing recorded                                                            |
-| `detached` / `removed` project | Allowed, nothing recorded                                                            |
+| Link state                         | Delete                                                                               |
+| ---------------------------------- | ------------------------------------------------------------------------------------ |
+| none (local)                       | Allowed                                                                              |
+| `synced`                           | Never archived, so refused with `not_archived` (`external_read_only` is checked too) |
+| `detached` or `removed` (any kind) | Allowed, nothing recorded for sync                                                   |
 
-Deleting a row deletes its link, so with nothing else sync would see the item as never mirrored and
-insert it again the next time the provider reports it. That is right for a `removed` item: it left
-the user's assignments, and if it comes back it would have been restored anyway. For a detached
-task it would break detach's promise that sync leaves the task alone, so the delete records the
-task (and its detached subtree) by provider and external id. `SyncWriter.upsertTasks` skips a
-recorded item that has no link, and reconcile does not look it up as returning.
+A detached task is the user's own copy of a provider item, and they own the copy, not the item. A
+`removed` one is the same: the provider no longer assigns it, and what is left is the user's.
+Deleting either deletes the copy and its link, and nothing else. Sync keeps no record of it, so if
+the provider sends the same item again (it is still assigned and changes, it is found by reconcile,
+or it is assigned again later), sync treats it as never mirrored and adds it as a new synced task.
+That is the provider's state coming in, not the deleted copy coming back, and DevBrain does not try
+to suppress it. The same holds for detached and removed projects.
 
-- The record is keyed by provider and external id, not by source, like the detached copies a
-  disconnect leaves, which a reconnect matches by provider and id. A deleted task stays deleted
-  across a reconnect too, and a detached copy left by a disconnect can be deleted the same way.
-- It lasts while the item stays assigned. When the provider reports it gone or reassigned
-  (`PageWrite.removeTasks`), the record goes, and an item assigned again later comes back as a new
-  task.
 - A synced task only has synced tasks below it, and a detached or local one none, so checking the
   whole subtree refuses exactly the synced ones.
-- Projects get no record: one is mirrored only to hold the user's synced tasks, so if Linear brings
-  it back it is needed again and comes back as a new project. A project that is not synced holds no
-  synced tasks, so deleting one writes no provider-owned field.
+- A project that is not synced holds no synced tasks (sync moves them out before detaching it), so
+  deleting one writes no provider-owned field.
 
 ## Not done
 

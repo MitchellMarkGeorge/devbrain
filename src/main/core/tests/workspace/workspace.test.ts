@@ -614,7 +614,7 @@ describe('Workspace — permanent delete', () => {
     }
   });
 
-  it('does not bring back a detached Linear task the user deleted', async () => {
+  it("deletes only the user's copy of a detached Linear task; sync brings the issue back as new", async () => {
     const provider = createFakeProvider();
     const workspace = await Workspace.create(makeInfo(tmpDir), {
       ...OPTIONS,
@@ -645,9 +645,12 @@ describe('Workspace — permanent delete', () => {
       provider.tasks.script({ tasks: [{ ...item, title: 'Edited', updatedAt }, fresh] });
       await workspace.sync.syncNow(sourceId);
 
-      // the page was applied: the other issue on it arrived
-      expect(workspace.tasks.listTasks().items.map((task) => task.title)).toEqual(['Fresh']);
-      expect(searchIds(workspace, 'Edited')).toEqual([]);
+      const titles = workspace.tasks.listTasks().items.map((task) => task.title);
+      expect(titles.sort()).toEqual(['Edited', 'Fresh']);
+      const [edited] = workspace.tasks.listTasks().items.filter((task) => task.title === 'Edited');
+      expect(edited.id).not.toBe(id);
+      expect(edited.external?.state).toBe(LinkState.SYNCED);
+      expect(searchIds(workspace, 'Edited')).toEqual([edited.id]);
     } finally {
       await workspace.close();
     }

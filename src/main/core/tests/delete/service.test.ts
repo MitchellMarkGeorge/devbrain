@@ -6,12 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { and, eq, inArray } from 'drizzle-orm';
 import { ExternalSourceId, NoteId, ProjectId, TaskId } from '@common/ids';
-import {
-  deletedExternalTasks,
-  externalLinks,
-  externalSources,
-  integrations,
-} from '@main/db/schema/integrations';
+import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
 import { tasks as tasksTable } from '@main/db/schema/tasks';
 import { projects as projectsTable } from '@main/db/schema/projects';
 import { notes as notesTable } from '@main/db/schema/notes';
@@ -174,10 +169,6 @@ function noteRow(id: NoteId) {
 
 function projectRow(id: ProjectId) {
   return db.select().from(projectsTable).where(eq(projectsTable.id, id)).get();
-}
-
-function tombstones() {
-  return db.select().from(deletedExternalTasks).all();
 }
 
 function noteFile(id: NoteId): string {
@@ -347,7 +338,6 @@ describe('TaskService.deleteTask — synced tasks', () => {
     expect(() => archive.archiveTask(taskId)).toThrow(ExternalReadOnlyError);
     expect(taskRow(taskId)).toBeDefined();
     expect(linkOf(child.externalId)!.state).toBe(LinkState.SYNCED);
-    expect(tombstones()).toEqual([]);
   });
 
   it('refuses a removed task while synced subtasks are still live under it', () => {
@@ -364,7 +354,7 @@ describe('TaskService.deleteTask — synced tasks', () => {
     expect(taskRow(childId)).toMatchObject({ archivedAt: null });
   });
 
-  it('deletes a detached task and its detached subtree, and sync does not mirror them again', () => {
+  it('deletes a detached task and its detached subtree, with their links', () => {
     const parent = issue();
     const child = issue({ parentExternalId: parent.externalId });
     writer.applyTaskPage(sourceId, page({ tasks: [parent, child] }));
@@ -376,35 +366,11 @@ describe('TaskService.deleteTask — synced tasks', () => {
     archive.archiveTask(taskId);
 
     expect(tasks.deleteTask(taskId).taskIds).toEqual([taskId, childId]);
-    // the links went with the tasks
     expect(linkOf(parent.externalId)).toBeUndefined();
-    expect(
-      tombstones()
-        .map((row) => [row.provider, row.externalId])
-        .sort(),
-    ).toEqual(
-      [
-        [Provider.LINEAR, parent.externalId],
-        [Provider.LINEAR, child.externalId],
-      ].sort(),
-    );
-
-    // both still assigned, and changed in Linear since
-    const summary = writer.applyTaskPage(
-      sourceId,
-      page({
-        tasks: [
-          { ...parent, updatedAt: V2 },
-          { ...child, updatedAt: V2 },
-        ],
-      }),
-    );
-
-    expect(summary.inserted).toBe(0);
-    expect(db.select().from(tasksTable).all()).toEqual([]);
+    expect(linkOf(child.externalId)).toBeUndefined();
   });
 
-  it('a deleted detached task comes back as a new task once it was unassigned and is assigned again', () => {
+  it("only deletes the user's copy: if Linear sends the issue again, it syncs back as a new task", () => {
     const item = issue();
     writer.applyTaskPage(sourceId, page({ tasks: [item] }));
     setLinkState(item.externalId, LinkState.DETACHED);
@@ -412,49 +378,17 @@ describe('TaskService.deleteTask — synced tasks', () => {
     archive.archiveTask(taskId);
     tasks.deleteTask(taskId);
 
-    // reassigned in Linear: sync forgets the delete
-    writer.applyTaskPage(
-      sourceId,
-      page({ tasks: [{ ...item, assignedToViewer: false, updatedAt: V2 }] }),
-    );
-    expect(tombstones()).toEqual([]);
+    // still assigned, and changed in Linear since
+    const summary = writer.applyTaskPage(sourceId, page({ tasks: [{ ...item, updatedAt: V2 }] }));
 
-    // assigned back: a new task
-    writer.applyTaskPage(sourceId, page({ tasks: [{ ...item, updatedAt: V2 }] }));
+    expect(summary.inserted).toBe(1);
     const link = linkOf(item.externalId)!;
     expect(link.state).toBe(LinkState.SYNCED);
     expect(link.taskId).not.toBe(taskId);
+    expect(taskRow(link.taskId!)).toMatchObject({ archivedAt: null });
   });
 
-  it('a removal of a deleted detached task forgets it too', () => {
-    const item = issue();
-    writer.applyTaskPage(sourceId, page({ tasks: [item] }));
-    setLinkState(item.externalId, LinkState.DETACHED);
-    archive.archiveTask(linkOf(item.externalId)!.taskId!);
-    tasks.deleteTask(linkOf(item.externalId)!.taskId!);
-
-    writer.applyTaskPage(sourceId, page({ removedIds: [item.externalId] }));
-
-    expect(tombstones()).toEqual([]);
-  });
-
-  it('records a detached copy a disconnect left, so a reconnect does not match it again', () => {
-    const item = issue();
-    writer.applyTaskPage(sourceId, page({ tasks: [item] }));
-    setLinkState(item.externalId, LinkState.DETACHED);
-    // what a disconnect keeping local copies leaves
-    db.update(externalLinks).set({ sourceId: null }).run();
-    const taskId = db.select().from(externalLinks).get()!.taskId!;
-    archive.archiveTask(taskId);
-
-    tasks.deleteTask(taskId);
-
-    expect(tombstones().map((row) => row.externalId)).toEqual([item.externalId]);
-    writer.applyTaskPage(sourceId, page({ tasks: [{ ...item, updatedAt: V2 }] }));
-    expect(db.select().from(tasksTable).all()).toEqual([]);
-  });
-
-  it('deletes a removed task (archived by sync) with nothing recorded, so it can come back new', async () => {
+  it('deletes a removed task (archived by sync); it comes back new if assigned again', async () => {
     const item = issue();
     writer.applyTaskPage(sourceId, page({ tasks: [item] }));
     writer.applyTaskPage(sourceId, page({ removedIds: [item.externalId] }));
@@ -463,14 +397,13 @@ describe('TaskService.deleteTask — synced tasks', () => {
     const taskNote = await notes.createNote({ title: 'Kept', linkedTaskId: taskId });
 
     expect(tasks.deleteTask(taskId)).toEqual({ taskIds: [taskId], unlinkedNoteIds: [taskNote.id] });
-    expect(tombstones()).toEqual([]);
 
     writer.applyTaskPage(sourceId, page({ tasks: [{ ...item, updatedAt: V2 }] }));
     expect(linkOf(item.externalId)).toMatchObject({ state: LinkState.SYNCED });
     expect(linkOf(item.externalId)!.taskId).not.toBe(taskId);
   });
 
-  it('deletes a local subtask of a detached task without recording it', () => {
+  it('deletes a local subtask of a detached task, leaving the detached task alone', () => {
     const item = issue();
     writer.applyTaskPage(sourceId, page({ tasks: [item] }));
     setLinkState(item.externalId, LinkState.DETACHED);
@@ -479,7 +412,6 @@ describe('TaskService.deleteTask — synced tasks', () => {
     archive.archiveTask(local.id);
 
     expect(tasks.deleteTask(local.id).taskIds).toEqual([local.id]);
-    expect(tombstones()).toEqual([]);
     expect(linkOf(item.externalId)!.state).toBe(LinkState.DETACHED);
   });
 });

@@ -60,9 +60,10 @@ export const notesRouter = t.router({
         ctx.workspace.notes.updateNoteContent(input.id, input.content),
     ),
 
-  // Deletes an archived (trashed) note for good, else not_archived: its row, then its file, after the saves already
-  // queued. Tasks linked to it are kept, unlinked (`unlinkedTaskIds`). If the file can't be
-  // removed the note is still deleted and `fileRemoved` is false.
+  // Deletes an archived (trashed) note for good; an active one fails with not_archived. Its row
+  // goes, then its file, after any save already in flight. Tasks linked to it are kept, unlinked
+  // (`unlinkedTaskIds`). If the file can't be removed the note is still deleted and `fileRemoved`
+  // is false.
   delete: wsProcedure
     .input(byId)
     .mutation(

@@ -183,13 +183,6 @@
       "when": 1793392378179,
       "tag": "0025_add_viewed_at",
       "breakpoints": true
-    },
-    {
-      "idx": 26,
-      "version": "6",
-      "when": 1793472224109,
-      "tag": "0026_add_deleted_external_tasks",
-      "breakpoints": true
     }
   ]
 }

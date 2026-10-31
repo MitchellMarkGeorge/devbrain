@@ -8,7 +8,6 @@ import {
   generateId,
 } from '@common/ids';
 import {
-  deletedExternalTasks,
   externalEventExceptions,
   externalLinks,
   externalSources,
@@ -427,10 +426,10 @@ class PageWrite {
   /**
    * Upserts the page's tasks by the link-state table, after `upsertProjects`.
    *
-   * 1. Look up the links of the page's tasks and of their parents, the local ids of their
-   *    projects, and which of them the user deleted after detaching, in one query each.
+   * 1. Look up the links of the page's tasks and of their parents, and the local ids of their
+   *    projects, in one query each.
    * 2. Walk the tasks parents first, resolving each one's parent and project, then: no link →
-   *    insert, unless the user deleted it (skip); detached → skip; synced and unchanged → touch only; otherwise → update and restore.
+   *    insert; detached → skip; synced and unchanged → touch only; otherwise → update and restore.
    *    A new task's id is made here, so a child later in the walk can point at it.
    * 3. Insert the new tasks, then their links, a statement each (per chunk), before the updates:
    *    an updated task may now point at a parent that is new in this page.
@@ -445,7 +444,6 @@ class PageWrite {
       ...items.flatMap((item) => item.parentExternalId ?? []),
     ]);
     const projectIds = this.syncedProjectIds(items.flatMap((item) => item.projectExternalId ?? []));
-    const deleted = this.deletedTaskIds(items.map((item) => item.externalId));
     // external ids of the parents that became synced in this call, whose children in earlier
     // pages may be waiting
     const arrived = new Set<string>();
@@ -475,10 +473,8 @@ class PageWrite {
         }),
       };
 
-      // 2a. never seen: a new task and link; it may be the parent children are waiting for. One the
-      // user detached and then deleted is skipped, like a detached one: its children stay top-level
+      // 2a. never seen: a new task and link; it may be the parent children are waiting for
       if (!link) {
-        if (deleted.has(item.externalId)) continue;
         const taskId = generateId('task');
         const newLink: Link = {
           ...linkFields,
@@ -550,8 +546,6 @@ class PageWrite {
   /**
    * Takes the tasks behind these ids out of scope.
    *
-   * 0. Forget the ones the user detached and deleted: out of scope, nothing keeps them from
-   *    coming back as new tasks if they are assigned again, as a removed task would be restored.
    * 1. Find their synced task links; other ids (detached, already removed, never mirrored) are
    *    ignored.
    * 2. Archive the tasks and mark their links `removed`.
@@ -559,17 +553,6 @@ class PageWrite {
    */
   removeTasks(externalIds: string[]): void {
     if (externalIds.length === 0) return;
-
-    // 0.
-    this.tx
-      .delete(deletedExternalTasks)
-      .where(
-        and(
-          eq(deletedExternalTasks.provider, this.provider),
-          inArray(deletedExternalTasks.externalId, externalIds),
-        ),
-      )
-      .run();
 
     // 1. only synced links: a detached task is the user's own and never moves to removed
     const links = this.tx
@@ -1361,22 +1344,6 @@ class PageWrite {
       found.set(adopted.externalId, adopted);
     }
     return found;
-  }
-
-  /** the external ids among these of tasks the user detached and then deleted */
-  private deletedTaskIds(externalIds: string[]): Set<string> {
-    if (externalIds.length === 0) return new Set();
-    const rows = this.tx
-      .select({ externalId: deletedExternalTasks.externalId })
-      .from(deletedExternalTasks)
-      .where(
-        and(
-          eq(deletedExternalTasks.provider, this.provider),
-          inArray(deletedExternalTasks.externalId, externalIds),
-        ),
-      )
-      .all();
-    return new Set(rows.map((row) => row.externalId));
   }
 
   /**

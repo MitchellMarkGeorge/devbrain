@@ -1,7 +1,7 @@
 import { ProjectId, TaskId } from '@common/ids';
 import { tasks } from '@main/db/schema/tasks';
 import { notes } from '@main/db/schema/notes';
-import { deletedExternalTasks, externalLinks } from '@main/db/schema/integrations';
+import { externalLinks } from '@main/db/schema/integrations';
 import { eq, inArray, notInArray, and, isNull, not, SQL, lt, gt, gte, desc } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
@@ -413,19 +413,19 @@ export class TaskService {
    * only offered there), with every task below it at any depth: the `parentTaskId` foreign key
    * cascades. The task and everything below it must be archived, or it throws NotArchivedError:
    * archiving takes the whole subtree along, but sync archives a removed task on its own and can
-   * leave synced subtasks live under it, which a delete must not take with it. What only pointed at them is kept, by the foreign keys'
-   * `set null`: their task notes lose `linkedTaskId` (so a task still has at most one task note,
-   * now none), and nothing else links to a task. Their external links cascade; favorites and
-   * recents are columns of the rows and go with them.
+   * leave synced subtasks live under it, which a delete must not take with it.
    *
-   * Synced tasks: a synced task belongs to its provider and leaves only through sync, as for an
-   * archive, so it throws ExternalReadOnlyError: detach it first. A synced task has only synced
-   * tasks below it and any other task none, so checking the whole subtree refuses the same tasks.
-   * A detached task is the user's own and can be deleted; it is recorded in
-   * `deleted_external_tasks` so sync does not mirror the issue again while it stays assigned to
-   * the user, even after a disconnect and reconnect (detach promised that sync leaves it alone). A removed task (archived by sync) is
-   * deleted with nothing recorded: if its issue is assigned again it comes back as a new task, as
-   * it would have come back restored.
+   * What only pointed at them is kept, by the foreign keys' `set null`: their task notes lose
+   * `linkedTaskId` (so a task still has at most one task note, now none), and nothing else links to
+   * a task. Their external links cascade; favorites and recents are columns of the rows and go
+   * with them.
+   *
+   * Synced tasks: a synced task belongs to its provider, is never archived, and leaves only
+   * through sync; it is refused (ExternalReadOnlyError is checked too, as archive does). A detached
+   * task is the user's own copy, and deleting it deletes only that copy: nothing is recorded for
+   * sync. If the provider later sends the same item again (it is still assigned and changes, or is
+   * assigned again), sync treats it as never mirrored and adds it as a new synced task. The same
+   * holds for a removed task (archived by sync).
    *
    * Throws NotFoundError for an unknown id, and NotArchivedError for one not in the trash.
    */
@@ -437,8 +437,6 @@ export class TaskService {
           taskId: tasks.id,
           archivedAt: tasks.archivedAt,
           state: externalLinks.state,
-          provider: externalLinks.provider,
-          externalId: externalLinks.externalId,
         })
         .from(tasks)
         .leftJoin(externalLinks, eq(externalLinks.taskId, tasks.id))
@@ -449,17 +447,6 @@ export class TaskService {
       // a synced task is never archived; checked anyway, as archive does
       if (subtree.some((row) => row.state === LinkState.SYNCED)) {
         throw new ExternalReadOnlyError(id);
-      }
-
-      // detached copies a disconnect left too: a reconnect would otherwise match them again
-      const deletedAt = new Date();
-      const tombstones = subtree.flatMap((row) =>
-        row.state === LinkState.DETACHED
-          ? [{ provider: row.provider!, externalId: row.externalId!, deletedAt }]
-          : [],
-      );
-      if (tombstones.length > 0) {
-        tx.insert(deletedExternalTasks).values(tombstones).onConflictDoNothing().run();
       }
 
       const taskIds = [id, ...subtree.map((row) => row.taskId).filter((taskId) => taskId !== id)];

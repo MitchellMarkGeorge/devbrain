@@ -206,9 +206,9 @@ export class NoteService {
 
   /**
    * Deletes an archived note for good (the UI calls archived items "in the trash"; deleting is
-   * only offered there): its row, then its markdown file. An active one throws NotArchivedError. Tasks that link
-   * to it are kept and lose the link, by the foreign key's `set null`. Favorites and recents are
-   * columns of the row and go with it.
+   * only offered there): its row, then its markdown file. An active one throws NotArchivedError.
+   * Tasks that link to it are kept and lose the link, by the foreign key's `set null`. Favorites
+   * and recents are columns of the row and go with it.
    *
    * It waits behind the note's content saves already queued, so none writes the file again after
    * it is removed; a save called after it finds no note and throws NotFoundError.
