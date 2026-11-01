@@ -45,7 +45,7 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - **The quiet default button.** `default` is still DevBrain's quiet bordered button, drawn as Nova's dark outline button; the filled style stays `primary`, rarely used.
 - **Entity pills.** Every relation is a transparent outlined pill (shadcn's outline badge), with an entity icon or the calendar's colour bar.
 - **The segmented control.** `ToggleGroup` is outlined segments on the page colour (Nova's are a muted track), for quick choices: views, calendar range, settings values.
-- **Section switchers.** Page sections (Settings, a project's Overview / Tasks / Notes) use `Tabs` drawn as shadcn's outline ToggleGroup: separate outlined buttons 8px apart, the current one filled in `accent`.
+- **Section switchers.** Page sections (Settings, a project's Overview / Tasks / Notes) use `Tabs` drawn as shadcn's outline ToggleGroup, and so does the search dialog's type filter: separate outlined buttons 8px apart, the current one filled in `accent`.
 - **The dark tooltip.** Nova inverts tooltips; DevBrain keeps them dark with an outline.
 - **Lists.** Entity pills, priority and date on the right of every row (the rows themselves follow the list behaviours below).
 - **Planning views.** The board, the time grid, event blocks and the mini calendar with its red "today".

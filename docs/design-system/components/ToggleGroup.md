@@ -4,6 +4,6 @@ shadcn's ToggleGroup, drawn as DevBrain's segmented control: a 32px `background`
 
 - `items`: `{ value, label?, icon?, iconColor? }`; icon-only items need a `value` that reads as a name.
 - Use for calendar range (Month/Week/Day), list/grid/board view, the Home quick filters and choices inside settings rows. For page sections use `Tabs`.
-- `variant="outline"`: shadcn's outline ToggleGroup with `spacing` 2. Separate 32px buttons with 10px corners and an `input` outline, 8px apart, 14px medium `foreground` labels; the pressed one fills with `accent`. It is how page sections are drawn (see `Tabs`).
+- `variant="outline"`: shadcn's outline ToggleGroup with `spacing` 2. Separate 32px buttons with 10px corners and an `input` outline, 8px apart, 14px medium `foreground` labels; the pressed one fills with `accent`. It is how page sections are drawn (see `Tabs`) and the search dialog's type filter (All / Tasks / Notes / Projects / Events, each with its count).
 
 **Base UI:** `ToggleGroup` with `Toggle` items (`@base-ui/react/toggle-group`, `toggle`). Styles key off `data-pressed` on the chosen item.
