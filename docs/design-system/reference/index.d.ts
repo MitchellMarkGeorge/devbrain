@@ -55,7 +55,10 @@ export interface ToggleGroupProps {
 export interface TabsProps {
   items: string[];
   defaultValue?: string;
-  /** DevBrain addition */ variant?: 'default' | 'line';
+  /** DevBrain addition: outline (sections, the default), default (segmented) or line */ variant?:
+    | 'outline'
+    | 'default'
+    | 'line';
 }
 export interface InputProps {
   id?: string;

@@ -736,7 +736,7 @@ button.db-badge[data-variant='outline']:hover {
 }
 .db-skeleton {
   border-radius: var(--radius-md);
-  background: var(--muted);
+  background: var(--accent);
   animation: db-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 @keyframes db-pulse {
@@ -1244,6 +1244,34 @@ button.db-badge[data-variant='outline']:hover {
 .db-tab[data-active] {
   background: var(--secondary);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* ---------- outline variant: shadcn's outline ToggleGroup (spacing 2), for section switchers ---------- */
+.db-toggle-group[data-variant='outline'],
+.db-tabs-list[data-variant='outline'] {
+  gap: 8px;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.db-toggle-group[data-variant='outline'] .db-toggle,
+.db-tabs-list[data-variant='outline'] .db-tab {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  color: var(--foreground);
+  box-shadow: none;
+}
+.db-toggle-group[data-variant='outline'] .db-toggle:hover,
+.db-tabs-list[data-variant='outline'] .db-tab:hover {
+  background: color-mix(in oklab, var(--accent) 50%, transparent);
+}
+.db-toggle-group[data-variant='outline'] .db-toggle[data-pressed],
+.db-tabs-list[data-variant='outline'] .db-tab[data-active] {
+  background: var(--accent);
+  box-shadow: none;
 }
 
 /* ---------- fields: Nova input (32px, 10px corners, input/30 fill, 14px) ---------- */

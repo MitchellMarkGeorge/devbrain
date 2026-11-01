@@ -294,7 +294,11 @@
     var line = props.variant === 'line';
     return h(
       'div',
-      { className: line ? 'db-tabs-line' : 'db-tabs-list', role: 'tablist' },
+      {
+        className: line ? 'db-tabs-line' : 'db-tabs-list',
+        role: 'tablist',
+        'data-variant': line ? 'line' : props.variant || 'outline',
+      },
       props.items.map(function (it) {
         return h(
           'button',
