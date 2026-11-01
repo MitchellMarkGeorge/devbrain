@@ -576,6 +576,28 @@ export class IntegrationService implements BaseIntegrationService {
   }
 
   /**
+   * Moves every connected integration whose credentials can't be decrypted here to needs_reauth,
+   * as a sync run would on its first try. Run when a workspace arrives from another computer
+   * (WorkspaceService.import): safeStorage's key stays in the other computer's keychain, so its
+   * integrations show as needing sign-in from the start rather than after a failed sync. Returns
+   * the ids it moved.
+   */
+  async markUnreadableNeedsReauth(): Promise<IntegrationId[]> {
+    const connected = this.db
+      .select({ id: integrations.id })
+      .from(integrations)
+      .where(eq(integrations.status, IntegrationStatus.CONNECTED))
+      .all();
+    const moved: IntegrationId[] = [];
+    for (const { id } of connected) {
+      if (await this.credentials.canDecrypt(id)) continue;
+      this.markNeedsReauth(id);
+      moved.push(id);
+    }
+    return moved;
+  }
+
+  /**
    * Cancels the OAuth connect or reconnect waiting on the browser, if any: its call rejects with
    * ConnectCancelledError and stores nothing. Returns whether one was running. Once the flow has
    * its tokens and the account, storing them is a database write and can't be cancelled.

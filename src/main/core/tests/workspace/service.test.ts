@@ -13,6 +13,7 @@ import {
   WorkspaceNotOpenError,
 } from '../../shared/errors';
 import { FakeCipher } from '../__mocks__/fake-cipher';
+import { readManifest } from '../../workspace/manifest';
 
 // Mock the Workspace class so WorkspaceService tests don't need SQLite
 vi.mock('../../workspace/workspace', () => ({
@@ -268,10 +269,12 @@ describe('WorkspaceService — update', () => {
       }),
     ];
     writeRegistry(tmpDir, infos);
-    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
+    for (const info of infos) fsSync.mkdirSync(info.path, { recursive: true });
+    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+    const service = new WorkspaceService(tmpDir, { ...WORKSPACE_OPTIONS, logger });
     const changes: WorkspaceChange[] = [];
     service.onChange((change) => changes.push(change));
-    return { service, infos, changes };
+    return { service, infos, changes, logger };
   }
 
   const readRegistryFile = (file = 'workspaces.json') =>
@@ -311,6 +314,37 @@ describe('WorkspaceService — update', () => {
     const expected = makeRegistry([{ ...infos[0], name: 'Renamed', color: '#f6339a' }, infos[1]]);
     expect(readRegistryFile()).toEqual(expected);
     expect(readRegistryFile('workspaces.json.bak')).toEqual(expected);
+  });
+
+  it("rewrites the folder's manifest, so a copy carries the new name and colour", async () => {
+    const { service, infos } = setup();
+
+    await service.update(infos[0].id, { name: 'Renamed' });
+    expect(await readManifest(infos[0].path)).toEqual({
+      id: infos[0].id,
+      name: 'Renamed',
+      color: infos[0].color,
+      createdAt: infos[0].createdAt,
+    });
+
+    await service.update(infos[0].id, { color: '#00bc7d' });
+    expect(await readManifest(infos[0].path)).toMatchObject({ name: 'Renamed', color: '#00bc7d' });
+    // the other workspace's folder is left alone
+    expect(await readManifest(infos[1].path)).toBeNull();
+  });
+
+  it('keeps the update when the manifest cannot be written, logging only the error class', async () => {
+    const { service, infos, logger } = setup();
+    await fs.rm(infos[0].path, { recursive: true });
+
+    const updated = await service.update(infos[0].id, { name: 'Renamed' });
+
+    expect(service.getById(infos[0].id)).toEqual(updated);
+    expect(updated.name).toBe('Renamed');
+    expect(logger.warn).toHaveBeenCalledTimes(1);
+    expect(logger.warn.mock.calls[0][0]).toMatch(
+      /^Could not write the manifest of wsp_first error=/,
+    );
   });
 
   it('sends updated with the new info once the registry is written', async () => {
@@ -398,7 +432,6 @@ describe('WorkspaceService — update', () => {
 
   it('waits for a running transition, so it never writes over the registry mid-open', async () => {
     const { service, infos } = setup();
-    await fs.mkdir(infos[0].path);
     const opening = deferred<unknown>();
     vi.mocked(Workspace.open).mockReturnValueOnce(opening.promise as never);
 

@@ -1,4 +1,4 @@
-import { generateId, type IntegrationId, type WorkspaceId } from '@common/ids';
+import { generateId, isId, type IntegrationId, type WorkspaceId } from '@common/ids';
 import { hexColorSchema } from '@common/color';
 import type {
   CreateWorkspaceOptions,
@@ -6,26 +6,44 @@ import type {
   WorkspaceInfo,
   WorkspaceOptions,
 } from './types';
-import { parseRegistry, REGISTRY_FILE, writeRegistry, type WorkspaceRegistry } from './registry';
+import {
+  parseRegistry,
+  RECOVERED_COLOR,
+  REGISTRY_FILE,
+  writeRegistry,
+  type WorkspaceRegistry,
+} from './registry';
+import { ensureManifest, readManifest, writeManifest } from './manifest';
 import { Workspace } from './workspace';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
-import { directoryExists, isNotFound } from '../local/utils';
+import { directoryExists, isErrnoException, isNotFound } from '../local/utils';
 import {
+  FileExistsError,
   InvalidInputError,
   NotFoundError,
   WorkspaceDataMissingError,
+  WorkspaceImportError,
   WorkspaceNotOpenError,
 } from '../shared/errors';
+import { consoleLogger, errorClass } from '../shared/logger';
 import { paginateArray, Page, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 
-// A workspace was registered or renamed/recoloured, or the open workspace changed. Opening one
-// while another is open sends `closed` for the old one before `opened` for the new one, in the
-// order the transitions ran.
+// a workspace folder holds its database here
+const WORKSPACE_DB_FILE = 'db.sqlite';
+// Left behind in a folder by SQLite or by Workspace.open, and never copied by import: the shared
+// memory index is rebuilt on open, and the backup is of the other computer's last open. The WAL
+// (db.sqlite-wal) is copied, as it can hold committed writes not yet in db.sqlite.
+const NOT_IMPORTED = new Set([`${WORKSPACE_DB_FILE}-shm`, `${WORKSPACE_DB_FILE}.backup`]);
+
+// A workspace was registered (created here, or imported from a folder) or renamed/recoloured, or
+// the open workspace changed. Opening one while another is open sends `closed` for the old one
+// before `opened` for the new one, in the order the transitions ran.
 export type WorkspaceChange =
   | { type: 'created'; workspace: WorkspaceInfo }
+  | { type: 'imported'; workspace: WorkspaceInfo }
   | { type: 'updated'; workspace: WorkspaceInfo }
   | { type: 'opened'; workspace: Workspace }
   | { type: 'closed'; workspaceId: WorkspaceId };
@@ -60,9 +78,9 @@ export class WorkspaceService {
   }
 
   /**
-   * Sends `created` once a workspace is registered, `updated` once its new name or colour is in the
-   * registry, `opened` once a workspace is current and `closed` once the current one has closed, by
-   * open, close or delete. Returns a function that unsubscribes the listener.
+   * Sends `created` or `imported` once a workspace is registered, `updated` once its new name or
+   * colour is in the registry, `opened` once a workspace is current and `closed` once the current
+   * one has closed, by open, close or delete. Returns a function that unsubscribes the listener.
    */
   onChange(listener: ChangeListener<WorkspaceChange>): () => void {
     return this.changes.add(listener);
@@ -132,6 +150,8 @@ export class WorkspaceService {
       // create workspace db file and run migrations, then close it until it is opened
       const workspace = await Workspace.create(workspaceInfo, this.workspaceOptions);
       await workspace.close();
+      // the name and colour travel with the folder (manifest.ts)
+      writeManifest(workspacePath, workspaceInfo);
       const workspaces = this.readWorkspaceFile();
       workspaces[id] = workspaceInfo;
       this.writeWorkspaceFile(workspaces);
@@ -147,8 +167,8 @@ export class WorkspaceService {
    * Renames or recolours a workspace, open or not, and returns its updated info. The name is
    * trimmed and must not be empty; the colour must be #rrggbb. Any colour is accepted, not only the
    * six the settings screen offers: workspaces created or recovered before keep theirs. When this
-   * is the open workspace, its `info` changes too. Writes nothing and sends nothing when neither
-   * value changes.
+   * is the open workspace, its `info` changes too. The folder's manifest (manifest.ts) is rewritten
+   * as well, best effort. Writes nothing and sends nothing when neither value changes.
    *
    * Throws InvalidInputError for an empty name or an invalid colour, and NotFoundError for an
    * unknown id.
@@ -175,8 +195,15 @@ export class WorkspaceService {
 
     workspaces[id] = updated;
     this.writeWorkspaceFile(workspaces);
-    // TODO(manifest): once claude/open-workspace-folder merges, write the folder's manifest here
-    // too (docs/follow-ups.md, "Renaming a workspace keeps its manifest in step").
+    // The folder's manifest follows, so a copy taken now carries the new name and colour. Best
+    // effort, as on open: the registry is what this computer reads, so the update stands.
+    try {
+      writeManifest(updated.path, updated);
+    } catch (error) {
+      (this.workspaceOptions.logger ?? consoleLogger).warn(
+        `Could not write the manifest of ${id} error=${errorClass(error)}`,
+      );
+    }
     if (this.current?.info.id === id) {
       Object.assign(this.current.info, { name: updated.name, color: updated.color });
     }
@@ -272,6 +299,14 @@ export class WorkspaceService {
     // 4. open/initalize the workspace object
     const workspace = await Workspace.open(workspaceInfo, this.workspaceOptions);
 
+    // 5. Workspaces made before manifests existed get one here. Best effort: the registry is what
+    // this computer reads, so a folder that refuses the write still opens.
+    await ensureManifest(workspaceInfo.path, workspaceInfo).catch((error: unknown) =>
+      (this.workspaceOptions.logger ?? consoleLogger).warn(
+        `Could not write the manifest of ${id} error=${errorClass(error)}`,
+      ),
+    );
+
     try {
       const workspaces = this.readWorkspaceFile();
       workspaces[id] = { ...workspaceInfo, lastOpenedAt: Date.now() };
@@ -284,6 +319,107 @@ export class WorkspaceService {
     }
     this.changes.emit({ type: 'opened', workspace });
     return workspace;
+  }
+
+  /**
+   * Adds an existing workspace folder to the list, such as one copied or synced from another
+   * computer, and returns its info. It is not opened: open it next to use it.
+   *
+   * The folder is copied into this DevBrain folder (`workspaces/<id>`) and the copy is what gets
+   * registered, so the chosen folder is never changed: not migrated, not written to by sync, and
+   * not removed by a later delete. A folder already at that place (one dropped into `workspaces/`
+   * by hand) is registered where it is.
+   *
+   * The id, name and colour come from the folder's manifest (manifest.ts); without one the id is
+   * the folder's name when that is a workspace id, else a new one, the name is the folder's name
+   * and the colour grey. The copy's database is opened once, which migrates an older one (with the
+   * usual backup and restore), and integrations whose credentials can't be decrypted here move to
+   * needs_reauth. Then the copy gets a manifest and the registry an entry.
+   *
+   * Throws InvalidInputError for a relative path; WorkspaceImportError for a folder that is not a
+   * workspace (`not_a_workspace`), one already in the list by id or by folder (`already_added`),
+   * or one that can't be read (`unreadable`); FileExistsError when `workspaces/<id>` is already
+   * taken by an unregistered folder; and what opening throws: WorkspaceTooNewError for a database
+   * from a newer DevBrain, WorkspaceMigrationError. On any failure nothing is registered and the
+   * copy is removed.
+   */
+  import(folderPath: string): Promise<WorkspaceInfo> {
+    return this.serialize(() => this.importFolder(folderPath));
+  }
+
+  private async importFolder(folderPath: string): Promise<WorkspaceInfo> {
+    if (!path.isAbsolute(folderPath)) {
+      throw new InvalidInputError(`The folder path must be absolute: ${folderPath}`);
+    }
+    const source = await realFolder(folderPath);
+    const dbPath = path.join(source, WORKSPACE_DB_FILE);
+    await assertReadableFile(dbPath, source);
+
+    const manifest = await readManifest(source).catch((error: unknown) => {
+      throw unreadable(error, source);
+    });
+    const folderName = path.basename(source);
+    const id =
+      manifest?.id ?? (isId('workspace', folderName) ? folderName : generateId('workspace'));
+
+    const registry = this.readWorkspaceFile();
+    const sameId = registry[id];
+    if (sameId) {
+      throw new WorkspaceImportError(
+        'already_added',
+        `This workspace is already in your list as "${sameId.name}"`,
+        id,
+      );
+    }
+    for (const info of Object.values(registry)) {
+      if ((await realFolder(info.path).catch(() => info.path)) === source) {
+        throw new WorkspaceImportError(
+          'already_added',
+          `This folder is already in your list as "${info.name}"`,
+          info.id,
+        );
+      }
+    }
+
+    const workspacesPath = path.join(this.rootPath, 'workspaces');
+    const destination = path.join(await realFolder(workspacesPath).catch(() => workspacesPath), id);
+    const inPlace = destination === source;
+    if (!inPlace) {
+      // checked before the copy, so a folder that never was a workspace is never copied
+      if (!Workspace.isWorkspaceDatabase(dbPath)) throw notAWorkspace(source);
+      if (fsSync.existsSync(destination)) throw new FileExistsError(destination);
+    }
+
+    const info: WorkspaceInfo = {
+      id,
+      name: manifest?.name ?? folderName,
+      color: manifest?.color ?? RECOVERED_COLOR,
+      path: destination,
+      createdAt: manifest?.createdAt ?? Date.now(),
+      lastOpenedAt: null,
+    };
+
+    try {
+      if (!inPlace) await copyWorkspaceFolder(source, destination);
+      else if (!Workspace.isWorkspaceDatabase(dbPath)) throw notAWorkspace(source);
+      // migrates an older database, and refuses one from a newer DevBrain
+      const workspace = await Workspace.open(info, this.workspaceOptions);
+      try {
+        await workspace.integrations.markUnreadableNeedsReauth();
+      } finally {
+        await workspace.close();
+      }
+      writeManifest(destination, info);
+      const workspaces = this.readWorkspaceFile();
+      workspaces[id] = info;
+      this.writeWorkspaceFile(workspaces);
+    } catch (error) {
+      // only ever the copy this made; a folder registered in place is the user's and stays
+      if (!inPlace) await fs.rm(destination, { recursive: true, force: true });
+      throw error;
+    }
+    this.changes.emit({ type: 'imported', workspace: info });
+    return info;
   }
 
   /**
@@ -305,5 +441,67 @@ export class WorkspaceService {
     } finally {
       this.changes.emit({ type: 'closed', workspaceId: current.info.id });
     }
+  }
+}
+
+function notAWorkspace(folder: string): WorkspaceImportError {
+  return new WorkspaceImportError(
+    'not_a_workspace',
+    `${path.basename(folder)} is not a DevBrain workspace folder: it has no workspace database`,
+  );
+}
+
+// a permission error reading the folder or its files; anything else is thrown as it is
+function unreadable(error: unknown, folder: string): unknown {
+  if (isErrnoException(error) && (error.code === 'EACCES' || error.code === 'EPERM')) {
+    return new WorkspaceImportError(
+      'unreadable',
+      `DevBrain doesn't have permission to read ${path.basename(folder)}`,
+    );
+  }
+  return error;
+}
+
+// The folder's real path, symlinks resolved, so two paths to one folder compare equal. Throws
+// WorkspaceImportError for nothing there (`not_a_workspace`), a file, or a folder that can't be
+// read (`unreadable`).
+async function realFolder(folderPath: string): Promise<string> {
+  let real: string;
+  try {
+    real = await fs.realpath(folderPath);
+    if (!(await fs.stat(real)).isDirectory()) throw notAWorkspace(folderPath);
+    await fs.access(real, fs.constants.R_OK | fs.constants.X_OK);
+  } catch (error) {
+    if (isNotFound(error)) {
+      throw new WorkspaceImportError('not_a_workspace', `There is no folder at ${folderPath}`);
+    }
+    throw unreadable(error, folderPath);
+  }
+  return real;
+}
+
+// the folder's database must be a file this process can read
+async function assertReadableFile(filePath: string, folder: string): Promise<void> {
+  try {
+    if (!(await fs.stat(filePath)).isFile()) throw notAWorkspace(folder);
+    await fs.access(filePath, fs.constants.R_OK);
+  } catch (error) {
+    if (isNotFound(error)) throw notAWorkspace(folder);
+    throw unreadable(error, folder);
+  }
+}
+
+// Copies the whole folder (database, WAL, notes) except what NOT_IMPORTED lists. Never overwrites:
+// `destination` must not exist yet.
+async function copyWorkspaceFolder(source: string, destination: string): Promise<void> {
+  try {
+    await fs.cp(source, destination, {
+      recursive: true,
+      errorOnExist: true,
+      force: false,
+      filter: (from) => path.dirname(from) !== source || !NOT_IMPORTED.has(path.basename(from)),
+    });
+  } catch (error) {
+    throw unreadable(error, source);
   }
 }

@@ -65,7 +65,9 @@ export class ChangeTracker {
       // the registry changed: the workspace list refetches; for a new, renamed or recoloured
       // workspace, nothing else did
       this.recordChange('workspace');
-      if (change.type === 'created' || change.type === 'updated') return;
+      if (change.type === 'created' || change.type === 'updated' || change.type === 'imported') {
+        return;
+      }
       stopListeningToWorkspace();
       stopListeningToWorkspace =
         change.type === 'opened' ? this.listenToWorkspace(change.workspace) : () => {};

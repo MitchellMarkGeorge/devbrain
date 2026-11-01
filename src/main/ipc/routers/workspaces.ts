@@ -54,6 +54,19 @@ export const workspacesRouter = t.router({
         ctx.devBrain.workspaces.update(id, options),
     ),
 
+  // "Open folder…": asks for a folder with the system dialog, then adds that workspace folder
+  // (copied into the DevBrain folder) without opening it: open it next to use it. Null when the
+  // dialog was cancelled. The path comes from main's own dialog, never from the renderer. Core's
+  // workspace_import (with a `reason`), workspace_too_new and workspace_migration say why one
+  // can't be added.
+  importFolder: devBrainProcedure.mutation(async ({ ctx }): Promise<WorkspaceEntry | null> => {
+    const folder = await ctx.desktop.chooseFolder({
+      title: 'Open Workspace Folder',
+      buttonLabel: 'Open',
+    });
+    return folder === null ? null : ctx.devBrain.workspaces.import(folder);
+  }),
+
   // only the open workspace can be deleted (core's workspace_not_open otherwise)
   delete: devBrainProcedure.input(byId).mutation(async ({ ctx, input }): Promise<void> => {
     await ctx.devBrain.workspaces.delete(input.id);

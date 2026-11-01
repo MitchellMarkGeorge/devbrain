@@ -5,6 +5,7 @@ import type { WorkspaceInfo } from './types';
 import { workspaceRegistrySchema } from './schema';
 import { writeFileAtomicSync } from '../local/atomic';
 import { isNotFound } from '../local/utils';
+import { readManifest, type WorkspaceManifest } from './manifest';
 
 export type WorkspaceRegistry = Record<WorkspaceId, WorkspaceInfo>;
 
@@ -14,8 +15,9 @@ export const REGISTRY_FILE = 'workspaces.json';
 export const REGISTRY_BACKUP_FILE = 'workspaces.json.bak';
 // a workspace directory holds its database here; one without it never finished being created
 const WORKSPACE_DB_FILE = 'db.sqlite';
-// what a workspace rebuilt from its directory gets, as its name and color are only in the registry
-const RECOVERED_COLOR = '#808080';
+// what a workspace rebuilt from a directory without a manifest gets as its colour; also an imported
+// folder without one (WorkspaceService.import)
+export const RECOVERED_COLOR = '#808080';
 
 // throws a SyntaxError for invalid JSON and a ZodError for JSON that is not a registry
 export function parseRegistry(raw: string): WorkspaceRegistry {
@@ -97,7 +99,8 @@ async function workspacesDirectoryExists(rootPath: string): Promise<boolean> {
   }
 }
 
-// a registry entry for every workspace directory with a database, as far as the directory can say
+// a registry entry for every workspace directory with a database, as far as the directory can say:
+// its manifest's name and colour when it has one for the same id
 async function scanWorkspaceDirectories(rootPath: string): Promise<WorkspaceInfo[]> {
   const workspacesPath = path.join(rootPath, 'workspaces');
   let names: string[];
@@ -118,12 +121,15 @@ async function scanWorkspaceDirectories(rootPath: string): Promise<WorkspaceInfo
       if (isNotFound(error)) continue;
       throw error;
     }
+    // a manifest that can't be read only loses the name, never the workspace
+    const manifest: WorkspaceManifest | null = await readManifest(workspacePath).catch(() => null);
+    const own = manifest !== null && manifest.id === name ? manifest : null;
     infos.push({
       id: name as WorkspaceId,
-      name: `Recovered workspace ${name}`,
-      color: RECOVERED_COLOR,
+      name: own?.name ?? `Recovered workspace ${name}`,
+      color: own?.color ?? RECOVERED_COLOR,
       path: workspacePath,
-      createdAt,
+      createdAt: own?.createdAt ?? createdAt,
       lastOpenedAt: null,
     });
   }
@@ -133,7 +139,8 @@ async function scanWorkspaceDirectories(rootPath: string): Promise<WorkspaceInfo
 /**
  * Restores a registry found missing or invalid at start: from the backup when it is valid, plus an
  * entry for each workspace directory the backup lacks (one created after the backup's last write).
- * Without a backup every entry comes from the directories, named after its id. An invalid registry
+ * Without a backup every entry comes from the directories, named by its manifest (manifest.ts), or
+ * after its id when it has none. An invalid registry
  * is kept beside it as `workspaces.json.corrupt-<time>`, never deleted. Returns where the registry
  * came from, or null when it was valid or cannot be recovered (see inspectRegistry).
  */

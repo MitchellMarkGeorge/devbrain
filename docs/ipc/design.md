@@ -277,7 +277,9 @@ mutation's own changes are refetched before it resolves. `main.tsx` calls
    outside `app`, `settings` and `workspaces` (`resetQueries` cancels what is in flight, clears the
    data and refetches what is mounted), and refetches the `workspaces` queries.
 4. The mutation's response carries `changed: ['workspace']`, which only refetches the workspace
-   list. Creating, renaming or recolouring a workspace (`workspaces.update`) reports the same,
+   list. Creating, renaming or recolouring a workspace (`workspaces.update`), or adding one from a
+   folder (`workspaces.importFolder`, see
+   [moving between computers](../workspaces/moving-between-computers.md)), reports the same,
    without `workspace.changed`: `workspaces.current` reads `workspace` too, so the open
    workspace's new name and colour refetch with the list.
 

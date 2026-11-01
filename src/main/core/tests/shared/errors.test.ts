@@ -30,8 +30,10 @@ import {
   ImportFileError,
   WorkspaceClosedError,
   WorkspaceDataMissingError,
+  WorkspaceImportError,
   WorkspaceMigrationError,
   WorkspaceNotOpenError,
+  WorkspaceTooNewError,
 } from '../../shared/errors';
 import { InvalidCursorError } from '../../shared/pagination';
 import { OAuthCallbackTimeoutError } from '../../integrations/oauth/loopback';
@@ -94,6 +96,8 @@ const errors: [CoreError, CoreErrorCode][] = [
   [new WorkspaceClosedError(), 'workspace_closed'],
   [new UnsafeUrlError(), 'unsafe_url'],
   [new ImportFileError('too_large', 'tasks.csv', 'tasks.csv is too large'), 'import_file'],
+  [new WorkspaceTooNewError(), 'workspace_too_new'],
+  [new WorkspaceImportError('not_a_workspace', 'No workspace database'), 'workspace_import'],
   [
     new WorkspaceMigrationError('Failed', {
       committed: false,

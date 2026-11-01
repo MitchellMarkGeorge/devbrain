@@ -4,7 +4,10 @@ import type { WorkspaceId } from '@common/ids';
 import type { DevBrain, WorkspaceEntry } from '@main/core';
 import { appRouter } from '@main/ipc/router';
 import { attachRouter } from '@main/ipc/server';
+import path from 'node:path';
+import { ChangeTracker } from '@main/ipc/changes';
 import { resetElectronMock } from '../__mocks__/electron';
+import type { Desktop } from '@main/ipc/desktop';
 import { call, createWorkspace, tempDevBrain, testContext } from './helpers';
 
 // The first routes end to end, through the transport, over a real DevBrain folder.
@@ -193,6 +196,82 @@ describe('workspaces', () => {
     expect(code(await call('workspaces.create', { name: 'X', color: 'red' }, 'mutation'))).toBe(
       'invalid_input',
     );
+  });
+});
+
+describe('workspaces.importFolder', () => {
+  // A workspace folder from "another computer": made in a second DevBrain folder, then copied out
+  let other: Awaited<ReturnType<typeof tempDevBrain>>;
+  let folder: string;
+  let otherId: WorkspaceId;
+  // the folder dialog: cancelled unless a test says what was picked
+  const chooseFolder = vi.fn<Desktop['chooseFolder']>();
+
+  beforeEach(async () => {
+    chooseFolder.mockReset();
+    chooseFolder.mockResolvedValue(null);
+    const desktop = { chooseFolder } as Partial<Desktop> as Desktop;
+    const tracker = new ChangeTracker(vi.fn());
+    tracker.watch(devBrain);
+    attachRouter(appRouter, {
+      createContext: testContext(devBrain, desktop),
+      changeTracker: tracker,
+    });
+    other = await tempDevBrain();
+    otherId = await createWorkspace(other.devBrain, 'Laptop');
+    const otherPath = other.devBrain.workspaces.getById(otherId).path;
+    // beside the other DevBrain folder, so its cleanup removes it
+    folder = path.join(otherPath, '..', '..', '..', 'carried');
+    await fs.cp(otherPath, folder, { recursive: true });
+  });
+
+  afterEach(async () => {
+    await other.cleanup();
+  });
+
+  const pick = (folderPath: string) => chooseFolder.mockResolvedValueOnce(folderPath);
+
+  it('adds the folder picked in the dialog without opening it, and reports the list changed', async () => {
+    pick(folder);
+
+    const result = await call<WorkspaceEntry>('workspaces.importFolder', undefined, 'mutation');
+
+    expect(result).toMatchObject({
+      ok: true,
+      data: { id: otherId, name: 'Laptop', lastOpenedAt: null },
+      changed: ['workspace'],
+    });
+    expect(chooseFolder).toHaveBeenCalledWith({
+      title: 'Open Workspace Folder',
+      buttonLabel: 'Open',
+    });
+    expect(devBrain.currentWorkspace).toBeNull();
+    expect(devBrain.workspaces.listAll().items.map((w) => w.id)).toEqual([otherId]);
+  });
+
+  it('returns null and adds nothing when the dialog is cancelled', async () => {
+    expect(await call('workspaces.importFolder', undefined, 'mutation')).toEqual({
+      ok: true,
+      data: null,
+      changed: [],
+    });
+    expect(devBrain.workspaces.listAll().items).toEqual([]);
+  });
+
+  it("passes core's workspace_import error with its reason", async () => {
+    pick(folder);
+    await call('workspaces.importFolder', undefined, 'mutation');
+    pick(folder);
+
+    expect(await call('workspaces.importFolder', undefined, 'mutation')).toMatchObject({
+      ok: false,
+      error: { data: { code: 'workspace_import', data: { reason: 'already_added' } } },
+    });
+
+    pick(path.dirname(folder));
+    expect(await call('workspaces.importFolder', undefined, 'mutation')).toMatchObject({
+      error: { data: { code: 'workspace_import', data: { reason: 'not_a_workspace' } } },
+    });
   });
 });
 
