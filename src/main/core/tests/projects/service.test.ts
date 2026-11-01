@@ -373,7 +373,14 @@ describe('ProjectService — listProjects', () => {
   it('sort=updatedAt orders by updatedAt descending', async () => {
     const a = projects.createProject({ title: 'A', dueDate: TOMORROW });
     const b = projects.createProject({ title: 'B', dueDate: TOMORROW });
-    projects.updateProject(a.id, { title: 'A updated' });
+    // inserts take updatedAt from SQLite's unixepoch() (whole seconds) and updates from new Date()
+    // (ms), so an update landing on the same second's .000 ties with B; move the clock ahead to break it
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.now() + 1000 });
+    try {
+      projects.updateProject(a.id, { title: 'A updated' });
+    } finally {
+      vi.useRealTimers();
+    }
     const result = projects.listProjects({}, { sortBy: 'updatedAt' }).items;
     const ids = result.map((p) => p.id);
     expect(ids.indexOf(a.id)).toBeLessThan(ids.indexOf(b.id));
