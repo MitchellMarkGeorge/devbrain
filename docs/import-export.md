@@ -61,9 +61,6 @@ What an export writes, and the fullest import:
       "dueDate": "2026-11-05",
       "project": "Website",
       "pullRequestUrl": "https://github.com/acme/site/pull/12",
-      "source": "local",
-      "externalKey": null,
-      "externalUrl": null,
       "completedAt": null,
       "createdAt": "2026-10-20T14:02:11.000Z",
       "subtasks": [{ "title": "Write copy", "subtasks": [] }]
@@ -96,9 +93,6 @@ One row per task, with a header. The columns an export writes, in order:
 | `due_date`         | `YYYY-MM-DD`                                                             |
 | `project`          | the project's title                                                      |
 | `pull_request_url` | an http or https URL                                                     |
-| `source`           | `local`, or the provider of a synced task (`linear`)                     |
-| `external_key`     | a synced task's key at its provider, such as `ENG-124`                   |
-| `external_url`     | a synced task's page at its provider (export only)                       |
 | `completed_at`     | ISO time (export only)                                                   |
 | `created_at`       | ISO time (export only)                                                   |
 
@@ -127,7 +121,6 @@ One row per task, with a header. The columns an export writes, in order:
 | Project title that matches one project                          | the task goes in it (trimmed, ignoring case; archived projects don't count)                           |
 | Project title that matches none, or several                     | imported without a project, with a **warning**                                                        |
 | Project on a subtask                                            | ignored: a subtask takes its top-level task's project                                                 |
-| `source` other than `local` (a synced task)                     | **skipped**: its integration brings it back                                                           |
 | `id` of a task already in the workspace                         | **skipped**, so importing an export twice adds nothing                                                |
 | Subtask of a row not imported                                   | **skipped**                                                                                           |
 | CSV `parent_id` that names no row                               | imported as a top-level task, with a **warning**                                                      |
@@ -180,11 +173,17 @@ that never closes, another extension) fails with `ImportFileError` (code `import
 
 ### Export
 
-- Every active task, subtasks included, oldest first. Archived tasks (the archive is DevBrain's
-  trash) are left out; a subtask whose parent is archived is written as a top-level task.
-- Synced tasks are included, marked with `source` (`linear`), `externalKey` and `externalUrl`. An
-  import skips them, so an export is a full record without copies of synced tasks coming back as
-  local ones.
+- **Only tasks made in DevBrain**, the ones wholly the user's: active ones, subtasks included,
+  oldest first. Left out are:
+  - **archived tasks** (the archive is DevBrain's trash);
+  - **synced tasks**, such as a Linear issue: they belong to their integration, which brings them
+    back;
+  - **detached tasks**: the user can edit them, but they came from an integration.
+
+  A task with no link to an integration in any state is exported (its `external` is null), even in
+  a project synced from Linear: the project is named by its title like any other. A subtask whose
+  parent is left out is written as a top-level task.
+
 - The save dialog proposes `DevBrain tasks YYYY-MM-DD.csv` (or `.json`) and asks before replacing a
   file.
 

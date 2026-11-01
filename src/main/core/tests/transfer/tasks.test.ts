@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import type { TaskId } from '@common/ids';
+import type { ProjectId, TaskId } from '@common/ids';
 import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
 import { tasks as tasksTable } from '@main/db/schema/tasks';
 import { createDb } from '../utils';
@@ -11,7 +11,7 @@ import { NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
 import { TaskChange, TaskService } from '../../tasks/service';
 import { TaskPriority, TaskStatus, type Task } from '../../tasks/types';
-import { AuthType, Provider, SourceType } from '../../integrations/types';
+import { AuthType, LinkState, Provider, SourceType } from '../../integrations/types';
 import { ImportFileError, InvalidInputError } from '../../shared/errors';
 import type { TaskDefaults } from '../../tasks/defaults';
 import { MAX_TASK_FILE_BYTES, MAX_TASK_DEPTH } from '../../transfer/limits';
@@ -145,43 +145,46 @@ describe.each(['csv', 'json'] as const)('a %s export', (format) => {
 });
 
 describe('the export', () => {
-  it('leaves archived tasks out and marks synced ones with their source and key', () => {
+  it('holds only tasks made in DevBrain: never archived, synced or detached ones', () => {
     const archived = tasks.createTask({ title: 'Archived', dueDate: day(11, 1) });
     db.update(tasksTable).set({ archivedAt: NOW }).run();
     const synced = tasks.createTask({ title: 'From Linear', dueDate: day(11, 2) });
     linkToLinear(synced.id, 'ENG-124');
+    const detached = tasks.createTask({ title: 'Detached from Linear', dueDate: day(11, 2) });
+    linkToLinear(detached.id, 'ENG-125', LinkState.DETACHED);
+    // a task of the user's own stays theirs inside a project synced from Linear
+    const linearProject = projects.createProject({ title: 'Roadmap', dueDate: day(12, 1) });
+    linkToLinear(linearProject.id, 'PRJ-1');
+    const mine = tasks.createTask({
+      title: 'Mine',
+      dueDate: day(11, 3),
+      projectId: linearProject.id,
+    });
 
     const exported = JSON.parse(transfer.exportTasks('json').content);
     expect(exported).toMatchObject({ format: 'devbrain.tasks', version: 1 });
     expect(exported.tasks).toEqual([
-      expect.objectContaining({
-        id: synced.id,
-        title: 'From Linear',
-        source: 'linear',
-        externalKey: 'ENG-124',
-        externalUrl: 'https://linear.app/acme/issue/ENG-124',
-      }),
+      expect.objectContaining({ id: mine.id, title: 'Mine', project: 'Roadmap' }),
     ]);
-    expect(JSON.stringify(exported)).not.toContain(archived.id);
+    for (const left of [archived, synced, detached]) {
+      expect(JSON.stringify(exported)).not.toContain(left.id);
+    }
+    expect(exported.tasks[0]).not.toHaveProperty('source');
 
-    const csv = transfer.exportTasks('csv').content;
-    expect(csv.startsWith('﻿id,parent_id,title,')).toBe(true);
-    expect(csv).toContain(',linear,ENG-124,');
+    const csv = transfer.exportTasks('csv');
+    expect(csv.count).toBe(1);
+    expect(csv.content.startsWith('\ufeffid,parent_id,title,')).toBe(true);
+    expect(csv.content).not.toContain('ENG-12');
   });
 
-  it('skips synced tasks on import: their integration brings them back', () => {
-    const summary = transfer.importTasks(
-      'title,source,external_key\nFrom Linear,linear,ENG-124\nMine,local,\n',
-      'csv',
-    );
-    expect(summary.created).toBe(1);
-    expect(summary.skipped).toEqual([
-      {
-        row: 2,
-        title: 'From Linear',
-        message: expect.stringContaining('Synced from linear (ENG-124)'),
-      },
-    ]);
+  it("writes a local subtask of a task that isn't exported as a top-level task", () => {
+    const detached = tasks.createTask({ title: 'Detached parent', dueDate: day(11, 2) });
+    linkToLinear(detached.id, 'ENG-126', LinkState.DETACHED);
+    const sub = tasks.createSubtask(detached.id, { title: 'My subtask' });
+
+    const exported = JSON.parse(transfer.exportTasks('json').content);
+    expect(exported.tasks).toEqual([expect.objectContaining({ id: sub.id, subtasks: [] })]);
+    expect(transfer.exportTasks('csv').content).toContain(`${sub.id},,My subtask`);
   });
 });
 
@@ -407,7 +410,8 @@ describe('import files', () => {
 });
 
 let links = 0;
-function linkToLinear(taskId: TaskId, key: string) {
+// links a task or project to a Linear item, as sync or a detach leaves it
+function linkToLinear(id: TaskId | ProjectId, key: string, state = LinkState.SYNCED) {
   const integrationId = db
     .insert(integrations)
     .values({
@@ -434,7 +438,8 @@ function linkToLinear(taskId: TaskId, key: string) {
       externalUrl: `https://linear.app/acme/issue/${key}`,
       externalUpdatedAt: NOW,
       lastSyncedAt: NOW,
-      taskId,
+      state,
+      ...(id.startsWith('tsk_') ? { taskId: id as TaskId } : { projectId: id as ProjectId }),
     })
     .run();
 }

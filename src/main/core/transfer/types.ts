@@ -14,8 +14,8 @@ export interface TaskImportIssue {
 export interface TaskImportSummary {
   // tasks created, subtasks included
   created: number;
-  // rows left out on purpose: synced tasks, tasks already in the workspace, subtasks of a row that
-  // was not imported
+  // rows left out on purpose: tasks already in the workspace, subtasks of a row that was not
+  // imported
   skipped: TaskImportIssue[];
   // rows that are invalid, such as a missing title or an unknown status
   errors: TaskImportIssue[];

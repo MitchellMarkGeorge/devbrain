@@ -117,7 +117,7 @@ export class TransferService {
   }
 
   /**
-   * Writes every active task, synced ones marked with their source, to `filePath` as CSV or JSON,
+   * Writes every active task made in DevBrain (never synced or detached) to `filePath` as CSV or JSON,
    * replacing what is there (the save dialog has asked).
    */
   async exportTasksToFile(filePath: string, format: TaskFileFormat): Promise<TaskExportResult> {
@@ -127,10 +127,13 @@ export class TransferService {
   }
 
   exportTasks(format: TaskFileFormat): { content: string; count: number } {
-    // active tasks, subtasks and synced ones included, oldest first; each names its project
+    // Only tasks made in DevBrain, which are wholly the user's: `external` is null for a task with
+    // no link to an integration in any state. Synced tasks belong to their integration, which
+    // brings them back, and detached ones came from one too. Subtasks included, oldest first; each
+    // names its project.
     const tasks = collectPages((page) =>
-      this.tasks.listTasks({}, { sortBy: 'createdAt', direction: 'asc' }, page),
-    );
+      this.tasks.listTasks({ origin: 'local' }, { sortBy: 'createdAt', direction: 'asc' }, page),
+    ).filter((task) => task.external === null);
     const roots = toExportedTasks(tasks);
     const content = format === 'csv' ? formatTasksCsv(roots) : formatTasksJson(roots, this.now());
     return { content, count: tasks.length };

@@ -1,6 +1,5 @@
 import type { TaskId } from '@common/ids';
 import { toDateString } from '../shared/dates';
-import { isSynced } from '../integrations/refs';
 import { TaskPriority, TaskStatus, type TaskListItem } from '../tasks/types';
 import { formatCsv, parseCsv } from './csv';
 import { MAX_TASK_DEPTH, MAX_TASK_ROWS } from './limits';
@@ -36,8 +35,6 @@ export interface TaskRecordFields {
   dueDate: string | null;
   project: string | null;
   pullRequestUrl: string | null;
-  source: string | null;
-  externalKey: string | null;
 }
 
 export interface TaskRecord {
@@ -69,11 +66,6 @@ export interface ExportedTask {
   dueDate: string | null;
   project: string | null;
   pullRequestUrl: string | null;
-  // "local", or the provider a synced task comes from, such as "linear"
-  source: string;
-  // a synced task's key and page at its provider, such as ENG-124
-  externalKey: string | null;
-  externalUrl: string | null;
   completedAt: string | null;
   createdAt: string;
   subtasks: ExportedTask[];
@@ -86,7 +78,6 @@ export interface ExportedTask {
 export function toExportedTasks(tasks: TaskListItem[]): ExportedTask[] {
   const exported = new Map<TaskId, ExportedTask>();
   for (const task of tasks) {
-    const synced = isSynced(task);
     exported.set(task.id, {
       id: task.id,
       title: task.title,
@@ -97,9 +88,6 @@ export function toExportedTasks(tasks: TaskListItem[]): ExportedTask[] {
       dueDate: task.dueDate ? toDateString(task.dueDate) : null,
       project: task.project?.title ?? null,
       pullRequestUrl: task.pullRequestUrl,
-      source: synced ? task.external!.provider : 'local',
-      externalKey: synced ? task.external!.key : null,
-      externalUrl: synced ? task.external!.url : null,
       completedAt: task.completedAt?.toISOString() ?? null,
       createdAt: task.createdAt.toISOString(),
       subtasks: [],
@@ -135,9 +123,6 @@ export const CSV_COLUMNS = [
   'due_date',
   'project',
   'pull_request_url',
-  'source',
-  'external_key',
-  'external_url',
   'completed_at',
   'created_at',
 ] as const;
@@ -157,9 +142,6 @@ export function formatTasksCsv(roots: ExportedTask[]): string {
       task.dueDate ?? '',
       task.project ?? '',
       task.pullRequestUrl ?? '',
-      task.source,
-      task.externalKey ?? '',
-      task.externalUrl ?? '',
       task.completedAt ?? '',
       task.createdAt,
     ]);
@@ -187,8 +169,6 @@ const CSV_FIELDS: Record<string, keyof TaskRecordFields | 'id' | 'parentId'> = {
   duedate: 'dueDate',
   project: 'project',
   pullrequesturl: 'pullRequestUrl',
-  source: 'source',
-  externalkey: 'externalKey',
 };
 
 function emptyFields(): TaskRecordFields {
@@ -201,8 +181,6 @@ function emptyFields(): TaskRecordFields {
     dueDate: null,
     project: null,
     pullRequestUrl: null,
-    source: null,
-    externalKey: null,
   };
 }
 
@@ -395,8 +373,6 @@ export function parseTasksJson(text: string, fileName: string): ParsedTaskFile {
       dueDate: text('dueDate'),
       project: text('project'),
       pullRequestUrl: text('pullRequestUrl'),
-      source: text('source'),
-      externalKey: text('externalKey'),
     };
     const subtasks = Object.hasOwn(value, 'subtasks') ? value.subtasks : undefined;
     if (subtasks !== undefined && subtasks !== null && !Array.isArray(subtasks)) {

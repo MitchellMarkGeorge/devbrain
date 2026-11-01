@@ -80,19 +80,13 @@ function dateField(raw: string | null, column: string): Checked<Date | undefined
   return { value: fromDateString(value) };
 }
 
-function isLocal(record: TaskRecord): boolean {
-  const source = record.fields.source?.trim().toLowerCase();
-  return !source || source === 'local';
-}
-
 /**
  * The plan for importing `roots`. Each row is checked in turn:
  *
  * 1. A row that could not be read (`error`) is an error.
- * 2. A synced task (`source` other than local) is skipped: its integration brings it back.
- * 3. A task whose id is already in the workspace is skipped, so importing an export twice adds
+ * 2. A task whose id is already in the workspace is skipped, so importing an export twice adds
  *    nothing.
- * 4. A missing title, an unknown status or priority, a date that is not YYYY-MM-DD, a pull request
+ * 3. A missing title, an unknown status or priority, a date that is not YYYY-MM-DD, a pull request
  *    link that is not http(s), or a title or description over its limit is an error.
  *
  * A missing status is not started, a missing priority the default priority, and a missing due
@@ -184,18 +178,6 @@ export function planTaskImport(roots: TaskRecord[], context: TaskImportContext):
   const visit = (record: TaskRecord, isRoot: boolean) => {
     if (record.error !== null) {
       plan.errors.push(issue(record, record.error));
-      skipSubtasks(record);
-      return null;
-    }
-    if (!isLocal(record)) {
-      const key = record.fields.externalKey?.trim();
-      const source = record.fields.source!.trim();
-      plan.skipped.push(
-        issue(
-          record,
-          `Synced from ${source}${key ? ` (${key})` : ''}; its integration brings it back, so it isn't imported`,
-        ),
-      );
       skipSubtasks(record);
       return null;
     }
