@@ -5,6 +5,7 @@ import type { DevBrain, WorkspaceEntry } from '@main/core';
 import { appRouter } from '@main/ipc/router';
 import { attachRouter } from '@main/ipc/server';
 import path from 'node:path';
+import Database from 'better-sqlite3';
 import { ChangeTracker } from '@main/ipc/changes';
 import { resetElectronMock } from '../__mocks__/electron';
 import type { Desktop } from '@main/ipc/desktop';
@@ -206,12 +207,15 @@ describe('workspaces.importFolder', () => {
   let otherId: WorkspaceId;
   // the folder dialog: cancelled unless a test says what was picked
   const chooseFolder = vi.fn<Desktop['chooseFolder']>();
+  // what the tracker sends to the app's windows
+  const sendToWindows = vi.fn();
 
   beforeEach(async () => {
     chooseFolder.mockReset();
     chooseFolder.mockResolvedValue(null);
+    sendToWindows.mockReset();
     const desktop = { chooseFolder } as Partial<Desktop> as Desktop;
-    const tracker = new ChangeTracker(vi.fn());
+    const tracker = new ChangeTracker(sendToWindows);
     tracker.watch(devBrain);
     attachRouter(appRouter, {
       createContext: testContext(devBrain, desktop),
@@ -247,6 +251,43 @@ describe('workspaces.importFolder', () => {
     });
     expect(devBrain.currentWorkspace).toBeNull();
     expect(devBrain.workspaces.listAll().items.map((w) => w.id)).toEqual([otherId]);
+  });
+
+  it('leaves the open workspace open and tells the windows nothing about the copy it checks', async () => {
+    // an integration whose credentials this computer can't read: the import moves it to
+    // needs_reauth while it has the copy open on the side
+    const sqlite = new Database(path.join(folder, 'db.sqlite'));
+    try {
+      sqlite
+        .prepare(
+          `INSERT INTO integrations (id, provider, auth_type, account_id, account_label, status, credentials, created_at, updated_at)
+           VALUES ('int_1', 'linear', 'api_key', 'org:ada', 'Ada', 'connected', x'00', 0, 0)`,
+        )
+        .run();
+    } finally {
+      sqlite.close();
+    }
+    const open = await createWorkspace(devBrain, 'Open now');
+    await devBrain.workspaces.open(open);
+    sendToWindows.mockClear();
+    pick(folder);
+
+    const result = await call<WorkspaceEntry>('workspaces.importFolder', undefined, 'mutation');
+
+    expect(result).toMatchObject({ ok: true, changed: ['workspace'] });
+    expect(devBrain.currentWorkspace?.info.id).toBe(open);
+    const sent = sendToWindows.mock.calls.map(([name]) => name);
+    expect(sent).not.toContain('workspace.changed');
+    expect(sent).not.toContain('integrations.changed');
+    // the change did happen, in the copy
+    const copy = new Database(path.join(devBrain.workspaces.getById(otherId).path, 'db.sqlite'));
+    try {
+      expect(copy.prepare("SELECT status FROM integrations WHERE id = 'int_1'").get()).toEqual({
+        status: 'needs_reauth',
+      });
+    } finally {
+      copy.close();
+    }
   });
 
   it('returns null and adds nothing when the dialog is cancelled', async () => {

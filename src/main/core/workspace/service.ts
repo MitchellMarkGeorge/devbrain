@@ -415,7 +415,10 @@ export class WorkspaceService {
       if (!inPlace) await copyWorkspaceFolder(source, destination);
       else if (!Workspace.isWorkspaceDatabase(dbPath, this.workspaceOptions.migrationsPath))
         throw notAWorkspace(source);
-      // migrates an older database, and refuses one from a newer DevBrain
+      // Migrates an older database, and refuses one from a newer DevBrain. Opened on the side, not
+      // through openWorkspace: the open workspace stays current and nothing sends opened or
+      // closed, and as the ChangeTracker listens only to the current workspace's services, what
+      // changes in this copy (needs_reauth below) reaches no window.
       const workspace = await Workspace.open(info, this.workspaceOptions);
       try {
         await workspace.integrations.markUnreadableNeedsReauth();
