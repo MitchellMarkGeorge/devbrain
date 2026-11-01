@@ -96,15 +96,16 @@ export async function readAtMost(
   const chunks: Buffer[] = [];
   let total = 0;
   // one buffer to read into, reused; only the bytes each read returns are kept
-  const scratch = Buffer.allocUnsafe(READ_CHUNK_BYTES);
-  for (;;) {
+  const scratch = Buffer.alloc(READ_CHUNK_BYTES);
+  let bytesRead: number;
+  do {
     // a null position reads on from where the last read ended
-    const { bytesRead } = await handle.read(scratch, 0, scratch.length, null);
-    if (bytesRead === 0) return Buffer.concat(chunks, total);
+    ({ bytesRead } = await handle.read(scratch, 0, scratch.length, null));
     total += bytesRead;
     if (total > maxBytes) return null;
-    chunks.push(Buffer.from(scratch.subarray(0, bytesRead)));
-  }
+    if (bytesRead > 0) chunks.push(Buffer.from(scratch.subarray(0, bytesRead)));
+  } while (bytesRead > 0);
+  return Buffer.concat(chunks, total);
 }
 
 export function formatBytes(bytes: number): string {
