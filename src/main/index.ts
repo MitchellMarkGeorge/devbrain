@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, net, powerMonitor, safeStorage, shell } from 'electron';
+import { app, BrowserWindow, dialog, Menu, net, powerMonitor, safeStorage, shell } from 'electron';
 import { IPC_EVENT_PREFIX } from '@common/ipc/constants';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -12,6 +12,7 @@ import { openElectronSettingsStore } from './runtime/settings-store';
 import { loadDevBrain } from './runtime/start';
 import { closeBeforeQuit, forwardSyncTriggers } from './runtime/lifecycle';
 import { createElectronDesktop } from './runtime/desktop';
+import { createMenuActions, installAppMenu } from './runtime/menu';
 import { attachRouter } from './ipc/server';
 import { ChangeTracker } from './ipc/changes';
 import { appRouter } from './ipc/router';
@@ -177,6 +178,29 @@ function hardenWindow(win: BrowserWindow) {
   });
 }
 
+// --- Menu ---------------------------------------------------------------
+// The menu bar (src/main/runtime/menu.ts): its commands run in main, with their dialogs modal to
+// the focused window. Set after DevBrain has loaded, so it follows the open workspace.
+function attachMenu(devBrain: DevBrain | null) {
+  const focusedWindow = () => BrowserWindow.getFocusedWindow() ?? mainWindow;
+  installAppMenu({
+    setApplicationMenu: (template) => Menu.setApplicationMenu(Menu.buildFromTemplate(template)),
+    platform: process.platform,
+    appName: app.name,
+    isPackaged: app.isPackaged,
+    devBrain,
+    actions: createMenuActions({
+      devBrain,
+      window: focusedWindow,
+      desktop: (win) => createElectronDesktop({ dialog, shell }, win),
+      dialog,
+      showItemInFolder: (fullPath) => shell.showItemInFolder(fullPath),
+      logFilePath: () => log.transports.file.getFile().path,
+      logger: log.scope('menu'),
+    }),
+  });
+}
+
 // --- App lifecycle --------------------------------------------------------
 // Startup, in order: load DevBrain; attach everything that follows it, before anything starts;
 // then create the window, whose first calls find the router. The renderer reopens the last
@@ -196,6 +220,7 @@ app.whenReady().then(async () => {
     forwardSyncTriggers({ app, powerMonitor }, devBrain, devBrainLog);
   }
 
+  attachMenu(devBrain);
   createWindow();
   // the Dock icon on macOS: shows the hidden window, or makes one if it is gone
   app.on('activate', () => {
