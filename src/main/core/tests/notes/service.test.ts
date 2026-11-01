@@ -255,7 +255,14 @@ describe('NoteService — listNotes', () => {
   it('defaults to sorting by updatedAt descending', async () => {
     const a = await notesService.createNote({ title: 'A' });
     const b = await notesService.createNote({ title: 'B' });
-    notesService.updateNote(a.id, { title: 'A updated' });
+    // inserts take updatedAt from SQLite's unixepoch() (whole seconds) and updates from new Date()
+    // (ms), so an update landing on the same second's .000 ties with B; move the clock ahead to break it
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.now() + 1000 });
+    try {
+      notesService.updateNote(a.id, { title: 'A updated' });
+    } finally {
+      vi.useRealTimers();
+    }
     const result = notesService.listNotes().items;
     const ids = result.map((n) => n.id);
     expect(ids.indexOf(a.id)).toBeLessThan(ids.indexOf(b.id));

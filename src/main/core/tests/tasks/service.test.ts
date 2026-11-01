@@ -590,9 +590,14 @@ describe('TaskService — listTasks', () => {
   it('sort=updatedAt orders by updatedAt descending', async () => {
     const a = tasks.createTask({ title: 'A', dueDate: TOMORROW });
     const b = tasks.createTask({ title: 'B', dueDate: TOMORROW });
-    // updating A triggers $onUpdate(() => new Date()) which stores ms-precision timestamp,
-    // much larger than B's insert default of unixepoch() (seconds), so A sorts first
-    tasks.updateTask(a.id, { title: 'A updated' });
+    // inserts take updatedAt from SQLite's unixepoch() (whole seconds) and updates from new Date()
+    // (ms), so an update landing on the same second's .000 ties with B; move the clock ahead to break it
+    vi.useFakeTimers({ toFake: ['Date'], now: Date.now() + 1000 });
+    try {
+      tasks.updateTask(a.id, { title: 'A updated' });
+    } finally {
+      vi.useRealTimers();
+    }
     const result = tasks.listTasks({}, { sortBy: 'updatedAt' }).items;
     const ids = result.map((t) => t.id);
     expect(ids.indexOf(a.id)).toBeLessThan(ids.indexOf(b.id));
