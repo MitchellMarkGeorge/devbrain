@@ -35,6 +35,28 @@ export function hasMigrationsTable(sqlite: Database.Database): boolean {
 }
 
 /**
+ * Whether DevBrain made this database: its first recorded migration is this app's first one, the
+ * same SQL (drizzle stores a hash of each migration it applies) at the same journal time. Every
+ * workspace database, from any version, starts with it, and a merged migration is never changed,
+ * so another app's database fails this even when it also uses drizzle. False for a database with
+ * no migrations table or none recorded.
+ */
+export function isDevBrainDatabase(sqlite: Database.Database, migrationsFolder: string): boolean {
+  if (!hasMigrationsTable(sqlite)) return false;
+  // rowid, not drizzle's `id`, which SQLite leaves null
+  const first = sqlite
+    .prepare(
+      `SELECT hash, created_at FROM "${MIGRATIONS_TABLE}" ORDER BY created_at, rowid LIMIT 1`,
+    )
+    .get() as { hash: string; created_at: number | string } | undefined;
+  if (first === undefined) return false;
+  const [own] = readMigrationFiles({ migrationsFolder });
+  return (
+    own !== undefined && first.hash === own.hash && Number(first.created_at) === own.folderMillis
+  );
+}
+
+/**
  * Runs pending migrations with foreign keys switched off, then checks them before turning them
  * back on.
  *

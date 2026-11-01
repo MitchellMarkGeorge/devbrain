@@ -397,7 +397,8 @@ export class WorkspaceService {
     const inPlace = destination === source;
     if (!inPlace) {
       // checked before the copy, so a folder that never was a workspace is never copied
-      if (!Workspace.isWorkspaceDatabase(dbPath)) throw notAWorkspace(source);
+      if (!Workspace.isWorkspaceDatabase(dbPath, this.workspaceOptions.migrationsPath))
+        throw notAWorkspace(source);
       if (fsSync.existsSync(destination)) throw new FileExistsError(destination);
     }
 
@@ -412,7 +413,8 @@ export class WorkspaceService {
 
     try {
       if (!inPlace) await copyWorkspaceFolder(source, destination);
-      else if (!Workspace.isWorkspaceDatabase(dbPath)) throw notAWorkspace(source);
+      else if (!Workspace.isWorkspaceDatabase(dbPath, this.workspaceOptions.migrationsPath))
+        throw notAWorkspace(source);
       // migrates an older database, and refuses one from a newer DevBrain
       const workspace = await Workspace.open(info, this.workspaceOptions);
       try {

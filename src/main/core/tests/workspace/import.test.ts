@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { eq } from 'drizzle-orm';
 import type { WorkspaceId } from '@common/ids';
 import { integrations } from '@main/db/schema/integrations';
@@ -259,6 +260,44 @@ describe('WorkspaceService.import — errors', () => {
     await fs.mkdir(other);
     withDatabase(other, (sqlite) => sqlite.exec('CREATE TABLE things (id INTEGER)'));
     await expectImportError(other, 'not_a_workspace');
+    await expectNothingAdded();
+  });
+
+  it("refuses another app's drizzle database, or one whose first migration isn't DevBrain's", async () => {
+    // another app that also uses drizzle: its own migrations table, its own first migration
+    const otherApp = path.join(carried, 'other-drizzle-app');
+    await fs.mkdir(otherApp);
+    const otherMigrations = path.join(dir, 'other-migrations');
+    await fs.mkdir(path.join(otherMigrations, 'meta'), { recursive: true });
+    await fs.writeFile(
+      path.join(otherMigrations, '0000_init.sql'),
+      'CREATE TABLE things (id integer);',
+    );
+    await fs.writeFile(
+      path.join(otherMigrations, 'meta/_journal.json'),
+      JSON.stringify({
+        version: '7',
+        dialect: 'sqlite',
+        entries: [
+          { idx: 0, version: '6', when: 1_700_000_000_000, tag: '0000_init', breakpoints: true },
+        ],
+      }),
+    );
+    withDatabase(otherApp, (sqlite) =>
+      migrate(drizzle({ client: sqlite }), { migrationsFolder: otherMigrations }),
+    );
+    await expectImportError(otherApp, 'not_a_workspace');
+
+    // a DevBrain database whose first recorded migration was changed: same time, other SQL
+    const { folder } = await carryWorkspace();
+    withDatabase(folder, (sqlite) =>
+      sqlite
+        .prepare(
+          'UPDATE __drizzle_migrations SET hash = ? WHERE rowid = (SELECT MIN(rowid) FROM __drizzle_migrations)',
+        )
+        .run('not-devbrains'),
+    );
+    await expectImportError(folder, 'not_a_workspace');
     await expectNothingAdded();
   });
 

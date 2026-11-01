@@ -36,6 +36,10 @@ returned. `importFolder` returns null when the dialog is cancelled.
   recolouring writes `workspace.json`, so the name is never stored twice. An imported folder without
   one is named after the folder and shown in grey (and gets one). A `workspaces.json` written before
   this keeps its names and colours until the next start, which moves them into each folder.
+- **Only a DevBrain database is accepted.** The folder must hold a `db.sqlite` whose first recorded
+  migration is DevBrain's own first migration: the same SQL (drizzle keeps a hash of each one it
+  applies) at the same time. Every workspace from any version of DevBrain starts with it, and a
+  database from another app does not, even one that also uses drizzle.
 - **The id comes with it,** so it is the same workspace on both computers. A folder whose id is
   already in your list is refused (below).
 - **An older database is updated** for this version of DevBrain, with the usual backup and restore

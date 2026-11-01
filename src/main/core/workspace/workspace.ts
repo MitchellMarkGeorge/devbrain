@@ -22,7 +22,7 @@ import { TaskReconciler } from '../sync/task-reconciler';
 import type { WorkspaceInfo, WorkspaceOptions } from './types';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { hasMigrationsTable, runMigrations } from '@main/db/migrate';
+import { isDevBrainDatabase, runMigrations } from '@main/db/migrate';
 import { fileExists } from '../local/utils';
 import {
   WorkspaceClosedError,
@@ -206,11 +206,12 @@ export class Workspace {
   }
 
   /**
-   * Whether the file at `dbPath` is a workspace database: SQLite, holding the migrations table
-   * every workspace database has. False for any other file, SQLite or not. Opens it only to read
-   * that, and closes it again. Throws what opening throws otherwise (a file that can't be read).
+   * Whether the file at `dbPath` is a DevBrain workspace database: SQLite, starting with this app's
+   * first migration (isDevBrainDatabase), which another app's database, drizzle or not, doesn't.
+   * Opens it only to read that, and closes it again. Throws what opening throws otherwise (a file
+   * that can't be read).
    */
-  static isWorkspaceDatabase(dbPath: string): boolean {
+  static isWorkspaceDatabase(dbPath: string, migrationsFolder: string): boolean {
     let sqlite: SqliteDatabaseClient;
     try {
       sqlite = new Database(dbPath, { fileMustExist: true });
@@ -219,7 +220,7 @@ export class Workspace {
       throw error;
     }
     try {
-      return hasMigrationsTable(sqlite);
+      return isDevBrainDatabase(sqlite, migrationsFolder);
     } catch (error) {
       if (isNotADatabase(error)) return false;
       throw error;
