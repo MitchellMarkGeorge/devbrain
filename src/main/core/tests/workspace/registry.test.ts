@@ -185,9 +185,11 @@ describe('WorkspaceService — failed registry writes', () => {
     expect(await workspaceDirectories()).toEqual([]);
   });
 
-  it('a rename failure while updating a workspace leaves the previous registry and sends nothing', async () => {
+  it('a rename failure while updating a workspace leaves its name as it was and sends nothing', async () => {
     const existing = registryOf(makeInfo('wsp_a'));
     writeRegistry(rootPath, existing);
+    // the name is written into the workspace's folder, so it has to be there
+    await makeWorkspaceDirectory('wsp_a');
     const service = new WorkspaceService(rootPath, WORKSPACE_OPTIONS);
     const changes = vi.fn();
     service.onChange(changes);
@@ -259,7 +261,14 @@ describe('recoverRegistry', () => {
     expect(await recoverRegistry(rootPath, vi.fn())).toBe('directories');
     const restored = await readJson(registryPath());
     expect(Object.keys(restored)).toEqual(['wsp_a']);
-    expect(restored.wsp_a).toMatchObject({ name: 'Recovered workspace wsp_a', lastOpenedAt: null });
+    // only where the folder is: its name comes from its manifest, or reads as recovered without one
+    expect(restored.wsp_a).toEqual({
+      id: 'wsp_a',
+      path: path.join(rootPath, 'workspaces', 'wsp_a'),
+      lastOpenedAt: null,
+    });
+    const service = new WorkspaceService(rootPath, WORKSPACE_OPTIONS);
+    expect(service.getById('wsp_a' as WorkspaceId).name).toBe('Recovered workspace wsp_a');
     expect(await readJson(backupPath())).toEqual(restored);
   });
 

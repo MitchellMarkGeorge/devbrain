@@ -152,6 +152,28 @@ export class CredentialStore {
       );
   }
 
+  /**
+   * Whether the stored credentials can be decrypted and read here, without refreshing or
+   * re-encrypting them. False for credentials encrypted on another computer (safeStorage's key
+   * stays in that computer's keychain), an empty blob, or a corrupt one. Throws NotFoundError for
+   * an unknown integration.
+   */
+  async canDecrypt(integrationId: IntegrationId): Promise<boolean> {
+    const row = this.db
+      .select({ credentials: integrations.credentials })
+      .from(integrations)
+      .where(eq(integrations.id, integrationId))
+      .get();
+    if (!row) throw new NotFoundError(integrationId);
+    try {
+      await this.decrypt(integrationId, row.credentials);
+      return true;
+    } catch (error) {
+      if (error instanceof IntegrationAuthError) return false;
+      throw error;
+    }
+  }
+
   private async read(integrationId: IntegrationId): Promise<{
     provider: Provider;
     blob: Buffer;

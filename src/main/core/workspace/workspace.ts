@@ -22,7 +22,7 @@ import { TaskReconciler } from '../sync/task-reconciler';
 import type { WorkspaceInfo, WorkspaceOptions } from './types';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { runMigrations } from '@main/db/migrate';
+import { isDevBrainDatabase, runMigrations } from '@main/db/migrate';
 import { fileExists } from '../local/utils';
 import {
   WorkspaceClosedError,
@@ -41,6 +41,12 @@ type SqliteDatabaseClient = Database.Database;
 const noBrowser = async () => {
   throw new Error('No browser is configured to open links');
 };
+
+// SQLite's answer for a file that is not a database, or one too damaged to read
+function isNotADatabase(error: unknown): boolean {
+  const code = (error as { code?: unknown } | null)?.code;
+  return code === 'SQLITE_NOTADB' || code === 'SQLITE_CORRUPT';
+}
 
 export class Workspace {
   private readonly closing = new AbortController();
@@ -197,6 +203,30 @@ export class Workspace {
     const sqlite = new Database(dbPath);
     // a new database has nothing to restore if migrating fails
     return Workspace.initDb(sqlite, info, options, { dbPath, backupPath: null });
+  }
+
+  /**
+   * Whether the file at `dbPath` is a DevBrain workspace database: SQLite, starting with this app's
+   * first migration (isDevBrainDatabase), which another app's database, drizzle or not, doesn't.
+   * Opens it only to read that, and closes it again. Throws what opening throws otherwise (a file
+   * that can't be read).
+   */
+  static isWorkspaceDatabase(dbPath: string, migrationsFolder: string): boolean {
+    let sqlite: SqliteDatabaseClient;
+    try {
+      sqlite = new Database(dbPath, { fileMustExist: true });
+    } catch (error) {
+      if (isNotADatabase(error)) return false;
+      throw error;
+    }
+    try {
+      return isDevBrainDatabase(sqlite, migrationsFolder);
+    } catch (error) {
+      if (isNotADatabase(error)) return false;
+      throw error;
+    } finally {
+      sqlite.close();
+    }
   }
 
   static async open(info: WorkspaceInfo, options: WorkspaceOptions): Promise<Workspace> {

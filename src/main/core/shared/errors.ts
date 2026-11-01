@@ -297,6 +297,47 @@ export class WorkspaceMigrationError extends CoreError {
   }
 }
 
+// A workspace database migrated by a newer DevBrain than this one: it holds migrations this app
+// doesn't know, so its schema may not be one this app can read or write. Nothing was changed; update
+// DevBrain to open it
+export class WorkspaceTooNewError extends CoreError {
+  readonly code = 'workspace_too_new';
+  constructor() {
+    super(
+      'This workspace was last used by a newer version of DevBrain. Update DevBrain to open it',
+    );
+    this.name = 'WorkspaceTooNewError';
+  }
+}
+
+export type WorkspaceImportReason =
+  // no folder there, or one without a workspace database (db.sqlite) that DevBrain made
+  | 'not_a_workspace'
+  // a workspace with the same id, or the same folder, is already in the list
+  | 'already_added'
+  // the folder or its files can't be read
+  | 'unreadable';
+
+// A folder that can't be added to the workspace list (WorkspaceService.import). Nothing was
+// registered, and the folder chosen was left as it was
+export class WorkspaceImportError extends CoreError {
+  readonly code = 'workspace_import';
+  readonly reason: WorkspaceImportReason;
+  // the workspace already in the list, for `already_added`
+  readonly workspaceId: WorkspaceId | null;
+
+  constructor(
+    reason: WorkspaceImportReason,
+    message: string,
+    workspaceId: WorkspaceId | null = null,
+  ) {
+    super(message);
+    this.name = 'WorkspaceImportError';
+    this.reason = reason;
+    this.workspaceId = workspaceId;
+  }
+}
+
 // A URL that may not be opened: not http or https, or not one that safeExternalUrl accepts. Nothing
 // was opened. The URL is kept off the message, as it can carry a token
 export class UnsafeUrlError extends CoreError {

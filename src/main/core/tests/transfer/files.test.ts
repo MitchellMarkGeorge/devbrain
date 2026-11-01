@@ -153,8 +153,12 @@ describe('readAtMost', () => {
 
   it('reads to the end across chunks and short reads', async () => {
     const data = Buffer.from('abcdefghij'.repeat(20_000));
-    expect(await readAtMost(handleOver(data) as never, data.length)).toEqual(data);
-    expect(await readAtMost(handleOver(data, 1000) as never, data.length)).toEqual(data);
+    // Buffer.equals, not toEqual: toEqual walks 200 KB byte by byte (about half a second each),
+    // which ran this test past the 5s timeout on a busy CI machine
+    expect((await readAtMost(handleOver(data) as never, data.length))?.equals(data)).toBe(true);
+    expect((await readAtMost(handleOver(data, 1000) as never, data.length))?.equals(data)).toBe(
+      true,
+    );
   });
 
   it('takes a file exactly at the limit, and stops one byte past it', async () => {

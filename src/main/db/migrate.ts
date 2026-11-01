@@ -1,7 +1,60 @@
 import type Database from 'better-sqlite3';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { WorkspaceMigrationError } from '@main/core/shared/errors';
+import { readMigrationFiles } from 'drizzle-orm/migrator';
+import { WorkspaceMigrationError, WorkspaceTooNewError } from '@main/core/shared/errors';
+
+// where drizzle records the migrations it has applied, one row each, `created_at` being the
+// migration's journal time
+const MIGRATIONS_TABLE = '__drizzle_migrations';
+
+/**
+ * Throws WorkspaceTooNewError when the database has a migration newer than every one in
+ * `migrationsFolder`: a newer DevBrain migrated it. Drizzle would apply nothing and open it as if
+ * it were current, and this app's queries could then break it. A database with no migrations
+ * table yet (a new one) passes.
+ */
+export function assertNotNewerThanApp(sqlite: Database.Database, migrationsFolder: string): void {
+  if (!hasMigrationsTable(sqlite)) return;
+  const row = sqlite
+    .prepare(`SELECT MAX(created_at) AS latest FROM "${MIGRATIONS_TABLE}"`)
+    .get() as { latest: number | string | null };
+  if (row.latest === null) return;
+  const known = readMigrationFiles({ migrationsFolder });
+  const appLatest = Math.max(0, ...known.map((migration) => migration.folderMillis));
+  if (Number(row.latest) > appLatest) throw new WorkspaceTooNewError();
+}
+
+// whether the database holds drizzle's migrations table, as every workspace database does
+export function hasMigrationsTable(sqlite: Database.Database): boolean {
+  return (
+    sqlite
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
+      .get(MIGRATIONS_TABLE) !== undefined
+  );
+}
+
+/**
+ * Whether DevBrain made this database: its first recorded migration is this app's first one, the
+ * same SQL (drizzle stores a hash of each migration it applies) at the same journal time. Every
+ * workspace database, from any version, starts with it, and a merged migration is never changed,
+ * so another app's database fails this even when it also uses drizzle. False for a database with
+ * no migrations table or none recorded.
+ */
+export function isDevBrainDatabase(sqlite: Database.Database, migrationsFolder: string): boolean {
+  if (!hasMigrationsTable(sqlite)) return false;
+  // rowid, not drizzle's `id`, which SQLite leaves null
+  const first = sqlite
+    .prepare(
+      `SELECT hash, created_at FROM "${MIGRATIONS_TABLE}" ORDER BY created_at, rowid LIMIT 1`,
+    )
+    .get() as { hash: string; created_at: number | string } | undefined;
+  if (first === undefined) return false;
+  const [own] = readMigrationFiles({ migrationsFolder });
+  return (
+    own !== undefined && first.hash === own.hash && Number(first.created_at) === own.folderMillis
+  );
+}
 
 /**
  * Runs pending migrations with foreign keys switched off, then checks them before turning them
@@ -13,7 +66,8 @@ import { WorkspaceMigrationError } from '@main/core/shared/errors';
  * subtasks cascade away and project and note links are set to null. Switching foreign keys off out
  * here, before the transaction starts, is the procedure SQLite documents for table rebuilds.
  *
- * Throws WorkspaceMigrationError. When a statement fails, drizzle rolls the transaction back and
+ * Throws WorkspaceTooNewError, before changing anything, for a database a newer DevBrain migrated
+ * (see assertNotNewerThanApp), and WorkspaceMigrationError. When a statement fails, drizzle rolls the transaction back and
  * the database is unchanged (`committed: false`). The foreign key check can only run after the
  * commit, so when it fails the database has changed (`committed: true`) and the caller should
  * restore a backup.
@@ -24,6 +78,7 @@ export function runMigrations(
   migrationsFolder: string,
 ): void {
   const details = { restoredFromBackup: false, backupPath: null };
+  assertNotNewerThanApp(sqlite, migrationsFolder);
 
   sqlite.pragma('foreign_keys = OFF');
   try {

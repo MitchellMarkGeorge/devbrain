@@ -35,4 +35,8 @@ export type CoreErrorCode =
   | 'workspace_migration'
   | 'unsafe_url'
   // an import file DevBrain can't read: too large, not text, malformed, or of an unknown kind
-  | 'import_file';
+  | 'import_file'
+  // a workspace database written by a newer DevBrain than this one
+  | 'workspace_too_new'
+  // a folder that can't be added as a workspace (WorkspaceImportError's `reason` says why)
+  | 'workspace_import';

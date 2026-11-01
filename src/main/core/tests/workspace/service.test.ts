@@ -13,6 +13,7 @@ import {
   WorkspaceNotOpenError,
 } from '../../shared/errors';
 import { FakeCipher } from '../__mocks__/fake-cipher';
+import { readManifest } from '../../workspace/manifest';
 
 // Mock the Workspace class so WorkspaceService tests don't need SQLite
 vi.mock('../../workspace/workspace', () => ({
@@ -268,6 +269,7 @@ describe('WorkspaceService — update', () => {
       }),
     ];
     writeRegistry(tmpDir, infos);
+    for (const info of infos) fsSync.mkdirSync(info.path, { recursive: true });
     const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     const changes: WorkspaceChange[] = [];
     service.onChange((change) => changes.push(change));
@@ -303,17 +305,54 @@ describe('WorkspaceService — update', () => {
     expect(updated).toEqual(service.getById(infos[1].id));
   });
 
-  it('writes the registry and its backup, keeping every other field', async () => {
+  it('keeps the name and colour only in the folder, dropping the copy an older registry had', async () => {
     const { service, infos } = setup();
 
     await service.update(infos[0].id, { name: 'Renamed', color: '#f6339a' });
 
-    const expected = makeRegistry([{ ...infos[0], name: 'Renamed', color: '#f6339a' }, infos[1]]);
+    const expected = {
+      ...makeRegistry([infos[1]]),
+      [infos[0].id]: { id: infos[0].id, path: infos[0].path, lastOpenedAt: null },
+    };
     expect(readRegistryFile()).toEqual(expected);
     expect(readRegistryFile('workspaces.json.bak')).toEqual(expected);
+    expect(service.getById(infos[0].id)).toMatchObject({ name: 'Renamed', color: '#f6339a' });
   });
 
-  it('sends updated with the new info once the registry is written', async () => {
+  it("rewrites the folder's manifest, so a copy carries the new name and colour", async () => {
+    const { service, infos } = setup();
+
+    await service.update(infos[0].id, { name: 'Renamed' });
+    expect(readManifest(infos[0].path)).toEqual({
+      id: infos[0].id,
+      name: 'Renamed',
+      color: infos[0].color,
+      createdAt: infos[0].createdAt,
+    });
+
+    await service.update(infos[0].id, { color: '#00bc7d' });
+    expect(readManifest(infos[0].path)).toMatchObject({ name: 'Renamed', color: '#00bc7d' });
+    // the other workspace's folder is left alone
+    expect(readManifest(infos[1].path)).toBeNull();
+  });
+
+  it('throws WorkspaceDataMissingError when the folder is gone, changing and sending nothing', async () => {
+    const { service, infos, changes } = setup();
+    await fs.rm(infos[0].path, { recursive: true });
+    const before = readRegistryFile();
+
+    await expect(service.update(infos[0].id, { name: 'Renamed' })).rejects.toBeInstanceOf(
+      WorkspaceDataMissingError,
+    );
+
+    expect(readRegistryFile()).toEqual(before);
+    expect(service.getById(infos[0].id).name).toBe('First');
+    // and the folder is not brought back empty
+    expect(fsSync.existsSync(infos[0].path)).toBe(false);
+    expect(changes).toEqual([]);
+  });
+
+  it('sends updated with the new info once it is written', async () => {
     const { service, infos, changes } = setup();
     let registeredWhenSent: WorkspaceInfo | undefined;
     service.onChange(() => (registeredWhenSent = service.getById(infos[0].id)));
@@ -398,7 +437,6 @@ describe('WorkspaceService — update', () => {
 
   it('waits for a running transition, so it never writes over the registry mid-open', async () => {
     const { service, infos } = setup();
-    await fs.mkdir(infos[0].path);
     const opening = deferred<unknown>();
     vi.mocked(Workspace.open).mockReturnValueOnce(opening.promise as never);
 
