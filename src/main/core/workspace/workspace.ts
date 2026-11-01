@@ -9,6 +9,8 @@ import { NoteService } from '../notes/service';
 import { ProjectService } from '../projects/service';
 import { SearchService } from '../search/service';
 import { TaskService } from '../tasks/service';
+import { TransferService } from '../transfer/service';
+import { FALLBACK_TASK_DEFAULTS } from '../tasks/defaults';
 import { DetachService } from '../integrations/detach';
 import { IntegrationService } from '../integrations/service';
 import { createIntegrationServices } from '../integrations/setup';
@@ -52,6 +54,8 @@ export class Workspace {
   readonly favorites: FavoritesService;
   readonly recents: RecentsService;
   readonly search: SearchService;
+  // importing tasks and notes from files, and exporting them (docs/import-export.md)
+  readonly transfer: TransferService;
   readonly integrations: IntegrationService;
   // detachTask and reattachTask for external tasks, and onChange
   readonly detach: DetachService;
@@ -80,11 +84,20 @@ export class Workspace {
     this.favorites = new FavoritesService(db);
     this.recents = new RecentsService(db);
     this.search = new SearchService(db, info.path);
+    // imports create through the services, so search and the change events follow them
+    this.transfer = new TransferService({
+      tasks: this.tasks,
+      notes: this.notes,
+      projects: this.projects,
+      taskDefaults: options.taskDefaults ?? (() => FALLBACK_TASK_DEFAULTS),
+    });
     // the user's own writes; SyncWriter indexes what sync writes. An archived row stays out of
     // search when it is written; restoring it brings it back. A delete drops every row it removed,
     // in its transaction.
     this.tasks.onChange((change) => {
       if (change.type === 'deleted') this.search.removeFromIndex(change.taskIds);
+      // a new row has no entry to replace: inserting alone keeps an import linear
+      else if (change.type === 'created') this.search.indexCreatedTask(change.task);
       else if (change.task.archivedAt === null) this.search.indexTask(change.task);
     });
     this.projects.onChange((change) => {
@@ -93,6 +106,7 @@ export class Workspace {
     });
     this.notes.onChange((change) => {
       if (change.type === 'deleted') this.search.removeFromIndex([change.noteId]);
+      else if (change.type === 'created') this.search.indexCreatedNote(change.note, change.content);
       else if (change.content === undefined) {
         this.search.updateIndexedTitle(change.note.id, change.note.title);
       } else this.search.indexNoteContent(change.note, change.content);

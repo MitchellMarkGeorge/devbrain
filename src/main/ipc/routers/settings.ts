@@ -13,4 +13,10 @@ export const settingsRouter = t.router({
     ctx.devBrain.settings.set('settings', input);
     return ctx.devBrain.settings.get('settings');
   }),
+
+  // Shows the data folder (the DevBrain folder that is open) in the file manager. The path is the
+  // one DevBrain opened, never input, not even the devBrainPath setting the renderer can write
+  showDataFolder: devBrainProcedure.mutation(({ ctx }) =>
+    ctx.desktop.openFolder(ctx.devBrain.path),
+  ),
 });

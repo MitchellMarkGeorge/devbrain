@@ -23,6 +23,9 @@ export interface OpenDevBrainOptions {
 export class DevBrain {
   readonly settings: SettingsService;
   readonly workspaces: WorkspaceService;
+  // The DevBrain folder this was opened on: the data folder. Kept apart from the devBrainPath
+  // setting, which the renderer can write, so what main opens in the file manager is never input.
+  readonly path: string;
 
   // through DevBrain.open only, so a DevBrain always sits on a valid folder
   private constructor(
@@ -30,8 +33,17 @@ export class DevBrain {
     openSettingsStore: OpenSettingsStore,
     options: WorkspaceOptions,
   ) {
+    this.path = rootPath;
     this.settings = new SettingsService(rootPath, openSettingsStore);
-    this.workspaces = new WorkspaceService(rootPath, options);
+    const settings = this.settings;
+    this.workspaces = new WorkspaceService(rootPath, {
+      ...options,
+      // what imports fill missing values from, read when one runs
+      taskDefaults: () => {
+        const { defaultDueDate, defaultPriority } = settings.get('settings.tasks');
+        return { defaultDueDate, defaultPriority };
+      },
+    });
   }
 
   /**

@@ -1,4 +1,4 @@
-import { ProjectId, TaskId } from '@common/ids';
+import { generateId, ProjectId, TaskId } from '@common/ids';
 import { tasks } from '@main/db/schema/tasks';
 import { notes } from '@main/db/schema/notes';
 import { externalLinks } from '@main/db/schema/integrations';
@@ -6,7 +6,9 @@ import { eq, inArray, notInArray, and, isNull, not, SQL, lt, gt, gte, desc } fro
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   CreateSubTaskOptions,
+  CreateSubtaskTreeOptions,
   CreateTaskOptions,
+  CreateTaskTreeOptions,
   Task,
   TaskFilterOptions,
   SubtaskListItem,
@@ -42,6 +44,67 @@ import {
 import { LinkState } from '../integrations/types';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 
+type NewTaskValues = typeof tasks.$inferInsert;
+
+// what a subtask takes from its parent
+type SubtaskParent = Pick<Task, 'id' | 'dueDate' | 'projectId' | 'linkedNoteId' | 'linkedEventId'>;
+
+// rows per INSERT in createTaskTrees: about 15 bound values each, well under SQLite's limit on
+// variables in one statement
+const INSERT_CHUNK = 500;
+
+// The row createTask inserts: a local top-level task. Throws InvalidInputError for both links.
+function newTaskValues(options: CreateTaskOptions): NewTaskValues {
+  if (options.linkedEventId && options.linkedNoteId) {
+    throw new InvalidInputError('Tasks cannot be linked to both an event and a note');
+  }
+  return {
+    title: options.title,
+    description: options.description ?? null,
+    status: options.status ?? TaskStatus.NOT_STARTED,
+    priority: options.priority ?? TaskPriority.LOW,
+    dueDate: options.dueDate,
+    startDate: options.startDate ?? null,
+    // subtasts are created seperately
+    parentTaskId: null,
+    projectId: options.projectId ?? null,
+    // only one of theses should be defined if at all
+    linkedNoteId: options.linkedNoteId ?? null,
+    linkedEventId: options.linkedEventId ?? null,
+    pullRequestUrl: options.pullRequestUrl ?? null,
+    completedAt: options.status === TaskStatus.COMPLETED ? new Date() : null,
+  };
+}
+
+// The row createSubtask inserts under `parent`. Throws TaskHierarchyError when neither has a due
+// date.
+function newSubtaskValues(parent: SubtaskParent, options: CreateSubTaskOptions): NewTaskValues {
+  // inherit the parent's due date when none is provided; local tasks always need one
+  const dueDate = options.dueDate ?? parent.dueDate;
+  if (dueDate === null) {
+    throw new TaskHierarchyError(
+      parent.id,
+      'due_date_required',
+      'Subtasks need a due date when their parent task has none',
+    );
+  }
+  return {
+    title: options.title,
+    description: options.description ?? null,
+    status: options.status ?? TaskStatus.NOT_STARTED,
+    priority: options.priority ?? TaskPriority.LOW,
+    dueDate,
+    startDate: options.startDate ?? null,
+    // inherit the parents context by default
+    parentTaskId: parent.id,
+    projectId: parent.projectId,
+    linkedNoteId: parent.linkedNoteId,
+    linkedEventId: parent.linkedEventId,
+    pullRequestUrl: options.pullRequestUrl ?? null,
+    completedAt: options.status === TaskStatus.COMPLETED ? new Date() : null,
+  };
+}
+
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
 // layer will forward them to the renderer. Sent after the write commits, with the row as written.
 // `deleted` is sent as the delete's last step, inside its transaction, so search drops the rows in
@@ -73,28 +136,7 @@ export class TaskService {
 
   // a local task can be created in a mirrored project: it stays local and sync never touches it
   createTask(options: CreateTaskOptions): Task {
-    if (options.linkedEventId && options.linkedNoteId) {
-      throw new InvalidInputError('Tasks cannot be linked to both an event and a note');
-    }
-
-    const newTask = {
-      title: options.title,
-      description: options.description ?? null,
-      status: options.status ?? TaskStatus.NOT_STARTED,
-      priority: options.priority ?? TaskPriority.LOW,
-      dueDate: options.dueDate,
-      startDate: options.startDate ?? null,
-      // subtasts are created seperately
-      parentTaskId: null,
-      projectId: options.projectId ?? null,
-      // only one of theses should be defined if at all
-      linkedNoteId: options.linkedNoteId ?? null,
-      linkedEventId: options.linkedEventId ?? null,
-
-      completedAt: options.status === TaskStatus.COMPLETED ? new Date() : null,
-    };
-
-    const row = this.db.insert(tasks).values(newTask).returning().get();
+    const row = this.db.insert(tasks).values(newTaskValues(options)).returning().get();
     // a new task is local, so it has no link
     const insertedTask = { ...row, external: null };
     this.changes.emit({ type: 'created', task: insertedTask });
@@ -107,34 +149,61 @@ export class TaskService {
     // a synced parent's subtree is provider-owned; local subtasks nest at any depth
     assertRowEditable(parentTask);
 
-    // inherit the parent's due date when none is provided; local tasks always need one
-    const dueDate = options.dueDate ?? parentTask.dueDate;
-    if (dueDate === null) {
-      throw new TaskHierarchyError(
-        parentTaskId,
-        'due_date_required',
-        'Subtasks need a due date when their parent task has none',
-      );
-    }
-
-    const newSubtask = {
-      title: options.title,
-      description: options.description ?? null,
-      status: options.status ?? TaskStatus.NOT_STARTED,
-      priority: options.priority ?? TaskPriority.LOW,
-      dueDate,
-      startDate: options.startDate ?? null,
-      // inherit the parents context by default
-      parentTaskId: parentTaskId,
-      projectId: parentTask.projectId,
-      linkedNoteId: parentTask.linkedNoteId,
-      linkedEventId: parentTask.linkedEventId,
-      completedAt: options.status === TaskStatus.COMPLETED ? new Date() : null,
-    };
-    const row = this.db.insert(tasks).values(newSubtask).returning().get();
+    const row = this.db
+      .insert(tasks)
+      .values(newSubtaskValues(parentTask, options))
+      .returning()
+      .get();
     const insertedTask = { ...row, external: null };
     this.changes.emit({ type: 'created', task: insertedTask });
     return insertedTask;
+  }
+
+  /**
+   * Creates tasks with their subtrees, all in one transaction: every task is created, or none is
+   * when one is refused (InvalidInputError, TaskHierarchyError). Each is checked and filled as
+   * createTask and createSubtask do. A `created` is sent for each task, in the order created, as the
+   * transaction's last step, so what listeners write (the search index) commits with the rows.
+   * Returns the tasks in that order: each before its subtasks, depth first.
+   */
+  createTaskTrees(trees: CreateTaskTreeOptions[]): Task[] {
+    // Every row is built first, its id generated so its subtasks can name it, parents before their
+    // subtasks; then they go in a few hundred per statement. One insert per row would cost an
+    // import of the largest size several seconds.
+    const rows: (NewTaskValues & { id: TaskId })[] = [];
+    const add = (values: NewTaskValues): SubtaskParent => {
+      const row = { ...values, id: generateId('task') };
+      rows.push(row);
+      return {
+        id: row.id,
+        dueDate: row.dueDate ?? null,
+        projectId: row.projectId ?? null,
+        linkedNoteId: row.linkedNoteId ?? null,
+        linkedEventId: row.linkedEventId ?? null,
+      };
+    };
+    const addSubtasks = (parent: SubtaskParent, subtasks: CreateSubtaskTreeOptions[] = []) => {
+      for (const subtask of subtasks) {
+        addSubtasks(add(newSubtaskValues(parent, subtask)), subtask.subtasks);
+      }
+    };
+    for (const tree of trees) addSubtasks(add(newTaskValues(tree)), tree.subtasks);
+
+    return this.db.transaction((tx) => {
+      const inserted = new Map<TaskId, Task>();
+      for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
+        const chunk = tx
+          .insert(tasks)
+          .values(rows.slice(i, i + INSERT_CHUNK))
+          .returning()
+          .all();
+        for (const row of chunk) inserted.set(row.id, { ...row, external: null });
+      }
+      // RETURNING gives no order, so the tasks are put back in the order built
+      const created = rows.map(({ id }) => inserted.get(id)!);
+      for (const task of created) this.changes.emit({ type: 'created', task });
+      return created;
+    });
   }
 
   listTasks(

@@ -75,6 +75,7 @@ export interface CreateTaskOptions {
   // either, not both
   linkedEventId?: EventId | null;
   linkedNoteId?: NoteId | null;
+  pullRequestUrl?: string;
 }
 
 export interface CreateSubTaskOptions {
@@ -84,6 +85,17 @@ export interface CreateSubTaskOptions {
   status?: TaskStatus;
   dueDate?: Date;
   startDate?: Date;
+  pullRequestUrl?: string;
+}
+
+// A task and its subtasks, at any depth, for createTaskTrees. Each subtask takes its root's project
+// and links, and its parent's due date when it has none, as createSubtask does.
+export interface CreateTaskTreeOptions extends CreateTaskOptions {
+  subtasks?: CreateSubtaskTreeOptions[];
+}
+
+export interface CreateSubtaskTreeOptions extends CreateSubTaskOptions {
+  subtasks?: CreateSubtaskTreeOptions[];
 }
 
 // export type TaskSort = 'priority' | 'dueDate' | 'status' | 'createdAt' | 'updatedAt';

@@ -62,7 +62,10 @@ ipcLink ◄───────────────────────
    settles.
 
 The context ([`context.ts`](../../src/main/ipc/context.ts)) is built fresh for every call:
-`{ event, devBrain, workspace, log }`. `workspace` is whichever workspace is open when the call
+`{ event, devBrain, workspace, desktop, log }`. `desktop` ([`desktop.ts`](../../src/main/ipc/desktop.ts))
+is the file manager and the system dialogs, built over Electron's `shell` and `dialog`
+([`runtime/desktop.ts`](../../src/main/runtime/desktop.ts)) with each dialog modal to the calling
+window; tests pass a fake. `workspace` is whichever workspace is open when the call
 arrives. [`src/main/index.ts`](../../src/main/index.ts) loads DevBrain and attaches the router
 and the tracker before it creates the window, so a call never arrives before DevBrain is ready. No
 workspace is open yet: the renderer's first call, `workspaces.openLast`, reopens the last one.
@@ -128,7 +131,7 @@ There is no sender check: the window is sandboxed, denies new windows and cancel
 [`router.ts`](../../src/main/ipc/router.ts) merges one router per feature, in
 [`src/main/ipc/routers`](../../src/main/ipc/routers): `app`, `workspaces`, `workspace`, `settings`,
 `tasks`, `archive`, `calendars`, `integrations`, `sources`, `sync`, `notes`, `projects`, `events`,
-`favorites`, `recents` and `search`. Each file's comments say what its procedures do. A few points that are
+`favorites`, `recents`, `search` and `transfer`. Each file's comments say what its procedures do. A few points that are
 not obvious from one file:
 
 - **`setFavorite`** (tasks, projects, notes, events) takes the state wanted, not a toggle, so a
@@ -157,6 +160,12 @@ not obvious from one file:
   whole subtree) and those of the rows that only lost a link to it. Asking the user to confirm
   (`general.confirmBeforeDeleting`) is the renderer's; core never reads that setting. See
   [docs/deleting.md](../deleting.md).
+- **Dialogs and the file manager.** `transfer` (import and export, see
+  [import-export.md](../import-export.md)) asks for a file or folder through `ctx.desktop`, then
+  makes one call to `workspace.transfer`; a cancelled dialog returns `null`.
+  `settings.showDataFolder` and `workspace.showInFolder` open `devBrain.path` and the open
+  workspace's folder. A path handed to the desktop comes from main's state or a dialog, never from
+  the renderer's input.
 - **`search.search`** returns the only HTML core produces: escaped text with matches in `<b>`
   (see [untrusted-content.md](../security/untrusted-content.md)).
 

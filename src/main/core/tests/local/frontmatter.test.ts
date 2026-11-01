@@ -57,4 +57,16 @@ describe('serializeFrontmatter / extractFrontmatter', () => {
     expect(attrs).toEqual({ id: 'nte_1', title: 'hi' });
     expect(body).toBe('Hello');
   });
+
+  it('takes front matter only from the start of the document, never a --- rule further down', () => {
+    const raw = 'Intro\n---\ntitle: not front matter\n---\nMore';
+    const { data: attrs, content: body } = extractFrontmatter(raw);
+    expect(attrs).toEqual({});
+    expect(body).toBe(raw);
+  });
+
+  it('keeps blank lines that open the body', () => {
+    const raw = serializeFrontmatter({ id: 'nte_1', title: 'x' }, '\n\nBody');
+    expect(extractFrontmatter(raw).content).toBe('\n\nBody');
+  });
 });

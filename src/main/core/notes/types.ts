@@ -24,6 +24,8 @@ export interface CreateNoteOptions {
   projectId?: ProjectId | null;
   linkedEventId?: EventId | null;
   linkedTaskId?: TaskId | null;
+  // the note's markdown; a new note is empty by default
+  content?: string;
 }
 
 export interface NoteFilterOptions {

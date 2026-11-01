@@ -13,6 +13,7 @@ import { settingsRouter as settings } from './routers/settings';
 import { sourcesRouter as sources } from './routers/sources';
 import { syncRouter as sync } from './routers/sync';
 import { tasksRouter as tasks } from './routers/tasks';
+import { transferRouter as transfer } from './routers/transfer';
 import { workspaceRouter as workspace } from './routers/workspace';
 import { workspacesRouter as workspaces } from './routers/workspaces';
 
@@ -35,6 +36,7 @@ export const appRouter = t.router({
   favorites,
   recents,
   search,
+  transfer,
 });
 
 export type AppRouter = typeof appRouter;

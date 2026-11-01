@@ -4,6 +4,7 @@ import type { OpenExternal } from '../integrations/oauth/types';
 import type { FetchFn } from '../integrations/providers/provider';
 import type { ProviderRegistry } from '../integrations/providers/registry';
 import type { Logger } from '../shared/logger';
+import type { TaskDefaults } from '../tasks/defaults';
 
 export interface WorkspaceInfo {
   id: WorkspaceId;
@@ -40,4 +41,7 @@ export interface WorkspaceOptions {
   openExternal?: OpenExternal;
   // where sync logs its runs; defaults to the console
   logger?: Logger;
+  // The task settings an import fills missing values from, read at each import. DevBrain passes
+  // its settings; defaults to a due date of today and low priority.
+  taskDefaults?: () => TaskDefaults;
 }
