@@ -754,7 +754,7 @@ button.db-badge[data-variant='outline']:hover {
   width: 100%;
   overflow: hidden;
   border-radius: var(--radius-xs);
-  background: var(--border-strong);
+  background: var(--input);
 }
 .db-progress > span {
   display: block;
@@ -1410,7 +1410,7 @@ button.db-badge[data-variant='outline']:hover {
 .db-progress {
   height: 4px;
   border-radius: 999px;
-  background: var(--muted);
+  background: var(--input);
 }
 .db-kbd {
   border-color: transparent;
@@ -1640,13 +1640,13 @@ button.db-badge[data-variant='outline']:hover {
   line-height: 16px;
 }
 
-/* EntityPill (as Linear draws them): a chip on the page colour with a faint edge, so it reads as
-   transparent on the page and as a recessed chip on a hovered or selected row; pointing at it lifts
-   it part of the way to the row's hover tone. One rule for both themes. */
+/* EntityPill (shadcn's outline badge): transparent, with the translucent `border` line, so its
+   outline stays visible on the page, on cards and on hovered or selected rows; pointing at it tints
+   it with `accent`. One rule for both themes. */
 :root {
-  --pill-fill: var(--background);
-  --pill-edge: color-mix(in oklab, var(--foreground) 9%, transparent);
-  --pill-fill-hover: color-mix(in oklab, var(--accent) 60%, var(--background));
+  --pill-fill: transparent;
+  --pill-edge: var(--border);
+  --pill-fill-hover: color-mix(in oklab, var(--accent) 60%, transparent);
   --pill-edge-hover: color-mix(in oklab, var(--foreground) 13%, transparent);
 }
 .db-entity {
@@ -1801,9 +1801,9 @@ button.db-entity:active {
 
 /* ---------- Board: the direction's open columns and borderless cards ---------- */
 :root {
-  --card-fill: color-mix(in oklab, var(--neutral-900) 60%, var(--background));
-  --card-fill-hover: color-mix(in oklab, var(--neutral-800) 20%, var(--neutral-900));
-  --card-fill-done: color-mix(in oklab, var(--neutral-900) 30%, var(--background));
+  --card-fill: var(--card);
+  --card-fill-hover: color-mix(in oklab, var(--neutral-800) 50%, var(--card));
+  --card-fill-done: color-mix(in oklab, var(--card) 50%, var(--background));
 }
 .dbl-board {
   display: grid;
@@ -1940,9 +1940,9 @@ button.db-entity:active {
   font-weight: 500;
 }
 
-/* light theme: lighter card fills */
+/* light theme: borderless board cards need a step more than `card` to show on white */
 [data-theme='light'] {
-  --card-fill: color-mix(in oklab, var(--neutral-100) 70%, var(--background));
-  --card-fill-hover: var(--neutral-100);
-  --card-fill-done: color-mix(in oklab, var(--neutral-100) 35%, var(--background));
+  --card-fill: var(--neutral-100);
+  --card-fill-hover: var(--neutral-200);
+  --card-fill-done: var(--neutral-50);
 }

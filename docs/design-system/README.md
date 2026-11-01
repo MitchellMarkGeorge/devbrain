@@ -29,6 +29,8 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - **Type.** Controls, menus, inputs, labels, rows and descriptions use 14px (`text-sm`): medium for buttons, labels and tabs, regular for rows and menu items. Badges, metadata, shortcuts and menu labels use 12px. Dialog and card titles are 16px medium.
 - **Corners.** shadcn's 10px radius scale: `radius-md` (8px) for items inside a control, `radius-lg` (10px) for controls, menus and popovers, `radius-xl` (14px) for cards, dialogs, sheets and toasts.
 - **Edges.** Raised surfaces (cards, menus, popovers, dialogs, sheets, toasts) take the translucent `edge` outline, Nova's `ring-foreground/10`, instead of a solid line, so they read on any ground.
+- **Lines are translucent.** In dark, `border` is `foreground` at 10% and `input` at 15%, as shadcn's white at 10% and 15%: a divider, a field or a pill outline shows on the page, on a card and on a hovered row alike.
+- **Cards are filled.** `card` is `neutral-900` in dark (shadcn's card) and `neutral-50` on the white page in light, outlined with `edge`.
 - **Fields.** Inputs and checkboxes sit on an `input` fill at 30% with an `input` outline, so they are findable at rest.
 - **Destructive.** `destructive` is a red tint (20%) with red text, never a solid red.
 - **Dialogs.** 16px padding and gap, 384px wide, with the actions in a footer band (`muted` at 50% over a `border` line).
@@ -41,7 +43,7 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - **The logomark.**
 - **Glyphs.** `StatusIcon`, `PriorityIcon`, `HealthIcon` and `ProgressRing`, each status with its own shape and colour.
 - **The quiet default button.** `default` is still DevBrain's quiet bordered button, drawn as Nova's dark outline button; the filled style stays `primary`, rarely used.
-- **Entity pills.** Every relation is an outlined pill on the page colour, with an entity icon or the calendar's colour bar.
+- **Entity pills.** Every relation is a transparent outlined pill (shadcn's outline badge), with an entity icon or the calendar's colour bar.
 - **The segmented control.** `ToggleGroup` and `Tabs` are outlined segments on the page colour (Nova's are a muted track).
 - **The dark tooltip.** Nova inverts tooltips; DevBrain keeps them dark with an outline.
 - **Lists.** Entity pills, priority and date on the right of every row (the rows themselves follow the list behaviours below).
@@ -57,7 +59,7 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - **Row states.** Rest, hover (`row-selected`, the selected tint), selected (`row-selected` with `row-selected-foreground` titles; neighbouring selected rows join into one block), keyboard focus (Nova's ring around the whole row), completed (struck through in `muted-foreground`), overdue (flag and `date-overdue`), subtask (indented).
 - **Selection bar.** While rows are selected, a `SelectionBar` floats over the bottom of the list: the count, then Status, Priority, Due date, Move, more, and clear.
 - **Grouped list.** `GroupHeading` is a tile, a title over a subtitle ("Overdue · Oldest due Sep 28", "Mitchell / Jesse 1:1 · Event · Today, 10:00 AM"), an xs "Add task", done/total and a progress bar.
-- **Board.** Open `BoardColumn`s (no panel, 24px apart) hold borderless filled `BoardCard`s: the linked event or note as a quiet line, the title, then one line of priority, subtasks, project and date. Hover lightens the card and adds an outline; completed cards go darker; each open column ends with a dashed "Add task" slot.
+- **Board.** Open `BoardColumn`s (no panel, 24px apart) hold borderless filled `BoardCard`s (`card`): the linked event or note as a quiet line, the title, then one line of priority, subtasks, project and date. Hover lightens the card and adds an outline; completed cards go darker; each open column ends with a dashed "Add task" slot.
 - **Toolbar values.** Toolbar buttons show their current choice after the label ("Filter Assigned to me", "Sort Due date"), still Nova's quiet button. The main action stays the quiet `default` "New Task", not `primary`.
 
 ## How this system is built
@@ -77,9 +79,9 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 
 ## Colour
 
-- Dark is the primary theme. Pages, the sidebar, lists and cards sit on `background`; menus, popovers, tooltips, dialogs, sheets and toasts on `popover`.
+- Dark is the primary theme. Pages, the sidebar and lists sit on `background`; cards, board cards and settings groups on `card` (`neutral-900` in dark, `neutral-50` in light); menus, popovers, tooltips, dialogs, sheets and toasts on `popover`, lifted by their shadow.
 - Text: `foreground` for body, `foreground-strong` for titles and row names, `muted-foreground` for labels, descriptions and menu icons, `subtle-foreground` for metadata a reader can skip.
-- Lines: `border` between rows and around pills; `input` around fields and the quiet button; `edge` around anything raised.
+- Lines: `border` between rows, settings rows and around pills; `input` around fields and the quiet button; `edge` around anything raised. All three are translucent in dark, so they never vanish into the surface beneath them.
 - Hover and highlight: `accent` is `neutral-800` in dark, so a highlighted item shows on `popover` (`neutral-900`) as well as on the page.
 - **One red.** In dark, overdue, high priority, off track and delete all use `red-400` (6.2:1 on `popover`); light uses `red-600` throughout. The calendar's today and the time grid's now line keep `now-indicator` (`red-600`), which carries a white number.
 - **Workspace tiles** sit on the 900 step of their swatch (`swatch-*-tile`), so a 20px tile reads as colour; the white letter stays above 9:1.
