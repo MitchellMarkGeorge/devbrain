@@ -10,7 +10,15 @@ import type { WorkspaceId } from '@common/ids';
 import { integrations } from '@main/db/schema/integrations';
 import { WorkspaceService, type WorkspaceChange } from '../../workspace/service';
 import { MANIFEST_FILE, readManifest, writeManifest } from '../../workspace/manifest';
-import { recoverRegistry, REGISTRY_BACKUP_FILE, REGISTRY_FILE } from '../../workspace/registry';
+import {
+  moveDetailsToManifests,
+  recoverRegistry,
+  REGISTRY_BACKUP_FILE,
+  REGISTRY_FILE,
+} from '../../workspace/registry';
+import { DevBrain } from '../../devbrain';
+import { scaffoldDevBrain } from '../../local/scaffold';
+import { openMemorySettingsStore } from '../__mocks__/memory-settings-store';
 import type { WorkspaceInfo } from '../../workspace/types';
 import {
   FileExistsError,
@@ -155,7 +163,7 @@ describe('WorkspaceService.import — success', () => {
     expect(info.id).not.toBe(original.id);
     expect(info.id).toMatch(/^wsp_/);
     // and now has one, so the next move keeps the name
-    expect(await readManifest(info.path)).toMatchObject({ id: info.id, name: 'Side projects' });
+    expect(readManifest(info.path)).toMatchObject({ id: info.id, name: 'Side projects' });
   });
 
   it('without a manifest, keeps the id a folder named after one carries', async () => {
@@ -395,7 +403,7 @@ describe('workspace manifest', () => {
       color: '#ec4899',
       createdAt: info.createdAt,
     });
-    expect(await readManifest(info.path)).toEqual({
+    expect(readManifest(info.path)).toEqual({
       id: info.id,
       name: 'Personal',
       color: '#ec4899',
@@ -403,24 +411,107 @@ describe('workspace manifest', () => {
     });
   });
 
-  it('is written on open for a workspace made before manifests', async () => {
-    const info = await here.create({ name: 'Legacy', color: '#000000' });
-    await fs.rm(path.join(info.path, MANIFEST_FILE));
+  it('is the only place the name, colour and creation time are kept', async () => {
+    const info = await here.create({ name: 'Personal', color: '#ec4899' });
     await here.open(info.id);
-    expect(await readManifest(info.path)).toMatchObject({ id: info.id, name: 'Legacy' });
+
+    const registry = JSON.parse(await fs.readFile(path.join(hereRoot, REGISTRY_FILE), 'utf8'));
+    expect(Object.keys(registry[info.id]).sort()).toEqual(['id', 'lastOpenedAt', 'path']);
+    // edited in the folder, the name changes everywhere
+    writeManifest(info.path, { ...info, name: 'Edited' });
+    expect(here.getById(info.id).name).toBe('Edited');
+  });
+
+  it('lists a workspace whose manifest is gone as recovered, grey, dated by its database', async () => {
+    const info = await here.create({ name: 'Lost', color: '#ec4899' });
+    await fs.rm(path.join(info.path, MANIFEST_FILE));
+
+    const listed = here.getById(info.id);
+    expect(listed).toMatchObject({ name: `Recovered workspace ${info.id}`, color: '#808080' });
+    expect(listed.createdAt).toBeGreaterThan(0);
+  });
+
+  it("ignores a manifest that names another workspace's id", async () => {
+    const info = await here.create({ name: 'Mine', color: '#000000' });
+    writeManifest(info.path, { ...info, id: 'wsp_someone_else' as WorkspaceId, name: 'Theirs' });
+    expect(here.getById(info.id).name).toBe(`Recovered workspace ${info.id}`);
+  });
+
+  describe('a workspaces.json from before manifests', () => {
+    // what an older DevBrain wrote: every detail in the registry, no manifest in the folder
+    async function olderRegistry(service = here, root = hereRoot) {
+      const kept = await service.create({ name: 'Unused', color: '#000000' });
+      await fs.rm(path.join(kept.path, MANIFEST_FILE));
+      const gone = path.join(root, 'workspaces', 'wsp_gone');
+      const registry = {
+        [kept.id]: { ...kept, name: 'Work', color: '#22c55e', createdAt: 1_700_000_000_000 },
+        wsp_gone: {
+          id: 'wsp_gone',
+          name: 'Gone',
+          color: '#ef4444',
+          path: gone,
+          createdAt: 1_600_000_000_000,
+          lastOpenedAt: null,
+        },
+      };
+      await fs.writeFile(path.join(root, REGISTRY_FILE), JSON.stringify(registry));
+      return { id: kept.id, folder: kept.path, registry };
+    }
+
+    it('still lists each workspace with its details before they are moved', async () => {
+      const { id } = await olderRegistry();
+      expect(here.getById(id)).toMatchObject({ name: 'Work', color: '#22c55e' });
+    });
+
+    it('moves them into each folder and drops them from the registry, once, at start', async () => {
+      // a whole DevBrain folder, as DevBrain.open checks it
+      const root = path.join(dir, 'brain');
+      await scaffoldDevBrain(root);
+      const service = new WorkspaceService(root, WORKSPACE_OPTIONS);
+      const { id, folder } = await olderRegistry(service, root);
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const devBrain = await DevBrain.open({
+        path: root,
+        settingsStore: openMemorySettingsStore,
+        workspace: WORKSPACE_OPTIONS,
+      });
+      await devBrain.close();
+
+      expect(readManifest(folder)).toEqual({
+        id,
+        name: 'Work',
+        color: '#22c55e',
+        createdAt: 1_700_000_000_000,
+      });
+      const registry = JSON.parse(await fs.readFile(path.join(root, REGISTRY_FILE), 'utf8'));
+      expect(registry[id]).toEqual({ id, path: folder, lastOpenedAt: null });
+      // a folder that is gone keeps its details in the registry, so nothing is lost, and quietly
+      expect(registry.wsp_gone).toMatchObject({ name: 'Gone', color: '#ef4444' });
+      expect(console.warn).not.toHaveBeenCalled();
+      expect(service.getById(id)).toMatchObject({ name: 'Work', createdAt: 1_700_000_000_000 });
+    });
+
+    it('keeps a manifest already in the folder, which wins over the registry', async () => {
+      const { id, folder } = await olderRegistry();
+      writeManifest(folder, { id, name: 'From the folder', color: '#000000', createdAt: 1 });
+
+      expect(moveDetailsToManifests(hereRoot)).toEqual([id]);
+      expect(readManifest(folder)?.name).toBe('From the folder');
+    });
   });
 
   it('reads as null when missing, invalid JSON, or another version', async () => {
     const folder = path.join(carried, 'm');
     await fs.mkdir(folder);
-    expect(await readManifest(folder)).toBeNull();
+    expect(readManifest(folder)).toBeNull();
     await fs.writeFile(path.join(folder, MANIFEST_FILE), '{');
-    expect(await readManifest(folder)).toBeNull();
+    expect(readManifest(folder)).toBeNull();
     await fs.writeFile(
       path.join(folder, MANIFEST_FILE),
       JSON.stringify({ version: 2, id: 'wsp_x', name: 'X', color: '#000', createdAt: 1 }),
     );
-    expect(await readManifest(folder)).toBeNull();
+    expect(readManifest(folder)).toBeNull();
   });
 
   it('gives a registry rebuilt from the directories its names and colours', async () => {

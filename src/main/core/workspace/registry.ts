@@ -1,13 +1,18 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import fsSync from 'node:fs';
+import type { z } from 'zod';
 import type { WorkspaceId } from '@common/ids';
 import type { WorkspaceInfo } from './types';
-import { workspaceRegistrySchema } from './schema';
+import { workspaceRegistrySchema, type registryEntrySchema } from './schema';
 import { writeFileAtomicSync } from '../local/atomic';
 import { isNotFound } from '../local/utils';
-import { readManifest, type WorkspaceManifest } from './manifest';
+import { readManifest, writeManifest, type WorkspaceManifest } from './manifest';
 
-export type WorkspaceRegistry = Record<WorkspaceId, WorkspaceInfo>;
+// What workspaces.json keeps about one workspace: where its folder is and when it was last opened
+// here. Its name, colour and creation time are in the folder's manifest (manifest.ts).
+export type RegistryEntry = z.infer<typeof registryEntrySchema> & { id: WorkspaceId };
+export type WorkspaceRegistry = Record<WorkspaceId, RegistryEntry>;
 
 // in the DevBrain folder
 export const REGISTRY_FILE = 'workspaces.json';
@@ -15,9 +20,96 @@ export const REGISTRY_FILE = 'workspaces.json';
 export const REGISTRY_BACKUP_FILE = 'workspaces.json.bak';
 // a workspace directory holds its database here; one without it never finished being created
 const WORKSPACE_DB_FILE = 'db.sqlite';
-// what a workspace rebuilt from a directory without a manifest gets as its colour; also an imported
-// folder without one (WorkspaceService.import)
+// the colour of a workspace whose folder has no manifest, and of an imported folder without one
 export const RECOVERED_COLOR = '#808080';
+
+// the name of a workspace whose folder has no manifest
+export function recoveredName(id: WorkspaceId): string {
+  return `Recovered workspace ${id}`;
+}
+
+/**
+ * A registry entry with what its folder's manifest says: the WorkspaceInfo the rest of the app
+ * sees. A folder without a manifest for this id (gone, unreadable, never written) falls back to
+ * the details an older workspaces.json kept, then to a recovered name, grey, and the database's
+ * creation time. Never throws: a workspace whose folder is gone still lists, and fails on open.
+ */
+export function describeWorkspace(entry: RegistryEntry): WorkspaceInfo {
+  let manifest: WorkspaceManifest | null = null;
+  try {
+    manifest = readManifest(entry.path);
+  } catch {
+    // an unreadable folder lists with what the entry has
+  }
+  const own = manifest?.id === entry.id ? manifest : null;
+  return {
+    id: entry.id,
+    name: own?.name ?? entry.name ?? recoveredName(entry.id),
+    color: own?.color ?? entry.color ?? RECOVERED_COLOR,
+    path: entry.path,
+    createdAt: own?.createdAt ?? entry.createdAt ?? databaseCreatedAt(entry.path),
+    lastOpenedAt: entry.lastOpenedAt,
+  };
+}
+
+// when the folder's database was made, as near as the file system can say; 0 when it can't
+function databaseCreatedAt(folder: string): number {
+  try {
+    const stat = fsSync.statSync(path.join(folder, WORKSPACE_DB_FILE));
+    return Math.round(stat.birthtimeMs || stat.mtimeMs);
+  } catch {
+    return 0;
+  }
+}
+
+// the entry workspaces.json keeps for a workspace: only what belongs to this computer
+export function registryEntry(
+  info: Pick<WorkspaceInfo, 'id' | 'path' | 'lastOpenedAt'>,
+): RegistryEntry {
+  return { id: info.id, path: info.path, lastOpenedAt: info.lastOpenedAt };
+}
+
+/**
+ * Moves the name, colour and creation time an older workspaces.json kept for each workspace into
+ * its folder's manifest, then drops them from the registry, so each is stored once. A folder that
+ * already has a manifest keeps it (it wins over the registry). An entry whose folder is gone, or
+ * refuses the write (reported), keeps its details, so nothing is lost; the next start tries again. Run at
+ * start (DevBrain.open), after recoverRegistry. Returns the ids moved.
+ */
+export function moveDetailsToManifests(
+  rootPath: string,
+  report: (message: string, error: unknown) => void = console.error,
+): WorkspaceId[] {
+  let registry: WorkspaceRegistry;
+  try {
+    registry = parseRegistry(fsSync.readFileSync(path.join(rootPath, REGISTRY_FILE), 'utf8'));
+  } catch (error) {
+    if (isNotFound(error)) return [];
+    throw error;
+  }
+  const moved: WorkspaceId[] = [];
+  for (const entry of Object.values(registry)) {
+    if (entry.name === undefined && entry.color === undefined && entry.createdAt === undefined) {
+      continue;
+    }
+    try {
+      const existing = readManifest(entry.path);
+      if (existing?.id !== entry.id) {
+        const { name, color, createdAt } = describeWorkspace(entry);
+        writeManifest(entry.path, { id: entry.id, name, color, createdAt });
+      }
+    } catch (error) {
+      // a folder that is gone keeps its details here quietly: the workspace fails on open anyway
+      if (!isNotFound(error))
+        report(`Could not move the details of ${entry.id} into its folder:`, error);
+      continue;
+    }
+    registry[entry.id] = registryEntry(entry);
+    moved.push(entry.id);
+  }
+  if (moved.length > 0) writeRegistry(rootPath, registry, report);
+  return moved;
+}
 
 // throws a SyntaxError for invalid JSON and a ZodError for JSON that is not a registry
 export function parseRegistry(raw: string): WorkspaceRegistry {
@@ -99,9 +191,9 @@ async function workspacesDirectoryExists(rootPath: string): Promise<boolean> {
   }
 }
 
-// a registry entry for every workspace directory with a database, as far as the directory can say:
-// its manifest's name and colour when it has one for the same id
-async function scanWorkspaceDirectories(rootPath: string): Promise<WorkspaceInfo[]> {
+// a registry entry for every workspace directory with a database; its name and colour come from
+// its manifest (describeWorkspace)
+async function scanWorkspaceDirectories(rootPath: string): Promise<RegistryEntry[]> {
   const workspacesPath = path.join(rootPath, 'workspaces');
   let names: string[];
   try {
@@ -110,38 +202,27 @@ async function scanWorkspaceDirectories(rootPath: string): Promise<WorkspaceInfo
     if (isNotFound(error)) return [];
     throw error;
   }
-  const infos: WorkspaceInfo[] = [];
+  const entries: RegistryEntry[] = [];
   for (const name of names.filter((n) => n.startsWith('wsp_')).sort()) {
     const workspacePath = path.join(workspacesPath, name);
-    let createdAt: number;
     try {
-      const stat = await fs.stat(path.join(workspacePath, WORKSPACE_DB_FILE));
-      createdAt = Math.round(stat.birthtimeMs || stat.mtimeMs);
+      await fs.stat(path.join(workspacePath, WORKSPACE_DB_FILE));
     } catch (error) {
       if (isNotFound(error)) continue;
       throw error;
     }
-    // a manifest that can't be read only loses the name, never the workspace
-    const manifest: WorkspaceManifest | null = await readManifest(workspacePath).catch(() => null);
-    const own = manifest !== null && manifest.id === name ? manifest : null;
-    infos.push({
-      id: name as WorkspaceId,
-      name: own?.name ?? `Recovered workspace ${name}`,
-      color: own?.color ?? RECOVERED_COLOR,
-      path: workspacePath,
-      createdAt: own?.createdAt ?? createdAt,
-      lastOpenedAt: null,
-    });
+    entries.push(
+      registryEntry({ id: name as WorkspaceId, path: workspacePath, lastOpenedAt: null }),
+    );
   }
-  return infos;
+  return entries;
 }
 
 /**
  * Restores a registry found missing or invalid at start: from the backup when it is valid, plus an
  * entry for each workspace directory the backup lacks (one created after the backup's last write).
- * Without a backup every entry comes from the directories, named by its manifest (manifest.ts), or
- * after its id when it has none. An invalid registry
- * is kept beside it as `workspaces.json.corrupt-<time>`, never deleted. Returns where the registry
+ * Without a backup every entry comes from the directories; either way names and colours are in the
+ * folders' manifests (manifest.ts), so none are lost. An invalid registry is kept beside it as `workspaces.json.corrupt-<time>`, never deleted. Returns where the registry
  * came from, or null when it was valid or cannot be recovered (see inspectRegistry).
  */
 export async function recoverRegistry(
@@ -157,10 +238,10 @@ export async function recoverRegistry(
     if (backup.state === 'valid') Object.assign(restored, backup.registry);
   }
   const added: WorkspaceId[] = [];
-  for (const info of await scanWorkspaceDirectories(rootPath)) {
-    if (info.id in restored) continue;
-    restored[info.id] = info;
-    added.push(info.id);
+  for (const entry of await scanWorkspaceDirectories(rootPath)) {
+    if (entry.id in restored) continue;
+    restored[entry.id] = entry;
+    added.push(entry.id);
   }
 
   let keptAs = '';

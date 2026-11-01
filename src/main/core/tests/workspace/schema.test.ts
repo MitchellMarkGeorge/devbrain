@@ -1,45 +1,40 @@
 import { describe, it, expect } from 'vitest';
-import { workspaceInfoSchema, workspaceRegistrySchema } from '../../workspace/schema';
-import type { WorkspaceInfo } from '../../workspace/types';
+import { registryEntrySchema, workspaceRegistrySchema } from '../../workspace/schema';
 
-const validInfo: WorkspaceInfo = {
-  id: 'wsp_abc123' as WorkspaceInfo['id'],
-  name: 'My Workspace',
-  color: '#000000',
+const validEntry = {
+  id: 'wsp_abc123',
   path: '/home/user/.devbrain/workspaces/wsp_abc123',
-  createdAt: Date.now(),
   lastOpenedAt: null,
 };
 
-describe('workspaceInfoSchema', () => {
-  it('accepts a valid workspace info object', () => {
-    expect(workspaceInfoSchema.safeParse(validInfo).success).toBe(true);
-  });
-
-  it('rejects null color', () => {
-    expect(workspaceInfoSchema.safeParse({ ...validInfo, color: null }).success).toBe(false);
+describe('registryEntrySchema', () => {
+  it('accepts an entry with only what belongs to this computer', () => {
+    expect(registryEntrySchema.safeParse(validEntry).success).toBe(true);
   });
 
   it('accepts a non-null lastOpenedAt', () => {
-    expect(workspaceInfoSchema.safeParse({ ...validInfo, lastOpenedAt: Date.now() }).success).toBe(
+    expect(registryEntrySchema.safeParse({ ...validEntry, lastOpenedAt: Date.now() }).success).toBe(
       true,
     );
   });
 
-  it('rejects id without wsp_ prefix', () => {
-    expect(workspaceInfoSchema.safeParse({ ...validInfo, id: 'abc123' }).success).toBe(false);
+  it('accepts the name, colour and creation time an older registry kept', () => {
+    const older = { ...validEntry, name: 'My Workspace', color: '#000000', createdAt: Date.now() };
+    expect(registryEntrySchema.parse(older)).toEqual(older);
   });
 
-  it('rejects missing name', () => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { name, ...noName } = validInfo;
-    expect(workspaceInfoSchema.safeParse(noName).success).toBe(false);
+  it('rejects an id without the wsp_ prefix', () => {
+    expect(registryEntrySchema.safeParse({ ...validEntry, id: 'abc123' }).success).toBe(false);
   });
 
-  it('rejects missing createdAt', () => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { createdAt, ...noCreatedAt } = validInfo;
-    expect(workspaceInfoSchema.safeParse(noCreatedAt).success).toBe(false);
+  it('rejects a missing path', () => {
+    expect(registryEntrySchema.safeParse({ id: 'wsp_abc123', lastOpenedAt: null }).success).toBe(
+      false,
+    );
+  });
+
+  it('rejects a null colour from an older registry', () => {
+    expect(registryEntrySchema.safeParse({ ...validEntry, color: null }).success).toBe(false);
   });
 });
 
@@ -49,16 +44,16 @@ describe('workspaceRegistrySchema', () => {
   });
 
   it('accepts a registry with a valid entry', () => {
-    expect(workspaceRegistrySchema.safeParse({ [validInfo.id]: validInfo }).success).toBe(true);
+    expect(workspaceRegistrySchema.safeParse({ [validEntry.id]: validEntry }).success).toBe(true);
   });
 
   it('rejects keys without wsp_ prefix', () => {
-    expect(workspaceRegistrySchema.safeParse({ abc123: validInfo }).success).toBe(false);
+    expect(workspaceRegistrySchema.safeParse({ abc123: validEntry }).success).toBe(false);
   });
 
-  it('rejects invalid workspace info values', () => {
+  it('rejects invalid entries', () => {
     expect(
-      workspaceRegistrySchema.safeParse({ [validInfo.id]: { id: validInfo.id } }).success,
+      workspaceRegistrySchema.safeParse({ [validEntry.id]: { id: validEntry.id } }).success,
     ).toBe(false);
   });
 });

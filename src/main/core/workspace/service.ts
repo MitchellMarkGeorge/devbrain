@@ -7,13 +7,15 @@ import type {
   WorkspaceOptions,
 } from './types';
 import {
+  describeWorkspace,
   parseRegistry,
   RECOVERED_COLOR,
   REGISTRY_FILE,
+  registryEntry,
   writeRegistry,
   type WorkspaceRegistry,
 } from './registry';
-import { ensureManifest, readManifest, writeManifest } from './manifest';
+import { readManifest, writeManifest, type WorkspaceManifest } from './manifest';
 import { Workspace } from './workspace';
 import path from 'node:path';
 import fs from 'node:fs/promises';
@@ -27,7 +29,6 @@ import {
   WorkspaceImportError,
   WorkspaceNotOpenError,
 } from '../shared/errors';
-import { consoleLogger, errorClass } from '../shared/logger';
 import { paginateArray, Page, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 
@@ -79,13 +80,15 @@ export class WorkspaceService {
 
   /**
    * Sends `created` or `imported` once a workspace is registered, `updated` once its new name or
-   * colour is in the registry, `opened` once a workspace is current and `closed` once the current
+   * colour is in its manifest, `opened` once a workspace is current and `closed` once the current
    * one has closed, by open, close or delete. Returns a function that unsubscribes the listener.
    */
   onChange(listener: ChangeListener<WorkspaceChange>): () => void {
     return this.changes.add(listener);
   }
 
+  // workspaces.json: where each workspace's folder is (registry.ts). Its name and colour are in the
+  // folder's manifest; getById and listAll put the two together.
   private readWorkspaceFile(): WorkspaceRegistry {
     try {
       return parseRegistry(fsSync.readFileSync(this.workspacesFilePath, 'utf8'));
@@ -101,7 +104,7 @@ export class WorkspaceService {
   }
 
   listAll(page: PageOptions = {}): Page<WorkspaceInfo> {
-    const sorted = Object.values(this.readWorkspaceFile()).sort(
+    const sorted = this.describeAll().sort(
       (a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
     );
     return paginateArray(
@@ -114,13 +117,18 @@ export class WorkspaceService {
   }
 
   getById(id: WorkspaceId): WorkspaceInfo {
-    const workspaceInfo = this.readWorkspaceFile()[id];
-    if (!workspaceInfo) throw new NotFoundError(id);
-    return workspaceInfo;
+    const entry = this.readWorkspaceFile()[id];
+    if (!entry) throw new NotFoundError(id);
+    return describeWorkspace(entry);
   }
 
   getByName(name: string): WorkspaceInfo | null {
-    return Object.values(this.readWorkspaceFile()).find((info) => info.name === name) ?? null;
+    return this.describeAll().find((info) => info.name === name) ?? null;
+  }
+
+  // every registered workspace with its manifest's details; reads one small file per workspace
+  private describeAll(): WorkspaceInfo[] {
+    return Object.values(this.readWorkspaceFile()).map(describeWorkspace);
   }
 
   /**
@@ -150,10 +158,10 @@ export class WorkspaceService {
       // create workspace db file and run migrations, then close it until it is opened
       const workspace = await Workspace.create(workspaceInfo, this.workspaceOptions);
       await workspace.close();
-      // the name and colour travel with the folder (manifest.ts)
+      // the name and colour are kept in the folder, so they travel with it (manifest.ts)
       writeManifest(workspacePath, workspaceInfo);
       const workspaces = this.readWorkspaceFile();
-      workspaces[id] = workspaceInfo;
+      workspaces[id] = registryEntry(workspaceInfo);
       this.writeWorkspaceFile(workspaces);
     } catch (error) {
       await fs.rm(workspacePath, { recursive: true, force: true });
@@ -167,11 +175,12 @@ export class WorkspaceService {
    * Renames or recolours a workspace, open or not, and returns its updated info. The name is
    * trimmed and must not be empty; the colour must be #rrggbb. Any colour is accepted, not only the
    * six the settings screen offers: workspaces created or recovered before keep theirs. When this
-   * is the open workspace, its `info` changes too. The folder's manifest (manifest.ts) is rewritten
-   * as well, best effort. Writes nothing and sends nothing when neither value changes.
+   * is the open workspace, its `info` changes too. The two are stored in the workspace's folder
+   * (manifest.ts), so a copy taken from now on carries them. Writes nothing and sends nothing when
+   * neither value changes.
    *
-   * Throws InvalidInputError for an empty name or an invalid colour, and NotFoundError for an
-   * unknown id.
+   * Throws InvalidInputError for an empty name or an invalid colour, NotFoundError for an unknown
+   * id, and WorkspaceDataMissingError when the workspace's folder is gone.
    */
   update(id: WorkspaceId, options: UpdateWorkspaceOptions): Promise<WorkspaceInfo> {
     return this.serialize(async () => this.updateWorkspace(id, options));
@@ -183,9 +192,7 @@ export class WorkspaceService {
     if (color !== undefined && !hexColorSchema.safeParse(color).success) {
       throw new InvalidInputError(`Not a #rrggbb colour: ${color}`);
     }
-    const workspaces = this.readWorkspaceFile();
-    const info = workspaces[id];
-    if (!info) throw new NotFoundError(id);
+    const info = this.getById(id);
     const updated: WorkspaceInfo = {
       ...info,
       name: trimmedName ?? info.name,
@@ -193,16 +200,22 @@ export class WorkspaceService {
     };
     if (updated.name === info.name && updated.color === info.color) return info;
 
-    workspaces[id] = updated;
-    this.writeWorkspaceFile(workspaces);
-    // The folder's manifest follows, so a copy taken now carries the new name and colour. Best
-    // effort, as on open: the registry is what this computer reads, so the update stands.
     try {
       writeManifest(updated.path, updated);
     } catch (error) {
-      (this.workspaceOptions.logger ?? consoleLogger).warn(
-        `Could not write the manifest of ${id} error=${errorClass(error)}`,
-      );
+      if (!isNotFound(error)) throw error;
+      throw new WorkspaceDataMissingError(id, 'Workspace directory not found');
+    }
+    // an entry from before manifests drops its copy of the details now, rather than at the
+    // next start (moveDetailsToManifests)
+    const workspaces = this.readWorkspaceFile();
+    const entry = workspaces[id];
+    if (
+      entry &&
+      (entry.name !== undefined || entry.color !== undefined || entry.createdAt !== undefined)
+    ) {
+      workspaces[id] = registryEntry(entry);
+      this.writeWorkspaceFile(workspaces);
     }
     if (this.current?.info.id === id) {
       Object.assign(this.current.info, { name: updated.name, color: updated.color });
@@ -299,17 +312,12 @@ export class WorkspaceService {
     // 4. open/initalize the workspace object
     const workspace = await Workspace.open(workspaceInfo, this.workspaceOptions);
 
-    // 5. Workspaces made before manifests existed get one here. Best effort: the registry is what
-    // this computer reads, so a folder that refuses the write still opens.
-    await ensureManifest(workspaceInfo.path, workspaceInfo).catch((error: unknown) =>
-      (this.workspaceOptions.logger ?? consoleLogger).warn(
-        `Could not write the manifest of ${id} error=${errorClass(error)}`,
-      ),
-    );
-
     try {
       const workspaces = this.readWorkspaceFile();
-      workspaces[id] = { ...workspaceInfo, lastOpenedAt: Date.now() };
+      workspaces[id] = {
+        ...(workspaces[id] ?? registryEntry(workspaceInfo)),
+        lastOpenedAt: Date.now(),
+      };
       this.writeWorkspaceFile(workspaces);
       workspace.sync.start();
       this.current = workspace;
@@ -355,9 +363,12 @@ export class WorkspaceService {
     const dbPath = path.join(source, WORKSPACE_DB_FILE);
     await assertReadableFile(dbPath, source);
 
-    const manifest = await readManifest(source).catch((error: unknown) => {
+    let manifest: WorkspaceManifest | null;
+    try {
+      manifest = readManifest(source);
+    } catch (error) {
       throw unreadable(error, source);
-    });
+    }
     const folderName = path.basename(source);
     const id =
       manifest?.id ?? (isId('workspace', folderName) ? folderName : generateId('workspace'));
@@ -367,11 +378,11 @@ export class WorkspaceService {
     if (sameId) {
       throw new WorkspaceImportError(
         'already_added',
-        `This workspace is already in your list as "${sameId.name}"`,
+        `This workspace is already in your list as "${describeWorkspace(sameId).name}"`,
         id,
       );
     }
-    for (const info of Object.values(registry)) {
+    for (const info of Object.values(registry).map(describeWorkspace)) {
       if ((await realFolder(info.path).catch(() => info.path)) === source) {
         throw new WorkspaceImportError(
           'already_added',
@@ -411,7 +422,7 @@ export class WorkspaceService {
       }
       writeManifest(destination, info);
       const workspaces = this.readWorkspaceFile();
-      workspaces[id] = info;
+      workspaces[id] = registryEntry(info);
       this.writeWorkspaceFile(workspaces);
     } catch (error) {
       // only ever the copy this made; a folder registered in place is the user's and stays

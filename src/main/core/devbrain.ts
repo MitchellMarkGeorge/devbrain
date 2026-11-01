@@ -5,7 +5,7 @@ import { WorkspaceService } from './workspace/service';
 import type { WorkspaceOptions } from './workspace/types';
 import { devBrainFolderState, validateDevBrainFolderStructure } from './local/validate';
 import { scaffoldDevBrain } from './local/scaffold';
-import { recoverRegistry } from './workspace/registry';
+import { moveDetailsToManifests, recoverRegistry } from './workspace/registry';
 import { DevBrainFolderError } from './shared/errors';
 
 export interface OpenDevBrainOptions {
@@ -51,7 +51,8 @@ export class DevBrain {
    * folder when `createIfMissing` is set, and refused otherwise (reason `missing`). Anything else
    * must be a valid DevBrain folder (reason `invalid` when not). Never deletes anything, and
    * overwrites only a missing or invalid workspaces.json, restoring it after keeping a copy (see
-   * recoverRegistry). Throws DevBrainFolderError.
+   * recoverRegistry), or one from before manifests, once its names and colours are in the
+   * workspaces' folders (moveDetailsToManifests). Throws DevBrainFolderError.
    */
   static async open({
     path,
@@ -71,6 +72,8 @@ export class DevBrain {
       if (!result.valid) throw new DevBrainFolderError('invalid', result.error);
       // a registry found missing or invalid is restored from its backup or the workspace directories
       await recoverRegistry(path);
+      // a registry from before manifests hands each workspace's name and colour to its folder
+      moveDetailsToManifests(path, (message) => console.warn(message));
     } else if (createIfMissing) {
       await scaffoldDevBrain(path);
     } else {

@@ -1,7 +1,8 @@
 # Moving a workspace between computers
 
 A workspace is one folder: `<DevBrain folder>/workspaces/<wsp_id>/`, holding its database
-(`db.sqlite`), its notes (`notes/`) and a manifest (`workspace.json`). To move a workspace to another
+(`db.sqlite`), its notes (`notes/`) and its manifest (`workspace.json`: its id, name, colour and
+creation time). To move a workspace to another
 computer, bring that folder over, then choose **Open folder…** and pick it.
 
 The renderer's **Open folder…** (in the workspace switcher, and **Open Existing Folder…** on the
@@ -29,10 +30,12 @@ returned. `importFolder` returns null when the dialog is cancelled.
   copy, never the folder you picked. It also means a workspace never runs from inside a
   Dropbox or iCloud folder, where a sync tool copying a live SQLite database can corrupt it.
   The folder you picked can be deleted once the workspace has opened.
-- **Name and colour come with it.** They are kept in `workspace.json` in the folder, written when a
-  workspace is created, renamed or recoloured, and whenever it is opened (so workspaces made before this have one after
-  their next open). A folder without one is named after the folder and shown in grey. A lost
-  `workspaces.json` is also rebuilt from these manifests.
+- **Name and colour come with it.** A workspace's id, name, colour and creation time are stored
+  only in `workspace.json` in its folder. `workspaces.json` in the DevBrain folder keeps only what
+  belongs to this computer: where each folder is and when it was last opened. Renaming or
+  recolouring writes `workspace.json`, so the name is never stored twice. An imported folder without
+  one is named after the folder and shown in grey (and gets one). A `workspaces.json` written before
+  this keeps its names and colours until the next start, which moves them into each folder.
 - **The id comes with it,** so it is the same workspace on both computers. A folder whose id is
   already in your list is refused (below).
 - **An older database is updated** for this version of DevBrain, with the usual backup and restore

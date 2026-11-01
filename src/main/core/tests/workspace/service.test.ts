@@ -270,11 +270,10 @@ describe('WorkspaceService — update', () => {
     ];
     writeRegistry(tmpDir, infos);
     for (const info of infos) fsSync.mkdirSync(info.path, { recursive: true });
-    const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
-    const service = new WorkspaceService(tmpDir, { ...WORKSPACE_OPTIONS, logger });
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
     const changes: WorkspaceChange[] = [];
     service.onChange((change) => changes.push(change));
-    return { service, infos, changes, logger };
+    return { service, infos, changes };
   }
 
   const readRegistryFile = (file = 'workspaces.json') =>
@@ -306,21 +305,25 @@ describe('WorkspaceService — update', () => {
     expect(updated).toEqual(service.getById(infos[1].id));
   });
 
-  it('writes the registry and its backup, keeping every other field', async () => {
+  it('keeps the name and colour only in the folder, dropping the copy an older registry had', async () => {
     const { service, infos } = setup();
 
     await service.update(infos[0].id, { name: 'Renamed', color: '#f6339a' });
 
-    const expected = makeRegistry([{ ...infos[0], name: 'Renamed', color: '#f6339a' }, infos[1]]);
+    const expected = {
+      ...makeRegistry([infos[1]]),
+      [infos[0].id]: { id: infos[0].id, path: infos[0].path, lastOpenedAt: null },
+    };
     expect(readRegistryFile()).toEqual(expected);
     expect(readRegistryFile('workspaces.json.bak')).toEqual(expected);
+    expect(service.getById(infos[0].id)).toMatchObject({ name: 'Renamed', color: '#f6339a' });
   });
 
   it("rewrites the folder's manifest, so a copy carries the new name and colour", async () => {
     const { service, infos } = setup();
 
     await service.update(infos[0].id, { name: 'Renamed' });
-    expect(await readManifest(infos[0].path)).toEqual({
+    expect(readManifest(infos[0].path)).toEqual({
       id: infos[0].id,
       name: 'Renamed',
       color: infos[0].color,
@@ -328,26 +331,28 @@ describe('WorkspaceService — update', () => {
     });
 
     await service.update(infos[0].id, { color: '#00bc7d' });
-    expect(await readManifest(infos[0].path)).toMatchObject({ name: 'Renamed', color: '#00bc7d' });
+    expect(readManifest(infos[0].path)).toMatchObject({ name: 'Renamed', color: '#00bc7d' });
     // the other workspace's folder is left alone
-    expect(await readManifest(infos[1].path)).toBeNull();
+    expect(readManifest(infos[1].path)).toBeNull();
   });
 
-  it('keeps the update when the manifest cannot be written, logging only the error class', async () => {
-    const { service, infos, logger } = setup();
+  it('throws WorkspaceDataMissingError when the folder is gone, changing and sending nothing', async () => {
+    const { service, infos, changes } = setup();
     await fs.rm(infos[0].path, { recursive: true });
+    const before = readRegistryFile();
 
-    const updated = await service.update(infos[0].id, { name: 'Renamed' });
-
-    expect(service.getById(infos[0].id)).toEqual(updated);
-    expect(updated.name).toBe('Renamed');
-    expect(logger.warn).toHaveBeenCalledTimes(1);
-    expect(logger.warn.mock.calls[0][0]).toMatch(
-      /^Could not write the manifest of wsp_first error=/,
+    await expect(service.update(infos[0].id, { name: 'Renamed' })).rejects.toBeInstanceOf(
+      WorkspaceDataMissingError,
     );
+
+    expect(readRegistryFile()).toEqual(before);
+    expect(service.getById(infos[0].id).name).toBe('First');
+    // and the folder is not brought back empty
+    expect(fsSync.existsSync(infos[0].path)).toBe(false);
+    expect(changes).toEqual([]);
   });
 
-  it('sends updated with the new info once the registry is written', async () => {
+  it('sends updated with the new info once it is written', async () => {
     const { service, infos, changes } = setup();
     let registeredWhenSent: WorkspaceInfo | undefined;
     service.onChange(() => (registeredWhenSent = service.getById(infos[0].id)));

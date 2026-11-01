@@ -1,5 +1,4 @@
 import path from 'node:path';
-import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import { z } from 'zod';
 import { isId, type WorkspaceId } from '@common/ids';
@@ -7,10 +6,10 @@ import { writeFileAtomicSync } from '../local/atomic';
 import { isNotFound } from '../local/utils';
 import type { WorkspaceInfo } from './types';
 
-// The workspace's own record of what the registry says about it, kept in its folder so that a
-// folder copied to another computer still says what it was called (WorkspaceService.import), and a
-// lost registry can be rebuilt with names and colours (recoverRegistry). The registry stays the
-// source of truth on this computer; this is a copy of it.
+// What a workspace says about itself, kept in its folder: its id, name, colour and creation time.
+// This is the only place they are stored, so they move with the folder to another computer
+// (WorkspaceService.import), and a lost workspaces.json, which keeps only where each folder is
+// (registry.ts), loses none of them.
 export const MANIFEST_FILE = 'workspace.json';
 
 // bumped only for a change an older DevBrain can't read; it then ignores the manifest
@@ -48,31 +47,13 @@ export function writeManifest(folder: string, info: WorkspaceManifest): void {
 }
 
 /**
- * Writes the manifest only when the one in `folder` is missing or says something else, so opening
- * a workspace doesn't touch a file that a sync tool would then copy around for nothing.
- */
-export async function ensureManifest(folder: string, info: WorkspaceManifest): Promise<void> {
-  const current = await readManifest(folder);
-  if (
-    current !== null &&
-    current.id === info.id &&
-    current.name === info.name &&
-    current.color === info.color &&
-    current.createdAt === info.createdAt
-  ) {
-    return;
-  }
-  writeManifest(folder, info);
-}
-
-/**
  * The manifest in `folder`, or null when there is none or it is not one this app can read (invalid
  * JSON, another version). Throws other read errors, such as a folder that can't be read.
  */
-export async function readManifest(folder: string): Promise<WorkspaceManifest | null> {
+export function readManifest(folder: string): WorkspaceManifest | null {
   let raw: string;
   try {
-    raw = await fs.readFile(path.join(folder, MANIFEST_FILE), 'utf8');
+    raw = fsSync.readFileSync(path.join(folder, MANIFEST_FILE), 'utf8');
   } catch (error) {
     if (isNotFound(error)) return null;
     throw error;
