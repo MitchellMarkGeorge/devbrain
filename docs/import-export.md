@@ -231,9 +231,16 @@ id: nte_0193…
 Imported files are untrusted input, like synced content
 ([security/untrusted-content.md](security/untrusted-content.md)):
 
-- **Size caps** (`limits.ts`), checked before a file is read and again while reading, so a file that
-  grows meanwhile is caught: 10 MB and 10,000 tasks for a task file; 5 MB per note file; 1,000 note
-  files and 50 MB per note import.
+- **Size caps** (`limits.ts`): 10 MB and 10,000 tasks for a task file; 5 MB per note file; 1,000
+  note files and 50 MB per note import.
+- **How a file is read** (`readImportFile` in `files.ts`). The size `stat` reports is checked first,
+  so a file already over its cap is refused without reading any of it. That size is only a hint,
+  though: a file can grow after it was measured, and some report a size of 0 while holding data
+  (Linux's `/proc` files). So the read itself never relies on it. It reads a chunk at a time to the
+  end of the file, refusing the file the moment the bytes read pass the cap (`readAtMost`). A file
+  that changed is read whole or refused, never cut short, and one that grows without end can't fill
+  memory. The open file is checked to be a regular file again, as the path could name something
+  else by the time it is opened.
 - **Text only.** A file must be UTF-8 without NUL bytes, and must be a regular file (a symlink is
   followed to what it points at; a directory, FIFO or device is refused before it is opened).
 - **No paths from files.** Nothing in an imported file is used as a path: a note's `id` or any

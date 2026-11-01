@@ -7,10 +7,28 @@ import { ImportFileError } from '../shared/errors';
 // ever taken as a path (docs/import-export.md).
 
 /**
- * The text of a file chosen for import. Refuses anything but a regular file (a symlink is followed
- * to what it points at, which must be one), a file over `maxBytes`, and anything that is not UTF-8
- * text, with ImportFileError naming the file by its base name. A leading byte order mark is
- * dropped. Reads at most `maxBytes` + 1 bytes, so a file that grows while it is read is refused too.
+ * The text of a file chosen for import, read whole, or ImportFileError (naming the file by its base
+ * name only) when it can't be had:
+ *
+ * - `unreadable`: missing, not a regular file (a symlink is followed to what it points at, which
+ *   must be one), or failing to open or read.
+ * - `too_large`: more than `maxBytes`.
+ * - `not_text`: not UTF-8, or holding NUL bytes (a binary file).
+ *
+ * A leading byte order mark is dropped. The steps, and why each is there:
+ *
+ * 1. **Check the path** with `stat`. A directory, FIFO or device is refused before it is opened,
+ *    as opening a FIFO waits for a writer and would hang the import. A file whose size is already
+ *    over the limit is refused without reading any of it.
+ * 2. **Open it, and check the open file again** with `handle.stat`. The path is a name, not a file:
+ *    something could have been put in its place between step 1 and the open, and the open file is
+ *    what gets read.
+ * 3. **Read it to its end, counting** (readAtMost). The size from step 1 is only a hint, never a
+ *    bound on how much is read: a file can grow after it was measured, and some files report a
+ *    size of 0 while holding data (Linux's /proc files). Reading only as many bytes as were
+ *    measured would silently cut such a file short, so the read goes on until the file ends,
+ *    and stops as soon as it passes `maxBytes`, so a file that grows without end can't fill memory.
+ * 4. **Decode it as UTF-8**, refusing invalid UTF-8 and NUL bytes.
  */
 export async function readImportFile(filePath: string, maxBytes: number): Promise<string> {
   const name = path.basename(filePath);
@@ -18,7 +36,7 @@ export async function readImportFile(filePath: string, maxBytes: number): Promis
   const tooLarge = () =>
     new ImportFileError('too_large', name, `${name} is larger than ${formatBytes(maxBytes)}`);
 
-  // checked before opening, as opening a FIFO or a device can block
+  // 1. the path
   let stat;
   try {
     stat = await fs.stat(filePath);
@@ -28,32 +46,27 @@ export async function readImportFile(filePath: string, maxBytes: number): Promis
   if (!stat.isFile()) throw unreadable('is not a file');
   if (stat.size > maxBytes) throw tooLarge();
 
+  // 2. the open file
   let handle;
   try {
     handle = await fs.open(filePath, 'r');
   } catch {
     throw unreadable('could not be opened');
   }
-  let bytes: Buffer;
+  let bytes: Buffer | null;
   try {
-    // the open file must still be a regular file: the path could have been swapped since the stat
     if (!(await handle.stat()).isFile()) throw unreadable('is not a file');
-    const buffer = Buffer.alloc(Math.min(stat.size, maxBytes) + 1);
-    let length = 0;
-    while (length < buffer.length) {
-      const { bytesRead } = await handle.read(buffer, length, buffer.length - length, length);
-      if (bytesRead === 0) break;
-      length += bytesRead;
-    }
-    if (length > maxBytes) throw tooLarge();
-    bytes = buffer.subarray(0, length);
+    // 3. its bytes, up to the limit
+    bytes = await readAtMost(handle, maxBytes);
   } catch (error) {
     if (error instanceof ImportFileError) throw error;
     throw unreadable('could not be read');
   } finally {
     await handle.close();
   }
+  if (bytes === null) throw tooLarge();
 
+  // 4. its text
   let text: string;
   try {
     // drops a byte order mark
@@ -65,6 +78,33 @@ export async function readImportFile(filePath: string, maxBytes: number): Promis
     throw new ImportFileError('not_text', name, `${name} is not a text file`);
   }
   return text;
+}
+
+// how much readAtMost asks for at a time
+const READ_CHUNK_BYTES = 64 * 1024;
+
+/**
+ * Every byte of an open file, from where it is to its end, or null as soon as there are more than
+ * `maxBytes`. Reads a chunk at a time, however large the file said it was, so it reads a file that
+ * grew since it was measured in full, and never holds more than `maxBytes` plus one chunk.
+ * A read can return fewer bytes than asked for; only a read of none means the file has ended.
+ */
+export async function readAtMost(
+  handle: Pick<fs.FileHandle, 'read'>,
+  maxBytes: number,
+): Promise<Buffer | null> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  // one buffer to read into, reused; only the bytes each read returns are kept
+  const scratch = Buffer.allocUnsafe(READ_CHUNK_BYTES);
+  for (;;) {
+    // a null position reads on from where the last read ended
+    const { bytesRead } = await handle.read(scratch, 0, scratch.length, null);
+    if (bytesRead === 0) return Buffer.concat(chunks, total);
+    total += bytesRead;
+    if (total > maxBytes) return null;
+    chunks.push(Buffer.from(scratch.subarray(0, bytesRead)));
+  }
 }
 
 export function formatBytes(bytes: number): string {
