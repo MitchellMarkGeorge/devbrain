@@ -47,6 +47,12 @@ async function timeImport(rows: number): Promise<number> {
       workspace.search.search({ query: `"Task ${rows - 1}"`, entityType: ['task'] }),
     ).toHaveLength(1);
     console.log(`import of ${rows} tasks: ${Math.round(took)} ms`);
+    // the export reads them back a page at a time, with each page's project and link lookups
+    const exportStarted = performance.now();
+    expect(workspace.transfer.exportTasks('csv').count).toBe(rows);
+    const exportTook = performance.now() - exportStarted;
+    console.log(`export of ${rows} tasks: ${Math.round(exportTook)} ms`);
+    expect(exportTook).toBeLessThan(5_000);
     return took;
   } finally {
     await devBrain.close();

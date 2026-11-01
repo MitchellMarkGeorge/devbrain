@@ -13,6 +13,14 @@ import { TaskPriority } from '../../tasks/types';
 import { ImportFileError } from '../../shared/errors';
 import { MAX_NOTE_FILE_BYTES, MAX_NOTE_FILES } from '../../transfer/limits';
 import { TransferService } from '../../transfer/service';
+import { collectPages } from '../../shared/pagination';
+
+// every active note, oldest first, as the export reads them
+function allNotes(service: NoteService) {
+  return collectPages((page) =>
+    service.listNotes({}, { sortBy: 'createdAt', direction: 'asc' }, page),
+  );
+}
 
 // Importing and exporting notes through TransferService, over real services, a database and files.
 
@@ -66,7 +74,7 @@ describe('importing Markdown files', () => {
     ]);
     expect(summary).toEqual({ created: 3, skipped: [], errors: [], warnings: [] });
 
-    const all = notes.listAll();
+    const all = allNotes(notes);
     expect(all.map(({ title, projectId }) => [title, projectId])).toEqual([
       ['Kickoff', site.id],
       ['Plain notes', null],
@@ -117,7 +125,7 @@ describe('importing Markdown files', () => {
       ),
     ]);
     expect(summary.created).toBe(1);
-    const [note] = notes.listAll();
+    const [note] = allNotes(notes);
     expect(note.id).toMatch(/^nte_/);
     const [row] = db.select().from(notesTable).all();
     expect(path.dirname(row.filePath)).toBe(path.join(dir, 'workspace', 'notes'));
@@ -148,7 +156,7 @@ describe('importing Markdown files', () => {
       .importNotesFromFiles(Array.from({ length: 11 }, () => big))
       .catch((e) => e);
     expect(error).toMatchObject({ code: 'import_file', reason: 'too_large' });
-    expect(notes.listAll()).toEqual([]);
+    expect(allNotes(notes)).toEqual([]);
   });
 });
 
@@ -195,9 +203,9 @@ describe('exporting notes', () => {
     const other = workspaceAt(path.join(dir, 'other'));
     other.projects.createProject({ title: 'Website', dueDate: DUE });
     expect((await other.transfer.importNotesFromFiles(paths)).created).toBe(4);
-    const imported = other.notes
-      .listAll()
-      .find((note) => note.title === 'Kickoff: "v2"' && note.projectId);
+    const imported = allNotes(other.notes).find(
+      (note) => note.title === 'Kickoff: "v2"' && note.projectId,
+    );
     expect(imported).toBeDefined();
     expect(await other.notes.readContent(imported!.id)).toBe('# Agenda\n\n- one\n');
   });

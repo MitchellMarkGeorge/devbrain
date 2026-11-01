@@ -8,11 +8,20 @@ import type { Desktop } from '@main/ipc/desktop';
 import { appRouter } from '@main/ipc/router';
 import { attachRouter } from '@main/ipc/server';
 import { TaskPriority } from '@main/core/tasks/types';
+import type { TaskService } from '@main/core/tasks/service';
+import type { NoteService } from '@main/core/notes/service';
+import { collectPages } from '@main/core/shared/pagination';
 import { resetElectronMock } from '../__mocks__/electron';
 import { call, createWorkspace, tempDevBrain, testContext } from './helpers';
 
 // Show in Finder and the import and export routes, end to end through the transport, over a real
 // DevBrain folder, with a fake desktop standing in for Electron's shell and dialogs.
+
+const oldestFirst = { sortBy: 'createdAt', direction: 'asc' } as const;
+const allTasks = (tasks: TaskService) =>
+  collectPages((page) => tasks.listTasks({}, oldestFirst, page));
+const allNotes = (notes: NoteService) =>
+  collectPages((page) => notes.listNotes({}, oldestFirst, page));
 
 let devBrain: DevBrain;
 let cleanup: () => Promise<void>;
@@ -105,7 +114,7 @@ describe('importing tasks', () => {
       }),
     );
     // the default priority comes from the settings
-    expect(workspace.tasks.listAll()).toEqual([
+    expect(allTasks(workspace.tasks)).toEqual([
       expect.objectContaining({ title: 'Write the launch post', priority: TaskPriority.HIGH }),
     ]);
     expect(
@@ -139,7 +148,7 @@ describe('importing tasks', () => {
       'workspace_closed',
     );
     await devBrain.workspaces.open(workspace.info.id);
-    expect(devBrain.currentWorkspace!.tasks.listAll()).toEqual([]);
+    expect(allTasks(devBrain.currentWorkspace!.tasks)).toEqual([]);
   });
 });
 
@@ -157,7 +166,7 @@ describe('importing notes', () => {
       changed: ['note'],
     });
     expect(desktop.chooseFiles).toHaveBeenCalledWith(expect.objectContaining({ multiple: true }));
-    expect(workspace.notes.listAll().map(({ title }) => title)).toEqual(['Standup', 'b']);
+    expect(allNotes(workspace.notes).map(({ title }) => title)).toEqual(['Standup', 'b']);
   });
 });
 

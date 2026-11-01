@@ -1,7 +1,7 @@
 import { generateId, NoteId } from '@common/ids';
 import { notes } from '@main/db/schema/notes';
 import { tasks } from '@main/db/schema/tasks';
-import { SQL, and, isNull, asc, desc, eq, inArray } from 'drizzle-orm';
+import { SQL, and, isNull, desc, eq, inArray } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import path from 'node:path';
@@ -125,16 +125,6 @@ export class NoteService {
       await Promise.all(written.map((filePath) => deleteNoteFile(filePath)));
       throw err;
     }
-  }
-
-  // Every active (unarchived) note, oldest first: what an export writes. Not paged.
-  listAll(): Note[] {
-    return this.db
-      .select()
-      .from(notes)
-      .where(isNull(notes.archivedAt))
-      .orderBy(asc(notes.createdAt), asc(notes.id))
-      .all();
   }
 
   // The markdown of an active note, read from its file, without the file's front matter. Throws

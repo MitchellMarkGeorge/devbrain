@@ -279,6 +279,9 @@ descriptions, a quarter of them top-level with three subtasks each:
 | 2,500          | about 0.3 s                         |
 | 10,000 (limit) | about 1 s                           |
 
+An export reads the tasks back through `listTasks`, a page of 200 at a time (`collectPages`), and
+takes about 0.2 s for 10,000.
+
 Before batching and insert-only indexing, 20,000 tasks took 38 s, 2,000 took 0.85 s.
 `tests/transfer/performance.test.ts` checks the limit stays within a few seconds and that four times
 the rows costs about four times as long; run it with `DEVBRAIN_PERF=1`.

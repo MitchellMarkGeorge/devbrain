@@ -9,6 +9,7 @@ import type { CreateNoteOptions } from '../notes/types';
 import { toDateString } from '../shared/dates';
 import { ImportFileError, InvalidInputError } from '../shared/errors';
 import { errorClass } from '../shared/logger';
+import { collectPages } from '../shared/pagination';
 import {
   childPath,
   createUniqueDirectory,
@@ -126,9 +127,11 @@ export class TransferService {
   }
 
   exportTasks(format: TaskFileFormat): { content: string; count: number } {
-    const tasks = this.tasks.listAll();
-    const projectTitles = new Map(this.projects.listAll().map(({ id, title }) => [id, title]));
-    const roots = toExportedTasks(tasks, projectTitles);
+    // active tasks, subtasks and synced ones included, oldest first; each names its project
+    const tasks = collectPages((page) =>
+      this.tasks.listTasks({}, { sortBy: 'createdAt', direction: 'asc' }, page),
+    );
+    const roots = toExportedTasks(tasks);
     const content = format === 'csv' ? formatTasksCsv(roots) : formatTasksJson(roots, this.now());
     return { content, count: tasks.length };
   }
@@ -209,8 +212,10 @@ export class TransferService {
     const stat = await fs.stat(parentDir).catch(() => null);
     if (!stat?.isDirectory()) throw new InvalidInputError('Choose a folder to export notes into');
 
-    const notes = this.notes.listAll();
-    const projectTitles = new Map(this.projects.listAll().map(({ id, title }) => [id, title]));
+    // active notes, oldest first, so clashing names number in the order the notes were made
+    const notes = collectPages((page) =>
+      this.notes.listNotes({}, { sortBy: 'createdAt', direction: 'asc' }, page),
+    );
     const dir = await createUniqueDirectory(
       parentDir,
       `DevBrain notes ${toDateString(this.now())}`,
@@ -231,7 +236,7 @@ export class TransferService {
         continue;
       }
       const name = uniqueName(safeFileName(note.title || 'Untitled'), taken);
-      const project = note.projectId ? (projectTitles.get(note.projectId) ?? null) : null;
+      const project = note.project?.title ?? null;
       await fs.writeFile(
         childPath(dir, `${name}.md`),
         formatNoteMarkdown({ id: note.id, title: note.title, project }, content),
@@ -245,7 +250,8 @@ export class TransferService {
   // the active projects by matchKey(title); a title several projects share maps to all of them
   private projectsByTitle(): Map<string, ProjectId[]> {
     const byTitle = new Map<string, ProjectId[]>();
-    for (const { id, title } of this.projects.listAll()) {
+    const active = collectPages((page) => this.projects.listProjects({}, undefined, page));
+    for (const { id, title } of active) {
       const key = matchKey(title);
       byTitle.set(key, [...(byTitle.get(key) ?? []), id]);
     }

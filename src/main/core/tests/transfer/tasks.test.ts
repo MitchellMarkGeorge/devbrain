@@ -16,6 +16,14 @@ import { ImportFileError, InvalidInputError } from '../../shared/errors';
 import type { TaskDefaults } from '../../tasks/defaults';
 import { MAX_TASK_FILE_BYTES, MAX_TASK_DEPTH } from '../../transfer/limits';
 import { TransferService } from '../../transfer/service';
+import { collectPages } from '../../shared/pagination';
+
+// every active task, oldest first, as the export reads them
+function allTasks(service: TaskService) {
+  return collectPages((page) =>
+    service.listTasks({}, { sortBy: 'createdAt', direction: 'asc' }, page),
+  );
+}
 
 // Importing and exporting tasks through TransferService, over real services and a database.
 
@@ -108,8 +116,8 @@ describe.each(['csv', 'json'] as const)('a %s export', (format) => {
     expect(summary).toEqual({ created: 4, skipped: [], errors: [], warnings: [] });
     const titleOf = (all: Task[], ps: ProjectService) => (task: Task) =>
       task.projectId ? ps.getById(task.projectId).title.toLowerCase() : null;
-    expect(shape(other.tasks.listAll(), titleOf(other.tasks.listAll(), other.projects))).toEqual(
-      shape(tasks.listAll(), titleOf(tasks.listAll(), projects)),
+    expect(shape(allTasks(other.tasks), titleOf(allTasks(other.tasks), other.projects))).toEqual(
+      shape(allTasks(tasks), titleOf(allTasks(tasks), projects)),
     );
   });
 
@@ -186,7 +194,7 @@ describe('importing rows', () => {
     defaults = { defaultDueDate: 'nextWeek', defaultPriority: TaskPriority.MEDIUM };
     transfer.importTasks('[{"title": "Next week"}]', 'json');
 
-    const byTitle = new Map(tasks.listAll().map((task) => [task.title, task]));
+    const byTitle = new Map(allTasks(tasks).map((task) => [task.title, task]));
     expect(byTitle.get('Today')).toMatchObject({
       dueDate: day(10, 31),
       priority: TaskPriority.LOW,
@@ -231,11 +239,11 @@ describe('importing rows', () => {
       { row: 6, title: 'Child of bad', message: expect.stringContaining('(row 5)') },
     ]);
     // the blank row 3 is no row at all, and a title of spaces is none
-    expect(tasks.listAll().map(({ title, status }) => [title, status])).toEqual([
+    expect(allTasks(tasks).map(({ title, status }) => [title, status])).toEqual([
       ['Good', TaskStatus.IN_PROGRESS],
       ['Done', TaskStatus.COMPLETED],
     ]);
-    expect(tasks.listAll()[1].completedAt).not.toBeNull();
+    expect(allTasks(tasks)[1].completedAt).not.toBeNull();
   });
 
   it('matches projects by title, ignoring case, and warns when none or several match', () => {
@@ -264,7 +272,7 @@ describe('importing rows', () => {
         message: '2 projects are named "Twice"; imported without a project',
       },
     ]);
-    const byTitle = new Map(tasks.listAll().map((task) => [task.title, task]));
+    const byTitle = new Map(allTasks(tasks).map((task) => [task.title, task]));
     expect(byTitle.get('In site')!.projectId).toBe(site.id);
     // a subtask takes its top-level task's project
     expect(byTitle.get('Sub')!.projectId).toBe(site.id);
@@ -287,7 +295,7 @@ describe('importing rows', () => {
       // a number where a status goes is read as text, and "42" is no status
       { row: 8, title: 'Third', message: expect.stringContaining('Unknown status "42"') },
     ]);
-    const all = tasks.listAll();
+    const all = allTasks(tasks);
     const id = (title: string) => all.find((task) => task.title === title)!.id;
     expect(all.find((task) => task.title === 'A1')!.parentTaskId).toBe(id('A'));
     expect(all.find((task) => task.title === 'A')!.parentTaskId).toBe(id('Root'));
@@ -352,7 +360,7 @@ describe('importing rows', () => {
         },
       ]),
     ).toThrow(InvalidInputError);
-    expect(tasks.listAll()).toEqual([]);
+    expect(allTasks(tasks)).toEqual([]);
   });
 });
 
@@ -375,7 +383,7 @@ describe('import files', () => {
     const error = await transfer.importTasksFromFile(big).catch((e) => e);
     expect(error).toBeInstanceOf(ImportFileError);
     expect(error).toMatchObject({ reason: 'too_large', fileName: 'big.csv' });
-    expect(tasks.listAll()).toEqual([]);
+    expect(allTasks(tasks)).toEqual([]);
   });
 
   it('that do not parse fail as a whole', () => {

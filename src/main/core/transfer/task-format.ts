@@ -1,7 +1,7 @@
-import type { ProjectId, TaskId } from '@common/ids';
+import type { TaskId } from '@common/ids';
 import { toDateString } from '../shared/dates';
 import { isSynced } from '../integrations/refs';
-import { TaskPriority, TaskStatus, type Task } from '../tasks/types';
+import { TaskPriority, TaskStatus, type TaskListItem } from '../tasks/types';
 import { formatCsv, parseCsv } from './csv';
 import { MAX_TASK_DEPTH, MAX_TASK_ROWS } from './limits';
 import type { TaskImportIssue } from './types';
@@ -83,10 +83,7 @@ export interface ExportedTask {
  * Tasks as the trees an export writes, in the order given, each subtask under its parent. A task
  * whose parent is not among them (archived) is written as a top-level one.
  */
-export function toExportedTasks(
-  tasks: Task[],
-  projectTitles: Map<ProjectId, string>,
-): ExportedTask[] {
+export function toExportedTasks(tasks: TaskListItem[]): ExportedTask[] {
   const exported = new Map<TaskId, ExportedTask>();
   for (const task of tasks) {
     const synced = isSynced(task);
@@ -98,7 +95,7 @@ export function toExportedTasks(
       priority: PRIORITY_NAMES[task.priority],
       startDate: task.startDate ? toDateString(task.startDate) : null,
       dueDate: task.dueDate ? toDateString(task.dueDate) : null,
-      project: task.projectId ? (projectTitles.get(task.projectId) ?? null) : null,
+      project: task.project?.title ?? null,
       pullRequestUrl: task.pullRequestUrl,
       source: synced ? task.external!.provider : 'local',
       externalKey: synced ? task.external!.key : null,

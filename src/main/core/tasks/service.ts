@@ -2,20 +2,7 @@ import { generateId, ProjectId, TaskId } from '@common/ids';
 import { tasks } from '@main/db/schema/tasks';
 import { notes } from '@main/db/schema/notes';
 import { externalLinks } from '@main/db/schema/integrations';
-import {
-  eq,
-  inArray,
-  notInArray,
-  and,
-  isNull,
-  not,
-  SQL,
-  lt,
-  gt,
-  gte,
-  desc,
-  asc,
-} from 'drizzle-orm';
+import { eq, inArray, notInArray, and, isNull, not, SQL, lt, gt, gte, desc } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   CreateSubTaskOptions,
@@ -217,20 +204,6 @@ export class TaskService {
       for (const task of created) this.changes.emit({ type: 'created', task });
       return created;
     });
-  }
-
-  /**
-   * Every active (unarchived) task, synced ones included, with `external` set, oldest first: what
-   * an export writes. Not paged; a workspace's tasks fit in memory.
-   */
-  listAll(): Task[] {
-    const rows = this.db
-      .select()
-      .from(tasks)
-      .where(isNull(tasks.archivedAt))
-      .orderBy(asc(tasks.createdAt), asc(tasks.id))
-      .all();
-    return withExternalRefs(this.db, rows);
   }
 
   listTasks(

@@ -19,6 +19,22 @@ export interface Page<T> {
   nextCursor: string | null;
 }
 
+/**
+ * Every item of a paged list, fetched a page at a time at the largest page size and in the list's
+ * order: for work that needs the whole list in hand, such as an export. Synchronous like the list
+ * methods it calls, so nothing can write between two pages.
+ */
+export function collectPages<T>(fetchPage: (page: PageOptions) => Page<T>): T[] {
+  const items: T[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = fetchPage({ cursor, limit: MAX_PAGE_LIMIT });
+    items.push(...page.items);
+    cursor = page.nextCursor ?? undefined;
+  } while (cursor !== undefined);
+  return items;
+}
+
 export class InvalidCursorError extends CoreError {
   readonly code = 'invalid_cursor';
   constructor(message = 'Invalid pagination cursor') {
