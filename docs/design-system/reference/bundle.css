@@ -223,7 +223,7 @@ body {
   color: var(--destructive);
 }
 .db-badge[data-variant='outline'] {
-  background: var(--background);
+  background: var(--pill-fill);
   border-color: var(--border);
   color: var(--foreground);
 }
@@ -231,7 +231,8 @@ button.db-badge {
   cursor: pointer;
 }
 button.db-badge[data-variant='outline']:hover {
-  background: var(--accent);
+  background: var(--pill-fill-hover);
+  border-color: var(--border-strong);
 }
 .db-badge-text {
   overflow: hidden;
@@ -1704,7 +1705,6 @@ button.db-badge[data-variant='outline']:hover {
    outline stays visible on the page, on cards and on hovered or selected rows; pointing at it tints
    it with `accent`. One rule for both themes. */
 :root {
-  --pill-fill: transparent;
   --pill-edge: var(--border);
 }
 .db-entity {

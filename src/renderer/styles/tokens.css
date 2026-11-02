@@ -180,6 +180,7 @@
   --muted-foreground: var(--neutral-400);
   --subtle-foreground: var(--neutral-500); /* DevBrain addition */
   --accent: var(--neutral-800);
+  --pill-fill: var(--neutral-950);
   --pill-fill-hover: rgba(38, 38, 38, 0.6);
   --accent-foreground: var(--neutral-100);
   --destructive: var(--red-400);
@@ -239,7 +240,8 @@
     --muted-foreground: var(--neutral-500);
     --subtle-foreground: var(--neutral-500);
     --accent: var(--neutral-100);
-    --pill-fill-hover: rgba(245, 245, 245, 0.6);
+    --pill-fill: var(--white);
+    --pill-fill-hover: var(--neutral-100);
     --accent-foreground: var(--neutral-900);
     --destructive: var(--red-600);
     --border: var(--neutral-200);
