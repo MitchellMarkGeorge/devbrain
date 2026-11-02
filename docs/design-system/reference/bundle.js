@@ -825,7 +825,7 @@
         iconColor: e.color,
         barColor: props.type === 'event' ? props.color || 'var(--swatch-green)' : undefined,
         prefix: props.prefix,
-        muted: props.type !== 'event',
+        muted: true,
       },
       props.children,
     );
@@ -1297,7 +1297,7 @@
         iconColor: props.type === 'project' ? props.color || e.color : e.color,
         barColor: ev ? props.color || 'var(--swatch-green)' : undefined,
         prefix: props.prefix,
-        muted: !ev,
+        muted: true,
       },
       props.children,
     );
