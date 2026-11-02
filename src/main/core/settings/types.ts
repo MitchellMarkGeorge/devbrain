@@ -1,6 +1,12 @@
 import { z } from 'zod';
-import { appSettingsSchema, appStateSchema, settingsFileSchema } from './schema';
+import {
+  appSettingsSchema,
+  appStateSchema,
+  settingsFileSchema,
+  themeSettingSchema,
+} from './schema';
 
+export type ThemeSetting = z.infer<typeof themeSettingSchema>;
 export type AppSettings = z.infer<typeof appSettingsSchema>;
 export type AppState = z.infer<typeof appStateSchema>;
 export type SettingsFile = z.infer<typeof settingsFileSchema>;
@@ -25,7 +31,7 @@ export type DotPathValue<T, P extends string> = P extends `${infer K}.${infer Re
 
 // // this should produce or be a product of the schema validator
 // export interface AppSettings {
-//   theme: 'dark'; // v1 is dark-only
+//   theme: 'system' | 'light' | 'dark';
 //   devBrainPath: string
 //   general: {
 //     defaultLandingPage: 'home' | 'tasks' | 'notes' | 'projects' | 'calendar'

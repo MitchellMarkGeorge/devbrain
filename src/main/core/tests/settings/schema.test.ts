@@ -69,12 +69,14 @@ describe('settingsFileSchema', () => {
 });
 
 describe('appSettingsSchema — top-level fields', () => {
-  it('accepts dark as the theme', () => {
-    expect(appSettingsSchema.safeParse(validSettings.settings).success).toBe(true);
+  it('accepts system, light and dark as the theme', () => {
+    for (const theme of ['system', 'light', 'dark'] as const) {
+      expect(appSettingsSchema.safeParse(withSettings({ theme }).settings).success).toBe(true);
+    }
   });
 
   it('rejects unknown theme values', () => {
-    expect(appSettingsSchema.safeParse({ ...validSettings.settings, theme: 'light' }).success).toBe(
+    expect(appSettingsSchema.safeParse({ ...validSettings.settings, theme: 'blue' }).success).toBe(
       false,
     );
   });

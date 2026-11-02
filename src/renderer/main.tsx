@@ -5,6 +5,7 @@ import { App } from './App';
 import log from 'electron-log/renderer';
 import { events, queryInvalidator, queryClient } from './ipc';
 import './styles/tokens.css';
+import './styles/base.css';
 
 // this might have to be done in the App component so the stopCatching() method can be called
 log.errorHandler.startCatching();

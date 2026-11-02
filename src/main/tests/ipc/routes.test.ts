@@ -322,7 +322,7 @@ describe('settings', () => {
   it('gets the settings', async () => {
     expect(await call('settings.get')).toMatchObject({
       ok: true,
-      data: { theme: 'dark', general: { timeFormat: expect.any(String) } },
+      data: { theme: 'system', general: { timeFormat: expect.any(String) } },
       changed: [],
     });
   });
