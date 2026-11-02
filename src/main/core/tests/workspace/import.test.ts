@@ -137,7 +137,10 @@ describe('WorkspaceService.import — success', () => {
     await here.delete(info.id);
 
     expect((await fs.readdir(folder)).sort()).toEqual(before);
-    expect(await fs.readFile(path.join(folder, 'db.sqlite'))).toEqual(dbBefore);
+    // Compare bytes directly: Vitest's deep equality walks every byte of the SQLite database,
+    // which can exceed the test timeout under CI load.
+    const dbAfter = await fs.readFile(path.join(folder, 'db.sqlite'));
+    expect(dbAfter.equals(dbBefore)).toBe(true);
     expect(fsSync.existsSync(info.path)).toBe(false);
   });
 
