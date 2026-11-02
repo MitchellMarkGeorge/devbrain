@@ -1,8 +1,28 @@
 /*
- * The app's base styles, from the design system's reference build
+ * The app's base styles: a reset (Josh Comeau's custom CSS reset,
+ * https://www.joshwcomeau.com/css/custom-css-reset/) with the design system's page styles
  * (docs/design-system/reference/bundle.css). The page is in the theme's colours, matching the
  * window background main paints before it loads.
  */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* dialog keeps its margin: auto, which centres it */
+*:not(dialog) {
+  margin: 0;
+}
+
+/* lets height and width animate to and from auto */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    interpolate-size: allow-keywords;
+  }
+}
+
+/* The design system's text: 14px on 20px, not the reset's line-height: 1.5 */
 html,
 body {
   background: var(--background);
@@ -13,13 +33,47 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-body {
-  margin: 0;
+/* An icon with a class that sets its display, like the design system's .db-icon, stays inline */
+img,
+picture,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
 }
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  border-color: var(--border);
+input,
+button,
+textarea,
+select {
+  font: inherit;
+}
+
+p,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  overflow-wrap: break-word;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  text-wrap: balance;
+}
+
+/* the app's stacking context, so popups portalled outside it always sit above it */
+#root {
+  isolation: isolate;
 }
