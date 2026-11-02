@@ -13,4 +13,4 @@ The dates property, one value until a start date exists: the due date and a mute
 
 ## The task note card
 
-A task's note sits under its subtasks as a flat card: the file icon, the note title, then pills for the note's project and a summary of the tasks linked in it (an outline xs button, "2 tasks · 1 in progress", the same chip as the note editor's linked tasks).
+A task's note sits under its subtasks as a flat card in one row, like a task row: the file icon, the note title (cut with "…"), then on the right pills for the note's project and a summary of the tasks linked in it, then the edit time. The summary is a plain `EntityPill` with the `circle-check` icon ("2 tasks · 1 in progress"), the same pill the note editor shows under its title. In a narrow side sheet the card stacks: the pills go on a second line under the title.

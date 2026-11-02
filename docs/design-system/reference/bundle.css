@@ -225,7 +225,7 @@ body {
 .db-badge[data-variant='outline'] {
   background: var(--pill-fill);
   border-color: var(--border);
-  color: var(--foreground);
+  color: var(--muted-foreground);
 }
 button.db-badge {
   cursor: pointer;
@@ -233,6 +233,10 @@ button.db-badge {
 button.db-badge[data-variant='outline']:hover {
   background: var(--pill-fill-hover);
   border-color: var(--border-strong);
+  color: var(--foreground);
+}
+button.db-badge[data-variant='outline']:hover .db-badge-muted {
+  color: var(--foreground);
 }
 .db-badge-text {
   overflow: hidden;
