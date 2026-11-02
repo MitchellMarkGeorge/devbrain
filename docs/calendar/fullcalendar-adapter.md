@@ -118,6 +118,30 @@ A weekday standup at 9:00 Toronto time, with Wednesday's moved to 10:00 and Frid
 
 FullCalendar draws Monday, Tuesday and Thursday at 9:00 from the master, Wednesday at 10:00 from the occurrence row, and nothing on Friday.
 
+## Editing and deleting a recurring event
+
+An edit or delete of a series' occurrence asks which occurrences it applies to. Each choice is one route:
+
+| Choice             | Edit                                                | Delete                                              |
+| ------------------ | --------------------------------------------------- | --------------------------------------------------- |
+| This event         | `events.updateOccurrence` with `scope: 'this'`      | `events.deleteOccurrence` with `scope: 'this'`      |
+| This and following | `events.updateOccurrence` with `scope: 'following'` | `events.deleteOccurrence` with `scope: 'following'` |
+| All events         | `events.update` with `id: seriesId`                 | `events.delete` with `id: seriesId`                 |
+
+The occurrence routes take the series and the occurrence's start in it, `{ seriesId, originalStartAt, scope }`, plus the fields to change for an edit:
+
+- **`originalStartAt`** is the start the occurrence has in the series, matched exactly. For an occurrence FullCalendar expanded from the master, that is its start as expanded (`oldEvent.start` after a drag, `event.start` after a click; local midnight for an all-day series), with `seriesId` the master's `id`. For an occurrence row, it is the row's own `seriesId` and `originalStartAt` (from `extendedProps`), never its `startAt`, which is where it was moved to.
+- **"This event" edit** returns the occurrence's own row, made from the series if it had none. It stays on the series' calendar and has no rule of its own, so a `calendarId` or `recurrenceRule` is refused (`invalid_input`).
+- **"This event" delete** cancels the occurrence, and deletes its row if it has one.
+- **"This and following" edit** ends the series just before the occurrence and returns a new series starting there, with the changes; later occurrence rows and cancellations move to it, shifted as the occurrence was. From the series' first occurrence, it updates the series itself and returns it. A null `recurrenceRule` makes the occurrence a one-off.
+- **"This and following" delete** ends the series just before the occurrence and removes the later occurrences. From the first occurrence, it deletes the series.
+- **Splitting a rule** ("This and following") is refused for a series with `RDATE`, `EXRULE` or more than one `RRULE`. Offer "All events" instead.
+- **Linked occurrences survive.** Deleting a series, or its later part, keeps an occurrence row a note or task links to, as a one-off event with `seriesId` cleared.
+
+**"All events" from a later occurrence: translate the time change to the first occurrence.** `events.update` on a series takes `startAt`/`endAt` (or `startDate`/`endDate`) as the series' first occurrence; core does not translate a change made on another one. When the user drags the Thursday standup from 9:00 to 10:00 and picks "All events", send the master's `startAt` and `endAt` each moved by the drag's delta, not Thursday's new times. Fields other than timing (title, location) pass through as they are.
+
+The routes' writes reach the other windows as `events` changes, like any other event write: the master's `exdates` or rule changed, and occurrence rows were created, moved or deleted. Refetching the visible range is enough.
+
 ## To confirm when building it
 
 - **`TZID`.** The RRule plugin page only describes a `Z` suffix and the calendar's own `timeZone`. Expanding `DTSTART;TZID=…` correctly across DST likely needs `@fullcalendar/luxon` alongside `@fullcalendar/rrule`. Check it, and check that `EXDATE;TZID=…` lines match the generated occurrences. If `TZID` is not supported, a UTC `DTSTART` and `EXDATE`s (`…Z`) work but drift an hour after a DST change.
