@@ -152,19 +152,17 @@ export class EventService {
       endAt: new Date(originalStartAt.getTime() + duration),
       allDay: series.allDay,
     });
-    const {
-      recurrenceRule: _recurrenceRule,
-      external: _external,
-      exdates: _exdates,
-      id: _id,
-      createdAt: _createdAt,
-      updatedAt: _updatedAt,
-      favoritedAt: _favoritedAt,
-      viewedAt: _viewedAt,
-      ...seriesFields
-    } = series;
     const initial = {
-      ...seriesFields,
+      calendarId: series.calendarId,
+      title: series.title,
+      description: series.description,
+      timeZone: series.timeZone,
+      location: series.location,
+      status: series.status,
+      response: series.response,
+      kind: series.kind,
+      meetingUrl: series.meetingUrl,
+      color: series.color,
       ...baseTiming,
       seriesId,
       originalStartAt,
