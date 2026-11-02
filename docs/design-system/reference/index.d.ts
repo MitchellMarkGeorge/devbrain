@@ -198,6 +198,17 @@ export interface EntityPillProps {
   children: Node;
 }
 /** The pill rows under a task or project title (replaces the side Properties card). */
+export interface ProviderLogoProps {
+  provider?: 'linear' | 'github';
+  size?: number;
+}
+/** A synced task's source and key as one pill: "[logo] ENG-124". */
+export interface SourcePillProps {
+  provider?: 'linear' | 'github';
+  /** the 20px version on board cards */
+  compact?: boolean;
+  children: Node;
+}
 export interface PropertyRowProps {
   /** status, priority, DateRange, project, progress: in that order */
   properties: Node[];
@@ -217,6 +228,9 @@ export interface Task {
   title: string;
   status: TaskStatus;
   key?: string;
+  /** where a synced task comes from; shown with its key in a SourcePill (default linear) */
+  source?: 'linear' | 'github';
+  /** a subtask's parent: shown as the parent pill after the title */
   parent?: string;
   subtasks?: [number, number];
   project?: string;

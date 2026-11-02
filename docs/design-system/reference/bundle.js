@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"DevBrain","components":[{"name":"Icon"},{"name":"Button"},{"name":"ButtonGroup"},{"name":"Badge"},{"name":"ToggleGroup"},{"name":"Tabs"},{"name":"Input"},{"name":"Textarea"},{"name":"Field"},{"name":"Checkbox"},{"name":"Switch"},{"name":"DropdownMenu"},{"name":"Command"},{"name":"Tooltip"},{"name":"Dialog"},{"name":"Sheet"},{"name":"Toast"},{"name":"Card"},{"name":"Separator"},{"name":"Skeleton"},{"name":"Progress"},{"name":"Kbd"},{"name":"Breadcrumb"},{"name":"Sidebar"},{"name":"Calendar"},{"name":"StatusIcon"},{"name":"PriorityIcon"},{"name":"HealthIcon"},{"name":"ProgressRing"},{"name":"EntityPill"},{"name":"PropertyRow"},{"name":"DateRange"},{"name":"TaskRow"},{"name":"GroupHeading"},{"name":"EventRow"},{"name":"ScheduleCard"},{"name":"NoteCard"},{"name":"WorkspaceTile"},{"name":"SwatchPicker"},{"name":"SettingsGroup"},{"name":"EventBlock"},{"name":"StatusMenu"},{"name":"TaskList"},{"name":"SelectionBar"},{"name":"BoardColumn"},{"name":"BoardCard"}]} */
+/* @ds-bundle: {"format":4,"namespace":"DevBrain","components":[{"name":"Icon"},{"name":"Button"},{"name":"ButtonGroup"},{"name":"Badge"},{"name":"ToggleGroup"},{"name":"Tabs"},{"name":"Input"},{"name":"Textarea"},{"name":"Field"},{"name":"Checkbox"},{"name":"Switch"},{"name":"DropdownMenu"},{"name":"Command"},{"name":"Tooltip"},{"name":"Dialog"},{"name":"Sheet"},{"name":"Toast"},{"name":"Card"},{"name":"Separator"},{"name":"Skeleton"},{"name":"Progress"},{"name":"Kbd"},{"name":"Breadcrumb"},{"name":"Sidebar"},{"name":"Calendar"},{"name":"StatusIcon"},{"name":"PriorityIcon"},{"name":"HealthIcon"},{"name":"ProgressRing"},{"name":"EntityPill"},{"name":"ProviderLogo"},{"name":"SourcePill"},{"name":"PropertyRow"},{"name":"DateRange"},{"name":"TaskRow"},{"name":"GroupHeading"},{"name":"EventRow"},{"name":"ScheduleCard"},{"name":"NoteCard"},{"name":"WorkspaceTile"},{"name":"SwatchPicker"},{"name":"SettingsGroup"},{"name":"EventBlock"},{"name":"StatusMenu"},{"name":"TaskList"},{"name":"SelectionBar"},{"name":"BoardColumn"},{"name":"BoardCard"}]} */
 (function () {
   var R = window.React;
   var h = R.createElement;
@@ -806,6 +806,45 @@
     task: { icon: 'activity', color: 'var(--status-in-progress)' },
     parent: { icon: 'activity', color: 'var(--status-in-progress)' },
   };
+  /* ProviderLogo: the tile of the service a task comes from. */
+  var PROVIDERS = {
+    linear: {
+      ground: '#5E6AD2',
+      ink: '#ffffff',
+      d: 'M9.16 10.14A8.99 8.99 0 0 1 25 16.01c0 2.73-1.21 5.18-3.13 6.83L9.17 10.14ZM8.36 11.22l12.42 12.42c-.39.25-.81.47-1.24.65L7.71 12.46c.19-.43.4-.85.65-1.24ZM7.24 13.87l10.89 10.89c-.53.13-1.08.21-1.65.24L7 15.52c.03-.56.11-1.11.24-1.65ZM7.11 17.52l7.37 7.37a9 9 0 0 1-7.37-7.37Z',
+    },
+    github: {
+      ground: 'var(--input)',
+      ink: 'var(--foreground)',
+      d: 'M16 7.22a9 9 0 0 0-2.85 17.54c.45.08.62-.19.62-.43l-.01-1.53c-2.5.54-3.03-1.21-3.03-1.21-.41-1.04-1-1.32-1-1.32-.82-.56.06-.55.06-.55.9.06 1.38.93 1.38.93.8 1.37 2.11.98 2.62.75.08-.58.31-.98.57-1.2-2-.23-4.1-1-4.1-4.45 0-.98.35-1.79.93-2.42-.1-.23-.4-1.14.08-2.38 0 0 .75-.24 2.48.92a8.5 8.5 0 0 1 4.5 0c1.71-1.16 2.46-.92 2.46-.92.49 1.24.18 2.15.09 2.38.58.63.92 1.44.92 2.42 0 3.46-2.1 4.22-4.11 4.44.32.27.61.82.61 1.66l-.01 2.46c0 .24.16.52.62.43A9 9 0 0 0 16 7.22Z',
+    },
+  };
+  function ProviderLogo(props) {
+    var p = PROVIDERS[props.provider || 'linear'];
+    var size = props.size || 12;
+    return h(
+      'svg',
+      { width: size, height: size, viewBox: '0 0 32 32', 'aria-label': props.provider || 'linear' },
+      h('rect', { width: 32, height: 32, rx: 8, fill: p.ground }),
+      h('path', { d: p.d, fill: p.ink }),
+    );
+  }
+
+  /* SourcePill: where a task comes from and its key, read as one unit ("[logo] ENG-124"). */
+  function SourcePill(props) {
+    return h(
+      Badge,
+      {
+        variant: 'outline',
+        asButton: true,
+        className: cx('db-source', props.compact && 'db-source-compact'),
+        icon: h(ProviderLogo, { provider: props.provider, size: 12 }),
+        muted: true,
+      },
+      props.children,
+    );
+  }
+
   function EntityPill(props) {
     var e = ENTITY[props.type] || {};
     return h(
@@ -897,7 +936,6 @@
         { className: 'db-row-main' },
         h(Checkbox, { label: 'Select ' + t.title, defaultChecked: t.selected }),
         h(StatusIcon, { status: t.status }),
-        t.key ? h('span', { className: 'db-key' }, t.key) : null,
         h(
           'span',
           {
@@ -906,14 +944,8 @@
           },
           t.title,
         ),
-        t.parent
-          ? h(
-              R.Fragment,
-              null,
-              h(Icon, { name: 'corner-down-right', size: 14, className: 'db-subtask-arrow' }),
-              h(EntityPill, { type: 'task' }, t.parent),
-            )
-          : null,
+        t.key ? h(SourcePill, { provider: t.source }, t.key) : null,
+        t.parent ? h(EntityPill, { type: 'parent' }, t.parent) : null,
         t.subtasks
           ? h(
               Badge,
@@ -1220,6 +1252,8 @@
     HealthIcon: HealthIcon,
     ProgressRing: ProgressRing,
     EntityPill: EntityPill,
+    ProviderLogo: ProviderLogo,
+    SourcePill: SourcePill,
     PropertyRow: PropertyRow,
     DateRange: DateRange,
     TaskRow: TaskRow,
@@ -1345,7 +1379,8 @@
   }
 
   /* TaskRow: strokeless row. Leading strip (checkbox on hover, focus or while selecting), the
-     status button, the title first (key and subtasks after it), entity pills, priority and date
+     status button, the title first (then the source pill, the parent pill on a subtask and the
+     subtask count pill), entity pills, priority and date
      on the right. Status is uncontrolled unless `status` is passed. */
   function TaskRow(props) {
     var t = props.task;
@@ -1450,12 +1485,20 @@
         'div',
         { className: 'dbl-title' },
         h('span', { className: 'dbl-name' }, t.title),
-        t.key ? h('span', { className: 'db-key' }, t.key) : null,
+        t.key ? h(NS.SourcePill, { provider: t.source }, t.key) : null,
+        t.parent ? h(NS.EntityPill, { type: 'parent' }, t.parent) : null,
         t.subtasks
           ? h(
-              'span',
-              { className: 'dbl-subs' },
-              h(Icon, { name: 'corner-down-right', size: 12 }),
+              NS.Badge,
+              {
+                variant: 'outline',
+                icon: h(NS.ProgressRing, {
+                  value: t.subtasks[0],
+                  total: t.subtasks[1],
+                  size: 12,
+                }),
+                muted: true,
+              },
               t.subtasks[0] + '/' + t.subtasks[1],
             )
           : null,
@@ -1673,8 +1716,8 @@
     );
   }
 
-  /* BoardCard: the link as a quiet line, the title, then one line of priority, subtasks,
-     project and date. Completed cards dim. */
+  /* BoardCard: a top line (the link on the left, the source pill on the right, or the pill alone),
+     the title, then one line of priority, subtasks, project and date. Completed cards dim. */
   function BoardCard(props) {
     var t = props.task;
     var done = t.status === 'completed';
@@ -1704,7 +1747,14 @@
         'data-state': props.state,
         'data-completed': done ? '' : undefined,
       },
-      link,
+      link || t.key
+        ? h(
+            'div',
+            { className: 'dbl-ctop' },
+            link,
+            t.key ? h(NS.SourcePill, { provider: t.source, compact: true }, t.key) : null,
+          )
+        : null,
       h('div', { className: 'dbl-ctitle' }, t.title),
       h(
         'div',

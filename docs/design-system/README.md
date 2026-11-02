@@ -55,13 +55,16 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 
 - **One column.** A task or project page is the title, then `PropertyRow` (properties on the first line, links on the second), the description and the content (subtasks and the task note; or the project's task groups). No side cards: a project's notes live in its Notes tab.
 - **Header actions stay put.** The star and the "…" menu sit at the right of the top bar on every detail page; nothing under them is covered, because the page has no side column.
-- **The task "…" menu:** Convert to project, Link to ›, Duplicate (⌘D), Make subtask of ›, Copy as Markdown, then Move to trash. A Linear task adds Open in Linear, Copy Linear URL and Detach from Linear; a detached one offers Reattach to Linear instead.
+- **One "…" menu for every detail page**, in the same order: the page's own actions, then Copy as Markdown, then Move to trash last. Favorite stays the star button, and there is no "Copy link": everything is local.
+  - Task: Convert to project, Link to ›, Make subtask of ›, Duplicate (⌘D). A Linear task adds Open in Linear, Copy Linear URL and Detach from Linear before Move to trash; a detached one offers Reattach to Linear instead.
+  - Project: New task, New note, Change colour ›.
+  - Note: Link to ›, Change project ›, Duplicate (⌘D), Show in Finder.
 - **Note rows open a right-click menu** (no "…" button on the row): Open note (↵), Favorite (F), Change link ›, Change project ›, Copy as Markdown, then Move to trash.
 
 ## Lists
 
 - **Strokeless rows.** No line between rows and no group band. A row is a `row-height` (48px) block with `radius-md` corners that take `row-selected` on hover and when selected (the same tint; selected also brightens the title). Space separates groups (`group-gap`, 32px above each heading). List density is these two tokens: 48px rows with a 32px gap, or 40px rows with a 24px gap.
-- **Title first.** The task name leads; the issue key (12px `subtle-foreground`) and the subtask count follow it. Entity pills, priority and date stay on the right, as in Nova.
+- **Title first.** The task name leads, then pills: a synced task's `SourcePill` (provider logo and key), a subtask's parent pill, and the subtask count (`ProgressRing` and "3/4"). Entity pills, priority and date stay on the right, as in Nova.
 - **The status icon is a button.** Clicking it, or pressing `S` on a focused row, opens the `StatusMenu`; `1`, `2`, `3` pick. Overdue shows as the flag until the task is started or done.
 - **Leading control.** The selection checkbox lives in a strip left of the status icon. It appears on hover and keyboard focus, and on every row once anything is selected. `X` toggles the focused row.
 - **Row states.** Rest, hover (`row-selected`, the selected tint), selected (`row-selected` with `row-selected-foreground` titles; neighbouring selected rows join into one block), keyboard focus (Nova's ring around the whole row), completed (struck through in `muted-foreground`), overdue (flag and `date-overdue`), subtask (indented).

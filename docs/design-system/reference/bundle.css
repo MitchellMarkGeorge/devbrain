@@ -2006,3 +2006,28 @@ button.db-entity:active {
   --card-fill-hover: var(--neutral-200);
   --card-fill-done: var(--neutral-50);
 }
+
+/* ---------- source pill, board card top line ---------- */
+.db-source {
+  flex: none;
+}
+.db-source > svg {
+  border-radius: 3px;
+}
+.db-source-compact {
+  height: 20px;
+  padding: 0 8px;
+}
+.dbl-ctop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+.dbl-ctop > .dbl-clink {
+  min-width: 0;
+}
+.dbl-ctop > .db-source:only-child {
+  margin-right: auto;
+}
