@@ -11,6 +11,7 @@ import { zId } from '../zod';
 // there, fail with external_read_only.
 
 const byId = z.object({ id: zId('event') });
+const occurrence = z.object({ seriesId: zId('event'), originalStartAt: z.date() });
 
 // what create and update share; an all-day event's dates are YYYY-MM-DD, the end exclusive
 const fields = {
@@ -76,10 +77,34 @@ export const eventsRouter = t.router({
       ({ ctx, input: { id, ...updates } }): Event => ctx.workspace.events.updateEvent(id, updates),
     ),
 
+  // Changes one expanded occurrence without changing the rest of its local series. The occurrence
+  // is materialised as its own row and the series excludes its original slot.
+  updateOccurrence: wsProcedure
+    .input(
+      occurrence.extend({
+        ...fields,
+        title: z.string().optional(),
+        startAt: z.date().optional(),
+        endAt: z.date().optional(),
+        color: hexColorSchema.nullable().optional(),
+      }),
+    )
+    .mutation(
+      ({ ctx, input: { seriesId, originalStartAt, ...updates } }): Event =>
+        ctx.workspace.events.updateOccurrence(seriesId, originalStartAt, updates),
+    ),
+
   // a hard delete; a series takes its moved and edited occurrences with it
   delete: wsProcedure
     .input(byId)
     .mutation(({ ctx, input }): void => ctx.workspace.events.deleteEvent(input.id)),
+
+  // Cancels one expanded occurrence without deleting its local series.
+  deleteOccurrence: wsProcedure
+    .input(occurrence)
+    .mutation(({ ctx, input }): void =>
+      ctx.workspace.events.deleteOccurrence(input.seriesId, input.originalStartAt),
+    ),
 
   // the state wanted, not a toggle: a repeat changes nothing. A synced event can be favorited.
   setFavorite: wsProcedure

@@ -6,7 +6,12 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 import { RunResult } from 'better-sqlite3';
 import { ExternalReadOnlyError, InvalidInputError, NotFoundError } from '../shared/errors';
-import { CreateEventOptions, Event, UpdateEventOptions } from './types';
+import {
+  CreateEventOptions,
+  Event,
+  UpdateEventOccurrenceOptions,
+  UpdateEventOptions,
+} from './types';
 import {
   assertEditable,
   assertRowEditable,
@@ -127,6 +132,84 @@ export class EventService {
     return withDetails;
   }
 
+  /**
+   * Materialises and updates one occurrence of a local series. An already-materialised occurrence
+   * is updated in place; otherwise its values start from the series and its time is shifted to the
+   * occurrence's original start. The series gets an exdate through the occurrence row.
+   */
+  updateOccurrence(
+    seriesId: EventId,
+    originalStartAt: Date,
+    updates: UpdateEventOccurrenceOptions,
+  ): Event {
+    const series = this.assertLocalSeries(seriesId);
+    const existing = this.occurrence(seriesId, originalStartAt);
+    if (existing) return this.updateEvent(existing.id, updates);
+
+    const duration = series.endAt.getTime() - series.startAt.getTime();
+    const baseTiming = timing({
+      startAt: originalStartAt,
+      endAt: new Date(originalStartAt.getTime() + duration),
+      allDay: series.allDay,
+    });
+    const {
+      recurrenceRule: _recurrenceRule,
+      external: _external,
+      exdates: _exdates,
+      id: _id,
+      createdAt: _createdAt,
+      updatedAt: _updatedAt,
+      favoritedAt: _favoritedAt,
+      viewedAt: _viewedAt,
+      ...seriesFields
+    } = series;
+    const initial = {
+      ...seriesFields,
+      ...baseTiming,
+      seriesId,
+      originalStartAt,
+      recurrenceRule: null,
+    };
+
+    const occurrence = this.db.transaction((tx) => {
+      tx.delete(eventExceptions)
+        .where(
+          and(
+            eq(eventExceptions.seriesId, seriesId),
+            eq(eventExceptions.originalStartAt, originalStartAt),
+          ),
+        )
+        .run();
+      const inserted = tx.insert(events).values(initial).returning().get();
+      return inserted;
+    });
+    // Apply through the ordinary update path so timing, calendar and time-zone validation stays in
+    // one place. The create is not announced until the final shape has been written.
+    const updated = Object.keys(updates).length
+      ? this.updateEventWithoutChange(occurrence.id, updates)
+      : this.withDetails([occurrence])[0];
+    this.changes.emit({ type: 'created', event: updated });
+    return updated;
+  }
+
+  /** Cancels one occurrence of a local series, whether or not it has a materialised row. */
+  deleteOccurrence(seriesId: EventId, originalStartAt: Date): void {
+    this.assertLocalSeries(seriesId);
+    const deletedId = this.db.transaction((tx) => {
+      const occurrence = tx
+        .select({ id: events.id })
+        .from(events)
+        .where(and(eq(events.seriesId, seriesId), eq(events.originalStartAt, originalStartAt)))
+        .get();
+      if (occurrence) tx.delete(events).where(eq(events.id, occurrence.id)).run();
+      tx.insert(eventExceptions).values({ seriesId, originalStartAt }).onConflictDoNothing().run();
+      return occurrence?.id;
+    });
+    if (deletedId) this.changes.emit({ type: 'deleted', eventIds: [deletedId] });
+    // The series read model changed because its exdates did, even though its row did not.
+    this.changes.emit({ type: 'updated', event: this.getById(seriesId) });
+  }
+
   deleteEvent(id: EventId): void {
     // events have no archivedAt column (unlike notes/tasks/projects) — this
     // is a hard delete
@@ -143,6 +226,52 @@ export class EventService {
       return [id, ...occurrences.map((row) => row.id)];
     });
     this.changes.emit({ type: 'deleted', eventIds });
+  }
+
+  private assertLocalSeries(id: EventId): Event {
+    const series = this.getById(id);
+    assertRowEditable(series);
+    if (series.recurrenceRule === null || series.seriesId !== null) {
+      throw new InvalidInputError(`${id} is not a recurring series`);
+    }
+    return series;
+  }
+
+  private occurrence(seriesId: EventId, originalStartAt: Date): Event | null {
+    const row = this.db
+      .select()
+      .from(events)
+      .where(and(eq(events.seriesId, seriesId), eq(events.originalStartAt, originalStartAt)))
+      .get();
+    return row ? this.withDetails([row])[0] : null;
+  }
+
+  // updateEvent's write without announcing it; used while a new occurrence is being materialised.
+  private updateEventWithoutChange(id: EventId, updates: UpdateEventOptions): Event {
+    const existing = this.getById(id);
+    if (updates.calendarId !== undefined) this.assertLocalCalendar(updates.calendarId);
+    const { startAt, endAt, allDay, startDate, endDate, ...rest } = updates;
+    if (rest.timeZone !== undefined) checkTimeZone(rest.timeZone);
+    const timingChanged = [startAt, endAt, allDay, startDate, endDate].some((v) => v !== undefined);
+    const row = this.db
+      .update(events)
+      .set({
+        ...rest,
+        ...(timingChanged &&
+          timing({
+            startAt: startAt ?? existing.startAt,
+            endAt: endAt ?? existing.endAt,
+            allDay: allDay ?? existing.allDay,
+            startDate:
+              startDate ?? (startAt === undefined ? (existing.startDate ?? undefined) : undefined),
+            endDate: endDate ?? (endAt === undefined ? (existing.endDate ?? undefined) : undefined),
+          })),
+      })
+      .where(eq(events.id, id))
+      .returning()
+      .get();
+    if (!row) throw new NotFoundError(id);
+    return this.withDetails([row])[0];
   }
 
   /**

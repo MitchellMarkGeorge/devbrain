@@ -109,3 +109,7 @@ export interface UpdateEventOptions {
   meetingUrl?: string;
   color?: string | null;
 }
+
+// A single occurrence can change every ordinary event field, but cannot itself become a series.
+// `originalStartAt` identifies the occurrence in its series; it is not part of these updates.
+export type UpdateEventOccurrenceOptions = Omit<UpdateEventOptions, 'recurrenceRule'>;

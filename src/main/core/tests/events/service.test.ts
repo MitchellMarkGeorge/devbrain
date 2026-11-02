@@ -237,6 +237,97 @@ describe('EventService — deleteEvent', () => {
   });
 });
 
+describe('EventService — one occurrence of a recurring series', () => {
+  const seriesStart = new Date('2026-06-01T10:00:00.000Z');
+  const seriesEnd = new Date('2026-06-01T11:00:00.000Z');
+  const occurrenceStart = new Date('2026-06-08T10:00:00.000Z');
+
+  function series() {
+    return eventsService.createEvent({
+      title: 'Weekly review',
+      description: 'The series description',
+      startAt: seriesStart,
+      endAt: seriesEnd,
+      recurrenceRule: 'RRULE:FREQ=WEEKLY',
+    });
+  }
+
+  it('materialises an edited occurrence without changing the series', () => {
+    const recurring = series();
+
+    const occurrence = eventsService.updateOccurrence(recurring.id, occurrenceStart, {
+      title: 'Review moved',
+      startAt: new Date('2026-06-08T12:00:00.000Z'),
+      endAt: new Date('2026-06-08T13:00:00.000Z'),
+    });
+
+    expect(occurrence).toMatchObject({
+      title: 'Review moved',
+      description: 'The series description',
+      seriesId: recurring.id,
+      originalStartAt: occurrenceStart,
+      recurrenceRule: null,
+    });
+    expect(eventsService.getById(recurring.id)).toMatchObject({
+      title: 'Weekly review',
+      recurrenceRule: 'RRULE:FREQ=WEEKLY',
+      exdates: [occurrenceStart],
+    });
+  });
+
+  it('updates an occurrence that was already materialised', () => {
+    const recurring = series();
+    const first = eventsService.updateOccurrence(recurring.id, occurrenceStart, {
+      title: 'First edit',
+    });
+
+    const second = eventsService.updateOccurrence(recurring.id, occurrenceStart, {
+      title: 'Second edit',
+    });
+
+    expect(second.id).toBe(first.id);
+    expect(second.title).toBe('Second edit');
+  });
+
+  it('cancels one occurrence and leaves the series intact', () => {
+    const recurring = series();
+
+    eventsService.deleteOccurrence(recurring.id, occurrenceStart);
+
+    expect(eventsService.getById(recurring.id)).toMatchObject({
+      recurrenceRule: 'RRULE:FREQ=WEEKLY',
+      exdates: [occurrenceStart],
+    });
+  });
+
+  it('replaces a materialised occurrence with a cancellation', () => {
+    const recurring = series();
+    const occurrence = eventsService.updateOccurrence(recurring.id, occurrenceStart, {
+      title: 'Edited occurrence',
+    });
+
+    eventsService.deleteOccurrence(recurring.id, occurrenceStart);
+
+    expect(() => eventsService.getById(occurrence.id)).toThrow(NotFoundError);
+    expect(eventsService.getById(recurring.id).exdates).toEqual([occurrenceStart]);
+  });
+
+  it('rejects occurrence operations for a one-off event', () => {
+    const oneOff = eventsService.createEvent({
+      title: 'One off',
+      startAt: seriesStart,
+      endAt: seriesEnd,
+    });
+
+    expect(() =>
+      eventsService.updateOccurrence(oneOff.id, occurrenceStart, { title: 'Nope' }),
+    ).toThrow(expect.objectContaining({ code: 'invalid_input' }));
+    expect(() => eventsService.deleteOccurrence(oneOff.id, occurrenceStart)).toThrow(
+      expect.objectContaining({ code: 'invalid_input' }),
+    );
+  });
+});
+
 describe('EventService — onChange', () => {
   const startAt = new Date('2026-06-10T10:00:00.000Z');
   const endAt = new Date('2026-06-10T11:00:00.000Z');
