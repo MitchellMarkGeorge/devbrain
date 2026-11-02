@@ -161,6 +161,7 @@ export class ChangeTracker {
         this.recordChange(...progress.summary.changed);
         this.sendToWindows('sync.progress', syncProgressEvent(progress));
       }),
+      workspace.calendarHistory.onChange(({ summary }) => this.recordChange(...summary.changed)),
       // how a source's run ended: its last sync, error and retry time
       sync.onStatus(({ sourceId }) => {
         this.recordChange('externalSource');

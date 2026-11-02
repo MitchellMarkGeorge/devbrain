@@ -34,6 +34,7 @@ import { inArray } from 'drizzle-orm';
 import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
 import { guardOpenExternal } from '../shared/untrusted';
+import { CalendarHistoryService } from '../calendar-history/service';
 
 type SqliteDatabaseClient = Database.Database;
 
@@ -68,6 +69,8 @@ export class Workspace {
   // syncNow, getStatus and onProgress for the app; trigger for focus and resume. Started by
   // WorkspaceService.open, stopped by close()
   readonly sync: SyncScheduler;
+  // on-demand ranges older than the normal Google Calendar history window
+  readonly calendarHistory: CalendarHistoryService;
   /**
    * Opens a link in the system browser: a synced item's provider page, a meeting link, a link in a
    * description. Only http and https URLs are opened; anything else throws UnsafeUrlError and
@@ -146,6 +149,15 @@ export class Workspace {
       writer,
       logger,
     });
+    this.calendarHistory = new CalendarHistoryService(
+      db,
+      syncState,
+      credentials,
+      providers,
+      integrations,
+      writer,
+      this.closing.signal,
+    );
     // a reattach writes through SyncWriter, which indexes it, and a detach changes no indexed field;
     // edits to a detached task go through TaskService like any other
     this.detach = new DetachService(
@@ -307,16 +319,17 @@ export class Workspace {
   }
 
   /**
-   * Cancels integration authentication, then waits for sync runs and for search's index writes
-   * waiting on note files, before closing SQLite. Authentication checks cancellation before
-   * touching the database again. Ordinary service calls are not tracked or drained. Every caller
-   * shares the same close promise.
+   * Cancels integration authentication and history loads, then waits for sync runs, history and
+   * search's index writes waiting on note files before closing SQLite. Authentication checks
+   * cancellation before touching the database again. Ordinary service calls are not tracked or
+   * drained. Every caller shares the same close promise.
    */
   close(): Promise<void> {
     if (!this.closePromise) {
       this.closing.abort(new WorkspaceClosedError());
       this.closePromise = (async () => {
         await this.sync.stop();
+        await this.calendarHistory.whenIdle();
         // index writes waiting on note files, such as a restore's or a rebuild's
         await this.search.whenIdle();
         this.sqliteClient.close();

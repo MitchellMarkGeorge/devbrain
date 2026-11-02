@@ -65,6 +65,17 @@ describe('Google Calendar source — getEventPage', () => {
     expect(page).toMatchObject({ nextPageToken: null, changeToken: 'sync-1', skipped: 0 });
   });
 
+  it('bounds a historical range with timeMin and timeMax', async () => {
+    const { fetch, calendars } = source([{ body: eventsPage([]) }]);
+    const to = '2026-10-09T12:00:00.000Z';
+
+    await calendars.getEventPage(AUTH, PRIMARY, { from: FROM, to });
+
+    expect(eventRequests(fetch)).toEqual([
+      { calendarId: PRIMARY, params: { ...FULL, timeMin: FROM, timeMax: to } },
+    ]);
+  });
+
   it('sends only the change token, as Google’s sync token, for the changes since', async () => {
     const { fetch, calendars } = source([{ body: eventsPage([], { nextSyncToken: 'sync-2' }) }]);
 

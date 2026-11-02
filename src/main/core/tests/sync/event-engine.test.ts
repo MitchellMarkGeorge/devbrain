@@ -52,6 +52,7 @@ import { ExternalReadOnlyError } from '../../shared/errors';
 import { EventResponse } from '../../events/types';
 import { CalendarService } from '../../calendars/service';
 import { MIRRORED_EVENT_TYPES } from '../../integrations/providers/google-calendar/requests';
+import { CalendarHistoryService } from '../../calendar-history/service';
 
 const PRIMARY = 'ada@example.com';
 const TEAM = 'c_team0123456789@group.calendar.google.com';
@@ -76,6 +77,7 @@ let integrationId: IntegrationId;
 let sourceId: ExternalSourceId;
 let writer: SyncWriter;
 let calendarService: CalendarService;
+let history: CalendarHistoryService;
 // what connecting alone asked Google for and stored, before setup lists the calendars
 let connectRequests: string[];
 let calendarsAfterConnect: number;
@@ -123,6 +125,16 @@ async function setup() {
     now,
   };
   engine = new SyncEngine(db, engineOptions);
+  history = new CalendarHistoryService(
+    db,
+    engineOptions.syncState,
+    credentials,
+    providers,
+    service,
+    writer,
+    undefined,
+    now,
+  );
   events = new EventService(db);
   notes = new NoteService(db, workspacePath);
 
@@ -416,6 +428,40 @@ describe('Google Calendar sync — initial and incremental', () => {
     expect(sourceRow().cursor).toEqual({
       calendars: { [PRIMARY]: { syncToken: 'sync-fresh', pageToken: null } },
     });
+  });
+});
+
+describe('Google Calendar sync — historical ranges', () => {
+  it('loads an older bounded range once without replacing the incremental token', async () => {
+    script(CALENDARS, { body: eventsPage([], { nextSyncToken: 'sync-1' }) });
+    await engine.runSource(sourceId);
+    const start = new Date('2026-08-01T00:00:00.000Z');
+
+    script({ body: eventsPage([timedFixture]) });
+    const [result] = await history.ensureRange(start, [calendarIdOf(PRIMARY)]);
+
+    expect(result).toMatchObject({ loadedFrom: start, pages: 1, skipped: false });
+    expect(eventRequests()).toEqual([
+      {
+        calendarId: PRIMARY,
+        params: { ...FULL, timeMin: start.toISOString(), timeMax: TIME_MIN },
+      },
+    ]);
+    expect(sourceRow().cursor).toEqual({
+      calendars: {
+        [PRIMARY]: {
+          syncToken: 'sync-1',
+          pageToken: null,
+          historyFrom: start.toISOString(),
+        },
+      },
+    });
+    expect(eventCount()).toBe(1);
+
+    fetch.requests.length = 0;
+    const [again] = await history.ensureRange(start, [calendarIdOf(PRIMARY)]);
+    expect(again.pages).toBe(0);
+    expect(fetch.requests).toHaveLength(0);
   });
 });
 

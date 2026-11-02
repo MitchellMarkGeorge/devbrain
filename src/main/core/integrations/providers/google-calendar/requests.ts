@@ -14,7 +14,7 @@ export const MIRRORED_EVENT_TYPES = ['default', 'focusTime', 'outOfOffice', 'fro
 
 // Where a calendar's walk stands: a full pass from a lower time bound, or the changes since a sync
 // token. These are the only parameters that differ between the two.
-export type EventsWindow = { timeMin: string } | { syncToken: string };
+export type EventsWindow = { timeMin: string; timeMax?: string } | { syncToken: string };
 
 // one page of the calendars the account has in its list
 export function calendarListUrl(pageToken: string | null): string {
@@ -57,6 +57,7 @@ export function eventsUrl(
     params.set('syncToken', window.syncToken);
   } else {
     params.set('timeMin', window.timeMin);
+    if (window.timeMax) params.set('timeMax', window.timeMax);
   }
   if (pageToken) params.set('pageToken', pageToken);
   return `${CALENDAR_API_URL}/calendars/${encodeURIComponent(calendarId)}/events?${params}`;

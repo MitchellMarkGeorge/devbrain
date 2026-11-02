@@ -36,7 +36,9 @@ export class GoogleCalendarSource implements CalendarSource {
     options: RequestOptions = {},
   ): Promise<CalendarEventPage> {
     const window: EventsWindow =
-      'changeToken' in query ? { syncToken: query.changeToken } : { timeMin: query.from };
+      'changeToken' in query
+        ? { syncToken: query.changeToken }
+        : { timeMin: query.from, ...(query.to && { timeMax: query.to }) };
     const response = await this.client.listEvents(
       auth,
       calendarId,

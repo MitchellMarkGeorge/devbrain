@@ -242,7 +242,11 @@ export class EventSyncer implements Syncer {
     // run's changes and leaves the queue
     const passDone = page.nextPageToken === null;
     const next: CalendarSyncState = passDone
-      ? { syncToken: page.changeToken, pageToken: null }
+      ? {
+          syncToken: page.changeToken,
+          pageToken: null,
+          ...(state.historyFrom && { historyFrom: state.historyFrom }),
+        }
       : { ...state, pageToken: page.nextPageToken };
     const pending = passDone ? queue.slice(1) : queue;
     const done = pending.length === 0;

@@ -2,6 +2,7 @@ import { t } from './trpc';
 import { appRouter as app } from './routers/app';
 import { archiveRouter as archive } from './routers/archive';
 import { calendarsRouter as calendars } from './routers/calendars';
+import { calendarHistoryRouter as calendarHistory } from './routers/calendar-history';
 import { eventsRouter as events } from './routers/events';
 import { favoritesRouter as favorites } from './routers/favorites';
 import { integrationsRouter as integrations } from './routers/integrations';
@@ -27,6 +28,7 @@ export const appRouter = t.router({
   tasks,
   archive,
   calendars,
+  calendarHistory,
   integrations,
   sources,
   sync,

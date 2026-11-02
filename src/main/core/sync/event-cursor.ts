@@ -16,6 +16,8 @@ export const calendarSyncStateSchema = z.object({
   // events the pass left with an older lastSyncedAt. Absent on a pass started before passes had
   // one, which then removes nothing
   startedAt: z.iso.datetime().optional(),
+  // earliest date whose history has been loaded. Unlike timeMin, this stays after a pass ends.
+  historyFrom: z.iso.datetime().optional(),
 });
 
 export const eventCursorSchema = z.object({
