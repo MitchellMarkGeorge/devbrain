@@ -217,21 +217,6 @@ _Found in feature 16b, for the calendar UI._
 
 The event model stores what FullCalendar needs; the renderer still has to map each `Event` from `EventService.listForCalendar` to FullCalendar's event input. [The adapter spec](calendar/fullcalendar-adapter.md) covers the mapping. In short: one-off events map directly; a series' `rrule` is a string of `DTSTART`, its `recurrenceRule` and its `exdates` as `EXDATE` lines (FullCalendar's `exdate` property only works with an object `rrule`); occurrence rows are events of their own, grouped with their series. It also lists what to confirm against FullCalendar, chiefly `TZID` support.
 
-## Events
-
-### Deleting one occurrence, or this and following, of a local series
-
-_Found in feature 16b, for the calendar UI._
-
-`EventService.deleteEvent` on a series deletes the master and its occurrence rows: Google's "All events". Google also offers "This event" and "This and following events", which local series will need once the calendar UI can edit them:
-
-- **This event**: add an `event_exceptions` row for the occurrence's start, or, if it has an occurrence row, delete that row (its `originalStartAt` already keeps the slot out of `exdates`).
-- **This and following**: end the series before the occurrence by adding `UNTIL` to its `RRULE` line, and delete its occurrence rows and `event_exceptions` rows from that start on.
-
-Neither is reachable yet: `CreateEventOptions` and `UpdateEventOptions` take no `seriesId` or `originalStartAt`, so only sync creates occurrence rows, and synced events are read-only.
-
-When local occurrence rows exist, `deleteEvent` should also follow the removal rule for them. Today it deletes every occurrence row of the series, and a note linked to one only loses its link. The schema's intent (`events.seriesId` is set null when its series goes) is that an occurrence a note or task links to survives as a one-off: delete the unlinked occurrence rows, and keep the linked ones with `seriesId` cleared.
-
 ## App startup
 
 ### Give each page load a boot snapshot

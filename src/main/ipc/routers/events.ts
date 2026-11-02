@@ -12,6 +12,14 @@ import { zId } from '../zod';
 
 const byId = z.object({ id: zId('event') });
 
+// An occurrence of a series by its start in the series: an expanded occurrence's start, or a
+// moved or edited occurrence's originalStartAt.
+const occurrence = z.object({
+  seriesId: zId('event'),
+  originalStartAt: z.date(),
+  scope: z.enum(['this', 'following']),
+});
+
 // what create and update share; an all-day event's dates are YYYY-MM-DD, the end exclusive
 const fields = {
   description: z.string().optional(),
@@ -80,6 +88,33 @@ export const eventsRouter = t.router({
   delete: wsProcedure
     .input(byId)
     .mutation(({ ctx, input }): void => ctx.workspace.events.deleteEvent(input.id)),
+
+  // One occurrence of a series ("this") or it and every later one ("following"); the whole series
+  // goes through update. Returns the occurrence's own row for "this", and the series starting at the
+  // occurrence for "following". "this" refuses a calendarId or recurrenceRule.
+  updateOccurrence: wsProcedure
+    .input(
+      occurrence.extend({
+        ...fields,
+        title: z.string().optional(),
+        startAt: z.date().optional(),
+        endAt: z.date().optional(),
+        recurrenceRule: z.string().nullable().optional(),
+        color: hexColorSchema.nullable().optional(),
+      }),
+    )
+    .mutation(
+      ({ ctx, input: { seriesId, originalStartAt, scope, ...updates } }): Event =>
+        ctx.workspace.events.updateOccurrence({ seriesId, originalStartAt }, scope, updates),
+    ),
+
+  // "this" cancels the occurrence; "following" ends the series before it. The whole series goes
+  // through delete.
+  deleteOccurrence: wsProcedure
+    .input(occurrence)
+    .mutation(({ ctx, input: { scope, ...ref } }): void =>
+      ctx.workspace.events.deleteOccurrence(ref, scope),
+    ),
 
   // the state wanted, not a toggle: a repeat changes nothing. A synced event can be favorited.
   setFavorite: wsProcedure
