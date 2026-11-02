@@ -1,7 +1,13 @@
 import { describe, it, expect, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import type { DevBrain } from '@main/core';
-import { closeBeforeQuit, forwardSyncTriggers, triggerSync } from '../../runtime/lifecycle';
+import {
+  closeBeforeQuit,
+  followLaunchAtLogin,
+  forwardSyncTriggers,
+  triggerSync,
+} from '../../runtime/lifecycle';
+import { getDefaults } from '../../core/settings/defaults';
 
 // Electron's app and powerMonitor, as plain emitters: the lifecycle only listens and quits.
 
@@ -114,6 +120,83 @@ describe('Lifecycle — quitting', () => {
     await vi.waitFor(() => expect(app.quitted).toBe(true));
     expect(logger.warn).toHaveBeenCalledWith(
       'Closing DevBrain before quitting threw error=RangeError',
+    );
+  });
+});
+
+describe('Lifecycle — launch at login', () => {
+  function fakeSettings(initial: boolean) {
+    let listener:
+      | ((change: {
+          type: 'updated';
+          settings: ReturnType<typeof getDefaults>['settings'];
+        }) => void)
+      | null = null;
+    const settings = getDefaults('/data').settings;
+    settings.general.launchOnStartup = initial;
+    return {
+      get: vi.fn(() => initial),
+      onChange: vi.fn((next: NonNullable<typeof listener>) => {
+        listener = next;
+        return vi.fn();
+      }),
+      update(value: boolean) {
+        settings.general.launchOnStartup = value;
+        listener?.({ type: 'updated', settings });
+      },
+    };
+  }
+
+  it.each(['darwin', 'win32'] as const)(
+    'applies the saved preference and follows changes on %s',
+    (platform) => {
+      const app = { isPackaged: true, setLoginItemSettings: vi.fn() };
+      const settings = fakeSettings(true);
+
+      followLaunchAtLogin(app, settings, platform, quietLogger());
+      expect(app.setLoginItemSettings).toHaveBeenCalledWith({ openAtLogin: true });
+
+      settings.update(false);
+      expect(app.setLoginItemSettings).toHaveBeenLastCalledWith({ openAtLogin: false });
+    },
+  );
+
+  it('does not register a login item in development or on an unsupported platform', () => {
+    const setLoginItemSettings = vi.fn();
+    const settings = fakeSettings(true);
+
+    followLaunchAtLogin(
+      { isPackaged: false, setLoginItemSettings },
+      settings,
+      'darwin',
+      quietLogger(),
+    );
+    followLaunchAtLogin(
+      { isPackaged: true, setLoginItemSettings },
+      settings,
+      'linux',
+      quietLogger(),
+    );
+
+    expect(setLoginItemSettings).not.toHaveBeenCalled();
+    expect(settings.onChange).not.toHaveBeenCalled();
+  });
+
+  it('logs an Electron failure without its message and keeps following changes', () => {
+    const logger = quietLogger();
+    const settings = fakeSettings(true);
+    const app = {
+      isPackaged: true,
+      setLoginItemSettings: vi.fn(() => {
+        throw new TypeError('private OS detail');
+      }),
+    };
+
+    expect(() => followLaunchAtLogin(app, settings, 'win32', logger)).not.toThrow();
+    settings.update(false);
+    expect(logger.warn).toHaveBeenCalledTimes(2);
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Applying launch-at-login setting threw error=TypeError',
     );
   });
 });

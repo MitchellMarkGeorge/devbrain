@@ -1,5 +1,6 @@
 import type { DevBrain } from '@main/core';
 import type { SyncLogger } from '@main/core/sync/types';
+import type { AppSettings } from '@main/core/settings/types';
 
 // What the app's lifecycle does to the open workspace: forward window focus and system resume to
 // its scheduler, and close it before the app quits. Electron's app and powerMonitor are passed in,
@@ -20,7 +21,45 @@ export interface QuittingApp {
   quit(): void;
 }
 
+export interface LoginItemApp {
+  isPackaged: boolean;
+  setLoginItemSettings(settings: { openAtLogin: boolean }): void;
+}
+
+export interface LoginItemSettingsSource {
+  get(key: 'settings.general.launchOnStartup'): boolean;
+  onChange(listener: (change: { type: 'updated'; settings: AppSettings }) => void): () => void;
+}
+
 type Logger = Pick<SyncLogger, 'warn'>;
+
+/**
+ * Applies the launch-at-login preference at startup and whenever settings change. Electron only
+ * supports login items on macOS and Windows; development builds are also left alone so running the
+ * repository never registers the Electron binary with the OS. A platform failure is non-fatal and
+ * is logged without its potentially sensitive message.
+ */
+export function followLaunchAtLogin(
+  app: LoginItemApp,
+  settings: LoginItemSettingsSource | null,
+  platform: NodeJS.Platform,
+  logger: Logger,
+): () => void {
+  if (!settings || !app.isPackaged || (platform !== 'darwin' && platform !== 'win32'))
+    return () => {};
+
+  const apply = (openAtLogin: boolean) => {
+    try {
+      app.setLoginItemSettings({ openAtLogin });
+    } catch (error: unknown) {
+      const name = error instanceof Error ? error.name : typeof error;
+      logger.warn(`Applying launch-at-login setting threw error=${name}`);
+    }
+  };
+
+  apply(settings.get('settings.general.launchOnStartup'));
+  return settings.onChange(({ settings: next }) => apply(next.general.launchOnStartup));
+}
 
 /**
  * Asks the open workspace's scheduler for a focus or resume sync, which it skips for a source that

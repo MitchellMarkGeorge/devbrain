@@ -20,7 +20,7 @@ import { createSafeStorageCipher } from './runtime/safe-storage-cipher';
 import { migrationsPath } from './runtime/migrations';
 import { openElectronSettingsStore } from './runtime/settings-store';
 import { loadDevBrain } from './runtime/start';
-import { closeBeforeQuit, forwardSyncTriggers } from './runtime/lifecycle';
+import { closeBeforeQuit, followLaunchAtLogin, forwardSyncTriggers } from './runtime/lifecycle';
 import { createElectronDesktop } from './runtime/desktop';
 import { createMenuActions, installAppMenu } from './runtime/menu';
 import { applyTheme, windowBackground } from './runtime/theme';
@@ -245,6 +245,7 @@ app.whenReady().then(async () => {
 
   attachMenu(devBrain);
   followThemeSetting(devBrain);
+  followLaunchAtLogin(app, devBrain?.settings ?? null, process.platform, devBrainLog);
   createWindow();
   // the Dock icon on macOS: shows the hidden window, or makes one if it is gone
   app.on('activate', () => {
