@@ -24,6 +24,7 @@ import { closeBeforeQuit, forwardSyncTriggers } from './runtime/lifecycle';
 import { createElectronDesktop } from './runtime/desktop';
 import { createMenuActions, installAppMenu } from './runtime/menu';
 import { applyTheme, windowBackground } from './runtime/theme';
+import { followLaunchAtLogin, supportsLoginItem } from './runtime/login-item';
 import { attachRouter } from './ipc/server';
 import { ChangeTracker } from './ipc/changes';
 import { appRouter } from './ipc/router';
@@ -190,6 +191,14 @@ function followThemeSetting(devBrain: DevBrain | null) {
   nativeTheme.on('updated', () => mainWindow?.setBackgroundColor(windowBackground(nativeTheme)));
 }
 
+// --- Launch at login ------------------------------------------------------
+// The general.launchOnStartup setting registers DevBrain as an OS login item
+// (src/main/runtime/login-item.ts). Not in development, nor on Linux, which Electron doesn't cover.
+function followLaunchAtLoginSetting(devBrain: DevBrain | null) {
+  if (devBrain === null || !supportsLoginItem(process.platform, app.isPackaged)) return;
+  followLaunchAtLogin(app, devBrain.settings, log.scope('login-item'));
+}
+
 // The window shows the app's page and nothing else (docs/security/untrusted-content.md): a link
 // that escapes the renderer's rules can't open a window or load another page inside DevBrain.
 // Links open in the browser through workspace.openUrl only. The app routes within its page, which
@@ -245,6 +254,7 @@ app.whenReady().then(async () => {
 
   attachMenu(devBrain);
   followThemeSetting(devBrain);
+  followLaunchAtLoginSetting(devBrain);
   createWindow();
   // the Dock icon on macOS: shows the hidden window, or makes one if it is gone
   app.on('activate', () => {

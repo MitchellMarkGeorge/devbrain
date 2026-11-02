@@ -5,7 +5,7 @@ import type { OpenSettingsStore, SettingsStore } from '../../settings/store';
 class MemoryStore implements SettingsStore {
   private data: Record<string, unknown>;
 
-  constructor(defaults: object) {
+  constructor(private readonly defaults: object) {
     this.data = structuredClone(defaults) as Record<string, unknown>;
   }
 
@@ -29,8 +29,9 @@ class MemoryStore implements SettingsStore {
     cursor[parts[parts.length - 1]] = value;
   }
 
+  // as electron-store does: back to the defaults
   clear(): void {
-    this.data = {};
+    this.data = structuredClone(this.defaults) as Record<string, unknown>;
   }
 }
 
