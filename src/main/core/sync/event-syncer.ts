@@ -18,6 +18,15 @@ import { EventSyncPage, FullPass, SyncCursor } from './types';
 
 const FRESH: CalendarSyncState = { syncToken: null, pageToken: null };
 
+// a calendar a run syncs, as the provider listed it, with how far back the user asked to see it
+// (calendars.historyFrom); null or absent for the default window
+export interface RunCalendar extends ExternalCalendar {
+  historyFrom?: Date | null;
+}
+
+// the three kinds of pass a calendar's page can be part of
+type PassKind = 'full' | 'backfill' | 'changes';
+
 /**
  * An events source's run: everything about calendars during a sync. Events have no reconcile
  * pass: the provider's feed reports cancellations and deletions.
@@ -44,14 +53,16 @@ const FRESH: CalendarSyncState = { syncToken: null, pageToken: null };
  *
  * - syncToken: the change token the source handed out at the end of the calendar's last pass.
  *   With one, the next pass asks only for the changes since. Without one, the next pass is a full
- *   one from EVENT_HISTORY_WINDOW_MS back. Each calendar keeps its own, so adding a calendar fully
- *   syncs that one alone.
+ *   one from EVENT_HISTORY_WINDOW_MS back, or from the calendar's historyFrom if that is earlier.
+ *   Each calendar keeps its own, so adding a calendar fully syncs that one alone.
  * - pageToken: set while a pass is part-way through, so the next pull fetches its next page.
  * - timeMin: set while a full pass is part-way through. It is fixed when the pass starts, so every
  *   page asks the same question: Google expects every parameter but the page token to match
  *   across the pages of a pass.
  * - startedAt: when a full pass started, set with timeMin and kept with it; see "What a full pass
  *   removes".
+ * - coveredFrom and backfill: how far back the mirror reaches, and a backfill part-way through;
+ *   see "Older history".
  *
  * and, at the top, pending: the calendars this run has still to visit, first one being walked.
  * It is absent between runs, which is how a pull knows a new run is starting; it is dropped on
@@ -115,6 +126,24 @@ const FRESH: CalendarSyncState = { syncToken: null, pageToken: null };
  * run that resumes it. A pass restarted on a 410 starts again later, so the pages before count for
  * nothing. Nothing is stored for this beyond the start time: a list of the events seen would grow
  * with the calendar and be rewritten with every page.
+ *
+ * Older history
+ *
+ * A first sync mirrors from EVENT_HISTORY_WINDOW_MS back. The user can ask to see further back
+ * (CalendarService.requestHistory), which lowers calendars.historyFrom; the run passes it in with
+ * each calendar. When a calendar with a change token wants history from before coveredFrom (the
+ * lower bound of its last full pass or backfill; EVENT_HISTORY_WINDOW_MS back when not kept), its
+ * next pull starts a backfill: a bounded listing of [historyFrom, coveredFrom), paged like a full
+ * pass with its bounds fixed in the cursor. The backfill's last page sets coveredFrom to its lower
+ * bound and keeps the calendar at the front of the queue, so the same run then walks its changes
+ * as usual. A backfill keeps the calendar's change token and removes nothing: it only adds what
+ * the window did not reach. Google's change feed reports changes to every event of the calendar,
+ * whatever the bounds of the pass that issued the token, so backfilled events stay current. A full
+ * pass (a first sync, or after a 410) starts from the earlier of the default window and
+ * historyFrom, so it lists, and sweeps, the whole of what the mirror holds.
+ *
+ * A backfill starts only between passes (no page token in hand), and a 410 during one restarts
+ * the backfill from its first page; a second in a row fails the run, as for any pass.
  *
  * Applying
  *
@@ -198,7 +227,7 @@ export class EventSyncer implements Syncer {
   async pull(
     auth: Auth,
     cursor: SyncCursor | null,
-    calendars: ExternalCalendar[],
+    calendars: RunCalendar[],
     signal?: AbortSignal,
   ): Promise<EventSyncPage> {
     // 1.
@@ -230,21 +259,30 @@ export class EventSyncer implements Syncer {
 
     // 3.
     const [calendarId] = queue;
-    const { state, page } = await this.fetchPage(auth, calendarId, kept[calendarId], signal);
+    const calendar = byId.get(calendarId)!;
+    const historyFrom = calendar.historyFrom ?? null;
+    const { kind, state, page } = await this.fetchPage(
+      auth,
+      calendarId,
+      kept[calendarId],
+      historyFrom,
+      signal,
+    );
     // an event the source could give no zone, its own or its calendar's on the page, takes the
     // calendar's zone as listed
-    const listedZone = byId.get(calendarId)!.timeZone;
+    const listedZone = calendar.timeZone;
     const events = page.events.map((event) =>
       event.timeZone === null ? { ...event, timeZone: listedZone } : event,
     );
 
     // 4. the calendar's pass goes on, keeping its place, or it ends with the token for the next
-    // run's changes and leaves the queue
+    // run's changes and leaves the queue. A backfill that ends keeps the calendar at the front, so
+    // its changes are walked next
     const passDone = page.nextPageToken === null;
     const next: CalendarSyncState = passDone
-      ? { syncToken: page.changeToken, pageToken: null }
+      ? endOfPass(kind, state, page.changeToken, historyFrom)
       : { ...state, pageToken: page.nextPageToken };
-    const pending = passDone ? queue.slice(1) : queue;
+    const pending = passDone && kind !== 'backfill' ? queue.slice(1) : queue;
     const done = pending.length === 0;
 
     return {
@@ -262,40 +300,70 @@ export class EventSyncer implements Syncer {
     };
   }
 
-  // One page of one calendar, from where its state left off. On an expired change token the state
-  // is dropped and the calendar starts a full pass in its place; a second one in a row is not
-  // caught.
+  // One page of one calendar, from where its state left off. On an expired token a backfill
+  // starts again from its first page, and any other pass drops the state and starts a full pass in
+  // its place; a second one in a row is not caught.
   private async fetchPage(
     auth: Auth,
     calendarId: string,
     stored: CalendarSyncState | undefined,
+    historyFrom: Date | null,
     signal: AbortSignal | undefined,
-  ): Promise<{ state: CalendarSyncState; page: CalendarEventPage }> {
-    let state = this.withTimeMin(stored ?? FRESH);
+  ): Promise<{ kind: PassKind; state: CalendarSyncState; page: CalendarEventPage }> {
+    let state = this.nextPass(stored ?? FRESH, historyFrom);
     const options = { signal };
     try {
       return {
+        kind: passKind(state),
         state,
         page: await this.calendars.getEventPage(auth, calendarId, query(state), options),
       };
     } catch (error) {
       if (!(error instanceof ChangeTokenExpiredError)) throw error;
-      state = this.withTimeMin(FRESH);
+      state =
+        state.backfill !== undefined
+          ? { ...state, pageToken: null }
+          : this.nextPass(FRESH, historyFrom);
       return {
+        kind: passKind(state),
         state,
         page: await this.calendars.getEventPage(auth, calendarId, query(state), options),
       };
     }
   }
 
-  // A full pass fixes its lower bound and its start when it starts and keeps them while it pages,
-  // so each page asks the same question and its last page knows what is older than the pass. An
-  // incremental pass has neither.
-  private withTimeMin(state: CalendarSyncState): CalendarSyncState {
-    if (state.syncToken !== null || state.timeMin !== undefined) return state;
-    const now = this.now();
-    const timeMin = new Date(now.getTime() - EVENT_HISTORY_WINDOW_MS).toISOString();
-    return { ...state, timeMin, startedAt: now.toISOString() };
+  /**
+   * The state a calendar's next page is fetched from: the pass in progress, if any, else a new one.
+   *
+   * - No change token: a full pass. It fixes its lower bound and its start when it starts and keeps
+   *   them while it pages, so each page asks the same question and its last page knows what is
+   *   older than the pass. The bound is EVENT_HISTORY_WINDOW_MS back, or historyFrom if earlier.
+   * - A change token, no page in hand, and history wanted from before what the mirror covers: a
+   *   backfill of the gap, its bounds fixed the same way.
+   * - Otherwise the changes since the token, which need neither.
+   */
+  private nextPass(state: CalendarSyncState, historyFrom: Date | null): CalendarSyncState {
+    if (state.syncToken === null) {
+      if (state.timeMin !== undefined) return state;
+      const now = this.now();
+      const timeMin = earliest(this.defaultFrom(), historyFrom).toISOString();
+      return { ...state, timeMin, startedAt: now.toISOString() };
+    }
+    if (state.backfill !== undefined || state.pageToken !== null || historyFrom === null) {
+      return state;
+    }
+    const coveredFrom =
+      state.coveredFrom !== undefined ? new Date(state.coveredFrom) : this.defaultFrom();
+    if (historyFrom >= coveredFrom) return state;
+    return {
+      ...state,
+      backfill: { from: historyFrom.toISOString(), until: coveredFrom.toISOString() },
+    };
+  }
+
+  // the lower bound of the window every calendar is mirrored over
+  private defaultFrom(): Date {
+    return new Date(this.now().getTime() - EVENT_HISTORY_WINDOW_MS);
   }
 
   // The two calendar reads below are subject to change: they are here for now, and are expected
@@ -308,23 +376,26 @@ export class EventSyncer implements Syncer {
    * page, will select it (its primary calendar). A selected calendar the account no longer lists
    * keeps its row but is left out, so it cannot fail the run.
    */
-  private calendarsToSync(
-    sourceId: ExternalSourceId,
-    listed: ExternalCalendar[],
-  ): ExternalCalendar[] {
+  private calendarsToSync(sourceId: ExternalSourceId, listed: ExternalCalendar[]): RunCalendar[] {
     const rows = new Map(
       this.db
-        .select({ externalId: calendars.externalId, selected: calendars.selected })
+        .select({
+          externalId: calendars.externalId,
+          selected: calendars.selected,
+          historyFrom: calendars.historyFrom,
+        })
         .from(calendars)
         .where(eq(calendars.sourceId, sourceId))
         .all()
-        .map((row) => [row.externalId, row.selected]),
+        .map((row) => [row.externalId, row]),
     );
     const firstListing = rows.size === 0;
     return listed
       .filter(
-        (calendar) => rows.get(calendar.id) ?? (firstListing && selectedOnFirstListing(calendar)),
+        (calendar) =>
+          rows.get(calendar.id)?.selected ?? (firstListing && selectedOnFirstListing(calendar)),
       )
+      .map((calendar) => ({ ...calendar, historyFrom: rows.get(calendar.id)?.historyFrom ?? null }))
       .sort(
         (a, b) =>
           Number(b.primary) - Number(a.primary) ||
@@ -343,12 +414,60 @@ export class EventSyncer implements Syncer {
   }
 }
 
+function passKind(state: CalendarSyncState): PassKind {
+  if (state.syncToken === null) return 'full';
+  return state.backfill !== undefined ? 'backfill' : 'changes';
+}
+
 // what to ask the source for, from a calendar's state
 function query(state: CalendarSyncState): EventsQuery {
   const pageToken = state.pageToken !== null ? { pageToken: state.pageToken } : {};
-  return state.syncToken !== null
-    ? { changeToken: state.syncToken, ...pageToken }
-    : { from: state.timeMin!, ...pageToken };
+  switch (passKind(state)) {
+    case 'full':
+      return { from: state.timeMin!, ...pageToken };
+    case 'backfill':
+      return { from: state.backfill!.from, until: state.backfill!.until, ...pageToken };
+    case 'changes':
+      return { changeToken: state.syncToken!, ...pageToken };
+  }
+}
+
+/**
+ * A calendar's state once a pass has ended.
+ *
+ * - full: the change token it handed out. Its lower bound is what the mirror covers, kept when the
+ *   calendar has a historyFrom (without one, the default window is assumed, which it is).
+ * - backfill: the change token it kept, and its lower bound as what the mirror covers. Google may
+ *   hand out a token on a bounded listing too; it is not the calendar's, so it is ignored.
+ * - changes: the new change token, keeping what the mirror covers.
+ */
+function endOfPass(
+  kind: PassKind,
+  state: CalendarSyncState,
+  changeToken: string | null,
+  historyFrom: Date | null,
+): CalendarSyncState {
+  switch (kind) {
+    case 'full':
+      return {
+        syncToken: changeToken,
+        pageToken: null,
+        ...(historyFrom !== null && { coveredFrom: state.timeMin! }),
+      };
+    case 'backfill':
+      return { syncToken: state.syncToken, pageToken: null, coveredFrom: state.backfill!.from };
+    case 'changes':
+      return {
+        syncToken: changeToken,
+        pageToken: null,
+        ...(state.coveredFrom !== undefined && { coveredFrom: state.coveredFrom }),
+      };
+  }
+}
+
+// the earlier of a date and an optional one
+function earliest(date: Date, other: Date | null): Date {
+  return other !== null && other < date ? other : date;
 }
 
 // the full pass a page fetched from this state is part of, if it is one with a start

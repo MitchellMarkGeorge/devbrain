@@ -160,10 +160,14 @@ export class Workspace {
     this.sync = new SyncScheduler({ engine, integrations, syncState, logger });
     // A synced calendar chosen or dropped syncs its source at once, as a newly switched-on source
     // does: the run gives a selected calendar a full pass and removes a deselected one's events.
+    // History asked of synced calendars syncs their sources the same way, which backfills it.
     this.calendars.onChange((change) => {
-      const { sourceId } = change.calendar;
-      if (change.type !== 'selection_changed' || sourceId === null) return;
-      void this.sync.trigger('connected', sourceId);
+      if (change.type === 'visibility_changed') return;
+      const changed = change.type === 'selection_changed' ? [change.calendar] : change.calendars;
+      const sourceIds = new Set(changed.map((calendar) => calendar.sourceId));
+      for (const sourceId of sourceIds) {
+        if (sourceId !== null) void this.sync.trigger('connected', sourceId);
+      }
     });
     this.openUrl = guardOpenExternal(options.openExternal ?? noBrowser);
   }

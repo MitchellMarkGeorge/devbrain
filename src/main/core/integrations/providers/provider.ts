@@ -119,9 +119,12 @@ export class ChangeTokenExpiredError extends CoreError {
   }
 }
 
-// one page of a calendar's events: everything from `from` on (a full pass), or the changes since
-// `changeToken`, which the last page of an earlier pass handed out
-export type EventsQuery = ({ from: string } | { changeToken: string }) & { pageToken?: string };
+// one page of a calendar's events: everything from `from` on (a full pass), those from `from`
+// that start before `until` (a backfill of older history), or the changes since `changeToken`,
+// which the last page of an earlier full pass handed out
+export type EventsQuery = ({ from: string; until?: string } | { changeToken: string }) & {
+  pageToken?: string;
+};
 
 export interface CalendarEventPage {
   // live events, plus cancelled instances of a series (cancelled set, carrying their master's id

@@ -19,4 +19,12 @@ export const calendarsRouter = t.router({
   setSelected: wsProcedure
     .input(z.object({ id: zId('calendar'), selected: z.boolean() }))
     .mutation(({ ctx, input }) => ctx.workspace.calendars.setSelected(input.id, input.selected)),
+
+  // Asks for synced calendars' events from `from` on, for a range before what sync keeps by
+  // default; returns the calendars it changed, none when there was nothing to ask for. Core then
+  // syncs their sources, which fetches the older events; that run goes on after the response, and
+  // reaches the renderer as `db.changes`.
+  requestHistory: wsProcedure
+    .input(z.object({ from: z.date() }))
+    .mutation(({ ctx, input }) => ctx.workspace.calendars.requestHistory(input.from)),
 });

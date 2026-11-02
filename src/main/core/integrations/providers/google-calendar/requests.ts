@@ -12,9 +12,10 @@ export const CALENDAR_API_URL = 'https://www.googleapis.com/calendar/v3';
 // follow-ups doc.
 export const MIRRORED_EVENT_TYPES = ['default', 'focusTime', 'outOfOffice', 'fromGmail'];
 
-// Where a calendar's walk stands: a full pass from a lower time bound, or the changes since a sync
-// token. These are the only parameters that differ between the two.
-export type EventsWindow = { timeMin: string } | { syncToken: string };
+// Where a calendar's walk stands: a full pass from a lower time bound, a backfill between two
+// bounds, or the changes since a sync token. These are the only parameters that differ between
+// them.
+export type EventsWindow = { timeMin: string; timeMax?: string } | { syncToken: string };
 
 // one page of the calendars the account has in its list
 export function calendarListUrl(pageToken: string | null): string {
@@ -39,7 +40,8 @@ export const USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo';
  * - singleEvents=false: series come as one master plus their exceptions, not expanded instances.
  * - showDeleted=true: cancelled events and occurrences come back, so they can be removed.
  * - eventTypes: only the types in MIRRORED_EVENT_TYPES.
- * - timeMin only on a full pass; Google refuses it alongside a syncToken.
+ * - timeMin only on a full pass or backfill, and timeMax only on a backfill; Google refuses
+ *   either alongside a syncToken. timeMin bounds an event's end, timeMax its start.
  */
 export function eventsUrl(
   calendarId: string,
@@ -57,6 +59,7 @@ export function eventsUrl(
     params.set('syncToken', window.syncToken);
   } else {
     params.set('timeMin', window.timeMin);
+    if (window.timeMax) params.set('timeMax', window.timeMax);
   }
   if (pageToken) params.set('pageToken', pageToken);
   return `${CALENDAR_API_URL}/calendars/${encodeURIComponent(calendarId)}/events?${params}`;

@@ -21,6 +21,8 @@ export interface Calendar {
   selected: boolean;
   // shown in the calendar view
   visible: boolean;
+  // how far back the user asked to see a synced calendar's events; null for the default window
+  historyFrom: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }

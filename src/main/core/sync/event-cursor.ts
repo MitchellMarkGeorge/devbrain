@@ -16,6 +16,14 @@ export const calendarSyncStateSchema = z.object({
   // events the pass left with an older lastSyncedAt. Absent on a pass started before passes had
   // one, which then removes nothing
   startedAt: z.iso.datetime().optional(),
+  // how far back the mirror of this calendar is complete: the lower bound of its last full pass or
+  // backfill. Kept only once the user has asked for history (calendars.historyFrom); without it
+  // the mirror is taken to start EVENT_HISTORY_WINDOW_MS back, which at worst lists a few weeks
+  // twice
+  coveredFrom: z.iso.datetime().optional(),
+  // set while a backfill pages: the older range it lists, fixed when it starts so every page asks
+  // the same question. pageToken is the backfill's while this is set; syncToken stays the calendar's
+  backfill: z.object({ from: z.iso.datetime(), until: z.iso.datetime() }).optional(),
 });
 
 export const eventCursorSchema = z.object({

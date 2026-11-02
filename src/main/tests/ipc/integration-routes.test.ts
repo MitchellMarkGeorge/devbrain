@@ -521,4 +521,34 @@ describe('calendars', () => {
     expect(again).toMatchObject({ ok: true, changed: [] });
     expect(trigger).toHaveBeenCalledOnce();
   });
+
+  it('asks synced calendars for older history, and core syncs their source', async () => {
+    const { sources } = await connectCalendar();
+    const sourceId = sources[0].id;
+    const trigger = vi.spyOn(workspace().sync, 'trigger');
+    // two years back is well before the window sync keeps by default
+    const from = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000);
+
+    const result = await call('calendars.requestHistory', { from }, 'mutation');
+
+    const changed = data<Calendar[]>(result);
+    expect(changed.length).toBeGreaterThan(0);
+    expect(changed.every((calendar) => calendar.sourceId === sourceId)).toBe(true);
+    expect(changed.map((calendar) => calendar.historyFrom)).toEqual(changed.map(() => from));
+    expect(result.changed).toContain('calendar');
+    expect(trigger).toHaveBeenCalledExactlyOnceWith('connected', sourceId);
+    await vi.waitFor(() => expect(sent('sources.changed')).toContainEqual({ sourceId }));
+    // the local calendar has all its events already
+    const local = data<Calendar[]>(await call('calendars.list')).find(
+      (calendar) => calendar.id === DEFAULT_CALENDAR_ID,
+    );
+    expect(local?.historyFrom).toBeNull();
+
+    // the same or a later time, or one inside the default window: nothing changes, nothing syncs
+    for (const later of [from, new Date(from.getTime() + 1000), new Date()]) {
+      const again = await call('calendars.requestHistory', { from: later }, 'mutation');
+      expect(again).toMatchObject({ ok: true, data: [], changed: [] });
+    }
+    expect(trigger).toHaveBeenCalledOnce();
+  });
 });

@@ -1,6 +1,6 @@
 import { CalendarId, ExternalSourceId, generateId } from '@common/ids';
 import { sqliteTable, text, unique } from 'drizzle-orm/sqlite-core';
-import { timesamps, boolean } from './utils';
+import { timesamps, boolean, date } from './utils';
 import { externalSources } from './integrations';
 
 // A calendar events belong to: a local one (no sourceId), or one synced from a provider, which the
@@ -25,6 +25,9 @@ export const calendars = sqliteTable(
     selected: boolean().notNull().default(true),
     // shown in the calendar view
     visible: boolean().notNull().default(true),
+    // how far back the user asked to see a synced calendar; sync mirrors from this or the default
+    // window, whichever is earlier (see EventSyncer). Null for the default window alone
+    historyFrom: date(),
     updatedAt: timesamps.updatedAt,
     createdAt: timesamps.createdAt,
   },
