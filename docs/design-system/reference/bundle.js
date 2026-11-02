@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"DevBrain","components":[{"name":"Icon"},{"name":"Button"},{"name":"ButtonGroup"},{"name":"Badge"},{"name":"ToggleGroup"},{"name":"Tabs"},{"name":"Input"},{"name":"Textarea"},{"name":"Field"},{"name":"Checkbox"},{"name":"Switch"},{"name":"DropdownMenu"},{"name":"Command"},{"name":"Tooltip"},{"name":"Dialog"},{"name":"Sheet"},{"name":"Toast"},{"name":"Card"},{"name":"Separator"},{"name":"Skeleton"},{"name":"Progress"},{"name":"Kbd"},{"name":"Breadcrumb"},{"name":"Sidebar"},{"name":"Calendar"},{"name":"StatusIcon"},{"name":"PriorityIcon"},{"name":"HealthIcon"},{"name":"ProgressRing"},{"name":"EntityPill"},{"name":"PropertyPanel"},{"name":"TaskRow"},{"name":"GroupHeading"},{"name":"EventRow"},{"name":"ScheduleCard"},{"name":"NoteCard"},{"name":"WorkspaceTile"},{"name":"SwatchPicker"},{"name":"SettingsGroup"},{"name":"EventBlock"},{"name":"StatusMenu"},{"name":"TaskList"},{"name":"SelectionBar"},{"name":"BoardColumn"},{"name":"BoardCard"}]} */
+/* @ds-bundle: {"format":4,"namespace":"DevBrain","components":[{"name":"Icon"},{"name":"Button"},{"name":"ButtonGroup"},{"name":"Badge"},{"name":"ToggleGroup"},{"name":"Tabs"},{"name":"Input"},{"name":"Textarea"},{"name":"Field"},{"name":"Checkbox"},{"name":"Switch"},{"name":"DropdownMenu"},{"name":"Command"},{"name":"Tooltip"},{"name":"Dialog"},{"name":"Sheet"},{"name":"Toast"},{"name":"Card"},{"name":"Separator"},{"name":"Skeleton"},{"name":"Progress"},{"name":"Kbd"},{"name":"Breadcrumb"},{"name":"Sidebar"},{"name":"Calendar"},{"name":"StatusIcon"},{"name":"PriorityIcon"},{"name":"HealthIcon"},{"name":"ProgressRing"},{"name":"EntityPill"},{"name":"PropertyRow"},{"name":"DateRange"},{"name":"TaskRow"},{"name":"GroupHeading"},{"name":"EventRow"},{"name":"ScheduleCard"},{"name":"NoteCard"},{"name":"WorkspaceTile"},{"name":"SwatchPicker"},{"name":"SettingsGroup"},{"name":"EventBlock"},{"name":"StatusMenu"},{"name":"TaskList"},{"name":"SelectionBar"},{"name":"BoardColumn"},{"name":"BoardCard"}]} */
 (function () {
   var R = window.React;
   var h = R.createElement;
@@ -804,6 +804,7 @@
     project: { icon: 'folder' },
     note: { icon: 'file-text' },
     task: { icon: 'activity', color: 'var(--status-in-progress)' },
+    parent: { icon: 'activity', color: 'var(--status-in-progress)' },
   };
   function EntityPill(props) {
     var e = ENTITY[props.type] || {};
@@ -812,7 +813,15 @@
       {
         variant: 'outline',
         asButton: true,
-        icon: e.icon,
+        icon:
+          props.type === 'parent'
+            ? h(
+                R.Fragment,
+                null,
+                h(Icon, { name: 'corner-down-right', size: 12, color: 'var(--muted-foreground)' }),
+                h(Icon, { name: e.icon, size: 12, color: e.color }),
+              )
+            : e.icon,
         iconColor: e.color,
         barColor: props.type === 'event' ? props.color || 'var(--swatch-green)' : undefined,
         prefix: props.prefix,
@@ -822,28 +831,59 @@
     );
   }
 
-  function PropertyPanel(props) {
+  /* PropertyRow: the pill rows under a task or project title. The first line holds the properties
+     and ends in "+ Add"; the second holds links to other items (event, parent task, pull request,
+     the Linear badge) and only shows when there are any. */
+  function PropertyRow(props) {
+    var props1 = props.properties || [];
+    var links = props.links || [];
     return h(
-      Card,
-      { title: props.title || 'Properties', style: { maxWidth: 280 } },
+      'div',
+      { className: 'db-prop-rows' },
       h(
         'div',
-        { className: 'db-props' },
-        props.fields.map(function (f, i) {
-          return h(
-            'div',
-            { key: i, className: 'db-prop' },
-            h('span', { className: 'db-caption' }, f.label),
-            h(
-              'div',
-              { className: 'db-prop-values' },
-              f.values.map(function (v, j) {
-                return h(R.Fragment, { key: j }, v);
-              }),
-            ),
-          );
+        { className: 'db-prop-line' },
+        props1.map(function (v, i) {
+          return h(R.Fragment, { key: i }, v);
         }),
+        props.addable === false
+          ? null
+          : h(Badge, { variant: 'outline', asButton: true, icon: 'plus', muted: true }, 'Add'),
       ),
+      links.length || props.note
+        ? h(
+            'div',
+            { className: 'db-prop-line' },
+            links.map(function (v, i) {
+              return h(R.Fragment, { key: i }, v);
+            }),
+            props.note ? h('span', { className: 'db-prop-note' }, props.note) : null,
+          )
+        : null,
+    );
+  }
+
+  /* DateRange: the dates property. The due date alone with a "+ Start date" pill, or start → due. */
+  function DateRange(props) {
+    return h(
+      'span',
+      { className: 'db-date-range' },
+      props.start
+        ? h(
+            R.Fragment,
+            null,
+            h(
+              Badge,
+              { variant: 'outline', asButton: true, icon: 'calendar', muted: true },
+              props.start,
+            ),
+            h(Icon, { name: 'arrow-right', size: 14, className: 'db-date-arrow' }),
+          )
+        : null,
+      h(Badge, { variant: 'outline', asButton: true, icon: 'calendar', muted: true }, props.due),
+      props.start
+        ? null
+        : h(Badge, { variant: 'outline', asButton: true, icon: 'plus', muted: true }, 'Start date'),
     );
   }
 
@@ -955,10 +995,17 @@
     );
   }
 
+  /* NoteCard: 144px, the preview up to three lines. With a link pill (the Notes card view) the
+     preview drops to two lines and the card is 156px; Home leaves the pill off. */
   function NoteCard(props) {
     return h(
       'div',
-      { className: 'db-card', 'data-size': 'compact', 'data-layout': 'stack' },
+      {
+        className: 'db-card db-note-card',
+        'data-size': 'compact',
+        'data-layout': 'stack',
+        'data-has-link': props.link ? '' : undefined,
+      },
       h(
         'div',
         { className: 'db-card-top' },
@@ -966,7 +1013,8 @@
         h('span', null, props.updated),
       ),
       h('div', { className: 'db-card-name' }, props.title),
-      h('div', { className: 'db-card-meta db-clamp-2' }, props.preview),
+      h('div', { className: 'db-note-preview' }, props.preview),
+      props.link || null,
     );
   }
 
@@ -1172,7 +1220,8 @@
     HealthIcon: HealthIcon,
     ProgressRing: ProgressRing,
     EntityPill: EntityPill,
-    PropertyPanel: PropertyPanel,
+    PropertyRow: PropertyRow,
+    DateRange: DateRange,
     TaskRow: TaskRow,
     GroupHeading: GroupHeading,
     EventRow: EventRow,
@@ -1216,12 +1265,14 @@
     );
   }
 
-  /* EntityPill: the chip every relation uses (rows, the properties card, document headers).
-     A project's folder icon takes the project's colour; an event shows its calendar's bar. */
+  /* EntityPill: the chip every relation uses (rows, the property rows on detail pages, document
+     headers). A project's folder icon takes the project's colour; an event shows its calendar's
+     bar; a subtask's parent shows a corner arrow before its status icon. */
   var ENTITY = {
     project: { icon: 'folder' },
     note: { icon: 'file-text' },
     task: { icon: 'activity', color: 'var(--status-in-progress)' },
+    parent: { icon: 'activity', color: 'var(--status-in-progress)' },
   };
   function EntityPill(props) {
     var e = ENTITY[props.type] || {};
@@ -1233,7 +1284,16 @@
         asButton: true,
         className:
           props.type === 'project' && props.color ? 'db-entity db-entity-project' : 'db-entity',
-        icon: ev ? undefined : e.icon,
+        icon: ev
+          ? undefined
+          : props.type === 'parent'
+            ? h(
+                F,
+                null,
+                h(Icon, { name: 'corner-down-right', size: 12, color: 'var(--muted-foreground)' }),
+                h(Icon, { name: e.icon, size: 12, color: e.color }),
+              )
+            : e.icon,
         iconColor: props.type === 'project' ? props.color || e.color : e.color,
         barColor: ev ? props.color || 'var(--swatch-green)' : undefined,
         prefix: props.prefix,
@@ -1521,6 +1581,14 @@
 
   /* GroupHeading: a group of the grouped list. No band: space above, a tile, the title and a
      subtitle, "+ Add task", done/total and a progress bar. */
+  /* The tile behind a group's icon: the group's colour at 15% (the swatch-*-tint and
+     status-*-tint tokens), neutral `secondary` when the group has no colour. */
+  function tileTint(props) {
+    if (props.tint) return { background: props.tint };
+    var c = props.bar || props.iconColor;
+    return c ? { background: 'color-mix(in oklab, ' + c + ' 15%, transparent)' } : undefined;
+  }
+
   function GroupHeading(props) {
     var total = props.total != null ? props.total : props.count;
     var done = props.done || 0;
@@ -1539,7 +1607,10 @@
       }),
       h(
         'span',
-        { className: 'dbl-tile' },
+        {
+          className: 'dbl-tile',
+          style: tileTint(props),
+        },
         props.bar
           ? h('span', { className: 'db-bar', style: { background: props.bar, height: 14 } })
           : h(Icon, { name: props.icon || 'circle', size: 16, color: props.iconColor }),
