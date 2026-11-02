@@ -41,8 +41,11 @@ export interface IpcRequest {
   input: unknown;
 }
 
-// What the preload exposes on `window` (IPC_BRIDGE_KEY). Generic: nothing in it is per route.
+// What the preload exposes on `window` (IPC_BRIDGE_KEY). Boot is the sole route-specific member.
 export interface IpcBridge {
+  // The boot snapshot is deliberately unknown here: common must not depend on main's model types,
+  // and the renderer treats a missing or failed snapshot as an ordinary cold start.
+  boot(): unknown;
   invoke(request: IpcRequest): Promise<IpcResult<unknown>>;
   // returns the function that unsubscribes
   subscribe(name: string, listener: (payload: unknown) => void): () => void;

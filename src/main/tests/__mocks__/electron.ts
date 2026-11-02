@@ -7,8 +7,10 @@ import { vi } from 'vitest';
 import type { BrowserWindow as ElectronBrowserWindow, IpcMainInvokeEvent } from 'electron';
 
 type Handler = (event: IpcMainInvokeEvent, ...args: unknown[]) => unknown;
+type Listener = (event: { returnValue: unknown }, ...args: unknown[]) => void;
 
 export const ipcHandlers = new Map<string, Handler>();
+export const ipcListeners = new Map<string, Listener>();
 
 export const ipcMain = {
   // Electron throws on a second handler for the same channel; so does the mock
@@ -21,6 +23,14 @@ export const ipcMain = {
   removeHandler: vi.fn((channel: string) => {
     ipcHandlers.delete(channel);
   }),
+  on: vi.fn((channel: string, listener: Listener) => {
+    if (ipcListeners.has(channel))
+      throw new Error(`Attempted to register a second listener for '${channel}'`);
+    ipcListeners.set(channel, listener);
+  }),
+  removeListener: vi.fn((channel: string, listener: Listener) => {
+    if (ipcListeners.get(channel) === listener) ipcListeners.delete(channel);
+  }),
 };
 
 export const app = {
@@ -29,6 +39,7 @@ export const app = {
 };
 
 export const ipcRenderer = {
+  sendSync: vi.fn<(channel: string, ...args: unknown[]) => unknown>(() => undefined),
   invoke: vi.fn<(channel: string, ...args: unknown[]) => Promise<unknown>>(async () => undefined),
   on: vi.fn(),
   removeListener: vi.fn(),
@@ -53,11 +64,25 @@ export async function invokeHandler(
   return handler(event, ...args);
 }
 
+/** Calls a listener registered with ipcMain.on and returns its synchronous answer. */
+export function sendSyncToMain(channel: string, ...args: unknown[]): unknown {
+  const listener = ipcListeners.get(channel);
+  if (listener === undefined) throw new Error(`No listener registered for '${channel}'`);
+  const event = { returnValue: undefined as unknown };
+  listener(event, ...args);
+  return event.returnValue;
+}
+
 /** Removes every handler and clears the mocks' calls and implementations set by a test. */
 export function resetElectronMock(): void {
   ipcHandlers.clear();
+  ipcListeners.clear();
   ipcMain.handle.mockClear();
   ipcMain.removeHandler.mockClear();
+  ipcMain.on.mockClear();
+  ipcMain.removeListener.mockClear();
+  ipcRenderer.sendSync.mockReset();
+  ipcRenderer.sendSync.mockImplementation(() => undefined);
   ipcRenderer.invoke.mockReset();
   ipcRenderer.invoke.mockImplementation(async () => undefined);
   ipcRenderer.on.mockReset();

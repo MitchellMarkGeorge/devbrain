@@ -28,6 +28,7 @@ import { attachRouter } from './ipc/server';
 import { ChangeTracker } from './ipc/changes';
 import { appRouter } from './ipc/router';
 import { createContext } from './ipc/context';
+import { attachBoot } from './ipc/boot';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // the repository, in development: dist/main is two levels down
@@ -111,6 +112,7 @@ const changeTracker = new ChangeTracker((name, payload, skipWindow) => {
 // The typed router (src/main/ipc/router.ts); the renderer reaches it through the generic bridge in
 // src/preload/index.ts. Attached before the window is created, so its first calls find it.
 function attachIpc(devBrain: DevBrain | null) {
+  attachBoot(devBrain);
   attachRouter(appRouter, {
     // the dialogs are modal to the window the call came from
     createContext: (call) =>

@@ -13,6 +13,7 @@ import type { IpcLinkOptions } from '../../ipc/link';
 // a bridge whose invoke answers with `result`
 function fakeBridge(result: IpcResult<unknown> = { ok: true, data: null, changed: [] }) {
   return {
+    boot: vi.fn<IpcBridge['boot']>(() => null),
     invoke: vi.fn<IpcBridge['invoke']>(async () => result),
     subscribe: vi.fn<IpcBridge['subscribe']>(() => () => {}),
   };

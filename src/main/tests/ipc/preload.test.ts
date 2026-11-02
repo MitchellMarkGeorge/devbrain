@@ -12,9 +12,18 @@ describe('the preload bridge', () => {
     await import('../../../preload');
 
     expect(contextBridge.exposeInMainWorld).toHaveBeenCalledWith('ipcBridge', {
+      boot: expect.any(Function),
       invoke: expect.any(Function),
       subscribe: expect.any(Function),
     });
+  });
+
+  it('reads the boot snapshot synchronously', () => {
+    const snapshot = { devBrainAvailable: true };
+    ipcRenderer.sendSync.mockReturnValue(snapshot);
+
+    expect(createBridge().boot()).toBe(snapshot);
+    expect(ipcRenderer.sendSync).toHaveBeenCalledWith('ipc:boot');
   });
 
   it('invokes the call channel with the request', async () => {
