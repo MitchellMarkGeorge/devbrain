@@ -90,6 +90,20 @@ export interface CreateEventOptions {
   color?: string;
 }
 
+/**
+ * One occurrence of a series: the series, and the start the occurrence has in it. For an
+ * occurrence FullCalendar expanded, that is its start; for a moved or edited occurrence row, its
+ * seriesId and originalStartAt.
+ */
+export interface OccurrenceRef {
+  seriesId: EventId;
+  originalStartAt: Date;
+}
+
+// what an occurrence write applies to: the occurrence alone, or it and every later one. The whole
+// series is written by its own id with updateEvent and deleteEvent.
+export type OccurrenceScope = 'this' | 'following';
+
 export interface UpdateEventOptions {
   title?: string;
   description?: string;

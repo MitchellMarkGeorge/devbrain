@@ -338,6 +338,64 @@ describe('events', () => {
     ).toMatchObject({ ok: false, error: { data: { code: 'invalid_input' } } });
   });
 
+  it('edits and deletes single occurrences and the ones after them', async () => {
+    const series = workspace().events.createEvent({
+      title: 'Standup',
+      startAt: NINE,
+      endAt: TEN,
+      timeZone: 'UTC',
+      recurrenceRule: 'RRULE:FREQ=DAILY;COUNT=5',
+    });
+    const day = (n: number) => new Date(NINE.getTime() + n * 24 * 60 * 60 * 1000);
+
+    const edited = await mutate('events.updateOccurrence', {
+      seriesId: series.id,
+      originalStartAt: day(1),
+      scope: 'this',
+      title: 'Standup, moved',
+    });
+    expect(edited).toMatchObject({
+      ok: true,
+      data: { title: 'Standup, moved', seriesId: series.id, originalStartAt: day(1) },
+      changed: ['event'],
+    });
+
+    expect(
+      await mutate('events.deleteOccurrence', {
+        seriesId: series.id,
+        originalStartAt: day(2),
+        scope: 'this',
+      }),
+    ).toEqual({ ok: true, data: undefined, changed: ['event'] });
+
+    const split = await mutate('events.updateOccurrence', {
+      seriesId: series.id,
+      originalStartAt: day(3),
+      scope: 'following',
+      title: 'Standup, later',
+    });
+    expect(split).toMatchObject({
+      ok: true,
+      data: { title: 'Standup, later', recurrenceRule: 'RRULE:FREQ=DAILY;COUNT=2' },
+      changed: ['event'],
+    });
+
+    expect(await data<Event>('events.get', { id: series.id })).toMatchObject({
+      recurrenceRule: 'RRULE:FREQ=DAILY;UNTIL=20261105T085959Z',
+      exdates: [day(1), day(2)],
+    });
+
+    // "this" keeps the series' calendar and rule
+    expect(
+      await mutate('events.updateOccurrence', {
+        seriesId: series.id,
+        originalStartAt: day(0),
+        scope: 'this',
+        recurrenceRule: 'RRULE:FREQ=WEEKLY',
+      }),
+    ).toMatchObject({ ok: false, error: { data: { code: 'invalid_input' } }, changed: [] });
+  });
+
   it('sets the favorite wanted, reporting nothing when it already was', async () => {
     const event = workspace().events.createEvent({ title: 'Standup', startAt: NINE, endAt: TEN });
 
