@@ -1717,7 +1717,7 @@ button.db-badge[data-variant='outline']:hover {
 }
 button.db-entity:hover {
   background: var(--pill-fill-hover);
-  border-color: var(--pill-edge-hover);
+  border-color: var(--border-strong);
 }
 button.db-entity:hover .db-badge-muted {
   color: var(--foreground);
