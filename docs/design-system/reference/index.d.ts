@@ -191,14 +191,27 @@ export interface ProgressRingProps {
   color?: string;
 }
 export interface EntityPillProps {
-  type: 'project' | 'note' | 'task' | 'event';
+  /** `parent`: a subtask's parent task (corner arrow, then its status icon) */
+  type: 'project' | 'note' | 'task' | 'event' | 'parent';
   /** a project's icon or an event's bar: a swatch-* colour */ color?: string;
   prefix?: string;
   children: Node;
 }
-export interface PropertyPanelProps {
-  title?: string;
-  fields: { label: string; values: Node[] }[];
+/** The pill rows under a task or project title (replaces the side Properties card). */
+export interface PropertyRowProps {
+  /** status, priority, DateRange, project, progress: in that order */
+  properties: Node[];
+  /** links to other items: the Linear badge, event, parent task, pull request */
+  links?: Node[];
+  /** false for synced tasks, whose fields come from the provider */
+  addable?: boolean;
+  /** a quiet note ending the links line, e.g. "Synced 3 min ago" */
+  note?: string;
+}
+export interface DateRangeProps {
+  /** omit to show the due date with a "+ Start date" pill */
+  start?: string;
+  due: string;
 }
 export interface Task {
   title: string;
@@ -264,6 +277,8 @@ export interface GroupHeadingProps {
   icon?: IconName;
   iconColor?: string;
   bar?: string;
+  /** the tile's ground; defaults to the icon or bar colour at 15% (a `*-tint` token) */
+  tint?: string;
   done?: number;
   total?: number;
   count?: number;
@@ -292,6 +307,8 @@ export interface NoteCardProps {
   title: string;
   updated: string;
   preview: string;
+  /** the note's project or event pill: Notes card view only, never on Home */
+  link?: Node;
 }
 export interface WorkspaceTileProps {
   letter: string;

@@ -6,6 +6,4 @@ A group in the grouped list. No band and no line: `group-gap` (32px) of space ab
 
 ## Tile
 
-The tile is a tint of the group's own colour, not a solid block: its fill is the same colour as the icon (the project's swatch, or the status colour) at **15% opacity**, with the icon on top at full strength. In CSS, `background: color-mix(in oklab, var(--swatch-blue) 15%, transparent)`, or the status token for a status group (`--status-in-progress`, `--status-completed`, `--status-overdue`). Not started and cancelled groups keep the neutral `secondary` tile.
-
-The Figma screens use the solid `swatch-*-tile` tokens (the 900 steps) as a stand-in, because Figma drops a paint's opacity when it re-resolves a bound colour variable. Build from this note, not from the Figma fill.
+The tile is a tint of the group's own colour, not a solid block: the group's colour at 15% behind the icon at full strength. Projects use `swatch-*-tint`; status groups use `status-in-progress-tint`, `status-completed-tint` and `status-overdue-tint` (lighter in light mode, as the status colours are). Not started and cancelled groups keep the neutral `secondary` tile. The tints carry their alpha in the token, so Figma keeps them (a paint's own opacity is dropped when Figma re-resolves a bound variable).

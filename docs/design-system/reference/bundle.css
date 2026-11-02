@@ -978,22 +978,30 @@ button.db-badge[data-variant='outline']:hover {
   margin-left: auto;
 }
 
-/* Property panel and settings */
-.db-props {
+/* Property rows (under a task or project title) and settings */
+.db-prop-rows {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
-}
-.db-prop {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
   gap: var(--space-2);
 }
-.db-prop-values {
+.db-prop-line {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  align-items: center;
+  gap: 6px;
+}
+.db-prop-note {
+  color: var(--subtle-foreground);
+  font-size: 12px;
+  line-height: 16px;
+}
+.db-date-range {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.db-date-arrow {
+  color: var(--muted-foreground);
 }
 .db-settings-row {
   display: flex;
@@ -1432,6 +1440,30 @@ button.db-badge[data-variant='outline']:hover {
 .db-card[data-size='compact'][data-layout='stack'] {
   padding: 12px;
   gap: 8px;
+}
+/* NoteCard: one height per row of cards; the preview fills what is left */
+.db-card.db-note-card {
+  height: 144px;
+  padding: 16px;
+  gap: 8px;
+}
+.db-card.db-note-card[data-has-link] {
+  height: 156px;
+}
+.db-note-preview {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--subtle-foreground);
+  font-size: 14px;
+  line-height: 20px;
+}
+.db-note-card[data-has-link] .db-note-preview {
+  -webkit-line-clamp: 2;
+}
+.db-note-card .db-badge {
+  align-self: flex-start;
 }
 
 /* ---------- small parts ---------- */

@@ -38,7 +38,7 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 
 **Kept from DevBrain** (these make it DevBrain, not stock shadcn):
 
-- **Colour.** Every colour token: the near-black neutral ground, `foreground` at neutral-200, the status, priority, health and date colours, the six swatches, and the red `now-indicator`. (Red is one shade in dark and the tiles use the 900 steps: see Colour.)
+- **Colour.** Every colour token: the near-black neutral ground, `foreground` at neutral-200, the status, priority, health and date colours, the six swatches, and the red `now-indicator`. (Red is one shade in dark, workspace tiles use the 900 steps and group tiles a 15% tint: see Colour.)
 - **Type family.** Inter for everything; 30px and 24px titles.
 - **The logomark.**
 - **Glyphs.** `StatusIcon`, `PriorityIcon`, `HealthIcon` and `ProgressRing`, each status with its own shape and colour.
@@ -50,6 +50,13 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - **Lists.** Entity pills, priority and date on the right of every row (the rows themselves follow the list behaviours below).
 - **Planning views.** The board, the time grid, event blocks and the mini calendar with its red "today".
 - **Sidebar.** The workspace tile, the outlined active item, and full-size Recents and Favorites.
+
+## Detail pages
+
+- **One column.** A task or project page is the title, then `PropertyRow` (properties on the first line, links on the second), the description and the content (subtasks and the task note; or the project's task groups). No side cards: a project's notes live in its Notes tab.
+- **Header actions stay put.** The star and the "…" menu sit at the right of the top bar on every detail page; nothing under them is covered, because the page has no side column.
+- **The task "…" menu:** Convert to project, Link to ›, Duplicate (⌘D), Make subtask of ›, Copy as Markdown, then Move to trash. A Linear task adds Open in Linear, Copy Linear URL and Detach from Linear; a detached one offers Reattach to Linear instead.
+- **Note rows open a right-click menu** (no "…" button on the row): Open note (↵), Favorite (F), Change link ›, Change project ›, Copy as Markdown, then Move to trash.
 
 ## Lists
 
@@ -86,6 +93,7 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - Hover and highlight: `accent` is `neutral-800` in dark, so a highlighted item shows on `popover` (`neutral-900`) as well as on the page.
 - **One red.** In dark, overdue, high priority, off track and delete all use `red-400` (6.2:1 on `popover`); light uses `red-600` throughout. The calendar's today and the time grid's now line keep `now-indicator` (`red-600`), which carries a white number.
 - **Workspace tiles** sit on the 900 step of their swatch (`swatch-*-tile`), so a 20px tile reads as colour; the white letter stays above 9:1.
+- **Group heading tiles** take a 15% tint of the group's colour (`swatch-*-tint`, `status-*-tint`) behind the icon at full strength.
 - Status colours keep one meaning each (`status-*`, `priority-*`, `health-*`, `date-today`, `date-overdue`), each with its own icon shape. Users pick from the six `swatch-*` colours, shown as 3px bars, dots and swatches.
 
 ## Type
