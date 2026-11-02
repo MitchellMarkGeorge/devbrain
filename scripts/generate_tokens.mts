@@ -60,8 +60,8 @@ const lines: string[] = [
  * shadcn components keep their meaning; the app styles them with CSS Modules, not Tailwind.
  *
  * Dark is the first theme. The light theme (shadcn's neutral light theme) applies when
- * prefers-color-scheme is light, which the app sets from its theme setting. data-theme="dark" or
- * data-theme="light" on <html> forces one. Every colour is a Tailwind v4 colour.
+ * prefers-color-scheme is light, which the app sets from its theme setting. Every colour is a
+ * Tailwind v4 colour.
  *
  *   1. Palette  --neutral-*, --red-*, ...    raw Tailwind steps; components never use these
  *   2. Theme    --background, --primary, ... shadcn's variables, per theme
@@ -146,15 +146,12 @@ function themeBlock(name: 'dark' | 'light', selector: string, indent = ''): stri
 lines.push(
   '',
   '/* 2. Theme: dark, the default */',
-  ...themeBlock('dark', ":root,\n:root[data-theme='dark']"),
+  ...themeBlock('dark', ':root'),
   '',
   "/* 2. Theme: light, when the system (or the app's theme setting) asks for it */",
   '@media (prefers-color-scheme: light) {',
-  ...themeBlock('light', ":root:not([data-theme='dark'])", '  '),
+  ...themeBlock('light', ':root', '  '),
   '}',
-  '',
-  '/* 2. Theme: light, forced */',
-  ...themeBlock('light', ":root[data-theme='light']"),
 );
 
 lines.push(
