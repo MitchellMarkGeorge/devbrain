@@ -21,6 +21,17 @@ function fakeApp(openAtLogin = false) {
   return { app, state };
 }
 
+// Windows: the Run key is still there, but the user turned DevBrain off in Startup apps
+function fakeWindowsAppTurnedOff() {
+  const app = {
+    getLoginItemSettings: vi.fn(
+      () => ({ openAtLogin: true, executableWillLaunchAtLogin: false }) as LoginItemSettings,
+    ),
+    setLoginItemSettings: vi.fn(),
+  } satisfies LoginItemApp;
+  return app;
+}
+
 const logger = () => ({ warn: vi.fn() });
 const settingsService = () => new SettingsService('/fake/path', openMemorySettingsStore);
 
@@ -46,6 +57,12 @@ describe('applyLaunchAtLogin', () => {
     const { app } = fakeApp(true);
     applyLaunchAtLogin(app, true, logger());
     expect(app.setLoginItemSettings).not.toHaveBeenCalled();
+  });
+
+  it('turns the login item back on when Windows has it turned off in Startup apps', () => {
+    const app = fakeWindowsAppTurnedOff();
+    applyLaunchAtLogin(app, true, logger());
+    expect(app.setLoginItemSettings).toHaveBeenCalledWith({ openAtLogin: true });
   });
 
   it('logs a failure without throwing', () => {
@@ -75,6 +92,13 @@ describe('followLaunchAtLogin', () => {
     followLaunchAtLogin(app, settings, logger());
     expect(settings.get('settings.general.launchOnStartup')).toBe(false);
     expect(state.openAtLogin).toBe(false);
+  });
+
+  it('reads a login item turned off in Windows Startup apps as off', () => {
+    const settings = settingsService();
+    settings.set('settings.general.launchOnStartup', true);
+    followLaunchAtLogin(fakeWindowsAppTurnedOff(), settings, logger());
+    expect(settings.get('settings.general.launchOnStartup')).toBe(false);
   });
 
   it('applies each later change of the setting', () => {

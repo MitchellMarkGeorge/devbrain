@@ -1,4 +1,4 @@
-import type { App } from 'electron';
+import type { App, LoginItemSettings } from 'electron';
 import type { DevBrain } from '@main/core';
 import type { SyncLogger } from '@main/core/sync/types';
 
@@ -15,11 +15,18 @@ export function supportsLoginItem(platform: NodeJS.Platform, isPackaged: boolean
   return isPackaged && (platform === 'darwin' || platform === 'win32');
 }
 
+// Whether the app will open at login. On Windows, turning DevBrain off in Startup apps keeps its
+// Run key, so openAtLogin stays true; executableWillLaunchAtLogin, reported on Windows only, says
+// whether it is still on.
+function opensAtLogin(settings: LoginItemSettings): boolean {
+  return settings.executableWillLaunchAtLogin ?? settings.openAtLogin;
+}
+
 // Registers or removes the login item, when the OS doesn't already have it that way. Never throws:
 // a failure is logged, and the setting stays as the user chose it.
 export function applyLaunchAtLogin(app: LoginItemApp, openAtLogin: boolean, logger: Logger): void {
   try {
-    if (app.getLoginItemSettings().openAtLogin === openAtLogin) return;
+    if (opensAtLogin(app.getLoginItemSettings()) === openAtLogin) return;
     app.setLoginItemSettings({ openAtLogin });
   } catch (error) {
     const name = error instanceof Error ? error.name : typeof error;
@@ -34,7 +41,7 @@ export function applyLaunchAtLogin(app: LoginItemApp, openAtLogin: boolean, logg
  */
 export function followLaunchAtLogin(app: LoginItemApp, settings: Settings, logger: Logger): void {
   try {
-    const { openAtLogin } = app.getLoginItemSettings();
+    const openAtLogin = opensAtLogin(app.getLoginItemSettings());
     if (settings.get('settings.general.launchOnStartup') !== openAtLogin) {
       settings.set('settings.general.launchOnStartup', openAtLogin);
     }
