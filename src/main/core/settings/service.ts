@@ -13,15 +13,6 @@ export class SettingsService {
 
   constructor(rootPath: string, openStore: OpenSettingsStore) {
     this.store = openStore(rootPath, getDefaults(rootPath));
-    this.applySystemTheme();
-  }
-
-  // Before the system theme, 'dark' was the only theme, so no one chose it: it becomes 'system',
-  // the default, once. Dark chosen after that stays.
-  private applySystemTheme(): void {
-    if (this.store.get('state.systemThemeApplied') === true) return;
-    if (this.store.get('settings.theme') === 'dark') this.store.set('settings.theme', 'system');
-    this.store.set('state.systemThemeApplied', true);
   }
 
   onChange(listener: ChangeListener<SettingsChange>): () => void {

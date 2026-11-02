@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 import { SettingsService } from '../../settings/service';
-import type { OpenSettingsStore, SettingsStore } from '../../settings/store';
 
 import { openMemorySettingsStore } from '../__mocks__/memory-settings-store';
 
@@ -55,39 +54,6 @@ describe('SettingsService', () => {
       unsubscribe();
       service.set('settings.theme', 'dark');
       expect(listener).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('the system theme', () => {
-    // a file from before it: 'dark' was the only theme, and state had no systemThemeApplied
-    const openOldFile: OpenSettingsStore = (rootPath, defaults) =>
-      openMemorySettingsStore(rootPath, {
-        settings: { ...defaults.settings, theme: 'dark' },
-        state: { lastWorkspaceId: null, lastPage: null },
-      });
-
-    it("moves a file from before it from 'dark' to 'system'", () => {
-      const service = new SettingsService('/fake/path', openOldFile);
-      expect(service.get('settings.theme')).toBe('system');
-      expect(service.get('state.systemThemeApplied')).toBe(true);
-    });
-
-    it('keeps dark chosen after that', () => {
-      let saved: SettingsStore | undefined;
-      const openOnce: OpenSettingsStore = (rootPath, defaults) =>
-        (saved ??= openOldFile(rootPath, defaults));
-      new SettingsService('/fake/path', openOnce).set('settings.theme', 'dark');
-      expect(new SettingsService('/fake/path', openOnce).get('settings.theme')).toBe('dark');
-    });
-
-    it('leaves a light theme alone', () => {
-      const service = new SettingsService('/fake/path', (rootPath, defaults) =>
-        openMemorySettingsStore(rootPath, {
-          ...defaults,
-          settings: { ...defaults.settings, theme: 'light' },
-        }),
-      );
-      expect(service.get('settings.theme')).toBe('light');
     });
   });
 });

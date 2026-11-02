@@ -33,9 +33,6 @@ export const appSettingsSchema = z.object({
 export const appStateSchema = z.object({
   lastWorkspaceId: z.string().nullable(),
   lastPage: z.string().nullable(),
-  // set once a settings file from before the system theme has been moved to it. Optional: such a
-  // file lacks it, and electron-store fills in only the top-level keys a file lacks
-  systemThemeApplied: z.boolean().optional(),
 });
 
 export const settingsFileSchema = z.object({
