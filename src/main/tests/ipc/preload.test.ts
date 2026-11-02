@@ -14,7 +14,16 @@ describe('the preload bridge', () => {
     expect(contextBridge.exposeInMainWorld).toHaveBeenCalledWith('ipcBridge', {
       invoke: expect.any(Function),
       subscribe: expect.any(Function),
+      boot: expect.any(Function),
     });
+  });
+
+  it('reads the boot snapshot synchronously on the boot channel', () => {
+    const snapshot = { devBrainAvailable: false };
+    ipcRenderer.sendSync.mockReturnValue(snapshot);
+
+    expect(createBridge().boot()).toBe(snapshot);
+    expect(ipcRenderer.sendSync).toHaveBeenCalledWith('ipc:boot');
   });
 
   it('invokes the call channel with the request', async () => {
