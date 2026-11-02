@@ -1,0 +1,5 @@
+/* The page in the theme's colours, matching the window background main paints before it loads */
+html {
+  background-color: var(--background);
+  color: var(--foreground);
+}

@@ -6,7 +6,8 @@ export type {
   UpdateWorkspaceOptions,
   WorkspaceOptions,
 } from './workspace/types';
-export type { AppSettings, AppState } from './settings/types';
+export type { AppSettings, AppState, ThemeSetting } from './settings/types';
+export type { SettingsChange } from './settings/service';
 export type { OpenSettingsStore, SettingsStore } from './settings/store';
 export type { Logger } from './shared/logger';
 export { InvalidCursorError } from './shared/pagination';

@@ -1,8 +1,11 @@
 import { z } from 'zod';
 import { TaskPriority } from '../tasks/types';
 
+// 'system' follows the operating system's light or dark appearance
+export const themeSettingSchema = z.enum(['system', 'light', 'dark']);
+
 export const appSettingsSchema = z.object({
-  theme: z.literal('dark'),
+  theme: themeSettingSchema,
   devBrainPath: z.string(),
   general: z.object({
     defaultLandingPage: z.enum(['home', 'tasks', 'notes', 'projects', 'calendar']),

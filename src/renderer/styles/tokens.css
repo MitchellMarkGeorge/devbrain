@@ -6,8 +6,9 @@
  * Colour variables use shadcn's names (--background, --primary, --muted-foreground, ...) so
  * shadcn components keep their meaning; the app styles them with CSS Modules, not Tailwind.
  *
- * Dark is the first theme (no data-theme, or data-theme="dark"); data-theme="light" on <html>
- * switches to shadcn's neutral light theme. Every colour is a Tailwind v4 colour.
+ * Dark is the first theme. The light theme (shadcn's neutral light theme) applies when
+ * prefers-color-scheme is light, which the app sets from its theme setting. data-theme="dark" or
+ * data-theme="light" on <html> forces one. Every colour is a Tailwind v4 colour.
  *
  *   1. Palette  --neutral-*, --red-*, ...    raw Tailwind steps; components never use these
  *   2. Theme    --background, --primary, ... shadcn's variables, per theme
@@ -161,7 +162,7 @@
   --platform-github: var(--neutral-200);
 }
 
-/* 2. Theme: dark */
+/* 2. Theme: dark, the default */
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
@@ -219,7 +220,66 @@
   --status-overdue-tint: rgba(255, 100, 103, 0.15);
 }
 
-/* 2. Theme: light */
+/* 2. Theme: light, when the system (or the app's theme setting) asks for it */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    color-scheme: light;
+    --background: var(--white);
+    --foreground: var(--neutral-950);
+    --foreground-strong: var(--neutral-950);
+    --card: var(--neutral-50);
+    --card-foreground: var(--neutral-950);
+    --popover: var(--white);
+    --popover-foreground: var(--neutral-950);
+    --primary: var(--neutral-900);
+    --primary-foreground: var(--neutral-50);
+    --secondary: var(--neutral-100);
+    --secondary-foreground: var(--neutral-900);
+    --muted: var(--neutral-100);
+    --muted-foreground: var(--neutral-500);
+    --subtle-foreground: var(--neutral-500);
+    --accent: var(--neutral-100);
+    --accent-foreground: var(--neutral-900);
+    --destructive: var(--red-600);
+    --border: var(--neutral-200);
+    --border-strong: var(--neutral-200);
+    --edge: rgba(10, 10, 10, 0.1);
+    --row-selected: rgba(10, 10, 10, 0.05);
+    --row-selected-foreground: #0a0a0a;
+    --input: var(--neutral-200);
+    --ring: var(--neutral-500);
+    --sidebar: var(--neutral-50);
+    --sidebar-foreground: var(--neutral-500);
+    --sidebar-primary: var(--neutral-900);
+    --sidebar-primary-foreground: var(--neutral-50);
+    --sidebar-accent: var(--neutral-100);
+    --sidebar-accent-foreground: var(--neutral-900);
+    --sidebar-border: var(--neutral-200);
+    --sidebar-ring: var(--neutral-500);
+    --backdrop: rgba(0, 0, 0, 0.5);
+
+    --status-not-started: var(--neutral-500);
+    --status-in-progress: var(--orange-700);
+    --status-completed: var(--green-700);
+    --status-cancelled: var(--neutral-500);
+    --status-overdue: var(--red-600);
+    --priority-high: var(--red-600);
+    --priority-medium: var(--amber-700);
+    --priority-low: var(--emerald-700);
+    --health-on-track: var(--lime-700);
+    --health-at-risk: var(--amber-700);
+    --health-off-track: var(--red-600);
+    --health-not-started: var(--neutral-500);
+    --health-completed: var(--green-700);
+    --date-today: var(--amber-700);
+    --date-overdue: var(--red-600);
+    --status-in-progress-tint: rgba(202, 53, 0, 0.15);
+    --status-completed-tint: rgba(0, 130, 54, 0.15);
+    --status-overdue-tint: rgba(231, 0, 11, 0.15);
+  }
+}
+
+/* 2. Theme: light, forced */
 :root[data-theme='light'] {
   color-scheme: light;
   --background: var(--white);

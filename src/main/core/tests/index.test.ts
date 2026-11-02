@@ -99,14 +99,15 @@ describe('openDevBrain — an existing folder', () => {
     expect(brain.currentWorkspace).toBeNull();
   });
 
-  it('settings.get() returns the correct value from the written file', async () => {
+  // the memory store starts from the defaults; it never reads settings.json
+  it('settings.get() returns the default theme', async () => {
     await writeValidStructure(tmpDir);
     const brain = await openDevBrain({
       settingsStore: openMemorySettingsStore,
       path: tmpDir,
       workspace: WORKSPACE_OPTIONS,
     });
-    expect(brain.settings.get('settings.theme')).toBe('dark');
+    expect(brain.settings.get('settings.theme')).toBe('system');
   });
 
   it('workspaces.listAll().items returns an empty array for an empty registry', async () => {

@@ -9,7 +9,7 @@ export function getDefaults(rootPath?: string): SettingsFile {
     : (process.env.DEVBRAIN_PATH ?? path.join(os.homedir(), '.devbrain'));
   return {
     settings: {
-      theme: 'dark',
+      theme: 'system',
       devBrainPath,
       general: {
         defaultLandingPage: 'home',

@@ -1,4 +1,14 @@
-import { app, BrowserWindow, dialog, Menu, net, powerMonitor, safeStorage, shell } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  Menu,
+  nativeTheme,
+  net,
+  powerMonitor,
+  safeStorage,
+  shell,
+} from 'electron';
 import { IPC_EVENT_PREFIX } from '@common/ipc/constants';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -13,6 +23,7 @@ import { loadDevBrain } from './runtime/start';
 import { closeBeforeQuit, forwardSyncTriggers } from './runtime/lifecycle';
 import { createElectronDesktop } from './runtime/desktop';
 import { createMenuActions, installAppMenu } from './runtime/menu';
+import { applyTheme, windowBackground } from './runtime/theme';
 import { attachRouter } from './ipc/server';
 import { ChangeTracker } from './ipc/changes';
 import { appRouter } from './ipc/router';
@@ -136,6 +147,8 @@ function createWindow() {
     width: 1200,
     height: 800,
     show: false,
+    // the theme's background, so the window never shows white before the page paints
+    backgroundColor: windowBackground(nativeTheme),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
@@ -165,6 +178,16 @@ function createWindow() {
   } else {
     win.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
+}
+
+// --- Theme ----------------------------------------------------------------
+// Follows the theme setting from startup on, before the window is made, so it opens in the
+// setting's colours. Without DevBrain there is no setting, and the system's appearance is used.
+function followThemeSetting(devBrain: DevBrain | null) {
+  applyTheme(nativeTheme, devBrain?.settings.get('settings.theme') ?? 'system');
+  devBrain?.settings.onChange(({ settings }) => applyTheme(nativeTheme, settings.theme));
+  // a new theme setting, or the system switching appearance while it is 'system'
+  nativeTheme.on('updated', () => mainWindow?.setBackgroundColor(windowBackground(nativeTheme)));
 }
 
 // The window shows the app's page and nothing else (docs/security/untrusted-content.md): a link
@@ -221,6 +244,7 @@ app.whenReady().then(async () => {
   }
 
   attachMenu(devBrain);
+  followThemeSetting(devBrain);
   createWindow();
   // the Dock icon on macOS: shows the hidden window, or makes one if it is gone
   app.on('activate', () => {
