@@ -100,10 +100,7 @@
       "indexes": {
         "uq_calendars_source_external_id": {
           "name": "uq_calendars_source_external_id",
-          "columns": [
-            "source_id",
-            "external_id"
-          ],
+          "columns": ["source_id", "external_id"],
           "isUnique": true
         }
       },
@@ -112,12 +109,8 @@
           "name": "calendars_source_id_external_sources_id_fk",
           "tableFrom": "calendars",
           "tableTo": "external_sources",
-          "columnsFrom": [
-            "source_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -150,22 +143,15 @@
           "name": "event_exceptions_series_id_events_id_fk",
           "tableFrom": "event_exceptions",
           "tableTo": "events",
-          "columnsFrom": [
-            "series_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["series_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "event_exceptions_series_id_original_start_at_pk": {
-          "columns": [
-            "series_id",
-            "original_start_at"
-          ],
+          "columns": ["series_id", "original_start_at"],
           "name": "event_exceptions_series_id_original_start_at_pk"
         }
       },
@@ -346,42 +332,29 @@
       "indexes": {
         "idx_events_start_at_id": {
           "name": "idx_events_start_at_id",
-          "columns": [
-            "start_at",
-            "id"
-          ],
+          "columns": ["start_at", "id"],
           "isUnique": false
         },
         "idx_events_calendar_id": {
           "name": "idx_events_calendar_id",
-          "columns": [
-            "calendar_id"
-          ],
+          "columns": ["calendar_id"],
           "isUnique": false
         },
         "idx_events_series_id": {
           "name": "idx_events_series_id",
-          "columns": [
-            "series_id"
-          ],
+          "columns": ["series_id"],
           "isUnique": false,
           "where": "\"events\".\"series_id\" is not null"
         },
         "idx_events_favorited_at_id": {
           "name": "idx_events_favorited_at_id",
-          "columns": [
-            "favorited_at",
-            "id"
-          ],
+          "columns": ["favorited_at", "id"],
           "isUnique": false,
           "where": "\"events\".\"favorited_at\" is not null"
         },
         "idx_events_viewed_at_id": {
           "name": "idx_events_viewed_at_id",
-          "columns": [
-            "viewed_at",
-            "id"
-          ],
+          "columns": ["viewed_at", "id"],
           "isUnique": false,
           "where": "\"events\".\"viewed_at\" is not null"
         }
@@ -391,12 +364,8 @@
           "name": "events_calendar_id_calendars_id_fk",
           "tableFrom": "events",
           "tableTo": "calendars",
-          "columnsFrom": [
-            "calendar_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["calendar_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -404,12 +373,8 @@
           "name": "events_series_id_events_id_fk",
           "tableFrom": "events",
           "tableTo": "events",
-          "columnsFrom": [
-            "series_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["series_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -465,23 +430,15 @@
           "name": "external_event_exceptions_source_id_external_sources_id_fk",
           "tableFrom": "external_event_exceptions",
           "tableTo": "external_sources",
-          "columnsFrom": [
-            "source_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "external_event_exceptions_source_id_master_external_id_original_start_at_pk": {
-          "columns": [
-            "source_id",
-            "master_external_id",
-            "original_start_at"
-          ],
+          "columns": ["source_id", "master_external_id", "original_start_at"],
           "name": "external_event_exceptions_source_id_master_external_id_original_start_at_pk"
         }
       },
@@ -602,39 +559,27 @@
       "indexes": {
         "external_links_taskId_unique": {
           "name": "external_links_taskId_unique",
-          "columns": [
-            "task_id"
-          ],
+          "columns": ["task_id"],
           "isUnique": true
         },
         "external_links_projectId_unique": {
           "name": "external_links_projectId_unique",
-          "columns": [
-            "project_id"
-          ],
+          "columns": ["project_id"],
           "isUnique": true
         },
         "external_links_eventId_unique": {
           "name": "external_links_eventId_unique",
-          "columns": [
-            "event_id"
-          ],
+          "columns": ["event_id"],
           "isUnique": true
         },
         "idx_external_links_source_id_state": {
           "name": "idx_external_links_source_id_state",
-          "columns": [
-            "source_id",
-            "state"
-          ],
+          "columns": ["source_id", "state"],
           "isUnique": false
         },
         "uq_external_links_source_external_id": {
           "name": "uq_external_links_source_external_id",
-          "columns": [
-            "source_id",
-            "external_id"
-          ],
+          "columns": ["source_id", "external_id"],
           "isUnique": true
         }
       },
@@ -643,12 +588,8 @@
           "name": "external_links_source_id_external_sources_id_fk",
           "tableFrom": "external_links",
           "tableTo": "external_sources",
-          "columnsFrom": [
-            "source_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -656,12 +597,8 @@
           "name": "external_links_task_id_tasks_id_fk",
           "tableFrom": "external_links",
           "tableTo": "tasks",
-          "columnsFrom": [
-            "task_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["task_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -669,12 +606,8 @@
           "name": "external_links_project_id_projects_id_fk",
           "tableFrom": "external_links",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -682,12 +615,8 @@
           "name": "external_links_event_id_events_id_fk",
           "tableFrom": "external_links",
           "tableTo": "events",
-          "columnsFrom": [
-            "event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["event_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -795,10 +724,7 @@
       "indexes": {
         "uq_external_sources_integration_type": {
           "name": "uq_external_sources_integration_type",
-          "columns": [
-            "integration_id",
-            "source_type"
-          ],
+          "columns": ["integration_id", "source_type"],
           "isUnique": true
         }
       },
@@ -807,12 +733,8 @@
           "name": "external_sources_integration_id_integrations_id_fk",
           "tableFrom": "external_sources",
           "tableTo": "integrations",
-          "columnsFrom": [
-            "integration_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["integration_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -901,10 +823,7 @@
       "indexes": {
         "uq_integrations_provider_account": {
           "name": "uq_integrations_provider_account",
-          "columns": [
-            "provider",
-            "account_id"
-          ],
+          "columns": ["provider", "account_id"],
           "isUnique": true
         }
       },
@@ -1013,100 +932,70 @@
       "indexes": {
         "notes_linkedEventId_unique": {
           "name": "notes_linkedEventId_unique",
-          "columns": [
-            "linked_event_id"
-          ],
+          "columns": ["linked_event_id"],
           "isUnique": true
         },
         "notes_linkedTaskId_unique": {
           "name": "notes_linkedTaskId_unique",
-          "columns": [
-            "linked_task_id"
-          ],
+          "columns": ["linked_task_id"],
           "isUnique": true
         },
         "idx_notes_project_id": {
           "name": "idx_notes_project_id",
-          "columns": [
-            "project_id"
-          ],
+          "columns": ["project_id"],
           "isUnique": false,
           "where": "\"notes\".\"archived_at\" is null"
         },
         "idx_notes_project_id_all": {
           "name": "idx_notes_project_id_all",
-          "columns": [
-            "project_id"
-          ],
+          "columns": ["project_id"],
           "isUnique": false
         },
         "idx_notes_linked_event_id": {
           "name": "idx_notes_linked_event_id",
-          "columns": [
-            "linked_event_id"
-          ],
+          "columns": ["linked_event_id"],
           "isUnique": false,
           "where": "\"notes\".\"archived_at\" is null"
         },
         "idx_notes_linked_task_id": {
           "name": "idx_notes_linked_task_id",
-          "columns": [
-            "linked_task_id"
-          ],
+          "columns": ["linked_task_id"],
           "isUnique": false,
           "where": "\"notes\".\"archived_at\" is null"
         },
         "idx_notes_updated_at_id": {
           "name": "idx_notes_updated_at_id",
-          "columns": [
-            "updated_at",
-            "id"
-          ],
+          "columns": ["updated_at", "id"],
           "isUnique": false,
           "where": "\"notes\".\"archived_at\" is null"
         },
         "idx_notes_created_at_id": {
           "name": "idx_notes_created_at_id",
-          "columns": [
-            "created_at",
-            "id"
-          ],
+          "columns": ["created_at", "id"],
           "isUnique": false,
           "where": "\"notes\".\"archived_at\" is null"
         },
         "idx_notes_title_id": {
           "name": "idx_notes_title_id",
-          "columns": [
-            "title",
-            "id"
-          ],
+          "columns": ["title", "id"],
           "isUnique": false,
           "where": "\"notes\".\"archived_at\" is null"
         },
         "idx_notes_archived_at_id": {
           "name": "idx_notes_archived_at_id",
-          "columns": [
-            "archived_at",
-            "id"
-          ],
+          "columns": ["archived_at", "id"],
           "isUnique": false,
           "where": "\"notes\".\"archived_at\" is not null"
         },
         "idx_notes_favorited_at_id": {
           "name": "idx_notes_favorited_at_id",
-          "columns": [
-            "favorited_at",
-            "id"
-          ],
+          "columns": ["favorited_at", "id"],
           "isUnique": false,
           "where": "(\"notes\".\"favorited_at\" is not null and \"notes\".\"archived_at\" is null)"
         },
         "idx_notes_viewed_at_id": {
           "name": "idx_notes_viewed_at_id",
-          "columns": [
-            "viewed_at",
-            "id"
-          ],
+          "columns": ["viewed_at", "id"],
           "isUnique": false,
           "where": "(\"notes\".\"viewed_at\" is not null and \"notes\".\"archived_at\" is null)"
         }
@@ -1116,12 +1005,8 @@
           "name": "notes_project_id_projects_id_fk",
           "tableFrom": "notes",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1129,12 +1014,8 @@
           "name": "notes_linked_event_id_events_id_fk",
           "tableFrom": "notes",
           "tableTo": "events",
-          "columnsFrom": [
-            "linked_event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["linked_event_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1142,12 +1023,8 @@
           "name": "notes_linked_task_id_tasks_id_fk",
           "tableFrom": "notes",
           "tableTo": "tasks",
-          "columnsFrom": [
-            "linked_task_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["linked_task_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1262,83 +1139,55 @@
       "indexes": {
         "idx_projects_status_due_date": {
           "name": "idx_projects_status_due_date",
-          "columns": [
-            "status",
-            "due_date"
-          ],
+          "columns": ["status", "due_date"],
           "isUnique": false,
           "where": "\"projects\".\"archived_at\" is null"
         },
         "idx_projects_due_date_id": {
           "name": "idx_projects_due_date_id",
-          "columns": [
-            "due_date",
-            "id"
-          ],
+          "columns": ["due_date", "id"],
           "isUnique": false,
           "where": "\"projects\".\"archived_at\" is null"
         },
         "idx_projects_due_date_nulls_last_id": {
           "name": "idx_projects_due_date_nulls_last_id",
-          "columns": [
-            "(\"due_date\" IS NULL)",
-            "due_date",
-            "id"
-          ],
+          "columns": ["(\"due_date\" IS NULL)", "due_date", "id"],
           "isUnique": false,
           "where": "\"projects\".\"archived_at\" is null"
         },
         "idx_projects_status_id": {
           "name": "idx_projects_status_id",
-          "columns": [
-            "status",
-            "id"
-          ],
+          "columns": ["status", "id"],
           "isUnique": false,
           "where": "\"projects\".\"archived_at\" is null"
         },
         "idx_projects_created_at_id": {
           "name": "idx_projects_created_at_id",
-          "columns": [
-            "created_at",
-            "id"
-          ],
+          "columns": ["created_at", "id"],
           "isUnique": false,
           "where": "\"projects\".\"archived_at\" is null"
         },
         "idx_projects_updated_at_id": {
           "name": "idx_projects_updated_at_id",
-          "columns": [
-            "updated_at",
-            "id"
-          ],
+          "columns": ["updated_at", "id"],
           "isUnique": false,
           "where": "\"projects\".\"archived_at\" is null"
         },
         "idx_projects_archived_at_id": {
           "name": "idx_projects_archived_at_id",
-          "columns": [
-            "archived_at",
-            "id"
-          ],
+          "columns": ["archived_at", "id"],
           "isUnique": false,
           "where": "\"projects\".\"archived_at\" is not null"
         },
         "idx_projects_favorited_at_id": {
           "name": "idx_projects_favorited_at_id",
-          "columns": [
-            "favorited_at",
-            "id"
-          ],
+          "columns": ["favorited_at", "id"],
           "isUnique": false,
           "where": "(\"projects\".\"favorited_at\" is not null and \"projects\".\"archived_at\" is null)"
         },
         "idx_projects_viewed_at_id": {
           "name": "idx_projects_viewed_at_id",
-          "columns": [
-            "viewed_at",
-            "id"
-          ],
+          "columns": ["viewed_at", "id"],
           "isUnique": false,
           "where": "(\"projects\".\"viewed_at\" is not null and \"projects\".\"archived_at\" is null)"
         }
@@ -1490,147 +1339,100 @@
       "indexes": {
         "idx_tasks_parent_task_id": {
           "name": "idx_tasks_parent_task_id",
-          "columns": [
-            "parent_task_id"
-          ],
+          "columns": ["parent_task_id"],
           "isUnique": false
         },
         "idx_tasks_project_id": {
           "name": "idx_tasks_project_id",
-          "columns": [
-            "project_id"
-          ],
+          "columns": ["project_id"],
           "isUnique": false,
           "where": "\"tasks\".\"archived_at\" is null"
         },
         "idx_tasks_linked_note_id": {
           "name": "idx_tasks_linked_note_id",
-          "columns": [
-            "linked_note_id"
-          ],
+          "columns": ["linked_note_id"],
           "isUnique": false,
           "where": "\"tasks\".\"archived_at\" is null"
         },
         "idx_tasks_linked_event_id": {
           "name": "idx_tasks_linked_event_id",
-          "columns": [
-            "linked_event_id"
-          ],
+          "columns": ["linked_event_id"],
           "isUnique": false,
           "where": "\"tasks\".\"archived_at\" is null"
         },
         "idx_tasks_project_id_all": {
           "name": "idx_tasks_project_id_all",
-          "columns": [
-            "project_id"
-          ],
+          "columns": ["project_id"],
           "isUnique": false
         },
         "idx_tasks_linked_event_id_all": {
           "name": "idx_tasks_linked_event_id_all",
-          "columns": [
-            "linked_event_id"
-          ],
+          "columns": ["linked_event_id"],
           "isUnique": false
         },
         "idx_tasks_status_due_date": {
           "name": "idx_tasks_status_due_date",
-          "columns": [
-            "status",
-            "due_date"
-          ],
+          "columns": ["status", "due_date"],
           "isUnique": false,
           "where": "\"tasks\".\"archived_at\" is null"
         },
         "idx_tasks_due_date_id": {
           "name": "idx_tasks_due_date_id",
-          "columns": [
-            "due_date",
-            "id"
-          ],
+          "columns": ["due_date", "id"],
           "isUnique": false,
           "where": "\"tasks\".\"archived_at\" is null"
         },
         "idx_tasks_due_date_nulls_last_id": {
           "name": "idx_tasks_due_date_nulls_last_id",
-          "columns": [
-            "(\"due_date\" IS NULL)",
-            "due_date",
-            "id"
-          ],
+          "columns": ["(\"due_date\" IS NULL)", "due_date", "id"],
           "isUnique": false,
           "where": "\"tasks\".\"archived_at\" is null"
         },
         "idx_tasks_priority_id": {
           "name": "idx_tasks_priority_id",
-          "columns": [
-            "priority",
-            "id"
-          ],
+          "columns": ["priority", "id"],
           "isUnique": false,
           "where": "\"tasks\".\"archived_at\" is null"
         },
         "idx_tasks_status_id": {
           "name": "idx_tasks_status_id",
-          "columns": [
-            "status",
-            "id"
-          ],
+          "columns": ["status", "id"],
           "isUnique": false,
           "where": "\"tasks\".\"archived_at\" is null"
         },
         "idx_tasks_created_at_id": {
           "name": "idx_tasks_created_at_id",
-          "columns": [
-            "created_at",
-            "id"
-          ],
+          "columns": ["created_at", "id"],
           "isUnique": false,
           "where": "\"tasks\".\"archived_at\" is null"
         },
         "idx_tasks_updated_at_id": {
           "name": "idx_tasks_updated_at_id",
-          "columns": [
-            "updated_at",
-            "id"
-          ],
+          "columns": ["updated_at", "id"],
           "isUnique": false,
           "where": "\"tasks\".\"archived_at\" is null"
         },
         "idx_tasks_parent_created_at_id": {
           "name": "idx_tasks_parent_created_at_id",
-          "columns": [
-            "parent_task_id",
-            "created_at",
-            "id"
-          ],
+          "columns": ["parent_task_id", "created_at", "id"],
           "isUnique": false,
           "where": "\"tasks\".\"archived_at\" is null"
         },
         "idx_tasks_archived_at_id": {
           "name": "idx_tasks_archived_at_id",
-          "columns": [
-            "archived_at",
-            "id"
-          ],
+          "columns": ["archived_at", "id"],
           "isUnique": false,
           "where": "\"tasks\".\"archived_at\" is not null"
         },
         "idx_tasks_favorited_at_id": {
           "name": "idx_tasks_favorited_at_id",
-          "columns": [
-            "favorited_at",
-            "id"
-          ],
+          "columns": ["favorited_at", "id"],
           "isUnique": false,
           "where": "(\"tasks\".\"favorited_at\" is not null and \"tasks\".\"archived_at\" is null)"
         },
         "idx_tasks_viewed_at_id": {
           "name": "idx_tasks_viewed_at_id",
-          "columns": [
-            "viewed_at",
-            "id"
-          ],
+          "columns": ["viewed_at", "id"],
           "isUnique": false,
           "where": "(\"tasks\".\"viewed_at\" is not null and \"tasks\".\"archived_at\" is null)"
         }
@@ -1640,12 +1442,8 @@
           "name": "tasks_parent_task_id_tasks_id_fk",
           "tableFrom": "tasks",
           "tableTo": "tasks",
-          "columnsFrom": [
-            "parent_task_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["parent_task_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1653,12 +1451,8 @@
           "name": "tasks_project_id_projects_id_fk",
           "tableFrom": "tasks",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1666,12 +1460,8 @@
           "name": "tasks_linked_event_id_events_id_fk",
           "tableFrom": "tasks",
           "tableTo": "events",
-          "columnsFrom": [
-            "linked_event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["linked_event_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1679,12 +1469,8 @@
           "name": "tasks_linked_note_id_notes_id_fk",
           "tableFrom": "tasks",
           "tableTo": "notes",
-          "columnsFrom": [
-            "linked_note_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["linked_note_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
