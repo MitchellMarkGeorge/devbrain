@@ -153,6 +153,10 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
+    // the design system's smallest window (window-min-width, window-min-height): below it the
+    // sidebar rail, the task rows and the week grid stop fitting
+    minWidth: 960,
+    minHeight: 640,
     show: false,
     // the theme's background, so the window never shows white before the page paints
     backgroundColor: windowBackground(nativeTheme),
