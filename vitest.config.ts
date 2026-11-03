@@ -5,6 +5,7 @@ import path from 'node:path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  oxc: { jsx: { runtime: 'automatic' } },
   resolve: {
     alias: [
       { find: '@common', replacement: path.resolve(__dirname, 'src/common') },
@@ -19,7 +20,11 @@ export default defineConfig({
   test: {
     environment: 'node',
     // core's tests, the main process's own in src/main/tests, and the shared and renderer code's
-    include: ['src/main/**/*.test.ts', 'src/common/**/*.test.ts', 'src/renderer/**/*.test.ts'],
+    include: [
+      'src/main/**/*.test.ts',
+      'src/common/**/*.test.ts',
+      'src/renderer/**/*.test.{ts,tsx}',
+    ],
     // run through vite rather than Node, so a test's vi.mock('node:fs') reaches the fs calls they
     // make (see tests/workspace/registry.test.ts)
     server: { deps: { inline: ['atomically', 'stubborn-fs'] } },

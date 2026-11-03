@@ -287,6 +287,122 @@
   }
 }
 
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --background: var(--neutral-950);
+  --foreground: var(--neutral-200); /* overrides shadcn neutral-50 */
+  --foreground-strong: var(--neutral-100); /* DevBrain addition */
+  --card: var(--neutral-900);
+  --card-foreground: var(--neutral-200);
+  --popover: var(--neutral-900);
+  --popover-foreground: var(--neutral-200);
+  --primary: var(--neutral-200);
+  --primary-foreground: var(--neutral-900);
+  --secondary: var(--neutral-800);
+  --secondary-foreground: var(--neutral-200);
+  --muted: var(--neutral-900);
+  --muted-foreground: var(--neutral-400);
+  --subtle-foreground: var(--neutral-500); /* DevBrain addition */
+  --accent: var(--neutral-800);
+  --pill-fill: var(--neutral-950);
+  --pill-fill-hover: rgba(38, 38, 38, 0.6);
+  --accent-foreground: var(--neutral-100);
+  --destructive: var(--red-400);
+  --border: rgba(229, 229, 229, 0.1);
+  --border-strong: rgba(229, 229, 229, 0.15); /* DevBrain addition */
+  --edge: rgba(229, 229, 229, 0.1);
+  --row-selected: rgba(229, 229, 229, 0.07);
+  --row-selected-foreground: #ffffff;
+  --input: rgba(229, 229, 229, 0.15);
+  --ring: var(--neutral-500);
+  --sidebar: var(--neutral-950); /* overrides shadcn neutral-900 */
+  --sidebar-foreground: var(--neutral-400); /* overrides shadcn foreground */
+  --sidebar-primary: var(--neutral-200);
+  --sidebar-primary-foreground: var(--neutral-900);
+  --sidebar-accent: var(--neutral-900);
+  --sidebar-accent-foreground: var(--neutral-100);
+  --sidebar-border: rgba(229, 229, 229, 0.1);
+  --sidebar-ring: var(--neutral-500);
+  --backdrop: rgba(0, 0, 0, 0.5);
+
+  --status-not-started: var(--neutral-500);
+  --status-in-progress: var(--orange-500);
+  --status-completed: var(--green-500);
+  --status-cancelled: var(--neutral-500);
+  --status-overdue: var(--red-400);
+  --priority-high: var(--red-400);
+  --priority-medium: var(--amber-500);
+  --priority-low: var(--emerald-600);
+  --health-on-track: var(--lime-500);
+  --health-at-risk: var(--amber-500);
+  --health-off-track: var(--red-400);
+  --health-not-started: var(--neutral-500);
+  --health-completed: var(--green-500);
+  --date-today: var(--amber-500);
+  --date-overdue: var(--red-400);
+  --status-in-progress-tint: rgba(255, 105, 0, 0.15);
+  --status-completed-tint: rgba(0, 201, 80, 0.15);
+  --status-overdue-tint: rgba(255, 100, 103, 0.15);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --background: var(--white);
+  --foreground: var(--neutral-950);
+  --foreground-strong: var(--neutral-950);
+  --card: var(--neutral-50);
+  --card-foreground: var(--neutral-950);
+  --popover: var(--white);
+  --popover-foreground: var(--neutral-950);
+  --primary: var(--neutral-900);
+  --primary-foreground: var(--neutral-50);
+  --secondary: var(--neutral-100);
+  --secondary-foreground: var(--neutral-900);
+  --muted: var(--neutral-100);
+  --muted-foreground: var(--neutral-500);
+  --subtle-foreground: var(--neutral-500);
+  --accent: var(--neutral-100);
+  --pill-fill: var(--white);
+  --pill-fill-hover: var(--neutral-100);
+  --accent-foreground: var(--neutral-900);
+  --destructive: var(--red-600);
+  --border: var(--neutral-200);
+  --border-strong: var(--neutral-200);
+  --edge: rgba(10, 10, 10, 0.1);
+  --row-selected: rgba(10, 10, 10, 0.05);
+  --row-selected-foreground: #0a0a0a;
+  --input: var(--neutral-200);
+  --ring: var(--neutral-500);
+  --sidebar: var(--neutral-50);
+  --sidebar-foreground: var(--neutral-500);
+  --sidebar-primary: var(--neutral-900);
+  --sidebar-primary-foreground: var(--neutral-50);
+  --sidebar-accent: var(--neutral-100);
+  --sidebar-accent-foreground: var(--neutral-900);
+  --sidebar-border: var(--neutral-200);
+  --sidebar-ring: var(--neutral-500);
+  --backdrop: rgba(0, 0, 0, 0.5);
+
+  --status-not-started: var(--neutral-500);
+  --status-in-progress: var(--orange-700);
+  --status-completed: var(--green-700);
+  --status-cancelled: var(--neutral-500);
+  --status-overdue: var(--red-600);
+  --priority-high: var(--red-600);
+  --priority-medium: var(--amber-700);
+  --priority-low: var(--emerald-700);
+  --health-on-track: var(--lime-700);
+  --health-at-risk: var(--amber-700);
+  --health-off-track: var(--red-600);
+  --health-not-started: var(--neutral-500);
+  --health-completed: var(--green-700);
+  --date-today: var(--amber-700);
+  --date-overdue: var(--red-600);
+  --status-in-progress-tint: rgba(202, 53, 0, 0.15);
+  --status-completed-tint: rgba(0, 130, 54, 0.15);
+  --status-overdue-tint: rgba(231, 0, 11, 0.15);
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --duration-fast: 0ms;

@@ -7,3 +7,7 @@ release
 *.tsbuildinfo
 .vite
 .dev
+
+storybook-static
+playwright-report
+test-results

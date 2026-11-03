@@ -1,3 +1,9 @@
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/geist-mono/400.css';
+@import '@fontsource/geist-mono/600.css';
+
 /*
  * The app's base styles: a reset (Josh Comeau's custom CSS reset,
  * https://www.joshwcomeau.com/css/custom-css-reset/) with the design system's page styles

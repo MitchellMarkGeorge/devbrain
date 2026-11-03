@@ -7,6 +7,10 @@ The design system for the DevBrain app. It was developed as "DevBrain Nova Lists
 The live, browsable version (every component with a preview, tokens and this brand book):
 https://claude.ai/artifact/9ZGwb8KzWqLyDsnPnoTLav
 
+## React implementation
+
+The component library lives in [`src/renderer/components/ui`](../../src/renderer/components/ui/README.md). Run `npm run storybook` to browse every component, its states, and a composed workspace example. Components use Base UI, CSS Modules, and the generated tokens, with typography and layout utilities alongside the documented controls.
+
 ## Files
 
 - `tokens.json`: the token source, and the only file here the app uses. `npm run tokens` generates

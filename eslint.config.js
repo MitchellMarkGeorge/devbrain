@@ -8,7 +8,12 @@ import globals from 'globals';
 export default tseslint.config(
   // Ignore build output and generated files
   {
-    ignores: ['dist/**', 'node_modules/**', 'docs/design-system/reference/**'],
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'docs/design-system/reference/**',
+      'storybook-static/**',
+    ],
   },
 
   // Base JS rules

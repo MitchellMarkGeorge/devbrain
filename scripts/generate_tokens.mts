@@ -154,6 +154,14 @@ lines.push(
   '}',
 );
 
+// Explicit overrides support isolated previews and browser consumers without Electron.
+lines.push(
+  '',
+  ...themeBlock('dark', ':root[data-theme="dark"]'),
+  '',
+  ...themeBlock('light', ':root[data-theme="light"]'),
+);
+
 lines.push(
   '',
   '@media (prefers-reduced-motion: reduce) {',
