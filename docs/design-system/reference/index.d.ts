@@ -118,6 +118,8 @@ export interface DialogProps {
 }
 export interface SheetProps {
   title: string;
+  /** float over the page (narrow windows); docked beside the page otherwise */
+  overlay?: boolean;
   description?: string;
   children?: Node;
 }

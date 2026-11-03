@@ -512,7 +512,12 @@
   function Sheet(props) {
     return h(
       'div',
-      { className: 'db-sheet', role: 'dialog', 'aria-label': props.title },
+      {
+        className: 'db-sheet',
+        role: 'dialog',
+        'aria-label': props.title,
+        'data-variant': props.overlay ? 'overlay' : 'docked',
+      },
       h(
         'div',
         { className: 'db-sheet-header' },

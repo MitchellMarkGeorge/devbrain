@@ -1411,6 +1411,16 @@ button.db-badge[data-variant='outline']:hover .db-badge-muted {
   border-color: var(--edge);
   border-radius: var(--radius-xl);
 }
+/* docked: a full-height column beside the page, which narrows to make room */
+.db-sheet[data-variant='docked'] {
+  max-width: none;
+  width: var(--sheet-width);
+  min-height: 100%;
+  border: 0;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: none;
+}
 .db-sheet-title {
   font: 500 16px/24px var(--font-sans);
 }
