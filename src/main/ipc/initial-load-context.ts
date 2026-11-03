@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { IPC_BOOT_CHANNEL } from '@common/ipc/constants';
+import { IPC_INITIAL_LOAD_CONTEXT_CHANNEL } from '@common/ipc/constants';
 import type { DevBrain, WorkspaceEntry } from '@main/core';
 import type { Page } from '@main/core/shared/pagination';
 import { lastOpenedWorkspace } from '../runtime/start';
@@ -8,7 +8,7 @@ import { lastOpenedWorkspace } from '../runtime/start';
 // loading state: the renderer can seed its query cache with it. Read again on every page load, so
 // a reload sees the workspace open now. Workspace info only: names, colors and ids, never anything
 // from a workspace's database.
-export interface BootSnapshot {
+export interface InitialLoadContext {
   // false when DevBrain could not be loaded: nothing that needs it can run
   devBrainAvailable: boolean;
   // the open workspace: what workspaces.current answers
@@ -21,7 +21,7 @@ export interface BootSnapshot {
 
 const NO_WORKSPACES: Page<WorkspaceEntry> = { items: [], nextCursor: null };
 
-export function bootSnapshot(devBrain: DevBrain | null): BootSnapshot {
+export function initialLoadContext(devBrain: DevBrain | null): InitialLoadContext {
   if (devBrain === null) {
     return { devBrainAvailable: false, current: null, last: null, workspaces: NO_WORKSPACES };
   }
@@ -36,24 +36,24 @@ export function bootSnapshot(devBrain: DevBrain | null): BootSnapshot {
 }
 
 /**
- * Answers the preload's synchronous boot message with `snapshot()`, or null when it throws (an
- * unreadable registry), so the page falls back to fetching. The renderer waits on the answer, so
- * one is always given. Returns the function that stops answering.
+ * Answers the preload's synchronous initial load context message with `build()`, or null when it
+ * throws (an unreadable registry), so the page falls back to fetching. The renderer waits on the
+ * answer, so one is always given. Returns the function that stops answering.
  */
-export function attachBoot(
-  snapshot: () => BootSnapshot,
+export function attachInitialLoadContext(
+  build: () => InitialLoadContext,
   onError: (error: unknown) => void,
 ): () => void {
   const listener = (event: { returnValue: unknown }) => {
     try {
-      event.returnValue = snapshot();
+      event.returnValue = build();
     } catch (error) {
       onError(error);
       event.returnValue = null;
     }
   };
-  ipcMain.on(IPC_BOOT_CHANNEL, listener);
+  ipcMain.on(IPC_INITIAL_LOAD_CONTEXT_CHANNEL, listener);
   return () => {
-    ipcMain.removeListener(IPC_BOOT_CHANNEL, listener);
+    ipcMain.removeListener(IPC_INITIAL_LOAD_CONTEXT_CHANNEL, listener);
   };
 }

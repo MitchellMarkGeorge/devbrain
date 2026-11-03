@@ -247,24 +247,26 @@ other three are for a status UI (a sync indicator, the integrations page). They 
 to every window, beside the entities their change maps to, so a view refetching on `changed` or
 `db.changes` doesn't need them.
 
-### The boot snapshot
+### The initial load context
 
-The one synchronous message. As the page loads, `readBoot` (in
-[`src/renderer/ipc/boot.ts`](../../src/renderer/ipc/boot.ts)) calls the bridge's `boot()`, which
-sends `ipc:boot` with `ipcRenderer.sendSync`. Main answers with a `BootSnapshot`
-([`src/main/ipc/boot.ts`](../../src/main/ipc/boot.ts)), built fresh for each load:
-`{ devBrainAvailable, current, last, workspaces }`, workspace info only. `last` is the workspace
-`workspaces.openLast` would open while none is open. When building it throws, main logs the error
-and answers `null`, so the page never waits forever.
+The one synchronous message. As the page loads, `readInitialLoadContext` (in
+[`src/renderer/ipc/initial-load-context.ts`](../../src/renderer/ipc/initial-load-context.ts)) calls
+the bridge's `initialLoadContext()`, which sends `ipc:initial-load-context` with
+`ipcRenderer.sendSync`. Main answers with an `InitialLoadContext`
+([`src/main/ipc/initial-load-context.ts`](../../src/main/ipc/initial-load-context.ts)), built fresh
+for each load: `{ devBrainAvailable, current, last, workspaces }`, workspace info only. `last` is
+the workspace `workspaces.openLast` would open while none is open. When building it throws, main
+logs the error and answers `null`, so the page never waits forever.
 
 `seedQueryCache` puts `current` and `workspaces` in the cache as `workspaces.current` and
 `workspaces.list` before the first render, so startup routing (the workspace, the picker or the
 create page) is decided at once, with no splash on a reload. The `workspaces` router's queries get
 `staleTime: Infinity`: main reports every change to them (`workspace` entities and
-`workspace.changed`), so they need no refetch on mount. With no snapshot, they fetch as usual.
+`workspace.changed`), so they need no refetch on mount. With no initial load context, they fetch as
+usual.
 
-`boot()` is the bridge's one route-specific member. Keep it to what the first render needs, read
-from memory and the registry file: the renderer is blocked while main builds it.
+`initialLoadContext()` is the bridge's one route-specific member. Keep it to what the first render
+needs, read from memory and the registry file: the renderer is blocked while main builds it.
 
 ### Invalidation in the renderer
 

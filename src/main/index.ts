@@ -25,7 +25,7 @@ import { createElectronDesktop } from './runtime/desktop';
 import { createMenuActions, installAppMenu } from './runtime/menu';
 import { applyTheme, windowBackground } from './runtime/theme';
 import { attachRouter } from './ipc/server';
-import { attachBoot, bootSnapshot } from './ipc/boot';
+import { attachInitialLoadContext, initialLoadContext } from './ipc/initial-load-context';
 import { ChangeTracker } from './ipc/changes';
 import { appRouter } from './ipc/router';
 import { createContext } from './ipc/context';
@@ -134,10 +134,10 @@ function attachIpc(devBrain: DevBrain | null) {
       else ipcLog.warn(`IPC call ${path} failed error=${code}`);
     },
   });
-  // what each page load renders first, read fresh every time (src/main/ipc/boot.ts)
-  attachBoot(
-    () => bootSnapshot(devBrain),
-    (error) => ipcLog.error('Building the boot snapshot failed', error),
+  // what each page load renders first, read fresh every time (src/main/ipc/initial-load-context.ts)
+  attachInitialLoadContext(
+    () => initialLoadContext(devBrain),
+    (error) => ipcLog.error('Building the initial load context failed', error),
   );
 }
 

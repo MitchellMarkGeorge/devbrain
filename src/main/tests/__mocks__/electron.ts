@@ -21,7 +21,8 @@ export const ipcMain = {
   removeHandler: vi.fn((channel: string) => {
     ipcHandlers.delete(channel);
   }),
-  // ipcMain.on's listeners, for the synchronous boot message (src/main/ipc/boot.ts)
+  // ipcMain.on's listeners, for the synchronous initial load context message
+  // (src/main/ipc/initial-load-context.ts)
   on: vi.fn((channel: string, listener: SyncListener) => {
     syncListeners.set(channel, listener);
   }),

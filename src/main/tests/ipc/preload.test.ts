@@ -14,16 +14,16 @@ describe('the preload bridge', () => {
     expect(contextBridge.exposeInMainWorld).toHaveBeenCalledWith('ipcBridge', {
       invoke: expect.any(Function),
       subscribe: expect.any(Function),
-      boot: expect.any(Function),
+      initialLoadContext: expect.any(Function),
     });
   });
 
-  it('reads the boot snapshot synchronously on the boot channel', () => {
-    const snapshot = { devBrainAvailable: false };
-    ipcRenderer.sendSync.mockReturnValue(snapshot);
+  it('reads the initial load context synchronously on its channel', () => {
+    const context = { devBrainAvailable: false };
+    ipcRenderer.sendSync.mockReturnValue(context);
 
-    expect(createBridge().boot()).toBe(snapshot);
-    expect(ipcRenderer.sendSync).toHaveBeenCalledWith('ipc:boot');
+    expect(createBridge().initialLoadContext()).toBe(context);
+    expect(ipcRenderer.sendSync).toHaveBeenCalledWith('ipc:initial-load-context');
   });
 
   it('invokes the call channel with the request', async () => {

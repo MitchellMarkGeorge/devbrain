@@ -3,10 +3,14 @@ import { QueryClient } from '@tanstack/react-query';
 import type { WorkspaceId } from '@common/ids';
 import type { IpcBridge } from '@common/ipc/types';
 import type { WorkspaceEntry } from '@main/core';
-import { readBoot, seedQueryCache, type BootSnapshot } from '../../ipc/boot';
+import {
+  readInitialLoadContext,
+  seedQueryCache,
+  type InitialLoadContext,
+} from '../../ipc/initial-load-context';
 import { trpc } from '../../ipc';
 
-// Reading main's boot snapshot as the page loads, and seeding the query cache with it.
+// Reading main's initial load context as the page loads, and seeding the query cache with it.
 
 const work = {
   id: 'wsp_work' as WorkspaceId,
@@ -14,30 +18,30 @@ const work = {
   color: '#3366ff',
 } as WorkspaceEntry;
 
-const snapshot: BootSnapshot = {
+const context: InitialLoadContext = {
   devBrainAvailable: true,
   current: work,
   last: null,
   workspaces: { items: [work], nextCursor: null },
 };
 
-function bridgeWith(boot: IpcBridge['boot']): IpcBridge {
-  return { invoke: vi.fn(), subscribe: vi.fn(), boot };
+function bridgeWith(initialLoadContext: IpcBridge['initialLoadContext']): IpcBridge {
+  return { invoke: vi.fn(), subscribe: vi.fn(), initialLoadContext };
 }
 
-describe('readBoot', () => {
-  it("returns main's snapshot", () => {
-    expect(readBoot(bridgeWith(() => snapshot))).toBe(snapshot);
+describe('readInitialLoadContext', () => {
+  it("returns main's context", () => {
+    expect(readInitialLoadContext(bridgeWith(() => context))).toBe(context);
   });
 
   it('returns null when main sent none', () => {
-    expect(readBoot(bridgeWith(() => null))).toBeNull();
-    expect(readBoot(bridgeWith(() => undefined))).toBeNull();
+    expect(readInitialLoadContext(bridgeWith(() => null))).toBeNull();
+    expect(readInitialLoadContext(bridgeWith(() => undefined))).toBeNull();
   });
 
   it('returns null when the bridge throws', () => {
     expect(
-      readBoot(
+      readInitialLoadContext(
         bridgeWith(() => {
           throw new Error('no reply');
         }),
@@ -49,16 +53,16 @@ describe('readBoot', () => {
 describe('seedQueryCache', () => {
   it('fills workspaces.current and workspaces.list, and keeps them fresh', () => {
     const queryClient = new QueryClient();
-    seedQueryCache(queryClient, snapshot);
+    seedQueryCache(queryClient, context);
 
     expect(queryClient.getQueryData(trpc.workspaces.current.queryKey())).toBe(work);
-    expect(queryClient.getQueryData(trpc.workspaces.list.queryKey())).toBe(snapshot.workspaces);
+    expect(queryClient.getQueryData(trpc.workspaces.list.queryKey())).toBe(context.workspaces);
     expect(queryClient.getQueryDefaults(trpc.workspaces.current.queryKey()).staleTime).toBe(
       Infinity,
     );
   });
 
-  it('seeds nothing without a snapshot, so the queries fetch', () => {
+  it('seeds nothing without a context, so the queries fetch', () => {
     const queryClient = new QueryClient();
     seedQueryCache(queryClient, null);
 

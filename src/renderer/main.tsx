@@ -4,7 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { App } from './App';
 import log from 'electron-log/renderer';
 import { events, queryInvalidator, queryClient } from './ipc';
-import { readBoot, seedQueryCache } from './ipc/boot';
+import { readInitialLoadContext, seedQueryCache } from './ipc/initial-load-context';
 import './styles/tokens.css';
 import './styles/base.css';
 
@@ -15,7 +15,7 @@ log.errorHandler.startCatching();
 queryInvalidator.listen(events);
 
 // what main holds now, so the first render shows the right screen with its data
-seedQueryCache(queryClient, readBoot());
+seedQueryCache(queryClient, readInitialLoadContext());
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

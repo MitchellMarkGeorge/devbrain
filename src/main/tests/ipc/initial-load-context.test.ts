@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DevBrain } from '@main/core';
-import { attachBoot, bootSnapshot } from '@main/ipc/boot';
+import { attachInitialLoadContext, initialLoadContext } from '@main/ipc/initial-load-context';
 import { resetElectronMock, sendSyncToMain } from '../__mocks__/electron';
 import { createWorkspace, tempDevBrain } from './helpers';
 
@@ -18,9 +18,9 @@ afterEach(async () => {
   await cleanup();
 });
 
-describe('bootSnapshot', () => {
+describe('initialLoadContext', () => {
   it('says DevBrain is unavailable when it did not load', () => {
-    expect(bootSnapshot(null)).toEqual({
+    expect(initialLoadContext(null)).toEqual({
       devBrainAvailable: false,
       current: null,
       last: null,
@@ -29,7 +29,7 @@ describe('bootSnapshot', () => {
   });
 
   it('has nothing to open in an empty folder', () => {
-    expect(bootSnapshot(devBrain)).toEqual({
+    expect(initialLoadContext(devBrain)).toEqual({
       devBrainAvailable: true,
       current: null,
       last: null,
@@ -42,10 +42,10 @@ describe('bootSnapshot', () => {
     await createWorkspace(devBrain, 'Home');
     devBrain.settings.set('state.lastWorkspaceId', work);
 
-    const snapshot = bootSnapshot(devBrain);
-    expect(snapshot.current).toBeNull();
-    expect(snapshot.last).toMatchObject({ id: work, name: 'Work' });
-    expect(snapshot.workspaces.items.map(({ name }) => name)).toEqual(['Work', 'Home']);
+    const context = initialLoadContext(devBrain);
+    expect(context.current).toBeNull();
+    expect(context.last).toMatchObject({ id: work, name: 'Work' });
+    expect(context.workspaces.items.map(({ name }) => name)).toEqual(['Work', 'Home']);
   });
 
   it('has the open workspace, and no last one to open, once one is open', async () => {
@@ -53,33 +53,33 @@ describe('bootSnapshot', () => {
     devBrain.settings.set('state.lastWorkspaceId', work);
     await devBrain.workspaces.open(work);
 
-    expect(bootSnapshot(devBrain)).toMatchObject({ current: { id: work }, last: null });
+    expect(initialLoadContext(devBrain)).toMatchObject({ current: { id: work }, last: null });
   });
 });
 
-describe('attachBoot', () => {
-  it('answers the boot message with a fresh snapshot each time', () => {
+describe('attachInitialLoadContext', () => {
+  it('answers the initial load context message with a fresh context each time', () => {
     let n = 0;
-    attachBoot(() => ({ n: ++n }) as never, vi.fn());
+    attachInitialLoadContext(() => ({ n: ++n }) as never, vi.fn());
 
-    expect(sendSyncToMain('ipc:boot')).toEqual({ n: 1 });
-    expect(sendSyncToMain('ipc:boot')).toEqual({ n: 2 });
+    expect(sendSyncToMain('ipc:initial-load-context')).toEqual({ n: 1 });
+    expect(sendSyncToMain('ipc:initial-load-context')).toEqual({ n: 2 });
   });
 
-  it('answers null when the snapshot throws, reporting the error', () => {
+  it('answers null when building the context throws, reporting the error', () => {
     const onError = vi.fn();
     const error = new Error('unreadable registry');
-    attachBoot(() => {
+    attachInitialLoadContext(() => {
       throw error;
     }, onError);
 
-    expect(sendSyncToMain('ipc:boot')).toBeNull();
+    expect(sendSyncToMain('ipc:initial-load-context')).toBeNull();
     expect(onError).toHaveBeenCalledWith(error);
   });
 
   it('stops answering once detached', () => {
-    const detach = attachBoot(() => ({}) as never, vi.fn());
+    const detach = attachInitialLoadContext(() => ({}) as never, vi.fn());
     detach();
-    expect(() => sendSyncToMain('ipc:boot')).toThrow('No listener');
+    expect(() => sendSyncToMain('ipc:initial-load-context')).toThrow('No listener');
   });
 });
