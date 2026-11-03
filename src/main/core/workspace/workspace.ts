@@ -16,12 +16,13 @@ import { IntegrationService } from '../integrations/service';
 import { createIntegrationServices } from '../integrations/setup';
 import { SyncEngine } from '../sync/engine';
 import { SyncScheduler } from '../sync/scheduler';
-import { HISTORY_FETCH_WAIT_MS } from '../sync/constants';
+import { EVENT_HISTORY_WINDOW_MS, HISTORY_FETCH_WAIT_MS } from '../sync/constants';
+import { calendarCoveredFrom } from '../sync/event-cursor';
 import { SyncStateManager } from '../sync/sync-state';
 import { SyncWriter } from '../sync/writer';
 import { TaskReconciler } from '../sync/task-reconciler';
 import type { WorkspaceInfo, WorkspaceOptions } from './types';
-import type { CalendarId } from '@common/ids';
+import type { CalendarId, ExternalSourceId } from '@common/ids';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { isDevBrainDatabase, runMigrations } from '@main/db/migrate';
@@ -83,6 +84,8 @@ export class Workspace {
   // syncNow, getStatus and onProgress for the app; trigger for focus and resume. Started by
   // WorkspaceService.open, stopped by close()
   readonly sync: SyncScheduler;
+  // each source's cursor, for how far back its calendars are synced (fetchHistory)
+  private readonly syncState: SyncStateManager;
   /**
    * Opens a link in the system browser: a synced item's provider page, a meeting link, a link in a
    * description. Only http and https URLs are opened; anything else throws UnsafeUrlError and
@@ -152,6 +155,7 @@ export class Workspace {
       this.search.removeFromIndex([...taskIds, ...projectIds, ...eventIds]);
     });
     const syncState = new SyncStateManager(db);
+    this.syncState = syncState;
     const writer = new SyncWriter(db, this.search);
     const { logger } = options;
     const engine = new SyncEngine(db, {
@@ -185,17 +189,25 @@ export class Workspace {
   }
 
   /**
-   * EventService's FetchHistory: asks the synced calendars a read covers for their events from
-   * `from` on (CalendarService.requestHistory), then runs their sources, as a selection change
-   * does, and waits for those runs, up to HISTORY_FETCH_WAIT_MS. The runs backfill what the
-   * mirror does not reach (see EventSyncer) and go on past the wait if they need to. Nothing runs
-   * when no calendar's historyFrom changed: the history was asked for before, and was fetched or
-   * is left to the sources' next runs. Never rejects: the read then returns what it has.
+   * EventService's FetchHistory. The synced calendars a read covers ask for their events from
+   * `from` on (CalendarService.requestHistory). Those whose sync does not reach back that far yet
+   * (calendarCoveredFrom, from their source's cursor) have their sources run, as a selection change
+   * does, and this waits for those runs, up to HISTORY_FETCH_WAIT_MS. The runs backfill the gap
+   * (see EventSyncer) and go on past the wait if they need to. A fetch that failed is tried again
+   * by the next read that reaches before what sync covers. Never rejects: the read then returns
+   * what it has.
    */
   private async fetchHistory(from: Date, calendarIds?: CalendarId[]): Promise<void> {
     try {
-      const requested = this.calendars.requestHistory(from, calendarIds);
-      const sourceIds = new Set(requested.flatMap(({ sourceId }) => sourceId ?? []));
+      const defaultFrom = new Date(Date.now() - EVENT_HISTORY_WINDOW_MS);
+      const sourceIds = new Set<ExternalSourceId>();
+      for (const calendar of this.calendars.requestHistory(from, calendarIds)) {
+        const { sourceId, externalId } = calendar;
+        if (sourceId === null || externalId === null || sourceIds.has(sourceId)) continue;
+        const { cursor } = this.syncState.getSyncTarget(sourceId);
+        const coveredFrom = calendarCoveredFrom(cursor, externalId, defaultFrom);
+        if (coveredFrom === null || coveredFrom > from) sourceIds.add(sourceId);
+      }
       if (sourceIds.size === 0) return;
       const runs = Promise.all([...sourceIds].map((id) => this.sync.trigger('connected', id)));
       await waitAtMost(runs, HISTORY_FETCH_WAIT_MS);

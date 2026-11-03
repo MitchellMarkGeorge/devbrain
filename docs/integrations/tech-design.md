@@ -463,7 +463,7 @@ Local subtasks inherit links from their parent. External subtasks do not; each c
 
 ## External events
 
-Google Calendar events are mirrored as `events` rows for the calendars the user selects, from 30 days back with no forward limit. Older history is fetched on demand: reading a range that starts before the window (`events.listForCalendar`) lowers the calendars' `historyFrom`, runs their sources, which backfill the gap (see step 5 below), and waits for them, up to `HISTORY_FETCH_WAIT_MS`, before reading the database.
+Google Calendar events are mirrored as `events` rows for the calendars the user selects, from 30 days back with no forward limit. Older history is fetched on demand: reading a range that starts before the window (`events.listForCalendar`) lowers the calendars' `historyFrom` and, for those whose sync does not reach back that far yet, runs their sources, which backfill the gap (see step 5 below), and waits for them, up to `HISTORY_FETCH_WAIT_MS`, before reading the database.
 
 **Event types.** Only `default`, `focusTime`, `outOfOffice` and `fromGmail` events are mirrored, through the `eventTypes` request filter. `workingLocation` (a daily all-day marker, not an event) and `birthday` (generated from contacts) are left out. The type is kept as `events.kind` so the calendar can show focus time and time off apart from meetings. A sync token belongs to the query it was issued for, so changing the list later means a full resync of every calendar.
 

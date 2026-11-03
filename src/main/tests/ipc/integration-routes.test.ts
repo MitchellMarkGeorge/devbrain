@@ -590,4 +590,25 @@ describe('calendars', () => {
     expect(trigger).toHaveBeenCalledOnce();
     expect(calendarProvider.calendars.pulls).toHaveLength(pulls);
   });
+
+  it('tries an older range again on the next read when its fetch failed', async () => {
+    await connectCalendar();
+    const DAY = 24 * 60 * 60 * 1000;
+    const start = new Date(Date.now() - 730 * DAY);
+    const end = new Date(start.getTime() + 7 * DAY);
+    calendarProvider.calendars.events.set('ada@example.com', [
+      oldEvent(new Date(start.getTime() + DAY)),
+    ]);
+    // the backfill's request fails, as it would offline
+    vi.spyOn(calendarProvider.calendars, 'getEventPage').mockRejectedValueOnce(
+      new Error('offline'),
+    );
+
+    const first = await call('events.listForCalendar', { start, end });
+    expect(data<Event[]>(first)).toEqual([]);
+
+    // history was asked for, but sync does not reach it yet: the read fetches again
+    const second = await call('events.listForCalendar', { start, end });
+    expect(data<Event[]>(second).map((event) => event.title)).toEqual(['Old review']);
+  });
 });

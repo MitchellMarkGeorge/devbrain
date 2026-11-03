@@ -11,7 +11,7 @@ import {
 } from '../integrations/providers/provider';
 import { ExternalCalendar } from '../integrations/types';
 import { EVENT_HISTORY_WINDOW_MS } from './constants';
-import { CalendarSyncState, EventCursor, eventCursorSchema } from './event-cursor';
+import { CalendarSyncState, coveredFromOf, EventCursor, eventCursorSchema } from './event-cursor';
 import { selectedOnFirstListing, SyncWriter } from './writer';
 import { ActiveSync, combineSummaries, NOTHING_APPLIED, RunContext, Syncer } from './syncer';
 import { EventSyncPage, FullPass, SyncCursor } from './types';
@@ -352,8 +352,8 @@ export class EventSyncer implements Syncer {
     if (state.backfill !== undefined || state.pageToken !== null || historyFrom === null) {
       return state;
     }
-    const coveredFrom =
-      state.coveredFrom !== undefined ? new Date(state.coveredFrom) : this.defaultFrom();
+    // a change token means the first full pass has ended, so this is a date
+    const coveredFrom = coveredFromOf(state, this.defaultFrom())!;
     if (historyFrom >= coveredFrom) return state;
     return {
       ...state,

@@ -519,7 +519,7 @@ describe('CalendarService', () => {
       calendarService = new CalendarService(db, () => NOW);
     });
 
-    it('lowers historyFrom on the selected, visible synced calendars, announcing nothing', () => {
+    it('lowers historyFrom on the selected, visible synced calendars and returns them, announcing nothing', () => {
       const shown = syncedCalendar({ selected: true });
       const hidden = syncedCalendar({ selected: true, visible: false });
       const unselected = syncedCalendar({ selected: false });
@@ -546,18 +546,18 @@ describe('CalendarService', () => {
       expect(calendarService.getById(first).historyFrom).toBeNull();
     });
 
-    it('changes nothing inside the default window, or for a time already asked for', () => {
+    it('returns none inside the default window, and only ever lowers historyFrom', () => {
       const synced = syncedCalendar({ selected: true });
 
       expect(calendarService.requestHistory(new Date(NOW.getTime() - 10 * DAY))).toEqual([]);
       expect(calendarService.getById(synced).historyFrom).toBeNull();
 
-      expect(calendarService.requestHistory(TWO_YEARS_AGO)).toHaveLength(1);
-      expect(calendarService.requestHistory(TWO_YEARS_AGO)).toEqual([]);
-      expect(calendarService.requestHistory(new Date(TWO_YEARS_AGO.getTime() + DAY))).toEqual([]);
-      // further back still lowers it
+      calendarService.requestHistory(TWO_YEARS_AGO);
+      // a later time still returns the calendar, for its sync to be checked, but keeps the earlier
+      const [later] = calendarService.requestHistory(new Date(TWO_YEARS_AGO.getTime() + DAY));
+      expect(later).toMatchObject({ id: synced, historyFrom: TWO_YEARS_AGO });
       const older = new Date(TWO_YEARS_AGO.getTime() - DAY);
-      expect(calendarService.requestHistory(older)).toHaveLength(1);
+      calendarService.requestHistory(older);
       expect(calendarService.getById(synced).historyFrom).toEqual(older);
     });
   });
