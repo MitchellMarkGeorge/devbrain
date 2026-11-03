@@ -70,7 +70,7 @@ export class EventFetcher {
       this.calendarsBehind(from, calendarIds).map(async (calendar) => {
         try {
           const until = calendar.historyLoadedFrom ?? windowFrom;
-          return (await this.fetchCalendar(calendar, from, until)) ? [calendar.id] : [];
+          return (await this.fetchEvents(calendar, from, until)) ? [calendar.id] : [];
         } catch (error) {
           this.logger.error(
             `Fetching calendar history failed calendar=${calendar.id} error=${errorClass(error)}`,
@@ -108,7 +108,7 @@ export class EventFetcher {
    * meanwhile, since its next sync run removes its events. Rejected credentials and rate limits
    * are recorded as a run's are, then rethrown.
    */
-  private async fetchCalendar(calendar: CalendarRow, from: Date, until: Date): Promise<boolean> {
+  private async fetchEvents(calendar: CalendarRow, from: Date, until: Date): Promise<boolean> {
     const { db, credentials, providers, writer, syncState, integrations, signal } = this.options;
     const sourceId = calendar.sourceId!;
     const target = syncState.getSyncTarget(sourceId);
