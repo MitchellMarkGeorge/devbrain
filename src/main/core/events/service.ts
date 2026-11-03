@@ -15,7 +15,15 @@ import {
   OccurrenceScope,
   UpdateEventOptions,
 } from './types';
-import { addDaysToDate, daysBetween, ruleContinuingFrom, ruleEndingBefore } from './recurrence';
+import {
+  addDaysToDate,
+  checkRule,
+  daysBetween,
+  hasOccurrenceBefore,
+  isOccurrence,
+  ruleContinuingFrom,
+  ruleEndingBefore,
+} from './recurrence';
 import {
   assertEditable,
   assertRowEditable,
@@ -102,7 +110,8 @@ export class EventService {
       }),
       timeZone: options.timeZone !== undefined ? checkTimeZone(options.timeZone) : localTimeZone(),
       location: options.location ?? null,
-      recurrenceRule: options.recurrenceRule ?? null,
+      recurrenceRule:
+        options.recurrenceRule !== undefined ? checkRule(options.recurrenceRule) : null,
       ...(options.status && { status: options.status }),
       ...(options.kind && { kind: options.kind }),
       meetingUrl: options.meetingUrl ?? null,
@@ -126,6 +135,7 @@ export class EventService {
     if (updates.calendarId !== undefined) this.assertLocalCalendar(updates.calendarId);
 
     if (updates.timeZone !== undefined) checkTimeZone(updates.timeZone);
+    if (typeof updates.recurrenceRule === 'string') checkRule(updates.recurrenceRule);
     const { rest, timing: newTiming } = splitUpdates(existing, updates);
     const set = { ...rest, ...newTiming };
 
@@ -169,6 +179,7 @@ export class EventService {
     const series = this.getSeries(ref);
     if (updates.timeZone !== undefined) checkTimeZone(updates.timeZone);
     if (scope === 'this') return this.updateThisOccurrence(series, ref.originalStartAt, updates);
+    if (typeof updates.recurrenceRule === 'string') checkRule(updates.recurrenceRule);
     if (updates.calendarId !== undefined) this.assertLocalCalendar(updates.calendarId);
     return this.updateFollowingOccurrences(series, ref.originalStartAt, updates);
   }
@@ -184,7 +195,7 @@ export class EventService {
   deleteOccurrence(ref: OccurrenceRef, scope: OccurrenceScope): void {
     const series = this.getSeries(ref);
     const at = ref.originalStartAt;
-    if (scope === 'following' && at.getTime() === series.startAt.getTime()) {
+    if (scope === 'following' && !hasOccurrenceBefore(series.recurrenceRule!, series, at)) {
       return this.deleteEvent(series.id);
     }
     // worked out before the transaction, so a rule that cannot be split writes nothing
@@ -268,7 +279,8 @@ export class EventService {
   }
 
   private updateFollowingOccurrences(series: Event, at: Date, updates: UpdateEventOptions): Event {
-    const atFirst = at.getTime() === series.startAt.getTime();
+    // its first occurrence, which is not startAt when the rule skips that day
+    const atFirst = !hasOccurrenceBefore(series.recurrenceRule!, series, at);
     const slot = slotOf(series, at);
     const { rest, timing: newTiming } = splitUpdates(slot, updates);
     const start = { ...slot, ...newTiming };
@@ -370,8 +382,27 @@ export class EventService {
     if (series.recurrenceRule === null) {
       throw new InvalidInputError(`Not a recurring event: ${series.id}`);
     }
-    if (ref.originalStartAt.getTime() < series.startAt.getTime()) {
-      throw new InvalidInputError('The occurrence starts before its series');
+    // one stored before rules were checked may not be readable
+    checkRule(series.recurrenceRule);
+    // an occurrence the rule makes, or one that has a row or was cancelled, though the rule has
+    // changed since
+    const at = ref.originalStartAt;
+    if (
+      !isOccurrence(series.recurrenceRule, series, at) &&
+      !this.db
+        .select({ id: events.id })
+        .from(events)
+        .where(and(eq(events.seriesId, series.id), eq(events.originalStartAt, at)))
+        .get() &&
+      !this.db
+        .select({ seriesId: eventExceptions.seriesId })
+        .from(eventExceptions)
+        .where(
+          and(eq(eventExceptions.seriesId, series.id), eq(eventExceptions.originalStartAt, at)),
+        )
+        .get()
+    ) {
+      throw new InvalidInputError(`Not an occurrence of ${series.id}: ${at.toISOString()}`);
     }
     return series;
   }

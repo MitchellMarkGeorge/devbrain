@@ -433,3 +433,176 @@ describe('removing a series keeps the occurrences notes and tasks link to', () =
     expect(() => service.getById(forNote.id)).toThrow(NotFoundError);
   });
 });
+
+describe('an occurrence is one the series has', () => {
+  // weekly on Mondays, created on Wednesday 3 June: the first occurrence is Monday 8 June
+  const WEDNESDAY = new Date('2026-06-03T09:00:00.000Z');
+  const monday = (week: number) => new Date(Date.UTC(2026, 5, 8 + 7 * week, 9));
+
+  function mondays(rule = 'RRULE:FREQ=WEEKLY;BYDAY=MO') {
+    return service.createEvent({
+      title: 'Planning',
+      startAt: WEDNESDAY,
+      endAt: new Date(WEDNESDAY.getTime() + HOUR),
+      timeZone: 'UTC',
+      recurrenceRule: rule,
+    });
+  }
+
+  it('refuses a time the rule does not make, writing nothing', () => {
+    const series = dailySeries();
+    const offRule = new Date(day(2).getTime() + HOUR / 2);
+
+    for (const scope of ['this', 'following'] as const) {
+      expect(() =>
+        service.updateOccurrence({ seriesId: series.id, originalStartAt: offRule }, scope, {
+          title: 'X',
+        }),
+      ).toThrow(InvalidInputError);
+      expect(() =>
+        service.deleteOccurrence({ seriesId: series.id, originalStartAt: offRule }, scope),
+      ).toThrow(InvalidInputError);
+    }
+    expect(occurrenceRows(series.id)).toEqual([]);
+    expect(service.getById(series.id)).toMatchObject({ recurrenceRule: 'RRULE:FREQ=DAILY' });
+    expect(service.getById(series.id).exdates).toEqual([]);
+  });
+
+  it("refuses an occurrence after an UNTIL, rather than moving the series' end", () => {
+    const rule = 'RRULE:FREQ=DAILY;UNTIL=20260605T090000Z';
+    const series = dailySeries(rule);
+
+    expect(() =>
+      service.deleteOccurrence({ seriesId: series.id, originalStartAt: day(10) }, 'following'),
+    ).toThrow(InvalidInputError);
+    expect(() =>
+      service.updateOccurrence({ seriesId: series.id, originalStartAt: day(10) }, 'following', {
+        title: 'X',
+      }),
+    ).toThrow(InvalidInputError);
+    expect(service.getById(series.id).recurrenceRule).toBe(rule);
+    expect(db.select().from(events).all()).toHaveLength(1);
+  });
+
+  it("refuses a deleted COUNT series' later times, rather than extending it", () => {
+    const rule = 'RRULE:FREQ=DAILY;COUNT=3';
+    const series = dailySeries(rule);
+
+    expect(() =>
+      service.deleteOccurrence({ seriesId: series.id, originalStartAt: day(5) }, 'following'),
+    ).toThrow(InvalidInputError);
+    expect(service.getById(series.id).recurrenceRule).toBe(rule);
+  });
+
+  it("refuses the start of a series the rule skips, as FullCalendar doesn't draw it", () => {
+    const series = mondays();
+
+    expect(() =>
+      service.updateOccurrence({ seriesId: series.id, originalStartAt: WEDNESDAY }, 'this', {
+        title: 'X',
+      }),
+    ).toThrow(InvalidInputError);
+  });
+
+  it('deletes the whole series from its first drawn occurrence when its start is skipped', () => {
+    const series = mondays();
+
+    service.deleteOccurrence({ seriesId: series.id, originalStartAt: monday(0) }, 'following');
+
+    expect(() => service.getById(series.id)).toThrow(NotFoundError);
+  });
+
+  it('updates the series itself from its first drawn occurrence, moving its start there', () => {
+    const series = mondays('RRULE:FREQ=WEEKLY;BYDAY=MO;COUNT=3');
+
+    const updated = service.updateOccurrence(
+      { seriesId: series.id, originalStartAt: monday(0) },
+      'following',
+      { title: 'Planning v2' },
+    );
+
+    expect(updated).toMatchObject({
+      id: series.id,
+      title: 'Planning v2',
+      startAt: monday(0),
+      recurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO;COUNT=3',
+    });
+    expect(db.select().from(events).all()).toHaveLength(1);
+  });
+
+  it('counts a COUNT from the first drawn occurrence when the start is skipped', () => {
+    const series = mondays('RRULE:FREQ=WEEKLY;BYDAY=MO;COUNT=3');
+
+    const next = service.updateOccurrence(
+      { seriesId: series.id, originalStartAt: monday(1) },
+      'following',
+      { title: 'Planning v2' },
+    );
+
+    expect(next.recurrenceRule).toBe('RRULE:FREQ=WEEKLY;BYDAY=MO;COUNT=2');
+  });
+
+  it("accepts an RDATE's occurrence, and refuses an EXDATE's", () => {
+    const series = dailySeries(
+      'RRULE:FREQ=DAILY;COUNT=3\nRDATE:20260620T150000Z\nEXDATE:20260602T090000Z',
+    );
+
+    const extra = service.updateOccurrence(
+      { seriesId: series.id, originalStartAt: new Date('2026-06-20T15:00:00.000Z') },
+      'this',
+      { title: 'Extra' },
+    );
+    expect(extra.title).toBe('Extra');
+    expect(() =>
+      service.updateOccurrence({ seriesId: series.id, originalStartAt: day(1) }, 'this', {
+        title: 'X',
+      }),
+    ).toThrow(InvalidInputError);
+  });
+
+  it('accepts an occurrence row whose slot the rule no longer makes', () => {
+    const series = dailySeries();
+    const row = service.updateOccurrence({ seriesId: series.id, originalStartAt: day(3) }, 'this', {
+      title: 'Moved',
+    });
+    service.updateEvent(series.id, { recurrenceRule: 'RRULE:FREQ=WEEKLY' });
+
+    service.deleteOccurrence({ seriesId: series.id, originalStartAt: day(3) }, 'this');
+
+    expect(() => service.getById(row.id)).toThrow(NotFoundError);
+  });
+
+  it('refuses an all-day time that is not the start of its day', () => {
+    const series = service.createEvent({
+      title: 'Offsite',
+      startAt: fromDateString('2026-06-01'),
+      endAt: fromDateString('2026-06-02'),
+      allDay: true,
+      recurrenceRule: 'RRULE:FREQ=WEEKLY',
+    });
+    const ref = (at: Date) => ({ seriesId: series.id, originalStartAt: at });
+
+    expect(() =>
+      service.updateOccurrence(
+        ref(new Date(fromDateString('2026-06-08').getTime() + HOUR)),
+        'this',
+        { title: 'X' },
+      ),
+    ).toThrow(InvalidInputError);
+    expect(
+      service.updateOccurrence(ref(fromDateString('2026-06-08')), 'this', { title: 'Y' }).title,
+    ).toBe('Y');
+  });
+
+  it('refuses a stored rule it cannot read with invalid_input', () => {
+    const series = dailySeries();
+    db.update(events)
+      .set({ recurrenceRule: 'RRULE:FREQ=SOMETIMES' })
+      .where(eq(events.id, series.id))
+      .run();
+
+    expect(() =>
+      service.deleteOccurrence({ seriesId: series.id, originalStartAt: day(1) }, 'this'),
+    ).toThrow(InvalidInputError);
+  });
+});

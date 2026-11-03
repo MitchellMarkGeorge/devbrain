@@ -3,7 +3,7 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { generateId } from '@common/ids';
 import { EventChange, EventService } from '../../events/service';
 import { events } from '@main/db/schema/events';
-import { NotFoundError } from '../../shared/errors';
+import { InvalidInputError, NotFoundError } from '../../shared/errors';
 import { createDb } from '../utils';
 
 // a fixed "day view" window, used across the listForCalendar range tests so
@@ -82,6 +82,66 @@ describe('EventService — createEvent', () => {
         message: expect.stringMatching(/endAt must not be before startAt/i),
       }),
     );
+  });
+  it('accepts the RFC 5545 lines a series can have', () => {
+    for (const recurrenceRule of [
+      'RRULE:FREQ=DAILY;COUNT=5',
+      'rrule:FREQ=WEEKLY;BYDAY=MO,WE',
+      'RRULE:FREQ=WEEKLY;UNTIL=20261231T235959Z\nEXDATE;TZID=America/Toronto:20260615T090000',
+      'RRULE:FREQ=MONTHLY\nRDATE:20260620T090000Z,20260621T090000Z\nEXRULE:FREQ=YEARLY',
+      'RRULE:FREQ=WEEKLY\nEXDATE;VALUE=DATE:20260615',
+    ]) {
+      const event = eventsService.createEvent({
+        title: 'Series',
+        startAt: new Date('2026-06-01T09:00:00.000Z'),
+        endAt: new Date('2026-06-01T10:00:00.000Z'),
+        recurrenceRule,
+      });
+      expect(event.recurrenceRule).toBe(recurrenceRule);
+    }
+  });
+
+  it('refuses a rule FullCalendar could not expand, writing nothing', () => {
+    for (const recurrenceRule of [
+      '',
+      'FREQ=DAILY',
+      'DTSTART:20260601T090000Z\nRRULE:FREQ=DAILY',
+      'RRULE:FREQ=SOMETIMES;COUNT=5',
+      'RRULE:COUNT=5',
+      'RRULE:FREQ=DAILY;FOO=1',
+      // rrule, which FullCalendar expands with too, reads weekdays in upper case only
+      'RRULE:FREQ=WEEKLY;BYDAY=mo',
+      'RRULE:FREQ=WEEKLY;BYDAY=XX',
+      'RRULE:FREQ=DAILY;COUNT=5;UNTIL=20261231T000000Z',
+      'RRULE:FREQ=DAILY\nRRULE:FREQ=WEEKLY\nEXDATE:June 15',
+      'EXDATE:20260615T090000Z',
+    ]) {
+      expect(
+        () =>
+          eventsService.createEvent({
+            title: 'Series',
+            startAt: new Date('2026-06-01T09:00:00.000Z'),
+            endAt: new Date('2026-06-01T10:00:00.000Z'),
+            recurrenceRule,
+          }),
+        recurrenceRule,
+      ).toThrow(InvalidInputError);
+    }
+    expect(db.select().from(events).all()).toEqual([]);
+  });
+
+  it('checks a rule given to updateEvent the same way', () => {
+    const event = eventsService.createEvent({
+      title: 'Once',
+      startAt: new Date('2026-06-01T09:00:00.000Z'),
+      endAt: new Date('2026-06-01T10:00:00.000Z'),
+    });
+    expect(() => eventsService.updateEvent(event.id, { recurrenceRule: 'FREQ=DAILY' })).toThrow(
+      InvalidInputError,
+    );
+    expect(
+      eventsService.updateEvent(event.id, { recurrenceRule: 'RRULE:FREQ=DAILY' }).recurrenceRule,
+    ).toBe('RRULE:FREQ=DAILY');
   });
 });
 
