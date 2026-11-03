@@ -31,6 +31,11 @@ export interface CalendarRangeOptions {
   calendarIds?: CalendarId[];
 }
 
+// Brings synced calendars' events from `from` on into the database, for a read that reaches back
+// before the window sync keeps. The workspace provides it (Workspace.fetchHistory); it never
+// rejects, and returns at once when there is nothing to fetch.
+export type FetchHistory = (from: Date, calendarIds?: CalendarId[]) => Promise<void>;
+
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
 // layer will forward them to the renderer. Sent after the write commits, with the row as written.
 // `deleted` carries every row the delete removed: the event, and a series' occurrence rows.
@@ -42,7 +47,11 @@ export type EventChange =
 export class EventService {
   private readonly changes = new ChangeListeners<EventChange>('Event');
 
-  constructor(private readonly db: BetterSQLite3Database) {}
+  constructor(
+    private readonly db: BetterSQLite3Database,
+    // none in tests that read the database alone
+    private readonly fetchHistory?: FetchHistory,
+  ) {}
 
   // returns a function that unsubscribes the listener
   onChange(listener: ChangeListener<EventChange>): () => void {
@@ -159,8 +168,24 @@ export class EventService {
    *
    * Events whose provider item was cancelled or deleted (link state `removed`) are kept only for
    * the notes linked to them, and are left out of the calendar.
+   *
+   * Synced calendars are mirrored from EVENT_HISTORY_WINDOW_MS back. A range that starts before
+   * what they mirror has its older events fetched from their sources and saved first, the first
+   * time it is read: the read waits for that, up to HISTORY_FETCH_WAIT_MS, and then returns what
+   * the database holds. A fetch that takes longer, or fails, goes on in the sources' runs, whose
+   * writes reach the renderer as changes. Reads inside what is mirrored wait on nothing.
    */
-  listForCalendar(start: Date, end: Date, options: CalendarRangeOptions = {}): Event[] {
+  async listForCalendar(
+    start: Date,
+    end: Date,
+    options: CalendarRangeOptions = {},
+  ): Promise<Event[]> {
+    await this.fetchHistory?.(start, options.calendarIds);
+    return this.readRange(start, end, options);
+  }
+
+  // the database's events for listForCalendar
+  private readRange(start: Date, end: Date, options: CalendarRangeOptions): Event[] {
     const rows = this.db
       .select({ event: events })
       .from(events)

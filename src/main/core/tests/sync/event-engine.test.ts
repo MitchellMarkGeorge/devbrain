@@ -186,7 +186,7 @@ function eventRequests() {
 
 // what the calendar view gets: each event's title, rule and exdates
 async function visible() {
-  const listed = events.listForCalendar(
+  const listed = await events.listForCalendar(
     new Date('2026-09-01T00:00:00Z'),
     new Date('2027-01-01T00:00:00Z'),
   );

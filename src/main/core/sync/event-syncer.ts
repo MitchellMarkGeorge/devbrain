@@ -129,9 +129,9 @@ type PassKind = 'full' | 'backfill' | 'changes';
  *
  * Older history
  *
- * A first sync mirrors from EVENT_HISTORY_WINDOW_MS back. The user can ask to see further back
- * (CalendarService.requestHistory), which lowers calendars.historyFrom; the run passes it in with
- * each calendar. When a calendar with a change token wants history from before coveredFrom (the
+ * A first sync mirrors from EVENT_HISTORY_WINDOW_MS back. Reading a range before that
+ * (EventService.listForCalendar) lowers calendars.historyFrom (CalendarService.requestHistory) and
+ * runs the source; the run passes historyFrom in with each calendar. When a calendar with a change token wants history from before coveredFrom (the
  * lower bound of its last full pass or backfill; EVENT_HISTORY_WINDOW_MS back when not kept), its
  * next pull starts a backfill: a bounded listing of [historyFrom, coveredFrom), paged like a full
  * pass with its bounds fixed in the cursor. The backfill's last page sets coveredFrom to its lower

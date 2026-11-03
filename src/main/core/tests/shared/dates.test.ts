@@ -236,7 +236,7 @@ describe.each(TRANSITIONS)('a DST change: $date in $tz', ({ tz, date, start, end
     expect(event.endAt.toISOString()).toBe(end);
 
     const { startOfDay, endOfDay } = localDayWindow(new Date(start));
-    const inDay = events.listForCalendar(startOfDay, new Date(endOfDay.getTime() - 1));
+    const inDay = await events.listForCalendar(startOfDay, new Date(endOfDay.getTime() - 1));
     expect(inDay.map((found) => found.id)).toEqual([event.id]);
   });
 });

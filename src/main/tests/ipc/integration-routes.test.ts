@@ -22,12 +22,14 @@ import {
   AuthType,
   IntegrationStatus,
   Provider,
+  type ExternalEvent,
   type ExternalTask,
   type Integration,
 } from '@main/core/integrations/types';
 import { IntegrationAuthError } from '@main/core/shared/errors';
 import type { SourceSyncStatus } from '@main/core/sync/scheduler';
 import { TaskPriority, TaskStatus } from '@main/core/tasks/types';
+import { EventKind, EventStatus, type Event } from '@main/core/events/types';
 import { FakeCipher } from '@main/core/tests/__mocks__/fake-cipher';
 import { FakeAuthServer, fakeBrowser } from '@main/core/tests/integrations/oauth/fake-auth-server';
 import {
@@ -35,6 +37,7 @@ import {
   createFakeProvider,
   FAKE_API_KEY,
   fakeRegistry,
+  type FakeCalendarProvider,
   type FakeProvider,
 } from '@main/core/tests/sync/fake-provider';
 import { ChangeTracker } from '@main/ipc/changes';
@@ -58,6 +61,7 @@ let oauthConfig: OAuthConfig;
 let devBrain: DevBrain;
 let cleanup: () => Promise<void>;
 let linear: FakeProvider;
+let calendarProvider: FakeCalendarProvider;
 // the system browser the OAuth flow opens: by default one that signs in at once
 let browser: OpenExternal;
 let sendToWindows: Mock<
@@ -87,7 +91,7 @@ beforeEach(async () => {
   // the reconcile pass of a manual sync finds every task still assigned
   linear.tasks.assigned = [];
   linear.tasks.respondToLookup = () => ({});
-  const calendar = {
+  calendarProvider = {
     ...createFakeCalendarProvider(),
     oauth: oauthConfig,
     // accepts any token the fake server issued
@@ -100,7 +104,7 @@ beforeEach(async () => {
   };
   ({ devBrain, cleanup } = await tempDevBrain({
     cipher: new FakeCipher(),
-    providers: fakeRegistry(linear, calendar),
+    providers: fakeRegistry(linear, calendarProvider),
     openExternal: (url) => browser(url),
   }));
   await devBrain.workspaces.open(await createWorkspace(devBrain, 'Work'));
@@ -156,6 +160,35 @@ function issue(): ExternalTask {
     parentTitle: null,
     projectExternalId: null,
     assignedToViewer: true,
+  };
+}
+
+// a timed event on the fake account's calendar, as the mapper hands one over
+function oldEvent(startAt: Date): ExternalEvent {
+  return {
+    externalId: 'ada@example.com:old-review',
+    calendarId: 'ada@example.com',
+    url: 'https://www.google.com/calendar/event?eid=old-review',
+    title: 'Old review',
+    description: null,
+    startAt,
+    endAt: new Date(startAt.getTime() + 60 * 60 * 1000),
+    allDay: false,
+    startDate: null,
+    endDate: null,
+    timeZone: 'UTC',
+    location: null,
+    recurrenceRule: null,
+    recurringEventExternalId: null,
+    originalStartAt: null,
+    meetingUrl: null,
+    color: null,
+    status: EventStatus.CONFIRMED,
+    response: null,
+    kind: EventKind.DEFAULT,
+    cancelled: false,
+    createdAt: startAt,
+    updatedAt: startAt,
   };
 }
 
@@ -522,33 +555,39 @@ describe('calendars', () => {
     expect(trigger).toHaveBeenCalledOnce();
   });
 
-  it('asks synced calendars for older history, and core syncs their source', async () => {
+  it("fetches a synced calendar's older events the first time a read reaches before the window", async () => {
     const { sources } = await connectCalendar();
     const sourceId = sources[0].id;
-    const trigger = vi.spyOn(workspace().sync, 'trigger');
+    const DAY = 24 * 60 * 60 * 1000;
     // two years back is well before the window sync keeps by default
-    const from = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000);
+    const start = new Date(Date.now() - 730 * DAY);
+    const end = new Date(start.getTime() + 7 * DAY);
+    // on the account, but older than the first sync reached
+    calendarProvider.calendars.events.set('ada@example.com', [
+      oldEvent(new Date(start.getTime() + DAY)),
+    ]);
+    const trigger = vi.spyOn(workspace().sync, 'trigger');
 
-    const result = await call('calendars.requestHistory', { from }, 'mutation');
+    const result = await call('events.listForCalendar', { start, end });
 
-    const changed = data<Calendar[]>(result);
-    expect(changed.length).toBeGreaterThan(0);
-    expect(changed.every((calendar) => calendar.sourceId === sourceId)).toBe(true);
-    expect(changed.map((calendar) => calendar.historyFrom)).toEqual(changed.map(() => from));
-    expect(result.changed).toContain('calendar');
+    // fetched and saved before the read returned
+    expect(data<Event[]>(result).map((event) => event.title)).toEqual(['Old review']);
     expect(trigger).toHaveBeenCalledExactlyOnceWith('connected', sourceId);
-    await vi.waitFor(() => expect(sent('sources.changed')).toContainEqual({ sourceId }));
-    // the local calendar has all its events already
-    const local = data<Calendar[]>(await call('calendars.list')).find(
-      (calendar) => calendar.id === DEFAULT_CALENDAR_ID,
-    );
-    expect(local?.historyFrom).toBeNull();
+    expect(calendarProvider.calendars.pulls).toContainEqual({
+      calendarId: 'ada@example.com',
+      query: { from: start.toISOString(), until: expect.any(String) },
+    });
 
-    // the same or a later time, or one inside the default window: nothing changes, nothing syncs
-    for (const later of [from, new Date(from.getTime() + 1000), new Date()]) {
-      const again = await call('calendars.requestHistory', { from: later }, 'mutation');
-      expect(again).toMatchObject({ ok: true, data: [], changed: [] });
+    // asked for before, or inside the window: read from the database alone
+    const pulls = calendarProvider.calendars.pulls.length;
+    for (const range of [
+      { start, end },
+      { start: new Date(start.getTime() + DAY), end },
+      { start: new Date(), end: new Date(Date.now() + 7 * DAY) },
+    ]) {
+      expect(data<Event[]>(await call('events.listForCalendar', range))).toBeDefined();
     }
     expect(trigger).toHaveBeenCalledOnce();
+    expect(calendarProvider.calendars.pulls).toHaveLength(pulls);
   });
 });

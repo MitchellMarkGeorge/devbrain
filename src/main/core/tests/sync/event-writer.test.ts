@@ -187,10 +187,7 @@ function syncedEntries() {
 }
 
 async function visibleTitles(): Promise<string[]> {
-  return events
-    .listForCalendar(...RANGE)
-    .map((item) => item.title)
-    .sort();
+  return (await events.listForCalendar(...RANGE)).map((item) => item.title).sort();
 }
 
 beforeEach(async () => {

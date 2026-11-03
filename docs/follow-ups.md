@@ -199,13 +199,13 @@ After "keep everything as local copies", connecting the same account again re-ma
 
 ### Viewing months before the synced history
 
-_Found while planning the calendar UI. Core side done: on-demand backfill._
+_Found while planning the calendar UI. Done: the calendar read fetches older history itself._
 
-A Google calendar is mirrored from 30 days before its first full pass (`EVENT_HISTORY_WINDOW_MS`). `CalendarService.requestHistory(from)` (IPC `calendars.requestHistory`) lowers `calendars.historyFrom` on the synced calendars and syncs their sources; `EventSyncer` then backfills what the mirror does not reach with a bounded listing (`timeMin`/`timeMax`, no sync token), recording how far back each calendar is covered (`coveredFrom` in the cursor). A full pass after a 410 starts from `historyFrom` when it is earlier, so it sweeps everything the mirror holds. See "Older history" in `src/main/core/sync/event-syncer.ts`.
+A Google calendar is mirrored from 30 days before its first full pass (`EVENT_HISTORY_WINDOW_MS`). When `EventService.listForCalendar` (IPC `events.listForCalendar`) is asked for a range that starts before that, the workspace lowers `calendars.historyFrom` on the calendars it reads (`CalendarService.requestHistory`), runs their sources, and waits for them, up to `HISTORY_FETCH_WAIT_MS`, before reading the database. The renderer does nothing different. `EventSyncer` backfills what the mirror does not reach with a bounded listing (`timeMin`/`timeMax`, no sync token), recording how far back each calendar is covered (`coveredFrom` in the cursor). A full pass after a 410 starts from `historyFrom` when it is earlier, so it sweeps everything the mirror holds. See "Older history" in `src/main/core/sync/event-syncer.ts`.
 
 Left to do:
 
-- **The calendar view does not call it yet.** It should call `calendars.requestHistory` with the start of each range it shows (a no-op when there is nothing to fetch), and could show that older events are loading until the source's run ends.
+- **A slow or failed fetch returns what the database has.** The run goes on past the wait, or retries at the source's next run, and its writes reach the renderer as changes, but nothing tells the view that older events are still loading.
 - **Changes to backfilled events rely on Google's change feed covering them.** The events.list reference says a sync token returns "only entries that have changed since then", with no time filter, so changes to events before the first pass's `timeMin` should be reported, but this is unchecked against the live API. If they are not, backfilled events stay as fetched until a full pass (after a 410) re-lists and sweeps them.
 - `historyFrom` only goes down. Nothing trims old history again, and a full pass after a 410 lists all of it.
 

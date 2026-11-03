@@ -16,10 +16,12 @@ import { IntegrationService } from '../integrations/service';
 import { createIntegrationServices } from '../integrations/setup';
 import { SyncEngine } from '../sync/engine';
 import { SyncScheduler } from '../sync/scheduler';
+import { HISTORY_FETCH_WAIT_MS } from '../sync/constants';
 import { SyncStateManager } from '../sync/sync-state';
 import { SyncWriter } from '../sync/writer';
 import { TaskReconciler } from '../sync/task-reconciler';
 import type { WorkspaceInfo, WorkspaceOptions } from './types';
+import type { CalendarId } from '@common/ids';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { isDevBrainDatabase, runMigrations } from '@main/db/migrate';
@@ -41,6 +43,19 @@ type SqliteDatabaseClient = Database.Database;
 const noBrowser = async () => {
   throw new Error('No browser is configured to open links');
 };
+
+// waits for a promise, or `ms`, whichever comes first
+async function waitAtMost(promise: Promise<unknown>, ms: number): Promise<void> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, ms);
+  });
+  try {
+    await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 // SQLite's answer for a file that is not a database, or one too damaged to read
 function isNotADatabase(error: unknown): boolean {
@@ -84,7 +99,8 @@ export class Workspace {
     this.notes = new NoteService(db, info.path, options.logger);
     this.tasks = new TaskService(db);
     this.projects = new ProjectService(db);
-    this.events = new EventService(db);
+    // a read of a range before what synced calendars mirror fetches it first
+    this.events = new EventService(db, (from, calendarIds) => this.fetchHistory(from, calendarIds));
     this.calendars = new CalendarService(db);
     this.archive = new ArchiveService(db);
     this.favorites = new FavoritesService(db);
@@ -160,16 +176,32 @@ export class Workspace {
     this.sync = new SyncScheduler({ engine, integrations, syncState, logger });
     // A synced calendar chosen or dropped syncs its source at once, as a newly switched-on source
     // does: the run gives a selected calendar a full pass and removes a deselected one's events.
-    // History asked of synced calendars syncs their sources the same way, which backfills it.
     this.calendars.onChange((change) => {
-      if (change.type === 'visibility_changed') return;
-      const changed = change.type === 'selection_changed' ? [change.calendar] : change.calendars;
-      const sourceIds = new Set(changed.map((calendar) => calendar.sourceId));
-      for (const sourceId of sourceIds) {
-        if (sourceId !== null) void this.sync.trigger('connected', sourceId);
-      }
+      const { sourceId } = change.calendar;
+      if (change.type !== 'selection_changed' || sourceId === null) return;
+      void this.sync.trigger('connected', sourceId);
     });
     this.openUrl = guardOpenExternal(options.openExternal ?? noBrowser);
+  }
+
+  /**
+   * EventService's FetchHistory: asks the synced calendars a read covers for their events from
+   * `from` on (CalendarService.requestHistory), then runs their sources, as a selection change
+   * does, and waits for those runs, up to HISTORY_FETCH_WAIT_MS. The runs backfill what the
+   * mirror does not reach (see EventSyncer) and go on past the wait if they need to. Nothing runs
+   * when no calendar's historyFrom changed: the history was asked for before, and was fetched or
+   * is left to the sources' next runs. Never rejects: the read then returns what it has.
+   */
+  private async fetchHistory(from: Date, calendarIds?: CalendarId[]): Promise<void> {
+    try {
+      const requested = this.calendars.requestHistory(from, calendarIds);
+      const sourceIds = new Set(requested.flatMap(({ sourceId }) => sourceId ?? []));
+      if (sourceIds.size === 0) return;
+      const runs = Promise.all([...sourceIds].map((id) => this.sync.trigger('connected', id)));
+      await waitAtMost(runs, HISTORY_FETCH_WAIT_MS);
+    } catch (error) {
+      console.error(`Fetching calendar history failed error=${errorClass(error)}`);
+    }
   }
 
   private onArchiveChange({ type, taskIds, projectIds, noteIds }: ArchiveChange): void {
