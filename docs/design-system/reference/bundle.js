@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"DevBrain","components":[{"name":"Icon"},{"name":"Button"},{"name":"ButtonGroup"},{"name":"Badge"},{"name":"ToggleGroup"},{"name":"Tabs"},{"name":"Input"},{"name":"Textarea"},{"name":"Field"},{"name":"Checkbox"},{"name":"Switch"},{"name":"DropdownMenu"},{"name":"Command"},{"name":"Tooltip"},{"name":"Dialog"},{"name":"Sheet"},{"name":"Toast"},{"name":"Card"},{"name":"Separator"},{"name":"Skeleton"},{"name":"Progress"},{"name":"Kbd"},{"name":"Breadcrumb"},{"name":"Sidebar"},{"name":"Calendar"},{"name":"StatusIcon"},{"name":"PriorityIcon"},{"name":"HealthIcon"},{"name":"ProgressRing"},{"name":"EntityPill"},{"name":"ProviderLogo"},{"name":"SourcePill"},{"name":"PropertyRow"},{"name":"DateRange"},{"name":"TaskRow"},{"name":"GroupHeading"},{"name":"EventRow"},{"name":"ScheduleCard"},{"name":"NoteCard"},{"name":"WorkspaceTile"},{"name":"SwatchPicker"},{"name":"SettingsGroup"},{"name":"EventBlock"},{"name":"StatusMenu"},{"name":"TaskList"},{"name":"SelectionBar"},{"name":"BoardColumn"},{"name":"BoardCard"}]} */
+/* @ds-bundle: {"format":4,"namespace":"DevBrain","components":[{"name":"Icon"},{"name":"Button"},{"name":"ButtonGroup"},{"name":"Badge"},{"name":"ToggleGroup"},{"name":"Tabs"},{"name":"Input"},{"name":"Textarea"},{"name":"Field"},{"name":"Checkbox"},{"name":"Switch"},{"name":"DropdownMenu"},{"name":"Command"},{"name":"Tooltip"},{"name":"Dialog"},{"name":"Sheet"},{"name":"Toast"},{"name":"Card"},{"name":"Separator"},{"name":"Skeleton"},{"name":"Progress"},{"name":"Kbd"},{"name":"Breadcrumb"},{"name":"Sidebar"},{"name":"Calendar"},{"name":"StatusIcon"},{"name":"PriorityIcon"},{"name":"HealthIcon"},{"name":"ProgressRing"},{"name":"EntityPill"},{"name":"ProviderLogo"},{"name":"SourcePill"},{"name":"EntityHoverCard"},{"name":"PropertyRow"},{"name":"DateRange"},{"name":"TaskRow"},{"name":"GroupHeading"},{"name":"EventRow"},{"name":"ScheduleCard"},{"name":"NoteCard"},{"name":"WorkspaceTile"},{"name":"SwatchPicker"},{"name":"SettingsGroup"},{"name":"EventBlock"},{"name":"StatusMenu"},{"name":"TaskList"},{"name":"SelectionBar"},{"name":"BoardColumn"},{"name":"BoardCard"}]} */
 (function () {
   var R = window.React;
   var h = R.createElement;
@@ -512,7 +512,12 @@
   function Sheet(props) {
     return h(
       'div',
-      { className: 'db-sheet', role: 'dialog', 'aria-label': props.title },
+      {
+        className: 'db-sheet',
+        role: 'dialog',
+        'aria-label': props.title,
+        'data-variant': props.overlay ? 'overlay' : 'docked',
+      },
       h(
         'div',
         { className: 'db-sheet-header' },
@@ -842,6 +847,53 @@
         muted: true,
       },
       props.children,
+    );
+  }
+
+  /* EntityHoverCard: the preview that opens after ~400ms of pointing at an entity pill, 4px below
+     it. Header (the pill's glyph and the item's name), meta lines, an optional two-line preview,
+     progress and actions. Clicking the pill still opens the item. */
+  function EntityHoverCard(props) {
+    var glyph =
+      props.type === 'event'
+        ? h('span', {
+            className: 'db-bar',
+            style: { background: props.color || 'var(--swatch-green)', height: 16 },
+          })
+        : props.type === 'note'
+          ? h(Icon, { name: 'file-text', size: 16, color: 'var(--muted-foreground)' })
+          : props.type === 'task'
+            ? h(StatusIcon, { status: props.status || 'in-progress', size: 16 })
+            : props.type === 'source'
+              ? h(ProviderLogo, { provider: props.provider, size: 16 })
+              : h(Icon, {
+                  name: 'folder',
+                  size: 16,
+                  color: props.color || 'var(--muted-foreground)',
+                });
+    return h(
+      'div',
+      { className: 'db-popover db-hovercard', role: 'dialog', 'aria-label': props.title },
+      h(
+        'div',
+        { className: 'db-hovercard-head' },
+        glyph,
+        h('span', { className: 'db-hovercard-title' }, props.title),
+      ),
+      props.pills ? h('div', { className: 'db-hovercard-pills' }, props.pills) : null,
+      (props.meta || []).map(function (m, i) {
+        return h('div', { key: i, className: 'db-hovercard-meta' }, m);
+      }),
+      props.preview ? h('div', { className: 'db-hovercard-preview' }, props.preview) : null,
+      props.progress
+        ? h(
+            'div',
+            { className: 'db-hovercard-progress' },
+            h(Progress, { value: props.progress.value }),
+            h('span', { className: 'db-hovercard-meta' }, props.progress.label),
+          )
+        : null,
+      props.actions ? h('div', { className: 'db-hovercard-actions' }, props.actions) : null,
     );
   }
 
@@ -1254,6 +1306,7 @@
     EntityPill: EntityPill,
     ProviderLogo: ProviderLogo,
     SourcePill: SourcePill,
+    EntityHoverCard: EntityHoverCard,
     PropertyRow: PropertyRow,
     DateRange: DateRange,
     TaskRow: TaskRow,
@@ -1382,6 +1435,19 @@
      status button, the title first (then the source pill, the parent pill on a subtask and the
      subtask count pill), entity pills, priority and date
      on the right. Status is uncontrolled unless `status` is passed. */
+  /* The pills on one side of a TaskRow title. When the row runs out of room they stack like a
+     deck: the last in full, the ones behind showing their edge and icon. Pointing at the stack or
+     focusing it spreads it out. One pill never stacks. */
+  function pillStack(stacked, pills) {
+    var shown = pills.filter(Boolean);
+    if (!shown.length) return null;
+    return h(
+      'span',
+      { className: 'dbl-stack', 'data-stacked': stacked && shown.length > 1 ? '' : undefined },
+      shown,
+    );
+  }
+
   function TaskRow(props) {
     var t = props.task;
     var st = useState(t.status);
@@ -1485,30 +1551,43 @@
         'div',
         { className: 'dbl-title' },
         h('span', { className: 'dbl-name' }, t.title),
-        t.key ? h(NS.SourcePill, { provider: t.source }, t.key) : null,
-        t.parent ? h(NS.EntityPill, { type: 'parent' }, t.parent) : null,
-        t.subtasks
-          ? h(
-              NS.Badge,
-              {
-                variant: 'outline',
-                icon: h(NS.ProgressRing, {
-                  value: t.subtasks[0],
-                  total: t.subtasks[1],
-                  size: 12,
-                }),
-                muted: true,
-              },
-              t.subtasks[0] + '/' + t.subtasks[1],
-            )
-          : null,
+        pillStack(props.stack === 'both', [
+          t.key ? h(NS.SourcePill, { key: 'key', provider: t.source }, t.key) : null,
+          t.parent ? h(NS.EntityPill, { key: 'parent', type: 'parent' }, t.parent) : null,
+          t.subtasks
+            ? h(
+                NS.Badge,
+                {
+                  key: 'subtasks',
+                  variant: 'outline',
+                  icon: h(NS.ProgressRing, {
+                    value: t.subtasks[0],
+                    total: t.subtasks[1],
+                    size: 12,
+                  }),
+                  muted: true,
+                },
+                t.subtasks[0] + '/' + t.subtasks[1],
+              )
+            : null,
+        ]),
       ),
       h(
         'div',
         { className: 'dbl-side' },
-        t.project ? h(NS.EntityPill, { type: 'project', color: t.projectColor }, t.project) : null,
-        t.event ? h(NS.EntityPill, { type: 'event', color: t.eventColor }, t.event) : null,
-        t.note ? h(NS.EntityPill, { type: 'note' }, t.note) : null,
+        pillStack(!!props.stack, [
+          t.project
+            ? h(
+                NS.EntityPill,
+                { key: 'project', type: 'project', color: t.projectColor },
+                t.project,
+              )
+            : null,
+          t.event
+            ? h(NS.EntityPill, { key: 'event', type: 'event', color: t.eventColor }, t.event)
+            : null,
+          t.note ? h(NS.EntityPill, { key: 'note', type: 'note' }, t.note) : null,
+        ]),
         h(
           'span',
           { className: 'dbl-pri' },

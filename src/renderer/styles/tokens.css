@@ -122,11 +122,16 @@
   --group-height: 36px;
   --group-gap: 32px;
   --sidebar-width: 256px;
+  --sidebar-rail-width: 56px;
+  --window-min-width: 960px;
+  --window-min-height: 640px;
+  --breakpoint-medium: 1080px;
+  --breakpoint-wide: 1280px;
   --menu-width: 224px;
   --dialog-width: 384px;
   --sheet-width: 380px;
   --toast-width: 356px;
-  --content-max-width: 1024px;
+  --content-max-width: 720px;
 
   /* Layers */
   --z-sticky: 10;

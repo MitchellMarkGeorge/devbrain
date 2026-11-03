@@ -118,6 +118,8 @@ export interface DialogProps {
 }
 export interface SheetProps {
   title: string;
+  /** float over the page (narrow windows); docked beside the page otherwise */
+  overlay?: boolean;
   description?: string;
   children?: Node;
 }
@@ -209,6 +211,19 @@ export interface SourcePillProps {
   compact?: boolean;
   children: Node;
 }
+/** The preview card that opens on hovering an entity pill. */
+export interface EntityHoverCardProps {
+  type: 'project' | 'event' | 'note' | 'task' | 'source';
+  title: string;
+  /** a project's folder or an event's bar */ color?: string;
+  /** the task's status (type task) */ status?: TaskStatus;
+  provider?: 'linear' | 'github';
+  /** status, priority and date pills */ pills?: Node;
+  /** quiet 12px lines: due date, time, edited, sync */ meta?: Node[];
+  /** a note's first lines, clamped to two */ preview?: string;
+  progress?: { value: number; label: string };
+  /** xs buttons: Join, Open in Linear, Copy URL */ actions?: Node;
+}
 export interface PropertyRowProps {
   /** status, priority, DateRange, project, progress: in that order */
   properties: Node[];
@@ -251,6 +266,8 @@ export interface TaskRowProps {
   state?: 'hover' | 'focus';
   menuOpen?: boolean;
   subtask?: boolean;
+  /** Stack the pills when the row runs out of room: after the title ('right'), or on both sides. */
+  stack?: 'right' | 'both';
   status?: TaskStatus;
   onSelect?: () => void;
   onStatusChange?: (s: TaskStatus) => void;

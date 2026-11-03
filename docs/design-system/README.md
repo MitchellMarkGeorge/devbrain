@@ -54,6 +54,7 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 ## Detail pages
 
 - **One column.** A task or project page is the title, then `PropertyRow` (properties on the first line, links on the second), the description and the content (subtasks and the task note; or the project's task groups). No side cards: a project's notes live in its Notes tab.
+- **Centred column.** Task and note pages centre their document at `content-max-width` (720px), so moving between a task and its note never shifts the text. See Page widths.
 - **Header actions stay put.** The star and the "…" menu sit at the right of the top bar on every detail page; nothing under them is covered, because the page has no side column.
 - **One "…" menu for every detail page**, in the same order: the page's own actions, then Copy as Markdown, then Move to trash last. Favorite stays the star button, and there is no "Copy link": everything is local.
   - Task: Convert to project, Link to ›, Make subtask of ›, Duplicate (⌘D). A Linear task adds Open in Linear, Copy Linear URL and Detach from Linear before Move to trash; a detached one offers Reattach to Linear instead.
@@ -71,7 +72,27 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - **Selection bar.** While rows are selected, a `SelectionBar` floats over the bottom of the list: the count, then Status, Priority, Due date, Move, more, and clear.
 - **Grouped list.** `GroupHeading` is a tile, a title over a subtitle ("Overdue · Oldest due Sep 28", "Mitchell / Jesse 1:1 · Event · Today, 10:00 AM"), an xs "Add task", done/total and a progress bar.
 - **Board.** Open `BoardColumn`s (no panel, 24px apart) hold borderless filled `BoardCard`s (`card`): the linked event or note as a quiet line, the title, then one line of priority, subtasks, project and date. Hover lightens the card and adds an outline; completed cards go darker; each open column ends with a dashed "Add task" slot.
-- **Toolbar values.** Toolbar buttons show their current choice after the label ("Filter Assigned to me", "Sort Due date"), still Nova's quiet button. The main action stays the quiet `default` "New Task", not `primary`.
+- **Toolbar values.** Toolbar buttons show their current choice after the label ("Filter Assigned to me", "Sort Due date"), still Nova's quiet button. The main action stays the quiet `default` "New Task", not `primary`. In compact windows the values hide (the label stays, an active filter shows as the pressed state, the value moves to the tooltip).
+- **Pills stack when a row runs out of room.** On each side of the title the pills overlap like a deck: the last shows in full, the ones behind show their edge and icon, and the row keeps its 48px. Pointing at a stack (or focusing it) spreads it out over the end of the title until the pointer leaves. Priority, the date and the status icon never give way; the title shortens only after the pills have stacked.
+
+## Window sizes
+
+The window is never smaller than `window-min-width` × `window-min-height` (960 × 640). Three ranges:
+
+- **Wide (`breakpoint-wide`, 1280px and up):** everything as designed. Sheets dock beside the page; Home and the calendar show their right columns.
+- **Medium (1080–1279px):** Home's right column and the calendar's right panel hide. The sidebar rests open and sheets still dock.
+- **Compact (960–1079px):**
+  - The sidebar rests as the 56px icon rail (`sidebar-rail-width`); expanding it opens the full sidebar as a drawer over the page, with the `backdrop` scrim behind it, and picking a page, clicking outside or Esc closes it. A sidebar the user collapsed stays collapsed at any width.
+  - Sheets float over the page instead of docking.
+  - Toolbar values hide, and card grids (Notes cards, Home's projects and notes) drop to two columns, with "All projects" / "All notes" for the rest.
+- **At every size:** the week view keeps all seven days (hiding days could hide events); the day columns narrow instead. Long text ends in "…" at its own width: pill labels before titles, titles before dates, and breadcrumbs keep the first and last items. Sheets and dialogs scroll inside themselves at the minimum height, and the selection bar and toasts sit on the window's bottom edge. Document pages cap their content and centre it in the page (see Page widths); workspace pages use the full width.
+
+## Page widths
+
+Two kinds of page, one rule each:
+
+- **Document pages centre a capped column**, like Notion: a note and a task at `content-max-width` (720px), Settings and Integrations at 760px. The header (breadcrumb, star, "…" menu) still spans the page; on a wide window the margins grow and the column keeps its width. Menus anchored to the content (the slash menu, pickers under the property pills) move with it.
+- **Workspace pages use the full width**: lists, the board, the calendar, Home, and a project's page (its 1056px column of task groups and tabs nearly fills the window already).
 
 ## How this system is built
 
@@ -111,7 +132,7 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - Heights: `control-xs` (24px) pills and xs buttons, `control-sm` (28px) sm buttons and menu items, `control-md` (32px) buttons, inputs, segmented controls and sidebar items, `control-lg` (36px) lg buttons, `row-height` (48px) and `group-gap` (32px) for list density, `group-height` (36px).
 - Corners: `radius-md` (8px) inside controls, `radius-lg` (10px) controls and menus, `radius-xl` (14px) surfaces, `radius-full` pills.
 - Shadows only on floating layers: `shadow-md` for menus and tooltips, `shadow-2xl` for dialogs, sheets and toasts.
-- Layout: a `sidebar-width` (256px) sidebar; lists run edge to edge; details open in a `sheet-width` (380px) panel.
+- Layout: a `sidebar-width` (256px) sidebar, or the `sidebar-rail-width` (56px) rail in compact windows; lists run edge to edge; details open in a `sheet-width` (380px) panel docked on the right, and the page narrows beside it (an overlay only in narrow windows).
 
 ## Components
 
