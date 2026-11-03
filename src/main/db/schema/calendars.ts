@@ -26,7 +26,7 @@ export const calendars = sqliteTable(
     // shown in the calendar view
     visible: boolean().notNull().default(true),
     // how far back a synced calendar's events have been fetched before the window sync keeps (see
-    // Workspace.fetchHistory). Null when nothing older was fetched: the mirror then starts
+    // EventFetcher.fetchHistory). Null when nothing older was fetched: the mirror then starts
     // EVENT_HISTORY_WINDOW_MS back
     historyLoadedFrom: date(),
     updatedAt: timesamps.updatedAt,

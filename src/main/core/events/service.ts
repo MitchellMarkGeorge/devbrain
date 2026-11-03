@@ -32,9 +32,9 @@ export interface CalendarRangeOptions {
 }
 
 // Fetches synced calendars' events from `from` on into the database, for a read that reaches back
-// before the window sync keeps, and returns the calendars it saved events for. The workspace
-// provides it (Workspace.fetchHistory); it never rejects, and returns at once when the calendars
-// already reach back that far.
+// before the window sync keeps, and returns the calendars it saved events for: EventFetcher's
+// fetchHistory, which the workspace passes in. It never rejects, and returns at once when the
+// calendars already reach back that far.
 export type FetchHistory = (from: Date, calendarIds?: CalendarId[]) => Promise<CalendarId[]>;
 
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
