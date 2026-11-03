@@ -27,10 +27,6 @@ export const MAX_PAGES_PER_RUN = 1000;
 export const CLOSED_ISSUE_WINDOW_MS = 30 * DAY;
 // events are mirrored from this far back, with no forward limit
 export const EVENT_HISTORY_WINDOW_MS = 30 * DAY;
-// how long a calendar read before that window waits for its sources to fetch the older events,
-// before it returns what the database has; the run goes on, and its writes reach the renderer as
-// changes
-export const HISTORY_FETCH_WAIT_MS = 10 * SECOND;
 // subtracted from the stored incremental cursor; upserts are idempotent so re-reads are harmless
 export const CURSOR_OVERLAP_MS = 60 * SECOND;
 

@@ -199,15 +199,16 @@ After "keep everything as local copies", connecting the same account again re-ma
 
 ### Viewing months before the synced history
 
-_Found while planning the calendar UI. Done: the calendar read fetches older history itself._
+_Found while planning the calendar UI. Done: option 2, fetch on demand, below._
 
-A Google calendar is mirrored from 30 days before its first full pass (`EVENT_HISTORY_WINDOW_MS`). When `EventService.listForCalendar` (IPC `events.listForCalendar`) is asked for a range that starts before that, the workspace lowers `calendars.historyFrom` on the synced calendars it reads (`CalendarService.requestHistory`). For those whose sync does not reach back to the range's start yet (`coveredFrom` in the source's cursor, else 30 days back), it runs their sources and waits for them, up to `HISTORY_FETCH_WAIT_MS`, before reading the database. Local events play no part in the decision. The renderer does nothing different. `EventSyncer` backfills what the mirror does not reach with a bounded listing (`timeMin`/`timeMax`, no sync token), recording how far back each calendar is covered (`coveredFrom` in the cursor). A full pass after a 410 starts from `historyFrom` when it is earlier, so it sweeps everything the mirror holds. See "Older history" in `src/main/core/sync/event-syncer.ts`.
+A Google calendar is mirrored from 30 days before its first full pass (`EVENT_HISTORY_WINDOW_MS`). When `EventService.listForCalendar` (IPC `events.listForCalendar`) reads a range that starts before what a selected, visible synced calendar has (`calendars.historyLoadedFrom`, else the window), `Workspace.fetchHistory` lists the gap from the provider's calendar source (`timeMin`/`timeMax`, no sync token), saves each page through `SyncWriter.applyEventPage`, and lowers `historyLoadedFrom`; the read waits for that and returns the events. It goes through no sync run and leaves the cursor alone, and `EventService` announces it as `history_fetched`, so other views refetch. A fetch that fails is logged, records nothing, and is tried again by the next read. Deselecting a calendar clears `historyLoadedFrom` with its events. Local events take no part.
 
 Left to do:
 
-- **A slow or failed fetch returns what the database has.** The run goes on past the wait, and its writes reach the renderer as changes; a failed one is tried again by the next read before what sync covers. Nothing tells the view that older events are still loading, and offline each such read tries a run again (it fails fast, and joins any run in flight).
-- **Changes to backfilled events rely on Google's change feed covering them.** The events.list reference says a sync token returns "only entries that have changed since then", with no time filter, so changes to events before the first pass's `timeMin` should be reported, but this is unchecked against the live API. If they are not, backfilled events stay as fetched until a full pass (after a 410) re-lists and sweeps them.
-- `historyFrom` only goes down. Nothing trims old history again, and a full pass after a 410 lists all of it.
+- **Changes to fetched events rely on Google's change feed covering them.** The events.list reference says a sync token returns "only entries that have changed since then", with no time filter, so changes to events before the first pass's `timeMin` should be reported, but this is unchecked against the live API. If they are not, fetched events stay as fetched.
+- **The read waits for the whole fetch**, bounded only by `HTTP_TIMEOUT_MS` per page. A slow connection holds the view for as long.
+- Two reads of the same old range at once both fetch it. Saves match by external id, so the result is the same.
+- `historyLoadedFrom` only goes down while the calendar is selected. Nothing trims old history again.
 
 ### The calendar view's FullCalendar adapter
 

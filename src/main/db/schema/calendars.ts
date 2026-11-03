@@ -25,9 +25,10 @@ export const calendars = sqliteTable(
     selected: boolean().notNull().default(true),
     // shown in the calendar view
     visible: boolean().notNull().default(true),
-    // how far back the user asked to see a synced calendar; sync mirrors from this or the default
-    // window, whichever is earlier (see EventSyncer). Null for the default window alone
-    historyFrom: date(),
+    // how far back a synced calendar's events have been fetched before the window sync keeps (see
+    // Workspace.fetchHistory). Null when nothing older was fetched: the mirror then starts
+    // EVENT_HISTORY_WINDOW_MS back
+    historyLoadedFrom: date(),
     updatedAt: timesamps.updatedAt,
     createdAt: timesamps.createdAt,
   },

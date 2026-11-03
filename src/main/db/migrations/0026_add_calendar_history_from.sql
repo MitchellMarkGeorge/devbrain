@@ -1,1 +1,0 @@
-ALTER TABLE `calendars` ADD `history_from` integer;

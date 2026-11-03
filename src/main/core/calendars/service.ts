@@ -1,17 +1,15 @@
 import { CalendarId } from '@common/ids';
 import { calendars } from '@main/db/schema/calendars';
-import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, or } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { InvalidInputError, NotFoundError } from '../shared/errors';
-import { EVENT_HISTORY_WINDOW_MS } from '../sync/constants';
 import { Calendar } from './types';
 
 // What the user changed on a calendar, for in-process subscribers: the IPC layer tells the
 // renderer, whose calendar view reads `visible`, and the workspace syncs a synced calendar's source
 // when its selection changes. Sent only when the value changed. Sync's own writes to calendars are
-// reported by its progress. historyFrom is not announced: nothing outside core reads it, and the
-// read that lowers it runs the sources itself (see requestHistory).
+// reported by its progress.
 export type CalendarChange =
   | { type: 'visibility_changed'; calendar: Calendar }
   | { type: 'selection_changed'; calendar: Calendar };
@@ -23,10 +21,7 @@ export type CalendarChange =
 export class CalendarService {
   private readonly changes = new ChangeListeners<CalendarChange>('Calendar');
 
-  constructor(
-    private readonly db: BetterSQLite3Database,
-    private readonly now: () => Date = () => new Date(),
-  ) {}
+  constructor(private readonly db: BetterSQLite3Database) {}
 
   // returns a function that unsubscribes the listener
   onChange(listener: ChangeListener<CalendarChange>): () => void {
@@ -74,33 +69,6 @@ export class CalendarService {
     if (!calendar) throw new NotFoundError(id);
     this.changes.emit({ type: 'selection_changed', calendar });
     return calendar;
-  }
-
-  /**
-   * Asks for synced calendars' events from `from` on, for a read of a time before the window sync
-   * keeps by default (EVENT_HISTORY_WINDOW_MS back). The calendars are the selected, visible
-   * synced ones (only those of `calendarIds`, when given): it lowers historyFrom on those whose
-   * historyFrom is later or unset, so their sources' runs fetch from `from` (see EventSyncer), and
-   * returns all of them. A time within the default window returns none and changes nothing. A
-   * local calendar has all its events already, so it is left out.
-   *
-   * Called by EventService.listForCalendar, through the workspace, which runs the sources of the
-   * calendars whose sync does not reach back to `from` yet; nothing is announced.
-   */
-  requestHistory(from: Date, calendarIds?: CalendarId[]): Calendar[] {
-    if (from.getTime() >= this.now().getTime() - EVENT_HISTORY_WINDOW_MS) return [];
-    const inRead = and(
-      isNotNull(calendars.sourceId),
-      eq(calendars.selected, true),
-      eq(calendars.visible, true),
-      calendarIds ? inArray(calendars.id, calendarIds) : undefined,
-    );
-    this.db
-      .update(calendars)
-      .set({ historyFrom: from })
-      .where(and(inRead, or(isNull(calendars.historyFrom), gt(calendars.historyFrom, from))))
-      .run();
-    return this.db.select().from(calendars).where(inRead).orderBy(asc(calendars.id)).all();
   }
 
   /**

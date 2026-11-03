@@ -16,24 +16,28 @@ import { IntegrationService } from '../integrations/service';
 import { createIntegrationServices } from '../integrations/setup';
 import { SyncEngine } from '../sync/engine';
 import { SyncScheduler } from '../sync/scheduler';
-import { EVENT_HISTORY_WINDOW_MS, HISTORY_FETCH_WAIT_MS } from '../sync/constants';
-import { calendarCoveredFrom } from '../sync/event-cursor';
-import { SyncStateManager } from '../sync/sync-state';
+import { EVENT_HISTORY_WINDOW_MS, MAX_PAGES_PER_RUN } from '../sync/constants';
+import { SyncStateManager, syncSkipReason } from '../sync/sync-state';
 import { SyncWriter } from '../sync/writer';
 import { TaskReconciler } from '../sync/task-reconciler';
 import type { WorkspaceInfo, WorkspaceOptions } from './types';
-import type { CalendarId, ExternalSourceId } from '@common/ids';
+import type { CalendarId } from '@common/ids';
+import type { CredentialStore } from '../integrations/credential-store';
+import type { ProviderRegistry } from '../integrations/providers/registry';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { isDevBrainDatabase, runMigrations } from '@main/db/migrate';
 import { fileExists } from '../local/utils';
 import {
+  IntegrationAuthError,
+  RateLimitError,
   WorkspaceClosedError,
   WorkspaceDataMissingError,
   WorkspaceMigrationError,
 } from '../shared/errors';
 import { errorClass } from '../shared/logger';
-import { inArray } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNotNull, isNull, or } from 'drizzle-orm';
+import { calendars } from '@main/db/schema/calendars';
 import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
 import { guardOpenExternal } from '../shared/untrusted';
@@ -44,19 +48,6 @@ type SqliteDatabaseClient = Database.Database;
 const noBrowser = async () => {
   throw new Error('No browser is configured to open links');
 };
-
-// waits for a promise, or `ms`, whichever comes first
-async function waitAtMost(promise: Promise<unknown>, ms: number): Promise<void> {
-  let timer: NodeJS.Timeout | undefined;
-  const timeout = new Promise<void>((resolve) => {
-    timer = setTimeout(resolve, ms);
-  });
-  try {
-    await Promise.race([promise, timeout]);
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 // SQLite's answer for a file that is not a database, or one too damaged to read
 function isNotADatabase(error: unknown): boolean {
@@ -84,8 +75,11 @@ export class Workspace {
   // syncNow, getStatus and onProgress for the app; trigger for focus and resume. Started by
   // WorkspaceService.open, stopped by close()
   readonly sync: SyncScheduler;
-  // each source's cursor, for how far back its calendars are synced (fetchHistory)
+  // for fetchHistory, which fetches older calendar history outside sync runs
   private readonly syncState: SyncStateManager;
+  private readonly credentials: CredentialStore;
+  private readonly providers: ProviderRegistry;
+  private readonly writer: SyncWriter;
   /**
    * Opens a link in the system browser: a synced item's provider page, a meeting link, a link in a
    * description. Only http and https URLs are opened; anything else throws UnsafeUrlError and
@@ -137,6 +131,8 @@ export class Workspace {
       } else this.search.indexNoteContent(change.note, change.content);
     });
     this.events.onChange((change) => {
+      // SyncWriter indexed a fetch's events as it saved them
+      if (change.type === 'history_fetched') return;
       if (change.type === 'deleted') this.search.removeFromIndex(change.eventIds);
       else this.search.indexEvent(change.event);
     });
@@ -155,8 +151,11 @@ export class Workspace {
       this.search.removeFromIndex([...taskIds, ...projectIds, ...eventIds]);
     });
     const syncState = new SyncStateManager(db);
-    this.syncState = syncState;
     const writer = new SyncWriter(db, this.search);
+    this.syncState = syncState;
+    this.credentials = credentials;
+    this.providers = providers;
+    this.writer = writer;
     const { logger } = options;
     const engine = new SyncEngine(db, {
       integrations,
@@ -189,31 +188,128 @@ export class Workspace {
   }
 
   /**
-   * EventService's FetchHistory. The synced calendars a read covers ask for their events from
-   * `from` on (CalendarService.requestHistory). Those whose sync does not reach back that far yet
-   * (calendarCoveredFrom, from their source's cursor) have their sources run, as a selection change
-   * does, and this waits for those runs, up to HISTORY_FETCH_WAIT_MS. The runs backfill the gap
-   * (see EventSyncer) and go on past the wait if they need to. A fetch that failed is tried again
-   * by the next read that reaches before what sync covers. Never rejects: the read then returns
-   * what it has.
+   * EventService's FetchHistory. Synced calendars are mirrored from EVENT_HISTORY_WINDOW_MS back;
+   * this fetches what lies before that for a read that reaches back further. For each selected,
+   * visible synced calendar of the read (only those of `calendarIds`, when given) whose events do
+   * not reach back to `from` (historyLoadedFrom, else the window), it lists the gap from the
+   * provider's calendar source, from `from` up to what the calendar has, and saves each page
+   * through SyncWriter as sync does. It does not touch the sync cursor or go through a run, so it
+   * never holds up sync or is overwritten by it, and the change token stays the calendar's.
+   *
+   * Returns the calendars it saved events for. A calendar whose fetch fails is logged and left
+   * out, and keeps its historyLoadedFrom, so the next read before it tries again.
    */
-  private async fetchHistory(from: Date, calendarIds?: CalendarId[]): Promise<void> {
+  private async fetchHistory(from: Date, calendarIds?: CalendarId[]): Promise<CalendarId[]> {
+    const windowFrom = new Date(Date.now() - EVENT_HISTORY_WINDOW_MS);
+    if (from >= windowFrom) return [];
+    const behind = this.db
+      .select()
+      .from(calendars)
+      .where(
+        and(
+          isNotNull(calendars.sourceId),
+          isNotNull(calendars.externalId),
+          eq(calendars.selected, true),
+          eq(calendars.visible, true),
+          calendarIds ? inArray(calendars.id, calendarIds) : undefined,
+          or(isNull(calendars.historyLoadedFrom), gt(calendars.historyLoadedFrom, from)),
+        ),
+      )
+      .all();
+    const fetched = await Promise.all(
+      behind.map(async (calendar) => {
+        try {
+          const until = calendar.historyLoadedFrom ?? windowFrom;
+          return (await this.fetchCalendarHistory(calendar, from, until)) ? [calendar.id] : [];
+        } catch (error) {
+          console.error(
+            `Fetching calendar history failed calendar=${calendar.id} error=${errorClass(error)}`,
+          );
+          return [];
+        }
+      }),
+    );
+    return fetched.flat();
+  }
+
+  /**
+   * One calendar's events in [from, until), page by page, then historyLoadedFrom lowered to `from`.
+   * Returns whether it saved anything. Skipped, saving nothing, when nothing may ask the provider
+   * now (syncSkipReason: the source off, re-authentication needed, a rate limit), or the workspace
+   * is closing; stops when the calendar is deselected meanwhile, since its next sync run removes
+   * its events. Rejected credentials and rate limits are recorded as a run's are.
+   */
+  private async fetchCalendarHistory(
+    calendar: typeof calendars.$inferSelect,
+    from: Date,
+    until: Date,
+  ): Promise<boolean> {
+    const sourceId = calendar.sourceId!;
+    const target = this.syncState.getSyncTarget(sourceId);
+    const source = this.providers.get(target.provider)?.calendars;
+    if (!source || syncSkipReason(target, new Date()) !== null) return false;
+    const { signal } = this.closing;
+    const range = { from: from.toISOString(), until: until.toISOString() };
+    let wrote = false;
     try {
-      const defaultFrom = new Date(Date.now() - EVENT_HISTORY_WINDOW_MS);
-      const sourceIds = new Set<ExternalSourceId>();
-      for (const calendar of this.calendars.requestHistory(from, calendarIds)) {
-        const { sourceId, externalId } = calendar;
-        if (sourceId === null || externalId === null || sourceIds.has(sourceId)) continue;
-        const { cursor } = this.syncState.getSyncTarget(sourceId);
-        const coveredFrom = calendarCoveredFrom(cursor, externalId, defaultFrom);
-        if (coveredFrom === null || coveredFrom > from) sourceIds.add(sourceId);
+      const auth = await this.credentials.getAuth(target.integrationId);
+      let pageToken: string | null = null;
+      for (let pages = 0; pages < MAX_PAGES_PER_RUN; pages++) {
+        const query = pageToken === null ? range : { ...range, pageToken };
+        const page = await source.getEventPage(auth, calendar.externalId!, query, { signal });
+        // nothing awaits from here to the write, so neither can change before it
+        if (signal.aborted || !this.isSelected(calendar.id)) return wrote;
+        const summary = this.writer.applyEventPage(sourceId, calendar.id, {
+          // an event the provider gave no zone takes its calendar's, as in a sync run
+          events: page.events.map((event) =>
+            event.timeZone === null ? { ...event, timeZone: calendar.timeZone } : event,
+          ),
+          cancelledIds: page.cancelledIds,
+          skippedIds: page.skippedIds,
+          fullPass: null,
+        });
+        wrote ||= summary.inserted + summary.updated + summary.removed > 0;
+        pageToken = page.nextPageToken;
+        if (pageToken === null) {
+          // only ever lowered: another read may have fetched further back meanwhile
+          this.db
+            .update(calendars)
+            .set({ historyLoadedFrom: from })
+            .where(
+              and(
+                eq(calendars.id, calendar.id),
+                or(isNull(calendars.historyLoadedFrom), gt(calendars.historyLoadedFrom, from)),
+              ),
+            )
+            .run();
+          return wrote;
+        }
       }
-      if (sourceIds.size === 0) return;
-      const runs = Promise.all([...sourceIds].map((id) => this.sync.trigger('connected', id)));
-      await waitAtMost(runs, HISTORY_FETCH_WAIT_MS);
+      throw new Error(`Calendar history went past ${MAX_PAGES_PER_RUN} pages`);
     } catch (error) {
-      console.error(`Fetching calendar history failed error=${errorClass(error)}`);
+      if (error instanceof IntegrationAuthError) {
+        this.integrations.markNeedsReauth(target.integrationId);
+      } else if (error instanceof RateLimitError) {
+        // the provider's retry time holds back sync runs and the next fetch alike
+        this.syncState.recordSyncOutcome(sourceId, {
+          ok: false,
+          error: error.message,
+          countsAsFailure: false,
+          retryAt: error.retryAt,
+        });
+      }
+      throw error;
     }
+  }
+
+  private isSelected(calendarId: CalendarId): boolean {
+    return (
+      this.db
+        .select({ selected: calendars.selected })
+        .from(calendars)
+        .where(eq(calendars.id, calendarId))
+        .get()?.selected === true
+    );
   }
 
   private onArchiveChange({ type, taskIds, projectIds, noteIds }: ArchiveChange): void {

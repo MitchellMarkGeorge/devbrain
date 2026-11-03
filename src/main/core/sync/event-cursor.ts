@@ -16,14 +16,6 @@ export const calendarSyncStateSchema = z.object({
   // events the pass left with an older lastSyncedAt. Absent on a pass started before passes had
   // one, which then removes nothing
   startedAt: z.iso.datetime().optional(),
-  // how far back the mirror of this calendar is complete: the lower bound of its last full pass or
-  // backfill. Kept only once the user has asked for history (calendars.historyFrom); without it
-  // the mirror is taken to start EVENT_HISTORY_WINDOW_MS back, which at worst lists a few weeks
-  // twice
-  coveredFrom: z.iso.datetime().optional(),
-  // set while a backfill pages: the older range it lists, fixed when it starts so every page asks
-  // the same question. pageToken is the backfill's while this is set; syncToken stays the calendar's
-  backfill: z.object({ from: z.iso.datetime(), until: z.iso.datetime() }).optional(),
 });
 
 export const eventCursorSchema = z.object({
@@ -35,32 +27,3 @@ export const eventCursorSchema = z.object({
 
 export type CalendarSyncState = z.infer<typeof calendarSyncStateSchema>;
 export type EventCursor = z.infer<typeof eventCursorSchema>;
-
-/**
- * How far back a calendar's mirror is complete, from its progress: the lower bound of its last
- * full pass or backfill, or `defaultFrom` (EVENT_HISTORY_WINDOW_MS back) when not kept. Null until
- * its first full pass has ended, when nothing is complete yet. A backfill in progress counts for
- * nothing until its last page.
- */
-export function coveredFromOf(
-  state: CalendarSyncState | undefined,
-  defaultFrom: Date,
-): Date | null {
-  if (state === undefined || state.syncToken === null) return null;
-  return state.coveredFrom !== undefined ? new Date(state.coveredFrom) : defaultFrom;
-}
-
-/**
- * How far back the mirror of the calendar `externalId` is complete, from its source's stored
- * cursor; see coveredFromOf. An unreadable cursor gives every calendar a full pass, so it covers
- * nothing.
- */
-export function calendarCoveredFrom(
-  cursor: unknown,
-  externalId: string,
-  defaultFrom: Date,
-): Date | null {
-  const parsed = eventCursorSchema.safeParse(cursor);
-  if (!parsed.success) return null;
-  return coveredFromOf(parsed.data.calendars[externalId], defaultFrom);
-}

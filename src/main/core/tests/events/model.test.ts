@@ -404,7 +404,7 @@ describe('EventService — listForCalendar, older history', () => {
     const calls: [Date, CalendarId[] | undefined][] = [];
     const service = new EventService(db, async (from, calendarIds) => {
       calls.push([from, calendarIds]);
-      // what a backfill would save
+      // what a fetch would save
       db.insert(events)
         .values({
           calendarId: synced,
@@ -413,12 +413,25 @@ describe('EventService — listForCalendar, older history', () => {
           endAt: hoursAfter(START, 11),
         })
         .run();
+      return [synced];
     });
+    const changes: unknown[] = [];
+    service.onChange((change) => changes.push(change));
 
     const listed = await service.listForCalendar(START, END, { calendarIds: [synced] });
 
     expect(calls).toEqual([[START, [synced]]]);
     expect(listed.map((event) => event.title)).toEqual(['Old standup']);
+    expect(changes).toEqual([{ type: 'history_fetched', calendarIds: [synced] }]);
+  });
+
+  it('announces nothing when the fetch saved nothing', async () => {
+    const service = new EventService(db, async () => []);
+    const changes: unknown[] = [];
+    service.onChange((change) => changes.push(change));
+
+    expect(await service.listForCalendar(START, END)).toEqual([]);
+    expect(changes).toEqual([]);
   });
 });
 
@@ -508,57 +521,5 @@ describe('CalendarService', () => {
 
     expect(changes).toEqual([]);
     expect(calendarService.getById(synced).updatedAt).toEqual(before.updatedAt);
-  });
-
-  describe('requestHistory', () => {
-    const NOW = new Date('2026-11-03T12:00:00.000Z');
-    const DAY = 24 * 60 * 60 * 1000;
-    const TWO_YEARS_AGO = new Date(NOW.getTime() - 730 * DAY);
-
-    beforeEach(() => {
-      calendarService = new CalendarService(db, () => NOW);
-    });
-
-    it('lowers historyFrom on the selected, visible synced calendars and returns them, announcing nothing', () => {
-      const shown = syncedCalendar({ selected: true });
-      const hidden = syncedCalendar({ selected: true, visible: false });
-      const unselected = syncedCalendar({ selected: false });
-      const changes: unknown[] = [];
-      calendarService.onChange((change) => changes.push(change));
-
-      const requested = calendarService.requestHistory(TWO_YEARS_AGO);
-
-      expect(requested.map((calendar) => calendar.id)).toEqual([shown]);
-      expect(calendarService.getById(shown).historyFrom).toEqual(TWO_YEARS_AGO);
-      for (const id of [hidden, unselected, DEFAULT_CALENDAR_ID]) {
-        expect(calendarService.getById(id).historyFrom).toBeNull();
-      }
-      expect(changes).toEqual([]);
-    });
-
-    it('asks only the calendars given, when some are', () => {
-      const first = syncedCalendar({ selected: true });
-      const second = syncedCalendar({ selected: true });
-
-      expect(
-        calendarService.requestHistory(TWO_YEARS_AGO, [second]).map((calendar) => calendar.id),
-      ).toEqual([second]);
-      expect(calendarService.getById(first).historyFrom).toBeNull();
-    });
-
-    it('returns none inside the default window, and only ever lowers historyFrom', () => {
-      const synced = syncedCalendar({ selected: true });
-
-      expect(calendarService.requestHistory(new Date(NOW.getTime() - 10 * DAY))).toEqual([]);
-      expect(calendarService.getById(synced).historyFrom).toBeNull();
-
-      calendarService.requestHistory(TWO_YEARS_AGO);
-      // a later time still returns the calendar, for its sync to be checked, but keeps the earlier
-      const [later] = calendarService.requestHistory(new Date(TWO_YEARS_AGO.getTime() + DAY));
-      expect(later).toMatchObject({ id: synced, historyFrom: TWO_YEARS_AGO });
-      const older = new Date(TWO_YEARS_AGO.getTime() - DAY);
-      calendarService.requestHistory(older);
-      expect(calendarService.getById(synced).historyFrom).toEqual(older);
-    });
   });
 });

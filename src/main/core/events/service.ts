@@ -31,18 +31,22 @@ export interface CalendarRangeOptions {
   calendarIds?: CalendarId[];
 }
 
-// Brings synced calendars' events from `from` on into the database, for a read that reaches back
-// before the window sync keeps. The workspace provides it (Workspace.fetchHistory); it never
-// rejects, and returns at once when there is nothing to fetch.
-export type FetchHistory = (from: Date, calendarIds?: CalendarId[]) => Promise<void>;
+// Fetches synced calendars' events from `from` on into the database, for a read that reaches back
+// before the window sync keeps, and returns the calendars it saved events for. The workspace
+// provides it (Workspace.fetchHistory); it never rejects, and returns at once when the calendars
+// already reach back that far.
+export type FetchHistory = (from: Date, calendarIds?: CalendarId[]) => Promise<CalendarId[]>;
 
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
 // layer will forward them to the renderer. Sent after the write commits, with the row as written.
 // `deleted` carries every row the delete removed: the event, and a series' occurrence rows.
+// `history_fetched` names the synced calendars whose older events a read fetched and saved
+// (see listForCalendar); SyncWriter indexed them as it saved them.
 export type EventChange =
   | { type: 'created'; event: Event }
   | { type: 'updated'; event: Event }
-  | { type: 'deleted'; eventIds: EventId[] };
+  | { type: 'deleted'; eventIds: EventId[] }
+  | { type: 'history_fetched'; calendarIds: CalendarId[] };
 
 export class EventService {
   private readonly changes = new ChangeListeners<EventChange>('Event');
@@ -169,18 +173,19 @@ export class EventService {
    * Events whose provider item was cancelled or deleted (link state `removed`) are kept only for
    * the notes linked to them, and are left out of the calendar.
    *
-   * Synced calendars are mirrored from EVENT_HISTORY_WINDOW_MS back. A range that starts before
-   * what they mirror has its older events fetched from their sources and saved first, the first
-   * time it is read: the read waits for that, up to HISTORY_FETCH_WAIT_MS, and then returns what
-   * the database holds. A fetch that takes longer, or fails, goes on in the sources' runs, whose
-   * writes reach the renderer as changes. Reads inside what is mirrored wait on nothing.
+   * Synced calendars are mirrored from EVENT_HISTORY_WINDOW_MS back. When the range starts before
+   * what a synced calendar of the read has, that calendar's older events are fetched from its
+   * provider and saved first, and the read waits for that before reading the database. Other readers hear of it
+   * through `history_fetched`. A fetch that fails is logged and tried again by the next read; this
+   * one returns what the database has. Reads inside what is fetched wait on nothing.
    */
   async listForCalendar(
     start: Date,
     end: Date,
     options: CalendarRangeOptions = {},
   ): Promise<Event[]> {
-    await this.fetchHistory?.(start, options.calendarIds);
+    const fetched = (await this.fetchHistory?.(start, options.calendarIds)) ?? [];
+    if (fetched.length > 0) this.changes.emit({ type: 'history_fetched', calendarIds: fetched });
     return this.readRange(start, end, options);
   }
 

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "b62cc69f-6cb5-4060-bf10-3d349ff5aa50",
+  "id": "7a91c650-4970-4904-a4c0-fc1fc8e5e4bf",
   "prevId": "c7919369-31df-45fc-b32f-d87cd271056b",
   "tables": {
     "calendars": {
@@ -73,8 +73,8 @@
           "autoincrement": false,
           "default": true
         },
-        "history_from": {
-          "name": "history_from",
+        "history_loaded_from": {
+          "name": "history_loaded_from",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
