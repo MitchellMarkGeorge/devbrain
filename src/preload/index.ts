@@ -1,6 +1,11 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { IpcRendererEvent } from 'electron';
-import { IPC_BRIDGE_KEY, IPC_CALL_CHANNEL, IPC_EVENT_PREFIX } from '@common/ipc/constants';
+import {
+  IPC_INITIAL_LOAD_CONTEXT_CHANNEL,
+  IPC_BRIDGE_KEY,
+  IPC_CALL_CHANNEL,
+  IPC_EVENT_PREFIX,
+} from '@common/ipc/constants';
 import type { IpcBridge } from '@common/ipc/types';
 
 // The renderer's only way to main: a generic bridge, with nothing in it per route. The typed client
@@ -22,7 +27,19 @@ export function createBridge(): IpcBridge {
         ipcRenderer.removeListener(channel, handler);
       };
     },
+    initialLoadContext: readInitialLoadContext(),
   };
+}
+
+// Asked once per page load, synchronously as the preload runs, so the value is there before any
+// page script. Main answers from what it holds in memory and the registry file, so the wait is
+// short; the window is shown only once the page has painted, so nothing is seen while it lasts.
+function readInitialLoadContext(): unknown {
+  try {
+    return ipcRenderer.sendSync(IPC_INITIAL_LOAD_CONTEXT_CHANNEL);
+  } catch {
+    return null;
+  }
 }
 
 export function exposeBridge(): void {

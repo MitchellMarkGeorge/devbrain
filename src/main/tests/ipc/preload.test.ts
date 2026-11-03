@@ -4,17 +4,41 @@ import type { Rolldown } from 'vite';
 import { createBridge } from '../../../preload';
 import { contextBridge, ipcRenderer, resetElectronMock } from '../__mocks__/electron';
 
+// the call importing the preload made, before afterEach resets the mock
+const exposedOnImport = contextBridge.exposeInMainWorld.mock.calls[0];
+
 describe('the preload bridge', () => {
   afterEach(() => resetElectronMock());
 
-  it('is exposed on window under ipcBridge', async () => {
-    vi.resetModules();
-    await import('../../../preload');
+  it('is exposed on window under ipcBridge when the preload is imported', () => {
+    expect(exposedOnImport).toEqual([
+      'ipcBridge',
+      {
+        invoke: expect.any(Function),
+        subscribe: expect.any(Function),
+        // the mock's sendSync answers nothing at import
+        initialLoadContext: undefined,
+      },
+    ]);
+  });
 
-    expect(contextBridge.exposeInMainWorld).toHaveBeenCalledWith('ipcBridge', {
-      invoke: expect.any(Function),
-      subscribe: expect.any(Function),
+  it('holds the initial load context, read once on its channel as the bridge is built', () => {
+    const context = { devBrainAvailable: false };
+    ipcRenderer.sendSync.mockReturnValue(context);
+
+    const bridge = createBridge();
+    expect(bridge.initialLoadContext).toBe(context);
+    expect(bridge.initialLoadContext).toBe(context);
+    expect(ipcRenderer.sendSync).toHaveBeenCalledOnce();
+    expect(ipcRenderer.sendSync).toHaveBeenCalledWith('ipc:initial-load-context');
+  });
+
+  it('holds null when the read fails, so the page fetches instead', () => {
+    ipcRenderer.sendSync.mockImplementation(() => {
+      throw new Error('no reply');
     });
+
+    expect(createBridge().initialLoadContext).toBeNull();
   });
 
   it('invokes the call channel with the request', async () => {

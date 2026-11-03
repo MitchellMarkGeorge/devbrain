@@ -23,10 +23,21 @@ function syncDirectory(dirPath: string): void {
  * the old content or the new, never a partial file. atomically writes a temp file in the same
  * directory, flushes it and renames it over the target, retrying errors that pass, such as a file
  * held open by antivirus on Windows, for up to a second. Then the directory is flushed, so the
- * rename survives a power loss too. On failure the target is left as it was.
+ * rename survives a power loss too. On failure the target is left as it was, and the temp file is
+ * gone by the time this throws: atomically only queues an async unlink for it.
  */
 export function writeFileAtomicSync(filePath: string, data: string): void {
-  atomicallyWriteFileSync(filePath, data);
+  let tempPath: string | null = null;
+  try {
+    atomicallyWriteFileSync(filePath, data, {
+      tmpCreated: (created) => {
+        tempPath = created;
+      },
+    });
+  } catch (error) {
+    if (tempPath !== null) fs.rmSync(tempPath, { force: true });
+    throw error;
+  }
   syncDirectory(path.dirname(filePath));
 }
 
