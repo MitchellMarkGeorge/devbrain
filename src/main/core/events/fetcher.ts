@@ -5,7 +5,7 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { CredentialStore } from '../integrations/credential-store';
 import type { ProviderRegistry } from '../integrations/providers/registry';
 import type { IntegrationService } from '../integrations/service';
-import { IntegrationAuthError, RateLimitError } from '../shared/errors';
+import { IntegrationAuthError } from '../shared/errors';
 import { consoleLogger, errorClass, Logger } from '../shared/logger';
 import { EVENT_HISTORY_WINDOW_MS, MAX_PAGES_PER_RUN } from '../sync/constants';
 import { SyncStateManager, syncSkipReason } from '../sync/sync-state';
@@ -19,8 +19,8 @@ export interface EventFetcherOptions {
   providers: ProviderRegistry;
   // saves each page as a sync run does, so fetched events are linked, read-only and indexed
   writer: Pick<SyncWriter, 'applyEventPage'>;
-  // whether the provider may be asked now, and where a rate limit is recorded
-  syncState: Pick<SyncStateManager, 'getSyncTarget' | 'recordSyncOutcome'>;
+  // whether the provider may be asked now
+  syncState: Pick<SyncStateManager, 'getSyncTarget'>;
   // rejected credentials stop the integration until a reconnect, as in a run
   integrations: Pick<IntegrationService, 'markNeedsReauth'>;
   // the workspace closing: cancels a request in flight, and nothing is saved after it
@@ -104,9 +104,8 @@ export class EventFetcher {
    * One calendar's events in [from, until), page by page, then historyLoadedFrom lowered to `from`.
    * Returns whether it saved anything. Skipped, saving nothing, when nothing may ask the provider
    * now (syncSkipReason: the source or integration off, re-authentication needed, a rate limit).
-   * Stops, keeping the pages saved, when the workspace closes or the calendar is deselected
-   * meanwhile, since its next sync run removes its events. Rejected credentials and rate limits
-   * are recorded as a run's are, then rethrown.
+   * Stops, keeping the pages saved, when the workspace closes. Rejected credentials mark the
+   * integration for re-authentication, as in a run, then are rethrown.
    */
   private async fetchEvents(calendar: CalendarRow, from: Date, until: Date): Promise<boolean> {
     const { db, credentials, providers, writer, syncState, integrations, signal } = this.options;
@@ -123,8 +122,8 @@ export class EventFetcher {
       for (let pages = 0; pages < MAX_PAGES_PER_RUN; pages++) {
         const query = pageToken === null ? range : { ...range, pageToken };
         const page = await source.getEventPage(auth, calendar.externalId!, query, { signal });
-        // nothing awaits from here to the write, so neither can change before it
-        if (signal?.aborted || !this.isSelected(calendar.id)) return wrote;
+        // nothing awaits from here to the write, so the database is still open for it
+        if (signal?.aborted) return wrote;
         const summary = writer.applyEventPage(sourceId, calendar.id, {
           // an event the provider gave no zone takes its calendar's, as in a sync run
           events: page.events.map((event) =>
@@ -154,26 +153,8 @@ export class EventFetcher {
     } catch (error) {
       if (error instanceof IntegrationAuthError) {
         integrations.markNeedsReauth(target.integrationId);
-      } else if (error instanceof RateLimitError) {
-        // the provider's retry time holds back sync runs and the next fetch alike
-        syncState.recordSyncOutcome(sourceId, {
-          ok: false,
-          error: error.message,
-          countsAsFailure: false,
-          retryAt: error.retryAt,
-        });
       }
       throw error;
     }
-  }
-
-  private isSelected(calendarId: CalendarId): boolean {
-    return (
-      this.options.db
-        .select({ selected: calendars.selected })
-        .from(calendars)
-        .where(eq(calendars.id, calendarId))
-        .get()?.selected === true
-    );
   }
 }

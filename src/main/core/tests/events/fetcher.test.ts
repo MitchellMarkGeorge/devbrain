@@ -22,7 +22,7 @@ import {
   SourceType,
 } from '../../integrations/types';
 import { SearchService } from '../../search/service';
-import { IntegrationAuthError, RateLimitError } from '../../shared/errors';
+import { IntegrationAuthError } from '../../shared/errors';
 import { SyncStateManager } from '../../sync/sync-state';
 import { SyncWriter } from '../../sync/writer';
 import { createFakeCalendarProvider } from '../sync/fake-provider';
@@ -280,30 +280,17 @@ describe('EventFetcher — fetchHistory', () => {
     expect(calendarRow().historyLoadedFrom).toEqual(TWO_YEARS_AGO);
   });
 
-  it('marks rejected credentials for re-authentication, and records a rate limit', async () => {
+  it('marks rejected credentials for re-authentication', async () => {
     pages = [new IntegrationAuthError('rejected')];
-    await fetcher.fetchHistory(TWO_YEARS_AGO);
-    expect(markNeedsReauth).toHaveBeenCalledExactlyOnceWith(integrationId);
 
-    const retryAt = new Date(NOW.getTime() + 60_000);
-    pages = [new RateLimitError(retryAt)];
-    await fetcher.fetchHistory(TWO_YEARS_AGO);
-    expect(syncState.getSyncTarget(sourceId).retryAt).toEqual(retryAt);
+    expect(await fetcher.fetchHistory(TWO_YEARS_AGO)).toEqual([]);
+
+    expect(markNeedsReauth).toHaveBeenCalledExactlyOnceWith(integrationId);
     expect(calendarRow().historyLoadedFrom).toBeNull();
   });
 
-  it('saves nothing once the calendar is deselected or the workspace closes', async () => {
-    // deselected while the request is in flight
-    provider.calendars!.getEventPage = async (_auth, _calendarId, query) => {
-      queries.push(query);
-      db.update(calendars).set({ selected: false }).where(eq(calendars.id, calendarId)).run();
-      return { ...emptyPage(), events: [event()] };
-    };
-    expect(await fetcher.fetchHistory(TWO_YEARS_AGO)).toEqual([]);
-    expect(titles()).toEqual([]);
-    expect(calendarRow().historyLoadedFrom).toBeNull();
-
-    db.update(calendars).set({ selected: true }).where(eq(calendars.id, calendarId)).run();
+  it('saves nothing once the workspace closes', async () => {
+    // closed while the request is in flight
     provider.calendars!.getEventPage = async (_auth, _calendarId, query) => {
       queries.push(query);
       closing.abort();
