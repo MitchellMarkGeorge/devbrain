@@ -175,9 +175,10 @@ export class EventService {
    *
    * Synced calendars are mirrored from EVENT_HISTORY_WINDOW_MS back. When the range starts before
    * what a synced calendar of the read has, that calendar's older events are fetched from its
-   * provider and saved first, and the read waits for that before reading the database. Other readers hear of it
-   * through `events_fetched`. A fetch that fails is logged and tried again by the next read; this
-   * one returns what the database has. Reads inside what is fetched wait on nothing.
+   * provider and saved first, and the read waits for that before reading the database. Other
+   * readers hear of it through `events_fetched`. A fetch that fails is logged and tried again by
+   * the next read; this one returns what the database has. Reads inside what is fetched wait on
+   * nothing.
    */
   async listForCalendar(
     start: Date,
