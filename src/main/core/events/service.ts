@@ -285,19 +285,9 @@ export class EventService {
     if (updates.calendarId !== undefined && updates.calendarId !== series.calendarId) {
       throw new InvalidInputError("An occurrence stays on its series' calendar");
     }
-    const row = this.db
-      .select({ id: events.id })
-      .from(events)
-      .where(and(eq(events.seriesId, series.id), eq(events.originalStartAt, at)))
-      .get();
-    if (row) return this.updateEvent(row.id, updates);
-
-    const cancelled = this.db
-      .select()
-      .from(eventExceptions)
-      .where(and(eq(eventExceptions.seriesId, series.id), eq(eventExceptions.originalStartAt, at)))
-      .get();
-    if (cancelled) throw new InvalidInputError('The occurrence was deleted');
+    const rowId = this.occurrenceRowAt(series.id, at);
+    if (rowId) return this.updateEvent(rowId, updates);
+    if (this.isCancelled(series.id, at)) throw new InvalidInputError('The occurrence was deleted');
 
     const slot = slotOf(series, at);
     const { rest, timing: newTiming } = splitUpdates(slot, updates);
@@ -475,27 +465,35 @@ export class EventService {
     }
     // one stored before rules were checked may not be readable
     checkRule(series.recurrenceRule);
-    // an occurrence the rule makes, or one that has a row or was cancelled, though the rule has
-    // changed since
+
     const at = ref.originalStartAt;
-    if (
-      !isOccurrence(series.recurrenceRule, series, at) &&
-      !this.db
-        .select({ id: events.id })
-        .from(events)
-        .where(and(eq(events.seriesId, series.id), eq(events.originalStartAt, at)))
-        .get() &&
-      !this.db
-        .select({ seriesId: eventExceptions.seriesId })
-        .from(eventExceptions)
-        .where(
-          and(eq(eventExceptions.seriesId, series.id), eq(eventExceptions.originalStartAt, at)),
-        )
-        .get()
-    ) {
+    const madeByRule = isOccurrence(series.recurrenceRule, series, at);
+    // a row or a cancellation counts even where the rule, edited since, no longer makes the slot
+    const hasRow = this.occurrenceRowAt(series.id, at) !== undefined;
+    const cancelled = this.isCancelled(series.id, at);
+    if (!madeByRule && !hasRow && !cancelled) {
       throw new InvalidInputError(`Not an occurrence of ${series.id}: ${at.toISOString()}`);
     }
     return series;
+  }
+
+  // the id of the series' occurrence row for the slot starting at `at`, if it has one
+  private occurrenceRowAt(seriesId: EventId, at: Date): EventId | undefined {
+    return this.db
+      .select({ id: events.id })
+      .from(events)
+      .where(and(eq(events.seriesId, seriesId), eq(events.originalStartAt, at)))
+      .get()?.id;
+  }
+
+  // whether the series' occurrence starting at `at` was cancelled (has an event_exceptions row)
+  private isCancelled(seriesId: EventId, at: Date): boolean {
+    const cancellation = this.db
+      .select({ seriesId: eventExceptions.seriesId })
+      .from(eventExceptions)
+      .where(and(eq(eventExceptions.seriesId, seriesId), eq(eventExceptions.originalStartAt, at)))
+      .get();
+    return cancellation !== undefined;
   }
 
   /**
