@@ -179,12 +179,23 @@ function ruleLines(rule: string): RuleLine[] {
     });
 }
 
-// An RRULE or EXRULE line of the series as an rrule RRule, expanded in wall-clock time (see the
-// top of the file): from the series' start date when all-day, else from its start's local time.
+/**
+ * An RRULE or EXRULE line of the series as an rrule RRule, expanded in wall-clock time (see the
+ * top of the file): from the series' start date when all-day, else from its start's local time.
+ *
+ * A UTC UNTIL (`UNTIL=…Z`, the form RFC 5545 asks for with a TZID start, which ruleEndingBefore
+ * and providers write) is moved to wall-clock time too. rrule reads its digits as they are, so
+ * left alone it would end a New York series five hours late, and keep the occurrence a split
+ * ended it before.
+ */
 function expanding(line: RuleLine, series: SeriesTiming): RRule {
+  const options = RRule.parseString(line.value);
   const dtstart =
     series.allDay && series.startDate ? dateAsUtc(series.startDate) : wall(series, series.startAt);
-  return new RRule({ ...RRule.parseString(line.value), dtstart });
+  if (!series.allDay && options.until && /(^|;)UNTIL=\d{8}T\d{6}Z/i.test(line.value)) {
+    options.until = toWall(options.until, zoneOf(series));
+  }
+  return new RRule({ ...options, dtstart });
 }
 
 /**

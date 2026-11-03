@@ -607,6 +607,52 @@ describe('an occurrence is one the series has', () => {
   });
 });
 
+describe('a UTC UNTIL', () => {
+  // daily 9:00 New York from Friday 30 October 2026
+  function standup(rule = 'RRULE:FREQ=DAILY') {
+    return service.createEvent({
+      title: 'Standup',
+      startAt: new Date('2026-10-30T13:00:00.000Z'),
+      endAt: new Date('2026-10-30T13:15:00.000Z'),
+      timeZone: 'America/New_York',
+      recurrenceRule: rule,
+    });
+  }
+  const ref = (seriesId: EventId, at: string) => ({ seriesId, originalStartAt: new Date(at) });
+
+  it("ends the series where it says, in the series' zone, after a split", () => {
+    const series = standup();
+    // Monday 2 November, 9:00 EST
+    service.deleteOccurrence(ref(series.id, '2026-11-02T14:00:00.000Z'), 'following');
+    expect(service.getById(series.id).recurrenceRule).toBe(
+      'RRULE:FREQ=DAILY;UNTIL=20261102T135959Z',
+    );
+
+    expect(() =>
+      service.updateOccurrence(ref(series.id, '2026-11-02T14:00:00.000Z'), 'this', { title: 'X' }),
+    ).toThrow(InvalidInputError);
+    expect(occurrenceRows(series.id)).toEqual([]);
+    expect(
+      service.updateOccurrence(ref(series.id, '2026-11-01T14:00:00.000Z'), 'this', { title: 'Y' })
+        .title,
+    ).toBe('Y');
+  });
+
+  it("reads a rule's own UTC UNTIL as an instant, not as a local time", () => {
+    // until 8:00 New York on Sunday 1 November (13:00Z): 30 and 31 October, and not 1 November,
+    // whose 9:00 is after it
+    const series = standup('RRULE:FREQ=DAILY;UNTIL=20261101T130000Z');
+
+    expect(() =>
+      service.updateOccurrence(ref(series.id, '2026-11-01T14:00:00.000Z'), 'this', { title: 'X' }),
+    ).toThrow(InvalidInputError);
+    expect(
+      service.updateOccurrence(ref(series.id, '2026-10-31T13:00:00.000Z'), 'this', { title: 'Y' })
+        .title,
+    ).toBe('Y');
+  });
+});
+
 describe('daylight saving time', () => {
   // daily at the given New York time from the given start
   function newYork(startAt: string, minutes = 15) {
