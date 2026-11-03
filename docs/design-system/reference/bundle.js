@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"DevBrain","components":[{"name":"Icon"},{"name":"Button"},{"name":"ButtonGroup"},{"name":"Badge"},{"name":"ToggleGroup"},{"name":"Tabs"},{"name":"Input"},{"name":"Textarea"},{"name":"Field"},{"name":"Checkbox"},{"name":"Switch"},{"name":"DropdownMenu"},{"name":"Command"},{"name":"Tooltip"},{"name":"Dialog"},{"name":"Sheet"},{"name":"Toast"},{"name":"Card"},{"name":"Separator"},{"name":"Skeleton"},{"name":"Progress"},{"name":"Kbd"},{"name":"Breadcrumb"},{"name":"Sidebar"},{"name":"Calendar"},{"name":"StatusIcon"},{"name":"PriorityIcon"},{"name":"HealthIcon"},{"name":"ProgressRing"},{"name":"EntityPill"},{"name":"ProviderLogo"},{"name":"SourcePill"},{"name":"PropertyRow"},{"name":"DateRange"},{"name":"TaskRow"},{"name":"GroupHeading"},{"name":"EventRow"},{"name":"ScheduleCard"},{"name":"NoteCard"},{"name":"WorkspaceTile"},{"name":"SwatchPicker"},{"name":"SettingsGroup"},{"name":"EventBlock"},{"name":"StatusMenu"},{"name":"TaskList"},{"name":"SelectionBar"},{"name":"BoardColumn"},{"name":"BoardCard"}]} */
+/* @ds-bundle: {"format":4,"namespace":"DevBrain","components":[{"name":"Icon"},{"name":"Button"},{"name":"ButtonGroup"},{"name":"Badge"},{"name":"ToggleGroup"},{"name":"Tabs"},{"name":"Input"},{"name":"Textarea"},{"name":"Field"},{"name":"Checkbox"},{"name":"Switch"},{"name":"DropdownMenu"},{"name":"Command"},{"name":"Tooltip"},{"name":"Dialog"},{"name":"Sheet"},{"name":"Toast"},{"name":"Card"},{"name":"Separator"},{"name":"Skeleton"},{"name":"Progress"},{"name":"Kbd"},{"name":"Breadcrumb"},{"name":"Sidebar"},{"name":"Calendar"},{"name":"StatusIcon"},{"name":"PriorityIcon"},{"name":"HealthIcon"},{"name":"ProgressRing"},{"name":"EntityPill"},{"name":"ProviderLogo"},{"name":"SourcePill"},{"name":"EntityHoverCard"},{"name":"PropertyRow"},{"name":"DateRange"},{"name":"TaskRow"},{"name":"GroupHeading"},{"name":"EventRow"},{"name":"ScheduleCard"},{"name":"NoteCard"},{"name":"WorkspaceTile"},{"name":"SwatchPicker"},{"name":"SettingsGroup"},{"name":"EventBlock"},{"name":"StatusMenu"},{"name":"TaskList"},{"name":"SelectionBar"},{"name":"BoardColumn"},{"name":"BoardCard"}]} */
 (function () {
   var R = window.React;
   var h = R.createElement;
@@ -850,6 +850,53 @@
     );
   }
 
+  /* EntityHoverCard: the preview that opens after ~400ms of pointing at an entity pill, 4px below
+     it. Header (the pill's glyph and the item's name), meta lines, an optional two-line preview,
+     progress and actions. Clicking the pill still opens the item. */
+  function EntityHoverCard(props) {
+    var glyph =
+      props.type === 'event'
+        ? h('span', {
+            className: 'db-bar',
+            style: { background: props.color || 'var(--swatch-green)', height: 16 },
+          })
+        : props.type === 'note'
+          ? h(Icon, { name: 'file-text', size: 16, color: 'var(--muted-foreground)' })
+          : props.type === 'task'
+            ? h(StatusIcon, { status: props.status || 'in-progress', size: 16 })
+            : props.type === 'source'
+              ? h(ProviderLogo, { provider: props.provider, size: 16 })
+              : h(Icon, {
+                  name: 'folder',
+                  size: 16,
+                  color: props.color || 'var(--muted-foreground)',
+                });
+    return h(
+      'div',
+      { className: 'db-popover db-hovercard', role: 'dialog', 'aria-label': props.title },
+      h(
+        'div',
+        { className: 'db-hovercard-head' },
+        glyph,
+        h('span', { className: 'db-hovercard-title' }, props.title),
+      ),
+      props.pills ? h('div', { className: 'db-hovercard-pills' }, props.pills) : null,
+      (props.meta || []).map(function (m, i) {
+        return h('div', { key: i, className: 'db-hovercard-meta' }, m);
+      }),
+      props.preview ? h('div', { className: 'db-hovercard-preview' }, props.preview) : null,
+      props.progress
+        ? h(
+            'div',
+            { className: 'db-hovercard-progress' },
+            h(Progress, { value: props.progress.value }),
+            h('span', { className: 'db-hovercard-meta' }, props.progress.label),
+          )
+        : null,
+      props.actions ? h('div', { className: 'db-hovercard-actions' }, props.actions) : null,
+    );
+  }
+
   function EntityPill(props) {
     var e = ENTITY[props.type] || {};
     return h(
@@ -1259,6 +1306,7 @@
     EntityPill: EntityPill,
     ProviderLogo: ProviderLogo,
     SourcePill: SourcePill,
+    EntityHoverCard: EntityHoverCard,
     PropertyRow: PropertyRow,
     DateRange: DateRange,
     TaskRow: TaskRow,
