@@ -266,6 +266,8 @@ export interface TaskRowProps {
   state?: 'hover' | 'focus';
   menuOpen?: boolean;
   subtask?: boolean;
+  /** Stack the pills when the row runs out of room: after the title ('right'), or on both sides. */
+  stack?: 'right' | 'both';
   status?: TaskStatus;
   onSelect?: () => void;
   onStatusChange?: (s: TaskStatus) => void;

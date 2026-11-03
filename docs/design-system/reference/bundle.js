@@ -1435,6 +1435,19 @@
      status button, the title first (then the source pill, the parent pill on a subtask and the
      subtask count pill), entity pills, priority and date
      on the right. Status is uncontrolled unless `status` is passed. */
+  /* The pills on one side of a TaskRow title. When the row runs out of room they stack like a
+     deck: the last in full, the ones behind showing their edge and icon. Pointing at the stack or
+     focusing it spreads it out. One pill never stacks. */
+  function pillStack(stacked, pills) {
+    var shown = pills.filter(Boolean);
+    if (!shown.length) return null;
+    return h(
+      'span',
+      { className: 'dbl-stack', 'data-stacked': stacked && shown.length > 1 ? '' : undefined },
+      shown,
+    );
+  }
+
   function TaskRow(props) {
     var t = props.task;
     var st = useState(t.status);
@@ -1538,30 +1551,43 @@
         'div',
         { className: 'dbl-title' },
         h('span', { className: 'dbl-name' }, t.title),
-        t.key ? h(NS.SourcePill, { provider: t.source }, t.key) : null,
-        t.parent ? h(NS.EntityPill, { type: 'parent' }, t.parent) : null,
-        t.subtasks
-          ? h(
-              NS.Badge,
-              {
-                variant: 'outline',
-                icon: h(NS.ProgressRing, {
-                  value: t.subtasks[0],
-                  total: t.subtasks[1],
-                  size: 12,
-                }),
-                muted: true,
-              },
-              t.subtasks[0] + '/' + t.subtasks[1],
-            )
-          : null,
+        pillStack(props.stack === 'both', [
+          t.key ? h(NS.SourcePill, { key: 'key', provider: t.source }, t.key) : null,
+          t.parent ? h(NS.EntityPill, { key: 'parent', type: 'parent' }, t.parent) : null,
+          t.subtasks
+            ? h(
+                NS.Badge,
+                {
+                  key: 'subtasks',
+                  variant: 'outline',
+                  icon: h(NS.ProgressRing, {
+                    value: t.subtasks[0],
+                    total: t.subtasks[1],
+                    size: 12,
+                  }),
+                  muted: true,
+                },
+                t.subtasks[0] + '/' + t.subtasks[1],
+              )
+            : null,
+        ]),
       ),
       h(
         'div',
         { className: 'dbl-side' },
-        t.project ? h(NS.EntityPill, { type: 'project', color: t.projectColor }, t.project) : null,
-        t.event ? h(NS.EntityPill, { type: 'event', color: t.eventColor }, t.event) : null,
-        t.note ? h(NS.EntityPill, { type: 'note' }, t.note) : null,
+        pillStack(!!props.stack, [
+          t.project
+            ? h(
+                NS.EntityPill,
+                { key: 'project', type: 'project', color: t.projectColor },
+                t.project,
+              )
+            : null,
+          t.event
+            ? h(NS.EntityPill, { key: 'event', type: 'event', color: t.eventColor }, t.event)
+            : null,
+          t.note ? h(NS.EntityPill, { key: 'note', type: 'note' }, t.note) : null,
+        ]),
         h(
           'span',
           { className: 'dbl-pri' },
