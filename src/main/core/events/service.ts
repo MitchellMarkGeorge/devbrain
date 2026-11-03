@@ -164,17 +164,32 @@ export class EventService {
   }
 
   /**
-   * Edits one occurrence of a local series, or it and every later one. The whole series is edited
-   * with updateEvent.
+   * Edits one occurrence of a local series ("This event"), or it and every later one ("This and
+   * following"). "All events" is updateEvent on the series' id.
    *
-   * - `this`: the occurrence's own row, made from the series when it has none yet, which adds its
-   *   start to the series' exdates. Returns that row. It keeps the series' calendar and has no rule
-   *   of its own, so a calendarId or recurrenceRule is refused.
-   * - `following`: the series ends just before the occurrence, and a new series made from it and
-   *   the updates starts there (at the series' first occurrence, the series itself is updated).
-   *   Later occurrence rows and cancelled occurrences move to the new series, their starts shifted
-   *   as the occurrence's was. A null recurrenceRule makes the occurrence a one-off and deletes
-   *   them. Returns the series that starts at the occurrence.
+   * `ref` names the occurrence by its series and the start it has in the series: an expanded
+   * occurrence's start, or an occurrence row's originalStartAt (see OccurrenceRef). `updates` are
+   * the fields to change, as for updateEvent.
+   *
+   * 1. Find the series and check the occurrence is one of its (getSeries). Anything else throws
+   *    before a write.
+   * 2. Check what both scopes take: the time zone.
+   * 3. For `this`, hand over to updateThisOccurrence, which checks what it refuses itself (a rule,
+   *    another calendar).
+   * 4. For `following`, check what only it takes, a new rule (checkRule) and another calendar (it
+   *    must be local), then hand over to updateFollowingOccurrences.
+   *
+   * - `this` returns the occurrence's own row, made from the series when it has none yet, which
+   *   adds its start to the series' exdates. It keeps the series' calendar and has no rule of its
+   *   own, so a calendarId or recurrenceRule is refused.
+   * - `following` ends the series just before the occurrence and starts a new one there, made from
+   *   the series and the updates. At the series' first occurrence the series itself is updated
+   *   instead. Later occurrence rows and cancelled occurrences move to the new series, their starts
+   *   shifted as the occurrence's was. A null recurrenceRule makes the occurrence a one-off and
+   *   removes them. Returns the series that starts at the occurrence.
+   *
+   * Every check runs before the first write, and the writes of one call commit together, so a
+   * refused edit changes nothing. The changes are sent once the writes commit.
    */
   updateOccurrence(ref: OccurrenceRef, scope: OccurrenceScope, updates: UpdateEventOptions): Event {
     const series = this.getSeries(ref);
@@ -186,12 +201,24 @@ export class EventService {
   }
 
   /**
-   * Deletes one occurrence of a local series, or it and every later one. The whole series is
-   * deleted with deleteEvent.
+   * Deletes one occurrence of a local series ("This event"), or it and every later one ("This and
+   * following"). "All events" is deleteEvent on the series' id. `ref` is as for updateOccurrence.
    *
-   * - `this`: the occurrence is cancelled, and its own row, if it has one, deleted.
-   * - `following`: the series ends just before the occurrence, and later occurrence rows and
-   *   cancelled occurrences are deleted. At the series' first occurrence, the series is deleted.
+   * 1. Find the series and check the occurrence is one of its (getSeries).
+   * 2. For `following` at the series' first occurrence (hasOccurrenceBefore), nothing is left
+   *    before it, so delete the whole series with deleteEvent and stop.
+   * 3. For `following` otherwise, work out the rule that ends the series just before the
+   *    occurrence (ruleEndingBefore). This is the step that refuses a rule that cannot be split,
+   *    so it runs before the transaction, and a refusal writes nothing.
+   * 4. In one transaction:
+   *    - `this`: record the occurrence as cancelled (an event_exceptions row; a repeat changes
+   *      nothing), and delete its own row if it has one, linked to a note or task or not, as a
+   *      one-off event would be.
+   *    - `following`: store the ending rule, delete the cancellations from the occurrence on, which
+   *      the shortened rule no longer reaches, and remove the occurrence rows from it on
+   *      (removeOccurrenceRows), keeping as one-offs the ones a note or task links to.
+   * 5. Send `deleted` for the rows removed, `updated` for the rows kept as one-offs, then `updated`
+   *    for the series, whose exdates or rule changed.
    */
   deleteOccurrence(ref: OccurrenceRef, scope: OccurrenceScope): void {
     const series = this.getSeries(ref);
@@ -236,6 +263,21 @@ export class EventService {
     this.changes.emit({ type: 'updated', event: this.getById(series.id) });
   }
 
+  /**
+   * updateOccurrence's "This event": edits the occurrence at `at` through its own row.
+   *
+   * 1. Refuse a recurrenceRule (an occurrence does not repeat), and a calendarId other than the
+   *    series' (an occurrence is drawn with its series, so it stays on its calendar).
+   * 2. If the occurrence already has a row, edited before, update that row with updateEvent and
+   *    return it. updateEvent sends its own change.
+   * 3. Refuse an occurrence that was cancelled: it is no longer drawn, so there is nothing to edit.
+   * 4. Otherwise make its row: the series' fields (copiedFields), the occurrence's own timing
+   *    (slotOf: the series' length from `at`), then the updates over them, with `seriesId` and
+   *    `originalStartAt` tying it to its slot and no rule.
+   * 5. Send `created` for the row, then `updated` for the series: its exdates now include `at`,
+   *    since they are worked out from its occurrence rows, so FullCalendar draws the row instead of
+   *    the series' occurrence there.
+   */
   private updateThisOccurrence(series: Event, at: Date, updates: UpdateEventOptions): Event {
     if (updates.recurrenceRule !== undefined) {
       throw new InvalidInputError('An occurrence cannot have a recurrence rule of its own');
@@ -279,6 +321,40 @@ export class EventService {
     return event;
   }
 
+  /**
+   * updateOccurrence's "This and following": edits the occurrence at `at` and every later one, by
+   * splitting the series there.
+   *
+   * First, outside the transaction, so that whatever throws writes nothing:
+   *
+   * 1. Whether `at` is the series' first occurrence (hasOccurrenceBefore). Nothing is then left
+   *    before it, so the series is updated in place rather than split.
+   * 2. The timing the part from `at` starts with: the occurrence's slot (slotOf), with the
+   *    updates' timing over it (splitUpdates).
+   * 3. Its rule: the updates' rule if they have one (null makes it a one-off), else the series'
+   *    rule, with any COUNT lowered by the occurrences before `at` (ruleContinuingFrom).
+   * 4. The old series' ending rule, when split (ruleEndingBefore). This and step 3 refuse a rule
+   *    that cannot be split.
+   * 5. How later occurrences move (shiftOf): as the occurrence moved from its slot to its new
+   *    start, in local time, so they land on the new series' occurrences across a DST change.
+   *
+   * Then, in one transaction:
+   *
+   * 6. At the first occurrence, update the series with the updates, the new timing and the rule.
+   *    Otherwise, store the series' ending rule, and insert the new series: the old one's fields
+   *    (copiedFields), the updates, the new timing and the rule.
+   * 7. Take the occurrence rows and the cancellations from `at` on off the old series.
+   * 8. If the part from `at` is a one-off, remove those rows (removeOccurrenceRows, keeping as
+   *    one-offs the ones a note or task links to) and drop the cancellations: a one-off has no
+   *    other occurrences. Otherwise move both to the series starting at `at`, their starts shifted
+   *    (step 5), and the rows to the updates' calendar if they name one.
+   *
+   * Last, after the commit:
+   *
+   * 9. Send `updated` for the old series and `created` for the new one (or `updated` for the
+   *    series updated in place), `updated` for each row moved or kept, and `deleted` for the rows
+   *    removed. Return the series that starts at `at`.
+   */
   private updateFollowingOccurrences(series: Event, at: Date, updates: UpdateEventOptions): Event {
     // its first occurrence, which is not startAt when the rule skips that day
     const atFirst = !hasOccurrenceBefore(series.recurrenceRule!, series, at);
@@ -371,13 +447,26 @@ export class EventService {
     return starting;
   }
 
+  // sends `updated` for each of these events, read again so the change carries the row as it is now
   private emitUpdated(ids: EventId[]): void {
     for (const event of ids.length > 0 ? this.getByIds(ids) : []) {
       this.changes.emit({ type: 'updated', event });
     }
   }
 
-  // the series an occurrence write is about: a local, recurring one the occurrence can be in
+  /**
+   * The series an occurrence write is about, once it is clear the write can act on it. Every
+   * occurrence write starts here, so a refused one has written nothing. It throws, in order:
+   *
+   * 1. NotFoundError when the series does not exist.
+   * 2. ExternalReadOnlyError when it is synced: its occurrences come from its provider.
+   * 3. InvalidInputError when it does not repeat, or its stored rule cannot be read (checkRule;
+   *    one stored before rules were checked may not pass).
+   * 4. InvalidInputError when `ref.originalStartAt` is not one of its occurrences: neither one its
+   *    rule makes (isOccurrence), nor one that has an occurrence row or was cancelled. Those two
+   *    are accepted even when the rule no longer makes them, after it was edited, so a row the
+   *    calendar still draws can always be edited or deleted.
+   */
   private getSeries(ref: OccurrenceRef): Event {
     const series = this.getById(ref.seriesId);
     assertRowEditable(series);
@@ -539,6 +628,12 @@ function inRange(start: Date, end: Date) {
  * Removes the occurrence rows `where` matches, of a series that is going in full or from a start
  * on. A row a note or task links to stays, as a one-off with no series: what `events.seriesId`
  * being set null when its series goes intends. Synchronous, for a transaction.
+ *
+ * 1. Find the occurrence rows `where` matches (only rows with a series).
+ * 2. Find which of them a note or a task links to.
+ * 3. Clear `seriesId` and `originalStartAt` on those, so they stand alone, and delete the rest.
+ *
+ * Returns both lists of ids, for the caller to send `deleted` and `updated` once it commits.
  */
 function removeOccurrenceRows(
   tx: BaseSQLiteDatabase<'sync', RunResult>,
@@ -602,7 +697,9 @@ function splitUpdates(existing: Timing, updates: UpdateEventOptions) {
   };
 }
 
-// the timing a series' occurrence at `at` has before any edit: the series' length, from `at`
+// The timing a series' occurrence at `at` has before any edit, which an occurrence edit starts
+// from. Timed: the series' length from `at`. All-day: `at`'s date, for as many days as the series
+// lasts, with its instants the starts of those days.
 function slotOf(series: Event, at: Date): Timing {
   if (series.allDay && series.startDate && series.endDate) {
     const startDate = toDateString(at);
@@ -625,7 +722,9 @@ function slotOf(series: Event, at: Date): Timing {
   };
 }
 
-// what an occurrence row or a series split off takes from its series, besides timing and rule
+// What an occurrence row or a series split off takes from its series, besides timing and rule,
+// before the edit's updates go over it. Not its id, sync state or links, which belong to the
+// series alone.
 function copiedFields(series: Event) {
   return {
     calendarId: series.calendarId,
@@ -641,8 +740,11 @@ function copiedFields(series: Event) {
   };
 }
 
-// Moves an occurrence's start as an edit moved `from` to `to`: by whole days between all-day
-// events, so a local midnight stays one across DST, and by the change in local time otherwise.
+// How a "following" edit moves the starts of later occurrence rows and cancellations, given that
+// it moved the occurrence from `from` to `to`. Between all-day timings: by whole days, so a local
+// midnight stays one across DST. Otherwise: by the change in local time from `fromZone` (the old
+// series') to `toZone` (the new one's), so they land on the new series' occurrences
+// (shiftByLocalTime).
 function shiftOf(from: Timing, to: Timing, fromZone: string, toZone: string): (at: Date) => Date {
   if (from.allDay && to.allDay && from.startDate && to.startDate) {
     const days = daysBetween(from.startDate, to.startDate);
