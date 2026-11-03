@@ -336,7 +336,7 @@ describe('EventService — listForCalendar range', () => {
       startAt: hoursAfter(RANGE_START, 2),
       endAt: hoursAfter(RANGE_START, 3),
     });
-    const result = eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).toContain(event.id);
   });
 
@@ -346,7 +346,7 @@ describe('EventService — listForCalendar range', () => {
       startAt: hoursAfter(RANGE_START, -6), // day before, 6pm
       endAt: hoursAfter(RANGE_START, 2),
     });
-    const result = eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).toContain(event.id);
   });
 
@@ -356,7 +356,7 @@ describe('EventService — listForCalendar range', () => {
       startAt: hoursAfter(RANGE_START, 20),
       endAt: hoursAfter(RANGE_START, 30), // spills into the next day
     });
-    const result = eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).toContain(event.id);
   });
 
@@ -366,7 +366,7 @@ describe('EventService — listForCalendar range', () => {
       startAt: hoursAfter(RANGE_START, -24),
       endAt: hoursAfter(RANGE_START, 48),
     });
-    const result = eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).toContain(event.id);
   });
 
@@ -376,7 +376,7 @@ describe('EventService — listForCalendar range', () => {
       startAt: hoursAfter(RANGE_START, -5),
       endAt: hoursAfter(RANGE_START, -2),
     });
-    const result = eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).not.toContain(event.id);
   });
 
@@ -386,7 +386,7 @@ describe('EventService — listForCalendar range', () => {
       startAt: hoursAfter(RANGE_END, 2),
       endAt: hoursAfter(RANGE_END, 3),
     });
-    const result = eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).not.toContain(event.id);
   });
 
@@ -398,7 +398,7 @@ describe('EventService — listForCalendar range', () => {
       endAt: new Date('2025-01-06T10:30:00.000Z'),
       recurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
     });
-    const result = eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).toContain(event.id);
   });
 
@@ -409,7 +409,7 @@ describe('EventService — listForCalendar range', () => {
       endAt: hoursAfter(RANGE_END, 24.5),
       recurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
     });
-    const result = eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result.map((e) => e.id)).not.toContain(event.id);
   });
 
@@ -424,7 +424,7 @@ describe('EventService — listForCalendar range', () => {
       startAt: hoursAfter(RANGE_START, 2),
       endAt: hoursAfter(RANGE_START, 3),
     });
-    const result = eventsService.listForCalendar(RANGE_START, RANGE_END);
+    const result = await eventsService.listForCalendar(RANGE_START, RANGE_END);
     expect(result[0].id).toBe(earlier.id);
     expect(result[1].id).toBe(later.id);
   });

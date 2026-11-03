@@ -294,7 +294,8 @@ export class SyncWriter {
 
   /**
    * Takes a deselected calendar's events out of scope by the removal rule, and forgets the
-   * cancelled occurrences parked for it, so selecting it again starts clean.
+   * cancelled occurrences parked for it and how far back its history was fetched, so selecting it
+   * again starts clean.
    */
   removeCalendarEvents(sourceId: ExternalSourceId, calendarId: CalendarId): SyncSummary {
     return this.db.transaction((tx) => {
@@ -1210,6 +1211,12 @@ class PageWrite {
       )
       .all();
     this.removeEventLinks(links);
+    // its older history went with its events: selecting it again fetches that afresh
+    this.tx
+      .update(calendars)
+      .set({ historyLoadedFrom: null })
+      .where(eq(calendars.id, calendarId))
+      .run();
     if (calendar.externalId !== null) {
       this.tx
         .delete(externalEventExceptions)

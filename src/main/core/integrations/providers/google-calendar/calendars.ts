@@ -11,7 +11,8 @@ import { CANCELLED_STATUS, eventSchema, eventStubSchema } from './schema';
  * of one calendar per call. Which calendars a sync visits, in what order, and where each one
  * resumes is EventSyncer's.
  *
- * - A full pass asks for everything from `from` on (timeMin); a change walk sends Google's sync
+ * - A full pass asks for everything from `from` on (timeMin), and a backfill for what lies between
+ *   `from` and `until` (timeMin and timeMax); a change walk sends Google's sync
  *   token, our change token, alone. The other parameters are fixed in ./requests, as Google wants
  *   them to match across the pages of a pass and between the pass that issued a token and the
  *   walks that use it.
@@ -36,7 +37,9 @@ export class GoogleCalendarSource implements CalendarSource {
     options: RequestOptions = {},
   ): Promise<CalendarEventPage> {
     const window: EventsWindow =
-      'changeToken' in query ? { syncToken: query.changeToken } : { timeMin: query.from };
+      'changeToken' in query
+        ? { syncToken: query.changeToken }
+        : { timeMin: query.from, ...(query.until !== undefined && { timeMax: query.until }) };
     const response = await this.client.listEvents(
       auth,
       calendarId,

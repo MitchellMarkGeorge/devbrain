@@ -199,17 +199,16 @@ After "keep everything as local copies", connecting the same account again re-ma
 
 ### Viewing months before the synced history
 
-_Found while planning the calendar UI._
+_Found while planning the calendar UI. Done: option 2, fetch on demand, below._
 
-The calendar view will let users go back months or years, but a Google calendar only has events from 30 days before its first full pass onward. `EVENT_HISTORY_WINDOW_MS` (`src/main/core/sync/constants.ts`) sets the pass's `timeMin` in `EventSyncer.withTimeMin` (`src/main/core/sync/event-syncer.ts`); later passes are incremental, and nothing removes old rows, so the stored history only grows forward from that first pass. `EventService.listForCalendar` reads any range from the database, but nothing fetches a range that was never synced, so earlier months show no synced events. Local events are all stored and are unaffected.
+A Google calendar is mirrored from 30 days before its first full pass (`EVENT_HISTORY_WINDOW_MS`). When `EventService.listForCalendar` (IPC `events.listForCalendar`) reads a range that starts before what a selected, visible synced calendar has (`calendars.historyLoadedFrom`, else the window), `EventFetcher.fetchHistory` (`src/main/core/events/fetcher.ts`) lists the gap from the provider's calendar source (`timeMin`/`timeMax`, no sync token), saves each page through `SyncWriter.applyEventPage`, and lowers `historyLoadedFrom`; the read waits for that and returns the events. It goes through no sync run and leaves the cursor alone, and `EventService` announces it as `events_fetched`, so other views refetch. A fetch that fails is logged, records nothing, and is tried again by the next read. Deselecting a calendar clears `historyLoadedFrom` with its events. Local events take no part.
 
-- A full resync after a 410 starts again from 30 days back. Rows from before then stay, but whether later incremental passes still report changes to them is to check (see "A full resync of a calendar does not drop events deleted long ago").
+Left to do:
 
-Options:
-
-1. **A longer window**, e.g. one or two years. A one-line change, but every first sync pulls and writes far more events, and anything older is still missing.
-2. **Fetch on demand.** When the view asks for a range before a calendar's synced history, fetch that range from Google (`timeMin`/`timeMax`, no sync token) and apply it through `SyncWriter.applyEventPage`, recording per calendar how far back history is loaded. Keeps first syncs fast and reaches any date. Needs a place to call the provider outside a run (see "A path for provider features that are not sync") and a rule for keeping backfilled rows up to date, since the incremental pass may not cover them. Recommended.
-3. **Both**: a moderate window (6–12 months) so recent history is there offline, with on-demand fetching for anything older.
+- **Changes to fetched events rely on Google's change feed covering them.** The events.list reference says a sync token returns "only entries that have changed since then", with no time filter, so changes to events before the first pass's `timeMin` should be reported, but this is unchecked against the live API. If they are not, fetched events stay as fetched.
+- **The read waits for the whole fetch**, bounded only by `HTTP_TIMEOUT_MS` per page. A slow connection holds the view for as long.
+- Two reads of the same old range at once both fetch it. Saves match by external id, so the result is the same.
+- `historyLoadedFrom` only goes down while the calendar is selected. Nothing trims old history again.
 
 ### The calendar view's FullCalendar adapter
 

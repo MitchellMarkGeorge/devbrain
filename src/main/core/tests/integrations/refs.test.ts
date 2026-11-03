@@ -230,7 +230,9 @@ describe('refs — events', () => {
     expect(fromIds.get(synced.id)).toEqual(expectedRef);
     expect(fromIds.get(local.id)).toBeNull();
 
-    const fromRange = new Map(events.listForCalendar(...range).map((r) => [r.id, r.external]));
+    const fromRange = new Map(
+      (await events.listForCalendar(...range)).map((r) => [r.id, r.external]),
+    );
     expect(fromRange.get(synced.id)).toEqual(expectedRef);
     expect(fromRange.get(local.id)).toBeNull();
   });
@@ -242,7 +244,7 @@ describe('refs — events', () => {
     link({ eventId: removed.id }, { state: LinkState.REMOVED, removedAt: SYNCED_AT });
     link({ eventId: synced.id });
 
-    const items = events.listForCalendar(...range);
+    const items = await events.listForCalendar(...range);
     expect(ids(items)).toEqual(ids([synced, local]));
     // still readable directly, for the notes linked to it
     expect(events.getById(removed.id).external?.state).toBe(LinkState.REMOVED);

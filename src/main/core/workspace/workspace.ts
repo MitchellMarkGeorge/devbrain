@@ -2,6 +2,7 @@ import { drizzle, BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import Database from 'better-sqlite3';
 import { ArchiveChange, ArchiveService } from '../archive/service';
 import { EventService } from '../events/service';
+import { EventFetcher } from '../events/fetcher';
 import { FavoritesService } from '../favorites/service';
 import { RecentsService } from '../recents/service';
 import { CalendarService } from '../calendars/service';
@@ -68,6 +69,8 @@ export class Workspace {
   // syncNow, getStatus and onProgress for the app; trigger for focus and resume. Started by
   // WorkspaceService.open, stopped by close()
   readonly sync: SyncScheduler;
+  // older history of synced calendars, for a calendar read that reaches before what sync keeps
+  private readonly eventFetcher: EventFetcher;
   /**
    * Opens a link in the system browser: a synced item's provider page, a meeting link, a link in a
    * description. Only http and https URLs are opened; anything else throws UnsafeUrlError and
@@ -84,7 +87,11 @@ export class Workspace {
     this.notes = new NoteService(db, info.path, options.logger);
     this.tasks = new TaskService(db);
     this.projects = new ProjectService(db);
-    this.events = new EventService(db);
+    // a read of a range before what synced calendars mirror fetches it first; eventFetcher is
+    // built with the integration services below, before any read can run
+    this.events = new EventService(db, (from, calendarIds) =>
+      this.eventFetcher.fetchHistory(from, calendarIds),
+    );
     this.calendars = new CalendarService(db);
     this.archive = new ArchiveService(db);
     this.favorites = new FavoritesService(db);
@@ -118,6 +125,8 @@ export class Workspace {
       } else this.search.indexNoteContent(change.note, change.content);
     });
     this.events.onChange((change) => {
+      // SyncWriter indexed a fetch's events as it saved them
+      if (change.type === 'events_fetched') return;
       if (change.type === 'deleted') this.search.removeFromIndex(change.eventIds);
       else this.search.indexEvent(change.event);
     });
@@ -138,6 +147,16 @@ export class Workspace {
     const syncState = new SyncStateManager(db);
     const writer = new SyncWriter(db, this.search);
     const { logger } = options;
+    this.eventFetcher = new EventFetcher({
+      db,
+      credentials,
+      providers,
+      writer,
+      syncState,
+      integrations,
+      signal: this.closing.signal,
+      logger,
+    });
     const engine = new SyncEngine(db, {
       integrations,
       syncState,

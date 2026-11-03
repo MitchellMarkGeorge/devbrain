@@ -28,7 +28,8 @@ const fields = {
 
 export const eventsRouter = t.router({
   // every event of the visible calendars that may occur in [start, end], unpaged: a series once,
-  // with its rule and exdates, for FullCalendar to expand
+  // with its rule and exdates, for FullCalendar to expand. A range before what synced calendars
+  // mirror has its older events fetched from their sources first (see listForCalendar)
   listForCalendar: wsProcedure
     .input(
       z.object({
@@ -38,8 +39,9 @@ export const eventsRouter = t.router({
         calendarIds: z.array(zId('calendar')).optional(),
       }),
     )
-    .query(({ ctx, input: { start, end, ...options } }): Event[] =>
-      ctx.workspace.events.listForCalendar(start, end, options),
+    .query(
+      ({ ctx, input: { start, end, ...options } }): Promise<Event[]> =>
+        ctx.workspace.events.listForCalendar(start, end, options),
     ),
 
   get: wsProcedure

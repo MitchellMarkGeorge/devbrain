@@ -187,10 +187,7 @@ function syncedEntries() {
 }
 
 async function visibleTitles(): Promise<string[]> {
-  return events
-    .listForCalendar(...RANGE)
-    .map((item) => item.title)
-    .sort();
+  return (await events.listForCalendar(...RANGE)).map((item) => item.title).sort();
 }
 
 beforeEach(async () => {
@@ -824,6 +821,20 @@ describe('SyncWriter events — removeDeselectedCalendars', () => {
 
     // done: the kept event's link is removed, so there is nothing left to remove
     expect(writer.removeDeselectedCalendars(sourceId).removed).toBe(0);
+  });
+
+  it("forgets how far back a removed calendar's history was fetched", () => {
+    writer.applyEventPage(sourceId, calendarId, page({ events: [event()] }));
+    const loaded = new Date('2024-01-01T00:00:00.000Z');
+    db.update(calendars)
+      .set({ selected: false, historyLoadedFrom: loaded })
+      .where(eq(calendars.id, calendarId))
+      .run();
+
+    writer.removeDeselectedCalendars(sourceId);
+
+    const row = db.select().from(calendars).where(eq(calendars.id, calendarId)).get()!;
+    expect(row.historyLoadedFrom).toBeNull();
   });
 
   it('forgets what is parked for an unselected calendar with no events', () => {

@@ -183,6 +183,13 @@
       "when": 1793392378179,
       "tag": "0025_add_viewed_at",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1793730652141,
+      "tag": "0026_add_calendar_history_loaded_from",
+      "breakpoints": true
     }
   ]
 }

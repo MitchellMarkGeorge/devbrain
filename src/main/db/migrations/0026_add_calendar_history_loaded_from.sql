@@ -1,0 +1,1 @@
+ALTER TABLE `calendars` ADD `history_loaded_from` integer;
