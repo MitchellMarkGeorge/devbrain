@@ -83,12 +83,28 @@ export interface CreateEventOptions {
   // an IANA zone; the system zone when left out
   timeZone?: string;
   location?: string;
+  // RFC 5545 RRULE, EXRULE, RDATE and EXDATE lines joined with \n, with at least one RRULE and no
+  // DTSTART (startAt is the series' start); anything else is refused
   recurrenceRule?: string;
   status?: EventStatus;
   kind?: EventKind;
   meetingUrl?: string;
   color?: string;
 }
+
+/**
+ * One occurrence of a series: the series, and the start the occurrence has in it. For an
+ * occurrence FullCalendar expanded, that is its start; for a moved or edited occurrence row, its
+ * seriesId and originalStartAt.
+ */
+export interface OccurrenceRef {
+  seriesId: EventId;
+  originalStartAt: Date;
+}
+
+// what an occurrence write applies to: the occurrence alone, or it and every later one. The whole
+// series is written by its own id with updateEvent and deleteEvent.
+export type OccurrenceScope = 'this' | 'following';
 
 export interface UpdateEventOptions {
   title?: string;
@@ -102,7 +118,7 @@ export interface UpdateEventOptions {
   // an IANA zone
   timeZone?: string;
   location?: string;
-  // nullable so a recurring event can be turned back into a one-off
+  // checked as on create; null turns a recurring event back into a one-off
   recurrenceRule?: string | null;
   status?: EventStatus;
   kind?: EventKind;
