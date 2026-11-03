@@ -2,6 +2,10 @@
 
 How the calendar view turns the events `EventService.listForCalendar` returns into FullCalendar event input. Not built yet: this is the spec for the calendar UI. The event model (feature 16b, see [the tech design](../integrations/tech-design.md)) stores events in the shape this needs, so the adapter is one small function on the renderer side.
 
+## Packages
+
+FullCalendar 7: `fullcalendar` (the calendar, with its views under `fullcalendar/list`, `fullcalendar/daygrid` and so on) and `@fullcalendar/rrule`, with their peers `rrule` (already a dependency, for core) and `temporal-polyfill`. There is no Luxon plugin for 7 (`@fullcalendar/luxon` stops at 6) and none is needed: the RRule plugin expands `DTSTART;TZID=…` itself (see [Checked against FullCalendar 7](#checked-against-fullcalendar-7)). The renderer's Vite build bundles all of them; the main process's bundling of `rrule` (`vite/utils.ts`) does not affect it.
+
 ## What it receives
 
 `listForCalendar(start, end)` returns every event of the visible calendars that may occur in the range, removed ones left out. Three kinds of item come back:
@@ -50,7 +54,7 @@ The dates pass through unchanged, with no time zone conversion, which is why the
   title: e.title,
   rrule: [
     dtstartLine(e),
-    e.recurrenceRule,
+    localLines(e), // e.recurrenceRule with its UTC values made local, see below
     ...e.exdates.map((at) => exdateLine(e, at)),
   ].join('\n'),
   duration: e.allDay
@@ -67,9 +71,21 @@ The dates pass through unchanged, with no time zone conversion, which is why the
 | Series  | `DTSTART`                                      | `EXDATE`                                      |
 | ------- | ---------------------------------------------- | --------------------------------------------- |
 | Timed   | `DTSTART;TZID=America/Toronto:20261005T090000` | `EXDATE;TZID=America/Toronto:20261009T090000` |
-| All-day | `DTSTART;VALUE=DATE:20261005`                  | `EXDATE;VALUE=DATE:20261009`                  |
+| All-day | `DTSTART:20261005`                             | `EXDATE:20261009`                             |
 
 A timed line is the instant's wall-clock time in the series' `timeZone` (`Intl.DateTimeFormat` with that zone), so the series stays at 9:00 local across a DST change. An all-day line is the local date of the instant (`toDateString`), which for `startAt` is `startDate`.
+
+**An all-day `DTSTART` has no `VALUE=DATE`.** RFC 5545 writes it `DTSTART;VALUE=DATE:20261005`, but rrule.js 2.8 only reads `DTSTART:` or `DTSTART;TZID=…:`. It ignores the other line, and the series starts today. An `EXDATE;VALUE=DATE:` line works, but the plain form keeps the two alike.
+
+**Every value in the string is local: none is UTC.** In a timed series, a UTC value (`…Z`) anywhere in the string breaks it, so `localLines` rewrites the ones in `recurrenceRule` to local time in the series' zone:
+
+| Stored                    | In the string                                 | Without the rewrite                                                                                                                                                                   |
+| ------------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `UNTIL=20261102T135959Z`  | `UNTIL=20261102T085959`                       | the plugin takes the whole rule as zoned and stops converting rrule.js's output, so every occurrence moves with the system zone (right only in UTC), and the series runs past its end |
+| `EXDATE:20261103T140000Z` | `EXDATE;TZID=America/Toronto:20261103T090000` | the same, and the occurrence is not excluded                                                                                                                                          |
+| `RDATE:20261106T150000Z`  | `RDATE;TZID=America/Toronto:20261106T100000`  | rrule.js drops the `Z` and reads the value as local time, hours off                                                                                                                   |
+
+Stored rules keep UTC values on purpose: RFC 5545 requires a UTC `UNTIL` with a `TZID` start, core writes one when it splits a series ("This and following"), and providers send them. Core expands them correctly; only the string for FullCalendar needs the rewrite. An all-day series' values are dates and need none.
 
 ### On every event
 
@@ -80,7 +96,7 @@ A timed line is the instant's wall-clock time in the series' `timeZone` (`Intl.D
 
 ### Time zone and untrusted values
 
-- **`timeZone: 'local'`**, FullCalendar's default. Core has no time zone setting: dates and day ranges are days in the system zone, which is the renderer's local zone too (see `core/shared/dates.ts`). All-day dates pass through as text; timed events are instants. Only `DTSTART`/`EXDATE` lines name a zone, the series' own `timeZone`.
+- **`timeZone: 'local'`**, FullCalendar's default. Core has no time zone setting: dates and day ranges are days in the system zone, which is the renderer's local zone too (see `core/shared/dates.ts`). All-day dates pass through as text; timed events are instants. Only `DTSTART`/`EXDATE`/`RDATE` lines name a zone, the series' own `timeZone`. Keep it `'local'`: with a `TZID`, rrule.js returns occurrences as the system zone's local times, and the RRule plugin reads them in the calendar's zone, so the two must be the same.
 - **Colours** are parsed with `hexColorSchema`, and **`external.url` and `meetingUrl`** are opened through `Workspace.openUrl`, never set as an `href` FullCalendar follows (`url` on event input would navigate the window). Titles are text; descriptions are Markdown under the rules in [untrusted content](../security/untrusted-content.md).
 
 ## Fetching
@@ -145,8 +161,17 @@ The occurrence routes take the series and the occurrence's start in it, `{ serie
 
 The routes' writes reach the other windows as `events` changes, like any other event write: the master's `exdates` or rule changed, and occurrence rows were created, moved or deleted. Refetching the visible range is enough.
 
+## Checked against FullCalendar 7
+
+Checked with `fullcalendar` and `@fullcalendar/rrule` 7.1.3 and rrule 2.8.1, in Chromium with the system zone set to New York, Berlin, Tokyo and UTC: each drew the same instants.
+
+- **`TZID`** works, with no Luxon plugin: a daily 9:00 New York series stays at 9:00 across the end of DST (13:00Z, then 14:00Z), and an `EXDATE;TZID=…` line removes its occurrence.
+- **DST gaps and overlaps** are drawn where core puts them: a 2:30 occurrence on the night clocks go from 2:00 to 3:00 at 3:30, and on the night 1:00 to 2:00 repeats, one 1:30, the first. So an occurrence ref from a drawn occurrence matches core's exactly.
+- **All-day series** with plain date lines (`DTSTART:`, `EXDATE:`, `UNTIL=` a date) start, skip and end on the right days. `DTSTART;VALUE=DATE:` does not work (see above).
+- **`RDATE;TZID=…` and `EXRULE`** lines work in the string form.
+- **UTC values** in a timed series break it, so the adapter makes them local (see above).
+
 ## To confirm when building it
 
-- **`TZID`.** The RRule plugin page only describes a `Z` suffix and the calendar's own `timeZone`. Expanding `DTSTART;TZID=…` correctly across DST likely needs `@fullcalendar/luxon` alongside `@fullcalendar/rrule`. Check it, and check that `EXDATE;TZID=…` lines match the generated occurrences. If `TZID` is not supported, a UTC `DTSTART` and `EXDATE`s (`…Z`) work but drift an hour after a DST change. Core resolves local times with Luxon: a time a DST change skips (2:30 when clocks go from 2:00 to 3:00) moves forward by the change, and a repeated one is the first of the two. Check that FullCalendar draws those occurrences at the same instants, since an occurrence ref must match them exactly.
-- **All-day series** with `VALUE=DATE` lines, and their `duration` in days.
-- **Provider lines** beyond `RRULE` (`RDATE`, `EXRULE`) in the string form.
+- **Dragging an occurrence**: that `oldEvent.start` is the occurrence's start as drawn, the `originalStartAt` the occurrence routes need.
+- **All-day `duration`** in days, for a series longer than one day.
