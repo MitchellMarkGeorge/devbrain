@@ -422,7 +422,7 @@ describe('EventService — listForCalendar, older history', () => {
 
     expect(calls).toEqual([[START, [synced]]]);
     expect(listed.map((event) => event.title)).toEqual(['Old standup']);
-    expect(changes).toEqual([{ type: 'history_fetched', calendarIds: [synced] }]);
+    expect(changes).toEqual([{ type: 'events_fetched', calendarIds: [synced] }]);
   });
 
   it('announces nothing when the fetch saved nothing', async () => {

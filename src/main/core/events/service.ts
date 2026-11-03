@@ -40,13 +40,13 @@ export type FetchHistory = (from: Date, calendarIds?: CalendarId[]) => Promise<C
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
 // layer will forward them to the renderer. Sent after the write commits, with the row as written.
 // `deleted` carries every row the delete removed: the event, and a series' occurrence rows.
-// `history_fetched` names the synced calendars whose older events a read fetched and saved
+// `events_fetched` names the synced calendars whose older events a read fetched and saved
 // (see listForCalendar); SyncWriter indexed them as it saved them.
 export type EventChange =
   | { type: 'created'; event: Event }
   | { type: 'updated'; event: Event }
   | { type: 'deleted'; eventIds: EventId[] }
-  | { type: 'history_fetched'; calendarIds: CalendarId[] };
+  | { type: 'events_fetched'; calendarIds: CalendarId[] };
 
 export class EventService {
   private readonly changes = new ChangeListeners<EventChange>('Event');
@@ -176,7 +176,7 @@ export class EventService {
    * Synced calendars are mirrored from EVENT_HISTORY_WINDOW_MS back. When the range starts before
    * what a synced calendar of the read has, that calendar's older events are fetched from its
    * provider and saved first, and the read waits for that before reading the database. Other readers hear of it
-   * through `history_fetched`. A fetch that fails is logged and tried again by the next read; this
+   * through `events_fetched`. A fetch that fails is logged and tried again by the next read; this
    * one returns what the database has. Reads inside what is fetched wait on nothing.
    */
   async listForCalendar(
@@ -185,7 +185,7 @@ export class EventService {
     options: CalendarRangeOptions = {},
   ): Promise<Event[]> {
     const fetched = (await this.fetchHistory?.(start, options.calendarIds)) ?? [];
-    if (fetched.length > 0) this.changes.emit({ type: 'history_fetched', calendarIds: fetched });
+    if (fetched.length > 0) this.changes.emit({ type: 'events_fetched', calendarIds: fetched });
     return this.readRange(start, end, options);
   }
 

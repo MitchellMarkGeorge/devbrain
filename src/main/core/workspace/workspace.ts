@@ -126,7 +126,7 @@ export class Workspace {
     });
     this.events.onChange((change) => {
       // SyncWriter indexed a fetch's events as it saved them
-      if (change.type === 'history_fetched') return;
+      if (change.type === 'events_fetched') return;
       if (change.type === 'deleted') this.search.removeFromIndex(change.eventIds);
       else this.search.indexEvent(change.event);
     });
