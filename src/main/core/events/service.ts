@@ -23,6 +23,7 @@ import {
   isOccurrence,
   ruleContinuingFrom,
   ruleEndingBefore,
+  shiftByLocalTime,
 } from './recurrence';
 import {
   assertEditable,
@@ -292,7 +293,8 @@ export class EventService {
           ? series.recurrenceRule
           : ruleContinuingFrom(series.recurrenceRule!, series, at);
     const endingRule = atFirst ? null : ruleEndingBefore(series.recurrenceRule!, series, at);
-    const shift = shiftOf(slot, start);
+    const zone = series.timeZone ?? localTimeZone();
+    const shift = shiftOf(slot, start, zone, updates.timeZone ?? zone);
 
     const { startingId, createdId, movedIds, deletedIds } = this.db.transaction((tx) => {
       let startingId = series.id;
@@ -640,14 +642,13 @@ function copiedFields(series: Event) {
 }
 
 // Moves an occurrence's start as an edit moved `from` to `to`: by whole days between all-day
-// events, so a local midnight stays one across DST, and by the time between them otherwise.
-function shiftOf(from: Timing, to: Timing): (at: Date) => Date {
+// events, so a local midnight stays one across DST, and by the change in local time otherwise.
+function shiftOf(from: Timing, to: Timing, fromZone: string, toZone: string): (at: Date) => Date {
   if (from.allDay && to.allDay && from.startDate && to.startDate) {
     const days = daysBetween(from.startDate, to.startDate);
     return (at) => fromDateString(addDaysToDate(toDateString(at), days));
   }
-  const ms = to.startAt.getTime() - from.startAt.getTime();
-  return (at) => new Date(at.getTime() + ms);
+  return shiftByLocalTime(from.startAt, to.startAt, fromZone, toZone);
 }
 
 // an event's zone must be an IANA name: FullCalendar expands a series in it (DTSTART;TZID=…)

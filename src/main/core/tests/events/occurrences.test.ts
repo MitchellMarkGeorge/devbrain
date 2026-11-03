@@ -606,3 +606,97 @@ describe('an occurrence is one the series has', () => {
     ).toThrow(InvalidInputError);
   });
 });
+
+describe('daylight saving time', () => {
+  // daily at the given New York time from the given start
+  function newYork(startAt: string, minutes = 15) {
+    const start = new Date(startAt);
+    return service.createEvent({
+      title: 'Standup',
+      startAt: start,
+      endAt: new Date(start.getTime() + minutes * 60 * 1000),
+      timeZone: 'America/New_York',
+      recurrenceRule: 'RRULE:FREQ=DAILY',
+    });
+  }
+
+  it('moves later rows and cancellations by local time when a "following" edit crosses a change', () => {
+    // 9:00 from Wednesday 28 October 2026; DST ends on Sunday 1 November
+    const series = newYork('2026-10-28T13:00:00.000Z');
+    const row = service.updateOccurrence(
+      // Thursday 5 November, 9:00 EST
+      { seriesId: series.id, originalStartAt: new Date('2026-11-05T14:00:00.000Z') },
+      'this',
+      { title: 'Has notes' },
+    );
+    // Friday 6 November, 9:00 EST
+    service.deleteOccurrence(
+      { seriesId: series.id, originalStartAt: new Date('2026-11-06T14:00:00.000Z') },
+      'this',
+    );
+
+    // Friday 30 October, 9:00 EDT, moved to Monday 2 November, 9:00 EST: three days and an hour
+    const next = service.updateOccurrence(
+      { seriesId: series.id, originalStartAt: new Date('2026-10-30T13:00:00.000Z') },
+      'following',
+      {
+        startAt: new Date('2026-11-02T14:00:00.000Z'),
+        endAt: new Date('2026-11-02T14:15:00.000Z'),
+      },
+    );
+
+    // three days later at 9:00 EST, where the new series has its occurrences, not an hour after
+    expect(service.getById(row.id)).toMatchObject({
+      seriesId: next.id,
+      originalStartAt: new Date('2026-11-08T14:00:00.000Z'),
+    });
+    expect(service.getById(next.id).exdates).toEqual([
+      new Date('2026-11-08T14:00:00.000Z'),
+      new Date('2026-11-09T14:00:00.000Z'),
+    ]);
+  });
+
+  it('accepts an occurrence a skipped hour moves forward, as Luxon resolves it', () => {
+    // 2:30 from Sunday 1 March 2026; on Sunday 8 March clocks go from 2:00 to 3:00
+    const series = newYork('2026-03-01T07:30:00.000Z');
+
+    // 2:30 does not exist on 8 March, so that occurrence is at 3:30 EDT
+    const row = service.updateOccurrence(
+      { seriesId: series.id, originalStartAt: new Date('2026-03-08T07:30:00.000Z') },
+      'this',
+      { title: 'Moved by DST' },
+    );
+    expect(row.title).toBe('Moved by DST');
+    // and the day after, 2:30 EDT
+    expect(() =>
+      service.updateOccurrence(
+        { seriesId: series.id, originalStartAt: new Date('2026-03-09T06:30:00.000Z') },
+        'this',
+        { title: 'Next day' },
+      ),
+    ).not.toThrow();
+    // 1:30 EST on 8 March is not an occurrence
+    expect(() =>
+      service.updateOccurrence(
+        { seriesId: series.id, originalStartAt: new Date('2026-03-08T06:30:00.000Z') },
+        'this',
+        { title: 'X' },
+      ),
+    ).toThrow(InvalidInputError);
+  });
+
+  it('accepts the first of a repeated hour only', () => {
+    // 1:30 from Friday 30 October 2026; on Sunday 1 November 1:00–2:00 happens twice
+    const series = newYork('2026-10-30T05:30:00.000Z');
+    const ref = (at: string) => ({ seriesId: series.id, originalStartAt: new Date(at) });
+
+    // 1:30 EDT
+    expect(
+      service.updateOccurrence(ref('2026-11-01T05:30:00.000Z'), 'this', { title: 'First' }).title,
+    ).toBe('First');
+    // 1:30 EST, an hour later
+    expect(() =>
+      service.updateOccurrence(ref('2026-11-01T06:30:00.000Z'), 'this', { title: 'X' }),
+    ).toThrow(InvalidInputError);
+  });
+});

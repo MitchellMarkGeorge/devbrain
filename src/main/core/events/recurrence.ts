@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon';
 import { RRule } from 'rrule';
 import { InvalidInputError } from '../shared/errors';
 import { fromDateString, localTimeZone, toDateString } from '../shared/dates';
@@ -77,8 +78,8 @@ export function isOccurrence(rule: string, series: SeriesTiming, at: Date): bool
   const lines = ruleLines(rule);
   const makes = (line: RuleLine) =>
     line.name === 'RRULE' || line.name === 'EXRULE'
-      ? expanding(line, series).between(wall(series, at), wall(series, at), true).length > 0
-      : line.value.split(',').some((value) => value === stampFor(value, line, series, at));
+      ? rruleMakes(line, series, at)
+      : line.value.split(',').some((value) => instantOf(value, line, series) === at.getTime());
   const made = lines.filter((line) => line.name === 'RRULE' || line.name === 'RDATE').some(makes);
   return (
     made && !lines.filter((line) => line.name === 'EXRULE' || line.name === 'EXDATE').some(makes)
@@ -90,7 +91,7 @@ export function hasOccurrenceBefore(rule: string, series: SeriesTiming, at: Date
   return ruleLines(rule).some((line) => {
     if (line.name === 'RRULE') return expanding(line, series).before(wall(series, at)) !== null;
     if (line.name === 'RDATE') {
-      return line.value.split(',').some((value) => value < stampFor(value, line, series, at));
+      return line.value.split(',').some((value) => instantOf(value, line, series) < at.getTime());
     }
     return false;
   });
@@ -125,21 +126,59 @@ function expanding(line: RuleLine, series: SeriesTiming): RRule {
   return new RRule({ ...RRule.parseString(line.value), dtstart });
 }
 
+// whether an RRULE or EXRULE line of the series makes an occurrence at `at`
+function rruleMakes(line: RuleLine, series: SeriesTiming, at: Date): boolean {
+  const rule = expanding(line, series);
+  const local = wall(series, at);
+  if (series.allDay) return rule.between(local, local, true).length > 0;
+  // A local time a DST change skips (2:30 when clocks go from 2:00 to 3:00) happens an hour
+  // later, so the candidates are those near `at`, each compared as the instant it is.
+  const zone = zoneOf(series);
+  return rule
+    .between(new Date(local.getTime() - HOUR), new Date(local.getTime() + HOUR), true)
+    .some((candidate) => fromWall(candidate, zone).getTime() === at.getTime());
+}
+
 // an instant as the series expands it: its local time in the series' zone, or its date when
 // all-day, written as UTC
 function wall(series: SeriesTiming, at: Date): Date {
-  return series.allDay
-    ? dateAsUtc(toDateString(at))
-    : wallClock(at, series.timeZone ?? localTimeZone());
+  return series.allDay ? dateAsUtc(toDateString(at)) : toWall(at, zoneOf(series));
 }
 
-// `at` written the way an RDATE or EXDATE value is, so the two compare as strings
-function stampFor(value: string, line: RuleLine, series: SeriesTiming, at: Date): string {
-  if (value.endsWith('Z')) return utcStamp(at.getTime());
-  const local = series.allDay
-    ? dateAsUtc(toDateString(at))
-    : wallClock(at, line.params.get('TZID') ?? series.timeZone ?? localTimeZone());
-  return local.toISOString().replace(/[-:]/g, '').slice(0, value.length);
+function zoneOf(series: SeriesTiming): string {
+  return series.timeZone ?? localTimeZone();
+}
+
+// The instant an RDATE or EXDATE value names, in ms: a UTC DATE-TIME as it is, a floating or TZID
+// one in its zone (the series' when it names none), and a DATE at the start of its day.
+function instantOf(value: string, line: RuleLine, series: SeriesTiming): number {
+  if (value.length === 8) {
+    const date = DateTime.fromFormat(value, 'yyyyMMdd', { zone: 'utc' }).toISODate()!;
+    return series.allDay
+      ? fromDateString(date).getTime()
+      : DateTime.fromISO(date, { zone: zoneOf(series) }).toMillis();
+  }
+  if (value.endsWith('Z')) {
+    return DateTime.fromFormat(value, "yyyyMMdd'T'HHmmss'Z'", { zone: 'utc' }).toMillis();
+  }
+  return DateTime.fromFormat(value, "yyyyMMdd'T'HHmmss", {
+    zone: line.params.get('TZID') ?? zoneOf(series),
+  }).toMillis();
+}
+
+/**
+ * Moves instants as an edit moved one occurrence of a series from `from` to `to`, by the change in
+ * local time: the same days and clock time later, so an occurrence 9:00 before a DST change is
+ * 9:00 after it, as the series it moves to expands. `toZone` is that series' zone.
+ */
+export function shiftByLocalTime(
+  from: Date,
+  to: Date,
+  fromZone: string,
+  toZone: string,
+): (at: Date) => Date {
+  const delta = toWall(to, toZone).getTime() - toWall(from, fromZone).getTime();
+  return (at) => fromWall(new Date(toWall(at, fromZone).getTime() + delta), toZone);
 }
 
 // the rule of the part before `at`: the same, ending just before it
@@ -202,60 +241,43 @@ function occurrencesBefore(rruleLine: string, series: SeriesTiming, at: Date): n
   return expanding(ruleLines(rruleLine)[0], series).all((date) => date < end).length;
 }
 
+const HOUR = 60 * 60 * 1000;
+
 // an instant's local time in a zone, as a Date whose UTC fields are that time
-function wallClock(at: Date, timeZone: string): Date {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).formatToParts(at);
-  const field = (type: Intl.DateTimeFormatPartTypes) =>
-    Number(parts.find((part) => part.type === type)!.value);
-  return new Date(
-    Date.UTC(
-      field('year'),
-      field('month') - 1,
-      field('day'),
-      field('hour'),
-      field('minute'),
-      field('second'),
-    ),
-  );
+function toWall(at: Date, zone: string): Date {
+  return DateTime.fromJSDate(at, { zone }).setZone('utc', { keepLocalTime: true }).toJSDate();
+}
+
+// The instant a local time in a zone is, from a Date whose UTC fields are that time. A time a DST
+// change skips moves forward by the change; one it repeats is the first of the two.
+function fromWall(local: Date, zone: string): Date {
+  return DateTime.fromJSDate(local, { zone: 'utc' })
+    .setZone(zone, { keepLocalTime: true })
+    .toJSDate();
 }
 
 // a YYYY-MM-DD date at 00:00 UTC
 function dateAsUtc(date: string): Date {
-  const [year, month, day] = date.split('-').map(Number);
-  return new Date(Date.UTC(year, month - 1, day));
+  return DateTime.fromISO(date, { zone: 'utc' }).toJSDate();
 }
 
 // the day before a YYYY-MM-DD date, as an RFC 5545 DATE (YYYYMMDD)
 function dayBefore(date: string): string {
-  const previous = new Date(dateAsUtc(date).getTime() - 24 * 60 * 60 * 1000);
-  return previous.toISOString().slice(0, 10).replaceAll('-', '');
+  return DateTime.fromISO(date, { zone: 'utc' }).minus({ days: 1 }).toFormat('yyyyMMdd');
 }
 
 // an instant as an RFC 5545 UTC DATE-TIME (YYYYMMDDTHHMMSSZ)
 function utcStamp(ms: number): string {
-  return new Date(ms)
-    .toISOString()
-    .replace(/[-:]/g, '')
-    .replace(/\.\d{3}/, '');
+  return DateTime.fromMillis(ms, { zone: 'utc' }).toFormat("yyyyMMdd'T'HHmmss'Z'");
 }
 
 // the whole days from one YYYY-MM-DD date to another
 export function daysBetween(from: string, to: string): number {
-  return Math.round((dateAsUtc(to).getTime() - dateAsUtc(from).getTime()) / (24 * 60 * 60 * 1000));
+  return DateTime.fromISO(to, { zone: 'utc' }).diff(DateTime.fromISO(from, { zone: 'utc' }), 'days')
+    .days;
 }
 
 // a YYYY-MM-DD date moved by whole days
 export function addDaysToDate(date: string, days: number): string {
-  return new Date(dateAsUtc(date).getTime() + days * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  return DateTime.fromISO(date, { zone: 'utc' }).plus({ days }).toISODate()!;
 }

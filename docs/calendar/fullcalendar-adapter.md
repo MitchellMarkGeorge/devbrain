@@ -147,6 +147,6 @@ The routes' writes reach the other windows as `events` changes, like any other e
 
 ## To confirm when building it
 
-- **`TZID`.** The RRule plugin page only describes a `Z` suffix and the calendar's own `timeZone`. Expanding `DTSTART;TZID=…` correctly across DST likely needs `@fullcalendar/luxon` alongside `@fullcalendar/rrule`. Check it, and check that `EXDATE;TZID=…` lines match the generated occurrences. If `TZID` is not supported, a UTC `DTSTART` and `EXDATE`s (`…Z`) work but drift an hour after a DST change.
+- **`TZID`.** The RRule plugin page only describes a `Z` suffix and the calendar's own `timeZone`. Expanding `DTSTART;TZID=…` correctly across DST likely needs `@fullcalendar/luxon` alongside `@fullcalendar/rrule`. Check it, and check that `EXDATE;TZID=…` lines match the generated occurrences. If `TZID` is not supported, a UTC `DTSTART` and `EXDATE`s (`…Z`) work but drift an hour after a DST change. Core resolves local times with Luxon: a time a DST change skips (2:30 when clocks go from 2:00 to 3:00) moves forward by the change, and a repeated one is the first of the two. Check that FullCalendar draws those occurrences at the same instants, since an occurrence ref must match them exactly.
 - **All-day series** with `VALUE=DATE` lines, and their `duration` in days.
 - **Provider lines** beyond `RRULE` (`RDATE`, `EXRULE`) in the string form.
