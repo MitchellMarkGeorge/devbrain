@@ -249,10 +249,11 @@ to every window, beside the entities their change maps to, so a view refetching 
 
 ### The initial load context
 
-The one synchronous message. As the page loads, `readInitialLoadContext` (in
-[`src/renderer/ipc/initial-load-context.ts`](../../src/renderer/ipc/initial-load-context.ts)) calls
-the bridge's `initialLoadContext()`, which sends `ipc:initial-load-context` with
-`ipcRenderer.sendSync`. Main answers with an `InitialLoadContext`
+The one synchronous message. As the preload runs, before any page script, it sends
+`ipc:initial-load-context` with `ipcRenderer.sendSync` and puts the answer on the bridge as the
+value `initialLoadContext` (`null` when the read fails). `readInitialLoadContext` (in
+[`src/renderer/ipc/initial-load-context.ts`](../../src/renderer/ipc/initial-load-context.ts)) reads
+that value. Main answers with an `InitialLoadContext`
 ([`src/main/ipc/initial-load-context.ts`](../../src/main/ipc/initial-load-context.ts)), built fresh
 for each load: `{ devBrainAvailable, current, last, workspaces }`, workspace info only. `last` is
 the workspace `workspaces.openLast` would open while none is open. When building it throws, main
@@ -265,8 +266,12 @@ create page) is decided at once, with no splash on a reload. The `workspaces` ro
 `workspace.changed`), so they need no refetch on mount. With no initial load context, they fetch as
 usual.
 
-`initialLoadContext()` is the bridge's one route-specific member. Keep it to what the first render
-needs, read from memory and the registry file: the renderer is blocked while main builds it.
+`initialLoadContext` is the bridge's one route-specific member, and fixed for the page load: it
+seeds the first render, and later changes arrive as events. Keep it to what the first render needs,
+read from memory and the registry file: the page does not load while main builds it. Nothing is seen
+during that wait, as the window is shown only after the first paint (`ready-to-show`). Main must
+always answer, as `sendSync` has no timeout: the listener is attached before the window is created,
+and answers `null` when building the context throws.
 
 ### Invalidation in the renderer
 

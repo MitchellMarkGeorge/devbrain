@@ -46,8 +46,9 @@ export interface IpcBridge {
   invoke(request: IpcRequest): Promise<IpcResult<unknown>>;
   // returns the function that unsubscribes
   subscribe(name: string, listener: (payload: unknown) => void): () => void;
-  // What the page needs for its first render, read synchronously from main as it loads: main's
+  // What the page needs for its first render, read from main once as the preload runs: main's
   // InitialLoadContext (src/main/ipc/initial-load-context.ts), or null when main could not build
-  // one
-  initialLoadContext(): unknown;
+  // one. Fixed for the page load, so it is for seeding the first render only: later changes reach
+  // the query cache as events
+  readonly initialLoadContext: unknown;
 }

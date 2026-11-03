@@ -15,7 +15,7 @@ function fakeBridge(result: IpcResult<unknown> = { ok: true, data: null, changed
   return {
     invoke: vi.fn<IpcBridge['invoke']>(async () => result),
     subscribe: vi.fn<IpcBridge['subscribe']>(() => () => {}),
-    initialLoadContext: vi.fn<IpcBridge['initialLoadContext']>(() => null),
+    initialLoadContext: null,
   };
 }
 

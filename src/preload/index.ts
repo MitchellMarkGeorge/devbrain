@@ -27,12 +27,19 @@ export function createBridge(): IpcBridge {
         ipcRenderer.removeListener(channel, handler);
       };
     },
-    // Synchronous, so the page's first render has it. Main answers from what it holds in memory and
-    // the registry file, so the wait is short, and it is asked once per page load
-    initialLoadContext() {
-      return ipcRenderer.sendSync(IPC_INITIAL_LOAD_CONTEXT_CHANNEL);
-    },
+    initialLoadContext: readInitialLoadContext(),
   };
+}
+
+// Asked once per page load, synchronously as the preload runs, so the value is there before any
+// page script. Main answers from what it holds in memory and the registry file, so the wait is
+// short; the window is shown only once the page has painted, so nothing is seen while it lasts.
+function readInitialLoadContext(): unknown {
+  try {
+    return ipcRenderer.sendSync(IPC_INITIAL_LOAD_CONTEXT_CHANNEL);
+  } catch {
+    return null;
+  }
 }
 
 export function exposeBridge(): void {

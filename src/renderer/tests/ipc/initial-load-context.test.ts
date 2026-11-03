@@ -31,22 +31,16 @@ function bridgeWith(initialLoadContext: IpcBridge['initialLoadContext']): IpcBri
 
 describe('readInitialLoadContext', () => {
   it("returns main's context", () => {
-    expect(readInitialLoadContext(bridgeWith(() => context))).toBe(context);
+    expect(readInitialLoadContext(bridgeWith(context))).toBe(context);
   });
 
   it('returns null when main sent none', () => {
-    expect(readInitialLoadContext(bridgeWith(() => null))).toBeNull();
-    expect(readInitialLoadContext(bridgeWith(() => undefined))).toBeNull();
+    expect(readInitialLoadContext(bridgeWith(null))).toBeNull();
+    expect(readInitialLoadContext(bridgeWith(undefined))).toBeNull();
   });
 
-  it('returns null when the bridge throws', () => {
-    expect(
-      readInitialLoadContext(
-        bridgeWith(() => {
-          throw new Error('no reply');
-        }),
-      ),
-    ).toBeNull();
+  it('returns null when there is no bridge', () => {
+    expect(readInitialLoadContext()).toBeNull();
   });
 });
 

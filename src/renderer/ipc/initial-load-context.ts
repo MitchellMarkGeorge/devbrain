@@ -13,7 +13,7 @@ export type { InitialLoadContext };
  */
 export function readInitialLoadContext(bridge?: IpcBridge): InitialLoadContext | null {
   try {
-    return ((bridge ?? defaultBridge()).initialLoadContext() as InitialLoadContext | null) ?? null;
+    return ((bridge ?? defaultBridge()).initialLoadContext as InitialLoadContext | null) ?? null;
   } catch {
     return null;
   }
