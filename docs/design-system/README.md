@@ -84,7 +84,7 @@ The window is never smaller than `window-min-width` × `window-min-height` (960 
   - The sidebar rests as the 56px icon rail (`sidebar-rail-width`); expanding it opens the full sidebar as a drawer over the page, with the `backdrop` scrim behind it, and picking a page, clicking outside or Esc closes it. A sidebar the user collapsed stays collapsed at any width.
   - Sheets float over the page instead of docking.
   - Toolbar values hide, and card grids (Notes cards, Home's projects and notes) drop to two columns, with "All projects" / "All notes" for the rest.
-- **At every size:** the week view keeps all seven days (hiding days could hide events); the day columns narrow instead. Long text ends in "…" at its own width: pill labels before titles, titles before dates, and breadcrumbs keep the first and last items. Sheets and dialogs scroll inside themselves at the minimum height, and the selection bar and toasts sit on the window's bottom edge. Settings and other single-column pages cap their content (Settings at 760px) and centre it on wide windows.
+- **At every size:** the week view keeps all seven days (hiding days could hide events); the day columns narrow instead. Long text ends in "…" at its own width: pill labels before titles, titles before dates, and breadcrumbs keep the first and last items. Sheets and dialogs scroll inside themselves at the minimum height, and the selection bar and toasts sit on the window's bottom edge. Settings, Integrations and the note editor cap their content and centre it in the page, like Notion: Settings at 760px, the note's document at `content-max-width` (720px). On a wide window the margins grow and the text column keeps its width.
 
 ## How this system is built
 

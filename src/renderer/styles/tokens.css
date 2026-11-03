@@ -131,7 +131,7 @@
   --dialog-width: 384px;
   --sheet-width: 380px;
   --toast-width: 356px;
-  --content-max-width: 1024px;
+  --content-max-width: 720px;
 
   /* Layers */
   --z-sticky: 10;
