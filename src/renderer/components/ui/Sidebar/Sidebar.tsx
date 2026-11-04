@@ -220,7 +220,7 @@ export function SidebarSeparator({ className, ...props }: ComponentPropsWithoutR
 export interface SidebarGroupProps extends Omit<ComponentPropsWithoutRef<'div'>, 'children'> {
   /** the group label: "Recents", "Favorites"; a group without one is the main navigation */
   label?: string;
-  /** the label folds the group away */
+  /** clicking the label folds the group away (default `true`; a group without a label never folds) */
   collapsible?: boolean;
   defaultOpen?: boolean;
   open?: boolean;
@@ -235,11 +235,14 @@ export interface SidebarGroupProps extends Omit<ComponentPropsWithoutRef<'div'>,
   children?: ReactNode;
 }
 
-/** A group of items, with Nova's 32px label. Labelled groups can fold away (`collapsible`). */
+/**
+ * A group of items, with Nova's 32px label. A labelled group (Recents, Favorites) folds away from
+ * its label, its chevron showing on hover; pass `collapsible={false}` to keep one open.
+ */
 export const SidebarGroup = forwardRef<HTMLDivElement, SidebarGroupProps>(function SidebarGroup(
   {
     label,
-    collapsible = false,
+    collapsible = true,
     defaultOpen = true,
     open,
     onOpenChange,
