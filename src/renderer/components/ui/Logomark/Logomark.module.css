@@ -37,3 +37,25 @@
   color: var(--foreground-strong);
   font: var(--font-weight-semibold) var(--text-base) / var(--text-base-leading) var(--font-sans);
 }
+
+/* a mark that follows the theme: the white one on dark, the neutral-950 one on light */
+.themed {
+  display: contents;
+}
+.onLight {
+  display: none;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) .onDark {
+    display: none;
+  }
+  :root:not([data-theme='dark']) .onLight {
+    display: block;
+  }
+}
+:root[data-theme='light'] .onDark {
+  display: none;
+}
+:root[data-theme='light'] .onLight {
+  display: block;
+}

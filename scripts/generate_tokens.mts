@@ -60,7 +60,8 @@ const lines: string[] = [
  * shadcn components keep their meaning; the app styles them with CSS Modules, not Tailwind.
  *
  * Dark is the first theme. The light theme (shadcn's neutral light theme) applies when
- * prefers-color-scheme is light, which the app sets from its theme setting. Every colour is a
+ * prefers-color-scheme is light, which the app sets from its theme setting, or when
+ * data-theme='light' is set on <html>; data-theme='dark' pins dark. Every colour is a
  * Tailwind v4 colour.
  *
  *   1. Palette  --neutral-*, --red-*, ...    raw Tailwind steps; components never use these
@@ -143,6 +144,8 @@ function themeBlock(name: 'dark' | 'light', selector: string, indent = ''): stri
 
 // The app sets Electron's nativeTheme.themeSource from the theme setting, which decides what
 // prefers-color-scheme reports, so the page follows the setting from its first paint.
+// `data-theme` on <html> pins a theme regardless of it: Storybook's theme toggle sets it, the app
+// does not.
 lines.push(
   '',
   '/* 2. Theme: dark, the default */',
@@ -150,8 +153,11 @@ lines.push(
   '',
   "/* 2. Theme: light, when the system (or the app's theme setting) asks for it */",
   '@media (prefers-color-scheme: light) {',
-  ...themeBlock('light', ':root', '  '),
+  ...themeBlock('light', ":root:not([data-theme='dark'])", '  '),
   '}',
+  '',
+  "/* 2. Theme: light, pinned with data-theme='light' */",
+  ...themeBlock('light', ":root[data-theme='light']"),
 );
 
 lines.push(

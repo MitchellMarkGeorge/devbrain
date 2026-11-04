@@ -9,7 +9,8 @@ The DevBrain design system (`docs/design-system/`) built as React components.
 - `lib/`: helpers (`cn`, `mergeClassName`).
 
 Run `npm run storybook` to browse every component (`npm run build-storybook` builds it into
-`dist/storybook`). Everything is exported from `components/index.ts`; `ui/types.ts` holds the shared
+`dist/storybook`). The **Theme** menu in the toolbar switches stories between System, Dark and
+Light. Everything is exported from `components/index.ts`; `ui/types.ts` holds the shared
 domain types (`TaskStatus`, `Priority`, `Swatch`, …) and their colour helpers.
 
 | Group            | Components                                                                                                               |
@@ -56,6 +57,11 @@ from the barrel (`components/ui/index.ts`).
   `renderIcon(icon, size)`.
 - **Focus** is shadcn's ring: `border-color: var(--ring)` and
   `box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent)` on `:focus-visible`.
+- **Theme.** Colours come from tokens, which switch with the theme on their own. A rule that must
+  differ by theme (rare) is written twice, so it follows both the system setting and a pinned
+  `data-theme` (what Storybook's toggle sets):
+  `@media (prefers-color-scheme: light) { :root:not([data-theme='dark']) .x { … } }` and
+  `:root[data-theme='light'] .x { … }`.
 - **Motion** honours `prefers-reduced-motion` (tokens.css zeroes the durations).
 
 The look of each component is specified in `docs/design-system/components/<Name>.md` and drawn in

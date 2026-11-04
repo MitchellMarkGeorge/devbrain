@@ -23,11 +23,16 @@
 }
 /* on white a borderless card needs a step more than `card` to show */
 @media (prefers-color-scheme: light) {
-  .card {
+  :root:not([data-theme='dark']) .card {
     --card-fill: var(--neutral-100);
     --card-fill-hover: var(--neutral-200);
     --card-fill-done: var(--neutral-50);
   }
+}
+:root[data-theme='light'] .card {
+  --card-fill: var(--neutral-100);
+  --card-fill-hover: var(--neutral-200);
+  --card-fill-done: var(--neutral-50);
 }
 .card:hover,
 .card[data-state='hover'] {
@@ -119,9 +124,12 @@
 }
 /* swatch colours darken on white so green and amber icons keep 3:1 */
 @media (prefers-color-scheme: light) {
-  .projectIcon[data-coloured] {
+  :root:not([data-theme='dark']) .projectIcon[data-coloured] {
     filter: brightness(0.72);
   }
+}
+:root[data-theme='light'] .projectIcon[data-coloured] {
+  filter: brightness(0.72);
 }
 .date {
   flex: none;

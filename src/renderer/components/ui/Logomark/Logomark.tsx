@@ -18,7 +18,7 @@ export interface LogomarkProps
   extends Omit<ComponentPropsWithoutRef<'img'>, 'src'>, VariantProps<typeof logomarkVariants> {
   /**
    * The ground it sits on: `dark` uses the white mark, `light` the `neutral-950` one. Leave it
-   * unset to follow the theme (prefers-color-scheme).
+   * unset to follow the theme (prefers-color-scheme, or `data-theme` on <html>).
    */
   ground?: 'dark' | 'light';
 }
@@ -43,11 +43,12 @@ export function Logomark({
       />
     );
   }
+  // both marks, one shown by the theme: a <picture> media query could not follow `data-theme`
   return (
-    <picture>
-      <source srcSet={markOnLight} media="(prefers-color-scheme: light)" />
-      <img src={markOnDark} alt={alt} className={imgClass} {...props} />
-    </picture>
+    <span className={styles.themed}>
+      <img src={markOnDark} alt={alt} className={cn(imgClass, styles.onDark)} {...props} />
+      <img src={markOnLight} alt={alt} className={cn(imgClass, styles.onLight)} {...props} />
+    </span>
   );
 }
 
