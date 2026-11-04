@@ -1,4 +1,3 @@
-import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
@@ -10,9 +9,9 @@ export default defineConfig({
   envDir: '../..',
   plugins: [react()],
   resolve: {
-    // only @common: the renderer imports src/main for types alone (`import type { AppRouter }`);
-    // ESLint rejects a value import, which Vite would otherwise bundle
-    alias: { '@common': fileURLToPath(new URL('../src/common', import.meta.url)) },
+    // @common and @main, from tsconfig.web.json. The renderer imports src/main for types alone
+    // (`import type { AppRouter }`); ESLint rejects a value import, which Vite would bundle
+    tsconfigPaths: true,
   },
   build: {
     outDir: '../../dist/renderer',
