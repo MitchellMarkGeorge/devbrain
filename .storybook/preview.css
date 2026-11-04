@@ -1,0 +1,4 @@
+/* Stories sit on the app's page colour (base.css paints html and body) */
+.sb-show-main.sb-main-padded {
+  padding: var(--space-6);
+}

@@ -1,0 +1,46 @@
+.heading {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--foreground-strong);
+}
+/* 30px page titles (Home, Tasks) */
+.page {
+  font-size: var(--text-3xl);
+  line-height: var(--text-3xl-leading);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+/* 24px task, note and project titles */
+.document {
+  font-size: var(--text-2xl);
+  line-height: var(--text-2xl-leading);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+/* 16px dialog and card titles */
+.title {
+  font-size: var(--text-base);
+  line-height: var(--text-base-leading);
+  font-weight: var(--font-weight-medium);
+}
+/* 14px headings above settings groups and page sections */
+.section {
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-leading);
+  font-weight: var(--font-weight-medium);
+}
+/* 12px uppercase group labels (search results) */
+.label {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+  font-weight: var(--font-weight-medium);
+  color: var(--muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.truncate {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+}

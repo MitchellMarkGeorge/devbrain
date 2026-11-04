@@ -1,0 +1,42 @@
+.text {
+  font-family: var(--font-sans);
+  margin: 0;
+}
+.mono { font-family: var(--font-mono); }
+
+.sizeXs { font-size: var(--text-xs); line-height: var(--text-xs-leading); }
+.sizeSm { font-size: var(--text-sm); line-height: var(--text-sm-leading); }
+.sizeBase { font-size: var(--text-base); line-height: var(--text-base-leading); }
+.sizeLg { font-size: var(--text-lg); line-height: var(--text-lg-leading); }
+
+.weightNormal { font-weight: var(--font-weight-normal); }
+.weightMedium { font-weight: var(--font-weight-medium); }
+.weightSemibold { font-weight: var(--font-weight-semibold); }
+
+.toneInherit { color: inherit; }
+.toneDefault { color: var(--foreground); }
+.toneStrong { color: var(--foreground-strong); }
+.toneMuted { color: var(--muted-foreground); }
+.toneSubtle { color: var(--subtle-foreground); }
+.toneDestructive { color: var(--destructive); }
+.toneToday { color: var(--date-today); }
+.toneOverdue { color: var(--date-overdue); }
+
+.alignStart { text-align: start; }
+.alignCenter { text-align: center; }
+.alignEnd { text-align: end; }
+
+.truncate {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--text-clamp);
+  overflow: hidden;
+}
+.tabular { font-variant-numeric: tabular-nums; }
+.strike { text-decoration: line-through; }
