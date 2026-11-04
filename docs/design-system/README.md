@@ -155,4 +155,4 @@ Two kinds of page, one rule each:
 
 ## Motion
 
-- 100ms for hover and press; menus, popovers and tooltips fade and zoom from 95% in 150ms (Nova's `zoom-in-95`); dialogs, sheets and toasts in 250ms. Nothing moves under `prefers-reduced-motion`.
+- 100ms for hover and press; menus, popovers and tooltips fade and zoom from 95% in 150ms (Nova's `zoom-in-95`); dialogs, sheets and toasts in 250ms, as does the sidebar collapsing to the rail and back (its width slides, its content fades in). Nothing moves under `prefers-reduced-motion`.

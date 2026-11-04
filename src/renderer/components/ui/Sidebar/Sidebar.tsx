@@ -1,11 +1,15 @@
 import {
   createContext,
   forwardRef,
+  useCallback,
   useContext,
+  useLayoutEffect,
+  useRef,
   type ComponentPropsWithoutRef,
   type CSSProperties,
   type MouseEvent,
   type ReactNode,
+  type RefObject,
 } from 'react';
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
@@ -69,10 +73,20 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   const shell = useAppShell();
   const collapsed = shell.inDrawer ? false : (collapsedProp ?? shell.rail);
   const showControls = !collapsed && (windowControls ?? shell.inShell);
+  const navRef = useRef<HTMLElement | null>(null);
+  const setRef = useCallback(
+    (node: HTMLElement | null) => {
+      navRef.current = node;
+      if (typeof ref === 'function') ref(node);
+      else if (ref) ref.current = node;
+    },
+    [ref],
+  );
+  useFadeOnToggle(navRef, collapsed);
   return (
     <SidebarContext.Provider value={{ collapsed }}>
       <nav
-        ref={ref}
+        ref={setRef}
         aria-label={ariaLabel}
         data-collapsed={collapsed ? '' : undefined}
         data-drawer={shell.inDrawer ? '' : undefined}
@@ -90,6 +104,29 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
     </SidebarContext.Provider>
   );
 });
+
+/**
+ * Fades the sidebar's content in when it switches between the full sidebar and the rail, as the
+ * two lay out differently (the width slides in CSS). Played on the elements, so nothing remounts
+ * and folded groups or open menus keep their state; not on the first render. The duration is the
+ * `--duration-slow` token, 0 under reduced motion.
+ */
+function useFadeOnToggle(navRef: RefObject<HTMLElement | null>, collapsed: boolean) {
+  const previous = useRef(collapsed);
+  useLayoutEffect(() => {
+    const nav = navRef.current;
+    if (previous.current === collapsed || !nav) return;
+    previous.current = collapsed;
+    const duration = parseFloat(getComputedStyle(nav).getPropertyValue('--duration-slow')) || 0;
+    if (duration === 0 || typeof nav.animate !== 'function') return;
+    for (const child of Array.from(nav.children)) {
+      child.animate([{ opacity: 0 }, { opacity: 1 }], {
+        duration,
+        easing: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      });
+    }
+  }, [navRef, collapsed]);
+}
 
 /** The top row: the workspace switcher, then search and "new" (`SidebarHeaderActions`). */
 export const SidebarHeader = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<'div'>>(
