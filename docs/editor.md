@@ -20,6 +20,8 @@ const host = useWorkspaceEditorHost(); // "@" search and opening links
   file alone, and undoing back to the start sends `value` exactly as it was stored.
 - A new `value` from outside (the file changed on disk, a sync) replaces the content; the markdown
   the editor just sent is not loaded again.
+- Try it in Storybook (`npm run storybook`, Editor/RichTextEditor): a full note, an empty one,
+  a read-only description and untrusted content, each beside the markdown it would save.
 - The editor never calls IPC. What it needs from the app is `EditorHost` (`types.ts`).
 - It is drawn by the design system's components (`src/renderer/components`): the blocks by
   `EditorContent`, entity links and images by `EntityPill`, keys by `Kbd`, the `/` menu by

@@ -100,18 +100,31 @@ describe('RichTextEditor', () => {
     expect(editor.getMarkdown()).toBe('See [Old title](devbrain://task/tsk_1)');
   });
 
-  it('opens a safe link only through onOpenUrl', () => {
+  // a real click on the element, as the browser sends it: the browser follows a link on `click`,
+  // so the editor must cancel that event itself
+  function clickLink(init: MouseEventInit = {}) {
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true, ...init });
+    act(() => {
+      container.querySelector('a')!.dispatchEvent(click);
+    });
+    return click;
+  }
+
+  it('never lets a link navigate, and opens it through onOpenUrl on a click when read-only', () => {
     const onOpenUrl = vi.fn();
     render({ value: '[docs](https://example.com/docs)', editable: false, onOpenUrl });
-    const link = container.querySelector('a')!;
-    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
-    Object.defineProperty(click, 'target', { value: link });
-    act(() => {
-      editor.view.someProp('handleClick', (handle) => handle(editor.view, 1, click));
-    });
-    expect(click.defaultPrevented).toBe(true);
+    expect(clickLink().defaultPrevented).toBe(true);
     expect(onOpenUrl).toHaveBeenCalledWith('https://example.com/docs');
-    expect(link.getAttribute('target')).toBeNull();
+    expect(container.querySelector('a')!.getAttribute('target')).toBeNull();
+  });
+
+  it('opens a link on ⌘/Ctrl-click while editing; a plain click only places the caret', () => {
+    const onOpenUrl = vi.fn();
+    render({ value: '[docs](https://example.com/docs)', onOpenUrl });
+    expect(clickLink().defaultPrevented).toBe(true);
+    expect(onOpenUrl).not.toHaveBeenCalled();
+    expect(clickLink({ ctrlKey: true }).defaultPrevented).toBe(true);
+    expect(onOpenUrl).toHaveBeenCalledWith('https://example.com/docs');
   });
 
   it('opens the design system\'s slash menu on "/", without Task, and runs the picked command', async () => {

@@ -15,7 +15,7 @@ declare module '@tiptap/core' {
  * Holds the editor's host (RichTextEditor keeps it current), for the parts that run inside the
  * editor: the "@" menu's search and link clicks.
  *
- * A click on a link or image chip never navigates the window. It opens the URL through
+ * A click on a link or image pill never navigates the window. It opens the URL through
  * host.onOpenUrl when safeExternalUrl accepts it: on ⌘/Ctrl-click while editing, so a plain click
  * can still place the caret, and on a plain click when read-only.
  */
@@ -47,16 +47,21 @@ export const EditorHostExtension = Extension.create({
     return [
       new Plugin({
         props: {
-          handleClick(view, _pos, event) {
-            const link = (event.target as HTMLElement).closest<HTMLElement>(
-              'a[href], [data-image-src]',
-            );
-            if (!link) return false;
-            event.preventDefault();
-            if (view.editable && !(event.metaKey || event.ctrlKey)) return false;
-            const url = safeExternalUrl(link.getAttribute('href') ?? link.dataset.imageSrc);
-            if (url) storage.host.onOpenUrl?.(url);
-            return true;
+          // the DOM's own click, not ProseMirror's handleClick: the browser follows a link on
+          // `click`, after ProseMirror has handled the mouseup, so only this can stop it
+          handleDOMEvents: {
+            click(view, event) {
+              const link = (event.target as HTMLElement | null)?.closest<HTMLElement>(
+                'a[href], [data-image-src]',
+              );
+              if (!link) return false;
+              event.preventDefault();
+              // a plain click while editing places the caret
+              if (view.editable && !(event.metaKey || event.ctrlKey)) return false;
+              const url = safeExternalUrl(link.getAttribute('href') ?? link.dataset.imageSrc);
+              if (url) storage.host.onOpenUrl?.(url);
+              return true;
+            },
           },
         },
       }),
