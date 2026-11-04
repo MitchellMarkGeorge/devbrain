@@ -1,13 +1,13 @@
-import { forwardRef, type CSSProperties } from 'react';
+import { forwardRef, type MouseEvent } from 'react';
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
 import { cva } from 'class-variance-authority';
-import { CornerDownRight, FileText, Folder } from 'lucide-react';
-import { ColourBar } from '../ColourBar';
-import { Icon } from '../Icon';
+import { Badge } from '../Badge';
+import { EntityPill } from '../EntityPill';
 import { PriorityIcon } from '../PriorityIcon';
+import { ProgressRing } from '../ProgressRing';
 import { SourcePill } from '../SourcePill';
-import { resolveColor, type Priority, type Provider, type Swatch, type TaskStatus } from '../types';
+import type { Priority, Provider, Swatch, TaskStatus } from '../types';
 import styles from './BoardCard.module.css';
 
 /** What a board card shows of a task. */
@@ -15,7 +15,7 @@ export interface BoardTask {
   title: string;
   status: TaskStatus;
   priority: Priority;
-  /** a synced task's key ("ENG-124"), shown in a compact SourcePill */
+  /** a synced task's key ("ENG-124"), shown in a SourcePill */
   key?: string;
   /** where a synced task comes from (linear by default) */
   source?: Provider;
@@ -44,67 +44,70 @@ export interface BoardCardProps extends useRender.ComponentProps<'div'> {
   state?: 'hover' | 'focus';
 }
 
+// clicks on the card's pills open what they link to, not the task
+function fromControl(event: MouseEvent<HTMLElement>): boolean {
+  const control = (event.target as Element).closest('button, a, input');
+  return control != null && control !== event.currentTarget;
+}
+
 /**
- * A task on the board: the linked event or note and the source pill, the title, then a line of
- * priority, subtasks, project and date. A borderless filled card; focusable, so it opens on Enter
- * as well as on click.
+ * A task on the board: the title, then its relations as the pills a task row uses (the source
+ * key, the parent's subtasks, the linked event or note, the project), then priority and the date.
+ * A borderless filled card; focusable, so it opens on Enter as well as on click.
  */
 export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function BoardCard(
-  { task, state, render, ...props },
+  { task, state, render, onClick, ...props },
   ref,
 ) {
   const done = task.status === 'completed';
-  const link = task.event ? (
-    <div className={styles.link}>
-      <ColourBar color={task.eventColor ?? 'green'} />
-      <span>{task.event}</span>
-    </div>
-  ) : task.note ? (
-    <div className={styles.link}>
-      <Icon icon={FileText} size={12} />
-      <span>{task.note}</span>
-    </div>
-  ) : null;
+  const pills = [
+    task.key && (
+      <SourcePill key="source" provider={task.source}>
+        {task.key}
+      </SourcePill>
+    ),
+    task.subtasks && (
+      <Badge
+        key="subtasks"
+        muted
+        icon={<ProgressRing value={task.subtasks[0]} total={task.subtasks[1]} size={12} />}
+      >
+        {task.subtasks[0]}/{task.subtasks[1]}
+      </Badge>
+    ),
+    task.event ? (
+      <EntityPill key="event" type="event" color={task.eventColor}>
+        {task.event}
+      </EntityPill>
+    ) : (
+      task.note && (
+        <EntityPill key="note" type="note">
+          {task.note}
+        </EntityPill>
+      )
+    ),
+    task.project && (
+      <EntityPill key="project" type="project" color={task.projectColor}>
+        {task.project}
+      </EntityPill>
+    ),
+  ].filter(Boolean);
+  const meta = !done || task.date;
 
   const children = (
     <>
-      {(link || task.key) && (
-        <div className={styles.top}>
-          {link}
-          {task.key && (
-            <SourcePill provider={task.source} compact className={styles.source}>
-              {task.key}
-            </SourcePill>
+      <div className={styles.title}>{task.title}</div>
+      {pills.length > 0 && <div className={styles.pills}>{pills}</div>}
+      {meta && (
+        <div className={styles.meta}>
+          {!done && <PriorityIcon priority={task.priority} />}
+          {task.date && (
+            <span className={styles.date} data-tone={done ? undefined : task.dateTone}>
+              {task.date}
+            </span>
           )}
         </div>
       )}
-      <div className={styles.title}>{task.title}</div>
-      <div className={styles.meta}>
-        {!done && <PriorityIcon priority={task.priority} />}
-        {task.subtasks && (
-          <span className={styles.subtasks}>
-            <Icon icon={CornerDownRight} size={12} />
-            {task.subtasks[0]}/{task.subtasks[1]}
-          </span>
-        )}
-        {task.project && (
-          <span className={styles.project}>
-            <Icon
-              icon={Folder}
-              size={12}
-              className={styles.projectIcon}
-              data-coloured={task.projectColor ? '' : undefined}
-              style={{ '--project-color': resolveColor(task.projectColor) } as CSSProperties}
-            />
-            <span>{task.project}</span>
-          </span>
-        )}
-        {task.date && (
-          <span className={styles.date} data-tone={done ? undefined : task.dateTone}>
-            {task.date}
-          </span>
-        )}
-      </div>
     </>
   );
 
@@ -117,6 +120,9 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
         className: boardCardVariants({ completed: done }),
         tabIndex: 0,
         children,
+        onClick: (event: MouseEvent<HTMLDivElement>) => {
+          if (!fromControl(event)) onClick?.(event);
+        },
         ...({
           'data-state': state,
           'data-completed': done ? '' : undefined,

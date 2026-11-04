@@ -5,10 +5,9 @@ import { SourcePill } from './SourcePill';
 const meta = {
   title: 'Components/SourcePill',
   component: SourcePill,
-  args: { provider: 'linear', children: 'ENG-124', compact: false },
+  args: { provider: 'linear', children: 'ENG-124' },
   argTypes: {
     provider: { control: 'inline-radio', options: ['linear', 'github'] },
-    compact: { control: 'boolean' },
   },
 } satisfies Meta<typeof SourcePill>;
 
@@ -22,20 +21,6 @@ export const Providers: Story = {
     <Flex gap="2" align="center">
       <SourcePill provider="linear">ENG-124</SourcePill>
       <SourcePill provider="github">devbrain#89</SourcePill>
-    </Flex>
-  ),
-};
-
-/** The 20px version on board cards' top line */
-export const Compact: Story = {
-  render: () => (
-    <Flex gap="2" align="center">
-      <SourcePill compact provider="linear">
-        ENG-124
-      </SourcePill>
-      <SourcePill compact provider="github">
-        devbrain#89
-      </SourcePill>
     </Flex>
   ),
 };

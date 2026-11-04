@@ -34,7 +34,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
-/** A synced task with no link: the source pill alone leads the card */
+/** A synced task with no link: its source and project pills */
 export const SourceOnly: Story = {
   args: {
     task: {
@@ -65,9 +65,28 @@ export const LinkedNote: Story = {
   },
 };
 
-/** A local task with no link has no top line */
+/** A local task with no links has no pills */
 export const Local: Story = {
   args: { task: { title: 'Renew the domain', status: 'not-started', priority: 'medium' } },
+};
+
+/** Long names wrap onto another line of pills, and a name too long for the card ellipsises */
+export const ManyPills: Story = {
+  args: {
+    task: {
+      title: 'Migrate the calendar sync to the new provider API',
+      status: 'in-progress',
+      priority: 'high',
+      key: 'ENG-212',
+      subtasks: [1, 5],
+      event: 'Platform planning with the calendar and integrations teams',
+      eventColor: 'pink',
+      project: 'Integrations',
+      projectColor: 'indigo',
+      date: 'Sep 28',
+      dateTone: 'overdue',
+    },
+  },
 };
 
 export const Hover: Story = { args: { state: 'hover' } };
