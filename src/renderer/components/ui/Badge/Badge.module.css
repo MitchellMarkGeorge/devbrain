@@ -70,6 +70,10 @@
 .outline[data-popup-open] .muted {
   color: var(--foreground);
 }
+.outline:is(button, a, [role='button']):hover .prefix,
+.outline[data-popup-open] .prefix {
+  color: var(--muted-foreground);
+}
 .outline:is(button, a, [role='button']):active {
   background: color-mix(in oklab, var(--pill-fill-hover) 92%, var(--foreground));
 }
@@ -91,6 +95,12 @@
 }
 .muted {
   color: var(--muted-foreground);
+}
+/* "Linked to ▌ Design review": the prefix leads, a step quieter than the label */
+.prefix {
+  flex: none;
+  color: var(--subtle-foreground);
+  font-weight: var(--font-weight-normal);
 }
 /* an event's calendar colour */
 .bar {

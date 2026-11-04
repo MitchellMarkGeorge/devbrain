@@ -33,7 +33,7 @@ export interface BadgeProps
   iconColor?: Swatch | string;
   /** an event's calendar colour, drawn as a 3px bar before the label */
   barColor?: Swatch | string;
-  /** quiet words before the label: "Due", "Linked to" */
+  /** quiet words that lead the pill, before its glyph: "Due", "Linked to" */
   prefix?: ReactNode;
   /** the label in `muted-foreground`: unset "+ Add …" pills */
   muted?: boolean;
@@ -84,9 +84,9 @@ export const Badge = forwardRef<HTMLElement, BadgeProps>(function Badge(
         ...(isButton && !render && { type: 'button' }),
         children: (
           <>
+            {prefix != null && <span className={styles.prefix}>{prefix}</span>}
             {barColor && <span className={styles.bar} aria-hidden />}
             {renderIcon(icon, 12)}
-            {prefix != null && <span className={styles.muted}>{prefix}</span>}
             <span className={cn(styles.text, muted && styles.muted)}>{children}</span>
           </>
         ),
