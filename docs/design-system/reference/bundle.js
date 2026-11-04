@@ -1442,8 +1442,9 @@
      its stacked width, and the deck grows leftwards from its right edge over the end of the title,
      on the row's own ground, so nothing in the row moves. It never reaches past the start of the
      title: there it shifts right instead, over the other side's stack, and covers that stack
-     whole. Spreading animates: the pills behind grow to full width, their labels and the ground
-     fade in, a shifted deck slides there; leaving folds them back. One pill never stacks. */
+     whole. Stacking, unstacking, spreading and folding back all animate: the pills behind grow or
+     shrink between full width and their edge and their labels fade; a spread deck's ground fades
+     in and a shifted deck slides there. One pill never stacks. */
   var DECK_LEFT_SLACK = 8;
   var DECK_FADE = 16; // the deck's padding before its first pill, where its ground fades in
   var CLOSE_MS = 150; // a closing deck stays on top of the row while its pills fold back
@@ -1553,41 +1554,63 @@
   }
 
   /* How far a row's pills stack: 0 none, 1 the pills after the title, 2 both sides. With
-     stack: 'auto' (the default) the row measures itself: it stacks a side when the title is cut
-     short, and unstacks one when the room beside the title covers what stacking it saved, so the
-     title shortens only after both sides have stacked. 'none', 'right' and 'both' pin a level. */
+     stack: 'auto' (the default) the row measures itself and takes the first level at which the
+     title's full text fits beside the pills, so the title shortens only after both sides have
+     stacked. It works from full widths (the title's text, each pill, priority and date), never
+     from the row as drawn, so it gives the same answer while pills animate between levels.
+     'none', 'right' and 'both' pin a level. */
   var STACK_LEVELS = { none: 0, right: 1, both: 2 };
-  function stackSavings(stack) {
+  function pillWidth(pill) {
+    return Math.min(pill.scrollWidth + 2, 240);
+  }
+  function stackWidths(stack) {
     var deck = stack && stack.firstElementChild;
-    if (!deck || deck.children.length < 2) return 0;
-    var pills = Array.prototype.slice.call(deck.children, 0, -1);
-    return pills.reduce(function (saved, pill) {
-      // scrollWidth is the pill's own width even while it is cut to its edge (+2 for its border)
-      return saved + pill.scrollWidth + 2 + 6 - 26;
-    }, 0);
+    var pills = deck ? Array.prototype.slice.call(deck.children) : [];
+    if (!pills.length) return { spread: 0, stacked: 0 };
+    var widths = pills.map(pillWidth);
+    var last = widths[widths.length - 1];
+    return {
+      spread:
+        widths.reduce(function (a, w) {
+          return a + w;
+        }, 0) +
+        6 * (pills.length - 1),
+      stacked: pills.length > 1 ? 26 * (pills.length - 1) + last : last,
+    };
+  }
+  function gapOf(el) {
+    return parseFloat(getComputedStyle(el).columnGap) || 0;
   }
   function useAutoStack(enabled, rowRef, canLeft, canRight) {
     var lv = useState(0);
-    var max = canLeft ? 2 : canRight ? 1 : 0;
     function fit() {
       var row = rowRef.current;
       if (!enabled || !row || row.querySelector('[data-spread]')) return;
       var title = row.querySelector('.dbl-title');
       var name = row.querySelector('.dbl-name');
-      if (!title || !name) return;
-      var left = title.querySelector('.dbl-stack');
-      var right = row.querySelector('.dbl-side .dbl-stack');
-      lv[1](function (cur) {
-        var cut = name.scrollWidth > name.clientWidth + 0.5;
-        if (cut && cur < max) return cur === 0 && !canRight ? 2 : cur + 1;
-        if (!cut && cur > 0) {
-          var room = title.clientWidth - name.scrollWidth - (left ? left.offsetWidth + 10 : 0);
-          if (room >= stackSavings(cur === 2 ? left : right) + 1) {
-            return cur === 2 && !canRight ? 0 : cur - 1;
-          }
-        }
-        return cur;
+      var side = row.querySelector('.dbl-side');
+      if (!title || !name || !side) return;
+      var left = stackWidths(title.querySelector('.dbl-stack'));
+      var rightStack = side.querySelector('.dbl-stack');
+      var right = stackWidths(rightStack);
+      var room =
+        row.getBoundingClientRect().right -
+        (parseFloat(getComputedStyle(row).paddingRight) || 0) -
+        title.getBoundingClientRect().left;
+      var sideFixed = gapOf(side) * (side.children.length - 1);
+      Array.prototype.forEach.call(side.children, function (part) {
+        if (part !== rightStack) sideFixed += part.offsetWidth;
       });
+      var fixed = name.scrollWidth + gapOf(row) + sideFixed + (left.spread ? gapOf(title) : 0);
+      var levels = [0];
+      if (canRight) levels.push(1);
+      if (canLeft) levels.push(2);
+      var fitting = levels.filter(function (l) {
+        var w =
+          fixed + (l >= 1 ? right.stacked : right.spread) + (l === 2 ? left.stacked : left.spread);
+        return w <= room + 0.5;
+      });
+      lv[1](fitting.length ? fitting[0] : levels[levels.length - 1]);
     }
     useLayoutEffect(fit);
     useLayoutEffect(
@@ -1596,13 +1619,14 @@
         if (!enabled || !row || typeof ResizeObserver === 'undefined') return undefined;
         var observer = new ResizeObserver(fit);
         observer.observe(row);
+        if (document.fonts) document.fonts.ready.then(fit);
         return function () {
           observer.disconnect();
         };
       },
       [enabled],
     );
-    return Math.min(lv[0], max);
+    return lv[0];
   }
 
   function TaskRow(props) {
@@ -1654,6 +1678,15 @@
       [t.project, t.event, t.note].filter(Boolean).length > 1,
     );
     var level = mode === 'auto' ? autoLevel : STACK_LEVELS[mode] || 0;
+    // the row draws its first level without motion; changes after that animate
+    useEffect(function () {
+      var frame = requestAnimationFrame(function () {
+        if (ref.current) ref.current.setAttribute('data-settled', '');
+      });
+      return function () {
+        cancelAnimationFrame(frame);
+      };
+    }, []);
     return h(
       'div',
       {

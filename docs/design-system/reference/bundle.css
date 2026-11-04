@@ -1722,23 +1722,35 @@ button.db-badge[data-variant='outline']:hover .db-badge-prefix {
 .dbl-deck {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
 }
-.dbl-stack[data-stacked] .dbl-deck {
-  gap: 0;
+/* the space between pills is their right margin, so it animates with their width */
+.dbl-deck > :not(:last-child) {
+  flex: none;
+  margin-right: 6px;
+  overflow: hidden;
+}
+.dbl-deck > :not(:last-child) > * {
+  flex-shrink: 0;
+}
+.dbl-deck > :not(:last-child) > :last-child {
+  opacity: 1;
 }
 /* a pill behind the last shows a 26px edge (30px, 4px under the next pill) with its icon */
 .dbl-stack[data-stacked] .dbl-deck > :not(:last-child) {
-  flex: none;
   width: 30px;
   margin-right: -4px;
-  overflow: hidden;
-}
-.dbl-stack[data-stacked] .dbl-deck > :not(:last-child) > * {
-  flex-shrink: 0;
 }
 .dbl-stack[data-stacked] .dbl-deck > :not(:last-child) > :last-child {
   opacity: 0;
+}
+/* stacking, unstacking, spreading and folding back animate; a row draws its first level still */
+.dbl-row[data-settled] .dbl-deck > :not(:last-child) {
+  transition:
+    width var(--duration-normal, 150ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
+    margin-right var(--duration-normal, 150ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+.dbl-row[data-settled] .dbl-deck > :not(:last-child) > :last-child {
+  transition: opacity var(--duration-normal, 150ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
 }
 /* spread (and folding back, data-closing): on top of the row; the pills behind grow to full
    width, their labels and the ground fade in, a shifted deck slides there */
@@ -1775,14 +1787,6 @@ button.db-badge[data-variant='outline']:hover .db-badge-prefix {
 }
 .dbl-stack[data-spread] .dbl-deck[data-shifted] {
   padding-right: 8px;
-}
-.dbl-stack[data-spread] .dbl-deck > :not(:last-child) {
-  transition:
-    width var(--duration-normal, 150ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
-    margin-right var(--duration-normal, 150ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
-}
-.dbl-stack[data-spread] .dbl-deck > :not(:last-child) > :last-child {
-  transition: opacity var(--duration-normal, 150ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
 }
 .dbl-stack[data-spread]:not([data-closing]) .dbl-deck > :not(:last-child) {
   width: auto;

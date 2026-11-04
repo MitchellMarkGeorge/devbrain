@@ -2,6 +2,7 @@ import {
   Children,
   forwardRef,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -199,22 +200,32 @@ function PillStack({ stacked, children }: { stacked: boolean; children: ReactNod
   );
 }
 
-// the width a stack saves by stacking: each pill behind shrinks from its own width to the edge
-function stackSavings(stack: Element | null): number {
-  const deck = stack?.firstElementChild;
-  if (!deck || deck.children.length < 2) return 0;
-  const pills = Array.from(deck.children) as HTMLElement[];
-  let saved = 0;
-  for (const pill of pills.slice(0, -1)) {
-    // scrollWidth is the pill's own width even while it is cut to its edge (+2 for its border)
-    saved += pill.scrollWidth + 2 + STACK_GAP - STACK_EDGE;
-  }
-  return saved;
+// a pill's full width, even while it is cut to its edge or mid-animation (Badge caps it at 240px)
+function pillWidth(pill: Element): number {
+  return Math.min(pill.scrollWidth + 2, 240);
+}
+
+// a stack's width spread out and stacked, from its pills' full widths
+function stackWidths(stack: Element | null): { spread: number; stacked: number } {
+  const pills = Array.from(stack?.firstElementChild?.children ?? []);
+  if (pills.length === 0) return { spread: 0, stacked: 0 };
+  const widths = pills.map(pillWidth);
+  const last = widths[widths.length - 1];
+  return {
+    spread: widths.reduce((sum, w) => sum + w, 0) + STACK_GAP * (pills.length - 1),
+    stacked: pills.length > 1 ? STACK_EDGE * (pills.length - 1) + last : last,
+  };
+}
+
+function gapOf(element: Element): number {
+  return parseFloat(getComputedStyle(element).columnGap) || 0;
 }
 
 /**
- * The stack level that fits the row: stack a side when the title is cut short, unstack one when
- * the room beside the title covers what stacking it saved.
+ * The stack level that fits the row: the first of none, right, both at which the title's full text
+ * fits beside the pills. It works from full widths (the title's text, each pill, the priority and
+ * the date), never from the row as it is drawn, so it gives the same answer while the pills are
+ * animating between levels.
  */
 function useAutoStack(
   enabled: boolean,
@@ -222,47 +233,51 @@ function useAutoStack(
   canStack: { left: boolean; right: boolean },
 ): StackLevel {
   const [level, setLevel] = useState<StackLevel>(0);
-  const maxLevel: StackLevel = canStack.left ? 2 : canStack.right ? 1 : 0;
 
   const fit = useCallback(() => {
     const row = rowRef.current;
     if (!enabled || !row || row.querySelector('[data-spread]')) return;
     const title = row.querySelector<HTMLElement>('[data-title]');
     const name = title?.querySelector<HTMLElement>('[data-name]');
-    if (!title || !name) return;
-    const leftStack = title.querySelector<HTMLElement>('[data-stack]');
-    const rightStack = row.querySelector<HTMLElement>('[data-side] [data-stack]');
+    const side = row.querySelector<HTMLElement>('[data-side]');
+    if (!title || !name || !side) return;
+    const left = stackWidths(title.querySelector('[data-stack]'));
+    const rightStack = side.querySelector('[data-stack]');
+    const right = stackWidths(rightStack);
 
-    setLevel((current) => {
-      const cut = name.scrollWidth > name.clientWidth + 0.5;
-      if (cut && current < maxLevel) {
-        // skip a level that changes nothing (a right side with one pill)
-        return current === 0 && !canStack.right ? 2 : ((current + 1) as StackLevel);
-      }
-      if (!cut && current > 0) {
-        // the title's gap (10px) sits between the name and its pills
-        const leftWidth = leftStack ? leftStack.offsetWidth + 10 : 0;
-        const room = title.clientWidth - name.scrollWidth - leftWidth;
-        const saved = stackSavings(current === 2 ? leftStack : rightStack);
-        if (room >= saved + 1) {
-          return current === 2 && !canStack.right ? 0 : ((current - 1) as StackLevel);
-        }
-      }
-      return current;
-    });
-  }, [enabled, rowRef, maxLevel, canStack.right]);
+    // the room from the start of the title to the row's right padding
+    const rowBox = row.getBoundingClientRect();
+    const paddingRight = parseFloat(getComputedStyle(row).paddingRight) || 0;
+    const room = rowBox.right - paddingRight - title.getBoundingClientRect().left;
+    // the side's own parts (priority, date) and the gaps between everything
+    const sideParts = Array.from(side.children).filter((child) => child !== rightStack);
+    const sideFixed =
+      sideParts.reduce((sum, part) => sum + (part as HTMLElement).offsetWidth, 0) +
+      gapOf(side) * (side.children.length - 1);
+    const fixed = name.scrollWidth + gapOf(row) + sideFixed + (left.spread ? gapOf(title) : 0);
 
-  // fit again after every change of level, and whenever the row changes size
-  useLayoutEffect(fit, [fit, level]);
+    const fits = (l: StackLevel) =>
+      fixed + (l >= 1 ? right.stacked : right.spread) + (l === 2 ? left.stacked : left.spread) <=
+      room + 0.5;
+    const levels: StackLevel[] = [0];
+    if (canStack.right) levels.push(1);
+    if (canStack.left) levels.push(2);
+    setLevel(levels.find(fits) ?? levels[levels.length - 1]);
+  }, [enabled, rowRef, canStack.left, canStack.right]);
+
+  // fit on every render (the task may have changed), when the row changes size, and once the
+  // fonts have loaded (the title's width changes with them)
+  useLayoutEffect(fit);
   useLayoutEffect(() => {
     const row = rowRef.current;
     if (!enabled || !row) return;
     const observer = new ResizeObserver(() => fit());
     observer.observe(row);
+    void document.fonts?.ready.then(() => fit());
     return () => observer.disconnect();
   }, [enabled, rowRef, fit]);
 
-  return Math.min(level, maxLevel) as StackLevel;
+  return level;
 }
 
 function assignRef<T>(ref: Ref<T> | undefined, value: T) {
@@ -323,6 +338,12 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     right: rightPills > 1,
   });
   const level = stack === undefined || stack === 'auto' ? autoLevel : LEVELS[stack];
+  // The row draws its first level without motion; changes after that animate. The flag is set on
+  // the element after the first frame and never by a render, so React leaves it alone.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => rowRef.current?.setAttribute('data-settled', ''));
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   const [statusState, setStatusState] = useState(task.status);
   const status = statusProp ?? statusState;
