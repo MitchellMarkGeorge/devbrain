@@ -1,16 +1,10 @@
 import type { ComponentPropsWithoutRef } from 'react';
 import { cva } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
+import { INTEGRATION_PROVIDER_LABELS, type IntegrationProvider } from '../types';
 import styles from './ProviderTile.module.css';
 
-/** A service an account connects: what the Integrations page lists. */
-export type IntegrationProvider = 'linear' | 'google-calendar' | 'github';
-
-export const INTEGRATION_PROVIDER_LABELS: Record<IntegrationProvider, string> = {
-  linear: 'Linear',
-  'google-calendar': 'Google Calendar',
-  github: 'GitHub',
-};
+export { INTEGRATION_PROVIDER_LABELS, type IntegrationProvider } from '../types';
 
 /** The official marks (Simple Icons) on an 18-unit box, as the Figma file exports them. */
 const MARKS: Record<IntegrationProvider, string> = {

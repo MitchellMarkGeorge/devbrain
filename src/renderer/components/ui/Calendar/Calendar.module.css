@@ -145,17 +145,56 @@ span.dayButton {
 .hidden {
   visibility: hidden;
 }
-/* the selected day, and a range's start and end */
+/* the selected day */
 .selected .dayButton {
   border-color: var(--border-strong);
   background: var(--secondary);
   color: var(--foreground-strong);
   font-weight: var(--font-weight-medium);
 }
-/* a range's days between its ends: `accent` squares */
+/*
+ * Range: one `accent` band per week, drawn on the cells so it runs without gaps between days,
+ * from the centre of the start to the centre of the end. The ends fill with `primary`, a step
+ * above the band (`secondary` and `accent` are the same grey in dark). A band that crosses a week
+ * rounds off at the row's edges.
+ */
+.rangeStart,
+.rangeMiddle,
+.rangeEnd {
+  background: var(--accent);
+}
+.rangeStart {
+  background: linear-gradient(to right, transparent 50%, var(--accent) 50%);
+}
+.rangeEnd {
+  background: linear-gradient(to left, transparent 50%, var(--accent) 50%);
+}
+/*
+ * The band runs only between days of the range: a one-day range has none, and an end or a middle
+ * day next to the row's edge, a day outside the range, or a hidden placeholder (the two-month
+ * picker's days of the next or previous month, which carry the range's classes) stops or rounds
+ * off there.
+ */
+.rangeStart.rangeEnd,
+.rangeStart:last-child,
+.rangeStart:has(+ :is(.hidden, :not(.rangeMiddle, .rangeEnd))),
+.rangeEnd:first-child,
+:is(.hidden, :not(.rangeStart, .rangeMiddle)) + .rangeEnd {
+  background: none;
+}
+.rangeMiddle:first-child,
+:is(.hidden, :not(.rangeStart, .rangeMiddle)) + .rangeMiddle {
+  border-top-left-radius: var(--radius-md);
+  border-bottom-left-radius: var(--radius-md);
+}
+.rangeMiddle:last-child,
+.rangeMiddle:has(+ :is(.hidden, :not(.rangeMiddle, .rangeEnd))) {
+  border-top-right-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+}
 .rangeMiddle .dayButton {
   border-color: transparent;
-  background: var(--accent);
+  background: transparent;
   color: var(--accent-foreground);
   font-weight: var(--font-weight-normal);
 }
@@ -165,6 +204,16 @@ span.dayButton {
 .rangeMiddle.outside {
   color: var(--muted-foreground);
 }
+.rangeStart .dayButton,
+.rangeEnd .dayButton {
+  border-color: transparent;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.rangeStart .dayButton:hover,
+.rangeEnd .dayButton:hover {
+  background: color-mix(in oklab, var(--primary) 85%, transparent);
+}
 /* today: DevBrain's red square with a white number */
 .today .dayButton {
   border-color: transparent;
@@ -173,7 +222,7 @@ span.dayButton {
   font-weight: var(--font-weight-medium);
 }
 /* …or, when it is selected, the selected square with a red number */
-.today.selected .dayButton {
+.today.selected:not(.rangeStart, .rangeMiddle, .rangeEnd) .dayButton {
   border-color: var(--border-strong);
   background: var(--secondary);
   color: var(--now-indicator);
@@ -181,4 +230,14 @@ span.dayButton {
 .today.outside .dayButton {
   background: transparent;
   color: var(--subtle-foreground);
+}
+/* today in a range: the range's own fill, with a red number */
+.today.rangeMiddle .dayButton {
+  background: transparent;
+  color: var(--now-indicator);
+}
+.today.rangeStart .dayButton,
+.today.rangeEnd .dayButton {
+  background: var(--primary);
+  color: var(--now-indicator);
 }

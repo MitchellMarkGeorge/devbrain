@@ -46,6 +46,61 @@ export const PROVIDER_LABELS: Record<Provider, string> = {
   github: 'GitHub',
 };
 
+/** A project's status, matching core's `ProjectStatus`. */
+export type ProjectStatus = 'not-started' | 'active' | 'on-hold' | 'completed';
+
+export const PROJECT_STATUSES: readonly ProjectStatus[] = [
+  'not-started',
+  'active',
+  'on-hold',
+  'completed',
+];
+
+export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
+  'not-started': 'Not started',
+  active: 'Active',
+  'on-hold': 'On hold',
+  completed: 'Completed',
+};
+
+/**
+ * A service an account connects: what the Integrations page lists. Tasks come from `Provider`s
+ * (Linear, GitHub); events come from Google Calendar.
+ */
+export type IntegrationProvider = 'linear' | 'google-calendar' | 'github';
+
+export const INTEGRATION_PROVIDER_LABELS: Record<IntegrationProvider, string> = {
+  linear: 'Linear',
+  'google-calendar': 'Google Calendar',
+  github: 'GitHub',
+};
+
+/**
+ * An item on the calendar grids, as TimeGrid and MonthGrid take it. Times are local `Date`s;
+ * an all-day event runs from the start of its first day to the start of the day after its last
+ * (`end` is exclusive), as Google Calendar sends them.
+ */
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+  allDay?: boolean;
+  /** the calendar's colour */
+  color?: Swatch;
+  /**
+   * `event` (default), a `task` scheduled on the grid (its status icon), `focus` time (neutral,
+   * dashed) or `out-of-office` (a neutral all-day chip)
+   */
+  kind?: 'event' | 'task' | 'focus' | 'out-of-office';
+  /** a scheduled task's status */
+  status?: TaskStatus;
+  /** you answered "maybe" */
+  tentative?: boolean;
+  /** the event has a meeting link */
+  meeting?: boolean;
+}
+
 /** A swatch at full strength (icons, bars, dots): `swatchVar('blue')` → `var(--swatch-blue)` */
 export function swatchVar(swatch: Swatch): string {
   return `var(--swatch-${swatch})`;

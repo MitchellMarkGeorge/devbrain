@@ -105,9 +105,8 @@
   border-radius: var(--radius-md);
 }
 
-/* a result count after the label (the search dialog's type filter) */
+/* a result count after the label (the search dialog's type filter): part of the label, "Tasks 3" */
 .count {
-  color: var(--muted-foreground);
-  font-size: var(--text-xs);
+  color: inherit;
   font-variant-numeric: tabular-nums;
 }

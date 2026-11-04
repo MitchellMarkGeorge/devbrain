@@ -37,11 +37,6 @@
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
-/* Figma's 32px tile: 8px corners, a 14px letter */
-.item .tile {
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-}
 .text {
   display: flex;
   flex: 1;

@@ -3,24 +3,10 @@ import { cva } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
 import { Icon } from '../Icon';
 import { FilledCheck } from '../StatusIcon';
+import { PROJECT_STATUS_LABELS, type ProjectStatus } from '../types';
 import styles from './ProjectStatusIcon.module.css';
 
-/** A project's status, matching core's `ProjectStatus`. */
-export type ProjectStatus = 'not-started' | 'active' | 'on-hold' | 'completed';
-
-export const PROJECT_STATUSES: readonly ProjectStatus[] = [
-  'not-started',
-  'active',
-  'on-hold',
-  'completed',
-];
-
-export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
-  'not-started': 'Not started',
-  active: 'Active',
-  'on-hold': 'On hold',
-  completed: 'Completed',
-};
+export { PROJECT_STATUSES, PROJECT_STATUS_LABELS, type ProjectStatus } from '../types';
 
 export const projectStatusIconVariants = cva(styles.icon, {
   variants: {

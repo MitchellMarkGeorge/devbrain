@@ -37,8 +37,8 @@ function Day(props: DayProps) {
 /**
  * The calendar (react-day-picker; Base UI has no calendar), drawn as Figma's MiniCalendar: weeks
  * from Monday, one-letter weekdays, 12px numerals in 28px cells, today on the `now-indicator`
- * red, the selected day (and a range's ends) on `secondary` with a `border-strong` outline, a
- * range's days between on `accent`.
+ * red, the selected day on `secondary` with a `border-strong` outline. A range is one `accent`
+ * band per week between its ends, which fill with `primary`.
  */
 export function Calendar({
   variant = 'mini',

@@ -142,7 +142,7 @@ function SearchPalette({ query: initial, groups }: { query: string; groups: Resu
       >
         <CommandInput
           placeholder="Search tasks, notes, projects and events…"
-          trailing={<Kbd>Esc</Kbd>}
+          trailing={<Kbd variant="raised">Esc</Kbd>}
         />
         <CommandToolbar>
           <ToggleGroup

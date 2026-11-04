@@ -1,30 +1,6 @@
-import type { Swatch, TaskStatus } from '../types';
+import type { CalendarEvent } from '../types';
 
-/**
- * An item on the calendar grids, as TimeGrid and MonthGrid take it. Times are local `Date`s;
- * an all-day event runs from the start of its first day to the start of the day after its last
- * (`end` is exclusive), as Google Calendar sends them.
- */
-export interface CalendarEvent {
-  id: string;
-  title: string;
-  start: Date;
-  end: Date;
-  allDay?: boolean;
-  /** the calendar's colour */
-  color?: Swatch;
-  /**
-   * `event` (default), a `task` scheduled on the grid (its status icon), `focus` time (neutral,
-   * dashed) or `out-of-office` (a neutral all-day chip)
-   */
-  kind?: 'event' | 'task' | 'focus' | 'out-of-office';
-  /** a scheduled task's status */
-  status?: TaskStatus;
-  /** you answered "maybe" */
-  tentative?: boolean;
-  /** the event has a meeting link */
-  meeting?: boolean;
-}
+export type { CalendarEvent } from '../types';
 
 export const MS_PER_DAY = 24 * 60 * 60 * 1000;
 

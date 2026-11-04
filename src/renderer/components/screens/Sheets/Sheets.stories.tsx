@@ -15,10 +15,10 @@ import { Button } from '../../ui/Button';
 import { DetailRow, DetailRows, ReadOnlyRow } from '../../ui/DetailRow';
 import { DetailSection } from '../../ui/DetailSection';
 import { EntityPill } from '../../ui/EntityPill';
-import { Icon } from '../../ui/Icon';
 import { LinkedTaskRow } from '../../ui/LinkedTaskRow';
 import { PriorityIcon } from '../../ui/PriorityIcon';
 import { ProgressRing } from '../../ui/ProgressRing';
+import { ProviderTile } from '../../ui/ProviderTile';
 import {
   Sheet,
   SheetBody,
@@ -306,7 +306,7 @@ export const EventSheetGoogle: Story = {
   render: () => (
     <SheetColumn name="Event">
       <SheetItemTitle barColor="indigo">Engineering All-hands</SheetItemTitle>
-      <SyncedBadge logo={<GoogleCalendarStandIn />}>Google Calendar · Engineering</SyncedBadge>
+      <SyncedBadge logo={<GoogleCalendarMark />}>Google Calendar · Engineering</SyncedBadge>
       <DetailRows>
         <ReadOnlyRow label="Date" glyph={CalendarDays}>
           Fri, Jun 26
@@ -357,22 +357,7 @@ function CalendarBar({ color }: { color: string }) {
   );
 }
 
-/** ProviderLogo has no Google mark yet: a stand-in tile until it does */
-function GoogleCalendarStandIn() {
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 16,
-        height: 16,
-        borderRadius: 4,
-        background: 'var(--swatch-blue)',
-        color: 'var(--white, #fff)',
-      }}
-    >
-      <Icon icon={CalendarDays} size={10} />
-    </span>
-  );
+/** Google Calendar's mark, the 16px size of a SyncedBadge logo */
+function GoogleCalendarMark() {
+  return <ProviderTile provider="google-calendar" size={16} />;
 }

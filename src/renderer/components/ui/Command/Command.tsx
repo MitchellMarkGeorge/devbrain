@@ -50,7 +50,7 @@ export function Command<ItemValue>({ className, bare, ...props }: CommandProps<I
 }
 
 export interface CommandInputProps extends Autocomplete.Input.Props {
-  /** on the right of the row: the ⌘K search's `<Kbd>Esc</Kbd>` */
+  /** on the right of the row: the ⌘K search's `<Kbd variant="raised">Esc</Kbd>` */
   trailing?: ReactNode;
 }
 
@@ -170,7 +170,11 @@ export function CommandItem({
       </span>
       {meta != null && <span className={styles.meta}>{meta}</span>}
       {shortcut != null && <DropdownMenuShortcut>{shortcut}</DropdownMenuShortcut>}
-      {variant === 'result' && <Kbd className={styles.enter}>↵</Kbd>}
+      {variant === 'result' && (
+        <Kbd variant="raised" className={styles.enter}>
+          ↵
+        </Kbd>
+      )}
     </Autocomplete.Item>
   );
 }
@@ -251,7 +255,7 @@ export interface CommandHintProps extends ComponentProps<'span'> {
 export function CommandHint({ keys, className, children, ...props }: CommandHintProps) {
   return (
     <span className={cn(styles.hint, className)} {...props}>
-      <Kbd>{keys}</Kbd>
+      <Kbd variant="raised">{keys}</Kbd>
       {children}
     </span>
   );

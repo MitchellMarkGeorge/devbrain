@@ -159,6 +159,18 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
   }, [compact, collapsed, drawerOpen, setCollapsed, setDrawerOpen]);
   const closeDrawer = useCallback(() => setDrawerOpen(false), [setDrawerOpen]);
 
+  // Dialogs portal to <body>, outside the shell, and centre over the page beside the sidebar: give
+  // them the sidebar's width on the root (Dialog reads --dialog-inset-left)
+  const hasSidebar = sidebar != null;
+  useEffect(() => {
+    const root = document.documentElement;
+    const inset = !hasSidebar ? '0px' : rail ? 'var(--sidebar-rail-width)' : 'var(--sidebar-width)';
+    root.style.setProperty('--dialog-inset-left', inset);
+    return () => {
+      root.style.removeProperty('--dialog-inset-left');
+    };
+  }, [hasSidebar, rail]);
+
   // ⌘\ toggles the sidebar
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {

@@ -9,7 +9,7 @@ The pill rows under a task or project title. They replace the side Properties ca
 
 ## DateRange
 
-The dates property, one value until a start date exists: the due date and a muted "+ Start date" pill. Once a start date is set, two pills, start → due, with a `muted-foreground` arrow between them; each pill opens its own picker (the due date picker, or the start and due range picker anchored under the start pill).
+The dates property, one value until a start date exists: the due date and a muted "+ Start date" pill. Once a start date is set, two pills, start → due, with a `muted-foreground` arrow between them; each pill opens its own picker: `DatePicker` for the due date, or `DateRangePicker` (start and due) anchored under the start pill.
 
 ## The task note card
 

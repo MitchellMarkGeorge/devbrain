@@ -37,3 +37,23 @@ export const InText: Story = {
     </Text>
   ),
 };
+
+/** On popovers (the ⌘K search, its footers) the key takes `border-strong`, as `muted` disappears there */
+export const Raised: Story = {
+  render: () => (
+    <div
+      style={{
+        display: 'inline-flex',
+        gap: 8,
+        padding: 12,
+        borderRadius: 'var(--radius-lg)',
+        background: 'var(--popover)',
+        boxShadow: '0 0 0 1px var(--edge)',
+      }}
+    >
+      <Kbd variant="raised">Esc</Kbd>
+      <Kbd variant="raised">↵</Kbd>
+      <Kbd variant="raised">⌘K</Kbd>
+    </div>
+  ),
+};

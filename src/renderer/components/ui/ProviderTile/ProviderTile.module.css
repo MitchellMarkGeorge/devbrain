@@ -10,7 +10,7 @@
   background: var(--platform-linear);
 }
 .google {
-  background: var(--platform-google, #4285f4);
+  background: var(--platform-google);
 }
 .github {
   background: var(--border-strong);

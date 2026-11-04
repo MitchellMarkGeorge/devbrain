@@ -40,8 +40,7 @@
 
 /* variants */
 .default {
-  /* Figma's `input-fill` (5% in dark, none in light) once tokens.css has it */
-  background: var(--input-fill, color-mix(in oklab, var(--input) 30%, transparent));
+  background: var(--input-fill);
   border-color: var(--input);
 }
 .default:hover {

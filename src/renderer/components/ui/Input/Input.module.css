@@ -8,8 +8,7 @@
   padding: 0 10px;
   border: 1px solid var(--input);
   border-radius: var(--radius-lg);
-  /* Figma's `input-fill` (5% in dark, none in light) once tokens.css has it */
-  background: var(--input-fill, color-mix(in oklab, var(--input) 30%, transparent));
+  background: var(--input-fill);
   color: var(--foreground);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
   outline: none;

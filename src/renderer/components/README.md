@@ -13,17 +13,30 @@ Run `npm run storybook` to browse every component (`npm run build-storybook` bui
 Light. Everything is exported from `components/index.ts`; `ui/types.ts` holds the shared
 domain types (`TaskStatus`, `Priority`, `Swatch`, …) and their colour helpers.
 
-| Group            | Components                                                                                                               |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Layout and type  | Text, Heading, Flex, Stack, Grid, Box, VisuallyHidden                                                                    |
-| Controls         | Button, IconButton, ButtonGroup, Input, Textarea, Field, Checkbox, Switch, ToggleGroup, Tabs, SwatchPicker, Select       |
-| Overlays         | Tooltip, Popover, DropdownMenu, ContextMenu, Dialog, AlertDialog, Sheet, Toast, Command, EntityHoverCard                 |
-| Display          | Card, Badge, Kbd, Separator, Skeleton, Progress, Breadcrumb, Calendar, Logomark, WorkspaceTile                           |
-| Glyphs and pills | Icon, StatusIcon, PriorityIcon, HealthIcon, ProgressRing, ProviderLogo, EntityPill, SourcePill                           |
-| Lists            | TaskRow, TaskList, StatusMenu, SelectionBar, GroupHeading, EventRow                                                      |
-| Pages            | PropertyRow, DateRange, TaskNoteCard, BoardCard, BoardColumn, EventBlock, ScheduleCard, NoteCard, SettingsGroup, Sidebar |
+| Group                                 | Components                                                                                                                                                                                  |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Layout and type                       | Text, Heading, Flex, Stack, Grid, Box, VisuallyHidden                                                                                                                                       |
+| Controls                              | Button, IconButton, ButtonGroup, Input, Textarea, Field, Checkbox, Switch, ToggleGroup, Tabs, SwatchPicker, Select                                                                          |
+| Menus and pickers                     | DropdownMenu, ContextMenu, StatusMenu, PriorityMenu, ProjectPicker, Command, DatePicker, DateRangePicker, Calendar, DateRange                                                               |
+| Overlays                              | Tooltip, Popover, Dialog, AlertDialog, ConfirmDialog, Sheet, Toast, EntityHoverCard                                                                                                         |
+| Display                               | Card, Badge, NewBadge, Kbd, Separator, Skeleton, Progress, Breadcrumb, Logomark, WorkspaceTile, EmptyState, SectionHeading, SyncStatus                                                      |
+| Glyphs and pills                      | Icon, StatusIcon, PriorityIcon, HealthIcon, ProjectStatusIcon, ProgressRing, ColourBar, SwatchDot, ProviderLogo, ProviderTile, EntityPill, SourcePill, SyncedBadge                          |
+| App shell                             | AppShell, WindowBar, Sidebar, PageHeader, DocumentPage, CardGrid                                                                                                                            |
+| Lists and board                       | ListRow, TaskRow, TaskList, NoteRow, ProjectRow, TrashRow, EventRow, LinkedTaskRow, QuickAddRow, DraftTaskRow, TaskRowSkeleton, GroupHeading, SelectionBar, BoardCard, BoardColumn, AddSlot |
+| Detail pages                          | PropertyRow, DetailRow, DetailSection, TaskNoteCard, CreateDialog                                                                                                                           |
+| Editor chrome                         | EditorContent, FormatToolbar, LinkToolbar, TurnIntoMenu, ColourMenu, SlashMenu, MentionMenu                                                                                                 |
+| Calendar                              | TimeGrid, MonthGrid, EventBlock, CalendarAgenda, ScheduleCard                                                                                                                               |
+| Home and first run                    | QuickCapture, QuickAddInput, UpNextStrip, HomeAgenda, HomeNotice, SetupProgress, SetupPrompt, StepCard, TipCard, SetupBanner, QuickStartCard                                                |
+| Projects and notes                    | ProjectCard, ProjectHeader, NoteCard                                                                                                                                                        |
+| Settings, workspaces and integrations | SettingsGroup, WorkspaceListItem, WorkspaceSwitcher, OnboardingScreen, IntegrationCard, AccountStatus, SourceRow                                                                            |
 
-Not built yet: the sidebar's compact-window drawer and pickers behind the SelectionBar's buttons.
+`Screens/*` stories rebuild the designed screens of the Figma file from these components (Tasks,
+Task detail, Notes, Projects, Calendar, Home, Settings, Search, menus, pickers, sheets, the
+editor, create dialogs, onboarding and app-wide states), as a check that they are enough to build
+them. Their shared frames and sample data live in `screens/*/` beside them.
+
+Not built yet: the pickers behind the SelectionBar's buttons, and the rich-text editor itself (the
+editor components are its chrome and block styles, for whichever editor library the app adopts).
 
 ## A component's folder
 

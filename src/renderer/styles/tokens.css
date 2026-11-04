@@ -164,8 +164,9 @@
   --swatch-blue-tint: rgba(43, 127, 255, 0.15);
   --swatch-indigo-tint: rgba(97, 95, 255, 0.15);
   --swatch-pink-tint: rgba(246, 51, 154, 0.15);
-  --platform-linear: #5e6ad2; /* Linear's brand colour, the one non-Tailwind value */
+  --platform-linear: #5e6ad2; /* Linear's brand colour; with Google's, the only non-Tailwind values */
   --platform-github: var(--neutral-200);
+  --platform-google: #4285f4; /* Google Calendar's brand blue */
 }
 
 /* 2. Theme: dark, the default */
@@ -196,6 +197,7 @@
   --row-selected: rgba(229, 229, 229, 0.07);
   --row-selected-foreground: #ffffff;
   --input: rgba(229, 229, 229, 0.15);
+  --input-fill: rgba(229, 229, 229, 0.05);
   --ring: var(--neutral-500);
   --sidebar: var(--neutral-950); /* overrides shadcn neutral-900 */
   --sidebar-foreground: var(--neutral-400); /* overrides shadcn foreground */
@@ -256,6 +258,7 @@
     --row-selected: rgba(10, 10, 10, 0.05);
     --row-selected-foreground: #0a0a0a;
     --input: var(--neutral-200);
+    --input-fill: transparent;
     --ring: var(--neutral-500);
     --sidebar: var(--neutral-50);
     --sidebar-foreground: var(--neutral-500);
@@ -316,6 +319,7 @@
   --row-selected: rgba(10, 10, 10, 0.05);
   --row-selected-foreground: #0a0a0a;
   --input: var(--neutral-200);
+  --input-fill: transparent;
   --ring: var(--neutral-500);
   --sidebar: var(--neutral-50);
   --sidebar-foreground: var(--neutral-500);

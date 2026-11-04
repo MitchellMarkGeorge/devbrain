@@ -31,9 +31,9 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - **Edges.** Raised surfaces (cards, menus, popovers, dialogs, sheets, toasts) take the translucent `edge` outline, Nova's `ring-foreground/10`, instead of a solid line, so they read on any ground.
 - **Lines are translucent.** In dark, `border` is `foreground` at 10% and `input` at 15%, as shadcn's white at 10% and 15%: a divider, a field or a pill outline shows on the page, on a card and on a hovered row alike.
 - **Cards are filled.** `card` is `neutral-900` in dark (shadcn's card) and `neutral-50` on the white page in light, outlined with `edge`.
-- **Fields.** Inputs and checkboxes sit on an `input` fill at 30% with an `input` outline, so they are findable at rest.
+- **Fields.** Inputs, selects, checkboxes and the quiet default button sit on `input-fill` (`foreground` at 5% in dark, none in light) with an `input` outline, so they are findable at rest.
 - **Destructive.** `destructive` is a red tint (20%) with red text, never a solid red.
-- **Dialogs.** 16px padding and gap, 384px wide, with the actions in a footer band (`muted` at 50% over a `border` line).
+- **Dialogs.** 16px padding and gap, 384px wide, with the actions in a footer band (`muted` at 50% over a `border-strong` line). They hang about 160px from the top of the window (create dialogs 140px, the ⌘K search 120px), centred over the page beside the sidebar rather than over the window.
 - **Focus.** shadcn's ring, unchanged: the border turns `ring` with a 3px `ring` halo at 50%.
 
 **Kept from DevBrain** (these make it DevBrain, not stock shadcn):
@@ -68,7 +68,7 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - **Title first.** The task name leads, then pills: a synced task's `SourcePill` (provider logo and key), a subtask's parent pill, and the subtask count (`ProgressRing` and "3/4"). Entity pills, priority and date stay on the right, as in Nova.
 - **The status icon is a button.** Clicking it, or pressing `S` on a focused row, opens the `StatusMenu`; `1`, `2`, `3` pick. Overdue shows as the flag until the task is started or done.
 - **Leading control.** The selection checkbox lives in a strip left of the status icon. It appears on hover and keyboard focus, and on every row once anything is selected. `X` toggles the focused row.
-- **Row states.** Rest, hover (`row-selected`, the selected tint), selected (`row-selected` with `row-selected-foreground` titles; neighbouring selected rows join into one block), keyboard focus (Nova's ring around the whole row), completed (struck through in `muted-foreground`), overdue (flag and `date-overdue`), subtask (indented).
+- **Row states.** Rest, hover (`row-selected`, the selected tint), selected (`row-selected` with `row-selected-foreground` titles; neighbouring selected rows join into one block), keyboard focus (the hover tint with a 1px `ring` outline around the whole row, no halo), completed (the title in `muted-foreground`, not struck through), overdue (flag and `date-overdue`), subtask (indented).
 - **Selection bar.** While rows are selected, a `SelectionBar` floats over the bottom of the list: the count, then Status, Priority, Due date, Move, more, and clear.
 - **Grouped list.** `GroupHeading` is a tile, a title over a subtitle ("Overdue · Oldest due Sep 28", "Mitchell / Jesse 1:1 · Event · Today, 10:00 AM"), an xs "Add task", done/total and a progress bar.
 - **Board.** Open `BoardColumn`s (no panel, 24px apart) hold borderless filled `BoardCard`s (`card`): the linked event or note as a quiet line, the title, then one line of priority, subtasks, project and date. Hover lightens the card and adds an outline; completed cards go darker; each open column ends with a dashed "Add task" slot.
