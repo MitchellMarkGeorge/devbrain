@@ -126,6 +126,7 @@ Two kinds of page, one rule each:
 - **Workspace tiles** sit on the 900 step of their swatch (`swatch-*-tile`), so a 20px tile reads as colour; the white letter stays above 9:1.
 - **Group heading tiles** take a 15% tint of the group's colour (`swatch-*-tint`, `status-*-tint`) behind the icon at full strength.
 - Status colours keep one meaning each (`status-*`, `priority-*`, `health-*`, `date-today`, `date-overdue`), each with its own icon shape. Users pick from the six `swatch-*` colours, shown as 3px bars, dots and swatches.
+- **Derived colours say what they derive from.** In `tokens.json` a translucent token is written as a recipe, `{foreground} / 10%` (another token at an opacity, as Tailwind's `foreground/10`), not as the numbers it comes to; the generator writes it as `color-mix(in srgb, var(--foreground) 10%, transparent)`. So `border` reads `{foreground} / 10%` beside shadcn's white at 10%, a tint follows its colour, and how a token differs from shadcn shows in the token itself. Components derive states the same way at the point of use (`color-mix(in oklab, var(--ring) 50%, transparent)` for shadcn's `ring/50`).
 
 ## Type
 

@@ -28,10 +28,29 @@ const DOMAIN = /^(status|priority|health|date|now|swatch)-/;
 
 const tokens = JSON.parse(readFileSync(SOURCE, 'utf8')) as Tokens;
 
+const NAMES = new Set(tokens.color.tokens.map((t) => t.name));
+
+/**
+ * A token's CSS value. `{name}` is another token; `{name} / 10%` (or a CSS colour such as
+ * `black / 50%`) is that colour at an opacity, as Tailwind's `border-foreground/10` is, written as
+ * `color-mix(in srgb, var(--name) 10%, transparent)`: the same colour at 10% alpha. Mixing with
+ * transparent only scales the alpha; srgb (Tailwind mixes in oklab) skips a round trip through
+ * another space, so the colour comes out exactly (oklab is a level off for saturated reds).
+ */
 function resolve(value: Themed, theme: 'dark' | 'light'): string {
   const raw = typeof value === 'string' ? value : (value[theme] ?? value.dark);
+  const ref = (name: string) => {
+    if (!NAMES.has(name)) throw new Error(`${raw} refers to ${name}, which is not a colour token`);
+    return `var(--${name})`;
+  };
   const alias = /^\{(.+)\}$/.exec(raw);
-  return alias ? `var(--${alias[1]})` : raw;
+  if (alias) return ref(alias[1]);
+  const recipe = /^(?:\{(.+)\}|([a-z]+)) \/ (\d+(?:\.\d+)?)%$/.exec(raw);
+  if (recipe) {
+    const [, name, keyword, percent] = recipe;
+    return `color-mix(in srgb, ${name ? ref(name) : keyword} ${percent}%, transparent)`;
+  }
+  return raw;
 }
 
 /** A short note on how a dark token differs from shadcn's neutral theme, from its usage note. */

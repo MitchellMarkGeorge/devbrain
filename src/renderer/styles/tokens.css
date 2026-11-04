@@ -160,12 +160,12 @@
   --swatch-blue-tile: var(--blue-900);
   --swatch-indigo-tile: var(--indigo-900);
   --swatch-pink-tile: var(--pink-900);
-  --swatch-red-tint: rgba(251, 44, 54, 0.15);
-  --swatch-amber-tint: rgba(254, 154, 0, 0.15);
-  --swatch-green-tint: rgba(0, 188, 125, 0.15);
-  --swatch-blue-tint: rgba(43, 127, 255, 0.15);
-  --swatch-indigo-tint: rgba(97, 95, 255, 0.15);
-  --swatch-pink-tint: rgba(246, 51, 154, 0.15);
+  --swatch-red-tint: color-mix(in srgb, var(--swatch-red) 15%, transparent);
+  --swatch-amber-tint: color-mix(in srgb, var(--swatch-amber) 15%, transparent);
+  --swatch-green-tint: color-mix(in srgb, var(--swatch-green) 15%, transparent);
+  --swatch-blue-tint: color-mix(in srgb, var(--swatch-blue) 15%, transparent);
+  --swatch-indigo-tint: color-mix(in srgb, var(--swatch-indigo) 15%, transparent);
+  --swatch-pink-tint: color-mix(in srgb, var(--swatch-pink) 15%, transparent);
   --platform-linear: #5e6ad2; /* Linear's brand colour; with Google's, the only non-Tailwind values */
   --platform-github: var(--neutral-200);
   --platform-google: #4285f4; /* Google Calendar's brand blue */
@@ -190,16 +190,16 @@
   --subtle-foreground: var(--neutral-500); /* DevBrain addition */
   --accent: var(--neutral-800);
   --pill-fill: var(--neutral-950);
-  --pill-fill-hover: rgba(38, 38, 38, 0.6);
+  --pill-fill-hover: color-mix(in srgb, var(--neutral-800) 60%, transparent);
   --accent-foreground: var(--neutral-100);
   --destructive: var(--red-400);
-  --border: rgba(229, 229, 229, 0.1);
-  --border-strong: rgba(229, 229, 229, 0.15); /* DevBrain addition */
-  --edge: rgba(229, 229, 229, 0.1);
-  --row-selected: rgba(229, 229, 229, 0.07);
+  --border: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --border-strong: color-mix(in srgb, var(--foreground) 15%, transparent); /* DevBrain addition */
+  --edge: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --row-selected: color-mix(in srgb, var(--foreground) 7%, transparent);
   --row-selected-foreground: #ffffff;
-  --input: rgba(229, 229, 229, 0.15);
-  --input-fill: rgba(229, 229, 229, 0.05);
+  --input: color-mix(in srgb, var(--foreground) 15%, transparent);
+  --input-fill: color-mix(in srgb, var(--foreground) 5%, transparent);
   --ring: var(--neutral-500);
   --sidebar: var(--neutral-950); /* overrides shadcn neutral-900 */
   --sidebar-foreground: var(--neutral-400); /* overrides shadcn foreground */
@@ -207,9 +207,9 @@
   --sidebar-primary-foreground: var(--neutral-900);
   --sidebar-accent: var(--neutral-900);
   --sidebar-accent-foreground: var(--neutral-100);
-  --sidebar-border: rgba(229, 229, 229, 0.1);
+  --sidebar-border: color-mix(in srgb, var(--foreground) 10%, transparent);
   --sidebar-ring: var(--neutral-500);
-  --backdrop: rgba(0, 0, 0, 0.5);
+  --backdrop: color-mix(in srgb, black 50%, transparent);
 
   --status-not-started: var(--neutral-500);
   --status-in-progress: var(--orange-500);
@@ -226,9 +226,9 @@
   --health-completed: var(--green-500);
   --date-today: var(--amber-500);
   --date-overdue: var(--red-400);
-  --status-in-progress-tint: rgba(255, 105, 0, 0.15);
-  --status-completed-tint: rgba(0, 201, 80, 0.15);
-  --status-overdue-tint: rgba(255, 100, 103, 0.15);
+  --status-in-progress-tint: color-mix(in srgb, var(--status-in-progress) 15%, transparent);
+  --status-completed-tint: color-mix(in srgb, var(--status-completed) 15%, transparent);
+  --status-overdue-tint: color-mix(in srgb, var(--status-overdue) 15%, transparent);
 }
 
 /* 2. Theme: light, when the system (or the app's theme setting) asks for it */
@@ -256,8 +256,8 @@
     --destructive: var(--red-600);
     --border: var(--neutral-200);
     --border-strong: var(--neutral-200);
-    --edge: rgba(10, 10, 10, 0.1);
-    --row-selected: rgba(10, 10, 10, 0.05);
+    --edge: color-mix(in srgb, var(--foreground) 10%, transparent);
+    --row-selected: color-mix(in srgb, var(--foreground) 5%, transparent);
     --row-selected-foreground: #0a0a0a;
     --input: var(--neutral-200);
     --input-fill: transparent;
@@ -270,7 +270,7 @@
     --sidebar-accent-foreground: var(--neutral-900);
     --sidebar-border: var(--neutral-200);
     --sidebar-ring: var(--neutral-500);
-    --backdrop: rgba(0, 0, 0, 0.5);
+    --backdrop: color-mix(in srgb, black 50%, transparent);
 
     --status-not-started: var(--neutral-500);
     --status-in-progress: var(--orange-700);
@@ -287,9 +287,9 @@
     --health-completed: var(--green-700);
     --date-today: var(--amber-700);
     --date-overdue: var(--red-600);
-    --status-in-progress-tint: rgba(202, 53, 0, 0.15);
-    --status-completed-tint: rgba(0, 130, 54, 0.15);
-    --status-overdue-tint: rgba(231, 0, 11, 0.15);
+    --status-in-progress-tint: color-mix(in srgb, var(--status-in-progress) 15%, transparent);
+    --status-completed-tint: color-mix(in srgb, var(--status-completed) 15%, transparent);
+    --status-overdue-tint: color-mix(in srgb, var(--status-overdue) 15%, transparent);
   }
 }
 
@@ -317,8 +317,8 @@
   --destructive: var(--red-600);
   --border: var(--neutral-200);
   --border-strong: var(--neutral-200);
-  --edge: rgba(10, 10, 10, 0.1);
-  --row-selected: rgba(10, 10, 10, 0.05);
+  --edge: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --row-selected: color-mix(in srgb, var(--foreground) 5%, transparent);
   --row-selected-foreground: #0a0a0a;
   --input: var(--neutral-200);
   --input-fill: transparent;
@@ -331,7 +331,7 @@
   --sidebar-accent-foreground: var(--neutral-900);
   --sidebar-border: var(--neutral-200);
   --sidebar-ring: var(--neutral-500);
-  --backdrop: rgba(0, 0, 0, 0.5);
+  --backdrop: color-mix(in srgb, black 50%, transparent);
 
   --status-not-started: var(--neutral-500);
   --status-in-progress: var(--orange-700);
@@ -348,9 +348,9 @@
   --health-completed: var(--green-700);
   --date-today: var(--amber-700);
   --date-overdue: var(--red-600);
-  --status-in-progress-tint: rgba(202, 53, 0, 0.15);
-  --status-completed-tint: rgba(0, 130, 54, 0.15);
-  --status-overdue-tint: rgba(231, 0, 11, 0.15);
+  --status-in-progress-tint: color-mix(in srgb, var(--status-in-progress) 15%, transparent);
+  --status-completed-tint: color-mix(in srgb, var(--status-completed) 15%, transparent);
+  --status-overdue-tint: color-mix(in srgb, var(--status-overdue) 15%, transparent);
 }
 
 @media (prefers-reduced-motion: reduce) {
