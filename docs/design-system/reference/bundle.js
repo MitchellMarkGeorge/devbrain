@@ -243,11 +243,11 @@
         type: Tag === 'button' ? 'button' : undefined,
         title: typeof props.children === 'string' ? props.children : undefined,
       },
+      props.prefix ? h('span', { className: 'db-badge-prefix' }, props.prefix) : null,
       props.barColor
         ? h('span', { className: 'db-bar', style: { background: props.barColor } })
         : null,
       iconOf(props.icon, 12, props.iconColor),
-      props.prefix ? h('span', { className: 'db-badge-muted' }, props.prefix) : null,
       h(
         'span',
         { className: cx('db-badge-text', props.muted && 'db-badge-muted') },

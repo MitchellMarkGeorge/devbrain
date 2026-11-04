@@ -39,6 +39,7 @@ export interface BadgeProps {
   icon?: IconName | Node;
   iconColor?: string;
   barColor?: string;
+  /** leads the pill, before the icon or bar, in subtle-foreground: "Linked to", "Due" */
   prefix?: string;
   muted?: boolean;
   asButton?: boolean;

@@ -238,12 +238,22 @@ button.db-badge[data-variant='outline']:hover {
 button.db-badge[data-variant='outline']:hover .db-badge-muted {
   color: var(--foreground);
 }
+button.db-badge[data-variant='outline']:hover .db-badge-prefix {
+  color: var(--muted-foreground);
+}
 .db-badge-text {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .db-badge-muted {
   color: var(--muted-foreground);
+}
+/* the prefix leads the pill, before its bar or icon, a step quieter than the label:
+   "Linked to ▌ Mitchell / Jesse 1:1" */
+.db-badge-prefix {
+  flex: none;
+  color: var(--subtle-foreground);
+  font-weight: 400;
 }
 .db-bar {
   flex: none;
@@ -1765,6 +1775,9 @@ button.db-entity:hover {
 }
 button.db-entity:hover .db-badge-muted {
   color: var(--foreground);
+}
+button.db-entity:hover .db-badge-prefix {
+  color: var(--muted-foreground);
 }
 button.db-entity:active {
   background: color-mix(in oklab, var(--pill-fill-hover) 92%, var(--foreground));
