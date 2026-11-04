@@ -1,0 +1,71 @@
+/* Command's menu surface: the popover with the translucent edge, items like menu items */
+.menu {
+  width: var(--menu-width);
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-md);
+  z-index: var(--z-overlay);
+}
+
+.group {
+  padding: 6px 6px 4px;
+  color: var(--muted-foreground);
+  font: 500 var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--control-sm);
+  padding: 0 6px;
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  font: 400 var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  cursor: default;
+  user-select: none;
+}
+
+.item[data-highlighted] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  width: var(--icon-md);
+  height: var(--icon-md);
+  flex: none;
+  color: var(--muted-foreground);
+}
+
+.icon svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+.label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hint {
+  color: var(--muted-foreground);
+  font: 400 var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  letter-spacing: 0.1em;
+}
+
+.empty {
+  padding: 6px;
+  color: var(--muted-foreground);
+  font: 400 var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}

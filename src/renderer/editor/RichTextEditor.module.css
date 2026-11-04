@@ -1,0 +1,290 @@
+/*
+ * The document styles: everything inside the editor is drawn from the design system's tokens, so
+ * the editor follows the theme and the type scale. Body text is the app's 14px on 20px in
+ * `foreground`, headings `foreground-strong`, Geist Mono for code.
+ */
+
+.editor {
+  width: 100%;
+}
+
+.content {
+  min-height: 120px;
+  outline: none;
+  color: var(--foreground);
+  font: 400 var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  caret-color: var(--foreground-strong);
+  word-break: break-word;
+}
+
+.content > * + * {
+  margin-top: 8px;
+}
+
+.content :global(p.is-editor-empty):first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--subtle-foreground);
+  pointer-events: none;
+}
+
+/* headings: 24px document title down to 14px section heading */
+.content h1,
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6 {
+  color: var(--foreground-strong);
+}
+
+.content h1 {
+  margin-top: 24px;
+  font: 600 var(--text-2xl) / var(--text-2xl-leading) var(--font-sans);
+}
+
+.content h2 {
+  margin-top: 20px;
+  font: 600 var(--text-xl) / var(--text-xl-leading) var(--font-sans);
+}
+
+.content h3 {
+  margin-top: 16px;
+  font: 600 var(--text-base) / var(--text-base-leading) var(--font-sans);
+}
+
+.content :is(h4, h5, h6) {
+  margin-top: 12px;
+  font: 500 var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+
+.content > :first-child {
+  margin-top: 0;
+}
+
+.content strong {
+  font-weight: 600;
+  color: var(--foreground-strong);
+}
+
+.content s {
+  color: var(--muted-foreground);
+}
+
+/* links */
+.content a {
+  color: var(--foreground-strong);
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 3px;
+  cursor: text;
+}
+
+.content a:hover {
+  text-decoration-color: var(--foreground);
+}
+
+/* ⌘/Ctrl-click opens a link while editing; a read-only editor opens it on a plain click */
+.content:not([contenteditable='true']) a,
+.content a:active {
+  cursor: pointer;
+}
+
+/* a link whose target safeExternalUrl refused: plain text, the target kept in the file */
+.content [data-unsafe-link] {
+  text-decoration: underline dotted var(--border-strong);
+}
+
+/* lists */
+.content ul,
+.content ol {
+  padding-left: 24px;
+}
+
+.content ul {
+  list-style: disc;
+}
+
+.content ol {
+  list-style: decimal;
+}
+
+.content li + li,
+.content li > ul,
+.content li > ol {
+  margin-top: 4px;
+}
+
+.content li::marker {
+  color: var(--muted-foreground);
+}
+
+/* task lists: the design system's Checkbox (16px, 4px corners, input outline over input/30) */
+.content ul[data-type='taskList'] {
+  padding-left: 0;
+  list-style: none;
+}
+
+.content ul[data-type='taskList'] ul[data-type='taskList'] {
+  padding-left: 24px;
+}
+
+.content ul[data-type='taskList'] > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.content ul[data-type='taskList'] > li > label {
+  display: flex;
+  flex: none;
+  height: var(--text-sm-leading);
+  align-items: center;
+}
+
+.content ul[data-type='taskList'] > li > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.content ul[data-type='taskList'] > li input[type='checkbox'] {
+  appearance: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1px solid var(--input);
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--input) 30%, transparent);
+  cursor: pointer;
+}
+
+.content ul[data-type='taskList'] > li input[type='checkbox']:checked {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.content ul[data-type='taskList'] > li input[type='checkbox']:checked::after {
+  content: '';
+  width: 8px;
+  height: 4px;
+  margin-top: -2px;
+  border: solid var(--primary-foreground);
+  border-width: 0 0 1.5px 1.5px;
+  transform: rotate(-45deg);
+}
+
+.content ul[data-type='taskList'] > li input[type='checkbox']:focus-visible {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+.content li[data-checked='true'] > div {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+
+/* quotes, rules */
+.content blockquote {
+  padding-left: 12px;
+  border-left: 2px solid var(--border-strong);
+  color: var(--muted-foreground);
+}
+
+.content hr {
+  margin: 16px 0;
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.content hr:global(.ProseMirror-selectednode) {
+  border-top-color: var(--ring);
+}
+
+/* code */
+.content code {
+  padding: 1px 4px;
+  border-radius: var(--radius-xs);
+  background: var(--muted);
+  color: var(--foreground-strong);
+  font: 400 0.9em / 1 var(--font-mono);
+}
+
+.content pre {
+  overflow-x: auto;
+  padding: 12px 16px;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  color: var(--card-foreground);
+  font: 400 var(--text-xs) / 20px var(--font-mono);
+  tab-size: 2;
+}
+
+.content pre code {
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
+/* raw HTML: shown as its source, never rendered */
+.content pre[data-raw-html],
+.content code[data-raw-html] {
+  color: var(--muted-foreground);
+}
+
+.content pre[data-raw-html] {
+  white-space: pre-wrap;
+}
+
+/* tables: Nova's quiet table, row lines in `border` */
+.content table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  overflow: hidden;
+}
+
+.content th,
+.content td {
+  position: relative;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.content th {
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+
+.content :is(th, td) > p {
+  margin: 0;
+}
+
+.content :global(.selectedCell)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in oklab, var(--ring) 15%, transparent);
+  pointer-events: none;
+}
+
+/* the selected block, and a gap cursor between blocks */
+.content :global(.ProseMirror-selectednode):not(span) {
+  outline: 2px solid color-mix(in oklab, var(--ring) 50%, transparent);
+  border-radius: var(--radius-md);
+}
+
+.content :global(.ProseMirror-gapcursor)::after {
+  border-top-color: var(--foreground);
+}
+
+.content ::selection {
+  background: color-mix(in oklab, var(--ring) 35%, transparent);
+}
