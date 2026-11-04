@@ -1,0 +1,52 @@
+/* A note as a card. See docs/design-system/components/NoteCard.md */
+.card {
+  /* one height per row of cards: the preview fills what is left */
+  height: 144px;
+  padding: var(--space-4);
+  gap: var(--space-2);
+  overflow: hidden;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--duration-fast);
+}
+.card:hover {
+  border-color: var(--border-strong);
+}
+.card:focus-visible {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+/* the Notes card view: the card ends with the note's link pill */
+.withLink {
+  height: 156px;
+}
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.title {
+  overflow: hidden;
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.preview {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+.withLink .preview {
+  -webkit-line-clamp: 2;
+}
+.link {
+  display: flex;
+  margin-top: auto;
+}

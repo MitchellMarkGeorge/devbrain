@@ -1,0 +1,35 @@
+/* An upcoming event on Home's "Today's schedule". See docs/design-system/components/ScheduleCard.md */
+.card {
+  flex-direction: row;
+  align-items: center;
+}
+.bar {
+  flex: none;
+  width: 3px;
+  align-self: stretch;
+  border-radius: var(--radius-xs);
+  background: var(--bar-color, var(--swatch-green));
+}
+.body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+}
+.title {
+  overflow: hidden;
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.meta {
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+.soon {
+  color: var(--date-today);
+  font-weight: var(--font-weight-medium);
+}

@@ -1,0 +1,138 @@
+/* A task on the board. See docs/design-system/components/BoardCard.md */
+.card {
+  /* borderless filled card: `card`, lightened on hover, darker when completed */
+  --card-fill: var(--card);
+  --card-fill-hover: color-mix(in oklab, var(--accent) 50%, var(--card));
+  --card-fill-done: color-mix(in oklab, var(--card) 50%, var(--background));
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: var(--card-fill);
+  color: var(--foreground);
+  text-align: left;
+  outline: none;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast),
+    border-color var(--duration-fast);
+}
+/* on white a borderless card needs a step more than `card` to show */
+@media (prefers-color-scheme: light) {
+  .card {
+    --card-fill: var(--neutral-100);
+    --card-fill-hover: var(--neutral-200);
+    --card-fill-done: var(--neutral-50);
+  }
+}
+.card:hover,
+.card[data-state='hover'] {
+  background: var(--card-fill-hover);
+  border-color: var(--border-strong);
+}
+.card:focus-visible,
+.card[data-state='focus'] {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.completed {
+  background: var(--card-fill-done);
+}
+.completed .title {
+  color: var(--muted-foreground);
+}
+
+/* top line: the linked event or note on the left, the source pill on the right */
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1-5);
+  min-width: 0;
+}
+.link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.link > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bar {
+  flex: none;
+  width: 3px;
+  height: 12px;
+  border-radius: var(--radius-xs);
+  background: var(--bar-color, var(--swatch-green));
+}
+.source {
+  flex: none;
+}
+.source:only-child {
+  margin-right: auto;
+}
+
+.title {
+  color: var(--foreground-strong);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  overflow-wrap: anywhere;
+}
+
+/* meta line: priority, subtasks, project, then the date on the right */
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.subtasks {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-variant-numeric: tabular-nums;
+}
+.project {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.project > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.projectIcon {
+  color: var(--project-color, var(--muted-foreground));
+}
+/* swatch colours darken on white so green and amber icons keep 3:1 */
+@media (prefers-color-scheme: light) {
+  .projectIcon[data-coloured] {
+    filter: brightness(0.72);
+  }
+}
+.date {
+  flex: none;
+  margin-left: auto;
+  color: var(--subtle-foreground);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.date[data-tone='today'] {
+  color: var(--date-today);
+}
+.date[data-tone='overdue'] {
+  color: var(--date-overdue);
+}

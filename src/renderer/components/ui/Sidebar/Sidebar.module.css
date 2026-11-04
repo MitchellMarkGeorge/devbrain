@@ -1,0 +1,268 @@
+/* shadcn's Sidebar, laid out as in Figma. See docs/design-system/components/Sidebar.md */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: var(--sidebar-width);
+  max-width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--sidebar);
+  color: var(--sidebar-foreground);
+  transition: width var(--duration-normal) var(--ease-out);
+}
+/* the 56px icon rail: (56 - 32) / 2 = 12px each side */
+.sidebar[data-collapsed] {
+  width: var(--sidebar-rail-width);
+  align-items: center;
+}
+
+/* ---------- header: workspace switcher, search and new ---------- */
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.sidebar[data-collapsed] .header {
+  flex-direction: column;
+}
+.workspace {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: var(--control-md);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--foreground);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  cursor: pointer;
+  transition: background-color var(--duration-fast);
+}
+.workspace:hover,
+.workspace[data-popup-open] {
+  background: var(--sidebar-accent);
+}
+.workspaceName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chevron {
+  color: var(--muted-foreground);
+}
+.sidebar[data-collapsed] .workspace {
+  justify-content: center;
+  width: var(--control-md);
+  padding: 0;
+}
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+.sidebar[data-collapsed] .headerActions {
+  margin-left: 0;
+  flex-direction: column;
+}
+
+/* ---------- the scrolling middle ---------- */
+.content {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+.viewport {
+  height: 100%;
+  overscroll-behavior: contain;
+}
+.viewport:focus-visible {
+  outline: none;
+}
+.contentInner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.scrollbar {
+  display: flex;
+  width: 6px;
+  padding: 1px;
+  opacity: 0;
+  transition: opacity var(--duration-normal);
+}
+.scrollbar[data-hovering],
+.scrollbar[data-scrolling] {
+  opacity: 1;
+}
+.thumb {
+  flex: 1;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+}
+
+/* ---------- groups ---------- */
+.group {
+  display: flex;
+  flex-direction: column;
+}
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sidebar[data-collapsed] .menu {
+  align-items: center;
+}
+/* Nova's 32px group label: 12px medium at 70% */
+.groupLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  height: var(--control-md);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: color-mix(in oklab, var(--sidebar-foreground) 70%, transparent);
+  font: var(--font-weight-medium) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  text-align: left;
+}
+button.groupLabel {
+  cursor: pointer;
+}
+button.groupLabel:hover {
+  color: var(--sidebar-foreground);
+}
+button.groupLabel:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.groupChevron {
+  opacity: 0;
+  transition:
+    transform var(--duration-fast),
+    opacity var(--duration-fast);
+}
+.groupLabel:hover .groupChevron,
+.groupLabel:focus-visible .groupChevron {
+  opacity: 1;
+}
+.groupLabel[data-panel-open] .groupChevron {
+  transform: rotate(90deg);
+}
+.panel {
+  overflow: hidden;
+  height: var(--collapsible-panel-height);
+  transition: height var(--duration-normal) var(--ease-out);
+}
+.panel[data-starting-style],
+.panel[data-ending-style] {
+  height: 0;
+}
+
+/* ---------- items ---------- */
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: var(--control-md);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  text-align: left;
+  text-decoration: none;
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast),
+    color var(--duration-fast);
+}
+.item:hover {
+  color: var(--sidebar-accent-foreground);
+}
+.item:focus-visible {
+  outline: none;
+  border-color: var(--sidebar-ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--sidebar-ring) 50%, transparent);
+}
+.item[data-active] {
+  background: var(--sidebar-accent);
+  border-color: var(--border-strong);
+  color: var(--sidebar-accent-foreground);
+}
+.item > svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+.itemIcon {
+  flex: none;
+  display: inline-flex;
+  color: var(--item-icon-color, currentColor);
+}
+@media (prefers-color-scheme: light) {
+  /* swatch colours darken on white so green and amber folders keep 3:1 */
+  .itemIcon[data-coloured] {
+    filter: brightness(0.72);
+  }
+}
+/* an event's colour bar, centred in the 16px icon slot */
+.itemBar {
+  flex: none;
+  width: 3px;
+  height: 16px;
+  margin: 0 6px 0 7px;
+  border-radius: var(--radius-xs);
+  background: var(--item-bar-color);
+}
+.itemLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sidebar[data-collapsed] .item {
+  justify-content: center;
+  width: var(--control-md);
+  padding: 0;
+}
+/* the rail keeps the label for screen readers; the tooltip shows it */
+.sidebar[data-collapsed] .itemLabel,
+.sidebar[data-collapsed] .workspaceName {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+/* ---------- footer: Settings and Help ---------- */
+.footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  width: 100%;
+}
+.sidebar[data-collapsed] .footer {
+  align-items: center;
+}
+.sidebar[data-collapsed] .chevron {
+  display: none;
+}
