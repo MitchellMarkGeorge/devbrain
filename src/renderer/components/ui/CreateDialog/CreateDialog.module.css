@@ -12,7 +12,7 @@
 }
 .content[class][data-starting-style],
 .content[class][data-ending-style] {
-  transform: translateX(-50%) scale(0.95);
+  transform: translateX(-50%) translateY(8px) scale(0.96);
 }
 .sizeTask[class] {
   max-width: 600px;

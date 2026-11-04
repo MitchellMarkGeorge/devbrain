@@ -9,7 +9,7 @@
   z-index: var(--z-overlay);
   background: var(--backdrop);
   opacity: calc(1 - var(--drawer-swipe-progress, 0));
-  transition: opacity var(--duration-slow) var(--ease-panel);
+  transition: opacity var(--duration-slow) var(--ease-surface);
 }
 .backdrop[data-starting-style],
 .backdrop[data-ending-style] {
@@ -49,7 +49,7 @@
   color: var(--popover-foreground);
   outline: none;
   transform: translateX(var(--drawer-swipe-movement-x, 0));
-  transition: transform var(--duration-slow) var(--ease-panel);
+  transition: transform var(--duration-slow) var(--ease-surface);
 }
 .popup[data-starting-style],
 .popup[data-ending-style] {
@@ -57,7 +57,7 @@
 }
 /* a docked sheet rides its column; the faint fade only keeps it mounted while the column closes */
 .viewport[data-contained] .popup {
-  transition: opacity var(--duration-slow) var(--ease-panel);
+  transition: opacity var(--duration-slow) var(--ease-surface);
 }
 .viewport[data-contained] .popup[data-starting-style],
 .viewport[data-contained] .popup[data-ending-style] {

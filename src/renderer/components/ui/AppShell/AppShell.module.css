@@ -71,7 +71,7 @@
    * slides out.
    */
   overflow: clip;
-  transition: width var(--duration-slow) var(--ease-panel);
+  transition: width var(--duration-slow) var(--ease-surface);
 }
 .sheet[data-open] {
   width: var(--sheet-width);
@@ -83,7 +83,7 @@
   inset: 0;
   z-index: var(--z-overlay);
   background: var(--backdrop);
-  transition: opacity var(--duration-slow) var(--ease-panel);
+  transition: opacity var(--duration-slow) var(--ease-surface);
 }
 .backdrop[data-starting-style],
 .backdrop[data-ending-style] {
@@ -106,14 +106,14 @@
    * while its content fades in, in the same duration and easing. Closing reverses it.
    */
   clip-path: inset(0 -48px 0 0);
-  transition: clip-path var(--duration-slow) var(--ease-panel);
+  transition: clip-path var(--duration-slow) var(--ease-surface);
 }
 .drawer[data-starting-style],
 .drawer[data-ending-style] {
   clip-path: inset(0 calc(100% - var(--sidebar-rail-width)) 0 0);
 }
 .drawer > * {
-  transition: opacity var(--duration-slow) var(--ease-panel);
+  transition: opacity var(--duration-slow) var(--ease-surface);
 }
 .drawer[data-starting-style] > *,
 .drawer[data-ending-style] > * {

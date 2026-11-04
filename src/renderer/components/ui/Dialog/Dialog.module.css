@@ -4,7 +4,7 @@
   inset: 0;
   z-index: var(--z-overlay);
   background: var(--backdrop);
-  transition: opacity var(--duration-slow) var(--ease-out);
+  transition: opacity var(--duration-slow) var(--ease-surface);
 }
 .backdrop[data-starting-style],
 .backdrop[data-ending-style] {
@@ -35,14 +35,15 @@
   outline: none;
   transform: translateX(-50%);
   transform-origin: top center;
+  /* opening fades it in as it rises 8px and grows from 96%; closing plays it back */
   transition:
-    opacity var(--duration-slow) var(--ease-out),
-    transform var(--duration-slow) var(--ease-out);
+    opacity var(--duration-slow) var(--ease-surface),
+    transform var(--duration-slow) var(--ease-surface);
 }
 .popup[data-starting-style],
 .popup[data-ending-style] {
   opacity: 0;
-  transform: translateX(-50%) scale(0.95);
+  transform: translateX(-50%) translateY(8px) scale(0.96);
 }
 .sizeDefault {
   max-width: var(--dialog-width);

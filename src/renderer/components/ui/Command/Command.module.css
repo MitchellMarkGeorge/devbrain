@@ -109,12 +109,13 @@
   inset: 0;
   z-index: var(--z-overlay);
   background: var(--backdrop);
-  transition: opacity var(--duration-slow) var(--ease-out);
+  transition: opacity var(--duration-slow) var(--ease-surface);
 }
 .backdrop[data-starting-style],
 .backdrop[data-ending-style] {
   opacity: 0;
 }
+/* the ⌘K dialog opens and closes like every dialog (see Dialog) */
 .dialog {
   position: fixed;
   top: clamp(16px, 12vh, 120px);
@@ -133,14 +134,15 @@
   box-shadow: var(--shadow-2xl);
   outline: none;
   transform: translateX(-50%);
+  transform-origin: top center;
   transition:
-    opacity var(--duration-normal) var(--ease-out),
-    transform var(--duration-normal) var(--ease-out);
+    opacity var(--duration-slow) var(--ease-surface),
+    transform var(--duration-slow) var(--ease-surface);
 }
 .dialog[data-starting-style],
 .dialog[data-ending-style] {
   opacity: 0;
-  transform: translateX(-50%) scale(0.95);
+  transform: translateX(-50%) translateY(8px) scale(0.96);
 }
 .dialog .list {
   max-height: none;

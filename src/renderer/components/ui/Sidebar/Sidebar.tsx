@@ -107,9 +107,9 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
 
 /**
  * Fades the sidebar's content in when it switches between the full sidebar and the rail, as the
- * two lay out differently (the width slides in CSS, on `--ease-panel`). Played on the elements, so nothing remounts
+ * two lay out differently (the width slides in CSS, on `--ease-surface`). Played on the elements, so nothing remounts
  * and folded groups or open menus keep their state; not on the first render. The duration is the
- * `--duration-slow` token (0 under reduced motion) and the easing `--ease-panel`.
+ * `--duration-slow` token (0 under reduced motion) and the easing `--ease-surface`.
  */
 function useFadeOnToggle(navRef: RefObject<HTMLElement | null>, collapsed: boolean) {
   const previous = useRef(collapsed);
@@ -120,7 +120,7 @@ function useFadeOnToggle(navRef: RefObject<HTMLElement | null>, collapsed: boole
     const style = getComputedStyle(nav);
     const duration = parseFloat(style.getPropertyValue('--duration-slow')) || 0;
     if (duration === 0 || typeof nav.animate !== 'function') return;
-    const easing = style.getPropertyValue('--ease-panel').trim() || 'ease-out';
+    const easing = style.getPropertyValue('--ease-surface').trim() || 'ease-out';
     for (const child of Array.from(nav.children)) {
       child.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
     }
