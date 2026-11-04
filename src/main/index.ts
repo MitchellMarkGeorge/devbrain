@@ -35,18 +35,20 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // the repository, in development: dist/main is two levels down
 const REPO_ROOT = path.join(__dirname, '../..');
 
-loadExpandedEnv();
+loadDevelopmentEnv();
 
-function loadExpandedEnv() {
-  loadEnv({
-    path: app.isPackaged ? path.join(process.resourcesPath, '.env') : path.join(REPO_ROOT, '.env'),
-  });
+// The repository's .env, in development only. A packaged app ships no .env: the OAuth client values
+// are inlined at build time (vite/main.config.ts), DEVBRAIN_PATH has a default, and every other
+// variable main reads is for development.
+function loadDevelopmentEnv() {
+  if (app.isPackaged) return;
+  loadEnv({ path: path.join(REPO_ROOT, '.env') });
 }
 
 function configureLogging() {
   log.initialize();
-  // Never log process.env, credentials or auth headers: the environment holds DEV_LINEAR_API_KEY
-  // and GOOGLE_CLIENT_SECRET.
+  // Never log process.env, credentials or auth headers: in development the environment holds
+  // DEV_LINEAR_API_KEY and GOOGLE_CLIENT_SECRET from .env.
   // handle uncaught errors
   log.errorHandler.startCatching();
   // this path will be gotten from settings like
