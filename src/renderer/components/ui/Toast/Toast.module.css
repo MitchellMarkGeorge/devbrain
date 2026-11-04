@@ -41,21 +41,31 @@
       )
     )
     scale(var(--scale));
+  /*
+   * Arriving, leaving and restacking all move in duration-slow on ease-surface (--ease-out is
+   * nearly done in the first frames, so a toast seemed to pop in). Instant under reduced motion.
+   */
   transition:
-    transform var(--duration-slow) var(--ease-out),
-    opacity var(--duration-slow),
-    height var(--duration-normal);
+    transform var(--duration-slow) var(--ease-surface),
+    opacity var(--duration-slow) var(--ease-surface),
+    height var(--duration-slow) var(--ease-surface);
 }
 .toast[data-expanded] {
   height: var(--toast-height);
   transform: translateX(var(--toast-swipe-movement-x)) translateY(var(--offset-y));
 }
-.toast[data-starting-style],
-.toast[data-ending-style] {
-  transform: translateY(150%);
+/* a new toast rises in from just below the window's edge, fading in */
+.toast[data-starting-style] {
+  opacity: 0;
+  transform: translateY(calc(100% + var(--space-4)));
 }
+/* one leaving fades where it is (the rest close the gap)... */
 .toast[data-ending-style] {
   opacity: 0;
+}
+/* ...the front one also sinks back below the edge, unless it was swiped */
+.toast[data-ending-style][data-front]:not([data-swipe-direction]) {
+  transform: translateY(calc(100% + var(--space-4)));
 }
 .toast[data-ending-style][data-swipe-direction='right'] {
   transform: translateX(calc(var(--toast-swipe-movement-x) + 150%)) translateY(var(--offset-y));
@@ -88,7 +98,7 @@
   gap: var(--space-3);
   padding: 14px var(--space-4);
   overflow: hidden;
-  transition: opacity var(--duration-slow);
+  transition: opacity var(--duration-slow) var(--ease-surface);
 }
 .content[data-behind] {
   opacity: 0;

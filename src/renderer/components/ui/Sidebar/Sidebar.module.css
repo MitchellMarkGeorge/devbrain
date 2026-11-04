@@ -180,6 +180,19 @@
 .viewport {
   height: 100%;
   overscroll-behavior: contain;
+  /*
+   * When the window is too short for every item, the items fade out over 24px at the edge that
+   * has more to scroll, so a half-shown item reads as "more this way" rather than a hard cut.
+   */
+  --fade-top: min(24px, var(--scroll-area-overflow-y-start, 0px));
+  --fade-bottom: min(24px, var(--scroll-area-overflow-y-end, 0px));
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--fade-top),
+    #000 calc(100% - var(--fade-bottom)),
+    transparent
+  );
 }
 .viewport:focus-visible {
   outline: none;

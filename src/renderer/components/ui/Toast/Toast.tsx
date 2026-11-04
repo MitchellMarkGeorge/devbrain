@@ -70,13 +70,15 @@ export function ToastProvider({
 
 function ToastList() {
   const { toasts } = BaseToast.useToastManager();
-  return toasts.map((item) => {
+  // newest first: the first is the front one, even while it leaves
+  return toasts.map((item, index) => {
     const tone = item.type ? TONES[item.type as ToastTone] : undefined;
     return (
       <BaseToast.Root
         key={item.id}
         toast={item}
         swipeDirection={['right', 'down']}
+        data-front={index === 0 ? '' : undefined}
         className={styles.toast}
       >
         <BaseToast.Content className={styles.content}>
