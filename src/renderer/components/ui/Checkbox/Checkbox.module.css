@@ -1,0 +1,51 @@
+/* shadcn's Checkbox, Nova's: 16px, 4px corners, input outline over input/30; checked fills primary.
+   See docs/design-system/components/Checkbox.md */
+.checkbox {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--input);
+  border-radius: 4px;
+  background: color-mix(in oklab, var(--input) 30%, transparent);
+  color: var(--primary-foreground);
+  cursor: pointer;
+  outline: none;
+  transition:
+    background-color var(--duration-fast),
+    border-color var(--duration-fast);
+}
+.checkbox:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.checkbox[data-checked],
+.checkbox[data-indeterminate] {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.checkbox[data-invalid] {
+  border-color: var(--destructive);
+}
+.checkbox[data-disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.indicator {
+  display: grid;
+  place-items: center;
+}
+.indicator[data-unchecked] {
+  display: none;
+}
+.label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--foreground);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  cursor: pointer;
+  user-select: none;
+}

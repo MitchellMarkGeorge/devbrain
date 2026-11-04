@@ -1,0 +1,14 @@
+/* shadcn's Separator: a 1px border line. See docs/design-system/components/Separator.md */
+.separator {
+  flex: none;
+  border: 0;
+  background: var(--border);
+}
+.separator[data-orientation='horizontal'] {
+  width: 100%;
+  height: 1px;
+}
+.separator[data-orientation='vertical'] {
+  width: 1px;
+  align-self: stretch;
+}

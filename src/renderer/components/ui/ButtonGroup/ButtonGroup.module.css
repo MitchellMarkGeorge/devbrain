@@ -1,0 +1,19 @@
+/* shadcn's ButtonGroup: inner corners squared, borders overlapping. See docs/design-system/components/ButtonGroup.md */
+.group {
+  display: inline-flex;
+  width: fit-content;
+  isolation: isolate;
+}
+.group > *:not(:first-child) {
+  margin-left: -1px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.group > *:not(:last-child) {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+/* the focused button's ring sits above its neighbours */
+.group > *:focus-visible {
+  z-index: 1;
+}

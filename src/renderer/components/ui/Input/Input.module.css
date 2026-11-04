@@ -1,0 +1,49 @@
+/* shadcn's Input as Nova draws it: 32px, 10px corners, input border over an input/30 fill.
+   See docs/design-system/components/Input.md */
+.input {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  height: var(--control-md);
+  padding: 0 10px;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--input) 30%, transparent);
+  color: var(--foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  outline: none;
+  transition:
+    border-color var(--duration-fast),
+    box-shadow var(--duration-fast);
+}
+.input::placeholder {
+  color: var(--muted-foreground);
+}
+.input:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.input[data-invalid],
+.input[aria-invalid='true'] {
+  border-color: var(--destructive);
+}
+.input[data-invalid]:focus-visible,
+.input[aria-invalid='true']:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 20%, transparent);
+}
+.input[data-disabled],
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.input[type='file'] {
+  padding-top: 5px;
+}
+.input::file-selector-button {
+  margin-right: var(--space-2);
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  font-weight: var(--font-weight-medium);
+}

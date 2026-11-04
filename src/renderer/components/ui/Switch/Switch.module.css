@@ -1,0 +1,48 @@
+/* shadcn's Switch, compact: 28x16 track, 10px thumb, 12px muted label on the right.
+   See docs/design-system/components/Switch.md */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 16px;
+  padding: 2px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+  cursor: pointer;
+  outline: none;
+  transition: background-color var(--duration-normal);
+}
+.switch:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.switch[data-checked] {
+  background: var(--primary);
+}
+.switch[data-disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.thumb {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: var(--foreground);
+  transition: transform var(--duration-normal);
+}
+.thumb[data-checked] {
+  background: var(--primary-foreground);
+  transform: translateX(12px);
+}
+.label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  cursor: pointer;
+  user-select: none;
+}

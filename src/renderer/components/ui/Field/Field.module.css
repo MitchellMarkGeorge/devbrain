@@ -1,0 +1,29 @@
+/* A label over a control with an optional description and error. See docs/design-system/components/Field.md */
+.field {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+}
+.label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--foreground);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  user-select: none;
+}
+.label[data-disabled] {
+  opacity: 0.5;
+}
+.description {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-leading);
+}
+.error {
+  margin: 0;
+  color: var(--destructive);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-leading);
+}
