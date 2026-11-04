@@ -1,7 +1,12 @@
+import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { List } from 'lucide-react';
+import { Stack } from '../../layout/Flex';
 import { Text } from '../../layout/Text';
 import { Breadcrumb } from '../Breadcrumb';
+import { Button } from '../Button';
+import { Sheet, SheetBody, SheetContent, SheetHeader, SheetItemTitle } from '../Sheet';
+import { useAppShell } from './context';
 import { PageContent, PageHeader, PageToolbar } from '../PageHeader';
 import { DemoSidebar } from '../../screens/Shell/AppFrame';
 import { AppShell } from './AppShell';
@@ -63,4 +68,61 @@ export const AsideAndSheet: Story = {
   render: () => (
     <Frame width={1440} height={720} sheetOpen aside={<Text tone="muted">Right column</Text>} />
   ),
+};
+
+/** The page's content in the docked-sheet story: opens a task's sheet into the shell's column. */
+function DockedSheetPage({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { sheetContainer } = useAppShell();
+  return (
+    <PageContent>
+      <Stack gap="3" align="start">
+        <Button onClick={() => onOpenChange(!open)}>{open ? 'Close task' : 'Open task'}</Button>
+        <Text tone="subtle">
+          The sheet docks in a column at the right: the page narrows as it slides in, and widens
+          again as it slides out.
+        </Text>
+      </Stack>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent container={sheetContainer}>
+          <SheetHeader onOpenAsPage={() => undefined}>Task</SheetHeader>
+          <SheetBody>
+            <SheetItemTitle>Implement OAuth2 PKCE flow</SheetItemTitle>
+            <Text tone="muted">Due Jun 24 · Auth Overhaul</Text>
+          </SheetBody>
+        </SheetContent>
+      </Sheet>
+    </PageContent>
+  );
+}
+
+/**
+ * A sheet docked beside the page (wide and medium windows): opening slides the sheet in from the
+ * right while its column widens and the page narrows, on the same timing; closing reverses it.
+ */
+export const DockedSheet: Story = {
+  render: function DockedSheetStory() {
+    const [open, setOpen] = useState(false);
+    return (
+      <div style={{ width: 1440, height: 720 }}>
+        <AppShell
+          trafficLights="drawn"
+          sheetOpen={open}
+          sidebar={<DemoSidebar active="Tasks" />}
+          header={
+            <PageHeader>
+              <Breadcrumb items={['Tasks', { label: 'List', icon: List }]} />
+            </PageHeader>
+          }
+        >
+          <DockedSheetPage open={open} onOpenChange={setOpen} />
+        </AppShell>
+      </div>
+    );
+  },
 };

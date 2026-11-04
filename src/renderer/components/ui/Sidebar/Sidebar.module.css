@@ -18,7 +18,7 @@
    */
   overflow-x: clip;
   /* the padding snaps, so the icons stay exactly 20px in throughout */
-  transition: width var(--duration-slow) var(--ease-out);
+  transition: width var(--duration-slow) var(--ease-panel);
 }
 /* outside an AppShell (no window row) it keeps 8px above the header */
 .sidebar:not(:has(> .windowRow)):not([data-collapsed]) {

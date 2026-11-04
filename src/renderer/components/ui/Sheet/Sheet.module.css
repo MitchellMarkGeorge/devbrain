@@ -9,7 +9,7 @@
   z-index: var(--z-overlay);
   background: var(--backdrop);
   opacity: calc(1 - var(--drawer-swipe-progress, 0));
-  transition: opacity var(--duration-slow) var(--ease-out);
+  transition: opacity var(--duration-slow) var(--ease-panel);
 }
 .backdrop[data-starting-style],
 .backdrop[data-ending-style] {
@@ -28,9 +28,14 @@
   align-items: stretch;
   pointer-events: none;
 }
-/* portalled into a layout column: fills it instead of the window */
+/*
+ * Portalled into a layout column (docked in an AppShell): it fills the column, the sheet pinned to
+ * the column's left edge. The column's own width slides it in and out (AppShell animates it), so
+ * the sheet's edge is the page's edge in every frame; the sheet doesn't slide by itself.
+ */
 .viewport[data-contained] {
   position: absolute;
+  justify-content: flex-start;
 }
 
 .popup {
@@ -44,11 +49,20 @@
   color: var(--popover-foreground);
   outline: none;
   transform: translateX(var(--drawer-swipe-movement-x, 0));
-  transition: transform var(--duration-slow) var(--ease-out);
+  transition: transform var(--duration-slow) var(--ease-panel);
 }
 .popup[data-starting-style],
 .popup[data-ending-style] {
   transform: translateX(calc(100% + 8px));
+}
+/* a docked sheet rides its column; the faint fade only keeps it mounted while the column closes */
+.viewport[data-contained] .popup {
+  transition: opacity var(--duration-slow) var(--ease-panel);
+}
+.viewport[data-contained] .popup[data-starting-style],
+.viewport[data-contained] .popup[data-ending-style] {
+  transform: translateX(var(--drawer-swipe-movement-x, 0));
+  opacity: 0.99;
 }
 .popup[data-swiping] {
   transition-duration: 0ms;

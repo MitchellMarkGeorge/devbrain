@@ -65,6 +65,13 @@
   position: relative;
   width: 0;
   min-height: 0;
+  /*
+   * A docked sheet's column slides open and shut with the sheet (same duration and easing), so
+   * the page narrows smoothly and the sheet's edge keeps to the page's; it clips the sheet as it
+   * slides out.
+   */
+  overflow: clip;
+  transition: width var(--duration-slow) var(--ease-panel);
 }
 .sheet[data-open] {
   width: var(--sheet-width);
@@ -76,7 +83,7 @@
   inset: 0;
   z-index: var(--z-overlay);
   background: var(--backdrop);
-  transition: opacity var(--duration-slow) var(--ease-out);
+  transition: opacity var(--duration-slow) var(--ease-panel);
 }
 .backdrop[data-starting-style],
 .backdrop[data-ending-style] {
@@ -99,14 +106,14 @@
    * while its content fades in, in the same duration and easing. Closing reverses it.
    */
   clip-path: inset(0 -48px 0 0);
-  transition: clip-path var(--duration-slow) var(--ease-out);
+  transition: clip-path var(--duration-slow) var(--ease-panel);
 }
 .drawer[data-starting-style],
 .drawer[data-ending-style] {
   clip-path: inset(0 calc(100% - var(--sidebar-rail-width)) 0 0);
 }
 .drawer > * {
-  transition: opacity var(--duration-slow) var(--ease-out);
+  transition: opacity var(--duration-slow) var(--ease-panel);
 }
 .drawer[data-starting-style] > *,
 .drawer[data-ending-style] > * {

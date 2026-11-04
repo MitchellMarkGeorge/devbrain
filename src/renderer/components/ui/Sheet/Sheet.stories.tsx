@@ -53,7 +53,7 @@ function DockedExample({ defaultOpen }: { defaultOpen?: boolean }) {
         style={{
           position: 'relative',
           width: open ? 'var(--sheet-width)' : 0,
-          transition: 'width var(--duration-slow) var(--ease-out)',
+          transition: 'width var(--duration-slow) var(--ease-panel)',
         }}
       />
       <Sheet open={open} onOpenChange={setOpen}>

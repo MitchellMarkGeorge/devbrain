@@ -155,4 +155,6 @@ Two kinds of page, one rule each:
 
 ## Motion
 
-- 100ms for hover and press; menus, popovers and tooltips fade and zoom from 95% in 150ms (Nova's `zoom-in-95`); dialogs, sheets and toasts in 250ms, as does the sidebar collapsing to the rail and back (its width slides, its content fades in) and, in compact windows, its drawer widening out of the rail over the page. Nothing moves under `prefers-reduced-motion`.
+- 100ms for hover and press; menus, popovers and tooltips fade and zoom from 95% in 150ms (Nova's `zoom-in-95`); dialogs and toasts in 250ms. These use `ease-out`, which is nearly done in the first fifth of the time: right for small popups.
+- Panels that slide take 250ms on `ease-panel` (ease-out-cubic, halfway at a fifth of the time), so their travel reads: sheets (docked, the page narrowing with them; or floating over a fading scrim), the sidebar collapsing to the rail and back (its width slides, its content fades in), and in compact windows its drawer widening out of the rail over the page.
+- Nothing moves under `prefers-reduced-motion`.

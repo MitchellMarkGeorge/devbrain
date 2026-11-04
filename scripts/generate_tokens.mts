@@ -115,7 +115,10 @@ lines.push(
   '  --duration-fast: 100ms; /* hover, press */',
   '  --duration-normal: 150ms; /* menus, popovers, tooltips */',
   '  --duration-slow: 250ms; /* dialogs, sheets, toasts */',
-  '  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);',
+  '  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* menus, popovers, tooltips, dialogs */',
+  // ease-out-cubic: halfway at a fifth of the time, so a panel's travel reads; --ease-out is
+  // nearly done by then, which suits small popups but makes a full-height panel look like a snap
+  '  --ease-panel: cubic-bezier(0.33, 1, 0.68, 1); /* panels that slide: sheets, the drawer, the sidebar */',
   '',
   '  /* 3. Domain colours that do not change with the theme */',
   ...domain
