@@ -1,0 +1,90 @@
+/*
+ * A group of the grouped list: no band and no line, the group-gap of space above it.
+ * See docs/design-system/components/GroupHeading.md
+ */
+.heading {
+  display: grid;
+  grid-template-columns: 16px 32px minmax(0, 1fr) auto auto 80px;
+  align-items: center;
+  column-gap: var(--space-3);
+  margin: var(--group-gap) 0 var(--space-1-5);
+  padding: 0 var(--space-3) 0 10px;
+}
+.heading:first-child {
+  margin-top: 0;
+}
+
+.chevron {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.chevron:hover {
+  color: var(--foreground);
+}
+.chevron:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+/* the group's colour at 15% behind its icon at full strength; neutral `secondary` without one */
+.tile {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--group-tint, var(--secondary));
+  color: var(--group-color, var(--muted-foreground));
+}
+.bar {
+  width: 3px;
+  height: 14px;
+  border-radius: var(--radius-xs);
+  background: var(--group-color);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.label,
+.subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.label {
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+.subtitle {
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.count {
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.progress {
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--muted);
+}
+.indicator {
+  display: block;
+  height: 100%;
+  background: var(--muted-foreground);
+  transition: width var(--duration-normal) var(--ease-out);
+}

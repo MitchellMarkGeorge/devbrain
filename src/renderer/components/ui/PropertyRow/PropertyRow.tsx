@@ -9,8 +9,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from '../DropdownMenu';
-// not re-exported from DropdownMenu's index.ts
-import { DropdownMenuTrigger } from '../DropdownMenu/DropdownMenu';
+import { DropdownMenuTrigger } from '../DropdownMenu';
 import { EntityPill } from '../EntityPill';
 import type { IconSource } from '../Icon';
 import styles from './PropertyRow.module.css';

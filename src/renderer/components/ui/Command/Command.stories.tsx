@@ -20,6 +20,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Button } from '../Button';
+import { ToggleGroup } from '../ToggleGroup';
 import {
   Command,
   CommandCollection,
@@ -161,21 +162,25 @@ const searchGroups: Group[] = [
   },
 ];
 
-// a stand-in for the outline ToggleGroup type filter
+// the type filter: ToggleGroup's outline variant, each type with its icon and result count
 function TypeFilter() {
-  const [type, setType] = useState('All');
+  const [type, setType] = useState('all');
   return (
     <CommandToolbar>
-      {['All', 'Tasks', 'Notes', 'Projects', 'Events'].map((t) => (
-        <Button
-          key={t}
-          size="sm"
-          variant={t === type ? 'secondary' : 'outline'}
-          onClick={() => setType(t)}
-        >
-          {t}
-        </Button>
-      ))}
+      <ToggleGroup
+        variant="outline"
+        size="sm"
+        aria-label="Result type"
+        value={type}
+        onValueChange={setType}
+        items={[
+          { value: 'all', label: 'All' },
+          { value: 'tasks', label: 'Tasks', icon: CircleCheck, count: 3 },
+          { value: 'notes', label: 'Notes', icon: FileText, count: 1 },
+          { value: 'projects', label: 'Projects', icon: Folder, count: 1 },
+          { value: 'events', label: 'Events', icon: CalendarDays, count: 0 },
+        ]}
+      />
     </CommandToolbar>
   );
 }

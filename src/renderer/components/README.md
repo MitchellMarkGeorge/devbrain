@@ -8,7 +8,22 @@ The DevBrain design system (`docs/design-system/`) built as React components.
   `Box`, `VisuallyHidden`.
 - `lib/`: helpers (`cn`, `mergeClassName`).
 
-Run `npm run storybook` to browse every component.
+Run `npm run storybook` to browse every component (`npm run build-storybook` builds it into
+`dist/storybook`). Everything is exported from `components/index.ts`; `ui/types.ts` holds the shared
+domain types (`TaskStatus`, `Priority`, `Swatch`, …) and their colour helpers.
+
+| Group            | Components                                                                                                               |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Layout and type  | Text, Heading, Flex, Stack, Grid, Box, VisuallyHidden                                                                    |
+| Controls         | Button, ButtonGroup, Input, Textarea, Field, Checkbox, Switch, ToggleGroup, Tabs, SwatchPicker, Select                   |
+| Overlays         | Tooltip, Popover, DropdownMenu, ContextMenu, Dialog, AlertDialog, Sheet, Toast, Command, EntityHoverCard                 |
+| Display          | Card, Badge, Kbd, Separator, Skeleton, Progress, Breadcrumb, Calendar, Logomark, WorkspaceTile                           |
+| Glyphs and pills | Icon, StatusIcon, PriorityIcon, HealthIcon, ProgressRing, ProviderLogo, EntityPill, SourcePill                           |
+| Lists            | TaskRow, TaskList, StatusMenu, SelectionBar, GroupHeading, EventRow                                                      |
+| Pages            | PropertyRow, DateRange, TaskNoteCard, BoardCard, BoardColumn, EventBlock, ScheduleCard, NoteCard, SettingsGroup, Sidebar |
+
+Not built yet: the sidebar's compact-window drawer, measuring a task row to stack its pills
+automatically (the list passes `stack` today), and pickers behind the SelectionBar's buttons.
 
 ## A component's folder
 

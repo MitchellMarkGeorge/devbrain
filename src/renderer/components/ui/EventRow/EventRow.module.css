@@ -1,0 +1,70 @@
+/* A calendar event in a list (Home, Inbox). See docs/design-system/components/EventRow.md */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--row-height);
+  /* the bar sits where a TaskRow's status icon does, so events line up with tasks */
+  padding: 0 var(--space-3) 0 37px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--foreground-strong);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  outline: none;
+  transition: background-color var(--duration-fast);
+}
+.row:hover {
+  background: var(--row-selected);
+}
+.row:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+/* the calendar's colour */
+.bar {
+  flex: none;
+  width: 3px;
+  height: 20px;
+  border-radius: var(--radius-xs);
+  background: var(--event-color, var(--swatch-green));
+}
+.title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.time,
+.relative {
+  flex: none;
+  color: var(--subtle-foreground);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.side {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.relative {
+  min-width: 44px;
+  text-align: right;
+}
+/* under an hour */
+.soon {
+  color: var(--date-overdue);
+}
+/* later today */
+.today {
+  color: var(--date-today);
+}

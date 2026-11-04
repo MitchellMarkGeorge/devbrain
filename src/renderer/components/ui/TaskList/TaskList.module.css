@@ -1,0 +1,9 @@
+/* A list of TaskRows with selection. See docs/design-system/components/TaskList.md */
+.list {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.bar {
+  margin-top: var(--space-3);
+}

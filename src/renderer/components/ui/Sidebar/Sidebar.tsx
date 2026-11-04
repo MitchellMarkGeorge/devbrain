@@ -12,11 +12,7 @@ import { Collapsible } from '@base-ui/react/collapsible';
 import { ScrollArea } from '@base-ui/react/scroll-area';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '../DropdownMenu/DropdownMenu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../DropdownMenu';
 import { Icon, renderIcon, type IconSource } from '../Icon';
 import { Tooltip } from '../Tooltip';
 import { WorkspaceTile } from '../WorkspaceTile';

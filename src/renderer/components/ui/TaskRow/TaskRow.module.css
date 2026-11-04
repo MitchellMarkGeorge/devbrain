@@ -1,0 +1,178 @@
+/*
+ * One task in a strokeless list. See docs/design-system/components/TaskRow.md and the README's
+ * "Lists". The 36px left padding is the strip the selection checkbox appears in.
+ */
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--row-height);
+  padding: 0 var(--space-3) 0 36px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--foreground-strong);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  outline: none;
+  cursor: default;
+  transition: background-color var(--duration-fast);
+}
+/* a subtask is indented under its parent */
+.subtask {
+  padding-left: 64px;
+}
+
+/* hover and selected share the row-selected tint; selected also brightens the title */
+.row:hover,
+.row[data-state='hover'],
+.row[data-menu-open],
+.row[data-selected] {
+  background: var(--row-selected);
+}
+.row[data-selected] .name {
+  color: var(--row-selected-foreground);
+}
+/* neighbouring selected rows join into one block */
+.row[data-join-prev] {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.row[data-join-next] {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+/* keyboard focus outlines the whole row with Nova's ring */
+.row:focus-visible,
+.row[data-state='focus'] {
+  z-index: 1;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+/* the leading strip: the checkbox shows on hover, focus, and on every row while selecting */
+.check {
+  position: absolute;
+  top: 50%;
+  left: 10px;
+  margin-top: -8px;
+  display: none;
+}
+.subtask .check {
+  left: 38px;
+}
+.row:hover .check,
+.row:focus-visible .check,
+.row:focus-within .check,
+.row[data-state] .check,
+.row[data-selected] .check,
+.row[data-selecting] .check {
+  display: inline-grid;
+}
+
+/* the status icon is a button that opens the status menu */
+.status {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  margin-left: -4px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.status:hover,
+.status[data-popup-open] {
+  background: color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+.status:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+/* the title first, then its pills */
+.title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.row[data-completed] .name {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+
+/*
+ * The pills on one side of the title. Stacked, the ones behind show a 30px edge (their icon)
+ * under the last; pointing at or focusing the stack spreads it out again.
+ */
+.stack {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+.stack[data-stacked] {
+  gap: 0;
+}
+.stack[data-stacked] > :not(:last-child) {
+  flex: none;
+  width: 30px;
+  margin-right: -4px;
+  overflow: hidden;
+  transition:
+    width var(--duration-fast),
+    margin var(--duration-fast);
+}
+.stack[data-stacked] > :not(:last-child) > * {
+  flex-shrink: 0;
+}
+.stack[data-stacked]:hover,
+.stack[data-stacked]:focus-within {
+  gap: var(--space-1-5);
+}
+.stack[data-stacked]:hover > *,
+.stack[data-stacked]:focus-within > * {
+  width: auto;
+  margin-right: 0;
+}
+
+/* entity pills, priority and the date on the right; these never give way */
+.side {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.priority {
+  display: grid;
+  place-items: center;
+  width: 20px;
+}
+.date {
+  min-width: 44px;
+  color: var(--subtle-foreground);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.today {
+  color: var(--date-today);
+}
+.overdue {
+  color: var(--date-overdue);
+}
