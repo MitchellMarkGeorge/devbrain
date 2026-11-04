@@ -16,7 +16,7 @@ domain types (`TaskStatus`, `Priority`, `Swatch`, …) and their colour helpers.
 | Group            | Components                                                                                                               |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Layout and type  | Text, Heading, Flex, Stack, Grid, Box, VisuallyHidden                                                                    |
-| Controls         | Button, ButtonGroup, Input, Textarea, Field, Checkbox, Switch, ToggleGroup, Tabs, SwatchPicker, Select                   |
+| Controls         | Button, IconButton, ButtonGroup, Input, Textarea, Field, Checkbox, Switch, ToggleGroup, Tabs, SwatchPicker, Select       |
 | Overlays         | Tooltip, Popover, DropdownMenu, ContextMenu, Dialog, AlertDialog, Sheet, Toast, Command, EntityHoverCard                 |
 | Display          | Card, Badge, Kbd, Separator, Skeleton, Progress, Breadcrumb, Calendar, Logomark, WorkspaceTile                           |
 | Glyphs and pills | Icon, StatusIcon, PriorityIcon, HealthIcon, ProgressRing, ProviderLogo, EntityPill, SourcePill                           |

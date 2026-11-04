@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { useState } from 'react';
 import { ChevronDown, Ellipsis, ListFilter, Plus, Star } from 'lucide-react';
 import { Flex } from '../../layout/Flex';
 import { Button } from './Button';
@@ -99,6 +100,27 @@ export const ToolbarValue: Story = {
       </Button>
     </Flex>
   ),
+};
+
+/**
+ * Pressed: every button nudges down 1px while held (menu triggers stay put). A toggle that is on
+ * (`aria-pressed`) fills with `accent`: here a toolbar filter in a compact window, its value
+ * hidden, shown as on.
+ */
+export const Pressed: Story = {
+  render: () => {
+    const [on, setOn] = useState(true);
+    return (
+      <Flex gap="2" align="center">
+        <Button variant="outline" icon={ListFilter} aria-pressed={on} onClick={() => setOn(!on)}>
+          Filter
+        </Button>
+        <Button variant="ghost" aria-pressed={!on} onClick={() => setOn(!on)}>
+          Ghost toggle
+        </Button>
+      </Flex>
+    );
+  },
 };
 
 export const Disabled: Story = {

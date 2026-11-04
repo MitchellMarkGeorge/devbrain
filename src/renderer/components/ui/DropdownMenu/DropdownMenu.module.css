@@ -60,7 +60,8 @@
   color: var(--foreground);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
   text-align: left;
-  cursor: default;
+  /* every item is clickable, like the system's other controls (Select and Command items too) */
+  cursor: pointer;
   outline: none;
   user-select: none;
 }

@@ -16,7 +16,12 @@
   cursor: pointer;
   transition:
     background-color var(--duration-fast),
-    color var(--duration-fast);
+    color var(--duration-fast),
+    translate var(--duration-fast);
+}
+/* pressed: Nova's 1px press while the pointer is down; a menu trigger stays put as its menu opens */
+.button:active:not([aria-haspopup]) {
+  translate: 0 1px;
 }
 .button > svg {
   width: 16px;
@@ -84,6 +89,34 @@
 }
 .link:hover {
   color: var(--foreground);
+}
+
+/*
+ * On: a toggle that is on (`aria-pressed`, or Base UI's `data-pressed`), like a toolbar filter
+ * that is set, fills with `accent`. A button whose menu or popover is open (`data-popup-open`)
+ * keeps its hover look while it is open.
+ */
+.button[aria-pressed='true'],
+.button[data-pressed] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.default[data-popup-open] {
+  background: color-mix(in oklab, var(--input) 50%, transparent);
+}
+.secondary[data-popup-open] {
+  background: color-mix(in oklab, var(--border-strong) 50%, var(--secondary));
+}
+.outline[data-popup-open] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.ghost[data-popup-open] {
+  background: color-mix(in oklab, var(--muted) 50%, transparent);
+  color: var(--accent-foreground);
+}
+.destructive[data-popup-open] {
+  background: color-mix(in oklab, var(--destructive) 30%, transparent);
 }
 
 /* sizes */

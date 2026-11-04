@@ -3,7 +3,7 @@ import { Drawer } from '@base-ui/react/drawer';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Maximize2, X } from 'lucide-react';
 import { cn, mergeClassName } from '../../lib/cn';
-import { Button } from '../Button';
+import { IconButton } from '../IconButton';
 import styles from './Sheet.module.css';
 
 export const sheetVariants = cva(styles.popup, {
@@ -91,15 +91,9 @@ export function SheetHeader({ onOpenAsPage, className, children, ...props }: She
     <div className={cn(styles.header, className)} {...props}>
       <SheetTitle>{children}</SheetTitle>
       {onOpenAsPage && (
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          icon={Maximize2}
-          aria-label="Open as page"
-          onClick={onOpenAsPage}
-        />
+        <IconButton size="xs" icon={Maximize2} label="Open as page" onClick={onOpenAsPage} />
       )}
-      <Drawer.Close render={<Button size="icon-xs" icon={X} aria-label="Close" />} />
+      <Drawer.Close render={<IconButton variant="default" size="xs" icon={X} label="Close" />} />
     </div>
   );
 }

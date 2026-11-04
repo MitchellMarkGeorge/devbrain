@@ -22,6 +22,7 @@ export * from './Field';
 export * from './GroupHeading';
 export * from './HealthIcon';
 export * from './Icon';
+export * from './IconButton';
 export * from './Input';
 export * from './Kbd';
 export * from './Logomark';

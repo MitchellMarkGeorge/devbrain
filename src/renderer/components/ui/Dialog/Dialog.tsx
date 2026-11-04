@@ -4,7 +4,7 @@ import { AlertDialog as BaseAlertDialog } from '@base-ui/react/alert-dialog';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { X } from 'lucide-react';
 import { cn, mergeClassName } from '../../lib/cn';
-import { Button } from '../Button';
+import { IconButton } from '../IconButton';
 import styles from './Dialog.module.css';
 
 export const dialogVariants = cva(styles.popup, {
@@ -58,7 +58,7 @@ export function DialogContent({
         {showClose && (
           <BaseDialog.Close
             className={styles.close}
-            render={<Button variant="ghost" size="icon-xs" icon={X} aria-label="Close" />}
+            render={<IconButton size="xs" icon={X} label="Close" tooltip={false} />}
           />
         )}
       </BaseDialog.Popup>

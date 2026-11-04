@@ -1,7 +1,7 @@
 import { Children, forwardRef, type ComponentPropsWithoutRef } from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import { Button } from '../Button';
+import { IconButton } from '../IconButton';
 import { Icon } from '../Icon';
 import { StatusIcon } from '../StatusIcon';
 import type { TaskStatus } from '../types';
@@ -45,11 +45,10 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
         <StatusIcon status={status} />
         {name}
         <span className={styles.count}>{count ?? Children.count(children)}</span>
-        <Button
-          variant="ghost"
-          size="icon-xs"
+        <IconButton
+          size="xs"
           icon={Plus}
-          aria-label={`Add task to ${name}`}
+          label={`Add task to ${name}`}
           className={styles.add}
           onClick={onAdd}
         />

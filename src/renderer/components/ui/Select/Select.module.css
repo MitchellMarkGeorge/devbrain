@@ -13,7 +13,7 @@
   color: var(--foreground);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
   white-space: nowrap;
-  cursor: default;
+  cursor: pointer;
   outline: none;
   transition:
     background-color var(--duration-fast),

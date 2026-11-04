@@ -473,7 +473,7 @@ button.db-badge[data-variant='outline']:hover .db-badge-prefix {
   color: var(--muted-foreground);
   font: 500 14px/20px var(--font-sans);
   text-align: left;
-  cursor: default;
+  cursor: pointer;
   outline: none;
 }
 .db-menu-item > svg {
@@ -2198,4 +2198,30 @@ button.db-entity:active {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* ---------- buttons: pressed (after the Nova layer, so it wins over its variant fills) ---------- */
+/* pressed: Nova's 1px press while held (a menu trigger stays put); a toggle that is on fills with
+   accent; a button whose menu is open keeps its hover look */
+.db-btn {
+  transition:
+    background-color 100ms,
+    color 100ms,
+    translate 100ms;
+}
+.db-btn:active:not([aria-haspopup]) {
+  translate: 0 1px;
+}
+.db-btn[aria-pressed='true'],
+.db-btn[data-pressed] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.db-btn[data-variant='outline'][data-popup-open],
+.db-btn[data-variant='ghost'][data-popup-open] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.db-btn[data-variant='default'][data-popup-open] {
+  background: color-mix(in oklab, var(--input) 50%, transparent);
 }

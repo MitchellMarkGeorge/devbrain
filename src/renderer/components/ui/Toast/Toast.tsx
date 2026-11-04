@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Toast as BaseToast } from '@base-ui/react/toast';
 import { CircleCheck, CircleX, TriangleAlert, X, type LucideIcon } from 'lucide-react';
 import { Button } from '../Button';
+import { IconButton } from '../IconButton';
 import { Icon } from '../Icon';
 import styles from './Toast.module.css';
 
@@ -81,7 +82,7 @@ function ToastList() {
           </div>
           <BaseToast.Action render={<Button size="sm" />} />
           <BaseToast.Close
-            render={<Button variant="ghost" size="icon-xs" icon={X} aria-label="Close" />}
+            render={<IconButton size="xs" icon={X} label="Close" tooltip={false} />}
           />
         </BaseToast.Content>
       </BaseToast.Root>

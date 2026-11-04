@@ -3,6 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { Calendar, ChevronsUp, Circle, Ellipsis, Folder, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Button } from '../Button';
+import { IconButton } from '../IconButton';
 import { DropdownMenu, DropdownMenuContent } from '../DropdownMenu';
 import { DropdownMenuTrigger } from '../DropdownMenu';
 import styles from './SelectionBar.module.css';
@@ -55,11 +56,10 @@ export const SelectionBar = forwardRef<HTMLDivElement, SelectionBarProps>(functi
   ref,
 ) {
   const moreButton = (
-    <Button
-      variant="ghost"
-      size="icon-sm"
+    <IconButton
+      size="sm"
       icon={Ellipsis}
-      aria-label="More actions"
+      label="More actions"
       className={styles.action}
       onClick={more ? undefined : onMore}
     />
@@ -126,11 +126,10 @@ export const SelectionBar = forwardRef<HTMLDivElement, SelectionBarProps>(functi
       ) : (
         moreButton
       )}
-      <Button
-        variant="ghost"
-        size="icon-sm"
+      <IconButton
+        size="sm"
         icon={X}
-        aria-label="Clear selection"
+        label="Clear selection"
         className={styles.action}
         onClick={onClear}
       />

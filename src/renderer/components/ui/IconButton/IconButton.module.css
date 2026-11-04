@@ -1,0 +1,15 @@
+/*
+ * An icon-only button: Button's look at a square size (see Button.module.css), plus a muted tone
+ * for icons that rest in `muted-foreground` (panel headers, the sidebar, row actions).
+ */
+.iconButton > svg {
+  flex: none;
+}
+.muted {
+  color: var(--muted-foreground);
+}
+.muted:hover,
+.muted[data-popup-open],
+.muted[aria-pressed='true'] {
+  color: var(--foreground);
+}
