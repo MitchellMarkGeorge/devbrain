@@ -61,7 +61,6 @@ export function createDocumentExtensions(
     HtmlBreak,
     DocumentDetails,
     DocumentDetailsSummary,
-    DocumentDetailsSummary,
     DetailsContent,
     RawHtmlBlock,
     RawHtmlInline,
@@ -83,7 +82,33 @@ export function relaxEntities(text: string): string {
     .replace(/&gt;/g, '>');
 }
 
+/**
+ * A paragraph's text that starts a line with what markdown reads as a block, escaped so it stays
+ * text: "## Not a heading", "- not a list", "1. not a list" are written `\## Not a heading`,
+ * `\- not a list`, `1\. not a list`. (`>` is escaped by relaxEntities, `*` and `_` always.)
+ */
+export function escapeLineStart(text: string): string {
+  return text
+    .replace(/^(#{1,6})(?=[ \t]|$)/, '\\$1')
+    .replace(/^([-+])(?=[ \t])/, '\\$1')
+    .replace(/^(\d{1,9})([.)])(?=[ \t]|$)/, '$1\\$2');
+}
+
 type TextEncoder = (text: string, node: JSONContent, parentNode?: JSONContent) => string;
+
+function isCode(node: JSONContent, parentNode?: JSONContent): boolean {
+  return (
+    parentNode?.type === 'codeBlock' ||
+    (node.marks ?? []).some((mark) => (typeof mark === 'string' ? mark : mark.type) === 'code')
+  );
+}
+
+// whether this text starts a line of its paragraph: its first child, or the one after a line break
+function startsParagraphLine(node: JSONContent, parentNode?: JSONContent): boolean {
+  if (parentNode?.type !== 'paragraph' || !parentNode.content) return false;
+  const index = parentNode.content.indexOf(node);
+  return index === 0 || parentNode.content[index - 1]?.type === 'hardBreak';
+}
 
 class DocumentMarkdownManager extends MarkdownManager {
   constructor(options: ConstructorParameters<typeof MarkdownManager>[0]) {
@@ -93,8 +118,10 @@ class DocumentMarkdownManager extends MarkdownManager {
     const encode = self.encodeTextForMarkdown.bind(this);
     self.encodeTextForMarkdown = (text, node, parentNode) => {
       const encoded = encode(text, node, parentNode);
-      // unchanged inside code, where nothing is encoded
-      return encoded === text ? encoded : relaxEntities(encoded);
+      // inside code nothing is encoded, and nothing reads as markup
+      if (isCode(node, parentNode)) return encoded;
+      const relaxed = relaxEntities(encoded);
+      return startsParagraphLine(node, parentNode) ? escapeLineStart(relaxed) : relaxed;
     };
   }
 }

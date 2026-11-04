@@ -82,12 +82,15 @@
   background: var(--accent);
   color: inherit;
 }
+/* inline code: mono on `accent`, 13px in the line's height. (The `font` shorthand can't take
+   `inherit` for the line height, so the family and size are set apart.) */
 .content :not(pre) > code {
   padding: 1px var(--space-1);
   border-radius: var(--radius-xs);
   background: var(--accent);
   color: var(--foreground-strong);
-  font: 13px / inherit var(--font-mono);
+  font-family: var(--font-mono);
+  font-size: 13px;
 }
 .content hr {
   height: 1px;

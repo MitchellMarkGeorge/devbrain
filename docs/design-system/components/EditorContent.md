@@ -8,7 +8,7 @@ The note editor's block styles, for whichever editor library DevBrain adopts: wr
 - **To-dos** (Tiptap's task list markup): a 16px checkbox (the `Checkbox` look) then the text, 8px apart, 28px rows; done ones struck through in `muted-foreground`.
 - **Code blocks** (`pre[data-language]`): a `card` panel with 10px corners, 12px × 16px padding, the language as a 12px `muted-foreground` label, the code in 13px mono.
 - **Quotes**: a 2px `border-strong` bar, the text 12px in from it in `muted-foreground`.
-- **Inline**: links underlined in `muted-foreground`, inline code on `accent` in mono, highlights on `accent` (or the ColourMenu's colours), the selection a 35% `swatch-blue`.
+- **Inline**: links underlined in `muted-foreground`, inline code on `accent` in 13px mono (`font-mono`), highlights on `accent` (or the ColourMenu's colours), the selection a 35% `swatch-blue`.
 - **Tables**: full width, fixed columns, 6px × 8px cells over a `border` line; the header row in medium `muted-foreground`. Cells a drag selects take a 15% `swatch-blue` tint.
 - **Collapsible sections** (Tiptap's details markup, `<details>` in the note): a 20px chevron button in `muted-foreground` (`accent` on hover) that turns down when open, then the summary in medium `foreground-strong` with the body 4px under it, hidden while closed.
 - **Sub- and superscript** at 0.75em; keys (`<kbd>`) are the `Kbd` component.

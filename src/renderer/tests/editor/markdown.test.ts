@@ -6,6 +6,7 @@ import {
   normalizeMarkdown,
   parseMarkdown,
   relaxEntities,
+  serializeMarkdown,
 } from '../../editor/markdown';
 import { highlightToText } from '../../editor/highlight';
 import { kbdVariants } from '../../components/ui/Kbd';
@@ -111,6 +112,35 @@ describe('markdown round trip', () => {
     expect(relaxEntities('&amp;amp; &lt;b&gt;')).toBe('&amp;amp; &lt;b>');
     expect(relaxEntities('&gt; not a quote')).toBe('\\> not a quote');
     expect(relaxEntities('&amp; &lt; 3')).toBe('& < 3');
+  });
+
+  it('escapes a paragraph line that would read as a heading or a list, and nothing in code', () => {
+    const paragraph = (...content: JSONContent[]): JSONContent => ({
+      type: 'doc',
+      content: [{ type: 'paragraph', content }],
+    });
+    const text = (value: string, marks?: JSONContent['marks']): JSONContent => ({
+      type: 'text',
+      text: value,
+      ...(marks && { marks }),
+    });
+    const cases: [JSONContent, string][] = [
+      [paragraph(text('## Not a heading')), '\\## Not a heading'],
+      [paragraph(text('- not a list')), '\\- not a list'],
+      [paragraph(text('1. not a list')), '1\\. not a list'],
+      [
+        paragraph(text('Line'), { type: 'hardBreak' }, text('# after a break')),
+        'Line  \n\\# after a break',
+      ],
+      [paragraph(text('Mid-line # and - stay')), 'Mid-line # and - stay'],
+      [paragraph(text('## code', [{ type: 'code' }])), '`## code`'],
+    ];
+    for (const [doc, markdown] of cases) {
+      expect(serializeMarkdown(doc)).toBe(markdown);
+      // and reads back as the same paragraph
+      expect(parseMarkdown(markdown).content?.[0].type).toBe('paragraph');
+      expect(serializeMarkdown(parseMarkdown(markdown))).toBe(markdown);
+    }
   });
 
   it('writes the same markdown the second time round', () => {
