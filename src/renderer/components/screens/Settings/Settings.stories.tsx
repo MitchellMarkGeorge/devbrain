@@ -41,7 +41,7 @@ import { DropdownMenuItem } from '../../ui/DropdownMenu';
 
 /*
  * Figma: v2 Screens › Trash & Settings › "Settings (general)" (7158:10515, light 7426:45491) and
- * "Settings (data & storage)" (7158:11416). A 760px column, 212px in from the sidebar, 48px down:
+ * "Settings (data & storage)" (7158:11416). A 720px column, 212px in from the sidebar, 48px down:
  * the 30px page heading, 24px, the section tabs, 32px, then the groups 32px apart.
  */
 
@@ -123,7 +123,7 @@ function SettingsPage({ section, children }: { section: Section; children: React
         <AppSidebar />
         <main style={{ flex: 1, minWidth: 0, overflow: 'auto' }}>
           <div
-            style={{ width: 760, margin: '48px auto', display: 'flex', flexDirection: 'column' }}
+            style={{ width: 720, margin: '48px auto', display: 'flex', flexDirection: 'column' }}
           >
             <Heading level={1}>Settings</Heading>
             <Tabs value={section} style={{ marginTop: 24 }}>

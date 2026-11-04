@@ -54,11 +54,11 @@ export const Default: Story = {
   ),
 };
 
-/** Settings and Integrations: 760px */
+/** Settings and Integrations: the same 720px column */
 export const Settings: Story = {
   render: () => (
     <div style={{ height: 300 }}>
-      <DocumentPage width="settings">
+      <DocumentPage>
         <Heading level={1} variant="document">
           Settings
         </Heading>

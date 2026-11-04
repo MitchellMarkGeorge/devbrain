@@ -45,7 +45,7 @@ function IntegrationsScreen({ linearKeyRejected = false }: { linearKeyRejected?:
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '24px 24px 48px' }}>
         <div
           style={{
-            maxWidth: 760,
+            maxWidth: 720,
             margin: '0 auto',
             display: 'flex',
             flexDirection: 'column',

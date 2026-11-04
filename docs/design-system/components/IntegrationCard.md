@@ -4,6 +4,6 @@ A connected account on the Integrations page: a `card` with a `border` outline a
 
 - `state="off"`: the tile fades to 50% (pass `disabled` to its sources).
 - `state="coming-later"`: a dashed outline on the page colour, no actions and no sources.
-- Cards stack 24px apart in a 760px column.
+- Cards stack 24px apart in the 720px document column (`content-max-width`).
 
 **Base UI:** No Base UI part: plain markup around Switches and Buttons.

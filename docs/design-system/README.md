@@ -91,7 +91,7 @@ The window is never smaller than `window-min-width` × `window-min-height` (960 
 
 Two kinds of page, one rule each:
 
-- **Document pages centre a capped column**, like Notion: a note and a task at `content-max-width` (720px), Settings and Integrations at 760px. The header (breadcrumb, star, "…" menu) still spans the page; on a wide window the margins grow and the column keeps its width. Menus anchored to the content (the slash menu, pickers under the property pills) move with it.
+- **Document pages centre a capped column**, like Notion: a note and a task at `content-max-width` (720px), Settings and Integrations too. The header (breadcrumb, star, "…" menu) still spans the page; on a wide window the margins grow and the column keeps its width. Menus anchored to the content (the slash menu, pickers under the property pills) move with it.
 - **Workspace pages use the full width**: lists, the board, the calendar, Home, and a project's page (its 1056px column of task groups and tabs nearly fills the window already).
 
 ## How this system is built
