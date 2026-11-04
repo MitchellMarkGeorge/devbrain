@@ -2,7 +2,7 @@
 
 The note editor's "/" menu, 260px wide under the caret, drawn as a menu: groups under labels with separators between them, 28px items with a 16px icon, the label and the Markdown shortcut on the right.
 
-- **Basic blocks**: Text, Heading 1 (#), Heading 2 (##), Heading 3 (###), Code (```), Quote (>).
+- **Basic blocks**: Text, Heading 1 (#), Heading 2 (##), Heading 3 (###), Code (```), Quote (>), Callout (a Note `Callout`, its kind changed from its title).
 - **Lists**: Bulleted list (-), Numbered list (1.), To-do list ([ ]).
 - **DevBrain**: Task, Link to note, Link to task, Mention event.
 - **Others**: Divider (---), Table, Collapsible section (a `<details>` section in the note).

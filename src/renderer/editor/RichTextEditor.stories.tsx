@@ -31,6 +31,7 @@ const verifier = randomBytes(32).toString('base64url');
 const challenge = createHash('sha256').update(verifier).digest('base64url');
 \`\`\`
 
+> [!WARNING]
 > Never store the code verifier anywhere it can outlive the login flow.
 
 ## Open items
@@ -151,7 +152,10 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** A note with every element: pills, code, a to-do list, a table, a collapsible section, keys */
+/**
+ * A note with every element: pills, code, a callout, a to-do list, a table, a collapsible section,
+ * keys
+ */
 export const Note: Story = { args: { initial: NOTE } };
 
 /** A new note: the placeholder; "/" opens the slash menu, "@" searches the stand-in workspace */

@@ -2,6 +2,7 @@ import { EditorContent as TiptapEditorContent, useEditor, type Editor } from '@t
 import { EditorContent } from '../components';
 import { Placeholder } from '@tiptap/extensions';
 import { useEffect, useRef, useState } from 'react';
+import { CalloutView } from './CalloutView';
 import { EditorHostContext, EntityLinkView, ImageLinkView } from './EntityPillView';
 import { FormatBubble } from './FormatBubble';
 import { EditorHostExtension, setEditorHost } from './extensions/editor-host';
@@ -50,7 +51,11 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   // built once: the placeholder is fixed for an editor's life
   const [extensions] = useState(() => [
-    ...createDocumentExtensions({ entityLink: EntityLinkView, imageLink: ImageLinkView }),
+    ...createDocumentExtensions({
+      entityLink: EntityLinkView,
+      imageLink: ImageLinkView,
+      callout: CalloutView,
+    }),
     EditorHostExtension,
     Placeholder.configure({ placeholder }),
     SlashMenu,

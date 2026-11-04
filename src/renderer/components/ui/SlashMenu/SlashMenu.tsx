@@ -1,5 +1,14 @@
 import type { Ref } from 'react';
-import { Calendar, CircleCheck, FileText, Link, ListCollapse, Minus, Table } from 'lucide-react';
+import {
+  Calendar,
+  CircleCheck,
+  FileText,
+  Info,
+  Link,
+  ListCollapse,
+  Minus,
+  Table,
+} from 'lucide-react';
 import { DropdownMenuShortcut, menuStyles } from '../DropdownMenu';
 import { renderIcon, type IconSource } from '../Icon';
 import { BLOCK_TYPES, type BlockType } from '../TurnIntoMenu';
@@ -19,7 +28,8 @@ export type SlashCommand =
   | 'mention-event'
   | 'divider'
   | 'table'
-  | 'collapsible';
+  | 'collapsible'
+  | 'callout';
 
 export interface SlashItem {
   value: SlashCommand;
@@ -53,6 +63,12 @@ export const SLASH_GROUPS: SuggestionGroup<SlashItem>[] = [
       block('heading-3', ['h3']),
       block('code', ['snippet']),
       block('quote', ['blockquote']),
+      {
+        value: 'callout',
+        label: 'Callout',
+        icon: Info,
+        keywords: ['alert', 'note', 'tip', 'important', 'warning', 'caution'],
+      },
     ],
   },
   {
@@ -122,7 +138,7 @@ export interface SlashMenuProps extends Omit<
 }
 
 /**
- * The editor's "/" menu, 260px wide under the caret: Basic blocks, Lists, DevBrain (Task, Link to
+ * The editor's "/" menu, 260px wide under the caret: Basic blocks (with Callout), Lists, DevBrain (Task, Link to
  * note, Link to task, Mention event) and Others (Divider, Table, Collapsible section), each with its Markdown shortcut. Typing after
  * the "/" narrows it to the matching items; the first match is highlighted.
  */

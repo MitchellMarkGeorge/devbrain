@@ -37,6 +37,7 @@ const COMMANDS: Record<
   divider: (chain) => chain.setHorizontalRule().run(),
   table: (chain) => chain.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
   collapsible: (chain) => chain.setDetails().run(),
+  callout: (chain) => chain.setCallout('note').run(),
 };
 
 const isBlockType = (command: SlashCommand): command is BlockType =>

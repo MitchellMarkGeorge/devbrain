@@ -180,4 +180,27 @@ describe('RichTextEditor', () => {
     // a space after the pill, to keep typing
     expect(editor.getMarkdown()).toBe('[Login notes](devbrain://note/nte_1) ');
   });
+
+  it("inserts a Note callout from the slash menu, drawn by the design system's Callout", async () => {
+    render({ value: '' });
+    await act(async () => {
+      editor.chain().focus().insertContent('/callout').run();
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    });
+    await act(async () => {
+      editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    await act(async () => {
+      editor.commands.insertContent('Run it off-hours.');
+    });
+    expect(editor.getMarkdown()).toBe('> [!NOTE]\n> Run it off-hours.');
+
+    await act(async () => {
+      editor.commands.setCalloutKind('warning');
+    });
+    expect(editor.getMarkdown()).toBe('> [!WARNING]\n> Run it off-hours.');
+    const callout = container.querySelector('[data-callout="warning"]')!;
+    expect(callout.textContent).toContain('Warning');
+    expect(callout.textContent).toContain('Run it off-hours.');
+  });
 });

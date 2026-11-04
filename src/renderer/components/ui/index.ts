@@ -11,6 +11,7 @@ export * from './Button';
 export * from './ButtonGroup';
 export * from './Calendar';
 export * from './CalendarAgenda';
+export * from './Callout';
 export * from './Card';
 export * from './CardGrid';
 export * from './Checkbox';

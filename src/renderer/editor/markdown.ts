@@ -4,6 +4,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { Table, TableKit } from '@tiptap/extension-table';
 import { Markdown, MarkdownManager } from '@tiptap/markdown';
+import { Callout } from './extensions/callout';
 import { EntityLink } from './extensions/entity-link';
 import { ImageLink } from './extensions/image-link';
 import { DetailsContent } from '@tiptap/extension-details';
@@ -28,11 +29,11 @@ import { SafeLink } from './extensions/safe-link';
  * The format is GitHub-flavoured markdown (docs/editor.md): headings, lists, task lists, tables,
  * code blocks, quotes, strikethrough, links and autolinks; the HTML tags GitHub notes use for the
  * rest (html-elements.ts: underline, keys, sub- and superscript, line breaks, collapsible
- * sections); and DevBrain's entity links. Other HTML, and images, are kept as written but never
+ * sections); GitHub's alerts as callouts (callout.ts); and DevBrain's entity links. Other HTML, and images, are kept as written but never
  * rendered (raw-html.ts, image-link.ts).
  */
 export function createDocumentExtensions(
-  options: { entityLink?: AnyExtension; imageLink?: AnyExtension } = {},
+  options: { entityLink?: AnyExtension; imageLink?: AnyExtension; callout?: AnyExtension } = {},
 ): AnyExtension[] {
   return [
     StarterKit.configure({
@@ -52,6 +53,7 @@ export function createDocumentExtensions(
     // the UI layer passes its own versions, with node views; they keep the same markdown rules
     options.entityLink ?? EntityLink,
     options.imageLink ?? ImageLink,
+    options.callout ?? Callout,
     DocumentUnderline,
     Kbd,
     DocumentSubscript,

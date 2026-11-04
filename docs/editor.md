@@ -75,6 +75,16 @@ A collapsible section is written as GitHub needs it to read the body as markdown
 </details>
 ```
 
+**Callouts**: GitHub's alerts, drawn by the design system's `Callout` (`extensions/callout.ts`).
+The marker is alone on the first line; the body is the `>` lines after it, any blocks. GitHub draws
+it as an alert, other markdown apps as a quote. Kinds: `NOTE`, `TIP`, `IMPORTANT`, `WARNING`,
+`CAUTION`, written in capitals. The slash menu inserts a Note; its title changes the kind.
+
+```markdown
+> [!WARNING]
+> The migration rewrites every row; run it off-hours.
+```
+
 **DevBrain's own, and what is kept but not rendered:**
 
 | Written as                                                             | Shown as                                                                 | Where                       |

@@ -241,6 +241,57 @@ describe('supported HTML tags', () => {
   });
 });
 
+describe('callouts', () => {
+  it('read GitHub alerts as callouts of each kind and write them back', () => {
+    const markdown = ['NOTE', 'TIP', 'IMPORTANT', 'WARNING', 'CAUTION']
+      .map((kind) => `> [!${kind}]\n> Text for ${kind.toLowerCase()}.`)
+      .join('\n\n');
+    expectRoundTrip(markdown);
+    expect(nodesOfType(parseMarkdown(markdown), 'callout').map((node) => node.attrs?.kind)).toEqual(
+      ['note', 'tip', 'important', 'warning', 'caution'],
+    );
+  });
+
+  it('hold any blocks in their body', () => {
+    const markdown = [
+      '> [!WARNING]',
+      '> The migration rewrites every row:',
+      '>',
+      '> - Back up first',
+      '> - Run it off-hours',
+      '>',
+      '> ```sh',
+      '> npm run migrate',
+      '> ```',
+      '',
+      'After the callout.',
+    ].join('\n');
+    expectRoundTrip(markdown);
+    const [callout] = nodesOfType(parseMarkdown(markdown), 'callout');
+    expect(callout.content?.map((node) => node.type)).toEqual([
+      'paragraph',
+      'bulletList',
+      'codeBlock',
+    ]);
+  });
+
+  it('write the marker in capitals, and leave other quotes as quotes', () => {
+    expect(normalizeMarkdown('> [!tip]\n> Lower case')).toBe('> [!TIP]\n> Lower case');
+    for (const quote of [
+      '> [!NOTE] on the same line',
+      '> [!UNKNOWN]\n> Not a kind',
+      '> Just a quote',
+    ]) {
+      expect(nodesOfType(parseMarkdown(quote), 'callout')).toEqual([]);
+      expect(nodesOfType(parseMarkdown(quote), 'blockquote')).toHaveLength(1);
+    }
+  });
+
+  it('keep an empty body', () => {
+    expectRoundTrip('> [!NOTE]\n>');
+  });
+});
+
 describe('untrusted content', () => {
   const html = [
     'Inline <span class="x">html</span> and <img src=x onerror=alert(1)> stay as text.',
