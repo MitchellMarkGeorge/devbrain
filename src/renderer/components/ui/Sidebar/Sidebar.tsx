@@ -14,7 +14,6 @@ import {
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
 import { Collapsible } from '@base-ui/react/collapsible';
-import { ScrollArea } from '@base-ui/react/scroll-area';
 import { ChevronRight, ChevronsUpDown } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { ColourBar } from '../ColourBar';
@@ -232,18 +231,16 @@ export function SidebarWorkspace({
   );
 }
 
-/** The scrolling middle: the main navigation, Recents and Favorites. */
+/**
+ * The middle: the main navigation, Recents and Favorites. It scrolls with the footer, under the
+ * pinned header, when the window is too short.
+ */
 export const SidebarContent = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<'div'>>(
   function SidebarContent({ className, children, ...props }, ref) {
     return (
-      <ScrollArea.Root ref={ref} className={cn(styles.content, className)} {...props}>
-        <ScrollArea.Viewport className={styles.viewport}>
-          <div className={styles.contentInner}>{children}</div>
-        </ScrollArea.Viewport>
-        <ScrollArea.Scrollbar orientation="vertical" className={styles.scrollbar}>
-          <ScrollArea.Thumb className={styles.thumb} />
-        </ScrollArea.Scrollbar>
-      </ScrollArea.Root>
+      <div ref={ref} className={cn(styles.content, className)} {...props}>
+        <div className={styles.contentInner}>{children}</div>
+      </div>
     );
   },
 );

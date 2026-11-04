@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Folder, PanelLeft } from 'lucide-react';
 import { DemoSidebar } from '../../screens/Shell/AppFrame';
 import { IconButton } from '../IconButton';
+import type { SyncState } from '../SyncStatus';
 import { TooltipProvider } from '../Tooltip';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarItem } from './Sidebar';
 
@@ -13,7 +14,8 @@ const meta = {
   decorators: [
     (Story) => (
       <TooltipProvider>
-        <div style={{ height: 1024, display: 'flex' }}>
+        {/* the canvas's height, so the footer stays in view and the middle scrolls when short */}
+        <div style={{ height: '100vh', display: 'flex' }}>
           <Story />
         </div>
       </TooltipProvider>
@@ -66,9 +68,19 @@ export const Toggle: Story = {
   },
 };
 
-/** The sync line at the top of the footer: synced, syncing, failed (with Retry), paused, offline. */
-export const WithSyncStatus: Story = {
-  render: () => <DemoSidebar active="Tasks" sync="error" />,
+/**
+ * The sync line at the top of the footer: synced, syncing, failed (with Retry), rate limited,
+ * offline. Pick one with the `sync` control.
+ */
+export const WithSyncStatus: StoryObj<{ sync: SyncState }> = {
+  args: { sync: 'error' },
+  argTypes: {
+    sync: {
+      control: 'inline-radio',
+      options: ['synced', 'syncing', 'error', 'rate-limited', 'offline'],
+    },
+  },
+  render: ({ sync }) => <DemoSidebar active="Tasks" sync={sync} />,
 };
 
 /** Recents and Favorites fold away from their labels: point at a label for its chevron, click to fold. */
