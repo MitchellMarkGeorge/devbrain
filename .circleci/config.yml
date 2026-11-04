@@ -38,15 +38,16 @@ jobs:
       - run: npm run typecheck
 
   test:
-    executor: node
+    # the tests run on Electron's Node (scripts/vitest.mts), and the Electron binary needs the
+    # system libraries Chrome does, which the -browsers image has
+    docker:
+      - image: cimg/node:24.0-browsers
+    working_directory: ~/project
     steps:
       - install_deps
       - run:
-          name: Rebuild better-sqlite3 for Node
-          command: npm run rebuild:node
-      - run:
           name: Run tests
-          command: npx vitest run --reporter=default --reporter=junit --outputFile=test-results/vitest/results.xml
+          command: npm test -- --reporter=default --reporter=junit --outputFile=test-results/vitest/results.xml
       - store_test_results:
           path: test-results
 
