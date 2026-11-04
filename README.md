@@ -24,6 +24,8 @@ npm run dev
 
 `npm test` (and `npm run test:watch`) runs Vitest on Electron's Node (`scripts/vitest.mts`), so the tests use the Node version the app ships with and the build of `better-sqlite3` that `npm install` makes for Electron. Arguments go to Vitest: `npm test -- src/main/core/tests/sync`.
 
+`npm run smoke` builds the app, launches Electron on the build and passes once the first window has finished loading; an uncaught error, a failed load or a timeout fails it. It runs with no DevBrain folder, so it never opens your dev workspace. On Linux without a display it runs under `xvfb-run` (`apt install xvfb`); run as root (in a container), it adds `--no-sandbox`.
+
 ## Key dependency versions
 
 | Package                                                             | Version  |
