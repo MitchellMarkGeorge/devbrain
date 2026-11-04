@@ -1,5 +1,4 @@
 import { builtinModules } from 'node:module';
-import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
 // Preload build. CommonJS output (.cjs) — required when sandbox: true, which
@@ -25,6 +24,7 @@ export default defineConfig({
     target: 'node24',
   },
   resolve: {
-    alias: { '@common': fileURLToPath(new URL('../src/common', import.meta.url)) },
+    // @common and @main, from tsconfig.node.json
+    tsconfigPaths: true,
   },
 });

@@ -6,9 +6,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   resolve: {
+    // @common and @main, from tsconfig.node.json and tsconfig.web.json
+    tsconfigPaths: true,
     alias: [
-      { find: '@common', replacement: path.resolve(__dirname, 'src/common') },
-      { find: '@main', replacement: path.resolve(__dirname, 'src/main') },
       // in Node the real package exports only the binary's path
       {
         find: /^electron$/,
