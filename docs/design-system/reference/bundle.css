@@ -238,12 +238,22 @@ button.db-badge[data-variant='outline']:hover {
 button.db-badge[data-variant='outline']:hover .db-badge-muted {
   color: var(--foreground);
 }
+button.db-badge[data-variant='outline']:hover .db-badge-prefix {
+  color: var(--muted-foreground);
+}
 .db-badge-text {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .db-badge-muted {
   color: var(--muted-foreground);
+}
+/* the prefix leads the pill, before its bar or icon, a step quieter than the label:
+   "Linked to ▌ Mitchell / Jesse 1:1" */
+.db-badge-prefix {
+  flex: none;
+  color: var(--subtle-foreground);
+  font-weight: 400;
 }
 .db-bar {
   flex: none;
@@ -463,7 +473,7 @@ button.db-badge[data-variant='outline']:hover .db-badge-muted {
   color: var(--muted-foreground);
   font: 500 14px/20px var(--font-sans);
   text-align: left;
-  cursor: default;
+  cursor: pointer;
   outline: none;
 }
 .db-menu-item > svg {
@@ -1598,10 +1608,14 @@ button.db-badge[data-variant='outline']:hover .db-badge-muted {
 .dbl-row.dbl-sub {
   padding-left: 64px;
 }
+.dbl-row {
+  --dbl-row-tint: transparent;
+}
 .dbl-row:hover,
 .dbl-row[data-state='hover'],
 .dbl-row[data-menu-open] {
-  background: var(--row-hover);
+  --dbl-row-tint: var(--row-hover);
+  background: var(--dbl-row-tint);
 }
 /* the real selected state (option D); neighbours join into one block */
 .dbl-row[data-join-prev] {
@@ -1700,31 +1714,92 @@ button.db-badge[data-variant='outline']:hover .db-badge-muted {
    the last, and pointing at or focusing the stack spreads it out again */
 .dbl-stack {
   flex: none;
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: inherit;
   align-self: center;
 }
-.dbl-stack[data-stacked] {
-  gap: 0;
+.dbl-deck {
+  display: inline-flex;
+  align-items: center;
 }
-.dbl-stack[data-stacked] > :not(:last-child) {
+/* the space between pills is their right margin, so it animates with their width */
+.dbl-deck > :not(:last-child) {
   flex: none;
-  width: 30px;
-  margin-right: -4px;
+  margin-right: 6px;
   overflow: hidden;
 }
-.dbl-stack[data-stacked] > :not(:last-child) > * {
+.dbl-deck > :not(:last-child) > * {
   flex-shrink: 0;
 }
-.dbl-stack[data-stacked]:hover,
-.dbl-stack[data-stacked]:focus-within {
-  gap: inherit;
+.dbl-deck > :not(:last-child) > :last-child {
+  opacity: 1;
 }
-.dbl-stack[data-stacked]:hover > *,
-.dbl-stack[data-stacked]:focus-within > * {
+/* a pill behind the last shows a 26px edge (30px, 4px under the next pill) with its icon */
+.dbl-stack[data-stacked] .dbl-deck > :not(:last-child) {
+  width: 30px;
+  margin-right: -4px;
+}
+.dbl-stack[data-stacked] .dbl-deck > :not(:last-child) > :last-child {
+  opacity: 0;
+}
+/* stacking, unstacking, spreading and folding back animate; a row draws its first level still */
+.dbl-row[data-settled] .dbl-deck > :not(:last-child) {
+  transition:
+    width var(--duration-normal, 150ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
+    margin-right var(--duration-normal, 150ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+.dbl-row[data-settled] .dbl-deck > :not(:last-child) > :last-child {
+  transition: opacity var(--duration-normal, 150ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+/* spread (and folding back, data-closing): on top of the row; the pills behind grow to full
+   width, their labels and the ground fade in, a shifted deck slides there */
+.dbl-stack[data-spread] .dbl-deck {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  z-index: 2;
+  padding-left: 16px;
+  translate: 0 -50%;
+  transition:
+    right var(--duration-normal, 150ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
+    padding-right var(--duration-normal, 150ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+/* the row's ground (the page plus the hover tint), fading in over 16px; it fades faster than the
+   pills grow, so it is down before they reach what lies beneath */
+.dbl-stack[data-spread] .dbl-deck::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(to right, transparent, var(--dbl-row-tint) 16px),
+    linear-gradient(to right, transparent, var(--background) 16px);
+  transition: opacity var(--duration-fast, 100ms) var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1));
+}
+@starting-style {
+  .dbl-stack[data-spread] .dbl-deck::before {
+    opacity: 0;
+  }
+}
+.dbl-stack[data-closing] .dbl-deck::before {
+  opacity: 0;
+}
+.dbl-stack[data-spread] .dbl-deck[data-shifted] {
+  padding-right: 8px;
+}
+.dbl-stack[data-spread]:not([data-closing]) .dbl-deck > :not(:last-child) {
   width: auto;
-  margin-right: 0;
+  margin-right: 6px;
+}
+.dbl-stack[data-spread]:not([data-closing]) .dbl-deck > :not(:last-child) > :last-child {
+  opacity: 1;
+}
+/* width animates to auto */
+@media (prefers-reduced-motion: no-preference) {
+  .dbl-stack {
+    interpolate-size: allow-keywords;
+  }
 }
 .dbl-side {
   flex: none;
@@ -1765,6 +1840,9 @@ button.db-entity:hover {
 }
 button.db-entity:hover .db-badge-muted {
   color: var(--foreground);
+}
+button.db-entity:hover .db-badge-prefix {
+  color: var(--muted-foreground);
 }
 button.db-entity:active {
   background: color-mix(in oklab, var(--pill-fill-hover) 92%, var(--foreground));
@@ -2120,4 +2198,82 @@ button.db-entity:active {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* ---------- buttons: pressed (after the Nova layer, so it wins over its variant fills) ---------- */
+/* pressed: Nova's 1px press while held (a menu trigger stays put); a toggle that is on fills with
+   accent; a button whose menu is open keeps its hover look */
+.db-btn {
+  transition:
+    background-color 100ms,
+    color 100ms,
+    translate 100ms;
+}
+.db-btn:active:not([aria-haspopup]) {
+  translate: 0 1px;
+}
+.db-btn[aria-pressed='true'],
+.db-btn[data-pressed] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.db-btn[data-variant='outline'][data-popup-open],
+.db-btn[data-variant='ghost'][data-popup-open] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.db-btn[data-variant='default'][data-popup-open] {
+  background: color-mix(in oklab, var(--input) 50%, transparent);
+}
+
+/* ---------- IconButton: an icon-only button, named by its label and a tooltip ---------- */
+.db-icon-btn-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.db-icon-btn-tip {
+  position: absolute;
+  z-index: 30;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms;
+}
+.db-icon-btn-wrap[data-side='bottom'] .db-icon-btn-tip {
+  top: calc(100% + 4px);
+  left: 50%;
+  translate: -50% 0;
+}
+.db-icon-btn-wrap[data-side='top'] .db-icon-btn-tip {
+  bottom: calc(100% + 4px);
+  left: 50%;
+  translate: -50% 0;
+}
+.db-icon-btn-wrap[data-side='right'] .db-icon-btn-tip {
+  left: calc(100% + 4px);
+  top: 50%;
+  translate: 0 -50%;
+}
+.db-icon-btn-wrap[data-side='left'] .db-icon-btn-tip {
+  right: calc(100% + 4px);
+  top: 50%;
+  translate: 0 -50%;
+}
+/* it opens after 400ms of pointing (the Tooltip delay), at once on keyboard focus */
+.db-icon-btn-wrap:hover .db-icon-btn-tip {
+  opacity: 1;
+  transition-delay: 400ms;
+}
+.db-icon-btn-wrap:has(:focus-visible) .db-icon-btn-tip,
+.db-icon-btn-wrap[data-tooltip-open] .db-icon-btn-tip {
+  opacity: 1;
+}
+/* muted: rests in muted-foreground, lifts on hover, while its menu is open or while on */
+.db-btn.db-icon-btn-muted {
+  color: var(--muted-foreground);
+}
+.db-btn.db-icon-btn-muted:hover,
+.db-btn.db-icon-btn-muted[data-popup-open],
+.db-btn.db-icon-btn-muted[aria-pressed='true'] {
+  color: var(--foreground);
 }

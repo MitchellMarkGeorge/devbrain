@@ -1,0 +1,124 @@
+/* shadcn's Tabs. outline (the default): ToggleGroup's outline look, for page sections;
+   default: the segmented control; line: an underline. See docs/design-system/components/Tabs.md */
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.list {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+}
+.tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1-5);
+  border: 1px solid transparent;
+  background: transparent;
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+  outline: none;
+  transition:
+    background-color var(--duration-fast),
+    color var(--duration-fast);
+}
+.tab > svg {
+  width: 16px;
+  height: 16px;
+}
+.tab:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.tab[data-disabled] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.panel {
+  outline: none;
+}
+.indicator {
+  display: none;
+}
+
+/* ---------- outline: separate 32px outlined buttons, 8px apart; the current one fills with accent ---------- */
+.outline .list {
+  gap: var(--space-2);
+}
+.outline .tab {
+  height: var(--control-md);
+  padding: 0 10px;
+  border-color: var(--input);
+  border-radius: var(--radius-lg);
+  color: var(--foreground);
+}
+.outline .tab:hover {
+  background: color-mix(in oklab, var(--accent) 50%, transparent);
+}
+.outline .tab[data-active] {
+  background: var(--accent);
+}
+.outline .tab:focus-visible {
+  border-color: var(--ring);
+}
+
+/* ---------- default: the segmented control (a track with a secondary thumb) ---------- */
+.segmented .list {
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--background);
+}
+.segmented .tab {
+  height: 26px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  color: var(--muted-foreground);
+}
+.segmented .tab:hover {
+  color: var(--foreground);
+}
+.segmented .tab[data-active] {
+  background: var(--secondary);
+  color: var(--foreground);
+  box-shadow: var(--shadow-segment);
+}
+
+/* ---------- line: a 2px foreground underline on the active tab, a border line beneath ---------- */
+.line .list {
+  display: flex;
+  width: auto;
+  gap: var(--space-6);
+  border-bottom: 1px solid var(--border);
+}
+.line .tab {
+  padding: 0 0 var(--space-2);
+  border-width: 0;
+  border-radius: 0;
+  color: var(--muted-foreground);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+}
+.line .tab:hover,
+.line .tab[data-active] {
+  color: var(--foreground-strong);
+}
+.line .tab:focus-visible {
+  border-radius: var(--radius-xs);
+}
+.line .indicator {
+  display: block;
+  position: absolute;
+  bottom: -1px;
+  left: var(--active-tab-left);
+  width: var(--active-tab-width);
+  height: 2px;
+  background: var(--foreground);
+  transition:
+    left var(--duration-normal) var(--ease-out),
+    width var(--duration-normal) var(--ease-out);
+}

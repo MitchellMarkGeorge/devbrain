@@ -4,20 +4,27 @@ The design system for the DevBrain app. It was developed as "DevBrain Nova Lists
 [first DevBrain design system](archive/devbrain-v1/README.md) and
 [DevBrain Nova](archive/nova/README.md), which are kept in `archive/` for reference.
 
-The live, browsable version (every component with a preview, tokens and this brand book):
-https://claude.ai/artifact/9ZGwb8KzWqLyDsnPnoTLav
+## Source of truth
+
+**The code is the single source of truth**: this README and the guides in `components/`, the
+tokens in `tokens.json`, and the components in `src/renderer/components/` with their Storybook
+stories (`npm run storybook`), which are the browsable version. A change to the design lands in
+the component, its stories and its guide together. The Figma file and the
+[Claude design-system page](https://claude.ai/artifact/9ZGwb8KzWqLyDsnPnoTLav) follow the code;
+both are behind it today (the Claude page predates the Figma audit of Nov 2026). See `CLAUDE.md`.
 
 ## Files
 
-- `tokens.json`: the token source, and the only file here the app uses. `npm run tokens` generates
+- `tokens.json`: every token, and the only file here the app uses. `npm run tokens` generates
   `src/renderer/styles/tokens.css` from it.
-- `components/`: the usage guide for each component.
-- `reference/`: the stylesheet and preview components behind the design system page, for
-  reference only; nothing imports them. `bundle.css` is how every component looks, `bundle.js`
-  draws each one as a small React stand-in and `index.d.ts` lists their props. The app builds its
-  own components in `src/` (Base UI and CSS Modules, styled with the tokens) to match them.
-- The implementation notes in the [v1 spec](archive/devbrain-v1/README.md) (Base UI parts, the
-  `data-variant`/`data-size` Button pattern, styling without Tailwind) still apply.
+- `components/`: the guide for each component, describing what the component in
+  `src/renderer/components/` does.
+- `reference/`: superseded and out of date. The stylesheet and React stand-ins behind the Claude
+  design-system page, kept until that page is synced from the code; nothing imports them, and
+  nothing should be built from them.
+- `archive/`: superseded systems. The implementation notes in the
+  [v1 spec](archive/devbrain-v1/README.md) (Base UI parts, styling without Tailwind) still apply,
+  except that variants are now `cva` classes rather than `data-variant`/`data-size` styles.
 
 DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs and signature components, plus the quiet list behaviours. (It was developed as "DevBrain Nova Lists" and replaces the first DevBrain system and DevBrain Nova.) Everything you see outside a list is Nova (its sizes, type, corners, outlines, quiet buttons, entity pills, sidebar and toolbar); lists drop their strokes and gain a clickable status, a real selected state, whole-row focus, a grouped layout and a calmer board card.
 
@@ -31,9 +38,9 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - **Edges.** Raised surfaces (cards, menus, popovers, dialogs, sheets, toasts) take the translucent `edge` outline, Nova's `ring-foreground/10`, instead of a solid line, so they read on any ground.
 - **Lines are translucent.** In dark, `border` is `foreground` at 10% and `input` at 15%, as shadcn's white at 10% and 15%: a divider, a field or a pill outline shows on the page, on a card and on a hovered row alike.
 - **Cards are filled.** `card` is `neutral-900` in dark (shadcn's card) and `neutral-50` on the white page in light, outlined with `edge`.
-- **Fields.** Inputs and checkboxes sit on an `input` fill at 30% with an `input` outline, so they are findable at rest.
+- **Fields.** Inputs, selects, checkboxes and the quiet default button sit on `input-fill` (`foreground` at 5% in dark, none in light) with an `input` outline, so they are findable at rest.
 - **Destructive.** `destructive` is a red tint (20%) with red text, never a solid red.
-- **Dialogs.** 16px padding and gap, 384px wide, with the actions in a footer band (`muted` at 50% over a `border` line).
+- **Dialogs.** 16px padding and gap, 384px wide, with the actions in a footer band (`muted` at 50% over a `border-strong` line). They hang about 160px from the top of the window (create dialogs 140px, the ⌘K search 120px), centred on the whole window, ignoring the sidebar (Figma centres them over the page beside it; the window was chosen instead).
 - **Focus.** shadcn's ring, unchanged: the border turns `ring` with a 3px `ring` halo at 50%.
 
 **Kept from DevBrain** (these make it DevBrain, not stock shadcn):
@@ -43,7 +50,7 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - **The logomark.**
 - **Glyphs.** `StatusIcon`, `PriorityIcon`, `HealthIcon` and `ProgressRing`, each status with its own shape and colour.
 - **The quiet default button.** `default` is still DevBrain's quiet bordered button, drawn as Nova's dark outline button; the filled style stays `primary`, rarely used.
-- **Entity pills.** Every relation is an outlined pill (shadcn's outline badge) filled with the page colour (`pill-fill`), with an entity icon or the calendar's colour bar.
+- **Entity pills.** Every relation is an outlined pill (shadcn's outline badge) with an entity icon or the calendar's colour bar. Its fill (`pill-fill`) is none in dark, so the outline alone marks it, and white in light, a chip on cards and hovered rows (in dark it was the page colour until Nov 2026).
 - **The segmented control.** `ToggleGroup` is outlined segments on the page colour (Nova's are a muted track), for quick choices: views, calendar range, settings values.
 - **Section switchers.** Page sections (Settings, a project's Overview / Tasks / Notes) use `Tabs` drawn as shadcn's outline ToggleGroup, and so does the search dialog's type filter: separate outlined buttons 8px apart, the current one filled in `accent`.
 - **The dark tooltip.** Nova inverts tooltips; DevBrain keeps them dark with an outline.
@@ -68,10 +75,10 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - **Title first.** The task name leads, then pills: a synced task's `SourcePill` (provider logo and key), a subtask's parent pill, and the subtask count (`ProgressRing` and "3/4"). Entity pills, priority and date stay on the right, as in Nova.
 - **The status icon is a button.** Clicking it, or pressing `S` on a focused row, opens the `StatusMenu`; `1`, `2`, `3` pick. Overdue shows as the flag until the task is started or done.
 - **Leading control.** The selection checkbox lives in a strip left of the status icon. It appears on hover and keyboard focus, and on every row once anything is selected. `X` toggles the focused row.
-- **Row states.** Rest, hover (`row-selected`, the selected tint), selected (`row-selected` with `row-selected-foreground` titles; neighbouring selected rows join into one block), keyboard focus (Nova's ring around the whole row), completed (struck through in `muted-foreground`), overdue (flag and `date-overdue`), subtask (indented).
+- **Row states.** Rest, hover (`row-selected`, the selected tint), selected (`row-selected` with `row-selected-foreground` titles; neighbouring selected rows join into one block), keyboard focus (the hover tint with a 1px `ring` outline around the whole row, no halo), completed (the title in `muted-foreground`, not struck through), overdue (flag and `date-overdue`), subtask (indented).
 - **Selection bar.** While rows are selected, a `SelectionBar` floats over the bottom of the list: the count, then Status, Priority, Due date, Move, more, and clear.
 - **Grouped list.** `GroupHeading` is a tile, a title over a subtitle ("Overdue · Oldest due Sep 28", "Mitchell / Jesse 1:1 · Event · Today, 10:00 AM"), an xs "Add task", done/total and a progress bar.
-- **Board.** Open `BoardColumn`s (no panel, 24px apart) hold borderless filled `BoardCard`s (`card`): the linked event or note as a quiet line, the title, then one line of priority, subtasks, project and date. Hover lightens the card and adds an outline; completed cards go darker; each open column ends with a dashed "Add task" slot.
+- **Board.** Open `BoardColumn`s (no panel, 24px apart) hold borderless filled `BoardCard`s (`card`): the title, then the task's relations as the same pills a task row uses (source, subtasks, event or note, project), wrapping as needed, then priority and the date. Hover lightens the card, with no outline; completed cards go darker; each open column ends with a dashed "Add task" slot.
 - **Toolbar values.** Toolbar buttons show their current choice after the label ("Filter Assigned to me", "Sort Due date"), still Nova's quiet button. The main action stays the quiet `default` "New Task", not `primary`. In compact windows the values hide (the label stays, an active filter shows as the pressed state, the value moves to the tooltip).
 - **Pills stack when a row runs out of room.** On each side of the title the pills overlap like a deck: the last shows in full, the ones behind show their edge and icon, and the row keeps its 48px. Pointing at a stack (or focusing it) spreads it out over the end of the title until the pointer leaves. Priority, the date and the status icon never give way; the title shortens only after the pills have stacked.
 
@@ -91,7 +98,7 @@ The window is never smaller than `window-min-width` × `window-min-height` (960 
 
 Two kinds of page, one rule each:
 
-- **Document pages centre a capped column**, like Notion: a note and a task at `content-max-width` (720px), Settings and Integrations at 760px. The header (breadcrumb, star, "…" menu) still spans the page; on a wide window the margins grow and the column keeps its width. Menus anchored to the content (the slash menu, pickers under the property pills) move with it.
+- **Document pages centre a capped column**, like Notion: a note and a task at `content-max-width` (720px), Settings and Integrations too. The header (breadcrumb, star, "…" menu) still spans the page; on a wide window the margins grow and the column keeps its width. Menus anchored to the content (the slash menu, pickers under the property pills) move with it.
 - **Workspace pages use the full width**: lists, the board, the calendar, Home, and a project's page (its 1056px column of task groups and tabs nearly fills the window already).
 
 ## How this system is built
@@ -119,6 +126,7 @@ Two kinds of page, one rule each:
 - **Workspace tiles** sit on the 900 step of their swatch (`swatch-*-tile`), so a 20px tile reads as colour; the white letter stays above 9:1.
 - **Group heading tiles** take a 15% tint of the group's colour (`swatch-*-tint`, `status-*-tint`) behind the icon at full strength.
 - Status colours keep one meaning each (`status-*`, `priority-*`, `health-*`, `date-today`, `date-overdue`), each with its own icon shape. Users pick from the six `swatch-*` colours, shown as 3px bars, dots and swatches.
+- **Derived colours say what they derive from.** In `tokens.json` a translucent token is written as a recipe, `{foreground} / 10%` (another token at an opacity, as Tailwind's `foreground/10`), not as the numbers it comes to; the generator writes it as `color-mix(in srgb, var(--foreground) 10%, transparent)`. So `border` reads `{foreground} / 10%` beside shadcn's white at 10%, a tint follows its colour, and how a token differs from shadcn shows in the token itself. Components derive states the same way at the point of use (`color-mix(in oklab, var(--ring) 50%, transparent)` for shadcn's `ring/50`).
 
 ## Type
 
@@ -131,7 +139,7 @@ Two kinds of page, one rule each:
 - 4px spacing scale (`space-*`).
 - Heights: `control-xs` (24px) pills and xs buttons, `control-sm` (28px) sm buttons and menu items, `control-md` (32px) buttons, inputs, segmented controls and sidebar items, `control-lg` (36px) lg buttons, `row-height` (48px) and `group-gap` (32px) for list density, `group-height` (36px).
 - Corners: `radius-md` (8px) inside controls, `radius-lg` (10px) controls and menus, `radius-xl` (14px) surfaces, `radius-full` pills.
-- Shadows only on floating layers: `shadow-md` for menus and tooltips, `shadow-2xl` for dialogs, sheets and toasts.
+- Shadows only on floating layers: `shadow-md` for menus and tooltips, `shadow-2xl` for dialogs, sheets and toasts. The exceptions are `shadow-segment`, under the current segment of a segmented control, and `shadow-pinned`, under the sidebar's pinned header while content is scrolled beneath it.
 - Layout: a `sidebar-width` (256px) sidebar, or the `sidebar-rail-width` (56px) rail in compact windows; lists run edge to edge; details open in a `sheet-width` (380px) panel docked on the right, and the page narrows beside it (an overlay only in narrow windows).
 
 ## Components
@@ -148,4 +156,6 @@ Two kinds of page, one rule each:
 
 ## Motion
 
-- 100ms for hover and press; menus, popovers and tooltips fade and zoom from 95% in 150ms (Nova's `zoom-in-95`); dialogs, sheets and toasts in 250ms. Nothing moves under `prefers-reduced-motion`.
+- 100ms for hover and press; menus, popovers and tooltips fade and zoom from 95% in 150ms (Nova's `zoom-in-95`). These use `ease-out`, which is nearly done in the first fifth of the time: right for small popups.
+- Large surfaces take 250ms on `ease-surface` (ease-out-cubic, halfway at a fifth of the time), so their motion reads, opening and closing alike: dialogs (and the ⌘K search) fade in as they rise 8px and grow from 96% over a fading scrim; sheets slide in from the right (docked, the page narrowing with them; or floating over a fading scrim); the sidebar collapses to the rail and back (its width slides, its content fades in), and in compact windows its drawer widens out of the rail over the page; toasts rise in from below the window's edge as they fade in, the stack shifting back and spreading on the same curve, and leave by fading where they are (the front one sinking back below the edge).
+- Nothing moves under `prefers-reduced-motion`.

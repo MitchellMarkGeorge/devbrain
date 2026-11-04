@@ -1,0 +1,104 @@
+/* A task's note under its subtasks. See "The task note card" in docs/design-system/components/PropertyRow.md */
+.card {
+  container: task-note-card / inline-size;
+  position: relative;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  color: var(--card-foreground);
+  transition: background-color var(--duration-fast);
+}
+.card:hover {
+  background: var(--accent);
+}
+/* keyboard focus on the title rings the whole card */
+.card:has(.title:focus-visible) {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+/* one row, like a task row: icon, title, then pills and the edit time on the right */
+.inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+.icon {
+  flex: none;
+  color: var(--muted-foreground);
+}
+.body {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.title {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.title:focus-visible {
+  outline: none;
+}
+/* the title opens the note from anywhere on the card; the pills sit above it */
+.title::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.pills {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+}
+.time {
+  flex: none;
+  color: var(--subtle-foreground);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* stacked, in a narrow side sheet: the pills go on a second line under the title */
+.card[data-layout='stacked'] .body {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+}
+.card[data-layout='stacked'] .title {
+  flex: none;
+}
+.card[data-layout='stacked'] .pills {
+  flex: 1;
+}
+@container task-note-card (max-width: 440px) {
+  .card[data-layout='auto'] .body {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-1);
+  }
+  .card[data-layout='auto'] .title {
+    flex: none;
+  }
+  .card[data-layout='auto'] .pills {
+    flex: 1;
+  }
+}

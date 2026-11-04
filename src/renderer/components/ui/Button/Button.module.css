@@ -1,0 +1,186 @@
+/* shadcn's Button on Nova's sizes, with DevBrain's quiet default. See docs/design-system/components/Button.md */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  gap: var(--space-1-5);
+  height: var(--control-md);
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--secondary-foreground);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast),
+    color var(--duration-fast),
+    translate var(--duration-fast);
+}
+/* pressed: Nova's 1px press while the pointer is down; a menu trigger stays put as its menu opens */
+.button:active:not([aria-haspopup]) {
+  translate: 0 1px;
+}
+.button > svg {
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+.button:focus-visible {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.button[data-disabled] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* variants */
+.default {
+  background: var(--input-fill);
+  border-color: var(--input);
+}
+.default:hover {
+  background: color-mix(in oklab, var(--input) 50%, transparent);
+}
+.primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.primary:hover {
+  background: color-mix(in oklab, var(--primary) 80%, transparent);
+}
+.secondary {
+  background: var(--secondary);
+}
+.secondary:hover {
+  background: color-mix(in oklab, var(--border-strong) 50%, var(--secondary));
+}
+.outline {
+  background: var(--background);
+  border-color: var(--border);
+}
+.outline:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.ghost {
+  color: var(--foreground);
+}
+.ghost:hover {
+  background: color-mix(in oklab, var(--muted) 50%, transparent);
+  color: var(--accent-foreground);
+}
+/* Nova's destructive: a tint, never a solid red */
+.destructive {
+  background: color-mix(in oklab, var(--destructive) 20%, transparent);
+  color: var(--destructive);
+}
+.destructive:hover {
+  background: color-mix(in oklab, var(--destructive) 30%, transparent);
+}
+.link {
+  height: auto;
+  padding: 0;
+  color: var(--muted-foreground);
+}
+.link:hover {
+  color: var(--foreground);
+}
+
+/*
+ * On: a toggle that is on (`aria-pressed`, or Base UI's `data-pressed`), like a toolbar filter
+ * that is set, fills with `accent`. A button whose menu or popover is open (`data-popup-open`)
+ * keeps its hover look while it is open.
+ */
+.button[aria-pressed='true'],
+.button[data-pressed] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.default[data-popup-open] {
+  background: color-mix(in oklab, var(--input) 50%, transparent);
+}
+.secondary[data-popup-open] {
+  background: color-mix(in oklab, var(--border-strong) 50%, var(--secondary));
+}
+.outline[data-popup-open] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.ghost[data-popup-open] {
+  background: color-mix(in oklab, var(--muted) 50%, transparent);
+  color: var(--accent-foreground);
+}
+.destructive[data-popup-open] {
+  background: color-mix(in oklab, var(--destructive) 30%, transparent);
+}
+
+/* sizes */
+.sizeSm {
+  height: var(--control-sm);
+  gap: var(--space-1);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+}
+.sizeLg {
+  height: var(--control-lg);
+}
+.sizeXs {
+  height: var(--control-xs);
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+}
+.sizeXs > svg,
+.sizeIconXs > svg {
+  width: 12px;
+  height: 12px;
+}
+.sizeIcon {
+  width: var(--control-md);
+  padding: 0;
+}
+.sizeIconSm {
+  width: var(--control-sm);
+  height: var(--control-sm);
+  padding: 0;
+  border-radius: var(--radius-md);
+}
+.sizeIconXs {
+  width: var(--control-xs);
+  height: var(--control-xs);
+  padding: 0;
+  border-radius: var(--radius-md);
+}
+/* the link variant keeps its own height at every size */
+.link.sizeSm,
+.link.sizeLg,
+.link.sizeXs {
+  height: auto;
+  padding: 0;
+}
+
+/* toolbar buttons that show their current choice: "Filter  Assigned to me" */
+.label {
+  color: var(--muted-foreground);
+  font-weight: var(--font-weight-normal);
+}
+.value {
+  color: var(--foreground);
+  font-weight: var(--font-weight-medium);
+}
+/* the compact toolbar: the value is hidden but still read out */
+.hiddenValue {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

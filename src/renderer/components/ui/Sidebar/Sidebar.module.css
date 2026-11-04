@@ -1,0 +1,429 @@
+/* shadcn's Sidebar, laid out as in Figma. See docs/design-system/components/Sidebar.md */
+.sidebar {
+  --sidebar-gap: var(--space-4);
+  --sidebar-inset: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sidebar-gap);
+  width: var(--sidebar-width);
+  max-width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0 var(--sidebar-inset) var(--space-3);
+  border-right: 1px solid var(--sidebar-border);
+  background: var(--sidebar);
+  color: var(--sidebar-foreground);
+  /*
+   * Collapsing and expanding slide the width (the page beside it follows) and fade the content as
+   * it swaps between the two layouts (Sidebar plays the fade). The page icons sit 20px in, in
+   * both, so they hold still while the width slides. Instant under reduced motion.
+   */
+  overflow-x: hidden;
+  /*
+   * Below the pinned rows (the window row, then the workspace switcher with search and new), the
+   * pages, Recents, Favorites and the footer scroll together when the window is too short for
+   * them. No scrollbar, so the rail's 40px items keep their width; it scrolls by wheel or trackpad.
+   */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  /* the padding snaps, so the icons stay exactly 20px in throughout */
+  /*
+   * No background-color transition: on a scrolling element Chromium can leave it painted in the
+   * old colour once a theme switch has transitioned it (the light rail stayed white in dark).
+   */
+  transition:
+    width var(--duration-slow) var(--ease-surface),
+    border-color var(--duration-slow) var(--ease-surface);
+}
+/*
+ * outside an AppShell (no window row) it keeps 8px above the header. The header carries it, as
+ * a pinned header stops at the sidebar's own padding and items would show through above it.
+ */
+.sidebar:not(:has(> .windowRow)):not([data-collapsed]) > .header {
+  padding-top: var(--space-2);
+}
+/*
+ * The 56px icon rail: 8px sides around the 40px items, 12px between blocks. Its blocks sit at the
+ * left (centred, as they are 40px wide in 40px), so they don't drift while the width slides.
+ * It sits under the window bar, on the page colour with no hairline, so the two read as one frame
+ * around the page (a hairline starting under the bar looked cut off).
+ */
+.sidebar[data-collapsed] {
+  --sidebar-gap: var(--space-3);
+  --sidebar-inset: var(--space-2);
+  width: var(--sidebar-rail-width);
+  border-right-color: transparent;
+  background: var(--background);
+  align-items: flex-start;
+  padding: 0 var(--sidebar-inset) var(--space-3);
+}
+
+/* ---------- the window row: traffic lights, then toggle, back, forward at the right ---------- */
+.windowRow {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 44px;
+  padding-left: var(--space-1);
+  -webkit-app-region: drag;
+}
+.windowRow button {
+  -webkit-app-region: no-drag;
+}
+.lights {
+  margin-right: auto;
+}
+
+/*
+ * The window row and the header stay put while the rest scrolls under them. Each takes the
+ * sidebar's own background and reaches over the gap below it (a padding the margin takes back),
+ * so items slide out of sight under its edge rather than showing through the gap.
+ */
+.windowRow,
+.header {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  margin-bottom: calc(-1 * var(--sidebar-gap));
+  padding-bottom: var(--sidebar-gap);
+  background: inherit;
+}
+/*
+ * while anything is scrolled under it, the header casts a shadow over it, from edge to edge: it
+ * reaches over the sidebar's side padding (its content stays where it was)
+ */
+.header {
+  align-self: stretch;
+  margin-inline: calc(-1 * var(--sidebar-inset));
+  padding-inline: var(--sidebar-inset);
+  transition: box-shadow var(--duration-normal) var(--ease-out);
+}
+.sidebar[data-scrolled] .header {
+  box-shadow: var(--shadow-pinned);
+}
+
+/* the ScrollThumb inside is placed against the sidebar */
+.sidebar {
+  position: relative;
+}
+/* its 44px is the row itself, under the padding */
+.windowRow {
+  box-sizing: content-box;
+}
+.windowRow + .header {
+  top: calc(44px + var(--sidebar-gap));
+}
+/* the rail's 4px above the header, carried by the header for the same reason */
+.sidebar[data-collapsed] > .header:first-child {
+  padding-top: var(--space-1);
+}
+
+/* ---------- header: workspace switcher, search and new ---------- */
+.header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.sidebar[data-collapsed] .header {
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.workspace {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: var(--control-sm);
+  margin-right: auto;
+  padding: 0 var(--space-1) 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--foreground);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  cursor: pointer;
+  transition: background-color var(--duration-fast);
+}
+.workspace:hover {
+  background: var(--sidebar-accent);
+}
+/* pressed while its menu is open */
+.workspace[data-popup-open] {
+  background: var(--accent);
+}
+.workspace:focus-visible,
+.action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--sidebar-ring) 50%, transparent);
+}
+.workspaceName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chevron {
+  flex: none;
+  color: var(--muted-foreground);
+}
+.sidebar[data-collapsed] .workspace {
+  justify-content: center;
+  width: 40px;
+  height: var(--control-md);
+  margin: 0;
+  padding: 0;
+}
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.sidebar[data-collapsed] .headerActions {
+  flex-direction: column;
+  gap: var(--space-1);
+}
+/* search and new: 28px icon buttons; 40×32 rail items in the rail */
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast),
+    color var(--duration-fast);
+}
+.action:hover,
+.action[data-popup-open] {
+  background: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+}
+.sidebar[data-collapsed] .action {
+  width: 40px;
+  height: var(--control-md);
+  color: var(--sidebar-foreground);
+}
+.tooltipLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ---------- the rail's 24px hairlines; hidden in the full sidebar ---------- */
+.separator {
+  display: none;
+  flex: none;
+  width: 24px;
+  height: 1px;
+  background: var(--border);
+}
+.sidebar[data-collapsed] .separator,
+.sidebar[data-collapsed] .contentInner > .separator {
+  display: block;
+  margin-left: var(--space-2);
+}
+
+/* ---------- the middle: the pages, Recents and Favorites ---------- */
+.content {
+  /* takes the spare height (keeping the footer at the bottom), and grows with its items */
+  flex: 1 0 auto;
+  width: 100%;
+}
+.contentInner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.sidebar[data-collapsed] .contentInner {
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+/* the rail's Recents and Favorites icons sit together, 2px apart */
+.sidebar[data-collapsed] .contentInner > .group + .group {
+  margin-top: -10px;
+}
+/* ---------- groups ---------- */
+.group {
+  display: flex;
+  flex-direction: column;
+}
+/* Recents and Favorites stack their items edge to edge; the main navigation keeps 2px */
+.menu {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.menu[data-main],
+.sidebar[data-collapsed] .menu {
+  gap: var(--space-0-5);
+}
+.sidebar[data-collapsed] .menu {
+  align-items: flex-start;
+}
+/* Nova's 32px group label: 12px medium at 70% */
+.groupLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  height: var(--control-md);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: color-mix(in oklab, var(--sidebar-foreground) 70%, transparent);
+  font: var(--font-weight-medium) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  text-align: left;
+}
+button.groupLabel {
+  cursor: pointer;
+}
+button.groupLabel:hover {
+  color: var(--sidebar-foreground);
+}
+button.groupLabel:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.groupChevron {
+  opacity: 0;
+  transition:
+    transform var(--duration-fast),
+    opacity var(--duration-fast);
+}
+.groupLabel:hover .groupChevron,
+.groupLabel:focus-visible .groupChevron {
+  opacity: 1;
+}
+.groupLabel[data-panel-open] .groupChevron {
+  transform: rotate(90deg);
+}
+.panel {
+  overflow: hidden;
+  height: var(--collapsible-panel-height);
+  transition: height var(--duration-normal) var(--ease-out);
+}
+.panel[data-starting-style],
+.panel[data-ending-style] {
+  height: 0;
+}
+/* Recents or Favorites opened from the rail: the full items in a 240px popover */
+.railPopover {
+  width: 240px;
+  padding: var(--space-1);
+  color: var(--sidebar-foreground);
+}
+
+/* ---------- items ---------- */
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: var(--control-md);
+  padding: 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  text-align: left;
+  text-decoration: none;
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast),
+    color var(--duration-fast);
+}
+.item:hover,
+.item[data-popup-open] {
+  background: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+}
+/* the outline is drawn inside, so labels line up whether or not an item is current */
+.item[data-active] {
+  background: var(--sidebar-accent);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
+  color: var(--sidebar-accent-foreground);
+}
+.item:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1px var(--sidebar-ring),
+    0 0 0 3px color-mix(in oklab, var(--sidebar-ring) 50%, transparent);
+}
+.item > svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+.itemIcon {
+  flex: none;
+  display: inline-flex;
+  color: var(--item-icon-color, currentColor);
+}
+/* swatch colours darken on white so green and amber folders keep 3:1 */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) .itemIcon[data-coloured] {
+    filter: brightness(0.72);
+  }
+}
+:root[data-theme='light'] .itemIcon[data-coloured] {
+  filter: brightness(0.72);
+}
+/* an event's ColourBar, centred in the 16px icon slot */
+.itemBar {
+  flex: none;
+  display: inline-flex;
+  justify-content: center;
+  width: 16px;
+}
+.itemLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* RailItem: 40×32, the icon centred */
+.sidebar[data-collapsed] .item {
+  justify-content: center;
+  flex: none;
+  width: 40px;
+  padding: 0;
+}
+/* the rail keeps the label for screen readers; the tooltip shows it */
+.sidebar[data-collapsed] .itemLabel,
+.sidebar[data-collapsed] .workspaceName {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+.sidebar[data-collapsed] .chevron {
+  display: none;
+}
+
+/* ---------- footer: sync status, Trash, Settings and Help ---------- */
+.footer {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  width: 100%;
+}
+.sidebar[data-collapsed] .footer {
+  align-items: flex-start;
+}

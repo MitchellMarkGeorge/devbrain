@@ -1,0 +1,36 @@
+/* The top of a project's overview. See docs/design-system/components/ProjectHeader.md */
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+}
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.title {
+  margin: 0;
+  color: var(--foreground-strong);
+  font: var(--font-weight-semibold) var(--text-2xl) / var(--text-2xl-leading) var(--font-sans);
+}
+.properties {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+.dot {
+  padding: 0 var(--space-1-5);
+}
+.description {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  color: var(--foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+.description > p {
+  margin: 0;
+}

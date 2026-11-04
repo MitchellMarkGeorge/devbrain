@@ -1,0 +1,250 @@
+/*
+ * One task in a strokeless list. See docs/design-system/components/TaskRow.md and the README's
+ * "Lists". The 36px left padding is the strip the selection checkbox appears in.
+ */
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--row-height);
+  padding: 0 var(--space-3) 0 36px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--foreground-strong);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  outline: none;
+  cursor: default;
+  transition: background-color var(--duration-fast);
+}
+/* a subtask is indented under its parent */
+.subtask {
+  padding-left: 64px;
+}
+
+/* hover and selected share the row-selected tint; selected also brightens the title */
+.row {
+  --row-tint: transparent;
+}
+.row:hover,
+.row[data-state='hover'],
+.row[data-menu-open],
+.row[data-selected],
+.row:focus-visible,
+.row[data-state='focus'] {
+  --row-tint: var(--row-selected);
+  background: var(--row-tint);
+}
+.row[data-selected] .name {
+  color: var(--row-selected-foreground);
+}
+/* neighbouring selected rows join into one block */
+.row[data-join-prev] {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.row[data-join-next] {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+/* keyboard focus: the hover tint, outlined with the ring colour (a 1px line, no halo) */
+.row:focus-visible,
+.row[data-state='focus'] {
+  z-index: 1;
+  border-color: var(--ring);
+}
+
+/* the leading strip: the checkbox shows on hover, focus, and on every row while selecting */
+.check {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  margin-top: -8px;
+  display: none;
+}
+.subtask .check {
+  left: 36px;
+}
+.row:hover .check,
+.row:focus-visible .check,
+.row:focus-within .check,
+.row[data-state] .check,
+.row[data-selected] .check,
+.row[data-selecting] .check {
+  display: inline-grid;
+}
+
+/* the status icon is a button that opens the status menu */
+.status {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  /* 36px from the row's outer edge, past its 1px border */
+  margin-left: -1px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.status:hover,
+.status[data-popup-open] {
+  background: color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+.status:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+/* the title first, then its pills */
+.title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.row[data-completed] .name {
+  color: var(--muted-foreground);
+}
+
+/*
+ * The pills on one side of the title. Stacked, the ones behind the last show a 26px edge with
+ * their icon (30px, 4px under the next pill) and hide their label. Pointing at or focusing the
+ * stack spreads it out on top of the row: the stack keeps its stacked width (set inline), and the
+ * deck grows leftwards from its right edge over the end of the title, on the row's own ground so
+ * nothing beneath shows between the pills (a deck shifted right slides there).
+ *
+ * Stacking, unstacking, spreading and folding back all animate the same way: the pills behind grow
+ * or shrink between full width and their edge (the space between pills is their right margin, so
+ * it animates too) and their labels fade. Rows draw their first level still (`data-settled` comes
+ * after it). Durations come from the motion tokens, which are 0 under reduced motion.
+ */
+.stack {
+  flex: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.deck {
+  display: inline-flex;
+  align-items: center;
+}
+/*
+ * Stacked pills overlap, so each is opaque: its own fill (none in dark) over the row's tint over
+ * the page, the ground it would show anyway. A pill behind then stays hidden under the next one.
+ */
+.stack .deck > * {
+  background:
+    linear-gradient(var(--pill-fill), var(--pill-fill)),
+    linear-gradient(var(--row-tint), var(--row-tint)), var(--background);
+}
+.deck > :not(:last-child) {
+  flex: none;
+  margin-right: var(--space-1-5);
+  overflow: hidden;
+}
+.deck > :not(:last-child) > * {
+  flex-shrink: 0;
+}
+.deck > :not(:last-child) > :last-child {
+  opacity: 1;
+}
+.stack[data-stacked] .deck > :not(:last-child) {
+  width: 30px;
+  margin-right: -4px;
+}
+/* the label of a pill behind: its edge shows the icon alone */
+.stack[data-stacked] .deck > :not(:last-child) > :last-child {
+  opacity: 0;
+}
+.row[data-settled] .deck > :not(:last-child) {
+  transition:
+    width var(--duration-normal) var(--ease-out),
+    margin-right var(--duration-normal) var(--ease-out);
+}
+.row[data-settled] .deck > :not(:last-child) > :last-child {
+  transition: opacity var(--duration-normal) var(--ease-out);
+}
+
+/* spread (and folding back): on top of the row */
+.stack[data-spread] .deck {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  z-index: 2;
+  padding-left: var(--space-4);
+  translate: 0 -50%;
+  transition:
+    right var(--duration-normal) var(--ease-out),
+    padding-right var(--duration-normal) var(--ease-out);
+}
+/* the row's ground (the page, plus the hover or selected tint), fading in over 16px */
+.stack[data-spread] .deck::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(to right, transparent, var(--row-tint) var(--space-4)),
+    linear-gradient(to right, transparent, var(--background) var(--space-4));
+  /* faster than the pills grow, so it is down before they reach what lies beneath */
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+@starting-style {
+  .stack[data-spread] .deck::before {
+    opacity: 0;
+  }
+}
+.stack[data-closing] .deck::before {
+  opacity: 0;
+}
+.stack[data-spread] .deck[data-shifted] {
+  padding-right: var(--space-2);
+}
+.stack[data-spread]:not([data-closing]) .deck > :not(:last-child) {
+  width: auto;
+  margin-right: var(--space-1-5);
+}
+.stack[data-spread]:not([data-closing]) .deck > :not(:last-child) > :last-child {
+  opacity: 1;
+}
+
+/* entity pills, priority and the date on the right; these never give way */
+.side {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.priority {
+  display: grid;
+  place-items: center;
+  width: 20px;
+}
+.date {
+  min-width: 44px;
+  color: var(--subtle-foreground);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.today {
+  color: var(--date-today);
+}
+.overdue {
+  color: var(--date-overdue);
+}

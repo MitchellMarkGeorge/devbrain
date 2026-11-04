@@ -1,0 +1,13 @@
+/* A provider's mark as an icon. See docs/design-system/components/ProviderLogo.md */
+.logo {
+  flex: none;
+  display: inline-block;
+  vertical-align: middle;
+}
+/* Linear's brand neutrals: Mercury White in dark, Nordic Gray in light */
+.linear {
+  fill: var(--platform-linear-mark);
+}
+.github {
+  fill: var(--foreground-strong);
+}

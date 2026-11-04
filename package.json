@@ -28,7 +28,9 @@
     "rebuild:node": "npm rebuild better-sqlite3",
     "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
     "test": "tsx scripts/vitest.mts run",
-    "test:watch": "tsx scripts/vitest.mts"
+    "test:watch": "tsx scripts/vitest.mts",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build -o dist/storybook"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -42,6 +44,7 @@
   "devDependencies": {
     "@electron/rebuild": "^4.1.0",
     "@eslint/js": "^9.39.4",
+    "@storybook/react-vite": "^10.6.5",
     "@types/better-sqlite3": "^7.6.13",
     "@types/luxon": "^3.7.6",
     "@types/node": "^26.0.1",
@@ -56,10 +59,12 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-storybook": "^10.6.5",
     "globals": "^17.6.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.7",
     "prettier": "^3.8.4",
+    "storybook": "^10.6.5",
     "tsx": "^4.22.4",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.61.1",
@@ -70,6 +75,7 @@
     "node": ">=24.0.0"
   },
   "dependencies": {
+    "@base-ui/react": "^1.9.0",
     "@dotenvx/dotenvx": "^1.75.1",
     "@tanstack/react-query": "^5.105.0",
     "@trpc/client": "^11.22.1",
@@ -77,14 +83,18 @@
     "@trpc/tanstack-react-query": "^11.22.1",
     "atomically": "^2.1.1",
     "better-sqlite3": "^12.11.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "csv-parse": "^7.0.3",
     "drizzle-orm": "^0.45.2",
     "electron-log": "^5.4.4",
     "electron-store": "^11.0.2",
     "js-yaml": "^5.2.3",
     "junk": "^4.0.1",
+    "lucide-react": "^1.67.0",
     "luxon": "^3.7.2",
     "react": "^18.3.1",
+    "react-day-picker": "^10.0.2",
     "react-dom": "^18.3.1",
     "rrule": "^2.8.1",
     "turndown": "^7.2.4",

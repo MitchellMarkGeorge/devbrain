@@ -1,0 +1,16 @@
+/* Cards in equal columns. See docs/design-system/components/CardGrid.md */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(var(--card-columns), minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.grid[data-gap='md'] {
+  gap: var(--space-4);
+}
+/* one row only: the cards past the first row hide */
+.grid[data-single-row] {
+  grid-template-rows: auto;
+  grid-auto-rows: 0;
+  row-gap: 0;
+  overflow: hidden;
+}

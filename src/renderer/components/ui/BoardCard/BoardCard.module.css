@@ -1,0 +1,94 @@
+/* A task on the board. See docs/design-system/components/BoardCard.md */
+.card {
+  /* borderless filled card: `card`, lightened on hover, darker when completed */
+  --card-fill: var(--card);
+  --card-fill-hover: var(--accent);
+  --card-fill-done: color-mix(in oklab, var(--card) 50%, var(--background));
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  background: var(--card-fill);
+  color: var(--foreground);
+  text-align: left;
+  outline: none;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast),
+    border-color var(--duration-fast);
+}
+/* on white a borderless card needs a step more than `card` to show */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) .card {
+    --card-fill: var(--neutral-100);
+    --card-fill-hover: var(--neutral-200);
+    --card-fill-done: var(--neutral-50);
+  }
+}
+:root[data-theme='light'] .card {
+  --card-fill: var(--neutral-100);
+  --card-fill-hover: var(--neutral-200);
+  --card-fill-done: var(--neutral-50);
+}
+.card:hover,
+.card[data-state='hover'] {
+  background: var(--card-fill-hover);
+}
+.card:focus-visible,
+.card[data-state='focus'] {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.completed {
+  background: var(--card-fill-done);
+}
+.completed .title {
+  color: var(--muted-foreground);
+}
+
+/* the title leads */
+.title {
+  color: var(--foreground-strong);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  overflow-wrap: anywhere;
+}
+
+/* its relations, as the pills a task row uses, wrapping onto more lines as needed */
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  min-width: 0;
+}
+/* a long name ellipsises inside the card rather than overflowing it */
+.pills > * {
+  max-width: 100%;
+}
+
+/* priority, then the date on the right */
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: var(--text-xs-leading);
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.date {
+  flex: none;
+  margin-left: auto;
+  color: var(--subtle-foreground);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.date[data-tone='today'] {
+  color: var(--date-today);
+}
+.date[data-tone='overdue'] {
+  color: var(--date-overdue);
+}

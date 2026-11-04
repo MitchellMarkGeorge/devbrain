@@ -1,0 +1,64 @@
+/* The macOS title-bar strip. See docs/design-system/components/WindowBar.md */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 48px;
+  min-width: 0;
+  padding: 0 var(--space-6) 0 var(--space-4);
+  background: var(--background);
+  -webkit-app-region: drag;
+}
+.bar button,
+.bar a,
+.bar input,
+.bar [role='button'] {
+  -webkit-app-region: no-drag;
+}
+
+/* ---------- traffic lights: 3 × 12px, 8px apart, then 20px to the controls ---------- */
+.lights {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  width: 52px;
+  height: 12px;
+  margin-right: 20px;
+}
+.lights > span {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+}
+/* the system's own colours, from the nearest palette steps */
+.close {
+  background: var(--red-500);
+}
+.minimise {
+  background: var(--amber-500);
+}
+.zoom {
+  background: var(--green-500);
+}
+
+/* ---------- sidebar toggle, back, forward ---------- */
+.controls {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+}
+.key {
+  margin-left: var(--space-1);
+  color: var(--muted-foreground);
+}
+
+/* ---------- the page's header, 24px after the controls ---------- */
+.page {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  margin-left: var(--space-4);
+}

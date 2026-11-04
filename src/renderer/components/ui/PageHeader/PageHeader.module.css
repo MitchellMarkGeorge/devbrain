@@ -1,0 +1,86 @@
+/* The page's top bar, toolbar and content frame. See docs/design-system/components/PageHeader.md */
+.header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  height: 48px;
+  min-width: 0;
+  padding: 0 var(--space-6);
+  -webkit-app-region: drag;
+}
+/* inside the WindowBar: the bar supplies the height and padding */
+.header[data-in-window-bar] {
+  flex: 1;
+  height: auto;
+  padding: 0;
+}
+.header button,
+.header a {
+  -webkit-app-region: no-drag;
+}
+.place {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+}
+.actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+}
+.favorite[data-favorite] {
+  color: var(--date-today);
+}
+.favorite[data-favorite] svg {
+  fill: currentColor;
+}
+
+/* ---------- toolbar: 32px controls, 12px above the content ---------- */
+.toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 1px var(--space-6) var(--space-3);
+}
+/* under the window bar the toolbar starts 4px lower (Figma's collapsed screens) */
+.toolbar[data-rail] {
+  padding-top: var(--space-1);
+}
+.group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.end {
+  margin-left: auto;
+}
+
+/* ---------- content ---------- */
+.content {
+  min-width: 0;
+}
+.list {
+  padding: 0 var(--space-4) var(--space-6);
+}
+.grid {
+  padding: 0 var(--space-6) var(--space-6);
+}
+.home {
+  padding: 40px 40px var(--space-12);
+}
+.document {
+  padding: var(--space-12) var(--space-6);
+}
+.column {
+  width: 100%;
+  margin: 0 auto;
+}
+.document > .column {
+  max-width: var(--content-max-width);
+}

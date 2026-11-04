@@ -1,0 +1,48 @@
+/* A workspace's letter on the 900 step of its colour. See docs/design-system/components/WorkspaceTile.md */
+.tile {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--tile-size);
+  height: var(--tile-size);
+  /* Figma's sidebar and switcher sizes: 6px corners and a 12px letter at 20px, 8px and 14px at
+     32px; between and around them, the same steady slope */
+  border-radius: calc(6px + (var(--tile-size) - 20px) / 6);
+  background: var(--sidebar-primary);
+  color: var(--sidebar-primary-foreground);
+  font-family: var(--font-sans);
+  font-size: calc(12px + (var(--tile-size) - 20px) / 6);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  user-select: none;
+}
+/* onboarding's 60–72px tiles */
+.large {
+  border-radius: 16px;
+  font-size: calc(var(--tile-size) * 0.6);
+}
+/* the white letter is 9:1 or more on every 900 step */
+.red {
+  background: var(--swatch-red-tile);
+  color: var(--white);
+}
+.amber {
+  background: var(--swatch-amber-tile);
+  color: var(--white);
+}
+.green {
+  background: var(--swatch-green-tile);
+  color: var(--white);
+}
+.blue {
+  background: var(--swatch-blue-tile);
+  color: var(--white);
+}
+.indigo {
+  background: var(--swatch-indigo-tile);
+  color: var(--white);
+}
+.pink {
+  background: var(--swatch-pink-tile);
+  color: var(--white);
+}

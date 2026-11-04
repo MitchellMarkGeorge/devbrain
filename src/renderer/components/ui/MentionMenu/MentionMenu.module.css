@@ -1,0 +1,27 @@
+/* The editor's "@" menu. See docs/design-system/components/MentionMenu.md */
+.menu[class] {
+  width: 320px;
+}
+.meta {
+  flex: none;
+  margin-left: auto;
+  padding-left: var(--space-2);
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  letter-spacing: var(--tracking-widest);
+  font-variant-numeric: tabular-nums;
+}
+/* the 16px glyph slot: a status icon, a note's file, or an event's calendar bar */
+.glyph {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  color: var(--muted-foreground);
+}
+.bar {
+  width: 3px;
+  height: 14px;
+  border-radius: var(--radius-xs);
+}

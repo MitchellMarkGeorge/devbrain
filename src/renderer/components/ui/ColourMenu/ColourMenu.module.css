@@ -1,0 +1,43 @@
+/* The editor's colour menu. See docs/design-system/components/ColourMenu.md */
+/* [class] outweighs the menu width variant this file may load before */
+.menu[class] {
+  width: 256px;
+}
+.row {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-0-5) var(--space-1-5) var(--space-1-5);
+}
+/* the menu item around a swatch: no fill of its own, the swatch shows the highlight */
+.item {
+  display: inline-flex;
+  flex: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  outline: none;
+}
+.item[data-highlighted] .swatch {
+  border-color: var(--muted-foreground);
+}
+.item:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+.swatch {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--swatch-ground, transparent);
+  color: var(--swatch-ink);
+  font: var(--font-weight-medium) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  user-select: none;
+}
+/* the colour in use */
+.swatch[data-current] {
+  border: 2px solid var(--foreground);
+}

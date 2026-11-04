@@ -1,0 +1,37 @@
+.box {
+  padding: var(--box-padding, 0);
+}
+.surfaceBackground {
+  background: var(--background);
+}
+.surfaceCard {
+  background: var(--card);
+  color: var(--card-foreground);
+}
+.surfaceMuted {
+  background: var(--muted);
+}
+.surfacePopover {
+  background: var(--popover);
+  color: var(--popover-foreground);
+}
+
+.radiusMd {
+  border-radius: var(--radius-md);
+}
+.radiusLg {
+  border-radius: var(--radius-lg);
+}
+.radiusXl {
+  border-radius: var(--radius-xl);
+}
+.radiusFull {
+  border-radius: var(--radius-full);
+}
+
+.borderDefault {
+  border: 1px solid var(--border);
+}
+.borderEdge {
+  box-shadow: 0 0 0 1px var(--edge);
+}

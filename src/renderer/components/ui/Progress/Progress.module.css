@@ -1,0 +1,30 @@
+/* shadcn's Progress as Figma's project bar. See docs/design-system/components/Progress.md */
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+.track {
+  height: 4px;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--input);
+}
+.indicator {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  /* project health is not shown for now, so every bar is green */
+  background: var(--health-on-track);
+  transition: width var(--duration-slow) var(--ease-out);
+}
+.label {
+  display: flex;
+  justify-content: space-between;
+  color: var(--muted-foreground);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+  font-variant-numeric: tabular-nums;
+}

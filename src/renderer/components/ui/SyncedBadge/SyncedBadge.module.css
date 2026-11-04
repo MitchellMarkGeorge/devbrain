@@ -1,0 +1,36 @@
+/* Where a synced item comes from. See docs/design-system/components/SyncedBadge.md */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: var(--space-1-5);
+  width: fit-content;
+  max-width: 100%;
+  height: var(--control-xs);
+  font: var(--font-weight-medium) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  white-space: nowrap;
+}
+.logo {
+  display: inline-flex;
+  flex: none;
+}
+.label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* an outlined pill with no fill */
+.synced {
+  padding: 0 var(--space-2) 0 var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--foreground);
+}
+/* quiet text: the mark fades with the words */
+.detached {
+  color: var(--muted-foreground);
+  font-weight: var(--font-weight-normal);
+}
+.detached .logo {
+  opacity: 0.5;
+}

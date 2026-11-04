@@ -1,0 +1,10 @@
+/* The editor's suggestion menus (slash and mention). See docs/design-system/components/SlashMenu.md */
+.menu[class] {
+  width: 260px;
+  max-height: min(560px, 70vh);
+}
+.empty {
+  padding: var(--space-2) var(--space-1-5);
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}

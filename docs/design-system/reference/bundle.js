@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"DevBrain","components":[{"name":"Icon"},{"name":"Button"},{"name":"ButtonGroup"},{"name":"Badge"},{"name":"ToggleGroup"},{"name":"Tabs"},{"name":"Input"},{"name":"Textarea"},{"name":"Field"},{"name":"Checkbox"},{"name":"Switch"},{"name":"DropdownMenu"},{"name":"Command"},{"name":"Tooltip"},{"name":"Dialog"},{"name":"Sheet"},{"name":"Toast"},{"name":"Card"},{"name":"Separator"},{"name":"Skeleton"},{"name":"Progress"},{"name":"Kbd"},{"name":"Breadcrumb"},{"name":"Sidebar"},{"name":"Calendar"},{"name":"StatusIcon"},{"name":"PriorityIcon"},{"name":"HealthIcon"},{"name":"ProgressRing"},{"name":"EntityPill"},{"name":"ProviderLogo"},{"name":"SourcePill"},{"name":"EntityHoverCard"},{"name":"PropertyRow"},{"name":"DateRange"},{"name":"TaskRow"},{"name":"GroupHeading"},{"name":"EventRow"},{"name":"ScheduleCard"},{"name":"NoteCard"},{"name":"WorkspaceTile"},{"name":"SwatchPicker"},{"name":"SettingsGroup"},{"name":"EventBlock"},{"name":"StatusMenu"},{"name":"TaskList"},{"name":"SelectionBar"},{"name":"BoardColumn"},{"name":"BoardCard"}]} */
+/* @ds-bundle: {"format":4,"namespace":"DevBrain","components":[{"name":"Icon"},{"name":"Button"},{"name":"IconButton"},{"name":"ButtonGroup"},{"name":"Badge"},{"name":"ToggleGroup"},{"name":"Tabs"},{"name":"Input"},{"name":"Textarea"},{"name":"Field"},{"name":"Checkbox"},{"name":"Switch"},{"name":"DropdownMenu"},{"name":"Command"},{"name":"Tooltip"},{"name":"Dialog"},{"name":"Sheet"},{"name":"Toast"},{"name":"Card"},{"name":"Separator"},{"name":"Skeleton"},{"name":"Progress"},{"name":"Kbd"},{"name":"Breadcrumb"},{"name":"Sidebar"},{"name":"Calendar"},{"name":"StatusIcon"},{"name":"PriorityIcon"},{"name":"HealthIcon"},{"name":"ProgressRing"},{"name":"EntityPill"},{"name":"ProviderLogo"},{"name":"SourcePill"},{"name":"EntityHoverCard"},{"name":"PropertyRow"},{"name":"DateRange"},{"name":"TaskRow"},{"name":"GroupHeading"},{"name":"EventRow"},{"name":"ScheduleCard"},{"name":"NoteCard"},{"name":"WorkspaceTile"},{"name":"SwatchPicker"},{"name":"SettingsGroup"},{"name":"EventBlock"},{"name":"StatusMenu"},{"name":"TaskList"},{"name":"SelectionBar"},{"name":"BoardColumn"},{"name":"BoardCard"}]} */
 (function () {
   var R = window.React;
   var h = R.createElement;
@@ -216,10 +216,44 @@
         disabled: props.disabled,
         onClick: props.onClick,
         'aria-label': props['aria-label'],
+        'aria-pressed': props['aria-pressed'],
       },
       iconOf(props.icon, small ? 12 : 16),
       props.children,
       iconOf(props.trailingIcon, small ? 12 : 16),
+    );
+  }
+
+  /* IconButton: a Button that is only an icon, with a name it can't do without. `label` is its
+     accessible name and its tooltip (shown after 400ms of pointing, or on keyboard focus;
+     `tooltipOpen` draws it open). Ghost by default; `tone: 'muted'` rests in muted-foreground. */
+  var ICON_BUTTON_SIZES = { default: 'icon', sm: 'icon-sm', xs: 'icon-xs' };
+  function IconButton(props) {
+    var button = h(Button, {
+      variant: props.variant || 'ghost',
+      size: ICON_BUTTON_SIZES[props.size || 'default'],
+      icon: props.icon,
+      'aria-label': props.label,
+      'aria-pressed': props.pressed,
+      disabled: props.disabled,
+      onClick: props.onClick,
+      className: cx('db-icon-btn', props.tone === 'muted' && 'db-icon-btn-muted'),
+    });
+    if (props.tooltip === false) return button;
+    return h(
+      'span',
+      {
+        className: 'db-icon-btn-wrap',
+        'data-side': props.tooltipSide || 'bottom',
+        'data-tooltip-open': props.tooltipOpen ? '' : undefined,
+      },
+      button,
+      // the button is named by its aria-label, so the tooltip is hidden from screen readers
+      h(
+        'span',
+        { className: 'db-tooltip db-icon-btn-tip', 'aria-hidden': true },
+        props.tooltip == null || props.tooltip === true ? props.label : props.tooltip,
+      ),
     );
   }
 
@@ -243,11 +277,11 @@
         type: Tag === 'button' ? 'button' : undefined,
         title: typeof props.children === 'string' ? props.children : undefined,
       },
+      props.prefix ? h('span', { className: 'db-badge-prefix' }, props.prefix) : null,
       props.barColor
         ? h('span', { className: 'db-bar', style: { background: props.barColor } })
         : null,
       iconOf(props.icon, 12, props.iconColor),
-      props.prefix ? h('span', { className: 'db-badge-muted' }, props.prefix) : null,
       h(
         'span',
         { className: cx('db-badge-text', props.muted && 'db-badge-muted') },
@@ -491,7 +525,7 @@
         : h(
             'span',
             { className: 'db-dialog-close' },
-            h(Button, { variant: 'ghost', size: 'icon-xs', icon: 'x', 'aria-label': 'Close' }),
+            h(IconButton, { size: 'xs', icon: 'x', label: 'Close', tooltip: false }),
           ),
       h(
         'div',
@@ -522,13 +556,8 @@
         'div',
         { className: 'db-sheet-header' },
         h('h2', { className: 'db-sheet-title' }, props.title),
-        h(Button, {
-          variant: 'ghost',
-          size: 'icon-xs',
-          icon: 'maximize-2',
-          'aria-label': 'Open as page',
-        }),
-        h(Button, { size: 'icon-xs', icon: 'x', 'aria-label': 'Close' }),
+        h(IconButton, { size: 'xs', icon: 'maximize-2', label: 'Open as page' }),
+        h(IconButton, { variant: 'default', size: 'xs', icon: 'x', label: 'Close' }),
       ),
       h('div', { className: 'db-sheet-body' }, props.children),
     );
@@ -1178,7 +1207,7 @@
           'span',
           { className: 'db-sidebar-header-actions' },
           h(Icon, { name: 'search', size: 12, color: 'var(--muted-foreground)' }),
-          h(Button, { size: 'icon-xs', icon: 'square-pen', 'aria-label': 'New' }),
+          h(IconButton, { variant: 'default', size: 'xs', icon: 'square-pen', label: 'New' }),
         ),
       ),
       h(
@@ -1276,6 +1305,7 @@
   window.DevBrain = Object.assign(window.DevBrain || {}, {
     Icon: Icon,
     Button: Button,
+    IconButton: IconButton,
     ButtonGroup: ButtonGroup,
     Badge: Badge,
     ToggleGroup: ToggleGroup,
@@ -1330,6 +1360,7 @@
   var F = R.Fragment;
   var useState = R.useState;
   var useEffect = R.useEffect;
+  var useLayoutEffect = R.useLayoutEffect;
   var useRef = R.useRef;
   var Icon = NS.Icon;
   var BaseButton = NS.Button;
@@ -1436,16 +1467,196 @@
      subtask count pill), entity pills, priority and date
      on the right. Status is uncontrolled unless `status` is passed. */
   /* The pills on one side of a TaskRow title. When the row runs out of room they stack like a
-     deck: the last in full, the ones behind showing their edge and icon. Pointing at the stack or
-     focusing it spreads it out. One pill never stacks. */
-  function pillStack(stacked, pills) {
-    var shown = pills.filter(Boolean);
+     deck: the last in full, the ones behind showing a 26px edge with their icon (their label
+     hidden). Pointing at the stack or focusing it spreads it out on top of the row: the stack keeps
+     its stacked width, and the deck grows leftwards from its right edge over the end of the title,
+     on the row's own ground, so nothing in the row moves. It never reaches past the start of the
+     title: there it shifts right instead, over the other side's stack, and covers that stack
+     whole. Stacking, unstacking, spreading and folding back all animate: the pills behind grow or
+     shrink between full width and their edge and their labels fade; a spread deck's ground fades
+     in and a shifted deck slides there. One pill never stacks. */
+  var DECK_LEFT_SLACK = 8;
+  var DECK_FADE = 16; // the deck's padding before its first pill, where its ground fades in
+  var CLOSE_MS = 150; // a closing deck stays on top of the row while its pills fold back
+  // a deck's width spread out, measured while its pills may still be folded or mid-animation
+  function spreadWidth(deck) {
+    var pills = Array.prototype.slice.call(deck.children);
+    return (
+      pills.reduce(function (w, pill) {
+        return w + pill.scrollWidth + 2;
+      }, 0) +
+      6 * (pills.length - 1) +
+      DECK_FADE
+    );
+  }
+  function PillStack(props) {
+    var shown = props.pills.filter(Boolean);
+    var ref = useRef(null);
+    var deckRef = useRef(null);
+    var timer = useRef(undefined);
+    var sf = useState(null); // the stacked width while spread, and while folding back
+    var cl = useState(false); // folding back
+    var cv = useState({ shift: 0, pad: 0 });
+    var stacked = props.stacked && shown.length > 1;
+    var spreadOut = stacked && sf[0] != null;
+    var open = spreadOut && !cl[0];
+    useLayoutEffect(
+      function () {
+        var stack = ref.current;
+        var deck = deckRef.current;
+        var row = stack && stack.closest('[role="row"]');
+        var title = row && row.querySelector('.dbl-title');
+        if (!open || !deck || !title) {
+          cv[1]({ shift: 0, pad: 0 });
+          return;
+        }
+        var minLeft = title.getBoundingClientRect().left - DECK_LEFT_SLACK;
+        var stackRight = stack.getBoundingClientRect().right;
+        var shift = Math.max(0, minLeft - (stackRight - spreadWidth(deck)));
+        var pad = 0;
+        if (shift > 0) {
+          var deckRight = stackRight + shift;
+          row.querySelectorAll('.dbl-stack').forEach(function (other) {
+            var box = other.getBoundingClientRect();
+            if (other !== stack && box.left < deckRight && box.right > deckRight) {
+              pad = box.right - deckRight;
+            }
+          });
+        }
+        cv[1]({ shift: shift, pad: pad });
+      },
+      [open],
+    );
+    useEffect(function () {
+      return function () {
+        clearTimeout(timer.current);
+      };
+    }, []);
     if (!shown.length) return null;
+    function spread() {
+      if (!stacked || !ref.current) return;
+      clearTimeout(timer.current);
+      cl[1](false);
+      if (sf[0] == null) sf[1](ref.current.offsetWidth);
+    }
+    function close() {
+      if (sf[0] == null) return;
+      cl[1](true);
+      clearTimeout(timer.current);
+      timer.current = setTimeout(function () {
+        sf[1](null);
+        cl[1](false);
+      }, CLOSE_MS);
+    }
+    var cover = cv[0];
     return h(
       'span',
-      { className: 'dbl-stack', 'data-stacked': stacked && shown.length > 1 ? '' : undefined },
-      shown,
+      {
+        ref: ref,
+        className: 'dbl-stack',
+        'data-stacked': stacked ? '' : undefined,
+        'data-spread': spreadOut ? '' : undefined,
+        'data-closing': spreadOut && cl[0] ? '' : undefined,
+        style: spreadOut ? { width: sf[0] } : undefined,
+        onPointerEnter: spread,
+        onPointerLeave: close,
+        onFocus: spread,
+        onBlur: function (e) {
+          if (!e.currentTarget.contains(e.relatedTarget)) close();
+        },
+      },
+      h(
+        'span',
+        {
+          ref: deckRef,
+          className: 'dbl-deck',
+          'data-shifted': cover.shift ? '' : undefined,
+          style: cover.shift
+            ? { right: -cover.shift - cover.pad, paddingRight: cover.pad || undefined }
+            : undefined,
+        },
+        shown,
+      ),
     );
+  }
+  function pillStack(stacked, pills) {
+    return h(PillStack, { stacked: stacked, pills: pills });
+  }
+
+  /* How far a row's pills stack: 0 none, 1 the pills after the title, 2 both sides. With
+     stack: 'auto' (the default) the row measures itself and takes the first level at which the
+     title's full text fits beside the pills, so the title shortens only after both sides have
+     stacked. It works from full widths (the title's text, each pill, priority and date), never
+     from the row as drawn, so it gives the same answer while pills animate between levels.
+     'none', 'right' and 'both' pin a level. */
+  var STACK_LEVELS = { none: 0, right: 1, both: 2 };
+  function pillWidth(pill) {
+    return Math.min(pill.scrollWidth + 2, 240);
+  }
+  function stackWidths(stack) {
+    var deck = stack && stack.firstElementChild;
+    var pills = deck ? Array.prototype.slice.call(deck.children) : [];
+    if (!pills.length) return { spread: 0, stacked: 0 };
+    var widths = pills.map(pillWidth);
+    var last = widths[widths.length - 1];
+    return {
+      spread:
+        widths.reduce(function (a, w) {
+          return a + w;
+        }, 0) +
+        6 * (pills.length - 1),
+      stacked: pills.length > 1 ? 26 * (pills.length - 1) + last : last,
+    };
+  }
+  function gapOf(el) {
+    return parseFloat(getComputedStyle(el).columnGap) || 0;
+  }
+  function useAutoStack(enabled, rowRef, canLeft, canRight) {
+    var lv = useState(0);
+    function fit() {
+      var row = rowRef.current;
+      if (!enabled || !row || row.querySelector('[data-spread]')) return;
+      var title = row.querySelector('.dbl-title');
+      var name = row.querySelector('.dbl-name');
+      var side = row.querySelector('.dbl-side');
+      if (!title || !name || !side) return;
+      var left = stackWidths(title.querySelector('.dbl-stack'));
+      var rightStack = side.querySelector('.dbl-stack');
+      var right = stackWidths(rightStack);
+      var room =
+        row.getBoundingClientRect().right -
+        (parseFloat(getComputedStyle(row).paddingRight) || 0) -
+        title.getBoundingClientRect().left;
+      var sideFixed = gapOf(side) * (side.children.length - 1);
+      Array.prototype.forEach.call(side.children, function (part) {
+        if (part !== rightStack) sideFixed += part.offsetWidth;
+      });
+      var fixed = name.scrollWidth + gapOf(row) + sideFixed + (left.spread ? gapOf(title) : 0);
+      var levels = [0];
+      if (canRight) levels.push(1);
+      if (canLeft) levels.push(2);
+      var fitting = levels.filter(function (l) {
+        var w =
+          fixed + (l >= 1 ? right.stacked : right.spread) + (l === 2 ? left.stacked : left.spread);
+        return w <= room + 0.5;
+      });
+      lv[1](fitting.length ? fitting[0] : levels[levels.length - 1]);
+    }
+    useLayoutEffect(fit);
+    useLayoutEffect(
+      function () {
+        var row = rowRef.current;
+        if (!enabled || !row || typeof ResizeObserver === 'undefined') return undefined;
+        var observer = new ResizeObserver(fit);
+        observer.observe(row);
+        if (document.fonts) document.fonts.ready.then(fit);
+        return function () {
+          observer.disconnect();
+        };
+      },
+      [enabled],
+    );
+    return lv[0];
   }
 
   function TaskRow(props) {
@@ -1489,6 +1700,23 @@
           ? 'overdue'
           : status;
     var selected = props.selected != null ? props.selected : !!t.selected;
+    var mode = props.stack || 'auto';
+    var autoLevel = useAutoStack(
+      mode === 'auto',
+      ref,
+      [t.key, t.parent, t.subtasks].filter(Boolean).length > 1,
+      [t.project, t.event, t.note].filter(Boolean).length > 1,
+    );
+    var level = mode === 'auto' ? autoLevel : STACK_LEVELS[mode] || 0;
+    // the row draws its first level without motion; changes after that animate
+    useEffect(function () {
+      var frame = requestAnimationFrame(function () {
+        if (ref.current) ref.current.setAttribute('data-settled', '');
+      });
+      return function () {
+        cancelAnimationFrame(frame);
+      };
+    }, []);
     return h(
       'div',
       {
@@ -1551,7 +1779,7 @@
         'div',
         { className: 'dbl-title' },
         h('span', { className: 'dbl-name' }, t.title),
-        pillStack(props.stack === 'both', [
+        pillStack(level === 2, [
           t.key ? h(NS.SourcePill, { key: 'key', provider: t.source }, t.key) : null,
           t.parent ? h(NS.EntityPill, { key: 'parent', type: 'parent' }, t.parent) : null,
           t.subtasks
@@ -1575,7 +1803,7 @@
       h(
         'div',
         { className: 'dbl-side' },
-        pillStack(!!props.stack, [
+        pillStack(level >= 1, [
           t.project
             ? h(
                 NS.EntityPill,
@@ -1618,17 +1846,11 @@
       h(BaseButton, { variant: 'ghost', size: 'sm', icon: 'chevrons-up' }, 'Priority'),
       h(BaseButton, { variant: 'ghost', size: 'sm', icon: 'calendar' }, 'Due date'),
       h(BaseButton, { variant: 'ghost', size: 'sm', icon: 'folder' }, 'Move'),
-      h(BaseButton, {
-        variant: 'ghost',
-        size: 'icon-sm',
-        icon: 'ellipsis',
-        'aria-label': 'More actions',
-      }),
-      h(BaseButton, {
-        variant: 'ghost',
-        size: 'icon-sm',
+      h(NS.IconButton, { size: 'sm', icon: 'ellipsis', label: 'More actions' }),
+      h(NS.IconButton, {
+        size: 'sm',
         icon: 'x',
-        'aria-label': 'Clear selection',
+        label: 'Clear selection',
         onClick: props.onClear,
       }),
     );
@@ -1772,12 +1994,7 @@
           { className: 'dbl-colcount' },
           props.count != null ? props.count : R.Children.count(props.children),
         ),
-        h(BaseButton, {
-          variant: 'ghost',
-          size: 'icon-xs',
-          icon: 'plus',
-          'aria-label': 'Add task to ' + props.name,
-        }),
+        h(NS.IconButton, { size: 'xs', icon: 'plus', label: 'Add task to ' + props.name }),
       ),
       h(
         'div',

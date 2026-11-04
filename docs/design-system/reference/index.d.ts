@@ -30,6 +30,26 @@ export interface ButtonProps {
   'aria-label'?: string;
   children?: Node;
 }
+/** A button that is only an icon; `label` is its accessible name and its tooltip. */
+export interface IconButtonProps {
+  icon: IconName | Node;
+  label: string;
+  /** default 32px, sm 28px (editor toolbar, selection bar), xs 24px (sidebar, panel headers) */
+  size?: 'default' | 'sm' | 'xs';
+  /** ghost by default */
+  variant?: 'ghost' | 'default' | 'secondary' | 'outline' | 'destructive' | 'primary';
+  /** muted rests in muted-foreground and lifts on hover */
+  tone?: 'default' | 'muted';
+  /** the label by default, other content, or false for none */
+  tooltip?: boolean | Node;
+  tooltipSide?: 'top' | 'right' | 'bottom' | 'left';
+  /** draws the tooltip open, for static pictures */
+  tooltipOpen?: boolean;
+  /** a toggle that is on (aria-pressed) */
+  pressed?: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
+}
 export interface ButtonGroupProps {
   children: Node;
 }
@@ -39,6 +59,7 @@ export interface BadgeProps {
   icon?: IconName | Node;
   iconColor?: string;
   barColor?: string;
+  /** leads the pill, before the icon or bar, in subtle-foreground: "Linked to", "Due" */
   prefix?: string;
   muted?: boolean;
   asButton?: boolean;
@@ -266,8 +287,12 @@ export interface TaskRowProps {
   state?: 'hover' | 'focus';
   menuOpen?: boolean;
   subtask?: boolean;
-  /** Stack the pills when the row runs out of room: after the title ('right'), or on both sides. */
-  stack?: 'right' | 'both';
+  /**
+   * How the pills stack when the row runs out of room. 'auto' (the default) measures the row:
+   * first the pills after the title, then both sides; the title shortens only after that.
+   * 'none', 'right' and 'both' pin a level, for pictures of the row.
+   */
+  stack?: 'auto' | 'none' | 'right' | 'both';
   status?: TaskStatus;
   onSelect?: () => void;
   onStatusChange?: (s: TaskStatus) => void;

@@ -1,0 +1,16 @@
+/* A project's health. See docs/design-system/components/HealthIcon.md */
+.onTrack {
+  color: var(--health-on-track);
+}
+.atRisk {
+  color: var(--health-at-risk);
+}
+.offTrack {
+  color: var(--health-off-track);
+}
+.notStarted {
+  color: var(--health-not-started);
+}
+.completed {
+  color: var(--health-completed);
+}

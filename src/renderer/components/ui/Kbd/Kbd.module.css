@@ -1,0 +1,29 @@
+/* Nova's key: 20px, muted fill, no outline, 6px corners, 12px regular. See docs/design-system/components/Kbd.md */
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-0-5);
+  height: 20px;
+  min-width: 20px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+.raised {
+  background: var(--border-strong);
+}
+.kbd > svg {
+  width: 12px;
+  height: 12px;
+}
+.group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}

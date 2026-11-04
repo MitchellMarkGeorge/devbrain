@@ -1,0 +1,6 @@
+/* The value pickers (StatusMenu, PriorityMenu). See docs/design-system/components/StatusMenu.md */
+/* the current value is ticked and highlighted */
+.item[data-checked] {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}

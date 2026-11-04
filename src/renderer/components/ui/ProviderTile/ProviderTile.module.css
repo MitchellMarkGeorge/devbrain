@@ -1,0 +1,23 @@
+/* A provider's brand mark on its tile. See docs/design-system/components/ProviderTile.md */
+.tile {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  color: var(--white);
+}
+/* brand colours belong to the brand, not the theme */
+/* Linear's company icon fills the tile, clipped to its corners */
+.linear {
+  overflow: hidden;
+}
+.linear > img {
+  display: block;
+}
+/* Google Calendar's logo is its own tile, in its own colours */
+.google {
+  background: none;
+}
+.github {
+  background: var(--border-strong);
+  color: var(--foreground-strong);
+}

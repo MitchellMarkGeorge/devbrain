@@ -1,0 +1,63 @@
+/* A project as a card. See docs/design-system/components/ProjectCard.md */
+.card {
+  gap: var(--space-3);
+  min-width: 0;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--duration-fast);
+}
+.card:hover {
+  border-color: var(--border-strong);
+}
+.card:focus-visible {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.folder {
+  flex: none;
+  color: var(--project-color);
+}
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.due {
+  flex: none;
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  white-space: nowrap;
+}
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+}
+.numbers {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.percent {
+  color: var(--foreground);
+}
+.count {
+  color: var(--muted-foreground);
+}
+.foot {
+  display: flex;
+}

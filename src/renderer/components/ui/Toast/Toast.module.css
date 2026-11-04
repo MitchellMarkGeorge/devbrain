@@ -1,0 +1,149 @@
+/* Base UI toasts in Nova's shape. See docs/design-system/components/Toast.md */
+.viewport {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: var(--z-overlay);
+  width: var(--toast-width);
+  max-width: calc(100vw - 32px);
+  outline: none;
+}
+
+.toast {
+  --gap: var(--space-2);
+  /* behind the newest: 10px of each older toast shows, each 20px narrower (of 356) */
+  --peek: 10px;
+  --scale: calc(max(0, 1 - (var(--toast-index) * 0.0562)));
+  --shrink: calc(1 - var(--scale));
+  --height: var(--toast-frontmost-height, var(--toast-height));
+  --offset-y: calc(
+    var(--toast-offset-y) * -1 + (var(--toast-index) * var(--gap) * -1) +
+      var(--toast-swipe-movement-y)
+  );
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: calc(1000 - var(--toast-index));
+  width: 100%;
+  height: var(--height);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-xl);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-2xl);
+  transform-origin: bottom center;
+  user-select: none;
+  transform: translateX(var(--toast-swipe-movement-x))
+    translateY(
+      calc(
+        var(--toast-swipe-movement-y) - (var(--toast-index) * var(--peek)) -
+          (var(--shrink) * var(--height))
+      )
+    )
+    scale(var(--scale));
+  /*
+   * Arriving, leaving and restacking all move in duration-slow on ease-surface (--ease-out is
+   * nearly done in the first frames, so a toast seemed to pop in). Instant under reduced motion.
+   */
+  transition:
+    transform var(--duration-slow) var(--ease-surface),
+    opacity var(--duration-slow) var(--ease-surface),
+    height var(--duration-slow) var(--ease-surface);
+}
+.toast[data-expanded] {
+  height: var(--toast-height);
+  transform: translateX(var(--toast-swipe-movement-x)) translateY(var(--offset-y));
+}
+/* a new toast rises in from just below the window's edge, fading in */
+.toast[data-starting-style] {
+  opacity: 0;
+  transform: translateY(calc(100% + var(--space-4)));
+}
+/* one leaving fades where it is (the rest close the gap)... */
+.toast[data-ending-style] {
+  opacity: 0;
+}
+/* ...the front one also sinks back below the edge, unless it was swiped */
+.toast[data-ending-style][data-front]:not([data-swipe-direction]) {
+  transform: translateY(calc(100% + var(--space-4)));
+}
+.toast[data-ending-style][data-swipe-direction='right'] {
+  transform: translateX(calc(var(--toast-swipe-movement-x) + 150%)) translateY(var(--offset-y));
+}
+.toast[data-ending-style][data-swipe-direction='down'] {
+  transform: translateY(calc(var(--toast-swipe-movement-y) + 150%));
+}
+.toast[data-limited] {
+  opacity: 0;
+}
+/* keeps the hover over the gap between expanded toasts */
+.toast::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  height: calc(var(--gap) + 1px);
+}
+.toast:focus-visible {
+  outline: none;
+  box-shadow:
+    var(--shadow-2xl),
+    0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+.content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 14px var(--space-4);
+  overflow: hidden;
+  transition: opacity var(--duration-slow) var(--ease-surface);
+}
+.content[data-behind] {
+  opacity: 0;
+}
+.content[data-expanded] {
+  opacity: 1;
+}
+/* without an action the icon sits on the title's line */
+.content:not(:has(.action)) {
+  align-items: flex-start;
+}
+.icon {
+  flex: none;
+}
+.content:not(:has(.action)) > .icon {
+  margin-top: 2px;
+}
+
+.text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-0-5);
+}
+.title {
+  margin: 0;
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+.description {
+  margin: 0;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.description:empty {
+  display: none;
+}
+.action {
+  flex: none;
+}
+
+.warning {
+  color: var(--priority-medium);
+}
+.error {
+  color: var(--destructive);
+}

@@ -1,0 +1,196 @@
+/*
+ * The note editor's block styles, for any editor library. See
+ * docs/design-system/components/EditorContent.md
+ */
+.title {
+  margin: 0;
+  color: var(--foreground-strong);
+  font: var(--font-weight-semibold) var(--text-2xl) / var(--text-2xl-leading) var(--font-sans);
+  outline: none;
+}
+.title:empty::before {
+  content: attr(data-placeholder);
+  color: var(--subtle-foreground);
+  pointer-events: none;
+}
+
+.content {
+  color: var(--foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  overflow-wrap: break-word;
+  outline: none;
+}
+.content :global(.ProseMirror) {
+  outline: none;
+}
+.content :where(p, ul, ol, blockquote, pre, hr, table) {
+  margin: 0 0 var(--space-3);
+}
+.content :where(h1, h2, h3) {
+  margin: var(--space-6) 0 var(--space-3);
+  color: var(--foreground-strong);
+  font-weight: var(--font-weight-semibold);
+}
+.content :where(h1, h2, h3):first-child {
+  margin-top: 0;
+}
+.content h1 {
+  font-size: var(--text-2xl);
+  line-height: var(--text-2xl-leading);
+}
+.content h2 {
+  font-size: var(--text-xl);
+  line-height: var(--text-xl-leading);
+}
+.content h3 {
+  font-size: var(--text-base);
+  line-height: var(--text-base-leading);
+}
+.content :where(ul, ol) {
+  padding-left: 20px;
+}
+.content li + li {
+  margin-top: var(--space-1-5);
+}
+.content li p {
+  margin: 0;
+}
+.content li::marker {
+  color: var(--muted-foreground);
+}
+.content a {
+  color: var(--foreground-strong);
+  text-decoration: underline;
+  text-decoration-color: var(--muted-foreground);
+  text-underline-offset: 3px;
+}
+.content strong {
+  color: var(--foreground-strong);
+  font-weight: var(--font-weight-semibold);
+}
+.content mark {
+  padding: 0 2px;
+  border-radius: var(--radius-xs);
+  background: var(--accent);
+  color: inherit;
+}
+.content :not(pre) > code {
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-xs);
+  background: var(--accent);
+  color: var(--foreground-strong);
+  font: 13px / inherit var(--font-mono);
+}
+.content hr {
+  height: 1px;
+  margin: var(--space-4) 0;
+  border: 0;
+  background: var(--border-strong);
+}
+
+/* to-dos (Tiptap's task list): a 16px checkbox, then the text; done ones struck through */
+.content ul[data-type='taskList'] {
+  padding: 0;
+  list-style: none;
+}
+.content ul[data-type='taskList'] > li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+}
+.content ul[data-type='taskList'] > li > label {
+  display: inline-flex;
+  flex: none;
+  margin-top: 2px;
+}
+.content ul[data-type='taskList'] > li > div {
+  flex: 1;
+  min-width: 0;
+}
+.content ul[data-type='taskList'] > li[data-checked='true'] > div {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+}
+.content input[type='checkbox'] {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1px solid var(--input);
+  border-radius: 4px;
+  background: var(--input-fill);
+  appearance: none;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast),
+    border-color var(--duration-fast);
+}
+.content input[type='checkbox']:checked {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+.content input[type='checkbox']:checked::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: var(--primary-foreground);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+.content input[type='checkbox']:focus-visible {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+/* code blocks: a `card` panel with the language as a quiet label */
+.content pre {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  color: var(--foreground);
+  font: 13px / var(--text-sm-leading) var(--font-mono);
+  overflow-x: auto;
+  white-space: pre;
+}
+.content pre[data-language]::before {
+  content: attr(data-language);
+  display: block;
+  margin-bottom: var(--space-1);
+  color: var(--muted-foreground);
+  white-space: normal;
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.content pre code {
+  font: inherit;
+}
+
+/* quotes: a 2px bar, the text 12px in from it in `muted-foreground` */
+.content blockquote {
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--border-strong);
+  color: var(--muted-foreground);
+}
+
+/* an empty block's hint: "Press / for commands…", "Heading 2". A truly empty element gets a
+   zero-width line so it keeps its height (Tiptap's empty blocks hold a <br> already). */
+.content :is(p, h1, h2, h3):empty::after {
+  content: '\200b';
+}
+.content :is(p, h1, h2, h3):is(:global(.is-empty), :empty)[data-placeholder]::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--subtle-foreground);
+  pointer-events: none;
+}
+
+/* the text selection; `data-selection` draws it in pictures of the editor */
+.content ::selection,
+.content [data-selection] {
+  background: color-mix(in oklab, var(--swatch-blue) 35%, transparent);
+}
+.content [data-selection] {
+  border-radius: 1px;
+}

@@ -1,0 +1,147 @@
+/*
+ * The details panel (Base UI Drawer from the right). Docked: a full-height column beside the
+ * page. Overlay (compact windows): floats over the page, inset 8px.
+ * See docs/design-system/components/Sheet.md
+ */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  background: var(--backdrop);
+  opacity: calc(1 - var(--drawer-swipe-progress, 0));
+  transition: opacity var(--duration-slow) var(--ease-surface);
+}
+.backdrop[data-starting-style],
+.backdrop[data-ending-style] {
+  opacity: 0;
+}
+.backdrop[data-swiping] {
+  transition-duration: 0ms;
+}
+
+.viewport {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  justify-content: flex-end;
+  align-items: stretch;
+  pointer-events: none;
+}
+/*
+ * Portalled into a layout column (docked in an AppShell): it fills the column, the sheet pinned to
+ * the column's left edge. The column's own width slides it in and out (AppShell animates it), so
+ * the sheet's edge is the page's edge in every frame; the sheet doesn't slide by itself.
+ */
+.viewport[data-contained] {
+  position: absolute;
+  justify-content: flex-start;
+}
+
+.popup {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  max-width: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* a ScrollThumb draws the scrollbar over the content instead, while it scrolls */
+  position: relative;
+  scrollbar-width: none;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  outline: none;
+  transform: translateX(var(--drawer-swipe-movement-x, 0));
+  transition: transform var(--duration-slow) var(--ease-surface);
+}
+.popup[data-starting-style],
+.popup[data-ending-style] {
+  transform: translateX(calc(100% + 8px));
+}
+/* a docked sheet rides its column; the faint fade only keeps it mounted while the column closes */
+.viewport[data-contained] .popup {
+  transition: opacity var(--duration-slow) var(--ease-surface);
+}
+.viewport[data-contained] .popup[data-starting-style],
+.viewport[data-contained] .popup[data-ending-style] {
+  transform: translateX(var(--drawer-swipe-movement-x, 0));
+  opacity: 0.99;
+}
+.popup[data-swiping] {
+  transition-duration: 0ms;
+  user-select: none;
+}
+
+.docked {
+  width: var(--sheet-width);
+  height: 100%;
+  border-left: 1px solid var(--border);
+}
+.overlay {
+  width: var(--sheet-width);
+  margin: var(--space-2);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-2xl);
+}
+/* an event's note */
+.sizeWide {
+  width: 480px;
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  height: 48px;
+  padding: 0 var(--space-3) 0 var(--space-4);
+  background: var(--popover);
+}
+/* the panel's name ("Task", "Event"): the item's own title is SheetItemTitle */
+.title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--foreground);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4) 20px;
+}
+
+/* the task's or event's name: 16px medium, an event's calendar bar before it */
+.itemTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-base) / 22px var(--font-sans);
+}
+.itemBar {
+  flex: none;
+  align-self: stretch;
+  width: 3px;
+  margin: 1px 0;
+  border-radius: var(--radius-xs);
+  background: var(--sheet-bar-color);
+}
+
+/* between the properties and the description */
+.divider {
+  flex: none;
+  height: 1px;
+  margin: 0;
+  border: 0;
+  background: var(--border-strong);
+}

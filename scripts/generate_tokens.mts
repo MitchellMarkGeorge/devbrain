@@ -28,10 +28,29 @@ const DOMAIN = /^(status|priority|health|date|now|swatch)-/;
 
 const tokens = JSON.parse(readFileSync(SOURCE, 'utf8')) as Tokens;
 
+const NAMES = new Set(tokens.color.tokens.map((t) => t.name));
+
+/**
+ * A token's CSS value. `{name}` is another token; `{name} / 10%` (or a CSS colour such as
+ * `black / 50%`) is that colour at an opacity, as Tailwind's `border-foreground/10` is, written as
+ * `color-mix(in srgb, var(--name) 10%, transparent)`: the same colour at 10% alpha. Mixing with
+ * transparent only scales the alpha; srgb (Tailwind mixes in oklab) skips a round trip through
+ * another space, so the colour comes out exactly (oklab is a level off for saturated reds).
+ */
 function resolve(value: Themed, theme: 'dark' | 'light'): string {
   const raw = typeof value === 'string' ? value : (value[theme] ?? value.dark);
+  const ref = (name: string) => {
+    if (!NAMES.has(name)) throw new Error(`${raw} refers to ${name}, which is not a colour token`);
+    return `var(--${name})`;
+  };
   const alias = /^\{(.+)\}$/.exec(raw);
-  return alias ? `var(--${alias[1]})` : raw;
+  if (alias) return ref(alias[1]);
+  const recipe = /^(?:\{(.+)\}|([a-z]+)) \/ (\d+(?:\.\d+)?)%$/.exec(raw);
+  if (recipe) {
+    const [, name, keyword, percent] = recipe;
+    return `color-mix(in srgb, ${name ? ref(name) : keyword} ${percent}%, transparent)`;
+  }
+  return raw;
 }
 
 /** A short note on how a dark token differs from shadcn's neutral theme, from its usage note. */
@@ -60,7 +79,8 @@ const lines: string[] = [
  * shadcn components keep their meaning; the app styles them with CSS Modules, not Tailwind.
  *
  * Dark is the first theme. The light theme (shadcn's neutral light theme) applies when
- * prefers-color-scheme is light, which the app sets from its theme setting. Every colour is a
+ * prefers-color-scheme is light, which the app sets from its theme setting, or when
+ * data-theme='light' is set on <html>; data-theme='dark' pins dark. Every colour is a
  * Tailwind v4 colour.
  *
  *   1. Palette  --neutral-*, --red-*, ...    raw Tailwind steps; components never use these
@@ -114,13 +134,15 @@ lines.push(
   '  --duration-fast: 100ms; /* hover, press */',
   '  --duration-normal: 150ms; /* menus, popovers, tooltips */',
   '  --duration-slow: 250ms; /* dialogs, sheets, toasts */',
-  '  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);',
+  '  --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* menus, popovers, tooltips */',
+  // ease-out-cubic: halfway at a fifth of the time, so a large surface's motion reads; --ease-out
+  // is nearly done by then, which suits small popups but makes a sheet or a dialog look like a snap
+  '  --ease-surface: cubic-bezier(0.33, 1, 0.68, 1); /* dialogs, sheets, toasts, sidebar */',
   '',
   '  /* 3. Domain colours that do not change with the theme */',
   ...domain
     .filter((t) => typeof t.value === 'string')
     .map((t) => `  --${t.name}: ${resolve(t.value, 'dark')};`),
-  "  --platform-linear: #5e6ad2; /* Linear's brand colour, the one non-Tailwind value */",
   '  --platform-github: var(--neutral-200);',
   '}',
 );
@@ -143,6 +165,8 @@ function themeBlock(name: 'dark' | 'light', selector: string, indent = ''): stri
 
 // The app sets Electron's nativeTheme.themeSource from the theme setting, which decides what
 // prefers-color-scheme reports, so the page follows the setting from its first paint.
+// `data-theme` on <html> pins a theme regardless of it: Storybook's theme toggle sets it, the app
+// does not.
 lines.push(
   '',
   '/* 2. Theme: dark, the default */',
@@ -150,8 +174,11 @@ lines.push(
   '',
   "/* 2. Theme: light, when the system (or the app's theme setting) asks for it */",
   '@media (prefers-color-scheme: light) {',
-  ...themeBlock('light', ':root', '  '),
+  ...themeBlock('light', ":root:not([data-theme='dark'])", '  '),
   '}',
+  '',
+  "/* 2. Theme: light, pinned with data-theme='light' */",
+  ...themeBlock('light', ":root[data-theme='light']"),
 );
 
 lines.push(

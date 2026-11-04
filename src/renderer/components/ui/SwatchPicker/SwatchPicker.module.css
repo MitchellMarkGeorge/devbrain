@@ -1,0 +1,55 @@
+/* Six swatch squares in a radio group; the chosen one shows a check and a 2px foreground outline.
+   See docs/design-system/components/SwatchPicker.md */
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+.swatch {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--neutral-950);
+  cursor: pointer;
+  outline: none;
+}
+.swatch:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.swatch[data-checked] {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}
+.swatch[data-disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.indicator {
+  display: grid;
+  place-items: center;
+}
+.indicator[data-unchecked] {
+  display: none;
+}
+.red {
+  background: var(--swatch-red);
+}
+.amber {
+  background: var(--swatch-amber);
+}
+.green {
+  background: var(--swatch-green);
+}
+.blue {
+  background: var(--swatch-blue);
+}
+.indigo {
+  background: var(--swatch-indigo);
+}
+.pink {
+  background: var(--swatch-pink);
+}

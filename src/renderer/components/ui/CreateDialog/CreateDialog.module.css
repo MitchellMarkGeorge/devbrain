@@ -1,0 +1,125 @@
+/* The create dialogs (task, project, event). See docs/design-system/components/CreateDialog.md */
+/* [class] outweighs the Dialog popup's own padding, gap and width */
+.content[class] {
+  gap: 0;
+  padding: 0;
+}
+/* create dialogs hang 140px from the top, like a command bar, so they don't jump as they grow */
+.content[class] {
+  top: min(140px, 14vh);
+  max-height: calc(100vh - min(140px, 14vh) - 16px);
+  transform: translateX(-50%);
+}
+.content[class][data-starting-style],
+.content[class][data-ending-style] {
+  transform: translateX(-50%) translateY(8px) scale(0.96);
+}
+.sizeTask[class] {
+  max-width: 600px;
+}
+.sizeEvent[class] {
+  max-width: 480px;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: 20px var(--space-4) var(--space-4);
+}
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+}
+.title,
+.description {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  outline: none;
+  resize: none;
+}
+.title {
+  color: var(--foreground-strong);
+  font: var(--font-weight-semibold) var(--text-2xl) / var(--text-2xl-leading) var(--font-sans);
+}
+.description {
+  min-height: 40px;
+  color: var(--foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  field-sizing: content;
+}
+.title::placeholder,
+.description::placeholder {
+  color: var(--muted-foreground);
+}
+.title::placeholder {
+  color: var(--subtle-foreground);
+}
+
+.properties {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.pills {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.fieldList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--control-md);
+}
+.fieldIcon {
+  display: inline-flex;
+  flex: none;
+  color: var(--muted-foreground);
+}
+.fieldValue {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+}
+/* a multi-line value: the icon stays on its first line */
+.field:has(textarea) {
+  align-items: flex-start;
+}
+.field:has(textarea) .fieldIcon {
+  padding-top: var(--space-2);
+}
+.fieldValue > :is(input, textarea, [data-slot='input']) {
+  flex: 1;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-top: 1px solid var(--border-strong);
+  background: var(--muted);
+}
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}

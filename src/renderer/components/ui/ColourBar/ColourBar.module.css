@@ -1,0 +1,9 @@
+/* A calendar's colour: 3px wide, 12px tall by default, 2px corners. See docs/design-system/components/ColourBar.md */
+.bar {
+  display: inline-block;
+  flex: none;
+  width: 3px;
+  height: var(--colour-bar-height, 12px);
+  border-radius: var(--radius-xs);
+  background: var(--colour-bar-color, var(--swatch-green));
+}

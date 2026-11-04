@@ -1,0 +1,47 @@
+/* Floats over the bottom of a list while rows are selected. See docs/design-system/components/SelectionBar.md */
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: max-content;
+  max-width: 100%;
+  padding: var(--space-1);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-xl);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-2xl);
+}
+/* sticks to the bottom of the scrolling list, centred */
+.floating {
+  position: sticky;
+  bottom: var(--space-4);
+  z-index: var(--z-sticky);
+  align-self: center;
+  margin: var(--space-3) auto 0;
+}
+.count {
+  padding: 0 var(--space-2) 0 10px;
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.separator {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  margin: 0 var(--space-1);
+  background: var(--border-strong);
+}
+/* the labelled actions read in `foreground`; the more and clear icons stay quiet until pointed at */
+.action {
+  color: var(--foreground);
+}
+.iconAction {
+  color: var(--muted-foreground);
+}
+.iconAction:hover,
+.iconAction[data-popup-open] {
+  color: var(--foreground);
+}

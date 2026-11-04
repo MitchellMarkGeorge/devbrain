@@ -1,0 +1,30 @@
+/* A task's status: each status its own shape and colour. See docs/design-system/components/StatusIcon.md */
+.icon {
+  flex: none;
+  display: inline-block;
+  vertical-align: middle;
+}
+.notStarted {
+  color: var(--status-not-started);
+}
+.inProgress {
+  color: var(--status-in-progress);
+}
+.completed {
+  color: var(--status-completed);
+}
+.overdue {
+  color: var(--status-overdue);
+}
+.cancelled {
+  color: var(--status-cancelled);
+}
+
+/* the filled check: a disc in the status colour with the page colour's tick */
+.check {
+  fill: none;
+  stroke: var(--background);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

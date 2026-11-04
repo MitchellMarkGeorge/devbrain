@@ -1,0 +1,19 @@
+/* A TaskRow while the list loads. See docs/design-system/components/TaskRowSkeleton.md */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--row-height);
+  padding: 0 var(--space-4);
+}
+.line {
+  height: 12px;
+  border-radius: var(--radius-sm);
+}
+.pill {
+  height: 20px;
+  border-radius: var(--radius-lg);
+}
+.spacer {
+  flex: 1;
+}

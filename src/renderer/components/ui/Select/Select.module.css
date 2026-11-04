@@ -1,0 +1,52 @@
+/* The trigger looks like the quiet default Button / an Input; the list is the menu surface */
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1-5);
+  height: var(--control-md);
+  padding: 0 10px;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-lg);
+  background: var(--input-fill);
+  color: var(--foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  white-space: nowrap;
+  cursor: pointer;
+  outline: none;
+  transition:
+    background-color var(--duration-fast),
+    border-color var(--duration-fast);
+}
+.trigger:hover {
+  background: color-mix(in oklab, var(--input) 50%, transparent);
+}
+.trigger:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.trigger[data-disabled] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.sizeSm {
+  height: var(--control-sm);
+  border-radius: var(--radius-md);
+}
+.value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+.value[data-placeholder] {
+  color: var(--muted-foreground);
+}
+.icon {
+  display: flex;
+  color: var(--muted-foreground);
+}
+.list {
+  outline: none;
+}

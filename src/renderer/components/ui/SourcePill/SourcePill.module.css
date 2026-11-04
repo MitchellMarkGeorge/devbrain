@@ -1,0 +1,4 @@
+/* A synced task's source and key as one pill. See docs/design-system/components/SourcePill.md */
+.source {
+  flex: none;
+}
