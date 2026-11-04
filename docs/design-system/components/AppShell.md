@@ -5,7 +5,7 @@ The frame every screen shares: the `Sidebar` at the left, the page (its `PageHea
 - **Wide (1280px and up):** everything shows. The right column (`aside`, 288px with a `sidebar-border` hairline, 28px/20px padding) is Home's mini calendar and agenda.
 - **Medium (1080–1279px):** the right column hides; the sidebar rests open; sheets dock.
 - **Compact (below 1080px):** the sidebar rests as the 56px rail. Its toggle opens the full sidebar as a drawer over the page (`shadow-2xl`, the `backdrop` scrim behind); picking a page, clicking the scrim or Esc closes it. The drawer opens as the rail widening: it is revealed from the rail's edge out to 256px in `duration-slow` (`ease-surface`) while its content and the scrim fade in, the same motion as collapsing the sidebar in a wider window, and closes back into the rail; nothing moves under `prefers-reduced-motion`. Sheets float (`Sheet variant="overlay"`); read `useAppShell().size` to choose.
-- **Collapsed:** the user's choice (⌘\ or the window bar's toggle) at any size. The rail sits under the `WindowBar`, which runs across the window and carries the page's header.
+- **Collapsed:** the user's choice (⌘\ or the window bar's toggle) at any size. The rail sits under the `WindowBar`, which runs across the window and carries the page's header; both are on the page colour with no hairlines, framing the page.
 
 A docked sheet's column slides open and shut with the sheet on the same timing (`duration-slow`, `ease-surface`), so the page narrows and widens smoothly and the sheet's edge is the page's edge throughout.
 
