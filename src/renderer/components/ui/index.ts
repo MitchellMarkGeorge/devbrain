@@ -46,6 +46,7 @@ export * from './IconButton';
 export * from './Input';
 export * from './IntegrationCard';
 export * from './Kbd';
+export * from './ScrollThumb';
 export * from './LinkToolbar';
 export * from './LinkedTaskRow';
 export * from './ListRow';

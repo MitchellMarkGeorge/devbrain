@@ -103,28 +103,9 @@
   box-shadow: var(--shadow-pinned);
 }
 
-/*
- * A thin scrollbar drawn over the sidebar while it scrolls (Sidebar places it), taking no width
- * from the items. It fades in on scrolling and out shortly after.
- */
+/* the ScrollThumb inside is placed against the sidebar */
 .sidebar {
   position: relative;
-}
-.thumb {
-  position: absolute;
-  z-index: 2;
-  top: 0;
-  right: 2px;
-  width: 4px;
-  height: 0;
-  border-radius: var(--radius-full);
-  background: var(--border-strong);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--duration-normal) var(--ease-out);
-}
-.thumb[data-scrolling] {
-  opacity: 1;
 }
 /* its 44px is the row itself, under the padding */
 .windowRow {

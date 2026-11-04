@@ -45,6 +45,9 @@
   max-width: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* a ScrollThumb draws the scrollbar over the content instead, while it scrolls */
+  position: relative;
+  scrollbar-width: none;
   background: var(--popover);
   color: var(--popover-foreground);
   outline: none;

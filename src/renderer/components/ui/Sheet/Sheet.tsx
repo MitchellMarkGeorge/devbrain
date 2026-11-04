@@ -10,6 +10,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { Maximize2, X } from 'lucide-react';
 import { cn, mergeClassName } from '../../lib/cn';
 import { IconButton } from '../IconButton';
+import { ScrollThumb } from '../ScrollThumb';
 import { resolveColor, type Swatch } from '../types';
 import styles from './Sheet.module.css';
 
@@ -72,7 +73,13 @@ export interface SheetContentProps extends Drawer.Popup.Props {
   container?: HTMLElement | RefObject<HTMLElement | null> | null;
 }
 
-export function SheetContent({ size, container, className, ...props }: SheetContentProps) {
+export function SheetContent({
+  size,
+  container,
+  className,
+  children,
+  ...props
+}: SheetContentProps) {
   const variant = useContext(SheetVariantContext);
   return (
     <Drawer.Portal container={container}>
@@ -81,7 +88,11 @@ export function SheetContent({ size, container, className, ...props }: SheetCont
         <Drawer.Popup
           className={mergeClassName(sheetVariants({ variant, size }), className)}
           {...props}
-        />
+        >
+          {children}
+          {/* the thin scrollbar, its track below the 48px header */}
+          <ScrollThumb insetTop={52} />
+        </Drawer.Popup>
       </Drawer.Viewport>
     </Drawer.Portal>
   );
