@@ -1,0 +1,4 @@
+/* The right-click area; the menu itself uses DropdownMenu's styles */
+.trigger {
+  display: block;
+}

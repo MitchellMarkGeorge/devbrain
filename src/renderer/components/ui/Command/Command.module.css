@@ -1,0 +1,158 @@
+/*
+ * The command palette and pickers on the menu surface: a 32px search row over grouped results.
+ * See docs/design-system/components/Command.md
+ */
+.command {
+  display: flex;
+  flex-direction: column;
+  width: var(--menu-width);
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-md);
+}
+/* inside CommandDialog the dialog draws the surface */
+.bare {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.inputGroup {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-md);
+  padding: 0 var(--space-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
+}
+.inputGroup > svg {
+  width: 16px;
+  height: 16px;
+}
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  outline: none;
+}
+.input::placeholder {
+  color: var(--muted-foreground);
+}
+
+.list {
+  max-height: min(60vh, 384px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-1);
+  scroll-padding-block: var(--space-1);
+  outline: none;
+}
+.list:empty {
+  display: none;
+}
+
+.empty {
+  padding: var(--space-6) var(--space-2);
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-leading);
+  text-align: center;
+}
+.empty:empty {
+  display: none;
+}
+
+.group + .group {
+  margin-top: var(--space-1);
+}
+
+/* "TASKS 12": uppercase 12px label with a count badge */
+.groupLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  padding: var(--space-1-5) var(--space-1-5) var(--space-1);
+  color: var(--muted-foreground);
+  font: var(--font-weight-medium) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  user-select: none;
+}
+.count {
+  padding: 0 var(--space-1);
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--muted-foreground);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* CommandDialog: the palette floats in the upper part of the window */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  background: var(--backdrop);
+  transition: opacity var(--duration-slow) var(--ease-out);
+}
+.backdrop[data-starting-style],
+.backdrop[data-ending-style] {
+  opacity: 0;
+}
+.dialog {
+  position: fixed;
+  top: 15vh;
+  left: 50%;
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  width: calc(100vw - 32px);
+  max-width: 560px;
+  max-height: 70vh;
+  overflow: hidden;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-xl);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-2xl);
+  outline: none;
+  transform: translateX(-50%);
+  transition:
+    opacity var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out);
+}
+.dialog[data-starting-style],
+.dialog[data-ending-style] {
+  opacity: 0;
+  transform: translateX(-50%) scale(0.95);
+}
+.dialog .list {
+  max-height: none;
+  flex: 1;
+}
+.dialog .inputGroup {
+  height: 44px;
+}
+
+.toolbar {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) 0;
+}

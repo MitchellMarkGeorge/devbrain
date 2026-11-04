@@ -1,0 +1,85 @@
+/* shadcn's Dialog and AlertDialog in Nova's shape. See docs/design-system/components/Dialog.md */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  background: var(--backdrop);
+  transition: opacity var(--duration-slow) var(--ease-out);
+}
+.backdrop[data-starting-style],
+.backdrop[data-ending-style] {
+  opacity: 0;
+}
+
+.popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: var(--z-overlay);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  padding: var(--space-4);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-xl);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-2xl);
+  outline: none;
+  transform: translate(-50%, -50%);
+  transition:
+    opacity var(--duration-slow) var(--ease-out),
+    transform var(--duration-slow) var(--ease-out);
+}
+.popup[data-starting-style],
+.popup[data-ending-style] {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.95);
+}
+.sizeDefault {
+  max-width: var(--dialog-width);
+}
+/* create task, create event */
+.sizeForm {
+  max-width: 480px;
+}
+
+.close {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+/* keeps the title clear of the close button */
+.popup:has(> .close) .header {
+  padding-right: var(--space-6);
+}
+.title {
+  margin: 0;
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-base) / var(--text-base) var(--font-sans);
+}
+.description {
+  margin: 0;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+
+/* Nova's footer band: muted at 50% over a border line, flush with the popup's edges */
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin: 0 calc(var(--space-4) * -1) calc(var(--space-4) * -1);
+  padding: var(--space-4);
+  border-top: 1px solid var(--border);
+  background: color-mix(in oklab, var(--muted) 50%, transparent);
+}

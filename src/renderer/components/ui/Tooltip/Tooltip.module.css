@@ -1,0 +1,27 @@
+/* DevBrain's dark tooltip (Nova inverts it). See docs/design-system/components/Tooltip.md */
+.positioner {
+  z-index: var(--z-overlay);
+}
+.popup {
+  width: fit-content;
+  max-width: 320px;
+  padding: 6px var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--popover);
+  color: var(--foreground);
+  font: var(--font-weight-medium) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  box-shadow: var(--shadow-md);
+  transform-origin: var(--transform-origin);
+  transition:
+    opacity var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out);
+}
+.popup[data-starting-style],
+.popup[data-ending-style] {
+  opacity: 0;
+  transform: scale(0.95);
+}
+.popup[data-instant] {
+  transition: none;
+}

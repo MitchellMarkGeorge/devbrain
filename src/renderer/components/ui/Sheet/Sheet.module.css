@@ -1,0 +1,96 @@
+/*
+ * The details panel (Base UI Drawer from the right). Docked: a full-height column beside the
+ * page. Overlay (compact windows): floats over the page, inset 8px.
+ * See docs/design-system/components/Sheet.md
+ */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  background: var(--backdrop);
+  opacity: calc(1 - var(--drawer-swipe-progress, 0));
+  transition: opacity var(--duration-slow) var(--ease-out);
+}
+.backdrop[data-starting-style],
+.backdrop[data-ending-style] {
+  opacity: 0;
+}
+.backdrop[data-swiping] {
+  transition-duration: 0ms;
+}
+
+.viewport {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  justify-content: flex-end;
+  align-items: stretch;
+  pointer-events: none;
+}
+/* portalled into a layout column: fills it instead of the window */
+.viewport[data-contained] {
+  position: absolute;
+}
+
+.popup {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 100%;
+  padding: var(--space-4);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  outline: none;
+  transform: translateX(var(--drawer-swipe-movement-x, 0));
+  transition: transform var(--duration-slow) var(--ease-out);
+}
+.popup[data-starting-style],
+.popup[data-ending-style] {
+  transform: translateX(calc(100% + 8px));
+}
+.popup[data-swiping] {
+  transition-duration: 0ms;
+  user-select: none;
+}
+
+.docked {
+  width: var(--sheet-width);
+  height: 100%;
+  border-left: 1px solid var(--border);
+}
+.overlay {
+  width: var(--sheet-width);
+  margin: var(--space-2);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-2xl);
+}
+/* an event's note */
+.sizeWide {
+  width: 480px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--foreground);
+  font: var(--font-weight-medium) var(--text-base) / var(--text-base-leading) var(--font-sans);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}

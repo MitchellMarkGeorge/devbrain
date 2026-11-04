@@ -1,0 +1,44 @@
+/* The popover surface: date pickers, pickers and hover cards */
+.positioner {
+  z-index: var(--z-overlay);
+}
+.popup {
+  max-width: calc(100vw - 16px);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-md);
+  outline: none;
+  transform-origin: var(--transform-origin);
+  transition:
+    opacity var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out);
+}
+.popup[data-starting-style],
+.popup[data-ending-style] {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.sizeDefault {
+  width: 288px;
+  padding: 10px;
+}
+/* sizes to its content with no padding: a calendar or a list fills it */
+.sizeAuto {
+  width: auto;
+  padding: 0;
+}
+
+.title {
+  margin: 0;
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+.description {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-leading);
+}
