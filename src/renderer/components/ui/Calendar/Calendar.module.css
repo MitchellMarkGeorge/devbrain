@@ -115,10 +115,57 @@
   background: var(--secondary);
   box-shadow: inset 0 0 0 1px var(--border-strong);
 }
-.rangeMiddle .dayButton {
-  border-radius: 0;
+
+/*
+ * Range: one `accent` band per week, drawn on the cells so it runs without gaps between days,
+ * from the centre of the start to the centre of the end. The ends fill with `primary`, a step
+ * above the band (`secondary` and `accent` are the same grey in dark). A band that crosses a week
+ * rounds off at the row's edges.
+ */
+.rangeStart,
+.rangeMiddle,
+.rangeEnd {
   background: var(--accent);
+}
+.rangeStart {
+  background: linear-gradient(to right, transparent 50%, var(--accent) 50%);
+}
+.rangeEnd {
+  background: linear-gradient(to left, transparent 50%, var(--accent) 50%);
+}
+/* a one-day range, a start on Sunday and an end on Monday have no band */
+.rangeStart.rangeEnd,
+.rangeStart:last-child,
+.rangeEnd:first-child {
+  background: none;
+}
+.rangeMiddle:first-child {
+  border-top-left-radius: var(--radius-md);
+  border-bottom-left-radius: var(--radius-md);
+}
+.rangeMiddle:last-child {
+  border-top-right-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+}
+.rangeMiddle .dayButton {
+  background: transparent;
   box-shadow: none;
+}
+.rangeMiddle .dayButton:hover {
+  background: color-mix(in oklab, var(--border-strong) 60%, var(--accent));
+}
+.rangeStart .dayButton,
+.rangeEnd .dayButton {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: none;
+}
+.rangeStart .dayButton:hover,
+.rangeEnd .dayButton:hover {
+  background: color-mix(in oklab, var(--primary) 85%, transparent);
+}
+.rangeMiddle.outside {
+  color: var(--muted-foreground);
 }
 /* today keeps DevBrain's red square with a white number, selected or not */
 .today .dayButton {

@@ -35,6 +35,28 @@ export const Range: Story = {
   },
 };
 
+/** A range across weeks: one band per week, rounded at the row's edges */
+export const RangeAcrossWeeks: Story = {
+  render: (args) => {
+    const [range, setRange] = useState<DateRange | undefined>({
+      from: new Date(2026, 4, 13),
+      to: new Date(2026, 4, 27),
+    });
+    return <Calendar {...args} mode="range" selected={range} onSelect={setRange} />;
+  },
+};
+
+/** A range that starts and ends on the same day */
+export const OneDayRange: Story = {
+  render: (args) => {
+    const [range, setRange] = useState<DateRange | undefined>({
+      from: new Date(2026, 4, 20),
+      to: new Date(2026, 4, 20),
+    });
+    return <Calendar {...args} mode="range" selected={range} onSelect={setRange} />;
+  },
+};
+
 export const OnCard: Story = {
   render: () => (
     <div
