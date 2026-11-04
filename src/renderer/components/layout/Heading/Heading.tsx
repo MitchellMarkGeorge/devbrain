@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
 import { cva, type VariantProps } from 'class-variance-authority';
@@ -39,8 +40,12 @@ export interface HeadingProps
 }
 
 /** A heading on the type scale: `<Heading level={1}>Tasks</Heading>`, `<Heading level={3} variant="section">`. */
-export function Heading({ level = 2, variant, truncate, render, ...props }: HeadingProps) {
+export const Heading = forwardRef<HTMLHeadingElement, HeadingProps>(function Heading(
+  { level = 2, variant, truncate, render, ...props }: HeadingProps,
+  ref,
+) {
   return useRender({
+    ref,
     defaultTagName: `h${level}`,
     render,
     props: mergeProps<'h2'>(
@@ -48,4 +53,4 @@ export function Heading({ level = 2, variant, truncate, render, ...props }: Head
       props,
     ),
   });
-}
+});

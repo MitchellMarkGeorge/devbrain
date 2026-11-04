@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { forwardRef, type CSSProperties } from 'react';
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
 import { cva, type VariantProps } from 'class-variance-authority';
@@ -41,19 +41,13 @@ export interface FlexProps
 }
 
 /** A flex container on the spacing scale: `<Flex gap="2" align="center">`. */
-export function Flex({
-  direction,
-  align,
-  justify,
-  wrap,
-  inline,
-  grow,
-  gap,
-  render,
-  ...props
-}: FlexProps) {
+export const Flex = forwardRef<HTMLDivElement, FlexProps>(function Flex(
+  { direction, align, justify, wrap, inline, grow, gap, render, ...props }: FlexProps,
+  ref,
+) {
   const style = gap ? ({ '--flex-gap': spaceVar(gap) } as CSSProperties) : undefined;
   return useRender({
+    ref,
     defaultTagName: 'div',
     render,
     props: mergeProps<'div'>(
@@ -61,9 +55,11 @@ export function Flex({
       props,
     ),
   });
-}
+});
 
 /** A vertical `Flex`: `<Stack gap="4">`. */
-export function Stack(props: Omit<FlexProps, 'direction'>) {
-  return <Flex direction="column" {...props} />;
-}
+export const Stack = forwardRef<HTMLDivElement, Omit<FlexProps, 'direction'>>(
+  function Stack(props, ref) {
+    return <Flex ref={ref} direction="column" {...props} />;
+  },
+);

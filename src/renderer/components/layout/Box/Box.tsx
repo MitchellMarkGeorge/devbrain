@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { forwardRef, type CSSProperties } from 'react';
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
 import { cva, type VariantProps } from 'class-variance-authority';
@@ -30,11 +30,15 @@ export interface BoxProps
 }
 
 /** A plain block with token-based padding, surface, corners and outline. */
-export function Box({ padding, surface, radius, border, render, ...props }: BoxProps) {
+export const Box = forwardRef<HTMLDivElement, BoxProps>(function Box(
+  { padding, surface, radius, border, render, ...props }: BoxProps,
+  ref,
+) {
   const style = padding ? ({ '--box-padding': spaceVar(padding) } as CSSProperties) : undefined;
   return useRender({
+    ref,
     defaultTagName: 'div',
     render,
     props: mergeProps<'div'>({ className: boxVariants({ surface, radius, border }), style }, props),
   });
-}
+});

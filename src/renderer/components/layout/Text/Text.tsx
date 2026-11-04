@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { forwardRef, type CSSProperties } from 'react';
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
 import { cva, type VariantProps } from 'class-variance-authority';
@@ -49,27 +49,31 @@ export interface TextProps
  * Running text on the type scale. A `span` by default; `render={<p />}` for a paragraph.
  * `<Text size="xs" tone="muted">Edited 2h ago</Text>`
  */
-export function Text({
-  size,
-  weight,
-  tone,
-  align,
-  truncate,
-  mono,
-  tabular,
-  strike,
-  lineClamp,
-  render,
-  ...props
-}: TextProps) {
+export const Text = forwardRef<HTMLSpanElement, TextProps>(function Text(
+  {
+    size,
+    weight,
+    tone,
+    align,
+    truncate,
+    mono,
+    tabular,
+    strike,
+    lineClamp,
+    render,
+    ...props
+  }: TextProps,
+  ref,
+) {
   const className = cn(
     textVariants({ size, weight, tone, align, truncate, mono, tabular, strike }),
     lineClamp && styles.clamp,
   );
   const style = lineClamp ? ({ '--text-clamp': lineClamp } as CSSProperties) : undefined;
   return useRender({
+    ref,
     defaultTagName: 'span',
     render,
     props: mergeProps<'span'>({ className, style }, props),
   });
-}
+});

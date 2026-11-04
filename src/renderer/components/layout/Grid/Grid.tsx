@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import { forwardRef, type CSSProperties } from 'react';
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
 import { cva, type VariantProps } from 'class-variance-authority';
@@ -26,7 +26,10 @@ export interface GridProps
 }
 
 /** A CSS grid on the spacing scale: `<Grid columns={3} gap="4">`, `<Grid minColumnWidth="240px">`. */
-export function Grid({ columns, minColumnWidth, gap, align, render, ...props }: GridProps) {
+export const Grid = forwardRef<HTMLDivElement, GridProps>(function Grid(
+  { columns, minColumnWidth, gap, align, render, ...props }: GridProps,
+  ref,
+) {
   const template = minColumnWidth
     ? `repeat(auto-fill, minmax(${minColumnWidth}, 1fr))`
     : typeof columns === 'number'
@@ -37,8 +40,9 @@ export function Grid({ columns, minColumnWidth, gap, align, render, ...props }: 
     ...(template && { '--grid-columns': template }),
   } as CSSProperties;
   return useRender({
+    ref,
     defaultTagName: 'div',
     render,
     props: mergeProps<'div'>({ className: gridVariants({ align }), style }, props),
   });
-}
+});
