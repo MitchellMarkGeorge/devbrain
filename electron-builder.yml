@@ -6,9 +6,9 @@ directories:
 files:
   - dist/**
   - package.json
+# never .env: it holds the building machine's local secrets (see loadDevelopmentEnv in
+# src/main/index.ts)
 extraResources:
-  - from: .env
-    to: .env
   - from: ./src/main/db/migrations
     to: migrations
 mac:
