@@ -24,7 +24,7 @@ interface Tokens {
 const SOURCE = 'docs/design-system/tokens.json';
 const OUTPUT = 'src/renderer/styles/tokens.css';
 const WINDOW_OUTPUT = 'src/common/theme.ts';
-const DOMAIN = /^(status|priority|health|date|now|swatch)-/;
+const DOMAIN = /^(status|priority|health|date|now|swatch|syntax)-/;
 
 const tokens = JSON.parse(readFileSync(SOURCE, 'utf8')) as Tokens;
 
@@ -85,7 +85,7 @@ const lines: string[] = [
  *
  *   1. Palette  --neutral-*, --red-*, ...    raw Tailwind steps; components never use these
  *   2. Theme    --background, --primary, ... shadcn's variables, per theme
- *   3. Domain   --status-*, --priority-*, --swatch-*: DevBrain meanings
+ *   3. Domain   --status-*, --priority-*, --swatch-*, --syntax-*: DevBrain meanings
  *
  * See docs/design-system/README.md.
  */`,

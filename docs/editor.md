@@ -81,6 +81,13 @@ A collapsible section is written as GitHub needs it to read the body as markdown
 </details>
 ```
 
+**Code blocks** are highlighted in their fence's language (` ```ts `), drawn by the design
+system's `CodeBlock` with the `syntax-*` tokens (`code-languages.ts`). The language is any name or
+alias of highlight.js's common set, about 35 languages; a block with none, or one it doesn't know,
+stays plain text and is never guessed. The label over the code opens a searchable menu of the
+languages; picking one writes its name in the fence. Highlighting only colours the text, so the
+markdown is unchanged.
+
 **Callouts**: GitHub's alerts, drawn by the design system's `Callout` (`extensions/callout.ts`).
 The marker is alone on the first line; the body is the `>` lines after it, any blocks. GitHub draws
 it as an alert, other markdown apps as a quote. Kinds: `NOTE`, `TIP`, `IMPORTANT`, `WARNING`,

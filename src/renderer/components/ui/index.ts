@@ -15,6 +15,7 @@ export * from './Callout';
 export * from './Card';
 export * from './CardGrid';
 export * from './Checkbox';
+export * from './CodeBlock';
 export * from './ColourBar';
 export * from './ColourMenu';
 export * from './Command';

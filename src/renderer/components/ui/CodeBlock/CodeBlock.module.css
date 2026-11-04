@@ -1,0 +1,122 @@
+/* A note's code block. See docs/design-system/components/CodeBlock.md */
+.block {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  color: var(--foreground);
+}
+
+.header {
+  display: flex;
+  margin-bottom: var(--space-1);
+  user-select: none;
+}
+
+.label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+
+.trigger {
+  margin: 0 calc(-1 * var(--space-1));
+  padding: 0 var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
+}
+.trigger:hover,
+.trigger[data-popup-open] {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+.chevron {
+  opacity: 0;
+  transition: opacity var(--duration-fast);
+}
+.trigger:hover .chevron,
+.trigger:focus-visible .chevron,
+.trigger[data-popup-open] .chevron {
+  opacity: 1;
+}
+
+/* the code itself; `.block > .code` outranks EditorContent's own `pre` panel */
+.block > .code {
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: var(--font-weight-normal) 13px / var(--text-sm-leading) var(--font-mono);
+  overflow-x: auto;
+  white-space: pre;
+  tab-size: 2;
+}
+.code code {
+  font: inherit;
+}
+
+/* highlight.js's classes, by the syntax-* roles */
+.code :global(.hljs-keyword),
+.code :global(.hljs-meta),
+.code :global(.hljs-bullet),
+.code :global(.hljs-operator) {
+  color: var(--syntax-keyword);
+}
+.code :global(.hljs-string),
+.code :global(.hljs-template-tag),
+.code :global(.hljs-addition) {
+  color: var(--syntax-string);
+}
+.code :global(.hljs-number),
+.code :global(.hljs-literal) {
+  color: var(--syntax-number);
+}
+.code :global(.hljs-comment),
+.code :global(.hljs-quote) {
+  color: var(--syntax-comment);
+  font-style: italic;
+}
+.code :global(.hljs-title.function_),
+.code :global(.hljs-section) {
+  color: var(--syntax-function);
+}
+.code :global(.hljs-type),
+.code :global(.hljs-built_in),
+.code :global(.hljs-title.class_),
+.code :global(.hljs-title.class_.inherited__) {
+  color: var(--syntax-type);
+}
+.code :global(.hljs-attr),
+.code :global(.hljs-attribute),
+.code :global(.hljs-property),
+.code :global(.hljs-variable),
+.code :global(.hljs-template-variable),
+.code :global(.hljs-symbol),
+.code :global(.hljs-params) {
+  color: var(--syntax-property);
+}
+.code :global(.hljs-tag),
+.code :global(.hljs-name),
+.code :global(.hljs-selector-tag),
+.code :global(.hljs-selector-class),
+.code :global(.hljs-selector-id),
+.code :global(.hljs-regexp),
+.code :global(.hljs-deletion) {
+  color: var(--syntax-tag);
+}
+.code :global(.hljs-emphasis) {
+  font-style: italic;
+}
+.code :global(.hljs-strong) {
+  font-weight: var(--font-weight-semibold);
+}

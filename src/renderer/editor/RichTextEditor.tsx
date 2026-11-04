@@ -3,6 +3,7 @@ import { EditorContent } from '../components';
 import { Placeholder } from '@tiptap/extensions';
 import { useEffect, useRef, useState } from 'react';
 import { CalloutView } from './CalloutView';
+import { CodeBlockView } from './CodeBlockView';
 import { EditorHostContext, EntityLinkView, ImageLinkView } from './EntityPillView';
 import { FormatBubble } from './FormatBubble';
 import { MarkdownClipboard } from './extensions/clipboard';
@@ -56,6 +57,7 @@ export function RichTextEditor({
       entityLink: EntityLinkView,
       imageLink: ImageLinkView,
       callout: CalloutView,
+      codeBlock: CodeBlockView,
     }),
     EditorHostExtension,
     MarkdownClipboard,

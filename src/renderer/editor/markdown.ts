@@ -1,5 +1,6 @@
 import { getSchema, mergeAttributes, type AnyExtension, type JSONContent } from '@tiptap/core';
-import CodeBlock from '@tiptap/extension-code-block';
+import { CodeBlockLowlight } from '@tiptap/extension-code-block-lowlight';
+import { highlighter } from './code-languages';
 import StarterKit from '@tiptap/starter-kit';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { Table, TableKit } from '@tiptap/extension-table';
@@ -33,7 +34,12 @@ import { SafeLink } from './extensions/safe-link';
  * rendered (raw-html.ts, image-link.ts).
  */
 export function createDocumentExtensions(
-  options: { entityLink?: AnyExtension; imageLink?: AnyExtension; callout?: AnyExtension } = {},
+  options: {
+    entityLink?: AnyExtension;
+    imageLink?: AnyExtension;
+    callout?: AnyExtension;
+    codeBlock?: AnyExtension;
+  } = {},
 ): AnyExtension[] {
   return [
     StarterKit.configure({
@@ -44,7 +50,7 @@ export function createDocumentExtensions(
       // the empty paragraph it adds after a final table or code block would be written to the file
       trailingNode: false,
     }),
-    DocumentCodeBlock,
+    options.codeBlock ?? DocumentCodeBlock,
     SafeLink,
     TaskList,
     TaskItem.configure({ nested: true }),
@@ -141,8 +147,9 @@ const DocumentMarkdown = Markdown.extend({
   },
 });
 
-// a code block's `pre` carries its language, which EditorContent shows as a label
-const DocumentCodeBlock = CodeBlock.extend({
+// a code block, highlighted in its language (code-languages.ts); its `pre` carries the language,
+// which EditorContent shows as a label where the CodeBlock component doesn't draw it
+export const DocumentCodeBlock = CodeBlockLowlight.extend({
   renderHTML({ node, HTMLAttributes }) {
     const language: string | null = node.attrs.language || null;
     return [
@@ -151,7 +158,7 @@ const DocumentCodeBlock = CodeBlock.extend({
       ['code', { class: language ? this.options.languageClassPrefix + language : null }, 0],
     ];
   },
-});
+}).configure({ lowlight: highlighter });
 
 // TipTap's table writes a blank line before and after itself on top of the one between blocks
 const DocumentTable = Table.extend({
