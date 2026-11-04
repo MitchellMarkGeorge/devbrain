@@ -12,6 +12,7 @@ export {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
   menuItemVariants,
   menuPopupVariants,
   menuStyles,

@@ -1,0 +1,109 @@
+/* The preview an entity pill opens. See docs/design-system/components/EntityHoverCard.md */
+.positioner {
+  z-index: var(--z-overlay);
+}
+/* Nova's popover surface, as the menus and popovers draw it */
+.popup {
+  max-width: calc(100vw - 16px);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-md);
+  outline: none;
+  transform-origin: var(--transform-origin);
+  transition:
+    opacity var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out);
+}
+.popup[data-starting-style],
+.popup[data-ending-style] {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 280px;
+  max-width: 100%;
+  padding: var(--space-3);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mutedGlyph {
+  color: var(--muted-foreground);
+}
+.projectGlyph {
+  color: var(--entity-color, var(--muted-foreground));
+}
+/* an event's calendar colour, as the 3px bar of its pill */
+.bar {
+  flex: none;
+  width: 3px;
+  height: 16px;
+  border-radius: var(--radius-full);
+  background: var(--entity-color, var(--swatch-green));
+}
+
+.pills,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.metaText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+}
+.progressLabel {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.progressValue {
+  font-variant-numeric: tabular-nums;
+}

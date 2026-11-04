@@ -1,0 +1,21 @@
+/* The dates property. See "DateRange" in docs/design-system/components/PropertyRow.md */
+.range {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1-5);
+}
+.arrow {
+  color: var(--muted-foreground);
+}
+/* a due date's tone colours its calendar glyph; the label stays muted like every pill label */
+.today > svg {
+  color: var(--date-today);
+}
+.overdue > svg {
+  color: var(--date-overdue);
+}
+/* the picker's calendar, inset from the popover's edge */
+.picker {
+  padding: var(--space-2);
+}
