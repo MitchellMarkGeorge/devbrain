@@ -93,7 +93,8 @@ describe('RichTextEditor', () => {
     await act(async () => {});
     const pill = container.querySelector<HTMLElement>('[data-entity-type="task"]')!;
     expect(pill.textContent).toBe('Current title');
-    act(() => pill.click());
+    // the design system's EntityPill is the button inside the node view
+    act(() => pill.querySelector('button')!.click());
     expect(onOpenEntity).toHaveBeenCalledWith('task', 'tsk_1');
     // the stored label is untouched
     expect(editor.getMarkdown()).toBe('See [Old title](devbrain://task/tsk_1)');
@@ -111,5 +112,59 @@ describe('RichTextEditor', () => {
     expect(click.defaultPrevented).toBe(true);
     expect(onOpenUrl).toHaveBeenCalledWith('https://example.com/docs');
     expect(link.getAttribute('target')).toBeNull();
+  });
+
+  it('opens the design system\'s slash menu on "/", without Task, and runs the picked command', async () => {
+    render({ value: '' });
+    await act(async () => {
+      editor.chain().focus().insertContent('/coll').run();
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    });
+    const menu = document.querySelector('[aria-label="Insert block"]')!;
+    expect([...menu.querySelectorAll('[role="option"]')].map((item) => item.textContent)).toEqual([
+      'Collapsible section',
+    ]);
+    await act(async () => {
+      editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    expect(editor.getMarkdown()).toBe('<details>\n<summary></summary>\n\n</details>');
+
+    await act(async () => {
+      editor.commands.setContent('', { emitUpdate: false });
+      editor.chain().focus().insertContent('/').run();
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    });
+    const labels = [
+      ...document.querySelectorAll('[aria-label="Insert block"] [role="option"]'),
+    ].map((item) => item.textContent);
+    expect(labels).toContain('Link to note');
+    expect(labels).not.toContain('Task');
+  });
+
+  it('searches tasks, notes and events on "@" and inserts the pick as an entity link', async () => {
+    const searchEntities = vi.fn(async () => [
+      { type: 'task' as const, id: 'tsk_1', title: 'Fix login', status: 'in-progress' as const },
+      { type: 'note' as const, id: 'nte_1', title: 'Login notes' },
+    ]);
+    render({ value: '', searchEntities });
+    await act(async () => {
+      editor.chain().focus().insertContent('@login').run();
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    });
+    expect(searchEntities).toHaveBeenLastCalledWith('login', ['task', 'note', 'event']);
+    const menu = document.querySelector('[aria-label="Mention"]')!;
+    expect(
+      [...menu.querySelectorAll('[role="group"]')].map((g) => g.getAttribute('aria-label')),
+    ).toEqual(['Tasks', 'Notes']);
+    await act(async () => {
+      editor.view.dom.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
+      );
+    });
+    await act(async () => {
+      editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    // a space after the pill, to keep typing
+    expect(editor.getMarkdown()).toBe('[Login notes](devbrain://note/nte_1) ');
   });
 });

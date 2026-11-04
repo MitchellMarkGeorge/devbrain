@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { trpc } from '../ipc';
 import { highlightToText } from './highlight';
-import type { EditorEntity, EditorHost } from './types';
+import type { EditorEntity, EditorHost, MentionType } from './types';
 
 /**
  * The parts of an editor's host every page shares: "@" search over the open workspace and opening
@@ -18,10 +18,10 @@ export function useWorkspaceEditorHost(): Pick<EditorHost, 'searchEntities' | 'o
 
   return useMemo(
     () => ({
-      async searchEntities(query: string): Promise<EditorEntity[]> {
+      async searchEntities(query: string, types: MentionType[]): Promise<EditorEntity[]> {
         try {
           const results = await queryClient.fetchQuery(
-            trpc.search.search.queryOptions({ query, limit: 20 }),
+            trpc.search.search.queryOptions({ query, entityType: types, limit: 20 }),
           );
           return results.map((result) => ({
             type: result.entityType,

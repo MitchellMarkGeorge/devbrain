@@ -1,55 +1,77 @@
-import { EntityIcon } from '../EntityIcon';
-import type { EditorEntity, EditorEntityType } from '../types';
+import type { Editor } from '@tiptap/core';
+import { MentionMenu, type MentionItem, type SuggestionGroup } from '../../components';
+import { MENTION_TYPES, type EditorEntity, type MentionType } from '../types';
 import { createSuggestionMenu } from './suggestion';
-import type { SuggestionItem } from './SuggestionMenu';
 
 /**
- * "@" links: typing "@" and a few words searches the workspace through the host and inserts the
- * chosen task, project, note or event as an entity pill. Results are grouped by type, in the
- * order the host ranked them within each type.
+ * "@" mentions: typing "@" and a few words searches the workspace through the host and shows the
+ * design system's MentionMenu (Tasks, Notes, Events); the chosen one is inserted as an entity pill.
+ * The slash menu's "Link to note", "Link to task" and "Mention event" open it for one kind.
  */
 
-interface EntityItem extends SuggestionItem {
-  entity: EditorEntity;
+const GROUPS: { kind: MentionType; label: string }[] = [
+  { kind: 'task', label: 'Tasks' },
+  { kind: 'note', label: 'Notes' },
+  { kind: 'event', label: 'Events' },
+];
+
+const PER_GROUP = 5;
+
+function toMentionItem(entity: EditorEntity): MentionItem | null {
+  const { id, title } = entity;
+  switch (entity.type) {
+    case 'task':
+      return { kind: 'task', id, title, status: entity.status ?? 'not-started' };
+    case 'note':
+      return { kind: 'note', id, title };
+    case 'event':
+      return { kind: 'event', id, title, color: entity.color ?? 'green' };
+    default:
+      return null;
+  }
 }
 
-const GROUPS: Record<EditorEntityType, string> = {
-  task: 'Tasks',
-  project: 'Projects',
-  note: 'Notes',
-  event: 'Events',
-};
+// the results as the menu's groups, in the host's order within each kind
+export function mentionGroups(items: MentionItem[]): SuggestionGroup<MentionItem>[] {
+  return GROUPS.map(({ kind, label }) => ({
+    label,
+    items: items.filter((item) => item.kind === kind).slice(0, PER_GROUP),
+  }));
+}
 
-const GROUP_ORDER: EditorEntityType[] = ['task', 'project', 'note', 'event'];
+// types "@" to open the menu for one kind (the slash menu's "Link to note" and the like)
+export function openMention(chain: ReturnType<Editor['chain']>, editor: Editor, type: MentionType) {
+  editor.storage.editorHost.mentionTypes = [type];
+  chain.insertContent('@').run();
+}
 
-export const EntityMenu = createSuggestionMenu<EntityItem>({
+export const EntityMenu = createSuggestionMenu<MentionItem>({
   name: 'entityMenu',
   char: '@',
   allowSpaces: true,
-  emptyLabel: 'No matches',
   async items(query, editor) {
-    const search = editor.storage.editorHost.host.searchEntities;
-    if (!search || !query.trim()) return [];
-    const entities = await search(query.trim());
-    return GROUP_ORDER.flatMap((type) =>
-      entities
-        .filter((entity) => entity.type === type)
-        .slice(0, 5)
-        .map((entity) => ({
-          key: `${entity.type}:${entity.id}`,
-          label: entity.title,
-          group: GROUPS[type],
-          icon: <EntityIcon entity={entity} />,
-          entity,
-        })),
-    );
+    const { host, mentionTypes } = editor.storage.editorHost;
+    if (!host.searchEntities || !query.trim()) return [];
+    const entities = await host.searchEntities(query.trim(), [...(mentionTypes ?? MENTION_TYPES)]);
+    return entities.map(toMentionItem).filter((item): item is MentionItem => item !== null);
   },
-  select(editor, range, { entity }) {
+  select(editor, range, item) {
     editor
       .chain()
       .focus()
       .deleteRange(range)
-      .insertEntityLink({ type: entity.type, id: entity.id, label: entity.title })
+      .insertEntityLink({ type: item.kind, id: item.id, label: item.title })
       .run();
+  },
+  render: ({ query, items, onSelect, handleRef }) => (
+    <MentionMenu
+      groups={mentionGroups(items)}
+      onSelect={onSelect}
+      handleRef={handleRef}
+      empty={query.trim() ? 'No results' : 'Type to search tasks, notes and events'}
+    />
+  ),
+  onExit(editor) {
+    editor.storage.editorHost.mentionTypes = null;
   },
 });

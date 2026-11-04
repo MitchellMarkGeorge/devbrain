@@ -21,9 +21,15 @@ const host = useWorkspaceEditorHost(); // "@" search and opening links
 - A new `value` from outside (the file changed on disk, a sync) replaces the content; the markdown
   the editor just sent is not loaded again.
 - The editor never calls IPC. What it needs from the app is `EditorHost` (`types.ts`).
-- Styles are CSS Modules over the design-system tokens: the document in `RichTextEditor.module.css`,
-  the menus in `suggestion/SuggestionMenu.module.css` (Command) and the pills in
-  `EntityPill.module.css` (EntityPill).
+- It is drawn by the design system's components (`src/renderer/components`): the blocks by
+  `EditorContent`, entity links and images by `EntityPill`, keys by `Kbd`, the `/` menu by
+  `SlashMenu` and the `@` menu by `MentionMenu`. A change to how any of these look belongs in the
+  component and its guide (`docs/design-system/components/`), not here; `RichTextEditor.module.css`
+  holds only the editor's own link rules.
+- `/` opens the `SlashMenu`; "Link to note", "Link to task" and "Mention event" open the `@` menu
+  for that kind, and "Task" is left out until tasks can be made from the editor. `@` searches
+  tasks, notes and events, as the `MentionMenu` shows them (a project link in a note still reads
+  as a pill).
 
 ## The note format
 
@@ -108,4 +114,5 @@ A new HTML tag joins the list in `extensions/html-elements.ts` (and is then left
 
 Add the schema node to `createDocumentExtensions` and its view in `RichTextEditor`, and a round
 trip case to the tests. Menus that open on a character use `createSuggestionMenu`
-(`suggestion/suggestion.ts`): `slash-menu.tsx` and `entity-menu.tsx` are the two in use.
+(`suggestion/suggestion.tsx`), which positions a design-system menu under the caret and passes it
+the keys: `slash-menu.tsx` and `entity-menu.tsx` are the two in use.

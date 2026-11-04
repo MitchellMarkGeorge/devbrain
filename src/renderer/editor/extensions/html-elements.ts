@@ -12,6 +12,7 @@ import { Details, DetailsSummary } from '@tiptap/extension-details';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import Underline from '@tiptap/extension-underline';
+import { kbdVariants } from '../../components/ui/Kbd';
 
 /**
  * The HTML tags DevBrain notes support, for what GitHub-flavoured markdown has no syntax for. Each
@@ -117,8 +118,9 @@ export const Kbd = Mark.create({
     return [{ tag: 'kbd' }];
   },
 
+  // drawn as the design system's Kbd
   renderHTML() {
-    return ['kbd', 0];
+    return ['kbd', { class: kbdVariants() }, 0];
   },
 
   ...tagMarkdown('kbd', 'kbd'),

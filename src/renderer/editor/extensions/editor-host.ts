@@ -1,11 +1,12 @@
 import { Extension, type Editor } from '@tiptap/core';
 import { Plugin } from '@tiptap/pm/state';
 import { safeExternalUrl } from '@common/safe-url';
-import type { EditorHost } from '../types';
+import type { EditorHost, MentionType } from '../types';
 
 declare module '@tiptap/core' {
   interface Storage {
-    editorHost: { host: EditorHost };
+    // mentionTypes: the kinds the open "@" menu searches, when a slash command picked one
+    editorHost: { host: EditorHost; mentionTypes: MentionType[] | null };
   }
 }
 
@@ -21,7 +22,7 @@ export const EditorHostExtension = Extension.create({
   name: 'editorHost',
 
   addStorage() {
-    return { host: {} as EditorHost };
+    return { host: {} as EditorHost, mentionTypes: null as MentionType[] | null };
   },
 
   addProseMirrorPlugins() {

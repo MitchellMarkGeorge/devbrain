@@ -1,4 +1,5 @@
-import { getSchema, type AnyExtension, type JSONContent } from '@tiptap/core';
+import { getSchema, mergeAttributes, type AnyExtension, type JSONContent } from '@tiptap/core';
+import CodeBlock from '@tiptap/extension-code-block';
 import StarterKit from '@tiptap/starter-kit';
 import { TaskItem, TaskList } from '@tiptap/extension-list';
 import { Table, TableKit } from '@tiptap/extension-table';
@@ -38,9 +39,11 @@ export function createDocumentExtensions(
       link: false,
       // with its input rule, from html-elements.ts
       underline: false,
+      codeBlock: false,
       // the empty paragraph it adds after a final table or code block would be written to the file
       trailingNode: false,
     }),
+    DocumentCodeBlock,
     SafeLink,
     TaskList,
     TaskItem.configure({ nested: true }),
@@ -106,6 +109,18 @@ const DocumentMarkdown = Markdown.extend({
     });
     this.storage.manager = manager;
     this.editor.markdown = manager;
+  },
+});
+
+// a code block's `pre` carries its language, which EditorContent shows as a label
+const DocumentCodeBlock = CodeBlock.extend({
+  renderHTML({ node, HTMLAttributes }) {
+    const language: string | null = node.attrs.language || null;
+    return [
+      'pre',
+      mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, { 'data-language': language }),
+      ['code', { class: language ? this.options.languageClassPrefix + language : null }, 0],
+    ];
   },
 });
 

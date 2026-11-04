@@ -1,0 +1,21 @@
+/* An EntityPill set in a line of text: the design system draws it; this only seats it in the line
+   (the 24px pill overlaps the 20px line by 2px each side, so the lines keep their height) and adds
+   the editor's own states. */
+.inline {
+  display: inline-flex;
+  margin: -2px 1px;
+  vertical-align: middle;
+}
+
+/* selected as a node: the focus ring */
+.inline[data-selected] > * {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+/* an entity the host cannot find any more (deleted, or in another workspace): its stored label,
+   struck through on a dashed outline */
+.inline[data-missing] > * {
+  border-style: dashed;
+  text-decoration: line-through;
+}

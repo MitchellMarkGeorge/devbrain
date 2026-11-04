@@ -1,4 +1,5 @@
-import { EditorContent, useEditor, type Editor } from '@tiptap/react';
+import { EditorContent as TiptapEditorContent, useEditor, type Editor } from '@tiptap/react';
+import { EditorContent } from '../components';
 import { Placeholder } from '@tiptap/extensions';
 import { useEffect, useRef, useState } from 'react';
 import { EditorHostContext, EntityLinkView, ImageLinkView } from './EntityPillView';
@@ -39,7 +40,7 @@ export function RichTextEditor({
   value,
   onChange,
   editable = true,
-  placeholder = "Write, or press '/' for blocks and '@' to link",
+  placeholder = 'Start writing, or press / for commands…',
   autoFocus = false,
   label,
   className,
@@ -118,11 +119,9 @@ export function RichTextEditor({
 
   return (
     <EditorHostContext.Provider value={host}>
-      <EditorContent
-        editor={editor}
-        className={[styles.editor, className].filter(Boolean).join(' ')}
-        data-readonly={editable ? undefined : ''}
-      />
+      <EditorContent className={className} data-readonly={editable ? undefined : ''}>
+        <TiptapEditorContent editor={editor} />
+      </EditorContent>
     </EditorHostContext.Provider>
   );
 }

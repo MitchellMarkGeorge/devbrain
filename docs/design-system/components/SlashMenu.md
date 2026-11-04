@@ -5,7 +5,7 @@ The note editor's "/" menu, 260px wide under the caret, drawn as a menu: groups 
 - **Basic blocks**: Text, Heading 1 (#), Heading 2 (##), Heading 3 (###), Code (```), Quote (>).
 - **Lists**: Bulleted list (-), Numbered list (1.), To-do list ([ ]).
 - **DevBrain**: Task, Link to note, Link to task, Mention event.
-- **Others**: Divider (---), Table.
+- **Others**: Divider (---), Table, Collapsible section (a `<details>` section in the note).
 
 Typing after the "/" narrows the list to the items whose name (or a keyword such as "h1") matches; empty groups drop out, and nothing matching shows "No results". The first match is highlighted.
 

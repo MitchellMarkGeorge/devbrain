@@ -8,6 +8,7 @@ import {
   relaxEntities,
 } from '../../editor/markdown';
 import { highlightToText } from '../../editor/highlight';
+import { kbdVariants } from '../../components/ui/Kbd';
 
 // Notes are markdown files, so loading one into the editor and saving it must give the file back.
 // Each document here is written the way the editor writes markdown, and must come back unchanged.
@@ -230,7 +231,7 @@ describe('supported HTML tags', () => {
     });
     const dom = editor.view.dom;
     expect([...dom.querySelectorAll('kbd, sub, sup, u')].map((el) => el.outerHTML)).toEqual([
-      '<kbd>K</kbd>',
+      `<kbd class="${kbdVariants()}">K</kbd>`,
       '<sub>a</sub>',
       '<sup>b</sup>',
       '<u>c</u>',
