@@ -16,15 +16,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Centres dialogs over the page beside the 256px sidebar, as the app shell does. */
-function SidebarInset({ children }: { children: ReactNode }) {
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty('--dialog-inset-left', '256px');
-    return () => {
-      root.style.removeProperty('--dialog-inset-left');
-    };
-  }, []);
+/** The 1440 × 1024 window the screens are drawn in; dialogs centre on it. */
+function ScreenWindow({ children }: { children: ReactNode }) {
   return <div style={{ position: 'relative', width: 1440, height: 1024 }}>{children}</div>;
 }
 
@@ -49,7 +42,7 @@ const renderTrash = Trash.render as () => ReactNode;
 export const TrashDeleteConfirm: Story = {
   name: 'Trash — delete permanently confirm',
   render: () => (
-    <SidebarInset>
+    <ScreenWindow>
       {renderTrash()}
       <ConfirmDialog
         defaultOpen
@@ -58,7 +51,7 @@ export const TrashDeleteConfirm: Story = {
         irreversible
         actionLabel="Delete Note"
       />
-    </SidebarInset>
+    </ScreenWindow>
   ),
 };
 
@@ -69,7 +62,7 @@ export const TrashDeleteConfirm: Story = {
 export const DisconnectConfirm: Story = {
   name: 'Integrations — disconnect confirm',
   render: () => (
-    <SidebarInset>
+    <ScreenWindow>
       <AppFrame page="Integrations">
         <PageHeader title="Integrations">
           <Spacer />
@@ -101,7 +94,7 @@ export const DisconnectConfirm: Story = {
           ]}
         />
       </ConfirmDialog>
-    </SidebarInset>
+    </ScreenWindow>
   ),
 };
 

@@ -12,13 +12,13 @@
 }
 
 /*
- * Figma places dialogs 160px from the window's top, centred over the page beside the sidebar: the
- * app shell sets `--dialog-inset-left` to the sidebar's width (0 without a sidebar).
+ * Dialogs hang 160px from the window's top and centre on the whole window, sidebar or not (Figma
+ * centres them over the page beside the sidebar; the window was chosen instead).
  */
 .popup {
   position: fixed;
   top: clamp(16px, 16vh, 160px);
-  left: calc(50% + var(--dialog-inset-left, 0px) / 2);
+  left: 50%;
   z-index: var(--z-overlay);
   display: flex;
   flex-direction: column;
