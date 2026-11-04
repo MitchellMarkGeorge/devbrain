@@ -22,6 +22,8 @@ npm run dev
 
 `npm run dev` starts the Vite dev server and launches Electron. The app window opens with hot-module replacement active in the renderer.
 
+`npm test` (and `npm run test:watch`) runs Vitest on Electron's Node (`scripts/vitest.mts`), so the tests use the Node version the app ships with and the build of `better-sqlite3` that `npm install` makes for Electron. Arguments go to Vitest: `npm test -- src/main/core/tests/sync`.
+
 ## Key dependency versions
 
 | Package                                                             | Version  |

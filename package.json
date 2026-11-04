@@ -7,7 +7,7 @@
   "author": "",
   "license": "MIT",
   "scripts": {
-    "dev": "npm run rebuild:electron && tsx scripts/dev.mts",
+    "dev": "tsx scripts/dev.mts",
     "seed:dev": "tsx --tsconfig ./tsconfig.node.json scripts/setup_dev_workspace.mts",
     "tokens": "tsx scripts/generate_tokens.mts && prettier --write src/renderer/styles/tokens.css src/common/theme.ts",
     "build": "npm run build:main && npm run build:preload && npm run build:renderer",
@@ -27,8 +27,8 @@
     "postinstall": "electron-builder install-app-deps",
     "rebuild:node": "npm rebuild better-sqlite3",
     "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
-    "test": "npm run rebuild:node && vitest run",
-    "test:watch": "npm run rebuild:node && vitest"
+    "test": "tsx scripts/vitest.mts run",
+    "test:watch": "tsx scripts/vitest.mts"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

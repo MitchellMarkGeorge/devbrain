@@ -651,7 +651,7 @@ Archiving instead of deleting means an issue that is briefly unassigned and reas
 
 **Telling the UI.** Each committed page reports the entity types it changed, which reach the renderer in a `db.changes` event, batched with the other changes of the same event-loop turn; the renderer refetches the queries that read them. A `sync.progress` event carries the source, phase and items applied for a status indicator, and `sources.changed` says a run recorded how it ended, so the settings page refetches `sync.status`. See `docs/ipc/design.md`.
 
-**Database concurrency.** `better-sqlite3` is synchronous, so each page's transaction blocks the main process for as long as it runs. These are the budgets for one source of 5,000 items, with the time measured by `src/main/core/tests/sync/performance.test.ts` (`DEVBRAIN_PERF=1 npx vitest run src/main/core/tests/sync/performance.test.ts`; in-memory database, Node 22, SQLite 3.53). A write that goes over its budget, or one whose time grows with the number of mirrored items, is a bug.
+**Database concurrency.** `better-sqlite3` is synchronous, so each page's transaction blocks the main process for as long as it runs. These are the budgets for one source of 5,000 items, with the time measured by `src/main/core/tests/sync/performance.test.ts` (`DEVBRAIN_PERF=1 npm test -- src/main/core/tests/sync/performance.test.ts`; in-memory database, Node 22, SQLite 3.53). A write that goes over its budget, or one whose time grows with the number of mirrored items, is a bug.
 
 | Synchronous write                                         | Measured            | Budget |
 | --------------------------------------------------------- | ------------------- | ------ |
