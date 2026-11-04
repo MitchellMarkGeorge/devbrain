@@ -1,0 +1,18 @@
+/* A provider's tile: brand marks are drawn as given, never restyled */
+.logo {
+  flex: none;
+  display: inline-block;
+  vertical-align: middle;
+}
+.linear .ground {
+  fill: #5e6ad2;
+}
+.linear .ink {
+  fill: #ffffff;
+}
+.github .ground {
+  fill: var(--input);
+}
+.github .ink {
+  fill: var(--foreground);
+}

@@ -34,7 +34,7 @@ export function Icon({ icon: LucideComponent, size = 16, label, className, ...pr
 export function renderIcon(icon: IconSource | undefined, size = 16, color?: string): ReactNode {
   if (icon == null || icon === false) return null;
   if (!isIconComponent(icon)) return icon as ReactNode;
-  return <Icon icon={icon} size={size} color={color} />;
+  return <Icon icon={icon} size={size} style={color ? { color } : undefined} />;
 }
 
 // a Lucide icon is a forwardRef component: an object with $$typeof that is not an element

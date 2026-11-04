@@ -1,0 +1,12 @@
+/* A synced task's source and key as one pill. See docs/design-system/components/SourcePill.md */
+.source {
+  flex: none;
+}
+.source > svg {
+  border-radius: 3px;
+}
+/* board cards' top line */
+.compact {
+  height: 20px;
+  padding: 0 var(--space-2);
+}

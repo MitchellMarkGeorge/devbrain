@@ -4,8 +4,9 @@ import { mergeProps } from '@base-ui/react/merge-props';
 import { cva, type VariantProps } from 'class-variance-authority';
 import styles from './WorkspaceTile.module.css';
 
-export const SWATCHES = ['red', 'amber', 'green', 'blue', 'indigo', 'pink'] as const;
-export type Swatch = (typeof SWATCHES)[number];
+import { SWATCHES, type Swatch } from '../types';
+
+export { SWATCHES, type Swatch };
 
 export const workspaceTileVariants = cva(styles.tile, {
   variants: {

@@ -1,0 +1,10 @@
+/* A task's priority. See docs/design-system/components/PriorityIcon.md */
+.high {
+  color: var(--priority-high);
+}
+.medium {
+  color: var(--priority-medium);
+}
+.low {
+  color: var(--priority-low);
+}

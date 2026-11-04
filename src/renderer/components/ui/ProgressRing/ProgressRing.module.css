@@ -1,0 +1,16 @@
+/* Completion as a ring on an `input` track. See docs/design-system/components/ProgressRing.md */
+.ring {
+  flex: none;
+  display: inline-block;
+  vertical-align: middle;
+}
+.track {
+  fill: none;
+  stroke: var(--input);
+}
+.indicator {
+  fill: none;
+  stroke: var(--progress-ring-color, var(--status-in-progress));
+  stroke-linecap: round;
+  transition: stroke-dashoffset var(--duration-normal) var(--ease-out);
+}
