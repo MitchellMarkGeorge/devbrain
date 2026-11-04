@@ -29,6 +29,12 @@ const host = useWorkspaceEditorHost(); // "@" search and opening links
   `TurnIntoMenu` and `LinkToolbar`. A change to how any of these look belongs in the
   component and its guide (`docs/design-system/components/`), not here; `RichTextEditor.module.css`
   holds only the editor's own link rules.
+- Copy and paste move markdown (`extensions/clipboard.ts`). Copying puts the selection's markdown
+  on the clipboard as plain text beside the HTML (inside a code block, the code as it is).
+  Pasting plain text that looks like markdown (a heading, a list, a fence, a quote, a table, a
+  link, bold or inline code) reads it as markdown; other text, Shift+⌘V and pastes into code stay
+  text. From VS Code, a markdown file's text reads as markdown and several lines of other code
+  become a code block in its language. Web pages and documents paste as TipTap reads their HTML.
 - Selecting text shows the `FormatToolbar` above it (`FormatBubble.tsx`): the block type opens the
   `TurnIntoMenu`; Bold, Italic, Underline, Strikethrough and Code toggle; Link (⌘K) swaps in the
   `LinkToolbar`, which takes a bare address as https and refuses one `safeExternalUrl` won't open.

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { CalloutView } from './CalloutView';
 import { EditorHostContext, EntityLinkView, ImageLinkView } from './EntityPillView';
 import { FormatBubble } from './FormatBubble';
+import { MarkdownClipboard } from './extensions/clipboard';
 import { EditorHostExtension, setEditorHost } from './extensions/editor-host';
 import { createDocumentExtensions } from './markdown';
 import { EntityMenu } from './suggestion/entity-menu';
@@ -57,6 +58,7 @@ export function RichTextEditor({
       callout: CalloutView,
     }),
     EditorHostExtension,
+    MarkdownClipboard,
     Placeholder.configure({ placeholder }),
     SlashMenu,
     EntityMenu,
