@@ -48,8 +48,9 @@ export const Subtasks: Story = {
   args: { tasks: SAMPLE_SUBTASKS, subtasks: true },
 };
 
+/** A narrow list: each row stacks its own pills as far as it needs to */
 export const NarrowStacked: Story = {
-  args: { tasks: [BUSY_TASK, ...SAMPLE_TASKS.slice(0, 2)], stack: 'right' },
+  args: { tasks: [BUSY_TASK, ...SAMPLE_TASKS.slice(0, 2)] },
   decorators: [
     (Story) => (
       <div style={{ maxWidth: 720 }}>

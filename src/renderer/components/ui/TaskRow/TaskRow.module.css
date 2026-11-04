@@ -23,11 +23,15 @@
 }
 
 /* hover and selected share the row-selected tint; selected also brightens the title */
+.row {
+  --row-tint: transparent;
+}
 .row:hover,
 .row[data-state='hover'],
 .row[data-menu-open],
 .row[data-selected] {
-  background: var(--row-selected);
+  --row-tint: var(--row-selected);
+  background: var(--row-tint);
 }
 .row[data-selected] .name {
   color: var(--row-selected-foreground);
@@ -113,36 +117,57 @@
 }
 
 /*
- * The pills on one side of the title. Stacked, the ones behind show a 30px edge (their icon)
- * under the last; pointing at or focusing the stack spreads it out again.
+ * The pills on one side of the title. Stacked, the ones behind the last show a 26px edge with
+ * their icon (30px, 4px under the next pill) and hide their label. Pointing at or focusing the
+ * stack spreads it out on top of the row: the stack keeps its stacked width (set inline), and the
+ * deck grows leftwards from its right edge over the end of the title, on the row's own ground so
+ * nothing beneath shows between the pills.
  */
 .stack {
   flex: none;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.deck {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1-5);
 }
-.stack[data-stacked] {
+.stack[data-stacked] .deck {
   gap: 0;
 }
-.stack[data-stacked] > :not(:last-child) {
+.stack[data-stacked] .deck > :not(:last-child) {
   flex: none;
   width: 30px;
   margin-right: -4px;
   overflow: hidden;
-  transition:
-    width var(--duration-fast),
-    margin var(--duration-fast);
 }
-.stack[data-stacked] > :not(:last-child) > * {
+.stack[data-stacked] .deck > :not(:last-child) > * {
   flex-shrink: 0;
 }
-.stack[data-stacked]:hover,
-.stack[data-stacked]:focus-within {
-  gap: var(--space-1-5);
+/* the label of a pill behind: its edge shows the icon alone */
+.stack[data-stacked]:not([data-spread]) .deck > :not(:last-child) > :last-child {
+  visibility: hidden;
 }
-.stack[data-stacked]:hover > *,
-.stack[data-stacked]:focus-within > * {
+.stack[data-spread] .deck {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  z-index: 2;
+  gap: var(--space-1-5);
+  padding-left: var(--space-4);
+  translate: 0 -50%;
+  /* the row's ground (the page, plus the hover or selected tint), fading in over 16px */
+  background:
+    linear-gradient(to right, transparent, var(--row-tint) var(--space-4)),
+    linear-gradient(to right, transparent, var(--background) var(--space-4));
+}
+/* shifted right over the pills on the right: its ground runs a little past its last pill */
+.stack[data-spread] .deck[data-shifted] {
+  padding-right: var(--space-2);
+}
+.stack[data-stacked][data-spread] .deck > :not(:last-child) {
   width: auto;
   margin-right: 0;
 }

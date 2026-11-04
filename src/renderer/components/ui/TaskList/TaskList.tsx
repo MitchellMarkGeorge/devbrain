@@ -18,7 +18,7 @@ export interface TaskListProps extends Omit<ComponentProps<'div'>, 'children' | 
   menuOpenAt?: number;
   /** indents every row (a task page's Subtasks list) */
   subtasks?: boolean;
-  /** stacks the rows' pills, set when the list is too narrow */
+  /** how the rows' pills stack: `auto` (the default) stacks each row's pills when it runs out of room */
   stack?: TaskRowProps['stack'];
   /** shows the SelectionBar while rows are selected; `false` leaves it to the page */
   selectionBar?: boolean;

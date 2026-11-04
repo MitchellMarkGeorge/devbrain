@@ -10,7 +10,7 @@ const meta = {
   args: { task: SAMPLE_TASKS[0] },
   argTypes: {
     state: { control: 'inline-radio', options: [undefined, 'hover', 'focus'] },
-    stack: { control: 'inline-radio', options: [undefined, 'right', 'both'] },
+    stack: { control: 'inline-radio', options: ['auto', 'none', 'right', 'both'] },
     selected: { control: 'boolean' },
     subtask: { control: 'boolean' },
   },
@@ -68,28 +68,61 @@ export const StatusMenuOpen: Story = {
 };
 
 /**
- * When the row runs out of room the pills stack like a deck; pointing at a stack spreads it out
- * over the end of the title.
+ * The row stacks its own pills as it narrows (`stack="auto"`, the default): first the pills after
+ * the title, then the key with the parent and subtask pills; the title shortens only after that.
+ * Point at a stack to spread it out over the end of the title.
  */
 export const StackedPills: Story = {
   decorators: [
     (Story) => (
-      <div style={{ width: 960 }}>
+      <div style={{ width: 1120 }}>
         <Story />
       </div>
     ),
   ],
   render: () => (
     <Stack gap="2">
-      <Label>Spread (room for every pill)</Label>
-      <TaskRow task={{ ...BUSY_TASK, title: 'Move sync onto listeners' }} />
-      <div style={{ width: 760 }}>
-        <Label>Stacked right (760px)</Label>
-        <TaskRow task={BUSY_TASK} stack="right" />
-        <Label>Stacked both (760px)</Label>
-        <TaskRow task={BUSY_TASK} stack="both" />
-      </div>
+      {[1120, 900, 760, 640].map((width) => (
+        <div key={width} style={{ width }}>
+          <Label>{`${width}px`}</Label>
+          <TaskRow task={BUSY_TASK} />
+        </div>
+      ))}
     </Stack>
+  ),
+};
+
+/** Drag the handle at the bottom right to resize the row and watch the pills stack and spread. */
+export const Resizable: Story = {
+  render: () => (
+    <div
+      style={{
+        width: 760,
+        minWidth: 420,
+        maxWidth: 1200,
+        resize: 'horizontal',
+        overflow: 'hidden',
+        paddingBottom: 12,
+        borderBottom: '1px dashed var(--border)',
+      }}
+    >
+      <TaskRow task={BUSY_TASK} />
+      <TaskRow task={SAMPLE_TASKS[0]} />
+    </div>
+  ),
+};
+
+/** Each level pinned, for pictures of the row */
+export const PinnedLevels: Story = {
+  render: () => (
+    <div style={{ width: 760 }}>
+      <Stack gap="2">
+        <Label>Pinned right</Label>
+        <TaskRow task={BUSY_TASK} stack="right" />
+        <Label>Pinned both</Label>
+        <TaskRow task={BUSY_TASK} stack="both" />
+      </Stack>
+    </div>
   ),
 };
 

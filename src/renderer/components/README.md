@@ -23,8 +23,7 @@ domain types (`TaskStatus`, `Priority`, `Swatch`, …) and their colour helpers.
 | Lists            | TaskRow, TaskList, StatusMenu, SelectionBar, GroupHeading, EventRow                                                      |
 | Pages            | PropertyRow, DateRange, TaskNoteCard, BoardCard, BoardColumn, EventBlock, ScheduleCard, NoteCard, SettingsGroup, Sidebar |
 
-Not built yet: the sidebar's compact-window drawer, measuring a task row to stack its pills
-automatically (the list passes `stack` today), and pickers behind the SelectionBar's buttons.
+Not built yet: the sidebar's compact-window drawer and pickers behind the SelectionBar's buttons.
 
 ## A component's folder
 
