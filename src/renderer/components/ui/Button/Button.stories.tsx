@@ -72,7 +72,9 @@ export const Sizes: Story = {
   ),
 };
 
+/** Icon-only buttons have no label, only an `aria-label` (the meta's default label is cleared) */
 export const IconOnly: Story = {
+  args: { children: undefined },
   render: (args) => (
     <Flex gap="3" align="center">
       <Button {...args} size="icon" icon={Star} aria-label="Favorite" />
