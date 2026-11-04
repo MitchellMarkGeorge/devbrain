@@ -5,6 +5,7 @@ import { App } from './App';
 import log from 'electron-log/renderer';
 import { events, queryInvalidator, queryClient } from './ipc';
 import { readInitialLoadContext, seedQueryCache } from './ipc/initial-load-context';
+import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/base.css';
 

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { Decorator, Preview } from '@storybook/react-vite';
+import '../src/renderer/styles/fonts.css';
 import '../src/renderer/styles/tokens.css';
 import '../src/renderer/styles/base.css';
 import './preview.css';

@@ -1,0 +1,17 @@
+/*
+ * The design system's typefaces, bundled so the app needs no network and the window's CSP
+ * (`default-src 'self'`) allows them: Inter for everything, Geist Mono for code
+ * (docs/design-system/README.md). The weights are the ones the tokens use: 400 text, 500
+ * controls and labels, 600 titles; italics for emphasis and code comments. Each file splits its
+ * faces by unicode-range, so only the scripts a page shows are loaded.
+ */
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/400-italic.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/500-italic.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/600-italic.css';
+@import '@fontsource/geist-mono/400.css';
+@import '@fontsource/geist-mono/400-italic.css';
+@import '@fontsource/geist-mono/500.css';
+@import '@fontsource/geist-mono/600.css';
