@@ -23,9 +23,16 @@ const host = useWorkspaceEditorHost(); // "@" search and opening links
 - The editor never calls IPC. What it needs from the app is `EditorHost` (`types.ts`).
 - It is drawn by the design system's components (`src/renderer/components`): the blocks by
   `EditorContent`, entity links and images by `EntityPill`, keys by `Kbd`, the `/` menu by
-  `SlashMenu` and the `@` menu by `MentionMenu`. A change to how any of these look belongs in the
+  `SlashMenu`, the `@` menu by `MentionMenu`, and the toolbar over a selection by `FormatToolbar`,
+  `TurnIntoMenu` and `LinkToolbar`. A change to how any of these look belongs in the
   component and its guide (`docs/design-system/components/`), not here; `RichTextEditor.module.css`
   holds only the editor's own link rules.
+- Selecting text shows the `FormatToolbar` above it (`FormatBubble.tsx`): the block type opens the
+  `TurnIntoMenu`; Bold, Italic, Underline, Strikethrough and Code toggle; Link (⌘K) swaps in the
+  `LinkToolbar`, which takes a bare address as https and refuses one `safeExternalUrl` won't open.
+  ⌘K with no selection and no link under the caret is left to the app's search. The colour button
+  and Turn into task are left out: text colours are not in the note format, and the editor can't
+  make tasks yet.
 - `/` opens the `SlashMenu`; "Link to note", "Link to task" and "Mention event" open the `@` menu
   for that kind, and "Task" is left out until tasks can be made from the editor. `@` searches
   tasks, notes and events, as the `MentionMenu` shows them (a project link in a note still reads

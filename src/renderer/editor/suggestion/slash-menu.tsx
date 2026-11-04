@@ -1,11 +1,14 @@
 import type { Editor, Range } from '@tiptap/core';
 import {
+  BLOCK_TYPES,
   filterSlashGroups,
   SLASH_GROUPS,
   SlashMenu as SlashMenuView,
+  type BlockType,
   type SlashCommand,
   type SlashItem,
 } from '../../components';
+import { applyBlockType } from '../block-types';
 import { openMention } from './entity-menu';
 import { createSuggestionMenu } from './suggestion';
 
@@ -23,16 +26,11 @@ const GROUPS = SLASH_GROUPS.map((group) => ({
 
 type Chain = ReturnType<Editor['chain']>;
 
-const COMMANDS: Record<Exclude<SlashCommand, 'task'>, (chain: Chain, editor: Editor) => void> = {
-  text: (chain) => chain.setParagraph().run(),
-  'heading-1': (chain) => chain.setHeading({ level: 1 }).run(),
-  'heading-2': (chain) => chain.setHeading({ level: 2 }).run(),
-  'heading-3': (chain) => chain.setHeading({ level: 3 }).run(),
-  code: (chain) => chain.setCodeBlock().run(),
-  quote: (chain) => chain.setBlockquote().run(),
-  'bulleted-list': (chain) => chain.toggleBulletList().run(),
-  'numbered-list': (chain) => chain.toggleOrderedList().run(),
-  'todo-list': (chain) => chain.toggleTaskList().run(),
+// DevBrain's own items; the block types are the TurnIntoMenu's (block-types.ts)
+const COMMANDS: Record<
+  Exclude<SlashCommand, BlockType | 'task'>,
+  (chain: Chain, editor: Editor) => void
+> = {
   'link-note': (chain, editor) => openMention(chain, editor, 'note'),
   'link-task': (chain, editor) => openMention(chain, editor, 'task'),
   'mention-event': (chain, editor) => openMention(chain, editor, 'event'),
@@ -41,9 +39,14 @@ const COMMANDS: Record<Exclude<SlashCommand, 'task'>, (chain: Chain, editor: Edi
   collapsible: (chain) => chain.setDetails().run(),
 };
 
+const isBlockType = (command: SlashCommand): command is BlockType =>
+  BLOCK_TYPES.some((type) => type.value === command);
+
 export function runSlashCommand(editor: Editor, range: Range, command: SlashCommand): void {
   if (command === 'task') return;
-  COMMANDS[command](editor.chain().focus().deleteRange(range), editor);
+  const chain = editor.chain().focus().deleteRange(range);
+  if (isBlockType(command)) applyBlockType(chain, command);
+  else COMMANDS[command](chain, editor);
 }
 
 export const SlashMenu = createSuggestionMenu<SlashItem>({

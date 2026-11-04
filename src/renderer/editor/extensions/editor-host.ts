@@ -1,12 +1,13 @@
 import { Extension, type Editor } from '@tiptap/core';
-import { Plugin } from '@tiptap/pm/state';
+import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { safeExternalUrl } from '@common/safe-url';
 import type { EditorHost, MentionType } from '../types';
 
 declare module '@tiptap/core' {
   interface Storage {
     // mentionTypes: the kinds the open "@" menu searches, when a slash command picked one
-    editorHost: { host: EditorHost; mentionTypes: MentionType[] | null };
+    // linkEditing: the format toolbar shows the LinkToolbar for the selection (⌘K, or its Link)
+    editorHost: { host: EditorHost; mentionTypes: MentionType[] | null; linkEditing: boolean };
   }
 }
 
@@ -22,7 +23,23 @@ export const EditorHostExtension = Extension.create({
   name: 'editorHost',
 
   addStorage() {
-    return { host: {} as EditorHost, mentionTypes: null as MentionType[] | null };
+    return {
+      host: {} as EditorHost,
+      mentionTypes: null as MentionType[] | null,
+      linkEditing: false,
+    };
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      // ⌘K edits the link of the selection, or of the link the caret is in; with neither it is
+      // left to the app's ⌘K search
+      'Mod-k': ({ editor }) => {
+        if (editor.state.selection.empty && !editor.isActive('link')) return false;
+        setLinkEditing(editor, true);
+        return true;
+      },
+    };
   },
 
   addProseMirrorPlugins() {
@@ -50,4 +67,22 @@ export const EditorHostExtension = Extension.create({
 // gives the editor its current host; RichTextEditor calls it after each render
 export function setEditorHost(editor: Editor, host: EditorHost): void {
   editor.storage.editorHost.host = host;
+}
+
+// the format toolbar's bubble menu (FormatBubble.tsx), which takes 'show' and 'updatePosition'
+export const FORMAT_TOOLBAR_KEY = new PluginKey('formatToolbar');
+
+// opens or closes the link editor in the format toolbar. Opening shows the toolbar even with
+// only a caret in a link; closing leaves it to the selection, once the editor has focus again.
+export function setLinkEditing(editor: Editor, editing: boolean): void {
+  if (editor.storage.editorHost.linkEditing === editing) return;
+  editor.storage.editorHost.linkEditing = editing;
+  editor.view.dispatch(
+    editor.state.tr.setMeta(FORMAT_TOOLBAR_KEY, editing ? 'show' : 'updatePosition'),
+  );
+}
+
+// places the toolbar again, once its content has changed size
+export function repositionFormatToolbar(editor: Editor): void {
+  editor.view.dispatch(editor.state.tr.setMeta(FORMAT_TOOLBAR_KEY, 'updatePosition'));
 }

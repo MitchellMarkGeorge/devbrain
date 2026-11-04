@@ -95,12 +95,17 @@ export interface FormatToolbarProps extends Omit<Toolbar.Root.Props, 'children'>
   colourMenu?: ReactElement;
   /** turns the selected text into a task */
   onTurnIntoTask?: () => void;
+  /** the colour button; true by default, false for an editor without text colours */
+  showColour?: boolean;
+  /** Turn into task; true by default, false where text can't become a task */
+  showTurnIntoTask?: boolean;
 }
 
 /**
  * The floating toolbar over a text selection, 8px above it: the block type (opening the
  * `TurnIntoMenu`), then Bold, Italic, Underline, Strikethrough, Code and Link, then the colour
- * (opening the `ColourMenu`) and Turn into task. The editor positions it; this draws it.
+ * (opening the `ColourMenu`) and Turn into task, each of these two left out with `showColour` or
+ * `showTurnIntoTask` false. The editor positions it; this draws it.
  */
 export const FormatToolbar = forwardRef<HTMLDivElement, FormatToolbarProps>(function FormatToolbar(
   {
@@ -113,6 +118,8 @@ export const FormatToolbar = forwardRef<HTMLDivElement, FormatToolbarProps>(func
     colour,
     colourMenu,
     onTurnIntoTask,
+    showColour = true,
+    showTurnIntoTask = true,
     ...props
   },
   ref,
@@ -167,16 +174,19 @@ export const FormatToolbar = forwardRef<HTMLDivElement, FormatToolbarProps>(func
         data-pressed={linked ? '' : undefined}
         onClick={onLink}
       />
-      <FormatToolbarSeparator />
-      {colourMenu ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger render={colourButton} />
-          {colourMenu}
-        </DropdownMenu>
-      ) : (
-        colourButton
+      {(showColour || showTurnIntoTask) && <FormatToolbarSeparator />}
+      {showColour &&
+        (colourMenu ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger render={colourButton} />
+            {colourMenu}
+          </DropdownMenu>
+        ) : (
+          colourButton
+        ))}
+      {showTurnIntoTask && (
+        <FormatToolbarButton icon={CircleCheck} label="Turn into task" onClick={onTurnIntoTask} />
       )}
-      <FormatToolbarButton icon={CircleCheck} label="Turn into task" onClick={onTurnIntoTask} />
     </FormatToolbarRoot>
   );
 });
