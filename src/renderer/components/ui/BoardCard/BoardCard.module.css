@@ -37,7 +37,7 @@
 .card:hover,
 .card[data-state='hover'] {
   background: var(--card-fill-hover);
-  border-color: var(--border-strong);
+  /* border-color: var(--border-strong); */
 }
 .card:focus-visible,
 .card[data-state='focus'] {
