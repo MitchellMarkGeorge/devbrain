@@ -89,11 +89,26 @@
   left: 0;
   z-index: var(--z-overlay);
   display: flex;
+  /* solid behind the fading content, so the rail beneath never shows through */
+  background: var(--sidebar);
   box-shadow: var(--shadow-2xl);
   outline: none;
-  transition: transform var(--duration-slow) var(--ease-out);
+  /*
+   * Opening widens the rail into the full sidebar over the page, as collapsing does in a wider
+   * window: the drawer is revealed from the rail's edge outwards (its shadow showing once open)
+   * while its content fades in, in the same duration and easing. Closing reverses it.
+   */
+  clip-path: inset(0 -48px 0 0);
+  transition: clip-path var(--duration-slow) var(--ease-out);
 }
 .drawer[data-starting-style],
 .drawer[data-ending-style] {
-  transform: translateX(-100%);
+  clip-path: inset(0 calc(100% - var(--sidebar-rail-width)) 0 0);
+}
+.drawer > * {
+  transition: opacity var(--duration-slow) var(--ease-out);
+}
+.drawer[data-starting-style] > *,
+.drawer[data-ending-style] > * {
+  opacity: 0;
 }
