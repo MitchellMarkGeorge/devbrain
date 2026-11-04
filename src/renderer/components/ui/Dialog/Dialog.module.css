@@ -11,16 +11,20 @@
   opacity: 0;
 }
 
+/*
+ * Figma places dialogs 160px from the window's top, centred over the page beside the sidebar: the
+ * app shell sets `--dialog-inset-left` to the sidebar's width (0 without a sidebar).
+ */
 .popup {
   position: fixed;
-  top: 50%;
-  left: 50%;
+  top: clamp(16px, 16vh, 160px);
+  left: calc(50% + var(--dialog-inset-left, 0px) / 2);
   z-index: var(--z-overlay);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   width: calc(100vw - 32px);
-  max-height: calc(100vh - 32px);
+  max-height: calc(100vh - clamp(16px, 16vh, 160px) - 16px);
   overflow-y: auto;
   padding: var(--space-4);
   border: 1px solid var(--edge);
@@ -29,7 +33,8 @@
   color: var(--popover-foreground);
   box-shadow: var(--shadow-2xl);
   outline: none;
-  transform: translate(-50%, -50%);
+  transform: translateX(-50%);
+  transform-origin: top center;
   transition:
     opacity var(--duration-slow) var(--ease-out),
     transform var(--duration-slow) var(--ease-out);
@@ -37,7 +42,7 @@
 .popup[data-starting-style],
 .popup[data-ending-style] {
   opacity: 0;
-  transform: translate(-50%, -50%) scale(0.95);
+  transform: translateX(-50%) scale(0.95);
 }
 .sizeDefault {
   max-width: var(--dialog-width);
@@ -56,7 +61,7 @@
 .header {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1-5);
 }
 /* keeps the title clear of the close button */
 .popup:has(> .close) .header {
@@ -73,13 +78,13 @@
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
 }
 
-/* Nova's footer band: muted at 50% over a border line, flush with the popup's edges */
+/* Nova's footer band: muted at 50% under a `border-strong` line, flush with the popup's edges */
 .footer {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-2);
   margin: 0 calc(var(--space-4) * -1) calc(var(--space-4) * -1);
   padding: var(--space-4);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-strong);
   background: color-mix(in oklab, var(--muted) 50%, transparent);
 }

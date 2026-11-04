@@ -1,0 +1,99 @@
+/* The frame every screen shares. See docs/design-system/components/AppShell.md */
+.shell {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: 'sidebar main aside sheet';
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--background);
+  color: var(--foreground);
+  container-type: inline-size;
+}
+/* the rail sits under the window bar, which runs across the window */
+.shell[data-rail] {
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    'bar bar bar bar'
+    'sidebar main aside sheet';
+}
+.windowBar {
+  grid-area: bar;
+}
+.sidebar {
+  grid-area: sidebar;
+  display: flex;
+  min-height: 0;
+}
+.main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Home's right column: 288px with a hairline, hidden below breakpoint-wide (1280px) */
+.aside {
+  grid-area: aside;
+  display: flex;
+  flex-direction: column;
+  width: 288px;
+  min-height: 0;
+  padding: 28px 20px 20px;
+  overflow-y: auto;
+  border-left: 1px solid var(--sidebar-border);
+}
+@container (max-width: 1279px) {
+  .aside {
+    display: none;
+  }
+}
+
+/* the docked sheet's column: empty and 0 wide until a sheet opens */
+.sheet {
+  grid-area: sheet;
+  position: relative;
+  width: 0;
+  min-height: 0;
+}
+.sheet[data-open] {
+  width: var(--sheet-width);
+}
+
+/* ---------- compact windows: the full sidebar as a drawer over the page ---------- */
+.backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-overlay);
+  background: var(--backdrop);
+  transition: opacity var(--duration-slow) var(--ease-out);
+}
+.backdrop[data-starting-style],
+.backdrop[data-ending-style] {
+  opacity: 0;
+}
+.drawer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  box-shadow: var(--shadow-2xl);
+  outline: none;
+  transition: transform var(--duration-slow) var(--ease-out);
+}
+.drawer[data-starting-style],
+.drawer[data-ending-style] {
+  transform: translateX(-100%);
+}

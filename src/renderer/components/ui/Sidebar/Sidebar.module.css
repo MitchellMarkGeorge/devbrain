@@ -7,35 +7,60 @@
   max-width: 100%;
   height: 100%;
   min-height: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: 0 var(--space-3) var(--space-3);
+  border-right: 1px solid var(--sidebar-border);
   background: var(--sidebar);
   color: var(--sidebar-foreground);
-  transition: width var(--duration-normal) var(--ease-out);
 }
-/* the 56px icon rail: (56 - 32) / 2 = 12px each side */
+/* outside an AppShell (no window row) it keeps 8px above the header */
+.sidebar:not(:has(> .windowRow)):not([data-collapsed]) {
+  padding-top: var(--space-2);
+}
+/* the 56px icon rail: 8px sides around the 40px items, 12px between blocks */
 .sidebar[data-collapsed] {
   width: var(--sidebar-rail-width);
   align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-2) var(--space-3);
+}
+
+/* ---------- the window row: traffic lights, then toggle, back, forward at the right ---------- */
+.windowRow {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 44px;
+  padding-left: var(--space-1);
+  -webkit-app-region: drag;
+}
+.windowRow button {
+  -webkit-app-region: no-drag;
+}
+.lights {
+  margin-right: auto;
 }
 
 /* ---------- header: workspace switcher, search and new ---------- */
 .header {
   display: flex;
+  flex: none;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1);
   min-width: 0;
 }
 .sidebar[data-collapsed] .header {
   flex-direction: column;
+  gap: var(--space-1);
 }
 .workspace {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  height: var(--control-md);
-  padding: 0 var(--space-2);
-  border: 1px solid transparent;
+  height: var(--control-sm);
+  margin-right: auto;
+  padding: 0 var(--space-1) 0 var(--space-2);
+  border: 0;
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--foreground);
@@ -43,9 +68,17 @@
   cursor: pointer;
   transition: background-color var(--duration-fast);
 }
-.workspace:hover,
-.workspace[data-popup-open] {
+.workspace:hover {
   background: var(--sidebar-accent);
+}
+/* pressed while its menu is open */
+.workspace[data-popup-open] {
+  background: var(--accent);
+}
+.workspace:focus-visible,
+.action:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--sidebar-ring) 50%, transparent);
 }
 .workspaceName {
   overflow: hidden;
@@ -53,22 +86,69 @@
   white-space: nowrap;
 }
 .chevron {
+  flex: none;
   color: var(--muted-foreground);
 }
 .sidebar[data-collapsed] .workspace {
   justify-content: center;
-  width: var(--control-md);
+  width: 40px;
+  height: var(--control-md);
+  margin: 0;
   padding: 0;
 }
 .headerActions {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  margin-left: auto;
+  gap: var(--space-2);
 }
 .sidebar[data-collapsed] .headerActions {
-  margin-left: 0;
   flex-direction: column;
+  gap: var(--space-1);
+}
+/* search and new: 28px icon buttons; 40×32 rail items in the rail */
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-sm);
+  height: var(--control-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast),
+    color var(--duration-fast);
+}
+.action:hover,
+.action[data-popup-open] {
+  background: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+}
+.sidebar[data-collapsed] .action {
+  width: 40px;
+  height: var(--control-md);
+  color: var(--sidebar-foreground);
+}
+.tooltipLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ---------- the rail's 24px hairlines; hidden in the full sidebar ---------- */
+.separator {
+  display: none;
+  flex: none;
+  width: 24px;
+  height: 1px;
+  background: var(--border);
+}
+.sidebar[data-collapsed] .separator,
+.sidebar[data-collapsed] .contentInner > .separator {
+  display: block;
 }
 
 /* ---------- the scrolling middle ---------- */
@@ -89,6 +169,14 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+.sidebar[data-collapsed] .contentInner {
+  align-items: center;
+  gap: var(--space-3);
+}
+/* the rail's Recents and Favorites icons sit together, 2px apart */
+.sidebar[data-collapsed] .contentInner > .group + .group {
+  margin-top: -10px;
 }
 .scrollbar {
   display: flex;
@@ -112,13 +200,17 @@
   display: flex;
   flex-direction: column;
 }
+/* Recents and Favorites stack their items edge to edge; the main navigation keeps 2px */
 .menu {
   display: flex;
   flex-direction: column;
-  gap: var(--space-0-5);
   margin: 0;
   padding: 0;
   list-style: none;
+}
+.menu[data-main],
+.sidebar[data-collapsed] .menu {
+  gap: var(--space-0-5);
 }
 .sidebar[data-collapsed] .menu {
   align-items: center;
@@ -170,6 +262,12 @@ button.groupLabel:focus-visible {
 .panel[data-ending-style] {
   height: 0;
 }
+/* Recents or Favorites opened from the rail: the full items in a 240px popover */
+.railPopover {
+  width: 240px;
+  padding: var(--space-1);
+  color: var(--sidebar-foreground);
+}
 
 /* ---------- items ---------- */
 .item {
@@ -179,7 +277,7 @@ button.groupLabel:focus-visible {
   width: 100%;
   height: var(--control-md);
   padding: 0 var(--space-2);
-  border: 1px solid transparent;
+  border: 0;
   border-radius: var(--radius-md);
   background: transparent;
   color: inherit;
@@ -192,18 +290,22 @@ button.groupLabel:focus-visible {
     background-color var(--duration-fast),
     color var(--duration-fast);
 }
-.item:hover {
+.item:hover,
+.item[data-popup-open] {
+  background: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+}
+/* the outline is drawn inside, so labels line up whether or not an item is current */
+.item[data-active] {
+  background: var(--sidebar-accent);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
   color: var(--sidebar-accent-foreground);
 }
 .item:focus-visible {
   outline: none;
-  border-color: var(--sidebar-ring);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--sidebar-ring) 50%, transparent);
-}
-.item[data-active] {
-  background: var(--sidebar-accent);
-  border-color: var(--border-strong);
-  color: var(--sidebar-accent-foreground);
+  box-shadow:
+    inset 0 0 0 1px var(--sidebar-ring),
+    0 0 0 3px color-mix(in oklab, var(--sidebar-ring) 50%, transparent);
 }
 .item > svg {
   flex: none;
@@ -224,14 +326,12 @@ button.groupLabel:focus-visible {
 :root[data-theme='light'] .itemIcon[data-coloured] {
   filter: brightness(0.72);
 }
-/* an event's colour bar, centred in the 16px icon slot */
+/* an event's ColourBar, centred in the 16px icon slot */
 .itemBar {
   flex: none;
-  width: 3px;
-  height: 16px;
-  margin: 0 6px 0 7px;
-  border-radius: var(--radius-xs);
-  background: var(--item-bar-color);
+  display: inline-flex;
+  justify-content: center;
+  width: 16px;
 }
 .itemLabel {
   flex: 1;
@@ -240,9 +340,11 @@ button.groupLabel:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* RailItem: 40×32, the icon centred */
 .sidebar[data-collapsed] .item {
   justify-content: center;
-  width: var(--control-md);
+  flex: none;
+  width: 40px;
   padding: 0;
 }
 /* the rail keeps the label for screen readers; the tooltip shows it */
@@ -255,17 +357,18 @@ button.groupLabel:focus-visible {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
 }
+.sidebar[data-collapsed] .chevron {
+  display: none;
+}
 
-/* ---------- footer: Settings and Help ---------- */
+/* ---------- footer: sync status, Trash, Settings and Help ---------- */
 .footer {
   display: flex;
+  flex: none;
   flex-direction: column;
   gap: var(--space-0-5);
   width: 100%;
 }
 .sidebar[data-collapsed] .footer {
   align-items: center;
-}
-.sidebar[data-collapsed] .chevron {
-  display: none;
 }

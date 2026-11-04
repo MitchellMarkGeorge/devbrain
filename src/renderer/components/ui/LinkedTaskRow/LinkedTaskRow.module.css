@@ -1,0 +1,66 @@
+/* The compact task row of sheets and the note's Linked tasks. See docs/design-system/components/LinkedTaskRow.md */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: var(--control-lg);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-md);
+  outline: none;
+  transition: background-color var(--duration-fast);
+}
+.row[role='button'] {
+  cursor: pointer;
+}
+.row:hover,
+.row[data-state='hover'] {
+  background: var(--row-selected);
+}
+.row:focus-visible,
+.row[data-state='focus'] {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.status {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
+}
+.status:hover,
+.status[data-popup-open] {
+  background: var(--accent);
+}
+.status:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.date {
+  flex: none;
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.date[data-tone='today'] {
+  color: var(--date-today);
+}
+.date[data-tone='overdue'] {
+  color: var(--date-overdue);
+}

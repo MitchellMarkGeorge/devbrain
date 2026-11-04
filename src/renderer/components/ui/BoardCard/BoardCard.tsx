@@ -3,6 +3,7 @@ import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
 import { cva } from 'class-variance-authority';
 import { CornerDownRight, FileText, Folder } from 'lucide-react';
+import { ColourBar } from '../ColourBar';
 import { Icon } from '../Icon';
 import { PriorityIcon } from '../PriorityIcon';
 import { SourcePill } from '../SourcePill';
@@ -55,10 +56,7 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
   const done = task.status === 'completed';
   const link = task.event ? (
     <div className={styles.link}>
-      <span
-        className={styles.bar}
-        style={{ '--bar-color': resolveColor(task.eventColor) } as CSSProperties}
-      />
+      <ColourBar color={task.eventColor ?? 'green'} />
       <span>{task.event}</span>
     </div>
   ) : task.note ? (

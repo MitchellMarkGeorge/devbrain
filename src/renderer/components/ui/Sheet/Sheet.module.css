@@ -37,9 +37,7 @@
   pointer-events: auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
   max-width: 100%;
-  padding: var(--space-4);
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--popover);
@@ -75,17 +73,25 @@
 }
 
 .header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
+  flex: none;
   align-items: center;
   gap: var(--space-1);
+  height: 48px;
+  padding: 0 var(--space-3) 0 var(--space-4);
+  background: var(--popover);
 }
+/* the panel's name ("Task", "Event"): the item's own title is SheetItemTitle */
 .title {
   flex: 1;
   min-width: 0;
   margin: 0;
   overflow: hidden;
   color: var(--foreground);
-  font: var(--font-weight-medium) var(--text-base) / var(--text-base-leading) var(--font-sans);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -93,4 +99,32 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  padding: var(--space-2) var(--space-4) 20px;
+}
+
+/* the task's or event's name: 16px medium, an event's calendar bar before it */
+.itemTitle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-base) / 22px var(--font-sans);
+}
+.itemBar {
+  flex: none;
+  align-self: stretch;
+  width: 3px;
+  margin: 1px 0;
+  border-radius: var(--radius-xs);
+  background: var(--sheet-bar-color);
+}
+
+/* between the properties and the description */
+.divider {
+  flex: none;
+  height: 1px;
+  margin: 0;
+  border: 0;
+  background: var(--border-strong);
 }

@@ -2,6 +2,7 @@ import { forwardRef } from 'react';
 import { CornerDownRight, FileText, Folder } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Badge, type BadgeProps } from '../Badge';
+import { ColourBar } from '../ColourBar';
 import { Icon, type IconSource } from '../Icon';
 import { StatusIcon } from '../StatusIcon';
 import type { Swatch, TaskStatus } from '../types';
@@ -50,6 +51,8 @@ export const EntityPill = forwardRef<HTMLElement, EntityPillProps>(function Enti
         <Icon icon={CornerDownRight} size={12} className={styles.arrow} />
         <StatusIcon status={status} size={12} />
       </>
+    ) : type === 'event' ? (
+      <ColourBar color={color ?? 'green'} />
     ) : undefined);
   return (
     <Badge
@@ -59,7 +62,6 @@ export const EntityPill = forwardRef<HTMLElement, EntityPillProps>(function Enti
       muted
       icon={icon}
       iconColor={type === 'project' ? color : undefined}
-      barColor={type === 'event' ? (color ?? 'green') : undefined}
       data-entity={type}
       className={cn(styles.pill, type === 'project' && color && styles.project, className)}
       {...props}

@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
-import { ChevronDown, Ellipsis, ListFilter, Plus, Star } from 'lucide-react';
+import { ArrowUpDown, Ellipsis, ListFilter, Plus, Star } from 'lucide-react';
 import { Flex } from '../../layout/Flex';
 import { Button } from './Button';
 
@@ -91,13 +91,24 @@ export const WithIcons: Story = {
 
 export const ToolbarValue: Story = {
   render: () => (
-    <Flex gap="2">
-      <Button variant="outline" icon={ListFilter} value="Assigned to me">
-        Filter
-      </Button>
-      <Button variant="outline" value="Due date" trailingIcon={ChevronDown}>
-        Sort
-      </Button>
+    <Flex direction="column" gap="3">
+      <Flex gap="2">
+        <Button icon={ListFilter} value="Today">
+          Filter
+        </Button>
+        <Button icon={ArrowUpDown} value="Due date">
+          Sort
+        </Button>
+      </Flex>
+      {/* the compact toolbar of a narrow window: values hidden, labels keep their toolbar look */}
+      <Flex gap="2">
+        <Button icon={ListFilter} value="Today" hideValue>
+          Filter
+        </Button>
+        <Button icon={ArrowUpDown} value="Due date" hideValue>
+          Sort
+        </Button>
+      </Flex>
     </Flex>
   ),
 };
@@ -112,7 +123,7 @@ export const Pressed: Story = {
     const [on, setOn] = useState(true);
     return (
       <Flex gap="2" align="center">
-        <Button variant="outline" icon={ListFilter} aria-pressed={on} onClick={() => setOn(!on)}>
+        <Button icon={ListFilter} aria-pressed={on} onClick={() => setOn(!on)}>
           Filter
         </Button>
         <Button variant="ghost" aria-pressed={!on} onClick={() => setOn(!on)}>

@@ -1,0 +1,88 @@
+/* The sidebar's sync line. See docs/design-system/components/SyncStatus.md */
+.status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--control-sm);
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 6px var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--duration-fast);
+}
+/* the line fills the row, except a failure, whose Retry follows it */
+.status:not([data-state='error']) .main {
+  flex: 1;
+}
+.main:hover {
+  background: var(--sidebar-accent);
+}
+.main:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--sidebar-ring) 50%, transparent);
+}
+.icon {
+  flex: none;
+}
+.text {
+  min-width: 0;
+}
+.dot {
+  color: var(--subtle-foreground);
+}
+
+.status[data-state='synced'] .icon {
+  color: var(--status-completed);
+}
+.status[data-state='syncing'] .icon {
+  animation: spin 1s linear infinite;
+}
+.status[data-state='error'] .main {
+  color: var(--destructive);
+  white-space: nowrap;
+}
+.status[data-state='rate-limited'] .icon {
+  color: var(--date-today);
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .status[data-state='syncing'] .icon {
+    animation: none;
+  }
+}
+
+/* the rail: a 40×32 icon */
+.status[data-collapsed] {
+  width: auto;
+}
+.status[data-collapsed] .main {
+  justify-content: center;
+  width: 40px;
+  height: var(--control-md);
+  padding: 0;
+}
+.status[data-collapsed] .text {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}

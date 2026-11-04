@@ -2,7 +2,8 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { DateRange as DayRange } from 'react-day-picker';
 import { Stack } from '../../layout/Flex';
-import { Calendar } from '../Calendar';
+import { DatePicker } from '../DatePicker';
+import { DateRangePicker } from '../DateRangePicker';
 import { DateRange } from './DateRange';
 
 const meta = {
@@ -40,21 +41,27 @@ export const WithPickers: Story = {
       from: undefined,
       to: new Date(2026, 6, 1),
     });
+    const today = new Date(2026, 5, 22);
     return (
-      <div style={{ minHeight: 340 }}>
+      <div style={{ minHeight: 440 }}>
         <DateRange
           start={fmt(range?.from)}
           due={fmt(range?.to) ?? 'Add due date'}
           duePicker={
-            <Calendar
-              mode="single"
-              defaultMonth={range?.to}
-              selected={range?.to}
-              onSelect={(to) => setRange((r) => ({ from: r?.from, to }))}
+            <DatePicker
+              today={today}
+              value={range?.to}
+              onChange={(to) => setRange((r) => ({ from: r?.from, to }))}
+              onClear={() => setRange((r) => ({ from: r?.from, to: undefined }))}
             />
           }
           startPicker={
-            <Calendar mode="range" defaultMonth={range?.to} selected={range} onSelect={setRange} />
+            <DateRangePicker
+              today={today}
+              value={range}
+              onChange={setRange}
+              onClear={() => setRange(undefined)}
+            />
           }
         />
       </div>

@@ -1,17 +1,18 @@
 import type { ReactNode } from 'react';
 import { Toast as BaseToast } from '@base-ui/react/toast';
-import { CircleCheck, CircleX, TriangleAlert, X, type LucideIcon } from 'lucide-react';
+import { CircleAlert, TriangleAlert } from 'lucide-react';
 import { Button } from '../Button';
-import { IconButton } from '../IconButton';
 import { Icon } from '../Icon';
+import { StatusIcon } from '../StatusIcon';
 import styles from './Toast.module.css';
 
 export type ToastTone = 'success' | 'warning' | 'error';
 
-const TONES: Record<ToastTone, { icon: LucideIcon; className: string }> = {
-  success: { icon: CircleCheck, className: styles.success },
-  warning: { icon: TriangleAlert, className: styles.warning },
-  error: { icon: CircleX, className: styles.error },
+// success is the filled completed circle; error the destructive alert circle
+const TONES: Record<ToastTone, ReactNode> = {
+  success: <StatusIcon status="completed" className={styles.icon} />,
+  warning: <Icon icon={TriangleAlert} className={`${styles.icon} ${styles.warning}`} />,
+  error: <Icon icon={CircleAlert} className={`${styles.icon} ${styles.error}`} />,
 };
 
 /** The app's toast queue: add toasts from anywhere, including outside React. */
@@ -22,7 +23,7 @@ export interface ToastOptions {
   description?: ReactNode;
   /** `success` (status-completed), `warning` (priority-medium), `error` (destructive) */
   tone?: ToastTone;
-  /** a small default button: offer Undo for reversible actions */
+  /** a 24px default button: offer Undo for reversible actions, Retry for a failed sync */
   action?: { label: ReactNode; onClick: () => void };
   /** ms before it closes; 0 keeps it open. Default 5000. */
   timeout?: number;
@@ -46,7 +47,11 @@ export function toast({ title, description, tone, action, timeout }: ToastOption
 /** The toast manager inside React, with the reactive list of toasts. */
 export const useToast = BaseToast.useToastManager;
 
-/** Wrap the app once: it holds the queue and draws the toasts at the window's bottom right. */
+/**
+ * Wrap the app once: it holds the queue and draws the toasts at the window's bottom right, 16px
+ * from its edges. Toasts stack: the newest in front, the two before it peeking 10px above it,
+ * each 20px narrower; hovering the stack spreads it into a column 8px apart.
+ */
 export function ToastProvider({
   children,
   ...props
@@ -75,15 +80,12 @@ function ToastList() {
         className={styles.toast}
       >
         <BaseToast.Content className={styles.content}>
-          {tone && <Icon icon={tone.icon} className={tone.className} />}
+          {tone}
           <div className={styles.text}>
             <BaseToast.Title className={styles.title} />
             <BaseToast.Description className={styles.description} />
           </div>
-          <BaseToast.Action render={<Button size="sm" />} />
-          <BaseToast.Close
-            render={<IconButton size="xs" icon={X} label="Close" tooltip={false} />}
-          />
+          <BaseToast.Action className={styles.action} render={<Button size="xs" />} />
         </BaseToast.Content>
       </BaseToast.Root>
     );

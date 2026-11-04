@@ -34,11 +34,14 @@
   margin: 0 var(--space-1);
   background: var(--border-strong);
 }
-/* quiet actions that brighten on hover */
+/* the labelled actions read in `foreground`; the more and clear icons stay quiet until pointed at */
 .action {
+  color: var(--foreground);
+}
+.iconAction {
   color: var(--muted-foreground);
 }
-.action:hover,
-.action[data-popup-open] {
+.iconAction:hover,
+.iconAction[data-popup-open] {
   color: var(--foreground);
 }

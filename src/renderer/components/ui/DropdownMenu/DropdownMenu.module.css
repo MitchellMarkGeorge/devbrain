@@ -35,7 +35,11 @@
   width: var(--menu-width);
 }
 .widthSm {
-  width: 180px;
+  width: 200px;
+}
+/* pickers with a search row (ProjectPicker) */
+.widthLg {
+  width: 240px;
 }
 /* as wide as the trigger (Select) */
 .widthTrigger {
@@ -71,14 +75,27 @@
   flex: none;
   color: var(--muted-foreground);
 }
+.iconSlot {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+}
+.item[data-disabled] > .iconSlot {
+  opacity: 0.5;
+}
 .item[data-highlighted],
 .item[data-popup-open] {
   background: var(--accent);
   color: var(--accent-foreground);
 }
 .item[data-disabled] {
-  opacity: 0.5;
+  color: var(--subtle-foreground);
   pointer-events: none;
+}
+.item[data-disabled] > svg {
+  color: var(--subtle-foreground);
 }
 .destructive,
 .destructive > svg {
@@ -88,7 +105,7 @@
   background: color-mix(in oklab, var(--destructive) 20%, transparent);
   color: var(--destructive);
 }
-/* checkbox, radio and select items leave room for their tick */
+/* Select's items leave room for their tick on the left */
 .inset {
   padding-left: 28px;
 }
@@ -101,6 +118,7 @@
   text-overflow: ellipsis;
 }
 
+/* Select's tick, on the left */
 .indicator {
   position: absolute;
   left: var(--space-1-5);
@@ -122,20 +140,92 @@
   user-select: none;
 }
 
+/* checkbox and radio items: the tick sits on the right, in place of the shortcut */
+.tick {
+  display: flex;
+  flex: none;
+  margin-left: auto;
+  color: var(--foreground);
+}
+.item > .tick > svg {
+  width: 16px;
+  height: 16px;
+}
+.item[data-checked] .shortcut {
+  display: none;
+}
+
+/* `border-strong`: a `border` line would vanish on the popover */
 .separator {
   height: 1px;
-  margin: var(--space-1) calc(var(--space-1) * -1);
+  margin: var(--space-1) 0;
   border: 0;
-  background: var(--border);
+  background: var(--border-strong);
 }
 
 .shortcut {
+  flex: none;
   margin-left: auto;
   padding-left: var(--space-2);
-  color: var(--muted-foreground);
+  color: var(--subtle-foreground);
   font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
   letter-spacing: var(--tracking-widest);
 }
+.item[data-highlighted] .shortcut {
+  color: var(--muted-foreground);
+}
+/* a submenu's current value, before its chevron */
+.value {
+  flex: none;
+  max-width: 50%;
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .chevron {
   margin-left: auto;
+}
+.value + .chevron {
+  margin-left: 0;
+}
+
+/* MenuSearch: the search row at the top of a picker menu */
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--control-lg);
+  margin-bottom: var(--space-1);
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--border-strong);
+  color: var(--muted-foreground);
+}
+.search > svg {
+  flex: none;
+}
+.searchInput {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  outline: none;
+  appearance: none;
+}
+.searchInput::placeholder {
+  color: var(--muted-foreground);
+}
+.empty {
+  padding: var(--space-3) var(--space-2);
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  text-align: center;
+}
+.empty:empty {
+  display: none;
 }

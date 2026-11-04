@@ -1,0 +1,80 @@
+/* A recent workspace. See docs/design-system/components/WorkspaceListItem.md */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  padding: var(--space-1-5);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-xl);
+  background: var(--card);
+}
+.label {
+  padding: var(--space-2) 10px var(--space-1);
+  color: var(--muted-foreground);
+  font: var(--font-weight-medium) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-width: 0;
+  height: 52px;
+  padding: var(--space-2) 10px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--duration-fast);
+}
+.item:hover,
+.item[data-highlighted] {
+  background: var(--row-selected);
+}
+.item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+/* Figma's 32px tile: 8px corners, a 14px letter */
+.item .tile {
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+.text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  white-space: nowrap;
+}
+.name,
+.detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.name {
+  color: var(--foreground-strong);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+.detail {
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.meta {
+  flex: none;
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  white-space: nowrap;
+}
+.arrow {
+  display: none;
+  flex: none;
+  color: var(--foreground);
+}
+.item:hover .arrow,
+.item[data-highlighted] .arrow,
+.item:focus-visible .arrow {
+  display: block;
+}

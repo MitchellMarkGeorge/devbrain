@@ -15,6 +15,7 @@
 }
 .header {
   display: flex;
+  height: var(--control-xs);
   align-items: center;
   gap: var(--space-2);
   padding: 0 var(--space-1);

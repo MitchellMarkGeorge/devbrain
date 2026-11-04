@@ -1,5 +1,6 @@
 export {
   Sidebar,
+  SidebarAction,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
@@ -8,8 +9,10 @@ export {
   SidebarHeaderActions,
   SidebarItem,
   SidebarMenu,
+  SidebarSeparator,
   SidebarWorkspace,
   useSidebar,
+  type SidebarActionProps,
   type SidebarGroupProps,
   type SidebarItemProps,
   type SidebarProps,

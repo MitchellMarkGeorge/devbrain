@@ -1,8 +1,9 @@
-import { forwardRef, type ComponentProps, type CSSProperties, type MouseEvent } from 'react';
+import { forwardRef, type ComponentProps, type MouseEvent } from 'react';
 import { Video } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Button } from '../Button';
-import { resolveColor, type Swatch } from '../types';
+import { ColourBar } from '../ColourBar';
+import type { Swatch } from '../types';
 import styles from './EventRow.module.css';
 
 export interface EventRowEvent {
@@ -37,14 +38,13 @@ export const EventRow = forwardRef<HTMLDivElement, EventRowProps>(function Event
   { event, onJoin, onOpen, className, style, onClick, onKeyDown, ...props },
   ref,
 ) {
-  const color = resolveColor(event.color);
   return (
     <div
       ref={ref}
       role="row"
       tabIndex={onOpen ? 0 : undefined}
       className={cn(styles.row, className)}
-      style={{ ...(color && ({ '--event-color': color } as CSSProperties)), ...style }}
+      style={style}
       onClick={(e: MouseEvent<HTMLDivElement>) => {
         onClick?.(e);
         if (!e.defaultPrevented && onOpen && !(e.target as Element).closest('button')) onOpen();
@@ -56,7 +56,7 @@ export const EventRow = forwardRef<HTMLDivElement, EventRowProps>(function Event
       {...props}
     >
       <div className={styles.main}>
-        <span className={styles.bar} aria-hidden />
+        <ColourBar color={event.color ?? 'green'} height={20} className={styles.bar} />
         <span className={styles.title}>{event.title}</span>
         <span className={styles.time}>
           {event.time}

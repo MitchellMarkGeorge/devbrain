@@ -28,7 +28,7 @@ export interface WorkspaceTileProps
     Omit<VariantProps<typeof workspaceTileVariants>, 'large'> {
   /** the workspace's first letter */
   letter: string;
-  /** 20px in the sidebar and switcher (4px corners), 60–72px on onboarding (16px corners) */
+  /** 20px in the sidebar and switcher (6px corners), 60–72px on onboarding (16px corners) */
   size?: number;
 }
 

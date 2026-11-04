@@ -24,8 +24,9 @@ export interface BreadcrumbProps extends ComponentPropsWithoutRef<'nav'> {
 }
 
 /**
- * The top bar's trail: the section in `foreground`, 12px chevrons, then the current item in
- * `muted-foreground` with its entity icon. Middle items shorten first when space runs out.
+ * The top bar's trail: the section in `muted-foreground`, 14px chevrons, then the current item in
+ * `foreground` with its 16px entity icon, all 6px apart. Middle items shorten first when space
+ * runs out.
  */
 export function Breadcrumb({ items, className, ...props }: BreadcrumbProps) {
   return (
@@ -36,7 +37,7 @@ export function Breadcrumb({ items, className, ...props }: BreadcrumbProps) {
           const current = i === items.length - 1;
           const content = (
             <>
-              {renderIcon(item.icon, 14, item.iconColor)}
+              {renderIcon(item.icon, 16, item.iconColor)}
               <span className={styles.label}>{item.label}</span>
             </>
           );
@@ -56,7 +57,7 @@ export function Breadcrumb({ items, className, ...props }: BreadcrumbProps) {
               </li>
               {!current && (
                 <li role="presentation" aria-hidden className={styles.separator}>
-                  <Icon icon={ChevronRight} size={12} />
+                  <Icon icon={ChevronRight} size={14} />
                 </li>
               )}
             </Fragment>

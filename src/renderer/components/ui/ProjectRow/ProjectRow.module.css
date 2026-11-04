@@ -1,0 +1,35 @@
+/* A project in the Projects list. See docs/design-system/components/ProjectRow.md */
+.folder {
+  color: var(--project-color, var(--muted-foreground));
+}
+/* swatch colours darken on white so green and amber icons keep 3:1 */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) .folder[data-coloured] {
+    filter: brightness(0.72);
+  }
+}
+:root[data-theme='light'] .folder[data-coloured] {
+  filter: brightness(0.72);
+}
+/* the status pill, right-aligned in a 120px column so the bars line up */
+.status {
+  display: flex;
+  justify-content: flex-end;
+  width: 120px;
+}
+.progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.bar {
+  width: 120px;
+}
+.percent {
+  width: 32px;
+  color: var(--muted-foreground);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}

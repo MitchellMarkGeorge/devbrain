@@ -1,21 +1,21 @@
-/* shadcn's Switch, compact: 28x16 track, 10px thumb, 12px muted label on the right.
+/* Figma's Switch: a 32x18 track (`input` off, `primary` on) with a 16px thumb inset 1px
+   (`background`; `foreground` when off in the dark theme); 12px muted label on the right.
    See docs/design-system/components/Switch.md */
 .switch {
   display: inline-flex;
   align-items: center;
   flex-shrink: 0;
-  width: 28px;
-  height: 16px;
-  padding: 2px;
-  border: 1px solid transparent;
+  width: 32px;
+  height: 18px;
+  padding: 1px;
+  border: 0;
   border-radius: var(--radius-full);
-  background: var(--border-strong);
+  background: var(--input);
   cursor: pointer;
   outline: none;
   transition: background-color var(--duration-normal);
 }
 .switch:focus-visible {
-  border-color: var(--ring);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 .switch[data-checked] {
@@ -27,15 +27,26 @@
 }
 .thumb {
   display: block;
-  width: 10px;
-  height: 10px;
+  width: 16px;
+  height: 16px;
   border-radius: var(--radius-full);
-  background: var(--foreground);
+  background: var(--background);
   transition: transform var(--duration-normal);
 }
 .thumb[data-checked] {
-  background: var(--primary-foreground);
-  transform: translateX(12px);
+  transform: translateX(14px);
+}
+/* off, the dark theme's thumb is `foreground` on the dim track; the light theme's stays `background` */
+.thumb[data-unchecked] {
+  background: var(--foreground);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) .thumb[data-unchecked] {
+    background: var(--background);
+  }
+}
+:root[data-theme='light'] .thumb[data-unchecked] {
+  background: var(--background);
 }
 .label {
   display: inline-flex;

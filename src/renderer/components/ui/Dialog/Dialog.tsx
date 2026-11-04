@@ -76,7 +76,7 @@ export function DialogDescription({ className, ...props }: BaseDialog.Descriptio
   );
 }
 
-/** The title over the description, 8px apart. */
+/** The title over the description, 6px apart. */
 export function DialogHeader({ className, ...props }: ComponentProps<'div'>) {
   return <div className={cn(styles.header, className)} {...props} />;
 }

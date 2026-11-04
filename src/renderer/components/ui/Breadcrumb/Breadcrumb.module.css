@@ -2,19 +2,19 @@
 .list {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1-5);
   min-width: 0;
   margin: 0;
   padding: 0;
   list-style: none;
-  color: var(--foreground);
+  color: var(--muted-foreground);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
   white-space: nowrap;
 }
 .item {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1-5);
   min-width: 0;
   /* middle items give way first; the first and last keep their names longest */
   flex: 0 1000 auto;
@@ -28,7 +28,7 @@
   min-width: 0;
 }
 .page {
-  color: var(--muted-foreground);
+  color: var(--foreground);
 }
 .label {
   overflow: hidden;
@@ -38,7 +38,7 @@
 .link {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-1-5);
   min-width: 0;
   border-radius: var(--radius-xs);
   color: inherit;
@@ -46,7 +46,7 @@
   transition: color var(--duration-fast);
 }
 .link:hover {
-  color: var(--foreground-strong);
+  color: var(--foreground);
 }
 .link:focus-visible {
   outline: none;
@@ -55,5 +55,5 @@
 .separator {
   flex: none;
   display: inline-flex;
-  color: var(--subtle-foreground);
+  color: var(--muted-foreground);
 }

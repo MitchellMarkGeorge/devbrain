@@ -1,5 +1,5 @@
 /*
- * The command palette and pickers on the menu surface: a 32px search row over grouped results.
+ * The command palette and pickers on the menu surface: a 36px search row over grouped results.
  * See docs/design-system/components/Command.md
  */
 .command {
@@ -23,14 +23,15 @@
   background: transparent;
 }
 
+/* Figma's MenuSearch: 36px, 8px insets, a `border-strong` line under it */
 .inputGroup {
   display: flex;
   flex: none;
   align-items: center;
   gap: var(--space-2);
-  height: var(--control-md);
-  padding: 0 var(--space-3);
-  border-bottom: 1px solid var(--border);
+  height: var(--control-lg);
+  padding: 0 var(--space-2);
+  border-bottom: 1px solid var(--border-strong);
   color: var(--muted-foreground);
 }
 .inputGroup > svg {
@@ -84,7 +85,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-1-5);
-  padding: var(--space-1-5) var(--space-1-5) var(--space-1);
+  padding: var(--space-2) var(--space-2) var(--space-1);
   color: var(--muted-foreground);
   font: var(--font-weight-medium) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
   letter-spacing: 0.5px;
@@ -92,7 +93,7 @@
   user-select: none;
 }
 .count {
-  padding: 0 var(--space-1);
+  padding: 0 5px;
   border-radius: 4px;
   background: var(--accent);
   color: var(--muted-foreground);
@@ -116,14 +117,14 @@
 }
 .dialog {
   position: fixed;
-  top: 15vh;
+  top: clamp(16px, 12vh, 120px);
   left: 50%;
   z-index: var(--z-overlay);
   display: flex;
   flex-direction: column;
   width: calc(100vw - 32px);
-  max-width: 560px;
-  max-height: 70vh;
+  max-width: 640px;
+  max-height: calc(100vh - 2 * clamp(16px, 12vh, 120px));
   overflow: hidden;
   border: 1px solid var(--edge);
   border-radius: var(--radius-xl);
@@ -144,9 +145,17 @@
 .dialog .list {
   max-height: none;
   flex: 1;
+  padding: var(--space-1) var(--space-2) var(--space-2);
 }
+/* the palette's search row: 52px, 16px insets, no line under it */
 .dialog .inputGroup {
-  height: 44px;
+  gap: 10px;
+  height: 52px;
+  padding: 0 var(--space-4);
+  border-bottom: 0;
+}
+.dialog .input {
+  color: var(--foreground-strong);
 }
 
 .toolbar {
@@ -154,5 +163,86 @@
   flex: none;
   flex-wrap: wrap;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-2) 0;
+  padding: 0 var(--space-4) var(--space-2);
+}
+
+/* the ⌘K search's results: 36px rows, two lines when a snippet follows the title */
+.result {
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 var(--space-2);
+}
+.twoLine {
+  align-items: flex-start;
+  padding: var(--space-2);
+}
+.resultText {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-0-5);
+}
+.resultTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.resultDescription {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.meta {
+  flex: none;
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  white-space: nowrap;
+}
+/* the icon sits on the title's line */
+.twoLine > :first-child:not(.resultText) {
+  margin-top: 2px;
+}
+/* the ↵ key shows on the highlighted result only */
+.enter {
+  display: none;
+}
+.result[data-highlighted] .enter {
+  display: inline-flex;
+  margin-top: -2px;
+  margin-bottom: -2px;
+}
+.twoLine[data-highlighted] .enter {
+  margin-top: 0;
+}
+/* the searched words */
+.match {
+  background: none;
+  color: var(--foreground-strong);
+  font-weight: var(--font-weight-semibold);
+}
+.resultDescription .match {
+  color: var(--foreground);
+}
+
+/* the palette's footer band of key hints */
+.footer {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 10px var(--space-4);
+  border-top: 1px solid var(--border-strong);
+  background: color-mix(in oklab, var(--muted) 50%, transparent);
+}
+.hint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
 }

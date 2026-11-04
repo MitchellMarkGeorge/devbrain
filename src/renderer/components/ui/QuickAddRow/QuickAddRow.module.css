@@ -1,0 +1,65 @@
+/* The inline "Add task…" row. See docs/design-system/components/QuickAddRow.md */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--row-height);
+  padding: 0 var(--space-3) 0 36px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--foreground-strong);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  cursor: text;
+  transition: background-color var(--duration-fast);
+}
+.row:hover {
+  background: var(--row-selected);
+}
+/* typing: the row tint, outlined in the ring colour like a focused row */
+.row[data-typing] {
+  background: var(--row-selected);
+  border-color: var(--ring);
+}
+/* the "+" (rest) or the new task's status icon, in a task row's status slot */
+.icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  /* 36px from the row's outer edge, past its 1px border, as in TaskRow */
+  margin-left: -1px;
+  color: var(--subtle-foreground);
+}
+.input {
+  flex: 1;
+  min-width: 0;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+.input::placeholder {
+  color: var(--subtle-foreground);
+}
+.side {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.date {
+  color: var(--subtle-foreground);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+  white-space: nowrap;
+}
+.date[data-tone='today'] {
+  color: var(--date-today);
+}
+.date[data-tone='overdue'] {
+  color: var(--date-overdue);
+}

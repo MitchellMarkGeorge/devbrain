@@ -1,0 +1,90 @@
+/* The destructive confirmation. See docs/design-system/components/ConfirmDialog.md */
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.description {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+}
+.description > p {
+  margin: 0;
+}
+.field {
+  gap: var(--space-2);
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.choicesLabel {
+  color: var(--foreground);
+  font: var(--font-weight-medium) var(--text-sm) / 14px var(--font-sans);
+}
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--input) 30%, transparent);
+  cursor: pointer;
+  transition: border-color var(--duration-fast);
+}
+.card:hover {
+  border-color: color-mix(in oklab, var(--ring) 60%, var(--border-strong));
+}
+.card:has([data-checked]) {
+  border-color: var(--ring);
+}
+.card:has(:focus-visible) {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.radio {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid var(--subtle-foreground);
+  border-radius: var(--radius-full);
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+}
+.radio[data-checked] {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--primary-foreground);
+}
+.cardText {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.cardLabel {
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-sm) / 14px var(--font-sans);
+}
+.cardDescription {
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}

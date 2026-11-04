@@ -1,6 +1,6 @@
 import { Select as BaseSelect } from '@base-ui/react/select';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { mergeClassName } from '../../lib/cn';
 import {
   DropdownMenuSeparator,
@@ -26,7 +26,7 @@ export interface SelectTriggerProps
   placeholder?: string;
 }
 
-/** The field: the chosen value (or the placeholder) and an up-down chevron. */
+/** The field: the chosen value (or the placeholder) and a down chevron (Figma's `Select`). */
 export function SelectTrigger({
   size,
   placeholder,
@@ -41,7 +41,7 @@ export function SelectTrigger({
     >
       {children ?? <BaseSelect.Value className={styles.value} placeholder={placeholder} />}
       <BaseSelect.Icon className={styles.icon}>
-        <Icon icon={ChevronsUpDown} />
+        <Icon icon={ChevronDown} />
       </BaseSelect.Icon>
     </BaseSelect.Trigger>
   );

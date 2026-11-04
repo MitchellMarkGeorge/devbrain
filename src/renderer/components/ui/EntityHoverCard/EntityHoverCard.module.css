@@ -52,13 +52,9 @@
 .projectGlyph {
   color: var(--entity-color, var(--muted-foreground));
 }
-/* an event's calendar colour, as the 3px bar of its pill */
+/* an event's calendar colour: a 16px ColourBar, at the card's padding like the pill's bar */
 .bar {
   flex: none;
-  width: 3px;
-  height: 16px;
-  border-radius: var(--radius-full);
-  background: var(--entity-color, var(--swatch-green));
 }
 
 .pills,

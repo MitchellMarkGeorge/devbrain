@@ -1,0 +1,12 @@
+/* The editor's "Turn into" menu. See docs/design-system/components/TurnIntoMenu.md */
+/* [class] outweighs the menu width variant this file may load before */
+.menu[class] {
+  width: 220px;
+}
+/* the current block type: a tick on the right, not in the inset on the left */
+.tick {
+  display: inline-flex;
+  flex: none;
+  margin-left: auto;
+  color: var(--foreground);
+}

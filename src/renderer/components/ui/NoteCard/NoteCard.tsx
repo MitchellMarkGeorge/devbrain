@@ -23,7 +23,7 @@ export interface NoteCardProps extends Omit<useRender.ComponentProps<'div'>, 'ti
 }
 
 /**
- * A note as a card: the file icon and edit time, the title and a `subtle-foreground` preview.
+ * A note as a card: the file icon and edit time, the title and a `muted-foreground` preview; the time is `subtle-foreground`.
  * Every card in a row has the same height (144px, or 156px with a `link`), so lay them out in a
  * `Grid minColumnWidth="240px"`. Opens the note on click (`render={<a href=… />}` for a link).
  */

@@ -1,0 +1,58 @@
+/*
+ * The date pickers' panel (DatePicker, DateRangePicker), inside a `PopoverContent size="auto"`.
+ * See docs/design-system/components/DatePicker.md
+ */
+.panel {
+  display: flex;
+  flex-direction: column;
+}
+.single {
+  width: 248px;
+}
+.divider {
+  height: 1px;
+  flex: none;
+  background: var(--border-strong);
+}
+.inputRow {
+  display: flex;
+  padding: var(--space-2);
+}
+.inputRow > * {
+  flex: 1;
+}
+.calendar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+}
+.quickPicks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1-5);
+}
+.quickPick {
+  border-radius: var(--radius-full);
+}
+.timeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+}
+.meta {
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 36px;
+  padding: var(--space-1-5) var(--space-2);
+}
+.end {
+  margin-left: auto;
+}

@@ -28,8 +28,10 @@ export interface TaskNoteCardProps extends Omit<ComponentPropsWithoutRef<'div'>,
 }
 
 /**
- * A task's note, under its subtasks: a flat card in one row like a task row. The file icon and
- * title, then pills for the note's project and its linked tasks, then the edit time.
+ * A task's note, under its subtasks: a flat `card` laid out like a task row. The file icon, the
+ * title (medium, cut with "…"), then pills for the note's project and its linked tasks, then the
+ * edit time. Stacked (in a side sheet), the pills go under the title and the icon and time
+ * centre on both lines.
  */
 export const TaskNoteCard = forwardRef<HTMLDivElement, TaskNoteCardProps>(function TaskNoteCard(
   {
@@ -49,22 +51,24 @@ export const TaskNoteCard = forwardRef<HTMLDivElement, TaskNoteCardProps>(functi
   return (
     <div ref={ref} data-layout={layout} className={cn(styles.card, className)} {...props}>
       <div className={styles.inner}>
-        <div className={styles.main}>
-          <Icon icon={FileText} size={16} className={styles.icon} />
+        <Icon icon={FileText} size={16} className={styles.icon} />
+        <div className={styles.body}>
           <button type="button" className={styles.title} title={title} onClick={onOpen}>
             {title}
           </button>
-        </div>
-        <div className={styles.side}>
-          {project != null && (
-            <EntityPill type="project" color={projectColor}>
-              {project}
-            </EntityPill>
+          {(project != null || tasksSummary != null || pills != null) && (
+            <div className={styles.pills}>
+              {project != null && (
+                <EntityPill type="project" color={projectColor}>
+                  {project}
+                </EntityPill>
+              )}
+              {tasksSummary != null && <EntityPill glyph={CircleCheck}>{tasksSummary}</EntityPill>}
+              {pills}
+            </div>
           )}
-          {tasksSummary != null && <EntityPill glyph={CircleCheck}>{tasksSummary}</EntityPill>}
-          {pills}
-          <span className={styles.time}>{updated}</span>
         </div>
+        <span className={styles.time}>{updated}</span>
       </div>
     </div>
   );

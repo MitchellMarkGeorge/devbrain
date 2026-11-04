@@ -3,6 +3,7 @@ import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
+import { ColourBar } from '../ColourBar';
 import { renderIcon, type IconSource } from '../Icon';
 import { resolveColor, type Swatch } from '../types';
 import styles from './Badge.module.css';
@@ -68,7 +69,6 @@ export const Badge = forwardRef<HTMLElement, BadgeProps>(function Badge(
   const isButton = interactive || props.onClick != null;
   const vars = {
     ...(iconColor && { '--badge-icon-color': resolveColor(iconColor) }),
-    ...(barColor && { '--badge-bar-color': resolveColor(barColor) }),
   } as CSSProperties;
   return useRender({
     defaultTagName: isButton ? 'button' : 'span',
@@ -85,7 +85,7 @@ export const Badge = forwardRef<HTMLElement, BadgeProps>(function Badge(
         children: (
           <>
             {prefix != null && <span className={styles.prefix}>{prefix}</span>}
-            {barColor && <span className={styles.bar} aria-hidden />}
+            {barColor && <ColourBar color={barColor} />}
             {renderIcon(icon, 12)}
             <span className={cn(styles.text, muted && styles.muted)}>{children}</span>
           </>

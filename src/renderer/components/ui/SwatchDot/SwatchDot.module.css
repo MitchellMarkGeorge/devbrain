@@ -1,0 +1,15 @@
+/* An 8px colour dot in a 12px slot. See docs/design-system/components/SwatchDot.md */
+.slot {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+.slot::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--swatch-dot-color);
+}

@@ -1,0 +1,123 @@
+/*
+ * The strokeless 48px row lists share with TaskRow. See docs/design-system/components/ListRow.md
+ * and the README's "Lists". The 36px left padding is the strip the selection checkbox appears in.
+ */
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--row-height);
+  padding: 0 var(--space-3) 0 36px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--foreground-strong);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  outline: none;
+  cursor: default;
+  transition: background-color var(--duration-fast);
+}
+.row:hover,
+.row[data-state],
+.row[data-selected],
+.row:focus-visible {
+  background: var(--row-selected);
+}
+.row[data-selected] .title {
+  color: var(--row-selected-foreground);
+}
+.row[data-join-prev] {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.row[data-join-next] {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+/* keyboard focus: the hover tint, outlined in the ring colour */
+.row:focus-visible,
+.row[data-state='focus'] {
+  z-index: 1;
+  border-color: var(--ring);
+}
+
+.check {
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  margin-top: -8px;
+  display: none;
+}
+.row:hover .check,
+.row:focus-visible .check,
+.row:focus-within .check,
+.row[data-state] .check,
+.row[data-selected] .check,
+.row[data-selecting] .check {
+  display: inline-grid;
+}
+
+/* the glyph sits in the 24px slot of a task row's status button, so lists line up */
+.icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  /* 36px from the row's outer edge, past its 1px border, as in TaskRow */
+  margin-left: -1px;
+  color: var(--muted-foreground);
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.title,
+.excerpt {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.title {
+  flex: 0 1 auto;
+}
+.excerpt {
+  flex: 1 1 0;
+  color: var(--muted-foreground);
+}
+.row[data-muted] .title {
+  color: var(--muted-foreground);
+}
+
+.side {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+.meta {
+  color: var(--subtle-foreground);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* hover actions: shown while the row is pointed at or holds focus */
+.actions {
+  display: none;
+  align-items: center;
+  gap: var(--space-2);
+}
+.row:hover .actions,
+.row:focus-within .actions,
+.row[data-state] .actions {
+  display: flex;
+}

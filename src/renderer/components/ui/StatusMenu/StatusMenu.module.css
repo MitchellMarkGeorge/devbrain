@@ -1,24 +1,6 @@
-/* The menu a row's status icon opens. See docs/design-system/components/StatusMenu.md */
-.content {
-  width: 200px;
-}
-.icon {
-  display: grid;
-  place-items: center;
-  width: 16px;
-  flex: none;
-}
-/* the current status is ticked and highlighted */
+/* The value pickers (StatusMenu, PriorityMenu). See docs/design-system/components/StatusMenu.md */
+/* the current value is ticked and highlighted */
 .item[data-checked] {
   background: var(--accent);
   color: var(--accent-foreground);
-}
-.tick {
-  display: flex;
-  margin-left: auto;
-  color: var(--foreground);
-}
-.tick > svg {
-  width: 16px;
-  height: 16px;
 }

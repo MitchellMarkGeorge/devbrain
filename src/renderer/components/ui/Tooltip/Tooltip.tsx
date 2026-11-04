@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from 'react';
 import { Tooltip as BaseTooltip } from '@base-ui/react/tooltip';
 import { mergeClassName } from '../../lib/cn';
+import { Kbd } from '../Kbd';
 import styles from './Tooltip.module.css';
 
 /** Shares the open delay between tooltips: wrap the app (or a toolbar) once. */
@@ -44,6 +45,8 @@ export interface TooltipProps extends Omit<BaseTooltip.Root.Props, 'children'> {
   content: ReactNode;
   /** the element it describes; rendered as the trigger */
   children: ReactElement;
+  /** the action's key, after the text in a `Kbd`: "G T" */
+  shortcut?: ReactNode;
   side?: TooltipContentProps['side'];
   align?: TooltipContentProps['align'];
 }
@@ -52,12 +55,13 @@ export interface TooltipProps extends Omit<BaseTooltip.Root.Props, 'children'> {
  * Names an icon-only button or shows a truncated name in full; never the only place for an
  * action. `<Tooltip content="Favorite"><Button size="icon" icon={Star} aria-label="Favorite" /></Tooltip>`
  */
-export function Tooltip({ content, children, side, align, ...props }: TooltipProps) {
+export function Tooltip({ content, shortcut, children, side, align, ...props }: TooltipProps) {
   return (
     <BaseTooltip.Root {...props}>
       <BaseTooltip.Trigger render={children} />
       <TooltipContent side={side} align={align}>
         {content}
+        {shortcut != null && <Kbd className={styles.kbd}>{shortcut}</Kbd>}
       </TooltipContent>
     </BaseTooltip.Root>
   );

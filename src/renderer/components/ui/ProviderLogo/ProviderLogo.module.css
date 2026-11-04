@@ -10,9 +10,10 @@
 .linear .ink {
   fill: #ffffff;
 }
+/* GitHub's white mark on neutral-800, in both themes */
 .github .ground {
-  fill: var(--input);
+  fill: var(--neutral-800);
 }
 .github .ink {
-  fill: var(--foreground);
+  fill: #ffffff;
 }

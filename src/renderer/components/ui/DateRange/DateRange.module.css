@@ -15,7 +15,7 @@
 .overdue > svg {
   color: var(--date-overdue);
 }
-/* the picker's calendar, inset from the popover's edge */
+/* the picker (a DatePicker or DateRangePicker) draws its own insets */
 .picker {
-  padding: var(--space-2);
+  overflow: hidden;
 }

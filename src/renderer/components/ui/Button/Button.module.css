@@ -40,7 +40,8 @@
 
 /* variants */
 .default {
-  background: color-mix(in oklab, var(--input) 30%, transparent);
+  /* Figma's `input-fill` (5% in dark, none in light) once tokens.css has it */
+  background: var(--input-fill, color-mix(in oklab, var(--input) 30%, transparent));
   border-color: var(--input);
 }
 .default:hover {
@@ -174,4 +175,13 @@
 .value {
   color: var(--foreground);
   font-weight: var(--font-weight-medium);
+}
+/* the compact toolbar: the value is hidden but still read out */
+.hiddenValue {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

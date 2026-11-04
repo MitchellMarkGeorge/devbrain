@@ -1,0 +1,68 @@
+/* A sheet's property rows. See docs/design-system/components/DetailRow.md */
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: var(--control-sm);
+}
+.label {
+  flex: none;
+  width: 88px;
+  padding: var(--space-1) 0;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+/* pills, centred on the 28px line, wrapping 6px apart */
+.values {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+  min-height: var(--control-sm);
+}
+/* a read-only value: glyph and plain text, nudged 2px in to line up with a pill's glyph */
+.value {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+  min-height: var(--control-sm);
+  padding-left: 2px;
+  color: var(--foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+.value > svg {
+  flex: none;
+}
+.text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* a 12px label over the value (PropertyField, DateField) */
+.row[data-orientation='vertical'] {
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 0;
+}
+.row[data-orientation='vertical'] .label {
+  width: auto;
+  padding: 0;
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+}
+.row[data-orientation='vertical'] .values {
+  min-height: 0;
+}

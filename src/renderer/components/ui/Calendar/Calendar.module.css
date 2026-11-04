@@ -1,19 +1,19 @@
-/* shadcn's Calendar (react-day-picker) as Figma's mini calendar. See docs/design-system/components/Calendar.md */
+/* react-day-picker as Figma's MiniCalendar. See docs/design-system/components/Calendar.md */
 .root {
   position: relative;
   width: 224px;
   color: var(--foreground);
-  font: var(--font-weight-normal) 13px / 16px var(--font-sans);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
   font-variant-numeric: tabular-nums;
 }
 .months {
   display: flex;
-  gap: var(--space-4);
+  gap: var(--space-6);
 }
 .month {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-2);
   width: 100%;
 }
 .caption {
@@ -22,11 +22,10 @@
   height: var(--control-xs);
 }
 .captionLabel {
-  color: var(--muted-foreground);
-  font-size: var(--text-sm);
-  line-height: var(--text-sm-leading);
+  color: var(--foreground);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
 }
-/* previous and next sit at the right of the caption */
+/* mini: previous and next sit at the right of the caption, 4px apart */
 .nav {
   position: absolute;
   top: 0;
@@ -54,7 +53,8 @@
   background: color-mix(in oklab, var(--muted) 50%, transparent);
   color: var(--foreground);
 }
-.navButton:disabled {
+.navButton:disabled,
+.navButton[aria-disabled='true'] {
   opacity: 0.5;
   pointer-events: none;
 }
@@ -65,10 +65,38 @@
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 
+/* picker: ‹ June 2026 › — the arrows around the months, each month's name centred */
+.picker {
+  width: auto;
+}
+.picker .month {
+  display: grid;
+  width: 224px;
+  grid-template-columns: var(--control-xs) 1fr var(--control-xs);
+  row-gap: var(--space-2);
+}
+.picker .caption {
+  grid-row: 1;
+  grid-column: 2;
+  justify-content: center;
+}
+.picker .previous {
+  grid-row: 1;
+  grid-column: 1;
+}
+.picker .next {
+  grid-row: 1;
+  grid-column: 3;
+}
+.picker .grid {
+  grid-column: 1 / -1;
+}
+
 .grid {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0 2px;
+  margin: -2px 0;
 }
 .weekday {
   height: 20px;
@@ -83,6 +111,9 @@
   text-align: center;
 }
 .dayButton {
+  display: inline-grid;
+  place-items: center;
+  vertical-align: middle;
   width: 28px;
   height: 28px;
   padding: 0;
@@ -94,8 +125,11 @@
   cursor: pointer;
   transition: background-color var(--duration-fast);
 }
-.dayButton:hover {
+button.dayButton:hover {
   background: var(--accent);
+}
+span.dayButton {
+  cursor: default;
 }
 
 /* day states (on the cell) */
@@ -111,67 +145,38 @@
 .hidden {
   visibility: hidden;
 }
+/* the selected day, and a range's start and end */
 .selected .dayButton {
+  border-color: var(--border-strong);
   background: var(--secondary);
-  box-shadow: inset 0 0 0 1px var(--border-strong);
+  color: var(--foreground-strong);
+  font-weight: var(--font-weight-medium);
 }
-
-/*
- * Range: one `accent` band per week, drawn on the cells so it runs without gaps between days,
- * from the centre of the start to the centre of the end. The ends fill with `primary`, a step
- * above the band (`secondary` and `accent` are the same grey in dark). A band that crosses a week
- * rounds off at the row's edges.
- */
-.rangeStart,
-.rangeMiddle,
-.rangeEnd {
-  background: var(--accent);
-}
-.rangeStart {
-  background: linear-gradient(to right, transparent 50%, var(--accent) 50%);
-}
-.rangeEnd {
-  background: linear-gradient(to left, transparent 50%, var(--accent) 50%);
-}
-/* a one-day range, a start on Sunday and an end on Monday have no band */
-.rangeStart.rangeEnd,
-.rangeStart:last-child,
-.rangeEnd:first-child {
-  background: none;
-}
-.rangeMiddle:first-child {
-  border-top-left-radius: var(--radius-md);
-  border-bottom-left-radius: var(--radius-md);
-}
-.rangeMiddle:last-child {
-  border-top-right-radius: var(--radius-md);
-  border-bottom-right-radius: var(--radius-md);
-}
+/* a range's days between its ends: `accent` squares */
 .rangeMiddle .dayButton {
-  background: transparent;
-  box-shadow: none;
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-weight: var(--font-weight-normal);
 }
 .rangeMiddle .dayButton:hover {
   background: color-mix(in oklab, var(--border-strong) 60%, var(--accent));
 }
-.rangeStart .dayButton,
-.rangeEnd .dayButton {
-  background: var(--primary);
-  color: var(--primary-foreground);
-  box-shadow: none;
-}
-.rangeStart .dayButton:hover,
-.rangeEnd .dayButton:hover {
-  background: color-mix(in oklab, var(--primary) 85%, transparent);
-}
 .rangeMiddle.outside {
   color: var(--muted-foreground);
 }
-/* today keeps DevBrain's red square with a white number, selected or not */
+/* today: DevBrain's red square with a white number */
 .today .dayButton {
+  border-color: transparent;
   background: var(--now-indicator);
   color: var(--white);
-  box-shadow: none;
+  font-weight: var(--font-weight-medium);
+}
+/* …or, when it is selected, the selected square with a red number */
+.today.selected .dayButton {
+  border-color: var(--border-strong);
+  background: var(--secondary);
+  color: var(--now-indicator);
 }
 .today.outside .dayButton {
   background: transparent;

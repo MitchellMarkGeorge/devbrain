@@ -1,4 +1,4 @@
-/* An event in the day and week grid. See docs/design-system/components/EventBlock.md */
+/* A block on the day and week grid. See docs/design-system/components/EventBlock.md */
 .block {
   display: flex;
   gap: var(--space-2);
@@ -6,13 +6,17 @@
   min-height: 0;
   padding: var(--space-2);
   overflow: hidden;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   background: var(--muted);
   color: var(--foreground);
   font: var(--font-weight-medium) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
   text-align: left;
   cursor: pointer;
+  transition: border-color var(--duration-fast);
+}
+.block:hover {
+  border-color: var(--input);
 }
 .block:focus-visible {
   outline: none;
@@ -26,26 +30,120 @@
   border-radius: var(--radius-xs);
   background: var(--bar-color, var(--swatch-green));
 }
+/* a scheduled task's status icon, in place of the bar */
+.glyph {
+  flex: none;
+  margin-top: 2px;
+}
 .body {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
 }
 .title {
+  flex: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .time {
+  flex: none;
   display: flex;
   align-items: center;
   gap: var(--space-1-5);
+  min-width: 0;
   color: var(--subtle-foreground);
   font-weight: var(--font-weight-normal);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+.timeText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.time :global(svg) {
+  flex: none;
+}
 
-/* the current time across the grid */
+/* focus time: a neutral bar and a dashed outline */
+.focus {
+  border-style: dashed;
+}
+.focus .bar {
+  background: var(--muted-foreground);
+}
+/* "maybe": dashed and faded */
+.tentative {
+  border-style: dashed;
+  opacity: 0.7;
+}
+
+/* blocks under about 40px (30 minutes and less): title and time on one line */
+.compact {
+  align-items: center;
+  padding: 0 var(--space-2);
+  gap: var(--space-1-5);
+}
+.compact .bar {
+  align-self: center;
+  height: 12px;
+}
+.compact .glyph {
+  margin-top: 0;
+}
+.compact .body {
+  flex-direction: row;
+  align-items: baseline;
+  gap: var(--space-1-5);
+}
+.compact .title {
+  flex: 0 1 auto;
+}
+
+/* an all-day event: a chip in the calendar's tile colour */
+.allDay {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+  height: 22px;
+  padding: 0 var(--space-1-5);
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--chip-color);
+  color: var(--foreground-strong);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  cursor: pointer;
+}
+.allDay:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.chipTitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* on white the 900 tile would swallow dark text: the light theme uses the swatch's 15% tint */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) .allDay:not(.outOfOffice) {
+    background: linear-gradient(var(--chip-tint), var(--chip-tint)), var(--background);
+  }
+}
+:root[data-theme='light'] .allDay:not(.outOfOffice) {
+  background: linear-gradient(var(--chip-tint), var(--chip-tint)), var(--background);
+}
+.outOfOffice {
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+/* the current time across today's column */
 .now {
   position: relative;
   width: 100%;
@@ -56,28 +154,10 @@
 .withDot::before {
   content: '';
   position: absolute;
-  left: -4px;
+  left: 0;
   top: -3.5px;
   width: 8px;
   height: 8px;
   border-radius: var(--radius-full);
   background: var(--now-indicator);
-}
-
-/* events under about 40px: title and time on one line */
-.compact {
-  align-items: center;
-  padding: 0 var(--space-2);
-}
-.compact .bar {
-  align-self: center;
-  height: 12px;
-}
-.compact .body {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-1-5);
-}
-.compact .title {
-  flex: 0 1 auto;
 }

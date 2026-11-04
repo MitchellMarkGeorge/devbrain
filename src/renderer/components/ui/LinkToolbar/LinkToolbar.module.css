@@ -1,0 +1,55 @@
+/* The editor's link field. See docs/design-system/components/LinkToolbar.md */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-0-5);
+  width: 340px;
+  max-width: calc(100vw - 16px);
+  height: var(--control-lg);
+  padding: var(--space-1);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-md);
+}
+.field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: var(--control-sm);
+  padding: 0 var(--space-1) 0 var(--space-2);
+  border-radius: var(--radius-md);
+}
+.icon {
+  flex: none;
+  color: var(--muted-foreground);
+}
+.input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  text-overflow: ellipsis;
+  outline: none;
+}
+.input::placeholder {
+  color: var(--muted-foreground);
+}
+/* ↵: a small key cap */
+.enter {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--muted-foreground);
+}

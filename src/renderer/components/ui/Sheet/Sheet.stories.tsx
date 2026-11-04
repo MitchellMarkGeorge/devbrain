@@ -2,11 +2,10 @@ import { useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { CalendarDays, Clock, Repeat, Video } from 'lucide-react';
 import { Flex, Stack } from '../../layout/Flex';
-import { Heading } from '../../layout/Heading';
 import { Text } from '../../layout/Text';
 import { Button } from '../Button';
 import { Icon } from '../Icon';
-import { Sheet, SheetBody, SheetContent, SheetHeader, SheetTrigger } from './Sheet';
+import { Sheet, SheetBody, SheetContent, SheetHeader, SheetItemTitle, SheetTrigger } from './Sheet';
 
 const meta = {
   title: 'Components/Sheet',
@@ -20,19 +19,7 @@ type Story = StoryObj<typeof meta>;
 function EventDetails() {
   return (
     <SheetBody>
-      <Flex gap="3" align="center">
-        <span
-          style={{
-            width: 3,
-            alignSelf: 'stretch',
-            borderRadius: 2,
-            background: 'var(--swatch-blue)',
-          }}
-        />
-        <Heading level={2} variant="title">
-          Mitchell / Jesse 1:1
-        </Heading>
-      </Flex>
+      <SheetItemTitle barColor="blue">Mitchell / Jesse 1:1</SheetItemTitle>
       <Stack gap="2">
         {[
           [CalendarDays, 'Today'],
@@ -71,7 +58,7 @@ function DockedExample({ defaultOpen }: { defaultOpen?: boolean }) {
       />
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent container={column}>
-          <SheetHeader onOpenAsPage={() => undefined}>Event details</SheetHeader>
+          <SheetHeader onOpenAsPage={() => undefined}>Event</SheetHeader>
           <EventDetails />
         </SheetContent>
       </Sheet>
@@ -87,7 +74,7 @@ export const Overlay: Story = {
       <Sheet {...args} variant="overlay">
         <SheetTrigger render={<Button />}>Event details</SheetTrigger>
         <SheetContent>
-          <SheetHeader onOpenAsPage={() => undefined}>Event details</SheetHeader>
+          <SheetHeader onOpenAsPage={() => undefined}>Event</SheetHeader>
           <EventDetails />
         </SheetContent>
       </Sheet>

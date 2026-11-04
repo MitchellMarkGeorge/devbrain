@@ -1,0 +1,16 @@
+/* A project's status in the task status colours. See docs/design-system/components/ProjectStatusIcon.md */
+.icon {
+  flex: none;
+  display: inline-block;
+  vertical-align: middle;
+}
+.notStarted,
+.onHold {
+  color: var(--status-not-started);
+}
+.active {
+  color: var(--status-in-progress);
+}
+.completed {
+  color: var(--status-completed);
+}

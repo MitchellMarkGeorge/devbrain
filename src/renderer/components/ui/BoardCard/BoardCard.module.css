@@ -2,7 +2,7 @@
 .card {
   /* borderless filled card: `card`, lightened on hover, darker when completed */
   --card-fill: var(--card);
-  --card-fill-hover: color-mix(in oklab, var(--accent) 50%, var(--card));
+  --card-fill-hover: var(--accent);
   --card-fill-done: color-mix(in oklab, var(--card) 50%, var(--background));
 
   display: flex;
@@ -71,13 +71,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.bar {
-  flex: none;
-  width: 3px;
-  height: 12px;
-  border-radius: var(--radius-xs);
-  background: var(--bar-color, var(--swatch-green));
 }
 .source {
   flex: none;

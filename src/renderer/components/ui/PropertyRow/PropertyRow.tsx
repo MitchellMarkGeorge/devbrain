@@ -38,7 +38,7 @@ export interface PropertyRowProps extends ComponentPropsWithoutRef<'div'> {
    */
   properties: ReactNode;
   /**
-   * the second line, links to other items with no prefix: the source badge first, then the
+   * the second line, links to other items with no prefix: the `SyncedBadge` first, then the
    * event, the parent task and the pull request. No links and no `note`: no second line.
    */
   links?: ReactNode;

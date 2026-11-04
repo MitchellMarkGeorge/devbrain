@@ -293,7 +293,8 @@ function fromControl(event: MouseEvent<HTMLElement>): boolean {
 
 /**
  * One task in a strokeless list: the status button (opening the `StatusMenu`), the title, its
- * source, parent and subtask pills, then entity pills, priority and the date on the right. Use it
+ * source, parent and subtask pills, then the event, note and project pills, priority and the date
+ * on the right. Use it
  * inside `TaskList`, which handles selection and keyboard movement.
  *
  * Keyboard on the focused row: `S` opens the status menu (then `1`, `2`, `3`), `X` toggles
@@ -332,7 +333,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     [ref],
   );
   const leftPills = [task.key, task.parent, task.subtasks].filter(Boolean).length;
-  const rightPills = [task.project, task.event, task.note].filter(Boolean).length;
+  const rightPills = [task.event, task.note, task.project].filter(Boolean).length;
   const autoLevel = useAutoStack(stack === 'auto' || stack === undefined, rowRef, {
     left: leftPills > 1,
     right: rightPills > 1,
@@ -446,17 +447,17 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
       </div>
       <div className={styles.side} data-side="">
         <PillStack stacked={level >= 1}>
-          {task.project && (
-            <EntityPill type="project" color={task.projectColor}>
-              {task.project}
-            </EntityPill>
-          )}
           {task.event && (
             <EntityPill type="event" color={task.eventColor}>
               {task.event}
             </EntityPill>
           )}
           {task.note && <EntityPill type="note">{task.note}</EntityPill>}
+          {task.project && (
+            <EntityPill type="project" color={task.projectColor}>
+              {task.project}
+            </EntityPill>
+          )}
         </PillStack>
         <span className={styles.priority}>
           {!completed && <PriorityIcon priority={task.priority} />}

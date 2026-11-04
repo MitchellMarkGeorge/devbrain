@@ -1,0 +1,28 @@
+/* An account's state pill. See docs/design-system/components/AccountStatus.md */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  height: 24px;
+  padding: 0 10px 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--muted-foreground);
+  font: var(--font-weight-medium) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  white-space: nowrap;
+}
+.glyph {
+  flex: none;
+}
+.connected {
+  color: var(--foreground);
+}
+.connected .glyph {
+  color: var(--status-completed);
+}
+.needsReconnect {
+  color: var(--health-at-risk);
+}
+.comingLater {
+  border-style: dashed;
+}

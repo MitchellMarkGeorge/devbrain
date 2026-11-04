@@ -8,6 +8,7 @@ import {
 import { PreviewCard } from '@base-ui/react/preview-card';
 import { FileText, Folder } from 'lucide-react';
 import { cn, mergeClassName } from '../../lib/cn';
+import { ColourBar } from '../ColourBar';
 import { Icon, renderIcon, type IconSource } from '../Icon';
 import { Progress } from '../Progress';
 import { ProviderLogo } from '../ProviderLogo';
@@ -45,12 +46,13 @@ export interface EntityHoverCardContentProps extends Omit<
 
 function HeaderGlyph({
   type,
+  color,
   status,
   provider,
-}: Pick<EntityHoverCardContentProps, 'type' | 'status' | 'provider'>) {
+}: Pick<EntityHoverCardContentProps, 'type' | 'color' | 'status' | 'provider'>) {
   switch (type) {
     case 'event':
-      return <span className={styles.bar} aria-hidden />;
+      return <ColourBar color={color} height={16} className={styles.bar} />;
     case 'note':
       return <Icon icon={FileText} size={16} className={styles.mutedGlyph} />;
     case 'task':
@@ -97,7 +99,7 @@ export const EntityHoverCardContent = forwardRef<HTMLDivElement, EntityHoverCard
         {...props}
       >
         <div className={styles.head}>
-          <HeaderGlyph type={type} status={status} provider={provider} />
+          <HeaderGlyph type={type} color={color} status={status} provider={provider} />
           <span className={styles.title} title={title}>
             {title}
           </span>
@@ -113,8 +115,8 @@ export const EntityHoverCardContent = forwardRef<HTMLDivElement, EntityHoverCard
           <div className={styles.progress}>
             <Progress value={progress.value} aria-label="Progress" />
             <div className={cn(styles.meta, styles.progressLabel)}>
-              <span className={styles.metaText}>{progress.label}</span>
               <span className={styles.progressValue}>{Math.round(progress.value)}%</span>
+              <span className={styles.metaText}>{progress.label}</span>
             </div>
           </div>
         )}

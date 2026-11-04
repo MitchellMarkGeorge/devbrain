@@ -58,3 +58,8 @@ export const TruncatedName: Story = {
     </Tooltip>
   ),
 };
+
+/** A sidebar item's tooltip with its shortcut, as Figma's Tooltip draws it */
+export const WithShortcut: Story = {
+  args: { content: 'Tasks', shortcut: 'G T', defaultOpen: true },
+};

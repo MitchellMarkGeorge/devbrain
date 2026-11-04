@@ -3,6 +3,7 @@ import { Progress } from '@base-ui/react/progress';
 import { ChevronDown, ChevronRight, Circle, Plus } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Button } from '../Button';
+import { ColourBar } from '../ColourBar';
 import { Icon, renderIcon, type IconSource } from '../Icon';
 import { isSwatch, resolveColor, swatchTintVar, type Swatch } from '../types';
 import styles from './GroupHeading.module.css';
@@ -100,7 +101,7 @@ export const GroupHeading = forwardRef<HTMLDivElement, GroupHeadingProps>(functi
         </span>
       )}
       <span className={styles.tile} aria-hidden>
-        {bar ? <span className={styles.bar} /> : renderIcon(icon, 16)}
+        {bar ? <ColourBar color={bar} height={14} /> : renderIcon(icon, 16)}
       </span>
       <span className={styles.text}>
         <span className={styles.label}>{label}</span>
@@ -109,7 +110,7 @@ export const GroupHeading = forwardRef<HTMLDivElement, GroupHeadingProps>(functi
       {collapsed ? (
         <span />
       ) : (
-        <Button size="xs" icon={Plus} onClick={onAddTask}>
+        <Button variant="ghost" size="xs" icon={Plus} onClick={onAddTask}>
           Add task
         </Button>
       )}

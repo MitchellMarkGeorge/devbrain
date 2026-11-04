@@ -6,8 +6,11 @@ import styles from './Skeleton.module.css';
 
 export const skeletonVariants = cva(styles.skeleton, {
   variants: {
-    /** `block` (8px corners), `circle`, or `card` (the card's fill and outline) */
-    shape: { block: undefined, circle: styles.circle, card: styles.card },
+    /**
+     * `block` (a text bar, 6px corners), `icon` (a 16px icon's square, 4px), `circle` (pills,
+     * avatars), or `card` (the card's fill and outline)
+     */
+    shape: { block: undefined, icon: styles.icon, circle: styles.circle, card: styles.card },
   },
   defaultVariants: { shape: 'block' },
 });

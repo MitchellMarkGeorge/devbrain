@@ -6,7 +6,7 @@ import { DateRange } from '../DateRange';
 import { EntityPill } from '../EntityPill';
 import { PriorityIcon } from '../PriorityIcon';
 import { ProgressRing } from '../ProgressRing';
-import { SourcePill } from '../SourcePill';
+import { SyncedBadge } from '../SyncedBadge';
 import { StatusIcon } from '../StatusIcon';
 import { TaskNoteCard } from '../TaskNoteCard';
 import { PropertyRow, TASK_ADD_ITEMS } from './PropertyRow';
@@ -90,7 +90,7 @@ export const SyncedTask: Story = {
     ),
     links: (
       <>
-        <SourcePill>Linear · ENG-124</SourcePill>
+        <SyncedBadge>Linear · ENG-124</SyncedBadge>
         <EntityPill glyph={GitPullRequest}>#482 Fix token refresh</EntityPill>
       </>
     ),

@@ -16,6 +16,11 @@ export interface TaskListProps extends Omit<ComponentProps<'div'>, 'children' | 
   states?: Record<number, 'hover' | 'focus'>;
   /** the row whose status menu is open at first */
   menuOpenAt?: number;
+  /**
+   * every row shows its checkbox, as while something is selected; for a grouped list, where a
+   * selection in one group shows the checkboxes in all of them
+   */
+  selecting?: boolean;
   /** indents every row (a task page's Subtasks list) */
   subtasks?: boolean;
   /** how the rows' pills stack: `auto` (the default) stacks each row's pills when it runs out of room */
@@ -46,6 +51,7 @@ export function TaskList({
   onSelectedChange,
   states,
   menuOpenAt,
+  selecting,
   subtasks,
   stack,
   selectionBar = true,
@@ -124,7 +130,7 @@ export function TaskList({
             tabIndex={i === Math.min(focusIndex, tasks.length - 1) ? 0 : -1}
             onFocus={() => setFocusIndex(i)}
             selected={on}
-            selecting={count > 0}
+            selecting={selecting ?? count > 0}
             joinPrev={on && isSelected(i - 1)}
             joinNext={on && isSelected(i + 1)}
             state={states?.[i]}

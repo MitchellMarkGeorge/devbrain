@@ -5,7 +5,8 @@
   flex: none;
   width: var(--tile-size);
   height: var(--tile-size);
-  border-radius: 4px;
+  /* 6px at the 20px size (Figma), scaling with the tile */
+  border-radius: calc(var(--tile-size) * 0.3);
   background: var(--sidebar-primary);
   color: var(--sidebar-primary-foreground);
   font-family: var(--font-sans);

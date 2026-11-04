@@ -60,7 +60,7 @@ export const SelectionBar = forwardRef<HTMLDivElement, SelectionBarProps>(functi
       size="sm"
       icon={Ellipsis}
       label="More actions"
-      className={styles.action}
+      className={styles.iconAction}
       onClick={more ? undefined : onMore}
     />
   );
@@ -130,7 +130,7 @@ export const SelectionBar = forwardRef<HTMLDivElement, SelectionBarProps>(functi
         size="sm"
         icon={X}
         label="Clear selection"
-        className={styles.action}
+        className={styles.iconAction}
         onClick={onClear}
       />
     </div>

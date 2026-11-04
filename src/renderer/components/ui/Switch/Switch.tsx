@@ -8,7 +8,7 @@ export interface SwitchProps extends BaseSwitch.Root.Props {
   children?: ReactNode;
 }
 
-/** shadcn's Switch on Base UI, compact as in the create-task dialog. */
+/** shadcn's Switch on Base UI at Figma's 32×18: settings rows and the create-task dialog. */
 export const Switch = forwardRef<HTMLElement, SwitchProps>(function Switch(
   { className, children, ...props },
   ref,

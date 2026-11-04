@@ -1,4 +1,4 @@
-import { Children, forwardRef, type ComponentPropsWithoutRef } from 'react';
+import { forwardRef, type ComponentPropsWithoutRef } from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { IconButton } from '../IconButton';
@@ -21,7 +21,7 @@ export interface BoardColumnProps extends Omit<ComponentPropsWithoutRef<'section
   /** the status name: "In progress" */
   name: string;
   status: TaskStatus;
-  /** the number of tasks; defaults to the number of cards */
+  /** a count after the name; the designed board leaves it out (the cards show how many) */
   count?: number;
   /** end the column with the dashed "Add task" slot; false for Completed */
   add?: boolean;
@@ -32,8 +32,8 @@ export interface BoardColumnProps extends Omit<ComponentPropsWithoutRef<'section
 }
 
 /**
- * An open status column: no panel, a header (status icon, name, count, a ghost "+") over its
- * cards and a dashed "Add task" slot.
+ * An open status column: no panel, a 24px header (status icon, name, a ghost "+" on the right)
+ * over its cards, 10px apart, and a dashed "Add task" slot.
  */
 export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function BoardColumn(
   { name, status, count, add = true, onAdd, className, children, ...props },
@@ -44,7 +44,7 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
       <div className={styles.header}>
         <StatusIcon status={status} />
         {name}
-        <span className={styles.count}>{count ?? Children.count(children)}</span>
+        {count != null && <span className={styles.count}>{count}</span>}
         <IconButton
           size="xs"
           icon={Plus}
@@ -57,7 +57,7 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
         {children}
         {add && (
           <button type="button" className={styles.slot} onClick={onAdd}>
-            <Icon icon={Plus} size={14} />
+            <Icon icon={Plus} size={16} />
             Add task
           </button>
         )}

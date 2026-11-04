@@ -41,8 +41,16 @@ export interface ButtonProps
   /** leads the label: a Lucide icon (sized to the button) or a node */
   icon?: IconSource;
   trailingIcon?: IconSource;
-  /** a toolbar button's current choice, after the label: "Filter  Assigned to me" */
+  /**
+   * a toolbar button's current choice, after the label: "Filter  Assigned to me". The label then
+   * reads as a muted, regular-weight name (Figma's `ToolbarButton`).
+   */
   value?: ReactNode;
+  /**
+   * hides `value` but keeps the label's toolbar look: the compact toolbar of a narrow window shows
+   * just "Filter" and "Sort". The value stays readable to screen readers.
+   */
+  hideValue?: boolean;
 }
 
 const SMALL_SIZES: ButtonSize[] = ['xs', 'icon-xs'];
@@ -53,7 +61,7 @@ const SMALL_SIZES: ButtonSize[] = ['xs', 'icon-xs'];
  * Icon-only buttons need an `aria-label`.
  */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant, size, icon, trailingIcon, value, className, children, ...props },
+  { variant, size, icon, trailingIcon, value, hideValue, className, children, ...props },
   ref,
 ) {
   const iconSize = SMALL_SIZES.includes(size ?? 'default') ? 12 : 16;
@@ -70,7 +78,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       {value != null ? (
         <>
           <span className={styles.label}>{children}</span>
-          <span className={styles.value}>{value}</span>
+          <span className={hideValue ? styles.hiddenValue : styles.value}>{value}</span>
         </>
       ) : (
         children

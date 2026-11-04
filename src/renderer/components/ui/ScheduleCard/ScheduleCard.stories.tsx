@@ -8,7 +8,7 @@ const meta = {
   args: {
     title: 'Mitchell / Jesse 1:1',
     time: '9:00 AM',
-    soon: '12 mins',
+    soon: 'In 12 min',
     color: 'indigo',
     onJoin: () => {},
   },
@@ -40,7 +40,13 @@ export const Later: Story = {
 export const TodaysSchedule: Story = {
   render: () => (
     <Stack gap="2">
-      <ScheduleCard title="Standup" time="9:00 AM" soon="12 mins" color="green" onJoin={() => {}} />
+      <ScheduleCard
+        title="Standup"
+        time="9:00 AM"
+        soon="In 12 min"
+        color="green"
+        onJoin={() => {}}
+      />
       <ScheduleCard
         title="Mitchell / Jesse 1:1"
         time="10:00 AM"

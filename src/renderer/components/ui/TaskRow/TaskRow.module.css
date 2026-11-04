@@ -29,7 +29,9 @@
 .row:hover,
 .row[data-state='hover'],
 .row[data-menu-open],
-.row[data-selected] {
+.row[data-selected],
+.row:focus-visible,
+.row[data-state='focus'] {
   --row-tint: var(--row-selected);
   background: var(--row-tint);
 }
@@ -45,24 +47,23 @@
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
-/* keyboard focus outlines the whole row with Nova's ring */
+/* keyboard focus: the hover tint, outlined with the ring colour (a 1px line, no halo) */
 .row:focus-visible,
 .row[data-state='focus'] {
   z-index: 1;
   border-color: var(--ring);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 
 /* the leading strip: the checkbox shows on hover, focus, and on every row while selecting */
 .check {
   position: absolute;
   top: 50%;
-  left: 10px;
+  left: 8px;
   margin-top: -8px;
   display: none;
 }
 .subtask .check {
-  left: 38px;
+  left: 36px;
 }
 .row:hover .check,
 .row:focus-visible .check,
@@ -80,7 +81,8 @@
   place-items: center;
   width: 24px;
   height: 24px;
-  margin-left: -4px;
+  /* 36px from the row's outer edge, past its 1px border */
+  margin-left: -1px;
   padding: 0;
   border: 0;
   border-radius: var(--radius-sm);
@@ -113,7 +115,6 @@
 }
 .row[data-completed] .name {
   color: var(--muted-foreground);
-  text-decoration: line-through;
 }
 
 /*

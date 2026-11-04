@@ -11,8 +11,9 @@
 
 .toast {
   --gap: var(--space-2);
-  --peek: var(--space-2);
-  --scale: calc(max(0, 1 - (var(--toast-index) * 0.05)));
+  /* behind the newest: 10px of each older toast shows, each 20px narrower (of 356) */
+  --peek: 10px;
+  --scale: calc(max(0, 1 - (var(--toast-index) * 0.0562)));
   --shrink: calc(1 - var(--scale));
   --height: var(--toast-frontmost-height, var(--toast-height));
   --offset-y: calc(
@@ -84,7 +85,7 @@
 .content {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   padding: 14px var(--space-4);
   overflow: hidden;
   transition: opacity var(--duration-slow);
@@ -95,8 +96,14 @@
 .content[data-expanded] {
   opacity: 1;
 }
-.content > svg {
-  align-self: flex-start;
+/* without an action the icon sits on the title's line */
+.content:not(:has(.action)) {
+  align-items: flex-start;
+}
+.icon {
+  flex: none;
+}
+.content:not(:has(.action)) > .icon {
   margin-top: 2px;
 }
 
@@ -109,18 +116,21 @@
 }
 .title {
   margin: 0;
-  color: var(--foreground);
+  color: var(--foreground-strong);
   font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
 }
 .description {
   margin: 0;
   color: var(--muted-foreground);
-  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.description:empty {
+  display: none;
+}
+.action {
+  flex: none;
 }
 
-.success {
-  color: var(--status-completed);
-}
 .warning {
   color: var(--priority-medium);
 }

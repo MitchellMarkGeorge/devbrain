@@ -1,16 +1,19 @@
-/* DevBrain's dark tooltip (Nova inverts it). See docs/design-system/components/Tooltip.md */
+/* DevBrain's dark tooltip (Nova inverts it): popover, edge outline, 8px corners, 6px × 12px. See docs/design-system/components/Tooltip.md */
 .positioner {
   z-index: var(--z-overlay);
 }
 .popup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   width: fit-content;
   max-width: 320px;
   padding: 6px var(--space-3);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--edge);
   border-radius: var(--radius-md);
   background: var(--popover);
   color: var(--foreground);
-  font: var(--font-weight-medium) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
   box-shadow: var(--shadow-md);
   transform-origin: var(--transform-origin);
   transition:
@@ -24,4 +27,7 @@
 }
 .popup[data-instant] {
   transition: none;
+}
+.kbd {
+  flex: none;
 }

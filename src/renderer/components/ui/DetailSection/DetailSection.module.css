@@ -1,0 +1,68 @@
+/* A titled block of a sheet or detail page. See docs/design-system/components/DetailSection.md */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.section[data-spacing='page'] {
+  gap: var(--space-2);
+}
+.heading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-height: var(--control-sm);
+}
+.title {
+  margin: 0;
+  color: var(--foreground);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  white-space: nowrap;
+}
+.count {
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+.action {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+}
+
+/* collapsible: the chevron and title are the toggle */
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: calc(var(--space-1) * -1);
+  padding: var(--space-0-5) var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.trigger:hover {
+  background: var(--row-selected);
+}
+.trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.chevron {
+  color: var(--muted-foreground);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.trigger[data-panel-open] .chevron {
+  transform: none;
+}
+.trigger:not([data-panel-open]) .chevron {
+  transform: rotate(-90deg);
+}
+.panel {
+  display: flex;
+  flex-direction: column;
+}

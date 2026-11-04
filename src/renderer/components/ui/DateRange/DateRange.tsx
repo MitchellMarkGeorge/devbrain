@@ -18,11 +18,11 @@ export interface DateRangeProps extends ComponentPropsWithoutRef<'span'> {
   due: ReactNode;
   /** colours the due date's glyph: `today` or `overdue` */
   dueTone?: 'today' | 'overdue';
-  /** the due date picker (a `Calendar`): the due pill opens it in a popover */
+  /** the due date picker (a `DatePicker`): the due pill opens it in a popover */
   duePicker?: ReactNode;
   /**
-   * the start and due range picker: the start pill (or "+ Start date") opens it, anchored under
-   * the start pill
+   * the start and due range picker (a `DateRangePicker`): the start pill (or "+ Start date") opens
+   * it, anchored under the start pill
    */
   startPicker?: ReactNode;
   /** "+ Start date" without a picker: called on click */

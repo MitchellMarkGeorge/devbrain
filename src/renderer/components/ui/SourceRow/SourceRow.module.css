@@ -1,0 +1,53 @@
+/* A source of an integration account. See docs/design-system/components/SourceRow.md */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 60px;
+  padding: var(--space-3) 0;
+}
+.text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+}
+.titleLine {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.icon {
+  flex: none;
+  display: inline-flex;
+  color: var(--muted-foreground);
+}
+.title {
+  overflow: hidden;
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.description {
+  padding-left: var(--space-6);
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.status {
+  flex: none;
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  white-space: nowrap;
+}
+.warning .status {
+  color: var(--health-at-risk);
+}
+.error .status {
+  color: var(--destructive);
+}
+.disabled {
+  opacity: 0.5;
+}

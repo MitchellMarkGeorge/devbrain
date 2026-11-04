@@ -1,0 +1,17 @@
+/* A deleted item in Trash. See docs/design-system/components/TrashRow.md */
+.folder {
+  color: var(--project-color, var(--muted-foreground));
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) .folder[data-coloured] {
+    filter: brightness(0.72);
+  }
+}
+:root[data-theme='light'] .folder[data-coloured] {
+  filter: brightness(0.72);
+}
+/* a note's excerpt reads a step smaller in Trash */
+.excerpt {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+}

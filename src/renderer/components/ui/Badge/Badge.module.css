@@ -102,11 +102,3 @@
   color: var(--subtle-foreground);
   font-weight: var(--font-weight-normal);
 }
-/* an event's calendar colour */
-.bar {
-  flex: none;
-  width: 3px;
-  height: 12px;
-  border-radius: var(--radius-xs);
-  background: var(--badge-bar-color);
-}

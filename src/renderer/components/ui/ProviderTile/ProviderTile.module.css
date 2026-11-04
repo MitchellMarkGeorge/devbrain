@@ -1,0 +1,18 @@
+/* A provider's brand mark on its tile. See docs/design-system/components/ProviderTile.md */
+.tile {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  color: var(--white);
+}
+/* brand colours belong to the brand, not the theme */
+.linear {
+  background: var(--platform-linear);
+}
+.google {
+  background: var(--platform-google, #4285f4);
+}
+.github {
+  background: var(--border-strong);
+  color: var(--foreground-strong);
+}

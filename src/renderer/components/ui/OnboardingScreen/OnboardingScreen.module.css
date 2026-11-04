@@ -1,0 +1,54 @@
+/* The window before a workspace is open. See docs/design-system/components/OnboardingScreen.md */
+.screen {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--background);
+  color: var(--foreground);
+}
+.titleBar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 48px;
+  padding: 0 var(--space-4);
+  -webkit-app-region: drag;
+}
+.column {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: var(--space-6) 0;
+}
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.title {
+  margin: 38px 0 0;
+  color: var(--foreground-strong);
+  font: var(--font-weight-semibold) var(--text-3xl) / var(--text-3xl-leading) var(--font-sans);
+  letter-spacing: var(--tracking-tight);
+}
+.description {
+  margin: var(--space-2) 0 0;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+.footer {
+  display: flex;
+  flex: none;
+  justify-content: center;
+  padding: var(--space-6) 0 var(--space-4);
+}

@@ -1,0 +1,28 @@
+/* A document page's centred column. See docs/design-system/components/DocumentPage.md */
+.page {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  background: var(--background);
+}
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-12) var(--space-6) var(--space-16);
+}
+/* the title, then its blocks; space between blocks belongs to the content */
+.column {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  margin: 0 auto;
+}
+.widthDocument {
+  max-width: var(--content-max-width);
+}
+.widthSettings {
+  max-width: 760px;
+}
