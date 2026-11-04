@@ -1,6 +1,7 @@
 /* shadcn's Sidebar, laid out as in Figma. See docs/design-system/components/Sidebar.md */
 .sidebar {
   --sidebar-gap: var(--space-4);
+  --sidebar-inset: var(--space-3);
   display: flex;
   flex-direction: column;
   gap: var(--sidebar-gap);
@@ -8,7 +9,7 @@
   max-width: 100%;
   height: 100%;
   min-height: 0;
-  padding: 0 var(--space-3) var(--space-3);
+  padding: 0 var(--sidebar-inset) var(--space-3);
   border-right: 1px solid var(--sidebar-border);
   background: var(--sidebar);
   color: var(--sidebar-foreground);
@@ -27,10 +28,13 @@
   overscroll-behavior: contain;
   scrollbar-width: none;
   /* the padding snaps, so the icons stay exactly 20px in throughout */
+  /*
+   * No background-color transition: on a scrolling element Chromium can leave it painted in the
+   * old colour once a theme switch has transitioned it (the light rail stayed white in dark).
+   */
   transition:
     width var(--duration-slow) var(--ease-surface),
-    border-color var(--duration-slow) var(--ease-surface),
-    background-color var(--duration-slow) var(--ease-surface);
+    border-color var(--duration-slow) var(--ease-surface);
 }
 /*
  * outside an AppShell (no window row) it keeps 8px above the header. The header carries it, as
@@ -47,11 +51,12 @@
  */
 .sidebar[data-collapsed] {
   --sidebar-gap: var(--space-3);
+  --sidebar-inset: var(--space-2);
   width: var(--sidebar-rail-width);
   border-right-color: transparent;
   background: var(--background);
   align-items: flex-start;
-  padding: 0 var(--space-2) var(--space-3);
+  padding: 0 var(--sidebar-inset) var(--space-3);
 }
 
 /* ---------- the window row: traffic lights, then toggle, back, forward at the right ---------- */
@@ -83,6 +88,43 @@
   margin-bottom: calc(-1 * var(--sidebar-gap));
   padding-bottom: var(--sidebar-gap);
   background: inherit;
+}
+/*
+ * while anything is scrolled under it, the header casts a shadow over it, from edge to edge: it
+ * reaches over the sidebar's side padding (its content stays where it was)
+ */
+.header {
+  align-self: stretch;
+  margin-inline: calc(-1 * var(--sidebar-inset));
+  padding-inline: var(--sidebar-inset);
+  transition: box-shadow var(--duration-normal) var(--ease-out);
+}
+.sidebar[data-scrolled] .header {
+  box-shadow: var(--shadow-pinned);
+}
+
+/*
+ * A thin scrollbar drawn over the sidebar while it scrolls (Sidebar places it), taking no width
+ * from the items. It fades in on scrolling and out shortly after.
+ */
+.sidebar {
+  position: relative;
+}
+.thumb {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: 2px;
+  width: 4px;
+  height: 0;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-normal) var(--ease-out);
+}
+.thumb[data-scrolling] {
+  opacity: 1;
 }
 /* its 44px is the row itself, under the padding */
 .windowRow {

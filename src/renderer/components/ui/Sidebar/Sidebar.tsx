@@ -3,6 +3,7 @@ import {
   forwardRef,
   useCallback,
   useContext,
+  useEffect,
   useLayoutEffect,
   useRef,
   type ComponentPropsWithoutRef,
@@ -82,6 +83,8 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
     [ref],
   );
   useFadeOnToggle(navRef, collapsed);
+  const thumbRef = useRef<HTMLDivElement>(null);
+  useScrollIndicators(navRef, thumbRef);
   return (
     <SidebarContext.Provider value={{ collapsed }}>
       <nav
@@ -99,6 +102,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
           </div>
         )}
         {children}
+        <div ref={thumbRef} className={styles.thumb} data-scroll-thumb="" aria-hidden />
       </nav>
     </SidebarContext.Provider>
   );
@@ -121,9 +125,70 @@ function useFadeOnToggle(navRef: RefObject<HTMLElement | null>, collapsed: boole
     if (duration === 0 || typeof nav.animate !== 'function') return;
     const easing = style.getPropertyValue('--ease-surface').trim() || 'ease-out';
     for (const child of Array.from(nav.children)) {
+      // not the scrollbar, which shows only while scrolling
+      if (child.hasAttribute('data-scroll-thumb')) continue;
       child.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
     }
   }, [navRef, collapsed]);
+}
+
+/** How long the scrollbar stays after scrolling stops. */
+const SCROLLBAR_LINGER = 800;
+
+/**
+ * The sidebar scrolls with no scrollbar of its own (one would squeeze the rail's 40px items).
+ * This draws a thin one over it while it scrolls (`data-scrolling` on the thumb, for a moment
+ * after scrolling stops), and marks the sidebar `data-scrolled` while anything is scrolled under
+ * the pinned header, which then casts its shadow.
+ */
+function useScrollIndicators(
+  navRef: RefObject<HTMLElement | null>,
+  thumbRef: RefObject<HTMLDivElement | null>,
+) {
+  useEffect(() => {
+    const nav = navRef.current;
+    const thumb = thumbRef.current;
+    if (!nav || !thumb) return;
+    let hide: ReturnType<typeof setTimeout> | undefined;
+    let frame = 0;
+    const place = () => {
+      frame = 0;
+      const { scrollTop, scrollHeight, clientHeight } = nav;
+      const range = scrollHeight - clientHeight;
+      nav.toggleAttribute('data-scrolled', scrollTop > 0);
+      if (range <= 0) {
+        thumb.style.height = '0px';
+        return;
+      }
+      // the track is the sidebar's height, 4px in at each end; the thumb moves with the content
+      const track = clientHeight - 8;
+      const height = Math.max(24, (track * clientHeight) / scrollHeight);
+      const offset = (scrollTop / range) * (track - height);
+      thumb.style.height = `${height}px`;
+      thumb.style.transform = `translateY(${scrollTop + 4 + offset}px)`;
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(place);
+    };
+    const onScroll = () => {
+      schedule();
+      thumb.setAttribute('data-scrolling', '');
+      clearTimeout(hide);
+      hide = setTimeout(() => thumb.removeAttribute('data-scrolling'), SCROLLBAR_LINGER);
+    };
+    nav.addEventListener('scroll', onScroll, { passive: true });
+    // the content or the window changing height moves or hides the thumb too
+    const observer = new ResizeObserver(schedule);
+    observer.observe(nav);
+    for (const child of Array.from(nav.children)) observer.observe(child);
+    place();
+    return () => {
+      nav.removeEventListener('scroll', onScroll);
+      observer.disconnect();
+      clearTimeout(hide);
+      cancelAnimationFrame(frame);
+    };
+  }, [navRef, thumbRef]);
 }
 
 /** The top row: the workspace switcher, then search and "new" (`SidebarHeaderActions`). */

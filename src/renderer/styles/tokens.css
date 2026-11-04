@@ -108,6 +108,7 @@
   --radius-full: 9999px;
 
   /* Shadows */
+  --shadow-pinned: 0 8px 12px -8px var(--pinned-shadow);
   --shadow-segment: 0 1px 1px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
   --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
@@ -210,6 +211,7 @@
   --sidebar-border: color-mix(in srgb, var(--foreground) 10%, transparent);
   --sidebar-ring: var(--neutral-500);
   --backdrop: color-mix(in srgb, black 50%, transparent);
+  --pinned-shadow: color-mix(in srgb, black 50%, transparent); /* DevBrain addition */
 
   --status-not-started: var(--neutral-500);
   --status-in-progress: var(--orange-500);
@@ -271,6 +273,7 @@
     --sidebar-border: var(--neutral-200);
     --sidebar-ring: var(--neutral-500);
     --backdrop: color-mix(in srgb, black 50%, transparent);
+    --pinned-shadow: color-mix(in srgb, black 8%, transparent);
 
     --status-not-started: var(--neutral-500);
     --status-in-progress: var(--orange-700);
@@ -332,6 +335,7 @@
   --sidebar-border: var(--neutral-200);
   --sidebar-ring: var(--neutral-500);
   --backdrop: color-mix(in srgb, black 50%, transparent);
+  --pinned-shadow: color-mix(in srgb, black 8%, transparent);
 
   --status-not-started: var(--neutral-500);
   --status-in-progress: var(--orange-700);
