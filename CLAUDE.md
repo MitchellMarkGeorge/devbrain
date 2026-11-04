@@ -65,12 +65,28 @@ own:
 
 ## Design system
 
-UI work follows the DevBrain design system in `docs/design-system/README.md`: tokens in
-`docs/design-system/tokens.json` (generated into `src/renderer/styles/tokens.css` with
-`npm run tokens`), per-component guides in `docs/design-system/components/`, and the reference
-build in `docs/design-system/reference/`. The live version, with a preview of every component, is
-https://claude.ai/artifact/9ZGwb8KzWqLyDsnPnoTLav. `docs/design-system/archive/` holds superseded
-systems; don't build from them.
+**The code is the design system's single source of truth.** That is, in this repo:
+
+- `docs/design-system/tokens.json`: every token (generated into `src/renderer/styles/tokens.css`
+  with `npm run tokens`; never edit the CSS).
+- `src/renderer/components/`: the components (conventions in its `README.md`), with their
+  Storybook stories as the browsable catalogue (`npm run storybook`; `Screens/*` rebuild the
+  designed screens).
+- `docs/design-system/README.md` and `docs/design-system/components/<Name>.md`: the rules and each
+  component's guide, describing what the code does.
+
+A design change lands in all three in the same change: the component, its stories and its guide
+(and `tokens.json` for a token). Everything else follows the code and is not authoritative:
+
+- The Figma file (key `w9WtYAUXkkzqKIMAzFo08I`) is where new designs start. Once built, the code
+  wins; where they disagree, update Figma, not the code (unless the change is a deliberate redesign,
+  which then lands in the code and its guide).
+- The Claude design-system page (https://claude.ai/artifact/9ZGwb8KzWqLyDsnPnoTLav) is a published
+  copy, to be synced from the code. It currently predates the Figma audit (Nov 2026) and is out of
+  date.
+- `docs/design-system/reference/` (the stand-in bundle behind that page) is superseded by the
+  components and Storybook and out of date; don't build from it.
+- `docs/design-system/archive/` holds superseded systems; don't build from them.
 
 ## IPC
 

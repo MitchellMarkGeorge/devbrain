@@ -1,6 +1,9 @@
 # Renderer components
 
-The DevBrain design system (`docs/design-system/`) built as React components.
+The DevBrain design system built as React components. **This code, its stories, the tokens in
+`docs/design-system/tokens.json` and the guides in `docs/design-system/` are the single source of
+truth**: a design change lands in the component, its stories and its guide together, and the Figma
+file and the Claude design-system page follow it (see `CLAUDE.md`).
 
 - `ui/`: the design system's components, one folder each (`ui/Button/`), built on
   [Base UI](https://base-ui.com) (`@base-ui/react`) where the component's guide names a Base UI part.
@@ -76,6 +79,5 @@ from the barrel (`components/ui/index.ts`).
   `:root[data-theme='light'] .x { … }`.
 - **Motion** honours `prefers-reduced-motion` (tokens.css zeroes the durations).
 
-The look of each component is specified in `docs/design-system/components/<Name>.md` and drawn in
-`docs/design-system/reference/bundle.css` (base rules, then the Nova overrides from line ~1099,
-then the Lists overrides from line ~1556: a component's final look is all three layers combined).
+Each component's guide is `docs/design-system/components/<Name>.md`; keep it describing what the
+component does. `docs/design-system/reference/` is superseded and out of date: don't build from it.

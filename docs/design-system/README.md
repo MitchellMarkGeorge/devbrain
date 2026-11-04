@@ -4,20 +4,27 @@ The design system for the DevBrain app. It was developed as "DevBrain Nova Lists
 [first DevBrain design system](archive/devbrain-v1/README.md) and
 [DevBrain Nova](archive/nova/README.md), which are kept in `archive/` for reference.
 
-The live, browsable version (every component with a preview, tokens and this brand book):
-https://claude.ai/artifact/9ZGwb8KzWqLyDsnPnoTLav
+## Source of truth
+
+**The code is the single source of truth**: this README and the guides in `components/`, the
+tokens in `tokens.json`, and the components in `src/renderer/components/` with their Storybook
+stories (`npm run storybook`), which are the browsable version. A change to the design lands in
+the component, its stories and its guide together. The Figma file and the
+[Claude design-system page](https://claude.ai/artifact/9ZGwb8KzWqLyDsnPnoTLav) follow the code;
+both are behind it today (the Claude page predates the Figma audit of Nov 2026). See `CLAUDE.md`.
 
 ## Files
 
-- `tokens.json`: the token source, and the only file here the app uses. `npm run tokens` generates
+- `tokens.json`: every token, and the only file here the app uses. `npm run tokens` generates
   `src/renderer/styles/tokens.css` from it.
-- `components/`: the usage guide for each component.
-- `reference/`: the stylesheet and preview components behind the design system page, for
-  reference only; nothing imports them. `bundle.css` is how every component looks, `bundle.js`
-  draws each one as a small React stand-in and `index.d.ts` lists their props. The app builds its
-  own components in `src/` (Base UI and CSS Modules, styled with the tokens) to match them.
-- The implementation notes in the [v1 spec](archive/devbrain-v1/README.md) (Base UI parts, the
-  `data-variant`/`data-size` Button pattern, styling without Tailwind) still apply.
+- `components/`: the guide for each component, describing what the component in
+  `src/renderer/components/` does.
+- `reference/`: superseded and out of date. The stylesheet and React stand-ins behind the Claude
+  design-system page, kept until that page is synced from the code; nothing imports them, and
+  nothing should be built from them.
+- `archive/`: superseded systems. The implementation notes in the
+  [v1 spec](archive/devbrain-v1/README.md) (Base UI parts, styling without Tailwind) still apply,
+  except that variants are now `cva` classes rather than `data-variant`/`data-size` styles.
 
 DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs and signature components, plus the quiet list behaviours. (It was developed as "DevBrain Nova Lists" and replaces the first DevBrain system and DevBrain Nova.) Everything you see outside a list is Nova (its sizes, type, corners, outlines, quiet buttons, entity pills, sidebar and toolbar); lists drop their strokes and gain a clickable status, a real selected state, whole-row focus, a grouped layout and a calmer board card.
 
