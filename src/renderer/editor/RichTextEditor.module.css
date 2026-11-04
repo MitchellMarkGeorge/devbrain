@@ -288,3 +288,94 @@
 .content ::selection {
   background: color-mix(in oklab, var(--ring) 35%, transparent);
 }
+
+/* the supported HTML tags (extensions/html-elements.ts) */
+.content u {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.content :is(sub, sup) {
+  font-size: 0.75em;
+  line-height: 0;
+}
+
+/* a key: Kbd's chip, in the menus' 12px */
+.content kbd {
+  display: inline-block;
+  min-width: 20px;
+  padding: 0 4px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--muted);
+  color: var(--foreground-strong);
+  font: 500 var(--text-xs) / 18px var(--font-sans);
+  text-align: center;
+}
+
+/* a collapsible section: a chevron before the summary, the body indented under it */
+.content [data-type='details'] {
+  display: flex;
+  gap: 4px;
+}
+
+.content [data-type='details'] > button {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: var(--text-sm-leading);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: none;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+
+.content [data-type='details'] > button::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border: solid currentColor;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(-45deg);
+  transition: transform var(--duration-fast);
+}
+
+.content [data-type='details']:global(.is-open) > button::before {
+  transform: rotate(45deg);
+}
+
+.content [data-type='details'] > button:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
+.content [data-type='details'] > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.content [data-type='details'] summary {
+  color: var(--foreground-strong);
+  font-weight: 500;
+  list-style: none;
+}
+
+.content [data-type='details'] summary::-webkit-details-marker {
+  display: none;
+}
+
+.content [data-type='detailsContent'] {
+  margin-top: 4px;
+}
+
+.content [data-type='detailsContent'] > * + * {
+  margin-top: 8px;
+}
+
+.content [data-type='detailsContent'][hidden] {
+  display: none;
+}

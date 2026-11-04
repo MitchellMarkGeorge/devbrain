@@ -1,6 +1,7 @@
 import type { Editor, Range } from '@tiptap/core';
 import {
   AtSign,
+  ChevronRight,
   Code,
   Heading1,
   Heading2,
@@ -69,6 +70,14 @@ const SLASH_ITEMS: SlashItem[] = [
     hint: '```',
     aliases: ['snippet', 'pre'],
     run: (editor, range) => editor.chain().focus().deleteRange(range).setCodeBlock().run(),
+  },
+  {
+    key: 'details',
+    label: 'Collapsible section',
+    group: 'Basic blocks',
+    icon: <ChevronRight {...icon} />,
+    aliases: ['details', 'toggle', 'collapse', 'summary'],
+    run: (editor, range) => editor.chain().focus().deleteRange(range).setDetails().run(),
   },
   {
     key: 'divider',

@@ -151,14 +151,102 @@ describe('entity links', () => {
   });
 });
 
+describe('supported HTML tags', () => {
+  function marksOf(markdown: string): string[] {
+    return nodesOfType(parseMarkdown(markdown), 'text').flatMap(
+      (node) => node.marks?.map((mark) => mark.type) ?? [],
+    );
+  }
+
+  it('read <u>, <kbd>, <sub> and <sup> as formatting and write them back', () => {
+    const markdown =
+      'Press <kbd>⌘K</kbd>, H<sub>2</sub>O, x<sup>2</sup> and <u>under **bold**</u>.';
+    expect(marksOf(markdown)).toEqual([
+      'kbd',
+      'subscript',
+      'superscript',
+      'underline',
+      'bold',
+      'underline',
+    ]);
+    expectRoundTrip(markdown);
+  });
+
+  it('leave an unclosed tag, and a tag in code, as text', () => {
+    const markdown = 'An unclosed <kbd> and `<kbd>code</kbd>`.';
+    expect(marksOf(markdown)).toEqual(['code']);
+    expect(nodesOfType(parseMarkdown(markdown), 'rawHtmlInline')).toHaveLength(1);
+    expectRoundTrip(markdown);
+  });
+
+  it('read <br> as a line break, written <br> only inside a table cell', () => {
+    expectRoundTrip(
+      ['| Steps      | Done |', '| ---------- | ---- |', '| one<br>two | yes  |'].join('\n'),
+    );
+    expect(normalizeMarkdown('Line one<br>line two')).toBe('Line one  \nline two');
+  });
+
+  it('read a collapsible section, nested ones and an open one, written as GitHub reads it', () => {
+    const markdown = [
+      '<details>',
+      '<summary>Setup **steps** &amp; &lt;b></summary>',
+      '',
+      '- Install',
+      '- Run `npm ci`',
+      '',
+      '<details open>',
+      '<summary>Nested</summary>',
+      '',
+      'Inner',
+      '',
+      '</details>',
+      '',
+      '</details>',
+    ].join('\n');
+    expectRoundTrip(markdown);
+    const sections = nodesOfType(parseMarkdown(markdown), 'details');
+    expect(sections.map((node) => node.attrs?.open)).toEqual([false, true]);
+    // GitHub shows a summary's text as it is, so it stays plain text
+    expect(nodesOfType(sections[0], 'detailsSummary')[0].content).toEqual([
+      { type: 'text', text: 'Setup **steps** & <b>' },
+    ]);
+  });
+
+  it('read a collapsible section written on fewer lines, and an unclosed one as text', () => {
+    expect(normalizeMarkdown('<details><summary>One line</summary>\nBody\n</details>')).toBe(
+      ['<details>', '<summary>One line</summary>', '', 'Body', '', '</details>'].join('\n'),
+    );
+    const unclosed = parseMarkdown('<details>\n<summary>Never closed</summary>');
+    expect(nodesOfType(unclosed, 'details')).toEqual([]);
+    expect(nodesOfType(unclosed, 'rawHtmlBlock')).toHaveLength(1);
+  });
+
+  it('render as their own elements, with nothing taken from the text', () => {
+    const editor = new Editor({
+      extensions: createDocumentExtensions(),
+      content:
+        '<kbd>K</kbd> <sub>a</sub> <sup>b</sup> <u>c</u>\n\n<details>\n<summary>S</summary>\n\nBody\n\n</details>',
+      contentType: 'markdown',
+    });
+    const dom = editor.view.dom;
+    expect([...dom.querySelectorAll('kbd, sub, sup, u')].map((el) => el.outerHTML)).toEqual([
+      '<kbd>K</kbd>',
+      '<sub>a</sub>',
+      '<sup>b</sup>',
+      '<u>c</u>',
+    ]);
+    expect(dom.querySelector('summary')?.textContent).toBe('S');
+    editor.destroy();
+  });
+});
+
 describe('untrusted content', () => {
   const html = [
     'Inline <span class="x">html</span> and <img src=x onerror=alert(1)> stay as text.',
     '',
-    '<details>',
-    '<summary>More</summary>',
-    'Hidden',
-    '</details>',
+    '<div align="center">',
+    'Centred',
+    '</div>',
     '',
     '![diagram](https://tracker.example/pixel.png "Diagram")',
     '',
@@ -188,8 +276,8 @@ describe('untrusted content', () => {
       contentType: 'markdown',
     });
     const dom = editor.view.dom;
-    expect(dom.querySelector('img, details, span.x')).toBeNull();
-    expect(dom.querySelector('pre[data-raw-html]')?.textContent).toContain('<details>');
+    expect(dom.querySelector('img, div[align], span.x')).toBeNull();
+    expect(dom.querySelector('pre[data-raw-html]')?.textContent).toContain('<div align="center">');
     expect(dom.querySelector('[data-image-src]')?.textContent).toBe('diagram');
     expect([...dom.querySelectorAll('a')].map((a) => a.getAttribute('href'))).toEqual([]);
     expect(dom.querySelector('[data-unsafe-link]')?.textContent).toBe('run me');

@@ -1,4 +1,5 @@
 import { Node } from '@tiptap/core';
+import { findClosingTag, INLINE_TAGS } from './html-elements';
 
 /**
  * HTML written in a note's markdown (`<details>`, `<kbd>`, a `<span>`), kept exactly as written and
@@ -8,14 +9,27 @@ import { Node } from '@tiptap/core';
  *
  * Block HTML arrives as marked's `html` token. TipTap parses inline HTML itself, without asking the
  * extensions, so the inline node has its own tokenizer, which runs before marked's: each tag (or
- * comment) is one node, and the text between tags stays editable text. `<u>` is left to Underline.
+ * comment) is one node, and the text between tags stays editable text. The tags DevBrain supports
+ * (html-elements.ts) are left to their own elements: `<br>` always, the others when closed.
  */
 
 const ATTRIBUTE = `\\s+[A-Za-z_:][\\w.:-]*(?:\\s*=\\s*(?:[^\\s"'=<>\`]+|'[^']*'|"[^"]*"))?`;
 const INLINE_HTML = new RegExp(
-  `^(?:<(?!u[\\s>/])[A-Za-z][A-Za-z0-9-]*(?:${ATTRIBUTE})*\\s*/?>` +
-    `|</(?!u\\s*>)[A-Za-z][A-Za-z0-9-]*\\s*>|<!--[\\s\\S]*?-->)`,
+  `^(?:<[A-Za-z][A-Za-z0-9-]*(?:${ATTRIBUTE})*\\s*/?>` +
+    `|</[A-Za-z][A-Za-z0-9-]*\\s*>|<!--[\\s\\S]*?-->)`,
 );
+
+// whether a supported element (html-elements.ts) reads this tag instead
+function isSupportedTag(src: string, html: string): boolean {
+  if (/^<br\s*\/?>$/i.test(html)) return true;
+  const open = /^<([a-z]+)>$/i.exec(html);
+  const tag = open?.[1].toLowerCase();
+  return (
+    tag !== undefined &&
+    (INLINE_TAGS as readonly string[]).includes(tag) &&
+    findClosingTag(src, tag, html.length) !== null
+  );
+}
 
 function rawHtml(token: { raw?: string; text?: string }): string {
   return token.raw ?? token.text ?? '';
@@ -82,7 +96,8 @@ export const RawHtmlInline = Node.create({
     start: (src) => src.search(/<[A-Za-z/!]/),
     tokenize(src) {
       const match = INLINE_HTML.exec(src);
-      return match ? { type: 'rawHtmlInline', raw: match[0], text: match[0] } : undefined;
+      if (!match || isSupportedTag(src, match[0])) return undefined;
+      return { type: 'rawHtmlInline', raw: match[0], text: match[0] };
     },
   },
 

@@ -25,29 +25,65 @@ const host = useWorkspaceEditorHost(); // "@" search and opening links
   the menus in `suggestion/SuggestionMenu.module.css` (Command) and the pills in
   `EntityPill.module.css` (EntityPill).
 
-## What it reads and writes
+## The note format
 
-GitHub-flavoured markdown: headings, paragraphs, bold, italic, strikethrough, inline code,
-underline (`<u>`), bulleted, numbered and to-do lists (nested), quotes, code blocks, rules, tables,
-links and autolinks, hard breaks. On top of that:
+Notes, and every description, are **GitHub-flavoured markdown**, with a short list of HTML tags for
+what GFM has no syntax for, and DevBrain's entity links. Users write it through the editor, never
+as HTML: the menus and shortcuts produce it, typing markdown syntax (`## `, `- [ ] `, `**bold**`)
+turns into formatting as you type, and pasted rich text is converted into it. A file in this
+format reads the same on GitHub.
+
+**Markdown (GFM):** headings, paragraphs, bold, italic, strikethrough, inline code, bulleted,
+numbered and to-do lists (nested), quotes, code blocks, rules, tables, links and autolinks, images,
+hard breaks.
+
+**HTML tags** (`extensions/html-elements.ts`), written exactly as GitHub reads them. Each is a real
+element in the editor and takes nothing else from the text, so it needs no sanitizing. Typing the
+tag pair (`<kbd>K</kbd>`) applies it too.
+
+| Tag                            | Element                                                                                              | Shortcut  |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------- | --------- |
+| `<u>…</u>`                     | Underline                                                                                            | ⌘U        |
+| `<kbd>…</kbd>`                 | A key                                                                                                | ⌘⇧K       |
+| `<sub>…</sub>`, `<sup>…</sup>` | Subscript, superscript                                                                               | ⌘, and ⌘. |
+| `<br>`                         | A line break; written `<br>` only inside a table cell, two trailing spaces elsewhere                 | ⇧↵        |
+| `<details>` + `<summary>`      | A collapsible section; `<details open>` keeps it open. The summary is plain text, as GitHub shows it | `/` menu  |
+
+A collapsible section is written as GitHub needs it to read the body as markdown:
+
+```markdown
+<details>
+<summary>Setup steps</summary>
+
+- Install with `npm ci`
+
+</details>
+```
+
+**DevBrain's own, and what is kept but not rendered:**
 
 | Written as                                                             | Shown as                                                                 | Where                       |
 | ---------------------------------------------------------------------- | ------------------------------------------------------------------------ | --------------------------- |
 | `[Fix login](devbrain://task/tsk_…)` (also `project`, `note`, `event`) | An EntityPill with the entity's current title; the label is the fallback | `extensions/entity-link.ts` |
 | `![alt](url "title")`                                                  | A chip with the alt text; the image is never loaded                      | `extensions/image-link.ts`  |
-| HTML, block or inline (`<details>`, `<kbd>`)                           | Its source, as text; never rendered                                      | `extensions/raw-html.ts`    |
+| Any other HTML (`<div>`, `<span>`, `<img>`, an unclosed `<kbd>`)       | Its source, as text; kept in the file as written                         | `extensions/raw-html.ts`    |
 | `[text](javascript:…)` and other refused targets                       | Plain text; the target stays in the file                                 | `extensions/safe-link.ts`   |
 
-These follow [untrusted-content.md](security/untrusted-content.md): no raw HTML, no remote images,
-links only through `safeExternalUrl` and `Workspace.openUrl` (⌘/Ctrl-click while editing, a click
-when read-only), and the window never navigates.
+Other HTML only arrives from outside: imported files, Linear, Google descriptions. It is kept as
+written so nothing is lost, and so a supported tag added later picks it up.
+
+These follow [untrusted-content.md](security/untrusted-content.md): no raw HTML is rendered, no
+remote images are loaded, links open only through `safeExternalUrl` and `Workspace.openUrl`
+(⌘/Ctrl-click while editing, a click when read-only), and the window never navigates.
 
 ### What a save changes
 
 Loading a note and saving it gives the file back, except for these spellings, which the editor
 writes its own way (after the first save the file stays as it is):
 
-- one blank line between blocks (a heading straight above its paragraph gets one);
+- one blank line between blocks (a heading straight above its paragraph gets one), and inside a
+  collapsible section around its body;
+- `<br>` outside a table cell becomes two trailing spaces, GFM's line break;
 - `-` bullets (`*` and `+` become `-`), `**bold**` and `*italic*` (not `__` and `_`);
 - tables padded into columns;
 - characters escaped only where they would read back as markup (`\*`, `\_`, `&lt;b`), so `A & B`
@@ -61,6 +97,9 @@ add a case there when a new kind of content must survive.
 The document model is `createDocumentExtensions()` (`markdown.ts`); `parseMarkdown`,
 `serializeMarkdown` and `normalizeMarkdown` use the same extensions without an editor. A new kind
 of element is a TipTap node with:
+
+A new HTML tag joins the list in `extensions/html-elements.ts` (and is then left alone by
+`raw-html.ts`); check first that GitHub renders it, so the format stays readable there.
 
 1. `markdownTokenizer` for its syntax (inline or block), `parseMarkdown` to make the node from the
    token, and `renderMarkdown` to write it back exactly;

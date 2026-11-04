@@ -5,6 +5,16 @@ import { Table, TableKit } from '@tiptap/extension-table';
 import { Markdown, MarkdownManager } from '@tiptap/markdown';
 import { EntityLink } from './extensions/entity-link';
 import { ImageLink } from './extensions/image-link';
+import { DetailsContent } from '@tiptap/extension-details';
+import {
+  DocumentDetails,
+  DocumentDetailsSummary,
+  DocumentSubscript,
+  DocumentSuperscript,
+  DocumentUnderline,
+  HtmlBreak,
+  Kbd,
+} from './extensions/html-elements';
 import { RawHtmlBlock, RawHtmlInline } from './extensions/raw-html';
 import { SafeLink } from './extensions/safe-link';
 
@@ -14,9 +24,11 @@ import { SafeLink } from './extensions/safe-link';
  * saves the same wherever it is shown, and `parseMarkdown`/`serializeMarkdown` give the same result
  * without an editor.
  *
- * The markdown is GitHub-flavoured: headings, lists, task lists, tables, code blocks, quotes,
- * strikethrough, links and autolinks, plus DevBrain's entity links. HTML and images are kept
- * as written but never rendered (see raw-html.ts and image-link.ts).
+ * The format is GitHub-flavoured markdown (docs/editor.md): headings, lists, task lists, tables,
+ * code blocks, quotes, strikethrough, links and autolinks; the HTML tags GitHub notes use for the
+ * rest (html-elements.ts: underline, keys, sub- and superscript, line breaks, collapsible
+ * sections); and DevBrain's entity links. Other HTML, and images, are kept as written but never
+ * rendered (raw-html.ts, image-link.ts).
  */
 export function createDocumentExtensions(
   options: { entityLink?: AnyExtension; imageLink?: AnyExtension } = {},
@@ -24,6 +36,8 @@ export function createDocumentExtensions(
   return [
     StarterKit.configure({
       link: false,
+      // with its input rule, from html-elements.ts
+      underline: false,
       // the empty paragraph it adds after a final table or code block would be written to the file
       trailingNode: false,
     }),
@@ -35,6 +49,15 @@ export function createDocumentExtensions(
     // the UI layer passes its own versions, with node views; they keep the same markdown rules
     options.entityLink ?? EntityLink,
     options.imageLink ?? ImageLink,
+    DocumentUnderline,
+    Kbd,
+    DocumentSubscript,
+    DocumentSuperscript,
+    HtmlBreak,
+    DocumentDetails,
+    DocumentDetailsSummary,
+    DocumentDetailsSummary,
+    DetailsContent,
     RawHtmlBlock,
     RawHtmlInline,
     DocumentMarkdown.configure({ markedOptions: { gfm: true } }),
