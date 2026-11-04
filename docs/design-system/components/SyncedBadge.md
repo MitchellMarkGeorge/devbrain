@@ -5,4 +5,4 @@ Where a synced task or event comes from, under its title in a sheet and on the l
 - **`synced`**: an outlined pill (24px, `border` outline, no fill, 4px in on the left and 8px on the right) with the label in 12px medium `foreground`.
 - **`detached`**: quiet text, "Detached from Linear · ENG-124" in `muted-foreground` with the mark at half strength, for a local copy that still remembers its source.
 
-Rows and board cards use the smaller `SourcePill` (the key alone) instead. `ProviderLogo` draws Linear and GitHub; pass `logo` for a provider it doesn't draw yet.
+Rows and board cards use the smaller `SourcePill` (the key alone) instead. `ProviderLogo` draws Linear and GitHub; pass `logo` for another provider, such as Google Calendar's `<GoogleCalendarLogo size={16} />`.

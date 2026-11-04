@@ -6,11 +6,16 @@
   color: var(--white);
 }
 /* brand colours belong to the brand, not the theme */
+/* Linear's company icon fills the tile, clipped to its corners */
 .linear {
-  background: var(--platform-linear);
+  overflow: hidden;
 }
+.linear > img {
+  display: block;
+}
+/* Google Calendar's logo is its own tile, in its own colours */
 .google {
-  background: var(--platform-google);
+  background: none;
 }
 .github {
   background: var(--border-strong);

@@ -18,7 +18,7 @@ import { EntityPill } from '../../ui/EntityPill';
 import { LinkedTaskRow } from '../../ui/LinkedTaskRow';
 import { PriorityIcon } from '../../ui/PriorityIcon';
 import { ProgressRing } from '../../ui/ProgressRing';
-import { ProviderTile } from '../../ui/ProviderTile';
+import { GoogleCalendarLogo } from '../../ui/ProviderLogo';
 import {
   Sheet,
   SheetBody,
@@ -306,7 +306,9 @@ export const EventSheetGoogle: Story = {
   render: () => (
     <SheetColumn name="Event">
       <SheetItemTitle barColor="indigo">Engineering All-hands</SheetItemTitle>
-      <SyncedBadge logo={<GoogleCalendarMark />}>Google Calendar · Engineering</SyncedBadge>
+      <SyncedBadge logo={<GoogleCalendarLogo size={16} />}>
+        Google Calendar · Engineering
+      </SyncedBadge>
       <DetailRows>
         <ReadOnlyRow label="Date" glyph={CalendarDays}>
           Fri, Jun 26
@@ -358,6 +360,3 @@ function CalendarBar({ color }: { color: string }) {
 }
 
 /** Google Calendar's mark, the 16px size of a SyncedBadge logo */
-function GoogleCalendarMark() {
-  return <ProviderTile provider="google-calendar" size={16} />;
-}

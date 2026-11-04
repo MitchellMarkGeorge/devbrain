@@ -20,7 +20,7 @@ export interface SyncedBadgeProps
   extends ComponentPropsWithoutRef<'span'>, VariantProps<typeof syncedBadgeVariants> {
   /** whose mark leads the badge; linear by default */
   provider?: Provider;
-  /** a mark `ProviderLogo` doesn't draw yet (Google Calendar), 16px */
+  /** a mark `ProviderLogo` doesn't draw, 16px: Google Calendar's `<GoogleCalendarLogo size={16} />` */
   logo?: ReactNode;
   /** the provider and key: "Linear · ENG-124", "Google Calendar · Engineering" */
   children: ReactNode;

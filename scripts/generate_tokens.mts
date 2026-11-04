@@ -143,9 +143,7 @@ lines.push(
   ...domain
     .filter((t) => typeof t.value === 'string')
     .map((t) => `  --${t.name}: ${resolve(t.value, 'dark')};`),
-  "  --platform-linear: #5e6ad2; /* Linear's brand colour; with Google's, the only non-Tailwind values */",
   '  --platform-github: var(--neutral-200);',
-  "  --platform-google: #4285f4; /* Google Calendar's brand blue */",
   '}',
 );
 

@@ -167,9 +167,7 @@
   --swatch-blue-tint: color-mix(in srgb, var(--swatch-blue) 15%, transparent);
   --swatch-indigo-tint: color-mix(in srgb, var(--swatch-indigo) 15%, transparent);
   --swatch-pink-tint: color-mix(in srgb, var(--swatch-pink) 15%, transparent);
-  --platform-linear: #5e6ad2; /* Linear's brand colour; with Google's, the only non-Tailwind values */
   --platform-github: var(--neutral-200);
-  --platform-google: #4285f4; /* Google Calendar's brand blue */
 }
 
 /* 2. Theme: dark, the default */
@@ -211,6 +209,7 @@
   --sidebar-border: color-mix(in srgb, var(--foreground) 10%, transparent);
   --sidebar-ring: var(--neutral-500);
   --backdrop: color-mix(in srgb, black 50%, transparent);
+  --platform-linear-mark: #f4f5f8; /* DevBrain addition */
   --pinned-shadow: color-mix(in srgb, black 50%, transparent); /* DevBrain addition */
 
   --status-not-started: var(--neutral-500);
@@ -273,6 +272,7 @@
     --sidebar-border: var(--neutral-200);
     --sidebar-ring: var(--neutral-500);
     --backdrop: color-mix(in srgb, black 50%, transparent);
+    --platform-linear-mark: #222326;
     --pinned-shadow: color-mix(in srgb, black 8%, transparent);
 
     --status-not-started: var(--neutral-500);
@@ -335,6 +335,7 @@
   --sidebar-border: var(--neutral-200);
   --sidebar-ring: var(--neutral-500);
   --backdrop: color-mix(in srgb, black 50%, transparent);
+  --platform-linear-mark: #222326;
   --pinned-shadow: color-mix(in srgb, black 8%, transparent);
 
   --status-not-started: var(--neutral-500);

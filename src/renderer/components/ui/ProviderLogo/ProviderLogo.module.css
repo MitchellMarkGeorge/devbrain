@@ -1,19 +1,13 @@
-/* A provider's tile: brand marks are drawn as given, never restyled */
+/* A provider's mark as an icon. See docs/design-system/components/ProviderLogo.md */
 .logo {
   flex: none;
   display: inline-block;
   vertical-align: middle;
 }
-.linear .ground {
-  fill: var(--platform-linear);
+/* Linear's brand neutrals: Mercury White in dark, Nordic Gray in light */
+.linear {
+  fill: var(--platform-linear-mark);
 }
-.linear .ink {
-  fill: var(--white);
-}
-/* GitHub's white mark on neutral-800, in both themes */
-.github .ground {
-  fill: var(--neutral-800);
-}
-.github .ink {
-  fill: var(--white);
+.github {
+  fill: var(--foreground-strong);
 }

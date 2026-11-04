@@ -2,6 +2,3 @@
 .source {
   flex: none;
 }
-.source > svg {
-  border-radius: 3px;
-}
