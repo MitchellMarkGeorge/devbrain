@@ -1,0 +1,39 @@
+/* The DevBrain mark, an image asset. See docs/design-system/components/Logomark.md */
+.mark {
+  display: block;
+  flex: none;
+  height: auto;
+}
+/* 20×24 beside the name, 40×48 above onboarding titles, 60×72 on the splash screen */
+.sm {
+  width: 20px;
+}
+.md {
+  width: 40px;
+}
+.lg {
+  width: 60px;
+}
+
+/* the splash screen's pulse; still under reduced motion */
+.pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.5;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+  }
+}
+
+.lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--foreground-strong);
+  font: var(--font-weight-semibold) var(--text-base) / var(--text-base-leading) var(--font-sans);
+}

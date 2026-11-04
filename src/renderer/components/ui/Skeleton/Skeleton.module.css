@@ -1,0 +1,22 @@
+/* shadcn's Skeleton on `accent`. See docs/design-system/components/Skeleton.md */
+.skeleton {
+  display: block;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  /* pulses under reduced motion too: an opacity change, not movement */
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.circle {
+  border-radius: var(--radius-full);
+}
+/* a card skeleton keeps the card's own fill and outline */
+.card {
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-xl);
+  background: var(--card);
+}
+@keyframes pulse {
+  50% {
+    opacity: 0.5;
+  }
+}

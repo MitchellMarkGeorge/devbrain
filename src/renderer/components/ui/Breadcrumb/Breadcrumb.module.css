@@ -1,0 +1,59 @@
+/* shadcn's Breadcrumb as in the Figma top bar. See docs/design-system/components/Breadcrumb.md */
+.list {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  white-space: nowrap;
+}
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  /* middle items give way first; the first and last keep their names longest */
+  flex: 0 1000 auto;
+  min-width: 40px;
+}
+.item:first-child {
+  flex-shrink: 0;
+}
+.item:last-child {
+  flex-shrink: 1;
+  min-width: 0;
+}
+.page {
+  color: var(--muted-foreground);
+}
+.label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  border-radius: var(--radius-xs);
+  color: inherit;
+  text-decoration: none;
+  transition: color var(--duration-fast);
+}
+.link:hover {
+  color: var(--foreground-strong);
+}
+.link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.separator {
+  flex: none;
+  display: inline-flex;
+  color: var(--subtle-foreground);
+}
