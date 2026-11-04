@@ -139,6 +139,15 @@
   display: inline-flex;
   align-items: center;
 }
+/*
+ * Stacked pills overlap, so each is opaque: its own fill (none in dark) over the row's tint over
+ * the page, the ground it would show anyway. A pill behind then stays hidden under the next one.
+ */
+.stack .deck > * {
+  background:
+    linear-gradient(var(--pill-fill), var(--pill-fill)),
+    linear-gradient(var(--row-tint), var(--row-tint)), var(--background);
+}
 .deck > :not(:last-child) {
   flex: none;
   margin-right: var(--space-1-5);

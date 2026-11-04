@@ -45,7 +45,7 @@
   background: color-mix(in oklab, var(--destructive) 15%, transparent);
   color: var(--destructive);
 }
-/* the DevBrain pill: the page colour set into any surface, with a `border` line */
+/* the DevBrain pill: a `border` line on `pill-fill` (none in dark, white in light) */
 .outline {
   background: var(--pill-fill);
   border-color: var(--border);

@@ -190,7 +190,7 @@
   --muted-foreground: var(--neutral-400);
   --subtle-foreground: var(--neutral-500); /* DevBrain addition */
   --accent: var(--neutral-800);
-  --pill-fill: var(--neutral-950);
+  --pill-fill: transparent;
   --pill-fill-hover: color-mix(in srgb, var(--neutral-800) 60%, transparent);
   --accent-foreground: var(--neutral-100);
   --destructive: var(--red-400);
