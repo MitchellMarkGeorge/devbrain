@@ -2225,3 +2225,55 @@ button.db-entity:active {
 .db-btn[data-variant='default'][data-popup-open] {
   background: color-mix(in oklab, var(--input) 50%, transparent);
 }
+
+/* ---------- IconButton: an icon-only button, named by its label and a tooltip ---------- */
+.db-icon-btn-wrap {
+  position: relative;
+  display: inline-flex;
+}
+.db-icon-btn-tip {
+  position: absolute;
+  z-index: 30;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 150ms;
+}
+.db-icon-btn-wrap[data-side='bottom'] .db-icon-btn-tip {
+  top: calc(100% + 4px);
+  left: 50%;
+  translate: -50% 0;
+}
+.db-icon-btn-wrap[data-side='top'] .db-icon-btn-tip {
+  bottom: calc(100% + 4px);
+  left: 50%;
+  translate: -50% 0;
+}
+.db-icon-btn-wrap[data-side='right'] .db-icon-btn-tip {
+  left: calc(100% + 4px);
+  top: 50%;
+  translate: 0 -50%;
+}
+.db-icon-btn-wrap[data-side='left'] .db-icon-btn-tip {
+  right: calc(100% + 4px);
+  top: 50%;
+  translate: 0 -50%;
+}
+/* it opens after 400ms of pointing (the Tooltip delay), at once on keyboard focus */
+.db-icon-btn-wrap:hover .db-icon-btn-tip {
+  opacity: 1;
+  transition-delay: 400ms;
+}
+.db-icon-btn-wrap:has(:focus-visible) .db-icon-btn-tip,
+.db-icon-btn-wrap[data-tooltip-open] .db-icon-btn-tip {
+  opacity: 1;
+}
+/* muted: rests in muted-foreground, lifts on hover, while its menu is open or while on */
+.db-btn.db-icon-btn-muted {
+  color: var(--muted-foreground);
+}
+.db-btn.db-icon-btn-muted:hover,
+.db-btn.db-icon-btn-muted[data-popup-open],
+.db-btn.db-icon-btn-muted[aria-pressed='true'] {
+  color: var(--foreground);
+}

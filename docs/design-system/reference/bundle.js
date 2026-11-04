@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"DevBrain","components":[{"name":"Icon"},{"name":"Button"},{"name":"ButtonGroup"},{"name":"Badge"},{"name":"ToggleGroup"},{"name":"Tabs"},{"name":"Input"},{"name":"Textarea"},{"name":"Field"},{"name":"Checkbox"},{"name":"Switch"},{"name":"DropdownMenu"},{"name":"Command"},{"name":"Tooltip"},{"name":"Dialog"},{"name":"Sheet"},{"name":"Toast"},{"name":"Card"},{"name":"Separator"},{"name":"Skeleton"},{"name":"Progress"},{"name":"Kbd"},{"name":"Breadcrumb"},{"name":"Sidebar"},{"name":"Calendar"},{"name":"StatusIcon"},{"name":"PriorityIcon"},{"name":"HealthIcon"},{"name":"ProgressRing"},{"name":"EntityPill"},{"name":"ProviderLogo"},{"name":"SourcePill"},{"name":"EntityHoverCard"},{"name":"PropertyRow"},{"name":"DateRange"},{"name":"TaskRow"},{"name":"GroupHeading"},{"name":"EventRow"},{"name":"ScheduleCard"},{"name":"NoteCard"},{"name":"WorkspaceTile"},{"name":"SwatchPicker"},{"name":"SettingsGroup"},{"name":"EventBlock"},{"name":"StatusMenu"},{"name":"TaskList"},{"name":"SelectionBar"},{"name":"BoardColumn"},{"name":"BoardCard"}]} */
+/* @ds-bundle: {"format":4,"namespace":"DevBrain","components":[{"name":"Icon"},{"name":"Button"},{"name":"IconButton"},{"name":"ButtonGroup"},{"name":"Badge"},{"name":"ToggleGroup"},{"name":"Tabs"},{"name":"Input"},{"name":"Textarea"},{"name":"Field"},{"name":"Checkbox"},{"name":"Switch"},{"name":"DropdownMenu"},{"name":"Command"},{"name":"Tooltip"},{"name":"Dialog"},{"name":"Sheet"},{"name":"Toast"},{"name":"Card"},{"name":"Separator"},{"name":"Skeleton"},{"name":"Progress"},{"name":"Kbd"},{"name":"Breadcrumb"},{"name":"Sidebar"},{"name":"Calendar"},{"name":"StatusIcon"},{"name":"PriorityIcon"},{"name":"HealthIcon"},{"name":"ProgressRing"},{"name":"EntityPill"},{"name":"ProviderLogo"},{"name":"SourcePill"},{"name":"EntityHoverCard"},{"name":"PropertyRow"},{"name":"DateRange"},{"name":"TaskRow"},{"name":"GroupHeading"},{"name":"EventRow"},{"name":"ScheduleCard"},{"name":"NoteCard"},{"name":"WorkspaceTile"},{"name":"SwatchPicker"},{"name":"SettingsGroup"},{"name":"EventBlock"},{"name":"StatusMenu"},{"name":"TaskList"},{"name":"SelectionBar"},{"name":"BoardColumn"},{"name":"BoardCard"}]} */
 (function () {
   var R = window.React;
   var h = R.createElement;
@@ -216,10 +216,44 @@
         disabled: props.disabled,
         onClick: props.onClick,
         'aria-label': props['aria-label'],
+        'aria-pressed': props['aria-pressed'],
       },
       iconOf(props.icon, small ? 12 : 16),
       props.children,
       iconOf(props.trailingIcon, small ? 12 : 16),
+    );
+  }
+
+  /* IconButton: a Button that is only an icon, with a name it can't do without. `label` is its
+     accessible name and its tooltip (shown after 400ms of pointing, or on keyboard focus;
+     `tooltipOpen` draws it open). Ghost by default; `tone: 'muted'` rests in muted-foreground. */
+  var ICON_BUTTON_SIZES = { default: 'icon', sm: 'icon-sm', xs: 'icon-xs' };
+  function IconButton(props) {
+    var button = h(Button, {
+      variant: props.variant || 'ghost',
+      size: ICON_BUTTON_SIZES[props.size || 'default'],
+      icon: props.icon,
+      'aria-label': props.label,
+      'aria-pressed': props.pressed,
+      disabled: props.disabled,
+      onClick: props.onClick,
+      className: cx('db-icon-btn', props.tone === 'muted' && 'db-icon-btn-muted'),
+    });
+    if (props.tooltip === false) return button;
+    return h(
+      'span',
+      {
+        className: 'db-icon-btn-wrap',
+        'data-side': props.tooltipSide || 'bottom',
+        'data-tooltip-open': props.tooltipOpen ? '' : undefined,
+      },
+      button,
+      // the button is named by its aria-label, so the tooltip is hidden from screen readers
+      h(
+        'span',
+        { className: 'db-tooltip db-icon-btn-tip', 'aria-hidden': true },
+        props.tooltip == null || props.tooltip === true ? props.label : props.tooltip,
+      ),
     );
   }
 
@@ -491,7 +525,7 @@
         : h(
             'span',
             { className: 'db-dialog-close' },
-            h(Button, { variant: 'ghost', size: 'icon-xs', icon: 'x', 'aria-label': 'Close' }),
+            h(IconButton, { size: 'xs', icon: 'x', label: 'Close', tooltip: false }),
           ),
       h(
         'div',
@@ -522,13 +556,8 @@
         'div',
         { className: 'db-sheet-header' },
         h('h2', { className: 'db-sheet-title' }, props.title),
-        h(Button, {
-          variant: 'ghost',
-          size: 'icon-xs',
-          icon: 'maximize-2',
-          'aria-label': 'Open as page',
-        }),
-        h(Button, { size: 'icon-xs', icon: 'x', 'aria-label': 'Close' }),
+        h(IconButton, { size: 'xs', icon: 'maximize-2', label: 'Open as page' }),
+        h(IconButton, { variant: 'default', size: 'xs', icon: 'x', label: 'Close' }),
       ),
       h('div', { className: 'db-sheet-body' }, props.children),
     );
@@ -1178,7 +1207,7 @@
           'span',
           { className: 'db-sidebar-header-actions' },
           h(Icon, { name: 'search', size: 12, color: 'var(--muted-foreground)' }),
-          h(Button, { size: 'icon-xs', icon: 'square-pen', 'aria-label': 'New' }),
+          h(IconButton, { variant: 'default', size: 'xs', icon: 'square-pen', label: 'New' }),
         ),
       ),
       h(
@@ -1276,6 +1305,7 @@
   window.DevBrain = Object.assign(window.DevBrain || {}, {
     Icon: Icon,
     Button: Button,
+    IconButton: IconButton,
     ButtonGroup: ButtonGroup,
     Badge: Badge,
     ToggleGroup: ToggleGroup,
@@ -1816,17 +1846,11 @@
       h(BaseButton, { variant: 'ghost', size: 'sm', icon: 'chevrons-up' }, 'Priority'),
       h(BaseButton, { variant: 'ghost', size: 'sm', icon: 'calendar' }, 'Due date'),
       h(BaseButton, { variant: 'ghost', size: 'sm', icon: 'folder' }, 'Move'),
-      h(BaseButton, {
-        variant: 'ghost',
-        size: 'icon-sm',
-        icon: 'ellipsis',
-        'aria-label': 'More actions',
-      }),
-      h(BaseButton, {
-        variant: 'ghost',
-        size: 'icon-sm',
+      h(NS.IconButton, { size: 'sm', icon: 'ellipsis', label: 'More actions' }),
+      h(NS.IconButton, {
+        size: 'sm',
         icon: 'x',
-        'aria-label': 'Clear selection',
+        label: 'Clear selection',
         onClick: props.onClear,
       }),
     );
@@ -1970,12 +1994,7 @@
           { className: 'dbl-colcount' },
           props.count != null ? props.count : R.Children.count(props.children),
         ),
-        h(BaseButton, {
-          variant: 'ghost',
-          size: 'icon-xs',
-          icon: 'plus',
-          'aria-label': 'Add task to ' + props.name,
-        }),
+        h(NS.IconButton, { size: 'xs', icon: 'plus', label: 'Add task to ' + props.name }),
       ),
       h(
         'div',

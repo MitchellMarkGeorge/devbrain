@@ -30,6 +30,26 @@ export interface ButtonProps {
   'aria-label'?: string;
   children?: Node;
 }
+/** A button that is only an icon; `label` is its accessible name and its tooltip. */
+export interface IconButtonProps {
+  icon: IconName | Node;
+  label: string;
+  /** default 32px, sm 28px (editor toolbar, selection bar), xs 24px (sidebar, panel headers) */
+  size?: 'default' | 'sm' | 'xs';
+  /** ghost by default */
+  variant?: 'ghost' | 'default' | 'secondary' | 'outline' | 'destructive' | 'primary';
+  /** muted rests in muted-foreground and lifts on hover */
+  tone?: 'default' | 'muted';
+  /** the label by default, other content, or false for none */
+  tooltip?: boolean | Node;
+  tooltipSide?: 'top' | 'right' | 'bottom' | 'left';
+  /** draws the tooltip open, for static pictures */
+  tooltipOpen?: boolean;
+  /** a toggle that is on (aria-pressed) */
+  pressed?: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
+}
 export interface ButtonGroupProps {
   children: Node;
 }
