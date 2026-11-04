@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
 import { cva, type VariantProps } from 'class-variance-authority';
@@ -19,8 +20,12 @@ export interface CardProps
  * Compose it from `CardHeader` (`CardTitle`, `CardDescription`, `CardAction`), `CardContent` and
  * `CardFooter`.
  */
-export function Card({ size, render, ...props }: CardProps) {
+export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
+  { size, render, ...props },
+  ref,
+) {
   return useRender({
+    ref,
     defaultTagName: 'div',
     render,
     props: mergeProps<'div'>(
@@ -32,16 +37,20 @@ export function Card({ size, render, ...props }: CardProps) {
       props,
     ),
   });
-}
+});
 
 function part(slot: string, className: string, defaultTagName: 'div' | 'h3' | 'p' = 'div') {
-  function CardPart({ render, ...props }: useRender.ComponentProps<'div'>) {
+  const CardPart = forwardRef<HTMLDivElement, useRender.ComponentProps<'div'>>(function CardPart(
+    { render, ...props },
+    ref,
+  ) {
     return useRender({
+      ref,
       defaultTagName,
       render,
       props: mergeProps<'div'>({ className, 'data-slot': slot } as object, props),
     });
-  }
+  });
   CardPart.displayName = slot
     .split('-')
     .map((s) => s[0].toUpperCase() + s.slice(1))
