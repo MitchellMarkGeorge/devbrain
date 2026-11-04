@@ -121,7 +121,9 @@
  * their icon (30px, 4px under the next pill) and hide their label. Pointing at or focusing the
  * stack spreads it out on top of the row: the stack keeps its stacked width (set inline), and the
  * deck grows leftwards from its right edge over the end of the title, on the row's own ground so
- * nothing beneath shows between the pills.
+ * nothing beneath shows between the pills. While it spreads (and folds back, `data-closing`) the
+ * pills behind grow to full width, their labels fade in and the ground fades in; a deck shifted
+ * right slides there. Durations come from the motion tokens, which are 0 under reduced motion.
  */
 .stack {
   flex: none;
@@ -147,29 +149,59 @@
   flex-shrink: 0;
 }
 /* the label of a pill behind: its edge shows the icon alone */
-.stack[data-stacked]:not([data-spread]) .deck > :not(:last-child) > :last-child {
-  visibility: hidden;
+.stack[data-stacked] .deck > :not(:last-child) > :last-child {
+  opacity: 0;
 }
+
+/* spread (and folding back): on top of the row */
 .stack[data-spread] .deck {
   position: absolute;
   top: 50%;
   right: 0;
   z-index: 2;
-  gap: var(--space-1-5);
   padding-left: var(--space-4);
   translate: 0 -50%;
-  /* the row's ground (the page, plus the hover or selected tint), fading in over 16px */
+  transition:
+    right var(--duration-normal) var(--ease-out),
+    padding-right var(--duration-normal) var(--ease-out);
+}
+/* the row's ground (the page, plus the hover or selected tint), fading in over 16px */
+.stack[data-spread] .deck::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   background:
     linear-gradient(to right, transparent, var(--row-tint) var(--space-4)),
     linear-gradient(to right, transparent, var(--background) var(--space-4));
+  /* faster than the pills grow, so it is down before they reach what lies beneath */
+  transition: opacity var(--duration-fast) var(--ease-out);
 }
-/* shifted right over the pills on the right: its ground runs a little past its last pill */
+@starting-style {
+  .stack[data-spread] .deck::before {
+    opacity: 0;
+  }
+}
+.stack[data-closing] .deck::before {
+  opacity: 0;
+}
 .stack[data-spread] .deck[data-shifted] {
   padding-right: var(--space-2);
 }
-.stack[data-stacked][data-spread] .deck > :not(:last-child) {
+.stack[data-spread] .deck > :not(:last-child) {
+  transition:
+    width var(--duration-normal) var(--ease-out),
+    margin-right var(--duration-normal) var(--ease-out);
+}
+.stack[data-spread] .deck > :not(:last-child) > :last-child {
+  transition: opacity var(--duration-normal) var(--ease-out);
+}
+.stack[data-spread]:not([data-closing]) .deck > :not(:last-child) {
   width: auto;
-  margin-right: 0;
+  margin-right: var(--space-1-5);
+}
+.stack[data-spread]:not([data-closing]) .deck > :not(:last-child) > :last-child {
+  opacity: 1;
 }
 
 /* entity pills, priority and the date on the right; these never give way */

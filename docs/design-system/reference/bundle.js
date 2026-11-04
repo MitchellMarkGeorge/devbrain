@@ -1330,6 +1330,7 @@
   var F = R.Fragment;
   var useState = R.useState;
   var useEffect = R.useEffect;
+  var useLayoutEffect = R.useLayoutEffect;
   var useRef = R.useRef;
   var Icon = NS.Icon;
   var BaseButton = NS.Button;
@@ -1436,16 +1437,172 @@
      subtask count pill), entity pills, priority and date
      on the right. Status is uncontrolled unless `status` is passed. */
   /* The pills on one side of a TaskRow title. When the row runs out of room they stack like a
-     deck: the last in full, the ones behind showing their edge and icon. Pointing at the stack or
-     focusing it spreads it out. One pill never stacks. */
-  function pillStack(stacked, pills) {
-    var shown = pills.filter(Boolean);
+     deck: the last in full, the ones behind showing a 26px edge with their icon (their label
+     hidden). Pointing at the stack or focusing it spreads it out on top of the row: the stack keeps
+     its stacked width, and the deck grows leftwards from its right edge over the end of the title,
+     on the row's own ground, so nothing in the row moves. It never reaches past the start of the
+     title: there it shifts right instead, over the other side's stack, and covers that stack
+     whole. Spreading animates: the pills behind grow to full width, their labels and the ground
+     fade in, a shifted deck slides there; leaving folds them back. One pill never stacks. */
+  var DECK_LEFT_SLACK = 8;
+  var DECK_FADE = 16; // the deck's padding before its first pill, where its ground fades in
+  var CLOSE_MS = 150; // a closing deck stays on top of the row while its pills fold back
+  // a deck's width spread out, measured while its pills may still be folded or mid-animation
+  function spreadWidth(deck) {
+    var pills = Array.prototype.slice.call(deck.children);
+    return (
+      pills.reduce(function (w, pill) {
+        return w + pill.scrollWidth + 2;
+      }, 0) +
+      6 * (pills.length - 1) +
+      DECK_FADE
+    );
+  }
+  function PillStack(props) {
+    var shown = props.pills.filter(Boolean);
+    var ref = useRef(null);
+    var deckRef = useRef(null);
+    var timer = useRef(undefined);
+    var sf = useState(null); // the stacked width while spread, and while folding back
+    var cl = useState(false); // folding back
+    var cv = useState({ shift: 0, pad: 0 });
+    var stacked = props.stacked && shown.length > 1;
+    var spreadOut = stacked && sf[0] != null;
+    var open = spreadOut && !cl[0];
+    useLayoutEffect(
+      function () {
+        var stack = ref.current;
+        var deck = deckRef.current;
+        var row = stack && stack.closest('[role="row"]');
+        var title = row && row.querySelector('.dbl-title');
+        if (!open || !deck || !title) {
+          cv[1]({ shift: 0, pad: 0 });
+          return;
+        }
+        var minLeft = title.getBoundingClientRect().left - DECK_LEFT_SLACK;
+        var stackRight = stack.getBoundingClientRect().right;
+        var shift = Math.max(0, minLeft - (stackRight - spreadWidth(deck)));
+        var pad = 0;
+        if (shift > 0) {
+          var deckRight = stackRight + shift;
+          row.querySelectorAll('.dbl-stack').forEach(function (other) {
+            var box = other.getBoundingClientRect();
+            if (other !== stack && box.left < deckRight && box.right > deckRight) {
+              pad = box.right - deckRight;
+            }
+          });
+        }
+        cv[1]({ shift: shift, pad: pad });
+      },
+      [open],
+    );
+    useEffect(function () {
+      return function () {
+        clearTimeout(timer.current);
+      };
+    }, []);
     if (!shown.length) return null;
+    function spread() {
+      if (!stacked || !ref.current) return;
+      clearTimeout(timer.current);
+      cl[1](false);
+      if (sf[0] == null) sf[1](ref.current.offsetWidth);
+    }
+    function close() {
+      if (sf[0] == null) return;
+      cl[1](true);
+      clearTimeout(timer.current);
+      timer.current = setTimeout(function () {
+        sf[1](null);
+        cl[1](false);
+      }, CLOSE_MS);
+    }
+    var cover = cv[0];
     return h(
       'span',
-      { className: 'dbl-stack', 'data-stacked': stacked && shown.length > 1 ? '' : undefined },
-      shown,
+      {
+        ref: ref,
+        className: 'dbl-stack',
+        'data-stacked': stacked ? '' : undefined,
+        'data-spread': spreadOut ? '' : undefined,
+        'data-closing': spreadOut && cl[0] ? '' : undefined,
+        style: spreadOut ? { width: sf[0] } : undefined,
+        onPointerEnter: spread,
+        onPointerLeave: close,
+        onFocus: spread,
+        onBlur: function (e) {
+          if (!e.currentTarget.contains(e.relatedTarget)) close();
+        },
+      },
+      h(
+        'span',
+        {
+          ref: deckRef,
+          className: 'dbl-deck',
+          'data-shifted': cover.shift ? '' : undefined,
+          style: cover.shift
+            ? { right: -cover.shift - cover.pad, paddingRight: cover.pad || undefined }
+            : undefined,
+        },
+        shown,
+      ),
     );
+  }
+  function pillStack(stacked, pills) {
+    return h(PillStack, { stacked: stacked, pills: pills });
+  }
+
+  /* How far a row's pills stack: 0 none, 1 the pills after the title, 2 both sides. With
+     stack: 'auto' (the default) the row measures itself: it stacks a side when the title is cut
+     short, and unstacks one when the room beside the title covers what stacking it saved, so the
+     title shortens only after both sides have stacked. 'none', 'right' and 'both' pin a level. */
+  var STACK_LEVELS = { none: 0, right: 1, both: 2 };
+  function stackSavings(stack) {
+    var deck = stack && stack.firstElementChild;
+    if (!deck || deck.children.length < 2) return 0;
+    var pills = Array.prototype.slice.call(deck.children, 0, -1);
+    return pills.reduce(function (saved, pill) {
+      // scrollWidth is the pill's own width even while it is cut to its edge (+2 for its border)
+      return saved + pill.scrollWidth + 2 + 6 - 26;
+    }, 0);
+  }
+  function useAutoStack(enabled, rowRef, canLeft, canRight) {
+    var lv = useState(0);
+    var max = canLeft ? 2 : canRight ? 1 : 0;
+    function fit() {
+      var row = rowRef.current;
+      if (!enabled || !row || row.querySelector('[data-spread]')) return;
+      var title = row.querySelector('.dbl-title');
+      var name = row.querySelector('.dbl-name');
+      if (!title || !name) return;
+      var left = title.querySelector('.dbl-stack');
+      var right = row.querySelector('.dbl-side .dbl-stack');
+      lv[1](function (cur) {
+        var cut = name.scrollWidth > name.clientWidth + 0.5;
+        if (cut && cur < max) return cur === 0 && !canRight ? 2 : cur + 1;
+        if (!cut && cur > 0) {
+          var room = title.clientWidth - name.scrollWidth - (left ? left.offsetWidth + 10 : 0);
+          if (room >= stackSavings(cur === 2 ? left : right) + 1) {
+            return cur === 2 && !canRight ? 0 : cur - 1;
+          }
+        }
+        return cur;
+      });
+    }
+    useLayoutEffect(fit);
+    useLayoutEffect(
+      function () {
+        var row = rowRef.current;
+        if (!enabled || !row || typeof ResizeObserver === 'undefined') return undefined;
+        var observer = new ResizeObserver(fit);
+        observer.observe(row);
+        return function () {
+          observer.disconnect();
+        };
+      },
+      [enabled],
+    );
+    return Math.min(lv[0], max);
   }
 
   function TaskRow(props) {
@@ -1489,6 +1646,14 @@
           ? 'overdue'
           : status;
     var selected = props.selected != null ? props.selected : !!t.selected;
+    var mode = props.stack || 'auto';
+    var autoLevel = useAutoStack(
+      mode === 'auto',
+      ref,
+      [t.key, t.parent, t.subtasks].filter(Boolean).length > 1,
+      [t.project, t.event, t.note].filter(Boolean).length > 1,
+    );
+    var level = mode === 'auto' ? autoLevel : STACK_LEVELS[mode] || 0;
     return h(
       'div',
       {
@@ -1551,7 +1716,7 @@
         'div',
         { className: 'dbl-title' },
         h('span', { className: 'dbl-name' }, t.title),
-        pillStack(props.stack === 'both', [
+        pillStack(level === 2, [
           t.key ? h(NS.SourcePill, { key: 'key', provider: t.source }, t.key) : null,
           t.parent ? h(NS.EntityPill, { key: 'parent', type: 'parent' }, t.parent) : null,
           t.subtasks
@@ -1575,7 +1740,7 @@
       h(
         'div',
         { className: 'dbl-side' },
-        pillStack(!!props.stack, [
+        pillStack(level >= 1, [
           t.project
             ? h(
                 NS.EntityPill,

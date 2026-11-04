@@ -86,38 +86,53 @@ const STACK_GAP = 6;
 
 // how far a spread deck may reach left: just before the title, never over the status icon
 const DECK_LEFT_SLACK = 8;
+// the spread deck's padding before its first pill, where its ground fades in (--space-4)
+const DECK_FADE = 16;
+// how long a closing deck stays on top of the row while its pills fold back (--duration-normal)
+const CLOSE_MS = 150;
+
+// a deck's width spread out, measured while its pills may still be folded or mid-animation
+function spreadWidth(deck: HTMLElement): number {
+  const pills = Array.from(deck.children) as HTMLElement[];
+  const widths = pills.reduce((total, pill) => total + pill.scrollWidth + 2, 0);
+  return widths + STACK_GAP * (pills.length - 1) + DECK_FADE;
+}
 
 /**
  * The pills on one side of the title, stacked like a deck when the row runs out of room: the last
  * in full, the ones behind showing their edge and icon. Pointing at the stack or focusing it
- * spreads it out on top of the row, over the end of the title, without moving anything.
+ * spreads it out on top of the row, over the end of the title, without moving anything: the
+ * pills behind grow to full width and their labels fade in. Leaving folds them back the same way.
  */
 function PillStack({ stacked, children }: { stacked: boolean; children: ReactNode }) {
   const pills = Children.toArray(children);
   const ref = useRef<HTMLSpanElement>(null);
   const deckRef = useRef<HTMLSpanElement>(null);
-  // the stacked width, kept while the deck is spread so the row does not reflow
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // the stacked width, kept while the deck is spread (and while it folds back) so the row does
+  // not reflow
   const [spreadFrom, setSpreadFrom] = useState<number | null>(null);
-  // the spread deck grows leftwards from the stack's right edge; when that would run past the
-  // start of the title it shifts right instead, over the pills on the right
-  // when shifted over the other side's stack, the deck's ground runs on to that stack's end so
-  // none of it peeks out from under the deck
+  const [closing, setClosing] = useState(false);
+  // The spread deck grows leftwards from the stack's right edge; when that would run past the
+  // start of the title it shifts right instead, over the pills on the right, and its ground runs
+  // on to the end of that stack so none of it peeks out from under the deck.
   const [cover, setCover] = useState({ shift: 0, pad: 0 });
   const isStacked = stacked && pills.length > 1;
   const spreadOut = isStacked && spreadFrom != null;
+  const open = spreadOut && !closing;
 
   useLayoutEffect(() => {
     const stack = ref.current;
     const deck = deckRef.current;
     const row = stack?.closest('[role="row"]');
     const title = row?.querySelector('[data-title]');
-    if (!spreadOut || !stack || !deck || !row || !title) {
+    if (!open || !stack || !deck || !row || !title) {
       setCover({ shift: 0, pad: 0 });
       return;
     }
     const minLeft = title.getBoundingClientRect().left - DECK_LEFT_SLACK;
     const stackRight = stack.getBoundingClientRect().right;
-    const shift = Math.max(0, minLeft - (stackRight - deck.offsetWidth));
+    const shift = Math.max(0, minLeft - (stackRight - spreadWidth(deck)));
     let pad = 0;
     if (shift > 0) {
       const deckRight = stackRight + shift;
@@ -129,15 +144,26 @@ function PillStack({ stacked, children }: { stacked: boolean; children: ReactNod
       }
     }
     setCover({ shift, pad });
-  }, [spreadOut]);
+  }, [open]);
+
+  useLayoutEffect(() => () => clearTimeout(closeTimer.current), []);
 
   if (pills.length === 0) return null;
 
   function spread() {
-    if (isStacked && spreadFrom == null && ref.current) setSpreadFrom(ref.current.offsetWidth);
+    if (!isStacked || !ref.current) return;
+    clearTimeout(closeTimer.current);
+    setClosing(false);
+    if (spreadFrom == null) setSpreadFrom(ref.current.offsetWidth);
   }
   function close() {
-    setSpreadFrom(null);
+    if (spreadFrom == null) return;
+    setClosing(true);
+    clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => {
+      setSpreadFrom(null);
+      setClosing(false);
+    }, CLOSE_MS);
   }
   function handleBlur(event: FocusEvent<HTMLSpanElement>) {
     if (!event.currentTarget.contains(event.relatedTarget as Node | null)) close();
@@ -150,6 +176,7 @@ function PillStack({ stacked, children }: { stacked: boolean; children: ReactNod
       data-stack=""
       data-stacked={isStacked ? '' : undefined}
       data-spread={spreadOut ? '' : undefined}
+      data-closing={spreadOut && closing ? '' : undefined}
       style={spreadOut ? { width: spreadFrom } : undefined}
       onPointerEnter={spread}
       onPointerLeave={close}

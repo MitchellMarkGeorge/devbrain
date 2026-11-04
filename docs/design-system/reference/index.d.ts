@@ -267,8 +267,12 @@ export interface TaskRowProps {
   state?: 'hover' | 'focus';
   menuOpen?: boolean;
   subtask?: boolean;
-  /** Stack the pills when the row runs out of room: after the title ('right'), or on both sides. */
-  stack?: 'right' | 'both';
+  /**
+   * How the pills stack when the row runs out of room. 'auto' (the default) measures the row:
+   * first the pills after the title, then both sides; the title shortens only after that.
+   * 'none', 'right' and 'both' pin a level, for pictures of the row.
+   */
+  stack?: 'auto' | 'none' | 'right' | 'both';
   status?: TaskStatus;
   onSelect?: () => void;
   onStatusChange?: (s: TaskStatus) => void;
