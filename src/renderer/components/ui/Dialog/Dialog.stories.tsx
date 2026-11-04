@@ -44,7 +44,7 @@ const fieldStyle = {
   padding: '0 10px',
   border: '1px solid var(--input)',
   borderRadius: 'var(--radius-lg)',
-  background: 'color-mix(in oklab, var(--input) 30%, transparent)',
+  background: 'var(--input-fill)',
   color: 'var(--foreground)',
 };
 

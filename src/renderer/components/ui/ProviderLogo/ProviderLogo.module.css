@@ -5,15 +5,15 @@
   vertical-align: middle;
 }
 .linear .ground {
-  fill: #5e6ad2;
+  fill: var(--platform-linear);
 }
 .linear .ink {
-  fill: #ffffff;
+  fill: var(--white);
 }
 /* GitHub's white mark on neutral-800, in both themes */
 .github .ground {
   fill: var(--neutral-800);
 }
 .github .ink {
-  fill: #ffffff;
+  fill: var(--white);
 }

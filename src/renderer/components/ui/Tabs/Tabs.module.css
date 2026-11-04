@@ -85,7 +85,7 @@
 .segmented .tab[data-active] {
   background: var(--secondary);
   color: var(--foreground);
-  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-segment);
 }
 
 /* ---------- line: a 2px foreground underline on the active tab, a border line beneath ---------- */

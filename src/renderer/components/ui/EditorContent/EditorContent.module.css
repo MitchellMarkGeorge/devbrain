@@ -119,7 +119,7 @@
   margin: 0;
   border: 1px solid var(--input);
   border-radius: 4px;
-  background: color-mix(in oklab, var(--input) 30%, transparent);
+  background: var(--input-fill);
   appearance: none;
   cursor: pointer;
   transition:
