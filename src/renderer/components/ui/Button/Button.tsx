@@ -37,8 +37,7 @@ export type ButtonVariant = NonNullable<VariantProps<typeof buttonVariants>['var
 export type ButtonSize = NonNullable<VariantProps<typeof buttonVariants>['size']>;
 
 export interface ButtonProps
-  extends Omit<BaseButton.Props, 'value'>,
-    VariantProps<typeof buttonVariants> {
+  extends Omit<BaseButton.Props, 'value'>, VariantProps<typeof buttonVariants> {
   /** leads the label: a Lucide icon (sized to the button) or a node */
   icon?: IconSource;
   trailingIcon?: IconSource;

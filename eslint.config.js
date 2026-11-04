@@ -4,6 +4,7 @@ import reactPlugin from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import prettierConfig from 'eslint-config-prettier';
 import globals from 'globals';
+import storybook from 'eslint-plugin-storybook';
 
 export default tseslint.config(
   // Ignore build output and generated files
@@ -72,6 +73,9 @@ export default tseslint.config(
       },
     },
   },
+
+  // Storybook stories and config
+  ...storybook.configs['flat/recommended'],
 
   // Disable ESLint formatting rules that conflict with Prettier (must be last)
   prettierConfig,

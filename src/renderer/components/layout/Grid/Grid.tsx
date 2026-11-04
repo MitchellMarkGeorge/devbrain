@@ -17,8 +17,7 @@ export const gridVariants = cva(styles.grid, {
 });
 
 export interface GridProps
-  extends useRender.ComponentProps<'div'>,
-    VariantProps<typeof gridVariants> {
+  extends useRender.ComponentProps<'div'>, VariantProps<typeof gridVariants> {
   /** a column count (equal columns) or a `grid-template-columns` value */
   columns?: number | string;
   /** equal columns, as many as fit, none narrower than this (e.g. `240px` for card grids) */

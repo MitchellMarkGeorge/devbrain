@@ -11,7 +11,16 @@ const meta = {
     weight: { control: 'inline-radio', options: ['normal', 'medium', 'semibold'] },
     tone: {
       control: 'select',
-      options: ['inherit', 'default', 'strong', 'muted', 'subtle', 'destructive', 'today', 'overdue'],
+      options: [
+        'inherit',
+        'default',
+        'strong',
+        'muted',
+        'subtle',
+        'destructive',
+        'today',
+        'overdue',
+      ],
     },
     lineClamp: { control: 'number' },
   },
@@ -41,9 +50,13 @@ export const Scale: Story = {
     <Stack gap="2">
       <Text size="lg">18px large</Text>
       <Text size="base">16px base</Text>
-      <Text size="sm" weight="medium">14px medium: buttons, labels, tabs</Text>
+      <Text size="sm" weight="medium">
+        14px medium: buttons, labels, tabs
+      </Text>
       <Text size="sm">14px regular: rows and menu items</Text>
-      <Text size="xs" tone="muted">12px: badges, metadata, shortcuts</Text>
+      <Text size="xs" tone="muted">
+        12px: badges, metadata, shortcuts
+      </Text>
       <Text size="xs" mono>
         ENG-124
       </Text>

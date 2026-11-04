@@ -13,13 +13,19 @@ export const boxVariants = cva(styles.box, {
       muted: styles.surfaceMuted,
       popover: styles.surfacePopover,
     },
-    radius: { md: styles.radiusMd, lg: styles.radiusLg, xl: styles.radiusXl, full: styles.radiusFull },
+    radius: {
+      md: styles.radiusMd,
+      lg: styles.radiusLg,
+      xl: styles.radiusXl,
+      full: styles.radiusFull,
+    },
     /** `default` is a `border` line; `edge` is the translucent outline of raised surfaces */
     border: { default: styles.borderDefault, edge: styles.borderEdge },
   },
 });
 
-export interface BoxProps extends useRender.ComponentProps<'div'>, VariantProps<typeof boxVariants> {
+export interface BoxProps
+  extends useRender.ComponentProps<'div'>, VariantProps<typeof boxVariants> {
   padding?: Space;
 }
 

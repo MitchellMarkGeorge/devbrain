@@ -4,7 +4,13 @@ import { Box } from './Box';
 const meta = {
   title: 'Layout/Box',
   component: Box,
-  args: { padding: '4', surface: 'card', radius: 'xl', border: 'edge', children: 'A box on the card ground' },
+  args: {
+    padding: '4',
+    surface: 'card',
+    radius: 'xl',
+    border: 'edge',
+    children: 'A box on the card ground',
+  },
   argTypes: {
     surface: { control: 'inline-radio', options: ['background', 'card', 'muted', 'popover'] },
     radius: { control: 'inline-radio', options: ['md', 'lg', 'xl', 'full'] },

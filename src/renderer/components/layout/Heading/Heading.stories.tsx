@@ -8,7 +8,10 @@ const meta = {
   args: { children: 'Good morning, Mitchell.', level: 1 },
   argTypes: {
     level: { control: 'inline-radio', options: [1, 2, 3, 4, 5, 6] },
-    variant: { control: 'select', options: [undefined, 'page', 'document', 'title', 'section', 'label'] },
+    variant: {
+      control: 'select',
+      options: [undefined, 'page', 'document', 'title', 'section', 'label'],
+    },
   },
 } satisfies Meta<typeof Heading>;
 

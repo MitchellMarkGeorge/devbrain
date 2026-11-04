@@ -33,8 +33,7 @@ const VARIANT_BY_LEVEL: Record<Level, HeadingVariant> = {
 };
 
 export interface HeadingProps
-  extends useRender.ComponentProps<'h2'>,
-    VariantProps<typeof headingVariants> {
+  extends useRender.ComponentProps<'h2'>, VariantProps<typeof headingVariants> {
   /** the `h1`–`h6` element; the look follows it unless `variant` is set */
   level?: Level;
 }

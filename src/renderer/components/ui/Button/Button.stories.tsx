@@ -28,13 +28,27 @@ export const Default: Story = {};
 export const Variants: Story = {
   render: (args) => (
     <Flex gap="3" wrap="wrap" align="center">
-      <Button {...args} variant="default">New Task</Button>
-      <Button {...args} variant="outline">Sort</Button>
-      <Button {...args} variant="secondary">Secondary</Button>
-      <Button {...args} variant="ghost">Close</Button>
-      <Button {...args} variant="destructive">Delete</Button>
-      <Button {...args} variant="link">View all tasks →</Button>
-      <Button {...args} variant="primary">Primary</Button>
+      <Button {...args} variant="default">
+        New Task
+      </Button>
+      <Button {...args} variant="outline">
+        Sort
+      </Button>
+      <Button {...args} variant="secondary">
+        Secondary
+      </Button>
+      <Button {...args} variant="ghost">
+        Close
+      </Button>
+      <Button {...args} variant="destructive">
+        Delete
+      </Button>
+      <Button {...args} variant="link">
+        View all tasks →
+      </Button>
+      <Button {...args} variant="primary">
+        Primary
+      </Button>
     </Flex>
   ),
 };
@@ -42,10 +56,18 @@ export const Variants: Story = {
 export const Sizes: Story = {
   render: (args) => (
     <Flex gap="3" align="center">
-      <Button {...args} size="xs" icon={Plus}>Add</Button>
-      <Button {...args} size="sm">Small</Button>
-      <Button {...args} size="default">Default</Button>
-      <Button {...args} size="lg">Large</Button>
+      <Button {...args} size="xs" icon={Plus}>
+        Add
+      </Button>
+      <Button {...args} size="sm">
+        Small
+      </Button>
+      <Button {...args} size="default">
+        Default
+      </Button>
+      <Button {...args} size="lg">
+        Large
+      </Button>
     </Flex>
   ),
 };

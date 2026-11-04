@@ -40,8 +40,7 @@ export const textVariants = cva(styles.text, {
 });
 
 export interface TextProps
-  extends useRender.ComponentProps<'span'>,
-    VariantProps<typeof textVariants> {
+  extends useRender.ComponentProps<'span'>, VariantProps<typeof textVariants> {
   /** clamp to this many lines, ending in "…" */
   lineClamp?: number;
 }

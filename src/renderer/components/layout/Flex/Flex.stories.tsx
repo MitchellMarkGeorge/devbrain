@@ -19,8 +19,14 @@ const meta = {
   component: Flex,
   args: { gap: '2' },
   argTypes: {
-    gap: { control: 'select', options: ['0', '0.5', '1', '1.5', '2', '3', '4', '6', '8', '12', '16'] },
-    direction: { control: 'inline-radio', options: ['row', 'column', 'row-reverse', 'column-reverse'] },
+    gap: {
+      control: 'select',
+      options: ['0', '0.5', '1', '1.5', '2', '3', '4', '6', '8', '12', '16'],
+    },
+    direction: {
+      control: 'inline-radio',
+      options: ['row', 'column', 'row-reverse', 'column-reverse'],
+    },
     align: { control: 'inline-radio', options: ['start', 'center', 'end', 'baseline', 'stretch'] },
     justify: { control: 'inline-radio', options: ['start', 'center', 'end', 'between'] },
     wrap: { control: 'inline-radio', options: ['wrap', 'nowrap'] },

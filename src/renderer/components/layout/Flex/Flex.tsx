@@ -35,8 +35,7 @@ export const flexVariants = cva(styles.flex, {
 });
 
 export interface FlexProps
-  extends useRender.ComponentProps<'div'>,
-    VariantProps<typeof flexVariants> {
+  extends useRender.ComponentProps<'div'>, VariantProps<typeof flexVariants> {
   /** a step of the 4px spacing scale */
   gap?: Space;
 }
