@@ -7,7 +7,18 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'"
     />
-    <title>My Electron App</title>
+    <title>DevBrain</title>
+    <!-- the page fills the window, which scrolls nothing itself: the shell's columns scroll -->
+    <style>
+      html,
+      body,
+      #root {
+        height: 100%;
+      }
+      body {
+        overflow: hidden;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
