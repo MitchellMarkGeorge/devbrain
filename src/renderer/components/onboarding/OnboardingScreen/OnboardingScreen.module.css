@@ -1,5 +1,6 @@
 /* The window before a workspace is open. See docs/design-system/components/OnboardingScreen.md */
 .screen {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -20,10 +21,11 @@
 .titleBar button {
   -webkit-app-region: no-drag;
 }
-/* Windows' caption buttons, painted in stories (the system draws them in the app) */
+/* Windows' caption buttons, painted in stories at the window's top right, where Windows draws them */
 .captionButtons {
-  margin-left: auto;
-  margin-right: calc(-1 * var(--space-4));
+  position: absolute;
+  top: 0;
+  right: 0;
 }
 .column {
   display: flex;

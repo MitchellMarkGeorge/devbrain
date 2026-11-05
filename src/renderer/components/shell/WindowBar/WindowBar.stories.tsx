@@ -54,7 +54,6 @@ export const Platforms: Story = {
         <WindowFrameProvider key={platform} value={{ platform, controls: 'drawn' }}>
           <div
             data-platform={platform}
-            data-window-controls="drawn"
             style={{ position: 'relative' }}
           >
             <Bar />

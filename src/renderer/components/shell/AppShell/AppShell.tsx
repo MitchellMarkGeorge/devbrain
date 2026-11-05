@@ -215,7 +215,6 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
           data-size={size}
           data-rail={rail ? '' : undefined}
           data-platform={frame.platform}
-          data-window-controls={frame.controls}
           className={cn(styles.shell, className)}
           {...props}
         >

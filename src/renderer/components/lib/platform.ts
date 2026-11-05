@@ -24,7 +24,7 @@ export function platformFromNode(nodePlatform: string): Platform {
  */
 export function detectPlatform(): Platform {
   if (typeof window === 'undefined') return 'macos';
-  const nodePlatform = (window as Partial<Window>).ipcBridge?.platform;
+  const nodePlatform = window.ipcBridge?.platform;
   return nodePlatform ? platformFromNode(nodePlatform) : 'macos';
 }
 

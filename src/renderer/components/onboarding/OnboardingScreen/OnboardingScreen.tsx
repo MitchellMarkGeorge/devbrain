@@ -31,7 +31,6 @@ export const OnboardingScreen = forwardRef<HTMLDivElement, OnboardingScreenProps
       <div
         ref={ref}
         data-platform={frame.platform}
-        data-window-controls={frame.controls}
         className={cn(styles.screen, className)}
         {...props}
       >
