@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { FileText, Folder, Video } from 'lucide-react';
+import { Folder, Video } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { ColourBar } from '../../ui/ColourBar';
 import { Icon } from '../../ui/Icon';
@@ -45,20 +45,6 @@ export const Meetings: Story = {
       <HomeRow icon={<ColourBar color="green" />} title="Mitchell / Jesse 1:1" meta="10:30" />
       <HomeRow icon={<ColourBar color="blue" />} title="Design Review" meta="1:00" />
       <HomeRow muted icon={<ColourBar color="green" />} title="Daily Standup" meta="Tue 9:30" />
-    </div>
-  ),
-};
-
-/** Recent notes as a list: what the note belongs to, then when it was edited. */
-export const Notes: Story = {
-  render: () => (
-    <div>
-      <HomeRow icon={<Icon icon={FileText} />} title="PKCE design notes" meta="6 min ago">
-        <HomeRowNote>Auth Overhaul</HomeRowNote>
-      </HomeRow>
-      <HomeRow icon={<Icon icon={FileText} />} title="Mitchell / Jesse 1:1" meta="40 min ago">
-        <HomeRowNote>Meeting note</HomeRowNote>
-      </HomeRow>
     </div>
   ),
 };

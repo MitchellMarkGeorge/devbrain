@@ -4,7 +4,7 @@ Figma's `CaptureBox`: Home's box for adding a task, note or event. It holds the 
 
 - **Top (34px):** the Task / Note / Event `ToggleGroup` (on the card its track is outlined and its thumb filled in `border-strong`), then at the right a `/` key (`Kbd variant="raised"`) and "for commands" in 12px `subtle-foreground`.
 - **Field (52px):** free text in 14px `foreground-strong`, 8px from the top and 4px in; the placeholder follows the kind ("What needs doing?") in `subtle-foreground`.
-- **Details (28px):** the kind's pickers as ghost sm buttons 2px apart (`CaptureBoxPicker`: project, due date and priority for a task; calendar, time and length for an event; the project for a note), and the primary sm "Add task" / "Add note" / "Add event" at the right.
+- **Details (28px):** the kind's pickers as outline pills 8px apart (`CaptureBoxPicker`, an interactive `Badge`: 24px, a 12px icon and a 12px label; project, due date and priority for a task; calendar, time and length for an event; the project for a note), and the primary sm "Add task" / "Add note" / "Add event" at the right.
 
 Typing is read as you go: a recognised word ("tomorrow", "#Auth Overhaul") is marked in the field with an `accent` tint (`highlights`) and its picker fills in (the caller passes the filled `pickers`). Enter, or the button, adds the item and clears the field. While the field has keyboard focus the box takes the focus ring.
 

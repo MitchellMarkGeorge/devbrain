@@ -8,7 +8,8 @@ import {
 } from 'react';
 import { Calendar, CircleCheck, Clock, FileText, Flag, Folder, Timer } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import { Button, type ButtonProps } from '../../ui/Button';
+import { Badge, type BadgeProps } from '../../ui/Badge';
+import { Button } from '../../ui/Button';
 import { Kbd } from '../../ui/Kbd';
 import { ToggleGroup } from '../../ui/ToggleGroup';
 import styles from './CaptureBox.module.css';
@@ -27,10 +28,10 @@ const PLACEHOLDERS: Record<CaptureKind, string> = {
   event: 'What’s happening?',
 };
 
-/** One of the box's detail pickers: a ghost sm button that opens its menu or picker. */
-export const CaptureBoxPicker = forwardRef<HTMLButtonElement, ButtonProps>(
+/** One of the box's detail pickers: an outline pill (`Badge interactive`) that opens its picker. */
+export const CaptureBoxPicker = forwardRef<HTMLElement, BadgeProps>(
   function CaptureBoxPicker(props, ref) {
-    return <Button ref={ref} variant="ghost" size="sm" {...props} />;
+    return <Badge ref={ref} variant="outline" interactive {...props} />;
   },
 );
 
@@ -101,7 +102,7 @@ export interface CaptureBoxProps extends Omit<ComponentPropsWithoutRef<'div'>, '
   /** the field's placeholder (by kind: "What needs doing?") */
   placeholder?: string;
   /**
-   * the ghost sm pickers under the field (`CaptureBoxPicker`s): project, due date and priority
+   * the pill pickers under the field (`CaptureBoxPicker`s): project, due date and priority
    * for a task, calendar, time and length for an event. Defaults to the kind's empty pickers.
    */
   pickers?: ReactNode;

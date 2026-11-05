@@ -1,6 +1,6 @@
 /** The Home screens, as components the stories (and other screens' stories) render. */
-import { Children, type ReactNode } from 'react';
-import { FileText, Folder, RotateCw, Video } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Folder, RotateCw, Video } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { CaptureBox } from '../../home/CaptureBox';
 import { ColourBar } from '../../ui/ColourBar';
@@ -18,7 +18,6 @@ import { SetupRow } from '../../home/SetupRow';
 import { TaskRow } from '../../lists/TaskRow';
 import type { Task } from '../../lists/TaskRow/types';
 import { Text } from '../../layout/Text';
-import { useAppShell } from '../../shell/AppShell/context';
 import { ScreenFrame, type ScreenFrameProps } from '../Shell/AppFrame';
 
 const TIP = 'Type “tomorrow” or “#Auth Overhaul” and the details fill in. Press Enter to add.';
@@ -86,7 +85,6 @@ function HomePage({
   paused?: boolean;
   children: ReactNode;
 }) {
-  const { rail } = useAppShell();
   return (
     <PageContent layout="home">
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -98,8 +96,8 @@ function HomePage({
       </div>
       <CaptureBox tip={tip} style={{ marginTop: 28 }} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 32, marginTop: 28 }}>
-        {/* compact windows (the rail) show only the top section */}
-        {Children.toArray(children).slice(0, rail ? 1 : 2)}
+        {/* the top-ranked section only */}
+        {children}
       </div>
       <Text
         size="xs"
@@ -163,24 +161,6 @@ function Tasks({ count = 6, projects = true }: { count?: number; projects?: bool
       {shown.map((task) => (
         <TaskRow key={task.id} task={task} compact />
       ))}
-    </HomeSection>
-  );
-}
-
-function NoteRow({ title, context, edited }: { title: string; context: string; edited: string }) {
-  return (
-    <HomeRow icon={<Icon icon={FileText} />} title={title} meta={edited}>
-      <HomeRowNote>{context}</HomeRowNote>
-    </HomeRow>
-  );
-}
-
-function NotesList() {
-  return (
-    <HomeSection title="Recent notes" link="All notes">
-      <NoteRow title="PKCE design notes" context="Auth Overhaul" edited="6 min ago" />
-      <NoteRow title="Mitchell / Jesse 1:1" context="Meeting note" edited="40 min ago" />
-      <NoteRow title="Sprint 15 planning" context="Sprint Planning" edited="2h ago" />
     </HomeSection>
   );
 }
@@ -294,8 +274,8 @@ function GetStarted({ steps }: { steps: (keyof typeof SETUP)[] }) {
 }
 
 /**
- * Figma "Home" (7254:8102) without its frame: a meeting soon, then today's tasks. The app's test
- * bench shows it inside its own shell.
+ * Figma "Home" (7254:8102) without its frame: a meeting soon, so Meetings is the section. The
+ * app's test bench shows it inside its own shell.
  */
 export function HomeContent() {
   return (
@@ -308,12 +288,11 @@ export function HomeContent() {
       }
     >
       <Meetings />
-      <Tasks />
     </HomePage>
   );
 }
 
-/** Figma "Home" (7254:8102): a meeting soon, then today's tasks. Figma "No notes" looks the same. */
+/** Figma "Home" (7254:8102): a meeting soon ranks first, so Meetings is the section. */
 export function HomeScreen(frame: Partial<ScreenFrameProps>) {
   return (
     <ScreenFrame page="Home" {...frame}>
@@ -322,7 +301,7 @@ export function HomeScreen(frame: Partial<ScreenFrameProps>) {
   );
 }
 
-/** Figma "All caught up" (7257:8792): nothing due, a meeting soon, then recent notes as a list. */
+/** Figma "All caught up" (7257:8792): nothing due; a meeting soon. */
 export function AllCaughtUpScreen(frame: Partial<ScreenFrameProps>) {
   return (
     <ScreenFrame page="Home" {...frame}>
@@ -335,13 +314,12 @@ export function AllCaughtUpScreen(frame: Partial<ScreenFrameProps>) {
         }
       >
         <Meetings />
-        <NotesList />
       </HomePage>
     </ScreenFrame>
   );
 }
 
-/** Figma "Free day" (7261:11556): nothing due and no meetings; notes as cards, then projects. */
+/** Figma "Free day" (7261:11556): nothing due and no meetings; recent notes as cards. */
 export function FreeDayScreen(frame: Partial<ScreenFrameProps>) {
   return (
     <ScreenFrame page="Home" {...frame}>
@@ -354,13 +332,12 @@ export function FreeDayScreen(frame: Partial<ScreenFrameProps>) {
         }
       >
         <NotesCards />
-        <Projects />
       </HomePage>
     </ScreenFrame>
   );
 }
 
-/** Figma "No events" (7259:11058): today's tasks, then recent notes as a list. */
+/** Figma "No events" (7259:11058): today's tasks. */
 export function NoEventsScreen(frame: Partial<ScreenFrameProps>) {
   return (
     <ScreenFrame page="Home" {...frame}>
@@ -373,13 +350,12 @@ export function NoEventsScreen(frame: Partial<ScreenFrameProps>) {
         }
       >
         <Tasks />
-        <NotesList />
       </HomePage>
     </ScreenFrame>
   );
 }
 
-/** Figma "No tasks yet" (7257:9513): meetings, then "Get started" offers Linear. */
+/** Figma "No tasks yet" (7257:9513): a meeting soon; the summary says there are no tasks. */
 export function NoTasksYetScreen(frame: Partial<ScreenFrameProps>) {
   return (
     <ScreenFrame page="Home" {...frame}>
@@ -392,13 +368,12 @@ export function NoTasksYetScreen(frame: Partial<ScreenFrameProps>) {
         }
       >
         <Meetings />
-        <GetStarted steps={['linear']} />
       </HomePage>
     </ScreenFrame>
   );
 }
 
-/** Figma "No tasks or events" (7262:12053): projects, then "Get started" for the calendar and Linear. */
+/** Figma "No tasks or events" (7262:12053): recent projects. */
 export function NoTasksOrEventsScreen(frame: Partial<ScreenFrameProps>) {
   return (
     <ScreenFrame page="Home" {...frame}>
@@ -407,32 +382,12 @@ export function NoTasksOrEventsScreen(frame: Partial<ScreenFrameProps>) {
         summary="Nothing on today yet. Add a task above, or connect your calendar and Linear to bring in your work."
       >
         <Projects empty />
-        <GetStarted steps={['calendar', 'linear']} />
       </HomePage>
     </ScreenFrame>
   );
 }
 
-/** Figma "No projects" (7259:9634): as Home, with no project pills on the tasks. */
-export function NoProjectsScreen(frame: Partial<ScreenFrameProps>) {
-  return (
-    <ScreenFrame page="Home" {...frame}>
-      <HomePage
-        summary={
-          <>
-            <Strong>Sprint Planning</Strong> starts in 12 minutes. You have <Strong>6 tasks</Strong>{' '}
-            today, and <Text tone="overdue">2 are overdue</Text>.
-          </>
-        }
-      >
-        <Meetings />
-        <Tasks projects={false} />
-      </HomePage>
-    </ScreenFrame>
-  );
-}
-
-/** Figma "First run" (7257:10066): a new workspace; "Get started" fills the sections. */
+/** Figma "First run" (7257:10066): a new workspace; "Get started" fills the section. */
 export function FirstRunScreen(frame: Partial<ScreenFrameProps>) {
   return (
     <ScreenFrame page="Home" emptySidebar {...frame}>

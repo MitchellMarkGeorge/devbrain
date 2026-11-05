@@ -90,12 +90,12 @@ Home answers "what matters right now". It is one centred column, `home-max-width
 - **The logomark,** then the greeting in the page title ("Good morning, Mitchell"; "Welcome, Mitchell" in a new workspace).
 - **The summary,** one sentence in 14px `muted-foreground`: counts and names in `foreground-strong` medium ("**6 tasks**", "**Sprint Planning**"), overdue in `date-overdue` ("2 are overdue"), and good news in `health-on-track` ("Nothing's due today", "Your day is clear"). It can mention what didn't make the sections.
 - **The `CaptureBox`,** 28px below, with its one-line tip under it. It holds the slot an AI prompt will take later, at the same footprint.
-- **Up to two sections** (`HomeSection`), 28px below the tip and 32px apart.
+- **One section** (`HomeSection`), 28px below the tip: the top-ranked one.
 - **The footer,** 32px below, centred in 12px `subtle-foreground`: "Press ⌘K to search", and "· Google Calendar paused · Reconnect" (an xs ghost button) when a calendar needs signing in again.
 
-The column sits centred down the page while it fits, and scrolls when it doesn't. In compact windows (the sidebar as the rail) Home shows only its top section.
+Everything fits on one page without scrolling at the default window size (1200 × 800), and the column sits centred across and down the page.
 
-**Sections.** At most two, each with at most three rows; the rest goes into an "N more tasks today" line. Each section has a menu-label header and, optionally, a link at the right ("All 6 tasks →", "Calendar →", "All notes →", "All projects →"). They are ranked, most urgent first:
+**Sections.** Home shows one section, with at most three rows; the rest goes into an "N more tasks today" line. Each section has a menu-label header and, optionally, a link at the right ("All 6 tasks →", "Calendar →", "All notes →", "All projects →"). Sections are ranked, most urgent first, and the first with something to show is the one Home shows:
 
 1. A meeting starting within 30 minutes, or in progress.
 2. Tasks overdue or due today.
@@ -103,15 +103,15 @@ The column sits centred down the page while it fits, and scrolls when it doesn't
 4. Later meetings today, or tomorrow's first.
 5. Notes or projects from the last few days.
 
-A section with nothing to show is skipped, and whatever doesn't make the top two can still be mentioned in the summary. "Get started" fills an empty slot in a new or partly set-up workspace.
+A section with nothing to show is skipped, and what the section leaves out can still be mentioned in the summary. "Get started" fills the slot in a new workspace with nothing to show.
 
 - **Meetings:** `HomeRow`s: the colour bar, the title and when, at the right ("In 12 min" in `date-today`, "Now", "10:30", "Tue 9:30"). An xs Join button shows from 5 minutes before the start until the end. The next or current meeting's row is filled with `card`; finished meetings drop off; tomorrow's first meeting is dimmed.
 - **Tasks:** `TaskRow compact`: 44px with no selection strip, with all their pills.
-- **Recent notes:** as the first section, three small `NoteCard`s in a row (`size="sm"`: icon and edit time, a one-line title and a one-line preview); as the second, `HomeRow`s (icon, title, what the note belongs to, edit time).
+- **Recent notes:** three small `NoteCard`s in a row (`size="sm"`: icon and edit time, a one-line title and a one-line preview).
 - **Recent projects:** `HomeRow`s: the folder in the project's colour, the name, a small progress bar, "3/12", then the due date or status.
 - **Get started:** `SetupRow`s (Connect Google Calendar, Connect Linear, Start a project), each saying what it adds to Home. A row disappears once its step is done; the section has no link.
 
-Home's rows are lighter than the lists': no selection strip, 36px for meetings, notes and projects (`HomeRow`) and 44px for tasks.
+Home's rows are lighter than the lists': no selection strip, 36px for meetings and projects (`HomeRow`) and 44px for tasks.
 
 ## Window sizes
 
@@ -123,7 +123,6 @@ The window is never smaller than `window-min-width` × `window-min-height` (960 
   - The sidebar rests as the 56px icon rail (`sidebar-rail-width`); expanding it opens the full sidebar as a drawer over the page, with the `backdrop` scrim behind it, and picking a page, clicking outside or Esc closes it. A sidebar the user collapsed stays collapsed at any width.
   - Sheets float over the page instead of docking.
   - Toolbar values hide, and card grids (the Notes and Projects card views) drop to two columns.
-  - Home shows only its top section.
 - **At every size:** the week view keeps all seven days (hiding days could hide events); the day columns narrow instead. Long text ends in "…" at its own width: pill labels before titles, titles before dates, and breadcrumbs keep the first and last items. Sheets and dialogs scroll inside themselves at the minimum height, and the selection bar and toasts sit on the window's bottom edge. Document pages cap their content and centre it in the page (see Page widths); workspace pages use the full width.
 
 ## Window frame
