@@ -28,6 +28,11 @@ export const PressedBold: Story = { args: { marks: { bold: true }, colour: 'blue
 /** pressed=none */
 export const Rest: Story = { args: { colour: 'blue' } };
 
+/** Without the colour and Turn into task: an editor whose text has no colours or tasks */
+export const MarksOnly: Story = {
+  args: { marks: { italic: true }, showColour: false, showTurnIntoTask: false },
+};
+
 /** Every control live: the marks toggle, the block type and colour open their menus */
 export const Interactive: Story = {
   render: function Render() {

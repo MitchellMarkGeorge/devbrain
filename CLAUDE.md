@@ -88,6 +88,13 @@ A design change lands in all three in the same change: the component, its storie
   components and Storybook and out of date; don't build from it.
 - `docs/design-system/archive/` holds superseded systems; don't build from them.
 
+## Rich text
+
+Every place the user writes or reads markdown uses `RichTextEditor` (`src/renderer/editor`), TipTap
+with markdown in and out. `docs/editor.md` says what it reads and writes, what a save changes, and
+how to add an element. A new element needs a round trip case in
+`src/renderer/tests/editor/markdown.test.ts`.
+
 ## IPC
 
 The renderer reaches core through the typed tRPC router in `src/main/ipc`, run over Electron IPC.

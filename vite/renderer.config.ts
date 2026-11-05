@@ -16,5 +16,8 @@ export default defineConfig({
   build: {
     outDir: '../../dist/renderer',
     emptyOutDir: true,
+    // fonts stay files (styles/fonts.css), so only the scripts a page shows are loaded; Vite would
+    // otherwise inline the small ones into the stylesheet
+    assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
   },
 });

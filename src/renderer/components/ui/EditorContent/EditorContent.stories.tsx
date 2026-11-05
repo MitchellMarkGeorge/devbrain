@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { kbdVariants } from '../Kbd';
 import { EditorContent, EditorTitle } from './EditorContent';
 
 const meta = {
@@ -50,6 +51,67 @@ const challenge = createHash('sha256').update(verifier).digest('base64url');`}</
           </li>
         ))}
       </ul>
+    </EditorContent>
+  ),
+};
+
+/** Tables, a collapsible section, keys, sub- and superscript, and HTML shown as its source */
+export const TablesAndSections: Story = {
+  render: () => (
+    <EditorContent>
+      <p>
+        Press <kbd className={kbdVariants()}>⌘K</kbd> to search. H<sub>2</sub>O, x<sup>2</sup> and{' '}
+        <u>underlined</u> text.
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Step</th>
+            <th>Owner</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Schema</td>
+            <td>Sam</td>
+            <td>Done</td>
+          </tr>
+          <tr>
+            <td>Backfill</td>
+            <td>Jo</td>
+            <td>Open</td>
+          </tr>
+        </tbody>
+      </table>
+      <div data-type="details" className="is-open">
+        <button type="button" aria-label="Close section" />
+        <div>
+          <summary>Setup steps</summary>
+          <div data-type="detailsContent">
+            <ul>
+              <li>
+                <p>
+                  Install with <code>npm ci</code>
+                </p>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div data-type="details">
+        <button type="button" aria-label="Open section" />
+        <div>
+          <summary>Closed section</summary>
+          <div data-type="detailsContent" hidden>
+            <p>Hidden body</p>
+          </div>
+        </div>
+      </div>
+      <p>
+        Other HTML like <code data-raw-html="">{'<span>'}</code>this
+        <code data-raw-html="">{'</span>'}</code> stays as text.
+      </p>
     </EditorContent>
   ),
 };

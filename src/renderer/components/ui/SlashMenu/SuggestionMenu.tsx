@@ -43,6 +43,12 @@ export interface SuggestionMenuProps<Item> extends Omit<
   empty?: ReactNode;
   /** the first item highlighted at first; the first item by default */
   defaultHighlighted?: string;
+  /**
+   * The highlighted item's element id, each time it changes (undefined with no items). The caret
+   * stays in the editor, so the editor's element carries it as `aria-activedescendant` (and the
+   * list's `id` as `aria-controls`) for a screen reader to announce the item.
+   */
+  onActiveDescendantChange?: (id: string | undefined) => void;
 }
 
 /**
@@ -58,6 +64,7 @@ export function SuggestionMenu<Item>({
   handleRef,
   empty = 'No results',
   defaultHighlighted,
+  onActiveDescendantChange,
   className,
   ...props
 }: SuggestionMenuProps<Item>) {
@@ -75,6 +82,11 @@ export function SuggestionMenu<Item>({
       ?.querySelector<HTMLElement>('[data-highlighted]')
       ?.scrollIntoView({ block: 'nearest' });
   }, [current]);
+
+  const activeId = current ? `${id}-${current}` : undefined;
+  useEffect(() => {
+    onActiveDescendantChange?.(activeId);
+  }, [activeId, onActiveDescendantChange]);
 
   useImperativeHandle(handleRef, () => ({
     onKeyDown(event) {
@@ -97,7 +109,7 @@ export function SuggestionMenu<Item>({
     <div
       ref={list}
       role="listbox"
-      aria-activedescendant={current ? `${id}-${current}` : undefined}
+      aria-activedescendant={activeId}
       className={cn(menuStyles.popup, styles.menu, className)}
       {...props}
     >

@@ -1,0 +1,65 @@
+/* A note's callout. See docs/design-system/components/Callout.md */
+.callout {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-3);
+  padding: 2px 0 2px var(--space-3);
+  border-left: 2px solid var(--callout-colour);
+}
+
+.title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-self: start;
+  color: var(--callout-colour);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  user-select: none;
+}
+
+/* the swatch 500 steps darken in light so amber and green keep 3:1 on the page, as project icons do */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) .title {
+    filter: brightness(0.72);
+  }
+}
+:root[data-theme='light'] .title {
+  filter: brightness(0.72);
+}
+
+.trigger {
+  margin: 0 calc(-1 * var(--space-1));
+  padding: 0 var(--space-1);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
+}
+.trigger:hover,
+.trigger[data-popup-open] {
+  background: var(--accent);
+}
+.trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+.chevron {
+  opacity: 0;
+  transition: opacity var(--duration-fast);
+}
+.trigger:hover .chevron,
+.trigger:focus-visible .chevron,
+.trigger[data-popup-open] .chevron {
+  opacity: 1;
+}
+
+.body {
+  min-width: 0;
+  color: var(--foreground);
+}
+/* the last block ends the callout, however deep an editor wraps the blocks (`:is` so this wins
+   over EditorContent's block margins) */
+.body :is(p, ul, ol, pre, blockquote, table, hr, div):last-child {
+  margin-bottom: 0;
+}

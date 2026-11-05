@@ -26,12 +26,12 @@
 .content :where(p, ul, ol, blockquote, pre, hr, table) {
   margin: 0 0 var(--space-3);
 }
-.content :where(h1, h2, h3) {
+.content :where(h1, h2, h3, h4, h5, h6) {
   margin: var(--space-6) 0 var(--space-3);
   color: var(--foreground-strong);
   font-weight: var(--font-weight-semibold);
 }
-.content :where(h1, h2, h3):first-child {
+.content :where(h1, h2, h3, h4, h5, h6):first-child {
   margin-top: 0;
 }
 .content h1 {
@@ -45,6 +45,10 @@
 .content h3 {
   font-size: var(--text-base);
   line-height: var(--text-base-leading);
+}
+.content :where(h4, h5, h6) {
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-leading);
 }
 .content :where(ul, ol) {
   padding-left: 20px;
@@ -68,18 +72,25 @@
   color: var(--foreground-strong);
   font-weight: var(--font-weight-semibold);
 }
+.content :where(sub, sup) {
+  font-size: 0.75em;
+  line-height: 0;
+}
 .content mark {
   padding: 0 2px;
   border-radius: var(--radius-xs);
   background: var(--accent);
   color: inherit;
 }
+/* inline code: mono on `accent`, 13px in the line's height. (The `font` shorthand can't take
+   `inherit` for the line height, so the family and size are set apart.) */
 .content :not(pre) > code {
   padding: 1px var(--space-1);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   background: var(--accent);
   color: var(--foreground-strong);
-  font: 13px / inherit var(--font-mono);
+  font-family: var(--font-mono);
+  font-size: 13px;
 }
 .content hr {
   height: 1px;
@@ -171,6 +182,111 @@
   padding-left: var(--space-3);
   border-left: 2px solid var(--border-strong);
   color: var(--muted-foreground);
+}
+
+/* tables: a quiet grid of `border` row lines, the header in `muted-foreground` */
+.content table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.content :where(th, td) {
+  position: relative;
+  padding: var(--space-1-5) var(--space-2);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.content th {
+  color: var(--muted-foreground);
+  font-weight: var(--font-weight-medium);
+}
+.content :where(th, td) p {
+  margin: 0;
+}
+/* the cells a drag selects (Tiptap's `selectedCell`) */
+.content :global(.selectedCell)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: color-mix(in oklab, var(--swatch-blue) 15%, transparent);
+  pointer-events: none;
+}
+
+/* collapsible sections (Tiptap's details markup: a toggle button, then the summary over the body):
+   a chevron that turns open, the summary in medium `foreground-strong`, the body under it */
+.content [data-type='details'] {
+  display: flex;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-3);
+}
+.content [data-type='details'] > button {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 20px;
+  height: var(--text-sm-leading);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: none;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.content [data-type='details'] > button::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border: solid currentColor;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(-45deg);
+  transition: transform var(--duration-fast);
+}
+.content [data-type='details']:global(.is-open) > button::before {
+  transform: rotate(45deg);
+}
+.content [data-type='details'] > button:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+.content [data-type='details'] > div {
+  flex: 1;
+  min-width: 0;
+}
+.content summary {
+  color: var(--foreground-strong);
+  font-weight: var(--font-weight-medium);
+  list-style: none;
+}
+.content summary::-webkit-details-marker {
+  display: none;
+}
+.content [data-type='detailsContent'] {
+  margin-top: var(--space-1);
+}
+.content [data-type='detailsContent'][hidden] {
+  display: none;
+}
+.content [data-type='detailsContent'] > :last-child {
+  margin-bottom: 0;
+}
+
+/* HTML the format doesn't support, shown as its source in `muted-foreground` mono */
+.content [data-raw-html] {
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+}
+.content pre[data-raw-html] {
+  white-space: pre-wrap;
+}
+
+/* a selected block (a divider, a section), and the caret between two blocks */
+.content :global(.ProseMirror-selectednode):not(span) {
+  border-radius: var(--radius-md);
+  outline: 2px solid color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.content :global(.ProseMirror-gapcursor)::after {
+  border-top-color: var(--foreground);
 }
 
 /* an empty block's hint: "Press / for commands…", "Heading 2". A truly empty element gets a

@@ -1,0 +1,24 @@
+/*
+ * The editor's own rules. The blocks are drawn by the design system's EditorContent; this file only
+ * holds what depends on the editor's behaviour.
+ */
+
+.content {
+  min-height: 120px;
+}
+
+/* ⌘/Ctrl-click opens a link while editing, so a link keeps the text caret; a read-only editor
+   opens it on a plain click */
+.content a {
+  cursor: text;
+}
+
+.content:not([contenteditable='true']) a {
+  cursor: pointer;
+}
+
+/* a link whose target safeExternalUrl refused: plain text, the target kept in the file */
+.content [data-unsafe-link] {
+  text-decoration: underline dotted var(--border-strong);
+  text-underline-offset: 3px;
+}

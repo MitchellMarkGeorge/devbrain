@@ -1,5 +1,14 @@
 import type { Ref } from 'react';
-import { Calendar, CircleCheck, FileText, Link, Minus, Table } from 'lucide-react';
+import {
+  Calendar,
+  CircleCheck,
+  FileText,
+  Info,
+  Link,
+  ListCollapse,
+  Minus,
+  Table,
+} from 'lucide-react';
 import { DropdownMenuShortcut, menuStyles } from '../DropdownMenu';
 import { renderIcon, type IconSource } from '../Icon';
 import { BLOCK_TYPES, type BlockType } from '../TurnIntoMenu';
@@ -18,7 +27,9 @@ export type SlashCommand =
   | 'link-task'
   | 'mention-event'
   | 'divider'
-  | 'table';
+  | 'table'
+  | 'collapsible'
+  | 'callout';
 
 export interface SlashItem {
   value: SlashCommand;
@@ -52,6 +63,12 @@ export const SLASH_GROUPS: SuggestionGroup<SlashItem>[] = [
       block('heading-3', ['h3']),
       block('code', ['snippet']),
       block('quote', ['blockquote']),
+      {
+        value: 'callout',
+        label: 'Callout',
+        icon: Info,
+        keywords: ['alert', 'note', 'tip', 'important', 'warning', 'caution'],
+      },
     ],
   },
   {
@@ -82,6 +99,12 @@ export const SLASH_GROUPS: SuggestionGroup<SlashItem>[] = [
         keywords: ['rule', 'separator'],
       },
       { value: 'table', label: 'Table', icon: Table },
+      {
+        value: 'collapsible',
+        label: 'Collapsible section',
+        icon: ListCollapse,
+        keywords: ['details', 'toggle', 'summary'],
+      },
     ],
   },
 ];
@@ -115,8 +138,8 @@ export interface SlashMenuProps extends Omit<
 }
 
 /**
- * The editor's "/" menu, 260px wide under the caret: Basic blocks, Lists, DevBrain (Task, Link to
- * note, Link to task, Mention event) and Others, each with its Markdown shortcut. Typing after
+ * The editor's "/" menu, 260px wide under the caret: Basic blocks (with Callout), Lists, DevBrain (Task, Link to
+ * note, Link to task, Mention event) and Others (Divider, Table, Collapsible section), each with its Markdown shortcut. Typing after
  * the "/" narrows it to the matching items; the first match is highlighted.
  */
 export function SlashMenu({ query = '', groups = SLASH_GROUPS, ...props }: SlashMenuProps) {

@@ -26,7 +26,7 @@ The rule is simple: **every string from core is text unless this page says other
 
 A Google description is HTML that core converts to Markdown with turndown, which drops `script`, `style`, `iframe` and similar elements. That conversion is for readability, not safety: turndown passes text through as it is, so a description whose text reads `<img src=x onerror=…>` becomes Markdown containing that HTML. Linear descriptions are Markdown as Linear stores them. So the Markdown renderer must:
 
-- **Not render raw HTML.** Show it as text, or drop it.
+- **Not render raw HTML.** Show it as text, or drop it. The note format's few supported tags (`<u>`, `<kbd>`, `<sub>`, `<sup>`, `<br>`, `<details>`/`<summary>`, [editor.md](../editor.md#the-note-format)) are read into the editor's own elements, which take no attributes or markup from the text; that is not rendering HTML, and a tag joins that list only the same way.
 - **Filter link targets through `safeExternalUrl`.** A link whose target is refused renders as its text only. A link that passes opens through `Workspace.openUrl` on click; it never navigates the DevBrain window.
 - **Not load remote images.** Show an image as a link (its alt text, or the URL) that opens through `openUrl`. Loading one would tell its sender when the user read the event, and from where.
 - **Not autolink other schemes.** Bare `javascript:`, `file:` and `data:` text stays text.

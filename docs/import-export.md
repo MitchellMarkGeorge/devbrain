@@ -191,7 +191,7 @@ that never closes, another extension) fails with `ImportFileError` (code `import
 
 ### Markdown
 
-One note per file, its body the note's markdown. Front matter is optional:
+One note per file, its body the note's markdown, in the [note format](editor.md#the-note-format). Front matter is optional:
 
 ```markdown
 ---

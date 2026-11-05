@@ -7,11 +7,17 @@ import styles from './EditorContent.module.css';
  * content element in it (or pass `editorContentClassName` to the library). It styles the HTML the
  * common editors emit:
  *
- * - `p`, `h1`–`h3`, `ul`, `ol`, `hr`, `a`, `strong`, `em`, `u`, `s`, inline `code`, `mark`
+ * - `p`, `h1`–`h6`, `ul`, `ol`, `hr`, `a`, `strong`, `em`, `u`, `s`, `sub`, `sup`, inline `code`,
+ *   `mark` (a `<kbd>` takes the `Kbd` component's class)
  * - to-dos: `ul[data-type='taskList'] > li[data-checked]` with a `label > input[type=checkbox]`
  *   then a `div` (Tiptap's markup), checked ones struck through in `muted-foreground`
  * - code blocks: `pre[data-language]` (the language shows as a label) around `code`
  * - quotes: `blockquote`, a 2px bar on the left
+ * - tables: `table` with `th`/`td`, row lines in `border`; dragged cells (`.selectedCell`) tinted
+ * - collapsible sections (Tiptap's details markup): `[data-type='details']` with its toggle
+ *   button, `summary` and `[data-type='detailsContent']`, open on `.is-open`
+ * - unsupported HTML shown as its source: `[data-raw-html]`, in mono `muted-foreground`
+ * - a selected block (`.ProseMirror-selectednode`) and the caret between blocks (gap cursor)
  * - the selection: `::selection`, or a `span[data-selection]` for pictures
  * - placeholders: an empty block with `data-placeholder` shows it ("Press / for commands…"),
  *   on `.is-empty` (Tiptap) or `:empty`

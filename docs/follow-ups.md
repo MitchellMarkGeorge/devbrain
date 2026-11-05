@@ -216,6 +216,24 @@ _Found in feature 16b, for the calendar UI._
 
 The event model stores what FullCalendar needs; the renderer still has to map each `Event` from `EventService.listForCalendar` to FullCalendar's event input. [The adapter spec](calendar/fullcalendar-adapter.md) covers the mapping. In short: one-off events map directly; a series' `rrule` is a string of `DTSTART`, its `recurrenceRule` and its `exdates` as `EXDATE` lines (FullCalendar's `exdate` property only works with an object `rrule`); occurrence rows are events of their own, grouped with their series. It also lists what to confirm against FullCalendar, chiefly `TZID` support.
 
+## Editor
+
+### Entity pills and the "@" menu show default glyphs and stored titles
+
+_Found in the rich text editor (PR #101)._
+
+The editor knows an entity only by its type, id and title, so neither place that draws one shows its real state:
+
+- **The "@" menu.** `search.search` returns a `SearchResult` with `entityType`, `entityId` and a highlighted `title` (`src/main/core/search/types.ts`), and nothing else. `toMentionItem` in `src/renderer/editor/suggestion/entity-menu.tsx` fills in defaults: every task shows the "not started" circle whatever its status, and every event a green bar instead of its colour.
+- **The pills in a note.** `EntityLinkPill` (`src/renderer/editor/EntityPillView.tsx`) shows the current title, status and colour only through the host's `resolveEntity` (`EditorHost` in `src/renderer/editor/types.ts`), and nothing in the app provides one yet: `useWorkspaceEditorHost` gives only search and `openUrl`. Until a page does, every pill shows the label stored in the markdown (so a renamed task keeps its old title), a "not started" circle for a task, an uncoloured folder for a project and a green bar for an event, and a deleted entity never gets the "missing" style, which needs a resolver to tell.
+
+The fixes are separate:
+
+1. **Pills: a resolver hook** beside `useWorkspaceEditorHost`, returning `resolveEntity` from React Query: one cached query per pill through the existing `tasks.get`, `projects.get`, `notes.get` and `events.get`. The query invalidator already refetches them when core reports a change, so a renamed or completed task updates its pills. `resolveEntity` is synchronous, so it returns what the cache holds and the pill re-renders when the query settles; a pill would have to subscribe (a hook inside the node view, or a context the hook feeds) for that re-render to happen. A batch route (`entities.summaries(ids)`) can come later if notes with many pills make the per-pill queries noticeable.
+2. **The "@" menu: status and colour in search results.** The IPC rules keep routes from reshaping core's data, so `SearchService.search` itself would add a task's `status` and a project's or event's `color` (an event's own colour, else its calendar's, as `Event.color` documents), looked up for the matched ids after the FTS query, with a test in `src/main/core/tests/search/`. `toMentionItem` then passes them through.
+
+Colours from core are untrusted (docs/security/untrusted-content.md): parse them with `hexColorSchema` before they reach a style, falling back to the default when they fail.
+
 ## Workspaces
 
 ### Workspaces used in place, and bringing one back

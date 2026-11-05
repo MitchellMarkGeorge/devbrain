@@ -130,7 +130,7 @@ Two kinds of page, one rule each:
 
 ## Type
 
-- Inter for everything, Geist Mono for code.
+- Inter for everything, Geist Mono for code, bundled with the app from Fontsource (`src/renderer/styles/fonts.css`, imported by the renderer and Storybook): 400, 500 and 600 with their italics, so nothing is fetched from the network.
 - `button`, `label` and `menu-item` 14px; `row` 14px regular; `meta`, `badge` and `menu-label` 12px; `dialog-title` and `card-title` 16px medium; `section-heading` 14px medium; `document-title` 24px; `page-title` 30px.
 - Weights: 400 running text and rows, 500 controls, labels and small titles, 600 page and document titles.
 
