@@ -1,6 +1,6 @@
 /*
  * The date pickers' panel (DatePicker, DateRangePicker), inside a `PopoverContent size="auto"`.
- * See docs/design-system/components/DatePicker.md
+ * See docs/design-system/components/DatePicker.md and DateRangePicker.md
  */
 .panel {
   display: flex;

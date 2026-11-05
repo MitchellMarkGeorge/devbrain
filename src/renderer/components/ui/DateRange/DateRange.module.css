@@ -1,4 +1,4 @@
-/* The dates property. See "DateRange" in docs/design-system/components/PropertyRow.md */
+/* The dates property. See docs/design-system/components/DateRange.md */
 .range {
   display: inline-flex;
   flex-wrap: wrap;
