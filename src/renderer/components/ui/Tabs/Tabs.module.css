@@ -79,6 +79,10 @@
   background: var(--segment-track);
 }
 .segmented .tab {
+  /*
+   * From shadcn's Tabs trigger (h-[calc(100%-1px)]): 25px in the 26px inside the track. shadcn doesn't
+   * say why; centred, the spare pixel splits into half a pixel above and below.
+   */
   height: calc(100% - 1px);
   padding: 0 var(--space-1-5);
   border-radius: var(--radius-md);

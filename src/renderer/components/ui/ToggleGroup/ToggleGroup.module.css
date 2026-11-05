@@ -27,6 +27,10 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-1-5);
+  /*
+   * From shadcn's Tabs trigger (h-[calc(100%-1px)]): 25px in the 26px inside the track. shadcn doesn't
+   * say why; centred, the spare pixel splits into half a pixel above and below.
+   */
   height: calc(100% - 1px);
   padding: 0 var(--space-1-5);
   border: 1px solid transparent;
