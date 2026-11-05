@@ -1,10 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import {
-  DetailSkeleton,
-  NoteCardSkeleton,
-  ProjectCardSkeleton,
-  ScheduleCardSkeleton,
-} from './CardSkeletons';
+import { DetailSkeleton, NoteCardSkeleton } from './CardSkeletons';
 
 const meta = {
   title: 'UI/Card skeletons',
@@ -18,20 +13,6 @@ export const NoteCard: Story = {
   render: () => (
     <div style={{ width: 368 }}>
       <NoteCardSkeleton />
-    </div>
-  ),
-};
-export const ProjectCard: Story = {
-  render: () => (
-    <div style={{ width: 365 }}>
-      <ProjectCardSkeleton />
-    </div>
-  ),
-};
-export const ScheduleCard: Story = {
-  render: () => (
-    <div style={{ width: 271 }}>
-      <ScheduleCardSkeleton />
     </div>
   ),
 };

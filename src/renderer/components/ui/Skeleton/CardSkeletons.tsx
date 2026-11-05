@@ -25,44 +25,6 @@ export const NoteCardSkeleton = forwardRef<HTMLDivElement, SkeletonFrameProps>(
   },
 );
 
-/** A ghost `ProjectCard` (first-run Home): folder and name, progress line and bar, status pill. */
-export const ProjectCardSkeleton = forwardRef<HTMLDivElement, SkeletonFrameProps>(
-  function ProjectCardSkeleton({ className, ...props }, ref) {
-    return (
-      <div ref={ref} aria-hidden className={cn(styles.card, styles.project, className)} {...props}>
-        <div className={styles.line}>
-          <Skeleton shape="icon" width={16} height={16} />
-          <Skeleton width={120} height={14} />
-          <Skeleton width={48} height={12} className={styles.end} />
-        </div>
-        <div className={styles.lines}>
-          <div className={styles.line}>
-            <Skeleton width={28} height={10} />
-            <Skeleton width={96} height={10} className={styles.end} />
-          </div>
-          <span className={styles.track} />
-        </div>
-        <Skeleton shape="circle" width={84} height={22} />
-      </div>
-    );
-  },
-);
-
-/** A ghost `ScheduleCard` (first-run Home): the bar, the title and the time. */
-export const ScheduleCardSkeleton = forwardRef<HTMLDivElement, SkeletonFrameProps>(
-  function ScheduleCardSkeleton({ className, ...props }, ref) {
-    return (
-      <div ref={ref} aria-hidden className={cn(styles.card, styles.schedule, className)} {...props}>
-        <Skeleton width={3} height={36} className={styles.bar} />
-        <div className={styles.lines}>
-          <Skeleton width={128} height={12} />
-          <Skeleton width={72} height={10} />
-        </div>
-      </div>
-    );
-  },
-);
-
 /**
  * A loading detail page (task, project, note) under its header: the title, three description
  * lines, a subtasks heading and four rows, in the 720px column.

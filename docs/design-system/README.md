@@ -83,16 +83,47 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - **Toolbar values.** Toolbar buttons show their current choice after the label ("Filter Assigned to me", "Sort Due date"), still Nova's quiet button. The main action stays the quiet `default` "New Task", not `primary`. In compact windows the values hide (the label stays, an active filter shows as the pressed state, the value moves to the tooltip).
 - **Pills stack when a row runs out of room.** On each side of the title the pills overlap like a deck: the last shows in full, the ones behind show their edge and icon, and the row keeps its 48px. Pointing at a stack (or focusing it) spreads it out over the end of the title until the pointer leaves. Priority, the date and the status icon never give way; the title shortens only after the pills have stacked.
 
+## Home
+
+Home answers "what matters right now". It is one centred column, `home-max-width` (800px) wide, with no date line and no right-hand column:
+
+- **The logomark,** then the greeting in the page title ("Good morning, Mitchell"; "Welcome, Mitchell" in a new workspace).
+- **The summary,** one sentence in 14px `muted-foreground`: counts and names in `foreground-strong` medium ("**6 tasks**", "**Sprint Planning**"), overdue in `date-overdue` ("2 are overdue"), and good news in `health-on-track` ("Nothing's due today", "Your day is clear"). It can mention what didn't make the sections.
+- **The `CaptureBox`,** 28px below, with its one-line tip under it. It holds the slot an AI prompt will take later, at the same footprint.
+- **Up to two sections** (`HomeSection`), 28px below the tip and 32px apart.
+- **The footer,** 32px below, centred in 12px `subtle-foreground`: "Press ⌘K to search", and "· Google Calendar paused · Reconnect" (an xs ghost button) when a calendar needs signing in again.
+
+The column sits centred down the page while it fits. In compact windows (the sidebar as the rail) the logomark hides and the page scrolls from the top.
+
+**Sections.** At most two, each with at most three rows; the rest goes into an "N more tasks today" line. Each section has a menu-label header and, optionally, a link at the right ("All 6 tasks →", "Calendar →", "All notes →", "All projects →"). They are ranked, most urgent first:
+
+1. A meeting starting within 30 minutes, or in progress.
+2. Tasks overdue or due today.
+3. Notes or projects edited in the last hour.
+4. Later meetings today, or tomorrow's first.
+5. Notes or projects from the last few days.
+
+A section with nothing to show is skipped, and whatever doesn't make the top two can still be mentioned in the summary. "Get started" fills an empty slot in a new or partly set-up workspace.
+
+- **Meetings:** `EventRow`s: the colour bar, the title and when, at the right ("In 12 min" in `date-today`, "Now", "10:30", "Tue 9:30"). An xs Join button shows from 5 minutes before the start until the end. The next or current meeting's row is filled with `card`; finished meetings drop off; tomorrow's first meeting is dimmed.
+- **Tasks:** `TaskRow`s, unchanged, with all their pills.
+- **Recent notes:** as the first section, three small `NoteCard`s in a row (`size="sm"`: icon and edit time, a one-line title and a one-line preview); as the second, `NoteRow`s (icon, title, what the note belongs to, edit time).
+- **Recent projects:** `ProjectRow compact`: the folder in the project's colour, the name, a small progress bar, "3/12", then the due date or status.
+- **Get started:** `SetupRow`s (Connect Google Calendar, Connect Linear, Start a project), each saying what it adds to Home. A row disappears once its step is done; the section has no link.
+
+Home's rows keep the lists' `row-height` (48px) and their 36px leading strip, so they line up with the rest of the app (the Figma file draws them 36–44px tall).
+
 ## Window sizes
 
 The window is never smaller than `window-min-width` × `window-min-height` (960 × 640). Three ranges:
 
-- **Wide (`breakpoint-wide`, 1280px and up):** everything as designed. Sheets dock beside the page; Home and the calendar show their right columns.
-- **Medium (1080–1279px):** Home's right column and the calendar's right panel hide. The sidebar rests open and sheets still dock.
+- **Wide (`breakpoint-wide`, 1280px and up):** everything as designed. Sheets dock beside the page; the calendar shows its right panel.
+- **Medium (1080–1279px):** the calendar's right panel hides. The sidebar rests open and sheets still dock.
 - **Compact (960–1079px):**
   - The sidebar rests as the 56px icon rail (`sidebar-rail-width`); expanding it opens the full sidebar as a drawer over the page, with the `backdrop` scrim behind it, and picking a page, clicking outside or Esc closes it. A sidebar the user collapsed stays collapsed at any width.
   - Sheets float over the page instead of docking.
-  - Toolbar values hide, and card grids (Notes cards, Home's projects and notes) drop to two columns, with "All projects" / "All notes" for the rest.
+  - Toolbar values hide, and card grids (the Notes and Projects card views) drop to two columns.
+  - Home's logomark hides, and its column scrolls from the top instead of sitting centred down the page.
 - **At every size:** the week view keeps all seven days (hiding days could hide events); the day columns narrow instead. Long text ends in "…" at its own width: pill labels before titles, titles before dates, and breadcrumbs keep the first and last items. Sheets and dialogs scroll inside themselves at the minimum height, and the selection bar and toasts sit on the window's bottom edge. Document pages cap their content and centre it in the page (see Page widths); workspace pages use the full width.
 
 ## Window frame
@@ -109,8 +140,8 @@ window controls the system draws. Main sets the frame up per platform
   theme's `background` and `foreground`) over the top right, so maximise keeps its snap layouts. A
   menu button takes the traffic lights' place and pops up the app menu, as there is no menu bar.
   The header's actions stop 16px short of the buttons. Beside the full sidebar the header gets a
-  row of its own across the window, and a docked sheet or Home's right column starts under it, so
-  a sheet's own close never sits beside the window's; floating sheets start under the strip too.
+  row of its own across the window, and a docked sheet starts under it, so a sheet's own close
+  never sits beside the window's; floating sheets start under the strip too.
 - **Linux:** the system frame, with its title bar and the menu bar, sits above the page. The strip
   has no start (no traffic lights, no menu button); a sheet runs the full height, as on macOS.
 
@@ -121,8 +152,8 @@ name them for the platform: "Ctrl+K", "Ctrl+Shift+X" on Windows and Linux (`form
 
 Two kinds of page, one rule each:
 
-- **Document pages centre a capped column**, like Notion: a note and a task at `content-max-width` (720px), Settings and Integrations too. The header (breadcrumb, star, "…" menu) still spans the page; on a wide window the margins grow and the column keeps its width. Menus anchored to the content (the slash menu, pickers under the property pills) move with it.
-- **Workspace pages use the full width**: lists, the board, the calendar, Home, and a project's page (its 1056px column of task groups and tabs nearly fills the window already).
+- **Document pages centre a capped column**, like Notion: a note and a task at `content-max-width` (720px), Settings and Integrations too. Home centres its own column at `home-max-width` (800px), and down the page as well while it fits (see Home). The header (breadcrumb, star, "…" menu) still spans the page; on a wide window the margins grow and the column keeps its width. Menus anchored to the content (the slash menu, pickers under the property pills) move with it.
+- **Workspace pages use the full width**: lists, the board, the calendar, and a project's page (its 1056px column of task groups and tabs nearly fills the window already).
 
 ## How this system is built
 
@@ -134,7 +165,7 @@ Two kinds of page, one rule each:
 
 - Write in the user's terms: tasks, projects, notes, events, workspaces.
 - Buttons and menu items are verbs. Buttons use title case ("New Task", "Show in Finder"); menu items, headings and labels use sentence case ("Turn into", "Due date").
-- Address the user as "you": "Good morning, Mitchell." / "You have **12 tasks** and **4 meetings** today."
+- Address the user as "you": "Good morning, Mitchell" / "**Sprint Planning** starts in 12 minutes. You have **6 tasks** today, and 2 are overdue."
 - Dates are short: "Jul 1", "Today 10:30 AM", "In 5 minutes", "2h ago".
 - A destructive confirmation says what happens to linked items and how to undo it.
 - Empty values are invitations: "Add description…", "+ Add start date". No emoji.
@@ -163,7 +194,7 @@ Two kinds of page, one rule each:
 - Heights: `control-xs` (24px) pills and xs buttons, `control-sm` (28px) sm buttons and menu items, `control-md` (32px) buttons, inputs, segmented controls and sidebar items, `control-lg` (36px) lg buttons, `row-height` (48px) and `group-gap` (32px) for list density, `group-height` (36px).
 - Corners: `radius-md` (8px) inside controls, `radius-lg` (10px) controls and menus, `radius-xl` (14px) surfaces, `radius-full` pills.
 - Shadows only on floating layers: `shadow-md` for menus and tooltips, `shadow-2xl` for dialogs, sheets and toasts. The exceptions are `shadow-segment`, under the current segment of a segmented control, and `shadow-pinned`, under the sidebar's pinned header while content is scrolled beneath it.
-- Layout: a `sidebar-width` (256px) sidebar, or the `sidebar-rail-width` (56px) rail in compact windows; lists run edge to edge; details open in a `sheet-width` (380px) panel docked on the right, and the page narrows beside it (an overlay only in narrow windows).
+- Layout: Home's `home-max-width` (800px) column; a `sidebar-width` (256px) sidebar, or the `sidebar-rail-width` (56px) rail in compact windows; lists run edge to edge; details open in a `sheet-width` (380px) panel docked on the right, and the page narrows beside it (an overlay only in narrow windows).
 
 ## Components
 

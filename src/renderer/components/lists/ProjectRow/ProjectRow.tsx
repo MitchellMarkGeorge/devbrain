@@ -21,6 +21,9 @@ export interface ProjectRowProject {
   status?: ProjectStatus;
   /** tasks done, 0–100 */
   progress?: number;
+  /** tasks done and in all, for `compact`'s "3/12" (and its bar, when `progress` is not given) */
+  done?: number;
+  total?: number;
   /** "Due Jul 1" */
   due?: string;
 }
@@ -30,17 +33,28 @@ export interface ProjectRowProps extends Omit<
   'icon' | 'title' | 'excerpt' | 'meta' | 'metaWidth' | 'children'
 > {
   project: ProjectRowProject;
+  /**
+   * Home's Recent projects: a 96px bar and "3/12" instead of the status pill and percent, then
+   * the due date, or the status when there is none
+   */
+  compact?: boolean;
 }
 
 /**
  * A project in the Projects list: its folder in the project's colour, the name, a status pill, a
- * 120px progress bar with the percent, and the due date. A strokeless 48px `ListRow`.
+ * 120px progress bar with the percent, and the due date. A strokeless 48px `ListRow`. `compact`
+ * (Home's Recent projects) draws a 96px bar and "3/12", then the due date or the status.
  */
 export const ProjectRow = forwardRef<HTMLDivElement, ProjectRowProps>(function ProjectRow(
-  { project, ...props },
+  { project, compact, ...props },
   ref,
 ) {
   const color = resolveColor(project.color);
+  const { done, total } = project;
+  const counted = done != null && total != null;
+  const progress =
+    project.progress ?? (done != null && total ? Math.round((done / total) * 100) : undefined);
+  const statusLabel = project.status ? PROJECT_STATUS_LABELS[project.status] : undefined;
   return (
     <ListRow
       ref={ref}
@@ -54,30 +68,47 @@ export const ProjectRow = forwardRef<HTMLDivElement, ProjectRowProps>(function P
         />
       }
       title={project.name}
-      meta={project.due}
+      meta={compact ? (project.due ?? statusLabel) : project.due}
       metaWidth={76}
       {...props}
     >
-      <span className={styles.status}>
-        {project.status && (
-          <Badge
-            variant="outline"
-            muted
-            icon={<ProjectStatusIcon status={project.status} size={12} />}
-          >
-            {PROJECT_STATUS_LABELS[project.status]}
-          </Badge>
-        )}
-      </span>
-      {project.progress != null && (
+      {compact ? (
         <span className={styles.progress}>
           <Progress
-            value={project.progress}
-            aria-label={`${project.name}: ${project.progress}% done`}
-            className={styles.bar}
+            value={progress ?? 0}
+            aria-label={`${project.name}: ${done ?? 0} of ${total ?? 0} tasks done`}
+            className={styles.barCompact}
           />
-          <span className={styles.percent}>{project.progress}%</span>
+          {counted && (
+            <span className={styles.count}>
+              {done}/{total}
+            </span>
+          )}
         </span>
+      ) : (
+        <>
+          <span className={styles.status}>
+            {project.status && (
+              <Badge
+                variant="outline"
+                muted
+                icon={<ProjectStatusIcon status={project.status} size={12} />}
+              >
+                {PROJECT_STATUS_LABELS[project.status]}
+              </Badge>
+            )}
+          </span>
+          {project.progress != null && (
+            <span className={styles.progress}>
+              <Progress
+                value={project.progress}
+                aria-label={`${project.name}: ${project.progress}% done`}
+                className={styles.bar}
+              />
+              <span className={styles.percent}>{project.progress}%</span>
+            </span>
+          )}
+        </>
       )}
     </ListRow>
   );

@@ -1,4 +1,4 @@
-/* A calendar event in a list (Home, Inbox). See docs/design-system/components/EventRow.md */
+/* A calendar event in a list (Home's Meetings, Inbox). See docs/design-system/components/EventRow.md */
 .row {
   display: flex;
   align-items: center;
@@ -15,6 +15,17 @@
 }
 .row:hover {
   background: var(--row-selected);
+}
+/* Home: the next or current meeting */
+.row[data-current] {
+  background: var(--card);
+}
+/* Home: tomorrow's first meeting */
+.row[data-muted] .title {
+  color: var(--muted-foreground);
+}
+.row[data-muted] .bar {
+  opacity: 0.5;
 }
 .row:focus-visible {
   border-color: var(--ring);

@@ -69,10 +69,10 @@ export const OutlineWithCounts: Story = {
 export const Composed: Story = {
   render: () => (
     <Stack gap="4">
-      <ToggleGroup aria-label="Home filter" defaultValue="today">
-        <ToggleGroupItem value="today">Today</ToggleGroupItem>
-        <ToggleGroupItem value="upcoming">Upcoming</ToggleGroupItem>
-        <ToggleGroupItem value="overdue">Overdue</ToggleGroupItem>
+      <ToggleGroup aria-label="Calendar range" defaultValue="week">
+        <ToggleGroupItem value="month">Month</ToggleGroupItem>
+        <ToggleGroupItem value="week">Week</ToggleGroupItem>
+        <ToggleGroupItem value="day">Day</ToggleGroupItem>
       </ToggleGroup>
       <ToggleGroup aria-label="Settings section" variant="outline" defaultValue="general">
         <ToggleGroupItem value="general">General</ToggleGroupItem>

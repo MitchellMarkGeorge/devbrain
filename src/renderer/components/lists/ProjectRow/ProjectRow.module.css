@@ -33,3 +33,14 @@
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+/* compact (Home's Recent projects): a 96px bar and "3/12" */
+.barCompact {
+  width: 96px;
+}
+.count {
+  width: 36px;
+  color: var(--subtle-foreground);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+  font-variant-numeric: tabular-nums;
+}

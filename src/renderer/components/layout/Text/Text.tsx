@@ -16,7 +16,8 @@ export const textVariants = cva(styles.text, {
     },
     /**
      * `default` body text, `strong` titles and row names, `muted` labels and descriptions,
-     * `subtle` metadata a reader can skip
+     * `subtle` metadata a reader can skip; `today` and `overdue` the date colours, `onTrack`
+     * good news ("Nothing's due today")
      */
     tone: {
       inherit: styles.toneInherit,
@@ -27,6 +28,7 @@ export const textVariants = cva(styles.text, {
       destructive: styles.toneDestructive,
       today: styles.toneToday,
       overdue: styles.toneOverdue,
+      onTrack: styles.toneOnTrack,
     },
     align: { start: styles.alignStart, center: styles.alignCenter, end: styles.alignEnd },
     /** one line ending in "…" */

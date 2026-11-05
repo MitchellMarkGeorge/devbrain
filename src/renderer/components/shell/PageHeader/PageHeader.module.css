@@ -72,8 +72,20 @@
 .grid {
   padding: 0 var(--space-6) var(--space-6);
 }
+/* Home: the column centred down the page while it fits (auto margins never cut its top) */
 .home {
-  padding: 40px 40px var(--space-12);
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: var(--space-12) var(--space-6);
+}
+.home > .column {
+  max-width: var(--home-max-width);
+  margin: auto;
+}
+/* with the rail, Home scrolls from the top */
+.home[data-rail] > .column {
+  margin-top: 0;
 }
 .document {
   padding: var(--space-12) var(--space-6);

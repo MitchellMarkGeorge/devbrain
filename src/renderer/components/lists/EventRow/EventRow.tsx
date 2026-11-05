@@ -8,15 +8,15 @@ import styles from './EventRow.module.css';
 
 export interface EventRowEvent {
   title: string;
-  /** "10:00 AM – 10:30 AM" */
-  time: string;
+  /** "10:00 AM – 10:30 AM", after the title; Home leaves it out */
+  time?: string;
   /** how it repeats: "Weekly" */
   repeats?: string;
-  /** it has a meeting link: shows "Join" */
+  /** it has a meeting link: shows "Join" (Home: only from 5 minutes before the start to the end) */
   meeting?: boolean;
-  /** the time until it starts: "In 12 min", "In 3h" */
+  /** when, at the right: "In 12 min", "Now", "10:30", "Tue 9:30" */
   relative: string;
-  /** `overdue` under an hour (red), `today` later today */
+  /** colours `relative`: `today` (`date-today`) or `overdue` (`date-overdue`) */
   tone?: 'today' | 'overdue';
   /** the calendar's colour: a swatch name or a CSS colour */
   color?: Swatch | string;
@@ -28,14 +28,19 @@ export interface EventRowProps extends Omit<ComponentProps<'div'>, 'children'> {
   onJoin?: () => void;
   /** opens the event (a click on the row, or Enter) */
   onOpen?: () => void;
+  /** the next or current meeting: the row is filled with `card` (Home) */
+  current?: boolean;
+  /** dims the row: tomorrow's first meeting on Home */
+  muted?: boolean;
 }
 
 /**
- * A calendar event in a list (Home, Inbox), on the same strokeless 48px row as `TaskRow`: the
- * calendar's colour bar, the title, time and repeat rule, then "Join" and the time until it starts.
+ * A calendar event in a list (Home's Meetings, Inbox), on the same strokeless 48px row as
+ * `TaskRow`: the calendar's colour bar, the title, time and repeat rule, then "Join" and when it
+ * starts. On Home the next or current meeting is `current`, and tomorrow's first is `muted`.
  */
 export const EventRow = forwardRef<HTMLDivElement, EventRowProps>(function EventRow(
-  { event, onJoin, onOpen, className, style, onClick, onKeyDown, ...props },
+  { event, onJoin, onOpen, current, muted, className, style, onClick, onKeyDown, ...props },
   ref,
 ) {
   return (
@@ -43,6 +48,8 @@ export const EventRow = forwardRef<HTMLDivElement, EventRowProps>(function Event
       ref={ref}
       role="row"
       tabIndex={onOpen ? 0 : undefined}
+      data-current={current ? '' : undefined}
+      data-muted={muted ? '' : undefined}
       className={cn(styles.row, className)}
       style={style}
       onClick={(e: MouseEvent<HTMLDivElement>) => {
@@ -58,10 +65,11 @@ export const EventRow = forwardRef<HTMLDivElement, EventRowProps>(function Event
       <div className={styles.main}>
         <ColourBar color={event.color ?? 'green'} height={20} className={styles.bar} />
         <span className={styles.title}>{event.title}</span>
-        <span className={styles.time}>
-          {event.time}
-          {event.repeats && ` · ${event.repeats}`}
-        </span>
+        {(event.time || event.repeats) && (
+          <span className={styles.time}>
+            {[event.time, event.repeats].filter(Boolean).join(' · ')}
+          </span>
+        )}
       </div>
       <div className={styles.side}>
         {event.meeting && (

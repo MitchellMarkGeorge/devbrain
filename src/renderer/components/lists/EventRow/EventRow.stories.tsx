@@ -63,3 +63,41 @@ export const List: Story = {
     </div>
   ),
 };
+
+/**
+ * Home's Meetings: the time at the right, Join from 5 minutes before the start, the next meeting
+ * filled with `card`, and tomorrow's first meeting dimmed.
+ */
+export const Home: Story = {
+  render: () => (
+    <div style={{ width: 800 }}>
+      <EventRow
+        current
+        event={{
+          title: 'Sprint Planning',
+          meeting: true,
+          relative: 'In 12 min',
+          tone: 'today',
+          color: 'green',
+        }}
+      />
+      <EventRow event={{ title: 'Mitchell / Jesse 1:1', relative: '10:30', color: 'green' }} />
+      <EventRow event={{ title: 'Design Review', relative: '1:00', color: 'blue' }} />
+      <EventRow muted event={{ title: 'Daily Standup', relative: 'Tue 9:30', color: 'green' }} />
+    </div>
+  ),
+};
+
+/** A meeting in progress keeps Join until it ends. */
+export const Now: Story = {
+  args: {
+    current: true,
+    event: {
+      title: 'Sprint Planning',
+      meeting: true,
+      relative: 'Now',
+      tone: 'today',
+      color: 'green',
+    },
+  },
+};

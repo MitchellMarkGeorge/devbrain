@@ -21,7 +21,6 @@ export * from './IconButton';
 export * from './Input';
 export * from './Kbd';
 export * from './Logomark';
-export * from './NewBadge';
 export * from './Popover';
 export * from './Progress';
 export * from './ProgressRing';

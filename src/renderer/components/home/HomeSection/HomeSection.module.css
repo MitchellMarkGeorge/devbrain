@@ -1,0 +1,63 @@
+/* One of Home's sections. See docs/design-system/components/HomeSection.md */
+.section {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+/* 26px: the 16px label, then 10px to the first row */
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: 10px;
+}
+.title {
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.link {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--duration-fast);
+}
+.link:hover {
+  color: var(--foreground);
+}
+.link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+/*
+ * "3 more tasks today": 32px, lined up with the rows' titles (the 36px selection strip, the
+ * 24px glyph slot and the 10px gap after it).
+ */
+.more {
+  display: flex;
+  align-items: center;
+  height: var(--control-md);
+  margin: 0;
+  padding-left: calc(36px + 24px + 10px);
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}

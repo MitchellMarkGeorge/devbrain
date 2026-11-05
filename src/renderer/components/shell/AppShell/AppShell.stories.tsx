@@ -63,13 +63,6 @@ export const CompactDrawer: Story = {
   render: () => <Frame width={960} height={640} defaultDrawerOpen />,
 };
 
-/** Home's right column shows from 1280px; a docked sheet opens a 380px column. */
-export const AsideAndSheet: Story = {
-  render: () => (
-    <Frame width={1440} height={720} sheetOpen aside={<Text tone="muted">Right column</Text>} />
-  ),
-};
-
 /** Pins a story to a platform, whatever the toolbar says. */
 function On({ platform, children }: { platform: Platform; children: React.ReactNode }) {
   return (
@@ -99,13 +92,13 @@ export const WindowsCollapsed: Story = {
 };
 
 /**
- * Windows with a docked sheet: the header runs the full width, and the sheet and the right column
- * start under it, so nothing of theirs sits by the caption buttons.
+ * Windows with a docked sheet: the header runs the full width, and the sheet starts under it, so
+ * nothing of the sheet's sits by the caption buttons.
  */
 export const WindowsSheet: Story = {
   render: () => (
     <On platform="windows">
-      <Frame width={1440} height={720} sheetOpen aside={<Text tone="muted">Right column</Text>} />
+      <Frame width={1440} height={720} sheetOpen />
     </On>
   ),
 };

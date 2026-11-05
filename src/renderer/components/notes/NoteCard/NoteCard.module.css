@@ -54,3 +54,17 @@
   display: flex;
   margin-top: auto;
 }
+
+/* Home's small card: 86px, 12px in, 4px between one line of title and one of preview */
+.sizeSm {
+  height: 86px;
+  padding: var(--space-3);
+  gap: var(--space-1);
+}
+.sizeSm .preview {
+  display: block;
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

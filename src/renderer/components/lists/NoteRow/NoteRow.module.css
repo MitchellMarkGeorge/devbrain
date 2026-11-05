@@ -1,0 +1,11 @@
+/* A note in a list. See docs/design-system/components/NoteRow.md */
+/* what the note belongs to, on Home's Recent notes */
+.context {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--subtle-foreground);
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

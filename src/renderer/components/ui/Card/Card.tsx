@@ -6,7 +6,7 @@ import styles from './Card.module.css';
 
 export const cardVariants = cva(styles.card, {
   variants: {
-    /** `compact` (12px padding and gap) for Home's summary cards, ScheduleCard and NoteCard */
+    /** `compact` (12px padding and gap) for NoteCard */
     size: { default: undefined, compact: styles.compact },
   },
   defaultVariants: { size: 'default' },

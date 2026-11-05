@@ -56,7 +56,7 @@ export const WithFooter: Story = {
   ),
 };
 
-/** Compact cards on Home: a schedule card and a note card */
+/** Compact cards (12px padding): an event and a note */
 export const Compact: Story = {
   render: () => (
     <Grid columns="repeat(2, 260px)" gap="3">

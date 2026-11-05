@@ -9,26 +9,37 @@ import { Icon } from '../../ui/Icon';
 import styles from './NoteCard.module.css';
 
 export const noteCardVariants = cva(styles.card, {
-  variants: { withLink: { true: styles.withLink } },
+  variants: {
+    withLink: { true: styles.withLink },
+    /** `sm`: Home's small card, 86px, one line of title and one of preview */
+    size: { default: undefined, sm: styles.sizeSm },
+  },
+  defaultVariants: { size: 'default' },
 });
 
 export interface NoteCardProps extends Omit<useRender.ComponentProps<'div'>, 'title'> {
   title: string;
   /** when it was edited: "2h ago" */
   updated: string;
-  /** the note's first lines; three lines on Home, two with a `link` */
+  /** the note's first lines: three lines, two with a `link`, one at `sm` */
   preview: string;
-  /** the note's project or event pill: the Notes card view only, never on Home */
+  /** the note's project or event pill: the Notes card view only, never at `sm` */
   link?: ReactNode;
+  /**
+   * `default`: the Notes card view (144px, or 156px with a `link`). `sm`: Home's Recent notes
+   * when it is the first section, three in a row (86px, no pill)
+   */
+  size?: 'default' | 'sm';
 }
 
 /**
- * A note as a card: the file icon and edit time, the title and a `muted-foreground` preview; the time is `subtle-foreground`.
- * Every card in a row has the same height (144px, or 156px with a `link`), so lay them out in a
- * `Grid minColumnWidth="240px"`. Opens the note on click (`render={<a href=… />}` for a link).
+ * A note as a card: the file icon and edit time, the title and a `muted-foreground` preview; the
+ * time is `subtle-foreground`. Every card in a row has the same height (144px, or 156px with a
+ * `link`), so lay them out in a `Grid minColumnWidth="240px"`. `size="sm"` is Home's 86px card,
+ * one line each, three in a `HomeCards` row. Opens the note on click (`render={<a href=… />}`).
  */
 export const NoteCard = forwardRef<HTMLDivElement, NoteCardProps>(function NoteCard(
-  { title, updated, preview, link, render, ...props },
+  { title, updated, preview, link, size, render, ...props },
   ref,
 ) {
   return useRender({
@@ -39,7 +50,7 @@ export const NoteCard = forwardRef<HTMLDivElement, NoteCardProps>(function NoteC
       {
         className: cn(
           cardVariants({ size: 'compact' }),
-          noteCardVariants({ withLink: link != null }),
+          noteCardVariants({ withLink: size !== 'sm' && link != null, size }),
         ),
         tabIndex: 0,
         children: (
@@ -50,7 +61,7 @@ export const NoteCard = forwardRef<HTMLDivElement, NoteCardProps>(function NoteC
             </div>
             <div className={styles.title}>{title}</div>
             <div className={styles.preview}>{preview}</div>
-            {link != null && <div className={styles.link}>{link}</div>}
+            {link != null && size !== 'sm' && <div className={styles.link}>{link}</div>}
           </>
         ),
       },

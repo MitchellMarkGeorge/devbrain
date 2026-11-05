@@ -62,3 +62,23 @@ export const Statuses: Story = {
     </div>
   ),
 };
+
+/** Home's Recent projects: a 96px bar and "3/12", then the due date, or the status without one. */
+export const Compact: Story = {
+  render: () => (
+    <div style={{ width: 800 }}>
+      <ProjectRow
+        compact
+        project={{ name: 'Auth Overhaul', color: 'blue', done: 3, total: 12, due: 'Due Jul 1' }}
+      />
+      <ProjectRow
+        compact
+        project={{ name: 'API Gateway v2', color: 'amber', done: 4, total: 10, due: 'Due Jun 30' }}
+      />
+      <ProjectRow
+        compact
+        project={{ name: 'ML Platform', color: 'pink', done: 6, total: 10, status: 'on-hold' }}
+      />
+    </div>
+  ),
+};

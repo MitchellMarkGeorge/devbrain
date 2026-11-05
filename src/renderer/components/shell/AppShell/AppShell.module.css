@@ -2,9 +2,9 @@
 .shell {
   position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   grid-template-rows: minmax(0, 1fr);
-  grid-template-areas: 'sidebar main aside sheet';
+  grid-template-areas: 'sidebar main sheet';
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -15,33 +15,33 @@
 }
 /*
  * The rail sits under the window bar, which runs across the sidebar and the page. A docked sheet
- * and Home's right column run the full height beside it, as beside the full sidebar; on Windows
- * the bar runs across them too, and they start under it (below).
+ * runs the full height beside it, as beside the full sidebar; on Windows the bar runs across it
+ * too, and it starts under it (below).
  */
 .shell[data-rail] {
   grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas:
-    'bar bar aside sheet'
-    'sidebar main aside sheet';
+    'bar bar sheet'
+    'sidebar main sheet';
 }
 .shell[data-rail][data-platform='windows'] {
   grid-template-areas:
-    'bar bar bar bar'
-    'sidebar main aside sheet';
+    'bar bar bar'
+    'sidebar main sheet';
 }
 .windowBar {
   grid-area: bar;
 }
 /*
- * Windows, beside the full sidebar: the header gets a row across the page, the aside and the
- * sheet, as the caption buttons sit over its right end; they all start under it. At least 48px,
+ * Windows, beside the full sidebar: the header gets a row across the page and the sheet, as the
+ * caption buttons sit over its right end; both start under it. At least 48px,
  * so the strip is there to drag the window by even on a page without a header.
  */
 .shell[data-platform='windows']:not([data-rail]) {
   grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas:
-    'sidebar header header header'
-    'sidebar main aside sheet';
+    'sidebar header header'
+    'sidebar main sheet';
 }
 .header {
   grid-area: header;
@@ -77,23 +77,6 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-}
-
-/* Home's right column: 288px with a hairline, hidden below breakpoint-wide (1280px) */
-.aside {
-  grid-area: aside;
-  display: flex;
-  flex-direction: column;
-  width: 288px;
-  min-height: 0;
-  padding: 28px 20px 20px;
-  overflow-y: auto;
-  border-left: 1px solid var(--sidebar-border);
-}
-@container (max-width: 1279px) {
-  .aside {
-    display: none;
-  }
 }
 
 /* the docked sheet's column: empty and 0 wide until a sheet opens */
