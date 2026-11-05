@@ -4,7 +4,7 @@ The dropdown menu (shared by context menus, the value pickers and Select), drawn
 
 - **MenuItem** (Nova): 28px, 8px corners, 6px side padding, 6px gap, a 16px `muted-foreground` icon and a 14px `foreground` label. The icon may be a node (`StatusIcon`, `PriorityIcon`, a project's coloured folder), which keeps its own colour. Highlighted: `accent` / `accent-foreground`. Disabled: `subtle-foreground` text (not faded). `destructive` ("Move to trash", "Delete permanently"): `destructive` text and icon, last in the menu.
 - **Shortcut** on the right: 12px `subtle-foreground` with wide tracking (`↵`, `F`, `⌘D`, `⌘⌫`, `⇧2`); `muted-foreground` while the item is highlighted.
-- **Checked** (radio and checkbox items: sort by, group by, a filter's values, the current status): a 16px tick on the right, in place of the shortcut. No left inset.
+- **Checked** (radio and checkbox items: sort by, group by, a filter's values, the current status; and `Select`'s chosen option): a 16px tick on the right, in place of the shortcut. No left inset.
 - **Submenu** ("Status ›"): a chevron on the right, optionally after the current `value` in 12px `muted-foreground`.
 - **MenuLabel**: a group's 12px medium `muted-foreground` label, 24px ("Sort by", "Order", "Filter").
 - **MenuSeparator**: a 1px `border-strong` line with 4px above and below, inside the menu's padding (a `border` line would vanish on the popover).
