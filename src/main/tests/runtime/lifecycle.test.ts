@@ -1,7 +1,12 @@
 import { describe, it, expect, vi } from 'vitest';
 import { EventEmitter } from 'node:events';
 import type { DevBrain } from '@main/core';
-import { closeBeforeQuit, forwardSyncTriggers, triggerSync } from '../../runtime/lifecycle';
+import {
+  closeBeforeQuit,
+  forwardSyncTriggers,
+  holdSingleInstance,
+  triggerSync,
+} from '../../runtime/lifecycle';
 
 // Electron's app and powerMonitor, as plain emitters: the lifecycle only listens and quits.
 
@@ -115,5 +120,35 @@ describe('Lifecycle — quitting', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       'Closing DevBrain before quitting threw error=RangeError',
     );
+  });
+});
+
+describe('holdSingleInstance', () => {
+  function app(lockHeldElsewhere: boolean) {
+    const emitter = new EventEmitter();
+    return Object.assign(emitter, {
+      requestSingleInstanceLock: vi.fn(() => !lockHeldElsewhere),
+      quit: vi.fn(),
+    });
+  }
+
+  it('runs the first instance, which shows its window when another is launched', () => {
+    const first = app(false);
+    const showWindow = vi.fn();
+
+    expect(holdSingleInstance(first, showWindow)).toBe(true);
+    expect(first.quit).not.toHaveBeenCalled();
+
+    first.emit('second-instance');
+    expect(showWindow).toHaveBeenCalledOnce();
+  });
+
+  it('quits a later instance at once, without waiting on a launch', () => {
+    const second = app(true);
+    const showWindow = vi.fn();
+
+    expect(holdSingleInstance(second, showWindow)).toBe(false);
+    expect(second.quit).toHaveBeenCalledOnce();
+    expect(second.listenerCount('second-instance')).toBe(0);
   });
 });

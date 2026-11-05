@@ -20,7 +20,7 @@ import { createSafeStorageCipher } from './runtime/safe-storage-cipher';
 import { migrationsPath } from './runtime/migrations';
 import { openElectronSettingsStore } from './runtime/settings-store';
 import { loadDevBrain } from './runtime/start';
-import { closeBeforeQuit, forwardSyncTriggers } from './runtime/lifecycle';
+import { closeBeforeQuit, forwardSyncTriggers, holdSingleInstance } from './runtime/lifecycle';
 import { createElectronDesktop } from './runtime/desktop';
 import { createMenuActions, installAppMenu } from './runtime/menu';
 import { applyTheme, windowBackground } from './runtime/theme';
@@ -37,6 +37,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '../..');
 
 loadDevelopmentEnv();
+
+// One DevBrain at a time (runtime/lifecycle.ts): a later launch quits at once, and this one shows
+// its window instead
+const isOnlyInstance = holdSingleInstance(app, () => showMainWindow());
 
 // The repository's .env, in development only. A packaged app ships no .env: the OAuth client values
 // are inlined at build time (vite/main.config.ts), DEVBRAIN_PATH has a default, and every other
@@ -151,6 +155,8 @@ function attachIpc(devBrain: DevBrain | null) {
 let mainWindow: BrowserWindow | null = null;
 // set once the app starts quitting, when a close really closes
 let quitting = false;
+// set once startup has made the first window: a launch before that waits for it
+let started = false;
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -195,6 +201,19 @@ function createWindow() {
   } else {
     win.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
+}
+
+// Brings the window forward: restored if minimised, shown if hidden (macOS hides it on close), or
+// made again if it is gone. Before startup has made the first one, there is nothing to do: it is
+// about to show.
+function showMainWindow() {
+  if (mainWindow === null || mainWindow.isDestroyed()) {
+    if (started) createWindow();
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
 }
 
 // --- Theme ----------------------------------------------------------------
@@ -257,6 +276,8 @@ function attachMenu(devBrain: DevBrain | null) {
 // then create the window, whose first calls find the router. The renderer reopens the last
 // workspace itself (workspaces.openLast), so a slow open never holds the window back.
 app.whenReady().then(async () => {
+  // another instance runs: this one is quitting, and opens nothing
+  if (!isOnlyInstance) return;
   configureLogging();
 
   const devBrain = await loadCore();
@@ -275,11 +296,9 @@ app.whenReady().then(async () => {
   followThemeSetting(devBrain);
   followLaunchAtLoginSetting(devBrain);
   createWindow();
+  started = true;
   // the Dock icon on macOS: shows the hidden window, or makes one if it is gone
-  app.on('activate', () => {
-    if (mainWindow !== null && !mainWindow.isDestroyed()) mainWindow.show();
-    else createWindow();
-  });
+  app.on('activate', showMainWindow);
 });
 
 // The first before-quit is held while DevBrain closes (closeBeforeQuit), and the window stays up
