@@ -8,8 +8,8 @@ import {
   TrashRowMenu,
 } from './menus';
 import { TasksPage } from './TasksPage';
-import { PriorityMenuContent } from '../../ui/PriorityMenu';
-import { StatusMenuContent } from '../../ui/StatusMenu';
+import { PriorityMenuContent } from '../../entities/PriorityMenu';
+import { StatusMenuContent } from '../../entities/StatusMenu';
 
 const meta = {
   title: 'Screens/Menus/Row menus',

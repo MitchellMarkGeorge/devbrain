@@ -31,8 +31,8 @@ import {
   SidebarHeaderActions,
   SidebarItem,
   SidebarWorkspace,
-} from '../../ui/Sidebar';
-import { StatusIcon } from '../../ui/StatusIcon';
+} from '../../shell/Sidebar';
+import { StatusIcon } from '../../entities/StatusIcon';
 import { TooltipProvider } from '../../ui/Tooltip';
 
 const NAV = [

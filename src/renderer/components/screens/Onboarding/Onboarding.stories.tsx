@@ -4,10 +4,10 @@ import { Button } from '../../ui/Button';
 import { Field } from '../../ui/Field';
 import { Input } from '../../ui/Input';
 import { Logomark } from '../../ui/Logomark';
-import { OnboardingScreen } from '../../ui/OnboardingScreen';
+import { OnboardingScreen } from '../../onboarding/OnboardingScreen';
 import { SwatchPicker } from '../../ui/SwatchPicker';
-import { WorkspaceList, WorkspaceListItem } from '../../ui/WorkspaceListItem';
-import { WorkspaceTile } from '../../ui/WorkspaceTile';
+import { WorkspaceList, WorkspaceListItem } from '../../onboarding/WorkspaceListItem';
+import { WorkspaceTile } from '../../entities/WorkspaceTile';
 import { HomeScreen } from '../Home/HomeScreens';
 
 const meta = {

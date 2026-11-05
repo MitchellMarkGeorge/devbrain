@@ -9,25 +9,25 @@ import {
   HomeAgendaNotice,
   HomeAgendaRow,
   HomeAgendaSection,
-} from '../../ui/HomeAgenda';
+} from '../../home/HomeAgenda';
 import { Button } from '../../ui/Button';
 import { Calendar } from '../../ui/Calendar';
-import { CardGrid } from '../../ui/CardGrid';
+import { CardGrid } from '../../shell/CardGrid';
 import { ColourBar } from '../../ui/ColourBar';
-import { EntityPill } from '../../ui/EntityPill';
-import { HomeNotice } from '../../ui/HomeNotice';
+import { EntityPill } from '../../entities/EntityPill';
+import { HomeNotice } from '../../home/HomeNotice';
 import { Kbd } from '../../ui/Kbd';
 import { Logomark } from '../../ui/Logomark';
-import { NoteCard } from '../../ui/NoteCard';
-import { PageContent } from '../../ui/PageHeader';
-import { ProjectCard } from '../../ui/ProjectCard';
-import { ProviderTile } from '../../ui/ProviderTile';
-import { QuickStartCard, QuickStartTiles } from '../../ui/QuickStartCard';
-import { SectionHeading } from '../../ui/SectionHeading';
-import { StatusIcon } from '../../ui/StatusIcon';
-import { TaskRow } from '../../ui/TaskRow';
-import type { Task } from '../../ui/TaskRow/types';
-import { UpNextStrip } from '../../ui/UpNextStrip';
+import { NoteCard } from '../../notes/NoteCard';
+import { PageContent } from '../../shell/PageHeader';
+import { ProjectCard } from '../../projects/ProjectCard';
+import { ProviderTile } from '../../entities/ProviderTile';
+import { QuickStartCard, QuickStartTiles } from '../../home/QuickStartCard';
+import { SectionHeading } from '../../home/SectionHeading';
+import { StatusIcon } from '../../entities/StatusIcon';
+import { TaskRow } from '../../lists/TaskRow';
+import type { Task } from '../../lists/TaskRow/types';
+import { UpNextStrip } from '../../home/UpNextStrip';
 import { ScreenFrame, type ScreenFrameProps } from '../Shell/AppFrame';
 
 const TODAY = new Date(2026, 5, 22);

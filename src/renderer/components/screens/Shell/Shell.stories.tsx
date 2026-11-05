@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { PageContent } from '../../ui/PageHeader';
-import { TaskRow } from '../../ui/TaskRow';
+import { PageContent } from '../../shell/PageHeader';
+import { TaskRow } from '../../lists/TaskRow';
 import { ScreenFrame } from './AppFrame';
 import { FIGMA_TASKS, TasksHeader, TasksToolbar } from './fixtures';
 

@@ -23,7 +23,7 @@ import {
 } from './ContextMenu';
 
 const meta = {
-  title: 'Components/ContextMenu',
+  title: 'UI/ContextMenu',
   component: ContextMenu,
   decorators: [
     (Story) => (

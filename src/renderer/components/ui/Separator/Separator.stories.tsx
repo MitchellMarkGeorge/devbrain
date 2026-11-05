@@ -4,7 +4,7 @@ import { Text } from '../../layout/Text';
 import { Separator } from './Separator';
 
 const meta = {
-  title: 'Components/Separator',
+  title: 'UI/Separator',
   component: Separator,
   argTypes: { orientation: { control: 'inline-radio', options: ['horizontal', 'vertical'] } },
 } satisfies Meta<typeof Separator>;

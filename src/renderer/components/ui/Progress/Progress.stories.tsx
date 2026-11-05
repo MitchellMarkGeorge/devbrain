@@ -3,7 +3,7 @@ import { Stack } from '../../layout/Flex';
 import { Progress } from './Progress';
 
 const meta = {
-  title: 'Components/Progress',
+  title: 'UI/Progress',
   component: Progress,
   args: { value: 25 },
   argTypes: { value: { control: { type: 'range', min: 0, max: 100 } } },

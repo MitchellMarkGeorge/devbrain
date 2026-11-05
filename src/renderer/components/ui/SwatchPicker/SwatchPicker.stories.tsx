@@ -5,7 +5,7 @@ import { Text } from '../../layout/Text';
 import { SWATCHES, SwatchPicker, type Swatch } from './SwatchPicker';
 
 const meta = {
-  title: 'Components/SwatchPicker',
+  title: 'UI/SwatchPicker',
   component: SwatchPicker,
   args: { defaultValue: 'green' },
   argTypes: {

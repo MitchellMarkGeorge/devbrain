@@ -1,8 +1,8 @@
 /* The note editor page the Notes and Editor screen stories share. */
 import type { ReactNode } from 'react';
 import { FileText } from 'lucide-react';
-import { DocumentPage } from '../../ui/DocumentPage';
-import { EditorTitle } from '../../ui/EditorContent';
+import { DocumentPage } from '../../shell/DocumentPage';
+import { EditorTitle } from '../../editor/EditorContent';
 import { AppWindow, DetailTopBar } from '../TaskDetail/frame';
 
 export function NotePage({

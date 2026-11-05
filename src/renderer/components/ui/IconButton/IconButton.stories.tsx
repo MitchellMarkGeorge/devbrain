@@ -26,7 +26,7 @@ import { TooltipProvider } from '../Tooltip';
 import { IconButton } from './IconButton';
 
 const meta = {
-  title: 'Components/IconButton',
+  title: 'UI/IconButton',
   component: IconButton,
   args: { icon: Ellipsis, label: 'More actions' },
   argTypes: {

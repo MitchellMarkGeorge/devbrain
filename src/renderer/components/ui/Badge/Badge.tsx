@@ -5,7 +5,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
 import { ColourBar } from '../ColourBar';
 import { renderIcon, type IconSource } from '../Icon';
-import { resolveColor, type Swatch } from '../types';
+import { resolveColor, type Swatch } from '../../types';
 import styles from './Badge.module.css';
 
 export const badgeVariants = cva(styles.badge, {

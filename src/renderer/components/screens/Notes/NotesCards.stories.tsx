@@ -2,8 +2,8 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ArrowUpDown, LayoutGrid, List, ListFilter, Plus } from 'lucide-react';
 import { Breadcrumb } from '../../ui/Breadcrumb';
 import { Button } from '../../ui/Button';
-import { EntityPill } from '../../ui/EntityPill';
-import { NoteCard } from '../../ui/NoteCard';
+import { EntityPill } from '../../entities/EntityPill';
+import { NoteCard } from '../../notes/NoteCard';
 import { ToggleGroup } from '../../ui/ToggleGroup';
 import { AppFrame, PageHeader, Spacer } from '../Calendar/AppFrame';
 

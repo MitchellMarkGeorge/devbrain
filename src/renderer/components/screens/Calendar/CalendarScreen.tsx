@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, ListFilter, Plus } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { Calendar } from '../../ui/Calendar';
-import { CalendarAgenda, CalendarAgendaItem } from '../../ui/CalendarAgenda';
+import { CalendarAgenda, CalendarAgendaItem } from '../../calendar/CalendarAgenda';
 import { ToggleGroup } from '../../ui/ToggleGroup';
 import { AppFrame, PageHeader, Spacer } from './AppFrame';
 import { NOW } from './data';

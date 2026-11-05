@@ -3,7 +3,9 @@ import { Toast as BaseToast } from '@base-ui/react/toast';
 import { CircleAlert, TriangleAlert } from 'lucide-react';
 import { Button } from '../Button';
 import { Icon } from '../Icon';
-import { StatusIcon } from '../StatusIcon';
+// the one ui component that draws an entity: success is the completed status circle (Toast.md)
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { StatusIcon } from '../../entities/StatusIcon';
 import styles from './Toast.module.css';
 
 export type ToastTone = 'success' | 'warning' | 'error';

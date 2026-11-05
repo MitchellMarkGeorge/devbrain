@@ -12,16 +12,16 @@ import {
   CreateDialogFooter,
   CreateDialogProperties,
   CreateDialogTitleInput,
-} from '../../ui/CreateDialog';
+} from '../../detail/CreateDialog';
 import { Dialog, DialogClose } from '../../ui/Dialog';
-import { DraftTaskList, DraftTaskRow } from '../../ui/DraftTaskRow';
-import { EntityPill } from '../../ui/EntityPill';
+import { DraftTaskList, DraftTaskRow } from '../../lists/DraftTaskRow';
+import { EntityPill } from '../../entities/EntityPill';
 import { Icon } from '../../ui/Icon';
 import { Input } from '../../ui/Input';
-import { PriorityIcon } from '../../ui/PriorityIcon';
-import { StatusIcon } from '../../ui/StatusIcon';
+import { PriorityIcon } from '../../entities/PriorityIcon';
+import { StatusIcon } from '../../entities/StatusIcon';
 import { Switch } from '../../ui/Switch';
-import { TaskList } from '../../ui/TaskList';
+import { TaskList } from '../../lists/TaskList';
 import { Textarea } from '../../ui/Textarea';
 import { AppWindow, DetailTopBar } from '../TaskDetail/frame';
 

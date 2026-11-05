@@ -2,7 +2,7 @@
 import type { ReactNode } from 'react';
 import { ArrowUpDown, Group, Kanban, List, ListFilter, Plus } from 'lucide-react';
 import { Button } from '../../ui/Button';
-import { TaskList, type TaskListProps } from '../../ui/TaskList';
+import { TaskList, type TaskListProps } from '../../lists/TaskList';
 import { ToggleGroup, ToggleGroupItem } from '../../ui/ToggleGroup';
 import { LIST_TASKS } from '../Tasks/data';
 import { AppFrame } from '../Tasks/frame';

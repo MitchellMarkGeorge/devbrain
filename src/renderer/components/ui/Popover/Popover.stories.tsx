@@ -11,7 +11,7 @@ import {
 } from './Popover';
 
 const meta = {
-  title: 'Components/Popover',
+  title: 'UI/Popover',
   component: Popover,
   decorators: [
     (Story) => (

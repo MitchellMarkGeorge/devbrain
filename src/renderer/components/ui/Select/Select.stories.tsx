@@ -17,7 +17,7 @@ const weekStarts = [
 ];
 
 const meta = {
-  title: 'Components/Select',
+  title: 'UI/Select',
   component: Select,
   decorators: [
     (Story) => (

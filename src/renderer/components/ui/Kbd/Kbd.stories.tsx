@@ -4,7 +4,7 @@ import { Text } from '../../layout/Text';
 import { Kbd, KbdGroup } from './Kbd';
 
 const meta = {
-  title: 'Components/Kbd',
+  title: 'UI/Kbd',
   component: Kbd,
   args: { children: '⌘K' },
 } satisfies Meta<typeof Kbd>;

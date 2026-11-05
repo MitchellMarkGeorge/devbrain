@@ -8,7 +8,7 @@ import { Icon } from '../Icon';
 import { Sheet, SheetBody, SheetContent, SheetHeader, SheetItemTitle, SheetTrigger } from './Sheet';
 
 const meta = {
-  title: 'Components/Sheet',
+  title: 'UI/Sheet',
   component: Sheet,
   parameters: { layout: 'fullscreen' },
 } satisfies Meta<typeof Sheet>;

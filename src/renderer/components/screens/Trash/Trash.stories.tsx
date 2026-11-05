@@ -2,11 +2,11 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ArrowUpDown } from 'lucide-react';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
-import { EntityPill } from '../../ui/EntityPill';
-import { ProjectStatusIcon } from '../../ui/ProjectStatusIcon';
-import { SourcePill } from '../../ui/SourcePill';
+import { EntityPill } from '../../entities/EntityPill';
+import { ProjectStatusIcon } from '../../entities/ProjectStatusIcon';
+import { SourcePill } from '../../entities/SourcePill';
 import { ToggleGroup } from '../../ui/ToggleGroup';
-import { TrashRow } from '../../ui/TrashRow';
+import { TrashRow } from '../../lists/TrashRow';
 import { AppFrame } from '../Tasks/frame';
 
 const meta = {

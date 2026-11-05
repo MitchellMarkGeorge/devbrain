@@ -18,10 +18,10 @@ import {
 import { ColourBar } from '../../ui/ColourBar';
 import { Icon } from '../../ui/Icon';
 import { Kbd } from '../../ui/Kbd';
-import { SourcePill } from '../../ui/SourcePill';
-import { StatusIcon } from '../../ui/StatusIcon';
+import { SourcePill } from '../../entities/SourcePill';
+import { StatusIcon } from '../../entities/StatusIcon';
 import { ToggleGroup } from '../../ui/ToggleGroup';
-import type { TaskStatus } from '../../ui/types';
+import type { TaskStatus } from '../../types';
 import { TasksPage } from '../Menus/TasksPage';
 
 const meta = {

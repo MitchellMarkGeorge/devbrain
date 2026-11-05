@@ -7,7 +7,7 @@ import {
 } from './CardSkeletons';
 
 const meta = {
-  title: 'Feedback/Card skeletons',
+  title: 'UI/Card skeletons',
   component: NoteCardSkeleton,
 } satisfies Meta<typeof NoteCardSkeleton>;
 

@@ -5,7 +5,7 @@ import { Button } from '../Button';
 import { ButtonGroup } from './ButtonGroup';
 
 const meta = {
-  title: 'Components/ButtonGroup',
+  title: 'UI/ButtonGroup',
   component: ButtonGroup,
 } satisfies Meta<typeof ButtonGroup>;
 

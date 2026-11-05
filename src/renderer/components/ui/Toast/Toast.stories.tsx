@@ -5,7 +5,7 @@ import { Button } from '../Button';
 import { toast, toastManager, ToastProvider } from './Toast';
 
 const meta = {
-  title: 'Components/Toast',
+  title: 'UI/Toast',
   component: ToastProvider,
   parameters: { layout: 'fullscreen' },
   decorators: [

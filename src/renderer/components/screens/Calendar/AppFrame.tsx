@@ -14,7 +14,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { Button } from '../../ui/Button';
-import { StatusIcon } from '../../ui/StatusIcon';
+import { StatusIcon } from '../../entities/StatusIcon';
 import { TooltipProvider } from '../../ui/Tooltip';
 import {
   Sidebar,
@@ -25,7 +25,7 @@ import {
   SidebarHeaderActions,
   SidebarItem,
   SidebarWorkspace,
-} from '../../ui/Sidebar';
+} from '../../shell/Sidebar';
 
 const NAV = [
   { label: 'Home', icon: House },

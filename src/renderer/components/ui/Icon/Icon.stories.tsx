@@ -4,7 +4,7 @@ import { Flex } from '../../layout/Flex';
 import { Icon } from './Icon';
 
 const meta = {
-  title: 'Glyphs/Icon',
+  title: 'UI/Icon',
   component: Icon,
   args: { icon: Folder, size: 16 },
   argTypes: {

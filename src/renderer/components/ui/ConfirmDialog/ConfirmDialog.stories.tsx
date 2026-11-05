@@ -3,7 +3,7 @@ import { Button } from '../Button';
 import { ConfirmDialog, ConfirmDialogChoices } from './ConfirmDialog';
 
 const meta = {
-  title: 'Components/ConfirmDialog',
+  title: 'UI/ConfirmDialog',
   component: ConfirmDialog,
   parameters: { layout: 'fullscreen' },
   args: {

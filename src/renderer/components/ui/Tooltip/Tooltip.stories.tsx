@@ -6,7 +6,7 @@ import { Button } from '../Button';
 import { Tooltip, TooltipProvider } from './Tooltip';
 
 const meta = {
-  title: 'Components/Tooltip',
+  title: 'UI/Tooltip',
   component: Tooltip,
   decorators: [
     (Story) => (

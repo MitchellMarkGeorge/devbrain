@@ -16,7 +16,7 @@ import {
 } from './Card';
 
 const meta = {
-  title: 'Components/Card',
+  title: 'UI/Card',
   component: Card,
   args: { size: 'default' },
   argTypes: { size: { control: 'inline-radio', options: ['default', 'compact'] } },

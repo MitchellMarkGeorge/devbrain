@@ -39,7 +39,7 @@ function TimeSelect() {
 }
 
 const meta = {
-  title: 'Components/DatePicker',
+  title: 'UI/DatePicker',
   component: DatePicker,
   args: { today: TODAY, value: new Date(2026, 5, 24) },
 } satisfies Meta<typeof DatePicker>;

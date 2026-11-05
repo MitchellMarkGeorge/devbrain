@@ -1,5 +1,5 @@
-import type { BoardTask } from '../../ui/BoardCard';
-import type { Task } from '../../ui/TaskRow';
+import type { BoardTask } from '../../board/BoardCard';
+import type { Task } from '../../lists/TaskRow';
 
 /** The open tasks of the Figma "Tasks (list)" screen, in priority order. */
 export const LIST_TASKS: Task[] = [

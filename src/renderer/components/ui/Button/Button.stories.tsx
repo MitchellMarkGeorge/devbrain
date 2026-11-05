@@ -5,7 +5,7 @@ import { Flex } from '../../layout/Flex';
 import { Button } from './Button';
 
 const meta = {
-  title: 'Components/Button',
+  title: 'UI/Button',
   component: Button,
   args: { children: 'New Task' },
   argTypes: {

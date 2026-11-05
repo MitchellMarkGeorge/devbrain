@@ -6,8 +6,8 @@ import {
   IntegrationCard,
   IntegrationCardAlert,
   IntegrationSwitchLabel,
-} from '../../ui/IntegrationCard';
-import { SourceRow } from '../../ui/SourceRow';
+} from '../../integrations/IntegrationCard';
+import { SourceRow } from '../../integrations/SourceRow';
 import { Switch } from '../../ui/Switch';
 import { AppFrame, PageHeader } from '../Calendar/AppFrame';
 

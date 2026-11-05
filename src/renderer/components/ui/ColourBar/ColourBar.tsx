@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
-import { resolveColor, type Swatch } from '../types';
+import { resolveColor, type Swatch } from '../../types';
 import styles from './ColourBar.module.css';
 
 export interface ColourBarProps extends Omit<useRender.ComponentProps<'span'>, 'color'> {

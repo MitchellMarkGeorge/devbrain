@@ -1,4 +1,4 @@
-import type { Task } from '../../ui/TaskRow/types';
+import type { Task } from '../../lists/TaskRow/types';
 
 /** The PKCE task's subtasks, as the Figma task screens show them. */
 export const PKCE_SUBTASKS: Task[] = [

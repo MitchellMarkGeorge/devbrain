@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { cn } from '../../lib/cn';
-import { resolveColor, type Swatch } from '../types';
+import { resolveColor, type Swatch } from '../../types';
 import styles from './ProgressRing.module.css';
 
 export interface ProgressRingProps {

@@ -12,7 +12,7 @@ import { Stack } from '../../layout/Flex';
 import { ToggleGroup, ToggleGroupItem } from './ToggleGroup';
 
 const meta = {
-  title: 'Components/ToggleGroup',
+  title: 'UI/ToggleGroup',
   component: ToggleGroup,
   args: {
     'aria-label': 'Calendar range',

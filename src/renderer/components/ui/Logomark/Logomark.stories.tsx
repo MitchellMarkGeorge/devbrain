@@ -3,7 +3,7 @@ import { Flex } from '../../layout/Flex';
 import { Lockup, Logomark } from './Logomark';
 
 const meta = {
-  title: 'Components/Logomark',
+  title: 'UI/Logomark',
   component: Logomark,
   args: { size: 'md' },
   argTypes: {
