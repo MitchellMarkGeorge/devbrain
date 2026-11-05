@@ -52,10 +52,7 @@ export const Platforms: Story = {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
       {(['macos', 'windows', 'linux'] as Platform[]).map((platform) => (
         <WindowFrameProvider key={platform} value={{ platform, controls: 'drawn' }}>
-          <div
-            data-platform={platform}
-            style={{ position: 'relative' }}
-          >
+          <div data-platform={platform} style={{ position: 'relative' }}>
             <Bar />
             {platform === 'windows' && (
               <CaptionButtons style={{ position: 'absolute', top: 0, right: 0 }} />

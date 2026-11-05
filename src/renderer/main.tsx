@@ -6,6 +6,7 @@ import log from 'electron-log/renderer';
 import { WindowFrameProvider, detectPlatform, type WindowFrame } from './components/lib/platform';
 import { events, ipc, queryInvalidator, queryClient } from './ipc';
 import { readInitialLoadContext, seedQueryCache } from './ipc/initial-load-context';
+import { FollowThemeSetting, applyThemeSetting } from './theme';
 import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/base.css';
@@ -16,8 +17,10 @@ log.errorHandler.startCatching();
 // refetch what main says changed outside any call: sync, and a switch of workspace
 queryInvalidator.listen(events);
 
-// what main holds now, so the first render shows the right screen with its data
-seedQueryCache(queryClient, readInitialLoadContext());
+// what main holds now, so the first render shows the right screen with its data, in its theme
+const initialLoadContext = readInitialLoadContext();
+seedQueryCache(queryClient, initialLoadContext);
+applyThemeSetting(initialLoadContext?.theme ?? 'system');
 
 // The window around the page: the platform from the preload, the system's own window controls,
 // and the Windows title bar's menu button popping up the app menu (src/main/runtime/window-chrome.ts)
@@ -35,6 +38,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <WindowFrameProvider value={windowFrame}>
+        <FollowThemeSetting />
         <App />
       </WindowFrameProvider>
     </QueryClientProvider>

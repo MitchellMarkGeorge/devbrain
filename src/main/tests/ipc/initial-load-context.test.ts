@@ -25,6 +25,7 @@ describe('initialLoadContext', () => {
       current: null,
       last: null,
       workspaces: { items: [], nextCursor: null },
+      theme: 'system',
     });
   });
 
@@ -34,7 +35,13 @@ describe('initialLoadContext', () => {
       current: null,
       last: null,
       workspaces: { items: [], nextCursor: null },
+      theme: 'system',
     });
+  });
+
+  it('carries the theme setting, so the page paints in it from the start', () => {
+    devBrain.settings.set('settings.theme', 'dark');
+    expect(initialLoadContext(devBrain).theme).toBe('dark');
   });
 
   it('names the workspace openLast would open while none is open', async () => {

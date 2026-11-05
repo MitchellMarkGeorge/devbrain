@@ -23,6 +23,7 @@ const context: InitialLoadContext = {
   current: work,
   last: null,
   workspaces: { items: [work], nextCursor: null },
+  theme: 'system',
 };
 
 function bridgeWith(initialLoadContext: IpcBridge['initialLoadContext']): IpcBridge {

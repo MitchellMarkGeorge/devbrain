@@ -14,7 +14,7 @@ import type { EventClient } from './events';
 // Read across entities wherever a view shows one entity's rows inside another's.
 export const ENTITIES_READ_BY_ROUTE: Readonly<Record<string, readonly ChangedEntity[]>> = {
   app: [],
-  settings: [],
+  settings: ['settings'],
   workspaces: ['workspace'],
   workspace: [],
   // a task row shows its project, its linked event (in its calendar's colour) or note

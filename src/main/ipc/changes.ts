@@ -56,8 +56,8 @@ export class ChangeTracker {
 
   constructor(private readonly sendToWindows: SendToWindows) {}
 
-  /** Follows `devBrain`'s workspaces from now on. Returns the function that stops. */
-  watch(devBrain: Pick<DevBrain, 'currentWorkspace' | 'workspaces'>): () => void {
+  /** Follows `devBrain`'s settings and workspaces from now on. Returns the function that stops. */
+  watch(devBrain: Pick<DevBrain, 'currentWorkspace' | 'workspaces' | 'settings'>): () => void {
     this.stopWatching?.();
     const current = devBrain.currentWorkspace;
     let stopListeningToWorkspace = current ? this.listenToWorkspace(current) : () => {};
@@ -75,8 +75,11 @@ export class ChangeTracker {
       // to every window, the one that switched too: this event alone says which workspace is open
       this.sendToWindows('workspace.changed', { id });
     });
+    // the app's settings, from Settings or the menu
+    const unsubscribeSettings = devBrain.settings.onChange(() => this.recordChange('settings'));
     this.stopWatching = () => {
       unsubscribe();
+      unsubscribeSettings();
       stopListeningToWorkspace();
       this.stopWatching = null;
     };

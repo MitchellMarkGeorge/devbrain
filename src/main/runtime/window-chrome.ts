@@ -10,11 +10,10 @@ import { WINDOW_BACKGROUND, WINDOW_FOREGROUND } from '@common/theme';
 // WindowBar, and the page header beside the full sidebar (PageHeader).
 export const TITLE_BAR_HEIGHT = 48;
 
-// Where macOS draws the traffic lights (the top left of the three 12px buttons): 16px in, as the
-// WindowBar's and the sidebar window row's 52px slot is. Vertically 17px down, between the centre
-// of the sidebar's 44px window row (16) and the 48px WindowBar's (18), so neither is off by more
-// than a pixel.
-export const TRAFFIC_LIGHT_POSITION = { x: 16, y: 17 } as const;
+// Where macOS draws the traffic lights (the top left of the three 12px buttons): 16px in and 16px
+// down, centred in the full sidebar's 44px window row as the designs place them. Electron places
+// them once, so in the 48px WindowBar (the sidebar collapsed) they sit 2px above its centre.
+export const TRAFFIC_LIGHT_POSITION = { x: 16, y: 16 } as const;
 
 /**
  * The window frame on each platform. The page draws the title bar itself (WindowBar, PageHeader,

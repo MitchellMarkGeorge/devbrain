@@ -13,9 +13,18 @@
   color: var(--foreground);
   container-type: inline-size;
 }
-/* the rail sits under the window bar, which runs across the window */
+/*
+ * The rail sits under the window bar, which runs across the sidebar and the page. A docked sheet
+ * and Home's right column run the full height beside it, as beside the full sidebar; on Windows
+ * the bar runs across them too, and they start under it (below).
+ */
 .shell[data-rail] {
   grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    'bar bar aside sheet'
+    'sidebar main aside sheet';
+}
+.shell[data-rail][data-platform='windows'] {
   grid-template-areas:
     'bar bar bar bar'
     'sidebar main aside sheet';

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { AppWindow, Copy, Keyboard, PanelRight, Sparkles, Trash2 } from 'lucide-react';
 import {
@@ -35,7 +35,9 @@ import {
   Text,
   ToggleGroup,
   useAppShell,
+  WorkspaceSwitcher,
 } from './components';
+import type { WorkspaceId } from '@common/ids';
 import { useWindowFrame, type Platform } from './components/lib/platform';
 import { trpc } from './ipc';
 
@@ -80,7 +82,6 @@ export function App() {
   const history = useHistory('frame');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [onboarding, setOnboarding] = useState(false);
-  const workspace = useQuery(trpc.workspaces.current.queryOptions());
   const title = PAGES.find((p) => p.id === history.page)?.label ?? '';
 
   if (onboarding) {
@@ -100,7 +101,7 @@ export function App() {
       sidebar={
         <Sidebar>
           <SidebarHeader>
-            <SidebarWorkspace name={workspace.data?.name ?? 'No workspace open'} />
+            <WorkspaceMenu />
           </SidebarHeader>
           <SidebarContent>
             <SidebarGroup>
@@ -150,6 +151,45 @@ export function App() {
       {history.page === 'shortcuts' && <ShortcutsPage />}
       {history.page === 'sheet' && <SheetPage open={sheetOpen} onOpenChange={setSheetOpen} />}
     </AppShell>
+  );
+}
+
+/**
+ * The sidebar's workspace menu over the real registry: switch, add a new one, open a folder, or
+ * show the open one's folder. On start it reopens the workspace open last time, as the app will.
+ */
+function WorkspaceMenu() {
+  const current = useQuery(trpc.workspaces.current.queryOptions());
+  const list = useQuery(trpc.workspaces.list.queryOptions());
+  const openLast = useMutation(trpc.workspaces.openLast.mutationOptions());
+  const open = useMutation(trpc.workspaces.open.mutationOptions());
+  const create = useMutation(trpc.workspaces.create.mutationOptions());
+  const importFolder = useMutation(trpc.workspaces.importFolder.mutationOptions());
+  const showInFolder = useMutation(trpc.workspace.showInFolder.mutationOptions());
+
+  const { mutate: reopenLast } = openLast;
+  useEffect(() => reopenLast(), [reopenLast]);
+
+  const workspaces = list.data?.items ?? [];
+  const openNew = (entry: { id: WorkspaceId } | null) => {
+    if (entry) open.mutate({ id: entry.id });
+  };
+  return (
+    <SidebarWorkspace name={current.data?.name ?? 'No workspace open'}>
+      <WorkspaceSwitcher
+        workspaces={workspaces.map(({ id, name }) => ({ id, name }))}
+        current={current.data?.id ?? ''}
+        onSelect={(id) => open.mutate({ id: id as WorkspaceId })}
+        onCreate={() =>
+          create.mutate(
+            { name: `Workspace ${workspaces.length + 1}`, color: '#3b82f6' },
+            { onSuccess: openNew },
+          )
+        }
+        onOpenFolder={() => importFolder.mutate(undefined, { onSuccess: openNew })}
+        onShowInFinder={() => showInFolder.mutate()}
+      />
+    </SidebarWorkspace>
   );
 }
 

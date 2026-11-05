@@ -95,6 +95,14 @@ function afterBackgroundBatchSent() {
 describe('a mutation', () => {
   beforeEach(() => attach());
 
+  it("reports a change of the app's settings, so the settings refetch", async () => {
+    const result = await act(() =>
+      devBrain.settings.set('settings', { ...devBrain.settings.get('settings'), theme: 'light' }),
+    );
+
+    expect(result.changed).toEqual(['settings']);
+  });
+
   it("returns a cascade's entities in its own response, and sends them only to the other windows", async () => {
     const task = workspace().tasks.createTask({ title: 'Ship', dueDate: DUE });
     await workspace().notes.createNote({ title: 'Plan', linkedTaskId: task.id });
