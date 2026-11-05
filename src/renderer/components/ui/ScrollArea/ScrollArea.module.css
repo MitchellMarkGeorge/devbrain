@@ -1,0 +1,41 @@
+/* A scrolling area with a thin scrollbar over its edge. See docs/design-system/components/ScrollArea.md */
+.root {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.viewport {
+  flex: 1;
+  min-height: 0;
+  border-radius: inherit;
+  outline: none;
+}
+/* it takes keyboard focus while it overflows (arrow keys scroll it): a 1px ring inside its edge */
+.viewport:focus-visible {
+  outline: 1px solid var(--ring);
+  outline-offset: -1px;
+}
+
+/*
+ * An 8px strip on the right edge, the 4px thumb 2px in from it and 4px from each end. It shows
+ * while the area scrolls or the pointer is over it, and lingers 0.8s after scrolling stops (Base UI
+ * clears `data-scrolling` after 0.5s; the fade waits 0.3s more).
+ */
+.scrollbar {
+  z-index: 2;
+  width: 8px;
+  padding: var(--space-1) 2px;
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-out) 300ms;
+}
+.scrollbar[data-scrolling],
+.scrollbar[data-hovering] {
+  opacity: 1;
+  transition-delay: 0ms;
+}
+.thumb {
+  width: 100%;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+}

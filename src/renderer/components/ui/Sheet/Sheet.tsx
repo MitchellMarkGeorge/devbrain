@@ -10,7 +10,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { Maximize2, X } from 'lucide-react';
 import { cn, mergeClassName } from '../../lib/cn';
 import { IconButton } from '../IconButton';
-import { ScrollThumb } from '../ScrollThumb';
+import { ScrollArea, type ScrollAreaProps } from '../ScrollArea';
 import { resolveColor, type Swatch } from '../types';
 import styles from './Sheet.module.css';
 
@@ -90,8 +90,6 @@ export function SheetContent({
           {...props}
         >
           {children}
-          {/* the thin scrollbar, its track below the 48px header */}
-          <ScrollThumb insetTop={52} />
         </Drawer.Popup>
       </Drawer.Viewport>
     </Drawer.Portal>
@@ -131,9 +129,21 @@ export function SheetTitle({ className, ...props }: Drawer.Title.Props) {
 
 export const SheetDescription = Drawer.Description;
 
-/** The panel's content under the header: 16px in from the sides, its blocks 16px apart. */
-export function SheetBody({ className, ...props }: ComponentProps<'div'>) {
-  return <div className={cn(styles.body, className)} {...props} />;
+/**
+ * The panel's content under the header: 16px in from the sides, its blocks 16px apart. It scrolls
+ * on its own under the header, with the thin `ScrollArea` scrollbar.
+ */
+export interface SheetBodyProps extends Omit<ScrollAreaProps, 'className' | 'viewportClassName'> {
+  /** joins the content's class (its padding and gaps) */
+  className?: string;
+}
+
+export function SheetBody({ className, children, ...props }: SheetBodyProps) {
+  return (
+    <ScrollArea className={styles.bodyArea} viewportClassName={styles.bodyViewport} {...props}>
+      <div className={cn(styles.body, className)}>{children}</div>
+    </ScrollArea>
+  );
 }
 
 export interface SheetItemTitleProps extends ComponentProps<'h2'> {

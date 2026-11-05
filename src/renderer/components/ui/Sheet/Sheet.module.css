@@ -43,11 +43,8 @@
   display: flex;
   flex-direction: column;
   max-width: 100%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  /* a ScrollThumb draws the scrollbar over the content instead, while it scrolls */
-  position: relative;
-  scrollbar-width: none;
+  /* the header stays put and the body scrolls under it (SheetBody is a ScrollArea) */
+  overflow: hidden;
   background: var(--popover);
   color: var(--popover-foreground);
   outline: none;
@@ -90,9 +87,6 @@
 }
 
 .header {
-  position: sticky;
-  top: 0;
-  z-index: 1;
   display: flex;
   flex: none;
   align-items: center;
@@ -111,6 +105,13 @@
   font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+/* the body takes the height under the header and scrolls inside it */
+.bodyArea {
+  flex: 1;
+}
+.bodyViewport {
+  overscroll-behavior: contain;
 }
 .body {
   display: flex;

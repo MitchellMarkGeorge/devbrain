@@ -10,6 +10,7 @@ export {
   SheetTitle,
   SheetTrigger,
   sheetVariants,
+  type SheetBodyProps,
   type SheetContentProps,
   type SheetHeaderProps,
   type SheetItemTitleProps,
