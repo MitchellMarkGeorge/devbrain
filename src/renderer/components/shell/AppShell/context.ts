@@ -10,14 +10,26 @@ export interface AppShellContextValue {
   /** rendered inside an `AppShell` */
   inShell: boolean;
   size: WindowSize;
-  /** the sidebar rests as the 56px rail: the user collapsed it, or the window is compact */
-  rail: boolean;
-  /** this subtree is the compact window's sidebar drawer */
+  /**
+   * The sidebar is hidden (the user collapsed it, or the window is compact): the `WindowBar` runs
+   * across the top with the page's header in it, and the sidebar opens as a drawer over the page.
+   */
+  sidebarHidden: boolean;
+  /** this subtree is the sidebar drawer */
   inDrawer: boolean;
   drawerOpen: boolean;
-  /** the window bar's sidebar button: collapses or expands, or opens the drawer when compact */
+  /** the drawer was opened by pointing at the toggle or the window's left edge, and not yet pinned */
+  peeking: boolean;
+  /**
+   * The sidebar toggle (and ⌘\): hides the docked sidebar; while hidden, docks it where the window
+   * is wide enough, and otherwise opens (or pins) the drawer, or closes a pinned one.
+   */
   toggleSidebar: () => void;
   closeDrawer: () => void;
+  /** the pointer reached the toggle or the left edge: peek at the drawer after a short delay */
+  peekSidebar: () => void;
+  /** the pointer left before the drawer opened */
+  cancelPeek: () => void;
   onBack?: () => void;
   onForward?: () => void;
   canGoBack: boolean;
@@ -31,17 +43,20 @@ const noop = () => {};
 export const AppShellContext = createContext<AppShellContextValue>({
   inShell: false,
   size: 'wide',
-  rail: false,
+  sidebarHidden: false,
   inDrawer: false,
   drawerOpen: false,
+  peeking: false,
   toggleSidebar: noop,
   closeDrawer: noop,
+  peekSidebar: noop,
+  cancelPeek: noop,
   canGoBack: true,
   canGoForward: false,
   sheetContainer: null,
 });
 
-/** The shell around this component: window size, rail or drawer, and the window controls. */
+/** The shell around this component: window size, whether the sidebar is hidden, the drawer, and the window controls. */
 export function useAppShell(): AppShellContextValue {
   return useContext(AppShellContext);
 }

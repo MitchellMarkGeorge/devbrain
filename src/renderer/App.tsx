@@ -273,8 +273,8 @@ function FramePage() {
         <Stack gap="2">
           <Heading level={1}>Window frame</Heading>
           <Text tone="muted">
-            The title bar this platform gets. Resize the window below 1080px for the rail and the
-            drawer, or press <Kbd>⌘\</Kbd> to collapse the sidebar.
+            The title bar this platform gets. Resize the window below 1080px, or press <Kbd>⌘\</Kbd>
+            , to hide the sidebar; point at the toggle or the window’s left edge to peek at it.
           </Text>
         </Stack>
 
@@ -286,7 +286,7 @@ function FramePage() {
                 {frame.controls === 'system' ? 'Drawn by the system' : 'Painted by the page'}
               </Fact>
               <Fact label="Window size">{shell.size}</Fact>
-              <Fact label="Sidebar">{shell.rail ? 'Rail' : 'Full'}</Fact>
+              <Fact label="Sidebar">{shell.sidebarHidden ? 'Hidden' : 'Docked'}</Fact>
               <Fact label="App version">{version.data ?? '…'}</Fact>
             </Stack>
           </CardContent>

@@ -41,7 +41,7 @@ function Bar() {
 }
 
 /**
- * The collapsed-sidebar bar on the toolbar's platform: the title bar's start, sidebar toggle,
+ * The hidden sidebar's bar on the toolbar's platform: the title bar's start, sidebar toggle,
  * back and forward, then the page's header.
  */
 export const Default: Story = { render: () => <Bar /> };

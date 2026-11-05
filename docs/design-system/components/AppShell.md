@@ -2,17 +2,32 @@
 
 The frame every screen shares: the `Sidebar` at the left, the page (its `PageHeader`, `PageToolbar` and `PageContent`) in the middle, and a docked sheet at the right. It measures its own width and follows the README's window sizes:
 
-- **Wide and medium (1080px and up):** the sidebar rests open; sheets dock.
-- **Compact (below 1080px):** the sidebar rests as the 56px rail. Its toggle opens the full sidebar as a drawer over the page (`shadow-2xl`, the `backdrop` scrim behind); picking a page, clicking the scrim or Esc closes it. The drawer opens as the rail widening: it is revealed from the rail's edge out to 256px in `duration-slow` (`ease-surface`) while its content and the scrim fade in, the same motion as collapsing the sidebar in a wider window, and closes back into the rail; nothing moves under `prefers-reduced-motion`. Sheets float (`Sheet variant="overlay"`); read `useAppShell().size` to choose.
-- **Collapsed:** the user's choice (⌘\ or the window bar's toggle) at any size. The rail sits under the `WindowBar`, which runs across the sidebar and the page and carries the page's header; both are on the page colour with no hairlines, framing the page. A docked sheet runs the full height beside it, as beside the full sidebar (on Windows the bar runs across it too, and it starts under it).
+- **Wide and medium (1080px and up):** the sidebar rests docked; sheets dock.
+- **Compact (below 1080px):** the sidebar rests hidden. Sheets float (`Sheet variant="overlay"`); read `useAppShell().size` to choose.
+
+The sidebar is **docked or hidden**, nothing in between. `collapsed` is the user's choice (⌘\ or the sidebar toggle) and hides it at any size; a compact window hides it too. `useAppShell().sidebarHidden` says which.
+
+- **Docked:** the sidebar in its 256px column, drawing the window row (the title bar's start, then toggle, back and forward at its right), the page's header beside it.
+- **Hidden:** the column is 0 wide, and the sidebar in it stays mounted (so folded groups keep their state) but invisible and `inert`. The `WindowBar` runs across the top of the page and carries the page's header. A docked sheet runs the full height beside it, as beside the docked sidebar (on Windows the bar runs across it too, and it starts under it).
+- **Hiding and docking** slide the column between 256px and 0 in `duration-slow` (`ease-surface`): the sidebar slides out to the left and back, the page widening and narrowing beside it.
+
+While hidden, the sidebar opens as a **drawer** over the page (`shadow-2xl`, the `backdrop` scrim behind), sliding in from the window's left edge in `duration-slow` (`ease-surface`) as the scrim fades in, and back out as it closes. Nothing moves under `prefers-reduced-motion`.
+
+- **Peek:** pointing at the toggle in the `WindowBar`, or at an 8px strip along the window's left edge under the bar, opens it after `PEEK_OPEN_DELAY` (200ms); leaving first cancels it. A peek is non-modal and leaves focus where it was, so typing carries on. It closes `PEEK_CLOSE_DELAY` (300ms) after the pointer leaves the drawer, unless the pointer comes back. Only a mouse peeks.
+- **Pin:** clicking the toggle or ⌘\ pins the drawer in a compact window: modal, focus moving into it. Pressing inside a peeking drawer, or focusing into it, pins it too, so a menu it opens never closes it. Where the window is wide enough the toggle docks the sidebar instead, swapping the drawer for the docked sidebar where it stands, with no motion. `drawerOpen`/`defaultDrawerOpen` open it pinned.
+- **Close:** Esc, a click on the scrim, picking a page, or the drawer's toggle once pinned. Keyboard users open it with the toggle (Enter or Space) or ⌘\.
+
+The drawer's toggle names what it does: "Keep sidebar open" while peeking, "Close sidebar" once pinned, "Dock sidebar" where docking is possible. In the `WindowBar` it's "Show sidebar"; in the docked sidebar, "Hide sidebar".
 
 A docked sheet's column slides open and shut with the sheet on the same timing (`duration-slow`, `ease-surface`), so the page narrows and widens smoothly and the sheet's edge is the page's edge throughout.
 
-The full sidebar draws the window row itself (the title bar's start, then toggle, back and forward at its right). A docked sheet opens a `sheet-width` column: set `sheetOpen` and portal `SheetContent` into `useAppShell().sheetContainer`.
+A docked sheet opens a `sheet-width` column: set `sheetOpen` and portal `SheetContent` into `useAppShell().sheetContainer`.
 
 The shell follows the window frame (`WindowFrameProvider`; README "Window frame"), and sets `data-platform` for the CSS:
 
 - **macOS and Linux:** as above. The header tops the page column; a docked sheet runs the full height.
-- **Windows:** Windows draws its caption buttons over the top right. Beside the full sidebar the header gets a row of its own (at least 48px, draggable) across the page and the sheet, which starts under it; the header's actions stop 16px short of the buttons. Collapsed, the `WindowBar` already runs across the top. In stories (`controls: 'drawn'`) the shell paints the caption buttons.
+- **Windows:** Windows draws its caption buttons over the top right. Beside the docked sidebar the header gets a row of its own (at least 48px, draggable) across the page and the sheet, which starts under it; the header's actions stop 16px short of the buttons. While the sidebar is hidden, the `WindowBar` already runs across the top. In stories (`controls: 'drawn'`) the shell paints the caption buttons.
 
-**Base UI:** `Dialog` for the compact drawer (modal, Esc and outside click close it). Layout is a CSS grid with a container query on the shell's own width.
+In the app the drawer doesn't drag the window (`-webkit-app-region: no-drag`, its window row too): the `WindowBar` under it would otherwise keep dragging through it, and a drag region swallows the pointer, which would close a peek.
+
+**Base UI:** `Dialog` for the drawer (non-modal while peeking, modal once pinned; Esc and outside click close it). Layout is a CSS grid with a container query on the shell's own width.

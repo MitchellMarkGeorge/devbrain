@@ -35,8 +35,9 @@ export const Expanded: Story = {
 };
 
 /**
- * Figma "Tasks (list) — sidebar collapsed" (7167:14126): the 56px rail under the window bar,
- * which carries the breadcrumb. Point at a rail item for its tooltip and shortcut.
+ * The user hid the sidebar (Figma "Tasks (list) — sidebar collapsed", 7167:14126, still draws the
+ * old icon rail): the window bar runs across the top and carries the breadcrumb. Point at the
+ * sidebar toggle or the window's left edge to peek at the sidebar; click the toggle to dock it.
  */
 export const SidebarCollapsed: Story = {
   render: () => (
@@ -46,8 +47,11 @@ export const SidebarCollapsed: Story = {
   ),
 };
 
-/** Figma 7608:44744: at 960 × 640 the sidebar rests as the rail and the toolbar values hide. */
-export const CompactRail: Story = {
+/**
+ * At 960 × 640 the sidebar rests hidden and the toolbar values hide (Figma 7608:44744 still draws
+ * the old icon rail). Point at the toggle or the left edge to peek; click the toggle to pin it.
+ */
+export const Compact: Story = {
   render: () => (
     <ScreenFrame page="Tasks" header={<TasksHeader />} width={960} height={640}>
       <TasksPage compact hovered={2} />
@@ -56,8 +60,8 @@ export const CompactRail: Story = {
 };
 
 /**
- * Figma 7611:46744: expanding the rail in a compact window opens the full sidebar as a drawer
- * over the page, with the backdrop behind it. Picking a page, clicking outside or Esc closes it.
+ * Figma 7611:46744: opening the hidden sidebar in a compact window shows it as a drawer over the
+ * page, with the backdrop behind it. Picking a page, clicking outside or Esc closes it.
  */
 export const CompactDrawer: Story = {
   render: () => (

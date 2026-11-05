@@ -2,7 +2,6 @@ export {
   PageContent,
   PageFavoriteButton,
   PageHeader,
-  PageHeaderInWindowBar,
   PageMenuButton,
   PageToolbar,
   pageContentVariants,
@@ -12,3 +11,4 @@ export {
   type PageMenuButtonProps,
   type PageToolbarProps,
 } from './PageHeader';
+export { PageHeaderInWindowBar } from './context';

@@ -8,7 +8,6 @@ import {
   Calendar,
   CircleCheck,
   CircleHelp,
-  Clock,
   Ellipsis,
   FileText,
   Folder,
@@ -16,7 +15,6 @@ import {
   Search,
   Settings,
   SquarePen,
-  Star,
   Trash2,
   Zap,
 } from 'lucide-react';
@@ -30,7 +28,6 @@ import {
   SidebarHeader,
   SidebarHeaderActions,
   SidebarItem,
-  SidebarSeparator,
   SidebarWorkspace,
 } from '../../shell/Sidebar';
 import { StatusIcon } from '../../entities/StatusIcon';
@@ -48,13 +45,13 @@ export type PageName =
   | 'Settings'
   | 'Help';
 
-const NAV: { label: PageName; icon: typeof House; shortcut: string }[] = [
-  { label: 'Home', icon: House, shortcut: 'G H' },
-  { label: 'Tasks', icon: CircleCheck, shortcut: 'G T' },
-  { label: 'Projects', icon: Folder, shortcut: 'G P' },
-  { label: 'Notes', icon: FileText, shortcut: 'G N' },
-  { label: 'Calendar', icon: Calendar, shortcut: 'G C' },
-  { label: 'Integrations', icon: Zap, shortcut: 'G I' },
+const NAV: { label: PageName; icon: typeof House }[] = [
+  { label: 'Home', icon: House },
+  { label: 'Tasks', icon: CircleCheck },
+  { label: 'Projects', icon: Folder },
+  { label: 'Notes', icon: FileText },
+  { label: 'Calendar', icon: Calendar },
+  { label: 'Integrations', icon: Zap },
 ];
 
 export const WORKSPACES: WorkspaceSummary[] = [
@@ -72,20 +69,12 @@ export interface DemoSidebarProps {
   sync?: SyncState;
   /** open the workspace menu (the switcher screen) */
   workspaceMenuOpen?: boolean;
-  /** the rail, outside an AppShell (inside one, the shell decides) */
-  collapsed?: boolean;
 }
 
 /** The sidebar as every Figma screen draws it: SurveyMonkey, the six pages, Recents, Favorites. */
-export function DemoSidebar({
-  active,
-  empty,
-  sync,
-  workspaceMenuOpen,
-  collapsed,
-}: DemoSidebarProps) {
+export function DemoSidebar({ active, empty, sync, workspaceMenuOpen }: DemoSidebarProps) {
   return (
-    <Sidebar collapsed={collapsed}>
+    <Sidebar>
       <SidebarHeader>
         <SidebarWorkspace name="SurveyMonkey" color="green" defaultOpen={workspaceMenuOpen}>
           <WorkspaceSwitcher workspaces={WORKSPACES} current="surveymonkey" />
@@ -95,24 +84,17 @@ export function DemoSidebar({
           <SidebarAction icon={SquarePen} label="New task" shortcut="C" />
         </SidebarHeaderActions>
       </SidebarHeader>
-      <SidebarSeparator />
       <SidebarContent>
         <SidebarGroup>
           {NAV.map((page) => (
-            <SidebarItem
-              key={page.label}
-              icon={page.icon}
-              shortcut={page.shortcut}
-              active={active === page.label}
-            >
+            <SidebarItem key={page.label} icon={page.icon} active={active === page.label}>
               {page.label}
             </SidebarItem>
           ))}
         </SidebarGroup>
         {!empty && (
           <>
-            <SidebarSeparator />
-            <SidebarGroup label="Recents" railIcon={Clock}>
+            <SidebarGroup label="Recents">
               <SidebarItem icon={<StatusIcon status="in-progress" />}>
                 Implement OAuth2 PKCE flow
               </SidebarItem>
@@ -123,7 +105,7 @@ export function DemoSidebar({
               <SidebarItem icon={Folder}>Auth Overhaul</SidebarItem>
               <SidebarItem icon={FileText}>PKCE design notes</SidebarItem>
             </SidebarGroup>
-            <SidebarGroup label="Favorites" railIcon={Star}>
+            <SidebarGroup label="Favorites">
               <SidebarItem icon={Folder}>API Gateway v2</SidebarItem>
               <SidebarItem bar="green">Sprint Planning</SidebarItem>
               <SidebarItem icon={FileText}>Auth provider eval matrix</SidebarItem>
@@ -139,7 +121,7 @@ export function DemoSidebar({
         <SidebarItem icon={Trash2} active={active === 'Trash'}>
           Trash
         </SidebarItem>
-        <SidebarItem icon={Settings} active={active === 'Settings'} shortcut="⌘,">
+        <SidebarItem icon={Settings} active={active === 'Settings'}>
           Settings
         </SidebarItem>
         <SidebarItem icon={CircleHelp}>Help</SidebarItem>

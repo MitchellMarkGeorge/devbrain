@@ -1,4 +1,4 @@
-/* The title-bar strip while the sidebar is the rail. See docs/design-system/components/WindowBar.md */
+/* The title-bar strip while the sidebar is hidden. See docs/design-system/components/WindowBar.md */
 .bar {
   display: flex;
   align-items: center;

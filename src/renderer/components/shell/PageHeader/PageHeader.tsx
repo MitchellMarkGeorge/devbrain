@@ -1,20 +1,12 @@
-import {
-  createContext,
-  forwardRef,
-  useContext,
-  type ComponentPropsWithoutRef,
-  type ReactNode,
-} from 'react';
+import { forwardRef, useContext, type ComponentPropsWithoutRef, type ReactNode } from 'react';
 import { Ellipsis, Star } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
 import { useAppShell } from '../AppShell/context';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import { IconButton } from '../../ui/IconButton';
+import { PageHeaderInWindowBar } from './context';
 import styles from './PageHeader.module.css';
-
-/** Set by `AppShell` while the header is drawn inside the window bar (the sidebar is the rail). */
-export const PageHeaderInWindowBar = createContext(false);
 
 export interface PageHeaderProps extends Omit<ComponentPropsWithoutRef<'header'>, 'title'> {
   /** the page's place, at the left: a `Breadcrumb` ("Tasks › List"), or its title */
@@ -30,7 +22,7 @@ export interface PageHeaderProps extends Omit<ComponentPropsWithoutRef<'header'>
 /**
  * The top of every page: a 48px bar with the breadcrumb at the left and the page's actions at the
  * right, 24px in from the sides. It spans the page even where the content is a capped column.
- * While the sidebar is the rail, `AppShell` moves it into the `WindowBar`.
+ * While the sidebar is hidden, `AppShell` moves it into the `WindowBar`.
  */
 export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function PageHeader(
   { actions, className, children, ...props },
@@ -107,11 +99,11 @@ export const PageToolbar = forwardRef<HTMLDivElement, PageToolbarProps>(function
   { start, end, className, children, ...props },
   ref,
 ) {
-  const { rail } = useAppShell();
+  const { sidebarHidden } = useAppShell();
   return (
     <div
       ref={ref}
-      data-rail={rail ? '' : undefined}
+      data-under-window-bar={sidebarHidden ? '' : undefined}
       className={cn(styles.toolbar, className)}
       {...props}
     >

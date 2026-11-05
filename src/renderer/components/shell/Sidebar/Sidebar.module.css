@@ -11,25 +11,13 @@
   border-right: 1px solid var(--sidebar-border);
   background: var(--sidebar);
   color: var(--sidebar-foreground);
-  /*
-   * Collapsing and expanding slide the width (the page beside it follows) and fade the content as
-   * it swaps between the two layouts (Sidebar plays the fade). The page icons sit 20px in, in
-   * both, so they hold still while the width slides. Instant under reduced motion.
-   */
   overflow: hidden;
-  /*
-   * No background-color transition: on a scrolling element Chromium can leave it painted in the
-   * old colour once a theme switch has transitioned it (the light rail stayed white in dark).
-   */
-  transition:
-    width var(--duration-slow) var(--ease-surface),
-    border-color var(--duration-slow) var(--ease-surface);
 }
 /*
  * Below the pinned rows (the window row, then the workspace switcher with search and new), the
  * pages, Recents, Favorites and the footer scroll together when the window is too short for
- * them. The ScrollArea's thin scrollbar sits over the right edge, so the rail's 40px items keep
- * their width. Both take the sidebar's background, which the pinned rows inherit.
+ * them. The ScrollArea's thin scrollbar sits over the right edge, taking no width from the items.
+ * Both take the sidebar's background, which the pinned rows inherit.
  */
 .area {
   flex: 1;
@@ -39,7 +27,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--sidebar-gap);
-  /* the padding snaps, so the icons stay exactly 20px in throughout */
   padding: 0 var(--sidebar-inset) var(--space-3);
   background: inherit;
   overscroll-behavior: contain;
@@ -48,26 +35,9 @@
  * outside an AppShell (no window row) it keeps 8px above the header. The header carries it, as
  * a pinned header stops at the sidebar's own padding and items would show through above it.
  */
-.sidebar:not([data-collapsed]) .scroller:not(:has(> .windowRow)) > .header {
+.scroller:not(:has(> .windowRow)) > .header {
   padding-top: var(--space-2);
 }
-/*
- * The 56px icon rail: 8px sides around the 40px items, 12px between blocks. Its blocks sit at the
- * left (centred, as they are 40px wide in 40px), so they don't drift while the width slides.
- * It sits under the window bar, on the page colour with no hairline, so the two read as one frame
- * around the page (a hairline starting under the bar looked cut off).
- */
-.sidebar[data-collapsed] {
-  --sidebar-gap: var(--space-3);
-  --sidebar-inset: var(--space-2);
-  width: var(--sidebar-rail-width);
-  border-right-color: transparent;
-  background: var(--background);
-}
-.sidebar[data-collapsed] .scroller {
-  align-items: flex-start;
-}
-
 /* ---------- the window row: the title bar's start, then toggle, back, forward at the right ---------- */
 .windowRow {
   display: flex;
@@ -78,6 +48,13 @@
   -webkit-app-region: drag;
 }
 .windowRow button {
+  -webkit-app-region: no-drag;
+}
+/*
+ * The drawer floats over the page, so it doesn't drag the window; in Electron a drag region also
+ * swallows the pointer, which would close a peek while the pointer rests on the row
+ */
+.sidebar[data-drawer] .windowRow {
   -webkit-app-region: no-drag;
 }
 .controls {
@@ -119,10 +96,6 @@
 .windowRow + .header {
   top: calc(44px + var(--sidebar-gap));
 }
-/* the rail's 4px above the header, carried by the header for the same reason */
-.sidebar[data-collapsed] .scroller > .header:first-child {
-  padding-top: var(--space-1);
-}
 
 /* ---------- header: workspace switcher, search and new ---------- */
 .header {
@@ -131,10 +104,6 @@
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
-}
-.sidebar[data-collapsed] .header {
-  flex-direction: column;
-  gap: var(--space-1);
 }
 .workspace {
   display: flex;
@@ -173,23 +142,12 @@
   flex: none;
   color: var(--muted-foreground);
 }
-.sidebar[data-collapsed] .workspace {
-  justify-content: center;
-  width: 40px;
-  height: var(--control-md);
-  margin: 0;
-  padding: 0;
-}
 .headerActions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
 }
-.sidebar[data-collapsed] .headerActions {
-  flex-direction: column;
-  gap: var(--space-1);
-}
-/* search and new: 28px icon buttons; 40×32 rail items in the rail */
+/* search and new: 28px icon buttons */
 .action {
   display: inline-flex;
   align-items: center;
@@ -211,29 +169,10 @@
   background: var(--sidebar-accent);
   color: var(--sidebar-accent-foreground);
 }
-.sidebar[data-collapsed] .action {
-  width: 40px;
-  height: var(--control-md);
-  color: var(--sidebar-foreground);
-}
 .tooltipLabel {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-}
-
-/* ---------- the rail's 24px hairlines; hidden in the full sidebar ---------- */
-.separator {
-  display: none;
-  flex: none;
-  width: 24px;
-  height: 1px;
-  background: var(--border);
-}
-.sidebar[data-collapsed] .separator,
-.sidebar[data-collapsed] .contentInner > .separator {
-  display: block;
-  margin-left: var(--space-2);
 }
 
 /* ---------- the middle: the pages, Recents and Favorites ---------- */
@@ -246,14 +185,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-.sidebar[data-collapsed] .contentInner {
-  align-items: flex-start;
-  gap: var(--space-3);
-}
-/* the rail's Recents and Favorites icons sit together, 2px apart */
-.sidebar[data-collapsed] .contentInner > .group + .group {
-  margin-top: -10px;
 }
 /* ---------- groups ---------- */
 .group {
@@ -268,12 +199,8 @@
   padding: 0;
   list-style: none;
 }
-.menu[data-main],
-.sidebar[data-collapsed] .menu {
+.menu[data-main] {
   gap: var(--space-0-5);
-}
-.sidebar[data-collapsed] .menu {
-  align-items: flex-start;
 }
 /* Nova's 32px group label: 12px medium at 70% */
 .groupLabel {
@@ -322,13 +249,6 @@ button.groupLabel:focus-visible {
 .panel[data-ending-style] {
   height: 0;
 }
-/* Recents or Favorites opened from the rail: the full items in a 240px popover */
-.railPopover {
-  width: 240px;
-  padding: var(--space-1);
-  color: var(--sidebar-foreground);
-}
-
 /* ---------- items ---------- */
 .item {
   display: flex;
@@ -400,27 +320,6 @@ button.groupLabel:focus-visible {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* RailItem: 40×32, the icon centred */
-.sidebar[data-collapsed] .item {
-  justify-content: center;
-  flex: none;
-  width: 40px;
-  padding: 0;
-}
-/* the rail keeps the label for screen readers; the tooltip shows it */
-.sidebar[data-collapsed] .itemLabel,
-.sidebar[data-collapsed] .workspaceName {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-}
-.sidebar[data-collapsed] .chevron {
-  display: none;
-}
-
 /* ---------- footer: sync status, Trash, Settings and Help ---------- */
 .footer {
   display: flex;
@@ -428,7 +327,4 @@ button.groupLabel:focus-visible {
   flex-direction: column;
   gap: var(--space-0-5);
   width: 100%;
-}
-.sidebar[data-collapsed] .footer {
-  align-items: flex-start;
 }

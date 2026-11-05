@@ -44,7 +44,7 @@ export const FirstRun: Story = { render: () => <FirstRunScreen /> };
 /** The app's default window, 1200 × 800: everything fits without scrolling. */
 export const DefaultWindow: Story = { render: () => <HomeScreen width={1200} height={800} /> };
 
-/** Figma 7608:59215: at 960 × 640, with the sidebar as the rail. */
+/** Figma 7608:59215: at 960 × 640, with the sidebar hidden. */
 export const Compact: Story = { render: () => <HomeScreen width={960} height={640} /> };
 
 /** Home pinned to the light theme (Figma "Light theme", 7426:45045). */

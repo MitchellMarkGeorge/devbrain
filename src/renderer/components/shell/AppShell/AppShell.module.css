@@ -14,30 +14,31 @@
   container-type: inline-size;
 }
 /*
- * The rail sits under the window bar, which runs across the sidebar and the page. A docked sheet
- * runs the full height beside it, as beside the full sidebar; on Windows the bar runs across it
- * too, and it starts under it (below).
+ * While the sidebar is hidden the window bar runs across the top of the page. The sidebar's column
+ * spans both rows, so a sidebar sliding away keeps its full height and the bar follows its edge. A
+ * docked sheet runs the full height beside the bar, as beside the docked sidebar; on Windows the
+ * bar runs across it too, and it starts under it (below).
  */
-.shell[data-rail] {
+.shell[data-sidebar-hidden] {
   grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas:
-    'bar bar sheet'
+    'sidebar bar sheet'
     'sidebar main sheet';
 }
-.shell[data-rail][data-platform='windows'] {
+.shell[data-sidebar-hidden][data-platform='windows'] {
   grid-template-areas:
-    'bar bar bar'
+    'sidebar bar bar'
     'sidebar main sheet';
 }
 .windowBar {
   grid-area: bar;
 }
 /*
- * Windows, beside the full sidebar: the header gets a row across the page and the sheet, as the
+ * Windows, beside the docked sidebar: the header gets a row across the page and the sheet, as the
  * caption buttons sit over its right end; both start under it. At least 48px,
  * so the strip is there to drag the window by even on a page without a header.
  */
-.shell[data-platform='windows']:not([data-rail]) {
+.shell[data-platform='windows']:not([data-sidebar-hidden]) {
   grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas:
     'sidebar header header'
@@ -63,7 +64,30 @@
 .sidebar {
   grid-area: sidebar;
   display: flex;
+  /* the sidebar keeps its width and hangs from the column's right edge, so it slides */
+  justify-content: flex-end;
+  width: var(--sidebar-width);
   min-height: 0;
+  overflow: clip;
+  /*
+   * Hiding and docking slide the column's width between 256px and 0 (the page beside it widening
+   * or narrowing with it), so the sidebar slides out to the left and back. Once hidden it's
+   * invisible as well as inert; it shows at once when docking starts.
+   */
+  transition:
+    width var(--duration-slow) var(--ease-surface),
+    visibility 0s;
+}
+.shell .sidebar > * {
+  flex: none;
+  max-width: none;
+}
+.shell[data-sidebar-hidden] .sidebar {
+  width: 0;
+  visibility: hidden;
+  transition:
+    width var(--duration-slow) var(--ease-surface),
+    visibility 0s var(--duration-slow);
 }
 .main {
   grid-area: main;
@@ -97,7 +121,20 @@
   width: var(--sheet-width);
 }
 
-/* ---------- compact windows: the full sidebar as a drawer over the page ---------- */
+/* ---------- the hidden sidebar: a strip at the window's left edge, and the drawer ---------- */
+/*
+ * Pointing at the window's left edge peeks at the drawer, as pointing at the sidebar toggle does.
+ * 8px wide, under the window bar (whose start and toggle are the bar's own), over the page's
+ * margin.
+ */
+.edge {
+  position: absolute;
+  top: 48px;
+  bottom: 0;
+  left: 0;
+  z-index: var(--z-overlay);
+  width: 8px;
+}
 .backdrop {
   position: absolute;
   inset: 0;
@@ -116,26 +153,29 @@
   left: 0;
   z-index: var(--z-overlay);
   display: flex;
-  /* solid behind the fading content, so the rail beneath never shows through */
   background: var(--sidebar);
   box-shadow: var(--shadow-2xl);
   outline: none;
   /*
-   * Opening widens the rail into the full sidebar over the page, as collapsing does in a wider
-   * window: the drawer is revealed from the rail's edge outwards (its shadow showing once open)
-   * while its content fades in, in the same duration and easing. Closing reverses it.
+   * In the app, the window bar under it would otherwise keep dragging the window (and swallowing
+   * the pointer) through the drawer's top
    */
-  clip-path: inset(0 -48px 0 0);
-  transition: clip-path var(--duration-slow) var(--ease-surface);
+  -webkit-app-region: no-drag;
+  /*
+   * The drawer slides in from the window's left edge over the page, as the docked sidebar slides
+   * in beside it, in the same duration and easing; closing slides it back out. It starts its own
+   * shadow's width further out, so no shadow shows at the edge before it moves.
+   */
+  transition: transform var(--duration-slow) var(--ease-surface);
 }
 .drawer[data-starting-style],
 .drawer[data-ending-style] {
-  clip-path: inset(0 calc(100% - var(--sidebar-rail-width)) 0 0);
+  transform: translateX(calc(-100% - 48px));
 }
-.drawer > * {
-  transition: opacity var(--duration-slow) var(--ease-surface);
-}
-.drawer[data-starting-style] > *,
-.drawer[data-ending-style] > * {
-  opacity: 0;
+
+/* docking from the drawer: the docked sidebar takes the drawer's place where it stands */
+.shell[data-instant] .sidebar,
+.shell[data-instant] .backdrop,
+.shell[data-instant] .drawer {
+  transition: none;
 }

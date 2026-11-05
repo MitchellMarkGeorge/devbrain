@@ -1,14 +1,9 @@
 import {
-  createContext,
   forwardRef,
-  useContext,
-  useLayoutEffect,
-  useRef,
   type ComponentPropsWithoutRef,
   type CSSProperties,
   type MouseEvent,
   type ReactNode,
-  type RefObject,
 } from 'react';
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
@@ -20,7 +15,6 @@ import { useAppShell } from '../AppShell/context';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import { Icon, renderIcon, type IconSource } from '../../ui/Icon';
 import { Kbd } from '../../ui/Kbd';
-import { Popover, PopoverContent, PopoverTrigger } from '../../ui/Popover';
 import { ScrollArea } from '../../ui/ScrollArea';
 import { Tooltip } from '../../ui/Tooltip';
 import { WindowControls, WindowStart } from '../WindowBar';
@@ -28,103 +22,47 @@ import { WorkspaceTile } from '../../entities/WorkspaceTile';
 import { resolveColor, type Swatch } from '../../types';
 import styles from './Sidebar.module.css';
 
-interface SidebarContextValue {
-  collapsed: boolean;
-}
-
-const SidebarContext = createContext<SidebarContextValue>({ collapsed: false });
-
-/** Whether the sidebar around this component is the collapsed icon rail. */
-export function useSidebar(): SidebarContextValue {
-  return useContext(SidebarContext);
-}
-
 export interface SidebarProps extends ComponentPropsWithoutRef<'nav'> {
-  /**
-   * The 56px icon rail. Inside an `AppShell` the shell decides (the user's choice, or a compact
-   * window) and this can be left out; the drawer always shows the full sidebar.
-   */
-  collapsed?: boolean;
   /**
    * The title bar's start (traffic lights on macOS, the menu button on Windows, nothing on Linux)
    * and the window controls (sidebar toggle, back, forward, at the right) on a 44px row at the top
-   * of the full sidebar. On by default inside an `AppShell`; the rail leaves them to the
-   * `WindowBar`.
+   * of the sidebar. On by default inside an `AppShell`, docked and in the drawer alike.
    */
   windowControls?: boolean;
 }
 
 /**
- * The app's sidebar: 256px on the page colour with a hairline at its right, or the 56px rail when
- * collapsed. Compose it from `SidebarHeader`, `SidebarContent` (scrolling `SidebarGroup`s of
- * `SidebarItem`s) and `SidebarFooter`; `SidebarSeparator`s show between the blocks in the rail.
+ * The app's sidebar: 256px on the page colour with a hairline at its right. Compose it from
+ * `SidebarHeader`, `SidebarContent` (scrolling `SidebarGroup`s of `SidebarItem`s) and
+ * `SidebarFooter`. Inside an `AppShell` the shell docks it, or hides it and opens it as a drawer.
  */
 export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
-  {
-    collapsed: collapsedProp,
-    windowControls,
-    className,
-    children,
-    'aria-label': ariaLabel = 'Main',
-    ...props
-  },
+  { windowControls, className, children, 'aria-label': ariaLabel = 'Main', ...props },
   ref,
 ) {
   const shell = useAppShell();
-  const collapsed = shell.inDrawer ? false : (collapsedProp ?? shell.rail);
-  const showControls = !collapsed && (windowControls ?? shell.inShell);
-  const scrollerRef = useRef<HTMLDivElement | null>(null);
-  useFadeOnToggle(scrollerRef, collapsed);
+  const showControls = windowControls ?? shell.inShell;
   return (
-    <SidebarContext.Provider value={{ collapsed }}>
-      <nav
-        ref={ref}
-        aria-label={ariaLabel}
-        data-collapsed={collapsed ? '' : undefined}
-        data-drawer={shell.inDrawer ? '' : undefined}
-        className={cn(styles.sidebar, className)}
-        {...props}
-      >
-        {/* everything scrolls in it, under the pinned rows, with the thin scrollbar */}
-        <ScrollArea
-          className={styles.area}
-          viewportClassName={styles.scroller}
-          viewportRef={scrollerRef}
-        >
-          {showControls && (
-            <div className={styles.windowRow}>
-              <WindowStart />
-              <WindowControls className={styles.controls} />
-            </div>
-          )}
-          {children}
-        </ScrollArea>
-      </nav>
-    </SidebarContext.Provider>
+    <nav
+      ref={ref}
+      aria-label={ariaLabel}
+      data-drawer={shell.inDrawer ? '' : undefined}
+      className={cn(styles.sidebar, className)}
+      {...props}
+    >
+      {/* everything scrolls in it, under the pinned rows, with the thin scrollbar */}
+      <ScrollArea className={styles.area} viewportClassName={styles.scroller}>
+        {showControls && (
+          <div className={styles.windowRow}>
+            <WindowStart />
+            <WindowControls className={styles.controls} />
+          </div>
+        )}
+        {children}
+      </ScrollArea>
+    </nav>
   );
 });
-
-/**
- * Fades the sidebar's content in when it switches between the full sidebar and the rail, as the
- * two lay out differently (the width slides in CSS, on `--ease-surface`). Played on the elements, so nothing remounts
- * and folded groups or open menus keep their state; not on the first render. The duration is the
- * `--duration-slow` token (0 under reduced motion) and the easing `--ease-surface`.
- */
-function useFadeOnToggle(scrollerRef: RefObject<HTMLElement | null>, collapsed: boolean) {
-  const previous = useRef(collapsed);
-  useLayoutEffect(() => {
-    const scroller = scrollerRef.current;
-    if (previous.current === collapsed || !scroller) return;
-    previous.current = collapsed;
-    const style = getComputedStyle(scroller);
-    const duration = parseFloat(style.getPropertyValue('--duration-slow')) || 0;
-    if (duration === 0 || typeof scroller.animate !== 'function') return;
-    const easing = style.getPropertyValue('--ease-surface').trim() || 'ease-out';
-    for (const child of Array.from(scroller.children)) {
-      child.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
-    }
-  }, [scrollerRef, collapsed]);
-}
 
 /** The top row: the workspace switcher, then search and "new" (`SidebarHeaderActions`). */
 export const SidebarHeader = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<'div'>>(
@@ -133,7 +71,7 @@ export const SidebarHeader = forwardRef<HTMLDivElement, ComponentPropsWithoutRef
   },
 );
 
-/** The header's right side: search and "new" (`SidebarAction`s). In the rail, under the tile. */
+/** The header's right side: search and "new" (`SidebarAction`s). */
 export const SidebarHeaderActions = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<'div'>>(
   function SidebarHeaderActions({ className, ...props }, ref) {
     return <div ref={ref} className={cn(styles.headerActions, className)} {...props} />;
@@ -148,18 +86,11 @@ export interface SidebarActionProps extends Omit<ComponentPropsWithoutRef<'butto
   shortcut?: string;
 }
 
-/**
- * A header action (search, new): a 28px icon button beside the workspace, or a 40×32 rail item
- * under the tile in the rail. Both name themselves in a tooltip.
- */
+/** A header action (search, new): a 28px icon button beside the workspace, named in a tooltip. */
 export const SidebarAction = forwardRef<HTMLButtonElement, SidebarActionProps>(
   function SidebarAction({ icon, label, shortcut, className, ...props }, ref) {
-    const { collapsed } = useSidebar();
     return (
-      <Tooltip
-        content={<TooltipLabel label={label} shortcut={shortcut} />}
-        side={collapsed ? 'right' : 'bottom'}
-      >
+      <Tooltip content={<TooltipLabel label={label} shortcut={shortcut} />} side="bottom">
         <button
           ref={ref}
           type="button"
@@ -197,7 +128,7 @@ export interface SidebarWorkspaceProps {
 
 /**
  * The workspace switcher: the 20px tile, the name (14px medium) and an up-down chevron that opens
- * the workspace menu (pressed while open). In the rail, the tile alone.
+ * the workspace menu (pressed while open).
  */
 export function SidebarWorkspace({
   name,
@@ -207,24 +138,14 @@ export function SidebarWorkspace({
   defaultOpen,
   onOpenChange,
 }: SidebarWorkspaceProps) {
-  const { collapsed } = useSidebar();
-  const trigger = (
-    <DropdownMenuTrigger className={styles.workspace} aria-label={`Workspace: ${name}`}>
-      <WorkspaceTile letter={name} color={color} />
-      <span className={styles.workspaceName}>{name}</span>
-      <Icon icon={ChevronsUpDown} size={12} className={styles.chevron} />
-    </DropdownMenuTrigger>
-  );
   return (
     <DropdownMenu open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
-      {collapsed ? (
-        <Tooltip content={name} side="right">
-          {trigger}
-        </Tooltip>
-      ) : (
-        trigger
-      )}
-      <DropdownMenuContent align="start" side={collapsed ? 'right' : 'bottom'} width="lg">
+      <DropdownMenuTrigger className={styles.workspace} aria-label={`Workspace: ${name}`}>
+        <WorkspaceTile letter={name} color={color} />
+        <span className={styles.workspaceName}>{name}</span>
+        <Icon icon={ChevronsUpDown} size={12} className={styles.chevron} />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" width="lg">
         {children}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -245,11 +166,6 @@ export const SidebarContent = forwardRef<HTMLDivElement, ComponentPropsWithoutRe
   },
 );
 
-/** A 24px hairline between the rail's blocks (tile and actions, pages, shortcuts). Hidden in the full sidebar. */
-export function SidebarSeparator({ className, ...props }: ComponentPropsWithoutRef<'div'>) {
-  return <div role="separator" className={cn(styles.separator, className)} {...props} />;
-}
-
 export interface SidebarGroupProps extends Omit<ComponentPropsWithoutRef<'div'>, 'children'> {
   /** the group label: "Recents", "Favorites"; a group without one is the main navigation */
   label?: string;
@@ -258,13 +174,6 @@ export interface SidebarGroupProps extends Omit<ComponentPropsWithoutRef<'div'>,
   defaultOpen?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  /**
-   * The group's icon in the rail (Recents `Clock`, Favorites `Star`): one rail item that opens a
-   * popover listing the group's items. A labelled group without one hides in the rail.
-   */
-  railIcon?: IconSource;
-  /** show the group's items in the rail as they are (rail items) */
-  showInRail?: boolean;
   children?: ReactNode;
 }
 
@@ -279,35 +188,15 @@ export const SidebarGroup = forwardRef<HTMLDivElement, SidebarGroupProps>(functi
     defaultOpen = true,
     open,
     onOpenChange,
-    railIcon,
-    showInRail,
     className,
     children,
     ...props
   },
   ref,
 ) {
-  const { collapsed } = useSidebar();
-  if (collapsed && label && !showInRail) {
-    if (!railIcon) return null;
-    return (
-      <div
-        ref={ref}
-        role="group"
-        aria-label={label}
-        className={cn(styles.group, className)}
-        {...props}
-      >
-        <SidebarRailGroup label={label} icon={railIcon}>
-          {children}
-        </SidebarRailGroup>
-      </div>
-    );
-  }
-  const showLabel = label && !collapsed;
   const menu = <SidebarMenu data-main={label ? undefined : ''}>{children}</SidebarMenu>;
 
-  if (collapsible && showLabel) {
+  if (collapsible && label) {
     return (
       <Collapsible.Root
         ref={ref}
@@ -333,47 +222,11 @@ export const SidebarGroup = forwardRef<HTMLDivElement, SidebarGroupProps>(functi
       className={cn(styles.group, className)}
       {...props}
     >
-      {showLabel && <SidebarGroupLabel aria-hidden>{label}</SidebarGroupLabel>}
+      {label && <SidebarGroupLabel aria-hidden>{label}</SidebarGroupLabel>}
       {menu}
     </div>
   );
 });
-
-/** The rail's stand-in for a labelled group: one icon that lists the group in a popover. */
-function SidebarRailGroup({
-  label,
-  icon,
-  children,
-}: {
-  label: string;
-  icon: IconSource;
-  children: ReactNode;
-}) {
-  return (
-    <SidebarMenu>
-      <Popover>
-        <Tooltip content={label} side="right">
-          <PopoverTrigger className={styles.item} aria-label={label}>
-            <span className={styles.itemIcon}>{renderIcon(icon, 16)}</span>
-            <span className={styles.itemLabel}>{label}</span>
-          </PopoverTrigger>
-        </Tooltip>
-        <PopoverContent
-          size="auto"
-          side="right"
-          align="start"
-          sideOffset={8}
-          className={styles.railPopover}
-        >
-          <SidebarContext.Provider value={{ collapsed: false }}>
-            <SidebarGroupLabel aria-hidden>{label}</SidebarGroupLabel>
-            <SidebarMenu>{children}</SidebarMenu>
-          </SidebarContext.Provider>
-        </PopoverContent>
-      </Popover>
-    </SidebarMenu>
-  );
-}
 
 /** A group's 12px label, for groups composed by hand. */
 export const SidebarGroupLabel = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<'div'>>(
@@ -390,7 +243,7 @@ export const SidebarMenu = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<'
 );
 
 export interface SidebarItemProps extends Omit<useRender.ComponentProps<'button'>, 'children'> {
-  /** the page or item's name; the rail shows it in a tooltip */
+  /** the page or item's name */
   children: string;
   /** a Lucide icon or a node, 16px */
   icon?: IconSource;
@@ -400,20 +253,16 @@ export interface SidebarItemProps extends Omit<useRender.ComponentProps<'button'
   bar?: Swatch | string;
   /** the current page: `sidebar-accent` with a `border-strong` outline */
   active?: boolean;
-  /** the page's go-to keys, shown in the rail's tooltip: "G T" */
-  shortcut?: string;
 }
 
 /**
- * A 32px sidebar item: icon (or an event's bar) and label; in the rail a 40×32 icon with the
- * label (and shortcut) in a tooltip at its right. A `button` by default; pass
- * `render={<a href="…" />}` for navigation. Picking one in the compact window's drawer closes it.
+ * A 32px sidebar item: icon (or an event's bar) and label. A `button` by default; pass
+ * `render={<a href="…" />}` for navigation. Picking one in the drawer closes it.
  */
 export const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(function SidebarItem(
-  { children, icon, iconColor, bar, active, shortcut, render, onClick, ...props },
+  { children, icon, iconColor, bar, active, render, onClick, ...props },
   ref,
 ) {
-  const { collapsed } = useSidebar();
   const shell = useAppShell();
   const glyph = bar ? (
     <span className={styles.itemBar}>
@@ -456,13 +305,7 @@ export const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(funct
     ),
   });
 
-  return collapsed ? (
-    <Tooltip content={<TooltipLabel label={children} shortcut={shortcut} />} side="right">
-      {element}
-    </Tooltip>
-  ) : (
-    element
-  );
+  return element;
 });
 
 /** The bottom of the sidebar: the sync status, then Trash, Settings and Help. */
