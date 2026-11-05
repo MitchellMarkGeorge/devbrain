@@ -1,9 +1,9 @@
 # ToggleGroup
 
-shadcn's ToggleGroup, drawn as DevBrain's segmented control: a 34px track with 3px padding and 10px corners, holding 26px items with no gap between them (Figma's `SegmentItem`); items are 14px medium `muted-foreground` (8px side padding, 6px for icon-only), and the chosen one takes a thumb with 8px corners and `foreground` text. `size="sm"` keeps a 28px track (2px padding, 22px items). The track and thumb differ by theme (the `segment-*` tokens):
+shadcn's ToggleGroup, drawn as DevBrain's segmented control and sized as shadcn's (Nova) Tabs: a `control-md` (32px) track with a 1px `border` outline, 2px padding and 10px corners, so its items sit 3px in, as in shadcn; `size="sm"` is a `control-sm` (28px) track. Items are 1px shorter than the space inside the track (25px; 21px at `sm`), with no gap between them, 6px side padding (4px before a leading icon), 8px corners and 14px medium text (13px at `sm`, with 14px icons). The chosen one takes a thumb and `foreground` text. On keyboard focus an item's border turns `ring` with a 3px `ring` halo at 50%; on the chosen item the halo and the thumb's shadow show together. Colours differ by theme (the `segment-*` tokens):
 
-- **Dark:** the track is on the page colour with a `border` outline; the thumb is `secondary` (`neutral-800`, so it shows on a `card` too) with Figma's `shadow-segment`, `0 1px 1px` black at 30%.
-- **Light:** shadcn's look: a `muted` (`neutral-100`) track with no outline, and a white thumb raised by shadcn's `shadow-sm`.
+- **Dark:** the track is on the page colour; unchosen items are `muted-foreground`; the thumb is `secondary` (`neutral-800`, so it shows on a `card` too) with Figma's `shadow-segment`, `0 1px 1px` black at 30%.
+- **Light:** shadcn's Tabs, outlined: a `muted` (`neutral-100`) track, unchosen items in `foreground` at 60%, and a white thumb raised by shadcn's `shadow-sm`.
 
 - `items`: `{ value, label?, icon?, iconColor? }`; icon-only items need a `value` that reads as a name.
 - Use for calendar range (Month/Week/Day), list/grid/board view, the kind in Home's `CaptureBox` and choices inside settings rows. For page sections use `Tabs`.

@@ -41,7 +41,7 @@
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme='dark']) .box .kind {
-    border-color: var(--segment-track-border);
+    border-color: var(--border);
     background: var(--segment-track);
   }
   :root:not([data-theme='dark']) .box .kind [data-pressed] {
@@ -49,7 +49,7 @@
   }
 }
 :root[data-theme='light'] .box .kind {
-  border-color: var(--segment-track-border);
+  border-color: var(--border);
   background: var(--segment-track);
 }
 :root[data-theme='light'] .box .kind [data-pressed] {

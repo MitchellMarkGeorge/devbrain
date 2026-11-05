@@ -196,8 +196,8 @@
   --secondary: var(--neutral-800);
   --secondary-foreground: var(--neutral-200);
   --segment-track: var(--background);
-  --segment-track-border: var(--border);
   --segment-thumb: var(--secondary);
+  --segment-foreground: var(--muted-foreground);
   --muted: var(--neutral-900);
   --muted-foreground: var(--neutral-400);
   --subtle-foreground: var(--neutral-500); /* DevBrain addition */
@@ -271,8 +271,8 @@
     --secondary: var(--neutral-100);
     --secondary-foreground: var(--neutral-900);
     --segment-track: var(--muted);
-    --segment-track-border: transparent;
     --segment-thumb: var(--background);
+    --segment-foreground: color-mix(in srgb, var(--foreground) 60%, transparent);
     --muted: var(--neutral-100);
     --muted-foreground: var(--neutral-500);
     --subtle-foreground: var(--neutral-500);
@@ -346,8 +346,8 @@
   --secondary: var(--neutral-100);
   --secondary-foreground: var(--neutral-900);
   --segment-track: var(--muted);
-  --segment-track-border: transparent;
   --segment-thumb: var(--background);
+  --segment-foreground: color-mix(in srgb, var(--foreground) 60%, transparent);
   --muted: var(--neutral-100);
   --muted-foreground: var(--neutral-500);
   --subtle-foreground: var(--neutral-500);
