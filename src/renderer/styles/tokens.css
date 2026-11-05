@@ -120,7 +120,6 @@
 
   /* Shadows */
   --shadow-pinned: 0 8px 12px -8px var(--pinned-shadow);
-  --shadow-segment: 0 1px 1px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
   --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 
@@ -249,6 +248,8 @@
   --status-in-progress-tint: color-mix(in srgb, var(--status-in-progress) 15%, transparent);
   --status-completed-tint: color-mix(in srgb, var(--status-completed) 15%, transparent);
   --status-overdue-tint: color-mix(in srgb, var(--status-overdue) 15%, transparent);
+
+  --shadow-segment: 0 1px 1px rgba(0, 0, 0, 0.3);
 }
 
 /* 2. Theme: light, when the system (or the app's theme setting) asks for it */
@@ -319,6 +320,8 @@
     --status-in-progress-tint: color-mix(in srgb, var(--status-in-progress) 15%, transparent);
     --status-completed-tint: color-mix(in srgb, var(--status-completed) 15%, transparent);
     --status-overdue-tint: color-mix(in srgb, var(--status-overdue) 15%, transparent);
+
+    --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.3);
   }
 }
 
@@ -389,6 +392,8 @@
   --status-in-progress-tint: color-mix(in srgb, var(--status-in-progress) 15%, transparent);
   --status-completed-tint: color-mix(in srgb, var(--status-completed) 15%, transparent);
   --status-overdue-tint: color-mix(in srgb, var(--status-overdue) 15%, transparent);
+
+  --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 @media (prefers-reduced-motion: reduce) {

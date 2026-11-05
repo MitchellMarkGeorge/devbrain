@@ -125,7 +125,10 @@ for (const [family, title] of [
   ['zIndex', 'Layers'],
 ] as const) {
   lines.push('', `  /* ${title} */`);
-  for (const t of tokens[family].tokens) lines.push(`  --${t.name}: ${resolve(t.value, 'dark')};`);
+  // one with a value per theme (a shadow that differs in light) goes in the theme blocks instead
+  for (const t of tokens[family].tokens.filter((t) => typeof t.value === 'string')) {
+    lines.push(`  --${t.name}: ${resolve(t.value, 'dark')};`);
+  }
 }
 
 lines.push(
@@ -159,6 +162,9 @@ function themeBlock(name: 'dark' | 'light', selector: string, indent = ''): stri
   for (const t of domain.filter((d) => typeof d.value !== 'string')) {
     block.push(`  --${t.name}: ${resolve(t.value, name)};`);
   }
+  const themedShadows = tokens.shadow.tokens.filter((t) => typeof t.value !== 'string');
+  if (themedShadows.length) block.push('');
+  for (const t of themedShadows) block.push(`  --${t.name}: ${resolve(t.value, name)};`);
   block.push('}');
   return block.map((line) => (line === '' ? line : indent + line));
 }

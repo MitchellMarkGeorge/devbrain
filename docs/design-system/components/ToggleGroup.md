@@ -1,6 +1,6 @@
 # ToggleGroup
 
-shadcn's ToggleGroup, drawn as DevBrain's segmented control: a 34px `background` track with a `border` line, 3px padding and 10px corners, holding 26px items with no gap between them (Figma's `SegmentItem`); items are 14px medium `muted-foreground` (8px side padding, 6px for icon-only), and the chosen one takes a `secondary` thumb with 8px corners and `shadow-segment` (`0 1px 1px` black at 30%; Nova uses `shadow-sm`). `size="sm"` keeps a 28px track (2px padding, 22px items).
+shadcn's ToggleGroup, drawn as DevBrain's segmented control: a 34px `background` track with a `border` line, 3px padding and 10px corners, holding 26px items with no gap between them (Figma's `SegmentItem`); items are 14px medium `muted-foreground` (8px side padding, 6px for icon-only), and the chosen one takes a `secondary` thumb with 8px corners and `shadow-segment` (black at 30%: `0 1px 1px` in dark, as Figma; `0 1px 2px` in light, softer, so it doesn't read as a hard line under the light thumb; Nova uses `shadow-sm`). `size="sm"` keeps a 28px track (2px padding, 22px items).
 
 - `items`: `{ value, label?, icon?, iconColor? }`; icon-only items need a `value` that reads as a name.
 - Use for calendar range (Month/Week/Day), list/grid/board view, the kind in Home's `CaptureBox` and choices inside settings rows. For page sections use `Tabs`.
