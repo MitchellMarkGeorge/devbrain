@@ -2,7 +2,7 @@ import { forwardRef, type ComponentPropsWithoutRef } from 'react';
 import { ArrowLeft, ArrowRight, Menu, Minus, PanelLeft, Square, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useFormatKeys, useWindowFrame } from '../../lib/platform';
-import { useAppShell } from '../AppShell/context';
+import { useAppShell, type AppShellContextValue } from '../AppShell/context';
 import { IconButton, type IconButtonProps } from '../../ui/IconButton';
 import styles from './WindowBar.module.css';
 
@@ -107,9 +107,20 @@ export interface WindowControlsProps extends ComponentPropsWithoutRef<'div'> {
   canGoForward?: boolean;
 }
 
+/** What the sidebar toggle does, as its label and tooltip say. */
+function toggleLabel(shell: AppShellContextValue): string {
+  if (shell.inDrawer) {
+    if (shell.size !== 'compact') return 'Dock sidebar';
+    return shell.peeking ? 'Keep sidebar open' : 'Close sidebar';
+  }
+  return shell.sidebarHidden ? 'Show sidebar' : 'Hide sidebar';
+}
+
 /**
  * The sidebar toggle (⌘\, Ctrl+\ off macOS), then back and forward: three 28px muted icon
- * buttons, 8px apart. They act on the `AppShell` around them unless given handlers.
+ * buttons, 8px apart. They act on the `AppShell` around them unless given handlers. While the
+ * sidebar is hidden, pointing at the toggle peeks at the drawer; clicking it pins the drawer open,
+ * or docks the sidebar where the window is wide enough.
  */
 export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
   function WindowControls(
@@ -118,25 +129,29 @@ export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
   ) {
     const shell = useAppShell();
     const formatKeys = useFormatKeys();
-    const toggleLabel = shell.rail
-      ? shell.size === 'compact'
-        ? 'Open sidebar'
-        : 'Expand sidebar'
-      : 'Collapse sidebar';
+    const label = toggleLabel(shell);
+    const peeks = !onToggleSidebar && shell.sidebarHidden && !shell.inDrawer;
     return (
       <div ref={ref} className={cn(styles.controls, className)} {...props}>
         <IconButton
           size="sm"
           tone="muted"
           icon={PanelLeft}
-          label={shell.inDrawer ? 'Close sidebar' : toggleLabel}
+          label={label}
           tooltip={
             <>
-              {shell.inDrawer ? 'Close sidebar' : toggleLabel}{' '}
-              <span className={styles.key}>{formatKeys('⌘\\')}</span>
+              {label} <span className={styles.key}>{formatKeys('⌘\\')}</span>
             </>
           }
-          onClick={onToggleSidebar ?? (shell.inDrawer ? shell.closeDrawer : shell.toggleSidebar)}
+          onClick={onToggleSidebar ?? shell.toggleSidebar}
+          onPointerEnter={
+            peeks
+              ? (event) => {
+                  if (event.pointerType === 'mouse') shell.peekSidebar();
+                }
+              : undefined
+          }
+          onPointerLeave={peeks ? shell.cancelPeek : undefined}
         />
         <IconButton
           size="sm"
@@ -162,7 +177,7 @@ export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
 export type WindowBarProps = ComponentPropsWithoutRef<'div'>;
 
 /**
- * The 48px bar across the window while the sidebar is the rail: the title bar's start (traffic
+ * The 48px bar across the window while the sidebar is hidden: the title bar's start (traffic
  * lights on macOS, the menu button on Windows), the window controls, then the page's header (its
  * breadcrumb, and its actions at the right, clear of Windows' caption buttons). The bar drags the
  * window; its buttons don't.

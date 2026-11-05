@@ -40,25 +40,34 @@ function Frame({
       >
         <PageToolbar start={<Text tone="muted">Toolbar</Text>} />
         <PageContent>
-          <Text tone="subtle">Page content. Press ⌘\ to toggle the sidebar.</Text>
+          <Text tone="subtle">
+            Page content. Press ⌘\ to show or hide the sidebar; while it’s hidden, point at the
+            toggle or the window’s left edge to peek at it.
+          </Text>
         </PageContent>
       </AppShell>
     </div>
   );
 }
 
-/** Wide (1280px and up): the full sidebar with the window row, the page beside it. */
+/** Wide (1280px and up): the docked sidebar with the window row, the page beside it. */
 export const Wide: Story = { render: () => <Frame width={1440} height={720} /> };
 
-/** The user collapsed the sidebar: the rail under the window bar, which carries the header. */
-export const Collapsed: Story = {
+/**
+ * The user hid the sidebar (⌘\): the window bar runs across the top and carries the header.
+ * Pointing at the toggle or the left edge peeks at the drawer; clicking the toggle docks it.
+ */
+export const Hidden: Story = {
   render: () => <Frame width={1440} height={720} defaultCollapsed />,
 };
 
-/** Compact (below 1080px): the rail; the toggle opens the drawer. */
+/**
+ * Compact (below 1080px): the sidebar rests hidden. Pointing at the toggle or the left edge peeks
+ * at the drawer; clicking the toggle pins it open.
+ */
 export const Compact: Story = { render: () => <Frame width={960} height={640} /> };
 
-/** Compact with the drawer open over the page and the backdrop behind. */
+/** Compact with the drawer pinned open over the page and the backdrop behind. */
 export const CompactDrawer: Story = {
   render: () => <Frame width={960} height={640} defaultDrawerOpen />,
 };
@@ -82,8 +91,8 @@ export const Windows: Story = {
   ),
 };
 
-/** Windows, collapsed: the bar carries the menu button, the controls and the header. */
-export const WindowsCollapsed: Story = {
+/** Windows, sidebar hidden: the bar carries the menu button, the controls and the header. */
+export const WindowsHidden: Story = {
   render: () => (
     <On platform="windows">
       <Frame width={1440} height={720} defaultCollapsed />

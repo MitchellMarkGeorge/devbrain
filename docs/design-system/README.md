@@ -117,17 +117,21 @@ Home's rows are lighter than the lists': no selection strip, 36px for meetings a
 The window is never smaller than `window-min-width` × `window-min-height` (960 × 640). Three ranges:
 
 - **Wide (`breakpoint-wide`, 1280px and up):** everything as designed. Sheets dock beside the page; the calendar shows its right panel.
-- **Medium (1080–1279px):** the calendar's right panel hides. The sidebar rests open and sheets still dock.
+- **Medium (1080–1279px):** the calendar's right panel hides. The sidebar rests docked and sheets still dock.
 - **Compact (960–1079px):**
-  - The sidebar rests as the 56px icon rail (`sidebar-rail-width`); expanding it opens the full sidebar as a drawer over the page, with the `backdrop` scrim behind it, and picking a page, clicking outside or Esc closes it. A sidebar the user collapsed stays collapsed at any width.
+  - The sidebar rests hidden, and opens as a drawer over the page (see below).
   - Sheets float over the page instead of docking.
   - Toolbar values hide, and card grids (the Notes and Projects card views) drop to two columns.
+- **The sidebar has two states:** docked (`sidebar-width`, 256px, the page beside it) or hidden. The user hides and shows it with ⌘\ or the sidebar toggle at any width; a sidebar the user hid stays hidden at any width, and in compact windows it rests hidden. While it's hidden:
+  - The `WindowBar` runs across the top: the title bar's start, the sidebar toggle, back and forward, then the page's header.
+  - The sidebar opens as a drawer over the page, with the `backdrop` scrim behind it. Pointing at the toggle, or at an 8px strip along the window's left edge, peeks at it after 200ms, so a passing pointer doesn't; it closes 300ms after the pointer leaves it. A peek leaves focus where it was.
+  - Clicking the toggle or ⌘\ pins the drawer open in compact windows, and docks the sidebar where the window is wide enough. Clicking inside a peeking drawer, or moving focus into it, pins it too. Esc, a click outside or picking a page closes it. Keyboard users open it with the toggle or ⌘\.
 - **At every size:** the week view keeps all seven days (hiding days could hide events); the day columns narrow instead. Long text ends in "…" at its own width: pill labels before titles, titles before dates, and breadcrumbs keep the first and last items. Sheets and dialogs scroll inside themselves at the minimum height, and the selection bar and toasts sit on the window's bottom edge. Document pages cap their content and centre it in the page (see Page widths); workspace pages use the full width.
 
 ## Window frame
 
-The page draws its own title bar, a 48px strip (the `WindowBar` while the sidebar is the rail; the
-sidebar's 44px window row and the `PageHeader` beside the full sidebar), and leaves room for the
+The page draws its own title bar, a 48px strip (the `WindowBar` while the sidebar is hidden; the
+sidebar's 44px window row and the `PageHeader` beside the docked sidebar), and leaves room for the
 window controls the system draws. Main sets the frame up per platform
 (`src/main/runtime/window-chrome.ts`); the page reads the platform from `WindowFrameProvider`
 (`src/renderer/components/lib/platform.ts`), and the Storybook toolbar picks one.
@@ -137,7 +141,7 @@ window controls the system draws. Main sets the frame up per platform
 - **Windows:** no title bar; Windows draws minimise, maximise and close (138px, 48px tall, in the
   theme's `background` and `foreground`) over the top right, so maximise keeps its snap layouts. A
   menu button takes the traffic lights' place and pops up the app menu, as there is no menu bar.
-  The header's actions stop 16px short of the buttons. Beside the full sidebar the header gets a
+  The header's actions stop 16px short of the buttons. Beside the docked sidebar the header gets a
   row of its own across the window, and a docked sheet starts under it, so a sheet's own close
   never sits beside the window's; floating sheets start under the strip too.
 - **Linux:** the system frame, with its title bar and the menu bar, sits above the page. The strip
@@ -192,7 +196,7 @@ Two kinds of page, one rule each:
 - Heights: `control-xs` (24px) pills and xs buttons, `control-sm` (28px) sm buttons and menu items, `control-md` (32px) buttons, inputs, segmented controls and sidebar items, `control-lg` (36px) lg buttons, `row-height` (48px) and `group-gap` (32px) for list density, `group-height` (36px).
 - Corners: `radius-md` (8px) inside controls, `radius-lg` (10px) controls and menus, `radius-xl` (14px) surfaces, `radius-full` pills.
 - Shadows only on floating layers: `shadow-md` for menus and tooltips, `shadow-2xl` for dialogs, sheets and toasts. The exceptions are `shadow-segment`, under the current segment of a segmented control, and `shadow-pinned`, under the sidebar's pinned header while content is scrolled beneath it.
-- Layout: Home's `home-max-width` (800px) column; a `sidebar-width` (256px) sidebar, or the `sidebar-rail-width` (56px) rail in compact windows; lists run edge to edge; details open in a `sheet-width` (380px) panel docked on the right, and the page narrows beside it (an overlay only in narrow windows).
+- Layout: Home's `home-max-width` (800px) column; a `sidebar-width` (256px) sidebar, docked or hidden (and then a drawer over the page); lists run edge to edge; details open in a `sheet-width` (380px) panel docked on the right, and the page narrows beside it (an overlay only in narrow windows).
 
 ## Components
 
@@ -209,5 +213,5 @@ Two kinds of page, one rule each:
 ## Motion
 
 - 100ms for hover and press; menus, popovers and tooltips fade and zoom from 95% in 150ms (Nova's `zoom-in-95`). These use `ease-out`, which is nearly done in the first fifth of the time: right for small popups.
-- Large surfaces take 250ms on `ease-surface` (ease-out-cubic, halfway at a fifth of the time), so their motion reads, opening and closing alike: dialogs (and the ⌘K search) fade in as they rise 8px and grow from 96% over a fading scrim; sheets slide in from the right (docked, the page narrowing with them; or floating over a fading scrim); the sidebar collapses to the rail and back (its width slides, its content fades in), and in compact windows its drawer widens out of the rail over the page; toasts rise in from below the window's edge as they fade in, the stack shifting back and spreading on the same curve, and leave by fading where they are (the front one sinking back below the edge).
+- Large surfaces take 250ms on `ease-surface` (ease-out-cubic, halfway at a fifth of the time), so their motion reads, opening and closing alike: dialogs (and the ⌘K search) fade in as they rise 8px and grow from 96% over a fading scrim; sheets slide in from the right (docked, the page narrowing with them; or floating over a fading scrim); the sidebar slides out to the left as it hides and back in as it docks, the page widening and narrowing beside it, and its drawer slides in from the window's left edge over a fading scrim (docking from the drawer swaps them where they stand, with no motion); toasts rise in from below the window's edge as they fade in, the stack shifting back and spreading on the same curve, and leave by fading where they are (the front one sinking back below the edge).
 - Nothing moves under `prefers-reduced-motion`.

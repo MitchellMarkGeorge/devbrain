@@ -13,7 +13,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui
 import { IconButton } from '../../ui/IconButton';
 import styles from './PageHeader.module.css';
 
-/** Set by `AppShell` while the header is drawn inside the window bar (the sidebar is the rail). */
+/** Set by `AppShell` while the header is drawn inside the window bar (the sidebar is hidden). */
 export const PageHeaderInWindowBar = createContext(false);
 
 export interface PageHeaderProps extends Omit<ComponentPropsWithoutRef<'header'>, 'title'> {
@@ -30,7 +30,7 @@ export interface PageHeaderProps extends Omit<ComponentPropsWithoutRef<'header'>
 /**
  * The top of every page: a 48px bar with the breadcrumb at the left and the page's actions at the
  * right, 24px in from the sides. It spans the page even where the content is a capped column.
- * While the sidebar is the rail, `AppShell` moves it into the `WindowBar`.
+ * While the sidebar is hidden, `AppShell` moves it into the `WindowBar`.
  */
 export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function PageHeader(
   { actions, className, children, ...props },
@@ -107,11 +107,11 @@ export const PageToolbar = forwardRef<HTMLDivElement, PageToolbarProps>(function
   { start, end, className, children, ...props },
   ref,
 ) {
-  const { rail } = useAppShell();
+  const { sidebarHidden } = useAppShell();
   return (
     <div
       ref={ref}
-      data-rail={rail ? '' : undefined}
+      data-under-window-bar={sidebarHidden ? '' : undefined}
       className={cn(styles.toolbar, className)}
       {...props}
     >

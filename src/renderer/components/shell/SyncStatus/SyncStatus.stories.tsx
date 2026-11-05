@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Stack } from '../../layout/Flex';
-import { Sidebar } from '../Sidebar';
 import { TooltipProvider } from '../../ui/Tooltip';
 import { SyncStatus } from './SyncStatus';
 
@@ -34,17 +33,5 @@ export const States: Story = {
       <SyncStatus state="rate-limited" retryAt="9:15 AM" />
       <SyncStatus state="offline" />
     </Stack>
-  ),
-};
-
-/** In the rail: the icon alone, the line in a tooltip. */
-export const InRail: Story = {
-  render: () => (
-    <div style={{ height: 200, display: 'flex' }}>
-      <Sidebar collapsed>
-        <SyncStatus state="error" onRetry={() => {}} />
-        <SyncStatus state="syncing" />
-      </Sidebar>
-    </div>
   ),
 };

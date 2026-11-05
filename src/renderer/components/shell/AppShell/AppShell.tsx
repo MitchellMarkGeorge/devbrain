@@ -29,10 +29,18 @@ export function windowSizeFor(width: number): WindowSize {
   return 'wide';
 }
 
+/**
+ * How long the pointer rests on the sidebar toggle or the window's left edge before the drawer
+ * peeks out (so a passing pointer doesn't open it), and how long it may be away from the drawer
+ * before it closes again.
+ */
+export const PEEK_OPEN_DELAY = 200;
+export const PEEK_CLOSE_DELAY = 300;
+
 export interface AppShellProps extends Omit<ComponentPropsWithoutRef<'div'>, 'children'> {
-  /** the app's `Sidebar`; the shell draws it as the full sidebar, the rail or the drawer */
+  /** the app's `Sidebar`; the shell docks it at the left, or opens it as a drawer while it's hidden */
   sidebar: ReactNode;
-  /** the page's `PageHeader`; moves into the `WindowBar` while the sidebar is the rail */
+  /** the page's `PageHeader`; moves into the `WindowBar` while the sidebar is hidden */
   header?: ReactNode;
   /** the page under its header: a `PageToolbar` and a `PageContent` */
   children?: ReactNode;
@@ -41,11 +49,11 @@ export interface AppShellProps extends Omit<ComponentPropsWithoutRef<'div'>, 'ch
    * `SheetContent` into `useAppShell().sheetContainer`. In compact windows sheets float instead.
    */
   sheetOpen?: boolean;
-  /** the user's choice: rest as the rail at any size (⌘\) */
+  /** the user's choice: hide the sidebar at any size (⌘\) */
   collapsed?: boolean;
   defaultCollapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
-  /** the compact window's drawer */
+  /** the drawer the hidden sidebar opens as, over the page (opened this way, it's pinned) */
   drawerOpen?: boolean;
   defaultDrawerOpen?: boolean;
   onDrawerOpenChange?: (open: boolean) => void;
@@ -77,11 +85,14 @@ function useControllable<T>(
 /**
  * The frame every screen shares: the sidebar at the left, the page (header, toolbar, content) and
  * a docked sheet at the right. It measures its own width and follows the README's window sizes:
- * below 1080px the sidebar rests as the 56px rail, its toggle opens the full sidebar as a drawer over the page, and sheets float.
- * While the sidebar is the rail the window bar runs across the top with the page's header in it.
+ * below 1080px the sidebar rests hidden and sheets float. The sidebar is either docked or hidden
+ * (the user's choice, ⌘\, at any size). While it's hidden the window bar runs across the top with
+ * the page's header in it, and the sidebar opens as a drawer over the page: pointing at the toggle
+ * or the window's left edge peeks at it, and clicking the toggle or ⌘\ pins it open (or docks it,
+ * where there's room).
  *
  * It follows the window frame (`WindowFrameProvider`): on Windows, whose caption buttons sit over
- * the top right, the page's header runs the full width beside the full sidebar too, and a docked
+ * the top right, the page's header runs the full width beside the docked sidebar too, and a docked
  * sheet starts under it, so nothing of the sheet's sits by the caption buttons.
  */
 export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppShell(
@@ -137,21 +148,69 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
     defaultDrawerOpen,
     onDrawerOpenChange,
   );
-  const rail = collapsed || compact;
-  const drawerShown = compact && !collapsed && drawerOpen;
+  // opened by hover and not yet pinned: no focus moves into it, and it closes when the pointer leaves
+  const [peeking, setPeeking] = useState(false);
+  // docking from the drawer swaps one for the other where it stands, with no motion
+  const [instant, setInstant] = useState(false);
+  const hidden = collapsed || compact;
+  const drawerShown = hidden && drawerOpen;
+  // however the drawer closed, it opens next time as pinned unless a peek opens it
+  if (peeking && !drawerShown) setPeeking(false);
 
-  // leaving the compact range closes the drawer
-  const wasCompact = useRef(compact);
+  // docking the sidebar (a wider window, or the user's toggle) closes the drawer
   useEffect(() => {
-    if (wasCompact.current && !compact && drawerOpen) setDrawerOpen(false);
-    wasCompact.current = compact;
-  }, [compact, drawerOpen, setDrawerOpen]);
+    if (!hidden && drawerOpen) setDrawerOpen(false);
+  }, [hidden, drawerOpen, setDrawerOpen]);
+  useEffect(() => {
+    if (!instant) return;
+    // two frames: the swap has been drawn without transitions before they come back
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => setInstant(false));
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [instant]);
+
+  const openTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const clearTimers = useCallback(() => {
+    clearTimeout(openTimer.current);
+    clearTimeout(closeTimer.current);
+  }, []);
+  useEffect(() => clearTimers, [clearTimers]);
+
+  const closeDrawer = useCallback(() => {
+    clearTimers();
+    setPeeking(false);
+    setDrawerOpen(false);
+  }, [clearTimers, setDrawerOpen]);
 
   const toggleSidebar = useCallback(() => {
-    if (compact && !collapsed) setDrawerOpen(!drawerOpen);
-    else setCollapsed(!collapsed);
-  }, [compact, collapsed, drawerOpen, setCollapsed, setDrawerOpen]);
-  const closeDrawer = useCallback(() => setDrawerOpen(false), [setDrawerOpen]);
+    clearTimers();
+    if (!hidden) {
+      setCollapsed(true);
+    } else if (!compact) {
+      if (drawerShown) setInstant(true);
+      setPeeking(false);
+      setDrawerOpen(false);
+      setCollapsed(false);
+    } else if (drawerOpen && !peeking) {
+      setDrawerOpen(false);
+    } else {
+      setPeeking(false);
+      setDrawerOpen(true);
+    }
+  }, [clearTimers, hidden, compact, drawerShown, drawerOpen, peeking, setCollapsed, setDrawerOpen]);
+
+  const peekSidebar = useCallback(() => {
+    clearTimeout(closeTimer.current);
+    if (!hidden || drawerShown) return;
+    clearTimeout(openTimer.current);
+    openTimer.current = setTimeout(() => {
+      setPeeking(true);
+      setDrawerOpen(true);
+    }, PEEK_OPEN_DELAY);
+  }, [hidden, drawerShown, setDrawerOpen]);
+  const cancelPeek = useCallback(() => clearTimeout(openTimer.current), []);
 
   // ⌘\ toggles the sidebar
   useEffect(() => {
@@ -169,11 +228,14 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
     () => ({
       inShell: true,
       size,
-      rail,
+      sidebarHidden: hidden,
       inDrawer: false,
       drawerOpen: drawerShown,
+      peeking: drawerShown && peeking,
       toggleSidebar,
       closeDrawer,
+      peekSidebar,
+      cancelPeek,
       onBack,
       onForward,
       canGoBack,
@@ -182,26 +244,26 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
     }),
     [
       size,
-      rail,
+      hidden,
       drawerShown,
+      peeking,
       toggleSidebar,
       closeDrawer,
+      peekSidebar,
+      cancelPeek,
       onBack,
       onForward,
       canGoBack,
       canGoForward,
     ],
   );
-  const drawer = useMemo<AppShellContextValue>(
-    () => ({ ...base, rail: false, inDrawer: true }),
-    [base],
-  );
+  const drawer = useMemo<AppShellContextValue>(() => ({ ...base, inDrawer: true }), [base]);
 
   const frame = useWindowFrame();
   const windows = frame.platform === 'windows';
-  // On Windows the header beside the full sidebar gets a row of its own across the page and
+  // On Windows the header beside the docked sidebar gets a row of its own across the page and
   // the sheet; elsewhere it tops the page column only, and a sheet runs full height
-  const headerRow = windows && !rail;
+  const headerRow = windows && !hidden;
 
   return (
     <AppShellContext.Provider value={base}>
@@ -209,20 +271,24 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
         <div
           ref={root}
           data-size={size}
-          data-rail={rail ? '' : undefined}
+          data-sidebar-hidden={hidden ? '' : undefined}
+          data-instant={instant ? '' : undefined}
           data-platform={frame.platform}
           className={cn(styles.shell, className)}
           {...props}
         >
-          {rail && (
+          {hidden && (
             <PageHeaderInWindowBar.Provider value>
               <WindowBar className={styles.windowBar}>{header}</WindowBar>
             </PageHeaderInWindowBar.Provider>
           )}
-          <div className={styles.sidebar}>{sidebar}</div>
+          {/* kept mounted while hidden (folded groups keep their state), out of reach */}
+          <div className={styles.sidebar} {...{ inert: hidden ? '' : undefined }}>
+            {sidebar}
+          </div>
           {headerRow && <div className={styles.header}>{header}</div>}
           <main className={styles.main}>
-            {!rail && !headerRow && header}
+            {!hidden && !headerRow && header}
             <div className={styles.scroll}>{children}</div>
           </main>
           <div
@@ -230,19 +296,48 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
             className={styles.sheet}
             data-open={sheetOpen && !compact ? '' : undefined}
           />
+          {hidden && !drawerShown && (
+            <div
+              aria-hidden
+              className={styles.edge}
+              onPointerEnter={(event) => {
+                if (event.pointerType === 'mouse') peekSidebar();
+              }}
+              onPointerLeave={cancelPeek}
+            />
+          )}
           {windows && frame.controls === 'drawn' && (
             <CaptionButtons className={styles.captionButtons} />
           )}
         </div>
-        {compact && !collapsed && (
-          <Dialog.Root open={drawerShown} onOpenChange={setDrawerOpen}>
+        {hidden && (
+          <Dialog.Root
+            open={drawerShown}
+            onOpenChange={(open) => (open ? setDrawerOpen(true) : closeDrawer())}
+            // a peek leaves focus where it was, so typing carries on; pinning it traps focus
+            modal={!peeking}
+          >
             <Dialog.Portal container={root}>
               <Dialog.Backdrop className={styles.backdrop} />
               <Dialog.Popup
                 ref={drawerPopup}
-                initialFocus={drawerPopup}
+                initialFocus={peeking ? false : drawerPopup}
                 className={styles.drawer}
                 aria-label="Sidebar"
+                onPointerEnter={() => clearTimeout(closeTimer.current)}
+                onPointerLeave={(event) => {
+                  if (!peeking || event.pointerType !== 'mouse') return;
+                  clearTimeout(closeTimer.current);
+                  closeTimer.current = setTimeout(closeDrawer, PEEK_CLOSE_DELAY);
+                }}
+                onPointerDown={() => clearTimeout(closeTimer.current)}
+                // using it pins it, so a menu it opens never closes it. On the click's way back up,
+                // after the drawer's own toggle has read the peek; and only keyboard focus, as a
+                // pressed button takes focus before its click
+                onClick={() => setPeeking(false)}
+                onFocus={(event) => {
+                  if (event.target.matches(':focus-visible')) setPeeking(false);
+                }}
               >
                 <AppShellContext.Provider value={drawer}>{sidebar}</AppShellContext.Provider>
               </Dialog.Popup>

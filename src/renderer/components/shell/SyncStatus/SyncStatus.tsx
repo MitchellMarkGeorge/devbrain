@@ -4,8 +4,6 @@ import type { LucideIcon } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
-import { useSidebar } from '../Sidebar';
-import { Tooltip } from '../../ui/Tooltip';
 import styles from './SyncStatus.module.css';
 
 /** What `sync.status` reports: the last run, one in flight, a failure, a provider's back-off, or no network. */
@@ -54,43 +52,26 @@ function defaultText(state: SyncState, lastSynced?: string, retryAt?: string): s
 
 /**
  * The sync indicator at the top of the sidebar's footer: a 16px state icon and a 12px line; a
- * failure adds "· Retry". Clicking the line opens Integrations. In the rail, the icon alone with
- * the line in a tooltip.
+ * failure adds "· Retry". Clicking the line opens Integrations.
  */
 export const SyncStatus = forwardRef<HTMLDivElement, SyncStatusProps>(function SyncStatus(
   { state, children, lastSynced, retryAt, onOpen, onRetry, className, ...props },
   ref,
 ) {
-  const { collapsed } = useSidebar();
   const text = children ?? defaultText(state, lastSynced, retryAt);
-  const main = (
-    <button
-      type="button"
-      className={styles.main}
-      onClick={onOpen}
-      aria-label={collapsed && typeof text === 'string' ? text : undefined}
-    >
-      <Icon icon={ICONS[state]} size={16} className={styles.icon} />
-      <span className={styles.text}>{text}</span>
-    </button>
-  );
   return (
     <div
       ref={ref}
       role="status"
       data-state={state}
-      data-collapsed={collapsed ? '' : undefined}
       className={cn(styles.status, className)}
       {...props}
     >
-      {collapsed ? (
-        <Tooltip content={text} side="right">
-          {main}
-        </Tooltip>
-      ) : (
-        main
-      )}
-      {state === 'error' && onRetry && !collapsed && (
+      <button type="button" className={styles.main} onClick={onOpen}>
+        <Icon icon={ICONS[state]} size={16} className={styles.icon} />
+        <span className={styles.text}>{text}</span>
+      </button>
+      {state === 'error' && onRetry && (
         <>
           <span className={styles.dot} aria-hidden>
             ·

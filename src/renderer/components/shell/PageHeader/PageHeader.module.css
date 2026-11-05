@@ -49,7 +49,7 @@
   padding: 1px var(--space-6) var(--space-3);
 }
 /* under the window bar the toolbar starts 4px lower (Figma's collapsed screens) */
-.toolbar[data-rail] {
+.toolbar[data-under-window-bar] {
   padding-top: var(--space-1);
 }
 .group {
