@@ -95,6 +95,28 @@ The window is never smaller than `window-min-width` × `window-min-height` (960 
   - Toolbar values hide, and card grids (Notes cards, Home's projects and notes) drop to two columns, with "All projects" / "All notes" for the rest.
 - **At every size:** the week view keeps all seven days (hiding days could hide events); the day columns narrow instead. Long text ends in "…" at its own width: pill labels before titles, titles before dates, and breadcrumbs keep the first and last items. Sheets and dialogs scroll inside themselves at the minimum height, and the selection bar and toasts sit on the window's bottom edge. Document pages cap their content and centre it in the page (see Page widths); workspace pages use the full width.
 
+## Window frame
+
+The page draws its own title bar, a 48px strip (the `WindowBar` while the sidebar is the rail; the
+sidebar's 44px window row and the `PageHeader` beside the full sidebar), and leaves room for the
+window controls the system draws. Main sets the frame up per platform
+(`src/main/runtime/window-chrome.ts`); the page reads the platform from `WindowFrameProvider`
+(`src/renderer/components/lib/platform.ts`), and the Storybook toolbar picks one.
+
+- **macOS** (the designs): no title bar; the system draws the traffic lights in the 52px slot the
+  strip keeps at its top left.
+- **Windows:** no title bar; Windows draws minimise, maximise and close (138px, 48px tall, in the
+  theme's `background` and `foreground`) over the top right, so maximise keeps its snap layouts. A
+  menu button takes the traffic lights' place and pops up the app menu, as there is no menu bar.
+  The header's actions stop 16px short of the buttons. Beside the full sidebar the header gets a
+  row of its own across the window, and a docked sheet or Home's right column starts under it, so
+  a sheet's own close never sits beside the window's; floating sheets start under the strip too.
+- **Linux:** the system frame, with its title bar and the menu bar, sits above the page. The strip
+  has no start (no traffic lights, no menu button); a sheet runs the full height, as on macOS.
+
+Keys are written as on macOS ("⌘K", "⌘⇧X"). `Kbd`, menu shortcuts and the tooltips that show keys
+name them for the platform: "Ctrl+K", "Ctrl+Shift+X" on Windows and Linux (`formatKeys`).
+
 ## Page widths
 
 Two kinds of page, one rule each:

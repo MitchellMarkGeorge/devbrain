@@ -9,6 +9,11 @@ The frame every screen shares: the `Sidebar` at the left, the page (its `PageHea
 
 A docked sheet's column slides open and shut with the sheet on the same timing (`duration-slow`, `ease-surface`), so the page narrows and widens smoothly and the sheet's edge is the page's edge throughout.
 
-The full sidebar draws the window row itself (traffic lights, then toggle, back and forward at its right). A docked sheet opens a `sheet-width` column: set `sheetOpen` and portal `SheetContent` into `useAppShell().sheetContainer`. `trafficLights` is `reserved` in the app (macOS draws its own in Electron's `hiddenInset` title bar), `drawn` in stories, `none` on Windows and Linux.
+The full sidebar draws the window row itself (the title bar's start, then toggle, back and forward at its right). A docked sheet opens a `sheet-width` column: set `sheetOpen` and portal `SheetContent` into `useAppShell().sheetContainer`.
+
+The shell follows the window frame (`WindowFrameProvider`; README "Window frame"), and sets `data-platform` for the CSS:
+
+- **macOS and Linux:** as above. The header tops the page column; a docked sheet and the right column run the full height.
+- **Windows:** Windows draws its caption buttons over the top right. Beside the full sidebar the header gets a row of its own (at least 48px, draggable) across the page, the right column and the sheet, which start under it; the header's actions stop 16px short of the buttons. Collapsed, the `WindowBar` already runs across the top. In stories (`controls: 'drawn'`) the shell paints the caption buttons.
 
 **Base UI:** `Dialog` for the compact drawer (modal, Esc and outside click close it). Layout is a CSS grid with a container query on the shell's own width.

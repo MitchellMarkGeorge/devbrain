@@ -1,6 +1,7 @@
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { useFormatKeys } from '../../lib/platform';
 import styles from './Kbd.module.css';
 
 export const kbdVariants = cva(styles.kbd, {
@@ -17,12 +18,18 @@ export const kbdVariants = cva(styles.kbd, {
 export interface KbdProps
   extends useRender.ComponentProps<'kbd'>, VariantProps<typeof kbdVariants> {}
 
-/** A keyboard key, for help, empty states and tooltips: `<Kbd>⌘K</Kbd>`. */
-export function Kbd({ variant, render, ...props }: KbdProps) {
+/**
+ * A keyboard key, for help, empty states and tooltips: `<Kbd>⌘K</Kbd>`. Write keys as on macOS:
+ * a text child reads "Ctrl+K" on Windows and Linux (`formatKeys`).
+ */
+export function Kbd({ variant, render, children, ...props }: KbdProps) {
+  const formatKeys = useFormatKeys();
   return useRender({
     defaultTagName: 'kbd',
     render,
-    props: mergeProps<'kbd'>({ className: kbdVariants({ variant }) }, props),
+    props: mergeProps<'kbd'>({ className: kbdVariants({ variant }) }, props, {
+      children: typeof children === 'string' ? formatKeys(children) : children,
+    }),
   });
 }
 

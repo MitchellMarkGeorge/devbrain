@@ -24,6 +24,7 @@ import { closeBeforeQuit, forwardSyncTriggers } from './runtime/lifecycle';
 import { createElectronDesktop } from './runtime/desktop';
 import { createMenuActions, installAppMenu } from './runtime/menu';
 import { applyTheme, windowBackground } from './runtime/theme';
+import { repaintChrome, windowChrome } from './runtime/window-chrome';
 import { followLaunchAtLogin, supportsLoginItem } from './runtime/login-item';
 import { attachRouter } from './ipc/server';
 import { attachInitialLoadContext, initialLoadContext } from './ipc/initial-load-context';
@@ -122,7 +123,7 @@ function attachIpc(devBrain: DevBrain | null) {
         ...call,
         devBrain,
         desktop: createElectronDesktop(
-          { dialog, shell },
+          { dialog, shell, menu: Menu },
           BrowserWindow.fromWebContents(call.event.sender),
         ),
         log: ipcLog,
@@ -162,6 +163,9 @@ function createWindow() {
     show: false,
     // the theme's background, so the window never shows white before the page paints
     backgroundColor: windowBackground(nativeTheme),
+    // the page draws the title bar on macOS and Windows; Linux keeps the system's
+    // (src/main/runtime/window-chrome.ts)
+    ...windowChrome(process.platform, nativeTheme),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
@@ -199,8 +203,11 @@ function createWindow() {
 function followThemeSetting(devBrain: DevBrain | null) {
   applyTheme(nativeTheme, devBrain?.settings.get('settings.theme') ?? 'system');
   devBrain?.settings.onChange(({ settings }) => applyTheme(nativeTheme, settings.theme));
-  // a new theme setting, or the system switching appearance while it is 'system'
-  nativeTheme.on('updated', () => mainWindow?.setBackgroundColor(windowBackground(nativeTheme)));
+  // a new theme setting, or the system switching appearance while it is 'system': the window's
+  // background, and the controls Windows draws over the page, follow it
+  nativeTheme.on('updated', () => {
+    if (mainWindow !== null) repaintChrome(mainWindow, process.platform, nativeTheme);
+  });
 }
 
 // --- Launch at login ------------------------------------------------------
@@ -236,7 +243,7 @@ function attachMenu(devBrain: DevBrain | null) {
     actions: createMenuActions({
       devBrain,
       window: focusedWindow,
-      desktop: (win) => createElectronDesktop({ dialog, shell }, win),
+      desktop: (win) => createElectronDesktop({ dialog, shell, menu: Menu }, win),
       dialog,
       showItemInFolder: (fullPath) => shell.showItemInFolder(fullPath),
       logFilePath: () => log.transports.file.getFile().path,

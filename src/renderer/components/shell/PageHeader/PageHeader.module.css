@@ -6,7 +6,8 @@
   gap: var(--space-2);
   height: 48px;
   min-width: 0;
-  padding: 0 var(--space-6);
+  /* on Windows the actions stop 16px short of the caption buttons over the top right (base.css) */
+  padding: 0 max(var(--space-6), var(--title-bar-end, 0px)) 0 var(--space-6);
   -webkit-app-region: drag;
 }
 /* inside the WindowBar: the bar supplies the height and padding */

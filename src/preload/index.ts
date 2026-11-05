@@ -28,6 +28,8 @@ export function createBridge(): IpcBridge {
       };
     },
     initialLoadContext: readInitialLoadContext(),
+    // the sandboxed preload's process has the platform, unlike the page
+    platform: process.platform,
   };
 }
 

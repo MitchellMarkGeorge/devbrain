@@ -1,17 +1,26 @@
-import type { BrowserWindow, Dialog, OpenDialogOptions, SaveDialogOptions, Shell } from 'electron';
+import type {
+  BrowserWindow,
+  Dialog,
+  Menu,
+  OpenDialogOptions,
+  SaveDialogOptions,
+  Shell,
+} from 'electron';
 import type { Desktop } from '../ipc/desktop';
 
 export interface ElectronDesktopDeps {
   dialog: Pick<Dialog, 'showOpenDialog' | 'showSaveDialog'>;
   shell: Pick<Shell, 'openPath'>;
+  // Electron's Menu: the app menu set with Menu.setApplicationMenu (runtime/menu.ts)
+  menu: { getApplicationMenu(): Pick<Menu, 'popup'> | null };
 }
 
 /**
- * The desktop over Electron's shell and dialog, with each dialog modal to `window` (the window the
- * call came from), or free-standing when it is null.
+ * The desktop over Electron's shell, dialog and menu, with each dialog modal to `window` (the
+ * window the call came from), or free-standing when it is null. The app menu pops up in `window`.
  */
 export function createElectronDesktop(
-  { dialog, shell }: ElectronDesktopDeps,
+  { dialog, shell, menu }: ElectronDesktopDeps,
   window: BrowserWindow | null,
 ): Desktop {
   const showOpen = (options: OpenDialogOptions) =>
@@ -44,6 +53,15 @@ export function createElectronDesktop(
         ? dialog.showSaveDialog(window, options)
         : dialog.showSaveDialog(options));
       return result.canceled || !result.filePath ? null : result.filePath;
+    },
+    async showAppMenu({ x, y }) {
+      const appMenu = menu.getApplicationMenu();
+      if (appMenu === null || window === null) {
+        throw new Error('There is no app menu, or no window to show it in');
+      }
+      await new Promise<void>((resolve) =>
+        appMenu.popup({ window, x: Math.round(x), y: Math.round(y), callback: () => resolve() }),
+      );
     },
   };
 }

@@ -68,7 +68,7 @@
   align-items: flex-start;
 }
 
-/* ---------- the window row: traffic lights, then toggle, back, forward at the right ---------- */
+/* ---------- the window row: the title bar's start, then toggle, back, forward at the right ---------- */
 .windowRow {
   display: flex;
   flex: none;
@@ -80,8 +80,8 @@
 .windowRow button {
   -webkit-app-region: no-drag;
 }
-.lights {
-  margin-right: auto;
+.controls {
+  margin-left: auto;
 }
 
 /*

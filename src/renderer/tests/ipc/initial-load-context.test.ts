@@ -26,7 +26,7 @@ const context: InitialLoadContext = {
 };
 
 function bridgeWith(initialLoadContext: IpcBridge['initialLoadContext']): IpcBridge {
-  return { invoke: vi.fn(), subscribe: vi.fn(), initialLoadContext };
+  return { invoke: vi.fn(), subscribe: vi.fn(), initialLoadContext, platform: 'darwin' };
 }
 
 describe('readInitialLoadContext', () => {

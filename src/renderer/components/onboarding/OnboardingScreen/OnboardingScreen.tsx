@@ -1,7 +1,7 @@
 import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from 'react';
 import { cn } from '../../lib/cn';
-import type { TrafficLightsMode } from '../../shell/AppShell';
-import { TrafficLights } from '../../shell/WindowBar';
+import { useWindowFrame } from '../../lib/platform';
+import { CaptionButtons, WindowStart } from '../../shell/WindowBar';
 import styles from './OnboardingScreen.module.css';
 
 export interface OnboardingScreenProps extends Omit<ComponentPropsWithoutRef<'div'>, 'title'> {
@@ -13,24 +13,37 @@ export interface OnboardingScreenProps extends Omit<ComponentPropsWithoutRef<'di
   description?: ReactNode;
   /** pinned to the window's foot: "What's a workspace?" */
   footer?: ReactNode;
-  trafficLights?: TrafficLightsMode;
 }
 
 /**
- * The window before a workspace is open (splash, Welcome, Create workspace): no sidebar, the
- * traffic lights alone in a draggable top strip, and one centred column: the mark, the title, a
+ * The window before a workspace is open (splash, Welcome, Create workspace): no sidebar, the title
+ * bar's start alone in a draggable top strip (the traffic lights on macOS, the menu button on
+ * Windows, whose caption buttons sit at its right), and one centred column: the mark, the title, a
  * line, then the content (a `WorkspaceList`, buttons, a card), with an optional footer link.
  */
 export const OnboardingScreen = forwardRef<HTMLDivElement, OnboardingScreenProps>(
   function OnboardingScreen(
-    { logo, title, description, footer, trafficLights, className, children, ...props },
+    { logo, title, description, footer, className, children, ...props },
     ref,
   ) {
+    const frame = useWindowFrame();
     return (
-      <div ref={ref} className={cn(styles.screen, className)} {...props}>
-        <div className={styles.titleBar}>
-          <TrafficLights mode={trafficLights} />
-        </div>
+      <div
+        ref={ref}
+        data-platform={frame.platform}
+        data-window-controls={frame.controls}
+        className={cn(styles.screen, className)}
+        {...props}
+      >
+        {/* on Linux the system frame's title bar is above the page, so there is no strip */}
+        {frame.platform !== 'linux' && (
+          <div className={styles.titleBar}>
+            <WindowStart />
+            {frame.platform === 'windows' && frame.controls === 'drawn' && (
+              <CaptionButtons className={styles.captionButtons} />
+            )}
+          </div>
+        )}
         <main className={styles.column}>
           {(logo || title || description) && (
             <header className={styles.header}>

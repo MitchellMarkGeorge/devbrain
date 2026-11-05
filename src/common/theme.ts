@@ -6,3 +6,9 @@ export const WINDOW_BACKGROUND = {
   dark: '#0a0a0a',
   light: '#ffffff',
 } as const;
+
+// --foreground in each theme: the symbols on the window controls Windows draws over the page
+export const WINDOW_FOREGROUND = {
+  dark: '#e5e5e5',
+  light: '#0a0a0a',
+} as const;

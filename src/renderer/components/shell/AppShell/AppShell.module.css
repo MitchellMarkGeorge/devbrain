@@ -23,6 +23,34 @@
 .windowBar {
   grid-area: bar;
 }
+/*
+ * Windows, beside the full sidebar: the header gets a row across the page, the aside and the
+ * sheet, as the caption buttons sit over its right end; they all start under it. At least 48px,
+ * so the strip is there to drag the window by even on a page without a header.
+ */
+.shell[data-platform='windows']:not([data-rail]) {
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    'sidebar header header header'
+    'sidebar main aside sheet';
+}
+.header {
+  grid-area: header;
+  display: flex;
+  min-width: 0;
+  min-height: 48px;
+  -webkit-app-region: drag;
+}
+.header > * {
+  flex: 1;
+}
+/* Windows' caption buttons, painted in stories (the system draws them in the app) */
+.captionButtons {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: var(--z-overlay);
+}
 .sidebar {
   grid-area: sidebar;
   display: flex;

@@ -166,6 +166,10 @@ not obvious from one file:
   `settings.showDataFolder` and `workspace.showInFolder` open `devBrain.path` and the open
   workspace's folder. A path handed to the desktop comes from main's state or a dialog, never from
   the renderer's input.
+- **`app.showMenu`** pops up the app menu at a point in the window, through `ctx.desktop`, for
+  the Windows title bar's menu button: the page draws the title bar there and Windows shows no
+  menu bar (`src/main/runtime/window-chrome.ts`). It resolves once the menu closes; a command the
+  menu runs reports its own changes.
 - **`search.search`** returns the only HTML core produces: escaped text with matches in `<b>`
   (see [untrusted-content.md](../security/untrusted-content.md)).
 

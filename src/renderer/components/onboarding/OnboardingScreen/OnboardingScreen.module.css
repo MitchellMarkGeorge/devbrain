@@ -17,6 +17,14 @@
   padding: 0 var(--space-4);
   -webkit-app-region: drag;
 }
+.titleBar button {
+  -webkit-app-region: no-drag;
+}
+/* Windows' caption buttons, painted in stories (the system draws them in the app) */
+.captionButtons {
+  margin-left: auto;
+  margin-right: calc(-1 * var(--space-4));
+}
 .column {
   display: flex;
   flex: 1;

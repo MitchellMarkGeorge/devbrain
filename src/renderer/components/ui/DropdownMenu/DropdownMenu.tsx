@@ -4,6 +4,7 @@ import { Separator } from '@base-ui/react/separator';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Check, ChevronRight, Search } from 'lucide-react';
 import { cn, mergeClassName } from '../../lib/cn';
+import { useFormatKeys } from '../../lib/platform';
 import { Icon, renderIcon, type IconSource } from '../Icon';
 import styles from './DropdownMenu.module.css';
 
@@ -274,6 +275,12 @@ export function DropdownMenuEmpty({ className, ...props }: Menu.Empty.Props) {
   return <Menu.Empty className={mergeClassName(styles.empty, className)} {...props} />;
 }
 
-export function DropdownMenuShortcut({ className, ...props }: ComponentProps<'span'>) {
-  return <span className={cn(styles.shortcut, className)} {...props} />;
+/** An item's shortcut, written as on macOS: a text child reads "Ctrl+D" on Windows and Linux. */
+export function DropdownMenuShortcut({ className, children, ...props }: ComponentProps<'span'>) {
+  const formatKeys = useFormatKeys();
+  return (
+    <span className={cn(styles.shortcut, className)} {...props}>
+      {typeof children === 'string' ? formatKeys(children) : children}
+    </span>
+  );
 }

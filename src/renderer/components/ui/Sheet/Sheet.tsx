@@ -9,6 +9,7 @@ import { Drawer } from '@base-ui/react/drawer';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { Maximize2, X } from 'lucide-react';
 import { cn, mergeClassName } from '../../lib/cn';
+import { usePlatform } from '../../lib/platform';
 import { IconButton } from '../IconButton';
 import { ScrollArea, type ScrollAreaProps } from '../ScrollArea';
 import { resolveColor, type Swatch } from '../../types';
@@ -81,10 +82,15 @@ export function SheetContent({
   ...props
 }: SheetContentProps) {
   const variant = useContext(SheetVariantContext);
+  const platform = usePlatform();
   return (
     <Drawer.Portal container={container}>
       {variant === 'overlay' && <Drawer.Backdrop className={styles.backdrop} />}
-      <Drawer.Viewport className={styles.viewport} data-contained={container ? '' : undefined}>
+      <Drawer.Viewport
+        className={styles.viewport}
+        data-contained={container ? '' : undefined}
+        data-platform={platform}
+      >
         <Drawer.Popup
           className={mergeClassName(sheetVariants({ variant, size }), className)}
           {...props}

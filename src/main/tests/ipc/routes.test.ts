@@ -56,6 +56,25 @@ describe('the base procedures', () => {
   });
 });
 
+describe('app.showMenu', () => {
+  it('pops up the app menu at the point given, changing nothing', async () => {
+    const desktop = { showAppMenu: vi.fn(async () => {}) };
+    attachRouter(appRouter, { createContext: testContext(null, desktop as unknown as Desktop) });
+
+    expect(await call('app.showMenu', { x: 16, y: 44 }, 'mutation')).toEqual({
+      ok: true,
+      data: undefined,
+      changed: [],
+    });
+    expect(desktop.showAppMenu).toHaveBeenCalledWith({ x: 16, y: 44 });
+  });
+
+  it('refuses a point outside the window', async () => {
+    attachRouter(appRouter, { createContext: testContext(null) });
+    expect(code(await call('app.showMenu', { x: -1, y: 0 }, 'mutation'))).toBe('invalid_input');
+  });
+});
+
 describe('workspaces', () => {
   beforeEach(() => attach());
 

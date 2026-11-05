@@ -18,6 +18,7 @@ describe('the preload bridge', () => {
         subscribe: expect.any(Function),
         // the mock's sendSync answers nothing at import
         initialLoadContext: undefined,
+        platform: process.platform,
       },
     ]);
   });
