@@ -66,12 +66,12 @@
   border-color: var(--ring);
 }
 
-/* ---------- default: the segmented control (a track with a secondary thumb) ---------- */
+/* ---------- default: the segmented control (a track with a thumb, as ToggleGroup's) ---------- */
 .segmented .list {
   padding: 3px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--segment-track-border);
   border-radius: var(--radius-lg);
-  background: var(--background);
+  background: var(--segment-track);
 }
 .segmented .tab {
   height: 26px;
@@ -83,7 +83,7 @@
   color: var(--foreground);
 }
 .segmented .tab[data-active] {
-  background: var(--secondary);
+  background: var(--segment-thumb);
   color: var(--foreground);
   box-shadow: var(--shadow-segment);
 }

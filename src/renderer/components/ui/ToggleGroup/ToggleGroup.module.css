@@ -1,17 +1,18 @@
 /* shadcn's ToggleGroup as DevBrain's segmented control, plus shadcn's outline ToggleGroup.
    See docs/design-system/components/ToggleGroup.md */
 
-/* ---------- default: a 34px track on the page colour (1px border, 3px padding, 26px items, no gap),
-   the chosen item on a secondary thumb ---------- */
+/* ---------- default: a 34px track (1px border, 3px padding, 26px items, no gap), the chosen item on
+   a thumb: in dark an outlined track on the page colour with a secondary thumb; in light shadcn's
+   muted track with a white thumb (the segment-* tokens) ---------- */
 .group {
   display: inline-flex;
   align-items: center;
   align-self: flex-start;
   width: fit-content;
   padding: 3px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--segment-track-border);
   border-radius: var(--radius-lg);
-  background: var(--background);
+  background: var(--segment-track);
 }
 .item {
   display: inline-flex;
@@ -47,7 +48,7 @@
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 .item[data-pressed] {
-  background: var(--secondary);
+  background: var(--segment-thumb);
   color: var(--foreground);
   box-shadow: var(--shadow-segment);
 }
