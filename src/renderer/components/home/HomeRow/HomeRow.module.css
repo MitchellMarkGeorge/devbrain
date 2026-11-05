@@ -1,0 +1,66 @@
+/* Home's minimal rows. See docs/design-system/components/HomeRow.md */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-md);
+  color: var(--foreground-strong);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  outline: none;
+  transition: background-color var(--duration-fast);
+}
+.row:hover {
+  background: var(--row-selected);
+}
+.row:focus-visible {
+  background: var(--row-selected);
+  box-shadow: inset 0 0 0 1px var(--ring);
+}
+/* the next or current meeting */
+.row[data-current] {
+  background: var(--card);
+}
+/* tomorrow's first meeting */
+.row[data-muted] .title,
+.row[data-muted] .icon {
+  opacity: 0.5;
+}
+.icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  color: var(--muted-foreground);
+}
+.title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.note,
+.meta {
+  flex: none;
+  font-size: var(--text-xs);
+  line-height: var(--text-xs-leading);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.note {
+  color: var(--subtle-foreground);
+}
+.meta {
+  width: 72px;
+  color: var(--muted-foreground);
+  text-align: right;
+}
+.meta[data-tone='today'] {
+  color: var(--date-today);
+}
+.meta[data-tone='overdue'] {
+  color: var(--date-overdue);
+}

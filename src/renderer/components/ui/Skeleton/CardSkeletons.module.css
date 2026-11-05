@@ -7,26 +7,11 @@
   border-radius: var(--radius-xl);
   background: var(--card);
 }
-.note,
-.project {
+.note {
   flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-4);
-}
-.note {
   height: 158px;
-}
-.project {
-  height: 128px;
-}
-.schedule {
-  align-items: center;
-  gap: var(--space-3);
-  height: 60px;
-  padding: var(--space-3) var(--space-4);
-}
-.bar {
-  border-radius: var(--radius-xs);
+  padding: var(--space-4);
 }
 .line > *,
 .row > * {
@@ -50,13 +35,6 @@
 }
 .foot {
   margin-top: auto;
-}
-.track {
-  display: block;
-  width: 100%;
-  height: 4px;
-  border-radius: var(--radius-xs);
-  background: var(--input);
 }
 
 .detail {

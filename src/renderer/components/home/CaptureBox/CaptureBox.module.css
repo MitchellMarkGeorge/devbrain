@@ -1,0 +1,109 @@
+/* Home's capture box. See docs/design-system/components/CaptureBox.md */
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-3) var(--space-3) 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--card);
+  transition:
+    border-color var(--duration-fast),
+    box-shadow var(--duration-fast);
+}
+.box:has(.input:focus-visible) {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* on the card the switch's track and thumb take border-strong so they still show */
+.box .kind {
+  flex: none;
+  border-color: var(--border-strong);
+  background: transparent;
+}
+.box .kind [data-pressed] {
+  background: var(--border-strong);
+}
+.hint {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  white-space: nowrap;
+}
+
+/* the field, 52px: the text 8px from the top, 4px in from the switch's edge */
+.field {
+  position: relative;
+  min-height: 52px;
+  padding: var(--space-2) var(--space-1);
+}
+.input,
+.backdrop {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+.input {
+  position: relative;
+  background: transparent;
+  color: var(--foreground-strong);
+  outline: none;
+}
+.input::placeholder {
+  color: var(--subtle-foreground);
+}
+/* recognised words, drawn behind the field's own text */
+.backdrop {
+  position: absolute;
+  inset: var(--space-2) var(--space-1) auto;
+  width: auto;
+  overflow: hidden;
+  color: transparent;
+  white-space: pre;
+  pointer-events: none;
+}
+.token {
+  margin: 0 -2px;
+  padding: 0 2px;
+  border-radius: var(--radius-xs);
+  background: var(--accent);
+  color: transparent;
+}
+
+.details {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.pickers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  margin-right: auto;
+}
+
+.tip {
+  margin: 0;
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  text-align: center;
+}

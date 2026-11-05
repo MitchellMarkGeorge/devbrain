@@ -26,14 +26,3 @@ export const ThreeColumns: Story = {
     </CardGrid>
   ),
 };
-
-/** Home: one row only; the rest are behind "All notes". */
-export const SingleRow: Story = {
-  render: () => (
-    <CardGrid singleRow>
-      {Array.from({ length: 5 }, (_, i) => (
-        <NoteCardSkeleton key={i} />
-      ))}
-    </CardGrid>
-  ),
-};

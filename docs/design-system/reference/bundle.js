@@ -1,4 +1,4 @@
-/* @ds-bundle: {"format":4,"namespace":"DevBrain","components":[{"name":"Icon"},{"name":"Button"},{"name":"IconButton"},{"name":"ButtonGroup"},{"name":"Badge"},{"name":"ToggleGroup"},{"name":"Tabs"},{"name":"Input"},{"name":"Textarea"},{"name":"Field"},{"name":"Checkbox"},{"name":"Switch"},{"name":"DropdownMenu"},{"name":"Command"},{"name":"Tooltip"},{"name":"Dialog"},{"name":"Sheet"},{"name":"Toast"},{"name":"Card"},{"name":"Separator"},{"name":"Skeleton"},{"name":"Progress"},{"name":"Kbd"},{"name":"Breadcrumb"},{"name":"Sidebar"},{"name":"Calendar"},{"name":"StatusIcon"},{"name":"PriorityIcon"},{"name":"HealthIcon"},{"name":"ProgressRing"},{"name":"EntityPill"},{"name":"ProviderLogo"},{"name":"SourcePill"},{"name":"EntityHoverCard"},{"name":"PropertyRow"},{"name":"DateRange"},{"name":"TaskRow"},{"name":"GroupHeading"},{"name":"EventRow"},{"name":"ScheduleCard"},{"name":"NoteCard"},{"name":"WorkspaceTile"},{"name":"SwatchPicker"},{"name":"SettingsGroup"},{"name":"EventBlock"},{"name":"StatusMenu"},{"name":"TaskList"},{"name":"SelectionBar"},{"name":"BoardColumn"},{"name":"BoardCard"}]} */
+/* @ds-bundle: {"format":4,"namespace":"DevBrain","components":[{"name":"Icon"},{"name":"Button"},{"name":"IconButton"},{"name":"ButtonGroup"},{"name":"Badge"},{"name":"ToggleGroup"},{"name":"Tabs"},{"name":"Input"},{"name":"Textarea"},{"name":"Field"},{"name":"Checkbox"},{"name":"Switch"},{"name":"DropdownMenu"},{"name":"Command"},{"name":"Tooltip"},{"name":"Dialog"},{"name":"Sheet"},{"name":"Toast"},{"name":"Card"},{"name":"Separator"},{"name":"Skeleton"},{"name":"Progress"},{"name":"Kbd"},{"name":"Breadcrumb"},{"name":"Sidebar"},{"name":"Calendar"},{"name":"StatusIcon"},{"name":"PriorityIcon"},{"name":"HealthIcon"},{"name":"ProgressRing"},{"name":"EntityPill"},{"name":"ProviderLogo"},{"name":"SourcePill"},{"name":"EntityHoverCard"},{"name":"PropertyRow"},{"name":"DateRange"},{"name":"TaskRow"},{"name":"GroupHeading"},{"name":"EventRow"},{"name":"NoteCard"},{"name":"WorkspaceTile"},{"name":"SwatchPicker"},{"name":"SettingsGroup"},{"name":"EventBlock"},{"name":"StatusMenu"},{"name":"TaskList"},{"name":"SelectionBar"},{"name":"BoardColumn"},{"name":"BoardCard"}]} */
 (function () {
   var R = window.React;
   var h = R.createElement;
@@ -1084,32 +1084,8 @@
     );
   }
 
-  function ScheduleCard(props) {
-    return h(
-      'div',
-      { className: 'db-card', 'data-size': 'compact' },
-      h('span', {
-        className: 'db-bar',
-        style: { background: props.color || 'var(--swatch-green)' },
-      }),
-      h(
-        'div',
-        { className: 'db-card-body' },
-        h('div', { className: 'db-card-name' }, props.title),
-        h(
-          'div',
-          { className: 'db-card-meta' },
-          props.soon ? h('b', null, props.soon) : props.duration,
-          ' · ',
-          props.time,
-        ),
-      ),
-      props.join ? h(Button, { variant: 'outline', size: 'xs' }, 'Join') : null,
-    );
-  }
-
   /* NoteCard: 144px, the preview up to three lines. With a link pill (the Notes card view) the
-     preview drops to two lines and the card is 156px; Home leaves the pill off. */
+     preview drops to two lines and the card is 156px. */
   function NoteCard(props) {
     return h(
       'div',
@@ -1342,7 +1318,6 @@
     TaskRow: TaskRow,
     GroupHeading: GroupHeading,
     EventRow: EventRow,
-    ScheduleCard: ScheduleCard,
     NoteCard: NoteCard,
     WorkspaceTile: WorkspaceTile,
     SwatchPicker: SwatchPicker,

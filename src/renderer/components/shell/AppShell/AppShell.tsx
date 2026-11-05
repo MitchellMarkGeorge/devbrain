@@ -36,8 +36,6 @@ export interface AppShellProps extends Omit<ComponentPropsWithoutRef<'div'>, 'ch
   header?: ReactNode;
   /** the page under its header: a `PageToolbar` and a `PageContent` */
   children?: ReactNode;
-  /** Home's right column (mini calendar and agenda), 288px; hidden below `breakpoint-wide` */
-  aside?: ReactNode;
   /**
    * A docked sheet is open: the shell opens a `sheet-width` column at the right for it. Portal the
    * `SheetContent` into `useAppShell().sheetContainer`. In compact windows sheets float instead.
@@ -78,21 +76,19 @@ function useControllable<T>(
 
 /**
  * The frame every screen shares: the sidebar at the left, the page (header, toolbar, content) and
- * Home's right column or a docked sheet at the right. It measures its own width and follows the
- * README's window sizes: below 1280px the right column hides; below 1080px the sidebar rests as
- * the 56px rail, its toggle opens the full sidebar as a drawer over the page, and sheets float.
+ * a docked sheet at the right. It measures its own width and follows the README's window sizes:
+ * below 1080px the sidebar rests as the 56px rail, its toggle opens the full sidebar as a drawer over the page, and sheets float.
  * While the sidebar is the rail the window bar runs across the top with the page's header in it.
  *
  * It follows the window frame (`WindowFrameProvider`): on Windows, whose caption buttons sit over
  * the top right, the page's header runs the full width beside the full sidebar too, and a docked
- * sheet or Home's right column starts under it, so nothing of theirs sits by the caption buttons.
+ * sheet starts under it, so nothing of the sheet's sits by the caption buttons.
  */
 export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppShell(
   {
     sidebar,
     header,
     children,
-    aside,
     sheetOpen = false,
     collapsed: collapsedProp,
     defaultCollapsed = false,
@@ -203,8 +199,8 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
 
   const frame = useWindowFrame();
   const windows = frame.platform === 'windows';
-  // On Windows the header beside the full sidebar gets a row of its own across the page, the
-  // aside and the sheet; elsewhere it tops the page column only, and a sheet runs full height
+  // On Windows the header beside the full sidebar gets a row of its own across the page and
+  // the sheet; elsewhere it tops the page column only, and a sheet runs full height
   const headerRow = windows && !rail;
 
   return (
@@ -229,7 +225,6 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
             {!rail && !headerRow && header}
             <div className={styles.scroll}>{children}</div>
           </main>
-          {aside && <aside className={styles.aside}>{aside}</aside>}
           <div
             ref={sheetContainer}
             className={styles.sheet}

@@ -134,3 +134,15 @@ export const Synced: Story = {
     </Stack>
   ),
 };
+
+/** Home's tasks: 44px with no selection strip, the status icon 12px in. */
+export const Compact: Story = {
+  args: { compact: true, onSelect: undefined },
+  decorators: [
+    (Story) => (
+      <div style={{ width: 800 }}>
+        <Story />
+      </div>
+    ),
+  ],
+};

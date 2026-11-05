@@ -32,6 +32,8 @@ export const taskRowVariants = cva(styles.row, {
   variants: {
     /** indented under its parent */
     subtask: { true: styles.subtask },
+    /** Home: 44px, with no selection strip */
+    compact: { true: styles.compact },
   },
 });
 
@@ -47,6 +49,11 @@ export interface TaskRowProps extends Omit<ComponentProps<'div'>, 'onSelect' | '
   /** a static hover or focus, for pictures of the row */
   state?: 'hover' | 'focus';
   subtask?: boolean;
+  /**
+   * Home's tasks: a 44px row with no selection strip and no checkbox, the status icon 12px in.
+   * Home has no selection, so leave out `onSelect`.
+   */
+  compact?: boolean;
   /**
    * How the pills stack when the row runs out of room. `auto` (the default) measures the row:
    * first the pills after the title stack, then the key with the subtask or parent pill, and the
@@ -309,6 +316,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     joinNext,
     state,
     subtask,
+    compact,
     stack,
     status: statusProp,
     onStatusChange,
@@ -393,18 +401,20 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
       data-state={state}
       data-completed={completed ? '' : undefined}
       data-menu-open={menuOpen ? '' : undefined}
-      className={cn(taskRowVariants({ subtask }), className)}
+      className={cn(taskRowVariants({ subtask, compact }), className)}
       onKeyDown={handleKeyDown}
       onClick={handleClick}
       {...props}
     >
-      <Checkbox
-        className={styles.check}
-        checked={selected}
-        onCheckedChange={() => onSelect?.()}
-        tabIndex={-1}
-        aria-label={`Select ${task.title}`}
-      />
+      {!compact && (
+        <Checkbox
+          className={styles.check}
+          checked={selected}
+          onCheckedChange={() => onSelect?.()}
+          tabIndex={-1}
+          aria-label={`Select ${task.title}`}
+        />
+      )}
       <StatusMenu
         status={status}
         open={menuOpen}

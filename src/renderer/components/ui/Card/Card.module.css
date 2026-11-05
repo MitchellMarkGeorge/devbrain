@@ -9,7 +9,7 @@
   background: var(--card);
   color: var(--card-foreground);
 }
-/* Nova's size=sm: the Home summary cards, ScheduleCard and NoteCard */
+/* Nova's size=sm: NoteCard */
 .compact {
   gap: var(--space-3);
   padding: var(--space-3);

@@ -57,6 +57,9 @@
 .toneOverdue {
   color: var(--date-overdue);
 }
+.toneOnTrack {
+  color: var(--health-on-track);
+}
 
 .alignStart {
   text-align: start;

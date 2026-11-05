@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Grid } from '../../layout/Grid';
 import { EntityPill } from '../../entities/EntityPill';
+import { HomeCards } from '../../home/HomeSection';
 import { NoteCard } from './NoteCard';
 
 const notes = [
@@ -32,8 +33,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Home: no pill, the preview up to three lines, 144px */
-export const Home: Story = {
+/** Without a link: the preview up to three lines, 144px */
+export const Default: Story = {
   decorators: [
     (Story) => (
       <div style={{ width: 280 }}>
@@ -45,7 +46,7 @@ export const Home: Story = {
 
 /** The Notes card view: ends with the project or event pill; two lines, 156px */
 export const WithLink: Story = {
-  decorators: Home.decorators,
+  decorators: Default.decorators,
   args: {
     link: (
       <EntityPill type="project" color="amber">
@@ -55,15 +56,27 @@ export const WithLink: Story = {
   },
 };
 
-/** Home's recent notes: equal columns, none narrower than 240px */
-export const HomeGrid: Story = {
+/** Home's small card: 86px, one line of title and one of preview, no pill */
+export const Small: Story = {
+  decorators: [
+    (Story) => (
+      <div style={{ width: 259 }}>
+        <Story />
+      </div>
+    ),
+  ],
+  args: { size: 'sm' },
+};
+
+/** Home's Recent notes as its first section: three small cards in a `HomeCards` row */
+export const HomeRow: Story = {
   render: () => (
-    <div style={{ maxWidth: 840 }}>
-      <Grid minColumnWidth="240px" gap="3">
+    <div style={{ width: 800 }}>
+      <HomeCards>
         {notes.map((n) => (
-          <NoteCard key={n.title} {...n} />
+          <NoteCard key={n.title} {...n} size="sm" />
         ))}
-      </Grid>
+      </HomeCards>
     </div>
   ),
 };
