@@ -1,7 +1,6 @@
 import {
   createContext,
   forwardRef,
-  useCallback,
   useContext,
   useLayoutEffect,
   useRef,
@@ -22,7 +21,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../Dropd
 import { Icon, renderIcon, type IconSource } from '../Icon';
 import { Kbd } from '../Kbd';
 import { Popover, PopoverContent, PopoverTrigger } from '../Popover';
-import { ScrollThumb } from '../ScrollThumb';
+import { ScrollArea } from '../ScrollArea';
 import { Tooltip } from '../Tooltip';
 import { TrafficLights, WindowControls } from '../WindowBar';
 import { WorkspaceTile } from '../WorkspaceTile';
@@ -73,35 +72,32 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   const shell = useAppShell();
   const collapsed = shell.inDrawer ? false : (collapsedProp ?? shell.rail);
   const showControls = !collapsed && (windowControls ?? shell.inShell);
-  const navRef = useRef<HTMLElement | null>(null);
-  const setRef = useCallback(
-    (node: HTMLElement | null) => {
-      navRef.current = node;
-      if (typeof ref === 'function') ref(node);
-      else if (ref) ref.current = node;
-    },
-    [ref],
-  );
-  useFadeOnToggle(navRef, collapsed);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  useFadeOnToggle(scrollerRef, collapsed);
   return (
     <SidebarContext.Provider value={{ collapsed }}>
       <nav
-        ref={setRef}
+        ref={ref}
         aria-label={ariaLabel}
         data-collapsed={collapsed ? '' : undefined}
         data-drawer={shell.inDrawer ? '' : undefined}
         className={cn(styles.sidebar, className)}
         {...props}
       >
-        {showControls && (
-          <div className={styles.windowRow}>
-            <TrafficLights className={styles.lights} />
-            <WindowControls />
-          </div>
-        )}
-        {children}
-        {/* the thin scrollbar, and `data-scrolled` for the header's shadow */}
-        <ScrollThumb />
+        {/* everything scrolls in it, under the pinned rows, with the thin scrollbar */}
+        <ScrollArea
+          className={styles.area}
+          viewportClassName={styles.scroller}
+          viewportRef={scrollerRef}
+        >
+          {showControls && (
+            <div className={styles.windowRow}>
+              <TrafficLights className={styles.lights} />
+              <WindowControls />
+            </div>
+          )}
+          {children}
+        </ScrollArea>
       </nav>
     </SidebarContext.Provider>
   );
@@ -113,22 +109,20 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
  * and folded groups or open menus keep their state; not on the first render. The duration is the
  * `--duration-slow` token (0 under reduced motion) and the easing `--ease-surface`.
  */
-function useFadeOnToggle(navRef: RefObject<HTMLElement | null>, collapsed: boolean) {
+function useFadeOnToggle(scrollerRef: RefObject<HTMLElement | null>, collapsed: boolean) {
   const previous = useRef(collapsed);
   useLayoutEffect(() => {
-    const nav = navRef.current;
-    if (previous.current === collapsed || !nav) return;
+    const scroller = scrollerRef.current;
+    if (previous.current === collapsed || !scroller) return;
     previous.current = collapsed;
-    const style = getComputedStyle(nav);
+    const style = getComputedStyle(scroller);
     const duration = parseFloat(style.getPropertyValue('--duration-slow')) || 0;
-    if (duration === 0 || typeof nav.animate !== 'function') return;
+    if (duration === 0 || typeof scroller.animate !== 'function') return;
     const easing = style.getPropertyValue('--ease-surface').trim() || 'ease-out';
-    for (const child of Array.from(nav.children)) {
-      // not the scrollbar, which shows only while scrolling
-      if (child.hasAttribute('data-scroll-thumb')) continue;
+    for (const child of Array.from(scroller.children)) {
       child.animate([{ opacity: 0 }, { opacity: 1 }], { duration, easing });
     }
-  }, [navRef, collapsed]);
+  }, [scrollerRef, collapsed]);
 }
 
 /** The top row: the workspace switcher, then search and "new" (`SidebarHeaderActions`). */
