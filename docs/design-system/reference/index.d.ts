@@ -351,19 +351,11 @@ export interface EventRowProps {
     color?: string;
   };
 }
-export interface ScheduleCardProps {
-  title: string;
-  time: string;
-  duration?: string;
-  soon?: string;
-  color?: string;
-  join?: boolean;
-}
 export interface NoteCardProps {
   title: string;
   updated: string;
   preview: string;
-  /** the note's project or event pill: Notes card view only, never on Home */
+  /** the note's project or event pill: the Notes card view */
   link?: Node;
 }
 export interface WorkspaceTileProps {
