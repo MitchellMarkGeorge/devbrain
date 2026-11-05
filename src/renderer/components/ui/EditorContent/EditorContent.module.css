@@ -86,7 +86,7 @@
    `inherit` for the line height, so the family and size are set apart.) */
 .content :not(pre) > code {
   padding: 1px var(--space-1);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   background: var(--accent);
   color: var(--foreground-strong);
   font-family: var(--font-mono);
