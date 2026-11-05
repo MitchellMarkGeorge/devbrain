@@ -1089,7 +1089,7 @@ describe('WorkspaceService — onChange', () => {
   });
 
   it('sends nothing when nothing changes', async () => {
-    const { service, infos, workspaces, changes } = await setup();
+    const { service, infos, changes } = await setup();
     // closing with no workspace open
     await service.close();
     // opening an unknown workspace, or one whose directory is gone
