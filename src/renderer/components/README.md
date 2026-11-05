@@ -79,5 +79,8 @@ from the barrel (`components/ui/index.ts`).
   `:root[data-theme='light'] .x { … }`.
 - **Motion** honours `prefers-reduced-motion` (tokens.css zeroes the durations).
 
-Each component's guide is `docs/design-system/components/<Name>.md`; keep it describing what the
-component does. `docs/design-system/reference/` is superseded and out of date: don't build from it.
+Each component in `ui/` has its guide at `docs/design-system/components/<Name>.md`; keep it
+describing what the component does. The `layout/` utilities have no guides: they draw nothing of
+their own, only map their props onto the tokens (the type scale, the spacing scale, the colours)
+that `docs/design-system/README.md` describes, so their props' doc comments and stories are their
+reference. `docs/design-system/reference/` is superseded and out of date: don't build from it.

@@ -1,4 +1,4 @@
-/* A task's note under its subtasks. See "The task note card" in docs/design-system/components/PropertyRow.md */
+/* A task's note under its subtasks. See docs/design-system/components/TaskNoteCard.md */
 .card {
   container: task-note-card / inline-size;
   position: relative;

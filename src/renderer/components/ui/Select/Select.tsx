@@ -88,18 +88,15 @@ export interface SelectItemProps extends BaseSelect.Item.Props {
   icon?: IconSource;
 }
 
-/** A choice, ticked while chosen. */
+/** A choice, ticked on the right while chosen, as a dropdown menu's checked items are. */
 export function SelectItem({ icon, className, children, ...props }: SelectItemProps) {
   return (
-    <BaseSelect.Item
-      className={mergeClassName(menuItemVariants({ inset: true }), className)}
-      {...props}
-    >
-      <BaseSelect.ItemIndicator className={menuStyles.indicator}>
-        <Icon icon={Check} />
-      </BaseSelect.ItemIndicator>
+    <BaseSelect.Item className={mergeClassName(menuItemVariants(), className)} {...props}>
       {renderIcon(icon, 16)}
       <BaseSelect.ItemText className={menuStyles.itemLabel}>{children}</BaseSelect.ItemText>
+      <BaseSelect.ItemIndicator className={menuStyles.tick}>
+        <Icon icon={Check} size={16} />
+      </BaseSelect.ItemIndicator>
     </BaseSelect.Item>
   );
 }

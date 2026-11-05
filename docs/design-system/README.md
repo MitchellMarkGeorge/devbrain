@@ -17,8 +17,9 @@ both are behind it today (the Claude page predates the Figma audit of Nov 2026).
 
 - `tokens.json`: every token, and the only file here the app uses. `npm run tokens` generates
   `src/renderer/styles/tokens.css` from it.
-- `components/`: the guide for each component, describing what the component in
-  `src/renderer/components/` does.
+- `components/`: the guide for each component in `src/renderer/components/ui/`, describing what
+  it does. The layout utilities (`Text`, `Heading`, `Flex`, `Grid`, `Box`, `VisuallyHidden`) have
+  none: they only apply the type, space and colour rules below.
 - `reference/`: superseded and out of date. The stylesheet and React stand-ins behind the Claude
   design-system page, kept until that page is synced from the code; nothing imports them, and
   nothing should be built from them.

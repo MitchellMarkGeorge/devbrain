@@ -105,7 +105,7 @@
   background: color-mix(in oklab, var(--destructive) 20%, transparent);
   color: var(--destructive);
 }
-/* Select's items leave room for their tick on the left */
+/* `inset`: an item without an icon lines up with the labels of items that have one */
 .inset {
   padding-left: 28px;
 }
@@ -118,21 +118,6 @@
   text-overflow: ellipsis;
 }
 
-/* Select's tick, on the left */
-.indicator {
-  position: absolute;
-  left: var(--space-1-5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  color: var(--foreground);
-}
-.indicator > svg {
-  width: 16px;
-  height: 16px;
-}
-
 .label {
   padding: var(--space-1) var(--space-1-5);
   color: var(--muted-foreground);
@@ -140,7 +125,7 @@
   user-select: none;
 }
 
-/* checkbox and radio items: the tick sits on the right, in place of the shortcut */
+/* checkbox, radio and Select items: the tick sits on the right, in place of the shortcut */
 .tick {
   display: flex;
   flex: none;

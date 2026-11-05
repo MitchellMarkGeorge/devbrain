@@ -1,4 +1,4 @@
-/* The popover surface: date pickers, pickers and hover cards */
+/* The popover surface: date pickers and the sidebar rail. See docs/design-system/components/Popover.md */
 .positioner {
   z-index: var(--z-overlay);
 }
