@@ -13,29 +13,12 @@ import {
 import { Dialog } from '@base-ui/react/dialog';
 import { cn } from '../../lib/cn';
 import { useWindowFrame } from '../../lib/platform';
-import { PageHeaderInWindowBar } from '../PageHeader/PageHeader';
+import { PageHeaderInWindowBar } from '../PageHeader/context';
 import { TooltipProvider } from '../../ui/Tooltip';
 import { CaptionButtons, WindowBar } from '../WindowBar';
 import { AppShellContext, type AppShellContextValue, type WindowSize } from './context';
+import { PEEK_CLOSE_DELAY, PEEK_OPEN_DELAY, windowSizeFor } from './layout';
 import styles from './AppShell.module.css';
-
-/** `breakpoint-medium` and `breakpoint-wide` (tokens.css); media queries can't read variables. */
-const MEDIUM = 1080;
-const WIDE = 1280;
-
-export function windowSizeFor(width: number): WindowSize {
-  if (width < MEDIUM) return 'compact';
-  if (width < WIDE) return 'medium';
-  return 'wide';
-}
-
-/**
- * How long the pointer rests on the sidebar toggle or the window's left edge before the drawer
- * peeks out (so a passing pointer doesn't open it), and how long it may be away from the drawer
- * before it closes again.
- */
-export const PEEK_OPEN_DELAY = 200;
-export const PEEK_CLOSE_DELAY = 300;
 
 export interface AppShellProps extends Omit<ComponentPropsWithoutRef<'div'>, 'children'> {
   /** the app's `Sidebar`; the shell docks it at the left, or opens it as a drawer while it's hidden */

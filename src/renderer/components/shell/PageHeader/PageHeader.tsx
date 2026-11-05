@@ -1,20 +1,12 @@
-import {
-  createContext,
-  forwardRef,
-  useContext,
-  type ComponentPropsWithoutRef,
-  type ReactNode,
-} from 'react';
+import { forwardRef, useContext, type ComponentPropsWithoutRef, type ReactNode } from 'react';
 import { Ellipsis, Star } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
 import { useAppShell } from '../AppShell/context';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import { IconButton } from '../../ui/IconButton';
+import { PageHeaderInWindowBar } from './context';
 import styles from './PageHeader.module.css';
-
-/** Set by `AppShell` while the header is drawn inside the window bar (the sidebar is hidden). */
-export const PageHeaderInWindowBar = createContext(false);
 
 export interface PageHeaderProps extends Omit<ComponentPropsWithoutRef<'header'>, 'title'> {
   /** the page's place, at the left: a `Breadcrumb` ("Tasks › List"), or its title */
