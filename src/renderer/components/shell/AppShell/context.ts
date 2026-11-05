@@ -6,13 +6,6 @@ import { createContext, useContext, type RefObject } from 'react';
  */
 export type WindowSize = 'compact' | 'medium' | 'wide';
 
-/**
- * How the macOS traffic lights are drawn: `reserved` leaves their 52px for the system's own
- * (Electron's `hiddenInset` title bar), `drawn` paints stand-ins (stories, mock-ups), `none` drops
- * the space (Windows and Linux, whose controls sit in their own frame).
- */
-export type TrafficLightsMode = 'reserved' | 'drawn' | 'none';
-
 export interface AppShellContextValue {
   /** rendered inside an `AppShell` */
   inShell: boolean;
@@ -25,7 +18,6 @@ export interface AppShellContextValue {
   /** the window bar's sidebar button: collapses or expands, or opens the drawer when compact */
   toggleSidebar: () => void;
   closeDrawer: () => void;
-  trafficLights: TrafficLightsMode;
   onBack?: () => void;
   onForward?: () => void;
   canGoBack: boolean;
@@ -44,7 +36,6 @@ export const AppShellContext = createContext<AppShellContextValue>({
   drawerOpen: false,
   toggleSidebar: noop,
   closeDrawer: noop,
-  trafficLights: 'reserved',
   canGoBack: true,
   canGoForward: false,
   sheetContainer: null,

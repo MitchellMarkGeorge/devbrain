@@ -27,7 +27,6 @@ export const Welcome: Story = {
   render: () => (
     <Window>
       <OnboardingScreen
-        trafficLights="drawn"
         logo={<Logomark size="md" />}
         title="Welcome to DevBrain"
         description="Pick up where you left off, or start a new workspace."
@@ -71,7 +70,7 @@ export const Welcome: Story = {
 export const CreateWorkspace: Story = {
   render: () => (
     <Window>
-      <OnboardingScreen trafficLights="drawn">
+      <OnboardingScreen>
         <div
           style={{
             width: 480,

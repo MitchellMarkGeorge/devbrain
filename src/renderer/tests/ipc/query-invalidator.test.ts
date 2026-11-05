@@ -95,6 +95,15 @@ describe('onChanged', () => {
     expect(count('recents.list')).toBe(3);
   });
 
+  it('refetches the settings when they change, and nothing else', async () => {
+    await Promise.all(['settings.get', 'tasks.list'].map((path) => query(path)));
+
+    await queryInvalidator.onChanged(['settings']);
+
+    expect(count('settings.get')).toBe(2);
+    expect(count('tasks.list')).toBe(1);
+  });
+
   it('resolves once the refetches have landed', async () => {
     await query('tasks.list');
 
@@ -213,7 +222,7 @@ describe('listen', () => {
     events.send('db.changes', { entities: ['task'] as ChangedEntity[] });
     await vi.waitFor(() => expect(count('tasks.list')).toBe(2));
 
-    events.send('workspace.changed', { id: HOME });
+    events.send('workspace.changed', { id: HOME, opening: null });
     await vi.waitFor(() => expect(count('tasks.list')).toBe(3));
 
     stop();

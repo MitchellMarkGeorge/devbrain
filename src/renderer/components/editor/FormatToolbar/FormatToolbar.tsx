@@ -12,6 +12,7 @@ import {
   Underline,
 } from 'lucide-react';
 import { cn, mergeClassName } from '../../lib/cn';
+import { useFormatKeys } from '../../lib/platform';
 import { DropdownMenu, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import { Icon, renderIcon, type IconSource } from '../../ui/Icon';
 import { Tooltip } from '../../ui/Tooltip';
@@ -52,7 +53,7 @@ export interface FormatToolbarButtonProps extends Omit<Toolbar.Button.Props, 'ch
   icon: IconSource;
   /** what it does: the accessible name and the tooltip */
   label: string;
-  /** its shortcut, shown in the tooltip ("⌘B") */
+  /** its shortcut, shown in the tooltip ("⌘B"; "Ctrl+B" off macOS) */
   keys?: string;
 }
 
@@ -62,8 +63,9 @@ export interface FormatToolbarButtonProps extends Omit<Toolbar.Button.Props, 'ch
  */
 export const FormatToolbarButton = forwardRef<HTMLButtonElement, FormatToolbarButtonProps>(
   function FormatToolbarButton({ icon, label, keys, className, ...props }, ref) {
+    const formatKeys = useFormatKeys();
     return (
-      <Tooltip content={keys ? `${label} ${keys}` : label} side="top">
+      <Tooltip content={keys ? `${label} ${formatKeys(keys)}` : label} side="top">
         <Toolbar.Button
           ref={ref}
           aria-label={label}

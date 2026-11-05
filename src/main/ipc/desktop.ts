@@ -1,5 +1,5 @@
-// What a route can do on the desktop besides calling core: show a folder in the file manager and
-// ask the user for files with the system dialogs. Main builds one per call over Electron's shell and
+// What a route can do on the desktop besides calling core: show a folder in the file manager, ask
+// the user for files with the system dialogs, and pop up the app menu. Main builds one per call over Electron's shell and
 // dialog (runtime/desktop.ts), modal to the window that called; tests pass a fake. Every path a
 // route hands it comes from main's own state or from one of these dialogs, never from the renderer.
 
@@ -26,6 +26,11 @@ export interface Desktop {
     defaultName: string;
     filters: FileFilter[];
   }): Promise<string | null>;
+  // Pops up the app menu (the menu bar's menus) at a point in the window, in CSS pixels from its
+  // top left, for a window that shows no menu bar: on Windows the page draws the title bar, and
+  // its menu button calls this. Resolves once the menu closes; rejects when there is no menu or
+  // window to show it in.
+  showAppMenu(at: { x: number; y: number }): Promise<void>;
 }
 
 // the desktop when none is configured: every call fails
@@ -34,6 +39,7 @@ export const noDesktop: Desktop = {
   chooseFiles: unavailable,
   chooseFolder: unavailable,
   chooseSaveFile: unavailable,
+  showAppMenu: unavailable,
 };
 
 async function unavailable(): Promise<never> {

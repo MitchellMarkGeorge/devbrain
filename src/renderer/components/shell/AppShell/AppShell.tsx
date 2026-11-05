@@ -12,15 +12,11 @@ import {
 } from 'react';
 import { Dialog } from '@base-ui/react/dialog';
 import { cn } from '../../lib/cn';
+import { useWindowFrame } from '../../lib/platform';
 import { PageHeaderInWindowBar } from '../PageHeader/PageHeader';
 import { TooltipProvider } from '../../ui/Tooltip';
-import { WindowBar } from '../WindowBar';
-import {
-  AppShellContext,
-  type AppShellContextValue,
-  type TrafficLightsMode,
-  type WindowSize,
-} from './context';
+import { CaptionButtons, WindowBar } from '../WindowBar';
+import { AppShellContext, type AppShellContextValue, type WindowSize } from './context';
 import styles from './AppShell.module.css';
 
 /** `breakpoint-medium` and `breakpoint-wide` (tokens.css); media queries can't read variables. */
@@ -57,7 +53,6 @@ export interface AppShellProps extends Omit<ComponentPropsWithoutRef<'div'>, 'ch
   onDrawerOpenChange?: (open: boolean) => void;
   /** pin the window size instead of measuring the shell (stories, tests) */
   size?: WindowSize;
-  trafficLights?: TrafficLightsMode;
   onBack?: () => void;
   onForward?: () => void;
   canGoBack?: boolean;
@@ -87,6 +82,10 @@ function useControllable<T>(
  * README's window sizes: below 1280px the right column hides; below 1080px the sidebar rests as
  * the 56px rail, its toggle opens the full sidebar as a drawer over the page, and sheets float.
  * While the sidebar is the rail the window bar runs across the top with the page's header in it.
+ *
+ * It follows the window frame (`WindowFrameProvider`): on Windows, whose caption buttons sit over
+ * the top right, the page's header runs the full width beside the full sidebar too, and a docked
+ * sheet or Home's right column starts under it, so nothing of theirs sits by the caption buttons.
  */
 export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppShell(
   {
@@ -102,7 +101,6 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
     defaultDrawerOpen = false,
     onDrawerOpenChange,
     size: sizeProp,
-    trafficLights = 'reserved',
     onBack,
     onForward,
     canGoBack = true,
@@ -180,7 +178,6 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
       drawerOpen: drawerShown,
       toggleSidebar,
       closeDrawer,
-      trafficLights,
       onBack,
       onForward,
       canGoBack,
@@ -193,7 +190,6 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
       drawerShown,
       toggleSidebar,
       closeDrawer,
-      trafficLights,
       onBack,
       onForward,
       canGoBack,
@@ -205,6 +201,12 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
     [base],
   );
 
+  const frame = useWindowFrame();
+  const windows = frame.platform === 'windows';
+  // On Windows the header beside the full sidebar gets a row of its own across the page, the
+  // aside and the sheet; elsewhere it tops the page column only, and a sheet runs full height
+  const headerRow = windows && !rail;
+
   return (
     <AppShellContext.Provider value={base}>
       <TooltipProvider>
@@ -212,6 +214,7 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
           ref={root}
           data-size={size}
           data-rail={rail ? '' : undefined}
+          data-platform={frame.platform}
           className={cn(styles.shell, className)}
           {...props}
         >
@@ -221,8 +224,9 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
             </PageHeaderInWindowBar.Provider>
           )}
           <div className={styles.sidebar}>{sidebar}</div>
+          {headerRow && <div className={styles.header}>{header}</div>}
           <main className={styles.main}>
-            {!rail && header}
+            {!rail && !headerRow && header}
             <div className={styles.scroll}>{children}</div>
           </main>
           {aside && <aside className={styles.aside}>{aside}</aside>}
@@ -231,6 +235,9 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
             className={styles.sheet}
             data-open={sheetOpen && !compact ? '' : undefined}
           />
+          {windows && frame.controls === 'drawn' && (
+            <CaptionButtons className={styles.captionButtons} />
+          )}
         </div>
         {compact && !collapsed && (
           <Dialog.Root open={drawerShown} onOpenChange={setDrawerOpen}>

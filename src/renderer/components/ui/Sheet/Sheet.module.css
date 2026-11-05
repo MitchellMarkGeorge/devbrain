@@ -1,6 +1,7 @@
 /*
  * The details panel (Base UI Drawer from the right). Docked: a full-height column beside the
- * page. Overlay (compact windows): floats over the page, inset 8px.
+ * page (under the header on Windows). Overlay (compact windows): floats over the page, inset 8px
+ * (and under the title-bar strip on Windows).
  * See docs/design-system/components/Sheet.md
  */
 .backdrop {
@@ -36,6 +37,14 @@
 .viewport[data-contained] {
   position: absolute;
   justify-content: flex-start;
+}
+/*
+ * Floating on Windows: under the 48px title-bar strip, as Windows' caption buttons sit over the
+ * window's top right and the sheet's own close would sit beside theirs. A docked sheet is already
+ * under the header there (AppShell).
+ */
+.viewport[data-platform='windows']:not([data-contained]) {
+  top: 48px;
 }
 
 .popup {

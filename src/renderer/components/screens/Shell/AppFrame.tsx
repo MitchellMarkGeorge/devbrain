@@ -178,7 +178,6 @@ export function ScreenFrame({
   return (
     <div style={{ width, height, overflow: 'hidden', position: 'relative' }}>
       <AppShell
-        trafficLights="drawn"
         sidebar={
           sidebar ?? (
             <DemoSidebar

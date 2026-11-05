@@ -11,6 +11,7 @@ function fakes() {
       showSaveDialog: vi.fn(async () => ({ canceled: false, filePath: '/picked/out.csv' })),
     },
     shell: { openPath: vi.fn(async () => '') },
+    menu: { getApplicationMenu: vi.fn() },
   };
 }
 
@@ -67,5 +68,27 @@ describe('createElectronDesktop', () => {
     expect(deps.dialog.showOpenDialog).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'Import' }),
     );
+  });
+
+  it('pops up the app menu in the calling window, and resolves once it closes', async () => {
+    const deps = fakes();
+    const popup = vi.fn((options: { callback: () => void }) => options.callback());
+    deps.menu.getApplicationMenu.mockReturnValue({ popup });
+    const window = {} as BrowserWindow;
+
+    await createElectronDesktop(deps as never, window).showAppMenu({ x: 16.4, y: 44 });
+    expect(popup).toHaveBeenCalledWith({ window, x: 16, y: 44, callback: expect.any(Function) });
+  });
+
+  it('rejects when there is no app menu or no window to show it in', async () => {
+    const deps = fakes();
+    deps.menu.getApplicationMenu.mockReturnValue(null);
+    await expect(
+      createElectronDesktop(deps as never, {} as BrowserWindow).showAppMenu({ x: 0, y: 0 }),
+    ).rejects.toThrow('no app menu');
+    deps.menu.getApplicationMenu.mockReturnValue({ popup: vi.fn() });
+    await expect(
+      createElectronDesktop(deps as never, null).showAppMenu({ x: 0, y: 0 }),
+    ).rejects.toThrow('no window');
   });
 });

@@ -54,6 +54,8 @@ export function WorkspaceSwitcher({
             <DropdownMenuRadioItem
               key={workspace.id}
               value={workspace.id}
+              // picking a workspace switches to it: the menu has done its job
+              closeOnClick
               icon={<WorkspaceTile letter={workspace.name} color={workspace.color} size={16} />}
             >
               {workspace.name}

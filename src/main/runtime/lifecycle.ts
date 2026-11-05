@@ -1,8 +1,8 @@
 import type { DevBrain } from '@main/core';
 import type { SyncLogger } from '@main/core/sync/types';
 
-// What the app's lifecycle does to the open workspace: forward window focus and system resume to
-// its scheduler, and close it before the app quits. Electron's app and powerMonitor are passed in,
+// What the app's lifecycle does: keep DevBrain to one instance, forward window focus and system
+// resume to the open workspace's scheduler, and close it before the app quits. Electron's app and powerMonitor are passed in,
 // typed down to the events used, so tests can drive them with plain emitters.
 
 export interface FocusSource {
@@ -20,7 +20,30 @@ export interface QuittingApp {
   quit(): void;
 }
 
+export interface SingleInstanceApp {
+  requestSingleInstanceLock(): boolean;
+  // a second instance was started, and quit as it found this one running
+  on(event: 'second-instance', listener: () => void): unknown;
+  quit(): void;
+}
+
 type Logger = Pick<SyncLogger, 'warn'>;
+
+/**
+ * Keeps DevBrain to one running instance: two would open the same DevBrain folder, write its
+ * settings and registry, open the same workspace databases and sync them twice. The first to start
+ * holds the lock. A later one quits at once, before it opens anything, and the first shows its
+ * window instead (`showWindow`), as launching an app that is running does. Returns whether this
+ * instance is the one that runs.
+ */
+export function holdSingleInstance(app: SingleInstanceApp, showWindow: () => void): boolean {
+  if (!app.requestSingleInstanceLock()) {
+    app.quit();
+    return false;
+  }
+  app.on('second-instance', showWindow);
+  return true;
+}
 
 /**
  * Asks the open workspace's scheduler for a focus or resume sync, which it skips for a source that

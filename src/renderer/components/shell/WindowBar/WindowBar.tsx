@@ -1,38 +1,100 @@
 import { forwardRef, type ComponentPropsWithoutRef } from 'react';
-import { ArrowLeft, ArrowRight, PanelLeft } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Menu, Minus, PanelLeft, Square, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import { useAppShell, type TrafficLightsMode } from '../AppShell/context';
-import { IconButton } from '../../ui/IconButton';
+import { useFormatKeys, useWindowFrame } from '../../lib/platform';
+import { useAppShell } from '../AppShell/context';
+import { IconButton, type IconButtonProps } from '../../ui/IconButton';
 import styles from './WindowBar.module.css';
 
 export interface TrafficLightsProps extends ComponentPropsWithoutRef<'span'> {
-  /** `reserved` (the default) keeps the space for the system's own; `drawn` paints stand-ins */
-  mode?: TrafficLightsMode;
+  /**
+   * Paint stand-ins rather than keep the space for the system's own: the window frame's
+   * `controls` by default (`drawn` in stories)
+   */
+  drawn?: boolean;
 }
 
 /**
  * The macOS close, minimise and zoom buttons' 52×12 slot. The system draws the real ones
- * (Electron's `hiddenInset` title bar), so the app only keeps their space; `drawn` paints
- * stand-ins for stories and mock-ups.
+ * (src/main/runtime/window-chrome.ts), so the app only keeps their space; stories paint stand-ins.
  */
-export function TrafficLights({ mode, className, ...props }: TrafficLightsProps) {
-  const shell = useAppShell();
-  const shown = mode ?? shell.trafficLights;
-  if (shown === 'none') return null;
+export function TrafficLights({ drawn, className, ...props }: TrafficLightsProps) {
+  const frame = useWindowFrame();
+  const shown = drawn ?? frame.controls === 'drawn';
   return (
     <span
       aria-hidden
-      data-drawn={shown === 'drawn' ? '' : undefined}
+      data-drawn={shown ? '' : undefined}
       className={cn(styles.lights, className)}
       {...props}
     >
-      {shown === 'drawn' && (
+      {shown && (
         <>
           <span className={styles.close} />
           <span className={styles.minimise} />
           <span className={styles.zoom} />
         </>
       )}
+    </span>
+  );
+}
+
+export type AppMenuButtonProps = Omit<IconButtonProps, 'icon' | 'label'>;
+
+/**
+ * Windows' menu button, where macOS has the traffic lights: Windows shows no menu bar, as the page
+ * draws the title bar, so this pops up the app menu (the window frame's `onOpenAppMenu`) under it.
+ */
+export const AppMenuButton = forwardRef<HTMLButtonElement, AppMenuButtonProps>(
+  function AppMenuButton({ onClick, ...props }, ref) {
+    const { onOpenAppMenu } = useWindowFrame();
+    return (
+      <IconButton
+        ref={ref}
+        size="sm"
+        tone="muted"
+        icon={Menu}
+        label="Menu"
+        onClick={(event) => {
+          onClick?.(event);
+          const box = event.currentTarget.getBoundingClientRect();
+          onOpenAppMenu?.({ x: box.left, y: box.bottom });
+        }}
+        {...props}
+      />
+    );
+  },
+);
+
+/**
+ * The start of the title bar, before the window controls: the traffic lights' slot on macOS, the
+ * menu button on Windows, and nothing on Linux, whose system frame has its own title bar and menu
+ * bar above the page.
+ */
+export function WindowStart({ className }: { className?: string }) {
+  const { platform } = useWindowFrame();
+  if (platform === 'macos') return <TrafficLights className={className} />;
+  if (platform === 'windows') return <AppMenuButton className={className} />;
+  return null;
+}
+
+/**
+ * Stand-ins for the minimise, maximise and close buttons Windows draws over the page's top right:
+ * 3 × 46px by 48px. Stories and mock-ups only; in the app Windows draws them and the page keeps
+ * their corner clear (`--caption-buttons-width`). `AppShell` and `OnboardingScreen` place them.
+ */
+export function CaptionButtons({ className, ...props }: ComponentPropsWithoutRef<'span'>) {
+  return (
+    <span aria-hidden className={cn(styles.captionButtons, className)} {...props}>
+      <span>
+        <Minus size={14} strokeWidth={1.25} />
+      </span>
+      <span>
+        <Square size={11} strokeWidth={1.25} />
+      </span>
+      <span>
+        <X size={14} strokeWidth={1.25} />
+      </span>
     </span>
   );
 }
@@ -46,8 +108,8 @@ export interface WindowControlsProps extends ComponentPropsWithoutRef<'div'> {
 }
 
 /**
- * The sidebar toggle (⌘\), then back and forward: three 28px muted icon buttons, 8px apart. They
- * act on the `AppShell` around them unless given handlers.
+ * The sidebar toggle (⌘\, Ctrl+\ off macOS), then back and forward: three 28px muted icon
+ * buttons, 8px apart. They act on the `AppShell` around them unless given handlers.
  */
 export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
   function WindowControls(
@@ -55,6 +117,7 @@ export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
     ref,
   ) {
     const shell = useAppShell();
+    const formatKeys = useFormatKeys();
     const toggleLabel = shell.rail
       ? shell.size === 'compact'
         ? 'Open sidebar'
@@ -70,7 +133,7 @@ export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
           tooltip={
             <>
               {shell.inDrawer ? 'Close sidebar' : toggleLabel}{' '}
-              <span className={styles.key}>⌘\</span>
+              <span className={styles.key}>{formatKeys('⌘\\')}</span>
             </>
           }
           onClick={onToggleSidebar ?? (shell.inDrawer ? shell.closeDrawer : shell.toggleSidebar)}
@@ -99,9 +162,10 @@ export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
 export type WindowBarProps = ComponentPropsWithoutRef<'div'>;
 
 /**
- * The 48px bar across the window while the sidebar is the rail: traffic lights, the window
- * controls, then the page's header (its breadcrumb, and its actions at the right). The bar drags
- * the window; its buttons don't.
+ * The 48px bar across the window while the sidebar is the rail: the title bar's start (traffic
+ * lights on macOS, the menu button on Windows), the window controls, then the page's header (its
+ * breadcrumb, and its actions at the right, clear of Windows' caption buttons). The bar drags the
+ * window; its buttons don't.
  */
 export const WindowBar = forwardRef<HTMLDivElement, WindowBarProps>(function WindowBar(
   { className, children, ...props },
@@ -109,7 +173,7 @@ export const WindowBar = forwardRef<HTMLDivElement, WindowBarProps>(function Win
 ) {
   return (
     <div ref={ref} className={cn(styles.bar, className)} {...props}>
-      <TrafficLights />
+      <WindowStart />
       <WindowControls />
       <div className={styles.page}>{children}</div>
     </div>

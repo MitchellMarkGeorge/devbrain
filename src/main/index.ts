@@ -20,10 +20,11 @@ import { createSafeStorageCipher } from './runtime/safe-storage-cipher';
 import { migrationsPath } from './runtime/migrations';
 import { openElectronSettingsStore } from './runtime/settings-store';
 import { loadDevBrain } from './runtime/start';
-import { closeBeforeQuit, forwardSyncTriggers } from './runtime/lifecycle';
+import { closeBeforeQuit, forwardSyncTriggers, holdSingleInstance } from './runtime/lifecycle';
 import { createElectronDesktop } from './runtime/desktop';
 import { createMenuActions, installAppMenu } from './runtime/menu';
 import { applyTheme, windowBackground } from './runtime/theme';
+import { repaintChrome, windowChrome } from './runtime/window-chrome';
 import { followLaunchAtLogin, supportsLoginItem } from './runtime/login-item';
 import { attachRouter } from './ipc/server';
 import { attachInitialLoadContext, initialLoadContext } from './ipc/initial-load-context';
@@ -36,6 +37,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '../..');
 
 loadDevelopmentEnv();
+
+// One DevBrain at a time (runtime/lifecycle.ts): a later launch quits at once, and this one shows
+// its window instead
+const isOnlyInstance = holdSingleInstance(app, () => showMainWindow());
 
 // The repository's .env, in development only. A packaged app ships no .env: the OAuth client values
 // are inlined at build time (vite/main.config.ts), DEVBRAIN_PATH has a default, and every other
@@ -122,7 +127,7 @@ function attachIpc(devBrain: DevBrain | null) {
         ...call,
         devBrain,
         desktop: createElectronDesktop(
-          { dialog, shell },
+          { dialog, shell, menu: Menu },
           BrowserWindow.fromWebContents(call.event.sender),
         ),
         log: ipcLog,
@@ -150,6 +155,8 @@ function attachIpc(devBrain: DevBrain | null) {
 let mainWindow: BrowserWindow | null = null;
 // set once the app starts quitting, when a close really closes
 let quitting = false;
+// set once startup has made the first window: a launch before that waits for it
+let started = false;
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -162,6 +169,9 @@ function createWindow() {
     show: false,
     // the theme's background, so the window never shows white before the page paints
     backgroundColor: windowBackground(nativeTheme),
+    // the page draws the title bar on macOS and Windows; Linux keeps the system's
+    // (src/main/runtime/window-chrome.ts)
+    ...windowChrome(process.platform, nativeTheme),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
@@ -193,14 +203,30 @@ function createWindow() {
   }
 }
 
+// Brings the window forward: restored if minimised, shown if hidden (macOS hides it on close), or
+// made again if it is gone. Before startup has made the first one, there is nothing to do: it is
+// about to show.
+function showMainWindow() {
+  if (mainWindow === null || mainWindow.isDestroyed()) {
+    if (started) createWindow();
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
 // --- Theme ----------------------------------------------------------------
 // Follows the theme setting from startup on, before the window is made, so it opens in the
 // setting's colours. Without DevBrain there is no setting, and the system's appearance is used.
 function followThemeSetting(devBrain: DevBrain | null) {
   applyTheme(nativeTheme, devBrain?.settings.get('settings.theme') ?? 'system');
   devBrain?.settings.onChange(({ settings }) => applyTheme(nativeTheme, settings.theme));
-  // a new theme setting, or the system switching appearance while it is 'system'
-  nativeTheme.on('updated', () => mainWindow?.setBackgroundColor(windowBackground(nativeTheme)));
+  // a new theme setting, or the system switching appearance while it is 'system': the window's
+  // background, and the controls Windows draws over the page, follow it
+  nativeTheme.on('updated', () => {
+    if (mainWindow !== null) repaintChrome(mainWindow, process.platform, nativeTheme);
+  });
 }
 
 // --- Launch at login ------------------------------------------------------
@@ -236,7 +262,7 @@ function attachMenu(devBrain: DevBrain | null) {
     actions: createMenuActions({
       devBrain,
       window: focusedWindow,
-      desktop: (win) => createElectronDesktop({ dialog, shell }, win),
+      desktop: (win) => createElectronDesktop({ dialog, shell, menu: Menu }, win),
       dialog,
       showItemInFolder: (fullPath) => shell.showItemInFolder(fullPath),
       logFilePath: () => log.transports.file.getFile().path,
@@ -250,6 +276,8 @@ function attachMenu(devBrain: DevBrain | null) {
 // then create the window, whose first calls find the router. The renderer reopens the last
 // workspace itself (workspaces.openLast), so a slow open never holds the window back.
 app.whenReady().then(async () => {
+  // another instance runs: this one is quitting, and opens nothing
+  if (!isOnlyInstance) return;
   configureLogging();
 
   const devBrain = await loadCore();
@@ -268,11 +296,9 @@ app.whenReady().then(async () => {
   followThemeSetting(devBrain);
   followLaunchAtLoginSetting(devBrain);
   createWindow();
+  started = true;
   // the Dock icon on macOS: shows the hidden window, or makes one if it is gone
-  app.on('activate', () => {
-    if (mainWindow !== null && !mainWindow.isDestroyed()) mainWindow.show();
-    else createWindow();
-  });
+  app.on('activate', showMainWindow);
 });
 
 // The first before-quit is held while DevBrain closes (closeBeforeQuit), and the window stays up

@@ -196,7 +196,8 @@ lines.push(
 writeFileSync(OUTPUT, lines.join('\n'));
 console.log(`Wrote ${OUTPUT}`);
 
-// The window's background in each theme, as hex: the main process paints it before the page loads
+// The window's background and foreground in each theme, as hex: the main process paints the
+// background before the page loads, and on Windows colours the system's window controls with both
 const hexes = new Map(palette.map((t) => [t.name, t.value as string]));
 function hex(name: string, themeName: 'dark' | 'light'): string {
   const token = tokens.color.tokens.find((t) => t.name === name);
@@ -218,6 +219,12 @@ writeFileSync(
 export const WINDOW_BACKGROUND = {
   dark: '${hex('background', 'dark')}',
   light: '${hex('background', 'light')}',
+} as const;
+
+// --foreground in each theme: the symbols on the window controls Windows draws over the page
+export const WINDOW_FOREGROUND = {
+  dark: '${hex('foreground', 'dark')}',
+  light: '${hex('foreground', 'light')}',
 } as const;
 `,
 );

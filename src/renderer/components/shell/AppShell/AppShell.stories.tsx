@@ -7,7 +7,8 @@ import { Breadcrumb } from '../../ui/Breadcrumb';
 import { Button } from '../../ui/Button';
 import { Sheet, SheetBody, SheetContent, SheetHeader, SheetItemTitle } from '../../ui/Sheet';
 import { useAppShell } from './context';
-import { PageContent, PageHeader, PageToolbar } from '../PageHeader';
+import { PageContent, PageFavoriteButton, PageHeader, PageToolbar } from '../PageHeader';
+import { WindowFrameProvider, type Platform } from '../../lib/platform';
 import { DemoSidebar } from '../../screens/Shell/AppFrame';
 import { AppShell } from './AppShell';
 
@@ -29,10 +30,9 @@ function Frame({
   return (
     <div style={{ width, height }}>
       <AppShell
-        trafficLights="drawn"
         sidebar={<DemoSidebar active="Tasks" />}
         header={
-          <PageHeader>
+          <PageHeader actions={<PageFavoriteButton favorite={false} />}>
             <Breadcrumb items={['Tasks', { label: 'List', icon: List }]} />
           </PageHeader>
         }
@@ -67,6 +67,55 @@ export const CompactDrawer: Story = {
 export const AsideAndSheet: Story = {
   render: () => (
     <Frame width={1440} height={720} sheetOpen aside={<Text tone="muted">Right column</Text>} />
+  ),
+};
+
+/** Pins a story to a platform, whatever the toolbar says. */
+function On({ platform, children }: { platform: Platform; children: React.ReactNode }) {
+  return (
+    <WindowFrameProvider value={{ platform, controls: 'drawn' }}>{children}</WindowFrameProvider>
+  );
+}
+
+/**
+ * Windows: the menu button where the traffic lights are, and Windows' caption buttons over the top
+ * right (painted here), which the header's actions stop 16px short of.
+ */
+export const Windows: Story = {
+  render: () => (
+    <On platform="windows">
+      <Frame width={1440} height={720} />
+    </On>
+  ),
+};
+
+/** Windows, collapsed: the bar carries the menu button, the controls and the header. */
+export const WindowsCollapsed: Story = {
+  render: () => (
+    <On platform="windows">
+      <Frame width={1440} height={720} defaultCollapsed />
+    </On>
+  ),
+};
+
+/**
+ * Windows with a docked sheet: the header runs the full width, and the sheet and the right column
+ * start under it, so nothing of theirs sits by the caption buttons.
+ */
+export const WindowsSheet: Story = {
+  render: () => (
+    <On platform="windows">
+      <Frame width={1440} height={720} sheetOpen aside={<Text tone="muted">Right column</Text>} />
+    </On>
+  ),
+};
+
+/** Linux: the system frame draws the title bar above the page, so the window row has no start. */
+export const Linux: Story = {
+  render: () => (
+    <On platform="linux">
+      <Frame width={1440} height={720} />
+    </On>
   ),
 };
 
@@ -111,7 +160,6 @@ export const DockedSheet: Story = {
     return (
       <div style={{ width: 1440, height: 720 }}>
         <AppShell
-          trafficLights="drawn"
           sheetOpen={open}
           sidebar={<DemoSidebar active="Tasks" />}
           header={

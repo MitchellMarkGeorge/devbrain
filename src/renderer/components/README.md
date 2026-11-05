@@ -19,7 +19,7 @@ the same name, and builds only on the groups listed before it:
 4. **Feature groups** (`shell/`, `lists/`, `board/`, `detail/`, `editor/`, `calendar/`, `home/`,
    `projects/`, `notes/`, `integrations/`, `settings/`, `onboarding/`): the pieces of one area of
    the app. They use everything above, and another feature group's component when they compose it
-   (`ProjectHeader` shows the `detail/` `DateRange`; `OnboardingScreen` draws the shell's `TrafficLights`).
+   (`ProjectHeader` shows the `detail/` `DateRange`; `OnboardingScreen` draws the shell's `WindowStart`).
 
 ESLint enforces steps 2 and 3 (`eslint.config.js`); stories may import anything.
 
@@ -48,7 +48,8 @@ Also here:
 
 - `types.ts`: the shared domain types (`TaskStatus`, `Priority`, `Swatch`, `CalendarEvent`, …) and
   their colour helpers.
-- `lib/`: helpers (`cn`, `mergeClassName`).
+- `lib/`: helpers (`cn`, `mergeClassName`), and the window frame (`platform.ts`:
+  `WindowFrameProvider`, `usePlatform`, `formatKeys`).
 - `screens/`: the `Screens/*` stories, which rebuild the designed screens of the Figma file from
   these components (Tasks, Task detail, Notes, Projects, Calendar, Home, Settings, Search, menus,
   pickers, sheets, the editor, create dialogs, onboarding and app-wide states) as a check that they

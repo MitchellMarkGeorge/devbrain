@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { Decorator, Preview } from '@storybook/react-vite';
+import { WindowFrameProvider, type Platform } from '../src/renderer/components/lib/platform';
 import '../src/renderer/styles/fonts.css';
 import '../src/renderer/styles/tokens.css';
 import '../src/renderer/styles/base.css';
@@ -19,8 +20,19 @@ const withTheme: Decorator = (Story, context) => {
   return <Story />;
 };
 
+// The window frame stories draw: the platform from the toolbar, with the window controls painted
+// (the system draws them in the app), and no menu to open
+const withWindowFrame: Decorator = (Story, context) => {
+  const platform = (context.globals.platform ?? 'macos') as Platform;
+  return (
+    <WindowFrameProvider value={{ platform, controls: 'drawn' }}>
+      <Story />
+    </WindowFrameProvider>
+  );
+};
+
 const preview: Preview = {
-  decorators: [withTheme],
+  decorators: [withTheme, withWindowFrame],
   globalTypes: {
     theme: {
       description: 'Colour theme',
@@ -35,8 +47,21 @@ const preview: Preview = {
         dynamicTitle: true,
       },
     },
+    platform: {
+      description: 'Platform: who draws the window controls, and how keys are named',
+      toolbar: {
+        title: 'Platform',
+        icon: 'browser',
+        items: [
+          { value: 'macos', title: 'macOS' },
+          { value: 'windows', title: 'Windows' },
+          { value: 'linux', title: 'Linux' },
+        ],
+        dynamicTitle: true,
+      },
+    },
   },
-  initialGlobals: { theme: 'system' },
+  initialGlobals: { theme: 'system', platform: 'macos' },
   parameters: {
     layout: 'padded',
     controls: { expanded: true },

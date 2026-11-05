@@ -23,7 +23,7 @@ import { Kbd } from '../../ui/Kbd';
 import { Popover, PopoverContent, PopoverTrigger } from '../../ui/Popover';
 import { ScrollArea } from '../../ui/ScrollArea';
 import { Tooltip } from '../../ui/Tooltip';
-import { TrafficLights, WindowControls } from '../WindowBar';
+import { WindowControls, WindowStart } from '../WindowBar';
 import { WorkspaceTile } from '../../entities/WorkspaceTile';
 import { resolveColor, type Swatch } from '../../types';
 import styles from './Sidebar.module.css';
@@ -46,8 +46,9 @@ export interface SidebarProps extends ComponentPropsWithoutRef<'nav'> {
    */
   collapsed?: boolean;
   /**
-   * The window's traffic lights and controls (sidebar toggle, back, forward) on a 44px row at the
-   * top of the full sidebar. On by default inside an `AppShell`; the rail leaves them to the
+   * The title bar's start (traffic lights on macOS, the menu button on Windows, nothing on Linux)
+   * and the window controls (sidebar toggle, back, forward, at the right) on a 44px row at the top
+   * of the full sidebar. On by default inside an `AppShell`; the rail leaves them to the
    * `WindowBar`.
    */
   windowControls?: boolean;
@@ -92,8 +93,8 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
         >
           {showControls && (
             <div className={styles.windowRow}>
-              <TrafficLights className={styles.lights} />
-              <WindowControls />
+              <WindowStart />
+              <WindowControls className={styles.controls} />
             </div>
           )}
           {children}

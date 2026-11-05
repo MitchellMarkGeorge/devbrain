@@ -23,10 +23,11 @@ const context: InitialLoadContext = {
   current: work,
   last: null,
   workspaces: { items: [work], nextCursor: null },
+  theme: 'system',
 };
 
 function bridgeWith(initialLoadContext: IpcBridge['initialLoadContext']): IpcBridge {
-  return { invoke: vi.fn(), subscribe: vi.fn(), initialLoadContext };
+  return { invoke: vi.fn(), subscribe: vi.fn(), initialLoadContext, platform: 'darwin' };
 }
 
 describe('readInitialLoadContext', () => {

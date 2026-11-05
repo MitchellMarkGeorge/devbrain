@@ -73,7 +73,34 @@ h6 {
   text-wrap: balance;
 }
 
+/*
+ * The app fills the window, which scrolls nothing itself: the shell's columns scroll. #root is the
+ * app's own (Storybook's is #storybook-root), so stories taller than the canvas still scroll.
+ */
+html,
+body {
+  height: 100%;
+}
+
 /* the app's stacking context, so popups portalled outside it always sit above it */
 #root {
+  height: 100%;
+  overflow: hidden;
   isolation: isolate;
+}
+
+/*
+ * Windows' caption buttons (minimise, maximise, close), which Windows draws over the page's top
+ * right (src/main/runtime/window-chrome.ts). The Window Controls Overlay gives the page the part
+ * of the title bar they leave free as titlebar-area-x and -width; the rest of the window's width
+ * is theirs. Without the overlay (a browser: Storybook) they are taken as 138px (3 × 46px), the
+ * size of the stand-ins stories paint. --title-bar-end is where a title bar's content stops, 16px
+ * short of them: WindowBar and PageHeader pad their right end by it. AppShell, OnboardingScreen and
+ * floating sheets set data-platform; elsewhere both are unset, and the headers keep 24px.
+ */
+[data-platform='windows'] {
+  --caption-buttons-width: calc(
+    100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, calc(100vw - 138px))
+  );
+  --title-bar-end: calc(var(--caption-buttons-width) + var(--space-4));
 }

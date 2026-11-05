@@ -1,11 +1,12 @@
-/* The macOS title-bar strip. See docs/design-system/components/WindowBar.md */
+/* The title-bar strip while the sidebar is the rail. See docs/design-system/components/WindowBar.md */
 .bar {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   height: 48px;
   min-width: 0;
-  padding: 0 var(--space-6) 0 var(--space-4);
+  /* on Windows the page's actions stop 16px short of the caption buttons (base.css) */
+  padding: 0 max(var(--space-6), var(--title-bar-end, 0px)) 0 var(--space-4);
   background: var(--background);
   -webkit-app-region: drag;
 }
@@ -40,6 +41,19 @@
 }
 .zoom {
   background: var(--green-500);
+}
+
+/* ---------- Windows' caption buttons, drawn (stories): 3 × 46px by 48px ---------- */
+.captionButtons {
+  display: inline-flex;
+  height: 48px;
+  color: var(--foreground);
+}
+.captionButtons > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
 }
 
 /* ---------- sidebar toggle, back, forward ---------- */

@@ -51,4 +51,8 @@ export interface IpcBridge {
   // one. Fixed for the page load, so it is for seeding the first render only: later changes reach
   // the query cache as events
   readonly initialLoadContext: unknown;
+  // The platform main runs on (Node's process.platform: 'darwin', 'win32', 'linux', …), for the
+  // page to draw the title bar the window frame leaves to it (src/main/runtime/window-chrome.ts)
+  // and to name keys as the platform does (Ctrl for ⌘ off macOS)
+  readonly platform: string;
 }

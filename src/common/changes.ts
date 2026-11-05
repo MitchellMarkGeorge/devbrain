@@ -6,7 +6,8 @@ import type { EntityType } from './ids';
 // or which workspace is open: the renderer refetches the workspace list for it, and learns which
 // workspace is open from the `workspace.changed` event (src/renderer/ipc/query-invalidator.ts).
 // `recent` is not a kind of row: it says a task, project, note or event was viewed, which only the
-// recents list reads, so a view doesn't refetch every list of that entity.
+// recents list reads, so a view doesn't refetch every list of that entity. `settings` is the app's
+// settings, outside any workspace (the theme, the time format).
 export type ChangedEntity =
   | Extract<
       EntityType,
@@ -19,4 +20,5 @@ export type ChangedEntity =
       | 'externalSource'
       | 'workspace'
     >
-  | 'recent';
+  | 'recent'
+  | 'settings';
