@@ -27,14 +27,17 @@
   align-items: center;
   gap: 6px;
 }
-/* on the card the switch's track and thumb take border-strong so they still show */
+/*
+ * The switch on the card: in dark its track and thumb take border-strong so they still show on the
+ * card; in light the segmented control's own muted track and white thumb do (capture-switch-*).
+ */
 .box .kind {
   flex: none;
-  border-color: var(--border-strong);
-  background: transparent;
+  border-color: var(--capture-switch-border);
+  background: var(--capture-switch-track);
 }
 .box .kind [data-pressed] {
-  background: var(--border-strong);
+  background: var(--capture-switch-thumb);
 }
 .hint {
   display: inline-flex;

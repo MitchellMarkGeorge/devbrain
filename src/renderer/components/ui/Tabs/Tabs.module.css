@@ -66,26 +66,43 @@
   border-color: var(--ring);
 }
 
-/* ---------- default: the segmented control (a track with a secondary thumb) ---------- */
+/* ---------- default: the segmented control, drawn and sized as ToggleGroup's ---------- */
 .segmented .list {
-  padding: 3px;
+  /* equal items, as ToggleGroup's */
+  display: inline-grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  height: var(--control-md);
+  padding: 2px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: var(--background);
+  background: var(--segment-track);
 }
 .segmented .tab {
-  height: 26px;
-  padding: 0 var(--space-2);
+  /*
+   * From shadcn's Tabs trigger (h-[calc(100%-1px)]): 25px in the 26px inside the track. shadcn doesn't
+   * say why; centred, the spare pixel splits into half a pixel above and below.
+   */
+  height: calc(100% - 1px);
+  padding: 0 var(--space-1-5);
   border-radius: var(--radius-md);
-  color: var(--muted-foreground);
+  color: var(--segment-foreground);
+}
+.segmented .tab:has(> svg:first-child) {
+  padding-left: var(--space-1);
 }
 .segmented .tab:hover {
   color: var(--foreground);
 }
 .segmented .tab[data-active] {
-  background: var(--secondary);
+  background: var(--segment-thumb);
   color: var(--foreground);
   box-shadow: var(--shadow-segment);
+}
+.segmented .tab[data-active]:focus-visible {
+  box-shadow:
+    0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent),
+    var(--shadow-segment);
 }
 
 /* ---------- line: a 2px foreground underline on the active tab, a border line beneath ---------- */

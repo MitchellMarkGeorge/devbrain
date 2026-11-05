@@ -1,29 +1,42 @@
 /* shadcn's ToggleGroup as DevBrain's segmented control, plus shadcn's outline ToggleGroup.
    See docs/design-system/components/ToggleGroup.md */
 
-/* ---------- default: a 34px track on the page colour (1px border, 3px padding, 26px items, no gap),
-   the chosen item on a secondary thumb ---------- */
+/*
+ * ---------- default: the segmented control, sized as shadcn's (Nova) Tabs ----------
+ * A control-md track (control-sm for sm): a 1px border and 2px padding, so items sit 3px in as in
+ * shadcn, and 1px shorter than the space inside (25px), with no gap, all as wide as the widest (shadcn's
+ * flex-1 items; equal grid columns here, as a fit-content flex track won't shrink the widest). In dark the track is on the
+ * page colour with a secondary thumb; in light it is shadcn's muted track with a white thumb, kept
+ * outlined (the segment-* tokens).
+ */
 .group {
-  display: inline-flex;
+  display: inline-grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
   align-items: center;
   align-self: flex-start;
   width: fit-content;
-  padding: 3px;
+  height: var(--control-md);
+  padding: 2px;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: var(--background);
+  background: var(--segment-track);
 }
 .item {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-1-5);
-  height: 26px;
-  padding: 0 var(--space-2);
+  /*
+   * From shadcn's Tabs trigger (h-[calc(100%-1px)]): 25px in the 26px inside the track. shadcn doesn't
+   * say why; centred, the spare pixel splits into half a pixel above and below.
+   */
+  height: calc(100% - 1px);
+  padding: 0 var(--space-1-5);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: transparent;
-  color: var(--muted-foreground);
+  color: var(--segment-foreground);
   font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
   white-space: nowrap;
   cursor: pointer;
@@ -36,8 +49,9 @@
   width: 16px;
   height: 16px;
 }
-.iconOnly {
-  padding: 0 var(--space-1-5);
+/* a leading icon sits 4px from the item's edge, as in shadcn */
+.item:not(.iconOnly):has(> svg:first-child) {
+  padding-left: var(--space-1);
 }
 .item:hover {
   color: var(--foreground);
@@ -47,9 +61,15 @@
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 .item[data-pressed] {
-  background: var(--secondary);
+  background: var(--segment-thumb);
   color: var(--foreground);
   box-shadow: var(--shadow-segment);
+}
+/* focused and chosen: the focus ring and the thumb's shadow together, as shadcn combines them */
+.item[data-pressed]:focus-visible {
+  box-shadow:
+    0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent),
+    var(--shadow-segment);
 }
 .item[data-disabled] {
   opacity: 0.5;
@@ -57,15 +77,19 @@
 }
 
 .sizeSm {
-  padding: 2px;
+  height: var(--control-sm);
 }
 .sizeSm .item {
-  height: 22px;
   font-size: 13px;
+}
+.sizeSm .item > svg {
+  width: 14px;
+  height: 14px;
 }
 
 /* ---------- outline: separate outlined buttons, 8px apart; the pressed one fills with accent ---------- */
 .outline {
+  display: inline-flex;
   gap: var(--space-2);
   height: auto;
   padding: 0;
@@ -93,6 +117,9 @@
 .outline .item[data-pressed] {
   background: var(--accent);
   box-shadow: none;
+}
+.outline .item[data-pressed]:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 .outline .item[data-pressed] > svg {
   color: inherit;

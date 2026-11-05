@@ -52,7 +52,7 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - **Glyphs.** `StatusIcon`, `PriorityIcon`, `HealthIcon` and `ProgressRing`, each status with its own shape and colour.
 - **The quiet default button.** `default` is still DevBrain's quiet bordered button, drawn as Nova's dark outline button; the filled style stays `primary`, rarely used.
 - **Entity pills.** Every relation is an outlined pill (shadcn's outline badge) with an entity icon or the calendar's colour bar. Its fill (`pill-fill`) is none in dark, so the outline alone marks it, and white in light, a chip on cards and hovered rows (in dark it was the page colour until Nov 2026).
-- **The segmented control.** `ToggleGroup` is outlined segments on the page colour (Nova's are a muted track), for quick choices: views, calendar range, settings values.
+- **The segmented control.** In dark, `ToggleGroup` is outlined segments on the page colour (Nova's are a muted track); light keeps shadcn's muted track with a white thumb. For quick choices: views, calendar range, settings values.
 - **Section switchers.** Page sections (Settings, a project's Overview / Tasks / Notes) use `Tabs` drawn as shadcn's outline ToggleGroup, and so does the search dialog's type filter: separate outlined buttons 8px apart, the current one filled in `accent`.
 - **The dark tooltip.** Nova inverts tooltips; DevBrain keeps them dark with an outline.
 - **Lists.** Entity pills, priority and date on the right of every row (the rows themselves follow the list behaviours below).
@@ -195,7 +195,7 @@ Two kinds of page, one rule each:
 - 4px spacing scale (`space-*`).
 - Heights: `control-xs` (24px) pills and xs buttons, `control-sm` (28px) sm buttons and menu items, `control-md` (32px) buttons, inputs, segmented controls and sidebar items, `control-lg` (36px) lg buttons, `row-height` (48px) and `group-gap` (32px) for list density, `group-height` (36px).
 - Corners: `radius-md` (8px) inside controls, `radius-lg` (10px) controls and menus, `radius-xl` (14px) surfaces, `radius-full` pills.
-- Shadows only on floating layers: `shadow-md` for menus and tooltips, `shadow-2xl` for dialogs, sheets and toasts. The exceptions are `shadow-segment`, under the current segment of a segmented control, and `shadow-pinned`, under the sidebar's pinned header while content is scrolled beneath it.
+- Shadows only on floating layers: `shadow-md` for menus and tooltips, `shadow-2xl` for dialogs, sheets and toasts. The exceptions are `shadow-segment`, under the current segment of a segmented control (Figma's in dark, shadcn's `shadow-sm` in light), and `shadow-pinned`, under the sidebar's pinned header while content is scrolled beneath it.
 - Layout: Home's `home-max-width` (800px) column; a `sidebar-width` (256px) sidebar, docked or hidden (and then a drawer over the page); lists run edge to edge; details open in a `sheet-width` (380px) panel docked on the right, and the page narrows beside it (an overlay only in narrow windows).
 
 ## Components
