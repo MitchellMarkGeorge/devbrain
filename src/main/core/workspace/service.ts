@@ -40,14 +40,17 @@ const WORKSPACE_DB_FILE = 'db.sqlite';
 const NOT_IMPORTED = new Set([`${WORKSPACE_DB_FILE}-shm`, `${WORKSPACE_DB_FILE}.backup`]);
 
 // A workspace was registered (created here, or imported from a folder) or renamed/recoloured, or
-// the open workspace changed. Opening one while another is open sends `closed` for the old one
-// right before `opened` for the new one, once the new one is open (or, alone, once its open has
-// failed), so a listener never sees a switch pass through no workspace open.
+// the open workspace changed. Opening sends `opening` first, before anything closes, then
+// `opened` once the workspace is current, or `openFailed` when it could not be opened. Opening one
+// while another is open sends `closed` for the old one in between, once it has closed, in the
+// order the transitions ran: opening, closed, opened. The app shows its splash from `opening` on.
 export type WorkspaceChange =
   | { type: 'created'; workspace: WorkspaceInfo }
   | { type: 'imported'; workspace: WorkspaceInfo }
   | { type: 'updated'; workspace: WorkspaceInfo }
+  | { type: 'opening'; workspaceId: WorkspaceId }
   | { type: 'opened'; workspace: Workspace }
+  | { type: 'openFailed'; workspaceId: WorkspaceId }
   | { type: 'closed'; workspaceId: WorkspaceId };
 
 // TODO: opening a workspace again after it has been openedn should be as cheap as possible
@@ -81,8 +84,10 @@ export class WorkspaceService {
 
   /**
    * Sends `created` or `imported` once a workspace is registered, `updated` once its new name or
-   * colour is in its manifest, `opened` once a workspace is current and `closed` once the current
-   * one has closed, by open, close or delete. Returns a function that unsubscribes the listener.
+   * colour is in its manifest, `opening` as an open starts (once the workspace is known to exist),
+   * `opened` once it is current or `openFailed` when it could not be opened, and `closed` once
+   * the current one has closed, by open, close or delete. Returns a function that unsubscribes the
+   * listener.
    */
   onChange(listener: ChangeListener<WorkspaceChange>): () => void {
     return this.changes.add(listener);
@@ -307,12 +312,14 @@ export class WorkspaceService {
       throw new WorkspaceDataMissingError(id, 'No workspace data found');
     }
 
-    // 3. close the workspace open now, if any: only one syncs at a time, and its runs settle first.
-    // Its `closed` is sent once the new one is open, or its open has failed (the finally below)
-    const previous = this.currentWorkspace;
+    // from here the open changes what is open: listeners show it as opening until `opened`, or
+    // `openFailed` once nothing is open
+    this.changes.emit({ type: 'opening', workspaceId: id });
     let workspace: Workspace;
     try {
-      await this.closeCurrent({ announce: false });
+      // 3. close the workspace open now, if any: only one syncs at a time, and its runs settle
+      // first
+      await this.closeCurrent();
 
       // 4. open/initalize the workspace object
       workspace = await Workspace.open(workspaceInfo, this.workspaceOptions);
@@ -330,8 +337,9 @@ export class WorkspaceService {
         await workspace.close();
         throw error;
       }
-    } finally {
-      if (previous) this.changes.emit({ type: 'closed', workspaceId: previous.info.id });
+    } catch (error) {
+      this.changes.emit({ type: 'openFailed', workspaceId: id });
+      throw error;
     }
     this.changes.emit({ type: 'opened', workspace });
     return workspace;
@@ -455,16 +463,15 @@ export class WorkspaceService {
   }
 
   // Closes the current workspace, waiting for its sync runs to settle. Sends `closed` even when
-  // closing fails, as the workspace is no longer current either way; with `announce: false` the
-  // caller sends it (opening another sends it with `opened`).
-  private async closeCurrent({ announce = true } = {}): Promise<void> {
+  // closing fails: the workspace is no longer current either way.
+  private async closeCurrent(): Promise<void> {
     const current = this.currentWorkspace;
     if (!current) return;
     this.current = null;
     try {
       await current.close();
     } finally {
-      if (announce) this.changes.emit({ type: 'closed', workspaceId: current.info.id });
+      this.changes.emit({ type: 'closed', workspaceId: current.info.id });
     }
   }
 }

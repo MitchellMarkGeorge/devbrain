@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { ChangedEntity } from '@common/changes';
+import type { WorkspaceId } from '@common/ids';
 import type { AppEventName, AppEvents } from '@common/events';
 import type { DevBrain, Workspace } from '@main/core';
 import type { ArchiveChange } from '@main/core/archive/service';
@@ -61,19 +62,39 @@ export class ChangeTracker {
     this.stopWatching?.();
     const current = devBrain.currentWorkspace;
     let stopListeningToWorkspace = current ? this.listenToWorkspace(current) : () => {};
+    // which workspace is open, and which is opening, as workspace.changed says
+    let open: WorkspaceId | null = current?.info.id ?? null;
+    let opening: WorkspaceId | null = null;
     const unsubscribe = devBrain.workspaces.onChange((change) => {
       // the registry changed: the workspace list refetches; for a new, renamed or recoloured
       // workspace, nothing else did
       this.recordChange('workspace');
-      if (change.type === 'created' || change.type === 'updated' || change.type === 'imported') {
-        return;
+      switch (change.type) {
+        case 'created':
+        case 'updated':
+        case 'imported':
+          return;
+        case 'opening':
+          opening = change.workspaceId;
+          break;
+        case 'closed':
+          stopListeningToWorkspace();
+          stopListeningToWorkspace = () => {};
+          open = null;
+          break;
+        case 'opened':
+          stopListeningToWorkspace();
+          stopListeningToWorkspace = this.listenToWorkspace(change.workspace);
+          open = change.workspace.info.id;
+          opening = null;
+          break;
+        case 'openFailed':
+          opening = null;
+          break;
       }
-      stopListeningToWorkspace();
-      stopListeningToWorkspace =
-        change.type === 'opened' ? this.listenToWorkspace(change.workspace) : () => {};
-      const id = change.type === 'opened' ? change.workspace.info.id : null;
-      // to every window, the one that switched too: this event alone says which workspace is open
-      this.sendToWindows('workspace.changed', { id });
+      // to every window, the one that switched too: this event alone says which workspace is
+      // open, and which is opening
+      this.sendToWindows('workspace.changed', { id: open, opening });
     });
     // the app's settings, from Settings or the menu
     const unsubscribeSettings = devBrain.settings.onChange(() => this.recordChange('settings'));

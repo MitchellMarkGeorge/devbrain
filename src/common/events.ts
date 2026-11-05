@@ -16,8 +16,10 @@ export interface AppEvents {
   'integrations.changed': { integrationId: IntegrationId; type: IntegrationChangeType };
   // a source's sync status or settings changed
   'sources.changed': { sourceId: ExternalSourceId };
-  // the open workspace, or null once it has closed
-  'workspace.changed': { id: WorkspaceId | null };
+  // Which workspace is open (null while none is), and which is opening (null when none is). From
+  // `opening` set until `id` is it, the app shows its splash; with neither, it shows the picker.
+  // A switch sends three: the new one opening, then the old one closed, then the new one open.
+  'workspace.changed': { id: WorkspaceId | null; opening: WorkspaceId | null };
 }
 
 export type AppEventName = keyof AppEvents;

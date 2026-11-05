@@ -40,6 +40,7 @@ import {
 import type { WorkspaceId } from '@common/ids';
 import { useWindowFrame, type Platform } from './components/lib/platform';
 import { trpc } from './ipc';
+import { useHeldFor, useOpeningWorkspace } from './workspace-opening';
 
 // A test bench for the window frame until the app's screens are wired up: the shell with its
 // title bar on this platform, the keys named for it, a sheet, the onboarding screen, and the
@@ -78,11 +79,28 @@ function useHistory(first: PageId) {
   };
 }
 
+// how long the splash shows at least, so a quick switch doesn't flicker
+const SPLASH_MINIMUM_MS = 600;
+
 export function App() {
   const history = useHistory('frame');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [onboarding, setOnboarding] = useState(false);
   const title = PAGES.find((p) => p.id === history.page)?.label ?? '';
+
+  // The splash, as the app will show it: at start, while the workspace open last time reopens,
+  // and while a workspace opens (a switch closes the open one first), whoever started it
+  const current = useQuery(trpc.workspaces.current.queryOptions());
+  const openLast = useMutation(trpc.workspaces.openLast.mutationOptions());
+  const { mutate: reopenLast } = openLast;
+  useEffect(() => reopenLast(), [reopenLast]);
+  const opening = useOpeningWorkspace();
+  const starting = !current.data && (openLast.isIdle || openLast.isPending);
+  const splash = useHeldFor(opening !== null || starting, SPLASH_MINIMUM_MS);
+
+  if (splash) {
+    return <OnboardingScreen logo={<Logomark size="lg" pulse />} />;
+  }
 
   if (onboarding) {
     return (
@@ -156,19 +174,15 @@ export function App() {
 
 /**
  * The sidebar's workspace menu over the real registry: switch, add a new one, open a folder, or
- * show the open one's folder. On start it reopens the workspace open last time, as the app will.
+ * show the open one's folder. A switch shows the splash until the new workspace is open.
  */
 function WorkspaceMenu() {
   const current = useQuery(trpc.workspaces.current.queryOptions());
   const list = useQuery(trpc.workspaces.list.queryOptions());
-  const openLast = useMutation(trpc.workspaces.openLast.mutationOptions());
   const open = useMutation(trpc.workspaces.open.mutationOptions());
   const create = useMutation(trpc.workspaces.create.mutationOptions());
   const importFolder = useMutation(trpc.workspaces.importFolder.mutationOptions());
   const showInFolder = useMutation(trpc.workspace.showInFolder.mutationOptions());
-
-  const { mutate: reopenLast } = openLast;
-  useEffect(() => reopenLast(), [reopenLast]);
 
   const workspaces = list.data?.items ?? [];
   const openNew = (entry: { id: WorkspaceId } | null) => {

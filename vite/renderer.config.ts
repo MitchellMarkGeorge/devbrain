@@ -17,7 +17,9 @@ export default defineConfig({
     outDir: '../../dist/renderer',
     emptyOutDir: true,
     // fonts stay files (styles/fonts.css), so only the scripts a page shows are loaded; Vite would
-    // otherwise inline the small ones into the stylesheet
-    assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
+    // otherwise inline the small ones into the stylesheet. Images stay files too: the page's
+    // Content-Security-Policy (index.html) allows images from 'self' only, not data: URLs
+    assetsInlineLimit: (file) =>
+      /\.(woff2?|svg|png|jpe?g|webp|gif)$/.test(file) ? false : undefined,
   },
 });

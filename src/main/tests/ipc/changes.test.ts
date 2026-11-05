@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import type { IpcMainInvokeEvent } from 'electron';
 import type { AppEventName, AppEvents } from '@common/events';
 import type { IpcResult } from '@common/ipc/types';
@@ -227,14 +229,22 @@ describe('changes outside any mutation', () => {
 });
 
 describe('switching workspace', () => {
-  it('sends workspace.changed, and follows the new workspace', async () => {
+  it('sends workspace.changed for each step, opening first, and follows the new workspace', async () => {
     const old = workspace();
     const next = await createWorkspace(devBrain, 'Home');
 
     await devBrain.workspaces.open(next);
 
-    expect(sendToWindows).toHaveBeenCalledWith('workspace.changed', { id: null });
-    expect(sendToWindows).toHaveBeenCalledWith('workspace.changed', { id: next });
+    expect(
+      sendToWindows.mock.calls
+        .filter(([name]) => name === 'workspace.changed')
+        .map(([, payload]) => payload),
+    ).toEqual([
+      // the new one opening while the old one is still open, then the old one closed, then open
+      { id: old.info.id, opening: next },
+      { id: null, opening: next },
+      { id: next, opening: null },
+    ]);
     await afterBackgroundBatchSent();
     sendToWindows.mockReset();
     workspace().tasks.createTask({ title: 'Here', dueDate: DUE });
@@ -255,7 +265,20 @@ describe('switching workspace', () => {
     })) as IpcResult<unknown>;
 
     expect(result).toMatchObject({ ok: true, changed: ['workspace'] });
-    expect(sendToWindows).toHaveBeenCalledWith('workspace.changed', { id: next });
+    expect(sendToWindows).toHaveBeenCalledWith('workspace.changed', { id: next, opening: null });
+  });
+
+  it('says nothing is opening once an open fails', async () => {
+    const next = await createWorkspace(devBrain, 'Home');
+    // its database can't be opened
+    await fs.writeFile(path.join(devBrain.workspaces.getById(next).path, 'db.sqlite'), 'not a db');
+
+    await expect(devBrain.workspaces.open(next)).rejects.toThrow();
+
+    expect(sendToWindows).toHaveBeenLastCalledWith('workspace.changed', {
+      id: null,
+      opening: null,
+    });
   });
 
   it('reports a new workspace, which core announces, without saying the open one changed', async () => {

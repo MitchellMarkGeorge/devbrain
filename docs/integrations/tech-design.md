@@ -1035,7 +1035,7 @@ Main pushes the events in `AppEvents` (`src/common/events.ts`). Each is a delta 
 - `sync.progress`: `sourceId`, `phase` and `itemsApplied`, after each committed page.
 - `integrations.changed`: `integrationId` and the change's `type`.
 - `sources.changed`: `sourceId`, when a source is switched on or off or a run records how it ended.
-- `workspace.changed`: the open workspace's id, or `null`.
+- `workspace.changed`: the open workspace's id, or `null`, and the one opening, or `null`.
 
 **UI (deferred).** Not part of the current build. What the views will need once they exist:
 

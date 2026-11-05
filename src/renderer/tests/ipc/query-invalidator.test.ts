@@ -222,7 +222,7 @@ describe('listen', () => {
     events.send('db.changes', { entities: ['task'] as ChangedEntity[] });
     await vi.waitFor(() => expect(count('tasks.list')).toBe(2));
 
-    events.send('workspace.changed', { id: HOME });
+    events.send('workspace.changed', { id: HOME, opening: null });
     await vi.waitFor(() => expect(count('tasks.list')).toBe(3));
 
     stop();

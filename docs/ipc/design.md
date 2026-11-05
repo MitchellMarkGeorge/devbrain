@@ -239,13 +239,13 @@ Main pushes the events in [`AppEvents`](../../src/common/events.ts), each on
 the preload passes the payload only. Every event is a delta: it says what changed, carries ids,
 never a snapshot and never credentials, and the renderer refetches what it shows.
 
-| Event                  | Payload                             | Sent                                                                                   |
-| ---------------------- | ----------------------------------- | -------------------------------------------------------------------------------------- |
-| `db.changes`           | `entities`                          | Background changes, once per turn, to every window; a mutation's, to the other windows |
-| `workspace.changed`    | `id`, or `null` once closed         | On every open and close, to every window, the one that switched too                    |
-| `sync.progress`        | `sourceId`, `phase`, `itemsApplied` | After each page a sync run commits                                                     |
-| `integrations.changed` | `integrationId`, `type`             | On every `IntegrationChange`                                                           |
-| `sources.changed`      | `sourceId`                          | When a source is switched on or off, or a run records how it ended                     |
+| Event                  | Payload                              | Sent                                                                                   |
+| ---------------------- | ------------------------------------ | -------------------------------------------------------------------------------------- |
+| `db.changes`           | `entities`                           | Background changes, once per turn, to every window; a mutation's, to the other windows |
+| `workspace.changed`    | `id` (open, or `null`) and `opening` | On every step of an open and on a close, to every window, the one that switched too    |
+| `sync.progress`        | `sourceId`, `phase`, `itemsApplied`  | After each page a sync run commits                                                     |
+| `integrations.changed` | `integrationId`, `type`              | On every `IntegrationChange`                                                           |
+| `sources.changed`      | `sourceId`                           | When a source is switched on or off, or a run records how it ended                     |
 
 `db.changes` and `workspace.changed` keep data fresh, and the query invalidator follows them. The
 other three are for a status UI (a sync indicator, the integrations page). They are sent at once,
@@ -300,14 +300,18 @@ mutation's own changes are refetched before it resolves. `main.tsx` calls
 
 ### A workspace switch
 
-1. `workspaces.open` (or `workspaces.openLast` at launch) opens the workspace through core's `WorkspaceService`, closing
-   the open one first, if any. Core sends the old one's `closed` only once the new one is open, right
-   before its `opened` (or alone, when the open fails), so a window never sees the switch pass
-   through no workspace open. The tracker hears `closed` and then `opened`: it stops listening to
-   the old workspace's services, starts listening to the new one's, and sends `workspace.changed` to
-   every window for each.
+1. `workspaces.open` (or `workspaces.openLast` at launch) opens the workspace through core's
+   `WorkspaceService`, closing the open one first, if any. Core sends `opening` first, before
+   anything closes, then the old one's `closed` once it has closed, then `opened` once the new one
+   is current, or `openFailed` when it could not be opened (nothing is open then). The tracker
+   stops listening to the old workspace's services on `closed` and starts on the new one's on
+   `opened`, and for each sends `workspace.changed` to every window: `{ id, opening }`, the
+   workspace open and the one opening. A switch sends three: `{ old, new }`, `{ null, new }`,
+   `{ new, null }`.
 2. `workspace.changed` is sent while the mutation runs, so it reaches the switching window before
-   the response. It alone says which workspace is open.
+   the response. It alone says which workspace is open, and which is opening: the app shows its
+   splash while `opening` is set (`useOpeningWorkspace`, `src/renderer/workspace-opening.ts`), so
+   the moment with nothing open is the splash, never an empty or failing screen.
 3. When the id differs from the workspace whose data is cached, the invalidator resets every query
    outside `app`, `settings` and `workspaces` (`resetQueries` cancels what is in flight, clears the
    data and refetches what is mounted), and refetches the `workspaces` queries.

@@ -945,13 +945,15 @@ describe('WorkspaceService — onChange', () => {
     const changes: WorkspaceChange[] = [];
     service.onChange((change) => {
       changes.push(change);
+      if (change.type === 'opening') log.push(`opening ${change.workspaceId}`);
       if (change.type === 'opened') log.push(`opened ${change.workspace.info.id}`);
+      if (change.type === 'openFailed') log.push(`openFailed ${change.workspaceId}`);
       if (change.type === 'closed') log.push(`closed ${change.workspaceId}`);
     });
     return { service, infos, workspaces, changes, log };
   }
 
-  it('open sends opened once the workspace is current', async () => {
+  it('open sends opening as it starts, and opened once the workspace is current', async () => {
     const { service, infos, workspaces, changes } = await setup();
     vi.mocked(Workspace.open).mockResolvedValueOnce(workspaces[0] as never);
     let currentWhenSent: unknown;
@@ -959,47 +961,45 @@ describe('WorkspaceService — onChange', () => {
 
     await service.open(infos[0].id);
 
-    expect(changes).toEqual([{ type: 'opened', workspace: workspaces[0] }]);
+    expect(changes).toEqual([
+      { type: 'opening', workspaceId: infos[0].id },
+      { type: 'opened', workspace: workspaces[0] },
+    ]);
     expect(currentWhenSent).toBe(workspaces[0]);
   });
 
-  it('opening another sends closed for the old workspace right before opened, once the new one is open', async () => {
-    const { service, infos, workspaces, changes, log } = await setup();
-    vi.mocked(Workspace.open).mockResolvedValueOnce(workspaces[0] as never);
-    await service.open(infos[0].id);
-    vi.mocked(Workspace.open).mockImplementationOnce(async () => {
-      log.push('open wsp_second');
-      return workspaces[1] as never;
-    });
+  it('sends nothing for a workspace that is not there to open', async () => {
+    const { service, changes } = await setup();
 
-    await service.open(infos[1].id);
+    await expect(service.open('wsp_missing' as WorkspaceId)).rejects.toThrow();
 
-    expect(changes.slice(1)).toEqual([
-      { type: 'closed', workspaceId: infos[0].id },
-      { type: 'opened', workspace: workspaces[1] },
-    ]);
-    // no listener sees the switch pass through no workspace open
-    expect(log.slice(1)).toEqual([
-      'close wsp_first',
-      'open wsp_second',
-      'closed wsp_first',
-      'opened wsp_second',
-    ]);
+    expect(changes).toEqual([]);
   });
 
-  it('opening another that fails to open still sends closed for the old workspace', async () => {
-    const { service, infos, workspaces, changes } = await setup();
-    vi.mocked(Workspace.open).mockResolvedValueOnce(workspaces[0] as never);
+  it('sends openFailed when the open fails, once the old workspace has closed', async () => {
+    const { service, infos, workspaces, changes, log } = await setup();
+    vi.mocked(Workspace.open)
+      .mockResolvedValueOnce(workspaces[0] as never)
+      .mockRejectedValueOnce(new Error('corrupt'));
     await service.open(infos[0].id);
-    vi.mocked(Workspace.open).mockRejectedValueOnce(new Error('corrupt'));
 
     await expect(service.open(infos[1].id)).rejects.toThrow('corrupt');
 
-    expect(changes.at(-1)).toEqual({ type: 'closed', workspaceId: infos[0].id });
+    expect(changes.slice(2)).toEqual([
+      { type: 'opening', workspaceId: infos[1].id },
+      { type: 'closed', workspaceId: infos[0].id },
+      { type: 'openFailed', workspaceId: infos[1].id },
+    ]);
+    expect(log.slice(-4)).toEqual([
+      'opening wsp_second',
+      'close wsp_first',
+      'closed wsp_first',
+      'openFailed wsp_second',
+    ]);
     expect(service.currentWorkspace).toBeNull();
   });
 
-  it('opening another sends closed for the old workspace, once it has closed, before opened for the new one', async () => {
+  it('opening another sends opening first, then closed for the old workspace once it has closed, then opened', async () => {
     const { service, infos, workspaces, changes, log } = await setup();
     vi.mocked(Workspace.open)
       .mockResolvedValueOnce(workspaces[0] as never)
@@ -1009,12 +1009,16 @@ describe('WorkspaceService — onChange', () => {
     await service.open(infos[1].id);
 
     expect(changes).toEqual([
+      { type: 'opening', workspaceId: infos[0].id },
       { type: 'opened', workspace: workspaces[0] },
+      { type: 'opening', workspaceId: infos[1].id },
       { type: 'closed', workspaceId: infos[0].id },
       { type: 'opened', workspace: workspaces[1] },
     ]);
     expect(log).toEqual([
+      'opening wsp_first',
       'opened wsp_first',
+      'opening wsp_second',
       'close wsp_first',
       'closed wsp_first',
       'opened wsp_second',
@@ -1040,6 +1044,7 @@ describe('WorkspaceService — onChange', () => {
     await service.delete(infos[0].id);
 
     expect(changes).toEqual([
+      { type: 'opening', workspaceId: infos[0].id },
       { type: 'opened', workspace: workspaces[0] },
       { type: 'closed', workspaceId: infos[0].id },
     ]);
@@ -1093,14 +1098,24 @@ describe('WorkspaceService — onChange', () => {
     await expect(service.open(infos[1].id)).rejects.toThrow(WorkspaceDataMissingError);
     // deleting a workspace that is not open
     await expect(service.delete(infos[0].id)).rejects.toThrow(WorkspaceNotOpenError);
-    // a workspace that fails to start syncing never becomes current
+
+    expect(changes).toEqual([]);
+    expect(service.currentWorkspace).toBeNull();
+  });
+
+  it('a workspace that fails to start syncing never becomes current: opening, then openFailed', async () => {
+    const { service, infos, workspaces, changes } = await setup();
     workspaces[0].sync.start.mockImplementationOnce(() => {
       throw new Error('start failed');
     });
     vi.mocked(Workspace.open).mockResolvedValueOnce(workspaces[0] as never);
+
     await expect(service.open(infos[0].id)).rejects.toThrow('start failed');
 
-    expect(changes).toEqual([]);
+    expect(changes).toEqual([
+      { type: 'opening', workspaceId: infos[0].id },
+      { type: 'openFailed', workspaceId: infos[0].id },
+    ]);
     expect(service.currentWorkspace).toBeNull();
   });
 
@@ -1129,8 +1144,8 @@ describe('WorkspaceService — onChange', () => {
     await expect(service.open(infos[0].id)).resolves.toBe(workspaces[0]);
     await expect(service.close()).resolves.toBeUndefined();
 
-    expect(changes.map((change) => change.type)).toEqual(['opened', 'closed']);
-    expect(after).toHaveBeenCalledTimes(2);
+    expect(changes.map((change) => change.type)).toEqual(['opening', 'opened', 'closed']);
+    expect(after).toHaveBeenCalledTimes(3);
     expect(logger.error).toHaveBeenCalledWith('Workspace change listener threw error=TypeError');
     expect(workspaces[0].close).toHaveBeenCalledOnce();
   });
@@ -1145,7 +1160,8 @@ describe('WorkspaceService — onChange', () => {
     unsubscribe();
     await service.close();
 
-    expect(listener).toHaveBeenCalledOnce();
+    // opening and opened, nothing after
+    expect(listener).toHaveBeenCalledTimes(2);
   });
 });
 
