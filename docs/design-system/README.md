@@ -90,20 +90,19 @@ Home answers "what matters right now". It is one centred column, `home-max-width
 - **The logomark,** then the greeting in the page title ("Good morning, Mitchell"; "Welcome, Mitchell" in a new workspace).
 - **The summary,** one sentence in 14px `muted-foreground`: counts and names in `foreground-strong` medium ("**6 tasks**", "**Sprint Planning**"), overdue in `date-overdue` ("2 are overdue"), and good news in `health-on-track` ("Nothing's due today", "Your day is clear"). It can mention what didn't make the sections.
 - **The `CaptureBox`,** 28px below, with its one-line tip under it. It holds the slot an AI prompt will take later, at the same footprint.
-- **One section** (`HomeSection`), 28px below the tip: the top-ranked one.
+- **One section** (`HomeSection`), 28px below the tip: the one for what is coming up soonest, or what you just did (see Sections).
 - **The footer,** 32px below, centred in 12px `subtle-foreground`: "Press ⌘K to search", and "· Google Calendar paused · Reconnect" (an xs ghost button) when a calendar needs signing in again.
 
 Everything fits on one page without scrolling at the default window size (1200 × 800), and the column sits centred across and down the page.
 
-**Sections.** Home shows one section, with at most three rows; the rest goes into an "N more tasks today" line. Each section has a menu-label header and, optionally, a link at the right ("All 6 tasks →", "Calendar →", "All notes →", "All projects →"). Sections are ranked, most urgent first, and the first with something to show is the one Home shows:
+**Sections.** Home shows one section, with at most three rows; the rest goes into an "N more tasks today" line. Each section has a menu-label header and, optionally, a link at the right ("All 6 tasks →", "Calendar →", "All notes →", "All projects →"). Which section shows follows what is coming up and what you have been doing. Each section has its trigger:
 
-1. A meeting starting within 30 minutes, or in progress.
-2. Tasks overdue or due today.
-3. Notes or projects edited in the last hour.
-4. Later meetings today, or tomorrow's first.
-5. Notes or projects from the last few days.
+- **Meetings:** a meeting coming up, or in progress.
+- **Tasks:** a task overdue or coming up.
+- **Recent projects:** a project deadline coming up.
+- **Recent notes:** a note you just created or edited.
 
-A section with nothing to show is skipped, and what the section leaves out can still be mentioned in the summary. "Get started" fills the slot in a new workspace with nothing to show.
+When more than one applies, what comes due soonest wins: the next meeting, task due date or project deadline decides the section (an overdue task or a meeting in progress is due now). A recently edited note shows only when nothing is coming up. What the section leaves out can still be mentioned in the summary. "Get started" fills the slot in a new workspace with nothing to show.
 
 - **Meetings:** `HomeRow`s: the colour bar, the title and when, at the right ("In 12 min" in `date-today`, "Now", "10:30", "Tue 9:30"). An xs Join button shows from 5 minutes before the start until the end. The next or current meeting's row is filled with `card`; finished meetings drop off; tomorrow's first meeting is dimmed.
 - **Tasks:** `TaskRow compact`: 44px with no selection strip, with all their pills.

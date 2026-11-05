@@ -96,7 +96,7 @@ function HomePage({
       </div>
       <CaptureBox tip={tip} style={{ marginTop: 28 }} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 32, marginTop: 28 }}>
-        {/* the top-ranked section only */}
+        {/* one section: what comes due soonest, or else the note just edited */}
         {children}
       </div>
       <Text
@@ -292,7 +292,7 @@ export function HomeContent() {
   );
 }
 
-/** Figma "Home" (7254:8102): a meeting soon ranks first, so Meetings is the section. */
+/** Figma "Home" (7254:8102): a meeting in 12 minutes is the soonest thing, so Meetings shows. */
 export function HomeScreen(frame: Partial<ScreenFrameProps>) {
   return (
     <ScreenFrame page="Home" {...frame}>

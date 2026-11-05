@@ -1,6 +1,6 @@
 # HomeSection
 
-Home's section (README "Home"): Home shows one, the top-ranked.
+Home's section (README "Home"): Home shows one, chosen by what comes due soonest, or else the note you just edited.
 
 - **Header (26px):** the title as a menu label (12px `muted-foreground`: "Meetings", "Tasks", "Recent notes", "Recent projects", "Get started"), 10px above the first row, and optionally a 12px `muted-foreground` link with an arrow at the right ("All 6 tasks →", "Calendar →", "All notes →", "All projects →") that lifts to `foreground` on hover. "Get started" has no link.
 - **Rows:** at most three: `HomeRow`s for meetings and projects, `TaskRow compact` for tasks (44px, with all their pills), or `SetupRow`s; or, for Recent notes, `HomeCards`: three small `NoteCard`s (`size="sm"`) in equal columns 12px apart.
