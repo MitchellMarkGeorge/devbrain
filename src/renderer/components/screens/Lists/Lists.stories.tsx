@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ArrowUpDown, LayoutGrid, List, ListFilter, Plus } from 'lucide-react';
 import { Button } from '../../ui/Button';
-import { EntityPill } from '../../ui/EntityPill';
-import { NoteRow } from '../../ui/NoteRow';
-import { ProjectRow, type ProjectRowProject } from '../../ui/ProjectRow';
+import { EntityPill } from '../../entities/EntityPill';
+import { NoteRow } from '../../lists/NoteRow';
+import { ProjectRow, type ProjectRowProject } from '../../lists/ProjectRow';
 import { ToggleGroup, ToggleGroupItem } from '../../ui/ToggleGroup';
 import { AppFrame } from '../Tasks/frame';
 

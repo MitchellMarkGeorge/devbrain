@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Flex } from '../../layout/Flex';
 import { Badge } from '../Badge';
-import { SWATCHES } from '../types';
+import { SWATCHES } from '../../types';
 import { SwatchDot } from './SwatchDot';
 
 const meta = {
-  title: 'Glyphs/SwatchDot',
+  title: 'UI/SwatchDot',
   component: SwatchDot,
   args: { color: 'red' },
   argTypes: { color: { control: 'select', options: SWATCHES } },

@@ -6,6 +6,40 @@ import prettierConfig from 'eslint-config-prettier';
 import globals from 'globals';
 import storybook from 'eslint-plugin-storybook';
 
+// main's code never runs in the renderer: it imports from src/main only as a type
+// (`import type { AppRouter }`). Vite would bundle a value import, Electron with it
+const mainTypeOnly = {
+  group: ['@main/*', '**/main/*'],
+  allowTypeImports: true,
+  message: 'The renderer imports from src/main as a type only (import type).',
+};
+
+// The component groups above `ui` and `entities` (src/renderer/components/README.md)
+const FEATURE_GROUPS = [
+  'shell',
+  'lists',
+  'board',
+  'detail',
+  'editor',
+  'calendar',
+  'home',
+  'projects',
+  'notes',
+  'integrations',
+  'settings',
+  'onboarding',
+  'screens',
+];
+const notFrom = (groups, message) => ({
+  group: groups.flatMap((g) => [
+    `**/components/${g}`,
+    `**/components/${g}/**`,
+    `../../${g}`,
+    `../../${g}/**`,
+  ]),
+  message,
+});
+
 export default tseslint.config(
   // Ignore build output and generated files
   {
@@ -37,17 +71,43 @@ export default tseslint.config(
       ...reactPlugin.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
       'react/react-in-jsx-scope': 'off', // not needed with React 17+ JSX transform
-      // main's code never runs in the renderer: it imports from src/main only as a type
-      // (`import type { AppRouter }`). Vite would bundle a value import, Electron with it
+      '@typescript-eslint/no-restricted-imports': ['error', { patterns: [mainTypeOnly] }],
+    },
+  },
+
+  // Components build on the groups below them: layout and ui know nothing of DevBrain's
+  // entities, and entities nothing of the screens' components. Stories may use anything
+  {
+    files: ['src/renderer/components/{layout,lib,ui}/**/*.{ts,tsx}'],
+    ignores: ['**/*.stories.tsx'],
+    rules: {
       '@typescript-eslint/no-restricted-imports': [
         'error',
         {
           patterns: [
-            {
-              group: ['@main/*', '**/main/*'],
-              allowTypeImports: true,
-              message: 'The renderer imports from src/main as a type only (import type).',
-            },
+            mainTypeOnly,
+            notFrom(
+              ['entities', ...FEATURE_GROUPS],
+              'layout and ui components are generic: they import only from layout, ui, lib and types.',
+            ),
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/renderer/components/entities/**/*.{ts,tsx}'],
+    ignores: ['**/*.stories.tsx'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            mainTypeOnly,
+            notFrom(
+              FEATURE_GROUPS,
+              'entities components are shared by every screen: they import only from entities, ui, layout, lib and types.',
+            ),
           ],
         },
       ],

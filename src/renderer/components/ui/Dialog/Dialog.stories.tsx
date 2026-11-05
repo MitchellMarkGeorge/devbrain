@@ -23,7 +23,7 @@ import {
 } from './Dialog';
 
 const meta = {
-  title: 'Components/Dialog',
+  title: 'UI/Dialog',
   component: Dialog,
   parameters: { layout: 'fullscreen' },
   decorators: [

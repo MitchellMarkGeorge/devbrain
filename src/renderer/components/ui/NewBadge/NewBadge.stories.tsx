@@ -8,7 +8,7 @@ import { Icon } from '../Icon';
 import { NewBadge } from './NewBadge';
 
 const meta = {
-  title: 'Components/NewBadge',
+  title: 'UI/NewBadge',
   component: NewBadge,
   args: { fadeAfter: false },
 } satisfies Meta<typeof NewBadge>;

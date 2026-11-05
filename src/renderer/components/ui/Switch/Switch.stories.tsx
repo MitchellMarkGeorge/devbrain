@@ -3,7 +3,7 @@ import { Stack } from '../../layout/Flex';
 import { Switch } from './Switch';
 
 const meta = {
-  title: 'Components/Switch',
+  title: 'UI/Switch',
   component: Switch,
   args: { children: 'Create another' },
   argTypes: { checked: { control: 'boolean' }, disabled: { control: 'boolean' } },

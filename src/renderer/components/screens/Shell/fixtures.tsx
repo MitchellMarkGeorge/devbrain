@@ -2,8 +2,8 @@
 import { ArrowUpDown, Group, List, ListFilter, Plus, SquareKanban } from 'lucide-react';
 import { Breadcrumb } from '../../ui/Breadcrumb';
 import { Button } from '../../ui/Button';
-import { PageHeader, PageToolbar } from '../../ui/PageHeader';
-import type { Task } from '../../ui/TaskRow/types';
+import { PageHeader, PageToolbar } from '../../shell/PageHeader';
+import type { Task } from '../../lists/TaskRow/types';
 import { ToggleGroup } from '../../ui/ToggleGroup';
 
 /** "Tasks (list)": the eight tasks of the Figma screen, in its order. */

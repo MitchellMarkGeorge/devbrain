@@ -5,7 +5,7 @@ import { Textarea } from '../Textarea';
 import { Field, FieldError, FieldLabel } from './Field';
 
 const meta = {
-  title: 'Components/Field',
+  title: 'UI/Field',
   component: Field,
   args: { label: 'Project name' },
   decorators: [(Story) => <div style={{ width: 320 }}>{Story()}</div>],

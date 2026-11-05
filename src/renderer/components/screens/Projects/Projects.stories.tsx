@@ -12,12 +12,12 @@ import {
 } from 'lucide-react';
 import { Breadcrumb } from '../../ui/Breadcrumb';
 import { Button } from '../../ui/Button';
-import { GroupHeading } from '../../ui/GroupHeading';
-import { ProjectCard } from '../../ui/ProjectCard';
-import { ProjectHeader } from '../../ui/ProjectHeader';
-import { StatusIcon } from '../../ui/StatusIcon';
-import { TaskList } from '../../ui/TaskList';
-import type { Task } from '../../ui/TaskRow/types';
+import { GroupHeading } from '../../lists/GroupHeading';
+import { ProjectCard } from '../../projects/ProjectCard';
+import { ProjectHeader } from '../../projects/ProjectHeader';
+import { StatusIcon } from '../../entities/StatusIcon';
+import { TaskList } from '../../lists/TaskList';
+import type { Task } from '../../lists/TaskRow/types';
 import { ToggleGroup } from '../../ui/ToggleGroup';
 import { AppFrame, PageHeader, Spacer } from '../Calendar/AppFrame';
 

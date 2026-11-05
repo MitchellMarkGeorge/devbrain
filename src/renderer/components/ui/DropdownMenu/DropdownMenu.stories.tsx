@@ -34,7 +34,7 @@ import {
 } from './DropdownMenu';
 
 const meta = {
-  title: 'Components/DropdownMenu',
+  title: 'UI/DropdownMenu',
   component: DropdownMenu,
   decorators: [
     (Story) => (

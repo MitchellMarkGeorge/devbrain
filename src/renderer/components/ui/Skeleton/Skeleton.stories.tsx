@@ -3,7 +3,7 @@ import { Flex, Stack } from '../../layout/Flex';
 import { Skeleton } from './Skeleton';
 
 const meta = {
-  title: 'Components/Skeleton',
+  title: 'UI/Skeleton',
   component: Skeleton,
   args: { width: 240, height: 16, shape: 'block' },
   argTypes: { shape: { control: 'inline-radio', options: ['block', 'circle', 'card'] } },

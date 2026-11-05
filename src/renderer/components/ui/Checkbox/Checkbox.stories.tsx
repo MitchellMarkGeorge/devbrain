@@ -3,7 +3,7 @@ import { Flex, Stack } from '../../layout/Flex';
 import { Checkbox } from './Checkbox';
 
 const meta = {
-  title: 'Components/Checkbox',
+  title: 'UI/Checkbox',
   component: Checkbox,
   args: { 'aria-label': 'Select task' },
   argTypes: {

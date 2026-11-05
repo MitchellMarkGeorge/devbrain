@@ -5,7 +5,7 @@ import { Badge } from '../Badge';
 import { ProgressRing } from './ProgressRing';
 
 const meta = {
-  title: 'Glyphs/ProgressRing',
+  title: 'UI/ProgressRing',
   component: ProgressRing,
   args: { value: 3, total: 4, size: 14 },
   argTypes: {

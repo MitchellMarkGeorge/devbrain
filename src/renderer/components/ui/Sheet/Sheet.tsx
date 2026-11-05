@@ -11,7 +11,7 @@ import { Maximize2, X } from 'lucide-react';
 import { cn, mergeClassName } from '../../lib/cn';
 import { IconButton } from '../IconButton';
 import { ScrollArea, type ScrollAreaProps } from '../ScrollArea';
-import { resolveColor, type Swatch } from '../types';
+import { resolveColor, type Swatch } from '../../types';
 import styles from './Sheet.module.css';
 
 export const sheetVariants = cva(styles.popup, {

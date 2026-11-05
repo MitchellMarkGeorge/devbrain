@@ -4,7 +4,7 @@ import { Button } from '../Button';
 import { EmptyState } from './EmptyState';
 
 const meta = {
-  title: 'Feedback/EmptyState',
+  title: 'UI/EmptyState',
   component: EmptyState,
   args: {
     icon: CircleCheck,

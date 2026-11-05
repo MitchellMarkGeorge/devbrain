@@ -45,11 +45,11 @@ import {
   type DropdownMenuContentProps,
   type DropdownMenuSubTriggerProps,
 } from '../../ui/DropdownMenu';
-import { PriorityIcon } from '../../ui/PriorityIcon';
-import { PriorityMenuContent } from '../../ui/PriorityMenu';
-import { ProjectGlyph, ProjectPickerItems, type PickerProject } from '../../ui/ProjectPicker';
-import { StatusIcon } from '../../ui/StatusIcon';
-import { StatusMenuContent } from '../../ui/StatusMenu';
+import { PriorityIcon } from '../../entities/PriorityIcon';
+import { PriorityMenuContent } from '../../entities/PriorityMenu';
+import { ProjectGlyph, ProjectPickerItems, type PickerProject } from '../../entities/ProjectPicker';
+import { StatusIcon } from '../../entities/StatusIcon';
+import { StatusMenuContent } from '../../entities/StatusMenu';
 
 export const PROJECTS: PickerProject[] = [
   { id: 'auth', name: 'Auth Overhaul', color: 'blue' },

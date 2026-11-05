@@ -1,4 +1,4 @@
-import type { CalendarEvent } from '../../ui/TimeGrid';
+import type { CalendarEvent } from '../../types';
 
 /** The Figma file's calendar: the week of Monday 22 June 2026, "now" at 8:46 AM. */
 export const NOW = new Date(2026, 5, 22, 8, 46);

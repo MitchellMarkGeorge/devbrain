@@ -6,7 +6,7 @@ import { DateRangePicker, type DateRangeEnd } from './DateRangePicker';
 const TODAY = new Date(2026, 5, 22);
 
 const meta = {
-  title: 'Components/DateRangePicker',
+  title: 'UI/DateRangePicker',
   component: DateRangePicker,
   args: {
     today: TODAY,

@@ -7,7 +7,7 @@ import { Calendar } from './Calendar';
 const TODAY = new Date(2026, 5, 22);
 
 const meta = {
-  title: 'Components/Calendar',
+  title: 'UI/Calendar',
   component: Calendar,
   args: { today: TODAY, defaultMonth: TODAY },
 } satisfies Meta<typeof Calendar>;

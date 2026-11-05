@@ -1,13 +1,13 @@
 import { useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Plus } from 'lucide-react';
-import { ColourMenu, editorTextColour, type EditorColour } from '../../ui/ColourMenu';
-import { EditorContent } from '../../ui/EditorContent';
-import { EntityPill } from '../../ui/EntityPill';
-import { FormatToolbar, type FormatMark } from '../../ui/FormatToolbar';
-import { SlashMenu } from '../../ui/SlashMenu';
-import type { SuggestionMenuHandle } from '../../ui/SlashMenu';
-import { TurnIntoMenu, type BlockType } from '../../ui/TurnIntoMenu';
+import { ColourMenu, editorTextColour, type EditorColour } from '../../editor/ColourMenu';
+import { EditorContent } from '../../editor/EditorContent';
+import { EntityPill } from '../../entities/EntityPill';
+import { FormatToolbar, type FormatMark } from '../../editor/FormatToolbar';
+import { SlashMenu } from '../../editor/SlashMenu';
+import type { SuggestionMenuHandle } from '../../editor/SlashMenu';
+import { TurnIntoMenu, type BlockType } from '../../editor/TurnIntoMenu';
 import { NotePage } from '../Notes/notePage';
 
 const meta = {

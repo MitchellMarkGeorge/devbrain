@@ -2,11 +2,11 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { CircleCheck, Link, Plus } from 'lucide-react';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
-import { DetailSection } from '../../ui/DetailSection';
-import { EditorContent } from '../../ui/EditorContent';
-import { EntityPill } from '../../ui/EntityPill';
+import { DetailSection } from '../../detail/DetailSection';
+import { EditorContent } from '../../editor/EditorContent';
+import { EntityPill } from '../../entities/EntityPill';
 import { SheetDivider } from '../../ui/Sheet';
-import { TaskList } from '../../ui/TaskList';
+import { TaskList } from '../../lists/TaskList';
 import { NotePage } from './notePage';
 
 const meta = {

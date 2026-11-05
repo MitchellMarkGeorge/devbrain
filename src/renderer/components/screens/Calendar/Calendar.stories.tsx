@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { MonthGrid } from '../../ui/MonthGrid';
-import { TimeGrid } from '../../ui/TimeGrid';
+import { MonthGrid } from '../../calendar/MonthGrid';
+import { TimeGrid } from '../../calendar/TimeGrid';
 import { CalendarScreen } from './CalendarScreen';
 import { MONTH_EVENTS, NOW, WEEK, WEEK_EVENTS, WEEK_EVENTS_MORE } from './data';
 

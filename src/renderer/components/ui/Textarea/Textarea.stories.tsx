@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Textarea } from './Textarea';
 
 const meta = {
-  title: 'Components/Textarea',
+  title: 'UI/Textarea',
   component: Textarea,
   args: { placeholder: 'Add a description…', 'aria-label': 'Description' },
   argTypes: {

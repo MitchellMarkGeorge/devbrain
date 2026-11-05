@@ -47,7 +47,7 @@ interface Group {
 }
 
 const meta = {
-  title: 'Components/Command',
+  title: 'UI/Command',
   component: Command,
   decorators: [
     (Story) => (

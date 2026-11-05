@@ -3,7 +3,7 @@ import { FileText, Folder } from 'lucide-react';
 import { Breadcrumb } from './Breadcrumb';
 
 const meta = {
-  title: 'Components/Breadcrumb',
+  title: 'UI/Breadcrumb',
   component: Breadcrumb,
   args: {
     items: [

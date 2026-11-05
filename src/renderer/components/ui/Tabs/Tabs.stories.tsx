@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsPanel, TabsTab } from './Tabs';
 const SECTIONS = ['General', 'Tasks', 'Calendar', 'Data & storage'];
 
 const meta = {
-  title: 'Components/Tabs',
+  title: 'UI/Tabs',
   component: Tabs,
   args: { defaultValue: 'General' },
   argTypes: { variant: { control: 'inline-radio', options: ['outline', 'default', 'line'] } },

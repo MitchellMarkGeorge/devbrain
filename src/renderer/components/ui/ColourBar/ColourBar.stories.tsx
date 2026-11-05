@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Flex, Stack } from '../../layout/Flex';
 import { Text } from '../../layout/Text';
-import { SWATCHES } from '../types';
+import { SWATCHES } from '../../types';
 import { ColourBar } from './ColourBar';
 
 const meta = {
-  title: 'Glyphs/ColourBar',
+  title: 'UI/ColourBar',
   component: ColourBar,
   args: { color: 'green', height: 12 },
   argTypes: {

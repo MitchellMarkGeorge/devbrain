@@ -7,7 +7,7 @@ import {
   DropdownMenuFilter,
   DropdownMenuTrigger,
 } from '../../ui/DropdownMenu';
-import { ProjectPickerItems } from '../../ui/ProjectPicker';
+import { ProjectPickerItems } from '../../entities/ProjectPicker';
 import {
   DueFilterItems,
   FilterMenu,

@@ -3,7 +3,7 @@ import { Stack } from '../../layout/Flex';
 import { Input } from './Input';
 
 const meta = {
-  title: 'Components/Input',
+  title: 'UI/Input',
   component: Input,
   args: { placeholder: 'Project name', 'aria-label': 'Project name' },
   argTypes: { invalid: { control: 'boolean' }, disabled: { control: 'boolean' } },

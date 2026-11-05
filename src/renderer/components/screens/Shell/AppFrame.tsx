@@ -20,7 +20,7 @@ import {
   Trash2,
   Zap,
 } from 'lucide-react';
-import { AppShell, type AppShellProps } from '../../ui/AppShell';
+import { AppShell, type AppShellProps } from '../../shell/AppShell';
 import {
   Sidebar,
   SidebarAction,
@@ -32,10 +32,10 @@ import {
   SidebarItem,
   SidebarSeparator,
   SidebarWorkspace,
-} from '../../ui/Sidebar';
-import { StatusIcon } from '../../ui/StatusIcon';
-import { SyncStatus, type SyncState } from '../../ui/SyncStatus';
-import { WorkspaceSwitcher, type WorkspaceSummary } from '../../ui/WorkspaceSwitcher';
+} from '../../shell/Sidebar';
+import { StatusIcon } from '../../entities/StatusIcon';
+import { SyncStatus, type SyncState } from '../../shell/SyncStatus';
+import { WorkspaceSwitcher, type WorkspaceSummary } from '../../shell/WorkspaceSwitcher';
 
 export type PageName =
   | 'Home'

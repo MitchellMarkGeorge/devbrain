@@ -1,13 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { CalendarDays, Folder, Plus } from 'lucide-react';
 import { Flex, Stack } from '../../layout/Flex';
-import { PriorityIcon } from '../PriorityIcon';
+import { PriorityIcon } from '../../entities/PriorityIcon';
 import { ProgressRing } from '../ProgressRing';
-import { StatusIcon } from '../StatusIcon';
+import { StatusIcon } from '../../entities/StatusIcon';
 import { Badge } from './Badge';
 
 const meta = {
-  title: 'Components/Badge',
+  title: 'UI/Badge',
   component: Badge,
   args: { children: 'In progress', variant: 'outline' },
   argTypes: {

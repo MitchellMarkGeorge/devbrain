@@ -18,7 +18,7 @@ import { Heading } from '../../layout/Heading';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '../../ui/Select';
-import { SettingsGroup, SettingsRow, SettingsSection } from '../../ui/SettingsGroup';
+import { SettingsGroup, SettingsRow, SettingsSection } from '../../settings/SettingsGroup';
 import {
   Sidebar,
   SidebarContent,
@@ -28,15 +28,15 @@ import {
   SidebarHeaderActions,
   SidebarItem,
   SidebarWorkspace,
-} from '../../ui/Sidebar';
-import { StatusIcon } from '../../ui/StatusIcon';
+} from '../../shell/Sidebar';
+import { StatusIcon } from '../../entities/StatusIcon';
 import { SwatchPicker } from '../../ui/SwatchPicker';
 import { Switch } from '../../ui/Switch';
 import { Tabs, TabsList, TabsTab } from '../../ui/Tabs';
 import { ToggleGroup } from '../../ui/ToggleGroup';
 import { TooltipProvider } from '../../ui/Tooltip';
-import type { Swatch } from '../../ui/types';
-import { WorkspaceTile } from '../../ui/WorkspaceTile';
+import type { Swatch } from '../../types';
+import { WorkspaceTile } from '../../entities/WorkspaceTile';
 import { DropdownMenuItem } from '../../ui/DropdownMenu';
 
 /*

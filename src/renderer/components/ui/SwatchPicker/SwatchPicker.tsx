@@ -8,7 +8,7 @@ import { Icon } from '../Icon';
 import styles from './SwatchPicker.module.css';
 
 /** The six colours users pick for workspaces, projects and calendars (`--swatch-*`). */
-import { SWATCHES, type Swatch } from '../types';
+import { SWATCHES, type Swatch } from '../../types';
 
 export { SWATCHES, type Swatch };
 

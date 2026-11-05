@@ -1,12 +1,12 @@
 import { Fragment, useState, type CSSProperties } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ArrowUpDown, Folder, Group, Kanban, List, ListFilter, Plus } from 'lucide-react';
-import { BoardCard } from '../../ui/BoardCard';
-import { Board, BoardColumn } from '../../ui/BoardColumn';
+import { BoardCard } from '../../board/BoardCard';
+import { Board, BoardColumn } from '../../board/BoardColumn';
 import { Button } from '../../ui/Button';
-import { GroupHeading } from '../../ui/GroupHeading';
-import { SelectionBar } from '../../ui/SelectionBar';
-import { TaskList } from '../../ui/TaskList';
+import { GroupHeading } from '../../lists/GroupHeading';
+import { SelectionBar } from '../../lists/SelectionBar';
+import { TaskList } from '../../lists/TaskList';
 import { ToggleGroup, ToggleGroupItem } from '../../ui/ToggleGroup';
 import { BOARD, GROUPS, LIST_TASKS } from './data';
 import { AppFrame } from './frame';

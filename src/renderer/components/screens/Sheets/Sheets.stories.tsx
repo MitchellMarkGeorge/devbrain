@@ -10,15 +10,15 @@ import {
   Repeat,
   Video,
 } from 'lucide-react';
-import { AddSlot } from '../../ui/AddSlot';
+import { AddSlot } from '../../detail/AddSlot';
 import { Button } from '../../ui/Button';
-import { DetailRow, DetailRows, ReadOnlyRow } from '../../ui/DetailRow';
-import { DetailSection } from '../../ui/DetailSection';
-import { EntityPill } from '../../ui/EntityPill';
-import { LinkedTaskRow } from '../../ui/LinkedTaskRow';
-import { PriorityIcon } from '../../ui/PriorityIcon';
+import { DetailRow, DetailRows, ReadOnlyRow } from '../../detail/DetailRow';
+import { DetailSection } from '../../detail/DetailSection';
+import { EntityPill } from '../../entities/EntityPill';
+import { LinkedTaskRow } from '../../lists/LinkedTaskRow';
+import { PriorityIcon } from '../../entities/PriorityIcon';
 import { ProgressRing } from '../../ui/ProgressRing';
-import { GoogleCalendarLogo } from '../../ui/ProviderLogo';
+import { GoogleCalendarLogo } from '../../entities/ProviderLogo';
 import {
   Sheet,
   SheetBody,
@@ -27,9 +27,9 @@ import {
   SheetHeader,
   SheetItemTitle,
 } from '../../ui/Sheet';
-import { StatusIcon } from '../../ui/StatusIcon';
-import { SyncedBadge } from '../../ui/SyncedBadge';
-import { TaskNoteCard } from '../../ui/TaskNoteCard';
+import { StatusIcon } from '../../entities/StatusIcon';
+import { SyncedBadge } from '../../entities/SyncedBadge';
+import { TaskNoteCard } from '../../detail/TaskNoteCard';
 import { TooltipProvider } from '../../ui/Tooltip';
 
 const meta = {
