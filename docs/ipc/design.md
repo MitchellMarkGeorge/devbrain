@@ -301,9 +301,11 @@ mutation's own changes are refetched before it resolves. `main.tsx` calls
 ### A workspace switch
 
 1. `workspaces.open` (or `workspaces.openLast` at launch) opens the workspace through core's `WorkspaceService`, closing
-   the open one first, if any. The tracker hears `closed` and then `opened`: it stops listening to the old
-   workspace's services, starts listening to the new one's, and sends `workspace.changed` to every
-   window for each.
+   the open one first, if any. Core sends the old one's `closed` only once the new one is open, right
+   before its `opened` (or alone, when the open fails), so a window never sees the switch pass
+   through no workspace open. The tracker hears `closed` and then `opened`: it stops listening to
+   the old workspace's services, starts listening to the new one's, and sends `workspace.changed` to
+   every window for each.
 2. `workspace.changed` is sent while the mutation runs, so it reaches the switching window before
    the response. It alone says which workspace is open.
 3. When the id differs from the workspace whose data is cached, the invalidator resets every query

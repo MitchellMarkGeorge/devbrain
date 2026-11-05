@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppWindow, Copy, Keyboard, PanelRight, Sparkles, Trash2 } from 'lucide-react';
 import {
   AppShell,
@@ -233,8 +233,16 @@ function FramePage() {
   const frame = useWindowFrame();
   const shell = useAppShell();
   const version = useQuery(trpc.app.version.queryOptions());
+  const queryClient = useQueryClient();
   const settings = useQuery(trpc.settings.get.queryOptions());
-  const update = useMutation(trpc.settings.update.mutationOptions());
+  // The new setting shows at once, the control and the page's theme alike, rather than the old one
+  // until settings.get refetches; a failed save refetches the settings saved.
+  const update = useMutation(
+    trpc.settings.update.mutationOptions({
+      onMutate: (next) => queryClient.setQueryData(trpc.settings.get.queryKey(), next),
+      onError: () => queryClient.invalidateQueries({ queryKey: trpc.settings.get.queryKey() }),
+    }),
+  );
 
   return (
     <PageContent layout="document">

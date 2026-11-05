@@ -41,7 +41,8 @@ const NOT_IMPORTED = new Set([`${WORKSPACE_DB_FILE}-shm`, `${WORKSPACE_DB_FILE}.
 
 // A workspace was registered (created here, or imported from a folder) or renamed/recoloured, or
 // the open workspace changed. Opening one while another is open sends `closed` for the old one
-// before `opened` for the new one, in the order the transitions ran.
+// right before `opened` for the new one, once the new one is open (or, alone, once its open has
+// failed), so a listener never sees a switch pass through no workspace open.
 export type WorkspaceChange =
   | { type: 'created'; workspace: WorkspaceInfo }
   | { type: 'imported'; workspace: WorkspaceInfo }
@@ -306,24 +307,31 @@ export class WorkspaceService {
       throw new WorkspaceDataMissingError(id, 'No workspace data found');
     }
 
-    // 3. close the workspace open now, if any: only one syncs at a time, and its runs settle first
-    await this.closeCurrent();
-
-    // 4. open/initalize the workspace object
-    const workspace = await Workspace.open(workspaceInfo, this.workspaceOptions);
-
+    // 3. close the workspace open now, if any: only one syncs at a time, and its runs settle first.
+    // Its `closed` is sent once the new one is open, or its open has failed (the finally below)
+    const previous = this.currentWorkspace;
+    let workspace: Workspace;
     try {
-      const workspaces = this.readWorkspaceFile();
-      workspaces[id] = {
-        ...(workspaces[id] ?? registryEntry(workspaceInfo)),
-        lastOpenedAt: Date.now(),
-      };
-      this.writeWorkspaceFile(workspaces);
-      workspace.sync.start();
-      this.current = workspace;
-    } catch (error) {
-      await workspace.close();
-      throw error;
+      await this.closeCurrent({ announce: false });
+
+      // 4. open/initalize the workspace object
+      workspace = await Workspace.open(workspaceInfo, this.workspaceOptions);
+
+      try {
+        const workspaces = this.readWorkspaceFile();
+        workspaces[id] = {
+          ...(workspaces[id] ?? registryEntry(workspaceInfo)),
+          lastOpenedAt: Date.now(),
+        };
+        this.writeWorkspaceFile(workspaces);
+        workspace.sync.start();
+        this.current = workspace;
+      } catch (error) {
+        await workspace.close();
+        throw error;
+      }
+    } finally {
+      if (previous) this.changes.emit({ type: 'closed', workspaceId: previous.info.id });
     }
     this.changes.emit({ type: 'opened', workspace });
     return workspace;
@@ -447,15 +455,16 @@ export class WorkspaceService {
   }
 
   // Closes the current workspace, waiting for its sync runs to settle. Sends `closed` even when
-  // closing fails: the workspace is no longer current either way.
-  private async closeCurrent(): Promise<void> {
+  // closing fails, as the workspace is no longer current either way; with `announce: false` the
+  // caller sends it (opening another sends it with `opened`).
+  private async closeCurrent({ announce = true } = {}): Promise<void> {
     const current = this.currentWorkspace;
     if (!current) return;
     this.current = null;
     try {
       await current.close();
     } finally {
-      this.changes.emit({ type: 'closed', workspaceId: current.info.id });
+      if (announce) this.changes.emit({ type: 'closed', workspaceId: current.info.id });
     }
   }
 }
