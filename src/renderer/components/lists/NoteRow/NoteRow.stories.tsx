@@ -44,15 +44,3 @@ export const Narrow: Story = {
     ),
   ],
 };
-
-/** Home's Recent notes (as its second section): what the note belongs to as quiet text, no excerpt. */
-export const Home: Story = {
-  args: { excerpt: undefined, onSelect: undefined, children: undefined },
-  render: (args) => (
-    <div style={{ width: 800 }}>
-      <NoteRow {...args} context="Auth Overhaul" edited="6 min ago" />
-      <NoteRow {...args} title="Mitchell / Jesse 1:1" context="Meeting note" edited="40 min ago" />
-      <NoteRow {...args} title="Sprint 15 planning" context="Sprint Planning" edited="2h ago" />
-    </div>
-  ),
-};

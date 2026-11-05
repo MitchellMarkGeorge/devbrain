@@ -44,15 +44,15 @@
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 /*
- * "3 more tasks today": 32px, lined up with the rows' titles (the 36px selection strip, the
- * 24px glyph slot and the 10px gap after it).
+ * "3 more tasks today": 32px, lined up with the rows' titles (a HomeRow's 16px padding, its 16px
+ * glyph and the 10px gap after it).
  */
 .more {
   display: flex;
   align-items: center;
   height: var(--control-md);
   margin: 0;
-  padding-left: calc(36px + 24px + 10px);
+  padding-left: calc(var(--space-4) + 16px + 10px);
   color: var(--muted-foreground);
   font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
 }

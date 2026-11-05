@@ -1,5 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { EventRow } from '../../lists/EventRow';
+import { Video } from 'lucide-react';
+import { Button } from '../../ui/Button';
+import { ColourBar } from '../../ui/ColourBar';
+import { HomeRow } from '../HomeRow';
 import { NoteCard } from '../../notes/NoteCard';
 import { TaskRow } from '../../lists/TaskRow';
 import { HomeCards, HomeSection } from './HomeSection';
@@ -20,31 +23,33 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Three meeting rows and the line for the rest. */
+/** Three meeting `HomeRow`s and the line for the rest. */
 export const Meetings: Story = {
   render: (args) => (
     <HomeSection {...args}>
-      <EventRow
+      <HomeRow
         current
-        event={{
-          title: 'Sprint Planning',
-          meeting: true,
-          relative: 'In 12 min',
-          tone: 'today',
-          color: 'green',
-        }}
-      />
-      <EventRow event={{ title: 'Mitchell / Jesse 1:1', relative: '10:30', color: 'green' }} />
-      <EventRow event={{ title: 'Design Review', relative: '1:00', color: 'blue' }} />
+        icon={<ColourBar color="green" />}
+        title="Sprint Planning"
+        meta="In 12 min"
+        metaTone="today"
+      >
+        <Button size="xs" icon={Video}>
+          Join
+        </Button>
+      </HomeRow>
+      <HomeRow icon={<ColourBar color="green" />} title="Mitchell / Jesse 1:1" meta="10:30" />
+      <HomeRow icon={<ColourBar color="blue" />} title="Design Review" meta="1:00" />
     </HomeSection>
   ),
 };
 
-/** Tasks are `TaskRow`s with all their pills. */
+/** Tasks are compact `TaskRow`s (44px, no selection strip) with all their pills. */
 export const Tasks: Story = {
   render: () => (
     <HomeSection title="Tasks" link="All 6 tasks" more="3 more tasks today">
       <TaskRow
+        compact
         task={{
           title: 'Refactor token refresh logic',
           status: 'in-progress',
@@ -57,6 +62,7 @@ export const Tasks: Story = {
         }}
       />
       <TaskRow
+        compact
         task={{
           title: 'Implement OAuth2 PKCE flow',
           status: 'in-progress',

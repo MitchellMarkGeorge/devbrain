@@ -1,17 +1,18 @@
 /** The Home screens, as components the stories (and other screens' stories) render. */
-import type { ReactNode } from 'react';
-import { Folder, RotateCw } from 'lucide-react';
+import { Children, type ReactNode } from 'react';
+import { FileText, Folder, RotateCw, Video } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { CaptureBox } from '../../home/CaptureBox';
-import { EventRow } from '../../lists/EventRow';
+import { ColourBar } from '../../ui/ColourBar';
+import { HomeRow, HomeRowNote } from '../../home/HomeRow';
+import { Icon } from '../../ui/Icon';
+import { Progress } from '../../ui/Progress';
 import { Heading } from '../../layout/Heading';
 import { HomeCards, HomeSection } from '../../home/HomeSection';
 import { Kbd } from '../../ui/Kbd';
 import { Logomark } from '../../ui/Logomark';
 import { NoteCard } from '../../notes/NoteCard';
-import { NoteRow } from '../../lists/NoteRow';
 import { PageContent } from '../../shell/PageHeader';
-import { ProjectRow } from '../../lists/ProjectRow';
 import { ProviderTile } from '../../entities/ProviderTile';
 import { SetupRow } from '../../home/SetupRow';
 import { TaskRow } from '../../lists/TaskRow';
@@ -89,7 +90,7 @@ function HomePage({
   return (
     <PageContent layout="home">
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        {!rail && <Logomark size="md" style={{ width: 48, marginBottom: 20 }} />}
+        <Logomark size="md" style={{ width: 48, marginBottom: 20 }} />
         <Heading level={1}>{greeting}</Heading>
         <Text tone="muted" align="center" style={{ marginTop: 10, maxWidth: 680 }}>
           {summary}
@@ -97,7 +98,8 @@ function HomePage({
       </div>
       <CaptureBox tip={tip} style={{ marginTop: 28 }} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 32, marginTop: 28 }}>
-        {children}
+        {/* compact windows (the rail) show only the top section */}
+        {Children.toArray(children).slice(0, rail ? 1 : 2)}
       </div>
       <Text
         size="xs"
@@ -130,18 +132,19 @@ function HomePage({
 function Meetings() {
   return (
     <HomeSection title="Meetings" link="Calendar" more="1 more meeting today">
-      <EventRow
+      <HomeRow
         current
-        event={{
-          title: 'Sprint Planning',
-          meeting: true,
-          relative: 'In 12 min',
-          tone: 'today',
-          color: 'green',
-        }}
-      />
-      <EventRow event={{ title: 'Mitchell / Jesse 1:1', relative: '10:30', color: 'green' }} />
-      <EventRow event={{ title: 'Design Review', relative: '1:00', color: 'blue' }} />
+        icon={<ColourBar color="green" />}
+        title="Sprint Planning"
+        meta="In 12 min"
+        metaTone="today"
+      >
+        <Button size="xs" icon={Video}>
+          Join
+        </Button>
+      </HomeRow>
+      <HomeRow icon={<ColourBar color="green" />} title="Mitchell / Jesse 1:1" meta="10:30" />
+      <HomeRow icon={<ColourBar color="blue" />} title="Design Review" meta="1:00" />
     </HomeSection>
   );
 }
@@ -158,9 +161,17 @@ function Tasks({ count = 6, projects = true }: { count?: number; projects?: bool
       more={more > 0 ? `${more} more ${more === 1 ? 'task' : 'tasks'} today` : undefined}
     >
       {shown.map((task) => (
-        <TaskRow key={task.id} task={task} />
+        <TaskRow key={task.id} task={task} compact />
       ))}
     </HomeSection>
+  );
+}
+
+function NoteRow({ title, context, edited }: { title: string; context: string; edited: string }) {
+  return (
+    <HomeRow icon={<Icon icon={FileText} />} title={title} meta={edited}>
+      <HomeRowNote>{context}</HomeRowNote>
+    </HomeRow>
   );
 }
 
@@ -201,26 +212,48 @@ function NotesCards() {
   );
 }
 
+function ProjectRow({
+  name,
+  color,
+  done,
+  total,
+  meta,
+}: {
+  name: string;
+  color: string;
+  done: number;
+  total: number;
+  meta: string;
+}) {
+  return (
+    <HomeRow
+      icon={<Icon icon={Folder} style={{ color: `var(--swatch-${color})` }} />}
+      title={name}
+      meta={meta}
+    >
+      <Progress
+        value={total ? Math.round((done / total) * 100) : 0}
+        aria-label={`${name}: ${done} of ${total} tasks done`}
+        style={{ width: 96 }}
+      />
+      <HomeRowNote style={{ width: 36 }}>
+        {done}/{total}
+      </HomeRowNote>
+    </HomeRow>
+  );
+}
+
 function Projects({ empty = false }: { empty?: boolean }) {
   const count = (done: number, total: number) => (empty ? { done: 0, total: 0 } : { done, total });
   return (
     <HomeSection title="Recent projects" link="All projects">
+      <ProjectRow name="Auth Overhaul" color="blue" {...count(3, 12)} meta="Due Jul 1" />
+      <ProjectRow name="API Gateway v2" color="amber" {...count(4, 10)} meta="Due Jun 30" />
       <ProjectRow
-        compact
-        project={{ name: 'Auth Overhaul', color: 'blue', ...count(3, 12), due: 'Due Jul 1' }}
-      />
-      <ProjectRow
-        compact
-        project={{ name: 'API Gateway v2', color: 'amber', ...count(4, 10), due: 'Due Jun 30' }}
-      />
-      <ProjectRow
-        compact
-        project={{
-          name: 'ML Platform',
-          color: 'pink',
-          ...count(6, 10),
-          status: empty ? 'not-started' : 'on-hold',
-        }}
+        name="ML Platform"
+        color="pink"
+        {...count(6, 10)}
+        meta={empty ? 'Not started' : 'On hold'}
       />
     </HomeSection>
   );

@@ -83,10 +83,6 @@
   max-width: var(--home-max-width);
   margin: auto;
 }
-/* with the rail, Home scrolls from the top */
-.home[data-rail] > .column {
-  margin-top: 0;
-}
 .document {
   padding: var(--space-12) var(--space-6);
 }

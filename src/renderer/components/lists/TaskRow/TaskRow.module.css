@@ -21,6 +21,11 @@
 .subtask {
   padding-left: 64px;
 }
+/* Home: 44px with no selection strip, the status icon 12px in (as Figma's Home draws TaskRow) */
+.compact {
+  min-height: 44px;
+  padding: 0 var(--space-4) 0 var(--space-3);
+}
 
 /* hover and selected share the row-selected tint; selected also brightens the title */
 .row {

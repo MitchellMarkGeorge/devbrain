@@ -45,7 +45,7 @@ export const NoProjects: Story = { render: () => <NoProjectsScreen /> };
 /** Figma "First run" (7257:10066): "Welcome, Mitchell" and the three setup steps. */
 export const FirstRun: Story = { render: () => <FirstRunScreen /> };
 
-/** Figma 7608:59215: at 960 × 640 the sidebar is the rail, the logomark hides and the page scrolls from the top. */
+/** Figma 7608:59215: at 960 × 640 the sidebar is the rail and Home shows only its top section. */
 export const Compact: Story = { render: () => <HomeScreen width={960} height={640} /> };
 
 /** Home pinned to the light theme (Figma "Light theme", 7426:45045). */

@@ -127,7 +127,7 @@ export const pageContentVariants = cva(styles.content, {
     /**
      * `list`: rows 16px in from the sides (Tasks, Trash). `grid`: cards 24px in (Notes cards,
      * Projects). `home`: Home's 800px column (`home-max-width`), centred across the page and,
-     * where it fits, down it; with the rail it starts 48px from the top and scrolls. `document`:
+     * where it fits, down it. `document`:
      * a note, a task, Settings and Integrations: a 720px column (`content-max-width`) centred
      * 48px under the header.
      */
@@ -152,15 +152,9 @@ export const PageContent = forwardRef<HTMLDivElement, PageContentProps>(function
   { layout, className, children, ...props },
   ref,
 ) {
-  const { rail } = useAppShell();
   const capped = layout === 'document' || layout === 'home';
   return (
-    <div
-      ref={ref}
-      data-rail={rail ? '' : undefined}
-      className={cn(pageContentVariants({ layout }), className)}
-      {...props}
-    >
+    <div ref={ref} className={cn(pageContentVariants({ layout }), className)} {...props}>
       {capped ? <div className={styles.column}>{children}</div> : children}
     </div>
   );
