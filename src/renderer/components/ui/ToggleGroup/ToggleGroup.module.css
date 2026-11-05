@@ -4,12 +4,15 @@
 /*
  * ---------- default: the segmented control, sized as shadcn's (Nova) Tabs ----------
  * A control-md track (control-sm for sm): a 1px border and 2px padding, so items sit 3px in as in
- * shadcn, and 1px shorter than the space inside (25px), with no gap. In dark the track is on the
+ * shadcn, and 1px shorter than the space inside (25px), with no gap, all as wide as the widest (shadcn's
+ * flex-1 items; equal grid columns here, as a fit-content flex track won't shrink the widest). In dark the track is on the
  * page colour with a secondary thumb; in light it is shadcn's muted track with a white thumb, kept
  * outlined (the segment-* tokens).
  */
 .group {
-  display: inline-flex;
+  display: inline-grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
   align-items: center;
   align-self: flex-start;
   width: fit-content;
@@ -82,6 +85,7 @@
 
 /* ---------- outline: separate outlined buttons, 8px apart; the pressed one fills with accent ---------- */
 .outline {
+  display: inline-flex;
   gap: var(--space-2);
   height: auto;
   padding: 0;
