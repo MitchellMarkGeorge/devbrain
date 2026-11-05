@@ -34,10 +34,7 @@ const host = useWorkspaceEditorHost(); // "@" search and opening links
   Pasting plain text that looks like markdown (a heading, a list, a fence, a quote, a table, a
   link, bold or inline code) reads it as markdown; other text, Shift+⌘V and pastes into code stay
   text. From VS Code, a markdown file's text reads as markdown and several lines of other code
-  become a code block in its language. HTML that is only a `<pre>` (a code viewer, a plain-text
-  panel) reads as markdown when tagged as markdown, or untagged with at least two kinds of markdown
-  in it; other preformatted text stays a code block, since a shell comment reads like a heading.
-  Web pages and documents paste as TipTap reads their HTML.
+  become a code block in its language. Web pages and documents paste as TipTap reads their HTML.
 - Selecting text shows the `FormatToolbar` above it (`FormatBubble.tsx`): the block type opens the
   `TurnIntoMenu`; Bold, Italic, Underline, Strikethrough and Code toggle; Link (⌘K) swaps in the
   `LinkToolbar`, which takes a bare address as https and refuses one `safeExternalUrl` won't open.

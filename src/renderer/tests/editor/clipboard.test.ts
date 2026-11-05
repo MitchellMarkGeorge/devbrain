@@ -1,11 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import { Editor } from '@tiptap/core';
-import {
-  looksLikeMarkdown,
-  MarkdownClipboard,
-  preformattedLanguage,
-} from '../../editor/extensions/clipboard';
+import { looksLikeMarkdown, MarkdownClipboard } from '../../editor/extensions/clipboard';
 import { createDocumentExtensions } from '../../editor/markdown';
 
 let editor: Editor;
@@ -80,49 +76,6 @@ describe('pasting plain text', () => {
   });
 });
 
-describe('pasting preformatted HTML', () => {
-  const note = '# Plan\n\n- Move the queue\n- See [the RFC](https://example.com)';
-
-  it('reads markdown copied from a <pre>, as a preview panel copies it, as markdown', () => {
-    load('');
-    paste({
-      'text/plain': note,
-      'text/html': `<meta charset="utf-8"><pre style="font: 12px mono">${note}</pre>`,
-    });
-    expect(editor.getMarkdown()).toBe(note);
-  });
-
-  it('reads a <pre> tagged as markdown as markdown', () => {
-    load('');
-    paste({
-      'text/plain': '## Title',
-      'text/html': '<pre><code class="language-markdown">## Title</code></pre>',
-    });
-    expect(editor.getMarkdown()).toBe('## Title');
-  });
-
-  it('keeps code as a code block: tagged with its language, or untagged with one sign at most', () => {
-    const script = '# Install the dependencies\nnpm ci';
-    load('');
-    paste({
-      'text/plain': script,
-      'text/html': `<pre><code class="language-bash">${script}</code></pre>`,
-    });
-    expect(editor.getMarkdown()).toBe(`\`\`\`bash\n${script}\n\`\`\``);
-
-    editor.destroy();
-    load('');
-    paste({ 'text/plain': script, 'text/html': `<pre>${script}</pre>` });
-    expect(editor.getMarkdown()).toBe(`\`\`\`\n${script}\n\`\`\``);
-  });
-
-  it('leaves other HTML to TipTap', () => {
-    load('');
-    paste({ 'text/plain': 'Title\nBody', 'text/html': '<h2>Title</h2><p>Body</p>' });
-    expect(editor.getMarkdown()).toBe('## Title\n\nBody');
-  });
-});
-
 describe('pasting from VS Code', () => {
   const vscode = (mode: string) =>
     JSON.stringify({ version: 1, isFromEmptySelection: false, mode });
@@ -187,17 +140,5 @@ describe('looksLikeMarkdown', () => {
     for (const text of ['Plain words.', 'A # mid-line', '2024-01-02 notes', 'a - b']) {
       expect(looksLikeMarkdown(text)).toBe(false);
     }
-  });
-});
-
-describe('preformattedLanguage', () => {
-  it('names the language of HTML that is only a <pre>, and nothing for other HTML', () => {
-    expect(preformattedLanguage('<pre>x</pre>')).toBe('');
-    expect(preformattedLanguage('<!--StartFragment--><pre lang="ts">x</pre>')).toBe('ts');
-    expect(
-      preformattedLanguage('<pre class="highlight language-python"><code>x</code></pre>'),
-    ).toBe('python');
-    expect(preformattedLanguage('<p>x</p><pre>y</pre>')).toBeNull();
-    expect(preformattedLanguage('<p>x</p>')).toBeNull();
   });
 });
