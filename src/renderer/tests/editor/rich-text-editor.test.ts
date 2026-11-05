@@ -203,4 +203,34 @@ describe('RichTextEditor', () => {
     expect(callout.textContent).toContain('Warning');
     expect(callout.textContent).toContain('Run it off-hours.');
   });
+
+  it('names the open menu and its highlighted item on the editor, for a screen reader', async () => {
+    render({ value: '' });
+    const dom = editor.view.dom;
+    await act(async () => {
+      editor.chain().focus().insertContent('/head').run();
+      await new Promise((resolve) => setTimeout(resolve, 120));
+    });
+    const list = document.querySelector('[aria-label="Insert block"]')!;
+    const highlighted = () => list.querySelector('[data-highlighted]')!;
+    expect(dom.getAttribute('aria-controls')).toBe(list.id);
+    expect(dom.getAttribute('aria-autocomplete')).toBe('list');
+    expect(dom.getAttribute('aria-activedescendant')).toBe(highlighted().id);
+    expect(highlighted().textContent).toContain('Heading 1');
+
+    await act(async () => {
+      dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    });
+    expect(highlighted().textContent).toContain('Heading 2');
+    expect(dom.getAttribute('aria-activedescendant')).toBe(highlighted().id);
+
+    await act(async () => {
+      dom.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(dom.hasAttribute('aria-controls')).toBe(false);
+    expect(dom.hasAttribute('aria-activedescendant')).toBe(false);
+    // the editor's own attributes stay
+    expect(dom.getAttribute('aria-label')).toBe('Note');
+  });
 });

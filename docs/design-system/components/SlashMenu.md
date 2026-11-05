@@ -9,6 +9,6 @@ The note editor's "/" menu, 260px wide under the caret, drawn as a menu: groups 
 
 Typing after the "/" narrows the list to the items whose name (or a keyword such as "h1") matches; empty groups drop out, and nothing matching shows "No results". The first match is highlighted.
 
-The caret stays in the editor while the menu is open: the editor passes ↑, ↓, Enter and Tab on through `handleRef` (`onKeyDown` returns true when the menu used the key, as editor libraries' suggestion plugins expect). Pointing at an item highlights it; clicking picks it. `SuggestionMenu` is the list underneath, shared with the `MentionMenu`.
+The caret stays in the editor while the menu is open: the editor passes ↑, ↓, Enter and Tab on through `handleRef` (`onKeyDown` returns true when the menu used the key, as editor libraries' suggestion plugins expect). Pointing at an item highlights it; clicking picks it. `SuggestionMenu` is the list underneath, shared with the `MentionMenu`. Since focus stays in the editor, the editor's element names the list (`aria-controls`, the list's `id`) and the highlighted item (`aria-activedescendant`, from `onActiveDescendantChange`) while the menu is open, so a screen reader announces each item as ↑ and ↓ move.
 
 **Base UI:** No Base UI part (the editor keeps focus): a `listbox` with `option`s and `aria-activedescendant`, styled with the menu's classes.

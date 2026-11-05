@@ -7,7 +7,13 @@ declare module '@tiptap/core' {
   interface Storage {
     // mentionTypes: the kinds the open "@" menu searches, when a slash command picked one
     // linkEditing: the format toolbar shows the LinkToolbar for the selection (⌘K, or its Link)
-    editorHost: { host: EditorHost; mentionTypes: MentionType[] | null; linkEditing: boolean };
+    // menuAria: the open "/" or "@" menu's attributes on the editor's element (setMenuAria)
+    editorHost: {
+      host: EditorHost;
+      mentionTypes: MentionType[] | null;
+      linkEditing: boolean;
+      menuAria: Record<string, string> | null;
+    };
   }
 }
 
@@ -27,6 +33,7 @@ export const EditorHostExtension = Extension.create({
       host: {} as EditorHost,
       mentionTypes: null as MentionType[] | null,
       linkEditing: false,
+      menuAria: null as Record<string, string> | null,
     };
   },
 
@@ -47,6 +54,8 @@ export const EditorHostExtension = Extension.create({
     return [
       new Plugin({
         props: {
+          // the open menu's list and highlighted item, for a screen reader (setMenuAria)
+          attributes: () => storage.menuAria ?? {},
           // the DOM's own click, not ProseMirror's handleClick: the browser follows a link on
           // `click`, after ProseMirror has handled the mouseup, so only this can stop it
           handleDOMEvents: {
@@ -90,4 +99,23 @@ export function setLinkEditing(editor: Editor, editing: boolean): void {
 // places the toolbar again, once its content has changed size
 export function repositionFormatToolbar(editor: Editor): void {
   editor.view.dispatch(editor.state.tr.setMeta(FORMAT_TOOLBAR_KEY, 'updatePosition'));
+}
+
+/**
+ * Names the open "/" or "@" menu on the editor's element: the list (`aria-controls`) and its
+ * highlighted item (`aria-activedescendant`), since focus stays in the editor while it is open.
+ * null when the menu closes. ProseMirror sets the attributes on its next update, which the
+ * empty transaction here starts.
+ */
+export function setMenuAria(
+  editor: Editor,
+  menu: { listId: string; activeId: string | undefined } | null,
+): void {
+  if (editor.isDestroyed) return;
+  editor.storage.editorHost.menuAria = menu && {
+    'aria-controls': menu.listId,
+    'aria-autocomplete': 'list',
+    ...(menu.activeId && { 'aria-activedescendant': menu.activeId }),
+  };
+  editor.view.dispatch(editor.state.tr.setMeta('menuAria', true));
 }

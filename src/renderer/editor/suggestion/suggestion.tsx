@@ -2,8 +2,9 @@ import { Extension, type Editor, type Range } from '@tiptap/core';
 import { PluginKey } from '@tiptap/pm/state';
 import { ReactRenderer } from '@tiptap/react';
 import Suggestion, { type SuggestionProps } from '@tiptap/suggestion';
-import { forwardRef, type ReactElement, type Ref } from 'react';
+import { forwardRef, useCallback, useId, type ReactElement, type Ref } from 'react';
 import type { SuggestionMenuHandle } from '../../components';
+import { setMenuAria } from '../extensions/editor-host';
 
 /**
  * A menu that opens when `char` is typed (the slash menu, "@" mentions): TipTap's Suggestion plugin
@@ -16,6 +17,10 @@ export interface MenuProps<T> {
   items: T[];
   onSelect: (item: T) => void;
   handleRef: Ref<SuggestionMenuHandle>;
+  // the list's id and the callback for its highlighted item, which the editor's element names
+  // for a screen reader; pass both to the menu
+  id: string;
+  onActiveDescendantChange: (id: string | undefined) => void;
 }
 
 export interface MenuSource<T> {
@@ -29,17 +34,26 @@ export interface MenuSource<T> {
   onExit?: (editor: Editor) => void;
 }
 
-interface MenuViewProps<T> extends Omit<MenuProps<T>, 'handleRef'> {
+interface MenuViewProps<T> extends Omit<
+  MenuProps<T>,
+  'handleRef' | 'id' | 'onActiveDescendantChange'
+> {
+  editor: Editor;
   render: (props: MenuProps<T>) => ReactElement;
 }
 
 export function createSuggestionMenu<T>(source: MenuSource<T>) {
   // ReactRenderer gives a forwardRef component its ref, which the menus take as handleRef
   const MenuView = forwardRef<SuggestionMenuHandle, MenuViewProps<T>>(function MenuView(
-    { render, ...props },
+    { render, editor, ...props },
     ref,
   ) {
-    return render({ ...props, handleRef: ref });
+    const id = useId();
+    const onActiveDescendantChange = useCallback(
+      (activeId: string | undefined) => setMenuAria(editor, { listId: id, activeId }),
+      [editor, id],
+    );
+    return render({ ...props, handleRef: ref, id, onActiveDescendantChange });
   });
 
   return Extension.create({
@@ -65,6 +79,7 @@ export function createSuggestionMenu<T>(source: MenuSource<T>) {
               query: props.query,
               items: props.items,
               onSelect: (item) => props.command(item),
+              editor: props.editor,
               render: source.render,
             });
 
@@ -89,6 +104,8 @@ export function createSuggestionMenu<T>(source: MenuSource<T>) {
                 renderer = null;
                 unmount = null;
                 source.onExit?.(props.editor);
+                // after the plugin's own update, which this runs inside
+                queueMicrotask(() => setMenuAria(props.editor, null));
               },
             };
           },

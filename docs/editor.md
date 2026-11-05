@@ -76,6 +76,10 @@ A collapsible section is written as GitHub needs it to read the body as markdown
 <details>
 <summary>Setup steps</summary>
 
+- While a `/` or `@` menu is open the caret stays in the note, so the editor's element names the
+  menu (`aria-controls`) and its highlighted item (`aria-activedescendant`) for a screen reader.
+  The menus are the design system's `SlashMenu` and `MentionMenu`, not Base UI, which would move
+  focus into the menu.
 - Install with `npm ci`
 
 </details>

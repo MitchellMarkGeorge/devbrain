@@ -55,7 +55,14 @@ export const SlashMenu = createSuggestionMenu<SlashItem>({
   char: '/',
   items: (query) => filterSlashGroups(GROUPS, query).flatMap((group) => group.items),
   select: (editor, range, item) => runSlashCommand(editor, range, item.value),
-  render: ({ query, onSelect, handleRef }) => (
-    <SlashMenuView query={query} groups={GROUPS} onSelect={onSelect} handleRef={handleRef} />
+  render: ({ query, onSelect, handleRef, id, onActiveDescendantChange }) => (
+    <SlashMenuView
+      id={id}
+      query={query}
+      groups={GROUPS}
+      onSelect={onSelect}
+      handleRef={handleRef}
+      onActiveDescendantChange={onActiveDescendantChange}
+    />
   ),
 });

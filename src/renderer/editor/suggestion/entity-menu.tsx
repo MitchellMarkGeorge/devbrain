@@ -63,8 +63,10 @@ export const EntityMenu = createSuggestionMenu<MentionItem>({
       .insertEntityLink({ type: item.kind, id: item.id, label: item.title })
       .run();
   },
-  render: ({ query, items, onSelect, handleRef }) => (
+  render: ({ query, items, onSelect, handleRef, id, onActiveDescendantChange }) => (
     <MentionMenu
+      id={id}
+      onActiveDescendantChange={onActiveDescendantChange}
       groups={mentionGroups(items)}
       onSelect={onSelect}
       handleRef={handleRef}
