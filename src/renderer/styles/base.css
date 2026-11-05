@@ -73,8 +73,19 @@ h6 {
   text-wrap: balance;
 }
 
+/*
+ * The app fills the window, which scrolls nothing itself: the shell's columns scroll. #root is the
+ * app's own (Storybook's is #storybook-root), so stories taller than the canvas still scroll.
+ */
+html,
+body {
+  height: 100%;
+}
+
 /* the app's stacking context, so popups portalled outside it always sit above it */
 #root {
+  height: 100%;
+  overflow: hidden;
   isolation: isolate;
 }
 
