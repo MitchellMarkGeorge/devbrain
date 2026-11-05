@@ -28,32 +28,16 @@
   gap: 6px;
 }
 /*
- * In dark, on the card, the switch's track and thumb take border-strong so they still show. In
- * light the segmented control's own muted track and white thumb already show on the card.
+ * The switch on the card: in dark its track and thumb take border-strong so they still show on the
+ * card; in light the segmented control's own muted track and white thumb do (capture-switch-*).
  */
 .box .kind {
   flex: none;
-  border-color: var(--border-strong);
-  background: transparent;
+  border-color: var(--capture-switch-border);
+  background: var(--capture-switch-track);
 }
 .box .kind [data-pressed] {
-  background: var(--border-strong);
-}
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) .box .kind {
-    border-color: var(--border);
-    background: var(--segment-track);
-  }
-  :root:not([data-theme='dark']) .box .kind [data-pressed] {
-    background: var(--segment-thumb);
-  }
-}
-:root[data-theme='light'] .box .kind {
-  border-color: var(--border);
-  background: var(--segment-track);
-}
-:root[data-theme='light'] .box .kind [data-pressed] {
-  background: var(--segment-thumb);
+  background: var(--capture-switch-thumb);
 }
 .hint {
   display: inline-flex;
