@@ -293,21 +293,31 @@ function GetStarted({ steps }: { steps: (keyof typeof SETUP)[] }) {
   return <HomeSection title="Get started">{steps.map((step) => SETUP[step])}</HomeSection>;
 }
 
+/**
+ * Figma "Home" (7254:8102) without its frame: a meeting soon, then today's tasks. The app's test
+ * bench shows it inside its own shell.
+ */
+export function HomeContent() {
+  return (
+    <HomePage
+      summary={
+        <>
+          <Strong>Sprint Planning</Strong> starts in 12 minutes. You have <Strong>6 tasks</Strong>{' '}
+          today, and <Text tone="overdue">2 are overdue</Text>.
+        </>
+      }
+    >
+      <Meetings />
+      <Tasks />
+    </HomePage>
+  );
+}
+
 /** Figma "Home" (7254:8102): a meeting soon, then today's tasks. Figma "No notes" looks the same. */
 export function HomeScreen(frame: Partial<ScreenFrameProps>) {
   return (
     <ScreenFrame page="Home" {...frame}>
-      <HomePage
-        summary={
-          <>
-            <Strong>Sprint Planning</Strong> starts in 12 minutes. You have <Strong>6 tasks</Strong>{' '}
-            today, and <Text tone="overdue">2 are overdue</Text>.
-          </>
-        }
-      >
-        <Meetings />
-        <Tasks />
-      </HomePage>
+      <HomeContent />
     </ScreenFrame>
   );
 }

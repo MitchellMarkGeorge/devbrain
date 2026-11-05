@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AppWindow, Copy, Keyboard, PanelRight, Sparkles, Trash2 } from 'lucide-react';
+import { AppWindow, Copy, House, Keyboard, PanelRight, Sparkles, Trash2 } from 'lucide-react';
 import {
   AppShell,
   Breadcrumb,
@@ -38,17 +38,20 @@ import {
   WorkspaceSwitcher,
 } from './components';
 import type { WorkspaceId } from '@common/ids';
+import { HomeContent } from './components/screens/Home/HomeScreens';
 import { useWindowFrame, type Platform } from './components/lib/platform';
 import { trpc } from './ipc';
 import { useHeldFor, useOpeningWorkspace } from './workspace-opening';
 
 // A test bench for the window frame until the app's screens are wired up: the shell with its
-// title bar on this platform, the keys named for it, a sheet, the onboarding screen, and the
-// theme (which repaints Windows' caption buttons).
+// title bar on this platform, the keys named for it, a sheet, the onboarding screen, the theme
+// (which repaints Windows' caption buttons), and Home as the design system draws it, with sample
+// content.
 
-type PageId = 'frame' | 'shortcuts' | 'sheet';
+type PageId = 'home' | 'frame' | 'shortcuts' | 'sheet';
 
 const PAGES: { id: PageId; label: string; icon: typeof AppWindow }[] = [
+  { id: 'home', label: 'Home', icon: House },
   { id: 'frame', label: 'Window frame', icon: AppWindow },
   { id: 'shortcuts', label: 'Shortcuts', icon: Keyboard },
   { id: 'sheet', label: 'Sheet', icon: PanelRight },
@@ -141,23 +144,28 @@ export function App() {
         </Sidebar>
       }
       header={
-        <PageHeader
-          actions={
-            <>
-              <PageFavoriteButton favorite={false} />
-              <PageMenuButton>
-                <DropdownMenuItem icon={Copy} shortcut="⌘D">
-                  Duplicate
-                </DropdownMenuItem>
-                <DropdownMenuItem icon={Trash2} shortcut="⌘⌫" variant="destructive">
-                  Move to trash
-                </DropdownMenuItem>
-              </PageMenuButton>
-            </>
-          }
-        >
-          <Breadcrumb items={['DevBrain', title]} />
-        </PageHeader>
+        // Home has no title bar content of its own
+        history.page === 'home' ? (
+          <PageHeader />
+        ) : (
+          <PageHeader
+            actions={
+              <>
+                <PageFavoriteButton favorite={false} />
+                <PageMenuButton>
+                  <DropdownMenuItem icon={Copy} shortcut="⌘D">
+                    Duplicate
+                  </DropdownMenuItem>
+                  <DropdownMenuItem icon={Trash2} shortcut="⌘⌫" variant="destructive">
+                    Move to trash
+                  </DropdownMenuItem>
+                </PageMenuButton>
+              </>
+            }
+          >
+            <Breadcrumb items={['DevBrain', title]} />
+          </PageHeader>
+        )
       }
       sheetOpen={sheetOpen && history.page === 'sheet'}
       onBack={history.back}
@@ -165,6 +173,7 @@ export function App() {
       canGoBack={history.canGoBack}
       canGoForward={history.canGoForward}
     >
+      {history.page === 'home' && <HomeContent />}
       {history.page === 'frame' && <FramePage />}
       {history.page === 'shortcuts' && <ShortcutsPage />}
       {history.page === 'sheet' && <SheetPage open={sheetOpen} onOpenChange={setSheetOpen} />}
