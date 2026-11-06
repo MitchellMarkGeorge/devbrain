@@ -48,25 +48,25 @@ surveyed three things in parallel and checked the claims the plan rests on again
 
 ## Decisions
 
-| Area | Decision |
-| --- | --- |
-| Router | `@tanstack/react-router` with file-based routes (`@tanstack/router-plugin/vite`) in `src/renderer/routes`, generating `src/renderer/routeTree.gen.ts`, which is checked in, formatted and linted as generated. No automatic code splitting: the bundle loads from disk, so splitting only adds work. |
-| History | **Hash history** (`createHashHistory`). The production page loads from `file://`, where browser history paths don't resolve on reload; the hash keeps the location across a reload (⌘R, a crash restore) and in devtools. Memory history would lose it. |
-| Paths | Snake case, as the project uses elsewhere, with the spelling fixed: `/onboarding`, `/onboarding/new_workspace`, `/onboarding/choose_workspace`, `/app/...`. Path params use the entity's prefixed id (`tsk_…`, `prj_…`, `nte_…`), validated with the same prefixes `zId` checks. |
-| Param values | Snake case too (`data_storage`, `not_started`, `in_progress`). |
-| Search params | Validated per route with Zod v4 (already a dependency; TanStack Router accepts Standard Schema), each field `.optional().catch(undefined)`. Without the `catch`, one bad value (a link saved before a param's values changed, a typo, a removed option) makes `validateSearch` throw, and the whole page renders the error screen. With it, that one field falls back to its default and the rest of the URL still applies. The fallback is `undefined` rather than a literal default because a missing param means "the setting's default" (e.g. `tasks.defaultView`), read at render: so a default is never written into the URL, and changing the setting changes every URL without the param. |
-| Data | React Query stays the cache, through `trpc.*.queryOptions()` as today. Route loaders only *prime* that cache (`queryClient.ensureQueryData`), so a page renders with its data on the first frame and a missing entity becomes the route's not-found. The router keeps no cache of its own (`defaultPreloadStaleTime: 0`). Freshness stays with the query invalidator: nothing in a route invalidates by hand. |
-| Router context | `{ queryClient, trpc, ipc }`, typed with `createRootRouteWithContext`. |
-| Entity components | The entity and list components take **core's own shapes**: a `TaskListItem` goes straight into `TaskRow`, with no mapping step. Each component's props are a `Pick` of the shared type it draws (`Pick<TaskListItem, 'title' | 'status' | …>`), and it derives and formats what it draws (overdue, "Today", 10:30 AM) from a `FormatProvider` that supplies `now` and the time format. Needs the shared types and enums moved to `src/common` (X1). See [Entity components take core's shapes](#entity-components-take-cores-shapes). |
-| Dates | **luxon**, already a dependency and what core uses: relative and calendar dates, locale formats, 12/24 hour. No hand-written date formatting. |
-| Virtualization | Every list and grid that can grow is virtualized with **`@tanstack/react-virtual`**: tasks (list, group, board columns), notes, projects, trash, search results. See [Virtualized lists](#virtualized-lists). |
-| Detail presentation | As designed: tasks, projects and notes are pages; a task opened from the board and an event opened from the calendar show in the docked `Sheet` over their list, addressed by an `open` search param so Back closes them. The task note opens as a dialog (local state). |
-| Splash | `/` is the boot route and draws the splash while the last workspace reopens, then redirects. A workspace *switch* draws the same splash as an overlay from the root route, driven by `workspace.changed` (as `App.tsx` does today), and does not navigate to `/`: a switch can start from the menu or another window, and the URL should land on the new workspace's landing page, not on `/`. |
-| Not in the route list but designed | `/app/integrations` (in the sidebar nav, Figma `7164:13117`). ⌘K is a dialog, not a route. Help has nothing behind it yet: the sidebar's Help item and Welcome's "What's a workspace?" link are drawn disabled. |
-| Trash | The route is **`/app/trash`**, matching the UI and `docs/deleting.md`. Core still says archive (`archive` router, `listArchived`); the code rename is its own follow-up (E2). |
-| New workspace | Inside the app, "New workspace…" opens a **Create workspace dialog** over the page. `/onboarding/new_workspace` is only for when nothing is open. Both use one `CreateWorkspaceForm`, so the onboarding guard needs no exception. Mocked in Figma as "New workspace (dialog in the app)" (`7760:61527`). Why a dialog: see [Onboarding](#onboarding-onboarding). |
-| Calendar rendering | **FullCalendar** (`@fullcalendar/react` with the `timegrid`, `daygrid`, `interaction`, `rrule` and `luxon3` plugins), mapped per `docs/calendar/fullcalendar-adapter.md`. `TimeGrid` and `MonthGrid` are the visual spec: FullCalendar is themed to match them with tokens and draws `EventBlock`/`AllDayEvent` through its content hooks. See [Calendar](#calendar-appcalendar). |
-| Keyboard | One command registry and a keymap dispatcher of our own, with modes and key sequences from the start, so Vim mode is a second keymap rather than a rewrite. See [Keyboard](#keyboard-commands-keymaps-and-vim-mode). |
+| Area                               | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Router                             | `@tanstack/react-router` with file-based routes (`@tanstack/router-plugin/vite`) in `src/renderer/routes`, generating `src/renderer/routeTree.gen.ts`, which is checked in, formatted and linted as generated. No automatic code splitting: the bundle loads from disk, so splitting only adds work.                                                                                                                                                                                                                                                                                                                                                                                              |
+| History                            | **Hash history** (`createHashHistory`). The production page loads from `file://`, where browser history paths don't resolve on reload; the hash keeps the location across a reload (⌘R, a crash restore) and in devtools. Memory history would lose it.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Paths                              | Snake case, as the project uses elsewhere, with the spelling fixed: `/onboarding`, `/onboarding/new_workspace`, `/onboarding/choose_workspace`, `/app/...`. Path params use the entity's prefixed id (`tsk_…`, `prj_…`, `nte_…`), validated with the same prefixes `zId` checks.                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Param values                       | Snake case too (`data_storage`, `not_started`, `in_progress`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Search params                      | Validated per route with Zod v4 (already a dependency; TanStack Router accepts Standard Schema), each field `.optional().catch(undefined)`. Without the `catch`, one bad value (a link saved before a param's values changed, a typo, a removed option) makes `validateSearch` throw, and the whole page renders the error screen. With it, that one field falls back to its default and the rest of the URL still applies. The fallback is `undefined` rather than a literal default because a missing param means "the setting's default" (e.g. `tasks.defaultView`), read at render: so a default is never written into the URL, and changing the setting changes every URL without the param. |
+| Data                               | React Query stays the cache, through `trpc.*.queryOptions()` as today. Route loaders only _prime_ that cache (`queryClient.ensureQueryData`), so a page renders with its data on the first frame and a missing entity becomes the route's not-found. The router keeps no cache of its own (`defaultPreloadStaleTime: 0`). Freshness stays with the query invalidator: nothing in a route invalidates by hand.                                                                                                                                                                                                                                                                                     |
+| Router context                     | `{ queryClient, trpc, ipc }`, typed with `createRootRouteWithContext`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Entity components                  | The entity and list components take **core's own shapes**: a `TaskListItem` goes straight into `TaskRow`, with no mapping step. Each component's props are a `Pick` of the shared type it draws (`Pick<TaskListItem, 'title'                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | 'status' | …>`), and it derives and formats what it draws (overdue, "Today", 10:30 AM) from a `FormatProvider`that supplies`now`and the time format. Needs the shared types and enums moved to`src/common` (X1). See [Entity components take core's shapes](#entity-components-take-cores-shapes). |
+| Dates                              | **luxon**, already a dependency and what core uses: relative and calendar dates, locale formats, 12/24 hour. No hand-written date formatting.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Virtualization                     | Every list and grid that can grow is virtualized with **`@tanstack/react-virtual`**: tasks (list, group, board columns), notes, projects, trash, search results. See [Virtualized lists](#virtualized-lists).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Detail presentation                | As designed: tasks, projects and notes are pages; a task opened from the board and an event opened from the calendar show in the docked `Sheet` over their list, addressed by an `open` search param so Back closes them. The task note opens as a dialog (local state).                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Splash                             | `/` is the boot route and draws the splash while the last workspace reopens, then redirects. A workspace _switch_ draws the same splash as an overlay from the root route, driven by `workspace.changed` (as `App.tsx` does today), and does not navigate to `/`: a switch can start from the menu or another window, and the URL should land on the new workspace's landing page, not on `/`.                                                                                                                                                                                                                                                                                                    |
+| Not in the route list but designed | `/app/integrations` (in the sidebar nav, Figma `7164:13117`). ⌘K is a dialog, not a route. Help has nothing behind it yet: the sidebar's Help item and Welcome's "What's a workspace?" link are drawn disabled.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Trash                              | The route is **`/app/trash`**, matching the UI and `docs/deleting.md`. Core still says archive (`archive` router, `listArchived`); the code rename is its own follow-up (E2).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| New workspace                      | Inside the app, "New workspace…" opens a **Create workspace dialog** over the page. `/onboarding/new_workspace` is only for when nothing is open. Both use one `CreateWorkspaceForm`, so the onboarding guard needs no exception. Mocked in Figma as "New workspace (dialog in the app)" (`7760:61527`). Why a dialog: see [Onboarding](#onboarding-onboarding).                                                                                                                                                                                                                                                                                                                                  |
+| Calendar rendering                 | **FullCalendar** (`@fullcalendar/react` with the `timegrid`, `daygrid`, `interaction`, `rrule` and `luxon3` plugins), mapped per `docs/calendar/fullcalendar-adapter.md`. `TimeGrid` and `MonthGrid` are the visual spec: FullCalendar is themed to match them with tokens and draws `EventBlock`/`AllDayEvent` through its content hooks. See [Calendar](#calendar-appcalendar).                                                                                                                                                                                                                                                                                                                 |
+| Keyboard                           | One command registry and a keymap dispatcher of our own, with modes and key sequences from the start, so Vim mode is a second keymap rather than a rewrite. See [Keyboard](#keyboard-commands-keymaps-and-vim-mode).                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 ## Where things stand
 
@@ -155,8 +155,8 @@ IPC, no router (its ESLint layering already enforces no `@main`/`@common` import
 - Add `@tanstack/react-router` and, as dev dependencies, `@tanstack/router-plugin` and
   `@tanstack/react-router-devtools` (devtools only in development builds).
 - `vite/renderer.config.ts`: add `tanstackRouter({ target: 'react', routesDirectory:
-  'src/renderer/routes', generatedRouteTree: 'src/renderer/routeTree.gen.ts', autoCodeSplitting:
-  false })` **before** the React plugin. Check that the plugin runs on Vite 8 when installing; if it
+'src/renderer/routes', generatedRouteTree: 'src/renderer/routeTree.gen.ts', autoCodeSplitting:
+false })` **before** the React plugin. Check that the plugin runs on Vite 8 when installing; if it
   doesn't yet, fall back to code-based routes (the same tree in `src/renderer/router.tsx`) and keep
   everything else in this plan.
 - Storybook: the components never import the router, so Storybook needs no change. Page stories,
@@ -171,14 +171,18 @@ export const router = createRouter({
   routeTree,
   history: createHashHistory(),
   context: { queryClient, trpc, ipc },
-  defaultPreload: 'intent',          // hover a row: its page's loader primes the cache
-  defaultPreloadStaleTime: 0,        // React Query decides freshness
-  defaultPendingMs: 150,             // pending UI only when IPC is slow (a provider fetch)
+  defaultPreload: 'intent', // hover a row: its page's loader primes the cache
+  defaultPreloadStaleTime: 0, // React Query decides freshness
+  defaultPendingMs: 150, // pending UI only when IPC is slow (a provider fetch)
   defaultNotFoundComponent: NotFoundPage,
   defaultErrorComponent: RouteErrorPage,
   scrollRestoration: true,
 });
-declare module '@tanstack/react-router' { interface Register { router: typeof router } }
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router;
+  }
+}
 ```
 
 `main.tsx` renders `<RouterProvider router={router} />` in place of `<App />`, inside the existing
@@ -216,7 +220,7 @@ The **landing page** is one function, `landingPage(settings, state)`: `state.las
 ### Guards
 
 - `/app` `beforeLoad`: if `queryClient.getQueryData(workspaces.current)` is null, `throw
-  redirect({ to: '/onboarding' })`. The seeded cache makes this synchronous.
+redirect({ to: '/onboarding' })`. The seeded cache makes this synchronous.
 - `/onboarding` `beforeLoad`: if a workspace is open, redirect to `/app`, with no exceptions. The
   sidebar's "New workspace…" opens the Create workspace dialog instead of navigating here.
 - A `no_workspace_open` error from any call (a workspace closed under the page) redirects to
@@ -242,7 +246,7 @@ Detail pages for a deleted entity resolve to not-found, and a not-found location
 `useCanGoBack()`; `canGoForward` needs a small hook over `router.history` (index vs length, both
 on `history.location.state.__TSR_index`). Search-param changes that only reflect UI state (a
 toolbar value, the calendar's date) navigate with `replace: true`, so Back goes to the previous
-*page*, not the previous filter; opening a sheet (`open=…`) pushes, so Back closes it.
+_page_, not the previous filter; opening a sheet (`open=…`) pushes, so Back closes it.
 
 ## Search params
 
@@ -253,8 +257,14 @@ field back to its default instead of failing the page (see Decisions).
 ```ts
 export const tasksSearch = z.object({
   view: z.enum(['list', 'group', 'board']).optional().catch(undefined),
-  sort: z.enum(['priority', 'dueDate', 'status', 'createdAt', 'updatedAt']).optional().catch(undefined),
-  project: z.union([zPrefixedId('prj'), z.literal('none')]).optional().catch(undefined),
+  sort: z
+    .enum(['priority', 'dueDate', 'status', 'createdAt', 'updatedAt'])
+    .optional()
+    .catch(undefined),
+  project: z
+    .union([zPrefixedId('prj'), z.literal('none')])
+    .optional()
+    .catch(undefined),
   // …
 });
 // at render: const view = search.view ?? settings.tasks.defaultView;
@@ -262,18 +272,18 @@ export const tasksSearch = z.object({
 
 ### `/app/tasks`
 
-| Param | Values | Notes |
-| --- | --- | --- |
-| `view` | `list` (default) \| `group` \| `board` | default from `settings.tasks.defaultView` |
-| `groupBy` | `project` (default) \| `status` \| `priority` \| `due` | `group` view only ("Group by: Project", `7158:9538`) |
-| `sort` | `priority` \| `dueDate` \| `status` \| `createdAt` \| `updatedAt` | default `settings.tasks.defaultSort` |
-| `dir` | `asc` \| `desc` | |
-| `status` | `open` (default) \| `all` \| `not_started` \| `in_progress` \| `completed` \| `cancelled` | "Filter: Open" → `excludeClosed`; `showCompletedTasks` decides the default between `open` and `all` |
-| `priority` | `low` \| `medium` \| `high` | single value, as core filters |
-| `project` | `prj_…` \| `none` | "Filter by project" menu (`7175:25639`) |
-| `due` | `overdue` \| `today` \| `week` \| `none` | mapped to `dueBefore`/`dueOn`/`dueAfter` at the call |
-| `source` | `local` \| `external` | core's `origin` |
-| `open` | `tsk_…` | the task sheet over the board (`7175:31599`) |
+| Param      | Values                                                                                    | Notes                                                                                               |
+| ---------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `view`     | `list` (default) \| `group` \| `board`                                                    | default from `settings.tasks.defaultView`                                                           |
+| `groupBy`  | `project` (default) \| `status` \| `priority` \| `due`                                    | `group` view only ("Group by: Project", `7158:9538`)                                                |
+| `sort`     | `priority` \| `dueDate` \| `status` \| `createdAt` \| `updatedAt`                         | default `settings.tasks.defaultSort`                                                                |
+| `dir`      | `asc` \| `desc`                                                                           |                                                                                                     |
+| `status`   | `open` (default) \| `all` \| `not_started` \| `in_progress` \| `completed` \| `cancelled` | "Filter: Open" → `excludeClosed`; `showCompletedTasks` decides the default between `open` and `all` |
+| `priority` | `low` \| `medium` \| `high`                                                               | single value, as core filters                                                                       |
+| `project`  | `prj_…` \| `none`                                                                         | "Filter by project" menu (`7175:25639`)                                                             |
+| `due`      | `overdue` \| `today` \| `week` \| `none`                                                  | mapped to `dueBefore`/`dueOn`/`dueAfter` at the call                                                |
+| `source`   | `local` \| `external`                                                                     | core's `origin`                                                                                     |
+| `open`     | `tsk_…`                                                                                   | the task sheet over the board (`7175:31599`)                                                        |
 
 Core filters `status` and `priority` by one value each. Multi-select filters are a main change
 (T3); the params are written as single values now and can become arrays later without breaking
@@ -295,12 +305,12 @@ URLs (`z.union([value, z.array(value)])`).
 
 ### `/app/calendar`
 
-| Param | Values | Notes |
-| --- | --- | --- |
-| `view` | `week` (default) \| `month` \| `day` | default from `settings.calendar.defaultView` |
-| `date` | `YYYY-MM-DD` | the anchor day, default today. The visible range is derived from `view` + `date` + `firstDayOfWeek`, so month, year and week all come from one param and can never disagree. "Today" removes it. |
-| `open` | `evt_…` \| `tsk_…` | the item in the sheet. Ids are prefixed, so one param covers both the events and the tasks due that the agenda shows; the sheet picks its body from the prefix. |
-| `occurrence` | ISO datetime | with `open=evt_…` of a series: which occurrence was clicked (its `originalStartAt`), needed to edit "this event" vs "all events" (`7424:43188`) |
+| Param        | Values                               | Notes                                                                                                                                                                                            |
+| ------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `view`       | `week` (default) \| `month` \| `day` | default from `settings.calendar.defaultView`                                                                                                                                                     |
+| `date`       | `YYYY-MM-DD`                         | the anchor day, default today. The visible range is derived from `view` + `date` + `firstDayOfWeek`, so month, year and week all come from one param and can never disagree. "Today" removes it. |
+| `open`       | `evt_…` \| `tsk_…`                   | the item in the sheet. Ids are prefixed, so one param covers both the events and the tasks due that the agenda shows; the sheet picks its body from the prefix.                                  |
+| `occurrence` | ISO datetime                         | with `open=evt_…` of a series: which occurrence was clicked (its `originalStartAt`), needed to edit "this event" vs "all events" (`7424:43188`)                                                  |
 
 **Calendar filters are not search params.** "Filter: All calendars" (`7424:42573`) toggles which
 calendars show, and core already persists that per calendar (`calendars.setVisible`) and applies
@@ -443,12 +453,13 @@ sheet's `open` param does not.
     title: item.title,
     status: isOverdue(item, now) ? 'overdue' : STATUS_NAMES[item.status], // 2 → 'in-progress'
     priority: PRIORITY_NAMES[item.priority],
-    date: item.dueDate ? formatDue(item.dueDate, now) : undefined,         // "Today", "Jul 1"
+    date: item.dueDate ? formatDue(item.dueDate, now) : undefined, // "Today", "Jul 1"
     dateTone: dueTone(item.dueDate, now),
     project: item.project?.title,
     projectColor: item.project?.color,
     subtasks: item.subtaskProgress.total
-      ? [item.subtaskProgress.completed, item.subtaskProgress.total] : undefined,
+      ? [item.subtaskProgress.completed, item.subtaskProgress.total]
+      : undefined,
     key: item.external?.key,
     // …
   }}
@@ -459,7 +470,7 @@ sheet's `open` param does not.
 
 ```tsx
 // any page
-<TaskRow task={item} />
+<TaskRow task={item} />;
 
 // TaskRow.tsx
 import { TaskStatus, type TaskListItem } from '@common/types/tasks'; // moved there by X1
@@ -467,13 +478,22 @@ import { TaskStatus, type TaskListItem } from '@common/types/tasks'; // moved th
 // the fields TaskRow reads, named once, from the type core returns
 export type TaskRowData = Pick<
   TaskListItem,
-  'id' | 'title' | 'status' | 'priority' | 'dueDate' | 'subtaskProgress' | 'project' | 'link' | 'parentTask' | 'external'
+  | 'id'
+  | 'title'
+  | 'status'
+  | 'priority'
+  | 'dueDate'
+  | 'subtaskProgress'
+  | 'project'
+  | 'link'
+  | 'parentTask'
+  | 'external'
 >;
 
 export function TaskRow({ task }: { task: TaskRowData }) {
-  const { now, formatDue } = useFormat();              // from <FormatProvider>
+  const { now, formatDue } = useFormat(); // from <FormatProvider>
   const overdue = isOverdue(task.status, task.dueDate, now);
-  const color = resolveColor(task.project?.color);     // checks the hex; falls back to the default
+  const color = resolveColor(task.project?.color); // checks the hex; falls back to the default
   // … draws StatusIcon (flag when overdue), the pills, PriorityIcon, formatDue(task.dueDate)
 }
 ```
@@ -544,7 +564,7 @@ favorites and pills.
   workspace dialog, which creates and opens it under the switch splash; "Open folder…" calls
   `workspaces.importFolder` then `workspaces.open`), Search (⌘K) and New task (C) actions.
 - **Nav:** Home, Tasks, Projects, Notes, Calendar, Integrations, as `SidebarItem render={<Link
-  to=… />}` with `active` from `useMatchRoute` (a detail page keeps its section active).
+to=… />}` with `active` from `useMatchRoute` (a detail page keeps its section active).
 - **Recents:** `recents.list({ limit: 5 })`; **Favorites:** `favorites.list({ limit: 5 })` with
   "More". Items open with `useOpenEntity`. Collapsed sidebar shows these as flyouts (`7167:14942`).
 - **Footer:** `SyncStatus` (from `sync.status`, kept fresh by `sources.changed` and
@@ -688,6 +708,7 @@ sidebar.
 
   The dialog says up front that the new workspace opens once it's created, since that closes what
   you're looking at.
+
 - **Choose workspace** (`/onboarding/choose_workspace`): the full `WorkspaceList` (all workspaces,
   `workspaces.list` paged), for when the Welcome card shows only recent ones. Same open flow.
 - **Errors** (`7423:37060`–`7423:37281`) from `importFolder`/`open`, shown inline on Welcome by
@@ -711,6 +732,7 @@ Figma `7254:8102` and its variants; composition in `screens/Home/HomeScreens.tsx
 
   The summary line under the greeting carries Home's content; the name added nothing to it. The
   design-system README and the Figma Home frames change their copy to match when Home is built.
+
 - **Summary and section choice** are computed in `pages/home/summary.ts`, a pure function over:
   today's and tomorrow's events (`events.listForCalendar` for now → end of tomorrow), open tasks
   due by end of today (`tasks.list({ filter: { dueBefore, excludeClosed } })`), projects due in the
@@ -813,7 +835,7 @@ tasks), `7158:17380`, `7158:17899`, `7421:36683`, `7527:51820` (menu), `7175:411
   compose, and N) → `notes.create` then navigate to it with the title focused.
 - **Page**: `DocumentPage` with `EditorTitle` (→ `notes.update` title), "Edited …", pills (project,
   linked event/task), then `RichTextEditor` with `useWorkspaceEditorHost`, `useEntityResolver` and
-  `useOpenEntity`. The loader reads content with `notes.readContent` (**N1, blocking**).
+  `useOpenEntity`. The loader reads content with `notes.readContent` (N1, done).
 - **Saving**: `onChange` → `notes.updateContent` debounced 500ms and flushed on route leave
   (`useBlocker` without a prompt, or the route's `onLeave`) and on window blur. Core serializes
   saves and the last wins; the page ignores the content refetch its own save triggers (the editor
@@ -850,6 +872,7 @@ Figma `7158:13273` (week), `7158:13856` (day), `7158:18439` (month), `7175:30140
   `CalendarView.md`, and their stories become `CalendarView` stories with the same fixtures, so
   only one implementation is left to drift. `EventBlock`, `AllDayEvent`, the mini
   calendar (`ui/Calendar`) and `CalendarAgenda` stay as they are.
+
 - **Header**: month title, Filter (calendar visibility menu over `calendars.list` →
   `calendars.setVisible`), view `ToggleGroup`, ‹ Today ›, New Event. The page drives FullCalendar
   from the URL: `view` → `timeGridWeek` / `timeGridDay` / `dayGridMonth`, `date` →
@@ -936,11 +959,10 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 
 ### Notes
 
-- **N1 (blocking): `notes.readContent({ id })`** → `NoteService.readContent`. The note page, the task
+- **N1 (done, [MitchellMarkGeorge/devbrain#110](https://github.com/MitchellMarkGeorge/devbrain/pull/110)): `notes.readContent({ id })`** → `NoteService.readContent`. The note page, the task
   note dialog and the event note in the sheet can't load a note without it. Give it its own line
   in the reads table, `'notes.readContent': ['note']`: the `notes` router's line also lists task,
   project, event and calendar, which would refetch an open note's content on every sync page.
-  In review as [MitchellMarkGeorge/devbrain#110](https://github.com/MitchellMarkGeorge/devbrain/pull/110).
   Also accept `content` in `notes.create` (core already
   does), so "Turn into note" and the capture box can create with a body.
 - **N2: `Show in Finder` for a note**: `notes.showInFolder({ id })` through `ctx.desktop`, with the
@@ -1115,11 +1137,11 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
   only talks to Google during a sync run. Ticking or unticking a calendar, and learning about new
   calendars, all wait for the next run. Until it happens, DevBrain shows the old state.
 
-  | Time | You do | DevBrain's database | What you see |
-  | --- | --- | --- | --- |
-  | 9:00 | Untick "Holidays" in Choose Calendars | `selected = false`; the 14 holiday events are still stored | The holidays, still on the week view |
-  | 9:00 + 1s | (a sync run starts by itself) | The run reaches its first page and deletes the 14 events | The holidays disappear |
-  | Offline instead | (the run fails before its first page) | Still `selected = false` with 14 events | The holidays stay until a run succeeds |
+  | Time            | You do                                | DevBrain's database                                        | What you see                           |
+  | --------------- | ------------------------------------- | ---------------------------------------------------------- | -------------------------------------- |
+  | 9:00            | Untick "Holidays" in Choose Calendars | `selected = false`; the 14 holiday events are still stored | The holidays, still on the week view   |
+  | 9:00 + 1s       | (a sync run starts by itself)         | The run reaches its first page and deletes the 14 events   | The holidays disappear                 |
+  | Offline instead | (the run fails before its first page) | Still `selected = false` with 14 events                    | The holidays stay until a run succeeds |
 
   **Background.** A connected Google account has several calendars ("Work", "Personal",
   "Holidays in Canada"). Each has two switches in DevBrain:
@@ -1160,25 +1182,25 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 
 ### Summary
 
-| Id | Change | Needed by | Blocking |
-| --- | --- | --- | --- |
-| N1 | `notes.readContent`, `content` in `notes.create` | Note page, task note, event note | **Yes** |
-| X1 | DTO types and enums to `src/common` | Entity components (milestone 3) | **Yes** for the components |
-| T5 | Nullable fields in `tasks.update`/`projects.update` | Date pickers, clearing links | **Yes** for clearing |
-| S2 | `lastPage` read/write + in initial load context | Reopen last page | For that setting |
-| T6 | Optional `dueDate` on create | Create dialogs | No (default from settings) |
-| P1 | Stats on `projects.list` | Projects list/cards | No (N+1) |
-| T2 | Bulk task updates | Selection bar | No (sequential) |
-| S1 | Partial settings update, reset | Settings | No (whole object) |
-| A2 | Menu commands event, menu items | Menu | No |
-| C1–C4 | Convert, duplicate, copy as Markdown, project with tasks | Detail menus, create project | No (hide items) |
-| N2 | Note Show in Finder | Note menu | No (hide item) |
-| E1 | Empty trash | Trash | No (hide action) |
-| R1 | Status/colour in search | ⌘K, "@" menu | No |
-| K0 | `readRange` skips unselected synced calendars | Calendar (unticked calendars vanish at once) | No, but cheap |
-| T1, T3, T4, P2, A1, A3, A4, K1, R2, E2 | See above | | No |
-| S5 | `keyboardMode` setting | Vim mode | Later |
-| S3 | `calendar.hideWeekends` | Settings, Calendar | No |
+| Id                                     | Change                                                   | Needed by                                    | Blocking                   |
+| -------------------------------------- | -------------------------------------------------------- | -------------------------------------------- | -------------------------- |
+| N1                                     | `notes.readContent`, `content` in `notes.create`         | Note page, task note, event note             | Done (#110)                |
+| X1                                     | DTO types and enums to `src/common`                      | Entity components (milestone 3)              | **Yes** for the components |
+| T5                                     | Nullable fields in `tasks.update`/`projects.update`      | Date pickers, clearing links                 | **Yes** for clearing       |
+| S2                                     | `lastPage` read/write + in initial load context          | Reopen last page                             | For that setting           |
+| T6                                     | Optional `dueDate` on create                             | Create dialogs                               | No (default from settings) |
+| P1                                     | Stats on `projects.list`                                 | Projects list/cards                          | No (N+1)                   |
+| T2                                     | Bulk task updates                                        | Selection bar                                | No (sequential)            |
+| S1                                     | Partial settings update, reset                           | Settings                                     | No (whole object)          |
+| A2                                     | Menu commands event, menu items                          | Menu                                         | No                         |
+| C1–C4                                  | Convert, duplicate, copy as Markdown, project with tasks | Detail menus, create project                 | No (hide items)            |
+| N2                                     | Note Show in Finder                                      | Note menu                                    | No (hide item)             |
+| E1                                     | Empty trash                                              | Trash                                        | No (hide action)           |
+| R1                                     | Status/colour in search                                  | ⌘K, "@" menu                                 | No                         |
+| K0                                     | `readRange` skips unselected synced calendars            | Calendar (unticked calendars vanish at once) | No, but cheap              |
+| T1, T3, T4, P2, A1, A3, A4, K1, R2, E2 | See above                                                |                                              | No                         |
+| S5                                     | `keyboardMode` setting                                   | Vim mode                                     | Later                      |
+| S3                                     | `calendar.hideWeekends`                                  | Settings, Calendar                           | No                         |
 
 ## Milestones and PR breakdown
 
@@ -1189,7 +1211,7 @@ page that needs them.
 1. **Router foundation.** Install the router and plugin; `router.tsx`, root route with
    `ToastProvider` and the switch-splash overlay; `/` boot; `/onboarding` and `/app` layouts with
    guards; `/app` renders `AppShell` with the real sidebar (nav, workspace menu) and placeholder
-   pages; back/forward wired; `App.tsx` removed; `refetchOnWindowFocus` off. *Main:* S2 (last
+   pages; back/forward wired; `App.tsx` removed; `refetchOnWindowFocus` off. _Main:_ S2 (last
    page).
 2. **Onboarding.** Welcome, Create workspace (the shared form, also as the in-app dialog), Choose
    workspace, error states.
@@ -1198,23 +1220,23 @@ page that needs them.
    toast and `useConfirm`; Recents/Favorites/SyncStatus in the sidebar; page header slot and
    breadcrumbs; the keyboard layer (command registry, scopes, keymap dispatcher, undo stack) with
    the default keymap, and the list keys moved out of `TaskRow`/`TaskList` into it; the shortcuts
-   dialog. *Main:* X1 first.
+   dialog. _Main:_ X1 first.
 4. **Tasks.** List view with filters/sort in search params, row menu, selection bar; group view;
-   board with the task sheet; create task and subtask dialogs; task page. *Main:* T5, T6 (then T2,
+   board with the task sheet; create task and subtask dialogs; task page. _Main:_ T5, T6 (then T2,
    C1–C3 as they land).
 5. **Notes.** List and cards, note page with the editor and autosave, linked tasks, task note
-   dialog on the task page, `useEntityResolver`. *Main:* N1 (before this milestone), N2.
-6. **Projects.** List and cards, project page with tabs, create project dialog. *Main:* P1, C4.
+   dialog on the task page, `useEntityResolver`. _Main:_ N1 (before this milestone), N2.
+6. **Projects.** List and cards, project page with tabs, create project dialog. _Main:_ P1, C4.
 7. **Calendar.** Add FullCalendar; `CalendarView` themed to the `TimeGrid`/`MonthGrid` guides,
    with its guide and stories, then retire those two; `toEventInput` and `occurrencesBetween` with
    tests (settle the adapter spec's `TZID` checks first); week/day/month from the URL; right panel
-   and agenda; event sheet with occurrence editing; create event dialog; visibility filter. *Main:*
+   and agenda; event sheet with occurrence editing; create event dialog; visibility filter. _Main:_
    K0.
 8. **Home.** Summary/section logic with tests over fixed `now`s, capture box with parsing, the
    time-aware rows.
-9. **Search (⌘K)** with recents and Go to commands. *Main:* R1.
-10. **Trash, Integrations, Settings.** *Main:* E1, S1, A3, K1.
-11. **Menu commands and polish.** *Main:* A2. Compact-window behaviour checks against the
+9. **Search (⌘K)** with recents and Go to commands. _Main:_ R1.
+10. **Trash, Integrations, Settings.** _Main:_ E1, S1, A3, K1.
+11. **Menu commands and polish.** _Main:_ A2. Compact-window behaviour checks against the
     responsive frames (`7602:42368`), light theme checks, empty/loading/error states on every
     list, accessibility pass (focus order, labels, the sheet and dialogs' focus traps).
 
