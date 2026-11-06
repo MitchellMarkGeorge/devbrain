@@ -17,7 +17,7 @@ import { notes } from '@main/db/schema/notes';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../shared/errors';
 import { keyset, PageOptions } from '../shared/pagination';
 import { assertEditable, withExternalRef, withExternalRefs } from '../integrations/refs';
-import { subtreeOf } from '../tasks/subtree';
+import { subtreeOf, subtreeOfAll } from '../tasks/subtree';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import type { ArchiveFilterOptions } from './types';
 
@@ -117,12 +117,7 @@ export class ArchiveService {
       const updatedTasks = tx
         .update(tasks)
         .set({ archivedAt: now })
-        .where(
-          and(
-            or(...uniqueIds.map((id) => inArray(tasks.id, subtreeOf(id)))),
-            isNull(tasks.archivedAt),
-          ),
-        )
+        .where(and(inArray(tasks.id, subtreeOfAll(uniqueIds)), isNull(tasks.archivedAt)))
         .returning()
         .all();
       const updatedTaskIds = updatedTasks.map((t) => t.id);

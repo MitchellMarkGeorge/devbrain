@@ -483,6 +483,19 @@ describe('ArchiveService — archiveTasks', () => {
     expect(listener).not.toHaveBeenCalled();
   });
 
+  it('archives a selection of thousands, with their subtasks', () => {
+    // one subtree walk per id joined with OR hit SQLite's expression depth limit near 1000
+    const trees = Array.from({ length: 2000 }, (_, i) => ({
+      title: `T${i}`,
+      subtasks: [{ title: `S${i}` }],
+    }));
+    const created = tasks.createTaskTrees(trees);
+    const roots = created.filter((task) => task.parentTaskId === null).map((task) => task.id);
+
+    expect(archive.archiveTasks(roots)).toHaveLength(2000);
+    expect(tasks.listTasks({}, undefined, { limit: 10 }).items).toEqual([]);
+  });
+
   it('returns nothing for no ids, and counts a repeated id once', () => {
     const a = tasks.createTask({ title: 'A', dueDate: TOMORROW });
     expect(archive.archiveTasks([])).toEqual([]);
