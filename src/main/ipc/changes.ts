@@ -234,7 +234,7 @@ export function entitiesOfProjectChange(change: ProjectChange): ChangedEntity[] 
 export function entitiesOfNoteChange(change: NoteChange): ChangedEntity[] {
   if (change.type !== 'deleted') return ['note'];
   // a task note's task, or the tasks made from the note
-  const tasksChanged = change.linkedTaskId !== null || change.unlinkedTaskIds.length > 0;
+  const tasksChanged = change.linkedTaskIds.length > 0 || change.unlinkedTaskIds.length > 0;
   return tasksChanged ? ['note', 'task'] : ['note'];
 }
 

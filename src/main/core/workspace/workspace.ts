@@ -20,7 +20,7 @@ import { SyncScheduler } from '../sync/scheduler';
 import { SyncStateManager } from '../sync/sync-state';
 import { SyncWriter } from '../sync/writer';
 import { TaskReconciler } from '../sync/task-reconciler';
-import type { WorkspaceInfo } from '@common/types';
+import type { EmptyTrashResult, WorkspaceInfo } from '@common/types';
 import type { WorkspaceOptions } from './types';
 import path from 'node:path';
 import fs from 'node:fs/promises';
@@ -115,11 +115,11 @@ export class Workspace {
       else if (change.task.archivedAt === null) this.search.indexTask(change.task);
     });
     this.projects.onChange((change) => {
-      if (change.type === 'deleted') this.search.removeFromIndex([change.projectId]);
+      if (change.type === 'deleted') this.search.removeFromIndex(change.projectIds);
       else if (change.project.archivedAt === null) this.search.indexProject(change.project);
     });
     this.notes.onChange((change) => {
-      if (change.type === 'deleted') this.search.removeFromIndex([change.noteId]);
+      if (change.type === 'deleted') this.search.removeFromIndex(change.noteIds);
       else if (change.type === 'created') this.search.indexCreatedNote(change.note, change.content);
       else if (change.content === undefined) {
         this.search.updateIndexedTitle(change.note.id, change.note.title);
@@ -186,6 +186,29 @@ export class Workspace {
       void this.sync.trigger('connected', sourceId);
     });
     this.openUrl = guardOpenExternal(options.openExternal ?? noBrowser);
+  }
+
+  /**
+   * Empties the trash: deletes every archived task, project and note for good, in one transaction,
+   * then removes the deleted notes' files. Each service sends one `deleted` change, inside the
+   * transaction, so search drops the rows in the same commit. What goes and what stays follows
+   * each service's own delete (docs/deleting.md): a task takes its subtasks and their links,
+   * projects and notes leave their tasks and notes in place with the reference cleared, and an
+   * archived task with an active or synced task below it is kept.
+   *
+   * Tasks go first, so the projects' and notes' changes name only the tasks that are left. The
+   * files go after the commit: a file that can't be removed is logged and listed in
+   * `filesNotRemoved`, and the rest are still removed. The trash stays empty either way, as a
+   * failed file removal does not undo deleteNote.
+   */
+  async emptyTrash(): Promise<EmptyTrashResult> {
+    const { taskIds, keptTaskIds, projectIds, noteIds } = this.db.transaction(() => ({
+      ...this.tasks.deleteArchivedTasks(),
+      ...this.projects.deleteArchivedProjects(),
+      ...this.notes.deleteArchivedNotes(),
+    }));
+    const filesNotRemoved = await this.notes.removeDeletedFiles(noteIds);
+    return { taskIds, projectIds, noteIds, keptTaskIds, filesNotRemoved };
   }
 
   private onArchiveChange({ type, taskIds, projectIds, noteIds }: ArchiveChange): void {

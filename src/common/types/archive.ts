@@ -16,3 +16,15 @@ export interface ArchivedEntity {
   title: string;
   archivedAt: Date;
 }
+
+/** What emptying the trash deleted for good. */
+export interface EmptyTrashResult {
+  taskIds: TaskId[];
+  projectIds: ProjectId[];
+  noteIds: NoteId[];
+  // Archived tasks left in the trash: each has an active or synced task below it, which deleting
+  // it would take along (sync can archive a removed Linear task and leave its subtasks live)
+  keptTaskIds: TaskId[];
+  // deleted notes whose markdown file could not be removed; the notes are gone all the same
+  filesNotRemoved: NoteId[];
+}

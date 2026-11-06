@@ -170,6 +170,10 @@ not obvious from one file:
   whole subtree) and those of the rows that only lost a link to it. Asking the user to confirm
   (`general.confirmBeforeDeleting`) is the renderer's; core never reads that setting. See
   [docs/deleting.md](../deleting.md).
+- **`archive.emptyTrash`** deletes every archived task, project and note in one transaction
+  (`Workspace.emptyTrash`), then the notes' files, and returns the ids removed, the archived tasks
+  it had to keep (`keptTaskIds`) and the notes whose file could not be removed
+  (`filesNotRemoved`); its `changed` names each kind removed or unlinked.
 - **Dialogs and the file manager.** `transfer` (import and export, see
   [import-export.md](../import-export.md)) asks for a file or folder through `ctx.desktop`, then
   makes one call to `workspace.transfer`; a cancelled dialog returns `null`.

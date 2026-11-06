@@ -258,15 +258,3 @@ page. The code still says archive: `ArchiveService`, the `archive` router (`arch
 `listArchived`, …), `archivedAt`, `AlreadyArchivedError`/`NotArchivedError` and the `not_archived`
 code the deletes use. Renaming them touches the schema's column names (a rename migration) and every
 caller, so it was left for its own change.
-
-### Empty trash
-
-_Found while adding permanent delete._
-
-The Trash page's design has room for an "Empty trash" action that deletes every archived item.
-It was left out: it crosses three services (`TaskService.deleteTask`, `ProjectService.deleteProject`,
-`NoteService.deleteNote`), the notes' files are removed one by one after the rows commit, and a
-partial failure needs a decision (stop, or carry on and report). See [deleting.md](deleting.md).
-Options: a `Workspace`-level method that deletes the rows of all three in one transaction and then
-the files, sending one change per service; or let the renderer page through `archive.listArchived`
-and delete each item.

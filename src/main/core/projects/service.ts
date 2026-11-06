@@ -1,4 +1,4 @@
-import { ProjectId } from '@common/ids';
+import { NoteId, ProjectId, TaskId } from '@common/ids';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   LinkState,
@@ -16,7 +16,7 @@ import {
   UpdateProjectOptions,
 } from './types';
 import { projects } from '@main/db/schema/projects';
-import { eq, inArray, SQL, sql, and, isNull, not, desc, gt, gte, lt } from 'drizzle-orm';
+import { eq, inArray, SQL, sql, and, isNull, isNotNull, not, desc, gt, gte, lt } from 'drizzle-orm';
 import { localDayWindow } from '../shared/dates';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { keyset, PageOptions } from '../shared/pagination';
@@ -35,10 +35,17 @@ import { ChangeListener, ChangeListeners } from '../shared/changes';
 // layer will forward them to the renderer. Sent after the write commits, with the row as written.
 // `deleted` is sent as the delete's last step, inside its transaction, so search drops the row in
 // the same commit (as an archive does).
+// A `deleted` change names every project deleted at once (one, or the whole trash), with the tasks
+// and notes that lost their project.
 export type ProjectChange =
   | { type: 'created'; project: Project }
   | { type: 'updated'; project: Project }
-  | ({ type: 'deleted' } & ProjectDeleteResult);
+  | {
+      type: 'deleted';
+      projectIds: ProjectId[];
+      unfiledTaskIds: TaskId[];
+      unfiledNoteIds: NoteId[];
+    };
 
 export class ProjectService {
   private readonly changes = new ChangeListeners<ProjectChange>('Project');
@@ -248,9 +255,49 @@ export class ProjectService {
 
       tx.delete(projects).where(eq(projects.id, id)).run();
 
+      this.changes.emit({ type: 'deleted', projectIds: [id], unfiledTaskIds, unfiledNoteIds });
       const result: ProjectDeleteResult = { projectId: id, unfiledTaskIds, unfiledNoteIds };
-      this.changes.emit({ type: 'deleted', ...result });
       return result;
+    });
+  }
+
+  /**
+   * Deletes every archived project, in one transaction (or the caller's, as a savepoint), and sends
+   * one `deleted` change as its last step when any went. Their tasks and notes are kept, as
+   * deleteProject keeps them. A synced project is never archived; one would be kept.
+   */
+  deleteArchivedProjects(): { projectIds: ProjectId[] } {
+    return this.db.transaction((tx) => {
+      const projectIds = tx
+        .select({ id: projects.id })
+        .from(projects)
+        .where(
+          and(
+            isNotNull(projects.archivedAt),
+            not(hasLinkInState('project', projects.id, LinkState.SYNCED)),
+          ),
+        )
+        .all()
+        .map((row) => row.id);
+      if (projectIds.length === 0) return { projectIds };
+
+      // read before the delete clears their project
+      const unfiledTaskIds = tx
+        .select({ id: tasks.id })
+        .from(tasks)
+        .where(inArray(tasks.projectId, projectIds))
+        .all()
+        .map((row) => row.id);
+      const unfiledNoteIds = tx
+        .select({ id: notes.id })
+        .from(notes)
+        .where(inArray(notes.projectId, projectIds))
+        .all()
+        .map((row) => row.id);
+      tx.delete(projects).where(inArray(projects.id, projectIds)).run();
+
+      this.changes.emit({ type: 'deleted', projectIds, unfiledTaskIds, unfiledNoteIds });
+      return { projectIds };
     });
   }
 

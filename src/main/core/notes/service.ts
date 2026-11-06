@@ -1,7 +1,7 @@
-import { generateId, NoteId } from '@common/ids';
+import { generateId, NoteId, TaskId } from '@common/ids';
 import { notes } from '@main/db/schema/notes';
 import { tasks } from '@main/db/schema/tasks';
-import { SQL, and, isNull, desc, eq, inArray } from 'drizzle-orm';
+import { SQL, and, isNull, isNotNull, desc, eq, inArray } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import path from 'node:path';
@@ -25,11 +25,12 @@ function previewOf(content: string): string | null {
 // with the row as written. `content` is the note's new markdown when the write changed it; a write
 // that leaves the body alone (a rename, a new project or link) has none. `deleted` is sent as the
 // delete's last step, inside its transaction, so search drops the note in the same commit; the
-// file is removed after.
+// file is removed after. It names every note deleted at once (one, or the whole trash), the tasks
+// they were the task note of (`linkedTaskIds`), and the tasks made from them, which lost the link.
 export type NoteChange =
   | { type: 'created'; note: Note; content: string }
   | { type: 'updated'; note: Note; content?: string }
-  | ({ type: 'deleted' } & Omit<NoteDeleteResult, 'fileRemoved'>);
+  | { type: 'deleted'; noteIds: NoteId[]; linkedTaskIds: TaskId[]; unlinkedTaskIds: TaskId[] };
 
 export class NoteService {
   private workspaceNotesPath: string;
@@ -283,9 +284,9 @@ export class NoteService {
         .all()
         .map((row) => row.id);
       tx.delete(notes).where(eq(notes.id, id)).run();
-      const change = { noteId: id, linkedTaskId: existing.linkedTaskId, unlinkedTaskIds: linked };
-      this.changes.emit({ type: 'deleted', ...change });
-      return change;
+      const linkedTaskIds = existing.linkedTaskId === null ? [] : [existing.linkedTaskId];
+      this.changes.emit({ type: 'deleted', noteIds: [id], linkedTaskIds, unlinkedTaskIds: linked });
+      return { linkedTaskId: existing.linkedTaskId, unlinkedTaskIds: linked };
     });
 
     // the path the app reads and writes, not the stored filePath, which can predate a move of the
@@ -299,6 +300,74 @@ export class NoteService {
       this.logger.warn(`Removing deleted note ${id}'s file failed error=${errorClass(error)}`);
     }
     return { noteId: id, linkedTaskId, unlinkedTaskIds, fileRemoved };
+  }
+
+  /**
+   * Deletes every archived note's row, in one transaction (or the caller's, as a savepoint), and
+   * sends one `deleted` change as its last step when any went. Tasks linked to them are kept, as
+   * deleteNote keeps them. The files stay: call removeDeletedFiles with the ids once the
+   * transaction has committed, so a failed delete never leaves a row without its file.
+   */
+  deleteArchivedNotes(): { noteIds: NoteId[] } {
+    return this.db.transaction((tx) => {
+      const archived = tx
+        .select({ id: notes.id, linkedTaskId: notes.linkedTaskId })
+        .from(notes)
+        .where(isNotNull(notes.archivedAt))
+        .all();
+      const noteIds = archived.map((row) => row.id);
+      if (noteIds.length === 0) return { noteIds };
+
+      // read before the delete clears their link: tasks made from the notes, subtasks included
+      const unlinkedTaskIds = tx
+        .select({ id: tasks.id })
+        .from(tasks)
+        .where(inArray(tasks.linkedNoteId, noteIds))
+        .all()
+        .map((row) => row.id);
+      const linkedTaskIds = archived.flatMap((row) => row.linkedTaskId ?? []);
+      tx.delete(notes).where(inArray(notes.id, noteIds)).run();
+
+      this.changes.emit({ type: 'deleted', noteIds, linkedTaskIds, unlinkedTaskIds });
+      return { noteIds };
+    });
+  }
+
+  /**
+   * Removes the markdown files of notes whose rows were deleted (deleteArchivedNotes), each after
+   * the content saves already queued for it, as deleteNote does. Resolves with the ids whose file
+   * could not be removed, each failure logged by its error class; the file stays in the notes
+   * folder, which nothing reads without a row. A note that still has a row is left alone, and a
+   * file already missing counts as removed.
+   */
+  async removeDeletedFiles(noteIds: NoteId[]): Promise<NoteId[]> {
+    if (noteIds.length === 0) return [];
+    const remaining = new Set(
+      this.db
+        .select({ id: notes.id })
+        .from(notes)
+        .where(inArray(notes.id, noteIds))
+        .all()
+        .map((row) => row.id),
+    );
+    const failed: NoteId[] = [];
+    await Promise.all(
+      noteIds
+        .filter((id) => !remaining.has(id))
+        .map(async (id) => {
+          await this.contentSaves.get(id)?.catch(() => undefined);
+          try {
+            await deleteNoteFile(this.noteFilePath(id));
+          } catch (error) {
+            failed.push(id);
+            // the class only: the error quotes the note's file path
+            this.logger.warn(
+              `Removing deleted note ${id}'s file failed error=${errorClass(error)}`,
+            );
+          }
+        }),
+    );
+    return noteIds.filter((id) => failed.includes(id));
   }
 
   private async saveNoteContent(id: NoteId, content: string): Promise<Note> {

@@ -352,7 +352,7 @@ describe('the entities of each change', () => {
     expect(
       entitiesOfProjectChange({
         type: 'deleted',
-        projectId: 'prj_1' as never,
+        projectIds: ['prj_1' as never],
         unfiledTaskIds: ['tsk_1' as never],
         unfiledNoteIds: ['nte_1' as never],
       }),
@@ -361,8 +361,8 @@ describe('the entities of each change', () => {
     expect(
       entitiesOfNoteChange({
         type: 'deleted',
-        noteId: 'nte_1' as never,
-        linkedTaskId: null,
+        noteIds: ['nte_1' as never],
+        linkedTaskIds: [],
         unlinkedTaskIds: ['tsk_1' as never],
       }),
     ).toEqual(['note', 'task']);
@@ -370,16 +370,16 @@ describe('the entities of each change', () => {
     expect(
       entitiesOfNoteChange({
         type: 'deleted',
-        noteId: 'nte_1' as never,
-        linkedTaskId: 'tsk_1' as never,
+        noteIds: ['nte_1' as never],
+        linkedTaskIds: ['tsk_1' as never],
         unlinkedTaskIds: [],
       }),
     ).toEqual(['note', 'task']);
     expect(
       entitiesOfNoteChange({
         type: 'deleted',
-        noteId: 'nte_1' as never,
-        linkedTaskId: null,
+        noteIds: ['nte_1' as never],
+        linkedTaskIds: [],
         unlinkedTaskIds: [],
       }),
     ).toEqual(['note']);

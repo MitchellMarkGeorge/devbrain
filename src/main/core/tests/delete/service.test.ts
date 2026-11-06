@@ -525,7 +525,7 @@ describe('ProjectService.deleteProject', () => {
     expect(changes).toEqual([
       {
         type: 'deleted',
-        projectId: proj.id,
+        projectIds: [proj.id],
         unfiledTaskIds: [task.id],
         unfiledNoteIds: [],
         inTransaction: true,
@@ -677,11 +677,177 @@ describe('NoteService.deleteNote', () => {
     expect(changes).toEqual([
       {
         type: 'deleted',
-        noteId: note.id,
-        linkedTaskId: null,
+        noteIds: [note.id],
+        linkedTaskIds: [],
         unlinkedTaskIds: [task.id],
         inTransaction: true,
       },
     ]);
+  });
+});
+
+// Emptying the trash: each service deletes every archived row of its own, and Workspace.emptyTrash
+// runs the three in one transaction (tests/workspace covers that).
+
+describe('TaskService.deleteArchivedTasks', () => {
+  it('deletes every archived task with its subtasks, in one change, and leaves active ones', () => {
+    const task = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(task.id, { title: 'Child' });
+    const other = tasks.createTask({ title: 'Other', dueDate: TOMORROW });
+    const active = tasks.createTask({ title: 'Active', dueDate: TOMORROW });
+    archive.archiveTask(task.id);
+    archive.archiveTask(other.id);
+    const changes: (TaskChange & { inTransaction: boolean })[] = [];
+    tasks.onChange((change) => changes.push({ ...change, inTransaction: inTransaction() }));
+
+    const result = tasks.deleteArchivedTasks();
+
+    expect(result.taskIds.sort()).toEqual([task.id, sub.id, other.id].sort());
+    expect(result.keptTaskIds).toEqual([]);
+    expect(taskRows([task.id, sub.id, other.id])).toEqual([]);
+    expect(taskRow(active.id)).toBeDefined();
+    expect(changes).toEqual([
+      {
+        type: 'deleted',
+        taskIds: expect.arrayContaining(result.taskIds),
+        unlinkedNoteIds: [],
+        inTransaction: true,
+      },
+    ]);
+  });
+
+  it('keeps an archived task with a live synced task below it, and its ancestors', () => {
+    const parent = issue();
+    const child = issue({ parentExternalId: parent.externalId });
+    writer.applyTaskPage(sourceId, page({ tasks: [parent, child] }));
+    // sync archives the parent alone
+    writer.applyTaskPage(sourceId, page({ removedIds: [parent.externalId] }));
+    const taskId = linkOf(parent.externalId)!.taskId!;
+    const childId = linkOf(child.externalId)!.taskId!;
+    const local = tasks.createTask({ title: 'Local', dueDate: TOMORROW });
+    archive.archiveTask(local.id);
+
+    expect(tasks.deleteArchivedTasks()).toEqual({ taskIds: [local.id], keptTaskIds: [taskId] });
+    expect(taskRow(taskId)).toBeDefined();
+    expect(taskRow(childId)).toMatchObject({ archivedAt: null });
+  });
+
+  it('names the notes that lost their task, and sends nothing when the trash has no task', async () => {
+    const task = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const taskNote = await notes.createNote({ title: 'On parent', linkedTaskId: task.id });
+    archive.archiveTask(task.id);
+    archive.restoreNote(taskNote.id);
+    const changes: TaskChange[] = [];
+    tasks.onChange((change) => changes.push(change));
+
+    tasks.deleteArchivedTasks();
+    expect(changes).toEqual([
+      { type: 'deleted', taskIds: [task.id], unlinkedNoteIds: [taskNote.id] },
+    ]);
+    expect(noteRow(taskNote.id)).toMatchObject({ linkedTaskId: null });
+
+    expect(tasks.deleteArchivedTasks()).toEqual({ taskIds: [], keptTaskIds: [] });
+    expect(changes).toHaveLength(1);
+  });
+});
+
+describe('ProjectService.deleteArchivedProjects', () => {
+  it('deletes every archived project in one change, keeping their tasks and notes', async () => {
+    const proj = projects.createProject({ title: 'Old', dueDate: TOMORROW });
+    const active = projects.createProject({ title: 'Active', dueDate: TOMORROW });
+    const task = tasks.createTask({ title: 'Filed', dueDate: TOMORROW, projectId: proj.id });
+    const note = await notes.createNote({ title: 'Filed', projectId: proj.id });
+    archive.archiveProject(proj.id);
+    archive.restoreTask(task.id);
+    archive.restoreNote(note.id);
+    const changes: (ProjectChange & { inTransaction: boolean })[] = [];
+    projects.onChange((change) => changes.push({ ...change, inTransaction: inTransaction() }));
+
+    expect(projects.deleteArchivedProjects()).toEqual({ projectIds: [proj.id] });
+
+    expect(projectRow(proj.id)).toBeUndefined();
+    expect(projectRow(active.id)).toBeDefined();
+    expect(taskRow(task.id)).toMatchObject({ projectId: null });
+    expect(noteRow(note.id)).toMatchObject({ projectId: null });
+    expect(changes).toEqual([
+      {
+        type: 'deleted',
+        projectIds: [proj.id],
+        unfiledTaskIds: [task.id],
+        unfiledNoteIds: [note.id],
+        inTransaction: true,
+      },
+    ]);
+    expect(projects.deleteArchivedProjects()).toEqual({ projectIds: [] });
+    expect(changes).toHaveLength(1);
+  });
+});
+
+describe('NoteService.deleteArchivedNotes and removeDeletedFiles', () => {
+  it('deletes every archived note row in one change, leaving the files for after the commit', async () => {
+    const task = tasks.createTask({ title: 'Made from it', dueDate: TOMORROW });
+    const note = await notes.createNote({ title: 'Old' });
+    db.update(tasksTable).set({ linkedNoteId: note.id }).where(eq(tasksTable.id, task.id)).run();
+    const owner = tasks.createTask({ title: 'Owner', dueDate: TOMORROW });
+    const taskNote = await notes.createNote({ title: 'Task note', linkedTaskId: owner.id });
+    const active = await notes.createNote({ title: 'Active' });
+    archive.archiveNote(note.id);
+    archive.archiveNote(taskNote.id);
+    const changes: (NoteChange & { inTransaction: boolean })[] = [];
+    notes.onChange((change) => changes.push({ ...change, inTransaction: inTransaction() }));
+
+    const { noteIds } = notes.deleteArchivedNotes();
+
+    expect(noteIds.sort()).toEqual([note.id, taskNote.id].sort());
+    expect(noteRow(note.id)).toBeUndefined();
+    expect(noteRow(active.id)).toBeDefined();
+    expect(taskRow(task.id)).toMatchObject({ linkedNoteId: null });
+    expect(changes).toEqual([
+      {
+        type: 'deleted',
+        noteIds: expect.arrayContaining(noteIds),
+        linkedTaskIds: [owner.id],
+        unlinkedTaskIds: [task.id],
+        inTransaction: true,
+      },
+    ]);
+    // the files are still there until removeDeletedFiles
+    expect(await exists(noteFile(note.id))).toBe(true);
+
+    expect(await notes.removeDeletedFiles(noteIds)).toEqual([]);
+    expect(await exists(noteFile(note.id))).toBe(false);
+    expect(await exists(noteFile(taskNote.id))).toBe(false);
+    expect(await exists(noteFile(active.id))).toBe(true);
+  });
+
+  it("leaves a note that still has its row, and reports a file it can't remove", async () => {
+    const active = await notes.createNote({ title: 'Active' });
+    const stuck = await notes.createNote({ title: 'Stuck' });
+    const gone = await notes.createNote({ title: 'Gone' });
+    archive.archiveNote(stuck.id);
+    archive.archiveNote(gone.id);
+    const { noteIds } = notes.deleteArchivedNotes();
+    // a non-empty folder where the file was: removing it fails
+    await fs.rm(noteFile(stuck.id));
+    await fs.mkdir(noteFile(stuck.id));
+    await fs.writeFile(path.join(noteFile(stuck.id), 'x'), '');
+
+    expect(await notes.removeDeletedFiles([...noteIds, active.id])).toEqual([stuck.id]);
+    expect(await exists(noteFile(active.id))).toBe(true);
+    expect(await exists(noteFile(gone.id))).toBe(false);
+  });
+
+  it('removes a file after the content save already queued for it', async () => {
+    const note = await notes.createNote({ title: 'Saving' });
+    // it finds no row when it writes the preview, after the delete
+    const save = notes.updateNoteContent(note.id, 'last words').catch((error: unknown) => error);
+    archive.archiveNote(note.id);
+    const { noteIds } = notes.deleteArchivedNotes();
+
+    await notes.removeDeletedFiles(noteIds);
+
+    // the save had read its row before the delete, so it wrote the file; the removal came after
+    expect(await save).toBeInstanceOf(NotFoundError);
+    expect(await exists(noteFile(note.id))).toBe(false);
   });
 });

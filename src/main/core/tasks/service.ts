@@ -2,7 +2,21 @@ import { generateId, ProjectId, TaskId } from '@common/ids';
 import { tasks } from '@main/db/schema/tasks';
 import { notes } from '@main/db/schema/notes';
 import { externalLinks } from '@main/db/schema/integrations';
-import { eq, inArray, notInArray, and, isNull, not, SQL, lt, gt, gte, desc } from 'drizzle-orm';
+import {
+  eq,
+  inArray,
+  notInArray,
+  and,
+  isNull,
+  isNotNull,
+  not,
+  sql,
+  SQL,
+  lt,
+  gt,
+  gte,
+  desc,
+} from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   LinkState,
@@ -535,6 +549,42 @@ export class TaskService {
       const result: TaskDeleteResult = { taskIds, unlinkedNoteIds };
       this.changes.emit({ type: 'deleted', ...result });
       return result;
+    });
+  }
+
+  /**
+   * Deletes every archived task that deleteTask would delete, in one transaction (or the caller's,
+   * as a savepoint), and sends one `deleted` change as its last step when any went. An archived
+   * task with an active or synced task anywhere below it is kept, as deleteTask refuses it: sync
+   * can archive a removed Linear task and leave its synced subtasks live. Returns the ids deleted
+   * and those kept.
+   */
+  deleteArchivedTasks(): { taskIds: TaskId[]; keptTaskIds: TaskId[] } {
+    return this.db.transaction((tx) => {
+      // every task that must stay, and every ancestor of one, since deleting a task takes its
+      // subtree along
+      const synced = hasLinkInState('task', tasks.id, LinkState.SYNCED);
+      const mustStay = sql`(with recursive kept(id) as (select ${tasks.id} from ${tasks} where ${tasks.archivedAt} is null or ${synced} union select ${tasks.parentTaskId} from ${tasks} join kept on ${tasks.id} = kept.id where ${tasks.parentTaskId} is not null) select id from kept)`;
+      const archived = tx
+        .select({ id: tasks.id, kept: sql<number>`${tasks.id} in ${mustStay}` })
+        .from(tasks)
+        .where(isNotNull(tasks.archivedAt))
+        .all();
+      const taskIds = archived.filter((row) => !row.kept).map((row) => row.id);
+      const keptTaskIds = archived.filter((row) => row.kept).map((row) => row.id);
+      if (taskIds.length === 0) return { taskIds, keptTaskIds };
+
+      // read before the delete clears their link
+      const unlinkedNoteIds = tx
+        .select({ id: notes.id })
+        .from(notes)
+        .where(inArray(notes.linkedTaskId, taskIds))
+        .all()
+        .map((row) => row.id);
+      tx.delete(tasks).where(inArray(tasks.id, taskIds)).run();
+
+      this.changes.emit({ type: 'deleted', taskIds, unlinkedNoteIds });
+      return { taskIds, keptTaskIds };
     });
   }
 
