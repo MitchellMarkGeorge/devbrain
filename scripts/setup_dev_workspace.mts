@@ -19,9 +19,12 @@
  * startDate & dueDate, event startAt/endAt), which are spread across the
  * past and future.
  *
+ * It adds the workspace to the DevBrain folder at DEV_PATH, which the app creates on its first run
+ * (this makes it too when it isn't there yet). Quit the app first: both would write the folder.
+ *
  * Usage:
- *   npm run seed:dev                              # create workspace at DEV_PATH (from .env)
- *   npm run seed:dev -- --reset                    # wipe and recreate it
+ *   npm run seed:dev                              # add the workspace to the folder at DEV_PATH (from .env)
+ *   npm run seed:dev -- --reset                    # wipe the whole folder, then add it
  *   npm run seed:dev -- --path .dev2 --name Perf    # override .env for this run
  *   npm run seed:dev -- --path=.dev2 --name=Perf    # the same
  *   npm run seed:dev -- --seed 7                    # different dataset shape
@@ -1002,27 +1005,25 @@ async function whenSyncIdle(workspace: Workspace): Promise<void> {
 async function main() {
   const startedAt = Date.now();
 
-  const alreadyExists = await fs
-    .stat(ROOT_PATH)
-    .then(() => true)
-    .catch(() => false);
-
-  if (alreadyExists && !RESET) {
-    console.error(`A directory already exists at ${ROOT_PATH}.`);
-    console.error('Re-run with --reset to wipe and recreate it.');
-    process.exit(1);
-  }
-
   console.log(`Seeding dev workspace at ${ROOT_PATH}${RESET ? ' (--reset)' : ''} [seed=${SEED}]`);
 
   // --reset wipes the folder here: opening a DevBrain folder never deletes anything
-  if (alreadyExists) await fs.rm(ROOT_PATH, { recursive: true, force: true });
+  if (RESET) await fs.rm(ROOT_PATH, { recursive: true, force: true });
+  // the folder the app made, or a new one
   const devBrain = await openDevBrain({
     settingsStore: openElectronSettingsStore,
     path: ROOT_PATH,
     createIfMissing: true,
     workspace: { migrationsPath: MIGRATIONS_PATH, cipher: devCipher, fetch },
   });
+  if (devBrain.workspaces.getByName(WORKSPACE_NAME)) {
+    await devBrain.close();
+    console.error(
+      `The DevBrain folder at ${ROOT_PATH} already has a workspace named ${WORKSPACE_NAME}.`,
+    );
+    console.error('Re-run with --name for another one, or --reset to wipe the folder.');
+    process.exit(1);
+  }
   const created = await devBrain.workspaces.create({
     name: WORKSPACE_NAME,
     color: pick(PALETTE),

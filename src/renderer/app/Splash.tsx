@@ -44,11 +44,7 @@ export function DevBrainUnavailable() {
       role="alert"
       logo={<Logomark size="md" />}
       title="DevBrain couldn’t open its data folder"
-      description={
-        import.meta.env.DEV
-          ? 'In development, run “npm run seed:dev” to make it, or “npm run seed:dev -- --reset” to make it again.'
-          : 'Check that the folder exists and that DevBrain can read and write it, then restart DevBrain.'
-      }
+      description="Check that the folder exists and that DevBrain can read and write it, then restart DevBrain."
       footer={
         <Flex gap="1" align="center">
           <Icon icon={TriangleAlert} size={12} />

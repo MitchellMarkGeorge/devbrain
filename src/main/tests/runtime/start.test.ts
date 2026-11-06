@@ -52,30 +52,13 @@ afterEach(async () => {
 });
 
 describe('loadDevBrain', () => {
-  it('returns null and says how to make one when there is none to load', async () => {
-    const logger = quietLogger();
+  it('creates an empty one on first run, opening nothing', async () => {
     started = await loadDevBrain({
       settingsStore: openFileSettingsStore,
       rootPath,
-      createIfMissing: false,
       workspace: WORKSPACE_OPTIONS,
-      logger,
     });
-    expect(started).toBeNull();
-    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('npm run seed:dev'));
-    await expect(fs.stat(rootPath)).rejects.toThrow();
-  });
-
-  it('creates an empty one on first run when asked to, opening nothing', async () => {
-    started = await loadDevBrain({
-      settingsStore: openFileSettingsStore,
-      rootPath,
-      createIfMissing: true,
-      workspace: WORKSPACE_OPTIONS,
-      logger: quietLogger(),
-    });
-    expect(started).not.toBeNull();
-    expect(started!.currentWorkspace).toBeNull();
+    expect(started.currentWorkspace).toBeNull();
     expect((await fs.stat(path.join(rootPath, 'workspaces.json'))).isFile()).toBe(true);
   });
 
@@ -84,9 +67,7 @@ describe('loadDevBrain', () => {
     started = await loadDevBrain({
       settingsStore: openFileSettingsStore,
       rootPath,
-      createIfMissing: true,
       workspace: WORKSPACE_OPTIONS,
-      logger: quietLogger(),
     });
     expect(started!.workspaces.listAll().items).toEqual([]);
   });
@@ -97,9 +78,7 @@ describe('loadDevBrain', () => {
     started = await loadDevBrain({
       settingsStore: openFileSettingsStore,
       rootPath,
-      createIfMissing: false,
       workspace: WORKSPACE_OPTIONS,
-      logger: quietLogger(),
     });
     expect(started!.currentWorkspace).toBeNull();
   });
@@ -111,9 +90,7 @@ describe('loadDevBrain', () => {
       loadDevBrain({
         settingsStore: openFileSettingsStore,
         rootPath,
-        createIfMissing: true,
         workspace: WORKSPACE_OPTIONS,
-        logger: quietLogger(),
       }),
     ).rejects.toThrow('settings.json');
     expect(await fs.readdir(rootPath)).toEqual(['notes.txt']);
@@ -125,9 +102,7 @@ describe('openLastWorkspace', () => {
     (started = await loadDevBrain({
       settingsStore: openFileSettingsStore,
       rootPath,
-      createIfMissing: false,
       workspace: WORKSPACE_OPTIONS,
-      logger: quietLogger(),
     }))!;
 
   it('reopens the workspace open last time, which starts syncing', async () => {
@@ -226,9 +201,7 @@ describe('startup shutdown', () => {
       const loaded = await loadDevBrain({
         settingsStore: openFileSettingsStore,
         rootPath,
-        createIfMissing: false,
         workspace: WORKSPACE_OPTIONS,
-        logger: quietLogger(),
       });
       started = loaded;
       const app = Object.assign(new EventEmitter(), { quit: vi.fn<() => void>() });

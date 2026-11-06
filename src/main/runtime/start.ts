@@ -6,42 +6,29 @@ import {
   type Workspace,
   type WorkspaceOptions,
 } from '@main/core';
-import { DevBrainFolderError } from '@main/core/shared/errors';
-import type { SyncLogger } from '@main/core/sync/types';
 
 export interface LoadDevBrainOptions {
-  // the DevBrain folder: settings.json, workspaces.json and the workspaces
+  // the DevBrain folder: settings.json, workspaces.json and the workspaces. Created when there is
+  // none (or only an empty directory), on the first run, in development as in the packaged app
   rootPath: string;
-  // Creates a DevBrain folder when there is none (or only an empty directory), as on the packaged
-  // app's first run. Off in development, where the folder comes from `npm run seed:dev`.
-  createIfMissing: boolean;
   // opens the folder's settings file: electron-store in the app
   settingsStore: OpenSettingsStore;
   // the cipher, fetch and browser opener every workspace gets
   workspace: WorkspaceOptions;
-  logger: Pick<SyncLogger, 'warn'>;
 }
 
 /**
- * Opens the DevBrain folder, and no workspace: whatever follows DevBrain (sync triggers, change
- * listeners) attaches to it before the renderer opens one (openLastWorkspace). Returns null when
- * there is no folder and none is to be created. Throws when the folder is invalid.
+ * Opens the DevBrain folder, creating it when there is none, and no workspace: whatever follows
+ * DevBrain (sync triggers, change listeners) attaches to it before the renderer opens one
+ * (openLastWorkspace). Throws when the folder is invalid.
  */
-export async function loadDevBrain(options: LoadDevBrainOptions): Promise<DevBrain | null> {
-  try {
-    return await openDevBrain({
-      path: options.rootPath,
-      settingsStore: options.settingsStore,
-      createIfMissing: options.createIfMissing,
-      workspace: options.workspace,
-    });
-  } catch (error) {
-    if (!(error instanceof DevBrainFolderError && error.reason === 'missing')) throw error;
-    options.logger.warn(
-      `No DevBrain folder at ${options.rootPath}; run \`npm run seed:dev\` to create one`,
-    );
-    return null;
-  }
+export function loadDevBrain(options: LoadDevBrainOptions): Promise<DevBrain> {
+  return openDevBrain({
+    path: options.rootPath,
+    settingsStore: options.settingsStore,
+    createIfMissing: true,
+    workspace: options.workspace,
+  });
 }
 
 /**

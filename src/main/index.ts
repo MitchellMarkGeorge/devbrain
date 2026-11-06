@@ -66,22 +66,21 @@ function configureLogging() {
 // --- DevBrain -------------------------------------------------------------
 const devBrainLog = log.scope('devbrain');
 
-// The DevBrain folder: in development the one `npm run seed:dev` fills (DEV_PATH, relative to the
-// repository, as the seed script reads it), else DEVBRAIN_PATH or ~/.devbrain.
+// The DevBrain folder: in development DEV_PATH, relative to the repository (`npm run seed:dev` adds
+// a sample workspace to it), else DEVBRAIN_PATH or ~/.devbrain. Created when missing.
 function devBrainRootPath(): string {
   if (!app.isPackaged) return path.resolve(REPO_ROOT, process.env.DEV_PATH ?? '.dev');
   return process.env.DEVBRAIN_PATH ?? path.join(os.homedir(), '.devbrain');
 }
 
 // Opens the DevBrain folder, and no workspace yet: the renderer opens one (workspaces.openLast).
-// Must run after `ready`: net.fetch and safeStorage's async API are only usable from then. Null
-// when there is no DevBrain folder in development, or the folder is invalid. Never rejects: a
+// Must run after `ready`: net.fetch and safeStorage's async API are only usable from then. Creates
+// the folder when there is none. Null when the folder is invalid or can't be made. Never rejects: a
 // failure is logged, and the window stays up.
 async function loadCore(): Promise<DevBrain | null> {
   try {
     return await loadDevBrain({
       rootPath: devBrainRootPath(),
-      createIfMissing: app.isPackaged,
       settingsStore: openElectronSettingsStore,
       workspace: {
         migrationsPath: migrationsPath({
@@ -98,7 +97,6 @@ async function loadCore(): Promise<DevBrain | null> {
         openExternal: (url) => shell.openExternal(url),
         logger: log.scope('sync'),
       },
-      logger: devBrainLog,
     });
   } catch (error) {
     devBrainLog.error('Loading DevBrain failed', error);
