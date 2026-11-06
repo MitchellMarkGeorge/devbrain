@@ -10,7 +10,8 @@ import type { TaskRecord } from './task-format';
 // leaves out into the import's summary. Pure: what it needs from the workspace comes in `context`.
 
 export interface TaskImportContext {
-  // for a top-level task without one; a subtask without one takes its parent's
+  // for a top-level task without one, as the create dialog fills it in; a subtask without one
+  // takes its parent's
   defaultDueDate: Date;
   defaultPriority: TaskPriority;
   // the active projects by matchKey(title)
@@ -197,8 +198,7 @@ export function planTaskImport(roots: TaskRecord[], context: TaskImportContext):
 
   for (const root of roots) {
     const tree = visit(root, true);
-    // a top-level task always has a due date: its own or the default
-    if (tree !== null) plan.trees.push({ ...tree, dueDate: tree.dueDate! });
+    if (tree !== null) plan.trees.push(tree);
   }
   for (const list of [plan.skipped, plan.errors, plan.warnings]) list.sort((a, b) => a.row - b.row);
   return plan;

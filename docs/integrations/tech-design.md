@@ -299,12 +299,12 @@ Unique on (`sourceId`, `externalId`). A `CHECK` enforces exactly one entity colu
 
 | Table      | Change                                  | Why                                                                                                      |
 | ---------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `tasks`    | `dueDate` becomes nullable              | Linear issues often have none. `TaskService.createTask` still requires it for local tasks.               |
-| `projects` | `dueDate` becomes nullable              | Linear's target date is optional. `ProjectService.createProject` still requires it for local projects.   |
+| `tasks`    | `dueDate` becomes nullable              | Linear issues often have none. Local tasks may have none too.                                            |
+| `projects` | `dueDate` becomes nullable              | Linear's target date is optional. Local projects may have none too.                                      |
 | `tasks`    | `status` accepts a new value, CANCELLED | Enum change only; the column and its check constraint are unchanged.                                     |
 | `tasks`    | `pullRequestUrl` is kept                | Local tasks need a URL with no integration connected. A rename to a generic `url` can follow separately. |
 
-Required due dates for local items are enforced in the services, not the schema, because integration data can lack them.
+Due dates are optional for local items too: the create dialogs fill one in from the default due date setting, and nothing else needs one.
 
 SQLite cannot drop `NOT NULL` in place, so drizzle-kit generates a table rebuild for each. The FTS table is separate and unaffected. `idx_tasks_status_due_date` is recreated by the rebuild.
 
@@ -439,7 +439,7 @@ The reconcile pass checks mirrored project ids as well as issue ids, so a projec
 | `archiveTask`                  | Archives the task, its whole subtree and their notes | Rejected; detach first                  | Same as local |
 | Removal by sync                | n/a                                                  | Archives that task only, link `removed` | Never         |
 
-Context differs by kind. A local subtask copies its parent's project, note link and event link when it is created or demoted; a demoted task's whole subtree takes them on. After that its project is its own: `updateProject` moves just that task, so a local subtree can span projects, as a Linear one can (and a detached one may already). A synced task carries its own: the project is Linear's for that issue (so a sub-issue can sit in a different project from its parent, and never in a local or detached one), and its note and event links are set per task. Due dates are required for local tasks only.
+Context differs by kind. A local subtask copies its parent's project, note link and event link when it is created or demoted; a demoted task's whole subtree takes them on. After that its project is its own: `updateProject` moves just that task, so a local subtree can span projects, as a Linear one can (and a detached one may already). A synced task carries its own: the project is Linear's for that issue (so a sub-issue can sit in a different project from its parent, and never in a local or detached one), and its note and event links are set per task. A local subtask created without a due date takes its parent's, if the parent has one. Due dates are optional for every kind.
 
 **Read-only enforcement.** Enforced in the service layer, not only the UI.
 
@@ -1182,7 +1182,7 @@ None open.
 | Local tasks in mirrored projects       | Allowed. They stay local and are never synced back                                           |
 | Purge window for removed items         | Never in v1. Removed items stay archived as history; cleanup is revisited in a later version |
 | `tasks.pullRequestUrl`                 | Kept. Local tasks can carry a URL with no integration                                        |
-| Required due date for local projects   | Yes, enforced in the service, not the schema                                                 |
+| Required due date for local items      | No. Optional for local tasks, subtasks and projects, as for synced ones                      |
 
 **To verify against provider documentation before building**
 
