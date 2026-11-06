@@ -45,13 +45,13 @@ Five features that change existing code so mirrored rows can exist. Nothing here
 
 Linear issues and projects often have no due date. This is the riskiest change to existing code, so it goes first and alone.
 
-- [ ] In `core/tasks/types.ts` and `core/projects/types.ts`, change `dueDate: Date` to `Date | null` on `Task` and `Project`. Leave `CreateTaskOptions.dueDate` and `CreateProjectOptions.dueDate` required.
+- [ ] In `core/tasks/types.ts` and `core/projects/types.ts`, change `dueDate: Date` to `Date | null` on `Task` and `Project`. Leave `CreateTaskOptions.dueDate` and `CreateProjectOptions.dueDate` required (since made optional: T6 in `docs/renderer/implementation-plan.md`).
 - [ ] Run `npm run typecheck` and fix every error the type change surfaces before touching the schema.
 - [ ] In `db/schema/tasks.ts` and `db/schema/projects.ts`, remove `.notNull()` from `dueDate`.
 - [ ] Run `npm run db:generate-migrations`. Read the generated SQL: it must rebuild both tables, copy all rows, and recreate every index and check constraint.
 - [ ] Extend `keyset` in `core/shared/pagination.ts` with a `nullable` option. Order by `(col IS NULL), col, id` so nulls come last in both directions. Let `lastSortValue` in the cursor be null. Resume clause: after a non-null value, include rows with greater values, ties with greater id, and all null rows; after a null value, include only null rows with greater id.
 - [ ] Pass `nullable: true` from `listTasks` and `listProjects` when sorting by `dueDate`.
-- [ ] In `createSubtask`, keep inheriting the parent's `dueDate`; if both are null, throw, because local tasks require one.
+- [ ] In `createSubtask`, keep inheriting the parent's `dueDate`; if both are null, throw, because local tasks require one (since dropped: with neither, the subtask has none).
 - [ ] In `getProjectStats`, count a task as overdue only when `dueDate` is not null.
 - [ ] Check `dueBefore`, `dueAfter` and `dueOn` filters: SQL comparisons already exclude nulls. Add a test that proves it.
 - [ ] Update `tests/db/pagination-indexes.test.ts` for the due-date sort. If the `IS NULL` ordering stops the planner using `idx_tasks_due_date_id`, add an expression index on `(due_date IS NULL, due_date, id)` and assert that instead.

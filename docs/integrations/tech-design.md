@@ -51,7 +51,7 @@ The facts from the codebase, before integrations, that shaped the design. Core a
 | Open workspaces   | `WorkspaceService` holds one `currentWorkspace`                                                             | Sync runs only for the open workspace.                                                                  |
 | Tasks             | `dueDate` is `NOT NULL`; statuses are NOT_STARTED, IN_PROGRESS, COMPLETED; priorities are LOW, MEDIUM, HIGH | Due date must become nullable. Linear's richer states and priorities need a mapping plus the raw label. |
 | Subtasks          | `createSubtask` and `demoteTask` allow one level only                                                       | Depth guards must apply to local tasks only.                                                            |
-| Task links        | One of `linkedEventId` or `linkedNoteId`; subtasks inherit the parent's project and links                   | Links are local-owned fields that sync must never overwrite.                                            |
+| Task links        | One of `linkedEventId` or `linkedNoteId`; subtasks inherit the parent's links                               | Links are local-owned fields that sync must never overwrite.                                            |
 | Projects          | `dueDate` is `NOT NULL`; four statuses                                                                      | Same nullability change. Linear project states map onto the four.                                       |
 | Events            | `reccurrenceRule` stores RFC 5545 lines, chosen to match Google Calendar; no `archivedAt`, deletes are hard | Recurring masters map directly. Removal needs a soft state on the link row.                             |
 | Search            | FTS5 `search_index`; services call `indexTask`, `indexEvents` and friends explicitly                        | The sync writer must index what it upserts and remove what it deletes.                                  |
@@ -299,12 +299,12 @@ Unique on (`sourceId`, `externalId`). A `CHECK` enforces exactly one entity colu
 
 | Table      | Change                                  | Why                                                                                                      |
 | ---------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `tasks`    | `dueDate` becomes nullable              | Linear issues often have none. `TaskService.createTask` still requires it for local tasks.               |
-| `projects` | `dueDate` becomes nullable              | Linear's target date is optional. `ProjectService.createProject` still requires it for local projects.   |
+| `tasks`    | `dueDate` becomes nullable              | Linear issues often have none. Local tasks may have none too.                                            |
+| `projects` | `dueDate` becomes nullable              | Linear's target date is optional. Local projects may have none too.                                      |
 | `tasks`    | `status` accepts a new value, CANCELLED | Enum change only; the column and its check constraint are unchanged.                                     |
 | `tasks`    | `pullRequestUrl` is kept                | Local tasks need a URL with no integration connected. A rename to a generic `url` can follow separately. |
 
-Required due dates for local items are enforced in the services, not the schema, because integration data can lack them.
+Due dates are optional for local items too: the create dialogs fill one in from the default due date setting, and nothing else needs one.
 
 SQLite cannot drop `NOT NULL` in place, so drizzle-kit generates a table rebuild for each. The FTS table is separate and unaffected. `idx_tasks_status_due_date` is recreated by the rebuild.
 
@@ -429,17 +429,17 @@ The reconcile pass checks mirrored project ids as well as issue ids, so a projec
 - The two never mix. A synced task has no local children and no local parent: `createSubtask`, `demoteTask` and `promoteSubtask` reject synced rows.
 - A detached task follows the local rules from then on, with the subtree it carried over from Linear.
 
-| Operation                      | Local                                                 | Synced                                  | Detached      |
-| ------------------------------ | ----------------------------------------------------- | --------------------------------------- | ------------- |
-| `createSubtask` (as parent)    | Any depth; the child inherits context                 | Rejected                                | Same as local |
-| `updateTask`, `updateStatus`   | Allowed                                               | Rejected                                | Allowed       |
-| `updateProject`                | Top-level only; subtasks inherit the parent's project | Rejected; the project follows Linear    | Same as local |
-| `updateLinks`                  | Top-level only; subtasks inherit the parent's links   | Allowed, on subtasks too                | Same as local |
-| `promoteSubtask`, `demoteTask` | Allowed; never under the task's own subtree           | Rejected                                | Same as local |
-| `archiveTask`                  | Archives the task, its whole subtree and their notes  | Rejected; detach first                  | Same as local |
-| Removal by sync                | n/a                                                   | Archives that task only, link `removed` | Never         |
+| Operation                      | Local                                                | Synced                                  | Detached      |
+| ------------------------------ | ---------------------------------------------------- | --------------------------------------- | ------------- |
+| `createSubtask` (as parent)    | Any depth; the child inherits context                | Rejected                                | Same as local |
+| `updateTask`, `updateStatus`   | Allowed                                              | Rejected                                | Allowed       |
+| `updateProject`                | Allowed, on subtasks too                             | Rejected; the project follows Linear    | Same as local |
+| `updateLinks`                  | Top-level only; subtasks inherit the parent's links  | Allowed, on subtasks too                | Same as local |
+| `promoteSubtask`, `demoteTask` | Allowed; never under the task's own subtree          | Rejected                                | Same as local |
+| `archiveTask`                  | Archives the task, its whole subtree and their notes | Rejected; detach first                  | Same as local |
+| Removal by sync                | n/a                                                  | Archives that task only, link `removed` | Never         |
 
-Context differs by kind. A local subtask copies its parent's project, note link and event link when it is created or demoted; a demoted task's whole subtree takes them on. A synced task carries its own: the project is Linear's for that issue (so a sub-issue can sit in a different project from its parent, and never in a local or detached one), and its note and event links are set per task. Due dates are required for local tasks only.
+Context differs by kind. A local subtask copies its parent's project, note link and event link when it is created or demoted; a demoted task's whole subtree takes them on. After that its project is its own: `updateProject` moves just that task, so a local subtree can span projects, as a Linear one can (and a detached one may already). A synced task carries its own: the project is Linear's for that issue (so a sub-issue can sit in a different project from its parent, and never in a local or detached one), and its note and event links are set per task. A local subtask created without a due date takes its parent's, if the parent has one. Due dates are optional for every kind.
 
 **Read-only enforcement.** Enforced in the service layer, not only the UI.
 
@@ -1182,7 +1182,7 @@ None open.
 | Local tasks in mirrored projects       | Allowed. They stay local and are never synced back                                           |
 | Purge window for removed items         | Never in v1. Removed items stay archived as history; cleanup is revisited in a later version |
 | `tasks.pullRequestUrl`                 | Kept. Local tasks can carry a URL with no integration                                        |
-| Required due date for local projects   | Yes, enforced in the service, not the schema                                                 |
+| Required due date for local items      | No. Optional for local tasks, subtasks and projects, as for synced ones                      |
 
 **To verify against provider documentation before building**
 

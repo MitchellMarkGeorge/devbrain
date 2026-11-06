@@ -216,6 +216,11 @@ describe('TaskService — createSubtask', () => {
     expect(sub.dueDate!.getTime()).toBe(NEXT_WEEK.getTime());
   });
 
+  it('has no due date when given null, though its parent has one', async () => {
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    expect(tasks.createSubtask(parent.id, { title: 'Sub', dueDate: null }).dueDate).toBeNull();
+  });
+
   it("inherits the parent's projectId", async () => {
     const parent = tasks.createTask({
       title: 'Parent',
@@ -891,16 +896,19 @@ describe('TaskService — updateProject', () => {
     expect(() => tasks.updateProject(generateId('task'), FAKE_PROJECT_ID)).toThrow(NotFoundError);
   });
 
-  it('throws when called on a subtask', async () => {
-    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+  it("moves a subtask to a project other than its parent's, leaving the parent as it was", async () => {
+    const parent = tasks.createTask({
+      title: 'Parent',
+      dueDate: TOMORROW,
+      projectId: FAKE_PROJECT_ID,
+    });
     const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
-    expect(() => tasks.updateProject(sub.id, FAKE_PROJECT_ID)).toThrow(
-      expect.objectContaining({
-        code: 'task_hierarchy',
-        reason: 'inherits_context',
-        message: expect.stringContaining('Subtasks inherit project context from partent task'),
-      }),
-    );
+    expect(sub.projectId).toBe(FAKE_PROJECT_ID);
+
+    const other = new ProjectService(db).createProject({ title: 'Other', dueDate: TOMORROW });
+    expect(tasks.updateProject(sub.id, other.id).projectId).toBe(other.id);
+    expect(tasks.getById(parent.id).projectId).toBe(FAKE_PROJECT_ID);
+    expect(tasks.updateProject(sub.id, null).projectId).toBeNull();
   });
 });
 
@@ -1791,15 +1799,15 @@ describe('TaskService — updateTasks', () => {
     ]);
   });
 
-  it("changes a subtask's status, priority and due date, but refuses moving it to a project", () => {
+  it("changes a subtask's priority and project like a top-level task's", () => {
     const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
     const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
 
     expect(tasks.updateTasks([sub.id], { priority: TaskPriority.HIGH })[0].priority).toBe(
       TaskPriority.HIGH,
     );
-    expect(() => tasks.updateTasks([parent.id, sub.id], { projectId: FAKE_PROJECT_ID })).toThrow(
-      expect.objectContaining({ code: 'task_hierarchy', reason: 'inherits_context' }),
+    expect(tasks.updateTasks([sub.id], { projectId: FAKE_PROJECT_ID })[0].projectId).toBe(
+      FAKE_PROJECT_ID,
     );
     expect(tasks.getById(parent.id).projectId).toBeNull();
   });

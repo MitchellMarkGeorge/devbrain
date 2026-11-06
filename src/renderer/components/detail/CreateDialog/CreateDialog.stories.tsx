@@ -80,7 +80,7 @@ function NewTask({ open, subtask }: { open?: boolean; subtask?: boolean }) {
   );
 }
 
-/** state=empty: Create stays disabled until the due date is set */
+/** state=empty: Create stays disabled until the title is set */
 export const Empty: Story = { render: () => <NewTask open /> };
 
 /** state=subtask: opened from a task's Subtasks "Add"; the parent's project and link carry over */

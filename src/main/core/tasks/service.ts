@@ -83,8 +83,8 @@ function newTaskValues(options: CreateTaskOptions): NewTaskValues {
 
 // The row createSubtask inserts under `parent`.
 function newSubtaskValues(parent: SubtaskParent, options: CreateSubTaskOptions): NewTaskValues {
-  // inherit the parent's due date when none is provided; with neither, the subtask has none
-  const dueDate = options.dueDate ?? parent.dueDate;
+  // left out, the parent's due date (if it has one); null, none
+  const dueDate = options.dueDate === undefined ? parent.dueDate : options.dueDate;
   return {
     title: options.title,
     description: options.description ?? null,
@@ -356,14 +356,7 @@ export class TaskService {
     // a synced task's project follows the provider; a local one can move into a mirrored project
     assertRowEditable(task);
 
-    if (isSubtask(task)) {
-      throw new TaskHierarchyError(
-        id,
-        'inherits_context',
-        'Subtasks inherit project context from partent task',
-      );
-    }
-
+    // a subtask starts in its parent's project but can move to its own, as a Linear sub-issue can
     const row = this.db
       .update(tasks)
       .set({
@@ -384,7 +377,6 @@ export class TaskService {
    * - ExternalReadOnlyError for a synced task (its provider owns these fields). The whole batch is
    *   refused rather than skipping it, so the user sees why nothing changed, not a half-applied
    *   selection; detaching it first makes it editable.
-   * - TaskHierarchyError for a subtask given a `projectId`: a subtask takes its parent's project.
    *
    * A status sets completedAt as updateStatus does. An `updated` is sent for each task, in the order
    * of `ids`, as the transaction's last step, so what listeners write (the search index) commits
@@ -421,13 +413,6 @@ export class TaskService {
         const task = byId.get(id);
         if (!task) throw new NotFoundError(id);
         assertRowEditable(task);
-        if (projectId !== undefined && isSubtask(task)) {
-          throw new TaskHierarchyError(
-            id,
-            'inherits_context',
-            'Subtasks inherit project context from partent task',
-          );
-        }
       }
       if (projectId) {
         const project = tx

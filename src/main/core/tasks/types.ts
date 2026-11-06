@@ -25,7 +25,8 @@ export interface CreateSubTaskOptions {
   description?: string;
   priority?: TaskPriority;
   status?: TaskStatus;
-  dueDate?: Date;
+  // left out, the parent's; null, none
+  dueDate?: Date | null;
   startDate?: Date;
   pullRequestUrl?: string;
 }

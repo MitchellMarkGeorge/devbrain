@@ -1198,7 +1198,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 | X1                                     | DTO types and enums to `src/common`                      | Entity components (milestone 3)              | **Yes** for the components |
 | T5                                     | Nullable fields in `tasks.update`/`projects.update`      | Date pickers, clearing links                 | **Yes** for clearing       |
 | S2                                     | Each workspace's `lastPage`, in its manifest             | Reopen last page                             | Done                       |
-| T6                                     | Optional `dueDate` on create                             | Create dialogs                               | No (default from settings) |
+| T6                                     | Optional `dueDate` on create                             | Create dialogs                               | Done                       |
 | P1                                     | Stats on `projects.list`                                 | Projects list/cards                          | No (N+1)                   |
 | T2                                     | Bulk task updates                                        | Selection bar                                | No (sequential)            |
 | S1                                     | Partial settings update, reset                           | Settings                                     | No (whole object)          |
