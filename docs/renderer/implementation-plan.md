@@ -57,7 +57,7 @@ surveyed three things in parallel and checked the claims the plan rests on again
 | Search params | Validated per route with Zod v4 (already a dependency; TanStack Router accepts Standard Schema), each field `.optional().catch(undefined)`. Without the `catch`, one bad value (a link saved before a param's values changed, a typo, a removed option) makes `validateSearch` throw, and the whole page renders the error screen. With it, that one field falls back to its default and the rest of the URL still applies. The fallback is `undefined` rather than a literal default because a missing param means "the setting's default" (e.g. `tasks.defaultView`), read at render: so a default is never written into the URL, and changing the setting changes every URL without the param. |
 | Data | React Query stays the cache, through `trpc.*.queryOptions()` as today. Route loaders only *prime* that cache (`queryClient.ensureQueryData`), so a page renders with its data on the first frame and a missing entity becomes the route's not-found. The router keeps no cache of its own (`defaultPreloadStaleTime: 0`). Freshness stays with the query invalidator: nothing in a route invalidates by hand. |
 | Router context | `{ queryClient, trpc, ipc }`, typed with `createRootRouteWithContext`. |
-| Entity components | The entity and list components take **core's own shapes**: a `TaskListItem` goes straight into `TaskRow`, with no mapping step. Each component declares the fields it reads, core's rows satisfy that structurally, and the component derives and formats what it draws (overdue, "Today", 10:30 AM) from a `FormatProvider` that supplies `now` and the time format. Needs core's enums moved to `src/common` (X1). See [Entity components take core's shapes](#entity-components-take-cores-shapes). |
+| Entity components | The entity and list components take **core's own shapes**: a `TaskListItem` goes straight into `TaskRow`, with no mapping step. Each component's props are a `Pick` of the shared type it draws (`Pick<TaskListItem, 'title' | 'status' | …>`), and it derives and formats what it draws (overdue, "Today", 10:30 AM) from a `FormatProvider` that supplies `now` and the time format. Needs the shared types and enums moved to `src/common` (X1). See [Entity components take core's shapes](#entity-components-take-cores-shapes). |
 | Dates | **luxon**, already a dependency and what core uses: relative and calendar dates, locale formats, 12/24 hour. No hand-written date formatting. |
 | Virtualization | Every list and grid that can grow is virtualized with **`@tanstack/react-virtual`**: tasks (list, group, board columns), notes, projects, trash, search results. See [Virtualized lists](#virtualized-lists). |
 | Detail presentation | As designed: tasks, projects and notes are pages; a task opened from the board and an event opened from the calendar show in the docked `Sheet` over their list, addressed by an `open` search param so Back closes them. The task note opens as a dialog (local state). |
@@ -462,16 +462,13 @@ sheet's `open` param does not.
 <TaskRow task={item} />
 
 // TaskRow.tsx
-export interface TaskRowData {          // the fields TaskRow reads; core's TaskListItem has them all
-  title: string;
-  status: TaskStatus;                   // core's enum, moved to src/common (X1)
-  priority: TaskPriority;
-  dueDate: Date | null;
-  subtaskProgress: { completed: number; total: number };
-  project: { title: string; color: string | null } | null;
-  external?: { provider: string; key: string | null } | null;
-  // …
-}
+import { TaskStatus, type TaskListItem } from '@common/types/tasks'; // moved there by X1
+
+// the fields TaskRow reads, named once, from the type core returns
+export type TaskRowData = Pick<
+  TaskListItem,
+  'id' | 'title' | 'status' | 'priority' | 'dueDate' | 'subtaskProgress' | 'project' | 'link' | 'parentTask' | 'external'
+>;
 
 export function TaskRow({ task }: { task: TaskRowData }) {
   const { now, formatDue } = useFormat();              // from <FormatProvider>
@@ -481,19 +478,17 @@ export function TaskRow({ task }: { task: TaskRowData }) {
 }
 ```
 
-- **Structural typing does the matching.** `TaskRowData` lists only what `TaskRow` reads, in the
-  form core returns it. Core's `TaskListItem` has those fields, so `task={item}` type-checks with
-  no import of core's types into the design system. A type test in `src/renderer/tests`
-  (`({} as TaskListItem) satisfies TaskRowData`) fails the build if core renames a field.
+- **One type, both sides.** `TaskListItem` lives in `src/common` (X1): core returns it, and
+  `TaskRow` takes a `Pick` of it. A field core renames is a type error in the component at once,
+  with no type test needed. The `Pick` keeps the prop to what the row reads, so a story's fixture
+  only fills those fields.
 - **`FormatProvider`** (in `components/lib`) supplies `now` (ticking once a minute, so "In 12 min"
   counts down) and `timeFormat` from settings, and wraps luxon (`useFormat()` returns
   `formatDue`, `formatRelative`, `formatTime`). The app mounts it once in `/app`. Storybook mounts
   it in a decorator with a fixed `now` (22 Jun 2026, as the screens use), so stories stay stable.
-- **Enums.** `TaskStatus`, `TaskPriority` and `ProjectStatus` are runtime enums in
-  `src/main/core`, which the renderer may only import as types. They move to `src/common` (X1),
-  where `CLAUDE.md` puts runtime values both sides need, and core re-exports them. The components'
-  string unions (`'not-started' | …`) go away. The derived `'overdue'` becomes a boolean the row
-  computes.
+- **Enums.** `TaskStatus`, `TaskPriority` and `ProjectStatus` move to `src/common` with the types
+  (X1). The components' string unions (`'not-started' | …`) go away, and the derived `'overdue'`
+  becomes a boolean the row computes.
 - **Colours** are checked where they're drawn: `resolveColor` (already in `components/types.ts`)
   validates a hex string with the shared `hexColorSchema` and falls back to the default.
 
@@ -704,8 +699,18 @@ sidebar.
 
 Figma `7254:8102` and its variants; composition in `screens/Home/HomeScreens.tsx`.
 
-- **Greeting** by time of day. The user's name has no source in core (see Open questions); until
-  then, "Good morning".
+- **Greeting** by time of day, **without a name**: "Good morning", "Good afternoon", "Good evening";
+  "Welcome to ‹workspace name›" in a new workspace. Nothing in DevBrain knows the user's name, and
+  each way of getting one costs more than the word is worth:
+  - The OS user name (`os.userInfo().username`) is an account name ("mgeorge", "mitchellmarkgeorge"),
+    not a name to greet with. The full name lives in different places on each OS and is often blank.
+  - A connected account's name (Linear, Google) only exists after connecting, and differs between
+    accounts.
+  - Asking for it adds a step to onboarding, for a local, single-user app that never shows the name
+    anywhere else.
+
+  The summary line under the greeting carries Home's content; the name added nothing to it. The
+  design-system README and the Figma Home frames change their copy to match when Home is built.
 - **Summary and section choice** are computed in `pages/home/summary.ts`, a pure function over:
   today's and tomorrow's events (`events.listForCalendar` for now → end of tomorrow), open tasks
   due by end of today (`tasks.list({ filter: { dueBefore, excludeClosed } })`), projects due in the
@@ -914,8 +919,7 @@ toast). `DocumentPage` at 720px, `Tabs` in `?tab`, `SettingsSection` / `Settings
   confirmations, Danger zone: Delete workspace (`workspaces.delete` after a typed confirmation;
   then the root lands on `/onboarding`).
 - **Tasks**: default sort, priority, due date, view, show completed.
-- **Calendar**: week starts on, default event length, default view. "Show weekends" is designed
-  but has no setting, and the README says the week view always keeps seven days (S3).
+- **Calendar**: week starts on, default event length, default view, Hide weekends (S3).
 - **Data & storage**: data folder path with Show in Finder (`settings.showDataFolder`); Import
   tasks / notes (`transfer.importTasks` / `importNotes`, then the import summary dialog from the
   returned summary, with "View Tasks"); Export tasks CSV/JSON and notes (toast with the result).
@@ -1004,11 +1008,41 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 
 ### Shared types
 
-- **X1: move core's enums to `src/common`.** `TaskStatus`, `TaskPriority` and `ProjectStatus` (and
-  the event `kind`/`status`/`response` values the calendar draws) are runtime enums in
-  `src/main/core/*/types.ts`. The renderer can only import `src/main` as types, so components can't
-  use them. Move them to `src/common`, re-export them from core so nothing else changes, and the
-  entity components take them directly. **Needed before milestone 3.**
+- **X1: move the DTO types and their enums to `src/common`.** `src/common/types.ts` exists and is
+  empty; this fills it. A **DTO** here is anything a route takes or returns: `Task`,
+  `TaskListItem`, `Project`, `ProjectStats`, `Note`, `NoteListItem`, `Event`, `Calendar`,
+  `Integration`, `ExternalRef`, `SourceSyncStatus`, `WorkspaceInfo`, `ArchivedEntity`,
+  `SearchResult`, the favorite and recent entries, `Page<T>`, the summaries (`TaskSummary`,
+  `ProjectSummary`, …), `AppSettings` with `appSettingsSchema`, and the enums they use
+  (`TaskStatus`, `TaskPriority`, `ProjectStatus`, `EventKind`, `EventStatus`, `EventResponse`).
+
+  - **Layout:** one file per feature (`src/common/types/tasks.ts`, `projects.ts`, `notes.ts`,
+    `events.ts`, `calendars.ts`, `integrations.ts`, `workspaces.ts`, `settings.ts`, `search.ts`,
+    `archive.ts`, `shared.ts`), re-exported from `src/common/types/index.ts`.
+  - **Core imports them from `@common`** with no re-export from the old files, so each type has one
+    home. The renderer stops using `import type` from `@main` for data, and keeps it only for
+    `AppRouter`.
+  - **Rule for `src/common`:** it imports only other `src/common` files and `zod`. No
+    `drizzle-orm`, no `node:*`, nothing from `src/main`. Add an ESLint rule for `src/common/**`
+    so it stays that way, since the renderer bundles it.
+  - **What has to be split,** because these files mix DTOs with core-only code:
+    - `tasks/types.ts` imports the Drizzle schema for its database row type. The row type stays in
+      core; `Task` and `TaskListItem` move.
+    - `shared/summaries.ts` holds both the summary types and the queries that load them. The types
+      move; the queries stay.
+    - `integrations/types.ts` mixes `Integration`/`ExternalRef` with the provider shapes
+      (`ExternalTask`, …) used only by sync. Only the first move.
+    - `workspace/types.ts` mixes `WorkspaceInfo` with core's wiring (the provider registry, the
+      cipher). Only `WorkspaceInfo` moves.
+  - **What stays in core:** database row types, sync cursors and provider shapes, service options,
+    and anything that names a Node or Drizzle type.
+  - **Inputs** (what `tasks.create` takes) are Zod schemas in `src/main/ipc/routers`. Moving them
+    too would let the create dialogs validate with the same schema. Optional; do it per form as
+    the dialogs are built.
+
+  A mechanical change (moving types, updating imports), with no behaviour change, so one PR with
+  `npm run typecheck` as its test. **Needed before milestone 3**, since the entity components are
+  written against these types.
 
 ### Settings and app state
 
@@ -1021,11 +1055,22 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
   `/app` path string of bounded length; the renderer parses it before navigating. Writing a
   `state.*` key emits no `SettingsChange` (`SettingsService.set` only emits for `settings.*`), so
   saving the page refetches nothing.
-- **S3: "Show weekends"** in calendar settings (`7158:11133`), if the README's "the week view keeps
-  all seven days" is to change. Otherwise drop it from Figma. A design decision first.
-- **S4: the user's name** for "Good morning, Mitchell": no setting holds it. Either a
-  `general.displayName` setting (asked in onboarding or settings) or the OS user's name from main
-  (`os.userInfo().username`, in the initial load context). A design decision.
+- **S3: `calendar.hideWeekends`** (default `false`) in `appSettingsSchema`, shown in Settings ›
+  Calendar as **Hide weekends** (Figma's "Show weekends" at `7158:11133` is renamed). FullCalendar
+  takes it as `weekends: !hideWeekends`, in the week and month views.
+  - **Existing settings files.** electron-store fills in defaults only at the top level, so a file
+    written before this has a `settings.calendar` without `hideWeekends`, and `settings.get` would
+    return it missing. Read the settings through `appSettingsSchema` with
+    `.default(false)` on the new key (or deep-merge the defaults when the file opens), so every
+    new setting has this path, not just this one.
+  - **The design system's rule changes.** The README says the week view always keeps seven days,
+    because hiding days could hide events. With the setting, that becomes "seven days unless
+    Hide weekends is on". When it's on and the visible week has weekend events, the header says so
+    ("2 events on the weekend"), with a link that shows the weekend. Update the README with the
+    change.
+- **S4 (dropped): the user's name.** Home greets without a name: "Good morning", and "Welcome to
+  ‹workspace name›" in a new workspace. See Home for why. If a name is wanted later, an optional
+  `general.displayName` in Settings › General is the way: the greeting adds it when it's set.
 - **S5 (with Vim mode): `general.keyboardMode: 'default' | 'vim'`** in `appSettingsSchema`, off by
   default. Not needed until Vim mode is built.
 
@@ -1115,7 +1160,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 | Id | Change | Needed by | Blocking |
 | --- | --- | --- | --- |
 | N1 | `notes.content`, `content` in `notes.create` | Note page, task note, event note | **Yes** |
-| X1 | Core's enums to `src/common` | Entity components (milestone 3) | **Yes** for the components |
+| X1 | DTO types and enums to `src/common` | Entity components (milestone 3) | **Yes** for the components |
 | T5 | Nullable fields in `tasks.update`/`projects.update` | Date pickers, clearing links | **Yes** for clearing |
 | S2 | `lastPage` read/write + in initial load context | Reopen last page | For that setting |
 | T6 | Optional `dueDate` on create | Create dialogs | No (default from settings) |
@@ -1130,7 +1175,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 | K0 | `readRange` skips unselected synced calendars | Calendar (unticked calendars vanish at once) | No, but cheap |
 | T1, T3, T4, P2, A1, A3, A4, K1, R2, E2 | See above | | No |
 | S5 | `keyboardMode` setting | Vim mode | Later |
-| S3, S4 | Design decisions first | Settings, Home | No |
+| S3 | `calendar.hideWeekends` | Settings, Calendar | No |
 
 ## Milestones and PR breakdown
 
@@ -1146,11 +1191,11 @@ page that needs them.
 2. **Onboarding.** Welcome, Create workspace (the shared form, also as the in-app dialog), Choose
    workspace, error states.
 3. **Shared app pieces.** Entity components moved to core's shapes, with `FormatProvider`
-   (luxon) and the X1 enum move; `TaskList`, `BoardColumn` and `CardGrid` virtualized; `useOpenEntity`; error
+   (luxon), after X1 moves the shared types; `TaskList`, `BoardColumn` and `CardGrid` virtualized; `useOpenEntity`; error
    toast and `useConfirm`; Recents/Favorites/SyncStatus in the sidebar; page header slot and
    breadcrumbs; the keyboard layer (command registry, scopes, keymap dispatcher, undo stack) with
    the default keymap, and the list keys moved out of `TaskRow`/`TaskList` into it; the shortcuts
-   dialog.
+   dialog. *Main:* X1 first.
 4. **Tasks.** List view with filters/sort in search params, row menu, selection bar; group view;
    board with the task sheet; create task and subtask dialogs; task page. *Main:* T5, T6 (then T2,
    C1–C3 as they land).
@@ -1176,7 +1221,7 @@ Milestones 4–7 are independent after 3 and can run in parallel.
 
 - **Unit (Vitest, node):** search schemas (defaults, `.catch` on bad values, round trip through
   `Link`), `landingPage`, the `FormatProvider` formats over luxon (pinned `now`, both time formats),
-  `isOverdue`, `resolveColor` on bad input, the `TaskListItem satisfies TaskRowData` type tests, `toEventInput` against the adapter spec's examples, `occurrencesBetween` agreeing with
+  `isOverdue`, `resolveColor` on bad input, `toEventInput` against the adapter spec's examples, `occurrencesBetween` agreeing with
   FullCalendar's expansion (series, EXDATEs, occurrence rows, all-day, DST change), Home's summary
   and section choice, the capture box parser, and the key dispatcher (sequences, scopes, typing
   targets, `mod` per platform).
@@ -1195,9 +1240,10 @@ Milestones 4–7 are independent after 3 and can run in parallel.
 
 Settled in review (Nov 6 2026): the route is `/app/trash`; events have no page of their own (the
 sheet is their detail view); the calendar uses FullCalendar; new workspaces from inside the app use
-a dialog; Help stays disabled until there is help; paths and param values use snake case.
+a dialog; Help stays disabled until there is help; paths and param values use snake case; Hide
+weekends is a calendar setting; the shared types move to `src/common`.
 
-1. **The user's name** on Home (S4) and **Show weekends** (S3).
+1. **No name on Home** (S4): recommended above. Confirm, and the README and Figma copy follow.
 
 ## Out of scope
 
