@@ -1,5 +1,5 @@
 import type { Query, QueryClient } from '@tanstack/react-query';
-import type { AnyTRPCProcedure, TRPCRouterRecord } from '@trpc/server';
+import type { inferRouterInputs } from '@trpc/server';
 import type { ChangedEntity } from '@common/changes';
 import type { AppEvents } from '@common/events';
 import type { WorkspaceId } from '@common/ids';
@@ -11,16 +11,13 @@ import type { EventClient } from './events';
 // before the call settles, and as `db.changes` for the rest. Each cached query whose route reads
 // one of those entities is invalidated, and React Query refetches the ones on screen.
 
-// Every router and route of `TRecord`, by path: 'tasks', 'tasks.list'
-type PathsOf<TRecord extends TRPCRouterRecord, TPrefix extends string = ''> = {
-  [K in keyof TRecord & string]: TRecord[K] extends AnyTRPCProcedure
-    ? `${TPrefix}${K}`
-    : TRecord[K] extends TRPCRouterRecord
-      ? `${TPrefix}${K}` | PathsOf<TRecord[K], `${TPrefix}${K}.`>
-      : never;
-}[keyof TRecord & string];
+// The routers and their routes: { tasks: { list: …, get: … }, notes: { … }, … }
+type Routes = inferRouterInputs<AppRouter>;
 
-export type RoutePath = PathsOf<AppRouter['_def']['record']>;
+// Every router and route, by path: 'tasks', 'tasks.list'. Routers are one level deep.
+export type RoutePath = {
+  [R in keyof Routes & string]: R | `${R}.${keyof Routes[R] & string}`;
+}[keyof Routes & string];
 
 // The entities each route reads, by router, or by full path to override its router. A route listed
 // nowhere is refetched on every change: correct by default, and a line here makes it cheaper.
