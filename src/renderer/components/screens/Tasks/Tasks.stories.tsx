@@ -120,10 +120,14 @@ export const TasksList: Story = {
 export const SeveralSelected: Story = {
   name: 'Tasks (list) — several selected',
   render: function SeveralSelectedStory() {
-    const tasks = LIST_TASKS.filter((t) => t.id !== 'eng-128').map((t) =>
-      t.id === 'eng-102' ? { ...t, status: TaskStatus.NOT_STARTED as const } : t,
+    const tasks = LIST_TASKS.filter((t) => t.id !== 'tsk_eng-128').map((t) =>
+      t.id === 'tsk_eng-102' ? { ...t, status: TaskStatus.NOT_STARTED as const } : t,
     );
-    const [selected, setSelected] = useState<string[]>(['eng-131', 'eng-118', 'pkce-guide']);
+    const [selected, setSelected] = useState<string[]>([
+      'tsk_eng-131',
+      'tsk_eng-118',
+      'tsk_pkce-guide',
+    ]);
     return (
       <TasksFrame view="list">
         <TaskList
@@ -145,7 +149,7 @@ export const SeveralSelected: Story = {
 export const TasksGroup: Story = {
   name: 'Tasks (group)',
   render: function GroupStory() {
-    const [selected, setSelected] = useState<string[]>(['eng-131', 'eng-118']);
+    const [selected, setSelected] = useState<string[]>(['tsk_eng-131', 'tsk_eng-118']);
     return (
       <TasksFrame view="group" groupBy="Project">
         {GROUPS.map((group) => (
