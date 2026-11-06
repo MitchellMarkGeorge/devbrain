@@ -247,6 +247,16 @@ _Found while adding "Open folder…"._
 
 Separately, bringing a workspace back to a computer that still lists it is refused as `already_added`. A "Replace" choice (close it, swap in the folder, keep its registry entry) would make round trips one step.
 
+## Settings
+
+### Settings added after a file was written
+
+_Found while adding Hide weekends (S3). Needed before the first release._
+
+electron-store fills in defaults only at the top level. So a `settings.json` written before a setting was added lacks it inside its group: `settings.calendar` without `hideWeekends`, say. `settings.get` returns the group without it, and `validateDevBrainFolderStructure` (`src/main/core/local/validate.ts`) checks the file against the full `settingsFileSchema`, so it refuses the folder as "Invalid settings.json file". Nothing has shipped yet, so this only affects development folders, which can be recreated (or the key added by hand).
+
+The fix, done once for every future setting: when the file opens, deep-merge the defaults into it (write each key it lacks, at any depth), and validate the file with the defaults filled in. It should still refuse a file with no `settings` object or with a wrong value. Test it with an old file opened through `openDevBrain`.
+
 ## Deleting
 
 ### Rename archive to trash in code

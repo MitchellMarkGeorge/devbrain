@@ -12,7 +12,10 @@ export class SettingsService {
   private store: SettingsStore;
   private readonly changes = new ChangeListeners<SettingsChange>('Settings');
 
-  constructor(rootPath: string, openStore: OpenSettingsStore) {
+  constructor(
+    private readonly rootPath: string,
+    openStore: OpenSettingsStore,
+  ) {
     this.store = openStore(rootPath, getDefaults(rootPath));
   }
 
@@ -29,8 +32,9 @@ export class SettingsService {
     if (key === 'settings' || key.startsWith('settings.')) this.emitUpdated();
   }
 
+  // puts every user setting back to its default; the app's state (the last workspace) is kept
   reset(): void {
-    this.store.clear();
+    this.store.set('settings', getDefaults(this.rootPath).settings);
     this.emitUpdated();
   }
 

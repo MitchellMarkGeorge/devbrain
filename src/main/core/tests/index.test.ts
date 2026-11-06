@@ -36,6 +36,7 @@ const VALID_SETTINGS = {
       defaultEventDuration: '30m',
       firstDayOfWeek: 'monday',
       defaultView: 'week',
+      hideWeekends: false,
     },
   },
   state: { lastWorkspaceId: null },

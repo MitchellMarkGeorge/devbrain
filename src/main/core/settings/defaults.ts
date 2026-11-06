@@ -29,6 +29,7 @@ export function getDefaults(rootPath?: string): SettingsFile {
         defaultEventDuration: '15m',
         defaultView: 'week',
         firstDayOfWeek: 'monday',
+        hideWeekends: false,
       },
     },
     state: {

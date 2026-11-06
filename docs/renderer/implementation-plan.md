@@ -1080,7 +1080,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 
 ### Settings and app state
 
-- **S1: partial settings update.** `settings.update` replaces the whole object, so two quick edits
+- **S1 (done): partial settings update.** `settings.update` replaces the whole object, so two quick edits
   can race. Add `settings.set({ path, value })` over core's dot-path `set` (with the value checked
   against the path's schema), and `settings.reset`.
 - **S2 (needed for "Reopen last page"): each workspace's last page, in its manifest.** Main
@@ -1089,14 +1089,15 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
   it, so the renderer reads it from the workspace it opened, and a moved folder brings it along.
   Validate it as an `/app` path string of bounded length; the renderer parses it again before
   navigating. The unused `state.lastPage` is removed from the settings file's schema.
-- **S3: `calendar.hideWeekends`** (default `false`) in `appSettingsSchema`, shown in Settings ›
+- **S3 (done): `calendar.hideWeekends`** (default `false`) in `appSettingsSchema`, shown in Settings ›
   Calendar as **Hide weekends** (Figma's "Show weekends" at `7158:11133` is renamed). FullCalendar
   takes it as `weekends: !hideWeekends`, in the week and month views.
   - **Existing settings files.** electron-store fills in defaults only at the top level, so a file
     written before this has a `settings.calendar` without `hideWeekends`, and `settings.get` would
     return it missing. Read the settings through `appSettingsSchema` with
     `.default(false)` on the new key (or deep-merge the defaults when the file opens), so every
-    new setting has this path, not just this one.
+    new setting has this path, not just this one. **Deferred:** nothing has shipped, so no
+    settings file predates the key; see the follow-up "Settings added after a file was written".
   - **The design system's rule changes.** The README says the week view always keeps seven days,
     because hiding days could hide events. With the setting, that becomes "seven days unless
     Hide weekends is on". When it's on and the visible week has weekend events, the header says so
