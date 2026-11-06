@@ -40,7 +40,7 @@ export interface NavigatingContents {
 }
 
 /**
- * Keeps the last page in the app any window navigated to, and saves it in the manifest of each
+ * Keeps the page in the app the window is on, and saves it in the manifest of each
  * workspace that closes, then forgets it, so the next workspace's first page isn't taken for the
  * old one's. The page is kept as the window navigates rather than read at the close: on Windows and
  * Linux the window has gone by the time the workspace closes. Attach before the first window.
@@ -48,7 +48,7 @@ export interface NavigatingContents {
 export function saveLastPageOnClose(app: WindowCreatingApp, devBrain: DevBrain): void {
   let page: string | null = null;
   const onNavigate = (_event: unknown, url: string) => {
-    page = lastPageOf(url) ?? page;
+    page = lastPageOf(url);
   };
   app.on('browser-window-created', (_event, window) => {
     // a load (and a reload); then the router's pushState and replaceState, which change the hash

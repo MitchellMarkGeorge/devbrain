@@ -81,7 +81,7 @@ describe('saveLastPageOnClose', () => {
     expect(manifest.lastPage).toBe('/app/calendar?view=month');
   });
 
-  it('saves the last page in the app, through a load, a page outside the app and filters', async () => {
+  it('saves the page the window is on, after a load and filter changes', async () => {
     const window = attach();
     const work = await createWorkspace(devBrain, 'Work');
     await devBrain.workspaces.open(work);
@@ -89,7 +89,6 @@ describe('saveLastPageOnClose', () => {
     window.navigate('http://localhost:5173/#/app/home', false);
     window.navigate('http://localhost:5173/#/app/tasks?view=list');
     window.navigate('http://localhost:5173/#/app/tasks?view=board');
-    window.navigate('http://localhost:5173/#/onboarding');
     await devBrain.close();
     expect(savedPage(work)).toBe('/app/tasks?view=board');
   });
