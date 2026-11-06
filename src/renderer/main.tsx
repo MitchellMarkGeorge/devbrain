@@ -1,11 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { App } from './App';
+import { RouterProvider } from '@tanstack/react-router';
 import log from 'electron-log/renderer';
 import { WindowFrameProvider, detectPlatform, type WindowFrame } from './components/lib/platform';
-import { events, ipc, queryInvalidator, queryClient } from './ipc';
+import { events, ipc, queryInvalidator, queryClient, trpc } from './ipc';
 import { readInitialLoadContext, seedQueryCache } from './ipc/initial-load-context';
+import { createAppRouter } from './router';
 import { FollowThemeSetting, applyThemeSetting } from './theme';
 import './styles/fonts.css';
 import './styles/tokens.css';
@@ -34,12 +35,14 @@ const windowFrame: WindowFrame = {
   },
 };
 
+const router = createAppRouter({ queryClient, trpc, ipc, events, initialLoadContext });
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <WindowFrameProvider value={windowFrame}>
         <FollowThemeSetting />
-        <App />
+        <RouterProvider router={router} />
       </WindowFrameProvider>
     </QueryClientProvider>
   </React.StrictMode>,

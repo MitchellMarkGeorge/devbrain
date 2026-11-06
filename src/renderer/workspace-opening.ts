@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import type { AppEvents } from '@common/events';
 import type { WorkspaceId } from '@common/ids';
-import { events } from './ipc';
+import { events as appEvents } from './ipc';
+import type { EventClient } from './ipc/events';
 
 /**
  * The workspace being opened, or null: from main's `workspace.changed`, which names it from the
@@ -8,9 +10,11 @@ import { events } from './ipc';
  * The app shows its splash meanwhile. Any window hears it, whoever started the open: this one,
  * another window, or the menu.
  */
-export function useOpeningWorkspace(): WorkspaceId | null {
+export function useOpeningWorkspace(
+  events: EventClient<AppEvents> = appEvents,
+): WorkspaceId | null {
   const [opening, setOpening] = useState<WorkspaceId | null>(null);
-  useEffect(() => events.on('workspace.changed', (change) => setOpening(change.opening)), []);
+  useEffect(() => events.on('workspace.changed', (change) => setOpening(change.opening)), [events]);
   return opening;
 }
 

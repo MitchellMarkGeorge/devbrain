@@ -10,9 +10,33 @@ Sources: the Figma file (`w9WtYAUXkkzqKIMAzFo08I`, page "v2 Screens", node ids c
 the `Screens/*` stories, `docs/design-system/README.md`, `docs/ipc/design.md` and
 `docs/follow-ups.md`. Where Figma and the code disagree, the code wins (see `CLAUDE.md`).
 
-> **Status:** plan only; nothing here is built yet. Revised after review (Nov 6 2026): FullCalendar
-> for the calendar, `/app/trash`, a create-workspace dialog inside the app, no Help link yet, and a
-> keyboard layer built for the coming Vim mode.
+> **Status:** milestones 1 (router foundation) and 2 (onboarding) are built, with S2; the rest is
+> plan. Revised after review (Nov 6 2026): FullCalendar for the calendar, `/app/trash`, a
+> create-workspace dialog inside the app, no Help link yet, and a keyboard layer built for the
+> coming Vim mode.
+>
+> **As built in milestones 1–2**, where it differs from or adds to the plan below:
+>
+> - The router context also carries `events` (main's push events) and `initialLoadContext`, so pages
+>   and tests never import the client: `useServices()` (`src/renderer/app/context.ts`) reads it, and
+>   `createIpcServices({ bridge })` builds the client, cache and events over any bridge.
+> - Boot runs in `/`'s component (it draws the splash, then navigates), not in a `beforeLoad`.
+>   Nothing to reopen goes to Welcome, which lists the recent workspaces itself; Choose workspace is
+>   reached from its "All Workspaces" button when there are more than three.
+> - A switch of workspace lands on the **default** landing page: the last page saved belongs to the
+>   workspace being left. Only boot reopens the last page.
+> - The `no_workspace_open` redirect subscribes to the query and mutation caches from the root, and
+>   asks `workspaces.current` before leaving, since a call answered mid-switch can fail after the new
+>   workspace opened.
+> - Errors from opening or adding a workspace show as an alert dialog over the page, as Figma draws
+>   them (`7423:37060`), rather than inline. `workspace_data_missing` has no "Remove from list":
+>   there is no route that removes an entry without opening it.
+> - The page header slot is a portal (`src/renderer/app/page-header.tsx`): `/app` passes an empty
+>   slot as `AppShell`'s header, and each page renders its `PageHeader` into it.
+> - The sidebar's Search and New task actions and Help are drawn disabled until their dialogs exist.
+>   Favorites has no "More" yet (nothing to open). The devtools load in development only.
+> - A workspace's colour is stored as hex; the six swatches map to their tokens' 500 values, and any
+>   other colour draws in the nearest swatch (`src/renderer/app/swatches.ts`).
 
 ### How this plan was made
 

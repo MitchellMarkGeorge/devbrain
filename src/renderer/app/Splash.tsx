@@ -1,0 +1,55 @@
+import type { CSSProperties } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { TriangleAlert } from 'lucide-react';
+import { Logomark, OnboardingScreen, Text } from '../components';
+import { useServices } from './context';
+
+// How long the splash shows at least, so a quick open doesn't flicker.
+export const SPLASH_MINIMUM_MS = 600;
+
+const OVER_EVERYTHING: CSSProperties = { position: 'fixed', inset: 0, zIndex: 'var(--z-overlay)' };
+
+/**
+ * The window while a workspace opens (Figma `7175:19848`): the pulsing mark, "Opening ‹name›…" and
+ * the app's version. `/` draws it while booting; the root draws it over everything during a switch.
+ */
+export function Splash({ name, overlay = false }: { name?: string | null; overlay?: boolean }) {
+  const { trpc } = useServices();
+  const version = useQuery(trpc.app.version.queryOptions());
+  return (
+    <OnboardingScreen
+      role="status"
+      aria-label={name ? `Opening ${name}` : 'Opening DevBrain'}
+      style={overlay ? OVER_EVERYTHING : undefined}
+      logo={<Logomark size="lg" pulse />}
+      description={name ? `Opening ${name}…` : undefined}
+      footer={
+        version.data ? (
+          <Text size="xs" tone="subtle">
+            Version {version.data}
+          </Text>
+        ) : undefined
+      }
+    />
+  );
+}
+
+/**
+ * The window when DevBrain itself could not load (its data folder): nothing that needs it can
+ * run, so the root draws this instead of any page.
+ */
+export function DevBrainUnavailable() {
+  return (
+    <OnboardingScreen
+      role="alert"
+      logo={<Logomark size="md" />}
+      title="DevBrain couldn’t open its data folder"
+      description="Check that the folder exists and that DevBrain can read and write it, then restart DevBrain."
+      footer={
+        <Text size="xs" tone="subtle">
+          <TriangleAlert size={12} aria-hidden /> The log file says what went wrong.
+        </Text>
+      }
+    />
+  );
+}
