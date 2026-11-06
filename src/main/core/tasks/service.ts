@@ -38,7 +38,6 @@ import { subtreeOf } from './subtree';
 import { withListDetails, withSubtaskListDetails } from './details';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { localDayWindow } from '../shared/dates';
-import { idList } from '../shared/id-list';
 import { keyset, PageOptions } from '../shared/pagination';
 import {
   assertEditable,
@@ -414,7 +413,7 @@ export class TaskService {
         tx
           .select()
           .from(tasks)
-          .where(and(inArray(tasks.id, idList(uniqueIds)), isNull(tasks.archivedAt)))
+          .where(and(inArray(tasks.id, uniqueIds), isNull(tasks.archivedAt)))
           .all(),
       );
       const byId = new Map(existing.map((task) => [task.id, task]));
@@ -442,7 +441,7 @@ export class TaskService {
       const rows = tx
         .update(tasks)
         .set(values)
-        .where(inArray(tasks.id, idList(uniqueIds)))
+        .where(inArray(tasks.id, uniqueIds))
         .returning()
         .all();
       const updatedById = new Map(rows.map((row) => [row.id, row]));
