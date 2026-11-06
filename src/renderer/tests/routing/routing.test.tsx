@@ -1,7 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import type { TaskId } from '@common/ids';
-import { LAST_PAGE_DEBOUNCE_MS } from '../../app/navigation';
 import {
   at,
   initialContext,
@@ -56,21 +55,19 @@ describe('boot', () => {
     expect(Date.now() - started).toBeGreaterThanOrEqual(550);
   });
 
-  it('reopens the last page when "Reopen last page" is on', async () => {
+  it('reopens the workspace\'s last page when "Reopen last page" is on', async () => {
     const app = renderApp({
-      context: initialContext({ lastPage: '/app/tasks?view=board' }),
       handlers: {
-        'workspaces.openLast': () => work,
+        'workspaces.openLast': () => ({ ...work, lastPage: '/app/tasks?view=board' }),
         'settings.get': () => settings({ openToLastPage: true }),
       },
     });
     await waitFor(() => expect(at(app)).toBe('/app/tasks?view=board'));
   });
 
-  it('ignores the last page when the setting is off', async () => {
+  it("ignores the workspace's last page when the setting is off", async () => {
     const app = renderApp({
-      context: initialContext({ lastPage: '/app/tasks?view=board' }),
-      handlers: { 'workspaces.openLast': () => work },
+      handlers: { 'workspaces.openLast': () => ({ ...work, lastPage: '/app/tasks?view=board' }) },
     });
     await waitFor(() => expect(at(app)).toBe('/app/home'));
   });
@@ -156,7 +153,7 @@ describe('not found', () => {
 });
 
 describe('following the open workspace', () => {
-  it("goes to the new workspace's landing page when a switch completes", async () => {
+  it("goes to the new workspace's last page when a switch completes", async () => {
     let current = work;
     const app = renderApp({
       at: '/app/tasks?view=board',
@@ -164,7 +161,27 @@ describe('following the open workspace', () => {
       handlers: {
         'workspaces.current': () => current,
         'settings.get': () => settings({ defaultLandingPage: 'notes', openToLastPage: true }),
-        'settings.lastPage': () => '/app/tasks?view=board',
+      },
+    });
+    await waitFor(() => expect(app.text()).toContain('Tasks'));
+
+    app.emit('workspace.changed', { id: work.id, opening: home.id });
+    app.emit('workspace.changed', { id: null, opening: home.id });
+    current = { ...home, lastPage: '/app/projects?view=card' };
+    app.emit('workspace.changed', { id: home.id, opening: null });
+
+    // Home's own last page, not the one Work was on
+    await waitFor(() => expect(at(app)).toBe('/app/projects?view=card'));
+  });
+
+  it('goes to the default landing page after a switch to a workspace with no last page', async () => {
+    let current = work;
+    const app = renderApp({
+      at: '/app/tasks',
+      context: open(),
+      handlers: {
+        'workspaces.current': () => current,
+        'settings.get': () => settings({ defaultLandingPage: 'notes', openToLastPage: true }),
       },
     });
     await waitFor(() => expect(app.text()).toContain('Tasks'));
@@ -174,7 +191,6 @@ describe('following the open workspace', () => {
     current = home;
     app.emit('workspace.changed', { id: home.id, opening: null });
 
-    // the default landing page: the last page saved was the old workspace's
     await waitFor(() => expect(at(app)).toBe('/app/notes'));
   });
 
@@ -216,35 +232,6 @@ describe('following the open workspace', () => {
     await waitFor(() => expect(app.calls()).toContain('workspaces.current'));
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(at(app)).toBe('/app/home');
-  });
-});
-
-describe('the last page', () => {
-  it('is saved once navigation has been still for a second, the last location only', async () => {
-    const app = renderApp({ at: '/app/home', context: open() });
-    await waitFor(() => expect(app.text()).toContain('Home'));
-    await app.router.navigate({ to: '/app/tasks', search: { view: 'list' } });
-    await app.router.navigate({ to: '/app/tasks', search: { view: 'board' } });
-
-    await waitFor(
-      () => expect(app.inputs('settings.setLastPage')).toEqual([{ href: '/app/tasks?view=board' }]),
-      LAST_PAGE_DEBOUNCE_MS + 1000,
-    );
-  });
-
-  it('is not saved for a page that resolved to not-found', async () => {
-    const app = renderApp({
-      at: '/app/tasks/tsk_gone',
-      context: open(),
-      handlers: {
-        'tasks.get': () => {
-          throw new MainError('not_found');
-        },
-      },
-    });
-    await waitFor(() => expect(app.text()).toContain('Nothing here'));
-    await new Promise((resolve) => setTimeout(resolve, LAST_PAGE_DEBOUNCE_MS + 200));
-    expect(app.calls()).not.toContain('settings.setLastPage');
   });
 });
 

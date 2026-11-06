@@ -15,11 +15,11 @@ export function forgetOpenWorkspace({ queryClient, trpc }: RouterContext): void 
   queryClient.setQueryData(trpc.workspaces.current.queryKey(), null);
 }
 
-/** Reads which workspace is open now, into the cache the `/app` guard reads. */
-export async function refreshOpenWorkspace({ queryClient, trpc }: RouterContext): Promise<void> {
-  await queryClient
+/** Reads which workspace is open now, into the cache the `/app` guard reads, and returns it. */
+export function refreshOpenWorkspace({ queryClient, trpc }: RouterContext) {
+  return queryClient
     .fetchQuery({ ...trpc.workspaces.current.queryOptions(), staleTime: 0 })
-    .catch(() => undefined);
+    .catch(() => null);
 }
 
 /**
@@ -41,8 +41,7 @@ export function WorkspaceSwitchSplash() {
 /**
  * Follows the open workspace with the URL:
  * - When a switch completes (`workspace.changed` says the new one is open and none is opening),
- *   goes to its landing page. The last page saved is the old workspace's, so a switch lands on
- *   the default landing page.
+ *   goes to its landing page: the page it was on when it last closed, with "Reopen last page".
  * - When none is open any more (an open failed, the open one was deleted), goes to onboarding.
  * - When a call fails with `no_workspace_open` (the workspace closed under the page), and main
  *   confirms none is open, goes to onboarding.
@@ -75,8 +74,8 @@ export function useWorkspaceRouting(): void {
       }
       if (wasOpening === null) return;
       void (async () => {
-        await refreshOpenWorkspace(services);
-        const href = await resolveLandingPage(services, { withLastPage: false });
+        const opened = await refreshOpenWorkspace(services);
+        const href = await resolveLandingPage(services, opened);
         await router.navigate({ href });
       })();
     });

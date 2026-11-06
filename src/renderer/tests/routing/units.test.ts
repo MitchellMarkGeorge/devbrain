@@ -8,26 +8,29 @@ import { byLastOpened } from '../../pages/onboarding/WorkspacePicker';
 import { settings, workspace } from './harness';
 
 describe('landingPage', () => {
+  const at = (lastPage: string | null) => ({ lastPage });
+
   it('is the default landing page', () => {
-    expect(landingPage(settings({ defaultLandingPage: 'calendar' }), '/app/tasks')).toBe(
+    expect(landingPage(settings({ defaultLandingPage: 'calendar' }), at('/app/tasks'))).toBe(
       '/app/calendar',
     );
   });
 
-  it('is the last page when "Reopen last page" is on and one was saved', () => {
+  it('is the workspace\'s last page when "Reopen last page" is on and it saved one', () => {
     const on = settings({ openToLastPage: true });
-    expect(landingPage(on, '/app/tasks?view=board')).toBe('/app/tasks?view=board');
+    expect(landingPage(on, at('/app/tasks?view=board'))).toBe('/app/tasks?view=board');
+    expect(landingPage(on, at(null))).toBe('/app/home');
     expect(landingPage(on, null)).toBe('/app/home');
   });
 
   it('ignores a last page outside the app', () => {
     const on = settings({ openToLastPage: true });
-    expect(landingPage(on, '/onboarding')).toBe('/app/home');
-    expect(landingPage(on, 'https://example.com')).toBe('/app/home');
+    expect(landingPage(on, at('/onboarding'))).toBe('/app/home');
+    expect(landingPage(on, at('https://example.com'))).toBe('/app/home');
   });
 
   it('is Home without settings', () => {
-    expect(landingPage(undefined, '/app/notes')).toBe('/app/home');
+    expect(landingPage(undefined, at('/app/notes'))).toBe('/app/home');
   });
 });
 

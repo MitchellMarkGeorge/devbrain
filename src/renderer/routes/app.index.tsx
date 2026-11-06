@@ -5,7 +5,7 @@ import { resolveLandingPage } from '../app/landing-page';
 export const Route = createFileRoute('/app/')({
   beforeLoad: async ({ context }) => {
     throw redirect({
-      href: await resolveLandingPage(context, { withLastPage: false }),
+      href: await resolveLandingPage(context),
       replace: true,
     });
   },

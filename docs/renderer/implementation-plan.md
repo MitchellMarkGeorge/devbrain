@@ -23,8 +23,9 @@ the `Screens/*` stories, `docs/design-system/README.md`, `docs/ipc/design.md` an
 > - Boot runs in `/`'s component (it draws the splash, then navigates), not in a `beforeLoad`.
 >   Nothing to reopen goes to Welcome, which lists the recent workspaces itself; Choose workspace is
 >   reached from its "All Workspaces" button when there are more than three.
-> - A switch of workspace lands on the **default** landing page: the last page saved belongs to the
->   workspace being left. Only boot reopens the last page.
+> - The landing page takes the opened workspace's own `lastPage` (S2), so a switch reopens the new
+>   workspace on its last page too, not only boot. There is no renderer-side save: main keeps the
+>   page in each workspace's manifest.
 > - The `no_workspace_open` redirect subscribes to the query and mutation caches from the root, and
 >   asks `workspaces.current` before leaving, since a call answered mid-switch can fail after the new
 >   workspace opened.

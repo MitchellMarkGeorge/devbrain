@@ -43,6 +43,7 @@ export function workspace(name: string, overrides: Partial<WorkspaceInfo> = {}):
     path: `/devbrain/${name}`,
     createdAt: Date.UTC(2026, 2, 1),
     lastOpenedAt: null,
+    lastPage: null,
     ...overrides,
   };
 }
@@ -78,7 +79,6 @@ export function initialContext(overrides: Partial<InitialLoadContext> = {}): Ini
     last: null,
     workspaces: { items: [], nextCursor: null },
     theme: 'system',
-    lastPage: null,
     ...overrides,
   };
 }
@@ -89,8 +89,6 @@ const EMPTY_PAGE = { items: [], nextCursor: null };
 const DEFAULT_HANDLERS: Handlers = {
   'app.version': () => '0.0.1',
   'settings.get': () => settings(),
-  'settings.lastPage': () => null,
-  'settings.setLastPage': () => undefined,
   'workspaces.list': () => EMPTY_PAGE,
   'workspaces.current': () => null,
   'workspaces.openLast': () => null,
