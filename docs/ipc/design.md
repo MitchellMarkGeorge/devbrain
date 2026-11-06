@@ -308,7 +308,8 @@ Main says which entities changed, but React Query caches by route, and many view
 other than their own. [`ENTITIES_READ_BY_ROUTE`](../../src/renderer/ipc/query-invalidator.ts)
 maps one to the other: the entities each router's queries read, keyed by router, or by full path
 to override its router (`integrations.previewDisconnect`, which counts synced rows of every kind).
-Read the file for the current table.
+Its keys are typed by `RoutePath`, every path in `AppRouter`, so a key naming no route fails to
+compile. Read the file for the current table.
 
 `onChanged(entities)` makes one `invalidateQueries` call whose predicate matches every cached
 query whose route reads one of the entities. React Query refetches the mounted ones and marks the
