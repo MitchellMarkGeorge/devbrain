@@ -68,7 +68,12 @@ export function settings(general: Partial<AppSettings['general']> = {}): AppSett
       defaultView: 'list',
       showCompletedTasks: false,
     },
-    calendar: { defaultEventDuration: '30m', firstDayOfWeek: 'monday', defaultView: 'week' },
+    calendar: {
+      defaultEventDuration: '30m',
+      firstDayOfWeek: 'monday',
+      defaultView: 'week',
+      hideWeekends: false,
+    },
   };
 }
 
