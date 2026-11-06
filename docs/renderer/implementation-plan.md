@@ -65,7 +65,7 @@ surveyed three things in parallel and checked the claims the plan rests on again
 | Not in the route list but designed | `/app/integrations` (in the sidebar nav, Figma `7164:13117`). ⌘K is a dialog, not a route. Help has nothing behind it yet: the sidebar's Help item and Welcome's "What's a workspace?" link are drawn disabled.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | Trash                              | The route is **`/app/trash`**, matching the UI and `docs/deleting.md`. Core still says archive (`archive` router, `listArchived`); the code rename is its own follow-up (E2).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | New workspace                      | Inside the app, "New workspace…" opens a **Create workspace dialog** over the page. `/onboarding/new_workspace` is only for when nothing is open. Both use one `CreateWorkspaceForm`, so the onboarding guard needs no exception. Mocked in Figma as "New workspace (dialog in the app)" (`7760:61527`). Why a dialog: see [Onboarding](#onboarding-onboarding).                                                                                                                                                                                                                                                                                                                                  |
-| Calendar rendering                 | **FullCalendar** (`@fullcalendar/react` with the `timegrid`, `daygrid`, `interaction`, `rrule` and `luxon3` plugins), mapped per `docs/calendar/fullcalendar-adapter.md`. `TimeGrid` and `MonthGrid` are the visual spec: FullCalendar is themed to match them with tokens and draws `EventBlock`/`AllDayEvent` through its content hooks. See [Calendar](#calendar-appcalendar).                                                                                                                                                                                                                                                                                                                 |
+| Calendar rendering                 | **FullCalendar 7** (`@fullcalendar/react` with its `timegrid`, `daygrid` and `interaction` plugins, and `@fullcalendar/rrule`), mapped per `docs/calendar/fullcalendar-adapter.md`. `TimeGrid` and `MonthGrid` are the visual spec: FullCalendar is themed to match them with tokens and draws `EventBlock`/`AllDayEvent` through its content hooks. See [Calendar](#calendar-appcalendar).                                                                                                                                                                                                                                                                                                       |
 | Keyboard                           | One command registry and a keymap dispatcher of our own, with modes and key sequences from the start, so Vim mode is a second keymap rather than a rewrite. See [Keyboard](#keyboard-commands-keymaps-and-vim-mode).                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 ## Where things stand
@@ -853,20 +853,17 @@ Figma `7158:13273` (week), `7158:13856` (day), `7158:18439` (month), `7175:30140
 `7424:43620` (Google RSVP), `7424:45312` (focus/tentative/OOO); composition in
 `screens/Calendar/CalendarScreen.tsx` (rebuild on `AppShell`, not its own frame).
 
-- **FullCalendar, drawn as the design system.** Add `@fullcalendar/react`, `@fullcalendar/core`,
-  `@fullcalendar/timegrid`, `@fullcalendar/daygrid`, `@fullcalendar/interaction`,
-  `@fullcalendar/rrule` and `@fullcalendar/luxon3` (named time zones, which the adapter spec's
-  `DTSTART;TZID=…` lines need; confirm per the spec's "To confirm" list). Pin exact versions.
-  FullCalendar v6 injects its own CSS from JavaScript, which the CSP's `style-src 'unsafe-inline'`
-  allows.
+- **FullCalendar, drawn as the design system.** FullCalendar 7: `@fullcalendar/react` (views and
+  interaction under its subpaths) and `@fullcalendar/rrule`, with `temporal-polyfill`, pinned (see
+  the adapter spec). Its CSS is plain files, bundled with the app's.
 - **A design-system component wraps it**: `components/calendar/CalendarView`, with a guide and
   stories, per `CLAUDE.md`. It stays presentational. It takes FullCalendar event sources and
   callbacks, and holds all the theming:
-  - FullCalendar's CSS variables and class overrides, set from tokens to match the `TimeGrid` and
+  - Classes for FullCalendar's `…Class` options, set from tokens to match the `TimeGrid` and
     `MonthGrid` guides: 48px hours, the 60px gutter, the red now line and today disc, `border` lines.
   - `eventContent` rendering `EventBlock` (compact under 40px) or `AllDayEvent`.
-  - `dayHeaderContent`, `nowIndicatorContent` and `moreLinkContent` ("+2 more").
-  - `firstDay` from `firstDayOfWeek`, and `slotLabelFormat`/`eventTimeFormat` from `timeFormat`.
+  - `dayHeaderContent`, `nowIndicatorLineContent` and `moreLinkContent` ("+2 more").
+  - `firstDay` from `firstDayOfWeek`, and `slotHeaderContent`/`eventTimeFormat` from `timeFormat`.
 
   Once it matches them, `TimeGrid` and `MonthGrid` are retired. Their guides fold into
   `CalendarView.md`, and their stories become `CalendarView` stories with the same fixtures, so

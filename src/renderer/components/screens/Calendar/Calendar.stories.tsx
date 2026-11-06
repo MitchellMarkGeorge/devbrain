@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { EventSourceInput } from '@fullcalendar/core';
+import type { EventSourceInput } from '@fullcalendar/react';
 import { CalendarView, calendarEventInput } from '../../calendar/CalendarView';
 import type { CalendarEvent } from '../../types';
 import { CalendarScreen } from './CalendarScreen';

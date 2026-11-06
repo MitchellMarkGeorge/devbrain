@@ -1,7 +1,8 @@
 # CalendarView
 
-The calendar's week, day and month views: [FullCalendar](https://fullcalendar.io) (v6, with the
-`timegrid`, `daygrid`, `interaction`, `rrule` and `luxon3` plugins), themed to the design system and
+The calendar's week, day and month views: [FullCalendar](https://fullcalendar.io) 7
+(`@fullcalendar/react` with its `timegrid`, `daygrid` and `interaction` plugins, and
+`@fullcalendar/rrule`), themed to the design system and
 drawing its events with `EventBlock` and `AllDayEvent`. It replaces the hand-made `TimeGrid` and
 `MonthGrid`, whose look it keeps. Presentational: the page passes event sources and callbacks and
 drives `view` and `date`; FullCalendar's own header toolbar is off.
@@ -16,8 +17,9 @@ A 60px gutter, then one column per day (seven for the week, one for the day):
 - **All-day row**: "All day" in the gutter (`subtle-foreground`), `AllDayEvent` chips spanning the
   days they cover, 4px in from the column lines, stacked in 22px rows 4px apart (32px for one row).
   More than `maxEvents` → "+N more".
-- **Hours**: 48px each, the label (12px `subtle-foreground`) right-aligned 12px from the gutter's
-  edge and centred on its `border` line; 8px of space above the first line. Columns are split by
+- **Hours**: 48px each (`slotMinHeight`), the label (12px `subtle-foreground`) right-aligned 12px
+  from the gutter's edge and centred on its `border` line. The first hour's line is the all-day
+  row's, at the top of the scroller, so its label is hidden rather than cut in half. Columns are split by
   `border` lines. Only the hour lines are drawn, though a click or drag snaps to 15 minutes.
 - **Events** are placed by start and end: 3px in from the column's sides, overlapping events side
   by side 2px apart, 1px clear of the slot above and below (2px shorter than their time), 16px at
@@ -74,14 +76,19 @@ FullCalendar input.
 
 ## Theming
 
-All in `CalendarView.module.css`: FullCalendar's CSS variables (`--fc-border-color` from `border`,
-`--fc-now-indicator-color` from `now-indicator`, no today tint, transparent event colours) and
-overrides of its classes under the component's root, which win over the stylesheet FullCalendar
-injects ahead of the app's. `!important` is used only for the colours FullCalendar writes inline on
-each event. FullCalendar v6 adds that stylesheet as one `<style>` element filled through the CSSOM,
-which the renderer's CSP allows (`style-src 'self' 'unsafe-inline'`). Its unused icon font is a `data:` URL the CSP blocks, which logs one console line (see the [adapter spec](../../calendar/fullcalendar-adapter.md#findings)).
+FullCalendar 7 draws nothing of its own look: `@fullcalendar/react/skeleton.css` lays it out, and
+every part takes its classes from a `…Class` option. `CalendarView` passes its own (`THEME` in
+`CalendarView.tsx`), all from `CalendarView.module.css` on the tokens, in place of one of
+FullCalendar's themes: the header row and its `border` divider, the all-day and hour gutters
+(`allDayHeader…`, `slotHeader…`, at least 60px), the hour lines (`slotLane`), the day columns
+(`dayLane`, a `border` line between them), the month's rows and cells (`dayRow`, `dayCell`, with
+6px of padding in its top and bottom spacers), bare event frames (`blockEvent`, `rowEvent`,
+`columnEvent`) and "+N more". No rule reaches into FullCalendar's own class names, which are
+mangled and change between versions. The CSS ships in the app's bundle; FullCalendar 7 injects no
+`<style>` element and no font, so the renderer's CSP needs nothing for it.
 
-Differences from the old grids: the last hour line has no label, and a multi-day all-day event in
-the month is one spanning line rather than one per day.
+Differences from the old grids: the first and last hour lines have no label, the hours start right
+under the all-day row (no 8px gap above the first line), and a multi-day all-day event in the
+month is one spanning line rather than one per day.
 
 **Base UI:** No Base UI part: FullCalendar.

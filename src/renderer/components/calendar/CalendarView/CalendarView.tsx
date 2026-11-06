@@ -7,26 +7,23 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react';
-import FullCalendar from '@fullcalendar/react';
-import type {
-  CalendarApi,
-  DateSelectArg,
-  DayCellContentArg,
-  DayHeaderContentArg,
-  EventClickArg,
-  EventContentArg,
-  EventInput,
-  EventSourceInput,
-  MoreLinkArg,
-  MoreLinkContentArg,
-  NowIndicatorContentArg,
-  SlotLabelContentArg,
-} from '@fullcalendar/core';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import interactionPlugin from '@fullcalendar/interaction';
-import luxonPlugin from '@fullcalendar/luxon3';
+import FullCalendar, {
+  type CalendarApi,
+  type CalendarRef,
+  type DateSelectInfo,
+  type DayCellInfo,
+  type DayHeaderInfo,
+  type EventClickInfo,
+  type EventDisplayInfo,
+  type EventInput,
+  type EventSourceInput,
+} from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/react/daygrid';
+import interactionPlugin from '@fullcalendar/react/interaction';
+import timeGridPlugin from '@fullcalendar/react/timegrid';
 import rrulePlugin from '@fullcalendar/rrule';
-import timeGridPlugin from '@fullcalendar/timegrid';
+// FullCalendar's layout only; everything it looks like comes from the classes below
+import '@fullcalendar/react/skeleton.css';
 import { cn } from '../../lib/cn';
 import { ColourBar } from '../../ui/ColourBar';
 import type { CalendarEvent, TaskStatus } from '../../types';
@@ -42,7 +39,7 @@ const FULLCALENDAR_VIEW: Record<CalendarViewMode, string> = {
   month: 'dayGridMonth',
 };
 
-const PLUGINS = [timeGridPlugin, dayGridPlugin, interactionPlugin, rrulePlugin, luxonPlugin];
+const PLUGINS = [timeGridPlugin, dayGridPlugin, interactionPlugin, rrulePlugin];
 
 /** pixels per hour, and the height under which a block is compact (title only) */
 const HOUR_HEIGHT = 48;
@@ -120,7 +117,7 @@ export interface CalendarViewProps {
   selectedEventId?: string;
   /** the label of the all-day row's gutter */
   allDayLabel?: ReactNode;
-  onEventClick?: (event: CalendarViewEvent, info: EventClickArg) => void;
+  onEventClick?: (event: CalendarViewEvent, info: EventClickInfo) => void;
   /** a range dragged (or a slot clicked) on empty grid */
   onSelect?: (selection: CalendarViewSelection) => void;
   /** a month date or "+N more": opens that day */
@@ -130,6 +127,59 @@ export interface CalendarViewProps {
   className?: string;
   style?: CSSProperties;
 }
+
+/**
+ * DevBrain's FullCalendar theme: a class from the CSS module for each part FullCalendar draws,
+ * in place of one of its own themes. `skeleton.css` gives the layout and nothing else.
+ */
+const THEME = {
+  className: styles.calendar,
+  viewClass: styles.calendarView,
+  tableHeaderClass: styles.tableHeader,
+  // the week and day views' headers, and the month's weekday row
+  dayHeaderRowClass: styles.headerRow,
+  dayHeaderClass: styles.dayHeader,
+  dayHeaderInnerClass: styles.dayHeaderInner,
+  dayHeaderDividerClass: styles.divider,
+  dayHeaderAlign: 'start' as const,
+  // the all-day row
+  allDayHeaderClass: styles.allDayHeader,
+  allDayHeaderInnerClass: styles.allDayHeaderInner,
+  allDayDividerClass: styles.divider,
+  // the hours
+  slotHeaderRowClass: styles.slotRow,
+  slotHeaderClass: styles.slotHeader,
+  // the first hour's line is the all-day row's, at the top of the scroller: its label would be cut
+  slotHeaderInnerClass: (info: { isFirst: boolean }) =>
+    cn(styles.slotHeaderInner, info.isFirst && styles.hidden),
+  slotHeaderDividerClass: styles.slotHeaderDivider,
+  slotLaneClass: styles.slotLane,
+  dayLaneClass: styles.dayLane,
+  dayLaneInnerClass: styles.dayLaneInner,
+  nowIndicatorHeaderClass: styles.hidden,
+  nowIndicatorLineClass: styles.nowLine,
+  // the month's weeks and cells, and the all-day row's cells
+  dayRowClass: styles.dayRow,
+  dayCellClass: styles.dayCell,
+  dayCellInnerClass: styles.dayCellInner,
+  dayCellTopClass: styles.dayCellTop,
+  dayCellBottomClass: styles.dayCellBottom,
+  fillerClass: styles.filler,
+  // events: FullCalendar's own frame is bare, the content draws the event
+  blockEventClass: styles.blockEvent,
+  blockEventInnerClass: styles.eventInner,
+  rowEventClass: styles.rowEvent,
+  rowEventInnerClass: styles.eventInner,
+  columnEventClass: styles.columnEvent,
+  columnEventInnerClass: styles.eventInner,
+  listItemEventClass: styles.rowEvent,
+  listItemEventInnerClass: styles.eventInner,
+  moreLinkClass: styles.moreLink,
+  rowMoreLinkClass: styles.rowMoreLink,
+  navLinkClass: styles.navLink,
+  highlightClass: styles.highlight,
+  popoverClass: styles.popover,
+};
 
 /**
  * The calendar's week, day and month views: FullCalendar, drawn as the design system. Timed events
@@ -160,7 +210,7 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
   },
   ref,
 ) {
-  const calendarRef = useRef<FullCalendar>(null);
+  const calendarRef = useRef<CalendarRef>(null);
   useImperativeHandle(ref, () => ({ getApi: () => calendarRef.current!.getApi() }), []);
 
   // `initialView` and `initialDate` are read once: later changes go through the API
@@ -175,24 +225,24 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
   }, [view, time]);
 
   const eventContent = useCallback(
-    (arg: EventContentArg) => <EventContent arg={arg} timeFormat={timeFormat} />,
+    (arg: EventDisplayInfo) => <EventContent arg={arg} timeFormat={timeFormat} />,
     [timeFormat],
   );
 
-  const eventClassNames = useCallback(
-    ({ event }: EventContentArg) => {
+  const eventClass = useCallback(
+    ({ event }: EventDisplayInfo) => {
       const hints = event.extendedProps as CalendarViewEventProps;
       return cn(
         styles.event,
         hints.declined && styles.declined,
         selectedEventId != null && event.id === selectedEventId && styles.selected,
-      ).split(' ');
+      );
     },
     [selectedEventId],
   );
 
   const handleSelect = useCallback(
-    (info: DateSelectArg) => {
+    (info: DateSelectInfo) => {
       onSelect?.({ start: info.start, end: info.end, allDay: info.allDay });
       info.view.calendar.unselect();
     },
@@ -200,7 +250,7 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
   );
 
   const handleEventClick = useCallback(
-    (info: EventClickArg) => {
+    (info: EventClickInfo) => {
       const { event } = info;
       info.jsEvent.preventDefault();
       onEventClick?.(
@@ -220,7 +270,7 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
   );
 
   const handleMoreLinkClick = useCallback(
-    (arg: MoreLinkArg) => {
+    (arg: { date: Date; view: { type: string } }) => {
       onDayClick?.(arg.date);
       // stay in the view shown (the date is already in it): the page moves to the day
       return arg.view.type;
@@ -229,11 +279,7 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
   );
 
   return (
-    <div
-      className={cn(styles.view, className)}
-      style={{ ...style, '--calendar-weeks': weeksInMonth(date, firstDay) } as CSSProperties}
-      data-view={view}
-    >
+    <div className={cn(styles.view, className)} style={style} data-view={view}>
       <FullCalendar
         ref={calendarRef}
         plugins={PLUGINS}
@@ -242,6 +288,7 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
         timeZone="local"
         headerToolbar={false}
         height="100%"
+        borderless
         firstDay={firstDay}
         weekends={!hideWeekends}
         now={now}
@@ -254,53 +301,46 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
         eventClick={onEventClick ? handleEventClick : undefined}
         eventInteractive={onEventClick != null}
         navLinks={onDayClick != null}
-        navLinkDayClick={onDayClick ? (day) => onDayClick(day) : undefined}
+        navLinkDayClick={onDayClick ? (day: Date) => onDayClick(day) : undefined}
         moreLinkClick={onDayClick ? handleMoreLinkClick : 'popover'}
         loading={onLoading}
         // the week and day views: one 48px row per hour
         slotDuration="01:00:00"
         snapDuration="00:15:00"
+        slotMinHeight={HOUR_HEIGHT}
         slotMinTime={`${String(startHour).padStart(2, '0')}:00:00`}
         slotMaxTime={`${String(endHour).padStart(2, '0')}:00:00`}
         scrollTime={`${String(scrollToHour).padStart(2, '0')}:00:00`}
         scrollTimeReset={false}
         slotEventOverlap={false}
-        // 16px drawn, inside 1px either side
+        // 16px drawn, inside its 1px margins
         eventMinHeight={18}
         eventShortHeight={COMPACT_BELOW}
-        allDayContent={allDayLabel}
-        slotLabelContent={(arg: SlotLabelContentArg) => formatHour(arg.date.getHours(), timeFormat)}
+        allDayText={typeof allDayLabel === 'string' ? allDayLabel : undefined}
+        allDayHeaderContent={allDayLabel}
+        slotHeaderContent={(arg: { date: Date }) => formatHour(arg.date.getHours(), timeFormat)}
         eventTimeFormat={{ hour: 'numeric', minute: '2-digit', hour12: timeFormat === '12' }}
-        dayHeaderContent={(arg: DayHeaderContentArg) => <DayHeader arg={arg} />}
-        nowIndicatorContent={(arg: NowIndicatorContentArg) =>
-          arg.isAxis ? null : <NowIndicator className={styles.now} />
-        }
+        dayHeaderContent={(arg: DayHeaderInfo) => <DayHeader arg={arg} />}
+        nowIndicatorLineContent={() => <NowIndicator className={styles.now} />}
         // the month view: five or six weeks that fill the height
         fixedWeekCount={false}
         dayMaxEvents={maxEvents}
-        dayCellContent={(arg: DayCellContentArg) => <DayNumber arg={arg} />}
-        moreLinkContent={(arg: MoreLinkContentArg) => `+${arg.num} more`}
+        dayCellTopContent={(arg: DayCellInfo) => <DayNumber arg={arg} />}
+        moreLinkContent={(arg: { num: number }) => `+${arg.num} more`}
         views={{ dayGridMonth: { expandRows: true } }}
         eventDisplay="block"
         eventContent={eventContent}
-        eventClassNames={eventClassNames}
+        eventClass={eventClass}
+        {...THEME}
       />
     </div>
   );
 });
 
-// the weeks the month view shows: five or six (four for a February that fits)
-function weeksInMonth(date: Date, firstDay: number): number {
-  const first = new Date(date.getFullYear(), date.getMonth(), 1);
-  const days = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-  const lead = (first.getDay() - firstDay + 7) % 7;
-  return Math.ceil((lead + days) / 7);
-}
-
-function EventContent({ arg, timeFormat }: { arg: EventContentArg; timeFormat: TimeFormat }) {
+function EventContent({ arg, timeFormat }: { arg: EventDisplayInfo; timeFormat: TimeFormat }) {
   const { event } = arg;
   const hints = event.extendedProps as CalendarViewEventProps;
-  const color = arg.backgroundColor || undefined;
+  const color = arg.color || undefined;
   const neutral = hints.kind === 'out-of-office' || hints.kind === 'focus';
   const start = event.start!;
   const end = event.end ?? new Date(start.getTime() + 60 * 60 * 1000);
@@ -350,7 +390,7 @@ function EventContent({ arg, timeFormat }: { arg: EventContentArg; timeFormat: T
   );
 }
 
-function DayHeader({ arg }: { arg: DayHeaderContentArg }) {
+function DayHeader({ arg }: { arg: DayHeaderInfo }) {
   const weekday = <span className={styles.weekday}>{WEEKDAY.format(arg.date)}</span>;
   if (arg.view.type === 'dayGridMonth') return weekday;
   return (
@@ -361,13 +401,14 @@ function DayHeader({ arg }: { arg: DayHeaderContentArg }) {
   );
 }
 
-function DayNumber({ arg }: { arg: DayCellContentArg }) {
+function DayNumber({ arg }: { arg: DayCellInfo }) {
   if (arg.view.type !== 'dayGridMonth') return null;
+  // `arg.date` is FullCalendar's own marker (the local date written as UTC): use its text
   return (
     <span
       className={cn(styles.dayNumber, arg.isToday && styles.today, arg.isOther && styles.outside)}
     >
-      {arg.date.getDate()}
+      {arg.dayNumberText}
     </span>
   );
 }

@@ -1,29 +1,11 @@
 /*
- * The calendar's week, day and month views: FullCalendar, themed to the design system. See
- * docs/design-system/components/CalendarView.md. FullCalendar injects its own stylesheet ahead of
- * the app's, so these rules (one class deeper than its own) win; `!important` is kept for the
- * colours FullCalendar writes inline on each event.
+ * The calendar's week, day and month views: FullCalendar 7, themed to the design system. See
+ * docs/design-system/components/CalendarView.md. FullCalendar's skeleton.css lays the calendar
+ * out; how it looks comes only from these classes, which CalendarView passes to FullCalendar's
+ * `…Class` options (its THEME) and uses in the content it draws.
  */
 .view {
   --calendar-gutter: 60px;
-  --calendar-hour: 48px;
-  /* the space above the first hour line, so its label is not cut off */
-  --calendar-top: 8px;
-
-  --fc-page-bg-color: var(--background);
-  --fc-neutral-bg-color: var(--muted);
-  --fc-neutral-text-color: var(--muted-foreground);
-  --fc-border-color: var(--border);
-  --fc-today-bg-color: transparent;
-  --fc-now-indicator-color: var(--now-indicator);
-  --fc-highlight-color: color-mix(in oklab, var(--ring) 15%, transparent);
-  --fc-event-bg-color: transparent;
-  --fc-event-border-color: transparent;
-  --fc-event-text-color: var(--foreground);
-  --fc-event-selected-overlay-color: transparent;
-  --fc-more-link-bg-color: transparent;
-  --fc-more-link-text-color: var(--muted-foreground);
-  --fc-small-font-size: var(--text-xs);
 
   position: relative;
   height: 100%;
@@ -33,32 +15,197 @@
   font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
 }
 
-/* no outer frame: lines only between days and under the headers */
-.view :global(.fc-theme-standard .fc-scrollgrid) {
+/* ---------------------------------------------------------------- FullCalendar's parts */
+
+.calendar {
+  height: 100%;
+  background: var(--background);
+  color: var(--foreground);
+}
+.calendarView {
+  background: var(--background);
+}
+/* the sticky headers, over the hours as they scroll */
+.tableHeader {
+  background: var(--background);
+}
+
+/* the day headers: 40px (32px for the month's weekday names), no lines between them */
+.headerRow {
   border: 0;
 }
-.view :global(.fc .fc-scroller) {
-  overscroll-behavior: contain;
+.dayHeader {
+  justify-content: flex-start;
+  border: 0;
 }
-
-/* ---------------------------------------------------------------- the day headers */
-
-.view :global(.fc .fc-col-header-cell) {
-  height: 40px;
-  border-width: 0 0 1px;
-  vertical-align: middle;
-  text-align: left;
-  font-weight: var(--font-weight-normal);
-}
-.view :global(.fc .fc-col-header-cell-cushion) {
-  display: block;
+.dayHeaderInner {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 40px;
   padding: 0 var(--space-2);
-  color: inherit;
+}
+.view[data-view='month'] .dayHeaderInner {
+  min-height: 32px;
+}
+/* the line under the headers, and under the all-day row */
+.divider {
+  border-bottom: 1px solid var(--border);
+}
+
+/* the all-day row's gutter */
+.allDayHeader {
+  align-items: flex-start;
+  min-width: var(--calendar-gutter);
+}
+.allDayHeaderInner {
+  min-width: var(--calendar-gutter);
+  padding: 8px var(--space-2) 0;
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  white-space: nowrap;
+}
+
+/* the hours: a label centred on each hour line, 12px in from the gutter's edge */
+.slotHeader {
+  justify-content: flex-end;
+  align-items: flex-start;
+  min-width: var(--calendar-gutter);
+}
+/* FullCalendar sizes the gutter to its widest label: at least 60px */
+.slotHeaderInner {
+  min-width: calc(var(--calendar-gutter) - var(--space-3));
+  margin-right: var(--space-3);
+  text-align: right;
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+/* the line between the gutter and the first day */
+.slotHeaderDivider {
+  border-inline-end: 1px solid var(--border);
+}
+.slotLane {
+  border-top: 1px solid var(--border);
+}
+/* the day columns, split by lines; events 3px in from their sides */
+.dayLane {
+  border-inline-start: 1px solid var(--border);
+}
+.dayLaneInner {
+  margin-inline: 2px;
+}
+.nowLine {
+  border: 0;
+}
+
+/* the month's weeks and cells, and the all-day row's cells */
+.dayRow {
+  border: 0;
+}
+.view[data-view='month'] .dayRow {
+  border-bottom: 1px solid var(--border);
+}
+.dayCell {
+  border-inline-start: 1px solid var(--border);
+}
+/* the all-day row: chips in 22px rows 4px apart (each chip's 4px under it), 5px clear of its
+   lines; FullCalendar's spacers above and below the chips give the space */
+.view:not([data-view='month']) .dayCellTop {
+  min-height: 5px;
+}
+.view:not([data-view='month']) .dayCellBottom {
+  min-height: 1px;
+}
+/* a month cell: 6px in, its date in the top spacer, then the event lines */
+.view[data-view='month'] .dayCellTop {
+  padding: var(--space-1-5) var(--space-1-5) var(--space-0-5);
+}
+.view[data-view='month'] .dayCellBottom {
+  padding: 0 var(--space-1-5) var(--space-1-5);
+}
+/* FullCalendar places the lines and "+N more" across the cell: the 6px is inside them */
+.view[data-view='month'] .rowEvent .eventInner {
+  padding-inline: var(--space-1-5);
+}
+.view[data-view='month'] .rowMoreLink {
+  padding-left: calc(var(--space-1-5) + 11px);
+}
+.dayCellTop {
+  display: flex;
+}
+.filler {
+  border: 0;
+}
+
+/* FullCalendar's frame around an event is bare: the content draws it */
+.blockEvent,
+.rowEvent,
+.columnEvent {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--foreground);
+  font-size: var(--text-xs);
   text-decoration: none;
 }
-.view :global(.fc .fc-timegrid-axis) {
-  border-width: 0 0 1px;
+/* 1px all round: 2px shorter than its time, 3px in from the column, 2px from its neighbour */
+.columnEvent {
+  margin: 1px;
 }
+.view:not([data-view='month']) .rowEvent {
+  margin: 0 var(--space-1) var(--space-1);
+}
+.eventInner {
+  height: 100%;
+  min-width: 0;
+}
+.event:focus-visible {
+  outline: none;
+}
+
+/* "+2 more" */
+.moreLink {
+  color: var(--muted-foreground);
+  text-decoration: none;
+}
+.rowMoreLink {
+  display: flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 var(--space-1-5) 0 11px;
+  border-radius: var(--radius-sm);
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.rowMoreLink:hover {
+  background: var(--accent);
+}
+.navLink {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.highlight {
+  background: color-mix(in oklab, var(--ring) 15%, transparent);
+}
+.hidden {
+  display: none;
+}
+/* the "+N more" popover, when nothing opens the day */
+.popover {
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  box-shadow: var(--shadow-md);
+}
+
+/* ---------------------------------------------------------------- the content */
+
 .dayHead {
   display: flex;
   align-items: center;
@@ -86,129 +233,14 @@
   color: var(--white);
 }
 
-/* ---------------------------------------------------------------- the all-day row */
-
-.view :global(.fc .fc-timegrid-axis-frame) {
-  justify-content: flex-start;
-}
-.view :global(.fc .fc-timegrid-axis-cushion) {
-  max-width: none;
-  padding: 3px var(--space-2);
-  color: var(--subtle-foreground);
-  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
-  white-space: nowrap;
-}
-.view :global(.fc .fc-timegrid .fc-daygrid-body) {
-  padding: 5px 0;
-}
-.view :global(.fc .fc-timegrid .fc-daygrid-day-events) {
-  min-height: 22px;
-  margin: 0;
-}
-.view :global(.fc .fc-timegrid .fc-daygrid-body-natural .fc-daygrid-day-events) {
-  margin-bottom: 0;
-}
-.view :global(.fc .fc-timegrid .fc-daygrid-event-harness + .fc-daygrid-event-harness) {
-  margin-top: var(--space-1);
-}
-.view :global(.fc .fc-timegrid .fc-daygrid-event) {
-  margin: 0 var(--space-1) !important;
-}
-/* the all-day row's own bottom line is the one between it and the hours */
-.view :global(.fc .fc-timegrid-divider) {
-  padding: 0;
-  border-width: 0;
-  background: none;
-}
-
-/* ---------------------------------------------------------------- the hours */
-
-.view :global(.fc .fc-timegrid-body) {
-  padding: var(--calendar-top) 0;
-}
-/* the column lines run the body's full height; what is placed by time lines up with the hours */
-.view :global(.fc-media-screen .fc-timegrid-col-bg),
-.view :global(.fc-media-screen .fc-timegrid-col-events),
-.view :global(.fc-media-screen .fc-timegrid-now-indicator-container) {
-  top: var(--calendar-top);
-}
-.view :global(.fc .fc-timegrid-slots) {
-  margin-top: 0;
-}
-.view :global(.fc .fc-timegrid-slot) {
-  height: var(--calendar-hour);
-}
-.view :global(.fc .fc-timegrid-slot-label) {
-  border: 0;
-  vertical-align: top;
-}
-.view :global(.fc .fc-timegrid-slot-label-frame) {
-  position: relative;
-  top: -8px;
-}
-.view :global(.fc .fc-timegrid-slot-label-cushion) {
-  padding: 0 var(--space-3) 0 0;
-  text-align: right;
-  color: var(--subtle-foreground);
-  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
-}
-/* FullCalendar sizes the gutter to its widest label: at least 60px */
-.view :global(.fc .fc-scrollgrid-shrink-cushion) {
-  min-width: var(--calendar-gutter);
-}
-.view :global(.fc .fc-timegrid-col) {
-  border-width: 0 0 0 1px;
-}
-/* events 3px in from the column's sides, side by side 2px apart, 2px shorter than their slot */
-.view :global(.fc-direction-ltr .fc-timegrid-col-events) {
-  margin: 0 2px;
-}
-.view :global(.fc-timegrid-event-harness > .fc-timegrid-event) {
-  top: 1px;
-  bottom: 1px;
-  left: 1px;
-  right: 1px;
-}
-.view :global(.fc-timegrid-event-harness-inset .fc-timegrid-event) {
-  box-shadow: none;
-}
-
-/* the current time: DevBrain's line and dot in place of FullCalendar's */
-.view :global(.fc .fc-timegrid-now-indicator-line) {
-  border-width: 0;
-}
-.view :global(.fc .fc-timegrid-now-indicator-arrow) {
-  display: none;
-}
+/* the current time: DevBrain's line and dot */
 .now {
   position: absolute;
   top: 0;
 }
 
-/* ---------------------------------------------------------------- events */
-
-/* FullCalendar's own chrome goes: the content is an EventBlock, an AllDayEvent or a month line */
 .event {
-  margin: 0;
-  padding: 0;
-  border: 0 !important;
   border-radius: var(--radius-md);
-  background: none !important;
-  box-shadow: none !important;
-  color: var(--foreground);
-  font-size: var(--text-xs);
-}
-.event::before,
-.event::after {
-  display: none;
-}
-.event :global(.fc-event-main) {
-  height: 100%;
-  padding: 0;
-  color: inherit;
-}
-.event:focus-visible {
-  outline: none;
 }
 .block {
   height: 100%;
@@ -233,55 +265,7 @@
   opacity: 0.5;
 }
 
-/* ---------------------------------------------------------------- the month */
-
-.view[data-view='month'] :global(.fc .fc-col-header-cell) {
-  height: 32px;
-}
-.view[data-view='month'] :global(.fc .fc-col-header-cell-cushion) {
-  padding: 0 var(--space-2);
-}
-/* the all-day row's columns, and the month's cells */
-.view :global(.fc .fc-daygrid-day) {
-  border-width: 0 0 0 1px;
-}
-.view[data-view='month'] :global(.fc .fc-daygrid-day) {
-  border-width: 0 0 1px 1px;
-}
-.view[data-view='month'] :global(.fc .fc-daygrid-day:first-child) {
-  border-left-width: 0;
-}
-/* equal weeks, whatever their events */
-.view[data-view='month'] :global(.fc .fc-daygrid-body tr) {
-  height: calc(100% / var(--calendar-weeks));
-}
-.view[data-view='month'] :global(.fc .fc-daygrid-day-frame) {
-  padding: var(--space-1-5);
-}
-.view :global(.fc .fc-daygrid-day-top) {
-  flex-direction: row;
-}
-.view :global(.fc .fc-day-other .fc-daygrid-day-top) {
-  opacity: 1;
-}
-.view :global(.fc .fc-daygrid-day-number) {
-  padding: 0;
-  color: inherit;
-  text-decoration: none;
-}
-.view[data-view='month'] :global(.fc .fc-daygrid-day-events) {
-  margin: var(--space-0-5) 0 0;
-}
-/* FullCalendar stacks the lines by their measured height: the 2px between them is inside each */
-.view[data-view='month'] :global(.fc .fc-daygrid-event) {
-  margin: 0 !important;
-  padding-bottom: var(--space-0-5);
-}
-.view :global(.fc .fc-daygrid-day-bottom) {
-  margin: var(--space-0-5) 0 0;
-  font-size: var(--text-xs);
-}
-/* the date: 24px, today on the red disc, other months' days dimmed */
+/* the month's date: 24px, today on the red disc, other months' days dimmed */
 .dayNumber {
   display: grid;
   place-items: center;
@@ -300,13 +284,14 @@
   font-weight: var(--font-weight-normal);
 }
 
-/* one event per line: bar, start time, title */
+/* a month event: bar, start time, title on one 20px line, 2px under the one above */
 .line {
   display: flex;
   align-items: center;
   gap: var(--space-1-5);
   min-width: 0;
   height: 20px;
+  margin-bottom: var(--space-0-5);
   padding: 0 0 0 var(--space-0-5);
   border-radius: var(--radius-sm);
   color: var(--foreground);
@@ -333,30 +318,4 @@
 }
 .tentative {
   opacity: 0.7;
-}
-
-/* "+2 more" */
-.view :global(.fc .fc-daygrid-more-link) {
-  display: flex;
-  align-items: center;
-  height: 20px;
-  padding: 0 var(--space-1-5) 0 11px;
-  border-radius: var(--radius-sm);
-  color: var(--muted-foreground);
-  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
-  text-decoration: none;
-}
-.view :global(.fc .fc-daygrid-more-link:hover) {
-  background: var(--accent);
-}
-
-/* the "+N more" popover, when nothing opens the day */
-.view :global(.fc-theme-standard .fc-popover) {
-  border-radius: var(--radius-lg);
-  background: var(--popover);
-  box-shadow: var(--shadow-md);
-}
-.view :global(.fc-theme-standard .fc-popover-header) {
-  background: none;
-  color: var(--muted-foreground);
 }
