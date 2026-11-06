@@ -1689,3 +1689,53 @@ describe('TaskService — onChange', () => {
     expect(listener).not.toHaveBeenCalled();
   });
 });
+
+describe('TaskService — clearing fields', () => {
+  it('clears the nullable fields with null, keeping the ones left out', () => {
+    const task = tasks.createTask({
+      title: 'Full',
+      description: 'Notes',
+      startDate: YESTERDAY,
+      dueDate: TOMORROW,
+      pullRequestUrl: 'https://github.com/acme/app/pull/1',
+      priority: TaskPriority.HIGH,
+    });
+
+    const cleared = tasks.updateTask(task.id, {
+      description: null,
+      startDate: null,
+      dueDate: null,
+      pullRequestUrl: null,
+    });
+
+    expect(cleared).toMatchObject({
+      title: 'Full',
+      priority: TaskPriority.HIGH,
+      description: null,
+      startDate: null,
+      dueDate: null,
+      pullRequestUrl: null,
+    });
+    expect(tasks.getById(task.id)).toMatchObject({ dueDate: null, startDate: null });
+  });
+
+  it('clears the due date alone, leaving a start date after nothing (no date order is enforced)', () => {
+    const task = tasks.createTask({ title: 'Dated', startDate: TOMORROW, dueDate: NEXT_WEEK });
+    expect(tasks.updateTask(task.id, { dueDate: null })).toMatchObject({
+      startDate: TOMORROW,
+      dueDate: null,
+    });
+  });
+
+  it('lists a cleared task with the undated ones: last by due date, and out of due filters', () => {
+    const cleared = tasks.createTask({ title: 'Cleared', dueDate: YESTERDAY });
+    const dated = tasks.createTask({ title: 'Dated', dueDate: TOMORROW });
+    tasks.updateTask(cleared.id, { dueDate: null });
+
+    for (const direction of ['asc', 'desc'] as const) {
+      const ids = tasks.listTasks({}, { sortBy: 'dueDate', direction }).items.map((t) => t.id);
+      expect(ids).toEqual([dated.id, cleared.id]);
+    }
+    expect(tasks.listTasks({ dueBefore: NEXT_WEEK }).items.map((t) => t.id)).toEqual([dated.id]);
+  });
+});

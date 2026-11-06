@@ -259,3 +259,45 @@ describe('tasks', () => {
     expect(reattached.changed).toContain('task');
   });
 });
+
+describe('clearing fields', () => {
+  it('clears fields with null', async () => {
+    const { id } = workspace().tasks.createTask({
+      title: 'Full',
+      description: 'Notes',
+      startDate: DUE,
+      dueDate: DUE,
+      pullRequestUrl: 'https://github.com/acme/app/pull/1',
+    });
+    expect(
+      await mutate('tasks.update', {
+        id,
+        description: null,
+        startDate: null,
+        dueDate: null,
+        pullRequestUrl: null,
+      }),
+    ).toMatchObject({
+      ok: true,
+      data: {
+        title: 'Full',
+        description: null,
+        startDate: null,
+        dueDate: null,
+        pullRequestUrl: null,
+      },
+      changed: ['task'],
+    });
+    // the title can't be cleared
+    expect(code(await mutate('tasks.update', { id, title: null }))).toBe('invalid_input');
+  });
+
+  it('refuses clearing a field of a synced task', async () => {
+    const id = await syncedTask(issue({ dueDate: DUE }));
+    expect(await mutate('tasks.update', { id, dueDate: null })).toMatchObject({
+      ok: false,
+      error: { data: { code: 'external_read_only' } },
+      changed: [],
+    });
+  });
+});

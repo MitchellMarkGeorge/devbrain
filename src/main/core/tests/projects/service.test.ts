@@ -1055,3 +1055,47 @@ describe('ProjectService — onChange', () => {
     expect(listener).not.toHaveBeenCalled();
   });
 });
+
+describe('ProjectService — clearing fields', () => {
+  it('clears the nullable fields with null, keeping the ones left out', () => {
+    const project = projects.createProject({
+      title: 'Full',
+      description: 'About',
+      startDate: YESTERDAY,
+      dueDate: NEXT_WEEK,
+      color: '#336699',
+    });
+
+    const cleared = projects.updateProject(project.id, {
+      description: null,
+      startDate: null,
+      dueDate: null,
+      color: null,
+    });
+
+    expect(cleared).toMatchObject({
+      title: 'Full',
+      description: null,
+      startDate: null,
+      dueDate: null,
+      color: null,
+    });
+    expect(projects.getById(project.id).dueDate).toBeNull();
+  });
+
+  it('lists a cleared project last by due date, and out of due filters', () => {
+    const cleared = projects.createProject({ title: 'Cleared', dueDate: YESTERDAY });
+    const dated = projects.createProject({ title: 'Dated', dueDate: TOMORROW });
+    projects.updateProject(cleared.id, { dueDate: null });
+
+    for (const direction of ['asc', 'desc'] as const) {
+      const ids = projects
+        .listProjects({}, { sortBy: 'dueDate', direction })
+        .items.map((p) => p.id);
+      expect(ids).toEqual([dated.id, cleared.id]);
+    }
+    expect(projects.listProjects({ dueBefore: NEXT_WEEK }).items.map((p) => p.id)).toEqual([
+      dated.id,
+    ]);
+  });
+});

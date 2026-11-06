@@ -66,13 +66,14 @@ export interface TaskSortOptions {
 }
 
 // links, sub/parent task relationships, time stamps, project membership  and status are updated seperatly and have thier own logic
+// A field left out is kept; null clears one the model allows to be empty.
 export interface UpdateTaskOptions {
   title?: string;
-  description?: string;
+  description?: string | null;
   priority?: TaskPriority;
-  startDate?: Date;
-  dueDate?: Date;
-  pullRequestUrl?: string;
+  startDate?: Date | null;
+  dueDate?: Date | null;
+  pullRequestUrl?: string | null;
 }
 
 export interface UpdateTaskLinkOptions {

@@ -271,10 +271,38 @@ describe('projects', () => {
     expect(await data<Project>('projects.get', { id })).toMatchObject({ id, title: 'Launch' });
   });
 
+  it('clears fields with null', async () => {
+    const { id } = workspace().projects.createProject({
+      title: 'Full',
+      description: 'About',
+      startDate: DUE,
+      dueDate: DUE,
+      color: '#336699',
+    });
+    expect(
+      await mutate('projects.update', {
+        id,
+        description: null,
+        startDate: null,
+        dueDate: null,
+        color: null,
+      }),
+    ).toMatchObject({
+      ok: true,
+      data: { title: 'Full', description: null, startDate: null, dueDate: null, color: null },
+      changed: ['project'],
+    });
+  });
+
   it("refuses an edit to a synced project with core's external_read_only, but favorites it", async () => {
     const id = syncedProject();
 
     expect(await mutate('projects.update', { id, title: 'Mine' })).toMatchObject({
+      ok: false,
+      error: { data: { code: 'external_read_only' } },
+      changed: [],
+    });
+    expect(await mutate('projects.update', { id, dueDate: null })).toMatchObject({
       ok: false,
       error: { data: { code: 'external_read_only' } },
       changed: [],

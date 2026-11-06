@@ -187,6 +187,11 @@ describe('read-only guards — guarded methods', () => {
       run: (f) => tasks.createSubtask(f.task.id, { title: 'Child' }),
     },
     {
+      method: 'TaskService.updateTask (clearing a field)',
+      target: (f) => f.task.id,
+      run: (f) => tasks.updateTask(f.task.id, { dueDate: null }),
+    },
+    {
       method: 'ArchiveService.archiveTask',
       target: (f) => f.task.id,
       run: (f) => archive.archiveTask(f.task.id),
@@ -195,6 +200,11 @@ describe('read-only guards — guarded methods', () => {
       method: 'ProjectService.updateProject',
       target: (f) => f.project.id,
       run: (f) => projects.updateProject(f.project.id, { title: 'Edited' }),
+    },
+    {
+      method: 'ProjectService.updateProject (clearing a field)',
+      target: (f) => f.project.id,
+      run: (f) => projects.updateProject(f.project.id, { dueDate: null }),
     },
     {
       method: 'ProjectService.updateStatus',

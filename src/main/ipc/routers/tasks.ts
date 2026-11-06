@@ -86,17 +86,17 @@ export const tasksRouter = t.router({
     ),
 
   // the fields core's UpdateTaskOptions holds; status, project, links and the hierarchy each have
-  // their own route
+  // their own route. A field left out is kept; null clears the description, dates and PR link
   update: wsProcedure
     .input(
       z.object({
         id: zId('task'),
         title: title.optional(),
-        description: z.string().optional(),
+        description: z.string().nullable().optional(),
         priority: priority.optional(),
-        startDate: z.date().optional(),
-        dueDate: z.date().optional(),
-        pullRequestUrl: safeUrlSchema.optional(),
+        startDate: z.date().nullable().optional(),
+        dueDate: z.date().nullable().optional(),
+        pullRequestUrl: safeUrlSchema.nullable().optional(),
       }),
     )
     .mutation(({ ctx, input: { id, ...updates } }) => ctx.workspace.tasks.updateTask(id, updates)),
