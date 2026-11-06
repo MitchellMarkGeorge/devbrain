@@ -177,6 +177,7 @@ function fakeWorkspace(name = 'Work') {
 function fakeDesktop(): { [K in keyof Desktop]: ReturnType<typeof vi.fn> } {
   return {
     openFolder: vi.fn(async () => undefined),
+    showItem: vi.fn(async () => undefined),
     chooseFiles: vi.fn(async () => ['/in/tasks.csv']),
     chooseFolder: vi.fn(async () => '/chosen'),
     chooseSaveFile: vi.fn(async () => '/out/tasks.csv'),
