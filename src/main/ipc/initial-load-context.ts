@@ -15,6 +15,7 @@ export function initialLoadContext(devBrain: DevBrain | null): InitialLoadContex
       last: null,
       workspaces: NO_WORKSPACES,
       theme: 'system',
+      lastPage: null,
     };
   }
   const current = devBrain.currentWorkspace?.info ?? null;
@@ -25,6 +26,7 @@ export function initialLoadContext(devBrain: DevBrain | null): InitialLoadContex
     last: lastId === null ? null : devBrain.workspaces.getById(lastId),
     workspaces: devBrain.workspaces.listAll(),
     theme: devBrain.settings.get('settings.theme'),
+    lastPage: devBrain.settings.get('state.lastPage'),
   };
 }
 

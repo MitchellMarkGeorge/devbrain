@@ -24,6 +24,7 @@ const context: InitialLoadContext = {
   last: null,
   workspaces: { items: [work], nextCursor: null },
   theme: 'system',
+  lastPage: '/app/tasks?view=board',
 };
 
 function bridgeWith(initialLoadContext: IpcBridge['initialLoadContext']): IpcBridge {
@@ -54,6 +55,15 @@ describe('seedQueryCache', () => {
     expect(queryClient.getQueryData(trpc.workspaces.list.queryKey())).toBe(context.workspaces);
     expect(queryClient.getQueryDefaults(trpc.workspaces.current.queryKey()).staleTime).toBe(
       Infinity,
+    );
+  });
+
+  it('fills settings.lastPage, for boot to pick the landing page at once', () => {
+    const queryClient = new QueryClient();
+    seedQueryCache(queryClient, context);
+
+    expect(queryClient.getQueryData(trpc.settings.lastPage.queryKey())).toBe(
+      '/app/tasks?view=board',
     );
   });
 

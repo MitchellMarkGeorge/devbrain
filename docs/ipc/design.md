@@ -270,14 +270,15 @@ value `initialLoadContext` (`null` when the read fails). `readInitialLoadContext
 [`src/renderer/ipc/initial-load-context.ts`](../../src/renderer/ipc/initial-load-context.ts)) reads
 that value. Main answers with an `InitialLoadContext`
 ([`src/main/ipc/initial-load-context.ts`](../../src/main/ipc/initial-load-context.ts)), built fresh
-for each load: `{ devBrainAvailable, current, last, workspaces, theme }`, workspace info and the
-theme setting. `theme` is applied to the page before the first render (`src/renderer/theme.tsx`),
+for each load: `{ devBrainAvailable, current, last, workspaces, theme, lastPage }`, workspace
+info, the theme setting and the page the app was on last (`state.lastPage`, which the renderer
+saves with `settings.setLastPage` for "Reopen last page"). `theme` is applied to the page before the first render (`src/renderer/theme.tsx`),
 which then follows `settings.get`. `last` is
 the workspace `workspaces.openLast` would open while none is open. When building it throws, main
 logs the error and answers `null`, so the page never waits forever.
 
-`seedQueryCache` puts `current` and `workspaces` in the cache as `workspaces.current` and
-`workspaces.list` before the first render, so startup routing (the workspace, the picker or the
+`seedQueryCache` puts `current`, `workspaces` and `lastPage` in the cache as `workspaces.current`,
+`workspaces.list` and `settings.lastPage` before the first render, so startup routing (the workspace, the picker or the
 create page) is decided at once, with no splash on a reload. The `workspaces` router's queries get
 `staleTime: Infinity`: main reports every change to them (`workspace` entities and
 `workspace.changed`), so they need no refetch on mount. With no initial load context, they fetch as

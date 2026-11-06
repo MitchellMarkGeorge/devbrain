@@ -1187,7 +1187,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 | N1                                     | `notes.readContent`, `content` in `notes.create`         | Note page, task note, event note             | Done (#110)                |
 | X1                                     | DTO types and enums to `src/common`                      | Entity components (milestone 3)              | **Yes** for the components |
 | T5                                     | Nullable fields in `tasks.update`/`projects.update`      | Date pickers, clearing links                 | **Yes** for clearing       |
-| S2                                     | `lastPage` read/write + in initial load context          | Reopen last page                             | For that setting           |
+| S2                                     | `lastPage` read/write + in initial load context          | Reopen last page                             | Done                       |
 | T6                                     | Optional `dueDate` on create                             | Create dialogs                               | No (default from settings) |
 | P1                                     | Stats on `projects.list`                                 | Projects list/cards                          | No (N+1)                   |
 | T2                                     | Bulk task updates                                        | Selection bar                                | No (sequential)            |
