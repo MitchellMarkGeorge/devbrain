@@ -37,7 +37,7 @@ surveyed three things in parallel and checked the claims the plan rests on again
 3. [Route tree](#route-tree)
 4. [Router setup](#router-setup)
 5. [Search params](#search-params)
-6. [Data: queries, loaders, display helpers](#data-queries-loaders-display-helpers)
+6. [Data: queries, lists, components](#data-queries-lists-components)
 7. [App-wide pieces](#app-wide-pieces)
 8. [Pages and flows](#pages-and-flows)
 9. [Main-process changes](#main-process-changes)
@@ -52,17 +52,19 @@ surveyed three things in parallel and checked the claims the plan rests on again
 | --- | --- |
 | Router | `@tanstack/react-router` with file-based routes (`@tanstack/router-plugin/vite`) in `src/renderer/routes`, generating `src/renderer/routeTree.gen.ts`, which is checked in, formatted and linted as generated. No automatic code splitting: the bundle loads from disk, so splitting only adds work. |
 | History | **Hash history** (`createHashHistory`). The production page loads from `file://`, where browser history paths don't resolve on reload; the hash keeps the location across a reload (⌘R, a crash restore) and in devtools. Memory history would lose it. |
-| Paths | Kebab case, with the spelling fixed: `/onboarding`, `/onboarding/new-workspace`, `/onboarding/choose-workspace`, `/app/...`. Path params use the entity's prefixed id (`tsk_…`, `prj_…`, `nte_…`), validated with the same prefixes `zId` checks. |
-| Param values | Kebab case too (`data-storage`, `not-started`, `in-progress`), which also matches the components' own status names (`TaskStatus` is `'not-started' \| 'in-progress' \| …`). |
+| Paths | Snake case, as the project uses elsewhere, with the spelling fixed: `/onboarding`, `/onboarding/new_workspace`, `/onboarding/choose_workspace`, `/app/...`. Path params use the entity's prefixed id (`tsk_…`, `prj_…`, `nte_…`), validated with the same prefixes `zId` checks. |
+| Param values | Snake case too (`data_storage`, `not_started`, `in_progress`). |
 | Search params | Validated per route with Zod v4 (already a dependency; TanStack Router accepts Standard Schema), each field `.optional().catch(undefined)`. Without the `catch`, one bad value (a link saved before a param's values changed, a typo, a removed option) makes `validateSearch` throw, and the whole page renders the error screen. With it, that one field falls back to its default and the rest of the URL still applies. The fallback is `undefined` rather than a literal default because a missing param means "the setting's default" (e.g. `tasks.defaultView`), read at render: so a default is never written into the URL, and changing the setting changes every URL without the param. |
 | Data | React Query stays the cache, through `trpc.*.queryOptions()` as today. Route loaders only *prime* that cache (`queryClient.ensureQueryData`), so a page renders with its data on the first frame and a missing entity becomes the route's not-found. The router keeps no cache of its own (`defaultPreloadStaleTime: 0`). Freshness stays with the query invalidator: nothing in a route invalidates by hand. |
 | Router context | `{ queryClient, trpc, ipc }`, typed with `createRootRouteWithContext`. |
-| Display helpers | Components take display props (`date: "Today"`, `status: 'overdue'`), not core rows. No mapper layer per entity: shared helpers in `src/renderer/format/` do the parts that are real logic (derived status, relative dates, time format, colour parsing), and mapper functions exist only for the shapes drawn in many places (task rows and cards, calendar events). See [Display helpers](#display-helpers-srcrendererformat). |
+| Entity components | The entity and list components take **core's own shapes**: a `TaskListItem` goes straight into `TaskRow`, with no mapping step. Each component declares the fields it reads, core's rows satisfy that structurally, and the component derives and formats what it draws (overdue, "Today", 10:30 AM) from a `FormatProvider` that supplies `now` and the time format. Needs core's enums moved to `src/common` (X1). See [Entity components take core's shapes](#entity-components-take-cores-shapes). |
+| Dates | **luxon**, already a dependency and what core uses: relative and calendar dates, locale formats, 12/24 hour. No hand-written date formatting. |
+| Virtualization | Every list and grid that can grow is virtualized with **`@tanstack/react-virtual`**: tasks (list, group, board columns), notes, projects, trash, search results. See [Virtualized lists](#virtualized-lists). |
 | Detail presentation | As designed: tasks, projects and notes are pages; a task opened from the board and an event opened from the calendar show in the docked `Sheet` over their list, addressed by an `open` search param so Back closes them. The task note opens as a dialog (local state). |
 | Splash | `/` is the boot route and draws the splash while the last workspace reopens, then redirects. A workspace *switch* draws the same splash as an overlay from the root route, driven by `workspace.changed` (as `App.tsx` does today), and does not navigate to `/`: a switch can start from the menu or another window, and the URL should land on the new workspace's landing page, not on `/`. |
 | Not in the route list but designed | `/app/integrations` (in the sidebar nav, Figma `7164:13117`). ⌘K is a dialog, not a route. Help has nothing behind it yet: the sidebar's Help item and Welcome's "What's a workspace?" link are drawn disabled. |
 | Trash | The route is **`/app/trash`**, matching the UI and `docs/deleting.md`. Core still says archive (`archive` router, `listArchived`); the code rename is its own follow-up (E2). |
-| New workspace | Inside the app, "New workspace…" opens a **Create workspace dialog** over the page. `/onboarding/new-workspace` is only for when nothing is open. Both use one `CreateWorkspaceForm`, so the onboarding guard needs no exception. Mocked in Figma as "New workspace (dialog in the app)" (`7760:61527`). Why a dialog: see [Onboarding](#onboarding-onboarding). |
+| New workspace | Inside the app, "New workspace…" opens a **Create workspace dialog** over the page. `/onboarding/new_workspace` is only for when nothing is open. Both use one `CreateWorkspaceForm`, so the onboarding guard needs no exception. Mocked in Figma as "New workspace (dialog in the app)" (`7760:61527`). Why a dialog: see [Onboarding](#onboarding-onboarding). |
 | Calendar rendering | **FullCalendar** (`@fullcalendar/react` with the `timegrid`, `daygrid`, `interaction`, `rrule` and `luxon3` plugins), mapped per `docs/calendar/fullcalendar-adapter.md`. `TimeGrid` and `MonthGrid` are the visual spec: FullCalendar is themed to match them with tokens and draws `EventBlock`/`AllDayEvent` through its content hooks. See [Calendar](#calendar-appcalendar). |
 | Keyboard | One command registry and a keymap dispatcher of our own, with modes and key sequences from the start, so Vim mode is a second keymap rather than a rewrite. See [Keyboard](#keyboard-commands-keymaps-and-vim-mode). |
 
@@ -98,8 +100,8 @@ __root                      providers, splash overlay, global dialogs host, not-
 ├── /                       index: boot + splash → redirect
 ├── /onboarding             layout: OnboardingScreen frame (no sidebar)
 │   ├── /                   Welcome
-│   ├── /new-workspace      Create workspace
-│   └── /choose-workspace   Choose from existing workspaces
+│   ├── /new_workspace      Create workspace
+│   └── /choose_workspace   Choose from existing workspaces
 └── /app                    layout: AppShell + sidebar + <Outlet/>; guards "a workspace is open"
     ├── /                   index: redirect to the landing page
     ├── /home
@@ -112,7 +114,7 @@ __root                      providers, splash overlay, global dialogs host, not-
     ├── /calendar           ?view=week|month|day, ?date=YYYY-MM-DD, ?open=evt_…|tsk_…
     ├── /trash              ?tab=all|projects|tasks|notes
     ├── /integrations       (added: designed and in the sidebar)
-    └── /settings           ?tab=general|calendar|tasks|data-storage
+    └── /settings           ?tab=general|calendar|tasks|data_storage
 ```
 
 Files (`src/renderer/routes`, TanStack's flat dot notation, so a list and its detail are siblings
@@ -123,8 +125,8 @@ __root.tsx
 index.tsx
 onboarding.tsx                    layout
 onboarding.index.tsx
-onboarding.new-workspace.tsx
-onboarding.choose-workspace.tsx
+onboarding.new_workspace.tsx
+onboarding.choose_workspace.tsx
 app.tsx                           layout
 app.index.tsx
 app.home.tsx
@@ -266,7 +268,7 @@ export const tasksSearch = z.object({
 | `groupBy` | `project` (default) \| `status` \| `priority` \| `due` | `group` view only ("Group by: Project", `7158:9538`) |
 | `sort` | `priority` \| `dueDate` \| `status` \| `createdAt` \| `updatedAt` | default `settings.tasks.defaultSort` |
 | `dir` | `asc` \| `desc` | |
-| `status` | `open` (default) \| `all` \| `not-started` \| `in-progress` \| `completed` \| `cancelled` | "Filter: Open" → `excludeClosed`; `showCompletedTasks` decides the default between `open` and `all` |
+| `status` | `open` (default) \| `all` \| `not_started` \| `in_progress` \| `completed` \| `cancelled` | "Filter: Open" → `excludeClosed`; `showCompletedTasks` decides the default between `open` and `all` |
 | `priority` | `low` \| `medium` \| `high` | single value, as core filters |
 | `project` | `prj_…` \| `none` | "Filter by project" menu (`7175:25639`) |
 | `due` | `overdue` \| `today` \| `week` \| `none` | mapped to `dueBefore`/`dueOn`/`dueAfter` at the call |
@@ -279,7 +281,7 @@ URLs (`z.union([value, z.array(value)])`).
 
 ### `/app/projects`
 
-`view` (`list` | `card`), `status` (`active` default \| `all` \| `not-started` \| `on-hold` \|
+`view` (`list` | `card`), `status` (`active` default \| `all` \| `not_started` \| `on_hold` \|
 `completed`), `sort` (`dueDate` default \| `createdAt` \| `updatedAt` \| `status`), `dir`, `source`.
 
 ### `/app/projects/$projectId`
@@ -311,23 +313,92 @@ sort exists in core, newest first).
 
 ### `/app/settings`
 
-`tab` (`general` default \| `calendar` \| `tasks` \| `data-storage`). Figma orders the tabs
+`tab` (`general` default \| `calendar` \| `tasks` \| `data_storage`). Figma orders the tabs
 General / Tasks / Calendar / Data & storage.
 
-## Data: queries, loaders, display helpers
+## Data: queries, lists, components
 
 ### Queries
 
 - Read with `useSuspenseQuery(trpc.x.y.queryOptions(input))` in pages whose loader primed the
   query, and `useQuery` for secondary data (counts, pills' hover cards), so a slow secondary read
   never blocks the page.
-- Lists use `useSuspenseInfiniteQuery(trpc.x.list.infiniteQueryOptions(input, { getNextPageParam:
-  (p) => p.nextCursor }))` and load the next page as the list scrolls near its end (an
-  `IntersectionObserver` sentinel). Page size 100.
-- The board and group views need every open task of a group, not a page: each column or group runs
-  its own infinite query with that group's filter (`status` for the board, `projectId` for "group by
-  project") and fetches pages until done. This works with today's routes; see T1 for the one-query
-  version.
+
+### How the infinite lists work
+
+Core's list routes are paged with a cursor (keyset pagination, `core/shared/pagination.ts`):
+
+```ts
+tasks.list({ filter: { excludeClosed: true }, sort: { sortBy: 'priority' }, limit: 100, cursor: null })
+// → { items: [100 tasks], nextCursor: 'b64…' }
+tasks.list({ …same, cursor: 'b64…' })
+// → { items: [the next 100], nextCursor: null }   (null: that was the last page)
+```
+
+The cursor says "after this row in this sort order", so a page never skips or repeats a row when
+rows are added before it, as an offset would.
+
+`useInfiniteQuery(trpc.tasks.list.infiniteQueryOptions(input, { getNextPageParam: (p) =>
+p.nextCursor }))` keeps every loaded page in **one** cache entry (`data.pages`), keyed by the
+input without the cursor. `fetchNextPage()` asks for the next page with the last `nextCursor`, and
+`hasNextPage` turns false when it is `null`. The list scrolls through `data.pages.flatMap((p) =>
+p.items)`. It asks for the next page when the virtualizer reaches the last 20 loaded rows (see
+below), so a list only loads what has been scrolled near.
+
+**When something changes**, the invalidator marks the entry stale and React Query refetches it by
+re-requesting the loaded pages in order, starting again from the first cursor. That keeps pages
+consistent with each other, but a list scrolled through five pages refetches five pages (five
+IPC calls of 100 rows: a few milliseconds each on SQLite). `maxPages: 10` caps that; scrolling back
+up past the cap reloads the earlier pages.
+
+**The board** is three of these, one per column, each with its own input (`filter: { status: 1 }`,
+`{ status: 2 }`, `{ status: 3 }`). They're three cache entries, each loading its first page when
+the board opens and more as that column scrolls. A task moved from In progress to Completed is
+reported as a `task` change, so both columns refetch.
+
+**The group view** works the same way, one infinite query per group:
+
+- **Group by status or priority**: a fixed set of groups (three statuses; three priorities), each
+  filtered by that value.
+- **Group by project**: the groups come from `projects.list` (itself an infinite query), plus "No
+  project" (`projectId: null`). A group's task query only **mounts while the group is on screen and
+  expanded**, because the group view is virtualized. So a workspace with 40 projects runs the
+  queries for the five groups in view, not 40. The heading's done/total comes from `projects.stats`
+  (one per visible group, or from the list once P1 lands), not from loading the whole group.
+- **Group by due date**: fixed buckets (Overdue, Today, This week, Later, No date), each a
+  `dueBefore`/`dueOn`/`dueAfter` filter.
+
+A group shows the rows it has loaded, then a "Show more" row while `hasNextPage`. T1 would replace
+the per-group queries with one call; it's only worth it if this proves slow.
+
+### Virtualized lists
+
+Every list or grid that can grow renders only the rows in view (plus an overscan of about 10),
+with `@tanstack/react-virtual`. A workspace with 5,000 tasks then draws about 30 rows.
+
+- **Where:** `TaskList` (the tasks list, group view, a project's tasks, a note's tasks, subtasks),
+  each `BoardColumn`, the notes list and card grid, the projects list and card grid, Trash, and ⌘K's
+  results. Not the sidebar's Recents and Favorites (five items each) or Home (three rows).
+- **Sizes come from tokens.** Rows are `row-height` (48px, or 40px in the compact density), so
+  `estimateSize` is exact for task, note, project and trash rows. Group headings and cards have
+  fixed heights too. `measureElement` covers anything that wraps (a board card's pills).
+- **Grids** virtualize rows of cards: the column count comes from the width (three, or two in
+  compact windows), and each virtual row holds that many cards.
+- **The group view is one flat list**: heading rows and task rows in one virtualizer, with the
+  current group's heading kept sticky (`rangeExtractor`). Collapsing a group removes its rows from
+  the flat list.
+- **Loading more** is driven by the virtualizer: when its last rendered index comes within 20 of
+  the loaded count, call `fetchNextPage()`.
+- **Focus and selection.** A row scrolled out of view unmounts, so `TaskList` keeps the focused row
+  and the selection as **ids** in state, never as DOM focus alone. Moving focus to a row off screen
+  calls `scrollToIndex` first, then focuses it. Shift-click and Vim's `v` ranges select by id over
+  the loaded rows. `gg`, `G` and counts (`5j`) become `scrollToIndex` calls.
+- **Accessibility.** The list keeps `aria-rowcount` (the total, when a heading's count gives it)
+  and `aria-rowindex` on each rendered row, so a screen reader announces "row 212 of 340" even
+  though only 30 rows exist in the DOM.
+- **Browser find (⌘F)** only sees rendered rows. That's acceptable: ⌘K searches everything.
+- **It's a design-system change.** `TaskList`, `BoardColumn` and `CardGrid` get virtualization
+  built in, and their stories add a 1,000-row case. Each lands with its guide, per `CLAUDE.md`.
 
 ### Loaders
 
@@ -361,39 +432,94 @@ sheet's `open` param does not.
 - **Undo**: moving to trash shows the "Moved to trash · Undo" toast (`7175:33810`), whose action
   calls the matching `archive.restore*`.
 
-### Display helpers (`src/renderer/format/`)
+### Entity components take core's shapes
 
-The components can't take core's rows as they are: the layering keeps `@common` and `@main` out of
-`components/`, so Storybook can draw any state without a database-shaped fixture. That alone
-would only call for shared types. What makes a translation step necessary is the logic between
-the two shapes, which has to live somewhere outside the components:
+**Today**, `TaskRow` takes display strings, so every page that draws a task has to prepare them:
 
-- **Derived values.** A task is drawn `overdue` when it's open and its due date has passed. Core
-  stores no such status; it depends on `now`.
-- **Formatting that depends on `now` and settings.** "Today", "Tomorrow", "Jul 1", "2h ago", "In 12
-  min", and 10:30 vs 10:30 AM (`general.timeFormat`).
-- **Untrusted values.** Colours from core (a Google calendar's, a project's) are parsed with
-  `hexColorSchema` before they reach a style (`docs/security/untrusted-content.md`).
-- **Enum names.** Core's `status: 2` is the components' `'in-progress'`.
-- **Flattening.** `subtaskProgress: { completed, total }` → `subtasks: [3, 4]`, and
-  `link: { type: 'event', … }` → an event pill.
+```tsx
+// in the tasks page, the board, the project page, Home, … (eight places)
+<TaskRow
+  task={{
+    title: item.title,
+    status: isOverdue(item, now) ? 'overdue' : STATUS_NAMES[item.status], // 2 → 'in-progress'
+    priority: PRIORITY_NAMES[item.priority],
+    date: item.dueDate ? formatDue(item.dueDate, now) : undefined,         // "Today", "Jul 1"
+    dateTone: dueTone(item.dueDate, now),
+    project: item.project?.title,
+    projectColor: item.project?.color,
+    subtasks: item.subtaskProgress.total
+      ? [item.subtaskProgress.completed, item.subtaskProgress.total] : undefined,
+    key: item.external?.key,
+    // …
+  }}
+/>
+```
 
-That logic goes in `src/renderer/format/` as small functions: `shownStatus(task, now)`,
-`formatDue(date, now)`, `dueTone(date, now)`, `formatRelative(date, now)`,
-`formatTime(date, timeFormat)`, `toSwatch(hex)`. They're unit-tested with a pinned `now`.
+**Instead**, the component reads the row itself, and works out what it draws:
 
-A whole-object mapper is only worth it where the same shape is drawn in many places:
+```tsx
+// any page
+<TaskRow task={item} />
 
-- `toTaskRow(item, ctx)` (`TaskRow` and `BoardCard`). A task row appears in the tasks list,
-  group view, board, project page, note page, subtasks, the task sheet and Home. Eight call sites
-  building the same 12 props by hand would drift.
-- `toEventInput(event, calendar)` (FullCalendar) and `toCalendarItem(event, now)` (`EventRow`,
-  `HomeRow`, `CalendarAgendaItem`).
+// TaskRow.tsx
+export interface TaskRowData {          // the fields TaskRow reads; core's TaskListItem has them all
+  title: string;
+  status: TaskStatus;                   // core's enum, moved to src/common (X1)
+  priority: TaskPriority;
+  dueDate: Date | null;
+  subtaskProgress: { completed: number; total: number };
+  project: { title: string; color: string | null } | null;
+  external?: { provider: string; key: string | null } | null;
+  // …
+}
 
-Everything else (a `NoteCard`, a `ProjectRow`, a `TrashRow`, an `IntegrationCard`) is mapped inline
-in the page that draws it, calling the helpers. No `view-models/` folder.
+export function TaskRow({ task }: { task: TaskRowData }) {
+  const { now, formatDue } = useFormat();              // from <FormatProvider>
+  const overdue = isOverdue(task.status, task.dueDate, now);
+  const color = resolveColor(task.project?.color);     // checks the hex; falls back to the default
+  // … draws StatusIcon (flag when overdue), the pills, PriorityIcon, formatDue(task.dueDate)
+}
+```
 
-Each takes a `now` and the settings it needs, so tests pin both. `toEventInput(event,
+- **Structural typing does the matching.** `TaskRowData` lists only what `TaskRow` reads, in the
+  form core returns it. Core's `TaskListItem` has those fields, so `task={item}` type-checks with
+  no import of core's types into the design system. A type test in `src/renderer/tests`
+  (`({} as TaskListItem) satisfies TaskRowData`) fails the build if core renames a field.
+- **`FormatProvider`** (in `components/lib`) supplies `now` (ticking once a minute, so "In 12 min"
+  counts down) and `timeFormat` from settings, and wraps luxon (`useFormat()` returns
+  `formatDue`, `formatRelative`, `formatTime`). The app mounts it once in `/app`. Storybook mounts
+  it in a decorator with a fixed `now` (22 Jun 2026, as the screens use), so stories stay stable.
+- **Enums.** `TaskStatus`, `TaskPriority` and `ProjectStatus` are runtime enums in
+  `src/main/core`, which the renderer may only import as types. They move to `src/common` (X1),
+  where `CLAUDE.md` puts runtime values both sides need, and core re-exports them. The components'
+  string unions (`'not-started' | …`) go away. The derived `'overdue'` becomes a boolean the row
+  computes.
+- **Colours** are checked where they're drawn: `resolveColor` (already in `components/types.ts`)
+  validates a hex string with the shared `hexColorSchema` and falls back to the default.
+
+**Which components change:** the ones that draw an entity. `TaskRow`, `BoardCard`, `LinkedTaskRow`,
+`NoteRow`, `NoteCard`, `ProjectRow`, `ProjectCard`, `ProjectHeader`, `EventRow`, `HomeRow`'s
+meeting form, `CalendarAgendaItem`, `TrashRow`, `EntityPill` and `EntityHoverCard`. Generic `ui/`
+components don't change. Each moves with its stories (fixtures become core-shaped rows with real
+`Date`s) and its guide, per `CLAUDE.md`. It's a sizeable design-system change, done in milestone 3
+before the pages, so every page is written against the new props once.
+
+**What stays outside the components:**
+
+- **Choosing and combining data**, which is the page's job: a task row on Home shows its event pill
+  from the task's `link`, and the page picks which query feeds which list.
+- **`toEventInput`**, the FullCalendar adapter. It's a translation to a library's format, not to a
+  component's props.
+- **Dates use luxon**, wrapped once in `FormatProvider`:
+  - due dates: `toRelativeCalendar()` within a week ("Today", "Tomorrow", "Yesterday"), else
+    `toLocaleString({ month: 'short', day: 'numeric' })` ("Jul 1");
+  - edit times: `toRelative({ style: 'narrow' })` ("2h ago");
+  - times: `toLocaleString(DateTime.TIME_SIMPLE, { hourCycle: timeFormat === '24' ? 'h23' : 'h12' })`.
+
+  Where luxon's wording differs from a Figma string, the design copy follows luxon rather than the
+  app hand-formatting dates.
+
+`toEventInput(event,
 calendar)` follows the adapter spec: one-offs map directly; a series becomes an `rrule` string (a
 `DTSTART;TZID=…` line, its `recurrenceRule`, and an `EXDATE` per `exdates`) with a `duration`;
 occurrence rows join their series' `groupId`. FullCalendar expands the series.
@@ -544,12 +670,12 @@ Layout: `OnboardingScreen` with the window bar (traffic lights or the Windows me
 sidebar.
 
 - **Welcome** (`/onboarding`, `7175:19898`; with workspaces `7285:53770`): with no workspaces,
-  "Create Workspace" → `new-workspace`, "Open Existing Folder…" → `workspaces.importFolder` then
+  "Create Workspace" → `new_workspace`, "Open Existing Folder…" → `workspaces.importFolder` then
   `workspaces.open`, "What's a workspace?" drawn disabled (no help yet). With workspaces, the
   "Recent workspaces" card: the list sorted by `lastOpenedAt` (client side), each opening with
   `workspaces.open`, then the same two buttons. The splash overlay covers the open; on
   `workspace.changed` the root navigates to the landing page.
-- **Create workspace** (`/onboarding/new-workspace`, `7175:20087`): `CreateWorkspaceForm` (name
+- **Create workspace** (`/onboarding/new_workspace`, `7175:20087`): `CreateWorkspaceForm` (name
   `Input`, `SwatchPicker`, live `WorkspaceTile` preview) on the onboarding card. Submit:
   `workspaces.create`, then `workspaces.open` with its id. "← Back" to Welcome. Inside the app the
   same form is the Create workspace dialog.
@@ -567,7 +693,7 @@ sidebar.
 
   The dialog says up front that the new workspace opens once it's created, since that closes what
   you're looking at.
-- **Choose workspace** (`/onboarding/choose-workspace`): the full `WorkspaceList` (all workspaces,
+- **Choose workspace** (`/onboarding/choose_workspace`): the full `WorkspaceList` (all workspaces,
   `workspaces.list` paged), for when the Welcome card shows only recent ones. Same open flow.
 - **Errors** (`7423:37060`–`7423:37281`) from `importFolder`/`open`, shown inline on Welcome by
   code: `workspace_import`, by its `data.reason` (`not_a_workspace`; `already_added`, which names
@@ -876,6 +1002,14 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 - **E2 (later): rename archive to trash in code** (follow-up). Independent of the UI, which says
   Trash already.
 
+### Shared types
+
+- **X1: move core's enums to `src/common`.** `TaskStatus`, `TaskPriority` and `ProjectStatus` (and
+  the event `kind`/`status`/`response` values the calendar draws) are runtime enums in
+  `src/main/core/*/types.ts`. The renderer can only import `src/main` as types, so components can't
+  use them. Move them to `src/common`, re-export them from core so nothing else changes, and the
+  entity components take them directly. **Needed before milestone 3.**
+
 ### Settings and app state
 
 - **S1: partial settings update.** `settings.update` replaces the whole object, so two quick edits
@@ -929,6 +1063,16 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 
 - **K1: calendar changes without a sync** (follow-up "Calendar changes wait for a sync run").
 
+  **The short version:** DevBrain keeps its own copy of your Google calendars and their events, and
+  only talks to Google during a sync run. Ticking or unticking a calendar, and learning about new
+  calendars, all wait for the next run. Until it happens, DevBrain shows the old state.
+
+  | Time | You do | DevBrain's database | What you see |
+  | --- | --- | --- | --- |
+  | 9:00 | Untick "Holidays" in Choose Calendars | `selected = false`; the 14 holiday events are still stored | The holidays, still on the week view |
+  | 9:00 + 1s | (a sync run starts by itself) | The run reaches its first page and deletes the 14 events | The holidays disappear |
+  | Offline instead | (the run fails before its first page) | Still `selected = false` with 14 events | The holidays stay until a run succeeds |
+
   **Background.** A connected Google account has several calendars ("Work", "Personal",
   "Holidays in Canada"). Each has two switches in DevBrain:
   - **Selected** (Choose Calendars, `7175:34407`): whether DevBrain syncs it at all. Unselecting
@@ -971,6 +1115,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 | Id | Change | Needed by | Blocking |
 | --- | --- | --- | --- |
 | N1 | `notes.content`, `content` in `notes.create` | Note page, task note, event note | **Yes** |
+| X1 | Core's enums to `src/common` | Entity components (milestone 3) | **Yes** for the components |
 | T5 | Nullable fields in `tasks.update`/`projects.update` | Date pickers, clearing links | **Yes** for clearing |
 | S2 | `lastPage` read/write + in initial load context | Reopen last page | For that setting |
 | T6 | Optional `dueDate` on create | Create dialogs | No (default from settings) |
@@ -1000,7 +1145,8 @@ page that needs them.
    page).
 2. **Onboarding.** Welcome, Create workspace (the shared form, also as the in-app dialog), Choose
    workspace, error states.
-3. **Shared app pieces.** The display helpers and `toTaskRow` with tests; `useOpenEntity`; error
+3. **Shared app pieces.** Entity components moved to core's shapes, with `FormatProvider`
+   (luxon) and the X1 enum move; `TaskList`, `BoardColumn` and `CardGrid` virtualized; `useOpenEntity`; error
    toast and `useConfirm`; Recents/Favorites/SyncStatus in the sidebar; page header slot and
    breadcrumbs; the keyboard layer (command registry, scopes, keymap dispatcher, undo stack) with
    the default keymap, and the list keys moved out of `TaskRow`/`TaskList` into it; the shortcuts
@@ -1029,8 +1175,8 @@ Milestones 4–7 are independent after 3 and can run in parallel.
 ## Testing
 
 - **Unit (Vitest, node):** search schemas (defaults, `.catch` on bad values, round trip through
-  `Link`), `landingPage`, every view-model mapper (pinned `now`, both time formats, colour
-  parsing), `toEventInput` against the adapter spec's examples, `occurrencesBetween` agreeing with
+  `Link`), `landingPage`, the `FormatProvider` formats over luxon (pinned `now`, both time formats),
+  `isOverdue`, `resolveColor` on bad input, the `TaskListItem satisfies TaskRowData` type tests, `toEventInput` against the adapter spec's examples, `occurrencesBetween` agreeing with
   FullCalendar's expansion (series, EXDATEs, occurrence rows, all-day, DST change), Home's summary
   and section choice, the capture box parser, and the key dispatcher (sequences, scopes, typing
   targets, `mod` per platform).
@@ -1049,7 +1195,7 @@ Milestones 4–7 are independent after 3 and can run in parallel.
 
 Settled in review (Nov 6 2026): the route is `/app/trash`; events have no page of their own (the
 sheet is their detail view); the calendar uses FullCalendar; new workspaces from inside the app use
-a dialog; Help stays disabled until there is help; paths and param values use kebab case.
+a dialog; Help stays disabled until there is help; paths and param values use snake case.
 
 1. **The user's name** on Home (S4) and **Show weekends** (S3).
 
