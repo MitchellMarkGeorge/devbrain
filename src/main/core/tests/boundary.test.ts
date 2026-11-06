@@ -7,8 +7,8 @@ import { fileURLToPath } from 'node:url';
 // net.fetch, shell.openExternal, electron-store and electron-log), and tests pass fakes. So nothing
 // under src/main/core imports Electron or its packages.
 //
-// The integration types core shares with the renderer live in src/common, and import nothing but the
-// shared ids.
+// The types IPC routes take and return (the DTOs), and their enums, live in src/common/types, shared
+// with the renderer, which bundles them: they import only other src/common files and zod.
 
 const coreDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const commonDir = path.resolve(coreDir, '../../common');
@@ -51,9 +51,23 @@ describe('Core — module boundary', () => {
     expect(offending).toEqual([]);
   });
 
-  it('keeps the shared integration types in src/common, importing only the shared ids', () => {
+  it('keeps the DTO types in src/common/types, importing only src/common and zod', () => {
     expect(fs.existsSync(path.join(coreDir, 'integrations/shared-types.ts'))).toBe(false);
-    const file = path.join(commonDir, 'integrations.ts');
-    expect(specifiers(fs.readFileSync(file, 'utf8'))).toEqual(['./ids']);
+    const typesDir = path.join(commonDir, 'types');
+    const typeFiles = sourceFiles(typesDir);
+    expect(typeFiles.map((file) => path.relative(typesDir, file))).toEqual(
+      expect.arrayContaining(['index.ts', 'tasks.ts', 'integrations.ts', 'settings.ts']),
+    );
+    const offending = typeFiles.flatMap((file) =>
+      specifiers(fs.readFileSync(file, 'utf8'))
+        .filter((specifier) => {
+          if (specifier === 'zod') return false;
+          if (!specifier.startsWith('.')) return true;
+          const target = path.resolve(path.dirname(file), specifier);
+          return path.relative(commonDir, target).startsWith('..');
+        })
+        .map((specifier) => `${path.relative(commonDir, file)}: ${specifier}`),
+    );
+    expect(offending).toEqual([]);
   });
 });
