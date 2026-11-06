@@ -19,13 +19,7 @@ import {
   AnySQLiteColumn,
 } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
-import {
-  AuthType,
-  IntegrationStatus,
-  LinkState,
-  Provider,
-  SourceType,
-} from '../../core/integrations/types';
+import { AuthType, IntegrationStatus, LinkState, Provider, SourceType } from '@common/types';
 import { timesamps, date, boolean } from './utils';
 import { tasks } from './tasks';
 import { projects } from './projects';

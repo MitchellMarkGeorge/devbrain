@@ -1,4 +1,4 @@
-import { TaskPriority } from './types';
+import { TaskPriority } from '@common/types';
 
 // the task settings a task made without them takes (AppSettings.tasks): what an import fills
 // missing values from

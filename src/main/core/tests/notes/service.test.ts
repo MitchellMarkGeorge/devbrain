@@ -11,7 +11,7 @@ import { ArchiveService } from '../../archive/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
 import { TaskService } from '../../tasks/service';
-import { TaskStatus } from '../../tasks/types';
+import { TaskStatus } from '@common/types';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../../shared/errors';
 import { fileExists } from '../../local/utils';
 import { readNoteFile } from '../../local/notes';

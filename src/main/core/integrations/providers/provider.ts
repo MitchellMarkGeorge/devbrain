@@ -1,12 +1,5 @@
-import {
-  AuthType,
-  ExternalCalendar,
-  ExternalEvent,
-  ExternalProject,
-  ExternalTask,
-  Provider as ProviderId,
-  SourceType,
-} from '../types';
+import { AuthType, Provider as ProviderId, SourceType } from '@common/types';
+import { ExternalCalendar, ExternalEvent, ExternalProject, ExternalTask } from '../types';
 import { Auth } from '../auth';
 import { OAuthConfig } from '../oauth/types';
 import { CoreError } from '../../shared/errors';

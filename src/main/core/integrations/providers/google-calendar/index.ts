@@ -1,4 +1,4 @@
-import { AuthType, Provider as ProviderId, SourceType } from '../../types';
+import { AuthType, Provider as ProviderId, SourceType } from '@common/types';
 import { Auth } from '../../auth';
 import { OAuthConfig } from '../../oauth/types';
 import { OAuthClientCredentials, oauthClientFor } from '../oauth-clients';

@@ -1,5 +1,4 @@
-import type { AppSettings } from '@main/core';
-import { appSettingsSchema } from '@main/core/settings/schema';
+import { type AppSettings, appSettingsSchema } from '@common/types';
 import { devBrainProcedure } from '../procedures';
 import { t } from '../trpc';
 

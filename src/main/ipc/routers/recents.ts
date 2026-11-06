@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import type { RecentEntity, RecentEntityType } from '@main/core/recents/types';
-import type { Page } from '@main/core/shared/pagination';
+import type { Page, RecentEntity, RecentEntityType } from '@common/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId, zPageFields } from '../zod';

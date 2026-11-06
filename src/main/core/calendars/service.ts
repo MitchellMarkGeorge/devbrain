@@ -4,7 +4,7 @@ import { asc, desc, eq } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { InvalidInputError, NotFoundError } from '../shared/errors';
-import { Calendar } from './types';
+import { Calendar } from '@common/types';
 
 // What the user changed on a calendar, for in-process subscribers: the IPC layer tells the
 // renderer, whose calendar view reads `visible`, and the workspace syncs a synced calendar's source

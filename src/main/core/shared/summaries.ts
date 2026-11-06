@@ -6,37 +6,12 @@ import { projects } from '@main/db/schema/projects';
 import { tasks } from '@main/db/schema/tasks';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import type { TaskStatus } from '../tasks/types';
+import type { EventSummary, NoteSummary, ProjectSummary, TaskSummary } from '@common/types';
 
-// The few fields a list row shows of another entity it points at, as a pill: a task's or note's
-// project, a task's parent, and what a task or note is linked to. Each lookup takes the ids of a
+// The lookups behind the summaries (@common/types/shared): the few fields a list row shows of
+// another entity it points at, as a pill. Each lookup takes the ids of a
 // whole page and makes one query, never one per row. Archived rows are left out, as every list
 // leaves them out; events are never archived.
-
-export interface ProjectSummary {
-  id: ProjectId;
-  title: string;
-  color: string | null;
-}
-
-export interface EventSummary {
-  id: EventId;
-  title: string;
-  startAt: Date;
-  // the event's own colour, or else its calendar's
-  color: string | null;
-}
-
-export interface NoteSummary {
-  id: NoteId;
-  title: string;
-}
-
-export interface TaskSummary {
-  id: TaskId;
-  title: string;
-  status: TaskStatus;
-}
 
 /** the distinct non-null ids in `values` */
 export function uniqueIds<T>(values: (T | null)[]): T[] {

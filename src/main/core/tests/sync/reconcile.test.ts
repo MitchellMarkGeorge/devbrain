@@ -26,16 +26,16 @@ import { SearchService } from '../../search/service';
 import { CredentialStore } from '../../integrations/credential-store';
 import { IntegrationService } from '../../integrations/service';
 import {
-  ExternalProject,
-  ExternalTask,
   LinkState,
+  ProjectStatus,
   Provider as ProviderId,
-} from '../../integrations/types';
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
+import { ExternalProject, ExternalTask } from '../../integrations/types';
 import { TaskService } from '../../tasks/service';
 import { ArchiveService } from '../../archive/service';
 import { ProjectService } from '../../projects/service';
-import { TaskPriority, TaskStatus } from '../../tasks/types';
-import { ProjectStatus } from '../../projects/types';
 import { ProviderUnavailableError } from '../../shared/errors';
 
 const DAY = 24 * 60 * 60 * 1000;

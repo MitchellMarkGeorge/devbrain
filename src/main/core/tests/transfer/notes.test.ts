@@ -9,7 +9,7 @@ import { ArchiveService } from '../../archive/service';
 import { NoteChange, NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
 import { TaskService } from '../../tasks/service';
-import { TaskPriority } from '../../tasks/types';
+import { TaskPriority } from '@common/types';
 import { ImportFileError } from '../../shared/errors';
 import { MAX_NOTE_FILE_BYTES, MAX_NOTE_FILES } from '../../transfer/limits';
 import { TransferService } from '../../transfer/service';

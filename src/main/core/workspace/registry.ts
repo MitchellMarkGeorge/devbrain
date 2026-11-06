@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import fsSync from 'node:fs';
 import type { z } from 'zod';
 import type { WorkspaceId } from '@common/ids';
-import type { WorkspaceInfo } from './types';
+import type { WorkspaceInfo } from '@common/types';
 import { workspaceRegistrySchema, type registryEntrySchema } from './schema';
 import { writeFileAtomicSync } from '../local/atomic';
 import { isNotFound } from '../local/utils';

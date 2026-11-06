@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { TaskPriority } from '../tasks/types';
+import { TaskPriority } from './tasks';
 
 // 'system' follows the operating system's light or dark appearance
 export const themeSettingSchema = z.enum(['system', 'light', 'dark']);
@@ -39,3 +39,8 @@ export const settingsFileSchema = z.object({
   settings: appSettingsSchema,
   state: appStateSchema,
 });
+
+export type ThemeSetting = z.infer<typeof themeSettingSchema>;
+export type AppSettings = z.infer<typeof appSettingsSchema>;
+export type AppState = z.infer<typeof appStateSchema>;
+export type SettingsFile = z.infer<typeof settingsFileSchema>;

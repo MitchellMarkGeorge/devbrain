@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
 import type { WorkspaceId } from '@common/ids';
 import type { IpcBridge } from '@common/ipc/types';
-import type { WorkspaceEntry } from '@main/core';
+import type { WorkspaceInfo } from '@common/types';
 import {
   readInitialLoadContext,
   seedQueryCache,
@@ -16,7 +16,7 @@ const work = {
   id: 'wsp_work' as WorkspaceId,
   name: 'Work',
   color: '#3366ff',
-} as WorkspaceEntry;
+} as WorkspaceInfo;
 
 const context: InitialLoadContext = {
   devBrainAvailable: true,

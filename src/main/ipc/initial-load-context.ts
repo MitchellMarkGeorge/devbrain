@@ -1,27 +1,11 @@
 import { ipcMain } from 'electron';
 import { IPC_INITIAL_LOAD_CONTEXT_CHANNEL } from '@common/ipc/constants';
-import type { DevBrain, ThemeSetting, WorkspaceEntry } from '@main/core';
-import type { Page } from '@main/core/shared/pagination';
+import type { InitialLoadContext } from '@common/ipc/types';
+import type { Page, WorkspaceInfo } from '@common/types';
+import type { DevBrain } from '@main/core';
 import { lastOpenedWorkspace } from '../runtime/start';
 
-// What a page needs for its first render, so it shows the right screen at once rather than a
-// loading state: the renderer can seed its query cache with it. Read again on every page load, so
-// a reload sees the workspace open now. Workspace info only (names, colors and ids, never anything
-// from a workspace's database), and the theme setting, so the page paints in it from the start.
-export interface InitialLoadContext {
-  // false when DevBrain could not be loaded: nothing that needs it can run
-  devBrainAvailable: boolean;
-  // the open workspace: what workspaces.current answers
-  current: WorkspaceEntry | null;
-  // the workspace workspaces.openLast would open, while none is open, for a splash to show
-  last: WorkspaceEntry | null;
-  // what workspaces.list answers for its first page
-  workspaces: Page<WorkspaceEntry>;
-  // the theme setting; 'system' without DevBrain
-  theme: ThemeSetting;
-}
-
-const NO_WORKSPACES: Page<WorkspaceEntry> = { items: [], nextCursor: null };
+const NO_WORKSPACES: Page<WorkspaceInfo> = { items: [], nextCursor: null };
 
 export function initialLoadContext(devBrain: DevBrain | null): InitialLoadContext {
   if (devBrain === null) {

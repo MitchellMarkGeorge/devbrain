@@ -18,17 +18,17 @@ import { IntegrationService } from '../../integrations/service';
 import { Auth } from '../../integrations/auth';
 import {
   AuthType,
-  ExternalEvent,
-  ExternalProject,
-  ExternalTask,
+  EventKind,
+  EventStatus,
+  ProjectStatus,
   Provider,
   SourceType,
-} from '../../integrations/types';
-import { EventKind, EventStatus } from '../../events/types';
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
+import { ExternalEvent, ExternalProject, ExternalTask } from '../../integrations/types';
 import { EVENTS_PAGE_SIZE } from '../../sync/constants';
 import { EventPageItems } from '../../sync/types';
-import { TaskPriority, TaskStatus } from '../../tasks/types';
-import { ProjectStatus } from '../../projects/types';
 
 // How long sync's synchronous writes hold the main process with 5,000 tasks or events, on an
 // in-memory database. Opt in with DEVBRAIN_PERF=1 (and --silent=false to see each case's

@@ -8,13 +8,8 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 import { RunResult } from 'better-sqlite3';
 import { ExternalReadOnlyError, InvalidInputError, NotFoundError } from '../shared/errors';
-import {
-  CreateEventOptions,
-  Event,
-  OccurrenceRef,
-  OccurrenceScope,
-  UpdateEventOptions,
-} from './types';
+import { Event, LinkState } from '@common/types';
+import { CreateEventOptions, OccurrenceRef, OccurrenceScope, UpdateEventOptions } from './types';
 import {
   addDaysToDate,
   checkRule,
@@ -31,7 +26,6 @@ import {
   hasLinkInState,
   withExternalRefs,
 } from '../integrations/refs';
-import { LinkState } from '../integrations/types';
 import { DEFAULT_CALENDAR_ID } from '../calendars/types';
 import {
   allDayDates,

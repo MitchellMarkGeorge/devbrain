@@ -24,17 +24,17 @@ import { CredentialStore } from '../../integrations/credential-store';
 import { IntegrationService } from '../../integrations/service';
 import { DetachService, TaskLinkChange, TaskLinkStateChange } from '../../integrations/detach';
 import {
-  ExternalProject,
-  ExternalTask,
   IntegrationStatus,
   LinkState,
+  ProjectStatus,
   Provider as ProviderId,
-} from '../../integrations/types';
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
+import { ExternalProject, ExternalTask } from '../../integrations/types';
 import { TaskService } from '../../tasks/service';
 import { NoteService } from '../../notes/service';
 import { ArchiveService } from '../../archive/service';
-import { TaskPriority, TaskStatus } from '../../tasks/types';
-import { ProjectStatus } from '../../projects/types';
 import { projects as projectsTable } from '@main/db/schema/projects';
 import {
   DetachError,

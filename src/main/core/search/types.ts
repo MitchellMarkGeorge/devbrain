@@ -1,22 +1,12 @@
-import { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
+import type { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
+import type { SearchEntityType } from '@common/types';
 
-export type SearchEntityType = 'note' | 'task' | 'project' | 'event';
-
+// what the index holds for an entity, as text; search returns SearchResult (@common/types)
 export interface IndexEntity {
   title: string;
   body: string;
   entityId: NoteId | TaskId | ProjectId | EventId;
   entityType: SearchEntityType;
-}
-
-// What search returns. `title` and `body` are HTML, unlike IndexEntity's text: escaped, with each
-// match in <b>…</b>, the only markup they hold (docs/security/untrusted-content.md)
-export interface SearchResult extends IndexEntity {
-  // the whole title
-  title: string;
-  // an excerpt of the body around the matches, '…' where it was cut
-  body: string;
-  rank: number;
 }
 
 export interface SearchOptions {

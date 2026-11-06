@@ -37,20 +37,20 @@ import { DetachService } from '../../integrations/detach';
 import { OAuthClient } from '../../integrations/oauth/types';
 import {
   AuthType,
-  ExternalEvent,
-  ExternalProject,
-  ExternalTask,
+  EventKind,
+  EventStatus,
   IntegrationStatus,
   LinkState,
+  ProjectStatus,
   Provider as ProviderId,
-} from '../../integrations/types';
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
+import { ExternalEvent, ExternalProject, ExternalTask } from '../../integrations/types';
 import { TaskService } from '../../tasks/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
 import { NoteService } from '../../notes/service';
-import { TaskPriority, TaskStatus } from '../../tasks/types';
-import { ProjectStatus } from '../../projects/types';
-import { EventKind, EventStatus } from '../../events/types';
 import {
   IntegrationAccountMismatchError,
   NotFoundError,

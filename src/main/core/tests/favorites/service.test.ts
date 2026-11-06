@@ -12,10 +12,15 @@ import { EventService } from '../../events/service';
 import { NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
 import { TaskService } from '../../tasks/service';
-import { AuthType, LinkState, Provider, SourceType } from '../../integrations/types';
+import {
+  AuthType,
+  type FavoritableEntityType,
+  LinkState,
+  Provider,
+  SourceType,
+} from '@common/types';
 import { InvalidCursorError } from '../../shared/pagination';
 import { NotFoundError } from '../../shared/errors';
-import type { FavoritableEntityType } from '../../favorites/types';
 
 const TOMORROW = new Date(Date.now() + 24 * 60 * 60 * 1000);
 

@@ -1,6 +1,6 @@
 import type { NativeTheme } from 'electron';
 import { WINDOW_BACKGROUND } from '@common/theme';
-import type { ThemeSetting } from '@main/core';
+import type { ThemeSetting } from '@common/types';
 
 // Applies the theme setting to what the system draws: the window's background, native menus and
 // dialogs, and Windows' caption buttons. The page applies it to itself (src/renderer/theme.ts), as

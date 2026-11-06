@@ -1,15 +1,10 @@
 import { safeExternalUrl } from '@common/safe-url';
 import type { ProjectId } from '@common/ids';
 import { fromDateString, isDateString } from '../shared/dates';
-import {
-  TaskPriority,
-  TaskStatus,
-  type CreateSubtaskTreeOptions,
-  type CreateTaskTreeOptions,
-} from '../tasks/types';
+import { type TaskImportIssue, TaskPriority, TaskStatus } from '@common/types';
+import { type CreateSubtaskTreeOptions, type CreateTaskTreeOptions } from '../tasks/types';
 import { MAX_DESCRIPTION_LENGTH, MAX_TITLE_LENGTH } from './limits';
 import type { TaskRecord } from './task-format';
-import type { TaskImportIssue } from './types';
 
 // Turns the rows of a task file into the trees TaskService.createTaskTrees creates, and the rows it
 // leaves out into the import's summary. Pure: what it needs from the workspace comes in `context`.

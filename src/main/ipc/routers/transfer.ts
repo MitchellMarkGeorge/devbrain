@@ -8,7 +8,7 @@ import type {
   NoteImportSummary,
   TaskExportResult,
   TaskImportSummary,
-} from '@main/core/transfer/types';
+} from '@common/types';
 import type { AppContext } from '../context';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';

@@ -1,16 +1,17 @@
 import { z } from 'zod';
-import { TaskPriority, TaskStatus } from '../tasks/types';
-import { ProjectStatus } from '../projects/types';
-import { EventKind, EventResponse, EventStatus } from '../events/types';
+import type {
+  EventKind,
+  EventResponse,
+  EventStatus,
+  ProjectStatus,
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
 import {
   eventLinkMetadataSchema,
   projectLinkMetadataSchema,
   taskLinkMetadataSchema,
 } from './schema';
-
-// Provider, SourceType, AuthType, IntegrationStatus, LinkState, Integration, ExternalSource and
-// ExternalRef: shared with the renderer
-export * from '@common/integrations';
 
 // Normalised items: what a provider adapter returns. Adapters map into these; SyncWriter only
 // ever sees these.

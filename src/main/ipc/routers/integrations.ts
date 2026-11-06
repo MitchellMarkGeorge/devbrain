@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AuthType, Provider, SourceType } from '@common/integrations';
+import { AuthType, Provider, SourceType } from '@common/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId } from '../zod';

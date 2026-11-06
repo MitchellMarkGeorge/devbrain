@@ -1,9 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { AuthType } from '../../../integrations/types';
+import { AuthType, TaskPriority, TaskStatus } from '@common/types';
 import { toAuth } from '../../../integrations/auth';
 import { TaskSource } from '../../../integrations/providers/provider';
 import { createLinearProvider } from '../../../integrations/providers/linear';
-import { TaskPriority, TaskStatus } from '../../../tasks/types';
 import { LOOKUP_BATCH_SIZE, PAGE_SIZE } from '../../../sync/constants';
 import { RateLimitError } from '../../../shared/errors';
 import { jsonResponse, RecordedRequest, scriptedFetch } from './fake-fetch';

@@ -8,7 +8,7 @@ import {
   AnySQLiteColumn,
 } from 'drizzle-orm/sqlite-core';
 import { isNotNull, sql } from 'drizzle-orm';
-import { EventKind, EventResponse, EventStatus } from '../../core/events/types';
+import { EventKind, EventResponse, EventStatus } from '@common/types';
 import { timesamps, date, boolean } from './utils';
 import { DEFAULT_CALENDAR_ID } from '../../core/calendars/types';
 import { calendars } from './calendars';

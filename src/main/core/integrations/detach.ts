@@ -4,13 +4,12 @@ import { tasks } from '@main/db/schema/tasks';
 import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { TaskReconciler } from '../sync/task-reconciler';
-import { ReattachRefusal, ReattachResult, SyncEntityType, SyncSkipReason } from '../sync/types';
+import { LinkState, SyncEntityType, Task } from '@common/types';
+import { ReattachRefusal, ReattachResult, SyncSkipReason } from '../sync/types';
 import { subtreeOf } from '../tasks/subtree';
-import { Task } from '../tasks/types';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { DetachError, IntegrationAuthError, NotFoundError } from '../shared/errors';
 import { withExternalRef } from './refs';
-import { LinkState } from './types';
 
 // A detach or reattach; the IPC layer will forward it so the renderer refetches the tasks, and the
 // projects too when a reattach wrote one

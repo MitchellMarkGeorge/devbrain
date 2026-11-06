@@ -1,5 +1,5 @@
 import { Credentials } from './credentials';
-import { AuthType } from './types';
+import { AuthType } from '@common/types';
 
 // How a request to a provider is authenticated. Kept apart from credential storage: adapters only
 // ever see an Auth, never the credentials it was made from or how they are stored.

@@ -1,11 +1,7 @@
 import { generateId, isId, type IntegrationId, type WorkspaceId } from '@common/ids';
 import { hexColorSchema } from '@common/color';
-import type {
-  CreateWorkspaceOptions,
-  UpdateWorkspaceOptions,
-  WorkspaceInfo,
-  WorkspaceOptions,
-} from './types';
+import { Page, type WorkspaceInfo } from '@common/types';
+import type { CreateWorkspaceOptions, UpdateWorkspaceOptions, WorkspaceOptions } from './types';
 import {
   describeWorkspace,
   parseRegistry,
@@ -29,7 +25,7 @@ import {
   WorkspaceImportError,
   WorkspaceNotOpenError,
 } from '../shared/errors';
-import { paginateArray, Page, PageOptions } from '../shared/pagination';
+import { paginateArray, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 
 // a workspace folder holds its database here

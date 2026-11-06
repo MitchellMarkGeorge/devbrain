@@ -17,7 +17,7 @@ import {
   TokenRefresher,
 } from './credentials';
 import { OAuthClient, OAuthConfig } from './oauth/types';
-import { AuthType, Provider } from './types';
+import { AuthType, Provider } from '@common/types';
 
 // What happened to an integration's credentials, for in-process subscribers: a provider that
 // rejects a refresh moves the integration to needs_reauth (see createIntegrationServices). Ids

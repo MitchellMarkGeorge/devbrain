@@ -9,7 +9,7 @@ import { ArchiveService } from '../../archive/service';
 import { NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
-import { TaskPriority, TaskStatus } from '../../tasks/types';
+import { TaskPriority, TaskStatus } from '@common/types';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../../shared/errors';
 import { tasks as tasksTable } from '@main/db/schema/tasks';
 import { eq } from 'drizzle-orm';

@@ -20,15 +20,16 @@ import { SearchService } from '../../search/service';
 import { EventService } from '../../events/service';
 import { NoteService } from '../../notes/service';
 import { TaskService } from '../../tasks/service';
-import { EventKind, EventResponse, EventStatus } from '../../events/types';
 import {
   AuthType,
-  ExternalCalendar,
-  ExternalEvent,
+  EventKind,
+  EventResponse,
+  EventStatus,
   LinkState,
   Provider,
   SourceType,
-} from '../../integrations/types';
+} from '@common/types';
+import { ExternalCalendar, ExternalEvent } from '../../integrations/types';
 import { ExternalReadOnlyError, NotFoundError } from '../../shared/errors';
 
 const CALENDAR: ExternalCalendar = {

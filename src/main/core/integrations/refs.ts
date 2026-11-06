@@ -3,7 +3,7 @@ import { externalLinks } from '@main/db/schema/integrations';
 import { inArray, sql, SQL, SQLWrapper } from 'drizzle-orm';
 import { BaseSQLiteDatabase, SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { RunResult } from 'better-sqlite3';
-import { ExternalRef, LinkState } from './types';
+import { ExternalRef, LinkState } from '@common/types';
 import { projectLinkMetadataSchema, taskLinkMetadataSchema } from './schema';
 import { ExternalReadOnlyError } from '../shared/errors';
 

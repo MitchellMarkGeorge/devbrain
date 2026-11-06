@@ -1,17 +1,15 @@
 export { DevBrain } from './devbrain';
 export type { Workspace } from './workspace/workspace';
 export type {
-  WorkspaceInfo as WorkspaceEntry,
   CreateWorkspaceOptions,
   UpdateWorkspaceOptions,
   WorkspaceOptions,
 } from './workspace/types';
-export type { AppSettings, AppState, ThemeSetting } from './settings/types';
 export type { SettingsChange } from './settings/service';
 export type { OpenSettingsStore, SettingsStore } from './settings/store';
 export type { Logger } from './shared/logger';
 export { InvalidCursorError } from './shared/pagination';
-export type { Page, PageOptions } from './shared/pagination';
+export type { PageOptions } from './shared/pagination';
 
 import { DevBrain, type OpenDevBrainOptions } from './devbrain';
 

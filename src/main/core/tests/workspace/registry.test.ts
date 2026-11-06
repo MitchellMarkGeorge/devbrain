@@ -4,7 +4,7 @@ import fsSync from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { WorkspaceId } from '@common/ids';
-import type { WorkspaceInfo } from '../../workspace/types';
+import type { WorkspaceInfo } from '@common/types';
 import { createFileAtomicSync, writeFileAtomicSync } from '../../local/atomic';
 import { scaffoldDevBrain } from '../../local/scaffold';
 import { FileExistsError } from '../../shared/errors';

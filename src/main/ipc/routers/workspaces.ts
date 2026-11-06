@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { hexColorSchema } from '@common/color';
-import type { WorkspaceEntry } from '@main/core';
+import type { WorkspaceInfo } from '@common/types';
 import { openLastWorkspace } from '../../runtime/start';
 import { devBrainProcedure } from '../procedures';
 import { t } from '../trpc';
@@ -20,7 +20,7 @@ export const workspacesRouter = t.router({
 
   // closes the open one first, if any, and remembers the new one, so the app reopens it at the next
   // start (openLastWorkspace)
-  open: devBrainProcedure.input(byId).mutation(async ({ ctx, input }): Promise<WorkspaceEntry> => {
+  open: devBrainProcedure.input(byId).mutation(async ({ ctx, input }): Promise<WorkspaceInfo> => {
     const workspace = await ctx.devBrain.workspaces.open(input.id);
     // main's own state, which the renderer never reads
     ctx.devBrain.settings.set('state.lastWorkspaceId', input.id);
@@ -31,14 +31,14 @@ export const workspacesRouter = t.router({
   // open, and returns the open one, or null when there is none to open (the user picks one). A
   // reload or a second window gets the workspace already open, never reopened.
   openLast: devBrainProcedure.mutation(
-    async ({ ctx }): Promise<WorkspaceEntry | null> =>
+    async ({ ctx }): Promise<WorkspaceInfo | null> =>
       (await openLastWorkspace(ctx.devBrain))?.info ?? null,
   ),
 
   // creates the workspace without opening it: open it next to use it
   create: devBrainProcedure
     .input(z.object({ name: z.string().trim().min(1), color: hexColorSchema }))
-    .mutation(({ ctx, input }): Promise<WorkspaceEntry> => ctx.devBrain.workspaces.create(input)),
+    .mutation(({ ctx, input }): Promise<WorkspaceInfo> => ctx.devBrain.workspaces.create(input)),
 
   // renames or recolours any workspace, open or not; a field left out keeps its value
   update: devBrainProcedure
@@ -50,7 +50,7 @@ export const workspacesRouter = t.router({
       }),
     )
     .mutation(
-      ({ ctx, input: { id, ...options } }): Promise<WorkspaceEntry> =>
+      ({ ctx, input: { id, ...options } }): Promise<WorkspaceInfo> =>
         ctx.devBrain.workspaces.update(id, options),
     ),
 
@@ -59,7 +59,7 @@ export const workspacesRouter = t.router({
   // dialog was cancelled. The path comes from main's own dialog, never from the renderer. Core's
   // workspace_import (with a `reason`), workspace_too_new and workspace_migration say why one
   // can't be added.
-  importFolder: devBrainProcedure.mutation(async ({ ctx }): Promise<WorkspaceEntry | null> => {
+  importFolder: devBrainProcedure.mutation(async ({ ctx }): Promise<WorkspaceInfo | null> => {
     const folder = await ctx.desktop.chooseFolder({
       title: 'Open Workspace Folder',
       buttonLabel: 'Open',

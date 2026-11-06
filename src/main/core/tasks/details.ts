@@ -10,7 +10,7 @@ import {
   taskSummaries,
   uniqueIds,
 } from '../shared/summaries';
-import { SubtaskListItem, Task, TaskListItem, TaskLinkSummary, TaskStatus } from './types';
+import { SubtaskListItem, Task, TaskLinkSummary, TaskListItem, TaskStatus } from '@common/types';
 
 // counts the rows matching `predicate`; count(<boolean>) would count every row
 const countWhere = (predicate: SQL) =>

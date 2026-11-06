@@ -1,7 +1,7 @@
-import type { ExternalSourceId, IntegrationId } from './ids';
+import type { ExternalSourceId, IntegrationId } from '../ids';
 
-// The integration types the renderer needs, to show connections, their sources and the badge on a
-// synced row. Core's integrations/types re-exports all of it, and core imports from there.
+// The integration types the renderer needs, to show connections, their sources, their sync status
+// and the badge on a synced row.
 
 // string values, as they are stored in the integration tables' text columns
 
@@ -69,4 +69,44 @@ export interface ExternalRef {
   statusLabel: string | null; // "In Review"
   priorityLabel: string | null; // "Urgent"
   lastSyncedAt: Date;
+}
+
+// one source's sync state, for a status indicator and the settings page (sync.status)
+export interface SourceSyncStatus {
+  sourceId: ExternalSourceId;
+  integrationId: IntegrationId;
+  provider: Provider;
+  sourceType: SourceType;
+  // the integration's status; a source syncs only while it is connected
+  status: IntegrationStatus;
+  enabled: boolean;
+  // a run is in flight
+  running: boolean;
+  lastSyncedAt: Date | null;
+  lastError: string | null;
+  retryAt: Date | null;
+}
+
+// the entity types a write touched, so the renderer refetches only those queries
+export type SyncEntityType = 'task' | 'project' | 'event' | 'calendar';
+
+export interface EntityCounts {
+  tasks: number;
+  projects: number;
+  events: number;
+}
+
+// counts of mirrored items, synced or removed: detached ones are already local and never touched
+export interface DisconnectCounts {
+  // deleted with their links
+  deleted: EntityCounts;
+  // kept as local copies: synced ones are detached, removed (archived or hidden) ones stay so
+  kept: EntityCounts;
+}
+
+export interface DisconnectResult extends DisconnectCounts {
+  changed: SyncEntityType[];
+  // whether the provider confirmed the grant revoked; false for an API key, which has nothing to
+  // revoke, and when revoking failed or timed out
+  revoked: boolean;
 }

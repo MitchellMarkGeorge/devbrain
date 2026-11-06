@@ -6,18 +6,11 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import path from 'node:path';
 import { deleteNoteFile, readNoteFile, updateNoteFile, writeNoteFile } from '../local/notes';
-import {
-  CreateNoteOptions,
-  Note,
-  NoteDeleteResult,
-  NoteFilterOptions,
-  NoteListItem,
-  NoteSortOptions,
-  UpdateNoteOptions,
-} from './types';
+import { Note, NoteDeleteResult, NoteListItem, Page } from '@common/types';
+import { CreateNoteOptions, NoteFilterOptions, NoteSortOptions, UpdateNoteOptions } from './types';
 import { stripMarkdown } from '../shared/markdown';
 import { InvalidInputError, NotArchivedError, NotFoundError } from '../shared/errors';
-import { keyset, Page, PageOptions } from '../shared/pagination';
+import { keyset, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { withNoteListDetails } from './details';
 import { consoleLogger, errorClass, type Logger } from '../shared/logger';

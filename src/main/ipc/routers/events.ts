@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { hexColorSchema } from '@common/color';
 import { safeUrlSchema } from '@common/safe-url';
 import { timeZoneSchema } from '@main/core/shared/dates';
-import { EventKind, EventStatus, type Event } from '@main/core/events/types';
+import { type Event, EventKind, EventStatus } from '@common/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId } from '../zod';

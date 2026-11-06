@@ -1,6 +1,6 @@
 import { TokenRefresher } from '../credentials';
 import { OAuthClient } from '../oauth/types';
-import { AuthType, Provider as ProviderId } from '../types';
+import { AuthType, Provider as ProviderId } from '@common/types';
 import { FetchFn, Provider } from './provider';
 import { createGoogleCalendarProvider } from './google-calendar';
 import { createLinearProvider } from './linear';

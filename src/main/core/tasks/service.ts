@@ -5,18 +5,22 @@ import { externalLinks } from '@main/db/schema/integrations';
 import { eq, inArray, notInArray, and, isNull, not, SQL, lt, gt, gte, desc } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
+  LinkState,
+  Page,
+  SubtaskListItem,
+  Task,
+  TaskDeleteResult,
+  TaskListItem,
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
+import {
   CreateSubTaskOptions,
   CreateSubtaskTreeOptions,
   CreateTaskOptions,
   CreateTaskTreeOptions,
-  Task,
   TaskFilterOptions,
-  SubtaskListItem,
-  TaskListItem,
-  TaskPriority,
-  TaskDeleteResult,
   TaskSortOptions,
-  TaskStatus,
   UpdateTaskLinkOptions,
   UpdateTaskOptions,
 } from './types';
@@ -32,7 +36,7 @@ import { subtreeOf } from './subtree';
 import { withListDetails, withSubtaskListDetails } from './details';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { localDayWindow } from '../shared/dates';
-import { keyset, Page, PageOptions } from '../shared/pagination';
+import { keyset, PageOptions } from '../shared/pagination';
 import {
   assertEditable,
   assertRowEditable,
@@ -41,7 +45,6 @@ import {
   withExternalRef,
   withExternalRefs,
 } from '../integrations/refs';
-import { LinkState } from '../integrations/types';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 
 type NewTaskValues = typeof tasks.$inferInsert;

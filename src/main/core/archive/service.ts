@@ -3,22 +3,23 @@ import { tasks } from '@main/db/schema/tasks';
 import { and, eq, inArray, isNotNull, isNull, or, SQL, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { unionAll } from 'drizzle-orm/sqlite-core';
-import { Task } from '../tasks/types';
-import { Project } from '../projects/types';
+import {
+  type ArchivableEntityType,
+  type ArchivableId,
+  type ArchivedEntity,
+  Note,
+  Page,
+  Project,
+  Task,
+} from '@common/types';
 import { projects } from '@main/db/schema/projects';
-import { Note } from '../notes/types';
 import { notes } from '@main/db/schema/notes';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../shared/errors';
-import { keyset, Page, PageOptions } from '../shared/pagination';
+import { keyset, PageOptions } from '../shared/pagination';
 import { assertEditable, withExternalRef } from '../integrations/refs';
 import { subtreeOf } from '../tasks/subtree';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
-import type {
-  ArchivableEntityType,
-  ArchivableId,
-  ArchivedEntity,
-  ArchiveFilterOptions,
-} from './types';
+import type { ArchiveFilterOptions } from './types';
 
 // The rows an archive or restore stamped: the entity itself and everything it cascaded to.
 export interface ArchiveChangedIds {

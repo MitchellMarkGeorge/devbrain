@@ -42,7 +42,7 @@ import type {
   TaskExportResult,
   TaskFileFormat,
   TaskImportSummary,
-} from './types';
+} from '@common/types';
 
 export const NOTE_EXTENSIONS = ['md', 'markdown', 'txt'];
 

@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import type { FavoritableEntityType, FavoritedEntity } from '@main/core/favorites/types';
-import type { Page } from '@main/core/shared/pagination';
+import type { FavoritableEntityType, FavoritedEntity, Page } from '@common/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zPageFields } from '../zod';

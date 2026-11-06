@@ -3,7 +3,7 @@ import { externalSources, integrations } from '@main/db/schema/integrations';
 import { eq, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { toSource } from '../integrations/service';
-import { ExternalSource, IntegrationStatus, Provider, SourceType } from '../integrations/types';
+import { ExternalSource, IntegrationStatus, Provider, SourceType } from '@common/types';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { NotFoundError } from '../shared/errors';
 import { SyncSkipReason } from './types';

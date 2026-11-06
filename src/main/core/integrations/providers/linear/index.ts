@@ -1,4 +1,4 @@
-import { AuthType, Provider as ProviderId, SourceType } from '../../types';
+import { AuthType, Provider as ProviderId, SourceType } from '@common/types';
 import { Auth } from '../../auth';
 import { ExternalAccount, FetchFn, Provider, RequestOptions } from '../provider';
 import { LinearClient } from './client';

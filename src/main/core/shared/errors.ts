@@ -1,6 +1,6 @@
 import { EntityType, Id, IntegrationId, TaskId, WorkspaceId } from '@common/ids';
 import type { CoreErrorCode } from '@common/errors';
-import type { Provider } from '@common/integrations';
+import type { Provider } from '@common/types';
 
 export type { CoreErrorCode };
 

@@ -7,38 +7,22 @@ import { and, inArray, isNotNull, isNull, not, SQL, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { unionAll } from 'drizzle-orm/sqlite-core';
 import { withEventDetails } from '../events/service';
-import type { Event } from '../events/types';
+import {
+  LinkState,
+  type Page,
+  type Stamp,
+  type StampedEntity,
+  type StampedEntityType,
+  type StampedId,
+} from '@common/types';
 import { hasLinkInState, withExternalRefs } from '../integrations/refs';
-import { LinkState } from '../integrations/types';
-import type { Note } from '../notes/types';
-import type { Project } from '../projects/types';
-import type { Task } from '../tasks/types';
-import { keyset, Page, PageOptions } from './pagination';
+import { keyset, PageOptions } from './pagination';
 
 // Lists of tasks, projects, notes and events ordered by a timestamp DevBrain stamps on them:
 // favorites by `favoritedAt`, recents by `viewedAt`.
 
-export type StampedEntityType = 'tasks' | 'projects' | 'notes' | 'events';
-
-export type StampedId = TaskId | ProjectId | NoteId | EventId;
-
 /** the timestamp columns a list can be ordered by, with their SQL names */
-const STAMP_COLUMNS = { favoritedAt: 'favorited_at', viewedAt: 'viewed_at' } as const;
-
-export type Stamp = keyof typeof STAMP_COLUMNS;
-
-/**
- * A row in a stamped list: the whole entity, read as its own service reads it, so a view can show
- * what it shows elsewhere (a task's status, a project's colour, an event's colour), with the stamp.
- * Narrow on `entityType` to get the entity's type.
- */
-export type StampedEntity<S extends Stamp> = (
-  | { entityType: 'tasks'; entity: Task }
-  | { entityType: 'projects'; entity: Project }
-  | { entityType: 'notes'; entity: Note }
-  | { entityType: 'events'; entity: Event }
-) &
-  Record<S, Date>;
+const STAMP_COLUMNS: Record<Stamp, string> = { favoritedAt: 'favorited_at', viewedAt: 'viewed_at' };
 
 /** what the list query returns for a row: which entity it is, and its stamp */
 export type StampedRow<S extends Stamp> = {

@@ -7,7 +7,7 @@ import {
   RateLimitError,
 } from '@main/core/shared/errors';
 import type { IntegrationId, TaskId } from '@common/ids';
-import { Provider } from '@common/integrations';
+import { Provider } from '@common/types';
 
 describe('serializeError', () => {
   it("keeps a RateLimitError's code, message and retryAt", () => {

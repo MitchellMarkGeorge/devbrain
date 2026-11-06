@@ -25,14 +25,14 @@ import { SyncStateManager, SyncStatusChange } from '../../sync/sync-state';
 import { Provider } from '../../integrations/providers/provider';
 import { createLinearProvider } from '../../integrations/providers/linear';
 import {
-  ExternalProject,
-  ExternalTask,
   IntegrationStatus,
   LinkState,
+  ProjectStatus,
   Provider as ProviderId,
-} from '../../integrations/types';
-import { TaskPriority, TaskStatus } from '../../tasks/types';
-import { ProjectStatus } from '../../projects/types';
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
+import { ExternalProject, ExternalTask } from '../../integrations/types';
 import {
   IntegrationAuthError,
   ProviderUnavailableError,

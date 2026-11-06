@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { safeUrlSchema } from '@common/safe-url';
-import { TaskPriority, TaskStatus, type TaskDeleteResult } from '@main/core/tasks/types';
+import { type TaskDeleteResult, TaskPriority, TaskStatus } from '@common/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId, zPageFields } from '../zod';

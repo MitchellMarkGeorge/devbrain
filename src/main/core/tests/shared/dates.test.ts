@@ -10,7 +10,7 @@ import {
 } from '../../shared/dates';
 import { EventService, timing } from '../../events/service';
 import { TaskService } from '../../tasks/service';
-import { TaskStatus } from '../../tasks/types';
+import { TaskStatus } from '@common/types';
 import { DEFAULT_CALENDAR_ID } from '../../calendars/types';
 import { createDb } from '../utils';
 

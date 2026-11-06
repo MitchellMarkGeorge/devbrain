@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Provider } from '../../../integrations/types';
+import { Provider } from '@common/types';
 
 // The rule for oauth/: it holds the whole flow and names no provider. A provider adds OAuth by
 // declaring an OAuthConfig; it never needs a change here.

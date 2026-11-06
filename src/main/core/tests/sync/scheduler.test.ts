@@ -27,11 +27,12 @@ import { Provider } from '../../integrations/providers/provider';
 import { ProviderRegistry } from '../../integrations/providers/registry';
 import {
   AuthType,
-  ExternalTask,
   Provider as ProviderId,
   SourceType,
-} from '../../integrations/types';
-import { TaskPriority, TaskStatus } from '../../tasks/types';
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
+import { ExternalTask } from '../../integrations/types';
 
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { z } from 'zod';
-import { AuthType } from '../../../integrations/types';
+import { AuthType } from '@common/types';
 import { toAuth } from '../../../integrations/auth';
 import { LinearApiError, LinearClient } from '../../../integrations/providers/linear/client';
 import { createLinearProvider } from '../../../integrations/providers/linear';

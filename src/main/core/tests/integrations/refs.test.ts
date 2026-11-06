@@ -9,11 +9,19 @@ import { TaskService } from '../../tasks/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
 import { ArchiveService } from '../../archive/service';
-import { ProjectStatus } from '../../projects/types';
-import { Task, TaskSortOptions, TaskStatus } from '../../tasks/types';
+import {
+  AuthType,
+  LinkState,
+  Page,
+  ProjectStatus,
+  Provider,
+  SourceType,
+  Task,
+  TaskStatus,
+} from '@common/types';
+import { TaskSortOptions } from '../../tasks/types';
 import { getRefs } from '../../integrations/refs';
-import { AuthType, LinkState, Provider, SourceType } from '../../integrations/types';
-import { Page, PageOptions } from '../../shared/pagination';
+import { PageOptions } from '../../shared/pagination';
 
 // The `external` field on read models and the `origin` filter. Nothing writes links yet
 // (SyncWriter does, later), so these tests insert link rows directly.

@@ -21,7 +21,7 @@ import { createLinearProvider } from '@main/core/integrations/providers/linear';
 import type { FetchFn } from '@main/core/integrations/providers/provider';
 import { CLOSED_ISSUE_WINDOW_MS } from '@main/core/sync/constants';
 import { toAuth } from '@main/core/integrations/auth';
-import { AuthType } from '@main/core/integrations/types';
+import { AuthType } from '@common/types';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '..');

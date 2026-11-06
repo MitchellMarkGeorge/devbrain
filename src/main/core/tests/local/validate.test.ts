@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { devBrainFolderState, validateDevBrainFolderStructure } from '../../local/validate';
-import { TaskPriority } from '../../tasks/types';
+import { TaskPriority } from '@common/types';
 import type { WorkspaceId } from '@common/ids';
 
 // A minimal valid settings file — avoids depending on env-var-derived DEFAULTS

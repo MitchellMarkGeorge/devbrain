@@ -43,13 +43,13 @@ import { createGoogleCalendarProvider } from '../../integrations/providers/googl
 import { Provider } from '../../integrations/providers/provider';
 import { ProviderRegistry } from '../../integrations/providers/registry';
 import {
+  EventResponse,
   IntegrationStatus,
   LinkState,
   Provider as ProviderId,
   SourceType,
-} from '../../integrations/types';
+} from '@common/types';
 import { ExternalReadOnlyError } from '../../shared/errors';
-import { EventResponse } from '../../events/types';
 import { CalendarService } from '../../calendars/service';
 import { MIRRORED_EVENT_TYPES } from '../../integrations/providers/google-calendar/requests';
 

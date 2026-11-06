@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { EventKind, EventResponse, EventStatus } from '../../../events/types';
+import { EventKind, EventResponse, EventStatus } from '@common/types';
 
 // What Google Calendar sends back: the response shapes the client validates against, and the
 // values this adapter reads out of them. The requests that ask for these are in ./requests. Field

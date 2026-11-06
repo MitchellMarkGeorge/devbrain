@@ -16,12 +16,7 @@ import {
 } from '../../../integrations/providers/registry';
 import { IntegrationChange, IntegrationService } from '../../../integrations/service';
 import { createIntegrationServices, unavailableBrowser } from '../../../integrations/setup';
-import {
-  AuthType,
-  IntegrationStatus,
-  Provider as ProviderId,
-  SourceType,
-} from '../../../integrations/types';
+import { AuthType, IntegrationStatus, Provider as ProviderId, SourceType } from '@common/types';
 import {
   ConnectCancelledError,
   ConnectInProgressError,

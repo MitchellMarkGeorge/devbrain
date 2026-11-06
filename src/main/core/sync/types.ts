@@ -1,4 +1,5 @@
 import { ExternalSourceId, TaskId } from '@common/ids';
+import type { SyncEntityType } from '@common/types';
 import type { ExternalEvent, ExternalProject, ExternalTask } from '../integrations/types';
 import type { EventCursor } from './event-cursor';
 import type { TaskCursor } from './task-cursor';
@@ -91,9 +92,6 @@ export type EventPageItems = Pick<
 
 // the logger sync writes its run lines to; see shared/logger
 export type SyncLogger = Logger;
-
-// the entity types a write touched, so the renderer refetches only those queries
-export type SyncEntityType = 'task' | 'project' | 'event' | 'calendar';
 
 // what one writer call did; the engine passes it to its progress callback
 export interface SyncSummary {

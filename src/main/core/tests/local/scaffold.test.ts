@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { scaffoldDevBrain } from '../../local/scaffold';
 import { fileExists, directoryExists } from '../../local/utils';
-import { settingsFileSchema } from '../../settings/schema';
+import { settingsFileSchema } from '@common/types';
 import { workspaceRegistrySchema } from '../../workspace/schema';
 import { FileExistsError } from '../../shared/errors';
 

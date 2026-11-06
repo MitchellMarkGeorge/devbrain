@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { IpcBridge } from '@common/ipc/types';
-import type { InitialLoadContext } from '@main/ipc/initial-load-context';
+import type { InitialLoadContext } from '@common/ipc/types';
 import { defaultBridge } from './bridge';
 import { trpc } from './index';
 

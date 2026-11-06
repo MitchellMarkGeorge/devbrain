@@ -46,14 +46,17 @@ import { config as loadEnvFile } from '@dotenvx/dotenvx';
 import { openDevBrain } from '@main/core';
 import { openElectronSettingsStore } from '@main/runtime/settings-store';
 import { devCipher } from '@main/runtime/dev-cipher';
-import { Provider } from '@main/core/integrations/types';
+import {
+  type Event,
+  type Note,
+  type Project,
+  ProjectStatus,
+  Provider,
+  type Task,
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
 import type { Workspace } from '@main/core/workspace/workspace';
-import type { Project } from '@main/core/projects/types';
-import type { Task } from '@main/core/tasks/types';
-import type { Note } from '@main/core/notes/types';
-import type { Event } from '@main/core/events/types';
-import { ProjectStatus } from '@main/core/projects/types';
-import { TaskStatus, TaskPriority } from '@main/core/tasks/types';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, '..');

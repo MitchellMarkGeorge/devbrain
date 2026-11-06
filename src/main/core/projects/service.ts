@@ -1,31 +1,34 @@
 import { ProjectId } from '@common/ids';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
-  CreateProjectOptions,
+  LinkState,
+  Page,
   Project,
   ProjectDeleteResult,
-  ProjectFilterOptions,
-  ProjectSortOptions,
   ProjectStats,
   ProjectStatus,
+  TaskStatus,
+} from '@common/types';
+import {
+  CreateProjectOptions,
+  ProjectFilterOptions,
+  ProjectSortOptions,
   UpdateProjectOptions,
 } from './types';
 import { projects } from '@main/db/schema/projects';
 import { eq, inArray, SQL, sql, and, isNull, not, desc, gt, gte, lt } from 'drizzle-orm';
 import { localDayWindow } from '../shared/dates';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
-import { keyset, Page, PageOptions } from '../shared/pagination';
+import { keyset, PageOptions } from '../shared/pagination';
 import { NotArchivedError, NotFoundError } from '../shared/errors';
 import { tasks } from '@main/db/schema/tasks';
 import { notes } from '@main/db/schema/notes';
-import { TaskStatus } from '../tasks/types';
 import {
   assertEditable,
   hasLinkInState,
   withExternalRef,
   withExternalRefs,
 } from '../integrations/refs';
-import { LinkState } from '../integrations/types';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC

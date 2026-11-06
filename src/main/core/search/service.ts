@@ -4,11 +4,15 @@ import path from 'node:path';
 import { stripMarkdown } from '../shared/markdown';
 import { errorClass } from '../shared/logger';
 import { readNoteFile } from '../local/notes';
-import type { Event } from '../events/types';
-import type { Note } from '../notes/types';
-import type { Project } from '../projects/types';
-import type { Task } from '../tasks/types';
-import type { IndexEntity, RebuildResult, SearchOptions, SearchResult } from './types';
+import {
+  type Event,
+  LinkState,
+  type Note,
+  type Project,
+  type SearchResult,
+  type Task,
+} from '@common/types';
+import type { IndexEntity, RebuildResult, SearchOptions } from './types';
 import { HIGHLIGHT_END, HIGHLIGHT_START, highlightToHtml, toFtsQuery } from './utils';
 import { and, inArray, isNull, not, sql, SQL } from 'drizzle-orm';
 import { tasks } from '@main/db/schema/tasks';
@@ -16,7 +20,6 @@ import { projects } from '@main/db/schema/projects';
 import { notes } from '@main/db/schema/notes';
 import { events } from '@main/db/schema/events';
 import { hasLinkInState } from '../integrations/refs';
-import { LinkState } from '../integrations/types';
 
 // rows per INSERT when writing many entries at once: four bound values each, well under SQLite's
 // limit on variables in one statement

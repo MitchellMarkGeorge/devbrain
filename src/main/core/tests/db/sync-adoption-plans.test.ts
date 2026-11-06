@@ -15,13 +15,14 @@ import { SyncWriter } from '../../sync/writer';
 import { SearchService } from '../../search/service';
 import {
   AuthType,
-  ExternalEvent,
-  ExternalTask,
+  EventKind,
+  EventStatus,
   Provider,
   SourceType,
-} from '../../integrations/types';
-import { TaskPriority, TaskStatus } from '../../tasks/types';
-import { EventKind, EventStatus } from '../../events/types';
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
+import { ExternalEvent, ExternalTask } from '../../integrations/types';
 
 // The plans of the statements SyncWriter really runs to adopt the items waiting for a parent or a
 // series master: each is captured as it executes, with its parameters, and explained. A page adopts

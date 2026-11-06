@@ -1,6 +1,6 @@
 import Store from 'electron-store';
 import type { OpenSettingsStore } from '@main/core';
-import type { SettingsFile } from '@main/core/settings/types';
+import type { SettingsFile } from '@common/types';
 
 // the DevBrain folder's settings.json, through electron-store
 export const openElectronSettingsStore: OpenSettingsStore = (rootPath, defaults) =>
