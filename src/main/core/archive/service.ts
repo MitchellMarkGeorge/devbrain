@@ -50,6 +50,9 @@ export type ArchiveChange =
   | ({ type: 'restored' } & ArchiveChangedIds)
   | ({ type: 'emptied'; unlinkedTaskIds: TaskId[]; unlinkedNoteIds: NoteId[] } & ArchiveChangedIds);
 
+// the transaction emptyTrash runs its steps in
+type Transaction = Parameters<Parameters<BetterSQLite3Database['transaction']>[0]>[0];
+
 // What removes the deleted notes' files once emptyTrash commits: the NoteService, which owns the
 // notes folder and each note's queue of content saves
 export type NoteFiles = Pick<NoteService, 'removeDeletedFiles'>;
@@ -328,83 +331,122 @@ export class ArchiveService {
     const noteFiles = this.noteFiles;
     if (!noteFiles) throw new Error('emptyTrash needs the note files: pass a NoteService');
     const { keptTaskIds, ...deleted } = this.db.transaction((tx) => {
-      // Every task that must stay, and every ancestor of one, since deleting a task takes its
-      // subtree along. Archived tasks outside it go, and with them their whole subtree.
-      const synced = hasLinkInState('task', tasks.id, LinkState.SYNCED);
-      const mustStay = sql`(with recursive kept(id) as (select ${tasks.id} from ${tasks} where ${tasks.archivedAt} is null or ${synced} union select ${tasks.parentTaskId} from ${tasks} join kept on ${tasks.id} = kept.id where ${tasks.parentTaskId} is not null) select id from kept)`;
-      const archivedTasks = tx
-        .select({ id: tasks.id, kept: sql<number>`${tasks.id} in ${mustStay}` })
-        .from(tasks)
-        .where(isNotNull(tasks.archivedAt))
-        .all();
-      const taskIds = archivedTasks.filter((row) => !row.kept).map((row) => row.id);
-      const keptTaskIds = archivedTasks.filter((row) => row.kept).map((row) => row.id);
-      const projectIds = tx
-        .select({ id: projects.id })
-        .from(projects)
-        .where(
-          and(
-            isNotNull(projects.archivedAt),
-            not(hasLinkInState('project', projects.id, LinkState.SYNCED)),
-          ),
-        )
-        .all()
-        .map((row) => row.id);
-      const archivedNotes = tx
-        .select({ id: notes.id, linkedTaskId: notes.linkedTaskId })
-        .from(notes)
-        .where(isNotNull(notes.archivedAt))
-        .all();
-      const noteIds = archivedNotes.map((row) => row.id);
-      if (taskIds.length + projectIds.length + noteIds.length === 0) {
-        return { taskIds, projectIds, noteIds, keptTaskIds };
+      // tasks first, so the later steps' unlinked rows are only tasks that are left
+      const removedTasks = this.deleteArchivedTasks(tx);
+      const removedProjects = this.deleteArchivedProjects(tx);
+      const removedNotes = this.deleteArchivedNotes(tx);
+      const change = {
+        taskIds: removedTasks.ids,
+        projectIds: removedProjects.ids,
+        noteIds: removedNotes.ids,
+        unlinkedTaskIds: [
+          ...new Set([...removedProjects.unlinkedTaskIds, ...removedNotes.unlinkedTaskIds]),
+        ],
+        unlinkedNoteIds: [
+          ...new Set([...removedTasks.unlinkedNoteIds, ...removedProjects.unlinkedNoteIds]),
+        ],
+      };
+      if (change.taskIds.length + change.projectIds.length + change.noteIds.length > 0) {
+        this.changes.emit({ type: 'emptied', ...change });
       }
-
-      // The rows left that lose a link, read before the deletes clear it. Every archived note
-      // goes, so only active ones are left; the archived tasks left are the kept ones.
-      const removedTaskIds = new Set(taskIds);
-      const leftTask = (id: TaskId | null): id is TaskId => id !== null && !removedTaskIds.has(id);
-      const unlinkedTaskIds = new Set<TaskId>([
-        // tasks whose project goes, or made from a note that goes
-        ...tx
-          .select({ id: tasks.id })
-          .from(tasks)
-          .where(or(inArray(tasks.projectId, projectIds), inArray(tasks.linkedNoteId, noteIds)))
-          .all()
-          .map((row) => row.id)
-          .filter(leftTask),
-        // the tasks the notes were the task note of
-        ...archivedNotes.map((row) => row.linkedTaskId).filter(leftTask),
-      ]);
-      // notes whose task or project goes
-      const unlinkedNoteIds = tx
-        .select({ id: notes.id })
-        .from(notes)
-        .where(
-          and(
-            isNull(notes.archivedAt),
-            or(inArray(notes.linkedTaskId, taskIds), inArray(notes.projectId, projectIds)),
-          ),
-        )
-        .all()
-        .map((row) => row.id);
-
-      tx.delete(tasks).where(inArray(tasks.id, taskIds)).run();
-      tx.delete(projects).where(inArray(projects.id, projectIds)).run();
-      tx.delete(notes).where(inArray(notes.id, noteIds)).run();
-
-      this.changes.emit({
-        type: 'emptied',
-        taskIds,
-        projectIds,
-        noteIds,
-        unlinkedTaskIds: [...unlinkedTaskIds],
-        unlinkedNoteIds,
-      });
-      return { taskIds, projectIds, noteIds, keptTaskIds };
+      const { taskIds, projectIds, noteIds } = change;
+      return { taskIds, projectIds, noteIds, keptTaskIds: removedTasks.keptIds };
     });
     const filesNotRemoved = await noteFiles.removeDeletedFiles(deleted.noteIds);
     return { ...deleted, keptTaskIds, filesNotRemoved };
+  }
+
+  // emptyTrash's tasks: every archived task with nothing below it that must stay, and its subtree
+  // with it. Returns them, the archived tasks kept, and the active notes that lose their task
+  // (archived ones go with the notes).
+  private deleteArchivedTasks(tx: Transaction): {
+    ids: TaskId[];
+    keptIds: TaskId[];
+    unlinkedNoteIds: NoteId[];
+  } {
+    // Every task that must stay (active or synced), and every ancestor of one, since deleting a
+    // task takes its subtree along
+    const synced = hasLinkInState('task', tasks.id, LinkState.SYNCED);
+    const mustStay = sql`(with recursive kept(id) as (select ${tasks.id} from ${tasks} where ${tasks.archivedAt} is null or ${synced} union select ${tasks.parentTaskId} from ${tasks} join kept on ${tasks.id} = kept.id where ${tasks.parentTaskId} is not null) select id from kept)`;
+    const archived = tx
+      .select({ id: tasks.id, kept: sql<number>`${tasks.id} in ${mustStay}` })
+      .from(tasks)
+      .where(isNotNull(tasks.archivedAt))
+      .all();
+    const ids = archived.filter((row) => !row.kept).map((row) => row.id);
+    const keptIds = archived.filter((row) => row.kept).map((row) => row.id);
+    if (ids.length === 0) return { ids, keptIds, unlinkedNoteIds: [] };
+
+    // read before the delete clears their link
+    const unlinkedNoteIds = tx
+      .select({ id: notes.id })
+      .from(notes)
+      .where(and(inArray(notes.linkedTaskId, ids), isNull(notes.archivedAt)))
+      .all()
+      .map((row) => row.id);
+    tx.delete(tasks).where(inArray(tasks.id, ids)).run();
+    return { ids, keptIds, unlinkedNoteIds };
+  }
+
+  // emptyTrash's projects: every archived one (a synced project is never archived; one would be
+  // kept). Returns them, and the tasks left and active notes that lose their project.
+  private deleteArchivedProjects(tx: Transaction): {
+    ids: ProjectId[];
+    unlinkedTaskIds: TaskId[];
+    unlinkedNoteIds: NoteId[];
+  } {
+    const ids = tx
+      .select({ id: projects.id })
+      .from(projects)
+      .where(
+        and(
+          isNotNull(projects.archivedAt),
+          not(hasLinkInState('project', projects.id, LinkState.SYNCED)),
+        ),
+      )
+      .all()
+      .map((row) => row.id);
+    if (ids.length === 0) return { ids, unlinkedTaskIds: [], unlinkedNoteIds: [] };
+
+    // read before the delete clears their project
+    const unlinkedTaskIds = tx
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(inArray(tasks.projectId, ids))
+      .all()
+      .map((row) => row.id);
+    const unlinkedNoteIds = tx
+      .select({ id: notes.id })
+      .from(notes)
+      .where(and(inArray(notes.projectId, ids), isNull(notes.archivedAt)))
+      .all()
+      .map((row) => row.id);
+    tx.delete(projects).where(inArray(projects.id, ids)).run();
+    return { ids, unlinkedTaskIds, unlinkedNoteIds };
+  }
+
+  // emptyTrash's notes: every archived one; the files are removed after the commit. Returns them,
+  // and the tasks left that lose a note: made from one, or the task one was the task note of.
+  private deleteArchivedNotes(tx: Transaction): { ids: NoteId[]; unlinkedTaskIds: TaskId[] } {
+    const archived = tx
+      .select({ id: notes.id, linkedTaskId: notes.linkedTaskId })
+      .from(notes)
+      .where(isNotNull(notes.archivedAt))
+      .all();
+    const ids = archived.map((row) => row.id);
+    if (ids.length === 0) return { ids, unlinkedTaskIds: [] };
+
+    // read before the delete clears their link
+    const madeFromThem = tx
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(inArray(tasks.linkedNoteId, ids))
+      .all()
+      .map((row) => row.id);
+    // a deleted task's notes lost their link with it, so these are tasks that are left
+    const theirTasks = archived.flatMap((row) => row.linkedTaskId ?? []);
+    tx.delete(notes).where(inArray(notes.id, ids)).run();
+    return { ids, unlinkedTaskIds: [...new Set([...madeFromThem, ...theirTasks])] };
   }
 
   /**

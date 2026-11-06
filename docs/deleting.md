@@ -82,6 +82,9 @@ the notes folder and each note's queue of content saves. The workspace passes it
   their links, a project leaves its tasks and notes with no project, a note leaves the tasks linked
   to it. An archived task with an active or synced task anywhere below it stays in the trash, as
   `tasks.delete` refuses it; the response lists it in `keptTaskIds`.
+- **One step per kind.** `emptyTrash` runs a private method for each, inside the transaction:
+  tasks first, then projects, then notes, so the later steps' unlinked rows are only tasks that are
+  left.
 - **One change**, the archive's `emptied`, sent as the transaction's last step, inside it. It names
   every id deleted and every row left that lost a link (`unlinkedTaskIds`, `unlinkedNoteIds`), so
   the `ChangeTracker` reports those kinds too.
