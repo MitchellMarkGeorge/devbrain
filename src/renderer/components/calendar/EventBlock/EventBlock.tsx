@@ -7,7 +7,7 @@ import { cn } from '../../lib/cn';
 import { ColourBar } from '../../ui/ColourBar';
 import { Icon } from '../../ui/Icon';
 import { StatusIcon } from '../../entities/StatusIcon';
-import { resolveColor, type Swatch, type TaskStatus } from '../../types';
+import { isSwatch, resolveColor, type Swatch, type TaskStatus } from '../../types';
 import styles from './EventBlock.module.css';
 
 /**
@@ -102,8 +102,11 @@ export const allDayEventVariants = cva(styles.allDay, {
 export interface AllDayEventProps
   extends Omit<useRender.ComponentProps<'div'>, 'title'>, VariantProps<typeof allDayEventVariants> {
   title: string;
-  /** the calendar's colour: the chip is its 900 step (`swatch-*-tile`) with the full colour bar */
-  color?: Swatch;
+  /**
+   * the calendar's colour: the chip is a swatch's 900 step (`swatch-*-tile`) with the full colour
+   * bar; any other CSS colour (a synced calendar's `#rrggbb`) is mixed to the same strengths
+   */
+  color?: Swatch | string;
 }
 
 /**
@@ -122,10 +125,7 @@ export const AllDayEvent = forwardRef<HTMLDivElement, AllDayEventProps>(function
       {
         className: allDayEventVariants({ kind }),
         tabIndex: 0,
-        style: {
-          '--chip-color': `var(--swatch-${color}-tile)`,
-          '--chip-tint': `var(--swatch-${color}-tint)`,
-        } as CSSProperties,
+        style: chipColors(color),
         children: (
           <>
             <ColourBar color={kind === 'out-of-office' ? 'var(--muted-foreground)' : color} />
@@ -137,6 +137,22 @@ export const AllDayEvent = forwardRef<HTMLDivElement, AllDayEventProps>(function
     ),
   });
 });
+
+// a swatch's tile and tint tokens, or for another colour the same strengths mixed from it: the tile
+// as 30% of the colour over the ground, the tint as the colour at 15% (as `swatch-*-tint` is)
+function chipColors(color: Swatch | string): CSSProperties {
+  return (
+    isSwatch(color)
+      ? {
+          '--chip-color': `var(--swatch-${color}-tile)`,
+          '--chip-tint': `var(--swatch-${color}-tint)`,
+        }
+      : {
+          '--chip-color': `color-mix(in oklab, ${color} 30%, var(--background))`,
+          '--chip-tint': `color-mix(in oklab, ${color} 15%, transparent)`,
+        }
+  ) as CSSProperties;
+}
 
 export const nowIndicatorVariants = cva(styles.now, {
   variants: { dot: { true: styles.withDot } },

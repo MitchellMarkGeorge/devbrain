@@ -1,50 +1,41 @@
-import type { CalendarEvent } from '../types';
-
+// Time formatting shared by the calendar components, and the CalendarEvent shape the stories and
+// screens describe events in (CalendarView's calendarEventInput maps it to FullCalendar input).
 export type { CalendarEvent } from '../types';
 
-export const MS_PER_DAY = 24 * 60 * 60 * 1000;
+/** The clock the times are written in: `'12'` (9:30 AM) or `'24'` (09:30), as the setting. */
+export type TimeFormat = '12' | '24';
 
-export function startOfDay(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-export function addDays(date: Date, days: number): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
-}
-
-export function isSameDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
-}
-
-/** Hours since midnight, with minutes as a fraction: 9:30 → 9.5 */
-export function hourOfDay(date: Date): number {
-  return date.getHours() + date.getMinutes() / 60 + date.getSeconds() / 3600;
-}
-
-/** Whole days from `a`'s day to `b`'s day (DST-safe). */
-export function dayDiff(a: Date, b: Date): number {
-  return Math.round((startOfDay(b).getTime() - startOfDay(a).getTime()) / MS_PER_DAY);
-}
+const pad = (value: number) => String(value).padStart(2, '0');
 
 function clock(date: Date): { text: string; meridiem: 'AM' | 'PM' } {
   const h = date.getHours();
   const m = date.getMinutes();
   const h12 = h % 12 === 0 ? 12 : h % 12;
-  return { text: `${h12}:${String(m).padStart(2, '0')}`, meridiem: h < 12 ? 'AM' : 'PM' };
+  return { text: `${h12}:${pad(m)}`, meridiem: h < 12 ? 'AM' : 'PM' };
 }
 
-/** "9:30 AM" */
-export function formatTime(date: Date): string {
+// "09:30"
+function clock24(date: Date): string {
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** "9:30 AM", or "09:30" on the 24-hour clock */
+export function formatTime(date: Date, timeFormat: TimeFormat = '12'): string {
+  if (timeFormat === '24') return clock24(date);
   const c = clock(date);
   return `${c.text} ${c.meridiem}`;
 }
 
-/** "1:00 – 2:00 PM", or "11:00 AM – 12:00 PM" across noon */
-export function formatTimeRange(start: Date, end: Date): string {
+/** "9:30", or "09:30" on the 24-hour clock: the month grid's short start time */
+export function formatShortTime(date: Date, timeFormat: TimeFormat = '12'): string {
+  return timeFormat === '24' ? clock24(date) : clock(date).text;
+}
+
+/**
+ * "1:00 – 2:00 PM", or "11:00 AM – 12:00 PM" across noon; "13:00 – 14:00" on the 24-hour clock
+ */
+export function formatTimeRange(start: Date, end: Date, timeFormat: TimeFormat = '12'): string {
+  if (timeFormat === '24') return `${clock24(start)} – ${clock24(end)}`;
   const a = clock(start);
   const b = clock(end);
   return a.meridiem === b.meridiem
@@ -52,77 +43,13 @@ export function formatTimeRange(start: Date, end: Date): string {
     : `${a.text} ${a.meridiem} – ${b.text} ${b.meridiem}`;
 }
 
-/** An hour label for the grid's gutter: 8 → "8 AM", 12 → "12 PM", 24 → "12 AM" */
-export function formatHour(hour: number): string {
+/**
+ * An hour label for the grid's gutter: 8 → "8 AM", 12 → "12 PM", 24 → "12 AM"; "08:00" on the
+ * 24-hour clock
+ */
+export function formatHour(hour: number, timeFormat: TimeFormat = '12'): string {
   const h = hour % 24;
+  if (timeFormat === '24') return `${pad(h)}:00`;
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12} ${h < 12 ? 'AM' : 'PM'}`;
-}
-
-/**
- * Lays out one day's timed events side by side where they overlap: each event gets a `lane` and
- * the number of `lanes` in its cluster of overlapping events.
- */
-export function layoutOverlaps<T extends { start: Date; end: Date }>(
-  events: T[],
-): { event: T; lane: number; lanes: number }[] {
-  const sorted = [...events].sort(
-    (a, b) =>
-      a.start.getTime() - b.start.getTime() ||
-      b.end.getTime() - b.start.getTime() - (a.end.getTime() - a.start.getTime()),
-  );
-  const out: { event: T; lane: number; lanes: number }[] = [];
-  let cluster: { event: T; lane: number; lanes: number }[] = [];
-  let laneEnds: number[] = [];
-  let clusterEnd = 0;
-  const close = () => {
-    for (const item of cluster) item.lanes = laneEnds.length;
-    out.push(...cluster);
-    cluster = [];
-    laneEnds = [];
-  };
-  for (const event of sorted) {
-    const start = event.start.getTime();
-    const end = event.end.getTime();
-    if (cluster.length > 0 && start >= clusterEnd) close();
-    let lane = laneEnds.findIndex((laneEnd) => laneEnd <= start);
-    if (lane === -1) lane = laneEnds.push(0) - 1;
-    laneEnds[lane] = end;
-    clusterEnd = cluster.length > 0 ? Math.max(clusterEnd, end) : end;
-    cluster.push({ event, lane, lanes: 0 });
-  }
-  close();
-  return out;
-}
-
-/**
- * Stacks all-day events spanning `days` columns into rows (lanes) so none overlap. `first` and
- * `last` are column indexes, clamped to the range shown.
- */
-export function layoutAllDay<T extends CalendarEvent>(
-  events: T[],
-  rangeStart: Date,
-  columns: number,
-): { event: T; first: number; last: number; lane: number }[] {
-  const placed = events
-    .map((event) => {
-      const first = Math.max(0, dayDiff(rangeStart, event.start));
-      // `end` is exclusive: an event ending at midnight ends on the day before
-      const endDay =
-        event.end.getTime() > event.start.getTime()
-          ? new Date(event.end.getTime() - 1)
-          : event.start;
-      const last = Math.min(columns - 1, dayDiff(rangeStart, endDay));
-      return { event, first, last, lane: 0 };
-    })
-    .filter((p) => p.last >= 0 && p.first <= columns - 1 && p.first <= p.last)
-    .sort((a, b) => a.first - b.first || b.last - b.first - (a.last - a.first));
-  const laneEnds: number[] = [];
-  for (const p of placed) {
-    let lane = laneEnds.findIndex((end) => end < p.first);
-    if (lane === -1) lane = laneEnds.push(-1) - 1;
-    laneEnds[lane] = p.last;
-    p.lane = lane;
-  }
-  return placed;
 }

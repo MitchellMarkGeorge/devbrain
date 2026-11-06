@@ -36,7 +36,7 @@ ESLint enforces steps 2 and 3 (`eslint.config.js`); stories may import anything.
 | `board/`        | Board        | BoardCard, BoardColumn                                                                                                                                                                            |
 | `detail/`       | Detail       | PropertyRow, DetailRow, DetailSection, DateRange, TaskNoteCard, AddSlot, CreateDialog                                                                                                             |
 | `editor/`       | Editor       | EditorContent, FormatToolbar, LinkToolbar, TurnIntoMenu, ColourMenu, SlashMenu, MentionMenu, Callout, CodeBlock                                                                                   |
-| `calendar/`     | Calendar     | TimeGrid, MonthGrid, EventBlock, CalendarAgenda                                                                                                                                                   |
+| `calendar/`     | Calendar     | CalendarView, EventBlock, CalendarAgenda                                                                                                                                                          |
 | `home/`         | Home         | CaptureBox, HomeRow, HomeSection (and HomeCards), SetupRow                                                                                                                                        |
 | `projects/`     | Projects     | ProjectCard, ProjectHeader                                                                                                                                                                        |
 | `notes/`        | Notes        | NoteCard                                                                                                                                                                                          |
@@ -74,7 +74,7 @@ where it is; move it down to `entities/` or `ui/` once it no longer depends on i
 - add its guide, `docs/design-system/components/<Name>.md` (not for `layout/`).
 
 A helper shared by several components of one group sits at the group's root (as
-`calendar/calendar-events.ts` does for TimeGrid and MonthGrid).
+`calendar/calendar-events.ts` does for the calendar's time formats).
 
 ## A component's folder
 
