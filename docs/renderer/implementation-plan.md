@@ -813,7 +813,7 @@ tasks), `7158:17380`, `7158:17899`, `7421:36683`, `7527:51820` (menu), `7175:411
   compose, and N) → `notes.create` then navigate to it with the title focused.
 - **Page**: `DocumentPage` with `EditorTitle` (→ `notes.update` title), "Edited …", pills (project,
   linked event/task), then `RichTextEditor` with `useWorkspaceEditorHost`, `useEntityResolver` and
-  `useOpenEntity`. The loader reads content with `notes.content` (**N1, blocking**).
+  `useOpenEntity`. The loader reads content with `notes.readContent` (**N1, blocking**).
 - **Saving**: `onChange` → `notes.updateContent` debounced 500ms and flushed on route leave
   (`useBlocker` without a prompt, or the route's `onLeave`) and on window blur. Core serializes
   saves and the last wins; the page ignores the content refetch its own save triggers (the editor
@@ -936,9 +936,12 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 
 ### Notes
 
-- **N1 (blocking): `notes.content({ id })`** → `NoteService.readContent`. The note page, the task
-  note dialog and the event note in the sheet can't load a note without it. Add `notes` to the
-  reads table (it already is, by router). Also accept `content` in `notes.create` (core already
+- **N1 (blocking): `notes.readContent({ id })`** → `NoteService.readContent`. The note page, the task
+  note dialog and the event note in the sheet can't load a note without it. Give it its own line
+  in the reads table, `'notes.readContent': ['note']`: the `notes` router's line also lists task,
+  project, event and calendar, which would refetch an open note's content on every sync page.
+  In review as [MitchellMarkGeorge/devbrain#110](https://github.com/MitchellMarkGeorge/devbrain/pull/110).
+  Also accept `content` in `notes.create` (core already
   does), so "Turn into note" and the capture box can create with a body.
 - **N2: `Show in Finder` for a note**: `notes.showInFolder({ id })` through `ctx.desktop`, with the
   path from core (never from the renderer).
@@ -1159,7 +1162,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 
 | Id | Change | Needed by | Blocking |
 | --- | --- | --- | --- |
-| N1 | `notes.content`, `content` in `notes.create` | Note page, task note, event note | **Yes** |
+| N1 | `notes.readContent`, `content` in `notes.create` | Note page, task note, event note | **Yes** |
 | X1 | DTO types and enums to `src/common` | Entity components (milestone 3) | **Yes** for the components |
 | T5 | Nullable fields in `tasks.update`/`projects.update` | Date pickers, clearing links | **Yes** for clearing |
 | S2 | `lastPage` read/write + in initial load context | Reopen last page | For that setting |
