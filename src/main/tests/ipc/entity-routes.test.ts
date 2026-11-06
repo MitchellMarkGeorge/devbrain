@@ -151,6 +151,39 @@ describe('notes', () => {
     expect(workspace().search.search({ query: 'ship', entityType: ['note'] })).toHaveLength(1);
   });
 
+  it('creates a note with content and reads it back', async () => {
+    const created = await mutate('notes.create', { title: 'Plan', content: '# Goals\n\nShip' });
+    expect(created).toMatchObject({
+      ok: true,
+      data: { preview: 'Goals\n\nShip' },
+      changed: ['note'],
+    });
+    const { id } = (created as { data: Note }).data;
+
+    expect(await call('notes.readContent', { id })).toMatchObject({
+      ok: true,
+      data: '# Goals\n\nShip',
+      changed: [],
+    });
+
+    await mutate('notes.updateContent', { id, content: 'Shipped' });
+    expect(await data<string>('notes.readContent', { id })).toBe('Shipped');
+  });
+
+  it('reads no content for a note that does not exist', async () => {
+    expect(await call('notes.readContent', { id: 'nte_missing' })).toMatchObject({
+      ok: false,
+      error: { data: { code: 'not_found' } },
+      changed: [],
+    });
+    // not a note's id
+    expect(await call('notes.readContent', { id: 'tsk_1' })).toMatchObject({
+      ok: false,
+      error: { data: { code: 'invalid_input' } },
+      changed: [],
+    });
+  });
+
   it("passes core's errors through, with what committed", async () => {
     const missing = await mutate('notes.updateContent', { id: 'nte_missing', content: 'x' });
     expect(missing).toMatchObject({

@@ -17,7 +17,7 @@ const links = {
   linkedTaskId: zId('task').nullable().optional(),
 };
 
-const createNoteOptions = z.object({
+const createNoteInput = z.object({
   title: z.string().optional(),
   content: z.string().optional(),
   ...links,
@@ -46,9 +46,9 @@ export const notesRouter = t.router({
     .input(byId)
     .query(({ ctx, input }): Note => ctx.workspace.notes.getById(input.id)),
 
-  // writes the note's file, empty, then its row
+  // writes the note's file, with `content` or empty, then its row
   create: wsProcedure
-    .input(createNoteOptions)
+    .input(createNoteInput)
     .mutation(({ ctx, input }): Promise<Note> => ctx.workspace.notes.createNote(input)),
 
   // the title and links; the content goes through updateContent
@@ -58,6 +58,8 @@ export const notesRouter = t.router({
       ({ ctx, input: { id, ...updates } }): Note => ctx.workspace.notes.updateNote(id, updates),
     ),
 
+  // the note's markdown, read from its file; fails with not_found, or malformed_note_file when the
+  // file can't be parsed
   readContent: wsProcedure
     .input(byId)
     .query(({ ctx, input }): Promise<string> => ctx.workspace.notes.readContent(input.id)),

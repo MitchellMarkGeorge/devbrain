@@ -23,6 +23,8 @@ export const ENTITIES_READ_BY_ROUTE: Readonly<Record<string, readonly ChangedEnt
   projects: ['project', 'task'],
   // a note row shows its project, its linked task or event (in its calendar's colour)
   notes: ['note', 'task', 'project', 'event', 'calendar'],
+  // a note's markdown, from its file: only a change to the note changes it
+  'notes.readContent': ['note'],
   // the calendar view shows only visible calendars
   events: ['event', 'calendar'],
   // a disconnect turns its calendars into local ones
