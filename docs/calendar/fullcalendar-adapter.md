@@ -2,7 +2,7 @@
 
 How the calendar view turns the events `EventService.listForCalendar` returns into FullCalendar event input. The event model (feature 16b, see [the tech design](../integrations/tech-design.md)) stores events in the shape this needs. The adapter is `src/renderer/calendar`: `toEventInput(event, calendar)` and `toEventSource(calendar, load)` in `event-input.ts`, and the rule string and `occurrencesBetween` in `recurrence.ts`, tested in `src/renderer/tests/calendar`. `CalendarView` ([its guide](../design-system/components/CalendarView.md)) draws the result.
 
-FullCalendar is v6 (6.1.22, pinned), with the `timegrid`, `daygrid`, `interaction`, `rrule` and `luxon3` plugins. v7 is now npm's `latest` for some of these packages, but `timegrid`, `daygrid` and `luxon3` have no v7 release to match.
+FullCalendar is v6 (6.1.22, pinned), with the `timegrid`, `daygrid`, `interaction`, `rrule` and `luxon3` plugins. FullCalendar 7 (now npm's `latest`) restructures the packages: the React connector is self-contained, built on `@full-ui/headless-calendar` and `temporal-polyfill`, ships plain CSS files instead of injecting styles, and has no separate view or Luxon plugins. Moving to it is a migration of its own (the theming overrides and the findings below would need checking again), so this stays on the v6 line the plan chose.
 
 ## What it receives
 
