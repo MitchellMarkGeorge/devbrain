@@ -356,14 +356,7 @@ export class TaskService {
     // a synced task's project follows the provider; a local one can move into a mirrored project
     assertRowEditable(task);
 
-    if (isSubtask(task)) {
-      throw new TaskHierarchyError(
-        id,
-        'inherits_context',
-        'Subtasks inherit project context from partent task',
-      );
-    }
-
+    // a subtask starts in its parent's project but can move to its own, as a Linear sub-issue can
     const row = this.db
       .update(tasks)
       .set({

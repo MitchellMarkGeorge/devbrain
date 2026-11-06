@@ -891,16 +891,19 @@ describe('TaskService — updateProject', () => {
     expect(() => tasks.updateProject(generateId('task'), FAKE_PROJECT_ID)).toThrow(NotFoundError);
   });
 
-  it('throws when called on a subtask', async () => {
-    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+  it("moves a subtask to a project other than its parent's, leaving the parent as it was", async () => {
+    const parent = tasks.createTask({
+      title: 'Parent',
+      dueDate: TOMORROW,
+      projectId: FAKE_PROJECT_ID,
+    });
     const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
-    expect(() => tasks.updateProject(sub.id, FAKE_PROJECT_ID)).toThrow(
-      expect.objectContaining({
-        code: 'task_hierarchy',
-        reason: 'inherits_context',
-        message: expect.stringContaining('Subtasks inherit project context from partent task'),
-      }),
-    );
+    expect(sub.projectId).toBe(FAKE_PROJECT_ID);
+
+    const other = new ProjectService(db).createProject({ title: 'Other', dueDate: TOMORROW });
+    expect(tasks.updateProject(sub.id, other.id).projectId).toBe(other.id);
+    expect(tasks.getById(parent.id).projectId).toBe(FAKE_PROJECT_ID);
+    expect(tasks.updateProject(sub.id, null).projectId).toBeNull();
   });
 });
 
