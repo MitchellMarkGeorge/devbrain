@@ -215,8 +215,8 @@ Renders, around `<Outlet/>`:
 
 The **landing page** is one function, `landingPage(settings, state)`: `state.lastPage` when
 `general.openToLastPage` is on and it parses as an `/app/*` location, else
-`/app/${general.defaultLandingPage}`. Boot reads `lastPage` from the initial load context
-(Main-process changes, S2).
+`/app/${general.defaultLandingPage}`. `lastPage` is the opened workspace's
+(`WorkspaceInfo.lastPage`, Main-process changes, S2).
 
 ### Guards
 
@@ -229,20 +229,25 @@ redirect({ to: '/onboarding' })`. The seeded cache makes this synchronous.
 
 ### Remembering the page
 
-Main remembers the page, so the renderer only reads it back on launch. The router keeps its
-location in the URL's hash, so the window's URL says where the app is. Main follows the window's
-navigations (`did-navigate-in-page`) and keeps the last `/app` location in memory, the path plus
-search params (e.g. `/app/tasks?view=board`). When the workspace closes (on quit, and on a switch
-before the next one opens), main writes it to `state.lastPage` (S2,
-`src/main/runtime/last-page.ts`).
+Each workspace remembers its own last page, in its folder's manifest (`workspace.json`), so it
+moves with the folder to another computer. Main saves it, and the renderer only reads it back.
 
+- **Tracking:** the router keeps its location in the URL's hash, so the window's URL says where the
+  app is. Main follows the window's navigations (`did-navigate-in-page`) and keeps the last `/app`
+  location in memory, the path plus search params (e.g. `/app/tasks?view=board`).
+- **Saving:** when a workspace closes (on quit, and on a switch before the next one opens), main
+  writes that location to the workspace's manifest with `WorkspaceService.setLastPage` (S2,
+  `src/main/runtime/last-page.ts`).
+- **Reading:** `WorkspaceInfo.lastPage` carries it, so the renderer reads it from the workspace it
+  opened (`openLast` at boot, `workspaces.current` after a switch). Each workspace reopens on its
+  own page.
 - Nothing goes over IPC as the user navigates, so filter changes, the calendar's ‹ › and sheets
   cost nothing, and there is no debounce.
 - Main tracks the URL as it changes rather than reading it at close: on Windows and Linux, closing
   the window destroys it before the workspace closes.
 - A crash saves nothing, so the page saved at the last close stays.
-- Main can't tell a not-found page from a real one, so a deleted entity's page can be saved. Boot
-  lands on it and shows not-found, from which Go Home works.
+- Main can't tell a not-found page from a real one, so a deleted entity's page can be saved. Opening
+  the workspace lands on it and shows not-found, from which Go Home works.
 
 ### Back and forward
 
@@ -1078,13 +1083,12 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 - **S1: partial settings update.** `settings.update` replaces the whole object, so two quick edits
   can race. Add `settings.set({ path, value })` over core's dot-path `set` (with the value checked
   against the path's schema), and `settings.reset`.
-- **S2 (needed for "Reopen last page"): main saves `state.lastPage`**, which exists in the schema
-  but was read and written nowhere. Main follows the window's URL and writes the last `/app`
-  location when the workspace closes (see Remembering the page); there is no route. Include
-  `lastPage` in the initial load context, so boot reads it without a call. Validate it as an `/app`
-  path string of bounded length; the renderer parses it again before navigating. Writing a
-  `state.*` key emits no `SettingsChange` (`SettingsService.set` only emits for `settings.*`), so
-  saving the page refetches nothing.
+- **S2 (needed for "Reopen last page"): each workspace's last page, in its manifest.** Main
+  follows the window's URL and writes the last `/app` location to the closing workspace's
+  `workspace.json` (see Remembering the page); there is no route. `WorkspaceInfo.lastPage` carries
+  it, so the renderer reads it from the workspace it opened, and a moved folder brings it along.
+  Validate it as an `/app` path string of bounded length; the renderer parses it again before
+  navigating. The unused `state.lastPage` is removed from the settings file's schema.
 - **S3: `calendar.hideWeekends`** (default `false`) in `appSettingsSchema`, shown in Settings ›
   Calendar as **Hide weekends** (Figma's "Show weekends" at `7158:11133` is renamed). FullCalendar
   takes it as `weekends: !hideWeekends`, in the week and month views.
@@ -1192,7 +1196,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 | N1                                     | `notes.readContent`, `content` in `notes.create`         | Note page, task note, event note             | Done (#110)                |
 | X1                                     | DTO types and enums to `src/common`                      | Entity components (milestone 3)              | **Yes** for the components |
 | T5                                     | Nullable fields in `tasks.update`/`projects.update`      | Date pickers, clearing links                 | **Yes** for clearing       |
-| S2                                     | Main saves `lastPage` on close; in initial load context  | Reopen last page                             | Done                       |
+| S2                                     | Each workspace's `lastPage`, in its manifest             | Reopen last page                             | Done                       |
 | T6                                     | Optional `dueDate` on create                             | Create dialogs                               | No (default from settings) |
 | P1                                     | Stats on `projects.list`                                 | Projects list/cards                          | No (N+1)                   |
 | T2                                     | Bulk task updates                                        | Selection bar                                | No (sequential)            |

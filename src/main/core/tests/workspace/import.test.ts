@@ -126,6 +126,17 @@ describe('WorkspaceService.import — success', () => {
     expect(noteFile).toContain('Bring the folder over');
   });
 
+  it('brings the page the workspace was last on', async () => {
+    const original = await there.create({ name: 'Acme', color: '#3b82f6' });
+    there.setLastPage(original.id, '/app/notes?view=card');
+    const folder = path.join(carried, 'Acme');
+    await fs.cp(original.path, folder, { recursive: true });
+
+    const info = await here.import(folder);
+    expect(info.lastPage).toBe('/app/notes?view=card');
+    expect((await here.open(info.id)).info.lastPage).toBe('/app/notes?view=card');
+  });
+
   it('leaves the chosen folder as it was, and a delete removes only the copy', async () => {
     const { folder } = await carryWorkspace();
     const before = (await fs.readdir(folder)).sort();
@@ -443,12 +454,40 @@ describe('workspace manifest', () => {
       name: 'Personal',
       color: '#ec4899',
       createdAt: info.createdAt,
+      lastPage: null,
     });
     expect(readManifest(info.path)).toEqual({
       id: info.id,
       name: 'Personal',
       color: '#ec4899',
       createdAt: info.createdAt,
+      lastPage: null,
+    });
+  });
+
+  it('keeps the last page, and reads one written before it was kept as none', async () => {
+    const info = await here.create({ name: 'Personal', color: '#ec4899' });
+    here.setLastPage(info.id, '/app/tasks?view=board');
+    expect(readManifest(info.path)?.lastPage).toBe('/app/tasks?view=board');
+    expect(here.getById(info.id).lastPage).toBe('/app/tasks?view=board');
+
+    // a manifest from before: no lastPage key
+    const file = path.join(info.path, MANIFEST_FILE);
+    const older = JSON.parse(await fs.readFile(file, 'utf8'));
+    delete older.lastPage;
+    await fs.writeFile(file, JSON.stringify(older));
+    expect(here.getById(info.id)).toMatchObject({ name: 'Personal', lastPage: null });
+  });
+
+  it('drops a bad last page alone, keeping the name and colour', async () => {
+    const info = await here.create({ name: 'Personal', color: '#ec4899' });
+    const file = path.join(info.path, MANIFEST_FILE);
+    const manifest = JSON.parse(await fs.readFile(file, 'utf8'));
+    await fs.writeFile(file, JSON.stringify({ ...manifest, lastPage: 'https://example.com' }));
+    expect(here.getById(info.id)).toMatchObject({
+      name: 'Personal',
+      color: '#ec4899',
+      lastPage: null,
     });
   });
 
@@ -524,6 +563,7 @@ describe('workspace manifest', () => {
         name: 'Work',
         color: '#22c55e',
         createdAt: 1_700_000_000_000,
+        lastPage: null,
       });
       const registry = JSON.parse(await fs.readFile(path.join(root, REGISTRY_FILE), 'utf8'));
       expect(registry[id]).toEqual({ id, path: folder, lastOpenedAt: null });
@@ -535,7 +575,13 @@ describe('workspace manifest', () => {
 
     it('keeps a manifest already in the folder, which wins over the registry', async () => {
       const { id, folder } = await olderRegistry();
-      writeManifest(folder, { id, name: 'From the folder', color: '#000000', createdAt: 1 });
+      writeManifest(folder, {
+        id,
+        name: 'From the folder',
+        color: '#000000',
+        createdAt: 1,
+        lastPage: null,
+      });
 
       expect(moveDetailsToManifests(hereRoot)).toEqual([id]);
       expect(readManifest(folder)?.name).toBe('From the folder');

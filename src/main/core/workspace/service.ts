@@ -1,6 +1,6 @@
 import { generateId, isId, type IntegrationId, type WorkspaceId } from '@common/ids';
 import { hexColorSchema } from '@common/color';
-import { Page, type WorkspaceInfo } from '@common/types';
+import { lastPageSchema, Page, type WorkspaceInfo } from '@common/types';
 import type { CreateWorkspaceOptions, UpdateWorkspaceOptions, WorkspaceOptions } from './types';
 import {
   describeWorkspace,
@@ -151,6 +151,7 @@ export class WorkspaceService {
       path: workspacePath,
       createdAt: Date.now(),
       lastOpenedAt: null,
+      lastPage: null,
     };
 
     // The database first, then the registry: a workspace is registered only once it can be opened.
@@ -224,6 +225,31 @@ export class WorkspaceService {
     }
     this.changes.emit({ type: 'updated', workspace: updated });
     return updated;
+  }
+
+  /**
+   * Remembers the page the app was on in a workspace, for "Reopen last page", in its folder's
+   * manifest (manifest.ts), so it moves with the folder. Main calls it as the workspace closes,
+   * with the page from the window's URL (runtime/last-page.ts). Synchronous and unqueued, so it can
+   * run inside the `closed` change of a close the queue is running. Sends no change: the page is
+   * read when a workspace opens. Writes nothing when the page is unchanged.
+   *
+   * Throws InvalidInputError for a page outside the app, NotFoundError for an unknown id, and
+   * WorkspaceDataMissingError when the workspace's folder is gone.
+   */
+  setLastPage(id: WorkspaceId, page: string): void {
+    if (!lastPageSchema.safeParse(page).success) {
+      throw new InvalidInputError('Not a page in the app');
+    }
+    const info = this.getById(id);
+    if (info.lastPage === page) return;
+    try {
+      writeManifest(info.path, { ...info, lastPage: page });
+    } catch (error) {
+      if (!isNotFound(error)) throw error;
+      throw new WorkspaceDataMissingError(id, 'Workspace directory not found');
+    }
+    if (this.current?.info.id === id) this.current.info.lastPage = page;
   }
 
   /**
@@ -421,6 +447,8 @@ export class WorkspaceService {
       path: destination,
       createdAt: manifest?.createdAt ?? Date.now(),
       lastOpenedAt: null,
+      // the page it was on where it came from
+      lastPage: manifest?.lastPage ?? null,
     };
 
     try {

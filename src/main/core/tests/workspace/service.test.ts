@@ -13,7 +13,7 @@ import {
   WorkspaceNotOpenError,
 } from '../../shared/errors';
 import { FakeCipher } from '../__mocks__/fake-cipher';
-import { readManifest } from '../../workspace/manifest';
+import { readManifest, writeManifest } from '../../workspace/manifest';
 
 // Mock the Workspace class so WorkspaceService tests don't need SQLite
 vi.mock('../../workspace/workspace', () => ({
@@ -33,6 +33,7 @@ const makeInfo = (overrides: Partial<WorkspaceInfo> = {}): WorkspaceInfo => ({
   path: '/fake/workspaces/wsp_test001',
   createdAt: Date.now(),
   lastOpenedAt: null,
+  lastPage: null,
   ...overrides,
 });
 
@@ -42,8 +43,15 @@ const fakeIntegrations = (ids: string[], calls: string[] = []) => ({
   disconnect: vi.fn(async (id: string) => void calls.push(`disconnect ${id}`)),
 });
 
-const makeRegistry = (infos: WorkspaceInfo[]): Record<WorkspaceId, WorkspaceInfo> =>
-  Object.fromEntries(infos.map((w) => [w.id, w])) as Record<WorkspaceId, WorkspaceInfo>;
+// a registry from before manifests, with each workspace's details in its entry (the last page was
+// never kept there)
+const makeRegistry = (infos: Omit<WorkspaceInfo, 'lastPage'>[]) =>
+  Object.fromEntries(
+    infos.map((info) => [
+      info.id,
+      Object.fromEntries(Object.entries(info).filter(([key]) => key !== 'lastPage')),
+    ]),
+  ) as Record<WorkspaceId, Omit<WorkspaceInfo, 'lastPage'>>;
 
 let tmpDir: string;
 
@@ -56,7 +64,7 @@ afterEach(async () => {
   await fs.rm(tmpDir, { recursive: true });
 });
 
-const writeRegistry = (dir: string, infos: WorkspaceInfo[]) => {
+const writeRegistry = (dir: string, infos: Omit<WorkspaceInfo, 'lastPage'>[]) => {
   fsSync.writeFileSync(
     path.join(dir, 'workspaces.json'),
     JSON.stringify(makeRegistry(infos), null, 2),
@@ -328,6 +336,7 @@ describe('WorkspaceService — update', () => {
       name: 'Renamed',
       color: infos[0].color,
       createdAt: infos[0].createdAt,
+      lastPage: null,
     });
 
     await service.update(infos[0].id, { color: '#00bc7d' });
@@ -450,6 +459,49 @@ describe('WorkspaceService — update', () => {
     expect(saved.name).toBe('Renamed');
     expect(saved.lastOpenedAt).not.toBeNull();
     expect(service.currentWorkspace?.info.name).toBe('Renamed');
+  });
+});
+
+describe('WorkspaceService — setLastPage', () => {
+  function setup() {
+    const infos = [
+      makeInfo({ id: 'wsp_a' as WorkspaceId, path: path.join(tmpDir, 'workspaces', 'wsp_a') }),
+    ];
+    writeRegistry(tmpDir, infos);
+    for (const info of infos) {
+      fsSync.mkdirSync(info.path, { recursive: true });
+      writeManifest(info.path, info);
+    }
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
+    const changes: WorkspaceChange[] = [];
+    service.onChange((change) => changes.push(change));
+    return { service, info: infos[0], changes };
+  }
+
+  it("keeps the page in the folder's manifest, sending no change", () => {
+    const { service, info, changes } = setup();
+    service.setLastPage(info.id, '/app/projects?view=card');
+    expect(readManifest(info.path)).toMatchObject({
+      name: info.name,
+      lastPage: '/app/projects?view=card',
+    });
+    expect(service.getById(info.id).lastPage).toBe('/app/projects?view=card');
+    expect(changes).toEqual([]);
+  });
+
+  it('keeps the page through a rename', async () => {
+    const { service, info } = setup();
+    service.setLastPage(info.id, '/app/notes');
+    await service.update(info.id, { name: 'Renamed' });
+    expect(service.getById(info.id)).toMatchObject({ name: 'Renamed', lastPage: '/app/notes' });
+  });
+
+  it('refuses a page outside the app, an unknown workspace and a missing folder', () => {
+    const { service, info } = setup();
+    expect(() => service.setLastPage(info.id, '/onboarding')).toThrow(InvalidInputError);
+    expect(() => service.setLastPage('wsp_nope' as WorkspaceId, '/app')).toThrow(NotFoundError);
+    fsSync.rmSync(info.path, { recursive: true });
+    expect(() => service.setLastPage(info.id, '/app')).toThrow(WorkspaceDataMissingError);
   });
 });
 

@@ -2,13 +2,14 @@ import { lastPageSchema } from '@common/types';
 import type { DevBrain } from '@main/core';
 
 // "Reopen last page" (general.openToLastPage): main remembers the page the window shows, and saves
-// it as state.lastPage when the workspace closes (on quit, and on a switch, before the next one
-// opens). The renderer keeps its location in the URL's hash (hash history), so the window's URL
-// says where it is, and the renderer only reads the page back on launch, from the initial load
-// context. Nothing is sent over IPC as the user navigates.
+// it in the workspace's manifest when the workspace closes (on quit, and on a switch, before the
+// next one opens), so each workspace reopens on its own page, wherever its folder goes. The renderer
+// keeps its location in the URL's hash (hash history), so the window's URL says where it is, and
+// the renderer only reads the page back, from the WorkspaceInfo of the workspace it opened. Nothing
+// is sent over IPC as the user navigates.
 
 /**
- * The page in a window URL, as state.lastPage keeps it: the hash's /app path with its search
+ * The page in a window URL, as a workspace's manifest keeps it: the hash's /app path with its search
  * params (`…/index.html#/app/tasks?view=board` → `/app/tasks?view=board`), or null for a URL that
  * shows no page in the app (onboarding, the splash, a malformed URL).
  */
@@ -39,9 +40,9 @@ export interface NavigatingContents {
 }
 
 /**
- * Keeps the last page in the app any window navigated to, and saves it as state.lastPage each time
- * a workspace closes, then forgets it, so the next workspace's first page isn't taken for the old
- * one's. The page is kept as the window navigates rather than read at the close: on Windows and
+ * Keeps the last page in the app any window navigated to, and saves it in the manifest of each
+ * workspace that closes, then forgets it, so the next workspace's first page isn't taken for the
+ * old one's. The page is kept as the window navigates rather than read at the close: on Windows and
  * Linux the window has gone by the time the workspace closes. Attach before the first window.
  */
 export function saveLastPageOnClose(app: WindowCreatingApp, devBrain: DevBrain): void {
@@ -56,7 +57,7 @@ export function saveLastPageOnClose(app: WindowCreatingApp, devBrain: DevBrain):
   });
   devBrain.workspaces.onChange((change) => {
     if (change.type !== 'closed') return;
-    if (page !== null) devBrain.settings.set('state.lastPage', page);
+    if (page !== null) devBrain.workspaces.setLastPage(change.workspaceId, page);
     page = null;
   });
 }

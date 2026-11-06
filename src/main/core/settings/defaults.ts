@@ -32,7 +32,6 @@ export function getDefaults(rootPath?: string): SettingsFile {
       },
     },
     state: {
-      lastPage: null,
       lastWorkspaceId: null,
     },
   };

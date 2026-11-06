@@ -73,8 +73,4 @@ export interface InitialLoadContext {
   workspaces: Page<WorkspaceInfo>;
   // the theme setting; 'system' without DevBrain
   theme: ThemeSetting;
-  // the page the app was on when its workspace last closed (state.lastPage, which main saves:
-  // runtime/last-page.ts), for boot to reopen when general.openToLastPage is on; null without
-  // DevBrain or before one was saved
-  lastPage: string | null;
 }

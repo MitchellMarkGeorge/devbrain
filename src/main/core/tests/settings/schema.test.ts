@@ -34,7 +34,6 @@ const validSettings: SettingsFile = {
   },
   state: {
     lastWorkspaceId: null,
-    lastPage: null,
   },
 };
 
@@ -304,30 +303,22 @@ describe('appSettingsSchema — calendar block', () => {
 });
 
 describe('appStateSchema', () => {
-  it('accepts null lastWorkspaceId and lastPage', () => {
-    expect(appStateSchema.safeParse({ lastWorkspaceId: null, lastPage: null }).success).toBe(true);
+  it('accepts a null lastWorkspaceId', () => {
+    expect(appStateSchema.safeParse({ lastWorkspaceId: null }).success).toBe(true);
   });
 
-  it('accepts string values', () => {
-    expect(
-      appStateSchema.safeParse({ lastWorkspaceId: 'wsp_abc', lastPage: '/tasks' }).success,
-    ).toBe(true);
+  it('accepts a string lastWorkspaceId', () => {
+    expect(appStateSchema.safeParse({ lastWorkspaceId: 'wsp_abc' }).success).toBe(true);
   });
 
-  it('rejects missing lastPage', () => {
-    expect(appStateSchema.safeParse({ lastWorkspaceId: null }).success).toBe(false);
-  });
-
-  it('rejects missing lastWorkspaceId', () => {
-    expect(appStateSchema.safeParse({ lastPage: null }).success).toBe(false);
+  it('still reads a file written when the state had a lastPage', () => {
+    expect(appStateSchema.safeParse({ lastWorkspaceId: null, lastPage: '/app' }).success).toBe(
+      true,
+    );
   });
 
   it('rejects a number for lastWorkspaceId', () => {
-    expect(appStateSchema.safeParse({ lastWorkspaceId: 42, lastPage: null }).success).toBe(false);
-  });
-
-  it('rejects a number for lastPage', () => {
-    expect(appStateSchema.safeParse({ lastWorkspaceId: null, lastPage: 42 }).success).toBe(false);
+    expect(appStateSchema.safeParse({ lastWorkspaceId: 42 }).success).toBe(false);
   });
 
   it('rejects an empty object', () => {

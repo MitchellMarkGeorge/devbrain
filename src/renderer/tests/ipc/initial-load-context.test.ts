@@ -24,7 +24,6 @@ const context: InitialLoadContext = {
   last: null,
   workspaces: { items: [work], nextCursor: null },
   theme: 'system',
-  lastPage: '/app/tasks?view=board',
 };
 
 function bridgeWith(initialLoadContext: IpcBridge['initialLoadContext']): IpcBridge {

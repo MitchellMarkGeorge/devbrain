@@ -626,6 +626,7 @@ describe('IntegrationService — workspaces', () => {
     path: path.join(tmpDir, name),
     createdAt: Date.now(),
     lastOpenedAt: null,
+    lastPage: null,
   });
 
   beforeEach(async () => {

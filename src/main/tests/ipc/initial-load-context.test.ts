@@ -26,7 +26,6 @@ describe('initialLoadContext', () => {
       last: null,
       workspaces: { items: [], nextCursor: null },
       theme: 'system',
-      lastPage: null,
     });
   });
 
@@ -37,18 +36,12 @@ describe('initialLoadContext', () => {
       last: null,
       workspaces: { items: [], nextCursor: null },
       theme: 'system',
-      lastPage: null,
     });
   });
 
   it('carries the theme setting, so the page paints in it from the start', () => {
     devBrain.settings.set('settings.theme', 'dark');
     expect(initialLoadContext(devBrain).theme).toBe('dark');
-  });
-
-  it('carries the last page, so boot can reopen it without a call', () => {
-    devBrain.settings.set('state.lastPage', '/app/notes?view=card');
-    expect(initialLoadContext(devBrain).lastPage).toBe('/app/notes?view=card');
   });
 
   it('names the workspace openLast would open while none is open', async () => {

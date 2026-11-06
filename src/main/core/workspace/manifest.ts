@@ -4,9 +4,10 @@ import { z } from 'zod';
 import { isId, type WorkspaceId } from '@common/ids';
 import { writeFileAtomicSync } from '../local/atomic';
 import { isNotFound } from '../local/utils';
-import type { WorkspaceInfo } from '@common/types';
+import { lastPageSchema, type WorkspaceInfo } from '@common/types';
 
-// What a workspace says about itself, kept in its folder: its id, name, colour and creation time.
+// What a workspace says about itself, kept in its folder: its id, name, colour, creation time, and
+// the page the app was on when it last closed.
 // This is the only place they are stored, so they move with the folder to another computer
 // (WorkspaceService.import), and a lost workspaces.json, which keeps only where each folder is
 // (registry.ts), loses none of them.
@@ -21,9 +22,15 @@ const manifestSchema = z.object({
   name: z.string().min(1),
   color: z.string(),
   createdAt: z.number(),
+  // added after version 1, so optional; an older DevBrain drops it when it rewrites the manifest.
+  // A bad value is dropped alone, never the manifest with the name and colour
+  lastPage: lastPageSchema.nullable().optional().catch(null),
 });
 
-export type WorkspaceManifest = Pick<WorkspaceInfo, 'id' | 'name' | 'color' | 'createdAt'>;
+export type WorkspaceManifest = Pick<
+  WorkspaceInfo,
+  'id' | 'name' | 'color' | 'createdAt' | 'lastPage'
+>;
 
 function toManifestJson(info: WorkspaceManifest): string {
   const manifest: z.infer<typeof manifestSchema> = {
@@ -32,6 +39,7 @@ function toManifestJson(info: WorkspaceManifest): string {
     name: info.name,
     color: info.color,
     createdAt: info.createdAt,
+    lastPage: info.lastPage,
   };
   return JSON.stringify(manifest, null, 2);
 }
@@ -66,6 +74,6 @@ export function readManifest(folder: string): WorkspaceManifest | null {
   }
   const parsed = manifestSchema.safeParse(json);
   if (!parsed.success) return null;
-  const { id, name, color, createdAt } = parsed.data;
-  return { id: id as WorkspaceId, name, color, createdAt };
+  const { id, name, color, createdAt, lastPage } = parsed.data;
+  return { id: id as WorkspaceId, name, color, createdAt, lastPage: lastPage ?? null };
 }

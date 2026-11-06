@@ -1,8 +1,8 @@
 # Moving a workspace between computers
 
 A workspace is one folder: `<DevBrain folder>/workspaces/<wsp_id>/`, holding its database
-(`db.sqlite`), its notes (`notes/`) and its manifest (`workspace.json`: its id, name, colour and
-creation time). To move a workspace to another
+(`db.sqlite`), its notes (`notes/`) and its manifest (`workspace.json`: its id, name, colour,
+creation time, and the page the app was on when it last closed). To move a workspace to another
 computer, bring that folder over, then choose **Open folder…** and pick it.
 
 The renderer's **Open folder…** (in the workspace switcher, and **Open Existing Folder…** on the
@@ -30,8 +30,9 @@ returned. `importFolder` returns null when the dialog is cancelled.
   copy, never the folder you picked. It also means a workspace never runs from inside a
   Dropbox or iCloud folder, where a sync tool copying a live SQLite database can corrupt it.
   The folder you picked can be deleted once the workspace has opened.
-- **Name and colour come with it.** A workspace's id, name, colour and creation time are stored
-  only in `workspace.json` in its folder. `workspaces.json` in the DevBrain folder keeps only what
+- **Name, colour and last page come with it.** A workspace's id, name, colour and creation time
+  are stored only in `workspace.json` in its folder, with the page the app was on when it last
+  closed, so "Reopen last page" opens it there on the new computer too. `workspaces.json` in the DevBrain folder keeps only what
   belongs to this computer: where each folder is and when it was last opened. Renaming or
   recolouring writes `workspace.json`, so the name is never stored twice. An imported folder without
   one is named after the folder and shown in grey (and gets one). A `workspaces.json` written before

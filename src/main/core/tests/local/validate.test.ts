@@ -32,7 +32,7 @@ const VALID_SETTINGS = {
       defaultView: 'week',
     },
   },
-  state: { lastWorkspaceId: null, lastPage: null },
+  state: { lastWorkspaceId: null },
 };
 
 // A minimal valid workspace entry for registry tests
