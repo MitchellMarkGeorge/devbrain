@@ -77,6 +77,15 @@ export interface UpdateTaskOptions {
   pullRequestUrl?: string | null;
 }
 
+// What updateTasks sets on every task it is given: the fields the selection bar edits. A field left
+// out is kept; a null due date or project clears it. Status sets completedAt as updateStatus does.
+export interface BulkTaskPatch {
+  status?: TaskStatus;
+  priority?: TaskPriority;
+  dueDate?: Date | null;
+  projectId?: ProjectId | null;
+}
+
 export interface UpdateTaskLinkOptions {
   // either, not both
   linkedEventId?: EventId | null;

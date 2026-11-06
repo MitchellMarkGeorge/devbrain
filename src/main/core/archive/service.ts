@@ -16,7 +16,7 @@ import { projects } from '@main/db/schema/projects';
 import { notes } from '@main/db/schema/notes';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../shared/errors';
 import { keyset, PageOptions } from '../shared/pagination';
-import { assertEditable, withExternalRef } from '../integrations/refs';
+import { assertEditable, withExternalRef, withExternalRefs } from '../integrations/refs';
 import { subtreeOf } from '../tasks/subtree';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import type { ArchiveFilterOptions } from './types';
@@ -82,6 +82,65 @@ export class ArchiveService {
       this.changes.emit({ type: 'archived', taskIds: updatedTaskIds, projectIds: [], noteIds });
       const [task] = updatedTasks.filter((t) => t.id === id);
       return withExternalRef(tx, task);
+    });
+  }
+
+  /**
+   * Archives every task in `ids`, each with its subtree and linked notes as archiveTask does, in one
+   * transaction: all are archived, or none is. Every id is checked first, and one refusal fails the
+   * batch: NotFoundError for an unknown id, AlreadyArchivedError for one already in the trash, and
+   * ExternalReadOnlyError for a synced task, which leaves only through sync (detach it first).
+   * A task whose ancestor is also in `ids` goes with that ancestor's subtree. One `archived` change
+   * is sent, with every row stamped, as the transaction's last step. Returns the tasks of `ids`
+   * as archived, in that order; a repeated id counts once.
+   */
+  archiveTasks(ids: TaskId[]): Task[] {
+    const uniqueIds = [...new Set(ids)];
+    if (uniqueIds.length === 0) return [];
+    return this.db.transaction((tx) => {
+      const existing = new Map(
+        tx
+          .select({ id: tasks.id, archivedAt: tasks.archivedAt })
+          .from(tasks)
+          .where(inArray(tasks.id, uniqueIds))
+          .all()
+          .map((row) => [row.id, row]),
+      );
+      for (const id of uniqueIds) {
+        const row = existing.get(id);
+        if (!row) throw new NotFoundError(id);
+        if (row.archivedAt !== null) throw new AlreadyArchivedError(id);
+        assertEditable(tx, id);
+      }
+
+      const now = new Date();
+      const updatedTasks = tx
+        .update(tasks)
+        .set({ archivedAt: now })
+        .where(
+          and(
+            or(...uniqueIds.map((id) => inArray(tasks.id, subtreeOf(id)))),
+            isNull(tasks.archivedAt),
+          ),
+        )
+        .returning()
+        .all();
+      const updatedTaskIds = updatedTasks.map((t) => t.id);
+
+      const noteIds = tx
+        .update(notes)
+        .set({ archivedAt: now })
+        .where(inArray(notes.linkedTaskId, updatedTaskIds))
+        .returning({ id: notes.id })
+        .all()
+        .map(({ id }) => id);
+
+      this.changes.emit({ type: 'archived', taskIds: updatedTaskIds, projectIds: [], noteIds });
+      const byId = new Map(updatedTasks.map((task) => [task.id, task]));
+      return withExternalRefs(
+        tx,
+        uniqueIds.map((id) => byId.get(id)!),
+      );
     });
   }
 

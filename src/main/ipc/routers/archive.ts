@@ -17,6 +17,12 @@ export const archiveRouter = t.router({
     .input(taskId)
     .mutation(({ ctx, input }) => ctx.workspace.archive.archiveTask(input.id)),
 
+  // the selection bar's archive: every task with its subtree and notes, all or nothing (one synced,
+  // missing or already archived task fails the call and archives none)
+  archiveTasks: wsProcedure
+    .input(z.object({ ids: z.array(zId('task')).min(1) }))
+    .mutation(({ ctx, input }) => ctx.workspace.archive.archiveTasks(input.ids)),
+
   restoreTask: wsProcedure
     .input(taskId)
     .mutation(({ ctx, input }) => ctx.workspace.archive.restoreTask(input.id)),

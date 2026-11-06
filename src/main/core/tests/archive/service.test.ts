@@ -10,6 +10,8 @@ import { NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
 import { TaskService } from '../../tasks/service';
 import { InvalidCursorError } from '../../shared/pagination';
+import type { TaskId } from '@common/ids';
+import { AlreadyArchivedError, NotFoundError } from '../../shared/errors';
 
 const TOMORROW = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
@@ -430,4 +432,60 @@ describe('ArchiveService — listArchived entity type filter', () => {
       expect(ids).toEqual(full);
     },
   );
+});
+
+describe('ArchiveService — archiveTasks', () => {
+  it('archives every task with its subtree and linked notes, in one archived change', async () => {
+    const a = tasks.createTask({ title: 'A', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(a.id, { title: 'A sub' });
+    const b = tasks.createTask({ title: 'B' });
+    const kept = tasks.createTask({ title: 'Kept', dueDate: TOMORROW });
+    const note = await notesService.createNote({ title: 'B notes', linkedTaskId: b.id });
+    const changes: (ArchiveChange & { inTransaction: boolean })[] = [];
+    archive.onChange((change) => changes.push({ ...change, inTransaction: inTransaction() }));
+
+    const archived = archive.archiveTasks([b.id, a.id]);
+
+    expect(archived.map((t) => t.id)).toEqual([b.id, a.id]);
+    expect(archived.every((t) => t.archivedAt instanceof Date && t.external === null)).toBe(true);
+    expect(tasks.getByIds([a.id, sub.id, b.id, kept.id]).map((t) => t.id)).toEqual([kept.id]);
+    expect(changes).toHaveLength(1);
+    expect(changes[0]).toMatchObject({
+      type: 'archived',
+      projectIds: [],
+      noteIds: [note.id],
+      inTransaction: true,
+    });
+    expect([...changes[0].taskIds].sort()).toEqual([a.id, sub.id, b.id].sort());
+  });
+
+  it('takes a selected subtask along with its selected parent', () => {
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
+
+    const archived = archive.archiveTasks([sub.id, parent.id]);
+
+    expect(archived.map((t) => t.id)).toEqual([sub.id, parent.id]);
+    expect(tasks.getByIds([parent.id, sub.id])).toEqual([]);
+  });
+
+  it('fails as a whole for a missing or already archived task, archiving none', () => {
+    const a = tasks.createTask({ title: 'A', dueDate: TOMORROW });
+    const done = tasks.createTask({ title: 'Done', dueDate: TOMORROW });
+    archive.archiveTask(done.id);
+    const listener = vi.fn();
+    archive.onChange(listener);
+
+    expect(() => archive.archiveTasks([a.id, 'tsk_missing' as TaskId])).toThrow(NotFoundError);
+    expect(() => archive.archiveTasks([a.id, done.id])).toThrow(AlreadyArchivedError);
+
+    expect(tasks.getById(a.id).archivedAt).toBeNull();
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('returns nothing for no ids, and counts a repeated id once', () => {
+    const a = tasks.createTask({ title: 'A', dueDate: TOMORROW });
+    expect(archive.archiveTasks([])).toEqual([]);
+    expect(archive.archiveTasks([a.id, a.id])).toHaveLength(1);
+  });
 });

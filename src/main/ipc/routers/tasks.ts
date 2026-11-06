@@ -102,6 +102,27 @@ export const tasksRouter = t.router({
     )
     .mutation(({ ctx, input: { id, ...updates } }) => ctx.workspace.tasks.updateTask(id, updates)),
 
+  // Sets the same fields on every selected task, all or nothing: one refused task (synced, missing,
+  // a subtask given a project) fails the whole call and changes none. A null due date or project
+  // clears it.
+  updateMany: wsProcedure
+    .input(
+      z.object({
+        ids: z.array(zId('task')).min(1),
+        patch: z
+          .object({
+            status: status.optional(),
+            priority: priority.optional(),
+            dueDate: z.date().nullable().optional(),
+            projectId: zId('project').nullable().optional(),
+          })
+          .refine((patch) => Object.values(patch).some((value) => value !== undefined), {
+            message: 'Set at least one field',
+          }),
+      }),
+    )
+    .mutation(({ ctx, input }) => ctx.workspace.tasks.updateTasks(input.ids, input.patch)),
+
   updateStatus: wsProcedure
     .input(z.object({ id: zId('task'), status }))
     .mutation(({ ctx, input }) => ctx.workspace.tasks.updateStatus(input.id, input.status)),

@@ -1,5 +1,6 @@
 import { generateId, ProjectId, TaskId } from '@common/ids';
 import { tasks } from '@main/db/schema/tasks';
+import { projects } from '@main/db/schema/projects';
 import { notes } from '@main/db/schema/notes';
 import { externalLinks } from '@main/db/schema/integrations';
 import { eq, inArray, notInArray, and, isNull, not, SQL, lt, gt, gte, desc } from 'drizzle-orm';
@@ -15,6 +16,7 @@ import {
   TaskStatus,
 } from '@common/types';
 import {
+  BulkTaskPatch,
   CreateSubTaskOptions,
   CreateSubtaskTreeOptions,
   CreateTaskOptions,
@@ -379,6 +381,85 @@ export class TaskService {
       .returning()
       .get();
     return this.updated(id, row);
+  }
+
+  /**
+   * Sets `patch` on every task in `ids`, for the selection bar, in one transaction: every task is
+   * changed, or none is. Each is checked as its own route checks it, and one refusal fails the
+   * batch:
+   *
+   * - NotFoundError for an id with no active task, or a `projectId` with no active project.
+   * - ExternalReadOnlyError for a synced task (its provider owns these fields). The whole batch is
+   *   refused rather than skipping it, so the user sees why nothing changed, not a half-applied
+   *   selection; detaching it first makes it editable.
+   * - TaskHierarchyError for a subtask given a `projectId`: a subtask takes its parent's project.
+   *
+   * A status sets completedAt as updateStatus does. An `updated` is sent for each task, in the order
+   * of `ids`, as the transaction's last step, so what listeners write (the search index) commits
+   * with the rows. Returns the tasks in that order; a repeated id counts once.
+   */
+  updateTasks(ids: TaskId[], patch: BulkTaskPatch): Task[] {
+    const uniqueIds = [...new Set(ids)];
+    if (uniqueIds.length === 0) return [];
+    const { status, priority, dueDate, projectId } = patch;
+    const values: Partial<NewTaskValues> = {};
+    if (status !== undefined) {
+      values.status = status;
+      // a cancelled task is closed but not completed, so it keeps completedAt null
+      values.completedAt = status === TaskStatus.COMPLETED ? new Date() : null;
+    }
+    if (priority !== undefined) values.priority = priority;
+    if (dueDate !== undefined) values.dueDate = dueDate;
+    if (projectId !== undefined) values.projectId = projectId;
+    if (Object.keys(values).length === 0) {
+      throw new InvalidInputError('A bulk update needs at least one field to set');
+    }
+
+    return this.db.transaction((tx) => {
+      const existing = withExternalRefs(
+        tx,
+        tx
+          .select()
+          .from(tasks)
+          .where(and(inArray(tasks.id, uniqueIds), isNull(tasks.archivedAt)))
+          .all(),
+      );
+      const byId = new Map(existing.map((task) => [task.id, task]));
+      for (const id of uniqueIds) {
+        const task = byId.get(id);
+        if (!task) throw new NotFoundError(id);
+        assertRowEditable(task);
+        if (projectId !== undefined && isSubtask(task)) {
+          throw new TaskHierarchyError(
+            id,
+            'inherits_context',
+            'Subtasks inherit project context from partent task',
+          );
+        }
+      }
+      if (projectId) {
+        const project = tx
+          .select({ id: projects.id })
+          .from(projects)
+          .where(and(eq(projects.id, projectId), isNull(projects.archivedAt)))
+          .get();
+        if (!project) throw new NotFoundError(projectId);
+      }
+
+      const rows = tx
+        .update(tasks)
+        .set(values)
+        .where(inArray(tasks.id, uniqueIds))
+        .returning()
+        .all();
+      const updatedById = new Map(rows.map((row) => [row.id, row]));
+      const updated = uniqueIds.map((id) => ({
+        ...updatedById.get(id)!,
+        external: byId.get(id)!.external,
+      }));
+      for (const task of updated) this.changes.emit({ type: 'updated', task });
+      return updated;
+    });
   }
 
   updateLinks(id: TaskId, options: UpdateTaskLinkOptions): Task {
