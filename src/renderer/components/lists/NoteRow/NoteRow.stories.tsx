@@ -1,24 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { EntityPill } from '../../entities/EntityPill';
+import { PKCE_NOTE, SAMPLE_NOTES } from '../../notes/NoteCard/fixtures';
 import { NoteRow } from './NoteRow';
 
 const meta = {
   title: 'Lists/NoteRow',
   component: NoteRow,
-  args: {
-    title: 'PKCE design notes',
-    excerpt: 'S256 challenge, 96-char verifier, 10-minute code TTL.',
-    edited: '2h ago',
-    onSelect: () => {},
-    children: (
-      <>
-        <EntityPill type="task">Write PKCE migration guide</EntityPill>
-        <EntityPill type="project" color="blue">
-          Auth Overhaul
-        </EntityPill>
-      </>
-    ),
-  },
+  args: { note: PKCE_NOTE, onSelect: () => {} },
   decorators: [
     (Story) => (
       <div style={{ maxWidth: 1152 }}>
@@ -31,6 +18,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** A task's note: its preview, the task and project pills, and when it was edited. */
 export const Default: Story = {};
 export const Hover: Story = { args: { state: 'hover' } };
 export const Selected: Story = { args: { selected: true } };
@@ -43,4 +31,15 @@ export const Narrow: Story = {
       </div>
     ),
   ],
+};
+
+/** Notes edited at different times, linked to an event, a project, or nothing. */
+export const List: Story = {
+  render: () => (
+    <div>
+      {SAMPLE_NOTES.map((note) => (
+        <NoteRow key={note.title} note={note} onSelect={() => {}} />
+      ))}
+    </div>
+  ),
 };

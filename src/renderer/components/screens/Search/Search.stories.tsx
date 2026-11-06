@@ -21,7 +21,7 @@ import { Kbd } from '../../ui/Kbd';
 import { SourcePill } from '../../entities/SourcePill';
 import { StatusIcon } from '../../entities/StatusIcon';
 import { ToggleGroup } from '../../ui/ToggleGroup';
-import type { TaskStatus } from '../../types';
+import { TaskStatus } from '@common/types';
 import { TasksPage } from '../Menus/TasksPage';
 
 const meta = {
@@ -54,20 +54,20 @@ const RESULTS: ResultGroup[] = [
       {
         value: 'eng-124',
         title: 'Implement OAuth2 PKCE flow',
-        icon: task('in-progress'),
+        icon: task(TaskStatus.IN_PROGRESS),
         source: 'ENG-124',
         meta: 'Auth Overhaul',
       },
       {
         value: 'guide',
         title: 'Write PKCE migration guide',
-        icon: task('not-started'),
+        icon: task(TaskStatus.NOT_STARTED),
         meta: 'Auth Overhaul',
       },
       {
         value: 'eng-138',
         title: 'Add PKCE end-to-end tests',
-        icon: task('not-started'),
+        icon: task(TaskStatus.NOT_STARTED),
         source: 'ENG-138',
         meta: 'Auth Overhaul',
       },

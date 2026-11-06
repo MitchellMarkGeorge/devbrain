@@ -4,29 +4,28 @@ import { cn } from '../../lib/cn';
 import { DateRange } from '../../detail/DateRange';
 import { EntityPill } from '../../entities/EntityPill';
 import { ProgressRing } from '../../ui/ProgressRing';
-import {
-  PROJECT_STATUS_LABELS,
-  ProjectStatusIcon,
-  type ProjectStatus,
-} from '../../entities/ProjectStatusIcon';
+import { ProjectStatus, type Project, type ProjectStats } from '@common/types';
+import { PROJECT_STATUS_LABELS, ProjectStatusIcon } from '../../entities/ProjectStatusIcon';
+import { useFormat } from '../../lib/format';
+import { dateTone, percentOf } from '../../types';
 import styles from './ProjectHeader.module.css';
 
+/** The fields of core's `Project` the header reads. */
+export type ProjectHeaderData = Pick<Project, 'title' | 'status' | 'startDate' | 'dueDate'>;
+
 export interface ProjectHeaderProps extends Omit<ComponentPropsWithoutRef<'div'>, 'title'> {
-  /** the project's name (24px semibold) */
-  title: ReactNode;
-  status: ProjectStatus;
+  /**
+   * core's project: its name (24px semibold), status, and dates ("Jun 1 → Jul 1"; with no start
+   * the due date and "+ Start date"; no dates pill without a due date)
+   */
+  project: ProjectHeaderData;
+  /** its tasks done, from `projects.stats`: the progress pill ("25% · 3 of 12 done"); hidden with no tasks */
+  stats?: Pick<ProjectStats, 'numOfCompleted' | 'totalTasks'>;
   /** the status pill: a StatusMenu trigger; defaults to a plain EntityPill */
   statusPill?: ReactNode;
-  /** "Jun 1": the start date; with no start the dates show the due date and "+ Start date" */
-  start?: ReactNode;
-  /** "Jul 1"; leave both dates out for a project without dates */
-  due?: ReactNode;
-  /** tasks done and in all: the progress pill ("25% · 3 of 12 done"); hidden with no tasks */
-  done?: number;
-  total?: number;
   /** the "+ Add" property pill */
   onAddProperty?: () => void;
-  /** the description: paragraphs of 14px body text, 12px apart */
+  /** the description, rendered from its markdown: paragraphs of 14px body text, 12px apart */
   description?: ReactNode;
 }
 
@@ -36,23 +35,16 @@ export interface ProjectHeaderProps extends Omit<ComponentPropsWithoutRef<'div'>
  * description and after it.
  */
 export const ProjectHeader = forwardRef<HTMLDivElement, ProjectHeaderProps>(function ProjectHeader(
-  {
-    title,
-    status,
-    statusPill,
-    start,
-    due,
-    done = 0,
-    total = 0,
-    onAddProperty,
-    description,
-    className,
-    ...props
-  },
+  { project, stats, statusPill, onAddProperty, description, className, ...props },
   ref,
 ) {
   const titleId = useId();
-  const percent = total > 0 ? Math.round((done / total) * 100) : 0;
+  const { now, formatDate } = useFormat();
+  const { title, status, startDate, dueDate } = project;
+  const done = stats?.numOfCompleted ?? 0;
+  const total = stats?.totalTasks ?? 0;
+  const percent = percentOf(done, total);
+  const dueTone = dateTone(dueDate, now, status === ProjectStatus.COMPLETED);
   return (
     <div ref={ref} aria-labelledby={titleId} className={cn(styles.header, className)} {...props}>
       <div className={styles.titleBlock}>
@@ -65,7 +57,13 @@ export const ProjectHeader = forwardRef<HTMLDivElement, ProjectHeaderProps>(func
               {PROJECT_STATUS_LABELS[status]}
             </EntityPill>
           )}
-          {due != null && <DateRange start={start} due={due} />}
+          {dueDate && (
+            <DateRange
+              start={startDate ? formatDate(startDate) : undefined}
+              due={formatDate(dueDate)}
+              dueTone={dueTone}
+            />
+          )}
           {total > 0 && (
             <EntityPill glyph={<ProgressRing value={done} total={total} size={12} />}>
               {percent}%<span className={styles.dot}>·</span>

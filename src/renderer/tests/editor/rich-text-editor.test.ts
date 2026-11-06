@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { Editor } from '@tiptap/core';
+import { TaskStatus } from '@common/types';
 import { RichTextEditor, type RichTextEditorProps } from '../../editor/RichTextEditor';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -86,7 +87,12 @@ describe('RichTextEditor', () => {
     const onOpenEntity = vi.fn();
     render({
       value: 'See [Old title](devbrain://task/tsk_1)',
-      resolveEntity: (type, id) => ({ type, id, title: 'Current title', status: 'completed' }),
+      resolveEntity: (type, id) => ({
+        type,
+        id,
+        title: 'Current title',
+        status: TaskStatus.COMPLETED,
+      }),
       onOpenEntity,
     });
     // React node views mount after the editor
@@ -156,7 +162,7 @@ describe('RichTextEditor', () => {
 
   it('searches tasks, notes and events on "@" and inserts the pick as an entity link', async () => {
     const searchEntities = vi.fn(async () => [
-      { type: 'task' as const, id: 'tsk_1', title: 'Fix login', status: 'in-progress' as const },
+      { type: 'task' as const, id: 'tsk_1', title: 'Fix login', status: TaskStatus.IN_PROGRESS },
       { type: 'note' as const, id: 'nte_1', title: 'Login notes' },
     ]);
     render({ value: '', searchEntities });

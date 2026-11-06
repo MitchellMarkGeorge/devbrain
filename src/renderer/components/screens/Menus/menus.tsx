@@ -4,6 +4,7 @@
  * a page; `MenuGallery` shows them side by side.
  */
 import type { CSSProperties, ReactElement, ReactNode } from 'react';
+import { TaskPriority, TaskStatus } from '@common/types';
 import {
   ArrowUpDown,
   Calendar,
@@ -170,11 +171,11 @@ export function TaskContextMenu({
       <DropdownMenuSeparator />
       <DropdownMenuSub open={open === 'status' || undefined}>
         <DropdownMenuSubTrigger icon={Circle}>Status</DropdownMenuSubTrigger>
-        <StatusMenuContent submenu status="in-progress" />
+        <StatusMenuContent submenu status={TaskStatus.IN_PROGRESS} />
       </DropdownMenuSub>
       <DropdownMenuSub open={open === 'priority' || undefined}>
         <DropdownMenuSubTrigger icon={ChevronsUp}>Priority</DropdownMenuSubTrigger>
-        <PriorityMenuContent submenu priority="high" />
+        <PriorityMenuContent submenu priority={TaskPriority.HIGH} />
       </DropdownMenuSub>
       <Submenu icon={Calendar} label="Start date">
         <DateItems />
@@ -344,13 +345,19 @@ export function GroupByMenu(props: ContentProps) {
 export function FilterStatusItems() {
   return (
     <>
-      <DropdownMenuCheckboxItem icon={<StatusIcon status="not-started" />} defaultChecked>
+      <DropdownMenuCheckboxItem
+        icon={<StatusIcon status={TaskStatus.NOT_STARTED} />}
+        defaultChecked
+      >
         Not started
       </DropdownMenuCheckboxItem>
-      <DropdownMenuCheckboxItem icon={<StatusIcon status="in-progress" />} defaultChecked>
+      <DropdownMenuCheckboxItem
+        icon={<StatusIcon status={TaskStatus.IN_PROGRESS} />}
+        defaultChecked
+      >
         In progress
       </DropdownMenuCheckboxItem>
-      <DropdownMenuCheckboxItem icon={<StatusIcon status="completed" />}>
+      <DropdownMenuCheckboxItem icon={<StatusIcon status={TaskStatus.COMPLETED} />}>
         Completed
       </DropdownMenuCheckboxItem>
     </>
@@ -361,13 +368,16 @@ export function FilterStatusItems() {
 export function FilterPriorityItems() {
   return (
     <>
-      <DropdownMenuCheckboxItem icon={<PriorityIcon priority="high" />} defaultChecked>
+      <DropdownMenuCheckboxItem icon={<PriorityIcon priority={TaskPriority.HIGH} />} defaultChecked>
         High
       </DropdownMenuCheckboxItem>
-      <DropdownMenuCheckboxItem icon={<PriorityIcon priority="medium" />} defaultChecked>
+      <DropdownMenuCheckboxItem
+        icon={<PriorityIcon priority={TaskPriority.MEDIUM} />}
+        defaultChecked
+      >
         Medium
       </DropdownMenuCheckboxItem>
-      <DropdownMenuCheckboxItem icon={<PriorityIcon priority="low" />}>
+      <DropdownMenuCheckboxItem icon={<PriorityIcon priority={TaskPriority.LOW} />}>
         Low
       </DropdownMenuCheckboxItem>
     </>
@@ -447,10 +457,10 @@ export function DetailMenu({ page, ...props }: ContentProps & { page: DetailPage
             <LinkItems />
           </Submenu>
           <Submenu icon={CornerDownRight} label="Make subtask of">
-            <DropdownMenuItem icon={<StatusIcon status="in-progress" />}>
+            <DropdownMenuItem icon={<StatusIcon status={TaskStatus.IN_PROGRESS} />}>
               Refactor token refresh logic
             </DropdownMenuItem>
-            <DropdownMenuItem icon={<StatusIcon status="not-started" />}>
+            <DropdownMenuItem icon={<StatusIcon status={TaskStatus.NOT_STARTED} />}>
               Audit token storage
             </DropdownMenuItem>
           </Submenu>

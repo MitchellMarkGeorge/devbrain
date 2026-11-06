@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { TaskStatus } from '@common/types';
 import { AllDayEvent, EventBlock, NowIndicator } from './EventBlock';
 
 const meta = {
@@ -26,7 +27,7 @@ export const Default: Story = { args: { style: { height: 56 } } };
 
 /** kind=task: a task scheduled on the grid shows its status icon instead of a bar */
 export const Task: Story = {
-  args: { kind: 'task', status: 'not-started', style: { height: 56 } },
+  args: { kind: 'task', status: TaskStatus.NOT_STARTED, style: { height: 56 } },
 };
 
 /** Focus time: a neutral bar and a dashed outline */

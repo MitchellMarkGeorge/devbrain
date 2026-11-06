@@ -1,16 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { ProjectStatus } from '@common/types';
+import { storyDate } from '../../lib/story-dates';
+import { AUTH_OVERHAUL } from '../ProjectCard/fixtures';
 import { ProjectHeader } from './ProjectHeader';
 
 const meta = {
   title: 'Projects/ProjectHeader',
   component: ProjectHeader,
   args: {
-    title: 'Auth Overhaul',
-    status: 'active',
-    start: 'Jun 1',
-    due: 'Jul 1',
-    done: 3,
-    total: 12,
+    ...AUTH_OVERHAUL,
     description: (
       <>
         <p>
@@ -39,12 +37,18 @@ export const Default: Story = {};
 /** A new project: no tasks (no progress pill), a due date only, no description */
 export const NewProject: Story = {
   args: {
-    title: 'Billing Revamp',
-    status: 'not-started',
-    start: undefined,
-    due: 'Aug 1',
-    done: 0,
-    total: 0,
+    project: {
+      title: 'Billing Revamp',
+      status: ProjectStatus.NOT_STARTED,
+      startDate: null,
+      dueDate: storyDate(40),
+    },
+    stats: { numOfCompleted: 0, totalTasks: 0 },
     description: undefined,
   },
+};
+
+/** Past its due date and still open: the due date's glyph turns red. */
+export const Overdue: Story = {
+  args: { project: { ...AUTH_OVERHAUL.project, dueDate: storyDate(-2) } },
 };

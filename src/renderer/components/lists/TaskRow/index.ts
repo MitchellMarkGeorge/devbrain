@@ -1,8 +1,2 @@
-export {
-  TaskRow,
-  shownStatus,
-  taskRowVariants,
-  type StackMode,
-  type TaskRowProps,
-} from './TaskRow';
-export type { Task } from './types';
+export { TaskRow, taskRowVariants, type StackMode, type TaskRowProps } from './TaskRow';
+export type { TaskRowData } from './types';

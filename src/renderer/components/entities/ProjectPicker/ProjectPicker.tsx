@@ -15,7 +15,7 @@ import {
   type DropdownMenuContentProps,
 } from '../../ui/DropdownMenu';
 import { Icon } from '../../ui/Icon';
-import { resolveColor, type Swatch } from '../../types';
+import { cssColor, type Swatch } from '../../types';
 
 export interface PickerProject {
   id: string;
@@ -29,7 +29,7 @@ export const NO_PROJECT = '';
 
 /** A project's folder in its colour, for a menu's icon slot. */
 export function ProjectGlyph({ color }: { color: PickerProject['color'] }) {
-  return <Icon icon={Folder} style={{ color: resolveColor(color) }} />;
+  return <Icon icon={Folder} style={{ color: cssColor(color) }} />;
 }
 
 interface ProjectPickerItemsBase {

@@ -2,31 +2,36 @@ import { ChevronDown, ChevronsUp, Equal, type LucideIcon } from 'lucide-react';
 import { cva } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
 import { Icon } from '../../ui/Icon';
-import { PRIORITY_LABELS, type Priority } from '../../types';
+import { TaskPriority } from '@common/types';
+import { PRIORITY_LABELS } from '../../types';
 import styles from './PriorityIcon.module.css';
 
 export const priorityIconVariants = cva(undefined, {
   variants: {
-    priority: { high: styles.high, medium: styles.medium, low: styles.low },
+    priority: {
+      [TaskPriority.HIGH]: styles.high,
+      [TaskPriority.MEDIUM]: styles.medium,
+      [TaskPriority.LOW]: styles.low,
+    },
   },
-  defaultVariants: { priority: 'low' },
+  defaultVariants: { priority: TaskPriority.LOW },
 });
 
-const ICONS: Record<Priority, LucideIcon> = {
-  high: ChevronsUp,
-  medium: Equal,
-  low: ChevronDown,
+const ICONS: Record<TaskPriority, LucideIcon> = {
+  [TaskPriority.HIGH]: ChevronsUp,
+  [TaskPriority.MEDIUM]: Equal,
+  [TaskPriority.LOW]: ChevronDown,
 };
 
 export interface PriorityIconProps {
-  priority: Priority;
+  priority: TaskPriority;
   /** 16px in rows (the default), 12px inside pills */
   size?: number;
   className?: string;
 }
 
 /**
- * A task's priority in its `priority-*` colour: `high` double chevron up, `medium` equals, `low`
+ * A task's priority (core's `TaskPriority`) in its `priority-*` colour: `high` double chevron up, `medium` equals, `low`
  * chevron down, at a heavier stroke so it reads at a glance. Unlabelled in rows (it still names
  * itself to screen readers); inside a Badge with its word on detail pages.
  */

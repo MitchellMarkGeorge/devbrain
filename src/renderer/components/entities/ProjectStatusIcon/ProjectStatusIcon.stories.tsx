@@ -2,14 +2,18 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Flex, Stack } from '../../layout/Flex';
 import { Text } from '../../layout/Text';
 import { Badge } from '../../ui/Badge';
+import { ProjectStatus } from '@common/types';
 import { ProjectStatusIcon, PROJECT_STATUSES, PROJECT_STATUS_LABELS } from './ProjectStatusIcon';
 
 const meta = {
   title: 'Entities/ProjectStatusIcon',
   component: ProjectStatusIcon,
-  args: { status: 'active', size: 16 },
+  args: { status: ProjectStatus.ACTIVE, size: 16 },
   argTypes: {
-    status: { control: 'select', options: PROJECT_STATUSES },
+    status: {
+      control: { type: 'select', labels: PROJECT_STATUS_LABELS },
+      options: PROJECT_STATUSES,
+    },
     size: { control: 'inline-radio', options: [12, 16, 24] },
   },
 } satisfies Meta<typeof ProjectStatusIcon>;

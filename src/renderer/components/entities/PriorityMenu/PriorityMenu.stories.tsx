@@ -3,10 +3,11 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Flex } from '../../layout/Flex';
 import { Text } from '../../layout/Text';
 import { PriorityIcon } from '../PriorityIcon';
-import { PRIORITY_LABELS, type Priority } from '../../types';
+import { TaskPriority } from '@common/types';
+import { PRIORITY_LABELS } from '../../types';
 import { PriorityMenu } from './PriorityMenu';
 
-const trigger = (priority: Priority) => (
+const trigger = (priority: TaskPriority) => (
   <button
     type="button"
     aria-label={`Priority: ${PRIORITY_LABELS[priority]}`}
@@ -28,7 +29,7 @@ const trigger = (priority: Priority) => (
 const meta = {
   title: 'Entities/PriorityMenu',
   component: PriorityMenu,
-  args: { priority: 'high', trigger: trigger('high') },
+  args: { priority: TaskPriority.HIGH, trigger: trigger(TaskPriority.HIGH) },
   decorators: [
     (Story) => (
       <div style={{ paddingBottom: 160 }}>
@@ -46,7 +47,7 @@ export const Open: Story = { args: { defaultOpen: true } };
 
 export const Interactive: Story = {
   render: function Render() {
-    const [priority, setPriority] = useState<Priority>('medium');
+    const [priority, setPriority] = useState<TaskPriority>(TaskPriority.MEDIUM);
     return (
       <Flex gap="2" align="center">
         <PriorityMenu

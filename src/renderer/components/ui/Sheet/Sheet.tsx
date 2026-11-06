@@ -12,7 +12,7 @@ import { cn, mergeClassName } from '../../lib/cn';
 import { usePlatform } from '../../lib/platform';
 import { IconButton } from '../IconButton';
 import { ScrollArea, type ScrollAreaProps } from '../ScrollArea';
-import { resolveColor, type Swatch } from '../../types';
+import { cssColor, type Swatch } from '../../types';
 import styles from './Sheet.module.css';
 
 export const sheetVariants = cva(styles.popup, {
@@ -165,7 +165,7 @@ export function SheetItemTitle({
   children,
   ...props
 }: SheetItemTitleProps) {
-  const vars = barColor ? ({ '--sheet-bar-color': resolveColor(barColor) } as CSSProperties) : {};
+  const vars = barColor ? ({ '--sheet-bar-color': cssColor(barColor) } as CSSProperties) : {};
   return (
     <h2 className={cn(styles.itemTitle, className)} style={{ ...vars, ...style }} {...props}>
       {barColor && <span className={styles.itemBar} aria-hidden />}

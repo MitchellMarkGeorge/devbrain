@@ -4,7 +4,8 @@ import { cn } from '../../lib/cn';
 import { IconButton } from '../../ui/IconButton';
 import { Icon } from '../../ui/Icon';
 import { StatusIcon } from '../../entities/StatusIcon';
-import type { TaskStatus } from '../../types';
+import type { TaskStatus } from '@common/types';
+import { TASK_STATUS_LABELS } from '../../types';
 import styles from './BoardColumn.module.css';
 
 export type BoardProps = ComponentPropsWithoutRef<'div'>;
@@ -18,9 +19,10 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
 });
 
 export interface BoardColumnProps extends Omit<ComponentPropsWithoutRef<'section'>, 'children'> {
-  /** the status name: "In progress" */
-  name: string;
+  /** the column's status: its icon, and its name unless `name` is given */
   status: TaskStatus;
+  /** the heading; the status's name ("In progress") by default */
+  name?: string;
   /** a count after the name; the designed board leaves it out (the cards show how many) */
   count?: number;
   /** end the column with the dashed "Add task" slot; false for Completed */
@@ -36,9 +38,10 @@ export interface BoardColumnProps extends Omit<ComponentPropsWithoutRef<'section
  * over its cards, 10px apart, and a dashed "Add task" slot.
  */
 export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function BoardColumn(
-  { name, status, count, add = true, onAdd, className, children, ...props },
+  { name: nameProp, status, count, add = true, onAdd, className, children, ...props },
   ref,
 ) {
+  const name = nameProp ?? TASK_STATUS_LABELS[status];
   return (
     <section ref={ref} aria-label={name} className={cn(styles.column, className)} {...props}>
       <div className={styles.header}>

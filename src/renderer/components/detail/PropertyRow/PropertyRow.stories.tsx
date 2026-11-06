@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { TaskPriority } from '@common/types';
+import { TaskStatus } from '@common/types';
 import { GitPullRequest } from 'lucide-react';
 import { Heading } from '../../layout/Heading';
 import { Stack } from '../../layout/Flex';
@@ -25,12 +27,14 @@ const meta = {
   args: {
     properties: (
       <>
-        <EntityPill glyph={<StatusIcon status="in-progress" size={12} />}>In progress</EntityPill>
-        <EntityPill glyph={<PriorityIcon priority="high" size={12} />}>High</EntityPill>
-        <DateRange due="Jul 1" />
-        <EntityPill type="project" color="blue">
-          Website redesign
+        <EntityPill glyph={<StatusIcon status={TaskStatus.IN_PROGRESS} size={12} />}>
+          In progress
         </EntityPill>
+        <EntityPill glyph={<PriorityIcon priority={TaskPriority.HIGH} size={12} />}>
+          High
+        </EntityPill>
+        <DateRange due="Jul 1" />
+        <EntityPill entity={{ type: 'project', title: 'Website redesign', color: 'blue' }} />
       </>
     ),
     addItems: TASK_ADD_ITEMS.filter((i) => i.key !== 'priority' && i.key !== 'project'),
@@ -54,12 +58,16 @@ export const TaskPageHeader: Story = {
         {...args}
         links={
           <>
-            <EntityPill type="event" color="indigo">
-              Mitchell / Jesse 1:1
-            </EntityPill>
-            <EntityPill type="parent" status="in-progress">
-              Ship onboarding v2
-            </EntityPill>
+            <EntityPill
+              entity={{ type: 'event', title: 'Mitchell / Jesse 1:1', color: 'indigo' }}
+            />
+            <EntityPill
+              entity={{
+                type: 'parent',
+                title: 'Ship onboarding v2',
+                status: TaskStatus.IN_PROGRESS,
+              }}
+            />
           </>
         }
       />
@@ -80,12 +88,14 @@ export const SyncedTask: Story = {
     addable: false,
     properties: (
       <>
-        <EntityPill glyph={<StatusIcon status="in-progress" size={12} />}>In progress</EntityPill>
-        <EntityPill glyph={<PriorityIcon priority="medium" size={12} />}>Medium</EntityPill>
-        <DateRange start="Jun 24" due="Jul 1" />
-        <EntityPill type="project" color="green">
-          Platform
+        <EntityPill glyph={<StatusIcon status={TaskStatus.IN_PROGRESS} size={12} />}>
+          In progress
         </EntityPill>
+        <EntityPill glyph={<PriorityIcon priority={TaskPriority.MEDIUM} size={12} />}>
+          Medium
+        </EntityPill>
+        <DateRange start="Jun 24" due="Jul 1" />
+        <EntityPill entity={{ type: 'project', title: 'Platform', color: 'green' }} />
       </>
     ),
     links: (
@@ -112,7 +122,9 @@ export const Project: Story = {
   args: {
     properties: (
       <>
-        <EntityPill glyph={<StatusIcon status="in-progress" size={12} />}>In progress</EntityPill>
+        <EntityPill glyph={<StatusIcon status={TaskStatus.IN_PROGRESS} size={12} />}>
+          In progress
+        </EntityPill>
         <DateRange start="Jun 2" due="Aug 29" />
         <EntityPill glyph={<ProgressRing value={3} total={12} size={12} />}>
           25% · 3 of 12 done

@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { TaskPriority, TaskStatus } from '@common/types';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { DateRange as DayRange } from 'react-day-picker';
 import { ArrowRight, Calendar, Clock, Plus } from 'lucide-react';
@@ -55,7 +56,7 @@ function TaskPage({ dates }: { dates: ReactNode }) {
           <DetailTopBar
             items={[
               { label: 'Tasks', href: '#' },
-              { label: TITLE, icon: <StatusIcon status="in-progress" /> },
+              { label: TITLE, icon: <StatusIcon status={TaskStatus.IN_PROGRESS} /> },
             ]}
           />
         }
@@ -67,14 +68,14 @@ function TaskPage({ dates }: { dates: ReactNode }) {
           <PropertyRow
             properties={
               <>
-                <EntityPill glyph={<StatusIcon status="in-progress" size={12} />}>
+                <EntityPill glyph={<StatusIcon status={TaskStatus.IN_PROGRESS} size={12} />}>
                   In progress
                 </EntityPill>
-                <EntityPill glyph={<PriorityIcon priority="high" size={12} />}>High</EntityPill>
-                {dates}
-                <EntityPill type="project" color="blue">
-                  Auth Overhaul
+                <EntityPill glyph={<PriorityIcon priority={TaskPriority.HIGH} size={12} />}>
+                  High
                 </EntityPill>
+                {dates}
+                <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
               </>
             }
             addItems={TASK_ADD_ITEMS.filter((i) =>

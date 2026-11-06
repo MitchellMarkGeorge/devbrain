@@ -6,100 +6,231 @@ import {
   type ReactNode,
 } from 'react';
 import { PreviewCard } from '@base-ui/react/preview-card';
-import { FileText, Folder } from 'lucide-react';
+import { Clock, FileText, Folder, MapPin, Repeat } from 'lucide-react';
+import type {
+  Event,
+  ExternalRef,
+  NoteListItem,
+  Project,
+  ProjectStats,
+  ProjectSummary,
+  SubtaskProgress,
+  Task,
+} from '@common/types';
 import { cn, mergeClassName } from '../../lib/cn';
+import { dueText, useFormat } from '../../lib/format';
 import { ColourBar } from '../../ui/ColourBar';
 import { Icon, renderIcon, type IconSource } from '../../ui/Icon';
 import { Progress } from '../../ui/Progress';
+import { EntityPill } from '../EntityPill';
+import { PriorityIcon } from '../PriorityIcon';
+import { ProjectStatusIcon } from '../ProjectStatusIcon';
 import { ProviderLogo } from '../ProviderLogo';
+import { SourcePill } from '../SourcePill';
 import { StatusIcon } from '../StatusIcon';
-import { resolveColor, type Provider, type Swatch, type TaskStatus } from '../../types';
+import { eventTimeRange, repeatLabel } from '../../event-text';
+import {
+  isOverdue,
+  percentOf,
+  PRIORITY_LABELS,
+  PROJECT_STATUS_LABELS,
+  PROVIDER_LABELS,
+  providerOf,
+  resolveColor,
+  showsOverdueFlag,
+} from '../../types';
 import styles from './EntityHoverCard.module.css';
 
 export type EntityHoverCardType = 'project' | 'event' | 'note' | 'task' | 'source';
+
+/**
+ * What a hover card previews: core's row for it, with its `type`. Each picks the fields it shows;
+ * the card words them itself (`useFormat()`).
+ */
+export type HoverCardEntity =
+  /** its status and due date as pills, and its tasks done (`stats`, from `projects.stats`) */
+  | ({ type: 'project' } & Pick<Project, 'title' | 'color' | 'status' | 'dueDate'> & {
+        stats?: Pick<ProjectStats, 'numOfCompleted' | 'totalTasks'>;
+      })
+  /** its priority, due date and key as pills, and its subtasks done */
+  | ({ type: 'task' } & Pick<Task, 'title' | 'status' | 'priority' | 'dueDate'> & {
+        subtaskProgress?: SubtaskProgress | null;
+        external?: Pick<ExternalRef, 'provider' | 'key'> | null;
+      })
+  /** when it was edited, its project and its first lines */
+  | ({ type: 'note' } & Pick<NoteListItem, 'title' | 'preview' | 'updatedAt'> & {
+        project?: Pick<ProjectSummary, 'title'> | null;
+      })
+  /** its day and time, how it repeats and where */
+  | ({ type: 'event' } & Pick<
+      Event,
+      'title' | 'color' | 'startAt' | 'endAt' | 'allDay' | 'location' | 'recurrenceRule'
+    >)
+  /** a synced task's key: its status in the provider and when it last synced */
+  | ({ type: 'source' } & Pick<Task, 'title'> & {
+        external: Pick<ExternalRef, 'provider' | 'key' | 'statusLabel' | 'lastSyncedAt'>;
+      });
 
 export interface EntityHoverCardContentProps extends Omit<
   ComponentPropsWithoutRef<'div'>,
   'title'
 > {
-  /** picks the header glyph, matching the pill: folder, bar, file, status icon or provider logo */
-  type: EntityHoverCardType;
-  /** the item's name; ends in "…" when it runs out of room */
-  title: string;
-  /** a project's folder or an event's bar: a swatch name or a CSS colour */
-  color?: Swatch | string;
-  /** the task's status (`task`) */
-  status?: TaskStatus;
-  /** the provider of a synced task (`source`) */
-  provider?: Provider;
-  /** status, priority and date pills */
-  pills?: ReactNode;
-  /** quiet 12px lines: due date, time, how it repeats, edited, sync. Use `EntityHoverCardMeta` for a line with an icon. */
-  meta?: ReactNode[];
-  /** a note's first lines, clamped to two */
-  preview?: ReactNode;
-  /** a progress bar with its percentage and a label: `{ value: 25, label: '3 of 12 tasks done' }` */
-  progress?: { value: number; label: ReactNode };
+  /** the item previewed */
+  entity: HoverCardEntity;
   /** one or two xs buttons: Join, Open in Linear, Copy URL */
   actions?: ReactNode;
 }
 
-function HeaderGlyph({
-  type,
-  color,
-  status,
-  provider,
-}: Pick<EntityHoverCardContentProps, 'type' | 'color' | 'status' | 'provider'>) {
-  switch (type) {
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
+function HeaderGlyph({ entity, now }: { entity: HoverCardEntity; now: Date }) {
+  switch (entity.type) {
     case 'event':
-      return <ColourBar color={color} height={16} className={styles.bar} />;
+      return (
+        <ColourBar color={resolveColor(entity.color, 'green')} height={16} className={styles.bar} />
+      );
     case 'note':
       return <Icon icon={FileText} size={16} className={styles.mutedGlyph} />;
-    case 'task':
-      return <StatusIcon status={status ?? 'in-progress'} size={16} />;
+    case 'task': {
+      const flag = showsOverdueFlag(entity.status, isOverdue(entity.status, entity.dueDate, now));
+      return <StatusIcon status={entity.status} overdue={flag} size={16} />;
+    }
     case 'source':
-      return <ProviderLogo provider={provider} size={16} />;
+      return <ProviderLogo provider={providerOf(entity.external)} size={16} />;
     case 'project':
       return <Icon icon={Folder} size={16} className={styles.projectGlyph} />;
   }
 }
 
+/** The header's name: a synced task reads "ENG-124 · Fix the token refresh race". */
+function titleOf(entity: HoverCardEntity): string {
+  if (entity.type === 'source' && entity.external.key) {
+    return `${entity.external.key} · ${entity.title}`;
+  }
+  return entity.title;
+}
+
+interface Parts {
+  pills?: ReactNode;
+  meta?: ReactNode[];
+  preview?: ReactNode;
+  progress?: { value: number; label: ReactNode };
+}
+
+/** What the card shows below its header, worded from the entity. */
+function usePartsOf(entity: HoverCardEntity): Parts {
+  const format = useFormat();
+  switch (entity.type) {
+    case 'project': {
+      const stats = entity.stats;
+      return {
+        pills: (
+          <>
+            <EntityPill glyph={<ProjectStatusIcon status={entity.status} size={12} />}>
+              {PROJECT_STATUS_LABELS[entity.status]}
+            </EntityPill>
+            {entity.dueDate && (
+              <EntityPill glyph={Clock}>{dueText(entity.dueDate, format)}</EntityPill>
+            )}
+          </>
+        ),
+        progress: stats && {
+          value: percentOf(stats.numOfCompleted, stats.totalTasks),
+          label: `${stats.numOfCompleted} of ${stats.totalTasks} tasks done`,
+        },
+      };
+    }
+    case 'task': {
+      const progress = entity.subtaskProgress;
+      return {
+        pills: (
+          <>
+            <EntityPill glyph={<PriorityIcon priority={entity.priority} size={12} />}>
+              {PRIORITY_LABELS[entity.priority]}
+            </EntityPill>
+            {entity.dueDate && (
+              <EntityPill glyph={Clock}>{dueText(entity.dueDate, format)}</EntityPill>
+            )}
+            {entity.external?.key && (
+              <SourcePill provider={providerOf(entity.external)}>{entity.external.key}</SourcePill>
+            )}
+          </>
+        ),
+        progress: progress
+          ? {
+              value: percentOf(progress.completed, progress.total),
+              label: `${progress.completed} of ${progress.total} subtasks done`,
+            }
+          : undefined,
+      };
+    }
+    case 'note': {
+      const edited = `Edited ${lowerFirst(format.formatRelative(entity.updatedAt))}`;
+      return {
+        meta: [entity.project ? `${edited} · ${entity.project.title}` : edited],
+        preview: entity.preview ?? undefined,
+      };
+    }
+    case 'event': {
+      const repeats = repeatLabel(entity.recurrenceRule, 'long');
+      return {
+        meta: [
+          <EntityHoverCardMeta key="time" icon={Clock}>
+            {format.formatDue(entity.startAt)}, {eventTimeRange(entity, format)}
+          </EntityHoverCardMeta>,
+          repeats && (
+            <EntityHoverCardMeta key="repeat" icon={Repeat}>
+              {repeats}
+            </EntityHoverCardMeta>
+          ),
+          entity.location && (
+            <EntityHoverCardMeta key="location" icon={MapPin}>
+              {entity.location}
+            </EntityHoverCardMeta>
+          ),
+        ].filter(Boolean),
+      };
+    }
+    case 'source': {
+      const { external } = entity;
+      const provider = providerOf(external);
+      const name = provider ? PROVIDER_LABELS[provider] : undefined;
+      return {
+        meta: [
+          external.statusLabel &&
+            (name ? `${external.statusLabel} in ${name}` : external.statusLabel),
+          `Synced ${lowerFirst(format.formatRelative(external.lastSyncedAt))}`,
+        ].filter(Boolean),
+      };
+    }
+  }
+}
+
 /**
  * What the hover card shows: a header (the pill's glyph and the item's name), then pills, meta
- * lines, a two-line preview, progress and actions, 10px apart. `EntityHoverCard` puts it in the
- * popup; use it on its own only for static pictures.
+ * lines, a two-line preview, progress and actions, 10px apart, each worded from the `entity`.
+ * `EntityHoverCard` puts it in the popup; use it on its own only for static pictures.
  */
 export const EntityHoverCardContent = forwardRef<HTMLDivElement, EntityHoverCardContentProps>(
-  function EntityHoverCardContent(
-    {
-      type,
-      title,
-      color,
-      status,
-      provider,
-      pills,
-      meta,
-      preview,
-      progress,
-      actions,
-      className,
-      style,
-      children,
-      ...props
-    },
-    ref,
-  ) {
-    const vars = color ? ({ '--entity-color': resolveColor(color) } as CSSProperties) : undefined;
+  function EntityHoverCardContent({ entity, actions, className, style, children, ...props }, ref) {
+    const { now } = useFormat();
+    const { pills, meta, preview, progress } = usePartsOf(entity);
+    const color =
+      entity.type === 'project' || entity.type === 'event' ? resolveColor(entity.color) : undefined;
+    const vars = color ? ({ '--entity-color': color } as CSSProperties) : undefined;
+    const title = titleOf(entity);
     return (
       <div
         ref={ref}
-        data-entity={type}
+        data-entity={entity.type}
         className={cn(styles.card, className)}
         style={{ ...vars, ...style }}
         {...props}
       >
         <div className={styles.head}>
-          <HeaderGlyph type={type} color={color} status={status} provider={provider} />
+          <HeaderGlyph entity={entity} now={now} />
           <span className={styles.title} title={title}>
             {title}
           </span>
@@ -164,8 +295,8 @@ export interface EntityHoverCardProps extends EntityHoverCardContentProps {
  * Wraps an entity pill so pointing at it (or focusing it) for about 400ms opens a preview 4px
  * below it. It stays while the pointer is on the pill or the card, and closes on leaving or Esc.
  * ```tsx
- * <EntityHoverCard type="project" title="Website redesign" color="blue" progress={…}>
- *   <EntityPill type="project" color="blue">Website redesign</EntityPill>
+ * <EntityHoverCard entity={{ type: 'project', ...project, stats }}>
+ *   <EntityPill entity={{ type: 'project', ...project }} />
  * </EntityHoverCard>
  * ```
  */
@@ -197,7 +328,7 @@ export function EntityHoverCard({
           className={styles.positioner}
         >
           <PreviewCard.Popup
-            aria-label={content.title}
+            aria-label={titleOf(content.entity)}
             className={mergeClassName(styles.popup, popupClassName)}
           >
             <EntityHoverCardContent {...content} />

@@ -1,1 +1,1 @@
-export { ProjectRow, type ProjectRowProject, type ProjectRowProps } from './ProjectRow';
+export { ProjectRow, type ProjectRowData, type ProjectRowProps } from './ProjectRow';

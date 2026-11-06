@@ -2,7 +2,9 @@ import { forwardRef, useId, type ComponentPropsWithoutRef, type ReactNode } from
 import { cn } from '../../lib/cn';
 import { ColourBar } from '../../ui/ColourBar';
 import { StatusIcon } from '../../entities/StatusIcon';
-import type { Swatch, TaskStatus } from '../../types';
+import type { Event, Task } from '@common/types';
+import { useFormat } from '../../lib/format';
+import { isOverdue, resolveColor, showsOverdueFlag } from '../../types';
 import styles from './CalendarAgenda.module.css';
 
 export interface CalendarAgendaProps extends Omit<ComponentPropsWithoutRef<'section'>, 'title'> {
@@ -26,26 +28,54 @@ export const CalendarAgenda = forwardRef<HTMLElement, CalendarAgendaProps>(funct
   );
 });
 
-export interface CalendarAgendaItemProps extends Omit<ComponentPropsWithoutRef<'li'>, 'title'> {
-  title: ReactNode;
-  /** "9:00 AM", "All day", or "Due" for a task */
-  time?: ReactNode;
-  /** an event's calendar colour (its bar) */
-  color?: Swatch | string;
-  /** a task due that day: its status icon replaces the bar */
-  status?: TaskStatus;
-}
+/** The fields of core's `Event` an agenda line reads. */
+export type AgendaEventData = Pick<Event, 'title' | 'startAt' | 'endAt' | 'allDay' | 'color'>;
 
-/** One line of the agenda: the event's colour bar (or a task's status), the title and time. */
+/** The fields of core's `Task` an agenda line reads: a task due that day. */
+export type AgendaTaskData = Pick<Task, 'title' | 'status' | 'dueDate'>;
+
+export type CalendarAgendaItemProps = Omit<ComponentPropsWithoutRef<'li'>, 'title'> &
+  (
+    | {
+        /** an event (or an occurrence of a series) that day: its colour bar and its start */
+        event: AgendaEventData;
+        /** the calendar's colour, for an event with none of its own */
+        calendarColor?: string | null;
+        task?: never;
+      }
+    | {
+        /** a task due that day: its status icon and "Due" */
+        task: AgendaTaskData;
+        event?: never;
+        calendarColor?: never;
+      }
+  );
+
+/**
+ * One line of the agenda, drawn from core's `Event` or `Task`: the event's colour bar (or the
+ * task's status icon), the title, and when the event starts ("9:00 AM", "All day") or "Due".
+ */
 export const CalendarAgendaItem = forwardRef<HTMLLIElement, CalendarAgendaItemProps>(
-  function CalendarAgendaItem({ title, time, color, status, className, ...props }, ref) {
+  function CalendarAgendaItem({ event, task, calendarColor, className, ...props }, ref) {
+    const format = useFormat();
+    let glyph: ReactNode;
+    let time: string;
+    if (task) {
+      const flag = showsOverdueFlag(task.status, isOverdue(task.status, task.dueDate, format.now));
+      glyph = <StatusIcon status={task.status} overdue={flag} size={16} />;
+      time = 'Due';
+    } else {
+      const color = resolveColor(event.color) ?? resolveColor(calendarColor, 'green');
+      glyph = <ColourBar color={color} />;
+      time = event.allDay ? 'All day' : format.formatTime(event.startAt);
+    }
     return (
       <li ref={ref} tabIndex={0} className={cn(styles.item, className)} {...props}>
         <span className={styles.glyph} aria-hidden>
-          {status != null ? <StatusIcon status={status} size={16} /> : <ColourBar color={color} />}
+          {glyph}
         </span>
-        <span className={styles.title}>{title}</span>
-        {time != null && <span className={styles.time}>{time}</span>}
+        <span className={styles.title}>{(task ?? event).title}</span>
+        <span className={styles.time}>{time}</span>
       </li>
     );
   },

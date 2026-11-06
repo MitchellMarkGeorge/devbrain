@@ -1,22 +1,28 @@
-import { forwardRef, useState, type ComponentPropsWithoutRef, type ReactNode } from 'react';
+import { forwardRef, useState, type ComponentPropsWithoutRef } from 'react';
 import { cn } from '../../lib/cn';
 import { StatusIcon } from '../../entities/StatusIcon';
 import { StatusMenu, type PickableStatus } from '../../entities/StatusMenu';
-import { TASK_STATUS_LABELS, type TaskStatus } from '../../types';
+import type { Task, TaskStatus } from '@common/types';
+import { useFormat } from '../../lib/format';
+import {
+  dueTone,
+  isOverdue,
+  OVERDUE_LABEL,
+  showsOverdueFlag,
+  TASK_STATUS_LABELS,
+} from '../../types';
 import styles from './LinkedTaskRow.module.css';
 
+/** The fields of core's `Task` the row reads. */
+export type LinkedTaskRowData = Pick<Task, 'title' | 'status' | 'dueDate'>;
+
 export interface LinkedTaskRowProps extends Omit<ComponentPropsWithoutRef<'div'>, 'title'> {
-  title: ReactNode;
   /**
-   * the task's status; its icon is a button that opens the `StatusMenu`. Controlled while
-   * `onStatusChange` is given.
+   * core's task as it is (a subtask, or a task linked to the note or event). Its status icon is a
+   * button that opens the `StatusMenu`, and is controlled while `onStatusChange` is given.
    */
-  status: TaskStatus;
+  task: LinkedTaskRowData;
   onStatusChange?: (status: PickableStatus) => void;
-  /** the due date as shown: "Jun 24", "Today" */
-  date?: ReactNode;
-  /** `today` and `overdue` colour the date */
-  dateTone?: 'today' | 'overdue';
   /** opens the task: a click on the row, or Enter */
   onOpen?: () => void;
   /** a static hover or focus, for pictures of the row */
@@ -25,15 +31,18 @@ export interface LinkedTaskRowProps extends Omit<ComponentPropsWithoutRef<'div'>
 
 /**
  * The compact 36px task row of a sheet's Subtasks and Linked tasks and a note's Linked tasks
- * panel: the status button, the title, then the date. No checkbox and no pills.
+ * panel: the status button (the flag while overdue and not started), the title, then the due date
+ * ("Jun 24", "Today", coloured when due today or overdue). No checkbox and no pills.
  */
 export const LinkedTaskRow = forwardRef<HTMLDivElement, LinkedTaskRowProps>(function LinkedTaskRow(
-  { title, status, onStatusChange, date, dateTone, onOpen, state, className, onKeyDown, ...props },
+  { task, onStatusChange, onOpen, state, className, onKeyDown, ...props },
   ref,
 ) {
+  const { now, formatDue } = useFormat();
   // controlled when the owner listens for changes; otherwise the row keeps its own pick
-  const [picked, setPicked] = useState<TaskStatus>(status);
-  const shown = onStatusChange ? status : picked;
+  const [picked, setPicked] = useState<TaskStatus>(task.status);
+  const shown = onStatusChange ? task.status : picked;
+  const flag = showsOverdueFlag(shown, isOverdue(shown, task.dueDate, now));
   return (
     <div
       ref={ref}
@@ -63,16 +72,16 @@ export const LinkedTaskRow = forwardRef<HTMLDivElement, LinkedTaskRowProps>(func
           <button
             type="button"
             className={styles.status}
-            aria-label={`Status: ${TASK_STATUS_LABELS[shown]}`}
+            aria-label={`Status: ${flag ? OVERDUE_LABEL : TASK_STATUS_LABELS[shown]}`}
           >
-            <StatusIcon status={shown} size={16} />
+            <StatusIcon status={shown} overdue={flag} size={16} />
           </button>
         }
       />
-      <span className={styles.title}>{title}</span>
-      {date != null && (
-        <span className={styles.date} data-tone={dateTone}>
-          {date}
+      <span className={styles.title}>{task.title}</span>
+      {task.dueDate && (
+        <span className={styles.date} data-tone={dueTone(shown, task.dueDate, now)}>
+          {formatDue(task.dueDate)}
         </span>
       )}
     </div>

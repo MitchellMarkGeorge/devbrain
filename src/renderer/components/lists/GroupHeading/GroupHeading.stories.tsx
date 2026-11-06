@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { TaskStatus } from '@common/types';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { CircleAlert, Folder } from 'lucide-react';
 import { StatusIcon } from '../../entities/StatusIcon';
@@ -59,12 +60,16 @@ export const Kinds: Story = {
       />
       <GroupHeading
         label="Completed"
-        icon={<StatusIcon status="completed" />}
+        icon={<StatusIcon status={TaskStatus.COMPLETED} />}
         tint="var(--status-completed-tint)"
         done={6}
         total={6}
       />
-      <GroupHeading label="Not started" icon={<StatusIcon status="not-started" />} count={9} />
+      <GroupHeading
+        label="Not started"
+        icon={<StatusIcon status={TaskStatus.NOT_STARTED} />}
+        count={9}
+      />
     </div>
   ),
 };

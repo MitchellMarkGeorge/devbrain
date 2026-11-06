@@ -19,7 +19,7 @@ import { ScrollArea } from '../../ui/ScrollArea';
 import { Tooltip } from '../../ui/Tooltip';
 import { WindowControls, WindowStart } from '../WindowBar';
 import { WorkspaceTile } from '../../entities/WorkspaceTile';
-import { resolveColor, type Swatch } from '../../types';
+import { cssColor, type Swatch } from '../../types';
 import styles from './Sidebar.module.css';
 
 export interface SidebarProps extends ComponentPropsWithoutRef<'nav'> {
@@ -273,7 +273,7 @@ export const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(funct
       <span
         className={styles.itemIcon}
         data-coloured={iconColor ? '' : undefined}
-        style={{ '--item-icon-color': resolveColor(iconColor) } as CSSProperties}
+        style={{ '--item-icon-color': cssColor(iconColor) } as CSSProperties}
       >
         {renderIcon(icon, 16)}
       </span>
