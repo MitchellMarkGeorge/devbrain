@@ -38,6 +38,7 @@ beforeEach(async () => {
     chooseFolder: vi.fn(async () => null),
     chooseSaveFile: vi.fn(async () => null),
     showAppMenu: vi.fn(async () => {}),
+    showWindow: vi.fn(),
   };
   const tracker = new ChangeTracker(vi.fn());
   tracker.watch(devBrain);

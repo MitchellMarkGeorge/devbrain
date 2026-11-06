@@ -298,7 +298,10 @@ usual.
 `initialLoadContext` is the bridge's one route-specific member, and fixed for the page load: it
 seeds the first render, and later changes arrive as events. Keep it to what the first render needs,
 read from memory and the registry file: the page does not load while main builds it. Nothing is seen
-during that wait, as the window is shown only after the first paint (`ready-to-show`). Main must
+during that wait, as the window is created hidden. The renderer shows it with `app.windowReady` once
+its first screen has painted (the first route resolved, the fonts and logomark loaded), so the
+window never opens on the empty page; main shows it anyway 3s after its first paint if that never
+comes. Main must
 always answer, as `sendSync` has no timeout: the listener is attached before the window is created,
 and answers `null` when building the context throws.
 

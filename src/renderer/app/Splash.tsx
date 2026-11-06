@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { TriangleAlert } from 'lucide-react';
-import { Logomark, OnboardingScreen, Text } from '../components';
+import { Flex, Icon, Logomark, OnboardingScreen, Text } from '../components';
 import { useServices } from './context';
 
 // How long the splash shows at least, so a quick open doesn't flicker.
@@ -44,11 +44,18 @@ export function DevBrainUnavailable() {
       role="alert"
       logo={<Logomark size="md" />}
       title="DevBrain couldn’t open its data folder"
-      description="Check that the folder exists and that DevBrain can read and write it, then restart DevBrain."
+      description={
+        import.meta.env.DEV
+          ? 'In development, run “npm run seed:dev” to make it, or “npm run seed:dev -- --reset” to make it again.'
+          : 'Check that the folder exists and that DevBrain can read and write it, then restart DevBrain.'
+      }
       footer={
-        <Text size="xs" tone="subtle">
-          <TriangleAlert size={12} aria-hidden /> The log file says what went wrong.
-        </Text>
+        <Flex gap="1" align="center">
+          <Icon icon={TriangleAlert} size={12} />
+          <Text size="xs" tone="subtle">
+            The log file says what went wrong.
+          </Text>
+        </Flex>
       }
     />
   );

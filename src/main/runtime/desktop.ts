@@ -75,5 +75,8 @@ export function createElectronDesktop(
         appMenu.popup({ window, x: Math.round(x), y: Math.round(y), callback: () => resolve() }),
       );
     },
+    showWindow() {
+      if (window && !window.isDestroyed() && !window.isVisible()) window.show();
+    },
   };
 }

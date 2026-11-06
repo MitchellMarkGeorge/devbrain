@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { flushSync } from 'react-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import log from 'electron-log/renderer';
@@ -8,6 +9,8 @@ import { events, ipc, queryInvalidator, queryClient, trpc } from './ipc';
 import { readInitialLoadContext, seedQueryCache } from './ipc/initial-load-context';
 import { createAppRouter } from './router';
 import { FollowThemeSetting, applyThemeSetting } from './theme';
+import markOnDark from './assets/devbrain-logomark.svg';
+import markOnLight from './assets/devbrain-logomark-dark.svg';
 import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/base.css';
@@ -37,13 +40,45 @@ const windowFrame: WindowFrame = {
 
 const router = createAppRouter({ queryClient, trpc, ipc, events, initialLoadContext });
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <WindowFrameProvider value={windowFrame}>
-        <FollowThemeSetting />
-        <RouterProvider router={router} />
-      </WindowFrameProvider>
-    </QueryClientProvider>
-  </React.StrictMode>,
+// The window opens on the first screen, never the empty page: main creates it hidden and shows it
+// when told (app.windowReady). So the router resolves the first route and the fonts load before
+// React renders, synchronously, and the window is shown once that frame has painted.
+await Promise.all([router.load(), loadAssets()]);
+const root = ReactDOM.createRoot(document.getElementById('root')!);
+flushSync(() =>
+  root.render(
+    <React.StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <WindowFrameProvider value={windowFrame}>
+          <FollowThemeSetting />
+          <RouterProvider router={router} />
+        </WindowFrameProvider>
+      </QueryClientProvider>
+    </React.StrictMode>,
+  ),
 );
+// after the paint that follows this frame
+requestAnimationFrame(() =>
+  setTimeout(() => {
+    ipc.app.windowReady
+      .mutate()
+      .catch((error: unknown) => log.error('Showing the window failed', error));
+  }),
+);
+
+// What the first screens draw from files: Inter's weights, so their text doesn't paint in a
+// fallback font first (the faces are `font-display: swap`), and the logomark, an image that would
+// otherwise pop in after them. They load from disk; whatever isn't ready within a second is left to
+// come in when it does.
+function loadAssets(): Promise<unknown> {
+  const fonts = ['400', '500', '600'].map((weight) => document.fonts.load(`${weight} 1em Inter`));
+  const images = [markOnDark, markOnLight].map((src) => {
+    const image = new Image();
+    image.src = src;
+    return image.decode();
+  });
+  return Promise.race([
+    Promise.allSettled([...fonts, ...images]),
+    new Promise((resolve) => setTimeout(resolve, 1000)),
+  ]);
+}

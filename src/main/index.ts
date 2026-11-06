@@ -159,6 +159,9 @@ let quitting = false;
 // set once startup has made the first window: a launch before that waits for it
 let started = false;
 
+// how long after its first paint a window is shown when its page hasn't said it is ready
+const SHOW_WINDOW_FALLBACK_MS = 3000;
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
@@ -184,7 +187,16 @@ function createWindow() {
     },
   });
 
-  win.on('ready-to-show', () => win.show());
+  // Shown once the page says its first screen is drawn (app.windowReady), so it never shows the
+  // empty page first: the first paint, which ready-to-show waits for, comes before React's. A page
+  // that never says so (a renderer that failed to start) is shown anyway, a while after it painted.
+  let shown = false;
+  win.once('show', () => (shown = true));
+  win.once('ready-to-show', () => {
+    setTimeout(() => {
+      if (!shown && !win.isDestroyed()) win.show();
+    }, SHOW_WINDOW_FALLBACK_MS);
+  });
   win.on('close', (event) => {
     if (process.platform !== 'darwin' || quitting) return;
     event.preventDefault();
