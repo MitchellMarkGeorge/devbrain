@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { ProjectStatus, TaskStatus } from '@common/types';
 import { ArrowUpDown } from 'lucide-react';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
@@ -8,6 +9,7 @@ import { SourcePill } from '../../entities/SourcePill';
 import { ToggleGroup } from '../../ui/ToggleGroup';
 import { TrashRow } from '../../lists/TrashRow';
 import { AppFrame } from '../Tasks/frame';
+import { storyAgo } from '../../lib/story-dates';
 
 const meta = {
   title: 'Screens/Trash',
@@ -50,38 +52,40 @@ export const Trash: Story = {
       <div role="grid" aria-label="Trash">
         <TrashRow
           item={{
-            kind: 'project',
+            entityType: 'projects',
             title: 'AI Action Items',
             color: 'green',
-            trashed: 'Trashed 1d ago',
+            archivedAt: storyAgo(60 * 24),
           }}
           onRestore={() => {}}
           onDelete={() => {}}
         >
-          <Badge variant="outline" muted icon={<ProjectStatusIcon status="active" size={12} />}>
+          <Badge
+            variant="outline"
+            muted
+            icon={<ProjectStatusIcon status={ProjectStatus.ACTIVE} size={12} />}
+          >
             Active
           </Badge>
         </TrashRow>
         <TrashRow
           item={{
-            kind: 'task',
+            entityType: 'tasks',
             title: 'Summarise sprint feedback',
-            status: 'not-started',
-            trashed: 'Trashed 1d ago',
+            status: TaskStatus.NOT_STARTED,
+            archivedAt: storyAgo(60 * 24),
           }}
           onRestore={() => {}}
           onDelete={() => {}}
         >
-          <EntityPill type="project" color="green">
-            AI Action Items
-          </EntityPill>
+          <EntityPill entity={{ type: 'project', title: 'AI Action Items', color: 'green' }} />
         </TrashRow>
         <TrashRow
           item={{
-            kind: 'note',
+            entityType: 'notes',
             title: 'Sprint 14 retro',
-            excerpt: 'What went well, what to change and action items for sprint 15.',
-            trashed: 'Trashed 3d ago',
+            preview: 'What went well, what to change and action items for sprint 15.',
+            archivedAt: storyAgo(60 * 24 * 3),
           }}
           state="hover"
           onSelect={() => {}}
@@ -90,25 +94,23 @@ export const Trash: Story = {
         />
         <TrashRow
           item={{
-            kind: 'task',
+            entityType: 'tasks',
             title: 'Set up API Gateway',
-            status: 'completed',
-            trashed: 'Trashed 5d ago',
+            status: TaskStatus.COMPLETED,
+            archivedAt: storyAgo(60 * 24 * 5),
           }}
           titlePills={<SourcePill>ENG-102</SourcePill>}
           onRestore={() => {}}
           onDelete={() => {}}
         >
-          <EntityPill type="project" color="amber">
-            API Gateway v2
-          </EntityPill>
+          <EntityPill entity={{ type: 'project', title: 'API Gateway v2', color: 'amber' }} />
         </TrashRow>
         <TrashRow
           item={{
-            kind: 'note',
+            entityType: 'notes',
             title: 'Mitchell / Jesse 1:1 notes',
-            excerpt: 'Agenda, follow-ups and decisions from the weekly 1:1.',
-            trashed: 'Trashed 1w ago',
+            preview: 'Agenda, follow-ups and decisions from the weekly 1:1.',
+            archivedAt: storyAgo(60 * 24 * 8),
           }}
           onRestore={() => {}}
           onDelete={() => {}}

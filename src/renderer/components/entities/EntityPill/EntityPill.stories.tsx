@@ -5,24 +5,14 @@ import { Text } from '../../layout/Text';
 import { PriorityIcon } from '../PriorityIcon';
 import { ProgressRing } from '../../ui/ProgressRing';
 import { StatusIcon } from '../StatusIcon';
+import { TaskPriority, TaskStatus } from '@common/types';
 import { EntityPill } from './EntityPill';
 
 const meta = {
   title: 'Entities/EntityPill',
   component: EntityPill,
-  args: { type: 'project', color: 'blue', children: 'Website redesign' },
-  argTypes: {
-    type: { control: 'select', options: ['project', 'note', 'task', 'event', 'parent'] },
-    color: {
-      control: 'select',
-      options: [undefined, 'red', 'amber', 'green', 'blue', 'indigo', 'pink'],
-    },
-    status: {
-      control: 'select',
-      options: ['not-started', 'in-progress', 'completed', 'overdue', 'cancelled'],
-    },
-    prefix: { control: 'text' },
-  },
+  args: { entity: { type: 'project', title: 'Website redesign', color: 'blue' } },
+  argTypes: { prefix: { control: 'text' } },
 } satisfies Meta<typeof EntityPill>;
 
 export default meta;
@@ -30,23 +20,26 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
+/**
+ * One per thing it links to, from core's summaries: a project (in its colour, or none), a note, a
+ * task and a subtask's parent (their status icons), and an event (its colour's bar). A colour is a
+ * swatch name or a `#rrggbb` from core; anything else is ignored.
+ */
 export const Types: Story = {
   render: () => (
     <Flex gap="2" wrap="wrap">
-      <EntityPill type="project" color="blue">
-        Website redesign
-      </EntityPill>
-      <EntityPill type="project">No colour</EntityPill>
-      <EntityPill type="note">Q3 planning notes</EntityPill>
-      <EntityPill type="task" status="in-progress">
-        Ship onboarding
-      </EntityPill>
-      <EntityPill type="parent" status="not-started">
-        Calendar sync
-      </EntityPill>
-      <EntityPill type="event" color="green">
-        Mitchell / Jesse 1:1
-      </EntityPill>
+      <EntityPill entity={{ type: 'project', title: 'Website redesign', color: 'blue' }} />
+      <EntityPill entity={{ type: 'project', title: 'No colour', color: null }} />
+      <EntityPill entity={{ type: 'project', title: 'Hex colour', color: '#d946ef' }} />
+      <EntityPill entity={{ type: 'note', title: 'Q3 planning notes' }} />
+      <EntityPill
+        entity={{ type: 'task', title: 'Ship onboarding', status: TaskStatus.IN_PROGRESS }}
+      />
+      <EntityPill
+        entity={{ type: 'parent', title: 'Calendar sync', status: TaskStatus.NOT_STARTED }}
+      />
+      <EntityPill entity={{ type: 'event', title: 'Mitchell / Jesse 1:1', color: 'green' }} />
+      <EntityPill entity={{ type: 'event', title: 'Not a colour', color: 'url(evil)' }} />
     </Flex>
   ),
 };
@@ -55,8 +48,10 @@ export const Types: Story = {
 export const Properties: Story = {
   render: () => (
     <Flex gap="2" wrap="wrap">
-      <EntityPill glyph={<StatusIcon status="in-progress" size={12} />}>In progress</EntityPill>
-      <EntityPill glyph={<PriorityIcon priority="high" size={12} />}>High</EntityPill>
+      <EntityPill glyph={<StatusIcon status={TaskStatus.IN_PROGRESS} size={12} />}>
+        In progress
+      </EntityPill>
+      <EntityPill glyph={<PriorityIcon priority={TaskPriority.HIGH} size={12} />}>High</EntityPill>
       <EntityPill glyph={CalendarDays}>Jul 1</EntityPill>
       <EntityPill glyph={<ProgressRing value={3} total={12} size={12} />}>
         25% · 3 of 12 done
@@ -68,7 +63,10 @@ export const Properties: Story = {
 };
 
 export const WithPrefix: Story = {
-  args: { type: 'event', color: 'indigo', prefix: 'Linked to', children: 'Design review' },
+  args: {
+    entity: { type: 'event', title: 'Design review', color: 'indigo' },
+    prefix: 'Linked to',
+  },
 };
 
 /** On a card, a sheet or a selected row, the pill reads as a chip of the page set into the surface */
@@ -89,12 +87,8 @@ export const OnSurfaces: Story = {
           <Text size="xs" tone="muted" style={{ width: 80 }}>
             {label}
           </Text>
-          <EntityPill type="project" color="pink">
-            Mobile app
-          </EntityPill>
-          <EntityPill type="event" color="blue">
-            Standup
-          </EntityPill>
+          <EntityPill entity={{ type: 'project', title: 'Mobile app', color: 'pink' }} />
+          <EntityPill entity={{ type: 'event', title: 'Standup', color: 'blue' }} />
         </Flex>
       ))}
     </Stack>

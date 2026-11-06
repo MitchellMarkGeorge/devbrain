@@ -9,7 +9,8 @@ import {
   type SuggestionMenuProps,
 } from '../SlashMenu';
 import { StatusIcon } from '../../entities/StatusIcon';
-import { resolveColor, type Swatch, type TaskStatus } from '../../types';
+import type { TaskStatus } from '@common/types';
+import { cssColor, type Swatch } from '../../types';
 import styles from './MentionMenu.module.css';
 
 /** Something "@" can mention. */
@@ -36,7 +37,7 @@ function Glyph({ item }: { item: MentionItem }) {
       ) : item.kind === 'note' ? (
         <Icon icon={FileText} size={16} />
       ) : (
-        <span className={styles.bar} style={{ background: resolveColor(item.color) }} />
+        <span className={styles.bar} style={{ background: cssColor(item.color) }} />
       )}
     </span>
   );

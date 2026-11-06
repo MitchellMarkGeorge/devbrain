@@ -4,6 +4,8 @@ import { DropdownMenuItem, DropdownMenuSeparator } from '../../ui/DropdownMenu';
 import { EventRow } from '../EventRow';
 import { GroupHeading } from '../GroupHeading';
 import { StatusIcon } from '../../entities/StatusIcon';
+import { TaskStatus } from '@common/types';
+import { storyDate } from '../../lib/story-dates';
 import { BUSY_TASK, SAMPLE_SUBTASKS, SAMPLE_TASKS } from '../TaskRow/fixtures';
 import { TaskList } from './TaskList';
 
@@ -28,7 +30,7 @@ export const Default: Story = {};
 /** Neighbouring selected rows join into one block; the bar floats over the bottom. */
 export const Selection: Story = {
   args: {
-    defaultSelected: ['calendar-sync', 'release-notes', 'migrations'],
+    defaultSelected: ['tsk_calendar_sync', 'tsk_release_notes', 'tsk_migrations'],
     floatingBar: false,
     selectionMenu: (
       <>
@@ -66,14 +68,14 @@ export const Grouped: Story = {
     <div>
       <GroupHeading
         label="Overdue"
-        subtitle="Oldest due Sep 28"
+        subtitle="Oldest due Jun 19"
         icon={CircleAlert}
         iconColor="var(--status-overdue)"
         tint="var(--status-overdue-tint)"
         done={0}
         total={2}
       />
-      <TaskList tasks={[SAMPLE_TASKS[1], { ...SAMPLE_TASKS[2], dateTone: 'overdue' }]} />
+      <TaskList tasks={[SAMPLE_TASKS[1], { ...SAMPLE_TASKS[2], dueDate: storyDate(-1) }]} />
       <GroupHeading
         label="Mitchell / Jesse 1:1"
         subtitle="Event · Today, 10:00 AM"
@@ -84,11 +86,11 @@ export const Grouped: Story = {
       <EventRow
         event={{
           title: 'Mitchell / Jesse 1:1',
-          time: '10:00 – 10:30 AM',
-          repeats: 'Weekly',
-          meeting: true,
-          relative: 'In 12 min',
-          tone: 'overdue',
+          startAt: storyDate(0, 10),
+          endAt: storyDate(0, 10, 30),
+          allDay: false,
+          recurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
+          meetingUrl: 'https://meet.google.com/abc-defg-hij',
           color: 'indigo',
         }}
       />
@@ -96,7 +98,7 @@ export const Grouped: Story = {
       <GroupHeading
         label="In progress"
         subtitle="Started this week"
-        icon={<StatusIcon status="in-progress" />}
+        icon={<StatusIcon status={TaskStatus.IN_PROGRESS} />}
         tint="var(--status-in-progress-tint)"
         done={2}
         total={5}

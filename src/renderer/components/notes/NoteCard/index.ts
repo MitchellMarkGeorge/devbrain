@@ -1,1 +1,1 @@
-export { NoteCard, noteCardVariants, type NoteCardProps } from './NoteCard';
+export { NoteCard, noteCardVariants, type NoteCardData, type NoteCardProps } from './NoteCard';

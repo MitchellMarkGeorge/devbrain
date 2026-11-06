@@ -92,7 +92,7 @@ export const SyncFailed: Story = {
     <ScreenFrame page="Tasks" header={<TasksHeader />} sync="error">
       <TasksToolbar />
       <PageContent layout="list">
-        {FIGMA_TASKS.filter((t) => t.id !== 'mobile').map((task) => (
+        {FIGMA_TASKS.filter((t) => t.id !== 'tsk_mobile').map((task) => (
           <TaskRow key={task.id} task={task} />
         ))}
       </PageContent>

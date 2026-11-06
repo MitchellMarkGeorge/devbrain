@@ -1,4 +1,5 @@
-import type { Swatch, TaskStatus } from '../components';
+import type { TaskStatus } from '@common/types';
+import type { Swatch } from '../components';
 
 // What the editor needs from the app. The editor never calls IPC itself: the page that shows it
 // passes these in, so the same editor serves notes, task descriptions and read-only synced text.

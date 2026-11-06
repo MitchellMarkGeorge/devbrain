@@ -16,7 +16,7 @@ import { useFormatKeys } from '../../lib/platform';
 import { DropdownMenu, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import { Icon, renderIcon, type IconSource } from '../../ui/Icon';
 import { Tooltip } from '../../ui/Tooltip';
-import { resolveColor, type Swatch } from '../../types';
+import { cssColor, type Swatch } from '../../types';
 import styles from './FormatToolbar.module.css';
 
 /** The inline marks the toolbar toggles, in its order. */
@@ -136,7 +136,7 @@ export const FormatToolbar = forwardRef<HTMLDivElement, FormatToolbarProps>(func
     <Toolbar.Button
       className={styles.button}
       aria-label="Colour"
-      style={{ '--format-colour': resolveColor(colour) } as CSSProperties}
+      style={{ '--format-colour': cssColor(colour) } as CSSProperties}
     >
       <span className={styles.letter} aria-hidden>
         A

@@ -1,4 +1,5 @@
 import { Fragment, useState, type CSSProperties } from 'react';
+import { TaskStatus } from '@common/types';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ArrowUpDown, Folder, Group, Kanban, List, ListFilter, Plus } from 'lucide-react';
 import { BoardCard } from '../../board/BoardCard';
@@ -119,10 +120,14 @@ export const TasksList: Story = {
 export const SeveralSelected: Story = {
   name: 'Tasks (list) — several selected',
   render: function SeveralSelectedStory() {
-    const tasks = LIST_TASKS.filter((t) => t.id !== 'eng-128').map((t) =>
-      t.id === 'eng-102' ? { ...t, status: 'not-started' as const } : t,
+    const tasks = LIST_TASKS.filter((t) => t.id !== 'tsk_eng-128').map((t) =>
+      t.id === 'tsk_eng-102' ? { ...t, status: TaskStatus.NOT_STARTED as const } : t,
     );
-    const [selected, setSelected] = useState<string[]>(['eng-131', 'eng-118', 'pkce-guide']);
+    const [selected, setSelected] = useState<string[]>([
+      'tsk_eng-131',
+      'tsk_eng-118',
+      'tsk_pkce-guide',
+    ]);
     return (
       <TasksFrame view="list">
         <TaskList
@@ -144,7 +149,7 @@ export const SeveralSelected: Story = {
 export const TasksGroup: Story = {
   name: 'Tasks (group)',
   render: function GroupStory() {
-    const [selected, setSelected] = useState<string[]>(['eng-131', 'eng-118']);
+    const [selected, setSelected] = useState<string[]>(['tsk_eng-131', 'tsk_eng-118']);
     return (
       <TasksFrame view="group" groupBy="Project">
         {GROUPS.map((group) => (
@@ -187,17 +192,17 @@ export const TasksBoard: Story = {
   render: () => (
     <TasksFrame view="board" filter="All" bodyStyle={{ padding: '4px 24px 24px' }}>
       <Board>
-        <BoardColumn name="Not started" status="not-started">
+        <BoardColumn name="Not started" status={TaskStatus.NOT_STARTED}>
           {BOARD.notStarted.map((task) => (
             <BoardCard key={task.title} task={task} />
           ))}
         </BoardColumn>
-        <BoardColumn name="In progress" status="in-progress">
+        <BoardColumn name="In progress" status={TaskStatus.IN_PROGRESS}>
           {BOARD.inProgress.map((task, i) => (
             <BoardCard key={task.title} task={task} state={i === 1 ? 'hover' : undefined} />
           ))}
         </BoardColumn>
-        <BoardColumn name="Completed" status="completed" add={false}>
+        <BoardColumn name="Completed" status={TaskStatus.COMPLETED} add={false}>
           {BOARD.completed.map((task) => (
             <BoardCard key={task.title} task={task} />
           ))}

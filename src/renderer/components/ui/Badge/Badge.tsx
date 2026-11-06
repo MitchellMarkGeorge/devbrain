@@ -5,7 +5,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
 import { ColourBar } from '../ColourBar';
 import { renderIcon, type IconSource } from '../Icon';
-import { resolveColor, type Swatch } from '../../types';
+import { cssColor, type Swatch } from '../../types';
 import styles from './Badge.module.css';
 
 export const badgeVariants = cva(styles.badge, {
@@ -68,7 +68,7 @@ export const Badge = forwardRef<HTMLElement, BadgeProps>(function Badge(
 ) {
   const isButton = interactive || props.onClick != null;
   const vars = {
-    ...(iconColor && { '--badge-icon-color': resolveColor(iconColor) }),
+    ...(iconColor && { '--badge-icon-color': cssColor(iconColor) }),
   } as CSSProperties;
   return useRender({
     defaultTagName: isButton ? 'button' : 'span',

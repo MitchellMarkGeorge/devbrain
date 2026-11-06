@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { TaskPriority, TaskStatus } from '@common/types';
 import { Calendar, Plus } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { Dialog, DialogClose, DialogTrigger } from '../../ui/Dialog';
@@ -42,13 +43,14 @@ function NewTask({ open, subtask }: { open?: boolean; subtask?: boolean }) {
         <CreateDialogBody>
           {subtask && (
             <EntityPill
-              type="task"
-              status="in-progress"
+              entity={{
+                type: 'task',
+                title: 'Implement OAuth2 PKCE flow',
+                status: TaskStatus.IN_PROGRESS,
+              }}
               prefix="Subtask of"
               style={{ alignSelf: 'flex-start' }}
-            >
-              Implement OAuth2 PKCE flow
-            </EntityPill>
+            />
           )}
           <CreateDialogFields>
             <CreateDialogTitleInput
@@ -58,10 +60,12 @@ function NewTask({ open, subtask }: { open?: boolean; subtask?: boolean }) {
             <CreateDialogDescriptionInput placeholder="Add description…" aria-label="Description" />
           </CreateDialogFields>
           <CreateDialogProperties onMore={() => undefined}>
-            <EntityPill glyph={<StatusIcon status="not-started" size={12} />}>
+            <EntityPill glyph={<StatusIcon status={TaskStatus.NOT_STARTED} size={12} />}>
               Not started
             </EntityPill>
-            <EntityPill glyph={<PriorityIcon priority="low" size={12} />}>Low</EntityPill>
+            <EntityPill glyph={<PriorityIcon priority={TaskPriority.LOW} size={12} />}>
+              Low
+            </EntityPill>
             <EntityPill glyph={Calendar}>Due date</EntityPill>
             {!subtask && (
               <>

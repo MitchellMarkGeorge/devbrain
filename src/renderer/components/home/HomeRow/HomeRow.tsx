@@ -5,7 +5,15 @@ import {
   type MouseEvent,
   type ReactNode,
 } from 'react';
+import { DateTime } from 'luxon';
+import { Video } from 'lucide-react';
+import type { Event } from '@common/types';
+import { eventCountdown } from '../../event-text';
 import { cn } from '../../lib/cn';
+import { useFormat } from '../../lib/format';
+import { isToday, resolveColor } from '../../types';
+import { Button } from '../../ui/Button';
+import { ColourBar } from '../../ui/ColourBar';
 import styles from './HomeRow.module.css';
 
 export interface HomeRowProps extends Omit<ComponentPropsWithoutRef<'div'>, 'title'> {
@@ -28,7 +36,7 @@ export interface HomeRowProps extends Omit<ComponentPropsWithoutRef<'div'>, 'tit
 }
 
 /**
- * One of Home's minimal rows (meetings, recent projects): 36px, 16px in at the
+ * One of Home's minimal rows (meetings, recent projects; a meeting is a `HomeMeetingRow`): 36px, 16px in at the
  * sides, a 16px glyph, the title, then the row's own parts and a quiet time or date at the right.
  */
 export const HomeRow = forwardRef<HTMLDivElement, HomeRowProps>(function HomeRow(
@@ -93,3 +101,58 @@ export const HomeRowNote = forwardRef<HTMLSpanElement, HomeRowNoteProps>(functio
 ) {
   return <span ref={ref} className={cn(styles.note, className)} {...props} />;
 });
+
+/** The fields of core's `Event` a meeting row reads; pass the event (or an occurrence) as it is. */
+export type HomeMeetingData = Pick<
+  Event,
+  'title' | 'startAt' | 'endAt' | 'allDay' | 'meetingUrl' | 'color'
+>;
+
+export interface HomeMeetingRowProps extends Omit<
+  HomeRowProps,
+  'icon' | 'title' | 'meta' | 'metaTone' | 'children'
+> {
+  event: HomeMeetingData;
+  /** the calendar's colour, for an event with none of its own */
+  calendarColor?: string | null;
+  /** the "Join" button on the current meeting, when it has a meeting link */
+  onJoin?: () => void;
+}
+
+/**
+ * A meeting in Home's Meetings section, drawn from core's `Event`: the calendar's colour bar, the
+ * title, and when it is, from `useFormat()`. The `current` meeting (the next or running one) is
+ * filled, shows Join when it has a meeting link, and counts down ("In 12m", "Now") in
+ * `date-today`; later meetings show their start ("10:30 AM"), and another day's its weekday too
+ * ("Tue 9:30 AM", dim it with `muted`).
+ */
+export const HomeMeetingRow = forwardRef<HTMLDivElement, HomeMeetingRowProps>(
+  function HomeMeetingRow({ event, calendarColor, onJoin, current, ...props }, ref) {
+    const format = useFormat();
+    const color = resolveColor(event.color) ?? resolveColor(calendarColor, 'green');
+    const today = isToday(event.startAt, format.now);
+    const time = event.allDay ? 'All day' : format.formatTime(event.startAt);
+    const meta = current
+      ? eventCountdown(event, format).text
+      : today
+        ? time
+        : `${DateTime.fromJSDate(event.startAt).toLocaleString({ weekday: 'short' })} ${time}`;
+    return (
+      <HomeRow
+        ref={ref}
+        current={current}
+        icon={<ColourBar color={color} />}
+        title={event.title}
+        meta={meta}
+        metaTone={current ? 'today' : undefined}
+        {...props}
+      >
+        {current && event.meetingUrl && (
+          <Button size="xs" icon={Video} onClick={onJoin}>
+            Join
+          </Button>
+        )}
+      </HomeRow>
+    );
+  },
+);

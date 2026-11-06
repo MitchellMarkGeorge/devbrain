@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { TaskStatus } from '@common/types';
 import { MentionMenu } from './MentionMenu';
 
 const meta = {
@@ -13,14 +14,14 @@ const meta = {
             kind: 'task',
             id: '124',
             title: 'Implement OAuth2 PKCE flow',
-            status: 'in-progress',
+            status: TaskStatus.IN_PROGRESS,
             meta: 'Jun 24',
           },
           {
             kind: 'task',
             id: '201',
             title: 'Write PKCE migration guide',
-            status: 'not-started',
+            status: TaskStatus.NOT_STARTED,
             meta: 'Today',
           },
         ],

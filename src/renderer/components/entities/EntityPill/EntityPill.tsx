@@ -5,27 +5,57 @@ import { Badge, type BadgeProps } from '../../ui/Badge';
 import { ColourBar } from '../../ui/ColourBar';
 import { Icon, type IconSource } from '../../ui/Icon';
 import { StatusIcon } from '../StatusIcon';
-import type { Swatch, TaskStatus } from '../../types';
+import type { EventSummary, NoteSummary, ProjectSummary, TaskSummary } from '@common/types';
+import { resolveColor } from '../../types';
 import styles from './EntityPill.module.css';
 
 export type EntityType = 'project' | 'note' | 'task' | 'event' | 'parent';
+
+/**
+ * What a pill links to: core's summary of it (`ProjectSummary`, `EventSummary`, `NoteSummary`,
+ * `TaskSummary`) with its `type`. A task's or note's `link` is one as it is
+ * (`entity={task.link}`); a project or parent task gets its type:
+ * `entity={{ type: 'project', ...task.project }}`. `parent` is a subtask's parent task.
+ */
+export type PillEntity =
+  | ({ type: 'project' } & Pick<ProjectSummary, 'title' | 'color'>)
+  | ({ type: 'event' } & Pick<EventSummary, 'title' | 'color'>)
+  | ({ type: 'note' } & Pick<NoteSummary, 'title'>)
+  | ({ type: 'task' | 'parent' } & Pick<TaskSummary, 'title' | 'status'>);
 
 export interface EntityPillProps extends Omit<
   BadgeProps,
   'variant' | 'icon' | 'iconColor' | 'barColor' | 'muted'
 > {
   /**
-   * what the pill links to, which picks its glyph: `project` folder (in `color`), `note` file,
-   * `task` its status icon, `parent` a subtask's parent (corner arrow, then its status icon),
-   * `event` a bar in the calendar's colour. Leave it out for a property value and pass `glyph`.
+   * the item it links to, which picks its glyph and is its label: `project` folder (in its
+   * colour), `note` file, `task` its status icon, `parent` a corner arrow then its status icon,
+   * `event` a bar in its colour (green when it has none). Leave it out for a property value and
+   * pass `glyph` and the label.
    */
-  type?: EntityType;
-  /** a project's folder or an event's bar: a swatch name or a CSS colour */
-  color?: Swatch | string;
-  /** the linked task's status (`task`, `parent`); in progress by default */
-  status?: TaskStatus;
-  /** a property value's own glyph (status, priority, date, progress, "+"): replaces the type's */
+  entity?: PillEntity;
+  /** a property value's own glyph (status, priority, date, progress, "+"): replaces the entity's */
   glyph?: IconSource;
+}
+
+function glyphOf(entity: PillEntity): IconSource {
+  switch (entity.type) {
+    case 'project':
+      return Folder;
+    case 'note':
+      return FileText;
+    case 'task':
+      return <StatusIcon status={entity.status} size={12} />;
+    case 'parent':
+      return (
+        <>
+          <Icon icon={CornerDownRight} size={12} className={styles.arrow} />
+          <StatusIcon status={entity.status} size={12} />
+        </>
+      );
+    case 'event':
+      return <ColourBar color={resolveColor(entity.color, 'green')} />;
+  }
 }
 
 /**
@@ -35,36 +65,24 @@ export interface EntityPillProps extends Omit<
  * Wrap it in an EntityHoverCard trigger for the preview.
  */
 export const EntityPill = forwardRef<HTMLElement, EntityPillProps>(function EntityPill(
-  { type, color, status = 'in-progress', glyph, className, ...props },
+  { entity, glyph, className, children, ...props },
   ref,
 ) {
-  const icon =
-    glyph ??
-    (type === 'project' ? (
-      Folder
-    ) : type === 'note' ? (
-      FileText
-    ) : type === 'task' ? (
-      <StatusIcon status={status} size={12} />
-    ) : type === 'parent' ? (
-      <>
-        <Icon icon={CornerDownRight} size={12} className={styles.arrow} />
-        <StatusIcon status={status} size={12} />
-      </>
-    ) : type === 'event' ? (
-      <ColourBar color={color ?? 'green'} />
-    ) : undefined);
+  const type = entity?.type;
+  const projectColor = entity?.type === 'project' ? resolveColor(entity.color) : undefined;
   return (
     <Badge
       ref={ref}
       variant="outline"
       interactive
       muted
-      icon={icon}
-      iconColor={type === 'project' ? color : undefined}
+      icon={glyph ?? (entity && glyphOf(entity))}
+      iconColor={projectColor}
       data-entity={type}
-      className={cn(styles.pill, type === 'project' && color && styles.project, className)}
+      className={cn(styles.pill, projectColor && styles.project, className)}
       {...props}
-    />
+    >
+      {children ?? entity?.title}
+    </Badge>
   );
 });

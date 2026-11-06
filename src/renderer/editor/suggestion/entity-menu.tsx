@@ -1,4 +1,5 @@
 import type { Editor } from '@tiptap/core';
+import { TaskStatus } from '@common/types';
 import { MentionMenu, type MentionItem, type SuggestionGroup } from '../../components';
 import { MENTION_TYPES, type EditorEntity, type MentionType } from '../types';
 import { createSuggestionMenu } from './suggestion';
@@ -21,7 +22,7 @@ function toMentionItem(entity: EditorEntity): MentionItem | null {
   const { id, title } = entity;
   switch (entity.type) {
     case 'task':
-      return { kind: 'task', id, title, status: entity.status ?? 'not-started' };
+      return { kind: 'task', id, title, status: entity.status ?? TaskStatus.NOT_STARTED };
     case 'note':
       return { kind: 'note', id, title };
     case 'event':

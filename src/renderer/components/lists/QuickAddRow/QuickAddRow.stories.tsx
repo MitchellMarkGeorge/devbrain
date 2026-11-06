@@ -1,9 +1,13 @@
 import { useState } from 'react';
+import { TaskPriority } from '@common/types';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { EntityPill } from '../../entities/EntityPill';
 import { TaskList } from '../TaskList';
-import type { Task } from '../TaskRow';
+import type { TaskRowData } from '../TaskRow';
 import { QuickAddRow } from './QuickAddRow';
+import { sampleTask } from '../TaskRow/fixtures';
+import { storyDate } from '../../lib/story-dates';
+import type { TaskId } from '@common/ids';
 
 const meta = {
   title: 'Lists/QuickAddRow',
@@ -11,11 +15,7 @@ const meta = {
   args: {
     date: 'Today',
     dateTone: 'today',
-    children: (
-      <EntityPill type="project" color="blue">
-        Auth Overhaul
-      </EntityPill>
-    ),
+    children: <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />,
   },
   decorators: [
     (Story) => (
@@ -40,15 +40,13 @@ export const Typing: Story = {
 /** ↵ adds the task above and keeps the row open for the next one; Esc clears it. */
 export const AtTheEndOfAList: Story = {
   render: function Interactive(args) {
-    const [tasks, setTasks] = useState<Task[]>([
-      {
-        id: '1',
+    const [tasks, setTasks] = useState<TaskRowData[]>([
+      sampleTask({
+        id: 'tsk_1' as TaskId,
         title: 'Write PKCE migration guide',
-        status: 'not-started',
-        priority: 'medium',
-        date: 'Today',
-        dateTone: 'today',
-      },
+        priority: TaskPriority.MEDIUM,
+        dueDate: storyDate(0),
+      }),
     ]);
     return (
       <div>
@@ -58,14 +56,12 @@ export const AtTheEndOfAList: Story = {
           onCreate={(title) =>
             setTasks((t) => [
               ...t,
-              {
-                id: String(t.length + 1),
+              sampleTask({
+                id: `tsk_${t.length + 1}` as TaskId,
                 title,
-                status: 'not-started',
-                priority: 'medium',
-                date: 'Today',
-                dateTone: 'today',
-              },
+                priority: TaskPriority.MEDIUM,
+                dueDate: storyDate(0),
+              }),
             ])
           }
         />

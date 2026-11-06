@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { TaskStatus } from '@common/types';
 import { useState } from 'react';
 import { RichTextEditor, type RichTextEditorProps } from './RichTextEditor';
 import type { EditorEntity } from './types';
@@ -10,9 +11,19 @@ import type { EditorEntity } from './types';
  */
 
 const ENTITIES: EditorEntity[] = [
-  { type: 'task', id: 'tsk_1', title: 'Implement OAuth2 PKCE flow', status: 'in-progress' },
-  { type: 'task', id: 'tsk_2', title: 'Write PKCE migration guide', status: 'not-started' },
-  { type: 'task', id: 'tsk_3', title: 'Rotate the signing keys', status: 'completed' },
+  {
+    type: 'task',
+    id: 'tsk_1',
+    title: 'Implement OAuth2 PKCE flow',
+    status: TaskStatus.IN_PROGRESS,
+  },
+  {
+    type: 'task',
+    id: 'tsk_2',
+    title: 'Write PKCE migration guide',
+    status: TaskStatus.NOT_STARTED,
+  },
+  { type: 'task', id: 'tsk_3', title: 'Rotate the signing keys', status: TaskStatus.COMPLETED },
   { type: 'project', id: 'prj_1', title: 'Auth rewrite', color: 'blue' },
   { type: 'note', id: 'nte_1', title: 'Auth0 call notes' },
   { type: 'event', id: 'evt_1', title: 'Security review', color: 'pink' },
