@@ -271,7 +271,12 @@ describe('projects', () => {
     expect(await data<Project>('projects.get', { id })).toMatchObject({ id, title: 'Launch' });
   });
 
-  it('clears fields with null', async () => {
+  it('creates a project without a due date, and clears fields with null', async () => {
+    expect(await mutate('projects.create', { title: 'Someday' })).toMatchObject({
+      ok: true,
+      data: { dueDate: null },
+      changed: ['project'],
+    });
     const { id } = workspace().projects.createProject({
       title: 'Full',
       description: 'About',

@@ -67,11 +67,12 @@ export const tasksRouter = t.router({
     .input(z.object({ id: zId('task'), ...zPageFields }))
     .query(({ ctx, input: { id, ...page } }) => ctx.workspace.tasks.listSubtasks(id, page)),
 
+  // the due date is optional: left out or null, the task has none
   create: wsProcedure
     .input(
       z.object({
         ...subtaskFields,
-        dueDate: z.date(),
+        dueDate: z.date().nullable().optional(),
         projectId: zId('project').optional(),
         ...links,
       }),

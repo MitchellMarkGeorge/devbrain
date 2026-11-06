@@ -56,7 +56,8 @@ export const projectsRouter = t.router({
         title,
         description: z.string().optional(),
         startDate: z.date().optional(),
-        dueDate: z.date(),
+        // left out or null: no due date
+        dueDate: z.date().nullable().optional(),
         color: hexColorSchema.optional(),
         status: status.optional(),
       }),

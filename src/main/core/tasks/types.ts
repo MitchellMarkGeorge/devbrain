@@ -10,7 +10,8 @@ export interface CreateTaskOptions {
   priority?: TaskPriority;
   status?: TaskStatus;
 
-  dueDate: Date;
+  // left out or null: no due date
+  dueDate?: Date | null;
   startDate?: Date;
   projectId?: ProjectId;
   // either, not both

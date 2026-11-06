@@ -1401,11 +1401,9 @@ describe('TaskService — cursor pagination', () => {
 });
 
 describe('TaskService — undated tasks', () => {
-  // local tasks always get a due date; synced ones may not, so tests clear it on the row directly
+  // created without one, as the create dialog and quick capture allow
   async function undated(title: string) {
-    const task = tasks.createTask({ title, dueDate: TOMORROW });
-    db.update(tasksTable).set({ dueDate: null }).where(eq(tasksTable.id, task.id)).run();
-    return { ...task, dueDate: null };
+    return tasks.createTask({ title });
   }
 
   async function dated(title: string, dueDate: Date) {
@@ -1691,6 +1689,11 @@ describe('TaskService — onChange', () => {
 });
 
 describe('TaskService — clearing fields', () => {
+  it('creates a task without a due date, left out or null', () => {
+    expect(tasks.createTask({ title: 'Left out' }).dueDate).toBeNull();
+    expect(tasks.createTask({ title: 'Null', dueDate: null }).dueDate).toBeNull();
+  });
+
   it('clears the nullable fields with null, keeping the ones left out', () => {
     const task = tasks.createTask({
       title: 'Full',

@@ -66,7 +66,7 @@ function newTaskValues(options: CreateTaskOptions): NewTaskValues {
     description: options.description ?? null,
     status: options.status ?? TaskStatus.NOT_STARTED,
     priority: options.priority ?? TaskPriority.LOW,
-    dueDate: options.dueDate,
+    dueDate: options.dueDate ?? null,
     startDate: options.startDate ?? null,
     // subtasts are created seperately
     parentTaskId: null,

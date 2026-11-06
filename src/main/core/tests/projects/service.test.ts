@@ -12,7 +12,6 @@ import { ProjectStatus, TaskStatus } from '@common/types';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../../shared/errors';
 import { createDb } from '../utils';
 import { InvalidCursorError } from '../../shared/pagination';
-import { projects as projectsTable } from '@main/db/schema/projects';
 import { tasks as tasksSchema } from '@main/db/schema/tasks';
 import { eq } from 'drizzle-orm';
 
@@ -949,11 +948,9 @@ describe('ProjectService — cursor pagination', () => {
 });
 
 describe('ProjectService — undated projects', () => {
-  // local projects always get a due date; synced ones may not, so tests clear it on the row directly
+  // created without one, as the create dialog allows
   async function undated(title: string) {
-    const project = projects.createProject({ title, dueDate: TOMORROW });
-    db.update(projectsTable).set({ dueDate: null }).where(eq(projectsTable.id, project.id)).run();
-    return { ...project, dueDate: null };
+    return projects.createProject({ title });
   }
 
   async function collect(direction: 'asc' | 'desc', limit: number) {
@@ -1057,6 +1054,11 @@ describe('ProjectService — onChange', () => {
 });
 
 describe('ProjectService — clearing fields', () => {
+  it('creates a project without a due date, left out or null', () => {
+    expect(projects.createProject({ title: 'Left out' }).dueDate).toBeNull();
+    expect(projects.createProject({ title: 'Null', dueDate: null }).dueDate).toBeNull();
+  });
+
   it('clears the nullable fields with null, keeping the ones left out', () => {
     const project = projects.createProject({
       title: 'Full',

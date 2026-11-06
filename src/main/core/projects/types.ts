@@ -4,7 +4,8 @@ export interface CreateProjectOptions {
   title: string;
   description?: string;
   startDate?: Date;
-  dueDate: Date;
+  // left out or null: no due date
+  dueDate?: Date | null;
   color?: string;
   status?: ProjectStatus;
 }

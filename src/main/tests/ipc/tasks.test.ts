@@ -260,8 +260,15 @@ describe('tasks', () => {
   });
 });
 
-describe('clearing fields', () => {
-  it('clears fields with null', async () => {
+describe('clearing fields and undated tasks', () => {
+  it('creates a task without a due date, and clears fields with null', async () => {
+    const created = await mutate<Task>('tasks.create', { title: 'Someday' });
+    expect(created).toMatchObject({ ok: true, data: { dueDate: null }, changed: ['task'] });
+    expect(await mutate('tasks.create', { title: 'Also', dueDate: null })).toMatchObject({
+      ok: true,
+      data: { dueDate: null },
+    });
+
     const { id } = workspace().tasks.createTask({
       title: 'Full',
       description: 'Notes',
