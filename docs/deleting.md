@@ -72,21 +72,19 @@ to suppress it. The same holds for detached and removed projects.
 
 ## Empty trash
 
-`Workspace.emptyTrash`, exposed as `archive.emptyTrash`, deletes every item in the trash for good.
-It is on the workspace because it crosses the three services: each has a method that deletes every
-archived row of its own (`TaskService.deleteArchivedTasks`, `ProjectService.deleteArchivedProjects`,
-`NoteService.deleteArchivedNotes`), and the workspace runs the three in one transaction, so either
-the whole trash goes or none of it. Then it removes the deleted notes' files.
+`ArchiveService.emptyTrash`, exposed as `archive.emptyTrash`, deletes every item in the trash for
+good. It lives with the trash: one transaction deletes every archived task, project and note, so
+either the whole trash goes or none of it. Then the deleted notes' files are removed through
+`NoteService.removeDeletedFiles`, the one part it leaves to the note service: that service owns
+the notes folder and each note's queue of content saves. The workspace passes it in.
 
 - **The same rules as one delete.** Links work as in the table above: a task takes its subtasks and
   their links, a project leaves its tasks and notes with no project, a note leaves the tasks linked
   to it. An archived task with an active or synced task anywhere below it stays in the trash, as
   `tasks.delete` refuses it; the response lists it in `keptTaskIds`.
-- **Order.** Tasks go first, then projects, then notes, so the projects' and notes' changes name
-  only the tasks that are left.
-- **One change per service**, each sent as the last step of its own part of the transaction, so
-  search drops every row in the same commit. Project and note `deleted` changes name every id they
-  removed (`projectIds`, `noteIds`), as task and event deletes already did.
+- **One change**, the archive's `emptied`, sent as the transaction's last step, inside it. It names
+  every id deleted and every row left that lost a link (`unlinkedTaskIds`, `unlinkedNoteIds`), so
+  the `ChangeTracker` reports those kinds too.
 - **The files after the commit.** Each waits behind the content saves already queued for its note.
   A file that can't be removed does not stop the others or undo anything, as with `notes.delete`:
   its error class is logged, and its note id is listed in `filesNotRemoved`. The file stays in the

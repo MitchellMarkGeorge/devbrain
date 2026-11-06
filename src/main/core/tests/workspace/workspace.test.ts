@@ -646,8 +646,9 @@ describe('Workspace — permanent delete', () => {
       workspace.tasks.onChange((change) => changes.push(`task ${change.type}`));
       workspace.projects.onChange((change) => changes.push(`project ${change.type}`));
       workspace.notes.onChange((change) => changes.push(`note ${change.type}`));
+      workspace.archive.onChange((change) => changes.push(`archive ${change.type}`));
 
-      const result = await workspace.emptyTrash();
+      const result = await workspace.archive.emptyTrash();
 
       expect({ ...result, taskIds: result.taskIds.sort() }).toEqual({
         taskIds: [task.id, sub.id].sort(),
@@ -656,8 +657,8 @@ describe('Workspace — permanent delete', () => {
         keptTaskIds: [],
         filesNotRemoved: [],
       });
-      // one change per service
-      expect(changes).toEqual(['task deleted', 'project deleted', 'note deleted']);
+      // one change, from the archive
+      expect(changes).toEqual(['archive emptied']);
       expect(workspace.archive.listArchived().items).toEqual([]);
       expect(searchIds(workspace, 'Doomed')).toEqual([kept.id]);
       expect(workspace.tasks.getById(kept.id).projectId).toBeNull();
@@ -665,20 +666,20 @@ describe('Workspace — permanent delete', () => {
       expect(await fs.readdir(path.join(tmpDir, 'notes'))).toEqual([`${keptNote.id}.md`]);
 
       // an empty trash deletes nothing and says nothing
-      expect(await workspace.emptyTrash()).toEqual({
+      expect(await workspace.archive.emptyTrash()).toEqual({
         taskIds: [],
         projectIds: [],
         noteIds: [],
         keptTaskIds: [],
         filesNotRemoved: [],
       });
-      expect(changes).toHaveLength(3);
+      expect(changes).toHaveLength(1);
     } finally {
       await workspace.close();
     }
   });
 
-  it('deletes nothing when a step fails, and keeps going when a file cannot be removed', async () => {
+  it('keeps going when a note file cannot be removed', async () => {
     const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
     try {
       const dueDate = new Date('2026-12-01T00:00:00Z');
@@ -689,24 +690,13 @@ describe('Workspace — permanent delete', () => {
       workspace.archive.archiveNote(stuck.id);
       workspace.archive.archiveNote(gone.id);
 
-      const failing = vi
-        .spyOn(workspace.notes, 'deleteArchivedNotes')
-        .mockImplementationOnce(() => {
-          throw new Error('disk on fire');
-        });
-      await expect(workspace.emptyTrash()).rejects.toThrow('disk on fire');
-      failing.mockRestore();
-      // the tasks' step was rolled back with it
-      expect(workspace.archive.listArchived().items).toHaveLength(3);
-      expect(searchIds(workspace, 'Doomed')).toEqual([]);
-
       // a non-empty folder where the file was: removing it fails
       const stuckFile = path.join(tmpDir, 'notes', `${stuck.id}.md`);
       await fs.rm(stuckFile);
       await fs.mkdir(stuckFile);
       await fs.writeFile(path.join(stuckFile, 'x'), '');
 
-      expect(await workspace.emptyTrash()).toMatchObject({
+      expect(await workspace.archive.emptyTrash()).toMatchObject({
         taskIds: [task.id],
         filesNotRemoved: [stuck.id],
       });

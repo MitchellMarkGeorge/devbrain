@@ -335,6 +335,21 @@ describe('the entities of each change', () => {
     ).toEqual(['task', 'project', 'note']);
   });
 
+  it('names what emptying the trash deleted, and the kinds of rows that lost a link', () => {
+    const emptied = { type: 'emptied' as const, ...none, unlinkedTaskIds: [], unlinkedNoteIds: [] };
+    expect(entitiesOfArchiveChange(emptied)).toEqual([]);
+    expect(entitiesOfArchiveChange({ ...emptied, noteIds: ['nte_1' as never] })).toEqual(['note']);
+    // a project that went leaves its tasks and notes without one
+    expect(
+      entitiesOfArchiveChange({
+        ...emptied,
+        projectIds: ['prj_1' as never],
+        unlinkedTaskIds: ['tsk_1' as never],
+        unlinkedNoteIds: ['nte_1' as never],
+      }),
+    ).toEqual(['task', 'project', 'note']);
+  });
+
   it('names what a delete removed, and the kinds of rows that lost a link to it', () => {
     const task = { type: 'updated' } as never;
     expect(entitiesOfTaskChange(task)).toEqual(['task']);
@@ -352,7 +367,7 @@ describe('the entities of each change', () => {
     expect(
       entitiesOfProjectChange({
         type: 'deleted',
-        projectIds: ['prj_1' as never],
+        projectId: 'prj_1' as never,
         unfiledTaskIds: ['tsk_1' as never],
         unfiledNoteIds: ['nte_1' as never],
       }),
@@ -361,8 +376,8 @@ describe('the entities of each change', () => {
     expect(
       entitiesOfNoteChange({
         type: 'deleted',
-        noteIds: ['nte_1' as never],
-        linkedTaskIds: [],
+        noteId: 'nte_1' as never,
+        linkedTaskId: null,
         unlinkedTaskIds: ['tsk_1' as never],
       }),
     ).toEqual(['note', 'task']);
@@ -370,16 +385,16 @@ describe('the entities of each change', () => {
     expect(
       entitiesOfNoteChange({
         type: 'deleted',
-        noteIds: ['nte_1' as never],
-        linkedTaskIds: ['tsk_1' as never],
+        noteId: 'nte_1' as never,
+        linkedTaskId: 'tsk_1' as never,
         unlinkedTaskIds: [],
       }),
     ).toEqual(['note', 'task']);
     expect(
       entitiesOfNoteChange({
         type: 'deleted',
-        noteIds: ['nte_1' as never],
-        linkedTaskIds: [],
+        noteId: 'nte_1' as never,
+        linkedTaskId: null,
         unlinkedTaskIds: [],
       }),
     ).toEqual(['note']);

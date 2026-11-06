@@ -234,19 +234,21 @@ export function entitiesOfProjectChange(change: ProjectChange): ChangedEntity[] 
 export function entitiesOfNoteChange(change: NoteChange): ChangedEntity[] {
   if (change.type !== 'deleted') return ['note'];
   // a task note's task, or the tasks made from the note
-  const tasksChanged = change.linkedTaskIds.length > 0 || change.unlinkedTaskIds.length > 0;
+  const tasksChanged = change.linkedTaskId !== null || change.unlinkedTaskIds.length > 0;
   return tasksChanged ? ['note', 'task'] : ['note'];
 }
 
-export function entitiesOfArchiveChange({
-  taskIds,
-  projectIds,
-  noteIds,
-}: ArchiveChange): ChangedEntity[] {
+// an emptied trash also changes the rows left that lost a link to what it deleted
+export function entitiesOfArchiveChange(change: ArchiveChange): ChangedEntity[] {
+  const { taskIds, projectIds, noteIds } = change;
+  const tasksChanged =
+    taskIds.length > 0 || (change.type === 'emptied' && change.unlinkedTaskIds.length > 0);
+  const notesChanged =
+    noteIds.length > 0 || (change.type === 'emptied' && change.unlinkedNoteIds.length > 0);
   const entities: ChangedEntity[] = [];
-  if (taskIds.length > 0) entities.push('task');
+  if (tasksChanged) entities.push('task');
   if (projectIds.length > 0) entities.push('project');
-  if (noteIds.length > 0) entities.push('note');
+  if (notesChanged) entities.push('note');
   return entities;
 }
 

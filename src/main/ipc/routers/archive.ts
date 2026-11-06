@@ -49,7 +49,7 @@ export const archiveRouter = t.router({
   // stays (`keptTaskIds`); a note file that can't be removed is listed in `filesNotRemoved`, its
   // note deleted all the same. Confirming first (general.confirmBeforeDeleting) is the renderer's.
   emptyTrash: wsProcedure.mutation(
-    ({ ctx }): Promise<EmptyTrashResult> => ctx.workspace.emptyTrash(),
+    ({ ctx }): Promise<EmptyTrashResult> => ctx.workspace.archive.emptyTrash(),
   ),
 
   // a page of archived rows, most recently archived first, each cascaded row in its own right
