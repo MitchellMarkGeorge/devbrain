@@ -1,7 +1,14 @@
 import { DateTime } from 'luxon';
-import { RRule } from 'rrule';
+import * as rrule from 'rrule';
 import { InvalidInputError } from '../shared/errors';
 import { fromDateString, localTimeZone, toDateString } from '../shared/dates';
+
+// rrule has no "exports" map: Vite and Vitest resolve its ESM build, with named exports, while
+// Node's own loader (scripts run with tsx) gets its UMD build as CommonJS, whose exports it only
+// offers as the default export. Take RRule from whichever shape was loaded (Reflect.get, so the
+// bundler doesn't warn about a default export the ESM build lacks).
+const RRule = rrule.RRule ?? (Reflect.get(rrule, 'default') as typeof rrule).RRule;
+type RRule = InstanceType<typeof RRule>;
 
 // A series' recurrence rule, for EventService's occurrence edits. A rule is RFC 5545 lines joined
 // with \n (see Event.recurrenceRule), without DTSTART: the series' startAt is its start. This
