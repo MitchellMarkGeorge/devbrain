@@ -1080,7 +1080,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 
 ### Settings and app state
 
-- **S1: partial settings update.** `settings.update` replaces the whole object, so two quick edits
+- **S1 (done): partial settings update.** `settings.update` replaces the whole object, so two quick edits
   can race. Add `settings.set({ path, value })` over core's dot-path `set` (with the value checked
   against the path's schema), and `settings.reset`.
 - **S2 (needed for "Reopen last page"): each workspace's last page, in its manifest.** Main

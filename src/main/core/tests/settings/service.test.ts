@@ -28,6 +28,21 @@ describe('SettingsService', () => {
     expect(b.get('settings.general.timeFormat')).toBe('12');
   });
 
+  it('resets every setting to its default, keeping the app state', () => {
+    const service = new SettingsService('/fake/path', openMemorySettingsStore);
+    const defaults = structuredClone(service.get('settings'));
+    service.set('settings.general.timeFormat', '24');
+    service.set('state.lastWorkspaceId', 'wsp_1');
+    const changes: unknown[] = [];
+    service.onChange((change) => changes.push(change));
+
+    service.reset();
+
+    expect(service.get('settings')).toEqual(defaults);
+    expect(service.get('state.lastWorkspaceId')).toBe('wsp_1');
+    expect(changes).toEqual([{ type: 'updated', settings: defaults }]);
+  });
+
   describe('onChange', () => {
     it('sends every setting after a write under settings', () => {
       const service = new SettingsService('/fake/path', openMemorySettingsStore);
