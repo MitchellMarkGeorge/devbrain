@@ -83,7 +83,7 @@ export function initialContext(overrides: Partial<InitialLoadContext> = {}): Ini
     current: null,
     last: null,
     workspaces: { items: [], nextCursor: null },
-    theme: 'system',
+    settings: settings(),
     ...overrides,
   };
 }

@@ -20,13 +20,16 @@ export function readInitialLoadContext(bridge?: IpcBridge): InitialLoadContext |
 }
 
 /**
- * Puts the context in the cache before the first render, so the workspace queries render with
- * data rather than a loading state. They stay fresh until main says the registry or the open
- * workspace changed (query-invalidator.ts), so they are never refetched just for mounting.
+ * Puts the context in the cache before the first render, so the workspace and settings queries
+ * render with data rather than a loading state, and boot picks the landing page without a call.
+ * They stay fresh until main says the registry, the open workspace or the settings changed
+ * (query-invalidator.ts), so they are never refetched just for mounting.
  */
 export function seedQueryCache(queryClient: QueryClient, context: InitialLoadContext | null): void {
   queryClient.setQueryDefaults(trpc.workspaces.pathKey(), { staleTime: Infinity });
+  queryClient.setQueryDefaults(trpc.settings.get.queryKey(), { staleTime: Infinity });
   if (context === null) return;
   queryClient.setQueryData(trpc.workspaces.current.queryKey(), context.current);
   queryClient.setQueryData(trpc.workspaces.list.queryKey(), context.workspaces);
+  if (context.settings) queryClient.setQueryData(trpc.settings.get.queryKey(), context.settings);
 }

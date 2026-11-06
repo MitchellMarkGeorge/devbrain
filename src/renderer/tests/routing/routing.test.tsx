@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import type { TaskId } from '@common/ids';
+import type { InitialLoadContext } from '@common/ipc/types';
 import {
   at,
   initialContext,
@@ -20,7 +21,7 @@ const home = workspace('Home', { color: '#2b7fff' });
 
 afterEach(() => unmountAll());
 
-const open = (context = {}) =>
+const open = (context: Partial<InitialLoadContext> = {}) =>
   initialContext({ current: work, workspaces: { items: [work], nextCursor: null }, ...context });
 
 describe('boot', () => {
@@ -33,13 +34,13 @@ describe('boot', () => {
 
   it('reopens the last workspace, then lands on the default landing page', async () => {
     const app = renderApp({
-      handlers: {
-        'workspaces.openLast': () => work,
-        'settings.get': () => settings({ defaultLandingPage: 'tasks' }),
-      },
+      context: initialContext({ settings: settings({ defaultLandingPage: 'tasks' }) }),
+      handlers: { 'workspaces.openLast': () => work },
     });
     await waitFor(() => expect(at(app)).toBe('/app/tasks'));
     await waitFor(() => expect(app.text()).toContain('Work'));
+    // the settings came with the initial load context: no call for them
+    expect(app.calls()).not.toContain('settings.get');
   });
 
   it('shows the splash naming the workspace while it reopens, held long enough not to flicker', async () => {
@@ -57,9 +58,9 @@ describe('boot', () => {
 
   it('reopens the workspace\'s last page when "Reopen last page" is on', async () => {
     const app = renderApp({
+      context: initialContext({ settings: settings({ openToLastPage: true }) }),
       handlers: {
         'workspaces.openLast': () => ({ ...work, lastPage: '/app/tasks?view=board' }),
-        'settings.get': () => settings({ openToLastPage: true }),
       },
     });
     await waitFor(() => expect(at(app)).toBe('/app/tasks?view=board'));
@@ -157,11 +158,8 @@ describe('following the open workspace', () => {
     let current = work;
     const app = renderApp({
       at: '/app/tasks?view=board',
-      context: open(),
-      handlers: {
-        'workspaces.current': () => current,
-        'settings.get': () => settings({ defaultLandingPage: 'notes', openToLastPage: true }),
-      },
+      context: open({ settings: settings({ defaultLandingPage: 'notes', openToLastPage: true }) }),
+      handlers: { 'workspaces.current': () => current },
     });
     await waitFor(() => expect(app.text()).toContain('Tasks'));
 
@@ -178,11 +176,8 @@ describe('following the open workspace', () => {
     let current = work;
     const app = renderApp({
       at: '/app/tasks',
-      context: open(),
-      handlers: {
-        'workspaces.current': () => current,
-        'settings.get': () => settings({ defaultLandingPage: 'notes', openToLastPage: true }),
-      },
+      context: open({ settings: settings({ defaultLandingPage: 'notes', openToLastPage: true }) }),
+      handlers: { 'workspaces.current': () => current },
     });
     await waitFor(() => expect(app.text()).toContain('Tasks'));
 

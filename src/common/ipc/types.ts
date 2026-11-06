@@ -1,6 +1,6 @@
 import type { ChangedEntity } from '../changes';
 import type { CoreErrorCode } from '../errors';
-import type { Page, ThemeSetting, WorkspaceInfo } from '../types';
+import type { AppSettings, Page, WorkspaceInfo } from '../types';
 
 // Every error code a call can fail with: core's own, and the IPC layer's.
 export type IpcErrorCode =
@@ -61,7 +61,8 @@ export interface IpcBridge {
 // What a page needs for its first render, so it shows the right screen at once rather than a
 // loading state: the renderer can seed its query cache with it. Read again on every page load, so
 // a reload sees the workspace open now. Workspace info only (names, colors and ids, never anything
-// from a workspace's database), and the theme setting, so the page paints in it from the start.
+// from a workspace's database), and the user's settings: the theme, so the page paints in it from
+// the start, and what boot reads to pick the landing page.
 export interface InitialLoadContext {
   // false when DevBrain could not be loaded: nothing that needs it can run
   devBrainAvailable: boolean;
@@ -71,6 +72,6 @@ export interface InitialLoadContext {
   last: WorkspaceInfo | null;
   // what workspaces.list answers for its first page
   workspaces: Page<WorkspaceInfo>;
-  // the theme setting; 'system' without DevBrain
-  theme: ThemeSetting;
+  // what settings.get answers; null without DevBrain
+  settings: AppSettings | null;
 }

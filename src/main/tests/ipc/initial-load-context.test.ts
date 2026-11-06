@@ -25,7 +25,7 @@ describe('initialLoadContext', () => {
       current: null,
       last: null,
       workspaces: { items: [], nextCursor: null },
-      theme: 'system',
+      settings: null,
     });
   });
 
@@ -35,13 +35,17 @@ describe('initialLoadContext', () => {
       current: null,
       last: null,
       workspaces: { items: [], nextCursor: null },
-      theme: 'system',
+      settings: devBrain.settings.get('settings'),
     });
   });
 
-  it('carries the theme setting, so the page paints in it from the start', () => {
+  it('carries the settings as they are now: the theme, so the page paints in it from the start', () => {
     devBrain.settings.set('settings.theme', 'dark');
-    expect(initialLoadContext(devBrain).theme).toBe('dark');
+    devBrain.settings.set('settings.general.openToLastPage', true);
+    expect(initialLoadContext(devBrain).settings).toMatchObject({
+      theme: 'dark',
+      general: { openToLastPage: true },
+    });
   });
 
   it('names the workspace openLast would open while none is open', async () => {

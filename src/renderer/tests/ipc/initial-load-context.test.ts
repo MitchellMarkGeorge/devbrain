@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
 import type { WorkspaceId } from '@common/ids';
 import type { IpcBridge } from '@common/ipc/types';
-import type { WorkspaceInfo } from '@common/types';
+import type { AppSettings, WorkspaceInfo } from '@common/types';
 import {
   readInitialLoadContext,
   seedQueryCache,
@@ -23,7 +23,7 @@ const context: InitialLoadContext = {
   current: work,
   last: null,
   workspaces: { items: [work], nextCursor: null },
-  theme: 'system',
+  settings: { theme: 'dark' } as AppSettings,
 };
 
 function bridgeWith(initialLoadContext: IpcBridge['initialLoadContext']): IpcBridge {
@@ -55,6 +55,21 @@ describe('seedQueryCache', () => {
     expect(queryClient.getQueryDefaults(trpc.workspaces.current.queryKey()).staleTime).toBe(
       Infinity,
     );
+  });
+
+  it('fills settings.get, and keeps it fresh until main says the settings changed', () => {
+    const queryClient = new QueryClient();
+    seedQueryCache(queryClient, context);
+
+    expect(queryClient.getQueryData(trpc.settings.get.queryKey())).toBe(context.settings);
+    expect(queryClient.getQueryDefaults(trpc.settings.get.queryKey()).staleTime).toBe(Infinity);
+  });
+
+  it('leaves settings.get to fetch when DevBrain has none', () => {
+    const queryClient = new QueryClient();
+    seedQueryCache(queryClient, { ...context, devBrainAvailable: false, settings: null });
+
+    expect(queryClient.getQueryState(trpc.settings.get.queryKey())).toBeUndefined();
   });
 
   it('seeds nothing without a context, so the queries fetch', () => {

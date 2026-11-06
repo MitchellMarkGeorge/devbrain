@@ -21,7 +21,7 @@ queryInvalidator.listen(events);
 // what main holds now, so the first render shows the right screen with its data, in its theme
 const initialLoadContext = readInitialLoadContext();
 seedQueryCache(queryClient, initialLoadContext);
-applyThemeSetting(initialLoadContext?.theme ?? 'system');
+applyThemeSetting(initialLoadContext?.settings?.theme ?? 'system');
 
 // The window around the page: the platform from the preload, the system's own window controls,
 // and the Windows title bar's menu button popping up the app menu (src/main/runtime/window-chrome.ts)
