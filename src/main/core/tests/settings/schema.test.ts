@@ -30,6 +30,7 @@ const validSettings: SettingsFile = {
       defaultEventDuration: '30m',
       firstDayOfWeek: 'monday',
       defaultView: 'week',
+      hideWeekends: false,
     },
   },
   state: {
@@ -282,6 +283,15 @@ describe('appSettingsSchema — calendar block', () => {
     expect(
       appSettingsSchema.safeParse(withCalendar({ firstDayOfWeek: 'saturday' as never }).settings)
         .success,
+    ).toBe(false);
+  });
+
+  it('takes hideWeekends as a boolean only', () => {
+    expect(appSettingsSchema.safeParse(withCalendar({ hideWeekends: true }).settings).success).toBe(
+      true,
+    );
+    expect(
+      appSettingsSchema.safeParse(withCalendar({ hideWeekends: 'yes' as never }).settings).success,
     ).toBe(false);
   });
 

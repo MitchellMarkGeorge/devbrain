@@ -27,6 +27,8 @@ export const appSettingsSchema = z.object({
     defaultEventDuration: z.enum(['15m', '30m', '1h']),
     firstDayOfWeek: z.enum(['monday', 'sunday']),
     defaultView: z.enum(['month', 'week', 'day']),
+    // the week and month views show Monday to Friday only
+    hideWeekends: z.boolean(),
   }),
 });
 

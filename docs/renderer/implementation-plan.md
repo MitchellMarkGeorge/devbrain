@@ -1089,7 +1089,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
   it, so the renderer reads it from the workspace it opened, and a moved folder brings it along.
   Validate it as an `/app` path string of bounded length; the renderer parses it again before
   navigating. The unused `state.lastPage` is removed from the settings file's schema.
-- **S3: `calendar.hideWeekends`** (default `false`) in `appSettingsSchema`, shown in Settings ›
+- **S3 (done): `calendar.hideWeekends`** (default `false`) in `appSettingsSchema`, shown in Settings ›
   Calendar as **Hide weekends** (Figma's "Show weekends" at `7158:11133` is renamed). FullCalendar
   takes it as `weekends: !hideWeekends`, in the week and month views.
   - **Existing settings files.** electron-store fills in defaults only at the top level, so a file
