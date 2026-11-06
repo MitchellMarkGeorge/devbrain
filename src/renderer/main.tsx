@@ -21,6 +21,7 @@ queryInvalidator.listen(events);
 // what main holds now, so the first render shows the right screen with its data, in its theme
 const initialLoadContext = readInitialLoadContext();
 seedQueryCache(queryClient, initialLoadContext);
+// not sure if this is needed
 applyThemeSetting(initialLoadContext?.settings?.theme ?? 'system');
 
 // The window around the page: the platform from the preload, the system's own window controls,
@@ -38,6 +39,7 @@ const windowFrame: WindowFrame = {
 const router = createAppRouter({ queryClient, trpc, ipc, events, initialLoadContext });
 
 function App() {
+  // apply the theme every time the theme changes
   const settings = useQuery(trpc.settings.get.queryOptions(), queryClient);
 
   const theme = settings.data?.theme;
