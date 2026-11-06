@@ -4,17 +4,19 @@ export interface CreateProjectOptions {
   title: string;
   description?: string;
   startDate?: Date;
-  dueDate: Date;
+  // left out or null: no due date
+  dueDate?: Date | null;
   color?: string;
   status?: ProjectStatus;
 }
 
+// A field left out is kept; null clears one the model allows to be empty.
 export interface UpdateProjectOptions {
   title?: string;
-  description?: string;
-  startDate?: Date;
-  dueDate?: Date;
-  color?: string;
+  description?: string | null;
+  startDate?: Date | null;
+  dueDate?: Date | null;
+  color?: string | null;
   status?: ProjectStatus;
 }
 

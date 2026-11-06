@@ -161,6 +161,18 @@ describe('NoteService — getById', () => {
   });
 });
 
+describe('NoteService — filePathOf', () => {
+  it("returns the path of an active note's file, and refuses an archived or unknown note", async () => {
+    const note = await notesService.createNote({ title: 'Plan' });
+    expect(notesService.filePathOf(note.id)).toBe(notesFilePath(workspacePath, note.id));
+    expect(fsSync.existsSync(notesService.filePathOf(note.id))).toBe(true);
+
+    archive.archiveNote(note.id);
+    expect(() => notesService.filePathOf(note.id)).toThrow(NotFoundError);
+    expect(() => notesService.filePathOf(generateId('note'))).toThrow(NotFoundError);
+  });
+});
+
 describe('NoteService — getByIds', () => {
   it('returns all notes matching the provided ids', async () => {
     const a = await notesService.createNote({ title: 'A' });

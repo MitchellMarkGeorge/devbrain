@@ -33,6 +33,7 @@ beforeEach(async () => {
   await fs.mkdir(files);
   desktop = {
     openFolder: vi.fn(async () => {}),
+    showItem: vi.fn(async () => {}),
     chooseFiles: vi.fn(async () => null),
     chooseFolder: vi.fn(async () => null),
     chooseSaveFile: vi.fn(async () => null),
@@ -77,11 +78,35 @@ describe('Show in Finder', () => {
     expect(desktop.openFolder).toHaveBeenCalledWith(workspace.info.path);
   });
 
+  it("shows a note's file, from core's path, and refuses a trashed or unknown note", async () => {
+    const workspace = await openWorkspace();
+    const note = await workspace.notes.createNote({ title: 'Plan' });
+
+    expect(await call('notes.showInFolder', { id: note.id }, 'mutation')).toEqual({
+      ok: true,
+      data: undefined,
+      changed: [],
+    });
+    expect(desktop.showItem).toHaveBeenCalledWith(
+      path.join(workspace.info.path, 'notes', `${note.id}.md`),
+    );
+
+    workspace.archive.archiveNote(note.id);
+    expect(code(await call('notes.showInFolder', { id: note.id }, 'mutation'))).toBe('not_found');
+    expect(code(await call('notes.showInFolder', { id: 'tsk_1' }, 'mutation'))).toBe(
+      'invalid_input',
+    );
+    expect(desktop.showItem).toHaveBeenCalledTimes(1);
+  });
+
   it('takes no path from the renderer', async () => {
-    await openWorkspace();
+    const workspace = await openWorkspace();
+    const note = await workspace.notes.createNote({ title: 'Plan' });
     await call('workspace.showInFolder', { path: '/etc' }, 'mutation');
     await call('settings.showDataFolder', { path: '/etc' }, 'mutation');
+    await call('notes.showInFolder', { id: note.id, path: '/etc' }, 'mutation');
     expect(desktop.openFolder).not.toHaveBeenCalledWith('/etc');
+    expect(desktop.showItem).not.toHaveBeenCalledWith('/etc');
   });
 });
 

@@ -29,8 +29,6 @@ export class InvalidInputError extends CoreError {
 }
 
 export type TaskHierarchyReason =
-  // a subtask of a task without a due date was given none
-  | 'due_date_required'
   // a local subtask's project and links come from its parent
   | 'inherits_context'
   // promoting a task that has no parent

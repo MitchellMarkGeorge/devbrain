@@ -1,0 +1,83 @@
+<!doctype html>
+<!--
+  The page the OAuth loopback listener serves to the browser at the end of a sign-in, drawn as the
+  OnboardingScreen header (docs/design-system/README.md, "Browser pages"). pages.ts fills in each
+  placeholder in double braces. The listener stops accepting once it has answered, so the page loads nothing:
+  keep every style here and every image a data URI.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{title}} · DevBrain</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        {{dark}}
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          color-scheme: light;
+          {{light}}
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px 16px;
+        background: var(--background);
+        color: var(--foreground);
+        font-family: {{font}};
+        -webkit-font-smoothing: antialiased;
+      }
+      main {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        max-width: 480px;
+        text-align: center;
+      }
+      /* Logomark, 40×48 */
+      img {
+        display: block;
+        width: 40px;
+        height: 48px;
+      }
+      /* page-title: 30px semibold, 38px under the mark */
+      h1 {
+        margin: 38px 0 0;
+        color: var(--foreground-strong);
+        font-size: 30px;
+        line-height: 36px;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+      }
+      /* body: 14px, 8px under the title */
+      p {
+        margin: 8px 0 0;
+        color: var(--muted-foreground);
+        font-size: 14px;
+        line-height: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <picture>
+        <source srcset="{{logomarkDark}}" media="(prefers-color-scheme: light)" />
+        <img src="{{logomark}}" alt="DevBrain" width="40" height="48" />
+      </picture>
+      <h1>{{title}}</h1>
+      <p>{{message}}</p>
+    </main>
+  </body>
+</html>

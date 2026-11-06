@@ -48,6 +48,7 @@ const makeInfo = (
   path: workspacePath,
   createdAt: Date.now(),
   lastOpenedAt: null,
+  lastPage: null,
   ...overrides,
 });
 

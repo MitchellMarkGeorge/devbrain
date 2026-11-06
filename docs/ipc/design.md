@@ -158,6 +158,12 @@ not obvious from one file:
   workspace; `open` closes the open one first and remembers the new one for the next launch.
   `openLast` is the renderer's first call: it opens the workspace open last time while none is
   open, and otherwise returns the one already open, so a reload never reopens it.
+- **`settings.set`** writes one setting by its dot path (`{ path: 'settings.general.timeFormat',
+value: '24' }`), or one group (`settings.calendar`), checking the value against that path's part
+  of `appSettingsSchema`, so two quick edits to different settings can't undo each other as two
+  `settings.update` calls (each sending every setting) can. Only paths under `settings` are
+  accepted. `settings.reset` puts every setting back to its default and keeps the app state (the
+  last workspace). Both return every setting.
 - **Long-running mutations.** `integrations.connect` with OAuth resolves when the browser flow ends;
   `integrations.cancelConnect` aborts it, and the waiting call fails with `cancelled`. `sync.now`
   resolves once its runs have ended, so what they wrote comes back in its `changed`.
@@ -178,7 +184,9 @@ not obvious from one file:
   [import-export.md](../import-export.md)) asks for a file or folder through `ctx.desktop`, then
   makes one call to `workspace.transfer`; a cancelled dialog returns `null`.
   `settings.showDataFolder` and `workspace.showInFolder` open `devBrain.path` and the open
-  workspace's folder. A path handed to the desktop comes from main's state or a dialog, never from
+  workspace's folder; `notes.showInFolder({ id })` shows the note's markdown file selected in its
+  folder (Electron's `shell.showItemInFolder`), at the path `NoteService.filePathOf` gives, or
+  opens the notes folder when the file is missing. A path handed to the desktop comes from main's state or a dialog, never from
   the renderer's input.
 - **`app.showMenu`** pops up the app menu at a point in the window, through `ctx.desktop`, for
   the Windows title bar's menu button: the page draws the title bar there and Windows shows no

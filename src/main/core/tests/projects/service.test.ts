@@ -12,7 +12,6 @@ import { ProjectStatus, TaskStatus } from '@common/types';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../../shared/errors';
 import { createDb } from '../utils';
 import { InvalidCursorError } from '../../shared/pagination';
-import { projects as projectsTable } from '@main/db/schema/projects';
 import { tasks as tasksSchema } from '@main/db/schema/tasks';
 import { eq } from 'drizzle-orm';
 
@@ -949,11 +948,9 @@ describe('ProjectService — cursor pagination', () => {
 });
 
 describe('ProjectService — undated projects', () => {
-  // local projects always get a due date; synced ones may not, so tests clear it on the row directly
+  // created without one, as the create dialog allows
   async function undated(title: string) {
-    const project = projects.createProject({ title, dueDate: TOMORROW });
-    db.update(projectsTable).set({ dueDate: null }).where(eq(projectsTable.id, project.id)).run();
-    return { ...project, dueDate: null };
+    return projects.createProject({ title });
   }
 
   async function collect(direction: 'asc' | 'desc', limit: number) {
@@ -1053,5 +1050,54 @@ describe('ProjectService — onChange', () => {
     );
 
     expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+describe('ProjectService — clearing fields', () => {
+  it('creates a project without a due date, left out or null', () => {
+    expect(projects.createProject({ title: 'Left out' }).dueDate).toBeNull();
+    expect(projects.createProject({ title: 'Null', dueDate: null }).dueDate).toBeNull();
+  });
+
+  it('clears the nullable fields with null, keeping the ones left out', () => {
+    const project = projects.createProject({
+      title: 'Full',
+      description: 'About',
+      startDate: YESTERDAY,
+      dueDate: NEXT_WEEK,
+      color: '#336699',
+    });
+
+    const cleared = projects.updateProject(project.id, {
+      description: null,
+      startDate: null,
+      dueDate: null,
+      color: null,
+    });
+
+    expect(cleared).toMatchObject({
+      title: 'Full',
+      description: null,
+      startDate: null,
+      dueDate: null,
+      color: null,
+    });
+    expect(projects.getById(project.id).dueDate).toBeNull();
+  });
+
+  it('lists a cleared project last by due date, and out of due filters', () => {
+    const cleared = projects.createProject({ title: 'Cleared', dueDate: YESTERDAY });
+    const dated = projects.createProject({ title: 'Dated', dueDate: TOMORROW });
+    projects.updateProject(cleared.id, { dueDate: null });
+
+    for (const direction of ['asc', 'desc'] as const) {
+      const ids = projects
+        .listProjects({}, { sortBy: 'dueDate', direction })
+        .items.map((p) => p.id);
+      expect(ids).toEqual([dated.id, cleared.id]);
+    }
+    expect(projects.listProjects({ dueBefore: NEXT_WEEK }).items.map((p) => p.id)).toEqual([
+      dated.id,
+    ]);
   });
 });

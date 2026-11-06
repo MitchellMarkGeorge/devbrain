@@ -30,9 +30,10 @@ const VALID_SETTINGS = {
       defaultEventDuration: '30m',
       firstDayOfWeek: 'monday',
       defaultView: 'week',
+      hideWeekends: false,
     },
   },
-  state: { lastWorkspaceId: null, lastPage: null },
+  state: { lastWorkspaceId: null },
 };
 
 // A minimal valid workspace entry for registry tests

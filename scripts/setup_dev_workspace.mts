@@ -379,7 +379,7 @@ const TASK_DESCRIPTIONS = [
 const RECURRING_SERIES: Array<{
   title: string;
   description: string;
-  rrule: string;
+  recurrenceRule: string;
   hour: number;
   minute: number;
   durationMinutes: number;
@@ -389,7 +389,7 @@ const RECURRING_SERIES: Array<{
   {
     title: 'Daily Standup',
     description: 'Quick round-robin: yesterday, today, blockers.',
-    rrule: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR',
+    recurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR',
     hour: 9,
     minute: 30,
     durationMinutes: 15,
@@ -398,7 +398,7 @@ const RECURRING_SERIES: Array<{
   {
     title: 'Sprint Retro',
     description: 'What went well, what didn’t, what we’ll change.',
-    rrule: 'FREQ=WEEKLY;INTERVAL=2;BYDAY=FR',
+    recurrenceRule: 'RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=FR',
     hour: 15,
     minute: 0,
     durationMinutes: 60,
@@ -407,7 +407,7 @@ const RECURRING_SERIES: Array<{
   {
     title: 'Weekly Design Review',
     description: 'Walk through in-flight design work for feedback.',
-    rrule: 'FREQ=WEEKLY;BYDAY=TH',
+    recurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=TH',
     hour: 13,
     minute: 0,
     durationMinutes: 60,
@@ -416,7 +416,7 @@ const RECURRING_SERIES: Array<{
   {
     title: '1:1 with Manager',
     description: 'Status, feedback, career chat.',
-    rrule: 'FREQ=WEEKLY;BYDAY=WE',
+    recurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=WE',
     hour: 11,
     minute: 0,
     durationMinutes: 30,
@@ -425,7 +425,7 @@ const RECURRING_SERIES: Array<{
   {
     title: 'On-call Sync',
     description: 'Handoff notes and open incidents for the week.',
-    rrule: 'FREQ=WEEKLY;BYDAY=MO',
+    recurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
     hour: 10,
     minute: 0,
     durationMinutes: 30,
@@ -433,7 +433,7 @@ const RECURRING_SERIES: Array<{
   {
     title: 'Company All-Hands',
     description: 'Company-wide update from leadership.',
-    rrule: 'FREQ=MONTHLY;BYDAY=1MO',
+    recurrenceRule: 'RRULE:FREQ=MONTHLY;BYDAY=1MO',
     hour: 16,
     minute: 0,
     durationMinutes: 60,
@@ -674,7 +674,7 @@ async function seedEvents(workspace: Workspace): Promise<Event[]> {
       description: series.description,
       startAt,
       endAt,
-      recurrenceRule: series.rrule,
+      recurrenceRule: series.recurrenceRule,
       location: series.location,
       meetingUrl: series.meetingUrl,
       color: pick(PALETTE),

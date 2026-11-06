@@ -49,6 +49,7 @@ export function describeWorkspace(entry: RegistryEntry): WorkspaceInfo {
     path: entry.path,
     createdAt: own?.createdAt ?? entry.createdAt ?? databaseCreatedAt(entry.path),
     lastOpenedAt: entry.lastOpenedAt,
+    lastPage: own?.lastPage ?? null,
   };
 }
 
@@ -96,7 +97,7 @@ export function moveDetailsToManifests(
       const existing = readManifest(entry.path);
       if (existing?.id !== entry.id) {
         const { name, color, createdAt } = describeWorkspace(entry);
-        writeManifest(entry.path, { id: entry.id, name, color, createdAt });
+        writeManifest(entry.path, { id: entry.id, name, color, createdAt, lastPage: null });
       }
     } catch (error) {
       // a folder that is gone keeps its details here quietly: the workspace fails on open anyway

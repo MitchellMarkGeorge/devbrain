@@ -126,7 +126,7 @@ The window is never smaller than `window-min-width` × `window-min-height` (960 
   - The `WindowBar` runs across the top: the title bar's start, the sidebar toggle, back and forward, then the page's header.
   - The sidebar opens as a drawer over the page, with the `backdrop` scrim behind it. Pointing at the toggle, or at an 8px strip along the window's left edge, peeks at it after 200ms, so a passing pointer doesn't; it closes 300ms after the pointer leaves it. A peek leaves focus where it was.
   - Clicking the toggle or ⌘\ pins the drawer open in compact windows, and docks the sidebar where the window is wide enough. Clicking inside a peeking drawer, or moving focus into it, pins it too. Esc, a click outside or picking a page closes it. Keyboard users open it with the toggle or ⌘\.
-- **At every size:** the week view keeps all seven days (hiding days could hide events); the day columns narrow instead. Long text ends in "…" at its own width: pill labels before titles, titles before dates, and breadcrumbs keep the first and last items. Sheets and dialogs scroll inside themselves at the minimum height, and the selection bar and toasts sit on the window's bottom edge. Document pages cap their content and centre it in the page (see Page widths); workspace pages use the full width.
+- **At every size:** the week view keeps all seven days unless Hide weekends is on (Settings › Calendar, `calendar.hideWeekends`), since hiding days could hide events; the day columns narrow instead. With Hide weekends on and events on the visible week's weekend, the header says so ("2 events on the weekend") with a link that shows the weekend. Long text ends in "…" at its own width: pill labels before titles, titles before dates, and breadcrumbs keep the first and last items. Sheets and dialogs scroll inside themselves at the minimum height, and the selection bar and toasts sit on the window's bottom edge. Document pages cap their content and centre it in the page (see Page widths); workspace pages use the full width.
 
 ## Window frame
 
@@ -149,6 +149,23 @@ window controls the system draws. Main sets the frame up per platform
 
 Keys are written as on macOS ("⌘K", "⌘⇧X"). `Kbd`, menu shortcuts and the tooltips that show keys
 name them for the platform: "Ctrl+K", "Ctrl+Shift+X" on Windows and Linux (`formatKeys`).
+
+## Browser pages
+
+The pages the OAuth loopback serves to the browser at the end of a sign-in (signed in, sign-in not
+completed, unexpected sign-in link, nothing here) are one template,
+`src/main/core/integrations/oauth/page.html`, filled in by `pages.ts`. They are drawn as the
+`OnboardingScreen` header, centred on the page: the `Logomark` (40×48), the title 38px under it
+(30px semibold `foreground-strong`) and one 14px `muted-foreground` line 8px under that, in a column
+at most 480px wide on `background`. They follow the browser's light or dark preference, not the
+app's theme setting.
+
+They load nothing: the listener stops accepting once it has answered, so the styles are inline and
+the logomark assets are imported with `?raw` and inlined as data URIs (Vite reads `?raw` in the main
+build, in Vitest and in scripts run with `scripts/run-with-vite.mts`). Their colours and font stack
+come from `tokens.json` through `npm run tokens` (`BROWSER_PAGE_COLOURS` and `BROWSER_PAGE_FONT` in
+`src/common/theme.ts`); Inter shows where it is installed, and the page falls back along
+`--font-sans` otherwise.
 
 ## Page widths
 

@@ -67,11 +67,12 @@ export const tasksRouter = t.router({
     .input(z.object({ id: zId('task'), ...zPageFields }))
     .query(({ ctx, input: { id, ...page } }) => ctx.workspace.tasks.listSubtasks(id, page)),
 
+  // the due date is optional: left out or null, the task has none
   create: wsProcedure
     .input(
       z.object({
         ...subtaskFields,
-        dueDate: z.date(),
+        dueDate: z.date().nullable().optional(),
         projectId: zId('project').optional(),
         ...links,
       }),
@@ -86,20 +87,41 @@ export const tasksRouter = t.router({
     ),
 
   // the fields core's UpdateTaskOptions holds; status, project, links and the hierarchy each have
-  // their own route
+  // their own route. A field left out is kept; null clears the description, dates and PR link
   update: wsProcedure
     .input(
       z.object({
         id: zId('task'),
         title: title.optional(),
-        description: z.string().optional(),
+        description: z.string().nullable().optional(),
         priority: priority.optional(),
-        startDate: z.date().optional(),
-        dueDate: z.date().optional(),
-        pullRequestUrl: safeUrlSchema.optional(),
+        startDate: z.date().nullable().optional(),
+        dueDate: z.date().nullable().optional(),
+        pullRequestUrl: safeUrlSchema.nullable().optional(),
       }),
     )
     .mutation(({ ctx, input: { id, ...updates } }) => ctx.workspace.tasks.updateTask(id, updates)),
+
+  // Sets the same fields on every selected task, all or nothing: one refused task (synced, missing,
+  // a subtask given a project) fails the whole call and changes none. A null due date or project
+  // clears it.
+  updateMany: wsProcedure
+    .input(
+      z.object({
+        ids: z.array(zId('task')).min(1),
+        patch: z
+          .object({
+            status: status.optional(),
+            priority: priority.optional(),
+            dueDate: z.date().nullable().optional(),
+            projectId: zId('project').nullable().optional(),
+          })
+          .refine((patch) => Object.values(patch).some((value) => value !== undefined), {
+            message: 'Set at least one field',
+          }),
+      }),
+    )
+    .mutation(({ ctx, input }) => ctx.workspace.tasks.updateTasks(input.ids, input.patch)),
 
   updateStatus: wsProcedure
     .input(z.object({ id: zId('task'), status }))

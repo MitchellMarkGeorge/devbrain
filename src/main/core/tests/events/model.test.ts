@@ -380,6 +380,33 @@ describe('EventService — listForCalendar', () => {
     expect(await titles()).toEqual(['Local']);
   });
 
+  it('leaves out synced calendars that are not selected, before a sync deletes their events', async () => {
+    const synced = syncedCalendar();
+    db.insert(events)
+      .values({
+        calendarId: synced,
+        title: 'Holiday',
+        startAt: MONDAY,
+        endAt: hoursAfter(MONDAY, 1),
+      })
+      .run();
+    eventsService.createEvent({ title: 'Local', startAt: MONDAY, endAt: hoursAfter(MONDAY, 1) });
+    const titles = async (options = {}) =>
+      (await eventsService.listForCalendar(RANGE_START, RANGE_END, options)).map((e) => e.title);
+    expect((await titles()).sort()).toEqual(['Holiday', 'Local']);
+
+    calendarService.setSelected(synced, false);
+    expect(await titles()).toEqual(['Local']);
+    expect(await titles({ calendarIds: [synced] })).toEqual([]);
+
+    // a local calendar is read whatever its flag says
+    db.update(calendars)
+      .set({ selected: false })
+      .where(eq(calendars.id, DEFAULT_CALENDAR_ID))
+      .run();
+    expect(await titles()).toEqual(['Local']);
+  });
+
   it('includes a series that started before the range, with its exdates', async () => {
     const weekly = eventsService.createEvent({
       title: 'Weekly sync',

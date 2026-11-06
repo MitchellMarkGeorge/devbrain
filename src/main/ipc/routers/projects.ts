@@ -56,22 +56,24 @@ export const projectsRouter = t.router({
         title,
         description: z.string().optional(),
         startDate: z.date().optional(),
-        dueDate: z.date(),
+        // left out or null: no due date
+        dueDate: z.date().nullable().optional(),
         color: hexColorSchema.optional(),
         status: status.optional(),
       }),
     )
     .mutation(({ ctx, input }): Project => ctx.workspace.projects.createProject(input)),
 
-  // everything but the status, which goes through updateStatus so completedAt follows it
+  // everything but the status, which goes through updateStatus so completedAt follows it. A field
+  // left out is kept; null clears the description, dates and colour
   update: wsProcedure
     .input(
       byId.extend({
         title: title.optional(),
-        description: z.string().optional(),
-        startDate: z.date().optional(),
-        dueDate: z.date().optional(),
-        color: hexColorSchema.optional(),
+        description: z.string().nullable().optional(),
+        startDate: z.date().nullable().optional(),
+        dueDate: z.date().nullable().optional(),
+        color: hexColorSchema.nullable().optional(),
       }),
     )
     .mutation(

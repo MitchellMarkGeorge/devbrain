@@ -2,6 +2,7 @@ import { createServer, IncomingMessage, Server, ServerResponse } from 'node:http
 import { AddressInfo } from 'node:net';
 import { CoreError, IntegrationAuthError, OAuthUnavailableError } from '../../shared/errors';
 import { OAUTH_CALLBACK_TIMEOUT_MS } from '../../sync/constants';
+import { BAD_REQUEST_PAGE, DONE_PAGE, FAILED_PAGE, NOT_FOUND_PAGE } from './pages';
 
 // The temporary HTTP listener the browser is redirected to at the end of an OAuth flow. Bound to
 // 127.0.0.1 only, single use, and closed on every way out: callback, provider error, timeout, abort.
@@ -170,18 +171,3 @@ function send(res: ServerResponse, status: number, body: string): void {
   });
   res.end(body);
 }
-
-function page(title: string, message: string): string {
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title></head><body style="font-family: system-ui, sans-serif; text-align: center; padding-top: 4rem"><h1>${title}</h1><p>${message}</p></body></html>`;
-}
-
-const DONE_PAGE = page('Connected to DevBrain', 'You can close this tab and return to DevBrain.');
-const FAILED_PAGE = page(
-  'Sign-in not completed',
-  'You can close this tab and try again from DevBrain.',
-);
-const BAD_REQUEST_PAGE = page(
-  'Unexpected request',
-  'This sign-in link is not the one DevBrain is waiting for.',
-);
-const NOT_FOUND_PAGE = page('Not found', 'There is nothing here.');

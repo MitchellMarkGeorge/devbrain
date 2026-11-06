@@ -12,3 +12,23 @@ export const WINDOW_FOREGROUND = {
   dark: '#e5e5e5',
   light: '#0a0a0a',
 } as const;
+
+// The tokens of the pages the OAuth loopback serves to the browser, which loads nothing from the
+// app: --font-sans, and the colours they use in each theme
+export const BROWSER_PAGE_FONT =
+  'Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif';
+
+export const BROWSER_PAGE_COLOURS = {
+  dark: {
+    background: '#0a0a0a',
+    foreground: '#e5e5e5',
+    'foreground-strong': '#f5f5f5',
+    'muted-foreground': '#a1a1a1',
+  },
+  light: {
+    background: '#ffffff',
+    foreground: '#0a0a0a',
+    'foreground-strong': '#0a0a0a',
+    'muted-foreground': '#737373',
+  },
+} as const;

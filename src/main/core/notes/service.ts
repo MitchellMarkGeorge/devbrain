@@ -121,6 +121,13 @@ export class NoteService {
     }
   }
 
+  // The path of an active note's markdown file, for showing it in the file manager. The file may
+  // be missing. Throws NotFoundError for an unknown or archived note.
+  filePathOf(id: NoteId): string {
+    this.getById(id);
+    return this.noteFilePath(id);
+  }
+
   // The markdown of an active note, read from its file, without the file's front matter. Throws
   // NotFoundError for an unknown or archived note, MalformedNoteFileError for a damaged file.
   async readContent(id: NoteId): Promise<string> {
