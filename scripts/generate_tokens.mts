@@ -25,6 +25,8 @@ const SOURCE = 'docs/design-system/tokens.json';
 const OUTPUT = 'src/renderer/styles/tokens.css';
 const WINDOW_OUTPUT = 'src/common/theme.ts';
 const DOMAIN = /^(status|priority|health|date|now|swatch|syntax)-/;
+// the colour tokens the OAuth loopback's browser pages use (src/main/core/integrations/oauth/pages.ts)
+const BROWSER_PAGE_TOKENS = ['background', 'foreground', 'foreground-strong', 'muted-foreground'];
 
 const tokens = JSON.parse(readFileSync(SOURCE, 'utf8')) as Tokens;
 
@@ -231,6 +233,19 @@ export const WINDOW_BACKGROUND = {
 export const WINDOW_FOREGROUND = {
   dark: '${hex('foreground', 'dark')}',
   light: '${hex('foreground', 'light')}',
+} as const;
+
+// The tokens of the pages the OAuth loopback serves to the browser, which loads nothing from the
+// app: --font-sans, and the colours they use in each theme
+export const BROWSER_PAGE_FONT = '${tokens.type.families.sans}';
+
+export const BROWSER_PAGE_COLOURS = {
+${(['dark', 'light'] as const)
+  .map(
+    (themeName) =>
+      `  ${themeName}: {\n${BROWSER_PAGE_TOKENS.map((name) => `    '${name}': '${hex(name, themeName)}',`).join('\n')}\n  },`,
+  )
+  .join('\n')}
 } as const;
 `,
 );

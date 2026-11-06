@@ -150,6 +150,20 @@ window controls the system draws. Main sets the frame up per platform
 Keys are written as on macOS ("⌘K", "⌘⇧X"). `Kbd`, menu shortcuts and the tooltips that show keys
 name them for the platform: "Ctrl+K", "Ctrl+Shift+X" on Windows and Linux (`formatKeys`).
 
+## Browser pages
+
+The pages the OAuth loopback serves to the browser at the end of a sign-in
+(`src/main/core/integrations/oauth/pages.ts`: signed in, sign-in not completed, unexpected
+sign-in link, nothing here) are drawn as the `OnboardingScreen` header, centred on the page: the
+`Logomark` (40×48), the title 38px under it (30px semibold `foreground-strong`) and one 14px
+`muted-foreground` line 8px under that, in a column at most 480px wide on `background`. They
+follow the browser's light or dark preference, not the app's theme setting.
+
+They load nothing: the listener stops accepting once it has answered, so the styles are inline and
+the logomarks are the asset files as data URIs. Their colours and font stack come from `tokens.json`
+through `npm run tokens` (`BROWSER_PAGE_COLOURS` and `BROWSER_PAGE_FONT` in `src/common/theme.ts`);
+Inter shows where it is installed, and the page falls back along `--font-sans` otherwise.
+
 ## Page widths
 
 Two kinds of page, one rule each:
