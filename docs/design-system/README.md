@@ -161,11 +161,11 @@ at most 480px wide on `background`. They follow the browser's light or dark pref
 app's theme setting.
 
 They load nothing: the listener stops accepting once it has answered, so the styles are inline and
-the logomark assets are imported with `?raw` and inlined as data URIs. (Scripts that load core under
-tsx need `--import ./scripts/raw-loader.mjs` for `?raw`; the main build and Vitest handle it.) Their
-colours and font stack come from `tokens.json` through `npm run tokens` (`BROWSER_PAGE_COLOURS` and
-`BROWSER_PAGE_FONT` in `src/common/theme.ts`); Inter shows where it is installed, and the page falls
-back along `--font-sans` otherwise.
+the logomark assets are imported with `?raw` and inlined as data URIs (Vite reads `?raw` in the main
+build, in Vitest and in scripts run with `scripts/run-with-vite.mts`). Their colours and font stack
+come from `tokens.json` through `npm run tokens` (`BROWSER_PAGE_COLOURS` and `BROWSER_PAGE_FONT` in
+`src/common/theme.ts`); Inter shows where it is installed, and the page falls back along
+`--font-sans` otherwise.
 
 ## Page widths
 
