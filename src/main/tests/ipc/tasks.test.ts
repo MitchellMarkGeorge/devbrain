@@ -259,3 +259,146 @@ describe('tasks', () => {
     expect(reattached.changed).toContain('task');
   });
 });
+
+describe('clearing fields and undated tasks', () => {
+  it('creates a task without a due date, and clears fields with null', async () => {
+    const created = await mutate<Task>('tasks.create', { title: 'Someday' });
+    expect(created).toMatchObject({ ok: true, data: { dueDate: null }, changed: ['task'] });
+    expect(await mutate('tasks.create', { title: 'Also', dueDate: null })).toMatchObject({
+      ok: true,
+      data: { dueDate: null },
+    });
+
+    const { id } = workspace().tasks.createTask({
+      title: 'Full',
+      description: 'Notes',
+      startDate: DUE,
+      dueDate: DUE,
+      pullRequestUrl: 'https://github.com/acme/app/pull/1',
+    });
+    expect(
+      await mutate('tasks.update', {
+        id,
+        description: null,
+        startDate: null,
+        dueDate: null,
+        pullRequestUrl: null,
+      }),
+    ).toMatchObject({
+      ok: true,
+      data: {
+        title: 'Full',
+        description: null,
+        startDate: null,
+        dueDate: null,
+        pullRequestUrl: null,
+      },
+      changed: ['task'],
+    });
+    // the title can't be cleared
+    expect(code(await mutate('tasks.update', { id, title: null }))).toBe('invalid_input');
+  });
+
+  it('refuses clearing a field of a synced task', async () => {
+    const id = await syncedTask(issue({ dueDate: DUE }));
+    expect(await mutate('tasks.update', { id, dueDate: null })).toMatchObject({
+      ok: false,
+      error: { data: { code: 'external_read_only' } },
+      changed: [],
+    });
+  });
+});
+
+describe('bulk task updates', () => {
+  it('updates every selected task in one call, returning task in changed', async () => {
+    const project = workspace().projects.createProject({ title: 'App' });
+    const a = workspace().tasks.createTask({ title: 'A', dueDate: DUE });
+    const b = workspace().tasks.createTask({ title: 'B' });
+
+    const result = await mutate<Task[]>('tasks.updateMany', {
+      ids: [a.id, b.id],
+      patch: { status: TaskStatus.IN_PROGRESS, priority: TaskPriority.HIGH, projectId: project.id },
+    });
+    expect(result).toMatchObject({ ok: true, changed: ['task'] });
+    expect(
+      dataOf(result).map((task) => [task.id, task.status, task.priority, task.projectId]),
+    ).toEqual([
+      [a.id, TaskStatus.IN_PROGRESS, TaskPriority.HIGH, project.id],
+      [b.id, TaskStatus.IN_PROGRESS, TaskPriority.HIGH, project.id],
+    ]);
+
+    expect(
+      await mutate('tasks.updateMany', {
+        ids: [a.id, b.id],
+        patch: { dueDate: null, projectId: null },
+      }),
+    ).toMatchObject({
+      ok: true,
+      data: [
+        { id: a.id, dueDate: null, projectId: null },
+        { id: b.id, dueDate: null, projectId: null },
+      ],
+      changed: ['task'],
+    });
+  });
+
+  it('refuses no ids, an empty patch and an id of another entity', async () => {
+    const { id } = workspace().tasks.createTask({ title: 'A', dueDate: DUE });
+
+    expect(code(await mutate('tasks.updateMany', { ids: [], patch: { priority: 1 } }))).toBe(
+      'invalid_input',
+    );
+    expect(code(await mutate('tasks.updateMany', { ids: [id], patch: {} }))).toBe('invalid_input');
+    expect(
+      code(await mutate('tasks.updateMany', { ids: [id, 'prj_1'], patch: { priority: 1 } })),
+    ).toBe('invalid_input');
+    expect(code(await mutate('archive.archiveTasks', { ids: [] }))).toBe('invalid_input');
+  });
+
+  it('archives every selected task with its notes in one call', async () => {
+    const a = workspace().tasks.createTask({ title: 'A', dueDate: DUE });
+    const b = workspace().tasks.createTask({ title: 'B', dueDate: DUE });
+    await workspace().notes.createNote({ title: 'A notes', linkedTaskId: a.id });
+
+    const result = await mutate<Task[]>('archive.archiveTasks', { ids: [a.id, b.id] });
+    expect(result).toMatchObject({
+      ok: true,
+      data: [
+        { id: a.id, archivedAt: expect.any(Date) },
+        { id: b.id, archivedAt: expect.any(Date) },
+      ],
+      changed: ['task', 'note'],
+    });
+    expect(workspace().tasks.listTasks().items).toEqual([]);
+
+    // all or nothing: one already archived fails the call
+    const c = workspace().tasks.createTask({ title: 'C', dueDate: DUE });
+    expect(await mutate('archive.archiveTasks', { ids: [c.id, a.id] })).toMatchObject({
+      ok: false,
+      error: { data: { code: 'already_archived' } },
+      changed: [],
+    });
+    expect(workspace().tasks.getById(c.id).archivedAt).toBeNull();
+  });
+
+  it('refuses a whole batch holding a synced task, changing none of it', async () => {
+    const synced = await syncedTask(issue());
+    const local = workspace().tasks.createTask({ title: 'Local', dueDate: DUE });
+
+    expect(
+      await mutate('tasks.updateMany', {
+        ids: [local.id, synced],
+        patch: { priority: TaskPriority.HIGH },
+      }),
+    ).toMatchObject({ ok: false, error: { data: { code: 'external_read_only' } }, changed: [] });
+    expect(await mutate('archive.archiveTasks', { ids: [local.id, synced] })).toMatchObject({
+      ok: false,
+      error: { data: { code: 'external_read_only' } },
+      changed: [],
+    });
+    expect(workspace().tasks.getById(local.id)).toMatchObject({
+      priority: TaskPriority.LOW,
+      archivedAt: null,
+    });
+  });
+});

@@ -187,14 +187,34 @@ describe('read-only guards — guarded methods', () => {
       run: (f) => tasks.createSubtask(f.task.id, { title: 'Child' }),
     },
     {
+      method: 'TaskService.updateTask (clearing a field)',
+      target: (f) => f.task.id,
+      run: (f) => tasks.updateTask(f.task.id, { dueDate: null }),
+    },
+    {
+      method: 'TaskService.updateTasks',
+      target: (f) => f.task.id,
+      run: (f) => tasks.updateTasks([f.other.id, f.task.id], { dueDate: null }),
+    },
+    {
       method: 'ArchiveService.archiveTask',
       target: (f) => f.task.id,
       run: (f) => archive.archiveTask(f.task.id),
     },
     {
+      method: 'ArchiveService.archiveTasks',
+      target: (f) => f.task.id,
+      run: (f) => archive.archiveTasks([f.other.id, f.task.id]),
+    },
+    {
       method: 'ProjectService.updateProject',
       target: (f) => f.project.id,
       run: (f) => projects.updateProject(f.project.id, { title: 'Edited' }),
+    },
+    {
+      method: 'ProjectService.updateProject (clearing a field)',
+      target: (f) => f.project.id,
+      run: (f) => projects.updateProject(f.project.id, { dueDate: null }),
     },
     {
       method: 'ProjectService.updateStatus',
@@ -248,6 +268,19 @@ describe('read-only guards — guarded methods', () => {
     const task = tasks.getById(f.task.id);
     expect(task.title).toBe('Task');
     expect(task.archivedAt).toBeNull();
+  });
+
+  it('refuses a whole batch that holds a synced task, changing none of it', async () => {
+    link(f.task.id);
+    expect(() => tasks.updateTasks([f.other.id, f.task.id], { dueDate: null })).toThrow(
+      ExternalReadOnlyError,
+    );
+    expect(() => archive.archiveTasks([f.other.id, f.task.id])).toThrow(ExternalReadOnlyError);
+
+    expect(tasks.getByIds([f.other.id, f.task.id]).map((t) => [t.dueDate, t.archivedAt])).toEqual([
+      [TOMORROW, null],
+      [TOMORROW, null],
+    ]);
   });
 
   it('restores a synced task, which SyncWriter relies on', async () => {

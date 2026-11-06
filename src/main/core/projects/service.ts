@@ -65,7 +65,7 @@ export class ProjectService {
       title: options.title,
       description: options.description ?? null,
       startDate: options.startDate ?? null,
-      dueDate: options.dueDate,
+      dueDate: options.dueDate ?? null,
       color: options.color ?? null,
       status: options.status ?? ProjectStatus.NOT_STARTED,
       completedAt: options.status === ProjectStatus.COMPLETED ? new Date() : null,

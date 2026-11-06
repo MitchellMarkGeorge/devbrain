@@ -10,7 +10,13 @@ import { NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
 import { TaskPriority, TaskStatus } from '@common/types';
-import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../../shared/errors';
+import {
+  AlreadyArchivedError,
+  InvalidInputError,
+  NotArchivedError,
+  NotFoundError,
+} from '../../shared/errors';
+import Database from 'better-sqlite3';
 import { tasks as tasksTable } from '@main/db/schema/tasks';
 import { eq } from 'drizzle-orm';
 import { createDb } from '../utils';
@@ -1401,11 +1407,9 @@ describe('TaskService — cursor pagination', () => {
 });
 
 describe('TaskService — undated tasks', () => {
-  // local tasks always get a due date; synced ones may not, so tests clear it on the row directly
+  // created without one, as the create dialog and quick capture allow
   async function undated(title: string) {
-    const task = tasks.createTask({ title, dueDate: TOMORROW });
-    db.update(tasksTable).set({ dueDate: null }).where(eq(tasksTable.id, task.id)).run();
-    return { ...task, dueDate: null };
+    return tasks.createTask({ title });
   }
 
   async function dated(title: string, dueDate: Date) {
@@ -1520,17 +1524,9 @@ describe('TaskService — undated tasks', () => {
     expect(await ids({ dueOn: TOMORROW })).toEqual([on.id]);
   });
 
-  it('createSubtask throws when neither the subtask nor its parent has a due date', async () => {
+  it('createSubtask under an undated parent, given no due date, has none', async () => {
     const parent = await undated('Undated parent');
-    expect(() => tasks.createSubtask(parent.id, { title: 'Sub' })).toThrow(
-      expect.objectContaining({
-        code: 'task_hierarchy',
-        reason: 'due_date_required',
-        message: expect.stringContaining(
-          'Subtasks need a due date when their parent task has none',
-        ),
-      }),
-    );
+    expect(tasks.createSubtask(parent.id, { title: 'Sub' }).dueDate).toBeNull();
   });
 
   it('createSubtask under an undated parent uses its own due date', async () => {
@@ -1687,5 +1683,183 @@ describe('TaskService — onChange', () => {
     tasks.createTask({ title: 'Unheard', dueDate: TOMORROW });
 
     expect(listener).not.toHaveBeenCalled();
+  });
+});
+
+describe('TaskService — clearing fields', () => {
+  it('creates a task without a due date, left out or null', () => {
+    expect(tasks.createTask({ title: 'Left out' }).dueDate).toBeNull();
+    expect(tasks.createTask({ title: 'Null', dueDate: null }).dueDate).toBeNull();
+  });
+
+  it('clears the nullable fields with null, keeping the ones left out', () => {
+    const task = tasks.createTask({
+      title: 'Full',
+      description: 'Notes',
+      startDate: YESTERDAY,
+      dueDate: TOMORROW,
+      pullRequestUrl: 'https://github.com/acme/app/pull/1',
+      priority: TaskPriority.HIGH,
+    });
+
+    const cleared = tasks.updateTask(task.id, {
+      description: null,
+      startDate: null,
+      dueDate: null,
+      pullRequestUrl: null,
+    });
+
+    expect(cleared).toMatchObject({
+      title: 'Full',
+      priority: TaskPriority.HIGH,
+      description: null,
+      startDate: null,
+      dueDate: null,
+      pullRequestUrl: null,
+    });
+    expect(tasks.getById(task.id)).toMatchObject({ dueDate: null, startDate: null });
+  });
+
+  it('clears the due date alone, leaving a start date after nothing (no date order is enforced)', () => {
+    const task = tasks.createTask({ title: 'Dated', startDate: TOMORROW, dueDate: NEXT_WEEK });
+    expect(tasks.updateTask(task.id, { dueDate: null })).toMatchObject({
+      startDate: TOMORROW,
+      dueDate: null,
+    });
+  });
+
+  it('lists a cleared task with the undated ones: last by due date, and out of due filters', () => {
+    const cleared = tasks.createTask({ title: 'Cleared', dueDate: YESTERDAY });
+    const dated = tasks.createTask({ title: 'Dated', dueDate: TOMORROW });
+    tasks.updateTask(cleared.id, { dueDate: null });
+
+    for (const direction of ['asc', 'desc'] as const) {
+      const ids = tasks.listTasks({}, { sortBy: 'dueDate', direction }).items.map((t) => t.id);
+      expect(ids).toEqual([dated.id, cleared.id]);
+    }
+    expect(tasks.listTasks({ dueBefore: NEXT_WEEK }).items.map((t) => t.id)).toEqual([dated.id]);
+  });
+});
+
+describe('TaskService — updateTasks', () => {
+  it('sets each field of the patch on every task, keeping the others', () => {
+    const a = tasks.createTask({ title: 'A', dueDate: TOMORROW, priority: TaskPriority.LOW });
+    const b = tasks.createTask({ title: 'B', priority: TaskPriority.MEDIUM });
+
+    const updated = tasks.updateTasks([a.id, b.id], {
+      priority: TaskPriority.HIGH,
+      dueDate: NEXT_WEEK,
+      projectId: FAKE_PROJECT_ID,
+    });
+
+    expect(updated.map((t) => t.id)).toEqual([a.id, b.id]);
+    for (const task of [tasks.getById(a.id), tasks.getById(b.id)]) {
+      expect(task).toMatchObject({
+        priority: TaskPriority.HIGH,
+        dueDate: NEXT_WEEK,
+        projectId: FAKE_PROJECT_ID,
+        status: TaskStatus.NOT_STARTED,
+        external: null,
+      });
+    }
+    expect(tasks.getById(a.id).title).toBe('A');
+  });
+
+  it('clears the due date and project with null', () => {
+    const a = tasks.createTask({ title: 'A', dueDate: TOMORROW, projectId: FAKE_PROJECT_ID });
+    const b = tasks.createTask({ title: 'B', dueDate: TOMORROW, projectId: FAKE_PROJECT_ID });
+
+    tasks.updateTasks([a.id, b.id], { dueDate: null, projectId: null });
+
+    expect(tasks.getByIds([a.id, b.id]).map((t) => [t.dueDate, t.projectId])).toEqual([
+      [null, null],
+      [null, null],
+    ]);
+  });
+
+  it('sets completedAt with a completed status and clears it with any other', () => {
+    const a = tasks.createTask({ title: 'A', dueDate: TOMORROW });
+    const b = tasks.createTask({ title: 'B', dueDate: TOMORROW, status: TaskStatus.COMPLETED });
+
+    const completed = tasks.updateTasks([a.id, b.id], { status: TaskStatus.COMPLETED });
+    expect(completed.every((t) => t.completedAt instanceof Date)).toBe(true);
+
+    const cancelled = tasks.updateTasks([a.id, b.id], { status: TaskStatus.CANCELLED });
+    expect(cancelled.map((t) => [t.status, t.completedAt])).toEqual([
+      [TaskStatus.CANCELLED, null],
+      [TaskStatus.CANCELLED, null],
+    ]);
+  });
+
+  it("changes a subtask's status, priority and due date, but refuses moving it to a project", () => {
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW });
+    const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
+
+    expect(tasks.updateTasks([sub.id], { priority: TaskPriority.HIGH })[0].priority).toBe(
+      TaskPriority.HIGH,
+    );
+    expect(() => tasks.updateTasks([parent.id, sub.id], { projectId: FAKE_PROJECT_ID })).toThrow(
+      expect.objectContaining({ code: 'task_hierarchy', reason: 'inherits_context' }),
+    );
+    expect(tasks.getById(parent.id).projectId).toBeNull();
+  });
+
+  it('fails as a whole for a missing or archived task, changing none', () => {
+    const a = tasks.createTask({ title: 'A', dueDate: TOMORROW });
+    const archived = tasks.createTask({ title: 'Archived', dueDate: TOMORROW });
+    archive.archiveTask(archived.id);
+    const listener = vi.fn();
+    tasks.onChange(listener);
+
+    expect(() =>
+      tasks.updateTasks([a.id, generateId('task')], { priority: TaskPriority.HIGH }),
+    ).toThrow(NotFoundError);
+    expect(() => tasks.updateTasks([a.id, archived.id], { priority: TaskPriority.HIGH })).toThrow(
+      NotFoundError,
+    );
+
+    expect(tasks.getById(a.id).priority).toBe(TaskPriority.LOW);
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('refuses a project that does not exist or is archived', () => {
+    const a = tasks.createTask({ title: 'A', dueDate: TOMORROW });
+    const projectService = new ProjectService(db);
+    const gone = projectService.createProject({ title: 'Gone' });
+    archive.archiveProject(gone.id);
+
+    expect(() => tasks.updateTasks([a.id], { projectId: generateId('project') })).toThrow(
+      NotFoundError,
+    );
+    expect(() => tasks.updateTasks([a.id], { projectId: gone.id })).toThrow(NotFoundError);
+    expect(tasks.getById(a.id).projectId).toBeNull();
+  });
+
+  it('refuses an empty patch, and returns nothing for no ids', () => {
+    const a = tasks.createTask({ title: 'A', dueDate: TOMORROW });
+    expect(() => tasks.updateTasks([a.id], {})).toThrow(InvalidInputError);
+    expect(tasks.updateTasks([], { priority: TaskPriority.HIGH })).toEqual([]);
+  });
+
+  it('counts a repeated id once', () => {
+    const a = tasks.createTask({ title: 'A', dueDate: TOMORROW });
+    expect(tasks.updateTasks([a.id, a.id], { priority: TaskPriority.HIGH })).toHaveLength(1);
+  });
+
+  it('sends an updated per task, in order, inside the transaction', () => {
+    const a = tasks.createTask({ title: 'A', dueDate: TOMORROW });
+    const b = tasks.createTask({ title: 'B', dueDate: TOMORROW });
+    const client = (db as typeof db & { $client: Database.Database }).$client;
+    const sent: [string, string, boolean][] = [];
+    tasks.onChange((change) => {
+      if (change.type === 'updated') sent.push([change.type, change.task.id, client.inTransaction]);
+    });
+
+    tasks.updateTasks([b.id, a.id], { priority: TaskPriority.HIGH });
+
+    expect(sent).toEqual([
+      ['updated', b.id, true],
+      ['updated', a.id, true],
+    ]);
   });
 });
