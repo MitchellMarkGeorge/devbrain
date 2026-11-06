@@ -155,6 +155,8 @@ describe('the reads table', () => {
       'event',
       'calendar',
     ]);
+    // a note's content reads only the note, though the rest of its router reads more
+    expect(entitiesReadBy(['notes', 'readContent'])).toEqual(['note']);
     expect(entitiesReadBy(['unknown', 'list'])).toBe('everything');
     expect(entitiesReadBy(['app', 'version'])).toEqual([]);
   });
