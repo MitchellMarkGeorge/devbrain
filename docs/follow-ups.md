@@ -84,9 +84,9 @@ _Found in feature 16b. Not a priority._
 
 Feature 16b moved the calendar work out of `IntegrationService` so that services only read and write the database and `SyncWriter` stays inside `src/main/core/sync/`. Every calendar operation that needs the provider or the writer now happens at the start of a run, in `EventSyncer`. That changed some behaviour:
 
-- **Deselecting a calendar removes its events when the run it starts reaches its first page, not at once.** `Workspace` starts a run of the source on `selection_changed`; until it writes, the events stay in the calendar view.
+- **Deselecting a calendar removes its events when the run it starts reaches its first page, not at once.** `Workspace` starts a run of the source on `selection_changed`; until it writes, the events stay in the database. The calendar view no longer shows them meanwhile: `EventService.listForCalendar` reads only selected synced calendars (and every local one).
 - **Refreshing the picker means running a sync.** New or renamed calendars appear when the run's listing stores them; the run's result has `'calendar'` in `changed`.
-- **A run that does not reach its first page does not clean up.** The clean-up is written with the run's first page, so with the integration disabled or needing reauth (the run is skipped), or offline (it fails before a page), a deselected calendar's events stay until a run gets that far.
+- **A run that does not reach its first page does not clean up.** The clean-up is written with the run's first page, so with the integration disabled or needing reauth (the run is skipped), or offline (it fails before a page), a deselected calendar's events stay stored, out of the calendar view, until a run gets that far.
 
 If any of these matters in the calendar UI, `EventSyncer` can expose two operations beside `start`, keeping both rules:
 

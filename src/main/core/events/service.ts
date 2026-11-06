@@ -505,6 +505,10 @@ export class EventService {
    * Events whose provider item was cancelled or deleted (link state `removed`) are kept only for
    * the notes linked to them, and are left out of the calendar.
    *
+   * So are the events of a synced calendar that is no longer selected: unticking one only flips
+   * the flag, and its events stay stored until the next sync run deletes them, which may not
+   * happen soon (offline, or an account that needs reconnecting). A local calendar is always read.
+   *
    * Synced calendars are mirrored from EVENT_HISTORY_WINDOW_MS back. When the range starts before
    * what a synced calendar of the read has, that calendar's older events are fetched from its
    * provider and saved first, and the read waits for that before reading the database. Other
@@ -532,6 +536,9 @@ export class EventService {
         and(
           inRange(start, end),
           eq(calendars.visible, true),
+          // an unticked synced calendar's events stay stored until a sync run deletes them; they
+          // leave the view at once
+          or(eq(calendars.selected, true), isNull(calendars.sourceId)),
           options.calendarIds ? inArray(events.calendarId, options.calendarIds) : undefined,
           not(hasLinkInState('event', events.id, LinkState.REMOVED)),
         ),
