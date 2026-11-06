@@ -73,9 +73,6 @@ interface CheckResult {
   encryptedHoldsPlain: boolean;
   decrypted: Settled<{ result: string; shouldReEncrypt: boolean }>;
   garbage: Settled<unknown>;
-  devBlob: Settled<{ result: string; shouldReEncrypt: boolean }>;
-  devBlobRefused: Settled<unknown>;
-  devAwareDecrypted: Settled<{ result: string; shouldReEncrypt: boolean }>;
 }
 
 const PLAIN = '{"type":"api_key","apiKey":"lin_api_round_trip"}';
@@ -122,24 +119,5 @@ describe.skipIf('skip' in electron)(title, () => {
 
   it('rejects a blob safeStorage did not write', { timeout: 60_000 }, () => {
     expect(check().garbage.ok).toBe(false);
-  });
-
-  it(
-    'in development, reads a dev cipher blob and asks for it to be stored again',
-    {
-      timeout: 60_000,
-    },
-    () => {
-      const result = check();
-      expect(result.devBlob).toEqual({ ok: true, value: { result: PLAIN, shouldReEncrypt: true } });
-      expect(result.devAwareDecrypted).toEqual({
-        ok: true,
-        value: { result: PLAIN, shouldReEncrypt: false },
-      });
-    },
-  );
-
-  it('otherwise refuses a dev cipher blob', { timeout: 60_000 }, () => {
-    expect(check().devBlobRefused.ok).toBe(false);
   });
 });

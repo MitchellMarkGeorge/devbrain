@@ -22,9 +22,15 @@ const EXTERNAL = [
 export default defineConfig(({ mode }) => {
   // OAuth client ids are read at build time, from .env or the build environment, and inlined
   const env = { ...loadEnv(mode, process.cwd(), ''), ...process.env };
-  const define = Object.fromEntries(
-    OAUTH_CLIENT_ENV_KEYS.map((key) => [`process.env.${key}`, JSON.stringify(env[key] ?? '')]),
-  );
+  const define = {
+    ...Object.fromEntries(
+      OAUTH_CLIENT_ENV_KEYS.map((key) => [`process.env.${key}`, JSON.stringify(env[key] ?? '')]),
+    ),
+    // Whether the build has the dev seed (src/main/dev), for `--seed`: in a development build
+    // only (`--mode development`, as scripts/dev.mts and seed:dev build). A release build drops
+    // its import, and the seed data with it.
+    __DEV_SEED__: JSON.stringify(mode === 'development'),
+  };
 
   return {
     define,

@@ -1,51 +1,27 @@
 /**
- * Seeds a local dev workspace with a moderately/realistically sized dataset —
- * projects, tasks (with subtasks), notes, and events — all linked together
- * the same way the app itself would link them, so real use cases (project
- * views, calendars, search, archiving, filtering/sorting) can be explored
- * against non-trivial data, and query performance can be meaningfully
- * measured.
+ * Seeds a DevBrain folder with a dev workspace holding a moderately/realistically sized dataset —
+ * projects, tasks (with subtasks), notes, and events — all linked together the same way the app
+ * itself would link them, so real use cases (project views, calendars, search, archiving,
+ * filtering/sorting) can be explored against non-trivial data, and query performance can be
+ * meaningfully measured.
  *
  * It goes through the same public service layer the app uses (Workspace →
- * ProjectService/TaskService/NoteService/EventService) rather than inserting
- * rows directly, so every business rule (completedAt consistency, the
- * note/task "one link" checks, subtask inheritance, etc.) is enforced the
- * same way it would be for real user data.
+ * ProjectService/TaskService/NoteService/EventService) rather than inserting rows directly, so
+ * every business rule (completedAt consistency, the note/task "one link" checks, subtask
+ * inheritance, etc.) is enforced the same way it would be for real user data.
  *
- * NOTE: createdAt/updatedAt are stamped by the DB at insert time, and the
- * service layer has no way to backdate them — so every row's createdAt will
- * land at "now" (whenever this script ran). The realistic timeline instead
- * comes from the semantic date fields that *are* settable (task/project
- * startDate & dueDate, event startAt/endAt), which are spread across the
- * past and future.
+ * NOTE: createdAt/updatedAt are stamped by the DB at insert time, and the service layer has no way
+ * to backdate them — so every row's createdAt will land at "now" (whenever the seed ran). The
+ * realistic timeline instead comes from the semantic date fields that *are* settable (task/project
+ * startDate & dueDate, event startAt/endAt), which are spread across the past and future.
  *
- * Usage:
- *   npm run seed:dev                              # create workspace at DEV_PATH (from .env)
- *   npm run seed:dev -- --reset                    # wipe and recreate it
- *   npm run seed:dev -- --path .dev2 --name Perf    # override .env for this run
- *   npm run seed:dev -- --path=.dev2 --name=Perf    # the same
- *   npm run seed:dev -- --seed 7                    # different dataset shape
- *
- * DEV_PATH and DEV_WORKSPACE_NAME are read from the repo's .env file (same
- * variables the app itself uses), falling back to `.dev` / `Dev` if either is
- * unset. --path/--name flags take precedence over both.
- *
- * When DEV_LINEAR_API_KEY is set, the workspace is also connected to that
- * Linear account through IntegrationService.connectWithApiKey, so a seeded
- * workspace starts connected, and waits for that first sync to finish. The key is stored with a dev-only cipher
- * (src/main/runtime/dev-cipher.ts), not safeStorage, which only exists inside
- * Electron. The app, run with `npm run dev`, reads it and stores it again
- * under safeStorage the first time it syncs.
+ * Development builds only: the app runs it at startup for `--seed` (src/main/dev/run.ts), and the
+ * release build leaves it out (__DEV_SEED__ in vite/main.config.ts).
  */
 
-import path from 'node:path';
-import fs from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { config as loadEnvFile } from '@dotenvx/dotenvx';
-import { openDevBrain } from '@main/core';
-import { openElectronSettingsStore } from '@main/runtime/settings-store';
-import { devCipher } from '@main/runtime/dev-cipher';
+import type { DevBrain } from '@main/core';
+import type { Workspace } from '@main/core/workspace/workspace';
 import {
   type Event,
   type Note,
@@ -55,38 +31,11 @@ import {
   type Task,
   TaskPriority,
   TaskStatus,
+  type WorkspaceInfo,
 } from '@common/types';
-import type { Workspace } from '@main/core/workspace/workspace';
 
-const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(SCRIPT_DIR, '..');
-const MIGRATIONS_PATH = path.join(REPO_ROOT, 'src/main/db/migrations');
-
-// load the repo's .env (DEV_PATH, DEV_WORKSPACE_NAME, ...) — doesn't override
-// anything already set in the environment, same as dotenvx in src/main/index.ts
-loadEnvFile({ path: path.join(REPO_ROOT, '.env') });
-
-// ---------------------------------------------------------------------------
-// CLI args
-// ---------------------------------------------------------------------------
-
-const argv = process.argv.slice(2);
-const hasFlag = (name: string) => argv.includes(`--${name}`);
-// `--name value` or `--name=value`
-const getOpt = (name: string, fallback: string): string => {
-  const inline = argv.find((arg) => arg.startsWith(`--${name}=`));
-  if (inline !== undefined) return inline.slice(`--${name}=`.length);
-  const idx = argv.indexOf(`--${name}`);
-  if (idx === -1 || idx === argv.length - 1) return fallback;
-  return argv[idx + 1];
-};
-
-const RESET = hasFlag('reset') || hasFlag('force');
-const ROOT_PATH = path.resolve(REPO_ROOT, getOpt('path', process.env.DEV_PATH ?? '.dev'));
-const WORKSPACE_NAME = getOpt('name', process.env.DEV_WORKSPACE_NAME ?? 'Dev');
-const SEED = Number(getOpt('seed', '42'));
-// read here and in tests only; the app always takes a key through the connect flow
-const LINEAR_API_KEY = process.env.DEV_LINEAR_API_KEY?.trim() || null;
+// the dataset `--seed` builds without a number
+export const DEFAULT_SEED = 42;
 
 // ---------------------------------------------------------------------------
 // Dataset size — a few hundred rows per table: enough to exercise
@@ -120,7 +69,8 @@ function mulberry32(seed: number) {
   };
 }
 
-const rng = mulberry32(SEED);
+// replaced for each run by seedDevBrain, from its seed
+let rng = mulberry32(DEFAULT_SEED);
 
 function randomInt(min: number, max: number): number {
   return Math.floor(rng() * (max - min + 1)) + min;
@@ -611,7 +561,7 @@ function freeformNoteContent(topic: string): string {
 // Seeding phases
 // ---------------------------------------------------------------------------
 
-async function seedProjects(workspace: Workspace): Promise<Project[]> {
+function seedProjects(workspace: Workspace): Project[] {
   const now = new Date();
   const statusPlan: ProjectStatus[] = [
     ...Array(3).fill(ProjectStatus.NOT_STARTED),
@@ -645,7 +595,7 @@ async function seedProjects(workspace: Workspace): Promise<Project[]> {
         dueDate = addDays(now, randomInt(60, 150));
     }
 
-    const project = await workspace.projects.createProject({
+    const project = workspace.projects.createProject({
       title,
       description,
       startDate,
@@ -658,7 +608,7 @@ async function seedProjects(workspace: Workspace): Promise<Project[]> {
   return projects;
 }
 
-async function seedEvents(workspace: Workspace): Promise<Event[]> {
+function seedEvents(workspace: Workspace): Event[] {
   const now = new Date();
   const events: Event[] = [];
 
@@ -669,7 +619,7 @@ async function seedEvents(workspace: Workspace): Promise<Event[]> {
     startAt.setHours(series.hour, series.minute, 0, 0);
     const endAt = addMinutes(startAt, series.durationMinutes);
 
-    const event = await workspace.events.createEvent({
+    const event = workspace.events.createEvent({
       title: series.title,
       description: series.description,
       startAt,
@@ -707,7 +657,7 @@ async function seedEvents(workspace: Workspace): Promise<Event[]> {
       endAt = addMinutes(startAt, pick([15, 30, 30, 45, 60, 60, 90]));
     }
 
-    const event = await workspace.events.createEvent({
+    const event = workspace.events.createEvent({
       title,
       description: chance(0.5) ? capitalize(pick(FILLER_SENTENCES)) : undefined,
       startAt,
@@ -764,7 +714,7 @@ function pickTaskPriority(): TaskPriority {
   ]);
 }
 
-async function seedRegularTasks(workspace: Workspace, projects: Project[]): Promise<Task[]> {
+function seedRegularTasks(workspace: Workspace, projects: Project[]): Task[] {
   // weight active projects highest, completed/on-hold lowest, and leave a
   // slice of tasks unassigned (personal/quick-capture tasks)
   const projectWeights: Array<[Project | null, number]> = [
@@ -788,7 +738,7 @@ async function seedRegularTasks(workspace: Workspace, projects: Project[]): Prom
     const status = pickTaskStatus(dueDate);
     const startDate = chance(0.6) ? addDays(dueDate, -randomInt(3, 21)) : undefined;
 
-    const task = await workspace.tasks.createTask({
+    const task = workspace.tasks.createTask({
       title: taskTitle(),
       description: chance(0.6) ? pick(TASK_DESCRIPTIONS) : undefined,
       priority: pickTaskPriority(),
@@ -802,7 +752,7 @@ async function seedRegularTasks(workspace: Workspace, projects: Project[]): Prom
       const repoSlug = project
         ? project.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')
         : 'devbrain';
-      await workspace.tasks.updateTask(task.id, {
+      workspace.tasks.updateTask(task.id, {
         pullRequestUrl: `https://github.com/devteam/${repoSlug}/pull/${randomInt(101, 987)}`,
       });
     }
@@ -845,7 +795,7 @@ async function seedEventFollowups(
     const followupCount = randomInt(1, 3);
     for (let i = 0; i < followupCount; i++) {
       const dueDate = addDays(event.startAt, randomInt(1, 10));
-      const task = await workspace.tasks.createTask({
+      const task = workspace.tasks.createTask({
         title: `${pick(TASK_VERBS)} ${pick(TASK_OBJECTS)}`,
         description: `Follow-up from "${event.title}".`,
         priority: pickTaskPriority(),
@@ -890,14 +840,14 @@ async function seedFreeformNotes(workspace: Workspace, projects: Project[]): Pro
   return notes;
 }
 
-async function seedNoteDerivedTasks(workspace: Workspace, notes: Note[]): Promise<Task[]> {
+function seedNoteDerivedTasks(workspace: Workspace, notes: Note[]): Task[] {
   const candidates = shuffle(notes).slice(0, Math.round(notes.length * NOTE_DERIVED_TASK_RATE));
   const tasks: Task[] = [];
 
   for (const note of candidates) {
     const count = randomInt(1, 2);
     for (let i = 0; i < count; i++) {
-      const task = await workspace.tasks.createTask({
+      const task = workspace.tasks.createTask({
         title: `${pick(TASK_VERBS)} ${pick(TASK_OBJECTS)}`,
         description: `Extracted from "${note.title}".`,
         priority: pickTaskPriority(),
@@ -929,7 +879,7 @@ async function seedTaskNotes(workspace: Workspace, tasks: Task[]): Promise<Note[
   return notes;
 }
 
-async function seedSubtasks(workspace: Workspace, tasks: Task[]): Promise<Task[]> {
+function seedSubtasks(workspace: Workspace, tasks: Task[]): Task[] {
   const candidates = shuffle(tasks).slice(0, Math.round(tasks.length * SUBTASK_RATE));
   const subtasks: Task[] = [];
 
@@ -945,7 +895,7 @@ async function seedSubtasks(workspace: Workspace, tasks: Task[]): Promise<Task[]
               [TaskStatus.COMPLETED, 0.2],
             ]);
 
-      const subtask = await workspace.tasks.createSubtask(parent.id, {
+      const subtask = workspace.tasks.createSubtask(parent.id, {
         title: pick(SUBTASK_FRAGMENTS),
         status,
         priority: parent.priority,
@@ -963,15 +913,12 @@ async function seedSubtasks(workspace: Workspace, tasks: Task[]): Promise<Task[]
 
 // Connects DEV_LINEAR_API_KEY's account, when it is set. A failed connect only warns: the seeded
 // data is still useful without it. Returns a line for the summary; never prints the key.
-async function connectLinear(workspace: Workspace): Promise<string> {
-  if (!LINEAR_API_KEY) return 'not connected (DEV_LINEAR_API_KEY is unset)';
+async function connectLinear(workspace: Workspace, apiKey: string | null): Promise<string> {
+  if (!apiKey) return 'not connected (DEV_LINEAR_API_KEY is unset)';
 
   console.log('Connecting Linear...');
   try {
-    const integration = await workspace.integrations.connectWithApiKey(
-      Provider.LINEAR,
-      LINEAR_API_KEY,
-    );
+    const integration = await workspace.integrations.connectWithApiKey(Provider.LINEAR, apiKey);
     // connecting starts each source's first sync; closing the workspace would abort it
     console.log('Syncing Linear...');
     await whenSyncIdle(workspace);
@@ -996,103 +943,90 @@ async function whenSyncIdle(workspace: Workspace): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Main
+
+// ---------------------------------------------------------------------------
+// Entry point
 // ---------------------------------------------------------------------------
 
-async function main() {
-  const startedAt = Date.now();
+export interface SeedOptions {
+  // the new workspace's name
+  name: string;
+  // the RNG's seed: the same one builds the same dataset shape
+  seed: number;
+  // DEV_LINEAR_API_KEY: the Linear account to connect, if any
+  linearApiKey: string | null;
+}
 
-  const alreadyExists = await fs
-    .stat(ROOT_PATH)
-    .then(() => true)
-    .catch(() => false);
+export interface SeedSummary {
+  workspace: WorkspaceInfo;
+  // rows created, by kind
+  counts: Record<string, number>;
+  // how connecting Linear went
+  linear: string;
+}
 
-  if (alreadyExists && !RESET) {
-    console.error(`A directory already exists at ${ROOT_PATH}.`);
-    console.error('Re-run with --reset to wipe and recreate it.');
-    process.exit(1);
-  }
-
-  console.log(`Seeding dev workspace at ${ROOT_PATH}${RESET ? ' (--reset)' : ''} [seed=${SEED}]`);
-
-  // --reset wipes the folder here: opening a DevBrain folder never deletes anything
-  if (alreadyExists) await fs.rm(ROOT_PATH, { recursive: true, force: true });
-  const devBrain = await openDevBrain({
-    settingsStore: openElectronSettingsStore,
-    path: ROOT_PATH,
-    createIfMissing: true,
-    workspace: { migrationsPath: MIGRATIONS_PATH, cipher: devCipher, fetch },
-  });
-  const created = await devBrain.workspaces.create({
-    name: WORKSPACE_NAME,
-    color: pick(PALETTE),
-  });
+/**
+ * Creates a workspace in an open DevBrain and fills it, printing each phase to the console. The
+ * workspace is left closed and recorded as the last one open, so the app opens onto it. Throws
+ * when a phase fails, leaving the workspace open with what was seeded so far.
+ */
+export async function seedDevBrain(devBrain: DevBrain, options: SeedOptions): Promise<SeedSummary> {
+  rng = mulberry32(options.seed);
+  const created = await devBrain.workspaces.create({ name: options.name, color: pick(PALETTE) });
   // create leaves it closed; seed it open
   const workspace = await devBrain.workspaces.open(created.id);
 
-  try {
-    console.log('Creating projects...');
-    const projects = await seedProjects(workspace);
+  console.log('Creating projects...');
+  const projects = seedProjects(workspace);
 
-    console.log('Creating events...');
-    const events = await seedEvents(workspace);
+  console.log('Creating events...');
+  const events = seedEvents(workspace);
 
-    console.log('Creating regular tasks...');
-    const regularTasks = await seedRegularTasks(workspace, projects);
+  console.log('Creating regular tasks...');
+  const regularTasks = seedRegularTasks(workspace, projects);
 
-    console.log('Creating meeting notes and event follow-up tasks...');
-    const eventFollowups = await seedEventFollowups(workspace, events, projects);
+  console.log('Creating meeting notes and event follow-up tasks...');
+  const eventFollowups = await seedEventFollowups(workspace, events, projects);
 
-    console.log('Creating project and freestanding notes...');
-    const freeformNotes = await seedFreeformNotes(workspace, projects);
+  console.log('Creating project and freestanding notes...');
+  const freeformNotes = await seedFreeformNotes(workspace, projects);
 
-    console.log('Creating tasks derived from notes...');
-    const noteDerivedTasks = await seedNoteDerivedTasks(workspace, freeformNotes);
+  console.log('Creating tasks derived from notes...');
+  const noteDerivedTasks = seedNoteDerivedTasks(workspace, freeformNotes);
 
-    const topLevelTasks = [...regularTasks, ...eventFollowups.tasks, ...noteDerivedTasks];
+  const topLevelTasks = [...regularTasks, ...eventFollowups.tasks, ...noteDerivedTasks];
 
-    console.log('Creating task notes...');
-    const taskNotes = await seedTaskNotes(workspace, topLevelTasks);
+  console.log('Creating task notes...');
+  const taskNotes = await seedTaskNotes(workspace, topLevelTasks);
 
-    console.log('Creating subtasks...');
-    const subtasks = await seedSubtasks(workspace, topLevelTasks);
+  console.log('Creating subtasks...');
+  const subtasks = seedSubtasks(workspace, topLevelTasks);
 
-    const allNotes = [...eventFollowups.notes, ...freeformNotes, ...taskNotes];
-    const allTasks = [...topLevelTasks, ...subtasks];
+  const allNotes = [...eventFollowups.notes, ...freeformNotes, ...taskNotes];
+  const allTasks = [...topLevelTasks, ...subtasks];
 
-    console.log('Indexing everything for search...');
-    workspace.search.indexProjects(projects);
-    workspace.search.indexEvents(events);
-    workspace.search.indexTasks(allTasks);
-    await workspace.search.indexNotes(allNotes);
+  console.log('Indexing everything for search...');
+  workspace.search.indexProjects(projects);
+  workspace.search.indexEvents(events);
+  workspace.search.indexTasks(allTasks);
+  await workspace.search.indexNotes(allNotes);
 
-    const linear = await connectLinear(workspace);
+  const linear = await connectLinear(workspace, options.linearApiKey);
 
-    await devBrain.close();
+  await devBrain.workspaces.close();
+  // as the workspaces.open route does, so the renderer's openLast opens it
+  devBrain.settings.set('state.lastWorkspaceId', created.id);
 
-    const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
-    console.log('');
-    console.log('Done.');
-    console.table({
+  return {
+    workspace: workspace.info,
+    counts: {
       projects: projects.length,
       events: events.length,
       'tasks (top-level)': topLevelTasks.length,
       'tasks (subtasks)': subtasks.length,
       'tasks (total)': allTasks.length,
       'notes (total)': allNotes.length,
-    });
-    console.log(`Linear: ${linear}`);
-    console.log(`Workspace: ${WORKSPACE_NAME} (${workspace.info.id})`);
-    console.log(`Path: ${ROOT_PATH}`);
-    console.log(`Elapsed: ${elapsedSeconds}s`);
-  } catch (err) {
-    await devBrain.close();
-    throw err;
-  }
+    },
+    linear,
+  };
 }
-
-main().catch((err) => {
-  console.error('Failed to seed dev workspace:');
-  console.error(err);
-  process.exit(1);
-});

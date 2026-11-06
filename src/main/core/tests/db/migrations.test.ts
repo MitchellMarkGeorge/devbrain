@@ -342,7 +342,7 @@ describe('migrations 0019–0021 — calendars and the event model', () => {
   });
 
   it('gives an all-day event its dates and moves its instants to their local midnights', () => {
-    // as the seed script stores them: local midnight to 23:59 the same day, and a two-day event
+    // as the dev seed stores them: local midnight to 23:59 the same day, and a two-day event
     // ending exactly at midnight
     const day = new Date(2026, 9, 14).getTime();
     const sqlite = migrated(`

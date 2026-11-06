@@ -8,7 +8,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "tsx scripts/dev.mts",
-    "seed:dev": "tsx scripts/run-with-vite.mts scripts/setup_dev_workspace.mts",
+    "seed:dev": "vite build --config vite/main.config.ts --mode development && electron . --seed-only --ozone-platform=headless --disable-gpu",
     "tokens": "tsx scripts/generate_tokens.mts && prettier --write src/renderer/styles/tokens.css src/common/theme.ts",
     "build": "npm run build:main && npm run build:preload && npm run build:renderer",
     "build:main": "vite build --config vite/main.config.ts",

@@ -72,7 +72,7 @@ describe('markdown round trip', () => {
   });
 
   it('keeps notes shaped like the seed workspace builds them, with a blank line between blocks', () => {
-    // scripts/setup_dev_workspace.mts writes a heading straight above its paragraph or list; the
+    // the dev seed (src/main/dev/seed.ts) writes a heading straight above its paragraph or list; the
     // editor always puts one blank line between blocks, the only change it makes to these notes
     const meeting = [
       '**When:** 11/4/2026, 10:00:00 AM',

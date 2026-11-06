@@ -22,6 +22,20 @@ npm run dev
 
 `npm run dev` starts the Vite dev server and launches Electron. The app window opens with hot-module replacement active in the renderer.
 
+### A dev workspace
+
+In development the app opens the DevBrain folder at `DEV_PATH` (from `.env`, default `.dev`), and doesn't create it. `npm run seed:dev` creates it with one workspace of sample projects, tasks, notes and events, then quits; `npm run dev -- --seed` does the same and then opens the app on it. The seed runs inside the app (`src/main/dev`), so it uses the same services, `safeStorage` and network stack, and only development builds have it.
+
+```bash
+npm run seed:dev                         # seed DEV_PATH, then quit
+npm run seed:dev -- --reset              # wipe the folder and seed it again
+npm run seed:dev -- --path .dev2 --name Perf --seed 7   # another folder, workspace name and dataset
+npm run dev -- --seed --reset            # seed, then open the app on the seeded workspace
+npm run dev -- --path .dev2              # open another folder
+```
+
+With `DEV_LINEAR_API_KEY` set in `.env`, the seeded workspace is connected to that Linear account and synced once. Quit the app before seeding: a seed refuses to run beside it. `seed:dev` runs Electron headless (`--ozone-platform=headless`), so it needs no display.
+
 `npm test` (and `npm run test:watch`) runs Vitest on Electron's Node (`scripts/vitest.mts`), so the tests use the Node version the app ships with and the build of `better-sqlite3` that `npm install` makes for Electron. Arguments go to Vitest: `npm test -- src/main/core/tests/sync`.
 
 ## Key dependency versions
@@ -68,6 +82,7 @@ electron-builder.yml      Packaging config (macOS DMG, Windows NSIS, Linux AppIm
 
 ```bash
 npm run dev            # Start Vite dev server + Electron (HMR in renderer, auto-restart on main/preload changes)
+npm run seed:dev       # Create the dev DevBrain folder with a seeded workspace (see "A dev workspace")
 npm run build          # Build main, preload, and renderer into dist/
 npm run compile        # build + package with electron-builder into release/
 npm run typecheck      # Type-check all source files (tsc --build; emits nothing)

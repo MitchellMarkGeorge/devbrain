@@ -26,7 +26,6 @@
     "vite/main.config.ts",
     "vite/preload.config.ts",
     "drizzle.config.ts",
-    "scripts/setup_dev_workspace.mts",
     "scripts/linear_scratch.mts"
   ]
 }

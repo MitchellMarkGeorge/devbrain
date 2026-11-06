@@ -81,7 +81,7 @@ describe('dates — all-day helpers', () => {
   });
 
   it('turns instants into dates: the start day, and the day after the last day touched', () => {
-    // as the seed script writes one: midnight to 23:59 the same day
+    // as the dev seed writes one: midnight to 23:59 the same day
     expect(allDayDates(new Date(2026, 9, 14), new Date(2026, 9, 14, 23, 59))).toEqual({
       startDate: '2026-10-14',
       endDate: '2026-10-15',

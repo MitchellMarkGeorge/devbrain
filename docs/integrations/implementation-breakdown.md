@@ -184,9 +184,9 @@ A workspace can hold a validated, encrypted Linear connection. Nothing syncs yet
 **Development shortcut**
 
 - [ ] `DEV_LINEAR_API_KEY` is in `.env.template` (added). Copy it into the git-ignored `.env` with a personal key.
-- [ ] In `scripts/setup_dev_workspace.mts`, when the variable is set, call `connectWithApiKey('linear', key)` on the dev workspace so a seeded workspace starts connected.
+- [ ] In the dev seed (`src/main/dev/seed.ts`), when the variable is set, call `connectWithApiKey('linear', key)` on the dev workspace so a seeded workspace starts connected.
 - [ ] Use the same variable in the scratch scripts for features 8 and 10, and to gate any live-API test so the suite skips it when the variable is absent.
-- [ ] Read the variable only in dev scripts and tests, never in `src/main`. The app itself always takes the key through the connect flow and stores it encrypted.
+- [ ] Read the variable only in dev scripts, the dev seed (`src/main/dev`, which release builds leave out) and tests. The app itself always takes the key through the connect flow and stores it encrypted.
 
 **Tests**
 

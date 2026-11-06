@@ -15,11 +15,18 @@ import path from 'node:path';
 import { config as loadEnv } from '@dotenvx/dotenvx';
 import log from 'electron-log';
 import os from 'node:os';
-import type { DevBrain } from '@main/core';
+import type { DevBrain, WorkspaceOptions } from '@main/core';
 import { createSafeStorageCipher } from './runtime/safe-storage-cipher';
 import { migrationsPath } from './runtime/migrations';
 import { openElectronSettingsStore } from './runtime/settings-store';
 import { loadDevBrain } from './runtime/start';
+import {
+  DevSwitchError,
+  NO_DEV_SWITCHES,
+  readDevSwitches,
+  type DevSwitches,
+  type SeedSwitches,
+} from './runtime/dev-switches';
 import { closeBeforeQuit, forwardSyncTriggers, holdSingleInstance } from './runtime/lifecycle';
 import { createElectronDesktop } from './runtime/desktop';
 import { createMenuActions, installAppMenu } from './runtime/menu';
@@ -37,10 +44,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.join(__dirname, '../..');
 
 loadDevelopmentEnv();
+const devSwitches = readDevelopmentSwitches();
 
 // One DevBrain at a time (runtime/lifecycle.ts): a later launch quits at once, and this one shows
-// its window instead
+// its window instead. A seed can't run beside the app, which has the folder open: it fails.
 const isOnlyInstance = holdSingleInstance(app, () => showMainWindow());
+if (!isOnlyInstance && devSwitches.seed !== null) {
+  console.error('DevBrain is already running. Quit it, then seed again.');
+  app.exit(1);
+}
 
 // The repository's .env, in development only. A packaged app ships no .env: the OAuth client values
 // are inlined at build time (vite/main.config.ts), DEVBRAIN_PATH has a default, and every other
@@ -48,6 +60,20 @@ const isOnlyInstance = holdSingleInstance(app, () => showMainWindow());
 function loadDevelopmentEnv() {
   if (app.isPackaged) return;
   loadEnv({ path: path.join(REPO_ROOT, '.env') });
+}
+
+// `--seed`, `--path` and the rest (runtime/dev-switches.ts), in development only. One that can't
+// be read quits the app, saying how to write it.
+function readDevelopmentSwitches(): DevSwitches {
+  if (app.isPackaged) return NO_DEV_SWITCHES;
+  try {
+    return readDevSwitches(process.argv);
+  } catch (error) {
+    if (!(error instanceof DevSwitchError)) throw error;
+    console.error(error.message);
+    app.exit(1);
+    return NO_DEV_SWITCHES;
+  }
 }
 
 function configureLogging() {
@@ -65,11 +91,32 @@ function configureLogging() {
 // --- DevBrain -------------------------------------------------------------
 const devBrainLog = log.scope('devbrain');
 
-// The DevBrain folder: in development the one `npm run seed:dev` fills (DEV_PATH, relative to the
-// repository, as the seed script reads it), else DEVBRAIN_PATH or ~/.devbrain.
+// The DevBrain folder: in development the one `--seed` fills (--path or DEV_PATH, relative to the
+// repository), else DEVBRAIN_PATH or ~/.devbrain.
 function devBrainRootPath(): string {
-  if (!app.isPackaged) return path.resolve(REPO_ROOT, process.env.DEV_PATH ?? '.dev');
+  if (!app.isPackaged) {
+    return path.resolve(REPO_ROOT, devSwitches.path ?? process.env.DEV_PATH ?? '.dev');
+  }
   return process.env.DEVBRAIN_PATH ?? path.join(os.homedir(), '.devbrain');
+}
+
+// What every workspace is opened with, the dev seed's included
+function workspaceOptions(): WorkspaceOptions {
+  return {
+    migrationsPath: migrationsPath({
+      isPackaged: app.isPackaged,
+      resourcesPath: process.resourcesPath,
+      repoRoot: REPO_ROOT,
+      override: process.env.DB_MIGRATIONS_PATH,
+    }),
+    // the key stays in the OS keychain
+    cipher: createSafeStorageCipher(safeStorage),
+    // Chromium's network stack: honours the system proxy (PAC files included) and the OS
+    // certificate store, which Node's fetch does not
+    fetch: (url, init) => net.fetch(url, init),
+    openExternal: (url) => shell.openExternal(url),
+    logger: log.scope('sync'),
+  };
 }
 
 // Opens the DevBrain folder, and no workspace yet: the renderer opens one (workspaces.openLast).
@@ -82,27 +129,31 @@ async function loadCore(): Promise<DevBrain | null> {
       rootPath: devBrainRootPath(),
       createIfMissing: app.isPackaged,
       settingsStore: openElectronSettingsStore,
-      workspace: {
-        migrationsPath: migrationsPath({
-          isPackaged: app.isPackaged,
-          resourcesPath: process.resourcesPath,
-          repoRoot: REPO_ROOT,
-          override: process.env.DB_MIGRATIONS_PATH,
-        }),
-        // the key stays in the OS keychain; in development the seed script's dev blobs are read too
-        cipher: createSafeStorageCipher(safeStorage, { readDevBlobs: !app.isPackaged }),
-        // Chromium's network stack: honours the system proxy (PAC files included) and the OS
-        // certificate store, which Node's fetch does not
-        fetch: (url, init) => net.fetch(url, init),
-        openExternal: (url) => shell.openExternal(url),
-        logger: log.scope('sync'),
-      },
+      workspace: workspaceOptions(),
       logger: devBrainLog,
     });
   } catch (error) {
     devBrainLog.error('Loading DevBrain failed', error);
     return null;
   }
+}
+
+// --- Dev seed -------------------------------------------------------------
+// `--seed` fills the DevBrain folder before it loads (src/main/dev/run.ts), in development. Only a
+// development build has the seed: the release build leaves out this import (__DEV_SEED__ in
+// vite/main.config.ts), and the seed data with it. Returns whether it seeded.
+async function seedBeforeLoading(switches: SeedSwitches): Promise<boolean> {
+  if (__DEV_SEED__) {
+    const { runDevSeed } = await import('./dev/run');
+    return runDevSeed({
+      rootPath: devBrainRootPath(),
+      settingsStore: openElectronSettingsStore,
+      workspace: workspaceOptions(),
+      switches,
+    });
+  }
+  console.error('This build has no dev seed: build main with --mode development to seed.');
+  return false;
 }
 
 // --- IPC ------------------------------------------------------------------
@@ -272,13 +323,23 @@ function attachMenu(devBrain: DevBrain | null) {
 }
 
 // --- App lifecycle --------------------------------------------------------
-// Startup, in order: load DevBrain; attach everything that follows it, before anything starts;
-// then create the window, whose first calls find the router. The renderer reopens the last
-// workspace itself (workspaces.openLast), so a slow open never holds the window back.
+// Startup, in order: seed the folder, for `--seed` in development; load DevBrain; attach everything
+// that follows it, before anything starts; then create the window, whose first calls find the
+// router. The renderer reopens the last workspace itself (workspaces.openLast), so a slow open
+// never holds the window back.
 app.whenReady().then(async () => {
   // another instance runs: this one is quitting, and opens nothing
   if (!isOnlyInstance) return;
   configureLogging();
+
+  // a failed seed quits, as does `--seed-only`: neither opens a window
+  if (devSwitches.seed !== null) {
+    const seeded = await seedBeforeLoading(devSwitches.seed);
+    if (!seeded || devSwitches.seed.quit) {
+      app.exit(seeded ? 0 : 1);
+      return;
+    }
+  }
 
   const devBrain = await loadCore();
   attachIpc(devBrain);

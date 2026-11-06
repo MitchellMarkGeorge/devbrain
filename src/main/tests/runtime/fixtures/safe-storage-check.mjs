@@ -6,7 +6,6 @@ import { register } from 'tsx/esm/api';
 
 register();
 const { createSafeStorageCipher } = await import('../../../runtime/safe-storage-cipher.ts');
-const { devCipher } = await import('../../../runtime/dev-cipher.ts');
 
 const PLAIN = '{"type":"api_key","apiKey":"lin_api_round_trip"}';
 
@@ -26,10 +25,8 @@ app.whenReady().then(run);
 async function run() {
   try {
     const cipher = createSafeStorageCipher(safeStorage);
-    const devAware = createSafeStorageCipher(safeStorage, { readDevBlobs: true });
     const available = await cipher.isAvailable();
     const encrypted = await cipher.encrypt(PLAIN);
-    const devBlob = await devCipher.encrypt(PLAIN);
     const result = {
       available,
       safeStorageAvailable: await safeStorage.isAsyncEncryptionAvailable(),
@@ -37,9 +34,6 @@ async function run() {
       encryptedHoldsPlain: encrypted.includes(Buffer.from('lin_api_round_trip')),
       decrypted: await settle(cipher.decrypt(encrypted)),
       garbage: await settle(cipher.decrypt(Buffer.from('not a safeStorage blob'))),
-      devBlob: await settle(devAware.decrypt(devBlob)),
-      devBlobRefused: await settle(cipher.decrypt(devBlob)),
-      devAwareDecrypted: await settle(devAware.decrypt(encrypted)),
     };
     console.log(`RESULT ${JSON.stringify(result)}`);
   } catch (error) {

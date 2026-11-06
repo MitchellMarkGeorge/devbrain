@@ -211,7 +211,7 @@ describe('stripMarkdown — GFM task lists', () => {
   });
 
   it('regression: a checklist followed by a real link does not corrupt either', () => {
-    // this is the exact shape of content the seed script's task notes
+    // this is the exact shape of content the dev seed's task notes
     // generate, and the exact case that broke with the original package
     const input =
       '### Implementation notes\n\n' +

@@ -1,6 +1,7 @@
 import { createServer, build } from 'vite';
 import { ChildProcess, spawn } from 'node:child_process';
 import electronPath from 'electron';
+import { withoutSeedSwitches } from '../src/main/runtime/dev-switches.ts';
 
 /**
  * Dev orchestration:
@@ -10,6 +11,10 @@ import electronPath from 'electron';
  *  4. On preload change: reload the focused window.
  *  5. On main change: quit Electron, then relaunch it.
  *  6. On Ctrl+C: quit Electron, then stop.
+ *
+ * Arguments after `--` go to Electron: `npm run dev -- --seed --reset` seeds the DevBrain folder
+ * before the app loads it (src/main/runtime/dev-switches.ts). Only the first launch gets the seed
+ * switches; a relaunch keeps the rest, `--path` among them.
  */
 
 // How long Electron gets to quit before it is killed: DevBrain closes the open workspace first,
@@ -18,6 +23,8 @@ const QUIT_TIMEOUT_MS = 5000;
 
 let electronProcess: ChildProcess | null = null;
 let shuttingDown = false;
+// the switches for the next launch
+let electronArgs = process.argv.slice(2);
 
 const server = await createServer({ configFile: 'vite/renderer.config.ts' });
 await server.listen();
@@ -54,11 +61,12 @@ function startElectron() {
   launches = launches.then(async () => {
     await stopElectron();
     if (shuttingDown) return;
-    const child = spawn(electronPath as unknown as string, ['.'], {
+    const child = spawn(electronPath as unknown as string, ['.', ...electronArgs], {
       stdio: 'inherit',
       env: { ...process.env, NODE_ENV: 'development', VITE_DEV_SERVER_URL: url },
     });
     electronProcess = child;
+    electronArgs = withoutSeedSwitches(electronArgs);
     child.on('exit', (code) => {
       // stopped by this script, for a relaunch or Ctrl+C
       if (electronProcess !== child) return;
@@ -95,9 +103,11 @@ await build({
   ],
 });
 
-// Main watcher: a rebuild requires relaunching Electron.
+// Main watcher: a rebuild requires relaunching Electron. A development build, which has the dev
+// seed (vite/main.config.ts).
 await build({
   configFile: 'vite/main.config.ts',
+  mode: 'development',
   build: {
     watch: {},
   },
