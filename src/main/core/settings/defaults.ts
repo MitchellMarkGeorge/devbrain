@@ -37,23 +37,3 @@ export function getDefaults(rootPath?: string): SettingsFile {
     },
   };
 }
-
-/**
- * `stored` with every key it lacks taken from `defaults`, at any depth; what it has is kept, even
- * where it doesn't match the defaults' shape. A settings file written before a setting was added
- * lacks that setting, inside its group (`settings.calendar` without `hideWeekends`), and
- * electron-store fills in defaults only at the top level.
- */
-export function withDefaults(stored: unknown, defaults: unknown): unknown {
-  if (stored === undefined) return defaults;
-  if (!isRecord(stored) || !isRecord(defaults)) return stored;
-  const merged: Record<string, unknown> = { ...stored };
-  for (const [key, value] of Object.entries(defaults)) {
-    merged[key] = withDefaults(stored[key], value);
-  }
-  return merged;
-}
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
