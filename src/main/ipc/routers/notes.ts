@@ -17,6 +17,12 @@ const links = {
   linkedTaskId: zId('task').nullable().optional(),
 };
 
+const createNoteOptions = z.object({
+  title: z.string().optional(),
+  content: z.string().optional(),
+  ...links,
+});
+
 export const notesRouter = t.router({
   list: wsProcedure
     .input(
@@ -42,7 +48,7 @@ export const notesRouter = t.router({
 
   // writes the note's file, empty, then its row
   create: wsProcedure
-    .input(z.object({ title: z.string().optional(), ...links }))
+    .input(createNoteOptions)
     .mutation(({ ctx, input }): Promise<Note> => ctx.workspace.notes.createNote(input)),
 
   // the title and links; the content goes through updateContent
@@ -51,6 +57,10 @@ export const notesRouter = t.router({
     .mutation(
       ({ ctx, input: { id, ...updates } }): Note => ctx.workspace.notes.updateNote(id, updates),
     ),
+
+  readContent: wsProcedure
+    .input(byId)
+    .query(({ ctx, input }): Promise<string> => ctx.workspace.notes.readContent(input.id)),
 
   // replaces the note's markdown; core runs one note's saves one at a time, so the last call wins
   updateContent: wsProcedure
