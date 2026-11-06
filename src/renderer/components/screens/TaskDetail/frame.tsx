@@ -4,6 +4,7 @@
  * top bar is PageHeader (agent E1); these stories draw their own so they don't depend on it.
  */
 import type { ReactNode } from 'react';
+import { TaskStatus } from '@common/types';
 import {
   Calendar,
   CircleCheck,
@@ -63,10 +64,10 @@ export function AppSidebar({ active }: { active: string }) {
           ))}
         </SidebarGroup>
         <SidebarGroup label="Recents">
-          <SidebarItem icon={<StatusIcon status="in-progress" />}>
+          <SidebarItem icon={<StatusIcon status={TaskStatus.IN_PROGRESS} />}>
             Implement OAuth2 PKCE flow
           </SidebarItem>
-          <SidebarItem icon={<StatusIcon status="in-progress" />}>
+          <SidebarItem icon={<StatusIcon status={TaskStatus.IN_PROGRESS} />}>
             Refactor token refresh logic
           </SidebarItem>
           <SidebarItem bar="green">Mitchell / Jesse 1:1</SidebarItem>

@@ -7,13 +7,13 @@ import {
   type ValueMenuContentProps,
   type ValueMenuOption,
 } from '../StatusMenu';
-import { PRIORITY_LABELS, type Priority } from '../../types';
+import type { TaskPriority } from '@common/types';
+import { PRIORITIES, PRIORITY_LABELS } from '../../types';
 
-const PRIORITIES: readonly Priority[] = ['high', 'medium', 'low'];
 // ⇧1, ⇧2, ⇧3 arrive as the shifted characters on a US layout
 const SHIFTED = ['!', '@', '#'];
 
-const PRIORITY_OPTIONS: ValueMenuOption<Priority>[] = PRIORITIES.map((priority, index) => ({
+const PRIORITY_OPTIONS: ValueMenuOption<TaskPriority>[] = PRIORITIES.map((priority, index) => ({
   value: priority,
   label: PRIORITY_LABELS[priority],
   icon: <PriorityIcon priority={priority} />,
@@ -22,11 +22,11 @@ const PRIORITY_OPTIONS: ValueMenuOption<Priority>[] = PRIORITIES.map((priority, 
 }));
 
 export interface PriorityMenuContentProps extends Omit<
-  ValueMenuContentProps<Priority>,
+  ValueMenuContentProps<TaskPriority>,
   'label' | 'options' | 'value'
 > {
   /** the task's priority; the matching item is ticked and highlighted */
-  priority: Priority | undefined;
+  priority: TaskPriority | undefined;
 }
 
 /**
@@ -40,8 +40,8 @@ export function PriorityMenuContent({ priority, ...props }: PriorityMenuContentP
 }
 
 export interface PriorityMenuProps {
-  priority: Priority | undefined;
-  onPriorityChange?: (priority: Priority) => void;
+  priority: TaskPriority | undefined;
+  onPriorityChange?: (priority: TaskPriority) => void;
   /** the element that opens the menu: a priority badge or icon button */
   trigger: ReactElement;
   open?: boolean;

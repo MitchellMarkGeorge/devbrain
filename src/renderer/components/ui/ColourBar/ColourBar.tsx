@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
-import { resolveColor, type Swatch } from '../../types';
+import { cssColor, type Swatch } from '../../types';
 import styles from './ColourBar.module.css';
 
 export interface ColourBarProps extends Omit<useRender.ComponentProps<'span'>, 'color'> {
@@ -29,7 +29,7 @@ export function ColourBar({ color, height = 12, render, style, ...props }: Colou
         className: styles.bar,
         'aria-hidden': true,
         style: {
-          '--colour-bar-color': resolveColor(color),
+          '--colour-bar-color': cssColor(color),
           '--colour-bar-height': `${height}px`,
           ...style,
         } as CSSProperties,

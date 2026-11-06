@@ -1,17 +1,16 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Flex, Stack } from '../../layout/Flex';
 import { Text } from '../../layout/Text';
-import { PRIORITY_LABELS, type Priority } from '../../types';
+import { TaskPriority } from '@common/types';
+import { PRIORITIES, PRIORITY_LABELS } from '../../types';
 import { PriorityIcon } from './PriorityIcon';
-
-const PRIORITIES = Object.keys(PRIORITY_LABELS) as Priority[];
 
 const meta = {
   title: 'Entities/PriorityIcon',
   component: PriorityIcon,
-  args: { priority: 'high', size: 16 },
+  args: { priority: TaskPriority.HIGH, size: 16 },
   argTypes: {
-    priority: { control: 'inline-radio', options: PRIORITIES },
+    priority: { control: { type: 'inline-radio', labels: PRIORITY_LABELS }, options: PRIORITIES },
     size: { control: 'inline-radio', options: [12, 16, 24] },
   },
 } satisfies Meta<typeof PriorityIcon>;

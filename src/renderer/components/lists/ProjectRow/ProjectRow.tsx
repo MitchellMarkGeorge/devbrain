@@ -4,43 +4,40 @@ import { Badge } from '../../ui/Badge';
 import { Icon } from '../../ui/Icon';
 import { ListRow, type ListRowProps } from '../ListRow';
 import { Progress } from '../../ui/Progress';
-import {
-  PROJECT_STATUS_LABELS,
-  ProjectStatusIcon,
-  type ProjectStatus,
-} from '../../entities/ProjectStatusIcon';
-import { resolveColor, type Swatch } from '../../types';
+import type { Project, ProjectStats } from '@common/types';
+import { PROJECT_STATUS_LABELS, ProjectStatusIcon } from '../../entities/ProjectStatusIcon';
+import { useFormat } from '../../lib/format';
+import { percentOf, resolveColor } from '../../types';
+import { projectDateText } from '../../project-text';
 import styles from './ProjectRow.module.css';
 
-/** What a project row shows. */
-export interface ProjectRowProject {
-  name: string;
-  /** the folder's colour: a swatch name or a CSS colour */
-  color?: Swatch | string;
-  /** shown as a pill with its ProjectStatusIcon */
-  status?: ProjectStatus;
-  /** tasks done, 0–100 */
-  progress?: number;
-  /** "Due Jul 1" */
-  due?: string;
-}
+/** The fields of core's `Project` a project row reads; pass the project as it is. */
+export type ProjectRowData = Pick<
+  Project,
+  'title' | 'color' | 'status' | 'dueDate' | 'completedAt'
+>;
 
 export interface ProjectRowProps extends Omit<
   ListRowProps,
   'icon' | 'title' | 'excerpt' | 'meta' | 'metaWidth' | 'children'
 > {
-  project: ProjectRowProject;
+  project: ProjectRowData;
+  /** its tasks done, from `projects.stats`: the progress bar; none while it loads */
+  stats?: Pick<ProjectStats, 'numOfCompleted' | 'totalTasks'>;
 }
 
 /**
- * A project in the Projects list: its folder in the project's colour, the name, a status pill, a
- * 120px progress bar with the percent, and the due date. A strokeless 48px `ListRow`.
+ * A project in the Projects list, drawn from core's `Project` and its stats: its folder in the
+ * project's colour, the name, a status pill, a 120px progress bar with the percent of tasks done,
+ * and the due date ("Due Jul 1", or "Done Jun 12" once completed). A strokeless 48px `ListRow`.
  */
 export const ProjectRow = forwardRef<HTMLDivElement, ProjectRowProps>(function ProjectRow(
-  { project, ...props },
+  { project, stats, ...props },
   ref,
 ) {
+  const format = useFormat();
   const color = resolveColor(project.color);
+  const progress = stats && percentOf(stats.numOfCompleted, stats.totalTasks);
   return (
     <ListRow
       ref={ref}
@@ -53,30 +50,28 @@ export const ProjectRow = forwardRef<HTMLDivElement, ProjectRowProps>(function P
           style={color ? ({ '--project-color': color } as CSSProperties) : undefined}
         />
       }
-      title={project.name}
-      meta={project.due}
+      title={project.title}
+      meta={projectDateText(project, format)}
       metaWidth={76}
       {...props}
     >
       <span className={styles.status}>
-        {project.status && (
-          <Badge
-            variant="outline"
-            muted
-            icon={<ProjectStatusIcon status={project.status} size={12} />}
-          >
-            {PROJECT_STATUS_LABELS[project.status]}
-          </Badge>
-        )}
+        <Badge
+          variant="outline"
+          muted
+          icon={<ProjectStatusIcon status={project.status} size={12} />}
+        >
+          {PROJECT_STATUS_LABELS[project.status]}
+        </Badge>
       </span>
-      {project.progress != null && (
+      {progress != null && (
         <span className={styles.progress}>
           <Progress
-            value={project.progress}
-            aria-label={`${project.name}: ${project.progress}% done`}
+            value={progress}
+            aria-label={`${project.title}: ${progress}% done`}
             className={styles.bar}
           />
-          <span className={styles.percent}>{project.progress}%</span>
+          <span className={styles.percent}>{progress}%</span>
         </span>
       )}
     </ListRow>

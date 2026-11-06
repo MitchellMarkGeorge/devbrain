@@ -1,10 +1,21 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Folder, Video } from 'lucide-react';
-import { Button } from '../../ui/Button';
+import { Folder } from 'lucide-react';
 import { ColourBar } from '../../ui/ColourBar';
 import { Icon } from '../../ui/Icon';
 import { Progress } from '../../ui/Progress';
-import { HomeRow, HomeRowNote } from './HomeRow';
+import { storyDate } from '../../lib/story-dates';
+import { HomeMeetingRow, HomeRow, HomeRowNote, type HomeMeetingData } from './HomeRow';
+
+function meeting(title: string, startAt: Date, color: string, link = false): HomeMeetingData {
+  return {
+    title,
+    startAt,
+    endAt: new Date(startAt.getTime() + 30 * 60_000),
+    allDay: false,
+    meetingUrl: link ? 'https://meet.google.com/abc-defg-hij' : null,
+    color,
+  };
+}
 
 const meta = {
   title: 'Home/HomeRow',
@@ -25,26 +36,16 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 
 /**
- * Meetings: the next meeting filled with `card` and Join from 5 minutes before the start;
- * tomorrow's first meeting dimmed.
+ * Meetings, from core's events at 9:48 AM: the next meeting filled with `card`, with Join and its
+ * countdown; later ones by their start; tomorrow's first meeting dimmed with its weekday.
  */
 export const Meetings: Story = {
   render: () => (
     <div>
-      <HomeRow
-        current
-        icon={<ColourBar color="green" />}
-        title="Sprint Planning"
-        meta="In 12 min"
-        metaTone="today"
-      >
-        <Button size="xs" icon={Video}>
-          Join
-        </Button>
-      </HomeRow>
-      <HomeRow icon={<ColourBar color="green" />} title="Mitchell / Jesse 1:1" meta="10:30" />
-      <HomeRow icon={<ColourBar color="blue" />} title="Design Review" meta="1:00" />
-      <HomeRow muted icon={<ColourBar color="green" />} title="Daily Standup" meta="Tue 9:30" />
+      <HomeMeetingRow current event={meeting('Sprint Planning', storyDate(0, 10), 'green', true)} />
+      <HomeMeetingRow event={meeting('Mitchell / Jesse 1:1', storyDate(0, 10, 30), 'green')} />
+      <HomeMeetingRow event={meeting('Design Review', storyDate(0, 13), 'blue')} />
+      <HomeMeetingRow muted event={meeting('Daily Standup', storyDate(1, 9, 30), 'green')} />
     </div>
   ),
 };

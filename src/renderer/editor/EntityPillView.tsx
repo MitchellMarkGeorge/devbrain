@@ -1,6 +1,7 @@
 import { NodeViewWrapper, ReactNodeViewRenderer, type ReactNodeViewProps } from '@tiptap/react';
 import { createContext, useContext } from 'react';
 import { Image as ImageIcon } from 'lucide-react';
+import { TaskStatus } from '@common/types';
 import { EntityPill } from '../components';
 import { EntityLink } from './extensions/entity-link';
 import { ImageLink } from './extensions/image-link';
@@ -30,15 +31,17 @@ function EntityLinkPill({ node, selected }: ReactNodeViewProps) {
       data-entity-type={type}
     >
       <EntityPill
-        type={type}
-        color={entity?.color}
-        status={entity?.status ?? 'not-started'}
+        entity={
+          type === 'task'
+            ? { type, title, status: entity?.status ?? TaskStatus.NOT_STARTED }
+            : type === 'note'
+              ? { type, title }
+              : { type, title, color: entity?.color ?? null }
+        }
         // the caret moves past it; Tab stays with the editor
         tabIndex={-1}
         onClick={() => host.onOpenEntity?.(type, id)}
-      >
-        {title}
-      </EntityPill>
+      />
     </NodeViewWrapper>
   );
 }

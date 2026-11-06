@@ -59,9 +59,9 @@ export const TaskNoteCard = forwardRef<HTMLDivElement, TaskNoteCardProps>(functi
           {(project != null || tasksSummary != null || pills != null) && (
             <div className={styles.pills}>
               {project != null && (
-                <EntityPill type="project" color={projectColor}>
-                  {project}
-                </EntityPill>
+                <EntityPill
+                  entity={{ type: 'project', title: project, color: projectColor ?? null }}
+                />
               )}
               {tasksSummary != null && <EntityPill glyph={CircleCheck}>{tasksSummary}</EntityPill>}
               {pills}

@@ -5,7 +5,7 @@ import { cn } from '../../lib/cn';
 import { Button } from '../../ui/Button';
 import { ColourBar } from '../../ui/ColourBar';
 import { Icon, renderIcon, type IconSource } from '../../ui/Icon';
-import { isSwatch, resolveColor, swatchTintVar, type Swatch } from '../../types';
+import { isSwatch, cssColor, swatchTintVar, type Swatch } from '../../types';
 import styles from './GroupHeading.module.css';
 
 export interface GroupHeadingProps extends Omit<ComponentProps<'div'>, 'children'> {
@@ -68,7 +68,7 @@ export const GroupHeading = forwardRef<HTMLDivElement, GroupHeadingProps>(functi
   ref,
 ) {
   const total = totalProp ?? count;
-  const color = resolveColor(bar ?? iconColor);
+  const color = cssColor(bar ?? iconColor);
   const vars = {
     ...(color && { '--group-color': color }),
     ...(tintOf(tint, bar ?? iconColor) && { '--group-tint': tintOf(tint, bar ?? iconColor) }),

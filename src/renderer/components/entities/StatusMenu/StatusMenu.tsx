@@ -11,11 +11,12 @@ import {
   type DropdownMenuContentProps,
 } from '../../ui/DropdownMenu';
 import { StatusIcon } from '../StatusIcon';
-import { TASK_STATUS_LABELS, type TaskStatus } from '../../types';
+import { TaskStatus } from '@common/types';
+import { TASK_STATUS_LABELS } from '../../types';
 import styles from './StatusMenu.module.css';
 
 /** One value of a `ValueMenuContent`: its icon, its name and the key that picks it. */
-export interface ValueMenuOption<Value extends string> {
+export interface ValueMenuOption<Value extends string | number> {
   value: Value;
   label: ReactNode;
   icon: ReactNode;
@@ -25,7 +26,7 @@ export interface ValueMenuOption<Value extends string> {
   shortcut: ReactNode;
 }
 
-export interface ValueMenuContentProps<Value extends string> extends Omit<
+export interface ValueMenuContentProps<Value extends string | number> extends Omit<
   DropdownMenuContentProps,
   'children' | 'width' | 'onKeyDown'
 > {
@@ -44,7 +45,7 @@ export interface ValueMenuContentProps<Value extends string> extends Omit<
  * The current value is ticked and highlighted; the others show their shortcut, which picks them
  * while the menu is open.
  */
-export function ValueMenuContent<Value extends string>({
+export function ValueMenuContent<Value extends string | number>({
   label,
   options,
   value,
@@ -87,7 +88,11 @@ export function ValueMenuContent<Value extends string>({
 }
 
 /** The statuses a user picks, in menu order, with their shortcuts. */
-export const PICKABLE_STATUSES = ['not-started', 'in-progress', 'completed'] as const;
+export const PICKABLE_STATUSES = [
+  TaskStatus.NOT_STARTED,
+  TaskStatus.IN_PROGRESS,
+  TaskStatus.COMPLETED,
+] as const;
 export type PickableStatus = (typeof PICKABLE_STATUSES)[number];
 
 const STATUS_OPTIONS: ValueMenuOption<PickableStatus>[] = PICKABLE_STATUSES.map(
@@ -100,10 +105,9 @@ const STATUS_OPTIONS: ValueMenuOption<PickableStatus>[] = PICKABLE_STATUSES.map(
   }),
 );
 
-/** The status the menu ticks: overdue is derived from the date, so it ticks Not started. */
+/** The status the menu ticks: none for a cancelled task, which the menu does not offer. */
 function currentOf(status: TaskStatus): PickableStatus | undefined {
-  if (status === 'overdue') return 'not-started';
-  return (PICKABLE_STATUSES as readonly string[]).includes(status)
+  return (PICKABLE_STATUSES as readonly TaskStatus[]).includes(status)
     ? (status as PickableStatus)
     : undefined;
 }

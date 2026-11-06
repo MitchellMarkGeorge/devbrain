@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import type { Decorator, Preview } from '@storybook/react-vite';
+import { FormatProvider } from '../src/renderer/components/lib/format';
 import { WindowFrameProvider, type Platform } from '../src/renderer/components/lib/platform';
+import { STORY_NOW } from '../src/renderer/components/lib/story-dates';
 import '../src/renderer/styles/fonts.css';
 import '../src/renderer/styles/tokens.css';
 import '../src/renderer/styles/base.css';
@@ -31,8 +33,21 @@ const withWindowFrame: Decorator = (Story, context) => {
   );
 };
 
+// A fixed `now` (22 Jun 2026, 9:48 AM, as the designed screens use), so "Today" and "In 12 min."
+// read the same every day. A story can pass its own with `parameters.now`, and pick the time
+// format with the toolbar
+const withFormat: Decorator = (Story, context) => {
+  const now = (context.parameters.now as Date | undefined) ?? STORY_NOW;
+  const timeFormat = (context.globals.timeFormat ?? '12') as '12' | '24';
+  return (
+    <FormatProvider now={now} timeFormat={timeFormat}>
+      <Story />
+    </FormatProvider>
+  );
+};
+
 const preview: Preview = {
-  decorators: [withTheme, withWindowFrame],
+  decorators: [withTheme, withWindowFrame, withFormat],
   globalTypes: {
     theme: {
       description: 'Colour theme',
@@ -60,8 +75,20 @@ const preview: Preview = {
         dynamicTitle: true,
       },
     },
+    timeFormat: {
+      description: 'Clock: 12 or 24 hour times',
+      toolbar: {
+        title: 'Clock',
+        icon: 'time',
+        items: [
+          { value: '12', title: '12 hour' },
+          { value: '24', title: '24 hour' },
+        ],
+        dynamicTitle: true,
+      },
+    },
   },
-  initialGlobals: { theme: 'system', platform: 'macos' },
+  initialGlobals: { theme: 'system', platform: 'macos', timeFormat: '12' },
   parameters: {
     layout: 'padded',
     controls: { expanded: true },

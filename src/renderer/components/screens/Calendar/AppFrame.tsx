@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { TaskStatus } from '@common/types';
 import {
   Calendar,
   CircleCheck,
@@ -81,10 +82,10 @@ export function AppFrame({
               ))}
             </SidebarGroup>
             <SidebarGroup label="Recents" collapsible>
-              <SidebarItem icon={<StatusIcon status="in-progress" />}>
+              <SidebarItem icon={<StatusIcon status={TaskStatus.IN_PROGRESS} />}>
                 Implement OAuth2 PKCE flow
               </SidebarItem>
-              <SidebarItem icon={<StatusIcon status="in-progress" />}>
+              <SidebarItem icon={<StatusIcon status={TaskStatus.IN_PROGRESS} />}>
                 Refactor token refresh logic
               </SidebarItem>
               <SidebarItem bar="green">Mitchell / Jesse 1:1</SidebarItem>

@@ -2,10 +2,10 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ArrowUpDown, LayoutGrid, List, ListFilter, Plus } from 'lucide-react';
 import { Breadcrumb } from '../../ui/Breadcrumb';
 import { Button } from '../../ui/Button';
-import { EntityPill } from '../../entities/EntityPill';
 import { NoteCard } from '../../notes/NoteCard';
 import { ToggleGroup } from '../../ui/ToggleGroup';
 import { AppFrame, PageHeader, Spacer } from '../Calendar/AppFrame';
+import { NOTES } from './data';
 
 const meta = {
   title: 'Screens/Notes/NotesCards',
@@ -14,66 +14,6 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
-
-const NOTES = [
-  {
-    title: 'PKCE design notes',
-    updated: '2h ago',
-    preview: 'S256 challenge, 96-char verifier and a 10-minute code TTL, behind a feature flag.',
-    link: (
-      <EntityPill type="project" color="blue">
-        Auth Overhaul
-      </EntityPill>
-    ),
-  },
-  {
-    title: 'Architecture ADR #4 — PKCE',
-    updated: 'Yesterday',
-    preview:
-      'We adopt PKCE for every first-party client and retire the implicit flow by the end of July.',
-    link: (
-      <EntityPill type="project" color="blue">
-        Auth Overhaul
-      </EntityPill>
-    ),
-  },
-  {
-    title: 'Auth provider eval matrix',
-    updated: 'Jun 19',
-    preview: 'Auth0, Cognito and Keycloak compared on cost, SSO support and migration effort.',
-  },
-  {
-    title: 'API Gateway rate limits',
-    updated: 'Jun 18',
-    preview:
-      '600 requests a minute per key, a burst of 100, and a Retry-After header on every 429.',
-    link: (
-      <EntityPill type="project" color="amber">
-        API Gateway v2
-      </EntityPill>
-    ),
-  },
-  {
-    title: 'Mitchell / Jesse 1:1 notes',
-    updated: 'Jun 15',
-    preview: 'PKCE rollout timing, the token storage audit and the mobile fallback plan.',
-    link: (
-      <EntityPill type="event" color="green">
-        Mitchell / Jesse 1:1
-      </EntityPill>
-    ),
-  },
-  {
-    title: 'Sprint 14 retro',
-    updated: 'Jun 12',
-    preview: 'Fewer carry-overs this sprint; reviews still wait too long for a second approver.',
-    link: (
-      <EntityPill type="project" color="green">
-        AI Action Items
-      </EntityPill>
-    ),
-  },
-];
 
 function NotesCardsScreen({ width, height }: { width?: number; height?: number }) {
   const compact = width != null && width < 1080;
@@ -125,8 +65,8 @@ function NotesCardsScreen({ width, height }: { width?: number; height?: number }
           overflow: 'auto',
         }}
       >
-        {NOTES.map((n) => (
-          <NoteCard key={n.title} {...n} />
+        {NOTES.map((note) => (
+          <NoteCard key={note.title} note={note} />
         ))}
       </div>
     </AppFrame>

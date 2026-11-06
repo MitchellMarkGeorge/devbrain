@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { TaskPriority, TaskStatus } from '@common/types';
 import { CircleCheck, Link, Plus } from 'lucide-react';
 import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
@@ -8,6 +9,9 @@ import { EntityPill } from '../../entities/EntityPill';
 import { SheetDivider } from '../../ui/Sheet';
 import { TaskList } from '../../lists/TaskList';
 import { NotePage } from './notePage';
+import { sampleLinear, sampleTask } from '../../lists/TaskRow/fixtures';
+import { storyDate } from '../../lib/story-dates';
+import type { TaskId } from '@common/ids';
 
 const meta = {
   title: 'Screens/Notes',
@@ -26,9 +30,7 @@ export const NoteEditorLinkedTasks: Story = {
       edited="Edited yesterday"
       pills={
         <>
-          <EntityPill type="project" color="blue">
-            Auth Overhaul
-          </EntityPill>
+          <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
           <EntityPill glyph={CircleCheck}>3 tasks · 2 in progress</EntityPill>
         </>
       }
@@ -67,33 +69,30 @@ export const NoteEditorLinkedTasks: Story = {
         <TaskList
           selectionBar={false}
           tasks={[
-            {
-              id: '124',
+            sampleTask({
+              id: 'tsk_124' as TaskId,
               title: 'Implement OAuth2 PKCE flow',
-              status: 'in-progress',
-              key: 'ENG-124',
-              subtasks: [3, 4],
-              priority: 'high',
-              date: 'Jun 24',
-            },
-            {
-              id: '131',
+              status: TaskStatus.IN_PROGRESS,
+              priority: TaskPriority.HIGH,
+              dueDate: storyDate(2),
+              external: sampleLinear('ENG-124'),
+              subtaskProgress: { completed: 3, total: 4 },
+            }),
+            sampleTask({
+              id: 'tsk_131' as TaskId,
               title: 'Refactor token refresh logic',
-              status: 'in-progress',
-              key: 'ENG-131',
-              priority: 'high',
-              date: 'Jun 18',
-              dateTone: 'overdue',
-            },
-            {
-              id: '118',
+              status: TaskStatus.IN_PROGRESS,
+              priority: TaskPriority.HIGH,
+              dueDate: storyDate(-4),
+              external: sampleLinear('ENG-131'),
+            }),
+            sampleTask({
+              id: 'tsk_118' as TaskId,
               title: 'Audit token storage',
-              status: 'overdue',
-              key: 'ENG-118',
-              priority: 'high',
-              date: 'Jun 19',
-              dateTone: 'overdue',
-            },
+              priority: TaskPriority.HIGH,
+              dueDate: storyDate(-3),
+              external: sampleLinear('ENG-118'),
+            }),
           ]}
         />
       </DetailSection>

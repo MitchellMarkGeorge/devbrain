@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { TaskPriority, TaskStatus } from '@common/types';
 import { CalendarDays, Folder, Plus } from 'lucide-react';
 import { Flex, Stack } from '../../layout/Flex';
 import { PriorityIcon } from '../../entities/PriorityIcon';
@@ -46,8 +47,8 @@ export const Properties: Story = {
   render: () => (
     <Stack gap="3">
       <Flex gap="2" wrap="wrap">
-        <Badge icon={<StatusIcon status="in-progress" size={12} />}>In progress</Badge>
-        <Badge icon={<PriorityIcon priority="high" size={12} />}>High</Badge>
+        <Badge icon={<StatusIcon status={TaskStatus.IN_PROGRESS} size={12} />}>In progress</Badge>
+        <Badge icon={<PriorityIcon priority={TaskPriority.HIGH} size={12} />}>High</Badge>
         <Badge icon={CalendarDays} prefix="Due">
           Jul 1
         </Badge>

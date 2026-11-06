@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { TaskStatus } from '@common/types';
 import { useState, type ReactNode } from 'react';
 import {
   Calendar,
@@ -77,10 +78,10 @@ function AppSidebar() {
           ))}
         </SidebarGroup>
         <SidebarGroup label="Recents">
-          <SidebarItem icon={<StatusIcon status="in-progress" />}>
+          <SidebarItem icon={<StatusIcon status={TaskStatus.IN_PROGRESS} />}>
             Implement OAuth2 PKCE flow
           </SidebarItem>
-          <SidebarItem icon={<StatusIcon status="in-progress" />}>
+          <SidebarItem icon={<StatusIcon status={TaskStatus.IN_PROGRESS} />}>
             Refactor token refresh logic
           </SidebarItem>
           <SidebarItem bar="green">Mitchell / Jesse 1:1</SidebarItem>

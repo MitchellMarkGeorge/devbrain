@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
-import { resolveColor, type Swatch } from '../../types';
+import { cssColor, type Swatch } from '../../types';
 import styles from './SwatchDot.module.css';
 
 export interface SwatchDotProps extends Omit<useRender.ComponentProps<'span'>, 'color'> {
@@ -23,7 +23,7 @@ export function SwatchDot({ color, render, style, ...props }: SwatchDotProps) {
         'data-slot': 'swatch-dot',
         className: styles.slot,
         'aria-hidden': true,
-        style: { '--swatch-dot-color': resolveColor(color), ...style } as CSSProperties,
+        style: { '--swatch-dot-color': cssColor(color), ...style } as CSSProperties,
       } as useRender.ElementProps<'span'>,
       props,
     ),

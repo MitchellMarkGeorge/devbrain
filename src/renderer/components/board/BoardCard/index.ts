@@ -1,1 +1,1 @@
-export { BoardCard, boardCardVariants, type BoardCardProps, type BoardTask } from './BoardCard';
+export { BoardCard, boardCardVariants, type BoardCardData, type BoardCardProps } from './BoardCard';
