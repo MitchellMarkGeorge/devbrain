@@ -30,9 +30,9 @@ export const appSettingsSchema = z.object({
   }),
 });
 
-// A page in the app, as the renderer saves it for "Reopen last page" (general.openToLastPage): an
-// /app path with its search params, e.g. /app/tasks?view=board. Bounded, since it is written to the
-// settings file on every page change. The renderer parses it again before navigating to it.
+// A page in the app, as main saves it for "Reopen last page" (general.openToLastPage): the /app
+// path with its search params from the window's URL, e.g. /app/tasks?view=board. Bounded, as it
+// comes from the page. The renderer parses it again before navigating to it.
 export const MAX_LAST_PAGE_LENGTH = 2048;
 export const lastPageSchema = z
   .string()

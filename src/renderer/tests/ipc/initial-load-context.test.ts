@@ -58,15 +58,6 @@ describe('seedQueryCache', () => {
     );
   });
 
-  it('fills settings.lastPage, for boot to pick the landing page at once', () => {
-    const queryClient = new QueryClient();
-    seedQueryCache(queryClient, context);
-
-    expect(queryClient.getQueryData(trpc.settings.lastPage.queryKey())).toBe(
-      '/app/tasks?view=board',
-    );
-  });
-
   it('seeds nothing without a context, so the queries fetch', () => {
     const queryClient = new QueryClient();
     seedQueryCache(queryClient, null);

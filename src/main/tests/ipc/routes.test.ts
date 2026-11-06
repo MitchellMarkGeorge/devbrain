@@ -375,48 +375,6 @@ describe('settings', () => {
   });
 });
 
-describe('settings.lastPage', () => {
-  beforeEach(() => attach());
-
-  it('is null before a page was saved', async () => {
-    expect(await call('settings.lastPage')).toEqual({ ok: true, data: null, changed: [] });
-  });
-
-  it('saves the page the app is on and reads it back, reporting no change', async () => {
-    const href = '/app/tasks?view=board&status=all';
-    expect(await call('settings.setLastPage', { href }, 'mutation')).toEqual({
-      ok: true,
-      data: undefined,
-      // state is not a setting: nothing refetches for it
-      changed: [],
-    });
-    expect(devBrain.settings.get('state.lastPage')).toBe(href);
-    expect(await call('settings.lastPage')).toMatchObject({ ok: true, data: href });
-  });
-
-  it('refuses anything but a page in the app, writing nothing', async () => {
-    devBrain.settings.set('state.lastPage', '/app/home');
-    const refused = [
-      '/onboarding',
-      'https://example.com/app',
-      '/application',
-      '',
-      `/app/${'a'.repeat(2048)}`,
-      42,
-    ];
-    for (const href of refused) {
-      expect(code(await call('settings.setLastPage', { href }, 'mutation'))).toBe('invalid_input');
-    }
-    expect(devBrain.settings.get('state.lastPage')).toBe('/app/home');
-  });
-
-  it('accepts the app root and its pages with search params', async () => {
-    for (const href of ['/app', '/app/', '/app?x=1', '/app/notes/nte_1']) {
-      expect(await call('settings.setLastPage', { href }, 'mutation')).toMatchObject({ ok: true });
-    }
-  });
-});
-
 describe('workspace.openUrl', () => {
   beforeEach(async () => {
     attach();
