@@ -1,8 +1,8 @@
 import { createFileRoute, Outlet, redirect } from '@tanstack/react-router';
-import { AppShell } from '../components';
-import { AppSidebar } from '../app/AppSidebar';
-import { useHistoryArrows } from '../app/navigation';
-import { PageHeaderSlotProvider, usePageHeaderSlot } from '../app/page-header';
+import { AppShell } from '../../components';
+import { AppSidebar } from '../../app/AppSidebar';
+import { useHistoryArrows } from '../../app/navigation';
+import { PageHeaderSlotProvider, usePageHeaderSlot } from '../../app/page-header';
 
 // `/app/*`: the app around an open workspace. With none open, onboarding instead.
 export const Route = createFileRoute('/app')({

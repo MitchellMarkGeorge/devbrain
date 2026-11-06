@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { resolveLandingPage } from '../app/landing-page';
+import { resolveLandingPage } from '../../app/landing-page';
 
 // `/app`: the default landing page (Settings › General)
 export const Route = createFileRoute('/app/')({

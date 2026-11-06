@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Folder } from 'lucide-react';
-import { idOrNotFound, loadOrNotFound } from '../app/detail';
-import { PlaceholderPage } from '../app/pages';
-import { projectSearch } from '../pages/projects/search';
+import { idOrNotFound, loadOrNotFound } from '../../../app/detail';
+import { PlaceholderPage } from '../../../app/pages';
+import { projectSearch } from '../../../pages/projects/search';
 
 export const Route = createFileRoute('/app/projects/$projectId')({
   validateSearch: projectSearch,

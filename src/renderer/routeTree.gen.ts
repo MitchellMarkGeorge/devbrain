@@ -10,35 +10,35 @@
 
 import { Route as rootRouteImport } from './routes/__root';
 import { Route as IndexRouteImport } from './routes/index';
-import { Route as AppRouteImport } from './routes/app';
-import { Route as OnboardingRouteImport } from './routes/onboarding';
-import { Route as AppIndexRouteImport } from './routes/app.index';
-import { Route as AppCalendarRouteImport } from './routes/app.calendar';
-import { Route as AppHomeRouteImport } from './routes/app.home';
-import { Route as AppIntegrationsRouteImport } from './routes/app.integrations';
-import { Route as AppSettingsRouteImport } from './routes/app.settings';
-import { Route as AppTrashRouteImport } from './routes/app.trash';
-import { Route as OnboardingIndexRouteImport } from './routes/onboarding.index';
-import { Route as OnboardingChoose_workspaceRouteImport } from './routes/onboarding.choose_workspace';
-import { Route as OnboardingNew_workspaceRouteImport } from './routes/onboarding.new_workspace';
-import { Route as AppNotesIndexRouteImport } from './routes/app.notes.index';
-import { Route as AppNotesNoteIdRouteImport } from './routes/app.notes.$noteId';
-import { Route as AppProjectsIndexRouteImport } from './routes/app.projects.index';
-import { Route as AppProjectsProjectIdRouteImport } from './routes/app.projects.$projectId';
-import { Route as AppTasksIndexRouteImport } from './routes/app.tasks.index';
-import { Route as AppTasksTaskIdRouteImport } from './routes/app.tasks.$taskId';
+import { Route as AppRouteRouteImport } from './routes/app/route';
+import { Route as OnboardingRouteRouteImport } from './routes/onboarding/route';
+import { Route as AppIndexRouteImport } from './routes/app/index';
+import { Route as AppCalendarRouteImport } from './routes/app/calendar';
+import { Route as AppHomeRouteImport } from './routes/app/home';
+import { Route as AppIntegrationsRouteImport } from './routes/app/integrations';
+import { Route as AppSettingsRouteImport } from './routes/app/settings';
+import { Route as AppTrashRouteImport } from './routes/app/trash';
+import { Route as OnboardingIndexRouteImport } from './routes/onboarding/index';
+import { Route as OnboardingChoose_workspaceRouteImport } from './routes/onboarding/choose_workspace';
+import { Route as OnboardingNew_workspaceRouteImport } from './routes/onboarding/new_workspace';
+import { Route as AppNotesIndexRouteImport } from './routes/app/notes/index';
+import { Route as AppNotesNoteIdRouteImport } from './routes/app/notes/$noteId';
+import { Route as AppProjectsIndexRouteImport } from './routes/app/projects/index';
+import { Route as AppProjectsProjectIdRouteImport } from './routes/app/projects/$projectId';
+import { Route as AppTasksIndexRouteImport } from './routes/app/tasks/index';
+import { Route as AppTasksTaskIdRouteImport } from './routes/app/tasks/$taskId';
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any);
-const AppRoute = AppRouteImport.update({
+const AppRouteRoute = AppRouteRouteImport.update({
   id: '/app',
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any);
-const OnboardingRoute = OnboardingRouteImport.update({
+const OnboardingRouteRoute = OnboardingRouteRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
   getParentRoute: () => rootRouteImport,
@@ -46,84 +46,84 @@ const OnboardingRoute = OnboardingRouteImport.update({
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any);
 const AppCalendarRoute = AppCalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any);
 const AppHomeRoute = AppHomeRouteImport.update({
   id: '/home',
   path: '/home',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any);
 const AppIntegrationsRoute = AppIntegrationsRouteImport.update({
   id: '/integrations',
   path: '/integrations',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any);
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any);
 const AppTrashRoute = AppTrashRouteImport.update({
   id: '/trash',
   path: '/trash',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any);
 const OnboardingIndexRoute = OnboardingIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => OnboardingRoute,
+  getParentRoute: () => OnboardingRouteRoute,
 } as any);
 const OnboardingChoose_workspaceRoute =
   OnboardingChoose_workspaceRouteImport.update({
     id: '/choose_workspace',
     path: '/choose_workspace',
-    getParentRoute: () => OnboardingRoute,
+    getParentRoute: () => OnboardingRouteRoute,
   } as any);
 const OnboardingNew_workspaceRoute = OnboardingNew_workspaceRouteImport.update({
   id: '/new_workspace',
   path: '/new_workspace',
-  getParentRoute: () => OnboardingRoute,
+  getParentRoute: () => OnboardingRouteRoute,
 } as any);
 const AppNotesIndexRoute = AppNotesIndexRouteImport.update({
   id: '/notes/',
   path: '/notes/',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any);
 const AppNotesNoteIdRoute = AppNotesNoteIdRouteImport.update({
   id: '/notes/$noteId',
   path: '/notes/$noteId',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any);
 const AppProjectsIndexRoute = AppProjectsIndexRouteImport.update({
   id: '/projects/',
   path: '/projects/',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any);
 const AppProjectsProjectIdRoute = AppProjectsProjectIdRouteImport.update({
   id: '/projects/$projectId',
   path: '/projects/$projectId',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any);
 const AppTasksIndexRoute = AppTasksIndexRouteImport.update({
   id: '/tasks/',
   path: '/tasks/',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any);
 const AppTasksTaskIdRoute = AppTasksTaskIdRouteImport.update({
   id: '/tasks/$taskId',
   path: '/tasks/$taskId',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => AppRouteRoute,
 } as any);
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute;
-  '/app': typeof AppRouteWithChildren;
-  '/onboarding': typeof OnboardingRouteWithChildren;
+  '/app': typeof AppRouteRouteWithChildren;
+  '/onboarding': typeof OnboardingRouteRouteWithChildren;
   '/app/calendar': typeof AppCalendarRoute;
   '/app/home': typeof AppHomeRoute;
   '/app/integrations': typeof AppIntegrationsRoute;
@@ -161,8 +161,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   '/': typeof IndexRoute;
-  '/app': typeof AppRouteWithChildren;
-  '/onboarding': typeof OnboardingRouteWithChildren;
+  '/app': typeof AppRouteRouteWithChildren;
+  '/onboarding': typeof OnboardingRouteRouteWithChildren;
   '/app/calendar': typeof AppCalendarRoute;
   '/app/home': typeof AppHomeRoute;
   '/app/integrations': typeof AppIntegrationsRoute;
@@ -242,8 +242,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
-  AppRoute: typeof AppRouteWithChildren;
-  OnboardingRoute: typeof OnboardingRouteWithChildren;
+  AppRouteRoute: typeof AppRouteRouteWithChildren;
+  OnboardingRouteRoute: typeof OnboardingRouteRouteWithChildren;
 }
 
 declare module '@tanstack/react-router' {
@@ -259,14 +259,14 @@ declare module '@tanstack/react-router' {
       id: '/app';
       path: '/app';
       fullPath: '/app';
-      preLoaderRoute: typeof AppRouteImport;
+      preLoaderRoute: typeof AppRouteRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     '/onboarding': {
       id: '/onboarding';
       path: '/onboarding';
       fullPath: '/onboarding';
-      preLoaderRoute: typeof OnboardingRouteImport;
+      preLoaderRoute: typeof OnboardingRouteRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     '/app/': {
@@ -274,110 +274,110 @@ declare module '@tanstack/react-router' {
       path: '/';
       fullPath: '/app/';
       preLoaderRoute: typeof AppIndexRouteImport;
-      parentRoute: typeof AppRoute;
+      parentRoute: typeof AppRouteRoute;
     };
     '/app/calendar': {
       id: '/app/calendar';
       path: '/calendar';
       fullPath: '/app/calendar';
       preLoaderRoute: typeof AppCalendarRouteImport;
-      parentRoute: typeof AppRoute;
+      parentRoute: typeof AppRouteRoute;
     };
     '/app/home': {
       id: '/app/home';
       path: '/home';
       fullPath: '/app/home';
       preLoaderRoute: typeof AppHomeRouteImport;
-      parentRoute: typeof AppRoute;
+      parentRoute: typeof AppRouteRoute;
     };
     '/app/integrations': {
       id: '/app/integrations';
       path: '/integrations';
       fullPath: '/app/integrations';
       preLoaderRoute: typeof AppIntegrationsRouteImport;
-      parentRoute: typeof AppRoute;
+      parentRoute: typeof AppRouteRoute;
     };
     '/app/settings': {
       id: '/app/settings';
       path: '/settings';
       fullPath: '/app/settings';
       preLoaderRoute: typeof AppSettingsRouteImport;
-      parentRoute: typeof AppRoute;
+      parentRoute: typeof AppRouteRoute;
     };
     '/app/trash': {
       id: '/app/trash';
       path: '/trash';
       fullPath: '/app/trash';
       preLoaderRoute: typeof AppTrashRouteImport;
-      parentRoute: typeof AppRoute;
+      parentRoute: typeof AppRouteRoute;
     };
     '/onboarding/': {
       id: '/onboarding/';
       path: '/';
       fullPath: '/onboarding/';
       preLoaderRoute: typeof OnboardingIndexRouteImport;
-      parentRoute: typeof OnboardingRoute;
+      parentRoute: typeof OnboardingRouteRoute;
     };
     '/onboarding/choose_workspace': {
       id: '/onboarding/choose_workspace';
       path: '/choose_workspace';
       fullPath: '/onboarding/choose_workspace';
       preLoaderRoute: typeof OnboardingChoose_workspaceRouteImport;
-      parentRoute: typeof OnboardingRoute;
+      parentRoute: typeof OnboardingRouteRoute;
     };
     '/onboarding/new_workspace': {
       id: '/onboarding/new_workspace';
       path: '/new_workspace';
       fullPath: '/onboarding/new_workspace';
       preLoaderRoute: typeof OnboardingNew_workspaceRouteImport;
-      parentRoute: typeof OnboardingRoute;
+      parentRoute: typeof OnboardingRouteRoute;
     };
     '/app/notes/': {
       id: '/app/notes/';
       path: '/notes';
       fullPath: '/app/notes/';
       preLoaderRoute: typeof AppNotesIndexRouteImport;
-      parentRoute: typeof AppRoute;
+      parentRoute: typeof AppRouteRoute;
     };
     '/app/notes/$noteId': {
       id: '/app/notes/$noteId';
       path: '/notes/$noteId';
       fullPath: '/app/notes/$noteId';
       preLoaderRoute: typeof AppNotesNoteIdRouteImport;
-      parentRoute: typeof AppRoute;
+      parentRoute: typeof AppRouteRoute;
     };
     '/app/projects/': {
       id: '/app/projects/';
       path: '/projects';
       fullPath: '/app/projects/';
       preLoaderRoute: typeof AppProjectsIndexRouteImport;
-      parentRoute: typeof AppRoute;
+      parentRoute: typeof AppRouteRoute;
     };
     '/app/projects/$projectId': {
       id: '/app/projects/$projectId';
       path: '/projects/$projectId';
       fullPath: '/app/projects/$projectId';
       preLoaderRoute: typeof AppProjectsProjectIdRouteImport;
-      parentRoute: typeof AppRoute;
+      parentRoute: typeof AppRouteRoute;
     };
     '/app/tasks/': {
       id: '/app/tasks/';
       path: '/tasks';
       fullPath: '/app/tasks/';
       preLoaderRoute: typeof AppTasksIndexRouteImport;
-      parentRoute: typeof AppRoute;
+      parentRoute: typeof AppRouteRoute;
     };
     '/app/tasks/$taskId': {
       id: '/app/tasks/$taskId';
       path: '/tasks/$taskId';
       fullPath: '/app/tasks/$taskId';
       preLoaderRoute: typeof AppTasksTaskIdRouteImport;
-      parentRoute: typeof AppRoute;
+      parentRoute: typeof AppRouteRoute;
     };
   }
 }
 
-interface AppRouteChildren {
+interface AppRouteRouteChildren {
   AppCalendarRoute: typeof AppCalendarRoute;
   AppHomeRoute: typeof AppHomeRoute;
   AppIntegrationsRoute: typeof AppIntegrationsRoute;
@@ -392,7 +392,7 @@ interface AppRouteChildren {
   AppTasksIndexRoute: typeof AppTasksIndexRoute;
 }
 
-const AppRouteChildren: AppRouteChildren = {
+const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppCalendarRoute: AppCalendarRoute,
   AppHomeRoute: AppHomeRoute,
   AppIntegrationsRoute: AppIntegrationsRoute,
@@ -407,28 +407,30 @@ const AppRouteChildren: AppRouteChildren = {
   AppTasksIndexRoute: AppTasksIndexRoute,
 };
 
-const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren);
+const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
+  AppRouteRouteChildren,
+);
 
-interface OnboardingRouteChildren {
+interface OnboardingRouteRouteChildren {
   OnboardingChoose_workspaceRoute: typeof OnboardingChoose_workspaceRoute;
   OnboardingNew_workspaceRoute: typeof OnboardingNew_workspaceRoute;
   OnboardingIndexRoute: typeof OnboardingIndexRoute;
 }
 
-const OnboardingRouteChildren: OnboardingRouteChildren = {
+const OnboardingRouteRouteChildren: OnboardingRouteRouteChildren = {
   OnboardingChoose_workspaceRoute: OnboardingChoose_workspaceRoute,
   OnboardingNew_workspaceRoute: OnboardingNew_workspaceRoute,
   OnboardingIndexRoute: OnboardingIndexRoute,
 };
 
-const OnboardingRouteWithChildren = OnboardingRoute._addFileChildren(
-  OnboardingRouteChildren,
+const OnboardingRouteRouteWithChildren = OnboardingRouteRoute._addFileChildren(
+  OnboardingRouteRouteChildren,
 );
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AppRoute: AppRouteWithChildren,
-  OnboardingRoute: OnboardingRouteWithChildren,
+  AppRouteRoute: AppRouteRouteWithChildren,
+  OnboardingRouteRoute: OnboardingRouteRouteWithChildren,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

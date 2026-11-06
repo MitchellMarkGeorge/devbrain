@@ -142,29 +142,35 @@ __root                      providers, splash overlay, global dialogs host, not-
     └── /settings           ?tab=general|calendar|tasks|data_storage
 ```
 
-Files (`src/renderer/routes`, TanStack's flat dot notation, so a list and its detail are siblings
-and the detail does not render inside the list's component):
+Files (`src/renderer/routes`, one folder per path segment). A folder's `route.tsx` is its layout,
+and `index.tsx` its index page. `tasks/`, `projects/` and `notes/` have no `route.tsx`, so a list
+and its detail are siblings and the detail does not render inside the list's component:
 
 ```
 __root.tsx
 index.tsx
-onboarding.tsx                    layout
-onboarding.index.tsx
-onboarding.new_workspace.tsx
-onboarding.choose_workspace.tsx
-app.tsx                           layout
-app.index.tsx
-app.home.tsx
-app.tasks.index.tsx
-app.tasks.$taskId.tsx
-app.projects.index.tsx
-app.projects.$projectId.tsx
-app.notes.index.tsx
-app.notes.$noteId.tsx
-app.calendar.tsx
-app.trash.tsx
-app.integrations.tsx
-app.settings.tsx
+onboarding/
+  route.tsx                       layout
+  index.tsx
+  new_workspace.tsx
+  choose_workspace.tsx
+app/
+  route.tsx                       layout
+  index.tsx
+  home.tsx
+  tasks/
+    index.tsx
+    $taskId.tsx
+  projects/
+    index.tsx
+    $projectId.tsx
+  notes/
+    index.tsx
+    $noteId.tsx
+  calendar.tsx
+  trash.tsx
+  integrations.tsx
+  settings.tsx
 ```
 
 Route files stay thin: `validateSearch`, `loader`, `beforeLoad`, and a component that composes a

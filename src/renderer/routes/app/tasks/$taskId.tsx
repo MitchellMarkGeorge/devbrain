@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { CircleCheck } from 'lucide-react';
-import { idOrNotFound, loadOrNotFound } from '../app/detail';
-import { PlaceholderPage } from '../app/pages';
+import { idOrNotFound, loadOrNotFound } from '../../../app/detail';
+import { PlaceholderPage } from '../../../app/pages';
 
 export const Route = createFileRoute('/app/tasks/$taskId')({
   loader: ({ context: { queryClient, trpc }, params }) =>
