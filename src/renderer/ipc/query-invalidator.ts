@@ -1,7 +1,9 @@
 import type { Query, QueryClient } from '@tanstack/react-query';
+import type { inferRouterInputs } from '@trpc/server';
 import type { ChangedEntity } from '@common/changes';
 import type { AppEvents } from '@common/events';
 import type { WorkspaceId } from '@common/ids';
+import type { AppRouter } from '@main/ipc/router';
 import type { EventClient } from './events';
 
 // Keeps what the renderer has cached in step with main (docs/ipc/change-propagation-research.md).
@@ -9,10 +11,21 @@ import type { EventClient } from './events';
 // before the call settles, and as `db.changes` for the rest. Each cached query whose route reads
 // one of those entities is invalidated, and React Query refetches the ones on screen.
 
+// The routers and their routes: { tasks: { list: …, get: … }, notes: { … }, … }
+type Routes = inferRouterInputs<AppRouter>;
+
+// Every router and route, by path: 'tasks', 'tasks.list'. Routers are one level deep.
+export type RoutePath = {
+  [R in keyof Routes & string]: R | `${R}.${keyof Routes[R] & string}`;
+}[keyof Routes & string];
+
 // The entities each route reads, by router, or by full path to override its router. A route listed
 // nowhere is refetched on every change: correct by default, and a line here makes it cheaper.
-// Read across entities wherever a view shows one entity's rows inside another's.
-export const ENTITIES_READ_BY_ROUTE: Readonly<Record<string, readonly ChangedEntity[]>> = {
+// Read across entities wherever a view shows one entity's rows inside another's. Keyed by
+// RoutePath, so a key naming no route (a typo, or a route renamed or removed) fails to compile.
+export const ENTITIES_READ_BY_ROUTE: Readonly<
+  Partial<Record<RoutePath, readonly ChangedEntity[]>>
+> = {
   app: [],
   settings: ['settings'],
   workspaces: ['workspace'],
@@ -50,7 +63,11 @@ export const ENTITIES_READ_BY_ROUTE: Readonly<Record<string, readonly ChangedEnt
 };
 
 // Routers whose data belongs to no workspace, kept when the open one changes.
-const ROUTERS_OUTSIDE_WORKSPACES = new Set(['app', 'settings', 'workspaces']);
+const ROUTERS_OUTSIDE_WORKSPACES = new Set<string>([
+  'app',
+  'settings',
+  'workspaces',
+] satisfies RoutePath[]);
 
 // a tRPC query key starts with its path, split: [['tasks', 'list'], { input, type }]
 function routePathOf(query: Query): string[] {
@@ -58,8 +75,12 @@ function routePathOf(query: Query): string[] {
   return Array.isArray(path) ? path.map(String) : [];
 }
 
+// the table, looked up by a cached query's path, which may name no route
+const ENTITIES_BY_PATH: Readonly<Record<string, readonly ChangedEntity[] | undefined>> =
+  ENTITIES_READ_BY_ROUTE;
+
 export function entitiesReadBy(path: readonly string[]): readonly ChangedEntity[] | 'everything' {
-  return ENTITIES_READ_BY_ROUTE[path.join('.')] ?? ENTITIES_READ_BY_ROUTE[path[0]] ?? 'everything';
+  return ENTITIES_BY_PATH[path.join('.')] ?? ENTITIES_BY_PATH[path[0]] ?? 'everything';
 }
 
 export interface QueryInvalidator {
