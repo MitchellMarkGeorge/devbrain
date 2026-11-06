@@ -1524,17 +1524,9 @@ describe('TaskService — undated tasks', () => {
     expect(await ids({ dueOn: TOMORROW })).toEqual([on.id]);
   });
 
-  it('createSubtask throws when neither the subtask nor its parent has a due date', async () => {
+  it('createSubtask under an undated parent, given no due date, has none', async () => {
     const parent = await undated('Undated parent');
-    expect(() => tasks.createSubtask(parent.id, { title: 'Sub' })).toThrow(
-      expect.objectContaining({
-        code: 'task_hierarchy',
-        reason: 'due_date_required',
-        message: expect.stringContaining(
-          'Subtasks need a due date when their parent task has none',
-        ),
-      }),
-    );
+    expect(tasks.createSubtask(parent.id, { title: 'Sub' }).dueDate).toBeNull();
   });
 
   it('createSubtask under an undated parent uses its own due date', async () => {

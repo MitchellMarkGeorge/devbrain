@@ -81,18 +81,10 @@ function newTaskValues(options: CreateTaskOptions): NewTaskValues {
   };
 }
 
-// The row createSubtask inserts under `parent`. Throws TaskHierarchyError when neither has a due
-// date.
+// The row createSubtask inserts under `parent`.
 function newSubtaskValues(parent: SubtaskParent, options: CreateSubTaskOptions): NewTaskValues {
-  // inherit the parent's due date when none is provided; local tasks always need one
+  // inherit the parent's due date when none is provided; with neither, the subtask has none
   const dueDate = options.dueDate ?? parent.dueDate;
-  if (dueDate === null) {
-    throw new TaskHierarchyError(
-      parent.id,
-      'due_date_required',
-      'Subtasks need a due date when their parent task has none',
-    );
-  }
   return {
     title: options.title,
     description: options.description ?? null,
@@ -166,9 +158,9 @@ export class TaskService {
 
   /**
    * Creates tasks with their subtrees, all in one transaction: every task is created, or none is
-   * when one is refused (InvalidInputError, TaskHierarchyError). Each is checked and filled as
-   * createTask and createSubtask do. A `created` is sent for each task, in the order created, as the
-   * transaction's last step, so what listeners write (the search index) commits with the rows.
+   * when one is refused (InvalidInputError). Each is checked and filled as createTask and
+   * createSubtask do. A `created` is sent for each task, in the order created, as the transaction's
+   * last step, so what listeners write (the search index) commits with the rows.
    * Returns the tasks in that order: each before its subtasks, depth first.
    */
   createTaskTrees(trees: CreateTaskTreeOptions[]): Task[] {
