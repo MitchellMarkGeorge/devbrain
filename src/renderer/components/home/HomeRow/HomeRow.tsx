@@ -122,7 +122,7 @@ export interface HomeMeetingRowProps extends Omit<
 /**
  * A meeting in Home's Meetings section, drawn from core's `Event`: the calendar's colour bar, the
  * title, and when it is, from `useFormat()`. The `current` meeting (the next or running one) is
- * filled, shows Join when it has a meeting link, and counts down ("In 12 min.", "Now") in
+ * filled, shows Join when it has a meeting link, and counts down ("In 12m", "Now") in
  * `date-today`; later meetings show their start ("10:30 AM"), and another day's its weekday too
  * ("Tue 9:30 AM", dim it with `muted`).
  */

@@ -78,8 +78,8 @@ export function repeatLabel(
 }
 
 /**
- * How soon an event is, for a list row: "Now" while it runs, the time until it starts ("In 12 min.")
- * or since it started ("2 hr. ago"), with the tone that colours it: `soon` (red) from an hour before
+ * How soon an event is, for a list row: "Now" while it runs, the time until it starts ("In 12m")
+ * or since it started ("2h ago"), with the tone that colours it: `soon` (red) from an hour before
  * the start until the end, `today` later today.
  */
 export function eventCountdown(

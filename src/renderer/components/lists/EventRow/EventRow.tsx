@@ -28,7 +28,7 @@ export interface EventRowProps extends Omit<ComponentProps<'div'>, 'children'> {
 /**
  * A calendar event in a list (Home, Inbox), on the same strokeless 48px row as `TaskRow`: the
  * calendar's colour bar, the title, time ("10:00 AM – 10:30 AM") and how it repeats ("Weekly",
- * from its RRULE), then "Join" when it has a meeting link and how soon it is ("In 12 min.", red
+ * from its RRULE), then "Join" when it has a meeting link and how soon it is ("In 12m", red
  * from an hour before; "Now" while it runs), all worded from `useFormat()`.
  */
 export const EventRow = forwardRef<HTMLDivElement, EventRowProps>(function EventRow(

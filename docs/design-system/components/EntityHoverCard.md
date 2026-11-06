@@ -9,8 +9,8 @@ The preview that opens on pointing at an entity pill (shadcn's HoverCard): 280px
 - **By type:**
   - **Project:** a status pill and the due date ("Due Jul 1"), then, with `stats`, a progress bar over "25%" on the left and "3 of 12 tasks done" on the right.
   - **Event:** its day and time ("Today, 10:00 – 10:30 AM"), how it repeats and the location as quiet lines with their icons, then Join (passed in `actions`) when it has a meeting link.
-  - **Note:** "Edited 2 hr. ago · project", then a two-line `subtle-foreground` preview.
+  - **Note:** "Edited 2h ago · project", then a two-line `subtle-foreground` preview.
   - **Task** (a subtask's parent): priority and due date pills with the key, then "3 of 4 subtasks done" progress.
-  - **Source** (a synced task's key): the item's state at the provider ("In Review in Linear") and "Synced 5 min. ago", then "Open in Linear" and "Copy URL" (passed in `actions`).
+  - **Source** (a synced task's key): the item's state at the provider ("In Review in Linear") and "Synced 5m ago", then "Open in Linear" and "Copy URL" (passed in `actions`).
 
 **Base UI:** `PreviewCard` (shadcn's HoverCard on Base UI): `Root`, `Trigger` (the pill), `Portal`, `Positioner` (`sideOffset={4}`), `Popup`. Open and close delays via `delay` / `closeDelay`. Styles key off `data-open`, `data-side`, `data-starting-style` / `data-ending-style`.

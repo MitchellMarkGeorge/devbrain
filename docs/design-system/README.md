@@ -104,7 +104,7 @@ Everything fits on one page without scrolling at the default window size (1200 �
 
 When more than one applies, what comes due soonest wins: the next meeting, task due date or project deadline decides the section (an overdue task or a meeting in progress is due now). A recently edited note shows only when nothing is coming up. What the section leaves out can still be mentioned in the summary. "Get started" fills the slot in a new workspace with nothing to show.
 
-- **Meetings:** `HomeMeetingRow`s, drawn from core's events: the colour bar, the title and when, at the right ("In 12 min." in `date-today`, "Now", "10:30 AM", "Tue 9:30 AM"). An xs Join button shows from 5 minutes before the start until the end. The next or current meeting's row is filled with `card`; finished meetings drop off; tomorrow's first meeting is dimmed.
+- **Meetings:** `HomeMeetingRow`s, drawn from core's events: the colour bar, the title and when, at the right ("In 12m" in `date-today`, "Now", "10:30 AM", "Tue 9:30 AM"). An xs Join button shows from 5 minutes before the start until the end. The next or current meeting's row is filled with `card`; finished meetings drop off; tomorrow's first meeting is dimmed.
 - **Tasks:** `TaskRow compact`: 44px with no selection strip, with all their pills.
 - **Recent notes:** three small `NoteCard`s in a row (`size="sm"`: icon and edit time, a one-line title and a one-line preview).
 - **Recent projects:** `HomeRow`s: the folder in the project's colour, the name, a small progress bar, "3/12", then the due date or status.
@@ -163,14 +163,14 @@ Two kinds of page, one rule each:
 - **A style is a stylesheet.** shadcn's components carry fixed class hooks (`cn-button`, `cn-button-size-default`, `cn-dropdown-menu-item`, …) and each style fills them in from one CSS file. DevBrain Nova is that file, written in plain CSS against DevBrain's tokens: no Tailwind.
 - **One deliberate rename.** shadcn's `default` button is filled; DevBrain's `default` is the quiet button and the filled one is `primary`.
 - **Entity components take core's shapes.** A task row takes a `TaskListItem` as core returns it (`<TaskRow task={item} />`), a note card a `NoteListItem`, a project card a `Project` and its `ProjectStats`, an event row an `Event`. Each component's prop is a `Pick` of the shared type in `src/common/types` (`TaskRowData`, `NoteCardData`, …), and it works out what it draws: overdue from the status, the due date and `now`; the words for dates from `useFormat()`; colours with `resolveColor`, which takes a swatch name or a `#rrggbb` checked with `hexColorSchema` and falls back otherwise. Statuses and priorities are core's enums (`TaskStatus`, `TaskPriority`, `ProjectStatus`, `ProjectHealth`); overdue is not a status but a flag a row derives.
-- **Dates come from one `FormatProvider`** (`components/lib/format.tsx`, on luxon). It supplies `now`, ticking each minute so "In 12 min." counts down, and the 12 or 24 hour clock from settings; the app mounts it once, and Storybook mounts it at a fixed `now` of 22 Jun 2026, 9:48 AM (the Clock menu in the toolbar switches 12 and 24 hour). Where luxon's wording differs from a Figma string ("2 hr. ago" for "2h ago"), the design follows luxon rather than hand-formatting dates.
+- **Dates come from one `FormatProvider`** (`components/lib/format.tsx`: luxon for dates and times, `Intl.RelativeTimeFormat` for relative times). It supplies `now`, ticking each minute so "In 12m" counts down, and the 12 or 24 hour clock from settings; the app mounts it once, and Storybook mounts it at a fixed `now` of 22 Jun 2026, 9:48 AM (the Clock menu in the toolbar switches 12 and 24 hour). Relative times use `Intl.RelativeTimeFormat` in its narrow style ("2h ago", "In 12m", "Yesterday") rather than luxon's `toRelative`, whose English is fixed ("2 hr. ago"). Where these libraries' wording differs from a Figma string, the design follows them rather than hand-formatting dates.
 
 ## Content
 
 - Write in the user's terms: tasks, projects, notes, events, workspaces.
 - Buttons and menu items are verbs. Buttons use title case ("New Task", "Show in Finder"); menu items, headings and labels use sentence case ("Turn into", "Due date").
 - Address the user as "you": "Good morning, Mitchell" / "**Sprint Planning** starts in 12 minutes. You have **6 tasks** today, and 2 are overdue."
-- Dates are short and worded by luxon through `useFormat()`: due dates "Today", "Tomorrow", "In 3 days" within a week, else "Jul 1"; times "10:30 AM" (or "10:30" on a 24 hour clock); edits and countdowns "2 hr. ago", "In 12 min.".
+- Dates are short and worded through `useFormat()`: due dates "Today", "Tomorrow", "In 3 days" within a week, else "Jul 1"; times "10:30 AM" (or "10:30" on a 24 hour clock); edits and countdowns "2h ago", "In 12m".
 - A destructive confirmation says what happens to linked items and how to undo it.
 - Empty values are invitations: "Add description…", "+ Add start date". No emoji.
 

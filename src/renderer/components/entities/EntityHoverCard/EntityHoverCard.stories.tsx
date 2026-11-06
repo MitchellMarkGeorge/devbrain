@@ -105,7 +105,7 @@ export const Event: Story = {
   },
 };
 
-/** When it was edited (luxon's narrow relative time), its project, and its first lines. */
+/** When it was edited (Intl's narrow relative time), its project, and its first lines. */
 export const Note: Story = {
   args: { defaultOpen: true, entity: NOTE, children: <EntityPill entity={NOTE} /> },
 };

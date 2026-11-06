@@ -34,9 +34,14 @@ describe('formatTime', () => {
 });
 
 describe('formatRelative', () => {
-  it('counts from now, capitalised', () => {
-    expect(format.formatRelative(day(0, 10))).toMatch(/^In 12 min/);
-    expect(format.formatRelative(day(0, 7, 48))).toMatch(/^2 hr/);
+  it('counts from now in the largest whole unit, narrow and capitalised', () => {
+    expect(format.formatRelative(day(0, 10))).toBe('In 12m');
+    expect(format.formatRelative(day(0, 7, 48))).toBe('2h ago');
+    expect(format.formatRelative(day(-1, 9))).toBe('Yesterday');
+    expect(format.formatRelative(day(-3, 9))).toBe('3d ago');
+    expect(format.formatRelative(day(-28))).toBe('4w ago');
+    expect(format.formatRelative(day(-400))).toBe('1y ago');
+    expect(format.formatRelative(new Date(NOW.getTime() - 20_000))).toBe('Now');
   });
 });
 

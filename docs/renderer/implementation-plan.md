@@ -525,10 +525,11 @@ before the pages, so every page is written against the new props once.
   from the task's `link`, and the page picks which query feeds which list.
 - **`toEventInput`**, the FullCalendar adapter. It's a translation to a library's format, not to a
   component's props.
-- **Dates use luxon**, wrapped once in `FormatProvider`:
+- **Dates use luxon**, and relative times `Intl.RelativeTimeFormat`, wrapped once in `FormatProvider`:
   - due dates: `toRelativeCalendar()` within a week ("Today", "Tomorrow", "Yesterday"), else
     `toLocaleString({ month: 'short', day: 'numeric' })` ("Jul 1");
-  - edit times: `toRelative({ style: 'narrow' })` ("2h ago");
+  - edit times and countdowns: `Intl.RelativeTimeFormat` in its narrow style, in the largest whole
+    unit ("2h ago", "In 12m"); luxon's `toRelative` has fixed English ("2 hr. ago");
   - times: `toLocaleString(DateTime.TIME_SIMPLE, { hourCycle: timeFormat === '24' ? 'h23' : 'h12' })`.
 
   Where luxon's wording differs from a Figma string, the design copy follows luxon rather than the
