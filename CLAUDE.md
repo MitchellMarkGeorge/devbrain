@@ -104,6 +104,10 @@ The renderer reaches core through the typed tRPC router in `src/main/ipc`, run o
 - The renderer imports from `src/main` as a type only (`import type { AppRouter }`); ESLint
   rejects a value import. Runtime values both sides need (enums, error codes, schemas) live in
   `src/common`.
+- What a route takes or returns (`Task`, `Page<T>`, `AppSettings`, …) and the enums it uses are
+  defined once, in `src/common/types`, and imported from `@common/types` by core and the renderer
+  alike. Database rows, service options and sync's provider shapes stay in core. `src/common`
+  never imports `src/main`, Drizzle, Electron or Node (ESLint enforces it).
 - Handlers return core's data as it is: one call to a service, with an input schema, and no
   reshaping or extra lookups.
 - A write the renderer must hear about is announced by its service through `onChange`, never by a
