@@ -37,7 +37,7 @@ surveyed three things in parallel and checked the claims the plan rests on again
 3. [Route tree](#route-tree)
 4. [Router setup](#router-setup)
 5. [Search params](#search-params)
-6. [Data: queries, loaders, view models](#data-queries-loaders-view-models)
+6. [Data: queries, loaders, display helpers](#data-queries-loaders-display-helpers)
 7. [App-wide pieces](#app-wide-pieces)
 8. [Pages and flows](#pages-and-flows)
 9. [Main-process changes](#main-process-changes)
@@ -52,16 +52,17 @@ surveyed three things in parallel and checked the claims the plan rests on again
 | --- | --- |
 | Router | `@tanstack/react-router` with file-based routes (`@tanstack/router-plugin/vite`) in `src/renderer/routes`, generating `src/renderer/routeTree.gen.ts`, which is checked in, formatted and linted as generated. No automatic code splitting: the bundle loads from disk, so splitting only adds work. |
 | History | **Hash history** (`createHashHistory`). The production page loads from `file://`, where browser history paths don't resolve on reload; the hash keeps the location across a reload (⌘R, a crash restore) and in devtools. Memory history would lose it. |
-| Paths | As specified, with the spelling fixed: `/onboarding`, `/onboarding/new_workspace`, `/onboarding/choose_workspace`, `/app/...`. Path params use the entity's prefixed id (`tsk_…`, `prj_…`, `nte_…`), validated with the same prefixes `zId` checks. |
+| Paths | Kebab case, with the spelling fixed: `/onboarding`, `/onboarding/new-workspace`, `/onboarding/choose-workspace`, `/app/...`. Path params use the entity's prefixed id (`tsk_…`, `prj_…`, `nte_…`), validated with the same prefixes `zId` checks. |
+| Param values | Kebab case too (`data-storage`, `not-started`, `in-progress`), which also matches the components' own status names (`TaskStatus` is `'not-started' \| 'in-progress' \| …`). |
 | Search params | Validated per route with Zod v4 (already a dependency; TanStack Router accepts Standard Schema), each field `.optional().catch(undefined)`. Without the `catch`, one bad value (a link saved before a param's values changed, a typo, a removed option) makes `validateSearch` throw, and the whole page renders the error screen. With it, that one field falls back to its default and the rest of the URL still applies. The fallback is `undefined` rather than a literal default because a missing param means "the setting's default" (e.g. `tasks.defaultView`), read at render: so a default is never written into the URL, and changing the setting changes every URL without the param. |
 | Data | React Query stays the cache, through `trpc.*.queryOptions()` as today. Route loaders only *prime* that cache (`queryClient.ensureQueryData`), so a page renders with its data on the first frame and a missing entity becomes the route's not-found. The router keeps no cache of its own (`defaultPreloadStaleTime: 0`). Freshness stays with the query invalidator: nothing in a route invalidates by hand. |
 | Router context | `{ queryClient, trpc, ipc }`, typed with `createRootRouteWithContext`. |
-| View models | Components take display props (`Task` with `date: "Today"`, `project: "Auth Overhaul"`), not core rows. Mappers in `src/renderer/view-models/` turn router outputs (`inferRouterOutputs<AppRouter>`, type-only) into them, and are the only place that formats dates, derives `overdue`, maps numeric statuses and parses colours. See [View models](#view-models-srcrendererview-models). |
+| Display helpers | Components take display props (`date: "Today"`, `status: 'overdue'`), not core rows. No mapper layer per entity: shared helpers in `src/renderer/format/` do the parts that are real logic (derived status, relative dates, time format, colour parsing), and mapper functions exist only for the shapes drawn in many places (task rows and cards, calendar events). See [Display helpers](#display-helpers-srcrendererformat). |
 | Detail presentation | As designed: tasks, projects and notes are pages; a task opened from the board and an event opened from the calendar show in the docked `Sheet` over their list, addressed by an `open` search param so Back closes them. The task note opens as a dialog (local state). |
 | Splash | `/` is the boot route and draws the splash while the last workspace reopens, then redirects. A workspace *switch* draws the same splash as an overlay from the root route, driven by `workspace.changed` (as `App.tsx` does today), and does not navigate to `/`: a switch can start from the menu or another window, and the URL should land on the new workspace's landing page, not on `/`. |
 | Not in the route list but designed | `/app/integrations` (in the sidebar nav, Figma `7164:13117`). ⌘K is a dialog, not a route. Help has nothing behind it yet: the sidebar's Help item and Welcome's "What's a workspace?" link are drawn disabled. |
 | Trash | The route is **`/app/trash`**, matching the UI and `docs/deleting.md`. Core still says archive (`archive` router, `listArchived`); the code rename is its own follow-up (E2). |
-| New workspace | Inside the app, "New workspace…" opens a **Create workspace dialog** over the page. `/onboarding/new_workspace` is only for when nothing is open. Both use one `CreateWorkspaceForm`, so the onboarding guard needs no exception. |
+| New workspace | Inside the app, "New workspace…" opens a **Create workspace dialog** over the page. `/onboarding/new-workspace` is only for when nothing is open. Both use one `CreateWorkspaceForm`, so the onboarding guard needs no exception. Mocked in Figma as "New workspace (dialog in the app)" (`7760:61527`). Why a dialog: see [Onboarding](#onboarding-onboarding). |
 | Calendar rendering | **FullCalendar** (`@fullcalendar/react` with the `timegrid`, `daygrid`, `interaction`, `rrule` and `luxon3` plugins), mapped per `docs/calendar/fullcalendar-adapter.md`. `TimeGrid` and `MonthGrid` are the visual spec: FullCalendar is themed to match them with tokens and draws `EventBlock`/`AllDayEvent` through its content hooks. See [Calendar](#calendar-appcalendar). |
 | Keyboard | One command registry and a keymap dispatcher of our own, with modes and key sequences from the start, so Vim mode is a second keymap rather than a rewrite. See [Keyboard](#keyboard-commands-keymaps-and-vim-mode). |
 
@@ -97,8 +98,8 @@ __root                      providers, splash overlay, global dialogs host, not-
 ├── /                       index: boot + splash → redirect
 ├── /onboarding             layout: OnboardingScreen frame (no sidebar)
 │   ├── /                   Welcome
-│   ├── /new_workspace      Create workspace
-│   └── /choose_workspace   Choose from existing workspaces
+│   ├── /new-workspace      Create workspace
+│   └── /choose-workspace   Choose from existing workspaces
 └── /app                    layout: AppShell + sidebar + <Outlet/>; guards "a workspace is open"
     ├── /                   index: redirect to the landing page
     ├── /home
@@ -111,7 +112,7 @@ __root                      providers, splash overlay, global dialogs host, not-
     ├── /calendar           ?view=week|month|day, ?date=YYYY-MM-DD, ?open=evt_…|tsk_…
     ├── /trash              ?tab=all|projects|tasks|notes
     ├── /integrations       (added: designed and in the sidebar)
-    └── /settings           ?tab=general|calendar|tasks|data_storage
+    └── /settings           ?tab=general|calendar|tasks|data-storage
 ```
 
 Files (`src/renderer/routes`, TanStack's flat dot notation, so a list and its detail are siblings
@@ -122,8 +123,8 @@ __root.tsx
 index.tsx
 onboarding.tsx                    layout
 onboarding.index.tsx
-onboarding.new_workspace.tsx
-onboarding.choose_workspace.tsx
+onboarding.new-workspace.tsx
+onboarding.choose-workspace.tsx
 app.tsx                           layout
 app.index.tsx
 app.home.tsx
@@ -265,7 +266,7 @@ export const tasksSearch = z.object({
 | `groupBy` | `project` (default) \| `status` \| `priority` \| `due` | `group` view only ("Group by: Project", `7158:9538`) |
 | `sort` | `priority` \| `dueDate` \| `status` \| `createdAt` \| `updatedAt` | default `settings.tasks.defaultSort` |
 | `dir` | `asc` \| `desc` | |
-| `status` | `open` (default) \| `all` \| `not_started` \| `in_progress` \| `completed` \| `cancelled` | "Filter: Open" → `excludeClosed`; `showCompletedTasks` decides the default between `open` and `all` |
+| `status` | `open` (default) \| `all` \| `not-started` \| `in-progress` \| `completed` \| `cancelled` | "Filter: Open" → `excludeClosed`; `showCompletedTasks` decides the default between `open` and `all` |
 | `priority` | `low` \| `medium` \| `high` | single value, as core filters |
 | `project` | `prj_…` \| `none` | "Filter by project" menu (`7175:25639`) |
 | `due` | `overdue` \| `today` \| `week` \| `none` | mapped to `dueBefore`/`dueOn`/`dueAfter` at the call |
@@ -278,7 +279,7 @@ URLs (`z.union([value, z.array(value)])`).
 
 ### `/app/projects`
 
-`view` (`list` | `card`), `status` (`active` default \| `all` \| `not_started` \| `on_hold` \|
+`view` (`list` | `card`), `status` (`active` default \| `all` \| `not-started` \| `on-hold` \|
 `completed`), `sort` (`dueDate` default \| `createdAt` \| `updatedAt` \| `status`), `dir`, `source`.
 
 ### `/app/projects/$projectId`
@@ -310,10 +311,10 @@ sort exists in core, newest first).
 
 ### `/app/settings`
 
-`tab` (`general` default \| `calendar` \| `tasks` \| `data_storage`). Figma orders the tabs
+`tab` (`general` default \| `calendar` \| `tasks` \| `data-storage`). Figma orders the tabs
 General / Tasks / Calendar / Data & storage.
 
-## Data: queries, loaders, view models
+## Data: queries, loaders, display helpers
 
 ### Queries
 
@@ -360,48 +361,39 @@ sheet's `open` param does not.
 - **Undo**: moving to trash shows the "Moved to trash · Undo" toast (`7175:33810`), whose action
   calls the matching `archive.restore*`.
 
-### View models (`src/renderer/view-models/`)
+### Display helpers (`src/renderer/format/`)
 
-**What they are.** The design-system components don't know core's types: the component layering
-forbids importing `@common` or `@main`. They take what they draw, already formatted. `TaskRow`
-wants `{ title, status: 'overdue', project: 'Auth Overhaul', projectColor: 'blue', date: 'Today',
-dateTone: 'today', subtasks: [3, 4] }`. Core returns a `TaskListItem`: `status: 2`, a `dueDate`
-`Date`, `project: { id, title, color: '#2b7fff' }`, `subtaskProgress: { completed, total }`. A
-**view model** is the component's prop shape, and a mapper is the plain function from one to the
-other:
+The components can't take core's rows as they are: the layering keeps `@common` and `@main` out of
+`components/`, so Storybook can draw any state without a database-shaped fixture. That alone
+would only call for shared types. What makes a translation step necessary is the logic between
+the two shapes, which has to live somewhere outside the components:
 
-```ts
-export function toTaskRow(item: TaskListItem, ctx: { now: Date; timeFormat: '12' | '24' }): Task {
-  return {
-    id: item.id,
-    title: item.title,
-    status: shownStatus(item, ctx.now), // 2 → 'in-progress'; past due and open → 'overdue'
-    project: item.project?.title,
-    projectColor: toSwatch(item.project?.color), // parsed: colours from core are untrusted
-    date: item.dueDate ? formatDue(item.dueDate, ctx.now) : undefined, // "Today", "Jul 1"
-    dateTone: dueTone(item.dueDate, ctx.now),
-    subtasks: item.subtaskProgress.total ? [item.subtaskProgress.completed, item.subtaskProgress.total] : undefined,
-    // …
-  };
-}
-```
+- **Derived values.** A task is drawn `overdue` when it's open and its due date has passed. Core
+  stores no such status; it depends on `now`.
+- **Formatting that depends on `now` and settings.** "Today", "Tomorrow", "Jul 1", "2h ago", "In 12
+  min", and 10:30 vs 10:30 AM (`general.timeFormat`).
+- **Untrusted values.** Colours from core (a Google calendar's, a project's) are parsed with
+  `hexColorSchema` before they reach a style (`docs/security/untrusted-content.md`).
+- **Enum names.** Core's `status: 2` is the components' `'in-progress'`.
+- **Flattening.** `subtaskProgress: { completed, total }` → `subtasks: [3, 4]`, and
+  `link: { type: 'event', … }` → an event pill.
 
-Pages call the mappers; the components stay presentational. The formatting rules (what counts as
-overdue, "Today" vs "Jul 1", 12 or 24 hour) live in one place, so every list, card, sheet and Home
-row agrees, and they're unit-tested with a pinned `now`.
+That logic goes in `src/renderer/format/` as small functions: `shownStatus(task, now)`,
+`formatDue(date, now)`, `dueTone(date, now)`, `formatRelative(date, now)`,
+`formatTime(date, timeFormat)`, `toSwatch(hex)`. They're unit-tested with a pinned `now`.
 
-| File | Maps | To |
-| --- | --- | --- |
-| `task.ts` | `TaskListItem`, `Task` | `components` `Task` / `BoardTask`: status number → `'not-started'…`, `overdue` derived (due before today and not started/in progress), `date`/`dateTone`, `subtasks: [done, total]`, `project`/`projectColor`, `event`/`note` from `link`, `source`/`key` from `external` |
-| `project.ts` | `Project` + stats | `ProjectRow`/`ProjectCard`/`ProjectHeader` props: progress, `due`, status |
-| `note.ts` | `NoteListItem` | `NoteRow`/`NoteCard`: `edited` ("2h ago"), excerpt from `preview`, link pill |
-| `event.ts` | `Event` + `Calendar` | FullCalendar event input (`toEventInput`, the adapter in `docs/calendar/fullcalendar-adapter.md`), `EventRow`, `HomeRow` |
-| `archive.ts` | `ArchivedEntity` | `TrashRow` item |
-| `integration.ts` | `Integration`, `SourceSyncStatus` | `IntegrationCard`, `SourceRow`, `SyncStatus` state |
-| `dates.ts` | | `formatDue`, `formatRelative`, `formatTime` (follows `general.timeFormat`), all with luxon in the system zone, as core does |
-| `color.ts` | hex from core | `Swatch` or a CSS colour: parse with `hexColorSchema` first (untrusted, `docs/security/untrusted-content.md`), else the default |
+A whole-object mapper is only worth it where the same shape is drawn in many places:
 
-Each mapper takes a `now` and the settings it needs, so tests pin both. `toEventInput(event,
+- `toTaskRow(item, ctx)` (`TaskRow` and `BoardCard`). A task row appears in the tasks list,
+  group view, board, project page, note page, subtasks, the task sheet and Home. Eight call sites
+  building the same 12 props by hand would drift.
+- `toEventInput(event, calendar)` (FullCalendar) and `toCalendarItem(event, now)` (`EventRow`,
+  `HomeRow`, `CalendarAgendaItem`).
+
+Everything else (a `NoteCard`, a `ProjectRow`, a `TrashRow`, an `IntegrationCard`) is mapped inline
+in the page that draws it, calling the helpers. No `view-models/` folder.
+
+Each takes a `now` and the settings it needs, so tests pin both. `toEventInput(event,
 calendar)` follows the adapter spec: one-offs map directly; a series becomes an `rrule` string (a
 `DTSTART;TZID=…` line, its `recurrenceRule`, and an `EXDATE` per `exdates`) with a `duration`;
 occurrence rows join their series' `groupId`. FullCalendar expands the series.
@@ -552,16 +544,30 @@ Layout: `OnboardingScreen` with the window bar (traffic lights or the Windows me
 sidebar.
 
 - **Welcome** (`/onboarding`, `7175:19898`; with workspaces `7285:53770`): with no workspaces,
-  "Create Workspace" → `new_workspace`, "Open Existing Folder…" → `workspaces.importFolder` then
+  "Create Workspace" → `new-workspace`, "Open Existing Folder…" → `workspaces.importFolder` then
   `workspaces.open`, "What's a workspace?" drawn disabled (no help yet). With workspaces, the
   "Recent workspaces" card: the list sorted by `lastOpenedAt` (client side), each opening with
   `workspaces.open`, then the same two buttons. The splash overlay covers the open; on
   `workspace.changed` the root navigates to the landing page.
-- **Create workspace** (`/onboarding/new_workspace`, `7175:20087`): `CreateWorkspaceForm` (name
+- **Create workspace** (`/onboarding/new-workspace`, `7175:20087`): `CreateWorkspaceForm` (name
   `Input`, `SwatchPicker`, live `WorkspaceTile` preview) on the onboarding card. Submit:
   `workspaces.create`, then `workspaces.open` with its id. "← Back" to Welcome. Inside the app the
   same form is the Create workspace dialog.
-- **Choose workspace** (`/onboarding/choose_workspace`): the full `WorkspaceList` (all workspaces,
+- **Why a dialog inside the app** (Figma `7760:61527`), rather than the onboarding page or a page
+  of its own:
+  - **It's a short form.** A name and a colour, the same size as the other create dialogs (the
+    Create project dialog already has a name and a colour), so it follows their pattern.
+  - **Cancel loses nothing.** Esc or Cancel leaves you exactly where you were. A page would push a
+    history entry and need Back to return.
+  - **There is no "after" to show.** Creating opens the new workspace under the splash, which
+    replaces the whole window anyway, so a page has no follow-up content to justify it.
+  - **No routing exceptions.** A route inside `/app` (`/app/workspaces/new`) would draw the old
+    workspace's sidebar around a form for a different workspace. Reusing `/onboarding` from the app
+    needs the `?from=app` exception.
+
+  The dialog says up front that the new workspace opens once it's created, since that closes what
+  you're looking at.
+- **Choose workspace** (`/onboarding/choose-workspace`): the full `WorkspaceList` (all workspaces,
   `workspaces.list` paged), for when the Welcome card shows only recent ones. Same open flow.
 - **Errors** (`7423:37060`–`7423:37281`) from `importFolder`/`open`, shown inline on Welcome by
   code: `workspace_import`, by its `data.reason` (`not_a_workspace`; `already_added`, which names
@@ -816,15 +822,19 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
   project for the group view. That works, but a workspace with 20 projects opens 20 queries, and
   the group headings' done/total need the whole group loaded. The fix is
   `tasks.listGrouped({ groupBy: 'status' | 'project' | 'priority', filter })`, returning each group's
-  key, its counts, and its first page, in one call. Not blocking.
+  key, its counts, and its first page, in one call. **Not needed for the first version**: the
+  per-group queries work with today's routes and are fast on a local database. Add it if a
+  workspace with many projects makes the group view slow to open, or the headings' counts need
+  loading every page.
 - **T2: bulk updates** for the selection bar: `tasks.updateMany({ ids, patch })` and
   `archive.archiveTasks({ ids })` in one transaction with one change event, so a partial failure
   can't happen and the list refetches once.
 - **T3: multi-value filters.** Core filters by **one** value per field: `status: 2`, not
   "In progress or Not started"; `priority: 3`, not "High or Medium". So the filter menu can offer
   "Priority: High" but not "High and Medium" ticked together. Accepting arrays (`status: [1, 2]`,
-  becoming `IN (…)` in SQL) allows that, and a `query` field would filter by title. Optional: the
-  design's filter menu (`7175:25639`) only picks one value at a time.
+  becoming `IN (…)` in SQL) allows that, and a `query` field would filter by title. **Not needed
+  for the first version**: the designed filter menu (`7175:25639`) picks one value at a time, which
+  is what core supports. Add it only if the menu changes to allow several.
 - **T4: manual order** within a board column or group (a `position` column, a migration per
   `CLAUDE.md`'s three steps). Only if the board should keep a drag order; the design doesn't
   show one, so leave it out for now.
@@ -917,20 +927,44 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 
 ### Calendar
 
-- **K1: calendar changes without a sync** (follow-up "Calendar changes wait for a sync run"). The
-  Choose Calendars dialog (`7175:34407`) lists the Google account's calendars with a tick each.
-  Today every calendar change happens inside a sync run (`EventSyncer`). Two behaviours follow:
-  - **Opening the dialog shows the list as of the last sync.** A calendar created in Google since
-    then is missing until a full run finishes, and that run pulls events too.
-  - **Unticking a calendar doesn't remove its events at once.** They stay on the calendar until the
-    run that unticking starts writes its first page. Offline, or while the account needs
-    reconnecting, the run never gets there, so they stay.
+- **K1: calendar changes without a sync** (follow-up "Calendar changes wait for a sync run").
 
-  The follow-up proposes two operations beside the run. `refreshCalendars` asks Google for the
-  calendar list only (one request) and stores it, so the dialog can refresh when it opens.
-  `deselectCalendar` unticks, deletes the calendar's events and drops its sync cursor in one
-  transaction, with no network, so the events go at once. Optional: the dialog works without them,
-  just staler and slower.
+  **Background.** A connected Google account has several calendars ("Work", "Personal",
+  "Holidays in Canada"). Each has two switches in DevBrain:
+  - **Selected** (Choose Calendars, `7175:34407`): whether DevBrain syncs it at all. Unselecting
+    should delete its events from the workspace.
+  - **Visible** (the calendar page's Filter menu): whether its synced events are drawn. Nothing is
+    deleted.
+
+  Visibility is a plain database flag and takes effect at once. Selection, and the list of
+  calendars itself, only change inside a sync run (`EventSyncer`), the same job that pulls events.
+  Three examples of what that means in the UI:
+
+  1. **A new Google calendar is missing from Choose Calendars.** You create "Gym" in Google
+     Calendar at 9:00. At 9:05 you open Choose Calendars in DevBrain. The list is the one stored by
+     the last run, so "Gym" isn't there. It appears after the next run (on a schedule, on window
+     focus, or Sync Now), and that run also pulls every selected calendar's events. There's no
+     "just refresh this list" request.
+  2. **An unticked calendar's events stay on screen.** You untick "Holidays in Canada".
+     `calendars.setSelected` flips the flag and starts a run in the background. Until that run
+     writes its first page, usually a second or two, the holidays are still drawn on the week view.
+     The calendar read (`EventService.readRange`) filters on `visible`, not `selected`, and the
+     events are still in the database.
+  3. **Offline, they stay indefinitely.** You untick "Holidays in Canada" on a plane, or while the
+     account says "Needs reconnect". The run fails before its first page, or is skipped, so it
+     never deletes them. The holidays stay on the calendar until a run succeeds.
+
+  The follow-up proposes two operations beside the run:
+  - `refreshCalendars(sourceId)` asks Google for the calendar list only (one request) and stores
+    it. Choose Calendars calls it when it opens, which fixes example 1.
+  - `deselectCalendar(sourceId, calendarId)` unticks, deletes the calendar's events and drops its
+    sync cursor entry in one transaction, with no network. That fixes examples 2 and 3.
+
+  **A smaller first step** fixes what the user sees in examples 2 and 3: make `readRange` also
+  skip events of synced calendars that aren't selected (`selected OR sourceId IS NULL`). That's a
+  one-line core change. Unticked calendars then vanish from the view at once, and the run deletes
+  the rows when it can. Recommended with the calendar page (milestone 7); the full K1 stays
+  optional.
 
 ### Summary
 
@@ -948,6 +982,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 | N2 | Note Show in Finder | Note menu | No (hide item) |
 | E1 | Empty trash | Trash | No (hide action) |
 | R1 | Status/colour in search | ⌘K, "@" menu | No |
+| K0 | `readRange` skips unselected synced calendars | Calendar (unticked calendars vanish at once) | No, but cheap |
 | T1, T3, T4, P2, A1, A3, A4, K1, R2, E2 | See above | | No |
 | S5 | `keyboardMode` setting | Vim mode | Later |
 | S3, S4 | Design decisions first | Settings, Home | No |
@@ -965,7 +1000,7 @@ page that needs them.
    page).
 2. **Onboarding.** Welcome, Create workspace (the shared form, also as the in-app dialog), Choose
    workspace, error states.
-3. **Shared app pieces.** View models and date/colour helpers with tests; `useOpenEntity`; error
+3. **Shared app pieces.** The display helpers and `toTaskRow` with tests; `useOpenEntity`; error
    toast and `useConfirm`; Recents/Favorites/SyncStatus in the sidebar; page header slot and
    breadcrumbs; the keyboard layer (command registry, scopes, keymap dispatcher, undo stack) with
    the default keymap, and the list keys moved out of `TaskRow`/`TaskList` into it; the shortcuts
@@ -979,7 +1014,8 @@ page that needs them.
 7. **Calendar.** Add FullCalendar; `CalendarView` themed to the `TimeGrid`/`MonthGrid` guides,
    with its guide and stories, then retire those two; `toEventInput` and `occurrencesBetween` with
    tests (settle the adapter spec's `TZID` checks first); week/day/month from the URL; right panel
-   and agenda; event sheet with occurrence editing; create event dialog; visibility filter.
+   and agenda; event sheet with occurrence editing; create event dialog; visibility filter. *Main:*
+   K0.
 8. **Home.** Summary/section logic with tests over fixed `now`s, capture box with parsing, the
    time-aware rows.
 9. **Search (⌘K)** with recents and Go to commands. *Main:* R1.
@@ -1013,16 +1049,9 @@ Milestones 4–7 are independent after 3 and can run in parallel.
 
 Settled in review (Nov 6 2026): the route is `/app/trash`; events have no page of their own (the
 sheet is their detail view); the calendar uses FullCalendar; new workspaces from inside the app use
-a dialog; Help stays disabled until there is help.
+a dialog; Help stays disabled until there is help; paths and param values use kebab case.
 
 1. **The user's name** on Home (S4) and **Show weekends** (S3).
-2. **Snake case in paths and params.** The paths `new_workspace` and `choose_workspace` and the
-   value `data_storage` use underscores, as specified. URLs usually use hyphens
-   (`/onboarding/new-workspace`, `?tab=data-storage`), as Google's URL guidelines and most apps do.
-   Nothing technical depends on it. TanStack Router takes either, and the app has no public URLs,
-   since the hash only shows in devtools. It's only about consistency. Changing it later is a
-   rename across `Link`s and schemas, plus a redirect so saved `lastPage` values still work. If
-   hyphens are preferred, switch before milestone 1.
 
 ## Out of scope
 
