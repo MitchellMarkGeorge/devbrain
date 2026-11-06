@@ -23,7 +23,14 @@ export function lastPageOf(url: string): string | null {
   return lastPageSchema.safeParse(page).success ? page : null;
 }
 
-/** The parts of a window's webContents followed here. */
+/** The parts of Electron's app and a window's webContents followed here. */
+export interface WindowCreatingApp {
+  on(
+    event: 'browser-window-created',
+    listener: (event: unknown, window: { webContents: NavigatingContents }) => void,
+  ): unknown;
+}
+
 export interface NavigatingContents {
   on(
     event: 'did-navigate' | 'did-navigate-in-page',
@@ -32,40 +39,24 @@ export interface NavigatingContents {
 }
 
 /**
- * The page the window was on last: every navigation to a page in the app, kept in memory. Read when
- * the workspace closes, which on Windows and Linux happens after the window has gone.
+ * Keeps the last page in the app any window navigated to, and saves it as state.lastPage each time
+ * a workspace closes, then forgets it, so the next workspace's first page isn't taken for the old
+ * one's. The page is kept as the window navigates rather than read at the close: on Windows and
+ * Linux the window has gone by the time the workspace closes. Attach before the first window.
  */
-export class PageTracker {
-  private page: string | null = null;
-
-  follow(contents: NavigatingContents): void {
-    const onNavigate = (_event: unknown, url: string) => {
-      this.page = lastPageOf(url) ?? this.page;
-    };
+export function saveLastPageOnClose(app: WindowCreatingApp, devBrain: DevBrain): void {
+  let page: string | null = null;
+  const onNavigate = (_event: unknown, url: string) => {
+    page = lastPageOf(url) ?? page;
+  };
+  app.on('browser-window-created', (_event, window) => {
     // a load (and a reload); then the router's pushState and replaceState, which change the hash
-    contents.on('did-navigate', onNavigate);
-    contents.on('did-navigate-in-page', onNavigate);
-  }
-
-  get current(): string | null {
-    return this.page;
-  }
-
-  /** Forgets the page, once it belongs to a workspace that has closed. */
-  clear(): void {
-    this.page = null;
-  }
-}
-
-/**
- * Saves the tracked page as state.lastPage each time a workspace closes, then forgets it, so the
- * next workspace's first page isn't taken for the old one's. Returns the function that stops.
- */
-export function saveLastPageOnClose(devBrain: DevBrain, pages: PageTracker): () => void {
-  return devBrain.workspaces.onChange((change) => {
+    window.webContents.on('did-navigate', onNavigate);
+    window.webContents.on('did-navigate-in-page', onNavigate);
+  });
+  devBrain.workspaces.onChange((change) => {
     if (change.type !== 'closed') return;
-    const page = pages.current;
     if (page !== null) devBrain.settings.set('state.lastPage', page);
-    pages.clear();
+    page = null;
   });
 }

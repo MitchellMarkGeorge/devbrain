@@ -21,7 +21,7 @@ import { migrationsPath } from './runtime/migrations';
 import { openElectronSettingsStore } from './runtime/settings-store';
 import { loadDevBrain } from './runtime/start';
 import { closeBeforeQuit, forwardSyncTriggers, holdSingleInstance } from './runtime/lifecycle';
-import { PageTracker, saveLastPageOnClose } from './runtime/last-page';
+import { saveLastPageOnClose } from './runtime/last-page';
 import { createElectronDesktop } from './runtime/desktop';
 import { createMenuActions, installAppMenu } from './runtime/menu';
 import { applyTheme, windowBackground } from './runtime/theme';
@@ -154,8 +154,6 @@ function attachIpc(devBrain: DevBrain | null) {
 // The app's one window. On macOS, closing it hides it instead, as the app keeps running with no
 // window: clicking the Dock icon shows it again as it was, with nothing to reload or refetch.
 let mainWindow: BrowserWindow | null = null;
-// the page the window shows, saved as the last page when the workspace closes (runtime/last-page.ts)
-const pages = new PageTracker();
 // set once the app starts quitting, when a close really closes
 let quitting = false;
 // set once startup has made the first window: a launch before that waits for it
@@ -197,7 +195,6 @@ function createWindow() {
   });
   mainWindow = win;
   hardenWindow(win);
-  pages.follow(win.webContents);
 
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL);
@@ -290,7 +287,7 @@ app.whenReady().then(async () => {
     // before the last workspace opens, so the tracker follows it from the start
     changeTracker.watch(devBrain);
     // "Reopen last page": the page the window was on when the workspace closed, quitting included
-    saveLastPageOnClose(devBrain, pages);
+    saveLastPageOnClose(app, devBrain);
     // Holds the quit until DevBrain has closed. A close waits for a workspace still opening, as
     // WorkspaceService queues its transitions
     closeBeforeQuit(app, () => devBrain.close(), devBrainLog);
