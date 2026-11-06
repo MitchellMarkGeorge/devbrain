@@ -1,1 +1,1 @@
-export { NoteRow, type NoteRowProps } from './NoteRow';
+export { NoteRow, type NoteRowData, type NoteRowProps } from './NoteRow';

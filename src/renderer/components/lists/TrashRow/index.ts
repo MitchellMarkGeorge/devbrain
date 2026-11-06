@@ -1,1 +1,1 @@
-export { TrashRow, type TrashedItem, type TrashedKind, type TrashRowProps } from './TrashRow';
+export { TrashRow, type TrashRowData, type TrashRowProps } from './TrashRow';

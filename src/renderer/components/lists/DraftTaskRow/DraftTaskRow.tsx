@@ -4,7 +4,7 @@ import { cn } from '../../lib/cn';
 import { IconButton } from '../../ui/IconButton';
 import { Input } from '../../ui/Input';
 import { StatusIcon } from '../../entities/StatusIcon';
-import type { TaskStatus } from '../../types';
+import { TaskStatus } from '@common/types';
 import styles from './DraftTaskRow.module.css';
 
 export interface DraftTaskRowProps extends Omit<ComponentPropsWithoutRef<'div'>, 'title'> {
@@ -22,7 +22,7 @@ export interface DraftTaskRowProps extends Omit<ComponentPropsWithoutRef<'div'>,
  * tasks): its status icon, the title, and × to remove it. 32px.
  */
 export const DraftTaskRow = forwardRef<HTMLDivElement, DraftTaskRowProps>(function DraftTaskRow(
-  { title, status = 'not-started', onRemove, state, className, ...props },
+  { title, status = TaskStatus.NOT_STARTED, onRemove, state, className, ...props },
   ref,
 ) {
   return (

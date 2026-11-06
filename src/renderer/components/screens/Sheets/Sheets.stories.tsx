@@ -1,4 +1,5 @@
 import { useRef, type ReactNode } from 'react';
+import { TaskPriority, TaskStatus } from '@common/types';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import {
   CalendarDays,
@@ -15,7 +16,7 @@ import { Button } from '../../ui/Button';
 import { DetailRow, DetailRows, ReadOnlyRow } from '../../detail/DetailRow';
 import { DetailSection } from '../../detail/DetailSection';
 import { EntityPill } from '../../entities/EntityPill';
-import { LinkedTaskRow } from '../../lists/LinkedTaskRow';
+import { LinkedTaskRow, type LinkedTaskRowData } from '../../lists/LinkedTaskRow';
 import { PriorityIcon } from '../../entities/PriorityIcon';
 import { ProgressRing } from '../../ui/ProgressRing';
 import { GoogleCalendarLogo } from '../../entities/ProviderLogo';
@@ -31,6 +32,7 @@ import { StatusIcon } from '../../entities/StatusIcon';
 import { SyncedBadge } from '../../entities/SyncedBadge';
 import { TaskNoteCard } from '../../detail/TaskNoteCard';
 import { TooltipProvider } from '../../ui/Tooltip';
+import { storyDate } from '../../lib/story-dates';
 
 const meta = {
   title: 'Screens/Sheets',
@@ -58,12 +60,12 @@ function SheetColumn({ name, children }: { name: string; children: ReactNode }) 
   );
 }
 
-const SUBTASKS = [
-  { title: 'Generate code verifier', status: 'completed', date: 'Jun 16' },
-  { title: 'S256 challenge', status: 'completed', date: 'Jun 17' },
-  { title: 'Token exchange endpoint', status: 'completed', date: 'Jun 19' },
-  { title: 'Mobile fallback', status: 'not-started', date: 'Jun 24' },
-] as const;
+const SUBTASKS: LinkedTaskRowData[] = [
+  { title: 'Generate code verifier', status: TaskStatus.COMPLETED, dueDate: storyDate(-6) },
+  { title: 'S256 challenge', status: TaskStatus.COMPLETED, dueDate: storyDate(-5) },
+  { title: 'Token exchange endpoint', status: TaskStatus.COMPLETED, dueDate: storyDate(-3) },
+  { title: 'Mobile fallback', status: TaskStatus.NOT_STARTED, dueDate: storyDate(2) },
+];
 
 function Paragraph({ children }: { children: ReactNode }) {
   return <p style={{ margin: 0, fontSize: 14, lineHeight: '20px' }}>{children}</p>;
@@ -85,13 +87,7 @@ function Subtasks({ canAdd = true }: { canAdd?: boolean }) {
     >
       <div>
         {SUBTASKS.map((t) => (
-          <LinkedTaskRow
-            key={t.title}
-            title={t.title}
-            status={t.status}
-            date={t.date}
-            onOpen={() => undefined}
-          />
+          <LinkedTaskRow key={t.title} task={t} onOpen={() => undefined} />
         ))}
       </div>
     </DetailSection>
@@ -106,23 +102,23 @@ export const TaskSheet: Story = {
       <SheetItemTitle>Implement OAuth2 PKCE flow</SheetItemTitle>
       <DetailRows>
         <DetailRow label="Status">
-          <EntityPill glyph={<StatusIcon status="in-progress" size={12} />}>In progress</EntityPill>
+          <EntityPill glyph={<StatusIcon status={TaskStatus.IN_PROGRESS} size={12} />}>
+            In progress
+          </EntityPill>
         </DetailRow>
         <DetailRow label="Priority">
-          <EntityPill glyph={<PriorityIcon priority="high" size={12} />}>High</EntityPill>
+          <EntityPill glyph={<PriorityIcon priority={TaskPriority.HIGH} size={12} />}>
+            High
+          </EntityPill>
         </DetailRow>
         <DetailRow label="Dates">
           <EntityPill glyph={CalendarDays}>Jun 15 – Jun 24</EntityPill>
         </DetailRow>
         <DetailRow label="Project">
-          <EntityPill type="project" color="blue">
-            Auth Overhaul
-          </EntityPill>
+          <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
         </DetailRow>
         <DetailRow label="Event">
-          <EntityPill type="event" color="green">
-            Mitchell / Jesse 1:1
-          </EntityPill>
+          <EntityPill entity={{ type: 'event', title: 'Mitchell / Jesse 1:1', color: 'green' }} />
         </DetailRow>
       </DetailRows>
       <SheetDivider />
@@ -151,10 +147,16 @@ export const TaskSheetLinear: Story = {
       <SheetItemTitle>Implement OAuth2 PKCE flow</SheetItemTitle>
       <SyncedBadge>Linear · ENG-124</SyncedBadge>
       <DetailRows>
-        <ReadOnlyRow label="Status" glyph={<StatusIcon status="in-progress" size={14} />}>
+        <ReadOnlyRow
+          label="Status"
+          glyph={<StatusIcon status={TaskStatus.IN_PROGRESS} size={14} />}
+        >
           In Review
         </ReadOnlyRow>
-        <ReadOnlyRow label="Priority" glyph={<PriorityIcon priority="high" size={14} />}>
+        <ReadOnlyRow
+          label="Priority"
+          glyph={<PriorityIcon priority={TaskPriority.HIGH} size={14} />}
+        >
           Urgent
         </ReadOnlyRow>
         <ReadOnlyRow label="Due date" glyph={CalendarDays}>
@@ -164,9 +166,7 @@ export const TaskSheetLinear: Story = {
           Auth Overhaul
         </ReadOnlyRow>
         <DetailRow label="Event">
-          <EntityPill type="event" color="green">
-            Mitchell / Jesse 1:1
-          </EntityPill>
+          <EntityPill entity={{ type: 'event', title: 'Mitchell / Jesse 1:1', color: 'green' }} />
         </DetailRow>
       </DetailRows>
       <SyncHint provider="Linear" open="Open in Linear" detach />
@@ -259,9 +259,7 @@ export const EventSheet: Story = {
           <EntityPill glyph={Repeat}>Every week</EntityPill>
         </DetailRow>
         <DetailRow label="Calendar">
-          <EntityPill type="event" color="blue">
-            Work
-          </EntityPill>
+          <EntityPill entity={{ type: 'event', title: 'Work', color: 'blue' }} />
         </DetailRow>
         <DetailRow label="Location">
           <EntityPill glyph={MapPin}>Room 4B</EntityPill>
@@ -287,12 +285,19 @@ export const EventSheet: Story = {
         }
       >
         <div>
-          <LinkedTaskRow title="Create user interface mockups" status="not-started" date="Jun 30" />
           <LinkedTaskRow
-            title="Write PKCE migration guide"
-            status="not-started"
-            date="Today"
-            dateTone="today"
+            task={{
+              title: 'Create user interface mockups',
+              status: TaskStatus.NOT_STARTED,
+              dueDate: storyDate(8),
+            }}
+          />
+          <LinkedTaskRow
+            task={{
+              title: 'Write PKCE migration guide',
+              status: TaskStatus.NOT_STARTED,
+              dueDate: storyDate(0),
+            }}
           />
         </div>
       </DetailSection>

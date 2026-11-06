@@ -1,4 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { TaskPriority } from '@common/types';
+import { TaskStatus } from '@common/types';
 import { Calendar, Plus } from 'lucide-react';
 import { Heading } from '../../layout/Heading';
 import { AddSlot } from '../../detail/AddSlot';
@@ -14,9 +16,12 @@ import { StatusIcon } from '../../entities/StatusIcon';
 import { SyncedBadge } from '../../entities/SyncedBadge';
 import { TaskList } from '../../lists/TaskList';
 import { TaskNoteCard } from '../../detail/TaskNoteCard';
-import type { Task } from '../../lists/TaskRow/types';
+import type { TaskRowData } from '../../lists/TaskRow';
 import { AppWindow, DetailTopBar } from './frame';
 import { PKCE_DESCRIPTION, PKCE_SUBTASKS } from './data';
+import { sampleLinear, sampleTask } from '../../lists/TaskRow/fixtures';
+import { storyDate } from '../../lib/story-dates';
+import type { TaskId } from '@common/ids';
 
 const meta = {
   title: 'Screens/TaskDetail',
@@ -54,7 +59,7 @@ interface TaskPageProps {
   note?: string;
   addable?: boolean;
   description: string[];
-  subtasks: Task[];
+  subtasks: TaskRowData[];
   done: number;
   canAdd?: boolean;
   taskNote?: React.ReactNode;
@@ -132,15 +137,17 @@ export const TaskDetail: Story = {
   render: () => (
     <TaskPage
       title="Implement OAuth2 PKCE flow"
-      status="in-progress"
+      status={TaskStatus.IN_PROGRESS}
       properties={
         <>
-          <EntityPill glyph={<StatusIcon status="in-progress" size={12} />}>In progress</EntityPill>
-          <EntityPill glyph={<PriorityIcon priority="high" size={12} />}>High</EntityPill>
-          <DateRange start="Jun 15" due="Jun 24" />
-          <EntityPill type="project" color="blue">
-            Auth Overhaul
+          <EntityPill glyph={<StatusIcon status={TaskStatus.IN_PROGRESS} size={12} />}>
+            In progress
           </EntityPill>
+          <EntityPill glyph={<PriorityIcon priority={TaskPriority.HIGH} size={12} />}>
+            High
+          </EntityPill>
+          <DateRange start="Jun 15" due="Jun 24" />
+          <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
         </>
       }
       description={PKCE_DESCRIPTION}
@@ -165,43 +172,48 @@ export const TaskDetailSubtask: Story = {
   render: () => (
     <TaskPage
       title="Mobile fallback"
-      status="in-progress"
+      status={TaskStatus.IN_PROGRESS}
       properties={
         <>
-          <EntityPill glyph={<StatusIcon status="not-started" size={12} />}>Not started</EntityPill>
-          <EntityPill glyph={<PriorityIcon priority="high" size={12} />}>High</EntityPill>
-          <DateRange start="Jun 15" due="Jun 24" />
-          <EntityPill type="project" color="blue">
-            Auth Overhaul
+          <EntityPill glyph={<StatusIcon status={TaskStatus.NOT_STARTED} size={12} />}>
+            Not started
           </EntityPill>
+          <EntityPill glyph={<PriorityIcon priority={TaskPriority.HIGH} size={12} />}>
+            High
+          </EntityPill>
+          <DateRange start="Jun 15" due="Jun 24" />
+          <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
         </>
       }
       links={
-        <EntityPill type="parent" status="in-progress">
-          Implement OAuth2 PKCE flow
-        </EntityPill>
+        <EntityPill
+          entity={{
+            type: 'parent',
+            title: 'Implement OAuth2 PKCE flow',
+            status: TaskStatus.IN_PROGRESS,
+          }}
+        />
       }
       description={[
         'Some in-app browsers block the custom-scheme redirect that PKCE relies on. Detect them and hand sign-in to the system browser so it still completes.',
         'The fallback reuses the same code verifier and S256 challenge, so the token exchange endpoint needs no changes.',
       ]}
       subtasks={[
-        {
-          id: 'eng-129',
+        sampleTask({
+          id: 'tsk_eng-129' as TaskId,
           title: 'Detect in-app browsers',
-          status: 'completed',
-          key: 'ENG-129',
-          priority: 'medium',
-          date: 'Jun 19',
-        },
-        {
-          id: 'eng-130',
+          status: TaskStatus.COMPLETED,
+          priority: TaskPriority.MEDIUM,
+          dueDate: storyDate(-3),
+          external: sampleLinear('ENG-129'),
+        }),
+        sampleTask({
+          id: 'tsk_eng-130' as TaskId,
           title: 'System browser handoff',
-          status: 'not-started',
-          key: 'ENG-130',
-          priority: 'high',
-          date: 'Jun 24',
-        },
+          priority: TaskPriority.HIGH,
+          dueDate: storyDate(2),
+          external: sampleLinear('ENG-130'),
+        }),
       ]}
       done={1}
       taskNote={<AddSlot size="lg">Add a task note</AddSlot>}
@@ -215,24 +227,24 @@ export const TaskDetailSynced: Story = {
   render: () => (
     <TaskPage
       title="Implement OAuth2 PKCE flow"
-      status="in-progress"
+      status={TaskStatus.IN_PROGRESS}
       addable={false}
       properties={
         <>
-          <EntityPill glyph={<StatusIcon status="in-progress" size={12} />}>In Review</EntityPill>
-          <EntityPill glyph={<PriorityIcon priority="high" size={12} />}>Urgent</EntityPill>
-          <EntityPill glyph={Calendar}>Jun 24</EntityPill>
-          <EntityPill type="project" color="blue">
-            Auth Overhaul
+          <EntityPill glyph={<StatusIcon status={TaskStatus.IN_PROGRESS} size={12} />}>
+            In Review
           </EntityPill>
+          <EntityPill glyph={<PriorityIcon priority={TaskPriority.HIGH} size={12} />}>
+            Urgent
+          </EntityPill>
+          <EntityPill glyph={Calendar}>Jun 24</EntityPill>
+          <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
         </>
       }
       links={
         <>
           <SyncedBadge>Linear · ENG-124</SyncedBadge>
-          <EntityPill type="event" color="green">
-            Mitchell / Jesse 1:1
-          </EntityPill>
+          <EntityPill entity={{ type: 'event', title: 'Mitchell / Jesse 1:1', color: 'green' }} />
         </>
       }
       note="Synced 3 min ago"

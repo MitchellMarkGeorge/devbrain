@@ -1,1 +1,1 @@
-export { ProjectCard, type ProjectCardProps } from './ProjectCard';
+export { ProjectCard, type ProjectCardData, type ProjectCardProps } from './ProjectCard';

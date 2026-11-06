@@ -1,20 +1,63 @@
-import { useRef, useState, type ComponentProps, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type FocusEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
+import { defaultRangeExtractor, type Range } from '@tanstack/react-virtual';
 import { cn } from '../../lib/cn';
+import { useListVirtualizer, useTokenLength } from '../../lib/virtual';
 import { SelectionBar } from '../SelectionBar';
 import type { PickableStatus } from '../../entities/StatusMenu';
-import { TaskRow, type Task, type TaskRowProps } from '../TaskRow';
+import { TaskRow, type TaskRowData, type TaskRowProps } from '../TaskRow';
 import styles from './TaskList.module.css';
 
+/** One group of a grouped list: its heading, then its rows (none while `collapsed`). */
+export interface TaskListGroup {
+  /** identifies the group (its status, project id, date bucket) */
+  id: string;
+  /** the heading row: a `GroupHeading` */
+  heading: ReactNode;
+  tasks: TaskRowData[];
+  /** leaves the group's rows out of the list; the heading stays */
+  collapsed?: boolean;
+  /** a row after the group's tasks while it has more to load: "Show more" */
+  footer?: ReactNode;
+}
+
 export interface TaskListProps extends Omit<ComponentProps<'div'>, 'children' | 'onSelect'> {
-  tasks: Task[];
-  /** the selected rows' ids (a task's `id`, or its index), when controlled */
-  selected?: Array<string | number>;
-  /** the rows selected at first, when uncontrolled; tasks with `selected` are added */
-  defaultSelected?: Array<string | number>;
+  /** core's tasks as they are (`TaskListItem`s): a flat list. Leave out when `groups` is given */
+  tasks?: TaskRowData[];
+  /**
+   * a grouped list: each group's heading, then its rows, in one virtualized list whose current
+   * heading sticks to the top
+   */
+  groups?: TaskListGroup[];
+  /**
+   * how many rows the list has in all, loaded or not (`aria-rowcount`), when a count says so;
+   * the loaded rows by default
+   */
+  rowCount?: number;
+  /** called when the last rendered row comes within `endReachedThreshold` rows of the end */
+  onEndReached?: () => void;
+  /** default 20 */
+  endReachedThreshold?: number;
+  /** the selected rows' ids, when controlled */
+  selected?: string[];
+  /** the rows selected at first, when uncontrolled */
+  defaultSelected?: string[];
   onSelectedChange?: (selected: string[]) => void;
-  /** static hover or focus states by index, for pictures of the list */
+  /** the focused row's id, when controlled; the first row by default */
+  focusedId?: string;
+  onFocusedIdChange?: (id: string) => void;
+  /** static hover or focus states by task index, for pictures of the list */
   states?: Record<number, 'hover' | 'focus'>;
-  /** the row whose status menu is open at first */
+  /** the task index whose status menu is open at first */
   menuOpenAt?: number;
   /**
    * every row shows its checkbox, as while something is selected; for a grouped list, where a
@@ -31,24 +74,58 @@ export interface TaskListProps extends Omit<ComponentProps<'div'>, 'children' | 
   floatingBar?: boolean;
   /** the "more" menu's items in the SelectionBar */
   selectionMenu?: ReactNode;
-  onStatusChange?: (task: Task, status: PickableStatus) => void;
+  onStatusChange?: (task: TaskRowData, status: PickableStatus) => void;
   /** opens a task: a click on its row, or Enter */
-  onOpen?: (task: Task) => void;
+  onOpen?: (task: TaskRowData) => void;
 }
 
-const idOf = (task: Task, index: number) => task.id ?? String(index);
+type Entry =
+  | { kind: 'task'; key: string; task: TaskRowData; taskIndex: number }
+  | { kind: 'heading'; key: string; group: TaskListGroup; first: boolean }
+  | { kind: 'footer'; key: string; group: TaskListGroup };
+
+const idOf = (task: TaskRowData) => task.id as string;
+
+// the flat list: each group's heading, its rows unless collapsed, and its footer
+function entriesOf(tasks: TaskRowData[] | undefined, groups: TaskListGroup[] | undefined): Entry[] {
+  let taskIndex = 0;
+  const row = (task: TaskRowData): Entry => ({
+    kind: 'task',
+    key: idOf(task),
+    task,
+    taskIndex: taskIndex++,
+  });
+  if (!groups) return (tasks ?? []).map(row);
+  return groups.flatMap((group, i) => [
+    { kind: 'heading', key: `group:${group.id}`, group, first: i === 0 } as Entry,
+    ...(group.collapsed ? [] : group.tasks.map(row)),
+    ...(group.footer != null && !group.collapsed
+      ? [{ kind: 'footer', key: `footer:${group.id}`, group } as Entry]
+      : []),
+  ]);
+}
 
 /**
- * A list of `TaskRow`s that handles selection: rows selected next to each other join into one
- * block, every row shows its checkbox while anything is selected, and the `SelectionBar` floats
- * over the bottom of the list. ↑/↓ move between rows (one tab stop for the list), `X` selects,
- * `S` opens the status menu, Enter opens the task.
+ * A virtualized list of `TaskRow`s that handles selection: only the rows in view (and about ten
+ * either side) are drawn, rows selected next to each other join into one block, every row shows
+ * its checkbox while anything is selected, and the `SelectionBar` floats over the bottom of the
+ * list. Focus and selection are kept as task ids, so they survive a row scrolling out of view.
+ * ↑/↓ move between rows (scrolling a row into view before focusing it; one tab stop for the
+ * list), Home/End jump to the first or last loaded row, `X` selects, `S` opens the status menu,
+ * Enter opens the task. With `groups`, headings and rows share the one list and the current
+ * group's heading sticks to the top.
  */
 export function TaskList({
   tasks,
+  groups,
+  rowCount,
+  onEndReached,
+  endReachedThreshold,
   selected: selectedProp,
   defaultSelected = [],
   onSelectedChange,
+  focusedId: focusedIdProp,
+  onFocusedIdChange,
   states,
   menuOpenAt,
   selecting,
@@ -61,15 +138,97 @@ export function TaskList({
   onOpen,
   className,
   onKeyDown,
+  onFocus,
   ...props
 }: TaskListProps) {
-  const [selectedState, setSelectedState] = useState<string[]>(() => [
-    ...defaultSelected.map(String),
-    ...tasks.flatMap((task, i) => (task.selected ? [idOf(task, i)] : [])),
-  ]);
-  const selected = new Set(selectedProp ? selectedProp.map(String) : selectedState);
-  const [focusIndex, setFocusIndex] = useState(0);
-  const rows = useRef<Array<HTMLDivElement | null>>([]);
+  const entries = useMemo(() => entriesOf(tasks, groups), [tasks, groups]);
+  const taskEntries = useMemo(
+    () => entries.flatMap((entry, i) => (entry.kind === 'task' ? [i] : [])),
+    [entries],
+  );
+  const headingIndexes = useMemo(
+    () => entries.flatMap((entry, i) => (entry.kind === 'heading' ? [i] : [])),
+    [entries],
+  );
+
+  const [selectedState, setSelectedState] = useState<string[]>(defaultSelected);
+  const selected = new Set(selectedProp ?? selectedState);
+  const [focusedState, setFocusedState] = useState<string | undefined>(undefined);
+  const firstId = taskEntries.length
+    ? idOf((entries[taskEntries[0]] as Extract<Entry, { kind: 'task' }>).task)
+    : undefined;
+  const indexOfId = useCallback(
+    (id: string | undefined) => (id == null ? -1 : entries.findIndex((e) => e.key === id)),
+    [entries],
+  );
+  const wanted = focusedIdProp ?? focusedState;
+  const focusedId = indexOfId(wanted) >= 0 ? wanted : firstId;
+
+  const listRef = useRef<HTMLDivElement>(null);
+  const rowHeight = useTokenLength(listRef, '--row-height', 48);
+  const groupHeight = useTokenLength(listRef, '--group-height', 36);
+  const groupGap = useTokenLength(listRef, '--group-gap', 32);
+
+  // the heading of the group at the top of the view stays drawn, stuck to the top
+  const headingAt = useCallback(
+    (start: number) => {
+      let active = -1;
+      for (const index of headingIndexes) if (index <= start) active = index;
+      return active;
+    },
+    [headingIndexes],
+  );
+  const rangeExtractor = useCallback(
+    (range: Range) => {
+      const active = headingAt(range.startIndex);
+      const indexes = defaultRangeExtractor(range);
+      return active >= 0 && !indexes.includes(active) ? [active, ...indexes] : indexes;
+    },
+    [headingAt],
+  );
+
+  const virtualizer = useListVirtualizer({
+    listRef,
+    count: entries.length,
+    // rows are row-height exactly; headings are measured (a group-gap above all but the first)
+    estimateSize: (index) => {
+      const entry = entries[index];
+      if (entry.kind === 'task') return rowHeight;
+      if (entry.kind === 'heading') return groupHeight + 10 + (entry.first ? 0 : groupGap);
+      return rowHeight;
+    },
+    getItemKey: (index) => entries[index].key,
+    rangeExtractor: groups ? rangeExtractor : undefined,
+    onEndReached,
+    endReachedThreshold,
+  });
+  const scrollMargin = virtualizer.options.scrollMargin;
+
+  // a row asked to take focus once it is drawn (after scrollToIndex brings it into range)
+  const rows = useRef(new Map<string, HTMLDivElement>());
+  const pendingFocus = useRef<string | null>(null);
+  useEffect(() => {
+    const id = pendingFocus.current;
+    const row = id ? rows.current.get(id) : undefined;
+    if (row) {
+      pendingFocus.current = null;
+      row.focus({ preventScroll: true });
+    }
+  });
+
+  function setFocused(id: string) {
+    setFocusedState(id);
+    onFocusedIdChange?.(id);
+  }
+
+  function focusTask(id: string) {
+    setFocused(id);
+    const index = indexOfId(id);
+    const row = rows.current.get(id);
+    if (index >= 0) virtualizer.scrollToIndex(index, { align: 'auto' });
+    if (row) row.focus({ preventScroll: true });
+    else pendingFocus.current = id;
+  }
 
   function setSelected(next: Set<string>) {
     const list = [...next];
@@ -87,9 +246,11 @@ export function TaskList({
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     onKeyDown?.(event);
     if (event.defaultPrevented) return;
-    const current = rows.current.findIndex((row) => row === document.activeElement);
+    const row = (event.target as Element).closest<HTMLElement>('[data-task-id]');
+    if (!row || row !== event.target) return;
+    const current = taskEntries.indexOf(indexOfId(row.dataset.taskId));
     if (current < 0) return;
-    const last = tasks.length - 1;
+    const last = taskEntries.length - 1;
     const target =
       event.key === 'ArrowDown'
         ? Math.min(last, current + 1)
@@ -102,47 +263,103 @@ export function TaskList({
               : null;
     if (target == null) return;
     event.preventDefault();
-    setFocusIndex(target);
-    rows.current[target]?.focus();
+    focusTask(entries[taskEntries[target]].key);
   }
 
-  const count = tasks.filter((task, i) => selected.has(idOf(task, i))).length;
-  const isSelected = (i: number) => i >= 0 && i < tasks.length && selected.has(idOf(tasks[i], i));
+  // tabbing into the list while its focused row is scrolled away brings that row back
+  function handleFocus(event: FocusEvent<HTMLDivElement>) {
+    onFocus?.(event);
+    if (event.target === event.currentTarget && focusedId) focusTask(focusedId);
+  }
+
+  const isSelectedAt = (index: number) => {
+    const entry = entries[index];
+    return entry?.kind === 'task' && selected.has(idOf(entry.task));
+  };
+  const count = entries.filter((e) => e.kind === 'task' && selected.has(idOf(e.task))).length;
+  const items = virtualizer.getVirtualItems();
+  const activeHeading = groups ? headingAt(virtualizer.range?.startIndex ?? 0) : -1;
+  const focusedDrawn = items.some((item) => entries[item.index]?.key === focusedId);
 
   return (
     <div
+      ref={listRef}
       role="grid"
       aria-multiselectable
+      aria-rowcount={rowCount ?? entries.length}
+      tabIndex={focusedDrawn || !focusedId ? undefined : 0}
       className={cn(styles.list, className)}
       onKeyDown={handleKeyDown}
+      onFocus={handleFocus}
       {...props}
     >
-      {tasks.map((task, i) => {
-        const id = idOf(task, i);
-        const on = isSelected(i);
-        return (
-          <TaskRow
-            key={id}
-            ref={(el) => {
-              rows.current[i] = el;
-            }}
-            task={task}
-            tabIndex={i === Math.min(focusIndex, tasks.length - 1) ? 0 : -1}
-            onFocus={() => setFocusIndex(i)}
-            selected={on}
-            selecting={selecting ?? count > 0}
-            joinPrev={on && isSelected(i - 1)}
-            joinNext={on && isSelected(i + 1)}
-            state={states?.[i]}
-            defaultMenuOpen={menuOpenAt === i}
-            subtask={subtasks}
-            stack={stack}
-            onSelect={() => toggle(id)}
-            onStatusChange={onStatusChange && ((status) => onStatusChange(task, status))}
-            onOpen={onOpen && (() => onOpen(task))}
-          />
-        );
-      })}
+      <div className={styles.rows} style={{ height: virtualizer.getTotalSize() }}>
+        {items.map((item) => {
+          const entry = entries[item.index];
+          if (!entry) return null;
+          const sticky = item.index === activeHeading;
+          const style = sticky
+            ? undefined
+            : { transform: `translateY(${item.start - scrollMargin}px)` };
+          const rowIndex = item.index + 1;
+          if (entry.kind !== 'task') {
+            return (
+              <div
+                key={item.key}
+                ref={virtualizer.measureElement}
+                data-index={item.index}
+                role="row"
+                aria-rowindex={rowIndex}
+                data-sticky={sticky ? '' : undefined}
+                data-gap={entry.kind === 'heading' && !entry.first ? '' : undefined}
+                className={entry.kind === 'heading' ? styles.heading : styles.item}
+                style={style}
+              >
+                <div role="gridcell" className={styles.cell}>
+                  {entry.kind === 'heading' ? entry.group.heading : entry.group.footer}
+                </div>
+              </div>
+            );
+          }
+          const { task, taskIndex } = entry;
+          const id = idOf(task);
+          const on = isSelectedAt(item.index);
+          return (
+            <div
+              key={item.key}
+              ref={virtualizer.measureElement}
+              data-index={item.index}
+              className={styles.item}
+              style={style}
+            >
+              <TaskRow
+                ref={(el) => {
+                  if (el) rows.current.set(id, el);
+                  else rows.current.delete(id);
+                }}
+                data-task-id={id}
+                aria-rowindex={rowIndex}
+                task={task}
+                tabIndex={id === focusedId ? 0 : -1}
+                onFocus={() => {
+                  if (id !== focusedId) setFocused(id);
+                }}
+                selected={on}
+                selecting={selecting ?? count > 0}
+                joinPrev={on && isSelectedAt(item.index - 1)}
+                joinNext={on && isSelectedAt(item.index + 1)}
+                state={states?.[taskIndex]}
+                defaultMenuOpen={menuOpenAt === taskIndex}
+                subtask={subtasks}
+                stack={stack}
+                onSelect={() => toggle(id)}
+                onStatusChange={onStatusChange && ((status) => onStatusChange(task, status))}
+                onOpen={onOpen && (() => onOpen(task))}
+              />
+            </div>
+          );
+        })}
+      </div>
       {selectionBar && count > 0 && (
         <SelectionBar
           count={count}

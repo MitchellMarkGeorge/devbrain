@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { TaskPriority, TaskStatus } from '@common/types';
 import {
   LinkPillMenu,
   NoteMenu,
@@ -44,10 +45,10 @@ export const Gallery: Story = {
       style={{ position: 'relative', width: 1440, height: 760, background: 'var(--background)' }}
     >
       <OpenMenu x={40} y={40}>
-        <StatusMenuContent status="in-progress" sideOffset={0} />
+        <StatusMenuContent status={TaskStatus.IN_PROGRESS} sideOffset={0} />
       </OpenMenu>
       <OpenMenu x={280} y={40}>
-        <PriorityMenuContent priority="high" sideOffset={0} />
+        <PriorityMenuContent priority={TaskPriority.HIGH} sideOffset={0} />
       </OpenMenu>
       <OpenMenu x={520} y={40}>
         <TaskContextMenu />

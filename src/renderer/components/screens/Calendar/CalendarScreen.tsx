@@ -1,11 +1,34 @@
 import type { ReactNode } from 'react';
+import { TaskStatus } from '@common/types';
 import { ChevronLeft, ChevronRight, ListFilter, Plus } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { Calendar } from '../../ui/Calendar';
-import { CalendarAgenda, CalendarAgendaItem } from '../../calendar/CalendarAgenda';
+import {
+  CalendarAgenda,
+  CalendarAgendaItem,
+  type AgendaEventData,
+} from '../../calendar/CalendarAgenda';
+import { storyDate } from '../../lib/story-dates';
 import { ToggleGroup } from '../../ui/ToggleGroup';
 import { AppFrame, PageHeader, Spacer } from './AppFrame';
 import { NOW } from './data';
+
+// an hour-long event on the story's day, or `day` days after it
+function agendaEvent(
+  title: string,
+  day: number,
+  hour: number,
+  minute: number,
+  color: string,
+): AgendaEventData {
+  return {
+    title,
+    startAt: storyDate(day, hour, minute),
+    endAt: storyDate(day, hour + 1, minute),
+    allDay: false,
+    color,
+  };
+}
 
 /**
  * The calendar page around a grid: the header (title, calendar filter, view switch, date stepper,
@@ -59,21 +82,33 @@ export function CalendarScreen({
         >
           <Calendar today={NOW} defaultMonth={NOW} />
           <CalendarAgenda title="Today">
-            <CalendarAgendaItem title="Sprint Planning" time="9:00 AM" color="green" />
-            <CalendarAgendaItem title="Daily Standup" time="9:30 AM" color="green" />
-            <CalendarAgendaItem title="Mitchell / Jesse 1:1" time="10:30 AM" color="green" />
-            <CalendarAgendaItem title="Design Review" time="1:00 PM" color="blue" />
+            <CalendarAgendaItem event={agendaEvent('Sprint Planning', 0, 9, 0, 'green')} />
+            <CalendarAgendaItem event={agendaEvent('Daily Standup', 0, 9, 30, 'green')} />
+            <CalendarAgendaItem event={agendaEvent('Mitchell / Jesse 1:1', 0, 10, 30, 'green')} />
+            <CalendarAgendaItem event={agendaEvent('Design Review', 0, 13, 0, 'blue')} />
             <CalendarAgendaItem
-              title="Write PKCE migration guide"
-              time="Due"
-              status="not-started"
+              task={{
+                title: 'Write PKCE migration guide',
+                status: TaskStatus.NOT_STARTED,
+                dueDate: storyDate(0),
+              }}
             />
-            <CalendarAgendaItem title="Retrospective" time="4:00 PM" color="amber" />
+            <CalendarAgendaItem event={agendaEvent('Retrospective', 0, 16, 0, 'amber')} />
           </CalendarAgenda>
           <CalendarAgenda title="Tomorrow">
-            <CalendarAgendaItem title="AWS Incubator Course" time="All day" color="amber" />
-            <CalendarAgendaItem title="Daily Standup" time="9:30 AM" color="green" />
-            <CalendarAgendaItem title="Auth Overhaul Design Review" time="2:00 PM" color="blue" />
+            <CalendarAgendaItem
+              event={{
+                title: 'AWS Incubator Course',
+                startAt: storyDate(1),
+                endAt: storyDate(2),
+                allDay: true,
+                color: 'amber',
+              }}
+            />
+            <CalendarAgendaItem event={agendaEvent('Daily Standup', 1, 9, 30, 'green')} />
+            <CalendarAgendaItem
+              event={agendaEvent('Auth Overhaul Design Review', 1, 14, 0, 'blue')}
+            />
           </CalendarAgenda>
         </aside>
       </div>

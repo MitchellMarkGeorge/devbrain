@@ -2,5 +2,8 @@
 
 An open status column on the board, as in the quiet direction: no panel, just a 24px header (the `StatusIcon`, the status name in 14px medium, and a ghost xs "+" button on the right) over its `BoardCard`s, 10px apart, and a dashed 40px "Add task" slot (`border-strong` dashes, 10px corners, a 16px "+" and the label in `muted-foreground`; `add: false` for Completed). Columns sit 24px apart and share the width equally (`Board`).
 
+- `status` is a `TaskStatus`; the heading is its label ("In progress") unless `name` is given.
+- **Data.** `tasks`: core's tasks for the status as they are, each with its `id`. Cards are `BoardCard`s that call `onOpen(task)`; `renderCard(task, index)` draws something else (a card with a static `state`, a drag source).
+- **Virtualized** with `@tanstack/react-virtual` against the board's scroller (each column its own virtualizer on the same scroller): only the cards in view, and about ten either side, are in the DOM, each measured as it draws since pills wrap. `onEndReached` fires near the last loaded cards (`endReachedThreshold`, 20) to load the column's next page. The cards sit in a `role="grid"` with `aria-rowcount` (`rowCount`, the column's total, or the loaded cards) and `aria-rowindex` on each. ↑/↓ on a card move to the next, scrolling it into view first; Enter opens it. The story `1,000 cards a column` loads 100 at a time.
 - The designed board shows no count in the header; `count` still adds one after the name when a page wants it.
 - The header's "+" and the slot both call `onAdd`. Figma's `QuickAddRow` is the inline row a list group (or a column) can end with once "Add task" is clicked.

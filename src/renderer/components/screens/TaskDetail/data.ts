@@ -1,39 +1,42 @@
-import type { Task } from '../../lists/TaskRow/types';
+import type { TaskRowData } from '../../lists/TaskRow';
+import { TaskPriority, TaskStatus } from '@common/types';
+import { sampleLinear, sampleTask } from '../../lists/TaskRow/fixtures';
+import { storyDate } from '../../lib/story-dates';
+import type { TaskId } from '@common/ids';
 
 /** The PKCE task's subtasks, as the Figma task screens show them. */
-export const PKCE_SUBTASKS: Task[] = [
-  {
-    id: 'eng-125',
+export const PKCE_SUBTASKS: TaskRowData[] = [
+  sampleTask({
+    id: 'tsk_eng-125' as TaskId,
     title: 'Generate code verifier',
-    status: 'completed',
-    key: 'ENG-125',
-    priority: 'medium',
-    date: 'Jun 16',
-  },
-  {
-    id: 'eng-126',
+    status: TaskStatus.COMPLETED,
+    priority: TaskPriority.MEDIUM,
+    dueDate: storyDate(-6),
+    external: sampleLinear('ENG-125'),
+  }),
+  sampleTask({
+    id: 'tsk_eng-126' as TaskId,
     title: 'S256 challenge',
-    status: 'completed',
-    key: 'ENG-126',
-    priority: 'medium',
-    date: 'Jun 17',
-  },
-  {
-    id: 'eng-127',
+    status: TaskStatus.COMPLETED,
+    priority: TaskPriority.MEDIUM,
+    dueDate: storyDate(-5),
+    external: sampleLinear('ENG-126'),
+  }),
+  sampleTask({
+    id: 'tsk_eng-127' as TaskId,
     title: 'Token exchange endpoint',
-    status: 'completed',
-    key: 'ENG-127',
-    priority: 'medium',
-    date: 'Jun 19',
-  },
-  {
-    id: 'eng-128',
+    status: TaskStatus.COMPLETED,
+    priority: TaskPriority.MEDIUM,
+    dueDate: storyDate(-3),
+    external: sampleLinear('ENG-127'),
+  }),
+  sampleTask({
+    id: 'tsk_eng-128' as TaskId,
     title: 'Mobile fallback',
-    status: 'not-started',
-    key: 'ENG-128',
-    priority: 'high',
-    date: 'Jun 24',
-  },
+    priority: TaskPriority.HIGH,
+    dueDate: storyDate(2),
+    external: sampleLinear('ENG-128'),
+  }),
 ];
 
 export const PKCE_DESCRIPTION = [

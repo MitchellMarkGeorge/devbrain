@@ -7,7 +7,8 @@ import { cn } from '../../lib/cn';
 import { ColourBar } from '../../ui/ColourBar';
 import { Icon } from '../../ui/Icon';
 import { StatusIcon } from '../../entities/StatusIcon';
-import { resolveColor, type Swatch, type TaskStatus } from '../../types';
+import { TaskStatus } from '@common/types';
+import { cssColor, type Swatch } from '../../types';
 import styles from './EventBlock.module.css';
 
 /**
@@ -38,6 +39,8 @@ export interface EventBlockProps
   color?: Swatch | string;
   /** a scheduled task's status (`task` only) */
   status?: TaskStatus;
+  /** a scheduled task past its due date and not started: the flag (`task` only) */
+  overdue?: boolean;
   /** shows the video icon: the event has a meeting link */
   meeting?: boolean;
   tentative?: boolean;
@@ -49,7 +52,19 @@ export interface EventBlockProps
  * (`style={{ top, height }}`): 48px per hour, 2px shorter than its slot.
  */
 export const EventBlock = forwardRef<HTMLDivElement, EventBlockProps>(function EventBlock(
-  { title, time, color, status = 'not-started', meeting, size, kind, tentative, render, ...props },
+  {
+    title,
+    time,
+    color,
+    status = TaskStatus.NOT_STARTED,
+    overdue,
+    meeting,
+    size,
+    kind,
+    tentative,
+    render,
+    ...props
+  },
   ref,
 ) {
   const k = kind ?? 'event';
@@ -65,13 +80,11 @@ export const EventBlock = forwardRef<HTMLDivElement, EventBlockProps>(function E
         children: (
           <>
             {k === 'task' ? (
-              <StatusIcon status={status} size={12} className={styles.glyph} />
+              <StatusIcon status={status} overdue={overdue} size={12} className={styles.glyph} />
             ) : (
               <span
                 className={styles.bar}
-                style={
-                  k === 'event' ? ({ '--bar-color': resolveColor(color) } as CSSProperties) : {}
-                }
+                style={k === 'event' ? ({ '--bar-color': cssColor(color) } as CSSProperties) : {}}
               />
             )}
             <div className={styles.body}>

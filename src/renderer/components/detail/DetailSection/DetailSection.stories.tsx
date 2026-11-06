@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { TaskStatus } from '@common/types';
 import { Link, Plus } from 'lucide-react';
 import { AddSlot } from '../AddSlot';
 import { Badge } from '../../ui/Badge';
@@ -6,6 +7,7 @@ import { Button } from '../../ui/Button';
 import { LinkedTaskRow } from '../../lists/LinkedTaskRow';
 import { ProgressRing } from '../../ui/ProgressRing';
 import { DetailSection } from './DetailSection';
+import { storyDate } from '../../lib/story-dates';
 
 const meta = {
   title: 'Detail/DetailSection',
@@ -35,10 +37,26 @@ export const Subtasks: Story = {
     ),
     children: (
       <div>
-        <LinkedTaskRow title="Generate code verifier" status="completed" date="Jun 16" />
-        <LinkedTaskRow title="S256 challenge" status="completed" date="Jun 17" />
-        <LinkedTaskRow title="Token exchange endpoint" status="completed" date="Jun 19" />
-        <LinkedTaskRow title="Mobile fallback" status="not-started" date="Jun 24" />
+        <LinkedTaskRow
+          task={{
+            title: 'Generate code verifier',
+            status: TaskStatus.COMPLETED,
+            dueDate: storyDate(-6),
+          }}
+        />
+        <LinkedTaskRow
+          task={{ title: 'S256 challenge', status: TaskStatus.COMPLETED, dueDate: storyDate(-5) }}
+        />
+        <LinkedTaskRow
+          task={{
+            title: 'Token exchange endpoint',
+            status: TaskStatus.COMPLETED,
+            dueDate: storyDate(-3),
+          }}
+        />
+        <LinkedTaskRow
+          task={{ title: 'Mobile fallback', status: TaskStatus.NOT_STARTED, dueDate: storyDate(2) }}
+        />
       </div>
     ),
   },
@@ -74,12 +92,19 @@ export const Collapsible: Story = {
     ),
     children: (
       <div>
-        <LinkedTaskRow title="Implement OAuth2 PKCE flow" status="in-progress" date="Jun 24" />
         <LinkedTaskRow
-          title="Audit token storage"
-          status="overdue"
-          date="Jun 19"
-          dateTone="overdue"
+          task={{
+            title: 'Implement OAuth2 PKCE flow',
+            status: TaskStatus.IN_PROGRESS,
+            dueDate: storyDate(2),
+          }}
+        />
+        <LinkedTaskRow
+          task={{
+            title: 'Audit token storage',
+            status: TaskStatus.NOT_STARTED,
+            dueDate: storyDate(-3),
+          }}
         />
       </div>
     ),

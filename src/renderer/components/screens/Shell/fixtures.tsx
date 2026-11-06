@@ -1,101 +1,92 @@
 /** The Figma screens' sample data, shared by the screen stories. */
 import { ArrowUpDown, Group, List, ListFilter, Plus, SquareKanban } from 'lucide-react';
+import { TaskPriority, TaskStatus } from '@common/types';
 import { Breadcrumb } from '../../ui/Breadcrumb';
 import { Button } from '../../ui/Button';
 import { PageHeader, PageToolbar } from '../../shell/PageHeader';
-import type { Task } from '../../lists/TaskRow/types';
+import type { TaskRowData } from '../../lists/TaskRow';
 import { ToggleGroup } from '../../ui/ToggleGroup';
+import {
+  sampleEventLink,
+  sampleLinear,
+  sampleNoteLink,
+  sampleParent,
+  sampleProject,
+  sampleTask,
+} from '../../lists/TaskRow/fixtures';
+import { storyDate } from '../../lib/story-dates';
+import type { TaskId } from '@common/ids';
 
 /** "Tasks (list)": the eight tasks of the Figma screen, in its order. */
-export const FIGMA_TASKS: Task[] = [
-  {
-    id: 'pkce',
+export const FIGMA_TASKS: TaskRowData[] = [
+  sampleTask({
+    id: 'tsk_pkce' as TaskId,
     title: 'Implement OAuth2 PKCE flow',
-    status: 'in-progress',
-    key: 'ENG-124',
-    subtasks: [3, 4],
-    event: 'Mitchell / Jesse 1:1',
-    eventColor: 'green',
-    project: 'Auth Overhaul',
-    projectColor: 'blue',
-    priority: 'high',
-    date: 'Jun 24',
-  },
-  {
-    id: 'mobile',
+    status: TaskStatus.IN_PROGRESS,
+    priority: TaskPriority.HIGH,
+    dueDate: storyDate(2),
+    external: sampleLinear('ENG-124'),
+    subtaskProgress: { completed: 3, total: 4 },
+    project: sampleProject('Auth Overhaul', 'blue'),
+    link: sampleEventLink('Mitchell / Jesse 1:1', 'green'),
+  }),
+  sampleTask({
+    id: 'tsk_mobile' as TaskId,
     title: 'Mobile fallback',
-    status: 'not-started',
-    key: 'ENG-128',
-    parent: 'Implement OAuth2 PKCE flow',
-    parentStatus: 'in-progress',
-    project: 'Auth Overhaul',
-    projectColor: 'blue',
-    priority: 'high',
-    date: 'Jun 24',
-  },
-  {
-    id: 'refresh',
+    priority: TaskPriority.HIGH,
+    dueDate: storyDate(2),
+    external: sampleLinear('ENG-128'),
+    parentTask: sampleParent('Implement OAuth2 PKCE flow', TaskStatus.IN_PROGRESS),
+    project: sampleProject('Auth Overhaul', 'blue'),
+  }),
+  sampleTask({
+    id: 'tsk_refresh' as TaskId,
     title: 'Refactor token refresh logic',
-    status: 'in-progress',
-    key: 'ENG-131',
-    project: 'Auth Overhaul',
-    projectColor: 'blue',
-    priority: 'high',
-    date: 'Jun 18',
-    dateTone: 'overdue',
-  },
-  {
-    id: 'audit',
+    status: TaskStatus.IN_PROGRESS,
+    priority: TaskPriority.HIGH,
+    dueDate: storyDate(-4),
+    external: sampleLinear('ENG-131'),
+    project: sampleProject('Auth Overhaul', 'blue'),
+  }),
+  sampleTask({
+    id: 'tsk_audit' as TaskId,
     title: 'Audit token storage',
-    status: 'not-started',
-    key: 'ENG-118',
-    project: 'Auth Overhaul',
-    projectColor: 'blue',
-    priority: 'high',
-    date: 'Jun 19',
-    dateTone: 'overdue',
-  },
-  {
-    id: 'guide',
+    priority: TaskPriority.HIGH,
+    dueDate: storyDate(-3),
+    external: sampleLinear('ENG-118'),
+    project: sampleProject('Auth Overhaul', 'blue'),
+  }),
+  sampleTask({
+    id: 'tsk_guide' as TaskId,
     title: 'Write PKCE migration guide',
-    status: 'not-started',
-    note: 'PKCE design notes',
-    project: 'Auth Overhaul',
-    projectColor: 'blue',
-    priority: 'medium',
-    date: 'Today',
-    dateTone: 'today',
-  },
-  {
-    id: 'database',
+    priority: TaskPriority.MEDIUM,
+    dueDate: storyDate(0),
+    project: sampleProject('Auth Overhaul', 'blue'),
+    link: sampleNoteLink('PKCE design notes'),
+  }),
+  sampleTask({
+    id: 'tsk_database' as TaskId,
     title: 'Integrate database connection',
-    status: 'not-started',
-    key: 'ENG-140',
-    project: 'API Gateway v2',
-    projectColor: 'amber',
-    priority: 'medium',
-    date: 'Jun 26',
-  },
-  {
-    id: 'mockups',
+    priority: TaskPriority.MEDIUM,
+    dueDate: storyDate(4),
+    external: sampleLinear('ENG-140'),
+    project: sampleProject('API Gateway v2', 'amber'),
+  }),
+  sampleTask({
+    id: 'tsk_mockups' as TaskId,
     title: 'Create user interface mockups',
-    status: 'not-started',
-    subtasks: [1, 4],
-    project: 'User Interface Revamp',
-    projectColor: 'indigo',
-    priority: 'low',
-    date: 'Jun 30',
-  },
-  {
-    id: 'gateway',
+    dueDate: storyDate(8),
+    subtaskProgress: { completed: 1, total: 4 },
+    project: sampleProject('User Interface Revamp', 'indigo'),
+  }),
+  sampleTask({
+    id: 'tsk_gateway' as TaskId,
     title: 'Set up API Gateway',
-    status: 'completed',
-    key: 'ENG-102',
-    project: 'API Gateway v2',
-    projectColor: 'amber',
-    priority: 'low',
-    date: 'Jun 15',
-  },
+    status: TaskStatus.COMPLETED,
+    dueDate: storyDate(-7),
+    external: sampleLinear('ENG-102'),
+    project: sampleProject('API Gateway v2', 'amber'),
+  }),
 ];
 
 /** "Tasks › List": the Tasks page's header. */

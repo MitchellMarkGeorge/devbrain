@@ -1,1 +1,1 @@
-export { EntityPill, type EntityPillProps, type EntityType } from './EntityPill';
+export { EntityPill, type EntityPillProps, type EntityType, type PillEntity } from './EntityPill';

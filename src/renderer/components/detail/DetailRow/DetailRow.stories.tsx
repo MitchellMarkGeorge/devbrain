@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { TaskPriority, TaskStatus } from '@common/types';
 import { CalendarDays, Folder, Plus } from 'lucide-react';
 import { DateRange } from '../DateRange';
 import { EntityPill } from '../../entities/EntityPill';
@@ -25,7 +26,9 @@ export const Default: Story = {
   args: {
     label: 'Status',
     children: (
-      <EntityPill glyph={<StatusIcon status="in-progress" size={12} />}>In progress</EntityPill>
+      <EntityPill glyph={<StatusIcon status={TaskStatus.IN_PROGRESS} size={12} />}>
+        In progress
+      </EntityPill>
     ),
   },
 };
@@ -36,10 +39,14 @@ export const TaskProperties: Story = {
   render: () => (
     <DetailRows>
       <DetailRow label="Status">
-        <EntityPill glyph={<StatusIcon status="in-progress" size={12} />}>In progress</EntityPill>
+        <EntityPill glyph={<StatusIcon status={TaskStatus.IN_PROGRESS} size={12} />}>
+          In progress
+        </EntityPill>
       </DetailRow>
       <DetailRow label="Priority">
-        <EntityPill glyph={<PriorityIcon priority="high" size={12} />}>High</EntityPill>
+        <EntityPill glyph={<PriorityIcon priority={TaskPriority.HIGH} size={12} />}>
+          High
+        </EntityPill>
       </DetailRow>
       <DetailRow label="Dates">
         <DateRange start="Jun 15" due="Jun 24" />
@@ -48,15 +55,9 @@ export const TaskProperties: Story = {
         <EntityPill glyph={Plus}>Add to project</EntityPill>
       </DetailRow>
       <DetailRow label="Event">
-        <EntityPill type="event" color="green">
-          Mitchell / Jesse 1:1
-        </EntityPill>
-        <EntityPill type="event" color="indigo">
-          Design Review
-        </EntityPill>
-        <EntityPill type="event" color="amber">
-          Retrospective
-        </EntityPill>
+        <EntityPill entity={{ type: 'event', title: 'Mitchell / Jesse 1:1', color: 'green' }} />
+        <EntityPill entity={{ type: 'event', title: 'Design Review', color: 'indigo' }} />
+        <EntityPill entity={{ type: 'event', title: 'Retrospective', color: 'amber' }} />
       </DetailRow>
     </DetailRows>
   ),
@@ -67,10 +68,10 @@ export const ReadOnly: Story = {
   args: { label: '', children: null },
   render: () => (
     <DetailRows>
-      <ReadOnlyRow label="Status" glyph={<StatusIcon status="in-progress" size={14} />}>
+      <ReadOnlyRow label="Status" glyph={<StatusIcon status={TaskStatus.IN_PROGRESS} size={14} />}>
         In Review
       </ReadOnlyRow>
-      <ReadOnlyRow label="Priority" glyph={<PriorityIcon priority="high" size={14} />}>
+      <ReadOnlyRow label="Priority" glyph={<PriorityIcon priority={TaskPriority.HIGH} size={14} />}>
         Urgent
       </ReadOnlyRow>
       <ReadOnlyRow label="Due date" glyph={CalendarDays}>
@@ -89,7 +90,9 @@ export const Vertical: Story = {
   render: () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, width: 248 }}>
       <DetailRow orientation="vertical" label="Status">
-        <EntityPill glyph={<StatusIcon status="in-progress" size={12} />}>In progress</EntityPill>
+        <EntityPill glyph={<StatusIcon status={TaskStatus.IN_PROGRESS} size={12} />}>
+          In progress
+        </EntityPill>
       </DetailRow>
       <DetailRow orientation="vertical" label="Dates">
         <DateRange due="Jun 24" />
