@@ -174,7 +174,9 @@ not obvious from one file:
   [import-export.md](../import-export.md)) asks for a file or folder through `ctx.desktop`, then
   makes one call to `workspace.transfer`; a cancelled dialog returns `null`.
   `settings.showDataFolder` and `workspace.showInFolder` open `devBrain.path` and the open
-  workspace's folder. A path handed to the desktop comes from main's state or a dialog, never from
+  workspace's folder; `notes.showInFolder({ id })` shows the note's markdown file selected in its
+  folder (Electron's `shell.showItemInFolder`), at the path `NoteService.filePathOf` gives, or
+  opens the notes folder when the file is missing. A path handed to the desktop comes from main's state or a dialog, never from
   the renderer's input.
 - **`app.showMenu`** pops up the app menu at a point in the window, through `ctx.desktop`, for
   the Windows title bar's menu button: the page draws the title bar there and Windows shows no

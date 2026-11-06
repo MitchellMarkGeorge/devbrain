@@ -1,3 +1,5 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import type {
   BrowserWindow,
   Dialog,
@@ -10,7 +12,7 @@ import type { Desktop } from '../ipc/desktop';
 
 export interface ElectronDesktopDeps {
   dialog: Pick<Dialog, 'showOpenDialog' | 'showSaveDialog'>;
-  shell: Pick<Shell, 'openPath'>;
+  shell: Pick<Shell, 'openPath' | 'showItemInFolder'>;
   // Electron's Menu: the app menu set with Menu.setApplicationMenu (runtime/menu.ts)
   menu: { getApplicationMenu(): Pick<Menu, 'popup'> | null };
 }
@@ -25,11 +27,21 @@ export function createElectronDesktop(
 ): Desktop {
   const showOpen = (options: OpenDialogOptions) =>
     window ? dialog.showOpenDialog(window, options) : dialog.showOpenDialog(options);
+  const openFolder = async (folderPath: string) => {
+    // resolves with an error message, empty on success
+    const error = await shell.openPath(folderPath);
+    if (error) throw new Error(`The folder could not be opened: ${error}`);
+  };
   return {
-    async openFolder(folderPath) {
-      // resolves with an error message, empty on success
-      const error = await shell.openPath(folderPath);
-      if (error) throw new Error(`The folder could not be opened: ${error}`);
+    openFolder,
+    async showItem(filePath) {
+      // showItemInFolder reports nothing, and shows nothing for a missing file
+      const exists = await fs.access(filePath).then(
+        () => true,
+        () => false,
+      );
+      if (exists) shell.showItemInFolder(filePath);
+      else await openFolder(path.dirname(filePath));
     },
     async chooseFiles({ title, filters, multiple = false }) {
       const result = await showOpen({

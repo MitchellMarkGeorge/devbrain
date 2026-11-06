@@ -71,6 +71,13 @@ export const notesRouter = t.router({
         ctx.workspace.notes.updateNoteContent(input.id, input.content),
     ),
 
+  // Shows the note's markdown file in the file manager, selected in the notes folder (Finder's
+  // "Show in Finder"), or opens the folder when the file is missing. The path comes from core,
+  // never from the input; an unknown or trashed note fails with not_found.
+  showInFolder: wsProcedure
+    .input(byId)
+    .mutation(({ ctx, input }) => ctx.desktop.showItem(ctx.workspace.notes.filePathOf(input.id))),
+
   // Deletes an archived (trashed) note for good; an active one fails with not_archived. Its row
   // goes, then its file, after any save already in flight. Tasks linked to it are kept: the task
   // it was the task note of (`linkedTaskId`) has none now, and tasks made from it lose the link

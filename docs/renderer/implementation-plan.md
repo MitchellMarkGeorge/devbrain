@@ -965,7 +965,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
   project, event and calendar, which would refetch an open note's content on every sync page.
   Also accept `content` in `notes.create` (core already
   does), so "Turn into note" and the capture box can create with a body.
-- **N2: `Show in Finder` for a note**: `notes.showInFolder({ id })` through `ctx.desktop`, with the
+- **N2 (done): `Show in Finder` for a note**: `notes.showInFolder({ id })` through `ctx.desktop`, with the
   path from core (never from the renderer).
 
 ### Tasks
