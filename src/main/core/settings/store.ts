@@ -1,4 +1,4 @@
-import type { SettingsFile } from './types';
+import type { SettingsFile } from '@common/types';
 
 // The file a DevBrain folder's settings are kept in, read and written by dot-separated key, e.g.
 // "settings.general.timeFormat". The main process opens it with electron-store; tests pass one in

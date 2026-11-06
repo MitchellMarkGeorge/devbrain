@@ -3,7 +3,8 @@ import type { AppEvents, IntegrationChangeType, SyncPhase } from '@common/events
 import type { ChangedEntity } from '@common/changes';
 import type { IntegrationChange } from '@main/core/integrations/service';
 import type { SyncStatusChange } from '@main/core/sync/sync-state';
-import type { SyncEntityType, SyncMode, SyncProgress } from '@main/core/sync/types';
+import type { SyncEntityType } from '@common/types';
+import type { SyncMode, SyncProgress } from '@main/core/sync/types';
 
 // src/common can't import from main, so the event payloads restate core's values. Checked by
 // `npm run typecheck`: these fail when core adds a value the events don't carry.

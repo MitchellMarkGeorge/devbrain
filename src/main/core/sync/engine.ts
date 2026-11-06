@@ -6,7 +6,7 @@ import { IntegrationService } from '../integrations/service';
 import { SyncStateManager, SyncTarget, syncSkipReason } from './sync-state';
 import { Provider as ProviderImpl } from '../integrations/providers/provider';
 import { ProviderRegistry } from '../integrations/providers/registry';
-import { SourceType } from '../integrations/types';
+import { SourceType, SyncEntityType } from '@common/types';
 import { ChangeListeners } from '../shared/changes';
 import { IntegrationAuthError, RateLimitError, SyncPageLimitError } from '../shared/errors';
 import { MAX_PAGES_PER_RUN } from './constants';
@@ -17,7 +17,6 @@ import { TaskReconciler } from './task-reconciler';
 import { EventSyncer } from './event-syncer';
 import {
   SyncCursor,
-  SyncEntityType,
   SyncLogger,
   SyncMode,
   SyncProgress,

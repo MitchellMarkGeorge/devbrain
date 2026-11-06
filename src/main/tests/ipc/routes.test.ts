@@ -1,7 +1,8 @@
 import fs from 'node:fs/promises';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
-import type { DevBrain, WorkspaceEntry } from '@main/core';
+import type { WorkspaceInfo } from '@common/types';
+import type { DevBrain } from '@main/core';
 import { appRouter } from '@main/ipc/router';
 import { attachRouter } from '@main/ipc/server';
 import path from 'node:path';
@@ -79,7 +80,7 @@ describe('workspaces', () => {
   beforeEach(() => attach());
 
   it('creates, lists, opens one then another, and deletes, returning WorkspaceInfo', async () => {
-    const created = await call<WorkspaceEntry>(
+    const created = await call<WorkspaceInfo>(
       'workspaces.create',
       { name: ' Work ', color: '#112233' },
       'mutation',
@@ -88,10 +89,10 @@ describe('workspaces', () => {
       ok: true,
       data: { name: 'Work', color: '#112233', lastOpenedAt: null },
     });
-    const work = (created as { data: WorkspaceEntry }).data.id;
+    const work = (created as { data: WorkspaceInfo }).data.id;
     const home = await createWorkspace(devBrain, 'Home');
 
-    const list = await call<{ items: WorkspaceEntry[] }>('workspaces.list', {});
+    const list = await call<{ items: WorkspaceInfo[] }>('workspaces.list', {});
     expect(list.ok && list.data.items.map(({ name }) => name)).toEqual(['Work', 'Home']);
     expect(await call('workspaces.current')).toMatchObject({ ok: true, data: null });
 
@@ -187,7 +188,7 @@ describe('workspaces', () => {
       ok: true,
       data: { id: home, name: 'Home', color: '#f6339a' },
     });
-    const list = await call<{ items: WorkspaceEntry[] }>('workspaces.list', {});
+    const list = await call<{ items: WorkspaceInfo[] }>('workspaces.list', {});
     expect(list.ok && list.data.items.map(({ name, color }) => [name, color])).toEqual([
       ['Day job', '#2b7fff'],
       ['Home', '#f6339a'],
@@ -257,7 +258,7 @@ describe('workspaces.importFolder', () => {
   it('adds the folder picked in the dialog without opening it, and reports the list changed', async () => {
     pick(folder);
 
-    const result = await call<WorkspaceEntry>('workspaces.importFolder', undefined, 'mutation');
+    const result = await call<WorkspaceInfo>('workspaces.importFolder', undefined, 'mutation');
 
     expect(result).toMatchObject({
       ok: true,
@@ -291,7 +292,7 @@ describe('workspaces.importFolder', () => {
     sendToWindows.mockClear();
     pick(folder);
 
-    const result = await call<WorkspaceEntry>('workspaces.importFolder', undefined, 'mutation');
+    const result = await call<WorkspaceInfo>('workspaces.importFolder', undefined, 'mutation');
 
     expect(result).toMatchObject({ ok: true, changed: ['workspace'] });
     expect(devBrain.currentWorkspace?.info.id).toBe(open);

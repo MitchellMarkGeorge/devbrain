@@ -1,19 +1,9 @@
-import { WorkspaceId } from '@common/ids';
 import type { SecretCipher } from '../integrations/credentials';
 import type { OpenExternal } from '../integrations/oauth/types';
 import type { FetchFn } from '../integrations/providers/provider';
 import type { ProviderRegistry } from '../integrations/providers/registry';
 import type { Logger } from '../shared/logger';
 import type { TaskDefaults } from '../tasks/defaults';
-
-export interface WorkspaceInfo {
-  id: WorkspaceId;
-  name: string;
-  color: string;
-  path: string;
-  createdAt: number;
-  lastOpenedAt: number | null;
-}
 
 export interface CreateWorkspaceOptions {
   name: string;

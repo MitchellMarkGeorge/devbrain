@@ -42,7 +42,7 @@ import { LinearApiError } from '../../integrations/providers/linear/client';
 import { GoogleApiError } from '../../integrations/providers/google-calendar/client';
 import { ChangeTokenExpiredError } from '../../integrations/providers/provider';
 import { MalformedNoteFileError } from '../../local/notes';
-import { Provider } from '../../integrations/types';
+import { Provider } from '@common/types';
 
 // Every error core throws carries a stable code, so the IPC layer can serialise it without parsing
 // its message.

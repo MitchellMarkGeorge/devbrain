@@ -15,16 +15,16 @@ import { SearchService } from '../../search/service';
 import { TaskService } from '../../tasks/service';
 import { ProjectService } from '../../projects/service';
 import { NoteService } from '../../notes/service';
-import { TaskPriority, TaskStatus } from '../../tasks/types';
-import { ProjectStatus } from '../../projects/types';
 import {
   AuthType,
-  ExternalProject,
-  ExternalTask,
   LinkState,
+  ProjectStatus,
   Provider,
   SourceType,
-} from '../../integrations/types';
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
+import { ExternalProject, ExternalTask } from '../../integrations/types';
 import { NotFoundError } from '../../shared/errors';
 
 const CREATED = new Date('2026-01-15T09:00:00Z');

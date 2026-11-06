@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DevBrain, Workspace } from '@main/core';
-import type { ArchivedEntity } from '@main/core/archive/types';
-import type { Page } from '@main/core/shared/pagination';
+import type { ArchivedEntity, Page } from '@common/types';
 import { ChangeTracker } from '@main/ipc/changes';
 import { appRouter } from '@main/ipc/router';
 import { attachRouter } from '@main/ipc/server';

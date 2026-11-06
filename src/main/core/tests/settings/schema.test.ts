@@ -1,7 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { settingsFileSchema, appStateSchema, appSettingsSchema } from '../../settings/schema';
-import type { SettingsFile } from '../../settings/types';
-import { TaskPriority } from '../../tasks/types';
+import {
+  appSettingsSchema,
+  appStateSchema,
+  type SettingsFile,
+  settingsFileSchema,
+  TaskPriority,
+} from '@common/types';
 
 const validSettings: SettingsFile = {
   settings: {

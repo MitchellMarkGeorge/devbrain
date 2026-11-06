@@ -8,7 +8,7 @@ import type { DevBrain, Workspace } from '@main/core';
 import { toDateString } from '@main/core/shared/dates';
 import { CoreError } from '@main/core/shared/errors';
 import { NOTE_EXTENSIONS } from '@main/core/transfer/service';
-import type { TaskFileFormat } from '@main/core/transfer/types';
+import type { TaskFileFormat } from '@common/types';
 import type { Desktop } from '../ipc/desktop';
 
 // The app's menu bar: the platform's standard menus, plus DevBrain's own commands. Each command runs

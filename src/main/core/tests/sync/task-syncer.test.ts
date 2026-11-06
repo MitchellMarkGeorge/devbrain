@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AuthType } from '../../integrations/types';
+import { AuthType } from '@common/types';
 import { toAuth } from '../../integrations/auth';
 import { createLinearProvider } from '../../integrations/providers/linear';
 import { TaskSyncer } from '../../sync/task-syncer';

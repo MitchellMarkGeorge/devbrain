@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { ThemeSetting } from '@main/core';
+import type { ThemeSetting } from '@common/types';
 import { trpc } from './ipc';
 
 /**

@@ -12,14 +12,12 @@ import {
   TaskSource,
 } from '../../integrations/providers/provider';
 import { ProviderRegistry } from '../../integrations/providers/registry';
+import { AuthType, Provider as ProviderId, SourceType } from '@common/types';
 import {
-  AuthType,
   ExternalCalendar,
   ExternalEvent,
   ExternalProject,
   ExternalTask,
-  Provider as ProviderId,
-  SourceType,
 } from '../../integrations/types';
 import { IntegrationAuthError } from '../../shared/errors';
 

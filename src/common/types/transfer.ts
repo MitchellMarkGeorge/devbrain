@@ -1,4 +1,4 @@
-import type { NoteId } from '@common/ids';
+import type { NoteId } from '../ids';
 
 export type TaskFileFormat = 'csv' | 'json';
 

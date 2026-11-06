@@ -1,16 +1,3 @@
-import { z } from 'zod';
-import {
-  appSettingsSchema,
-  appStateSchema,
-  settingsFileSchema,
-  themeSettingSchema,
-} from './schema';
-
-export type ThemeSetting = z.infer<typeof themeSettingSchema>;
-export type AppSettings = z.infer<typeof appSettingsSchema>;
-export type AppState = z.infer<typeof appStateSchema>;
-export type SettingsFile = z.infer<typeof settingsFileSchema>;
-
 // All valid dot-separated key paths in T (arrays are not traversed)
 export type DotPaths<T> = {
   [K in keyof T & string]: T[K] extends unknown[]
@@ -28,40 +15,3 @@ export type DotPathValue<T, P extends string> = P extends `${infer K}.${infer Re
   : P extends keyof T
     ? T[P]
     : never;
-
-// // this should produce or be a product of the schema validator
-// export interface AppSettings {
-//   theme: 'system' | 'light' | 'dark';
-//   devBrainPath: string
-//   general: {
-//     defaultLandingPage: 'home' | 'tasks' | 'notes' | 'projects' | 'calendar'
-//     launchOnStartup: boolean;
-//     openToLastPage: boolean;
-//     confirmBeforeDeleting: boolean;
-//     confirmBeforeArchiving: boolean;
-//     timeFormat: '12' | '24'
-//   }
-//   tasks: {
-//     defaultSort: 'priority' | 'dueDate' | 'status';
-//     defaultPriority: TaskPriority;
-//     defaultDueDate: 'today' | 'tomorrow' | 'nextWeek';
-//     defaultView: 'list' | 'group' | 'board';
-//     showCompletedTasks: boolean;
-//   };
-//   calendar: {
-//     defaultEventDuration: '15m' | '30m' | '1h';
-//     firstDayOfWeek: 'monday' | 'sunday';
-//     defaultView: 'month' | 'week' | 'day';
-//   };
-// }
-
-// export interface AppState {
-//   lastWorkspaceId: string | null;
-//   lastPage: string | null;
-// }
-
-// export interface StoreSchema {
-//   settings: AppSettings;
-//   state: AppState;
-//   workspaces: WorkspaceEntry[];
-// }

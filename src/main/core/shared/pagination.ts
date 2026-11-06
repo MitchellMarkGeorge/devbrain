@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, gt, isNull, lt, or, sql, SQL } from 'drizzle-orm';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { z } from 'zod';
+import type { Page } from '@common/types';
 import { CoreError } from './errors';
 
 export const DEFAULT_PAGE_LIMIT = 50;
@@ -11,12 +12,6 @@ export interface PageOptions {
   cursor?: string;
   /** max number of items to return (defaults to 50, capped at 200) */
   limit?: number;
-}
-
-export interface Page<T> {
-  items: T[];
-  /** pass as `cursor` to get the next page, null when there are no more items */
-  nextCursor: string | null;
 }
 
 /**

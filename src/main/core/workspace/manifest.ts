@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { isId, type WorkspaceId } from '@common/ids';
 import { writeFileAtomicSync } from '../local/atomic';
 import { isNotFound } from '../local/utils';
-import type { WorkspaceInfo } from './types';
+import type { WorkspaceInfo } from '@common/types';
 
 // What a workspace says about itself, kept in its folder: its id, name, colour and creation time.
 // This is the only place they are stored, so they move with the folder to another computer

@@ -2,9 +2,10 @@ import { eq, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { NotFoundError } from '../shared/errors';
-import { Page, PageOptions } from '../shared/pagination';
+import { Page, type RecentEntity, type RecentEntityType, type RecentId } from '@common/types';
+import { PageOptions } from '../shared/pagination';
 import { listByStamp, STAMPED_TABLES, stampedEntityTypeOf, withEntities } from '../shared/stamped';
-import type { RecentEntity, RecentEntityType, RecentId, RecentsFilterOptions } from './types';
+import type { RecentsFilterOptions } from './types';
 
 // What recording a view changed, for in-process subscribers such as the IPC layer forwarding it to
 // the renderer. Sent after the write commits.

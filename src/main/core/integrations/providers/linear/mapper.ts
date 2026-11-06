@@ -1,6 +1,5 @@
 import { ExternalProject, ExternalTask } from '../../types';
-import { TaskStatus } from '../../../tasks/types';
-import { ProjectStatus } from '../../../projects/types';
+import { ProjectStatus, TaskStatus } from '@common/types';
 import {
   LinearIssue,
   LinearProject,

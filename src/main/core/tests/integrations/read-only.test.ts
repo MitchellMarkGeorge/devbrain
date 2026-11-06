@@ -13,11 +13,18 @@ import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
 import { ArchiveService } from '../../archive/service';
 import { NoteService } from '../../notes/service';
-import { Task, TaskStatus } from '../../tasks/types';
-import { Project, ProjectStatus } from '../../projects/types';
-import { Event } from '../../events/types';
+import {
+  AuthType,
+  Event,
+  LinkState,
+  Project,
+  ProjectStatus,
+  Provider,
+  SourceType,
+  Task,
+  TaskStatus,
+} from '@common/types';
 import { assertEditable } from '../../integrations/refs';
-import { AuthType, LinkState, Provider, SourceType } from '../../integrations/types';
 import { ExternalReadOnlyError, NotFoundError } from '../../shared/errors';
 
 // Read-only guards on synced rows, and local tasks in mirrored projects. Nothing writes links yet

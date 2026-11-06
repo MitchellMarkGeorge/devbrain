@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TaskPriority, TaskStatus } from '../../../tasks/types';
-import { ProjectStatus } from '../../../projects/types';
+import { ProjectStatus, TaskPriority, TaskStatus } from '@common/types';
 import { toExternalProject, toExternalTask } from '../../../integrations/providers/linear/mapper';
 import {
   LinearIssue,

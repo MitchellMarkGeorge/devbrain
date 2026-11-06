@@ -1,6 +1,6 @@
 import { TaskId, generateId, ProjectId, EventId, NoteId } from '@common/ids';
 import { AnySQLiteColumn, index, sqliteTable, text, check, integer } from 'drizzle-orm/sqlite-core';
-import { TaskPriority, TaskStatus } from '../../core/tasks/types';
+import { TaskPriority, TaskStatus } from '@common/types';
 import { timesamps, date, completedAt, archivedAt } from './utils';
 import { projects } from './projects';
 import { events } from './events';

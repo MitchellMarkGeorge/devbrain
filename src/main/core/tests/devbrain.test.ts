@@ -11,8 +11,8 @@ import { scriptedFetch } from './integrations/linear/fake-fetch';
 import viewerFixture from './integrations/fixtures/linear/viewer.json';
 import page1Fixture from './integrations/fixtures/linear/assigned-issues-page-1.json';
 import page2Fixture from './integrations/fixtures/linear/assigned-issues-page-2.json';
-import { ExternalTask, LinkState, Provider } from '../integrations/types';
-import { TaskPriority, TaskStatus } from '../tasks/types';
+import { LinkState, Provider, TaskPriority, TaskStatus } from '@common/types';
+import { ExternalTask } from '../integrations/types';
 import { SyncProgress } from '../sync/types';
 
 import { openMemorySettingsStore } from './__mocks__/memory-settings-store';

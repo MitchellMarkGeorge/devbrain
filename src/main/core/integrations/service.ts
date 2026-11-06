@@ -16,29 +16,25 @@ import {
   UnsupportedByProviderError,
 } from '../shared/errors';
 import { REVOKE_TIMEOUT_MS } from '../sync/constants';
-import { SyncEntityType } from '../sync/types';
-import { ChangeListener, ChangeListeners } from '../shared/changes';
-import { toAuth } from './auth';
-import { CredentialStore } from './credential-store';
-import { ApiKeyCredentials, Credentials, OAuthCredentials, PendingRevoke } from './credentials';
-import {
-  applyDisconnect,
-  countPlan,
-  DisconnectCounts,
-  DisconnectedItems,
-  planDisconnect,
-} from './disconnect';
-import { OAuthClient } from './oauth/types';
-import { ExternalAccount, Provider as ProviderImpl } from './providers/provider';
-import { ProviderRegistry, getProvider } from './providers/registry';
 import {
   AuthType,
+  DisconnectCounts,
+  type DisconnectResult,
   ExternalSource,
   Integration,
   IntegrationStatus,
   Provider,
   SourceType,
-} from './types';
+  SyncEntityType,
+} from '@common/types';
+import { ChangeListener, ChangeListeners } from '../shared/changes';
+import { toAuth } from './auth';
+import { CredentialStore } from './credential-store';
+import { ApiKeyCredentials, Credentials, OAuthCredentials, PendingRevoke } from './credentials';
+import { applyDisconnect, countPlan, DisconnectedItems, planDisconnect } from './disconnect';
+import { OAuthClient } from './oauth/types';
+import { ExternalAccount, Provider as ProviderImpl } from './providers/provider';
+import { ProviderRegistry, getProvider } from './providers/registry';
 
 // What changed, for in-process subscribers: the scheduler starts and stops syncs from these, the
 // workspace keeps search in step, and the IPC layer will forward them to the renderer. Ids and
@@ -87,13 +83,6 @@ export interface DisconnectOptions {
   // true keeps every synced item as a detached local copy; false (the default choice in the
   // dialog) deletes those nothing of the user's points at
   keepLocalCopies: boolean;
-}
-
-export interface DisconnectResult extends DisconnectCounts {
-  changed: SyncEntityType[];
-  // whether the provider confirmed the grant revoked; false for an API key, which has nothing to
-  // revoke, and when revoking failed or timed out
-  revoked: boolean;
 }
 
 export interface ConnectOptions {

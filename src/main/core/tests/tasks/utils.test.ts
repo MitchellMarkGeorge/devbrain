@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateId, TaskId } from '@common/ids';
 import { isSubtask } from '../../tasks/utils';
-import type { Task } from '../../tasks/types';
-import { TaskPriority, TaskStatus } from '../../tasks/types';
+import { type Task, TaskPriority, TaskStatus } from '@common/types';
 import { localDayWindow } from '@main/core/shared/dates';
 
 describe('localDayWindow', () => {

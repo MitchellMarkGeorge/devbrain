@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { EventKind, EventResponse, EventStatus } from '../../../events/types';
+import { EventKind, EventResponse, EventStatus } from '@common/types';
 import {
   CalendarContext,
   NO_TITLE,

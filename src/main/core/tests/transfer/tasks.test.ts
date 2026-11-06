@@ -10,8 +10,15 @@ import { createDb } from '../utils';
 import { NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
 import { TaskChange, TaskService } from '../../tasks/service';
-import { TaskPriority, TaskStatus, type Task } from '../../tasks/types';
-import { AuthType, LinkState, Provider, SourceType } from '../../integrations/types';
+import {
+  AuthType,
+  LinkState,
+  Provider,
+  SourceType,
+  type Task,
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
 import { ImportFileError, InvalidInputError } from '../../shared/errors';
 import type { TaskDefaults } from '../../tasks/defaults';
 import { MAX_TASK_FILE_BYTES, MAX_TASK_DEPTH } from '../../transfer/limits';

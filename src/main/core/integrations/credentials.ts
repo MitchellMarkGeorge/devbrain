@@ -1,4 +1,4 @@
-import { AuthType } from './types';
+import { AuthType } from '@common/types';
 
 // Credential shapes and the cipher contract. CredentialStore, in ./credential-store, is the only
 // code that stores or reads them.

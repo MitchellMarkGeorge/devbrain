@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import path from 'node:path';
 import { isJunk } from 'junk';
 import { isErrnoException, isNotFound } from './utils';
-import { settingsFileSchema } from '../settings/schema';
+import { settingsFileSchema } from '@common/types';
 import { inspectRegistry, type RegistryInspection } from '../workspace/registry';
 
 // What is at a DevBrain folder's path: nothing, an empty directory (junk files such as .DS_Store

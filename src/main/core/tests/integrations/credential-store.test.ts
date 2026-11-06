@@ -13,7 +13,7 @@ import {
   RefreshedTokens,
   TokenRefresher,
 } from '../../integrations/credentials';
-import { AuthType, Provider } from '../../integrations/types';
+import { AuthType, Provider } from '@common/types';
 import { IntegrationAuthError, NotFoundError, ProviderUnavailableError } from '../../shared/errors';
 import { TOKEN_REFRESH_MARGIN_MS } from '../../sync/constants';
 

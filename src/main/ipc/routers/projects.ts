@@ -1,12 +1,12 @@
 import { z } from 'zod';
 import { hexColorSchema } from '@common/color';
 import {
-  ProjectStatus,
+  type Page,
   type Project,
   type ProjectDeleteResult,
   type ProjectStats,
-} from '@main/core/projects/types';
-import type { Page } from '@main/core/shared/pagination';
+  ProjectStatus,
+} from '@common/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId, zPageFields } from '../zod';

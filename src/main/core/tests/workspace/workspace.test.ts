@@ -7,7 +7,16 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { WorkspaceId } from '@common/ids';
-import type { WorkspaceInfo, WorkspaceOptions } from '../../workspace/types';
+import {
+  AuthType,
+  IntegrationStatus,
+  LinkState,
+  Provider,
+  TaskPriority,
+  TaskStatus,
+  type WorkspaceInfo,
+} from '@common/types';
+import type { WorkspaceOptions } from '../../workspace/types';
 import { Workspace } from '../../workspace/workspace';
 import {
   IntegrationAuthError,
@@ -19,9 +28,7 @@ import { migrationsWithExtra } from '../utils';
 import Database from 'better-sqlite3';
 import { FakeCipher } from '../__mocks__/fake-cipher';
 import { createFakeProvider, FAKE_API_KEY, fakeRegistry } from '../sync/fake-provider';
-import { AuthType, IntegrationStatus, LinkState, Provider } from '../../integrations/types';
 import type { TaskLinkChange } from '../../integrations/detach';
-import { TaskPriority, TaskStatus } from '../../tasks/types';
 import { scriptedFetch } from '../integrations/linear/fake-fetch';
 import viewerFixture from '../integrations/fixtures/linear/viewer.json';
 

@@ -8,7 +8,7 @@ import { externalSources, integrations } from '@main/db/schema/integrations';
 import { EventService } from '../../events/service';
 import { CalendarService } from '../../calendars/service';
 import { DEFAULT_CALENDAR_ID } from '../../calendars/types';
-import { EventKind, EventStatus } from '../../events/types';
+import { AuthType, EventKind, EventStatus, Provider, SourceType } from '@common/types';
 import {
   allDayDates,
   fromDateString,
@@ -16,7 +16,6 @@ import {
   localTimeZone,
   toDateString,
 } from '../../shared/dates';
-import { AuthType, Provider, SourceType } from '../../integrations/types';
 import { NotFoundError } from '../../shared/errors';
 import { createDb } from '../utils';
 

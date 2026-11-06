@@ -1,7 +1,7 @@
 import { ProjectId, generateId } from '@common/ids';
 import { sqliteTable, text, integer, index, check } from 'drizzle-orm/sqlite-core';
 import { timesamps, completedAt, archivedAt, date } from './utils';
-import { ProjectStatus } from '@main/core/projects/types';
+import { ProjectStatus } from '@common/types';
 import { and, isNotNull, isNull, sql } from 'drizzle-orm';
 
 export const projects = sqliteTable(

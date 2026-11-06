@@ -20,14 +20,13 @@ import {
 import { DevBrain } from '../../devbrain';
 import { scaffoldDevBrain } from '../../local/scaffold';
 import { openMemorySettingsStore } from '../__mocks__/memory-settings-store';
-import type { WorkspaceInfo } from '../../workspace/types';
+import { AuthType, IntegrationStatus, Provider, type WorkspaceInfo } from '@common/types';
 import {
   FileExistsError,
   InvalidInputError,
   WorkspaceImportError,
   WorkspaceTooNewError,
 } from '../../shared/errors';
-import { AuthType, IntegrationStatus, Provider } from '../../integrations/types';
 import { FakeCipher } from '../__mocks__/fake-cipher';
 import { MIGRATIONS_PATH, WORKSPACE_OPTIONS } from '../utils';
 

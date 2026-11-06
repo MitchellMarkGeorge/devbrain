@@ -1,6 +1,6 @@
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { eventSummaries, projectSummaries, taskSummaries, uniqueIds } from '../shared/summaries';
-import { Note, NoteLinkSummary, NoteListItem } from './types';
+import { Note, NoteLinkSummary, NoteListItem } from '@common/types';
 
 /**
  * Adds what a note row shows beside its own fields: its project and the event or task it is linked

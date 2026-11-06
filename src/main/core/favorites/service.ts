@@ -5,22 +5,23 @@ import { projects } from '@main/db/schema/projects';
 import { tasks } from '@main/db/schema/tasks';
 import { eq } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { Event } from '../events/types';
+import {
+  Event,
+  type FavoritableEntityType,
+  type FavoritableId,
+  type FavoritedEntity,
+  Note,
+  Page,
+  Project,
+  Task,
+} from '@common/types';
 import { withEventDetails } from '../events/service';
 import { withExternalRef } from '../integrations/refs';
-import { Note } from '../notes/types';
-import { Project } from '../projects/types';
-import { Task } from '../tasks/types';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { NotFoundError } from '../shared/errors';
-import { Page, PageOptions } from '../shared/pagination';
+import { PageOptions } from '../shared/pagination';
 import { listByStamp } from '../shared/stamped';
-import type {
-  FavoritableEntityType,
-  FavoritableId,
-  FavoritedEntity,
-  FavoritesFilterOptions,
-} from './types';
+import type { FavoritesFilterOptions } from './types';
 
 // What a favorite or unfavorite changed, for in-process subscribers such as the IPC layer forwarding
 // it to the renderer. Sent after the write commits.

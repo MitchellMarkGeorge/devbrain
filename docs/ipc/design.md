@@ -16,6 +16,7 @@ refetches.
 | shared   | [`src/common/ipc`](../../src/common/ipc)                                               | Channel names, `IpcRequest`, `IpcResult`, `IpcErrorCode`, `IpcBridge` |
 | shared   | [`src/common/changes.ts`](../../src/common/changes.ts)                                 | `ChangedEntity`, the kinds of rows a change is reported as            |
 | shared   | [`src/common/events.ts`](../../src/common/events.ts)                                   | `AppEvents`, the push events main sends                               |
+| shared   | [`src/common/types`](../../src/common/types)                                           | What routes return (`Task`, `Page<T>`, …), their enums, `AppSettings` |
 | main     | [`src/main/ipc/router.ts`](../../src/main/ipc/router.ts)                               | `appRouter` and its type `AppRouter`, built from `routers/`           |
 | main     | [`src/main/ipc/server.ts`](../../src/main/ipc/server.ts)                               | `attachRouter`: the transport over `ipcMain`                          |
 | main     | [`src/main/ipc/changes.ts`](../../src/main/ipc/changes.ts)                             | `ChangeTracker`: core's changes to `changed` and push events          |
@@ -27,6 +28,15 @@ refetches.
 The renderer imports `AppRouter` as a type only, so the client is typed from the router without
 bundling any of main. An ESLint rule rejects a value import from `src/main` in the renderer.
 Anything the renderer needs at runtime (enums, error codes, schemas) lives in `src/common`.
+
+The types routes take and return (the DTOs: `Task`, `TaskListItem`, `Project`, `Event`,
+`Integration`, `Page<T>`, the summaries, `AppSettings`, …) and the enums they use (`TaskStatus`,
+`ProjectStatus`, `EventKind`, …) live in [`src/common/types`](../../src/common/types), one file per
+feature, imported from `@common/types`. Core imports them from there too, so each has one home, and
+the renderer and its components take them directly (a `Pick` of `TaskListItem`, say). What only
+core uses stays in core: database row types, service options, sync cursors and the provider shapes.
+`src/common` imports nothing from `src/main`, Drizzle, Electron or Node, since the renderer bundles
+it; an ESLint rule enforces that.
 
 ## How a call travels
 
@@ -342,7 +352,7 @@ mutation's own changes are refetched before it resolves. `main.tsx` calls
    `wsProcedure` (or `devBrainProcedure` for app-wide data), with an input schema: `zId` for ids,
    `zPage`/`zPageFields` for lists, and core's own schemas where they exist.
 2. **Return what core returns.** No reshaping, no extra lookups, no credentials (core's types
-   already hold none).
+   already hold none). A new type a route returns goes in `src/common/types`, not in core.
 3. **If the service emits nothing for the write,** add an `onChange` to the service, following
    `CLAUDE.md`'s "Change events", not to the route. A new change type also needs its mapping in
    the `ChangeTracker`, and a new kind of row a new `ChangedEntity`.

@@ -16,20 +16,22 @@ import type { DevBrain, Workspace } from '@main/core';
 import type { Auth } from '@main/core/integrations/auth';
 import type { OAuthConfig, OpenExternal } from '@main/core/integrations/oauth/types';
 import type { ExternalAccount } from '@main/core/integrations/providers/provider';
-import type { Calendar } from '@main/core/calendars/types';
-import { DEFAULT_CALENDAR_ID } from '@main/core/calendars/types';
 import {
   AuthType,
+  type Calendar,
+  type Event,
+  EventKind,
+  EventStatus,
+  type Integration,
   IntegrationStatus,
   Provider,
-  type ExternalEvent,
-  type ExternalTask,
-  type Integration,
-} from '@main/core/integrations/types';
+  type SourceSyncStatus,
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
+import { DEFAULT_CALENDAR_ID } from '@main/core/calendars/types';
+import { type ExternalEvent, type ExternalTask } from '@main/core/integrations/types';
 import { IntegrationAuthError } from '@main/core/shared/errors';
-import type { SourceSyncStatus } from '@main/core/sync/scheduler';
-import { TaskPriority, TaskStatus } from '@main/core/tasks/types';
-import { EventKind, EventStatus, type Event } from '@main/core/events/types';
 import { FakeCipher } from '@main/core/tests/__mocks__/fake-cipher';
 import { FakeAuthServer, fakeBrowser } from '@main/core/tests/integrations/oauth/fake-auth-server';
 import {

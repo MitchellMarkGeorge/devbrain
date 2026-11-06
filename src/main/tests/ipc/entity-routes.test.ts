@@ -1,15 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import type { CalendarId, ProjectId } from '@common/ids';
-import { AuthType, Provider, SourceType } from '@common/integrations';
+import {
+  AuthType,
+  type Event,
+  type FavoritedEntity,
+  type Note,
+  type Page,
+  type Project,
+  type ProjectStats,
+  ProjectStatus,
+  Provider,
+  type RecentEntity,
+  type SearchResult,
+  SourceType,
+} from '@common/types';
 import type { DevBrain, Workspace } from '@main/core';
-import type { Event } from '@main/core/events/types';
-import type { FavoritedEntity } from '@main/core/favorites/types';
-import type { Note } from '@main/core/notes/types';
-import type { RecentEntity } from '@main/core/recents/types';
-import { ProjectStatus, type Project, type ProjectStats } from '@main/core/projects/types';
-import type { SearchResult } from '@main/core/search/types';
-import type { Page } from '@main/core/shared/pagination';
 import { calendars } from '@main/db/schema/calendars';
 import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
 import { ChangeTracker } from '@main/ipc/changes';

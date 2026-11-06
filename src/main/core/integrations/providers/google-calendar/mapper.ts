@@ -1,6 +1,6 @@
 import TurndownService from 'turndown';
 import { ExternalEvent } from '../../types';
-import { EventKind, EventResponse, EventStatus } from '../../../events/types';
+import { EventKind, EventResponse, EventStatus } from '@common/types';
 import { fromDateString } from '../../../shared/dates';
 import {
   EVENT_COLORS,

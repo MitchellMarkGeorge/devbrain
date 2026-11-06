@@ -21,7 +21,8 @@ import {
   IntegrationStatus,
   Provider as ProviderId,
   SourceType,
-} from '../../integrations/types';
+  type WorkspaceInfo,
+} from '@common/types';
 import {
   IntegrationAlreadyConnectedError,
   IntegrationAuthError,
@@ -29,7 +30,6 @@ import {
   NotFoundError,
 } from '../../shared/errors';
 import { Workspace } from '../../workspace/workspace';
-import type { WorkspaceInfo } from '../../workspace/types';
 
 const API_KEY = 'lin_api_supersecretkey';
 const ACCOUNT: ExternalAccount = {

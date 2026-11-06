@@ -59,7 +59,7 @@ An aborted sync run cancels its provider requests: every `TaskSource` and `Calen
 
 _Found in feature 10 (PR #15)._
 
-`SyncMode`, `SyncRunOutcome` and `SyncSkipReason` in `src/main/core/sync/types.ts` are string enums, matching `Provider`, `SourceType` and the other enums in `src/main/core/integrations/types.ts`. `SyncEntityType` (`'task' | 'project' | 'event' | 'calendar'`) in the same file is still a union. It comes from the writer (feature 9), so converting it means changing `src/main/core/sync/writer.ts` and its tests too. The values would stay the same, so progress events and anything forwarding them are unaffected.
+`SyncMode`, `SyncRunOutcome` and `SyncSkipReason` in `src/main/core/sync/types.ts` are string enums, matching `Provider`, `SourceType` and the other enums in `src/common/types/integrations.ts`. `SyncEntityType` (`'task' | 'project' | 'event' | 'calendar'`), now beside them in `src/common/types/integrations.ts` since `integrations.disconnect` returns it, is still a union. It comes from the writer (feature 9), so converting it means changing `src/main/core/sync/writer.ts` and its tests too. The values would stay the same, so progress events and anything forwarding them are unaffected.
 
 ### Share the auth path and the resolve-and-apply path for tasks
 
@@ -224,7 +224,7 @@ _Found in the rich text editor (PR #101)._
 
 The editor knows an entity only by its type, id and title, so neither place that draws one shows its real state:
 
-- **The "@" menu.** `search.search` returns a `SearchResult` with `entityType`, `entityId` and a highlighted `title` (`src/main/core/search/types.ts`), and nothing else. `toMentionItem` in `src/renderer/editor/suggestion/entity-menu.tsx` fills in defaults: every task shows the "not started" circle whatever its status, and every event a green bar instead of its colour.
+- **The "@" menu.** `search.search` returns a `SearchResult` with `entityType`, `entityId` and a highlighted `title` (`src/common/types/search.ts`), and nothing else. `toMentionItem` in `src/renderer/editor/suggestion/entity-menu.tsx` fills in defaults: every task shows the "not started" circle whatever its status, and every event a green bar instead of its colour.
 - **The pills in a note.** `EntityLinkPill` (`src/renderer/editor/EntityPillView.tsx`) shows the current title, status and colour only through the host's `resolveEntity` (`EditorHost` in `src/renderer/editor/types.ts`), and nothing in the app provides one yet: `useWorkspaceEditorHost` gives only search and `openUrl`. Until a page does, every pill shows the label stored in the markdown (so a renamed task keeps its old title), a "not started" circle for a task, an uncoloured folder for a project and a green bar for an event, and a deleted entity never gets the "missing" style, which needs a resolver to tell.
 
 The fixes are separate:

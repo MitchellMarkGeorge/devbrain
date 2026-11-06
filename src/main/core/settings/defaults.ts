@@ -1,7 +1,6 @@
 import os from 'node:os';
 import path from 'node:path';
-import { TaskPriority } from '../tasks/types';
-import { SettingsFile } from './types';
+import { SettingsFile, TaskPriority } from '@common/types';
 
 export function getDefaults(rootPath?: string): SettingsFile {
   const devBrainPath = rootPath

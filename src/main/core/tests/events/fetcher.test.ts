@@ -9,18 +9,19 @@ import { calendars } from '@main/db/schema/calendars';
 import { events } from '@main/db/schema/events';
 import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
 import { EventFetcher } from '../../events/fetcher';
-import { EventKind, EventStatus } from '../../events/types';
+import {
+  AuthType,
+  EventKind,
+  EventStatus,
+  Provider as ProviderId,
+  SourceType,
+} from '@common/types';
 import type {
   CalendarEventPage,
   EventsQuery,
   Provider,
 } from '../../integrations/providers/provider';
-import {
-  AuthType,
-  ExternalEvent,
-  Provider as ProviderId,
-  SourceType,
-} from '../../integrations/types';
+import { ExternalEvent } from '../../integrations/types';
 import { SearchService } from '../../search/service';
 import { IntegrationAuthError } from '../../shared/errors';
 import { SyncStateManager } from '../../sync/sync-state';

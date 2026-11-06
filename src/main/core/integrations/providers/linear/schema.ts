@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { TaskPriority, TaskStatus } from '../../../tasks/types';
-import { ProjectStatus } from '../../../projects/types';
+import { ProjectStatus, TaskPriority, TaskStatus } from '@common/types';
 
 // What Linear sends back: enum values and their DevBrain mappings, and the response shapes the
 // client validates against. The queries that ask for these fields are in ./queries. Field names

@@ -8,7 +8,7 @@ import { events } from '@main/db/schema/events';
 import { createDb } from '../utils';
 import { keyset } from '../../shared/pagination';
 import { hasLinkInState, LinkedEntity } from '../../integrations/refs';
-import { LinkState } from '../../integrations/types';
+import { LinkState } from '@common/types';
 
 // Verifies the keyset-paginated queries are served by the pagination indexes: the plan must
 // SEARCH/SCAN using the expected index and must not need a temp b-tree for ORDER BY.

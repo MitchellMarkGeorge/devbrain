@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { MAX_PAGE_LIMIT } from '@main/core/shared/pagination';
-import type { SearchEntityType, SearchResult } from '@main/core/search/types';
+import type { SearchEntityType, SearchResult } from '@common/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 

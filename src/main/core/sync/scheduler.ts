@@ -1,7 +1,7 @@
 import { ExternalSourceId, IntegrationId } from '@common/ids';
 import { consoleLogger } from '../shared/logger';
 import { BaseIntegrationService, IntegrationChange } from '../integrations/service';
-import { IntegrationStatus, Provider, SourceType } from '../integrations/types';
+import { IntegrationStatus, type SourceSyncStatus } from '@common/types';
 import {
   BACKOFF_INITIAL_MS,
   BACKOFF_MAX_MS,
@@ -44,22 +44,6 @@ export interface SyncSchedulerOptions {
  * SyncEngine skips every run before the provider's retry time.
  */
 export type SyncTrigger = 'focus' | 'resume' | 'manual' | 'connected' | 'reconnected';
-
-// one source's sync state, for a status indicator and the settings page
-export interface SourceSyncStatus {
-  sourceId: ExternalSourceId;
-  integrationId: IntegrationId;
-  provider: Provider;
-  sourceType: SourceType;
-  // the integration's status; a source syncs only while it is connected
-  status: IntegrationStatus;
-  enabled: boolean;
-  // a run is in flight
-  running: boolean;
-  lastSyncedAt: Date | null;
-  lastError: string | null;
-  retryAt: Date | null;
-}
 
 const globalTimers: SchedulerTimers = {
   now: () => Date.now(),

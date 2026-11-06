@@ -1,9 +1,8 @@
 import type { TaskId } from '@common/ids';
 import { toDateString } from '../shared/dates';
-import { TaskPriority, TaskStatus, type TaskListItem } from '../tasks/types';
+import { type TaskImportIssue, type TaskListItem, TaskPriority, TaskStatus } from '@common/types';
 import { formatCsv, parseCsv } from './csv';
 import { MAX_TASK_DEPTH, MAX_TASK_ROWS } from './limits';
-import type { TaskImportIssue } from './types';
 import { ImportFileError } from '../shared/errors';
 
 // The CSV and JSON task formats (docs/import-export.md). Both read into the same TaskRecord tree,

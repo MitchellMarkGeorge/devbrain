@@ -1,4 +1,4 @@
-import { Provider as ProviderId } from '../types';
+import { Provider as ProviderId } from '@common/types';
 
 // OAuth client ids and secrets, keyed by provider. Read from the environment at build time:
 // vite/main.config.ts inlines each process.env read below, so a packaged app needs no .env. A

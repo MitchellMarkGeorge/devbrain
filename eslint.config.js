@@ -114,6 +114,33 @@ export default tseslint.config(
     },
   },
 
+  // src/common is bundled into the renderer as well as main: it imports only other src/common
+  // files and zod (and small libraries such as uuid), never main, Drizzle, Electron or Node
+  {
+    files: ['src/common/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@main/*', '**/main/*', '**/main/**'],
+              message: 'src/common is shared with the renderer: it never imports from src/main.',
+            },
+            {
+              group: ['drizzle-orm', 'drizzle-orm/*', 'better-sqlite3', 'electron', 'electron/*'],
+              message: 'src/common is bundled into the renderer: no Drizzle, SQLite or Electron.',
+            },
+            {
+              regex: '^node:',
+              message: 'src/common is bundled into the renderer: no Node modules.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   // Main process and preload (Node environment)
   {
     files: ['src/main/**/*.{ts,mjs}', 'src/preload/**/*.ts'],

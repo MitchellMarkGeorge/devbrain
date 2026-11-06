@@ -7,13 +7,7 @@ import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
 import { events } from '@main/db/schema/events';
 import { createDb } from '../utils';
-import {
-  AuthType,
-  IntegrationStatus,
-  LinkState,
-  Provider,
-  SourceType,
-} from '../../integrations/types';
+import { AuthType, IntegrationStatus, LinkState, Provider, SourceType } from '@common/types';
 
 // The integration tables' constraints and foreign key actions, against the real migrations.
 

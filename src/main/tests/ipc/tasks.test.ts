@@ -1,9 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TaskId } from '@common/ids';
 import type { DevBrain, Workspace } from '@main/core';
-import type { Page } from '@main/core/shared/pagination';
-import { Provider, type ExternalTask } from '@main/core/integrations/types';
-import { TaskPriority, TaskStatus, type Task } from '@main/core/tasks/types';
+import { type Page, Provider, type Task, TaskPriority, TaskStatus } from '@common/types';
+import { type ExternalTask } from '@main/core/integrations/types';
 import { FakeCipher } from '@main/core/tests/__mocks__/fake-cipher';
 import {
   createFakeProvider,

@@ -8,27 +8,12 @@ import { projects } from '@main/db/schema/projects';
 import { and, eq, exists, inArray, isNotNull, notExists, notInArray, or, sql } from 'drizzle-orm';
 import { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 import { RunResult } from 'better-sqlite3';
-import { SyncEntityType } from '../sync/types';
-import { LinkState } from './types';
+import { type DisconnectCounts, type EntityCounts, LinkState, SyncEntityType } from '@common/types';
 
 // What a disconnect does to an integration's mirrored rows. IntegrationService.previewDisconnect
 // and disconnect both go through planDisconnect, so what the dialog states is what happens.
 
 type Tx = BaseSQLiteDatabase<'sync', RunResult>;
-
-export interface EntityCounts {
-  tasks: number;
-  projects: number;
-  events: number;
-}
-
-// counts of mirrored items, synced or removed: detached ones are already local and never touched
-export interface DisconnectCounts {
-  // deleted with their links
-  deleted: EntityCounts;
-  // kept as local copies: synced ones are detached, removed (archived or hidden) ones stay so
-  kept: EntityCounts;
-}
 
 export interface DisconnectedItems {
   taskIds: TaskId[];

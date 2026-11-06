@@ -39,12 +39,20 @@ import { alias, BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 import { RunResult } from 'better-sqlite3';
 import { SearchService } from '../search/service';
 import {
+  Event,
+  LinkState,
+  Project,
+  ProjectStatus,
+  Provider,
+  SyncEntityType,
+  Task,
+  TaskStatus,
+} from '@common/types';
+import {
   ExternalCalendar,
   ExternalEvent,
   ExternalProject,
   ExternalTask,
-  LinkState,
-  Provider,
 } from '../integrations/types';
 import {
   eventLinkMetadataSchema,
@@ -52,9 +60,6 @@ import {
   taskLinkMetadataSchema,
 } from '../integrations/schema';
 import { hasLinkInState } from '../integrations/refs';
-import { Task, TaskStatus } from '../tasks/types';
-import { Project, ProjectStatus } from '../projects/types';
-import { Event } from '../events/types';
 import { allDayDates } from '../shared/dates';
 import { NotFoundError } from '../shared/errors';
 import {
@@ -62,7 +67,6 @@ import {
   FullPass,
   ReattachSummary,
   ReconcileItems,
-  SyncEntityType,
   SyncSummary,
   TaskPageItems,
 } from './types';

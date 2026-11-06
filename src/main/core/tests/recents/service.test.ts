@@ -15,11 +15,16 @@ import { FavoritesService } from '../../favorites/service';
 import { NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
 import { TaskService } from '../../tasks/service';
-import { TaskStatus } from '../../tasks/types';
-import { AuthType, LinkState, Provider, SourceType } from '../../integrations/types';
+import {
+  AuthType,
+  LinkState,
+  Provider,
+  type RecentEntityType,
+  SourceType,
+  TaskStatus,
+} from '@common/types';
 import { InvalidCursorError } from '../../shared/pagination';
 import { NotFoundError } from '../../shared/errors';
-import type { RecentEntityType } from '../../recents/types';
 
 const TOMORROW = new Date(Date.now() + 24 * 60 * 60 * 1000);
 

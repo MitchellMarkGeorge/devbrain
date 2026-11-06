@@ -1,7 +1,8 @@
 import { ChangeListeners, type ChangeListener } from '../shared/changes';
 import { getDefaults } from './defaults';
 import type { OpenSettingsStore, SettingsStore } from './store';
-import type { AppSettings, DotPathValue, DotPaths, SettingsFile } from './types';
+import type { AppSettings, SettingsFile } from '@common/types';
+import type { DotPathValue, DotPaths } from './types';
 
 // The user's settings changed (a write under `settings`, or a reset), with all of them as they are
 // now. A write to the app's state beside them sends nothing.

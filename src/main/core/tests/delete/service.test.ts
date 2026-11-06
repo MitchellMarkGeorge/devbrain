@@ -20,16 +20,16 @@ import { SearchService } from '../../search/service';
 import { SyncWriter } from '../../sync/writer';
 import { TaskPageItems } from '../../sync/types';
 import { TaskChange, TaskService } from '../../tasks/service';
-import { TaskPriority, TaskStatus } from '../../tasks/types';
-import { ProjectStatus } from '../../projects/types';
 import {
   AuthType,
-  ExternalProject,
-  ExternalTask,
   LinkState,
+  ProjectStatus,
   Provider,
   SourceType,
-} from '../../integrations/types';
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
+import { ExternalProject, ExternalTask } from '../../integrations/types';
 import { ExternalReadOnlyError, NotArchivedError, NotFoundError } from '../../shared/errors';
 
 // Permanent deletion of tasks, projects and notes (TaskService.deleteTask,
