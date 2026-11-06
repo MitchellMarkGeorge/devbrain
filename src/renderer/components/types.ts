@@ -76,7 +76,8 @@ export const INTEGRATION_PROVIDER_LABELS: Record<IntegrationProvider, string> = 
 };
 
 /**
- * An item on the calendar grids, as TimeGrid and MonthGrid take it. Times are local `Date`s;
+ * An event as the calendar stories and screens describe it (`calendarEventInput` makes it
+ * CalendarView's FullCalendar input). Times are local `Date`s;
  * an all-day event runs from the start of its first day to the start of the day after its last
  * (`end` is exclusive), as Google Calendar sends them.
  */

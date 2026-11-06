@@ -1,8 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { MonthGrid } from '../../calendar/MonthGrid';
-import { TimeGrid } from '../../calendar/TimeGrid';
+import type { EventSourceInput } from '@fullcalendar/react';
+import { CalendarView, calendarEventInput } from '../../calendar/CalendarView';
+import type { CalendarEvent } from '../../types';
 import { CalendarScreen } from './CalendarScreen';
-import { MONTH_EVENTS, NOW, WEEK, WEEK_EVENTS, WEEK_EVENTS_MORE } from './data';
+import { MONTH_EVENTS, NOW, WEEK_EVENTS, WEEK_EVENTS_MORE } from './data';
 
 const meta = {
   title: 'Screens/Calendar/Calendar',
@@ -12,11 +13,22 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+const sources = (events: CalendarEvent[]): EventSourceInput[] => [
+  { events: events.map(calendarEventInput) },
+];
+
 /** Figma "Calendar (week)" (7158:13273) */
 export const Week: Story = {
   render: () => (
     <CalendarScreen view="week">
-      <TimeGrid days={WEEK} events={WEEK_EVENTS} now={NOW} startHour={8} endHour={24} />
+      <CalendarView
+        view="week"
+        date={NOW}
+        now={NOW}
+        eventSources={sources(WEEK_EVENTS)}
+        startHour={8}
+        endHour={24}
+      />
     </CalendarScreen>
   ),
 };
@@ -26,7 +38,14 @@ export const WeekFocusTentativeOutOfOffice: Story = {
   name: 'Week — focus time, tentative, out of office',
   render: () => (
     <CalendarScreen view="week">
-      <TimeGrid days={WEEK} events={WEEK_EVENTS_MORE} now={NOW} startHour={8} endHour={24} />
+      <CalendarView
+        view="week"
+        date={NOW}
+        now={NOW}
+        eventSources={sources(WEEK_EVENTS_MORE)}
+        startHour={8}
+        endHour={24}
+      />
     </CalendarScreen>
   ),
 };
@@ -35,7 +54,14 @@ export const WeekFocusTentativeOutOfOffice: Story = {
 export const Day: Story = {
   render: () => (
     <CalendarScreen view="day">
-      <TimeGrid days={[WEEK[0]]} events={WEEK_EVENTS} now={NOW} startHour={8} endHour={24} />
+      <CalendarView
+        view="day"
+        date={NOW}
+        now={NOW}
+        eventSources={sources(WEEK_EVENTS)}
+        startHour={8}
+        endHour={24}
+      />
     </CalendarScreen>
   ),
 };
@@ -44,7 +70,13 @@ export const Day: Story = {
 export const Month: Story = {
   render: () => (
     <CalendarScreen view="month">
-      <MonthGrid month={NOW} today={NOW} events={MONTH_EVENTS} />
+      <CalendarView
+        view="month"
+        date={NOW}
+        now={NOW}
+        eventSources={sources(MONTH_EVENTS)}
+        onDayClick={() => {}}
+      />
     </CalendarScreen>
   ),
 };

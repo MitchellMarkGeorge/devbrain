@@ -210,11 +210,16 @@ Left to do:
 - Two reads of the same old range at once both fetch it. Saves match by external id, so the result is the same.
 - `historyLoadedFrom` only goes down while the calendar is selected. Nothing trims old history again.
 
-### The calendar view's FullCalendar adapter
+### A split series' UTC `UNTIL` is compared as a local time in core
 
-_Found in feature 16b, for the calendar UI._
+_Found building the calendar view's FullCalendar adapter._
 
-The event model stores what FullCalendar needs; the renderer still has to map each `Event` from `EventService.listForCalendar` to FullCalendar's event input. [The adapter spec](calendar/fullcalendar-adapter.md) covers the mapping. In short: one-off events map directly; a series' `rrule` is a string of `DTSTART`, its `recurrenceRule` and its `exdates` as `EXDATE` lines (FullCalendar's `exdate` property only works with an object `rrule`); occurrence rows are events of their own, grouped with their series. It also lists what to confirm against FullCalendar, chiefly `TZID` support.
+rrule.js compares a rule's `UNTIL` with the local times it generates (the series' start as its local time written as UTC), not with instants. Core expands rules that way (`src/main/core/events/recurrence.ts`), and `ruleEndingBefore` writes `UNTIL` as a UTC instant one second before the split, as RFC 5545 requires with a `TZID` start. So west of UTC the old part still has the occurrence it was split at: a daily 9:00 Toronto series split on 29 October gets `UNTIL=20261029T125959Z`, and `isOccurrence` then says 29 October at 9:00 is still an occurrence of the old part (13:00Z is 09:00 local, which is before 12:59:59 read as local). East of UTC it would drop an occurrence before an `UNTIL` that falls the same local day.
+
+The calendar draws it right: the renderer's adapter (`src/renderer/calendar/recurrence.ts`) rewrites a UTC `UNTIL` as the local time it is in the series' zone before FullCalendar sees it, so the old part ends where it should. What is left is core's own reading, which accepts an occurrence edit on a slot the calendar does not draw.
+
+- Convert a UTC `UNTIL` to the series' local time in `expanding()`, as the adapter does (`localUntil`), and keep writing UTC in `ruleEndingBefore`.
+- Cover it in `tests/events/service.test.ts` with a "following" split west and east of UTC.
 
 ## Editor
 

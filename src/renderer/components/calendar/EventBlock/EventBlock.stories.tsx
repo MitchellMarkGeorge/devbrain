@@ -68,11 +68,12 @@ export const Compact: Story = {
   ),
 };
 
-/** An all-day event in the calendar's tile colour, and out of office */
+/** An all-day event in the calendar's tile colour, one in a synced calendar's #rrggbb, and out of office */
 export const AllDay: Story = {
   render: () => (
     <div style={{ display: 'grid', gap: 8, width: 360 }}>
       <AllDayEvent title="AWS Incubator Course" color="amber" />
+      <AllDayEvent title="Holiday (Google calendar colour)" color="#039be5" />
       <AllDayEvent title="Out of office" kind="out-of-office" style={{ width: 116 }} />
     </div>
   ),
