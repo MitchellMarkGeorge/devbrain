@@ -43,7 +43,7 @@ describe('SettingsService', () => {
       const service = new SettingsService('/fake/path', openMemorySettingsStore);
       const listener = vi.fn();
       service.onChange(listener);
-      service.set('state.lastPage', '/tasks');
+      service.set('state.lastWorkspaceId', 'wsp_1');
       expect(listener).not.toHaveBeenCalled();
     });
 

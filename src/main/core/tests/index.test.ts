@@ -38,7 +38,7 @@ const VALID_SETTINGS = {
       defaultView: 'week',
     },
   },
-  state: { lastWorkspaceId: null, lastPage: null },
+  state: { lastWorkspaceId: null },
 };
 
 let tmpDir: string;

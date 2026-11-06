@@ -21,6 +21,7 @@ import { migrationsPath } from './runtime/migrations';
 import { openElectronSettingsStore } from './runtime/settings-store';
 import { loadDevBrain } from './runtime/start';
 import { closeBeforeQuit, forwardSyncTriggers, holdSingleInstance } from './runtime/lifecycle';
+import { saveLastPageOnClose } from './runtime/last-page';
 import { createElectronDesktop } from './runtime/desktop';
 import { createMenuActions, installAppMenu } from './runtime/menu';
 import { applyTheme, windowBackground } from './runtime/theme';
@@ -285,6 +286,8 @@ app.whenReady().then(async () => {
   if (devBrain !== null) {
     // before the last workspace opens, so the tracker follows it from the start
     changeTracker.watch(devBrain);
+    // "Reopen last page": the page the window was on when the workspace closed, quitting included
+    saveLastPageOnClose(app, devBrain);
     // Holds the quit until DevBrain has closed. A close waits for a workspace still opening, as
     // WorkspaceService queues its transitions
     closeBeforeQuit(app, () => devBrain.close(), devBrainLog);

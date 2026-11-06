@@ -86,11 +86,16 @@ const makeInfo = (id: string, overrides: Partial<WorkspaceInfo> = {}): Workspace
   path: path.join(rootPath, 'workspaces', id),
   createdAt: 1_700_000_000_000,
   lastOpenedAt: null,
+  lastPage: null,
   ...overrides,
 });
 
+// a registry from before manifests, with each workspace's details in its entry (the last page was
+// never kept there)
+const entryOf = (info: WorkspaceInfo) =>
+  Object.fromEntries(Object.entries(info).filter(([key]) => key !== 'lastPage'));
 const registryOf = (...infos: WorkspaceInfo[]): WorkspaceRegistry =>
-  Object.fromEntries(infos.map((info) => [info.id, info])) as WorkspaceRegistry;
+  Object.fromEntries(infos.map((info) => [info.id, entryOf(info)])) as WorkspaceRegistry;
 
 // a workspace directory with a database file, as WorkspaceService.create leaves one
 async function makeWorkspaceDirectory(id: string): Promise<void> {
@@ -201,7 +206,7 @@ describe('WorkspaceService — failed registry writes', () => {
 
     faults.failRename = null;
     expect(await readJson(registryPath())).toEqual(existing);
-    expect(service.getById('wsp_a' as WorkspaceId)).toEqual(existing['wsp_a' as WorkspaceId]);
+    expect(service.getById('wsp_a' as WorkspaceId)).toEqual(makeInfo('wsp_a'));
     expect(changes).not.toHaveBeenCalled();
   });
 
@@ -246,7 +251,7 @@ describe('recoverRegistry', () => {
 
     expect(await recoverRegistry(rootPath, vi.fn())).toBe('backup');
     const restored = await readJson(registryPath());
-    expect(restored.wsp_a).toEqual(makeInfo('wsp_a'));
+    expect(restored.wsp_a).toEqual(entryOf(makeInfo('wsp_a')));
     expect(restored.wsp_b).toMatchObject({
       id: 'wsp_b',
       path: path.join(rootPath, 'workspaces', 'wsp_b'),

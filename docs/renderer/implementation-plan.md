@@ -49,7 +49,7 @@ surveyed three things in parallel and checked the claims the plan rests on again
 ## Decisions
 
 | Area                               | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Router                             | `@tanstack/react-router` with file-based routes (`@tanstack/router-plugin/vite`) in `src/renderer/routes`, generating `src/renderer/routeTree.gen.ts`, which is checked in, formatted and linted as generated. No automatic code splitting: the bundle loads from disk, so splitting only adds work.                                                                                                                                                                                                                                                                                                                                                                                              |
 | History                            | **Hash history** (`createHashHistory`). The production page loads from `file://`, where browser history paths don't resolve on reload; the hash keeps the location across a reload (⌘R, a crash restore) and in devtools. Memory history would lose it.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | Paths                              | Snake case, as the project uses elsewhere, with the spelling fixed: `/onboarding`, `/onboarding/new_workspace`, `/onboarding/choose_workspace`, `/app/...`. Path params use the entity's prefixed id (`tsk_…`, `prj_…`, `nte_…`), validated with the same prefixes `zId` checks.                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -57,7 +57,7 @@ surveyed three things in parallel and checked the claims the plan rests on again
 | Search params                      | Validated per route with Zod v4 (already a dependency; TanStack Router accepts Standard Schema), each field `.optional().catch(undefined)`. Without the `catch`, one bad value (a link saved before a param's values changed, a typo, a removed option) makes `validateSearch` throw, and the whole page renders the error screen. With it, that one field falls back to its default and the rest of the URL still applies. The fallback is `undefined` rather than a literal default because a missing param means "the setting's default" (e.g. `tasks.defaultView`), read at render: so a default is never written into the URL, and changing the setting changes every URL without the param. |
 | Data                               | React Query stays the cache, through `trpc.*.queryOptions()` as today. Route loaders only _prime_ that cache (`queryClient.ensureQueryData`), so a page renders with its data on the first frame and a missing entity becomes the route's not-found. The router keeps no cache of its own (`defaultPreloadStaleTime: 0`). Freshness stays with the query invalidator: nothing in a route invalidates by hand.                                                                                                                                                                                                                                                                                     |
 | Router context                     | `{ queryClient, trpc, ipc }`, typed with `createRootRouteWithContext`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Entity components                  | The entity and list components take **core's own shapes**: a `TaskListItem` goes straight into `TaskRow`, with no mapping step. Each component's props are a `Pick` of the shared type it draws (`Pick<TaskListItem, 'title'                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | 'status' | …>`), and it derives and formats what it draws (overdue, "Today", 10:30 AM) from a `FormatProvider`that supplies`now`and the time format. Needs the shared types and enums moved to`src/common` (X1). See [Entity components take core's shapes](#entity-components-take-cores-shapes). |
+| Entity components                  | The entity and list components take **core's own shapes**: a `TaskListItem` goes straight into `TaskRow`, with no mapping step. Each component's props are a `Pick` of the shared type it draws (`Pick<TaskListItem, 'title' \| 'status' \| …>`), and it derives and formats what it draws (overdue, "Today", 10:30 AM) from a `FormatProvider` that supplies `now` and the time format. Needs the shared types and enums moved to `src/common` (X1). See [Entity components take core's shapes](#entity-components-take-cores-shapes).                                                                                                                                                           |
 | Dates                              | **luxon**, already a dependency and what core uses: relative and calendar dates, locale formats, 12/24 hour. No hand-written date formatting.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Virtualization                     | Every list and grid that can grow is virtualized with **`@tanstack/react-virtual`**: tasks (list, group, board columns), notes, projects, trash, search results. See [Virtualized lists](#virtualized-lists).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Detail presentation                | As designed: tasks, projects and notes are pages; a task opened from the board and an event opened from the calendar show in the docked `Sheet` over their list, addressed by an `open` search param so Back closes them. The task note opens as a dialog (local state).                                                                                                                                                                                                                                                                                                                                                                                                                          |
@@ -215,7 +215,8 @@ Renders, around `<Outlet/>`:
 
 The **landing page** is one function, `landingPage(settings, state)`: `state.lastPage` when
 `general.openToLastPage` is on and it parses as an `/app/*` location, else
-`/app/${general.defaultLandingPage}`. `lastPage` needs a route (Main-process changes, S2).
+`/app/${general.defaultLandingPage}`. `lastPage` is the opened workspace's
+(`WorkspaceInfo.lastPage`, Main-process changes, S2).
 
 ### Guards
 
@@ -228,17 +229,25 @@ redirect({ to: '/onboarding' })`. The seeded cache makes this synchronous.
 
 ### Remembering the page
 
-For "Reopen last page", the renderer tells main where it is, since main can't read the page's
-location. `/app` subscribes to `router.subscribe('onResolved')` and saves the location's `href`
-(the path plus search params, e.g. `/app/tasks?view=board`) with `settings.setLastPage` (S2).
+Each workspace remembers its own last page, in its folder's manifest (`workspace.json`), so it
+moves with the folder to another computer. Main saves it, and the renderer only reads it back.
 
-The save is **debounced**: it waits until navigation has been still for 1s and saves only the last
-location. Many navigations are not page changes: each filter choice, each ‹ › in the calendar and
-each sheet opening rewrites the URL. Saving every one would write the settings file each time.
-Saving when the window closes isn't reliable, because the IPC call may not finish before the page
-goes away. Losing the last second of navigation is harmless.
-
-Detail pages for a deleted entity resolve to not-found, and a not-found location is not saved.
+- **Tracking:** the router keeps its location in the URL's hash, so the window's URL says where the
+  app is. Main follows the window's navigations (`did-navigate-in-page`) and keeps the last `/app`
+  location in memory, the path plus search params (e.g. `/app/tasks?view=board`).
+- **Saving:** when a workspace closes (on quit, and on a switch before the next one opens), main
+  writes that location to the workspace's manifest with `WorkspaceService.setLastPage` (S2,
+  `src/main/runtime/last-page.ts`).
+- **Reading:** `WorkspaceInfo.lastPage` carries it, so the renderer reads it from the workspace it
+  opened (`openLast` at boot, `workspaces.current` after a switch). Each workspace reopens on its
+  own page.
+- Nothing goes over IPC as the user navigates, so filter changes, the calendar's ‹ › and sheets
+  cost nothing, and there is no debounce.
+- Main tracks the URL as it changes rather than reading it at close: on Windows and Linux, closing
+  the window destroys it before the workspace closes.
+- A crash saves nothing, so the page saved at the last close stays.
+- Main can't tell a not-found page from a real one, so a deleted entity's page can be saved. Opening
+  the workspace lands on it and shows not-found, from which Go Home works.
 
 ### Back and forward
 
@@ -1074,12 +1083,12 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 - **S1: partial settings update.** `settings.update` replaces the whole object, so two quick edits
   can race. Add `settings.set({ path, value })` over core's dot-path `set` (with the value checked
   against the path's schema), and `settings.reset`.
-- **S2 (needed for "Reopen last page"): `settings.lastPage` / `settings.setLastPage({ href })`**
-  over `state.lastPage`, which exists in the schema but is read and written nowhere. Include
-  `lastPage` in the initial load context, so boot doesn't wait for a query. Validate it as an
-  `/app` path string of bounded length; the renderer parses it before navigating. Writing a
-  `state.*` key emits no `SettingsChange` (`SettingsService.set` only emits for `settings.*`), so
-  saving the page refetches nothing.
+- **S2 (needed for "Reopen last page"): each workspace's last page, in its manifest.** Main
+  follows the window's URL and writes the last `/app` location to the closing workspace's
+  `workspace.json` (see Remembering the page); there is no route. `WorkspaceInfo.lastPage` carries
+  it, so the renderer reads it from the workspace it opened, and a moved folder brings it along.
+  Validate it as an `/app` path string of bounded length; the renderer parses it again before
+  navigating. The unused `state.lastPage` is removed from the settings file's schema.
 - **S3: `calendar.hideWeekends`** (default `false`) in `appSettingsSchema`, shown in Settings ›
   Calendar as **Hide weekends** (Figma's "Show weekends" at `7158:11133` is renamed). FullCalendar
   takes it as `weekends: !hideWeekends`, in the week and month views.
@@ -1187,7 +1196,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 | N1                                     | `notes.readContent`, `content` in `notes.create`         | Note page, task note, event note             | Done (#110)                |
 | X1                                     | DTO types and enums to `src/common`                      | Entity components (milestone 3)              | **Yes** for the components |
 | T5                                     | Nullable fields in `tasks.update`/`projects.update`      | Date pickers, clearing links                 | **Yes** for clearing       |
-| S2                                     | `lastPage` read/write + in initial load context          | Reopen last page                             | For that setting           |
+| S2                                     | Each workspace's `lastPage`, in its manifest             | Reopen last page                             | Done                       |
 | T6                                     | Optional `dueDate` on create                             | Create dialogs                               | No (default from settings) |
 | P1                                     | Stats on `projects.list`                                 | Projects list/cards                          | No (N+1)                   |
 | T2                                     | Bulk task updates                                        | Selection bar                                | No (sequential)            |

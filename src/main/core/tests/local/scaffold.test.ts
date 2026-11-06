@@ -70,7 +70,6 @@ describe('scaffoldDevBrain', () => {
       await scaffoldDevBrain(dir);
       const raw = await fs.readFile(path.join(dir, 'settings.json'), 'utf8');
       const parsed = JSON.parse(raw);
-      expect(parsed.state.lastPage).toBeNull();
       expect(parsed.state.lastWorkspaceId).toBeNull();
     });
   });
