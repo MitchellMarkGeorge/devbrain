@@ -1241,9 +1241,9 @@ Milestones 4–7 are independent after 3 and can run in parallel.
 Settled in review (Nov 6 2026): the route is `/app/trash`; events have no page of their own (the
 sheet is their detail view); the calendar uses FullCalendar; new workspaces from inside the app use
 a dialog; Help stays disabled until there is help; paths and param values use snake case; Hide
-weekends is a calendar setting; the shared types move to `src/common`.
+weekends is a calendar setting; the shared types move to `src/common`; Home greets without a name.
 
-1. **No name on Home** (S4): recommended above. Confirm, and the README and Figma copy follow.
+None. Every question raised in review is settled, including dropping the user's name from Home (S4).
 
 ## Out of scope
 
