@@ -79,9 +79,15 @@ export const tasksRouter = t.router({
     )
     .mutation(({ ctx, input }) => ctx.workspace.tasks.createTask(input)),
 
-  // takes the parent's project and links, and its due date when none is given
+  // takes the parent's project and links, and its due date when it is left out (null: none)
   createSubtask: wsProcedure
-    .input(z.object({ parentTaskId: zId('task'), ...subtaskFields }))
+    .input(
+      z.object({
+        parentTaskId: zId('task'),
+        ...subtaskFields,
+        dueDate: z.date().nullable().optional(),
+      }),
+    )
     .mutation(({ ctx, input: { parentTaskId, ...options } }) =>
       ctx.workspace.tasks.createSubtask(parentTaskId, options),
     ),
@@ -102,8 +108,8 @@ export const tasksRouter = t.router({
     )
     .mutation(({ ctx, input: { id, ...updates } }) => ctx.workspace.tasks.updateTask(id, updates)),
 
-  // Sets the same fields on every selected task, all or nothing: one refused task (synced, missing,
-  // a subtask given a project) fails the whole call and changes none. A null due date or project
+  // Sets the same fields on every selected task, all or nothing: one refused task (synced or
+  // missing) fails the whole call and changes none. A null due date or project
   // clears it.
   updateMany: wsProcedure
     .input(
