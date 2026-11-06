@@ -176,6 +176,10 @@ value: '24' }`), or one group (`settings.calendar`), checking the value against 
   whole subtree) and those of the rows that only lost a link to it. Asking the user to confirm
   (`general.confirmBeforeDeleting`) is the renderer's; core never reads that setting. See
   [docs/deleting.md](../deleting.md).
+- **`archive.emptyTrash`** deletes every archived task, project and note in one transaction
+  (`ArchiveService.emptyTrash`), then the notes' files, and returns the ids removed, the archived tasks
+  it had to keep (`keptTaskIds`) and the notes whose file could not be removed
+  (`filesNotRemoved`); its `changed` names each kind removed or unlinked.
 - **Dialogs and the file manager.** `transfer` (import and export, see
   [import-export.md](../import-export.md)) asks for a file or folder through `ctx.desktop`, then
   makes one call to `workspace.transfer`; a cancelled dialog returns `null`.
@@ -239,7 +243,7 @@ The rules that shape it:
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TaskChange`, `NoteChange`, `ProjectChange` | `task`, `note`, `project`; a `deleted` one also names the kinds that lost a link to it (a task's notes, a project's tasks and notes, a note's tasks) |
 | `EventChange`, `CalendarChange`             | `event`, `calendar`                                                                                                                                  |
-| `ArchiveChange`                             | each of `task`, `project`, `note` whose id list is not empty                                                                                         |
+| `ArchiveChange`                             | each of `task`, `project`, `note` whose id list is not empty; for `emptied`, also those of the rows that lost a link                                 |
 | `FavoriteChange`                            | the favorited entity's type                                                                                                                          |
 | `RecentChange` (a view recorded)            | `recent`                                                                                                                                             |
 | `TaskLinkChange` (detach, reattach)         | `task` plus its `changed`; `credentials_rejected` → `integration`                                                                                    |

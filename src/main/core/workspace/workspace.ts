@@ -94,7 +94,8 @@ export class Workspace {
       this.eventFetcher.fetchHistory(from, calendarIds),
     );
     this.calendars = new CalendarService(db);
-    this.archive = new ArchiveService(db);
+    // emptying the trash removes the deleted notes' files through the note service
+    this.archive = new ArchiveService(db, this.notes);
     this.favorites = new FavoritesService(db);
     this.recents = new RecentsService(db);
     this.search = new SearchService(db, info.path);
@@ -189,7 +190,8 @@ export class Workspace {
   }
 
   private onArchiveChange({ type, taskIds, projectIds, noteIds }: ArchiveChange): void {
-    if (type === 'archived') {
+    // archived rows are out of search already; dropping them again is a no-op kept for safety
+    if (type === 'archived' || type === 'emptied') {
       this.search.removeFromIndex([...taskIds, ...projectIds, ...noteIds]);
       return;
     }

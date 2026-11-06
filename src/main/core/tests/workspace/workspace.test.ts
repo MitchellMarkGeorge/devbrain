@@ -622,6 +622,91 @@ describe('Workspace — permanent delete', () => {
     }
   });
 
+  it('empties the trash in one transaction, then removes the note files', async () => {
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
+    try {
+      const dueDate = new Date('2026-12-01T00:00:00Z');
+      const project = workspace.projects.createProject({ title: 'Doomed project', dueDate });
+      const task = workspace.tasks.createTask({ title: 'Doomed task', dueDate });
+      const sub = workspace.tasks.createSubtask(task.id, { title: 'Doomed sub' });
+      const note = await workspace.notes.createNote({ title: 'Doomed note' });
+      const kept = workspace.tasks.createTask({
+        title: 'Doomed survivor',
+        dueDate,
+        projectId: project.id,
+      });
+      const keptNote = await workspace.notes.createNote({ title: 'Kept', linkedTaskId: task.id });
+      workspace.archive.archiveProject(project.id);
+      workspace.archive.archiveTask(task.id);
+      workspace.archive.archiveNote(note.id);
+      // they went to the trash with the project and the task; restored, they stay
+      workspace.archive.restoreTask(kept.id);
+      workspace.archive.restoreNote(keptNote.id);
+      const changes: string[] = [];
+      workspace.tasks.onChange((change) => changes.push(`task ${change.type}`));
+      workspace.projects.onChange((change) => changes.push(`project ${change.type}`));
+      workspace.notes.onChange((change) => changes.push(`note ${change.type}`));
+      workspace.archive.onChange((change) => changes.push(`archive ${change.type}`));
+
+      const result = await workspace.archive.emptyTrash();
+
+      expect({ ...result, taskIds: result.taskIds.sort() }).toEqual({
+        taskIds: [task.id, sub.id].sort(),
+        projectIds: [project.id],
+        noteIds: [note.id],
+        keptTaskIds: [],
+        filesNotRemoved: [],
+      });
+      // one change, from the archive
+      expect(changes).toEqual(['archive emptied']);
+      expect(workspace.archive.listArchived().items).toEqual([]);
+      expect(searchIds(workspace, 'Doomed')).toEqual([kept.id]);
+      expect(workspace.tasks.getById(kept.id).projectId).toBeNull();
+      expect(workspace.notes.getById(keptNote.id).linkedTaskId).toBeNull();
+      expect(await fs.readdir(path.join(tmpDir, 'notes'))).toEqual([`${keptNote.id}.md`]);
+
+      // an empty trash deletes nothing and says nothing
+      expect(await workspace.archive.emptyTrash()).toEqual({
+        taskIds: [],
+        projectIds: [],
+        noteIds: [],
+        keptTaskIds: [],
+        filesNotRemoved: [],
+      });
+      expect(changes).toHaveLength(1);
+    } finally {
+      await workspace.close();
+    }
+  });
+
+  it('keeps going when a note file cannot be removed', async () => {
+    const workspace = await Workspace.create(makeInfo(tmpDir), OPTIONS);
+    try {
+      const dueDate = new Date('2026-12-01T00:00:00Z');
+      const task = workspace.tasks.createTask({ title: 'Doomed task', dueDate });
+      const stuck = await workspace.notes.createNote({ title: 'Stuck' });
+      const gone = await workspace.notes.createNote({ title: 'Gone' });
+      workspace.archive.archiveTask(task.id);
+      workspace.archive.archiveNote(stuck.id);
+      workspace.archive.archiveNote(gone.id);
+
+      // a non-empty folder where the file was: removing it fails
+      const stuckFile = path.join(tmpDir, 'notes', `${stuck.id}.md`);
+      await fs.rm(stuckFile);
+      await fs.mkdir(stuckFile);
+      await fs.writeFile(path.join(stuckFile, 'x'), '');
+
+      expect(await workspace.archive.emptyTrash()).toMatchObject({
+        taskIds: [task.id],
+        filesNotRemoved: [stuck.id],
+      });
+      expect(workspace.archive.listArchived().items).toEqual([]);
+      expect(fsSync.existsSync(path.join(tmpDir, 'notes', `${gone.id}.md`))).toBe(false);
+    } finally {
+      await workspace.close();
+    }
+  });
+
   it("deletes only the user's copy of a detached Linear task; sync brings the issue back as new", async () => {
     const provider = createFakeProvider();
     const workspace = await Workspace.create(makeInfo(tmpDir), {

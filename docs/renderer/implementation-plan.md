@@ -920,7 +920,7 @@ Figma `7159:11875`, `7175:29207` (row menu), `7285:53046` (delete confirm), `742
   (`ConfirmDialog` when `confirmBeforeDeleting`, saying what happens to linked items, then
   `tasks.delete` / `projects.delete` / `notes.delete`). Clicking a row opens the item's page
   read-only.
-- "Empty trash" waits for E1.
+- "Empty trash" calls `archive.emptyTrash` (E1), after the confirm when `general.confirmBeforeDeleting` is on.
 
 ### Integrations (`/app/integrations`)
 
@@ -1034,9 +1034,9 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 
 ### Archive
 
-- **E1: empty trash** (follow-up "Empty trash"): a `Workspace`-level method that deletes every
-  archived row of the three services in one transaction, then the note files; one change per
-  service.
+- **E1 (done): empty trash** (follow-up "Empty trash"): `ArchiveService.emptyTrash` deletes every
+  archived task, project and note in one transaction, then the note files (through the note
+  service); one archive change, `emptied`.
 - **E2 (later): rename archive to trash in code** (follow-up). Independent of the UI, which says
   Trash already.
 

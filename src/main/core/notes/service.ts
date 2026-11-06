@@ -308,6 +308,43 @@ export class NoteService {
     return { noteId: id, linkedTaskId, unlinkedTaskIds, fileRemoved };
   }
 
+  /**
+   * Removes the markdown files of notes whose rows were deleted (ArchiveService.emptyTrash), each after
+   * the content saves already queued for it, as deleteNote does. Resolves with the ids whose file
+   * could not be removed, each failure logged by its error class; the file stays in the notes
+   * folder, which nothing reads without a row. A note that still has a row is left alone, and a
+   * file already missing counts as removed.
+   */
+  async removeDeletedFiles(noteIds: NoteId[]): Promise<NoteId[]> {
+    if (noteIds.length === 0) return [];
+    const remaining = new Set(
+      this.db
+        .select({ id: notes.id })
+        .from(notes)
+        .where(inArray(notes.id, noteIds))
+        .all()
+        .map((row) => row.id),
+    );
+    const failed: NoteId[] = [];
+    await Promise.all(
+      noteIds
+        .filter((id) => !remaining.has(id))
+        .map(async (id) => {
+          await this.contentSaves.get(id)?.catch(() => undefined);
+          try {
+            await deleteNoteFile(this.noteFilePath(id));
+          } catch (error) {
+            failed.push(id);
+            // the class only: the error quotes the note's file path
+            this.logger.warn(
+              `Removing deleted note ${id}'s file failed error=${errorClass(error)}`,
+            );
+          }
+        }),
+    );
+    return noteIds.filter((id) => failed.includes(id));
+  }
+
   private async saveNoteContent(id: NoteId, content: string): Promise<Note> {
     // think about this, could just pass in the title or the note object itself
     const existing = this.getById(id);

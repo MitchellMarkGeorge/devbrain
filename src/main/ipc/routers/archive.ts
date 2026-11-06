@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { EmptyTrashResult } from '@common/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId, zPageFields } from '../zod';
@@ -42,6 +43,14 @@ export const archiveRouter = t.router({
   restoreNote: wsProcedure
     .input(noteId)
     .mutation(({ ctx, input }) => ctx.workspace.archive.restoreNote(input.id)),
+
+  // Empties the trash: deletes every archived task, project and note for good, then the notes'
+  // files, and returns the ids removed. An archived task with an active or synced task below it
+  // stays (`keptTaskIds`); a note file that can't be removed is listed in `filesNotRemoved`, its
+  // note deleted all the same. Confirming first (general.confirmBeforeDeleting) is the renderer's.
+  emptyTrash: wsProcedure.mutation(
+    ({ ctx }): Promise<EmptyTrashResult> => ctx.workspace.archive.emptyTrash(),
+  ),
 
   // a page of archived rows, most recently archived first, each cascaded row in its own right
   listArchived: wsProcedure

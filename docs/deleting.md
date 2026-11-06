@@ -70,7 +70,29 @@ to suppress it. The same holds for detached and removed projects.
 - A project that is not synced holds no synced tasks (sync moves them out before detaching it), so
   deleting one writes no provider-owned field.
 
-## Not done
+## Empty trash
 
-"Empty trash" (delete every archived item) is left out. It would cross three services, including
-the notes' files, and the archive view can delete items one by one meanwhile.
+`ArchiveService.emptyTrash`, exposed as `archive.emptyTrash`, deletes every item in the trash for
+good. It lives with the trash: one transaction deletes every archived task, project and note, so
+either the whole trash goes or none of it. Then the deleted notes' files are removed through
+`NoteService.removeDeletedFiles`, the one part it leaves to the note service: that service owns
+the notes folder and each note's queue of content saves. The workspace passes it in.
+
+- **The same rules as one delete.** Links work as in the table above: a task takes its subtasks and
+  their links, a project leaves its tasks and notes with no project, a note leaves the tasks linked
+  to it. An archived task with an active or synced task anywhere below it stays in the trash, as
+  `tasks.delete` refuses it; the response lists it in `keptTaskIds`.
+- **One step per kind.** `emptyTrash` runs a private method for each, inside the transaction:
+  tasks first, then projects, then notes, so the later steps' unlinked rows are only tasks that are
+  left.
+- **One change**, the archive's `emptied`, sent as the transaction's last step, inside it. It names
+  every id deleted and every row left that lost a link (`unlinkedTaskIds`, `unlinkedNoteIds`), so
+  the `ChangeTracker` reports those kinds too.
+- **The files after the commit.** Each waits behind the content saves already queued for its note.
+  A file that can't be removed does not stop the others or undo anything, as with `notes.delete`:
+  its error class is logged, and its note id is listed in `filesNotRemoved`. The file stays in the
+  notes folder, which nothing reads without a row.
+- **The response** lists the ids removed (`taskIds`, `projectIds`, `noteIds`), `keptTaskIds` and
+  `filesNotRemoved`. Rows that only lost a link are not listed; the response's `changed` names
+  their kinds.
+- `general.confirmBeforeDeleting` is the renderer's to check, as for one delete.
