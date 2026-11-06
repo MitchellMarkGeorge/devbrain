@@ -5,7 +5,7 @@ import type { AppSettings } from '@common/types';
 /** 12 or 24 hour clocks, as the General settings choose. */
 export type TimeFormat = AppSettings['general']['timeFormat'];
 
-/** What `useFormat()` returns: the current minute, and luxon's formats on it. */
+/** What `useFormat()` returns: the current minute, and the formats on it (luxon, and Intl for relative times). */
 export interface Format {
   /** the current time, to the minute; it changes once a minute, so relative dates count down */
   now: Date;
@@ -15,7 +15,10 @@ export interface Format {
    * today (luxon's `toRelativeCalendar`), else "Jul 1".
    */
   formatDue: (date: Date) => string;
-  /** How long ago or until: "2 hr. ago", "In 12 min." (luxon's `toRelative`, narrow style) */
+  /**
+   * How long ago or until, in the largest whole unit: "2h ago", "In 12m", "Yesterday", "Now"
+   * (`Intl.RelativeTimeFormat`, narrow style)
+   */
   formatRelative: (date: Date) => string;
   /** A time of day in the time format: "9:30 AM" or "09:30" */
   formatTime: (date: Date) => string;
@@ -23,7 +26,35 @@ export interface Format {
   formatDate: (date: Date) => string;
 }
 
-// luxon's relative words start lower case ("today", "in 3 days"); the components show them first
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+const DAY = 24 * HOUR;
+// the largest unit a span reads in, and how long one is
+const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ['year', 365 * DAY],
+  ['month', 30 * DAY],
+  ['week', 7 * DAY],
+  ['day', DAY],
+  ['hour', HOUR],
+  ['minute', MINUTE],
+];
+
+// narrow numbers ("2h ago", "in 12m"), and words where a language has them for a day either side
+// and for now ("yesterday", "tomorrow", "now"); `auto` for every unit would give "last yr."
+const numeric = new Intl.RelativeTimeFormat(undefined, { style: 'narrow', numeric: 'always' });
+const worded = new Intl.RelativeTimeFormat(undefined, { style: 'narrow', numeric: 'auto' });
+
+/** A span of `ms` (negative for the past) in its largest whole unit: "2h ago", "in 12m", "now". */
+export function relativeTime(ms: number): string {
+  for (const [unit, size] of UNITS) {
+    const count = Math.trunc(ms / size);
+    if (count !== 0)
+      return (unit === 'day' && Math.abs(count) === 1 ? worded : numeric).format(count, unit);
+  }
+  return worded.format(0, 'second');
+}
+
+// luxon's and Intl's relative words start lower case ("today", "in 3 days"); the components show them first
 function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
@@ -45,7 +76,7 @@ export function createFormat(now: Date, timeFormat: TimeFormat = '12'): Format {
       return formatDate(date);
     },
     formatRelative(date) {
-      return capitalize(DateTime.fromJSDate(date).toRelative({ base, style: 'narrow' }) ?? '');
+      return capitalize(relativeTime(date.getTime() - now.getTime()));
     },
     formatTime(date) {
       return DateTime.fromJSDate(date).toLocaleString({

@@ -33,7 +33,7 @@ const withWindowFrame: Decorator = (Story, context) => {
   );
 };
 
-// A fixed `now` (22 Jun 2026, 9:48 AM, as the designed screens use), so "Today" and "In 12 min."
+// A fixed `now` (22 Jun 2026, 9:48 AM, as the designed screens use), so "Today" and "In 12m"
 // read the same every day. A story can pass its own with `parameters.now`, and pick the time
 // format with the toolbar
 const withFormat: Decorator = (Story, context) => {

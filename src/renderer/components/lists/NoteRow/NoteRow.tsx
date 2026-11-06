@@ -22,7 +22,7 @@ export interface NoteRowProps extends Omit<
 /**
  * A note in the Notes list, drawn from core's `NoteListItem`: the file icon, the title and its
  * preview cut to one line, the pills of the task or event it links to and its project, and when it
- * was edited ("2 hr. ago", from `useFormat()`). A strokeless 48px `ListRow`.
+ * was edited ("2h ago", from `useFormat()`). A strokeless 48px `ListRow`.
  */
 export const NoteRow = forwardRef<HTMLDivElement, NoteRowProps>(function NoteRow(
   { note, ...props },

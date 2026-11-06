@@ -54,7 +54,7 @@ Also here:
   repeat rule, how soon it starts; "Done Jun 12").
 - `lib/`: helpers (`cn`, `mergeClassName`), the window frame (`platform.ts`:
   `WindowFrameProvider`, `usePlatform`, `formatKeys`), and dates (`format.tsx`: `FormatProvider`
-  and `useFormat()`, on luxon). `story-dates.ts` is the stories' fixed `now` (22 Jun 2026, 9:48 AM).
+  and `useFormat()`, on luxon and `Intl.RelativeTimeFormat`). `story-dates.ts` is the stories' fixed `now` (22 Jun 2026, 9:48 AM).
 
 **Entity components take core's own shapes.** `TaskRow`, `BoardCard`, `NoteRow`, `NoteCard`,
 `ProjectRow`, `ProjectCard`, `EventRow` and the rest take the row core returns (a

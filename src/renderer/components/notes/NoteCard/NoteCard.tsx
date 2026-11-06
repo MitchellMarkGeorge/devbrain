@@ -40,7 +40,7 @@ export interface NoteCardProps extends Omit<useRender.ComponentProps<'div'>, 'ti
 }
 
 /**
- * A note as a card, drawn from core's `NoteListItem`: the file icon and edit time ("2 hr. ago"), the title and a `muted-foreground` preview; the
+ * A note as a card, drawn from core's `NoteListItem`: the file icon and edit time ("2h ago"), the title and a `muted-foreground` preview; the
  * time is `subtle-foreground`. Every card in a row has the same height (144px, or 156px with a
  * `link`), so lay them out in a `Grid minColumnWidth="240px"`. `size="sm"` is Home's 86px card,
  * one line each, three in a `HomeCards` row. Opens the note on click (`render={<a href=… />}`).

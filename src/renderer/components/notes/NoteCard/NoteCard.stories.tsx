@@ -55,7 +55,7 @@ export const HomeRow: Story = {
   ),
 };
 
-/** Edited times are luxon's narrow relative times against `now`. */
+/** Edited times are Intl's narrow relative times against `now`. */
 export const NotesCardView: Story = {
   render: () => (
     <div style={{ maxWidth: 840 }}>
