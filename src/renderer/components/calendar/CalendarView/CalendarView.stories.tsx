@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { EventSourceInput } from '@fullcalendar/core';
+import type { EventSourceInput } from '@fullcalendar/react';
 import type { CalendarId, EventId } from '@common/ids';
 import { EventKind, EventStatus, type Calendar, type Event } from '@common/types';
 import { toEventInput } from '../../../calendar';

@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
+import { act, createElement, createRef } from 'react';
+import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it } from 'vitest';
-import { Calendar as FullCalendar } from '@fullcalendar/core';
-import luxonPlugin from '@fullcalendar/luxon3';
+import FullCalendar, { type CalendarRef } from '@fullcalendar/react';
+import timeGridPlugin from '@fullcalendar/react/timegrid';
 import rrulePlugin from '@fullcalendar/rrule';
-import timeGridPlugin from '@fullcalendar/timegrid';
 import type { Event } from '@common/types';
 import { occurrencesBetween, toEventInput } from '../../calendar';
 import { WORK, allDaySeries, event, id, localMidnight, timedSeries } from './fixtures';
@@ -13,6 +14,8 @@ import { WORK, allDaySeries, event, id, localMidnight, timedSeries } from './fix
 // names one by its start. Also pins where they are drawn across DST changes, which is where core
 // resolves local times (core/events/recurrence.ts): 9:00 stays 9:00, a skipped time moves forward
 // by the change, and of a repeated one the first.
+
+(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const ZONES = ['America/Toronto', 'Europe/London', 'Asia/Tokyo', 'UTC'];
 
@@ -26,18 +29,25 @@ afterEach(() => {
 function fullCalendarExpands(events: Event[], start: Date, end: Date) {
   const el = document.createElement('div');
   document.body.append(el);
-  const calendar = new FullCalendar(el, {
-    plugins: [timeGridPlugin, rrulePlugin, luxonPlugin],
-    initialView: 'timeGrid',
-    visibleRange: { start, end },
-    events: events.map((e) => toEventInput(e, WORK)),
-  });
-  calendar.render();
+  const root = createRoot(el);
+  const calendar = createRef<CalendarRef>();
+  act(() =>
+    root.render(
+      createElement(FullCalendar, {
+        ref: calendar,
+        plugins: [timeGridPlugin, rrulePlugin],
+        initialView: 'timeGrid',
+        visibleRange: { start, end },
+        events: events.map((e) => toEventInput(e, WORK)),
+      }),
+    ),
+  );
   const out = calendar
+    .current!.getApi()
     .getEvents()
     .filter((e) => e.start! < end && (e.end ?? e.start!) > start)
     .map((e) => ({ id: e.id, start: e.start!.toISOString(), end: e.end?.toISOString() }));
-  calendar.destroy();
+  act(() => root.unmount());
   el.remove();
   return out.sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id));
 }

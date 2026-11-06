@@ -1,4 +1,4 @@
-import type { EventInput, EventSourceFuncArg, EventSourceInput } from '@fullcalendar/core';
+import type { EventInput, EventSourceFuncInfo, EventSourceInput } from '@fullcalendar/react';
 import { hexColorSchema } from '@common/color';
 import {
   EventKind,
@@ -88,7 +88,7 @@ export function toEventSource(
   return {
     id: calendar.id,
     ...(color && { color }),
-    events: async (info: EventSourceFuncArg) => {
+    events: async (info: EventSourceFuncInfo) => {
       const events = await load({ start: info.start, end: info.end });
       return events.map((event) => toEventInput(event, calendar));
     },
