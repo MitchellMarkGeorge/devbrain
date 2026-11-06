@@ -74,10 +74,9 @@ describe('settings.set', () => {
   });
 
   it('refuses paths outside the settings: the whole object, the app state, unknown keys', async () => {
-    devBrain.settings.set('state.lastPage', '/app/tasks');
+    devBrain.settings.set('state.lastWorkspaceId', 'wsp_1');
     const refused = [
       { path: 'settings', value: devBrain.settings.get('settings') },
-      { path: 'state.lastPage', value: '/app/home' },
       { path: 'state.lastWorkspaceId', value: null },
       { path: 'settings.general.nope', value: true },
       { path: 'general.timeFormat', value: '24' },
@@ -85,7 +84,7 @@ describe('settings.set', () => {
     for (const input of refused) {
       expect(code(await mutate('settings.set', input))).toBe('invalid_input');
     }
-    expect(devBrain.settings.get('state.lastPage')).toBe('/app/tasks');
+    expect(devBrain.settings.get('state.lastWorkspaceId')).toBe('wsp_1');
   });
 });
 
@@ -94,7 +93,7 @@ describe('settings.reset', () => {
     const defaults = structuredClone(devBrain.settings.get('settings'));
     devBrain.settings.set('settings.theme', 'dark');
     devBrain.settings.set('settings.general.timeFormat', '24');
-    devBrain.settings.set('state.lastPage', '/app/tasks');
+    devBrain.settings.set('state.lastWorkspaceId', 'wsp_1');
 
     expect(await mutate('settings.reset')).toEqual({
       ok: true,
@@ -102,6 +101,6 @@ describe('settings.reset', () => {
       changed: ['settings'],
     });
     expect(devBrain.settings.get('settings')).toEqual(defaults);
-    expect(devBrain.settings.get('state.lastPage')).toBe('/app/tasks');
+    expect(devBrain.settings.get('state.lastWorkspaceId')).toBe('wsp_1');
   });
 });

@@ -34,8 +34,7 @@ export class SettingsService {
     if (key === 'settings' || key.startsWith('settings.')) this.emitUpdated();
   }
 
-  // puts every user setting back to its default; the app's state (the last workspace, the last
-  // page) is kept
+  // puts every user setting back to its default; the app's state (the last workspace) is kept
   reset(): void {
     this.store.set('settings', getDefaults(this.rootPath).settings);
     this.emitUpdated();

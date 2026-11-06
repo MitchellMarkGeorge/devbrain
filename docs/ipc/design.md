@@ -163,7 +163,7 @@ value: '24' }`), or one group (`settings.calendar`), checking the value against 
   of `appSettingsSchema`, so two quick edits to different settings can't undo each other as two
   `settings.update` calls (each sending every setting) can. Only paths under `settings` are
   accepted. `settings.reset` puts every setting back to its default and keeps the app state (the
-  last workspace and page). Both return every setting.
+  last workspace). Both return every setting.
 - **Long-running mutations.** `integrations.connect` with OAuth resolves when the browser flow ends;
   `integrations.cancelConnect` aborts it, and the waiting call fails with `cancelled`. `sync.now`
   resolves once its runs have ended, so what they wrote comes back in its `changed`.

@@ -38,11 +38,11 @@ afterEach(async () => {
 describe('an old settings file', () => {
   it('reads settings added since as their defaults, keeping the values it has', async () => {
     await (await open(true)).close();
-    // the file as an older version wrote it: no calendar.hideWeekends, no state.lastPage, and a
-    // setting the user changed
+    // the file as an older version wrote it: no calendar.hideWeekends, no state.lastWorkspaceId,
+    // and a setting the user changed
     const file = JSON.parse(await fs.readFile(settingsFile(), 'utf8'));
     delete file.settings.calendar.hideWeekends;
-    delete file.state.lastPage;
+    delete file.state.lastWorkspaceId;
     file.settings.calendar.firstDayOfWeek = 'sunday';
     await fs.writeFile(settingsFile(), JSON.stringify(file));
 
@@ -54,13 +54,13 @@ describe('an old settings file', () => {
       firstDayOfWeek: 'sunday',
       hideWeekends: false,
     });
-    expect(devBrain.settings.get('state.lastPage')).toBeNull();
+    expect(devBrain.settings.get('state.lastWorkspaceId')).toBeNull();
     // every setting reads as the schema says
     expect(appSettingsSchema.safeParse(devBrain.settings.get('settings')).success).toBe(true);
     // and the file now has them
     const written = JSON.parse(await fs.readFile(settingsFile(), 'utf8'));
     expect(written.settings.calendar.hideWeekends).toBe(false);
-    expect(written.state).toHaveProperty('lastPage', null);
+    expect(written.state).toHaveProperty('lastWorkspaceId', null);
   });
 
   it('keeps a value the user set for a new setting', async () => {
