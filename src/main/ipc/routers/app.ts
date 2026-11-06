@@ -12,7 +12,4 @@ export const appRouter = t.router({
   showMenu: publicProcedure
     .input(z.object({ x: z.number().nonnegative(), y: z.number().nonnegative() }))
     .mutation(({ ctx, input }) => ctx.desktop.showAppMenu(input)),
-  // The page's first screen is drawn: shows the window, which is created hidden so it never
-  // shows the empty page first (src/main/index.ts). Does nothing for a visible window (a reload).
-  windowReady: publicProcedure.mutation(({ ctx }) => ctx.desktop.showWindow()),
 });

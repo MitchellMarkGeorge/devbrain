@@ -119,22 +119,4 @@ describe('createElectronDesktop', () => {
       createElectronDesktop(deps as never, null).showAppMenu({ x: 0, y: 0 }),
     ).rejects.toThrow('no window');
   });
-
-  it('shows the calling window while it is hidden, and leaves a visible one as it is', () => {
-    const window = (visible: boolean) => ({
-      isDestroyed: () => false,
-      isVisible: () => visible,
-      show: vi.fn(),
-    });
-    const hidden = window(false);
-    createElectronDesktop(fakes() as never, hidden as never).showWindow();
-    expect(hidden.show).toHaveBeenCalledOnce();
-
-    // a reload: showing it again would take the focus
-    const visible = window(true);
-    createElectronDesktop(fakes() as never, visible as never).showWindow();
-    expect(visible.show).not.toHaveBeenCalled();
-
-    expect(() => createElectronDesktop(fakes() as never, null).showWindow()).not.toThrow();
-  });
 });

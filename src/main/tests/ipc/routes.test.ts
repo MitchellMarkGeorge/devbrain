@@ -76,20 +76,6 @@ describe('app.showMenu', () => {
   });
 });
 
-describe('app.windowReady', () => {
-  it('shows the window that called, changing nothing', async () => {
-    const desktop = { showWindow: vi.fn() };
-    attachRouter(appRouter, { createContext: testContext(null, desktop as unknown as Desktop) });
-
-    expect(await call('app.windowReady', undefined, 'mutation')).toEqual({
-      ok: true,
-      data: undefined,
-      changed: [],
-    });
-    expect(desktop.showWindow).toHaveBeenCalledOnce();
-  });
-});
-
 describe('workspaces', () => {
   beforeEach(() => attach());
 
