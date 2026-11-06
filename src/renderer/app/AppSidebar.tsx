@@ -54,7 +54,8 @@ const NAV = [
 type Outputs = inferRouterOutputs<AppRouter>;
 // a row of Recents or Favorites, as it comes over IPC
 type Entry =
-  Outputs['recents']['list']['items'][number] | Outputs['favorites']['list']['items'][number];
+  | Outputs['recents']['list']['items'][number]
+  | Outputs['favorites']['list']['items'][number];
 
 const STATUS_NAMES: Record<TaskStatus, TaskStatusName> = {
   [TaskStatus.NOT_STARTED]: 'not-started',
