@@ -1,4 +1,3 @@
-import type { BoardCardData } from '../../board/BoardCard';
 import { TaskPriority, TaskStatus } from '@common/types';
 import type { TaskRowData } from '../../lists/TaskRow';
 import {
@@ -127,7 +126,7 @@ export const GROUPS = [
 ];
 
 /** The "Tasks (board)" screen's columns. */
-export const BOARD: Record<'notStarted' | 'inProgress' | 'completed', BoardCardData[]> = {
+export const BOARD: Record<'notStarted' | 'inProgress' | 'completed', TaskRowData[]> = {
   notStarted: [
     sampleTask({
       title: 'Audit token storage',

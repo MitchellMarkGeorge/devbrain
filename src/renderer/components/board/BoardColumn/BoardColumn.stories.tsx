@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TaskPriority, TaskStatus } from '@common/types';
 import { storyDate } from '../../lib/story-dates';
@@ -7,6 +8,7 @@ import {
   sampleLinear,
   sampleNoteLink,
   sampleProject,
+  manyTasks,
   sampleTask,
 } from '../../lists/TaskRow/fixtures';
 import { BoardCard } from '../BoardCard';
@@ -60,7 +62,7 @@ const completed = [
 const meta = {
   title: 'Board/BoardColumn',
   component: BoardColumn,
-  args: { status: TaskStatus.IN_PROGRESS },
+  args: { status: TaskStatus.IN_PROGRESS, tasks: inProgress },
   argTypes: {
     status: {
       control: { type: 'select', labels: TASK_STATUS_LABELS },
@@ -75,11 +77,7 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {
   render: (args) => (
     <div style={{ width: 300 }}>
-      <BoardColumn {...args}>
-        {inProgress.map((t) => (
-          <BoardCard key={t.id} task={t} />
-        ))}
-      </BoardColumn>
+      <BoardColumn {...args} />
     </div>
   ),
 };
@@ -87,7 +85,7 @@ export const Default: Story = {
 export const Empty: Story = {
   render: (args) => (
     <div style={{ width: 300 }}>
-      <BoardColumn {...args} status={TaskStatus.NOT_STARTED} />
+      <BoardColumn {...args} status={TaskStatus.NOT_STARTED} tasks={[]} />
     </div>
   ),
 };
@@ -98,22 +96,46 @@ export const FullBoard: Story = {
   render: () => (
     <div style={{ padding: 24, maxWidth: 1080 }}>
       <Board>
-        <BoardColumn status={TaskStatus.NOT_STARTED}>
-          {notStarted.map((t) => (
-            <BoardCard key={t.id} task={t} />
-          ))}
-        </BoardColumn>
-        <BoardColumn status={TaskStatus.IN_PROGRESS}>
-          {inProgress.map((t, i) => (
-            <BoardCard key={t.id} task={t} state={i === 0 ? 'hover' : undefined} />
-          ))}
-        </BoardColumn>
-        <BoardColumn status={TaskStatus.COMPLETED} add={false}>
-          {completed.map((t) => (
-            <BoardCard key={t.id} task={t} />
-          ))}
-        </BoardColumn>
+        <BoardColumn status={TaskStatus.NOT_STARTED} tasks={notStarted} />
+        <BoardColumn
+          status={TaskStatus.IN_PROGRESS}
+          tasks={inProgress}
+          renderCard={(task, i) => <BoardCard task={task} state={i === 0 ? 'hover' : undefined} />}
+        />
+        <BoardColumn status={TaskStatus.COMPLETED} tasks={completed} add={false} />
       </Board>
     </div>
   ),
+};
+
+/**
+ * 1,000 cards a column, loaded 100 at a time as `onEndReached` fires: each column draws only the
+ * cards in view, measured as they draw (pills wrap). ↑/↓ on a card scroll the next into view.
+ */
+export const ThousandCards: Story = {
+  name: '1,000 cards a column',
+  parameters: { layout: 'fullscreen' },
+  render: function ThousandCards() {
+    const [loaded, setLoaded] = useState(100);
+    const all = useMemo(() => manyTasks(3000), []);
+    const column = (status: TaskStatus) =>
+      all.filter((task) => task.status === status).slice(0, loaded);
+    const more = () => setLoaded((count) => Math.min(1000, count + 100));
+    return (
+      <div style={{ padding: 24, maxWidth: 1080 }}>
+        <Board>
+          {[TaskStatus.NOT_STARTED, TaskStatus.IN_PROGRESS, TaskStatus.COMPLETED].map((status) => (
+            <BoardColumn
+              key={status}
+              status={status}
+              tasks={column(status)}
+              rowCount={1000}
+              onEndReached={more}
+              add={status !== TaskStatus.COMPLETED}
+            />
+          ))}
+        </Board>
+      </div>
+    );
+  },
 };

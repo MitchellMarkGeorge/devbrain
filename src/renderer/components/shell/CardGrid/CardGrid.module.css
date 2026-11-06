@@ -7,3 +7,20 @@
 .grid[data-gap='md'] {
   gap: var(--space-4);
 }
+
+/* virtualized: each row of cards placed at its offset, the gap below it */
+.rows {
+  position: relative;
+  width: 100%;
+}
+.row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  row-gap: 0;
+}
+.cell {
+  display: grid;
+  min-width: 0;
+}

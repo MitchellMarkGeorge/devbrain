@@ -143,8 +143,9 @@ export const SeveralSelected: Story = {
 };
 
 /**
- * Figma "Tasks (group)" (7158:9538): grouped by project. Each `GroupHeading` takes its project's
- * colour; a selection in one group shows every group's checkboxes.
+ * Figma "Tasks (group)" (7158:9538): grouped by project, as one `TaskList` with `groups`. Each
+ * `GroupHeading` takes its project's colour; a selection in one group shows every group's
+ * checkboxes, and the current group's heading sticks as the page scrolls.
  */
 export const TasksGroup: Story = {
   name: 'Tasks (group)',
@@ -152,31 +153,26 @@ export const TasksGroup: Story = {
     const [selected, setSelected] = useState<string[]>(['tsk_eng-131', 'tsk_eng-118']);
     return (
       <TasksFrame view="group" groupBy="Project">
-        {GROUPS.map((group) => (
-          <Fragment key={group.label}>
-            <GroupHeading
-              label={group.label}
-              subtitle={group.subtitle}
-              icon={Folder}
-              iconColor={group.color}
-              done={group.done}
-              total={group.total}
-              onCollapsedChange={() => {}}
-            />
-            <TaskList
-              tasks={group.tasks}
-              selected={selected}
-              selecting={selected.length > 0}
-              selectionBar={false}
-              onSelectedChange={(ids) =>
-                setSelected([
-                  ...selected.filter((id) => !group.tasks.some((t) => t.id === id)),
-                  ...ids,
-                ])
-              }
-            />
-          </Fragment>
-        ))}
+        <TaskList
+          groups={GROUPS.map((group) => ({
+            id: group.label,
+            heading: (
+              <GroupHeading
+                label={group.label}
+                subtitle={group.subtitle}
+                icon={Folder}
+                iconColor={group.color}
+                done={group.done}
+                total={group.total}
+                onCollapsedChange={() => {}}
+              />
+            ),
+            tasks: group.tasks,
+          }))}
+          selected={selected}
+          selectionBar={false}
+          onSelectedChange={setSelected}
+        />
         <PinnedSelectionBar count={selected.length} onClear={() => setSelected([])} />
       </TasksFrame>
     );
@@ -192,21 +188,13 @@ export const TasksBoard: Story = {
   render: () => (
     <TasksFrame view="board" filter="All" bodyStyle={{ padding: '4px 24px 24px' }}>
       <Board>
-        <BoardColumn name="Not started" status={TaskStatus.NOT_STARTED}>
-          {BOARD.notStarted.map((task) => (
-            <BoardCard key={task.title} task={task} />
-          ))}
-        </BoardColumn>
-        <BoardColumn name="In progress" status={TaskStatus.IN_PROGRESS}>
-          {BOARD.inProgress.map((task, i) => (
-            <BoardCard key={task.title} task={task} state={i === 1 ? 'hover' : undefined} />
-          ))}
-        </BoardColumn>
-        <BoardColumn name="Completed" status={TaskStatus.COMPLETED} add={false}>
-          {BOARD.completed.map((task) => (
-            <BoardCard key={task.title} task={task} />
-          ))}
-        </BoardColumn>
+        <BoardColumn status={TaskStatus.NOT_STARTED} tasks={BOARD.notStarted} />
+        <BoardColumn
+          status={TaskStatus.IN_PROGRESS}
+          tasks={BOARD.inProgress}
+          renderCard={(task, i) => <BoardCard task={task} state={i === 1 ? 'hover' : undefined} />}
+        />
+        <BoardColumn status={TaskStatus.COMPLETED} tasks={BOARD.completed} add={false} />
       </Board>
     </TasksFrame>
   ),

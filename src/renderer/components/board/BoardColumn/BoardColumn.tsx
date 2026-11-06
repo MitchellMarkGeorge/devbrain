@@ -1,6 +1,15 @@
-import { forwardRef, type ComponentPropsWithoutRef } from 'react';
+import {
+  forwardRef,
+  useEffect,
+  useRef,
+  type ComponentPropsWithoutRef,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { useListVirtualizer } from '../../lib/virtual';
+import { BoardCard, type BoardCardData } from '../BoardCard';
 import { IconButton } from '../../ui/IconButton';
 import { Icon } from '../../ui/Icon';
 import { StatusIcon } from '../../entities/StatusIcon';
@@ -18,6 +27,9 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
   return <div ref={ref} className={cn(styles.board, className)} {...props} />;
 });
 
+/** A task on the board: what a card draws, and the id it is kept by. */
+export type BoardColumnTask = BoardCardData & { id: string };
+
 export interface BoardColumnProps extends Omit<ComponentPropsWithoutRef<'section'>, 'children'> {
   /** the column's status: its icon, and its name unless `name` is given */
   status: TaskStatus;
@@ -29,19 +41,100 @@ export interface BoardColumnProps extends Omit<ComponentPropsWithoutRef<'section
   add?: boolean;
   /** the header's "+" and the "Add task" slot */
   onAdd?: () => void;
-  /** the column's `BoardCard`s */
-  children?: React.ReactNode;
+  /** core's tasks for this status, as they are (`TaskListItem`s) */
+  tasks: BoardColumnTask[];
+  /** how many tasks the column has in all, loaded or not (`aria-rowcount`); the loaded ones by default */
+  rowCount?: number;
+  /** a click on a card, or Enter on it */
+  onOpen?: (task: BoardColumnTask) => void;
+  /** draws a card; a `BoardCard` that opens the task by default. Pass `cardProps` for small changes */
+  renderCard?: (task: BoardColumnTask, index: number) => ReactNode;
+  /** called when the last drawn card comes within `endReachedThreshold` cards of the end */
+  onEndReached?: () => void;
+  /** default 20 */
+  endReachedThreshold?: number;
 }
+
+// a card's height before it is measured: the title, one line of pills and the meta line
+const CARD_ESTIMATE = 96;
+// the space between cards (`.cards` gap)
+const CARD_GAP = 10;
 
 /**
  * An open status column: no panel, a 24px header (status icon, name, a ghost "+" on the right)
- * over its cards, 10px apart, and a dashed "Add task" slot.
+ * over its cards, 10px apart, and a dashed "Add task" slot. The cards are virtualized against
+ * the board's scroller: only those in view (and about ten either side) are drawn, each measured
+ * as it draws, since pills can wrap. ↑/↓ move between cards, scrolling the next into view first.
  */
 export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function BoardColumn(
-  { name: nameProp, status, count, add = true, onAdd, className, children, ...props },
+  {
+    name: nameProp,
+    status,
+    count,
+    add = true,
+    onAdd,
+    tasks,
+    rowCount,
+    onOpen,
+    renderCard,
+    onEndReached,
+    endReachedThreshold,
+    className,
+    ...props
+  },
   ref,
 ) {
   const name = nameProp ?? TASK_STATUS_LABELS[status];
+  const listRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useListVirtualizer({
+    listRef,
+    count: tasks.length,
+    estimateSize: () => CARD_ESTIMATE + CARD_GAP,
+    getItemKey: (index) => tasks[index].id,
+    onEndReached,
+    endReachedThreshold,
+  });
+  const scrollMargin = virtualizer.options.scrollMargin;
+
+  // each drawn card's cell, by task id; the card is its first child
+  const cells = useRef(new Map<string, HTMLElement>());
+  const cardOf = (id: string) => cells.current.get(id)?.firstElementChild as HTMLElement | null;
+  const pendingFocus = useRef<string | null>(null);
+  useEffect(() => {
+    const id = pendingFocus.current;
+    const card = id ? cardOf(id) : undefined;
+    if (card) {
+      pendingFocus.current = null;
+      card.focus({ preventScroll: true });
+    }
+  });
+
+  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const target = event.target as HTMLElement;
+    const cell = target.parentElement;
+    if (!cell?.dataset.taskId || cell.firstElementChild !== target) return;
+    const current = tasks.findIndex((task) => task.id === cell.dataset.taskId);
+    const last = tasks.length - 1;
+    const to =
+      event.key === 'ArrowDown'
+        ? Math.min(last, current + 1)
+        : event.key === 'ArrowUp'
+          ? Math.max(0, current - 1)
+          : null;
+    if (event.key === 'Enter' && onOpen && current >= 0) {
+      event.preventDefault();
+      onOpen(tasks[current]);
+      return;
+    }
+    if (to == null || current < 0) return;
+    event.preventDefault();
+    const id = tasks[to].id;
+    virtualizer.scrollToIndex(to, { align: 'auto' });
+    const next = cardOf(id);
+    if (next) next.focus({ preventScroll: true });
+    else pendingFocus.current = id;
+  }
+
   return (
     <section ref={ref} aria-label={name} className={cn(styles.column, className)} {...props}>
       <div className={styles.header}>
@@ -57,7 +150,46 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
         />
       </div>
       <div className={styles.cards}>
-        {children}
+        <div
+          ref={listRef}
+          role="grid"
+          aria-label={name}
+          aria-rowcount={rowCount ?? tasks.length}
+          className={styles.list}
+          style={{ height: virtualizer.getTotalSize() }}
+          onKeyDown={handleKeyDown}
+        >
+          {virtualizer.getVirtualItems().map((item) => {
+            const task = tasks[item.index];
+            if (!task) return null;
+            return (
+              <div
+                key={item.key}
+                ref={virtualizer.measureElement}
+                data-index={item.index}
+                role="row"
+                aria-rowindex={item.index + 1}
+                className={styles.item}
+                style={{ transform: `translateY(${item.start - scrollMargin}px)` }}
+              >
+                <div
+                  role="gridcell"
+                  data-task-id={task.id}
+                  ref={(el) => {
+                    if (el) cells.current.set(task.id, el);
+                    else cells.current.delete(task.id);
+                  }}
+                >
+                  {renderCard ? (
+                    renderCard(task, item.index)
+                  ) : (
+                    <BoardCard task={task} onClick={onOpen && (() => onOpen(task))} />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
         {add && (
           <button type="button" className={styles.slot} onClick={onAdd}>
             <Icon icon={Plus} size={16} />

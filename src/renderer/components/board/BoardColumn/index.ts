@@ -1,1 +1,7 @@
-export { Board, BoardColumn, type BoardColumnProps, type BoardProps } from './BoardColumn';
+export {
+  Board,
+  BoardColumn,
+  type BoardColumnProps,
+  type BoardColumnTask,
+  type BoardProps,
+} from './BoardColumn';

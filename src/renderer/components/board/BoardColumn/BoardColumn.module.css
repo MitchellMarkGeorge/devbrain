@@ -64,3 +64,20 @@
   border-color: var(--ring);
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
+
+/* the cards' full height; only the cards in view are drawn, each placed at its offset */
+.list {
+  position: relative;
+  width: 100%;
+}
+.item {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  /* the 10px between cards, inside what the column measures */
+  padding-bottom: 10px;
+}
+.list:empty {
+  display: none;
+}
