@@ -34,7 +34,7 @@ the `Screens/*` stories, `docs/design-system/README.md`, `docs/ipc/design.md` an
 >   the page in each workspace's manifest.
 > - `useServices()` (`src/renderer/app/context.tsx`) is a React context holding `{ queryClient,
 trpc, ipc, events, initialLoadContext }`, so the splash and onboarding read it outside a router;
->   the router's context is the same object, plus `openWorkspace()`, for loaders.
+>   the router's context is the same object, for loaders.
 >   `createIpcServices({ bridge })` builds the client, cache and events over any bridge, so tests
 >   never import the app's.
 > - No `no_workspace_open` handling: a workspace closing sets `none`, which unmounts the app.
@@ -269,17 +269,19 @@ from there.
 
 **The router.** `main.tsx` makes the app's router once, before the first render, over the
 window's hash history: the hash keeps the location across a reload, and main follows it for
-"Reopen last page". Its context is the services plus `openWorkspace()`, the workspace open in the
-store's state.
+"Reopen last page". Its context is the services (`useServices()`'s object). The store only says
+what the window shows; workspace data, such as the open workspace's last page, comes from React
+Query.
 
 **Starting it** (`startApp`, `src/renderer/app/start-app.ts`). The store prepares each state as
 it arrives (`prepare`) and keeps the splash up until that is done. For an `open` state:
 
 - The location stays if `keepPage` and it is a valid last page (`isValidLastPage`).
 - Otherwise it is replaced with `/`, whose route (`routes/index.tsx`) redirects to
-  `landingPage(settings, openWorkspace())`, with the settings from the seeded cache.
-  `openWorkspace()` reads the store's `latest()` state, the one being prepared. Replacing, not
-  pushing, so Back never returns to another workspace's page.
+  `landingPage(settings, workspace)` (`openWorkspaceLandingPage`): the settings from the cache,
+  and the open workspace from `workspaces.current`, fetched afresh, after cancelling any fetch of
+  it still in flight from earlier in the switch, which would answer for the old state. Replacing,
+  not pushing, so Back never returns to another workspace's page.
 - Then the router is loaded, while still unmounted, and `startApp` resolves on its `onLoad`, once
   the new page's data has loaded. The router isn't listening during the splash, and mounting it
   again doesn't load it (TanStack's `RouterProvider` only loads on mount for a router that has

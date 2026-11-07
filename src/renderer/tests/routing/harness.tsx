@@ -17,7 +17,7 @@ import type { AppSettings, WorkspaceInfo, WorkspaceSnapshot, WorkspaceState } fr
 import { createIpcServices } from '../../ipc';
 import { seedQueryCache } from '../../ipc/initial-load-context';
 import { WindowContent } from '../../app/WindowContent';
-import { createWorkspaceStateStore, openWorkspaceIn } from '../../app/workspace-state';
+import { createWorkspaceStateStore } from '../../app/workspace-state';
 import { startApp } from '../../app/start-app';
 import { createAppRouter, type AppRouter } from '../../router';
 import type { Services } from '../../app/context';
@@ -168,6 +168,9 @@ export function renderApp({
     ...DEFAULT_HANDLERS,
     // main agrees with the context unless the test says otherwise
     'workspaces.state': () => context?.workspace ?? { version: 0, state: none() },
+    // the workspace open in what main has sent last
+    'workspaces.current': () =>
+      snapshot.state.status === 'open' ? snapshot.state.workspace : null,
     ...handlers,
   };
   const listeners = new Map<string, Set<(payload: unknown) => void>>();
@@ -214,10 +217,7 @@ export function renderApp({
   const services: Services = { ...ipcServices, initialLoadContext: context };
   const history = createMemoryHistory({ initialEntries: [hash] });
   // as main.tsx makes it, over memory history in place of the hash
-  const router: AppRouter = createAppRouter(
-    { ...services, openWorkspace: () => openWorkspaceIn(workspaceState.latest()) },
-    history,
-  );
+  const router: AppRouter = createAppRouter(services, history);
   const workspaceState = createWorkspaceStateStore({
     initial: context?.workspace ?? null,
     events: services.events,

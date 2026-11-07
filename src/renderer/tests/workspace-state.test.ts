@@ -257,15 +257,10 @@ describe('the workspace state store', () => {
 
     it('keeps the splash up until the open is prepared, past the minimum', async () => {
       const { prepare, calls } = preparing();
-      const { store, send, advance, status } = setup(
-        { version: 1, state: opening(home) },
-        { prepare },
-      );
+      const { send, advance, status } = setup({ version: 1, state: opening(home) }, { prepare });
       send(2, open(home));
       advance(600);
       expect(status()).toBe('opening');
-      // what the app's router starts for while it waits
-      expect(store.latest()).toMatchObject({ version: 2, state: { status: 'open' } });
 
       calls[0].settle();
       await flush();
@@ -292,7 +287,6 @@ describe('the workspace state store', () => {
       advance(600);
       await flush();
       expect(store.get()).toMatchObject({ version: 3, state: opening(work) });
-      expect(store.latest()).toBe(store.get());
     });
 
     it('shows the state even when preparing it failed', async () => {

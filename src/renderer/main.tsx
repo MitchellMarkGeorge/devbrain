@@ -8,7 +8,6 @@ import { readInitialLoadContext, seedQueryCache } from './ipc/initial-load-conte
 import type { Services } from './app/context';
 import { createHashHistory } from '@tanstack/react-router';
 import { startApp } from './app/start-app';
-import { openWorkspaceIn } from './app/workspace-state';
 import { createAppRouter } from './router';
 import { WindowContent } from './app/WindowContent';
 import { createWorkspaceStateStore, type WorkspaceStateStore } from './app/workspace-state';
@@ -32,10 +31,7 @@ const services: Services = { queryClient, trpc, ipc, events, initialLoadContext 
 
 // The app's router, made once, over the window's hash history: the hash keeps the location across
 // a reload, and main follows it for "Reopen last page" (src/main/runtime/last-page.ts)
-const router = createAppRouter(
-  { ...services, openWorkspace: () => openWorkspaceIn(workspaceState.latest()) },
-  createHashHistory(),
-);
+const router = createAppRouter(services, createHashHistory());
 
 // what the window shows: the splash, onboarding or the app, as main says from now on; listening
 // before the first render, then asking main once for anything sent before it listened. A workspace

@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import type { AppEvents } from '@common/events';
 import type { WorkspaceId } from '@common/ids';
-import type { WorkspaceInfo, WorkspaceSnapshot, WorkspaceState } from '@common/types';
+import type { WorkspaceSnapshot, WorkspaceState } from '@common/types';
 import type { EventClient } from '../ipc/events';
 
 // How long the splash shows at least, so a quick open doesn't flicker.
@@ -25,11 +25,6 @@ export interface ShownWorkspaceState {
 export interface WorkspaceStateStore {
   /** what to show now */
   get(): ShownWorkspaceState;
-  /**
-   * The newest state received: the one waiting to show (held by the splash, or being prepared),
-   * else the one shown. What the app's router starts for (its `/` route reads it).
-   */
-  latest(): ShownWorkspaceState;
   /** calls `listener` whenever `get()` changes; returns the function that stops */
   subscribe(listener: () => void): () => void;
   /** stops following main */
@@ -194,7 +189,6 @@ export function createWorkspaceStateStore({
 
   return {
     get: () => shown,
-    latest: () => waiting?.next ?? shown,
     subscribe(listener) {
       listeners.add(listener);
       return () => {
@@ -207,11 +201,6 @@ export function createWorkspaceStateStore({
       cancelWaiting();
     },
   };
-}
-
-/** The workspace open in `shown`, or null while one is opening or none is. */
-export function openWorkspaceIn(shown: ShownWorkspaceState): WorkspaceInfo | null {
-  return shown.state.status === 'open' ? shown.state.workspace : null;
 }
 
 const NO_WORKSPACE: WorkspaceSnapshot = { version: 0, state: { status: 'none', error: null } };
