@@ -128,7 +128,7 @@ function attachIpc(devBrain: DevBrain | null) {
       createContext({
         ...call,
         devBrain,
-        workspaceState: () => changeTracker.workspaceSnapshot(),
+        getWorkspaceState: () => changeTracker.getWorkspaceSnapshot(),
         desktop: createElectronDesktop(
           { dialog, shell, menu: Menu },
           BrowserWindow.fromWebContents(call.event.sender),
@@ -147,7 +147,7 @@ function attachIpc(devBrain: DevBrain | null) {
   });
   // what each page load renders first, read fresh every time (src/main/ipc/initial-load-context.ts)
   attachInitialLoadContext(
-    () => initialLoadContext(devBrain, changeTracker.workspaceSnapshot()),
+    () => initialLoadContext(devBrain, changeTracker.getWorkspaceSnapshot()),
     (error) => ipcLog.error('Building the initial load context failed', error),
   );
 }

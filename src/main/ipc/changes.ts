@@ -48,7 +48,7 @@ interface RunningMutation {
  *   ended. Ids and status only, never credentials.
  * - It owns the workspace state the windows show (onboarding, the splash, the app) and sends it
  *   whole as `workspace.changed` at each change, with a version that goes up each time. A page
- *   loading reads it with the initial load context (`workspaceSnapshot()`).
+ *   loading reads it with the initial load context (`getWorkspaceSnapshot()`).
  */
 export class ChangeTracker {
   private readonly runningMutation = new AsyncLocalStorage<RunningMutation>();
@@ -59,13 +59,16 @@ export class ChangeTracker {
   private scheduledBatchSend: NodeJS.Immediate | null = null;
   private stopWatching: (() => void) | null = null;
   // what the windows were last told the workspace state is
-  private workspace: WorkspaceSnapshot = { version: 0, state: { status: 'none', error: null } };
+  private workspaceSnapshot: WorkspaceSnapshot = {
+    version: 0,
+    state: { status: 'none', error: null },
+  };
 
   constructor(private readonly sendToWindows: SendToWindows) {}
 
   /** The workspace state as the windows last heard it: what a page loading now starts from. */
-  workspaceSnapshot(): WorkspaceSnapshot {
-    return this.workspace;
+  getWorkspaceSnapshot(): WorkspaceSnapshot {
+    return this.workspaceSnapshot;
   }
 
   /** Follows `devBrain`'s settings and workspaces from now on. Returns the function that stops. */
@@ -75,8 +78,8 @@ export class ChangeTracker {
     let stopListeningToWorkspace = current ? this.listenToWorkspace(current) : () => {};
     // no window has loaded yet: the first reads it with the initial load context
     if (current) {
-      this.workspace = {
-        version: this.workspace.version + 1,
+      this.workspaceSnapshot = {
+        version: this.workspaceSnapshot.version + 1,
         state: { status: 'open', workspace: current.info, error: null },
       };
     }
@@ -100,7 +103,7 @@ export class ChangeTracker {
           stopListeningToWorkspace = () => {};
           // a switch closes the old workspace mid-open: the splash stays, rather than onboarding
           // flashing between the two
-          if (this.workspace.state.status === 'opening') return;
+          if (this.workspaceSnapshot.state.status === 'opening') return;
           this.setWorkspaceState({ status: 'none', error: null });
           return;
         case 'opened':
@@ -139,8 +142,8 @@ export class ChangeTracker {
   // the new state, whole, to every window, the one that switched too: this event alone says what
   // the window shows
   private setWorkspaceState(state: WorkspaceState): void {
-    this.workspace = { version: this.workspace.version + 1, state };
-    this.sendToWindows('workspace.changed', this.workspace);
+    this.workspaceSnapshot = { version: this.workspaceSnapshot.version + 1, state };
+    this.sendToWindows('workspace.changed', this.workspaceSnapshot);
   }
 
   /**

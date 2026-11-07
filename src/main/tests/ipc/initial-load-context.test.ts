@@ -52,7 +52,7 @@ describe('initialLoadContext', () => {
     tracker.watch(devBrain);
     await devBrain.workspaces.open(work);
 
-    const context = initialLoadContext(devBrain, tracker.workspaceSnapshot());
+    const context = initialLoadContext(devBrain, tracker.getWorkspaceSnapshot());
     expect(context.workspace).toEqual({
       version: 2,
       state: { status: 'open', workspace: expect.objectContaining({ id: work }), error: null },

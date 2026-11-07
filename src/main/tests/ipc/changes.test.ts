@@ -63,7 +63,7 @@ const testRouter = t.router({
 
 function attach() {
   attachRouter(testRouter, {
-    createContext: testContext(devBrain, undefined, () => tracker.workspaceSnapshot()),
+    createContext: testContext(devBrain, undefined, () => tracker.getWorkspaceSnapshot()),
     changeTracker: tracker,
   });
 }
@@ -240,7 +240,7 @@ describe('switching workspace', () => {
   }
 
   it('starts from the open workspace without sending it: no window has loaded yet', () => {
-    expect(tracker.workspaceSnapshot()).toEqual({
+    expect(tracker.getWorkspaceSnapshot()).toEqual({
       version: 1,
       state: { status: 'open', workspace: workspace().info, error: null },
     });
@@ -252,7 +252,7 @@ describe('switching workspace', () => {
     const fresh = new ChangeTracker(vi.fn());
     fresh.watch(devBrain);
 
-    expect(fresh.workspaceSnapshot()).toEqual({
+    expect(fresh.getWorkspaceSnapshot()).toEqual({
       version: 0,
       state: { status: 'none', error: null },
     });
@@ -279,7 +279,7 @@ describe('switching workspace', () => {
         },
       },
     ]);
-    expect(tracker.workspaceSnapshot()).toEqual(sentStates().at(-1));
+    expect(tracker.getWorkspaceSnapshot()).toEqual(sentStates().at(-1));
     await afterBackgroundBatchSent();
     sendToWindows.mockReset();
     workspace().tasks.createTask({ title: 'Here', dueDate: DUE });

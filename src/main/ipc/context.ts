@@ -19,8 +19,8 @@ export interface AppContext {
   workspace: Workspace | null;
   // the file manager and the system dialogs, modal to the window that called
   desktop: Desktop;
-  // the workspace state the windows were last told (ChangeTracker.workspaceSnapshot)
-  workspaceState: () => WorkspaceSnapshot;
+  // the workspace state the windows were last told (ChangeTracker.getWorkspaceSnapshot)
+  getWorkspaceState: () => WorkspaceSnapshot;
   log: IpcLogger;
 }
 
@@ -31,7 +31,7 @@ export interface CreateContextOptions {
   // none when not given: every call to it fails
   desktop?: Desktop;
   // no workspace (version 0) when not given
-  workspaceState?: () => WorkspaceSnapshot;
+  getWorkspaceState?: () => WorkspaceSnapshot;
   log: IpcLogger;
 }
 
@@ -46,7 +46,7 @@ export function createContext(options: CreateContextOptions): AppContext {
     devBrain,
     workspace: devBrain?.currentWorkspace ?? null,
     desktop: options.desktop ?? noDesktop,
-    workspaceState: options.workspaceState ?? (() => NO_WORKSPACE),
+    getWorkspaceState: options.getWorkspaceState ?? (() => NO_WORKSPACE),
     log: options.log,
   };
 }

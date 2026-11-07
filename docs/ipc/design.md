@@ -295,7 +295,7 @@ interface WorkspaceSnapshot {
 }
 ```
 
-The `ChangeTracker` keeps it (`workspaceSnapshot()`), starting at version 0, `none`, and maps
+The `ChangeTracker` keeps it (`getWorkspaceSnapshot()`), starting at version 0, `none`, and maps
 core's `WorkspaceChange`s to it, bumping `version` and sending `workspace.changed` each time:
 
 | Core's change | State                                                                                                                                                               |
@@ -335,7 +335,7 @@ listener only when the page calls `subscribe`. So a `workspace.changed` sent bet
 synchronous read and the page subscribing would be lost (an `open` there would leave the window on
 the splash). The renderer's store (`src/renderer/app/workspace-state.ts`), made in `main.tsx`
 before the first render, starts from the context's snapshot, listens to `workspace.changed`, then
-calls `workspaces.state` once, which answers with the tracker's snapshot (`ctx.workspaceState()`,
+calls `workspaces.state` once, which answers with the tracker's snapshot (`ctx.getWorkspaceState()`,
 which `index.ts` puts in the IPC context). It keeps the newest by `version`, so the order in which
 the three arrive doesn't matter. It skips the call when DevBrain is unavailable.
 

@@ -17,11 +17,11 @@ import { invokeHandler } from '../__mocks__/electron';
 export function testContext(
   devBrain: DevBrain | null = null,
   desktop?: Desktop,
-  workspaceState?: CreateContextOptions['workspaceState'],
+  getWorkspaceState?: CreateContextOptions['getWorkspaceState'],
 ) {
   const log = { debug: vi.fn() };
   return (call: Pick<CreateContextOptions, 'event'>) =>
-    createContext({ ...call, devBrain, desktop, workspaceState, log });
+    createContext({ ...call, devBrain, desktop, getWorkspaceState, log });
 }
 
 // calls a procedure through the transport, as the renderer's link would

@@ -19,7 +19,7 @@ export const workspacesRouter = t.router({
 
   // The workspace state as the windows were last told it (`workspace.changed`): what a page asks
   // once, after it starts listening, for a change sent before it listened
-  state: devBrainProcedure.query(({ ctx }) => ctx.workspaceState()),
+  state: devBrainProcedure.query(({ ctx }) => ctx.getWorkspaceState()),
 
   // closes the open one first, if any, and remembers the new one, so main reopens it at the next
   // start (openLastWorkspace). Every window follows it through `workspace.changed`, the one that

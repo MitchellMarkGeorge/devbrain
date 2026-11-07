@@ -9,7 +9,7 @@ const NO_WORKSPACE: WorkspaceSnapshot = { version: 0, state: { status: 'none', e
 
 /**
  * What the page loading now renders first: the workspace state the windows were last told
- * (`ChangeTracker.workspaceSnapshot()`), the workspace list and the settings.
+ * (`ChangeTracker.getWorkspaceSnapshot()`), the workspace list and the settings.
  */
 export function initialLoadContext(
   devBrain: DevBrain | null,
