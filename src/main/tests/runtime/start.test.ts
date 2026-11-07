@@ -91,7 +91,7 @@ describe('loadDevBrain', () => {
     expect(started!.workspaces.listAll().items).toEqual([]);
   });
 
-  it('opens no workspace, even the one open last time: the renderer asks (openLastWorkspace)', async () => {
+  it('opens no workspace, even the one open last time: startup opens it next (openLastWorkspace)', async () => {
     const { devBrain, ids } = await folderWith('Last');
     devBrain.settings.set('state.lastWorkspaceId', ids[0]);
     started = await loadDevBrain({
@@ -222,7 +222,7 @@ describe('startup shutdown', () => {
       return workspace;
     });
     try {
-      // as the app starts: load DevBrain, hook quit to its close, then the renderer's openLast
+      // as the app starts: load DevBrain, hook quit to its close, then startup's openLastWorkspace
       const loaded = await loadDevBrain({
         settingsStore: openFileSettingsStore,
         rootPath,

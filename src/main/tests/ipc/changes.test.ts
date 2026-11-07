@@ -229,22 +229,54 @@ describe('changes outside any mutation', () => {
 });
 
 describe('switching workspace', () => {
-  it('sends workspace.changed for each step, opening first, and follows the new workspace', async () => {
+  // the workspace.changed snapshots sent so far
+  function sentStates() {
+    return sendToWindows.mock.calls
+      .filter(([name]) => name === 'workspace.changed')
+      .map(([, payload]) => payload as AppEvents['workspace.changed']);
+  }
+
+  it('starts from the open workspace without sending it: no window has loaded yet', () => {
+    expect(tracker.workspaceSnapshot()).toEqual({
+      version: 1,
+      state: { status: 'open', workspace: workspace().info, error: null },
+    });
+    expect(sentStates()).toEqual([]);
+  });
+
+  it('starts at none, version 0, with no workspace open', async () => {
+    await devBrain.workspaces.close();
+    const fresh = new ChangeTracker(vi.fn());
+    fresh.watch(devBrain);
+
+    expect(fresh.workspaceSnapshot()).toEqual({
+      version: 0,
+      state: { status: 'none', error: null },
+    });
+  });
+
+  it('sends opening, then open, keeping the splash over the old one closing, and follows the new workspace', async () => {
     const old = workspace();
     const next = await createWorkspace(devBrain, 'Home');
 
     await devBrain.workspaces.open(next);
 
-    expect(
-      sendToWindows.mock.calls
-        .filter(([name]) => name === 'workspace.changed')
-        .map(([, payload]) => payload),
-    ).toEqual([
-      // the new one opening while the old one is still open, then the old one closed, then open
-      { id: old.info.id, opening: next },
-      { id: null, opening: next },
-      { id: next, opening: null },
+    expect(sentStates()).toEqual([
+      {
+        version: 2,
+        state: { status: 'opening', workspace: expect.objectContaining({ id: next }) },
+      },
+      // the old one's close in between sends nothing
+      {
+        version: 3,
+        state: {
+          status: 'open',
+          workspace: expect.objectContaining({ id: next, name: 'Home' }),
+          error: null,
+        },
+      },
     ]);
+    expect(tracker.workspaceSnapshot()).toEqual(sentStates().at(-1));
     await afterBackgroundBatchSent();
     sendToWindows.mockReset();
     workspace().tasks.createTask({ title: 'Here', dueDate: DUE });
@@ -265,20 +297,55 @@ describe('switching workspace', () => {
     })) as IpcResult<unknown>;
 
     expect(result).toMatchObject({ ok: true, changed: ['workspace'] });
-    expect(sendToWindows).toHaveBeenCalledWith('workspace.changed', { id: next, opening: null });
+    // with no window skipped: the switching one hears it too
+    expect(sendToWindows).toHaveBeenCalledWith('workspace.changed', {
+      version: 3,
+      state: { status: 'open', workspace: expect.objectContaining({ id: next }), error: null },
+    });
   });
 
-  it('says nothing is opening once an open fails', async () => {
+  it('is none with the error once an open fails after the old one closed', async () => {
     const next = await createWorkspace(devBrain, 'Home');
     // its database can't be opened
     await fs.writeFile(path.join(devBrain.workspaces.getById(next).path, 'db.sqlite'), 'not a db');
 
     await expect(devBrain.workspaces.open(next)).rejects.toThrow();
 
+    expect(sentStates().map((sent) => sent.state.status)).toEqual(['opening', 'none']);
     expect(sendToWindows).toHaveBeenLastCalledWith('workspace.changed', {
-      id: null,
-      opening: null,
+      version: 3,
+      state: { status: 'none', error: expect.objectContaining({ code: expect.any(String) }) },
     });
+  });
+
+  it("is the old workspace open again, with the error, when the new one's folder is gone", async () => {
+    const old = workspace();
+    const next = await createWorkspace(devBrain, 'Home');
+    await fs.rm(devBrain.workspaces.getById(next).path, { recursive: true });
+
+    await expect(devBrain.workspaces.open(next)).rejects.toThrow();
+
+    expect(sentStates()).toEqual([
+      {
+        version: 2,
+        state: { status: 'opening', workspace: expect.objectContaining({ id: next }) },
+      },
+      {
+        version: 3,
+        state: {
+          status: 'open',
+          workspace: old.info,
+          error: expect.objectContaining({ code: 'workspace_data_missing' }),
+        },
+      },
+    ]);
+    expect(workspace()).toBe(old);
+  });
+
+  it('is none once the open workspace closes', async () => {
+    await devBrain.workspaces.close();
+
+    expect(sentStates()).toEqual([{ version: 2, state: { status: 'none', error: null } }]);
   });
 
   it('reports a new workspace, which core announces, without saying the open one changed', async () => {

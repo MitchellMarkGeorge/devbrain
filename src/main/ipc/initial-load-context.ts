@@ -1,30 +1,33 @@
 import { ipcMain } from 'electron';
 import { IPC_INITIAL_LOAD_CONTEXT_CHANNEL } from '@common/ipc/constants';
 import type { InitialLoadContext } from '@common/ipc/types';
-import type { Page, WorkspaceInfo } from '@common/types';
+import type { Page, WorkspaceInfo, WorkspaceSnapshot } from '@common/types';
 import type { DevBrain } from '@main/core';
-import { lastOpenedWorkspace } from '../runtime/start';
 
 const NO_WORKSPACES: Page<WorkspaceInfo> = { items: [], nextCursor: null };
+const NO_WORKSPACE: WorkspaceSnapshot = { version: 0, state: { status: 'none', error: null } };
 
-export function initialLoadContext(devBrain: DevBrain | null): InitialLoadContext {
+/**
+ * What the page loading now renders first: the workspace state the windows were last told
+ * (`ChangeTracker.workspaceSnapshot()`), the workspace list and the settings.
+ */
+export function initialLoadContext(
+  devBrain: DevBrain | null,
+  workspace: WorkspaceSnapshot = NO_WORKSPACE,
+): InitialLoadContext {
   if (devBrain === null) {
     return {
       devBrainAvailable: false,
-      current: null,
-      last: null,
+      workspace: NO_WORKSPACE,
       workspaces: NO_WORKSPACES,
-      theme: 'system',
+      settings: null,
     };
   }
-  const current = devBrain.currentWorkspace?.info ?? null;
-  const lastId = current === null ? lastOpenedWorkspace(devBrain) : null;
   return {
     devBrainAvailable: true,
-    current,
-    last: lastId === null ? null : devBrain.workspaces.getById(lastId),
+    workspace,
     workspaces: devBrain.workspaces.listAll(),
-    theme: devBrain.settings.get('settings.theme'),
+    settings: devBrain.settings.get('settings'),
   };
 }
 

@@ -24,7 +24,7 @@ export interface LoadDevBrainOptions {
 
 /**
  * Opens the DevBrain folder, and no workspace: whatever follows DevBrain (sync triggers, change
- * listeners) attaches to it before the renderer opens one (openLastWorkspace). Returns null when
+ * listeners) attaches to it before startup opens one (openLastWorkspace). Returns null when
  * there is no folder and none is to be created. Throws when the folder is invalid.
  */
 export async function loadDevBrain(options: LoadDevBrainOptions): Promise<DevBrain | null> {
@@ -46,9 +46,8 @@ export async function loadDevBrain(options: LoadDevBrainOptions): Promise<DevBra
 
 /**
  * Opens the workspace open last time, which starts syncing it, when it is still registered and no
- * workspace is open yet. The renderer calls it once it has loaded (workspaces.openLast). Returns
- * the open workspace: the one already open when there is one, so a reload or a second window never
- * reopens it. Null when none was open last time or it has been deleted since: the user picks one.
+ * workspace is open yet. Startup calls it, without waiting, just before it creates the window.
+ * Returns the open workspace: the one already open when there is one, so it never reopens it. Null when none was open last time or it has been deleted since: the user picks one.
  * Throws when the workspace fails to open (e.g. a failed migration), leaving none open.
  */
 export function openLastWorkspace(devBrain: DevBrain): Promise<Workspace | null> {

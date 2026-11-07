@@ -1,6 +1,6 @@
 import type { ChangedEntity } from '../changes';
 import type { CoreErrorCode } from '../errors';
-import type { Page, ThemeSetting, WorkspaceInfo } from '../types';
+import type { AppSettings, Page, WorkspaceInfo, WorkspaceSnapshot } from '../types';
 
 // Every error code a call can fail with: core's own, and the IPC layer's.
 export type IpcErrorCode =
@@ -56,21 +56,32 @@ export interface IpcBridge {
   // page to draw the title bar the window frame leaves to it (src/main/runtime/window-chrome.ts)
   // and to name keys as the platform does (Ctrl for ⌘ off macOS)
   readonly platform: string;
+  // The workspace state (`workspace.changed`), kept by the preload from before any page script
+  // runs, so no change can fall between the page's first read and its subscribing: the newest
+  // snapshot, by version, of the initial load context's and every event since. `get()` is null
+  // only when main gave no initial load context and has sent no change yet. Values are cloned
+  // across the bridge at each call, so the page keeps its own copy rather than calling `get()`
+  // per render.
+  readonly workspaceState: {
+    get(): WorkspaceSnapshot | null;
+    // calls `listener` with each newer snapshot; returns the function that unsubscribes
+    subscribe(listener: (snapshot: WorkspaceSnapshot) => void): () => void;
+  };
 }
 
 // What a page needs for its first render, so it shows the right screen at once rather than a
 // loading state: the renderer can seed its query cache with it. Read again on every page load, so
 // a reload sees the workspace open now. Workspace info only (names, colors and ids, never anything
-// from a workspace's database), and the theme setting, so the page paints in it from the start.
+// from a workspace's database), and the user's settings: the theme, so the page paints in it from
+// the start, and what picks the landing page.
 export interface InitialLoadContext {
   // false when DevBrain could not be loaded: nothing that needs it can run
   devBrainAvailable: boolean;
-  // the open workspace: what workspaces.current answers
-  current: WorkspaceInfo | null;
-  // the workspace workspaces.openLast would open, while none is open, for a splash to show
-  last: WorkspaceInfo | null;
+  // the workspace state as it is now (onboarding, the splash or the app): what the preload starts
+  // from, until a newer `workspace.changed`
+  workspace: WorkspaceSnapshot;
   // what workspaces.list answers for its first page
   workspaces: Page<WorkspaceInfo>;
-  // the theme setting; 'system' without DevBrain
-  theme: ThemeSetting;
+  // what settings.get answers; null without DevBrain
+  settings: AppSettings | null;
 }
