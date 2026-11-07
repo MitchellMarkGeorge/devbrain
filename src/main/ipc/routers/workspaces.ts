@@ -17,12 +17,8 @@ export const workspacesRouter = t.router({
   // the open workspace, or null
   current: devBrainProcedure.query(({ ctx }) => ctx.devBrain.currentWorkspace?.info ?? null),
 
-  // which workspace is open, and which is opening: what `workspace.changed` last sent, for a page
-  // that may have missed it
-  status: devBrainProcedure.query(({ ctx }) => ctx.devBrain.workspaces.status()),
-
   // closes the open one first, if any, and remembers the new one, so main reopens it at the next
-  // start (reopenLastWorkspace)
+  // start (openLastWorkspace)
   open: devBrainProcedure.input(byId).mutation(async ({ ctx, input }): Promise<WorkspaceInfo> => {
     const workspace = await ctx.devBrain.workspaces.open(input.id);
     // main's own state, which the renderer never reads

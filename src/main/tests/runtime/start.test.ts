@@ -10,12 +10,7 @@ import type { WorkspaceId } from '@common/ids';
 import { WORKSPACE_OPTIONS } from '@main/core/tests/utils';
 import { openFileSettingsStore } from './__mocks__/file-store';
 import { DevBrain, openDevBrain } from '@main/core';
-import {
-  lastOpenedWorkspace,
-  loadDevBrain,
-  openLastWorkspace,
-  reopenLastWorkspace,
-} from '../../runtime/start';
+import { lastOpenedWorkspace, loadDevBrain, openLastWorkspace } from '../../runtime/start';
 
 // Which DevBrain folder and workspace the app opens at start. Settings are kept in the folder's
 // settings.json, as electron-store keeps them, so a setting one DevBrain writes is read at the next
@@ -77,7 +72,7 @@ describe('loadDevBrain', () => {
     expect(started!.workspaces.listAll().items).toEqual([]);
   });
 
-  it('opens no workspace, even the one open last time: startup reopens it next (reopenLastWorkspace)', async () => {
+  it('opens no workspace, even the one open last time: startup reopens it next (openLastWorkspace)', async () => {
     const { devBrain, ids } = await folderWith('Last');
     devBrain.settings.set('state.lastWorkspaceId', ids[0]);
     started = await loadDevBrain({
@@ -172,46 +167,6 @@ describe('openLastWorkspace', () => {
       name: 'WorkspaceDataMissingError',
     });
     expect(loaded.currentWorkspace).toBeNull();
-  });
-});
-
-describe('reopenLastWorkspace', () => {
-  const load = async () =>
-    (started = await loadDevBrain({
-      settingsStore: openFileSettingsStore,
-      rootPath,
-      workspace: WORKSPACE_OPTIONS,
-    }))!;
-
-  it('starts the open without waiting for it, saying which workspace is opening', async () => {
-    const { devBrain, ids } = await folderWith('Last');
-    devBrain.settings.set('state.lastWorkspaceId', ids[0]);
-    const loaded = await load();
-
-    const statuses: unknown[] = [];
-    loaded.workspaces.onChange(() => statuses.push(loaded.workspaces.status()));
-    const reopening = reopenLastWorkspace(loaded, vi.fn());
-    // not opened yet: it runs in the background
-    expect(loaded.currentWorkspace).toBeNull();
-    await vi.waitFor(() => expect(loaded.currentWorkspace?.info.id).toBe(ids[0]));
-    expect(statuses).toEqual([
-      { id: null, opening: ids[0] },
-      { id: ids[0], opening: null },
-    ]);
-    expect(reopening.takeFailure()).toBeNull();
-  });
-
-  it('keeps a failure for the page, once, and reports it', async () => {
-    const { devBrain, ids } = await folderWith('Dev');
-    devBrain.settings.set('state.lastWorkspaceId', ids[0]);
-    await fs.rm(devBrain.workspaces.getById(ids[0]).path, { recursive: true });
-    const loaded = await load();
-    const onError = vi.fn();
-
-    const reopening = reopenLastWorkspace(loaded, onError);
-    await vi.waitFor(() => expect(onError).toHaveBeenCalledOnce());
-    expect(reopening.takeFailure()).toMatchObject({ name: 'WorkspaceDataMissingError' });
-    expect(reopening.takeFailure()).toBeNull();
   });
 });
 

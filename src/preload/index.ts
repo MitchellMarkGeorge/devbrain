@@ -6,7 +6,8 @@ import {
   IPC_CALL_CHANNEL,
   IPC_EVENT_PREFIX,
 } from '@common/ipc/constants';
-import type { IpcBridge } from '@common/ipc/types';
+import type { InitialLoadContext, IpcBridge } from '@common/ipc/types';
+import type { WorkspaceSnapshot } from '@common/types';
 
 // The renderer's only way to main: a generic bridge, with nothing in it per route. The typed client
 // (src/renderer/ipc) builds the requests; main checks them, as it trusts nothing from the renderer.
@@ -14,6 +15,10 @@ import type { IpcBridge } from '@common/ipc/types';
 // it imports from src/common is bundled in.
 
 export function createBridge(): IpcBridge {
+  // listening before the initial load context is read, so no change falls between the two
+  const workspaceState = followWorkspaceState();
+  const initialLoadContext = readInitialLoadContext();
+  workspaceState.take((initialLoadContext as InitialLoadContext | null)?.workspace ?? null);
   return {
     invoke(request) {
       return ipcRenderer.invoke(IPC_CALL_CHANNEL, request);
@@ -27,9 +32,35 @@ export function createBridge(): IpcBridge {
         ipcRenderer.removeListener(channel, handler);
       };
     },
-    initialLoadContext: readInitialLoadContext(),
+    initialLoadContext,
+    workspaceState: { get: workspaceState.get, subscribe: workspaceState.subscribe },
     // the sandboxed preload's process has the platform, unlike the page
     platform: process.platform,
+  };
+}
+
+// The workspace state as main last said, from `workspace.changed` and the initial load context,
+// whichever is newer: a change sent before main answered the context arrives after it, older.
+function followWorkspaceState() {
+  let latest: WorkspaceSnapshot | null = null;
+  const listeners = new Set<(snapshot: WorkspaceSnapshot) => void>();
+  const take = (snapshot: WorkspaceSnapshot | null) => {
+    if (snapshot === null || (latest !== null && snapshot.version <= latest.version)) return;
+    latest = snapshot;
+    listeners.forEach((listener) => listener(snapshot));
+  };
+  ipcRenderer.on(`${IPC_EVENT_PREFIX}workspace.changed`, (_event, snapshot: WorkspaceSnapshot) =>
+    take(snapshot),
+  );
+  return {
+    take,
+    get: () => latest,
+    subscribe: (listener: (snapshot: WorkspaceSnapshot) => void) => {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
   };
 }
 

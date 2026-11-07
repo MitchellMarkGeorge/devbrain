@@ -1,4 +1,5 @@
 import type { WorkspaceId } from '../ids';
+import type { SerializedError } from '../ipc/types';
 
 // A workspace as the registry lists it: never the open Workspace itself
 export interface WorkspaceInfo {
@@ -13,10 +14,17 @@ export interface WorkspaceInfo {
   lastPage: string | null;
 }
 
-// Which workspace is open (null while none is), and which is opening (null when none is): from an
-// open's start until it is open or has failed. What `workspace.changed` sends and
-// `workspaces.status` answers.
-export interface WorkspaceStatus {
-  id: WorkspaceId | null;
-  opening: WorkspaceId | null;
+// What the window shows for the workspaces, as main says: onboarding while none is open (with why
+// the last open failed, if it did), the splash while one opens, and the app while one is open (with
+// why a switch away from it failed, if it did: a missing folder fails before anything closes).
+export type WorkspaceState =
+  | { status: 'none'; error: SerializedError | null }
+  | { status: 'opening'; workspace: WorkspaceInfo }
+  | { status: 'open'; workspace: WorkspaceInfo; error: SerializedError | null };
+
+// The state with a number main raises at every change, so a page keeps the newest it has seen
+// whatever order the initial read and the events arrive in.
+export interface WorkspaceSnapshot {
+  version: number;
+  state: WorkspaceState;
 }

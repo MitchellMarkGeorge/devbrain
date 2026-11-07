@@ -691,36 +691,6 @@ describe('WorkspaceService — open', () => {
     expect(service.currentWorkspace).toBe(fakeWorkspace);
   });
 
-  it('says which workspace is opening, then which is open (status)', async () => {
-    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
-    writeRegistry(tmpDir, [info]);
-    await fs.mkdir(info.path, { recursive: true });
-    const fakeWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
-    let finish: (workspace: unknown) => void = () => {};
-    vi.mocked(Workspace.open).mockReturnValue(
-      new Promise((resolve) => (finish = resolve)) as never,
-    );
-
-    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
-    expect(service.status()).toEqual({ id: null, opening: null });
-    const opened = service.open(info.id);
-    await vi.waitFor(() => expect(service.status()).toEqual({ id: null, opening: info.id }));
-    finish(fakeWorkspace);
-    await opened;
-    expect(service.status()).toEqual({ id: info.id, opening: null });
-  });
-
-  it('says none is opening once an open fails (status)', async () => {
-    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
-    writeRegistry(tmpDir, [info]);
-    await fs.mkdir(info.path, { recursive: true });
-    vi.mocked(Workspace.open).mockRejectedValue(new Error('broken database'));
-
-    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
-    await expect(service.open(info.id)).rejects.toThrow('broken database');
-    expect(service.status()).toEqual({ id: null, opening: null });
-  });
-
   it('updates lastOpenedAt in the registry', async () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
     writeRegistry(tmpDir, [info]);
@@ -1058,6 +1028,25 @@ describe('WorkspaceService — onChange', () => {
     expect(changes).toEqual([]);
   });
 
+  it('sends opening then openFailed for a workspace whose folder is gone, leaving the old one open', async () => {
+    const { service, infos, workspaces, changes } = await setup();
+    vi.mocked(Workspace.open).mockResolvedValueOnce(workspaces[0] as never);
+    await service.open(infos[0].id);
+    await fs.rm(infos[1].path, { recursive: true, force: true });
+
+    await expect(service.open(infos[1].id)).rejects.toThrow(WorkspaceDataMissingError);
+
+    expect(changes.slice(2)).toEqual([
+      { type: 'opening', workspaceId: infos[1].id },
+      {
+        type: 'openFailed',
+        workspaceId: infos[1].id,
+        error: expect.any(WorkspaceDataMissingError),
+      },
+    ]);
+    expect(service.currentWorkspace).toBe(workspaces[0]);
+  });
+
   it('sends openFailed when the open fails, once the old workspace has closed', async () => {
     const { service, infos, workspaces, changes, log } = await setup();
     vi.mocked(Workspace.open)
@@ -1070,7 +1059,7 @@ describe('WorkspaceService — onChange', () => {
     expect(changes.slice(2)).toEqual([
       { type: 'opening', workspaceId: infos[1].id },
       { type: 'closed', workspaceId: infos[0].id },
-      { type: 'openFailed', workspaceId: infos[1].id },
+      { type: 'openFailed', workspaceId: infos[1].id, error: expect.anything() },
     ]);
     expect(log.slice(-4)).toEqual([
       'opening wsp_second',
@@ -1174,10 +1163,8 @@ describe('WorkspaceService — onChange', () => {
     const { service, infos, changes } = await setup();
     // closing with no workspace open
     await service.close();
-    // opening an unknown workspace, or one whose directory is gone
+    // opening an unknown workspace (one whose folder is gone sends opening and openFailed)
     await expect(service.open('wsp_nope' as WorkspaceId)).rejects.toThrow(NotFoundError);
-    await fs.rm(infos[1].path, { recursive: true });
-    await expect(service.open(infos[1].id)).rejects.toThrow(WorkspaceDataMissingError);
     // deleting a workspace that is not open
     await expect(service.delete(infos[0].id)).rejects.toThrow(WorkspaceNotOpenError);
 
@@ -1196,7 +1183,7 @@ describe('WorkspaceService — onChange', () => {
 
     expect(changes).toEqual([
       { type: 'opening', workspaceId: infos[0].id },
-      { type: 'openFailed', workspaceId: infos[0].id },
+      { type: 'openFailed', workspaceId: infos[0].id, error: expect.anything() },
     ]);
     expect(service.currentWorkspace).toBeNull();
   });

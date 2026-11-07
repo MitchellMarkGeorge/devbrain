@@ -1,6 +1,6 @@
 import type { ChangedEntity } from '../changes';
 import type { CoreErrorCode } from '../errors';
-import type { AppSettings, Page, WorkspaceInfo } from '../types';
+import type { AppSettings, Page, WorkspaceInfo, WorkspaceSnapshot } from '../types';
 
 // Every error code a call can fail with: core's own, and the IPC layer's.
 export type IpcErrorCode =
@@ -52,6 +52,14 @@ export interface IpcBridge {
   // one. Fixed for the page load, so it is for seeding the first render only: later changes reach
   // the query cache as events
   readonly initialLoadContext: unknown;
+  // The workspace state, kept current by the preload from before the page runs: it listens for
+  // `workspace.changed` first, then reads the initial load context, keeping the newest by version,
+  // so no change is missed between the two. `get` is null when main gave no initial load context
+  // and no event has come yet; `subscribe` calls back with each newer snapshot.
+  readonly workspaceState: {
+    get(): WorkspaceSnapshot | null;
+    subscribe(listener: (snapshot: WorkspaceSnapshot) => void): () => void;
+  };
   // The platform main runs on (Node's process.platform: 'darwin', 'win32', 'linux', …), for the
   // page to draw the title bar the window frame leaves to it (src/main/runtime/window-chrome.ts)
   // and to name keys as the platform does (Ctrl for ⌘ off macOS)
@@ -62,16 +70,12 @@ export interface IpcBridge {
 // loading state: the renderer can seed its query cache with it. Read again on every page load, so
 // a reload sees the workspace open now. Workspace info only (names, colors and ids, never anything
 // from a workspace's database), and the user's settings: the theme, so the page paints in it from
-// the start, and what `/` reads to pick the landing page.
+// the start, and what the app reads to pick the landing page.
 export interface InitialLoadContext {
   // false when DevBrain could not be loaded: nothing that needs it can run
   devBrainAvailable: boolean;
-  // the open workspace: what workspaces.current answers
-  current: WorkspaceInfo | null;
-  // the workspace opening (main reopens the last one at startup), for the splash to name
-  opening: WorkspaceInfo | null;
-  // why main's startup open failed, on the first page load after it
-  openFailure: SerializedError | null;
+  // the workspace state now (what `workspace.changed` last sent)
+  workspace: WorkspaceSnapshot;
   // what workspaces.list answers for its first page
   workspaces: Page<WorkspaceInfo>;
   // what settings.get answers; null without DevBrain

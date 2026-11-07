@@ -1,6 +1,6 @@
 import { generateId, isId, type IntegrationId, type WorkspaceId } from '@common/ids';
 import { hexColorSchema } from '@common/color';
-import { lastPageSchema, Page, type WorkspaceInfo, type WorkspaceStatus } from '@common/types';
+import { lastPageSchema, Page, type WorkspaceInfo } from '@common/types';
 import type { CreateWorkspaceOptions, UpdateWorkspaceOptions, WorkspaceOptions } from './types';
 import {
   describeWorkspace,
@@ -46,7 +46,8 @@ export type WorkspaceChange =
   | { type: 'updated'; workspace: WorkspaceInfo }
   | { type: 'opening'; workspaceId: WorkspaceId }
   | { type: 'opened'; workspace: Workspace }
-  | { type: 'openFailed'; workspaceId: WorkspaceId }
+  // with what open threw, for the app to show
+  | { type: 'openFailed'; workspaceId: WorkspaceId; error: unknown }
   | { type: 'closed'; workspaceId: WorkspaceId };
 
 // TODO: opening a workspace again after it has been openedn should be as cheap as possible
@@ -54,19 +55,12 @@ export type WorkspaceChange =
 
 export class WorkspaceService {
   private current: Workspace | null = null;
-  // the workspace being opened, from `opening` until `opened` or `openFailed`
-  private opening: WorkspaceId | null = null;
   private transition: Promise<unknown> = Promise.resolve();
   private workspacesFilePath: string;
   private readonly changes: ChangeListeners<WorkspaceChange>;
 
   get currentWorkspace(): Workspace | null {
     return this.current;
-  }
-
-  /** Which workspace is open, and which is opening, as the last change sent said. */
-  status(): WorkspaceStatus {
-    return { id: this.current?.info.id ?? null, opening: this.opening };
   }
 
   // Only lifecycle transitions queue. A rejected transition must not poison later calls.
@@ -336,17 +330,17 @@ export class WorkspaceService {
     // 1. get info from the registry (throws NotFoundError when absent)
     const workspaceInfo = this.getById(id);
 
-    // 2. make sure the workspace directory exists
-    if (!(await directoryExists(workspaceInfo.path))) {
-      throw new WorkspaceDataMissingError(id, 'No workspace data found');
-    }
-
-    // from here the open changes what is open: listeners show it as opening until `opened`, or
-    // `openFailed` once nothing is open
-    this.opening = id;
+    // from here listeners show it as opening until `opened`, or `openFailed`: with nothing open
+    // when it failed after closing the old workspace, or the old one still open when its folder is
+    // missing
     this.changes.emit({ type: 'opening', workspaceId: id });
     let workspace: Workspace;
     try {
+      // 2. make sure the workspace directory exists, before anything closes
+      if (!(await directoryExists(workspaceInfo.path))) {
+        throw new WorkspaceDataMissingError(id, 'No workspace data found');
+      }
+
       // 3. close the workspace open now, if any: only one syncs at a time, and its runs settle
       // first
       await this.closeCurrent();
@@ -368,11 +362,9 @@ export class WorkspaceService {
         throw error;
       }
     } catch (error) {
-      this.opening = null;
-      this.changes.emit({ type: 'openFailed', workspaceId: id });
+      this.changes.emit({ type: 'openFailed', workspaceId: id, error });
       throw error;
     }
-    this.opening = null;
     this.changes.emit({ type: 'opened', workspace });
     return workspace;
   }

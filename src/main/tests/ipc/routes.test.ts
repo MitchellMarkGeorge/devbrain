@@ -118,14 +118,6 @@ describe('workspaces', () => {
     expect(await call('workspaces.current')).toMatchObject({ data: null });
   });
 
-  it('status says which workspace is open, and that none is opening', async () => {
-    expect(await call('workspaces.status')).toMatchObject({ data: { id: null, opening: null } });
-
-    const work = await createWorkspace(devBrain, 'Work');
-    await devBrain.workspaces.open(work);
-    expect(await call('workspaces.status')).toMatchObject({ data: { id: work, opening: null } });
-  });
-
   it("passes core's errors through", async () => {
     const closed = await createWorkspace(devBrain, 'Closed');
 

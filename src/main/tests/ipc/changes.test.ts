@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import type { WorkspaceSnapshot } from '@common/types';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { IpcMainInvokeEvent } from 'electron';
@@ -51,6 +52,13 @@ afterEach(async () => {
 
 function workspace(): Workspace {
   return devBrain.currentWorkspace!;
+}
+
+// each workspace state sent, in order
+function workspaceStates(): WorkspaceSnapshot[] {
+  return sendToWindows.mock.calls
+    .filter(([name]) => name === 'workspace.changed')
+    .map(([, payload]) => payload as WorkspaceSnapshot);
 }
 
 // the app's routes, and two that do what a test passes them, against the open workspace
@@ -229,22 +237,25 @@ describe('changes outside any mutation', () => {
 });
 
 describe('switching workspace', () => {
-  it('sends workspace.changed for each step, opening first, and follows the new workspace', async () => {
+  it('sends the workspace state, opening then open, and follows the new workspace', async () => {
     const old = workspace();
     const next = await createWorkspace(devBrain, 'Home');
+    const before = tracker.workspaceSnapshot().version;
 
     await devBrain.workspaces.open(next);
 
-    expect(
-      sendToWindows.mock.calls
-        .filter(([name]) => name === 'workspace.changed')
-        .map(([, payload]) => payload),
-    ).toEqual([
-      // the new one opening while the old one is still open, then the old one closed, then open
-      { id: old.info.id, opening: next },
-      { id: null, opening: next },
-      { id: next, opening: null },
+    // the old one closing in between is no change: the new one is still opening
+    expect(workspaceStates()).toEqual([
+      {
+        version: before + 1,
+        state: { status: 'opening', workspace: expect.objectContaining({ id: next }) },
+      },
+      {
+        version: before + 2,
+        state: { status: 'open', workspace: expect.objectContaining({ id: next }), error: null },
+      },
     ]);
+    expect(tracker.workspaceSnapshot()).toEqual(workspaceStates().at(-1));
     await afterBackgroundBatchSent();
     sendToWindows.mockReset();
     workspace().tasks.createTask({ title: 'Here', dueDate: DUE });
@@ -265,20 +276,42 @@ describe('switching workspace', () => {
     })) as IpcResult<unknown>;
 
     expect(result).toMatchObject({ ok: true, changed: ['workspace'] });
-    expect(sendToWindows).toHaveBeenCalledWith('workspace.changed', { id: next, opening: null });
+    expect(workspaceStates().at(-1)).toMatchObject({
+      state: { status: 'open', workspace: { id: next } },
+    });
   });
 
-  it('says nothing is opening once an open fails', async () => {
+  it('says none is open, and why, once an open fails after the old one closed', async () => {
     const next = await createWorkspace(devBrain, 'Home');
     // its database can't be opened
     await fs.writeFile(path.join(devBrain.workspaces.getById(next).path, 'db.sqlite'), 'not a db');
 
     await expect(devBrain.workspaces.open(next)).rejects.toThrow();
 
-    expect(sendToWindows).toHaveBeenLastCalledWith('workspace.changed', {
-      id: null,
-      opening: null,
+    expect(workspaceStates().at(-1)?.state).toEqual({
+      status: 'none',
+      error: expect.objectContaining({ code: expect.any(String) }),
     });
+  });
+
+  it('says the old one is still open, and why, when the folder of the one opening is gone', async () => {
+    const old = workspace();
+    const next = await createWorkspace(devBrain, 'Home');
+    await fs.rm(devBrain.workspaces.getById(next).path, { recursive: true });
+
+    await expect(devBrain.workspaces.open(next)).rejects.toThrow();
+
+    expect(workspaceStates().at(-1)?.state).toEqual({
+      status: 'open',
+      workspace: expect.objectContaining({ id: old.info.id }),
+      error: expect.objectContaining({ code: 'workspace_data_missing' }),
+    });
+  });
+
+  it('says none is open once the open one closes', async () => {
+    await devBrain.workspaces.close();
+
+    expect(workspaceStates().at(-1)?.state).toEqual({ status: 'none', error: null });
   });
 
   it('reports a new workspace, which core announces, without saying the open one changed', async () => {
