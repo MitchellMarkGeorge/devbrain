@@ -7,6 +7,7 @@ import { WindowFrameProvider } from '../../components/lib/platform';
 import { events, ipc, queryClient, queryInvalidator, trpc } from '../../ipc';
 import { seedQueryCache } from '../../ipc/initial-load-context';
 import { createAppRouter, type AppRouter } from '../../router';
+import { SplashProvider } from '../../pages/root/SplashProvider';
 import { followOpenWorkspace } from '../../workspace/open';
 import type { FakeMain } from './fake-main';
 
@@ -70,7 +71,9 @@ export function startApp(main: FakeMain, options: StartOptions): App {
     root.render(
       <QueryClientProvider client={queryClient}>
         <WindowFrameProvider value={{ platform: 'macos', controls: 'system' }}>
-          <RouterProvider router={router} />
+          <SplashProvider router={router}>
+            <RouterProvider router={router} />
+          </SplashProvider>
         </WindowFrameProvider>
       </QueryClientProvider>,
     );
@@ -148,18 +151,26 @@ export function watchDom(container: HTMLElement, texts: string[]) {
   };
 }
 
-/**
- * The log shows the splash first, and `page` drawn only once the splash has gone for good (the
- * first load hands the splash from the root's pending view to the root itself, so it can be
- * added twice).
- */
+/** The log shows the splash first, drawn once (the app has one), and `page` only once it has gone. */
 export function expectSplashThenPage(log: { what: string }[], page: string): void {
   const whats = log.map((entry) => entry.what);
   expect(whats[0]).toBe('splash+');
-  const lastSplash = whats.lastIndexOf('splash-');
-  expect(lastSplash).toBeGreaterThan(0);
-  expect(whats.indexOf(page)).toBeGreaterThan(lastSplash);
-  expect(whats.slice(lastSplash).filter((what) => what === 'splash+')).toEqual([]);
+  expect(whats.filter((what) => what === 'splash+')).toHaveLength(1);
+  const gone = whats.indexOf('splash-');
+  expect(gone).toBeGreaterThan(0);
+  expect(whats.indexOf(page)).toBeGreaterThan(gone);
+}
+
+/**
+ * While the splash is up it is all the window holds: no page behind it for focus or a screen
+ * reader to reach. (Toasts, portalled to the body, are outside the container.)
+ */
+export function expectOnlySplash(container: HTMLElement): void {
+  const splash = splashOf(container);
+  expect(splash).not.toBeNull();
+  expect(container.textContent).toBe(splash!.textContent);
+  const focusable = container.querySelectorAll('a, button, input, [tabindex]');
+  expect([...focusable].filter((element) => !splash!.contains(element))).toEqual([]);
 }
 
 /** Clicks an element as a user would, in act. */

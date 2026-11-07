@@ -34,14 +34,15 @@ to open it when it isn't open.
 
 ## The pieces
 
-| Piece                                 | Where                                       | Role                                                                             |
-| ------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------------------- |
-| `createAppRouter`                     | `src/renderer/router.tsx`                   | The router, its options and context                                              |
-| `ensureWorkspaceOpen`, `isSettledOn`  | `src/renderer/workspace/open.ts`            | Which workspace main has open, as `workspace.changed` says; opening one          |
-| `openWorkspaceOf`                     | `src/renderer/pages/app/workspace-route.ts` | `/app/$workspaceId`'s beforeLoad: skips preloads, opens the workspace            |
-| `useSplash`                           | `src/renderer/pages/root/use-splash.ts`     | The splash, derived from the router's state, held 600ms                          |
-| `RootLayout`, `RootPending`           | `src/renderer/pages/root/Root.tsx`          | Toasts; the splash _in place of_ the page; outside changes; DevBrain unavailable |
-| `initialRoute`, `saveLastPageOnClose` | `src/main/runtime/last-page.ts`             | The window's first route; the last page of each workspace, saved as it closes    |
+| Piece                                 | Where                                        | Role                                                                                 |
+| ------------------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `createAppRouter`                     | `src/renderer/router.tsx`                    | The router, its options and context                                                  |
+| `ensureWorkspaceOpen`, `isSettledOn`  | `src/renderer/workspace/open.ts`             | Which workspace main has open, as `workspace.changed` says; opening one              |
+| `openWorkspaceOf`                     | `src/renderer/pages/app/workspace-route.ts`  | `/app/$workspaceId`'s beforeLoad: skips preloads, opens the workspace                |
+| `SplashProvider`                      | `src/renderer/pages/root/SplashProvider.tsx` | The one splash, around the router in `main.tsx`; says whether it is up               |
+| `useSwitchingWorkspace`, `useHeldFor` | `src/renderer/pages/root/use-splash.ts`      | Whether the router is on its way to another workspace; the 600ms hold                |
+| `RootLayout`                          | `src/renderer/pages/root/Root.tsx`           | Toasts; the page, none while the splash is up; outside changes; DevBrain unavailable |
+| `initialRoute`, `saveLastPageOnClose` | `src/main/runtime/last-page.ts`              | The window's first route; the last page of each workspace, saved as it closes        |
 
 Routes (`src/renderer/routes`, file-based, generated into `src/renderer/routeTree.gen.ts`, which is
 checked in; `npm run routes` regenerates it without a build):
@@ -64,10 +65,11 @@ From Work's tasks page, the menu picks Home:
 
 1. `navigate({ to: '/app/$workspaceId', params: { workspaceId: home } })`. The router moves the URL
    to `#/app/<home>` at once, then loads.
-2. The router turns pending with a location in another workspace, one that isn't open:
-   `useSplash` in the root sees it, and the root draws the **splash _instead of_ the page**. Work's
-   page is unmounted, so it is never drawn again, and its queries, no longer mounted, never
-   refetch. (React renders this as the router's state changes, well before main's first event
+2. The router turns pending with a location in another workspace than the one on screen
+   (`useSwitchingWorkspace`). `SplashProvider`, around the router, puts up **the splash**, and the
+   root, reading that it is up (`useSplashVisible`), **draws no page**. Work's page is unmounted,
+   so it is never drawn again, and its queries, no longer mounted, never refetch. The splash is all
+   the window holds: nothing behind it for focus or a screen reader to reach. (React renders this as the router's state changes, well before main's first event
    comes back; that ordering isn't enforced in code, and the "never draws the old page" test
    checks it.)
 3. The root's `beforeLoad` runs (it runs on every navigation), then `/app/$workspaceId`'s:
@@ -77,9 +79,13 @@ From Work's tasks page, the menu picks Home:
    answer is Home's `WorkspaceInfo`, put in `workspaces.current`'s cache.
 4. The index route redirects to Home's last page or landing page; that page's loaders prime its
    queries.
-5. The router turns idle once the last navigation has resolved; the splash hides once it has also
-   shown for 600ms. Home's page mounts with its data. On the first load the router draws the
-   root's `RootPending` and then `RootLayout`; both use `useSplash`, and the 600ms carry across.
+5. The router turns idle once the last navigation has resolved. Once the splash has also shown for
+   600ms it goes, and in the same render the root draws Home's page, with its data. At startup the
+   router draws nothing until its first load is done; the splash, outside it, is there from the
+   first frame. A reload is no switch (the workspace is open as the page loads): no splash.
+
+Going to a workspace that's already open from another's page (Back after a failed open, an open
+made elsewhere) counts as a switch too, and shows the splash briefly; nothing reopens.
 
 If the open fails, `/app/$workspaceId`'s error component says why, by core's error code
 (`WorkspaceOpenError`): a missing folder, an unknown workspace, a database from a newer DevBrain, a
@@ -127,7 +133,7 @@ when one fails after an upgrade, revisit the part of the design that names it.
 | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------- | ---------------------------------------------------------------------------- |
 | `router.navigate()` resolves once the target's loaders are done and its page has rendered                                | Partly (it returns a promise)     | Tests that await a navigation                                                |
 | The root's `beforeLoad` runs on every navigation, Back and Forward included                                              | Yes (beforeLoad runs per load)    | The DevBrain-unavailable guard                                               |
-| On the first load nothing is drawn until loaders finish, unless the root has a `pendingComponent` **and** a `beforeLoad` | No                                | The startup splash (`RootPending`, `pendingMs: 0`)                           |
+| On the first load nothing is drawn until loaders finish, unless the root has a `pendingComponent` **and** a `beforeLoad` | No                                | Why the splash is outside the router: it covers the first load               |
 | A `beforeLoad` that throws during a preload stops it: no loader below runs, nothing is logged                            | No (preload errors are swallowed) | Preloads never opening a workspace                                           |
 | `onResolved` fires for the last of several navigations only, and once after a redirect                                   | No                                | Settling the splash                                                          |
 | The URL moves before the target's `beforeLoad` runs                                                                      | No                                | Main keeping the last page per workspace                                     |
