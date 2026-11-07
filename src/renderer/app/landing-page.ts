@@ -31,23 +31,19 @@ export async function defaultLandingPage({
 
 /**
  * The open workspace's landing page, read through React Query: the settings from the cache
- * (fetched once if not there), and the open workspace (`workspaces.current`) asked of main afresh.
- * Either read failing falls back to the default landing page.
- *
- * The `/` route runs as a workspace opens. By then the cached `workspaces.current` may still be
- * the previous workspace, and a fetch of it may be in flight from earlier in the switch (the cache
- * refetches it when main says a workspace is opening, while the old app is still mounted), which
- * would answer "none open". So that fetch is cancelled and a new one made.
+ * (fetched once if not there), and the open workspace (`workspaces.current`) asked of main afresh,
+ * as the `/` route runs as a workspace opens, when the cached one may still be the previous
+ * workspace's. Either read failing falls back to the default landing page.
  */
 export async function openWorkspaceLandingPage({
   queryClient,
   trpc,
 }: Pick<Services, 'queryClient' | 'trpc'>): Promise<string> {
-  const current = trpc.workspaces.current.queryOptions();
-  await queryClient.cancelQueries({ queryKey: current.queryKey, exact: true });
   const [settings, workspace] = await Promise.all([
     queryClient.ensureQueryData(trpc.settings.get.queryOptions()).catch(() => undefined),
-    queryClient.fetchQuery({ ...current, staleTime: 0 }).catch(() => null),
+    queryClient
+      .fetchQuery({ ...trpc.workspaces.current.queryOptions(), staleTime: 0 })
+      .catch(() => null),
   ]);
   return landingPage(settings, workspace);
 }

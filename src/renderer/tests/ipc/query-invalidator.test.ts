@@ -231,11 +231,16 @@ describe('listen', () => {
     });
     await vi.waitFor(() => expect(count('tasks.list')).toBe(3));
 
-    // the splash: nothing is open meanwhile, so the workspace's data goes
+    // a workspace opening: main is mid-switch, so nothing refetches until it is open
     events.send('workspace.changed', {
       version: 2,
       state: { status: 'opening', workspace: { id: WORK } as WorkspaceInfo },
     });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(count('tasks.list')).toBe(3);
+
+    // closed, or failed: none is open, so the workspace's data goes
+    events.send('workspace.changed', { version: 3, state: { status: 'none', error: null } });
     await vi.waitFor(() => expect(count('tasks.list')).toBe(4));
 
     stop();

@@ -393,10 +393,11 @@ mutation's own changes are refetched before it resolves. `main.tsx` calls
    with nothing open is the splash, never an empty or failing screen. A failed open shows from
    the state too, wherever the window is then; the caller shows the mutation's own rejection only
    when it failed before the open began (an unknown id, which changes nothing).
-3. When the open workspace's id (or `null` while opening or none is open) differs from the
-   workspace whose data is cached, the invalidator resets every query
-   outside `app`, `settings` and `workspaces` (`resetQueries` cancels what is in flight, clears the
-   data and refetches what is mounted), and refetches the `workspaces` queries.
+3. On `open` or `none` (not `opening`, while main is mid-switch), when the open workspace's id (or
+   `null` when none is open) differs from the workspace whose data is cached, the invalidator
+   resets every query outside `app`, `settings` and `workspaces` (`resetQueries` cancels what is
+   in flight, clears the data and refetches what is mounted), and refetches the `workspaces`
+   queries.
 4. The mutation's response carries `changed: ['workspace']`, which only refetches the workspace
    list. Creating, renaming or recolouring a workspace (`workspaces.update`), or adding one from a
    folder (`workspaces.importFolder`, see

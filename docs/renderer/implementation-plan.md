@@ -279,9 +279,9 @@ it arrives (`prepare`) and keeps the splash up until that is done. For an `open`
 - The location stays if `keepPage` and it is a valid last page (`isValidLastPage`).
 - Otherwise it is replaced with `/`, whose route (`routes/index.tsx`) redirects to
   `landingPage(settings, workspace)` (`openWorkspaceLandingPage`): the settings from the cache,
-  and the open workspace from `workspaces.current`, fetched afresh, after cancelling any fetch of
-  it still in flight from earlier in the switch, which would answer for the old state. Replacing,
-  not pushing, so Back never returns to another workspace's page.
+  and the open workspace from `workspaces.current`, fetched afresh, as the cached one may still be
+  the previous workspace's. Replacing, not pushing, so Back never returns to another workspace's
+  page.
 - Then the router is loaded, while still unmounted, and `startApp` resolves on its `onLoad`, once
   the new page's data has loaded. The router isn't listening during the splash, and mounting it
   again doesn't load it (TanStack's `RouterProvider` only loads on mount for a router that has
@@ -318,7 +318,9 @@ to the default landing page (Go Home).
 **The query cache.** `seedQueryCache` seeds `workspaces.current` from the snapshot (the workspace
 when `open`, else `null`), the list and the settings, all with `staleTime: Infinity`. The query
 invalidator's `workspace.changed` handler calls `workspaceOpened(state.status === 'open' ?
-state.workspace.id : null)`. `refetchOnWindowFocus` is off.
+state.workspace.id : null)` for `open` and `none`, and does nothing for `opening`: main is
+mid-switch then, and the old app is still mounted as the handler runs, so a refetch would answer
+for neither workspace (the spec mapped `opening` to `null` too). `refetchOnWindowFocus` is off.
 
 ### Remembering the page
 
