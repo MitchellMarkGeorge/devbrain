@@ -214,7 +214,7 @@ describe('an open that fails', () => {
     await eventually(() => expect(app.text()).toContain('Work tasks.list'));
     await app.router.navigate({ to: '/app/$workspaceId/notes', params: { workspaceId: HOME } });
     await eventually(() => expect(app.text()).toContain('Can’t find Home’s folder'));
-    await eventually(() => expect(splashOf(app.container)).toBeNull());
+    expect(splashOf(app.container)).toBeNull();
     expect(main.open).toBe(WORK);
 
     click(byText(app.container, 'button', 'Back to Work'));

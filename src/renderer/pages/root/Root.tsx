@@ -7,7 +7,9 @@ import { trpc } from '../../ipc';
 import { workspaceIdOfPage } from '@common/types';
 import { events } from '../../ipc';
 import { isOpeningWorkspace } from '../../workspace/open';
-import { useSwitchingWorkspace } from './use-splash';
+import { useSplash } from './use-splash';
+import { Splash } from './Splash';
+import styles from './Splash.module.css';
 
 // The root route's pieces (src/renderer/routes/__root.tsx).
 
@@ -29,24 +31,36 @@ const RouterDevtools = import.meta.env.DEV
   : () => null;
 
 /**
- * The window: toasts, and the page, except while the router is on its way to another workspace:
- * the page is unmounted then, under the splash (WorkspaceSplash, beside the router), so the
- * workspace being closed never draws again and its queries never refetch with the new one's data.
- * The new workspace's page mounts once its loaders have run.
+ * The window: toasts, and the page, or the splash in its place while a workspace opens. The page
+ * is unmounted under the splash, so the workspace being closed never draws again, and the new
+ * one's page mounts once its loaders have run.
  */
 export function RootLayout() {
   const router = useRouter();
-  const switching = useSwitchingWorkspace(router);
+  const splash = useSplash();
   useFollowOutsideChanges();
   return (
     <ToastProvider>
-      {!switching && <Outlet />}
+      {splash.visible ? <Splash name={splash.name} /> : <Outlet />}
       {import.meta.env.DEV && import.meta.env.MODE !== 'test' && (
         <Suspense>
           <RouterDevtools router={router} position="bottom-right" />
         </Suspense>
       )}
     </ToastProvider>
+  );
+}
+
+/**
+ * The window during the first load: the splash while a workspace opens, else the empty window
+ * (a reload, onboarding), which the first page replaces in a moment.
+ */
+export function RootPending() {
+  const splash = useSplash();
+  return splash.visible ? (
+    <Splash name={splash.name} />
+  ) : (
+    <div className={styles.blank} aria-busy />
   );
 }
 

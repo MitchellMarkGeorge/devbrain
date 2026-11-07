@@ -7,7 +7,6 @@ import { WindowFrameProvider } from '../../components/lib/platform';
 import { events, ipc, queryClient, queryInvalidator, trpc } from '../../ipc';
 import { seedQueryCache } from '../../ipc/initial-load-context';
 import { createAppRouter, type AppRouter } from '../../router';
-import { WorkspaceSplash } from '../../pages/root/WorkspaceSplash';
 import { followOpenWorkspace } from '../../workspace/open';
 import type { FakeMain } from './fake-main';
 
@@ -72,7 +71,6 @@ export function startApp(main: FakeMain, options: StartOptions): App {
       <QueryClientProvider client={queryClient}>
         <WindowFrameProvider value={{ platform: 'macos', controls: 'system' }}>
           <RouterProvider router={router} />
-          <WorkspaceSplash router={router} />
         </WindowFrameProvider>
       </QueryClientProvider>,
     );
@@ -151,21 +149,17 @@ export function watchDom(container: HTMLElement, texts: string[]) {
 }
 
 /**
- * Once the splash has come down: the log shows the splash first, drawn once (the app has one),
- * `page` drawn under it, and the splash going only after the page was there.
+ * The log shows the splash first, and `page` drawn only once the splash has gone for good (the
+ * first load hands the splash from the root's pending view to the root itself, so it can be
+ * added twice).
  */
-export async function expectSplashThenPage(
-  container: HTMLElement,
-  dom: ReturnType<typeof watchDom>,
-  page: string,
-): Promise<void> {
-  await eventually(() => expect(splashOf(container)).toBeNull());
-  dom.flush();
-  const whats = dom.log.map((entry) => entry.what);
+export function expectSplashThenPage(log: { what: string }[], page: string): void {
+  const whats = log.map((entry) => entry.what);
   expect(whats[0]).toBe('splash+');
-  expect(whats.filter((what) => what === 'splash+')).toHaveLength(1);
-  expect(whats.indexOf(page)).toBeGreaterThan(0);
-  expect(whats.indexOf('splash-')).toBeGreaterThan(whats.indexOf(page));
+  const lastSplash = whats.lastIndexOf('splash-');
+  expect(lastSplash).toBeGreaterThan(0);
+  expect(whats.indexOf(page)).toBeGreaterThan(lastSplash);
+  expect(whats.slice(lastSplash).filter((what) => what === 'splash+')).toEqual([]);
 }
 
 /** Clicks an element as a user would, in act. */
