@@ -144,8 +144,12 @@ export function createQueryInvalidator(options: QueryInvalidatorOptions): QueryI
         events.on('db.changes', ({ entities }) => {
           onChanged(entities).catch(onError);
         }),
-        events.on('workspace.changed', ({ id }) => {
-          workspaceOpened(id).catch(onError);
+        events.on('workspace.changed', ({ state }) => {
+          // Nothing while one opens: main is mid-switch, so a refetch now would answer for
+          // neither workspace (the old app is still mounted as this runs, before the splash
+          // replaces it). The open, or its failure, that follows drops the old data.
+          if (state.status === 'opening') return;
+          workspaceOpened(state.status === 'open' ? state.workspace.id : null).catch(onError);
         }),
       ];
       return () => unsubscribes.forEach((unsubscribe) => unsubscribe());

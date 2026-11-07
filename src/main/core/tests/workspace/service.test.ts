@@ -1040,7 +1040,7 @@ describe('WorkspaceService — onChange', () => {
     expect(changes.slice(2)).toEqual([
       { type: 'opening', workspaceId: infos[1].id },
       { type: 'closed', workspaceId: infos[0].id },
-      { type: 'openFailed', workspaceId: infos[1].id },
+      { type: 'openFailed', workspaceId: infos[1].id, error: new Error('corrupt') },
     ]);
     expect(log.slice(-4)).toEqual([
       'opening wsp_second',
@@ -1144,15 +1144,33 @@ describe('WorkspaceService — onChange', () => {
     const { service, infos, changes } = await setup();
     // closing with no workspace open
     await service.close();
-    // opening an unknown workspace, or one whose directory is gone
+    // opening an unknown workspace
     await expect(service.open('wsp_nope' as WorkspaceId)).rejects.toThrow(NotFoundError);
-    await fs.rm(infos[1].path, { recursive: true });
-    await expect(service.open(infos[1].id)).rejects.toThrow(WorkspaceDataMissingError);
     // deleting a workspace that is not open
     await expect(service.delete(infos[0].id)).rejects.toThrow(WorkspaceNotOpenError);
 
     expect(changes).toEqual([]);
     expect(service.currentWorkspace).toBeNull();
+  });
+
+  it('a workspace whose folder is gone sends opening, then openFailed, and the open one stays open', async () => {
+    const { service, infos, workspaces, changes, log } = await setup();
+    vi.mocked(Workspace.open).mockResolvedValueOnce(workspaces[0] as never);
+    await service.open(infos[0].id);
+    await fs.rm(infos[1].path, { recursive: true });
+
+    await expect(service.open(infos[1].id)).rejects.toThrow(WorkspaceDataMissingError);
+
+    expect(changes.slice(2)).toEqual([
+      { type: 'opening', workspaceId: infos[1].id },
+      {
+        type: 'openFailed',
+        workspaceId: infos[1].id,
+        error: expect.any(WorkspaceDataMissingError),
+      },
+    ]);
+    expect(log).not.toContain('close wsp_first');
+    expect(service.currentWorkspace).toBe(workspaces[0]);
   });
 
   it('a workspace that fails to start syncing never becomes current: opening, then openFailed', async () => {
@@ -1166,7 +1184,7 @@ describe('WorkspaceService — onChange', () => {
 
     expect(changes).toEqual([
       { type: 'opening', workspaceId: infos[0].id },
-      { type: 'openFailed', workspaceId: infos[0].id },
+      { type: 'openFailed', workspaceId: infos[0].id, error: new Error('start failed') },
     ]);
     expect(service.currentWorkspace).toBeNull();
   });

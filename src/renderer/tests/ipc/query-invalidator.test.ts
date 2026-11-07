@@ -3,6 +3,7 @@ import { QueryClient, QueryObserver, type QueryKey } from '@tanstack/react-query
 import type { ChangedEntity } from '@common/changes';
 import type { AppEvents } from '@common/events';
 import type { WorkspaceId } from '@common/ids';
+import type { WorkspaceInfo } from '@common/types';
 import type { EventClient } from '../../ipc/events';
 import {
   createQueryInvalidator,
@@ -54,7 +55,7 @@ async function query(
     },
   };
   if (!active) {
-    await queryClient.prefetchQuery(options);
+    await queryClient.query(options);
     return;
   }
   const observer = new QueryObserver(queryClient, options);
@@ -224,8 +225,23 @@ describe('listen', () => {
     events.send('db.changes', { entities: ['task'] as ChangedEntity[] });
     await vi.waitFor(() => expect(count('tasks.list')).toBe(2));
 
-    events.send('workspace.changed', { id: HOME, opening: null });
+    events.send('workspace.changed', {
+      version: 1,
+      state: { status: 'open', workspace: { id: HOME } as WorkspaceInfo, error: null },
+    });
     await vi.waitFor(() => expect(count('tasks.list')).toBe(3));
+
+    // a workspace opening: main is mid-switch, so nothing refetches until it is open
+    events.send('workspace.changed', {
+      version: 2,
+      state: { status: 'opening', workspace: { id: WORK } as WorkspaceInfo },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(count('tasks.list')).toBe(3);
+
+    // closed, or failed: none is open, so the workspace's data goes
+    events.send('workspace.changed', { version: 3, state: { status: 'none', error: null } });
+    await vi.waitFor(() => expect(count('tasks.list')).toBe(4));
 
     stop();
     expect(events.listeners.size).toBe(0);

@@ -1,4 +1,4 @@
-import { lastPageSchema } from '@common/types';
+import { isValidLastPage } from '@common/types';
 import type { DevBrain } from '@main/core';
 
 // "Reopen last page" (general.openToLastPage): main remembers the page the window shows, and saves
@@ -21,7 +21,7 @@ export function lastPageOf(url: string): string | null {
     return null;
   }
   const page = hash.startsWith('#') ? hash.slice(1) : hash;
-  return lastPageSchema.safeParse(page).success ? page : null;
+  return isValidLastPage(page) ? page : null;
 }
 
 /** The parts of Electron's app and a window's webContents followed here. */

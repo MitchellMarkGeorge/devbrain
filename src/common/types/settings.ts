@@ -42,6 +42,11 @@ export const lastPageSchema = z
   .max(MAX_LAST_PAGE_LENGTH)
   .regex(/^\/app(?:[/?#]|$)/, 'Not a page in the app');
 
+/** Whether `page` is a page in the app that a workspace can reopen on (`lastPageSchema`). */
+export function isValidLastPage(page: unknown): page is string {
+  return lastPageSchema.safeParse(page).success;
+}
+
 export const appStateSchema = z.object({
   lastWorkspaceId: z.string().nullable(),
 });

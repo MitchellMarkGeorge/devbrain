@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DevBrain } from '@main/core';
+import { ChangeTracker } from '@main/ipc/changes';
 import { attachInitialLoadContext, initialLoadContext } from '@main/ipc/initial-load-context';
 import { resetElectronMock, sendSyncToMain } from '../__mocks__/electron';
 import { createWorkspace, tempDevBrain } from './helpers';
@@ -19,48 +20,44 @@ afterEach(async () => {
 });
 
 describe('initialLoadContext', () => {
+  const NONE = { version: 0, state: { status: 'none', error: null } };
+
   it('says DevBrain is unavailable when it did not load', () => {
     expect(initialLoadContext(null)).toEqual({
       devBrainAvailable: false,
-      current: null,
-      last: null,
+      workspace: NONE,
       workspaces: { items: [], nextCursor: null },
-      theme: 'system',
+      settings: null,
     });
   });
 
-  it('has nothing to open in an empty folder', () => {
+  it('has no workspace and the default settings in an empty folder', () => {
     expect(initialLoadContext(devBrain)).toEqual({
       devBrainAvailable: true,
-      current: null,
-      last: null,
+      workspace: NONE,
       workspaces: { items: [], nextCursor: null },
-      theme: 'system',
+      settings: devBrain.settings.get('settings'),
     });
   });
 
-  it('carries the theme setting, so the page paints in it from the start', () => {
+  it('carries the settings, so the page paints in its theme from the start', () => {
     devBrain.settings.set('settings.theme', 'dark');
-    expect(initialLoadContext(devBrain).theme).toBe('dark');
+    expect(initialLoadContext(devBrain).settings?.theme).toBe('dark');
   });
 
-  it('names the workspace openLast would open while none is open', async () => {
+  it('carries the workspace state the tracker last sent, and the list', async () => {
     const work = await createWorkspace(devBrain, 'Work');
     await createWorkspace(devBrain, 'Home');
-    devBrain.settings.set('state.lastWorkspaceId', work);
-
-    const context = initialLoadContext(devBrain);
-    expect(context.current).toBeNull();
-    expect(context.last).toMatchObject({ id: work, name: 'Work' });
-    expect(context.workspaces.items.map(({ name }) => name)).toEqual(['Work', 'Home']);
-  });
-
-  it('has the open workspace, and no last one to open, once one is open', async () => {
-    const work = await createWorkspace(devBrain, 'Work');
-    devBrain.settings.set('state.lastWorkspaceId', work);
+    const tracker = new ChangeTracker(vi.fn());
+    tracker.watch(devBrain);
     await devBrain.workspaces.open(work);
 
-    expect(initialLoadContext(devBrain)).toMatchObject({ current: { id: work }, last: null });
+    const context = initialLoadContext(devBrain, tracker.getWorkspaceSnapshot());
+    expect(context.workspace).toEqual({
+      version: 2,
+      state: { status: 'open', workspace: expect.objectContaining({ id: work }), error: null },
+    });
+    expect(context.workspaces.items.map(({ name }) => name)).toEqual(['Work', 'Home']);
   });
 });
 

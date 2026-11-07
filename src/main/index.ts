@@ -19,7 +19,7 @@ import type { DevBrain } from '@main/core';
 import { createSafeStorageCipher } from './runtime/safe-storage-cipher';
 import { migrationsPath } from './runtime/migrations';
 import { openElectronSettingsStore } from './runtime/settings-store';
-import { loadDevBrain } from './runtime/start';
+import { loadDevBrain, openLastWorkspace } from './runtime/start';
 import { closeBeforeQuit, forwardSyncTriggers, holdSingleInstance } from './runtime/lifecycle';
 import { saveLastPageOnClose } from './runtime/last-page';
 import { createElectronDesktop } from './runtime/desktop';
@@ -66,22 +66,22 @@ function configureLogging() {
 // --- DevBrain -------------------------------------------------------------
 const devBrainLog = log.scope('devbrain');
 
-// The DevBrain folder: in development the one `npm run seed:dev` fills (DEV_PATH, relative to the
-// repository, as the seed script reads it), else DEVBRAIN_PATH or ~/.devbrain.
+// The DevBrain folder: in development DEV_PATH, relative to the repository (`npm run seed:dev` adds
+// a sample workspace to it), else DEVBRAIN_PATH or ~/.devbrain. Created when missing.
 function devBrainRootPath(): string {
   if (!app.isPackaged) return path.resolve(REPO_ROOT, process.env.DEV_PATH ?? '.dev');
   return process.env.DEVBRAIN_PATH ?? path.join(os.homedir(), '.devbrain');
 }
 
-// Opens the DevBrain folder, and no workspace yet: the renderer opens one (workspaces.openLast).
-// Must run after `ready`: net.fetch and safeStorage's async API are only usable from then. Null
-// when there is no DevBrain folder in development, or the folder is invalid. Never rejects: a
-// failure is logged, and the window stays up.
+// Opens the DevBrain folder, and no workspace yet: startup reopens the last one once everything
+// that follows DevBrain is attached (openLastWorkspace). Must run after `ready`: net.fetch and
+// safeStorage's async API are only usable from then. Creates the folder when there is none, in
+// development as in the packaged app. Null when the folder is invalid or can't be made. Never
+// rejects: a failure is logged, and the window stays up.
 async function loadCore(): Promise<DevBrain | null> {
   try {
     return await loadDevBrain({
       rootPath: devBrainRootPath(),
-      createIfMissing: app.isPackaged,
       settingsStore: openElectronSettingsStore,
       workspace: {
         migrationsPath: migrationsPath({
@@ -98,7 +98,6 @@ async function loadCore(): Promise<DevBrain | null> {
         openExternal: (url) => shell.openExternal(url),
         logger: log.scope('sync'),
       },
-      logger: devBrainLog,
     });
   } catch (error) {
     devBrainLog.error('Loading DevBrain failed', error);
@@ -127,6 +126,7 @@ function attachIpc(devBrain: DevBrain | null) {
       createContext({
         ...call,
         devBrain,
+        getWorkspaceState: () => changeTracker.getWorkspaceSnapshot(),
         desktop: createElectronDesktop(
           { dialog, shell, menu: Menu },
           BrowserWindow.fromWebContents(call.event.sender),
@@ -145,7 +145,7 @@ function attachIpc(devBrain: DevBrain | null) {
   });
   // what each page load renders first, read fresh every time (src/main/ipc/initial-load-context.ts)
   attachInitialLoadContext(
-    () => initialLoadContext(devBrain),
+    () => initialLoadContext(devBrain, changeTracker.getWorkspaceSnapshot()),
     (error) => ipcLog.error('Building the initial load context failed', error),
   );
 }
@@ -274,8 +274,10 @@ function attachMenu(devBrain: DevBrain | null) {
 
 // --- App lifecycle --------------------------------------------------------
 // Startup, in order: load DevBrain; attach everything that follows it, before anything starts;
-// then create the window, whose first calls find the router. The renderer reopens the last
-// workspace itself (workspaces.openLast), so a slow open never holds the window back.
+// start reopening the last workspace; then create the window, whose first calls find the router.
+// The open is not awaited, so a slow one never holds the window back: the window shows the splash
+// while it runs (`opening` in the workspace state), then the app or, when it fails, onboarding
+// with the error.
 app.whenReady().then(async () => {
   // another instance runs: this one is quitting, and opens nothing
   if (!isOnlyInstance) return;
@@ -298,6 +300,12 @@ app.whenReady().then(async () => {
   attachMenu(devBrain);
   followThemeSetting(devBrain);
   followLaunchAtLoginSetting(devBrain);
+  // the workspace open last time; its failure reaches the window as the workspace state's error
+  if (devBrain !== null) {
+    openLastWorkspace(devBrain).catch((error: unknown) =>
+      devBrainLog.error('Reopening the last workspace failed', error),
+    );
+  }
   createWindow();
   started = true;
   // the Dock icon on macOS: shows the hidden window, or makes one if it is gone

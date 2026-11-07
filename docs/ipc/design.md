@@ -78,7 +78,7 @@ is the file manager and the system dialogs, built over Electron's `shell` and `d
 window; tests pass a fake. `workspace` is whichever workspace is open when the call
 arrives. [`src/main/index.ts`](../../src/main/index.ts) loads DevBrain and attaches the router
 and the tracker before it creates the window, so a call never arrives before DevBrain is ready. No
-workspace is open yet: the renderer's first call, `workspaces.openLast`, reopens the last one.
+workspace is open yet at that point: see [Startup](#startup).
 
 ### The envelope and errors
 
@@ -155,9 +155,12 @@ not obvious from one file:
   the renderer calls it when a page for one opens. It reports `changed: ['recent']`, never the
   entity's own kind, so a view refetches the recents list and not every list of that entity.
 - **`workspaces`** returns `WorkspaceInfo`, never a `Workspace`. `create` doesn't open the new
-  workspace; `open` closes the open one first and remembers the new one for the next launch.
-  `openLast` is the renderer's first call: it opens the workspace open last time while none is
-  open, and otherwise returns the one already open, so a reload never reopens it.
+  workspace; `open` closes the open one first and remembers the new one for the next launch. Its
+  progress and its failure reach every window through `workspace.changed`, the asking one too
+  (see [A workspace switch](#a-workspace-switch)). `state` answers with the workspace state the
+  windows were last sent, which a page asks once as it loads (see
+  [The initial load context](#the-initial-load-context)). There is no route to reopen the last
+  workspace: main does that itself at startup.
 - **`settings.set`** writes one setting by its dot path (`{ path: 'settings.general.timeFormat',
 value: '24' }`), or one group (`settings.calendar`), checking the value against that path's part
   of `appSettingsSchema`, so two quick edits to different settings can't undo each other as two
@@ -258,21 +261,54 @@ The rules that shape it:
 Main pushes the events in [`AppEvents`](../../src/common/events.ts), each on
 `ipc-event:<name>`. The renderer subscribes with `events.on(name, listener)`
 ([`events.ts`](../../src/renderer/ipc/events.ts)), which returns the function that unsubscribes;
-the preload passes the payload only. Every event is a delta: it says what changed, carries ids,
-never a snapshot and never credentials, and the renderer refetches what it shows.
+the preload passes the payload only. Every event but one is a delta: it says what changed, carries
+ids, never credentials, and the renderer refetches what it shows. `workspace.changed` is the
+exception: it carries the workspace state whole, which the window draws from (below).
 
-| Event                  | Payload                              | Sent                                                                                   |
-| ---------------------- | ------------------------------------ | -------------------------------------------------------------------------------------- |
-| `db.changes`           | `entities`                           | Background changes, once per turn, to every window; a mutation's, to the other windows |
-| `workspace.changed`    | `id` (open, or `null`) and `opening` | On every step of an open and on a close, to every window, the one that switched too    |
-| `sync.progress`        | `sourceId`, `phase`, `itemsApplied`  | After each page a sync run commits                                                     |
-| `integrations.changed` | `integrationId`, `type`              | On every `IntegrationChange`                                                           |
-| `sources.changed`      | `sourceId`                           | When a source is switched on or off, or a run records how it ended                     |
+| Event                  | Payload                             | Sent                                                                                   |
+| ---------------------- | ----------------------------------- | -------------------------------------------------------------------------------------- |
+| `db.changes`           | `entities`                          | Background changes, once per turn, to every window; a mutation's, to the other windows |
+| `workspace.changed`    | `WorkspaceSnapshot`                 | On every change of the workspace state, to every window, the one that switched too     |
+| `sync.progress`        | `sourceId`, `phase`, `itemsApplied` | After each page a sync run commits                                                     |
+| `integrations.changed` | `integrationId`, `type`             | On every `IntegrationChange`                                                           |
+| `sources.changed`      | `sourceId`                          | When a source is switched on or off, or a run records how it ended                     |
 
 `db.changes` and `workspace.changed` keep data fresh, and the query invalidator follows them. The
 other three are for a status UI (a sync indicator, the integrations page). They are sent at once,
 to every window, beside the entities their change maps to, so a view refetching on `changed` or
 `db.changes` doesn't need them.
+
+### The workspace state
+
+Main owns one value, what the window shows about workspaces, and sends it whole at every change
+(`WorkspaceState` and `WorkspaceSnapshot` in
+[`src/common/types/workspaces.ts`](../../src/common/types/workspaces.ts)):
+
+```ts
+type WorkspaceState =
+  | { status: 'none'; error: SerializedError | null } // onboarding (+ why the last open failed)
+  | { status: 'opening'; workspace: WorkspaceInfo } // the splash
+  | { status: 'open'; workspace: WorkspaceInfo; error: SerializedError | null }; // the app (+ why a switch away failed)
+interface WorkspaceSnapshot {
+  version: number;
+  state: WorkspaceState;
+}
+```
+
+The `ChangeTracker` keeps it (`getWorkspaceSnapshot()`), starting at version 0, `none`, and maps
+core's `WorkspaceChange`s to it, bumping `version` and sending `workspace.changed` each time:
+
+| Core's change | State                                                                                                                                                               |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `opening`     | `opening`, with the workspace's info                                                                                                                                |
+| `closed`      | `none`, except while `opening`: a switch closes the old workspace mid-open, and onboarding must not flash between the two                                           |
+| `opened`      | `open`, with no error                                                                                                                                               |
+| `openFailed`  | the error, serialized as a call's would be: `open` on the workspace still open when there is one (the new one's folder was missing, so nothing closed), else `none` |
+
+When `watch()` starts with a workspace already open, the state starts as `open` without being
+sent: no window has loaded yet. The renderer draws the window from this value alone
+(`docs/renderer/implementation-plan.md`, The window and its routers), so no route reacts to a
+workspace opening, closing or failing.
 
 ### The initial load context
 
@@ -282,25 +318,46 @@ value `initialLoadContext` (`null` when the read fails). `readInitialLoadContext
 [`src/renderer/ipc/initial-load-context.ts`](../../src/renderer/ipc/initial-load-context.ts)) reads
 that value. Main answers with an `InitialLoadContext`
 ([`src/main/ipc/initial-load-context.ts`](../../src/main/ipc/initial-load-context.ts)), built fresh
-for each load: `{ devBrainAvailable, current, last, workspaces, theme }`, workspace info and the
-theme setting. `theme` is applied to the page before the first render (`src/renderer/theme.tsx`),
-which then follows `settings.get`. `last` is
-the workspace `workspaces.openLast` would open while none is open. When building it throws, main
-logs the error and answers `null`, so the page never waits forever.
+for each load: `{ devBrainAvailable, workspace, workspaces, settings }`: the tracker's current
+workspace snapshot, the first page of the workspace list and every setting. The theme is applied to
+the page before the first render (`src/renderer/theme.ts`), which then follows `settings.get`.
+When building it throws, main logs the error and answers `null`, so the page never waits forever.
 
-`seedQueryCache` puts `current` and `workspaces` in the cache as `workspaces.current` and
-`workspaces.list` before the first render, so startup routing (the workspace, the picker or the
-create page) is decided at once, with no splash on a reload. The `workspaces` router's queries get
-`staleTime: Infinity`: main reports every change to them (`workspace` entities and
-`workspace.changed`), so they need no refetch on mount. With no initial load context, they fetch as
-usual.
+`seedQueryCache` puts the workspace open in the snapshot (or `null`) as `workspaces.current`, the
+list as `workspaces.list` and the settings as `settings.get` before the first render, so the window
+draws the right screen at once, with no splash on a reload, and the app picks its landing page
+without a call. Those queries get `staleTime: Infinity`: main reports every change to them
+(`workspace` and `settings` entities, and `workspace.changed`), so they need no refetch on mount.
+With no initial load context, they fetch as usual.
 
-`initialLoadContext` is the bridge's one route-specific member, and fixed for the page load: it
-seeds the first render, and later changes arrive as events. Keep it to what the first render needs,
-read from memory and the registry file: the page does not load while main builds it. Nothing is seen
-during that wait, as the window is shown only after the first paint (`ready-to-show`). Main must
-always answer, as `sendSync` has no timeout: the listener is attached before the window is created,
-and answers `null` when building the context throws.
+**Catching up: `workspaces.state`.** The bridge stays generic: it registers an `ipcRenderer`
+listener only when the page calls `subscribe`. So a `workspace.changed` sent between the preload's
+synchronous read and the page subscribing would be lost (an `open` there would leave the window on
+the splash). The renderer's store (`src/renderer/app/workspace-state.ts`), made in `main.tsx`
+before the first render, starts from the context's snapshot, listens to `workspace.changed`, then
+calls `workspaces.state` once, which answers with the tracker's snapshot (`ctx.getWorkspaceState()`,
+which `index.ts` puts in the IPC context). It keeps the newest by `version`, so the order in which
+the three arrive doesn't matter. It skips the call when DevBrain is unavailable.
+
+`initialLoadContext` is fixed for the page load: it seeds the first render, and later changes
+arrive as events. Keep it to what the first render needs, read from memory and the registry file:
+the page does not load while main builds it. Nothing is seen during that wait, as the window is
+shown only after the first paint (`ready-to-show`). Main must always answer, as `sendSync` has no
+timeout: the listener is attached before the window is created, and answers `null` when building
+the context throws.
+
+### Startup
+
+[`src/main/index.ts`](../../src/main/index.ts), once the app is ready:
+
+1. Loads DevBrain, with no workspace open.
+2. Attaches the IPC router and the initial load context, then everything that follows DevBrain:
+   the tracker (`watch`), the last-page saver, quit handling and sync triggers, the menu and the
+   theme.
+3. Calls `openLastWorkspace(devBrain)` without awaiting it (a failure is logged), just before
+   `createWindow()`. The open sends `opening` at once, so the window's first page load usually
+   reads `opening` with the initial load context and shows the splash; then `open` or `none` with
+   the error arrives as `workspace.changed`. A slow open never holds the window back.
 
 ### Invalidation in the renderer
 
@@ -323,21 +380,24 @@ mutation's own changes are refetched before it resolves. `main.tsx` calls
 
 ### A workspace switch
 
-1. `workspaces.open` (or `workspaces.openLast` at launch) opens the workspace through core's
-   `WorkspaceService`, closing the open one first, if any. Core sends `opening` first, before
-   anything closes, then the old one's `closed` once it has closed, then `opened` once the new one
-   is current, or `openFailed` when it could not be opened (nothing is open then). The tracker
-   stops listening to the old workspace's services on `closed` and starts on the new one's on
-   `opened`, and for each sends `workspace.changed` to every window: `{ id, opening }`, the
-   workspace open and the one opening. A switch sends three: `{ old, new }`, `{ null, new }`,
-   `{ new, null }`.
+1. `workspaces.open` (or `openLastWorkspace` at startup) opens the workspace through core's
+   `WorkspaceService`. Core sends `opening` first, then checks the folder is there (a missing one
+   fails here, with the open workspace left open), then closes the open one, if any, and sends its
+   `closed`, then `opened` once the new one is current, or `openFailed` with the error when it
+   could not be opened. The tracker stops listening to the old workspace's services on `closed` and
+   starts on the new one's on `opened`, and sends the new workspace state each time (see
+   [The workspace state](#the-workspace-state)). A switch sends two: `opening` new, then `open` new
+   (or `open` old with the error, or `none` with the error).
 2. `workspace.changed` is sent while the mutation runs, so it reaches the switching window before
-   the response. It alone says which workspace is open, and which is opening: the app shows its
-   splash while `opening` is set (`useOpeningWorkspace`, `src/renderer/workspace-opening.ts`), so
-   the moment with nothing open is the splash, never an empty or failing screen.
-3. When the id differs from the workspace whose data is cached, the invalidator resets every query
-   outside `app`, `settings` and `workspaces` (`resetQueries` cancels what is in flight, clears the
-   data and refetches what is mounted), and refetches the `workspaces` queries.
+   the response. It alone says what the window shows: the splash while `opening`, so the moment
+   with nothing open is the splash, never an empty or failing screen. A failed open shows from
+   the state too, wherever the window is then; the caller shows the mutation's own rejection only
+   when it failed before the open began (an unknown id, which changes nothing).
+3. On `open` or `none` (not `opening`, while main is mid-switch), when the open workspace's id (or
+   `null` when none is open) differs from the workspace whose data is cached, the invalidator
+   resets every query outside `app`, `settings` and `workspaces` (`resetQueries` cancels what is
+   in flight, clears the data and refetches what is mounted), and refetches the `workspaces`
+   queries.
 4. The mutation's response carries `changed: ['workspace']`, which only refetches the workspace
    list. Creating, renaming or recolouring a workspace (`workspaces.update`), or adding one from a
    folder (`workspaces.importFolder`, see

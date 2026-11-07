@@ -20,7 +20,9 @@ export function useWorkspaceEditorHost(): Pick<EditorHost, 'searchEntities' | 'o
     () => ({
       async searchEntities(query: string, types: MentionType[]): Promise<EditorEntity[]> {
         try {
-          const results = await queryClient.fetchQuery(
+          // query() rather than the deprecated fetchQuery; it doesn't retry, so a search that
+          // fails falls through to no results at once
+          const results = await queryClient.query(
             trpc.search.search.queryOptions({ query, entityType: types, limit: 20 }),
           );
           return results.map((result) => ({

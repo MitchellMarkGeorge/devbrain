@@ -1,6 +1,6 @@
 import { generateId, isId, type IntegrationId, type WorkspaceId } from '@common/ids';
 import { hexColorSchema } from '@common/color';
-import { lastPageSchema, Page, type WorkspaceInfo } from '@common/types';
+import { isValidLastPage, Page, type WorkspaceInfo } from '@common/types';
 import type { CreateWorkspaceOptions, UpdateWorkspaceOptions, WorkspaceOptions } from './types';
 import {
   describeWorkspace,
@@ -37,16 +37,18 @@ const NOT_IMPORTED = new Set([`${WORKSPACE_DB_FILE}-shm`, `${WORKSPACE_DB_FILE}.
 
 // A workspace was registered (created here, or imported from a folder) or renamed/recoloured, or
 // the open workspace changed. Opening sends `opening` first, before anything closes, then
-// `opened` once the workspace is current, or `openFailed` when it could not be opened. Opening one
-// while another is open sends `closed` for the old one in between, once it has closed, in the
-// order the transitions ran: opening, closed, opened. The app shows its splash from `opening` on.
+// `opened` once the workspace is current, or `openFailed` with the error when it could not be
+// opened. Opening one while another is open sends `closed` for the old one in between, once it has
+// closed, in the order the transitions ran: opening, closed, opened. A workspace whose folder is
+// gone fails before anything closes (opening, openFailed), so the old one stays open. The app shows
+// its splash from `opening` on.
 export type WorkspaceChange =
   | { type: 'created'; workspace: WorkspaceInfo }
   | { type: 'imported'; workspace: WorkspaceInfo }
   | { type: 'updated'; workspace: WorkspaceInfo }
   | { type: 'opening'; workspaceId: WorkspaceId }
   | { type: 'opened'; workspace: Workspace }
-  | { type: 'openFailed'; workspaceId: WorkspaceId }
+  | { type: 'openFailed'; workspaceId: WorkspaceId; error: unknown }
   | { type: 'closed'; workspaceId: WorkspaceId };
 
 // TODO: opening a workspace again after it has been openedn should be as cheap as possible
@@ -80,9 +82,9 @@ export class WorkspaceService {
 
   /**
    * Sends `created` or `imported` once a workspace is registered, `updated` once its new name or
-   * colour is in its manifest, `opening` as an open starts (once the workspace is known to exist),
-   * `opened` once it is current or `openFailed` when it could not be opened, and `closed` once
-   * the current one has closed, by open, close or delete. Returns a function that unsubscribes the
+   * colour is in its manifest, `opening` as an open starts (once the workspace is known to be
+   * registered), `opened` once it is current or `openFailed` when it could not be opened (its
+   * folder gone, a failed migration), and `closed` once the current one has closed, by open, close or delete. Returns a function that unsubscribes the
    * listener.
    */
   onChange(listener: ChangeListener<WorkspaceChange>): () => void {
@@ -238,7 +240,7 @@ export class WorkspaceService {
    * WorkspaceDataMissingError when the workspace's folder is gone.
    */
   setLastPage(id: WorkspaceId, page: string): void {
-    if (!lastPageSchema.safeParse(page).success) {
+    if (!isValidLastPage(page)) {
       throw new InvalidInputError('Not a page in the app');
     }
     const info = this.getById(id);
@@ -329,16 +331,17 @@ export class WorkspaceService {
     // 1. get info from the registry (throws NotFoundError when absent)
     const workspaceInfo = this.getById(id);
 
-    // 2. make sure the workspace directory exists
-    if (!(await directoryExists(workspaceInfo.path))) {
-      throw new WorkspaceDataMissingError(id, 'No workspace data found');
-    }
-
     // from here the open changes what is open: listeners show it as opening until `opened`, or
-    // `openFailed` once nothing is open
+    // `openFailed`
     this.changes.emit({ type: 'opening', workspaceId: id });
     let workspace: Workspace;
     try {
+      // 2. make sure the workspace directory exists, before anything closes: when it is gone, the
+      // workspace open now stays open
+      if (!(await directoryExists(workspaceInfo.path))) {
+        throw new WorkspaceDataMissingError(id, 'No workspace data found');
+      }
+
       // 3. close the workspace open now, if any: only one syncs at a time, and its runs settle
       // first
       await this.closeCurrent();
@@ -360,7 +363,7 @@ export class WorkspaceService {
         throw error;
       }
     } catch (error) {
-      this.changes.emit({ type: 'openFailed', workspaceId: id });
+      this.changes.emit({ type: 'openFailed', workspaceId: id, error });
       throw error;
     }
     this.changes.emit({ type: 'opened', workspace });

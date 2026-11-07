@@ -1,5 +1,6 @@
 import type { ChangedEntity } from './changes';
-import type { ExternalSourceId, IntegrationId, WorkspaceId } from './ids';
+import type { ExternalSourceId, IntegrationId } from './ids';
+import type { WorkspaceSnapshot } from './types';
 
 // The events main pushes to the renderer, by name. Each is a delta: it says what changed, and the
 // renderer refetches what it shows rather than applying a snapshot.
@@ -16,10 +17,11 @@ export interface AppEvents {
   'integrations.changed': { integrationId: IntegrationId; type: IntegrationChangeType };
   // a source's sync status or settings changed
   'sources.changed': { sourceId: ExternalSourceId };
-  // Which workspace is open (null while none is), and which is opening (null when none is). From
-  // `opening` set until `id` is it, the app shows its splash; with neither, it shows the picker.
-  // A switch sends three: the new one opening, then the old one closed, then the new one open.
-  'workspace.changed': { id: WorkspaceId | null; opening: WorkspaceId | null };
+  // The workspace state, whole, at every change: onboarding (`none`), the splash (`opening`) or
+  // the app (`open`). Not a delta: the renderer shows what it says. A switch sends two: the new
+  // one opening, then it open (or the old one open again, with the error, when it failed before
+  // closing anything).
+  'workspace.changed': WorkspaceSnapshot;
 }
 
 export type AppEventName = keyof AppEvents;

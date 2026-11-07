@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { ChangedEntity } from '@common/changes';
-import type { WorkspaceId } from '@common/ids';
 import type { AppEventName, AppEvents } from '@common/events';
+import type { WorkspaceSnapshot, WorkspaceState } from '@common/types';
 import type { DevBrain, Workspace } from '@main/core';
 import type { ArchiveChange } from '@main/core/archive/service';
 import type { FavoriteChange } from '@main/core/favorites/service';
@@ -11,6 +11,7 @@ import type { NoteChange } from '@main/core/notes/service';
 import type { ProjectChange } from '@main/core/projects/service';
 import type { TaskChange } from '@main/core/tasks/service';
 import type { SyncProgress } from '@main/core/sync/types';
+import { serializeError } from './errors';
 
 // Sends an event to the app's windows, skipping `skipWindow` when given: the window a mutation came
 // from, which has these changes in its response already. The tracker never sees a window:
@@ -45,6 +46,9 @@ interface RunningMutation {
  *   every window: `sync.progress` per committed page, `integrations.changed` per integration
  *   change, and `sources.changed` when a source is switched on or off or a run records how it
  *   ended. Ids and status only, never credentials.
+ * - It owns the workspace state the windows show (onboarding, the splash, the app) and sends it
+ *   whole as `workspace.changed` at each change, with a version that goes up each time. A page
+ *   loading reads it with the initial load context (`getWorkspaceSnapshot()`).
  */
 export class ChangeTracker {
   private readonly runningMutation = new AsyncLocalStorage<RunningMutation>();
@@ -54,17 +58,31 @@ export class ChangeTracker {
   // the batch's send, scheduled by the first background change of the turn
   private scheduledBatchSend: NodeJS.Immediate | null = null;
   private stopWatching: (() => void) | null = null;
+  // what the windows were last told the workspace state is
+  private workspaceSnapshot: WorkspaceSnapshot = {
+    version: 0,
+    state: { status: 'none', error: null },
+  };
 
   constructor(private readonly sendToWindows: SendToWindows) {}
+
+  /** The workspace state as the windows last heard it: what a page loading now starts from. */
+  getWorkspaceSnapshot(): WorkspaceSnapshot {
+    return this.workspaceSnapshot;
+  }
 
   /** Follows `devBrain`'s settings and workspaces from now on. Returns the function that stops. */
   watch(devBrain: Pick<DevBrain, 'currentWorkspace' | 'workspaces' | 'settings'>): () => void {
     this.stopWatching?.();
     const current = devBrain.currentWorkspace;
     let stopListeningToWorkspace = current ? this.listenToWorkspace(current) : () => {};
-    // which workspace is open, and which is opening, as workspace.changed says
-    let open: WorkspaceId | null = current?.info.id ?? null;
-    let opening: WorkspaceId | null = null;
+    // no window has loaded yet: the first reads it with the initial load context
+    if (current) {
+      this.workspaceSnapshot = {
+        version: this.workspaceSnapshot.version + 1,
+        state: { status: 'open', workspace: current.info, error: null },
+      };
+    }
     const unsubscribe = devBrain.workspaces.onChange((change) => {
       // the registry changed: the workspace list refetches; for a new, renamed or recoloured
       // workspace, nothing else did
@@ -75,26 +93,40 @@ export class ChangeTracker {
         case 'imported':
           return;
         case 'opening':
-          opening = change.workspaceId;
-          break;
+          this.setWorkspaceState({
+            status: 'opening',
+            workspace: devBrain.workspaces.getById(change.workspaceId),
+          });
+          return;
         case 'closed':
           stopListeningToWorkspace();
           stopListeningToWorkspace = () => {};
-          open = null;
-          break;
+          // a switch closes the old workspace mid-open: the splash stays, rather than onboarding
+          // flashing between the two
+          if (this.workspaceSnapshot.state.status === 'opening') return;
+          this.setWorkspaceState({ status: 'none', error: null });
+          return;
         case 'opened':
           stopListeningToWorkspace();
           stopListeningToWorkspace = this.listenToWorkspace(change.workspace);
-          open = change.workspace.info.id;
-          opening = null;
-          break;
-        case 'openFailed':
-          opening = null;
-          break;
+          this.setWorkspaceState({
+            status: 'open',
+            workspace: infoOf(devBrain, change.workspace),
+            error: null,
+          });
+          return;
+        case 'openFailed': {
+          const error = serializeError(change.error);
+          // a workspace whose folder is gone fails before the open one closes: back to it
+          const stillOpen = devBrain.currentWorkspace;
+          this.setWorkspaceState(
+            stillOpen
+              ? { status: 'open', workspace: stillOpen.info, error }
+              : { status: 'none', error },
+          );
+          return;
+        }
       }
-      // to every window, the one that switched too: this event alone says which workspace is
-      // open, and which is opening
-      this.sendToWindows('workspace.changed', { id: open, opening });
     });
     // the app's settings, from Settings or the menu
     const unsubscribeSettings = devBrain.settings.onChange(() => this.recordChange('settings'));
@@ -105,6 +137,13 @@ export class ChangeTracker {
       this.stopWatching = null;
     };
     return this.stopWatching;
+  }
+
+  // the new state, whole, to every window, the one that switched too: this event alone says what
+  // the window shows
+  private setWorkspaceState(state: WorkspaceState): void {
+    this.workspaceSnapshot = { version: this.workspaceSnapshot.version + 1, state };
+    this.sendToWindows('workspace.changed', this.workspaceSnapshot);
   }
 
   /**
@@ -273,4 +312,14 @@ export function entitiesOfIntegrationChange(change: IntegrationChange): ChangedE
   const entities: ChangedEntity[] = ['integration', 'externalSource'];
   if (change.type === 'disconnected') entities.push(...change.changed);
   return entities;
+}
+
+// The workspace's info as the registry has it now: a workspace reopened onto itself has saved its
+// last page since its info was read
+function infoOf(devBrain: Pick<DevBrain, 'workspaces'>, workspace: Workspace): Workspace['info'] {
+  try {
+    return devBrain.workspaces.getById(workspace.info.id);
+  } catch {
+    return workspace.info;
+  }
 }

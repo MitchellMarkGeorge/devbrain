@@ -118,39 +118,6 @@ describe('workspaces', () => {
     expect(await call('workspaces.current')).toMatchObject({ data: null });
   });
 
-  it('openLast opens the last workspace while none is open, else returns the open one', async () => {
-    expect(await call('workspaces.openLast', undefined, 'mutation')).toMatchObject({
-      ok: true,
-      data: null,
-    });
-
-    const work = await createWorkspace(devBrain, 'Work');
-    const home = await createWorkspace(devBrain, 'Home');
-    devBrain.settings.set('state.lastWorkspaceId', work);
-    expect(await call('workspaces.openLast', undefined, 'mutation')).toMatchObject({
-      ok: true,
-      data: { id: work },
-    });
-    expect(devBrain.currentWorkspace?.info.id).toBe(work);
-
-    // a reload: the open workspace, even when another was open last
-    devBrain.settings.set('state.lastWorkspaceId', home);
-    expect(await call('workspaces.openLast', undefined, 'mutation')).toMatchObject({
-      data: { id: work },
-    });
-  });
-
-  it("openLast fails with the open's error, leaving none open", async () => {
-    const gone = await createWorkspace(devBrain, 'Gone');
-    devBrain.settings.set('state.lastWorkspaceId', gone);
-    await fs.rm(devBrain.workspaces.getById(gone).path, { recursive: true });
-
-    expect(code(await call('workspaces.openLast', undefined, 'mutation'))).toBe(
-      'workspace_data_missing',
-    );
-    expect(devBrain.currentWorkspace).toBeNull();
-  });
-
   it("passes core's errors through", async () => {
     const closed = await createWorkspace(devBrain, 'Closed');
 

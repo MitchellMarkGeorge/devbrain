@@ -6,49 +6,36 @@ import {
   type Workspace,
   type WorkspaceOptions,
 } from '@main/core';
-import { DevBrainFolderError } from '@main/core/shared/errors';
-import type { SyncLogger } from '@main/core/sync/types';
 
 export interface LoadDevBrainOptions {
-  // the DevBrain folder: settings.json, workspaces.json and the workspaces
+  // the DevBrain folder: settings.json, workspaces.json and the workspaces. Created when there is
+  // none (or only an empty directory), on the first run, in development as in the packaged app
   rootPath: string;
-  // Creates a DevBrain folder when there is none (or only an empty directory), as on the packaged
-  // app's first run. Off in development, where the folder comes from `npm run seed:dev`.
-  createIfMissing: boolean;
   // opens the folder's settings file: electron-store in the app
   settingsStore: OpenSettingsStore;
   // the cipher, fetch and browser opener every workspace gets
   workspace: WorkspaceOptions;
-  logger: Pick<SyncLogger, 'warn'>;
 }
 
 /**
- * Opens the DevBrain folder, and no workspace: whatever follows DevBrain (sync triggers, change
- * listeners) attaches to it before the renderer opens one (openLastWorkspace). Returns null when
- * there is no folder and none is to be created. Throws when the folder is invalid.
+ * Opens the DevBrain folder, creating it when there is none, and no workspace: whatever follows
+ * DevBrain (sync triggers, change listeners) attaches to it before startup opens one
+ * (openLastWorkspace). Throws when the folder is invalid.
  */
-export async function loadDevBrain(options: LoadDevBrainOptions): Promise<DevBrain | null> {
-  try {
-    return await openDevBrain({
-      path: options.rootPath,
-      settingsStore: options.settingsStore,
-      createIfMissing: options.createIfMissing,
-      workspace: options.workspace,
-    });
-  } catch (error) {
-    if (!(error instanceof DevBrainFolderError && error.reason === 'missing')) throw error;
-    options.logger.warn(
-      `No DevBrain folder at ${options.rootPath}; run \`npm run seed:dev\` to create one`,
-    );
-    return null;
-  }
+export function loadDevBrain(options: LoadDevBrainOptions): Promise<DevBrain> {
+  return openDevBrain({
+    path: options.rootPath,
+    settingsStore: options.settingsStore,
+    createIfMissing: true,
+    workspace: options.workspace,
+  });
 }
 
 /**
  * Opens the workspace open last time, which starts syncing it, when it is still registered and no
- * workspace is open yet. The renderer calls it once it has loaded (workspaces.openLast). Returns
- * the open workspace: the one already open when there is one, so a reload or a second window never
- * reopens it. Null when none was open last time or it has been deleted since: the user picks one.
+ * workspace is open yet. Startup calls it, without waiting, just before it creates the window.
+ * Returns the open workspace: the one already open when there is one, so it never reopens it.
+ * Null when none was open last time or it has been deleted since: the user picks one.
  * Throws when the workspace fails to open (e.g. a failed migration), leaving none open.
  */
 export function openLastWorkspace(devBrain: DevBrain): Promise<Workspace | null> {
