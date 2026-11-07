@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
-import { SPLASH_MINIMUM_MS } from '../../workspace/splash';
+import { SPLASH_MINIMUM_MS } from '../../pages/root/use-splash';
 import { FakeMain, workspace } from './fake-main';
 import { byText, click, eventually, splashOf, startApp, stopApps, watchDom } from './harness';
 

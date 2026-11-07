@@ -8,8 +8,7 @@ import { events, ipc, queryInvalidator, queryClient, trpc } from './ipc';
 import { readInitialLoadContext, seedQueryCache } from './ipc/initial-load-context';
 import { FollowThemeSetting, applyThemeSetting } from './theme';
 import { createAppRouter } from './router';
-import { WorkspaceSession } from './workspace/session';
-import { SplashGate } from './workspace/splash';
+import { followOpenWorkspace } from './workspace/open';
 import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/base.css';
@@ -26,17 +25,8 @@ seedQueryCache(queryClient, initialLoadContext);
 applyThemeSetting(initialLoadContext?.theme ?? 'system');
 
 // Which workspace is open, followed from main's workspace.changed; the /app/$workspaceId route
-// opens the one its URL names (docs/renderer/routing.md)
-const workspaces = new WorkspaceSession(
-  {
-    current: () => ipc.workspaces.current.query(),
-    open: (id) => ipc.workspaces.open.mutate({ id }),
-  },
-  // undefined: unknown, asked of main when first needed
-  initialLoadContext === null ? undefined : initialLoadContext.current,
-  (info) => queryClient.setQueryData(trpc.workspaces.current.queryKey(), info),
-);
-workspaces.follow(events);
+// opens the one its URL names (docs/renderer/routing.md). Undefined: unknown, asked when needed
+followOpenWorkspace(initialLoadContext === null ? undefined : initialLoadContext.current);
 
 // The app's one router, never made again. Hash history: the page loads from file://, and main
 // reads the window's page from the URL's hash (src/main/runtime/last-page.ts)
@@ -46,8 +36,6 @@ const router = createAppRouter({
     queryClient,
     trpc,
     ipc,
-    workspaces,
-    splash: new SplashGate(),
     devBrainAvailable: initialLoadContext?.devBrainAvailable ?? true,
   },
 });

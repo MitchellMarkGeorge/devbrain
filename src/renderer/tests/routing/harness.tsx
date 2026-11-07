@@ -7,8 +7,7 @@ import { WindowFrameProvider } from '../../components/lib/platform';
 import { events, ipc, queryClient, queryInvalidator, trpc } from '../../ipc';
 import { seedQueryCache } from '../../ipc/initial-load-context';
 import { createAppRouter, type AppRouter } from '../../router';
-import { WorkspaceSession } from '../../workspace/session';
-import { SplashGate } from '../../workspace/splash';
+import { followOpenWorkspace } from '../../workspace/open';
 import type { FakeMain } from './fake-main';
 
 // The app as main.tsx starts it, over a fake main (fake-main.ts) and memory history: the real
@@ -26,8 +25,6 @@ export interface StartOptions {
 
 export interface App {
   router: AppRouter;
-  session: WorkspaceSession;
-  splash: SplashGate;
   container: HTMLElement;
   /** the window's current path, with search */
   path(): string;
@@ -50,24 +47,16 @@ export function startApp(main: FakeMain, options: StartOptions): App {
   seedQueryCache(queryClient, initialLoadContext);
   const stopInvalidator = queryInvalidator.listen(events);
 
-  const session = new WorkspaceSession(
-    {
-      current: () => ipc.workspaces.current.query(),
-      open: (id) => ipc.workspaces.open.mutate({ id }),
-    },
+  const stopFollowing = followOpenWorkspace(
     initialLoadContext === null ? undefined : initialLoadContext.current,
-    (info) => queryClient.setQueryData(trpc.workspaces.current.queryKey(), info),
   );
-  const stopSession = session.follow(events);
-  const splash = new SplashGate(options.splashMinimumMs ?? 0);
   const router = createAppRouter({
     history: createMemoryHistory({ initialEntries: [options.url] }),
     context: {
       queryClient,
       trpc,
       ipc,
-      workspaces: session,
-      splash,
+      splashMinimumMs: options.splashMinimumMs ?? 0,
       devBrainAvailable: initialLoadContext?.devBrainAvailable ?? true,
     },
   });
@@ -91,14 +80,12 @@ export function startApp(main: FakeMain, options: StartOptions): App {
     root.unmount();
     container.remove();
     stopInvalidator();
-    stopSession();
+    stopFollowing();
     delete window.ipcBridge;
   };
   mounted.push(stop);
   return {
     router,
-    session,
-    splash,
     container,
     path: () => router.state.location.href,
     text: () => container.textContent ?? '',

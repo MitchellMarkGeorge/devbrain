@@ -341,7 +341,7 @@ The renderer starts a switch by navigating to a page of the other workspace; its
    `{ new, null }`.
 2. `workspace.changed` is sent while the mutation runs, so it reaches the switching window before
    the response. It alone says which workspace is open, and which is opening: the renderer's
-   `WorkspaceSession` follows it, and a change it didn't start (a delete, another window) moves the
+   `src/renderer/workspace/open.ts` follows it, and a change it didn't start (a delete, another window) moves the
    window to onboarding or to the workspace now open. The splash is up from before the open starts
    until the new page has loaded, with the old page unmounted under it, so the moment with nothing
    open is the splash, never an empty or failing screen.

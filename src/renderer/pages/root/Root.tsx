@@ -1,10 +1,13 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Outlet, useRouter, type ErrorComponentProps } from '@tanstack/react-router';
 import { useMutation } from '@tanstack/react-query';
 import { RotateCw, ScrollText } from 'lucide-react';
 import { Button, Logomark, OnboardingScreen, ToastProvider } from '../../components';
 import { trpc } from '../../ipc';
-import { useSplash } from '../../workspace/splash';
+import { workspaceIdOfPage } from '@common/types';
+import { events } from '../../ipc';
+import { isOpeningWorkspace } from '../../workspace/open';
+import { useSplash } from './use-splash';
 import { Splash } from './Splash';
 import styles from './Splash.module.css';
 
@@ -34,10 +37,11 @@ const RouterDevtools = import.meta.env.DEV
  */
 export function RootLayout() {
   const router = useRouter();
-  const splash = useSplash(router.options.context.splash);
+  const splash = useSplash();
+  useFollowOutsideChanges();
   return (
     <ToastProvider>
-      {splash.visible ? <Splash workspace={splash.workspace} /> : <Outlet />}
+      {splash.visible ? <Splash name={splash.name} /> : <Outlet />}
       {import.meta.env.DEV && import.meta.env.MODE !== 'test' && (
         <Suspense>
           <RouterDevtools router={router} position="bottom-right" />
@@ -52,12 +56,33 @@ export function RootLayout() {
  * (a reload, onboarding), which the first page replaces in a moment.
  */
 export function RootPending() {
-  const router = useRouter();
-  const splash = useSplash(router.options.context.splash);
+  const splash = useSplash();
   return splash.visible ? (
-    <Splash workspace={splash.workspace} />
+    <Splash name={splash.name} />
   ) : (
     <div className={styles.blank} aria-busy />
+  );
+}
+
+/**
+ * What is open changed without a navigation of this window's (main's `workspace.changed`, while
+ * no open of this window's runs): the open workspace was deleted or closed, so the window goes to
+ * onboarding; or another one opened elsewhere, so it goes to that one's page.
+ */
+function useFollowOutsideChanges() {
+  const router = useRouter();
+  useEffect(
+    () =>
+      events.on('workspace.changed', ({ id, opening }) => {
+        if (opening !== null || isOpeningWorkspace()) return;
+        const shown = workspaceIdOfPage(router.latestLocation.pathname);
+        if (id === null) {
+          if (shown !== null) void router.navigate({ to: '/onboarding', replace: true });
+        } else if (shown !== id) {
+          void router.navigate({ to: '/app/$workspaceId', params: { workspaceId: id } });
+        }
+      }),
+    [router],
   );
 }
 

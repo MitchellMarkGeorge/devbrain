@@ -1,16 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { Logomark, OnboardingScreen, Progress } from '../../components';
 import { trpc } from '../../ipc';
-import type { SplashState } from '../../workspace/splash';
 import styles from './Splash.module.css';
 
 /**
  * The splash (Figma 7175:19848) over the whole window while a workspace opens and its first page
  * loads: the mark, "DevBrain", a progress bar, "Opening ‹name›…", and the version at the foot.
  */
-export function Splash({ workspace }: Pick<SplashState, 'workspace'>) {
+export function Splash({ name }: { name: string | null }) {
   const version = useQuery(trpc.app.version.queryOptions());
-  const opening = workspace?.name ? `Opening ${workspace.name}…` : 'Opening workspace…';
+  const opening = name ? `Opening ${name}…` : 'Opening workspace…';
   return (
     <OnboardingScreen
       aria-busy

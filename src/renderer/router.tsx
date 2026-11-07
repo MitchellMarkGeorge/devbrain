@@ -1,13 +1,10 @@
 import { createRouter, type RouterHistory } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
-import { workspaceIdOfPage } from '@common/types';
 import type { ipc as appIpc, trpc as appTrpc } from './ipc';
 import { routeTree } from './routeTree.gen';
 import { NotFoundPage } from './pages/app/NotFoundPage';
 import { PagePending } from './pages/app/PagePending';
 import { RouteErrorPage } from './pages/app/RouteErrorPage';
-import type { SplashGate } from './workspace/splash';
-import type { WorkspaceSession } from './workspace/session';
 
 // The app's one router (docs/renderer/routing.md). main.tsx makes it once, with hash history, and
 // never makes another: not at startup, a switch of workspace or onboarding. Tests make one per
@@ -18,10 +15,8 @@ export interface RouterContext {
   queryClient: QueryClient;
   trpc: typeof appTrpc;
   ipc: typeof appIpc;
-  /** which workspace is open; the /app/$workspaceId route opens the one its URL names */
-  workspaces: WorkspaceSession;
-  /** the splash over the window while a workspace opens */
-  splash: SplashGate;
+  /** the splash's minimum, 600ms by default (tests set 0) */
+  splashMinimumMs?: number;
   /** false when DevBrain couldn't open its data folder (InitialLoadContext.devBrainAvailable) */
   devBrainAvailable: boolean;
 }
@@ -55,22 +50,6 @@ export function createAppRouter({
     // scrolls the page's scroller to the top on a new page
     scrollRestoration: true,
     scrollToTopSelectors: [PAGE_SCROLL_SELECTOR],
-  });
-
-  // The splash hides once the navigation that opened a workspace has resolved: its loaders have
-  // run, so the page draws with its data. Fired for the last navigation only, so a superseded
-  // one or a redirect never ends it early.
-  router.subscribe('onResolved', () => context.splash.settle());
-
-  // What is open changed without a navigation of this window's: the open workspace was deleted or
-  // closed (to onboarding), or another one opened (to its page).
-  context.workspaces.onOutsideChange(({ id }) => {
-    const shown = workspaceIdOfPage(router.latestLocation.pathname);
-    if (id === null) {
-      if (shown !== null) void router.navigate({ to: '/onboarding', replace: true });
-    } else if (shown !== id) {
-      void router.navigate({ to: '/app/$workspaceId', params: { workspaceId: id } });
-    }
   });
 
   return router;
