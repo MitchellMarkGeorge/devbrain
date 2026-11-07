@@ -21,6 +21,11 @@ The drawer's toggle names what it does: "Keep sidebar open" while peeking, "Clos
 
 A docked sheet's column slides open and shut with the sheet on the same timing (`duration-slow`, `ease-surface`), so the page narrows and widens smoothly and the sheet's edge is the page's edge throughout.
 
+The page scrolls inside the shell, never the window: the area under the header carries
+`data-scroll-restoration-id="app-page"` (`APP_SHELL_SCROLL_ID`), so the app's router saves its
+scroll position per history entry, restores it on Back and Forward, and puts a new page at the top
+(`scrollToTopSelectors`).
+
 A docked sheet opens a `sheet-width` column: set `sheetOpen` and portal `SheetContent` into `useAppShell().sheetContainer`.
 
 The shell follows the window frame (`WindowFrameProvider`; README "Window frame"), and sets `data-platform` for the CSS:

@@ -15,6 +15,7 @@ function fakes() {
     },
     shell: { openPath: vi.fn(async () => ''), showItemInFolder: vi.fn() },
     menu: { getApplicationMenu: vi.fn() },
+    logFilePath: vi.fn(() => '/logs/main.log'),
   };
 }
 
@@ -118,5 +119,20 @@ describe('createElectronDesktop', () => {
     await expect(
       createElectronDesktop(deps as never, null).showAppMenu({ x: 0, y: 0 }),
     ).rejects.toThrow('no window');
+  });
+
+  it('shows the log file, or its folder when the file is gone', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-log-'));
+    const file = path.join(dir, 'main.log');
+    await fs.writeFile(file, '');
+    const deps = fakes();
+    deps.logFilePath.mockReturnValue(file);
+    await createElectronDesktop(deps as never, null).showLogFile();
+    expect(deps.shell.showItemInFolder).toHaveBeenCalledWith(file);
+
+    await fs.rm(file);
+    await createElectronDesktop(deps as never, null).showLogFile();
+    expect(deps.shell.openPath).toHaveBeenCalledWith(dir);
+    await fs.rm(dir, { recursive: true });
   });
 });

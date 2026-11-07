@@ -114,3 +114,31 @@ The renderer reaches core through the typed tRPC router in `src/main/ipc`, run o
   route: the `ChangeTracker` (`src/main/ipc/changes.ts`) only hears core's events.
 - A new core change type must be mapped to its `ChangedEntity` list in the `ChangeTracker`, and a
   new router added to `ENTITIES_READ_BY_ROUTE` (`src/renderer/ipc/query-invalidator.ts`).
+
+## Routing
+
+The renderer has one TanStack Router (`src/renderer/router.tsx`) with file routes in
+`src/renderer/routes`, compiled by the Vite plugin into `routeTree.gen.ts` (checked in, generated:
+never edit it; `npm run build:renderer` or `npm run dev` regenerates it).
+`docs/renderer/router-splash-exploration.md` says why it works this way.
+
+- Route files stay thin: `loader`, `beforeLoad` and a component from
+  `src/renderer/pages/<feature>/`. A loader primes React Query's cache (`ensureQueryData`) and the
+  page reads the same query.
+- A page draws its own header (breadcrumb, actions) into the shell's with `PageTitle` or
+  `PageHeaderPortal` (`src/renderer/pages/shell/page-header.tsx`).
+- The workspace lifecycle navigates in one place: `WorkspaceSession`
+  (`src/renderer/session/workspace-session.ts`) follows `workspace.changed` and lands on the
+  landing page or onboarding. Nothing else navigates on a workspace event; opening a workspace is a
+  call to main (`useWorkspaceActions`), never a navigation.
+- The root's `beforeLoad` (`session.guard`) decides which locations belong to what is open; don't
+  add per-route workspace guards.
+- A slow page shows `PagePending` from the `/app` layout, not a route `pendingComponent`: the
+  router's pending UI never shows between sibling pages (see `library-behaviour.test.ts`).
+- The splash replaces the route tree while the session is busy. Anything that must outlive a
+  workspace switch (toasts, a dialog about a failed open) lives in the root's shell (`RootShell`),
+  not under the routes.
+- Keep `@tanstack/react-router`, `@tanstack/router-plugin` and `@tanstack/react-router-devtools`
+  pinned; on an upgrade, run
+  `src/renderer/tests/router/library-behaviour.test.ts`, which checks the router behaviour the
+  session relies on. Prettier stays pinned at 3.8.4 (the plugin's install bumps it).

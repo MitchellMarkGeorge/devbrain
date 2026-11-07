@@ -1,18 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import type { WorkspaceId } from '@common/ids';
-import { events } from './ipc';
-
-/**
- * The workspace being opened, or null: from main's `workspace.changed`, which names it from the
- * start of an open (before the old workspace closes) until it is open or its open has failed.
- * The app shows its splash meanwhile. Any window hears it, whoever started the open: this one,
- * another window, or the menu.
- */
-export function useOpeningWorkspace(): WorkspaceId | null {
-  const [opening, setOpening] = useState<WorkspaceId | null>(null);
-  useEffect(() => events.on('workspace.changed', (change) => setOpening(change.opening)), []);
-  return opening;
-}
 
 /**
  * True while `active` is, and for at least `minimumMs` from when it became so: a splash for a
@@ -40,4 +26,19 @@ export function useHeldFor(active: boolean, minimumMs: number): boolean {
     return () => clearTimeout(timer);
   }, [active, held, minimumMs]);
   return held;
+}
+
+/**
+ * True once `active` has been true for `delayMs` without a break, until it turns false: pending UI
+ * for a load that finishes sooner would only flicker.
+ */
+export function useShownAfter(active: boolean, delayMs: number): boolean {
+  const [shown, setShown] = useState(false);
+  if (!active && shown) setShown(false);
+  useEffect(() => {
+    if (!active) return;
+    const timer = setTimeout(() => setShown(true), delayMs);
+    return () => clearTimeout(timer);
+  }, [active, delayMs]);
+  return active && shown;
 }
