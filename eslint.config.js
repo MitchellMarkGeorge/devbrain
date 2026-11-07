@@ -43,7 +43,13 @@ const notFrom = (groups, message) => ({
 export default tseslint.config(
   // Ignore build output and generated files
   {
-    ignores: ['dist/**', 'node_modules/**', 'docs/design-system/reference/**'],
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'docs/design-system/reference/**',
+      // TanStack Router's route tree, generated from src/renderer/routes by its Vite plugin
+      'src/renderer/routeTree.gen.ts',
+    ],
   },
 
   // Base JS rules
