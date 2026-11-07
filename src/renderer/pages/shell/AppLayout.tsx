@@ -42,6 +42,7 @@ import { swatchOf } from '../workspaces/colors';
 import { CreateWorkspaceDialog } from '../workspaces/CreateWorkspaceDialog';
 import { useWorkspaceActions } from '../workspaces/workspace-actions';
 import { useHeldFor, useShownAfter } from '../../session/use-held-for';
+import { useWorkspaceHistory } from '../../session/use-workspace-history';
 import { PagePending } from './PagePending';
 
 // A page whose loaders take longer than this shows PagePending in its place, for at least
@@ -74,16 +75,14 @@ const PAGES: { to: AppPath; label: string; icon: LucideIcon }[] = [
 ];
 
 export function AppLayout() {
-  const router = useRouter();
-  const { session } = router.options.context;
+  const { session } = useRouter().options.context;
   const workspace = useSyncExternalStore(session.subscribe, () => session.getState().workspace);
-  const location = useRouterState({ select: (state) => state.location });
   // the deepest page's title, for the header
   const title = useMatches({
     select: (matches) =>
       [...matches].reverse().find((match) => match.staticData.title)?.staticData.title,
   });
-  const index = location.state.__TSR_index;
+  const history = useWorkspaceHistory();
   // The router keeps the old page while the next loads (its own pending UI can't show between
   // sibling pages: library-behaviour.test.ts), so the shell shows the skeleton itself
   const loading = useRouterState({ select: (state) => state.isLoading });
@@ -102,10 +101,7 @@ export function AppLayout() {
           <PageHeader />
         )
       }
-      onBack={() => session.canGoBack(router.latestLocation) && router.history.back()}
-      onForward={() => router.history.forward()}
-      canGoBack={session.canGoBack(location)}
-      canGoForward={index < router.history.length - 1}
+      {...history}
     >
       {pending ? <PagePending /> : <Outlet />}
     </AppShell>

@@ -141,9 +141,27 @@ export class WorkspaceSession {
     });
   }
 
+  // Back and Forward within the open workspace's pages. Where an entry sits in history is the
+  // index TanStack's history keeps in its state (ParsedHistoryState's __TSR_index, as its own
+  // useCanGoBack reads it); only this class reads it.
+
   /** Whether Back stays within the open workspace's pages. */
   canGoBack(location: Pick<ParsedLocation, 'state'>): boolean {
     return !this.state.busy && indexOf(location) > this.state.firstIndex;
+  }
+
+  /** Whether there is a later entry to go Forward to (a push leaves none of another workspace). */
+  canGoForward(location: Pick<ParsedLocation, 'state'>): boolean {
+    const history = this.router?.history;
+    return !this.state.busy && history !== undefined && indexOf(location) < history.length - 1;
+  }
+
+  back(): void {
+    if (this.router && this.canGoBack(this.router.latestLocation)) this.router.history.back();
+  }
+
+  forward(): void {
+    if (this.router && this.canGoForward(this.router.latestLocation)) this.router.history.forward();
   }
 
   private belongs(location: ParsedLocation): boolean {

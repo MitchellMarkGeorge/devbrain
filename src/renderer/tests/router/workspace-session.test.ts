@@ -212,6 +212,14 @@ describe('back and forward', () => {
     expect(enabled.disabled).toBe(false);
     enabled.click();
     await expect.poll(() => app.page()?.path, WAIT).toBe('/app/home');
+
+    // Forward: none at the newest entry; after Back, to the page left
+    const forward = () =>
+      app.container.querySelector<HTMLButtonElement>('button[aria-label="Forward"]')!;
+    await expect.poll(() => forward().disabled, WAIT).toBe(false);
+    forward().click();
+    await expect.poll(() => app.page()?.path, WAIT).toBe('/app/notes');
+    await expect.poll(() => forward().disabled, WAIT).toBe(true);
   });
 
   it("history moved past it anyway lands on B's first page, never on A's", async () => {
