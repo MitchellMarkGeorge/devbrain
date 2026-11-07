@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
 import type { AppEvents } from '@common/events';
 import type { WorkspaceInfo, WorkspaceSnapshot, WorkspaceState } from '@common/types';
-import { createWorkspaceStateStore } from '../app/workspace-state';
+import { createWorkspaceStateStore, type ShownWorkspaceState } from '../app/workspace-state';
 import type { EventClient } from '../ipc/events';
 
 // The store the window draws from: main's newest workspace state by version, across the initial
@@ -22,7 +22,13 @@ const open = (workspace: WorkspaceInfo): WorkspaceState => ({
 
 // main's side as the test drives it: the initial snapshot, workspace.changed, and the answer to
 // workspaces.state, on a clock the test moves
-function setup(first: WorkspaceSnapshot | null, options: { fetch?: boolean } = {}) {
+function setup(
+  first: WorkspaceSnapshot | null,
+  options: {
+    fetch?: boolean;
+    prepare?: (next: ShownWorkspaceState) => Promise<void> | undefined;
+  } = {},
+) {
   let listener: (snapshot: WorkspaceSnapshot) => void = () => {};
   const events: EventClient<AppEvents> = {
     on: vi.fn((name, next) => {
@@ -39,6 +45,7 @@ function setup(first: WorkspaceSnapshot | null, options: { fetch?: boolean } = {
     initial: first,
     events,
     fetch: options.fetch === false ? undefined : fetch,
+    prepare: options.prepare,
     holdMs: 600,
     now: () => clock,
     setTimer: (run, ms) => {
@@ -226,5 +233,77 @@ describe('the workspace state store', () => {
     expect(unsubscribed).toBe(true);
     expect(timers).toEqual([]);
     expect(store.get().state.status).toBe('opening');
+  });
+
+  describe('preparing a state', () => {
+    // a prepare whose promises the test settles, one per state it was called for
+    function preparing() {
+      const calls: { next: ShownWorkspaceState; settle: () => void }[] = [];
+      const prepare = vi.fn((next: ShownWorkspaceState) =>
+        next.state.status === 'open'
+          ? new Promise<void>((resolve) => calls.push({ next, settle: resolve }))
+          : undefined,
+      );
+      return { prepare, calls };
+    }
+    const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+    it('prepares the first state but shows it at once', () => {
+      const { prepare } = preparing();
+      const { store } = setup({ version: 1, state: open(work) }, { prepare });
+      expect(prepare).toHaveBeenCalledWith({ version: 1, state: open(work), keepPage: true });
+      expect(store.get().state.status).toBe('open');
+    });
+
+    it('keeps the splash up until the open is prepared, past the minimum', async () => {
+      const { prepare, calls } = preparing();
+      const { store, send, advance, status } = setup(
+        { version: 1, state: opening(home) },
+        { prepare },
+      );
+      send(2, open(home));
+      advance(600);
+      expect(status()).toBe('opening');
+      // what the app's router starts for while it waits
+      expect(store.latest()).toMatchObject({ version: 2, state: { status: 'open' } });
+
+      calls[0].settle();
+      await flush();
+      expect(status()).toBe('open');
+    });
+
+    it('still holds the minimum when the open is prepared quickly', async () => {
+      const { prepare, calls } = preparing();
+      const { send, advance, status } = setup({ version: 1, state: opening(home) }, { prepare });
+      send(2, open(home));
+      calls[0].settle();
+      await flush();
+      expect(status()).toBe('opening');
+      advance(600);
+      expect(status()).toBe('open');
+    });
+
+    it('drops a prepared state that a newer one replaced', async () => {
+      const { prepare, calls } = preparing();
+      const { store, send, advance } = setup({ version: 1, state: opening(home) }, { prepare });
+      send(2, open(home));
+      send(3, opening(work));
+      calls[0].settle();
+      advance(600);
+      await flush();
+      expect(store.get()).toMatchObject({ version: 3, state: opening(work) });
+      expect(store.latest()).toBe(store.get());
+    });
+
+    it('shows the state even when preparing it failed', async () => {
+      const { send, advance, status } = setup(
+        { version: 1, state: opening(home) },
+        { prepare: () => Promise.reject(new Error('no')) },
+      );
+      send(2, open(home));
+      advance(600);
+      await flush();
+      expect(status()).toBe('open');
+    });
   });
 });

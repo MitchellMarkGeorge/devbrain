@@ -260,8 +260,8 @@ from there.
   listens once asked, so such an event would be lost). It keeps the newest by `version`, so the
   order of the three doesn't matter. The call is skipped when DevBrain is unavailable.
 - **The 600ms minimum splash lives here**, in plain JS: when the shown state is `opening` and a
-  non-opening snapshot arrives, it holds it until 600ms after the opening began. A newer snapshot
-  replaces a held one; an older version is dropped.
+  non-opening snapshot arrives, it holds it until 600ms after the opening began, and until it is
+  prepared (`startApp`, below). A newer snapshot replaces a held one; an older version is dropped.
 - **`keepPage`**, for an `open` state: whether the window's location already belongs to that
   workspace. True on a page load into the open workspace (a reload), and when a switch away failed
   and the same workspace is back (the old page is still in the hash). False for a new workspace,
@@ -272,16 +272,22 @@ window's hash history: the hash keeps the location across a reload, and main fol
 "Reopen last page". Its context is the services plus `openWorkspace()`, the workspace open in the
 store's state.
 
-**Starting it** (`startApp`, `src/renderer/app/start-app.ts`). The store hands each state it shows
-to `onShow` before React renders it. For an `open` state:
+**Starting it** (`startApp`, `src/renderer/app/start-app.ts`). The store prepares each state as
+it arrives (`prepare`) and keeps the splash up until that is done. For an `open` state:
 
 - The location stays if `keepPage` and it is a valid last page (`isValidLastPage`).
 - Otherwise it is replaced with `/`, whose route (`routes/index.tsx`) redirects to
-  `landingPage(settings, openWorkspace())`, with the settings from the seeded cache. Replacing,
-  not pushing, so Back never returns to another workspace's page.
-- Then the router is loaded, while still unmounted. It isn't listening to the history during the
-  splash, and mounting it again doesn't load it (TanStack's `RouterProvider` only loads on mount
-  for a router that has never loaded), so without this it would show the page it showed last.
+  `landingPage(settings, openWorkspace())`, with the settings from the seeded cache.
+  `openWorkspace()` reads the store's `latest()` state, the one being prepared. Replacing, not
+  pushing, so Back never returns to another workspace's page.
+- Then the router is loaded, while still unmounted, and `startApp` resolves on its `onLoad`, once
+  the new page's data has loaded. The router isn't listening during the splash, and mounting it
+  again doesn't load it (TanStack's `RouterProvider` only loads on mount for a router that has
+  never loaded). Until the load commits it still holds the previous workspace's page, so showing
+  it any earlier would flash that page inside the new workspace.
+
+The splash goes once both its 600ms minimum has passed and the page has loaded. On a page load,
+the first state shows at once: the router has never loaded, so it has no old page to show.
 
 During `opening` nothing moves: the hash still shows the old workspace's page while the splash is
 up, which is what main's `last-page.ts` saves for the old one as it closes, as it should.

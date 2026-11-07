@@ -215,7 +215,7 @@ export function renderApp({
   const history = createMemoryHistory({ initialEntries: [hash] });
   // as main.tsx makes it, over memory history in place of the hash
   const router: AppRouter = createAppRouter(
-    { ...services, openWorkspace: () => openWorkspaceIn(workspaceState.get()) },
+    { ...services, openWorkspace: () => openWorkspaceIn(workspaceState.latest()) },
     history,
   );
   const workspaceState = createWorkspaceStateStore({
@@ -225,7 +225,7 @@ export function renderApp({
       context?.devBrainAvailable === false
         ? undefined
         : () => services.ipc.workspaces.state.query(),
-    onShow: (shown) => startApp(router, shown),
+    prepare: (next) => startApp(router, next),
   });
 
   const container = document.createElement('div');

@@ -152,6 +152,42 @@ describe('switching workspace', () => {
     await waitFor(() => expect(at(app)).toBe('/app/projects?view=card'));
   });
 
+  it("keeps the splash up until the new workspace's page has loaded, never showing the old page", async () => {
+    let answer: (task: unknown) => void = () => {};
+    const app = renderApp({
+      hash: '/app/notes',
+      context: context({ openToLastPage: true }),
+      handlers: {
+        // the landing page's data, which the test answers when it wants
+        'tasks.get': () => new Promise((resolve) => (answer = resolve)),
+      },
+    });
+    await waitFor(() => expect(app.text()).toContain('Notes is on its way'));
+    app.push(opening(home));
+    await waitFor(() => expect(app.text()).toContain('Opening Home…'));
+
+    // everything the window draws from here on
+    const drawn = new Set<string>();
+    const observer = new MutationObserver(() => {
+      const text = app.container.textContent ?? '';
+      if (text.includes('Notes is on its way')) drawn.add('old page');
+      if (text.includes('Opening Home…')) drawn.add('splash');
+      if (text.includes('Write the plan')) drawn.add('new page');
+    });
+    observer.observe(app.container, { childList: true, subtree: true, characterData: true });
+
+    app.push(open({ ...home, lastPage: '/app/tasks/tsk_1' }));
+    // well past the splash's minimum, still waiting for the page
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    expect(splashShown()).toBe(true);
+
+    answer({ id: 'tsk_1' as TaskId, title: 'Write the plan' });
+    await waitFor(() => expect(app.text()).toContain('Write the plan'));
+    observer.disconnect();
+    expect(drawn).not.toContain('old page');
+    expect(at(app)).toBe('/app/tasks/tsk_1');
+  });
+
   it('returns to the old workspace on the page it was on, with a toast, when the new one is missing', async () => {
     const app = renderApp({ hash: '/app/notes', context: context() });
     await waitFor(() => expect(app.text()).toContain('Notes'));

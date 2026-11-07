@@ -33,13 +33,13 @@ const services: Services = { queryClient, trpc, ipc, events, initialLoadContext 
 // The app's router, made once, over the window's hash history: the hash keeps the location across
 // a reload, and main follows it for "Reopen last page" (src/main/runtime/last-page.ts)
 const router = createAppRouter(
-  { ...services, openWorkspace: () => openWorkspaceIn(workspaceState.get()) },
+  { ...services, openWorkspace: () => openWorkspaceIn(workspaceState.latest()) },
   createHashHistory(),
 );
 
 // what the window shows: the splash, onboarding or the app, as main says from now on; listening
-// before the first render, then asking main once for anything sent before it listened. An open
-// workspace starts the app's router before it renders.
+// before the first render, then asking main once for anything sent before it listened. A workspace
+// that opens waits under the splash until the app's router has loaded its page (startApp).
 const workspaceState: WorkspaceStateStore = createWorkspaceStateStore({
   initial: initialLoadContext?.workspace ?? null,
   events,
@@ -47,7 +47,7 @@ const workspaceState: WorkspaceStateStore = createWorkspaceStateStore({
     initialLoadContext?.devBrainAvailable === false
       ? undefined
       : () => ipc.workspaces.state.query(),
-  onShow: (shown) => startApp(router, shown),
+  prepare: (next) => startApp(router, next),
 });
 
 // The window around the page: the platform from the preload, the system's own window controls,
