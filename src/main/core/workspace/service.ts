@@ -1,6 +1,6 @@
 import { generateId, isId, type IntegrationId, type WorkspaceId } from '@common/ids';
 import { hexColorSchema } from '@common/color';
-import { lastPageSchema, Page, type WorkspaceInfo } from '@common/types';
+import { isValidLastPage, Page, type WorkspaceInfo } from '@common/types';
 import type { CreateWorkspaceOptions, UpdateWorkspaceOptions, WorkspaceOptions } from './types';
 import {
   describeWorkspace,
@@ -240,7 +240,7 @@ export class WorkspaceService {
    * WorkspaceDataMissingError when the workspace's folder is gone.
    */
   setLastPage(id: WorkspaceId, page: string): void {
-    if (!lastPageSchema.safeParse(page).success) {
+    if (!isValidLastPage(page)) {
       throw new InvalidInputError('Not a page in the app');
     }
     const info = this.getById(id);

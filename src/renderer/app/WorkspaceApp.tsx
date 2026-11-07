@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createHashHistory, RouterProvider, type RouterHistory } from '@tanstack/react-router';
 import type { SerializedError } from '@common/ipc/types';
-import { lastPageSchema, type WorkspaceInfo } from '@common/types';
+import { isValidLastPage, type WorkspaceInfo } from '@common/types';
 import { toast } from '../components';
 import { describeWorkspaceError } from '../pages/onboarding/WorkspaceErrorDialog';
 import { createAppRouter, type AppRouter } from '../router';
@@ -45,7 +45,7 @@ export function WorkspaceApp({
 }) {
   const services = useServices();
   const [router] = useState(() => {
-    const kept = keepPage && lastPageSchema.safeParse(locationOf(history)).success;
+    const kept = keepPage && isValidLastPage(locationOf(history));
     if (!kept) {
       const settings = services.queryClient.getQueryData(services.trpc.settings.get.queryKey());
       history.replace(landingPage(settings, workspace));

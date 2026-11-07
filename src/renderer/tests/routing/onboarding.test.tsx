@@ -176,7 +176,10 @@ describe('Welcome', () => {
     const app = renderApp({
       context: withWorkspaces(work),
       handlers: {
+        // as main does: the open began, so the state says it failed
         'workspaces.open': () => {
+          app.push(opening(work));
+          app.push(none(failure('workspace_too_new', 'Update DevBrain to open it')));
           throw new MainError('workspace_too_new', 'Update DevBrain to open it');
         },
       },

@@ -17,7 +17,6 @@ import {
   type Swatch,
 } from '../../components';
 import { useServices } from '../../app/context';
-import { useMounted } from '../../app/mounted';
 import { SWATCH_HEX } from '../../app/swatches';
 import { ipcFailureOf, type IpcFailure } from '../../ipc/errors';
 import styles from './onboarding.module.css';
@@ -34,8 +33,8 @@ export interface CreateWorkspaceFormProps {
   onCancel: () => void;
   /** the workspace was created; it opens next */
   onCreated?: (workspace: WorkspaceInfo) => void;
-  /** creating it, or opening it once `created`, failed */
-  onFailure: (failure: IpcFailure | null, stage: { created: boolean }) => void;
+  /** creating it failed (opening it shows from the workspace state) */
+  onFailure: (failure: IpcFailure | null) => void;
 }
 
 /**
@@ -56,7 +55,6 @@ export function CreateWorkspaceForm({
   const [missingName, setMissingName] = useState(false);
   const [pending, setPending] = useState(false);
   const formId = useId();
-  const mounted = useMounted();
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -66,22 +64,18 @@ export function CreateWorkspaceForm({
       return;
     }
     setPending(true);
-    let created = false;
+    let workspace: WorkspaceInfo;
     try {
-      const workspace = await ipc.workspaces.create.mutate({
-        name: trimmed,
-        color: SWATCH_HEX[swatch],
-      });
-      created = true;
-      onCreated?.(workspace);
-      await ipc.workspaces.open.mutate({ id: workspace.id });
+      workspace = await ipc.workspaces.create.mutate({ name: trimmed, color: SWATCH_HEX[swatch] });
     } catch (error) {
-      // an open that started has replaced the form with the splash: its failure comes back as the
-      // workspace state's error instead
-      if (mounted()) onFailure(ipcFailureOf(error), { created });
-    } finally {
-      if (mounted()) setPending(false);
+      onFailure(ipcFailureOf(error));
+      setPending(false);
+      return;
     }
+    onCreated?.(workspace);
+    // The open always begins, as the workspace was just registered, so the splash replaces the form
+    // and a failure comes back as the workspace state's error: nothing to show here.
+    ipc.workspaces.open.mutate({ id: workspace.id }).catch(() => {});
   };
 
   const dialog = variant === 'dialog';
@@ -182,10 +176,10 @@ export function CreateWorkspaceDialog({
           variant="dialog"
           onCancel={() => onOpenChange(false)}
           onCreated={() => onOpenChange(false)}
-          onFailure={(failure, { created }) =>
+          onFailure={(failure) =>
             toast({
               tone: 'error',
-              title: created ? 'Couldn’t open the new workspace' : 'Couldn’t create the workspace',
+              title: 'Couldn’t create the workspace',
               description: failure?.message ?? 'Something went wrong.',
             })
           }

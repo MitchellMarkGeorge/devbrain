@@ -38,6 +38,7 @@ export interface WorkspaceStateStoreOptions {
   events: EventClient<AppEvents>;
   /** asks main for its snapshot now (`workspaces.state`); left out when DevBrain is unavailable */
   fetch?: () => Promise<WorkspaceSnapshot>;
+  /** the splash's minimum; tests pass their own, with a clock and timers they move */
   holdMs?: number;
   now?: () => number;
   setTimer?: (run: () => void, ms: number) => unknown;
@@ -45,10 +46,25 @@ export interface WorkspaceStateStoreOptions {
 }
 
 /**
- * Starts from `initial`, listens to `workspace.changed`, then asks `fetch` once: an event main sent
- * between building the initial load context and this listening would otherwise be lost (an `open`
- * missed there would leave the window on the splash). Keeping the newest by version makes the order
- * of the three irrelevant. Create it before the first render. `get()` returns the same object until
+ * The renderer's one source for what the window shows: the splash, onboarding or the app
+ * (WindowContent draws from it). It is plain JS rather than React state because it has to start
+ * listening before the first render, so no change from main is missed, and because the splash's
+ * minimum and `keepPage` depend on what came before.
+ *
+ * It does three things:
+ *
+ * 1. **Takes main's newest snapshot.** Snapshots come from three places, in no fixed order: the
+ *    initial load context (read as the page loads), `workspace.changed`, and one `workspaces.state`
+ *    call made right after it starts listening. That call catches a change sent between main
+ *    building the initial load context and this listening, which would otherwise be lost (an
+ *    `open` missed there would leave the window on the splash). Main numbers every snapshot, so
+ *    the store keeps the highest version and drops anything older or repeated.
+ * 2. **Holds the splash for at least `holdMs`.** While the splash is up, a snapshot that would
+ *    end it waits until `holdMs` after the splash appeared, so a quick open doesn't flicker. A
+ *    newer snapshot replaces one that waits; another `opening` shows at once.
+ * 3. **Works out `keepPage`** for each `open` it shows (see `ShownWorkspaceState`).
+ *
+ * Create it once, before the first render (main.tsx). `get()` returns the same object until
  * something changes, as `useSyncExternalStore` needs.
  */
 export function createWorkspaceStateStore({
@@ -61,66 +77,82 @@ export function createWorkspaceStateStore({
   clearTimer = (timer) => clearTimeout(timer as ReturnType<typeof setTimeout>),
 }: WorkspaceStateStoreOptions): WorkspaceStateStore {
   const listeners = new Set<() => void>();
-  let shown!: ShownWorkspaceState;
-  // the newest version seen, shown or pending
-  let newest = 0;
-  // when the splash went up, while it is up
-  let openingSince: number | null = null;
-  // the workspace whose page the window's location shows: kept through the splash, forgotten at
-  // onboarding
-  let pageOf: WorkspaceId | null = null;
-  let pending: WorkspaceSnapshot | null = null;
-  let timer: unknown = null;
 
-  const show = (snapshot: WorkspaceSnapshot, initial: boolean) => {
+  // What the window shows now: what get() returns.
+  let shown!: ShownWorkspaceState;
+  // The highest version received, shown or waiting. Anything at or below it is old news.
+  let newestVersion = 0;
+  // When the splash went up; null while it isn't up.
+  let splashSince: number | null = null;
+  // The workspace whose page the window's location (the hash) shows. The splash leaves the hash
+  // alone, so this survives it; onboarding forgets it, as the next open is a fresh start.
+  let pageBelongsTo: WorkspaceId | null = null;
+  // A snapshot received while the splash is held, and the timer that will show it.
+  let waiting: { snapshot: WorkspaceSnapshot; timer: unknown } | null = null;
+
+  // Makes `snapshot` what the window shows. `isPageLoad` is true for the first one only.
+  const show = (snapshot: WorkspaceSnapshot, isPageLoad: boolean) => {
     const { state } = snapshot;
     let keepPage = false;
-    if (state.status === 'open') {
-      // a page load into an open workspace is a reload: the location is that workspace's
-      keepPage = initial || pageOf === state.workspace.id;
-      pageOf = state.workspace.id;
-    } else if (state.status === 'none') {
-      pageOf = null;
+    switch (state.status) {
+      case 'open':
+        // the page loading into an open workspace is a reload, so the hash is that workspace's;
+        // after a failed switch, the same workspace is back and so is its page
+        keepPage = isPageLoad || pageBelongsTo === state.workspace.id;
+        pageBelongsTo = state.workspace.id;
+        splashSince = null;
+        break;
+      case 'opening':
+        // a second opening while the splash is up keeps its original start
+        splashSince ??= now();
+        break;
+      case 'none':
+        pageBelongsTo = null;
+        splashSince = null;
+        break;
     }
-    if (state.status === 'opening') openingSince ??= now();
-    else openingSince = null;
     shown = { version: snapshot.version, state, keepPage };
   };
 
-  const cancelPending = () => {
-    if (timer !== null) clearTimer(timer);
-    timer = null;
-    pending = null;
+  const notify = () => listeners.forEach((listener) => listener());
+
+  const cancelWaiting = () => {
+    if (waiting !== null) clearTimer(waiting.timer);
+    waiting = null;
   };
 
+  // Every snapshot after the first comes through here, from the event or the catch-up call.
   const receive = (snapshot: WorkspaceSnapshot) => {
-    if (snapshot.version <= newest) return;
-    newest = snapshot.version;
-    cancelPending();
-    const held =
-      openingSince === null || snapshot.state.status === 'opening'
+    if (snapshot.version <= newestVersion) return;
+    newestVersion = snapshot.version;
+    // whatever was waiting is older than this
+    cancelWaiting();
+
+    // how much longer the splash must stay up before this can replace it
+    const holdLeft =
+      splashSince === null || snapshot.state.status === 'opening'
         ? 0
-        : openingSince + holdMs - now();
-    if (held > 0) {
-      pending = snapshot;
-      timer = setTimer(() => {
-        const next = pending;
-        timer = null;
-        pending = null;
-        if (next === null) return;
-        show(next, false);
-        listeners.forEach((listener) => listener());
-      }, held);
+        : splashSince + holdMs - now();
+    if (holdLeft <= 0) {
+      show(snapshot, false);
+      notify();
       return;
     }
-    show(snapshot, false);
-    listeners.forEach((listener) => listener());
+    const timer = setTimer(() => {
+      waiting = null;
+      show(snapshot, false);
+      notify();
+    }, holdLeft);
+    waiting = { snapshot, timer };
   };
 
+  // 1. what main said as the page loaded
   const first = initial ?? NO_WORKSPACE;
-  newest = first.version;
+  newestVersion = first.version;
   show(first, true);
-  // listen first, then catch up on anything sent before this listened
+
+  // 2. listen, then 3. catch up on anything main sent before this listened. In this order, a
+  // change is either in the call's answer or arrives as an event (or both, deduplicated by version).
   let stopped = false;
   const unsubscribe = events.on('workspace.changed', receive);
   fetch?.()
@@ -128,7 +160,7 @@ export function createWorkspaceStateStore({
       if (!stopped) receive(snapshot);
     })
     .catch(() => {
-      // the events still arrive; a failed catch-up only matters for a change already missed
+      // later changes still arrive as events; only one already missed is lost
     });
 
   return {
@@ -142,7 +174,7 @@ export function createWorkspaceStateStore({
     stop() {
       stopped = true;
       unsubscribe();
-      cancelPending();
+      cancelWaiting();
     },
   };
 }

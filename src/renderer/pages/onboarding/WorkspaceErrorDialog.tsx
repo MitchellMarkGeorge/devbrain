@@ -11,7 +11,7 @@ import {
   Button,
 } from '../../components';
 import { useServices } from '../../app/context';
-import { useMounted } from '../../app/mounted';
+import { failedBeforeOpening } from '../../app/workspace-open';
 import { ipcFailureOf, type IpcFailure } from '../../ipc/errors';
 
 // Why a workspace couldn't be added or opened (Figma `7423:37060`–`7423:37281`), by main's error
@@ -102,10 +102,10 @@ const WorkspaceActionsContext = createContext<WorkspaceActions | null>(null);
  * OnboardingApp holds it, around the pages. `initialFailure` is why the last open failed, from the
  * workspace state (main's startup open, or an open from here that failed after closing nothing).
  *
- * A failed call shows here only while onboarding is still up. An open that started changes the
- * workspace state, which unmounts onboarding: its failure comes back as the state's error, shown by
- * whichever part of the window is up then. An unknown id (a stale list) changes nothing, and an
- * import fails before anything opens, so those show here.
+ * An open that began changes the workspace state, which replaces onboarding with the splash: its
+ * failure comes back as the state's error, shown by whichever part of the window is up then. So an
+ * open's failure shows here only when it failed before beginning (failedBeforeOpening: an unknown
+ * id from a stale list), as does a failure to add a folder, which opens nothing.
  */
 export function WorkspaceActionsProvider({
   initialFailure = null,
@@ -115,29 +115,30 @@ export function WorkspaceActionsProvider({
   children: ReactNode;
 }) {
   const { ipc } = useServices();
-  const mounted = useMounted();
   const [failure, setFailure] = useState<IpcFailure | null>(initialFailure);
   const [pending, setPending] = useState(false);
 
   const show = (failure: IpcFailure | null) => setFailure(failure ?? SOMETHING_WENT_WRONG);
+  // an open that began shows its own failure, from the workspace state
+  const open = (id: WorkspaceId) =>
+    ipc.workspaces.open.mutate({ id }).catch((error: unknown) => {
+      if (!failedBeforeOpening(error)) return;
+      throw error;
+    });
   const run = (action: () => Promise<unknown>) => {
     setFailure(null);
     setPending(true);
     action()
-      .catch((error: unknown) => {
-        if (mounted()) show(ipcFailureOf(error));
-      })
-      .finally(() => {
-        if (mounted()) setPending(false);
-      });
+      .catch((error: unknown) => show(ipcFailureOf(error)))
+      .finally(() => setPending(false));
   };
 
   const actions: WorkspaceActions = {
-    open: (id) => run(() => ipc.workspaces.open.mutate({ id })),
+    open: (id) => run(() => open(id)),
     openFolder: () =>
       run(async () => {
         const added = await ipc.workspaces.importFolder.mutate();
-        if (added) await ipc.workspaces.open.mutate({ id: added.id });
+        if (added) await open(added.id);
       }),
     failure,
     show,

@@ -286,10 +286,11 @@ workspace actions provider, whose error dialog starts with `error` (why the last
 shows any failure of its own after.
 
 **Open failures.** Opening is `ipc.workspaces.open.mutate({ id })`, and its failure shows from the
-state: on onboarding (the dialog), or as a toast in the app. A call's `catch` only shows something
-while its component is still mounted (`useMounted`): an unknown id (a stale list) never changes the
-state, so it shows where it was asked; any other open failure has moved the window on, and the state
-shows it. Import and create failures, which don't change the state, show where they happen.
+state: on onboarding (the dialog), or as a toast in the app. The caller shows an open's failure
+only when it failed before the open began (`failedBeforeOpening`, `src/renderer/app/workspace-open.ts`:
+an unknown id from a stale list, or refused input), which changes nothing. Any other failure came
+after core sent `opening`, so the splash has replaced the caller and the state shows it. Import and
+create failures, which don't change the state, show where they happen.
 
 **The landing page** is one function, `landingPage(settings, workspace)`: `workspace.lastPage`
 when `general.openToLastPage` is on and it parses as an `/app/*` location, else

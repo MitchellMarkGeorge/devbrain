@@ -391,8 +391,8 @@ mutation's own changes are refetched before it resolves. `main.tsx` calls
 2. `workspace.changed` is sent while the mutation runs, so it reaches the switching window before
    the response. It alone says what the window shows: the splash while `opening`, so the moment
    with nothing open is the splash, never an empty or failing screen. A failed open shows from
-   the state too, wherever the window is then; the mutation's own rejection is shown only by a
-   component still mounted (an unknown id, which changes nothing).
+   the state too, wherever the window is then; the caller shows the mutation's own rejection only
+   when it failed before the open began (an unknown id, which changes nothing).
 3. When the open workspace's id (or `null` while opening or none is open) differs from the
    workspace whose data is cached, the invalidator resets every query
    outside `app`, `settings` and `workspaces` (`resetQueries` cancels what is in flight, clears the

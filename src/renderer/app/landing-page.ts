@@ -1,4 +1,4 @@
-import { lastPageSchema, type AppSettings, type WorkspaceInfo } from '@common/types';
+import { isValidLastPage, type AppSettings, type WorkspaceInfo } from '@common/types';
 import type { Services } from './context';
 
 /**
@@ -11,9 +11,7 @@ export function landingPage(
   workspace: Pick<WorkspaceInfo, 'lastPage'> | null | undefined,
 ): string {
   const lastPage = workspace?.lastPage;
-  if (settings?.general.openToLastPage && lastPageSchema.safeParse(lastPage).success) {
-    return lastPage as string;
-  }
+  if (settings?.general.openToLastPage && isValidLastPage(lastPage)) return lastPage;
   return `/app/${settings?.general.defaultLandingPage ?? 'home'}`;
 }
 

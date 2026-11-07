@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { TRPCClientError } from '@trpc/client';
+import { isValidLastPage } from '@common/types';
 import { landingPage } from '../../app/landing-page';
+import { failedBeforeOpening } from '../../app/workspace-open';
 import { SWATCH_HEX, safeColor, swatchOf } from '../../app/swatches';
 import { calendarSearch } from '../../pages/calendar/search';
 import { tasksSearch } from '../../pages/tasks/search';
@@ -108,5 +111,32 @@ describe('byLastOpened', () => {
     const c = workspace('C', { lastOpenedAt: null, createdAt: 5 });
     const d = workspace('D', { lastOpenedAt: null, createdAt: 9 });
     expect([a, c, b, d].sort(byLastOpened).map(({ name }) => name)).toEqual(['B', 'A', 'D', 'C']);
+  });
+});
+
+describe('isValidLastPage', () => {
+  it('takes a page in the app, with its search, and nothing else', () => {
+    expect(isValidLastPage('/app/tasks?view=board')).toBe(true);
+    expect(isValidLastPage('/app')).toBe(true);
+    expect(isValidLastPage('/application')).toBe(false);
+    expect(isValidLastPage('/onboarding')).toBe(false);
+    expect(isValidLastPage(null)).toBe(false);
+    expect(isValidLastPage(`/app/${'x'.repeat(3000)}`)).toBe(false);
+  });
+});
+
+describe('failedBeforeOpening', () => {
+  // a failed call as the tRPC client throws it
+  const failed = (code: string) =>
+    TRPCClientError.from({
+      error: { code: -32603, message: code, data: { code, message: code, data: {} } },
+    });
+
+  it('is true only for failures that changed nothing: an unknown id, refused input', () => {
+    expect(failedBeforeOpening(failed('not_found'))).toBe(true);
+    expect(failedBeforeOpening(failed('invalid_input'))).toBe(true);
+    expect(failedBeforeOpening(failed('workspace_data_missing'))).toBe(false);
+    expect(failedBeforeOpening(failed('internal'))).toBe(false);
+    expect(failedBeforeOpening(new Error('not a call'))).toBe(false);
   });
 });

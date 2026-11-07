@@ -37,7 +37,7 @@ import { CreateWorkspaceDialog } from '../pages/onboarding/CreateWorkspaceForm';
 import { describeWorkspaceError } from '../pages/onboarding/WorkspaceErrorDialog';
 import { ipcFailureOf } from '../ipc/errors';
 import { useServices } from './context';
-import { useMounted } from './mounted';
+import { failedBeforeOpening } from './workspace-open';
 import { safeColor, swatchOf } from './swatches';
 
 // how many Recents and Favorites the sidebar lists
@@ -52,8 +52,10 @@ const NAV = [
   { to: '/app/integrations', label: 'Integrations', icon: Zap },
 ] as const;
 
+// A row of Recents or Favorites, as the routes return it. Not @common's RecentEntity and
+// FavoritedEntity: tRPC types an output as if JSON-encoded, so their Dates read as strings here
+// (Electron's IPC delivers real Dates; the types disagree until the IPC types are reconciled).
 type Outputs = inferRouterOutputs<AppRouter>;
-// a row of Recents or Favorites, as it comes over IPC
 type Entry =
   | Outputs['recents']['list']['items'][number]
   | Outputs['favorites']['list']['items'][number];
@@ -72,7 +74,8 @@ const STATUS_NAMES: Record<TaskStatus, TaskStatusName> = {
  */
 export function AppSidebar() {
   const matchRoute = useMatchRoute();
-  // a detail page keeps its section active
+  // Whether the nav item for `to` is highlighted: the current location is `to` or below it
+  // (fuzzy), so Tasks stays highlighted on a task's page (/app/tasks/tsk_…)
   const active = (to: string) => matchRoute({ to, fuzzy: true }) !== false;
   return (
     <Sidebar>
@@ -91,8 +94,8 @@ export function AppSidebar() {
             </SidebarItem>
           ))}
         </SidebarGroup>
-        <StampedList label="Recents" stamp="viewedAt" />
-        <StampedList label="Favorites" stamp="favoritedAt" />
+        <RecentsList />
+        <FavoritesList />
       </SidebarContent>
       <SidebarFooter>
         <SidebarItem icon={Trash2} active={active('/app/trash')} render={<Link to="/app/trash" />}>
@@ -113,20 +116,20 @@ export function AppSidebar() {
   );
 }
 
-/** Recents or Favorites, hidden while empty (a new workspace has neither). */
-function StampedList({ label, stamp }: { label: string; stamp: 'viewedAt' | 'favoritedAt' }) {
+function RecentsList() {
   const { trpc } = useServices();
-  const input = { limit: SIDEBAR_LIST_LIMIT };
-  const recents = useQuery({
-    ...trpc.recents.list.queryOptions(input),
-    enabled: stamp === 'viewedAt',
-  });
-  const favorites = useQuery({
-    ...trpc.favorites.list.queryOptions(input),
-    enabled: stamp === 'favoritedAt',
-  });
-  const items: readonly Entry[] =
-    (stamp === 'viewedAt' ? recents.data?.items : favorites.data?.items) ?? [];
+  const recents = useQuery(trpc.recents.list.queryOptions({ limit: SIDEBAR_LIST_LIMIT }));
+  return <StampedList label="Recents" items={recents.data?.items} />;
+}
+
+function FavoritesList() {
+  const { trpc } = useServices();
+  const favorites = useQuery(trpc.favorites.list.queryOptions({ limit: SIDEBAR_LIST_LIMIT }));
+  return <StampedList label="Favorites" items={favorites.data?.items} />;
+}
+
+/** Recents or Favorites, hidden while empty (a new workspace has neither). */
+function StampedList({ label, items = [] }: { label: string; items?: readonly Entry[] }) {
   if (items.length === 0) return null;
   return (
     <SidebarGroup label={label}>
@@ -175,30 +178,28 @@ function StampedItem({ item }: { item: Entry }) {
 /**
  * The workspace menu over the registry: switch to another (the splash shows, then its landing
  * page), New workspace… (the Create workspace dialog), Open folder… (add a workspace folder, then
- * open it), and Show in Finder for the open one. A failure shows as a toast while the app is still
- * up; an open that started has unmounted it, and its failure comes back as the workspace state's
- * error (WorkspaceApp shows it).
+ * open it), and Show in Finder for the open one. A failure shows as a toast, except an open's that
+ * began: the splash has replaced the app by then, and the workspace state's error shows it
+ * (failedBeforeOpening).
  */
 function WorkspaceMenu() {
   const { ipc, trpc } = useServices();
   const current = useQuery(trpc.workspaces.current.queryOptions());
   const list = useQuery(trpc.workspaces.list.queryOptions());
   const [creating, setCreating] = useState(false);
-  const mounted = useMounted();
 
   const fail = (error: unknown) => {
-    if (!mounted()) return;
     const { title, description } = describeWorkspaceError(ipcFailureOf(error));
     toast({ tone: 'error', title, description });
   };
-  const open = (id: WorkspaceId) => {
-    ipc.workspaces.open.mutate({ id }).catch(fail);
-  };
+  // an open that began shows its own failure, from the workspace state
+  const open = (id: WorkspaceId) =>
+    ipc.workspaces.open.mutate({ id }).catch((error: unknown) => {
+      if (failedBeforeOpening(error)) fail(error);
+    });
   const openFolder = () => {
-    ipc.workspaces.importFolder
-      .mutate()
-      .then((added) => added && ipc.workspaces.open.mutate({ id: added.id }))
-      .catch(fail);
+    // a failure to add the folder is shown here; opening it follows open's rule
+    void ipc.workspaces.importFolder.mutate().then((added) => added && open(added.id), fail);
   };
 
   const workspaces = list.data?.items ?? [];
@@ -215,7 +216,7 @@ function WorkspaceMenu() {
             color: swatchOf(color),
           }))}
           current={current.data?.id ?? ''}
-          onSelect={(id) => open(id as WorkspaceId)}
+          onSelect={(id) => void open(id as WorkspaceId)}
           onCreate={() => setCreating(true)}
           onOpenFolder={openFolder}
           onShowInFinder={() => {
