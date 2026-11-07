@@ -6,9 +6,7 @@ import type { InitialLoadContext } from '@common/ipc/types';
 import { WindowFrameProvider } from '../../components/lib/platform';
 import { events, ipc, queryClient, queryInvalidator, trpc } from '../../ipc';
 import { seedQueryCache } from '../../ipc/initial-load-context';
-import { createAppRouter, type AppRouter } from '../../router';
-import { WorkspaceSession } from '../../workspace/session';
-import { SplashGate } from '../../workspace/splash';
+import { createAppRouter, followOutsideChanges, type AppRouter } from '../../router';
 import type { FakeMain } from './fake-main';
 
 // The app as main.tsx starts it, over a fake main (fake-main.ts) and memory history: the real
@@ -26,8 +24,6 @@ export interface StartOptions {
 
 export interface App {
   router: AppRouter;
-  session: WorkspaceSession;
-  splash: SplashGate;
   container: HTMLElement;
   /** the window's current path, with search */
   path(): string;
@@ -50,27 +46,17 @@ export function startApp(main: FakeMain, options: StartOptions): App {
   seedQueryCache(queryClient, initialLoadContext);
   const stopInvalidator = queryInvalidator.listen(events);
 
-  const session = new WorkspaceSession(
-    {
-      current: () => ipc.workspaces.current.query(),
-      open: (id) => ipc.workspaces.open.mutate({ id }),
-    },
-    initialLoadContext === null ? undefined : initialLoadContext.current,
-    (info) => queryClient.setQueryData(trpc.workspaces.current.queryKey(), info),
-  );
-  const stopSession = session.follow(events);
-  const splash = new SplashGate(options.splashMinimumMs ?? 0);
   const router = createAppRouter({
     history: createMemoryHistory({ initialEntries: [options.url] }),
     context: {
       queryClient,
       trpc,
       ipc,
-      workspaces: session,
-      splash,
       devBrainAvailable: initialLoadContext?.devBrainAvailable ?? true,
     },
+    splashMinimumMs: options.splashMinimumMs ?? 0,
   });
+  const stopFollowing = followOutsideChanges(router, events);
 
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -91,14 +77,12 @@ export function startApp(main: FakeMain, options: StartOptions): App {
     root.unmount();
     container.remove();
     stopInvalidator();
-    stopSession();
+    stopFollowing();
     delete window.ipcBridge;
   };
   mounted.push(stop);
   return {
     router,
-    session,
-    splash,
     container,
     path: () => router.state.location.href,
     text: () => container.textContent ?? '',
@@ -173,6 +157,24 @@ export function expectSplashThenPage(log: { what: string }[], page: string): voi
   expect(lastSplash).toBeGreaterThan(0);
   expect(whats.indexOf(page)).toBeGreaterThan(lastSplash);
   expect(whats.slice(lastSplash).filter((what) => what === 'splash+')).toEqual([]);
+}
+
+/** Whether `node` is hidden: React hides a page it keeps mounted under a pending component. */
+export function isHidden(node: Node, container: HTMLElement): boolean {
+  for (let at: Node | null = node; at && at !== container; at = at.parentNode) {
+    if (at instanceof HTMLElement && at.style.display === 'none') return true;
+  }
+  return false;
+}
+
+/** The window's text as drawn: without what React has hidden. */
+export function visibleText(container: HTMLElement): string {
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  let text = '';
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (!isHidden(node, container)) text += node.textContent ?? '';
+  }
+  return text;
 }
 
 /** Clicks an element as a user would, in act. */

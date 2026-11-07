@@ -79,9 +79,9 @@ surveyed three things in parallel and checked the claims the plan rests on again
 - `src/renderer/ipc`: `trpc`, `ipc`, `queryClient`, `events`, `queryInvalidator` (with
   `ENTITIES_READ_BY_ROUTE`), the initial load context and `seedQueryCache`.
 - `src/renderer/theme.tsx` (`FollowThemeSetting`). (`workspace-opening.ts` was replaced by the
-  router's splash gate, `src/renderer/workspace/splash.ts`.)
+  `/app/$workspaceId` route's pending component, the splash.)
 - `main.tsx` bootstrap (error catching, invalidator, seeding, theme, `WindowFrameProvider`), now
-  also making the session, the splash gate and the one router.
+  also making the one router and following outside changes.
 - Every component, including `AppShell` (its `onBack`/`onForward`/`canGoBack`/`canGoForward`
   props are ready for the router's history) and `SidebarItem` (takes `render={<Link …/>}`).
 - `RichTextEditor` with `useWorkspaceEditorHost` (search and `openUrl`), waiting for an
@@ -180,21 +180,21 @@ routes` regenerates it without a build.
 
 `createAppRouter({ history, context })` makes the router; `main.tsx` calls it once with
 `createHashHistory()`, and the tests with memory history. Context:
-`{ queryClient, trpc, ipc, workspaces: WorkspaceSession, splash: SplashGate, devBrainAvailable }`.
+`{ queryClient, trpc, ipc, devBrainAvailable }`.
 Options: `defaultPreload: 'intent'`, `defaultPreloadStaleTime: 0`, `defaultPendingMs: 150` with
-`PagePending`, `NotFoundPage`, `RouteErrorPage`, `scrollRestoration: true` and
+`PagePending`, `defaultPendingMinMs: 600` (the splash's minimum, and PagePending's), `NotFoundPage`, `RouteErrorPage`, `scrollRestoration: true` and
 `scrollToTopSelectors: ['[data-slot="page-scroll"]']` (pages scroll inside `AppShell`, not the
-window). It settles the splash on `onResolved`, and follows outside changes to the open workspace
-(a delete or close → `/onboarding`; another workspace opened elsewhere → its link).
+window). `followOutsideChanges` moves the window on changes to the open workspace that come from
+no navigation (a delete or close → `/onboarding`; another workspace opened elsewhere → its link).
 `refetchOnWindowFocus` is off on the query client.
 
 ### Root route (`__root.tsx`)
 
 - `ToastProvider`, around the page.
-- **The splash**, drawn _in place of_ the page while `SplashGate` is visible: from the moment a
-  workspace starts opening until the navigation has resolved, held at least 600ms. On the first
-  load the root's `pendingComponent` (`RootPending`, `pendingMs: 0`) draws it, which needs the
-  root's `beforeLoad`.
+- **The splash** is `/app/$workspaceId`'s `pendingComponent` (`pendingMs: 0`, held 600ms): a
+  switch changes the route's params, so it loads again with the splash in its place, the old page
+  hidden under it. On the first load the root's `pendingComponent` (`RootPending`, `pendingMs: 0`)
+  draws it when the URL's workspace isn't open, which needs the root's `beforeLoad`.
 - **DevBrain unavailable:** the root's `beforeLoad` (it runs on every navigation) throws when the
   initial load context says `devBrainAvailable: false`, and its `errorComponent` says "DevBrain
   couldn't open its data folder", with Show Log File (`app.showLogFile`).
@@ -214,11 +214,11 @@ The **landing page** is one function, `landingHref(settings, workspace, id)`
 
 ### Guards
 
-- `/app/$workspaceId` `beforeLoad` opens the workspace its URL names (`WorkspaceSession.ensureOpen`)
+- `/app/$workspaceId` `beforeLoad` opens the workspace its URL names (`openWorkspaceOf`)
   rather than guarding: there is no "no workspace open" state in it. Its id is checked as a
   workspace id (anything else is not found). A failed open is its `errorComponent`, by error code,
   with the way back.
-- A preload (`preload: true`) into a workspace that isn't settled open throws `PreloadSkipped`,
+- A preload (`preload: true`) into a workspace that isn't open throws `PreloadSkipped`,
   which ends the preload before any page's loader runs: a preload never opens a workspace.
 - `/onboarding` `beforeLoad`: with a workspace open (Back from the app's first page), redirect to
   it. The sidebar's "New workspace…" opens the Create workspace dialog instead of navigating here.
@@ -249,8 +249,7 @@ moves with the folder to another computer. Main saves it, and the renderer only 
 `AppShell` gets `onBack={() => router.history.back()}`, `onForward`, and `canGoBack`/`canGoForward`
 from `useHistoryPosition` (the entry's `__TSR_index` against `router.history.length`). Back and
 Forward to another workspace's page open it again under the splash; rapid Back and Forward end with
-the last navigation's workspace open (`WorkspaceService` serialises opens, and `ensureOpen` queues
-one for each workspace asked). Search-param changes that only reflect UI state (a toolbar value,
+the last navigation's workspace open (`WorkspaceService` serialises opens, in order). Search-param changes that only reflect UI state (a toolbar value,
 the calendar's date) navigate with `replace: true`, so Back goes to the previous _page_, not the
 previous filter; opening a sheet (`open=…`) pushes, so Back closes it.
 

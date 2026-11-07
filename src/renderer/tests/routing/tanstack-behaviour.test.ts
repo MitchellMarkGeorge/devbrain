@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { createElement } from 'react';
+import { createElement, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   createMemoryHistory,
@@ -174,6 +174,48 @@ describe('@tanstack/react-router, as the app relies on it', () => {
     slow.resolve();
     await navigation;
     expect(container.textContent).toBe('next');
+  });
+
+  it('loads a route again when its params change, showing its pendingComponent for pendingMinMs while the old page stays mounted, hidden, and is then reused', async () => {
+    const slow = deferred();
+    let unmounted = 0;
+    const rootRoute = createRootRoute({ component: Outlet });
+    const Space = () => {
+      useEffect(
+        () => () => {
+          unmounted += 1;
+        },
+        [],
+      );
+      return createElement('p', null, 'space page');
+    };
+    const tree = rootRoute.addChildren([
+      createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/space/$id',
+        beforeLoad: ({ params }) => (params.id === 'b' ? slow.promise : undefined),
+        component: Space,
+        pendingComponent: text('pending'),
+        pendingMs: 0,
+        pendingMinMs: 200,
+      }),
+    ]);
+    const { router, container } = mount(tree, '/space/a');
+    await vi.waitFor(() => expect(container.textContent).toBe('space page'));
+    const started = Date.now();
+    const navigation = router.navigate({ to: '/space/b' });
+    await wait(50);
+    const [old, pending] = [...container.querySelectorAll('p')];
+    expect(old.style.display).toBe('none');
+    expect(pending.textContent).toBe('pending');
+    expect(unmounted).toBe(0);
+    slow.resolve();
+    // navigate() waits for the pending component's minimum
+    await navigation;
+    expect(Date.now() - started).toBeGreaterThanOrEqual(195);
+    await vi.waitFor(() => expect(container.textContent).toBe('space page'));
+    // the same page, never unmounted: shown again for the new params (remountDeps would change that)
+    expect(unmounted).toBe(0);
   });
 
   it('stops a preload at a beforeLoad that throws: no loader below runs, and nothing is logged', async () => {

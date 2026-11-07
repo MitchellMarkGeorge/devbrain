@@ -340,14 +340,15 @@ The renderer starts a switch by navigating to a page of the other workspace; its
    workspace open and the one opening. A switch sends three: `{ old, new }`, `{ null, new }`,
    `{ new, null }`.
 2. `workspace.changed` is sent while the mutation runs, so it reaches the switching window before
-   the response. It alone says which workspace is open, and which is opening: the renderer's
-   `WorkspaceSession` follows it, and a change it didn't start (a delete, another window) moves the
-   window to onboarding or to the workspace now open. The splash is up from before the open starts
-   until the new page has loaded, with the old page unmounted under it, so the moment with nothing
-   open is the splash, never an empty or failing screen.
-3. When the id differs from the workspace whose data is cached, the invalidator resets every query
-   outside `app`, `settings` and `workspaces` (`resetQueries` cancels what is in flight, clears the
-   data and refetches what is mounted), and refetches the `workspaces` queries.
+   the response. It says which workspace is open, and which is opening: it marks
+   `workspaces.current` stale in the renderer's cache, and a change no navigation made (a delete,
+   another window) moves the window to onboarding or to the workspace now open. The splash is up
+   from before the open starts until the new page has loaded, with the old page hidden under it,
+   so the moment with nothing open is the splash, never an empty or failing screen.
+3. When the id differs from the workspace whose data is cached, the invalidator drops every query
+   outside `app`, `settings` and `workspaces` (cancels what is in flight and removes it, refetching
+   nothing: a page still mounted is the old workspace's, and the next page's loaders fetch its
+   data), and refetches the `workspaces` queries.
 4. The mutation's response carries `changed: ['workspace']`, which only refetches the workspace
    list. Creating, renaming or recolouring a workspace (`workspaces.update`), or adding one from a
    folder (`workspaces.importFolder`, see

@@ -1,10 +1,15 @@
 import { lazy, Suspense } from 'react';
-import { Outlet, useRouter, type ErrorComponentProps } from '@tanstack/react-router';
-import { useMutation } from '@tanstack/react-query';
+import {
+  Outlet,
+  useRouter,
+  useRouterState,
+  type ErrorComponentProps,
+} from '@tanstack/react-router';
+import { workspaceIdOfPage } from '@common/types';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { RotateCw, ScrollText } from 'lucide-react';
 import { Button, Logomark, OnboardingScreen, ToastProvider } from '../../components';
 import { trpc } from '../../ipc';
-import { useSplash } from '../../workspace/splash';
 import { Splash } from './Splash';
 import styles from './Splash.module.css';
 
@@ -27,17 +32,12 @@ const RouterDevtools = import.meta.env.DEV
     )
   : () => null;
 
-/**
- * The window: toasts, and the page, or the splash in its place while a workspace opens. The page
- * is unmounted under the splash, so the workspace being closed never draws again, and the new
- * one's page mounts once its loaders have run.
- */
+/** The window: toasts and the page. */
 export function RootLayout() {
   const router = useRouter();
-  const splash = useSplash(router.options.context.splash);
   return (
     <ToastProvider>
-      {splash.visible ? <Splash workspace={splash.workspace} /> : <Outlet />}
+      <Outlet />
       {import.meta.env.DEV && import.meta.env.MODE !== 'test' && (
         <Suspense>
           <RouterDevtools router={router} position="bottom-right" />
@@ -48,17 +48,15 @@ export function RootLayout() {
 }
 
 /**
- * The window during the first load: the splash while a workspace opens, else the empty window
- * (a reload, onboarding), which the first page replaces in a moment.
+ * The window during the first load, which the router otherwise leaves empty: the splash when the
+ * window opens on a workspace that isn't open (startup), else the empty window (a reload,
+ * onboarding), which the first page replaces in a moment.
  */
 export function RootPending() {
-  const router = useRouter();
-  const splash = useSplash(router.options.context.splash);
-  return splash.visible ? (
-    <Splash workspace={splash.workspace} />
-  ) : (
-    <div className={styles.blank} aria-busy />
-  );
+  const shown = useRouterState({ select: (state) => workspaceIdOfPage(state.location.pathname) });
+  // seeded from the initial load context, so known on the first render
+  const open = useQuery(trpc.workspaces.current.queryOptions()).data?.id;
+  return shown !== null && shown !== open ? <Splash /> : <div className={styles.blank} aria-busy />;
 }
 
 export function RootError({ error }: ErrorComponentProps) {

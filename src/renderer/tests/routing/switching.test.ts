@@ -1,9 +1,18 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
-import { SPLASH_MINIMUM_MS } from '../../workspace/splash';
+import { SPLASH_MINIMUM_MS } from '../../router';
 import { FakeMain, workspace } from './fake-main';
-import { byText, click, eventually, splashOf, startApp, stopApps, watchDom } from './harness';
+import {
+  byText,
+  click,
+  eventually,
+  splashOf,
+  startApp,
+  stopApps,
+  visibleText,
+  watchDom,
+} from './harness';
 
 // Switching workspaces is navigating to a page of another workspace (docs/renderer/routing.md).
 
@@ -44,9 +53,10 @@ describe('a switch', () => {
     await eventually(() => expect(main.open).toBe(HOME));
     await eventually(() => expect(main.callsTo('notes.list')).toHaveLength(1));
     await tick();
-    // Home is open and its page's loader waits: the splash is up, and the old page is gone
+    // Home is open and its page's loader waits: the splash is up, and all the window shows (Work's
+    // page is still mounted, hidden, until Home's replaces it)
     expect(splashOf(app.container)?.textContent).toContain('Opening Home…');
-    expect(app.text()).not.toContain('Work tasks.list');
+    expect(visibleText(app.container)).toBe(splashOf(app.container)!.textContent);
 
     release();
     await navigation;
@@ -68,10 +78,9 @@ describe('a switch', () => {
     const app = await onWorkTasks(main, { splashMinimumMs: SPLASH_MINIMUM_MS });
     const dom = watchDom(app.container, ['Home recents.list']);
     const started = Date.now();
+    // the navigation waits for the splash's minimum, though the open and loaders are quick
     await app.router.navigate({ to: '/app/$workspaceId', params: { workspaceId: HOME } });
-    // the open and the page's loaders are done well before
-    expect(Date.now() - started).toBeLessThan(SPLASH_MINIMUM_MS);
-    expect(splashOf(app.container)).not.toBeNull();
+    expect(Date.now() - started).toBeGreaterThanOrEqual(SPLASH_MINIMUM_MS - 5);
     await eventually(() => expect(app.text()).toContain('Home recents.list'), 2000);
     dom.flush();
     const shown = dom.log.find((entry) => entry.what === 'splash+')!.at;

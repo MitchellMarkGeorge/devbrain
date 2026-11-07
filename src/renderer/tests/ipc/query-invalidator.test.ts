@@ -163,7 +163,7 @@ describe('the reads table', () => {
 });
 
 describe('switching workspace', () => {
-  it('drops what was cached for the old one, refetches the workspace queries, and keeps the rest', async () => {
+  it('drops what was cached for the old one without refetching it, refetches the workspace queries, and keeps the rest', async () => {
     await queryInvalidator.workspaceOpened(WORK);
     await query('tasks.list');
     await query('notes.list', { active: false });
@@ -172,8 +172,10 @@ describe('switching workspace', () => {
 
     await queryInvalidator.workspaceOpened(HOME);
 
-    // the active one loads again from the new workspace; the inactive one waits to be shown
-    expect(data('tasks.list')).toBe('tasks.list #2');
+    // both are gone, even the one a page still shows: that page is the old workspace's, and the
+    // next page's loaders fetch from the new one
+    expect(data('tasks.list')).toBeUndefined();
+    expect(count('tasks.list')).toBe(1);
     expect(data('notes.list')).toBeUndefined();
     expect(count('settings.get')).toBe(1);
     // which workspace is open changed, so the workspace queries refetch too
@@ -216,7 +218,7 @@ describe('listen', () => {
     return { client, send, listeners };
   }
 
-  it('refetches on db.changes and resets on workspace.changed, until stopped', async () => {
+  it('refetches on db.changes and drops the workspace data on workspace.changed, until stopped', async () => {
     const events = fakeEvents();
     const stop = queryInvalidator.listen(events.client);
     await query('tasks.list');
@@ -225,7 +227,8 @@ describe('listen', () => {
     await vi.waitFor(() => expect(count('tasks.list')).toBe(2));
 
     events.send('workspace.changed', { id: HOME, opening: null });
-    await vi.waitFor(() => expect(count('tasks.list')).toBe(3));
+    await vi.waitFor(() => expect(data('tasks.list')).toBeUndefined());
+    expect(count('tasks.list')).toBe(2);
 
     stop();
     expect(events.listeners.size).toBe(0);

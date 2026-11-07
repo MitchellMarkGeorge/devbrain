@@ -7,9 +7,7 @@ import { WindowFrameProvider, detectPlatform, type WindowFrame } from './compone
 import { events, ipc, queryInvalidator, queryClient, trpc } from './ipc';
 import { readInitialLoadContext, seedQueryCache } from './ipc/initial-load-context';
 import { FollowThemeSetting, applyThemeSetting } from './theme';
-import { createAppRouter } from './router';
-import { WorkspaceSession } from './workspace/session';
-import { SplashGate } from './workspace/splash';
+import { createAppRouter, followOutsideChanges } from './router';
 import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/base.css';
@@ -25,19 +23,6 @@ const initialLoadContext = readInitialLoadContext();
 seedQueryCache(queryClient, initialLoadContext);
 applyThemeSetting(initialLoadContext?.theme ?? 'system');
 
-// Which workspace is open, followed from main's workspace.changed; the /app/$workspaceId route
-// opens the one its URL names (docs/renderer/routing.md)
-const workspaces = new WorkspaceSession(
-  {
-    current: () => ipc.workspaces.current.query(),
-    open: (id) => ipc.workspaces.open.mutate({ id }),
-  },
-  // undefined: unknown, asked of main when first needed
-  initialLoadContext === null ? undefined : initialLoadContext.current,
-  (info) => queryClient.setQueryData(trpc.workspaces.current.queryKey(), info),
-);
-workspaces.follow(events);
-
 // The app's one router, never made again. Hash history: the page loads from file://, and main
 // reads the window's page from the URL's hash (src/main/runtime/last-page.ts)
 const router = createAppRouter({
@@ -46,11 +31,11 @@ const router = createAppRouter({
     queryClient,
     trpc,
     ipc,
-    workspaces,
-    splash: new SplashGate(),
     devBrainAvailable: initialLoadContext?.devBrainAvailable ?? true,
   },
 });
+// a delete, a close or an open elsewhere moves the window to onboarding or that workspace
+followOutsideChanges(router, events);
 
 // The window around the page: the platform from the preload, the system's own window controls,
 // and the Windows title bar's menu button popping up the app menu (src/main/runtime/window-chrome.ts)

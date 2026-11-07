@@ -23,13 +23,12 @@ export function WorkspaceOpenError({ error }: ErrorComponentProps) {
   const navigate = useNavigate();
   const canGoBack = useCanGoBack();
   const { workspaceId } = useParams({ strict: false });
-  const { workspaces } = router.options.context;
   const list = useQuery(trpc.workspaces.list.queryOptions());
   const showLogFile = useMutation(trpc.app.showLogFile.mutationOptions());
   const name = list.data?.items.find((workspace) => workspace.id === workspaceId)?.name ?? null;
   const copy = openFailure(error, name);
   const code = ipcErrorCode(error);
-  const openId = workspaces.openId;
+  const openId = useQuery(trpc.workspaces.current.queryOptions()).data?.id ?? null;
   const openName = list.data?.items.find((workspace) => workspace.id === openId)?.name;
 
   const goBack = () => {
