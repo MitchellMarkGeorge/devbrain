@@ -15,6 +15,8 @@ export interface ElectronDesktopDeps {
   shell: Pick<Shell, 'openPath' | 'showItemInFolder'>;
   // Electron's Menu: the app menu set with Menu.setApplicationMenu (runtime/menu.ts)
   menu: { getApplicationMenu(): Pick<Menu, 'popup'> | null };
+  // where electron-log writes, read when asked
+  logFilePath: () => string;
 }
 
 /**
@@ -22,7 +24,7 @@ export interface ElectronDesktopDeps {
  * window the call came from), or free-standing when it is null. The app menu pops up in `window`.
  */
 export function createElectronDesktop(
-  { dialog, shell, menu }: ElectronDesktopDeps,
+  { dialog, shell, menu, logFilePath }: ElectronDesktopDeps,
   window: BrowserWindow | null,
 ): Desktop {
   const showOpen = (options: OpenDialogOptions) =>
@@ -32,17 +34,19 @@ export function createElectronDesktop(
     const error = await shell.openPath(folderPath);
     if (error) throw new Error(`The folder could not be opened: ${error}`);
   };
+  const showItem = async (filePath: string) => {
+    // showItemInFolder reports nothing, and shows nothing for a missing file
+    const exists = await fs.access(filePath).then(
+      () => true,
+      () => false,
+    );
+    if (exists) shell.showItemInFolder(filePath);
+    else await openFolder(path.dirname(filePath));
+  };
   return {
     openFolder,
-    async showItem(filePath) {
-      // showItemInFolder reports nothing, and shows nothing for a missing file
-      const exists = await fs.access(filePath).then(
-        () => true,
-        () => false,
-      );
-      if (exists) shell.showItemInFolder(filePath);
-      else await openFolder(path.dirname(filePath));
-    },
+    showItem,
+    showLogFile: () => showItem(logFilePath()),
     async chooseFiles({ title, filters, multiple = false }) {
       const result = await showOpen({
         title,

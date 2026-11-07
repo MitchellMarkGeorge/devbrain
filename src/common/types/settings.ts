@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isId, type WorkspaceId } from '../ids';
 import { TaskPriority } from './tasks';
 
 // 'system' follows the operating system's light or dark appearance
@@ -32,15 +33,22 @@ export const appSettingsSchema = z.object({
   }),
 });
 
-// A page in the app, as main saves it in a workspace's manifest for "Reopen last page"
-// (general.openToLastPage): the /app path with its search params from the window's URL, e.g.
-// /app/tasks?view=board. Bounded, as it comes from the page. The renderer parses it again before
-// navigating to it.
+// A page in a workspace, as main saves it in that workspace's manifest for "Reopen last page"
+// (general.openToLastPage): the path from the window's URL, which names the workspace, with its
+// search params, e.g. /app/wsp_…/tasks?view=board. Bounded, as it comes from the page. The renderer
+// parses it again before navigating to it.
 export const MAX_LAST_PAGE_LENGTH = 2048;
+const PAGE_IN_WORKSPACE = /^\/app\/(wsp_[^/?#]+)(?:[/?#]|$)/;
 export const lastPageSchema = z
   .string()
   .max(MAX_LAST_PAGE_LENGTH)
-  .regex(/^\/app(?:[/?#]|$)/, 'Not a page in the app');
+  .regex(PAGE_IN_WORKSPACE, 'Not a page in a workspace');
+
+/** The workspace a page in the app belongs to (`/app/wsp_1/tasks` → `wsp_1`), or null. */
+export function workspaceIdOfPage(page: string): WorkspaceId | null {
+  const id = PAGE_IN_WORKSPACE.exec(page)?.[1];
+  return id !== undefined && isId('workspace', id) ? id : null;
+}
 
 export const appStateSchema = z.object({
   lastWorkspaceId: z.string().nullable(),

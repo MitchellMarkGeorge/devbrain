@@ -1,6 +1,6 @@
 import { generateId, isId, type IntegrationId, type WorkspaceId } from '@common/ids';
 import { hexColorSchema } from '@common/color';
-import { lastPageSchema, Page, type WorkspaceInfo } from '@common/types';
+import { lastPageSchema, Page, workspaceIdOfPage, type WorkspaceInfo } from '@common/types';
 import type { CreateWorkspaceOptions, UpdateWorkspaceOptions, WorkspaceOptions } from './types';
 import {
   describeWorkspace,
@@ -234,12 +234,17 @@ export class WorkspaceService {
    * run inside the `closed` change of a close the queue is running. Sends no change: the page is
    * read when a workspace opens. Writes nothing when the page is unchanged.
    *
-   * Throws InvalidInputError for a page outside the app, NotFoundError for an unknown id, and
-   * WorkspaceDataMissingError when the workspace's folder is gone.
+   * The page names its workspace (`/app/wsp_…/tasks`), and must name this one.
+   *
+   * Throws InvalidInputError for a page outside the app or of another workspace, NotFoundError
+   * for an unknown id, and WorkspaceDataMissingError when the workspace's folder is gone.
    */
   setLastPage(id: WorkspaceId, page: string): void {
     if (!lastPageSchema.safeParse(page).success) {
       throw new InvalidInputError('Not a page in the app');
+    }
+    if (workspaceIdOfPage(page) !== id) {
+      throw new InvalidInputError('Not a page of this workspace');
     }
     const info = this.getById(id);
     if (info.lastPage === page) return;

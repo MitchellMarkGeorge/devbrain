@@ -10,20 +10,25 @@ import { createWorkspace, tempDevBrain } from '../ipc/helpers';
 // "Reopen last page": the page read from the window's URL, and saved when the workspace closes.
 
 describe('lastPageOf', () => {
-  it('reads the page from the hash of the built and the dev server URLs', () => {
-    expect(lastPageOf('file:///Applications/DevBrain/index.html#/app/tasks?view=board')).toBe(
-      '/app/tasks?view=board',
+  it('reads the page, which names its workspace, from the hash of the built and the dev server URLs', () => {
+    expect(lastPageOf('file:///Applications/DevBrain/index.html#/app/wsp_1/tasks?view=board')).toBe(
+      '/app/wsp_1/tasks?view=board',
     );
-    expect(lastPageOf('http://localhost:5173/#/app/notes/nte_1')).toBe('/app/notes/nte_1');
-    expect(lastPageOf('http://localhost:5173/#/app')).toBe('/app');
+    expect(lastPageOf('http://localhost:5173/#/app/wsp_1/notes/nte_1')).toBe(
+      '/app/wsp_1/notes/nte_1',
+    );
+    expect(lastPageOf('http://localhost:5173/#/app/wsp_1')).toBe('/app/wsp_1');
   });
 
-  it('is null for a URL that shows no page in the app', () => {
+  it("is null for a URL that shows no workspace's page", () => {
     expect(lastPageOf('http://localhost:5173/')).toBeNull();
     expect(lastPageOf('http://localhost:5173/#/')).toBeNull();
     expect(lastPageOf('http://localhost:5173/#/onboarding/new_workspace')).toBeNull();
     expect(lastPageOf('http://localhost:5173/#/application')).toBeNull();
-    expect(lastPageOf(`http://localhost:5173/#/app/${'a'.repeat(2048)}`)).toBeNull();
+    // no workspace in it, or not a workspace id
+    expect(lastPageOf('http://localhost:5173/#/app/tasks')).toBeNull();
+    expect(lastPageOf('http://localhost:5173/#/app/prj_1/tasks')).toBeNull();
+    expect(lastPageOf(`http://localhost:5173/#/app/wsp_1/${'a'.repeat(2048)}`)).toBeNull();
     expect(lastPageOf('not a url')).toBeNull();
   });
 });
@@ -61,66 +66,93 @@ describe('saveLastPageOnClose', () => {
 
   const savedPage = (id: WorkspaceId) => devBrain.workspaces.getById(id).lastPage;
 
+  const url = (page: string) => `http://localhost:5173/#${page}`;
+
   it("saves the page the window was on in the workspace's manifest when it closes", async () => {
     const window = attach();
     const work = await createWorkspace(devBrain, 'Work');
     await devBrain.workspaces.open(work);
 
-    window.navigate('http://localhost:5173/#/app/calendar?view=month');
+    window.navigate(url(`/app/${work}/calendar?view=month`));
     // navigating saves nothing
     expect(savedPage(work)).toBeNull();
 
     await devBrain.close();
-    expect(savedPage(work)).toBe('/app/calendar?view=month');
+    expect(savedPage(work)).toBe(`/app/${work}/calendar?view=month`);
     const manifest = JSON.parse(
       await fs.readFile(
         path.join(devBrain.workspaces.getById(work).path, 'workspace.json'),
         'utf8',
       ),
     );
-    expect(manifest.lastPage).toBe('/app/calendar?view=month');
+    expect(manifest.lastPage).toBe(`/app/${work}/calendar?view=month`);
   });
 
-  it('saves the page the window is on, after a load and filter changes', async () => {
+  it('saves the last page the window showed, after a load and filter changes', async () => {
     const window = attach();
     const work = await createWorkspace(devBrain, 'Work');
     await devBrain.workspaces.open(work);
 
-    window.navigate('http://localhost:5173/#/app/home', false);
-    window.navigate('http://localhost:5173/#/app/tasks?view=list');
-    window.navigate('http://localhost:5173/#/app/tasks?view=board');
+    window.navigate(url(`/app/${work}/home`), false);
+    window.navigate(url(`/app/${work}/tasks?view=list`));
+    window.navigate(url(`/app/${work}/tasks?view=board`));
+    // onboarding shows no page of a workspace, and changes nothing
+    window.navigate(url('/onboarding'));
     await devBrain.close();
-    expect(savedPage(work)).toBe('/app/tasks?view=board');
+    expect(savedPage(work)).toBe(`/app/${work}/tasks?view=board`);
   });
 
-  it('keeps a page for each workspace across a switch', async () => {
+  it("saves the closing workspace's own page, though the window is on the next one's", async () => {
     const window = attach();
     const work = await createWorkspace(devBrain, 'Work');
     const home = await createWorkspace(devBrain, 'Home');
     await devBrain.workspaces.open(work);
-    window.navigate('http://localhost:5173/#/app/tasks/tsk_1');
+    window.navigate(url(`/app/${work}/tasks/tsk_1`));
 
+    // a switch: the router moves the URL to Home's page first, then Home opens (closing Work)
+    window.navigate(url(`/app/${home}`));
+    window.navigate(url(`/app/${home}/home`));
     const opened = await devBrain.workspaces.open(home);
-    expect(savedPage(work)).toBe('/app/tasks/tsk_1');
+    expect(savedPage(work)).toBe(`/app/${work}/tasks/tsk_1`);
     expect(opened.info.lastPage).toBeNull();
 
-    window.navigate('http://localhost:5173/#/app/notes');
+    window.navigate(url(`/app/${home}/notes`));
+    // and back: Back moves the URL to Work's page before Work reopens
+    window.navigate(url(`/app/${work}/tasks/tsk_1`));
     const reopened = await devBrain.workspaces.open(work);
-    expect(savedPage(home)).toBe('/app/notes');
+    expect(savedPage(home)).toBe(`/app/${home}/notes`);
     // the workspace opened says where it was
-    expect(reopened.info.lastPage).toBe('/app/tasks/tsk_1');
+    expect(reopened.info.lastPage).toBe(`/app/${work}/tasks/tsk_1`);
   });
 
-  it("doesn't give a workspace that never showed a page the one before's", async () => {
+  it("never gives a workspace another's page", async () => {
     const window = attach();
     const work = await createWorkspace(devBrain, 'Work');
     const home = await createWorkspace(devBrain, 'Home');
     await devBrain.workspaces.open(work);
-    window.navigate('http://localhost:5173/#/app/projects');
+    window.navigate(url(`/app/${work}/projects`));
     await devBrain.workspaces.open(home);
     // the window never reached a page of Home's before it closed
     await devBrain.close();
-    expect(savedPage(work)).toBe('/app/projects');
+    expect(savedPage(work)).toBe(`/app/${work}/projects`);
     expect(savedPage(home)).toBeNull();
+  });
+
+  it('remembers the last page seen in each workspace, for the window made next', async () => {
+    const window = fakeApp();
+    const pages = saveLastPageOnClose(window.app, devBrain);
+    window.openWindow();
+    const work = await createWorkspace(devBrain, 'Work');
+    expect(pages.of(work)).toBeNull();
+    window.navigate(url(`/app/${work}/notes`));
+    expect(pages.of(work)).toBe(`/app/${work}/notes`);
+  });
+
+  it('saves nothing for a deleted workspace', async () => {
+    const window = attach();
+    const work = await createWorkspace(devBrain, 'Work');
+    await devBrain.workspaces.open(work);
+    window.navigate(url(`/app/${work}/notes`));
+    await expect(devBrain.workspaces.delete(work)).resolves.toBeUndefined();
   });
 });

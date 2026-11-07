@@ -12,4 +12,7 @@ export const appRouter = t.router({
   showMenu: publicProcedure
     .input(z.object({ x: z.number().nonnegative(), y: z.number().nonnegative() }))
     .mutation(({ ctx, input }) => ctx.desktop.showAppMenu(input)),
+  // Shows the log file in the file manager. Public: the renderer offers it when DevBrain couldn't
+  // open its data folder, the one time nothing else can run.
+  showLogFile: publicProcedure.mutation(({ ctx }) => ctx.desktop.showLogFile()),
 });

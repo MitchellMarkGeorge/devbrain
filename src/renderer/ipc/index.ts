@@ -12,7 +12,12 @@ import { ipcLink } from './link';
 // `useMutation(trpc.….mutationOptions())`; it never says what to refetch: what a call changed is
 // refetched before it settles, and what changed elsewhere when main says so (./query-invalidator.ts).
 
-export const queryClient = new QueryClient();
+// No refetch on window focus: main says what changed (./query-invalidator.ts), so focusing the
+// window never makes data stale, and the window's focus also starts a sync in main, whose writes
+// arrive as changes.
+export const queryClient = new QueryClient({
+  defaultOptions: { queries: { refetchOnWindowFocus: false } },
+});
 export const events = createEventClient<AppEvents>();
 
 export const queryInvalidator = createQueryInvalidator({ queryClient });

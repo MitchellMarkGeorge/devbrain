@@ -67,8 +67,6 @@ export interface InitialLoadContext {
   devBrainAvailable: boolean;
   // the open workspace: what workspaces.current answers
   current: WorkspaceInfo | null;
-  // the workspace workspaces.openLast would open, while none is open, for a splash to show
-  last: WorkspaceInfo | null;
   // what workspaces.list answers for its first page
   workspaces: Page<WorkspaceInfo>;
   // the theme setting; 'system' without DevBrain

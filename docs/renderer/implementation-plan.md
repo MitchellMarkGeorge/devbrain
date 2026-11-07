@@ -10,9 +10,12 @@ Sources: the Figma file (`w9WtYAUXkkzqKIMAzFo08I`, page "v2 Screens", node ids c
 the `Screens/*` stories, `docs/design-system/README.md`, `docs/ipc/design.md` and
 `docs/follow-ups.md`. Where Figma and the code disagree, the code wins (see `CLAUDE.md`).
 
-> **Status:** plan only; nothing here is built yet. Revised after review (Nov 6 2026): FullCalendar
-> for the calendar, `/app/trash`, a create-workspace dialog inside the app, no Help link yet, and a
-> keyboard layer built for the coming Vim mode.
+> **Status:** milestones 1 (router foundation) and 2 (onboarding) are built, with the
+> **URL-driven workspace model** ([routing.md](routing.md)): every page in a workspace is under
+> `/app/<its id>/…`, main picks the window's first URL, and switching is navigating. Revised after
+> review (Nov 6 2026): FullCalendar for the calendar, `/app/trash`, a create-workspace dialog
+> inside the app, no Help link yet, and a keyboard layer built for the coming Vim mode. Where this
+> plan writes `/app/tasks`, read `/app/$workspaceId/tasks`.
 
 ### How this plan was made
 
@@ -61,7 +64,8 @@ surveyed three things in parallel and checked the claims the plan rests on again
 | Dates                              | **luxon**, already a dependency and what core uses: relative and calendar dates, locale formats, 12/24 hour. No hand-written date formatting.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Virtualization                     | Every list and grid that can grow is virtualized with **`@tanstack/react-virtual`**: tasks (list, group, board columns), notes, projects, trash, search results. See [Virtualized lists](#virtualized-lists).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Detail presentation                | As designed: tasks, projects and notes are pages; a task opened from the board and an event opened from the calendar show in the docked `Sheet` over their list, addressed by an `open` search param so Back closes them. The task note opens as a dialog (local state).                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Splash                             | `/` is the boot route and draws the splash while the last workspace reopens, then redirects. A workspace _switch_ draws the same splash as an overlay from the root route, driven by `workspace.changed` (as `App.tsx` does today), and does not navigate to `/`: a switch can start from the menu or another window, and the URL should land on the new workspace's landing page, not on `/`.                                                                                                                                                                                                                                                                                                    |
+| Workspaces in the URL              | **Built (milestones 1–2).** Every page in a workspace is under `/app/$workspaceId`, and `/app/$workspaceId` opens the workspace its URL names when it isn't open. Main picks the window's first URL (the last workspace, or its last page); the renderer never decides which workspace to open. Switching is navigating; Back and Forward across workspaces reopen them. See [routing.md](routing.md).                                                                                                                                                                                                                                                                                            |
+| Splash                             | **Built.** Drawn by the root route _in place of_ the page from the moment a switch (or the startup open) begins until the new page's loaders are done, held at least 600ms. The old page is unmounted under it, so it never draws again and never refetches with the new workspace's data. No boot route: startup is the same flow on the first load.                                                                                                                                                                                                                                                                                                                                             |
 | Not in the route list but designed | `/app/integrations` (in the sidebar nav, Figma `7164:13117`). ⌘K is a dialog, not a route. Help has nothing behind it yet: the sidebar's Help item and Welcome's "What's a workspace?" link are drawn disabled.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | Trash                              | The route is **`/app/trash`**, matching the UI and `docs/deleting.md`. Core still says archive (`archive` router, `listArchived`); the code rename is its own follow-up (E2).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | New workspace                      | Inside the app, "New workspace…" opens a **Create workspace dialog** over the page. `/onboarding/new_workspace` is only for when nothing is open. Both use one `CreateWorkspaceForm`, so the onboarding guard needs no exception. Mocked in Figma as "New workspace (dialog in the app)" (`7760:61527`). Why a dialog: see [Onboarding](#onboarding-onboarding).                                                                                                                                                                                                                                                                                                                                  |
@@ -74,9 +78,10 @@ surveyed three things in parallel and checked the claims the plan rests on again
 
 - `src/renderer/ipc`: `trpc`, `ipc`, `queryClient`, `events`, `queryInvalidator` (with
   `ENTITIES_READ_BY_ROUTE`), the initial load context and `seedQueryCache`.
-- `src/renderer/theme.tsx` (`FollowThemeSetting`) and `workspace-opening.ts` (`useOpeningWorkspace`,
-  `useHeldFor`).
-- `main.tsx` bootstrap (error catching, invalidator, seeding, theme, `WindowFrameProvider`).
+- `src/renderer/theme.tsx` (`FollowThemeSetting`). (`workspace-opening.ts` was replaced by the
+  router's splash gate, `src/renderer/workspace/splash.ts`.)
+- `main.tsx` bootstrap (error catching, invalidator, seeding, theme, `WindowFrameProvider`), now
+  also making the session, the splash gate and the one router.
 - Every component, including `AppShell` (its `onBack`/`onForward`/`canGoBack`/`canGoForward`
   props are ready for the router's history) and `SidebarItem` (takes `render={<Link …/>}`).
 - `RichTextEditor` with `useWorkspaceEditorHost` (search and `openUrl`), waiting for an
@@ -86,60 +91,66 @@ surveyed three things in parallel and checked the claims the plan rests on again
 compositions in `components/screens/*` (not their frames: the Calendar, Tasks and TaskDetail screens
 use older hand-made frames; the Shell screens' `ScreenFrame` + `DemoSidebar` is the canonical one).
 
+**Built in milestones 1–2:** the router (`src/renderer/router.tsx`, `routes/`, `pages/`), with
+`ToastProvider` mounted in the root route; `App.tsx` and `workspace-opening.ts` are gone.
+
 **Missing:**
 
-- Any router; `@tanstack/react-router` is not installed.
-- `ToastProvider` is not mounted, so `toast()` does nothing yet.
 - Mappers from core types to component props.
 - A route that reads a note's markdown (see Main-process changes, M1). This blocks the note page.
 
 ## Route tree
 
+As built in milestones 1–2 (detail routes and search params come with their milestones):
+
 ```
-__root                      providers, splash overlay, global dialogs host, not-found/error
-├── /                       index: boot + splash → redirect
-├── /onboarding             layout: OnboardingScreen frame (no sidebar)
-│   ├── /                   Welcome
-│   ├── /new_workspace      Create workspace
-│   └── /choose_workspace   Choose from existing workspaces
-└── /app                    layout: AppShell + sidebar + <Outlet/>; guards "a workspace is open"
-    ├── /                   index: redirect to the landing page
+__root                         toasts, splash (in place of the page), DevBrain unavailable, not found
+├── /                          redirect: the open workspace, or onboarding
+├── /onboarding                layout; with a workspace open, redirects to it
+│   ├── /                      Welcome
+│   ├── /new_workspace         Create workspace
+│   └── /choose_workspace      Choose from all workspaces (paged)
+└── /app/$workspaceId          opens the workspace its URL names; AppShell + sidebar + <Outlet/>;
+    │                          its errorComponent says why an open failed
+    ├── /                      index: redirect to the last page or the landing page
     ├── /home
-    ├── /tasks              ?view=list|group|board, filters, sort, ?open=tsk_…
+    ├── /tasks                 ?view=list|group|board, filters, sort, ?open=tsk_…
     │   └── /$taskId
-    ├── /projects           ?view=list|card, filters, sort
-    │   └── /$projectId     ?tab=overview|tasks|notes
-    ├── /notes              ?view=list|card, filters, sort
+    ├── /projects              ?view=list|card, filters, sort
+    │   └── /$projectId        ?tab=overview|tasks|notes
+    ├── /notes                 ?view=list|card, filters, sort
     │   └── /$noteId
-    ├── /calendar           ?view=week|month|day, ?date=YYYY-MM-DD, ?open=evt_…|tsk_…
-    ├── /trash              ?tab=all|projects|tasks|notes
-    ├── /integrations       (added: designed and in the sidebar)
-    └── /settings           ?tab=general|calendar|tasks|data_storage
+    ├── /calendar              ?view=week|month|day, ?date=YYYY-MM-DD, ?open=evt_…|tsk_…
+    ├── /trash                 ?tab=all|projects|tasks|notes
+    ├── /integrations          (added: designed and in the sidebar)
+    └── /settings              ?tab=general|calendar|tasks|data_storage
 ```
 
 Files (`src/renderer/routes`, TanStack's flat dot notation, so a list and its detail are siblings
-and the detail does not render inside the list's component):
+and the detail does not render inside the list's component). The placeholders are
+`app.$workspaceId.tasks.tsx` and so on; a milestone that adds a detail page renames its list to
+`….tasks.index.tsx` beside `….tasks.$taskId.tsx`:
 
 ```
 __root.tsx
 index.tsx
-onboarding.tsx                    layout
+onboarding.tsx                         layout
 onboarding.index.tsx
 onboarding.new_workspace.tsx
 onboarding.choose_workspace.tsx
-app.tsx                           layout
-app.index.tsx
-app.home.tsx
-app.tasks.index.tsx
-app.tasks.$taskId.tsx
-app.projects.index.tsx
-app.projects.$projectId.tsx
-app.notes.index.tsx
-app.notes.$noteId.tsx
-app.calendar.tsx
-app.trash.tsx
-app.integrations.tsx
-app.settings.tsx
+app.$workspaceId.tsx                   layout
+app.$workspaceId.index.tsx
+app.$workspaceId.home.tsx
+app.$workspaceId.tasks.index.tsx       (milestone 4; now app.$workspaceId.tasks.tsx)
+app.$workspaceId.tasks.$taskId.tsx
+app.$workspaceId.projects.index.tsx    (milestone 6)
+app.$workspaceId.projects.$projectId.tsx
+app.$workspaceId.notes.index.tsx       (milestone 5)
+app.$workspaceId.notes.$noteId.tsx
+app.$workspaceId.calendar.tsx
+app.$workspaceId.trash.tsx
+app.$workspaceId.integrations.tsx
+app.$workspaceId.settings.tsx
 ```
 
 Route files stay thin: `validateSearch`, `loader`, `beforeLoad`, and a component that composes a
@@ -150,112 +161,98 @@ IPC, no router (its ESLint layering already enforces no `@main`/`@common` import
 
 ## Router setup
 
+Built in milestone 1. [routing.md](routing.md) is the design note: the model, how a switch flows,
+and the TanStack Router behaviours it relies on, each checked by a test.
+
 ### Install and build
 
-- Add `@tanstack/react-router` and, as dev dependencies, `@tanstack/router-plugin` and
-  `@tanstack/react-router-devtools` (devtools only in development builds).
-- `vite/renderer.config.ts`: add `tanstackRouter({ target: 'react', routesDirectory:
-'src/renderer/routes', generatedRouteTree: 'src/renderer/routeTree.gen.ts', autoCodeSplitting:
-false })` **before** the React plugin. Check that the plugin runs on Vite 8 when installing; if it
-  doesn't yet, fall back to code-based routes (the same tree in `src/renderer/router.tsx`) and keep
-  everything else in this plan.
-- Storybook: the components never import the router, so Storybook needs no change. Page stories,
-  if added later, wrap in a memory-history router.
-- ESLint/Prettier: ignore `routeTree.gen.ts`; keep the rule that the renderer imports `@main` as
-  types only.
+- `@tanstack/react-router` 1.170.46, and as dev dependencies `@tanstack/router-plugin` 1.168.48
+  and `@tanstack/react-router-devtools` 1.167.2, pinned exactly. The devtools load only in
+  development (`import.meta.env.DEV`), so a production build drops them. Prettier stays pinned at
+  3.8.4 (the plugin's install bumps it).
+- `vite/renderer.config.ts` runs `tanstackRouter(routerGeneratorConfig)` before the React plugin;
+  the config (`vite/router-generator.ts`) has no code splitting. The plugin runs on Vite 8.
+- `src/renderer/routeTree.gen.ts` is checked in and ignored by ESLint and Prettier; `npm run
+routes` regenerates it without a build.
+- Storybook needs no change: the components never import the router.
 
 ### `src/renderer/router.tsx`
 
-```ts
-export const router = createRouter({
-  routeTree,
-  history: createHashHistory(),
-  context: { queryClient, trpc, ipc },
-  defaultPreload: 'intent', // hover a row: its page's loader primes the cache
-  defaultPreloadStaleTime: 0, // React Query decides freshness
-  defaultPendingMs: 150, // pending UI only when IPC is slow (a provider fetch)
-  defaultNotFoundComponent: NotFoundPage,
-  defaultErrorComponent: RouteErrorPage,
-  scrollRestoration: true,
-});
-declare module '@tanstack/react-router' {
-  interface Register {
-    router: typeof router;
-  }
-}
-```
-
-`main.tsx` renders `<RouterProvider router={router} />` in place of `<App />`, inside the existing
-providers. `App.tsx` and its test pages are deleted once `/app` renders the shell (milestone 2).
+`createAppRouter({ history, context })` makes the router; `main.tsx` calls it once with
+`createHashHistory()`, and the tests with memory history. Context:
+`{ queryClient, trpc, ipc, workspaces: WorkspaceSession, splash: SplashGate, devBrainAvailable }`.
+Options: `defaultPreload: 'intent'`, `defaultPreloadStaleTime: 0`, `defaultPendingMs: 150` with
+`PagePending`, `NotFoundPage`, `RouteErrorPage`, `scrollRestoration: true` and
+`scrollToTopSelectors: ['[data-slot="page-scroll"]']` (pages scroll inside `AppShell`, not the
+window). It settles the splash on `onResolved`, and follows outside changes to the open workspace
+(a delete or close → `/onboarding`; another workspace opened elsewhere → its link).
+`refetchOnWindowFocus` is off on the query client.
 
 ### Root route (`__root.tsx`)
 
-Renders, around `<Outlet/>`:
+- `ToastProvider`, around the page.
+- **The splash**, drawn _in place of_ the page while `SplashGate` is visible: from the moment a
+  workspace starts opening until the navigation has resolved, held at least 600ms. On the first
+  load the root's `pendingComponent` (`RootPending`, `pendingMs: 0`) draws it, which needs the
+  root's `beforeLoad`.
+- **DevBrain unavailable:** the root's `beforeLoad` (it runs on every navigation) throws when the
+  initial load context says `devBrainAvailable: false`, and its `errorComponent` says "DevBrain
+  couldn't open its data folder", with Show Log File (`app.showLogFile`).
 
-- `ToastProvider` (not mounted anywhere today).
-- The **workspace-switch splash overlay**: `useHeldFor(useOpeningWorkspace() !== null, 600)` draws
-  `<OnboardingScreen logo={<Logomark size="lg" pulse/>}/>` over everything. When the open
-  completes, `workspace.changed` (`{ id: new, opening: null }`) triggers a navigation to the new
-  workspace's landing page (see below); `openFailed` (`{ id: null, opening: null }`) navigates to
-  `/onboarding` with an error toast.
-- `devbrain_unavailable`: when the initial load context says `devBrainAvailable: false`, the root
-  renders a full-window error ("DevBrain couldn't open its data folder", with Show Log File) and no
-  outlet.
+### Boot
 
-### Boot: `/` (splash)
+There is no boot route. Main opens the window on `#/app/<last workspace>` (or its last page with
+"Reopen last page" on), or `#/onboarding` (`initialRoute`, `src/main/runtime/last-page.ts`).
+`/app/$workspaceId` opens the workspace under the splash; on a reload it is open already, so
+nothing reopens and no splash shows. `/` (an empty hash) redirects to the open workspace or
+onboarding. `workspaces.openLast` is removed.
 
-`/` is where the app starts (an empty hash). Its component draws the splash and runs boot once:
-
-1. If `workspaces.current` (seeded) is set, a reload: redirect at once to the current URL's
-   intended page. A reload keeps its hash, so `/` is only reached on a cold start.
-2. Otherwise call `workspaces.openLast`. The splash says "Opening ‹last.name›…" from the initial
-   load context's `last`, and is held 600ms as today.
-3. On success, redirect to the **landing page**; on `null` (nothing to reopen) or failure, redirect
-   to `/onboarding` (choose workspace if the list is not empty, else Welcome).
-
-The **landing page** is one function, `landingPage(settings, state)`: `state.lastPage` when
-`general.openToLastPage` is on and it parses as an `/app/*` location, else
-`/app/${general.defaultLandingPage}`. `lastPage` is the opened workspace's
-(`WorkspaceInfo.lastPage`, Main-process changes, S2).
+The **landing page** is one function, `landingHref(settings, workspace, id)`
+(`src/renderer/workspace/landing.ts`), used by `/app/$workspaceId/`: `WorkspaceInfo.lastPage` when
+`general.openToLastPage` is on and it is that workspace's page (and not the index itself), else
+`/app/<id>/<general.defaultLandingPage>`.
 
 ### Guards
 
-- `/app` `beforeLoad`: if `queryClient.getQueryData(workspaces.current)` is null, `throw
-redirect({ to: '/onboarding' })`. The seeded cache makes this synchronous.
-- `/onboarding` `beforeLoad`: if a workspace is open, redirect to `/app`, with no exceptions. The
-  sidebar's "New workspace…" opens the Create workspace dialog instead of navigating here.
-- A `no_workspace_open` error from any call (a workspace closed under the page) redirects to
-  `/onboarding` from a `QueryCache`/`MutationCache` `onError` set on `queryClient`.
+- `/app/$workspaceId` `beforeLoad` opens the workspace its URL names (`WorkspaceSession.ensureOpen`)
+  rather than guarding: there is no "no workspace open" state in it. Its id is checked as a
+  workspace id (anything else is not found). A failed open is its `errorComponent`, by error code,
+  with the way back.
+- A preload (`preload: true`) into a workspace that isn't settled open throws `PreloadSkipped`,
+  which ends the preload before any page's loader runs: a preload never opens a workspace.
+- `/onboarding` `beforeLoad`: with a workspace open (Back from the app's first page), redirect to
+  it. The sidebar's "New workspace…" opens the Create workspace dialog instead of navigating here.
+- A workspace closed under the page (deleted, or closed elsewhere) arrives as `workspace.changed`,
+  and the router sends the window to `/onboarding`.
 
 ### Remembering the page
 
 Each workspace remembers its own last page, in its folder's manifest (`workspace.json`), so it
 moves with the folder to another computer. Main saves it, and the renderer only reads it back.
 
-- **Tracking:** the router keeps its location in the URL's hash, so the window's URL says where the
-  app is. Main follows the window's navigations (`did-navigate-in-page`) and keeps the last `/app`
-  location in memory, the path plus search params (e.g. `/app/tasks?view=board`).
-- **Saving:** when a workspace closes (on quit, and on a switch before the next one opens), main
-  writes that location to the workspace's manifest with `WorkspaceService.setLastPage` (S2,
-  `src/main/runtime/last-page.ts`).
-- **Reading:** `WorkspaceInfo.lastPage` carries it, so the renderer reads it from the workspace it
-  opened (`openLast` at boot, `workspaces.current` after a switch). Each workspace reopens on its
-  own page.
-- Nothing goes over IPC as the user navigates, so filter changes, the calendar's ‹ › and sheets
-  cost nothing, and there is no debounce.
-- Main tracks the URL as it changes rather than reading it at close: on Windows and Linux, closing
-  the window destroys it before the workspace closes.
-- A crash saves nothing, so the page saved at the last close stays.
-- Main can't tell a not-found page from a real one, so a deleted entity's page can be saved. Opening
-  the workspace lands on it and shows not-found, from which Go Home works.
+- **The page names its workspace:** `/app/wsp_…/tasks?view=board` (`lastPageSchema`,
+  `src/common/types/settings.ts`; `workspaceIdOfPage`). `WorkspaceService.setLastPage` refuses
+  another workspace's page.
+- **Tracking:** main follows the window's navigations (`did-navigate-in-page`) and keeps the last
+  page seen **in each workspace**. Per workspace because the URL moves to the next workspace's page
+  as a switch starts, before the old one closes.
+- **Saving:** when a workspace closes (a switch, a delete, quit), main writes that workspace's own
+  page to its manifest (`saveLastPageOnClose`, S2).
+- **Reading:** main reads it for the window's first route; the index route reads it from the
+  opened workspace's `WorkspaceInfo.lastPage`.
+- Nothing goes over IPC as the user navigates, and a crash saves nothing (the page saved at the
+  last close stays). Main can't tell a not-found page from a real one, so a deleted entity's page
+  can be saved; opening the workspace lands on it and shows not-found, from which Go Home works.
 
 ### Back and forward
 
-`AppShell` gets `onBack={() => router.history.back()}`, `onForward`, and `canGoBack` from
-`useCanGoBack()`; `canGoForward` needs a small hook over `router.history` (index vs length, both
-on `history.location.state.__TSR_index`). Search-param changes that only reflect UI state (a
-toolbar value, the calendar's date) navigate with `replace: true`, so Back goes to the previous
-_page_, not the previous filter; opening a sheet (`open=…`) pushes, so Back closes it.
+`AppShell` gets `onBack={() => router.history.back()}`, `onForward`, and `canGoBack`/`canGoForward`
+from `useHistoryPosition` (the entry's `__TSR_index` against `router.history.length`). Back and
+Forward to another workspace's page open it again under the splash; rapid Back and Forward end with
+the last navigation's workspace open (`WorkspaceService` serialises opens, and `ensureOpen` queues
+one for each workspace asked). Search-param changes that only reflect UI state (a toolbar value,
+the calendar's date) navigate with `replace: true`, so Back goes to the previous _page_, not the
+previous filter; opening a sheet (`open=…`) pushes, so Back closes it.
 
 ## Search params
 
@@ -565,24 +562,30 @@ favorites and pills.
 
 ## App-wide pieces
 
-### App layout (`/app`)
+### App layout (`/app/$workspaceId`)
 
-`AppShell` with:
+`AppShell` with (built in milestone 1, except where marked):
 
-- **Sidebar header:** `WorkspaceMenu` (moved from `App.tsx`; "New workspace…" opens the Create
-  workspace dialog, which creates and opens it under the switch splash; "Open folder…" calls
-  `workspaces.importFolder` then `workspaces.open`), Search (⌘K) and New task (C) actions.
+- **Sidebar header:** `WorkspaceMenu` (`src/renderer/pages/app/WorkspaceMenu.tsx`): picking a
+  workspace navigates to its link; "New workspace…" opens the Create workspace dialog, which
+  creates it and navigates to it; "Open folder…" calls `workspaces.importFolder`, then navigates
+  to the workspace added (errors in the import error dialog); "Show in Finder". Search (⌘K) and New
+  task (C) actions come with milestones 9 and 4.
 - **Nav:** Home, Tasks, Projects, Notes, Calendar, Integrations, as `SidebarItem render={<Link
-to=… />}` with `active` from `useMatchRoute` (a detail page keeps its section active).
-- **Recents:** `recents.list({ limit: 5 })`; **Favorites:** `favorites.list({ limit: 5 })` with
-  "More". Items open with `useOpenEntity`. Collapsed sidebar shows these as flyouts (`7167:14942`).
-- **Footer:** `SyncStatus` (from `sync.status`, kept fresh by `sources.changed` and
-  `sync.progress` events; Retry calls `sync.now`), Trash (`/app/trash`), Settings, and Help, drawn
-  disabled until there is something behind it. The keyboard shortcuts dialog opens with `?` and
+to=… />}` with `active` from `useMatchRoute` (fuzzy, so a detail page keeps its section active).
+- **Recents** and **Favorites** (milestone 3): `recents.list({ limit: 5 })`;
+  `favorites.list({ limit: 5 })` with "More". Items open with `useOpenEntity`. Collapsed sidebar
+  shows these as flyouts (`7167:14942`).
+- **Footer:** Trash, Settings, and Help, drawn disabled until there is something behind it.
+  `SyncStatus` (from `sync.status`, kept fresh by `sources.changed` and `sync.progress` events;
+  Retry calls `sync.now`) comes with milestone 3. The keyboard shortcuts dialog opens with `?` and
   from ⌘K.
-- **Header:** each page renders its own `PageHeader` (breadcrumb, actions) through a small
-  `usePageHeader(node)` slot, since `AppShell` takes `header` as a prop and the route below
-  decides it. Breadcrumbs come from route `staticData.crumb` plus the entity title on detail pages.
+- **Header:** each page's title from its route's `staticData.title`, as a `Breadcrumb` in the
+  `PageHeader`. Milestone 3 replaces it with the `usePageHeader(node)` slot (breadcrumbs with the
+  entity title, page actions).
+- **Pages:** placeholders (`src/renderer/pages/app/placeholders.tsx`) whose loaders prime real
+  queries and list what they load, until each page's milestone. Not-found (`NotFoundPage`) and
+  error (`RouteErrorPage`, with Retry) pages draw inside the shell; slow pages show `PagePending`.
 - **Recording views:** detail routes call `recents.recordView({ id })` once per visit (an effect
   keyed on the id), as the IPC design expects.
 
@@ -683,26 +686,30 @@ already composes them), the IPC calls, and the states to handle. Every list has 
 (`TaskRowSkeleton`, `NoteCardSkeleton`), an empty state, a "no results for this filter" state with
 "Clear filters" (`7175:36459`), and an error state with Retry (`7426:44078`).
 
-### Splash (`/`)
+### Splash
 
-Covered under Router setup. Figma `7175:19848`: logomark, "Opening ‹name›…", version from
-`app.version`.
+Built (milestone 1). Figma `7175:19848`: logomark, "DevBrain", a progress bar, "Opening ‹name›…",
+the version from `app.version`. See Root route.
 
 ### Onboarding (`/onboarding/*`)
 
 Layout: `OnboardingScreen` with the window bar (traffic lights or the Windows menu button) and no
 sidebar.
 
+**Built in milestone 2** (`src/renderer/pages/onboarding`, `pages/workspaces`). Each open is a
+navigation to the workspace's link (`/app/<id>`), which opens it under the splash.
+
 - **Welcome** (`/onboarding`, `7175:19898`; with workspaces `7285:53770`): with no workspaces,
   "Create Workspace" → `new_workspace`, "Open Existing Folder…" → `workspaces.importFolder` then
-  `workspaces.open`, "What's a workspace?" drawn disabled (no help yet). With workspaces, the
-  "Recent workspaces" card: the list sorted by `lastOpenedAt` (client side), each opening with
-  `workspaces.open`, then the same two buttons. The splash overlay covers the open; on
-  `workspace.changed` the root navigates to the landing page.
+  the workspace's link, "What's a workspace?" drawn disabled (no help yet). With workspaces, the
+  "Recent workspaces" card: the five most recently opened (sorted client side by `lastOpenedAt`),
+  each going to its link, "All workspaces" when there are more, then the same two buttons.
 - **Create workspace** (`/onboarding/new_workspace`, `7175:20087`): `CreateWorkspaceForm` (name
   `Input`, `SwatchPicker`, live `WorkspaceTile` preview) on the onboarding card. Submit:
-  `workspaces.create`, then `workspaces.open` with its id. "← Back" to Welcome. Inside the app the
-  same form is the Create workspace dialog.
+  `workspaces.create`, then the new workspace's link. "← Back" to Welcome. Inside the app the
+  same form is the Create workspace dialog (`7760:61527`/`7760:61769`). The colour is stored as
+  the swatch's hex (`SWATCH_HEX`, `src/renderer/workspace/colors.ts`), and a stored colour is drawn
+  as the nearest swatch.
 - **Why a dialog inside the app** (Figma `7760:61527`), rather than the onboarding page or a page
   of its own:
   - **It's a short form.** A name and a colour, the same size as the other create dialogs (the
@@ -719,11 +726,16 @@ sidebar.
   you're looking at.
 
 - **Choose workspace** (`/onboarding/choose_workspace`): the full `WorkspaceList` (all workspaces,
-  `workspaces.list` paged), for when the Welcome card shows only recent ones. Same open flow.
-- **Errors** (`7423:37060`–`7423:37281`) from `importFolder`/`open`, shown inline on Welcome by
-  code: `workspace_import`, by its `data.reason` (`not_a_workspace`; `already_added`, which names
-  the workspace already listed so the error can offer "Open it"), `workspace_too_new` (needs a
-  newer DevBrain), `workspace_data_missing` (folder missing, with "Remove from list").
+  `workspaces.list` as an infinite query, 20 a page, "Show More"), for when the Welcome card shows
+  only recent ones. Same open flow.
+- **Errors** (`7423:37060`–`7423:37281`). From `importFolder`, a dialog where the button was
+  (`ImportErrorDialog`), by code: `workspace_import` by its `data.reason` (`not_a_workspace`,
+  with "Choose Another Folder"; `already_added`, with "Open It"; `unreadable`) and
+  `workspace_too_new`. From an open (`workspace_data_missing`: the folder is missing;
+  `workspace_too_new`; `workspace_migration`; `not_found`), the `/app/$workspaceId` route's error
+  screen, since an open is a navigation: why, then "Back to ‹the workspace still open›" or "Choose a
+  Workspace". Figma's "Locate Folder…" and "Remove from list" have no route behind them yet (see
+  Open questions).
 
 ### Home (`/app/home`)
 
@@ -784,7 +796,7 @@ composition in `screens/Tasks`.
 - **Board**: a `BoardColumn` per status (Not started, In progress, Completed; Cancelled hidden
   unless filtered), `BoardCard`s, dashed "Add task". Clicking a card sets `?open=tsk_…`, showing
   the **task sheet** (`7175:31599`) docked beside the board (floating in compact windows, as
-  `SheetPage` in `App.tsx` does with `shell.sheetContainer`); its ⤢ goes to `/app/tasks/$taskId`.
+  the old test bench's `SheetPage` did with `shell.sheetContainer`); its ⤢ goes to `/app/tasks/$taskId`.
   Drag between columns → `tasks.updateStatus` (optimistic). No manual order within a column (core
   has no position; see T4).
 - **Selection bar**: Status, Priority, Due date, Move (project), more (Move to trash). Until bulk
@@ -1083,9 +1095,10 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 - **S1 (done): partial settings update.** `settings.update` replaces the whole object, so two quick edits
   can race. Add `settings.set({ path, value })` over core's dot-path `set` (with the value checked
   against the path's schema), and `settings.reset`.
-- **S2 (needed for "Reopen last page"): each workspace's last page, in its manifest.** Main
-  follows the window's URL and writes the last `/app` location to the closing workspace's
-  `workspace.json` (see Remembering the page); there is no route. `WorkspaceInfo.lastPage` carries
+- **S2 (done): each workspace's last page, in its manifest.** Main follows the window's URL, keeps
+  the last page seen in each workspace, and writes the closing workspace's own to its
+  `workspace.json` (see Remembering the page); there is no route. The page names its workspace
+  (`/app/wsp_…/…`). `WorkspaceInfo.lastPage` carries
   it, so the renderer reads it from the workspace it opened, and a moved folder brings it along.
   Validate it as an `/app` path string of bounded length; the renderer parses it again before
   navigating. The unused `state.lastPage` is removed from the settings file's schema.
@@ -1218,13 +1231,15 @@ Each milestone ends with the app runnable (`npm run dev`) and the checks passing
 typecheck`, `npm run lint`, `npm test`). Main-process changes land as their own PRs ahead of the
 page that needs them.
 
-1. **Router foundation.** Install the router and plugin; `router.tsx`, root route with
-   `ToastProvider` and the switch-splash overlay; `/` boot; `/onboarding` and `/app` layouts with
-   guards; `/app` renders `AppShell` with the real sidebar (nav, workspace menu) and placeholder
-   pages; back/forward wired; `App.tsx` removed; `refetchOnWindowFocus` off. _Main:_ S2 (last
-   page).
-2. **Onboarding.** Welcome, Create workspace (the shared form, also as the in-app dialog), Choose
-   workspace, error states.
+1. **Router foundation (done).** The router and plugin; `router.tsx`; the root route with
+   `ToastProvider`, the splash and the DevBrain-unavailable screen; `/onboarding` and
+   `/app/$workspaceId` layouts, the latter opening the workspace its URL names; `AppShell` with the
+   real sidebar (nav, workspace menu) and placeholder pages loading real data; not-found and error
+   pages; back/forward wired; scroll restoration; `App.tsx` and `workspace-opening.ts` removed;
+   `refetchOnWindowFocus` off. _Main:_ the window's first route (`initialRoute`), S2 per
+   workspace, `app.showLogFile`, `workspaces.openLast` removed.
+2. **Onboarding (done).** Welcome, Create workspace (the shared form, also as the in-app dialog),
+   Choose workspace, Open Existing Folder, error states.
 3. **Shared app pieces.** Entity components moved to core's shapes, with `FormatProvider`
    (luxon), after X1 moves the shared types; `TaskList`, `BoardColumn` and `CardGrid` virtualized; `useOpenEntity`; error
    toast and `useConfirm`; Recents/Favorites/SyncStatus in the sidebar; page header slot and
@@ -1260,10 +1275,10 @@ Milestones 4–7 are independent after 3 and can run in parallel.
   FullCalendar's expansion (series, EXDATEs, occurrence rows, all-day, DST change), Home's summary
   and section choice, the capture box parser, and the key dispatcher (sequences, scopes, typing
   targets, `mod` per platform).
-- **Routing (Vitest, happy-dom):** a memory-history router over the real route tree with a fake
-  `ipc` (the link already takes a `bridge`): boot redirects (no workspace → onboarding; workspace →
-  landing page; `openToLastPage`), the `/app` guard, not-found for a missing task, `open` param
-  opening and Back closing the sheet.
+- **Routing (Vitest, happy-dom):** built in `src/renderer/tests/routing`: a memory-history router
+  over the real route tree, with a fake main behind the IPC bridge (`fake-main.ts`). See
+  [routing.md](routing.md) § Tests. Later milestones add: not-found for a missing task, `open`
+  param opening and Back closing the sheet.
 - **Pages:** a smoke test per page that renders with fixture data through the fake bridge and
   checks its main states (loading, empty, data). Keep them few; the components' stories already
   cover how they look.
@@ -1278,7 +1293,14 @@ sheet is their detail view); the calendar uses FullCalendar; new workspaces from
 a dialog; Help stays disabled until there is help; paths and param values use snake case; Hide
 weekends is a calendar setting; the shared types move to `src/common`; Home greets without a name.
 
-None. Every question raised in review is settled, including dropping the user's name from Home (S4).
+Raised by milestones 1–2:
+
+- **A missing folder** (`7423:37281`) offers "Locate Folder…" in Figma, and a stale entry "Remove
+  from list": neither has a route (core can only delete the _open_ workspace, and importing the
+  moved folder fails as `already_added`). The error screen offers Back or Choose a Workspace until
+  one is added.
+- **Two windows** on different workspaces would fight (main opens one at a time); see
+  [routing.md](routing.md).
 
 ## Out of scope
 

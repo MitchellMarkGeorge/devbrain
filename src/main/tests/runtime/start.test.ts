@@ -10,7 +10,8 @@ import type { WorkspaceId } from '@common/ids';
 import { WORKSPACE_OPTIONS } from '@main/core/tests/utils';
 import { openFileSettingsStore } from './__mocks__/file-store';
 import { DevBrain, openDevBrain } from '@main/core';
-import { lastOpenedWorkspace, loadDevBrain, openLastWorkspace } from '../../runtime/start';
+import { lastOpenedWorkspace, loadDevBrain } from '../../runtime/start';
+import { initialRoute } from '../../runtime/last-page';
 
 // Which DevBrain folder and workspace the app opens at start. Settings are kept in the folder's
 // settings.json, as electron-store keeps them, so a setting one DevBrain writes is read at the next
@@ -91,7 +92,7 @@ describe('loadDevBrain', () => {
     expect(started!.workspaces.listAll().items).toEqual([]);
   });
 
-  it('opens no workspace, even the one open last time: the renderer asks (openLastWorkspace)', async () => {
+  it('opens no workspace, even the one open last time: the renderer opens what its route names', async () => {
     const { devBrain, ids } = await folderWith('Last');
     devBrain.settings.set('state.lastWorkspaceId', ids[0]);
     started = await loadDevBrain({
@@ -120,7 +121,7 @@ describe('loadDevBrain', () => {
   });
 });
 
-describe('openLastWorkspace', () => {
+describe('initialRoute', () => {
   const load = async () =>
     (started = await loadDevBrain({
       settingsStore: openFileSettingsStore,
@@ -130,68 +131,42 @@ describe('openLastWorkspace', () => {
       logger: quietLogger(),
     }))!;
 
-  it('reopens the workspace open last time, which starts syncing', async () => {
-    const { devBrain, ids } = await folderWith('First', 'Last');
-    devBrain.settings.set('state.lastWorkspaceId', ids[1]);
-    const loaded = await load();
-    const opened = await openLastWorkspace(loaded);
-    expect(opened?.info.id).toBe(ids[1]);
-    expect(loaded.currentWorkspace).toBe(opened);
-    expect(loaded.currentWorkspace!.sync.getStatus()).toEqual([]);
-  });
-
-  it('opens none when none was open last time, leaving the choice to the user', async () => {
-    await folderWith('First', 'Second');
-    const loaded = await load();
-    expect(await openLastWorkspace(loaded)).toBeNull();
-    expect(loaded.currentWorkspace).toBeNull();
-  });
-
-  it('opens none when the last workspace has been deleted since', async () => {
-    const { devBrain } = await folderWith('First');
+  it('is onboarding without DevBrain, with no last workspace, or when it has been deleted', async () => {
+    expect(initialRoute(null)).toBe('/onboarding');
+    const { devBrain } = await folderWith('First', 'Second');
+    expect(initialRoute(devBrain)).toBe('/onboarding');
     devBrain.settings.set('state.lastWorkspaceId', 'wsp_gone');
+    expect(initialRoute(devBrain)).toBe('/onboarding');
+  });
+
+  it('is the last workspace, opening nothing: the renderer opens what its route names', async () => {
+    const { devBrain, ids } = await folderWith('First', 'Last');
+    devBrain.settings.set('state.lastWorkspaceId', ids[1]);
+    devBrain.settings.set('settings.general.openToLastPage', false);
+    devBrain.workspaces.setLastPage(ids[1], `/app/${ids[1]}/notes`);
     const loaded = await load();
-    expect(await openLastWorkspace(loaded)).toBeNull();
+    expect(initialRoute(loaded)).toBe(`/app/${ids[1]}`);
     expect(loaded.currentWorkspace).toBeNull();
   });
 
-  it('returns the workspace already open, never reopening it, as on a reload', async () => {
-    const { devBrain, ids } = await folderWith('First', 'Last');
-    devBrain.settings.set('state.lastWorkspaceId', ids[1]);
-    const loaded = await load();
-    const first = await loaded.workspaces.open(ids[0]);
-    const spy = vi.spyOn(Workspace, 'open');
-    try {
-      expect(await openLastWorkspace(loaded)).toBe(first);
-      expect(spy).not.toHaveBeenCalled();
-    } finally {
-      spy.mockRestore();
-    }
-  });
-
-  it('opens once when asked twice at once, as StrictMode or two windows would', async () => {
+  it("is the last workspace's last page with Reopen last page on", async () => {
     const { devBrain, ids } = await folderWith('Last');
     devBrain.settings.set('state.lastWorkspaceId', ids[0]);
-    const loaded = await load();
-    const spy = vi.spyOn(Workspace, 'open');
-    try {
-      const [a, b] = await Promise.all([openLastWorkspace(loaded), openLastWorkspace(loaded)]);
-      expect(a).toBe(b);
-      expect(spy).toHaveBeenCalledOnce();
-    } finally {
-      spy.mockRestore();
-    }
+    devBrain.settings.set('settings.general.openToLastPage', true);
+    expect(initialRoute(devBrain)).toBe(`/app/${ids[0]}`);
+    devBrain.workspaces.setLastPage(ids[0], `/app/${ids[0]}/tasks?view=board`);
+    expect(initialRoute(devBrain)).toBe(`/app/${ids[0]}/tasks?view=board`);
   });
 
-  it('throws for a workspace that fails to open, leaving none open', async () => {
-    const { devBrain, ids } = await folderWith('Dev');
-    devBrain.settings.set('state.lastWorkspaceId', ids[0]);
-    await fs.rm(devBrain.workspaces.getById(ids[0]).path, { recursive: true });
-    const loaded = await load();
-    await expect(openLastWorkspace(loaded)).rejects.toMatchObject({
-      name: 'WorkspaceDataMissingError',
-    });
-    expect(loaded.currentWorkspace).toBeNull();
+  it('is the open workspace when one is open, on the last page the window showed in it', async () => {
+    const { devBrain, ids } = await folderWith('First', 'Last');
+    devBrain.settings.set('settings.general.openToLastPage', true);
+    await devBrain.workspaces.open(ids[0]);
+    devBrain.settings.set('state.lastWorkspaceId', ids[1]);
+    expect(initialRoute(devBrain)).toBe(`/app/${ids[0]}`);
+    const seen = { of: (id: WorkspaceId) => (id === ids[0] ? `/app/${ids[0]}/calendar` : null) };
+    expect(initialRoute(devBrain, seen)).toBe(`/app/${ids[0]}/calendar`);
+    await devBrain.close();
   });
 });
 
@@ -222,7 +197,7 @@ describe('startup shutdown', () => {
       return workspace;
     });
     try {
-      // as the app starts: load DevBrain, hook quit to its close, then the renderer's openLast
+      // as the app starts: load DevBrain, hook quit to its close, then the renderer's open
       const loaded = await loadDevBrain({
         settingsStore: openFileSettingsStore,
         rootPath,
@@ -233,7 +208,7 @@ describe('startup shutdown', () => {
       started = loaded;
       const app = Object.assign(new EventEmitter(), { quit: vi.fn<() => void>() });
       closeBeforeQuit(app, () => loaded!.close(), quietLogger());
-      const reopening = openLastWorkspace(loaded!);
+      const reopening = loaded!.workspaces.open(ids[0]);
       const workspace = await opening.promise;
 
       const event = { preventDefault: vi.fn() };

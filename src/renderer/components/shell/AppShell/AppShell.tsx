@@ -272,7 +272,10 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
           {headerRow && <div className={styles.header}>{header}</div>}
           <main className={styles.main}>
             {!hidden && !headerRow && header}
-            <div className={styles.scroll}>{children}</div>
+            {/* data-slot: the app's router scrolls this to the top on a new page */}
+            <div className={styles.scroll} data-slot="page-scroll">
+              {children}
+            </div>
           </main>
           <div
             ref={sheetContainer}

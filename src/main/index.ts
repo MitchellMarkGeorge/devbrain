@@ -21,7 +21,7 @@ import { migrationsPath } from './runtime/migrations';
 import { openElectronSettingsStore } from './runtime/settings-store';
 import { loadDevBrain } from './runtime/start';
 import { closeBeforeQuit, forwardSyncTriggers, holdSingleInstance } from './runtime/lifecycle';
-import { saveLastPageOnClose } from './runtime/last-page';
+import { initialRoute, saveLastPageOnClose, type LastPages } from './runtime/last-page';
 import { createElectronDesktop } from './runtime/desktop';
 import { createMenuActions, installAppMenu } from './runtime/menu';
 import { applyTheme, windowBackground } from './runtime/theme';
@@ -63,6 +63,9 @@ function configureLogging() {
   log.transports.file.resolvePathFn = () => path.join(os.homedir(), 'devteam', 'logs');
 }
 
+// where electron-log writes: the menu's Show Log File, and app.showLogFile
+const logFilePath = () => log.transports.file.getFile().path;
+
 // --- DevBrain -------------------------------------------------------------
 const devBrainLog = log.scope('devbrain');
 
@@ -73,7 +76,8 @@ function devBrainRootPath(): string {
   return process.env.DEVBRAIN_PATH ?? path.join(os.homedir(), '.devbrain');
 }
 
-// Opens the DevBrain folder, and no workspace yet: the renderer opens one (workspaces.openLast).
+// Opens the DevBrain folder, and no workspace yet: the window opens on the last workspace's route,
+// and the renderer opens the workspace its route names (runtime/last-page.ts, initialRoute).
 // Must run after `ready`: net.fetch and safeStorage's async API are only usable from then. Null
 // when there is no DevBrain folder in development, or the folder is invalid. Never rejects: a
 // failure is logged, and the window stays up.
@@ -128,7 +132,7 @@ function attachIpc(devBrain: DevBrain | null) {
         ...call,
         devBrain,
         desktop: createElectronDesktop(
-          { dialog, shell, menu: Menu },
+          { dialog, shell, menu: Menu, logFilePath },
           BrowserWindow.fromWebContents(call.event.sender),
         ),
         log: ipcLog,
@@ -158,6 +162,9 @@ let mainWindow: BrowserWindow | null = null;
 let quitting = false;
 // set once startup has made the first window: a launch before that waits for it
 let started = false;
+// what the window's first route is read from: DevBrain, and the last page seen in each workspace
+let devBrainLoaded: DevBrain | null = null;
+let lastPages: LastPages | undefined;
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -196,11 +203,17 @@ function createWindow() {
   mainWindow = win;
   hardenWindow(win);
 
+  // The route names the workspace the page opens (docs/renderer/routing.md): the one open last
+  // time, on its last page when "Reopen last page" is on, or onboarding. The renderer's hash
+  // history reads it from the URL's hash; a reload keeps it.
+  const route = initialRoute(devBrainLoaded, lastPages);
   if (process.env.VITE_DEV_SERVER_URL) {
-    win.loadURL(process.env.VITE_DEV_SERVER_URL);
+    const url = new URL(process.env.VITE_DEV_SERVER_URL);
+    url.hash = route;
+    win.loadURL(url.toString());
     win.webContents.openDevTools({ mode: 'detach' });
   } else {
-    win.loadFile(path.join(__dirname, '../renderer/index.html'));
+    win.loadFile(path.join(__dirname, '../renderer/index.html'), { hash: route });
   }
 }
 
@@ -263,10 +276,10 @@ function attachMenu(devBrain: DevBrain | null) {
     actions: createMenuActions({
       devBrain,
       window: focusedWindow,
-      desktop: (win) => createElectronDesktop({ dialog, shell, menu: Menu }, win),
+      desktop: (win) => createElectronDesktop({ dialog, shell, menu: Menu, logFilePath }, win),
       dialog,
       showItemInFolder: (fullPath) => shell.showItemInFolder(fullPath),
-      logFilePath: () => log.transports.file.getFile().path,
+      logFilePath,
       logger: log.scope('menu'),
     }),
   });
@@ -274,20 +287,22 @@ function attachMenu(devBrain: DevBrain | null) {
 
 // --- App lifecycle --------------------------------------------------------
 // Startup, in order: load DevBrain; attach everything that follows it, before anything starts;
-// then create the window, whose first calls find the router. The renderer reopens the last
-// workspace itself (workspaces.openLast), so a slow open never holds the window back.
+// then create the window, whose first calls find the router. The window opens on the last
+// workspace's route and the renderer opens it (under its splash), so a slow open never holds the
+// window back.
 app.whenReady().then(async () => {
   // another instance runs: this one is quitting, and opens nothing
   if (!isOnlyInstance) return;
   configureLogging();
 
   const devBrain = await loadCore();
+  devBrainLoaded = devBrain;
   attachIpc(devBrain);
   if (devBrain !== null) {
     // before the last workspace opens, so the tracker follows it from the start
     changeTracker.watch(devBrain);
     // "Reopen last page": the page the window was on when the workspace closed, quitting included
-    saveLastPageOnClose(app, devBrain);
+    lastPages = saveLastPageOnClose(app, devBrain);
     // Holds the quit until DevBrain has closed. A close waits for a workspace still opening, as
     // WorkspaceService queues its transitions
     closeBeforeQuit(app, () => devBrain.close(), devBrainLog);

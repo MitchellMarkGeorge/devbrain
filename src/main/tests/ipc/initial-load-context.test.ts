@@ -23,7 +23,6 @@ describe('initialLoadContext', () => {
     expect(initialLoadContext(null)).toEqual({
       devBrainAvailable: false,
       current: null,
-      last: null,
       workspaces: { items: [], nextCursor: null },
       theme: 'system',
     });
@@ -33,7 +32,6 @@ describe('initialLoadContext', () => {
     expect(initialLoadContext(devBrain)).toEqual({
       devBrainAvailable: true,
       current: null,
-      last: null,
       workspaces: { items: [], nextCursor: null },
       theme: 'system',
     });
@@ -44,23 +42,21 @@ describe('initialLoadContext', () => {
     expect(initialLoadContext(devBrain).theme).toBe('dark');
   });
 
-  it('names the workspace openLast would open while none is open', async () => {
+  it('lists the workspaces, and has none open until the renderer opens one', async () => {
     const work = await createWorkspace(devBrain, 'Work');
     await createWorkspace(devBrain, 'Home');
     devBrain.settings.set('state.lastWorkspaceId', work);
 
     const context = initialLoadContext(devBrain);
     expect(context.current).toBeNull();
-    expect(context.last).toMatchObject({ id: work, name: 'Work' });
     expect(context.workspaces.items.map(({ name }) => name)).toEqual(['Work', 'Home']);
   });
 
-  it('has the open workspace, and no last one to open, once one is open', async () => {
+  it('has the open workspace once one is open, as on a reload', async () => {
     const work = await createWorkspace(devBrain, 'Work');
-    devBrain.settings.set('state.lastWorkspaceId', work);
     await devBrain.workspaces.open(work);
 
-    expect(initialLoadContext(devBrain)).toMatchObject({ current: { id: work }, last: null });
+    expect(initialLoadContext(devBrain)).toMatchObject({ current: { id: work } });
   });
 });
 

@@ -1,0 +1,14 @@
+/* Onboarding's pages (Figma 7175:19898, 7285:53770) */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: center;
+}
+.list {
+  width: 100%;
+}
+.more {
+  align-self: flex-start;
+  margin: var(--space-1) 0 0 var(--space-2);
+}

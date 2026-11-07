@@ -21,7 +21,6 @@ const work = {
 const context: InitialLoadContext = {
   devBrainAvailable: true,
   current: work,
-  last: null,
   workspaces: { items: [work], nextCursor: null },
   theme: 'system',
 };

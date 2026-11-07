@@ -1,11 +1,5 @@
 import type { WorkspaceId } from '@common/ids';
-import {
-  DevBrain,
-  openDevBrain,
-  type OpenSettingsStore,
-  type Workspace,
-  type WorkspaceOptions,
-} from '@main/core';
+import { DevBrain, openDevBrain, type OpenSettingsStore, type WorkspaceOptions } from '@main/core';
 import { DevBrainFolderError } from '@main/core/shared/errors';
 import type { SyncLogger } from '@main/core/sync/types';
 
@@ -24,7 +18,7 @@ export interface LoadDevBrainOptions {
 
 /**
  * Opens the DevBrain folder, and no workspace: whatever follows DevBrain (sync triggers, change
- * listeners) attaches to it before the renderer opens one (openLastWorkspace). Returns null when
+ * listeners) attaches to it before the renderer opens the one its route names. Returns null when
  * there is no folder and none is to be created. Throws when the folder is invalid.
  */
 export async function loadDevBrain(options: LoadDevBrainOptions): Promise<DevBrain | null> {
@@ -45,19 +39,9 @@ export async function loadDevBrain(options: LoadDevBrainOptions): Promise<DevBra
 }
 
 /**
- * Opens the workspace open last time, which starts syncing it, when it is still registered and no
- * workspace is open yet. The renderer calls it once it has loaded (workspaces.openLast). Returns
- * the open workspace: the one already open when there is one, so a reload or a second window never
- * reopens it. Null when none was open last time or it has been deleted since: the user picks one.
- * Throws when the workspace fails to open (e.g. a failed migration), leaving none open.
- */
-export function openLastWorkspace(devBrain: DevBrain): Promise<Workspace | null> {
-  return devBrain.workspaces.openIfNoneOpen(() => lastOpenedWorkspace(devBrain));
-}
-
-/**
- * The workspace open last time, from `state.lastWorkspaceId`, while it is still registered. Null
- * when none was recorded or it has been deleted since.
+ * The workspace open last time, from `state.lastWorkspaceId`, while it is still registered: the
+ * one the window opens on (runtime/last-page.ts, initialRoute). Null when none was recorded or it
+ * has been deleted since.
  */
 export function lastOpenedWorkspace(devBrain: DevBrain): WorkspaceId | null {
   const lastId = devBrain.settings.get('state.lastWorkspaceId') as WorkspaceId | null;
