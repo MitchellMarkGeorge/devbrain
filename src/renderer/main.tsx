@@ -8,6 +8,7 @@ import { events, ipc, queryInvalidator, queryClient, trpc } from './ipc';
 import { readInitialLoadContext, seedQueryCache } from './ipc/initial-load-context';
 import { FollowThemeSetting, applyThemeSetting } from './theme';
 import { createAppRouter } from './router';
+import { WorkspaceSplash } from './pages/root/WorkspaceSplash';
 import { followOpenWorkspace } from './workspace/open';
 import './styles/fonts.css';
 import './styles/tokens.css';
@@ -58,6 +59,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <WindowFrameProvider value={windowFrame}>
         <FollowThemeSetting />
         <RouterProvider router={router} />
+        <WorkspaceSplash router={router} />
       </WindowFrameProvider>
     </QueryClientProvider>
   </React.StrictMode>,

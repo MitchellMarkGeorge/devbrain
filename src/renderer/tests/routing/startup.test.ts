@@ -29,7 +29,7 @@ describe('startup', () => {
     const dom = watchDom(app.container, ['Opening Work…', 'Work recents.list']);
     await eventually(() => expect(app.text()).toContain('Work recents.list'));
     // the splash, then the page, never the page under or before it
-    expectSplashThenPage(dom.log, 'Work recents.list');
+    await expectSplashThenPage(app.container, dom, 'Work recents.list');
     expect(dom.log.some((entry) => entry.what === 'Opening Work…')).toBe(true);
     expect(app.path()).toBe(`/app/${WORK}/home`);
     expect(splashOf(app.container)).toBeNull();

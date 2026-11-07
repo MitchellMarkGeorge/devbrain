@@ -51,12 +51,14 @@ describe('a switch', () => {
     release();
     await navigation;
     await eventually(() => expect(app.text()).toContain('Home notes.list'));
-    expect(splashOf(app.container)).toBeNull();
+    // the page is drawn under the splash, which then comes down
+    await eventually(() => expect(splashOf(app.container)).toBeNull());
     dom.flush();
-    // after the splash came up, Work's page was never added again, and Home's came last
+    // after the splash came up, Work's page was never added again; Home's was drawn under the
+    // splash, which went last
     const after = dom.after('splash+').map((entry) => entry.what);
     expect(after).not.toContain('Work tasks.list');
-    expect(after.at(-1)).toBe('Home notes.list');
+    expect(after).toEqual(['Home notes.list', 'splash-']);
     // and Work's page never refetched (with Home's data) once the switch started
     expect(main.callsTo('tasks.list')).toHaveLength(tasksCallsBefore);
     expect(main.callsTo('tasks.list').every((call) => call.open === WORK)).toBe(true);
@@ -73,6 +75,7 @@ describe('a switch', () => {
     expect(Date.now() - started).toBeLessThan(SPLASH_MINIMUM_MS);
     expect(splashOf(app.container)).not.toBeNull();
     await eventually(() => expect(app.text()).toContain('Home recents.list'), 2000);
+    await eventually(() => expect(splashOf(app.container)).toBeNull(), 2000);
     dom.flush();
     const shown = dom.log.find((entry) => entry.what === 'splash+')!.at;
     const hidden = [...dom.log].reverse().find((entry) => entry.what === 'splash-')!.at;
