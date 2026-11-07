@@ -1,6 +1,7 @@
 import { createRootRouteWithContext } from '@tanstack/react-router';
 import type { RouterContext } from '../router';
-import { DevBrainUnavailableError, RootError, RootLayout, RootPending } from '../pages/root/Root';
+import { DevBrainUnavailableError, RootError, RootLayout } from '../pages/root/Root';
+import { Splash } from '../pages/root/Splash';
 import { NotFoundScreen } from '../pages/root/NotFoundScreen';
 
 // The root: toasts, the splash over the window while a workspace opens, and the screen for when
@@ -13,8 +14,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     if (!context.devBrainAvailable) throw new DevBrainUnavailableError();
   },
   component: RootLayout,
-  // the first load only: the splash while the workspace opens, else the empty window
-  pendingComponent: RootPending,
+  // the first load only: the splash, whatever the window opens on (on a reload or onboarding it
+  // shows only for the moment the first page takes to load)
+  pendingComponent: Splash,
   pendingMs: 0,
   pendingMinMs: 0,
   errorComponent: RootError,

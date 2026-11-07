@@ -97,14 +97,16 @@ describe('startup', () => {
     expect(app.text()).not.toContain('Recent workspaces');
   });
 
-  it('on a reload keeps the page, reopening nothing and showing no splash', async () => {
+  it('on a reload keeps the page, reopening nothing', async () => {
     const main = twoWorkspaces(WORK);
     const app = startApp(main, { url: `/app/${WORK}/tasks` });
     const dom = watchDom(app.container, []);
     await eventually(() => expect(app.text()).toContain('Work tasks.list'));
     expect(app.path()).toBe(`/app/${WORK}/tasks`);
     expect(main.callsTo('workspaces.open')).toEqual([]);
-    expect(dom.log.filter((entry) => entry.what === 'splash+')).toEqual([]);
+    // the splash shows while the first page loads, as at every start, and only that once
+    expect(dom.log.filter((entry) => entry.what === 'splash+')).toHaveLength(1);
+    expect(splashOf(app.container)).toBeNull();
   });
 
   it('without an initial load context, asks main which workspace is open before opening one', async () => {

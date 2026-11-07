@@ -40,7 +40,7 @@ to open it when it isn't open.
 | `followOutsideChanges`                | `src/renderer/router.tsx`                   | A delete or an open elsewhere moves the window                                  |
 | `openWorkspaceOf`                     | `src/renderer/pages/app/workspace-route.ts` | `/app/$workspaceId`'s beforeLoad: skips preloads, opens (taking 600ms at least) |
 | `Splash`                              | `src/renderer/pages/root/Splash.tsx`        | The splash, drawn by the root instead of the page                               |
-| `RootLayout`, `RootPending`           | `src/renderer/pages/root/Root.tsx`          | Toasts; the splash instead of the page during a switch, and on the first load   |
+| `RootLayout`                          | `src/renderer/pages/root/Root.tsx`          | Toasts; the splash instead of the page during a switch                          |
 | `initialRoute`, `saveLastPageOnClose` | `src/main/runtime/last-page.ts`             | The window's first route; the last page of each workspace, saved as it closes   |
 
 There is no state of the renderer's own about which workspace is open: it is `workspaces.current`
@@ -110,10 +110,10 @@ usual. (During a switch nothing can be hovered: the splash is all the window sho
 
 **Startup** is the same flow on the first load: the window opens on `#/app/<id>`, nothing is open,
 so the route opens it. The router draws nothing of its own on the first load, so the root's pending
-component (`RootPending`) draws the splash, when the URL's workspace isn't the open one. The 600ms
-minimum is the open's, not the router's (`pendingMinMs`), as the router's would also hold the
-blank first-load screen of a reload or onboarding. On a
-reload the initial load context says it is open already: no open, no splash.
+component is the splash, on every first load: on a reload or onboarding it shows only for the
+moment the first page takes, saying "Opening workspace…" or the URL's workspace. The 600ms minimum
+is the open's, not the router's (`pendingMinMs`), so only a real open holds it. On a reload the
+initial load context says the workspace is open already: nothing reopens.
 
 ## Remembering the page
 
@@ -136,7 +136,7 @@ when one fails after an upgrade, revisit the part of the design that names it.
 | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------- | ---------------------------------------------------------------------------- |
 | `router.navigate()` resolves once the target's loaders are done and its page has rendered                                | Partly (it returns a promise)     | Tests that await a navigation                                                |
 | The root's `beforeLoad` runs on every navigation, Back and Forward included                                              | Yes (beforeLoad runs per load)    | The DevBrain-unavailable guard                                               |
-| On the first load nothing is drawn until loaders finish, unless the root has a `pendingComponent` **and** a `beforeLoad` | No                                | The startup splash (`RootPending`, `pendingMs: 0`)                           |
+| On the first load nothing is drawn until loaders finish, unless the root has a `pendingComponent` **and** a `beforeLoad` | No                                | The startup splash (the root's `pendingComponent`, `pendingMs: 0`)           |
 | A `beforeLoad` that throws during a preload stops it: no loader below runs, nothing is logged                            | No (preload errors are swallowed) | Preloads never opening a workspace                                           |
 | `onResolved` fires for the last of several navigations only, and once after a redirect                                   | No                                | Nothing now (the first version settled its splash on it)                     |
 | `state.location` moves as a navigation starts, `state.resolvedLocation` once it has loaded                               | Partly                            | The root drawing the splash during a switch                                  |

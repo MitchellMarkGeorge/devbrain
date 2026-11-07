@@ -194,8 +194,8 @@ no navigation (a delete or close → `/onboarding`; another workspace opened els
 - **The splash**, drawn _in place of_ the page (`RootLayout`) while the URL's workspace isn't the
   one the router last finished on: from the moment a switch starts until its page has loaded. The
   old page is unmounted. The open takes 600ms at least, so a quick one doesn't flicker. On the
-  first load the root's `pendingComponent` (`RootPending`, `pendingMs: 0`) draws it when the URL's
-  workspace isn't open, which needs the root's `beforeLoad`.
+  first load the root's `pendingComponent` (`pendingMs: 0`) is the splash, on every first load
+  (briefly, on a reload or onboarding), which needs the root's `beforeLoad`.
 - **DevBrain unavailable:** the root's `beforeLoad` (it runs on every navigation) throws when the
   initial load context says `devBrainAvailable: false`, and its `errorComponent` says "DevBrain
   couldn't open its data folder", with Show Log File (`app.showLogFile`).
