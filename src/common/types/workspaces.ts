@@ -12,3 +12,11 @@ export interface WorkspaceInfo {
   // folder's manifest, so it moves with the folder
   lastPage: string | null;
 }
+
+// Which workspace is open (null while none is), and which is opening (null when none is): from an
+// open's start until it is open or has failed. What `workspace.changed` sends and
+// `workspaces.status` answers.
+export interface WorkspaceStatus {
+  id: WorkspaceId | null;
+  opening: WorkspaceId | null;
+}

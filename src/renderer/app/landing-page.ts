@@ -1,4 +1,10 @@
-import { lastPageSchema, type AppSettings, type WorkspaceInfo } from '@common/types';
+import type { WorkspaceId } from '@common/ids';
+import {
+  lastPageSchema,
+  type AppSettings,
+  type WorkspaceInfo,
+  type WorkspaceStatus,
+} from '@common/types';
 import type { RouterContext } from './context';
 
 /**
@@ -30,4 +36,32 @@ export async function resolveLandingPage(
     .ensureQueryData(trpc.settings.get.queryOptions())
     .catch(() => undefined);
   return landingPage(settings, workspace);
+}
+
+/**
+ * Where `/` sends the window once nothing is opening: the open workspace's landing page, or
+ * onboarding while none is open.
+ */
+export async function destination(
+  context: Pick<RouterContext, 'queryClient' | 'trpc'>,
+  { id }: WorkspaceStatus,
+): Promise<string> {
+  if (id === null) return '/onboarding';
+  return resolveLandingPage(context, await openWorkspaceInfo(context, id));
+}
+
+/**
+ * The open workspace's info, with its last page: from the cache when it is the one cached and
+ * nothing has changed since (as at startup, seeded from the initial load context), else from main.
+ */
+async function openWorkspaceInfo(
+  { queryClient, trpc }: Pick<RouterContext, 'queryClient' | 'trpc'>,
+  id: WorkspaceId,
+): Promise<WorkspaceInfo | null> {
+  const options = trpc.workspaces.current.queryOptions();
+  const cached = queryClient.getQueryData(options.queryKey);
+  if (cached?.id === id && !queryClient.getQueryState(options.queryKey)?.isInvalidated) {
+    return cached;
+  }
+  return queryClient.fetchQuery({ ...options, staleTime: 0 }).catch(() => null);
 }

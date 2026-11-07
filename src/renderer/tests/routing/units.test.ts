@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import type { AppEvents } from '@common/events';
+import type { WorkspaceId } from '@common/ids';
+import type { WorkspaceStatus } from '@common/types';
 import { landingPage } from '../../app/landing-page';
+import { createWorkspaceStatus, placeAt, placeOf } from '../../app/workspace-status';
+import type { IpcServices } from '../../ipc';
+import type { EventClient } from '../../ipc/events';
 import { SWATCH_HEX, safeColor, swatchOf } from '../../app/swatches';
 import { calendarSearch } from '../../pages/calendar/search';
 import { tasksSearch } from '../../pages/tasks/search';
@@ -108,5 +114,73 @@ describe('byLastOpened', () => {
     const c = workspace('C', { lastOpenedAt: null, createdAt: 5 });
     const d = workspace('D', { lastOpenedAt: null, createdAt: 9 });
     expect([a, c, b, d].sort(byLastOpened).map(({ name }) => name)).toEqual(['B', 'A', 'D', 'C']);
+  });
+});
+
+describe('the workspace status', () => {
+  const work = 'wsp_work' as WorkspaceId;
+  const home = 'wsp_home' as WorkspaceId;
+
+  // a store over fake events, and main answering workspaces.status when the test says
+  function store() {
+    let send: (status: WorkspaceStatus) => void = () => {};
+    let answer: (status: WorkspaceStatus) => void = () => {};
+    const events = {
+      on: (_name: string, listener: (status: WorkspaceStatus) => void) => {
+        send = listener;
+        return () => {};
+      },
+    } as unknown as EventClient<AppEvents>;
+    const ipc = {
+      workspaces: {
+        status: { query: () => new Promise<WorkspaceStatus>((resolve) => (answer = resolve)) },
+      },
+    } as unknown as IpcServices['ipc'];
+    const status = createWorkspaceStatus({ events, ipc, initial: { id: work, opening: null } });
+    return {
+      status,
+      send: (next: WorkspaceStatus) => send(next),
+      answer: (s: WorkspaceStatus) => answer(s),
+    };
+  }
+
+  it('follows workspace.changed, telling its listeners', () => {
+    const { status, send } = store();
+    const listener = vi.fn();
+    status.subscribe(listener);
+    send({ id: work, opening: home });
+    expect(status.get()).toEqual({ id: work, opening: home });
+    expect(listener).toHaveBeenCalledOnce();
+    // the same again is no change
+    send({ id: work, opening: home });
+    expect(listener).toHaveBeenCalledOnce();
+  });
+
+  it("takes main's answer to refresh()", async () => {
+    const { status, answer } = store();
+    const refreshed = status.refresh();
+    answer({ id: null, opening: null });
+    await refreshed;
+    expect(status.get()).toEqual({ id: null, opening: null });
+  });
+
+  it('keeps an event sent while refresh() was asking, as the newer', async () => {
+    const { status, send, answer } = store();
+    const refreshed = status.refresh();
+    send({ id: work, opening: home });
+    answer({ id: work, opening: null });
+    await refreshed;
+    expect(status.get()).toEqual({ id: work, opening: home });
+  });
+
+  it('places the window: `/` while opening, the app while open, onboarding while none is', () => {
+    expect(placeOf({ id: work, opening: home })).toBe('opening');
+    expect(placeOf({ id: null, opening: home })).toBe('opening');
+    expect(placeOf({ id: work, opening: null })).toBe('app');
+    expect(placeOf({ id: null, opening: null })).toBe('onboarding');
+    expect(placeAt('/')).toBe('opening');
+    expect(placeAt('/app/tasks')).toBe('app');
+    expect(placeAt('/onboarding/new_workspace')).toBe('onboarding');
+    expect(placeAt('/application')).toBeNull();
   });
 });

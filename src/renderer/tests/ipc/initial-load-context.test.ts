@@ -21,7 +21,8 @@ const work = {
 const context: InitialLoadContext = {
   devBrainAvailable: true,
   current: work,
-  last: null,
+  opening: null,
+  openFailure: null,
   workspaces: { items: [work], nextCursor: null },
   settings: { theme: 'dark' } as AppSettings,
 };

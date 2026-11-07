@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { TriangleAlert } from 'lucide-react';
 import { Flex, Icon, Logomark, OnboardingScreen, Text } from '../components';
@@ -7,20 +6,17 @@ import { useServices } from './context';
 // How long the splash shows at least, so a quick open doesn't flicker.
 export const SPLASH_MINIMUM_MS = 600;
 
-const OVER_EVERYTHING: CSSProperties = { position: 'fixed', inset: 0, zIndex: 'var(--z-overlay)' };
-
 /**
  * The window while a workspace opens (Figma `7175:19848`): the pulsing mark, "Opening ‹name›…" and
- * the app's version. `/` draws it while booting; the root draws it over everything during a switch.
+ * the app's version. `/` is the page that draws it, at startup and during a switch alike.
  */
-export function Splash({ name, overlay = false }: { name?: string | null; overlay?: boolean }) {
+export function Splash({ name }: { name?: string | null }) {
   const { trpc } = useServices();
   const version = useQuery(trpc.app.version.queryOptions());
   return (
     <OnboardingScreen
       role="status"
       aria-label={name ? `Opening ${name}` : 'Opening DevBrain'}
-      style={overlay ? OVER_EVERYTHING : undefined}
       logo={<Logomark size="lg" pulse />}
       description={name ? `Opening ${name}…` : undefined}
       footer={

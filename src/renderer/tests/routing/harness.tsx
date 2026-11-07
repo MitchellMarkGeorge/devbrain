@@ -16,6 +16,7 @@ import type { AppSettings, WorkspaceInfo } from '@common/types';
 import { createIpcServices } from '../../ipc';
 import { seedQueryCache } from '../../ipc/initial-load-context';
 import { createAppRouter, type AppRouter } from '../../router';
+import { createWorkspaceStatus, initialWorkspaceStatus } from '../../app/workspace-status';
 
 // The real route tree over memory history and a fake main: each call is answered by a handler
 // by its path, and the test sends main's push events itself.
@@ -81,7 +82,8 @@ export function initialContext(overrides: Partial<InitialLoadContext> = {}): Ini
   return {
     devBrainAvailable: true,
     current: null,
-    last: null,
+    opening: null,
+    openFailure: null,
     workspaces: { items: [], nextCursor: null },
     settings: settings(),
     ...overrides,
@@ -96,7 +98,6 @@ const DEFAULT_HANDLERS: Handlers = {
   'settings.get': () => settings(),
   'workspaces.list': () => EMPTY_PAGE,
   'workspaces.current': () => null,
-  'workspaces.openLast': () => null,
   'recents.list': () => EMPTY_PAGE,
   'favorites.list': () => EMPTY_PAGE,
 };
@@ -126,7 +127,12 @@ export function renderApp({
   context?: InitialLoadContext | null;
   handlers?: Handlers;
 } = {}): App {
-  const all = { ...DEFAULT_HANDLERS, ...handlers };
+  const all: Handlers = {
+    ...DEFAULT_HANDLERS,
+    // main agrees with the context unless the test says otherwise
+    'workspaces.status': () => initialWorkspaceStatus(context),
+    ...handlers,
+  };
   const listeners = new Map<string, Set<(payload: unknown) => void>>();
   const invoke = vi.fn<IpcBridge['invoke']>(async (request: IpcRequest) => {
     const handler = all[request.path];
@@ -163,8 +169,15 @@ export function renderApp({
   });
   seedQueryCache(services.queryClient, context);
   services.queryInvalidator.listen(services.events);
+  // as main.tsx does
+  const workspaceStatus = createWorkspaceStatus({
+    events: services.events,
+    ipc: services.ipc,
+    initial: initialWorkspaceStatus(context),
+  });
+  if (context?.devBrainAvailable !== false) void workspaceStatus.refresh();
   const router = createAppRouter(
-    { ...services, initialLoadContext: context },
+    { ...services, initialLoadContext: context, workspaceStatus },
     createMemoryHistory({ initialEntries: [at] }),
   );
 

@@ -4,7 +4,7 @@ import { ArrowLeft, CircleHelp, Folder, List, Plus } from 'lucide-react';
 import { Button, Logomark, OnboardingScreen, Text } from '../../components';
 import { useServices } from '../../app/context';
 import { CreateWorkspaceForm } from './CreateWorkspaceForm';
-import { useWorkspaceActions, WorkspaceErrorDialog } from './WorkspaceErrorDialog';
+import { useWorkspaceActions } from './WorkspaceErrorDialog';
 import { byLastOpened, WorkspacePicker } from './WorkspacePicker';
 import styles from './onboarding.module.css';
 
@@ -69,7 +69,6 @@ export function WelcomePage() {
           </Button>
         )}
       </div>
-      <WorkspaceErrorDialog actions={actions} />
     </OnboardingScreen>
   );
 }
@@ -86,7 +85,6 @@ export function NewWorkspacePage() {
         // shown the same way as a failed open from Welcome
         onFailure={actions.show}
       />
-      <WorkspaceErrorDialog actions={actions} />
     </OnboardingScreen>
   );
 }
@@ -142,7 +140,6 @@ export function ChooseWorkspacePage() {
           Open Existing Folder…
         </Button>
       </div>
-      <WorkspaceErrorDialog actions={actions} />
     </OnboardingScreen>
   );
 }

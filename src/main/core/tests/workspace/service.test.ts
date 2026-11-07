@@ -691,6 +691,36 @@ describe('WorkspaceService — open', () => {
     expect(service.currentWorkspace).toBe(fakeWorkspace);
   });
 
+  it('says which workspace is opening, then which is open (status)', async () => {
+    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
+    writeRegistry(tmpDir, [info]);
+    await fs.mkdir(info.path, { recursive: true });
+    const fakeWorkspace = { info, close: vi.fn(), sync: { start: vi.fn() } };
+    let finish: (workspace: unknown) => void = () => {};
+    vi.mocked(Workspace.open).mockReturnValue(
+      new Promise((resolve) => (finish = resolve)) as never,
+    );
+
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
+    expect(service.status()).toEqual({ id: null, opening: null });
+    const opened = service.open(info.id);
+    await vi.waitFor(() => expect(service.status()).toEqual({ id: null, opening: info.id }));
+    finish(fakeWorkspace);
+    await opened;
+    expect(service.status()).toEqual({ id: info.id, opening: null });
+  });
+
+  it('says none is opening once an open fails (status)', async () => {
+    const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
+    writeRegistry(tmpDir, [info]);
+    await fs.mkdir(info.path, { recursive: true });
+    vi.mocked(Workspace.open).mockRejectedValue(new Error('broken database'));
+
+    const service = new WorkspaceService(tmpDir, WORKSPACE_OPTIONS);
+    await expect(service.open(info.id)).rejects.toThrow('broken database');
+    expect(service.status()).toEqual({ id: null, opening: null });
+  });
+
   it('updates lastOpenedAt in the registry', async () => {
     const info = makeInfo({ path: path.join(tmpDir, 'workspaces', 'wsp_test001') });
     writeRegistry(tmpDir, [info]);

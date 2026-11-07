@@ -172,7 +172,7 @@ function StampedItem({ item }: { item: Entry }) {
 }
 
 /**
- * The workspace menu over the registry: switch to another (the switch splash shows, then its
+ * The workspace menu over the registry: switch to another (the splash at `/` shows, then its
  * landing page), New workspace… (the Create workspace dialog), Open folder… (add a workspace folder,
  * then open it), and Show in Finder for the open one. A failure shows as a toast.
  */

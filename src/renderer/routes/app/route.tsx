@@ -3,16 +3,14 @@ import { AppShell } from '../../components';
 import { AppSidebar } from '../../app/AppSidebar';
 import { useHistoryArrows } from '../../app/navigation';
 import { PageHeaderSlotProvider, usePageHeaderSlot } from '../../app/page-header';
+import { placeOf } from '../../app/workspace-status';
 
-// `/app/*`: the app around an open workspace. With none open, onboarding instead.
+// `/app/*`: the app around an open workspace. While one is opening, or none is open (Back or
+// Forward into the app after it closed), `/` instead, which says where to go.
 export const Route = createFileRoute('/app')({
-  beforeLoad: async ({ context: { queryClient, trpc } }) => {
-    const options = trpc.workspaces.current.queryOptions();
-    // seeded from the initial load context, so this is synchronous but for a page without one
-    const current =
-      queryClient.getQueryData(options.queryKey) ??
-      (await queryClient.ensureQueryData(options).catch(() => null));
-    if (!current) throw redirect({ to: '/onboarding', replace: true });
+  beforeLoad: ({ context }) => {
+    if (placeOf(context.workspaceStatus.get()) !== 'app')
+      throw redirect({ to: '/', replace: true });
   },
   component: AppLayout,
 });

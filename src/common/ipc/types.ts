@@ -62,14 +62,16 @@ export interface IpcBridge {
 // loading state: the renderer can seed its query cache with it. Read again on every page load, so
 // a reload sees the workspace open now. Workspace info only (names, colors and ids, never anything
 // from a workspace's database), and the user's settings: the theme, so the page paints in it from
-// the start, and what boot reads to pick the landing page.
+// the start, and what `/` reads to pick the landing page.
 export interface InitialLoadContext {
   // false when DevBrain could not be loaded: nothing that needs it can run
   devBrainAvailable: boolean;
   // the open workspace: what workspaces.current answers
   current: WorkspaceInfo | null;
-  // the workspace workspaces.openLast would open, while none is open, for a splash to show
-  last: WorkspaceInfo | null;
+  // the workspace opening (main reopens the last one at startup), for the splash to name
+  opening: WorkspaceInfo | null;
+  // why main's startup open failed, on the first page load after it
+  openFailure: SerializedError | null;
   // what workspaces.list answers for its first page
   workspaces: Page<WorkspaceInfo>;
   // what settings.get answers; null without DevBrain

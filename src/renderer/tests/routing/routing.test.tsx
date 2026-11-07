@@ -13,8 +13,8 @@ import {
   workspace,
 } from './harness';
 
-// The route tree over memory history and a fake main: boot, the guards, not-found, the workspace
-// following the URL, and the last page saved.
+// The route tree over memory history and a fake main: startup, the guards, not-found, the window
+// following the open workspace, and back and forward.
 
 const work = workspace('Work');
 const home = workspace('Home', { color: '#2b7fff' });
@@ -24,70 +24,90 @@ afterEach(() => unmountAll());
 const open = (context: Partial<InitialLoadContext> = {}) =>
   initialContext({ current: work, workspaces: { items: [work], nextCursor: null }, ...context });
 
-describe('boot', () => {
-  it('goes to Welcome when there is no workspace to reopen', async () => {
+describe('startup', () => {
+  // main reopening Work as the page loads
+  const reopening = (context: Partial<InitialLoadContext> = {}) =>
+    initialContext({ opening: work, workspaces: { items: [work], nextCursor: null }, ...context });
+
+  it('goes to Welcome when there is no workspace to reopen, with no splash', async () => {
     const app = renderApp();
     await waitFor(() => expect(at(app)).toBe('/onboarding'));
     await waitFor(() => expect(app.text()).toContain('Welcome to DevBrain'));
-    expect(app.calls()).toContain('workspaces.openLast');
   });
 
-  it('reopens the last workspace, then lands on the default landing page', async () => {
+  it('shows the splash while main reopens the last workspace, then its landing page', async () => {
     const app = renderApp({
-      context: initialContext({ settings: settings({ defaultLandingPage: 'tasks' }) }),
-      handlers: { 'workspaces.openLast': () => work },
+      context: reopening({ settings: settings({ defaultLandingPage: 'tasks' }) }),
+      handlers: { 'workspaces.current': () => work },
     });
+    await waitFor(() => expect(app.text()).toContain('Opening Work…'));
+    expect(at(app)).toBe('/');
+
+    app.emit('workspace.changed', { id: work.id, opening: null });
     await waitFor(() => expect(at(app)).toBe('/app/tasks'));
-    await waitFor(() => expect(app.text()).toContain('Work'));
     // the settings came with the initial load context: no call for them
     expect(app.calls()).not.toContain('settings.get');
   });
 
-  it('shows the splash naming the workspace while it reopens, held long enough not to flicker', async () => {
-    let finish: (value: typeof work) => void = () => {};
+  it('holds the splash long enough not to flicker', async () => {
     const started = Date.now();
-    const app = renderApp({
-      context: initialContext({ last: work }),
-      handlers: { 'workspaces.openLast': () => new Promise((resolve) => (finish = resolve)) },
-    });
+    const app = renderApp({ context: reopening(), handlers: { 'workspaces.current': () => work } });
     await waitFor(() => expect(app.text()).toContain('Opening Work…'));
-    finish(work);
+    app.emit('workspace.changed', { id: work.id, opening: null });
     await waitFor(() => expect(at(app)).toBe('/app/home'));
     expect(Date.now() - started).toBeGreaterThanOrEqual(550);
   });
 
   it('reopens the workspace\'s last page when "Reopen last page" is on', async () => {
     const app = renderApp({
-      context: initialContext({ settings: settings({ openToLastPage: true }) }),
-      handlers: {
-        'workspaces.openLast': () => ({ ...work, lastPage: '/app/tasks?view=board' }),
-      },
+      context: reopening({ settings: settings({ openToLastPage: true }) }),
+      handlers: { 'workspaces.current': () => ({ ...work, lastPage: '/app/tasks?view=board' }) },
     });
+    app.emit('workspace.changed', { id: work.id, opening: null });
     await waitFor(() => expect(at(app)).toBe('/app/tasks?view=board'));
   });
 
   it("ignores the workspace's last page when the setting is off", async () => {
     const app = renderApp({
-      handlers: { 'workspaces.openLast': () => ({ ...work, lastPage: '/app/tasks?view=board' }) },
+      context: reopening(),
+      handlers: { 'workspaces.current': () => ({ ...work, lastPage: '/app/tasks?view=board' }) },
     });
+    app.emit('workspace.changed', { id: work.id, opening: null });
     await waitFor(() => expect(at(app)).toBe('/app/home'));
   });
 
-  it('skips a reload straight to the landing page, reopening nothing', async () => {
+  it('goes straight to the landing page on a reload, with no splash and no call', async () => {
     const app = renderApp({ context: open() });
     await waitFor(() => expect(at(app)).toBe('/app/home'));
-    expect(app.calls()).not.toContain('workspaces.openLast');
+    expect(app.calls()).not.toContain('workspaces.current');
   });
 
-  it('goes to onboarding when the last workspace fails to open', async () => {
+  it('follows an open that finished before the page listened, as main says', async () => {
     const app = renderApp({
+      context: reopening(),
       handlers: {
-        'workspaces.openLast': () => {
-          throw new MainError('workspace_too_new', 'Update DevBrain to open it');
-        },
+        'workspaces.status': () => ({ id: work.id, opening: null }),
+        'workspaces.current': () => work,
       },
     });
+    await waitFor(() => expect(at(app)).toBe('/app/home'));
+  });
+
+  it('goes to onboarding when the reopen fails', async () => {
+    const app = renderApp({ context: reopening() });
+    await waitFor(() => expect(app.text()).toContain('Opening Work…'));
+    app.emit('workspace.changed', { id: null, opening: null });
     await waitFor(() => expect(at(app)).toBe('/onboarding'));
+  });
+
+  it("says why main's startup open failed, over onboarding", async () => {
+    const app = renderApp({
+      context: initialContext({
+        openFailure: { code: 'workspace_too_new', message: 'Update DevBrain', data: {} },
+      }),
+    });
+    await waitFor(() => expect(at(app)).toBe('/onboarding'));
+    await waitFor(() => expect(app.text()).toContain('This workspace needs a newer DevBrain'));
   });
 });
 
@@ -189,6 +209,33 @@ describe('following the open workspace', () => {
     await waitFor(() => expect(at(app)).toBe('/app/notes'));
   });
 
+  it('shows the splash at `/` during a switch, and Back afterwards returns to the page before', async () => {
+    let current = work;
+    const app = renderApp({
+      at: '/app/notes',
+      context: open({ workspaces: { items: [work, home], nextCursor: null } }),
+      handlers: {
+        'workspaces.current': () => current,
+        'workspaces.list': () => ({ items: [work, home], nextCursor: null }),
+      },
+    });
+    await waitFor(() => expect(app.text()).toContain('Notes'));
+
+    app.emit('workspace.changed', { id: work.id, opening: home.id });
+    await waitFor(() => expect(app.text()).toContain('Opening Home…'));
+    expect(at(app)).toBe('/');
+    // the page is gone, not under the splash
+    expect(app.container.querySelector('[aria-label="Back"]')).toBeNull();
+
+    app.emit('workspace.changed', { id: null, opening: home.id });
+    current = home;
+    app.emit('workspace.changed', { id: home.id, opening: null });
+    await waitFor(() => expect(at(app)).toBe('/app/home'));
+
+    app.router.history.back();
+    await waitFor(() => expect(at(app)).toBe('/app/notes'));
+  });
+
   it('goes to onboarding when an open fails, leaving nothing open', async () => {
     const app = renderApp({ at: '/app/tasks', context: open() });
     await waitFor(() => expect(app.text()).toContain('Tasks'));
@@ -200,12 +247,15 @@ describe('following the open workspace', () => {
     await waitFor(() => expect(at(app)).toBe('/onboarding'));
   });
 
-  it('goes to onboarding when a call finds no workspace open', async () => {
+  it('goes to onboarding when a call finds no workspace open, and main agrees', async () => {
+    let closed = false;
     const app = renderApp({
       at: '/app/home',
       context: open(),
       handlers: {
+        'workspaces.status': () => ({ id: closed ? null : work.id, opening: null }),
         'recents.list': () => {
+          closed = true;
           throw new MainError('no_workspace_open');
         },
       },
@@ -218,13 +268,12 @@ describe('following the open workspace', () => {
       at: '/app/home',
       context: open(),
       handlers: {
-        'workspaces.current': () => work,
         'recents.list': () => {
           throw new MainError('no_workspace_open');
         },
       },
     });
-    await waitFor(() => expect(app.calls()).toContain('workspaces.current'));
+    await waitFor(() => expect(app.calls()).toContain('recents.list'));
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(at(app)).toBe('/app/home');
   });
@@ -252,6 +301,6 @@ describe('DevBrain unavailable', () => {
   it('shows only the error screen', async () => {
     const app = renderApp({ context: initialContext({ devBrainAvailable: false }) });
     await waitFor(() => expect(app.text()).toContain('couldn’t open its data folder'));
-    expect(app.calls()).not.toContain('workspaces.openLast');
+    expect(app.calls()).not.toContain('workspaces.status');
   });
 });

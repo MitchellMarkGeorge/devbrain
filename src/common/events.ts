@@ -1,5 +1,6 @@
 import type { ChangedEntity } from './changes';
-import type { ExternalSourceId, IntegrationId, WorkspaceId } from './ids';
+import type { ExternalSourceId, IntegrationId } from './ids';
+import type { WorkspaceStatus } from './types';
 
 // The events main pushes to the renderer, by name. Each is a delta: it says what changed, and the
 // renderer refetches what it shows rather than applying a snapshot.
@@ -19,7 +20,7 @@ export interface AppEvents {
   // Which workspace is open (null while none is), and which is opening (null when none is). From
   // `opening` set until `id` is it, the app shows its splash; with neither, it shows the picker.
   // A switch sends three: the new one opening, then the old one closed, then the new one open.
-  'workspace.changed': { id: WorkspaceId | null; opening: WorkspaceId | null };
+  'workspace.changed': WorkspaceStatus;
 }
 
 export type AppEventName = keyof AppEvents;

@@ -21,7 +21,7 @@ export function readInitialLoadContext(bridge?: IpcBridge): InitialLoadContext |
 
 /**
  * Puts the context in the cache before the first render, so the workspace and settings queries
- * render with data rather than a loading state, and boot picks the landing page without a call.
+ * render with data rather than a loading state, and `/` picks the landing page without a call.
  * They stay fresh until main says the registry, the open workspace or the settings changed
  * (query-invalidator.ts), so they are never refetched just for mounting.
  */

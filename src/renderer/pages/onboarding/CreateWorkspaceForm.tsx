@@ -39,8 +39,8 @@ export interface CreateWorkspaceFormProps {
 
 /**
  * Creating a workspace: a name, a colour and the live tile, then Create Workspace, which creates it
- * and opens it. The open shows the switch splash and the root goes to its landing page, so the form
- * has nothing to do after. Shared by onboarding and the in-app dialog (docs/renderer plan,
+ * and opens it. The open sends the window to `/`, which shows the splash and then its landing page,
+ * so the form has nothing to do after. Shared by onboarding and the in-app dialog (docs/renderer plan,
  * Onboarding: why a dialog inside the app).
  */
 export function CreateWorkspaceForm({
@@ -160,7 +160,7 @@ export function CreateWorkspaceForm({
 
 /**
  * "New workspace…" from the sidebar's workspace menu (Figma `7760:61527`): the form in a dialog over
- * the page. It closes once the workspace is created; the open then shows the switch splash, and a
+ * the page. It closes once the workspace is created; the open then shows the splash at `/`, and a
  * failure to open it shows as a toast, since the dialog is gone.
  */
 export function CreateWorkspaceDialog({

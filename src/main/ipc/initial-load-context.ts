@@ -3,26 +3,36 @@ import { IPC_INITIAL_LOAD_CONTEXT_CHANNEL } from '@common/ipc/constants';
 import type { InitialLoadContext } from '@common/ipc/types';
 import type { Page, WorkspaceInfo } from '@common/types';
 import type { DevBrain } from '@main/core';
-import { lastOpenedWorkspace } from '../runtime/start';
+import type { StartupOpen } from '../runtime/start';
+import { serializeError } from './errors';
 
 const NO_WORKSPACES: Page<WorkspaceInfo> = { items: [], nextCursor: null };
 
-export function initialLoadContext(devBrain: DevBrain | null): InitialLoadContext {
+/**
+ * What the page loading now renders first: the open workspace, the one opening, and why main's
+ * startup open failed (taken, so only the first page load shows it).
+ */
+export function initialLoadContext(
+  devBrain: DevBrain | null,
+  startupOpen: StartupOpen | null = null,
+): InitialLoadContext {
   if (devBrain === null) {
     return {
       devBrainAvailable: false,
       current: null,
-      last: null,
+      opening: null,
+      openFailure: null,
       workspaces: NO_WORKSPACES,
       settings: null,
     };
   }
-  const current = devBrain.currentWorkspace?.info ?? null;
-  const lastId = current === null ? lastOpenedWorkspace(devBrain) : null;
+  const { opening } = devBrain.workspaces.status();
+  const failure = startupOpen?.takeFailure() ?? null;
   return {
     devBrainAvailable: true,
-    current,
-    last: lastId === null ? null : devBrain.workspaces.getById(lastId),
+    current: devBrain.currentWorkspace?.info ?? null,
+    opening: opening === null ? null : devBrain.workspaces.getById(opening),
+    openFailure: failure === null ? null : serializeError(failure),
     workspaces: devBrain.workspaces.listAll(),
     settings: devBrain.settings.get('settings'),
   };

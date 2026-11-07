@@ -17,18 +17,22 @@ the `Screens/*` stories, `docs/design-system/README.md`, `docs/ipc/design.md` an
 >
 > **As built in milestones 1–2**, where it differs from or adds to the plan below:
 >
-> - The router context also carries `events` (main's push events) and `initialLoadContext`, so pages
->   and tests never import the client: `useServices()` (`src/renderer/app/context.ts`) reads it, and
+> - The router context also carries `events` (main's push events), `initialLoadContext` and
+>   `workspaceStatus` (which workspace is open and which is opening), so pages and tests never
+>   import the client: `useServices()` (`src/renderer/app/context.ts`) reads it, and
 >   `createIpcServices({ bridge })` builds the client, cache and events over any bridge.
-> - Boot runs in `/`'s component (it draws the splash, then navigates), not in a `beforeLoad`.
->   Nothing to reopen goes to Welcome, which lists the recent workspaces itself; Choose workspace is
->   reached from its "All Workspaces" button when there are more than three.
+> - Main reopens the last workspace itself, just before it creates the window, and the renderer has
+>   no boot step. `/` is the in-between page: it shows the splash while a workspace opens, and
+>   otherwise sends the window where it belongs. Whenever that may have changed, the root goes to
+>   `/` (see Root route and `/`). Nothing to reopen goes to Welcome, which lists the recent
+>   workspaces itself; Choose workspace is reached from its "All Workspaces" button when there are
+>   more than three.
 > - The landing page takes the opened workspace's own `lastPage` (S2), so a switch reopens the new
 >   workspace on its last page too, not only boot. There is no renderer-side save: main keeps the
 >   page in each workspace's manifest.
-> - The `no_workspace_open` redirect subscribes to the query and mutation caches from the root, and
->   asks `workspaces.current` before leaving, since a call answered mid-switch can fail after the new
->   workspace opened.
+> - The `no_workspace_open` check subscribes to the query and mutation caches from the root, and
+>   asks main again (`workspaces.status`) rather than leaving at once, since a call answered
+>   mid-switch can fail after the new workspace opened.
 > - Errors from opening or adding a workspace show as an alert dialog over the page, as Figma draws
 >   them (`7423:37060`), rather than inline. `workspace_data_missing` has no "Remove from list":
 >   there is no route that removes an entry without opening it.
@@ -86,7 +90,7 @@ surveyed three things in parallel and checked the claims the plan rests on again
 | Dates                              | **luxon**, already a dependency and what core uses: relative and calendar dates, locale formats, 12/24 hour. No hand-written date formatting.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Virtualization                     | Every list and grid that can grow is virtualized with **`@tanstack/react-virtual`**: tasks (list, group, board columns), notes, projects, trash, search results. See [Virtualized lists](#virtualized-lists).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Detail presentation                | As designed: tasks, projects and notes are pages; a task opened from the board and an event opened from the calendar show in the docked `Sheet` over their list, addressed by an `open` search param so Back closes them. The task note opens as a dialog (local state).                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Splash                             | `/` is the boot route and draws the splash while the last workspace reopens, then redirects. A workspace _switch_ draws the same splash as an overlay from the root route, driven by `workspace.changed` (as `App.tsx` does today), and does not navigate to `/`: a switch can start from the menu or another window, and the URL should land on the new workspace's landing page, not on `/`.                                                                                                                                                                                                                                                                                                    |
+| Splash                             | `/` draws the splash whenever a workspace opens, at startup and during a switch alike: the root goes to `/` when `workspace.changed` says one is opening, whoever started it (this window, the menu), so the old page unmounts rather than staying live under an overlay. Once nothing is opening, `/` replaces itself with the new workspace's landing page, or onboarding.                                                                                                                                                                                                                                                                                                                      |
 | Not in the route list but designed | `/app/integrations` (in the sidebar nav, Figma `7164:13117`). ⌘K is a dialog, not a route. Help has nothing behind it yet: the sidebar's Help item and Welcome's "What's a workspace?" link are drawn disabled.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | Trash                              | The route is **`/app/trash`**, matching the UI and `docs/deleting.md`. Core still says archive (`archive` router, `listArchived`); the code rename is its own follow-up (E2).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | New workspace                      | Inside the app, "New workspace…" opens a **Create workspace dialog** over the page. `/onboarding/new_workspace` is only for when nothing is open. Both use one `CreateWorkspaceForm`, so the onboarding guard needs no exception. Mocked in Figma as "New workspace (dialog in the app)" (`7760:61527`). Why a dialog: see [Onboarding](#onboarding-onboarding).                                                                                                                                                                                                                                                                                                                                  |
@@ -99,8 +103,8 @@ surveyed three things in parallel and checked the claims the plan rests on again
 
 - `src/renderer/ipc`: `trpc`, `ipc`, `queryClient`, `events`, `queryInvalidator` (with
   `ENTITIES_READ_BY_ROUTE`), the initial load context and `seedQueryCache`.
-- `src/renderer/theme.tsx` (`FollowThemeSetting`) and `workspace-opening.ts` (`useOpeningWorkspace`,
-  `useHeldFor`).
+- `src/renderer/theme.tsx` (`FollowThemeSetting`). (`workspace-opening.ts` was replaced by the
+  workspace status store, `src/renderer/app/workspace-status.ts`.)
 - `main.tsx` bootstrap (error catching, invalidator, seeding, theme, `WindowFrameProvider`).
 - Every component, including `AppShell` (its `onBack`/`onForward`/`canGoBack`/`canGoForward`
   props are ready for the router's history) and `SidebarItem` (takes `render={<Link …/>}`).
@@ -121,8 +125,8 @@ use older hand-made frames; the Shell screens' `ScreenFrame` + `DemoSidebar` is 
 ## Route tree
 
 ```
-__root                      providers, splash overlay, global dialogs host, not-found/error
-├── /                       index: boot + splash → redirect
+__root                      providers, workspace error dialog, follows the status to `/`, not-found/error
+├── /                       index: splash while a workspace opens → redirect
 ├── /onboarding             layout: OnboardingScreen frame (no sidebar)
 │   ├── /                   Welcome
 │   ├── /new_workspace      Create workspace
@@ -224,39 +228,60 @@ providers. `App.tsx` and its test pages are deleted once `/app` renders the shel
 Renders, around `<Outlet/>`:
 
 - `ToastProvider` (not mounted anywhere today).
-- The **workspace-switch splash overlay**: `useHeldFor(useOpeningWorkspace() !== null, 600)` draws
-  `<OnboardingScreen logo={<Logomark size="lg" pulse/>}/>` over everything. When the open
-  completes, `workspace.changed` (`{ id: new, opening: null }`) triggers a navigation to the new
-  workspace's landing page (see below); `openFailed` (`{ id: null, opening: null }`) navigates to
-  `/onboarding` with an error toast.
+- `WorkspaceActionsProvider` and the one `WorkspaceErrorDialog`: opening or adding a workspace, with
+  the failure kept above the pages, since the page that started an open is gone by the time it
+  fails. The dialog waits while the window is at `/`, so it opens over onboarding. It also shows why
+  main's startup open failed (the initial load context's `openFailure`).
+- **Following the workspace status** (`useWorkspaceRouting`): whenever the window is somewhere the
+  status says it no longer belongs, it goes to `/`. A workspace starting to open pushes `/` (so
+  Back afterwards returns to the page before the switch); the open workspace closing (an open
+  failed, it was deleted) replaces the page with `/`.
 - `devbrain_unavailable`: when the initial load context says `devBrainAvailable: false`, the root
-  renders a full-window error ("DevBrain couldn't open its data folder", with Show Log File) and no
-  outlet.
+  renders a full-window error ("DevBrain couldn't open its data folder") and no outlet.
 
-### Boot: `/` (splash)
+### The workspace status
 
-`/` is where the app starts (an empty hash). Its component draws the splash and runs boot once:
+`workspaceStatus` (`src/renderer/app/workspace-status.ts`) holds `{ id, opening }`: which workspace
+is open and which is opening, as main last said. It starts from the initial load context (`current`
+and `opening`) and follows `workspace.changed`. An event sent between main building the context and
+the page subscribing would be lost, so `main.tsx` asks `workspaces.status` once after subscribing;
+an event that arrives while it asks wins over the answer. Where the window belongs is one rule
+(`placeOf`): `/` while something is opening, the app while a workspace is open, onboarding while
+none is.
 
-1. If `workspaces.current` (seeded) is set, a reload: redirect at once to the current URL's
-   intended page. A reload keeps its hash, so `/` is only reached on a cold start.
-2. Otherwise call `workspaces.openLast`. The splash says "Opening ‹last.name›…" from the initial
-   load context's `last`, and is held 600ms as today.
-3. On success, redirect to the **landing page**; on `null` (nothing to reopen) or failure, redirect
-   to `/onboarding` (choose workspace if the list is not empty, else Welcome).
+### `/` (splash)
 
-The **landing page** is one function, `landingPage(settings, state)`: `state.lastPage` when
-`general.openToLastPage` is on and it parses as an `/app/*` location, else
+`/` is where the window starts, and where the root sends it whenever where it belongs may have
+changed:
+
+1. `beforeLoad`: if nothing is opening, redirect at once (no splash) to the **destination**: the
+   open workspace's landing page, or `/onboarding` while none is open. So a reload, or a page with
+   nothing to reopen, never shows the splash.
+2. Otherwise the component draws the splash, "Opening ‹name›…" (the name from the workspace list),
+   and waits for the status to say nothing is opening. Then, held at least 600ms from when it
+   appeared, it replaces itself with the destination. A failed open ends with none open, so that is
+   onboarding.
+
+Main starts reopening the last workspace before it creates the window, so the page loads with the
+open under way and the initial load context naming it (`opening`). The renderer makes no call to
+start it.
+
+The **landing page** is one function, `landingPage(settings, workspace)`: `workspace.lastPage`
+when `general.openToLastPage` is on and it parses as an `/app/*` location, else
 `/app/${general.defaultLandingPage}`. `lastPage` is the opened workspace's
-(`WorkspaceInfo.lastPage`, Main-process changes, S2).
+(`WorkspaceInfo.lastPage`, Main-process changes, S2), read from `workspaces.current`.
 
 ### Guards
 
-- `/app` `beforeLoad`: if `queryClient.getQueryData(workspaces.current)` is null, `throw
-redirect({ to: '/onboarding' })`. The seeded cache makes this synchronous.
-- `/onboarding` `beforeLoad`: if a workspace is open, redirect to `/app`, with no exceptions. The
+Back and Forward skip `/`, so the layouts check the status too, and send anything out of place to
+`/`, which says where to go:
+
+- `/app` `beforeLoad`: unless a workspace is open and none is opening, `throw redirect({ to: '/' })`.
+  The status store makes this synchronous.
+- `/onboarding` `beforeLoad`: unless none is open and none is opening, redirect to `/`. The
   sidebar's "New workspace…" opens the Create workspace dialog instead of navigating here.
-- A `no_workspace_open` error from any call (a workspace closed under the page) redirects to
-  `/onboarding` from a `QueryCache`/`MutationCache` `onError` set on `queryClient`.
+- A `no_workspace_open` error from any call (a workspace closed under the page) makes the root ask
+  main again (`workspaces.status`); the window follows the answer.
 
 ### Remembering the page
 
@@ -270,7 +295,7 @@ moves with the folder to another computer. Main saves it, and the renderer only 
   writes that location to the workspace's manifest with `WorkspaceService.setLastPage` (S2,
   `src/main/runtime/last-page.ts`).
 - **Reading:** `WorkspaceInfo.lastPage` carries it, so the renderer reads it from the workspace it
-  opened (`openLast` at boot, `workspaces.current` after a switch). Each workspace reopens on its
+  opened (`workspaces.current`, once `/` says it is open). Each workspace reopens on its
   own page.
 - Nothing goes over IPC as the user navigates, so filter changes, the calendar's ‹ › and sheets
   cost nothing, and there is no debounce.
@@ -601,7 +626,7 @@ favorites and pills.
 `AppShell` with:
 
 - **Sidebar header:** `WorkspaceMenu` (moved from `App.tsx`; "New workspace…" opens the Create
-  workspace dialog, which creates and opens it under the switch splash; "Open folder…" calls
+  workspace dialog, which creates and opens it, the splash at `/` showing meanwhile; "Open folder…" calls
   `workspaces.importFolder` then `workspaces.open`), Search (⌘K) and New task (C) actions.
 - **Nav:** Home, Tasks, Projects, Notes, Calendar, Integrations, as `SidebarItem render={<Link
 to=… />}` with `active` from `useMatchRoute` (a detail page keeps its section active).
@@ -728,8 +753,8 @@ sidebar.
   "Create Workspace" → `new_workspace`, "Open Existing Folder…" → `workspaces.importFolder` then
   `workspaces.open`, "What's a workspace?" drawn disabled (no help yet). With workspaces, the
   "Recent workspaces" card: the list sorted by `lastOpenedAt` (client side), each opening with
-  `workspaces.open`, then the same two buttons. The splash overlay covers the open; on
-  `workspace.changed` the root navigates to the landing page.
+  `workspaces.open`, then the same two buttons. On `workspace.changed` the root goes to `/`, which
+  shows the splash, then the landing page.
 - **Create workspace** (`/onboarding/new_workspace`, `7175:20087`): `CreateWorkspaceForm` (name
   `Input`, `SwatchPicker`, live `WorkspaceTile` preview) on the onboarding card. Submit:
   `workspaces.create`, then `workspaces.open` with its id. "← Back" to Welcome. Inside the app the
@@ -1250,7 +1275,7 @@ typecheck`, `npm run lint`, `npm test`). Main-process changes land as their own 
 page that needs them.
 
 1. **Router foundation.** Install the router and plugin; `router.tsx`, root route with
-   `ToastProvider` and the switch-splash overlay; `/` boot; `/onboarding` and `/app` layouts with
+   `ToastProvider` and the workspace error dialog; `/` with the splash; `/onboarding` and `/app` layouts with
    guards; `/app` renders `AppShell` with the real sidebar (nav, workspace menu) and placeholder
    pages; back/forward wired; `App.tsx` removed; `refetchOnWindowFocus` off. _Main:_ S2 (last
    page).
@@ -1292,8 +1317,8 @@ Milestones 4–7 are independent after 3 and can run in parallel.
   and section choice, the capture box parser, and the key dispatcher (sequences, scopes, typing
   targets, `mod` per platform).
 - **Routing (Vitest, happy-dom):** a memory-history router over the real route tree with a fake
-  `ipc` (the link already takes a `bridge`): boot redirects (no workspace → onboarding; workspace →
-  landing page; `openToLastPage`), the `/app` guard, not-found for a missing task, `open` param
+  `ipc` (the link already takes a `bridge`): startup and switch redirects through `/` (no workspace →
+  onboarding; workspace → landing page; `openToLastPage`), the `/app` guard, not-found for a missing task, `open` param
   opening and Back closing the sheet.
 - **Pages:** a smoke test per page that renders with fixture data through the fake bridge and
   checks its main states (loading, empty, data). Keep them few; the components' stories already

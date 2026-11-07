@@ -1,6 +1,6 @@
 import { generateId, isId, type IntegrationId, type WorkspaceId } from '@common/ids';
 import { hexColorSchema } from '@common/color';
-import { lastPageSchema, Page, type WorkspaceInfo } from '@common/types';
+import { lastPageSchema, Page, type WorkspaceInfo, type WorkspaceStatus } from '@common/types';
 import type { CreateWorkspaceOptions, UpdateWorkspaceOptions, WorkspaceOptions } from './types';
 import {
   describeWorkspace,
@@ -54,12 +54,19 @@ export type WorkspaceChange =
 
 export class WorkspaceService {
   private current: Workspace | null = null;
+  // the workspace being opened, from `opening` until `opened` or `openFailed`
+  private opening: WorkspaceId | null = null;
   private transition: Promise<unknown> = Promise.resolve();
   private workspacesFilePath: string;
   private readonly changes: ChangeListeners<WorkspaceChange>;
 
   get currentWorkspace(): Workspace | null {
     return this.current;
+  }
+
+  /** Which workspace is open, and which is opening, as the last change sent said. */
+  status(): WorkspaceStatus {
+    return { id: this.current?.info.id ?? null, opening: this.opening };
   }
 
   // Only lifecycle transitions queue. A rejected transition must not poison later calls.
@@ -336,6 +343,7 @@ export class WorkspaceService {
 
     // from here the open changes what is open: listeners show it as opening until `opened`, or
     // `openFailed` once nothing is open
+    this.opening = id;
     this.changes.emit({ type: 'opening', workspaceId: id });
     let workspace: Workspace;
     try {
@@ -360,9 +368,11 @@ export class WorkspaceService {
         throw error;
       }
     } catch (error) {
+      this.opening = null;
       this.changes.emit({ type: 'openFailed', workspaceId: id });
       throw error;
     }
+    this.opening = null;
     this.changes.emit({ type: 'opened', workspace });
     return workspace;
   }

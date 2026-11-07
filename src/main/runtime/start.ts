@@ -19,8 +19,8 @@ export interface LoadDevBrainOptions {
 
 /**
  * Opens the DevBrain folder, creating it when there is none, and no workspace: whatever follows
- * DevBrain (sync triggers, change listeners) attaches to it before the renderer opens one
- * (openLastWorkspace). Throws when the folder is invalid.
+ * DevBrain (sync triggers, change listeners) attaches to it before main reopens the last one
+ * (reopenLastWorkspace). Throws when the folder is invalid.
  */
 export function loadDevBrain(options: LoadDevBrainOptions): Promise<DevBrain> {
   return openDevBrain({
@@ -33,13 +33,47 @@ export function loadDevBrain(options: LoadDevBrainOptions): Promise<DevBrain> {
 
 /**
  * Opens the workspace open last time, which starts syncing it, when it is still registered and no
- * workspace is open yet. The renderer calls it once it has loaded (workspaces.openLast). Returns
+ * workspace is open yet. Returns
  * the open workspace: the one already open when there is one, so a reload or a second window never
  * reopens it. Null when none was open last time or it has been deleted since: the user picks one.
  * Throws when the workspace fails to open (e.g. a failed migration), leaving none open.
  */
 export function openLastWorkspace(devBrain: DevBrain): Promise<Workspace | null> {
   return devBrain.workspaces.openIfNoneOpen(() => lastOpenedWorkspace(devBrain));
+}
+
+/** Main's reopening of the last workspace at startup (reopenLastWorkspace). */
+export interface StartupOpen {
+  /**
+   * Why it failed, once: the first page load shows it, and a reload doesn't again. Null while it
+   * runs, when it succeeded, or when there was none to reopen.
+   */
+  takeFailure(): unknown;
+}
+
+/**
+ * Starts reopening the workspace open last time, without waiting for it: the window shows its
+ * splash meanwhile. Called before the window is made, so by the time the page loads the open says
+ * which workspace it is opening (`workspaces.status`, `workspace.changed`); a page that asks
+ * sooner still follows it, from `workspace.changed`. A failure is logged with `onError` and kept
+ * for the page to show.
+ */
+export function reopenLastWorkspace(
+  devBrain: DevBrain,
+  onError: (error: unknown) => void,
+): StartupOpen {
+  let failure: unknown = null;
+  openLastWorkspace(devBrain).catch((error: unknown) => {
+    onError(error);
+    failure = error;
+  });
+  return {
+    takeFailure: () => {
+      const taken = failure;
+      failure = null;
+      return taken;
+    },
+  };
 }
 
 /**

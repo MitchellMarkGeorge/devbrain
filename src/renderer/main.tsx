@@ -7,6 +7,7 @@ import { WindowFrameProvider, detectPlatform, type WindowFrame } from './compone
 import { events, ipc, queryInvalidator, queryClient, trpc } from './ipc';
 import { readInitialLoadContext, seedQueryCache } from './ipc/initial-load-context';
 import { createAppRouter } from './router';
+import { createWorkspaceStatus, initialWorkspaceStatus } from './app/workspace-status';
 import { applyThemeSetting } from './theme';
 import './styles/fonts.css';
 import './styles/tokens.css';
@@ -36,7 +37,23 @@ const windowFrame: WindowFrame = {
   },
 };
 
-const router = createAppRouter({ queryClient, trpc, ipc, events, initialLoadContext });
+// which workspace is open and which is opening, from then on; asked again once, for an event sent
+// before it listened
+const workspaceStatus = createWorkspaceStatus({
+  events,
+  ipc,
+  initial: initialWorkspaceStatus(initialLoadContext),
+});
+if (initialLoadContext?.devBrainAvailable !== false) void workspaceStatus.refresh();
+
+const router = createAppRouter({
+  queryClient,
+  trpc,
+  ipc,
+  events,
+  initialLoadContext,
+  workspaceStatus,
+});
 
 function App() {
   // apply the theme every time the theme changes

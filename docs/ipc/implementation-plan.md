@@ -509,8 +509,10 @@ route.
 > which core still sends (the IPC layer forwards only its `sourceId`); `CLAUDE.md` has an "IPC"
 > section. The reads table in milestone 4 was brought up to date with the code: `calendars` also
 > reads `externalSource`, and `integrations.previewDisconnect` has its own line. Since milestone 3, startup
-> changed (PR #61): main no longer reopens the last workspace before creating the window; the
-> renderer's first call, `workspaces.openLast`, does.
+> changed (PR #61): main no longer reopened the last workspace before creating the window; the
+> renderer's first call, `workspaces.openLast`, did. It has changed again since (PR #120): main
+> starts the reopen just before creating the window but doesn't wait for it, `workspaces.openLast`
+> is gone, and the page follows the open through `workspace.changed` and `workspaces.status`.
 
 1. Write `docs/ipc/design.md`, the reference for the layer as built, with a short "adding a route"
    checklist:

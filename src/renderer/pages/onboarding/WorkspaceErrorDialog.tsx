@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 import type { WorkspaceId } from '@common/ids';
 import {
   AlertDialog,
@@ -76,7 +76,7 @@ export function describeWorkspaceError(failure: IpcFailure | null): WorkspaceErr
 }
 
 export interface WorkspaceActions {
-  /** opens a workspace: the switch splash shows, and the root goes to its landing page */
+  /** opens a workspace: the window goes to `/`, which shows the splash, then its landing page */
   open: (id: WorkspaceId) => void;
   /** "Open Existing Folder…": adds a workspace folder, then opens it */
   openFolder: () => void;
@@ -94,10 +94,23 @@ const SOMETHING_WENT_WRONG: IpcFailure = {
   data: {},
 };
 
-/** Opening a workspace, or adding one from a folder, with what went wrong kept for the dialog. */
-export function useWorkspaceActions(): WorkspaceActions {
+const WorkspaceActionsContext = createContext<WorkspaceActions | null>(null);
+
+/**
+ * Opening a workspace, or adding one from a folder, with what went wrong kept for the dialog. Held
+ * by the root, above the pages: the page that started an open is gone by the time it fails (the
+ * window is at `/`), and the dialog shows over onboarding after. `initialFailure` is why main's
+ * startup open failed, from the initial load context.
+ */
+export function WorkspaceActionsProvider({
+  initialFailure = null,
+  children,
+}: {
+  initialFailure?: IpcFailure | null;
+  children: ReactNode;
+}) {
   const { ipc } = useServices();
-  const [failure, setFailure] = useState<IpcFailure | null>(null);
+  const [failure, setFailure] = useState<IpcFailure | null>(initialFailure);
   const [pending, setPending] = useState(false);
 
   const show = (failure: IpcFailure | null) => setFailure(failure ?? SOMETHING_WENT_WRONG);
@@ -109,7 +122,7 @@ export function useWorkspaceActions(): WorkspaceActions {
       .finally(() => setPending(false));
   };
 
-  return {
+  const actions: WorkspaceActions = {
     open: (id) => run(() => ipc.workspaces.open.mutate({ id })),
     openFolder: () =>
       run(async () => {
@@ -121,16 +134,30 @@ export function useWorkspaceActions(): WorkspaceActions {
     dismiss: () => setFailure(null),
     pending,
   };
+  return (
+    <WorkspaceActionsContext.Provider value={actions}>{children}</WorkspaceActionsContext.Provider>
+  );
 }
 
-/** The alert for a failed open or add, with what can be done about it. */
-export function WorkspaceErrorDialog({ actions }: { actions: WorkspaceActions }) {
+/** The window's workspace actions, from `WorkspaceActionsProvider`. */
+export function useWorkspaceActions(): WorkspaceActions {
+  const actions = useContext(WorkspaceActionsContext);
+  if (actions === null) throw new Error('useWorkspaceActions needs a WorkspaceActionsProvider');
+  return actions;
+}
+
+/**
+ * The alert for a failed open or add, with what can be done about it. The root draws it once; it
+ * waits while `held` (the splash is up), so it opens over the page the window goes to next.
+ */
+export function WorkspaceErrorDialog({ held = false }: { held?: boolean }) {
+  const actions = useWorkspaceActions();
   const { failure } = actions;
   const text = describeWorkspaceError(failure);
   const existing = failure?.data.workspaceId as WorkspaceId | undefined;
   return (
     <AlertDialog
-      open={failure !== null}
+      open={failure !== null && !held}
       onOpenChange={(open) => {
         if (!open) actions.dismiss();
       }}

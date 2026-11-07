@@ -78,7 +78,9 @@ is the file manager and the system dialogs, built over Electron's `shell` and `d
 window; tests pass a fake. `workspace` is whichever workspace is open when the call
 arrives. [`src/main/index.ts`](../../src/main/index.ts) loads DevBrain and attaches the router
 and the tracker before it creates the window, so a call never arrives before DevBrain is ready. No
-workspace is open yet: the renderer's first call, `workspaces.openLast`, reopens the last one.
+workspace is open yet: just before creating the window, main starts reopening the last one
+(`reopenLastWorkspace`, [`runtime/start.ts`](../../src/main/runtime/start.ts)) without waiting for
+it, so the page loads with the open under way and shows its splash until it is done.
 
 ### The envelope and errors
 
@@ -156,8 +158,8 @@ not obvious from one file:
   entity's own kind, so a view refetches the recents list and not every list of that entity.
 - **`workspaces`** returns `WorkspaceInfo`, never a `Workspace`. `create` doesn't open the new
   workspace; `open` closes the open one first and remembers the new one for the next launch.
-  `openLast` is the renderer's first call: it opens the workspace open last time while none is
-  open, and otherwise returns the one already open, so a reload never reopens it.
+  `status` says which workspace is open and which is opening (`WorkspaceStatus`, what
+  `workspace.changed` sends), for a page that may have missed an event.
 - **`settings.set`** writes one setting by its dot path (`{ path: 'settings.general.timeFormat',
 value: '24' }`), or one group (`settings.calendar`), checking the value against that path's part
   of `appSettingsSchema`, so two quick edits to different settings can't undo each other as two
@@ -282,10 +284,12 @@ value `initialLoadContext` (`null` when the read fails). `readInitialLoadContext
 [`src/renderer/ipc/initial-load-context.ts`](../../src/renderer/ipc/initial-load-context.ts)) reads
 that value. Main answers with an `InitialLoadContext`
 ([`src/main/ipc/initial-load-context.ts`](../../src/main/ipc/initial-load-context.ts)), built fresh
-for each load: `{ devBrainAvailable, current, last, workspaces, settings }`, workspace info and the
-user's settings (`null` without DevBrain). The settings' `theme` is applied to the page before the
-first render (`src/renderer/theme.tsx`), which then follows `settings.get`. `last` is the workspace
-`workspaces.openLast` would open while none is open. When building it throws, main logs the error
+for each load: `{ devBrainAvailable, current, opening, openFailure, workspaces, settings }`,
+workspace info and the user's settings (`null` without DevBrain). The settings' `theme` is applied
+to the page before the first render (`src/renderer/theme.tsx`), which then follows `settings.get`.
+`opening` is the workspace being opened (main's startup reopen), for the splash to name.
+`openFailure` is why that startup open failed, as a call's error would say it; it is given once, so
+a reload doesn't show it again. When building it throws, main logs the error
 and answers `null`, so the page never waits forever.
 
 `seedQueryCache` puts `current`, `workspaces` and `settings` in the cache as `workspaces.current`,
@@ -323,7 +327,7 @@ mutation's own changes are refetched before it resolves. `main.tsx` calls
 
 ### A workspace switch
 
-1. `workspaces.open` (or `workspaces.openLast` at launch) opens the workspace through core's
+1. `workspaces.open` (or main's `reopenLastWorkspace` at launch) opens the workspace through core's
    `WorkspaceService`, closing the open one first, if any. Core sends `opening` first, before
    anything closes, then the old one's `closed` once it has closed, then `opened` once the new one
    is current, or `openFailed` when it could not be opened (nothing is open then). The tracker
@@ -332,9 +336,10 @@ mutation's own changes are refetched before it resolves. `main.tsx` calls
    workspace open and the one opening. A switch sends three: `{ old, new }`, `{ null, new }`,
    `{ new, null }`.
 2. `workspace.changed` is sent while the mutation runs, so it reaches the switching window before
-   the response. It alone says which workspace is open, and which is opening: the app shows its
-   splash while `opening` is set (`useOpeningWorkspace`, `src/renderer/workspace-opening.ts`), so
-   the moment with nothing open is the splash, never an empty or failing screen.
+   the response. It alone says which workspace is open, and which is opening: the renderer's
+   workspace status follows it (`src/renderer/app/workspace-status.ts`), and while `opening` is set
+   the window is at `/`, which shows the splash, so the moment with nothing open is the splash,
+   never an empty or failing screen.
 3. When the id differs from the workspace whose data is cached, the invalidator resets every query
    outside `app`, `settings` and `workspaces` (`resetQueries` cancels what is in flight, clears the
    data and refetches what is mounted), and refetches the `workspaces` queries.

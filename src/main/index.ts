@@ -19,7 +19,7 @@ import type { DevBrain } from '@main/core';
 import { createSafeStorageCipher } from './runtime/safe-storage-cipher';
 import { migrationsPath } from './runtime/migrations';
 import { openElectronSettingsStore } from './runtime/settings-store';
-import { loadDevBrain } from './runtime/start';
+import { loadDevBrain, reopenLastWorkspace, type StartupOpen } from './runtime/start';
 import { closeBeforeQuit, forwardSyncTriggers, holdSingleInstance } from './runtime/lifecycle';
 import { saveLastPageOnClose } from './runtime/last-page';
 import { createElectronDesktop } from './runtime/desktop';
@@ -73,7 +73,8 @@ function devBrainRootPath(): string {
   return process.env.DEVBRAIN_PATH ?? path.join(os.homedir(), '.devbrain');
 }
 
-// Opens the DevBrain folder, and no workspace yet: the renderer opens one (workspaces.openLast).
+// Opens the DevBrain folder, and no workspace yet: startup reopens the last one once everything that
+// follows DevBrain is attached (reopenLastWorkspace).
 // Must run after `ready`: net.fetch and safeStorage's async API are only usable from then. Creates
 // the folder when there is none. Null when the folder is invalid or can't be made. Never rejects: a
 // failure is logged, and the window stays up.
@@ -118,7 +119,7 @@ const changeTracker = new ChangeTracker((name, payload, skipWindow) => {
 
 // The typed router (src/main/ipc/router.ts); the renderer reaches it through the generic bridge in
 // src/preload/index.ts. Attached before the window is created, so its first calls find it.
-function attachIpc(devBrain: DevBrain | null) {
+function attachIpc(devBrain: DevBrain | null, startupOpen: () => StartupOpen | null) {
   attachRouter(appRouter, {
     // the dialogs are modal to the window the call came from
     createContext: (call) =>
@@ -143,7 +144,7 @@ function attachIpc(devBrain: DevBrain | null) {
   });
   // what each page load renders first, read fresh every time (src/main/ipc/initial-load-context.ts)
   attachInitialLoadContext(
-    () => initialLoadContext(devBrain),
+    () => initialLoadContext(devBrain, startupOpen()),
     (error) => ipcLog.error('Building the initial load context failed', error),
   );
 }
@@ -272,15 +273,17 @@ function attachMenu(devBrain: DevBrain | null) {
 
 // --- App lifecycle --------------------------------------------------------
 // Startup, in order: load DevBrain; attach everything that follows it, before anything starts;
-// then create the window, whose first calls find the router. The renderer reopens the last
-// workspace itself (workspaces.openLast), so a slow open never holds the window back.
+// start reopening the last workspace; then create the window, whose first calls find the router.
+// The open isn't waited for, so a slow one never holds the window back: the page shows its splash
+// until it is done.
 app.whenReady().then(async () => {
   // another instance runs: this one is quitting, and opens nothing
   if (!isOnlyInstance) return;
   configureLogging();
 
   const devBrain = await loadCore();
-  attachIpc(devBrain);
+  let startupOpen: StartupOpen | null = null;
+  attachIpc(devBrain, () => startupOpen);
   if (devBrain !== null) {
     // before the last workspace opens, so the tracker follows it from the start
     changeTracker.watch(devBrain);
@@ -296,6 +299,11 @@ app.whenReady().then(async () => {
   attachMenu(devBrain);
   followThemeSetting(devBrain);
   followLaunchAtLoginSetting(devBrain);
+  if (devBrain !== null) {
+    startupOpen = reopenLastWorkspace(devBrain, (error) =>
+      devBrainLog.error('Reopening the last workspace failed', error),
+    );
+  }
   createWindow();
   started = true;
   // the Dock icon on macOS: shows the hidden window, or makes one if it is gone
