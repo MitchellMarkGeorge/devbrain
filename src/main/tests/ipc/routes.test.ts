@@ -57,6 +57,19 @@ describe('the base procedures', () => {
   });
 });
 
+describe('app.showLogFile', () => {
+  it('shows the log file, with or without DevBrain', async () => {
+    const desktop = { showLogFile: vi.fn(async () => {}) };
+    attachRouter(appRouter, { createContext: testContext(null, desktop as unknown as Desktop) });
+    expect(await call('app.showLogFile', undefined, 'mutation')).toEqual({
+      ok: true,
+      data: undefined,
+      changed: [],
+    });
+    expect(desktop.showLogFile).toHaveBeenCalledOnce();
+  });
+});
+
 describe('app.showMenu', () => {
   it('pops up the app menu at the point given, changing nothing', async () => {
     const desktop = { showAppMenu: vi.fn(async () => {}) };

@@ -63,6 +63,9 @@ function configureLogging() {
   log.transports.file.resolvePathFn = () => path.join(os.homedir(), 'devteam', 'logs');
 }
 
+// where electron-log writes: the menu's Show Log File, and the renderer's (app.showLogFile)
+const logFilePath = () => log.transports.file.getFile().path;
+
 // --- DevBrain -------------------------------------------------------------
 const devBrainLog = log.scope('devbrain');
 
@@ -128,7 +131,7 @@ function attachIpc(devBrain: DevBrain | null) {
         ...call,
         devBrain,
         desktop: createElectronDesktop(
-          { dialog, shell, menu: Menu },
+          { dialog, shell, menu: Menu, logFilePath },
           BrowserWindow.fromWebContents(call.event.sender),
         ),
         log: ipcLog,
@@ -263,10 +266,10 @@ function attachMenu(devBrain: DevBrain | null) {
     actions: createMenuActions({
       devBrain,
       window: focusedWindow,
-      desktop: (win) => createElectronDesktop({ dialog, shell, menu: Menu }, win),
+      desktop: (win) => createElectronDesktop({ dialog, shell, menu: Menu, logFilePath }, win),
       dialog,
       showItemInFolder: (fullPath) => shell.showItemInFolder(fullPath),
-      logFilePath: () => log.transports.file.getFile().path,
+      logFilePath,
       logger: log.scope('menu'),
     }),
   });

@@ -12,4 +12,7 @@ export const appRouter = t.router({
   showMenu: publicProcedure
     .input(z.object({ x: z.number().nonnegative(), y: z.number().nonnegative() }))
     .mutation(({ ctx, input }) => ctx.desktop.showAppMenu(input)),
+  // Shows DevBrain's log file in the file manager: the one thing the window offers when DevBrain
+  // couldn't load (so it needs nothing from DevBrain)
+  showLogFile: publicProcedure.mutation(({ ctx }) => ctx.desktop.showLogFile()),
 });
