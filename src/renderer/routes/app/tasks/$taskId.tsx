@@ -7,9 +7,10 @@ import { PlaceholderPage } from '../../../app/pages';
 export const Route = createFileRoute('/app/tasks/$taskId')({
   loader: ({ context: { queryClient, trpc }, params }) =>
     loadOrNotFound(
-      queryClient.ensureQueryData(
-        trpc.tasks.get.queryOptions({ id: idOrNotFound('task', params.taskId) }),
-      ),
+      queryClient.query({
+        ...trpc.tasks.get.queryOptions({ id: idOrNotFound('task', params.taskId) }),
+        staleTime: 'static',
+      }),
     ),
   component: Detail,
 });

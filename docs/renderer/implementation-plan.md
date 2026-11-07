@@ -91,7 +91,7 @@ surveyed three things in parallel and checked the claims the plan rests on again
 | Paths                              | Snake case, as the project uses elsewhere, with the spelling fixed: `/app/...` (onboarding has no paths: see the as-built notes). Path params use the entity's prefixed id (`tsk_…`, `prj_…`, `nte_…`), validated with the same prefixes `zId` checks.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | Param values                       | Snake case too (`data_storage`, `not_started`, `in_progress`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | Search params                      | Validated per route with Zod v4 (already a dependency; TanStack Router accepts Standard Schema), each field `.optional().catch(undefined)`. Without the `catch`, one bad value (a link saved before a param's values changed, a typo, a removed option) makes `validateSearch` throw, and the whole page renders the error screen. With it, that one field falls back to its default and the rest of the URL still applies. The fallback is `undefined` rather than a literal default because a missing param means "the setting's default" (e.g. `tasks.defaultView`), read at render: so a default is never written into the URL, and changing the setting changes every URL without the param. |
-| Data                               | React Query stays the cache, through `trpc.*.queryOptions()` as today. Route loaders only _prime_ that cache (`queryClient.ensureQueryData`), so a page renders with its data on the first frame and a missing entity becomes the route's not-found. The router keeps no cache of its own (`defaultPreloadStaleTime: 0`). Freshness stays with the query invalidator: nothing in a route invalidates by hand.                                                                                                                                                                                                                                                                                     |
+| Data                               | React Query stays the cache, through `trpc.*.queryOptions()` as today. Route loaders only _prime_ that cache (`queryClient.query({ ...options, staleTime: 'static' })`), so a page renders with its data on the first frame and a missing entity becomes the route's not-found. The router keeps no cache of its own (`defaultPreloadStaleTime: 0`). Freshness stays with the query invalidator: nothing in a route invalidates by hand.                                                                                                                                                                                                                                                          |
 | Router context                     | `{ queryClient, trpc, ipc, events, initialLoadContext }` (the `Services` that `useServices()` also gives), typed with `createRootRouteWithContext`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | Entity components                  | The entity and list components take **core's own shapes**: a `TaskListItem` goes straight into `TaskRow`, with no mapping step. Each component's props are a `Pick` of the shared type it draws (`Pick<TaskListItem, 'title' \| 'status' \| …>`), and it derives and formats what it draws (overdue, "Today", 10:30 AM) from a `FormatProvider` that supplies `now` and the time format. Needs the shared types and enums moved to `src/common` (X1). See [Entity components take core's shapes](#entity-components-take-cores-shapes).                                                                                                                                                           |
 | Dates                              | **luxon**, already a dependency and what core uses: relative and calendar dates, locale formats, 12/24 hour. No hand-written date formatting.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -515,15 +515,24 @@ with `@tanstack/react-virtual`. A workspace with 5,000 tasks then draws about 30
 
 ### Loaders
 
-Each route's `loader` calls `ensureQueryData` (or `ensureInfiniteQueryData`) for what its first
-frame needs, from `context.queryClient`, and translates core's `not_found` into `notFound()`:
+Each route's `loader` reads what its first frame needs with `queryClient.query({ ...options,
+staleTime: 'static' })` (or `infiniteQuery`), from `context.queryClient`: the cached data when
+there is any, else a fetch. That is what React Query's deprecated `ensureQueryData` did, and
+`query` replaces it, as it replaces `fetchQuery`. A loader translates core's `not_found` into
+`notFound()` (`loadOrNotFound`, `src/renderer/app/detail.ts`):
 
 ```ts
-loader: async ({ context: { queryClient, trpc }, params }) => {
-  const task = await ensureOrNotFound(queryClient, trpc.tasks.get.queryOptions({ id: params.taskId }));
-  void queryClient.prefetchQuery(trpc.tasks.subtasks.queryOptions({ id: task.id }));
-},
+loader: ({ context: { queryClient, trpc }, params }) =>
+  loadOrNotFound(
+    queryClient.query({
+      ...trpc.tasks.get.queryOptions({ id: idOrNotFound('task', params.taskId) }),
+      staleTime: 'static',
+    }),
+  ),
 ```
+
+A loader that only warms the cache for what the page reads next (a task's subtasks) does so with
+`void queryClient.query(options).catch(() => {})`, without waiting.
 
 `loaderDeps: ({ search }) => pickFilters(search)` on list routes, so a filter change reloads and a
 sheet's `open` param does not.
@@ -983,7 +992,7 @@ Figma `7158:13273` (week), `7158:13856` (day), `7158:18439` (month), `7175:30140
   URL back, so the two can't loop.
 - **Data**: one FullCalendar event source per visible calendar (coloured by the calendar, as the
   spec says), whose `events(info)` function calls
-  `queryClient.fetchQuery(trpc.events.listForCalendar.queryOptions({ start, end, calendarIds }))`
+  `queryClient.query(trpc.events.listForCalendar.queryOptions({ start, end, calendarIds }))`
   and maps with `toEventInput`. Reading through React Query keeps the invalidator in charge: when
   core reports `event` or `calendar` changes, a `refetchEvents()` follows from a
   `queryClient.getQueryCache().subscribe` on those keys. The read may fetch older Google history

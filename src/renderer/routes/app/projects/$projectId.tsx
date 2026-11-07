@@ -9,9 +9,10 @@ export const Route = createFileRoute('/app/projects/$projectId')({
   validateSearch: projectSearch,
   loader: ({ context: { queryClient, trpc }, params }) =>
     loadOrNotFound(
-      queryClient.ensureQueryData(
-        trpc.projects.get.queryOptions({ id: idOrNotFound('project', params.projectId) }),
-      ),
+      queryClient.query({
+        ...trpc.projects.get.queryOptions({ id: idOrNotFound('project', params.projectId) }),
+        staleTime: 'static',
+      }),
     ),
   component: Detail,
 });

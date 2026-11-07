@@ -16,22 +16,20 @@ export function landingPage(
 }
 
 /**
- * The default landing page (`/app`, Go Home), with the settings from the cache (fetched once if
- * not cached). A failed read of the settings falls back to Home.
+ * The default landing page (`/app`, Go Home), with the settings from the cache (fetched if not
+ * cached, or if main has said they changed since). A failed read of the settings falls back to Home.
  */
 export async function defaultLandingPage({
   queryClient,
   trpc,
 }: Pick<Services, 'queryClient' | 'trpc'>): Promise<string> {
-  const settings = await queryClient
-    .ensureQueryData(trpc.settings.get.queryOptions())
-    .catch(() => undefined);
+  const settings = await queryClient.query(trpc.settings.get.queryOptions()).catch(() => undefined);
   return landingPage(settings, null);
 }
 
 /**
  * The open workspace's landing page, read through React Query: the settings from the cache
- * (fetched once if not there), and the open workspace (`workspaces.current`) asked of main afresh,
+ * (fetched if not there, or if main has said they changed since), and the open workspace (`workspaces.current`) asked of main afresh,
  * as the `/` route runs as a workspace opens, when the cached one may still be the previous
  * workspace's. Either read failing falls back to the default landing page.
  */
@@ -40,9 +38,9 @@ export async function openWorkspaceLandingPage({
   trpc,
 }: Pick<Services, 'queryClient' | 'trpc'>): Promise<string> {
   const [settings, workspace] = await Promise.all([
-    queryClient.ensureQueryData(trpc.settings.get.queryOptions()).catch(() => undefined),
+    queryClient.query(trpc.settings.get.queryOptions()).catch(() => undefined),
     queryClient
-      .fetchQuery({ ...trpc.workspaces.current.queryOptions(), staleTime: 0 })
+      .query({ ...trpc.workspaces.current.queryOptions(), staleTime: 0 })
       .catch(() => null),
   ]);
   return landingPage(settings, workspace);

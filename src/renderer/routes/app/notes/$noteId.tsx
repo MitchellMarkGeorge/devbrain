@@ -7,9 +7,10 @@ import { PlaceholderPage } from '../../../app/pages';
 export const Route = createFileRoute('/app/notes/$noteId')({
   loader: ({ context: { queryClient, trpc }, params }) =>
     loadOrNotFound(
-      queryClient.ensureQueryData(
-        trpc.notes.get.queryOptions({ id: idOrNotFound('note', params.noteId) }),
-      ),
+      queryClient.query({
+        ...trpc.notes.get.queryOptions({ id: idOrNotFound('note', params.noteId) }),
+        staleTime: 'static',
+      }),
     ),
   component: Detail,
 });
