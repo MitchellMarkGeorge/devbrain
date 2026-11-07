@@ -300,12 +300,22 @@ app.whenReady().then(async () => {
   attachIpc(devBrain);
   if (devBrain !== null) {
     // before the last workspace opens, so the tracker follows it from the start
-    changeTracker.watch(devBrain);
+    const stopTracking = changeTracker.watch(devBrain);
     // "Reopen last page": the page the window was on when the workspace closed, quitting included
     lastPages = saveLastPageOnClose(app, devBrain);
     // Holds the quit until DevBrain has closed. A close waits for a workspace still opening, as
-    // WorkspaceService queues its transitions
-    closeBeforeQuit(app, () => devBrain.close(), devBrainLog);
+    // WorkspaceService queues its transitions. The windows stop hearing of changes as the close
+    // starts, the point of no return: the quit's close of the workspace isn't one they should
+    // follow (to onboarding, refetching what they show). A check that could cancel a quit ("Quit
+    // anyway?") belongs before this point.
+    closeBeforeQuit(
+      app,
+      () => {
+        stopTracking();
+        return devBrain.close();
+      },
+      devBrainLog,
+    );
     // window focus and system resume sync the workspace open at the time, if any
     forwardSyncTriggers({ app, powerMonitor }, devBrain, devBrainLog);
   }

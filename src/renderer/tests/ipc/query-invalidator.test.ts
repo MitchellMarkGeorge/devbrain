@@ -180,6 +180,22 @@ describe('switching workspace', () => {
     expect(count('workspaces.current')).toBe(2);
   });
 
+  it('refetches nothing but the workspace queries while none is open, and drops the old data once one opens', async () => {
+    await queryInvalidator.workspaceOpened(WORK);
+    await query('tasks.list');
+    await query('workspaces.current');
+
+    // a switch's middle step, a delete or a failed open: any refetch would fail
+    await queryInvalidator.workspaceOpened(null);
+    expect(count('tasks.list')).toBe(1);
+    expect(data('tasks.list')).toBe('tasks.list #1');
+    expect(count('workspaces.current')).toBe(2);
+
+    // then a workspace opens, even the one before: its data is read again
+    await queryInvalidator.workspaceOpened(WORK);
+    expect(data('tasks.list')).toBe('tasks.list #2');
+  });
+
   it('keeps everything when the workspace said to be open already is', async () => {
     await queryInvalidator.workspaceOpened(WORK);
     await query('tasks.list');

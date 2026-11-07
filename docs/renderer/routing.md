@@ -114,7 +114,7 @@ Each workspace keeps the last page shown in it in its folder's manifest (`worksp
 
 Main follows the window's navigations (`did-navigate`, `did-navigate-in-page`) and keeps **the last
 page seen in each workspace**, then saves the closing workspace's own page when it closes (on a
-switch, a delete, quit). It must be kept per workspace: the URL moves to the next workspace's page as
+switch, a delete, quit; the window hears nothing of the quit's close). It must be kept per workspace: the URL moves to the next workspace's page as
 a switch starts, before the old one closes. Main reads it back for the window's first route, and the
 index route reads it from the opened workspace's info. Nothing goes over IPC as the user navigates.
 

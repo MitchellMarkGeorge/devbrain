@@ -86,7 +86,10 @@ export function entitiesReadBy(path: readonly string[]): readonly ChangedEntity[
 export interface QueryInvalidator {
   /** Invalidates the queries reading these entities; resolves once the active ones refetched. */
   onChanged(entities: readonly ChangedEntity[]): Promise<void>;
-  /** Drops what was cached for another workspace when `id` is not the one known to be open. */
+  /**
+   * Drops what was cached for another workspace when `id` is not the one known to be open; with
+   * none open, only the workspace queries refetch.
+   */
   workspaceOpened(id: WorkspaceId | null): Promise<void>;
   /** Follows main's events; returns the function that stops. */
   listen(events: EventClient<AppEvents>): () => void;
@@ -125,7 +128,14 @@ export function createQueryInvalidator(options: QueryInvalidatorOptions): QueryI
   async function workspaceOpened(id: WorkspaceId | null): Promise<void> {
     if (id === cachedWorkspaceId) return;
     cachedWorkspaceId = id;
-    // the old workspace's data goes, and the workspace queries (which one is open) refetch
+    // None open (a switch between close and open, a delete, a failed open): nothing could be read,
+    // so nothing refetches; the old data stays, unused, until a workspace opens and drops it.
+    // Only the workspace queries (which one is open) refetch.
+    if (id === null) {
+      await invalidateQueriesReading(['workspace']);
+      return;
+    }
+    // the old workspace's data goes, and the workspace queries refetch
     await Promise.all([dropWorkspaceData(), invalidateQueriesReading(['workspace'])]);
   }
 

@@ -347,13 +347,20 @@ The renderer starts a switch by navigating to a page of the other workspace; its
    open is the splash, never an empty or failing screen.
 3. When the id differs from the workspace whose data is cached, the invalidator resets every query
    outside `app`, `settings` and `workspaces` (`resetQueries` cancels what is in flight, clears the
-   data and refetches what is mounted), and refetches the `workspaces` queries.
+   data and refetches what is mounted), and refetches the `workspaces` queries. While none is open
+   (`id: null`: a switch's middle step, a delete, a failed open) it only refetches the `workspaces`
+   queries: anything else would fail with `no_workspace_open`, so the old data stays, unused, until
+   the next workspace opens and drops it.
 4. The mutation's response carries `changed: ['workspace']`, which only refetches the workspace
    list. Creating, renaming or recolouring a workspace (`workspaces.update`), or adding one from a
    folder (`workspaces.importFolder`, see
    [moving between computers](../workspaces/moving-between-computers.md)), reports the same,
    without `workspace.changed`: `workspaces.current` reads `workspace` too, so the open
    workspace's new name and colour refetch with the list.
+5. **On quit** main closes the open workspace too, but stops sending events to the windows as that
+   close starts (`src/main/index.ts`, in `closeBeforeQuit`'s close): a window doesn't follow the
+   quit's close to onboarding, or refetch for it. A check that could cancel a quit belongs before
+   that point.
 
 ## Testing
 
