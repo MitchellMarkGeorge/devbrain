@@ -54,10 +54,11 @@ export function settings(general: Partial<AppSettings['general']> = {}): AppSett
   };
 }
 
-class CallError extends Error {
+export class CallError extends Error {
   constructor(
     readonly code: string,
     message: string,
+    readonly data: Record<string, unknown> = {},
   ) {
     super(message);
   }
@@ -83,6 +84,14 @@ export class FakeMain {
   // awaited before tasks.list answers, per workspace
   readonly listGates = new Map<WorkspaceId, Promise<void>>();
   readonly sent: AppEvents['workspace.changed'][] = [];
+  // every call's path, in order
+  readonly calls: string[] = [];
+  // workspaces whose folder is gone: opening one fails before anything closes
+  readonly missing = new Set<WorkspaceId>();
+  // what "Open Existing Folder…" adds: a workspace, null (cancelled) or the error main throws
+  importResult: WorkspaceInfo | null | CallError = null;
+  // false: main couldn't load DevBrain
+  devBrainAvailable = true;
   private readonly listeners = new Map<string, Set<(payload: unknown) => void>>();
 
   constructor(workspaces: WorkspaceInfo[]) {
@@ -101,7 +110,7 @@ export class FakeMain {
   initialLoadContext(): InitialLoadContext {
     const info = (id: WorkspaceId | null) => (id ? this.workspaces.get(id)! : null);
     return {
-      devBrainAvailable: true,
+      devBrainAvailable: this.devBrainAvailable,
       current: info(this.current),
       last: this.current ? null : info(this.lastWorkspaceId),
       workspaces: { items: [...this.workspaces.values()], nextCursor: null },
@@ -114,10 +123,10 @@ export class FakeMain {
       try {
         return { ok: true, data: await this.call(request), changed: [] };
       } catch (error) {
-        const { code, message } = error as CallError;
+        const { code, message, data } = error as CallError;
         return {
           ok: false,
-          error: { code: -32603, message, data: { code, message, data: {} } },
+          error: { code: -32603, message, data: { code, message, data } },
           changed: [],
         } as IpcResult<unknown>;
       }
@@ -171,7 +180,12 @@ export class FakeMain {
   }
 
   private async call({ path, input }: IpcRequest): Promise<unknown> {
+    this.calls.push(path);
     switch (path) {
+      case 'app.version':
+        return '0.0.1';
+      case 'app.showLogFile':
+        return undefined;
       case 'workspaces.current':
         return this.current ? this.workspaces.get(this.current)! : null;
       case 'workspaces.list':
@@ -179,21 +193,63 @@ export class FakeMain {
       case 'workspaces.openLast':
         if (this.current) return this.workspaces.get(this.current)!;
         return this.lastWorkspaceId ? this.open(this.lastWorkspaceId) : null;
-      case 'workspaces.open':
-        return this.open((input as { id: WorkspaceId }).id);
+      case 'workspaces.open': {
+        const { id } = input as { id: WorkspaceId };
+        // WorkspaceService checks the folder before it sends anything: the open one stays open
+        if (this.missing.has(id)) {
+          throw new CallError('workspace_data_missing', 'No workspace data found');
+        }
+        return this.open(id);
+      }
+      case 'workspaces.create': {
+        const { name, color } = input as { name: string; color: string };
+        const id = `wsp_${'c'.repeat(21)}${this.workspaces.size}` as WorkspaceId;
+        const created = { ...workspace(id, name, null), color };
+        this.workspaces.set(id, created);
+        return created;
+      }
+      case 'workspaces.importFolder': {
+        const result = this.importResult;
+        if (result instanceof CallError) throw result;
+        if (result) this.workspaces.set(result.id, result);
+        return result;
+      }
       case 'settings.get':
         return this.settings;
-      case 'tasks.list': {
-        const served = this.current;
-        if (served === null) throw new CallError('no_workspace_open', 'No workspace is open');
-        await this.listGates.get(served);
-        if (this.current !== served) throw new CallError('no_workspace_open', 'Closed meanwhile');
-        const { name } = this.workspaces.get(served)!;
-        const items = [1, 2].map((n) => ({ id: `tsk_${served}${n}`, title: `${name} task ${n}` }));
-        return { items, nextCursor: null };
-      }
       default:
+        if (path in WORKSPACE_ROWS) return this.rows(path as keyof typeof WORKSPACE_ROWS);
         throw new CallError('internal', `No fake for ${path}`);
     }
   }
+
+  // A page's first rows, named after the workspace that served them ("Beta task 1"), once that
+  // workspace's gate opens; refused when none is open, as wsProcedure does
+  private async rows(path: keyof typeof WORKSPACE_ROWS): Promise<unknown> {
+    const served = this.current;
+    if (served === null) throw new CallError('no_workspace_open', 'No workspace is open');
+    await this.listGates.get(served);
+    if (this.current !== served) throw new CallError('no_workspace_open', 'Closed meanwhile');
+    const { name } = this.workspaces.get(served)!;
+    const [kind, shape] = WORKSPACE_ROWS[path];
+    const rows = [1, 2].map((n) => {
+      const title = `${name} ${kind} ${n}`;
+      const id = `${kind}_${served}${n}`;
+      if (shape === 'recent')
+        return { entityType: 'tasks', entity: { id, title }, viewedAt: new Date() };
+      if (shape === 'named') return { id, name: title, accountLabel: title };
+      return { id, title };
+    });
+    return shape === 'page' || shape === 'recent' ? { items: rows, nextCursor: null } : rows;
+  }
 }
+
+// the routes the placeholder pages load, with what each row is called and how they come
+const WORKSPACE_ROWS = {
+  'tasks.list': ['task', 'page'],
+  'notes.list': ['note', 'page'],
+  'projects.list': ['project', 'page'],
+  'archive.listArchived': ['trashed', 'page'],
+  'recents.list': ['recent', 'recent'],
+  'calendars.list': ['calendar', 'named'],
+  'integrations.list': ['account', 'named'],
+} as const;

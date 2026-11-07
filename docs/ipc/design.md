@@ -192,6 +192,9 @@ value: '24' }`), or one group (`settings.calendar`), checking the value against 
   the Windows title bar's menu button: the page draws the title bar there and Windows shows no
   menu bar (`src/main/runtime/window-chrome.ts`). It resolves once the menu closes; a command the
   menu runs reports its own changes.
+- **`app.showLogFile`** shows the log file in the file manager, as the menu's Show Log File does,
+  through `ctx.desktop`. It needs nothing from DevBrain: it is what the window offers when
+  DevBrain couldn't load (the initial load context's `devBrainAvailable: false`).
 - **`search.search`** returns the only HTML core produces: escaped text with matches in `<b>`
   (see [untrusted-content.md](../security/untrusted-content.md)).
 
@@ -332,9 +335,11 @@ mutation's own changes are refetched before it resolves. `main.tsx` calls
    workspace open and the one opening. A switch sends three: `{ old, new }`, `{ null, new }`,
    `{ new, null }`.
 2. `workspace.changed` is sent while the mutation runs, so it reaches the switching window before
-   the response. It alone says which workspace is open, and which is opening: the app shows its
-   splash while `opening` is set (`useOpeningWorkspace`, `src/renderer/workspace-opening.ts`), so
-   the moment with nothing open is the splash, never an empty or failing screen.
+   the response. It alone says which workspace is open, and which is opening: the renderer's
+   `WorkspaceSession` (`src/renderer/session/workspace-session.ts`) follows it, and the root route
+   shows the splash in place of the page from `opening` until the new workspace's page has loaded,
+   so the moment with nothing open is the splash, never an empty or failing screen
+   ([router-splash-exploration.md](../renderer/router-splash-exploration.md)).
 3. When the id differs from the workspace whose data is cached, the invalidator resets every query
    outside `app`, `settings` and `workspaces` (`resetQueries` cancels what is in flight, clears the
    data and refetches what is mounted), and refetches the `workspaces` queries.

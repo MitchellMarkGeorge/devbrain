@@ -101,13 +101,13 @@ and `workspace.changed` navigates).
 
 ### Pieces
 
-| Piece                 | File                             | One job                                                                                                                        |
-| --------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `WorkspaceSession`    | `src/renderer/router/session.ts` | follows `workspace.changed`; makes the lifecycle's navigations; says `busy`; decides whether a location belongs to what's open |
-| `landingPage()`       | same                             | last page (setting on and parses) or `/app/${defaultLandingPage}`                                                              |
-| root `shellComponent` | `src/renderer/router/routes.tsx` | the splash in place of the tree while busy, held ≥ 600 ms (`useHeldFor`)                                                       |
-| root `beforeLoad`     | same                             | `session.guard(location)`: a location that doesn't belong redirects to the open workspace's first page                         |
-| `main.tsx`            |                                  | builds the session and the one router (hash history) once, calls `session.start(router)`                                       |
+| Piece                 | File                                        | One job                                                                                                                        |
+| --------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `WorkspaceSession`    | `src/renderer/session/workspace-session.ts` | follows `workspace.changed`; makes the lifecycle's navigations; says `busy`; decides whether a location belongs to what's open |
+| `landingPage()`       | same                                        | last page (setting on and parses) or `/app/${defaultLandingPage}`                                                              |
+| root `shellComponent` | `src/renderer/pages/root/RootShell.tsx`     | the splash in place of the tree while busy, held ≥ 600 ms (`useHeldFor`)                                                       |
+| root `beforeLoad`     | `src/renderer/routes/__root.tsx`            | `session.guard(location)`: a location that doesn't belong redirects to the open workspace's first page                         |
+| `main.tsx`            |                                             | builds the session and the one router (hash history) once, calls `session.start(router)`                                       |
 
 There are no `/app` or `/onboarding` guards of their own: one check in the root covers `/`,
 `/onboarding/*` and `/app/*` alike.
@@ -179,7 +179,7 @@ none above it from another workspace.
   loop.
 
 ```ts
-// session.ts
+// workspace-session.ts
 guard(location: ParsedLocation): void {
   const { phase, home, workspace } = this.state;
   if (phase === 'opening' || this.belongs(location)) return;
@@ -213,6 +213,9 @@ function SplashGate({ children }: { children: ReactNode }) {
   return splash ? <Splash /> : children;
 }
 ```
+
+In the app, the shell is `RootShell` (`pages/root/RootShell.tsx`): `ToastProvider` and the
+workspace actions around this gate, or the DevBrain-unavailable screen in its place.
 
 Why the **shell** and not the root's `component`: on the router's first load the tree isn't
 rendered until the loaders are done. A splash in the root component would not show during a
@@ -346,27 +349,25 @@ would need rewriting if this design is adopted.
   next to the gate, not in the root's component.
 - **Internal behaviours 4 and 7.** Both are covered by tests that fail loudly on an upgrade. Pin
   the router version, and read these two tests when upgrading.
-- **Not built here:**
-  - File-based routes. The plugin is not installed; the prototype's tree is code-based in
-    `routes.tsx`. The root, the guard and the session carry over unchanged.
-  - The real `AppShell`. `/app`'s layout is a placeholder with a Back button.
-  - `devBrainAvailable: false` (the root should render the error screen instead of the tree;
-    that's a branch in the shell).
-  - `ensureOrNotFound` on detail pages.
-- **`App.tsx` is now unused.** `main.tsx` renders the router. The test bench is left in place for
-  reference; delete it when `/app` renders the real shell.
+- **Built since, in milestones 1–2** (see [implementation-plan.md](implementation-plan.md)):
+  file-based routes (the plugin runs on Vite 8), the real `AppShell` and sidebar, onboarding, the
+  DevBrain-unavailable screen (a branch in the shell; nothing opens), and `App.tsx` removed. Still
+  to build: `ensureOrNotFound` on detail pages.
 - **Unreachable docs.** tanstack.com is blocked in this session's network, so the "documented"
   column comes from the package's public types and JSDoc. Check it against the live docs before
   relying on it.
 
-## Files on the branch
+## Files
 
-- `package.json` / `package-lock.json`: `@tanstack/react-router` 1.170.46, exact. Prettier is
-  unchanged at 3.8.4; the plugin isn't installed.
-- `src/renderer/router/session.ts`: `WorkspaceSession`, `landingPage`.
-- `src/renderer/router/routes.tsx`: the route tree, the root route (guard, shell, splash) and
-  placeholder pages; `createAppRouter`.
+- `src/renderer/session/workspace-session.ts`: `WorkspaceSession`, `landingPage`;
+  `session/use-held-for.ts`: the splash's minimum time.
+- `src/renderer/router.tsx`: `createAppRouter` and the router context.
+- `src/renderer/routes/`: the file routes (`__root.tsx` holds the guard, the shell and the empty
+  pending UI); `routeTree.gen.ts` is generated from them.
+- `src/renderer/pages/root/`: `RootShell` (toasts, workspace actions, splash gate),
+  `Splash`, `DevBrainUnavailable`, the not-found and error pages.
 - `src/renderer/main.tsx`: builds the session and the hash-history router, and renders
   `RouterProvider`.
-- `src/renderer/tests/router/fake-main.ts`, `harness.ts`, `workspace-session.test.ts`,
-  `library-behaviour.test.ts`.
+- `src/renderer/tests/router/`: `fake-main.ts`, `harness.ts`, `workspace-session.test.ts`,
+  `library-behaviour.test.ts`, and `app-pages.test.ts` (the shell, onboarding, the error dialogs
+  and the unavailable screen).

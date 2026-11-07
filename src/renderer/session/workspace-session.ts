@@ -44,6 +44,9 @@ export interface SessionState {
   busy: boolean;
   // the open workspace (phase 'open')
   workspace: WorkspaceInfo | null;
+  // the workspace opening or being landed on, for the splash to name (kept while the splash is
+  // held after); at a cold start, the one being reopened, from main's initial load context
+  opening: WorkspaceId | null;
   // where a location that doesn't belong is sent: the page the workspace landed on, or onboarding
   home: string;
   // the history index of the first entry that belongs to what is open
@@ -82,14 +85,7 @@ const isAppPath = (pathname: string) => pathname === '/app' || pathname.startsWi
 const indexOf = (location: Pick<ParsedLocation, 'state'>) => location.state.__TSR_index;
 
 export class WorkspaceSession {
-  private state: SessionState = {
-    phase: 'opening',
-    busy: true,
-    workspace: null,
-    home: ONBOARDING,
-    firstIndex: 0,
-    failed: null,
-  };
+  private state: SessionState;
   private readonly listeners = new Set<() => void>();
   private router: AnyRouter | null = null;
   // the workspace being opened, from `opening` until it is open or has failed
@@ -99,7 +95,17 @@ export class WorkspaceSession {
   // bumped by every transition, so an older one's awaits finish without acting
   private run = 0;
 
-  constructor(private readonly options: WorkspaceSessionOptions) {}
+  constructor(private readonly options: WorkspaceSessionOptions) {
+    this.state = {
+      phase: 'opening',
+      busy: true,
+      workspace: null,
+      opening: options.initial?.last?.id ?? null,
+      home: ONBOARDING,
+      firstIndex: 0,
+      failed: null,
+    };
+  }
 
   getState = (): SessionState => this.state;
 
@@ -158,7 +164,7 @@ export class WorkspaceSession {
       this.run++;
       this.opening = opening;
       this.target = undefined;
-      this.set({ phase: 'opening', busy: true, workspace: null });
+      this.set({ phase: 'opening', busy: true, workspace: null, opening });
       return;
     }
     if (id === this.target) return;
@@ -209,7 +215,8 @@ export class WorkspaceSession {
     const run = ++this.run;
     this.target = id;
     this.opening = null;
-    this.set({ busy: true });
+    // what the splash names until it goes: the workspace landed on (none for onboarding)
+    this.set({ busy: true, opening: id });
     try {
       let workspace: WorkspaceInfo | null = null;
       let to = ONBOARDING;

@@ -7,8 +7,8 @@ import { WindowFrameProvider, detectPlatform, type WindowFrame } from './compone
 import { events, ipc, queryInvalidator, queryClient, trpc } from './ipc';
 import { readInitialLoadContext, seedQueryCache } from './ipc/initial-load-context';
 import { FollowThemeSetting, applyThemeSetting } from './theme';
-import { createAppRouter, SPLASH_MINIMUM_MS } from './router/routes';
-import { WorkspaceSession } from './router/session';
+import { createAppRouter, SPLASH_MINIMUM_MS } from './router';
+import { WorkspaceSession } from './session/workspace-session';
 import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/base.css';
@@ -37,13 +37,17 @@ const session = new WorkspaceSession({
   initial: initialLoadContext,
   onError: (error) => log.error('Following the open workspace failed', error),
 });
+// with no DevBrain the root shows why and nothing else, so nothing opens
+const devBrainAvailable = initialLoadContext?.devBrainAvailable ?? true;
 const router = createAppRouter(createHashHistory(), {
   queryClient,
   trpc,
+  ipc,
   session,
+  devBrainAvailable,
   splashMinimumMs: SPLASH_MINIMUM_MS,
 });
-session.start(router);
+if (devBrainAvailable) session.start(router);
 
 // The window around the page: the platform from the preload, the system's own window controls,
 // and the Windows title bar's menu button popping up the app menu (src/main/runtime/window-chrome.ts)

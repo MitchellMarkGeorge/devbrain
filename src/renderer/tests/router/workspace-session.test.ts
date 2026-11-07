@@ -36,7 +36,7 @@ describe('a switch', () => {
   it('never draws the old page, and holds the splash until the new page has loaded', async () => {
     const main = new FakeMain([workspace(A, 'Alpha', null), workspace(B, 'Beta', '/app/tasks')]);
     const app = await openOn(main, '/app/notes');
-    expect(app.page()!.text).toContain('Alpha task');
+    expect(app.page()!.text).toContain('Alpha note');
     const from = app.drawn.length;
     const slowLoader = gate();
     main.listGates.set(B, slowLoader.promise);
@@ -60,7 +60,8 @@ describe('a switch', () => {
     expect(app.page()!.text).toContain('Beta task');
     // after the switch began: the splash, then B's page with B's rows, drawn once with its data
     expect(drawnSince(app, from)).toEqual(['splash', '/app/tasks']);
-    expect(app.drawn.at(-1)!.text).toBe('Beta task 1Beta task 2');
+    expect(app.drawn.at(-1)!.text).toContain('Beta task 1');
+    expect(app.drawn.slice(from).some((d) => d.text.includes('Alpha'))).toBe(false);
     expect(app.rootMounts()).toBe(1);
     expect(main.page).toBe('/app/tasks');
   });
@@ -97,7 +98,9 @@ describe('startup', () => {
     expect(app.router.state.location.href).toBe('/app/tasks?limit=50');
     expect(app.drawn.map((d) => d.what)).toEqual(['splash', '/app/tasks']);
     // Back has nowhere to go: the empty start entry isn't a page of A's
-    expect(app.container.querySelector<HTMLButtonElement>('[data-back]')!.disabled).toBe(true);
+    expect(
+      app.container.querySelector<HTMLButtonElement>('button[aria-label="Back"]')!.disabled,
+    ).toBe(true);
   });
 
   it('opens on the default landing page with the setting off', async () => {
@@ -158,7 +161,7 @@ describe('a failed open, and a close', () => {
     main.failOpen = true;
     await expect(main.open(B)).rejects.toThrow();
     await expect.poll(() => app.page()?.path, WAIT).toBe('/onboarding');
-    expect(app.container.querySelector('[data-failed]')?.getAttribute('data-failed')).toBe(B);
+    expect(app.session.getState().failed).toBe(B);
     expect(main.workspaces.get(A)!.lastPage).toBe('/app/tasks');
     expect(drawnSince(app, from)).toEqual(['splash', '/onboarding']);
   });
@@ -195,7 +198,7 @@ describe('back and forward', () => {
 
   it('Back stops at the first page of the open workspace', async () => {
     const { app, from } = await switched();
-    const back = app.container.querySelector<HTMLButtonElement>('[data-back]')!;
+    const back = app.container.querySelector<HTMLButtonElement>('button[aria-label="Back"]')!;
     expect(back.disabled).toBe(true);
     back.click();
     await sleep(50);
@@ -205,7 +208,7 @@ describe('back and forward', () => {
     // within B, Back works
     await app.router.navigate({ to: '/app/notes' });
     await expect.poll(() => app.page()?.path, WAIT).toBe('/app/notes');
-    const enabled = app.container.querySelector<HTMLButtonElement>('[data-back]')!;
+    const enabled = app.container.querySelector<HTMLButtonElement>('button[aria-label="Back"]')!;
     expect(enabled.disabled).toBe(false);
     enabled.click();
     await expect.poll(() => app.page()?.path, WAIT).toBe('/app/home');

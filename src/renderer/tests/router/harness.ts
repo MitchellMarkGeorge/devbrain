@@ -10,8 +10,8 @@ import { createEventClient } from '../../ipc/events';
 import { ipcLink } from '../../ipc/link';
 import { createQueryInvalidator } from '../../ipc/query-invalidator';
 import { seedQueryCache } from '../../ipc/initial-load-context';
-import { createAppRouter, SPLASH_MINIMUM_MS } from '../../router/routes';
-import { WorkspaceSession } from '../../router/session';
+import { createAppRouter, SPLASH_MINIMUM_MS } from '../../router';
+import { WorkspaceSession } from '../../session/workspace-session';
 import type { FakeMain } from './fake-main';
 
 // The window over a FakeMain: the real IPC client, query cache, invalidator, session and route
@@ -67,10 +67,13 @@ export function mountApp(
     initial,
     onError: () => {},
   });
+  const devBrainAvailable = initial.devBrainAvailable;
   const router = createAppRouter(history, {
     queryClient,
     trpc,
+    ipc,
     session,
+    devBrainAvailable,
     splashMinimumMs: SPLASH_MINIMUM_MS,
   });
 
@@ -95,7 +98,7 @@ export function mountApp(
     return children;
   }
 
-  const stopSession = session.start(router);
+  const stopSession = devBrainAvailable ? session.start(router) : () => {};
 
   const container = document.createElement('div');
   document.body.append(container);
