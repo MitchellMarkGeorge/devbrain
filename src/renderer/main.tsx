@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createHashHistory, RouterProvider } from '@tanstack/react-router';
@@ -61,12 +61,26 @@ const windowFrame: WindowFrame = {
   },
 };
 
+// TanStack Router's devtools, in development only: the import is dropped from production builds
+const RouterDevtools = import.meta.env.DEV
+  ? lazy(() =>
+      import('@tanstack/react-router-devtools').then(({ TanStackRouterDevtools }) => ({
+        default: TanStackRouterDevtools,
+      })),
+    )
+  : null;
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <WindowFrameProvider value={windowFrame}>
         <FollowThemeSetting />
         <RouterProvider router={router} />
+        {RouterDevtools && (
+          <Suspense>
+            <RouterDevtools router={router} position="bottom-right" />
+          </Suspense>
+        )}
       </WindowFrameProvider>
     </QueryClientProvider>
   </React.StrictMode>,

@@ -27,3 +27,18 @@ export function useHeldFor(active: boolean, minimumMs: number): boolean {
   }, [active, held, minimumMs]);
   return held;
 }
+
+/**
+ * True once `active` has been true for `delayMs` without a break, until it turns false: pending UI
+ * for a load that finishes sooner would only flicker.
+ */
+export function useShownAfter(active: boolean, delayMs: number): boolean {
+  const [shown, setShown] = useState(false);
+  if (!active && shown) setShown(false);
+  useEffect(() => {
+    if (!active) return;
+    const timer = setTimeout(() => setShown(true), delayMs);
+    return () => clearTimeout(timer);
+  }, [active, delayMs]);
+  return active && shown;
+}

@@ -131,9 +131,12 @@ never edit it; `npm run build:renderer` or `npm run dev` regenerates it).
   call to main (`useWorkspaceActions`), never a navigation.
 - The root's `beforeLoad` (`session.guard`) decides which locations belong to what is open; don't
   add per-route workspace guards.
+- A slow page shows `PagePending` from the `/app` layout, not a route `pendingComponent`: the
+  router's pending UI never shows between sibling pages (see `library-behaviour.test.ts`).
 - The splash replaces the route tree while the session is busy. Anything that must outlive a
   workspace switch (toasts, a dialog about a failed open) lives in the root's shell (`RootShell`),
   not under the routes.
-- Keep `@tanstack/react-router` and `@tanstack/router-plugin` pinned; on an upgrade, run
+- Keep `@tanstack/react-router`, `@tanstack/router-plugin` and `@tanstack/react-router-devtools`
+  pinned; on an upgrade, run
   `src/renderer/tests/router/library-behaviour.test.ts`, which checks the router behaviour the
   session relies on. Prettier stays pinned at 3.8.4 (the plugin's install bumps it).

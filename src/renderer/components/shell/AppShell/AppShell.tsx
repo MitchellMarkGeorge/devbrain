@@ -78,6 +78,12 @@ function useControllable<T>(
  * the top right, the page's header runs the full width beside the docked sidebar too, and a docked
  * sheet starts under it, so nothing of the sheet's sits by the caption buttons.
  */
+/**
+ * The `data-scroll-restoration-id` of the element the page scrolls in: give it to the router's
+ * `scrollToTopSelectors` so a new page starts at the top, and Back returns to where it was.
+ */
+export const APP_SHELL_SCROLL_ID = 'app-page';
+
 export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppShell(
   {
     sidebar,
@@ -272,7 +278,10 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
           {headerRow && <div className={styles.header}>{header}</div>}
           <main className={styles.main}>
             {!hidden && !headerRow && header}
-            <div className={styles.scroll}>{children}</div>
+            {/* the page scrolls here, not the window: the router saves and restores this */}
+            <div className={styles.scroll} data-scroll-restoration-id={APP_SHELL_SCROLL_ID}>
+              {children}
+            </div>
           </main>
           <div
             ref={sheetContainer}

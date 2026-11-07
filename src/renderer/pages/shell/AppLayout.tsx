@@ -41,6 +41,13 @@ import {
 import { swatchOf } from '../workspaces/colors';
 import { CreateWorkspaceDialog } from '../workspaces/CreateWorkspaceDialog';
 import { useWorkspaceActions } from '../workspaces/workspace-actions';
+import { useHeldFor, useShownAfter } from '../../session/use-held-for';
+import { PagePending } from './PagePending';
+
+// A page whose loaders take longer than this shows PagePending in its place, for at least
+// PENDING_MIN_MS so it doesn't flash; a quicker one shows nothing in between
+const PENDING_MS = 150;
+const PENDING_MIN_MS = 500;
 
 // The app around a workspace's pages (`/app`): AppShell with the sidebar (the workspace menu, the
 // pages, Trash, Settings and Help), the header the page names, and Back and Forward kept within
@@ -77,6 +84,10 @@ export function AppLayout() {
       [...matches].reverse().find((match) => match.staticData.title)?.staticData.title,
   });
   const index = location.state.__TSR_index;
+  // The router keeps the old page while the next loads (its own pending UI can't show between
+  // sibling pages: library-behaviour.test.ts), so the shell shows the skeleton itself
+  const loading = useRouterState({ select: (state) => state.isLoading });
+  const pending = useHeldFor(useShownAfter(loading, PENDING_MS), PENDING_MIN_MS);
 
   return (
     <AppShell
@@ -96,7 +107,7 @@ export function AppLayout() {
       canGoBack={session.canGoBack(location)}
       canGoForward={index < router.history.length - 1}
     >
-      <Outlet />
+      {pending ? <PagePending /> : <Outlet />}
     </AppShell>
   );
 }

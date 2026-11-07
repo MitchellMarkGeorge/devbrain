@@ -5,8 +5,12 @@ import { NotFoundPage, RouteErrorPage } from '../pages/root/RouteFallbacks';
 
 export const Route = createRootRouteWithContext<RouterContext>()({
   // Every navigation, Back and Forward included: a location that doesn't belong to what is open
-  // (a page of the workspace open before, the app with none open) goes to its first page
-  beforeLoad: ({ context, location }) => context.session.guard(location),
+  // (a page of the workspace open before, the app with none open) goes to its first page. Not a
+  // preload (pointing at a link): it has no history entry yet, and the navigation, if it comes,
+  // is guarded then
+  beforeLoad: ({ context, location, preload }) => {
+    if (!preload) context.session.guard(location);
+  },
   // the toasts, the splash and the DevBrain-unavailable screen, around the whole tree
   shellComponent: RootShell,
   // On its first load the router renders nothing, the shell included, until the loaders are done,

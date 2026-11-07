@@ -234,4 +234,69 @@ describe('TanStack Router behaviour the design relies on', () => {
       ),
     ).toEqual({ shellWhileLoading: true, shellMounts: 1 });
   });
+
+  it("a preload's location has no history index: the guard must skip preloads", async () => {
+    const seen: { preload: boolean; index: number | undefined }[] = [];
+    const root = createRootRoute({
+      beforeLoad: ({ location, preload }) => {
+        seen.push({ preload, index: location.state.__TSR_index });
+      },
+    });
+    const page = (path: string) =>
+      createRoute({ getParentRoute: () => root, path, component: () => null });
+    const router = createRouter({
+      routeTree: root.addChildren([page('one'), page('two')]),
+      history: createMemoryHistory({ initialEntries: ['/one'] }),
+    });
+    await router.load();
+    await router.preloadRoute({ href: '/two' } as never);
+    expect(seen.find((call) => call.preload)).toEqual({ preload: true, index: undefined });
+    expect(seen.find((call) => !call.preload)?.index).toBe(0);
+  });
+
+  // Why AppLayout shows its own pending page: the router's pending UI shows only when a navigation
+  // enters a route with a new Suspense boundary. Between two routes that both have pending UI (or
+  // with a default for every route), React keeps the old page through the transition.
+  it.each([
+    ['only the slow route has pending UI', 'route', 'pending'],
+    ['both routes have pending UI', 'both', 'one'],
+    ['every route has it, as a router default', 'default', 'one'],
+  ] as const)('pending UI between sibling routes: %s', async (_, where, drawnWhileLoading) => {
+    const slow = gate();
+    const pending = () => createElement('div', { 'data-page': 'pending' });
+    const root = createRootRoute();
+    const one = createRoute({
+      getParentRoute: () => root,
+      path: 'one',
+      ...(where === 'both' ? { pendingComponent: pending } : {}),
+      component: () => createElement('div', { 'data-page': 'one' }),
+    });
+    const two = createRoute({
+      getParentRoute: () => root,
+      path: 'two',
+      loader: () => slow.promise,
+      ...(where === 'default' ? {} : { pendingComponent: pending, pendingMs: 50 }),
+      component: () => createElement('div', { 'data-page': 'two' }),
+    });
+    const router = createRouter({
+      routeTree: root.addChildren([one, two]),
+      history: createMemoryHistory({ initialEntries: ['/one'] }),
+      ...(where === 'default' ? { defaultPendingComponent: pending, defaultPendingMs: 50 } : {}),
+    });
+    const container = document.createElement('div');
+    document.body.append(container);
+    const reactRoot = createRoot(container);
+    reactRoot.render(createElement(RouterProvider, { router }));
+    cleanups.push(() => {
+      reactRoot.unmount();
+      container.remove();
+    });
+    const drawn = () => container.querySelector('[data-page]')?.getAttribute('data-page');
+    await expect.poll(drawn, WAIT).toBe('one');
+    void router.navigate({ href: '/two' });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(drawn()).toBe(drawnWhileLoading);
+    slow.open();
+    await expect.poll(drawn, WAIT).toBe('two');
+  });
 });

@@ -161,7 +161,8 @@ IPC, no router (its ESLint layering already enforces no `@main`/`@common` import
 
 - `@tanstack/react-router` (dependency) and `@tanstack/router-plugin` (dev dependency), both pinned
   exactly. The plugin's install bumps Prettier; it stays pinned at 3.8.4 (`npm run format:check`
-  depends on it). Devtools are not installed yet.
+  depends on it). `@tanstack/react-router-devtools` (dev dependency, pinned) is rendered by
+  `main.tsx` in development only; it draws nothing in a production build, which drops its import.
 - `vite/renderer.config.ts` runs `tanstackRouter({ target: 'react', routesDirectory, generatedRouteTree,
 autoCodeSplitting: false })` before the React plugin; it runs on Vite 8. It writes
   `src/renderer/routeTree.gen.ts`, which is checked in and ignored by ESLint and Prettier: a new
@@ -176,8 +177,19 @@ devBrainAvailable, splashMinimumMs }`; `staticData.title` names a page in the he
 `main.tsx` makes it once with `createHashHistory()`, starts the session (unless DevBrain is
 unavailable) and renders `<RouterProvider>`; tests make theirs with memory history.
 
-Still to add with the first real pages: `defaultPreload: 'intent'`, `defaultPendingMs` with
-pending UI, and scroll restoration.
+Its options:
+
+- `defaultPreload: 'intent'`: pointing at (or focusing) a link runs its page's loaders, so the page
+  usually draws with its data on the click. The root's guard skips preloads (a preload has no
+  history entry yet; the navigation is guarded when it comes).
+- `scrollRestoration: true` with `scrollToTopSelectors` naming `AppShell`'s scroll area
+  (`APP_SHELL_SCROLL_ID`): the page scrolls there, not the window, so a new page starts at its top
+  and Back and Forward return to where it was.
+- No router pending UI (`defaultPendingComponent`): between two pages that both have one, the
+  router keeps the old page until the new one is ready, so it would never show
+  (`library-behaviour.test.ts`). The `/app` layout shows `PagePending` (`pages/shell`) itself while
+  the router loads (`isLoading`): after 150ms, held 500ms. A page with a shape of its own (a list's
+  row skeletons) will pass it to the layout when the pages are built.
 
 ### The workspace session (`src/renderer/session/workspace-session.ts`)
 

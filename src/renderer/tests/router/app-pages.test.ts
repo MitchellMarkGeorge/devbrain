@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { A, B, CallError, FakeMain, settings, workspace } from './fake-main';
+import { A, B, CallError, FakeMain, gate, settings, workspace } from './fake-main';
 import { mountApp, type App } from './harness';
 
 // The app shell, onboarding and the DevBrain-unavailable screen over the real route tree and a fake
@@ -218,6 +218,63 @@ describe('onboarding', () => {
       await expect.poll(() => app.page()?.path, WAIT).toBe('/app/home');
       expect(main.current).toBe(A);
     }
+  });
+});
+
+describe('preloading, pending pages and scroll', () => {
+  const sidebarLink = (app: App, label: string) =>
+    byText(app.container.querySelector('nav')!, 'a', label)!;
+  const scroller = (app: App) =>
+    app.container.querySelector<HTMLElement>('[data-scroll-restoration-id="app-page"]')!;
+
+  it('pointing at a sidebar link loads its page before the click', async () => {
+    const main = new FakeMain([workspace(A, 'Alpha', null)]);
+    const app = await openOn(main, '/app/home');
+    expect(main.calls).not.toContain('notes.list');
+    // React's mouseenter comes from mouseover
+    sidebarLink(app, 'Notes').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
+    await expect.poll(() => main.calls.includes('notes.list'), WAIT).toBe(true);
+    expect(app.page()!.path).toBe('/app/home');
+    const loads = main.calls.filter((path) => path === 'notes.list').length;
+    sidebarLink(app, 'Notes').click();
+    await expect.poll(() => app.page()?.path, WAIT).toBe('/app/notes');
+    // drawn from what the preload cached: no second load
+    expect(main.calls.filter((path) => path === 'notes.list').length).toBe(loads);
+  });
+
+  it('a page whose loader is slow shows the page skeleton in the shell meanwhile', async () => {
+    const main = new FakeMain([workspace(A, 'Alpha', null)]);
+    const app = await openOn(main, '/app/home');
+    const slow = gate();
+    main.listGates.set(A, slow.promise);
+    sidebarLink(app, 'Projects').click();
+    await expect.poll(() => app.page()?.path, WAIT).toBe('pending');
+    // the shell stays; only the page waits
+    expect(app.container.querySelector('nav')).not.toBeNull();
+    slow.open();
+    await expect.poll(() => app.page()?.path, WAIT).toBe('/app/projects');
+  });
+
+  it('a quick page shows no skeleton', async () => {
+    const main = new FakeMain([workspace(A, 'Alpha', null)]);
+    const app = await openOn(main, '/app/home');
+    const from = app.drawn.length;
+    sidebarLink(app, 'Tasks').click();
+    await expect.poll(() => app.page()?.path, WAIT).toBe('/app/tasks');
+    expect(app.drawn.slice(from).map((d) => d.what)).not.toContain('pending');
+  });
+
+  it('a new page starts at the top, and Back returns to where the page was scrolled', async () => {
+    const main = new FakeMain([workspace(A, 'Alpha', null)]);
+    const app = await openOn(main, '/app/tasks');
+    scroller(app).scrollTop = 320;
+    scroller(app).dispatchEvent(new Event('scroll'));
+    sidebarLink(app, 'Notes').click();
+    await expect.poll(() => app.page()?.path, WAIT).toBe('/app/notes');
+    await expect.poll(() => scroller(app).scrollTop, WAIT).toBe(0);
+    app.router.history.back();
+    await expect.poll(() => app.page()?.path, WAIT).toBe('/app/tasks');
+    await expect.poll(() => scroller(app).scrollTop, WAIT).toBe(320);
   });
 });
 
