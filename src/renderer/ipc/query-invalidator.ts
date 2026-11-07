@@ -144,8 +144,8 @@ export function createQueryInvalidator(options: QueryInvalidatorOptions): QueryI
         events.on('db.changes', ({ entities }) => {
           onChanged(entities).catch(onError);
         }),
-        events.on('workspace.changed', ({ id }) => {
-          workspaceOpened(id).catch(onError);
+        events.on('workspace.changed', ({ state }) => {
+          workspaceOpened(state.status === 'open' ? state.workspace.id : null).catch(onError);
         }),
       ];
       return () => unsubscribes.forEach((unsubscribe) => unsubscribe());

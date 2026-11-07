@@ -3,6 +3,7 @@ import { QueryClient, QueryObserver, type QueryKey } from '@tanstack/react-query
 import type { ChangedEntity } from '@common/changes';
 import type { AppEvents } from '@common/events';
 import type { WorkspaceId } from '@common/ids';
+import type { WorkspaceInfo } from '@common/types';
 import type { EventClient } from '../../ipc/events';
 import {
   createQueryInvalidator,
@@ -224,8 +225,18 @@ describe('listen', () => {
     events.send('db.changes', { entities: ['task'] as ChangedEntity[] });
     await vi.waitFor(() => expect(count('tasks.list')).toBe(2));
 
-    events.send('workspace.changed', { id: HOME, opening: null });
+    events.send('workspace.changed', {
+      version: 1,
+      state: { status: 'open', workspace: { id: HOME } as WorkspaceInfo, error: null },
+    });
     await vi.waitFor(() => expect(count('tasks.list')).toBe(3));
+
+    // the splash: nothing is open meanwhile, so the workspace's data goes
+    events.send('workspace.changed', {
+      version: 2,
+      state: { status: 'opening', workspace: { id: WORK } as WorkspaceInfo },
+    });
+    await vi.waitFor(() => expect(count('tasks.list')).toBe(4));
 
     stop();
     expect(events.listeners.size).toBe(0);
