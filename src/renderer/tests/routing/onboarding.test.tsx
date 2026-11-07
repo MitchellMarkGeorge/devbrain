@@ -73,7 +73,7 @@ describe('Welcome', () => {
     expect(app.text()).toContain('Created Mar 2026');
 
     click(button('All Workspaces'));
-    await waitFor(() => expect(at(app)).toBe('/onboarding/choose_workspace'));
+    await waitFor(() => expect(app.text()).toContain('Choose a workspace'));
     await waitFor(() => expect(app.text()).toContain('Old'));
   });
 
@@ -128,7 +128,7 @@ describe('Welcome', () => {
     click(document.querySelector('[role="group"] button'));
 
     await waitFor(() => expect(app.text()).toContain('Workspace wsp_work not found'));
-    expect(at(app)).toBe('/onboarding');
+    expect(app.text()).toContain('Recent workspaces');
   });
 
   it('explains a folder that is not a workspace, and offers another', async () => {
@@ -187,15 +187,14 @@ describe('Welcome', () => {
     await waitFor(() => expect(app.text()).toContain('Recent workspaces'));
     click(document.querySelector('[role="group"] button'));
     await waitFor(() => expect(app.text()).toContain('This workspace needs a newer DevBrain'));
-    expect(at(app)).toBe('/onboarding');
+    await waitFor(() => expect(app.text()).toContain('Welcome to DevBrain'));
   });
 });
 
-// Welcome's Create Workspace: onboarding's router always starts at Welcome
+// Welcome's Create Workspace: onboarding always starts at Welcome
 async function goToNewWorkspace(app: ReturnType<typeof renderApp>) {
   await waitFor(() => expect(button('Create Workspace')).toBeDefined());
   click(button('Create Workspace'));
-  await waitFor(() => expect(at(app)).toBe('/onboarding/new_workspace'));
   await waitFor(() => expect(app.text()).toContain('Create a workspace'));
 }
 
@@ -232,7 +231,7 @@ describe('Create workspace', () => {
     const app = renderApp();
     await goToNewWorkspace(app);
     click(button('Back'));
-    await waitFor(() => expect(at(app)).toBe('/onboarding'));
+    await waitFor(() => expect(app.text()).toContain('Welcome to DevBrain'));
   });
 });
 

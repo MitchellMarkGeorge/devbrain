@@ -6,8 +6,7 @@ import { describeWorkspaceError } from '../pages/onboarding/WorkspaceErrorDialog
 import type { AppRouter } from '../router';
 
 /**
- * The window while a workspace is open: the app's router, already on the right page
- * (placeRouters). `error`, why a switch away failed, shows once as a toast.
+ * The window while a workspace is open: the app's router, already on the right page (startApp). `error`, why a switch away failed, shows once as a toast.
  */
 export function WorkspaceApp({
   router,

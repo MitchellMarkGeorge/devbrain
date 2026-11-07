@@ -19,9 +19,12 @@ the `Screens/*` stories, `docs/design-system/README.md`, `docs/ipc/design.md` an
 >
 > - **The splash is a function of state, not a page.** Main owns the workspace state (`none`,
 >   `opening` or `open`, with an error) and pushes it whole (`docs/ipc/design.md`, The workspace
->   state). The window draws from it: the splash, onboarding or the app, each with its own router
->   (see [The window and its routers](#the-window-and-its-routers)). There is no `/` route and no
->   guards, and no route reacts to a workspace opening, closing or failing.
+>   state). The window draws from it: the splash, onboarding or the app. Only the app has a router,
+>   made once and mounted only while a workspace is open (see
+>   [The window and its routers](#the-window-and-its-routers)). There are no guards, and no route
+>   reacts to a workspace opening, closing or failing.
+> - Onboarding is not routed: Welcome, Create workspace and Choose workspace are three screens with
+>   no back or forward, picked by a piece of state in `OnboardingApp`.
 > - Main reopens the last workspace itself, just before it creates the window, and the renderer has
 >   no boot step (no `workspaces.openLast`). Nothing to reopen shows Welcome, which lists the recent
 >   workspaces itself; Choose workspace is reached from its "All Workspaces" button when there are
@@ -31,8 +34,9 @@ the `Screens/*` stories, `docs/design-system/README.md`, `docs/ipc/design.md` an
 >   the page in each workspace's manifest.
 > - `useServices()` (`src/renderer/app/context.tsx`) is a React context holding `{ queryClient,
 trpc, ipc, events, initialLoadContext }`, so the splash and onboarding read it outside a router;
->   the routers' context is the same object, for loaders. `createIpcServices({ bridge })` builds
->   the client, cache and events over any bridge, so tests never import the app's.
+>   the router's context is the same object, plus `openWorkspace()`, for loaders.
+>   `createIpcServices({ bridge })` builds the client, cache and events over any bridge, so tests
+>   never import the app's.
 > - No `no_workspace_open` handling: a workspace closing sets `none`, which unmounts the app.
 > - Errors from opening or adding a workspace show as an alert dialog on onboarding, as Figma draws
 >   them (`7423:37060`), and as a toast in the app. `workspace_data_missing` has no "Remove from
@@ -43,8 +47,8 @@ trpc, ipc, events, initialLoadContext }`, so the splash and onboarding read it o
 >   Favorites has no "More" yet (nothing to open). The devtools load in development only.
 > - A workspace's colour is stored as hex; the six swatches map to their tokens' 500 values, and any
 >   other colour draws in the nearest swatch (`src/renderer/app/swatches.ts`).
-> - Route files sit in folders (`routes/app/…`, `routes/onboarding/…`), not TanStack's flat dot
->   notation; `/onboarding` has no layout file.
+> - Route files sit in folders (`routes/app/…`), not TanStack's flat dot
+>   notation.
 
 ### How this plan was made
 
@@ -84,7 +88,7 @@ surveyed three things in parallel and checked the claims the plan rests on again
 | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Router                             | `@tanstack/react-router` with file-based routes (`@tanstack/router-plugin/vite`) in `src/renderer/routes`, generating `src/renderer/routeTree.gen.ts`, which is checked in, formatted and linted as generated. No automatic code splitting: the bundle loads from disk, so splitting only adds work.                                                                                                                                                                                                                                                                                                                                                                                              |
 | History                            | **Hash history** (`createHashHistory`). The production page loads from `file://`, where browser history paths don't resolve on reload; the hash keeps the location across a reload (⌘R, a crash restore) and in devtools. Memory history would lose it.                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Paths                              | Snake case, as the project uses elsewhere, with the spelling fixed: `/onboarding`, `/onboarding/new_workspace`, `/onboarding/choose_workspace`, `/app/...`. Path params use the entity's prefixed id (`tsk_…`, `prj_…`, `nte_…`), validated with the same prefixes `zId` checks.                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Paths                              | Snake case, as the project uses elsewhere, with the spelling fixed: `/app/...` (onboarding has no paths: see the as-built notes). Path params use the entity's prefixed id (`tsk_…`, `prj_…`, `nte_…`), validated with the same prefixes `zId` checks.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | Param values                       | Snake case too (`data_storage`, `not_started`, `in_progress`).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | Search params                      | Validated per route with Zod v4 (already a dependency; TanStack Router accepts Standard Schema), each field `.optional().catch(undefined)`. Without the `catch`, one bad value (a link saved before a param's values changed, a typo, a removed option) makes `validateSearch` throw, and the whole page renders the error screen. With it, that one field falls back to its default and the rest of the URL still applies. The fallback is `undefined` rather than a literal default because a missing param means "the setting's default" (e.g. `tasks.defaultView`), read at render: so a default is never written into the URL, and changing the setting changes every URL without the param. |
 | Data                               | React Query stays the cache, through `trpc.*.queryOptions()` as today. Route loaders only _prime_ that cache (`queryClient.ensureQueryData`), so a page renders with its data on the first frame and a missing entity becomes the route's not-found. The router keeps no cache of its own (`defaultPreloadStaleTime: 0`). Freshness stays with the query invalidator: nothing in a route invalidates by hand.                                                                                                                                                                                                                                                                                     |
@@ -96,7 +100,7 @@ surveyed three things in parallel and checked the claims the plan rests on again
 | Splash                             | Not a route: the window draws it whenever main's workspace state is `opening`, at startup and during a switch alike, whoever started it (this window, the menu). The old page unmounts rather than staying live under an overlay. When the state turns `open`, the app mounts on the new workspace's landing page; `none` shows onboarding. Held at least 600ms. See [The window and its routers](#the-window-and-its-routers).                                                                                                                                                                                                                                                                   |
 | Not in the route list but designed | `/app/integrations` (in the sidebar nav, Figma `7164:13117`). ⌘K is a dialog, not a route. Help has nothing behind it yet: the sidebar's Help item and Welcome's "What's a workspace?" link are drawn disabled.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | Trash                              | The route is **`/app/trash`**, matching the UI and `docs/deleting.md`. Core still says archive (`archive` router, `listArchived`); the code rename is its own follow-up (E2).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| New workspace                      | Inside the app, "New workspace…" opens a **Create workspace dialog** over the page. `/onboarding/new_workspace` is only for when nothing is open. Both use one `CreateWorkspaceForm`; onboarding has its own router, which only exists while nothing is open. Mocked in Figma as "New workspace (dialog in the app)" (`7760:61527`). Why a dialog: see [Onboarding](#onboarding-onboarding).                                                                                                                                                                                                                                                                                                      |
+| New workspace                      | Inside the app, "New workspace…" opens a **Create workspace dialog** over the page. Onboarding's Create workspace screen is only for when nothing is open. Both use one `CreateWorkspaceForm`. Mocked in Figma as "New workspace (dialog in the app)" (`7760:61527`). Why a dialog: see [Onboarding](#onboarding-onboarding).                                                                                                                                                                                                                                                                                                                                                                     |
 | Calendar rendering                 | **FullCalendar** (`@fullcalendar/react` with the `timegrid`, `daygrid`, `interaction`, `rrule` and `luxon3` plugins), mapped per `docs/calendar/fullcalendar-adapter.md`. `TimeGrid` and `MonthGrid` are the visual spec: FullCalendar is themed to match them with tokens and draws `EventBlock`/`AllDayEvent` through its content hooks. See [Calendar](#calendar-appcalendar).                                                                                                                                                                                                                                                                                                                 |
 | Keyboard                           | One command registry and a keymap dispatcher of our own, with modes and key sequences from the start, so Vim mode is a second keymap rather than a rewrite. See [Keyboard](#keyboard-commands-keymaps-and-vim-mode).                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
@@ -130,12 +134,9 @@ use older hand-made frames; the Shell screens' `ScreenFrame` + `DemoSidebar` is 
 
 ```
 __root                      Outlet, devtools (not-found/error are the router's defaults)
-├── /onboarding             onboarding's router only (memory history)
-│   ├── /                   Welcome
-│   ├── /new_workspace      Create workspace
-│   └── /choose_workspace   Choose from existing workspaces
-└── /app                    the app's router only; layout: AppShell + sidebar + <Outlet/>
-    ├── /                   index: redirect to the landing page
+├── /                       redirect to the open workspace's landing page (where a workspace starts)
+└── /app                    layout: AppShell + sidebar + <Outlet/>
+    ├── /                   index: redirect to the default landing page (Go Home)
     ├── /home
     ├── /tasks              ?view=list|group|board, filters, sort, ?open=tsk_…
     │   └── /$taskId
@@ -152,14 +153,10 @@ __root                      Outlet, devtools (not-found/error are the router's d
 Files (`src/renderer/routes`, one folder per path segment). A folder's `route.tsx` is its layout,
 and `index.tsx` its index page. `tasks/`, `projects/` and `notes/` have no `route.tsx`, so a list
 and its detail are siblings and the detail does not render inside the list's component.
-`onboarding/` has none either: its pages draw their own `OnboardingScreen`.
 
 ```
 __root.tsx
-onboarding/
-  index.tsx
-  new_workspace.tsx
-  choose_workspace.tsx
+index.tsx                         redirect to the landing page
 app/
   route.tsx                       layout
   index.tsx
@@ -218,21 +215,21 @@ export function createAppRouter(context: RouterContext, history: RouterHistory) 
 }
 ```
 
-A function: `main.tsx` makes two routers with it, once, the app's and onboarding's (below), and
-tests make their own over memory history. `App.tsx` and its test pages are gone.
+A function: `main.tsx` makes the app's router with it, once, over hash history (below), and tests
+make their own over memory history. `App.tsx` and its test pages are gone.
 
 ### Root route (`__root.tsx`)
 
 Just `<Outlet/>` and, in development, the router's devtools. Not-found and error pages are the
-router's defaults. It holds no workspace logic: a router only exists in the right mode.
+router's defaults. It holds no workspace logic: the router is only mounted while a workspace is
+open.
 
 ### The window and its routers
 
 The core idea: main owns one value, "what is the workspace state right now", and pushes it whole
 (`workspace.changed`, a `WorkspaceSnapshot`; `docs/ipc/design.md`, The workspace state). A
-top-level component draws the window from
-that value, and a router exists only inside an open workspace (and a separate small one for
-onboarding), so no route ever reacts to a workspace opening, closing or failing.
+top-level component draws the window from that value, and the router is mounted only while a
+workspace is open, so no route ever reacts to a workspace opening, closing or failing.
 
 **`main.tsx`** reads the initial load context, seeds the cache, applies the theme, makes the
 workspace state store and renders `App` (which follows the theme setting from `settings.get`) with
@@ -241,11 +238,15 @@ workspace state store and renders `App` (which follows the theme setting from `s
 
 ```tsx
 if (initialLoadContext?.devBrainAvailable === false) return <DevBrainUnavailable />;
-<ServicesProvider><ToastProvider>
-  {state.status === 'opening' && <Splash name={state.workspace.name} />}
-  {state.status === 'none'    && <OnboardingApp key={version} error={state.error} />}
-  {state.status === 'open'    && <WorkspaceApp key={state.workspace.id} workspace={…} error={state.error} keepPage={keepPage} />}
-</ToastProvider></ServicesProvider>
+<ServicesProvider>
+  <ToastProvider>
+    {state.status === 'opening' && <Splash name={state.workspace.name} />}
+    {state.status === 'none' && <OnboardingApp key={version} error={state.error} />}
+    {state.status === 'open' && (
+      <WorkspaceApp key={state.workspace.id} router={router} error={state.error} />
+    )}
+  </ToastProvider>
+</ServicesProvider>;
 ```
 
 Without an initial load context the store starts with no workspace (version 0), and follows main
@@ -266,34 +267,32 @@ from there.
   and the same workspace is back (the old page is still in the hash). False for a new workspace,
   and after onboarding. (The plan's `version === initialVersion` covers only the reload.)
 
-**The routers** (`src/renderer/app/routers.ts`). `main.tsx` makes two, once, before the first
-render (`createWindowRouters`), and passes them to `WindowContent`, which mounts one at a time:
+**The router.** `main.tsx` makes the app's router once, before the first render, over the
+window's hash history: the hash keeps the location across a reload, and main follows it for
+"Reopen last page". Its context is the services plus `openWorkspace()`, the workspace open in the
+store's state.
 
-- **`app`**, over the window's hash history, shown while a workspace is open. The hash keeps the
-  location across a reload, and main follows it for "Reopen last page".
-- **`onboarding`**, over memory history, shown while none is open. Its pages navigate between
-  each other without touching the hash.
+**Starting it** (`startApp`, `src/renderer/app/start-app.ts`). The store hands each state it shows
+to `onShow` before React renders it. For an `open` state:
 
-**Placing them** (`placeRouters`). The store hands each state it shows to `onShow` before React
-renders it, and `main.tsx` puts the router about to show where it should start:
+- The location stays if `keepPage` and it is a valid last page (`isValidLastPage`).
+- Otherwise it is replaced with `/`, whose route (`routes/index.tsx`) redirects to
+  `landingPage(settings, openWorkspace())`, with the settings from the seeded cache. Replacing,
+  not pushing, so Back never returns to another workspace's page.
+- Then the router is loaded, while still unmounted. It isn't listening to the history during the
+  splash, and mounting it again doesn't load it (TanStack's `RouterProvider` only loads on mount
+  for a router that has never loaded), so without this it would show the page it showed last.
 
-- `open`: the app's location stays if `keepPage` and it is a valid last page (`isValidLastPage`).
-  Otherwise it is replaced with `landingPage(settings, workspace)`, with the settings from the
-  seeded cache. Replacing, not pushing, so Back never returns to another workspace's page.
-- `none`: onboarding's router goes back to Welcome.
-- `opening`: nothing. The hash still shows the old workspace's page while the splash is up, which
-  is what main's `last-page.ts` saves for the old one as it closes, as it should.
+During `opening` nothing moves: the hash still shows the old workspace's page while the splash is
+up, which is what main's `last-page.ts` saves for the old one as it closes, as it should.
 
-Each placed router is loaded right away, while unmounted. A router keeps its state between mounts
-and only loads on a remount when nothing is in flight, so a load the splash cut short would
-otherwise leave it on the old page.
+**`WorkspaceApp`** (`src/renderer/app/WorkspaceApp.tsx`) is the router in `RouterProvider`, keyed
+by the workspace's id, and shows `error` (a switch away failed) once as a toast.
 
-**`WorkspaceApp`** (`src/renderer/app/WorkspaceApp.tsx`) is the app's router in `RouterProvider`,
-keyed by the workspace's id, and shows `error` (a switch away failed) once as a toast.
-
-**`OnboardingApp`** (`src/renderer/app/OnboardingApp.tsx`) is onboarding's router in the workspace
-actions provider, keyed by the snapshot's version, whose error dialog starts with `error` (why the
-last open failed) and shows any failure of its own after.
+**`OnboardingApp`** (`src/renderer/app/OnboardingApp.tsx`) has no router. It shows Welcome, Create
+workspace or Choose workspace, picked by a piece of state, inside the workspace actions provider.
+It is keyed by the snapshot's version, so it starts at Welcome each time it comes back, and its
+error dialog starts with `error` (why the last open failed) and shows any failure of its own after.
 
 **Open failures.** Opening is `ipc.workspaces.open.mutate({ id })`, and its failure shows from the
 state: on onboarding (the dialog), or as a toast in the app. The caller shows an open's failure
@@ -773,18 +772,18 @@ already composes them), the IPC calls, and the states to handle. Every list has 
 Not a route: covered under [The window and its routers](#the-window-and-its-routers). Figma
 `7175:19848`: logomark, "Opening ‹name›…", version from `app.version`.
 
-### Onboarding (`/onboarding/*`)
+### Onboarding (no routes; `OnboardingApp`)
 
 Layout: `OnboardingScreen` with the window bar (traffic lights or the Windows menu button) and no
 sidebar.
 
-- **Welcome** (`/onboarding`, `7175:19898`; with workspaces `7285:53770`): with no workspaces,
-  "Create Workspace" → `new_workspace`, "Open Existing Folder…" → `workspaces.importFolder` then
+- **Welcome** (`7175:19898`; with workspaces `7285:53770`): with no workspaces,
+  "Create Workspace" → Create workspace, "Open Existing Folder…" → `workspaces.importFolder` then
   `workspaces.open`, "What's a workspace?" drawn disabled (no help yet). With workspaces, the
   "Recent workspaces" card: the list sorted by `lastOpenedAt` (client side), each opening with
   `workspaces.open`, then the same two buttons. The open sets the state to `opening`, which
   replaces onboarding with the splash, then the app on its landing page.
-- **Create workspace** (`/onboarding/new_workspace`, `7175:20087`): `CreateWorkspaceForm` (name
+- **Create workspace** (`7175:20087`): `CreateWorkspaceForm` (name
   `Input`, `SwatchPicker`, live `WorkspaceTile` preview) on the onboarding card. Submit:
   `workspaces.create`, then `workspaces.open` with its id. "← Back" to Welcome. Inside the app the
   same form is the Create workspace dialog.
@@ -797,13 +796,13 @@ sidebar.
   - **There is no "after" to show.** Creating opens the new workspace under the splash, which
     replaces the whole window anyway, so a page has no follow-up content to justify it.
   - **No routing exceptions.** A route inside `/app` (`/app/workspaces/new`) would draw the old
-    workspace's sidebar around a form for a different workspace. Reusing `/onboarding` from the app
-    needs the `?from=app` exception.
+    workspace's sidebar around a form for a different workspace. Reusing onboarding's screen from the
+    app would mean showing onboarding while a workspace is open.
 
   The dialog says up front that the new workspace opens once it's created, since that closes what
   you're looking at.
 
-- **Choose workspace** (`/onboarding/choose_workspace`): the full `WorkspaceList` (all workspaces,
+- **Choose workspace**: the full `WorkspaceList` (all workspaces,
   `workspaces.list` paged), for when the Welcome card shows only recent ones. Same open flow.
 - **Errors** (`7423:37060`–`7423:37281`) from `importFolder`/`open`, shown inline on Welcome by
   code: `workspace_import`, by its `data.reason` (`not_a_workspace`; `already_added`, which names
@@ -1034,7 +1033,7 @@ toast). `DocumentPage` at 720px, `Tabs` in `?tab`, `SettingsSection` / `Settings
 - **General**: Workspace name and colour (`workspaces.update`), Appearance (theme, optimistic, as
   `FramePage` does now), Start page, Reopen last page, Launch at login, Time format, the two
   confirmations, Danger zone: Delete workspace (`workspaces.delete` after a typed confirmation;
-  then the root lands on `/onboarding`).
+  then the window shows onboarding).
 - **Tasks**: default sort, priority, due date, view, show completed.
 - **Calendar**: week starts on, default event length, default view, Hide weekends (S3).
 - **Data & storage**: data folder path with Show in Finder (`settings.showDataFolder`); Import

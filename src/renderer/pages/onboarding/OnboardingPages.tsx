@@ -1,5 +1,4 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
 import { ArrowLeft, CircleHelp, Folder, List, Plus } from 'lucide-react';
 import { Button, Logomark, OnboardingScreen, Text } from '../../components';
 import { useServices } from '../../app/context';
@@ -11,6 +10,14 @@ import styles from './onboarding.module.css';
 // how many workspaces Welcome's card lists; the rest are on Choose workspace
 export const RECENT_WORKSPACES = 3;
 
+/** The onboarding screens, which OnboardingApp switches between. */
+export type OnboardingScreenName = 'welcome' | 'new_workspace' | 'choose_workspace';
+
+interface OnboardingPageProps {
+  /** shows another onboarding screen */
+  go: (screen: OnboardingScreenName) => void;
+}
+
 /** Help has nothing behind it yet, so the link is drawn disabled. */
 function WhatsAWorkspace() {
   return (
@@ -21,12 +28,11 @@ function WhatsAWorkspace() {
 }
 
 /**
- * Welcome (`/onboarding`, Figma `7175:19898`; with workspaces `7285:53770`): the recent workspaces
+ * Welcome (Figma `7175:19898`; with workspaces `7285:53770`): the recent workspaces
  * when there are any, then Create Workspace and Open Existing Folder….
  */
-export function WelcomePage() {
+export function WelcomePage({ go }: OnboardingPageProps) {
   const { trpc } = useServices();
-  const navigate = useNavigate();
   const list = useQuery(trpc.workspaces.list.queryOptions());
   const actions = useWorkspaceActions();
   const workspaces = [...(list.data?.items ?? [])].sort(byLastOpened);
@@ -53,18 +59,14 @@ export function WelcomePage() {
         />
       )}
       <div className={styles.actions}>
-        <Button icon={Plus} onClick={() => void navigate({ to: '/onboarding/new_workspace' })}>
+        <Button icon={Plus} onClick={() => go('new_workspace')}>
           Create Workspace
         </Button>
         <Button icon={Folder} onClick={actions.openFolder} disabled={actions.pending}>
           Open Existing Folder…
         </Button>
         {hasMore && (
-          <Button
-            variant="ghost"
-            icon={List}
-            onClick={() => void navigate({ to: '/onboarding/choose_workspace' })}
-          >
+          <Button variant="ghost" icon={List} onClick={() => go('choose_workspace')}>
             All Workspaces
           </Button>
         )}
@@ -73,15 +75,14 @@ export function WelcomePage() {
   );
 }
 
-/** Create workspace (`/onboarding/new_workspace`, Figma `7175:20087`). */
-export function NewWorkspacePage() {
-  const navigate = useNavigate();
+/** Create workspace (Figma `7175:20087`). */
+export function NewWorkspacePage({ go }: OnboardingPageProps) {
   const actions = useWorkspaceActions();
   return (
     <OnboardingScreen footer={<WhatsAWorkspace />}>
       <CreateWorkspaceForm
         variant="page"
-        onCancel={() => void navigate({ to: '/onboarding' })}
+        onCancel={() => go('welcome')}
         // shown the same way as a failed open from Welcome
         onFailure={actions.show}
       />
@@ -89,10 +90,9 @@ export function NewWorkspacePage() {
   );
 }
 
-/** Choose workspace (`/onboarding/choose_workspace`): every workspace, page by page. */
-export function ChooseWorkspacePage() {
+/** Choose workspace: every workspace, page by page. */
+export function ChooseWorkspacePage({ go }: OnboardingPageProps) {
   const { trpc } = useServices();
-  const navigate = useNavigate();
   const actions = useWorkspaceActions();
   const pages = useInfiniteQuery(
     trpc.workspaces.list.infiniteQueryOptions(
@@ -129,11 +129,7 @@ export function ChooseWorkspacePage() {
         </Button>
       )}
       <div className={styles.actions}>
-        <Button
-          variant="ghost"
-          icon={ArrowLeft}
-          onClick={() => void navigate({ to: '/onboarding' })}
-        >
+        <Button variant="ghost" icon={ArrowLeft} onClick={() => go('welcome')}>
           Back
         </Button>
         <Button icon={Folder} onClick={actions.openFolder} disabled={actions.pending}>

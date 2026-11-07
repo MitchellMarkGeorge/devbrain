@@ -1,5 +1,6 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import type { InitialLoadContext } from '@common/ipc/types';
+import type { WorkspaceInfo } from '@common/types';
 import type { IpcServices } from '../ipc';
 
 /**
@@ -13,8 +14,13 @@ export interface Services extends Pick<IpcServices, 'queryClient' | 'trpc' | 'ip
   initialLoadContext: InitialLoadContext | null;
 }
 
-// the routers' context is the same object
-export type RouterContext = Services;
+/**
+ * The app router's context: the services, and the open workspace as the window shows it, which
+ * the `/` route reads to pick the landing page.
+ */
+export interface RouterContext extends Services {
+  openWorkspace: () => WorkspaceInfo | null;
+}
 
 const ServicesContext = createContext<Services | null>(null);
 

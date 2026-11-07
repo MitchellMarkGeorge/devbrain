@@ -6,7 +6,10 @@ import { WindowFrameProvider, detectPlatform, type WindowFrame } from './compone
 import { events, ipc, queryInvalidator, queryClient, trpc } from './ipc';
 import { readInitialLoadContext, seedQueryCache } from './ipc/initial-load-context';
 import type { Services } from './app/context';
-import { createWindowRouters, placeRouters } from './app/routers';
+import { createHashHistory } from '@tanstack/react-router';
+import { startApp } from './app/start-app';
+import { openWorkspaceIn } from './app/workspace-state';
+import { createAppRouter } from './router';
 import { WindowContent } from './app/WindowContent';
 import { createWorkspaceStateStore, type WorkspaceStateStore } from './app/workspace-state';
 import { applyThemeSetting } from './theme';
@@ -27,12 +30,16 @@ applyThemeSetting(initialLoadContext?.settings?.theme ?? 'system');
 
 const services: Services = { queryClient, trpc, ipc, events, initialLoadContext };
 
-// the app's router (hash history) and onboarding's (memory history), made once
-const routers = createWindowRouters(services);
+// The app's router, made once, over the window's hash history: the hash keeps the location across
+// a reload, and main follows it for "Reopen last page" (src/main/runtime/last-page.ts)
+const router = createAppRouter(
+  { ...services, openWorkspace: () => openWorkspaceIn(workspaceState.get()) },
+  createHashHistory(),
+);
 
 // what the window shows: the splash, onboarding or the app, as main says from now on; listening
-// before the first render, then asking main once for anything sent before it listened. Each state
-// puts its router where it should start before it renders.
+// before the first render, then asking main once for anything sent before it listened. An open
+// workspace starts the app's router before it renders.
 const workspaceState: WorkspaceStateStore = createWorkspaceStateStore({
   initial: initialLoadContext?.workspace ?? null,
   events,
@@ -40,8 +47,7 @@ const workspaceState: WorkspaceStateStore = createWorkspaceStateStore({
     initialLoadContext?.devBrainAvailable === false
       ? undefined
       : () => ipc.workspaces.state.query(),
-  onShow: (shown) =>
-    placeRouters(routers, shown, queryClient.getQueryData(trpc.settings.get.queryKey())),
+  onShow: (shown) => startApp(router, shown),
 });
 
 // The window around the page: the platform from the preload, the system's own window controls,
@@ -69,7 +75,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <WindowFrameProvider value={windowFrame}>
-        <WindowContent services={services} workspaceState={workspaceState} routers={routers} />
+        <WindowContent services={services} workspaceState={workspaceState} router={router} />
       </WindowFrameProvider>
     </QueryClientProvider>
   );

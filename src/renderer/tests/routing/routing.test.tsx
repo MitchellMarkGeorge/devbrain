@@ -29,7 +29,6 @@ describe('startup', () => {
   it('shows Welcome while no workspace is open, with no splash', async () => {
     const app = renderApp();
     await waitFor(() => expect(app.text()).toContain('Welcome to DevBrain'));
-    expect(at(app)).toBe('/onboarding');
     expect(splashShown()).toBe(false);
   });
 
@@ -94,7 +93,7 @@ describe('startup', () => {
     const app = renderApp({ context: initialContext(opening(work)) });
     app.push(none(failure('workspace_migration', 'The migration failed')));
     await waitFor(() => expect(app.text()).toContain('This workspace couldn’t be updated'));
-    expect(at(app)).toBe('/onboarding');
+    await waitFor(() => expect(app.text()).toContain('Welcome to DevBrain'));
   });
 
   it('follows an open main sent before the page listened, from workspaces.state', async () => {
@@ -182,7 +181,6 @@ describe('switching workspace', () => {
     app.push(none());
 
     await waitFor(() => expect(app.text()).toContain('Welcome to DevBrain'));
-    expect(at(app)).toBe('/onboarding');
     // no error to show
     expect(document.querySelector('[role="alertdialog"]')).toBeNull();
   });
@@ -241,13 +239,13 @@ describe('search params', () => {
   it('keeps the search params of an app page', async () => {
     const app = renderApp({ hash: '/app/calendar?view=month&date=2026-11-06', context });
     await waitFor(() => expect(app.text()).toContain('Calendar'));
-    expect(app.router().state.location.search).toEqual({ view: 'month', date: '2026-11-06' });
+    expect(app.router.state.location.search).toEqual({ view: 'month', date: '2026-11-06' });
   });
 
   it('drops a bad search param to its default, keeping the rest', async () => {
     const app = renderApp({ hash: '/app/tasks?view=nope&status=all', context });
     await waitFor(() => expect(app.text()).toContain('Tasks'));
-    const match = app.router().state.matches.find(({ routeId }) => routeId === '/app/tasks/');
+    const match = app.router.state.matches.find(({ routeId }) => routeId === '/app/tasks/');
     expect(match?.search).toEqual({ view: undefined, status: 'all' });
   });
 });
@@ -260,7 +258,7 @@ describe('back and forward', () => {
     const forward = () => app.container.querySelector<HTMLButtonElement>('[aria-label="Forward"]');
     expect(back()?.disabled).toBe(true);
 
-    await app.router().navigate({ to: '/app/notes' });
+    await app.router.navigate({ to: '/app/notes' });
     await waitFor(() => expect(back()?.disabled).toBe(false));
     expect(forward()?.disabled).toBe(true);
 

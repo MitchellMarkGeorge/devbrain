@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root';
+import { Route as IndexRouteImport } from './routes/index';
 import { Route as AppRouteRouteImport } from './routes/app/route';
 import { Route as AppIndexRouteImport } from './routes/app/index';
 import { Route as AppCalendarRouteImport } from './routes/app/calendar';
@@ -16,9 +17,6 @@ import { Route as AppHomeRouteImport } from './routes/app/home';
 import { Route as AppIntegrationsRouteImport } from './routes/app/integrations';
 import { Route as AppSettingsRouteImport } from './routes/app/settings';
 import { Route as AppTrashRouteImport } from './routes/app/trash';
-import { Route as OnboardingIndexRouteImport } from './routes/onboarding/index';
-import { Route as OnboardingChoose_workspaceRouteImport } from './routes/onboarding/choose_workspace';
-import { Route as OnboardingNew_workspaceRouteImport } from './routes/onboarding/new_workspace';
 import { Route as AppNotesIndexRouteImport } from './routes/app/notes/index';
 import { Route as AppNotesNoteIdRouteImport } from './routes/app/notes/$noteId';
 import { Route as AppProjectsIndexRouteImport } from './routes/app/projects/index';
@@ -26,6 +24,11 @@ import { Route as AppProjectsProjectIdRouteImport } from './routes/app/projects/
 import { Route as AppTasksIndexRouteImport } from './routes/app/tasks/index';
 import { Route as AppTasksTaskIdRouteImport } from './routes/app/tasks/$taskId';
 
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any);
 const AppRouteRoute = AppRouteRouteImport.update({
   id: '/app',
   path: '/app',
@@ -61,22 +64,6 @@ const AppTrashRoute = AppTrashRouteImport.update({
   path: '/trash',
   getParentRoute: () => AppRouteRoute,
 } as any);
-const OnboardingIndexRoute = OnboardingIndexRouteImport.update({
-  id: '/onboarding/',
-  path: '/onboarding/',
-  getParentRoute: () => rootRouteImport,
-} as any);
-const OnboardingChoose_workspaceRoute =
-  OnboardingChoose_workspaceRouteImport.update({
-    id: '/onboarding/choose_workspace',
-    path: '/onboarding/choose_workspace',
-    getParentRoute: () => rootRouteImport,
-  } as any);
-const OnboardingNew_workspaceRoute = OnboardingNew_workspaceRouteImport.update({
-  id: '/onboarding/new_workspace',
-  path: '/onboarding/new_workspace',
-  getParentRoute: () => rootRouteImport,
-} as any);
 const AppNotesIndexRoute = AppNotesIndexRouteImport.update({
   id: '/notes/',
   path: '/notes/',
@@ -109,16 +96,14 @@ const AppTasksTaskIdRoute = AppTasksTaskIdRouteImport.update({
 } as any);
 
 export interface FileRoutesByFullPath {
+  '/': typeof IndexRoute;
   '/app': typeof AppRouteRouteWithChildren;
   '/app/calendar': typeof AppCalendarRoute;
   '/app/home': typeof AppHomeRoute;
   '/app/integrations': typeof AppIntegrationsRoute;
   '/app/settings': typeof AppSettingsRoute;
   '/app/trash': typeof AppTrashRoute;
-  '/onboarding/choose_workspace': typeof OnboardingChoose_workspaceRoute;
-  '/onboarding/new_workspace': typeof OnboardingNew_workspaceRoute;
   '/app/': typeof AppIndexRoute;
-  '/onboarding/': typeof OnboardingIndexRoute;
   '/app/notes/$noteId': typeof AppNotesNoteIdRoute;
   '/app/projects/$projectId': typeof AppProjectsProjectIdRoute;
   '/app/tasks/$taskId': typeof AppTasksTaskIdRoute;
@@ -127,15 +112,13 @@ export interface FileRoutesByFullPath {
   '/app/tasks/': typeof AppTasksIndexRoute;
 }
 export interface FileRoutesByTo {
+  '/': typeof IndexRoute;
   '/app/calendar': typeof AppCalendarRoute;
   '/app/home': typeof AppHomeRoute;
   '/app/integrations': typeof AppIntegrationsRoute;
   '/app/settings': typeof AppSettingsRoute;
   '/app/trash': typeof AppTrashRoute;
-  '/onboarding/choose_workspace': typeof OnboardingChoose_workspaceRoute;
-  '/onboarding/new_workspace': typeof OnboardingNew_workspaceRoute;
   '/app': typeof AppIndexRoute;
-  '/onboarding': typeof OnboardingIndexRoute;
   '/app/notes/$noteId': typeof AppNotesNoteIdRoute;
   '/app/projects/$projectId': typeof AppProjectsProjectIdRoute;
   '/app/tasks/$taskId': typeof AppTasksTaskIdRoute;
@@ -145,16 +128,14 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
+  '/': typeof IndexRoute;
   '/app': typeof AppRouteRouteWithChildren;
   '/app/calendar': typeof AppCalendarRoute;
   '/app/home': typeof AppHomeRoute;
   '/app/integrations': typeof AppIntegrationsRoute;
   '/app/settings': typeof AppSettingsRoute;
   '/app/trash': typeof AppTrashRoute;
-  '/onboarding/choose_workspace': typeof OnboardingChoose_workspaceRoute;
-  '/onboarding/new_workspace': typeof OnboardingNew_workspaceRoute;
   '/app/': typeof AppIndexRoute;
-  '/onboarding/': typeof OnboardingIndexRoute;
   '/app/notes/$noteId': typeof AppNotesNoteIdRoute;
   '/app/projects/$projectId': typeof AppProjectsProjectIdRoute;
   '/app/tasks/$taskId': typeof AppTasksTaskIdRoute;
@@ -165,16 +146,14 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
+    | '/'
     | '/app'
     | '/app/calendar'
     | '/app/home'
     | '/app/integrations'
     | '/app/settings'
     | '/app/trash'
-    | '/onboarding/choose_workspace'
-    | '/onboarding/new_workspace'
     | '/app/'
-    | '/onboarding/'
     | '/app/notes/$noteId'
     | '/app/projects/$projectId'
     | '/app/tasks/$taskId'
@@ -183,15 +162,13 @@ export interface FileRouteTypes {
     | '/app/tasks/';
   fileRoutesByTo: FileRoutesByTo;
   to:
+    | '/'
     | '/app/calendar'
     | '/app/home'
     | '/app/integrations'
     | '/app/settings'
     | '/app/trash'
-    | '/onboarding/choose_workspace'
-    | '/onboarding/new_workspace'
     | '/app'
-    | '/onboarding'
     | '/app/notes/$noteId'
     | '/app/projects/$projectId'
     | '/app/tasks/$taskId'
@@ -200,16 +177,14 @@ export interface FileRouteTypes {
     | '/app/tasks';
   id:
     | '__root__'
+    | '/'
     | '/app'
     | '/app/calendar'
     | '/app/home'
     | '/app/integrations'
     | '/app/settings'
     | '/app/trash'
-    | '/onboarding/choose_workspace'
-    | '/onboarding/new_workspace'
     | '/app/'
-    | '/onboarding/'
     | '/app/notes/$noteId'
     | '/app/projects/$projectId'
     | '/app/tasks/$taskId'
@@ -219,14 +194,19 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute;
   AppRouteRoute: typeof AppRouteRouteWithChildren;
-  OnboardingChoose_workspaceRoute: typeof OnboardingChoose_workspaceRoute;
-  OnboardingNew_workspaceRoute: typeof OnboardingNew_workspaceRoute;
-  OnboardingIndexRoute: typeof OnboardingIndexRoute;
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/': {
+      id: '/';
+      path: '/';
+      fullPath: '/';
+      preLoaderRoute: typeof IndexRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     '/app': {
       id: '/app';
       path: '/app';
@@ -275,27 +255,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/trash';
       preLoaderRoute: typeof AppTrashRouteImport;
       parentRoute: typeof AppRouteRoute;
-    };
-    '/onboarding/': {
-      id: '/onboarding/';
-      path: '/onboarding';
-      fullPath: '/onboarding/';
-      preLoaderRoute: typeof OnboardingIndexRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    '/onboarding/choose_workspace': {
-      id: '/onboarding/choose_workspace';
-      path: '/onboarding/choose_workspace';
-      fullPath: '/onboarding/choose_workspace';
-      preLoaderRoute: typeof OnboardingChoose_workspaceRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    '/onboarding/new_workspace': {
-      id: '/onboarding/new_workspace';
-      path: '/onboarding/new_workspace';
-      fullPath: '/onboarding/new_workspace';
-      preLoaderRoute: typeof OnboardingNew_workspaceRouteImport;
-      parentRoute: typeof rootRouteImport;
     };
     '/app/notes/': {
       id: '/app/notes/';
@@ -377,10 +336,8 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 );
 
 const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
   AppRouteRoute: AppRouteRouteWithChildren,
-  OnboardingChoose_workspaceRoute: OnboardingChoose_workspaceRoute,
-  OnboardingNew_workspaceRoute: OnboardingNew_workspaceRoute,
-  OnboardingIndexRoute: OnboardingIndexRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

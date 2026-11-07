@@ -16,10 +16,10 @@ import type {
 import type { AppSettings, WorkspaceInfo, WorkspaceSnapshot, WorkspaceState } from '@common/types';
 import { createIpcServices } from '../../ipc';
 import { seedQueryCache } from '../../ipc/initial-load-context';
-import type { AppRouter } from '../../router';
 import { WindowContent } from '../../app/WindowContent';
-import { createWorkspaceStateStore } from '../../app/workspace-state';
-import { createWindowRouters, placeRouters } from '../../app/routers';
+import { createWorkspaceStateStore, openWorkspaceIn } from '../../app/workspace-state';
+import { startApp } from '../../app/start-app';
+import { createAppRouter, type AppRouter } from '../../router';
 import type { Services } from '../../app/context';
 
 // The window as main.tsx renders it, over a fake main: each call is answered by a handler by its
@@ -132,8 +132,8 @@ export interface App {
   container: HTMLElement;
   /** the app's history, standing in for the window's hash */
   history: RouterHistory;
-  /** onboarding's router while no workspace is open, else the app's */
-  router(): AppRouter;
+  /** the app's router */
+  router: AppRouter;
   invoke: ReturnType<typeof vi.fn<IpcBridge['invoke']>>;
   /** main sends a new workspace state, whole, with the next version */
   push(state: WorkspaceState): void;
@@ -213,10 +213,11 @@ export function renderApp({
   ipcServices.queryInvalidator.listen(ipcServices.events);
   const services: Services = { ...ipcServices, initialLoadContext: context };
   const history = createMemoryHistory({ initialEntries: [hash] });
-  const routers = createWindowRouters(services, {
-    app: history,
-    onboarding: createMemoryHistory({ initialEntries: ['/onboarding'] }),
-  });
+  // as main.tsx makes it, over memory history in place of the hash
+  const router: AppRouter = createAppRouter(
+    { ...services, openWorkspace: () => openWorkspaceIn(workspaceState.get()) },
+    history,
+  );
   const workspaceState = createWorkspaceStateStore({
     initial: context?.workspace ?? null,
     events: services.events,
@@ -224,12 +225,7 @@ export function renderApp({
       context?.devBrainAvailable === false
         ? undefined
         : () => services.ipc.workspaces.state.query(),
-    onShow: (shown) =>
-      placeRouters(
-        routers,
-        shown,
-        services.queryClient.getQueryData(services.trpc.settings.get.queryKey()),
-      ),
+    onShow: (shown) => startApp(router, shown),
   });
 
   const container = document.createElement('div');
@@ -238,7 +234,7 @@ export function renderApp({
   act(() => {
     root.render(
       <QueryClientProvider client={services.queryClient}>
-        <WindowContent services={services} workspaceState={workspaceState} routers={routers} />
+        <WindowContent services={services} workspaceState={workspaceState} router={router} />
       </QueryClientProvider>,
     );
   });
@@ -247,7 +243,7 @@ export function renderApp({
     container,
     history,
     // during the splash, the app's: its location is the one the window keeps
-    router: () => (workspaceState.get().state.status === 'none' ? routers.onboarding : routers.app),
+    router,
     invoke,
     push: (state) => {
       snapshot = { version: snapshot.version + 1, state };
@@ -291,9 +287,9 @@ export async function waitFor(check: () => void, timeoutMs = 2000): Promise<void
   }
 }
 
-/** Where the router on screen is: the path and its search, as `/app/tasks?view=board`. */
+/** Where the app's router is: the path and its search, as `/app/tasks?view=board`. */
 export function at(app: App): string {
-  return app.router().state.location.href;
+  return app.router.state.location.href;
 }
 
 /** Whether the splash is up. */
