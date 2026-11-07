@@ -55,7 +55,7 @@ async function query(
     },
   };
   if (!active) {
-    await queryClient.prefetchQuery(options);
+    await queryClient.query(options);
     return;
   }
   const observer = new QueryObserver(queryClient, options);
