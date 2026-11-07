@@ -1,13 +1,6 @@
 import { useState, useSyncExternalStore } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import {
-  Link,
-  Outlet,
-  useMatchRoute,
-  useMatches,
-  useRouter,
-  useRouterState,
-} from '@tanstack/react-router';
+import { Link, Outlet, useMatchRoute, useRouter, useRouterState } from '@tanstack/react-router';
 import type { LucideIcon } from 'lucide-react';
 import {
   Calendar,
@@ -24,8 +17,6 @@ import {
 } from 'lucide-react';
 import {
   AppShell,
-  Breadcrumb,
-  PageHeader,
   Sidebar,
   SidebarAction,
   SidebarContent,
@@ -44,6 +35,7 @@ import { useWorkspaceActions } from '../workspaces/workspace-actions';
 import { useHeldFor, useShownAfter } from '../../session/use-held-for';
 import { useWorkspaceHistory } from '../../session/use-workspace-history';
 import { PagePending } from './PagePending';
+import { PageHeaderSlotProvider, usePageHeaderSlot } from './page-header';
 
 // A page whose loaders take longer than this shows PagePending in its place, for at least
 // PENDING_MIN_MS so it doesn't flash; a quicker one shows nothing in between
@@ -52,7 +44,7 @@ const PENDING_MIN_MS = 500;
 
 // The app around a workspace's pages (`/app`): AppShell with the sidebar (the workspace menu, the
 // pages, Trash, Settings and Help), the header the page names, and Back and Forward kept within
-// the open workspace's pages. Recents, Favorites, the sync line, search and new task come with
+// the open workspace's pages. Each page renders its own header into the shell's (page-header.tsx). Recents, Favorites, the sync line, search and new task come with
 // milestone 3.
 
 type AppPath =
@@ -75,36 +67,24 @@ const PAGES: { to: AppPath; label: string; icon: LucideIcon }[] = [
 ];
 
 export function AppLayout() {
-  const { session } = useRouter().options.context;
-  const workspace = useSyncExternalStore(session.subscribe, () => session.getState().workspace);
-  // the deepest page's title, for the header
-  const title = useMatches({
-    select: (matches) =>
-      [...matches].reverse().find((match) => match.staticData.title)?.staticData.title,
-  });
   const history = useWorkspaceHistory();
+  const { header, slot } = usePageHeaderSlot();
   // The router keeps the old page while the next loads (its own pending UI can't show between
   // sibling pages: library-behaviour.test.ts), so the shell shows the skeleton itself
   const loading = useRouterState({ select: (state) => state.isLoading });
   const pending = useHeldFor(useShownAfter(loading, PENDING_MS), PENDING_MIN_MS);
 
   return (
-    <AppShell
-      sidebar={<AppSidebar />}
-      header={
-        title ? (
-          <PageHeader>
-            <Breadcrumb items={[workspace?.name ?? 'DevBrain', title]} />
-          </PageHeader>
-        ) : (
-          // Home has no title bar content of its own
-          <PageHeader />
-        )
-      }
-      {...history}
-    >
-      {pending ? <PagePending /> : <Outlet />}
-    </AppShell>
+    <PageHeaderSlotProvider value={slot}>
+      <AppShell
+        sidebar={<AppSidebar />}
+        // each page renders its own PageHeader here (PageTitle)
+        header={header}
+        {...history}
+      >
+        {pending ? <PagePending /> : <Outlet />}
+      </AppShell>
+    </PageHeaderSlotProvider>
   );
 }
 

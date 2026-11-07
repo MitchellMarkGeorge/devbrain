@@ -13,6 +13,7 @@ export function DevBrainUnavailable() {
   return (
     <OnboardingScreen
       data-devbrain-unavailable=""
+      role="alert"
       logo={<Logomark size="md" />}
       title="DevBrain couldn’t open its data folder"
       description="Something went wrong loading your DevBrain folder, so nothing can be shown. The log file says what happened."

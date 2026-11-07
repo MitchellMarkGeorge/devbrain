@@ -49,8 +49,4 @@ declare module '@tanstack/react-router' {
   interface Register {
     router: AppRouterInstance;
   }
-  interface StaticDataRouteOption {
-    // the page's name in the header's breadcrumb; a page without one draws an empty header
-    title?: string;
-  }
 }

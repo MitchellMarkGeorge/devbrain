@@ -15,8 +15,10 @@ import {
 // shows, from the one provider in the root's shell.
 
 export interface WorkspaceActions {
-  // the registry, as workspaces.list has it
+  // the registry's first page, as workspaces.list has it
   workspaces: WorkspaceInfo[];
+  // the registry has more than that page
+  moreWorkspaces: boolean;
   open: (workspace: Pick<WorkspaceInfo, 'id' | 'name'>) => void;
   // "Open Existing Folder…": asks main for a folder, adds it, then opens it
   openFolder: () => void;
@@ -51,6 +53,7 @@ export function WorkspaceActionsProvider({ children }: { children: ReactNode }) 
       openWorkspace({ id: workspace.id }, { onError: (error) => setFailure({ error, workspace }) });
     return {
       workspaces: list.data?.items ?? [],
+      moreWorkspaces: list.data?.nextCursor != null,
       open,
       openFolder: () =>
         importFolder(undefined, {

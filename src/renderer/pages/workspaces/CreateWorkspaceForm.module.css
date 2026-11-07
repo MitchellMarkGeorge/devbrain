@@ -10,10 +10,12 @@
   gap: 2px;
 }
 .title {
+  margin: 0;
   color: var(--foreground-strong);
   font: var(--font-weight-medium) var(--text-base) / 22px var(--font-sans);
 }
 .description {
+  margin: 0;
   color: var(--muted-foreground);
   font-size: var(--text-sm);
   line-height: 20px;

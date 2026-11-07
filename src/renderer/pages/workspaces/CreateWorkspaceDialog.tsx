@@ -14,12 +14,13 @@ export function CreateWorkspaceDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showClose={false} aria-label="New workspace">
+      <DialogContent showClose={false}>
         {open && (
           <CreateWorkspaceForm
             title="New workspace"
             description="A workspace is a folder with its own tasks, notes and connected accounts. It opens once it’s created."
             tileSize={40}
+            inDialog
           >
             {({ fields, formId, canSubmit }) => (
               <>

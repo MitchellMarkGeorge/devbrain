@@ -1,5 +1,13 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
-import { Field, Input, SwatchPicker, WorkspaceTile, type Swatch } from '../../components';
+import { useId, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  DialogDescription,
+  DialogTitle,
+  Field,
+  Input,
+  SwatchPicker,
+  WorkspaceTile,
+  type Swatch,
+} from '../../components';
 import { ipcErrorOf } from '../../ipc/errors';
 import { SWATCH_HEX } from './colors';
 import { useWorkspaceActions } from './workspace-actions';
@@ -21,20 +29,21 @@ export interface CreateWorkspaceFormProps {
   description: string;
   // the tile's size: 56 on the card, 40 in the dialog
   tileSize: number;
+  // in a dialog, the title and description are the dialog's own (its accessible name)
+  inDialog?: boolean;
   // lays the form out: the fields, then the buttons (which submit `formId`)
   children: (form: { fields: ReactNode } & CreateWorkspaceFormState) => ReactNode;
 }
-
-let nextFormId = 0;
 
 export function CreateWorkspaceForm({
   title,
   description,
   tileSize,
+  inDialog = false,
   children,
 }: CreateWorkspaceFormProps) {
   const { create, busy } = useWorkspaceActions();
-  const [formId] = useState(() => `create-workspace-${++nextFormId}`);
+  const formId = useId();
   const [name, setName] = useState('');
   const [swatch, setSwatch] = useState<Swatch>('blue');
   const [error, setError] = useState<string | null>(null);
@@ -54,8 +63,17 @@ export function CreateWorkspaceForm({
       <div className={styles.intro}>
         <WorkspaceTile letter={trimmed || 'W'} color={swatch} size={tileSize} />
         <div className={styles.introText}>
-          <span className={styles.title}>{title}</span>
-          <span className={styles.description}>{description}</span>
+          {inDialog ? (
+            <>
+              <DialogTitle className={styles.title}>{title}</DialogTitle>
+              <DialogDescription className={styles.description}>{description}</DialogDescription>
+            </>
+          ) : (
+            <>
+              <h2 className={styles.title}>{title}</h2>
+              <p className={styles.description}>{description}</p>
+            </>
+          )}
         </div>
       </div>
       <Field label="Workspace name" error={error}>

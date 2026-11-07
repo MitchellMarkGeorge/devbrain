@@ -66,6 +66,17 @@ describe('the app shell', () => {
     expect(byText(sidebar, 'button', 'Help')!.hasAttribute('disabled')).toBe(true);
   });
 
+  it('a page that failed to load shows the error, and Try Again loads it again', async () => {
+    const main = new FakeMain([workspace(A, 'Alpha', null)]);
+    const app = await openOn(main, '/app/home');
+    main.failOnce.add('notes.list');
+    byText(app.container.querySelector('nav')!, 'a', 'Notes')!.click();
+    await expect.poll(() => app.page()?.path, WAIT).toBe('error');
+    await click(() => byText(app.container, 'button', 'Try Again'));
+    await expect.poll(() => app.page()?.path, WAIT).toBe('/app/notes');
+    expect(app.page()!.text).toContain('Alpha note 1');
+  });
+
   it('sends /app to the default landing page', async () => {
     const main = new FakeMain([workspace(A, 'Alpha', null)]);
     main.settings = settings({ defaultLandingPage: 'projects' });
@@ -172,7 +183,7 @@ describe('onboarding', () => {
     const ids = ['wsp_1', 'wsp_2', 'wsp_3', 'wsp_4'].map((id) => id.padEnd(26, 'x'));
     const main = new FakeMain(ids.map((id, n) => workspace(id as never, `W${n}`, null)));
     const app = mount(main);
-    await click(() => byText(app.container, 'a', 'All workspaces (4)'));
+    await click(() => byText(app.container, 'a', 'All Workspaces'));
     await expect.poll(() => app.page()?.path, WAIT).toBe('/onboarding/choose_workspace');
     expect(['W0', 'W1', 'W2', 'W3'].every((name) => app.page()!.text.includes(name))).toBe(true);
   });

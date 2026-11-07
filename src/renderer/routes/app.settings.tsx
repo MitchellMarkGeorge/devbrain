@@ -3,7 +3,6 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { PlaceholderPage } from '../pages/placeholder/PlaceholderPage';
 
 export const Route = createFileRoute('/app/settings')({
-  staticData: { title: 'Settings' },
   loader: ({ context: { queryClient, trpc } }) =>
     queryClient.ensureQueryData(trpc.settings.get.queryOptions()),
   component: function Page() {

@@ -64,14 +64,14 @@ export function describeWorkspaceFailure(
       if (reason === 'unreadable') {
         return {
           title: 'DevBrain can’t read this folder',
-          description: `${failure.message}. Check its permissions, then try again.`,
+          description: `${failure.message}. Check the folder’s permissions, or choose another one.`,
           action: { label: 'Choose Another Folder', run: actions.openFolder },
         };
       }
       return {
         title: 'This folder isn’t a DevBrain workspace',
-        description:
-          'It has no DevBrain database in it. Choose the folder that holds the workspace, usually inside your DevBrain folder.',
+        // core's message names the folder ("Downloads is not a DevBrain workspace folder: …")
+        description: `${failure.message}. Choose the folder that holds the workspace, usually inside your DevBrain folder.`,
         action: { label: 'Choose Another Folder', run: actions.openFolder },
       };
     }
@@ -80,6 +80,12 @@ export function describeWorkspaceFailure(
         title: `${name ?? 'This workspace'} needs a newer DevBrain`,
         description:
           'This workspace was last opened in a newer version. Update DevBrain to open it. The folder hasn’t been changed.',
+      };
+    case 'workspace_migration':
+      // core restores the database it backed up before the migration
+      return {
+        title: name ? `${name} couldn’t be updated` : 'The workspace couldn’t be updated',
+        description: `${failure.message}. Nothing in it was lost.`,
       };
     case 'workspace_data_missing':
       return {

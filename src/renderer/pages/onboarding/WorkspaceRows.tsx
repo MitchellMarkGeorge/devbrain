@@ -22,7 +22,7 @@ export function WorkspaceRows({
   label: string;
   workspaces: WorkspaceInfo[];
 }) {
-  const { open } = useWorkspaceActions();
+  const { open, busy } = useWorkspaceActions();
   return (
     <WorkspaceList label={label} style={{ width: '100%' }}>
       {workspaces.map((workspace) => (
@@ -32,6 +32,7 @@ export function WorkspaceRows({
           color={swatchOf(workspace.color)}
           detail={lastOpened(workspace.lastOpenedAt)}
           meta={`Created ${DateTime.fromMillis(workspace.createdAt).toFormat('LLL yyyy')}`}
+          disabled={busy}
           onClick={() => open(workspace)}
         />
       ))}

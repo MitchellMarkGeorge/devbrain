@@ -12,6 +12,7 @@ export const Route = createFileRoute('/app/home')({
       <PlaceholderPage
         path="/app/home"
         title="Home"
+        header="none"
         milestone="milestone 8"
         rows={data.items.map((recent) => recent.entity.title)}
       />

@@ -122,9 +122,11 @@ The renderer has one TanStack Router (`src/renderer/router.tsx`) with file route
 never edit it; `npm run build:renderer` or `npm run dev` regenerates it).
 `docs/renderer/router-splash-exploration.md` says why it works this way.
 
-- Route files stay thin: `loader`, `beforeLoad`, `staticData.title` and a component from
+- Route files stay thin: `loader`, `beforeLoad` and a component from
   `src/renderer/pages/<feature>/`. A loader primes React Query's cache (`ensureQueryData`) and the
   page reads the same query.
+- A page draws its own header (breadcrumb, actions) into the shell's with `PageTitle` or
+  `PageHeaderPortal` (`src/renderer/pages/shell/page-header.tsx`).
 - The workspace lifecycle navigates in one place: `WorkspaceSession`
   (`src/renderer/session/workspace-session.ts`) follows `workspace.changed` and lands on the
   landing page or onboarding. Nothing else navigates on a workspace event; opening a workspace is a

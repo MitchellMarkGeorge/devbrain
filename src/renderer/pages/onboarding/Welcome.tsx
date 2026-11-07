@@ -13,7 +13,7 @@ const RECENT = 3;
  * with some, the most recent ones first (7285:53770), and all of them a click away.
  */
 export function Welcome() {
-  const { workspaces, openFolder, busy } = useWorkspaceActions();
+  const { workspaces, moreWorkspaces, openFolder, busy } = useWorkspaceActions();
   const navigate = useNavigate();
   const platform = usePlatform();
   const recent = byLastOpened(workspaces).slice(0, RECENT);
@@ -35,13 +35,13 @@ export function Welcome() {
       }
     >
       {recent.length > 0 && <WorkspaceRows label="Recent workspaces" workspaces={recent} />}
-      {workspaces.length > RECENT && (
+      {(workspaces.length > RECENT || moreWorkspaces) && (
         <Button
           variant="link"
           nativeButton={false}
           render={<Link to="/onboarding/choose_workspace" />}
         >
-          All workspaces ({workspaces.length})
+          All Workspaces
         </Button>
       )}
       <Flex gap="2">

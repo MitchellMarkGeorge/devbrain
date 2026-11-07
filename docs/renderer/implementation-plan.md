@@ -173,7 +173,7 @@ autoCodeSplitting: false })` before the React plugin; it runs on Vite 8. It writ
 
 `createAppRouter(history, context)` builds the one router, with `defaultPreloadStaleTime: 0`
 (React Query decides freshness). Its context is `{ queryClient, trpc, ipc, session,
-devBrainAvailable, splashMinimumMs }`; `staticData.title` names a page in the header.
+devBrainAvailable, splashMinimumMs }`.
 `main.tsx` makes it once with `createHashHistory()`, starts the session (unless DevBrain is
 unavailable) and renders `<RouterProvider>`; tests make theirs with memory history.
 
@@ -591,9 +591,10 @@ to=… />}` with `active` from `useMatchRoute` (a detail page keeps its section 
   `sync.progress` events; Retry calls `sync.now`), Trash (`/app/trash`), Settings, and Help, drawn
   disabled until there is something behind it. The keyboard shortcuts dialog opens with `?` and
   from ⌘K.
-- **Header:** each page renders its own `PageHeader` (breadcrumb, actions) through a small
-  `usePageHeader(node)` slot, since `AppShell` takes `header` as a prop and the route below
-  decides it. Breadcrumbs come from route `staticData.crumb` plus the entity title on detail pages.
+- **Header (built):** each page renders its own `PageHeader` (breadcrumb, actions) into the
+  shell's header through a portal (`pages/shell/page-header.tsx`: the layout passes an empty slot
+  as `AppShell`'s `header`), since `AppShell` takes `header` as a prop and the page below decides
+  it. `PageTitle` draws "‹workspace› › ‹page›"; a detail page adds the entity's title.
 - **Recording views:** detail routes call `recents.recordView({ id })` once per visit (an effect
   keyed on the id), as the IPC design expects.
 
@@ -1246,8 +1247,8 @@ page that needs them.
    workspace, error states.
 3. **Shared app pieces.** Entity components moved to core's shapes, with `FormatProvider`
    (luxon), after X1 moves the shared types; `TaskList`, `BoardColumn` and `CardGrid` virtualized; `useOpenEntity`; error
-   toast and `useConfirm`; Recents/Favorites/SyncStatus in the sidebar; page header slot and
-   breadcrumbs; the keyboard layer (command registry, scopes, keymap dispatcher, undo stack) with
+   toast and `useConfirm`; Recents/Favorites/SyncStatus in the sidebar;
+   detail-page breadcrumbs; the keyboard layer (command registry, scopes, keymap dispatcher, undo stack) with
    the default keymap, and the list keys moved out of `TaskRow`/`TaskList` into it; the shortcuts
    dialog. _Main:_ X1 first.
 4. **Tasks.** List view with filters/sort in search params, row menu, selection bar; group view;

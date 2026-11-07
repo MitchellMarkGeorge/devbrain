@@ -86,6 +86,8 @@ export class FakeMain {
   readonly sent: AppEvents['workspace.changed'][] = [];
   // every call's path, in order
   readonly calls: string[] = [];
+  // paths whose next call fails, once
+  readonly failOnce = new Set<string>();
   // workspaces whose folder is gone: opening one fails before anything closes
   readonly missing = new Set<WorkspaceId>();
   // what "Open Existing Folder…" adds: a workspace, null (cancelled) or the error main throws
@@ -181,6 +183,7 @@ export class FakeMain {
 
   private async call({ path, input }: IpcRequest): Promise<unknown> {
     this.calls.push(path);
+    if (this.failOnce.delete(path)) throw new CallError('internal', 'Something went wrong');
     switch (path) {
       case 'app.version':
         return '0.0.1';

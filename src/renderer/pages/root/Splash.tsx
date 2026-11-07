@@ -17,6 +17,8 @@ export function Splash() {
   return (
     <OnboardingScreen
       data-splash=""
+      role="status"
+      aria-label={name ? `Opening ${name}` : 'Opening DevBrain'}
       aria-busy
       logo={<Logomark size="lg" pulse />}
       footer={version.data && <span className={styles.version}>Version {version.data}</span>}

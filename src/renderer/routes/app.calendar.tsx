@@ -3,7 +3,6 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { PlaceholderPage } from '../pages/placeholder/PlaceholderPage';
 
 export const Route = createFileRoute('/app/calendar')({
-  staticData: { title: 'Calendar' },
   loader: ({ context: { queryClient, trpc } }) =>
     queryClient.ensureQueryData(trpc.calendars.list.queryOptions()),
   component: function Page() {
