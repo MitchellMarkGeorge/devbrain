@@ -38,6 +38,12 @@ export interface WorkspaceStateStoreOptions {
   events: EventClient<AppEvents>;
   /** asks main for its snapshot now (`workspaces.state`); left out when DevBrain is unavailable */
   fetch?: () => Promise<WorkspaceSnapshot>;
+  /**
+   * Called with each state as it is shown, before the listeners hear of it (so before React renders
+   * it): the window puts its routers where they should start (placeRouters). Called for the first
+   * state too, as the store is made.
+   */
+  onShow?: (shown: ShownWorkspaceState) => void;
   /** the splash's minimum; tests pass their own, with a clock and timers they move */
   holdMs?: number;
   now?: () => number;
@@ -62,7 +68,8 @@ export interface WorkspaceStateStoreOptions {
  * 2. **Holds the splash for at least `holdMs`.** While the splash is up, a snapshot that would
  *    end it waits until `holdMs` after the splash appeared, so a quick open doesn't flicker. A
  *    newer snapshot replaces one that waits; another `opening` shows at once.
- * 3. **Works out `keepPage`** for each `open` it shows (see `ShownWorkspaceState`).
+ * 3. **Works out `keepPage`** for each `open` it shows (see `ShownWorkspaceState`), and hands each
+ *    state it shows to `onShow` before telling its listeners.
  *
  * Create it once, before the first render (main.tsx). `get()` returns the same object until
  * something changes, as `useSyncExternalStore` needs.
@@ -71,6 +78,7 @@ export function createWorkspaceStateStore({
   initial,
   events,
   fetch,
+  onShow,
   holdMs = SPLASH_MINIMUM_MS,
   now = Date.now,
   setTimer = (run, ms) => setTimeout(run, ms),
@@ -112,6 +120,7 @@ export function createWorkspaceStateStore({
         break;
     }
     shown = { version: snapshot.version, state, keepPage };
+    onShow?.(shown);
   };
 
   const notify = () => listeners.forEach((listener) => listener());

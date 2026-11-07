@@ -218,8 +218,8 @@ export function createAppRouter(context: RouterContext, history: RouterHistory) 
 }
 ```
 
-A function, not a module-level router: the window makes one per mount of the app or onboarding
-(below). `App.tsx` and its test pages are gone.
+A function: `main.tsx` makes two routers with it, once, the app's and onboarding's (below), and
+tests make their own over memory history. `App.tsx` and its test pages are gone.
 
 ### Root route (`__root.tsx`)
 
@@ -266,24 +266,34 @@ from there.
   and the same workspace is back (the old page is still in the hash). False for a new workspace,
   and after onboarding. (The plan's `version === initialVersion` covers only the reload.)
 
-**`WorkspaceApp`** (`src/renderer/app/WorkspaceApp.tsx`):
+**The routers** (`src/renderer/app/routers.ts`). `main.tsx` makes two, once, before the first
+render (`createWindowRouters`), and passes them to `WindowContent`, which mounts one at a time:
 
-- One module-level `createHashHistory()`, shared across mounts: one per mount would leave the old
-  one's listeners on the window.
-- Before it makes its router (once per mount): if `keepPage` and the hash location passes
-  `lastPageSchema`, it stays. Otherwise `history.replace(landingPage(settings, workspace))`, with
-  the settings from the seeded cache.
-- Then `createAppRouter(services, hashHistory)` inside `RouterProvider`.
-- `error` (a switch away failed) shows once as a toast.
-- Main's `last-page.ts` follows the hash (`did-navigate-in-page`) and saves it on close. During a
-  switch the hash still shows the old workspace's page while the splash is up, which is what gets
-  saved for the old one, as it should be.
+- **`app`**, over the window's hash history, shown while a workspace is open. The hash keeps the
+  location across a reload, and main follows it for "Reopen last page".
+- **`onboarding`**, over memory history, shown while none is open. Its pages navigate between
+  each other without touching the hash.
 
-**`OnboardingApp`** (`src/renderer/app/OnboardingApp.tsx`): its own router over
-`createMemoryHistory({ initialEntries: ['/onboarding'] })` and the same route tree (the onboarding
-pages navigate between each other), so the hash main follows is left alone. It wraps them in the
-workspace actions provider, whose error dialog starts with `error` (why the last open failed) and
-shows any failure of its own after.
+**Placing them** (`placeRouters`). The store hands each state it shows to `onShow` before React
+renders it, and `main.tsx` puts the router about to show where it should start:
+
+- `open`: the app's location stays if `keepPage` and it is a valid last page (`isValidLastPage`).
+  Otherwise it is replaced with `landingPage(settings, workspace)`, with the settings from the
+  seeded cache. Replacing, not pushing, so Back never returns to another workspace's page.
+- `none`: onboarding's router goes back to Welcome.
+- `opening`: nothing. The hash still shows the old workspace's page while the splash is up, which
+  is what main's `last-page.ts` saves for the old one as it closes, as it should.
+
+Each placed router is loaded right away, while unmounted. A router keeps its state between mounts
+and only loads on a remount when nothing is in flight, so a load the splash cut short would
+otherwise leave it on the old page.
+
+**`WorkspaceApp`** (`src/renderer/app/WorkspaceApp.tsx`) is the app's router in `RouterProvider`,
+keyed by the workspace's id, and shows `error` (a switch away failed) once as a toast.
+
+**`OnboardingApp`** (`src/renderer/app/OnboardingApp.tsx`) is onboarding's router in the workspace
+actions provider, keyed by the snapshot's version, whose error dialog starts with `error` (why the
+last open failed) and shows any failure of its own after.
 
 **Open failures.** Opening is `ipc.workspaces.open.mutate({ id })`, and its failure shows from the
 state: on onboarding (the dialog), or as a toast in the app. The caller shows an open's failure
