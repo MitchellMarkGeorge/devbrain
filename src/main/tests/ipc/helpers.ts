@@ -14,10 +14,14 @@ import { invokeHandler } from '../__mocks__/electron';
 // What the IPC tests share: a context over a DevBrain, and a DevBrain folder in a temporary
 // directory.
 
-export function testContext(devBrain: DevBrain | null = null, desktop?: Desktop) {
+export function testContext(
+  devBrain: DevBrain | null = null,
+  desktop?: Desktop,
+  workspaceState?: CreateContextOptions['workspaceState'],
+) {
   const log = { debug: vi.fn() };
   return (call: Pick<CreateContextOptions, 'event'>) =>
-    createContext({ ...call, devBrain, desktop, log });
+    createContext({ ...call, devBrain, desktop, workspaceState, log });
 }
 
 // calls a procedure through the transport, as the renderer's link would

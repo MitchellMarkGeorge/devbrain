@@ -18,7 +18,6 @@ describe('the preload bridge', () => {
         subscribe: expect.any(Function),
         // the mock's sendSync answers nothing at import
         initialLoadContext: undefined,
-        workspaceState: { get: expect.any(Function), subscribe: expect.any(Function) },
         platform: process.platform,
       },
     ]);
@@ -55,10 +54,7 @@ describe('the preload bridge', () => {
   it('passes listeners the payload only, and unsubscribes', () => {
     const listener = vi.fn();
     const off = createBridge().subscribe('db.changes', listener);
-    // the bridge listens to workspace.changed itself first
-    const [channel, handler] = ipcRenderer.on.mock.calls.find(
-      ([name]) => name === 'ipc-event:db.changes',
-    )!;
+    const [channel, handler] = ipcRenderer.on.mock.calls[0];
 
     handler({ sender: 'the IpcRendererEvent' }, { entities: ['task'] });
     off();
@@ -66,70 +62,6 @@ describe('the preload bridge', () => {
     expect(channel).toBe('ipc-event:db.changes');
     expect(listener).toHaveBeenCalledWith({ entities: ['task'] });
     expect(ipcRenderer.removeListener).toHaveBeenCalledWith('ipc-event:db.changes', handler);
-  });
-});
-
-describe("the preload's workspace state", () => {
-  afterEach(() => resetElectronMock());
-
-  const snapshot = (version: number, status: 'none' | 'opening' = 'none') =>
-    status === 'none'
-      ? { version, state: { status, error: null } }
-      : { version, state: { status, workspace: { id: 'wsp_a', name: 'A' } } };
-
-  // sends workspace.changed as main would, to the listener the bridge registered
-  function sendWorkspaceChanged(payload: unknown) {
-    for (const [channel, handler] of ipcRenderer.on.mock.calls) {
-      if (channel === 'ipc-event:workspace.changed') handler({}, payload);
-    }
-  }
-
-  it('listens to workspace.changed before reading the initial load context', () => {
-    const order: string[] = [];
-    ipcRenderer.on.mockImplementation((channel: string) => void order.push(`on ${channel}`));
-    ipcRenderer.sendSync.mockImplementation((channel: string) => {
-      order.push(`sendSync ${channel}`);
-      return { workspace: snapshot(1) };
-    });
-
-    createBridge();
-
-    expect(order).toEqual(['on ipc-event:workspace.changed', 'sendSync ipc:initial-load-context']);
-  });
-
-  it("starts from the initial load context's state, and is null without one", () => {
-    ipcRenderer.sendSync.mockReturnValue({ workspace: snapshot(3) });
-    expect(createBridge().workspaceState.get()).toEqual(snapshot(3));
-
-    ipcRenderer.sendSync.mockReturnValue(null);
-    expect(createBridge().workspaceState.get()).toBeNull();
-  });
-
-  it('keeps a change sent during the read when it is newer', () => {
-    ipcRenderer.sendSync.mockImplementation(() => {
-      // main sent this after building the context it answers with
-      sendWorkspaceChanged(snapshot(4, 'opening'));
-      return { workspace: snapshot(3) };
-    });
-
-    expect(createBridge().workspaceState.get()).toEqual(snapshot(4, 'opening'));
-  });
-
-  it('drops older versions, and tells subscribers of newer ones only', () => {
-    ipcRenderer.sendSync.mockReturnValue({ workspace: snapshot(5) });
-    const bridge = createBridge();
-    const listener = vi.fn();
-    const off = bridge.workspaceState.subscribe(listener);
-
-    // sent before main answered the read, so delivered after it
-    sendWorkspaceChanged(snapshot(4, 'opening'));
-    expect(bridge.workspaceState.get()).toEqual(snapshot(5));
-    sendWorkspaceChanged(snapshot(6, 'opening'));
-    off();
-    sendWorkspaceChanged(snapshot(7));
-
-    expect(listener.mock.calls).toEqual([[snapshot(6, 'opening')]]);
-    expect(bridge.workspaceState.get()).toEqual(snapshot(7));
   });
 });
 

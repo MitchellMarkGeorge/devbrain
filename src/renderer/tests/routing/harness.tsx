@@ -21,8 +21,9 @@ import { WindowContent } from '../../app/WindowContent';
 import { createWorkspaceStateStore } from '../../app/workspace-state';
 
 // The window as main.tsx renders it, over a fake main: each call is answered by a handler by its
-// path, the test pushes main's workspace state (as the preload's buffer would) and its other
-// events, and memory history stands in for the window's hash.
+// path (`workspaces.state` with the context's snapshot, unless the test says otherwise), the test
+// pushes main's workspace state and its other events, and memory history stands in for the
+// window's hash.
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -156,7 +157,17 @@ export function renderApp({
   context?: InitialLoadContext | null;
   handlers?: Handlers;
 } = {}): App {
-  const all: Handlers = { ...DEFAULT_HANDLERS, ...handlers };
+  // what main has sent last, as the tracker keeps it
+  let snapshot: WorkspaceSnapshot = context?.workspace ?? {
+    version: 0,
+    state: { status: 'none', error: null },
+  };
+  const all: Handlers = {
+    ...DEFAULT_HANDLERS,
+    // main agrees with the context unless the test says otherwise
+    'workspaces.state': () => context?.workspace ?? { version: 0, state: none() },
+    ...handlers,
+  };
   const listeners = new Map<string, Set<(payload: unknown) => void>>();
   const invoke = vi.fn<IpcBridge['invoke']>(async (request: IpcRequest) => {
     const handler = all[request.path];
@@ -176,9 +187,6 @@ export function renderApp({
     }
   });
 
-  // the preload's buffer: the context's snapshot, then each one pushed
-  let snapshot: WorkspaceSnapshot | null = context?.workspace ?? null;
-  const stateListeners = new Set<(snapshot: WorkspaceSnapshot) => void>();
   const send = (name: string, payload: unknown) =>
     listeners.get(name)?.forEach((listener) => listener(payload));
 
@@ -191,14 +199,6 @@ export function renderApp({
       return () => set.delete(listener);
     },
     initialLoadContext: context,
-    workspaceState: {
-      // cloned, as contextBridge does
-      get: () => structuredClone(snapshot),
-      subscribe: (listener) => {
-        stateListeners.add(listener);
-        return () => stateListeners.delete(listener);
-      },
-    },
     platform: 'darwin',
   };
 
@@ -209,7 +209,14 @@ export function renderApp({
   });
   seedQueryCache(services.queryClient, context);
   services.queryInvalidator.listen(services.events);
-  const workspaceState = createWorkspaceStateStore({ source: bridge.workspaceState });
+  const workspaceState = createWorkspaceStateStore({
+    initial: context?.workspace ?? null,
+    events: services.events,
+    fetch:
+      context?.devBrainAvailable === false
+        ? undefined
+        : () => services.ipc.workspaces.state.query(),
+  });
   const history = createMemoryHistory({ initialEntries: [hash] });
   let router: AppRouter | null = null;
   const onRouter = (next: AppRouter) => {
@@ -241,13 +248,10 @@ export function renderApp({
     },
     invoke,
     push: (state) => {
-      const next = { version: (snapshot?.version ?? 0) + 1, state };
-      snapshot = next;
-      act(() => {
-        stateListeners.forEach((listener) => listener(structuredClone(next)));
-        // the event the query invalidator follows
-        send('workspace.changed', structuredClone(next));
-      });
+      snapshot = { version: snapshot.version + 1, state };
+      // cloned, as IPC does
+      const sent = structuredClone(snapshot);
+      act(() => send('workspace.changed', sent));
     },
     emit: (name, payload) => act(() => send(name, payload)),
     calls: () => invoke.mock.calls.map(([request]) => request.path),

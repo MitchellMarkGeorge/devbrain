@@ -56,17 +56,6 @@ export interface IpcBridge {
   // page to draw the title bar the window frame leaves to it (src/main/runtime/window-chrome.ts)
   // and to name keys as the platform does (Ctrl for ⌘ off macOS)
   readonly platform: string;
-  // The workspace state (`workspace.changed`), kept by the preload from before any page script
-  // runs, so no change can fall between the page's first read and its subscribing: the newest
-  // snapshot, by version, of the initial load context's and every event since. `get()` is null
-  // only when main gave no initial load context and has sent no change yet. Values are cloned
-  // across the bridge at each call, so the page keeps its own copy rather than calling `get()`
-  // per render.
-  readonly workspaceState: {
-    get(): WorkspaceSnapshot | null;
-    // calls `listener` with each newer snapshot; returns the function that unsubscribes
-    subscribe(listener: (snapshot: WorkspaceSnapshot) => void): () => void;
-  };
 }
 
 // What a page needs for its first render, so it shows the right screen at once rather than a
@@ -77,8 +66,8 @@ export interface IpcBridge {
 export interface InitialLoadContext {
   // false when DevBrain could not be loaded: nothing that needs it can run
   devBrainAvailable: boolean;
-  // the workspace state as it is now (onboarding, the splash or the app): what the preload starts
-  // from, until a newer `workspace.changed`
+  // the workspace state as it is now (onboarding, the splash or the app): what the renderer starts
+  // from, until a newer one comes from `workspace.changed` or `workspaces.state`
   workspace: WorkspaceSnapshot;
   // what workspaces.list answers for its first page
   workspaces: Page<WorkspaceInfo>;

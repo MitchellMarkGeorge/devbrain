@@ -28,13 +28,12 @@ export function WindowContent({ services, workspaceState, history, onRouter }: W
   return (
     <ServicesProvider value={services}>
       <ToastProvider>
-        {shown === null && <Splash />}
-        {shown?.state.status === 'opening' && <Splash name={shown.state.workspace.name} />}
-        {shown?.state.status === 'none' && (
+        {shown.state.status === 'opening' && <Splash name={shown.state.workspace.name} />}
+        {shown.state.status === 'none' && (
           // a new router, and the error dialog, for each time onboarding comes back
           <OnboardingApp key={shown.version} error={shown.state.error} onRouter={onRouter} />
         )}
-        {shown?.state.status === 'open' && (
+        {shown.state.status === 'open' && (
           <WorkspaceApp
             key={shown.state.workspace.id}
             workspace={shown.state.workspace}

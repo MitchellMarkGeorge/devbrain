@@ -62,7 +62,10 @@ const testRouter = t.router({
 });
 
 function attach() {
-  attachRouter(testRouter, { createContext: testContext(devBrain), changeTracker: tracker });
+  attachRouter(testRouter, {
+    createContext: testContext(devBrain, undefined, () => tracker.workspaceSnapshot()),
+    changeTracker: tracker,
+  });
 }
 
 function act(
@@ -340,6 +343,20 @@ describe('switching workspace', () => {
       },
     ]);
     expect(workspace()).toBe(old);
+  });
+
+  it('answers workspaces.state with the snapshot the windows were last sent', async () => {
+    attach();
+    const next = await createWorkspace(devBrain, 'Home');
+    await devBrain.workspaces.open(next);
+
+    const result = (await invokeHandler('ipc:call', {} as IpcMainInvokeEvent, {
+      path: 'workspaces.state',
+      type: 'query',
+      input: undefined,
+    })) as IpcResult<unknown>;
+
+    expect(result).toMatchObject({ ok: true, data: sentStates().at(-1) });
   });
 
   it('is none once the open workspace closes', async () => {

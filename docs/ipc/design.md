@@ -157,8 +157,10 @@ not obvious from one file:
 - **`workspaces`** returns `WorkspaceInfo`, never a `Workspace`. `create` doesn't open the new
   workspace; `open` closes the open one first and remembers the new one for the next launch. Its
   progress and its failure reach every window through `workspace.changed`, the asking one too
-  (see [A workspace switch](#a-workspace-switch)). There is no route to reopen the last workspace:
-  main does that itself at startup.
+  (see [A workspace switch](#a-workspace-switch)). `state` answers with the workspace state the
+  windows were last sent, which a page asks once as it loads (see
+  [The initial load context](#the-initial-load-context)). There is no route to reopen the last
+  workspace: main does that itself at startup.
 - **`settings.set`** writes one setting by its dot path (`{ path: 'settings.general.timeFormat',
 value: '24' }`), or one group (`settings.calendar`), checking the value against that path's part
   of `appSettingsSchema`, so two quick edits to different settings can't undo each other as two
@@ -328,13 +330,14 @@ without a call. Those queries get `staleTime: Infinity`: main reports every chan
 (`workspace` and `settings` entities, and `workspace.changed`), so they need no refetch on mount.
 With no initial load context, they fetch as usual.
 
-**The preload keeps the workspace state** from before any page script runs, so the page can't
-miss a change between its first read and its subscribing. It listens to `workspace.changed` first,
-then makes the synchronous read, and keeps the newest snapshot by `version`: a change main sent
-before it answered the read arrives after it and is older, so it is dropped. The bridge exposes it
-as `workspaceState: { get(), subscribe(listener) }`. contextBridge clones a value at each call, so
-the renderer keeps its own copy (`src/renderer/app/workspace-state.ts`) rather than calling `get()`
-per render.
+**Catching up: `workspaces.state`.** The bridge stays generic: it registers an `ipcRenderer`
+listener only when the page calls `subscribe`. So a `workspace.changed` sent between the preload's
+synchronous read and the page subscribing would be lost (an `open` there would leave the window on
+the splash). The renderer's store (`src/renderer/app/workspace-state.ts`), made in `main.tsx`
+before the first render, starts from the context's snapshot, listens to `workspace.changed`, then
+calls `workspaces.state` once, which answers with the tracker's snapshot (`ctx.workspaceState()`,
+which `index.ts` puts in the IPC context). It keeps the newest by `version`, so the order in which
+the three arrive doesn't matter. It skips the call when DevBrain is unavailable.
 
 `initialLoadContext` is fixed for the page load: it seeds the first render, and later changes
 arrive as events. Keep it to what the first render needs, read from memory and the registry file:
@@ -411,8 +414,6 @@ mutation's own changes are refetched before it resolves. `main.tsx` calls
 - **The tracker** is tested in `changes.test.ts`, **the transport** in `server.test.ts`.
   `app-events.test.ts` is a type test: it fails when core adds a sync phase or integration change
   type that `AppEvents` doesn't carry, since `src/common` restates core's values.
-- **The preload** is tested in `preload.test.ts`: the bridge's shape, listening to
-  `workspace.changed` before the synchronous read, and keeping the newest snapshot by version.
 - **The renderer side** is tested in [`src/renderer/tests/ipc`](../../src/renderer/tests/ipc):
   the link and client in `client.test.ts`, invalidation over a real `QueryClient` in
   `query-invalidator.test.ts`.

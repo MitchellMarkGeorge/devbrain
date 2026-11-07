@@ -17,6 +17,10 @@ export const workspacesRouter = t.router({
   // the open workspace, or null
   current: devBrainProcedure.query(({ ctx }) => ctx.devBrain.currentWorkspace?.info ?? null),
 
+  // The workspace state as the windows were last told it (`workspace.changed`): what a page asks
+  // once, after it starts listening, for a change sent before it listened
+  state: devBrainProcedure.query(({ ctx }) => ctx.workspaceState()),
+
   // closes the open one first, if any, and remembers the new one, so main reopens it at the next
   // start (openLastWorkspace). Every window follows it through `workspace.changed`, the one that
   // asked too; a failure shows from there as well, unless the id is unknown (nothing changed)

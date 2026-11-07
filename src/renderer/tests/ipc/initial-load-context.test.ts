@@ -32,7 +32,6 @@ function bridgeWith(initialLoadContext: IpcBridge['initialLoadContext']): IpcBri
     invoke: vi.fn(),
     subscribe: vi.fn(),
     initialLoadContext,
-    workspaceState: { get: () => null, subscribe: () => () => {} },
     platform: 'darwin',
   };
 }

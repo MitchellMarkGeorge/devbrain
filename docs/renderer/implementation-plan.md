@@ -229,8 +229,8 @@ router's defaults. It holds no workspace logic: a router only exists in the righ
 ### The window and its routers
 
 The core idea: main owns one value, "what is the workspace state right now", and pushes it whole
-(`workspace.changed`, a `WorkspaceSnapshot`; `docs/ipc/design.md`, The workspace state). The
-preload buffers it from before any page script runs. A top-level component draws the window from
+(`workspace.changed`, a `WorkspaceSnapshot`; `docs/ipc/design.md`, The workspace state). A
+top-level component draws the window from
 that value, and a router exists only inside an open workspace (and a separate small one for
 onboarding), so no route ever reacts to a workspace opening, closing or failing.
 
@@ -248,13 +248,16 @@ if (initialLoadContext?.devBrainAvailable === false) return <DevBrainUnavailable
 </ToastProvider></ServicesProvider>
 ```
 
-While main has said nothing (no initial load context), it draws the splash with no name.
+Without an initial load context the store starts with no workspace (version 0), and follows main
+from there.
 
 **The workspace state store** (`src/renderer/app/workspace-state.ts`), read with
 `useSyncExternalStore`:
 
-- It reads the bridge's `workspaceState.get()` once, then subscribes, in the same tick, so nothing
-  is missed, and keeps its own copy (the bridge clones a value at each call).
+- It starts from the initial load context's snapshot, listens to `workspace.changed`, then calls
+  `workspaces.state` once, to catch up on a change sent before it listened (the bridge only
+  listens once asked, so such an event would be lost). It keeps the newest by `version`, so the
+  order of the three doesn't matter. The call is skipped when DevBrain is unavailable.
 - **The 600ms minimum splash lives here**, in plain JS: when the shown state is `opening` and a
   non-opening snapshot arrives, it holds it until 600ms after the opening began. A newer snapshot
   replaces a held one; an older version is dropped.
@@ -1293,7 +1296,7 @@ page that needs them.
    from main's workspace state (splash, onboarding, app), with `ToastProvider`; `/app` renders
    `AppShell` with the real sidebar (nav, workspace menu, Recents, Favorites) and placeholder pages;
    back/forward wired; `App.tsx` removed; `refetchOnWindowFocus` off. _Main:_ S2 (last page), and
-   the workspace state (`workspace.changed` as a snapshot, the preload's buffer, startup's reopen).
+   the workspace state (`workspace.changed` as a snapshot, `workspaces.state`, startup's reopen).
 2. **Onboarding** (built). Welcome, Create workspace (the shared form, also as the in-app dialog), Choose
    workspace, error states.
 3. **Shared app pieces.** Entity components moved to core's shapes, with `FormatProvider`
@@ -1332,7 +1335,8 @@ Milestones 4–7 are independent after 3 and can run in parallel.
   and section choice, the capture box parser, and the key dispatcher (sequences, scopes, typing
   targets, `mod` per platform).
 - **Routing (Vitest, happy-dom):** `WindowContent` over a fake bridge (per-path handlers, a
-  `MainError`, a `workspaceState` the test pushes snapshots into) with memory history in place of
+  `MainError`, `workspaces.state` answered with the context's snapshot, `workspace.changed` the
+  test pushes snapshots through) with memory history in place of
   the hash (`src/renderer/tests/routing`): none → Welcome; opening → the splash with the name →
   open → the landing page, the splash held; `openToLastPage` on and off; a reload keeping an `/app`
   hash and replacing any other; a startup failure's dialog; a switch (splash, the old page gone,

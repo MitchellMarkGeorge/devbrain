@@ -97,11 +97,20 @@ describe('startup', () => {
     expect(at(app)).toBe('/onboarding');
   });
 
-  it('shows the splash with no name while main has said nothing yet', async () => {
-    const app = renderApp({ context: null });
-    expect(splashShown()).toBe(true);
-    app.push(none());
-    await waitFor(() => expect(app.text()).toContain('Welcome to DevBrain'));
+  it('follows an open main sent before the page listened, from workspaces.state', async () => {
+    const app = renderApp({
+      context: initialContext(opening(work)),
+      handlers: { 'workspaces.state': () => ({ version: 2, state: open(work) }) },
+    });
+    await waitFor(() => expect(at(app)).toBe('/app/home'));
+  });
+
+  it('starts at onboarding without an initial load context, then follows main', async () => {
+    const app = renderApp({
+      context: null,
+      handlers: { 'workspaces.state': () => ({ version: 1, state: open(work) }) },
+    });
+    await waitFor(() => expect(at(app)).toBe('/app/home'));
   });
 });
 
@@ -265,6 +274,7 @@ describe('DevBrain unavailable', () => {
   it('shows only the error screen', async () => {
     const app = renderApp({ context: initialContext(none(), { devBrainAvailable: false }) });
     await waitFor(() => expect(app.text()).toContain('couldn’t open its data folder'));
+    // not even workspaces.state
     expect(app.calls()).toEqual([]);
   });
 });

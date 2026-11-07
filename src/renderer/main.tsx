@@ -4,7 +4,6 @@ import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import log from 'electron-log/renderer';
 import { WindowFrameProvider, detectPlatform, type WindowFrame } from './components/lib/platform';
 import { events, ipc, queryInvalidator, queryClient, trpc } from './ipc';
-import { defaultBridge } from './ipc/bridge';
 import { readInitialLoadContext, seedQueryCache } from './ipc/initial-load-context';
 import type { Services } from './app/context';
 import { WindowContent } from './app/WindowContent';
@@ -25,9 +24,15 @@ const initialLoadContext = readInitialLoadContext();
 seedQueryCache(queryClient, initialLoadContext);
 applyThemeSetting(initialLoadContext?.settings?.theme ?? 'system');
 
-// what the window shows: the splash, onboarding or the app, as main says from now on
+// what the window shows: the splash, onboarding or the app, as main says from now on; listening
+// before the first render, then asking main once for anything sent before it listened
 const workspaceState: WorkspaceStateStore = createWorkspaceStateStore({
-  source: defaultBridge().workspaceState,
+  initial: initialLoadContext?.workspace ?? null,
+  events,
+  fetch:
+    initialLoadContext?.devBrainAvailable === false
+      ? undefined
+      : () => ipc.workspaces.state.query(),
 });
 
 const services: Services = { queryClient, trpc, ipc, events, initialLoadContext };

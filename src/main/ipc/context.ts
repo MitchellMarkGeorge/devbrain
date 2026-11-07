@@ -1,4 +1,5 @@
 import type { IpcMainInvokeEvent } from 'electron';
+import type { WorkspaceSnapshot } from '@common/types';
 import type { DevBrain, Workspace } from '@main/core';
 import { noDesktop, type Desktop } from './desktop';
 
@@ -18,6 +19,8 @@ export interface AppContext {
   workspace: Workspace | null;
   // the file manager and the system dialogs, modal to the window that called
   desktop: Desktop;
+  // the workspace state the windows were last told (ChangeTracker.workspaceSnapshot)
+  workspaceState: () => WorkspaceSnapshot;
   log: IpcLogger;
 }
 
@@ -27,8 +30,12 @@ export interface CreateContextOptions {
   devBrain: DevBrain | null;
   // none when not given: every call to it fails
   desktop?: Desktop;
+  // no workspace (version 0) when not given
+  workspaceState?: () => WorkspaceSnapshot;
   log: IpcLogger;
 }
+
+const NO_WORKSPACE: WorkspaceSnapshot = { version: 0, state: { status: 'none', error: null } };
 
 // Builds a call's context. attachRouter passes the event; whoever attaches
 // the router adds DevBrain and the logger
@@ -39,6 +46,7 @@ export function createContext(options: CreateContextOptions): AppContext {
     devBrain,
     workspace: devBrain?.currentWorkspace ?? null,
     desktop: options.desktop ?? noDesktop,
+    workspaceState: options.workspaceState ?? (() => NO_WORKSPACE),
     log: options.log,
   };
 }

@@ -128,6 +128,7 @@ function attachIpc(devBrain: DevBrain | null) {
       createContext({
         ...call,
         devBrain,
+        workspaceState: () => changeTracker.workspaceSnapshot(),
         desktop: createElectronDesktop(
           { dialog, shell, menu: Menu },
           BrowserWindow.fromWebContents(call.event.sender),
