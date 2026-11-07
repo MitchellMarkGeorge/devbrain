@@ -1,6 +1,6 @@
 import { notFound } from '@tanstack/react-router';
 import { isId, type WorkspaceId } from '@common/ids';
-import type { RouterContext } from '../../router';
+import { SPLASH_MINIMUM_MS, type RouterContext } from '../../router';
 
 // What the /app/$workspaceId route does before any page in it loads (routes/app.$workspaceId.tsx).
 
@@ -28,7 +28,9 @@ export function openWorkspaceInfo({ queryClient, trpc }: RouterContext) {
 
 /**
  * Opens the workspace the URL names when it isn't the open one, and waits for it, so every loader
- * below runs against it; the route's pending component (the splash) shows meanwhile. Nothing when
+ * below runs against it; the splash shows meanwhile (the route's pending component, or the root's
+ * on the first load), for at least `splashMinimumMs`: the open waits that long too, so a quick
+ * one doesn't flicker. Nothing when
  * it is open (a reload, a navigation within it). A preload (hovering a link, with
  * `defaultPreload: 'intent'`) never opens one: into a workspace that isn't open it throws, which
  * ends the preload before any loader of its pages runs (they would read the workspace open now).
@@ -49,7 +51,10 @@ export async function openWorkspaceOf({
   if (preload) throw new PreloadSkipped();
   const { queryClient, trpc } = context;
   try {
-    const info = await context.ipc.workspaces.open.mutate({ id });
+    const [info] = await Promise.all([
+      context.ipc.workspaces.open.mutate({ id }),
+      delay(context.splashMinimumMs ?? SPLASH_MINIMUM_MS),
+    ]);
     queryClient.setQueryData(trpc.workspaces.current.queryKey(), info);
   } catch (error) {
     // the error page offers the way back to the workspace still open, or none: ask main which,
@@ -58,3 +63,5 @@ export async function openWorkspaceOf({
     throw error;
   }
 }
+
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));

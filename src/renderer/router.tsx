@@ -16,6 +16,8 @@ export interface RouterContext {
   queryClient: QueryClient;
   trpc: typeof appTrpc;
   ipc: typeof appIpc;
+  /** how long an open shows the splash at least, 600ms by default (tests set 0) */
+  splashMinimumMs?: number;
   /** false when DevBrain couldn't open its data folder (InitialLoadContext.devBrainAvailable) */
   devBrainAvailable: boolean;
 }
@@ -23,18 +25,15 @@ export interface RouterContext {
 /** The selector `AppShell` gives the element pages scroll in, scrolled to the top on navigation. */
 export const PAGE_SCROLL_SELECTOR = '[data-slot="page-scroll"]';
 
-/** How long the splash shows at least, so a quick switch doesn't flicker. */
+/** How long an open shows the splash at least, so a quick switch doesn't flicker. */
 export const SPLASH_MINIMUM_MS = 600;
 
 export function createAppRouter({
   history,
   context,
-  splashMinimumMs = SPLASH_MINIMUM_MS,
 }: {
   history: RouterHistory;
   context: RouterContext;
-  /** tests set 0 */
-  splashMinimumMs?: number;
 }) {
   const router = createRouter({
     routeTree,
@@ -49,9 +48,6 @@ export function createAppRouter({
     // old page under it); IPC is quick, so most pages never show it
     defaultPendingMs: 150,
     defaultPendingComponent: PagePending,
-    // once shown, a pending component stays this long: the splash (the /app/$workspaceId route's)
-    // and PagePending alike
-    defaultPendingMinMs: splashMinimumMs,
     defaultNotFoundComponent: NotFoundPage,
     defaultErrorComponent: RouteErrorPage,
     // pages scroll inside AppShell, not the window: the router restores what scrolled, and

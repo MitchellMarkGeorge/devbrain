@@ -34,14 +34,14 @@ to open it when it isn't open.
 
 ## The pieces
 
-| Piece                                 | Where                                       | Role                                                                          |
-| ------------------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------- |
-| `createAppRouter`                     | `src/renderer/router.tsx`                   | The router, its options (the splash's 600ms minimum) and context              |
-| `followOutsideChanges`                | `src/renderer/router.tsx`                   | A delete or an open elsewhere moves the window                                |
-| `openWorkspaceOf`                     | `src/renderer/pages/app/workspace-route.ts` | `/app/$workspaceId`'s beforeLoad: skips preloads, opens the workspace         |
-| `Splash`                              | `src/renderer/pages/root/Splash.tsx`        | `/app/$workspaceId`'s pending component                                       |
-| `RootLayout`, `RootPending`           | `src/renderer/pages/root/Root.tsx`          | Toasts; the splash on the first load; the DevBrain-unavailable screen         |
-| `initialRoute`, `saveLastPageOnClose` | `src/main/runtime/last-page.ts`             | The window's first route; the last page of each workspace, saved as it closes |
+| Piece                                 | Where                                       | Role                                                                            |
+| ------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------- |
+| `createAppRouter`                     | `src/renderer/router.tsx`                   | The router, its options and context                                             |
+| `followOutsideChanges`                | `src/renderer/router.tsx`                   | A delete or an open elsewhere moves the window                                  |
+| `openWorkspaceOf`                     | `src/renderer/pages/app/workspace-route.ts` | `/app/$workspaceId`'s beforeLoad: skips preloads, opens (taking 600ms at least) |
+| `Splash`                              | `src/renderer/pages/root/Splash.tsx`        | `/app/$workspaceId`'s pending component                                         |
+| `RootLayout`, `RootPending`           | `src/renderer/pages/root/Root.tsx`          | Toasts; the splash on the first load; the DevBrain-unavailable screen           |
+| `initialRoute`, `saveLastPageOnClose` | `src/main/runtime/last-page.ts`             | The window's first route; the last page of each workspace, saved as it closes   |
 
 There is no state of the renderer's own about which workspace is open: it is `workspaces.current`
 in React Query's cache, seeded from the initial load context, set by an open's answer, and marked
@@ -72,7 +72,8 @@ From Work's tasks page, the menu picks Home:
    splash** (`pendingMs: 0`), takes its place at once. React keeps Work's page mounted but hidden
    (`display: none`) under it: nothing of it is drawn, and focus and screen readers can't reach it.
 3. The root's `beforeLoad` runs (it runs on every navigation), then `/app/$workspaceId`'s:
-   `openWorkspaceOf` reads `workspaces.current` (Work), so it calls `workspaces.open({ id: home })`.
+   `openWorkspaceOf` reads `workspaces.current` (Work), so it calls `workspaces.open({ id: home })`, and waits for it and for 600ms together
+   (`Promise.all`), so a quick open still shows the splash for 600ms.
    Main sends `workspace.changed` three times before answering (`{work, home}`, `{null, home}`,
    `{home, null}`), and the query invalidator **drops Work's cached data without refetching it**
    (`removeQueries`): Work's hidden page still holds its queries, and a refetch would ask the
@@ -80,12 +81,11 @@ From Work's tasks page, the menu picks Home:
    `workspaces.current`'s cache.
 4. The index route redirects to Home's last page or landing page; that page's loaders prime its
    queries.
-5. The navigation resolves once the splash has shown for 600ms (the router's `pendingMinMs`), and
-   Home's page takes its place, with its data. TanStack reuses the hidden page's components for the
+5. The navigation resolves, and Home's page takes the splash's place, with its data. TanStack reuses the hidden page's components for the
    new params rather than mounting them again.
 
 Going to a workspace that's already open from another's page (Back after a failed open, an open
-made elsewhere) shows the splash for 600ms too; nothing reopens.
+made elsewhere) opens nothing, so the splash only flashes.
 
 If the open fails, `/app/$workspaceId`'s error component says why, by core's error code
 (`WorkspaceOpenError`): a missing folder, an unknown workspace, a database from a newer DevBrain, a
@@ -111,7 +111,9 @@ usual. (During a switch nothing can be hovered: the splash is all the window sho
 
 **Startup** is the same flow on the first load: the window opens on `#/app/<id>`, nothing is open,
 so the route opens it. The router draws nothing of its own on the first load, so the root's pending
-component (`RootPending`) draws the splash, when the URL's workspace isn't the open one. On a
+component (`RootPending`) draws the splash, when the URL's workspace isn't the open one. The 600ms
+minimum is the open's, not the router's (`pendingMinMs`), as the router's would also hold the
+blank first-load screen of a reload or onboarding. On a
 reload the initial load context says it is open already: no open, no splash.
 
 ## Remembering the page
@@ -131,19 +133,19 @@ index route reads it from the opened workspace's info. Nothing goes over IPC as 
 Checked against `@tanstack/react-router` 1.170.46 in `src/renderer/tests/routing/tanstack-behaviour.test.ts`;
 when one fails after an upgrade, revisit the part of the design that names it.
 
-| Behaviour                                                                                                                                   | Documented                        | Relied on for                                                                |
-| ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ---------------------------------------------------------------------------- |
-| `router.navigate()` resolves once the target's loaders are done and its page has rendered                                                   | Partly (it returns a promise)     | Tests that await a navigation                                                |
-| The root's `beforeLoad` runs on every navigation, Back and Forward included                                                                 | Yes (beforeLoad runs per load)    | The DevBrain-unavailable guard                                               |
-| On the first load nothing is drawn until loaders finish, unless the root has a `pendingComponent` **and** a `beforeLoad`                    | No                                | The startup splash (`RootPending`, `pendingMs: 0`)                           |
-| A `beforeLoad` that throws during a preload stops it: no loader below runs, nothing is logged                                               | No (preload errors are swallowed) | Preloads never opening a workspace                                           |
-| `onResolved` fires for the last of several navigations only, and once after a redirect                                                      | No                                | Nothing now (the first version settled its splash on it)                     |
-| A route whose params change loads again with its `pendingComponent`, held `pendingMinMs`; the old page stays mounted, hidden, and is reused | Partly                            | The splash on a switch, and the invalidator dropping data without refetching |
-| The URL moves before the target's `beforeLoad` runs                                                                                         | No                                | Main keeping the last page per workspace                                     |
-| `redirect({ href })` to an in-app path keeps its search params                                                                              | Yes                               | The index route's redirect to the last page                                  |
-| A slow sibling's `pendingComponent` shows after `pendingMs`, React hiding the old page under it                                             | Partly                            | Pending UI for slow pages (`PagePending`, `defaultPendingMs: 150`)           |
-| A preload's location has no history index (`__TSR_index`)                                                                                   | No                                | Nothing yet: don't read the history index in a preload                       |
-| Memory history runs no blockers on Back and Forward                                                                                         | No                                | Nothing yet: test a navigation blocker with hash history, not memory history |
+| Behaviour                                                                                                                | Documented                        | Relied on for                                                                |
+| ------------------------------------------------------------------------------------------------------------------------ | --------------------------------- | ---------------------------------------------------------------------------- |
+| `router.navigate()` resolves once the target's loaders are done and its page has rendered                                | Partly (it returns a promise)     | Tests that await a navigation                                                |
+| The root's `beforeLoad` runs on every navigation, Back and Forward included                                              | Yes (beforeLoad runs per load)    | The DevBrain-unavailable guard                                               |
+| On the first load nothing is drawn until loaders finish, unless the root has a `pendingComponent` **and** a `beforeLoad` | No                                | The startup splash (`RootPending`, `pendingMs: 0`)                           |
+| A `beforeLoad` that throws during a preload stops it: no loader below runs, nothing is logged                            | No (preload errors are swallowed) | Preloads never opening a workspace                                           |
+| `onResolved` fires for the last of several navigations only, and once after a redirect                                   | No                                | Nothing now (the first version settled its splash on it)                     |
+| A route whose params change loads again with its `pendingComponent`; the old page stays mounted, hidden, and is reused   | Partly                            | The splash on a switch, and the invalidator dropping data without refetching |
+| The URL moves before the target's `beforeLoad` runs                                                                      | No                                | Main keeping the last page per workspace                                     |
+| `redirect({ href })` to an in-app path keeps its search params                                                           | Yes                               | The index route's redirect to the last page                                  |
+| A slow sibling's `pendingComponent` shows after `pendingMs`, React hiding the old page under it                          | Partly                            | Pending UI for slow pages (`PagePending`, `defaultPendingMs: 150`)           |
+| A preload's location has no history index (`__TSR_index`)                                                                | No                                | Nothing yet: don't read the history index in a preload                       |
+| Memory history runs no blockers on Back and Forward                                                                      | No                                | Nothing yet: test a navigation blocker with hash history, not memory history |
 
 An earlier exploration (1.170.46 too) saw a sibling's pending component never show; with the
 router's `defaultPendingComponent` it does here, so no pending bar of our own was needed.

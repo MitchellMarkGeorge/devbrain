@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
+import { SPLASH_MINIMUM_MS } from '../../router';
 import { FakeMain, workspace } from './fake-main';
 import {
   byText,
@@ -36,6 +37,18 @@ describe('startup', () => {
     expect(main.callsTo('workspaces.open')).toEqual([
       { path: 'workspaces.open', input: { id: WORK }, open: null },
     ]);
+  });
+
+  it('shows the splash for at least 600ms, however quick the open', async () => {
+    const main = twoWorkspaces();
+    const app = startApp(main, { url: `/app/${WORK}`, splashMinimumMs: SPLASH_MINIMUM_MS });
+    const dom = watchDom(app.container, ['Work recents.list']);
+    await eventually(() => expect(app.text()).toContain('Work recents.list'), 2000);
+    dom.flush();
+    const shown = dom.log.find((entry) => entry.what === 'splash+')!.at;
+    const hidden = [...dom.log].reverse().find((entry) => entry.what === 'splash-')!.at;
+    expect(hidden - shown).toBeGreaterThanOrEqual(SPLASH_MINIMUM_MS - 20);
+    expectSplashThenPage(dom.log, 'Work recents.list');
   });
 
   it("with Reopen last page on, main's URL is the last page itself, and the app starts there", async () => {

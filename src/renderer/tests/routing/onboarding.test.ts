@@ -52,7 +52,8 @@ describe('onboarding', () => {
     await eventually(() => expect(app.text()).toContain('Space 24'));
 
     click(byText(app.container, 'button', 'Space 24'));
-    await eventually(() => expect(main.open).toBe('wsp_24'));
+    await eventually(() => expect(app.text()).toContain('Space 24 recents.list'));
+    expect(main.open).toBe('wsp_24');
   });
 
   it('Create workspace creates it, then goes to it, which opens it', async () => {
@@ -191,7 +192,7 @@ describe('in the app', () => {
     click(byText(dialog, 'button[type="submit"]', 'Create Workspace'));
     await eventually(() => expect(app.text()).toContain('Side recents.list'));
     expect(main.open).toBe('wsp_new1');
-    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    await eventually(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
   });
 
   it('Open folder… adds a folder and switches to it', async () => {

@@ -52,9 +52,9 @@ export function startApp(main: FakeMain, options: StartOptions): App {
       queryClient,
       trpc,
       ipc,
+      splashMinimumMs: options.splashMinimumMs ?? 0,
       devBrainAvailable: initialLoadContext?.devBrainAvailable ?? true,
     },
-    splashMinimumMs: options.splashMinimumMs ?? 0,
   });
   const stopFollowing = followOutsideChanges(router, events);
 

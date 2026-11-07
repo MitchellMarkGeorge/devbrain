@@ -19,9 +19,11 @@ export const Route = createFileRoute('/app/$workspaceId')({
   component: AppLayout,
   // the splash while the workspace opens and its first page loads: a switch from another
   // workspace's page changes this route's params, so it loads again; a navigation within one
-  // doesn't, and a slow page shows PagePending instead. Shown at once, for the router's minimum
+  // doesn't, and a slow page shows PagePending instead. Shown at once, and held by the open
+  // itself (openWorkspaceOf), not the router: its minimum doesn't reach the first load
   pendingComponent: Splash,
   pendingMs: 0,
+  pendingMinMs: 0,
   // the workspace couldn't be opened: why, and the way back
   errorComponent: WorkspaceOpenError,
   notFoundComponent: NotFoundPage,

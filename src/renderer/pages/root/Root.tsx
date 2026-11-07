@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import {
   Outlet,
   useRouter,
@@ -6,7 +6,7 @@ import {
   type ErrorComponentProps,
 } from '@tanstack/react-router';
 import { workspaceIdOfPage } from '@common/types';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { RotateCw, ScrollText } from 'lucide-react';
 import { Button, Logomark, OnboardingScreen, ToastProvider } from '../../components';
 import { trpc } from '../../ipc';
@@ -50,13 +50,18 @@ export function RootLayout() {
 /**
  * The window during the first load, which the router otherwise leaves empty: the splash when the
  * window opens on a workspace that isn't open (startup), else the empty window (a reload,
- * onboarding), which the first page replaces in a moment.
+ * onboarding), which the first page replaces in a moment. Decided as it first draws: the open
+ * finishes in main before the splash's minimum is up, and the splash stays until then.
  */
 export function RootPending() {
   const shown = useRouterState({ select: (state) => workspaceIdOfPage(state.location.pathname) });
-  // seeded from the initial load context, so known on the first render
-  const open = useQuery(trpc.workspaces.current.queryOptions()).data?.id;
-  return shown !== null && shown !== open ? <Splash /> : <div className={styles.blank} aria-busy />;
+  const queryClient = useQueryClient();
+  const [opening] = useState(() => {
+    // seeded from the initial load context; unknown without one, when the splash shows anyway
+    const open = queryClient.getQueryData(trpc.workspaces.current.queryKey());
+    return shown !== null && shown !== open?.id;
+  });
+  return opening ? <Splash /> : <div className={styles.blank} aria-busy />;
 }
 
 export function RootError({ error }: ErrorComponentProps) {
