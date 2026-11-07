@@ -159,24 +159,6 @@ export function expectSplashThenPage(log: { what: string }[], page: string): voi
   expect(whats.slice(lastSplash).filter((what) => what === 'splash+')).toEqual([]);
 }
 
-/** Whether `node` is hidden: React hides a page it keeps mounted under a pending component. */
-export function isHidden(node: Node, container: HTMLElement): boolean {
-  for (let at: Node | null = node; at && at !== container; at = at.parentNode) {
-    if (at instanceof HTMLElement && at.style.display === 'none') return true;
-  }
-  return false;
-}
-
-/** The window's text as drawn: without what React has hidden. */
-export function visibleText(container: HTMLElement): string {
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
-  let text = '';
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    if (!isHidden(node, container)) text += node.textContent ?? '';
-  }
-  return text;
-}
-
 /** Clicks an element as a user would, in act. */
 export function click(element: Element | null): void {
   if (!element) throw new Error('Nothing to click');

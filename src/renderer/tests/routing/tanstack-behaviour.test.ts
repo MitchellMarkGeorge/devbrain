@@ -45,7 +45,11 @@ interface TestRouter {
   navigate(options: { to: string }): Promise<void>;
   preloadRoute(options: { to: string }): Promise<unknown>;
   history: RouterHistory;
-  state: { isLoading: boolean };
+  state: {
+    isLoading: boolean;
+    location: { pathname: string };
+    resolvedLocation?: { pathname: string };
+  };
   subscribe(event: 'onResolved', listener: (event: { toLocation: { href: string } }) => void): void;
 }
 
@@ -216,6 +220,29 @@ describe('@tanstack/react-router, as the app relies on it', () => {
     await vi.waitFor(() => expect(container.textContent).toBe('space page'));
     // the same page, never unmounted: shown again for the new params (remountDeps would change that)
     expect(unmounted).toBe(0);
+  });
+
+  it('moves state.location as a navigation starts, and resolvedLocation once it has loaded', async () => {
+    const slow = deferred();
+    const rootRoute = createRootRoute({ component: Outlet });
+    const tree = rootRoute.addChildren([
+      createRoute({ getParentRoute: () => rootRoute, path: '/', component: text('index') }),
+      createRoute({
+        getParentRoute: () => rootRoute,
+        path: '/slow',
+        beforeLoad: () => slow.promise,
+        component: text('slow page'),
+      }),
+    ]);
+    const { router, container } = mount(tree);
+    await vi.waitFor(() => expect(container.textContent).toBe('index'));
+    const navigation = router.navigate({ to: '/slow' });
+    await wait();
+    expect(router.state.location.pathname).toBe('/slow');
+    expect(router.state.resolvedLocation?.pathname).toBe('/');
+    slow.resolve();
+    await navigation;
+    expect(router.state.resolvedLocation?.pathname).toBe('/slow');
   });
 
   it('stops a preload at a beforeLoad that throws: no loader below runs, and nothing is logged', async () => {

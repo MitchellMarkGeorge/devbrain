@@ -3,16 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
 import { SPLASH_MINIMUM_MS } from '../../router';
 import { FakeMain, workspace } from './fake-main';
-import {
-  byText,
-  click,
-  eventually,
-  splashOf,
-  startApp,
-  stopApps,
-  visibleText,
-  watchDom,
-} from './harness';
+import { byText, click, eventually, splashOf, startApp, stopApps, watchDom } from './harness';
 
 // Switching workspaces is navigating to a page of another workspace (docs/renderer/routing.md).
 
@@ -53,10 +44,10 @@ describe('a switch', () => {
     await eventually(() => expect(main.open).toBe(HOME));
     await eventually(() => expect(main.callsTo('notes.list')).toHaveLength(1));
     await tick();
-    // Home is open and its page's loader waits: the splash is up, and all the window shows (Work's
-    // page is still mounted, hidden, until Home's replaces it)
+    // Home is open and its page's loader waits: the splash is up, and all the window holds (Work's
+    // page is unmounted, not hidden)
     expect(splashOf(app.container)?.textContent).toContain('Opening Home…');
-    expect(visibleText(app.container)).toBe(splashOf(app.container)!.textContent);
+    expect(app.text()).toBe(splashOf(app.container)!.textContent);
 
     release();
     await navigation;

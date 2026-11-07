@@ -39,8 +39,8 @@ to open it when it isn't open.
 | `createAppRouter`                     | `src/renderer/router.tsx`                   | The router, its options and context                                             |
 | `followOutsideChanges`                | `src/renderer/router.tsx`                   | A delete or an open elsewhere moves the window                                  |
 | `openWorkspaceOf`                     | `src/renderer/pages/app/workspace-route.ts` | `/app/$workspaceId`'s beforeLoad: skips preloads, opens (taking 600ms at least) |
-| `Splash`                              | `src/renderer/pages/root/Splash.tsx`        | `/app/$workspaceId`'s pending component                                         |
-| `RootLayout`, `RootPending`           | `src/renderer/pages/root/Root.tsx`          | Toasts; the splash on the first load; the DevBrain-unavailable screen           |
+| `Splash`                              | `src/renderer/pages/root/Splash.tsx`        | The splash, drawn by the root instead of the page                               |
+| `RootLayout`, `RootPending`           | `src/renderer/pages/root/Root.tsx`          | Toasts; the splash instead of the page during a switch, and on the first load   |
 | `initialRoute`, `saveLastPageOnClose` | `src/main/runtime/last-page.ts`             | The window's first route; the last page of each workspace, saved as it closes   |
 
 There is no state of the renderer's own about which workspace is open: it is `workspaces.current`
@@ -68,21 +68,20 @@ From Work's tasks page, the menu picks Home:
 
 1. `navigate({ to: '/app/$workspaceId', params: { workspaceId: home } })`. The router moves the URL
    to `#/app/<home>` at once, then loads.
-2. `/app/$workspaceId`'s params changed, so the route loads again, and its pending component, **the
-   splash** (`pendingMs: 0`), takes its place at once. React keeps Work's page mounted but hidden
-   (`display: none`) under it: nothing of it is drawn, and focus and screen readers can't reach it.
+2. The URL's workspace (`state.location`) is no longer the one the router last finished on
+   (`state.resolvedLocation`), so `RootLayout` draws **the splash** instead of the page. Work's page
+   is unmounted: it never draws or runs again, and its queries, no longer mounted, never refetch.
 3. The root's `beforeLoad` runs (it runs on every navigation), then `/app/$workspaceId`'s:
-   `openWorkspaceOf` reads `workspaces.current` (Work), so it calls `workspaces.open({ id: home })`, and waits for it and for 600ms together
-   (`Promise.all`), so a quick open still shows the splash for 600ms.
-   Main sends `workspace.changed` three times before answering (`{work, home}`, `{null, home}`,
-   `{home, null}`), and the query invalidator **drops Work's cached data without refetching it**
-   (`removeQueries`): Work's hidden page still holds its queries, and a refetch would ask the
-   workspace now opening for them. The answer is Home's `WorkspaceInfo`, put in
-   `workspaces.current`'s cache.
+   `openWorkspaceOf` reads `workspaces.current` (Work), so it calls `workspaces.open({ id: home })`,
+   and waits for it and for 600ms together (`Promise.all`), so a quick open still shows the splash
+   for 600ms. Main sends `workspace.changed` three times before answering (`{work, home}`,
+   `{null, home}`, `{home, null}`), and the query invalidator drops Work's cached data without
+   refetching it (`removeQueries`): the next page's loaders fetch from Home. The answer is Home's
+   `WorkspaceInfo`, put in `workspaces.current`'s cache.
 4. The index route redirects to Home's last page or landing page; that page's loaders prime its
    queries.
-5. The navigation resolves, and Home's page takes the splash's place, with its data. TanStack reuses the hidden page's components for the
-   new params rather than mounting them again.
+5. The navigation resolves, so the router's resolved location is Home's: the splash goes, and Home's
+   page mounts fresh, with its data.
 
 Going to a workspace that's already open from another's page (Back after a failed open, an open
 made elsewhere) opens nothing, so the splash only flashes.
@@ -140,7 +139,8 @@ when one fails after an upgrade, revisit the part of the design that names it.
 | On the first load nothing is drawn until loaders finish, unless the root has a `pendingComponent` **and** a `beforeLoad` | No                                | The startup splash (`RootPending`, `pendingMs: 0`)                           |
 | A `beforeLoad` that throws during a preload stops it: no loader below runs, nothing is logged                            | No (preload errors are swallowed) | Preloads never opening a workspace                                           |
 | `onResolved` fires for the last of several navigations only, and once after a redirect                                   | No                                | Nothing now (the first version settled its splash on it)                     |
-| A route whose params change loads again with its `pendingComponent`; the old page stays mounted, hidden, and is reused   | Partly                            | The splash on a switch, and the invalidator dropping data without refetching |
+| `state.location` moves as a navigation starts, `state.resolvedLocation` once it has loaded                               | Partly                            | The root drawing the splash during a switch                                  |
+| A route whose params change loads again with its `pendingComponent`; the old page stays mounted, hidden, and is reused   | Partly                            | Why the root unmounts the page rather than use a pending component           |
 | The URL moves before the target's `beforeLoad` runs                                                                      | No                                | Main keeping the last page per workspace                                     |
 | `redirect({ href })` to an in-app path keeps its search params                                                           | Yes                               | The index route's redirect to the last page                                  |
 | A slow sibling's `pendingComponent` shows after `pendingMs`, React hiding the old page under it                          | Partly                            | Pending UI for slow pages (`PagePending`, `defaultPendingMs: 150`)           |
