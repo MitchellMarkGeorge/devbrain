@@ -144,6 +144,7 @@ when one fails after an upgrade, revisit the part of the design that names it.
 | The URL moves before the target's `beforeLoad` runs                                                                      | No                                | Main keeping the last page per workspace                                     |
 | `redirect({ href })` to an in-app path keeps its search params                                                           | Yes                               | The index route's redirect to the last page                                  |
 | A slow sibling's `pendingComponent` shows after `pendingMs`, React hiding the old page under it                          | Partly                            | Pending UI for slow pages (`PagePending`, `defaultPendingMs: 150`)           |
+| Each history entry has its index (`__TSR_index`); `history.length` counts the entries after it until a new navigation    | Typed, not described              | `useHistoryPosition`: the window bar's arrows, Back on a failed open         |
 | A preload's location has no history index (`__TSR_index`)                                                                | No                                | Nothing yet: don't read the history index in a preload                       |
 | Memory history runs no blockers on Back and Forward                                                                      | No                                | Nothing yet: test a navigation blocker with hash history, not memory history |
 

@@ -251,7 +251,8 @@ moves with the folder to another computer. Main saves it, and the renderer only 
 ### Back and forward
 
 `AppShell` gets `onBack={() => router.history.back()}`, `onForward`, and `canGoBack`/`canGoForward`
-from `useHistoryPosition` (the entry's `__TSR_index` against `router.history.length`). Back and
+from `useHistoryPosition` (the entry's `__TSR_index` against `router.history.length`), which
+everything that offers Back uses rather than TanStack's experimental `useCanGoBack`. Back and
 Forward to another workspace's page open it again under the splash; rapid Back and Forward end with
 the last navigation's workspace open (`WorkspaceService` serialises opens, in order). Search-param changes that only reflect UI state (a toolbar value,
 the calendar's date) navigate with `replace: true`, so Back goes to the previous _page_, not the

@@ -42,12 +42,12 @@ const wait = (ms = 20) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // The router's types are the app's (Register in src/renderer/router.tsx); these trees are not
 interface TestRouter {
-  navigate(options: { to: string }): Promise<void>;
+  navigate(options: { to: string; replace?: boolean }): Promise<void>;
   preloadRoute(options: { to: string }): Promise<unknown>;
   history: RouterHistory;
   state: {
     isLoading: boolean;
-    location: { pathname: string };
+    location: { pathname: string; state: { __TSR_index?: number } };
     resolvedLocation?: { pathname: string };
   };
   subscribe(event: 'onResolved', listener: (event: { toLocation: { href: string } }) => void): void;
@@ -272,6 +272,32 @@ describe('@tanstack/react-router, as the app relies on it', () => {
     // and the real navigation runs it as usual
     await router.navigate({ to: '/w/page' });
     expect(loader).toHaveBeenCalledOnce();
+  });
+
+  it('stamps each history entry with its index (__TSR_index), and counts the entries after it in history.length', async () => {
+    const rootRoute = createRootRoute({ component: Outlet });
+    const tree = rootRoute.addChildren(
+      ['/', '/a', '/b', '/c'].map((path) =>
+        createRoute({ getParentRoute: () => rootRoute, path, component: text(path) }),
+      ),
+    );
+    const { router, container } = mount(tree);
+    await vi.waitFor(() => expect(container.textContent).toBe('/'));
+    const position = () => [router.state.location.state.__TSR_index, router.history.length];
+    expect(position()).toEqual([0, 1]);
+    await router.navigate({ to: '/a' });
+    await router.navigate({ to: '/b' });
+    expect(position()).toEqual([2, 3]);
+    // Back keeps the entries after it
+    router.history.back();
+    await vi.waitFor(() => expect(container.textContent).toBe('/a'));
+    expect(position()).toEqual([1, 3]);
+    // a new navigation drops them
+    await router.navigate({ to: '/c' });
+    expect(position()).toEqual([2, 3]);
+    // replace keeps the index
+    await router.navigate({ to: '/a', replace: true });
+    expect(position()).toEqual([2, 3]);
   });
 
   it('gives a preload a location without a history index', async () => {

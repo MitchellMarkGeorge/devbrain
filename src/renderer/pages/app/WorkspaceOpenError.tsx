@@ -1,5 +1,4 @@
 import {
-  useCanGoBack,
   useNavigate,
   useParams,
   useRouter,
@@ -10,6 +9,7 @@ import { ArrowLeft, LayoutList, RotateCw, ScrollText } from 'lucide-react';
 import { Button, Logomark, OnboardingScreen } from '../../components';
 import { trpc } from '../../ipc';
 import { ipcErrorCode, openFailure } from '../../workspace/errors';
+import { useHistoryPosition } from './use-history-position';
 import styles from '../onboarding/Onboarding.module.css';
 
 /**
@@ -21,7 +21,7 @@ import styles from '../onboarding/Onboarding.module.css';
 export function WorkspaceOpenError({ error }: ErrorComponentProps) {
   const router = useRouter();
   const navigate = useNavigate();
-  const canGoBack = useCanGoBack();
+  const { canGoBack } = useHistoryPosition();
   const { workspaceId } = useParams({ strict: false });
   const list = useQuery(trpc.workspaces.list.queryOptions());
   const showLogFile = useMutation(trpc.app.showLogFile.mutationOptions());
