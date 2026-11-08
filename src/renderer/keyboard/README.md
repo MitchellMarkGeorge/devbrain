@@ -27,7 +27,7 @@ render there and the shortcuts dialog reads the keyboard's context:
 
 ```tsx
 <KeyboardProvider keymap={defaultKeymap}>
-  <ModalProvider closed={loading}>…</ModalProvider>
+  <ModalProvider closed={switching}>…</ModalProvider>
 </KeyboardProvider>
 ```
 

@@ -691,7 +691,7 @@ from the keys that work.
   Dialogs shown with `useModals` render in the root, outside the page, and the shortcuts dialog
   reads the keymap and the registry, so the provider must be above them. It holds no workspace
   data: the registry empties itself as pages unmount, and its undo stack is cleared when a
-  workspace switch starts (`useWorkspaceLoading`), as an entry would undo a change in the
+  workspace switch starts (`useSwitchingWorkspace`), as an entry would undo a change in the
   workspace being closed.
 - **The app-wide commands register in the workspace layout** (`pages/app/AppLayout.tsx`), with
   `useCommands(createAppCommands(actions))`: `goTo` navigates with `params: { workspaceId }`,
