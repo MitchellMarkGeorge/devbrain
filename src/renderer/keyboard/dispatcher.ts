@@ -106,7 +106,7 @@ export class KeyDispatcher {
   private readonly listeners = new Set<() => void>();
   private readonly registry: CommandRegistry;
   private readonly undoStack: UndoStack;
-  private readonly doc: Document | undefined;
+  private readonly doc: Document;
   private onError!: (error: unknown, command: Command) => void;
 
   constructor(options: KeyDispatcherOptions) {
@@ -114,7 +114,7 @@ export class KeyDispatcher {
     this.platform = options.platform;
     this.registry = options.registry;
     this.undoStack = options.undoStack;
-    this.doc = options.document;
+    this.doc = options.document ?? document;
     this.setOnError(options.onError);
     this.state = { mode: keymapModes(this.keymap)[0], pending: [], count: undefined };
     this.compile();
@@ -174,7 +174,7 @@ export class KeyDispatcher {
    * whether it ran: `false` when it isn't registered or isn't enabled.
    */
   run = (commandId: string, args: CommandArgs = {}): boolean => {
-    const scopes = activeScopes(this.document()?.activeElement ?? null, this.requireDocument());
+    const scopes = activeScopes(this.doc.activeElement, this.doc);
     return this.execute(commandId, args, scopes);
   };
 
@@ -183,13 +183,12 @@ export class KeyDispatcher {
   handleKeyDown = (event: KeyboardEvent): void => {
     const stroke = strokeFromEvent(event);
     if (stroke === null) return;
-    const doc = this.requireDocument();
-    const target = this.targetOf(event, doc);
+    const target = this.targetOf(event);
     const typing = typingTarget(target);
     // the first key an IME takes can come before `isComposing` is set, but Chromium sends it as
     // `key: 'Process'`, which isn't a stroke (`strokeFromEvent`)
     const composing = event.isComposing;
-    const scopes = activeScopes(target, doc);
+    const scopes = activeScopes(target, this.doc);
 
     if (this.readsCount(stroke, typing, composing)) {
       this.stopTimer();
@@ -330,20 +329,10 @@ export class KeyDispatcher {
     this.compiled = compiled;
   }
 
-  private targetOf(event: KeyboardEvent, doc: Document): Element | null {
+  private targetOf(event: KeyboardEvent): Element | null {
     const target = event.target;
     if (target && typeof (target as Element).closest === 'function') return target as Element;
-    return doc.activeElement;
-  }
-
-  private document(): Document | undefined {
-    return this.doc ?? (typeof document === 'undefined' ? undefined : document);
-  }
-
-  private requireDocument(): Document {
-    const doc = this.document();
-    if (!doc) throw new Error('KeyDispatcher needs a document');
-    return doc;
+    return this.doc.activeElement;
   }
 
   private stopTimer(): void {
