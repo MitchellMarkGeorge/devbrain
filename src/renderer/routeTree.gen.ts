@@ -14,7 +14,7 @@ import { Route as OnboardingRouteRouteImport } from './routes/onboarding/route';
 import { Route as AppWorkspaceIdRouteRouteImport } from './routes/app/$workspaceId/route';
 import { Route as OnboardingIndexRouteImport } from './routes/onboarding/index';
 import { Route as OnboardingChoose_workspaceRouteImport } from './routes/onboarding/choose_workspace';
-import { Route as OnboardingNew_workspaceRouteImport } from './routes/onboarding/new_workspace';
+import { Route as WorkspacesNewRouteImport } from './routes/workspaces/new';
 import { Route as AppWorkspaceIdIndexRouteImport } from './routes/app/$workspaceId/index';
 import { Route as AppWorkspaceIdCalendarRouteImport } from './routes/app/$workspaceId/calendar';
 import { Route as AppWorkspaceIdHomeRouteImport } from './routes/app/$workspaceId/home';
@@ -51,10 +51,10 @@ const OnboardingChoose_workspaceRoute =
     path: '/choose_workspace',
     getParentRoute: () => OnboardingRouteRoute,
   } as any);
-const OnboardingNew_workspaceRoute = OnboardingNew_workspaceRouteImport.update({
-  id: '/new_workspace',
-  path: '/new_workspace',
-  getParentRoute: () => OnboardingRouteRoute,
+const WorkspacesNewRoute = WorkspacesNewRouteImport.update({
+  id: '/workspaces/new',
+  path: '/workspaces/new',
+  getParentRoute: () => rootRouteImport,
 } as any);
 const AppWorkspaceIdIndexRoute = AppWorkspaceIdIndexRouteImport.update({
   id: '/',
@@ -108,7 +108,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRouteRouteWithChildren;
   '/app/$workspaceId': typeof AppWorkspaceIdRouteRouteWithChildren;
   '/onboarding/choose_workspace': typeof OnboardingChoose_workspaceRoute;
-  '/onboarding/new_workspace': typeof OnboardingNew_workspaceRoute;
+  '/workspaces/new': typeof WorkspacesNewRoute;
   '/onboarding/': typeof OnboardingIndexRoute;
   '/app/$workspaceId/calendar': typeof AppWorkspaceIdCalendarRoute;
   '/app/$workspaceId/home': typeof AppWorkspaceIdHomeRoute;
@@ -123,7 +123,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute;
   '/onboarding/choose_workspace': typeof OnboardingChoose_workspaceRoute;
-  '/onboarding/new_workspace': typeof OnboardingNew_workspaceRoute;
+  '/workspaces/new': typeof WorkspacesNewRoute;
   '/onboarding': typeof OnboardingIndexRoute;
   '/app/$workspaceId/calendar': typeof AppWorkspaceIdCalendarRoute;
   '/app/$workspaceId/home': typeof AppWorkspaceIdHomeRoute;
@@ -141,7 +141,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRouteRouteWithChildren;
   '/app/$workspaceId': typeof AppWorkspaceIdRouteRouteWithChildren;
   '/onboarding/choose_workspace': typeof OnboardingChoose_workspaceRoute;
-  '/onboarding/new_workspace': typeof OnboardingNew_workspaceRoute;
+  '/workspaces/new': typeof WorkspacesNewRoute;
   '/onboarding/': typeof OnboardingIndexRoute;
   '/app/$workspaceId/calendar': typeof AppWorkspaceIdCalendarRoute;
   '/app/$workspaceId/home': typeof AppWorkspaceIdHomeRoute;
@@ -160,7 +160,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/app/$workspaceId'
     | '/onboarding/choose_workspace'
-    | '/onboarding/new_workspace'
+    | '/workspaces/new'
     | '/onboarding/'
     | '/app/$workspaceId/calendar'
     | '/app/$workspaceId/home'
@@ -175,7 +175,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/onboarding/choose_workspace'
-    | '/onboarding/new_workspace'
+    | '/workspaces/new'
     | '/onboarding'
     | '/app/$workspaceId/calendar'
     | '/app/$workspaceId/home'
@@ -192,7 +192,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/app/$workspaceId'
     | '/onboarding/choose_workspace'
-    | '/onboarding/new_workspace'
+    | '/workspaces/new'
     | '/onboarding/'
     | '/app/$workspaceId/calendar'
     | '/app/$workspaceId/home'
@@ -209,6 +209,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute;
   OnboardingRouteRoute: typeof OnboardingRouteRouteWithChildren;
   AppWorkspaceIdRouteRoute: typeof AppWorkspaceIdRouteRouteWithChildren;
+  WorkspacesNewRoute: typeof WorkspacesNewRoute;
 }
 
 declare module '@tanstack/react-router' {
@@ -248,12 +249,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingChoose_workspaceRouteImport;
       parentRoute: typeof OnboardingRouteRoute;
     };
-    '/onboarding/new_workspace': {
-      id: '/onboarding/new_workspace';
-      path: '/new_workspace';
-      fullPath: '/onboarding/new_workspace';
-      preLoaderRoute: typeof OnboardingNew_workspaceRouteImport;
-      parentRoute: typeof OnboardingRouteRoute;
+    '/workspaces/new': {
+      id: '/workspaces/new';
+      path: '/workspaces/new';
+      fullPath: '/workspaces/new';
+      preLoaderRoute: typeof WorkspacesNewRouteImport;
+      parentRoute: typeof rootRouteImport;
     };
     '/app/$workspaceId/': {
       id: '/app/$workspaceId/';
@@ -323,13 +324,11 @@ declare module '@tanstack/react-router' {
 
 interface OnboardingRouteRouteChildren {
   OnboardingChoose_workspaceRoute: typeof OnboardingChoose_workspaceRoute;
-  OnboardingNew_workspaceRoute: typeof OnboardingNew_workspaceRoute;
   OnboardingIndexRoute: typeof OnboardingIndexRoute;
 }
 
 const OnboardingRouteRouteChildren: OnboardingRouteRouteChildren = {
   OnboardingChoose_workspaceRoute: OnboardingChoose_workspaceRoute,
-  OnboardingNew_workspaceRoute: OnboardingNew_workspaceRoute,
   OnboardingIndexRoute: OnboardingIndexRoute,
 };
 
@@ -368,6 +367,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   OnboardingRouteRoute: OnboardingRouteRouteWithChildren,
   AppWorkspaceIdRouteRoute: AppWorkspaceIdRouteRouteWithChildren,
+  WorkspacesNewRoute: WorkspacesNewRoute,
 };
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

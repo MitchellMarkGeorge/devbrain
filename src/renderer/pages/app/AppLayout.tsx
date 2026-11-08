@@ -1,5 +1,5 @@
 import { Outlet, useMatches, useRouter } from '@tanstack/react-router';
-import { AppShell, Breadcrumb, PageHeader } from '../../components';
+import { WorkspaceShell, Breadcrumb, PageHeader } from '../../components';
 import { AppSidebar } from './AppSidebar';
 import { useHistoryPosition } from './use-history-position';
 
@@ -15,7 +15,7 @@ export function AppLayout() {
       [...matches].reverse().find((match) => match.staticData.title)?.staticData.title,
   });
   return (
-    <AppShell
+    <WorkspaceShell
       sidebar={<AppSidebar />}
       header={<PageHeader>{title && <Breadcrumb items={[title]} />}</PageHeader>}
       onBack={() => router.history.back()}
@@ -24,6 +24,6 @@ export function AppLayout() {
       canGoForward={position.canGoForward}
     >
       <Outlet />
-    </AppShell>
+    </WorkspaceShell>
   );
 }

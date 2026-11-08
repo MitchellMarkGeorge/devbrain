@@ -1,5 +1,6 @@
 import { createRouter, type RouterHistory } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
+import type { WorkspaceId } from '@common/ids';
 import { workspaceIdOfPage } from '@common/types';
 import type { events as appEvents, ipc as appIpc, trpc as appTrpc } from './ipc';
 import { routeTree } from './routeTree.gen';
@@ -22,7 +23,7 @@ export interface RouterContext {
   devBrainAvailable: boolean;
 }
 
-/** The selector `AppShell` gives the element pages scroll in, scrolled to the top on navigation. */
+/** The selector `WorkspaceShell` gives the element pages scroll in, scrolled to the top on navigation. */
 export const PAGE_SCROLL_SELECTOR = '[data-slot="page-scroll"]';
 
 /** How long an open shows the splash at least, so a quick switch doesn't flicker. */
@@ -50,7 +51,7 @@ export function createAppRouter({
     defaultPendingComponent: PagePending,
     defaultNotFoundComponent: NotFoundPage,
     defaultErrorComponent: RouteErrorPage,
-    // pages scroll inside AppShell, not the window: the router restores what scrolled, and
+    // pages scroll inside WorkspaceShell, not the window: the router restores what scrolled, and
     // scrolls the page's scroller to the top on a new page
     scrollRestoration: true,
     scrollToTopSelectors: [PAGE_SCROLL_SELECTOR],
@@ -77,6 +78,13 @@ export function followOutsideChanges(router: AppRouter, events: typeof appEvents
       void router.navigate({ to: '/app/$workspaceId', params: { workspaceId: id } });
     }
   });
+}
+
+declare module '@tanstack/history' {
+  interface HistoryState {
+    /** on Create workspace, which names no workspace: the one open behind it (`workspaceShownAt`) */
+    openWorkspaceId?: WorkspaceId;
+  }
 }
 
 declare module '@tanstack/react-router' {

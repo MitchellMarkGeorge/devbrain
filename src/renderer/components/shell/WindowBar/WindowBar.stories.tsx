@@ -46,7 +46,7 @@ function Bar() {
  */
 export const Default: Story = { render: () => <Bar /> };
 
-/** The bar on each platform. On Windows the caption buttons are painted here, as `AppShell` does. */
+/** The bar on each platform. On Windows the caption buttons are painted here, as `WorkspaceShell` does. */
 export const Platforms: Story = {
   render: () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>

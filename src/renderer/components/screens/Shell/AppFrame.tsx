@@ -1,6 +1,6 @@
 /**
  * The shared frame for screen stories: DevBrain's sidebar filled with the Figma file's sample
- * workspace, and `ScreenFrame`, which sizes an `AppShell` to a Figma screen. Screen stories in
+ * workspace, and `ScreenFrame`, which sizes a `WorkspaceShell` to a Figma screen. Screen stories in
  * every area import these; nothing in the app does.
  */
 import type { ReactNode } from 'react';
@@ -18,7 +18,7 @@ import {
   Trash2,
   Zap,
 } from 'lucide-react';
-import { AppShell, type AppShellProps } from '../../shell/AppShell';
+import { WorkspaceShell, type WorkspaceShellProps } from '../../shell/WorkspaceShell';
 import {
   Sidebar,
   SidebarAction,
@@ -130,7 +130,7 @@ export function DemoSidebar({ active, empty, sync, workspaceMenuOpen }: DemoSide
   );
 }
 
-export interface ScreenFrameProps extends Omit<AppShellProps, 'sidebar'> {
+export interface ScreenFrameProps extends Omit<WorkspaceShellProps, 'sidebar'> {
   /** the Figma frame's size: 1440×1024 by default, 960×640 for the compact frames */
   width?: number;
   height?: number;
@@ -143,7 +143,7 @@ export interface ScreenFrameProps extends Omit<AppShellProps, 'sidebar'> {
 }
 
 /**
- * An `AppShell` the size of a Figma screen, with the traffic lights drawn and the demo sidebar.
+ * An `WorkspaceShell` the size of a Figma screen, with the traffic lights drawn and the demo sidebar.
  * The shell measures itself, so a 960px frame behaves as a compact window.
  */
 export function ScreenFrame({
@@ -159,7 +159,7 @@ export function ScreenFrame({
 }: ScreenFrameProps) {
   return (
     <div style={{ width, height, overflow: 'hidden', position: 'relative' }}>
-      <AppShell
+      <WorkspaceShell
         sidebar={
           sidebar ?? (
             <DemoSidebar

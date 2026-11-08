@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { CircleHelp, Folder, Plus } from 'lucide-react';
-import { Button, Logomark, OnboardingScreen, WorkspaceList } from '../../components';
+import { Button, Logomark, AppShell, WorkspaceList } from '../../components';
 import { trpc } from '../../ipc';
 import { byRecentlyOpened, WorkspaceRow } from './workspace-rows';
 import { useOpenFolder } from '../workspaces/use-open-folder';
@@ -21,7 +21,7 @@ export function Welcome() {
   const workspaces = byRecentlyOpened(data.items);
   const more = workspaces.length > RECENT_LIMIT || data.nextCursor !== null;
   return (
-    <OnboardingScreen
+    <AppShell
       logo={<Logomark size="md" />}
       title="Welcome to DevBrain"
       description={
@@ -54,13 +54,13 @@ export function Welcome() {
         </WorkspaceList>
       )}
       <div className={styles.actions}>
-        <Button icon={Plus} render={<Link to="/onboarding/new_workspace" />} nativeButton={false}>
+        <Button icon={Plus} render={<Link to="/workspaces/new" />} nativeButton={false}>
           Create Workspace
         </Button>
         <Button icon={Folder} onClick={openFolder.run} disabled={openFolder.pending}>
           Open Existing Folder…
         </Button>
       </div>
-    </OnboardingScreen>
+    </AppShell>
   );
 }

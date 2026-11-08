@@ -23,7 +23,7 @@ describe('lastPageOf', () => {
   it("is null for a URL that shows no workspace's page", () => {
     expect(lastPageOf('http://localhost:5173/')).toBeNull();
     expect(lastPageOf('http://localhost:5173/#/')).toBeNull();
-    expect(lastPageOf('http://localhost:5173/#/onboarding/new_workspace')).toBeNull();
+    expect(lastPageOf('http://localhost:5173/#/workspaces/new')).toBeNull();
     expect(lastPageOf('http://localhost:5173/#/application')).toBeNull();
     // no workspace in it, or not a workspace id
     expect(lastPageOf('http://localhost:5173/#/app/tasks')).toBeNull();

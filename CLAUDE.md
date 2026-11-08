@@ -134,7 +134,8 @@ The renderer routes with TanStack Router: file routes in `src/renderer/routes`, 
 - **The URL names the workspace.** Every page in a workspace is under `/app/$workspaceId/…`; add new
   pages there (`routes/app/$workspaceId/<page>.tsx`; a folder's layout is its `route.tsx`), never
   at `/app/<page>`. Link with
-  `params: { workspaceId }`.
+  `params: { workspaceId }`. The only pages outside one are onboarding (`/onboarding/*`) and Create
+  workspace (`/workspaces/new`), drawn in an `AppShell`; inside a workspace it is a `WorkspaceShell`.
 - **Only `/app/$workspaceId` opens a workspace** (its `beforeLoad`, `openWorkspaceOf`). Nothing else
   calls `workspaces.open`: to switch, navigate to the workspace's link (`/app/<id>`). The renderer
   never chooses a workspace on its own; main picks the window's first URL (`initialRoute`).

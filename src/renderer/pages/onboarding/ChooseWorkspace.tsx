@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { useSuspenseInfiniteQuery } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
-import { Button, Logomark, OnboardingScreen, WorkspaceList } from '../../components';
+import { Button, Logomark, AppShell, WorkspaceList } from '../../components';
 import { trpc } from '../../ipc';
 import { WorkspaceRow } from './workspace-rows';
 import styles from './Onboarding.module.css';
@@ -20,7 +20,7 @@ export function ChooseWorkspace() {
   const { data, hasNextPage, fetchNextPage, isFetchingNextPage } =
     useSuspenseInfiniteQuery(workspacePagesOptions());
   return (
-    <OnboardingScreen
+    <AppShell
       logo={<Logomark size="md" />}
       title="Choose a workspace"
       description="Every workspace in your DevBrain folder."
@@ -53,6 +53,6 @@ export function ChooseWorkspace() {
           Back
         </Button>
       </div>
-    </OnboardingScreen>
+    </AppShell>
   );
 }

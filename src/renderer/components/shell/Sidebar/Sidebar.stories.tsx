@@ -27,8 +27,8 @@ type Story = StoryObj<typeof meta>;
 
 /**
  * The sidebar as Figma's `Sidebar` symbol: header, the six pages, Recents and Favorites, Trash,
- * Settings and Help. Inside an `AppShell` it also draws the window row (traffic lights, toggle,
- * back, forward) at the top, and the shell docks it or hides it; see Shell/AppShell.
+ * Settings and Help. Inside a `WorkspaceShell` it also draws the window row (traffic lights, toggle,
+ * back, forward) at the top, and the shell docks it or hides it; see Shell/WorkspaceShell.
  */
 export const Default: Story = { render: () => <DemoSidebar active="Home" /> };
 

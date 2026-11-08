@@ -32,7 +32,7 @@
   overscroll-behavior: contain;
 }
 /*
- * outside an AppShell (no window row) it keeps 8px above the header. The header carries it, as
+ * outside a WorkspaceShell (no window row) it keeps 8px above the header. The header carries it, as
  * a pinned header stops at the sidebar's own padding and items would show through above it.
  */
 .scroller:not(:has(> .windowRow)) > .header {

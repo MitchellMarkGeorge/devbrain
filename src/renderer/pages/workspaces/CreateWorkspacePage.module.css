@@ -1,9 +1,7 @@
-/* Create workspace (Figma 7175:20087, and the in-app dialog 7760:61769) */
-.form {
+/* Create workspace (/workspaces/new): the form on a card (Figma 7175:20087) */
+.card {
   display: flex;
   flex-direction: column;
-}
-.card {
   width: 480px;
   max-width: 100%;
   overflow: hidden;
@@ -43,7 +41,4 @@
   justify-content: space-between;
   padding: var(--space-4);
   border-top: 1px solid var(--border);
-}
-.footer[data-layout='dialog'] {
-  justify-content: flex-end;
 }

@@ -7,7 +7,8 @@ in `CLAUDE.md` ("Routing"); the plan the pages are built from is
 ## The model
 
 **The URL says which workspace the window shows.** Every page in a workspace is under
-`/app/<its id>/…` (`/app/wsp_…/tasks`); `/onboarding/*` is for when none is open. The renderer
+`/app/<its id>/…` (`/app/wsp_…/tasks`); `/onboarding/*` is for when none is open, and
+`/workspaces/new` (Create workspace) names none either way: see [Create workspace](#create-workspace). The renderer
 knows nothing about "the last workspace": its job is to render the workspace its route names, and
 to open it when it isn't open.
 
@@ -24,7 +25,8 @@ to open it when it isn't open.
   page (setting on, and the page is that workspace's) or `/app/<id>/<defaultLandingPage>`
   (`landingHref`, `src/renderer/workspace/landing.ts`).
 - **Switching is navigating** to the workspace's link: the sidebar's workspace menu, onboarding's
-  lists, Create (create, then navigate), Open Existing Folder (add, then navigate). Back and Forward
+  lists, Create workspace (create, then navigate, replacing the form in the history), Open
+  Existing Folder (add, then navigate). Back and Forward
   to another workspace's page just open that workspace again.
 - **One router**, made once in `main.tsx` with hash history and never made again: not at startup,
   during a switch, or on onboarding. Hash history because the page loads from `file://`, and
@@ -55,9 +57,9 @@ __root                         toasts, dialogs, DevBrain unavailable, not found
 ├── /                          redirect: the open workspace, or onboarding
 ├── /onboarding                layout; with a workspace open, redirects to it
 │   ├── /                      Welcome
-│   ├── /new_workspace         Create workspace
 │   └── /choose_workspace      Choose workspace (all, paged)
-└── /app/$workspaceId          opens the workspace; AppShell + sidebar; its error is the open's
+├── /workspaces/new            Create workspace: from Welcome, and from the app over the open one
+└── /app/$workspaceId          opens the workspace; WorkspaceShell + sidebar; its error is the open's
     ├── /                      redirect: last page or landing page
     └── /home, /tasks, /projects, /notes, /calendar, /integrations, /trash, /settings
 ```
@@ -118,6 +120,34 @@ is all the window holds. The 600ms minimum is the open's, not the router's (`pen
 only a real open holds it. On a reload the
 initial load context says the workspace is open already: nothing reopens.
 
+## Create workspace
+
+Create workspace is a page of its own, `/workspaces/new`: the form on its card in an `AppShell`
+(no sidebar), reached
+from Welcome's "Create Workspace" and from the workspace menu's "New workspace…". Its URL names no
+workspace, so going there opens and closes nothing: from the app, the workspace stays open behind
+it until the new one is created. Creating navigates to the new workspace's link with `replace`, so
+the form isn't in the history after it, and that link opens it under the splash as any switch does.
+The card's Back (and Esc) goes back in the history, or, with no entry
+before it, to the open workspace's link or `/onboarding`.
+
+Why a page rather than the dialog it was: the form gets the whole window, as the step it is (the
+workspace you're in is about to close), the same page serves onboarding and the app, and it is a
+location like any other, with Back and Forward.
+
+- **Going back is no switch.** The workspace menu passes the open workspace in the page's history
+  state (`openWorkspaceId`), and `workspaceShownAt` (`src/renderer/workspace/shown.ts`) reads a
+  location's workspace as the one its URL names, else that one. `useWorkspaceLoading` compares the
+  target with it, so going back to the workspace still open shows no splash; without it the window
+  would flash the splash on every Back, as the page names no workspace.
+- **Outside changes** are left alone: `followOutsideChanges` reads the URL only, and Create
+  workspace's names none. Nothing realistic closes the workspace behind the form; if something
+  does, Back finds it gone and its route shows the error, as for any page.
+- **Last page:** main keeps pages under `/app/<id>` only, so the window never reopens on the form.
+- **Not a page in the workspace:** `/app/$workspaceId/…` would draw the old workspace's sidebar
+  around a form for another workspace, save the form as its last page, and need a pathless layout
+  to drop the sidebar; and `/onboarding` redirects to the open workspace, so it can't host it.
+
 ## Remembering the page
 
 Each workspace keeps the last page shown in it in its folder's manifest (`workspace.json`,
@@ -162,8 +192,8 @@ router's `defaultPendingComponent` it does here, so no pending bar of our own wa
   invalidator over a fake main (`fake-main.ts`, which opens workspaces with core's events) and
   memory history: startup (setting on and off, no workspace, a reload, no initial load context,
   DevBrain unavailable), switches (the old page never shown and never refetching, watched with a
-  `MutationObserver`; the splash held until a slow page is ready, and for 600ms), the menu, onboarding, Create and Open
-  Folder with each error dialog, failed opens before and after the old workspace closed, deleting
+  `MutationObserver`; the splash held until a slow page is ready, and for 600ms), the menu, onboarding, Create workspace (from
+  Welcome and from the app: Back and Esc with no splash, the history after creating) and Open Folder with each error dialog, failed opens before and after the old workspace closed, deleting
   the open workspace, Back and Forward, rapid navigation, and preloads.
   `src/renderer/tests/workspace` unit-tests the helpers, and
   `src/renderer/tests/ipc/query-invalidator.test.ts` the dropping of a workspace's data.

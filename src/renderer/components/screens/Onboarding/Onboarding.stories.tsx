@@ -4,7 +4,7 @@ import { Button } from '../../ui/Button';
 import { Field } from '../../ui/Field';
 import { Input } from '../../ui/Input';
 import { Logomark } from '../../ui/Logomark';
-import { OnboardingScreen } from '../../onboarding/OnboardingScreen';
+import { AppShell } from '../../shell/AppShell';
 import { SwatchPicker } from '../../ui/SwatchPicker';
 import { WorkspaceList, WorkspaceListItem } from '../../onboarding/WorkspaceListItem';
 import { WorkspaceTile } from '../../entities/WorkspaceTile';
@@ -26,7 +26,7 @@ function Window({ children }: { children: React.ReactNode }) {
 export const Welcome: Story = {
   render: () => (
     <Window>
-      <OnboardingScreen
+      <AppShell
         logo={<Logomark size="md" />}
         title="Welcome to DevBrain"
         description="Pick up where you left off, or start a new workspace."
@@ -61,16 +61,19 @@ export const Welcome: Story = {
           <Button icon={Plus}>Create Workspace</Button>
           <Button icon={Folder}>Open Existing Folder…</Button>
         </div>
-      </OnboardingScreen>
+      </AppShell>
     </Window>
   ),
 };
 
-/** Figma "Create workspace" (7175:20087): a card with the tile, name and colour, Back and Create. */
+/**
+ * Figma "Create workspace" (7175:20087), `/workspaces/new`: a card with the tile, name and colour,
+ * Back and Create. The same page from Welcome and from the app's "New workspace…".
+ */
 export const CreateWorkspace: Story = {
   render: () => (
     <Window>
-      <OnboardingScreen>
+      <AppShell>
         <div
           style={{
             width: 480,
@@ -120,7 +123,7 @@ export const CreateWorkspace: Story = {
             <Button>Create Workspace</Button>
           </div>
         </div>
-      </OnboardingScreen>
+      </AppShell>
     </Window>
   ),
 };
