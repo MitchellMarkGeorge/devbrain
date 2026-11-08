@@ -2,7 +2,7 @@ import { notFound } from '@tanstack/react-router';
 import { isId, type WorkspaceId } from '@common/ids';
 import { SPLASH_MINIMUM_MS, type RouterContext } from '../../router';
 
-// What the /app/$workspaceId route does before any page in it loads (routes/app.$workspaceId.tsx).
+// What the /app/$workspaceId route does before any page in it loads (routes/app/$workspaceId/route.tsx).
 
 /** The URL's workspace id, checked: anything but a workspace id is no page. */
 export const parseWorkspaceParams = {
@@ -23,7 +23,7 @@ export class PreloadSkipped extends Error {
 
 /** The workspace main has open, from the cache unless an event has made it stale since. */
 export function openWorkspaceInfo({ queryClient, trpc }: RouterContext) {
-  return queryClient.fetchQuery({ ...trpc.workspaces.current.queryOptions(), staleTime: Infinity });
+  return queryClient.query({ ...trpc.workspaces.current.queryOptions(), staleTime: Infinity });
 }
 
 /**
@@ -59,7 +59,7 @@ export async function openWorkspaceOf({
   } catch (error) {
     // the error page offers the way back to the workspace still open, or none: ask main which,
     // as the open may have closed the one before
-    await queryClient.fetchQuery({ ...trpc.workspaces.current.queryOptions(), staleTime: 0 });
+    await queryClient.query({ ...trpc.workspaces.current.queryOptions(), staleTime: 0 });
     throw error;
   }
 }

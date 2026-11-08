@@ -122,13 +122,15 @@ The renderer routes with TanStack Router: file routes in `src/renderer/routes`, 
 `src/renderer/pages`. `docs/renderer/routing.md` is the design note.
 
 - **The URL names the workspace.** Every page in a workspace is under `/app/$workspaceId/…`; add new
-  pages there (`app.$workspaceId.<page>.tsx`), never at `/app/<page>`. Link with
+  pages there (`routes/app/$workspaceId/<page>.tsx`; a folder's layout is its `route.tsx`), never
+  at `/app/<page>`. Link with
   `params: { workspaceId }`.
 - **Only `/app/$workspaceId` opens a workspace** (its `beforeLoad`, `openWorkspaceOf`). Nothing else
   calls `workspaces.open`: to switch, navigate to the workspace's link (`/app/<id>`). The renderer
   never chooses a workspace on its own; main picks the window's first URL (`initialRoute`).
 - **Loaders read the open workspace.** A page's loader only primes React Query
-  (`ensureQueryData`) and runs after the workspace is open; it never opens one, and needs no check
+  (`queryClient.query({ ...options, staleTime: 'static' })`; `ensureQueryData` and `fetchQuery`
+  are deprecated) and runs after the workspace is open; it never opens one, and needs no check
   of its own: a preload into another workspace is stopped before it runs.
 - **One router**, made once in `main.tsx` (`createAppRouter`), never made again or unmounted. Tests
   make one per test over memory history and the fake main (`src/renderer/tests/routing`).
