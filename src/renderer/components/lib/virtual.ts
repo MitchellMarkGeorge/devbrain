@@ -26,7 +26,16 @@ export interface VirtualListOptions {
 }
 
 // more rows than any window shows: a list drawing this many has not been given a height
-const UNBOUNDED_ROWS = 200;
+export const UNBOUNDED_ROWS = 200;
+
+/** the development warning for a list drawing `drawn` rows because nothing gave it a height */
+export function unboundedWarning(name: string, drawn: number): string {
+  return (
+    `${name} is drawing ${drawn} rows at once: it has no height to fill, so it grows to its ` +
+    'rows instead of scrolling them. Give it one: put it in a flex column (a PageContent, or ' +
+    'display: flex; flex-direction: column with min-height: 0) or a set height.'
+  );
+}
 
 /**
  * TanStack Virtual's `useVirtualizer` on a list that is its own scroller, plus `onEndReached`:
@@ -91,11 +100,7 @@ export function useVirtualList({
     const scroller = scrollerRef.current;
     if (!scroller || scroller.scrollHeight > scroller.clientHeight + 1) return;
     warned.current = true;
-    console.warn(
-      `${name} is drawing ${drawn} rows at once: it has no height to fill, so it grows to its ` +
-        'rows instead of scrolling them. Give it one: put it in a flex column (a PageContent, or ' +
-        'display: flex; flex-direction: column with min-height: 0) or a set height.',
-    );
+    console.warn(unboundedWarning(name, drawn));
   }, [drawn, scrollerRef, name]);
 
   return virtualizer;

@@ -1,53 +1,69 @@
 /* A virtualized list of TaskRows with selection. See docs/design-system/components/TaskList.md */
-/* its own scroller: it fills the height its container gives it, or grows to its rows */
+/*
+ * Virtuoso's scroller, and the grid. It is the whole list's height (--list-height, set from
+ * Virtuoso's total), which a flex column or a set height shrinks to the room it gives: so it fills
+ * the height its container gives it, or grows to its rows when nothing does.
+ */
 .list {
   position: relative;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
+  max-height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
-  /* the virtualizer keeps the rows in place as they measure; the browser should not move them too */
-  overflow-anchor: none;
 }
 .list:focus-visible {
   outline: none;
 }
 
-/*
- * The whole list's height, so the scrollbar is the whole list's. Only the rows in view are drawn,
- * in normal flow in index order, after a padding of the space the rows above them would take.
- */
-.rows {
-  flex: none;
-  box-sizing: border-box;
-  width: 100%;
-}
-
-/* a heading's or footer's own margins stay inside what the list measures */
+/* a heading's or footer's own margins stay inside what Virtuoso measures */
 .heading,
 .footer {
   display: flow-root;
 }
 
 /*
- * Each heading sticks to the top of the list as it reaches it, over the rows (and over a focused
- * row's raised outline), and the next heading covers it. A list on a card or sheet sets
- * --list-ground to its surface. The group-gap above every heading but the first scrolls away
- * when it sticks.
+ * A heading in the list scrolls with its rows; the current group's heading is stuck to the top in
+ * Virtuoso's top item list (.top), and the next heading covers it as it arrives. Both are over the
+ * rows (and a focused row's raised outline). A list on a card or sheet sets --list-ground to its
+ * surface.
  */
 .heading {
-  position: sticky;
-  top: 0;
-  z-index: 2;
+  position: relative;
+  z-index: 3;
   background: var(--list-ground, var(--background));
 }
-.heading[data-gap] {
-  top: calc(-1 * var(--group-gap));
-  padding-top: var(--group-gap);
+.top {
+  top: 0;
+  z-index: 2;
 }
 
+/*
+ * The group-gap: the last item of every group but the last, so it scrolls away above a heading.
+ * It covers the stuck heading as the next one arrives, as the heading after it does.
+ */
+.gap {
+  position: relative;
+  z-index: 3;
+  height: var(--group-gap);
+  background: var(--list-ground, var(--background));
+}
+
+/*
+ * The bar is in Virtuoso's footer. Its wrapper keeps the bar's margin inside what Virtuoso
+ * measures, and, being only as tall as the bar, is what sticks to the bottom of the list (as
+ * SelectionBar's floating style would on its own).
+ */
+.list [data-viewport-type] > :has(> .bar) {
+  display: flow-root;
+}
+.list [data-viewport-type] > :has(> [data-floating]) {
+  position: sticky;
+  bottom: var(--space-4);
+  z-index: var(--z-sticky);
+}
 .bar {
   margin-top: var(--space-3);
 }

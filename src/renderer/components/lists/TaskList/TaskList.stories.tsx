@@ -29,7 +29,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
-/** Neighbouring selected rows join into one block; the bar floats over the bottom. */
+/** Neighbouring selected rows join into one block; the bar sits under the rows (`floatingBar: false`). */
 export const Selection: Story = {
   args: {
     defaultSelected: ['tsk_calendar_sync', 'tsk_release_notes', 'tsk_migrations'],
@@ -48,6 +48,7 @@ export const StatusMenuOpen: Story = {
   args: { menuOpenAt: 1 },
 };
 
+/** A short list with no height to fill: it grows to its rows and draws them all. */
 export const Subtasks: Story = {
   args: { tasks: SAMPLE_SUBTASKS, subtasks: true },
 };
@@ -65,9 +66,9 @@ export const NarrowStacked: Story = {
 };
 
 /**
- * The grouped list: headings and rows in one virtualized list, the current group's heading stuck
- * to the top. Collapse a group with its chevron: its rows leave the list. The event under its
- * heading is part of the heading's row.
+ * The grouped list: headings and rows in one virtualized list (`GroupedVirtuoso`), the current
+ * group's heading stuck to the top. Collapse a group with its chevron: its rows leave the list.
+ * The event under its heading is part of the heading's row.
  */
 export const Grouped: Story = {
   render: function Grouped() {
@@ -217,7 +218,11 @@ export const ThousandRows: Story = {
   },
 };
 
-/** 1,000 tasks in ten groups of 100: the current heading sticks to the top of the list as it scrolls. */
+/**
+ * 1,000 tasks in ten groups of 100: the current heading sticks to the top of the list as it
+ * scrolls, and the next one covers it as it arrives. ↑ scrolls the focused row out from under the
+ * stuck heading.
+ */
 export const ThousandRowsGrouped: Story = {
   name: '1,000 rows, grouped',
   render: function ThousandRowsGrouped() {
