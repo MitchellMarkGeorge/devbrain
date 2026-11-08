@@ -54,6 +54,24 @@ function Frame({
 export const Wide: Story = { render: () => <Frame width={1440} height={720} /> };
 
 /**
+ * The shell fades in as it appears (`duration-slow`, `ease-surface`, from 99%): in the app, after
+ * the splash at startup and on a switch of workspace. Replay mounts it again.
+ */
+export const Entering: Story = {
+  render: function Render() {
+    const [key, setKey] = useState(0);
+    return (
+      <Stack gap="2" align="start" style={{ padding: 16 }}>
+        <Button variant="outline" onClick={() => setKey((n) => n + 1)}>
+          Replay
+        </Button>
+        <Frame key={key} width={1280} height={640} />
+      </Stack>
+    );
+  },
+};
+
+/**
  * The user hid the sidebar (⌘\): the window bar runs across the top and carries the header.
  * Pointing at the toggle or the left edge peeks at the drawer; clicking the toggle docks it.
  */
