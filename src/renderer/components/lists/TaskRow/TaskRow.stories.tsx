@@ -159,7 +159,7 @@ export const Synced: Story = {
 
 /**
  * Due dates as `useFormat()` words them against `now` (22 Jun 2026 in Storybook): luxon's relative
- * day within a week, else the short date.
+ * day within a week, else the short date; "No due date" without one.
  */
 export const DueDates: Story = {
   render: () => (
@@ -170,6 +170,7 @@ export const DueDates: Story = {
           task={sampleTask({ title: `Due ${days} days from today`, dueDate: storyDate(days) })}
         />
       ))}
+      <TaskRow task={sampleTask({ title: 'No due date' })} />
     </Stack>
   ),
 };

@@ -305,7 +305,7 @@ function fromControl(event: MouseEvent<HTMLElement>): boolean {
  * One task in a strokeless list, drawn from core's `TaskListItem`: the status button (opening the
  * `StatusMenu`; the flag while the task is overdue and not started), the title, its key, parent
  * and subtask pills, then the linked event or note and the project, priority and the due date
- * ("Today", "Jul 1", from `useFormat()`) on the right. Use it inside `TaskList`, which handles
+ * ("Today", "Jul 1", from `useFormat()`; "No due date" without one) on the right. Use it inside `TaskList`, which handles
  * selection and keyboard movement.
  *
  * Keyboard on the focused row: `S` opens the status menu (then `1`, `2`, `3`), `X` toggles
@@ -476,9 +476,10 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
             styles.date,
             tone === 'today' && styles.today,
             tone === 'overdue' && styles.overdue,
+            !task.dueDate && styles.noDate,
           )}
         >
-          {task.dueDate && formatDue(task.dueDate)}
+          {task.dueDate ? formatDue(task.dueDate) : 'No due date'}
         </span>
       </div>
     </div>
