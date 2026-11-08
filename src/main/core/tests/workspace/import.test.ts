@@ -128,13 +128,13 @@ describe('WorkspaceService.import — success', () => {
 
   it('brings the page the workspace was last on', async () => {
     const original = await there.create({ name: 'Acme', color: '#3b82f6' });
-    there.setLastPage(original.id, '/app/notes?view=card');
+    there.setLastPage(original.id, `/app/${original.id}/notes?view=card`);
     const folder = path.join(carried, 'Acme');
     await fs.cp(original.path, folder, { recursive: true });
 
     const info = await here.import(folder);
-    expect(info.lastPage).toBe('/app/notes?view=card');
-    expect((await here.open(info.id)).info.lastPage).toBe('/app/notes?view=card');
+    expect(info.lastPage).toBe(`/app/${original.id}/notes?view=card`);
+    expect((await here.open(info.id)).info.lastPage).toBe(`/app/${original.id}/notes?view=card`);
   });
 
   it('leaves the chosen folder as it was, and a delete removes only the copy', async () => {
@@ -467,9 +467,10 @@ describe('workspace manifest', () => {
 
   it('keeps the last page, and reads one written before it was kept as none', async () => {
     const info = await here.create({ name: 'Personal', color: '#ec4899' });
-    here.setLastPage(info.id, '/app/tasks?view=board');
-    expect(readManifest(info.path)?.lastPage).toBe('/app/tasks?view=board');
-    expect(here.getById(info.id).lastPage).toBe('/app/tasks?view=board');
+    const page = `/app/${info.id}/tasks?view=board`;
+    here.setLastPage(info.id, page);
+    expect(readManifest(info.path)?.lastPage).toBe(page);
+    expect(here.getById(info.id).lastPage).toBe(page);
 
     // a manifest from before: no lastPage key
     const file = path.join(info.path, MANIFEST_FILE);

@@ -1,12 +1,14 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { App } from './App';
+import { createHashHistory, RouterProvider } from '@tanstack/react-router';
 import log from 'electron-log/renderer';
 import { WindowFrameProvider, detectPlatform, type WindowFrame } from './components/lib/platform';
-import { events, ipc, queryInvalidator, queryClient } from './ipc';
+import { events, ipc, queryInvalidator, queryClient, trpc } from './ipc';
 import { readInitialLoadContext, seedQueryCache } from './ipc/initial-load-context';
 import { FollowThemeSetting, applyThemeSetting } from './theme';
+import { createAppRouter, followOutsideChanges } from './router';
+import { WithSplash } from './pages/root/Splash';
 import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/base.css';
@@ -20,7 +22,21 @@ queryInvalidator.listen(events);
 // what main holds now, so the first render shows the right screen with its data, in its theme
 const initialLoadContext = readInitialLoadContext();
 seedQueryCache(queryClient, initialLoadContext);
-applyThemeSetting(initialLoadContext?.theme ?? 'system');
+applyThemeSetting(initialLoadContext?.settings?.theme ?? 'system');
+
+// The app's one router, never made again. Hash history: the page loads from file://, and main
+// reads the window's page from the URL's hash (src/main/runtime/last-page.ts)
+const router = createAppRouter({
+  history: createHashHistory(),
+  context: {
+    queryClient,
+    trpc,
+    ipc,
+    devBrainAvailable: initialLoadContext?.devBrainAvailable ?? true,
+  },
+});
+// a delete, a close or an open elsewhere moves the window to onboarding or that workspace
+followOutsideChanges(router, events);
 
 // The window around the page: the platform from the preload, the system's own window controls,
 // and the Windows title bar's menu button popping up the app menu (src/main/runtime/window-chrome.ts)
@@ -39,7 +55,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <WindowFrameProvider value={windowFrame}>
         <FollowThemeSetting />
-        <App />
+        <WithSplash router={router}>
+          <RouterProvider router={router} />
+        </WithSplash>
       </WindowFrameProvider>
     </QueryClientProvider>
   </React.StrictMode>,

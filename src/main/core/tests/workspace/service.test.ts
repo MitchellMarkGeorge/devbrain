@@ -480,28 +480,35 @@ describe('WorkspaceService — setLastPage', () => {
 
   it("keeps the page in the folder's manifest, sending no change", () => {
     const { service, info, changes } = setup();
-    service.setLastPage(info.id, '/app/projects?view=card');
+    service.setLastPage(info.id, '/app/wsp_a/projects?view=card');
     expect(readManifest(info.path)).toMatchObject({
       name: info.name,
-      lastPage: '/app/projects?view=card',
+      lastPage: '/app/wsp_a/projects?view=card',
     });
-    expect(service.getById(info.id).lastPage).toBe('/app/projects?view=card');
+    expect(service.getById(info.id).lastPage).toBe('/app/wsp_a/projects?view=card');
     expect(changes).toEqual([]);
   });
 
   it('keeps the page through a rename', async () => {
     const { service, info } = setup();
-    service.setLastPage(info.id, '/app/notes');
+    service.setLastPage(info.id, '/app/wsp_a/notes');
     await service.update(info.id, { name: 'Renamed' });
-    expect(service.getById(info.id)).toMatchObject({ name: 'Renamed', lastPage: '/app/notes' });
+    expect(service.getById(info.id)).toMatchObject({
+      name: 'Renamed',
+      lastPage: '/app/wsp_a/notes',
+    });
   });
 
-  it('refuses a page outside the app, an unknown workspace and a missing folder', () => {
+  it("refuses a page outside the app, another workspace's page, an unknown workspace and a missing folder", () => {
     const { service, info } = setup();
     expect(() => service.setLastPage(info.id, '/onboarding')).toThrow(InvalidInputError);
-    expect(() => service.setLastPage('wsp_nope' as WorkspaceId, '/app')).toThrow(NotFoundError);
+    expect(() => service.setLastPage(info.id, '/app/tasks')).toThrow(InvalidInputError);
+    expect(() => service.setLastPage(info.id, '/app/wsp_b/tasks')).toThrow(InvalidInputError);
+    expect(() => service.setLastPage('wsp_nope' as WorkspaceId, '/app/wsp_nope')).toThrow(
+      NotFoundError,
+    );
     fsSync.rmSync(info.path, { recursive: true });
-    expect(() => service.setLastPage(info.id, '/app')).toThrow(WorkspaceDataMissingError);
+    expect(() => service.setLastPage(info.id, '/app/wsp_a')).toThrow(WorkspaceDataMissingError);
   });
 });
 

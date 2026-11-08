@@ -34,6 +34,9 @@ export interface Desktop {
   // its menu button calls this. Resolves once the menu closes; rejects when there is no menu or
   // window to show it in.
   showAppMenu(at: { x: number; y: number }): Promise<void>;
+  // shows the app's log file selected in the file manager, as the menu's Show Log File does: the
+  // way to find out why DevBrain could not load its data folder
+  showLogFile(): Promise<void>;
 }
 
 // the desktop when none is configured: every call fails
@@ -44,6 +47,7 @@ export const noDesktop: Desktop = {
   chooseFolder: unavailable,
   chooseSaveFile: unavailable,
   showAppMenu: unavailable,
+  showLogFile: unavailable,
 };
 
 async function unavailable(): Promise<never> {

@@ -95,6 +95,16 @@ with markdown in and out. `docs/editor.md` says what it reads and writes, what a
 how to add an element. A new element needs a round trip case in
 `src/renderer/tests/editor/markdown.test.ts`.
 
+## Dialogs
+
+A page shows a dialog with `useModals().open((props) => <MyDialog {...props} />)`
+(`src/renderer/modals.tsx`), not with open state of its own or a callback passed up to whoever
+renders it. The dialog spreads `props` onto `Dialog` or `AlertDialog`, closes with
+`props.onOpenChange(false)`, and is removed once its closing animation ends. The root layout holds
+them, inside the router and the query client, and drops them all when a workspace switch starts.
+Components in `src/renderer/components` stay controlled (`open`, `onOpenChange`); `useModals` is
+for pages.
+
 ## IPC
 
 The renderer reaches core through the typed tRPC router in `src/main/ipc`, run over Electron IPC.
@@ -114,3 +124,32 @@ The renderer reaches core through the typed tRPC router in `src/main/ipc`, run o
   route: the `ChangeTracker` (`src/main/ipc/changes.ts`) only hears core's events.
 - A new core change type must be mapped to its `ChangedEntity` list in the `ChangeTracker`, and a
   new router added to `ENTITIES_READ_BY_ROUTE` (`src/renderer/ipc/query-invalidator.ts`).
+
+## Routing
+
+The renderer routes with TanStack Router: file routes in `src/renderer/routes`, generated into
+`src/renderer/routeTree.gen.ts` (checked in; `npm run routes` regenerates it), pages in
+`src/renderer/pages`. `docs/renderer/routing.md` is the design note.
+
+- **The URL names the workspace.** Every page in a workspace is under `/app/$workspaceId/…`; add new
+  pages there (`routes/app/$workspaceId/<page>.tsx`; a folder's layout is its `route.tsx`), never
+  at `/app/<page>`. Link with
+  `params: { workspaceId }`.
+- **Only `/app/$workspaceId` opens a workspace** (its `beforeLoad`, `openWorkspaceOf`). Nothing else
+  calls `workspaces.open`: to switch, navigate to the workspace's link (`/app/<id>`). The renderer
+  never chooses a workspace on its own; main picks the window's first URL (`initialRoute`).
+- **Loaders read the open workspace.** A page's loader only primes React Query
+  (`queryClient.query({ ...options, staleTime: 'static' })`; `ensureQueryData` and `fetchQuery`
+  are deprecated) and runs after the workspace is open; it never opens one, and needs no check
+  of its own: a preload into another workspace is stopped before it runs.
+- **One router**, made once in `main.tsx` (`createAppRouter`), never made again or unmounted. Tests
+  make one per test over memory history and the fake main (`src/renderer/tests/routing`).
+- **One splash**, around the router (`WithSplash`), while a workspace loads
+  (`useWorkspaceLoading`); the root draws no page meanwhile. Don't add a second loading screen for
+  a switch, and don't keep a page mounted across one.
+- **A saved page names its workspace** (`lastPageSchema`); main keeps one per workspace. Don't send
+  the location over IPC.
+- Route files stay thin (`params`, `validateSearch`, `beforeLoad`, `loader`, a page component).
+  `src/renderer/components` stays the design system: no router, no IPC.
+- When a TanStack upgrade fails `src/renderer/tests/routing/tanstack-behaviour.test.ts`, the
+  routing note says which part of the design relied on it.

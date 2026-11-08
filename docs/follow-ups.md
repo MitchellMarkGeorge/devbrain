@@ -247,6 +247,20 @@ _Found while adding "Open folder…"._
 
 Separately, bringing a workspace back to a computer that still lists it is refused as `already_added`. A "Replace" choice (close it, swap in the folder, keep its registry entry) would make round trips one step.
 
+## Routing
+
+### Ask Electron whether the window can go back or forward
+
+_Found in the routing work (PR #130)._
+
+`useHistoryPosition` (`src/renderer/pages/app/use-history-position.ts`) decides whether the window bar's arrows (and Back on a failed open) are enabled from TanStack Router's history: the entry's `__TSR_index` against `router.history.length`. It avoids TanStack's `useCanGoBack`, which is experimental and has no forward counterpart, but `__TSR_index` is still TanStack's own field: typed in `@tanstack/history`'s `ParsedHistoryState`, not described in its docs. `src/renderer/tests/routing/tanstack-behaviour.test.ts` checks how it counts, so an upgrade that changes it fails there.
+
+Electron knows for certain: `webContents.navigationHistory.canGoBack()` and `canGoForward()` (Electron 42). Main already follows the window's navigations (`did-navigate`, `did-navigate-in-page`, in `src/main/runtime/last-page.ts`), so it could send an event such as `navigation.changed { canGoBack, canGoForward }` after each, and the hook would read that instead.
+
+- For: exact, documented and stable, and nothing from TanStack's internals.
+- Against: a new event in `src/common/events.ts`, sent on every navigation, and the arrows update a moment after the page (the answer comes from main). The renderer tests' fake main (`src/renderer/tests/routing/fake-main.ts`) would have to send it too. It sends two booleans, not the location, so the rule against sending the location over IPC still holds.
+- To check: that `navigationHistory` counts a hash change as an entry, as the router does, and what it reports after a reload.
+
 ## Settings
 
 ### Settings added after a file was written

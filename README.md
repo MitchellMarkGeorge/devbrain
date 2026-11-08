@@ -49,8 +49,9 @@ src/
   main/index.ts        Electron entry — app lifecycle, BrowserWindow, IPC handlers
   preload/index.ts     contextBridge.exposeInMainWorld — explicit, hand-written bridge
   renderer/
-    main.tsx           React entry point
-    App.tsx            Root component
+    main.tsx           React entry point: makes the router (router.tsx) and renders it
+    routes/            TanStack Router file routes (generated into routeTree.gen.ts)
+    pages/             The pages the routes draw (docs/renderer/routing.md)
     index.html         Shell HTML loaded by Electron
     env.d.ts           Ambient types (imports Api from preload, types window.api)
 
@@ -69,6 +70,7 @@ electron-builder.yml      Packaging config (macOS DMG, Windows NSIS, Linux AppIm
 ```bash
 npm run dev            # Start Vite dev server + Electron (HMR in renderer, auto-restart on main/preload changes)
 npm run build          # Build main, preload, and renderer into dist/
+npm run routes         # Regenerate src/renderer/routeTree.gen.ts from src/renderer/routes
 npm run compile        # build + package with electron-builder into release/
 npm run typecheck      # Type-check all source files (tsc --build; emits nothing)
 npm run lint           # Lint all TypeScript/JavaScript files

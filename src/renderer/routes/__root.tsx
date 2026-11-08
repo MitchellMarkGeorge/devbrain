@@ -1,0 +1,17 @@
+import { createRootRouteWithContext } from '@tanstack/react-router';
+import type { RouterContext } from '../router';
+import { DevBrainUnavailableError, RootError, RootLayout } from '../pages/root/Root';
+import { NotFoundScreen } from '../pages/root/NotFoundScreen';
+
+// The root: toasts, dialogs, no page while a workspace loads (the splash is around the router,
+// pages/root/Splash.tsx), and the screen for when
+// DevBrain couldn't open its data folder (docs/renderer/routing.md).
+export const Route = createRootRouteWithContext<RouterContext>()({
+  // Runs on every navigation, Back and Forward included.
+  beforeLoad: ({ context }) => {
+    if (!context.devBrainAvailable) throw new DevBrainUnavailableError();
+  },
+  component: RootLayout,
+  errorComponent: RootError,
+  notFoundComponent: NotFoundScreen,
+});

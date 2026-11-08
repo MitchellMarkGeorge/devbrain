@@ -78,7 +78,8 @@ is the file manager and the system dialogs, built over Electron's `shell` and `d
 window; tests pass a fake. `workspace` is whichever workspace is open when the call
 arrives. [`src/main/index.ts`](../../src/main/index.ts) loads DevBrain and attaches the router
 and the tracker before it creates the window, so a call never arrives before DevBrain is ready. No
-workspace is open yet: the renderer's first call, `workspaces.openLast`, reopens the last one.
+workspace is open yet: the window opens on the last workspace's route, and the renderer opens the
+workspace its route names with `workspaces.open` ([routing.md](../renderer/routing.md)).
 
 ### The envelope and errors
 
@@ -155,9 +156,10 @@ not obvious from one file:
   the renderer calls it when a page for one opens. It reports `changed: ['recent']`, never the
   entity's own kind, so a view refetches the recents list and not every list of that entity.
 - **`workspaces`** returns `WorkspaceInfo`, never a `Workspace`. `create` doesn't open the new
-  workspace; `open` closes the open one first and remembers the new one for the next launch.
-  `openLast` is the renderer's first call: it opens the workspace open last time while none is
-  open, and otherwise returns the one already open, so a reload never reopens it.
+  workspace; `open` closes the open one first and remembers the new one for the next launch, when
+  main opens the window on its route. The renderer calls `open` when its route names a workspace
+  that isn't open, never on a reload ([routing.md](../renderer/routing.md)); no route opens "the
+  last one".
 - **`settings.set`** writes one setting by its dot path (`{ path: 'settings.general.timeFormat',
 value: '24' }`), or one group (`settings.calendar`), checking the value against that path's part
   of `appSettingsSchema`, so two quick edits to different settings can't undo each other as two
@@ -188,6 +190,9 @@ value: '24' }`), or one group (`settings.calendar`), checking the value against 
   folder (Electron's `shell.showItemInFolder`), at the path `NoteService.filePathOf` gives, or
   opens the notes folder when the file is missing. A path handed to the desktop comes from main's state or a dialog, never from
   the renderer's input.
+- **`app.showLogFile`** shows the log file in the file manager (`ctx.desktop.showLogFile`). It is
+  public, as the renderer offers it when DevBrain couldn't open its data folder, the one time no
+  other route runs.
 - **`app.showMenu`** pops up the app menu at a point in the window, through `ctx.desktop`, for
   the Windows title bar's menu button: the page draws the title bar there and Windows shows no
   menu bar (`src/main/runtime/window-chrome.ts`). It resolves once the menu closes; a command the
@@ -282,17 +287,17 @@ value `initialLoadContext` (`null` when the read fails). `readInitialLoadContext
 [`src/renderer/ipc/initial-load-context.ts`](../../src/renderer/ipc/initial-load-context.ts)) reads
 that value. Main answers with an `InitialLoadContext`
 ([`src/main/ipc/initial-load-context.ts`](../../src/main/ipc/initial-load-context.ts)), built fresh
-for each load: `{ devBrainAvailable, current, last, workspaces, theme }`, workspace info and the
-theme setting. `theme` is applied to the page before the first render (`src/renderer/theme.tsx`),
-which then follows `settings.get`. `last` is
-the workspace `workspaces.openLast` would open while none is open. When building it throws, main
+for each load: `{ devBrainAvailable, current, workspaces, settings }`, workspace info and the
+settings (`settings.get`'s answer, `null` without DevBrain). The theme setting is applied to the
+page before the first render (`src/renderer/theme.tsx`), which then follows `settings.get`. When building it throws, main
 logs the error and answers `null`, so the page never waits forever.
 
-`seedQueryCache` puts `current` and `workspaces` in the cache as `workspaces.current` and
-`workspaces.list` before the first render, so startup routing (the workspace, the picker or the
-create page) is decided at once, with no splash on a reload. The `workspaces` router's queries get
-`staleTime: Infinity`: main reports every change to them (`workspace` entities and
-`workspace.changed`), so they need no refetch on mount. With no initial load context, they fetch as
+`seedQueryCache` puts `current`, `workspaces` and `settings` in the cache as `workspaces.current`,
+`workspaces.list` and `settings.get` before the first render: on a reload the route's workspace is
+known to be open at once, so nothing reopens it, onboarding lists the workspaces without a call,
+and the index route reads the landing page setting without one. The `workspaces` router's queries
+and `settings.get` get `staleTime: Infinity`: main reports every change to them (`workspace` and
+`settings` entities, and `workspace.changed`), so they need no refetch on mount. With no initial load context, they fetch as
 usual.
 
 `initialLoadContext` is the bridge's one route-specific member, and fixed for the page load: it
@@ -323,7 +328,10 @@ mutation's own changes are refetched before it resolves. `main.tsx` calls
 
 ### A workspace switch
 
-1. `workspaces.open` (or `workspaces.openLast` at launch) opens the workspace through core's
+The renderer starts a switch by navigating to a page of the other workspace; its
+`/app/$workspaceId` route calls `workspaces.open` ([routing.md](../renderer/routing.md)).
+
+1. `workspaces.open` opens the workspace through core's
    `WorkspaceService`, closing the open one first, if any. Core sends `opening` first, before
    anything closes, then the old one's `closed` once it has closed, then `opened` once the new one
    is current, or `openFailed` when it could not be opened (nothing is open then). The tracker
@@ -332,12 +340,15 @@ mutation's own changes are refetched before it resolves. `main.tsx` calls
    workspace open and the one opening. A switch sends three: `{ old, new }`, `{ null, new }`,
    `{ new, null }`.
 2. `workspace.changed` is sent while the mutation runs, so it reaches the switching window before
-   the response. It alone says which workspace is open, and which is opening: the app shows its
-   splash while `opening` is set (`useOpeningWorkspace`, `src/renderer/workspace-opening.ts`), so
-   the moment with nothing open is the splash, never an empty or failing screen.
-3. When the id differs from the workspace whose data is cached, the invalidator resets every query
-   outside `app`, `settings` and `workspaces` (`resetQueries` cancels what is in flight, clears the
-   data and refetches what is mounted), and refetches the `workspaces` queries.
+   the response. It says which workspace is open, and which is opening: it marks
+   `workspaces.current` stale in the renderer's cache, and a change no navigation made (a delete,
+   another window) moves the window to onboarding or to the workspace now open. The splash is up
+   from before the open starts until the new page has loaded, with the old page unmounted,
+   so the moment with nothing open is the splash, never an empty or failing screen.
+3. When the id differs from the workspace whose data is cached, the invalidator drops every query
+   outside `app`, `settings` and `workspaces` (cancels what is in flight and removes it, refetching
+   nothing: a page still mounted is the old workspace's, and the next page's loaders fetch its
+   data), and refetches the `workspaces` queries.
 4. The mutation's response carries `changed: ['workspace']`, which only refetches the workspace
    list. Creating, renaming or recolouring a workspace (`workspaces.update`), or adding one from a
    folder (`workspaces.importFolder`, see

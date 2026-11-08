@@ -115,11 +115,17 @@ export function createQueryInvalidator(options: QueryInvalidatorOptions): QueryI
     });
   }
 
-  // cancels what is in flight for the old workspace, clears it, and refetches what is on screen
-  function dropWorkspaceData(): Promise<void> {
-    return queryClient.resetQueries({
-      predicate: (query) => !ROUTERS_OUTSIDE_WORKSPACES.has(routePathOf(query)[0]),
-    });
+  // Cancels what is in flight for the old workspace and drops what was cached, refetching
+  // nothing: a page still mounted is the old workspace's (hidden under the splash during a switch,
+  // or about to be replaced), and must not fetch the new one's data. Removing a query doesn't
+  // tell the hooks holding it, so that page doesn't render again; the next page's loaders fetch
+  // its data from the workspace now open.
+  async function dropWorkspaceData(): Promise<void> {
+    const filters = {
+      predicate: (query: Query) => !ROUTERS_OUTSIDE_WORKSPACES.has(routePathOf(query)[0]),
+    };
+    await queryClient.cancelQueries(filters);
+    queryClient.removeQueries(filters);
   }
 
   async function workspaceOpened(id: WorkspaceId | null): Promise<void> {

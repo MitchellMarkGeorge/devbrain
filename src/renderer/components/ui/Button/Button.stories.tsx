@@ -137,3 +137,17 @@ export const Pressed: Story = {
 export const Disabled: Story = {
   args: { disabled: true },
 };
+
+/** Rendered as a link (`render={<a />}`, or a router `Link`): it looks like the button, no underline. */
+export const AsLink: Story = {
+  render: () => (
+    <Flex gap="2">
+      <Button render={<a href="#create" />} nativeButton={false} icon={Plus}>
+        Create Workspace
+      </Button>
+      <Button render={<a href="#all" />} nativeButton={false} variant="link">
+        All workspaces
+      </Button>
+    </Flex>
+  ),
+};

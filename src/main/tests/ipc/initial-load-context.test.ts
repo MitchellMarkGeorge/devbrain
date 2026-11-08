@@ -23,9 +23,8 @@ describe('initialLoadContext', () => {
     expect(initialLoadContext(null)).toEqual({
       devBrainAvailable: false,
       current: null,
-      last: null,
       workspaces: { items: [], nextCursor: null },
-      theme: 'system',
+      settings: null,
     });
   });
 
@@ -33,34 +32,35 @@ describe('initialLoadContext', () => {
     expect(initialLoadContext(devBrain)).toEqual({
       devBrainAvailable: true,
       current: null,
-      last: null,
       workspaces: { items: [], nextCursor: null },
-      theme: 'system',
+      settings: devBrain.settings.get('settings'),
     });
   });
 
-  it('carries the theme setting, so the page paints in it from the start', () => {
+  it('carries the settings, so the page paints in its theme from the start', () => {
     devBrain.settings.set('settings.theme', 'dark');
-    expect(initialLoadContext(devBrain).theme).toBe('dark');
+    devBrain.settings.set('settings.general.openToLastPage', true);
+    const { settings } = initialLoadContext(devBrain);
+    expect(settings).toEqual(devBrain.settings.get('settings'));
+    expect(settings?.theme).toBe('dark');
+    expect(settings?.general.openToLastPage).toBe(true);
   });
 
-  it('names the workspace openLast would open while none is open', async () => {
+  it('lists the workspaces, and has none open until the renderer opens one', async () => {
     const work = await createWorkspace(devBrain, 'Work');
     await createWorkspace(devBrain, 'Home');
     devBrain.settings.set('state.lastWorkspaceId', work);
 
     const context = initialLoadContext(devBrain);
     expect(context.current).toBeNull();
-    expect(context.last).toMatchObject({ id: work, name: 'Work' });
     expect(context.workspaces.items.map(({ name }) => name)).toEqual(['Work', 'Home']);
   });
 
-  it('has the open workspace, and no last one to open, once one is open', async () => {
+  it('has the open workspace once one is open, as on a reload', async () => {
     const work = await createWorkspace(devBrain, 'Work');
-    devBrain.settings.set('state.lastWorkspaceId', work);
     await devBrain.workspaces.open(work);
 
-    expect(initialLoadContext(devBrain)).toMatchObject({ current: { id: work }, last: null });
+    expect(initialLoadContext(devBrain)).toMatchObject({ current: { id: work } });
   });
 });
 

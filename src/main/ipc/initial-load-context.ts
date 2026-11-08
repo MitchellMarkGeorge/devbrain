@@ -3,7 +3,6 @@ import { IPC_INITIAL_LOAD_CONTEXT_CHANNEL } from '@common/ipc/constants';
 import type { InitialLoadContext } from '@common/ipc/types';
 import type { Page, WorkspaceInfo } from '@common/types';
 import type { DevBrain } from '@main/core';
-import { lastOpenedWorkspace } from '../runtime/start';
 
 const NO_WORKSPACES: Page<WorkspaceInfo> = { items: [], nextCursor: null };
 
@@ -12,19 +11,15 @@ export function initialLoadContext(devBrain: DevBrain | null): InitialLoadContex
     return {
       devBrainAvailable: false,
       current: null,
-      last: null,
       workspaces: NO_WORKSPACES,
-      theme: 'system',
+      settings: null,
     };
   }
-  const current = devBrain.currentWorkspace?.info ?? null;
-  const lastId = current === null ? lastOpenedWorkspace(devBrain) : null;
   return {
     devBrainAvailable: true,
-    current,
-    last: lastId === null ? null : devBrain.workspaces.getById(lastId),
+    current: devBrain.currentWorkspace?.info ?? null,
     workspaces: devBrain.workspaces.listAll(),
-    theme: devBrain.settings.get('settings.theme'),
+    settings: devBrain.settings.get('settings'),
   };
 }
 

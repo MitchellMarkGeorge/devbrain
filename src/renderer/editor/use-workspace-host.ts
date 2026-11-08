@@ -20,7 +20,7 @@ export function useWorkspaceEditorHost(): Pick<EditorHost, 'searchEntities' | 'o
     () => ({
       async searchEntities(query: string, types: MentionType[]): Promise<EditorEntity[]> {
         try {
-          const results = await queryClient.fetchQuery(
+          const results = await queryClient.query(
             trpc.search.search.queryOptions({ query, entityType: types, limit: 20 }),
           );
           return results.map((result) => ({

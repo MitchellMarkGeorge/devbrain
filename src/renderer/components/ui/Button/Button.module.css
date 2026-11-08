@@ -12,6 +12,8 @@
   background: transparent;
   color: var(--secondary-foreground);
   font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  /* rendered as a link (render={<a />}), it looks the same: no underline */
+  text-decoration: none;
   white-space: nowrap;
   cursor: pointer;
   transition:
