@@ -1,12 +1,12 @@
 import { createRouter, type RouterHistory } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
 import type { WorkspaceId } from '@common/ids';
+import { workspaceIdOfPage } from '@common/types';
 import type { events as appEvents, ipc as appIpc, trpc as appTrpc } from './ipc';
 import { routeTree } from './routeTree.gen';
 import { NotFoundPage } from './pages/app/NotFoundPage';
 import { PagePending } from './pages/app/PagePending';
 import { RouteErrorPage } from './pages/app/RouteErrorPage';
-import { workspaceShownAt } from './workspace/shown';
 
 // The app's one router (docs/renderer/routing.md). main.tsx makes it once, with hash history, and
 // never makes another: not at startup, a switch of workspace or onboarding. Tests make one per
@@ -71,16 +71,9 @@ export type AppRouter = ReturnType<typeof createAppRouter>;
 export function followOutsideChanges(router: AppRouter, events: typeof appEvents): () => void {
   return events.on('workspace.changed', ({ id, opening }) => {
     if (opening !== null || router.state.isLoading) return;
-    const location = router.latestLocation;
-    const shown = workspaceShownAt(location);
+    const shown = workspaceIdOfPage(router.latestLocation.pathname);
     if (id === null) {
-      if (shown === null) return;
-      // Create workspace stays, forgetting the workspace behind it; any other page goes to onboarding
-      if (location.pathname === '/workspaces/new') {
-        void router.navigate({ to: '/workspaces/new', replace: true, state: {} });
-      } else {
-        void router.navigate({ to: '/onboarding', replace: true });
-      }
+      if (shown !== null) void router.navigate({ to: '/onboarding', replace: true });
     } else if (shown !== id) {
       void router.navigate({ to: '/app/$workspaceId', params: { workspaceId: id } });
     }
@@ -89,7 +82,7 @@ export function followOutsideChanges(router: AppRouter, events: typeof appEvents
 
 declare module '@tanstack/history' {
   interface HistoryState {
-    /** on a page that names no workspace (Create workspace): the one open behind it (`workspaceShownAt`) */
+    /** on Create workspace, which names no workspace: the one open behind it (`workspaceShownAt`) */
     openWorkspaceId?: WorkspaceId;
   }
 }

@@ -249,20 +249,6 @@ describe('in the app', () => {
     expect(main.open).toBe(WORK);
   });
 
-  it('the workspace behind Create workspace deleted elsewhere: the page stays, forgetting it', async () => {
-    const main = new FakeMain([workspace(WORK, 'Work'), workspace(HOME, 'Home')], WORK);
-    const app = await onWork(main);
-    await openMenuItem(app, 'New workspace…');
-    await eventually(() => expect(app.text()).toContain('It opens once it’s created.'));
-    type(app.container.querySelector('input')!, 'Draft');
-    await (await import('../../ipc')).ipc.workspaces.delete.mutate({ id: WORK });
-    await eventually(() => expect(app.text()).not.toContain('It opens once it’s created.'));
-    expect(app.path()).toBe('/workspaces/new');
-    expect(app.router.state.location.state.openWorkspaceId).toBeUndefined();
-    // the form kept what was typed
-    expect(app.container.querySelector('input')!.value).toBe('Draft');
-  });
-
   it('Open folder… adds a folder and switches to it', async () => {
     const main = new FakeMain([workspace(WORK, 'Work')], WORK);
     main.importResult = workspace('wsp_carried', 'Carried');

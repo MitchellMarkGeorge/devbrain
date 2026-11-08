@@ -140,10 +140,9 @@ location like any other, with Back and Forward.
   location's workspace as the one its URL names, else that one. `useWorkspaceLoading` compares the
   target with it, so going back to the workspace still open shows no splash; without it the window
   would flash the splash on every Back, as the page names no workspace.
-- **Outside changes** (`followOutsideChanges`) read the page's workspace the same way: the
-  workspace behind it deleted or closed elsewhere leaves the page where it is (what was typed
-  stays) and drops `openWorkspaceId`; another workspace opened elsewhere
-  brings the window to it, as from any page.
+- **Outside changes** are left alone: `followOutsideChanges` reads the URL only, and Create
+  workspace's names none. Nothing realistic closes the workspace behind the form; if something
+  does, Back finds it gone and its route shows the error, as for any page.
 - **Last page:** main keeps pages under `/app/<id>` only, so the window never reopens on the form.
 - **Not a page in the workspace:** `/app/$workspaceId/…` would draw the old workspace's sidebar
   around a form for another workspace, save the form as its last page, and need a pathless layout
@@ -194,8 +193,7 @@ router's `defaultPendingComponent` it does here, so no pending bar of our own wa
   memory history: startup (setting on and off, no workspace, a reload, no initial load context,
   DevBrain unavailable), switches (the old page never shown and never refetching, watched with a
   `MutationObserver`; the splash held until a slow page is ready, and for 600ms), the menu, onboarding, Create workspace (from
-  Welcome and from the app: Back and Esc with no splash, the history after creating, the workspace
-  behind it deleted elsewhere) and Open Folder with each error dialog, failed opens before and after the old workspace closed, deleting
+  Welcome and from the app: Back and Esc with no splash, the history after creating) and Open Folder with each error dialog, failed opens before and after the old workspace closed, deleting
   the open workspace, Back and Forward, rapid navigation, and preloads.
   `src/renderer/tests/workspace` unit-tests the helpers, and
   `src/renderer/tests/ipc/query-invalidator.test.ts` the dropping of a workspace's data.
