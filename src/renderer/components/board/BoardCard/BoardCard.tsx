@@ -38,7 +38,7 @@ function fromControl(event: MouseEvent<HTMLElement>): boolean {
 /**
  * A task on the board, drawn from core's `TaskListItem`: the title, then its relations as the pills
  * a task row uses (the key, its subtasks, the linked event or note, the project), then priority and
- * the due date (worded and coloured from `useFormat()`'s `now`).
+ * the due date (worded and coloured from `useFormat()`, which moves once a day).
  * A borderless filled card; focusable, so it opens on Enter as well as on click.
  */
 export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function BoardCard(

@@ -49,7 +49,7 @@ export const NoteCard = forwardRef<HTMLDivElement, NoteCardProps>(function NoteC
   { note, size, render, ...props },
   ref,
 ) {
-  const { formatRelative } = useFormat();
+  const { formatRelative } = useFormat('minute');
   const link =
     size === 'sm' ? null : note.link ? (
       <EntityPill entity={note.link} />

@@ -45,7 +45,7 @@ export const TrashRow = forwardRef<HTMLDivElement, TrashRowProps>(function Trash
   { item, onRestore, onDelete, ...props },
   ref,
 ) {
-  const { formatRelative } = useFormat();
+  const { formatRelative } = useFormat('minute');
   const color = resolveColor(item.color);
   const trashed = formatRelative(item.archivedAt);
   const icon =

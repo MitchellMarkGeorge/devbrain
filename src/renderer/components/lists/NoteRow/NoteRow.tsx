@@ -28,7 +28,7 @@ export const NoteRow = forwardRef<HTMLDivElement, NoteRowProps>(function NoteRow
   { note, ...props },
   ref,
 ) {
-  const { formatRelative } = useFormat();
+  const { formatRelative } = useFormat('minute');
   const pills = note.link || note.project;
   return (
     <ListRow

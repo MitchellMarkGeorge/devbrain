@@ -511,9 +511,12 @@ export function TaskRow({ task }: { task: TaskRowData }) {
   `TaskRow` takes a `Pick` of it. A field core renames is a type error in the component at once,
   with no type test needed. The `Pick` keeps the prop to what the row reads, so a story's fixture
   only fills those fields.
-- **`FormatProvider`** (in `components/lib`) supplies `now` (ticking once a minute, so "In 12 min"
+- **`FormatProvider`** (in `components/lib`) supplies a clock (ticking once a minute, so "In 12m"
   counts down) and `timeFormat` from settings, and wraps luxon (`useFormat()` returns
-  `formatDue`, `formatRelative`, `formatTime`). The app mounts it once in `/app`. Storybook mounts
+  `formatDue`, `formatRelative`, `formatTime`). A component reads the clock at the precision it
+  needs, `useFormat('day')` (the default) or `useFormat('minute')`, through
+  `useSyncExternalStore`, so a task row re-renders at midnight and only the rows showing a relative
+  time ("2h ago") re-render each minute. The app mounts it once in `/app`. Storybook mounts
   it in a decorator with a fixed `now` (22 Jun 2026, as the screens use), so stories stay stable.
 - **Enums.** `TaskStatus`, `TaskPriority` and `ProjectStatus` move to `src/common` with the types
   (X1). The components' string unions (`'not-started' | …`) go away, and the derived `'overdue'`

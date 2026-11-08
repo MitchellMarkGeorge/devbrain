@@ -1,4 +1,11 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react';
 import { DateTime } from 'luxon';
 import type { AppSettings } from '@common/types';
 
@@ -7,7 +14,10 @@ export type TimeFormat = AppSettings['general']['timeFormat'];
 
 /** What `useFormat()` returns: the current minute, and the formats on it (luxon, and Intl for relative times). */
 export interface Format {
-  /** the current time, to the minute; it changes once a minute, so relative dates count down */
+  /**
+   * the current time at the precision `useFormat` was asked for: the start of today, or of the
+   * current minute
+   */
   now: Date;
   timeFormat: TimeFormat;
   /**
@@ -88,35 +98,67 @@ export function createFormat(now: Date, timeFormat: TimeFormat = '12'): Format {
   };
 }
 
-const FormatContext = createContext<Format | null>(null);
+/** How often a component needs `now` to move: its words change daily, or by the minute. */
+export type Precision = 'day' | 'minute';
 
-// the current time at the start of its minute
-function thisMinute(): Date {
-  const at = new Date();
-  at.setSeconds(0, 0);
-  return at;
+/** The current time, ticking at the start of each minute; or fixed, for stories and tests. */
+export interface Clock {
+  subscribe: (listener: () => void) => () => void;
+  /** milliseconds since the epoch, at the start of the current minute */
+  now: () => number;
 }
 
-/** The current minute, changing at the start of each minute. */
-function useMinuteClock(enabled: boolean): Date {
-  const [now, setNow] = useState(thisMinute);
-  useEffect(() => {
-    if (!enabled) return;
-    let timer: ReturnType<typeof setTimeout>;
-    const schedule = () => {
-      timer = setTimeout(
-        () => {
-          setNow(thisMinute());
-          schedule();
-        },
-        60_000 - (Date.now() % 60_000),
-      );
-    };
+const startOfMinute = (ms: number) => ms - (ms % MINUTE);
+const startOfDay = (ms: number) => {
+  const at = new Date(ms);
+  return new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime();
+};
+
+/**
+ * A clock that ticks at the start of each minute while something listens to it: one timer for
+ * everything below the provider, and none while nothing shows a time that moves.
+ */
+export function createMinuteClock(): Clock {
+  const listeners = new Set<() => void>();
+  let current = startOfMinute(Date.now());
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  // the next minute's start; after sleep the timer fires late, and that tick catches up
+  const schedule = () => {
+    timer = setTimeout(tick, MINUTE - (Date.now() % MINUTE));
+  };
+  const tick = () => {
+    current = startOfMinute(Date.now());
+    listeners.forEach((listener) => listener());
     schedule();
-    return () => clearTimeout(timer);
-  }, [enabled]);
-  return now;
+  };
+  return {
+    now: () => current,
+    subscribe(listener) {
+      listeners.add(listener);
+      if (listeners.size === 1) {
+        current = startOfMinute(Date.now());
+        schedule();
+      }
+      return () => {
+        listeners.delete(listener);
+        if (listeners.size === 0) clearTimeout(timer);
+      };
+    },
+  };
 }
+
+/** A clock stopped at `at` (to its minute). */
+export function fixedClock(at: Date): Clock {
+  const ms = startOfMinute(at.getTime());
+  return { now: () => ms, subscribe: () => () => {} };
+}
+
+interface FormatContextValue {
+  clock: Clock;
+  timeFormat: TimeFormat;
+}
+
+const FormatContext = createContext<FormatContextValue | null>(null);
 
 export interface FormatProviderProps {
   /** a fixed time, for stories and tests; without it `now` ticks once a minute */
@@ -127,29 +169,48 @@ export interface FormatProviderProps {
 }
 
 /**
- * Supplies `now` and the date formats to every entity component below it. The app mounts it once
- * in `/app` with the time format from settings; Storybook mounts it with a fixed `now`.
+ * Supplies the clock and the time format to every entity component below it. The app mounts it
+ * once, with the time format from settings; Storybook mounts it with a
+ * fixed `now`. Its value only changes with the time format: the clock reaches components through
+ * `useFormat(precision)`, so each re-renders only when `now` moves at the precision it reads.
  */
 export function FormatProvider({
   now: fixedNow,
   timeFormat = '12',
   children,
 }: FormatProviderProps) {
-  const ticking = useMinuteClock(fixedNow == null);
-  const now = fixedNow ?? ticking;
-  const time = now.getTime();
-  const value = useMemo(() => createFormat(new Date(time), timeFormat), [time, timeFormat]);
+  const fixed = fixedNow?.getTime();
+  const clock = useMemo(
+    () => (fixed == null ? createMinuteClock() : fixedClock(new Date(fixed))),
+    [fixed],
+  );
+  const value = useMemo(() => ({ clock, timeFormat }), [clock, timeFormat]);
   return <FormatContext.Provider value={value}>{children}</FormatContext.Provider>;
 }
 
 /**
- * The current minute and the date formats, from the nearest `FormatProvider`. Outside one it
- * formats against the time of the first render, in 12 hour time, and does not tick.
+ * The date formats against `now` at a precision, from the nearest `FormatProvider`. The component
+ * re-renders only when `now` moves at that precision:
+ *
+ * - `'day'` (the default): at midnight. For due dates, overdue, "Done Jun 12" and times of day.
+ *   `now` is the start of today, so `formatRelative` is not for it.
+ * - `'minute'`: at the start of each minute. For relative times ("2h ago", "In 12m") and event
+ *   countdowns.
+ *
+ * Outside a provider it formats against the time of its first render, in 12 hour time, and does
+ * not tick.
  */
-export function useFormat(): Format {
+export function useFormat(precision: Precision = 'day'): Format {
   const context = useContext(FormatContext);
-  const [fallback] = useState(() => (context ? null : createFormat(thisMinute())));
-  return context ?? fallback ?? createFormat(thisMinute());
+  const [fallback] = useState<FormatContextValue>(() => ({
+    clock: fixedClock(new Date()),
+    timeFormat: '12',
+  }));
+  const { clock, timeFormat } = context ?? fallback;
+  const round = precision === 'day' ? startOfDay : startOfMinute;
+  // a number, so React's Object.is check skips the re-render while it is unchanged
+  const now = useSyncExternalStore(clock.subscribe, () => round(clock.now()));
+  return useMemo(() => createFormat(new Date(now), timeFormat), [now, timeFormat]);
 }
 
 /** A due date as a phrase: "Due today", "Due in 3 days", "Due Jul 1" */

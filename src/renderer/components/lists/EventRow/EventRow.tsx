@@ -35,7 +35,7 @@ export const EventRow = forwardRef<HTMLDivElement, EventRowProps>(function Event
   { event, calendarColor, onJoin, onOpen, className, style, onClick, onKeyDown, ...props },
   ref,
 ) {
-  const format = useFormat();
+  const format = useFormat('minute');
   const repeats = repeatLabel(event.recurrenceRule);
   const countdown = eventCountdown(event, format);
   const color = resolveColor(event.color) ?? resolveColor(calendarColor, 'green');

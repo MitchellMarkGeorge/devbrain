@@ -121,7 +121,8 @@ interface Parts {
 
 /** What the card shows below its header, worded from the entity. */
 function usePartsOf(entity: HoverCardEntity): Parts {
-  const format = useFormat();
+  // only a note's "Edited 2h ago" and a source's "Synced 3m ago" move by the minute
+  const format = useFormat(entity.type === 'note' || entity.type === 'source' ? 'minute' : 'day');
   switch (entity.type) {
     case 'project': {
       const stats = entity.stats;

@@ -128,7 +128,8 @@ export interface HomeMeetingRowProps extends Omit<
  */
 export const HomeMeetingRow = forwardRef<HTMLDivElement, HomeMeetingRowProps>(
   function HomeMeetingRow({ event, calendarColor, onJoin, current, ...props }, ref) {
-    const format = useFormat();
+    // only the current meeting counts down; the others show a time of day
+    const format = useFormat(current ? 'minute' : 'day');
     const color = resolveColor(event.color) ?? resolveColor(calendarColor, 'green');
     const today = isToday(event.startAt, format.now);
     const time = event.allDay ? 'All day' : format.formatTime(event.startAt);
