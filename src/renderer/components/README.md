@@ -46,10 +46,23 @@ ESLint enforces steps 2 and 3 (`eslint.config.js`); stories may import anything.
 
 Also here:
 
-- `types.ts`: the shared domain types (`TaskStatus`, `Priority`, `Swatch`, `CalendarEvent`, …) and
-  their colour helpers.
-- `lib/`: helpers (`cn`, `mergeClassName`), and the window frame (`platform.ts`:
-  `WindowFrameProvider`, `usePlatform`, `formatKeys`).
+- `types.ts`: what the components add to core's enums (`TaskStatus`, `TaskPriority`,
+  `ProjectStatus`, `ProjectHealth`, imported from `@common/types`): their labels and colour tokens,
+  `isOverdue`/`dueTone`, `resolveColor` (swatch names and `#rrggbb` checked with `hexColorSchema`)
+  and `cssColor`, plus the components' own `Swatch`, `Provider` and `CalendarEvent`.
+- `event-text.ts` and `project-text.ts`: how events and projects are worded (an event's time and
+  repeat rule, how soon it starts; "Done Jun 12").
+- `lib/`: helpers (`cn`, `mergeClassName`), the window frame (`platform.ts`:
+  `WindowFrameProvider`, `usePlatform`, `formatKeys`), and dates (`format.tsx`: `FormatProvider`
+  and `useFormat()`, on luxon and `Intl.RelativeTimeFormat`). `story-dates.ts` is the stories' fixed `now` (22 Jun 2026, 9:48 AM).
+
+**Entity components take core's own shapes.** `TaskRow`, `BoardCard`, `NoteRow`, `NoteCard`,
+`ProjectRow`, `ProjectCard`, `EventRow` and the rest take the row core returns (a
+`TaskListItem`, a `Project`, an `Event`) as a `Pick` of its shared type, with no mapping step in
+the page, and derive what they draw (overdue, "Today", 10:30 AM, colours) through `useFormat()`.
+Their stories' fixtures are core-shaped rows with real `Date`s around the story's `now`
+(`lists/TaskRow/fixtures.ts`, `notes/NoteCard/fixtures.ts`, `projects/ProjectCard/fixtures.ts`).
+
 - `screens/`: the `Screens/*` stories, which rebuild the designed screens of the Figma file from
   these components (Tasks, Task detail, Notes, Projects, Calendar, Home, Settings, Search, menus,
   pickers, sheets, the editor, create dialogs, onboarding and app-wide states) as a check that they

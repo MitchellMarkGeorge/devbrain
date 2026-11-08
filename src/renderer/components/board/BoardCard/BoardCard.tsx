@@ -7,39 +7,24 @@ import { EntityPill } from '../../entities/EntityPill';
 import { PriorityIcon } from '../../entities/PriorityIcon';
 import { ProgressRing } from '../../ui/ProgressRing';
 import { SourcePill } from '../../entities/SourcePill';
-import type { Priority, Provider, Swatch, TaskStatus } from '../../types';
+import { TaskStatus, type TaskListItem } from '@common/types';
+import { useFormat } from '../../lib/format';
+import { dueTone, providerOf } from '../../types';
 import styles from './BoardCard.module.css';
 
-/** What a board card shows of a task. */
-export interface BoardTask {
-  title: string;
-  status: TaskStatus;
-  priority: Priority;
-  /** a synced task's key ("ENG-124"), shown in a SourcePill */
-  key?: string;
-  /** where a synced task comes from (linear by default) */
-  source?: Provider;
-  project?: string;
-  /** the project's folder colour: a swatch name or a CSS colour */
-  projectColor?: Swatch | string;
-  /** the linked event, shown with its calendar's bar on the top line */
-  event?: string;
-  eventColor?: Swatch | string;
-  /** the linked note, when there is no event */
-  note?: string;
-  /** subtasks done and total */
-  subtasks?: [done: number, total: number];
-  /** a short date: "Today", "Sep 28" */
-  date?: string;
-  dateTone?: 'today' | 'overdue';
-}
+/** The fields of core's `TaskListItem` a board card reads; pass the row as it is. */
+export type BoardCardData = Pick<
+  TaskListItem,
+  'title' | 'status' | 'priority' | 'dueDate' | 'subtaskProgress' | 'project' | 'link' | 'external'
+>;
 
 export const boardCardVariants = cva(styles.card, {
   variants: { completed: { true: styles.completed } },
 });
 
 export interface BoardCardProps extends useRender.ComponentProps<'div'> {
-  task: BoardTask;
+  /** core's task as it is: a `TaskListItem` */
+  task: BoardCardData;
   /** draw a state without the pointer or keyboard, for static pictures */
   state?: 'hover' | 'focus';
 }
@@ -51,48 +36,37 @@ function fromControl(event: MouseEvent<HTMLElement>): boolean {
 }
 
 /**
- * A task on the board: the title, then its relations as the pills a task row uses (the source
- * key, the parent's subtasks, the linked event or note, the project), then priority and the date.
+ * A task on the board, drawn from core's `TaskListItem`: the title, then its relations as the pills
+ * a task row uses (the key, its subtasks, the linked event or note, the project), then priority and
+ * the due date (worded and coloured from `useFormat()`, which moves once a day).
  * A borderless filled card; focusable, so it opens on Enter as well as on click.
  */
 export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function BoardCard(
   { task, state, render, onClick, ...props },
   ref,
 ) {
-  const done = task.status === 'completed';
+  const { now, formatDue } = useFormat();
+  const done = task.status === TaskStatus.COMPLETED;
+  const { external, subtaskProgress: subtasks } = task;
   const pills = [
-    task.key && (
-      <SourcePill key="source" provider={task.source}>
-        {task.key}
+    external?.key && (
+      <SourcePill key="source" provider={providerOf(external)}>
+        {external.key}
       </SourcePill>
     ),
-    task.subtasks && (
+    subtasks && (
       <Badge
         key="subtasks"
         muted
-        icon={<ProgressRing value={task.subtasks[0]} total={task.subtasks[1]} size={12} />}
+        icon={<ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />}
       >
-        {task.subtasks[0]}/{task.subtasks[1]}
+        {subtasks.completed}/{subtasks.total}
       </Badge>
     ),
-    task.event ? (
-      <EntityPill key="event" type="event" color={task.eventColor}>
-        {task.event}
-      </EntityPill>
-    ) : (
-      task.note && (
-        <EntityPill key="note" type="note">
-          {task.note}
-        </EntityPill>
-      )
-    ),
-    task.project && (
-      <EntityPill key="project" type="project" color={task.projectColor}>
-        {task.project}
-      </EntityPill>
-    ),
+    task.link && <EntityPill key="link" entity={task.link} />,
+    task.project && <EntityPill key="project" entity={{ type: 'project', ...task.project }} />,
   ].filter(Boolean);
-  const meta = !done || task.date;
+  const meta = !done || task.dueDate;
 
   const children = (
     <>
@@ -101,9 +75,9 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
       {meta && (
         <div className={styles.meta}>
           {!done && <PriorityIcon priority={task.priority} />}
-          {task.date && (
-            <span className={styles.date} data-tone={done ? undefined : task.dateTone}>
-              {task.date}
+          {task.dueDate && (
+            <span className={styles.date} data-tone={dueTone(task.status, task.dueDate, now)}>
+              {formatDue(task.dueDate)}
             </span>
           )}
         </div>

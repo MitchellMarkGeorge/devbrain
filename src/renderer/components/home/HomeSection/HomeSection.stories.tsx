@@ -1,11 +1,18 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Video } from 'lucide-react';
-import { Button } from '../../ui/Button';
-import { ColourBar } from '../../ui/ColourBar';
-import { HomeRow } from '../HomeRow';
+import { TaskPriority, TaskStatus } from '@common/types';
 import { NoteCard } from '../../notes/NoteCard';
 import { TaskRow } from '../../lists/TaskRow';
 import { HomeCards, HomeSection } from './HomeSection';
+import {
+  sampleEventLink,
+  sampleLinear,
+  sampleProject,
+  sampleTask,
+} from '../../lists/TaskRow/fixtures';
+import { storyAgo, storyDate } from '../../lib/story-dates';
+import { sampleNote } from '../../notes/NoteCard/fixtures';
+import { HomeMeetingRow } from '../../home/HomeRow';
+import { SAMPLE_MEETINGS } from '../../home/HomeRow/fixtures';
 
 const meta = {
   title: 'Home/HomeSection',
@@ -27,19 +34,9 @@ type Story = StoryObj<typeof meta>;
 export const Meetings: Story = {
   render: (args) => (
     <HomeSection {...args}>
-      <HomeRow
-        current
-        icon={<ColourBar color="green" />}
-        title="Sprint Planning"
-        meta="In 12 min"
-        metaTone="today"
-      >
-        <Button size="xs" icon={Video}>
-          Join
-        </Button>
-      </HomeRow>
-      <HomeRow icon={<ColourBar color="green" />} title="Mitchell / Jesse 1:1" meta="10:30" />
-      <HomeRow icon={<ColourBar color="blue" />} title="Design Review" meta="1:00" />
+      {SAMPLE_MEETINGS.map((meeting, i) => (
+        <HomeMeetingRow key={meeting.title} event={meeting} current={i === 0} />
+      ))}
     </HomeSection>
   ),
 };
@@ -50,32 +47,27 @@ export const Tasks: Story = {
     <HomeSection title="Tasks" link="All 6 tasks" more="3 more tasks today">
       <TaskRow
         compact
-        task={{
+        task={sampleTask({
           title: 'Refactor token refresh logic',
-          status: 'in-progress',
-          key: 'ENG-131',
-          project: 'Auth Overhaul',
-          projectColor: 'blue',
-          priority: 'high',
-          date: 'Jun 18',
-          dateTone: 'overdue',
-        }}
+          status: TaskStatus.IN_PROGRESS,
+          priority: TaskPriority.HIGH,
+          dueDate: storyDate(-4),
+          external: sampleLinear('ENG-131'),
+          project: sampleProject('Auth Overhaul', 'blue'),
+        })}
       />
       <TaskRow
         compact
-        task={{
+        task={sampleTask({
           title: 'Implement OAuth2 PKCE flow',
-          status: 'in-progress',
-          key: 'ENG-124',
-          subtasks: [3, 4],
-          event: 'Mitchell / Jesse 1:1',
-          eventColor: 'green',
-          project: 'Auth Overhaul',
-          projectColor: 'blue',
-          priority: 'high',
-          date: 'Today',
-          dateTone: 'today',
-        }}
+          status: TaskStatus.IN_PROGRESS,
+          priority: TaskPriority.HIGH,
+          dueDate: storyDate(0),
+          external: sampleLinear('ENG-124'),
+          subtaskProgress: { completed: 3, total: 4 },
+          project: sampleProject('Auth Overhaul', 'blue'),
+          link: sampleEventLink('Mitchell / Jesse 1:1', 'green'),
+        })}
       />
     </HomeSection>
   ),
@@ -88,21 +80,28 @@ export const Cards: Story = {
       <HomeCards>
         <NoteCard
           size="sm"
-          title="PKCE design notes"
-          updated="Yesterday"
-          preview="S256 challenge, 96-char verifier and a 10-minute code TTL, behind a feature flag."
+          note={sampleNote({
+            title: 'PKCE design notes',
+            updatedAt: storyAgo(60 * 24),
+            preview:
+              'S256 challenge, 96-char verifier and a 10-minute code TTL, behind a feature flag.',
+          })}
         />
         <NoteCard
           size="sm"
-          title="Sprint 15 planning"
-          updated="Yesterday"
-          preview="Ship PKCE behind a flag, finish the token audit, start the rate-limit spike."
+          note={sampleNote({
+            title: 'Sprint 15 planning',
+            updatedAt: storyAgo(60 * 24),
+            preview: 'Ship PKCE behind a flag, finish the token audit, start the rate-limit spike.',
+          })}
         />
         <NoteCard
           size="sm"
-          title="Architecture ADR #4 — PKCE"
-          updated="Jun 19"
-          preview="Adopt PKCE for every public client and retire the implicit flow."
+          note={sampleNote({
+            title: 'Architecture ADR #4 — PKCE',
+            updatedAt: storyAgo(60 * 24 * 3),
+            preview: 'Adopt PKCE for every public client and retire the implicit flow.',
+          })}
         />
       </HomeCards>
     </HomeSection>

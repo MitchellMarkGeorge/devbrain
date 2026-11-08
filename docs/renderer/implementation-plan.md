@@ -511,9 +511,12 @@ export function TaskRow({ task }: { task: TaskRowData }) {
   `TaskRow` takes a `Pick` of it. A field core renames is a type error in the component at once,
   with no type test needed. The `Pick` keeps the prop to what the row reads, so a story's fixture
   only fills those fields.
-- **`FormatProvider`** (in `components/lib`) supplies `now` (ticking once a minute, so "In 12 min"
+- **`FormatProvider`** (in `components/lib`) supplies a clock (ticking once a minute, so "In 12m"
   counts down) and `timeFormat` from settings, and wraps luxon (`useFormat()` returns
-  `formatDue`, `formatRelative`, `formatTime`). The app mounts it once in `/app`. Storybook mounts
+  `formatDue`, `formatRelative`, `formatTime`). A component reads the clock at the precision it
+  needs, `useFormat('day')` (the default) or `useFormat('minute')`, through
+  `useSyncExternalStore`, so a task row re-renders at midnight and only the rows showing a relative
+  time ("2h ago") re-render each minute. The app mounts it once in `/app`. Storybook mounts
   it in a decorator with a fixed `now` (22 Jun 2026, as the screens use), so stories stay stable.
 - **Enums.** `TaskStatus`, `TaskPriority` and `ProjectStatus` move to `src/common` with the types
   (X1). The components' string unions (`'not-started' | …`) go away, and the derived `'overdue'`
@@ -534,10 +537,11 @@ before the pages, so every page is written against the new props once.
   from the task's `link`, and the page picks which query feeds which list.
 - **`toEventInput`**, the FullCalendar adapter. It's a translation to a library's format, not to a
   component's props.
-- **Dates use luxon**, wrapped once in `FormatProvider`:
+- **Dates use luxon**, and relative times `Intl.RelativeTimeFormat`, wrapped once in `FormatProvider`:
   - due dates: `toRelativeCalendar()` within a week ("Today", "Tomorrow", "Yesterday"), else
     `toLocaleString({ month: 'short', day: 'numeric' })` ("Jul 1");
-  - edit times: `toRelative({ style: 'narrow' })` ("2h ago");
+  - edit times and countdowns: `Intl.RelativeTimeFormat` in its narrow style, in the largest whole
+    unit ("2h ago", "In 12m"); luxon's `toRelative` has fixed English ("2 hr. ago");
   - times: `toLocaleString(DateTime.TIME_SIMPLE, { hourCycle: timeFormat === '24' ? 'h23' : 'h12' })`.
 
   Where luxon's wording differs from a Figma string, the design copy follows luxon rather than the

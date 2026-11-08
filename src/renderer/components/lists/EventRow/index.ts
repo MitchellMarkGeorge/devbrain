@@ -1,1 +1,1 @@
-export { EventRow, type EventRowEvent, type EventRowProps } from './EventRow';
+export { EventRow, type EventRowData, type EventRowProps } from './EventRow';

@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { EntityPill } from '../../entities/EntityPill';
 import { SourcePill } from '../../entities/SourcePill';
+import { TaskStatus } from '@common/types';
+import { storyAgo } from '../../lib/story-dates';
 import { TrashRow } from './TrashRow';
 
 const meta = {
@@ -8,10 +10,10 @@ const meta = {
   component: TrashRow,
   args: {
     item: {
-      kind: 'note',
+      entityType: 'notes',
       title: 'Sprint 14 retro',
-      excerpt: 'What went well, what to change and action items for sprint 15.',
-      trashed: 'Trashed 3d ago',
+      preview: 'What went well, what to change and action items for sprint 15.',
+      archivedAt: storyAgo(60 * 24 * 3),
     },
     onSelect: () => {},
     onRestore: () => {},
@@ -38,31 +40,29 @@ export const Kinds: Story = {
     <div>
       <TrashRow
         item={{
-          kind: 'project',
+          entityType: 'projects',
           title: 'AI Action Items',
           color: 'green',
-          trashed: 'Trashed 1d ago',
+          archivedAt: storyAgo(60 * 24),
         }}
       />
       <TrashRow
         item={{
-          kind: 'task',
+          entityType: 'tasks',
           title: 'Set up API Gateway',
-          status: 'completed',
-          trashed: 'Trashed 5d ago',
+          status: TaskStatus.COMPLETED,
+          archivedAt: storyAgo(60 * 24 * 5),
         }}
         titlePills={<SourcePill>ENG-102</SourcePill>}
       >
-        <EntityPill type="project" color="amber">
-          API Gateway v2
-        </EntityPill>
+        <EntityPill entity={{ type: 'project', title: 'API Gateway v2', color: 'amber' }} />
       </TrashRow>
       <TrashRow
         item={{
-          kind: 'note',
+          entityType: 'notes',
           title: 'Mitchell / Jesse 1:1 notes',
-          excerpt: 'Agenda, follow-ups and decisions from the weekly 1:1.',
-          trashed: 'Trashed 1w ago',
+          preview: 'Agenda, follow-ups and decisions from the weekly 1:1.',
+          archivedAt: storyAgo(60 * 24 * 8),
         }}
       />
     </div>

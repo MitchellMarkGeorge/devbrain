@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { TaskStatus } from '@common/types';
 import { TimeGrid } from './TimeGrid';
 import type { CalendarEvent } from '../calendar-events';
 
@@ -52,7 +53,7 @@ const EVENTS: CalendarEvent[] = [
     start: at(23, 10),
     end: at(23, 11),
     kind: 'task',
-    status: 'not-started',
+    status: TaskStatus.NOT_STARTED,
   },
   { id: 'focus', title: 'Focus time', start: at(24, 10), end: at(24, 12), kind: 'focus' },
   {

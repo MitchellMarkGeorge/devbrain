@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Stack } from '../../layout/Flex';
 import { Text } from '../../layout/Text';
-import { BUSY_TASK, SAMPLE_SUBTASKS, SAMPLE_TASKS } from './fixtures';
+import { TaskStatus } from '@common/types';
+import { storyDate } from '../../lib/story-dates';
+import { BUSY_TASK, SAMPLE_SUBTASKS, SAMPLE_TASKS, sampleTask } from './fixtures';
 import { TaskRow } from './TaskRow';
 
 const meta = {
@@ -34,7 +36,11 @@ const Label = ({ children }: { children: string }) => (
   </Text>
 );
 
-/** Rest, hover, selected, keyboard focus, completed, overdue and subtask. */
+/**
+ * Rest, hover, selected, keyboard focus, completed, overdue and subtask. Overdue is worked out
+ * from the status and due date: a task not started shows the flag; one in progress keeps its icon,
+ * with its date in red.
+ */
 export const States: Story = {
   render: () => (
     <Stack>
@@ -50,6 +56,22 @@ export const States: Story = {
       <TaskRow task={SAMPLE_TASKS[4]} />
       <Label>Overdue</Label>
       <TaskRow task={SAMPLE_TASKS[1]} />
+      <Label>Overdue, in progress</Label>
+      <TaskRow
+        task={sampleTask({
+          title: 'Review the sync retry backoff',
+          status: TaskStatus.IN_PROGRESS,
+          dueDate: storyDate(-1),
+        })}
+      />
+      <Label>Cancelled</Label>
+      <TaskRow
+        task={sampleTask({
+          title: 'Prototype a menu bar app',
+          status: TaskStatus.CANCELLED,
+          dueDate: storyDate(-5),
+        })}
+      />
       <Label>Subtask</Label>
       <TaskRow task={SAMPLE_SUBTASKS[1]} subtask />
     </Stack>
@@ -130,7 +152,24 @@ export const Synced: Story = {
   render: () => (
     <Stack>
       <TaskRow task={SAMPLE_TASKS[0]} />
-      <TaskRow task={SAMPLE_TASKS[3]} />
+      <TaskRow task={SAMPLE_TASKS[4]} />
+    </Stack>
+  ),
+};
+
+/**
+ * Due dates as `useFormat()` words them against `now` (22 Jun 2026 in Storybook): luxon's relative
+ * day within a week, else the short date.
+ */
+export const DueDates: Story = {
+  render: () => (
+    <Stack>
+      {[-8, -1, 0, 1, 3, 6, 9].map((days) => (
+        <TaskRow
+          key={days}
+          task={sampleTask({ title: `Due ${days} days from today`, dueDate: storyDate(days) })}
+        />
+      ))}
     </Stack>
   ),
 };

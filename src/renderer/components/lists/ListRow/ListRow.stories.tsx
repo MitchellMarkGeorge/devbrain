@@ -3,6 +3,7 @@ import { FileText, Folder } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { EntityPill } from '../../entities/EntityPill';
 import { Icon } from '../../ui/Icon';
+import { TaskStatus } from '@common/types';
 import { ListRow } from './ListRow';
 
 const meta = {
@@ -28,7 +29,17 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {
-  args: { children: <EntityPill type="task">Write PKCE migration guide</EntityPill> },
+  args: {
+    children: (
+      <EntityPill
+        entity={{
+          type: 'task',
+          title: 'Write PKCE migration guide',
+          status: TaskStatus.IN_PROGRESS,
+        }}
+      />
+    ),
+  },
 };
 
 /** Rest, hover (checkbox shows), selected, keyboard focus and muted. */

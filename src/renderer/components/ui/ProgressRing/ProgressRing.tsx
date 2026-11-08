@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { cn } from '../../lib/cn';
-import { resolveColor, type Swatch } from '../../types';
+import { cssColor, type Swatch } from '../../types';
 import styles from './ProgressRing.module.css';
 
 export interface ProgressRingProps {
@@ -33,9 +33,7 @@ export function ProgressRing({
   const circumference = 2 * Math.PI * r;
   const fraction = total > 0 ? Math.min(Math.max(value / total, 0), 1) : 0;
   const centre = size / 2;
-  const style = color
-    ? ({ '--progress-ring-color': resolveColor(color) } as CSSProperties)
-    : undefined;
+  const style = color ? ({ '--progress-ring-color': cssColor(color) } as CSSProperties) : undefined;
   return (
     <svg
       className={cn(styles.ring, className)}

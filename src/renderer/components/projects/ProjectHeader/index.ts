@@ -1,1 +1,1 @@
-export { ProjectHeader, type ProjectHeaderProps } from './ProjectHeader';
+export { ProjectHeader, type ProjectHeaderData, type ProjectHeaderProps } from './ProjectHeader';

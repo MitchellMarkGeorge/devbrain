@@ -1,9 +1,12 @@
-import { forwardRef, type ReactNode } from 'react';
+import { forwardRef } from 'react';
 import { cva } from 'class-variance-authority';
 import { FileText } from 'lucide-react';
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
+import type { NoteListItem } from '@common/types';
+import { EntityPill } from '../../entities/EntityPill';
 import { cn } from '../../lib/cn';
+import { useFormat } from '../../lib/format';
 import { cardVariants } from '../../ui/Card';
 import { Icon } from '../../ui/Icon';
 import styles from './NoteCard.module.css';
@@ -17,14 +20,18 @@ export const noteCardVariants = cva(styles.card, {
   defaultVariants: { size: 'default' },
 });
 
+/** The fields of core's `NoteListItem` a note card reads; pass the row as it is. */
+export type NoteCardData = Pick<
+  NoteListItem,
+  'title' | 'preview' | 'updatedAt' | 'project' | 'link'
+>;
+
 export interface NoteCardProps extends Omit<useRender.ComponentProps<'div'>, 'title'> {
-  title: string;
-  /** when it was edited: "2h ago" */
-  updated: string;
-  /** the note's first lines: three lines, two with a `link`, one at `sm` */
-  preview: string;
-  /** the note's project or event pill: the Notes card view only, never at `sm` */
-  link?: ReactNode;
+  /**
+   * core's note as it is: its title, its preview (three lines, two with a pill, one at `sm`), when
+   * it was edited, and the pill of what it links to (else its project; never at `sm`)
+   */
+  note: NoteCardData;
   /**
    * `default`: the Notes card view (144px, or 156px with a `link`). `sm`: Home's Recent notes
    * when it is the first section, three in a row (86px, no pill)
@@ -33,15 +40,22 @@ export interface NoteCardProps extends Omit<useRender.ComponentProps<'div'>, 'ti
 }
 
 /**
- * A note as a card: the file icon and edit time, the title and a `muted-foreground` preview; the
+ * A note as a card, drawn from core's `NoteListItem`: the file icon and edit time ("2h ago"), the title and a `muted-foreground` preview; the
  * time is `subtle-foreground`. Every card in a row has the same height (144px, or 156px with a
  * `link`), so lay them out in a `Grid minColumnWidth="240px"`. `size="sm"` is Home's 86px card,
  * one line each, three in a `HomeCards` row. Opens the note on click (`render={<a href=… />}`).
  */
 export const NoteCard = forwardRef<HTMLDivElement, NoteCardProps>(function NoteCard(
-  { title, updated, preview, link, size, render, ...props },
+  { note, size, render, ...props },
   ref,
 ) {
+  const { formatRelative } = useFormat('minute');
+  const link =
+    size === 'sm' ? null : note.link ? (
+      <EntityPill entity={note.link} />
+    ) : note.project ? (
+      <EntityPill entity={{ type: 'project', ...note.project }} />
+    ) : null;
   return useRender({
     ref,
     defaultTagName: 'div',
@@ -50,18 +64,18 @@ export const NoteCard = forwardRef<HTMLDivElement, NoteCardProps>(function NoteC
       {
         className: cn(
           cardVariants({ size: 'compact' }),
-          noteCardVariants({ withLink: size !== 'sm' && link != null, size }),
+          noteCardVariants({ withLink: link != null, size }),
         ),
         tabIndex: 0,
         children: (
           <>
             <div className={styles.top}>
               <Icon icon={FileText} />
-              <span>{updated}</span>
+              <span>{formatRelative(note.updatedAt)}</span>
             </div>
-            <div className={styles.title}>{title}</div>
-            <div className={styles.preview}>{preview}</div>
-            {link != null && size !== 'sm' && <div className={styles.link}>{link}</div>}
+            <div className={styles.title}>{note.title}</div>
+            <div className={styles.preview}>{note.preview}</div>
+            {link != null && <div className={styles.link}>{link}</div>}
           </>
         ),
       },

@@ -1,9 +1,9 @@
+import { TaskPriority, TaskStatus } from '@common/types';
 /** The Home screens, as components the stories (and other screens' stories) render. */
 import type { ReactNode } from 'react';
-import { Folder, RotateCw, Video } from 'lucide-react';
+import { Folder, RotateCw } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { CaptureBox } from '../../home/CaptureBox';
-import { ColourBar } from '../../ui/ColourBar';
 import { HomeRow, HomeRowNote } from '../../home/HomeRow';
 import { Icon } from '../../ui/Icon';
 import { Progress } from '../../ui/Progress';
@@ -16,49 +16,52 @@ import { PageContent } from '../../shell/PageHeader';
 import { ProviderTile } from '../../entities/ProviderTile';
 import { SetupRow } from '../../home/SetupRow';
 import { TaskRow } from '../../lists/TaskRow';
-import type { Task } from '../../lists/TaskRow/types';
+import type { TaskRowData } from '../../lists/TaskRow';
 import { Text } from '../../layout/Text';
 import { ScreenFrame, type ScreenFrameProps } from '../Shell/AppFrame';
+import {
+  sampleEventLink,
+  sampleLinear,
+  sampleProject,
+  sampleTask,
+} from '../../lists/TaskRow/fixtures';
+import { storyAgo, storyDate } from '../../lib/story-dates';
+import type { TaskId } from '@common/ids';
+import { sampleNote } from '../../notes/NoteCard/fixtures';
+import { HomeMeetingRow } from '../../home/HomeRow';
+import { SAMPLE_MEETINGS } from '../../home/HomeRow/fixtures';
 
 const TIP = 'Type “tomorrow” or “#Auth Overhaul” and the details fill in. Press Enter to add.';
 
-const TASKS: Task[] = [
-  {
-    id: 'refresh',
+const TASKS: TaskRowData[] = [
+  sampleTask({
+    id: 'tsk_refresh' as TaskId,
     title: 'Refactor token refresh logic',
-    status: 'in-progress',
-    key: 'ENG-131',
-    project: 'Auth Overhaul',
-    projectColor: 'blue',
-    priority: 'high',
-    date: 'Jun 18',
-    dateTone: 'overdue',
-  },
-  {
-    id: 'audit',
+    status: TaskStatus.IN_PROGRESS,
+    priority: TaskPriority.HIGH,
+    dueDate: storyDate(-4),
+    external: sampleLinear('ENG-131'),
+    project: sampleProject('Auth Overhaul', 'blue'),
+  }),
+  sampleTask({
+    id: 'tsk_audit' as TaskId,
     title: 'Audit token storage',
-    status: 'overdue',
-    key: 'ENG-118',
-    project: 'Auth Overhaul',
-    projectColor: 'blue',
-    priority: 'high',
-    date: 'Jun 19',
-    dateTone: 'overdue',
-  },
-  {
-    id: 'pkce',
+    priority: TaskPriority.HIGH,
+    dueDate: storyDate(-3),
+    external: sampleLinear('ENG-118'),
+    project: sampleProject('Auth Overhaul', 'blue'),
+  }),
+  sampleTask({
+    id: 'tsk_pkce' as TaskId,
     title: 'Implement OAuth2 PKCE flow',
-    status: 'in-progress',
-    key: 'ENG-124',
-    subtasks: [3, 4],
-    event: 'Mitchell / Jesse 1:1',
-    eventColor: 'green',
-    project: 'Auth Overhaul',
-    projectColor: 'blue',
-    priority: 'high',
-    date: 'Today',
-    dateTone: 'today',
-  },
+    status: TaskStatus.IN_PROGRESS,
+    priority: TaskPriority.HIGH,
+    dueDate: storyDate(0),
+    external: sampleLinear('ENG-124'),
+    subtaskProgress: { completed: 3, total: 4 },
+    project: sampleProject('Auth Overhaul', 'blue'),
+    link: sampleEventLink('Mitchell / Jesse 1:1', 'green'),
+  }),
 ];
 
 /** The words of the summary sentence that stand out. */
@@ -130,27 +133,15 @@ function HomePage({
 function Meetings() {
   return (
     <HomeSection title="Meetings" link="Calendar" more="1 more meeting today">
-      <HomeRow
-        current
-        icon={<ColourBar color="green" />}
-        title="Sprint Planning"
-        meta="In 12 min"
-        metaTone="today"
-      >
-        <Button size="xs" icon={Video}>
-          Join
-        </Button>
-      </HomeRow>
-      <HomeRow icon={<ColourBar color="green" />} title="Mitchell / Jesse 1:1" meta="10:30" />
-      <HomeRow icon={<ColourBar color="blue" />} title="Design Review" meta="1:00" />
+      {SAMPLE_MEETINGS.map((meeting, i) => (
+        <HomeMeetingRow key={meeting.title} event={meeting} current={i === 0} />
+      ))}
     </HomeSection>
   );
 }
 
 function Tasks({ count = 6, projects = true }: { count?: number; projects?: boolean }) {
-  const shown = projects
-    ? TASKS
-    : TASKS.map((task) => ({ ...task, project: undefined, projectColor: undefined }));
+  const shown = projects ? TASKS : TASKS.map((task) => ({ ...task, project: null }));
   const more = count - shown.length;
   return (
     <HomeSection
@@ -171,21 +162,28 @@ function NotesCards() {
       <HomeCards>
         <NoteCard
           size="sm"
-          title="PKCE design notes"
-          updated="Yesterday"
-          preview="S256 challenge, 96-char verifier and a 10-minute code TTL, behind a feature flag."
+          note={sampleNote({
+            title: 'PKCE design notes',
+            updatedAt: storyAgo(60 * 24),
+            preview:
+              'S256 challenge, 96-char verifier and a 10-minute code TTL, behind a feature flag.',
+          })}
         />
         <NoteCard
           size="sm"
-          title="Sprint 15 planning"
-          updated="Yesterday"
-          preview="Ship PKCE behind a flag, finish the token audit, start the rate-limit spike."
+          note={sampleNote({
+            title: 'Sprint 15 planning',
+            updatedAt: storyAgo(60 * 24),
+            preview: 'Ship PKCE behind a flag, finish the token audit, start the rate-limit spike.',
+          })}
         />
         <NoteCard
           size="sm"
-          title="Architecture ADR #4 — PKCE"
-          updated="Jun 19"
-          preview="Adopt PKCE for every public client and retire the implicit flow."
+          note={sampleNote({
+            title: 'Architecture ADR #4 — PKCE',
+            updatedAt: storyAgo(60 * 24 * 3),
+            preview: 'Adopt PKCE for every public client and retire the implicit flow.',
+          })}
         />
       </HomeCards>
     </HomeSection>

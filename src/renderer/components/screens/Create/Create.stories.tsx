@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { TaskPriority, TaskStatus } from '@common/types';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ArrowRight, Calendar, Clock, FileText, MapPin, Plus, Repeat, Video } from 'lucide-react';
 import { Button } from '../../ui/Button';
@@ -24,6 +25,14 @@ import { Switch } from '../../ui/Switch';
 import { TaskList } from '../../lists/TaskList';
 import { Textarea } from '../../ui/Textarea';
 import { AppWindow, DetailTopBar } from '../TaskDetail/frame';
+import {
+  sampleEventLink,
+  sampleLinear,
+  sampleNoteLink,
+  sampleProject,
+  sampleTask,
+} from '../../lists/TaskRow/fixtures';
+import { storyDate } from '../../lib/story-dates';
 
 const meta = {
   title: 'Screens/Create',
@@ -42,73 +51,58 @@ function TasksPage() {
         <TaskList
           selectionBar={false}
           tasks={[
-            {
+            sampleTask({
               title: 'Implement OAuth2 PKCE flow',
-              status: 'in-progress',
-              key: 'ENG-124',
-              subtasks: [3, 4],
-              event: 'Mitchell / Jesse 1:1',
-              project: 'Auth Overhaul',
-              projectColor: 'blue',
-              priority: 'high',
-              date: 'Jun 24',
-            },
-            {
+              status: TaskStatus.IN_PROGRESS,
+              priority: TaskPriority.HIGH,
+              dueDate: storyDate(2),
+              external: sampleLinear('ENG-124'),
+              subtaskProgress: { completed: 3, total: 4 },
+              project: sampleProject('Auth Overhaul', 'blue'),
+              link: sampleEventLink('Mitchell / Jesse 1:1'),
+            }),
+            sampleTask({
               title: 'Refactor token refresh logic',
-              status: 'in-progress',
-              project: 'Auth Overhaul',
-              projectColor: 'blue',
-              priority: 'high',
-              date: 'Jun 18',
-              dateTone: 'overdue',
-            },
-            {
+              status: TaskStatus.IN_PROGRESS,
+              priority: TaskPriority.HIGH,
+              dueDate: storyDate(-4),
+              project: sampleProject('Auth Overhaul', 'blue'),
+            }),
+            sampleTask({
               title: 'Audit token storage',
-              status: 'overdue',
-              key: 'ENG-118',
-              project: 'Auth Overhaul',
-              projectColor: 'blue',
-              priority: 'high',
-              date: 'Jun 19',
-              dateTone: 'overdue',
-            },
-            {
+              priority: TaskPriority.HIGH,
+              dueDate: storyDate(-3),
+              external: sampleLinear('ENG-118'),
+              project: sampleProject('Auth Overhaul', 'blue'),
+            }),
+            sampleTask({
               title: 'Write PKCE migration guide',
-              status: 'not-started',
-              note: 'PKCE design notes',
-              project: 'Auth Overhaul',
-              projectColor: 'blue',
-              priority: 'medium',
-              date: 'Today',
-              dateTone: 'today',
-            },
-            {
+              priority: TaskPriority.MEDIUM,
+              dueDate: storyDate(0),
+              project: sampleProject('Auth Overhaul', 'blue'),
+              link: sampleNoteLink('PKCE design notes'),
+            }),
+            sampleTask({
               title: 'Integrate database connection',
-              status: 'not-started',
-              key: 'ENG-140',
-              project: 'API Gateway v2',
-              projectColor: 'amber',
-              priority: 'medium',
-              date: 'Jun 26',
-            },
-            {
+              priority: TaskPriority.MEDIUM,
+              dueDate: storyDate(4),
+              external: sampleLinear('ENG-140'),
+              project: sampleProject('API Gateway v2', 'amber'),
+            }),
+            sampleTask({
               title: 'Create user interface mockups',
-              status: 'not-started',
-              subtasks: [1, 4],
-              project: 'User Interface Revamp',
-              projectColor: 'indigo',
-              priority: 'low',
-              date: 'Jun 30',
-            },
-            {
+              dueDate: storyDate(8),
+              subtaskProgress: { completed: 1, total: 4 },
+              project: sampleProject('User Interface Revamp', 'indigo'),
+            }),
+            sampleTask({
               title: 'Set up API Gateway',
-              status: 'completed',
-              key: 'ENG-102',
-              project: 'API Gateway v2',
-              projectColor: 'amber',
-              priority: 'medium',
-              date: 'Jun 15',
-            },
+              status: TaskStatus.COMPLETED,
+              priority: TaskPriority.MEDIUM,
+              dueDate: storyDate(-7),
+              external: sampleLinear('ENG-102'),
+              project: sampleProject('API Gateway v2', 'amber'),
+            }),
           ]}
         />
       </div>
@@ -143,10 +137,12 @@ export const CreateTask: Story = {
               />
             </CreateDialogFields>
             <CreateDialogProperties onMore={() => undefined}>
-              <EntityPill glyph={<StatusIcon status="not-started" size={12} />}>
+              <EntityPill glyph={<StatusIcon status={TaskStatus.NOT_STARTED} size={12} />}>
                 Not started
               </EntityPill>
-              <EntityPill glyph={<PriorityIcon priority="low" size={12} />}>Low</EntityPill>
+              <EntityPill glyph={<PriorityIcon priority={TaskPriority.LOW} size={12} />}>
+                Low
+              </EntityPill>
               <EntityPill glyph={Calendar}>Due date</EntityPill>
               <EntityPill glyph={Plus}>Project</EntityPill>
               <EntityPill glyph={Plus}>Link to event or note</EntityPill>
@@ -181,14 +177,14 @@ export const CreateTaskWithSubtasks: Story = {
                 />
               </CreateDialogFields>
               <CreateDialogProperties onMore={() => undefined}>
-                <EntityPill glyph={<StatusIcon status="not-started" size={12} />}>
+                <EntityPill glyph={<StatusIcon status={TaskStatus.NOT_STARTED} size={12} />}>
                   Not started
                 </EntityPill>
-                <EntityPill glyph={<PriorityIcon priority="high" size={12} />}>High</EntityPill>
-                <EntityPill glyph={Calendar}>Jun 26</EntityPill>
-                <EntityPill type="project" color="blue">
-                  Auth Overhaul
+                <EntityPill glyph={<PriorityIcon priority={TaskPriority.HIGH} size={12} />}>
+                  High
                 </EntityPill>
+                <EntityPill glyph={Calendar}>Jun 26</EntityPill>
+                <EntityPill entity={{ type: 'project', title: 'Auth Overhaul', color: 'blue' }} />
                 <EntityPill glyph={Plus}>Link to event or note</EntityPill>
               </CreateDialogProperties>
               <DraftTaskList
@@ -238,9 +234,7 @@ export const CreateEvent: Story = {
                 <EntityPill>Every weekday</EntityPill>
               </CreateDialogField>
               <CreateDialogField icon={Calendar} label="Calendar">
-                <EntityPill type="event" color="blue">
-                  Work
-                </EntityPill>
+                <EntityPill entity={{ type: 'event', title: 'Work', color: 'blue' }} />
               </CreateDialogField>
               <CreateDialogField icon={MapPin} label="Location">
                 <Input defaultValue="Room 4B" placeholder="Add location" aria-label="Location" />

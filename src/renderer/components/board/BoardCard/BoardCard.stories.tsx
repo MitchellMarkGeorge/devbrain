@@ -1,19 +1,25 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { BoardCard, type BoardTask } from './BoardCard';
+import { TaskPriority, TaskStatus } from '@common/types';
+import { storyDate } from '../../lib/story-dates';
+import {
+  sampleEventLink,
+  sampleLinear,
+  sampleNoteLink,
+  sampleProject,
+  sampleTask,
+} from '../../lists/TaskRow/fixtures';
+import { BoardCard } from './BoardCard';
 
-const task: BoardTask = {
+const task = sampleTask({
   title: 'Ship the onboarding flow',
-  status: 'in-progress',
-  priority: 'high',
-  key: 'ENG-124',
-  event: 'Mitchell / Jesse 1:1',
-  eventColor: 'indigo',
-  project: 'DevBrain 1.0',
-  projectColor: 'blue',
-  subtasks: [3, 4],
-  date: 'Today',
-  dateTone: 'today',
-};
+  status: TaskStatus.IN_PROGRESS,
+  priority: TaskPriority.HIGH,
+  external: sampleLinear('ENG-124'),
+  link: sampleEventLink('Mitchell / Jesse 1:1', 'indigo'),
+  project: sampleProject('DevBrain 1.0', 'blue'),
+  subtaskProgress: { completed: 3, total: 4 },
+  dueDate: storyDate(0),
+});
 
 const meta = {
   title: 'Board/BoardCard',
@@ -37,55 +43,47 @@ export const Default: Story = {};
 /** A synced task with no link: its source and project pills */
 export const SourceOnly: Story = {
   args: {
-    task: {
+    task: sampleTask({
       title: 'Fix calendar sync for recurring events',
-      status: 'not-started',
-      priority: 'medium',
-      key: 'ENG-131',
-      project: 'Calendar',
-      projectColor: 'green',
-      date: 'Oct 2',
-    },
+      priority: TaskPriority.MEDIUM,
+      external: sampleLinear('ENG-131'),
+      project: sampleProject('Calendar', 'green'),
+      dueDate: storyDate(10),
+    }),
   },
 };
 
-/** A local task linked to a note */
+/** A local task linked to a note, overdue: its date in red */
 export const LinkedNote: Story = {
   args: {
-    task: {
+    task: sampleTask({
       title: 'Write the Q4 planning doc',
-      status: 'in-progress',
-      priority: 'low',
-      note: 'Q4 planning notes',
-      project: 'Planning',
-      projectColor: 'amber',
-      date: 'Sep 28',
-      dateTone: 'overdue',
-    },
+      status: TaskStatus.IN_PROGRESS,
+      link: sampleNoteLink('Q4 planning notes'),
+      project: sampleProject('Planning', 'amber'),
+      dueDate: storyDate(-3),
+    }),
   },
 };
 
 /** A local task with no links has no pills */
 export const Local: Story = {
-  args: { task: { title: 'Renew the domain', status: 'not-started', priority: 'medium' } },
+  args: { task: sampleTask({ title: 'Renew the domain', priority: TaskPriority.MEDIUM }) },
 };
 
 /** Long names wrap onto another line of pills, and a name too long for the card ellipsises */
 export const ManyPills: Story = {
   args: {
-    task: {
+    task: sampleTask({
       title: 'Migrate the calendar sync to the new provider API',
-      status: 'in-progress',
-      priority: 'high',
-      key: 'ENG-212',
-      subtasks: [1, 5],
-      event: 'Platform planning with the calendar and integrations teams',
-      eventColor: 'pink',
-      project: 'Integrations',
-      projectColor: 'indigo',
-      date: 'Sep 28',
-      dateTone: 'overdue',
-    },
+      status: TaskStatus.IN_PROGRESS,
+      priority: TaskPriority.HIGH,
+      external: sampleLinear('ENG-212'),
+      subtaskProgress: { completed: 1, total: 5 },
+      link: sampleEventLink('Platform planning with the calendar and integrations teams', 'pink'),
+      project: sampleProject('Integrations', 'indigo'),
+      dueDate: storyDate(-3),
+    }),
   },
 };
 
@@ -93,5 +91,12 @@ export const Hover: Story = { args: { state: 'hover' } };
 export const Focus: Story = { args: { state: 'focus' } };
 
 export const Completed: Story = {
-  args: { task: { ...task, status: 'completed', subtasks: [4, 4], date: 'Sep 24' } },
+  args: {
+    task: {
+      ...task,
+      status: TaskStatus.COMPLETED,
+      subtaskProgress: { completed: 4, total: 4 },
+      dueDate: storyDate(-1),
+    },
+  },
 };

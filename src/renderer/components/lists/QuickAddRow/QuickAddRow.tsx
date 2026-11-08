@@ -5,13 +5,13 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from 'react';
+import { TaskPriority, TaskStatus } from '@common/types';
 import { Plus } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Icon } from '../../ui/Icon';
 import { Kbd } from '../../ui/Kbd';
 import { PriorityIcon } from '../../entities/PriorityIcon';
 import { StatusIcon } from '../../entities/StatusIcon';
-import type { Priority } from '../../types';
 import styles from './QuickAddRow.module.css';
 
 export interface QuickAddRowProps extends Omit<ComponentProps<'div'>, 'children' | 'onSubmit'> {
@@ -26,7 +26,7 @@ export interface QuickAddRowProps extends Omit<ComponentProps<'div'>, 'children'
   /** the pills the new task inherits from its group (its project, event or note), shown while typing */
   children?: ReactNode;
   /** the default priority and due date shown while typing */
-  priority?: Priority;
+  priority?: TaskPriority;
   date?: string;
   dateTone?: 'today' | 'overdue';
   /** draws the typing state without focus, for pictures of the row */
@@ -49,7 +49,7 @@ export const QuickAddRow = forwardRef<HTMLDivElement, QuickAddRowProps>(function
     onValueChange,
     onCreate,
     children,
-    priority = 'medium',
+    priority = TaskPriority.MEDIUM,
     date,
     dateTone,
     state,
@@ -90,7 +90,7 @@ export const QuickAddRow = forwardRef<HTMLDivElement, QuickAddRowProps>(function
       {...props}
     >
       <span className={styles.icon} aria-hidden>
-        {typing ? <StatusIcon status="not-started" /> : <Icon icon={Plus} size={16} />}
+        {typing ? <StatusIcon status={TaskStatus.NOT_STARTED} /> : <Icon icon={Plus} size={16} />}
       </span>
       <input
         className={styles.input}

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { TaskStatus } from '@common/types';
 import { Toast as BaseToast } from '@base-ui/react/toast';
 import { CircleAlert, TriangleAlert } from 'lucide-react';
 import { Button } from '../Button';
@@ -12,7 +13,7 @@ export type ToastTone = 'success' | 'warning' | 'error';
 
 // success is the filled completed circle; error the destructive alert circle
 const TONES: Record<ToastTone, ReactNode> = {
-  success: <StatusIcon status="completed" className={styles.icon} />,
+  success: <StatusIcon status={TaskStatus.COMPLETED} className={styles.icon} />,
   warning: <Icon icon={TriangleAlert} className={`${styles.icon} ${styles.warning}`} />,
   error: <Icon icon={CircleAlert} className={`${styles.icon} ${styles.error}`} />,
 };

@@ -1,6 +1,14 @@
 // Every component, by group (see README.md). Generic first, then DevBrain's own.
 export * from './types';
 export { cn, mergeClassName } from './lib/cn';
+export {
+  createFormat,
+  FormatProvider,
+  useFormat,
+  type Format,
+  type FormatProviderProps,
+  type TimeFormat,
+} from './lib/format';
 export * from './layout';
 export * from './ui';
 export * from './entities';

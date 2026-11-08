@@ -2,17 +2,24 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Flex, Stack } from '../../layout/Flex';
 import { Text } from '../../layout/Text';
 import { Badge } from '../../ui/Badge';
-import { HEALTH_LABELS, type Health } from '../../types';
+import { ProjectHealth } from '@common/types';
+import { HEALTH_LABELS } from '../../types';
 import { HealthIcon } from './HealthIcon';
 
-const HEALTHS = Object.keys(HEALTH_LABELS) as Health[];
+const HEALTHS = [
+  ProjectHealth.ON_TRACK,
+  ProjectHealth.AT_RISK,
+  ProjectHealth.OFF_TRACK,
+  ProjectHealth.NOT_STARTED,
+  ProjectHealth.COMPLETED,
+];
 
 const meta = {
   title: 'Entities/HealthIcon',
   component: HealthIcon,
-  args: { health: 'on-track', size: 16 },
+  args: { health: ProjectHealth.ON_TRACK, size: 16 },
   argTypes: {
-    health: { control: 'select', options: HEALTHS },
+    health: { control: { type: 'select', labels: HEALTH_LABELS }, options: HEALTHS },
     size: { control: 'inline-radio', options: [12, 16, 24] },
   },
 } satisfies Meta<typeof HealthIcon>;

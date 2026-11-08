@@ -2,15 +2,16 @@ import { useRef, useState, type ComponentProps, type KeyboardEvent, type ReactNo
 import { cn } from '../../lib/cn';
 import { SelectionBar } from '../SelectionBar';
 import type { PickableStatus } from '../../entities/StatusMenu';
-import { TaskRow, type Task, type TaskRowProps } from '../TaskRow';
+import { TaskRow, type TaskRowData, type TaskRowProps } from '../TaskRow';
 import styles from './TaskList.module.css';
 
 export interface TaskListProps extends Omit<ComponentProps<'div'>, 'children' | 'onSelect'> {
-  tasks: Task[];
-  /** the selected rows' ids (a task's `id`, or its index), when controlled */
-  selected?: Array<string | number>;
-  /** the rows selected at first, when uncontrolled; tasks with `selected` are added */
-  defaultSelected?: Array<string | number>;
+  /** core's tasks as they are (`TaskListItem`s) */
+  tasks: TaskRowData[];
+  /** the selected rows' ids, when controlled */
+  selected?: string[];
+  /** the rows selected at first, when uncontrolled */
+  defaultSelected?: string[];
   onSelectedChange?: (selected: string[]) => void;
   /** static hover or focus states by index, for pictures of the list */
   states?: Record<number, 'hover' | 'focus'>;
@@ -31,12 +32,12 @@ export interface TaskListProps extends Omit<ComponentProps<'div'>, 'children' | 
   floatingBar?: boolean;
   /** the "more" menu's items in the SelectionBar */
   selectionMenu?: ReactNode;
-  onStatusChange?: (task: Task, status: PickableStatus) => void;
+  onStatusChange?: (task: TaskRowData, status: PickableStatus) => void;
   /** opens a task: a click on its row, or Enter */
-  onOpen?: (task: Task) => void;
+  onOpen?: (task: TaskRowData) => void;
 }
 
-const idOf = (task: Task, index: number) => task.id ?? String(index);
+const idOf = (task: TaskRowData) => task.id as string;
 
 /**
  * A list of `TaskRow`s that handles selection: rows selected next to each other join into one
@@ -63,11 +64,8 @@ export function TaskList({
   onKeyDown,
   ...props
 }: TaskListProps) {
-  const [selectedState, setSelectedState] = useState<string[]>(() => [
-    ...defaultSelected.map(String),
-    ...tasks.flatMap((task, i) => (task.selected ? [idOf(task, i)] : [])),
-  ]);
-  const selected = new Set(selectedProp ? selectedProp.map(String) : selectedState);
+  const [selectedState, setSelectedState] = useState<string[]>(defaultSelected);
+  const selected = new Set(selectedProp ?? selectedState);
   const [focusIndex, setFocusIndex] = useState(0);
   const rows = useRef<Array<HTMLDivElement | null>>([]);
 
@@ -106,8 +104,8 @@ export function TaskList({
     rows.current[target]?.focus();
   }
 
-  const count = tasks.filter((task, i) => selected.has(idOf(task, i))).length;
-  const isSelected = (i: number) => i >= 0 && i < tasks.length && selected.has(idOf(tasks[i], i));
+  const count = tasks.filter((task) => selected.has(idOf(task))).length;
+  const isSelected = (i: number) => i >= 0 && i < tasks.length && selected.has(idOf(tasks[i]));
 
   return (
     <div
@@ -118,7 +116,7 @@ export function TaskList({
       {...props}
     >
       {tasks.map((task, i) => {
-        const id = idOf(task, i);
+        const id = idOf(task);
         const on = isSelected(i);
         return (
           <TaskRow

@@ -1,103 +1,162 @@
-import type { Task } from './types';
+import {
+  LinkState,
+  Provider,
+  TaskPriority,
+  TaskStatus,
+  type EventSummary,
+  type ExternalRef,
+  type ProjectSummary,
+  type TaskLinkSummary,
+  type TaskSummary,
+} from '@common/types';
+import type { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
+import { storyAgo, storyDate } from '../../lib/story-dates';
+import type { TaskRowData } from './types';
+
+/**
+ * Core-shaped sample tasks for stories: what `tasks.list` returns, cut to the fields a row reads
+ * (`TaskRowData`), with real `Date`s around the story's day (22 Jun 2026).
+ */
+
+/** A task row with defaults for the fields left out: not started, low priority, no relations. */
+export function sampleTask(fields: Partial<TaskRowData> & Pick<TaskRowData, 'title'>): TaskRowData {
+  return {
+    id: `tsk_${fields.title.toLowerCase().replace(/\W+/g, '_')}` as TaskId,
+    status: TaskStatus.NOT_STARTED,
+    priority: TaskPriority.LOW,
+    dueDate: null,
+    subtaskProgress: null,
+    project: null,
+    link: null,
+    parentTask: null,
+    external: null,
+    ...fields,
+  };
+}
+
+/** A project as a task's pill names it. The colour is a swatch name or a `#rrggbb`. */
+export function sampleProject(title: string, color: string | null = null): ProjectSummary {
+  return { id: `prj_${title.toLowerCase().replace(/\W+/g, '_')}` as ProjectId, title, color };
+}
+
+/** A subtask's parent. */
+export function sampleParent(title: string, status = TaskStatus.IN_PROGRESS): TaskSummary {
+  return { id: `tsk_${title.toLowerCase().replace(/\W+/g, '_')}` as TaskId, title, status };
+}
+
+export function sampleEventLink(
+  title: string,
+  color: string | null = null,
+): { type: 'event' } & EventSummary {
+  return {
+    type: 'event',
+    id: `evt_${title.toLowerCase().replace(/\W+/g, '_')}` as EventId,
+    title,
+    startAt: storyDate(0, 10),
+    color,
+  };
+}
+
+export function sampleNoteLink(title: string): TaskLinkSummary {
+  return { type: 'note', id: `nte_${title.toLowerCase().replace(/\W+/g, '_')}` as NoteId, title };
+}
+
+/** A Linear issue's link, synced a few minutes ago. */
+export function sampleLinear(key: string): ExternalRef {
+  return {
+    provider: Provider.LINEAR,
+    state: LinkState.SYNCED,
+    key,
+    url: `https://linear.app/devbrain/issue/${key}`,
+    statusLabel: 'In Progress',
+    priorityLabel: null,
+    lastSyncedAt: storyAgo(3),
+  };
+}
+
+const DEVBRAIN = sampleProject('DevBrain 1.0', 'blue');
 
 /** Sample tasks for stories. */
-export const SAMPLE_TASKS: Task[] = [
-  {
-    id: 'onboarding',
+export const SAMPLE_TASKS: TaskRowData[] = [
+  sampleTask({
+    id: 'tsk_onboarding' as TaskId,
     title: 'Ship the onboarding flow',
-    status: 'in-progress',
-    key: 'ENG-124',
-    subtasks: [3, 4],
-    project: 'DevBrain 1.0',
-    projectColor: 'blue',
-    priority: 'high',
-    date: 'Today',
-    dateTone: 'today',
-  },
-  {
-    id: 'calendar-sync',
+    status: TaskStatus.IN_PROGRESS,
+    external: sampleLinear('ENG-124'),
+    subtaskProgress: { completed: 3, total: 4 },
+    project: DEVBRAIN,
+    priority: TaskPriority.HIGH,
+    dueDate: storyDate(0),
+  }),
+  sampleTask({
+    id: 'tsk_calendar_sync' as TaskId,
     title: 'Scope calendar sync for recurring events',
-    status: 'not-started',
-    project: 'Calendar',
-    projectColor: 'green',
-    event: 'Mitchell / Jesse 1:1',
-    eventColor: 'indigo',
-    priority: 'medium',
-    date: 'Sep 28',
-    dateTone: 'overdue',
-  },
-  {
-    id: 'release-notes',
+    project: sampleProject('Calendar', 'green'),
+    link: sampleEventLink('Mitchell / Jesse 1:1', 'indigo'),
+    priority: TaskPriority.MEDIUM,
+    dueDate: storyDate(-3),
+  }),
+  sampleTask({
+    id: 'tsk_release_notes' as TaskId,
     title: 'Write the release notes',
-    status: 'not-started',
-    note: 'Release checklist',
-    priority: 'low',
-    date: 'Oct 4',
-  },
-  {
-    id: 'empty-states',
+    link: sampleNoteLink('Release checklist'),
+    dueDate: storyDate(12),
+  }),
+  sampleTask({
+    id: 'tsk_empty_states' as TaskId,
     title: 'Draw the empty states',
-    status: 'in-progress',
-    key: '#212',
-    source: 'github',
-    project: 'Design system',
-    projectColor: 'pink',
-    priority: 'medium',
-    date: 'Tomorrow',
-  },
-  {
-    id: 'migrations',
+    status: TaskStatus.IN_PROGRESS,
+    project: sampleProject('Design system', 'pink'),
+    priority: TaskPriority.MEDIUM,
+    dueDate: storyDate(1),
+  }),
+  sampleTask({
+    id: 'tsk_migrations' as TaskId,
     title: 'Split the event model migration',
-    status: 'completed',
-    key: 'ENG-98',
-    project: 'DevBrain 1.0',
-    projectColor: 'blue',
-    priority: 'high',
-    date: 'Sep 20',
-  },
+    status: TaskStatus.COMPLETED,
+    external: sampleLinear('ENG-98'),
+    project: DEVBRAIN,
+    priority: TaskPriority.HIGH,
+    dueDate: storyDate(-2),
+  }),
 ];
 
-export const SAMPLE_SUBTASKS: Task[] = [
-  {
-    id: 'welcome',
+const ONBOARDING = sampleParent('Ship the onboarding flow');
+
+export const SAMPLE_SUBTASKS: TaskRowData[] = [
+  sampleTask({
+    id: 'tsk_welcome' as TaskId,
     title: 'Welcome screen copy',
-    status: 'completed',
-    parent: 'Ship the onboarding flow',
-    priority: 'medium',
-    date: 'Sep 30',
-  },
-  {
-    id: 'workspace',
+    status: TaskStatus.COMPLETED,
+    parentTask: ONBOARDING,
+    priority: TaskPriority.MEDIUM,
+    dueDate: storyDate(-1),
+  }),
+  sampleTask({
+    id: 'tsk_workspace' as TaskId,
     title: 'Create workspace step',
-    status: 'in-progress',
-    parent: 'Ship the onboarding flow',
-    priority: 'high',
-    date: 'Today',
-    dateTone: 'today',
-  },
-  {
-    id: 'import',
+    status: TaskStatus.IN_PROGRESS,
+    parentTask: ONBOARDING,
+    priority: TaskPriority.HIGH,
+    dueDate: storyDate(0),
+  }),
+  sampleTask({
+    id: 'tsk_import' as TaskId,
     title: 'Import from Linear',
-    status: 'not-started',
-    key: 'ENG-131',
-    parent: 'Ship the onboarding flow',
-    priority: 'low',
-  },
+    external: sampleLinear('ENG-131'),
+    parentTask: ONBOARDING,
+  }),
 ];
 
 /** A task with every pill, for stacking. */
-export const BUSY_TASK: Task = {
+export const BUSY_TASK: TaskRowData = sampleTask({
   title: 'Move the sync engine onto change listeners and drop the old callbacks',
-  status: 'in-progress',
-  key: 'ENG-142',
-  parent: 'Refactor core services',
-  subtasks: [1, 5],
-  project: 'Platform',
-  projectColor: 'amber',
-  event: 'Architecture review',
-  eventColor: 'blue',
-  note: 'Sync engine notes',
-  priority: 'high',
-  date: 'Today',
-  dateTone: 'today',
-};
+  status: TaskStatus.IN_PROGRESS,
+  external: sampleLinear('ENG-142'),
+  parentTask: sampleParent('Refactor core services', TaskStatus.NOT_STARTED),
+  subtaskProgress: { completed: 1, total: 5 },
+  project: sampleProject('Platform', 'amber'),
+  link: sampleEventLink('Architecture review', 'blue'),
+  priority: TaskPriority.HIGH,
+  dueDate: storyDate(0),
+});

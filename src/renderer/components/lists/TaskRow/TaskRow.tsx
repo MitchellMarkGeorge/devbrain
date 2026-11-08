@@ -24,8 +24,17 @@ import { ProgressRing } from '../../ui/ProgressRing';
 import { SourcePill } from '../../entities/SourcePill';
 import { StatusIcon } from '../../entities/StatusIcon';
 import { StatusMenu, type PickableStatus } from '../../entities/StatusMenu';
-import { TASK_STATUS_LABELS, type TaskStatus } from '../../types';
-import type { Task } from './types';
+import { TaskStatus } from '@common/types';
+import { useFormat } from '../../lib/format';
+import {
+  dueTone,
+  isOverdue,
+  OVERDUE_LABEL,
+  providerOf,
+  showsOverdueFlag,
+  TASK_STATUS_LABELS,
+} from '../../types';
+import type { TaskRowData } from './types';
 import styles from './TaskRow.module.css';
 
 export const taskRowVariants = cva(styles.row, {
@@ -38,8 +47,9 @@ export const taskRowVariants = cva(styles.row, {
 });
 
 export interface TaskRowProps extends Omit<ComponentProps<'div'>, 'onSelect' | 'children'> {
-  task: Task;
-  /** the row is selected (falls back to `task.selected`) */
+  /** core's task as it is: a `TaskListItem` */
+  task: TaskRowData;
+  /** the row is selected */
   selected?: boolean;
   /** something in the list is selected: every row shows its checkbox */
   selecting?: boolean;
@@ -61,7 +71,7 @@ export interface TaskRowProps extends Omit<ComponentProps<'div'>, 'onSelect' | '
    * row. A side with one pill never stacks.
    */
   stack?: StackMode;
-  /** the status, when controlled; otherwise the row keeps `task.status` and its own changes */
+  /** the status, when controlled; otherwise the row shows its own pick until `task.status` changes */
   status?: TaskStatus;
   onStatusChange?: (status: PickableStatus) => void;
   /** the status menu is open (controlled), or open at first (`defaultMenuOpen`) */
@@ -72,13 +82,6 @@ export interface TaskRowProps extends Omit<ComponentProps<'div'>, 'onSelect' | '
   onSelect?: () => void;
   /** opens the task (a click on the row, or Enter) */
   onOpen?: () => void;
-}
-
-/** The status the icon shows: overdue (the flag) until the task is started or done. */
-export function shownStatus(status: TaskStatus, dateTone: Task['dateTone']): TaskStatus {
-  if (status === 'completed' || status === 'cancelled') return status;
-  if (dateTone === 'overdue' && status !== 'in-progress') return 'overdue';
-  return status;
 }
 
 export type StackMode = 'auto' | 'none' | 'right' | 'both';
@@ -299,10 +302,11 @@ function fromControl(event: MouseEvent<HTMLElement>): boolean {
 }
 
 /**
- * One task in a strokeless list: the status button (opening the `StatusMenu`), the title, its
- * source, parent and subtask pills, then the event, note and project pills, priority and the date
- * on the right. Use it
- * inside `TaskList`, which handles selection and keyboard movement.
+ * One task in a strokeless list, drawn from core's `TaskListItem`: the status button (opening the
+ * `StatusMenu`; the flag while the task is overdue and not started), the title, its key, parent
+ * and subtask pills, then the linked event or note and the project, priority and the due date
+ * ("Today", "Jul 1", from `useFormat()`) on the right. Use it inside `TaskList`, which handles
+ * selection and keyboard movement.
  *
  * Keyboard on the focused row: `S` opens the status menu (then `1`, `2`, `3`), `X` toggles
  * selection, Enter opens the task.
@@ -340,8 +344,11 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     },
     [ref],
   );
-  const leftPills = [task.key, task.parent, task.subtasks].filter(Boolean).length;
-  const rightPills = [task.event, task.note, task.project].filter(Boolean).length;
+  const { now, formatDue } = useFormat();
+  const key = task.external?.key;
+  const subtasks = task.subtaskProgress;
+  const leftPills = [key, task.parentTask, subtasks].filter(Boolean).length;
+  const rightPills = [task.link, task.project].filter(Boolean).length;
   const autoLevel = useAutoStack(stack === 'auto' || stack === undefined, rowRef, {
     left: leftPills > 1,
     right: rightPills > 1,
@@ -354,13 +361,16 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  const [statusState, setStatusState] = useState(task.status);
-  const status = statusProp ?? statusState;
+  // a pick made on the row shows until core's status changes (the refetch after the write)
+  const [picked, setPicked] = useState<{ from: TaskStatus; to: TaskStatus } | null>(null);
+  const status = statusProp ?? (picked && picked.from === task.status ? picked.to : task.status);
   const [menuOpenState, setMenuOpenState] = useState(defaultMenuOpen);
   const menuOpen = menuOpenProp ?? menuOpenState;
-  const selected = selectedProp ?? !!task.selected;
-  const completed = status === 'completed';
-  const shown = shownStatus(status, task.dateTone);
+  const selected = !!selectedProp;
+  const completed = status === TaskStatus.COMPLETED;
+  const overdue = isOverdue(status, task.dueDate, now);
+  const flag = showsOverdueFlag(status, overdue);
+  const tone = dueTone(status, task.dueDate, now);
 
   function setMenuOpen(open: boolean) {
     setMenuOpenState(open);
@@ -419,18 +429,18 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
         status={status}
         open={menuOpen}
         onOpenChange={setMenuOpen}
-        onStatusChange={(picked) => {
-          setStatusState(picked);
-          onStatusChange?.(picked);
+        onStatusChange={(next) => {
+          setPicked({ from: task.status, to: next });
+          onStatusChange?.(next);
         }}
         trigger={
           <button
             type="button"
             className={styles.status}
             tabIndex={-1}
-            aria-label={`Status: ${TASK_STATUS_LABELS[shown]}`}
+            aria-label={`Status: ${flag ? OVERDUE_LABEL : TASK_STATUS_LABELS[status]}`}
           >
-            <StatusIcon status={shown} />
+            <StatusIcon status={status} overdue={flag} />
           </button>
         }
       />
@@ -439,35 +449,24 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
           {task.title}
         </span>
         <PillStack stacked={level === 2}>
-          {task.key && <SourcePill provider={task.source}>{task.key}</SourcePill>}
-          {task.parent && (
-            <EntityPill type="parent" status={task.parentStatus}>
-              {task.parent}
-            </EntityPill>
+          {key && task.external && (
+            <SourcePill provider={providerOf(task.external)}>{key}</SourcePill>
           )}
-          {task.subtasks && (
+          {task.parentTask && <EntityPill entity={{ type: 'parent', ...task.parentTask }} />}
+          {subtasks && (
             <Badge
               muted
-              icon={<ProgressRing value={task.subtasks[0]} total={task.subtasks[1]} size={12} />}
+              icon={<ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />}
             >
-              {task.subtasks[0]}/{task.subtasks[1]}
+              {subtasks.completed}/{subtasks.total}
             </Badge>
           )}
         </PillStack>
       </div>
       <div className={styles.side} data-side="">
         <PillStack stacked={level >= 1}>
-          {task.event && (
-            <EntityPill type="event" color={task.eventColor}>
-              {task.event}
-            </EntityPill>
-          )}
-          {task.note && <EntityPill type="note">{task.note}</EntityPill>}
-          {task.project && (
-            <EntityPill type="project" color={task.projectColor}>
-              {task.project}
-            </EntityPill>
-          )}
+          {task.link && <EntityPill entity={task.link} />}
+          {task.project && <EntityPill entity={{ type: 'project', ...task.project }} />}
         </PillStack>
         <span className={styles.priority}>
           {!completed && <PriorityIcon priority={task.priority} />}
@@ -475,11 +474,11 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
         <span
           className={cn(
             styles.date,
-            !completed && task.dateTone === 'today' && styles.today,
-            !completed && task.dateTone === 'overdue' && styles.overdue,
+            tone === 'today' && styles.today,
+            tone === 'overdue' && styles.overdue,
           )}
         >
-          {task.date}
+          {task.dueDate && formatDue(task.dueDate)}
         </span>
       </div>
     </div>

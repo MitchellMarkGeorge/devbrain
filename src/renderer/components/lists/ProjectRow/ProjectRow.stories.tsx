@@ -1,19 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { AUTH_OVERHAUL, SAMPLE_PROJECTS } from '../../projects/ProjectCard/fixtures';
 import { ProjectRow } from './ProjectRow';
 
 const meta = {
   title: 'Lists/ProjectRow',
   component: ProjectRow,
-  args: {
-    project: {
-      name: 'Auth Overhaul',
-      color: 'blue',
-      status: 'active',
-      progress: 25,
-      due: 'Due Jul 1',
-    },
-    onSelect: () => {},
-  },
+  args: { ...AUTH_OVERHAUL, onSelect: () => {} },
   decorators: [
     (Story) => (
       <div style={{ maxWidth: 1152 }}>
@@ -29,36 +21,13 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 export const Hover: Story = { args: { state: 'hover' } };
 
+/** Each status, from core's projects and their stats; a completed one shows when it was done. */
 export const Statuses: Story = {
   render: () => (
     <div>
-      <ProjectRow
-        project={{
-          name: 'API Gateway v2',
-          color: 'amber',
-          status: 'active',
-          progress: 40,
-          due: 'Due Jun 30',
-        }}
-      />
-      <ProjectRow
-        project={{
-          name: 'ML Platform',
-          color: 'pink',
-          status: 'on-hold',
-          progress: 60,
-          due: 'Due Jul 10',
-        }}
-      />
-      <ProjectRow
-        project={{
-          name: 'User Interface Revamp',
-          color: 'indigo',
-          status: 'not-started',
-          progress: 0,
-          due: 'Due Jul 15',
-        }}
-      />
+      {SAMPLE_PROJECTS.slice(1).map((sample) => (
+        <ProjectRow key={sample.project.title} {...sample} />
+      ))}
     </div>
   ),
 };

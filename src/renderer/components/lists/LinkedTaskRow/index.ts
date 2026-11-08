@@ -1,1 +1,1 @@
-export { LinkedTaskRow, type LinkedTaskRowProps } from './LinkedTaskRow';
+export { LinkedTaskRow, type LinkedTaskRowData, type LinkedTaskRowProps } from './LinkedTaskRow';
