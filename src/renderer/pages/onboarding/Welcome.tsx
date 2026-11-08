@@ -61,7 +61,6 @@ export function Welcome() {
           Open Existing Folder…
         </Button>
       </div>
-      {openFolder.dialog}
     </OnboardingScreen>
   );
 }

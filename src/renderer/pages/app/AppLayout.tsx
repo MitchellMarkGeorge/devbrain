@@ -1,7 +1,5 @@
-import { useState } from 'react';
 import { Outlet, useMatches, useRouter } from '@tanstack/react-router';
 import { AppShell, Breadcrumb, PageHeader } from '../../components';
-import { CreateWorkspaceDialog } from '../workspaces/CreateWorkspaceDialog';
 import { AppSidebar } from './AppSidebar';
 import { useHistoryPosition } from './use-history-position';
 
@@ -12,14 +10,13 @@ import { useHistoryPosition } from './use-history-position';
 export function AppLayout() {
   const router = useRouter();
   const position = useHistoryPosition();
-  const [creating, setCreating] = useState(false);
   const title = useMatches({
     select: (matches) =>
       [...matches].reverse().find((match) => match.staticData.title)?.staticData.title,
   });
   return (
     <AppShell
-      sidebar={<AppSidebar onNewWorkspace={() => setCreating(true)} />}
+      sidebar={<AppSidebar />}
       header={<PageHeader>{title && <Breadcrumb items={[title]} />}</PageHeader>}
       onBack={() => router.history.back()}
       onForward={() => router.history.forward()}
@@ -27,7 +24,6 @@ export function AppLayout() {
       canGoForward={position.canGoForward}
     >
       <Outlet />
-      <CreateWorkspaceDialog open={creating} onOpenChange={setCreating} />
     </AppShell>
   );
 }

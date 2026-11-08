@@ -95,6 +95,16 @@ with markdown in and out. `docs/editor.md` says what it reads and writes, what a
 how to add an element. A new element needs a round trip case in
 `src/renderer/tests/editor/markdown.test.ts`.
 
+## Dialogs
+
+A page shows a dialog with `useModals().open((props) => <MyDialog {...props} />)`
+(`src/renderer/modals.tsx`), not with open state of its own or a callback passed up to whoever
+renders it. The dialog spreads `props` onto `Dialog` or `AlertDialog`, closes with
+`props.onOpenChange(false)`, and is removed once its closing animation ends. The root layout holds
+them, inside the router and the query client, and drops them all when a workspace switch starts.
+Components in `src/renderer/components` stay controlled (`open`, `onOpenChange`); `useModals` is
+for pages.
+
 ## IPC
 
 The renderer reaches core through the typed tRPC router in `src/main/ipc`, run over Electron IPC.

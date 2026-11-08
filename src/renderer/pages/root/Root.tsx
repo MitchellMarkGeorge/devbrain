@@ -10,6 +10,7 @@ import { useMutation } from '@tanstack/react-query';
 import { RotateCw, ScrollText } from 'lucide-react';
 import { Button, Logomark, OnboardingScreen, ToastProvider } from '../../components';
 import { trpc } from '../../ipc';
+import { ModalProvider } from '../../modals';
 import { Splash } from './Splash';
 
 // The root route's pieces (src/renderer/routes/__root.tsx).
@@ -32,7 +33,8 @@ const RouterDevtools = import.meta.env.DEV
   : () => null;
 
 /**
- * The window: toasts, and the page, or the splash in its place while the router is on its way to
+ * The window: toasts, dialogs (`useModals`, dropped when a switch starts), and the page, or the
+ * splash in its place while the router is on its way to
  * another workspace (from the moment a switch starts until its page has loaded; the open takes
  * 600ms at least). The page is unmounted, not hidden: the workspace closing never draws or runs
  * again, and the next one's page mounts fresh.
@@ -49,7 +51,7 @@ export function RootLayout() {
   const switching = shown !== undefined && target !== null && target !== shown;
   return (
     <ToastProvider>
-      {switching ? <Splash /> : <Outlet />}
+      <ModalProvider closed={switching}>{switching ? <Splash /> : <Outlet />}</ModalProvider>
       {import.meta.env.DEV && import.meta.env.MODE !== 'test' && (
         <Suspense>
           <RouterDevtools router={router} position="bottom-right" />
