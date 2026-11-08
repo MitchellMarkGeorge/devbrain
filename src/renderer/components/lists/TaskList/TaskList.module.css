@@ -1,8 +1,13 @@
 /* A virtualized list of TaskRows with selection. See docs/design-system/components/TaskList.md */
+/* its own scroller: it fills the height its container gives it, or grows to its rows */
 .list {
   position: relative;
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .list:focus-visible {
   outline: none;
@@ -11,6 +16,7 @@
 /* the rows' full height; only the rows in view are drawn, each placed at its offset */
 .rows {
   position: relative;
+  flex: none;
   width: 100%;
 }
 .item,

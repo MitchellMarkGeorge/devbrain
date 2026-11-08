@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Calendar, CircleAlert, Folder } from 'lucide-react';
 import { DropdownMenuItem, DropdownMenuSeparator } from '../../ui/DropdownMenu';
@@ -165,20 +165,44 @@ const PAGE = 100;
 const TOTAL = 1000;
 
 /**
+ * A page's content area as the app lays it out: a fixed header, then the list filling the rest of
+ * the height and scrolling on its own.
+ */
+function Page({ header, children }: { header: ReactNode; children: ReactNode }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: 560,
+        border: '1px dashed var(--border)',
+        borderRadius: 8,
+      }}
+    >
+      <div style={{ flex: 'none', padding: '12px 12px 12px 36px' }}>{header}</div>
+      {children}
+    </div>
+  );
+}
+
+/**
  * 1,000 tasks, loaded 100 at a time as `onEndReached` fires near the last loaded rows (as
  * `fetchNextPage` will): only the rows in view are in the DOM. `aria-rowcount` is the 1,000 a
  * count gives; each drawn row has its `aria-rowindex`. ↓ and End scroll the focused row into
- * view before focusing it.
+ * view before focusing it. The list scrolls on its own under the page's header.
  */
 export const ThousandRows: Story = {
   name: '1,000 rows',
   render: function ThousandRows() {
     const [loaded, setLoaded] = useState(() => manyTasks(PAGE));
     return (
-      <>
-        <Text size="xs" tone="subtle" style={{ padding: '0 0 8px 36px' }}>
-          {loaded.length} of {TOTAL} loaded
-        </Text>
+      <Page
+        header={
+          <Text size="xs" tone="subtle">
+            {loaded.length} of {TOTAL} loaded
+          </Text>
+        }
+      >
         <TaskList
           tasks={loaded}
           rowCount={TOTAL}
@@ -188,12 +212,12 @@ export const ThousandRows: Story = {
             )
           }
         />
-      </>
+      </Page>
     );
   },
 };
 
-/** 1,000 tasks in ten groups of 100: the current heading sticks as the list scrolls. */
+/** 1,000 tasks in ten groups of 100: the current heading sticks to the top of the list as it scrolls. */
 export const ThousandRowsGrouped: Story = {
   name: '1,000 rows, grouped',
   render: function ThousandRowsGrouped() {
@@ -214,17 +238,16 @@ export const ThousandRowsGrouped: Story = {
       ),
       tasks: all.slice(g * 100, g * 100 + 100),
     }));
-    return <TaskList groups={groups} />;
+    return (
+      <Page
+        header={
+          <Text size="xs" tone="subtle">
+            Ten groups of 100
+          </Text>
+        }
+      >
+        <TaskList groups={groups} />
+      </Page>
+    );
   },
-};
-
-/** In a scrolling panel of its own (a sheet, a page's content area), it virtualizes against that. */
-export const InScrollingPanel: Story = {
-  render: () => (
-    <div
-      style={{ height: 420, overflow: 'auto', border: '1px dashed var(--border)', borderRadius: 8 }}
-    >
-      <TaskList tasks={manyTasks(TOTAL)} />
-    </div>
-  ),
 };

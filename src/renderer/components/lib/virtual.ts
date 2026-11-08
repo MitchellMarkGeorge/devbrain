@@ -1,23 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
-import {
-  useVirtualizer,
-  useWindowVirtualizer,
-  type Range,
-  type Virtualizer,
-} from '@tanstack/react-virtual';
-
-/**
- * The element that scrolls `element`: its nearest ancestor with `overflow-y` auto or scroll, or
- * null when the page itself scrolls.
- */
-export function scrollParentOf(element: HTMLElement | null): HTMLElement | null {
-  for (let node = element?.parentElement; node; node = node.parentElement) {
-    if (node === document.body || node === document.documentElement) return null;
-    const { overflowY } = getComputedStyle(node);
-    if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') return node;
-  }
-  return null;
-}
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { useVirtualizer, type Range, type Virtualizer } from '@tanstack/react-virtual';
 
 /**
  * A length token in pixels, read from the element's computed style (`--row-height` → 48), so a
@@ -39,9 +21,9 @@ export function useTokenLength(
   return value;
 }
 
-export interface ListVirtualizerOptions {
-  /** the list's own element: its scrolling ancestor (or the window) drives the virtualizer */
-  listRef: RefObject<HTMLElement | null>;
+export interface VirtualListOptions {
+  /** the list's own scrolling element: the rows are virtualized against it */
+  scrollerRef: RefObject<HTMLElement | null>;
   count: number;
   estimateSize: (index: number) => number;
   getItemKey?: (index: number) => string | number;
@@ -54,16 +36,13 @@ export interface ListVirtualizerOptions {
   endReachedThreshold?: number;
 }
 
-export type ListVirtualizer = Virtualizer<HTMLElement, Element> | Virtualizer<Window, Element>;
-
 /**
- * Virtualizes a list that sits inside a larger scrolling area (a page, a sheet) rather than being
- * its own scroller: it finds the list's scrolling ancestor, or uses the window, and offsets the
- * rows by where the list starts in it (`scrollMargin`). Rows are placed at
- * `item.start - virtualizer.options.scrollMargin`.
+ * TanStack Virtual's `useVirtualizer` on a list that is its own scroller, plus `onEndReached`:
+ * it fires once the last rendered row comes within `endReachedThreshold` of the end, once for
+ * each length of the list, which is where a page calls `fetchNextPage()`.
  */
-export function useListVirtualizer({
-  listRef,
+export function useVirtualList({
+  scrollerRef,
   count,
   estimateSize,
   getItemKey,
@@ -71,47 +50,19 @@ export function useListVirtualizer({
   rangeExtractor,
   onEndReached,
   endReachedThreshold = 20,
-}: ListVirtualizerOptions): ListVirtualizer {
-  // undefined until mounted; null when the window scrolls
-  const [scroller, setScroller] = useState<HTMLElement | null | undefined>(undefined);
-  const [scrollMargin, setScrollMargin] = useState(0);
-
-  useLayoutEffect(() => {
-    setScroller(scrollParentOf(listRef.current));
-  }, [listRef]);
-
-  // where the list starts in its scroller, kept up to date as what is above it changes size
-  const measureMargin = useCallback(() => {
-    const list = listRef.current;
-    if (!list || scroller === undefined) return;
-    const top = list.getBoundingClientRect().top;
-    const margin = scroller
-      ? top - scroller.getBoundingClientRect().top + scroller.scrollTop
-      : top + window.scrollY;
-    setScrollMargin((current) => (Math.abs(current - margin) < 0.5 ? current : margin));
-  }, [listRef, scroller]);
-  useLayoutEffect(() => {
-    measureMargin();
-    const target = scroller ?? document.body;
-    const observer = new ResizeObserver(measureMargin);
-    observer.observe(target);
-    if (listRef.current?.parentElement) observer.observe(listRef.current.parentElement);
-    return () => observer.disconnect();
-  }, [measureMargin, scroller, listRef]);
-
-  const shared = { count, estimateSize, getItemKey, overscan, rangeExtractor, scrollMargin };
+}: VirtualListOptions): Virtualizer<HTMLElement, Element> {
   // TanStack Virtual returns fresh functions each render, which the React Compiler cannot memoize;
   // the lists re-render with it as its docs intend
   // eslint-disable-next-line react-hooks/incompatible-library
-  const inElement = useVirtualizer<HTMLElement, Element>({
-    ...shared,
-    enabled: scroller != null,
-    getScrollElement: () => scroller ?? null,
+  const virtualizer = useVirtualizer<HTMLElement, Element>({
+    count,
+    estimateSize,
+    getItemKey,
+    overscan,
+    rangeExtractor,
+    getScrollElement: () => scrollerRef.current,
   });
-  const inWindow = useWindowVirtualizer({ ...shared, enabled: scroller === null });
-  const virtualizer: ListVirtualizer = scroller === null ? inWindow : inElement;
 
-  // ask for more once the last rendered row is near the end, once per count
   const items = virtualizer.getVirtualItems();
   const last = items.length ? items[items.length - 1].index : -1;
   const askedAt = useRef(-1);

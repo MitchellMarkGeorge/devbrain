@@ -11,7 +11,7 @@ import {
 } from 'react';
 import { defaultRangeExtractor, type Range } from '@tanstack/react-virtual';
 import { cn } from '../../lib/cn';
-import { useListVirtualizer, useTokenLength } from '../../lib/virtual';
+import { useTokenLength, useVirtualList } from '../../lib/virtual';
 import { SelectionBar } from '../SelectionBar';
 import type { PickableStatus } from '../../entities/StatusMenu';
 import { TaskRow, type TaskRowData, type TaskRowProps } from '../TaskRow';
@@ -106,8 +106,11 @@ function entriesOf(tasks: TaskRowData[] | undefined, groups: TaskListGroup[] | u
 }
 
 /**
- * A virtualized list of `TaskRow`s that handles selection: only the rows in view (and about ten
- * either side) are drawn, rows selected next to each other join into one block, every row shows
+ * A virtualized list of `TaskRow`s that handles selection. It is its own scroller: it fills the
+ * height its container gives it (`flex: 1` in a column, or a set height) and scrolls its rows
+ * there, under the page's header, drawing only the rows in view (and about ten either side). With
+ * no height to fill it grows to its rows and draws them all, which suits a short list. Rows
+ * selected next to each other join into one block, rows selected next to each other join into one block, every row shows
  * its checkbox while anything is selected, and the `SelectionBar` floats over the bottom of the
  * list. Focus and selection are kept as task ids, so they survive a row scrolling out of view.
  * ↑/↓ move between rows (scrolling a row into view before focusing it; one tab stop for the
@@ -187,8 +190,8 @@ export function TaskList({
     [headingAt],
   );
 
-  const virtualizer = useListVirtualizer({
-    listRef,
+  const virtualizer = useVirtualList({
+    scrollerRef: listRef,
     count: entries.length,
     // rows are row-height exactly; headings are measured (a group-gap above all but the first)
     estimateSize: (index) => {
@@ -202,7 +205,6 @@ export function TaskList({
     onEndReached,
     endReachedThreshold,
   });
-  const scrollMargin = virtualizer.options.scrollMargin;
 
   // a row asked to take focus once it is drawn (after scrollToIndex brings it into range)
   const rows = useRef(new Map<string, HTMLDivElement>());
@@ -298,9 +300,7 @@ export function TaskList({
           const entry = entries[item.index];
           if (!entry) return null;
           const sticky = item.index === activeHeading;
-          const style = sticky
-            ? undefined
-            : { transform: `translateY(${item.start - scrollMargin}px)` };
+          const style = sticky ? undefined : { transform: `translateY(${item.start}px)` };
           const rowIndex = item.index + 1;
           if (entry.kind !== 'task') {
             return (

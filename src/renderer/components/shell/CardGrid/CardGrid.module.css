@@ -8,7 +8,18 @@
   gap: var(--space-4);
 }
 
-/* virtualized: each row of cards placed at its offset, the gap below it */
+/* virtualized: its own scroller, filling the height its container gives it; the cards' 3px focus
+   ring keeps room inside it */
+.scroller {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: -3px;
+  padding: 3px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* each row of cards placed at its offset, the gap below it */
 .rows {
   position: relative;
   width: 100%;

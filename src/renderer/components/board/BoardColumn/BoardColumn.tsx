@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import { useListVirtualizer } from '../../lib/virtual';
+import { useVirtualList } from '../../lib/virtual';
 import { BoardCard, type BoardCardData } from '../BoardCard';
 import { IconButton } from '../../ui/IconButton';
 import { Icon } from '../../ui/Icon';
@@ -62,9 +62,10 @@ const CARD_GAP = 10;
 
 /**
  * An open status column: no panel, a 24px header (status icon, name, a ghost "+" on the right)
- * over its cards, 10px apart, and a dashed "Add task" slot. The cards are virtualized against
- * the board's scroller: only those in view (and about ten either side) are drawn, each measured
- * as it draws, since pills can wrap. ↑/↓ move between cards, scrolling the next into view first.
+ * over its cards, 10px apart, and a dashed "Add task" slot. The column fills the board's height
+ * and its cards scroll under the header, each column on its own; they are virtualized, so only
+ * those in view (and about ten either side) are drawn, each measured as it draws, since pills can
+ * wrap. ↑/↓ move between cards, scrolling the next into view first.
  */
 export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function BoardColumn(
   {
@@ -85,16 +86,16 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
   ref,
 ) {
   const name = nameProp ?? TASK_STATUS_LABELS[status];
-  const listRef = useRef<HTMLDivElement>(null);
-  const virtualizer = useListVirtualizer({
-    listRef,
+  // the cards area scrolls under the column's header; the board does not scroll
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualList({
+    scrollerRef,
     count: tasks.length,
     estimateSize: () => CARD_ESTIMATE + CARD_GAP,
     getItemKey: (index) => tasks[index].id,
     onEndReached,
     endReachedThreshold,
   });
-  const scrollMargin = virtualizer.options.scrollMargin;
 
   // each drawn card's cell, by task id; the card is its first child
   const cells = useRef(new Map<string, HTMLElement>());
@@ -149,9 +150,8 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
           onClick={onAdd}
         />
       </div>
-      <div className={styles.cards}>
+      <div ref={scrollerRef} className={styles.cards}>
         <div
-          ref={listRef}
           role="grid"
           aria-label={name}
           aria-rowcount={rowCount ?? tasks.length}
@@ -170,7 +170,7 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
                 role="row"
                 aria-rowindex={item.index + 1}
                 className={styles.item}
-                style={{ transform: `translateY(${item.start - scrollMargin}px)` }}
+                style={{ transform: `translateY(${item.start}px)` }}
               >
                 <div
                   role="gridcell"

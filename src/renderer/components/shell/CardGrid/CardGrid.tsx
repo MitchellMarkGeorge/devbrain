@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useImperativeHandle,
   useRef,
   type ComponentPropsWithoutRef,
   type CSSProperties,
@@ -8,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 import { cn } from '../../lib/cn';
-import { useListVirtualizer } from '../../lib/virtual';
+import { useVirtualList } from '../../lib/virtual';
 import { useWorkspaceShell } from '../WorkspaceShell/context';
 import styles from './CardGrid.module.css';
 
@@ -60,11 +61,21 @@ function VirtualRows<T>({
   endReachedThreshold = 7,
   columns,
   gap,
-}: CardGridVirtualProps<T> & { columns: number; gap: 'sm' | 'md' }) {
-  const listRef = useRef<HTMLDivElement>(null);
+  scrollerProps,
+  forwardedRef,
+}: CardGridVirtualProps<T> & {
+  columns: number;
+  gap: 'sm' | 'md';
+  /** the scroller element's own props: class, style, data and aria attributes */
+  scrollerProps: ComponentPropsWithoutRef<'div'>;
+  forwardedRef: ForwardedRef<HTMLDivElement>;
+}) {
+  // the grid is its own scroller, drawn here so its ref is set before the virtualizer mounts
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  useImperativeHandle(forwardedRef, () => scrollerRef.current as HTMLDivElement, []);
   const rowCount = Math.ceil(items.length / columns);
-  const virtualizer = useListVirtualizer({
-    listRef,
+  const virtualizer = useVirtualList({
+    scrollerRef,
     count: rowCount,
     estimateSize: () => estimateRowHeight,
     getItemKey: (row) => `${columns}:${getKey(items[row * columns])}`,
@@ -72,36 +83,36 @@ function VirtualRows<T>({
     onEndReached,
     endReachedThreshold,
   });
-  const scrollMargin = virtualizer.options.scrollMargin;
   return (
-    <div
-      ref={listRef}
-      role="grid"
-      aria-rowcount={Math.ceil((itemCount ?? items.length) / columns)}
-      aria-colcount={columns}
-      className={styles.rows}
-      style={{ height: virtualizer.getTotalSize() }}
-    >
-      {virtualizer.getVirtualItems().map((row) => (
-        <div
-          key={row.key}
-          ref={virtualizer.measureElement}
-          data-index={row.index}
-          role="row"
-          aria-rowindex={row.index + 1}
-          className={cn(styles.grid, styles.row)}
-          style={{
-            transform: `translateY(${row.start - scrollMargin}px)`,
-            paddingBottom: GAPS[gap],
-          }}
-        >
-          {items.slice(row.index * columns, row.index * columns + columns).map((item, i) => (
-            <div key={getKey(item)} role="gridcell" className={styles.cell}>
-              {renderItem(item, row.index * columns + i)}
-            </div>
-          ))}
-        </div>
-      ))}
+    <div ref={scrollerRef} {...scrollerProps}>
+      <div
+        role="grid"
+        aria-rowcount={Math.ceil((itemCount ?? items.length) / columns)}
+        aria-colcount={columns}
+        className={styles.rows}
+        style={{ height: virtualizer.getTotalSize() }}
+      >
+        {virtualizer.getVirtualItems().map((row) => (
+          <div
+            key={row.key}
+            ref={virtualizer.measureElement}
+            data-index={row.index}
+            role="row"
+            aria-rowindex={row.index + 1}
+            className={cn(styles.grid, styles.row)}
+            style={{
+              transform: `translateY(${row.start}px)`,
+              paddingBottom: GAPS[gap],
+            }}
+          >
+            {items.slice(row.index * columns, row.index * columns + columns).map((item, i) => (
+              <div key={getKey(item)} role="gridcell" className={styles.cell}>
+                {renderItem(item, row.index * columns + i)}
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -127,19 +138,26 @@ function CardGridImpl<T>(props: CardGridProps<T>, ref: ForwardedRef<HTMLDivEleme
   const vars = { '--card-columns': shown, ...style } as CSSProperties;
   if (items && renderItem && getKey) {
     return (
-      <div ref={ref} data-gap={gap} className={className} style={vars} {...rest}>
-        <VirtualRows
-          items={items}
-          renderItem={renderItem}
-          getKey={getKey}
-          estimateRowHeight={estimateRowHeight}
-          itemCount={itemCount}
-          onEndReached={onEndReached}
-          endReachedThreshold={endReachedThreshold}
-          columns={shown}
-          gap={gap}
-        />
-      </div>
+      <VirtualRows
+        items={items}
+        renderItem={renderItem}
+        getKey={getKey}
+        estimateRowHeight={estimateRowHeight}
+        itemCount={itemCount}
+        onEndReached={onEndReached}
+        endReachedThreshold={endReachedThreshold}
+        columns={shown}
+        gap={gap}
+        scrollerProps={
+          {
+            ...rest,
+            'data-gap': gap,
+            className: cn(styles.scroller, className),
+            style: vars,
+          } as ComponentPropsWithoutRef<'div'>
+        }
+        forwardedRef={ref}
+      />
     );
   }
   return (
@@ -151,9 +169,10 @@ function CardGridImpl<T>(props: CardGridProps<T>, ref: ForwardedRef<HTMLDivEleme
 
 /**
  * Cards in equal columns: the Notes and Projects card views. In compact windows it drops to two
- * columns (README "Window sizes"). With `items` and `renderItem` it is virtualized: each row of
- * cards is one virtual row, measured as it draws, so a workspace with thousands of notes draws a
- * few rows. With `children` it draws them as they are.
+ * columns (README "Window sizes"). With `items` and `renderItem` it is virtualized and is its own
+ * scroller: it fills the height its container gives it and scrolls under the page's header, each
+ * row of cards one virtual row, measured as it draws, so a workspace with thousands of notes draws
+ * a few rows. With `children` it draws them as they are.
  */
 export const CardGrid = forwardRef(CardGridImpl) as <T>(
   props: CardGridProps<T> & { ref?: ForwardedRef<HTMLDivElement> },

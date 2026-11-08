@@ -1,10 +1,12 @@
 /* The board: open status columns, 24px apart. See docs/design-system/components/BoardColumn.md */
 .board {
   display: grid;
+  flex: 1 1 auto;
   grid-auto-flow: column;
   grid-auto-columns: minmax(0, 1fr);
   gap: var(--space-6);
-  align-items: start;
+  /* the columns fill the board's height, and each scrolls its own cards */
+  min-height: 0;
 }
 
 .column {
@@ -12,6 +14,7 @@
   flex-direction: column;
   gap: var(--space-3);
   min-width: 0;
+  min-height: 0;
 }
 .header {
   display: flex;
@@ -31,10 +34,20 @@
   margin-left: auto;
   color: var(--muted-foreground);
 }
+/* the column's own scroller, under its header; the cards' 3px focus ring keeps room inside it */
 .cards {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 10px;
+  min-height: 0;
+  margin: -3px;
+  padding: 3px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.cards > * {
+  flex: none;
 }
 
 /* the dashed "Add task" slot that ends an open column */

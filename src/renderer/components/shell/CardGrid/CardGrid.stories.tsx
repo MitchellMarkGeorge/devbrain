@@ -35,14 +35,14 @@ export const ThreeColumns: Story = {
 };
 
 /**
- * 1,000 notes, virtualized by rows of cards: only the rows in view are in the DOM, each measured
- * as it draws. Three across (two in compact windows inside a `WorkspaceShell`).
+ * 1,000 notes, virtualized by rows of cards: the grid fills the 600px it is given and scrolls on
+ * its own, with only the rows in view in the DOM, each measured as it draws. Three across (two in compact windows inside a `WorkspaceShell`).
  */
 export const ThousandCards: Story = {
   name: '1,000 cards',
   decorators: [
     (Story) => (
-      <div style={{ width: 960 }}>
+      <div style={{ width: 960, height: 600, display: 'flex', flexDirection: 'column' }}>
         <Story />
       </div>
     ),

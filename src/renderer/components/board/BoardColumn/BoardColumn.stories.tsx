@@ -109,8 +109,9 @@ export const FullBoard: Story = {
 };
 
 /**
- * 1,000 cards a column, loaded 100 at a time as `onEndReached` fires: each column draws only the
- * cards in view, measured as they draw (pills wrap). ↑/↓ on a card scroll the next into view.
+ * 1,000 cards a column, loaded 100 at a time as `onEndReached` fires: the board fills the
+ * window's height and each column scrolls its own cards under its header, drawing only the cards
+ * in view, measured as they draw (pills wrap). ↑/↓ on a card scroll the next into view.
  */
 export const ThousandCards: Story = {
   name: '1,000 cards a column',
@@ -122,7 +123,16 @@ export const ThousandCards: Story = {
       all.filter((task) => task.status === status).slice(0, loaded);
     const more = () => setLoaded((count) => Math.min(1000, count + 100));
     return (
-      <div style={{ padding: 24, maxWidth: 1080 }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100vh',
+          boxSizing: 'border-box',
+          padding: 24,
+          maxWidth: 1080,
+        }}
+      >
         <Board>
           {[TaskStatus.NOT_STARTED, TaskStatus.IN_PROGRESS, TaskStatus.COMPLETED].map((status) => (
             <BoardColumn
