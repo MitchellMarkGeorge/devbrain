@@ -8,7 +8,7 @@ import {
 } from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import { useVirtualList } from '../../lib/virtual';
+import { paddingBefore, useVirtualList } from '../../lib/virtual';
 import { BoardCard, type BoardCardData } from '../BoardCard';
 import { IconButton } from '../../ui/IconButton';
 import { Icon } from '../../ui/Icon';
@@ -43,7 +43,7 @@ export interface BoardColumnProps extends Omit<ComponentPropsWithoutRef<'section
   onAdd?: () => void;
   /** core's tasks for this status, as they are (`TaskListItem`s) */
   tasks: BoardColumnTask[];
-  /** how many tasks the column has in all, loaded or not (`aria-rowcount`); the loaded ones by default */
+  /** how many tasks the column has in all, loaded or not (each card's `aria-setsize`); the loaded ones by default */
   rowCount?: number;
   /** a click on a card, or Enter on it */
   onOpen?: (task: BoardColumnTask) => void;
@@ -97,10 +97,12 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
     onEndReached,
     endReachedThreshold,
   });
+  const items = virtualizer.getVirtualItems();
 
-  // each drawn card's cell, by task id; the card is its first child
-  const cells = useRef(new Map<string, HTMLElement>());
-  const cardOf = (id: string) => cells.current.get(id)?.firstElementChild as HTMLElement | null;
+  // The cards drawn right now, by task id (each list item adds itself as it mounts and removes
+  // itself as it scrolls out), for moving focus between them; a card is its item's only child
+  const drawn = useRef(new Map<string, HTMLElement>());
+  const cardOf = (id: string) => drawn.current.get(id)?.firstElementChild as HTMLElement | null;
   const pendingFocus = useRef<string | null>(null);
   useEffect(() => {
     const id = pendingFocus.current;
@@ -114,9 +116,9 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
   // Enter opens the focused card; ↑/↓ move to the next card, scrolling it into view first
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const card = event.target as HTMLElement;
-    const cell = card.parentElement;
-    if (!cell?.dataset.taskId || cell.firstElementChild !== card) return;
-    const current = tasks.findIndex((task) => task.id === cell.dataset.taskId);
+    const item = card.parentElement;
+    if (!item?.dataset.taskId || item.firstElementChild !== card) return;
+    const current = tasks.findIndex((task) => task.id === item.dataset.taskId);
     if (current < 0) return;
     if (event.key === 'Enter') {
       if (!onOpen) return;
@@ -150,41 +152,42 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
         />
       </div>
       <div ref={scrollerRef} className={styles.cards}>
+        {/*
+         * The whole column's height, so the scrollbar is the whole column's; the drawn cards flow
+         * inside it, in order, after the space the cards above them would take (paddingBefore).
+         * One list item per card: it is what the virtualizer measures (card and gap below) and
+         * what screen readers count ("card 212 of 340").
+         */}
         <div
-          role="grid"
+          role="list"
           aria-label={name}
-          aria-rowcount={rowCount ?? tasks.length}
           className={styles.list}
-          style={{ height: virtualizer.getTotalSize() }}
+          style={{ height: virtualizer.getTotalSize(), paddingTop: paddingBefore(items) }}
           onKeyDown={handleKeyDown}
         >
-          {virtualizer.getVirtualItems().map((item) => {
+          {items.map((item) => {
             const task = tasks[item.index];
             if (!task) return null;
             return (
               <div
                 key={item.key}
-                ref={virtualizer.measureElement}
+                ref={(el) => {
+                  virtualizer.measureElement(el);
+                  if (el) drawn.current.set(task.id, el);
+                  else drawn.current.delete(task.id);
+                }}
                 data-index={item.index}
-                role="row"
-                aria-rowindex={item.index + 1}
+                data-task-id={task.id}
+                role="listitem"
+                aria-posinset={item.index + 1}
+                aria-setsize={rowCount ?? tasks.length}
                 className={styles.item}
-                style={{ transform: `translateY(${item.start}px)` }}
               >
-                <div
-                  role="gridcell"
-                  data-task-id={task.id}
-                  ref={(el) => {
-                    if (el) cells.current.set(task.id, el);
-                    else cells.current.delete(task.id);
-                  }}
-                >
-                  {renderCard ? (
-                    renderCard(task, item.index)
-                  ) : (
-                    <BoardCard task={task} onClick={onOpen && (() => onOpen(task))} />
-                  )}
-                </div>
+                {renderCard ? (
+                  renderCard(task, item.index)
+                ) : (
+                  <BoardCard task={task} onClick={onOpen && (() => onOpen(task))} />
+                )}
               </div>
             );
           })}

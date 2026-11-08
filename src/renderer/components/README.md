@@ -106,7 +106,10 @@ outside `components/` imports from the barrel (`import { Button } from '../compo
 
 - **Styles are CSS Modules on the tokens.** Every value comes from `src/renderer/styles/tokens.css`
   (`var(--control-md)`, `var(--radius-lg)`, `var(--border)`); no raw colours. No Tailwind.
-  shadcn's `bg-primary/90` is `color-mix(in oklab, var(--primary) 90%, transparent)`.
+  shadcn's `bg-primary/90` is `color-mix(in oklab, var(--primary) 90%, transparent)`. Code that
+  lays out in pixels (a virtualized list's row height) reads the same tokens as numbers from
+  `src/renderer/styles/tokens.ts` (`SIZE['row-height']`), generated with the CSS; never a value
+  typed in again.
 - **Variants use `cva`** (class-variance-authority), mapping each variant to a CSS Module class:
   `cva(styles.button, { variants: { size: { sm: styles.sizeSm } } })`. Export the `*Variants`
   function so other components can reuse the look. Class names join with `cn` (clsx).

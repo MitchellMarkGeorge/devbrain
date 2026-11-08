@@ -9,12 +9,13 @@ import {
   type ReactNode,
 } from 'react';
 import { cn } from '../../lib/cn';
-import { useVirtualList } from '../../lib/virtual';
+import { paddingBefore, useVirtualList } from '../../lib/virtual';
+import { SPACING } from '../../../styles/tokens';
 import { useWorkspaceShell } from '../WorkspaceShell/context';
 import styles from './CardGrid.module.css';
 
-// the gap tokens, in px, for the virtual rows' spacing
-const GAPS = { sm: 12, md: 16 } as const;
+// the space under each row of cards, as the grid's `gap` sets it between them: space-3 or space-4
+const GAPS = { sm: SPACING['space-3'], md: SPACING['space-4'] } as const;
 
 interface CardGridBaseProps extends Omit<ComponentPropsWithoutRef<'div'>, 'children'> {
   /** columns at medium and wide sizes (default 3); compact windows always use two */
@@ -84,6 +85,9 @@ function VirtualRows<T>({
     onEndReached,
     endReachedThreshold,
   });
+  const drawnRows = virtualizer.getVirtualItems();
+  // The whole grid's height, so the scrollbar is the whole grid's; the drawn rows of cards flow
+  // inside it, after the space the rows above them would take (paddingBefore)
   return (
     <div ref={scrollerRef} {...scrollerProps}>
       <div
@@ -91,9 +95,9 @@ function VirtualRows<T>({
         aria-rowcount={Math.ceil((itemCount ?? items.length) / columns)}
         aria-colcount={columns}
         className={styles.rows}
-        style={{ height: virtualizer.getTotalSize() }}
+        style={{ height: virtualizer.getTotalSize(), paddingTop: paddingBefore(drawnRows) }}
       >
-        {virtualizer.getVirtualItems().map((row) => (
+        {drawnRows.map((row) => (
           <div
             key={row.key}
             ref={virtualizer.measureElement}
@@ -101,10 +105,7 @@ function VirtualRows<T>({
             role="row"
             aria-rowindex={row.index + 1}
             className={cn(styles.grid, styles.row)}
-            style={{
-              transform: `translateY(${row.start}px)`,
-              paddingBottom: GAPS[gap],
-            }}
+            style={{ paddingBottom: GAPS[gap] }}
           >
             {items.slice(row.index * columns, row.index * columns + columns).map((item, i) => (
               <div key={getKey(item)} role="gridcell" className={styles.cell}>

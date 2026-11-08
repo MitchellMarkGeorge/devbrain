@@ -8,39 +8,44 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* the virtualizer keeps the rows in place as they measure; the browser should not move them too */
+  overflow-anchor: none;
 }
 .list:focus-visible {
   outline: none;
 }
 
-/* the rows' full height; only the rows in view are drawn, each placed at its offset */
+/*
+ * The whole list's height, so the scrollbar is the whole list's. Only the rows in view are drawn,
+ * in normal flow in index order, after a padding of the space the rows above them would take.
+ */
 .rows {
-  position: relative;
   flex: none;
+  box-sizing: border-box;
   width: 100%;
 }
-.item,
-.heading {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  /* a heading's own margins stay inside what the list measures */
+
+/* a heading's or footer's own margins stay inside what the list measures */
+.heading,
+.footer {
   display: flow-root;
 }
-/* group-gap above every heading but the first; it scrolls away when the heading sticks */
-.heading[data-gap] {
-  padding-top: var(--group-gap);
-}
-.heading[data-sticky] {
+
+/*
+ * Each heading sticks to the top of the list as it reaches it, over the rows (and over a focused
+ * row's raised outline), and the next heading covers it. A list on a card or sheet sets
+ * --list-ground to its surface. The group-gap above every heading but the first scrolls away
+ * when it sticks.
+ */
+.heading {
   position: sticky;
   top: 0;
-  z-index: 1;
-  /* a list on a card or sheet sets --list-ground to its surface */
+  z-index: 2;
   background: var(--list-ground, var(--background));
 }
-.heading[data-sticky][data-gap] {
+.heading[data-gap] {
   top: calc(-1 * var(--group-gap));
+  padding-top: var(--group-gap);
 }
 
 .bar {

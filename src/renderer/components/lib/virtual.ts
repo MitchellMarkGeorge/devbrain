@@ -1,25 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
-import { useVirtualizer, type Range, type Virtualizer } from '@tanstack/react-virtual';
-
-/**
- * A length token in pixels, read from the element's computed style (`--row-height` → 48), so a
- * list follows the density the tokens set. `fallback` until the element mounts, or when the
- * token is not a px length.
- */
-export function useTokenLength(
-  ref: RefObject<HTMLElement | null>,
-  token: `--${string}`,
-  fallback: number,
-): number {
-  const [value, setValue] = useState(fallback);
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    const parsed = parseFloat(getComputedStyle(element).getPropertyValue(token));
-    if (Number.isFinite(parsed) && parsed > 0) setValue(parsed);
-  }, [ref, token]);
-  return value;
-}
+import { useEffect, useRef, type RefObject } from 'react';
+import {
+  useVirtualizer,
+  type Range,
+  type VirtualItem,
+  type Virtualizer,
+} from '@tanstack/react-virtual';
 
 export interface VirtualListOptions {
   /** the list's own scrolling element: the rows are virtualized against it */
@@ -45,6 +30,10 @@ const UNBOUNDED_ROWS = 200;
  * TanStack Virtual's `useVirtualizer` on a list that is its own scroller, plus `onEndReached`:
  * it fires once the last rendered row comes within `endReachedThreshold` of the end, once for
  * each length of the list, which is where a page calls `fetchNextPage()`.
+ *
+ * The list draws its rows in normal flow, not positioned: a box `getTotalSize()` tall (so the
+ * scrollbar is the whole list's), padded at the top by the first drawn row's `start`
+ * (`paddingBefore`), then the drawn rows one after another in index order.
  */
 export function useVirtualList({
   scrollerRef,
@@ -70,6 +59,10 @@ export function useVirtualList({
     getScrollElement: () => scrollerRef.current,
   });
 
+  // Ask for more once the last drawn row is within the threshold of the end. A page's callback
+  // changes every render, so the latest one is kept in a ref rather than re-running the check for
+  // it. It is asked once per length of the list: scrolling about near the end asks no more, and
+  // asks again once the next page has made the list longer.
   const items = virtualizer.getVirtualItems();
   const last = items.length ? items[items.length - 1].index : -1;
   const askedAt = useRef(-1);
@@ -102,4 +95,20 @@ export function useVirtualList({
   }, [drawn, scrollerRef, name]);
 
   return virtualizer;
+}
+
+/**
+ * The space above the drawn rows, so each sits where its offset says while the rows flow: the
+ * first drawn row's start, less the height of any row drawn ahead of it out of order (a sticky
+ * heading kept from further up).
+ */
+export function paddingBefore(items: readonly VirtualItem[]): number {
+  if (items.length === 0) return 0;
+  let index = 0;
+  let ahead = 0;
+  while (index + 1 < items.length && items[index + 1].index !== items[index].index + 1) {
+    ahead += items[index].size;
+    index += 1;
+  }
+  return Math.max(0, items[index].start - ahead);
 }

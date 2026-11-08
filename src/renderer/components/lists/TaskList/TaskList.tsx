@@ -11,7 +11,8 @@ import {
 } from 'react';
 import { defaultRangeExtractor, type Range } from '@tanstack/react-virtual';
 import { cn } from '../../lib/cn';
-import { useTokenLength, useVirtualList } from '../../lib/virtual';
+import { paddingBefore, useVirtualList } from '../../lib/virtual';
+import { SIZE } from '../../../styles/tokens';
 import { SelectionBar } from '../SelectionBar';
 import type { PickableStatus } from '../../entities/StatusMenu';
 import { TaskRow, type TaskRowData, type TaskRowProps } from '../TaskRow';
@@ -79,10 +80,12 @@ export interface TaskListProps extends Omit<ComponentProps<'div'>, 'children' | 
   onOpen?: (task: TaskRowData) => void;
 }
 
+// One row of the flat list, with an `id` unique in the list: a task's own id, or its group's id
+// for a heading (`group:…`) and a footer (`footer:…`)
 type Entry =
-  | { kind: 'task'; key: string; task: TaskRowData; taskIndex: number }
-  | { kind: 'heading'; key: string; group: TaskListGroup; first: boolean }
-  | { kind: 'footer'; key: string; group: TaskListGroup };
+  | { kind: 'task'; id: string; task: TaskRowData; taskIndex: number }
+  | { kind: 'heading'; id: string; group: TaskListGroup; first: boolean }
+  | { kind: 'footer'; id: string; group: TaskListGroup };
 
 const idOf = (task: TaskRowData) => task.id as string;
 
@@ -91,16 +94,16 @@ function entriesOf(tasks: TaskRowData[] | undefined, groups: TaskListGroup[] | u
   let taskIndex = 0;
   const row = (task: TaskRowData): Entry => ({
     kind: 'task',
-    key: idOf(task),
+    id: idOf(task),
     task,
     taskIndex: taskIndex++,
   });
   if (!groups) return (tasks ?? []).map(row);
   return groups.flatMap((group, i) => [
-    { kind: 'heading', key: `group:${group.id}`, group, first: i === 0 } as Entry,
+    { kind: 'heading', id: `group:${group.id}`, group, first: i === 0 } as Entry,
     ...(group.collapsed ? [] : group.tasks.map(row)),
     ...(group.footer != null && !group.collapsed
-      ? [{ kind: 'footer', key: `footer:${group.id}`, group } as Entry]
+      ? [{ kind: 'footer', id: `footer:${group.id}`, group } as Entry]
       : []),
   ]);
 }
@@ -161,18 +164,17 @@ export function TaskList({
     ? idOf((entries[taskEntries[0]] as Extract<Entry, { kind: 'task' }>).task)
     : undefined;
   const indexOfId = useCallback(
-    (id: string | undefined) => (id == null ? -1 : entries.findIndex((e) => e.key === id)),
+    (id: string | undefined) => (id == null ? -1 : entries.findIndex((e) => e.id === id)),
     [entries],
   );
   const wanted = focusedIdProp ?? focusedState;
   const focusedId = indexOfId(wanted) >= 0 ? wanted : firstId;
 
   const listRef = useRef<HTMLDivElement>(null);
-  const rowHeight = useTokenLength(listRef, '--row-height', 48);
-  const groupHeight = useTokenLength(listRef, '--group-height', 36);
-  const groupGap = useTokenLength(listRef, '--group-gap', 32);
 
-  // the heading of the group at the top of the view stays drawn, stuck to the top
+  // Every heading sticks to the top as it reaches it, the next one covering it. The heading of the
+  // group at the top of the view stays drawn, ahead of the drawn rows, so it stays stuck even
+  // once its own place has scrolled far above them.
   const headingAt = useCallback(
     (start: number) => {
       let active = -1;
@@ -194,20 +196,23 @@ export function TaskList({
     scrollerRef: listRef,
     name: 'TaskList',
     count: entries.length,
-    // rows are row-height exactly; headings are measured (a group-gap above all but the first)
+    // Rows are row-height. Every entry is measured as it draws, so an estimate only places one
+    // until then: a heading is near a row's height, with the group-gap above all but the first.
     estimateSize: (index) => {
       const entry = entries[index];
-      if (entry.kind === 'task') return rowHeight;
-      if (entry.kind === 'heading') return groupHeight + 10 + (entry.first ? 0 : groupGap);
-      return rowHeight;
+      if (entry.kind === 'heading' && !entry.first) return SIZE['row-height'] + SIZE['group-gap'];
+      return SIZE['row-height'];
     },
-    getItemKey: (index) => entries[index].key,
+    getItemKey: (index) => entries[index].id,
     rangeExtractor: groups ? rangeExtractor : undefined,
     onEndReached,
     endReachedThreshold,
   });
 
-  // a row asked to take focus once it is drawn (after scrollToIndex brings it into range)
+  // The task rows drawn right now, by task id: each row adds itself when it mounts and removes
+  // itself when it scrolls out and unmounts, so this holds about the 30 rows in view, never the
+  // whole list. Focus uses it to reach a row; a row asked to take focus before it is drawn (after
+  // scrollToIndex brings it into range) waits in pendingFocus.
   const rows = useRef(new Map<string, HTMLDivElement>());
   const pendingFocus = useRef<string | null>(null);
   useEffect(() => {
@@ -266,7 +271,7 @@ export function TaskList({
               : null;
     if (target == null) return;
     event.preventDefault();
-    focusTask(entries[taskEntries[target]].key);
+    focusTask(entries[taskEntries[target]].id);
   }
 
   // tabbing into the list while its focused row is scrolled away brings that row back
@@ -281,8 +286,7 @@ export function TaskList({
   };
   const count = entries.filter((e) => e.kind === 'task' && selected.has(idOf(e.task))).length;
   const items = virtualizer.getVirtualItems();
-  const activeHeading = groups ? headingAt(virtualizer.range?.startIndex ?? 0) : -1;
-  const focusedDrawn = items.some((item) => entries[item.index]?.key === focusedId);
+  const focusedDrawn = items.some((item) => entries[item.index]?.id === focusedId);
 
   return (
     <div
@@ -296,12 +300,17 @@ export function TaskList({
       onFocus={handleFocus}
       {...props}
     >
-      <div className={styles.rows} style={{ height: virtualizer.getTotalSize() }}>
+      {/*
+       * The whole list's height, so the scrollbar is the whole list's; the drawn rows flow inside
+       * it, in index order, after the space above them (paddingBefore).
+       */}
+      <div
+        className={styles.rows}
+        style={{ height: virtualizer.getTotalSize(), paddingTop: paddingBefore(items) }}
+      >
         {items.map((item) => {
           const entry = entries[item.index];
           if (!entry) return null;
-          const sticky = item.index === activeHeading;
-          const style = sticky ? undefined : { transform: `translateY(${item.start}px)` };
           const rowIndex = item.index + 1;
           if (entry.kind !== 'task') {
             return (
@@ -311,12 +320,10 @@ export function TaskList({
                 data-index={item.index}
                 role="row"
                 aria-rowindex={rowIndex}
-                data-sticky={sticky ? '' : undefined}
                 data-gap={entry.kind === 'heading' && !entry.first ? '' : undefined}
-                className={entry.kind === 'heading' ? styles.heading : styles.item}
-                style={style}
+                className={entry.kind === 'heading' ? styles.heading : styles.footer}
               >
-                <div role="gridcell" className={styles.cell}>
+                <div role="gridcell">
                   {entry.kind === 'heading' ? entry.group.heading : entry.group.footer}
                 </div>
               </div>
@@ -326,38 +333,33 @@ export function TaskList({
           const id = idOf(task);
           const on = isSelectedAt(item.index);
           return (
-            <div
+            <TaskRow
               key={item.key}
-              ref={virtualizer.measureElement}
+              ref={(el) => {
+                virtualizer.measureElement(el);
+                if (el) rows.current.set(id, el);
+                else rows.current.delete(id);
+              }}
               data-index={item.index}
-              className={styles.item}
-              style={style}
-            >
-              <TaskRow
-                ref={(el) => {
-                  if (el) rows.current.set(id, el);
-                  else rows.current.delete(id);
-                }}
-                data-task-id={id}
-                aria-rowindex={rowIndex}
-                task={task}
-                tabIndex={id === focusedId ? 0 : -1}
-                onFocus={() => {
-                  if (id !== focusedId) setFocused(id);
-                }}
-                selected={on}
-                selecting={selecting ?? count > 0}
-                joinPrev={on && isSelectedAt(item.index - 1)}
-                joinNext={on && isSelectedAt(item.index + 1)}
-                state={states?.[taskIndex]}
-                defaultMenuOpen={menuOpenAt === taskIndex}
-                subtask={subtasks}
-                stack={stack}
-                onSelect={() => toggle(id)}
-                onStatusChange={onStatusChange && ((status) => onStatusChange(task, status))}
-                onOpen={onOpen && (() => onOpen(task))}
-              />
-            </div>
+              data-task-id={id}
+              aria-rowindex={rowIndex}
+              task={task}
+              tabIndex={id === focusedId ? 0 : -1}
+              onFocus={() => {
+                if (id !== focusedId) setFocused(id);
+              }}
+              selected={on}
+              selecting={selecting ?? count > 0}
+              joinPrev={on && isSelectedAt(item.index - 1)}
+              joinNext={on && isSelectedAt(item.index + 1)}
+              state={states?.[taskIndex]}
+              defaultMenuOpen={menuOpenAt === taskIndex}
+              subtask={subtasks}
+              stack={stack}
+              onSelect={() => toggle(id)}
+              onStatusChange={onStatusChange && ((status) => onStatusChange(task, status))}
+              onOpen={onOpen && (() => onOpen(task))}
+            />
           );
         })}
       </div>
