@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
 import { SPLASH_MINIMUM_MS } from '../../router';
+import { SPLASH_DELAY_MS } from '../../pages/root/Splash';
 import { FakeMain, workspace } from './fake-main';
 import {
   byText,
@@ -26,8 +27,12 @@ afterEach(() => stopApps());
 describe('startup', () => {
   it("opens the workspace main's URL names, under the splash, on its landing page", async () => {
     const main = twoWorkspaces();
+    // an open that takes a while, as a real one does
+    const release = main.hold('open');
     const app = startApp(main, { url: `/app/${WORK}` });
     const dom = watchDom(app.container, ['Opening Work…', 'Work recents.list']);
+    await eventually(() => expect(splashOf(app.container)).not.toBeNull());
+    release();
     await eventually(() => expect(app.text()).toContain('Work recents.list'));
     // the splash, then the page, never the page under or before it
     expectSplashThenPage(dom.log, 'Work recents.list');
@@ -47,7 +52,8 @@ describe('startup', () => {
     dom.flush();
     const shown = dom.log.find((entry) => entry.what === 'splash+')!.at;
     const hidden = [...dom.log].reverse().find((entry) => entry.what === 'splash-')!.at;
-    expect(hidden - shown).toBeGreaterThanOrEqual(SPLASH_MINIMUM_MS - 20);
+    // it comes up SPLASH_DELAY_MS into the open
+    expect(hidden - shown).toBeGreaterThanOrEqual(SPLASH_MINIMUM_MS - SPLASH_DELAY_MS - 20);
     expectSplashThenPage(dom.log, 'Work recents.list');
   });
 
@@ -104,8 +110,8 @@ describe('startup', () => {
     await eventually(() => expect(app.text()).toContain('Work tasks.list'));
     expect(app.path()).toBe(`/app/${WORK}/tasks`);
     expect(main.callsTo('workspaces.open')).toEqual([]);
-    // the splash shows while the first page loads, as at every start, and only that once
-    expect(dom.log.filter((entry) => entry.what === 'splash+')).toHaveLength(1);
+    // nothing opens, so no splash: the page draws as soon as it has loaded
+    expect(dom.log.filter((entry) => entry.what === 'splash+')).toEqual([]);
     expect(splashOf(app.container)).toBeNull();
   });
 

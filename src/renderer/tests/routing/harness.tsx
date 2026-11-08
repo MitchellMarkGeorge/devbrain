@@ -1,13 +1,13 @@
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { createMemoryHistory, RouterProvider } from '@tanstack/react-router';
+import { createMemoryHistory } from '@tanstack/react-router';
 import { expect, vi } from 'vitest';
 import type { InitialLoadContext } from '@common/ipc/types';
 import { WindowFrameProvider } from '../../components/lib/platform';
 import { events, ipc, queryClient, queryInvalidator, trpc } from '../../ipc';
 import { seedQueryCache } from '../../ipc/initial-load-context';
 import { createAppRouter, followOutsideChanges, type AppRouter } from '../../router';
-import { WithSplash } from '../../pages/root/Splash';
+import { AppWindow } from '../../pages/root/AppWindow';
 import type { FakeMain } from './fake-main';
 
 // The app as main.tsx starts it, over a fake main (fake-main.ts) and memory history: the real
@@ -54,7 +54,6 @@ export function startApp(main: FakeMain, options: StartOptions): App {
       trpc,
       ipc,
       splashMinimumMs: options.splashMinimumMs ?? 0,
-      devBrainAvailable: initialLoadContext?.devBrainAvailable ?? true,
     },
   });
   const stopFollowing = followOutsideChanges(router, events);
@@ -68,9 +67,10 @@ export function startApp(main: FakeMain, options: StartOptions): App {
     root.render(
       <QueryClientProvider client={queryClient}>
         <WindowFrameProvider value={{ platform: 'macos', controls: 'system' }}>
-          <WithSplash router={router}>
-            <RouterProvider router={router} />
-          </WithSplash>
+          <AppWindow
+            router={router}
+            devBrainAvailable={initialLoadContext?.devBrainAvailable ?? true}
+          />
         </WindowFrameProvider>
       </QueryClientProvider>,
     );
@@ -107,6 +107,16 @@ export function eventually(assertion: () => void, timeout = 3000): Promise<void>
 /** The splash, when it is on screen. */
 export function splashOf(container: HTMLElement): HTMLElement | null {
   return container.querySelector('[data-testid="splash"]');
+}
+
+/** The text a user sees: what isn't inside an element React has hidden (`display: none`). */
+export function visibleText(element: Element): string {
+  if (element instanceof HTMLElement && element.style.display === 'none') return '';
+  return [...element.childNodes]
+    .map((node) =>
+      node instanceof Element ? visibleText(node) : node.nodeType === 3 ? node.textContent : '',
+    )
+    .join('');
 }
 
 /**

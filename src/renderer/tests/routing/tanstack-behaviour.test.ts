@@ -222,6 +222,70 @@ describe('@tanstack/react-router, as the app relies on it', () => {
     expect(unmounted).toBe(0);
   });
 
+  it("shows a child route's pendingComponent on the first load, unless the root has a beforeLoad", async () => {
+    const tree = (rootBeforeLoad: boolean, gate: Promise<void>) => {
+      const rootRoute = createRootRoute({
+        component: Outlet,
+        ...(rootBeforeLoad ? { beforeLoad: () => {} } : {}),
+      });
+      return rootRoute.addChildren([
+        createRoute({
+          getParentRoute: () => rootRoute,
+          path: '/',
+          beforeLoad: () => gate,
+          pendingComponent: text('splash'),
+          pendingMs: 0,
+          pendingMinMs: 0,
+          component: text('page'),
+        }),
+      ]);
+    };
+    const plain = deferred();
+    const a = mount(tree(false, plain.promise));
+    const guarded = deferred();
+    const b = mount(tree(true, guarded.promise));
+    await wait(50);
+    expect(a.container.textContent).toBe('splash');
+    expect(b.container.textContent).toBe('');
+    plain.resolve();
+    guarded.resolve();
+    await vi.waitFor(() => expect(a.container.textContent).toBe('page'));
+    await vi.waitFor(() => expect(b.container.textContent).toBe('page'));
+  });
+
+  it('with pendingMs 0, shows a new match’s pendingComponent even when its load is instant; with more, not', async () => {
+    const tree = (pendingMs: number, seen: string[]) => {
+      const rootRoute = createRootRoute({ component: Outlet });
+      const Pending = () => {
+        seen.push('pending');
+        return createElement('p', null, 'pending');
+      };
+      return rootRoute.addChildren([
+        createRoute({ getParentRoute: () => rootRoute, path: '/', component: text('home') }),
+        createRoute({
+          getParentRoute: () => rootRoute,
+          path: '/space',
+          beforeLoad: async () => {},
+          pendingComponent: Pending,
+          pendingMs,
+          pendingMinMs: 0,
+          component: text('space'),
+        }),
+      ]);
+    };
+    for (const [pendingMs, shows] of [
+      [0, true],
+      [50, false],
+    ] as const) {
+      const seen: string[] = [];
+      const { router, container } = mount(tree(pendingMs, seen));
+      await vi.waitFor(() => expect(container.textContent).toBe('home'));
+      await router.navigate({ to: '/space' });
+      await vi.waitFor(() => expect(container.textContent).toBe('space'));
+      expect(seen.length > 0).toBe(shows);
+    }
+  });
+
   it('moves state.location as a navigation starts, and resolvedLocation once it has loaded', async () => {
     const slow = deferred();
     const rootRoute = createRootRoute({ component: Outlet });

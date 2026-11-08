@@ -1,14 +1,14 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { createHashHistory, RouterProvider } from '@tanstack/react-router';
+import { createHashHistory } from '@tanstack/react-router';
 import log from 'electron-log/renderer';
 import { WindowFrameProvider, detectPlatform, type WindowFrame } from './components/lib/platform';
 import { events, ipc, queryInvalidator, queryClient, trpc } from './ipc';
 import { readInitialLoadContext, seedQueryCache } from './ipc/initial-load-context';
-import { FollowThemeSetting, applyThemeSetting } from './theme';
+import { applyThemeSetting } from './theme';
 import { createAppRouter, followOutsideChanges } from './router';
-import { WithSplash } from './pages/root/Splash';
+import { AppWindow } from './pages/root/AppWindow';
 import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/base.css';
@@ -28,12 +28,7 @@ applyThemeSetting(initialLoadContext?.settings?.theme ?? 'system');
 // reads the window's page from the URL's hash (src/main/runtime/last-page.ts)
 const router = createAppRouter({
   history: createHashHistory(),
-  context: {
-    queryClient,
-    trpc,
-    ipc,
-    devBrainAvailable: initialLoadContext?.devBrainAvailable ?? true,
-  },
+  context: { queryClient, trpc, ipc },
 });
 // a delete, a close or an open elsewhere moves the window to onboarding or that workspace
 followOutsideChanges(router, events);
@@ -54,10 +49,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <WindowFrameProvider value={windowFrame}>
-        <FollowThemeSetting />
-        <WithSplash router={router}>
-          <RouterProvider router={router} />
-        </WithSplash>
+        <AppWindow
+          router={router}
+          devBrainAvailable={initialLoadContext?.devBrainAvailable ?? true}
+        />
       </WindowFrameProvider>
     </QueryClientProvider>
   </React.StrictMode>,

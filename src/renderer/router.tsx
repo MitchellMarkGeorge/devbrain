@@ -1,6 +1,5 @@
 import { createRouter, type RouterHistory } from '@tanstack/react-router';
 import type { QueryClient } from '@tanstack/react-query';
-import type { WorkspaceId } from '@common/ids';
 import { workspaceIdOfPage } from '@common/types';
 import type { events as appEvents, ipc as appIpc, trpc as appTrpc } from './ipc';
 import { routeTree } from './routeTree.gen';
@@ -19,8 +18,6 @@ export interface RouterContext {
   ipc: typeof appIpc;
   /** how long an open shows the splash at least, 600ms by default (tests set 0) */
   splashMinimumMs?: number;
-  /** false when DevBrain couldn't open its data folder (InitialLoadContext.devBrainAvailable) */
-  devBrainAvailable: boolean;
 }
 
 /** The selector `WorkspaceShell` gives the element pages scroll in, scrolled to the top on navigation. */
@@ -78,13 +75,6 @@ export function followOutsideChanges(router: AppRouter, events: typeof appEvents
       void router.navigate({ to: '/app/$workspaceId', params: { workspaceId: id } });
     }
   });
-}
-
-declare module '@tanstack/history' {
-  interface HistoryState {
-    /** on Create workspace, which names no workspace: the one open behind it (`workspaceShownAt`) */
-    openWorkspaceId?: WorkspaceId;
-  }
 }
 
 declare module '@tanstack/react-router' {

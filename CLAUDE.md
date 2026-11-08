@@ -145,9 +145,11 @@ The renderer routes with TanStack Router: file routes in `src/renderer/routes`, 
   of its own: a preload into another workspace is stopped before it runs.
 - **One router**, made once in `main.tsx` (`createAppRouter`), never made again or unmounted. Tests
   make one per test over memory history and the fake main (`src/renderer/tests/routing`).
-- **One splash**, around the router (`WithSplash`), while a workspace loads
-  (`useWorkspaceLoading`); the root draws no page meanwhile. Don't add a second loading screen for
-  a switch, and don't keep a page mounted across one.
+- **One splash**: `/app/$workspaceId`'s pending component, shown while it opens a workspace
+  (`SPLASH_DELAY_MS` in, so a load that opens nothing never flashes it). The old workspace's page
+  stays mounted under it, hidden, and the route remounts on a new workspace (`remountDeps`). Don't
+  add a second loading screen for a switch, and keep the root free of a `beforeLoad`: one there
+  stops the splash showing at startup.
 - **A saved page names its workspace** (`lastPageSchema`); main keeps one per workspace. Don't send
   the location over IPC.
 - Route files stay thin (`params`, `validateSearch`, `beforeLoad`, `loader`, a page component).

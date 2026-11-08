@@ -65,7 +65,7 @@ surveyed three things in parallel and checked the claims the plan rests on again
 | Virtualization                     | Every list and grid that can grow is virtualized with **`@tanstack/react-virtual`**: tasks (list, group, board columns), notes, projects, trash, search results. See [Virtualized lists](#virtualized-lists).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Detail presentation                | As designed: tasks, projects and notes are pages; a task opened from the board and an event opened from the calendar show in the docked `Sheet` over their list, addressed by an `open` search param so Back closes them. The task note opens as a dialog (local state).                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Workspaces in the URL              | **Built (milestones 1–2).** Every page in a workspace is under `/app/$workspaceId`, and `/app/$workspaceId` opens the workspace its URL names when it isn't open. Main picks the window's first URL (the last workspace, or its last page); the renderer never decides which workspace to open. Switching is navigating; Back and Forward across workspaces reopen them. See [routing.md](routing.md).                                                                                                                                                                                                                                                                                            |
-| Splash                             | **Built.** One splash, around the router (`WithSplash`), while a workspace loads: from the startup until the first page has loaded, and from the moment a switch begins until the new page has loaded; the root draws no page meanwhile, and the open takes at least 600ms. The old page is unmounted, so it never draws or runs again, and the query invalidator drops its data without refetching. No boot route: startup is the same flow on the first load.                                                                                                                                                                                                                                   |
+| Splash                             | **Built.** `/app/$workspaceId`'s pending component, shown `SPLASH_DELAY_MS` (50ms) into an open: at startup and on a switch, never for a load that opens nothing (a reload, onboarding, Back from Create workspace). The open takes 600ms at least, so a quick one doesn't flicker. The old page stays mounted, hidden, under it; its queries don't refetch, as the invalidator removes their data; the route remounts on a new workspace (`remountDeps`). No boot route: startup is the same flow on the first load.                                                                                                                                                                             |
 | Not in the route list but designed | `/app/integrations` (in the sidebar nav, Figma `7164:13117`). ⌘K is a dialog, not a route. Help has nothing behind it yet: the sidebar's Help item and Welcome's "What's a workspace?" link are drawn disabled.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | Trash                              | The route is **`/app/trash`**, matching the UI and `docs/deleting.md`. Core still says archive (`archive` router, `listArchived`); the code rename is its own follow-up (E2).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | New workspace                      | Create workspace is a page of its own, `/workspaces/new` (an `AppShell`, no sidebar), from Welcome and from the app's workspace menu, where the open workspace stays open behind it until the new one is created. It replaced the in-app dialog (Figma `7760:61527`, now out of date). See routing.md, "Create workspace".                                                                                                                                                                                                                                                                                                                                                                        |
@@ -78,7 +78,7 @@ surveyed three things in parallel and checked the claims the plan rests on again
 
 - `src/renderer/ipc`: `trpc`, `ipc`, `queryClient`, `events`, `queryInvalidator` (with
   `ENTITIES_READ_BY_ROUTE`), the initial load context and `seedQueryCache`.
-- `src/renderer/theme.tsx` (`FollowThemeSetting`). (`workspace-opening.ts` was replaced by the
+- `src/renderer/theme.tsx` (`workspace-opening.ts` was replaced by the
   root's splash, drawn in place of the page during a switch.)
 - `main.tsx` bootstrap (error catching, invalidator, seeding, theme, `WindowFrameProvider`), now
   also making the one router and following outside changes.
@@ -184,7 +184,7 @@ routes` regenerates it without a build.
 
 `createAppRouter({ history, context })` makes the router; `main.tsx` calls it once with
 `createHashHistory()`, and the tests with memory history. Context:
-`{ queryClient, trpc, ipc, splashMinimumMs, devBrainAvailable }`.
+`{ queryClient, trpc, ipc, splashMinimumMs }`.
 Options: `defaultPreload: 'intent'`, `defaultPreloadStaleTime: 0`, `defaultPendingMs: 150` with
 `PagePending`, `NotFoundPage`, `RouteErrorPage`, `scrollRestoration: true` and
 `scrollToTopSelectors: ['[data-slot="page-scroll"]']` (pages scroll inside `WorkspaceShell`, not the
@@ -195,21 +195,19 @@ no navigation (a delete or close → `/onboarding`; another workspace opened els
 ### Root route (`__root.tsx`)
 
 - `ToastProvider` and the dialogs (`ModalProvider`), around the page.
-- **No page while a workspace loads** (`useWorkspaceLoading`: the first load isn't done, or the
-  URL's workspace isn't the one the router last finished on). The splash is drawn once, around the
-  router (`WithSplash` in `main.tsx`), from the same hook; the old page is unmounted. The open
-  takes 600ms at least, so a quick one doesn't flicker. On every first load the splash shows too
-  (briefly, on a reload or onboarding).
-- **DevBrain unavailable:** the root's `beforeLoad` (it runs on every navigation) throws when the
-  initial load context says `devBrainAvailable: false`, and its `errorComponent` says "DevBrain
-  couldn't open its data folder", with Show Log File (`app.showLogFile`).
+- **Dialogs dropped as a switch starts** (`useSwitchingWorkspace`). The splash isn't the root's:
+  it is `/app/$workspaceId`'s pending component (see routing.md, "How a switch flows"). The root
+  has no `beforeLoad`.
+- **DevBrain unavailable** isn't a route: when the initial load context says
+  `devBrainAvailable: false`, `AppWindow` draws "DevBrain couldn't open its data folder", with Show
+  Log File (`app.showLogFile`), in place of the router.
 
 ### Boot
 
 There is no boot route. Main opens the window on `#/app/<last workspace>` (or its last page with
 "Reopen last page" on), or `#/onboarding` (`initialRoute`, `src/main/runtime/last-page.ts`).
-`/app/$workspaceId` opens the workspace under the splash; on a reload it is open already, so
-nothing reopens and no splash shows. `/` (an empty hash) redirects to the open workspace or
+`/app/$workspaceId` opens the workspace under the splash (its pending component); on a reload it
+is open already, so nothing reopens and no splash shows. `/` (an empty hash) redirects to the open workspace or
 onboarding. `workspaces.openLast` is removed.
 
 The **landing page** is one function, `landingHref(settings, workspace, id)`
