@@ -23,7 +23,7 @@ The shell **fades in as it appears**, in `duration-slow` (`ease-surface`), growi
 
 A docked sheet's column slides open and shut with the sheet on the same timing (`duration-slow`, `ease-surface`), so the page narrows and widens smoothly and the sheet's edge is the page's edge throughout.
 
-The page scrolls inside the shell, under its header, never the window: the scroller carries `data-slot="page-scroll"`, which the app's router scrolls to the top on a new page and restores on Back and Forward (`docs/renderer/routing.md`). `onBack`/`onForward`/`canGoBack`/`canGoForward` drive the window row's arrows; the app passes its router's history.
+The page sits under its header in a column, and the header never scrolls away. On a list or grid page the toolbar stays put too, and the page's `TaskList`, `Board` or `CardGrid` fills the height left under it (through `PageContent`) and scrolls itself, so the page never scrolls (the `ListPage` story). A Home or document page keeps its own height and scrolls whole inside the shell's page scroller, never the window. That scroller carries `data-slot="page-scroll"`, which the app's router scrolls to the top on a new page and restores on Back and Forward (`docs/renderer/routing.md`). `onBack`/`onForward`/`canGoBack`/`canGoForward` drive the window row's arrows; the app passes its router's history.
 
 A docked sheet opens a `sheet-width` column: set `sheetOpen` and portal `SheetContent` into `useWorkspaceShell().sheetContainer`.
 

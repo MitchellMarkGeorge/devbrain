@@ -192,6 +192,7 @@ export function TaskList({
 
   const virtualizer = useVirtualList({
     scrollerRef: listRef,
+    name: 'TaskList',
     count: entries.length,
     // rows are row-height exactly; headings are measured (a group-gap above all but the first)
     estimateSize: (index) => {

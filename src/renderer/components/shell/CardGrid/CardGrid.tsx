@@ -76,6 +76,7 @@ function VirtualRows<T>({
   const rowCount = Math.ceil(items.length / columns);
   const virtualizer = useVirtualList({
     scrollerRef,
+    name: 'CardGrid',
     count: rowCount,
     estimateSize: () => estimateRowHeight,
     getItemKey: (row) => `${columns}:${getKey(items[row * columns])}`,

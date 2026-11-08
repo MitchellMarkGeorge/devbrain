@@ -90,6 +90,7 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
   const scrollerRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualList({
     scrollerRef,
+    name: `BoardColumn (${name})`,
     count: tasks.length,
     estimateSize: () => CARD_ESTIMATE + CARD_GAP,
     getItemKey: (index) => tasks[index].id,
@@ -110,25 +111,23 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
     }
   });
 
+  // Enter opens the focused card; ↑/↓ move to the next card, scrolling it into view first
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    const target = event.target as HTMLElement;
-    const cell = target.parentElement;
-    if (!cell?.dataset.taskId || cell.firstElementChild !== target) return;
+    const card = event.target as HTMLElement;
+    const cell = card.parentElement;
+    if (!cell?.dataset.taskId || cell.firstElementChild !== card) return;
     const current = tasks.findIndex((task) => task.id === cell.dataset.taskId);
-    const last = tasks.length - 1;
-    const to =
-      event.key === 'ArrowDown'
-        ? Math.min(last, current + 1)
-        : event.key === 'ArrowUp'
-          ? Math.max(0, current - 1)
-          : null;
-    if (event.key === 'Enter' && onOpen && current >= 0) {
+    if (current < 0) return;
+    if (event.key === 'Enter') {
+      if (!onOpen) return;
       event.preventDefault();
       onOpen(tasks[current]);
       return;
     }
-    if (to == null || current < 0) return;
+    const step = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
+    if (step === 0) return;
     event.preventDefault();
+    const to = Math.min(tasks.length - 1, Math.max(0, current + step));
     const id = tasks[to].id;
     virtualizer.scrollToIndex(to, { align: 'auto' });
     const next = cardOf(id);

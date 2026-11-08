@@ -66,6 +66,18 @@
 .content {
   min-width: 0;
 }
+/*
+ * Lists and grids fill the height under the toolbar and pass it on, so the TaskList, Board or
+ * CardGrid inside fills it and scrolls itself: the header and toolbar stay put and the page
+ * itself never scrolls.
+ */
+.list,
+.grid {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
 .list {
   padding: 0 var(--space-4) var(--space-6);
 }
@@ -73,10 +85,11 @@
   padding: 0 var(--space-6) var(--space-6);
 }
 /* Home: the column centred down the page while it fits (auto margins never cut its top) */
+/* Home and document pages keep their height, so the shell's page scroller scrolls them whole */
 .home {
   display: flex;
+  flex: 1 0 auto;
   flex-direction: column;
-  min-height: 100%;
   padding: var(--space-12) var(--space-6);
 }
 .home > .column {
@@ -84,6 +97,7 @@
   margin: auto;
 }
 .document {
+  flex: none;
   padding: var(--space-12) var(--space-6);
 }
 .column {
