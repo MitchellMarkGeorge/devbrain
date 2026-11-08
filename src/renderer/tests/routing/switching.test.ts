@@ -3,7 +3,17 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
 import { SPLASH_MINIMUM_MS } from '../../router';
 import { FakeMain, workspace } from './fake-main';
-import { byText, click, eventually, splashOf, startApp, stopApps, watchDom } from './harness';
+import {
+  byText,
+  click,
+  eventually,
+  splashOf,
+  startApp,
+  stopApps,
+  visibleText,
+  watchDom,
+} from './harness';
+import { SPLASH_DELAY_MS } from '../../pages/root/Splash';
 
 // Switching workspaces is navigating to a page of another workspace (docs/renderer/routing.md).
 
@@ -30,9 +40,10 @@ const tick = () => new Promise((resolve) => setTimeout(resolve, 20));
 afterEach(() => stopApps());
 
 describe('a switch', () => {
-  it("never draws the old page once it starts, and holds the splash until the new page's slow loader is done", async () => {
+  it("never shows the old page once it starts, and holds the splash until the new page's slow loader is done", async () => {
     const main = main3();
-    const app = await onWorkTasks(main);
+    // an open slower than the splash's delay, as every real one is (SPLASH_MINIMUM_MS)
+    const app = await onWorkTasks(main, { splashMinimumMs: SPLASH_DELAY_MS * 2 });
     const release = main.hold('notes.list');
     const dom = watchDom(app.container, ['Work tasks.list', 'Home notes.list']);
     const tasksCallsBefore = main.callsTo('tasks.list').length;
@@ -44,10 +55,10 @@ describe('a switch', () => {
     await eventually(() => expect(main.open).toBe(HOME));
     await eventually(() => expect(main.callsTo('notes.list')).toHaveLength(1));
     await tick();
-    // Home is open and its page's loader waits: the splash is up, and all the window holds (Work's
-    // page is unmounted, not hidden)
+    // Home is open and its page's loader waits: the splash is up, and all the window shows (Work's
+    // page stays mounted, hidden, and doesn't refetch: checked below)
     expect(splashOf(app.container)?.textContent).toContain('Opening Home…');
-    expect(app.text()).toBe(splashOf(app.container)!.textContent);
+    expect(visibleText(app.container)).toBe(splashOf(app.container)!.textContent);
 
     release();
     await navigation;
@@ -64,6 +75,16 @@ describe('a switch', () => {
     expect(app.path()).toBe(`/app/${HOME}/notes`);
   });
 
+  it('mounts the new workspace’s page fresh, even on the same page', async () => {
+    const main = main3();
+    const app = await onWorkTasks(main);
+    const workPage = byText(app.container, 'p, div, span, li', 'Work tasks.list')!;
+    await app.router.navigate({ to: '/app/$workspaceId/tasks', params: { workspaceId: HOME } });
+    await eventually(() => expect(visibleText(app.container)).toContain('Home tasks.list'));
+    // not the same element given Home's data: Work's page was unmounted
+    expect(app.container.contains(workPage)).toBe(false);
+  });
+
   it('shows the splash for at least 600ms, however quick the open', async () => {
     const main = main3();
     const app = await onWorkTasks(main, { splashMinimumMs: SPLASH_MINIMUM_MS });
@@ -76,7 +97,8 @@ describe('a switch', () => {
     dom.flush();
     const shown = dom.log.find((entry) => entry.what === 'splash+')!.at;
     const hidden = [...dom.log].reverse().find((entry) => entry.what === 'splash-')!.at;
-    expect(hidden - shown).toBeGreaterThanOrEqual(SPLASH_MINIMUM_MS - 5);
+    // it comes up SPLASH_DELAY_MS into the open
+    expect(hidden - shown).toBeGreaterThanOrEqual(SPLASH_MINIMUM_MS - SPLASH_DELAY_MS - 5);
   });
 
   it("from the sidebar's workspace menu: navigates to the workspace's link", async () => {

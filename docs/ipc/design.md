@@ -343,8 +343,8 @@ The renderer starts a switch by navigating to a page of the other workspace; its
    the response. It says which workspace is open, and which is opening: it marks
    `workspaces.current` stale in the renderer's cache, and a change no navigation made (a delete,
    another window) moves the window to onboarding or to the workspace now open. The splash is up
-   from before the open starts until the new page has loaded, with the old page unmounted,
-   so the moment with nothing open is the splash, never an empty or failing screen.
+   from just after the open starts until the new page has loaded, over the old page (mounted,
+   hidden), so the moment with nothing open is the splash, never an empty or failing screen.
 3. When the id differs from the workspace whose data is cached, the invalidator drops every query
    outside `app`, `settings` and `workspaces` (cancels what is in flight and removes it, refetching
    nothing: a page still mounted is the old workspace's, and the next page's loaders fetch its

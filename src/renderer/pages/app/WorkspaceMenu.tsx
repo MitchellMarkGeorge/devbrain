@@ -32,9 +32,7 @@ export function WorkspaceMenu() {
         onSelect={(id) =>
           void navigate({ to: '/app/$workspaceId', params: { workspaceId: id as WorkspaceId } })
         }
-        onCreate={() =>
-          void navigate({ to: '/workspaces/new', state: { openWorkspaceId: workspaceId } })
-        }
+        onCreate={() => void navigate({ to: '/workspaces/new' })}
         onOpenFolder={openFolder.run}
         onShowInFinder={() => showInFolder.mutate()}
       />

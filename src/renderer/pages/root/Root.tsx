@@ -1,21 +1,13 @@
 import { lazy, Suspense } from 'react';
-import { Outlet, useRouter, type ErrorComponentProps } from '@tanstack/react-router';
+import { Outlet, useRouter } from '@tanstack/react-router';
 import { useMutation } from '@tanstack/react-query';
 import { RotateCw, ScrollText } from 'lucide-react';
 import { Button, Logomark, AppShell, ToastProvider } from '../../components';
 import { trpc } from '../../ipc';
 import { ModalProvider } from '../../modals';
-import { useWorkspaceLoading } from './use-workspace-loading';
+import { useSwitchingWorkspace } from './use-switching-workspace';
 
 // The root route's pieces (src/renderer/routes/__root.tsx).
-
-/** Thrown by the root's beforeLoad when DevBrain couldn't open its data folder. */
-export class DevBrainUnavailableError extends Error {
-  constructor() {
-    super('DevBrain couldn’t open its data folder');
-    this.name = 'DevBrainUnavailableError';
-  }
-}
 
 // development only: import.meta.env.DEV is false in a production build, which drops the import
 const RouterDevtools = import.meta.env.DEV
@@ -27,17 +19,18 @@ const RouterDevtools = import.meta.env.DEV
   : () => null;
 
 /**
- * The window: toasts, dialogs (`useModals`) and the page, or none of them while a workspace loads
- * (`useWorkspaceLoading`): the splash, around the router, is then all the window shows. The page
- * is unmounted, not hidden: the workspace closing never draws or runs again, and the next one's
- * page mounts fresh.
+ * The window: toasts, dialogs (`useModals`) and the page. Dialogs belong to the workspace open, so
+ * they're dropped as soon as a switch to another starts (`useSwitchingWorkspace`); the splash is
+ * `/app/$workspaceId`'s pending component.
  */
 export function RootLayout() {
   const router = useRouter();
-  const loading = useWorkspaceLoading();
+  const switching = useSwitchingWorkspace();
   return (
     <ToastProvider>
-      <ModalProvider closed={loading}>{!loading && <Outlet />}</ModalProvider>
+      <ModalProvider closed={switching}>
+        <Outlet />
+      </ModalProvider>
       {import.meta.env.DEV && import.meta.env.MODE !== 'test' && (
         <Suspense>
           <RouterDevtools router={router} position="bottom-right" />
@@ -47,8 +40,7 @@ export function RootLayout() {
   );
 }
 
-export function RootError({ error }: ErrorComponentProps) {
-  if (error instanceof DevBrainUnavailableError) return <DevBrainUnavailable />;
+export function RootError() {
   return (
     <AppShell
       logo={<Logomark size="md" />}
