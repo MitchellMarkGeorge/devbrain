@@ -17,6 +17,11 @@ export interface VirtualListOptions {
   /** rows drawn beyond the visible ones, above and below (about 10) */
   overscan?: number;
   rangeExtractor?: (range: Range) => number[];
+  /**
+   * space at the top of the scroller that something sticky covers (a stuck group heading):
+   * `scrollToIndex` brings a row in below it, not under it (0 by default)
+   */
+  scrollPaddingStart?: number;
   /** called when the last rendered row comes within `endReachedThreshold` of the end */
   onEndReached?: () => void;
   /** rows from the end at which `onEndReached` fires (default 20) */
@@ -45,6 +50,7 @@ export function useVirtualList({
   getItemKey,
   overscan = 10,
   rangeExtractor,
+  scrollPaddingStart = 0,
   onEndReached,
   endReachedThreshold = 20,
   name = 'A virtualized list',
@@ -60,6 +66,7 @@ export function useVirtualList({
     getItemKey,
     overscan,
     rangeExtractor,
+    scrollPaddingStart,
     getScrollElement: () => scrollerRef.current,
   });
 

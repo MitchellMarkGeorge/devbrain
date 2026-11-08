@@ -207,6 +207,9 @@ export function TaskList({
     },
     getItemKey: (index) => entries[index].id,
     rangeExtractor: groups ? rangeExtractor : undefined,
+    // the stuck heading covers the list's top (its group-gap scrolls away above it), so a row
+    // focused with ↑ is brought in below the heading, not under it
+    scrollPaddingStart: groups ? SIZE['group-height'] + SPACING['space-1-5'] : 0,
     onEndReached,
     endReachedThreshold,
   });
