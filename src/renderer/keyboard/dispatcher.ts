@@ -66,11 +66,6 @@ function typingTarget(target: Element | null): TypingTarget {
   return 'none';
 }
 
-function isComposing(event: KeyboardEvent): boolean {
-  // 229 is what Chromium reports for a key the IME takes, as `isComposing` lags on the first key
-  return event.isComposing || event.keyCode === 229;
-}
-
 function allowedIn(entry: KeymapEntry, typing: TypingTarget, composing: boolean): boolean {
   if (composing) return entry.allowInTyping === true;
   if (typing === 'input') return entry.allowInTyping === true;
@@ -191,7 +186,9 @@ export class KeyDispatcher {
     const doc = this.requireDocument();
     const target = this.targetOf(event, doc);
     const typing = typingTarget(target);
-    const composing = isComposing(event);
+    // the first key an IME takes can come before `isComposing` is set, but Chromium sends it as
+    // `key: 'Process'`, which isn't a stroke (`strokeFromEvent`)
+    const composing = event.isComposing;
     const scopes = activeScopes(target, doc);
 
     if (this.readsCount(stroke, typing, composing)) {

@@ -384,6 +384,13 @@ describe('typing targets', () => {
     press(document.body, 'k', { meta: true, isComposing: true });
     expect([newTask.calls.length, search.calls.length]).toEqual([0, 1]);
   });
+
+  it('lets through a key the IME takes before composition starts (Chromium’s Process key)', () => {
+    const { newTask, dispatcher } = mount();
+    expect(press(document.body, 'Process').defaultPrevented).toBe(false);
+    expect(newTask.calls).toHaveLength(0);
+    expect(dispatcher.getState().pending).toEqual([]);
+  });
 });
 
 describe('counts', () => {
