@@ -6,7 +6,7 @@ import log from 'electron-log/renderer';
 import { WindowFrameProvider, detectPlatform, type WindowFrame } from './components/lib/platform';
 import { events, ipc, queryInvalidator, queryClient, trpc } from './ipc';
 import { readInitialLoadContext, seedQueryCache } from './ipc/initial-load-context';
-import { FollowThemeSetting, applyThemeSetting } from './theme';
+import { applyThemeSetting } from './theme';
 import { createAppRouter, followOutsideChanges } from './router';
 import { AppWindow } from './pages/root/AppWindow';
 import './styles/fonts.css';
@@ -49,7 +49,6 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <WindowFrameProvider value={windowFrame}>
-        <FollowThemeSetting />
         <AppWindow
           router={router}
           devBrainAvailable={initialLoadContext?.devBrainAvailable ?? true}

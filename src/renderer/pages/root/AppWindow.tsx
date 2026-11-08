@@ -1,6 +1,10 @@
 import { RouterProvider } from '@tanstack/react-router';
 import type { AppRouter } from '../../router';
 import { DevBrainUnavailable } from './Root';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { trpc } from '../../ipc';
+import { applyThemeSetting } from '../../theme';
 
 /**
  * What the window draws, inside its providers (main.tsx, and the routing tests' harness): the
@@ -15,5 +19,13 @@ export function AppWindow({
   router: AppRouter;
   devBrainAvailable: boolean;
 }) {
+  // apply the theme globally
+  const settings = useQuery(trpc.settings.get.queryOptions());
+  const theme = settings.data?.theme;
+
+  useEffect(() => {
+    if (theme) applyThemeSetting(theme);
+  }, [theme]);
+
   return devBrainAvailable ? <RouterProvider router={router} /> : <DevBrainUnavailable />;
 }

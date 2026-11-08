@@ -78,7 +78,7 @@ surveyed three things in parallel and checked the claims the plan rests on again
 
 - `src/renderer/ipc`: `trpc`, `ipc`, `queryClient`, `events`, `queryInvalidator` (with
   `ENTITIES_READ_BY_ROUTE`), the initial load context and `seedQueryCache`.
-- `src/renderer/theme.tsx` (`FollowThemeSetting`). (`workspace-opening.ts` was replaced by the
+- `src/renderer/theme.tsx` (`workspace-opening.ts` was replaced by the
   root's splash, drawn in place of the page during a switch.)
 - `main.tsx` bootstrap (error catching, invalidator, seeding, theme, `WindowFrameProvider`), now
   also making the one router and following outside changes.
