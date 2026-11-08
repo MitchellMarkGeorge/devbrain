@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, createElement, type ReactNode } from 'react';
+import { act, createElement, useEffect, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -8,12 +8,14 @@ import {
   KeyboardProvider,
   KeyScope,
   shortcutSections,
+  ShortcutsDialog,
   useCommands,
   useKeyboardState,
   type AppCommandActions,
   type Command,
   type KeyboardState,
 } from '../../keyboard';
+import { ModalProvider, useModals, type ModalProps } from '../../modals';
 import { keymap, press } from './helpers';
 
 declare global {
@@ -102,6 +104,32 @@ describe('the default keymap', () => {
       { label: 'New task', bindings: [['C']] },
       { label: 'New note', bindings: [['N']] },
       { label: 'Go to Home', bindings: [['G', 'H']] },
+    ]);
+  });
+});
+
+describe('createAppCommands', () => {
+  it('leaves out the commands whose action is not given, so their keys go through', () => {
+    const goTo = vi.fn();
+    render(
+      createElement(
+        KeyboardProvider,
+        { keymap: defaultKeymap, platform: 'macos' },
+        createElement(Commands, { commands: createAppCommands({ goTo }) }),
+      ),
+    );
+    expect(press(document.body, 'c').defaultPrevented).toBe(false);
+    expect(press(document.body, 'k', { meta: true }).defaultPrevented).toBe(false);
+    act(() => void press(document.body, 'g'));
+    act(() => void press(document.body, 't'));
+    expect(goTo).toHaveBeenCalledWith('tasks');
+    const titles = createAppCommands({ goTo }).map((c) => c.title);
+    expect(titles).toEqual([
+      'Go to Home',
+      'Go to Tasks',
+      'Go to Projects',
+      'Go to Notes',
+      'Go to Calendar',
     ]);
   });
 });
@@ -229,5 +257,54 @@ describe('useKeyboardState', () => {
     expect(states[states.length - 1].pending).toEqual(['g']);
     act(() => void press(document.body, 't'));
     expect(states[states.length - 1].pending).toEqual([]);
+  });
+});
+
+describe('ShortcutsDialog', () => {
+  it('opens through useModals, blocks the keys under it, and is removed once closed', async () => {
+    const app = actions();
+    let mounted = false;
+    // the modal useModals draws: unmounted only once the provider drops it
+    function Mounted(props: ModalProps) {
+      useEffect(() => {
+        mounted = true;
+        return () => void (mounted = false);
+      }, []);
+      return createElement(ShortcutsDialog, props);
+    }
+    function Page() {
+      const modals = useModals();
+      useCommands(
+        createAppCommands({
+          ...app,
+          openShortcuts: () => modals.open((props) => createElement(Mounted, props)),
+        }),
+      );
+      return null;
+    }
+    // as in the root layout: the keyboard above the dialogs, which render outside the page
+    render(
+      createElement(
+        KeyboardProvider,
+        { keymap: defaultKeymap, platform: 'macos' },
+        createElement(ModalProvider, null, createElement(Page)),
+      ),
+    );
+
+    act(() => void press(document.body, '?', { shift: true }));
+    const title = () => document.body.querySelector('h2');
+    await vi.waitFor(() => expect(title()?.textContent).toBe('Keyboard shortcuts'));
+    expect(mounted).toBe(true);
+    expect(document.body.textContent).toContain('Go to Tasks');
+
+    // the dialog is modal: C doesn't reach the global scope under it
+    act(() => void press(document.activeElement ?? document.body, 'c'));
+    expect(app.newTask).not.toHaveBeenCalled();
+
+    act(() => void press(document.activeElement ?? document.body, 'Escape'));
+    await vi.waitFor(() => expect(title()).toBeNull());
+    await vi.waitFor(() => expect(mounted).toBe(false));
+    act(() => void press(document.body, 'c'));
+    expect(app.newTask).toHaveBeenCalledTimes(1);
   });
 });

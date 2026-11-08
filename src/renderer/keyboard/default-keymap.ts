@@ -6,15 +6,17 @@ export type GoToPage = 'home' | 'tasks' | 'projects' | 'notes' | 'calendar';
 
 /**
  * What the app-wide commands do, injected by whoever mounts them (the `/app` layout): the router
- * and the dialogs live outside the keyboard layer.
+ * and the dialogs live outside the keyboard layer. An action left out registers no command, so its
+ * keys go through to the page and the shortcuts dialog leaves them out (search and new task, until
+ * their milestones).
  */
 export interface AppCommandActions {
-  openSearch: () => void;
-  newTask: () => void;
-  newNote: () => void;
-  goTo: (page: GoToPage) => void;
-  openShortcuts: () => void;
-  toggleSidebar: () => void;
+  openSearch?: () => void;
+  newTask?: () => void;
+  newNote?: () => void;
+  goTo?: (page: GoToPage) => void;
+  openShortcuts?: () => void;
+  toggleSidebar?: () => void;
 }
 
 const PAGES: { page: GoToPage; title: string }[] = [
@@ -25,35 +27,25 @@ const PAGES: { page: GoToPage; title: string }[] = [
   { page: 'calendar', title: 'Calendar' },
 ];
 
+function command(id: string, title: string, run: (() => void) | undefined): Command[] {
+  return run ? [{ id, title, scope: 'global', run: () => run() }] : [];
+}
+
 /**
  * The app-wide commands, registered once by the `/app` layout with
  * `useCommands(createAppCommands(actions))`.
  */
 export function createAppCommands(actions: AppCommandActions): Command[] {
+  const { goTo } = actions;
   return [
-    { id: 'search.open', title: 'Search', scope: 'global', run: () => actions.openSearch() },
-    { id: 'task.new', title: 'New task', scope: 'global', run: () => actions.newTask() },
-    { id: 'note.new', title: 'New note', scope: 'global', run: () => actions.newNote() },
-    ...PAGES.map(
-      ({ page, title }): Command => ({
-        id: `nav.${page}`,
-        title: `Go to ${title}`,
-        scope: 'global',
-        run: () => actions.goTo(page),
-      }),
+    ...command('search.open', 'Search', actions.openSearch),
+    ...command('task.new', 'New task', actions.newTask),
+    ...command('note.new', 'New note', actions.newNote),
+    ...PAGES.flatMap(({ page, title }) =>
+      command(`nav.${page}`, `Go to ${title}`, goTo && (() => goTo(page))),
     ),
-    {
-      id: 'help.shortcuts',
-      title: 'Keyboard shortcuts',
-      scope: 'global',
-      run: () => actions.openShortcuts(),
-    },
-    {
-      id: 'sidebar.toggle',
-      title: 'Toggle sidebar',
-      scope: 'global',
-      run: () => actions.toggleSidebar(),
-    },
+    ...command('help.shortcuts', 'Keyboard shortcuts', actions.openShortcuts),
+    ...command('sidebar.toggle', 'Toggle sidebar', actions.toggleSidebar),
   ];
 }
 

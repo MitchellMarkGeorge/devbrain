@@ -8,9 +8,15 @@ import { shortcutSections } from './shortcuts';
 import { keyLabels } from './keys';
 import styles from './ShortcutsDialog.module.css';
 
+/**
+ * Controlled like `Dialog`; the props `useModals().open` passes fit as they are:
+ * `modals.open((props) => <ShortcutsDialog {...props} />)`.
+ */
 export interface ShortcutsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** once the opening or closing animation has finished (`useModals` removes the dialog then) */
+  onOpenChangeComplete?: (open: boolean) => void;
   /** the command whose keys the header names ("Press ? to open this any time") */
   openCommand?: string;
 }
@@ -23,6 +29,7 @@ export interface ShortcutsDialogProps {
 export function ShortcutsDialog({
   open,
   onOpenChange,
+  onOpenChangeComplete,
   openCommand = 'help.shortcuts',
 }: ShortcutsDialogProps) {
   const { keymap, platform } = useKeyboard();
@@ -41,7 +48,7 @@ export function ShortcutsDialog({
   }, [keymap, openCommand, platform]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange} onOpenChangeComplete={onOpenChangeComplete}>
       <DialogContent showClose={false} className={styles.dialog}>
         <KeyScope name="dialog">
           <div className={styles.header}>

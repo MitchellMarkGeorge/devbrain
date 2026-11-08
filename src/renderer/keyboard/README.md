@@ -22,16 +22,26 @@ mounts it with a demo keymap.
 
 ## Mounting it
 
+The provider goes in the root layout, around `ModalProvider`, as dialogs shown with `useModals`
+render there and the shortcuts dialog reads the keyboard's context:
+
 ```tsx
-<KeyboardProvider keymap={defaultKeymap}>…the app…</KeyboardProvider>
+<KeyboardProvider keymap={defaultKeymap}>
+  <ModalProvider closed={loading}>…</ModalProvider>
+</KeyboardProvider>
 ```
 
-The `/app` layout registers the app-wide commands with what they do, as the router and the dialogs
-live outside this folder:
+The workspace layout registers the app-wide commands with what they do, as the router and the
+dialogs live outside this folder. An action left out (one not built yet) registers no command:
 
 ```tsx
+const modals = useModals();
 useCommands(
-  createAppCommands({ openSearch, newTask, newNote, goTo, openShortcuts, toggleSidebar }),
+  createAppCommands({
+    goTo: (page) => navigate({ to: `/app/$workspaceId/${page}`, params: { workspaceId } }),
+    openShortcuts: () => modals.open((props) => <ShortcutsDialog {...props} />),
+    toggleSidebar,
+  }),
 );
 ```
 
