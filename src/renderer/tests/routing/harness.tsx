@@ -7,6 +7,7 @@ import { WindowFrameProvider } from '../../components/lib/platform';
 import { events, ipc, queryClient, queryInvalidator, trpc } from '../../ipc';
 import { seedQueryCache } from '../../ipc/initial-load-context';
 import { createAppRouter, followOutsideChanges, type AppRouter } from '../../router';
+import { WithSplash } from '../../pages/root/Splash';
 import type { FakeMain } from './fake-main';
 
 // The app as main.tsx starts it, over a fake main (fake-main.ts) and memory history: the real
@@ -67,7 +68,9 @@ export function startApp(main: FakeMain, options: StartOptions): App {
     root.render(
       <QueryClientProvider client={queryClient}>
         <WindowFrameProvider value={{ platform: 'macos', controls: 'system' }}>
-          <RouterProvider router={router} />
+          <WithSplash router={router}>
+            <RouterProvider router={router} />
+          </WithSplash>
         </WindowFrameProvider>
       </QueryClientProvider>,
     );

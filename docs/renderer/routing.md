@@ -34,14 +34,14 @@ to open it when it isn't open.
 
 ## The pieces
 
-| Piece                                 | Where                                       | Role                                                                            |
-| ------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------- |
-| `createAppRouter`                     | `src/renderer/router.tsx`                   | The router, its options and context                                             |
-| `followOutsideChanges`                | `src/renderer/router.tsx`                   | A delete or an open elsewhere moves the window                                  |
-| `openWorkspaceOf`                     | `src/renderer/pages/app/workspace-route.ts` | `/app/$workspaceId`'s beforeLoad: skips preloads, opens (taking 600ms at least) |
-| `Splash`                              | `src/renderer/pages/root/Splash.tsx`        | The splash, drawn by the root instead of the page                               |
-| `RootLayout`                          | `src/renderer/pages/root/Root.tsx`          | Toasts; the splash instead of the page during a switch                          |
-| `initialRoute`, `saveLastPageOnClose` | `src/main/runtime/last-page.ts`             | The window's first route; the last page of each workspace, saved as it closes   |
+| Piece                                 | Where                                                            | Role                                                                            |
+| ------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `createAppRouter`                     | `src/renderer/router.tsx`                                        | The router, its options and context                                             |
+| `followOutsideChanges`                | `src/renderer/router.tsx`                                        | A delete or an open elsewhere moves the window                                  |
+| `openWorkspaceOf`                     | `src/renderer/pages/app/workspace-route.ts`                      | `/app/$workspaceId`'s beforeLoad: skips preloads, opens (taking 600ms at least) |
+| `WithSplash`, `useWorkspaceLoading`   | `src/renderer/pages/root/Splash.tsx`, `use-workspace-loading.ts` | The one splash, around the router; whether a workspace is loading               |
+| `RootLayout`                          | `src/renderer/pages/root/Root.tsx`                               | Toasts, dialogs and the page; none of them while a workspace loads              |
+| `initialRoute`, `saveLastPageOnClose` | `src/main/runtime/last-page.ts`                                  | The window's first route; the last page of each workspace, saved as it closes   |
 
 There is no state of the renderer's own about which workspace is open: it is `workspaces.current`
 in React Query's cache, seeded from the initial load context, set by an open's answer, and marked
@@ -51,7 +51,7 @@ Routes (`src/renderer/routes`, file-based, generated into `src/renderer/routeTre
 checked in; `npm run routes` regenerates it without a build):
 
 ```
-__root                         toasts, splash, DevBrain unavailable, not found
+__root                         toasts, dialogs, DevBrain unavailable, not found
 ├── /                          redirect: the open workspace, or onboarding
 ├── /onboarding                layout; with a workspace open, redirects to it
 │   ├── /                      Welcome
@@ -69,7 +69,8 @@ From Work's tasks page, the menu picks Home:
 1. `navigate({ to: '/app/$workspaceId', params: { workspaceId: home } })`. The router moves the URL
    to `#/app/<home>` at once, then loads.
 2. The URL's workspace (`state.location`) is no longer the one the router last finished on
-   (`state.resolvedLocation`), so `RootLayout` draws **the splash** instead of the page. Work's page
+   (`state.resolvedLocation`): a workspace is loading (`useWorkspaceLoading`). **The splash**
+   (`WithSplash`, around the router) shows, and `RootLayout` draws no page. Work's page
    is unmounted: it never draws or runs again, and its queries, no longer mounted, never refetch.
 3. The root's `beforeLoad` runs (it runs on every navigation), then `/app/$workspaceId`'s:
    `openWorkspaceOf` reads `workspaces.current` (Work), so it calls `workspaces.open({ id: home })`,
@@ -109,10 +110,12 @@ would read whichever workspace is open now. Preloads within the open workspace p
 usual. (During a switch nothing can be hovered: the splash is all the window shows.)
 
 **Startup** is the same flow on the first load: the window opens on `#/app/<id>`, nothing is open,
-so the route opens it. The router draws nothing of its own on the first load, so the root's pending
-component is the splash, on every first load: on a reload or onboarding it shows only for the
-moment the first page takes, saying "Opening workspace…" or the URL's workspace. The 600ms minimum
-is the open's, not the router's (`pendingMinMs`), so only a real open holds it. On a reload the
+so the route opens it. Until the first load is done the router has no resolved location, so
+`useWorkspaceLoading` is true and the splash shows: on every first load, though on a reload or
+onboarding only for the moment the first page takes, saying "Opening workspace…" or the URL's
+workspace. The router draws nothing of its own meanwhile, so the splash, laid out like any page,
+is all the window holds. The 600ms minimum is the open's, not the router's (`pendingMinMs`), so
+only a real open holds it. On a reload the
 initial load context says the workspace is open already: nothing reopens.
 
 ## Remembering the page
@@ -136,10 +139,10 @@ when one fails after an upgrade, revisit the part of the design that names it.
 | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------- | ---------------------------------------------------------------------------- |
 | `router.navigate()` resolves once the target's loaders are done and its page has rendered                                | Partly (it returns a promise)     | Tests that await a navigation                                                |
 | The root's `beforeLoad` runs on every navigation, Back and Forward included                                              | Yes (beforeLoad runs per load)    | The DevBrain-unavailable guard                                               |
-| On the first load nothing is drawn until loaders finish, unless the root has a `pendingComponent` **and** a `beforeLoad` | No                                | The startup splash (the root's `pendingComponent`, `pendingMs: 0`)           |
+| On the first load nothing is drawn until loaders finish, unless the root has a `pendingComponent` **and** a `beforeLoad` | No                                | Nothing under the startup splash (the root has no `pendingComponent`)        |
 | A `beforeLoad` that throws during a preload stops it: no loader below runs, nothing is logged                            | No (preload errors are swallowed) | Preloads never opening a workspace                                           |
 | `onResolved` fires for the last of several navigations only, and once after a redirect                                   | No                                | Nothing now (the first version settled its splash on it)                     |
-| `state.location` moves as a navigation starts, `state.resolvedLocation` once it has loaded                               | Partly                            | The root drawing the splash during a switch                                  |
+| `state.location` moves as a navigation starts, `state.resolvedLocation` once it has loaded                               | Partly                            | `useWorkspaceLoading`: the splash, and no page, during a switch              |
 | A route whose params change loads again with its `pendingComponent`; the old page stays mounted, hidden, and is reused   | Partly                            | Why the root unmounts the page rather than use a pending component           |
 | The URL moves before the target's `beforeLoad` runs                                                                      | No                                | Main keeping the last page per workspace                                     |
 | `redirect({ href })` to an in-app path keeps its search params                                                           | Yes                               | The index route's redirect to the last page                                  |
