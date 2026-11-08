@@ -86,15 +86,14 @@
 /* the cards' full height; only the cards in view are drawn, each placed at its offset */
 /*
  * The whole column's height, so the scrollbar is the whole column's. Only the cards in view are
- * drawn, in normal flow, after a padding of the space the cards above them would take.
+ * drawn, in normal flow, after a padding of the space the cards above them would take; the gap
+ * between them comes from the component (CARD_GAP), which the virtualizer counts too.
  */
 .list {
+  display: flex;
   box-sizing: border-box;
+  flex-direction: column;
   width: 100%;
-}
-/* a card and the 10px below it: what the column measures for each card */
-.item {
-  padding-bottom: 10px;
 }
 .list:empty {
   display: none;

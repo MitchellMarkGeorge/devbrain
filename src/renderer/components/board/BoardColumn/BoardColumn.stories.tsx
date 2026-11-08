@@ -11,7 +11,6 @@ import {
   manyTasks,
   sampleTask,
 } from '../../lists/TaskRow/fixtures';
-import { BoardCard } from '../BoardCard';
 import { Board, BoardColumn } from './BoardColumn';
 
 const DEVBRAIN = sampleProject('DevBrain 1.0', 'blue');
@@ -100,7 +99,7 @@ export const FullBoard: Story = {
         <BoardColumn
           status={TaskStatus.IN_PROGRESS}
           tasks={inProgress}
-          renderCard={(task, i) => <BoardCard task={task} state={i === 0 ? 'hover' : undefined} />}
+          cardProps={(_, i) => ({ state: i === 0 ? 'hover' : undefined })}
         />
         <BoardColumn status={TaskStatus.COMPLETED} tasks={completed} add={false} />
       </Board>

@@ -12,7 +12,7 @@ import {
 import { defaultRangeExtractor, type Range } from '@tanstack/react-virtual';
 import { cn } from '../../lib/cn';
 import { paddingBefore, useVirtualList } from '../../lib/virtual';
-import { SIZE } from '../../../styles/tokens';
+import { SIZE, SPACING } from '../../../styles/tokens';
 import { SelectionBar } from '../SelectionBar';
 import type { PickableStatus } from '../../entities/StatusMenu';
 import { TaskRow, type TaskRowData, type TaskRowProps } from '../TaskRow';
@@ -196,12 +196,14 @@ export function TaskList({
     scrollerRef: listRef,
     name: 'TaskList',
     count: entries.length,
-    // Rows are row-height. Every entry is measured as it draws, so an estimate only places one
-    // until then: a heading is near a row's height, with the group-gap above all but the first.
+    // A row is row-height; a heading is group-height and the space-1-5 under it, with the
+    // group-gap above all but the first. Each is measured as it draws all the same, so a heading
+    // that holds more (an event row under it) is placed right once drawn.
     estimateSize: (index) => {
       const entry = entries[index];
-      if (entry.kind === 'heading' && !entry.first) return SIZE['row-height'] + SIZE['group-gap'];
-      return SIZE['row-height'];
+      if (entry.kind !== 'heading') return SIZE['row-height'];
+      const heading = SIZE['group-height'] + SPACING['space-1-5'];
+      return entry.first ? heading : heading + SIZE['group-gap'];
     },
     getItemKey: (index) => entries[index].id,
     rangeExtractor: groups ? rangeExtractor : undefined,

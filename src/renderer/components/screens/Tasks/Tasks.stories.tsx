@@ -2,7 +2,6 @@ import { Fragment, useState, type CSSProperties } from 'react';
 import { TaskStatus } from '@common/types';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ArrowUpDown, Folder, Group, Kanban, List, ListFilter, Plus } from 'lucide-react';
-import { BoardCard } from '../../board/BoardCard';
 import { Board, BoardColumn } from '../../board/BoardColumn';
 import { Button } from '../../ui/Button';
 import { GroupHeading } from '../../lists/GroupHeading';
@@ -192,7 +191,7 @@ export const TasksBoard: Story = {
         <BoardColumn
           status={TaskStatus.IN_PROGRESS}
           tasks={BOARD.inProgress}
-          renderCard={(task, i) => <BoardCard task={task} state={i === 1 ? 'hover' : undefined} />}
+          cardProps={(_, i) => ({ state: i === 1 ? 'hover' : undefined })}
         />
         <BoardColumn status={TaskStatus.COMPLETED} tasks={BOARD.completed} add={false} />
       </Board>

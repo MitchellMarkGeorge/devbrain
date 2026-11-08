@@ -25,7 +25,7 @@ export const SIZE = {
   'control-md': 32,
   'control-lg': 36,
   'row-height': 48,
-  'group-height': 36,
+  'group-height': 40,
   'group-gap': 32,
   'sidebar-width': 256,
   'window-min-width': 960,

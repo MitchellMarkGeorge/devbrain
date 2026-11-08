@@ -4,12 +4,11 @@ import {
   useRef,
   type ComponentPropsWithoutRef,
   type KeyboardEvent,
-  type ReactNode,
 } from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { paddingBefore, useVirtualList } from '../../lib/virtual';
-import { BoardCard, type BoardCardData } from '../BoardCard';
+import { BoardCard, type BoardCardData, type BoardCardProps } from '../BoardCard';
 import { IconButton } from '../../ui/IconButton';
 import { Icon } from '../../ui/Icon';
 import { StatusIcon } from '../../entities/StatusIcon';
@@ -47,8 +46,11 @@ export interface BoardColumnProps extends Omit<ComponentPropsWithoutRef<'section
   rowCount?: number;
   /** a click on a card, or Enter on it */
   onOpen?: (task: BoardColumnTask) => void;
-  /** draws a card; a `BoardCard` that opens the task by default. Pass `cardProps` for small changes */
-  renderCard?: (task: BoardColumnTask, index: number) => ReactNode;
+  /**
+   * more props for a task's `BoardCard` (a static `state` for pictures, a drag handle's props);
+   * the column's own (its ref, role and position) are added to them
+   */
+  cardProps?: (task: BoardColumnTask, index: number) => Omit<BoardCardProps, 'task'>;
   /** called when the last drawn card comes within `endReachedThreshold` cards of the end */
   onEndReached?: () => void;
   /** default 20 */
@@ -57,7 +59,7 @@ export interface BoardColumnProps extends Omit<ComponentPropsWithoutRef<'section
 
 // a card's height before it is measured: the title, one line of pills and the meta line
 const CARD_ESTIMATE = 96;
-// the space between cards (`.cards` gap)
+// the space between cards, which the virtualizer leaves between them and the list draws as its gap
 const CARD_GAP = 10;
 
 /**
@@ -77,7 +79,7 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
     tasks,
     rowCount,
     onOpen,
-    renderCard,
+    cardProps,
     onEndReached,
     endReachedThreshold,
     className,
@@ -92,17 +94,18 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
     scrollerRef,
     name: `BoardColumn (${name})`,
     count: tasks.length,
-    estimateSize: () => CARD_ESTIMATE + CARD_GAP,
+    estimateSize: () => CARD_ESTIMATE,
+    gap: CARD_GAP,
     getItemKey: (index) => tasks[index].id,
     onEndReached,
     endReachedThreshold,
   });
   const items = virtualizer.getVirtualItems();
 
-  // The cards drawn right now, by task id (each list item adds itself as it mounts and removes
-  // itself as it scrolls out), for moving focus between them; a card is its item's only child
+  // The cards drawn right now, by task id (each adds itself as it mounts and removes itself as it
+  // scrolls out), for moving focus between them
   const drawn = useRef(new Map<string, HTMLElement>());
-  const cardOf = (id: string) => drawn.current.get(id)?.firstElementChild as HTMLElement | null;
+  const cardOf = (id: string) => drawn.current.get(id);
   const pendingFocus = useRef<string | null>(null);
   useEffect(() => {
     const id = pendingFocus.current;
@@ -116,9 +119,8 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
   // Enter opens the focused card; ↑/↓ move to the next card, scrolling it into view first
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const card = event.target as HTMLElement;
-    const item = card.parentElement;
-    if (!item?.dataset.taskId || item.firstElementChild !== card) return;
-    const current = tasks.findIndex((task) => task.id === item.dataset.taskId);
+    if (!card.dataset.taskId) return;
+    const current = tasks.findIndex((task) => task.id === card.dataset.taskId);
     if (current < 0) return;
     if (event.key === 'Enter') {
       if (!onOpen) return;
@@ -154,24 +156,31 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
       <div ref={scrollerRef} className={styles.cards}>
         {/*
          * The whole column's height, so the scrollbar is the whole column's; the drawn cards flow
-         * inside it, in order, after the space the cards above them would take (paddingBefore).
-         * One list item per card: it is what the virtualizer measures (card and gap below) and
-         * what screen readers count ("card 212 of 340").
+         * inside it, in order, after the space the cards above them would take (paddingBefore),
+         * CARD_GAP apart. Each card is a list item itself, measured as it draws, and counted for
+         * screen readers ("card 212 of 340").
          */}
         <div
           role="list"
           aria-label={name}
           className={styles.list}
-          style={{ height: virtualizer.getTotalSize(), paddingTop: paddingBefore(items) }}
+          style={{
+            height: virtualizer.getTotalSize(),
+            paddingTop: paddingBefore(items),
+            gap: CARD_GAP,
+          }}
           onKeyDown={handleKeyDown}
         >
           {items.map((item) => {
             const task = tasks[item.index];
             if (!task) return null;
             return (
-              <div
+              <BoardCard
                 key={item.key}
-                ref={(el) => {
+                task={task}
+                onClick={onOpen && (() => onOpen(task))}
+                {...cardProps?.(task, item.index)}
+                ref={(el: HTMLDivElement | null) => {
                   virtualizer.measureElement(el);
                   if (el) drawn.current.set(task.id, el);
                   else drawn.current.delete(task.id);
@@ -181,14 +190,7 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
                 role="listitem"
                 aria-posinset={item.index + 1}
                 aria-setsize={rowCount ?? tasks.length}
-                className={styles.item}
-              >
-                {renderCard ? (
-                  renderCard(task, item.index)
-                ) : (
-                  <BoardCard task={task} onClick={onOpen && (() => onOpen(task))} />
-                )}
-              </div>
+              />
             );
           })}
         </div>

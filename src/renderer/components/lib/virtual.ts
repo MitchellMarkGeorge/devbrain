@@ -11,6 +11,8 @@ export interface VirtualListOptions {
   scrollerRef: RefObject<HTMLElement | null>;
   count: number;
   estimateSize: (index: number) => number;
+  /** the space between rows, which the list draws as its CSS `gap` (0 by default) */
+  gap?: number;
   getItemKey?: (index: number) => string | number;
   /** rows drawn beyond the visible ones, above and below (about 10) */
   overscan?: number;
@@ -39,6 +41,7 @@ export function useVirtualList({
   scrollerRef,
   count,
   estimateSize,
+  gap = 0,
   getItemKey,
   overscan = 10,
   rangeExtractor,
@@ -53,6 +56,7 @@ export function useVirtualList({
   const virtualizer = useVirtualizer<HTMLElement, Element>({
     count,
     estimateSize,
+    gap,
     getItemKey,
     overscan,
     rangeExtractor,
