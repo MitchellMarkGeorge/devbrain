@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate, useRouter } from '@tanstack/react-router';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ChevronLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import {
   AppShell,
   Button,
@@ -18,8 +18,8 @@ import { useHistoryPosition } from '../app/use-history-position';
 import styles from './CreateWorkspacePage.module.css';
 
 /**
- * Create workspace (`/workspaces/new`): a page of its own, from Welcome and from the workspace
- * menu, with the tile, a name and a colour. Creating goes to the new workspace, in place of this
+ * Create workspace (`/workspaces/new`, Figma 7175:20087): a page of its own, from Welcome and from
+ * the workspace menu, with the form on a card: the tile, a name and a colour. Creating goes to the new workspace, in place of this
  * page in the history, which opens it under the splash. Back (or Esc) returns to where it was
  * opened from: Welcome, or the workspace still open behind it.
  */
@@ -66,43 +66,47 @@ export function CreateWorkspacePage() {
   };
 
   return (
-    <AppShell
-      nav={
-        <Button variant="ghost" size="sm" icon={ChevronLeft} onClick={back}>
-          {open ? `Back to ${open.name}` : 'Back'}
-        </Button>
-      }
-      logo={<WorkspaceTile letter={name.trim() || 'W'} color={color} size={56} />}
-      title="Create a workspace"
-      description={
-        open
-          ? `A folder with its own tasks, notes and connected accounts. It opens in place of ${open.name} once it’s created.`
-          : 'A folder with its own tasks, notes and connected accounts.'
-      }
-    >
-      <form className={styles.form} onSubmit={submit} aria-label="Create workspace" noValidate>
-        <Field label="Workspace name" error={nameError ?? undefined}>
-          <Input
-            value={name}
-            autoFocus
-            placeholder="Personal"
-            onChange={(event) => {
-              setName(event.target.value);
-              setNameError(null);
-            }}
-          />
-        </Field>
-        <Field label="Colour">
-          <SwatchPicker value={color} onValueChange={setColor} aria-label="Colour" />
-        </Field>
-        {create.error && (
-          <p className={styles.error} role="alert">
-            {ipcErrorOf(create.error)?.message ?? 'The workspace couldn’t be created.'}
-          </p>
-        )}
-        <Button type="submit" size="lg" className={styles.submit} disabled={pending}>
-          Create Workspace
-        </Button>
+    <AppShell>
+      <form className={styles.card} onSubmit={submit} aria-label="Create workspace" noValidate>
+        <div className={styles.body}>
+          <div className={styles.intro}>
+            <WorkspaceTile letter={name.trim() || 'W'} color={color} size={56} />
+            <div className={styles.text}>
+              <h1 className={styles.title}>Create a workspace</h1>
+              <p className={styles.description}>
+                A workspace is a folder with its own tasks, notes and connected accounts.
+                {open && ' It opens once it’s created.'}
+              </p>
+            </div>
+          </div>
+          <Field label="Workspace name" error={nameError ?? undefined}>
+            <Input
+              value={name}
+              autoFocus
+              placeholder="Personal"
+              onChange={(event) => {
+                setName(event.target.value);
+                setNameError(null);
+              }}
+            />
+          </Field>
+          <Field label="Colour">
+            <SwatchPicker value={color} onValueChange={setColor} aria-label="Colour" />
+          </Field>
+          {create.error && (
+            <p className={styles.description} role="alert">
+              {ipcErrorOf(create.error)?.message ?? 'The workspace couldn’t be created.'}
+            </p>
+          )}
+        </div>
+        <div className={styles.footer}>
+          <Button type="button" variant="ghost" icon={ArrowLeft} onClick={back}>
+            Back
+          </Button>
+          <Button type="submit" disabled={pending}>
+            Create Workspace
+          </Button>
+        </div>
       </form>
     </AppShell>
   );

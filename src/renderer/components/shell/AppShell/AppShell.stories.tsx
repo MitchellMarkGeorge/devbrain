@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { ChevronLeft, CircleHelp, Folder, Plus } from 'lucide-react';
+import { CircleHelp, Folder, Plus } from 'lucide-react';
 import { Button } from '../../ui/Button';
 import { Logomark } from '../../ui/Logomark';
 import { AppShell } from './AppShell';
@@ -38,20 +38,6 @@ export const NoWorkspace: Story = {
         <Button icon={Folder}>Open Existing Folder…</Button>
       </div>
     ),
-  },
-};
-
-/** With a way back in the title strip, after the window's own controls: Create workspace's "Back to Work". */
-export const WithNav: Story = {
-  args: {
-    nav: (
-      <Button variant="ghost" size="sm" icon={ChevronLeft}>
-        Back to Work
-      </Button>
-    ),
-    logo: <Logomark size="md" />,
-    title: 'Create a workspace',
-    description: 'A folder with its own tasks, notes and connected accounts.',
   },
 };
 

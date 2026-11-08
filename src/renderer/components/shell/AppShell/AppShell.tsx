@@ -13,19 +13,17 @@ export interface AppShellProps extends Omit<ComponentPropsWithoutRef<'div'>, 'ti
   description?: ReactNode;
   /** pinned to the window's foot: "What's a workspace?" */
   footer?: ReactNode;
-  /** the way back, in the title strip after the window's own controls: "Back to Work" */
-  nav?: ReactNode;
 }
 
 /**
  * The window outside a workspace (splash, Welcome, Create workspace, errors): no sidebar, the title
- * bar's start in a draggable top strip (the traffic lights on macOS, the menu button on Windows,
- * whose caption buttons sit at its right) with an optional way back after it, and one centred
- * column: the mark, the title, a line, then the content (a `WorkspaceList`, buttons, a form), with
- * an optional footer link. Inside a workspace the window is a `WorkspaceShell`.
+ * bar's start alone in a draggable top strip (the traffic lights on macOS, the menu button on
+ * Windows, whose caption buttons sit at its right), and one centred column: the mark, the title, a
+ * line, then the content (a `WorkspaceList`, buttons, a card), with an optional footer link.
+ * Inside a workspace the window is a `WorkspaceShell`.
  */
 export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppShell(
-  { logo, title, description, footer, nav, className, children, ...props },
+  { logo, title, description, footer, className, children, ...props },
   ref,
 ) {
   const frame = useWindowFrame();
@@ -36,11 +34,10 @@ export const AppShell = forwardRef<HTMLDivElement, AppShellProps>(function AppSh
       className={cn(styles.screen, className)}
       {...props}
     >
-      {/* on Linux the system frame's title bar is above the page: a strip only for `nav` */}
-      {(frame.platform !== 'linux' || nav) && (
+      {/* on Linux the system frame's title bar is above the page, so there is no strip */}
+      {frame.platform !== 'linux' && (
         <div className={styles.titleBar}>
           <WindowStart />
-          {nav && <nav className={styles.nav}>{nav}</nav>}
           {frame.platform === 'windows' && frame.controls === 'drawn' && (
             <CaptionButtons className={styles.captionButtons} />
           )}

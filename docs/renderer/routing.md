@@ -122,12 +122,13 @@ initial load context says the workspace is open already: nothing reopens.
 
 ## Create workspace
 
-Create workspace is a page of its own, `/workspaces/new`, in an `AppShell` (no sidebar), reached
+Create workspace is a page of its own, `/workspaces/new`: the form on its card in an `AppShell`
+(no sidebar), reached
 from Welcome's "Create Workspace" and from the workspace menu's "New workspace…". Its URL names no
 workspace, so going there opens and closes nothing: from the app, the workspace stays open behind
 it until the new one is created. Creating navigates to the new workspace's link with `replace`, so
 the form isn't in the history after it, and that link opens it under the splash as any switch does.
-"Back to ‹name›" (or "Back" from Welcome; Esc too) goes back in the history, or, with no entry
+The card's Back (and Esc) goes back in the history, or, with no entry
 before it, to the open workspace's link or `/onboarding`.
 
 Why a page rather than the dialog it was: the form gets the whole window, as the step it is (the
@@ -141,7 +142,7 @@ location like any other, with Back and Forward.
   would flash the splash on every Back, as the page names no workspace.
 - **Outside changes** (`followOutsideChanges`) read the page's workspace the same way: the
   workspace behind it deleted or closed elsewhere leaves the page where it is (what was typed
-  stays) and drops `openWorkspaceId`, so Back is plain "Back"; another workspace opened elsewhere
+  stays) and drops `openWorkspaceId`; another workspace opened elsewhere
   brings the window to it, as from any page.
 - **Last page:** main keeps pages under `/app/<id>` only, so the window never reopens on the form.
 - **Not a page in the workspace:** `/app/$workspaceId/…` would draw the old workspace's sidebar

@@ -708,14 +708,14 @@ navigation to the workspace's link (`/app/<id>`), which opens it under the splas
   the workspace's link, "What's a workspace?" drawn disabled (no help yet). With workspaces, the
   "Recent workspaces" card: the five most recently opened (sorted client side by `lastOpenedAt`),
   each going to its link, "All workspaces" when there are more, then the same two buttons.
-- **Create workspace** (`/workspaces/new`, `7175:20087`, since redesigned as a page of its own):
-  `CreateWorkspacePage` in an `AppShell`, the live `WorkspaceTile` as its mark, a name `Input`, a
-  `SwatchPicker` and a full-width Create Workspace. Submit: `workspaces.create`, then the new
-  workspace's link, replacing the form in the history. "‹ Back" (or "‹ Back to ‹name›" from the
-  app) in the title strip, and Esc, go back. The same page serves the app's "New workspace…",
-  which was a dialog (`7760:61527`) before; why it moved, and how going back avoids the splash:
-  routing.md, "Create workspace". The colour is stored as the swatch's hex (`SWATCH_HEX`,
-  `src/renderer/workspace/colors.ts`), and a stored colour is drawn as the nearest swatch.
+- **Create workspace** (`/workspaces/new`, `7175:20087`): `CreateWorkspacePage`, the form on a
+  card in an `AppShell`: the live `WorkspaceTile`, a name `Input` and a `SwatchPicker`, then
+  "← Back" and Create Workspace in its footer. Submit: `workspaces.create`, then the new
+  workspace's link, replacing the form in the history. Back (or Esc) goes back. The same page
+  serves the app's "New workspace…", which was a dialog (`7760:61527`) before; why it moved, and
+  how going back avoids the splash: routing.md, "Create workspace". The colour is stored as the
+  swatch's hex (`SWATCH_HEX`, `src/renderer/workspace/colors.ts`), and a stored colour is drawn as
+  the nearest swatch.
 - **Choose workspace** (`/onboarding/choose_workspace`): the full `WorkspaceList` (all workspaces,
   `workspaces.list` as an infinite query, 20 a page, "Show More"), for when the Welcome card shows
   only recent ones. Same open flow.

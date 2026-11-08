@@ -1,17 +1,44 @@
-/* Create workspace, a page of its own (/workspaces/new) */
-.form {
+/* Create workspace (/workspaces/new): the form on a card (Figma 7175:20087) */
+.card {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-  width: 360px;
+  width: 480px;
   max-width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--edge);
+  border-radius: var(--radius-xl);
+  background: var(--card);
 }
-.error {
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+}
+.intro {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.title {
   margin: 0;
-  color: var(--destructive);
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-base) / 22px var(--font-sans);
+}
+.description {
+  margin: 0;
+  color: var(--muted-foreground);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
 }
-.submit {
-  width: 100%;
-  margin-top: var(--space-4);
+.footer {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+  padding: var(--space-4);
+  border-top: 1px solid var(--border);
 }

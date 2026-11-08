@@ -85,9 +85,9 @@ describe('onboarding', () => {
     const app = startApp(main, { url: '/onboarding' });
     await eventually(() => expect(app.text()).toContain('Create Workspace'));
     click(byText(app.container, 'a, [role="button"]', 'Create Workspace'));
-    await eventually(() => expect(app.container.querySelector('nav button')).not.toBeNull());
+    await eventually(() => expect(app.container.querySelector('form')).not.toBeNull());
     expect(app.path()).toBe('/workspaces/new');
-    click(byText(app.container, 'nav button', 'Back'));
+    click(byText(app.container, 'form button', 'Back'));
     await eventually(() => expect(app.path()).toBe('/onboarding'));
   });
 
@@ -95,7 +95,7 @@ describe('onboarding', () => {
     const main = new FakeMain([]);
     const app = startApp(main, { url: '/workspaces/new' });
     await eventually(() => expect(app.text()).toContain('Create a workspace'));
-    click(byText(app.container, 'nav button', 'Back'));
+    click(byText(app.container, 'form button', 'Back'));
     await eventually(() => expect(app.path()).toBe('/onboarding'));
   });
 
@@ -198,7 +198,7 @@ describe('in the app', () => {
     await openMenuItem(app, 'New workspace…');
     await eventually(() => expect(app.text()).toContain('Create a workspace'));
     expect(app.path()).toBe('/workspaces/new');
-    expect(app.text()).toContain('It opens in place of Work once it’s created.');
+    expect(app.text()).toContain('It opens once it’s created.');
     // no sidebar, no splash, nothing opened or closed
     expect(app.text()).not.toContain('Work tasks.list');
     dom.flush();
@@ -208,13 +208,13 @@ describe('in the app', () => {
     dom.stop();
   });
 
-  it('Create workspace’s “Back to Work” returns to Work’s page, opening nothing and showing no splash', async () => {
+  it('Create workspace’s Back returns to Work’s page, opening nothing and showing no splash', async () => {
     const main = new FakeMain([workspace(WORK, 'Work')], WORK);
     const app = await onWork(main);
     await openMenuItem(app, 'New workspace…');
     await eventually(() => expect(app.text()).toContain('Create a workspace'));
     const dom = watchDom(app.container, ['Work tasks.list']);
-    click(byText(app.container, 'nav button', 'Back to Work'));
+    click(byText(app.container, 'form button', 'Back'));
     await eventually(() => expect(app.text()).toContain('Work tasks.list'));
     dom.flush();
     expect(dom.log.map((entry) => entry.what)).not.toContain('splash+');
@@ -249,14 +249,14 @@ describe('in the app', () => {
     expect(main.open).toBe(WORK);
   });
 
-  it('the workspace behind Create workspace deleted elsewhere: the page stays, its Back no longer names it', async () => {
+  it('the workspace behind Create workspace deleted elsewhere: the page stays, forgetting it', async () => {
     const main = new FakeMain([workspace(WORK, 'Work'), workspace(HOME, 'Home')], WORK);
     const app = await onWork(main);
     await openMenuItem(app, 'New workspace…');
-    await eventually(() => expect(app.text()).toContain('Back to Work'));
+    await eventually(() => expect(app.text()).toContain('It opens once it’s created.'));
     type(app.container.querySelector('input')!, 'Draft');
     await (await import('../../ipc')).ipc.workspaces.delete.mutate({ id: WORK });
-    await eventually(() => expect(app.text()).not.toContain('Back to Work'));
+    await eventually(() => expect(app.text()).not.toContain('It opens once it’s created.'));
     expect(app.path()).toBe('/workspaces/new');
     expect(app.router.state.location.state.openWorkspaceId).toBeUndefined();
     // the form kept what was typed
