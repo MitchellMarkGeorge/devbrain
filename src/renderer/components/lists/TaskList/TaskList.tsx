@@ -113,9 +113,8 @@ function entriesOf(tasks: TaskRowData[] | undefined, groups: TaskListGroup[] | u
  * height its container gives it (`flex: 1` in a column, or a set height) and scrolls its rows
  * there, under the page's header, drawing only the rows in view (and about ten either side). With
  * no height to fill it grows to its rows and draws them all, which suits a short list. Rows
- * selected next to each other join into one block, rows selected next to each other join into one block, every row shows
- * its checkbox while anything is selected, and the `SelectionBar` floats over the bottom of the
- * list. Focus and selection are kept as task ids, so they survive a row scrolling out of view.
+ * selected next to each other join into one block, every row shows its checkbox while anything is
+ * selected, and the `SelectionBar` floats over the bottom of the list. Focus and selection are kept as task ids, so they survive a row scrolling out of view.
  * ↑/↓ move between rows (scrolling a row into view before focusing it; one tab stop for the
  * list), Home/End jump to the first or last loaded row, `X` selects, `S` opens the status menu,
  * Enter opens the task. With `groups`, headings and rows share the one list and the current
