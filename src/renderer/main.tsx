@@ -21,7 +21,7 @@ queryInvalidator.listen(events);
 // what main holds now, so the first render shows the right screen with its data, in its theme
 const initialLoadContext = readInitialLoadContext();
 seedQueryCache(queryClient, initialLoadContext);
-applyThemeSetting(initialLoadContext?.theme ?? 'system');
+applyThemeSetting(initialLoadContext?.settings?.theme ?? 'system');
 
 // The app's one router, never made again. Hash history: the page loads from file://, and main
 // reads the window's page from the URL's hash (src/main/runtime/last-page.ts)

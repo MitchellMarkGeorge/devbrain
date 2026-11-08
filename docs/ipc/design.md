@@ -287,17 +287,17 @@ value `initialLoadContext` (`null` when the read fails). `readInitialLoadContext
 [`src/renderer/ipc/initial-load-context.ts`](../../src/renderer/ipc/initial-load-context.ts)) reads
 that value. Main answers with an `InitialLoadContext`
 ([`src/main/ipc/initial-load-context.ts`](../../src/main/ipc/initial-load-context.ts)), built fresh
-for each load: `{ devBrainAvailable, current, workspaces, theme }`, workspace info and the theme
-setting. `theme` is applied to the page before the first render (`src/renderer/theme.tsx`), which
-then follows `settings.get`. When building it throws, main
+for each load: `{ devBrainAvailable, current, workspaces, settings }`, workspace info and the
+settings (`settings.get`'s answer, `null` without DevBrain). The theme setting is applied to the
+page before the first render (`src/renderer/theme.tsx`), which then follows `settings.get`. When building it throws, main
 logs the error and answers `null`, so the page never waits forever.
 
-`seedQueryCache` puts `current` and `workspaces` in the cache as `workspaces.current` and
-`workspaces.list` before the first render: on a reload the route's workspace is known to be open
-at once, so nothing reopens it and no splash shows, and onboarding lists the workspaces without a
-call. The `workspaces` router's queries get
-`staleTime: Infinity`: main reports every change to them (`workspace` entities and
-`workspace.changed`), so they need no refetch on mount. With no initial load context, they fetch as
+`seedQueryCache` puts `current`, `workspaces` and `settings` in the cache as `workspaces.current`,
+`workspaces.list` and `settings.get` before the first render: on a reload the route's workspace is
+known to be open at once, so nothing reopens it, onboarding lists the workspaces without a call,
+and the index route reads the landing page setting without one. The `workspaces` router's queries
+and `settings.get` get `staleTime: Infinity`: main reports every change to them (`workspace` and
+`settings` entities, and `workspace.changed`), so they need no refetch on mount. With no initial load context, they fetch as
 usual.
 
 `initialLoadContext` is the bridge's one route-specific member, and fixed for the page load: it

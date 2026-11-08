@@ -24,7 +24,7 @@ describe('initialLoadContext', () => {
       devBrainAvailable: false,
       current: null,
       workspaces: { items: [], nextCursor: null },
-      theme: 'system',
+      settings: null,
     });
   });
 
@@ -33,13 +33,17 @@ describe('initialLoadContext', () => {
       devBrainAvailable: true,
       current: null,
       workspaces: { items: [], nextCursor: null },
-      theme: 'system',
+      settings: devBrain.settings.get('settings'),
     });
   });
 
-  it('carries the theme setting, so the page paints in it from the start', () => {
+  it('carries the settings, so the page paints in its theme from the start', () => {
     devBrain.settings.set('settings.theme', 'dark');
-    expect(initialLoadContext(devBrain).theme).toBe('dark');
+    devBrain.settings.set('settings.general.openToLastPage', true);
+    const { settings } = initialLoadContext(devBrain);
+    expect(settings).toEqual(devBrain.settings.get('settings'));
+    expect(settings?.theme).toBe('dark');
+    expect(settings?.general.openToLastPage).toBe(true);
   });
 
   it('lists the workspaces, and has none open until the renderer opens one', async () => {

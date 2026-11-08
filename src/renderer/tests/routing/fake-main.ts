@@ -117,12 +117,17 @@ export class FakeMain {
     return new RemoteError(code, message, data);
   }
 
+  // the settings the pages read (the general group), as settings.get answers
+  private appSettings(): AppSettings {
+    return { theme: 'system', general: this.settings } as AppSettings;
+  }
+
   initialLoadContext(): InitialLoadContext {
     return {
       devBrainAvailable: true,
       current: this.info(this.open),
       workspaces: { items: this.workspaces.map(strip), nextCursor: null },
-      theme: 'system',
+      settings: this.appSettings(),
     };
   }
 
@@ -187,7 +192,7 @@ export class FakeMain {
       case 'app.showLogFile':
         return [undefined, []];
       case 'settings.get':
-        return [{ theme: 'system', general: this.settings }, []];
+        return [this.appSettings(), []];
       case 'workspaces.current':
         return [this.info(this.open), []];
       case 'workspaces.list': {

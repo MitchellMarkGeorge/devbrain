@@ -12,14 +12,14 @@ export function initialLoadContext(devBrain: DevBrain | null): InitialLoadContex
       devBrainAvailable: false,
       current: null,
       workspaces: NO_WORKSPACES,
-      theme: 'system',
+      settings: null,
     };
   }
   return {
     devBrainAvailable: true,
     current: devBrain.currentWorkspace?.info ?? null,
     workspaces: devBrain.workspaces.listAll(),
-    theme: devBrain.settings.get('settings.theme'),
+    settings: devBrain.settings.get('settings'),
   };
 }
 
