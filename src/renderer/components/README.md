@@ -19,7 +19,7 @@ the same name, and builds only on the groups listed before it:
 4. **Feature groups** (`shell/`, `lists/`, `board/`, `detail/`, `editor/`, `calendar/`, `home/`,
    `projects/`, `notes/`, `integrations/`, `settings/`, `onboarding/`): the pieces of one area of
    the app. They use everything above, and another feature group's component when they compose it
-   (`ProjectHeader` shows the `detail/` `DateRange`; `OnboardingScreen` draws the shell's `WindowStart`).
+   (`ProjectHeader` shows the `detail/` `DateRange`).
 
 ESLint enforces steps 2 and 3 (`eslint.config.js`); stories may import anything.
 
@@ -31,7 +31,7 @@ ESLint enforces steps 2 and 3 (`eslint.config.js`); stories may import anything.
 |                 |              | Tooltip, Popover, Dialog, ConfirmDialog, Sheet, Toast                                                                                                                                             |
 |                 |              | Card, Badge, Kbd, Separator, Skeleton (and the card skeletons), Progress, ProgressRing, Breadcrumb, EmptyState, ScrollArea, Icon, ColourBar, SwatchDot, Logomark                                  |
 | `entities/`     | Entities     | StatusIcon, PriorityIcon, HealthIcon, ProjectStatusIcon, StatusMenu, PriorityMenu, ProjectPicker, EntityPill, EntityHoverCard, SourcePill, SyncedBadge, ProviderLogo, ProviderTile, WorkspaceTile |
-| `shell/`        | Shell        | AppShell, WindowBar, Sidebar, WorkspaceSwitcher, SyncStatus, PageHeader, DocumentPage, CardGrid                                                                                                   |
+| `shell/`        | Shell        | AppShell, WorkspaceShell, WindowBar, Sidebar, WorkspaceSwitcher, SyncStatus, PageHeader, DocumentPage, CardGrid                                                                                   |
 | `lists/`        | Lists        | ListRow, TaskRow, TaskList, NoteRow, ProjectRow, TrashRow, EventRow, LinkedTaskRow, QuickAddRow, DraftTaskRow, TaskRowSkeleton, GroupHeading, SelectionBar                                        |
 | `board/`        | Board        | BoardCard, BoardColumn                                                                                                                                                                            |
 | `detail/`       | Detail       | PropertyRow, DetailRow, DetailSection, DateRange, TaskNoteCard, AddSlot, CreateDialog                                                                                                             |
@@ -42,7 +42,7 @@ ESLint enforces steps 2 and 3 (`eslint.config.js`); stories may import anything.
 | `notes/`        | Notes        | NoteCard                                                                                                                                                                                          |
 | `integrations/` | Integrations | IntegrationCard, AccountStatus, SourceRow                                                                                                                                                         |
 | `settings/`     | Settings     | SettingsGroup                                                                                                                                                                                     |
-| `onboarding/`   | Onboarding   | OnboardingScreen, WorkspaceListItem                                                                                                                                                               |
+| `onboarding/`   | Onboarding   | WorkspaceListItem                                                                                                                                                                                 |
 
 Also here:
 

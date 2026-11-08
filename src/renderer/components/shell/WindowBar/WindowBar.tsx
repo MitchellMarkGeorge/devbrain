@@ -2,7 +2,7 @@ import { forwardRef, type ComponentPropsWithoutRef } from 'react';
 import { ArrowLeft, ArrowRight, Menu, Minus, PanelLeft, Square, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useFormatKeys, useWindowFrame } from '../../lib/platform';
-import { useAppShell, type AppShellContextValue } from '../AppShell/context';
+import { useWorkspaceShell, type WorkspaceShellContextValue } from '../WorkspaceShell/context';
 import { IconButton, type IconButtonProps } from '../../ui/IconButton';
 import styles from './WindowBar.module.css';
 
@@ -81,7 +81,7 @@ export function WindowStart({ className }: { className?: string }) {
 /**
  * Stand-ins for the minimise, maximise and close buttons Windows draws over the page's top right:
  * 3 × 46px by 48px. Stories and mock-ups only; in the app Windows draws them and the page keeps
- * their corner clear (`--caption-buttons-width`). `AppShell` and `OnboardingScreen` place them.
+ * their corner clear (`--caption-buttons-width`). `WorkspaceShell` and `AppShell` place them.
  */
 export function CaptionButtons({ className, ...props }: ComponentPropsWithoutRef<'span'>) {
   return (
@@ -108,7 +108,7 @@ export interface WindowControlsProps extends ComponentPropsWithoutRef<'div'> {
 }
 
 /** What the sidebar toggle does, as its label and tooltip say. */
-function toggleLabel(shell: AppShellContextValue): string {
+function toggleLabel(shell: WorkspaceShellContextValue): string {
   if (shell.inDrawer) {
     if (shell.size !== 'compact') return 'Dock sidebar';
     return shell.peeking ? 'Keep sidebar open' : 'Close sidebar';
@@ -118,7 +118,7 @@ function toggleLabel(shell: AppShellContextValue): string {
 
 /**
  * The sidebar toggle (⌘\, Ctrl+\ off macOS), then back and forward: three 28px muted icon
- * buttons, 8px apart. They act on the `AppShell` around them unless given handlers. While the
+ * buttons, 8px apart. They act on the `WorkspaceShell` around them unless given handlers. While the
  * sidebar is hidden, pointing at the toggle peeks at the drawer; clicking it pins the drawer open,
  * or docks the sidebar where the window is wide enough.
  */
@@ -127,7 +127,7 @@ export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
     { onToggleSidebar, onBack, onForward, canGoBack, canGoForward, className, ...props },
     ref,
   ) {
-    const shell = useAppShell();
+    const shell = useWorkspaceShell();
     const formatKeys = useFormatKeys();
     const label = toggleLabel(shell);
     const peeks = !onToggleSidebar && shell.sidebarHidden && !shell.inDrawer;

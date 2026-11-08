@@ -6,8 +6,8 @@ import { createContext, useContext, type RefObject } from 'react';
  */
 export type WindowSize = 'compact' | 'medium' | 'wide';
 
-export interface AppShellContextValue {
-  /** rendered inside an `AppShell` */
+export interface WorkspaceShellContextValue {
+  /** rendered inside a `WorkspaceShell` */
   inShell: boolean;
   size: WindowSize;
   /**
@@ -40,7 +40,7 @@ export interface AppShellContextValue {
 
 const noop = () => {};
 
-export const AppShellContext = createContext<AppShellContextValue>({
+export const WorkspaceShellContext = createContext<WorkspaceShellContextValue>({
   inShell: false,
   size: 'wide',
   sidebarHidden: false,
@@ -57,6 +57,6 @@ export const AppShellContext = createContext<AppShellContextValue>({
 });
 
 /** The shell around this component: window size, whether the sidebar is hidden, the drawer, and the window controls. */
-export function useAppShell(): AppShellContextValue {
-  return useContext(AppShellContext);
+export function useWorkspaceShell(): WorkspaceShellContextValue {
+  return useContext(WorkspaceShellContext);
 }

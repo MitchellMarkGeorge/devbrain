@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Outlet, useRouter, type ErrorComponentProps } from '@tanstack/react-router';
 import { useMutation } from '@tanstack/react-query';
 import { RotateCw, ScrollText } from 'lucide-react';
-import { Button, Logomark, OnboardingScreen, ToastProvider } from '../../components';
+import { Button, Logomark, AppShell, ToastProvider } from '../../components';
 import { trpc } from '../../ipc';
 import { ModalProvider } from '../../modals';
 import { useWorkspaceLoading } from './use-workspace-loading';
@@ -50,7 +50,7 @@ export function RootLayout() {
 export function RootError({ error }: ErrorComponentProps) {
   if (error instanceof DevBrainUnavailableError) return <DevBrainUnavailable />;
   return (
-    <OnboardingScreen
+    <AppShell
       logo={<Logomark size="md" />}
       title="Something went wrong"
       description="DevBrain hit an error it couldn’t recover from. Reload the window to try again."
@@ -58,7 +58,7 @@ export function RootError({ error }: ErrorComponentProps) {
       <Button icon={RotateCw} onClick={() => window.location.reload()}>
         Reload
       </Button>
-    </OnboardingScreen>
+    </AppShell>
   );
 }
 
@@ -69,7 +69,7 @@ export function RootError({ error }: ErrorComponentProps) {
 export function DevBrainUnavailable() {
   const showLogFile = useMutation(trpc.app.showLogFile.mutationOptions());
   return (
-    <OnboardingScreen
+    <AppShell
       logo={<Logomark size="md" />}
       title="DevBrain couldn’t open its data folder"
       description="Check that the folder is there and DevBrain can read it, then quit and reopen DevBrain. The log file says what went wrong."
@@ -77,6 +77,6 @@ export function DevBrainUnavailable() {
       <Button icon={ScrollText} onClick={() => showLogFile.mutate()}>
         Show Log File
       </Button>
-    </OnboardingScreen>
+    </AppShell>
   );
 }

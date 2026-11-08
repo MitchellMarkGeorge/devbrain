@@ -11,7 +11,7 @@ import { Collapsible } from '@base-ui/react/collapsible';
 import { ChevronRight, ChevronsUpDown } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { ColourBar } from '../../ui/ColourBar';
-import { useAppShell } from '../AppShell/context';
+import { useWorkspaceShell } from '../WorkspaceShell/context';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import { Icon, renderIcon, type IconSource } from '../../ui/Icon';
 import { Kbd } from '../../ui/Kbd';
@@ -26,7 +26,7 @@ export interface SidebarProps extends ComponentPropsWithoutRef<'nav'> {
   /**
    * The title bar's start (traffic lights on macOS, the menu button on Windows, nothing on Linux)
    * and the window controls (sidebar toggle, back, forward, at the right) on a 44px row at the top
-   * of the sidebar. On by default inside an `AppShell`, docked and in the drawer alike.
+   * of the sidebar. On by default inside a `WorkspaceShell`, docked and in the drawer alike.
    */
   windowControls?: boolean;
 }
@@ -34,13 +34,13 @@ export interface SidebarProps extends ComponentPropsWithoutRef<'nav'> {
 /**
  * The app's sidebar: 256px on the page colour with a hairline at its right. Compose it from
  * `SidebarHeader`, `SidebarContent` (scrolling `SidebarGroup`s of `SidebarItem`s) and
- * `SidebarFooter`. Inside an `AppShell` the shell docks it, or hides it and opens it as a drawer.
+ * `SidebarFooter`. Inside a `WorkspaceShell` the shell docks it, or hides it and opens it as a drawer.
  */
 export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   { windowControls, className, children, 'aria-label': ariaLabel = 'Main', ...props },
   ref,
 ) {
-  const shell = useAppShell();
+  const shell = useWorkspaceShell();
   const showControls = windowControls ?? shell.inShell;
   return (
     <nav
@@ -263,7 +263,7 @@ export const SidebarItem = forwardRef<HTMLButtonElement, SidebarItemProps>(funct
   { children, icon, iconColor, bar, active, render, onClick, ...props },
   ref,
 ) {
-  const shell = useAppShell();
+  const shell = useWorkspaceShell();
   const glyph = bar ? (
     <span className={styles.itemBar}>
       <ColourBar color={bar} height={16} />

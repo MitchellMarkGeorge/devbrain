@@ -1,6 +1,6 @@
 import { forwardRef, type ComponentPropsWithoutRef, type CSSProperties } from 'react';
 import { cn } from '../../lib/cn';
-import { useAppShell } from '../AppShell/context';
+import { useWorkspaceShell } from '../WorkspaceShell/context';
 import styles from './CardGrid.module.css';
 
 export interface CardGridProps extends ComponentPropsWithoutRef<'div'> {
@@ -18,7 +18,7 @@ export const CardGrid = forwardRef<HTMLDivElement, CardGridProps>(function CardG
   { columns = 3, gap = 'sm', className, style, ...props },
   ref,
 ) {
-  const { size } = useAppShell();
+  const { size } = useWorkspaceShell();
   const shown = size === 'compact' ? Math.min(columns, 2) : columns;
   return (
     <div

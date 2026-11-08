@@ -6,7 +6,7 @@ import {
 } from '@tanstack/react-router';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowLeft, LayoutList, RotateCw, ScrollText } from 'lucide-react';
-import { Button, Logomark, OnboardingScreen } from '../../components';
+import { Button, Logomark, AppShell } from '../../components';
 import { trpc } from '../../ipc';
 import { ipcErrorCode, openFailure } from '../../workspace/errors';
 import { useHistoryPosition } from './use-history-position';
@@ -37,7 +37,7 @@ export function WorkspaceOpenError({ error }: ErrorComponentProps) {
   };
 
   return (
-    <OnboardingScreen
+    <AppShell
       logo={<Logomark size="md" />}
       title={copy.title}
       description={copy.description}
@@ -66,6 +66,6 @@ export function WorkspaceOpenError({ error }: ErrorComponentProps) {
           )
         )}
       </div>
-    </OnboardingScreen>
+    </AppShell>
   );
 }

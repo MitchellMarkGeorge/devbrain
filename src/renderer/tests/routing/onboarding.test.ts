@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
 import { FakeMain, workspace } from './fake-main';
-import { byText, click, eventually, splashOf, startApp, stopApps } from './harness';
+import { byText, click, eventually, splashOf, startApp, stopApps, watchDom } from './harness';
 
 // Onboarding, creating and adding workspaces, and opens that fail (docs/renderer/routing.md).
 
@@ -62,7 +62,7 @@ describe('onboarding', () => {
     await eventually(() => expect(app.text()).toContain('Create Workspace'));
     click(byText(app.container, 'a, [role="button"]', 'Create Workspace'));
     await eventually(() => expect(app.container.querySelector('form')).not.toBeNull());
-    expect(app.path()).toBe('/onboarding/new_workspace');
+    expect(app.path()).toBe('/workspaces/new');
 
     // a name is needed
     click(byText(app.container, 'button[type="submit"]', 'Create Workspace'));
@@ -82,9 +82,20 @@ describe('onboarding', () => {
 
   it('Create workspace’s Back returns to Welcome', async () => {
     const main = new FakeMain([]);
-    const app = startApp(main, { url: '/onboarding/new_workspace' });
+    const app = startApp(main, { url: '/onboarding' });
+    await eventually(() => expect(app.text()).toContain('Create Workspace'));
+    click(byText(app.container, 'a, [role="button"]', 'Create Workspace'));
+    await eventually(() => expect(app.container.querySelector('nav button')).not.toBeNull());
+    expect(app.path()).toBe('/workspaces/new');
+    click(byText(app.container, 'nav button', 'Back'));
+    await eventually(() => expect(app.path()).toBe('/onboarding'));
+  });
+
+  it('Create workspace opened on its own (no history) goes back to Welcome', async () => {
+    const main = new FakeMain([]);
+    const app = startApp(main, { url: '/workspaces/new' });
     await eventually(() => expect(app.text()).toContain('Create a workspace'));
-    click(byText(app.container, 'button', 'Back'));
+    click(byText(app.container, 'nav button', 'Back'));
     await eventually(() => expect(app.path()).toBe('/onboarding'));
   });
 
@@ -180,19 +191,76 @@ describe('in the app', () => {
     click(byText(document.body, '[role="menuitem"]', label));
   }
 
-  it('New workspace… creates it in a dialog over the page, then switches to it', async () => {
+  it('New workspace… goes to Create workspace, a page of its own, with Work still open', async () => {
+    const main = new FakeMain([workspace(WORK, 'Work')], WORK);
+    const app = await onWork(main);
+    const dom = watchDom(app.container, []);
+    await openMenuItem(app, 'New workspace…');
+    await eventually(() => expect(app.text()).toContain('Create a workspace'));
+    expect(app.path()).toBe('/workspaces/new');
+    expect(app.text()).toContain('It opens in place of Work once it’s created.');
+    // no sidebar, no splash, nothing opened or closed
+    expect(app.text()).not.toContain('Work tasks.list');
+    dom.flush();
+    expect(dom.log.map((entry) => entry.what)).not.toContain('splash+');
+    expect(main.open).toBe(WORK);
+    expect(main.callsTo('workspaces.open')).toEqual([]);
+    dom.stop();
+  });
+
+  it('Create workspace’s “Back to Work” returns to Work’s page, opening nothing and showing no splash', async () => {
     const main = new FakeMain([workspace(WORK, 'Work')], WORK);
     const app = await onWork(main);
     await openMenuItem(app, 'New workspace…');
-    await eventually(() =>
-      expect(document.body.textContent).toContain('It opens once it’s created.'),
-    );
-    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!;
-    type(dialog.querySelector('input')!, 'Side');
-    click(byText(dialog, 'button[type="submit"]', 'Create Workspace'));
+    await eventually(() => expect(app.text()).toContain('Create a workspace'));
+    const dom = watchDom(app.container, ['Work tasks.list']);
+    click(byText(app.container, 'nav button', 'Back to Work'));
+    await eventually(() => expect(app.text()).toContain('Work tasks.list'));
+    dom.flush();
+    expect(dom.log.map((entry) => entry.what)).not.toContain('splash+');
+    expect(app.path()).toBe(`/app/${WORK}/tasks`);
+    expect(main.callsTo('workspaces.open')).toEqual([]);
+    dom.stop();
+  });
+
+  it('Esc on Create workspace goes back too', async () => {
+    const main = new FakeMain([workspace(WORK, 'Work')], WORK);
+    const app = await onWork(main);
+    await openMenuItem(app, 'New workspace…');
+    await eventually(() => expect(app.text()).toContain('Create a workspace'));
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    await eventually(() => expect(app.text()).toContain('Work tasks.list'));
+    expect(main.callsTo('workspaces.open')).toEqual([]);
+  });
+
+  it('creating switches to the new workspace, in place of Create workspace in the history', async () => {
+    const main = new FakeMain([workspace(WORK, 'Work')], WORK);
+    const app = await onWork(main);
+    await openMenuItem(app, 'New workspace…');
+    await eventually(() => expect(app.text()).toContain('Create a workspace'));
+    type(app.container.querySelector('input')!, 'Side');
+    click(byText(app.container, 'button[type="submit"]', 'Create Workspace'));
     await eventually(() => expect(app.text()).toContain('Side recents.list'));
     expect(main.open).toBe('wsp_new1');
-    await eventually(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
+
+    // Back skips the form, to Work's page, which opens Work again
+    app.router.history.back();
+    await eventually(() => expect(app.text()).toContain('Work tasks.list'));
+    expect(main.open).toBe(WORK);
+  });
+
+  it('the workspace behind Create workspace deleted elsewhere: the page stays, its Back no longer names it', async () => {
+    const main = new FakeMain([workspace(WORK, 'Work'), workspace(HOME, 'Home')], WORK);
+    const app = await onWork(main);
+    await openMenuItem(app, 'New workspace…');
+    await eventually(() => expect(app.text()).toContain('Back to Work'));
+    type(app.container.querySelector('input')!, 'Draft');
+    await (await import('../../ipc')).ipc.workspaces.delete.mutate({ id: WORK });
+    await eventually(() => expect(app.text()).not.toContain('Back to Work'));
+    expect(app.path()).toBe('/workspaces/new');
+    expect(app.router.state.location.state.openWorkspaceId).toBeUndefined();
+    // the form kept what was typed
+    expect(app.container.querySelector('input')!.value).toBe('Draft');
   });
 
   it('Open folder… adds a folder and switches to it', async () => {

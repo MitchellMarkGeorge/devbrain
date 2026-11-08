@@ -30,8 +30,8 @@
   pointer-events: none;
 }
 /*
- * Portalled into a layout column (docked in an AppShell): it fills the column, the sheet pinned to
- * the column's left edge. The column's own width slides it in and out (AppShell animates it), so
+ * Portalled into a layout column (docked in a WorkspaceShell): it fills the column, the sheet pinned to
+ * the column's left edge. The column's own width slides it in and out (WorkspaceShell animates it), so
  * the sheet's edge is the page's edge in every frame; the sheet doesn't slide by itself.
  */
 .viewport[data-contained] {
@@ -41,7 +41,7 @@
 /*
  * Floating on Windows: under the 48px title-bar strip, as Windows' caption buttons sit over the
  * window's top right and the sheet's own close would sit beside theirs. A docked sheet is already
- * under the header there (AppShell).
+ * under the header there (WorkspaceShell).
  */
 .viewport[data-platform='windows']:not([data-contained]) {
   top: 48px;

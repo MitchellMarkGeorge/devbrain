@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouterState } from '@tanstack/react-router';
 import { workspaceIdOfPage } from '@common/types';
 import type { WorkspaceId } from '@common/ids';
-import { Logomark, OnboardingScreen, Progress } from '../../components';
+import { Logomark, AppShell, Progress } from '../../components';
 import { trpc } from '../../ipc';
 import type { AppRouter } from '../../router';
 import { useWorkspaceLoading } from './use-workspace-loading';
@@ -39,7 +39,7 @@ function Splash({ workspaceId }: { workspaceId: WorkspaceId | null }) {
   const name = list.data?.items.find((workspace) => workspace.id === workspaceId)?.name;
   const opening = name ? `Opening ${name}…` : 'Opening workspace…';
   return (
-    <OnboardingScreen
+    <AppShell
       aria-busy
       data-testid="splash"
       footer={version.data && <span className={styles.version}>Version {version.data}</span>}
@@ -54,6 +54,6 @@ function Splash({ workspaceId }: { workspaceId: WorkspaceId | null }) {
           </span>
         </div>
       </div>
-    </OnboardingScreen>
+    </AppShell>
   );
 }

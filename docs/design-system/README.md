@@ -155,7 +155,7 @@ name them for the platform: "Ctrl+K", "Ctrl+Shift+X" on Windows and Linux (`form
 The pages the OAuth loopback serves to the browser at the end of a sign-in (signed in, sign-in not
 completed, unexpected sign-in link, nothing here) are one template,
 `src/main/core/integrations/oauth/page.html`, filled in by `pages.ts`. They are drawn as the
-`OnboardingScreen` header, centred on the page: the `Logomark` (40×48), the title 38px under it
+`AppShell` header, centred on the page: the `Logomark` (40×48), the title 38px under it
 (30px semibold `foreground-strong`) and one 14px `muted-foreground` line 8px under that, in a column
 at most 480px wide on `background`. They follow the browser's light or dark preference, not the
 app's theme setting.

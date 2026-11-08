@@ -3,6 +3,7 @@ import type { WorkspaceId } from '@common/ids';
 import { landingHref } from '../../workspace/landing';
 import { SWATCH_HEX, swatchOf } from '../../workspace/colors';
 import { importFailure, openFailure } from '../../workspace/errors';
+import { workspaceShownAt } from '../../workspace/shown';
 
 const W = 'wsp_w' as WorkspaceId;
 const general = (openToLastPage: boolean) => ({
@@ -105,5 +106,22 @@ describe('importFailure', () => {
     expect(importFailure(ipcError('internal', 'Something went wrong'))).toMatchObject({
       title: 'This folder couldn’t be added',
     });
+  });
+});
+
+describe('workspaceShownAt', () => {
+  it('is the workspace the URL names, else the one open behind a page that names none', () => {
+    expect(workspaceShownAt({ pathname: `/app/${W}/tasks`, state: {} })).toBe(W);
+    expect(
+      workspaceShownAt({
+        pathname: `/app/${W}/tasks`,
+        state: { openWorkspaceId: 'wsp_x' as WorkspaceId },
+      }),
+    ).toBe(W);
+    expect(workspaceShownAt({ pathname: '/workspaces/new', state: { openWorkspaceId: W } })).toBe(
+      W,
+    );
+    expect(workspaceShownAt({ pathname: '/workspaces/new', state: {} })).toBeNull();
+    expect(workspaceShownAt({ pathname: '/onboarding', state: {} })).toBeNull();
   });
 });

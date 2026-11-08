@@ -2,7 +2,7 @@ import { forwardRef, useContext, type ComponentPropsWithoutRef, type ReactNode }
 import { Ellipsis, Star } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
-import { useAppShell } from '../AppShell/context';
+import { useWorkspaceShell } from '../WorkspaceShell/context';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import { IconButton } from '../../ui/IconButton';
 import { PageHeaderInWindowBar } from './context';
@@ -22,7 +22,7 @@ export interface PageHeaderProps extends Omit<ComponentPropsWithoutRef<'header'>
 /**
  * The top of every page: a 48px bar with the breadcrumb at the left and the page's actions at the
  * right, 24px in from the sides. It spans the page even where the content is a capped column.
- * While the sidebar is hidden, `AppShell` moves it into the `WindowBar`.
+ * While the sidebar is hidden, `WorkspaceShell` moves it into the `WindowBar`.
  */
 export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function PageHeader(
   { actions, className, children, ...props },
@@ -99,7 +99,7 @@ export const PageToolbar = forwardRef<HTMLDivElement, PageToolbarProps>(function
   { start, end, className, children, ...props },
   ref,
 ) {
-  const { sidebarHidden } = useAppShell();
+  const { sidebarHidden } = useWorkspaceShell();
   return (
     <div
       ref={ref}
