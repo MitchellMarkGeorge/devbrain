@@ -92,7 +92,6 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
   const scrollerRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualList({
     scrollerRef,
-    name: `BoardColumn (${name})`,
     count: tasks.length,
     estimateSize: () => CARD_ESTIMATE,
     gap: CARD_GAP,

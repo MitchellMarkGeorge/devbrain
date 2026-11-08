@@ -193,7 +193,6 @@ export function TaskList({
 
   const virtualizer = useVirtualList({
     scrollerRef: listRef,
-    name: 'TaskList',
     count: entries.length,
     // A row is row-height; a heading is group-height and the space-1-5 under it, with the
     // group-gap above all but the first. Each is measured as it draws all the same, so a heading
