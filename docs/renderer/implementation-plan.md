@@ -594,8 +594,9 @@ to=… />}` with `active` from `useMatchRoute` (fuzzy, so a detail page keeps it
 
 ### Global dialogs and commands
 
-Mounted once in `/app`, opened from anywhere through a small store
-(`src/renderer/app/dialogs.ts`, React context + reducer; no new state library):
+Shown from anywhere with `useModals().open((props) => <TheDialog {...props} />)`
+(`src/renderer/modals.tsx`): the root layout's `ModalProvider` draws them, and drops them all when a
+workspace switch starts. The keys and commands that open them are app-wide commands (see Keyboard):
 
 - **Search ⌘K** (`7170:15331`): `CommandDialog`, `search.search` debounced 150ms with the type
   filter, grouped results with counts, "Recent" (from `recents.list`) and "Go to" commands on an
@@ -676,10 +677,32 @@ from the keys that work.
   should be reachable register through `useHintTarget(ref, action)`. The hook can be a no-op until
   Vim mode exists, but adding it while building the pages is cheaper than retrofitting.
 - **The editor keeps its keys.** TipTap handles typing and its own shortcuts (⌘B, ⌘K link, `/`).
-  The dispatcher only takes bindings marked `allowInEditor` there (⌘K search, ⌘⇧F open full view).
-  Vim's Normal mode inside the editor will be a ProseMirror plugin, not the dispatcher.
+  The dispatcher only takes bindings marked `allowInEditor` there (⌘\ the sidebar, ⌘⇧F open full
+  view). Search's ⌘K is `allowInTyping` (inputs) but not `allowInEditor`, as the shortcuts sheet
+  gives ⌘K to Link in the editor. Vim's Normal mode inside the editor will be a ProseMirror plugin,
+  not the dispatcher.
 - **A setting** chooses the keymap: `general.keyboardMode: 'default' | 'vim'` (S5), off by default,
   as Figma's mock shows (`7704:60566`).
+
+**Wiring it in** (milestone 3; the layer itself is built, in `src/renderer/keyboard/`, with its
+`README.md`):
+
+- **`KeyboardProvider` goes in the root layout** (`pages/root/Root.tsx`), around `ModalProvider`.
+  Dialogs shown with `useModals` render in the root, outside the page, and the shortcuts dialog
+  reads the keymap and the registry, so the provider must be above them. It holds no workspace
+  data: the registry empties itself as pages unmount, and its undo stack is cleared when a
+  workspace switch starts (`useSwitchingWorkspace`), as an entry would undo a change in the
+  workspace being closed.
+- **The app-wide commands register in the workspace layout** (`pages/app/AppLayout.tsx`), with
+  `useCommands(createAppCommands(actions))`: `goTo` navigates with `params: { workspaceId }`,
+  `openShortcuts` is `modals.open((props) => <ShortcutsDialog {...props} />)`, and
+  `toggleSidebar` is `AppShell`'s, whose own ⌘\ listener is removed in the same change (or ⌘\
+  toggles twice). An action not built yet is left out (`openSearch` until milestone 9, `newTask`
+  until milestone 4): its command isn't registered, so its keys go through and the shortcuts dialog
+  doesn't list them.
+- **Pages register theirs** with `useCommands` inside a `<KeyScope>` as each page's milestone
+  builds it (the list keys first, with `TaskRow` and `TaskList`).
+- **The toast's Undo** calls `useUndoStack().undo()`.
 
 ## Pages and flows
 
@@ -1232,9 +1255,9 @@ page that needs them.
 3. **Shared app pieces.** Entity components moved to core's shapes, with `FormatProvider`
    (luxon), after X1 moves the shared types; `TaskList`, `BoardColumn` and `CardGrid` virtualized; `useOpenEntity`; error
    toast and `useConfirm`; Recents/Favorites/SyncStatus in the sidebar; page header slot and
-   breadcrumbs; the keyboard layer (command registry, scopes, keymap dispatcher, undo stack) with
-   the default keymap, and the list keys moved out of `TaskRow`/`TaskList` into it; the shortcuts
-   dialog. _Main:_ X1 first.
+   breadcrumbs; the keyboard layer (built: `src/renderer/keyboard/`) mounted as Keyboard's "Wiring
+   it in" says, with the default keymap, the list keys moved out of `TaskRow`/`TaskList` into it,
+   and the shortcuts dialog. _Main:_ X1 first.
 4. **Tasks.** List view with filters/sort in search params, row menu, selection bar; group view;
    board with the task sheet; create task and subtask dialogs; task page. _Main:_ T5, T6 (then T2,
    C1–C3 as they land).
