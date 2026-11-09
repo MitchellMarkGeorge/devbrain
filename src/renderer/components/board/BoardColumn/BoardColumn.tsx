@@ -14,6 +14,7 @@ import { Icon } from '../../ui/Icon';
 import { StatusIcon } from '../../entities/StatusIcon';
 import type { TaskStatus } from '@common/types';
 import { TASK_STATUS_LABELS } from '../../types';
+import { SIZE } from '../../../styles/tokens';
 import styles from './BoardColumn.module.css';
 
 export type BoardProps = ComponentPropsWithoutRef<'div'>;
@@ -59,8 +60,9 @@ export interface BoardColumnProps extends Omit<ComponentPropsWithoutRef<'section
 
 // a card's height before it is measured: the title, one line of pills and the meta line
 const CARD_ESTIMATE = 96;
-// the space between cards, which the virtualizer leaves between them and the list draws as its gap
-const CARD_GAP = 10;
+// the space between cards (board-card-gap): the virtualizer counts it into each card's offset, and
+// the list draws it as its gap, since the cards flow rather than being placed at those offsets
+const CARD_GAP = SIZE['board-card-gap'];
 
 /**
  * An open status column: no panel, a 24px header (status icon, name, a ghost "+" on the right)
