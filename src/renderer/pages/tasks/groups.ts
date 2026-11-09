@@ -1,6 +1,6 @@
 import type { ProjectId } from '@common/ids';
 import { TaskPriority, TaskStatus, type Project } from '@common/types';
-import { PRIORITY_LABELS, TASK_STATUS_LABELS, type IconSource } from '../../components';
+import { PRIORITY_LABELS, TASK_STATUS_LABELS } from '../../components';
 import type { CreateTaskDefaults } from './CreateTaskDialog';
 import {
   dueFilter,
@@ -21,7 +21,8 @@ export interface GroupLook {
   status?: TaskStatus;
   priority?: TaskPriority;
   color?: string | null;
-  dueIcon?: IconSource;
+  /** a due bucket's colour: Overdue and Today are coloured, later buckets are not */
+  tone?: 'overdue' | 'today';
 }
 
 export interface TaskGroupDef {
@@ -108,7 +109,10 @@ export function groupDefs(
       return DUE_BUCKETS.map(({ key, label }) => ({
         id: `due:${key}`,
         label,
-        look: { icon: 'due' },
+        look: {
+          icon: 'due',
+          tone: key === 'overdue' ? 'overdue' : key === 'today' ? 'today' : undefined,
+        },
         filter: dueFilter(key, today),
         defaults: key === 'today' ? { dueDate: today } : key === 'none' ? { dueDate: null } : {},
       }));

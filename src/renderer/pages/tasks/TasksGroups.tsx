@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Calendar, CircleSlash, Folder } from 'lucide-react';
-import type { ProjectId } from '@common/ids';
-import type { TaskListItem } from '@common/types';
+import { Calendar, CircleAlert, CircleSlash, Folder } from 'lucide-react';
+import { TaskPriority, TaskStatus, type TaskListItem } from '@common/types';
 import {
   Button,
   GroupHeading,
   PriorityIcon,
   resolveColor,
+  statusVar,
   StatusIcon,
   TaskRowSkeleton,
   useFormat,
@@ -111,29 +111,52 @@ function Seen({
   return children;
 }
 
+// the band's icon, 14px: a status or priority colours itself
 function groupIcon(def: TaskGroupDef) {
   switch (def.look.icon) {
     case 'status':
-      return def.look.status ? <StatusIcon status={def.look.status} /> : undefined;
+      return def.look.status ? <StatusIcon status={def.look.status} size={14} /> : undefined;
     case 'priority':
-      return def.look.priority ? <PriorityIcon priority={def.look.priority} /> : undefined;
+      return def.look.priority ? (
+        <PriorityIcon priority={def.look.priority} size={14} />
+      ) : undefined;
     case 'project':
       return Folder;
     case 'due':
-      return Calendar;
+      return def.look.tone === 'overdue' ? CircleAlert : Calendar;
     default:
       return CircleSlash;
   }
 }
 
-/** A project group's done/total, from `projects.stats` (one per drawn heading). */
-function useProjectProgress(projectId: ProjectId | undefined) {
-  const stats = useQuery({
-    ...trpc.projects.stats.queryOptions({ id: projectId as ProjectId }),
-    enabled: projectId !== undefined,
-  });
-  return stats.data && { done: stats.data.numOfCompleted, total: stats.data.totalTasks };
+// the colour that tints the band (GroupHeading.md, "Tint"); none for a neutral group
+function groupColor(def: TaskGroupDef): string | undefined {
+  const { look } = def;
+  switch (look.icon) {
+    case 'project':
+      return resolveColor(look.color, 'blue');
+    case 'status':
+      return look.status && look.status !== TaskStatus.NOT_STARTED
+        ? statusVar(look.status)
+        : undefined;
+    case 'priority':
+      return look.priority ? `var(--priority-${PRIORITY_SLUGS[look.priority]})` : undefined;
+    case 'due':
+      return look.tone === 'overdue'
+        ? 'var(--status-overdue)'
+        : look.tone === 'today'
+          ? 'var(--date-today)'
+          : undefined;
+    default:
+      return undefined;
+  }
 }
+
+const PRIORITY_SLUGS: Record<TaskPriority, string> = {
+  [TaskPriority.HIGH]: 'high',
+  [TaskPriority.MEDIUM]: 'medium',
+  [TaskPriority.LOW]: 'low',
+};
 
 function Heading({
   def,
@@ -148,17 +171,15 @@ function Heading({
   onCollapsedChange: (collapsed: boolean) => void;
   onAddTask: () => void;
 }) {
-  const progress = useProjectProgress(def.projectId);
-  const loaded = state && !state.pending ? state.tasks.length : undefined;
+  // the count once every page has loaded; none while more are to come
+  const count = state && !state.pending && !state.hasNextPage ? state.tasks.length : undefined;
   return (
     <GroupHeading
       label={def.label}
       subtitle={def.subtitle}
       icon={groupIcon(def)}
-      iconColor={def.look.icon === 'project' ? resolveColor(def.look.color, 'blue') : undefined}
-      done={progress?.done}
-      total={progress?.total}
-      count={progress ? undefined : state?.hasNextPage ? undefined : loaded}
+      color={groupColor(def)}
+      count={count}
       collapsed={collapsed}
       onCollapsedChange={onCollapsedChange}
       onAddTask={onAddTask}
