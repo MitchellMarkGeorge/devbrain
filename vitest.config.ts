@@ -22,6 +22,6 @@ export default defineConfig({
     include: ['src/main/**/*.test.ts', 'src/common/**/*.test.ts', 'src/renderer/**/*.test.ts'],
     // run through vite rather than Node, so a test's vi.mock('node:fs') reaches the fs calls they
     // make (see tests/workspace/registry.test.ts)
-    server: { deps: { inline: ['atomically', 'stubborn-fs'] } },
+    server: { deps: { inline: ['atomically', 'stubborn-fs', '@fullcalendar/rrule'] } },
   },
 });

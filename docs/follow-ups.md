@@ -210,12 +210,6 @@ Left to do:
 - Two reads of the same old range at once both fetch it. Saves match by external id, so the result is the same.
 - `historyLoadedFrom` only goes down while the calendar is selected. Nothing trims old history again.
 
-### The calendar view's FullCalendar adapter
-
-_Found in feature 16b, for the calendar UI._
-
-The event model stores what FullCalendar needs; the renderer still has to map each `Event` from `EventService.listForCalendar` to FullCalendar's event input. [The adapter spec](calendar/fullcalendar-adapter.md) covers the mapping. In short: one-off events map directly; a series' `rrule` is a string of `DTSTART`, its `recurrenceRule` and its `exdates` as `EXDATE` lines (FullCalendar's `exdate` property only works with an object `rrule`); occurrence rows are events of their own, grouped with their series. It also lists what to confirm against FullCalendar, chiefly `TZID` support.
-
 ## Editor
 
 ### Entity pills and the "@" menu show default glyphs and stored titles

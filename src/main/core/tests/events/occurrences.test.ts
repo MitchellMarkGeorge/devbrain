@@ -685,6 +685,46 @@ describe('daylight saving time', () => {
     ).toThrow(InvalidInputError);
   });
 
+  it('ends a series split west of UTC before the occurrence, as the calendar draws it', () => {
+    // 9:00 New York from Wednesday 28 October 2026
+    const series = newYork('2026-10-28T13:00:00.000Z');
+    const at = (iso: string) => ({ seriesId: series.id, originalStartAt: new Date(iso) });
+
+    // from Friday 30 October, 9:00 EDT: UNTIL is 12:59:59Z that day, which is 8:59:59 in New York
+    service.deleteOccurrence(at('2026-10-30T13:00:00.000Z'), 'following');
+    expect(service.getById(series.id).recurrenceRule).toBe(
+      'RRULE:FREQ=DAILY;UNTIL=20261030T125959Z',
+    );
+
+    // Thursday is still an occurrence; Friday is not, though 9:00 is before 12:59:59 read as UTC
+    expect(
+      service.updateOccurrence(at('2026-10-29T13:00:00.000Z'), 'this', { title: 'Kept' }).title,
+    ).toBe('Kept');
+    expect(() =>
+      service.updateOccurrence(at('2026-10-30T13:00:00.000Z'), 'this', { title: 'X' }),
+    ).toThrow(InvalidInputError);
+  });
+
+  it("keeps a provider's UTC UNTIL east of UTC as an instant, last occurrence included", () => {
+    // 9:00 Tokyo daily, until 00:00Z on 28 October: 9:00 that day in Tokyo, the last occurrence
+    const start = new Date('2026-10-26T00:00:00.000Z');
+    const series = service.createEvent({
+      title: 'Standup',
+      startAt: start,
+      endAt: new Date(start.getTime() + HOUR / 4),
+      timeZone: 'Asia/Tokyo',
+      recurrenceRule: 'RRULE:FREQ=DAILY;UNTIL=20261028T000000Z',
+    });
+    const at = (iso: string) => ({ seriesId: series.id, originalStartAt: new Date(iso) });
+
+    expect(
+      service.updateOccurrence(at('2026-10-28T00:00:00.000Z'), 'this', { title: 'Last' }).title,
+    ).toBe('Last');
+    expect(() =>
+      service.updateOccurrence(at('2026-10-29T00:00:00.000Z'), 'this', { title: 'X' }),
+    ).toThrow(InvalidInputError);
+  });
+
   it('accepts the first of a repeated hour only', () => {
     // 1:30 from Friday 30 October 2026; on Sunday 1 November 1:00–2:00 happens twice
     const series = newYork('2026-10-30T05:30:00.000Z');
