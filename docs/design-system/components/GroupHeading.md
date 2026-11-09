@@ -1,9 +1,8 @@
 # GroupHeading
 
-A group in the grouped list. No band and no line: `group-gap` (32px) of space above it, a chevron, a 32px tile (the group's icon in its colour, or an event's colour bar), the title (14px medium) over a subtitle (12px `muted-foreground`), an xs ghost "Add task" button, the done/total count and an 80px progress bar (a 4px `muted-foreground` fill on an `input` track, both fully rounded). The heading is `group-height` (40px) tall, with 6px (`space-1-5`) under it.
+A group in the grouped list, as a band: `group-height` (36px) of `muted` with `radius-md` corners and `group-gap` (12px) of space above it. In one line: a 14px chevron in `subtle-foreground`, the group's 14px icon in its colour (or an event's colour bar), the title (14px medium, `foreground-strong`), an optional subtitle and the count (14px, `muted-foreground`). With `onAddTask`, an xs "+" sits at the far right and shows only while the band is hovered or holds focus. Hovering lifts the band to `accent`.
 
-- Group by due date ("Overdue · Oldest due Sep 28"), by what tasks link to ("Mitchell / Jesse 1:1 · Event · Today 10:00 AM") or by project. `collapsed` hides the Add button and points the chevron right.
-
-## Tile
-
-The tile is a tint of the group's own colour, not a solid block: the group's colour at 15% behind the icon at full strength. Projects use `swatch-*-tint`; status groups use `status-in-progress-tint`, `status-completed-tint` and `status-overdue-tint` (lighter in light mode, as the status colours are). Not started and cancelled groups keep the neutral `secondary` tile. The tints carry their alpha in the token, so Figma keeps them (a paint's own opacity is dropped when Figma re-resolves a bound variable).
+- One heading for every way a list groups: by project (a folder in the project's swatch), status (the `StatusIcon`), priority (the `PriorityIcon`; no priority is a muted dash), due date (Overdue in `status-overdue`, Today in `date-today`, later buckets muted) and what tasks link to (an event's `ColourBar`, a note's muted file icon). Pass a `StatusIcon` or `PriorityIcon` at `size={14}`.
+- `subtitle` is for an event's time ("Today, 10:00 AM"), read after its title. Keep other groups to a title and a count: no progress, no due date.
+- The band is `position: sticky`: in a scrolling list it stays at the top while its group scrolls under it, and the next group's band slides over it. Keep headings as siblings of their rows in the scroll container, as `TaskList` lays them out.
+- `collapsed` points the chevron right and hides the "+". `onCollapsedChange` makes the chevron a button.

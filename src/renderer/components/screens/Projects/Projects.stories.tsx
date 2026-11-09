@@ -2,7 +2,6 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TaskPriority, TaskStatus } from '@common/types';
 import {
   ArrowUpDown,
-  CircleCheck,
   Ellipsis,
   Folder,
   LayoutGrid,
@@ -224,25 +223,23 @@ export const Overview: Story = {
         <div style={{ marginTop: 24 }}>
           <GroupHeading
             label="In progress"
-            icon={<StatusIcon status={TaskStatus.IN_PROGRESS} />}
-            tint="var(--status-in-progress-tint)"
+            icon={<StatusIcon status={TaskStatus.IN_PROGRESS} size={14} />}
             count={2}
           />
           <TaskList tasks={IN_PROGRESS} />
           <GroupHeading
             label="Not started"
-            icon={<StatusIcon status={TaskStatus.NOT_STARTED} />}
+            icon={<StatusIcon status={TaskStatus.NOT_STARTED} size={14} />}
             count={7}
             onAddTask={() => {}}
           />
           <TaskList tasks={NOT_STARTED} />
           <GroupHeading
             label="Completed"
-            icon={CircleCheck}
-            iconColor="var(--status-completed)"
-            tint="var(--status-completed-tint)"
+            icon={<StatusIcon status={TaskStatus.COMPLETED} size={14} />}
             count={3}
             collapsed
+            onCollapsedChange={() => {}}
           />
         </div>
       </div>
