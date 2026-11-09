@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import { TaskPriority, TaskStatus } from '@common/types';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Calendar, CircleAlert, Clock, FileText, Folder, Minus } from 'lucide-react';
@@ -82,29 +82,3 @@ export const Collapsible: Story = {
 };
 
 export const Collapsed: Story = { args: { collapsed: true, onCollapsedChange: () => {} } };
-
-/**
- * In a scrolling list each band pins to the top while its group scrolls; the next band slides
- * over it.
- */
-export const Pinned: Story = {
-  render: () => (
-    <div style={{ height: 240, overflow: 'auto' }}>
-      {(['blue', 'amber', 'pink'] as const).map((color, i) => (
-        <Fragment key={color}>
-          <GroupHeading
-            label={['Auth Overhaul', 'API Gateway v2', 'ML Platform'][i]}
-            icon={Folder}
-            color={color}
-            count={6}
-          />
-          {Array.from({ length: 6 }, (_, n) => (
-            <div key={n} style={{ height: 48, padding: '14px 12px' }}>
-              Task {n + 1}
-            </div>
-          ))}
-        </Fragment>
-      ))}
-    </div>
-  ),
-};

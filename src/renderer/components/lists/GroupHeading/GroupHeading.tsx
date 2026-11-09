@@ -34,7 +34,7 @@ export interface GroupHeadingProps extends Omit<ComponentProps<'div'>, 'children
 /**
  * A group in the grouped list: a 36px band (`muted`, tinted 8% with the group's colour) with a
  * chevron, a 14px icon in that colour, the title, an optional muted subtitle and the count, and a
- * "+" on hover. It pins to the top of the scrolling list while its group scrolls under it.
+ * "+" on hover. In a grouped `TaskList` it sticks to the top of the list while its group scrolls.
  */
 export const GroupHeading = forwardRef<HTMLDivElement, GroupHeadingProps>(function GroupHeading(
   {
