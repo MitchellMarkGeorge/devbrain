@@ -153,6 +153,15 @@ export function createQueryInvalidator(options: QueryInvalidatorOptions): QueryI
         events.on('workspace.changed', ({ id }) => {
           workspaceOpened(id).catch(onError);
         }),
+        // a source's sync state (a run starting or ending, its error, its settings) and an
+        // account's status change outside any call: what reads them (sync.status, the sidebar's
+        // sync line, Integrations) refetches. The rows a run writes come as db.changes.
+        events.on('sources.changed', () => {
+          onChanged(['externalSource']).catch(onError);
+        }),
+        events.on('integrations.changed', () => {
+          onChanged(['integration', 'externalSource']).catch(onError);
+        }),
       ];
       return () => unsubscribes.forEach((unsubscribe) => unsubscribe());
     },

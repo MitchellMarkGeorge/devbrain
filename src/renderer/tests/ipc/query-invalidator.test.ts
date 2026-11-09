@@ -233,4 +233,20 @@ describe('listen', () => {
     stop();
     expect(events.listeners.size).toBe(0);
   });
+
+  it('refetches the sync status when a source or an account changes', async () => {
+    const events = fakeEvents();
+    unsubscribes.push(queryInvalidator.listen(events.client));
+    await query('sync.status');
+    await query('tasks.list');
+
+    events.send('sources.changed', { sourceId: 'src_1' as never });
+    await vi.waitFor(() => expect(count('sync.status')).toBe(2));
+    events.send('integrations.changed', {
+      integrationId: 'int_1' as never,
+      type: 'status_changed',
+    });
+    await vi.waitFor(() => expect(count('sync.status')).toBe(3));
+    expect(count('tasks.list')).toBe(1);
+  });
 });

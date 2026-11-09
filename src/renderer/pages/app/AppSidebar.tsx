@@ -21,6 +21,7 @@ import {
 } from '../../components';
 import type { FileRouteTypes } from '../../routeTree.gen';
 import { WorkspaceMenu } from './WorkspaceMenu';
+import { SidebarFavorites, SidebarRecents, SidebarSync } from './SidebarEntities';
 
 type PagePath = Extract<FileRouteTypes['to'], `/app/$workspaceId/${string}`>;
 
@@ -46,7 +47,8 @@ const FOOTER: NavPage[] = [
 
 /**
  * The app's sidebar: the workspace menu, the pages as links (a page's details keep it active),
- * then Trash, Settings and Help, drawn disabled until there is help.
+ * Recents and Favorites, then the sync line, Trash, Settings and Help, drawn disabled until there
+ * is help.
  */
 export function AppSidebar() {
   const { workspaceId } = useParams({ from: '/app/$workspaceId' });
@@ -68,8 +70,11 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>{NAV.map(item)}</SidebarGroup>
+        <SidebarRecents />
+        <SidebarFavorites />
       </SidebarContent>
       <SidebarFooter>
+        <SidebarSync />
         {FOOTER.map(item)}
         <SidebarItem icon={CircleHelp} disabled>
           Help
