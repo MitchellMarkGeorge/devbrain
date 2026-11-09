@@ -10,7 +10,8 @@ import {
 } from '@common/types';
 import type { EventId } from '@common/ids';
 import type { CalendarViewEventProps } from '../components/calendar/CalendarView';
-import { daysBetween, isExpandable, rruleString, seriesRule } from './recurrence';
+import { daysBetween, seriesRule } from '@common/recurrence';
+import { isExpandable, rruleString } from './recurrence';
 
 // Core's events as FullCalendar event input, per docs/calendar/fullcalendar-adapter.md.
 
@@ -54,7 +55,9 @@ export function toEventInput(event: Event, calendar: Calendar): EventInput {
   if (own && own !== parseColor(calendar.color)) input.color = own;
   if (event.external) input.editable = false;
 
-  const rule = event.recurrenceRule ? seriesRule(event) : null;
+  const rule = event.recurrenceRule
+    ? seriesRule(event, event.recurrenceRule, event.exdates ?? [])
+    : null;
   const rrule = rule && rruleString(rule);
   if (rule && rrule && isExpandable(rrule)) {
     input.groupId = event.id;
