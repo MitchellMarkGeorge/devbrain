@@ -75,11 +75,6 @@ export function swatchTileVar(swatch: Swatch): string {
   return `var(--swatch-${swatch}-tile)`;
 }
 
-/** A swatch at 15%, the ground of a group heading tile: `var(--swatch-blue-tint)` */
-export function swatchTintVar(swatch: Swatch): string {
-  return `var(--swatch-${swatch}-tint)`;
-}
-
 export function isSwatch(value: string): value is Swatch {
   return (SWATCHES as readonly string[]).includes(value);
 }
@@ -195,16 +190,6 @@ export function statusSlug(status: TaskStatus, overdue = false): string {
 /** A task status's colour token: `statusVar(TaskStatus.IN_PROGRESS)` → `var(--status-in-progress)` */
 export function statusVar(status: TaskStatus, overdue = false): string {
   return `var(--status-${statusSlug(status, overdue)})`;
-}
-
-/**
- * A task status's 15% tint, for group heading tiles. Not started and cancelled have none: their
- * tiles keep the neutral `secondary` ground.
- */
-export function statusTintVar(status: TaskStatus, overdue = false): string {
-  return overdue || status === TaskStatus.IN_PROGRESS || status === TaskStatus.COMPLETED
-    ? `var(--status-${statusSlug(status, overdue)}-tint)`
-    : 'var(--secondary)';
 }
 
 /** The priorities in menu order, highest first. */

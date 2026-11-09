@@ -206,20 +206,20 @@ export function TaskList({
   const virtualizer = useVirtualList({
     scrollerRef: listRef,
     count: entries.length,
-    // A row is row-height; a heading is group-height and the space-1-5 under it, with the
+    // A row is row-height; a heading is group-height and the space-0-5 under it, with the
     // group-gap above all but the first. Each is measured as it draws all the same, so a heading
     // that holds more (an event row under it) is placed right once drawn.
     estimateSize: (index) => {
       const entry = entries[index];
       if (entry.kind !== 'heading') return SIZE['row-height'];
-      const heading = SIZE['group-height'] + SPACING['space-1-5'];
+      const heading = SIZE['group-height'] + SPACING['space-0-5'];
       return entry.first ? heading : heading + SIZE['group-gap'];
     },
     getItemKey: (index) => entries[index].id,
     rangeExtractor: groups ? rangeExtractor : undefined,
     // the stuck heading covers the list's top (its group-gap scrolls away above it), so a row
     // focused with ↑ is brought in below the heading, not under it
-    scrollPaddingStart: groups ? SIZE['group-height'] + SPACING['space-1-5'] : 0,
+    scrollPaddingStart: groups ? SIZE['group-height'] + SPACING['space-0-5'] : 0,
     onEndReached,
     endReachedThreshold,
   });

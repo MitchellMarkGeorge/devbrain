@@ -1,62 +1,48 @@
 import { forwardRef, type ComponentProps, type CSSProperties } from 'react';
-import { Progress } from '@base-ui/react/progress';
 import { ChevronDown, ChevronRight, Circle, Plus } from 'lucide-react';
 import { cn } from '../../lib/cn';
-import { Button } from '../../ui/Button';
 import { ColourBar } from '../../ui/ColourBar';
 import { Icon, renderIcon, type IconSource } from '../../ui/Icon';
-import { isSwatch, cssColor, swatchTintVar, type Swatch } from '../../types';
+import { IconButton } from '../../ui/IconButton';
+import { cssColor, type Swatch } from '../../types';
 import styles from './GroupHeading.module.css';
 
-export interface GroupHeadingProps extends Omit<ComponentProps<'div'>, 'children'> {
+export interface GroupHeadingProps extends Omit<ComponentProps<'div'>, 'children' | 'color'> {
   /** the group's title: "Overdue", "Mitchell / Jesse 1:1", a project's name */
   label: string;
-  /** "Oldest due Sep 28", "Event · Today, 10:00 AM" */
+  /** muted text after the title, for an event's time ("Today, 10:00 AM"); keep it short */
   subtitle?: string;
-  /** the tile's icon (a Lucide icon or a node such as a StatusIcon); a circle by default */
+  /** the group's icon (a Lucide icon or a node such as a StatusIcon); a circle by default */
   icon?: IconSource;
-  /** the icon's colour: a swatch name or a CSS colour (`var(--status-overdue)`) */
-  iconColor?: Swatch | string;
-  /** an event's calendar colour, drawn as a bar in the tile instead of an icon */
-  bar?: Swatch | string;
   /**
-   * the tile's ground; defaults to the icon or bar colour at 15% (`swatch-*-tint` for a swatch).
-   * Pass a `status-*-tint` token for status groups.
+   * the group's colour: a swatch name or a CSS colour (`var(--status-overdue)`). It tints the band
+   * (8% over `muted`) and colours a Lucide icon. Leave it out for a neutral group (Not started,
+   * No priority, a note).
    */
-  tint?: string;
-  /** tasks done; with `total`, the count reads "done/total" and fills the bar */
-  done?: number;
-  total?: number;
-  /** a count without progress (no bar) */
+  color?: Swatch | string;
+  /** an event's calendar colour, drawn as a bar instead of an icon; it tints the band too */
+  bar?: Swatch | string;
+  /** how many items the group holds */
   count?: number;
   collapsed?: boolean;
   /** shows the chevron as a button that collapses or expands the group */
   onCollapsedChange?: (collapsed: boolean) => void;
-  /** the xs "Add task" button (hidden while collapsed) */
+  /** the "+" at the far right, shown while the band is hovered or focused (hidden while collapsed) */
   onAddTask?: () => void;
 }
 
-function tintOf(tint: string | undefined, color: string | undefined): string | undefined {
-  if (tint) return tint;
-  if (!color) return undefined;
-  if (isSwatch(color)) return swatchTintVar(color);
-  return `color-mix(in oklab, ${color} 15%, transparent)`;
-}
-
 /**
- * A group in the grouped list: a chevron, a tinted tile, the title over a subtitle, an xs "Add
- * task" button, done/total and an 80px progress bar. `group-gap` of space above it, no band.
+ * A group in the grouped list: a 36px band (`muted`, tinted 8% with the group's colour) with a
+ * chevron, a 14px icon in that colour, the title, an optional muted subtitle and the count, and a
+ * "+" on hover. In a grouped `TaskList` it sticks to the top of the list while its group scrolls.
  */
 export const GroupHeading = forwardRef<HTMLDivElement, GroupHeadingProps>(function GroupHeading(
   {
     label,
     subtitle,
     icon = Circle,
-    iconColor,
+    color: groupColor,
     bar,
-    tint,
-    done,
-    total: totalProp,
     count,
     collapsed = false,
     onCollapsedChange,
@@ -67,12 +53,8 @@ export const GroupHeading = forwardRef<HTMLDivElement, GroupHeadingProps>(functi
   },
   ref,
 ) {
-  const total = totalProp ?? count;
-  const color = cssColor(bar ?? iconColor);
-  const vars = {
-    ...(color && { '--group-color': color }),
-    ...(tintOf(tint, bar ?? iconColor) && { '--group-tint': tintOf(tint, bar ?? iconColor) }),
-  } as CSSProperties;
+  const color = cssColor(bar ?? groupColor);
+  const vars = (color ? { '--group-color': color } : {}) as CSSProperties;
   const chevron = <Icon icon={collapsed ? ChevronRight : ChevronDown} size={14} />;
 
   return (
@@ -81,6 +63,7 @@ export const GroupHeading = forwardRef<HTMLDivElement, GroupHeadingProps>(functi
       role="heading"
       aria-level={3}
       data-collapsed={collapsed ? '' : undefined}
+      data-tinted={color ? '' : undefined}
       className={cn(styles.heading, className)}
       style={{ ...vars, ...style }}
       {...props}
@@ -100,37 +83,22 @@ export const GroupHeading = forwardRef<HTMLDivElement, GroupHeadingProps>(functi
           {chevron}
         </span>
       )}
-      <span className={styles.tile} aria-hidden>
-        {bar ? <ColourBar color={bar} height={14} /> : renderIcon(icon, 16)}
+      <span className={styles.icon} aria-hidden>
+        {bar ? <ColourBar color={bar} height={12} /> : renderIcon(icon, 14)}
       </span>
-      <span className={styles.text}>
-        <span className={styles.label}>{label}</span>
-        {subtitle && <span className={styles.subtitle}>{subtitle}</span>}
-      </span>
-      {collapsed ? (
-        <span />
-      ) : (
-        <Button variant="ghost" size="xs" icon={Plus} onClick={onAddTask}>
-          Add task
-        </Button>
-      )}
-      {total != null ? (
-        <span className={styles.count}>{done != null ? `${done}/${total}` : total}</span>
-      ) : (
-        <span />
-      )}
-      {total && done != null ? (
-        <Progress.Root
-          value={done ?? 0}
-          max={total}
-          aria-label={`${label}: ${done ?? 0} of ${total} done`}
-        >
-          <Progress.Track className={styles.progress}>
-            <Progress.Indicator className={styles.indicator} />
-          </Progress.Track>
-        </Progress.Root>
-      ) : (
-        <span />
+      <span className={styles.label}>{label}</span>
+      {subtitle && <span className={styles.subtitle}>{subtitle}</span>}
+      {count != null && <span className={styles.count}>{count}</span>}
+      {onAddTask && !collapsed && (
+        <IconButton
+          className={styles.add}
+          icon={Plus}
+          label={`Add task to ${label}`}
+          size="xs"
+          tone="muted"
+          tooltip="Add task"
+          onClick={onAddTask}
+        />
       )}
     </div>
   );

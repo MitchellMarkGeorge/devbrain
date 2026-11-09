@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { TaskStatus } from '@common/types';
+import { TaskPriority, TaskStatus } from '@common/types';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { CircleAlert, Folder } from 'lucide-react';
+import { Calendar, CircleAlert, Clock, FileText, Folder, Minus } from 'lucide-react';
+import { PriorityIcon } from '../../entities/PriorityIcon';
 import { StatusIcon } from '../../entities/StatusIcon';
 import { GroupHeading } from './GroupHeading';
 
@@ -9,13 +10,10 @@ const meta = {
   title: 'Lists/GroupHeading',
   component: GroupHeading,
   args: {
-    label: 'Overdue',
-    subtitle: 'Oldest due Sep 28',
-    icon: CircleAlert,
-    iconColor: 'var(--status-overdue)',
-    tint: 'var(--status-overdue-tint)',
-    done: 1,
-    total: 4,
+    label: 'Auth Overhaul',
+    icon: Folder,
+    color: 'blue',
+    count: 12,
   },
   decorators: [
     (Story) => (
@@ -31,45 +29,40 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
+/** "+" shows while the band is hovered or holds focus. */
+export const WithAdd: Story = { args: { onAddTask: () => {} } };
+
+/**
+ * One heading per way the list groups: project, status, priority, due date, linked event or note.
+ * A group with a colour tints its band; Not started, No priority, This week and a note stay neutral.
+ */
 export const Kinds: Story = {
   render: () => (
     <div>
+      <GroupHeading label="Auth Overhaul" icon={Folder} color="blue" count={12} />
       <GroupHeading
-        label="Overdue"
-        subtitle="Oldest due Sep 28"
-        icon={CircleAlert}
-        iconColor="var(--status-overdue)"
-        tint="var(--status-overdue-tint)"
-        done={0}
-        total={3}
-      />
-      <GroupHeading
-        label="Mitchell / Jesse 1:1"
-        subtitle="Event · Today, 10:00 AM"
-        bar="indigo"
-        done={2}
-        total={3}
-      />
-      <GroupHeading
-        label="DevBrain 1.0"
-        subtitle="Project · Due Oct 15"
-        icon={Folder}
-        iconColor="blue"
-        done={3}
-        total={12}
-      />
-      <GroupHeading
-        label="Completed"
-        icon={<StatusIcon status={TaskStatus.COMPLETED} />}
-        tint="var(--status-completed-tint)"
-        done={6}
-        total={6}
+        label="In progress"
+        icon={<StatusIcon status={TaskStatus.IN_PROGRESS} size={14} />}
+        color="var(--status-in-progress)"
+        count={3}
       />
       <GroupHeading
         label="Not started"
-        icon={<StatusIcon status={TaskStatus.NOT_STARTED} />}
-        count={9}
+        icon={<StatusIcon status={TaskStatus.NOT_STARTED} size={14} />}
+        count={2}
       />
+      <GroupHeading
+        label="High"
+        icon={<PriorityIcon priority={TaskPriority.HIGH} size={14} />}
+        color="var(--priority-high)"
+        count={3}
+      />
+      <GroupHeading label="No priority" icon={Minus} count={1} />
+      <GroupHeading label="Overdue" icon={CircleAlert} color="var(--status-overdue)" count={2} />
+      <GroupHeading label="Today" icon={Clock} color="var(--date-today)" count={1} />
+      <GroupHeading label="This week" icon={Calendar} count={3} />
+      <GroupHeading label="Mitchell / Jesse 1:1" subtitle="Today, 10:00 AM" bar="green" count={1} />
+      <GroupHeading label="PKCE design notes" icon={FileText} count={1} />
     </div>
   ),
 };
@@ -77,8 +70,15 @@ export const Kinds: Story = {
 export const Collapsible: Story = {
   render: function Render(args) {
     const [collapsed, setCollapsed] = useState(false);
-    return <GroupHeading {...args} collapsed={collapsed} onCollapsedChange={setCollapsed} />;
+    return (
+      <GroupHeading
+        {...args}
+        collapsed={collapsed}
+        onCollapsedChange={setCollapsed}
+        onAddTask={() => {}}
+      />
+    );
   },
 };
 
-export const Collapsed: Story = { args: { collapsed: true } };
+export const Collapsed: Story = { args: { collapsed: true, onCollapsedChange: () => {} } };

@@ -46,7 +46,7 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 
 **Kept from DevBrain** (these make it DevBrain, not stock shadcn):
 
-- **Colour.** Every colour token: the near-black neutral ground, `foreground` at neutral-200, the status, priority, health and date colours, the six swatches, and the red `now-indicator`. (Red is one shade in dark, workspace tiles use the 900 steps and group tiles a 15% tint: see Colour.)
+- **Colour.** Every colour token: the near-black neutral ground, `foreground` at neutral-200, the status, priority, health and date colours, the six swatches, and the red `now-indicator`. (Red is one shade in dark and workspace tiles use the 900 steps: see Colour.)
 - **Type family.** Inter for everything; 30px and 24px titles.
 - **The logomark.**
 - **Glyphs.** `StatusIcon`, `PriorityIcon`, `HealthIcon` and `ProgressRing`, each status with its own shape and colour.
@@ -72,13 +72,13 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 
 ## Lists
 
-- **Strokeless rows.** No line between rows and no group band. A row is a `row-height` (48px) block with `radius-md` corners that take `row-selected` on hover and when selected (the same tint; selected also brightens the title). Space separates groups (`group-gap`, 32px above each heading). List density is these two tokens: 48px rows with a 32px gap, or 40px rows with a 24px gap.
+- **Strokeless rows.** No line between rows. A row is a `row-height` (48px) block with `radius-md` corners that take `row-selected` on hover and when selected (the same tint; selected also brightens the title). A `muted` band, tinted 8% with the group's colour, heads each group, with `group-gap` (12px) above it. List density is these two tokens: 48px rows with a 12px gap, or 40px rows with an 8px gap.
 - **Title first.** The task name leads, then pills: a synced task's `SourcePill` (provider logo and key), a subtask's parent pill, and the subtask count (`ProgressRing` and "3/4"). Entity pills, priority and date stay on the right, as in Nova.
 - **The status icon is a button.** Clicking it, or pressing `S` on a focused row, opens the `StatusMenu`; `1`, `2`, `3` pick. Overdue (open, due before today) shows as the flag until the task is started or done; a started task keeps its icon, with its date in `date-overdue`.
 - **Leading control.** The selection checkbox lives in a strip left of the status icon. It appears on hover and keyboard focus, and on every row once anything is selected. `X` toggles the focused row.
 - **Row states.** Rest, hover (`row-selected`, the selected tint), selected (`row-selected` with `row-selected-foreground` titles; neighbouring selected rows join into one block), keyboard focus (the hover tint with a 1px `ring` outline around the whole row, no halo), completed (the title in `muted-foreground`, not struck through), overdue (flag and `date-overdue`), subtask (indented).
 - **Selection bar.** While rows are selected, a `SelectionBar` floats over the bottom of the list: the count, then Status, Priority, Due date, Move, more, and clear.
-- **Grouped list.** `GroupHeading` is a tile, a title over a subtitle ("Overdue · Oldest due Sep 28", "Mitchell / Jesse 1:1 · Event · Today, 10:00 AM"), an xs "Add task", done/total and a progress bar.
+- **Grouped list.** `GroupHeading` is a 36px band in one line, `muted` with 8% of the group's colour mixed in: the group's 14px icon in its colour, the title and the count ("Auth Overhaul 12"; an event adds its time, "Mitchell / Jesse 1:1 Today, 10:00 AM 1"), and a "+" on hover. In a grouped `TaskList` it sticks to the top of the list while its group scrolls.
 - **Board.** Open `BoardColumn`s (no panel, 24px apart) hold borderless filled `BoardCard`s (`card`): the title, then the task's relations as the same pills a task row uses (source, subtasks, event or note, project), wrapping as needed, then priority and the date. Hover lightens the card, with no outline; completed cards go darker; each open column ends with a dashed "Add task" slot.
 - **Toolbar values.** Toolbar buttons show their current choice after the label ("Filter Assigned to me", "Sort Due date"), still Nova's quiet button. The main action stays the quiet `default` "New Task", not `primary`. In compact windows the values hide (the label stays, an active filter shows as the pressed state, the value moves to the tooltip).
 - **Long lists are virtualized and scroll on their own.** `TaskList` (flat and grouped), each `BoardColumn` and `VirtualCardGrid` fill the height the page gives them and scroll there, under the page header, which never scrolls away; each board column scrolls by itself. `PageContent`'s `list` and `grid` layouts give them that height under the toolbar, so a list page never scrolls. They draw only what is in view, with `@tanstack/react-virtual`; rows are `row-height` tall, and focus and selection are kept by id so they survive scrolling. The grouped view is one list whose current heading sticks to its top. Each calls `onEndReached` near its last loaded rows to load the next page.
@@ -200,7 +200,7 @@ Two kinds of page, one rule each:
 - Hover and highlight: `accent` is `neutral-800` in dark, so a highlighted item shows on `popover` (`neutral-900`) as well as on the page.
 - **One red.** In dark, overdue, high priority, off track and delete all use `red-400` (6.2:1 on `popover`); light uses `red-600` throughout. The calendar's today and the time grid's now line keep `now-indicator` (`red-600`), which carries a white number.
 - **Workspace tiles** sit on the 900 step of their swatch (`swatch-*-tile`), so a 20px tile reads as colour; the white letter stays above 9:1.
-- **Group heading tiles** take a 15% tint of the group's colour (`swatch-*-tint`, `status-*-tint`) behind the icon at full strength.
+- **Group headings** show the group's colour on their 14px icon and as an 8% tint of the `muted` band (`color-mix`, so any colour works without a token).
 - Status colours keep one meaning each (`status-*`, `priority-*`, `health-*`, `date-today`, `date-overdue`), each with its own icon shape. Users pick from the six `swatch-*` colours, shown as 3px bars, dots and swatches.
 - **Derived colours say what they derive from.** In `tokens.json` a translucent token is written as a recipe, `{foreground} / 10%` (another token at an opacity, as Tailwind's `foreground/10`), not as the numbers it comes to; the generator writes it as `color-mix(in srgb, var(--foreground) 10%, transparent)`. So `border` reads `{foreground} / 10%` beside shadcn's white at 10%, a tint follows its colour, and how a token differs from shadcn shows in the token itself. Components derive states the same way at the point of use (`color-mix(in oklab, var(--ring) 50%, transparent)` for shadcn's `ring/50`).
 
@@ -213,7 +213,7 @@ Two kinds of page, one rule each:
 ## Space, size and shape
 
 - 4px spacing scale (`space-*`).
-- Heights: `control-xs` (24px) pills and xs buttons, `control-sm` (28px) sm buttons and menu items, `control-md` (32px) buttons, inputs, segmented controls and sidebar items, `control-lg` (36px) lg buttons, `row-height` (48px) and `group-gap` (32px) for list density, `group-height` (40px) for group headings, `board-card-gap` (10px) between board cards.
+- Heights: `control-xs` (24px) pills and xs buttons, `control-sm` (28px) sm buttons and menu items, `control-md` (32px) buttons, inputs, segmented controls and sidebar items, `control-lg` (36px) lg buttons, `row-height` (48px) and `group-gap` (12px) for list density, `group-height` (36px) for group heading bands, `board-card-gap` (10px) between board cards.
 - Corners: `radius-md` (8px) inside controls, `radius-lg` (10px) controls and menus, `radius-xl` (14px) surfaces, `radius-full` pills.
 - Shadows only on floating layers: `shadow-md` for menus and tooltips, `shadow-2xl` for dialogs, sheets and toasts. The exceptions are `shadow-segment`, under the current segment of a segmented control (Figma's in dark, shadcn's `shadow-sm` in light), and `shadow-pinned`, under the sidebar's pinned header while content is scrolled beneath it.
 - Layout: Home's `home-max-width` (800px) column; a `sidebar-width` (256px) sidebar, docked or hidden (and then a drawer over the page); lists run edge to edge; details open in a `sheet-width` (380px) panel docked on the right, and the page narrows beside it (an overlay only in narrow windows).

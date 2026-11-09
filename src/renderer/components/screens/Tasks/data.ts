@@ -93,25 +93,19 @@ export const GROUPS = [
   {
     label: 'Auth Overhaul',
     color: 'blue' as const,
-    subtitle: 'Project · Due Jul 1',
-    done: 3,
-    total: 12,
+    count: 12,
     tasks: [inGroup('eng-124'), inGroup('eng-131'), inGroup('eng-118'), inGroup('pkce-guide')],
   },
   {
     label: 'API Gateway v2',
     color: 'amber' as const,
-    subtitle: 'Project · Due Jun 30',
-    done: 4,
-    total: 10,
+    count: 10,
     tasks: [inGroup('eng-140'), inGroup('eng-102')],
   },
   {
     label: 'ML Platform',
     color: 'pink' as const,
-    subtitle: 'Project · Due Jul 10',
-    done: 6,
-    total: 10,
+    count: 10,
     tasks: [
       sampleTask({
         id: 'tsk_eng-152' as TaskId,

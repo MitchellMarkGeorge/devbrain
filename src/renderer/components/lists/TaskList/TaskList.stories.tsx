@@ -87,12 +87,9 @@ export const Grouped: Story = {
         heading: (
           <GroupHeading
             label="Overdue"
-            subtitle="Oldest due Jun 19"
             icon={CircleAlert}
-            iconColor="var(--status-overdue)"
-            tint="var(--status-overdue-tint)"
-            done={0}
-            total={2}
+            color="var(--status-overdue)"
+            count={2}
             collapsed={collapsed.overdue}
             onCollapsedChange={toggle('overdue')}
           />
@@ -106,10 +103,9 @@ export const Grouped: Story = {
           <>
             <GroupHeading
               label="Mitchell / Jesse 1:1"
-              subtitle="Event · Today, 10:00 AM"
+              subtitle="Today, 10:00 AM"
               bar="indigo"
-              done={1}
-              total={3}
+              count={3}
               collapsed={collapsed.event}
               onCollapsedChange={toggle('event')}
             />
@@ -136,11 +132,9 @@ export const Grouped: Story = {
         heading: (
           <GroupHeading
             label="In progress"
-            subtitle="Started this week"
-            icon={<StatusIcon status={TaskStatus.IN_PROGRESS} />}
-            tint="var(--status-in-progress-tint)"
-            done={2}
-            total={5}
+            icon={<StatusIcon status={TaskStatus.IN_PROGRESS} size={14} />}
+            color="var(--status-in-progress)"
+            count={5}
             collapsed={collapsed['in-progress']}
             onCollapsedChange={toggle('in-progress')}
           />
@@ -153,7 +147,6 @@ export const Grouped: Story = {
         heading: (
           <GroupHeading
             label="Later"
-            subtitle="Due next month"
             icon={Calendar}
             count={8}
             collapsed={collapsed.later}
@@ -235,7 +228,6 @@ export const ThousandRowsGrouped: Story = {
       heading: (
         <GroupHeading
           label={`Group ${g + 1}`}
-          subtitle={`Tasks ${g * 100 + 1}–${g * 100 + 100}`}
           icon={Calendar}
           count={100}
           collapsed={collapsed[g]}
