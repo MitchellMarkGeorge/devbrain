@@ -1,8 +1,9 @@
-import type { ProjectId, TaskId } from '@common/ids';
+import type { NoteId, ProjectId, TaskId } from '@common/ids';
 import {
   ProjectStatus,
   TaskPriority,
   TaskStatus,
+  type NoteListItem,
   type Project,
   type Task,
   type TaskListItem,
@@ -67,6 +68,30 @@ export function fakeProject(id: string, title: string, extra: Partial<Project> =
   } as Project;
 }
 
+/** A note as `notes.list` returns it. */
+export function fakeNote(
+  id: string,
+  title: string,
+  extra: Partial<NoteListItem> = {},
+): NoteListItem {
+  return {
+    id: id as NoteId,
+    title,
+    preview: null,
+    projectId: null,
+    linkedEventId: null,
+    linkedTaskId: null,
+    project: null,
+    link: null,
+    createdAt: EPOCH,
+    updatedAt: EPOCH,
+    favoritedAt: null,
+    viewedAt: null,
+    archivedAt: null,
+    ...extra,
+  };
+}
+
 type Filter = {
   status?: TaskStatus;
   priority?: TaskPriority;
@@ -74,6 +99,7 @@ type Filter = {
   excludeClosed?: boolean;
   excludeSubtasks?: boolean;
   noDueDate?: boolean;
+  noteId?: NoteId | null;
 };
 
 const CLOSED = [TaskStatus.COMPLETED, TaskStatus.CANCELLED];
@@ -82,7 +108,11 @@ export class FakeTasks {
   constructor(
     public tasks: TaskListItem[] = [],
     public projects: Project[] = [],
+    public notes: NoteListItem[] = [],
   ) {}
+
+  /** each note's markdown, by id */
+  readonly contents = new Map<string, string>();
 
   find(id: unknown): TaskListItem | undefined {
     return this.tasks.find((task) => task.id === id && task.archivedAt === null);
@@ -97,7 +127,8 @@ export class FakeTasks {
         (filter.projectId === undefined || task.projectId === filter.projectId) &&
         (!filter.excludeClosed || !CLOSED.includes(task.status)) &&
         (!filter.excludeSubtasks || task.parentTaskId === null) &&
-        (!filter.noDueDate || task.dueDate === null),
+        (!filter.noDueDate || task.dueDate === null) &&
+        (filter.noteId === undefined || task.linkedNoteId === filter.noteId),
     );
   }
 

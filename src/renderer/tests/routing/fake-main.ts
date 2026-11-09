@@ -8,8 +8,8 @@ import type {
   IpcRequest,
   IpcResult,
 } from '@common/ipc/types';
-import type { AppSettings, WorkspaceInfo } from '@common/types';
-import { fakeTask, FakeTasks } from './fake-tasks';
+import { LinkState, type AppSettings, type WorkspaceInfo } from '@common/types';
+import { fakeNote, fakeTask, FakeTasks } from './fake-tasks';
 
 // A main process for the renderer's routing tests, over the IPC bridge: a registry of workspaces
 // that opens them as core's WorkspaceService does (opening, then closed, then opened or
@@ -258,6 +258,19 @@ export class FakeMain {
           (args.ids as string[]).map((id) => store.patch(id, { archivedAt: new Date() })),
           ['task'],
         ];
+      case 'tasks.promote':
+        return [store.patch(task().id, { parentTaskId: null, parentTask: null }), ['task']];
+      case 'tasks.demote':
+        return [store.patch(task().id, { parentTaskId: args.parentTaskId as never }), ['task']];
+      case 'tasks.detach':
+      case 'tasks.reattach': {
+        const found = task();
+        const state = path === 'tasks.detach' ? LinkState.DETACHED : LinkState.SYNCED;
+        return [
+          store.patch(found.id, { external: found.external && { ...found.external, state } }),
+          ['task'],
+        ];
+      }
       case 'archive.restoreTask': {
         const archived = store.tasks.find((t) => t.id === args.id);
         if (archived) archived.archivedAt = null;
@@ -268,8 +281,45 @@ export class FakeMain {
     }
   }
 
+  // a note's routes, over the open workspace's notes (the task note dialog's)
+  private answerNotes(path: string, args: Record<string, unknown>): [unknown, ChangedEntity[]] {
+    const store = this.tasksOf();
+    const note = () => {
+      const found = store.notes.find((n) => n.id === args.id);
+      if (!found) throw new RemoteError('not_found', `${String(args.id)} not found`);
+      return found;
+    };
+    switch (path) {
+      case 'notes.get':
+        return [note(), []];
+      case 'notes.readContent':
+        return [store.contents.get(note().id) ?? '', []];
+      case 'notes.updateContent':
+        store.contents.set(note().id, args.content as string);
+        return [note(), ['note']];
+      case 'notes.update':
+        return [Object.assign(note(), { title: args.title ?? note().title }), ['note']];
+      case 'notes.create': {
+        const created = fakeNote(`nte_new${store.notes.length + 1}`, (args.title as string) ?? '', {
+          linkedTaskId: (args.linkedTaskId as never) ?? null,
+        });
+        store.notes.push(created);
+        store.contents.set(created.id, (args.content as string) ?? '');
+        return [created, ['note']];
+      }
+      default:
+        throw new RemoteError('internal', `No route ${path} in the fake main`);
+    }
+  }
+
   private async answer(path: string, input: unknown): Promise<[unknown, ChangedEntity[]]> {
     const args = (input ?? {}) as Record<string, unknown>;
+    const filter = args.filter as Record<string, unknown> | undefined;
+    if (path === 'notes.list' && filter?.linkedTaskId !== undefined) {
+      const notes = this.tasksOf().notes.filter((n) => n.linkedTaskId === filter.linkedTaskId);
+      return [{ items: notes, nextCursor: null }, []];
+    }
+    if (path.startsWith('notes.') && path !== 'notes.list') return this.answerNotes(path, args);
     if (PAGE_ROUTES.has(path)) return [this.page(path), []];
     if (path.startsWith('tasks.') || path.startsWith('archive.'))
       return this.answerTasks(path, args);
@@ -324,6 +374,12 @@ export class FakeMain {
         return [[], []];
       case 'recents.recordView':
         return [undefined, ['recent']];
+      case 'workspace.openUrl':
+        return [undefined, []];
+      case 'events.listForCalendar':
+        return [[], []];
+      case 'events.get':
+        throw new RemoteError('not_found', `${String(args.id)} not found`);
       default:
         throw new RemoteError('internal', `No route ${path} in the fake main`);
     }
