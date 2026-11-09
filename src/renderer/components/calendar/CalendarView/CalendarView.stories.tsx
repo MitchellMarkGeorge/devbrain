@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { EventSourceInput } from '@fullcalendar/react';
 import type { CalendarId, EventId } from '@common/ids';
-import { EventKind, EventStatus, type Calendar, type Event } from '@common/types';
+import { EventKind, EventStatus, TaskStatus, type Calendar, type Event } from '@common/types';
 import { toEventInput } from '../../../calendar';
 import type { CalendarEvent } from '../../types';
 import { MONTH_EVENTS, NOW, WEEK_EVENTS, WEEK_EVENTS_MORE } from '../../screens/Calendar/data';
@@ -22,7 +22,7 @@ const OVERLAPS: CalendarEvent[] = [
     start: at(24, 15),
     end: at(24, 16),
     kind: 'task',
-    status: 'not-started',
+    status: TaskStatus.NOT_STARTED,
   },
   { id: 'interview', title: 'Interview', start: at(25, 15), end: at(25, 16, 30), color: 'pink' },
   { id: 'debrief', title: 'Debrief', start: at(25, 15, 30), end: at(25, 16), color: 'indigo' },
