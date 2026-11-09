@@ -247,6 +247,10 @@
   text-align: right;
   white-space: nowrap;
 }
+/* a task without a due date says so, in the dates' quiet tone, where the date would be */
+.noDate {
+  font-variant-numeric: normal;
+}
 .today {
   color: var(--date-today);
 }
