@@ -4,10 +4,19 @@ import type { SerializedError } from '@common/ipc/types';
 import type { AppContext } from './context';
 import { serializeError } from './errors';
 
+const structuredClonePassThrough = {
+  serialize: (value: unknown) => value,
+  deserialize: (value: unknown) => value,
+};
+
 // The tRPC instance every router in src/main/ipc/routers is built with. Its errorFormatter puts our
 // own serialized error in the shape's `data`, which the renderer's TRPCClientError carries, typed.
 // Routes start from the base procedures in procedures.ts, never t.procedure.
 export const t = initTRPC.context<AppContext>().create({
+  // Electron's IPC sends values by structured clone, which keeps Dates (and Maps, Sets, …) as they
+  // are: nothing is transformed, and this says so to tRPC's types, so a route's output reaches the
+  // renderer typed as core returns it (a Date, not the string JSON would make it)
+  transformer: structuredClonePassThrough,
   errorFormatter({ shape, error }) {
     // A failed input parse is BAD_REQUEST, its cause the validator's error (a ZodError, or tRPC's
     // StandardSchemaV1Error), both with `issues`. Anything else: what the resolver threw is the
