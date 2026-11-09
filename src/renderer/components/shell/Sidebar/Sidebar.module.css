@@ -48,7 +48,8 @@
    * toggle stands in the same place docked, in the drawer and in the bar
    */
   gap: var(--space-2);
-  height: 48px;
+  /* the 48px row, and the gap under it that its padding covers (below) */
+  height: calc(48px + var(--sidebar-gap));
   padding-left: var(--space-1);
   -webkit-app-region: drag;
 }
@@ -91,10 +92,6 @@
   box-shadow: var(--shadow-pinned);
 }
 
-/* its 48px is the row itself, under the padding */
-.windowRow {
-  box-sizing: content-box;
-}
 .windowRow + .header {
   top: calc(48px + var(--sidebar-gap));
 }
