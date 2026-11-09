@@ -1,5 +1,5 @@
 import { CircleCheck, CircleX, ListFilter, Plus } from 'lucide-react';
-import { Button, EmptyState } from '../../components';
+import { Button, EmptyState, Stack, TaskRowSkeleton } from '../../components';
 import { useCreateTask } from './use-create-task';
 
 // The tasks views' states (Figma `7175:35659`, `7175:36459`, `7426:44078`): no tasks yet, none
@@ -52,5 +52,16 @@ export function TasksErrorState({ onRetry }: { onRetry: () => void }) {
         </Button>
       }
     />
+  );
+}
+
+/** The first page is loading: a few rows' skeleton. */
+export function TasksLoading() {
+  return (
+    <Stack gap="0" aria-busy data-testid="tasks-loading">
+      {Array.from({ length: 8 }, (_, i) => (
+        <TaskRowSkeleton key={i} />
+      ))}
+    </Stack>
   );
 }

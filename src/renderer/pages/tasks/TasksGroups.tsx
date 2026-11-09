@@ -16,9 +16,9 @@ import {
 import { trpc } from '../../ipc';
 import { groupDefs, type TaskGroupDef } from './groups';
 import { taskListQuery } from './queries';
-import { taskListInput, type ResolvedTasksSearch, type TasksSearch } from './search';
+import { hasFilters, taskListInput, type ResolvedTasksSearch, type TasksSearch } from './search';
 import { TaskListFrame } from './TaskListFrame';
-import { TasksEmpty, TasksError, TasksLoading } from './TasksListStates';
+import { TasksEmptyState, TasksErrorState, TasksLoading } from './TasksStates';
 import { useCreateTask } from './use-create-task';
 import styles from './TasksView.module.css';
 
@@ -267,7 +267,7 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
 
   if (resolved.groupBy === 'project' && projects.isPending) return <TasksLoading />;
   if (resolved.groupBy === 'project' && projects.isError) {
-    return <TasksError onRetry={() => void projects.refetch()} />;
+    return <TasksErrorState onRetry={() => void projects.refetch()} />;
   }
   const everyLoadedEmpty =
     defs.length > 0 &&
@@ -277,7 +277,7 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
     return (
       <>
         {queries}
-        <TasksEmpty search={search} onClearFilters={onClearFilters} />
+        <TasksEmptyState filtered={hasFilters(search)} onClearFilters={onClearFilters} />
       </>
     );
   }
@@ -285,7 +285,7 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
     return (
       <>
         {queries}
-        <TasksError
+        <TasksErrorState
           onRetry={() => void queryClient.refetchQueries({ queryKey: trpc.tasks.list.pathKey() })}
         />
       </>

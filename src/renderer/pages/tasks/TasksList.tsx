@@ -2,9 +2,9 @@ import { useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useFormat } from '../../components';
 import { taskListQuery } from './queries';
-import { taskListInput, type ResolvedTasksSearch, type TasksSearch } from './search';
+import { hasFilters, taskListInput, type ResolvedTasksSearch, type TasksSearch } from './search';
 import { TaskListFrame } from './TaskListFrame';
-import { TasksEmpty, TasksError, TasksLoading } from './TasksListStates';
+import { TasksEmptyState, TasksErrorState, TasksLoading } from './TasksStates';
 
 export interface TasksListProps {
   resolved: ResolvedTasksSearch;
@@ -22,8 +22,9 @@ export function TasksList({ resolved, search, onClearFilters }: TasksListProps) 
   const tasks = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
 
   if (query.isPending) return <TasksLoading />;
-  if (query.isError) return <TasksError onRetry={() => void query.refetch()} />;
-  if (tasks.length === 0) return <TasksEmpty search={search} onClearFilters={onClearFilters} />;
+  if (query.isError) return <TasksErrorState onRetry={() => void query.refetch()} />;
+  if (tasks.length === 0)
+    return <TasksEmptyState filtered={hasFilters(search)} onClearFilters={onClearFilters} />;
   return (
     <TaskListFrame
       loaded={tasks}
