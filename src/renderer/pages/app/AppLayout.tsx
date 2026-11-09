@@ -7,9 +7,6 @@ import { DockedSheetProvider } from './docked-sheet';
 import { PageHeaderProvider, usePageHeaderSlots, useRouteTitle } from './page-header';
 import { useHistoryPosition } from './use-history-position';
 
-// the slots take no part in the header's layout: what is portalled into them does
-const CONTENTS = { display: 'contents' } as const;
-
 /**
  * Every page in a workspace: the shell with the sidebar, the page's header, the window bar's back
  * and forward on the router's history, the app-wide commands, and the page. The header shows the
@@ -19,7 +16,7 @@ export function AppLayout() {
   const router = useRouter();
   const position = useHistoryPosition();
   const title = useRouteTitle();
-  const { value: slots, claimed, setPlace, setActions } = usePageHeaderSlots();
+  const { value: slots, setPlace, setActions } = usePageHeaderSlots();
   // a page's docked sheet (useDockedSheet) opens the shell's sheet column
   const [sheetOpen, setSheetOpen] = useState(false);
   return (
@@ -29,11 +26,11 @@ export function AppLayout() {
           sidebar={<AppSidebar />}
           sheetOpen={sheetOpen}
           header={
-            <PageHeader actions={<div ref={setActions} style={CONTENTS} />}>
-              <div ref={setPlace} style={CONTENTS}>
-                {!claimed && title && <Breadcrumb items={[title]} />}
-              </div>
-            </PageHeader>
+            <PageHeader
+              placeRef={setPlace}
+              actionsRef={setActions}
+              fallback={title && <Breadcrumb items={[title]} />}
+            />
           }
           onBack={() => router.history.back()}
           onForward={() => router.history.forward()}

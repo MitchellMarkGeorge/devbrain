@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ArrowUpDown, CircleCheck, Copy, ListFilter, Plus, Trash2, List } from 'lucide-react';
 import { Text } from '../../layout/Text';
@@ -112,4 +114,35 @@ export const DocumentContent: Story = {
       <Text tone="muted">A note, a task, Settings or Integrations: 720px, centred.</Text>
     </PageContent>
   ),
+};
+
+/**
+ * Filled from below: the header shows its `fallback` ("Tasks") while its place is empty, and a page
+ * portals its own breadcrumb and actions into `placeRef` and `actionsRef` (the app's
+ * `PageHeaderSlot`). Toggle the page's part in and out.
+ */
+export const FilledFromBelow: Story = {
+  render: function Render() {
+    const [place, setPlace] = useState<HTMLDivElement | null>(null);
+    const [actions, setActions] = useState<HTMLDivElement | null>(null);
+    const [filled, setFilled] = useState(true);
+    return (
+      <>
+        <PageHeader
+          placeRef={setPlace}
+          actionsRef={setActions}
+          fallback={<Breadcrumb items={['Tasks']} />}
+        />
+        <PageContent>
+          <Button variant="outline" onClick={() => setFilled((on) => !on)}>
+            {filled ? 'Empty the place' : 'Fill the place'}
+          </Button>
+        </PageContent>
+        {filled &&
+          place &&
+          createPortal(<Breadcrumb items={['Tasks', 'Implement OAuth2 PKCE flow']} />, place)}
+        {filled && actions && createPortal(<PageFavoriteButton favorite={false} />, actions)}
+      </>
+    );
+  },
 };
