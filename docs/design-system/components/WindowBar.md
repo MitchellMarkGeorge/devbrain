@@ -8,6 +8,6 @@ Figma's `WindowBar` (a `platform` variant per platform): the 48px strip across t
 
 The strip drags the window; its buttons don't. In the app the system draws the traffic lights and Windows' caption buttons and the bar only keeps their space; stories paint stand-ins (`TrafficLights drawn`, `CaptionButtons`, 3 × 46px by 48px), which `WindowFrameProvider`'s `controls: 'drawn'` turns on.
 
-`WindowStart`, `TrafficLights`, `AppMenuButton` and `WindowControls` are exported on their own: the sidebar's 44px window row and `AppShell` use them too. `WorkspaceShell` places the bar (and, in stories, the caption buttons); pages never render it themselves.
+`WindowStart`, `TrafficLights`, `AppMenuButton` and `WindowControls` are exported on their own: the sidebar's 48px window row, laid out the same way so the toggle never moves, and `AppShell` use them too. `WorkspaceShell` places the bar (and, in stories, the caption buttons); pages never render it themselves.
 
 **Base UI:** No Base UI part: plain markup with `IconButton`s.

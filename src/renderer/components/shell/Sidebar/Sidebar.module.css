@@ -38,12 +38,17 @@
 .scroller:not(:has(> .windowRow)) > .header {
   padding-top: var(--space-2);
 }
-/* ---------- the window row: the title bar's start, then toggle, back, forward at the right ---------- */
+/* ---------- the window row: the title bar's start, then toggle, back and forward beside it ---------- */
 .windowRow {
   display: flex;
   flex: none;
   align-items: center;
-  height: 44px;
+  /*
+   * As tall as the WindowBar, and starting as far in (16px, with the sidebar's inset), so the
+   * toggle stands in the same place docked, in the drawer and in the bar
+   */
+  gap: var(--space-2);
+  height: 48px;
   padding-left: var(--space-1);
   -webkit-app-region: drag;
 }
@@ -56,9 +61,6 @@
  */
 .sidebar[data-drawer] .windowRow {
   -webkit-app-region: no-drag;
-}
-.controls {
-  margin-left: auto;
 }
 
 /*
@@ -89,12 +91,12 @@
   box-shadow: var(--shadow-pinned);
 }
 
-/* its 44px is the row itself, under the padding */
+/* its 48px is the row itself, under the padding */
 .windowRow {
   box-sizing: content-box;
 }
 .windowRow + .header {
-  top: calc(44px + var(--sidebar-gap));
+  top: calc(48px + var(--sidebar-gap));
 }
 
 /* ---------- header: workspace switcher, search and new ---------- */

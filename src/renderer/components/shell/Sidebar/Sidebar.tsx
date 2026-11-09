@@ -25,8 +25,8 @@ import styles from './Sidebar.module.css';
 export interface SidebarProps extends ComponentPropsWithoutRef<'nav'> {
   /**
    * The title bar's start (traffic lights on macOS, the menu button on Windows, nothing on Linux)
-   * and the window controls (sidebar toggle, back, forward, at the right) on a 44px row at the top
-   * of the sidebar. On by default inside a `WorkspaceShell`, docked and in the drawer alike.
+   * and the window controls beside it (sidebar toggle, back, forward) on a 48px row at the top of
+   * the sidebar, laid out as the `WindowBar` is, so the toggle never moves. On by default inside a `WorkspaceShell`, docked and in the drawer alike.
    */
   windowControls?: boolean;
 }
@@ -55,7 +55,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
         {showControls && (
           <div className={styles.windowRow}>
             <WindowStart />
-            <WindowControls className={styles.controls} />
+            <WindowControls />
           </div>
         )}
         {children}
