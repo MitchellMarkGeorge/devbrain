@@ -1,0 +1,10 @@
+/* "Set due date" in an undated task's date slot. See docs/design-system/components/SetDueDateButton.md */
+/* quiet: the label in the dates' subtle-foreground, brightening as the button is pointed at */
+.button {
+  color: var(--subtle-foreground);
+  font-size: var(--text-xs);
+}
+.button:hover,
+.button[data-popup-open] {
+  color: var(--foreground);
+}

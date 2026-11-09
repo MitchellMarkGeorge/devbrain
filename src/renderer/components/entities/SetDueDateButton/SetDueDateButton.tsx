@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { CalendarPlus } from 'lucide-react';
+import { cn } from '../../lib/cn';
 import { useFormat } from '../../lib/format';
+import styles from './SetDueDateButton.module.css';
 import { DatePicker } from '../../ui/DatePicker';
-import { IconButton } from '../../ui/IconButton';
+import { Button } from '../../ui/Button';
 import { Popover, PopoverContent, PopoverTrigger } from '../../ui/Popover';
 
 export interface SetDueDateButtonProps {
@@ -15,7 +17,7 @@ export interface SetDueDateButtonProps {
 
 /**
  * What a task without a due date shows in its date slot (a `TaskRow`, a `BoardCard`): a quiet 24px
- * calendar-plus button, "Set due date", opening the `DatePicker`. Its row or card shows it only
+ * ghost button, a calendar-plus and "Due" (named "Set due date"), opening the `DatePicker`. Its row or card shows it only
  * while pointed at or focused, so an undated task reads as a blank slot at rest; the button stays
  * while its picker is open (`data-popup-open`).
  */
@@ -30,14 +32,16 @@ export function SetDueDateButton({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         render={
-          <IconButton
+          <Button
+            variant="ghost"
             size="xs"
-            tone="muted"
             icon={CalendarPlus}
-            label="Set due date"
-            className={className}
+            aria-label="Set due date"
+            className={cn(styles.button, className)}
             data-set-due=""
-          />
+          >
+            Due
+          </Button>
         }
       />
       <PopoverContent size="auto" align="end">
