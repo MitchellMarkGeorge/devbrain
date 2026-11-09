@@ -239,6 +239,7 @@
   width: 20px;
 }
 .date {
+  position: relative;
   min-width: 44px;
   color: var(--subtle-foreground);
   font-size: var(--text-xs);
@@ -251,9 +252,12 @@
  * An undated task's slot: blank at rest, "Set due date" while the row is pointed at or focused (and
  * while its picker is open), right-aligned like a date
  */
+/* drawn over the slot's end, so an undated row's priority and pills line up with a dated row's */
 .setDue {
-  margin: -4px -4px;
-  vertical-align: middle;
+  position: absolute;
+  top: 50%;
+  right: -4px;
+  translate: 0 -50%;
   opacity: 0;
   transition: opacity var(--duration-fast) var(--ease-out);
 }
