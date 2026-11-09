@@ -37,6 +37,8 @@ import { DatePill, PriorityPill, ProjectPill, StatusPill } from './pickers';
 import { isSynced } from './queries';
 import { useTaskActions } from './use-task-actions';
 import styles from './TaskSheet.module.css';
+import { TaskNoteSection } from './TaskNoteSection';
+import { TaskSubtasksSection } from './TaskSubtasksSection';
 
 declare module '@tanstack/history' {
   interface HistoryState {
@@ -276,10 +278,8 @@ function TaskSheetBody({ task }: { task: Task }) {
       ) : (
         <p className={`${styles.description} ${styles.empty}`}>No description</p>
       )}
-      {/*
-       * MERGE: the Subtasks and Task note sections go here, from the task page's fork:
-       * <TaskSubtasksSection task={task} compact /> and <TaskNoteSection task={task} compact />.
-       */}
+      <TaskSubtasksSection task={task} compact />
+      <TaskNoteSection task={task} compact />
     </>
   );
 }
