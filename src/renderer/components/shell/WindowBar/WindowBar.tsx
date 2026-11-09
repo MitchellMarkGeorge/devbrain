@@ -100,6 +100,11 @@ export function CaptionButtons({ className, ...props }: ComponentPropsWithoutRef
 }
 
 export interface WindowControlsProps extends ComponentPropsWithoutRef<'div'> {
+  /**
+   * Back and forward at the end of the row the controls fill, the toggle staying at the start (the
+   * sidebar's window row); otherwise all three sit together (the `WindowBar`)
+   */
+  historyAtEnd?: boolean;
   onToggleSidebar?: () => void;
   onBack?: () => void;
   onForward?: () => void;
@@ -124,7 +129,16 @@ function toggleLabel(shell: WorkspaceShellContextValue): string {
  */
 export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
   function WindowControls(
-    { onToggleSidebar, onBack, onForward, canGoBack, canGoForward, className, ...props },
+    {
+      historyAtEnd,
+      onToggleSidebar,
+      onBack,
+      onForward,
+      canGoBack,
+      canGoForward,
+      className,
+      ...props
+    },
     ref,
   ) {
     const shell = useWorkspaceShell();
@@ -132,7 +146,12 @@ export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
     const label = toggleLabel(shell);
     const peeks = !onToggleSidebar && shell.sidebarHidden && !shell.inDrawer;
     return (
-      <div ref={ref} className={cn(styles.controls, className)} {...props}>
+      <div
+        ref={ref}
+        data-history-at-end={historyAtEnd ? '' : undefined}
+        className={cn(styles.controls, className)}
+        {...props}
+      >
         <IconButton
           size="sm"
           tone="muted"

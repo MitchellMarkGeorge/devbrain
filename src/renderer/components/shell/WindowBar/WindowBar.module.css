@@ -63,6 +63,13 @@
   align-items: center;
   gap: var(--space-2);
 }
+/* the sidebar's window row: the toggle at the start, back and forward at the end */
+.controls[data-history-at-end] {
+  flex: 1;
+}
+.controls[data-history-at-end] > :nth-child(2) {
+  margin-left: auto;
+}
 .key {
   margin-left: var(--space-1);
   color: var(--muted-foreground);

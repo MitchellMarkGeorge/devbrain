@@ -9,7 +9,7 @@ The sidebar is **docked or hidden**, nothing in between. `collapsed` is the user
 
 The shell binds no keys of its own. ⌘\ is the app keymap's `sidebar.toggle` command (`src/renderer/keyboard`), which the workspace layout registers to run the shell's `toggleSidebar`, the same as clicking the toggle. The layout reaches it through `controlsRef` (`WorkspaceShellControls`), as it renders the shell rather than sitting inside it; the stories register it the same way. Inside the shell, `useWorkspaceShell()` gives the same toggle.
 
-- **Docked:** the sidebar in its 256px column, drawing the window row (the title bar's start, then toggle, back and forward beside it, where the `WindowBar` has them), the page's header beside it.
+- **Docked:** the sidebar in its 256px column, drawing the window row (the title bar's start, then the toggle beside it, where the `WindowBar` has it, and back and forward at the row's right), the page's header beside it.
 - **Hidden:** the column is 0 wide, and the sidebar in it stays mounted (so folded groups keep their state) but invisible and `inert`. The `WindowBar` runs across the top of the page and carries the page's header. A docked sheet runs the full height beside it, as beside the docked sidebar (on Windows the bar runs across it too, and it starts under it).
 - **Hiding and docking** slide the column between 256px and 0 in `duration-slow` (`ease-surface`): the sidebar slides out to the left and back, the page widening and narrowing beside it.
 
