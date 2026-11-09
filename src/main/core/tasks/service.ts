@@ -240,6 +240,7 @@ export class TaskService {
     // figure this out
     if (filter.dueBefore != null) clauses.push(lt(tasks.dueDate, filter.dueBefore));
     if (filter.dueAfter != null) clauses.push(gt(tasks.dueDate, filter.dueAfter));
+    if (filter.noDueDate) clauses.push(isNull(tasks.dueDate));
     if (filter.dueOn != null) {
       // get the start and end time the date and compare (inclusive start and exlusive end/midnight)
       const { startOfDay, endOfDay } = localDayWindow(filter.dueOn);

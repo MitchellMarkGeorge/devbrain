@@ -7,6 +7,7 @@ import {
   Folder,
   House,
   Settings,
+  SquarePen,
   Trash2,
   Zap,
   type LucideIcon,
@@ -15,10 +16,13 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarAction,
   SidebarGroup,
   SidebarHeader,
+  SidebarHeaderActions,
   SidebarItem,
 } from '../../components';
+import { useCreateTask } from '../tasks/use-create-task';
 import type { FileRouteTypes } from '../../routeTree.gen';
 import { WorkspaceMenu } from './WorkspaceMenu';
 import { SidebarFavorites, SidebarRecents, SidebarSync } from './SidebarEntities';
@@ -53,6 +57,7 @@ const FOOTER: NavPage[] = [
 export function AppSidebar() {
   const { workspaceId } = useParams({ from: '/app/$workspaceId' });
   const matchRoute = useMatchRoute();
+  const createTask = useCreateTask();
   const item = (page: NavPage) => (
     <SidebarItem
       key={page.to}
@@ -67,6 +72,14 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader>
         <WorkspaceMenu />
+        <SidebarHeaderActions>
+          <SidebarAction
+            icon={SquarePen}
+            label="New task"
+            shortcut="C"
+            onClick={() => createTask()}
+          />
+        </SidebarHeaderActions>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>{NAV.map(item)}</SidebarGroup>

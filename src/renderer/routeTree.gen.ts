@@ -22,8 +22,9 @@ import { Route as AppWorkspaceIdIntegrationsRouteImport } from './routes/app/$wo
 import { Route as AppWorkspaceIdNotesRouteImport } from './routes/app/$workspaceId/notes';
 import { Route as AppWorkspaceIdProjectsRouteImport } from './routes/app/$workspaceId/projects';
 import { Route as AppWorkspaceIdSettingsRouteImport } from './routes/app/$workspaceId/settings';
-import { Route as AppWorkspaceIdTasksRouteImport } from './routes/app/$workspaceId/tasks';
 import { Route as AppWorkspaceIdTrashRouteImport } from './routes/app/$workspaceId/trash';
+import { Route as AppWorkspaceIdTasksIndexRouteImport } from './routes/app/$workspaceId/tasks/index';
+import { Route as AppWorkspaceIdTasksTaskIdRouteImport } from './routes/app/$workspaceId/tasks/$taskId';
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -92,16 +93,23 @@ const AppWorkspaceIdSettingsRoute = AppWorkspaceIdSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppWorkspaceIdRouteRoute,
 } as any);
-const AppWorkspaceIdTasksRoute = AppWorkspaceIdTasksRouteImport.update({
-  id: '/tasks',
-  path: '/tasks',
-  getParentRoute: () => AppWorkspaceIdRouteRoute,
-} as any);
 const AppWorkspaceIdTrashRoute = AppWorkspaceIdTrashRouteImport.update({
   id: '/trash',
   path: '/trash',
   getParentRoute: () => AppWorkspaceIdRouteRoute,
 } as any);
+const AppWorkspaceIdTasksIndexRoute =
+  AppWorkspaceIdTasksIndexRouteImport.update({
+    id: '/tasks/',
+    path: '/tasks/',
+    getParentRoute: () => AppWorkspaceIdRouteRoute,
+  } as any);
+const AppWorkspaceIdTasksTaskIdRoute =
+  AppWorkspaceIdTasksTaskIdRouteImport.update({
+    id: '/tasks/$taskId',
+    path: '/tasks/$taskId',
+    getParentRoute: () => AppWorkspaceIdRouteRoute,
+  } as any);
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute;
@@ -116,9 +124,10 @@ export interface FileRoutesByFullPath {
   '/app/$workspaceId/notes': typeof AppWorkspaceIdNotesRoute;
   '/app/$workspaceId/projects': typeof AppWorkspaceIdProjectsRoute;
   '/app/$workspaceId/settings': typeof AppWorkspaceIdSettingsRoute;
-  '/app/$workspaceId/tasks': typeof AppWorkspaceIdTasksRoute;
   '/app/$workspaceId/trash': typeof AppWorkspaceIdTrashRoute;
   '/app/$workspaceId/': typeof AppWorkspaceIdIndexRoute;
+  '/app/$workspaceId/tasks/$taskId': typeof AppWorkspaceIdTasksTaskIdRoute;
+  '/app/$workspaceId/tasks/': typeof AppWorkspaceIdTasksIndexRoute;
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute;
@@ -131,9 +140,10 @@ export interface FileRoutesByTo {
   '/app/$workspaceId/notes': typeof AppWorkspaceIdNotesRoute;
   '/app/$workspaceId/projects': typeof AppWorkspaceIdProjectsRoute;
   '/app/$workspaceId/settings': typeof AppWorkspaceIdSettingsRoute;
-  '/app/$workspaceId/tasks': typeof AppWorkspaceIdTasksRoute;
   '/app/$workspaceId/trash': typeof AppWorkspaceIdTrashRoute;
   '/app/$workspaceId': typeof AppWorkspaceIdIndexRoute;
+  '/app/$workspaceId/tasks/$taskId': typeof AppWorkspaceIdTasksTaskIdRoute;
+  '/app/$workspaceId/tasks': typeof AppWorkspaceIdTasksIndexRoute;
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport;
@@ -149,9 +159,10 @@ export interface FileRoutesById {
   '/app/$workspaceId/notes': typeof AppWorkspaceIdNotesRoute;
   '/app/$workspaceId/projects': typeof AppWorkspaceIdProjectsRoute;
   '/app/$workspaceId/settings': typeof AppWorkspaceIdSettingsRoute;
-  '/app/$workspaceId/tasks': typeof AppWorkspaceIdTasksRoute;
   '/app/$workspaceId/trash': typeof AppWorkspaceIdTrashRoute;
   '/app/$workspaceId/': typeof AppWorkspaceIdIndexRoute;
+  '/app/$workspaceId/tasks/$taskId': typeof AppWorkspaceIdTasksTaskIdRoute;
+  '/app/$workspaceId/tasks/': typeof AppWorkspaceIdTasksIndexRoute;
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath;
@@ -168,9 +179,10 @@ export interface FileRouteTypes {
     | '/app/$workspaceId/notes'
     | '/app/$workspaceId/projects'
     | '/app/$workspaceId/settings'
-    | '/app/$workspaceId/tasks'
     | '/app/$workspaceId/trash'
-    | '/app/$workspaceId/';
+    | '/app/$workspaceId/'
+    | '/app/$workspaceId/tasks/$taskId'
+    | '/app/$workspaceId/tasks/';
   fileRoutesByTo: FileRoutesByTo;
   to:
     | '/'
@@ -183,9 +195,10 @@ export interface FileRouteTypes {
     | '/app/$workspaceId/notes'
     | '/app/$workspaceId/projects'
     | '/app/$workspaceId/settings'
-    | '/app/$workspaceId/tasks'
     | '/app/$workspaceId/trash'
-    | '/app/$workspaceId';
+    | '/app/$workspaceId'
+    | '/app/$workspaceId/tasks/$taskId'
+    | '/app/$workspaceId/tasks';
   id:
     | '__root__'
     | '/'
@@ -200,9 +213,10 @@ export interface FileRouteTypes {
     | '/app/$workspaceId/notes'
     | '/app/$workspaceId/projects'
     | '/app/$workspaceId/settings'
-    | '/app/$workspaceId/tasks'
     | '/app/$workspaceId/trash'
-    | '/app/$workspaceId/';
+    | '/app/$workspaceId/'
+    | '/app/$workspaceId/tasks/$taskId'
+    | '/app/$workspaceId/tasks/';
   fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
@@ -305,18 +319,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWorkspaceIdSettingsRouteImport;
       parentRoute: typeof AppWorkspaceIdRouteRoute;
     };
-    '/app/$workspaceId/tasks': {
-      id: '/app/$workspaceId/tasks';
-      path: '/tasks';
-      fullPath: '/app/$workspaceId/tasks';
-      preLoaderRoute: typeof AppWorkspaceIdTasksRouteImport;
-      parentRoute: typeof AppWorkspaceIdRouteRoute;
-    };
     '/app/$workspaceId/trash': {
       id: '/app/$workspaceId/trash';
       path: '/trash';
       fullPath: '/app/$workspaceId/trash';
       preLoaderRoute: typeof AppWorkspaceIdTrashRouteImport;
+      parentRoute: typeof AppWorkspaceIdRouteRoute;
+    };
+    '/app/$workspaceId/tasks/': {
+      id: '/app/$workspaceId/tasks/';
+      path: '/tasks';
+      fullPath: '/app/$workspaceId/tasks/';
+      preLoaderRoute: typeof AppWorkspaceIdTasksIndexRouteImport;
+      parentRoute: typeof AppWorkspaceIdRouteRoute;
+    };
+    '/app/$workspaceId/tasks/$taskId': {
+      id: '/app/$workspaceId/tasks/$taskId';
+      path: '/tasks/$taskId';
+      fullPath: '/app/$workspaceId/tasks/$taskId';
+      preLoaderRoute: typeof AppWorkspaceIdTasksTaskIdRouteImport;
       parentRoute: typeof AppWorkspaceIdRouteRoute;
     };
   }
@@ -343,9 +364,10 @@ interface AppWorkspaceIdRouteRouteChildren {
   AppWorkspaceIdNotesRoute: typeof AppWorkspaceIdNotesRoute;
   AppWorkspaceIdProjectsRoute: typeof AppWorkspaceIdProjectsRoute;
   AppWorkspaceIdSettingsRoute: typeof AppWorkspaceIdSettingsRoute;
-  AppWorkspaceIdTasksRoute: typeof AppWorkspaceIdTasksRoute;
   AppWorkspaceIdTrashRoute: typeof AppWorkspaceIdTrashRoute;
   AppWorkspaceIdIndexRoute: typeof AppWorkspaceIdIndexRoute;
+  AppWorkspaceIdTasksTaskIdRoute: typeof AppWorkspaceIdTasksTaskIdRoute;
+  AppWorkspaceIdTasksIndexRoute: typeof AppWorkspaceIdTasksIndexRoute;
 }
 
 const AppWorkspaceIdRouteRouteChildren: AppWorkspaceIdRouteRouteChildren = {
@@ -355,9 +377,10 @@ const AppWorkspaceIdRouteRouteChildren: AppWorkspaceIdRouteRouteChildren = {
   AppWorkspaceIdNotesRoute: AppWorkspaceIdNotesRoute,
   AppWorkspaceIdProjectsRoute: AppWorkspaceIdProjectsRoute,
   AppWorkspaceIdSettingsRoute: AppWorkspaceIdSettingsRoute,
-  AppWorkspaceIdTasksRoute: AppWorkspaceIdTasksRoute,
   AppWorkspaceIdTrashRoute: AppWorkspaceIdTrashRoute,
   AppWorkspaceIdIndexRoute: AppWorkspaceIdIndexRoute,
+  AppWorkspaceIdTasksTaskIdRoute: AppWorkspaceIdTasksTaskIdRoute,
+  AppWorkspaceIdTasksIndexRoute: AppWorkspaceIdTasksIndexRoute,
 };
 
 const AppWorkspaceIdRouteRouteWithChildren =

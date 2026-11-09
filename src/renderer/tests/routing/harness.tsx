@@ -35,6 +35,24 @@ export interface App {
 // the tests wait for the page rather than wrapping updates in act()
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = false;
 
+// happy-dom lays nothing out, so every box measures 0×0 and a virtualized list (TaskList, a
+// board column) draws no rows. Every element measures as a 1024×768 window instead: the lists
+// draw the rows in view, and the shell is compact, as it was at 0 wide.
+const WINDOW = { x: 0, y: 0, top: 0, left: 0, width: 1024, height: 768, right: 1024, bottom: 768 };
+for (const prototype of [Element.prototype, HTMLElement.prototype]) {
+  prototype.getBoundingClientRect = function getBoundingClientRect() {
+    return { ...WINDOW, toJSON: () => WINDOW } as DOMRect;
+  };
+}
+for (const [name, value] of [
+  ['offsetWidth', WINDOW.width],
+  ['offsetHeight', WINDOW.height],
+  ['clientWidth', WINDOW.width],
+  ['clientHeight', WINDOW.height],
+] as const) {
+  Object.defineProperty(HTMLElement.prototype, name, { configurable: true, get: () => value });
+}
+
 let mounted: (() => void)[] = [];
 
 export function startApp(main: FakeMain, options: StartOptions): App {
