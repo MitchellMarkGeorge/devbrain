@@ -1,0 +1,35 @@
+/* The task sheet's own bits: the title as an input that reads as the sheet's title */
+.titleInput {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+.titleInput:focus-visible {
+  border-radius: var(--radius-sm);
+  box-shadow: 0 0 0 1px var(--ring);
+}
+
+.syncHint {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.syncLine {
+  color: var(--subtle-foreground);
+  font: var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+
+.description {
+  margin: 0;
+  color: var(--foreground);
+  font: var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  white-space: pre-wrap;
+}
+.empty {
+  color: var(--subtle-foreground);
+}

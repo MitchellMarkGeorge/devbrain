@@ -1,0 +1,12 @@
+/* The board's drop target: the column a dragged card would move to */
+.column[data-drop-target] {
+  border-radius: var(--radius-lg);
+  background: var(--row-selected);
+  outline: 1px dashed var(--border-strong);
+  outline-offset: 4px;
+}
+
+/* the right-click area takes no part in the board's layout */
+.trigger {
+  display: contents;
+}

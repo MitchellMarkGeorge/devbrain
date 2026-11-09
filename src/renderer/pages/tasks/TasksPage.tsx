@@ -1,3 +1,4 @@
+import type { TaskId } from '@common/ids';
 import { Breadcrumb, PageContent, PageToolbar } from '../../components';
 import { PageHeaderSlot } from '../app/page-header';
 import { TasksBoard } from './TasksBoard';
@@ -7,6 +8,7 @@ import { TaskSheet } from './TaskSheet';
 import { CLEAR_FILTERS } from './search';
 import { TasksToolbarEnd, TasksToolbarStart, VIEW_ICONS, VIEW_LABELS } from './TasksToolbar';
 import { useTasksSearch } from './use-tasks-search';
+import { tasksRoute } from './route-api';
 
 /**
  * The tasks page (`/app/$workspaceId/tasks`, Figma `7155:5231`, `7158:9538`, `7158:14338`): the
@@ -15,6 +17,13 @@ import { useTasksSearch } from './use-tasks-search';
  */
 export function TasksPage() {
   const { search, resolved, setSearch } = useTasksSearch();
+  const navigate = tasksRoute.useNavigate();
+  // a card opens the sheet with an entry of its own, marked so the sheet's close goes back to it
+  const openSheet = (open: TaskId) =>
+    void navigate({
+      search: (previous) => ({ ...previous, open }),
+      state: (previous) => ({ ...previous, openedSheet: true }),
+    });
   return (
     <>
       <PageHeaderSlot
@@ -33,7 +42,7 @@ export function TasksPage() {
       />
       <PageContent layout="list" data-testid="page" data-view={resolved.view}>
         {resolved.view === 'board' ? (
-          <TasksBoard resolved={resolved} onOpen={(open) => setSearch({ open }, { push: true })} />
+          <TasksBoard resolved={resolved} onOpen={openSheet} />
         ) : resolved.view === 'group' ? (
           <TasksGroups
             resolved={resolved}
@@ -49,11 +58,7 @@ export function TasksPage() {
         )}
       </PageContent>
       {resolved.view === 'board' && resolved.open && (
-        <TaskSheet
-          key={resolved.open}
-          taskId={resolved.open}
-          onClose={() => setSearch({ open: undefined })}
-        />
+        <TaskSheet taskId={resolved.open} onClose={() => setSearch({ open: undefined })} />
       )}
     </>
   );

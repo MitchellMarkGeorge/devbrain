@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Outlet, useRouter } from '@tanstack/react-router';
 import { WorkspaceShell, Breadcrumb, PageHeader } from '../../components';
 import { AppCommands } from './AppCommands';
 import { AppSidebar } from './AppSidebar';
+import { DockedSheetProvider } from './docked-sheet';
 import { PageHeaderProvider, usePageHeaderSlots, useRouteTitle } from './page-header';
 import { useHistoryPosition } from './use-history-position';
 
@@ -18,25 +20,30 @@ export function AppLayout() {
   const position = useHistoryPosition();
   const title = useRouteTitle();
   const { value: slots, claimed, setPlace, setActions } = usePageHeaderSlots();
+  // a page's docked sheet (useDockedSheet) opens the shell's sheet column
+  const [sheetOpen, setSheetOpen] = useState(false);
   return (
     <PageHeaderProvider value={slots}>
-      <WorkspaceShell
-        sidebar={<AppSidebar />}
-        header={
-          <PageHeader actions={<div ref={setActions} style={CONTENTS} />}>
-            <div ref={setPlace} style={CONTENTS}>
-              {!claimed && title && <Breadcrumb items={[title]} />}
-            </div>
-          </PageHeader>
-        }
-        onBack={() => router.history.back()}
-        onForward={() => router.history.forward()}
-        canGoBack={position.canGoBack}
-        canGoForward={position.canGoForward}
-      >
-        <AppCommands />
-        <Outlet />
-      </WorkspaceShell>
+      <DockedSheetProvider value={setSheetOpen}>
+        <WorkspaceShell
+          sidebar={<AppSidebar />}
+          sheetOpen={sheetOpen}
+          header={
+            <PageHeader actions={<div ref={setActions} style={CONTENTS} />}>
+              <div ref={setPlace} style={CONTENTS}>
+                {!claimed && title && <Breadcrumb items={[title]} />}
+              </div>
+            </PageHeader>
+          }
+          onBack={() => router.history.back()}
+          onForward={() => router.history.forward()}
+          canGoBack={position.canGoBack}
+          canGoForward={position.canGoForward}
+        >
+          <AppCommands />
+          <Outlet />
+        </WorkspaceShell>
+      </DockedSheetProvider>
     </PageHeaderProvider>
   );
 }
