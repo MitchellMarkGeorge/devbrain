@@ -17,15 +17,18 @@
   -webkit-app-region: no-drag;
 }
 
-/* ---------- traffic lights: 3 × 12px, 8px apart, then 20px to the controls ---------- */
+/*
+ * ---------- traffic lights: 3 × 12px, 8px apart (52px), and 20px clear of what follows ----------
+ * The slot is the room macOS's lights take, their clearance included, so the rows they start need
+ * no spacing of their own for them
+ */
 .lights {
   display: inline-flex;
   flex: none;
   align-items: center;
   gap: var(--space-2);
-  width: 52px;
+  width: 72px;
   height: 12px;
-  margin-right: 20px;
 }
 .lights > span {
   width: 12px;

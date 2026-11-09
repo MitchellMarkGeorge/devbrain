@@ -15,7 +15,8 @@ export interface TrafficLightsProps extends ComponentPropsWithoutRef<'span'> {
 }
 
 /**
- * The macOS close, minimise and zoom buttons' 52×12 slot. The system draws the real ones
+ * The macOS close, minimise and zoom buttons' 72×12 slot: the three 12px buttons, 8px apart (52px),
+ * and 20px clear of what follows. The system draws the real ones
  * (src/main/runtime/window-chrome.ts), so the app only keeps their space; stories paint stand-ins.
  */
 export function TrafficLights({ drawn, className, ...props }: TrafficLightsProps) {
