@@ -2,7 +2,15 @@ import type { Command } from './commands';
 import type { Keymap } from './keymap';
 
 /** The pages `G` goes to. */
-export type GoToPage = 'home' | 'tasks' | 'projects' | 'notes' | 'calendar';
+export type GoToPage =
+  | 'home'
+  | 'tasks'
+  | 'projects'
+  | 'notes'
+  | 'calendar'
+  | 'integrations'
+  | 'settings'
+  | 'trash';
 
 /**
  * What the app-wide commands do, injected by whoever mounts them (the `/app` layout): the router
@@ -25,6 +33,9 @@ const PAGES: { page: GoToPage; title: string }[] = [
   { page: 'projects', title: 'Projects' },
   { page: 'notes', title: 'Notes' },
   { page: 'calendar', title: 'Calendar' },
+  { page: 'integrations', title: 'Integrations' },
+  { page: 'settings', title: 'Settings' },
+  { page: 'trash', title: 'Trash' },
 ];
 
 function command(id: string, title: string, run: (() => void) | undefined): Command[] {
@@ -107,6 +118,10 @@ export const defaultKeymap: Keymap = {
     { scope: 'global', keys: 'g p', command: 'nav.projects', group: EVERYWHERE },
     { scope: 'global', keys: 'g n', command: 'nav.notes', group: EVERYWHERE },
     { scope: 'global', keys: 'g c', command: 'nav.calendar', group: EVERYWHERE },
+    { scope: 'global', keys: 'g i', command: 'nav.integrations', group: EVERYWHERE },
+    { scope: 'global', keys: 'g s', command: 'nav.settings', group: EVERYWHERE },
+    // T is Tasks'; X is the mark for deleting
+    { scope: 'global', keys: 'g x', command: 'nav.trash', group: EVERYWHERE },
     { scope: 'global', keys: '?', command: 'help.shortcuts', group: EVERYWHERE },
     {
       scope: 'global',

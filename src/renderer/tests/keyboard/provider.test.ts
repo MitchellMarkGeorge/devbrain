@@ -66,6 +66,9 @@ describe('the default keymap', () => {
     [['g', 'p'], {}, 'goTo', 'projects'],
     [['g', 'n'], {}, 'goTo', 'notes'],
     [['g', 'c'], {}, 'goTo', 'calendar'],
+    [['g', 'i'], {}, 'goTo', 'integrations'],
+    [['g', 's'], {}, 'goTo', 'settings'],
+    [['g', 'x'], {}, 'goTo', 'trash'],
     [['?'], { shift: true }, 'openShortcuts', undefined],
     [['\\'], { meta: true, code: 'Backslash' }, 'toggleSidebar', undefined],
   ] as const)('%j runs %s', (keys, options, action, arg) => {
@@ -130,6 +133,9 @@ describe('createAppCommands', () => {
       'Go to Projects',
       'Go to Notes',
       'Go to Calendar',
+      'Go to Integrations',
+      'Go to Settings',
+      'Go to Trash',
     ]);
   });
 });

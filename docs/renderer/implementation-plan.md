@@ -668,7 +668,8 @@ from the keys that work.
 
 **What this means now, before Vim:**
 
-- Ship the default keymap: ⌘K, C, N, G H / G T / G P / G N / G C, ⌘\ (already in `WorkspaceShell`;
+- Ship the default keymap: ⌘K, C, N, G H / G T / G P / G N / G C / G I / G S / G X (Integrations,
+  Settings, Trash: T is Tasks'), ⌘\ (already in `WorkspaceShell`;
   move it into the keymap), `?`, and the list keys.
 - **Move the list keys into the keymap.** `TaskRow` handles S, X and ↵ in its own `onKeyDown`
   today, and `TaskList` handles selection. Vim needs to remap those (`j`/`k` to move, `v` to select
