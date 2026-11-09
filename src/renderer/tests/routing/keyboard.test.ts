@@ -33,6 +33,15 @@ describe('the app-wide keys', () => {
     key('g');
     key('n');
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes`));
+    for (const [letter, page] of [
+      ['i', 'integrations'],
+      ['s', 'settings'],
+      ['x', 'trash'],
+    ]) {
+      key('g');
+      key(letter);
+      await eventually(() => expect(app.path()).toBe(`/app/${WORK}/${page}`));
+    }
   });
 
   it('show the shortcuts with ?, listing the keys that work', async () => {

@@ -6,8 +6,8 @@ import { useCreateTask } from '../tasks/use-create-task';
 
 /**
  * The app-wide commands (the default keymap's "Everywhere" keys), registered while a workspace is
- * open: G H / G T / G P / G N / G C go to a page, C opens Create task, `?` shows the shortcuts, ⌘\
- * toggles the sidebar.
+ * open: G H / G T / G P / G N / G C / G I / G S / G X go to a page, C opens Create task, `?` shows
+ * the shortcuts, ⌘\ toggles the sidebar.
  * Rendered inside the `WorkspaceShell`, whose sidebar toggle it runs. An action not built yet
  * (search until milestone 9, new note until milestone 5) is left out, so its keys go through.
  */
