@@ -105,8 +105,15 @@
   min-width: 0;
   min-height: 0;
 }
+/*
+ * The page under the header: the toolbar, then the content, in a column. A list or grid page's
+ * content fills the rest and scrolls itself, so this never scrolls for it; a Home or document page
+ * keeps its height, and this scrolls it whole.
+ */
 .scroll {
+  display: flex;
   flex: 1;
+  flex-direction: column;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;

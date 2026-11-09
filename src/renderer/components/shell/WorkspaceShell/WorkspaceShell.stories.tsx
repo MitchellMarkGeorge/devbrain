@@ -10,6 +10,8 @@ import { useWorkspaceShell } from './context';
 import { PageContent, PageFavoriteButton, PageHeader, PageToolbar } from '../PageHeader';
 import { WindowFrameProvider, type Platform } from '../../lib/platform';
 import { DemoSidebar } from '../../screens/Shell/AppFrame';
+import { TaskList } from '../../lists/TaskList';
+import { manyTasks } from '../../lists/TaskRow/fixtures';
 import { WorkspaceShell } from './WorkspaceShell';
 
 const meta = {
@@ -52,6 +54,36 @@ function Frame({
 
 /** Wide (1280px and up): the docked sidebar with the window row, the page beside it. */
 export const Wide: Story = { render: () => <Frame width={1440} height={720} /> };
+
+const LONG_LIST = manyTasks(1000);
+
+/**
+ * A list page: the header and toolbar stay put while the 1,000-row `TaskList` in the `PageContent`
+ * fills the rest of the height and scrolls itself, drawing only the rows in view. The page scroller
+ * never scrolls on a list page; a Home or document page, which keeps its height, scrolls in it.
+ */
+export const ListPage: Story = {
+  render: () => (
+    <div style={{ width: 1280, height: 720 }}>
+      <WorkspaceShell
+        sidebar={<DemoSidebar active="Tasks" />}
+        header={
+          <PageHeader actions={<PageFavoriteButton favorite={false} />}>
+            <Breadcrumb items={['Tasks', { label: 'List', icon: List }]} />
+          </PageHeader>
+        }
+      >
+        <PageToolbar
+          start={<Button value="Open">Filter</Button>}
+          end={<Button value="Priority">Sort</Button>}
+        />
+        <PageContent layout="list">
+          <TaskList tasks={LONG_LIST} />
+        </PageContent>
+      </WorkspaceShell>
+    </div>
+  ),
+};
 
 /**
  * The shell fades in as it appears (`duration-slow`, `ease-surface`, from 99%): in the app, after

@@ -160,3 +160,39 @@ export const BUSY_TASK: TaskRowData = sampleTask({
   priority: TaskPriority.HIGH,
   dueDate: storyDate(0),
 });
+
+const TITLES = [
+  'Review the sync retry backoff',
+  'Write the release notes',
+  'Fix calendar sync for recurring events',
+  'Audit token storage',
+  'Draw the empty states',
+  'Benchmark inference latency',
+  'Rotate token signing keys',
+  'Update SDK docs for PKCE',
+];
+const PROJECTS = [
+  sampleProject('DevBrain 1.0', 'blue'),
+  sampleProject('Calendar', 'green'),
+  sampleProject('Design system', 'pink'),
+  null,
+];
+
+/**
+ * `count` generated tasks for long-list stories (ids `tsk_many_0`…), with a mix of statuses,
+ * priorities, due dates, keys and projects. `from` offsets the numbering for a later page.
+ */
+export function manyTasks(count: number, from = 0): TaskRowData[] {
+  return Array.from({ length: count }, (_, k) => {
+    const i = from + k;
+    return sampleTask({
+      id: `tsk_many_${i}` as TaskId,
+      title: `${TITLES[i % TITLES.length]} #${i + 1}`,
+      status: [TaskStatus.NOT_STARTED, TaskStatus.IN_PROGRESS, TaskStatus.COMPLETED][i % 3],
+      priority: [TaskPriority.HIGH, TaskPriority.MEDIUM, TaskPriority.LOW][(i >> 1) % 3],
+      dueDate: i % 5 === 4 ? null : storyDate((i % 17) - 4),
+      external: i % 4 === 0 ? sampleLinear(`ENG-${200 + i}`) : null,
+      project: PROJECTS[i % PROJECTS.length],
+    });
+  });
+}

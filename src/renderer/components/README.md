@@ -31,7 +31,7 @@ ESLint enforces steps 2 and 3 (`eslint.config.js`); stories may import anything.
 |                 |              | Tooltip, Popover, Dialog, ConfirmDialog, Sheet, Toast                                                                                                                                             |
 |                 |              | Card, Badge, Kbd, Separator, Skeleton (and the card skeletons), Progress, ProgressRing, Breadcrumb, EmptyState, ScrollArea, Icon, ColourBar, SwatchDot, Logomark                                  |
 | `entities/`     | Entities     | StatusIcon, PriorityIcon, HealthIcon, ProjectStatusIcon, StatusMenu, PriorityMenu, ProjectPicker, EntityPill, EntityHoverCard, SourcePill, SyncedBadge, ProviderLogo, ProviderTile, WorkspaceTile |
-| `shell/`        | Shell        | AppShell, WorkspaceShell, WindowBar, Sidebar, WorkspaceSwitcher, SyncStatus, PageHeader, DocumentPage, CardGrid                                                                                   |
+| `shell/`        | Shell        | AppShell, WorkspaceShell, WindowBar, Sidebar, WorkspaceSwitcher, SyncStatus, PageHeader, DocumentPage, CardGrid, VirtualCardGrid                                                                  |
 | `lists/`        | Lists        | ListRow, TaskRow, TaskList, NoteRow, ProjectRow, TrashRow, EventRow, LinkedTaskRow, QuickAddRow, DraftTaskRow, TaskRowSkeleton, GroupHeading, SelectionBar                                        |
 | `board/`        | Board        | BoardCard, BoardColumn                                                                                                                                                                            |
 | `detail/`       | Detail       | PropertyRow, DetailRow, DetailSection, DateRange, TaskNoteCard, AddSlot, CreateDialog                                                                                                             |
@@ -106,7 +106,10 @@ outside `components/` imports from the barrel (`import { Button } from '../compo
 
 - **Styles are CSS Modules on the tokens.** Every value comes from `src/renderer/styles/tokens.css`
   (`var(--control-md)`, `var(--radius-lg)`, `var(--border)`); no raw colours. No Tailwind.
-  shadcn's `bg-primary/90` is `color-mix(in oklab, var(--primary) 90%, transparent)`.
+  shadcn's `bg-primary/90` is `color-mix(in oklab, var(--primary) 90%, transparent)`. Code that
+  lays out in pixels (a virtualized list's row height) reads the same tokens as numbers from
+  `src/renderer/styles/tokens.ts` (`SIZE['row-height']`), generated with the CSS; never a value
+  typed in again.
 - **Variants use `cva`** (class-variance-authority), mapping each variant to a CSS Module class:
   `cva(styles.button, { variants: { size: { sm: styles.sizeSm } } })`. Export the `*Variants`
   function so other components can reuse the look. Class names join with `cn` (clsx).

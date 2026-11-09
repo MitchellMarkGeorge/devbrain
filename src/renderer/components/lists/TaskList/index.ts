@@ -1,1 +1,8 @@
-export { TaskList, type TaskListProps } from './TaskList';
+export {
+  TaskList,
+  type FlatTaskListProps,
+  type GroupedTaskListProps,
+  type TaskListBaseProps,
+  type TaskListGroup,
+  type TaskListProps,
+} from './TaskList';

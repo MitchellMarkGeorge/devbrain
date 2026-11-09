@@ -1,3 +1,4 @@
+import { useMemo, useState, type ReactNode } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Calendar, CircleAlert, Folder } from 'lucide-react';
 import { DropdownMenuItem, DropdownMenuSeparator } from '../../ui/DropdownMenu';
@@ -6,8 +7,14 @@ import { GroupHeading } from '../GroupHeading';
 import { StatusIcon } from '../../entities/StatusIcon';
 import { TaskStatus } from '@common/types';
 import { storyDate } from '../../lib/story-dates';
-import { BUSY_TASK, SAMPLE_SUBTASKS, SAMPLE_TASKS } from '../TaskRow/fixtures';
-import { TaskList } from './TaskList';
+import { BUSY_TASK, manyTasks, SAMPLE_SUBTASKS, SAMPLE_TASKS } from '../TaskRow/fixtures';
+import { Text } from '../../layout/Text';
+import {
+  TaskList,
+  type FlatTaskListProps,
+  type TaskListBaseProps,
+  type TaskListGroup,
+} from './TaskList';
 
 const meta = {
   title: 'Lists/TaskList',
@@ -20,7 +27,8 @@ const meta = {
       </div>
     ),
   ],
-} satisfies Meta<typeof TaskList>;
+  // the stories' controls are a flat list's; the grouped stories render their own
+} satisfies Meta<TaskListBaseProps & FlatTaskListProps>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -62,49 +70,190 @@ export const NarrowStacked: Story = {
   ],
 };
 
-/** The grouped list: groups by due date and by what tasks link to, with an event among them. */
+/**
+ * The grouped list: headings and rows in one virtualized list, the current group's heading stuck
+ * to the top. Collapse a group with its chevron: its rows leave the list. The event under its
+ * heading is part of the heading's row.
+ */
 export const Grouped: Story = {
-  render: () => (
-    <div>
-      <GroupHeading
-        label="Overdue"
-        subtitle="Oldest due Jun 19"
-        icon={CircleAlert}
-        iconColor="var(--status-overdue)"
-        tint="var(--status-overdue-tint)"
-        done={0}
-        total={2}
-      />
-      <TaskList tasks={[SAMPLE_TASKS[1], { ...SAMPLE_TASKS[2], dueDate: storyDate(-1) }]} />
-      <GroupHeading
-        label="Mitchell / Jesse 1:1"
-        subtitle="Event · Today, 10:00 AM"
-        bar="indigo"
-        done={1}
-        total={3}
-      />
-      <EventRow
-        event={{
-          title: 'Mitchell / Jesse 1:1',
-          startAt: storyDate(0, 10),
-          endAt: storyDate(0, 10, 30),
-          allDay: false,
-          recurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
-          meetingUrl: 'https://meet.google.com/abc-defg-hij',
-          color: 'indigo',
-        }}
-      />
-      <TaskList tasks={[SAMPLE_TASKS[0], SAMPLE_TASKS[4]]} />
-      <GroupHeading
-        label="In progress"
-        subtitle="Started this week"
-        icon={<StatusIcon status={TaskStatus.IN_PROGRESS} />}
-        tint="var(--status-in-progress-tint)"
-        done={2}
-        total={5}
-      />
-      <TaskList tasks={[SAMPLE_TASKS[3]]} />
-      <GroupHeading label="Later" subtitle="Due next month" icon={Calendar} count={8} collapsed />
+  render: function Grouped() {
+    const [collapsed, setCollapsed] = useState<Record<string, boolean>>({ later: true });
+    const toggle = (id: string) => (value: boolean) =>
+      setCollapsed((current) => ({ ...current, [id]: value }));
+    const groups: TaskListGroup[] = [
+      {
+        id: 'overdue',
+        collapsed: collapsed.overdue,
+        heading: (
+          <GroupHeading
+            label="Overdue"
+            subtitle="Oldest due Jun 19"
+            icon={CircleAlert}
+            iconColor="var(--status-overdue)"
+            tint="var(--status-overdue-tint)"
+            done={0}
+            total={2}
+            collapsed={collapsed.overdue}
+            onCollapsedChange={toggle('overdue')}
+          />
+        ),
+        tasks: [SAMPLE_TASKS[1], { ...SAMPLE_TASKS[2], dueDate: storyDate(-1) }],
+      },
+      {
+        id: 'event',
+        collapsed: collapsed.event,
+        heading: (
+          <>
+            <GroupHeading
+              label="Mitchell / Jesse 1:1"
+              subtitle="Event · Today, 10:00 AM"
+              bar="indigo"
+              done={1}
+              total={3}
+              collapsed={collapsed.event}
+              onCollapsedChange={toggle('event')}
+            />
+            {!collapsed.event && (
+              <EventRow
+                event={{
+                  title: 'Mitchell / Jesse 1:1',
+                  startAt: storyDate(0, 10),
+                  endAt: storyDate(0, 10, 30),
+                  allDay: false,
+                  recurrenceRule: 'RRULE:FREQ=WEEKLY;BYDAY=MO',
+                  meetingUrl: 'https://meet.google.com/abc-defg-hij',
+                  color: 'indigo',
+                }}
+              />
+            )}
+          </>
+        ),
+        tasks: [SAMPLE_TASKS[0], SAMPLE_TASKS[4]],
+      },
+      {
+        id: 'in-progress',
+        collapsed: collapsed['in-progress'],
+        heading: (
+          <GroupHeading
+            label="In progress"
+            subtitle="Started this week"
+            icon={<StatusIcon status={TaskStatus.IN_PROGRESS} />}
+            tint="var(--status-in-progress-tint)"
+            done={2}
+            total={5}
+            collapsed={collapsed['in-progress']}
+            onCollapsedChange={toggle('in-progress')}
+          />
+        ),
+        tasks: [SAMPLE_TASKS[3]],
+      },
+      {
+        id: 'later',
+        collapsed: collapsed.later,
+        heading: (
+          <GroupHeading
+            label="Later"
+            subtitle="Due next month"
+            icon={Calendar}
+            count={8}
+            collapsed={collapsed.later}
+            onCollapsedChange={toggle('later')}
+          />
+        ),
+        tasks: manyTasks(8),
+      },
+    ];
+    return <TaskList groups={groups} />;
+  },
+};
+
+const PAGE = 100;
+const TOTAL = 1000;
+
+/**
+ * A page's content area as the app lays it out: a fixed header, then the list filling the rest of
+ * the height and scrolling on its own.
+ */
+function Page({ header, children }: { header: ReactNode; children: ReactNode }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: 560,
+        border: '1px dashed var(--border)',
+        borderRadius: 8,
+      }}
+    >
+      <div style={{ flex: 'none', padding: '12px 12px 12px 36px' }}>{header}</div>
+      {children}
     </div>
-  ),
+  );
+}
+
+/**
+ * 1,000 tasks, loaded 100 at a time as `onEndReached` fires near the last loaded rows (as
+ * `fetchNextPage` will): only the rows in view are in the DOM. `aria-rowcount` is the 1,000 a
+ * count gives; each drawn row has its `aria-rowindex`. ↓ and End scroll the focused row into
+ * view before focusing it. The list scrolls on its own under the page's header.
+ */
+export const ThousandRows: Story = {
+  name: '1,000 rows',
+  render: function ThousandRows() {
+    const [loaded, setLoaded] = useState(() => manyTasks(PAGE));
+    return (
+      <Page
+        header={
+          <Text size="xs" tone="subtle">
+            {loaded.length} of {TOTAL} loaded
+          </Text>
+        }
+      >
+        <TaskList
+          tasks={loaded}
+          rowCount={TOTAL}
+          onEndReached={() =>
+            setLoaded((rows) =>
+              rows.length >= TOTAL ? rows : [...rows, ...manyTasks(PAGE, rows.length)],
+            )
+          }
+        />
+      </Page>
+    );
+  },
+};
+
+/** 1,000 tasks in ten groups of 100: the current heading sticks to the top of the list as it scrolls. */
+export const ThousandRowsGrouped: Story = {
+  name: '1,000 rows, grouped',
+  render: function ThousandRowsGrouped() {
+    const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+    const all = useMemo(() => manyTasks(TOTAL), []);
+    const groups: TaskListGroup[] = Array.from({ length: 10 }, (_, g) => ({
+      id: `group-${g}`,
+      collapsed: collapsed[g],
+      heading: (
+        <GroupHeading
+          label={`Group ${g + 1}`}
+          subtitle={`Tasks ${g * 100 + 1}–${g * 100 + 100}`}
+          icon={Calendar}
+          count={100}
+          collapsed={collapsed[g]}
+          onCollapsedChange={(value) => setCollapsed((current) => ({ ...current, [g]: value }))}
+        />
+      ),
+      tasks: all.slice(g * 100, g * 100 + 100),
+    }));
+    return (
+      <Page
+        header={
+          <Text size="xs" tone="subtle">
+            Ten groups of 100
+          </Text>
+        }
+      >
+        <TaskList groups={groups} />
+      </Page>
+    );
+  },
 };

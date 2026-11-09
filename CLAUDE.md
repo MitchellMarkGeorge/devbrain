@@ -67,8 +67,9 @@ own:
 
 **The code is the design system's single source of truth.** That is, in this repo:
 
-- `docs/design-system/tokens.json`: every token (generated into `src/renderer/styles/tokens.css`
-  with `npm run tokens`; never edit the CSS).
+- `docs/design-system/tokens.json`: every token (generated into `src/renderer/styles/tokens.css`,
+  and its spacing and sizes as pixel numbers into `src/renderer/styles/tokens.ts`, with
+  `npm run tokens`; never edit either).
 - `src/renderer/components/`: the components (conventions in its `README.md`), with their
   Storybook stories as the browsable catalogue (`npm run storybook`; `Screens/*` rebuild the
   designed screens).
