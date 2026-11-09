@@ -7,6 +7,7 @@ import {
   type ComponentPropsWithoutRef,
   type ReactNode,
 } from 'react';
+import { Collapsible } from '@base-ui/react/collapsible';
 import { Drawer } from '@base-ui/react/drawer';
 import { cn } from '../../lib/cn';
 import { useWindowFrame } from '../../lib/platform';
@@ -19,6 +20,7 @@ import {
   type WorkspaceShellContextValue,
 } from '../WorkspaceShell/context';
 import { PEEK_CLOSE_DELAY, PEEK_OPEN_DELAY, windowSizeFor } from '../WorkspaceShell/layout';
+import { useStillPointer } from '../WorkspaceShell/use-still-pointer';
 import styles from './ShellPrototype.module.css';
 
 // PROTOTYPE (Storybook only) of a simpler WorkspaceShell. Every slot renders once, in one place in
@@ -96,6 +98,8 @@ export function ShellPrototype({
 
   const docked = !collapsed && !compact;
   const [drawer, setDrawer] = useState<DrawerState>('closed');
+  // docking from the drawer swaps one for the other where it stands, so the sidebar doesn't slide
+  const [dockInstantly, setDockInstantly] = useState(false);
   // a docked sidebar has no drawer
   if (docked && drawer !== 'closed') setDrawer('closed');
 
@@ -112,19 +116,26 @@ export function ShellPrototype({
     setDrawer('closed');
   }, [clearTimers]);
 
+  const pointer = useStillPointer(root);
   const toggleSidebar = useCallback(() => {
     clearTimers();
-    if (docked) setCollapsed(true);
-    else if (!compact) setCollapsed(false);
-    else setDrawer((state) => (state === 'open' ? 'closed' : 'open'));
-  }, [clearTimers, docked, compact, setCollapsed]);
+    pointer.mark();
+    if (docked) {
+      setDockInstantly(false);
+      setCollapsed(true);
+    } else if (!compact) {
+      setDockInstantly(drawer !== 'closed');
+      setCollapsed(false);
+    } else setDrawer((state) => (state === 'open' ? 'closed' : 'open'));
+  }, [clearTimers, pointer, docked, compact, drawer, setCollapsed]);
 
   const peekSidebar = useCallback(() => {
     clearTimeout(closeTimer.current);
-    if (docked || drawer !== 'closed') return;
+    // the toggle that hid the sidebar (or closed the drawer) appeared under a pointer at rest
+    if (docked || drawer !== 'closed' || pointer.still()) return;
     clearTimeout(openTimer.current);
     openTimer.current = setTimeout(() => setDrawer('peek'), PEEK_OPEN_DELAY);
-  }, [docked, drawer]);
+  }, [docked, drawer, pointer]);
   const cancelPeek = useCallback(() => clearTimeout(openTimer.current), []);
 
   // the current shell's context, so its Sidebar and WindowControls work here unchanged
@@ -156,14 +167,22 @@ export function ShellPrototype({
         <div
           ref={root}
           data-sidebar={docked ? 'docked' : 'hidden'}
+          data-dock-instantly={dockInstantly ? '' : undefined}
           data-platform={frame.platform}
           data-size={size}
           className={cn(styles.shell, className)}
           {...props}
         >
-          {docked ? (
-            <div className={styles.sidebar}>{sidebar}</div>
-          ) : (
+          {/*
+           * The docked sidebar slides open and shut: Collapsible keeps it mounted until it has slid
+           * out, then unmounts it. Out of reach while it leaves.
+           */}
+          <Collapsible.Root open={docked} className={styles.sidebarColumn}>
+            <Collapsible.Panel className={styles.sidebar} {...{ inert: docked ? undefined : '' }}>
+              {sidebar}
+            </Collapsible.Panel>
+          </Collapsible.Root>
+          {!docked && (
             <div className={styles.bar}>
               <WindowStart />
               <WindowControls />

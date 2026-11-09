@@ -20,6 +20,7 @@ import { TooltipProvider } from '../../ui/Tooltip';
 import { CaptionButtons, WindowBar } from '../WindowBar';
 import { WorkspaceShellContext, type WorkspaceShellContextValue, type WindowSize } from './context';
 import { PEEK_CLOSE_DELAY, PEEK_OPEN_DELAY, windowSizeFor } from './layout';
+import { useStillPointer } from './use-still-pointer';
 import styles from './WorkspaceShell.module.css';
 
 export interface WorkspaceShellProps extends Omit<ComponentPropsWithoutRef<'div'>, 'children'> {
@@ -184,8 +185,10 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
       setDrawerOpen(false);
     }, [clearTimers, setDrawerOpen]);
 
+    const pointer = useStillPointer(root);
     const toggleSidebar = useCallback(() => {
       clearTimers();
+      pointer.mark();
       if (!hidden) {
         setCollapsed(true);
       } else if (!compact) {
@@ -201,6 +204,7 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
       }
     }, [
       clearTimers,
+      pointer,
       hidden,
       compact,
       drawerShown,
@@ -213,13 +217,14 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
 
     const peekSidebar = useCallback(() => {
       clearTimeout(closeTimer.current);
-      if (!hidden || drawerShown) return;
+      // the toggle that hid the sidebar (or closed the drawer) appeared under a pointer at rest
+      if (!hidden || drawerShown || pointer.still()) return;
       clearTimeout(openTimer.current);
       openTimer.current = setTimeout(() => {
         setPeeking(true);
         setDrawerOpen(true);
       }, PEEK_OPEN_DELAY);
-    }, [hidden, drawerShown, setDrawerOpen]);
+    }, [hidden, drawerShown, setDrawerOpen, pointer]);
     const cancelPeek = useCallback(() => clearTimeout(openTimer.current), []);
 
     const base = useMemo<WorkspaceShellContextValue>(
