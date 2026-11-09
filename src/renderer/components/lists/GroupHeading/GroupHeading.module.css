@@ -1,6 +1,6 @@
 /*
- * A group of the grouped list: a `muted` band pinned to the top of the list while its group scrolls.
- * See docs/design-system/components/GroupHeading.md
+ * A group of the grouped list: a `muted` band, tinted with the group's colour, pinned to the top of
+ * the list while its group scrolls. See docs/design-system/components/GroupHeading.md
  */
 .heading {
   position: sticky;
@@ -13,13 +13,18 @@
   margin: var(--group-gap) 0 var(--space-0-5);
   padding: 0 var(--space-2) 0 10px;
   border-radius: var(--radius-md);
-  background: var(--muted);
+  --band: var(--muted);
+  background: var(--band);
 }
 .heading:first-child {
   margin-top: 0;
 }
 .heading:hover {
-  background: var(--accent);
+  --band: var(--accent);
+}
+/* any colour, swatch or token: 8% of it over the band, so it stays a hint and opaque when pinned */
+.heading[data-tinted] {
+  background: color-mix(in oklab, var(--group-color) 8%, var(--band));
 }
 
 .chevron {

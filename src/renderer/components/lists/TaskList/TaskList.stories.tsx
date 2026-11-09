@@ -88,7 +88,7 @@ export const Grouped: Story = {
           <GroupHeading
             label="Overdue"
             icon={CircleAlert}
-            iconColor="var(--status-overdue)"
+            color="var(--status-overdue)"
             count={2}
             collapsed={collapsed.overdue}
             onCollapsedChange={toggle('overdue')}
@@ -133,6 +133,7 @@ export const Grouped: Story = {
           <GroupHeading
             label="In progress"
             icon={<StatusIcon status={TaskStatus.IN_PROGRESS} size={14} />}
+            color="var(--status-in-progress)"
             count={5}
             collapsed={collapsed['in-progress']}
             onCollapsedChange={toggle('in-progress')}

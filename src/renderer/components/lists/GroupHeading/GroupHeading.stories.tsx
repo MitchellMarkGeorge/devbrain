@@ -12,7 +12,7 @@ const meta = {
   args: {
     label: 'Auth Overhaul',
     icon: Folder,
-    iconColor: 'blue',
+    color: 'blue',
     count: 12,
   },
   decorators: [
@@ -32,29 +32,34 @@ export const Default: Story = {};
 /** "+" shows while the band is hovered or holds focus. */
 export const WithAdd: Story = { args: { onAddTask: () => {} } };
 
-/** One heading per way the list groups: project, status, priority, due date, linked event or note. */
+/**
+ * One heading per way the list groups: project, status, priority, due date, linked event or note.
+ * A group with a colour tints its band; Not started, No priority, This week and a note stay neutral.
+ */
 export const Kinds: Story = {
   render: () => (
     <div>
-      <GroupHeading label="Auth Overhaul" icon={Folder} iconColor="blue" count={12} />
+      <GroupHeading label="Auth Overhaul" icon={Folder} color="blue" count={12} />
       <GroupHeading
         label="In progress"
         icon={<StatusIcon status={TaskStatus.IN_PROGRESS} size={14} />}
+        color="var(--status-in-progress)"
         count={3}
+      />
+      <GroupHeading
+        label="Not started"
+        icon={<StatusIcon status={TaskStatus.NOT_STARTED} size={14} />}
+        count={2}
       />
       <GroupHeading
         label="High"
         icon={<PriorityIcon priority={TaskPriority.HIGH} size={14} />}
+        color="var(--priority-high)"
         count={3}
       />
       <GroupHeading label="No priority" icon={Minus} count={1} />
-      <GroupHeading
-        label="Overdue"
-        icon={CircleAlert}
-        iconColor="var(--status-overdue)"
-        count={2}
-      />
-      <GroupHeading label="Today" icon={Clock} iconColor="var(--date-today)" count={1} />
+      <GroupHeading label="Overdue" icon={CircleAlert} color="var(--status-overdue)" count={2} />
+      <GroupHeading label="Today" icon={Clock} color="var(--date-today)" count={1} />
       <GroupHeading label="This week" icon={Calendar} count={3} />
       <GroupHeading label="Mitchell / Jesse 1:1" subtitle="Today, 10:00 AM" bar="green" count={1} />
       <GroupHeading label="PKCE design notes" icon={FileText} count={1} />
@@ -90,7 +95,7 @@ export const Pinned: Story = {
           <GroupHeading
             label={['Auth Overhaul', 'API Gateway v2', 'ML Platform'][i]}
             icon={Folder}
-            iconColor={color}
+            color={color}
             count={6}
           />
           {Array.from({ length: 6 }, (_, n) => (

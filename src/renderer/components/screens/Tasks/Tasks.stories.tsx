@@ -159,7 +159,7 @@ export const TasksGroup: Story = {
               <GroupHeading
                 label={group.label}
                 icon={Folder}
-                iconColor={group.color}
+                color={group.color}
                 count={group.count}
                 onCollapsedChange={() => {}}
                 onAddTask={() => {}}

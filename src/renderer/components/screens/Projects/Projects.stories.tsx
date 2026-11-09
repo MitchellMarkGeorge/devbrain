@@ -224,6 +224,7 @@ export const Overview: Story = {
           <GroupHeading
             label="In progress"
             icon={<StatusIcon status={TaskStatus.IN_PROGRESS} size={14} />}
+            color="var(--status-in-progress)"
             count={2}
           />
           <TaskList tasks={IN_PROGRESS} />
@@ -237,6 +238,7 @@ export const Overview: Story = {
           <GroupHeading
             label="Completed"
             icon={<StatusIcon status={TaskStatus.COMPLETED} size={14} />}
+            color="var(--status-completed)"
             count={3}
             collapsed
             onCollapsedChange={() => {}}

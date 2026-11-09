@@ -7,16 +7,20 @@ import { IconButton } from '../../ui/IconButton';
 import { cssColor, type Swatch } from '../../types';
 import styles from './GroupHeading.module.css';
 
-export interface GroupHeadingProps extends Omit<ComponentProps<'div'>, 'children'> {
+export interface GroupHeadingProps extends Omit<ComponentProps<'div'>, 'children' | 'color'> {
   /** the group's title: "Overdue", "Mitchell / Jesse 1:1", a project's name */
   label: string;
   /** muted text after the title, for an event's time ("Today, 10:00 AM"); keep it short */
   subtitle?: string;
   /** the group's icon (a Lucide icon or a node such as a StatusIcon); a circle by default */
   icon?: IconSource;
-  /** the icon's colour: a swatch name or a CSS colour (`var(--status-overdue)`) */
-  iconColor?: Swatch | string;
-  /** an event's calendar colour, drawn as a bar instead of an icon */
+  /**
+   * the group's colour: a swatch name or a CSS colour (`var(--status-overdue)`). It tints the band
+   * (8% over `muted`) and colours a Lucide icon. Leave it out for a neutral group (Not started,
+   * No priority, a note).
+   */
+  color?: Swatch | string;
+  /** an event's calendar colour, drawn as a bar instead of an icon; it tints the band too */
   bar?: Swatch | string;
   /** how many items the group holds */
   count?: number;
@@ -28,16 +32,16 @@ export interface GroupHeadingProps extends Omit<ComponentProps<'div'>, 'children
 }
 
 /**
- * A group in the grouped list: a 36px `muted` band with a chevron, a 14px icon in the group's
- * colour, the title, an optional muted subtitle and the count, and a "+" on hover. It pins to the
- * top of the scrolling list while its group scrolls under it.
+ * A group in the grouped list: a 36px band (`muted`, tinted 8% with the group's colour) with a
+ * chevron, a 14px icon in that colour, the title, an optional muted subtitle and the count, and a
+ * "+" on hover. It pins to the top of the scrolling list while its group scrolls under it.
  */
 export const GroupHeading = forwardRef<HTMLDivElement, GroupHeadingProps>(function GroupHeading(
   {
     label,
     subtitle,
     icon = Circle,
-    iconColor,
+    color: groupColor,
     bar,
     count,
     collapsed = false,
@@ -49,7 +53,7 @@ export const GroupHeading = forwardRef<HTMLDivElement, GroupHeadingProps>(functi
   },
   ref,
 ) {
-  const color = cssColor(iconColor);
+  const color = cssColor(bar ?? groupColor);
   const vars = (color ? { '--group-color': color } : {}) as CSSProperties;
   const chevron = <Icon icon={collapsed ? ChevronRight : ChevronDown} size={14} />;
 
@@ -59,6 +63,7 @@ export const GroupHeading = forwardRef<HTMLDivElement, GroupHeadingProps>(functi
       role="heading"
       aria-level={3}
       data-collapsed={collapsed ? '' : undefined}
+      data-tinted={color ? '' : undefined}
       className={cn(styles.heading, className)}
       style={{ ...vars, ...style }}
       {...props}
