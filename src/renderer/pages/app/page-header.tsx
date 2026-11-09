@@ -2,7 +2,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useLayoutEffect,
   useMemo,
   useState,
   type MouseEvent,
@@ -14,29 +13,23 @@ import type { BreadcrumbItem } from '../../components';
 
 // The page's part of the workspace layout's header (docs/renderer/implementation-plan.md, "App
 // layout"): by default the header shows the route's `staticData.title`; a page that renders a
-// `PageHeaderSlot` replaces it with its own breadcrumb (the section, then the entity's title) and
-// adds its actions (a detail page's star and "…" menu) at the right.
+// `PageHeaderSlot` puts its own breadcrumb (the section, then the entity's title) in its place, and
+// its actions (a detail page's star and "…" menu) at the right. The header's own elements are the
+// targets, so what is portalled into them is laid out as the header's own children.
 
 interface PageHeaderSlots {
   place: HTMLElement | null;
   actions: HTMLElement | null;
-  /** a page's slot is mounted: the layout stops drawing the default breadcrumb */
-  claim: () => () => void;
 }
 
 const PageHeaderContext = createContext<PageHeaderSlots | null>(null);
 
-/** The workspace layout's side: the slots' elements, and whether a page has claimed them. */
+/** The workspace layout's side: the header's elements, for `PageHeader`'s `placeRef` and `actionsRef`. */
 export function usePageHeaderSlots() {
   const [place, setPlace] = useState<HTMLElement | null>(null);
   const [actions, setActions] = useState<HTMLElement | null>(null);
-  const [claims, setClaims] = useState(0);
-  const claim = useCallback(() => {
-    setClaims((count) => count + 1);
-    return () => setClaims((count) => count - 1);
-  }, []);
-  const value = useMemo(() => ({ place, actions, claim }), [place, actions, claim]);
-  return { value, claimed: claims > 0, setPlace, setActions };
+  const value = useMemo(() => ({ place, actions }), [place, actions]);
+  return { value, setPlace, setActions };
 }
 
 export const PageHeaderProvider = PageHeaderContext.Provider;
@@ -49,15 +42,12 @@ export interface PageHeaderSlotProps {
 }
 
 /**
- * Puts a page's breadcrumb and actions in the workspace layout's `PageHeader`, while mounted. The
- * header moves into the window bar while the sidebar is hidden; the slot follows it.
+ * Puts a page's breadcrumb and actions in the workspace layout's `PageHeader`, while mounted; the
+ * header's fallback (the route's title) steps aside while its place is filled. The header moves
+ * into the window bar while the sidebar is hidden; the slot follows it.
  */
 export function PageHeaderSlot({ place, actions }: PageHeaderSlotProps) {
   const slots = useContext(PageHeaderContext);
-  const claim = slots?.claim;
-  const claiming = place !== undefined;
-  // before paint, so the default breadcrumb never shows under the page's
-  useLayoutEffect(() => (claiming && claim ? claim() : undefined), [claim, claiming]);
   if (!slots) return null;
   return (
     <>
