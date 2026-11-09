@@ -247,6 +247,23 @@
   text-align: right;
   white-space: nowrap;
 }
+/*
+ * An undated task's slot: blank at rest, "Set due date" while the row is pointed at or focused (and
+ * while its picker is open), right-aligned like a date
+ */
+.setDue {
+  margin: -4px -4px;
+  vertical-align: middle;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+.row:hover .setDue,
+.row:focus-visible .setDue,
+.row:focus-within .setDue,
+.row[data-state] .setDue,
+.setDue[data-popup-open] {
+  opacity: 1;
+}
 .today {
   color: var(--date-today);
 }

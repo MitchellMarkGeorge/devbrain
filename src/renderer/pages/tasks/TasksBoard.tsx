@@ -167,6 +167,10 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
               add={status !== TaskStatus.COMPLETED && status !== TaskStatus.CANCELLED}
               onAdd={() => createTask({ defaults: { status, projectId } })}
               onOpen={(task) => onOpen(task.id as TaskId)}
+              onDueDateChange={(task, date) => {
+                const full = byId.get(task.id);
+                if (full) actions.setDueDate([full], date);
+              }}
               onEndReached={() => {
                 if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
               }}

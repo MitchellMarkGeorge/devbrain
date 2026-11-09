@@ -11,5 +11,6 @@ export * from './ProviderTile';
 export * from './SourcePill';
 export * from './StatusIcon';
 export * from './StatusMenu';
+export * from './SetDueDateButton';
 export * from './SyncedBadge';
 export * from './WorkspaceTile';

@@ -39,15 +39,15 @@
  * would cut off a card's 3px focus ring: the 3px padding keeps the ring inside, and the -3px
  * margin takes that padding back out, so the cards still line up with the header.
  */
+.cardsArea {
+  flex: 1 1 auto;
+  margin: -3px;
+}
 .cards {
   display: flex;
-  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--board-card-gap);
-  min-height: 0;
-  margin: -3px;
   padding: 3px;
-  overflow-y: auto;
   overscroll-behavior: contain;
   overflow-anchor: none;
 }

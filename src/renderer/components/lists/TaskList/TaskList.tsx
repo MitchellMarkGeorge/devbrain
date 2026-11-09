@@ -15,6 +15,7 @@ import { cn } from '../../lib/cn';
 import { paddingBefore, useVirtualList } from '../../lib/virtual';
 import { SIZE, SPACING } from '../../../styles/tokens';
 import { SelectionBar } from '../SelectionBar';
+import { ScrollArea } from '../../ui/ScrollArea';
 import type { PickableStatus } from '../../entities/StatusMenu';
 import { TaskRow, type TaskRowData, type TaskRowProps } from '../TaskRow';
 import styles from './TaskList.module.css';
@@ -91,6 +92,8 @@ export interface TaskListBaseProps extends Omit<
   onStatusChange?: (task: TaskRowData, status: PickableStatus) => void;
   /** opens a task: a click on its row, or Enter */
   onOpen?: (task: TaskRowData) => void;
+  /** sets a due date on a task without one (its row's "Set due date") */
+  onDueDateChange?: (task: TaskRowData, date: Date) => void;
 }
 
 /** `tasks` for a flat list or `groups` for a grouped one: one of the two, never both. */
@@ -180,7 +183,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     selectionMenu,
     onStatusChange,
     onOpen,
+    onDueDateChange,
     className,
+    style,
     onFocus,
     ...props
   },
@@ -347,15 +352,21 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const focusedDrawn = items.some((item) => entries[item.index]?.id === focusedId);
 
   return (
-    <div
-      ref={listRef}
-      role="grid"
-      aria-multiselectable
-      aria-rowcount={rowCount ?? entries.length}
-      tabIndex={focusedDrawn || !focusedId ? undefined : 0}
+    // the list scrolls in a ScrollArea, whose scrollbar is drawn over its edge and takes no width
+    <ScrollArea
       className={cn(styles.list, className)}
-      onFocus={handleFocus}
-      {...props}
+      style={style}
+      viewportRef={listRef}
+      viewportClassName={styles.viewport}
+      viewportProps={{
+        role: 'grid',
+        'aria-multiselectable': true,
+        'aria-rowcount': rowCount ?? entries.length,
+        // one tab stop: the focused row, or the list while that row is scrolled away
+        tabIndex: focusedDrawn || !focusedId ? -1 : 0,
+        onFocus: handleFocus,
+        ...props,
+      }}
     >
       {/*
        * The whole list's height, so the scrollbar is the whole list's; the drawn rows flow inside
@@ -417,6 +428,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
               onSelect={() => toggle(id)}
               onStatusChange={onStatusChange && ((status) => onStatusChange(task, status))}
               onOpen={onOpen && (() => onOpen(task))}
+              onDueDateChange={onDueDateChange && ((date) => onDueDateChange(task, date))}
             />
           );
         })}
@@ -430,6 +442,6 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           onClear={() => setSelected(new Set())}
         />
       )}
-    </div>
+    </ScrollArea>
   );
 });

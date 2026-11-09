@@ -118,6 +118,7 @@ export function TaskSubtasksSection({ task, compact = false }: TaskSubtasksSecti
                     if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
                   }}
                   onStatusChange={(row, status) => actions.setStatus(full([row]), status)}
+                  onDueDateChange={(row, date) => actions.setDueDate(full([row]), date)}
                   onOpen={(row) => openEntity({ id: row.id })}
                 />
               </KeyScope>

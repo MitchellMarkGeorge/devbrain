@@ -1,17 +1,21 @@
 /* A virtualized list of TaskRows with selection. See docs/design-system/components/TaskList.md */
-/* its own scroller: it fills the height its container gives it, or grows to its rows */
+/*
+ * Its own scroller, a ScrollArea (the scrollbar drawn over its edge, taking no width): it fills the
+ * height its container gives it, or grows to its rows
+ */
 .list {
   position: relative;
-  display: flex;
   flex: 1 1 auto;
+}
+.viewport {
+  display: flex;
   flex-direction: column;
-  min-height: 0;
-  overflow-y: auto;
   overscroll-behavior: contain;
   /* the virtualizer keeps the rows in place as they measure; the browser should not move them too */
   overflow-anchor: none;
 }
-.list:focus-visible {
+/* the rows show focus; the list itself never draws a ring */
+.viewport.viewport:focus-visible {
   outline: none;
 }
 

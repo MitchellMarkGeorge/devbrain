@@ -115,6 +115,7 @@ export function TaskListFrame({
     onStatusChange: (task: { id: string }, status: Parameters<typeof actions.setStatus>[1]) =>
       actions.setStatus(full([task]), status),
     onOpen: (task: { id: string }) => openEntity({ id: task.id }),
+    onDueDateChange: (task: { id: string }, date: Date) => actions.setDueDate(full([task]), date),
   };
 
   return (

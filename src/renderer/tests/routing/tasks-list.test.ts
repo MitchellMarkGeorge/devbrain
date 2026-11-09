@@ -102,6 +102,29 @@ describe('the list view', () => {
   });
 });
 
+describe('a task without a due date', () => {
+  it('offers Set due date, and sets the date picked', async () => {
+    const { main } = tasksPage();
+    await eventually(() => expect(row('Plan the launch')).toBeDefined());
+    const button = row('Plan the launch')!.querySelector('[aria-label="Set due date"]');
+    expect(button).not.toBeNull();
+    click(button);
+    await eventually(() => expect(byText(document.body, 'button', 'Tomorrow')).not.toBeNull());
+    click(byText(document.body, 'button', 'Tomorrow'));
+    await eventually(() => expect(main.callsTo('tasks.update')).toHaveLength(1));
+    expect(main.callsTo('tasks.update')[0].input).toMatchObject({ id: 'tsk_plan' });
+    expect((main.callsTo('tasks.update')[0].input as { dueDate: Date }).dueDate).toBeInstanceOf(
+      Date,
+    );
+  });
+
+  it('offers nothing on a closed task', async () => {
+    tasksPage('?status=completed');
+    await eventually(() => expect(row('Ship it')).toBeDefined());
+    expect(row('Ship it')!.querySelector('[aria-label="Set due date"]')).toBeNull();
+  });
+});
+
 describe('the group view', () => {
   it('draws a heading per status, each over its tasks', async () => {
     const { app } = tasksPage('?view=group&group_by=status');

@@ -4,6 +4,7 @@ import { paddingBefore, useVirtualList } from '../../lib/virtual';
 import { SPACING } from '../../../styles/tokens';
 import { CardGrid } from '../CardGrid';
 import { useWorkspaceShell } from '../WorkspaceShell/context';
+import { ScrollArea } from '../../ui/ScrollArea';
 import styles from './VirtualCardGrid.module.css';
 
 // the space under each row of cards: CardGrid's gap between them, space-3 or space-4
@@ -68,7 +69,12 @@ export function VirtualCardGrid<T>({
   // The whole grid's height, so the scrollbar is the whole grid's; the drawn rows of cards flow
   // inside it, after the space the rows above them would take (paddingBefore)
   return (
-    <div ref={scrollerRef} className={cn(styles.scroller, className)}>
+    // a ScrollArea: the scrollbar is drawn over the grid's edge, taking no width
+    <ScrollArea
+      className={cn(styles.scroller, className)}
+      viewportRef={scrollerRef}
+      viewportClassName={styles.viewport}
+    >
       <div
         role="grid"
         aria-label={ariaLabel}
@@ -96,6 +102,6 @@ export function VirtualCardGrid<T>({
           </CardGrid>
         ))}
       </div>
-    </div>
+    </ScrollArea>
   );
 }

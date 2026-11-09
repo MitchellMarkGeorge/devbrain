@@ -111,11 +111,12 @@
  * keeps its height, and this scrolls it whole.
  */
 .scroll {
-  display: flex;
   flex: 1;
+}
+/* the ScrollArea's viewport, which scrolls the page; its scrollbar is drawn over the edge */
+.scrollViewport {
+  display: flex;
   flex-direction: column;
-  min-height: 0;
-  overflow-y: auto;
   overscroll-behavior: contain;
 }
 

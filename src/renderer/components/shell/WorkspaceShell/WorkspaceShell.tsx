@@ -14,6 +14,7 @@ import { Dialog } from '@base-ui/react/dialog';
 import { cn } from '../../lib/cn';
 import { useWindowFrame } from '../../lib/platform';
 import { PageHeaderInWindowBar } from '../PageHeader/context';
+import { ScrollArea } from '../../ui/ScrollArea';
 import { TooltipProvider } from '../../ui/Tooltip';
 import { CaptionButtons, WindowBar } from '../WindowBar';
 import { WorkspaceShellContext, type WorkspaceShellContextValue, type WindowSize } from './context';
@@ -272,10 +273,18 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
             {headerRow && <div className={styles.header}>{header}</div>}
             <main className={styles.main}>
               {!hidden && !headerRow && header}
-              {/* data-slot: the app's router scrolls this to the top on a new page */}
-              <div className={styles.scroll} data-slot="page-scroll">
+              {/*
+               * a ScrollArea, whose scrollbar is drawn over the page's edge and takes no width;
+               * data-slot on its scrolling element: the app's router scrolls it to the top on a
+               * new page
+               */}
+              <ScrollArea
+                className={styles.scroll}
+                viewportClassName={styles.scrollViewport}
+                viewportProps={{ 'data-slot': 'page-scroll' } as object}
+              >
                 {children}
-              </div>
+              </ScrollArea>
             </main>
             <div
               ref={sheetContainer}

@@ -15,6 +15,7 @@ import { StatusIcon } from '../../entities/StatusIcon';
 import type { TaskStatus } from '@common/types';
 import { TASK_STATUS_LABELS } from '../../types';
 import { SIZE } from '../../../styles/tokens';
+import { ScrollArea } from '../../ui/ScrollArea';
 import styles from './BoardColumn.module.css';
 
 export type BoardProps = ComponentPropsWithoutRef<'div'>;
@@ -47,6 +48,8 @@ export interface BoardColumnProps extends Omit<ComponentPropsWithoutRef<'section
   rowCount?: number;
   /** a click on a card, or Enter on it */
   onOpen?: (task: BoardColumnTask) => void;
+  /** sets a due date on a task without one (its card's "Set due date") */
+  onDueDateChange?: (task: BoardColumnTask, date: Date) => void;
   /**
    * more props for a task's `BoardCard` (a static `state` for pictures, a drag handle's props);
    * the column's own (its ref, role and position) are added to them
@@ -81,6 +84,7 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
     tasks,
     rowCount,
     onOpen,
+    onDueDateChange,
     cardProps,
     onEndReached,
     endReachedThreshold,
@@ -154,7 +158,12 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
           onClick={onAdd}
         />
       </div>
-      <div ref={scrollerRef} className={styles.cards}>
+      {/* a ScrollArea: the scrollbar is drawn over the column's edge, taking no width */}
+      <ScrollArea
+        className={styles.cardsArea}
+        viewportRef={scrollerRef}
+        viewportClassName={styles.cards}
+      >
         {/*
          * The whole column's height, so the scrollbar is the whole column's; the drawn cards flow
          * inside it, in order, after the space the cards above them would take (paddingBefore),
@@ -180,6 +189,7 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
                 key={item.key}
                 task={task}
                 onClick={onOpen && (() => onOpen(task))}
+                onDueDateChange={onDueDateChange && ((date) => onDueDateChange(task, date))}
                 {...cardProps?.(task, item.index)}
                 ref={(el: HTMLDivElement | null) => {
                   virtualizer.measureElement(el);
@@ -201,7 +211,7 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
             Add task
           </button>
         )}
-      </div>
+      </ScrollArea>
     </section>
   );
 });

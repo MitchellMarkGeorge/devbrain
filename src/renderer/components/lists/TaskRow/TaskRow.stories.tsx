@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Stack } from '../../layout/Flex';
 import { Text } from '../../layout/Text';
-import { TaskStatus } from '@common/types';
+import { TaskPriority, TaskStatus } from '@common/types';
 import { storyDate } from '../../lib/story-dates';
 import { BUSY_TASK, SAMPLE_SUBTASKS, SAMPLE_TASKS, sampleTask } from './fixtures';
 import { TaskRow } from './TaskRow';
@@ -74,6 +74,31 @@ export const States: Story = {
       />
       <Label>Subtask</Label>
       <TaskRow task={SAMPLE_SUBTASKS[1]} subtask />
+    </Stack>
+  ),
+};
+
+const UNDATED = sampleTask({ title: 'Write the release notes', priority: TaskPriority.MEDIUM });
+
+/**
+ * A task without a due date: its date slot is blank at rest, and shows "Set due date" (a quiet
+ * calendar-plus opening the date picker) while the row is pointed at or focused. A closed or
+ * synced task, or a row the page gives no `onDueDateChange`, stays blank.
+ */
+export const NoDueDate: Story = {
+  name: 'No due date',
+  render: () => (
+    <Stack>
+      <Label>Rest</Label>
+      <TaskRow task={UNDATED} onDueDateChange={() => {}} />
+      <Label>Hover: Set due date</Label>
+      <TaskRow task={UNDATED} state="hover" onDueDateChange={() => {}} />
+      <Label>Completed: nothing to set</Label>
+      <TaskRow
+        task={{ ...UNDATED, status: TaskStatus.COMPLETED }}
+        state="hover"
+        onDueDateChange={() => {}}
+      />
     </Stack>
   ),
 };

@@ -100,3 +100,16 @@ export const Completed: Story = {
     },
   },
 };
+
+/**
+ * A card without a due date: nothing at rest; "Set due date" at the end of the meta line while
+ * pointed at or focused.
+ */
+export const NoDueDate: Story = {
+  name: 'No due date',
+  args: {
+    task: { ...task, dueDate: null, external: null },
+    state: 'hover',
+    onDueDateChange: () => {},
+  },
+};

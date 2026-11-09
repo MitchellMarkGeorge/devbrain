@@ -23,10 +23,12 @@ import { ProgressRing } from '../../ui/ProgressRing';
 import { SourcePill } from '../../entities/SourcePill';
 import { StatusIcon } from '../../entities/StatusIcon';
 import { StatusMenu, type PickableStatus } from '../../entities/StatusMenu';
-import { TaskStatus } from '@common/types';
+import { LinkState, TaskStatus } from '@common/types';
+import { SetDueDateButton } from '../../entities/SetDueDateButton';
 import { useFormat } from '../../lib/format';
 import {
   dueTone,
+  isClosed,
   isOverdue,
   OVERDUE_LABEL,
   providerOf,
@@ -81,6 +83,11 @@ export interface TaskRowProps extends Omit<ComponentProps<'div'>, 'onSelect' | '
   onSelect?: () => void;
   /** opens the task (a click on the row) */
   onOpen?: () => void;
+  /**
+   * sets a due date on a task without one: its blank date slot shows "Set due date" while the row
+   * is pointed at or focused. Left out (or for a closed or synced task), the slot stays blank.
+   */
+  onDueDateChange?: (date: Date) => void;
 }
 
 export type StackMode = 'auto' | 'none' | 'right' | 'both';
@@ -328,6 +335,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     onMenuOpenChange,
     onSelect,
     onOpen,
+    onDueDateChange,
     className,
     onClick,
     ...props
@@ -459,7 +467,13 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
             tone === 'overdue' && styles.overdue,
           )}
         >
-          {task.dueDate && formatDue(task.dueDate)}
+          {task.dueDate
+            ? formatDue(task.dueDate)
+            : onDueDateChange &&
+              !isClosed(status) &&
+              task.external?.state !== LinkState.SYNCED && (
+                <SetDueDateButton className={styles.setDue} onDueDateChange={onDueDateChange} />
+              )}
         </span>
       </div>
     </div>
