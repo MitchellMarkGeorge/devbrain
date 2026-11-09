@@ -31,14 +31,23 @@ export interface TaskListGroup {
   footer?: ReactNode;
 }
 
-export interface TaskListProps extends Omit<ComponentProps<'div'>, 'children' | 'onSelect'> {
-  /** core's tasks as they are (`TaskListItem`s): a flat list. Leave out when `groups` is given */
-  tasks?: TaskRowData[];
-  /**
-   * a grouped list: each group's heading, then its rows, in one virtualized list whose current
-   * heading sticks to the top
-   */
-  groups?: TaskListGroup[];
+/** A flat list: core's tasks as they are (`TaskListItem`s). */
+export interface FlatTaskListProps {
+  tasks: TaskRowData[];
+  groups?: never;
+}
+
+/**
+ * A grouped list: each group's heading, then its rows, in one virtualized list whose current
+ * heading sticks to the top.
+ */
+export interface GroupedTaskListProps {
+  groups: TaskListGroup[];
+  tasks?: never;
+}
+
+/** What a flat and a grouped list both take. */
+export interface TaskListBaseProps extends Omit<ComponentProps<'div'>, 'children' | 'onSelect'> {
   /**
    * how many rows the list has in all, loaded or not (`aria-rowcount`), when a count says so;
    * the loaded rows by default
@@ -79,6 +88,9 @@ export interface TaskListProps extends Omit<ComponentProps<'div'>, 'children' | 
   /** opens a task: a click on its row, or Enter */
   onOpen?: (task: TaskRowData) => void;
 }
+
+/** `tasks` for a flat list or `groups` for a grouped one: one of the two, never both. */
+export type TaskListProps = TaskListBaseProps & (FlatTaskListProps | GroupedTaskListProps);
 
 // One row of the flat list, with an `id` unique in the list: a task's own id, or its group's id
 // for a heading (`group:…`) and a footer (`footer:…`)

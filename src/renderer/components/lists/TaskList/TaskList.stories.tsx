@@ -9,7 +9,12 @@ import { TaskStatus } from '@common/types';
 import { storyDate } from '../../lib/story-dates';
 import { BUSY_TASK, manyTasks, SAMPLE_SUBTASKS, SAMPLE_TASKS } from '../TaskRow/fixtures';
 import { Text } from '../../layout/Text';
-import { TaskList, type TaskListGroup } from './TaskList';
+import {
+  TaskList,
+  type FlatTaskListProps,
+  type TaskListBaseProps,
+  type TaskListGroup,
+} from './TaskList';
 
 const meta = {
   title: 'Lists/TaskList',
@@ -22,7 +27,8 @@ const meta = {
       </div>
     ),
   ],
-} satisfies Meta<typeof TaskList>;
+  // the stories' controls are a flat list's; the grouped stories render their own
+} satisfies Meta<TaskListBaseProps & FlatTaskListProps>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
