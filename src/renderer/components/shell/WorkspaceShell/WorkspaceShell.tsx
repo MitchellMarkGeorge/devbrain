@@ -11,10 +11,9 @@ import {
   type ReactNode,
   type Ref,
 } from 'react';
-import { Dialog } from '@base-ui/react/dialog';
+import { Drawer } from '@base-ui/react/drawer';
 import { cn } from '../../lib/cn';
 import { useWindowFrame } from '../../lib/platform';
-import { PageHeaderInWindowBar } from '../PageHeader/context';
 import { ScrollArea } from '../../ui/ScrollArea';
 import { TooltipProvider } from '../../ui/Tooltip';
 import { CaptionButtons, WindowBar } from '../WindowBar';
@@ -24,25 +23,18 @@ import { useStillPointer } from './use-still-pointer';
 import styles from './WorkspaceShell.module.css';
 
 export interface WorkspaceShellProps extends Omit<ComponentPropsWithoutRef<'div'>, 'children'> {
-  /** the app's `Sidebar`; the shell docks it at the left, or opens it as a drawer while it's hidden */
+  /** the app's `Sidebar`: docked at the left, or in a drawer over the page while hidden */
   sidebar: ReactNode;
-  /** the page's `PageHeader`; moves into the `WindowBar` while the sidebar is hidden */
+  /** the page's `PageHeader`: beside the docked sidebar, or after the `WindowBar` while hidden */
   header?: ReactNode;
   /** the page under its header: a `PageToolbar` and a `PageContent` */
   children?: ReactNode;
-  /**
-   * A docked sheet is open: the shell opens a `sheet-width` column at the right for it. Portal the
-   * `SheetContent` into `useWorkspaceShell().sheetContainer`. In compact windows sheets float instead.
-   */
-  sheetOpen?: boolean;
   /** the user's choice: hide the sidebar at any size (⌘\) */
   collapsed?: boolean;
   defaultCollapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
-  /** the drawer the hidden sidebar opens as, over the page (opened this way, it's pinned) */
-  drawerOpen?: boolean;
+  /** open the hidden sidebar's drawer, pinned, on first render (stories) */
   defaultDrawerOpen?: boolean;
-  onDrawerOpenChange?: (open: boolean) => void;
   /** pin the window size instead of measuring the shell (stories, tests) */
   size?: WindowSize;
   onBack?: () => void;
@@ -62,37 +54,19 @@ export interface WorkspaceShellControls {
   toggleSidebar: () => void;
 }
 
-function useControllable<T>(
-  value: T | undefined,
-  defaultValue: T,
-  onChange?: (value: T) => void,
-): [T, (value: T) => void] {
-  const [own, setOwn] = useState(defaultValue);
-  const current = value ?? own;
-  const set = useCallback(
-    (next: T) => {
-      setOwn(next);
-      onChange?.(next);
-    },
-    [onChange],
-  );
-  return [current, set];
-}
+/** The hidden sidebar's drawer: shut, peeked at by pointing, or pinned open. */
+type DrawerState = 'closed' | 'peek' | 'open';
 
 /**
  * The window inside a workspace, the frame every page in it shares (outside one it's an
- * `AppShell`): the sidebar at the left, the page (header, toolbar, content) and
- * a docked sheet at the right. It measures its own width and follows the README's window sizes:
- * below 1080px the sidebar rests hidden and sheets float. The sidebar is either docked or hidden
- * (the user's choice, ⌘\, at any size). While it's hidden the window bar runs across the top with
- * the page's header in it, and the sidebar opens as a drawer over the page: pointing at the toggle
- * or the window's left edge peeks at it, and clicking the toggle pins it open (or docks it, where
- * there's room). It binds no keys: the app's keymap runs `toggleSidebar` (through `controlsRef`) on
- * ⌘\.
+ * `AppShell`). Each part renders once, in one place, and a CSS grid places it: the sidebar, the
+ * page's header, the page, and the docked sheet's column. The sidebar is docked, or hidden with
+ * the `WindowBar` beside the header; while hidden it opens as a drawer over the page. It measures
+ * its own width and follows the README's window sizes: below 1080px the sidebar rests hidden and
+ * sheets float. It binds no keys: the app's keymap runs `toggleSidebar` (through `controlsRef`) on ⌘\.
  *
- * It follows the window frame (`WindowFrameProvider`): on Windows, whose caption buttons sit over
- * the top right, the page's header runs the full width beside the docked sidebar too, and a docked
- * sheet starts under it, so nothing of the sheet's sits by the caption buttons.
+ * A page docks a sheet by portalling its `SheetContent` into `useWorkspaceShell().sheetContainer`:
+ * the column at the right opens while it has anything in it.
  */
 export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
   function WorkspaceShell(
@@ -100,13 +74,10 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
       sidebar,
       header,
       children,
-      sheetOpen = false,
       collapsed: collapsedProp,
       defaultCollapsed = false,
       onCollapsedChange,
-      drawerOpen: drawerOpenProp,
       defaultDrawerOpen = false,
-      onDrawerOpenChange,
       size: sizeProp,
       onBack,
       onForward,
@@ -120,7 +91,8 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
   ) {
     const root = useRef<HTMLDivElement>(null);
     useImperativeHandle(ref, () => root.current as HTMLDivElement);
-    const sheetContainer = useRef<HTMLDivElement>(null);
+    // state, not a ref: a page portalling a sheet into it renders again once it's there
+    const [sheetContainer, setSheetContainer] = useState<HTMLElement | null>(null);
     const drawerPopup = useRef<HTMLDivElement>(null);
 
     const [measured, setMeasured] = useState<WindowSize>(() =>
@@ -139,37 +111,20 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
     const size = sizeProp ?? measured;
     const compact = size === 'compact';
 
-    const [collapsed, setCollapsed] = useControllable(
-      collapsedProp,
-      defaultCollapsed,
-      onCollapsedChange,
+    const [ownCollapsed, setOwnCollapsed] = useState(defaultCollapsed);
+    const collapsed = collapsedProp ?? ownCollapsed;
+    const setCollapsed = useCallback(
+      (next: boolean) => {
+        setOwnCollapsed(next);
+        onCollapsedChange?.(next);
+      },
+      [onCollapsedChange],
     );
-    const [drawerOpen, setDrawerOpen] = useControllable(
-      drawerOpenProp,
-      defaultDrawerOpen,
-      onDrawerOpenChange,
-    );
-    // opened by hover and not yet pinned: no focus moves into it, and it closes when the pointer leaves
-    const [peeking, setPeeking] = useState(false);
-    // docking from the drawer swaps one for the other where it stands, with no motion
-    const [instant, setInstant] = useState(false);
-    const hidden = collapsed || compact;
-    const drawerShown = hidden && drawerOpen;
-    // however the drawer closed, it opens next time as pinned unless a peek opens it
-    if (peeking && !drawerShown) setPeeking(false);
 
-    // docking the sidebar (a wider window, or the user's toggle) closes the drawer
-    useEffect(() => {
-      if (!hidden && drawerOpen) setDrawerOpen(false);
-    }, [hidden, drawerOpen, setDrawerOpen]);
-    useEffect(() => {
-      if (!instant) return;
-      // two frames: the swap has been drawn without transitions before they come back
-      let frame = requestAnimationFrame(() => {
-        frame = requestAnimationFrame(() => setInstant(false));
-      });
-      return () => cancelAnimationFrame(frame);
-    }, [instant]);
+    const hidden = collapsed || compact;
+    const [drawer, setDrawer] = useState<DrawerState>(defaultDrawerOpen ? 'open' : 'closed');
+    // a docked sidebar has no drawer
+    if (!hidden && drawer !== 'closed') setDrawer('closed');
 
     const openTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
     const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -181,60 +136,37 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
 
     const closeDrawer = useCallback(() => {
       clearTimers();
-      setPeeking(false);
-      setDrawerOpen(false);
-    }, [clearTimers, setDrawerOpen]);
+      setDrawer('closed');
+    }, [clearTimers]);
 
     const pointer = useStillPointer(root);
     const toggleSidebar = useCallback(() => {
       clearTimers();
       pointer.mark();
-      if (!hidden) {
-        setCollapsed(true);
-      } else if (!compact) {
-        if (drawerShown) setInstant(true);
-        setPeeking(false);
-        setDrawerOpen(false);
-        setCollapsed(false);
-      } else if (drawerOpen && !peeking) {
-        setDrawerOpen(false);
-      } else {
-        setPeeking(false);
-        setDrawerOpen(true);
-      }
-    }, [
-      clearTimers,
-      pointer,
-      hidden,
-      compact,
-      drawerShown,
-      drawerOpen,
-      peeking,
-      setCollapsed,
-      setDrawerOpen,
-    ]);
+      if (!hidden) setCollapsed(true);
+      // where the window is wide enough, the toggle docks the sidebar (from the drawer too)
+      else if (!compact) setCollapsed(false);
+      else setDrawer((state) => (state === 'open' ? 'closed' : 'open'));
+    }, [clearTimers, pointer, hidden, compact, setCollapsed]);
     useImperativeHandle(controlsRef, () => ({ toggleSidebar }), [toggleSidebar]);
 
     const peekSidebar = useCallback(() => {
       clearTimeout(closeTimer.current);
       // the toggle that hid the sidebar (or closed the drawer) appeared under a pointer at rest
-      if (!hidden || drawerShown || pointer.still()) return;
+      if (!hidden || drawer !== 'closed' || pointer.still()) return;
       clearTimeout(openTimer.current);
-      openTimer.current = setTimeout(() => {
-        setPeeking(true);
-        setDrawerOpen(true);
-      }, PEEK_OPEN_DELAY);
-    }, [hidden, drawerShown, setDrawerOpen, pointer]);
+      openTimer.current = setTimeout(() => setDrawer('peek'), PEEK_OPEN_DELAY);
+    }, [hidden, drawer, pointer]);
     const cancelPeek = useCallback(() => clearTimeout(openTimer.current), []);
 
-    const base = useMemo<WorkspaceShellContextValue>(
+    const context = useMemo<WorkspaceShellContextValue>(
       () => ({
         inShell: true,
         size,
         sidebarHidden: hidden,
         inDrawer: false,
-        drawerOpen: drawerShown,
-        peeking: drawerShown && peeking,
+        drawerOpen: drawer !== 'closed',
+        peeking: drawer === 'peek',
         toggleSidebar,
         closeDrawer,
         peekSidebar,
@@ -246,10 +178,10 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
         sheetContainer,
       }),
       [
+        sheetContainer,
         size,
         hidden,
-        drawerShown,
-        peeking,
+        drawer,
         toggleSidebar,
         closeDrawer,
         peekSidebar,
@@ -260,38 +192,28 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
         canGoForward,
       ],
     );
-    const drawer = useMemo<WorkspaceShellContextValue>(() => ({ ...base, inDrawer: true }), [base]);
+    const drawerContext = useMemo(() => ({ ...context, inDrawer: true }), [context]);
 
     const frame = useWindowFrame();
-    const windows = frame.platform === 'windows';
-    // On Windows the header beside the docked sidebar gets a row of its own across the page and
-    // the sheet; elsewhere it tops the page column only, and a sheet runs full height
-    const headerRow = windows && !hidden;
 
     return (
-      <WorkspaceShellContext.Provider value={base}>
+      <WorkspaceShellContext.Provider value={context}>
         <TooltipProvider>
           <div
             ref={root}
             data-size={size}
-            data-sidebar-hidden={hidden ? '' : undefined}
-            data-instant={instant ? '' : undefined}
+            data-sidebar={hidden ? 'hidden' : 'docked'}
             data-platform={frame.platform}
             className={cn(styles.shell, className)}
             {...props}
           >
-            {hidden && (
-              <PageHeaderInWindowBar.Provider value>
-                <WindowBar className={styles.windowBar}>{header}</WindowBar>
-              </PageHeaderInWindowBar.Provider>
+            {hidden ? (
+              <WindowBar className={styles.bar} />
+            ) : (
+              <div className={styles.sidebar}>{sidebar}</div>
             )}
-            {/* kept mounted while hidden (folded groups keep their state), out of reach */}
-            <div className={styles.sidebar} {...{ inert: hidden ? '' : undefined }}>
-              {sidebar}
-            </div>
-            {headerRow && <div className={styles.header}>{header}</div>}
+            <div className={styles.header}>{header}</div>
             <main className={styles.main}>
-              {!hidden && !headerRow && header}
               {/*
                * a ScrollArea, whose scrollbar is drawn over the page's edge and takes no width;
                * data-slot on its scrolling element: the app's router scrolls it to the top on a
@@ -305,12 +227,9 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
                 {children}
               </ScrollArea>
             </main>
-            <div
-              ref={sheetContainer}
-              className={styles.sheet}
-              data-open={sheetOpen && !compact ? '' : undefined}
-            />
-            {hidden && !drawerShown && (
+            {/* a docked sheet is portalled in here; the column opens while it has anything in it */}
+            <aside ref={setSheetContainer} className={styles.sheet} />
+            {hidden && drawer === 'closed' && (
               <div
                 aria-hidden
                 className={styles.edge}
@@ -320,45 +239,52 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
                 onPointerLeave={cancelPeek}
               />
             )}
-            {windows && frame.controls === 'drawn' && (
+            {frame.platform === 'windows' && frame.controls === 'drawn' && (
               <CaptionButtons className={styles.captionButtons} />
             )}
           </div>
           {hidden && (
-            <Dialog.Root
-              open={drawerShown}
-              onOpenChange={(open) => (open ? setDrawerOpen(true) : closeDrawer())}
-              // a peek leaves focus where it was, so typing carries on; pinning it traps focus
-              modal={!peeking}
+            <Drawer.Root
+              open={drawer !== 'closed'}
+              onOpenChange={(open) => (open ? setDrawer('open') : closeDrawer())}
+              // pinned: focus is trapped in the drawer; a peek leaves focus where it was
+              modal={drawer === 'open'}
+              swipeDirection="left"
             >
-              <Dialog.Portal container={root}>
-                <Dialog.Backdrop className={styles.backdrop} />
-                <Dialog.Popup
-                  ref={drawerPopup}
-                  initialFocus={peeking ? false : drawerPopup}
-                  className={styles.drawer}
-                  aria-label="Sidebar"
-                  onPointerEnter={() => clearTimeout(closeTimer.current)}
-                  onPointerLeave={(event) => {
-                    if (!peeking || event.pointerType !== 'mouse') return;
-                    clearTimeout(closeTimer.current);
-                    closeTimer.current = setTimeout(closeDrawer, PEEK_CLOSE_DELAY);
-                  }}
-                  onPointerDown={() => clearTimeout(closeTimer.current)}
-                  // using it pins it, so a menu it opens never closes it. On the click's way back up,
-                  // after the drawer's own toggle has read the peek; and only keyboard focus, as a
-                  // pressed button takes focus before its click
-                  onClick={() => setPeeking(false)}
-                  onFocus={(event) => {
-                    if (event.target.matches(':focus-visible')) setPeeking(false);
-                  }}
-                >
-                  <WorkspaceShellContext.Provider value={drawer}>
-                    {sidebar}
-                  </WorkspaceShellContext.Provider>
-                </Dialog.Popup>
-              </Dialog.Portal>
-            </Dialog.Root>
+              {/* kept mounted while closed, so a peek opens at once */}
+              <Drawer.Portal keepMounted container={root}>
+                {drawer === 'open' && <Drawer.Backdrop className={styles.backdrop} />}
+                <Drawer.Viewport className={styles.drawerViewport}>
+                  <Drawer.Popup
+                    ref={drawerPopup}
+                    className={styles.drawer}
+                    aria-label="Sidebar"
+                    // pinned: focus the drawer itself, not its first button (whose tooltip would show)
+                    initialFocus={drawer === 'open' ? drawerPopup : false}
+                    onPointerEnter={() => clearTimeout(closeTimer.current)}
+                    onPointerLeave={(event) => {
+                      if (drawer !== 'peek' || event.pointerType !== 'mouse') return;
+                      clearTimeout(closeTimer.current);
+                      closeTimer.current = setTimeout(closeDrawer, PEEK_CLOSE_DELAY);
+                    }}
+                    onPointerDown={() => clearTimeout(closeTimer.current)}
+                    // using a peeked drawer pins it, so a menu it opens never closes it. On the
+                    // click's way up, after an item's own click has closed the drawer, which this
+                    // keeps; and keyboard focus pins it too
+                    onClick={() => setDrawer((state) => (state === 'peek' ? 'open' : state))}
+                    onFocus={(event) => {
+                      if (event.target.matches(':focus-visible')) {
+                        setDrawer((state) => (state === 'peek' ? 'open' : state));
+                      }
+                    }}
+                  >
+                    <WorkspaceShellContext.Provider value={drawerContext}>
+                      {sidebar}
+                    </WorkspaceShellContext.Provider>
+                  </Drawer.Popup>
+                </Drawer.Viewport>
+              </Drawer.Portal>
+            </Drawer.Root>
           )}
         </TooltipProvider>
       </WorkspaceShellContext.Provider>

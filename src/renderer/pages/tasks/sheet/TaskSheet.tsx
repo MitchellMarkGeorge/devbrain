@@ -30,7 +30,6 @@ import {
 } from '../../../components';
 import { trpc } from '../../../ipc';
 import { ipcErrorCode } from '../../../workspace/errors';
-import { useDockedSheet } from '../../app/docked-sheet';
 import { useMutationErrorToast } from '../../app/mutation-errors';
 import { useOpenEntity } from '../../app/use-open-entity';
 import { DatePill, PriorityPill, ProjectPill, StatusPill } from '../menus/pickers';
@@ -63,8 +62,8 @@ export interface TaskSheetProps {
 export function TaskSheet({ taskId, onClose }: TaskSheetProps) {
   const router = useRouter();
   const { size, sheetContainer } = useWorkspaceShell();
+  // docked, it's portalled into the shell's sheet column, which opens while it's there
   const floating = size === 'compact';
-  useDockedSheet(!floating);
   const openEntity = useOpenEntity();
   const openedHere = useRouterState({ select: (state) => state.location.state.openedSheet });
   const queryClient = useQueryClient();
@@ -80,6 +79,8 @@ export function TaskSheet({ taskId, onClose }: TaskSheetProps) {
     else onClose();
   };
 
+  // on a first render the shell hasn't mounted its column yet: the sheet joins it a moment later
+  if (!floating && !sheetContainer) return null;
   return (
     <Sheet
       open

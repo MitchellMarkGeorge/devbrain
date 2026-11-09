@@ -11,4 +11,3 @@ export {
   type PageMenuButtonProps,
   type PageToolbarProps,
 } from './PageHeader';
-export { PageHeaderInWindowBar } from './context';

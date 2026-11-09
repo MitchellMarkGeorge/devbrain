@@ -122,7 +122,8 @@ export const Entering: Story = {
 };
 
 /**
- * The user hid the sidebar (⌘\): the window bar runs across the top and carries the header.
+ * The user hid the sidebar (⌘\): the window bar takes its place at the top left, the header
+ * beside it.
  * Pointing at the toggle or the left edge peeks at the drawer; clicking the toggle docks it.
  */
 export const Hidden: Story = {
@@ -175,7 +176,7 @@ export const WindowsHidden: Story = {
 export const WindowsSheet: Story = {
   render: () => (
     <On platform="windows">
-      <Frame width={1440} height={720} sheetOpen />
+      <SheetFrame defaultOpen />
     </On>
   ),
 };
@@ -189,7 +190,10 @@ export const Linux: Story = {
   ),
 };
 
-/** The page's content in the docked-sheet story: opens a task's sheet into the shell's column. */
+/**
+ * The page's content in the docked-sheet stories: opens a task's sheet into the shell's column,
+ * which opens while the sheet is in it.
+ */
 function DockedSheetPage({
   open,
   onOpenChange,
@@ -203,44 +207,49 @@ function DockedSheetPage({
       <Stack gap="3" align="start">
         <Button onClick={() => onOpenChange(!open)}>{open ? 'Close task' : 'Open task'}</Button>
         <Text tone="subtle">
-          The sheet docks in a column at the right: the page narrows as it slides in, and widens
-          again as it slides out.
+          The sheet docks in a column at the right: the page narrows as it opens, and widens again
+          once it has slid out.
         </Text>
       </Stack>
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent container={sheetContainer}>
-          <SheetHeader onOpenAsPage={() => undefined}>Task</SheetHeader>
-          <SheetBody>
-            <SheetItemTitle>Implement OAuth2 PKCE flow</SheetItemTitle>
-            <Text tone="muted">Due Jun 24 · Auth Overhaul</Text>
-          </SheetBody>
-        </SheetContent>
-      </Sheet>
+      {/* the column is there from the shell's first commit; the sheet waits for it */}
+      {sheetContainer && (
+        <Sheet open={open} onOpenChange={onOpenChange}>
+          <SheetContent container={sheetContainer}>
+            <SheetHeader onOpenAsPage={() => undefined}>Task</SheetHeader>
+            <SheetBody>
+              <SheetItemTitle>Implement OAuth2 PKCE flow</SheetItemTitle>
+              <Text tone="muted">Due Jun 24 · Auth Overhaul</Text>
+            </SheetBody>
+          </SheetContent>
+        </Sheet>
+      )}
     </PageContent>
   );
 }
 
+function SheetFrame({ defaultOpen = false }: { defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ width: 1440, height: 720 }}>
+      <WorkspaceShell
+        sidebar={<DemoSidebar active="Tasks" />}
+        header={
+          <PageHeader>
+            <Breadcrumb items={['Tasks', { label: 'List', icon: List }]} />
+          </PageHeader>
+        }
+      >
+        <DockedSheetPage open={open} onOpenChange={setOpen} />
+      </WorkspaceShell>
+    </div>
+  );
+}
+
 /**
- * A sheet docked beside the page (wide and medium windows): opening slides the sheet in from the
- * right while its column widens and the page narrows, on the same timing; closing reverses it.
+ * A sheet docked beside the page (wide and medium windows): the page portals it into the shell's
+ * column, which opens while it's there. The sheet slides in from the right; the column follows its
+ * content, so it opens and shuts at once.
  */
 export const DockedSheet: Story = {
-  render: function DockedSheetStory() {
-    const [open, setOpen] = useState(false);
-    return (
-      <div style={{ width: 1440, height: 720 }}>
-        <WorkspaceShell
-          sheetOpen={open}
-          sidebar={<DemoSidebar active="Tasks" />}
-          header={
-            <PageHeader>
-              <Breadcrumb items={['Tasks', { label: 'List', icon: List }]} />
-            </PageHeader>
-          }
-        >
-          <DockedSheetPage open={open} onOpenChange={setOpen} />
-        </WorkspaceShell>
-      </div>
-    );
-  },
+  render: () => <SheetFrame />,
 };

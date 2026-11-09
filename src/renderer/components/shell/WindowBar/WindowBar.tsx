@@ -200,23 +200,21 @@ export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
   },
 );
 
-export type WindowBarProps = ComponentPropsWithoutRef<'div'>;
+export type WindowBarProps = Omit<ComponentPropsWithoutRef<'div'>, 'children'>;
 
 /**
- * The 48px bar across the window while the sidebar is hidden: the title bar's start (traffic
- * lights on macOS, the menu button on Windows), the window controls, then the page's header (its
- * breadcrumb, and its actions at the right, clear of Windows' caption buttons). The bar drags the
- * window; its buttons don't.
+ * The 48px strip at the window's top left while the sidebar is hidden: the title bar's start
+ * (traffic lights on macOS, the menu button on Windows) and the window controls. `WorkspaceShell`
+ * puts the page's header beside it. The strip drags the window; its buttons don't.
  */
 export const WindowBar = forwardRef<HTMLDivElement, WindowBarProps>(function WindowBar(
-  { className, children, ...props },
+  { className, ...props },
   ref,
 ) {
   return (
     <div ref={ref} className={cn(styles.bar, className)} {...props}>
       <WindowStart />
       <WindowControls />
-      <div className={styles.page}>{children}</div>
     </div>
   );
 });
