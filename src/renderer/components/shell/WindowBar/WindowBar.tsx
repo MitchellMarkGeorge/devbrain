@@ -15,8 +15,8 @@ export interface TrafficLightsProps extends ComponentPropsWithoutRef<'span'> {
 }
 
 /**
- * The macOS close, minimise and zoom buttons' 72×12 slot: the three 12px buttons, 8px apart (52px),
- * and 20px clear of what follows. The system draws the real ones
+ * The macOS close, minimise and zoom buttons' 68×12 slot: the three 12px buttons, 8px apart (52px),
+ * and 16px clear of what follows. The system draws the real ones
  * (src/main/runtime/window-chrome.ts), so the app only keeps their space; stories paint stand-ins.
  */
 export function TrafficLights({ drawn, className, ...props }: TrafficLightsProps) {
@@ -70,12 +70,18 @@ export const AppMenuButton = forwardRef<HTMLButtonElement, AppMenuButtonProps>(
 /**
  * The start of the title bar, before the window controls: the traffic lights' slot on macOS, the
  * menu button on Windows, and nothing on Linux, whose system frame has its own title bar and menu
- * bar above the page.
+ * bar above the page. Each slot ends 16px clear of what follows, so a row needs no gap after it.
  */
 export function WindowStart({ className }: { className?: string }) {
   const { platform } = useWindowFrame();
   if (platform === 'macos') return <TrafficLights className={className} />;
-  if (platform === 'windows') return <AppMenuButton className={className} />;
+  if (platform === 'windows') {
+    return (
+      <span className={cn(styles.menuSlot, className)}>
+        <AppMenuButton />
+      </span>
+    );
+  }
   return null;
 }
 

@@ -45,9 +45,9 @@
   align-items: center;
   /*
    * As tall as the WindowBar, and starting as far in (16px, with the sidebar's inset), so the
-   * toggle stands in the same place docked, in the drawer and in the bar
+   * toggle stands in the same place docked, in the drawer and in the bar. The title bar's start
+   * keeps its own clearance, so the row has no gap.
    */
-  gap: var(--space-2);
   /* the 48px row, and the gap under it that its padding covers (below) */
   height: calc(48px + var(--sidebar-gap));
   padding-left: var(--space-1);

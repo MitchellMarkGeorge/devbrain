@@ -2,7 +2,6 @@
 .bar {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
   height: 48px;
   min-width: 0;
   /* on Windows the page's actions stop 16px short of the caption buttons (base.css) */
@@ -18,7 +17,7 @@
 }
 
 /*
- * ---------- traffic lights: 3 × 12px, 8px apart (52px), and 20px clear of what follows ----------
+ * ---------- traffic lights: 3 × 12px, 8px apart (52px), and 16px clear of what follows ----------
  * The slot is the room macOS's lights take, their clearance included, so the rows they start need
  * no spacing of their own for them
  */
@@ -27,8 +26,15 @@
   flex: none;
   align-items: center;
   gap: var(--space-2);
-  width: 72px;
+  width: 68px;
   height: 12px;
+}
+
+/* Windows' menu button, in the same way: the 28px button and 16px clear of what follows */
+.menuSlot {
+  display: inline-flex;
+  flex: none;
+  width: 44px;
 }
 .lights > span {
   width: 12px;
@@ -84,5 +90,5 @@
   flex: 1;
   align-items: center;
   min-width: 0;
-  margin-left: var(--space-4);
+  margin-left: var(--space-6);
 }

@@ -138,8 +138,8 @@ window controls the system draws. Main sets the frame up per platform
 (`src/main/runtime/window-chrome.ts`); the page reads the platform from `WindowFrameProvider`
 (`src/renderer/components/lib/platform.ts`), and the Storybook toolbar picks one.
 
-- **macOS** (the designs): no title bar; the system draws the traffic lights in the 72px slot the
-  strip keeps at its top left (52px of lights, then 20px clear).
+- **macOS** (the designs): no title bar; the system draws the traffic lights in the 68px slot the
+  strip keeps at its top left (52px of lights, then 16px clear).
 - **Windows:** no title bar; Windows draws minimise, maximise and close (138px, 48px tall, in the
   theme's `background` and `foreground`) over the top right, so maximise keeps its snap layouts. A
   menu button takes the traffic lights' place and pops up the app menu, as there is no menu bar.
