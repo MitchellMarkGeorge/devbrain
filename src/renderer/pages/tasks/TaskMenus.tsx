@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 import {
   Calendar,
+  ChevronsDownUp,
   ChevronsUp,
+  ChevronsUpDown,
   Circle,
   CircleSlash,
   CornerDownRight,
@@ -170,6 +172,8 @@ export interface TaskMenuItemsProps {
   actions: TaskActions;
   /** "Open task": its page, or the board's sheet */
   onOpen: () => void;
+  /** a list row with subtasks under it: "Show subtasks" or "Hide subtasks" */
+  subtasks?: { shown: boolean; onToggle: () => void };
 }
 
 /**
@@ -177,7 +181,7 @@ export interface TaskMenuItemsProps {
  * date ›, Favorite, Open parent task, Open project, Move to trash. A synced task's mirrored fields
  * are drawn disabled.
  */
-export function TaskMenuItems({ task, actions, onOpen }: TaskMenuItemsProps) {
+export function TaskMenuItems({ task, actions, onOpen, subtasks }: TaskMenuItemsProps) {
   const openEntity = useOpenEntity();
   const synced = isSynced(task);
   const tasks = [task];
@@ -186,6 +190,15 @@ export function TaskMenuItems({ task, actions, onOpen }: TaskMenuItemsProps) {
       <DropdownMenuItem icon={SquareArrowOutUpRight} shortcut="↵" onClick={onOpen}>
         Open task
       </DropdownMenuItem>
+      {subtasks && (
+        <DropdownMenuItem
+          icon={subtasks.shown ? ChevronsDownUp : ChevronsUpDown}
+          shortcut={subtasks.shown ? '←' : '→'}
+          onClick={subtasks.onToggle}
+        >
+          {subtasks.shown ? 'Hide subtasks' : 'Show subtasks'}
+        </DropdownMenuItem>
+      )}
       <DropdownMenuSeparator />
       <StatusSubmenu
         status={task.status}

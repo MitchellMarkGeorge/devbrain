@@ -13,7 +13,9 @@ the `Screens/*` stories, `docs/design-system/README.md`, `docs/ipc/design.md` an
 > **Status:** milestones 1 (router foundation) and 2 (onboarding) are built, and milestone 3's
 > app pieces (the keyboard layer mounted with the list keys as commands, `useOpenEntity`,
 > `useRecordView`, `useMutationErrorToast`, `useConfirm`, `useMoveToTrash` with its Undo toast,
-> Recents, Favorites and sync in the sidebar, the page header slot, `FormatProvider`), with the
+> Recents, Favorites and sync in the sidebar, the page header slot, `FormatProvider`) and
+> milestone 4 (Tasks: list, group and board views, the task sheet, the task page, Create task and
+> Create subtask) are built, with the
 > **URL-driven workspace model** ([routing.md](routing.md)): every page in a workspace is under
 > `/app/<its id>/…`, main picks the window's first URL, and switching is navigating. Revised after
 > review (Nov 6 2026): FullCalendar for the calendar, `/app/trash`, a create-workspace dialog
@@ -1267,9 +1269,25 @@ page that needs them.
    `AppCommands.tsx`); `FormatProvider` and `KeyboardProvider` are in the root layout, around the
    dialogs; tRPC declares a pass-through transformer, so routes' outputs are typed with their
    `Date`s, as structured clone delivers them.
-4. **Tasks.** List view with filters/sort in search params, row menu, selection bar; group view;
+4. **Tasks (done).** List view with filters/sort in search params, row menu, selection bar; group view;
    board with the task sheet; create task and subtask dialogs; task page. _Main:_ T5, T6 (then T2,
-   C1–C3 as they land).
+   C1–C3 as they land). As built (`src/renderer/pages/tasks`):
+   - Search params are snake case (`group_by`, `due_date`, `not_started`), resolved against
+     `settings.tasks.*` at render (`search.ts`). `due=none` needed a core filter, `noDueDate`.
+   - The list and group views list subtasks too: each is placed under its parent when the parent is
+     loaded (`arrange.ts`, as Figma's list shows "Mobile fallback" under its parent), else where
+     the sort puts it, with the parent's pill; → and ← (and the row menu) show and hide them. The
+     board's columns list top-level tasks.
+   - A group's "Add task" opens Create task with the group's project, status, priority or date,
+     rather than an inline `QuickAddRow`. Groups load once their heading has been on screen; a
+     project group with no tasks for the filters is left out once loaded.
+   - The selection bar uses `tasks.updateMany` and `archive.archiveTasks` (T2).
+   - The board's sheet docks through `useDockedSheet` (`pages/app/docked-sheet.tsx`), which the
+     calendar's event sheet can reuse; it floats in compact windows. Board cards keep
+     `BoardColumn`'s own ↑/↓/↵; the list keys aren't bound on the board yet.
+   - The task note is the note whose `linkedTaskId` is the task (`notes.list({ filter: {
+linkedTaskId } })`), separate from the task's event or note link. Convert to project, Duplicate
+     and Copy as Markdown (C1–C3) are drawn disabled.
 5. **Notes.** List and cards, note page with the editor and autosave, linked tasks, task note
    dialog on the task page, `useEntityResolver`. _Main:_ N1 (before this milestone), N2.
 6. **Projects.** List and cards, project page with tabs, create project dialog. _Main:_ P1, C4.

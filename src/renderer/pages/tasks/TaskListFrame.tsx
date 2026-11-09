@@ -8,7 +8,8 @@ import {
   type TaskListGroup,
   type TaskListHandle,
 } from '../../components';
-import { KeyScope, useListCommands } from '../../keyboard';
+import { KeyScope, useCommands, useListCommands } from '../../keyboard';
+import { arrangeSubtasks, hasPlacedSubtasks } from './arrange';
 import { useOpenEntity } from '../app/use-open-entity';
 import { TaskMenuItems } from './TaskMenus';
 import { TasksSelectionBar } from './TasksSelectionBar';
@@ -47,6 +48,24 @@ export function TaskListFrame({
   const [menuTask, setMenuTask] = useState<TaskListItem | null>(null);
   const byId = useMemo(() => new Map(loaded.map((task) => [task.id as string, task])), [loaded]);
   const full = (rows: readonly { id: string }[]) => rows.flatMap((row) => byId.get(row.id) ?? []);
+  // parents whose subtasks are hidden; every parent shows its subtasks under it at first
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set());
+  const setShown = (id: string, shown: boolean) =>
+    setCollapsed((current) => {
+      const next = new Set(current);
+      if (shown) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const rows = useMemo(() => tasks && arrangeSubtasks(tasks, collapsed), [tasks, collapsed]);
+  const grouped = useMemo(
+    () =>
+      groups?.map((group) => ({
+        ...group,
+        tasks: arrangeSubtasks(group.tasks as TaskListItem[], collapsed),
+      })),
+    [groups, collapsed],
+  );
   const clearAfter = (moved: boolean) => {
     if (moved) setSelected([]);
   };
@@ -57,6 +76,34 @@ export function TaskListFrame({
     toggleFavorite: (rows) => actions.toggleFavorite(full(rows)),
     trash: (rows) => void actions.trash(full(rows)).then(clearAfter),
   });
+
+  // → shows the focused row's subtasks under it, ← hides them
+  const focusedParent = () => {
+    const task = list.current?.focusedItem();
+    return task && hasPlacedSubtasks(task as TaskListItem, loaded) ? task.id : undefined;
+  };
+  useCommands([
+    {
+      id: 'row.expand',
+      title: 'Show subtasks',
+      scope: 'list',
+      run: () => {
+        const id = focusedParent();
+        if (id) setShown(id, true);
+      },
+      enabled: () => focusedParent() !== undefined,
+    },
+    {
+      id: 'row.collapse',
+      title: 'Hide subtasks',
+      scope: 'list',
+      run: () => {
+        const id = focusedParent();
+        if (id) setShown(id, false);
+      },
+      enabled: () => focusedParent() !== undefined,
+    },
+  ]);
 
   const common = {
     ref: list,
@@ -83,9 +130,9 @@ export function TaskListFrame({
       >
         <KeyScope name="list" render={<div className={styles.region} />}>
           {groups ? (
-            <TaskList {...common} groups={groups} selecting={selected.length > 0} />
+            <TaskList {...common} groups={grouped ?? []} selecting={selected.length > 0} />
           ) : (
-            <TaskList {...common} tasks={tasks ?? []} />
+            <TaskList {...common} tasks={rows ?? []} />
           )}
           <TasksSelectionBar
             tasks={full(selected.map((id) => ({ id })))}
@@ -100,6 +147,14 @@ export function TaskListFrame({
             task={byId.get(menuTask.id) ?? menuTask}
             actions={actions}
             onOpen={() => openEntity({ id: menuTask.id })}
+            subtasks={
+              hasPlacedSubtasks(menuTask, loaded)
+                ? {
+                    shown: !collapsed.has(menuTask.id),
+                    onToggle: () => setShown(menuTask.id, collapsed.has(menuTask.id)),
+                  }
+                : undefined
+            }
           />
         )}
       </ContextMenuContent>

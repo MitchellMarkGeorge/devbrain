@@ -103,8 +103,13 @@ export function TaskSubtasksSection({ task, compact = false }: TaskSubtasksSecti
               <KeyScope name="list">
                 <TaskList
                   ref={list}
-                  tasks={subtasks}
-                  subtasks={compact}
+                  // in the sheet's narrow column a subtask shows its title, priority and date:
+                  // its project and link are mostly the parent's
+                  tasks={
+                    compact
+                      ? subtasks.map((row) => ({ ...row, project: null, link: null }))
+                      : subtasks
+                  }
                   selectionBar={false}
                   // the rows' selection strip hangs into the page margin, so the status icons
                   // line up with the column, as Figma's page draws them
