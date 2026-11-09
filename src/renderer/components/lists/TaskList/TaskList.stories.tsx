@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Calendar, CircleAlert, Folder } from 'lucide-react';
 import { DropdownMenuItem, DropdownMenuSeparator } from '../../ui/DropdownMenu';
@@ -9,22 +9,52 @@ import { TaskStatus } from '@common/types';
 import { storyDate } from '../../lib/story-dates';
 import { BUSY_TASK, manyTasks, SAMPLE_SUBTASKS, SAMPLE_TASKS } from '../TaskRow/fixtures';
 import { Text } from '../../layout/Text';
+import { defaultKeymap, KeyboardProvider, KeyScope, useListCommands } from '../../../keyboard';
 import {
-  TaskList,
+  TaskList as TaskListComponent,
   type FlatTaskListProps,
   type TaskListBaseProps,
   type TaskListGroup,
+  type TaskListHandle,
+  type TaskListProps,
 } from './TaskList';
+
+/**
+ * The list as the app mounts it: in a `list` key scope, driven by the default keymap's list
+ * commands (↑/↓, Home/End, X, Esc, S, 1–3, ↵, F, ⌘⌫), which log what the page would do.
+ */
+function TaskList(props: TaskListProps) {
+  const ref = useRef<TaskListHandle>(null);
+  const log = (what: string) => (tasks: { title: string }[]) =>
+    console.info(
+      what,
+      tasks.map((task) => task.title),
+    );
+  useListCommands(ref, {
+    open: (task) => log('open')([task]),
+    setStatus: (tasks, status) => log(`status ${status}`)(tasks),
+    toggleFavorite: log('favorite'),
+    trash: log('trash'),
+  });
+  return (
+    <KeyScope name="list">
+      <TaskListComponent ref={ref} {...props} />
+    </KeyScope>
+  );
+}
 
 const meta = {
   title: 'Lists/TaskList',
-  component: TaskList,
+  component: TaskListComponent as ComponentType<TaskListBaseProps & FlatTaskListProps>,
   args: { tasks: SAMPLE_TASKS },
+  render: (args) => <TaskList {...args} />,
   decorators: [
     (Story) => (
-      <div style={{ maxWidth: 900 }}>
-        <Story />
-      </div>
+      <KeyboardProvider keymap={defaultKeymap}>
+        <div style={{ maxWidth: 900 }}>
+          <Story />
+        </div>
+      </KeyboardProvider>
     ),
   ],
   // the stories' controls are a flat list's; the grouped stories render their own
@@ -187,8 +217,8 @@ function Page({ header, children }: { header: ReactNode; children: ReactNode }) 
 /**
  * 1,000 tasks, loaded 100 at a time as `onEndReached` fires near the last loaded rows (as
  * `fetchNextPage` will): only the rows in view are in the DOM. `aria-rowcount` is the 1,000 a
- * count gives; each drawn row has its `aria-rowindex`. ↓ and End scroll the focused row into
- * view before focusing it. The list scrolls on its own under the page's header.
+ * count gives; each drawn row has its `aria-rowindex`. ↓ and End (the keymap's list commands)
+ * scroll the focused row into view before focusing it. The list scrolls on its own under the page's header.
  */
 export const ThousandRows: Story = {
   name: '1,000 rows',

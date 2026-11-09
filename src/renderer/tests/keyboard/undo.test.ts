@@ -51,6 +51,18 @@ describe('UndoStack', () => {
     expect(restored).toBe(true);
     expect(listener).toHaveBeenCalledTimes(2);
   });
+
+  it('takes back one entry wherever it is (a toast’s Undo), once', async () => {
+    const stack = new UndoStack();
+    const undone: string[] = [];
+    const a = { label: 'a', undo: () => void undone.push('a') };
+    stack.push(a);
+    stack.push({ label: 'b', undo: () => void undone.push('b') });
+    expect((await stack.take(a))?.label).toBe('a');
+    expect(await stack.take(a)).toBeUndefined();
+    expect(undone).toEqual(['a']);
+    expect(stack.list().map((e) => e.label)).toEqual(['b']);
+  });
 });
 
 describe('isUndoable', () => {

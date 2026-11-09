@@ -13,6 +13,16 @@ import { DemoSidebar } from '../../screens/Shell/AppFrame';
 import { TaskList } from '../../lists/TaskList';
 import { manyTasks } from '../../lists/TaskRow/fixtures';
 import { WorkspaceShell } from './WorkspaceShell';
+import { defaultKeymap, KeyboardProvider, useCommands } from '../../../keyboard';
+
+// ⌘\, as the app binds it: the keymap's sidebar.toggle runs the shell's toggle
+function SidebarKey() {
+  const { toggleSidebar } = useWorkspaceShell();
+  useCommands([
+    { id: 'sidebar.toggle', title: 'Toggle sidebar', scope: 'global', run: toggleSidebar },
+  ]);
+  return null;
+}
 
 const meta = {
   title: 'Shell/WorkspaceShell',
@@ -31,23 +41,26 @@ function Frame({
 }: { width: number; height: number } & Partial<React.ComponentProps<typeof WorkspaceShell>>) {
   return (
     <div style={{ width, height }}>
-      <WorkspaceShell
-        sidebar={<DemoSidebar active="Tasks" />}
-        header={
-          <PageHeader actions={<PageFavoriteButton favorite={false} />}>
-            <Breadcrumb items={['Tasks', { label: 'List', icon: List }]} />
-          </PageHeader>
-        }
-        {...props}
-      >
-        <PageToolbar start={<Text tone="muted">Toolbar</Text>} />
-        <PageContent>
-          <Text tone="subtle">
-            Page content. Press ⌘\ to show or hide the sidebar; while it’s hidden, point at the
-            toggle or the window’s left edge to peek at it.
-          </Text>
-        </PageContent>
-      </WorkspaceShell>
+      <KeyboardProvider keymap={defaultKeymap}>
+        <WorkspaceShell
+          sidebar={<DemoSidebar active="Tasks" />}
+          header={
+            <PageHeader actions={<PageFavoriteButton favorite={false} />}>
+              <Breadcrumb items={['Tasks', { label: 'List', icon: List }]} />
+            </PageHeader>
+          }
+          {...props}
+        >
+          <SidebarKey />
+          <PageToolbar start={<Text tone="muted">Toolbar</Text>} />
+          <PageContent>
+            <Text tone="subtle">
+              Page content. Press ⌘\ to show or hide the sidebar; while it’s hidden, point at the
+              toggle or the window’s left edge to peek at it.
+            </Text>
+          </PageContent>
+        </WorkspaceShell>
+      </KeyboardProvider>
     </div>
   );
 }

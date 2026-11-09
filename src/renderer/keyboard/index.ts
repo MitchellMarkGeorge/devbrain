@@ -30,6 +30,12 @@ export {
   useUndoStack,
   type KeyboardProviderProps,
 } from './KeyboardProvider';
+export {
+  listCommands,
+  useListCommands,
+  type ListCommandActions,
+  type ListKeyTarget,
+} from './list-commands';
 export { DEFAULT_MODE, type Keymap, type KeymapEntry } from './keymap';
 export { describeKeys, keyLabels, parseKeys, strokeFromEvent, type Stroke } from './keys';
 export { KeyScope, type KeyScopeProps } from './KeyScope';

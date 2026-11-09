@@ -2,8 +2,8 @@
 
 Commands, scopes, keymaps and one dispatcher, so the app's keys are data and a Vim mode is a second
 keymap rather than a rewrite. The plan is in `docs/renderer/implementation-plan.md` ("Keyboard:
-commands, keymaps and Vim mode"). Not mounted in the app yet; `Keyboard/KeyboardLayer` in Storybook
-mounts it with a demo keymap.
+commands, keymaps and Vim mode"). Mounted in the app as "Mounting it" says; `Keyboard/KeyboardLayer`
+in Storybook mounts it with a demo keymap.
 
 | File                   | What it holds                                                                      |
 | ---------------------- | ---------------------------------------------------------------------------------- |
@@ -16,11 +16,16 @@ mounts it with a demo keymap.
 | `KeyboardProvider.tsx` | the provider and hooks: `useCommands`, `useKeyboardState`, `useUndoStack`, …       |
 | `KeyScope.tsx`         | `<KeyScope name>`: makes a subtree a scope while focus is inside it                |
 | `default-keymap.ts`    | the keymap DevBrain ships with, and `createAppCommands(actions)`                   |
+| `list-commands.ts`     | `useListCommands(ref, actions)`: the list keys' commands, over a list's ref        |
 | `shortcuts.ts`         | the shortcuts dialog's sections, from the active keymap                            |
 | `ShortcutsDialog.tsx`  | the shortcuts dialog (Figma `7426:43880`)                                          |
 | `hints.ts`             | `useHintTarget(ref, action)`: a no-op until Vim's `f` hints                        |
 
 ## Mounting it
+
+As built: the provider is in the root layout (`pages/root/Root.tsx`), which clears the undo stack
+as a switch of workspace starts; the app-wide commands are `pages/app/AppCommands.tsx`, inside the
+workspace layout's `WorkspaceShell` (whose toggle ⌘\ runs; the shell binds no keys itself).
 
 The provider goes in the root layout, around `ModalProvider`, as dialogs shown with `useModals`
 render there and the shortcuts dialog reads the keyboard's context:
@@ -52,8 +57,28 @@ useCommands([{ id: 'list.down', title: 'Down', scope: 'list', run: (ctx, { count
 return <KeyScope name="list" render={<div className={styles.list} />}>…</KeyScope>;
 ```
 
+A list registers the list keys with `useListCommands(ref, actions)`, inside `<KeyScope name="list">`:
+the list component exposes what the keys do through its ref (`TaskList`'s `TaskListHandle`: move
+focus, select, open the status menu) and binds none itself, and the page gives what the rows do
+(`open`, `setStatus`, `toggleFavorite`, `trash`). An action left out registers no command.
+
+```tsx
+const list = useRef<TaskListHandle>(null);
+useListCommands(list, { open: (task) => openEntity(task), trash: (tasks) => moveToTrash(tasks) });
+return (
+  <KeyScope name="list">
+    <TaskList ref={list} tasks={tasks} />
+  </KeyScope>
+);
+```
+
+A dialog the app shows is a modal scope: put `<KeyScope name="dialog">` inside its popup, so no
+key outside it fires while it is open (`useConfirm` passes one as `ConfirmDialog`'s child).
+
 A command that can be taken back returns an `Undoable` (`{ label, undo }`), which goes on the undo
-stack; `app.undo` (registered by the provider) and the toast's Undo button pop it.
+stack; `app.undo` (⌘Z, registered by the provider) pops it, and a toast's Undo takes back its own
+entry (`undoStack.take(entry)`). `useMoveToTrash` (`pages/app`) pushes one and shows the "Moved to
+trash · Undo" toast.
 
 ## How a key is handled
 

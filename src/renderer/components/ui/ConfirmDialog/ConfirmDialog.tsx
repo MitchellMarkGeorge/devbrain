@@ -42,6 +42,8 @@ export interface ConfirmDialogProps {
   open?: boolean;
   defaultOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** once the opening or closing animation has finished (`useModals` removes the dialog then) */
+  onOpenChangeComplete?: (open: boolean) => void;
 }
 
 /**
@@ -63,6 +65,7 @@ export function ConfirmDialog({
   open,
   defaultOpen,
   onOpenChange,
+  onOpenChangeComplete,
 }: ConfirmDialogProps) {
   const [typed, setTyped] = useState('');
   const mismatch = confirmText != null && typed !== confirmText;
@@ -74,6 +77,7 @@ export function ConfirmDialog({
         if (!next) setTyped('');
         onOpenChange?.(next);
       }}
+      onOpenChangeComplete={onOpenChangeComplete}
     >
       {trigger && <AlertDialogTrigger render={trigger} />}
       <AlertDialogContent>

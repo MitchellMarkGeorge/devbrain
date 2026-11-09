@@ -1,12 +1,13 @@
 import {
+  forwardRef,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
-  type ComponentProps,
+  type ComponentPropsWithoutRef,
   type FocusEvent,
-  type KeyboardEvent,
   type ReactNode,
 } from 'react';
 import { defaultRangeExtractor, type Range } from '@tanstack/react-virtual';
@@ -47,7 +48,10 @@ export interface GroupedTaskListProps {
 }
 
 /** What a flat and a grouped list both take. */
-export interface TaskListBaseProps extends Omit<ComponentProps<'div'>, 'children' | 'onSelect'> {
+export interface TaskListBaseProps extends Omit<
+  ComponentPropsWithoutRef<'div'>,
+  'children' | 'onSelect'
+> {
   /**
    * how many rows the list has in all, loaded or not (`aria-rowcount`), when a count says so;
    * the loaded rows by default
@@ -67,7 +71,7 @@ export interface TaskListBaseProps extends Omit<ComponentProps<'div'>, 'children
   onFocusedIdChange?: (id: string) => void;
   /** static hover or focus states by task index, for pictures of the list */
   states?: Record<number, 'hover' | 'focus'>;
-  /** the task index whose status menu is open at first */
+  /** the task index whose status menu is open at first (the list keeps which row's menu is open) */
   menuOpenAt?: number;
   /**
    * every row shows its checkbox, as while something is selected; for a grouped list, where a
@@ -91,6 +95,28 @@ export interface TaskListBaseProps extends Omit<ComponentProps<'div'>, 'children
 
 /** `tasks` for a flat list or `groups` for a grouped one: one of the two, never both. */
 export type TaskListProps = TaskListBaseProps & (FlatTaskListProps | GroupedTaskListProps);
+
+/**
+ * What the list can do, for the app's keyboard commands (`ref`): the list binds no keys itself, so
+ * a keymap (the default's ↑/↓, `X`, `S`; later Vim's `j`/`k`, `v`) drives it through these.
+ */
+export interface TaskListHandle {
+  /** the focused row's task: the row with keyboard focus, or the one focus returns to */
+  focusedItem(): TaskRowData | undefined;
+  /** the selected tasks among the loaded rows, in list order */
+  selectedItems(): TaskRowData[];
+  /** moves focus by `by` rows (negative for up), stopping at the ends; scrolls the row into view */
+  moveFocus(by: number): void;
+  /** focuses the first or last loaded row */
+  focusFirst(): void;
+  focusLast(): void;
+  /** toggles the focused row's selection */
+  toggleSelected(): void;
+  /** selects nothing */
+  clearSelection(): void;
+  /** opens the focused row's status menu */
+  openStatusMenu(): void;
+}
 
 // One row of the flat list, with an `id` unique in the list: a task's own id, or its group's id
 // for a heading (`group:…`) and a footer (`footer:…`)
@@ -127,37 +153,39 @@ function entriesOf(tasks: TaskRowData[] | undefined, groups: TaskListGroup[] | u
  * no height to fill it grows to its rows and draws them all, which suits a short list. Rows
  * selected next to each other join into one block, every row shows its checkbox while anything is
  * selected, and the `SelectionBar` floats over the bottom of the list. Focus and selection are kept as task ids, so they survive a row scrolling out of view.
- * ↑/↓ move between rows (scrolling a row into view before focusing it; one tab stop for the
- * list), Home/End jump to the first or last loaded row, `X` selects, `S` opens the status menu,
- * Enter opens the task. With `groups`, headings and rows share the one list and the current
+ * It binds no keys: the app's keymap moves focus, selects and opens the status menu through its
+ * `ref` (`TaskListHandle`), so the list is one tab stop and a row scrolled away is brought into
+ * view before it takes focus. With `groups`, headings and rows share the one list and the current
  * group's heading sticks to the top.
  */
-export function TaskList({
-  tasks,
-  groups,
-  rowCount,
-  onEndReached,
-  endReachedThreshold,
-  selected: selectedProp,
-  defaultSelected = [],
-  onSelectedChange,
-  focusedId: focusedIdProp,
-  onFocusedIdChange,
-  states,
-  menuOpenAt,
-  selecting,
-  subtasks,
-  stack,
-  selectionBar = true,
-  floatingBar = true,
-  selectionMenu,
-  onStatusChange,
-  onOpen,
-  className,
-  onKeyDown,
-  onFocus,
-  ...props
-}: TaskListProps) {
+export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskList(
+  {
+    tasks,
+    groups,
+    rowCount,
+    onEndReached,
+    endReachedThreshold,
+    selected: selectedProp,
+    defaultSelected = [],
+    onSelectedChange,
+    focusedId: focusedIdProp,
+    onFocusedIdChange,
+    states,
+    menuOpenAt,
+    selecting,
+    subtasks,
+    stack,
+    selectionBar = true,
+    floatingBar = true,
+    selectionMenu,
+    onStatusChange,
+    onOpen,
+    className,
+    onFocus,
+    ...props
+  },
+  ref,
+) {
   const entries = useMemo(() => entriesOf(tasks, groups), [tasks, groups]);
   const taskEntries = useMemo(
     () => entries.flatMap((entry, i) => (entry.kind === 'task' ? [i] : [])),
@@ -182,6 +210,12 @@ export function TaskList({
   const focusedId = indexOfId(wanted) >= 0 ? wanted : firstId;
 
   const listRef = useRef<HTMLDivElement>(null);
+  // the row whose status menu is open, by task id
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(() => {
+    if (menuOpenAt == null) return null;
+    const entry = entries[taskEntries[menuOpenAt]];
+    return entry?.kind === 'task' ? entry.id : null;
+  });
 
   // Every heading sticks to the top as it reaches it, the next one covering it. The heading of the
   // group at the top of the view stays drawn, ahead of the drawn rows, so it stays stuck even
@@ -266,28 +300,37 @@ export function TaskList({
     setSelected(next);
   }
 
-  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    onKeyDown?.(event);
-    if (event.defaultPrevented) return;
-    const row = (event.target as Element).closest<HTMLElement>('[data-task-id]');
-    if (!row || row !== event.target) return;
-    const current = taskEntries.indexOf(indexOfId(row.dataset.taskId));
-    if (current < 0) return;
-    const last = taskEntries.length - 1;
-    const target =
-      event.key === 'ArrowDown'
-        ? Math.min(last, current + 1)
-        : event.key === 'ArrowUp'
-          ? Math.max(0, current - 1)
-          : event.key === 'Home'
-            ? 0
-            : event.key === 'End'
-              ? last
-              : null;
-    if (target == null) return;
-    event.preventDefault();
-    focusTask(entries[taskEntries[target]].id);
-  }
+  const taskAt = (index: number) => {
+    const entry = entries[index];
+    return entry?.kind === 'task' ? entry.task : undefined;
+  };
+
+  useImperativeHandle(ref, () => {
+    const focusedPosition = () => taskEntries.indexOf(indexOfId(focusedId));
+    const focusAt = (position: number) => {
+      if (taskEntries.length === 0) return;
+      const clamped = Math.max(0, Math.min(taskEntries.length - 1, position));
+      focusTask(entries[taskEntries[clamped]].id);
+    };
+    return {
+      focusedItem: () => (focusedId ? taskAt(indexOfId(focusedId)) : undefined),
+      selectedItems: () =>
+        taskEntries.flatMap((index) => {
+          const task = taskAt(index);
+          return task && selected.has(idOf(task)) ? [task] : [];
+        }),
+      moveFocus: (by) => focusAt(Math.max(0, focusedPosition()) + by),
+      focusFirst: () => focusAt(0),
+      focusLast: () => focusAt(taskEntries.length - 1),
+      toggleSelected: () => {
+        if (focusedId) toggle(focusedId);
+      },
+      clearSelection: () => setSelected(new Set()),
+      openStatusMenu: () => {
+        if (focusedId) setMenuOpenId(focusedId);
+      },
+    };
+  });
 
   // tabbing into the list while its focused row is scrolled away brings that row back
   function handleFocus(event: FocusEvent<HTMLDivElement>) {
@@ -311,7 +354,6 @@ export function TaskList({
       aria-rowcount={rowCount ?? entries.length}
       tabIndex={focusedDrawn || !focusedId ? undefined : 0}
       className={cn(styles.list, className)}
-      onKeyDown={handleKeyDown}
       onFocus={handleFocus}
       {...props}
     >
@@ -368,7 +410,8 @@ export function TaskList({
               joinPrev={on && isSelectedAt(item.index - 1)}
               joinNext={on && isSelectedAt(item.index + 1)}
               state={states?.[taskIndex]}
-              defaultMenuOpen={menuOpenAt === taskIndex}
+              menuOpen={menuOpenId === id}
+              onMenuOpenChange={(open) => setMenuOpenId(open ? id : null)}
               subtask={subtasks}
               stack={stack}
               onSelect={() => toggle(id)}
@@ -389,4 +432,4 @@ export function TaskList({
       )}
     </div>
   );
-}
+});

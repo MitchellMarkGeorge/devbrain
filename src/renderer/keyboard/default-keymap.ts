@@ -50,12 +50,48 @@ export function createAppCommands(actions: AppCommandActions): Command[] {
 }
 
 const EVERYWHERE = 'Everywhere';
+const LISTS = 'Lists';
+
+// the list keys (list-commands.ts), in the `list` scope; labelled, so the shortcuts dialog lists
+// them all from any page, not only while a list is mounted
+const listEntries: Keymap['entries'] = [
+  { scope: 'list', keys: 'arrowdown', command: 'list.down', group: LISTS, label: 'Down / up' },
+  { scope: 'list', keys: 'arrowup', command: 'list.up', group: LISTS, label: 'Down / up' },
+  { scope: 'list', keys: 'home', command: 'list.first', group: LISTS, label: 'First / last' },
+  { scope: 'list', keys: 'end', command: 'list.last', group: LISTS, label: 'First / last' },
+  { scope: 'list', keys: 'enter', command: 'row.open', group: LISTS, label: 'Open' },
+  { scope: 'list', keys: 'x', command: 'list.toggleSelect', group: LISTS, label: 'Select' },
+  {
+    scope: 'list',
+    keys: 'escape',
+    command: 'list.clearSelection',
+    group: LISTS,
+    label: 'Clear selection',
+  },
+  { scope: 'list', keys: 's', command: 'row.openStatusMenu', group: LISTS, label: 'Change status' },
+  ...[1, 2, 3].map((status) => ({
+    scope: 'list' as const,
+    keys: String(status),
+    command: 'row.setStatus',
+    args: { status },
+    group: LISTS,
+    label: 'Not started / in progress / completed',
+  })),
+  { scope: 'list', keys: 'f', command: 'row.favorite', group: LISTS, label: 'Favorite' },
+  {
+    scope: 'list',
+    keys: 'mod+backspace',
+    command: 'row.trash',
+    group: LISTS,
+    label: 'Move to trash',
+  },
+];
 
 /** The keymap DevBrain ships with: one implicit mode, no counts. */
 export const defaultKeymap: Keymap = {
   id: 'default',
   title: 'Default',
-  groups: [EVERYWHERE, 'Lists', 'Editor'],
+  groups: [EVERYWHERE, LISTS, 'Editor'],
   entries: [
     {
       scope: 'global',
@@ -80,5 +116,7 @@ export const defaultKeymap: Keymap = {
       allowInEditor: true,
       group: EVERYWHERE,
     },
+    { scope: 'global', keys: 'mod+z', command: 'app.undo', group: EVERYWHERE },
+    ...listEntries,
   ],
 };
