@@ -1,0 +1,25 @@
+/* The list and group views: the TaskList fills the region, and the selection bar floats over its
+   bottom, centred, as Figma 7424:38163 draws it */
+.region {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+.bar {
+  position: absolute;
+  right: 0;
+  bottom: var(--space-4);
+  left: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.bar > * {
+  pointer-events: auto;
+}
+.more {
+  padding: var(--space-2) var(--space-3);
+}

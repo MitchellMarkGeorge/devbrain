@@ -184,8 +184,8 @@ export function dueFilter(
 }
 
 /**
- * The page's filter, as `tasks.list` takes it: top-level tasks only (subtasks show under their
- * parent), and each param mapped to core's field.
+ * The page's filter, as `tasks.list` takes it: each param mapped to core's field, top-level tasks
+ * only (a board column's cards; the list views drop `excludeSubtasks`, `taskListInput`).
  */
 export function taskFilterOf(resolved: ResolvedTasksSearch, today: Date): TaskFilter {
   const filter: TaskFilter = { excludeSubtasks: true };
@@ -205,10 +205,20 @@ export function taskSortOf(resolved: ResolvedTasksSearch): TaskSort {
 /** How many tasks a page of `tasks.list` asks for. */
 export const TASKS_PAGE_SIZE = 100;
 
-/** The list view's input: the page's filter and sort, without the cursor. */
-export function taskListInput(resolved: ResolvedTasksSearch, today: Date): TaskListInput {
+/**
+ * The list and group views' input: the page's filter and sort, without the cursor. Unlike the
+ * board's columns, they list subtasks too, each in its place in the sort with its parent's pill,
+ * as Figma's list draws them (`7155:5231`).
+ */
+export function taskListInput(
+  resolved: ResolvedTasksSearch,
+  today: Date,
+  extra: TaskFilter = {},
+): TaskListInput {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { excludeSubtasks, ...filter } = taskFilterOf(resolved, today);
   return {
-    filter: taskFilterOf(resolved, today),
+    filter: { ...filter, ...extra },
     sort: taskSortOf(resolved),
     limit: TASKS_PAGE_SIZE,
   };

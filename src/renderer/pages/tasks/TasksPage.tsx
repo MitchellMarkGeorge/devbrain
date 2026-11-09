@@ -35,7 +35,11 @@ export function TasksPage() {
         {resolved.view === 'board' ? (
           <TasksBoard resolved={resolved} onOpen={(open) => setSearch({ open }, { push: true })} />
         ) : resolved.view === 'group' ? (
-          <TasksGroups resolved={resolved} />
+          <TasksGroups
+            resolved={resolved}
+            search={search}
+            onClearFilters={() => setSearch(CLEAR_FILTERS)}
+          />
         ) : (
           <TasksList
             resolved={resolved}
