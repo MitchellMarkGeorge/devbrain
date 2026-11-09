@@ -7,36 +7,3 @@
 .grid[data-gap='md'] {
   gap: var(--space-4);
 }
-
-/*
- * Virtualized: its own scroller, filling the height its container gives it. A scroller clips what
- * reaches past its edge, which would cut off the 3px focus ring of a card at the grid's edge: the
- * 3px padding keeps the ring inside, and the -3px margin takes that padding back out, so the
- * cards still line up with the page's padding.
- */
-.scroller {
-  flex: 1 1 auto;
-  min-height: 0;
-  margin: -3px;
-  padding: 3px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  overflow-anchor: none;
-}
-
-/*
- * The whole grid's height, so the scrollbar is the whole grid's. Only the rows of cards in view
- * are drawn, in normal flow, after a padding of the space the rows above them would take; each
- * row is a grid of its cards with the gap below it, which is what the grid measures.
- */
-.rows {
-  box-sizing: border-box;
-  width: 100%;
-}
-.row {
-  row-gap: 0;
-}
-.cell {
-  display: grid;
-  min-width: 0;
-}
