@@ -1,10 +1,10 @@
 import type { Task } from '@common/types';
-import { RichTextEditor } from '../../editor/RichTextEditor';
-import { useWorkspaceEditorHost } from '../../editor/use-workspace-host';
-import { ipc } from '../../ipc';
-import { useMutationErrorToast } from '../app/mutation-errors';
-import { useOpenEntity } from '../app/use-open-entity';
-import { isSynced } from './queries';
+import { RichTextEditor } from '../../../editor/RichTextEditor';
+import { useWorkspaceEditorHost } from '../../../editor/use-workspace-host';
+import { ipc } from '../../../ipc';
+import { useMutationErrorToast } from '../../app/mutation-errors';
+import { useOpenEntity } from '../../app/use-open-entity';
+import { isSynced } from '../queries';
 import { useAutosave } from './TaskPageAutosave';
 
 /**

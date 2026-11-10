@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TaskId } from '@common/ids';
 import { TaskStatus, type TaskListItem } from '@common/types';
-import { placeCards } from '../../pages/tasks/board-drag';
+import { placeCards } from '../../pages/tasks/views/board/board-drag';
 
 const task = (id: string, status: TaskStatus) =>
   ({ id: id as TaskId, title: id, status }) as TaskListItem;

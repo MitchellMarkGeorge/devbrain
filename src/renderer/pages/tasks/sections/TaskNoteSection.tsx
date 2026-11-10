@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { NoteId } from '@common/ids';
 import { TaskStatus, type Task } from '@common/types';
-import { AddSlot, DetailSection, resolveColor, TaskNoteCard, useFormat } from '../../components';
-import { ipc, trpc } from '../../ipc';
-import { useMutationErrorToast } from '../app/mutation-errors';
-import { useOpenEntity } from '../app/use-open-entity';
+import { AddSlot, DetailSection, resolveColor, TaskNoteCard, useFormat } from '../../../components';
+import { ipc, trpc } from '../../../ipc';
+import { useMutationErrorToast } from '../../app/mutation-errors';
+import { useOpenEntity } from '../../app/use-open-entity';
 
 export interface TaskNoteSectionProps {
   /** the task, as `tasks.get` returns it */

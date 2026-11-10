@@ -25,12 +25,12 @@ import {
   IconButton,
   toast,
   useFormat,
-} from '../../components';
-import { ipc, trpc } from '../../ipc';
-import { KeyScope } from '../../keyboard';
-import type { ModalProps } from '../../modals';
-import { useMutationErrorToast } from '../app/mutation-errors';
-import { DatePill, PriorityPill, ProjectPill, StatusPill } from './pickers';
+} from '../../../components';
+import { ipc, trpc } from '../../../ipc';
+import { KeyScope } from '../../../keyboard';
+import type { ModalProps } from '../../../modals';
+import { useMutationErrorToast } from '../../app/mutation-errors';
+import { DatePill, PriorityPill, ProjectPill, StatusPill } from '../menus/pickers';
 
 /** Where the dialog was opened from, filling in its properties. */
 export interface CreateTaskDefaults {

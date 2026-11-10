@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TaskId } from '@common/ids';
 import type { TaskListItem } from '@common/types';
-import { arrangeSubtasks } from '../../pages/tasks/arrange';
+import { arrangeSubtasks } from '../../pages/tasks/views/list/arrange';
 
 const task = (id: string, parent: string | null = null) =>
   ({ id: id as TaskId, title: id, parentTaskId: parent as TaskId | null }) as TaskListItem;

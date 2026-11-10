@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { TasksPage } from '../../../../pages/tasks/TasksPage';
+import { TasksPage } from '../../../../pages/tasks/views/TasksPage';
 import { loadTasks, tasksLoaderDeps } from '../../../../pages/tasks/loaders';
 import { tasksSearchSchema } from '../../../../pages/tasks/search';
 

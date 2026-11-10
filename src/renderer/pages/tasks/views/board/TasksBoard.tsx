@@ -9,9 +9,9 @@ import {
   ContextMenuContent,
   ContextMenuTrigger,
   useFormat,
-} from '../../components';
-import { KeyScope } from '../../keyboard';
-import { useOpenEntity } from '../app/use-open-entity';
+} from '../../../../components';
+import { KeyScope } from '../../../../keyboard';
+import { useOpenEntity } from '../../../app/use-open-entity';
 import {
   boardAnnouncements,
   boardCollisions,
@@ -23,7 +23,7 @@ import {
   placeCards,
   useBoardSensors,
 } from './board-drag';
-import { prefetchTaskSheet, taskListQuery } from './queries';
+import { prefetchTaskSheet, taskListQuery } from '../../queries';
 import {
   CLEAR_FILTERS,
   hasFilters,
@@ -34,12 +34,12 @@ import {
   type ResolvedTasksSearch,
   type TaskFilter,
   type TaskSort,
-} from './search';
-import { TaskMenuItems } from './TaskMenus';
-import { TasksEmptyState, TasksErrorState, TasksLoading } from './TasksStates';
-import { useCreateTask } from './use-create-task';
-import { useTaskActions } from './use-task-actions';
-import { useTasksSearch } from './use-tasks-search';
+} from '../../search';
+import { TaskMenuItems } from '../../menus/TaskMenus';
+import { TasksEmptyState, TasksErrorState, TasksLoading } from '../TasksStates';
+import { useCreateTask } from '../../create/use-create-task';
+import { useTaskActions } from '../../use-task-actions';
+import { useTasksSearch } from '../../use-tasks-search';
 import styles from './TasksBoard.module.css';
 
 export interface TasksBoardProps {

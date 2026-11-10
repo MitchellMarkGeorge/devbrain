@@ -1,14 +1,14 @@
 import type { TaskId } from '@common/ids';
-import { Breadcrumb, PageContent, PageToolbar } from '../../components';
-import { PageHeaderSlot } from '../app/page-header';
-import { TasksBoard } from './TasksBoard';
-import { TasksGroups } from './TasksGroups';
-import { TasksList } from './TasksList';
-import { TaskSheet } from './TaskSheet';
-import { CLEAR_FILTERS } from './search';
+import { Breadcrumb, PageContent, PageToolbar } from '../../../components';
+import { PageHeaderSlot } from '../../app/page-header';
+import { TasksBoard } from './board/TasksBoard';
+import { TasksGroups } from './group/TasksGroups';
+import { TasksList } from './list/TasksList';
+import { TaskSheet } from '../sheet/TaskSheet';
+import { CLEAR_FILTERS } from '../search';
 import { TasksToolbarEnd, TasksToolbarStart, VIEW_ICONS, VIEW_LABELS } from './TasksToolbar';
-import { useTasksSearch } from './use-tasks-search';
-import { tasksRoute } from './route-api';
+import { useTasksSearch } from '../use-tasks-search';
+import { tasksRoute } from '../route-api';
 
 /**
  * The tasks page (`/app/$workspaceId/tasks`, Figma `7155:5231`, `7158:9538`, `7158:14338`): the

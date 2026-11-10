@@ -1278,6 +1278,11 @@ page that needs them.
 4. **Tasks (done).** List view with filters/sort in search params, row menu, selection bar; group view;
    board with the task sheet; create task and subtask dialogs; task page. _Main:_ T5, T6 (then T2,
    C1–C3 as they land). As built (`src/renderer/pages/tasks`):
+   - Layout: the shared data and actions at the folder's root (`queries.ts`, `search.ts`,
+     `loaders.ts`, `use-task-actions.ts`, `use-tasks-search.ts`); `views/` the Tasks page with
+     `list/`, `group/` and `board/`; `sheet/` the board's task sheet; `detail/` the task page;
+     `sections/` the description, subtasks and task note both of those show; `create/` the
+     Create task dialog; `menus/` the row menu and the property pickers.
    - Search params are snake case (`group_by`, `due_date`, `not_started`), resolved against
      `settings.tasks.*` at render (`search.ts`). `due=none` needed a core filter, `noDueDate`.
    - The list and group views list subtasks too: each is placed under its parent when the parent is

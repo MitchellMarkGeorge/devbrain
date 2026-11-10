@@ -21,7 +21,7 @@ import {
   StatusMenu,
   TASK_STATUS_LABELS,
   useFormat,
-} from '../../components';
+} from '../../../components';
 import { useProjectOptions } from './use-project-options';
 
 // A task's properties as pills that open their pickers (Figma 7175:28012, 7175:28582): the create

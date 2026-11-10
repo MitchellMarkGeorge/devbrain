@@ -9,22 +9,22 @@ import {
   PageFavoriteButton,
   Stack,
   StatusIcon,
-} from '../../components';
-import { ipc, trpc } from '../../ipc';
-import { NotFoundPage } from '../app/NotFoundPage';
-import { useMutationErrorToast } from '../app/mutation-errors';
-import { PageHeaderSlot, useCrumbLink } from '../app/page-header';
-import { useHistoryPosition } from '../app/use-history-position';
-import { useRecordView } from '../app/use-record-view';
-import { ipcErrorCode } from '../../workspace/errors';
-import { isSynced } from './queries';
-import { taskRoute } from './route-api';
+} from '../../../components';
+import { ipc, trpc } from '../../../ipc';
+import { NotFoundPage } from '../../app/NotFoundPage';
+import { useMutationErrorToast } from '../../app/mutation-errors';
+import { PageHeaderSlot, useCrumbLink } from '../../app/page-header';
+import { useHistoryPosition } from '../../app/use-history-position';
+import { useRecordView } from '../../app/use-record-view';
+import { ipcErrorCode } from '../../../workspace/errors';
+import { isSynced } from '../queries';
+import { taskRoute } from '../route-api';
 import { TaskDetailMenu } from './TaskDetailMenu';
-import { TaskNoteSection } from './TaskNoteSection';
-import { TaskDescription } from './TaskDescription';
+import { TaskNoteSection } from '../sections/TaskNoteSection';
+import { TaskDescription } from '../sections/TaskDescription';
 import { TaskProperties, type AddingProperty } from './TaskProperties';
-import { TaskSubtasksSection } from './TaskSubtasksSection';
-import { useTaskActions } from './use-task-actions';
+import { TaskSubtasksSection } from '../sections/TaskSubtasksSection';
+import { useTaskActions } from '../use-task-actions';
 
 /**
  * A task's page (`/app/$workspaceId/tasks/$taskId`, Figma `7158:6266` and its variants): the

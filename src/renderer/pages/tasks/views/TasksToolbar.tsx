@@ -40,12 +40,12 @@ import {
   ToggleGroupItem,
   useWorkspaceShell,
   type IconSource,
-} from '../../components';
-import { trpc } from '../../ipc';
-import { ProjectItems } from './TaskMenus';
-import { useCreateTask } from './use-create-task';
-import { useProjectOptions } from './use-project-options';
-import { useTasksSearch } from './use-tasks-search';
+} from '../../../components';
+import { trpc } from '../../../ipc';
+import { ProjectItems } from '../menus/TaskMenus';
+import { useCreateTask } from '../create/use-create-task';
+import { useProjectOptions } from '../menus/use-project-options';
+import { useTasksSearch } from '../use-tasks-search';
 import {
   CLEAR_FILTERS,
   PRIORITY_OF,
@@ -59,7 +59,7 @@ import {
   type StatusFilter,
   type TaskView,
   type TasksSearch,
-} from './search';
+} from '../search';
 
 type SetSearch = (patch: Partial<TasksSearch>) => void;
 

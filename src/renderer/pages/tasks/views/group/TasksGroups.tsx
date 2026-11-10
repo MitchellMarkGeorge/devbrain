@@ -17,15 +17,20 @@ import {
   TaskRowSkeleton,
   useFormat,
   type TaskListGroup,
-} from '../../components';
-import { trpc } from '../../ipc';
+} from '../../../../components';
+import { trpc } from '../../../../ipc';
 import { groupDefs, PRIMED_GROUPS, type TaskGroupDef } from './groups';
-import { taskListQuery } from './queries';
-import { hasFilters, taskListInput, type ResolvedTasksSearch, type TasksSearch } from './search';
-import { TaskListFrame } from './TaskListFrame';
-import { TasksEmptyState, TasksErrorState, TasksLoading } from './TasksStates';
-import { useCreateTask } from './use-create-task';
-import styles from './TasksView.module.css';
+import { taskListQuery } from '../../queries';
+import {
+  hasFilters,
+  taskListInput,
+  type ResolvedTasksSearch,
+  type TasksSearch,
+} from '../../search';
+import { TaskListFrame } from '../TaskListFrame';
+import { TasksEmptyState, TasksErrorState, TasksLoading } from '../TasksStates';
+import { useCreateTask } from '../../create/use-create-task';
+import styles from '../TasksView.module.css';
 
 export interface TasksGroupsProps {
   resolved: ResolvedTasksSearch;

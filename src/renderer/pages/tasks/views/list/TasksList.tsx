@@ -1,10 +1,15 @@
 import { useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { useFormat } from '../../components';
-import { taskListQuery } from './queries';
-import { hasFilters, taskListInput, type ResolvedTasksSearch, type TasksSearch } from './search';
-import { TaskListFrame } from './TaskListFrame';
-import { TasksEmptyState, TasksErrorState, TasksLoading } from './TasksStates';
+import { useFormat } from '../../../../components';
+import { taskListQuery } from '../../queries';
+import {
+  hasFilters,
+  taskListInput,
+  type ResolvedTasksSearch,
+  type TasksSearch,
+} from '../../search';
+import { TaskListFrame } from '../TaskListFrame';
+import { TasksEmptyState, TasksErrorState, TasksLoading } from '../TasksStates';
 
 export interface TasksListProps {
   resolved: ResolvedTasksSearch;

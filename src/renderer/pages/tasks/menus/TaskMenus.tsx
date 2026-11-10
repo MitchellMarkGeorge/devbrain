@@ -27,11 +27,11 @@ import {
   ProjectPickerItems,
   StatusMenuContent,
   useFormat,
-} from '../../components';
-import { useOpenEntity } from '../app/use-open-entity';
+} from '../../../components';
+import { useOpenEntity } from '../../app/use-open-entity';
 import { useProjectOptions } from './use-project-options';
-import { isSynced } from './queries';
-import type { TaskActions } from './use-task-actions';
+import { isSynced } from '../queries';
+import type { TaskActions } from '../use-task-actions';
 
 // The tasks pages' menus (Figma 7175:24999), built from DropdownMenu parts: the row's right-click
 // menu, and the submenus the selection bar shares with it. They work in a DropdownMenu and a

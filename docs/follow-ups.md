@@ -234,9 +234,9 @@ _Found in the tasks pages (PR #136)._
 
 The pickers with a search row narrow the rows they already loaded, by title, in the browser (`DropdownMenuSearch`). Anything outside what they load can never be found:
 
-- **Link to › an event or note** (`TaskLinkPicker` in `src/renderer/pages/tasks/TaskLinkPicker.tsx`): events from the last week and the next four, and the 50 notes edited last.
+- **Link to › an event or note** (`TaskLinkPicker` in `src/renderer/pages/tasks/detail/TaskLinkPicker.tsx`): events from the last week and the next four, and the 50 notes edited last.
 - **Make subtask of ›** (the same file): the first page of open top-level tasks.
-- **Project pickers** (`ProjectPicker`, through `useProjectOptions` in `src/renderer/pages/tasks/use-project-options.ts`): the first 200 projects.
+- **Project pickers** (`ProjectPicker`, through `useProjectOptions` in `src/renderer/pages/tasks/menus/use-project-options.ts`): the first 200 projects.
 
 They should ask `search.search` (`src/main/ipc/routers/search.ts`) instead, once something is typed:
 

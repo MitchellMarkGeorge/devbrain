@@ -20,11 +20,11 @@ import {
   PROVIDER_LABELS,
   providerOf,
   toast,
-} from '../../components';
-import { ipc, trpc } from '../../ipc';
-import { KeyScope } from '../../keyboard';
-import { useModals } from '../../modals';
-import { useMutationErrorToast } from '../app/mutation-errors';
+} from '../../../components';
+import { ipc, trpc } from '../../../ipc';
+import { KeyScope } from '../../../keyboard';
+import { useModals } from '../../../modals';
+import { useMutationErrorToast } from '../../app/mutation-errors';
 import type { AddingProperty } from './TaskProperties';
 
 export interface TaskDetailMenuProps {

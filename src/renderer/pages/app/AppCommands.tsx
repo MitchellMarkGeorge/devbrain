@@ -2,7 +2,7 @@ import { useNavigate, useParams } from '@tanstack/react-router';
 import { useWorkspaceShell } from '../../components';
 import { createAppCommands, ShortcutsDialog, useCommands, type GoToPage } from '../../keyboard';
 import { useModals } from '../../modals';
-import { useCreateTask } from '../tasks/use-create-task';
+import { useCreateTask } from '../tasks/create/use-create-task';
 
 /**
  * The app-wide commands (the default keymap's "Everywhere" keys), registered while a workspace is

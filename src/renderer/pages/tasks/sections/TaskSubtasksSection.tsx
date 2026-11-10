@@ -12,13 +12,13 @@ import {
   TaskList,
   TaskRowSkeleton,
   type TaskListHandle,
-} from '../../components';
-import { KeyScope, useListCommands } from '../../keyboard';
-import { useOpenEntity } from '../app/use-open-entity';
-import { isSynced, subtasksQuery } from './queries';
-import { TaskMenuItems } from './TaskMenus';
-import { useCreateTask } from './use-create-task';
-import { useTaskActions } from './use-task-actions';
+} from '../../../components';
+import { KeyScope, useListCommands } from '../../../keyboard';
+import { useOpenEntity } from '../../app/use-open-entity';
+import { isSynced, subtasksQuery } from '../queries';
+import { TaskMenuItems } from '../menus/TaskMenus';
+import { useCreateTask } from '../create/use-create-task';
+import { useTaskActions } from '../use-task-actions';
 
 export interface TaskSubtasksSectionProps {
   /** the parent task, as `tasks.get` returns it */

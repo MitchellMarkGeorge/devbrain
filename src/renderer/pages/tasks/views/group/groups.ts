@@ -1,15 +1,15 @@
 import type { ProjectId } from '@common/ids';
 import { TaskPriority, TaskStatus, type Project } from '@common/types';
-import { PRIORITY_LABELS, TASK_STATUS_LABELS } from '../../components';
-import type { CreateTaskDefaults } from './CreateTaskDialog';
+import { PRIORITY_LABELS, TASK_STATUS_LABELS } from '../../../../components';
+import type { CreateTaskDefaults } from '../../create/CreateTaskDialog';
 import {
   dueFilter,
   PRIORITY_OF,
   STATUS_OF,
   type ResolvedTasksSearch,
   type TaskFilter,
-} from './search';
-import { DUE_FILTER_LABELS } from './TasksToolbar';
+} from '../../search';
+import { DUE_FILTER_LABELS } from '../TasksToolbar';
 
 // The group view's groups (docs/renderer/implementation-plan.md, "How the infinite lists work" ›
 // The group view): a fixed set for status, priority and due date, the workspace's projects (and

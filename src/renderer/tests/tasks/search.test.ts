@@ -8,8 +8,8 @@ import {
   taskSortOf,
   tasksSearchSchema,
 } from '../../pages/tasks/search';
-import { groupDefs, statusesFor } from '../../pages/tasks/groups';
-import { defaultDueDate } from '../../pages/tasks/CreateTaskDialog';
+import { groupDefs, statusesFor } from '../../pages/tasks/views/group/groups';
+import { defaultDueDate } from '../../pages/tasks/create/CreateTaskDialog';
 
 // The tasks page's search params: parsed per field, every bad value dropped on its own, and
 // missing ones filled from the settings at render.

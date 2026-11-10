@@ -27,19 +27,19 @@ import {
   Text,
   useFormat,
   useWorkspaceShell,
-} from '../../components';
-import { trpc } from '../../ipc';
-import { ipcErrorCode } from '../../workspace/errors';
-import { useDockedSheet } from '../app/docked-sheet';
-import { useMutationErrorToast } from '../app/mutation-errors';
-import { useOpenEntity } from '../app/use-open-entity';
-import { DatePill, PriorityPill, ProjectPill, StatusPill } from './pickers';
-import { isSynced, listedTask } from './queries';
-import { useTaskActions } from './use-task-actions';
+} from '../../../components';
+import { trpc } from '../../../ipc';
+import { ipcErrorCode } from '../../../workspace/errors';
+import { useDockedSheet } from '../../app/docked-sheet';
+import { useMutationErrorToast } from '../../app/mutation-errors';
+import { useOpenEntity } from '../../app/use-open-entity';
+import { DatePill, PriorityPill, ProjectPill, StatusPill } from '../menus/pickers';
+import { isSynced, listedTask } from '../queries';
+import { useTaskActions } from '../use-task-actions';
 import styles from './TaskSheet.module.css';
-import { TaskDescription } from './TaskDescription';
-import { TaskNoteSection } from './TaskNoteSection';
-import { TaskSubtasksSection } from './TaskSubtasksSection';
+import { TaskDescription } from '../sections/TaskDescription';
+import { TaskNoteSection } from '../sections/TaskNoteSection';
+import { TaskSubtasksSection } from '../sections/TaskSubtasksSection';
 
 declare module '@tanstack/history' {
   interface HistoryState {

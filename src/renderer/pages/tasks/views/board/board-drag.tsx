@@ -19,8 +19,8 @@ import {
   TASK_STATUS_LABELS,
   type BoardCardProps,
   type BoardColumnProps,
-} from '../../components';
-import { isSynced } from './queries';
+} from '../../../../components';
+import { isSynced } from '../../queries';
 import styles from './TasksBoard.module.css';
 
 // Dragging a card to another column on the board, with dnd-kit: by pointer, or from the keyboard

@@ -20,8 +20,8 @@ import {
   resolveColor,
   StatusIcon,
   useFormat,
-} from '../../components';
-import { trpc } from '../../ipc';
+} from '../../../components';
+import { trpc } from '../../../ipc';
 
 // The pickers a task page opens from its properties and its "…" menu (Figma `7424:38759`,
 // `7424:39461`): a searchable menu of notes and events to link the task to, and of tasks to make

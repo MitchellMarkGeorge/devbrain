@@ -4,7 +4,7 @@ import type { TaskId } from '@common/ids';
 import { isId } from '@common/ids';
 import type { RouterContext } from '../../router';
 import { ipcErrorCode } from '../../workspace/errors';
-import { groupDefs, PRIMED_GROUPS } from './groups';
+import { groupDefs, PRIMED_GROUPS } from './views/group/groups';
 import { taskListQuery, subtasksQuery } from './queries';
 import { resolveTasksSearch, taskListInput, type TasksSearch } from './search';
 

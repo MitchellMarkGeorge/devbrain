@@ -11,9 +11,9 @@ import {
   PriorityMenuContent,
   SelectionBar,
   StatusMenuContent,
-} from '../../components';
-import { DateItems, ProjectItems } from './TaskMenus';
-import type { TaskActions } from './use-task-actions';
+} from '../../../components';
+import { DateItems, ProjectItems } from '../menus/TaskMenus';
+import type { TaskActions } from '../use-task-actions';
 import styles from './TasksView.module.css';
 
 export interface TasksSelectionBarProps {

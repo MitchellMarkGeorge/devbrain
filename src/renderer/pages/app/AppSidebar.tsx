@@ -22,7 +22,7 @@ import {
   SidebarHeaderActions,
   SidebarItem,
 } from '../../components';
-import { useCreateTask } from '../tasks/use-create-task';
+import { useCreateTask } from '../tasks/create/use-create-task';
 import type { FileRouteTypes } from '../../routeTree.gen';
 import { WorkspaceMenu } from './WorkspaceMenu';
 import { SidebarFavorites, SidebarRecents, SidebarSync } from './SidebarEntities';

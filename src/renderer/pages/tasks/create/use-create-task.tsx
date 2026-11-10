@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import type { TaskSummary } from '@common/types';
-import { useModals } from '../../modals';
-import { useOpenEntity } from '../app/use-open-entity';
+import { useModals } from '../../../modals';
+import { useOpenEntity } from '../../app/use-open-entity';
 import { CreateTaskDialog, type CreateTaskDefaults } from './CreateTaskDialog';
 
 export interface CreateTaskOptions {

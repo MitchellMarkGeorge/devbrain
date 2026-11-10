@@ -36,19 +36,19 @@ import {
   TASK_STATUS_LABELS,
   dueTone,
   useFormat,
-} from '../../components';
-import { ipc, trpc } from '../../ipc';
-import { useMutationErrorToast } from '../app/mutation-errors';
-import { useOpenEntity } from '../app/use-open-entity';
-import { PriorityPill, ProjectPill, StatusPill } from './pickers';
-import { isSynced, listedEvent, listedNote, patchTaskInCaches } from './queries';
+} from '../../../components';
+import { ipc, trpc } from '../../../ipc';
+import { useMutationErrorToast } from '../../app/mutation-errors';
+import { useOpenEntity } from '../../app/use-open-entity';
+import { PriorityPill, ProjectPill, StatusPill } from '../menus/pickers';
+import { isSynced, listedEvent, listedNote, patchTaskInCaches } from '../queries';
 import {
   TaskLinkPicker,
   TaskParentPicker,
   usePickerCandidates,
   type TaskLink,
 } from './TaskLinkPicker';
-import type { TaskActions } from './use-task-actions';
+import type { TaskActions } from '../use-task-actions';
 
 /** A short name for a pull request's URL: "#123" for GitHub's `/pull/123`, else its host and path. */
 export function pullRequestLabel(url: string): string {

@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { TaskPage } from '../../../../pages/tasks/TaskPage';
+import { TaskPage } from '../../../../pages/tasks/detail/TaskPage';
 import { loadTask, parseTaskParams } from '../../../../pages/tasks/loaders';
 
 // A task's page; a missing or deleted task is its not-found.

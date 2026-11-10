@@ -7,13 +7,13 @@ import {
   TaskList,
   type TaskListGroup,
   type TaskListHandle,
-} from '../../components';
-import { KeyScope, useCommands, useListCommands } from '../../keyboard';
-import { arrangeSubtasks, hasPlacedSubtasks } from './arrange';
-import { useOpenEntity } from '../app/use-open-entity';
-import { TaskMenuItems } from './TaskMenus';
+} from '../../../components';
+import { KeyScope, useCommands, useListCommands } from '../../../keyboard';
+import { arrangeSubtasks, hasPlacedSubtasks } from './list/arrange';
+import { useOpenEntity } from '../../app/use-open-entity';
+import { TaskMenuItems } from '../menus/TaskMenus';
 import { TasksSelectionBar } from './TasksSelectionBar';
-import { useTaskActions } from './use-task-actions';
+import { useTaskActions } from '../use-task-actions';
 import styles from './TasksView.module.css';
 
 export interface TaskListFrameProps {
