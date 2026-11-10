@@ -513,6 +513,25 @@ describe('SearchService — status and colour', () => {
     expect(results.find(({ entityId }) => entityId === local.id)?.external).toBeNull();
   });
 
+  it('keeps the best-first order across types, and the limit', () => {
+    const inBody = taskService.createTask({
+      title: 'Body match',
+      description: 'about the widget',
+      dueDate: TOMORROW,
+    });
+    const inTitle = projectService.createProject({ title: 'Widget', dueDate: TOMORROW });
+    searchService.indexTask(inBody);
+    searchService.indexProject(inTitle);
+
+    // the title weighs ten times the body (bm25 in search)
+    expect(
+      searchService.search({ query: 'widget', entityType: [] }).map(({ entityId }) => entityId),
+    ).toEqual([inTitle.id, inBody.id]);
+    expect(searchService.search({ query: 'widget', entityType: [], limit: 1 })).toMatchObject([
+      { entityId: inTitle.id, color: null },
+    ]);
+  });
+
   it('looks up many matches of each type', () => {
     const created = Array.from({ length: 600 }, (_, i) =>
       taskService.createTask({ title: `Widget ${i}`, dueDate: TOMORROW }),

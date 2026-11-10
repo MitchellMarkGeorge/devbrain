@@ -1,4 +1,4 @@
-import type { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
+import type { NoteId } from '@common/ids';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import path from 'node:path';
 import { stripMarkdown } from '../shared/markdown';
@@ -6,26 +6,25 @@ import { errorClass } from '../shared/logger';
 import { readNoteFile } from '../local/notes';
 import {
   type Event,
-  type ExternalRef,
   LinkState,
   type Note,
   type Project,
+  type SearchEntityType,
   type SearchResult,
   type Task,
-  type TaskStatus,
 } from '@common/types';
 import type { IndexEntity, RebuildResult, SearchOptions } from './types';
 import { HIGHLIGHT_END, HIGHLIGHT_START, highlightToHtml, toFtsQuery } from './utils';
-import { and, eq, inArray, isNull, not, sql, SQL } from 'drizzle-orm';
+import { and, eq, inArray, isNull, not, or, sql, SQL } from 'drizzle-orm';
+import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
 import { notes } from '@main/db/schema/notes';
 import { events } from '@main/db/schema/events';
 import { calendars } from '@main/db/schema/calendars';
-import { getRefs, hasLinkInState } from '../integrations/refs';
-
-// ids per lookup of the matches' statuses and colours, well under SQLite's limit on variables
-const LOOKUP_CHUNK = 500;
+import { hasLinkInState, refColumns, toExternalRef } from '../integrations/refs';
+import { externalLinks } from '@main/db/schema/integrations';
+import { searchIndex } from './search-index';
 
 // rows per INSERT when writing many entries at once: four bound values each, well under SQLite's
 // limit on variables in one statement
@@ -56,97 +55,83 @@ export class SearchService {
   /**
    * The entries matching `query`, best first. `title` and `body` are HTML: the indexed text
    * escaped, with each match in <b>…</b> and nothing else (see highlightToHtml). Titles and bodies
-   * hold user and provider text, so they are never handed out with unescaped markup. A task's
-   * `status`, a project's or event's `color`, and the `external` ref of each of those three are
-   * read after the FTS query, in batched lookups per type.
+   * hold user and provider text, so they are never handed out with unescaped markup.
+   *
+   * Each match also carries what its glyph needs: a task's `status`, a project's or event's
+   * `color` (an event's own, else its calendar's), and the `external` ref of a task, project or
+   * event, read in the same query: one lookup by primary key or unique column per match and
+   * table, after the matches are ranked and cut. An entry whose row is gone gets none of them.
    */
   search({ query, entityType, limit }: SearchOptions): SearchResult[] {
     const ftsQuery = toFtsQuery(query);
-
     if (!ftsQuery) return [];
 
-    const searchQuery = sql`
-      SELECT
-        highlight(search_index, 0, ${HIGHLIGHT_START}, ${HIGHLIGHT_END}) AS title,
-        snippet(search_index, 1, ${HIGHLIGHT_START}, ${HIGHLIGHT_END}, '…', 15) as body,
-        entity_id as entityId,
-        entity_type as entityType,
-        bm25(search_index, 10.0, 1.0) AS rank
-      FROM search_index
-      WHERE search_index MATCH ${ftsQuery}
-    `;
+    // 1. The best matches, highlighted: ranked and cut to `limit` before anything is joined, so
+    //    FTS5 builds titles and snippets only for the matches returned. The computed columns are
+    //    named match_* because Drizzle refers to a CTE's computed columns unqualified, and the
+    //    joined tables have a `title` too.
+    const title = sql<string>`highlight(${searchIndex}, 0, ${HIGHLIGHT_START}, ${HIGHLIGHT_END})`;
+    const body = sql<string>`snippet(${searchIndex}, 1, ${HIGHLIGHT_START}, ${HIGHLIGHT_END}, '…', 15)`;
+    const rank = sql<number>`bm25(${searchIndex}, 10.0, 1.0)`;
+    const ranked = this.db
+      .select({
+        title: title.as('match_title'),
+        body: body.as('match_body'),
+        entityId: searchIndex.entityId,
+        entityType: searchIndex.entityType,
+        rank: rank.as('match_rank'),
+      })
+      .from(searchIndex)
+      .where(
+        and(
+          sql`${searchIndex} MATCH ${ftsQuery}`,
+          entityType.length ? inArray(searchIndex.entityType, entityType) : undefined,
+        ),
+      )
+      .orderBy(sql`match_rank`)
+      .$dynamic();
+    if (limit) ranked.limit(limit);
+    const matches = this.db.$with('matches').as(ranked);
 
-    if (entityType !== undefined && entityType.length) {
-      const entityTypeChunks = entityType.map((type) => sql`${type}`);
-      const entityTypeArray = sql.join(entityTypeChunks, sql.raw(', '));
-      searchQuery.append(sql`AND entity_type IN (${entityTypeArray})`);
-    }
+    // 2. Each match's row and link, by primary key and unique column. A match is one of a task,
+    //    project, note or event, so of the three entity joins at most one finds a row.
+    const isMatch = (type: SearchEntityType, id: SQLiteColumn) =>
+      and(eq(matches.entityType, type), eq(id, matches.entityId));
+    const rows = this.db
+      .with(matches)
+      .select({
+        title: matches.title,
+        body: matches.body,
+        entityId: matches.entityId,
+        entityType: matches.entityType,
+        rank: matches.rank,
+        status: tasks.status,
+        color: sql<string | null>`coalesce(${projects.color}, ${events.color}, ${calendars.color})`,
+        link: refColumns,
+      })
+      .from(matches)
+      .leftJoin(tasks, isMatch('task', tasks.id))
+      .leftJoin(projects, isMatch('project', projects.id))
+      .leftJoin(events, isMatch('event', events.id))
+      .leftJoin(calendars, eq(calendars.id, events.calendarId))
+      .leftJoin(
+        externalLinks,
+        or(
+          eq(externalLinks.taskId, tasks.id),
+          eq(externalLinks.projectId, projects.id),
+          eq(externalLinks.eventId, events.id),
+        ),
+      )
+      .orderBy(sql`match_rank`)
+      .all();
 
-    searchQuery.append(sql`ORDER BY rank`);
-
-    if (limit) {
-      searchQuery.append(sql` LIMIT ${sql.raw(limit.toString())}`);
-    }
-
-    const rows: Omit<SearchResult, 'status' | 'color' | 'external'>[] = this.db.all(searchQuery);
-    const { statuses, colors, refs } = this.details(rows);
-
-    return rows.map((row) => ({
-      ...row,
-      title: highlightToHtml(row.title),
-      body: highlightToHtml(row.body),
-      status: statuses.get(row.entityId) ?? null,
-      color: colors.get(row.entityId) ?? null,
-      external: refs.get(row.entityId) ?? null,
+    return rows.map(({ link, ...match }) => ({
+      ...match,
+      title: highlightToHtml(match.title),
+      body: highlightToHtml(match.body),
+      // notes have no links; the check narrows the type for toExternalRef
+      external: link && match.entityType !== 'note' ? toExternalRef(match.entityType, link) : null,
     }));
-  }
-
-  // the tasks' statuses and the projects' and events' colours of these matches, an event's own
-  // colour else its calendar's, and the provider links of all three. An id with no row (an entry
-  // the index still holds) gets none of them.
-  private details(rows: Pick<SearchResult, 'entityId' | 'entityType'>[]) {
-    const idsOf = <T extends SearchResult['entityId']>(type: SearchResult['entityType']) =>
-      rows.filter(({ entityType }) => entityType === type).map(({ entityId }) => entityId as T);
-
-    const statuses = new Map<SearchResult['entityId'], TaskStatus>();
-    const colors = new Map<SearchResult['entityId'], string | null>();
-    const refs = new Map<SearchResult['entityId'], ExternalRef>();
-    const addRefs = (ids: (TaskId | ProjectId | EventId)[]) => {
-      for (const [id, ref] of getRefs(this.db, ids)) refs.set(id, ref);
-    };
-
-    for (const ids of chunks(idsOf<TaskId>('task'))) {
-      const found = this.db
-        .select({ id: tasks.id, status: tasks.status })
-        .from(tasks)
-        .where(inArray(tasks.id, ids))
-        .all();
-      for (const { id, status } of found) statuses.set(id, status);
-      addRefs(ids);
-    }
-    for (const ids of chunks(idsOf<ProjectId>('project'))) {
-      const found = this.db
-        .select({ id: projects.id, color: projects.color })
-        .from(projects)
-        .where(inArray(projects.id, ids))
-        .all();
-      for (const { id, color } of found) colors.set(id, color);
-      addRefs(ids);
-    }
-    for (const ids of chunks(idsOf<EventId>('event'))) {
-      const found = this.db
-        .select({
-          id: events.id,
-          color: sql<string | null>`coalesce(${events.color}, ${calendars.color})`,
-        })
-        .from(events)
-        .innerJoin(calendars, eq(calendars.id, events.calendarId))
-        .where(inArray(events.id, ids))
-        .all();
-      for (const { id, color } of found) colors.set(id, color);
-      addRefs(ids);
-    }
-    return { statuses, colors, refs };
   }
 
   indexTask(task: Task) {
@@ -423,13 +408,6 @@ export class SearchService {
       tx.run(insertQuery(entities));
     });
   }
-}
-
-function chunks<T>(items: T[]): T[][] {
-  const result: T[][] = [];
-  for (let i = 0; i < items.length; i += LOOKUP_CHUNK)
-    result.push(items.slice(i, i + LOOKUP_CHUNK));
-  return result;
 }
 
 function insertQuery(entities: IndexEntity[]): SQL {
