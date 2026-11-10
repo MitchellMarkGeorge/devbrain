@@ -68,6 +68,13 @@ const DUE_BUCKETS = [
 ] as const;
 
 /** The groups for the page's grouping and filters, in order. */
+/**
+ * The first groups load before the group view draws: drawn first, every heading would be on screen
+ * at once (none has rows yet), and the empty ones would drop out a moment later, a flicker. Those
+ * further down load as their headings come into view.
+ */
+export const PRIMED_GROUPS = 12;
+
 export function groupDefs(
   resolved: ResolvedTasksSearch,
   today: Date,

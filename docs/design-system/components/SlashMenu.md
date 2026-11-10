@@ -7,7 +7,7 @@ The note editor's "/" menu, 260px wide under the caret, drawn as a menu: groups 
 - **DevBrain**: Task, Link to note, Link to task, Mention event.
 - **Others**: Divider (---), Table, Collapsible section (a `<details>` section in the note).
 
-**Placement.** Below the caret, or above it when there's more room there, kept 8px inside the window. It is `fixed`, so it never makes the page or window taller, and no taller than 560px, 70% of the window or the room it has beside the caret (`--suggestion-max-height`, which the editor sets as it places it); the list scrolls past that.
+**Placement.** Below the caret, or above it when there's more room there, kept 8px inside the window. It is `fixed`, so it never makes the page or window taller, and no taller than 560px, 70% of the window or the room it has beside the caret (`--suggestion-max-height`, which the editor sets as it places it). Past that its items scroll in a `ScrollArea` inside the menu's surface, the thin scrollbar drawn over its edge; the list itself is the area's viewport (`role="listbox"`, never focused, as the caret stays in the editor), and ↑/↓ keep the highlighted item in view.
 
 Typing after the "/" narrows the list to the items whose name (or a keyword such as "h1") matches; empty groups drop out, and nothing matching shows "No results". The first match is highlighted.
 

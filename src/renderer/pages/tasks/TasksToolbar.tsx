@@ -14,7 +14,9 @@ import {
   ListFilter,
   Plus,
   type LucideIcon,
+  RotateCcw,
 } from 'lucide-react';
+import { useSuspenseQuery } from '@tanstack/react-query';
 import type { ProjectId } from '@common/ids';
 import { TaskStatus } from '@common/types';
 import {
@@ -39,12 +41,15 @@ import {
   useWorkspaceShell,
   type IconSource,
 } from '../../components';
+import { trpc } from '../../ipc';
 import { ProjectItems } from './TaskMenus';
 import { useCreateTask } from './use-create-task';
 import { useProjectOptions } from './use-project-options';
+import { useTasksSearch } from './use-tasks-search';
 import {
   CLEAR_FILTERS,
   PRIORITY_OF,
+  resolveTasksSearch,
   STATUS_OF,
   type DueFilter,
   type GroupBy,
@@ -135,14 +140,17 @@ function FilterSubmenu<Value extends string>({
   value,
   options,
   any = 'Any',
+  anyIcon = CircleSlash,
   onChange,
 }: {
   icon: LucideIcon;
   label: string;
+  /** the first item, which removes the filter from the URL; null for none */
+  any?: string | null;
+  anyIcon?: IconSource;
   value: Value | undefined;
   // a Lucide icon, drawn at the menu's 16px, or an icon node that sizes itself (StatusIcon)
   options: { value: Value; label: string; icon: IconSource }[];
-  any?: string | null;
   onChange: (value: Value | undefined) => void;
 }) {
   return (
@@ -154,7 +162,7 @@ function FilterSubmenu<Value extends string>({
           onValueChange={(next: string) => onChange(next === '' ? undefined : (next as Value))}
         >
           {any !== null && (
-            <DropdownMenuRadioItem value="" icon={CircleSlash}>
+            <DropdownMenuRadioItem value="" icon={anyIcon}>
               {any}
             </DropdownMenuRadioItem>
           )}
@@ -178,6 +186,10 @@ export function FilterMenu({
   setSearch: SetSearch;
 }) {
   const { size } = useWorkspaceShell();
+  const { search } = useTasksSearch();
+  const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
+  // the status the page shows with none in the URL: Open, or All with completed tasks shown
+  const defaultStatus = resolveTasksSearch({}, settings).status;
   const projects = useProjectOptions();
   const projectName = projects.find((project) => project.id === resolved.project)?.name;
   return (
@@ -199,8 +211,10 @@ export function FilterMenu({
           <FilterSubmenu
             icon={Circle}
             label="Status"
-            any={null}
-            value={resolved.status}
+            // back to the settings' default, which follows "Show completed tasks"
+            any={`Default (${STATUS_FILTER_LABELS[defaultStatus]})`}
+            anyIcon={RotateCcw}
+            value={search.status}
             options={(Object.keys(STATUS_FILTER_LABELS) as StatusFilter[]).map((status) => ({
               value: status,
               label: STATUS_FILTER_LABELS[status],

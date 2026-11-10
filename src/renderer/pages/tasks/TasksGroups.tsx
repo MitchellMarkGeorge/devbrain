@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+  type InfiniteData,
+} from '@tanstack/react-query';
 import { Calendar, CircleAlert, CircleSlash, Folder } from 'lucide-react';
-import { TaskPriority, TaskStatus, type TaskListItem } from '@common/types';
+import { TaskPriority, TaskStatus, type Page, type TaskListItem } from '@common/types';
 import {
   Button,
   GroupHeading,
@@ -14,7 +19,7 @@ import {
   type TaskListGroup,
 } from '../../components';
 import { trpc } from '../../ipc';
-import { groupDefs, type TaskGroupDef } from './groups';
+import { groupDefs, PRIMED_GROUPS, type TaskGroupDef } from './groups';
 import { taskListQuery } from './queries';
 import { hasFilters, taskListInput, type ResolvedTasksSearch, type TasksSearch } from './search';
 import { TaskListFrame } from './TaskListFrame';
@@ -62,13 +67,6 @@ function writeCollapsed(groupBy: string, ids: string[]) {
 // ---------- a group's data ----------
 
 /**
- * The first groups load before the view draws: drawn first, every heading would be on screen at
- * once (none has rows yet), and the empty ones would drop out a moment later, a flicker. Those
- * further down load as their headings come into view.
- */
-const PRIMED = 12;
-
-/**
  * One group's `tasks.list`, enabled once its heading has been on screen (the view is virtualized,
  * so a workspace with 40 projects queries the groups scrolled to, not all 40) and while it is
  * expanded. Draws nothing: it reports its rows to the view.
@@ -102,6 +100,22 @@ function GroupQuery({
     });
   }, [def.id, data, isPending, isError, hasNextPage, isFetchingNextPage, fetchNextPage, onState]);
   return null;
+}
+
+/**
+ * A group's rows as the cache holds them, for the frame before its `GroupQuery` reports: the route's
+ * loader has loaded the first groups, so the view draws them at once instead of empty.
+ */
+function cachedState(data: InfiniteData<Page<TaskListItem>> | undefined): GroupState | undefined {
+  if (!data) return undefined;
+  return {
+    tasks: data.pages.flatMap((page) => page.items),
+    pending: false,
+    error: false,
+    hasNextPage: data.pages[data.pages.length - 1]?.nextCursor != null,
+    // the group's own query takes over on the next frame
+    fetchNextPage: () => {},
+  };
 }
 
 /** Marks its group seen once its heading is drawn. */
@@ -213,9 +227,20 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
     () => groupDefs(resolved, now, projects.data?.items ?? []),
     [resolved, now, projects.data],
   );
-  const primed = new Set(defs.slice(0, PRIMED).map((def) => def.id));
+  const primed = new Set(defs.slice(0, PRIMED_GROUPS).map((def) => def.id));
 
-  const [states, setStates] = useState<Record<string, GroupState>>({});
+  const [reported, setStates] = useState<Record<string, GroupState>>({});
+  // each group's rows: as its query reports them, or until then, as the cache holds them
+  const states: Record<string, GroupState | undefined> = {};
+  for (const def of defs) {
+    states[def.id] =
+      reported[def.id] ??
+      cachedState(
+        queryClient.getQueryData(
+          taskListQuery(taskListInput(resolved, now, def.filter)).queryKey,
+        ) as InfiniteData<Page<TaskListItem>> | undefined,
+      );
+  }
   const onState = useCallback(
     (id: string, state: GroupState) => setStates((current) => ({ ...current, [id]: state })),
     [],
@@ -253,7 +278,7 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
       state.tasks.length === 0
     );
   });
-  const loaded = useMemo(() => Object.values(states).flatMap((state) => state.tasks), [states]);
+  const loaded = Object.values(states).flatMap((state) => state?.tasks ?? []);
 
   const groups: TaskListGroup[] = shown.map((def) => {
     const state = states[def.id];
@@ -302,7 +327,7 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
     (def) =>
       primed.has(def.id) &&
       !collapsed.includes(def.id) &&
-      (!states[def.id] || states[def.id].pending),
+      (!states[def.id] || states[def.id]!.pending),
   );
   if (priming) {
     return (
@@ -317,7 +342,7 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
   }
   const everyLoadedEmpty =
     defs.length > 0 &&
-    defs.every((def) => seen.has(def.id) && states[def.id] && !states[def.id].pending) &&
+    defs.every((def) => seen.has(def.id) && states[def.id] && !states[def.id]!.pending) &&
     shown.length === 0;
   if (everyLoadedEmpty) {
     return (

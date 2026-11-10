@@ -1,6 +1,6 @@
 # ScrollArea
 
-A vertical scrolling area with a thin scrollbar drawn over its right edge, taking no width from the content: the page (`WorkspaceShell`), `TaskList`, `BoardColumn`, `VirtualCardGrid`, the sidebar and a sheet's body (README "Scrollbars"). The native scrollbar is hidden.
+A vertical scrolling area with a thin scrollbar drawn over its right edge, taking no width from the content: the page (`WorkspaceShell`), `TaskList`, `BoardColumn`, `VirtualCardGrid`, the sidebar, a sheet's body and the editor's suggestion menus (`SlashMenu`, `MentionMenu`) (README "Scrollbars"). The native scrollbar is hidden.
 
 - **Scrollbar.** An 8px strip on the right edge holding a 4px `border-strong` thumb with round ends, 2px in from the edge and 4px from each end (at least 16px tall). It isn't drawn when nothing overflows.
 - **Showing.** It fades in (`duration-normal`) while the area scrolls or the pointer is over it, and fades out 0.8s after scrolling stops or once the pointer leaves.

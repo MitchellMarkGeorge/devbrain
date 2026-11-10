@@ -4,6 +4,7 @@ import type { TaskId } from '@common/ids';
 import { isId } from '@common/ids';
 import type { RouterContext } from '../../router';
 import { ipcErrorCode } from '../../workspace/errors';
+import { groupDefs, PRIMED_GROUPS } from './groups';
 import { taskListQuery, subtasksQuery } from './queries';
 import { resolveTasksSearch, taskListInput, type TasksSearch } from './search';
 
@@ -20,7 +21,11 @@ export function tasksLoaderDeps({ search }: { search: TasksSearch }): TasksSearc
   return { ...search, open: undefined };
 }
 
-/** The list page: the settings (its defaults), and the list view's first page. */
+/**
+ * The list page: the settings (its defaults), and the view's first data: the list's first page,
+ * or the group view's projects and its first groups. Switching view runs this again, and the old
+ * view stays up until it's done, so the new one draws whole, never empty first.
+ */
 export async function loadTasks({ queryClient, trpc }: RouterContext, search: TasksSearch) {
   const settings = await queryClient.query({
     ...trpc.settings.get.queryOptions(),
@@ -32,6 +37,26 @@ export async function loadTasks({ queryClient, trpc }: RouterContext, search: Ta
       ...taskListQuery(taskListInput(resolved, today())),
       staleTime: 'static',
     });
+  }
+  if (resolved.view === 'group') {
+    const projects =
+      resolved.groupBy === 'project'
+        ? (
+            await queryClient.query({
+              ...trpc.projects.list.queryOptions({ limit: 200 }),
+              staleTime: 'static',
+            })
+          ).items
+        : [];
+    const defs = groupDefs(resolved, today(), projects).slice(0, PRIMED_GROUPS);
+    await Promise.all(
+      defs.map((def) =>
+        queryClient.infiniteQuery({
+          ...taskListQuery(taskListInput(resolved, today(), def.filter)),
+          staleTime: 'static',
+        }),
+      ),
+    );
   }
 }
 

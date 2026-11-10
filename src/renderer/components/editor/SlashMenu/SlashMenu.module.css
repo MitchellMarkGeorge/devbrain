@@ -4,6 +4,19 @@
   /* and no taller than the room beside the caret, which the editor sets as it places the menu */
   max-height: min(560px, 70vh, var(--suggestion-max-height, 70vh));
 }
+/* the surface holds the ScrollArea, which scrolls the items inside the surface's padding */
+.menu[class] {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+.scroll {
+  flex: 0 1 auto;
+}
+.viewport {
+  padding: var(--space-1);
+}
 .empty {
   padding: var(--space-2) var(--space-1-5);
   color: var(--muted-foreground);
