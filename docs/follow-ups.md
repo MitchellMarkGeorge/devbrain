@@ -237,7 +237,7 @@ The pickers with a search row narrow the rows they already loaded, by title, in 
 They should ask `search.search` (`src/main/ipc/routers/search.ts`) instead, once something is typed:
 
 1. **Map the results.** One place that turns a `SearchResult` (`entityType`, `entityId`, a highlighted `title`, `body`) into what a picker row draws, beside `toMentionItem` (`src/renderer/editor/suggestion/entity-menu.tsx`), which the "@" menu uses for the same results. `SearchResult` carries a task's `status` and a project's or event's `color` (R1) for its glyph. The highlighted title is HTML from core (escaped text with `<b>` around matches, docs/security/untrusted-content.md).
-2. **Use it in each picker.** Search with the picker's types (`entityType: ['event', 'note']`, `['task']`, `['project']`), debounced as ⌘K is (150ms), and keep showing the recent rows while the query is empty. Leave out what can't be picked: the task itself and its subtasks under Make subtask of, closed tasks, a synced task's fields.
+2. **Use it in each picker.** Search with the picker's types (`entityType: ['event', 'note']`, `['task']`, `['project']`), debounced as ⌘K is (`SEARCH_DEBOUNCE_MS`, 300ms), and keep showing the recent rows while the query is empty. Leave out what can't be picked: the task itself and its subtasks under Make subtask of, closed tasks, a synced task's fields.
 3. The "@" menu and ⌘K already search; check they share the mapping.
 
 ## Workspaces

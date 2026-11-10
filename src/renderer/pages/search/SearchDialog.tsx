@@ -61,8 +61,12 @@ import { countResults, groupResults, nextFilter, type SearchFilter } from './res
 import { SearchHighlight } from './SearchHighlight';
 import styles from './SearchDialog.module.css';
 
-/** How long typing settles before a search is asked for. */
-export const SEARCH_DEBOUNCE_MS = 150;
+/**
+ * How long typing pauses before a search is asked for. Long enough that results change when the
+ * user stops, not mid-word at a normal typing speed (a key every 150–250ms); a search itself
+ * takes a few milliseconds.
+ */
+export const SEARCH_DEBOUNCE_MS = 300;
 // the most results one search returns (the route's page limit): the counts are of these
 const SEARCH_LIMIT = 200;
 const RECENT_LIMIT = 5;
@@ -131,18 +135,18 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
   const canNewNote = commands.some(({ id }) => id === NEW_NOTE);
 
   const typed = query.trim() !== '';
-  // The last search that finished, and what it found. The dialog draws it (results or the
-  // no-results state, and the filter's counts) until the next search finishes, so typing never
-  // blanks the list or flashes "No results" between keystrokes. A query search cannot read ("(")
-  // finds nothing rather than failing the dialog.
+  // The last search that finished, and what it found. While something is typed, the dialog draws
+  // it (results or the no-results state, and the filter's counts) until the next search
+  // finishes, so typing never blanks the list or flashes "No results" between keystrokes. It is
+  // kept when the box is emptied (which shows Recent and Go to), so typing again shows it until
+  // the new search lands. A query search cannot read ("(") finds nothing rather than failing.
   const [shown, setShown] = useState<ShownSearch | null>(null);
   const finished = search.isError ? NO_RESULTS : search.data;
-  if (!typed && shown !== null) setShown(null);
   if (typed && finished && (shown?.query !== searched || shown.results !== finished)) {
     setShown({ query: searched, results: finished });
   }
   const results = shown?.results ?? NO_RESULTS;
-  const counts = shown && countResults(results);
+  const counts = typed && shown ? countResults(results) : undefined;
 
   const groups = useMemo<Group[]>(() => {
     if (!typed) {

@@ -608,7 +608,7 @@ Shown from anywhere with `useModals().open((props) => <TheDialog {...props} />)`
 workspace switch starts. The keys and commands that open them are app-wide commands (see Keyboard):
 
 - **Search ⌘K** (`7170:15331`; built in milestone 9, `pages/search`): `CommandDialog`,
-  `search.search` debounced 150ms with the type filter, grouped results with counts, "Recent"
+  `search.search` debounced 300ms with the type filter, grouped results with counts, "Recent"
   (from `recents.list`) and "Go to" commands on an empty query. Results' titles and bodies are
   core's escaped HTML with `<b>`; `SearchHighlight` is the one place that renders them, never raw
   `innerHTML` from anywhere else (ESLint's `react/no-danger` holds everywhere else).
@@ -1320,7 +1320,7 @@ linkedTaskId } })`), separate from the task's event or note link. Convert to pro
 9. **Search (⌘K) (done)** with recents and Go to commands. _Main:_ R1. As built
    (`src/renderer/pages/search`):
    - `SearchDialog`, shown with `useOpenSearch` by the `search.open` command (⌘K) and the
-     sidebar's search button. One `search.search` per settled query (150ms), every type, up to
+     sidebar's search button. One `search.search` per settled query (300ms, so results change when typing pauses rather than mid-word), every type, up to
      the route's page limit (200); the type filter, its counts and the groups are worked out from
      those (`results.ts`), so switching the filter (Tab, ⇧Tab) asks for nothing. "All" lists five
      of each type; a type's own filter lists every match it has.
@@ -1332,6 +1332,10 @@ linkedTaskId } })`), separate from the task's event or note link. Convert to pro
      (`commandShortcut`).
    - No results: "New Task “query”" (Create task with that title) and "New Note" while `note.new`
      is registered.
+   - While a search runs, the last one that finished stays on screen (its results or its
+     no-results state, and its counts), even across emptying the box, so typing never blanks
+     the list. Before the dialog's first search finishes, the list is empty and the filter
+     shows no counts.
    - Results aren't virtualized: at most 200 rows, and "All" draws at most 20.
 10. **Trash, Integrations, Settings.** _Main:_ E1, S1, A3, K1.
 11. **Menu commands and polish.** _Main:_ A2. Compact-window behaviour checks against the

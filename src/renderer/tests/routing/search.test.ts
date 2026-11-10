@@ -222,6 +222,26 @@ describe('⌘K search', () => {
     );
   });
 
+  it('keeps the last results when the box is emptied and typed in again', async () => {
+    const { main } = await openSearch();
+    type('pkce');
+    await eventually(() => expect(optionTexts()).toHaveLength(4));
+    type('');
+    await eventually(() => expect(dialog()?.textContent).toContain('Go to'));
+    // Recent and Go to have no counts
+    expect(filterButton('All')?.textContent).toBe('All');
+    const release = main.hold('search.search');
+    main.searchResults = RESULTS.slice(0, 1);
+    type('n');
+    // the last search's results, at once, while the new one waits
+    await eventually(() => expect(optionTexts()).toHaveLength(4));
+    expect(filterButton('All')?.textContent).toBe('All4');
+    await eventually(() => expect(main.callsTo('search.search')).toHaveLength(2));
+    expect(optionTexts()).toHaveLength(4);
+    release();
+    await eventually(() => expect(optionTexts()).toHaveLength(1));
+  });
+
   it('opens the highlighted result with ↵, through useOpenEntity', async () => {
     const { app } = await openSearch();
     type('pkce');
