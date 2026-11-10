@@ -30,6 +30,36 @@ import { trpc } from '../../ipc';
 /** What the task links to: an event or a note, never both. */
 export type TaskLink = { linkedEventId: EventId } | { linkedNoteId: NoteId } | null;
 
+/** The events Link to › offers: the last week and the next four. */
+function linkEventsQuery(now: Date) {
+  const day = DateTime.fromJSDate(now).startOf('day');
+  return trpc.events.listForCalendar.queryOptions({
+    start: day.minus({ days: 7 }).toJSDate(),
+    end: day.plus({ weeks: 4 }).toJSDate(),
+  });
+}
+/** The notes Link to › offers: the 50 edited last. */
+const linkNotesQuery = () =>
+  trpc.notes.list.queryOptions({ sort: { sortBy: 'updatedAt', direction: 'desc' }, limit: 50 });
+/** The tasks Make subtask of › offers: open top-level tasks, the 100 changed last. */
+const parentTasksQuery = () =>
+  trpc.tasks.list.queryOptions({
+    filter: { excludeSubtasks: true, excludeClosed: true },
+    sort: { sortBy: 'updatedAt', direction: 'desc' },
+    limit: 100,
+  });
+
+/**
+ * Loads what the task pickers list while the task is shown, so a picker opens with its rows
+ * rather than empty and then growing as they arrive. Call it where the pickers can open.
+ */
+export function usePickerCandidates(enabled: boolean) {
+  const { now } = useFormat();
+  useQuery({ ...linkEventsQuery(now), enabled });
+  useQuery({ ...linkNotesQuery(), enabled });
+  useQuery({ ...parentTasksQuery(), enabled });
+}
+
 interface PickerShellProps {
   trigger: ReactElement;
   open?: boolean;
@@ -54,19 +84,12 @@ export function TaskLinkPicker({
   onPick: (link: TaskLink) => void;
 }) {
   const { now, formatDate } = useFormat();
-  const range = useMemo(() => {
-    const day = DateTime.fromJSDate(now).startOf('day');
-    return { start: day.minus({ days: 7 }).toJSDate(), end: day.plus({ weeks: 4 }).toJSDate() };
-  }, [now]);
   const events = useQuery({
-    ...trpc.events.listForCalendar.queryOptions(range),
+    ...linkEventsQuery(now),
     enabled: open !== false && kinds.includes('event'),
   });
   const notes = useQuery({
-    ...trpc.notes.list.queryOptions({
-      sort: { sortBy: 'updatedAt', direction: 'desc' },
-      limit: 50,
-    }),
+    ...linkNotesQuery(),
     enabled: open !== false && kinds.includes('note'),
   });
   // a series is one row, however often it repeats
@@ -141,14 +164,7 @@ export function TaskParentPicker({
   open,
   onOpenChange,
 }: PickerShellProps & { taskId: TaskId; onPick: (parentId: TaskId) => void }) {
-  const tasks = useQuery({
-    ...trpc.tasks.list.queryOptions({
-      filter: { excludeSubtasks: true, excludeClosed: true },
-      sort: { sortBy: 'updatedAt', direction: 'desc' },
-      limit: 100,
-    }),
-    enabled: open !== false,
-  });
+  const tasks = useQuery({ ...parentTasksQuery(), enabled: open !== false });
   const candidates = (tasks.data?.items ?? []).filter((task) => task.id !== taskId);
   return (
     <DropdownMenuFilter>
