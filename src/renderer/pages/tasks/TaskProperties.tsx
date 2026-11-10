@@ -1,5 +1,5 @@
 import { useState, type KeyboardEvent } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Calendar,
   GitPullRequest,
@@ -41,7 +41,7 @@ import { ipc, trpc } from '../../ipc';
 import { useMutationErrorToast } from '../app/mutation-errors';
 import { useOpenEntity } from '../app/use-open-entity';
 import { PriorityPill, ProjectPill, StatusPill } from './pickers';
-import { isSynced } from './queries';
+import { isSynced, listedEvent, listedNote, patchTaskInCaches } from './queries';
 import { TaskLinkPicker, TaskParentPicker, type TaskLink } from './TaskLinkPicker';
 import type { TaskActions } from './use-task-actions';
 
@@ -60,6 +60,8 @@ export function pullRequestLabel(url: string): string {
 /** Sets a task's event or note link (`tasks.updateLinks`, which replaces both). */
 export function useSetTaskLink(task: Pick<Task, 'id'>) {
   const showError = useMutationErrorToast();
+  const queryClient = useQueryClient();
+  // optimistic: the pill changes as the picker closes, and changes back if the write fails
   return (link: TaskLink) => {
     const links =
       link === null
@@ -67,9 +69,15 @@ export function useSetTaskLink(task: Pick<Task, 'id'>) {
         : 'linkedEventId' in link
           ? { linkedEventId: link.linkedEventId, linkedNoteId: null }
           : { linkedEventId: null, linkedNoteId: link.linkedNoteId };
-    ipc.tasks.updateLinks
-      .mutate({ id: task.id, ...links })
-      .catch((error: unknown) => showError(error, 'Couldn’t change the link'));
+    void (async () => {
+      const rollback = await patchTaskInCaches(queryClient, [task.id], links);
+      try {
+        await ipc.tasks.updateLinks.mutate({ id: task.id, ...links });
+      } catch (error) {
+        rollback();
+        showError(error, 'Couldn’t change the link');
+      }
+    })();
   };
 }
 
@@ -86,14 +94,18 @@ export function useMakeSubtask(task: Pick<Task, 'id'>) {
 function LinkPill({ task }: { task: Task }) {
   const openEntity = useOpenEntity();
   const setLink = useSetTaskLink(task);
+  const queryClient = useQueryClient();
   const [changing, setChanging] = useState(false);
+  // a newly picked one is drawn at once from the picker's list while it loads
   const event = useQuery({
     ...trpc.events.get.queryOptions({ id: task.linkedEventId! }),
     enabled: task.linkedEventId !== null,
+    placeholderData: () => listedEvent(queryClient, task.linkedEventId!),
   });
   const note = useQuery({
     ...trpc.notes.get.queryOptions({ id: task.linkedNoteId! }),
     enabled: task.linkedNoteId !== null,
+    placeholderData: () => listedNote(queryClient, task.linkedNoteId!),
   });
   const pill = event.data ? (
     <EntityPill

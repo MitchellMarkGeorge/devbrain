@@ -1,6 +1,13 @@
 import type { InfiniteData, QueryClient } from '@tanstack/react-query';
 import type { TaskId } from '@common/ids';
-import { LinkState, type ExternalRef, type Page, type TaskListItem } from '@common/types';
+import {
+  LinkState,
+  type Event,
+  type ExternalRef,
+  type NoteListItem,
+  type Page,
+  type TaskListItem,
+} from '@common/types';
 import { trpc } from '../../ipc';
 import type { TaskListInput } from './search';
 
@@ -43,6 +50,28 @@ export function listedTask(queryClient: QueryClient, id: TaskId): TaskListItem |
   return undefined;
 }
 
+/** A note as a loaded `notes.list` holds it (a picker's), to draw while `notes.get` loads it. */
+export function listedNote(queryClient: QueryClient, id: string): NoteListItem | undefined {
+  for (const [, data] of queryClient.getQueriesData<Page<NoteListItem>>({
+    queryKey: trpc.notes.list.pathKey(),
+  })) {
+    const note = data?.items.find((item) => item.id === id);
+    if (note) return note;
+  }
+  return undefined;
+}
+
+/** An event as a loaded calendar range holds it (a picker's), to draw while `events.get` loads. */
+export function listedEvent(queryClient: QueryClient, id: string): Event | undefined {
+  for (const [, data] of queryClient.getQueriesData<Event[]>({
+    queryKey: trpc.events.listForCalendar.pathKey(),
+  })) {
+    const event = data?.find((item) => item.id === id);
+    if (event) return event;
+  }
+  return undefined;
+}
+
 /**
  * Starts loading what the task sheet shows (the task and its subtasks) as a card is pointed at or
  * focused, so a click opens it drawn.
@@ -61,7 +90,17 @@ export function isSynced(task: { external?: Pick<ExternalRef, 'state'> | null })
 
 /** What an optimistic write changes on a task, as every cached read shows it. */
 export type TaskPatch = Partial<
-  Pick<TaskListItem, 'status' | 'priority' | 'dueDate' | 'startDate' | 'favoritedAt' | 'projectId'>
+  Pick<
+    TaskListItem,
+    | 'status'
+    | 'priority'
+    | 'dueDate'
+    | 'startDate'
+    | 'favoritedAt'
+    | 'projectId'
+    | 'linkedEventId'
+    | 'linkedNoteId'
+  >
 >;
 
 type Patcher = (value: unknown) => unknown;
@@ -111,9 +150,13 @@ export async function patchTaskInCaches(
   ids: readonly TaskId[],
   patch: TaskPatch,
 ): Promise<() => void> {
-  await queryClient.cancelQueries({ predicate: patchedQueries });
   const snapshot = queryClient.getQueriesData({ predicate: patchedQueries });
-  queryClient.setQueriesData({ predicate: patchedQueries }, patchValue(new Set(ids), patch));
+  const patched = patchValue(new Set(ids), patch);
+  // at once, so the change shows on the frame it was made; then again once what was in flight is
+  // cancelled, in case a refetch landed in between
+  queryClient.setQueriesData({ predicate: patchedQueries }, patched);
+  await queryClient.cancelQueries({ predicate: patchedQueries });
+  queryClient.setQueriesData({ predicate: patchedQueries }, patched);
   return () => {
     for (const [key, data] of snapshot) queryClient.setQueryData(key, data);
   };
