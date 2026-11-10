@@ -77,8 +77,15 @@ export default tseslint.config(
       ...reactPlugin.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
       'react/react-in-jsx-scope': 'off', // not needed with React 17+ JSX transform
+      // strings from core are text (docs/security/untrusted-content.md); search's HTML is the one
+      // exception, drawn by SearchHighlight alone
+      'react/no-danger': 'error',
       '@typescript-eslint/no-restricted-imports': ['error', { patterns: [mainTypeOnly] }],
     },
+  },
+  {
+    files: ['src/renderer/pages/search/SearchHighlight.tsx'],
+    rules: { 'react/no-danger': 'off' },
   },
 
   // Components build on the groups below them: layout and ui know nothing of DevBrain's

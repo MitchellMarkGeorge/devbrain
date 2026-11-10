@@ -8,7 +8,7 @@ import type {
   IpcRequest,
   IpcResult,
 } from '@common/ipc/types';
-import { LinkState, type AppSettings, type WorkspaceInfo } from '@common/types';
+import { LinkState, type AppSettings, type SearchResult, type WorkspaceInfo } from '@common/types';
 import { fakeNote, fakeTask, FakeTasks } from './fake-tasks';
 
 // A main process for the renderer's routing tests, over the IPC bridge: a registry of workspaces
@@ -95,6 +95,8 @@ export class FakeMain {
   };
   // each workspace's tasks and projects; a workspace without any lists one task naming it
   readonly taskStores = new Map<WorkspaceId, FakeTasks>();
+  // what search.search finds, whatever the query: those of the types asked for
+  searchResults: SearchResult[] = [];
   // what workspaces.importFolder answers next: a folder's workspace, null (cancelled) or an error
   importResult: FakeWorkspace | null | RemoteError = null;
   private readonly listeners = new Map<string, Set<(payload: unknown) => void>>();
@@ -376,6 +378,13 @@ export class FakeMain {
         return [undefined, ['recent']];
       case 'workspace.openUrl':
         return [undefined, []];
+      case 'search.search': {
+        const types = (args.entityType as string[] | undefined) ?? [];
+        const found = this.searchResults.filter(
+          ({ entityType }) => types.length === 0 || types.includes(entityType),
+        );
+        return [found, []];
+      }
       case 'events.listForCalendar':
         return [[], []];
       case 'events.get':

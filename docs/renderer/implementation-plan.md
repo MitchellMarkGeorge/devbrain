@@ -15,7 +15,7 @@ the `Screens/*` stories, `docs/design-system/README.md`, `docs/ipc/design.md` an
 > `useRecordView`, `useMutationErrorToast`, `useConfirm`, `useMoveToTrash` with its Undo toast,
 > Recents, Favorites and sync in the sidebar, the page header slot, `FormatProvider`) and
 > milestone 4 (Tasks: list, group and board views, the task sheet, the task page, Create task and
-> Create subtask) are built, with the
+> Create subtask) and milestone 9 (⌘K search, with R1) are built, with the
 > **URL-driven workspace model** ([routing.md](routing.md)): every page in a workspace is under
 > `/app/<its id>/…`, main picks the window's first URL, and switching is navigating. Revised after
 > review (Nov 6 2026): FullCalendar for the calendar, `/app/trash`, a create-workspace dialog
@@ -582,7 +582,7 @@ favorites and pills.
   workspace navigates to its link; "New workspace…" opens the Create workspace dialog, which
   creates it and navigates to it; "Open folder…" calls `workspaces.importFolder`, then navigates
   to the workspace added (errors in the import error dialog); "Show in Finder". Search (⌘K) and New
-  task (C) actions come with milestones 9 and 4.
+  task (C) actions (built with milestones 9 and 4).
 - **Nav:** Home, Tasks, Projects, Notes, Calendar, Integrations, as `SidebarItem render={<Link
 to=… />}` with `active` from `useMatchRoute` (fuzzy, so a detail page keeps its section active).
 - **Recents** and **Favorites** (milestone 3): `recents.list({ limit: 5 })`;
@@ -607,10 +607,11 @@ Shown from anywhere with `useModals().open((props) => <TheDialog {...props} />)`
 (`src/renderer/modals.tsx`): the root layout's `ModalProvider` draws them, and drops them all when a
 workspace switch starts. The keys and commands that open them are app-wide commands (see Keyboard):
 
-- **Search ⌘K** (`7170:15331`): `CommandDialog`, `search.search` debounced 150ms with the type
-  filter, grouped results with counts, "Recent" (from `recents.list`) and "Go to" commands on an
-  empty query. Results' titles and bodies are core's escaped HTML with `<b>`; render them with the
-  helper the untrusted-content doc names, never raw `innerHTML` from anywhere else.
+- **Search ⌘K** (`7170:15331`; built in milestone 9, `pages/search`): `CommandDialog`,
+  `search.search` debounced 150ms with the type filter, grouped results with counts, "Recent"
+  (from `recents.list`) and "Go to" commands on an empty query. Results' titles and bodies are
+  core's escaped HTML with `<b>`; `SearchHighlight` is the one place that renders them, never raw
+  `innerHTML` from anywhere else (ESLint's `react/no-danger` holds everywhere else).
 - **Create task / subtask / project / event** dialogs (`7175:39512`, `7175:41654`, `7175:42128`,
   `7175:42495`) with "Create more". Defaults from settings (`tasks.defaultPriority`,
   `tasks.defaultDueDate`, `calendar.defaultEventDuration`) and from where it was opened (the
@@ -1316,7 +1317,22 @@ linkedTaskId } })`), separate from the task's event or note link. Convert to pro
    K0.
 8. **Home.** Summary/section logic with tests over fixed `now`s, capture box with parsing, the
    time-aware rows.
-9. **Search (⌘K)** with recents and Go to commands. _Main:_ R1.
+9. **Search (⌘K) (done)** with recents and Go to commands. _Main:_ R1. As built
+   (`src/renderer/pages/search`):
+   - `SearchDialog`, shown with `useOpenSearch` by the `search.open` command (⌘K) and the
+     sidebar's search button. One `search.search` per settled query (150ms), every type, up to
+     the route's page limit (200); the type filter, its counts and the groups are worked out from
+     those (`results.ts`), so switching the filter (Tab, ⇧Tab) asks for nothing. "All" lists five
+     of each type; a type's own filter lists every match it has.
+   - Rows draw the entity's glyph from R1 (a task's status, a project's or event's colour through
+     `resolveColor`) and a synced item's key as its `SourcePill`. ↑↓ move and ↵ opens, through
+     `useOpenEntity`.
+   - An empty query shows "Recent" (`recents.list`, five) and "Go to": the registry's `nav.*`
+     commands, run with `useRunCommand`, with their keys from the active keymap
+     (`commandShortcut`).
+   - No results: "New Task “query”" (Create task with that title) and "New Note" while `note.new`
+     is registered.
+   - Results aren't virtualized: at most 200 rows, and "All" draws at most 20.
 10. **Trash, Integrations, Settings.** _Main:_ E1, S1, A3, K1.
 11. **Menu commands and polish.** _Main:_ A2. Compact-window behaviour checks against the
     responsive frames (`7602:42368`), light theme checks, empty/loading/error states on every

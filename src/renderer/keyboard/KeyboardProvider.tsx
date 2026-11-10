@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -9,7 +10,7 @@ import {
   type ReactNode,
 } from 'react';
 import { usePlatform, type Platform } from '../components/lib/platform';
-import { CommandRegistry, type Command } from './commands';
+import { CommandRegistry, type Command, type CommandArgs } from './commands';
 import { KeyDispatcher, type KeyboardState } from './dispatcher';
 import type { Keymap } from './keymap';
 import { UndoStack, type Undoable } from './undo';
@@ -138,6 +139,15 @@ export function useUndoStack(): UndoStack {
 export function useUndoEntries(): readonly Undoable[] {
   const { undoStack } = useKeyboard();
   return useSyncExternalStore(undoStack.subscribe, undoStack.list);
+}
+
+/**
+ * Runs a registered command by its id, as its key would (`KeyDispatcher.run`): ⌘K's "Go to" rows.
+ * Returns false when it isn't registered or enabled.
+ */
+export function useRunCommand(): (commandId: string, args?: CommandArgs) => boolean {
+  const { dispatcher } = useKeyboard();
+  return useCallback((commandId, args) => dispatcher.run(commandId, args), [dispatcher]);
 }
 
 /** The active keymap. */

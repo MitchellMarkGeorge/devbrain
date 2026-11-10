@@ -26,6 +26,7 @@ export {
   useKeyboard,
   useKeyboardState,
   useKeymap,
+  useRunCommand,
   useUndoEntries,
   useUndoStack,
   type KeyboardProviderProps,
@@ -40,6 +41,11 @@ export { DEFAULT_MODE, type Keymap, type KeymapEntry } from './keymap';
 export { describeKeys, keyLabels, parseKeys, strokeFromEvent, type Stroke } from './keys';
 export { KeyScope, type KeyScopeProps } from './KeyScope';
 export { activeScopes, SCOPES, type Scope } from './scopes';
-export { shortcutSections, type ShortcutRow, type ShortcutSection } from './shortcuts';
+export {
+  commandShortcut,
+  shortcutSections,
+  type ShortcutRow,
+  type ShortcutSection,
+} from './shortcuts';
 export { ShortcutsDialog, type ShortcutsDialogProps } from './ShortcutsDialog';
 export { isUndoable, UndoStack, type Undoable } from './undo';
