@@ -8,7 +8,6 @@ import {
   useState,
   type ComponentProps,
   type FocusEvent,
-  type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
   type Ref,
@@ -78,9 +77,9 @@ export interface TaskRowProps extends Omit<ComponentProps<'div'>, 'onSelect' | '
   menuOpen?: boolean;
   defaultMenuOpen?: boolean;
   onMenuOpenChange?: (open: boolean) => void;
-  /** toggles the row's selection (the checkbox, or `X` on the focused row) */
+  /** toggles the row's selection (the checkbox) */
   onSelect?: () => void;
-  /** opens the task (a click on the row, or Enter) */
+  /** opens the task (a click on the row) */
   onOpen?: () => void;
 }
 
@@ -306,10 +305,10 @@ function fromControl(event: MouseEvent<HTMLElement>): boolean {
  * `StatusMenu`; the flag while the task is overdue and not started), the title, its key, parent
  * and subtask pills, then the linked event or note and the project, priority and the due date
  * ("Today", "Jul 1", from `useFormat()`) on the right. Use it inside `TaskList`, which handles
- * selection and keyboard movement.
+ * selection and focus.
  *
- * Keyboard on the focused row: `S` opens the status menu (then `1`, `2`, `3`), `X` toggles
- * selection, Enter opens the task.
+ * It binds no keys: the app's keymap opens its status menu (`menuOpen`), selects it (`onSelect`)
+ * and opens it (`onOpen`) through `TaskList`.
  */
 export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow(
   {
@@ -330,7 +329,6 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     onSelect,
     onOpen,
     className,
-    onKeyDown,
     onClick,
     ...props
   },
@@ -377,22 +375,6 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     onMenuOpenChange?.(open);
   }
 
-  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    onKeyDown?.(event);
-    if (event.defaultPrevented || event.target !== event.currentTarget) return;
-    const key = event.key.toLowerCase();
-    if (key === 's') {
-      event.preventDefault();
-      setMenuOpen(true);
-    } else if (key === 'x' && onSelect) {
-      event.preventDefault();
-      onSelect();
-    } else if (event.key === 'Enter' && onOpen) {
-      event.preventDefault();
-      onOpen();
-    }
-  }
-
   function handleClick(event: MouseEvent<HTMLDivElement>) {
     onClick?.(event);
     if (!event.defaultPrevented && onOpen && !fromControl(event)) onOpen();
@@ -412,7 +394,6 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
       data-completed={completed ? '' : undefined}
       data-menu-open={menuOpen ? '' : undefined}
       className={cn(taskRowVariants({ subtask, compact }), className)}
-      onKeyDown={handleKeyDown}
       onClick={handleClick}
       {...props}
     >

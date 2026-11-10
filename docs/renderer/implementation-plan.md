@@ -10,7 +10,10 @@ Sources: the Figma file (`w9WtYAUXkkzqKIMAzFo08I`, page "v2 Screens", node ids c
 the `Screens/*` stories, `docs/design-system/README.md`, `docs/ipc/design.md` and
 `docs/follow-ups.md`. Where Figma and the code disagree, the code wins (see `CLAUDE.md`).
 
-> **Status:** milestones 1 (router foundation) and 2 (onboarding) are built, with the
+> **Status:** milestones 1 (router foundation) and 2 (onboarding) are built, and milestone 3's
+> app pieces (the keyboard layer mounted with the list keys as commands, `useOpenEntity`,
+> `useRecordView`, `useMutationErrorToast`, `useConfirm`, `useMoveToTrash` with its Undo toast,
+> Recents, Favorites and sync in the sidebar, the page header slot, `FormatProvider`), with the
 > **URL-driven workspace model** ([routing.md](routing.md)): every page in a workspace is under
 > `/app/<its id>/…`, main picks the window's first URL, and switching is navigating. Revised after
 > review (Nov 6 2026): FullCalendar for the calendar, `/app/trash`, a create-workspace dialog
@@ -665,7 +668,8 @@ from the keys that work.
 
 **What this means now, before Vim:**
 
-- Ship the default keymap: ⌘K, C, N, G H / G T / G P / G N / G C, ⌘\ (already in `WorkspaceShell`;
+- Ship the default keymap: ⌘K, C, N, G H / G T / G P / G N / G C / G I / G S / G X (Integrations,
+  Settings, Trash: T is Tasks'), ⌘\ (already in `WorkspaceShell`;
   move it into the keymap), `?`, and the list keys.
 - **Move the list keys into the keymap.** `TaskRow` handles S, X and ↵ in its own `onKeyDown`
   today, and `TaskList` handles selection. Vim needs to remap those (`j`/`k` to move, `v` to select
@@ -1253,12 +1257,17 @@ page that needs them.
    workspace, `app.showLogFile`, `workspaces.openLast` removed.
 2. **Onboarding (done).** Welcome, Create workspace (the shared form, also as the in-app dialog),
    Choose workspace, Open Existing Folder, error states.
-3. **Shared app pieces.** Entity components moved to core's shapes, with `FormatProvider`
+3. **Shared app pieces (done).** Entity components moved to core's shapes, with `FormatProvider`
    (luxon), after X1 moves the shared types; `TaskList`, `BoardColumn` and `CardGrid` virtualized; `useOpenEntity`; error
    toast and `useConfirm`; Recents/Favorites/SyncStatus in the sidebar; page header slot and
    breadcrumbs; the keyboard layer (built: `src/renderer/keyboard/`) mounted as Keyboard's "Wiring
    it in" says, with the default keymap, the list keys moved out of `TaskRow`/`TaskList` into it,
-   and the shortcuts dialog. _Main:_ X1 first.
+   and the shortcuts dialog. _Main:_ X1 first. As built: the pieces are in `src/renderer/pages/app`
+   (`use-open-entity.ts`, `use-record-view.ts`, `mutation-errors.ts`, `use-confirm.tsx`,
+   `use-move-to-trash.ts`, `page-header.tsx` with `PageHeaderSlot`, `SidebarEntities.tsx`,
+   `AppCommands.tsx`); `FormatProvider` and `KeyboardProvider` are in the root layout, around the
+   dialogs; tRPC declares a pass-through transformer, so routes' outputs are typed with their
+   `Date`s, as structured clone delivers them.
 4. **Tasks.** List view with filters/sort in search params, row menu, selection bar; group view;
    board with the task sheet; create task and subtask dialogs; task page. _Main:_ T5, T6 (then T2,
    C1–C3 as they land).

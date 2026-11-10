@@ -26,11 +26,19 @@
   align-items: center;
   min-width: 0;
 }
+/* the fallback stands in for an empty place, and steps aside once something is in it */
+.place:empty:has(+ .fallback),
+.place:not(:empty) + .fallback {
+  display: none;
+}
 .actions {
   display: flex;
   flex: none;
   align-items: center;
   gap: var(--space-2);
+}
+.actions:empty {
+  display: none;
 }
 .favorite[data-favorite] {
   color: var(--date-today);

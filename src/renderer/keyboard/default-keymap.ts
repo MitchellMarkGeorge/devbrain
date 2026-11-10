@@ -2,7 +2,15 @@ import type { Command } from './commands';
 import type { Keymap } from './keymap';
 
 /** The pages `G` goes to. */
-export type GoToPage = 'home' | 'tasks' | 'projects' | 'notes' | 'calendar';
+export type GoToPage =
+  | 'home'
+  | 'tasks'
+  | 'projects'
+  | 'notes'
+  | 'calendar'
+  | 'integrations'
+  | 'settings'
+  | 'trash';
 
 /**
  * What the app-wide commands do, injected by whoever mounts them (the `/app` layout): the router
@@ -25,6 +33,9 @@ const PAGES: { page: GoToPage; title: string }[] = [
   { page: 'projects', title: 'Projects' },
   { page: 'notes', title: 'Notes' },
   { page: 'calendar', title: 'Calendar' },
+  { page: 'integrations', title: 'Integrations' },
+  { page: 'settings', title: 'Settings' },
+  { page: 'trash', title: 'Trash' },
 ];
 
 function command(id: string, title: string, run: (() => void) | undefined): Command[] {
@@ -50,12 +61,48 @@ export function createAppCommands(actions: AppCommandActions): Command[] {
 }
 
 const EVERYWHERE = 'Everywhere';
+const LISTS = 'Lists';
+
+// the list keys (list-commands.ts), in the `list` scope; labelled, so the shortcuts dialog lists
+// them all from any page, not only while a list is mounted
+const listEntries: Keymap['entries'] = [
+  { scope: 'list', keys: 'arrowdown', command: 'list.down', group: LISTS, label: 'Down / up' },
+  { scope: 'list', keys: 'arrowup', command: 'list.up', group: LISTS, label: 'Down / up' },
+  { scope: 'list', keys: 'home', command: 'list.first', group: LISTS, label: 'First / last' },
+  { scope: 'list', keys: 'end', command: 'list.last', group: LISTS, label: 'First / last' },
+  { scope: 'list', keys: 'enter', command: 'row.open', group: LISTS, label: 'Open' },
+  { scope: 'list', keys: 'x', command: 'list.toggleSelect', group: LISTS, label: 'Select' },
+  {
+    scope: 'list',
+    keys: 'escape',
+    command: 'list.clearSelection',
+    group: LISTS,
+    label: 'Clear selection',
+  },
+  { scope: 'list', keys: 's', command: 'row.openStatusMenu', group: LISTS, label: 'Change status' },
+  ...[1, 2, 3].map((status) => ({
+    scope: 'list' as const,
+    keys: String(status),
+    command: 'row.setStatus',
+    args: { status },
+    group: LISTS,
+    label: 'Not started / in progress / completed',
+  })),
+  { scope: 'list', keys: 'f', command: 'row.favorite', group: LISTS, label: 'Favorite' },
+  {
+    scope: 'list',
+    keys: 'mod+backspace',
+    command: 'row.trash',
+    group: LISTS,
+    label: 'Move to trash',
+  },
+];
 
 /** The keymap DevBrain ships with: one implicit mode, no counts. */
 export const defaultKeymap: Keymap = {
   id: 'default',
   title: 'Default',
-  groups: [EVERYWHERE, 'Lists', 'Editor'],
+  groups: [EVERYWHERE, LISTS, 'Editor'],
   entries: [
     {
       scope: 'global',
@@ -71,6 +118,10 @@ export const defaultKeymap: Keymap = {
     { scope: 'global', keys: 'g p', command: 'nav.projects', group: EVERYWHERE },
     { scope: 'global', keys: 'g n', command: 'nav.notes', group: EVERYWHERE },
     { scope: 'global', keys: 'g c', command: 'nav.calendar', group: EVERYWHERE },
+    { scope: 'global', keys: 'g i', command: 'nav.integrations', group: EVERYWHERE },
+    { scope: 'global', keys: 'g s', command: 'nav.settings', group: EVERYWHERE },
+    // T is Tasks'; X is the mark for deleting
+    { scope: 'global', keys: 'g x', command: 'nav.trash', group: EVERYWHERE },
     { scope: 'global', keys: '?', command: 'help.shortcuts', group: EVERYWHERE },
     {
       scope: 'global',
@@ -80,5 +131,7 @@ export const defaultKeymap: Keymap = {
       allowInEditor: true,
       group: EVERYWHERE,
     },
+    { scope: 'global', keys: 'mod+z', command: 'app.undo', group: EVERYWHERE },
+    ...listEntries,
   ],
 };

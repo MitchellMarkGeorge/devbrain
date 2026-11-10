@@ -55,6 +55,19 @@ export class UndoStack {
     return entry;
   }
 
+  /**
+   * Takes back `entry` wherever it is on the stack (the toast's Undo, for the change it reported
+   * when others have been pushed since), or `undefined` when it has gone. Like `undo`, it leaves
+   * the stack before its `undo` runs.
+   */
+  async take(entry: Undoable): Promise<Undoable | undefined> {
+    if (!this.entries.includes(entry)) return undefined;
+    this.entries = this.entries.filter((other) => other !== entry);
+    this.emit();
+    await entry.undo();
+    return entry;
+  }
+
   clear(): void {
     if (this.entries.length === 0) return;
     this.entries = [];

@@ -230,6 +230,11 @@ export class FakeMain {
       }
       case 'workspace.showInFolder':
         return [undefined, []];
+      // the sidebar's: nothing favorited, nothing connected
+      case 'favorites.list':
+        return [{ items: [], nextCursor: null }, []];
+      case 'sync.status':
+        return [[], []];
       default:
         throw new RemoteError('internal', `No route ${path} in the fake main`);
     }
@@ -270,7 +275,10 @@ export class FakeMain {
     const id = `${open.id}-${path}`;
     switch (path) {
       case 'recents.list':
-        return { items: [{ entityType: 'tasks', entity: { id, title } }], nextCursor: null };
+        return {
+          items: [{ entityType: 'tasks', entity: { id, title, status: 1 } }],
+          nextCursor: null,
+        };
       case 'calendars.list':
         return [{ id, name: title }];
       case 'integrations.list':

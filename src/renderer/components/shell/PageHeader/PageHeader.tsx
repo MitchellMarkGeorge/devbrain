@@ -1,4 +1,10 @@
-import { forwardRef, useContext, type ComponentPropsWithoutRef, type ReactNode } from 'react';
+import {
+  forwardRef,
+  useContext,
+  type ComponentPropsWithoutRef,
+  type ReactNode,
+  type Ref,
+} from 'react';
 import { Ellipsis, Star } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
@@ -17,6 +23,15 @@ export interface PageHeaderProps extends Omit<ComponentPropsWithoutRef<'header'>
    * `PageToolbar` under the header instead.
    */
   actions?: ReactNode;
+  /**
+   * The place's element, for a page to portal its breadcrumb into from below (the app's
+   * `PageHeaderSlot`); leave `children` out then
+   */
+  placeRef?: Ref<HTMLDivElement>;
+  /** The actions' element, likewise; it's there even with no `actions`, and takes no room while empty */
+  actionsRef?: Ref<HTMLDivElement>;
+  /** what the place shows while nothing is in it: the section's name, until a page fills it */
+  fallback?: ReactNode;
 }
 
 /**
@@ -25,7 +40,7 @@ export interface PageHeaderProps extends Omit<ComponentPropsWithoutRef<'header'>
  * While the sidebar is hidden, `WorkspaceShell` moves it into the `WindowBar`.
  */
 export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function PageHeader(
-  { actions, className, children, ...props },
+  { actions, placeRef, actionsRef, fallback, className, children, ...props },
   ref,
 ) {
   const inWindowBar = useContext(PageHeaderInWindowBar);
@@ -36,8 +51,17 @@ export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function Page
       className={cn(styles.header, className)}
       {...props}
     >
-      <div className={styles.place}>{children}</div>
-      {actions && <div className={styles.actions}>{actions}</div>}
+      <div ref={placeRef} className={styles.place}>
+        {children}
+      </div>
+      {fallback !== undefined && (
+        <div className={cn(styles.place, styles.fallback)}>{fallback}</div>
+      )}
+      {(actions || actionsRef) && (
+        <div ref={actionsRef} className={styles.actions}>
+          {actions}
+        </div>
+      )}
     </header>
   );
 });

@@ -7,6 +7,8 @@ The window inside a workspace, the frame every page in it shares: the `Sidebar` 
 
 The sidebar is **docked or hidden**, nothing in between. `collapsed` is the user's choice (⌘\ or the sidebar toggle) and hides it at any size; a compact window hides it too. `useWorkspaceShell().sidebarHidden` says which.
 
+The shell binds no keys of its own. ⌘\ is the app keymap's `sidebar.toggle` command (`src/renderer/keyboard`), which the workspace layout registers to run `useWorkspaceShell().toggleSidebar`, the same as clicking the toggle; the stories register it the same way.
+
 - **Docked:** the sidebar in its 256px column, drawing the window row (the title bar's start, then toggle, back and forward at its right), the page's header beside it.
 - **Hidden:** the column is 0 wide, and the sidebar in it stays mounted (so folded groups keep their state) but invisible and `inert`. The `WindowBar` runs across the top of the page and carries the page's header. A docked sheet runs the full height beside it, as beside the docked sidebar (on Windows the bar runs across it too, and it starts under it).
 - **Hiding and docking** slide the column between 256px and 0 in `duration-slow` (`ease-surface`): the sidebar slides out to the left and back, the page widening and narrowing beside it.

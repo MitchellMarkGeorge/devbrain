@@ -72,8 +72,9 @@ function useControllable<T>(
  * below 1080px the sidebar rests hidden and sheets float. The sidebar is either docked or hidden
  * (the user's choice, ⌘\, at any size). While it's hidden the window bar runs across the top with
  * the page's header in it, and the sidebar opens as a drawer over the page: pointing at the toggle
- * or the window's left edge peeks at it, and clicking the toggle or ⌘\ pins it open (or docks it,
- * where there's room).
+ * or the window's left edge peeks at it, and clicking the toggle pins it open (or docks it, where
+ * there's room). It binds no keys: the app's keymap runs `useWorkspaceShell().toggleSidebar` on
+ * ⌘\.
  *
  * It follows the window frame (`WindowFrameProvider`): on Windows, whose caption buttons sit over
  * the top right, the page's header runs the full width beside the docked sidebar too, and a docked
@@ -205,18 +206,6 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
       }, PEEK_OPEN_DELAY);
     }, [hidden, drawerShown, setDrawerOpen]);
     const cancelPeek = useCallback(() => clearTimeout(openTimer.current), []);
-
-    // ⌘\ toggles the sidebar
-    useEffect(() => {
-      const onKey = (event: KeyboardEvent) => {
-        if (event.key === '\\' && (event.metaKey || event.ctrlKey)) {
-          event.preventDefault();
-          toggleSidebar();
-        }
-      };
-      window.addEventListener('keydown', onKey);
-      return () => window.removeEventListener('keydown', onKey);
-    }, [toggleSidebar]);
 
     const base = useMemo<WorkspaceShellContextValue>(
       () => ({
