@@ -158,7 +158,13 @@
   margin-right: var(--space-1-5);
   overflow: hidden;
 }
-.deck > :not(:last-child) > * {
+/*
+ * A pill behind another keeps its parts' widths while stacked (folding back, too), so its label is
+ * uncovered rather than squeezed as it spreads. Spread or not stacked at all, its label shrinks to
+ * an ellipsis at the pill's 240px cap, as any pill's does, rather than running past its edge.
+ */
+.stack[data-stacked]:not([data-spread]) .deck > :not(:last-child) > *,
+.stack[data-closing] .deck > :not(:last-child) > * {
   flex-shrink: 0;
 }
 .deck > :not(:last-child) > :last-child {

@@ -113,6 +113,13 @@ export function createSuggestionMenu<T>(source: MenuSource<T>) {
                 // positions it once its first position is worked out
                 const element = renderer.element as HTMLElement;
                 Object.assign(element.style, { position: 'fixed', top: '0', left: '0' });
+                // inside the dialog or sheet the editor is in (a task note, the task sheet): over
+                // it, and part of it, so picking an item isn't a press outside that closes it
+                const surface = props.editor.view.dom.closest(
+                  '[role="dialog"], [role="alertdialog"]',
+                );
+                (surface ?? document.body).appendChild(element);
+                element.style.zIndex = '1';
                 unmount = props.mount(element);
               },
               onUpdate(props) {
@@ -124,6 +131,8 @@ export function createSuggestionMenu<T>(source: MenuSource<T>) {
               },
               onExit(props) {
                 unmount?.();
+                // appended here rather than by TipTap's mount, so removed here too
+                (renderer?.element as HTMLElement | undefined)?.remove();
                 renderer?.destroy();
                 renderer = null;
                 unmount = null;

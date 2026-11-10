@@ -13,17 +13,21 @@
 
 /*
  * Dialogs hang 160px from the window's top and centre on the whole window, sidebar or not (Figma
- * centres them over the page beside the sidebar; the window was chosen instead).
+ * centres them over the page beside the sidebar; the window was chosen instead). Centred by their
+ * margins, not a transform: a transformed dialog would hold, and clip, the fixed menus placed
+ * inside it (the editor's slash menu in the task note).
  */
 .popup {
   position: fixed;
   top: clamp(16px, 16vh, 160px);
-  left: 50%;
+  right: 0;
+  left: 0;
   z-index: var(--z-overlay);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   width: calc(100vw - 32px);
+  margin-inline: auto;
   max-height: calc(100vh - clamp(16px, 16vh, 160px) - 16px);
   overflow-y: auto;
   padding: var(--space-4);
@@ -33,7 +37,6 @@
   color: var(--popover-foreground);
   box-shadow: var(--shadow-2xl);
   outline: none;
-  transform: translateX(-50%);
   transform-origin: top center;
   /* opening fades it in as it rises 8px and grows from 96%; closing plays it back */
   transition:
@@ -43,7 +46,7 @@
 .popup[data-starting-style],
 .popup[data-ending-style] {
   opacity: 0;
-  transform: translateX(-50%) translateY(8px) scale(0.96);
+  transform: translateY(8px) scale(0.96);
 }
 .sizeDefault {
   max-width: var(--dialog-width);
