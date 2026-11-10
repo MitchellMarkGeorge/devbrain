@@ -119,25 +119,27 @@ describe('a project’s page', () => {
     expect(main.callsTo('recents.recordView').map((call) => call.input)).toEqual([{ id: auth.id }]);
   });
 
-  it('lays the overview out in sections, with the rest a click away in the Tasks tab', async () => {
+  it('lays the overview out as the work and a rail, with the rest a click away in the Tasks tab', async () => {
     const tasks = store();
-    for (let i = 1; i <= 6; i++) {
+    for (let i = 1; i <= 8; i++) {
       tasks.tasks.push(fakeTask(`tsk_more${i}`, `Follow-up ${i}`, { projectId: auth.id }));
     }
     const { app } = open(`/projects/${auth.id}`, tasks);
     await eventually(() => expect(app.text()).toContain('Implement PKCE flow'));
-    const section = (status: TaskStatus) =>
-      app.container.querySelector(`[data-testid="overview-${status}"]`)!;
-    expect(section(TaskStatus.IN_PROGRESS).textContent).toContain('In progress');
-    // Up next: 7 not started, 5 shown
-    const upNext = section(TaskStatus.NOT_STARTED);
-    expect(upNext.textContent).toContain('Up next');
-    expect(upNext.querySelectorAll('[data-task-id]')).toHaveLength(5);
-    // the latest notes
-    expect(app.text()).toContain('PKCE design notes');
-    click(byText(upNext, 'button', '2 more in Tasks'));
+    const section = (id: string) => app.container.querySelector(`[data-testid="${id}"]`)!;
+    // 10 open tasks, 8 shown
+    const openTasks = section('overview-open');
+    expect(openTasks.textContent).toContain('Open tasks');
+    expect(openTasks.querySelectorAll('[data-task-id]')).toHaveLength(8);
+    expect(section('overview-done').textContent).toContain('Draft ADR');
+    // the rail: progress split by status, the timeline and the latest notes
+    const rail = app.container.querySelector('[aria-label="Project at a glance"]')!;
+    expect(rail.textContent).toContain('1 of 11 tasks done');
+    expect(rail.textContent).toContain('No due date');
+    expect(rail.textContent).toContain('PKCE design notes');
+    click(byText(openTasks, 'button', '2 more in Tasks'));
     await eventually(() =>
-      expect(app.path()).toBe(`/app/${WORK}/projects/${auth.id}?tab=tasks&status=not_started`),
+      expect(app.path()).toBe(`/app/${WORK}/projects/${auth.id}?tab=tasks&status=open`),
     );
   });
 

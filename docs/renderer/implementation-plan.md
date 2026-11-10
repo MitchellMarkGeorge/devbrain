@@ -1390,13 +1390,14 @@ linkedTaskId } })`), separate from the task's event or note link.
      tasks page fills from its URL and the Tasks tab from the project page's (its params beside
      `tab`, the project left out). The Filter menu then has no Project, Group by no "Project" (it
      groups by status), and New Task and "Add task" file the task in the project.
-   - The Overview is a document page, as a task's page is: one 720px column that scrolls as a
-     whole. Under the header (name, properties, description) are In progress, Up next (not
-     started, the soonest due first) and Completed (folded), each up to five compact rows from its
-     own `tasks.list` call, with "N more in Tasks" opening the Tasks tab on that status; then the
-     project's three latest notes as small cards. This replaces Figma's full-width groups
-     (`7159:12540`). With no tasks, "No tasks in this project yet" offers New Task and Move Tasks
-     Here (the Tasks page's tasks in no project).
+   - The Overview is two columns that scroll together (one, with the rail under, below 1180px):
+     on the left the header (name, properties, description) over Open tasks (the soonest due
+     first, eight rows) and Recently completed (three), each with "N more in Tasks" opening the
+     Tasks tab on the rest; on the right a rail of cards: Progress (the percent, a bar split by
+     status with its legend, and the overdue tasks, which open the Tasks tab on them), Timeline
+     (start, due, how far through and how long is left) and the latest notes. This replaces
+     Figma's full-width groups (`7159:12540`). With no tasks, "No tasks in this project yet"
+     offers New Task and Move Tasks Here (the Tasks page's tasks in no project).
    - `ProjectHeader` gained `onTitleChange` (the name edits in place) and `duePicker`/`startPicker`
      (clearable dates). Colours are stored as `#rrggbb` (`workspace/colors.ts`'s `SWATCH_HEX`), as
      `projects.update` takes no swatch names; "Change colour" is a submenu of the six swatches
