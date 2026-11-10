@@ -49,8 +49,12 @@ declare module '@tanstack/history' {
 
 export interface TaskSheetProps {
   taskId: TaskId;
+  /** false while it slides out: the page keeps it mounted until `onClosed` */
+  open: boolean;
   /** closes the sheet (removes `open` from the URL) */
   onClose: () => void;
+  /** it has finished sliding out, and can be unmounted */
+  onClosed: () => void;
 }
 
 /**
@@ -59,10 +63,10 @@ export interface TaskSheetProps {
  * task's page. Closing goes back when the board pushed the sheet's entry, so Back and × agree;
  * a sheet opened from a link closes in place.
  */
-export function TaskSheet({ taskId, onClose }: TaskSheetProps) {
+export function TaskSheet({ taskId, open, onClose, onClosed }: TaskSheetProps) {
   const router = useRouter();
   const { size, sheetContainer } = useWorkspaceShell();
-  // docked, it's portalled into the shell's sheet column, which opens while it's there
+  // docked, it's portalled into the shell's sheet column, which slides open while it's open
   const floating = size === 'compact';
   const openEntity = useOpenEntity();
   const openedHere = useRouterState({ select: (state) => state.location.state.openedSheet });
@@ -83,10 +87,13 @@ export function TaskSheet({ taskId, onClose }: TaskSheetProps) {
   if (!floating && !sheetContainer) return null;
   return (
     <Sheet
-      open
+      open={open}
       variant={floating ? 'overlay' : 'docked'}
-      onOpenChange={(open) => {
-        if (!open) close();
+      onOpenChange={(next) => {
+        if (!next) close();
+      }}
+      onOpenChangeComplete={(next) => {
+        if (!next) onClosed();
       }}
     >
       <SheetContent container={floating ? undefined : sheetContainer} data-testid="task-sheet">

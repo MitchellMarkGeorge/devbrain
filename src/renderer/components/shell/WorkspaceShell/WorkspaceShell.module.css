@@ -98,15 +98,21 @@
   overscroll-behavior: contain;
 }
 
-/* the docked sheet's column: 0 wide while empty, the sheet's width while a sheet is in it */
+/*
+ * The docked sheet's column: 0 wide, and the sheet's width while an open sheet is in it. It slides
+ * open and shut with the sheet (same duration and easing), so the page narrows smoothly and the
+ * sheet's edge keeps to the page's; it clips the sheet as it closes. A closing sheet stays in it
+ * (no longer open) until the column has shut.
+ */
 .sheet {
   grid-area: sheet;
   position: relative;
   width: 0;
   min-height: 0;
   overflow: clip;
+  transition: width var(--duration-slow) var(--ease-surface);
 }
-.sheet:not(:empty) {
+.sheet:has([data-sheet][data-open]) {
   width: var(--sheet-width);
 }
 

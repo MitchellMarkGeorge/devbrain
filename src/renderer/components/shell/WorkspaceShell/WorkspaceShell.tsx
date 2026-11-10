@@ -66,7 +66,7 @@ type DrawerState = 'closed' | 'peek' | 'open';
  * sheets float. It binds no keys: the app's keymap runs `toggleSidebar` (through `controlsRef`) on ⌘\.
  *
  * A page docks a sheet by portalling its `SheetContent` into `useWorkspaceShell().sheetContainer`:
- * the column at the right opens while it has anything in it.
+ * the column at the right slides open while an open sheet is in it.
  */
 export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
   function WorkspaceShell(
@@ -227,7 +227,7 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
                 {children}
               </ScrollArea>
             </main>
-            {/* a docked sheet is portalled in here; the column opens while it has anything in it */}
+            {/* a docked sheet is portalled in here; the column slides open while that sheet is open */}
             <aside ref={setSheetContainer} className={styles.sheet} />
             {hidden && drawer === 'closed' && (
               <div

@@ -92,6 +92,8 @@ export function SheetContent({
         data-platform={platform}
       >
         <Drawer.Popup
+          // a docked sheet's column opens while its sheet is open (WorkspaceShell)
+          data-sheet=""
           className={mergeClassName(sheetVariants({ variant, size }), className)}
           {...props}
         >
