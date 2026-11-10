@@ -257,6 +257,16 @@ describe('NoteService — listNotes', () => {
     expect(result[0].id).toBe(linked.id);
   });
 
+  it('filter.linkedTo returns only the notes linked to an event, or to a task', async () => {
+    const event = await notesService.createNote({ title: 'Event', linkedEventId: FAKE_EVENT_ID });
+    const task = await notesService.createNote({ title: 'Task', linkedTaskId: FAKE_TASK_ID });
+    await notesService.createNote({ title: 'Unlinked' });
+    expect(notesService.listNotes({ linkedTo: 'event' }).items.map((n) => n.id)).toEqual([
+      event.id,
+    ]);
+    expect(notesService.listNotes({ linkedTo: 'task' }).items.map((n) => n.id)).toEqual([task.id]);
+  });
+
   it('filter.linkedTaskId: null returns only notes without a linked task', async () => {
     await notesService.createNote({ title: 'Linked', linkedTaskId: FAKE_TASK_ID });
     const unlinked = await notesService.createNote({ title: 'Unlinked' });

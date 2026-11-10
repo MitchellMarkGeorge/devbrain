@@ -15,7 +15,8 @@ the `Screens/*` stories, `docs/design-system/README.md`, `docs/ipc/design.md` an
 > `useRecordView`, `useMutationErrorToast`, `useConfirm`, `useMoveToTrash` with its Undo toast,
 > Recents, Favorites and sync in the sidebar, the page header slot, `FormatProvider`) and
 > milestone 4 (Tasks: list, group and board views, the task sheet, the task page, Create task and
-> Create subtask) and milestone 9 (⌘K search, with R1) are built, with the
+> Create subtask), milestone 5 (Notes: list and cards, the note page with autosave and its tasks,
+> `useEntityResolver`) and milestone 9 (⌘K search, with R1) are built, with the
 > **URL-driven workspace model** ([routing.md](routing.md)): every page in a workspace is under
 > `/app/<its id>/…`, main picks the window's first URL, and switching is navigating. Revised after
 > review (Nov 6 2026): FullCalendar for the calendar, `/app/trash`, a create-workspace dialog
@@ -1307,8 +1308,33 @@ page that needs them.
    - The task note is the note whose `linkedTaskId` is the task (`notes.list({ filter: {
 linkedTaskId } })`), separate from the task's event or note link. Convert to project, Duplicate
      and Copy as Markdown (C1–C3) are drawn disabled.
-5. **Notes.** List and cards, note page with the editor and autosave, linked tasks, task note
-   dialog on the task page, `useEntityResolver`. _Main:_ N1 (before this milestone), N2.
+5. **Notes (done).** List and cards, note page with the editor and autosave, linked tasks,
+   `useEntityResolver`. _Main:_ N1 (before this milestone), N2. As built (`src/renderer/pages/notes`):
+   - Layout as Tasks': `search.ts`, `queries.ts`, `loaders.ts`, `use-note-actions.ts`,
+     `use-create-note.ts` at the root; `views/` the Notes page (list and cards); `detail/` the
+     note page; `menus/` the row menu and the link and task pickers.
+   - The list is a new design-system `NoteList` (virtualized `NoteRow`s, focus by id, no
+     selection: notes have no bulk actions); the cards are `VirtualCardGrid`. The list keys open
+     (↵), favorite (F) and trash (⌘⌫) the focused row.
+   - `link=event` / `link=task` needed a core filter, `linkedTo` (any event, any task); `link=none`
+     is both links null.
+   - New Note, N and the sidebar's compose button (now New note, N) create an empty note and open
+     it with its title focused (history state `newNote`). On the Notes page filtered to a
+     project, the note goes in that project.
+   - The note page's pills follow Figma `7421:36683`: the project (or "+ Add to project"), the
+     task or event the note links to, and the tasks made from it ("3 tasks · 2 in progress"), or
+     "+ Add task" (a new task linked to the note, or Link existing task ›). The Tasks section
+     shows once it has a task. Link to › (in the "…" menu and the row menu's Change link ›) picks
+     an event or a task.
+   - Saving: `useEditorAutosave` (`pages/app/autosave.ts`, shared with the task description)
+     saves 500ms after typing, flushes on unmount, window blur and the start of a workspace
+     switch, and hands the editor only text it didn't save itself, so its own save's refetch
+     never overwrites newer typing.
+   - Editors take `useEditorHost()` (`pages/app/use-editor-host.ts`): search, links,
+     `useEntityResolver` and `useOpenEntity`. Pills subscribe through a new `EditorHost.watchEntity`;
+     `resolveEntity` returns null for an entity known to be gone.
+   - The task note stays a `TaskNoteCard` on the task page, opening the note's page (the dialog
+     was dropped in milestone 4). Duplicate and Copy as Markdown (C2, C3) are drawn disabled.
 6. **Projects.** List and cards, project page with tabs, create project dialog. _Main:_ P1, C4.
 7. **Calendar.** Add FullCalendar; `CalendarView` themed to the `TimeGrid`/`MonthGrid` guides,
    with its guide and stories, then retire those two; `toEventInput` and `occurrencesBetween` with

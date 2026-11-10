@@ -1,25 +1,18 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { NoteId } from '@common/ids';
-import { TaskStatus, type Task } from '@common/types';
+import type { Task } from '@common/types';
 import { AddSlot, DetailSection, resolveColor, TaskNoteCard, useFormat } from '../../../components';
 import { ipc, trpc } from '../../../ipc';
 import { useMutationErrorToast } from '../../app/mutation-errors';
 import { useOpenEntity } from '../../app/use-open-entity';
+import { tasksSummary } from '../../notes/queries';
 
 export interface TaskNoteSectionProps {
   /** the task, as `tasks.get` returns it */
   task: Pick<Task, 'id' | 'title'>;
   /** the board's task sheet: the card's pills under its title, and the sheet's spacing */
   compact?: boolean;
-}
-
-// "2 tasks · 1 in progress": the tasks made from the note
-function tasksSummary(statuses: readonly TaskStatus[]): string | undefined {
-  if (statuses.length === 0) return undefined;
-  const started = statuses.filter((status) => status === TaskStatus.IN_PROGRESS).length;
-  const count = `${statuses.length} ${statuses.length === 1 ? 'task' : 'tasks'}`;
-  return started > 0 ? `${count} · ${started} in progress` : count;
 }
 
 /**
@@ -40,7 +33,7 @@ export function TaskNoteSection({ task, compact = false }: TaskNoteSectionProps)
     enabled: note !== undefined,
   });
 
-  // the note's own page (`/notes/$noteId`, not built yet)
+  // the note's own page
   const open = (id: NoteId) => openEntity({ id });
 
   async function create() {

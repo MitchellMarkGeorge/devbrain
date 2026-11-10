@@ -1,7 +1,7 @@
 import { generateId, NoteId } from '@common/ids';
 import { notes } from '@main/db/schema/notes';
 import { tasks } from '@main/db/schema/tasks';
-import { SQL, and, isNull, desc, eq, inArray } from 'drizzle-orm';
+import { SQL, and, isNull, isNotNull, desc, eq, inArray } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import path from 'node:path';
@@ -163,6 +163,9 @@ export class NoteService {
           : eq(notes.linkedTaskId, filter.linkedTaskId),
       );
     }
+
+    if (filter.linkedTo === 'event') clauses.push(isNotNull(notes.linkedEventId));
+    if (filter.linkedTo === 'task') clauses.push(isNotNull(notes.linkedTaskId));
 
     let sortColumn: SQLiteColumn;
     switch (sort.sortBy) {
