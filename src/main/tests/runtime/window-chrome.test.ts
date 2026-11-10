@@ -3,6 +3,7 @@ import { WINDOW_BACKGROUND, WINDOW_FOREGROUND } from '@common/theme';
 import {
   TITLE_BAR_HEIGHT,
   TRAFFIC_LIGHT_POSITION,
+  keepTrafficLights,
   repaintChrome,
   titleBarOverlay,
   windowChrome,
@@ -32,6 +33,32 @@ describe('windowChrome', () => {
 
   it('keeps the system frame on Linux', () => {
     expect(windowChrome('linux', LIGHT)).toEqual({});
+  });
+});
+
+describe('keepTrafficLights', () => {
+  function fakeWindow() {
+    const listeners = new Map<string, () => void>();
+    return {
+      listeners,
+      on: vi.fn((event: string, listener: () => void) => void listeners.set(event, listener)),
+      setWindowButtonPosition: vi.fn(),
+    };
+  }
+
+  it('puts the traffic lights back when the window is shown, restored, focused or leaves full screen', () => {
+    const window = fakeWindow();
+    keepTrafficLights(window as never, 'darwin');
+    expect([...window.listeners.keys()]).toEqual(['show', 'restore', 'focus', 'leave-full-screen']);
+    for (const listener of window.listeners.values()) listener();
+    expect(window.setWindowButtonPosition).toHaveBeenCalledTimes(4);
+    expect(window.setWindowButtonPosition).toHaveBeenCalledWith(TRAFFIC_LIGHT_POSITION);
+  });
+
+  it('does nothing off macOS', () => {
+    const window = fakeWindow();
+    keepTrafficLights(window as never, 'win32');
+    expect(window.on).not.toHaveBeenCalled();
   });
 });
 

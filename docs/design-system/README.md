@@ -125,7 +125,7 @@ The window is never smaller than `window-min-width` × `window-min-height` (960 
   - Sheets float over the page instead of docking.
   - Toolbar values hide, and card grids (the Notes and Projects card views) drop to two columns.
 - **The sidebar has two states:** docked (`sidebar-width`, 256px, the page beside it) or hidden. The user hides and shows it with ⌘\ or the sidebar toggle at any width; a sidebar the user hid stays hidden at any width, and in compact windows it rests hidden. While it's hidden:
-  - The `WindowBar` runs across the top: the title bar's start, the sidebar toggle, back and forward, then the page's header.
+  - The `WindowBar` takes the sidebar's place at the top left (the title bar's start, the sidebar toggle, back and forward), and the page's header sits beside it.
   - The sidebar opens as a drawer over the page, with the `backdrop` scrim behind it. Pointing at the toggle, or at an 8px strip along the window's left edge, peeks at it after 200ms, so a passing pointer doesn't; it closes 300ms after the pointer leaves it. A peek leaves focus where it was.
   - Clicking the toggle or ⌘\ pins the drawer open in compact windows, and docks the sidebar where the window is wide enough. Clicking inside a peeking drawer, or moving focus into it, pins it too. Esc, a click outside or picking a page closes it. Keyboard users open it with the toggle or ⌘\.
 - **At every size:** the week view keeps all seven days unless Hide weekends is on (Settings › Calendar, `calendar.hideWeekends`), since hiding days could hide events; the day columns narrow instead. With Hide weekends on and events on the visible week's weekend, the header says so ("2 events on the weekend") with a link that shows the weekend. Long text ends in "…" at its own width: pill labels before titles, titles before dates, and breadcrumbs keep the first and last items. Sheets and dialogs scroll inside themselves at the minimum height, and the selection bar and toasts sit on the window's bottom edge. Document pages cap their content and centre it in the page (see Page widths); workspace pages use the full width.
@@ -133,13 +133,13 @@ The window is never smaller than `window-min-width` × `window-min-height` (960 
 ## Window frame
 
 The page draws its own title bar, a 48px strip (the `WindowBar` while the sidebar is hidden; the
-sidebar's 44px window row and the `PageHeader` beside the docked sidebar), and leaves room for the
+sidebar's window row and the `PageHeader` beside the docked sidebar), and leaves room for the
 window controls the system draws. Main sets the frame up per platform
 (`src/main/runtime/window-chrome.ts`); the page reads the platform from `WindowFrameProvider`
 (`src/renderer/components/lib/platform.ts`), and the Storybook toolbar picks one.
 
-- **macOS** (the designs): no title bar; the system draws the traffic lights in the 52px slot the
-  strip keeps at its top left.
+- **macOS** (the designs): no title bar; the system draws the traffic lights in the 68px slot the
+  strip keeps at its top left (52px of lights, then 16px clear).
 - **Windows:** no title bar; Windows draws minimise, maximise and close (138px, 48px tall, in the
   theme's `background` and `foreground`) over the top right, so maximise keeps its snap layouts. A
   menu button takes the traffic lights' place and pops up the app menu, as there is no menu bar.

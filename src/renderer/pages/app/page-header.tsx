@@ -43,8 +43,8 @@ export interface PageHeaderSlotProps {
 
 /**
  * Puts a page's breadcrumb and actions in the workspace layout's `PageHeader`, while mounted; the
- * header's fallback (the route's title) steps aside while its place is filled. The header moves
- * into the window bar while the sidebar is hidden; the slot follows it.
+ * header's fallback (the route's title) steps aside while its place is filled. The shell never
+ * moves the header, so its elements, and what is portalled into them, stay put.
  */
 export function PageHeaderSlot({ place, actions }: PageHeaderSlotProps) {
   const slots = useContext(PageHeaderContext);

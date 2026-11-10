@@ -1,4 +1,4 @@
-import { createContext, useContext, type RefObject } from 'react';
+import { createContext, useContext } from 'react';
 
 /**
  * The window's size range (README "Window sizes"): `compact` below `breakpoint-medium` (1080px),
@@ -34,8 +34,11 @@ export interface WorkspaceShellContextValue {
   onForward?: () => void;
   canGoBack: boolean;
   canGoForward: boolean;
-  /** the docked sheet's column: pass it to `SheetContent container` */
-  sheetContainer: RefObject<HTMLDivElement | null> | null;
+  /**
+   * The docked sheet's column: pass it to `SheetContent container`. Null until the shell has
+   * mounted it, and outside a shell; a docked sheet waits for it (else it would land in the body)
+   */
+  sheetContainer: HTMLElement | null;
 }
 
 const noop = () => {};

@@ -56,7 +56,8 @@ describe('the app-wide keys', () => {
   it('toggle the sidebar with ⌘\\', async () => {
     await onWorkHome();
     // the test window is compact, where the sidebar rests hidden: ⌘\ opens it as a drawer
-    const drawer = () => document.querySelector('[aria-label="Sidebar"]');
+    // the drawer is kept mounted while closed, so a peek opens at once
+    const drawer = () => document.querySelector('[aria-label="Sidebar"][data-open]');
     expect(drawer()).toBeNull();
     key('\\', { metaKey: true });
     await eventually(() => expect(drawer()).not.toBeNull());

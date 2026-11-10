@@ -25,7 +25,7 @@ import { initialRoute, saveLastPageOnClose, type LastPages } from './runtime/las
 import { createElectronDesktop } from './runtime/desktop';
 import { createMenuActions, installAppMenu } from './runtime/menu';
 import { applyTheme, windowBackground } from './runtime/theme';
-import { repaintChrome, windowChrome } from './runtime/window-chrome';
+import { keepTrafficLights, repaintChrome, windowChrome } from './runtime/window-chrome';
 import { followLaunchAtLogin, supportsLoginItem } from './runtime/login-item';
 import { attachRouter } from './ipc/server';
 import { attachInitialLoadContext, initialLoadContext } from './ipc/initial-load-context';
@@ -192,6 +192,7 @@ function createWindow() {
   });
 
   win.on('ready-to-show', () => win.show());
+  keepTrafficLights(win, process.platform);
   win.on('close', (event) => {
     if (process.platform !== 'darwin' || quitting) return;
     event.preventDefault();

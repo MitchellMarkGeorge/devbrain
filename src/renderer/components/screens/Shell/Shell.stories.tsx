@@ -36,8 +36,8 @@ export const Expanded: Story = {
 
 /**
  * The user hid the sidebar (Figma "Tasks (list) — sidebar collapsed", 7167:14126, still draws the
- * old icon rail): the window bar runs across the top and carries the breadcrumb. Point at the
- * sidebar toggle or the window's left edge to peek at the sidebar; click the toggle to dock it.
+ * old icon rail): the window bar takes its place at the top left, the breadcrumb beside it. Point at
+ * the sidebar toggle or the window's left edge to peek at the sidebar; click the toggle to dock it.
  */
 export const SidebarCollapsed: Story = {
   render: () => (

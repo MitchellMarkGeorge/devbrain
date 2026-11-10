@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { TaskId } from '@common/ids';
 import { Breadcrumb, PageContent, PageToolbar } from '../../../components';
 import { PageHeaderSlot } from '../../app/page-header';
@@ -24,6 +25,9 @@ export function TasksPage() {
       search: (previous) => ({ ...previous, open }),
       state: (previous) => ({ ...previous, openedSheet: true }),
     });
+  // the sheet's task stays mounted once `open` leaves the URL, until the sheet has slid out
+  const [sheetTask, setSheetTask] = useState(resolved.open);
+  if (resolved.open && resolved.open !== sheetTask) setSheetTask(resolved.open);
   return (
     <>
       <PageHeaderSlot
@@ -57,8 +61,13 @@ export function TasksPage() {
           />
         )}
       </PageContent>
-      {resolved.view === 'board' && resolved.open && (
-        <TaskSheet taskId={resolved.open} onClose={() => setSearch({ open: undefined })} />
+      {resolved.view === 'board' && sheetTask && (
+        <TaskSheet
+          taskId={sheetTask}
+          open={resolved.open !== undefined}
+          onClose={() => setSearch({ open: undefined })}
+          onClosed={() => setSheetTask(undefined)}
+        />
       )}
     </>
   );

@@ -10,10 +10,9 @@ import { WINDOW_BACKGROUND, WINDOW_FOREGROUND } from '@common/theme';
 // WindowBar, and the page header beside the full sidebar (PageHeader).
 export const TITLE_BAR_HEIGHT = 48;
 
-// Where macOS draws the traffic lights (the top left of the three 12px buttons): 16px in and 16px
-// down, centred in the full sidebar's 44px window row as the designs place them. Electron places
-// them once, so in the 48px WindowBar (the sidebar collapsed) they sit 2px above its centre.
-export const TRAFFIC_LIGHT_POSITION = { x: 16, y: 16 } as const;
+// Where macOS draws the traffic lights (the top left of the three 12px buttons): 16px in and 18px
+// down, centred in the 48px title bar strip: the sidebar's window row and the WindowBar alike.
+export const TRAFFIC_LIGHT_POSITION = { x: 16, y: 18 } as const;
 
 /**
  * The window frame on each platform. The page draws the title bar itself (WindowBar, PageHeader,
@@ -40,6 +39,25 @@ export function windowChrome(
     default:
       return {};
   }
+}
+
+/**
+ * Keeps the traffic lights where the page leaves room for them. macOS can drop a window's button
+ * position when the window changes state, drawing them at its own spot (higher, further left,
+ * beside the page's sidebar toggle rather than before it): when the window is shown again after
+ * being hidden (closing hides it on macOS), restored, focused, or out of full screen. Each puts
+ * them back.
+ */
+export function keepTrafficLights(
+  window: Pick<BrowserWindow, 'on' | 'setWindowButtonPosition'>,
+  platform: NodeJS.Platform,
+): void {
+  if (platform !== 'darwin') return;
+  const place = () => window.setWindowButtonPosition(TRAFFIC_LIGHT_POSITION);
+  window.on('show', place);
+  window.on('restore', place);
+  window.on('focus', place);
+  window.on('leave-full-screen', place);
 }
 
 /** The Windows controls' colours: the theme's --background behind --foreground symbols. */

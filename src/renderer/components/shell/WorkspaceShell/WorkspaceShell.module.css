@@ -1,10 +1,17 @@
 /* The frame every screen shares. See docs/design-system/components/WorkspaceShell.md */
+/*
+ * Each part is one element in one place; these grid templates place them. The first column holds
+ * the docked sidebar, or the WindowBar beside the header while the sidebar is hidden.
+ */
 .shell {
   position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-rows: minmax(0, 1fr);
-  grid-template-areas: 'sidebar main sheet';
+  grid-template-rows: auto minmax(0, 1fr);
+  /* macOS, Linux: the docked sidebar and a docked sheet run the full height */
+  grid-template-areas:
+    'sidebar header sheet'
+    'sidebar main   sheet';
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -22,37 +29,42 @@
     transform: scale(0.99);
   }
 }
-/*
- * While the sidebar is hidden the window bar runs across the top of the page. The sidebar's column
- * spans both rows, so a sidebar sliding away keeps its full height and the bar follows its edge. A
- * docked sheet runs the full height beside the bar, as beside the docked sidebar; on Windows the
- * bar runs across it too, and it starts under it (below).
- */
-.shell[data-sidebar-hidden] {
-  grid-template-rows: auto minmax(0, 1fr);
+/* hidden: the WindowBar and the header share the top row, the page runs under both */
+.shell[data-sidebar='hidden'] {
   grid-template-areas:
-    'sidebar bar sheet'
-    'sidebar main sheet';
-}
-.shell[data-sidebar-hidden][data-platform='windows'] {
-  grid-template-areas:
-    'sidebar bar bar'
-    'sidebar main sheet';
-}
-.windowBar {
-  grid-area: bar;
+    'bar  header sheet'
+    'main main   sheet';
 }
 /*
- * Windows, beside the docked sidebar: the header gets a row across the page and the sheet, as the
- * caption buttons sit over its right end; both start under it. At least 48px,
- * so the strip is there to drag the window by even on a page without a header.
+ * Windows: the caption buttons sit over the top right, so the header row runs across the sheet's
+ * column too, and a docked sheet starts under it
  */
-.shell[data-platform='windows']:not([data-sidebar-hidden]) {
-  grid-template-rows: auto minmax(0, 1fr);
+.shell[data-platform='windows'] {
   grid-template-areas:
     'sidebar header header'
-    'sidebar main sheet';
+    'sidebar main   sheet';
 }
+.shell[data-platform='windows'][data-sidebar='hidden'] {
+  grid-template-areas:
+    'bar  header header'
+    'main main   sheet';
+}
+
+.sidebar {
+  grid-area: sidebar;
+  display: flex;
+  width: var(--sidebar-width);
+  min-height: 0;
+}
+.sidebar > * {
+  flex: 1;
+}
+
+.bar {
+  grid-area: bar;
+}
+
+/* at least 48px, so the strip is there to drag the window by even on a page without a header */
 .header {
   grid-area: header;
   display: flex;
@@ -63,41 +75,7 @@
 .header > * {
   flex: 1;
 }
-/* Windows' caption buttons, painted in stories (the system draws them in the app) */
-.captionButtons {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: var(--z-overlay);
-}
-.sidebar {
-  grid-area: sidebar;
-  display: flex;
-  /* the sidebar keeps its width and hangs from the column's right edge, so it slides */
-  justify-content: flex-end;
-  width: var(--sidebar-width);
-  min-height: 0;
-  overflow: clip;
-  /*
-   * Hiding and docking slide the column's width between 256px and 0 (the page beside it widening
-   * or narrowing with it), so the sidebar slides out to the left and back. Once hidden it's
-   * invisible as well as inert; it shows at once when docking starts.
-   */
-  transition:
-    width var(--duration-slow) var(--ease-surface),
-    visibility 0s;
-}
-.shell .sidebar > * {
-  flex: none;
-  max-width: none;
-}
-.shell[data-sidebar-hidden] .sidebar {
-  width: 0;
-  visibility: hidden;
-  transition:
-    width var(--duration-slow) var(--ease-surface),
-    visibility 0s var(--duration-slow);
-}
+
 .main {
   grid-area: main;
   display: flex;
@@ -120,29 +98,36 @@
   overscroll-behavior: contain;
 }
 
-/* the docked sheet's column: empty and 0 wide until a sheet opens */
+/*
+ * The docked sheet's column: 0 wide, and the sheet's width while an open sheet is in it. It slides
+ * open and shut with the sheet (same duration and easing), so the page narrows smoothly and the
+ * sheet's edge keeps to the page's; it clips the sheet as it closes. A closing sheet stays in it
+ * (no longer open) until the column has shut.
+ */
 .sheet {
   grid-area: sheet;
   position: relative;
   width: 0;
   min-height: 0;
-  /*
-   * A docked sheet's column slides open and shut with the sheet (same duration and easing), so
-   * the page narrows smoothly and the sheet's edge keeps to the page's; it clips the sheet as it
-   * slides out.
-   */
   overflow: clip;
   transition: width var(--duration-slow) var(--ease-surface);
 }
-.sheet[data-open] {
+.sheet:has([data-sheet][data-open]) {
   width: var(--sheet-width);
 }
 
-/* ---------- the hidden sidebar: a strip at the window's left edge, and the drawer ---------- */
+/* Windows' caption buttons, painted in stories (the system draws them in the app) */
+.captionButtons {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: var(--z-overlay);
+}
+
+/* ---------- the hidden sidebar: the edge strip that peeks, and the drawer ---------- */
 /*
  * Pointing at the window's left edge peeks at the drawer, as pointing at the sidebar toggle does.
- * 8px wide, under the window bar (whose start and toggle are the bar's own), over the page's
- * margin.
+ * 8px wide, under the WindowBar, over the page's margin.
  */
 .edge {
   position: absolute;
@@ -163,36 +148,40 @@
 .backdrop[data-ending-style] {
   opacity: 0;
 }
+/* the drawer's viewport covers the shell but lets the pointer through to the page around it */
+.drawerViewport {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-overlay);
+  pointer-events: none;
+}
 .drawer {
   position: absolute;
   top: 0;
   bottom: 0;
   left: 0;
-  z-index: var(--z-overlay);
   display: flex;
   background: var(--sidebar);
   box-shadow: var(--shadow-2xl);
   outline: none;
+  pointer-events: auto;
   /*
-   * In the app, the window bar under it would otherwise keep dragging the window (and swallowing
+   * In the app, the WindowBar under it would otherwise keep dragging the window (and swallowing
    * the pointer) through the drawer's top
    */
   -webkit-app-region: no-drag;
   /*
-   * The drawer slides in from the window's left edge over the page, as the docked sidebar slides
-   * in beside it, in the same duration and easing; closing slides it back out. It starts its own
-   * shadow's width further out, so no shadow shows at the edge before it moves.
+   * The drawer slides in from the window's left edge over the page and back out, following a
+   * swipe while one lasts. It starts its own shadow's width further out, so no shadow shows at
+   * the edge before it moves.
    */
+  transform: translateX(var(--drawer-swipe-movement-x, 0px));
   transition: transform var(--duration-slow) var(--ease-surface);
+}
+.drawer[data-swiping] {
+  transition: none;
 }
 .drawer[data-starting-style],
 .drawer[data-ending-style] {
   transform: translateX(calc(-100% - 48px));
-}
-
-/* docking from the drawer: the docked sidebar takes the drawer's place where it stands */
-.shell[data-instant] .sidebar,
-.shell[data-instant] .backdrop,
-.shell[data-instant] .drawer {
-  transition: none;
 }

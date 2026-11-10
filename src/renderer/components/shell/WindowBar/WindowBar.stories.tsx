@@ -1,7 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { List } from 'lucide-react';
-import { Breadcrumb } from '../../ui/Breadcrumb';
-import { PageFavoriteButton, PageHeader, PageHeaderInWindowBar } from '../PageHeader';
 import { TooltipProvider } from '../../ui/Tooltip';
 import { WindowFrameProvider, type Platform } from '../../lib/platform';
 import {
@@ -29,20 +26,12 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 function Bar() {
-  return (
-    <PageHeaderInWindowBar.Provider value>
-      <WindowBar>
-        <PageHeader actions={<PageFavoriteButton favorite={false} />}>
-          <Breadcrumb items={['Tasks', { label: 'List', icon: List }]} />
-        </PageHeader>
-      </WindowBar>
-    </PageHeaderInWindowBar.Provider>
-  );
+  return <WindowBar />;
 }
 
 /**
- * The hidden sidebar's bar on the toolbar's platform: the title bar's start, sidebar toggle,
- * back and forward, then the page's header.
+ * The hidden sidebar's bar on the toolbar's platform: the title bar's start, then the sidebar
+ * toggle, back and forward. `WorkspaceShell` puts the page's header beside it.
  */
 export const Default: Story = { render: () => <Bar /> };
 

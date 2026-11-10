@@ -24,20 +24,25 @@ import styles from './Sidebar.module.css';
 
 export interface SidebarProps extends ComponentPropsWithoutRef<'nav'> {
   /**
+   * The row pinned at the top, under the window row: a `SidebarHeader` (the workspace switcher,
+   * then search and "new"). It and the window row stay put together while the rest scrolls.
+   */
+  header?: ReactNode;
+  /**
    * The title bar's start (traffic lights on macOS, the menu button on Windows, nothing on Linux)
-   * and the window controls (sidebar toggle, back, forward, at the right) on a 44px row at the top
-   * of the sidebar. On by default inside a `WorkspaceShell`, docked and in the drawer alike.
+   * and the sidebar toggle beside it, with back and forward at the right, on a 48px row at the top
+   * of the sidebar. It starts as the `WindowBar` does, so the toggle never moves. On by default inside a `WorkspaceShell`, docked and in the drawer alike.
    */
   windowControls?: boolean;
 }
 
 /**
- * The app's sidebar: 256px on the page colour with a hairline at its right. Compose it from
- * `SidebarHeader`, `SidebarContent` (scrolling `SidebarGroup`s of `SidebarItem`s) and
+ * The app's sidebar: 256px on the page colour with a hairline at its right. Compose it from a
+ * `SidebarHeader` (its `header`), `SidebarContent` (scrolling `SidebarGroup`s of `SidebarItem`s) and
  * `SidebarFooter`. Inside a `WorkspaceShell` the shell docks it, or hides it and opens it as a drawer.
  */
 export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
-  { windowControls, className, children, 'aria-label': ariaLabel = 'Main', ...props },
+  { header, windowControls, className, children, 'aria-label': ariaLabel = 'Main', ...props },
   ref,
 ) {
   const shell = useWorkspaceShell();
@@ -52,10 +57,15 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
     >
       {/* everything scrolls in it, under the pinned rows, with the thin scrollbar */}
       <ScrollArea className={styles.area} viewportClassName={styles.scroller}>
-        {showControls && (
-          <div className={styles.windowRow}>
-            <WindowStart />
-            <WindowControls className={styles.controls} />
+        {(showControls || header) && (
+          <div className={styles.top}>
+            {showControls && (
+              <div className={styles.windowRow}>
+                <WindowStart />
+                <WindowControls historyAtEnd />
+              </div>
+            )}
+            {header}
           </div>
         )}
         {children}
@@ -64,7 +74,10 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   );
 });
 
-/** The top row: the workspace switcher, then search and "new" (`SidebarHeaderActions`). */
+/**
+ * The top row, passed as the sidebar's `header`: the workspace switcher, then search and "new"
+ * (`SidebarHeaderActions`).
+ */
 export const SidebarHeader = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<'div'>>(
   function SidebarHeader({ className, ...props }, ref) {
     return <div ref={ref} className={cn(styles.header, className)} {...props} />;

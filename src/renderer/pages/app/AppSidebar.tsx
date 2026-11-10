@@ -69,18 +69,21 @@ export function AppSidebar() {
     </SidebarItem>
   );
   return (
-    <Sidebar>
-      <SidebarHeader>
-        <WorkspaceMenu />
-        <SidebarHeaderActions>
-          <SidebarAction
-            icon={SquarePen}
-            label="New task"
-            shortcut="C"
-            onClick={() => createTask()}
-          />
-        </SidebarHeaderActions>
-      </SidebarHeader>
+    <Sidebar
+      header={
+        <SidebarHeader>
+          <WorkspaceMenu />
+          <SidebarHeaderActions>
+            <SidebarAction
+              icon={SquarePen}
+              label="New task"
+              shortcut="C"
+              onClick={() => createTask()}
+            />
+          </SidebarHeaderActions>
+        </SidebarHeader>
+      }
+    >
       <SidebarContent>
         <SidebarGroup>{NAV.map(item)}</SidebarGroup>
         <SidebarRecents />

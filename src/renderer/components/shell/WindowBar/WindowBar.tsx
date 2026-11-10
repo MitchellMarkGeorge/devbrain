@@ -15,7 +15,8 @@ export interface TrafficLightsProps extends ComponentPropsWithoutRef<'span'> {
 }
 
 /**
- * The macOS close, minimise and zoom buttons' 52×12 slot. The system draws the real ones
+ * The macOS close, minimise and zoom buttons' 68×12 slot: the three 12px buttons, 8px apart (52px),
+ * and 16px clear of what follows. The system draws the real ones
  * (src/main/runtime/window-chrome.ts), so the app only keeps their space; stories paint stand-ins.
  */
 export function TrafficLights({ drawn, className, ...props }: TrafficLightsProps) {
@@ -69,12 +70,18 @@ export const AppMenuButton = forwardRef<HTMLButtonElement, AppMenuButtonProps>(
 /**
  * The start of the title bar, before the window controls: the traffic lights' slot on macOS, the
  * menu button on Windows, and nothing on Linux, whose system frame has its own title bar and menu
- * bar above the page.
+ * bar above the page. Each slot ends 16px clear of what follows, so a row needs no gap after it.
  */
 export function WindowStart({ className }: { className?: string }) {
   const { platform } = useWindowFrame();
   if (platform === 'macos') return <TrafficLights className={className} />;
-  if (platform === 'windows') return <AppMenuButton className={className} />;
+  if (platform === 'windows') {
+    return (
+      <span className={cn(styles.menuSlot, className)}>
+        <AppMenuButton />
+      </span>
+    );
+  }
   return null;
 }
 
@@ -100,6 +107,11 @@ export function CaptionButtons({ className, ...props }: ComponentPropsWithoutRef
 }
 
 export interface WindowControlsProps extends ComponentPropsWithoutRef<'div'> {
+  /**
+   * Back and forward at the end of the row the controls fill, the toggle staying at the start (the
+   * sidebar's window row); otherwise all three sit together (the `WindowBar`)
+   */
+  historyAtEnd?: boolean;
   onToggleSidebar?: () => void;
   onBack?: () => void;
   onForward?: () => void;
@@ -124,7 +136,16 @@ function toggleLabel(shell: WorkspaceShellContextValue): string {
  */
 export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
   function WindowControls(
-    { onToggleSidebar, onBack, onForward, canGoBack, canGoForward, className, ...props },
+    {
+      historyAtEnd,
+      onToggleSidebar,
+      onBack,
+      onForward,
+      canGoBack,
+      canGoForward,
+      className,
+      ...props
+    },
     ref,
   ) {
     const shell = useWorkspaceShell();
@@ -132,7 +153,12 @@ export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
     const label = toggleLabel(shell);
     const peeks = !onToggleSidebar && shell.sidebarHidden && !shell.inDrawer;
     return (
-      <div ref={ref} className={cn(styles.controls, className)} {...props}>
+      <div
+        ref={ref}
+        data-history-at-end={historyAtEnd ? '' : undefined}
+        className={cn(styles.controls, className)}
+        {...props}
+      >
         <IconButton
           size="sm"
           tone="muted"
@@ -174,23 +200,21 @@ export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
   },
 );
 
-export type WindowBarProps = ComponentPropsWithoutRef<'div'>;
+export type WindowBarProps = Omit<ComponentPropsWithoutRef<'div'>, 'children'>;
 
 /**
- * The 48px bar across the window while the sidebar is hidden: the title bar's start (traffic
- * lights on macOS, the menu button on Windows), the window controls, then the page's header (its
- * breadcrumb, and its actions at the right, clear of Windows' caption buttons). The bar drags the
- * window; its buttons don't.
+ * The 48px strip at the window's top left while the sidebar is hidden: the title bar's start
+ * (traffic lights on macOS, the menu button on Windows) and the window controls. `WorkspaceShell`
+ * puts the page's header beside it. The strip drags the window; its buttons don't.
  */
 export const WindowBar = forwardRef<HTMLDivElement, WindowBarProps>(function WindowBar(
-  { className, children, ...props },
+  { className, ...props },
   ref,
 ) {
   return (
     <div ref={ref} className={cn(styles.bar, className)} {...props}>
       <WindowStart />
       <WindowControls />
-      <div className={styles.page}>{children}</div>
     </div>
   );
 });

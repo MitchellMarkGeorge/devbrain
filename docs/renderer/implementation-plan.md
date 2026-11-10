@@ -1293,8 +1293,9 @@ page that needs them.
      rather than an inline `QuickAddRow`. Groups load once their heading has been on screen; a
      project group with no tasks for the filters is left out once loaded.
    - The selection bar uses `tasks.updateMany` and `archive.archiveTasks` (T2).
-   - The board's sheet docks through `useDockedSheet` (`pages/app/docked-sheet.tsx`), which the
-     calendar's event sheet can reuse; it floats in compact windows. Board cards keep
+   - The board's sheet docks by portalling into the shell's sheet column
+     (`useWorkspaceShell().sheetContainer`), which opens while the sheet is in it; the calendar's
+     event sheet can do the same. It floats in compact windows. Board cards keep
      `BoardColumn`'s own ↑/↓/↵; the list keys aren't bound on the board yet.
    - The task note is the note whose `linkedTaskId` is the task (`notes.list({ filter: {
 linkedTaskId } })`), separate from the task's event or note link. Convert to project, Duplicate
