@@ -158,7 +158,13 @@
   margin-right: var(--space-1-5);
   overflow: hidden;
 }
-.deck > :not(:last-child) > * {
+/*
+ * A pill behind another keeps its parts' widths while stacked (folding back, too), so its label is
+ * uncovered rather than squeezed as it spreads. Spread or not stacked at all, its label shrinks to
+ * an ellipsis at the pill's 240px cap, as any pill's does, rather than running past its edge.
+ */
+.stack[data-stacked]:not([data-spread]) .deck > :not(:last-child) > *,
+.stack[data-closing] .deck > :not(:last-child) > * {
   flex-shrink: 0;
 }
 .deck > :not(:last-child) > :last-child {
@@ -239,6 +245,7 @@
   width: 20px;
 }
 .date {
+  position: relative;
   min-width: 44px;
   color: var(--subtle-foreground);
   font-size: var(--text-xs);
@@ -246,6 +253,26 @@
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
+}
+/*
+ * An undated task's slot: blank at rest, "Set due date" while the row is pointed at or focused (and
+ * while its picker is open), right-aligned like a date
+ */
+/* drawn over the slot's end, so an undated row's priority and pills line up with a dated row's */
+.setDue {
+  position: absolute;
+  top: 50%;
+  right: -4px;
+  translate: 0 -50%;
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+.row:hover .setDue,
+.row:focus-visible .setDue,
+.row:focus-within .setDue,
+.row[data-state] .setDue,
+.setDue[data-popup-open] {
+  opacity: 1;
 }
 .today {
   color: var(--date-today);

@@ -17,6 +17,7 @@
 }
 .badge > svg {
   flex: none;
+  max-width: none;
   width: var(--icon-sm);
   height: var(--icon-sm);
 }

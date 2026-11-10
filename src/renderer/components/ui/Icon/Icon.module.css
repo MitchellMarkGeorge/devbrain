@@ -1,5 +1,11 @@
+/*
+ * An icon keeps its size: the reset's `svg { max-width: 100% }` would squeeze it in a box narrower
+ * than itself (a stacked pill's 30px edge), and a row measuring its pills would read the squeezed
+ * width
+ */
 .icon {
   flex: none;
+  max-width: none;
   display: inline-block;
   vertical-align: middle;
 }

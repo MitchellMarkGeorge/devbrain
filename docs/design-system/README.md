@@ -219,6 +219,10 @@ Two kinds of page, one rule each:
 - Shadows only on floating layers: `shadow-md` for menus and tooltips, `shadow-2xl` for dialogs, sheets and toasts. The exceptions are `shadow-segment`, under the current segment of a segmented control (Figma's in dark, shadcn's `shadow-sm` in light), and `shadow-pinned`, under the sidebar's pinned header while content is scrolled beneath it.
 - Layout: Home's `home-max-width` (800px) column; a `sidebar-width` (256px) sidebar, docked or hidden (and then a drawer over the page); lists run edge to edge; details open in a `sheet-width` (380px) panel docked on the right, and the page narrows beside it (an overlay only in narrow windows).
 
+## Scrollbars
+
+**A scrollbar never takes width.** Every area that scrolls (the page, a `TaskList`, a board column, a `VirtualCardGrid`, the sidebar, a sheet's body, every menu: `DropdownMenu`, `ContextMenu`, `Select`, `Command` and the editor's suggestion menus) scrolls inside a `ScrollArea`, whose thin scrollbar is drawn over its right edge and shows only while it scrolls or is pointed at. The native scrollbar is hidden, so a list's rows reach the same edge on every platform: macOS overlays its own, but Windows and Linux (and macOS set to always show them) would otherwise take about 15px from the content.
+
 ## Components
 
 - Reach for the shadcn component first; DevBrain components are compositions of them (a task row is a Checkbox, icons and pills on a `row-height` row).

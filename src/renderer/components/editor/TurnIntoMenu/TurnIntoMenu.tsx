@@ -94,7 +94,14 @@ export function TurnIntoMenu({
         <DropdownMenuLabel>Turn into</DropdownMenuLabel>
         <Menu.RadioGroup value={value} onValueChange={(next: BlockType) => onValueChange?.(next)}>
           {BLOCK_TYPES.map((option) => (
-            <Menu.RadioItem key={option.value} value={option.value} className={menuItemVariants()}>
+            // picking closes the menu: the block changes under it, and the toolbar it opened from
+            // moves (or goes) with the selection
+            <Menu.RadioItem
+              key={option.value}
+              value={option.value}
+              closeOnClick
+              className={menuItemVariants()}
+            >
               {renderIcon(option.icon, 16)}
               <span className={menuStyles.itemLabel}>{option.label}</span>
               <Menu.RadioItemIndicator className={styles.tick}>

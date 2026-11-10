@@ -7,7 +7,7 @@ The window inside a workspace, the frame every page in it shares: the `Sidebar` 
 
 The sidebar is **docked or hidden**, nothing in between. `collapsed` is the user's choice (⌘\ or the sidebar toggle) and hides it at any size; a compact window hides it too. `useWorkspaceShell().sidebarHidden` says which.
 
-The shell binds no keys of its own. ⌘\ is the app keymap's `sidebar.toggle` command (`src/renderer/keyboard`), which the workspace layout registers to run `useWorkspaceShell().toggleSidebar`, the same as clicking the toggle; the stories register it the same way.
+The shell binds no keys of its own. ⌘\ is the app keymap's `sidebar.toggle` command (`src/renderer/keyboard`), which the workspace layout registers to run the shell's `toggleSidebar`, the same as clicking the toggle. The layout reaches it through `controlsRef` (`WorkspaceShellControls`), as it renders the shell rather than sitting inside it; the stories register it the same way. Inside the shell, `useWorkspaceShell()` gives the same toggle.
 
 - **Docked:** the sidebar in its 256px column, drawing the window row (the title bar's start, then toggle, back and forward at its right), the page's header beside it.
 - **Hidden:** the column is 0 wide, and the sidebar in it stays mounted (so folded groups keep their state) but invisible and `inert`. The `WindowBar` runs across the top of the page and carries the page's header. A docked sheet runs the full height beside it, as beside the docked sidebar (on Windows the bar runs across it too, and it starts under it).
@@ -25,7 +25,7 @@ The shell **fades in as it appears**, in `duration-slow` (`ease-surface`), growi
 
 A docked sheet's column slides open and shut with the sheet on the same timing (`duration-slow`, `ease-surface`), so the page narrows and widens smoothly and the sheet's edge is the page's edge throughout.
 
-The page sits under its header in a column, and the header never scrolls away. On a list or grid page the toolbar stays put too, and the page's `TaskList`, `Board` or `VirtualCardGrid` fills the height left under it (through `PageContent`) and scrolls itself, so the page never scrolls (the `ListPage` story). A Home or document page keeps its own height and scrolls whole inside the shell's page scroller, never the window. That scroller carries `data-slot="page-scroll"`, which the app's router scrolls to the top on a new page and restores on Back and Forward (`docs/renderer/routing.md`). `onBack`/`onForward`/`canGoBack`/`canGoForward` drive the window row's arrows; the app passes its router's history.
+The page sits under its header in a column, and the header never scrolls away. On a list or grid page the toolbar stays put too, and the page's `TaskList`, `Board` or `VirtualCardGrid` fills the height left under it (through `PageContent`) and scrolls itself, so the page never scrolls (the `ListPage` story). A Home or document page keeps its own height and scrolls whole inside the shell's page scroller, never the window. That scroller is a `ScrollArea` (its scrollbar drawn over the page's edge, taking no width) whose scrolling element carries `data-slot="page-scroll"`, which the app's router scrolls to the top on a new page and restores on Back and Forward (`docs/renderer/routing.md`). `onBack`/`onForward`/`canGoBack`/`canGoForward` drive the window row's arrows; the app passes its router's history.
 
 A docked sheet opens a `sheet-width` column: set `sheetOpen` and portal `SheetContent` into `useWorkspaceShell().sheetContainer`.
 

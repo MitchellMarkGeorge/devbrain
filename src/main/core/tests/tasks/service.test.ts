@@ -1532,6 +1532,13 @@ describe('TaskService — undated tasks', () => {
     expect(await ids({ dueOn: TOMORROW })).toEqual([on.id]);
   });
 
+  it('filter.noDueDate returns only the undated tasks', async () => {
+    await dated('Tomorrow', TOMORROW);
+    const none = await undated('No date');
+    const ids = tasks.listTasks({ noDueDate: true }, undefined, { limit: 200 }).items;
+    expect(ids.map((t) => t.id)).toEqual([none.id]);
+  });
+
   it('createSubtask under an undated parent, given no due date, has none', async () => {
     const parent = await undated('Undated parent');
     expect(tasks.createSubtask(parent.id, { title: 'Sub' }).dueDate).toBeNull();

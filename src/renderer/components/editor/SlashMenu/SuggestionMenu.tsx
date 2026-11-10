@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { cn } from '../../lib/cn';
 import { menuStyles } from '../../ui/DropdownMenu';
+import { ScrollArea } from '../../ui/ScrollArea';
 import styles from './SlashMenu.module.css';
 
 /** What an editor calls while its suggestion menu is open: the keys it should pass on. */
@@ -106,44 +107,53 @@ export function SuggestionMenu<Item>({
   }));
 
   return (
-    <div
-      ref={list}
-      role="listbox"
-      aria-activedescendant={activeId}
-      className={cn(menuStyles.popup, styles.menu, className)}
-      {...props}
-    >
-      {visible.length === 0 && <div className={styles.empty}>{empty}</div>}
-      {visible.map((group, groupIndex) => (
-        <Fragment key={group.label}>
-          {groupIndex > 0 && <div role="separator" className={menuStyles.separator} />}
-          <div role="group" aria-label={group.label}>
-            <div className={menuStyles.label} aria-hidden>
-              {group.label}
+    // the menu's surface; its items scroll in a ScrollArea, whose scrollbar is drawn over the
+    // edge, so a long list takes no width for one
+    <div className={cn(menuStyles.popup, styles.menu, className)}>
+      <ScrollArea
+        className={styles.scroll}
+        viewportRef={list}
+        viewportClassName={styles.viewport}
+        viewportProps={{
+          role: 'listbox',
+          'aria-activedescendant': activeId,
+          // the caret stays in the editor: the list never takes focus, even while it overflows
+          tabIndex: -1,
+          ...props,
+        }}
+      >
+        {visible.length === 0 && <div className={styles.empty}>{empty}</div>}
+        {visible.map((group, groupIndex) => (
+          <Fragment key={group.label}>
+            {groupIndex > 0 && <div role="separator" className={menuStyles.separator} />}
+            <div role="group" aria-label={group.label}>
+              <div className={menuStyles.label} aria-hidden>
+                {group.label}
+              </div>
+              {group.items.map((item) => {
+                const key = getKey(item);
+                const on = key === current;
+                return (
+                  <div
+                    key={key}
+                    id={`${id}-${key}`}
+                    role="option"
+                    aria-selected={on}
+                    data-highlighted={on ? '' : undefined}
+                    className={menuStyles.item}
+                    onPointerMove={() => setHighlighted(key)}
+                    // keeps the caret in the editor
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => onSelect?.(item)}
+                  >
+                    {renderItem(item)}
+                  </div>
+                );
+              })}
             </div>
-            {group.items.map((item) => {
-              const key = getKey(item);
-              const on = key === current;
-              return (
-                <div
-                  key={key}
-                  id={`${id}-${key}`}
-                  role="option"
-                  aria-selected={on}
-                  data-highlighted={on ? '' : undefined}
-                  className={menuStyles.item}
-                  onPointerMove={() => setHighlighted(key)}
-                  // keeps the caret in the editor
-                  onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => onSelect?.(item)}
-                >
-                  {renderItem(item)}
-                </div>
-              );
-            })}
-          </div>
-        </Fragment>
-      ))}
+          </Fragment>
+        ))}
+      </ScrollArea>
     </div>
   );
 }

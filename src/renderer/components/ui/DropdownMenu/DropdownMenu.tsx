@@ -6,6 +6,7 @@ import { Check, ChevronRight, Search } from 'lucide-react';
 import { cn, mergeClassName } from '../../lib/cn';
 import { useFormatKeys } from '../../lib/platform';
 import { Icon, renderIcon, type IconSource } from '../Icon';
+import { ScrollArea } from '../ScrollArea';
 import styles from './DropdownMenu.module.css';
 
 export { styles as menuStyles };
@@ -46,6 +47,26 @@ type PositionerProps = Pick<Menu.Positioner.Props, 'side' | 'align' | 'sideOffse
 export interface DropdownMenuContentProps
   extends Menu.Popup.Props, PositionerProps, VariantProps<typeof menuPopupVariants> {}
 
+/**
+ * What a menu's surface scrolls: its items, in a ScrollArea whose thin scrollbar is drawn over the
+ * edge. The surface caps its height (`menu-max-height`, or the room the window has); a picker's
+ * search row stays pinned at the top while the rows scroll under it. DropdownMenu, ContextMenu,
+ * Select and Command all draw their content in one.
+ */
+export function MenuScrollArea({
+  children,
+  className,
+}: {
+  children?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <ScrollArea className={cn(styles.scroll, className)} viewportClassName={styles.viewport}>
+      {children}
+    </ScrollArea>
+  );
+}
+
 /** The menu's popup, portalled and positioned 4px from its trigger. */
 export function DropdownMenuContent({
   side = 'bottom',
@@ -54,6 +75,7 @@ export function DropdownMenuContent({
   alignOffset,
   width,
   className,
+  children,
   ...props
 }: DropdownMenuContentProps) {
   return (
@@ -65,10 +87,9 @@ export function DropdownMenuContent({
         alignOffset={alignOffset}
         className={styles.positioner}
       >
-        <Menu.Popup
-          className={mergeClassName(menuPopupVariants({ width }), className)}
-          {...props}
-        />
+        <Menu.Popup className={mergeClassName(menuPopupVariants({ width }), className)} {...props}>
+          <MenuScrollArea>{children}</MenuScrollArea>
+        </Menu.Popup>
       </Menu.Positioner>
     </Menu.Portal>
   );
@@ -187,12 +208,18 @@ export interface DropdownMenuRadioItemProps extends Menu.RadioItem.Props, ItemCo
 export function DropdownMenuRadioItem({
   icon,
   shortcut,
+  closeOnClick = true,
   className,
   children,
   ...props
 }: DropdownMenuRadioItemProps) {
+  // picking a value closes the menu, as an item does (Base UI keeps it open by default)
   return (
-    <Menu.RadioItem className={mergeClassName(menuItemVariants(), className)} {...props}>
+    <Menu.RadioItem
+      closeOnClick={closeOnClick}
+      className={mergeClassName(menuItemVariants(), className)}
+      {...props}
+    >
       <ItemContent icon={icon} shortcut={shortcut}>
         {children}
       </ItemContent>

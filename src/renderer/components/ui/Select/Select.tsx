@@ -6,6 +6,7 @@ import {
   DropdownMenuSeparator,
   menuItemVariants,
   menuPopupVariants,
+  MenuScrollArea,
   menuStyles,
   type DropdownMenuContentProps,
 } from '../DropdownMenu';
@@ -77,7 +78,9 @@ export function SelectContent({
           className={mergeClassName(menuPopupVariants({ width }), className)}
           {...props}
         >
-          <BaseSelect.List className={styles.list}>{children}</BaseSelect.List>
+          <MenuScrollArea>
+            <BaseSelect.List className={styles.list}>{children}</BaseSelect.List>
+          </MenuScrollArea>
         </BaseSelect.Popup>
       </BaseSelect.Positioner>
     </BaseSelect.Portal>

@@ -54,6 +54,8 @@ export interface TaskFilterOptions {
   dueOn?: Date;
   dueBefore?: Date;
   dueAfter?: Date;
+  // true: only tasks with no due date (the tasks page's "No due date" filter and group)
+  noDueDate?: boolean;
 
   excludeSubtasks?: boolean;
   // backs the showCompletedTasks setting: hides completed and cancelled tasks together

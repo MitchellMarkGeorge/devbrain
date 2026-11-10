@@ -13,7 +13,9 @@ the `Screens/*` stories, `docs/design-system/README.md`, `docs/ipc/design.md` an
 > **Status:** milestones 1 (router foundation) and 2 (onboarding) are built, and milestone 3's
 > app pieces (the keyboard layer mounted with the list keys as commands, `useOpenEntity`,
 > `useRecordView`, `useMutationErrorToast`, `useConfirm`, `useMoveToTrash` with its Undo toast,
-> Recents, Favorites and sync in the sidebar, the page header slot, `FormatProvider`), with the
+> Recents, Favorites and sync in the sidebar, the page header slot, `FormatProvider`) and
+> milestone 4 (Tasks: list, group and board views, the task sheet, the task page, Create task and
+> Create subtask) are built, with the
 > **URL-driven workspace model** ([routing.md](routing.md)): every page in a workspace is under
 > `/app/<its id>/…`, main picks the window's first URL, and switching is navigating. Revised after
 > review (Nov 6 2026): FullCalendar for the calendar, `/app/trash`, a create-workspace dialog
@@ -284,18 +286,18 @@ export const tasksSearch = z.object({
 
 ### `/app/tasks`
 
-| Param      | Values                                                                                    | Notes                                                                                               |
-| ---------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `view`     | `list` (default) \| `group` \| `board`                                                    | default from `settings.tasks.defaultView`                                                           |
-| `groupBy`  | `project` (default) \| `status` \| `priority` \| `due`                                    | `group` view only ("Group by: Project", `7158:9538`)                                                |
-| `sort`     | `priority` \| `dueDate` \| `status` \| `createdAt` \| `updatedAt`                         | default `settings.tasks.defaultSort`                                                                |
-| `dir`      | `asc` \| `desc`                                                                           |                                                                                                     |
-| `status`   | `open` (default) \| `all` \| `not_started` \| `in_progress` \| `completed` \| `cancelled` | "Filter: Open" → `excludeClosed`; `showCompletedTasks` decides the default between `open` and `all` |
-| `priority` | `low` \| `medium` \| `high`                                                               | single value, as core filters                                                                       |
-| `project`  | `prj_…` \| `none`                                                                         | "Filter by project" menu (`7175:25639`)                                                             |
-| `due`      | `overdue` \| `today` \| `week` \| `none`                                                  | mapped to `dueBefore`/`dueOn`/`dueAfter` at the call                                                |
-| `source`   | `local` \| `external`                                                                     | core's `origin`                                                                                     |
-| `open`     | `tsk_…`                                                                                   | the task sheet over the board (`7175:31599`)                                                        |
+| Param      | Values                                                                                    | Notes                                                                                                               |
+| ---------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `view`     | `list` (default) \| `group` \| `board`                                                    | default from `settings.tasks.defaultView`                                                                           |
+| `groupBy`  | `project` (default) \| `status` \| `priority` \| `due`                                    | `group` view only ("Group by: Project", `7158:9538`)                                                                |
+| `sort`     | `priority` \| `dueDate` \| `status` \| `createdAt` \| `updatedAt`                         | default `settings.tasks.defaultSort`                                                                                |
+| `dir`      | `asc` \| `desc`                                                                           |                                                                                                                     |
+| `status`   | `open` \| `all` (default) \| `not_started` \| `in_progress` \| `completed` \| `cancelled` | "Filter: Open" → `excludeClosed`; `showCompletedTasks` (on by default) decides the default between `open` and `all` |
+| `priority` | `low` \| `medium` \| `high`                                                               | single value, as core filters                                                                                       |
+| `project`  | `prj_…` \| `none`                                                                         | "Filter by project" menu (`7175:25639`)                                                                             |
+| `due`      | `overdue` \| `today` \| `week` \| `none`                                                  | mapped to `dueBefore`/`dueOn`/`dueAfter` at the call                                                                |
+| `source`   | `local` \| `external`                                                                     | core's `origin`                                                                                                     |
+| `open`     | `tsk_…`                                                                                   | the task sheet over the board (`7175:31599`)                                                                        |
 
 Core filters `status` and `priority` by one value each. Multi-select filters are a main change
 (T3); the params are written as single values now and can become arrays later without breaking
@@ -817,8 +819,9 @@ composition in `screens/Tasks`.
   unless filtered), `BoardCard`s, dashed "Add task". Clicking a card sets `?open=tsk_…`, showing
   the **task sheet** (`7175:31599`) docked beside the board (floating in compact windows, as
   the old test bench's `SheetPage` did with `shell.sheetContainer`); its ⤢ goes to `/app/tasks/$taskId`.
-  Drag between columns → `tasks.updateStatus` (optimistic). No manual order within a column (core
-  has no position; see T4).
+  Drag between columns → `tasks.updateStatus` (optimistic), with dnd-kit (`@dnd-kit/core`), by
+  pointer or keyboard (Space, ←/→, Space); the card moves to the top of its new column at once.
+  No manual order within a column (core has no position; see T4).
 - **Selection bar**: Status, Priority, Due date, Move (project), more (Move to trash). Until bulk
   routes exist (T2), run the mutations one after another and report a partial failure.
 - **Synced tasks**: `SourcePill`; read-only fields show the provider's labels; editing a mirrored
@@ -837,9 +840,10 @@ Figma `7158:6266` and variants (`7158:7794` subtask, `7158:8195` note, `7158:864
   debounced.
 - **Subtasks** `DetailSection` with `TaskList subtasks` and "+ Add" (`tasks.createSubtask`);
   promote/demote from the row menu.
-- **Task note** card (`TaskNoteCard`) → the **task note dialog** (`7412:37391`): a
-  `RichTextEditor` over the note's content (needs N1), "Open full view" → `/app/notes/$noteId`.
-  With no note: "+ Add note" creates one linked to the task.
+- **Task note** card (`TaskNoteCard`) → the note's page, `/app/$workspaceId/notes/$noteId`
+  (built with the Notes pages; until then it shows not-found). Figma's task note dialog
+  (`7412:37391`) was dropped for now: editing in a dialog fought its menus. With no note:
+  "+ Add a task note" creates one linked to the task and opens it.
 - **Header**: `PageFavoriteButton` (`tasks.setFavorite`), `PageMenuButton` with the README's order:
   Convert to project (C1), Link to ›, Make subtask of › (`tasks.demote`, picker `7424:38759`),
   Duplicate (C2), Copy as Markdown (C3), and for a Linear task Open in Linear
@@ -1166,6 +1170,9 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 
 - **R1: status and colour in search results** (follow-up, fix 2): `SearchService.search` adds a
   task's `status` and a project's or event's `color`, so ⌘K and the "@" menu draw real glyphs.
+- **R3: pickers search** (follow-up "Pickers filter what they loaded instead of searching"):
+  Link to ›, Make subtask of › and the project pickers ask `search.search` once something is
+  typed, through one mapping of `SearchResult` to a picker row (after R1).
 - **R2 (later): `entities.summaries(ids)`** batch route if notes with many pills make per-pill
   `get` queries noticeable.
 
@@ -1265,12 +1272,33 @@ page that needs them.
    and the shortcuts dialog. _Main:_ X1 first. As built: the pieces are in `src/renderer/pages/app`
    (`use-open-entity.ts`, `use-record-view.ts`, `mutation-errors.ts`, `use-confirm.tsx`,
    `use-move-to-trash.ts`, `page-header.tsx` with `PageHeaderSlot`, `SidebarEntities.tsx`,
-   `AppCommands.tsx`); `FormatProvider` and `KeyboardProvider` are in the root layout, around the
+   `use-app-commands.ts`); `FormatProvider` and `KeyboardProvider` are in the root layout, around the
    dialogs; tRPC declares a pass-through transformer, so routes' outputs are typed with their
    `Date`s, as structured clone delivers them.
-4. **Tasks.** List view with filters/sort in search params, row menu, selection bar; group view;
+4. **Tasks (done).** List view with filters/sort in search params, row menu, selection bar; group view;
    board with the task sheet; create task and subtask dialogs; task page. _Main:_ T5, T6 (then T2,
-   C1–C3 as they land).
+   C1–C3 as they land). As built (`src/renderer/pages/tasks`):
+   - Layout: the shared data and actions at the folder's root (`queries.ts`, `search.ts`,
+     `loaders.ts`, `use-task-actions.ts`, `use-tasks-search.ts`); `views/` the Tasks page with
+     `list/`, `group/` and `board/`; `sheet/` the board's task sheet; `detail/` the task page;
+     `sections/` the description, subtasks and task note both of those show; `create/` the
+     Create task dialog; `menus/` the row menu and the property pickers.
+   - Search params are snake case (`group_by`, `due_date`, `not_started`), resolved against
+     `settings.tasks.*` at render (`search.ts`). `due=none` needed a core filter, `noDueDate`.
+   - The list and group views list subtasks too: each is placed under its parent when the parent is
+     loaded (`arrange.ts`, as Figma's list shows "Mobile fallback" under its parent), else where
+     the sort puts it, with the parent's pill; → and ← (and the row menu) show and hide them. The
+     board's columns list top-level tasks.
+   - A group's "Add task" opens Create task with the group's project, status, priority or date,
+     rather than an inline `QuickAddRow`. Groups load once their heading has been on screen; a
+     project group with no tasks for the filters is left out once loaded.
+   - The selection bar uses `tasks.updateMany` and `archive.archiveTasks` (T2).
+   - The board's sheet docks through `useDockedSheet` (`pages/app/docked-sheet.tsx`), which the
+     calendar's event sheet can reuse; it floats in compact windows. Board cards keep
+     `BoardColumn`'s own ↑/↓/↵; the list keys aren't bound on the board yet.
+   - The task note is the note whose `linkedTaskId` is the task (`notes.list({ filter: {
+linkedTaskId } })`), separate from the task's event or note link. Convert to project, Duplicate
+     and Copy as Markdown (C1–C3) are drawn disabled.
 5. **Notes.** List and cards, note page with the editor and autosave, linked tasks, task note
    dialog on the task page, `useEntityResolver`. _Main:_ N1 (before this milestone), N2.
 6. **Projects.** List and cards, project page with tabs, create project dialog. _Main:_ P1, C4.

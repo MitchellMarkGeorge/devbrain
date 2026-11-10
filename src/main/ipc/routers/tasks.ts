@@ -25,6 +25,7 @@ const filter = z.object({
   dueOn: z.date().optional(),
   dueBefore: z.date().optional(),
   dueAfter: z.date().optional(),
+  noDueDate: z.boolean().optional(),
   excludeSubtasks: z.boolean().optional(),
   excludeClosed: z.boolean().optional(),
   origin: z.enum(['local', 'external']).optional(),

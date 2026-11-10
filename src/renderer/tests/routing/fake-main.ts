@@ -8,7 +8,8 @@ import type {
   IpcRequest,
   IpcResult,
 } from '@common/ipc/types';
-import type { AppSettings, WorkspaceInfo } from '@common/types';
+import { LinkState, type AppSettings, type WorkspaceInfo } from '@common/types';
+import { fakeNote, fakeTask, FakeTasks } from './fake-tasks';
 
 // A main process for the renderer's routing tests, over the IPC bridge: a registry of workspaces
 // that opens them as core's WorkspaceService does (opening, then closed, then opened or
@@ -32,7 +33,6 @@ export interface Call {
 
 const PAGE_ROUTES = new Set([
   'recents.list',
-  'tasks.list',
   'projects.list',
   'notes.list',
   'calendars.list',
@@ -85,6 +85,16 @@ export class FakeMain {
   };
   readonly calls: Call[] = [];
   readonly events: AppEvents['workspace.changed'][] = [];
+  // the tasks settings the tasks page reads
+  taskSettings: AppSettings['tasks'] = {
+    defaultSort: 'priority',
+    defaultPriority: 1,
+    defaultDueDate: 'today',
+    defaultView: 'list',
+    showCompletedTasks: false,
+  };
+  // each workspace's tasks and projects; a workspace without any lists one task naming it
+  readonly taskStores = new Map<WorkspaceId, FakeTasks>();
   // what workspaces.importFolder answers next: a folder's workspace, null (cancelled) or an error
   importResult: FakeWorkspace | null | RemoteError = null;
   private readonly listeners = new Map<string, Set<(payload: unknown) => void>>();
@@ -119,7 +129,7 @@ export class FakeMain {
 
   // the settings the pages read (the general group), as settings.get answers
   private appSettings(): AppSettings {
-    return { theme: 'system', general: this.settings } as AppSettings;
+    return { theme: 'system', general: this.settings, tasks: this.taskSettings } as AppSettings;
   }
 
   initialLoadContext(): InitialLoadContext {
@@ -183,9 +193,136 @@ export class FakeMain {
     }
   }
 
+  /** The open workspace's tasks: those set for it, or one task naming the workspace and route. */
+  tasksOf(id: WorkspaceId | null = this.open): FakeTasks {
+    const open = this.workspaces.find((w) => w.id === id);
+    if (!open) throw new RemoteError('no_workspace_open', 'No workspace is open');
+    let store = this.taskStores.get(open.id);
+    if (!store) {
+      store = new FakeTasks([fakeTask(`tsk_${open.id}`, `${open.name} tasks.list`)]);
+      this.taskStores.set(open.id, store);
+    }
+    return store;
+  }
+
+  // the tasks routes the pages call, over the open workspace's tasks
+  private answerTasks(path: string, args: Record<string, unknown>): [unknown, ChangedEntity[]] {
+    const store = this.tasksOf();
+    const task = () => {
+      const found = store.find(args.id);
+      if (!found) throw new RemoteError('not_found', `${String(args.id)} not found`);
+      return found;
+    };
+    const page = <T>(items: T[]) => ({ items, nextCursor: null });
+    switch (path) {
+      case 'tasks.list':
+        return [page(store.list((args.filter ?? {}) as never)), []];
+      case 'tasks.get':
+        return [task(), []];
+      case 'tasks.subtasks':
+        return [page(store.subtasks(args.id)), []];
+      case 'tasks.updateStatus':
+        return [store.patch(task().id, { status: args.status as never }), ['task']];
+      case 'tasks.update': {
+        const { id, ...fields } = args;
+        void id;
+        return [store.patch(task().id, fields as never), ['task']];
+      }
+      case 'tasks.updateProject':
+        return [store.patch(task().id, { projectId: args.projectId as never }), ['task']];
+      case 'tasks.updateLinks':
+        return [store.patch(task().id, args as never), ['task']];
+      case 'tasks.updateMany': {
+        const ids = args.ids as string[];
+        return [ids.map((id) => store.patch(id, args.patch as never)), ['task']];
+      }
+      case 'tasks.setFavorite':
+        return [
+          store.patch(task().id, { favoritedAt: args.favorite ? new Date() : null }),
+          ['task'],
+        ];
+      case 'tasks.create':
+        return [store.create(args as never), ['task']];
+      case 'tasks.createSubtask':
+        return [
+          store.create({
+            ...(args as { title: string }),
+            parentTaskId: args.parentTaskId as never,
+          }),
+          ['task'],
+        ];
+      case 'archive.archiveTask':
+        return [store.patch(task().id, { archivedAt: new Date() }), ['task']];
+      case 'archive.archiveTasks':
+        return [
+          (args.ids as string[]).map((id) => store.patch(id, { archivedAt: new Date() })),
+          ['task'],
+        ];
+      case 'tasks.promote':
+        return [store.patch(task().id, { parentTaskId: null, parentTask: null }), ['task']];
+      case 'tasks.demote':
+        return [store.patch(task().id, { parentTaskId: args.parentTaskId as never }), ['task']];
+      case 'tasks.detach':
+      case 'tasks.reattach': {
+        const found = task();
+        const state = path === 'tasks.detach' ? LinkState.DETACHED : LinkState.SYNCED;
+        return [
+          store.patch(found.id, { external: found.external && { ...found.external, state } }),
+          ['task'],
+        ];
+      }
+      case 'archive.restoreTask': {
+        const archived = store.tasks.find((t) => t.id === args.id);
+        if (archived) archived.archivedAt = null;
+        return [archived, ['task']];
+      }
+      default:
+        return [undefined, []];
+    }
+  }
+
+  // a note's routes, over the open workspace's notes (the task note section's)
+  private answerNotes(path: string, args: Record<string, unknown>): [unknown, ChangedEntity[]] {
+    const store = this.tasksOf();
+    const note = () => {
+      const found = store.notes.find((n) => n.id === args.id);
+      if (!found) throw new RemoteError('not_found', `${String(args.id)} not found`);
+      return found;
+    };
+    switch (path) {
+      case 'notes.get':
+        return [note(), []];
+      case 'notes.readContent':
+        return [store.contents.get(note().id) ?? '', []];
+      case 'notes.updateContent':
+        store.contents.set(note().id, args.content as string);
+        return [note(), ['note']];
+      case 'notes.update':
+        return [Object.assign(note(), { title: args.title ?? note().title }), ['note']];
+      case 'notes.create': {
+        const created = fakeNote(`nte_new${store.notes.length + 1}`, (args.title as string) ?? '', {
+          linkedTaskId: (args.linkedTaskId as never) ?? null,
+        });
+        store.notes.push(created);
+        store.contents.set(created.id, (args.content as string) ?? '');
+        return [created, ['note']];
+      }
+      default:
+        throw new RemoteError('internal', `No route ${path} in the fake main`);
+    }
+  }
+
   private async answer(path: string, input: unknown): Promise<[unknown, ChangedEntity[]]> {
     const args = (input ?? {}) as Record<string, unknown>;
+    const filter = args.filter as Record<string, unknown> | undefined;
+    if (path === 'notes.list' && filter?.linkedTaskId !== undefined) {
+      const notes = this.tasksOf().notes.filter((n) => n.linkedTaskId === filter.linkedTaskId);
+      return [{ items: notes, nextCursor: null }, []];
+    }
+    if (path.startsWith('notes.') && path !== 'notes.list') return this.answerNotes(path, args);
     if (PAGE_ROUTES.has(path)) return [this.page(path), []];
+    if (path.startsWith('tasks.') || path.startsWith('archive.'))
+      return this.answerTasks(path, args);
     switch (path) {
       case 'app.version':
         return ['0.0.1', []];
@@ -235,6 +372,14 @@ export class FakeMain {
         return [{ items: [], nextCursor: null }, []];
       case 'sync.status':
         return [[], []];
+      case 'recents.recordView':
+        return [undefined, ['recent']];
+      case 'workspace.openUrl':
+        return [undefined, []];
+      case 'events.listForCalendar':
+        return [[], []];
+      case 'events.get':
+        throw new RemoteError('not_found', `${String(args.id)} not found`);
       default:
         throw new RemoteError('internal', `No route ${path} in the fake main`);
     }

@@ -12,6 +12,7 @@ import {
 } from '../DropdownMenu';
 import { Icon, type IconSource } from '../Icon';
 import { Kbd } from '../Kbd';
+import { ScrollArea } from '../ScrollArea';
 import { VisuallyHidden } from '../../layout/VisuallyHidden';
 import styles from './Command.module.css';
 
@@ -69,7 +70,12 @@ export function CommandInput({ className, trailing, ...props }: CommandInputProp
 }
 
 export function CommandList({ className, ...props }: Autocomplete.List.Props) {
-  return <Autocomplete.List className={mergeClassName(styles.list, className)} {...props} />;
+  // a ScrollArea, whose scrollbar is drawn over the edge; the list itself grows to its items
+  return (
+    <ScrollArea className={styles.listArea}>
+      <Autocomplete.List className={mergeClassName(styles.list, className)} {...props} />
+    </ScrollArea>
+  );
 }
 
 /** Shown when nothing matches the search. */

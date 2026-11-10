@@ -71,7 +71,7 @@ export const CodeBlock = forwardRef<HTMLDivElement, CodeBlockProps>(function Cod
                     onValueChange={(value: unknown) => onLanguageChange(String(value))}
                   >
                     {languages.map((item) => (
-                      <DropdownMenuRadioItem key={item.value} value={item.value} closeOnClick>
+                      <DropdownMenuRadioItem key={item.value} value={item.value}>
                         {item.label}
                       </DropdownMenuRadioItem>
                     ))}

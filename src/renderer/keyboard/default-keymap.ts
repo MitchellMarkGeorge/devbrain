@@ -71,6 +71,20 @@ const listEntries: Keymap['entries'] = [
   { scope: 'list', keys: 'home', command: 'list.first', group: LISTS, label: 'First / last' },
   { scope: 'list', keys: 'end', command: 'list.last', group: LISTS, label: 'First / last' },
   { scope: 'list', keys: 'enter', command: 'row.open', group: LISTS, label: 'Open' },
+  {
+    scope: 'list',
+    keys: 'arrowright',
+    command: 'row.expand',
+    group: LISTS,
+    label: 'Show / hide subtasks',
+  },
+  {
+    scope: 'list',
+    keys: 'arrowleft',
+    command: 'row.collapse',
+    group: LISTS,
+    label: 'Show / hide subtasks',
+  },
   { scope: 'list', keys: 'x', command: 'list.toggleSelect', group: LISTS, label: 'Select' },
   {
     scope: 'list',

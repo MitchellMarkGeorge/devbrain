@@ -24,8 +24,9 @@ in Storybook mounts it with a demo keymap.
 ## Mounting it
 
 As built: the provider is in the root layout (`pages/root/Root.tsx`), which clears the undo stack
-as a switch of workspace starts; the app-wide commands are `pages/app/AppCommands.tsx`, inside the
-workspace layout's `WorkspaceShell` (whose toggle ⌘\ runs; the shell binds no keys itself).
+as a switch of workspace starts; the app-wide commands are `useAppCommands` (`pages/app/use-app-commands.ts`), called by the
+workspace layout, whose ⌘\ runs the `WorkspaceShell`'s toggle through its `controlsRef` (the shell
+binds no keys itself).
 
 The provider goes in the root layout, around `ModalProvider`, as dialogs shown with `useModals`
 render there and the shortcuts dialog reads the keyboard's context:
