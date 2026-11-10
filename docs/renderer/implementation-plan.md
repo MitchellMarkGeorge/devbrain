@@ -1169,6 +1169,9 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 
 - **R1: status and colour in search results** (follow-up, fix 2): `SearchService.search` adds a
   task's `status` and a project's or event's `color`, so ⌘K and the "@" menu draw real glyphs.
+- **R3: pickers search** (follow-up "Pickers filter what they loaded instead of searching"):
+  Link to ›, Make subtask of › and the project pickers ask `search.search` once something is
+  typed, through one mapping of `SearchResult` to a picker row (after R1).
 - **R2 (later): `entities.summaries(ids)`** batch route if notes with many pills make per-pill
   `get` queries noticeable.
 

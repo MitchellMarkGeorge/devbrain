@@ -53,10 +53,14 @@
   color: var(--muted-foreground);
 }
 
-.list {
+/* the list's ScrollArea: no taller than this, the list scrolling inside it */
+.listArea {
   max-height: min(60vh, 384px);
-  overflow-y: auto;
-  overscroll-behavior: contain;
+}
+.listArea:has(> * > .list:empty) {
+  display: none;
+}
+.list {
   padding: var(--space-1);
   scroll-padding-block: var(--space-1);
   outline: none;

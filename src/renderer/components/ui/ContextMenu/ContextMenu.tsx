@@ -13,6 +13,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   menuPopupVariants,
+  MenuScrollArea,
   menuStyles,
   type DropdownMenuContentProps,
 } from '../DropdownMenu';
@@ -35,6 +36,7 @@ export function ContextMenuContent({
   alignOffset,
   width,
   className,
+  children,
   ...props
 }: ContextMenuContentProps) {
   return (
@@ -47,7 +49,9 @@ export function ContextMenuContent({
         <BaseContextMenu.Popup
           className={mergeClassName(menuPopupVariants({ width }), className)}
           {...props}
-        />
+        >
+          <MenuScrollArea>{children}</MenuScrollArea>
+        </BaseContextMenu.Popup>
       </BaseContextMenu.Positioner>
     </BaseContextMenu.Portal>
   );

@@ -7,10 +7,13 @@
   outline: none;
 }
 .popup {
+  /* no taller than menu-max-height, or the room the window has beside the trigger */
+  --menu-max-height: 420px;
+  display: flex;
+  flex-direction: column;
   max-width: calc(100vw - 16px);
-  max-height: var(--available-height);
-  overflow-y: auto;
-  padding: var(--space-1);
+  max-height: min(var(--available-height, 100vh), var(--menu-max-height));
+  overflow: hidden;
   border: 1px solid var(--edge);
   border-radius: var(--radius-lg);
   background: var(--popover);
@@ -37,9 +40,28 @@
 .widthSm {
   width: 200px;
 }
-/* pickers with a search row (ProjectPicker) */
+/* pickers with a search row (ProjectPicker, Link to): shorter, as a long list is searched */
 .widthLg {
+  --menu-max-height: 320px;
   width: 240px;
+}
+
+/* the surface's ScrollArea (MenuScrollArea): it shrinks to the surface's height and scrolls */
+.scroll {
+  flex: 0 1 auto;
+}
+.viewport {
+  padding: var(--space-1);
+  overscroll-behavior: contain;
+}
+/* a picker's search row stays at the top while the rows scroll under it */
+.viewport .search {
+  position: sticky;
+  top: calc(-1 * var(--space-1));
+  z-index: 1;
+  margin-top: calc(-1 * var(--space-1));
+  padding-top: var(--space-1);
+  background: var(--popover);
 }
 /* as wide as the trigger (Select) */
 .widthTrigger {

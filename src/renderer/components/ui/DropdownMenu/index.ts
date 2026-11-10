@@ -19,6 +19,7 @@ export {
   DropdownMenuTrigger,
   menuItemVariants,
   menuPopupVariants,
+  MenuScrollArea,
   menuStyles,
   renderMenuIcon,
   type DropdownMenuCheckboxItemProps,

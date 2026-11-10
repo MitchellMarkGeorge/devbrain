@@ -221,7 +221,7 @@ Two kinds of page, one rule each:
 
 ## Scrollbars
 
-**A scrollbar never takes width.** Every area that scrolls (the page, a `TaskList`, a board column, a `VirtualCardGrid`, the sidebar, a sheet's body) scrolls inside a `ScrollArea`, whose thin scrollbar is drawn over its right edge and shows only while it scrolls or is pointed at. The native scrollbar is hidden, so a list's rows reach the same edge on every platform: macOS overlays its own, but Windows and Linux (and macOS set to always show them) would otherwise take about 15px from the content.
+**A scrollbar never takes width.** Every area that scrolls (the page, a `TaskList`, a board column, a `VirtualCardGrid`, the sidebar, a sheet's body, every menu: `DropdownMenu`, `ContextMenu`, `Select`, `Command` and the editor's suggestion menus) scrolls inside a `ScrollArea`, whose thin scrollbar is drawn over its right edge and shows only while it scrolls or is pointed at. The native scrollbar is hidden, so a list's rows reach the same edge on every platform: macOS overlays its own, but Windows and Linux (and macOS set to always show them) would otherwise take about 15px from the content.
 
 ## Components
 
