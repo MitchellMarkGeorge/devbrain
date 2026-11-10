@@ -10,21 +10,18 @@ import {
   Stack,
   StatusIcon,
 } from '../../components';
-import { RichTextEditor } from '../../editor/RichTextEditor';
-import { useWorkspaceEditorHost } from '../../editor/use-workspace-host';
 import { ipc, trpc } from '../../ipc';
 import { NotFoundPage } from '../app/NotFoundPage';
 import { useMutationErrorToast } from '../app/mutation-errors';
 import { PageHeaderSlot, useCrumbLink } from '../app/page-header';
 import { useHistoryPosition } from '../app/use-history-position';
-import { useOpenEntity } from '../app/use-open-entity';
 import { useRecordView } from '../app/use-record-view';
 import { ipcErrorCode } from '../../workspace/errors';
 import { isSynced } from './queries';
 import { taskRoute } from './route-api';
 import { TaskDetailMenu } from './TaskDetailMenu';
 import { TaskNoteSection } from './TaskNoteSection';
-import { useAutosave } from './TaskPageAutosave';
+import { TaskDescription } from './TaskDescription';
 import { TaskProperties, type AddingProperty } from './TaskProperties';
 import { TaskSubtasksSection } from './TaskSubtasksSection';
 import { useTaskActions } from './use-task-actions';
@@ -54,9 +51,7 @@ function TaskPageContent({ task }: { task: Task }) {
   const { canGoBack } = useHistoryPosition();
   const crumbLink = useCrumbLink();
   const actions = useTaskActions();
-  const openEntity = useOpenEntity();
   const showError = useMutationErrorToast();
-  const host = useWorkspaceEditorHost();
   const [adding, setAdding] = useState<AddingProperty>(null);
   const synced = isSynced(task);
 
@@ -67,12 +62,6 @@ function TaskPageContent({ task }: { task: Task }) {
   const parent: TaskSummary | null = parentQuery.data
     ? { id: parentQuery.data.id, title: parentQuery.data.title, status: parentQuery.data.status }
     : null;
-
-  const description = useAutosave((markdown: string) => {
-    ipc.tasks.update
-      .mutate({ id: task.id, description: markdown.trim() === '' ? null : markdown })
-      .catch((error: unknown) => showError(error, 'Couldn’t save the description'));
-  });
 
   function saveTitle(event: FocusEvent<HTMLHeadingElement>) {
     const title = (event.currentTarget.textContent ?? '').trim();
@@ -145,17 +134,7 @@ function TaskPageContent({ task }: { task: Task }) {
             adding={adding}
             onAddingChange={setAdding}
           />
-          {(!synced || task.description) && (
-            <RichTextEditor
-              {...host}
-              label="Description"
-              value={task.description ?? ''}
-              editable={!synced}
-              placeholder="Add a description…"
-              onChange={description.schedule}
-              onOpenEntity={(_type, id) => openEntity({ id })}
-            />
-          )}
+          <TaskDescription task={task} />
           <TaskSubtasksSection task={task} />
           <TaskNoteSection task={task} />
         </Stack>

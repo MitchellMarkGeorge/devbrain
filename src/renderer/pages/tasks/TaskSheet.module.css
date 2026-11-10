@@ -1,4 +1,5 @@
 /* The task sheet's own bits: the title as an input that reads as the sheet's title */
+/* edited in place like the task page's title: the caret alone shows it's being edited, no ring */
 .titleInput {
   width: 100%;
   min-width: 0;
@@ -8,10 +9,6 @@
   color: inherit;
   font: inherit;
   outline: none;
-}
-.titleInput:focus-visible {
-  border-radius: var(--radius-sm);
-  box-shadow: 0 0 0 1px var(--ring);
 }
 
 .syncHint {
@@ -25,11 +22,9 @@
 }
 
 .description {
-  margin: 0;
-  color: var(--foreground);
-  font: var(--text-sm) / var(--text-sm-leading) var(--font-sans);
-  white-space: pre-wrap;
+  font-size: var(--text-sm);
 }
-.empty {
-  color: var(--subtle-foreground);
+/* the editor keeps a 120px area to click into on the task page; in the sheet, a couple of lines */
+.description [role='textbox'] {
+  min-height: 40px;
 }

@@ -37,6 +37,7 @@ import { DatePill, PriorityPill, ProjectPill, StatusPill } from './pickers';
 import { isSynced, listedTask } from './queries';
 import { useTaskActions } from './use-task-actions';
 import styles from './TaskSheet.module.css';
+import { TaskDescription } from './TaskDescription';
 import { TaskNoteSection } from './TaskNoteSection';
 import { TaskSubtasksSection } from './TaskSubtasksSection';
 
@@ -279,11 +280,8 @@ function TaskSheetBody({ task }: { task: Task }) {
         </div>
       )}
       <SheetDivider />
-      {task.description ? (
-        <p className={styles.description}>{task.description}</p>
-      ) : (
-        <p className={`${styles.description} ${styles.empty}`}>No description</p>
-      )}
+      {/* edited in place, as on the task page */}
+      <TaskDescription key={task.id} task={task} className={styles.description} />
       <TaskSubtasksSection task={task} compact />
       <TaskNoteSection task={task} compact />
     </>
