@@ -9,6 +9,7 @@ import {
   useState,
   type ComponentPropsWithoutRef,
   type ReactNode,
+  type Ref,
 } from 'react';
 import { Dialog } from '@base-ui/react/dialog';
 import { cn } from '../../lib/cn';
@@ -47,6 +48,17 @@ export interface WorkspaceShellProps extends Omit<ComponentPropsWithoutRef<'div'
   onForward?: () => void;
   canGoBack?: boolean;
   canGoForward?: boolean;
+  /**
+   * What the code that renders the shell can ask of it: the app's keymap toggles the sidebar on ⌘\
+   * through it. Inside the shell, `useWorkspaceShell()` gives the same
+   */
+  controlsRef?: Ref<WorkspaceShellControls>;
+}
+
+/** The shell's actions, for the code that renders it (`controlsRef`). */
+export interface WorkspaceShellControls {
+  /** hides the sidebar, docks it again, or opens and closes its drawer in a compact window */
+  toggleSidebar: () => void;
 }
 
 function useControllable<T>(
@@ -74,7 +86,7 @@ function useControllable<T>(
  * (the user's choice, ⌘\, at any size). While it's hidden the window bar runs across the top with
  * the page's header in it, and the sidebar opens as a drawer over the page: pointing at the toggle
  * or the window's left edge peeks at it, and clicking the toggle pins it open (or docks it, where
- * there's room). It binds no keys: the app's keymap runs `useWorkspaceShell().toggleSidebar` on
+ * there's room). It binds no keys: the app's keymap runs `toggleSidebar` (through `controlsRef`) on
  * ⌘\.
  *
  * It follows the window frame (`WindowFrameProvider`): on Windows, whose caption buttons sit over
@@ -99,6 +111,7 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
       onForward,
       canGoBack = true,
       canGoForward = false,
+      controlsRef,
       className,
       ...props
     },
@@ -196,6 +209,7 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
       setCollapsed,
       setDrawerOpen,
     ]);
+    useImperativeHandle(controlsRef, () => ({ toggleSidebar }), [toggleSidebar]);
 
     const peekSidebar = useCallback(() => {
       clearTimeout(closeTimer.current);

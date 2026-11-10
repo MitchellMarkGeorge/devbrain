@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { List } from 'lucide-react';
 import { Stack } from '../../layout/Flex';
@@ -12,16 +12,22 @@ import { WindowFrameProvider, type Platform } from '../../lib/platform';
 import { DemoSidebar } from '../../screens/Shell/AppFrame';
 import { TaskList } from '../../lists/TaskList';
 import { manyTasks } from '../../lists/TaskRow/fixtures';
-import { WorkspaceShell } from './WorkspaceShell';
+import { WorkspaceShell, type WorkspaceShellControls } from './WorkspaceShell';
 import { defaultKeymap, KeyboardProvider, useCommands } from '../../../keyboard';
 
-// ⌘\, as the app binds it: the keymap's sidebar.toggle runs the shell's toggle
-function SidebarKey() {
-  const { toggleSidebar } = useWorkspaceShell();
+// the shell with ⌘\ bound as the app binds it: the keymap's sidebar.toggle runs the shell's
+// toggle, through its controlsRef
+function ShellWithKeys(props: React.ComponentProps<typeof WorkspaceShell>) {
+  const controls = useRef<WorkspaceShellControls>(null);
   useCommands([
-    { id: 'sidebar.toggle', title: 'Toggle sidebar', scope: 'global', run: toggleSidebar },
+    {
+      id: 'sidebar.toggle',
+      title: 'Toggle sidebar',
+      scope: 'global',
+      run: () => controls.current?.toggleSidebar(),
+    },
   ]);
-  return null;
+  return <WorkspaceShell controlsRef={controls} {...props} />;
 }
 
 const meta = {
@@ -42,7 +48,7 @@ function Frame({
   return (
     <div style={{ width, height }}>
       <KeyboardProvider keymap={defaultKeymap}>
-        <WorkspaceShell
+        <ShellWithKeys
           sidebar={<DemoSidebar active="Tasks" />}
           header={
             <PageHeader actions={<PageFavoriteButton favorite={false} />}>
@@ -51,7 +57,6 @@ function Frame({
           }
           {...props}
         >
-          <SidebarKey />
           <PageToolbar start={<Text tone="muted">Toolbar</Text>} />
           <PageContent>
             <Text tone="subtle">
@@ -59,7 +64,7 @@ function Frame({
               toggle or the window’s left edge to peek at it.
             </Text>
           </PageContent>
-        </WorkspaceShell>
+        </ShellWithKeys>
       </KeyboardProvider>
     </div>
   );

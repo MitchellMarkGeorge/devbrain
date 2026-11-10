@@ -1272,7 +1272,7 @@ page that needs them.
    and the shortcuts dialog. _Main:_ X1 first. As built: the pieces are in `src/renderer/pages/app`
    (`use-open-entity.ts`, `use-record-view.ts`, `mutation-errors.ts`, `use-confirm.tsx`,
    `use-move-to-trash.ts`, `page-header.tsx` with `PageHeaderSlot`, `SidebarEntities.tsx`,
-   `AppCommands.tsx`); `FormatProvider` and `KeyboardProvider` are in the root layout, around the
+   `use-app-commands.ts`); `FormatProvider` and `KeyboardProvider` are in the root layout, around the
    dialogs; tRPC declares a pass-through transformer, so routes' outputs are typed with their
    `Date`s, as structured clone delivers them.
 4. **Tasks (done).** List view with filters/sort in search params, row menu, selection bar; group view;

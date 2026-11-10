@@ -1,10 +1,15 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Outlet, useRouter } from '@tanstack/react-router';
-import { WorkspaceShell, Breadcrumb, PageHeader } from '../../components';
-import { AppCommands } from './AppCommands';
+import {
+  WorkspaceShell,
+  Breadcrumb,
+  PageHeader,
+  type WorkspaceShellControls,
+} from '../../components';
 import { AppSidebar } from './AppSidebar';
 import { DockedSheetProvider } from './docked-sheet';
 import { PageHeaderProvider, usePageHeaderSlots, useRouteTitle } from './page-header';
+import { useAppCommands } from './use-app-commands';
 import { useHistoryPosition } from './use-history-position';
 
 /**
@@ -19,10 +24,14 @@ export function AppLayout() {
   const { value: slots, setPlace, setActions } = usePageHeaderSlots();
   // a page's docked sheet (useDockedSheet) opens the shell's sheet column
   const [sheetOpen, setSheetOpen] = useState(false);
+  // the app-wide keys; ⌘\ toggles the shell's sidebar
+  const shell = useRef<WorkspaceShellControls>(null);
+  useAppCommands({ toggleSidebar: () => shell.current?.toggleSidebar() });
   return (
     <PageHeaderProvider value={slots}>
       <DockedSheetProvider value={setSheetOpen}>
         <WorkspaceShell
+          controlsRef={shell}
           sidebar={<AppSidebar />}
           sheetOpen={sheetOpen}
           header={
@@ -37,7 +46,6 @@ export function AppLayout() {
           canGoBack={position.canGoBack}
           canGoForward={position.canGoForward}
         >
-          <AppCommands />
           <Outlet />
         </WorkspaceShell>
       </DockedSheetProvider>
