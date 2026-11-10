@@ -303,6 +303,9 @@ function assignRef<T>(ref: Ref<T> | undefined, value: T) {
 
 // clicks on the row's own controls (checkbox, status, pills) don't open the task
 function fromControl(event: MouseEvent<HTMLElement>): boolean {
+  // a click in something the row opened (its status menu, a date picker, its context menu):
+  // portalled elsewhere in the page, but React still bubbles it up to the row
+  if (!event.currentTarget.contains(event.target as Node)) return true;
   const control = (event.target as Element).closest('button, a, [role="checkbox"], input');
   return control != null && control !== event.currentTarget;
 }

@@ -37,7 +37,10 @@ export interface BoardCardProps extends useRender.ComponentProps<'div'> {
 
 // clicks on the card's pills open what they link to, not the task
 function fromControl(event: MouseEvent<HTMLElement>): boolean {
-  const control = (event.target as Element).closest('button, a, input');
+  // a click in something the card opened (its status menu, a date picker, its context menu):
+  // portalled elsewhere in the page, but React still bubbles it up to the card
+  if (!event.currentTarget.contains(event.target as Node)) return true;
+  const control = (event.target as Element).closest('button, a, [role="checkbox"], input');
   return control != null && control !== event.currentTarget;
 }
 

@@ -72,6 +72,32 @@ describe('the task page', () => {
     );
   });
 
+  it('sets a subtask’s status from its row without opening the subtask', async () => {
+    const main = mainWith(store());
+    const app = startApp(main, { url: `/app/${WORK}/tasks/${parent.id}` });
+    await eventually(() => expect(app.text()).toContain('Mobile fallback'));
+    const row = [...app.container.querySelectorAll('[role="row"]')].find((element) =>
+      element.textContent?.includes('Mobile fallback'),
+    )!;
+    (row.querySelector('[aria-label^="Status"]') as HTMLElement).click();
+    let item: HTMLElement | undefined;
+    await eventually(() => {
+      item = [...document.querySelectorAll('[role="menuitemradio"], [role="menuitem"]')].find(
+        (element) => element.textContent?.includes('In progress'),
+      ) as HTMLElement | undefined;
+      expect(item).toBeDefined();
+    });
+    // the menu is portalled out of the row, but React bubbles its click up to the row
+    item!.click();
+    await eventually(() =>
+      expect(main.callsTo('tasks.updateStatus').map((call) => call.input)).toEqual([
+        { id: subtask.id, status: TaskStatus.IN_PROGRESS },
+      ]),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(app.path()).toBe(`/app/${WORK}/tasks/${parent.id}`);
+  });
+
   it('shows a synced task’s fields read-only, with its provider’s labels', async () => {
     const synced = fakeTask('tsk_eng124', 'Synced from Linear', {
       status: TaskStatus.IN_PROGRESS,
