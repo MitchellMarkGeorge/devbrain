@@ -1,14 +1,13 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
-import { TaskStatus, type Project, type TaskListItem } from '@common/types';
+import type { Project, TaskListItem, TaskStatus } from '@common/types';
 import {
   Button,
   ContextMenu,
   ContextMenuContent,
   ContextMenuTrigger,
   DetailSection,
-  StatusIcon,
   TaskList,
   TaskRowSkeleton,
   type TaskListHandle,
@@ -19,36 +18,45 @@ import { useCreateTask } from '../../tasks/create/use-create-task';
 import { TaskMenuItems } from '../../tasks/menus/TaskMenus';
 import { isSynced, withoutProjectPill } from '../../tasks/queries';
 import { useTaskActions } from '../../tasks/use-task-actions';
-import { OVERVIEW_SECTION_SIZE, overviewTasksQuery } from '../queries';
+import type { overviewOpenTasksQuery } from '../queries';
 import styles from './ProjectPage.module.css';
 
 export interface OverviewTaskSectionProps {
   project: Project;
-  status: TaskStatus;
   title: string;
-  /** how many tasks of this status the project has, from its stats */
+  /** the 12px glyph after the title */
+  glyph?: ReactNode;
+  /** the section's tasks: a `tasks.list` query of as many as it shows */
+  query: ReturnType<typeof overviewOpenTasksQuery>;
+  /** how many tasks the section stands for, from the project's stats */
   count: number;
-  /** opens the Tasks tab on this status, for the tasks the section leaves out */
+  /** opens the Tasks tab on the section's tasks, for those it leaves out */
   onShowAll: () => void;
-  /** folded away at first (Completed) */
-  collapsed?: boolean;
+  /** "+ Add" creates a task in the project with this status; none without it */
+  addStatus?: TaskStatus;
+  /** what the section says when it has no tasks */
+  empty?: ReactNode;
+  'data-testid'?: string;
 }
 
 /**
- * One of the Overview's sections (In progress, Up next, Completed): up to five of the project's
- * tasks of one status as compact rows, the soonest due first, with "N more" opening the Tasks tab
- * on that status. Rows change status at once, open on click, and have the row menu and the list
- * keys; "+ Add" opens Create task in the project with this status.
+ * One of the Overview's task sections (Open tasks, Recently completed): a few of the project's
+ * tasks as compact rows, with "N more in Tasks" opening the Tasks tab on the rest. Rows change
+ * status at once, open on click, and have the row menu and the list keys; "+ Add" opens Create
+ * task in the project.
  */
 export function OverviewTaskSection({
   project,
-  status,
   title,
+  glyph,
+  query: options,
   count,
   onShowAll,
-  collapsed,
+  addStatus,
+  empty,
+  'data-testid': testId,
 }: OverviewTaskSectionProps) {
-  const query = useQuery(overviewTasksQuery(project.id, status));
+  const query = useQuery(options);
   const tasks = useMemo(
     () => withoutProjectPill(query.data?.items ?? [], project.id),
     [query.data, project.id],
@@ -73,18 +81,16 @@ export function OverviewTaskSection({
     <DetailSection
       spacing="page"
       title={title}
-      glyph={<StatusIcon status={status} size={12} />}
+      glyph={glyph}
       count={count}
-      collapsible={collapsed !== undefined}
-      defaultOpen={!collapsed}
-      data-testid={`overview-${status}`}
+      data-testid={testId}
       action={
-        status !== TaskStatus.COMPLETED &&
+        addStatus !== undefined &&
         !isSynced(project) && (
           <Button
             size="xs"
             icon={Plus}
-            onClick={() => createTask({ defaults: { projectId: project.id, status } })}
+            onClick={() => createTask({ defaults: { projectId: project.id, status: addStatus } })}
           >
             Add
           </Button>
@@ -93,6 +99,8 @@ export function OverviewTaskSection({
     >
       {query.isPending ? (
         <TaskRowSkeleton />
+      ) : tasks.length === 0 ? (
+        empty && <p className={styles.sectionEmpty}>{empty}</p>
       ) : (
         <>
           <ContextMenu>
@@ -127,7 +135,7 @@ export function OverviewTaskSection({
               )}
             </ContextMenuContent>
           </ContextMenu>
-          {more > 0 && tasks.length >= OVERVIEW_SECTION_SIZE && (
+          {more > 0 && (
             <button type="button" className={styles.more} onClick={onShowAll}>
               {more} more in Tasks
             </button>

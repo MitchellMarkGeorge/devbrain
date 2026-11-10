@@ -4,10 +4,10 @@ import { isId } from '@common/ids';
 import type { RouterContext } from '../../router';
 import { ipcErrorCode } from '../../workspace/errors';
 import { loadTasks } from '../tasks/loaders';
-import { TaskStatus } from '@common/types';
 import {
+  overviewDoneTasksQuery,
   overviewNotesQuery,
-  overviewTasksQuery,
+  overviewOpenTasksQuery,
   projectListQuery,
   projectNotesQuery,
 } from './queries';
@@ -39,13 +39,6 @@ export const parseProjectParams = {
   stringify: ({ projectId }: { projectId: ProjectId }) => ({ projectId }),
 };
 
-/** The Overview's sections of tasks, in order. */
-export const OVERVIEW_STATUSES = [
-  TaskStatus.IN_PROGRESS,
-  TaskStatus.NOT_STARTED,
-  TaskStatus.COMPLETED,
-] as const;
-
 /** What the project page's loader depends on: everything but the board's sheet. */
 export function projectLoaderDeps({ search }: { search: ProjectSearch }): ProjectSearch {
   return { ...search, open: undefined };
@@ -53,7 +46,7 @@ export function projectLoaderDeps({ search }: { search: ProjectSearch }): Projec
 
 /**
  * The project page: the project (a missing one is the route's not-found) and its stats, then the
- * tab's first data: the Overview's sections (a few tasks of each status, its latest notes), the Tasks tab's view (as the tasks page loads it), or
+ * tab's first data: the Overview's open and recently completed tasks and its latest notes, the Tasks tab's view (as the tasks page loads it), or
  * the notes.
  */
 export async function loadProject(context: RouterContext, id: ProjectId, search: ProjectSearch) {
@@ -74,9 +67,8 @@ export async function loadProject(context: RouterContext, id: ProjectId, search:
     await loadTasks(context, projectTasksSearch(search, id));
   } else {
     await Promise.all([
-      ...OVERVIEW_STATUSES.map((status) =>
-        queryClient.query({ ...overviewTasksQuery(id, status), staleTime: 'static' }),
-      ),
+      queryClient.query({ ...overviewOpenTasksQuery(id), staleTime: 'static' }),
+      queryClient.query({ ...overviewDoneTasksQuery(id), staleTime: 'static' }),
       queryClient.query({ ...overviewNotesQuery(id), staleTime: 'static' }),
     ]);
   }

@@ -1,5 +1,227 @@
 /* The project page's Overview. See ProjectOverview.tsx */
 
+/*
+ * Two columns that scroll together (the page keeps its height, so the shell's page scroller
+ * scrolls it whole, as a document page): the header and the work on the left, a 288px rail of
+ * the project at a glance on the right. Below 1180px of window the rail goes under the work.
+ */
+.overview {
+  flex: none;
+  padding: var(--space-12) var(--space-6);
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 288px;
+  gap: var(--space-12);
+  align-items: start;
+  max-width: 1120px;
+  margin: 0 auto;
+}
+.main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+.rail {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+@media (max-width: 1180px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .rail {
+    position: static;
+  }
+}
+
+/* a rail card: its 12px label and a link on the right, over its content */
+[data-slot='card'].railCard {
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+.railHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.railTitle {
+  margin: 0;
+  color: var(--muted-foreground);
+  font: var(--font-weight-medium) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.railLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  cursor: pointer;
+}
+.railLink:hover {
+  color: var(--foreground);
+}
+.quiet {
+  margin: 0;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+
+/* Progress: the percent large, the bar split by status, the legend, and what's overdue */
+.progressFigure {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+.percent {
+  color: var(--foreground-strong);
+  font: var(--font-weight-semibold) var(--text-2xl) / var(--text-2xl-leading) var(--font-sans);
+}
+.percentSign {
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+}
+.bar {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  overflow: hidden;
+  border-radius: var(--radius-xs);
+  background: var(--border);
+}
+.bar > span {
+  flex-basis: 0;
+  min-width: 4px;
+  background: var(--segment);
+}
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.legendCount,
+.pushRight {
+  margin-left: auto;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.overdue {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--status-overdue-tint);
+  color: var(--date-overdue);
+  font: var(--font-weight-medium) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  cursor: pointer;
+}
+
+/* Timeline: start and due side by side, how far through, and how long is left */
+.dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin: 0;
+}
+.dates dt {
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.dates dd {
+  margin: 0;
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+.track {
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-xs);
+  background: var(--border);
+}
+.track > span {
+  display: block;
+  height: 100%;
+  background: var(--foreground);
+}
+.track > span[data-late] {
+  background: var(--date-overdue);
+}
+.left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  margin: 0;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.left[data-late] {
+  color: var(--date-overdue);
+}
+
+/* Notes: titles and when they were edited, each opening its note */
+.notes {
+  display: flex;
+  flex-direction: column;
+  margin: 0 calc(-1 * var(--space-2));
+  padding: 0;
+  list-style: none;
+}
+.notes button {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1-5) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--muted-foreground);
+  text-align: left;
+  cursor: pointer;
+}
+.notes button:hover {
+  background: var(--accent);
+}
+.noteTitle {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.noteTime {
+  flex: none;
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+
+/* a section with no tasks */
+.sectionEmpty {
+  margin: 0;
+  padding: var(--space-2) 0;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+
 /* A section's "N more in Tasks": a quiet line under its rows, lined up with the rows' titles */
 .more {
   display: block;

@@ -24,30 +24,36 @@ export function projectNotesQuery(projectId: Project['id']) {
 }
 
 /** How many tasks an Overview section shows; the rest are a click away in the Tasks tab. */
-export const OVERVIEW_SECTION_SIZE = 5;
+export const OVERVIEW_OPEN_SIZE = 8;
+export const OVERVIEW_DONE_SIZE = 3;
 
 /**
- * An Overview section's tasks: the project's tasks of one status, the soonest due first (the
- * latest edited first for Completed), as many as the section shows. A plain query whose key
- * starts with `tasks.list`'s, so a change to tasks refetches it.
+ * The Overview's open tasks: the project's not started and in-progress tasks, the soonest due
+ * first, as many as it shows. A plain query whose key starts with `tasks.list`'s, so a change to
+ * tasks refetches it.
  */
-export function overviewTasksQuery(projectId: Project['id'], status: TaskStatus) {
-  const sort =
-    status === TaskStatus.COMPLETED
-      ? ({ sortBy: 'updatedAt', direction: 'desc' } as const)
-      : ({ sortBy: 'dueDate', direction: 'asc' } as const);
+export function overviewOpenTasksQuery(projectId: Project['id']) {
   return trpc.tasks.list.queryOptions({
-    filter: { projectId, status },
-    sort,
-    limit: OVERVIEW_SECTION_SIZE,
+    filter: { projectId, excludeClosed: true },
+    sort: { sortBy: 'dueDate', direction: 'asc' },
+    limit: OVERVIEW_OPEN_SIZE,
   });
 }
 
-/** The Overview's latest notes: the three most recently edited. */
+/** The Overview's recently completed tasks: the latest edited first. */
+export function overviewDoneTasksQuery(projectId: Project['id']) {
+  return trpc.tasks.list.queryOptions({
+    filter: { projectId, status: TaskStatus.COMPLETED },
+    sort: { sortBy: 'updatedAt', direction: 'desc' },
+    limit: OVERVIEW_DONE_SIZE,
+  });
+}
+
+/** The Overview's latest notes: the five most recently edited. */
 export function overviewNotesQuery(projectId: Project['id']) {
   return trpc.notes.list.queryOptions({
     filter: { projectId },
     sort: { sortBy: 'updatedAt', direction: 'desc' },
-    limit: 3,
+    limit: 5,
   });
 }
