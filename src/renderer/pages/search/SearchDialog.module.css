@@ -4,7 +4,10 @@
   font-weight: var(--font-weight-semibold);
 }
 
+/* the no-results state, centred in the list's width; EmptyState's 440px would wrap its line */
 .empty {
+  max-width: none;
+  margin-inline: auto;
   padding-block: 32px;
 }
 

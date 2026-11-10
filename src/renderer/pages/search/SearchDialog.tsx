@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   Calendar,
   CircleCheck,
@@ -85,6 +85,13 @@ type Row =
   | { kind: 'recent'; key: string; recent: RecentEntity }
   | { kind: 'command'; key: string; command: AppCommand; shortcut?: string };
 
+interface ShownSearch {
+  query: string;
+  results: SearchResult[];
+}
+
+const NO_RESULTS: SearchResult[] = [];
+
 interface Group {
   value: string;
   count?: number;
@@ -114,7 +121,6 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
   const search = useQuery({
     ...trpc.search.search.queryOptions({ query: searched, limit: SEARCH_LIMIT }),
     enabled: searched !== '',
-    placeholderData: keepPreviousData,
   });
   const recents = useQuery({
     ...trpc.recents.list.queryOptions({ limit: RECENT_LIMIT }),
@@ -125,13 +131,18 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
   const canNewNote = commands.some(({ id }) => id === NEW_NOTE);
 
   const typed = query.trim() !== '';
-  // a query search cannot read ("(") finds nothing rather than failing the dialog
-  const results = useMemo(
-    () => (typed && searched !== '' && !search.isError ? (search.data ?? []) : []),
-    [typed, searched, search.isError, search.data],
-  );
-  const counts = countResults(results);
-  const searching = typed && (searched !== query.trim() || search.isFetching);
+  // The last search that finished, and what it found. The dialog draws it (results or the
+  // no-results state, and the filter's counts) until the next search finishes, so typing never
+  // blanks the list or flashes "No results" between keystrokes. A query search cannot read ("(")
+  // finds nothing rather than failing the dialog.
+  const [shown, setShown] = useState<ShownSearch | null>(null);
+  const finished = search.isError ? NO_RESULTS : search.data;
+  if (!typed && shown !== null) setShown(null);
+  if (typed && finished && (shown?.query !== searched || shown.results !== finished)) {
+    setShown({ query: searched, results: finished });
+  }
+  const results = shown?.results ?? NO_RESULTS;
+  const counts = shown && countResults(results);
 
   const groups = useMemo<Group[]>(() => {
     if (!typed) {
@@ -174,8 +185,7 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
     setFilter((current) => nextFilter(current, event.shiftKey ? -1 : 1));
   };
 
-  const noResults = typed && !searching && results.length === 0;
-  const term = query.trim();
+  const noResults = typed && shown !== null && results.length === 0;
 
   return (
     <CommandDialog {...props}>
@@ -202,11 +212,11 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
               value={filter}
               onValueChange={(value: string) => setFilter(value as SearchFilter)}
               items={[
-                { value: 'all', label: 'All', count: typed ? counts.all : undefined },
-                filterItem('task', 'Tasks', CircleCheck, typed, counts.task),
-                filterItem('note', 'Notes', FileText, typed, counts.note),
-                filterItem('project', 'Projects', Folder, typed, counts.project),
-                filterItem('event', 'Events', Calendar, typed, counts.event),
+                { value: 'all', label: 'All', count: counts?.all },
+                filterItem('task', 'Tasks', CircleCheck, counts?.task),
+                filterItem('note', 'Notes', FileText, counts?.note),
+                filterItem('project', 'Projects', Folder, counts?.project),
+                filterItem('event', 'Events', Calendar, counts?.event),
               ]}
             />
           </CommandToolbar>
@@ -216,7 +226,7 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
                 placement="inline"
                 className={styles.empty}
                 icon={Search}
-                title={`No results for “${term}”`}
+                title={`No results for “${shown?.query}”`}
                 description="Try fewer words, or check the spelling. Items in the trash aren’t searched."
                 action={
                   (onNewTask || canNewNote) && (
@@ -227,10 +237,10 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
                           icon={Plus}
                           onClick={() => {
                             close();
-                            onNewTask(term);
+                            onNewTask(shown?.query ?? '');
                           }}
                         >
-                          New Task “{term}”
+                          New Task “{shown?.query}”
                         </Button>
                       )}
                       {canNewNote && (
@@ -278,14 +288,14 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
   );
 }
 
+// a filter item, with its count once a search has finished
 function filterItem(
   value: SearchEntityType,
   label: string,
   icon: LucideIcon,
-  typed: boolean,
-  count: number,
+  count: number | undefined,
 ) {
-  return { value, label, icon, count: typed ? count : undefined };
+  return { value, label, icon, count };
 }
 
 /** The registry's "go to a page" commands, with the keys the keymap binds them to. */

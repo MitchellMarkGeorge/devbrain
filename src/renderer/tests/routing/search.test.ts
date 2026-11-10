@@ -180,6 +180,48 @@ describe('⌘K search', () => {
     expect(filterButton('All')?.textContent).toBe('All0');
   });
 
+  it('shows no counts and no empty state while the first search runs', async () => {
+    const { main } = await openSearch();
+    const release = main.hold('search.search');
+    type('pkce');
+    await eventually(() => expect(main.callsTo('search.search')).toHaveLength(1));
+    expect(optionTexts()).toEqual([]);
+    expect(filterButton('All')?.textContent).toBe('All');
+    expect(dialog()?.textContent).not.toContain('No results');
+    release();
+    await eventually(() => expect(optionTexts()).toHaveLength(4));
+    expect(filterButton('All')?.textContent).toBe('All4');
+  });
+
+  it("keeps the last search's results and counts while the next one runs", async () => {
+    const { main } = await openSearch();
+    type('pkce');
+    await eventually(() => expect(optionTexts()).toHaveLength(4));
+    const release = main.hold('search.search');
+    main.searchResults = RESULTS.slice(0, 1);
+    type('pkce flow');
+    await eventually(() => expect(main.callsTo('search.search')).toHaveLength(2));
+    expect(optionTexts()).toHaveLength(4);
+    expect(filterButton('All')?.textContent).toBe('All4');
+    release();
+    await eventually(() => expect(optionTexts()).toHaveLength(1));
+    expect(filterButton('All')?.textContent).toBe('All1');
+  });
+
+  it('keeps the no-results state, naming the query searched, while the next search runs', async () => {
+    const { main } = await openSearch([]);
+    type('rotation');
+    await eventually(() => expect(dialog()?.textContent).toContain('No results for “rotation”'));
+    const release = main.hold('search.search');
+    type('rotation policy');
+    await eventually(() => expect(main.callsTo('search.search')).toHaveLength(2));
+    expect(dialog()?.textContent).toContain('No results for “rotation”');
+    release();
+    await eventually(() =>
+      expect(dialog()?.textContent).toContain('No results for “rotation policy”'),
+    );
+  });
+
   it('opens the highlighted result with ↵, through useOpenEntity', async () => {
     const { app } = await openSearch();
     type('pkce');
