@@ -8,7 +8,13 @@ import type {
   IpcRequest,
   IpcResult,
 } from '@common/ipc/types';
-import { LinkState, type AppSettings, type SearchResult, type WorkspaceInfo } from '@common/types';
+import {
+  LinkState,
+  type AppSettings,
+  type SearchCounts,
+  type SearchResult,
+  type WorkspaceInfo,
+} from '@common/types';
 import { fakeNote, fakeTask, FakeTasks } from './fake-tasks';
 
 // A main process for the renderer's routing tests, over the IPC bridge: a registry of workspaces
@@ -97,6 +103,8 @@ export class FakeMain {
   readonly taskStores = new Map<WorkspaceId, FakeTasks>();
   // what search.search finds, whatever the query: those of the types asked for
   searchResults: SearchResult[] = [];
+  // what search.counts answers; counted from searchResults when null
+  searchCounts: SearchCounts | null = null;
   // what workspaces.importFolder answers next: a folder's workspace, null (cancelled) or an error
   importResult: FakeWorkspace | null | RemoteError = null;
   private readonly listeners = new Map<string, Set<(payload: unknown) => void>>();
@@ -384,6 +392,11 @@ export class FakeMain {
           ({ entityType }) => types.length === 0 || types.includes(entityType),
         );
         return [found, []];
+      }
+      case 'search.counts': {
+        const counts = { task: 0, note: 0, project: 0, event: 0 };
+        for (const { entityType } of this.searchResults) counts[entityType] += 1;
+        return [this.searchCounts ?? counts, []];
       }
       case 'events.listForCalendar':
         return [[], []];

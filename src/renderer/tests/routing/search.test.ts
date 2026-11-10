@@ -124,7 +124,7 @@ describe('⌘K search', () => {
     await eventually(() => expect(optionTexts()).toHaveLength(4));
     // debounced: the words typed in between were never asked for
     expect(main.callsTo('search.search').map(({ input }) => input)).toEqual([
-      { query: 'pkce', limit: 200 },
+      { query: 'pkce', entityType: [], limit: 200 },
     ]);
     const text = dialog()?.textContent ?? '';
     expect(text).toMatch(/Tasks2/);
@@ -133,6 +133,39 @@ describe('⌘K search', () => {
     expect(filterButton('All')?.textContent).toBe('All4');
     // a synced task's key as its source pill
     expect(optionTexts()[0]).toContain('ENG-124');
+  });
+
+  it('counts every match with search.counts, past the 200 a search returns', async () => {
+    const { main } = await openSearch();
+    main.searchCounts = { task: 300, note: 12, project: 1, event: 0 };
+    type('pkce');
+    await eventually(() => expect(filterButton('All')?.textContent).toBe('All313'));
+    expect(filterButton('Tasks')?.textContent).toBe('Tasks300');
+    expect(dialog()?.textContent).toMatch(/Tasks300/);
+    expect(main.callsTo('search.counts').map(({ input }) => input)).toEqual([{ query: 'pkce' }]);
+  });
+
+  it("searches the selected type's own results", async () => {
+    const { main } = await openSearch();
+    type('pkce');
+    await eventually(() => expect(optionTexts()).toHaveLength(4));
+    key('Tab');
+    await eventually(() =>
+      expect(main.callsTo('search.search').map(({ input }) => input)).toContainEqual({
+        query: 'pkce',
+        entityType: ['task'],
+        limit: 200,
+      }),
+    );
+    await eventually(() => expect(optionTexts()).toHaveLength(2));
+  });
+
+  it('says which type has nothing under its filter', async () => {
+    await openSearch(RESULTS.filter(({ entityType }) => entityType !== 'task'));
+    type('pkce');
+    await eventually(() => expect(optionTexts()).toHaveLength(2));
+    key('Tab');
+    await eventually(() => expect(dialog()?.textContent).toContain('No tasks for “pkce”'));
   });
 
   it('draws escaped text as text and only <b> as markup', async () => {

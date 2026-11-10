@@ -1317,13 +1317,15 @@ linkedTaskId } })`), separate from the task's event or note link. Convert to pro
    K0.
 8. **Home.** Summary/section logic with tests over fixed `now`s, capture box with parsing, the
    time-aware rows.
-9. **Search (⌘K) (done)** with recents and Go to commands. _Main:_ R1. As built
+9. **Search (⌘K) (done)** with recents and Go to commands. _Main:_ R1, R4. As built
    (`src/renderer/pages/search`):
    - `SearchDialog`, shown with `useOpenSearch` by the `search.open` command (⌘K) and the
-     sidebar's search button. One `search.search` per settled query (300ms, so results change when typing pauses rather than mid-word), every type, up to
-     the route's page limit (200); the type filter, its counts and the groups are worked out from
-     those (`results.ts`), so switching the filter (Tab, ⇧Tab) asks for nothing. "All" lists five
-     of each type; a type's own filter lists every match it has.
+     sidebar's search button. Per settled query (300ms, so results change when typing pauses rather than mid-word),
+     one `search.search` for the selected type (every type for "All"), up to the route's page
+     limit (200), and one `search.counts` (R4) for the chips and group labels, which count every
+     match. "All" lists five of each type; a type's own filter lists up to 200 of its own
+     matches. Switching the filter (Tab, ⇧Tab) keeps the list on screen until that type's search
+     lands (`results.ts` groups them).
    - Rows draw the entity's glyph from R1 (a task's status, a project's or event's colour through
      `resolveColor`) and a synced item's key as its `SourcePill`. ↑↓ move and ↵ opens, through
      `useOpenEntity`.

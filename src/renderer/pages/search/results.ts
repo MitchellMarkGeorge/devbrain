@@ -1,4 +1,4 @@
-import type { SearchEntityType, SearchResult } from '@common/types';
+import type { SearchCounts, SearchEntityType, SearchResult } from '@common/types';
 
 // What ⌘K draws from search.search's results: the type filter, its counts, and the groups.
 
@@ -24,28 +24,25 @@ export const PER_GROUP = 5;
 export interface ResultGroup {
   type: SearchEntityType;
   label: string;
-  /** every match of the type, though "All" lists at most PER_GROUP of them */
+  /** every match of the type (from search.counts), though the group may list fewer */
   count: number;
   results: SearchResult[];
 }
 
-/** How many results each filter has: `all` and one count per type. */
-export function countResults(results: readonly SearchResult[]): Record<SearchFilter, number> {
-  const counts: Record<SearchFilter, number> = { all: 0, task: 0, note: 0, project: 0, event: 0 };
-  for (const { entityType } of results) {
-    counts.all += 1;
-    counts[entityType] += 1;
-  }
-  return counts;
+/** `search.counts`' counts, with `all` their total: what each filter's chip shows. */
+export function withAll(counts: SearchCounts): Record<SearchFilter, number> {
+  return { ...counts, all: counts.task + counts.note + counts.project + counts.event };
 }
 
 /**
  * The results as the list's groups, best first within each: a group per type with matches for
- * "All" (PER_GROUP of each), or the one type's group with all of them.
+ * "All" (PER_GROUP of each), or the one type's group with all of them. A group's count is the
+ * type's from `counts` (every match), else how many of the results it has.
  */
 export function groupResults(
   results: readonly SearchResult[],
   filter: SearchFilter,
+  counts?: SearchCounts | null,
 ): ResultGroup[] {
   const types = filter === 'all' ? GROUP_ORDER : [filter];
   return types.flatMap((type) => {
@@ -55,7 +52,7 @@ export function groupResults(
       {
         type,
         label: GROUP_LABELS[type],
-        count: matches.length,
+        count: counts?.[type] ?? matches.length,
         results: filter === 'all' ? matches.slice(0, PER_GROUP) : matches,
       },
     ];

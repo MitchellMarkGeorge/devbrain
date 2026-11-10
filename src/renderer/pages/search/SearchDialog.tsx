@@ -17,6 +17,7 @@ import {
   TaskStatus,
   type ExternalRef,
   type RecentEntity,
+  type SearchCounts,
   type SearchEntityType,
   type SearchResult,
 } from '@common/types';
@@ -57,7 +58,7 @@ import {
 } from '../../keyboard';
 import type { ModalProps } from '../../modals';
 import type { EntityRef } from '../app/entities';
-import { countResults, groupResults, nextFilter, type SearchFilter } from './results';
+import { GROUP_LABELS, groupResults, nextFilter, withAll, type SearchFilter } from './results';
 import { SearchHighlight } from './SearchHighlight';
 import styles from './SearchDialog.module.css';
 
@@ -67,7 +68,7 @@ import styles from './SearchDialog.module.css';
  * takes a few milliseconds.
  */
 export const SEARCH_DEBOUNCE_MS = 300;
-// the most results one search returns (the route's page limit): the counts are of these
+// the most results one search returns (the route's page limit); search.counts counts them all
 const SEARCH_LIMIT = 200;
 const RECENT_LIMIT = 5;
 
@@ -91,10 +92,13 @@ type Row =
 
 interface ShownSearch {
   query: string;
+  // the type it was searched for
+  filter: SearchFilter;
   results: SearchResult[];
 }
 
 const NO_RESULTS: SearchResult[] = [];
+const NO_COUNTS: SearchCounts = { task: 0, note: 0, project: 0, event: 0 };
 
 interface Group {
   value: string;
@@ -122,8 +126,17 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
   const runCommand = useRunCommand();
   const close = () => props.onOpenChange(false);
 
+  // the selected type's results (every type's for "All"), and how many of each type match
   const search = useQuery({
-    ...trpc.search.search.queryOptions({ query: searched, limit: SEARCH_LIMIT }),
+    ...trpc.search.search.queryOptions({
+      query: searched,
+      entityType: filter === 'all' ? [] : [filter],
+      limit: SEARCH_LIMIT,
+    }),
+    enabled: searched !== '',
+  });
+  const countsQuery = useQuery({
+    ...trpc.search.counts.queryOptions({ query: searched }),
     enabled: searched !== '',
   });
   const recents = useQuery({
@@ -135,18 +148,22 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
   const canNewNote = commands.some(({ id }) => id === NEW_NOTE);
 
   const typed = query.trim() !== '';
-  // The last search that finished, and what it found. While something is typed, the dialog draws
-  // it (results or the no-results state, and the filter's counts) until the next search
-  // finishes, so typing never blanks the list or flashes "No results" between keystrokes. It is
-  // kept when the box is emptied (which shows Recent and Go to), so typing again shows it until
-  // the new search lands. A query search cannot read ("(") finds nothing rather than failing.
+  // The last search that finished, and what it found; and the last counts. While something is
+  // typed, the dialog draws them (results or the no-results state, and the filter's counts) until
+  // the next ones finish, so typing or switching the filter never blanks the list or flashes "No
+  // results". They are kept when the box is emptied (which shows Recent and Go to), so typing
+  // again shows them until the new search lands. A query search cannot read ("(") finds nothing
+  // rather than failing.
   const [shown, setShown] = useState<ShownSearch | null>(null);
   const finished = search.isError ? NO_RESULTS : search.data;
-  if (typed && finished && (shown?.query !== searched || shown.results !== finished)) {
-    setShown({ query: searched, results: finished });
+  if (typed && finished && (shown?.results !== finished || shown.query !== searched)) {
+    setShown({ query: searched, filter, results: finished });
   }
+  const [shownCounts, setShownCounts] = useState<SearchCounts | null>(null);
+  const counted = countsQuery.isError ? NO_COUNTS : countsQuery.data;
+  if (typed && counted && shownCounts !== counted) setShownCounts(counted);
   const results = shown?.results ?? NO_RESULTS;
-  const counts = typed && shown ? countResults(results) : undefined;
+  const counts = typed && shownCounts ? withAll(shownCounts) : undefined;
 
   // Recent and Go to while nothing is typed, and while the dialog's first search runs
   const showEmptyQuery = !typed || shown === null;
@@ -160,12 +177,12 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
         ...(goTo.length ? [{ value: 'Go to', items: goTo }] : []),
       ];
     }
-    return groupResults(results, filter).map(({ label, count, results: matches }) => ({
+    return groupResults(results, filter, shownCounts).map(({ label, count, results: matches }) => ({
       value: label,
       count,
       items: matches.map((result): Row => ({ kind: 'result', key: result.entityId, result })),
     }));
-  }, [showEmptyQuery, recents.data, goTo, results, filter]);
+  }, [showEmptyQuery, recents.data, goTo, results, filter, shownCounts]);
 
   const open = (row: Row) => {
     close();
@@ -191,7 +208,8 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
     setFilter((current) => nextFilter(current, event.shiftKey ? -1 : 1));
   };
 
-  const noResults = typed && shown !== null && results.length === 0;
+  // the selected type's own search found nothing (while another type's runs, the list waits)
+  const noResults = typed && shown !== null && shown.filter === filter && results.length === 0;
 
   return (
     <CommandDialog {...props}>
@@ -232,7 +250,7 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
                 placement="inline"
                 className={styles.empty}
                 icon={Search}
-                title={`No results for “${shown?.query}”`}
+                title={`No ${filter === 'all' ? 'results' : GROUP_LABELS[filter].toLowerCase()} for “${shown?.query}”`}
                 description="Try fewer words, or check the spelling. Items in the trash aren’t searched."
                 action={
                   (onNewTask || canNewNote) && (

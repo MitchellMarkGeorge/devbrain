@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { SearchEntityType, SearchResult } from '@common/types';
 import {
-  countResults,
   groupResults,
   isSearchHtml,
   nextFilter,
   PER_GROUP,
+  withAll,
 } from '../../pages/search/results';
 
 const result = (entityType: SearchEntityType, n: number): SearchResult =>
@@ -27,9 +27,15 @@ const RESULTS = [
   ...Array.from({ length: 7 }, (_, i) => result('task', i + 2)),
 ];
 
-describe('countResults', () => {
-  it('counts every result and each type', () => {
-    expect(countResults(RESULTS)).toEqual({ all: 10, task: 8, note: 1, project: 0, event: 1 });
+describe('withAll', () => {
+  it("adds every type's count up as All's", () => {
+    expect(withAll({ task: 300, note: 2, project: 0, event: 5 })).toEqual({
+      all: 307,
+      task: 300,
+      note: 2,
+      project: 0,
+      event: 5,
+    });
   });
 });
 
@@ -44,6 +50,15 @@ describe('groupResults', () => {
     expect(groups[0].results).toHaveLength(PER_GROUP);
     // best first, as search returned them
     expect(groups[0].results[0].entityId).toBe('task_1');
+  });
+
+  it("counts each group with search.counts' figure when given one", () => {
+    const groups = groupResults(RESULTS, 'all', { task: 300, note: 2, project: 0, event: 1 });
+    expect(groups.map(({ label, count }) => [label, count])).toEqual([
+      ['Tasks', 300],
+      ['Notes', 2],
+      ['Events', 1],
+    ]);
   });
 
   it("lists every match of one type under that type's filter", () => {
