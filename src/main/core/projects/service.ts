@@ -5,6 +5,7 @@ import {
   Page,
   Project,
   ProjectDeleteResult,
+  ProjectListItem,
   ProjectStats,
   ProjectStatus,
   TaskStatus,
@@ -30,6 +31,18 @@ import {
   withExternalRefs,
 } from '../integrations/refs';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
+import type { TaskService } from '../tasks/service';
+
+function emptyStats(): ProjectStats {
+  return {
+    numOfCompleted: 0,
+    numOfInProgress: 0,
+    numOfNotStarted: 0,
+    numOfCancelled: 0,
+    numOfOverdue: 0,
+    totalTasks: 0,
+  };
+}
 
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
 // layer will forward them to the renderer. Sent after the write commits, with the row as written.
@@ -43,7 +56,11 @@ export type ProjectChange =
 export class ProjectService {
   private readonly changes = new ChangeListeners<ProjectChange>('Project');
 
-  constructor(private readonly db: BetterSQLite3Database) {}
+  // `tasks` creates a new project's first tasks, so their changes come from the task service
+  constructor(
+    private readonly db: BetterSQLite3Database,
+    private readonly tasks: TaskService,
+  ) {}
 
   // returns a function that unsubscribes the listener
   onChange(listener: ChangeListener<ProjectChange>): () => void {
@@ -60,6 +77,11 @@ export class ProjectService {
     return withExternalRefs(this.db, this.activeProjects(inArray(projects.id, ids)).all());
   }
 
+  /**
+   * Creates a project, and its first tasks (`options.tasks`, in that order) with it in one
+   * transaction: both are created, or neither. The project's `created` is sent once it has
+   * committed, then each task's.
+   */
   createProject(options: CreateProjectOptions): Project {
     const newProject = {
       title: options.title,
@@ -70,10 +92,16 @@ export class ProjectService {
       status: options.status ?? ProjectStatus.NOT_STARTED,
       completedAt: options.status === ProjectStatus.COMPLETED ? new Date() : null,
     };
-    const row = this.db.insert(projects).values(newProject).returning().get();
+    const { row, emitTasksCreated } = this.db.transaction((tx) => {
+      const row = tx.insert(projects).values(newProject).returning().get();
+      const trees = (options.tasks ?? []).map(({ title }) => ({ title, projectId: row.id }));
+      const { emitCreated } = this.tasks.insertTaskTrees(tx, trees);
+      return { row, emitTasksCreated: emitCreated };
+    });
     // a new project is local, so it has no link
     const project = { ...row, external: null };
     this.changes.emit({ type: 'created', project });
+    emitTasksCreated();
     return project;
   }
 
@@ -103,7 +131,7 @@ export class ProjectService {
     filter: ProjectFilterOptions = {},
     sort: ProjectSortOptions = { sortBy: 'createdAt' },
     page: PageOptions = {},
-  ): Page<Project> {
+  ): Page<ProjectListItem> {
     const clauses = [isNull(projects.archivedAt)];
 
     // apply easy filters
@@ -161,23 +189,36 @@ export class ProjectService {
       .limit(pager.fetchLimit)
       .all();
 
-    // filled after the page is cut, so the lookup covers only the rows returned
+    // filled after the page is cut, so the lookups cover only the rows returned
     const result = pager.toPage(rows);
-    return { ...result, items: withExternalRefs(this.db, result.items) };
+    const stats = this.statsOf(result.items.map((project) => project.id));
+    const items = withExternalRefs(this.db, result.items).map((project) => ({
+      ...project,
+      stats: stats.get(project.id) ?? emptyStats(),
+    }));
+    return { ...result, items };
   }
 
   getProjectStats(id: ProjectId): ProjectStats {
-    // to prevent N+1, this has to be a an arrow of project ids
     // throws NotFoundError for an unknown or archived project
     this.getById(id);
+    return this.statsOf([id]).get(id) ?? emptyStats();
+  }
 
+  /**
+   * Each project's counts of its active tasks, in one grouped query (served by the project_id
+   * index). A project with no active tasks is missing from the map: its counts are all 0.
+   */
+  statsOf(ids: ProjectId[]): Map<ProjectId, ProjectStats> {
+    if (ids.length === 0) return new Map();
     const today = Date.now();
 
     const count = (predicate: SQL) =>
       sql<number>`coalesce(sum(case when ${predicate} then 1 else 0 end), 0)`;
 
-    const stats = this.db
+    const rows = this.db
       .select({
+        projectId: tasks.projectId,
         numOfCompleted: count(sql`${tasks.status} = ${TaskStatus.COMPLETED}`),
         numOfNotStarted: count(sql`${tasks.status} = ${TaskStatus.NOT_STARTED}`),
         numOfInProgress: count(sql`${tasks.status} = ${TaskStatus.IN_PROGRESS}`),
@@ -190,19 +231,11 @@ export class ProjectService {
         totalTasks: count(sql`${tasks.status} != ${TaskStatus.CANCELLED}`),
       })
       .from(tasks)
-      .where(and(eq(tasks.projectId, id), isNull(tasks.archivedAt)))
-      .get();
+      .where(and(inArray(tasks.projectId, ids), isNull(tasks.archivedAt)))
+      .groupBy(tasks.projectId)
+      .all();
 
-    return (
-      stats ?? {
-        numOfCompleted: 0,
-        numOfInProgress: 0,
-        numOfNotStarted: 0,
-        numOfCancelled: 0,
-        numOfOverdue: 0,
-        totalTasks: 0,
-      }
-    );
+    return new Map(rows.map(({ projectId, ...stats }) => [projectId as ProjectId, stats]));
   }
 
   /**

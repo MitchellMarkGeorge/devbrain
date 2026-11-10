@@ -4,6 +4,7 @@ import {
   type Page,
   type Project,
   type ProjectDeleteResult,
+  type ProjectListItem,
   type ProjectStats,
   ProjectStatus,
 } from '@common/types';
@@ -11,7 +12,7 @@ import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId, zPageFields } from '../zod';
 
-// The workspace's active projects. A synced project is read-only: its writes fail with
+// The workspace's active projects; list returns each with its task counts (`stats`). A synced project is read-only: its writes fail with
 // external_read_only.
 
 const byId = z.object({ id: zId('project') });
@@ -42,7 +43,7 @@ export const projectsRouter = t.router({
       }),
     )
     .query(
-      ({ ctx, input: { filter, sort, ...page } }): Page<Project> =>
+      ({ ctx, input: { filter, sort, ...page } }): Page<ProjectListItem> =>
         ctx.workspace.projects.listProjects(filter, sort, page),
     ),
 
@@ -60,6 +61,8 @@ export const projectsRouter = t.router({
         dueDate: z.date().nullable().optional(),
         color: hexColorSchema.optional(),
         status: status.optional(),
+        // the project's first tasks, created with it, all or none
+        tasks: z.array(z.object({ title })).max(100).optional(),
       }),
     )
     .mutation(({ ctx, input }): Project => ctx.workspace.projects.createProject(input)),

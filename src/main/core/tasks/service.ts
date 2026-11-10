@@ -36,7 +36,8 @@ import {
 import { isSubtask } from './utils';
 import { subtreeOf } from './subtree';
 import { withListDetails, withSubtaskListDetails } from './details';
-import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
+import { BaseSQLiteDatabase, SQLiteColumn } from 'drizzle-orm/sqlite-core';
+import type { RunResult } from 'better-sqlite3';
 import { localDayWindow } from '../shared/dates';
 import { keyset, PageOptions } from '../shared/pagination';
 import {
@@ -50,6 +51,9 @@ import {
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 
 type NewTaskValues = typeof tasks.$inferInsert;
+
+// the database or a transaction on it
+type Tx = BaseSQLiteDatabase<'sync', RunResult>;
 
 // what a subtask takes from its parent
 type SubtaskParent = Pick<Task, 'id' | 'dueDate' | 'projectId' | 'linkedNoteId' | 'linkedEventId'>;
@@ -164,6 +168,24 @@ export class TaskService {
    * Returns the tasks in that order: each before its subtasks, depth first.
    */
   createTaskTrees(trees: CreateTaskTreeOptions[]): Task[] {
+    return this.db.transaction((tx) => {
+      const { tasks: created, emitCreated } = this.insertTaskTrees(tx, trees);
+      emitCreated();
+      return created;
+    });
+  }
+
+  /**
+   * Inserts tasks with their subtrees as createTaskTrees does, in the caller's transaction `tx`,
+   * and sends nothing: for a write that creates tasks with other rows, such as a project with its
+   * first tasks (ProjectService.createProject). Returns the tasks, each before its subtasks, and
+   * `emitCreated`, which sends their `created` changes in that order: call it once `tx` has
+   * committed (or as its last step, when listeners' writes must commit with it).
+   */
+  insertTaskTrees(
+    tx: Tx,
+    trees: CreateTaskTreeOptions[],
+  ): { tasks: Task[]; emitCreated: () => void } {
     // Every row is built first, its id generated so its subtasks can name it, parents before their
     // subtasks; then they go in a few hundred per statement. One insert per row would cost an
     // import of the largest size several seconds.
@@ -186,21 +208,21 @@ export class TaskService {
     };
     for (const tree of trees) addSubtasks(add(newTaskValues(tree)), tree.subtasks);
 
-    return this.db.transaction((tx) => {
-      const inserted = new Map<TaskId, Task>();
-      for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
-        const chunk = tx
-          .insert(tasks)
-          .values(rows.slice(i, i + INSERT_CHUNK))
-          .returning()
-          .all();
-        for (const row of chunk) inserted.set(row.id, { ...row, external: null });
-      }
-      // RETURNING gives no order, so the tasks are put back in the order built
-      const created = rows.map(({ id }) => inserted.get(id)!);
+    const inserted = new Map<TaskId, Task>();
+    for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
+      const chunk = tx
+        .insert(tasks)
+        .values(rows.slice(i, i + INSERT_CHUNK))
+        .returning()
+        .all();
+      for (const row of chunk) inserted.set(row.id, { ...row, external: null });
+    }
+    // RETURNING gives no order, so the tasks are put back in the order built
+    const created = rows.map(({ id }) => inserted.get(id)!);
+    const emitCreated = () => {
       for (const task of created) this.changes.emit({ type: 'created', task });
-      return created;
-    });
+    };
+    return { tasks: created, emitCreated };
   }
 
   listTasks(

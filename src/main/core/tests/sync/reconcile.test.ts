@@ -521,7 +521,7 @@ describe('SyncEngine reconcile — project lifecycle', () => {
     expect(linkOf(withLocal.externalId).state).toBe(LinkState.DETACHED);
     expect(projectOf(withLocal.externalId).archivedAt).toBeNull();
     // a normal local project now: editable, and the local task keeps its home
-    const projects = new ProjectService(db);
+    const projects = new ProjectService(db, new TaskService(db));
     projects.updateProject(withLocalId, { title: 'Mine now' });
     expect(projects.getById(withLocalId).title).toBe('Mine now');
     expect(new TaskService(db).getById(local).projectId).toBe(withLocalId);

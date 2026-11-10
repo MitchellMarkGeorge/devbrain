@@ -36,7 +36,7 @@ let transfer: TransferService;
 
 function workspaceAt(workspacePath: string, database = createDb()) {
   const n = new NoteService(database, workspacePath);
-  const p = new ProjectService(database);
+  const p = new ProjectService(database, new TaskService(database));
   const service = new TransferService({
     tasks: new TaskService(database),
     notes: n,
