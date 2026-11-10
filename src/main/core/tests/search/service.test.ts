@@ -9,6 +9,11 @@ import { TaskService } from '../../tasks/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
 import { generateId } from '@common/ids';
+import { TaskStatus } from '@common/types';
+import { eq } from 'drizzle-orm';
+import { calendars } from '@main/db/schema/calendars';
+import { tasks } from '@main/db/schema/tasks';
+import { DEFAULT_CALENDAR_ID } from '../../calendars/types';
 import { createDb } from '../utils';
 
 const TOMORROW = new Date(Date.now() + 86_400_000);
@@ -393,6 +398,89 @@ describe('SearchService — search', () => {
     // the 'Widget sprint planning' task from the outer beforeEach has no description
     const results = searchService.search({ query: 'Widget', entityType: ['task'] });
     expect(results[0].body).toBe('');
+  });
+});
+
+describe('SearchService — status and colour', () => {
+  it("adds a task's status as it is now, and leaves colour out", () => {
+    const task = taskService.createTask({ title: 'Widget task', dueDate: TOMORROW });
+    searchService.indexTask(task);
+    taskService.updateStatus(task.id, TaskStatus.IN_PROGRESS);
+
+    expect(searchService.search({ query: 'widget', entityType: [] })).toMatchObject([
+      { entityId: task.id, status: TaskStatus.IN_PROGRESS, color: null },
+    ]);
+  });
+
+  it("adds a project's colour, or null when it has none", () => {
+    const coloured = projectService.createProject({
+      title: 'Widget red',
+      dueDate: TOMORROW,
+      color: '#ff0000',
+    });
+    const plain = projectService.createProject({ title: 'Widget plain', dueDate: TOMORROW });
+    searchService.indexProjects([coloured, plain]);
+
+    const results = searchService.search({ query: 'widget', entityType: ['project'] });
+    expect(results.find(({ entityId }) => entityId === coloured.id)).toMatchObject({
+      status: null,
+      color: '#ff0000',
+    });
+    expect(results.find(({ entityId }) => entityId === plain.id)).toMatchObject({
+      status: null,
+      color: null,
+    });
+  });
+
+  it("adds an event's own colour, else its calendar's", () => {
+    db.update(calendars)
+      .set({ color: '#00ff00' })
+      .where(eq(calendars.id, DEFAULT_CALENDAR_ID))
+      .run();
+    const own = eventService.createEvent({
+      title: 'Widget own',
+      startAt: TOMORROW,
+      endAt: TOMORROW,
+      color: '#0000ff',
+    });
+    const inherited = eventService.createEvent({
+      title: 'Widget inherited',
+      startAt: TOMORROW,
+      endAt: TOMORROW,
+    });
+    searchService.indexEvents([own, inherited]);
+
+    const results = searchService.search({ query: 'widget', entityType: ['event'] });
+    expect(results.find(({ entityId }) => entityId === own.id)?.color).toBe('#0000ff');
+    expect(results.find(({ entityId }) => entityId === inherited.id)?.color).toBe('#00ff00');
+  });
+
+  it('gives a note neither, and an entry whose row is gone neither', async () => {
+    const note = await noteService.createNote({ title: 'Widget note' });
+    searchService.indexNoteContent(note, '');
+    // deleted without its entry: this service alone doesn't hear of the delete
+    const gone = taskService.createTask({ title: 'Widget gone', dueDate: TOMORROW });
+    searchService.indexTask(gone);
+    db.delete(tasks).where(eq(tasks.id, gone.id)).run();
+
+    const results = searchService.search({ query: 'widget', entityType: [] });
+    expect(results).toHaveLength(2);
+    for (const result of results) expect(result).toMatchObject({ status: null, color: null });
+  });
+
+  it('looks up many matches of each type', () => {
+    const created = Array.from({ length: 600 }, (_, i) =>
+      taskService.createTask({ title: `Widget ${i}`, dueDate: TOMORROW }),
+    );
+    searchService.indexTasks(created);
+    taskService.updateStatus(created[599].id, TaskStatus.COMPLETED);
+
+    const results = searchService.search({ query: 'widget', entityType: ['task'] });
+    expect(results).toHaveLength(600);
+    expect(results.every(({ status }) => status !== null)).toBe(true);
+    expect(results.find(({ entityId }) => entityId === created[599].id)?.status).toBe(
+      TaskStatus.COMPLETED,
+    );
   });
 });
 

@@ -1,4 +1,4 @@
-import { NoteId } from '@common/ids';
+import type { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import path from 'node:path';
 import { stripMarkdown } from '../shared/markdown';
@@ -11,15 +11,20 @@ import {
   type Project,
   type SearchResult,
   type Task,
+  type TaskStatus,
 } from '@common/types';
 import type { IndexEntity, RebuildResult, SearchOptions } from './types';
 import { HIGHLIGHT_END, HIGHLIGHT_START, highlightToHtml, toFtsQuery } from './utils';
-import { and, inArray, isNull, not, sql, SQL } from 'drizzle-orm';
+import { and, eq, inArray, isNull, not, sql, SQL } from 'drizzle-orm';
 import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
 import { notes } from '@main/db/schema/notes';
 import { events } from '@main/db/schema/events';
+import { calendars } from '@main/db/schema/calendars';
 import { hasLinkInState } from '../integrations/refs';
+
+// ids per lookup of the matches' statuses and colours, well under SQLite's limit on variables
+const LOOKUP_CHUNK = 500;
 
 // rows per INSERT when writing many entries at once: four bound values each, well under SQLite's
 // limit on variables in one statement
@@ -50,7 +55,9 @@ export class SearchService {
   /**
    * The entries matching `query`, best first. `title` and `body` are HTML: the indexed text
    * escaped, with each match in <b>…</b> and nothing else (see highlightToHtml). Titles and bodies
-   * hold user and provider text, so they are never handed out with unescaped markup.
+   * hold user and provider text, so they are never handed out with unescaped markup. A task's
+   * `status` and a project's or event's `color` are read from their rows after the FTS query, in
+   * one lookup per type.
    */
   search({ query, entityType, limit }: SearchOptions): SearchResult[] {
     const ftsQuery = toFtsQuery(query);
@@ -80,13 +87,56 @@ export class SearchService {
       searchQuery.append(sql` LIMIT ${sql.raw(limit.toString())}`);
     }
 
-    const rows: SearchResult[] = this.db.all(searchQuery);
+    const rows: Omit<SearchResult, 'status' | 'color'>[] = this.db.all(searchQuery);
+    const { statuses, colors } = this.statusesAndColors(rows);
 
     return rows.map((row) => ({
       ...row,
       title: highlightToHtml(row.title),
       body: highlightToHtml(row.body),
+      status: statuses.get(row.entityId) ?? null,
+      color: colors.get(row.entityId) ?? null,
     }));
+  }
+
+  // the tasks' statuses and the projects' and events' colours of these matches, an event's own
+  // colour else its calendar's. An id with no row (an entry the index still holds) gets neither.
+  private statusesAndColors(rows: Pick<SearchResult, 'entityId' | 'entityType'>[]) {
+    const idsOf = <T extends SearchResult['entityId']>(type: SearchResult['entityType']) =>
+      rows.filter(({ entityType }) => entityType === type).map(({ entityId }) => entityId as T);
+
+    const statuses = new Map<SearchResult['entityId'], TaskStatus>();
+    const colors = new Map<SearchResult['entityId'], string | null>();
+
+    for (const ids of chunks(idsOf<TaskId>('task'))) {
+      const found = this.db
+        .select({ id: tasks.id, status: tasks.status })
+        .from(tasks)
+        .where(inArray(tasks.id, ids))
+        .all();
+      for (const { id, status } of found) statuses.set(id, status);
+    }
+    for (const ids of chunks(idsOf<ProjectId>('project'))) {
+      const found = this.db
+        .select({ id: projects.id, color: projects.color })
+        .from(projects)
+        .where(inArray(projects.id, ids))
+        .all();
+      for (const { id, color } of found) colors.set(id, color);
+    }
+    for (const ids of chunks(idsOf<EventId>('event'))) {
+      const found = this.db
+        .select({
+          id: events.id,
+          color: sql<string | null>`coalesce(${events.color}, ${calendars.color})`,
+        })
+        .from(events)
+        .innerJoin(calendars, eq(calendars.id, events.calendarId))
+        .where(inArray(events.id, ids))
+        .all();
+      for (const { id, color } of found) colors.set(id, color);
+    }
+    return { statuses, colors };
   }
 
   indexTask(task: Task) {
@@ -363,6 +413,13 @@ export class SearchService {
       tx.run(insertQuery(entities));
     });
   }
+}
+
+function chunks<T>(items: T[]): T[][] {
+  const result: T[][] = [];
+  for (let i = 0; i < items.length; i += LOOKUP_CHUNK)
+    result.push(items.slice(i, i + LOOKUP_CHUNK));
+  return result;
 }
 
 function insertQuery(entities: IndexEntity[]): SQL {

@@ -1168,8 +1168,9 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 
 ### Search and editor
 
-- **R1: status and colour in search results** (follow-up, fix 2): `SearchService.search` adds a
-  task's `status` and a project's or event's `color`, so ⌘K and the "@" menu draw real glyphs.
+- **R1: status and colour in search results (done).** `SearchService.search` adds a task's
+  `status` and a project's or event's `color` (an event's own, else its calendar's), read for the
+  matched ids after the FTS query, so ⌘K and the "@" menu draw real glyphs.
 - **R3: pickers search** (follow-up "Pickers filter what they loaded instead of searching"):
   Link to ›, Make subtask of › and the project pickers ask `search.search` once something is
   typed, through one mapping of `SearchResult` to a picker row (after R1).
@@ -1243,7 +1244,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 | C1–C4                                  | Convert, duplicate, copy as Markdown, project with tasks | Detail menus, create project                 | No (hide items)            |
 | N2                                     | Note Show in Finder                                      | Note menu                                    | No (hide item)             |
 | E1                                     | Empty trash                                              | Trash                                        | No (hide action)           |
-| R1                                     | Status/colour in search                                  | ⌘K, "@" menu                                 | No                         |
+| R1                                     | Status/colour in search                                  | ⌘K, "@" menu                                 | Done                       |
 | K0                                     | `readRange` skips unselected synced calendars            | Calendar (unticked calendars vanish at once) | No, but cheap              |
 | T1, T3, T4, P2, A1, A3, A4, K1, R2, E2 | See above                                                |                                              | No                         |
 | S5                                     | `keyboardMode` setting                                   | Vim mode                                     | Later                      |

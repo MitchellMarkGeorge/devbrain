@@ -14,6 +14,7 @@ import {
   type RecentEntity,
   type SearchResult,
   SourceType,
+  TaskStatus,
 } from '@common/types';
 import type { DevBrain, Workspace } from '@main/core';
 import { calendars } from '@main/db/schema/calendars';
@@ -623,6 +624,27 @@ describe('search', () => {
       entityType: ['project'],
     });
     expect(projects).toMatchObject([{ entityType: 'project', title: '<b>Roadmap</b> review' }]);
+  });
+
+  it("returns a task's status and a project's colour with each match", async () => {
+    const ws = workspace();
+    const task = ws.tasks.createTask({ title: 'Launch checklist', dueDate: DUE });
+    ws.tasks.updateStatus(task.id, TaskStatus.COMPLETED);
+    const project = ws.projects.createProject({
+      title: 'Launch',
+      dueDate: DUE,
+      color: '#123456',
+    });
+
+    const results = await data<SearchResult[]>('search.search', { query: 'launch' });
+    expect(results.find(({ entityId }) => entityId === task.id)).toMatchObject({
+      status: TaskStatus.COMPLETED,
+      color: null,
+    });
+    expect(results.find(({ entityId }) => entityId === project.id)).toMatchObject({
+      status: null,
+      color: '#123456',
+    });
   });
 
   it('refuses a limit that is not a whole number within a page', async () => {
