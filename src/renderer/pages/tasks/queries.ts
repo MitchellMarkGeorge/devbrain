@@ -1,4 +1,4 @@
-import type { InfiniteData, QueryClient } from '@tanstack/react-query';
+import { queryOptions, type InfiniteData, type QueryClient } from '@tanstack/react-query';
 import type { TaskId } from '@common/ids';
 import {
   LinkState,
@@ -8,7 +8,7 @@ import {
   type Page,
   type TaskListItem,
 } from '@common/types';
-import { trpc } from '../../ipc';
+import { ipc, trpc } from '../../ipc';
 import type { TaskListInput } from './search';
 
 // The tasks page's reads, and the in-place patch its optimistic writes use
@@ -22,6 +22,28 @@ export function taskListQuery(input: TaskListInput) {
   return trpc.tasks.list.infiniteQueryOptions(input, {
     getNextPageParam: (page) => page.nextCursor,
     maxPages: MAX_PAGES,
+  });
+}
+
+/**
+ * One group of the group view: the first `pages` pages of `tasks.list`, as one page. "Show more"
+ * asks for a page more. A plain query, not an infinite one, so the view holds every group's in one
+ * `useQueries`; its key starts with `tasks.list`'s, so a change to tasks refetches it.
+ */
+export function groupTasksQuery(input: TaskListInput, pages: number) {
+  return queryOptions({
+    queryKey: [...trpc.tasks.list.queryKey(input), { pages }],
+    queryFn: async (): Promise<Page<TaskListItem>> => {
+      const items: TaskListItem[] = [];
+      let cursor: string | null = null;
+      for (let page = 0; page < pages; page++) {
+        const next = await ipc.tasks.list.query({ ...input, cursor });
+        items.push(...next.items);
+        cursor = next.nextCursor;
+        if (cursor === null) break;
+      }
+      return { items, nextCursor: cursor };
+    },
   });
 }
 

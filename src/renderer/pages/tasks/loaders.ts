@@ -5,7 +5,7 @@ import { isId } from '@common/ids';
 import type { RouterContext } from '../../router';
 import { ipcErrorCode } from '../../workspace/errors';
 import { groupDefs, PRIMED_GROUPS } from './views/group/groups';
-import { taskListQuery, subtasksQuery } from './queries';
+import { groupTasksQuery, subtasksQuery, taskListQuery } from './queries';
 import { resolveTasksSearch, taskListInput, type TasksSearch } from './search';
 
 // What the tasks routes load before their first frame (routes/app/$workspaceId/tasks/): they only
@@ -51,8 +51,8 @@ export async function loadTasks({ queryClient, trpc }: RouterContext, search: Ta
     const defs = groupDefs(resolved, today(), projects).slice(0, PRIMED_GROUPS);
     await Promise.all(
       defs.map((def) =>
-        queryClient.infiniteQuery({
-          ...taskListQuery(taskListInput(resolved, today(), def.filter)),
+        queryClient.query({
+          ...groupTasksQuery(taskListInput(resolved, today(), def.filter), 1),
           staleTime: 'static',
         }),
       ),

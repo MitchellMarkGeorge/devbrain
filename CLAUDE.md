@@ -96,6 +96,20 @@ with markdown in and out. `docs/editor.md` says what it reads and writes, what a
 how to add an element. A new element needs a round trip case in
 `src/renderer/tests/editor/markdown.test.ts`.
 
+## Loading data in components
+
+A component draws something. Never write one that renders nothing (or only its children) to load
+data or run an effect, and passes what it got up through a callback or an effect: the parent then
+holds a copy of the data that lags the cache by a render, and draws a frame without it.
+
+- Load data with hooks in the component that draws it: `useQuery`, `useInfiniteQuery`, or a
+  custom hook wrapping them.
+- For a list of queries whose length varies (one per group, per column), use `useQueries` in the
+  parent. It has no infinite form: page by giving each query the number of pages to load (as
+  the tasks page's `groupTasksQuery` does), not by mounting a component per query.
+- An effect tied to something drawn (a heading coming into view) goes in the component that draws
+  it, not in a wrapper around it.
+
 ## Dialogs
 
 A page shows a dialog with `useModals().open((props) => <MyDialog {...props} />)`

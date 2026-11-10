@@ -1,12 +1,7 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import {
-  useInfiniteQuery,
-  useQuery,
-  useQueryClient,
-  type InfiniteData,
-} from '@tanstack/react-query';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Calendar, CircleAlert, CircleSlash, Folder } from 'lucide-react';
-import { TaskPriority, TaskStatus, type Page, type TaskListItem } from '@common/types';
+import { TaskPriority, TaskStatus, type TaskListItem } from '@common/types';
 import {
   Button,
   GroupHeading,
@@ -20,7 +15,7 @@ import {
 } from '../../../../components';
 import { trpc } from '../../../../ipc';
 import { groupDefs, PRIMED_GROUPS, type TaskGroupDef } from './groups';
-import { taskListQuery } from '../../queries';
+import { groupTasksQuery } from '../../queries';
 import {
   hasFilters,
   taskListInput,
@@ -38,13 +33,12 @@ export interface TasksGroupsProps {
   onClearFilters: () => void;
 }
 
-/** What a group's query holds, reported up to the view. */
+/** What the view knows of a group's rows, from its query. */
 interface GroupState {
   tasks: TaskListItem[];
   pending: boolean;
   error: boolean;
   hasNextPage: boolean;
-  fetchNextPage: () => void;
 }
 
 // ---------- collapsed groups, per grouping, in localStorage ----------
@@ -70,72 +64,6 @@ function writeCollapsed(groupBy: string, ids: string[]) {
 }
 
 // ---------- a group's data ----------
-
-/**
- * One group's `tasks.list`, enabled once its heading has been on screen (the view is virtualized,
- * so a workspace with 40 projects queries the groups scrolled to, not all 40) and while it is
- * expanded. Draws nothing: it reports its rows to the view.
- */
-function GroupQuery({
-  def,
-  resolved,
-  enabled,
-  onState,
-}: {
-  def: TaskGroupDef;
-  resolved: ResolvedTasksSearch;
-  enabled: boolean;
-  onState: (id: string, state: GroupState) => void;
-}) {
-  const { now } = useFormat();
-  const query = useInfiniteQuery({
-    ...taskListQuery(taskListInput(resolved, now, def.filter)),
-    enabled,
-  });
-  const { data, isPending, isError, hasNextPage, fetchNextPage, isFetchingNextPage } = query;
-  useEffect(() => {
-    onState(def.id, {
-      tasks: data?.pages.flatMap((page) => page.items) ?? [],
-      pending: isPending,
-      error: isError,
-      hasNextPage,
-      fetchNextPage: () => {
-        if (!isFetchingNextPage) void fetchNextPage();
-      },
-    });
-  }, [def.id, data, isPending, isError, hasNextPage, isFetchingNextPage, fetchNextPage, onState]);
-  return null;
-}
-
-/**
- * A group's rows as the cache holds them, for the frame before its `GroupQuery` reports: the route's
- * loader has loaded the first groups, so the view draws them at once instead of empty.
- */
-function cachedState(data: InfiniteData<Page<TaskListItem>> | undefined): GroupState | undefined {
-  if (!data) return undefined;
-  return {
-    tasks: data.pages.flatMap((page) => page.items),
-    pending: false,
-    error: false,
-    hasNextPage: data.pages[data.pages.length - 1]?.nextCursor != null,
-    // the group's own query takes over on the next frame
-    fetchNextPage: () => {},
-  };
-}
-
-/** Marks its group seen once its heading is drawn. */
-function Seen({
-  id,
-  onSeen,
-  children,
-}: {
-  id: string;
-  onSeen: (id: string) => void;
-  children: ReactNode;
-}) {
-  useEffect(() => onSeen(id), [id, onSeen]);
-  return children;
-}
 
 // the band's icon, 14px: a status or priority colours itself
 function groupIcon(def: TaskGroupDef) {
@@ -184,19 +112,26 @@ const PRIORITY_SLUGS: Record<TaskPriority, string> = {
   [TaskPriority.LOW]: 'low',
 };
 
+/**
+ * A group's band. Drawn once it scrolls into the virtualized list's range, it marks its group seen,
+ * which starts the group's query.
+ */
 function Heading({
   def,
   state,
   collapsed,
   onCollapsedChange,
   onAddTask,
+  onSeen,
 }: {
   def: TaskGroupDef;
   state: GroupState | undefined;
   collapsed: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
   onAddTask: () => void;
+  onSeen: (id: string) => void;
 }) {
+  useEffect(() => onSeen(def.id), [def.id, onSeen]);
   // the count once every page has loaded; none while more are to come
   const count = state && !state.pending && !state.hasNextPage ? state.tasks.length : undefined;
   return (
@@ -215,8 +150,9 @@ function Heading({
 
 /**
  * The group view (Figma `7158:9538`): one virtualized `TaskList` with a heading per group (by
- * project, status, priority or due date), each group its own `tasks.list` mounted once it comes
- * on screen. A group loads more with "Show more"; collapsed groups are remembered per grouping;
+ * project, status, priority or due date), each group its own query (`groupTasksQuery`, all of them
+ * in one `useQueries`), run for the first groups and for each one once its heading has been on
+ * screen. A group loads more with "Show more"; collapsed groups are remembered per grouping;
  * "Add task" in a heading opens Create task with the group's project, status, priority or date. A
  * project group with no tasks for these filters is left out once it has loaded.
  */
@@ -234,22 +170,6 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
   );
   const primed = new Set(defs.slice(0, PRIMED_GROUPS).map((def) => def.id));
 
-  const [reported, setStates] = useState<Record<string, GroupState>>({});
-  // each group's rows: as its query reports them, or until then, as the cache holds them
-  const states: Record<string, GroupState | undefined> = {};
-  for (const def of defs) {
-    states[def.id] =
-      reported[def.id] ??
-      cachedState(
-        queryClient.getQueryData(
-          taskListQuery(taskListInput(resolved, now, def.filter)).queryKey,
-        ) as InfiniteData<Page<TaskListItem>> | undefined,
-      );
-  }
-  const onState = useCallback(
-    (id: string, state: GroupState) => setStates((current) => ({ ...current, [id]: state })),
-    [],
-  );
   const [seenOnScreen, setSeen] = useState<ReadonlySet<string>>(() => new Set());
   // the groups whose query runs: the first few, and those whose heading has been on screen
   const seen = { has: (id: string) => primed.has(id) || seenOnScreen.has(id) };
@@ -257,6 +177,8 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
     (id: string) => setSeen((current) => (current.has(id) ? current : new Set(current).add(id))),
     [],
   );
+  // how many pages each group has shown; "Show more" adds one
+  const [pages, setPages] = useState<Readonly<Record<string, number>>>({});
   // the grouping's collapsed groups, read again when the grouping changes
   const [collapsedState, setCollapsedState] = useState(() => ({
     groupBy: resolved.groupBy,
@@ -271,6 +193,36 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
     setCollapsedState({ groupBy: resolved.groupBy, ids: next });
     writeCollapsed(resolved.groupBy, next);
   };
+
+  // every group's rows, read from the cache on the first render (the route's loader loads the
+  // first groups), so the view never draws a frame without them
+  const results = useQueries({
+    queries: defs.map((def) => {
+      const input = taskListInput(resolved, now, def.filter);
+      const shownPages = pages[def.id] ?? 1;
+      return {
+        ...groupTasksQuery(input, shownPages),
+        enabled: seen.has(def.id) && !collapsed.includes(def.id),
+        // while "Show more" loads the next page, the pages shown so far stay on screen
+        placeholderData: () =>
+          shownPages > 1
+            ? queryClient.getQueryData(groupTasksQuery(input, shownPages - 1).queryKey)
+            : undefined,
+      };
+    }),
+  });
+  const states: Record<string, GroupState | undefined> = {};
+  defs.forEach((def, index) => {
+    const result = results[index];
+    states[def.id] = {
+      tasks: result.data?.items ?? [],
+      pending: result.isPending,
+      error: result.isError,
+      hasNextPage: (result.data?.nextCursor ?? null) !== null,
+    };
+  });
+  const showMore = (id: string) =>
+    setPages((current) => ({ ...current, [id]: (current[id] ?? 1) + 1 }));
 
   // a group loaded empty is left out; one not yet loaded keeps its heading
   const shown = defs.filter((def) => {
@@ -293,38 +245,32 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
       id: def.id,
       collapsed: isCollapsed,
       heading: (
-        <Seen id={def.id} onSeen={onSeen}>
-          <Heading
-            def={def}
-            state={state}
-            collapsed={isCollapsed}
-            onCollapsedChange={(value) => toggle(def.id, value)}
-            onAddTask={() => createTask({ defaults: def.defaults })}
-          />
-        </Seen>
+        <Heading
+          def={def}
+          state={state}
+          collapsed={isCollapsed}
+          onCollapsedChange={(value) => toggle(def.id, value)}
+          onAddTask={() => createTask({ defaults: def.defaults })}
+          onSeen={onSeen}
+        />
       ),
       tasks: state?.tasks ?? [],
       footer: loading ? (
         <TaskRowSkeleton />
       ) : state?.hasNextPage ? (
         <div className={styles.more}>
-          <Button size="xs" variant="ghost" onClick={state.fetchNextPage}>
+          <Button
+            size="xs"
+            variant="ghost"
+            disabled={results[defs.indexOf(def)]?.isFetching}
+            onClick={() => showMore(def.id)}
+          >
             Show more
           </Button>
         </div>
       ) : undefined,
     };
   });
-
-  const queries = defs.map((def) => (
-    <GroupQuery
-      key={def.id}
-      def={def}
-      resolved={resolved}
-      enabled={seen.has(def.id) && !collapsed.includes(def.id)}
-      onState={onState}
-    />
-  ));
 
   if (resolved.groupBy === 'project' && projects.isPending) return <TasksLoading />;
   // until the first groups have loaded (a collapsed one doesn't load)
@@ -335,12 +281,7 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
       (!states[def.id] || states[def.id]!.pending),
   );
   if (priming) {
-    return (
-      <>
-        {queries}
-        <TasksLoading />
-      </>
-    );
+    return <TasksLoading />;
   }
   if (resolved.groupBy === 'project' && projects.isError) {
     return <TasksErrorState onRetry={() => void projects.refetch()} />;
@@ -350,27 +291,14 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
     defs.every((def) => seen.has(def.id) && states[def.id] && !states[def.id]!.pending) &&
     shown.length === 0;
   if (everyLoadedEmpty) {
-    return (
-      <>
-        {queries}
-        <TasksEmptyState filtered={hasFilters(search)} onClearFilters={onClearFilters} />
-      </>
-    );
+    return <TasksEmptyState filtered={hasFilters(search)} onClearFilters={onClearFilters} />;
   }
   if (defs.length > 0 && defs.every((def) => states[def.id]?.error)) {
     return (
-      <>
-        {queries}
-        <TasksErrorState
-          onRetry={() => void queryClient.refetchQueries({ queryKey: trpc.tasks.list.pathKey() })}
-        />
-      </>
+      <TasksErrorState
+        onRetry={() => void queryClient.refetchQueries({ queryKey: trpc.tasks.list.pathKey() })}
+      />
     );
   }
-  return (
-    <>
-      {queries}
-      <TaskListFrame loaded={loaded} groups={groups} />
-    </>
-  );
+  return <TaskListFrame loaded={loaded} groups={groups} />;
 }
