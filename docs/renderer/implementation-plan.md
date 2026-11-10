@@ -286,18 +286,18 @@ export const tasksSearch = z.object({
 
 ### `/app/tasks`
 
-| Param      | Values                                                                                    | Notes                                                                                               |
-| ---------- | ----------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `view`     | `list` (default) \| `group` \| `board`                                                    | default from `settings.tasks.defaultView`                                                           |
-| `groupBy`  | `project` (default) \| `status` \| `priority` \| `due`                                    | `group` view only ("Group by: Project", `7158:9538`)                                                |
-| `sort`     | `priority` \| `dueDate` \| `status` \| `createdAt` \| `updatedAt`                         | default `settings.tasks.defaultSort`                                                                |
-| `dir`      | `asc` \| `desc`                                                                           |                                                                                                     |
-| `status`   | `open` (default) \| `all` \| `not_started` \| `in_progress` \| `completed` \| `cancelled` | "Filter: Open" → `excludeClosed`; `showCompletedTasks` decides the default between `open` and `all` |
-| `priority` | `low` \| `medium` \| `high`                                                               | single value, as core filters                                                                       |
-| `project`  | `prj_…` \| `none`                                                                         | "Filter by project" menu (`7175:25639`)                                                             |
-| `due`      | `overdue` \| `today` \| `week` \| `none`                                                  | mapped to `dueBefore`/`dueOn`/`dueAfter` at the call                                                |
-| `source`   | `local` \| `external`                                                                     | core's `origin`                                                                                     |
-| `open`     | `tsk_…`                                                                                   | the task sheet over the board (`7175:31599`)                                                        |
+| Param      | Values                                                                                    | Notes                                                                                                               |
+| ---------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `view`     | `list` (default) \| `group` \| `board`                                                    | default from `settings.tasks.defaultView`                                                                           |
+| `groupBy`  | `project` (default) \| `status` \| `priority` \| `due`                                    | `group` view only ("Group by: Project", `7158:9538`)                                                                |
+| `sort`     | `priority` \| `dueDate` \| `status` \| `createdAt` \| `updatedAt`                         | default `settings.tasks.defaultSort`                                                                                |
+| `dir`      | `asc` \| `desc`                                                                           |                                                                                                                     |
+| `status`   | `open` \| `all` (default) \| `not_started` \| `in_progress` \| `completed` \| `cancelled` | "Filter: Open" → `excludeClosed`; `showCompletedTasks` (on by default) decides the default between `open` and `all` |
+| `priority` | `low` \| `medium` \| `high`                                                               | single value, as core filters                                                                                       |
+| `project`  | `prj_…` \| `none`                                                                         | "Filter by project" menu (`7175:25639`)                                                                             |
+| `due`      | `overdue` \| `today` \| `week` \| `none`                                                  | mapped to `dueBefore`/`dueOn`/`dueAfter` at the call                                                                |
+| `source`   | `local` \| `external`                                                                     | core's `origin`                                                                                                     |
+| `open`     | `tsk_…`                                                                                   | the task sheet over the board (`7175:31599`)                                                                        |
 
 Core filters `status` and `priority` by one value each. Multi-select filters are a main change
 (T3); the params are written as single values now and can become arrays later without breaking

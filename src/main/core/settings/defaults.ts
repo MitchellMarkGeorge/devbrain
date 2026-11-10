@@ -23,7 +23,7 @@ export function getDefaults(rootPath?: string): SettingsFile {
         defaultView: 'list',
         defaultDueDate: 'today',
         defaultPriority: TaskPriority.LOW,
-        showCompletedTasks: false,
+        showCompletedTasks: true,
       },
       calendar: {
         defaultEventDuration: '15m',
