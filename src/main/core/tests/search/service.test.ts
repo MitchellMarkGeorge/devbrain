@@ -9,10 +9,11 @@ import { TaskService } from '../../tasks/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
 import { generateId } from '@common/ids';
-import { TaskStatus } from '@common/types';
+import { AuthType, LinkState, Provider, SourceType, TaskStatus } from '@common/types';
 import { eq } from 'drizzle-orm';
 import { calendars } from '@main/db/schema/calendars';
 import { tasks } from '@main/db/schema/tasks';
+import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
 import { DEFAULT_CALENDAR_ID } from '../../calendars/types';
 import { createDb } from '../utils';
 
@@ -465,7 +466,51 @@ describe('SearchService — status and colour', () => {
 
     const results = searchService.search({ query: 'widget', entityType: [] });
     expect(results).toHaveLength(2);
-    for (const result of results) expect(result).toMatchObject({ status: null, color: null });
+    for (const result of results) {
+      expect(result).toMatchObject({ status: null, color: null, external: null });
+    }
+  });
+
+  it("adds a synced task's provider link, and null for a local one", () => {
+    const synced = taskService.createTask({ title: 'Widget synced', dueDate: TOMORROW });
+    const local = taskService.createTask({ title: 'Widget local', dueDate: TOMORROW });
+    searchService.indexTasks([synced, local]);
+    const integrationId = db
+      .insert(integrations)
+      .values({
+        provider: Provider.LINEAR,
+        authType: AuthType.API_KEY,
+        accountId: 'org:user',
+        accountLabel: 'Ada',
+        credentials: Buffer.from('ciphertext'),
+      })
+      .returning()
+      .get().id;
+    const sourceId = db
+      .insert(externalSources)
+      .values({ integrationId, sourceType: SourceType.TASKS })
+      .returning()
+      .get().id;
+    db.insert(externalLinks)
+      .values({
+        sourceId,
+        provider: Provider.LINEAR,
+        externalId: 'issue-1',
+        externalKey: 'ENG-124',
+        externalUrl: 'https://linear.app/acme/issue/ENG-124',
+        externalUpdatedAt: TOMORROW,
+        lastSyncedAt: TOMORROW,
+        taskId: synced.id,
+      })
+      .run();
+
+    const results = searchService.search({ query: 'widget', entityType: ['task'] });
+    expect(results.find(({ entityId }) => entityId === synced.id)?.external).toMatchObject({
+      provider: Provider.LINEAR,
+      state: LinkState.SYNCED,
+      key: 'ENG-124',
+    });
+    expect(results.find(({ entityId }) => entityId === local.id)?.external).toBeNull();
   });
 
   it('looks up many matches of each type', () => {

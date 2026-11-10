@@ -6,6 +6,7 @@ import { errorClass } from '../shared/logger';
 import { readNoteFile } from '../local/notes';
 import {
   type Event,
+  type ExternalRef,
   LinkState,
   type Note,
   type Project,
@@ -21,7 +22,7 @@ import { projects } from '@main/db/schema/projects';
 import { notes } from '@main/db/schema/notes';
 import { events } from '@main/db/schema/events';
 import { calendars } from '@main/db/schema/calendars';
-import { hasLinkInState } from '../integrations/refs';
+import { getRefs, hasLinkInState } from '../integrations/refs';
 
 // ids per lookup of the matches' statuses and colours, well under SQLite's limit on variables
 const LOOKUP_CHUNK = 500;
@@ -56,8 +57,8 @@ export class SearchService {
    * The entries matching `query`, best first. `title` and `body` are HTML: the indexed text
    * escaped, with each match in <b>…</b> and nothing else (see highlightToHtml). Titles and bodies
    * hold user and provider text, so they are never handed out with unescaped markup. A task's
-   * `status` and a project's or event's `color` are read from their rows after the FTS query, in
-   * one lookup per type.
+   * `status`, a project's or event's `color`, and the `external` ref of each of those three are
+   * read after the FTS query, in batched lookups per type.
    */
   search({ query, entityType, limit }: SearchOptions): SearchResult[] {
     const ftsQuery = toFtsQuery(query);
@@ -87,8 +88,8 @@ export class SearchService {
       searchQuery.append(sql` LIMIT ${sql.raw(limit.toString())}`);
     }
 
-    const rows: Omit<SearchResult, 'status' | 'color'>[] = this.db.all(searchQuery);
-    const { statuses, colors } = this.statusesAndColors(rows);
+    const rows: Omit<SearchResult, 'status' | 'color' | 'external'>[] = this.db.all(searchQuery);
+    const { statuses, colors, refs } = this.details(rows);
 
     return rows.map((row) => ({
       ...row,
@@ -96,17 +97,23 @@ export class SearchService {
       body: highlightToHtml(row.body),
       status: statuses.get(row.entityId) ?? null,
       color: colors.get(row.entityId) ?? null,
+      external: refs.get(row.entityId) ?? null,
     }));
   }
 
   // the tasks' statuses and the projects' and events' colours of these matches, an event's own
-  // colour else its calendar's. An id with no row (an entry the index still holds) gets neither.
-  private statusesAndColors(rows: Pick<SearchResult, 'entityId' | 'entityType'>[]) {
+  // colour else its calendar's, and the provider links of all three. An id with no row (an entry
+  // the index still holds) gets none of them.
+  private details(rows: Pick<SearchResult, 'entityId' | 'entityType'>[]) {
     const idsOf = <T extends SearchResult['entityId']>(type: SearchResult['entityType']) =>
       rows.filter(({ entityType }) => entityType === type).map(({ entityId }) => entityId as T);
 
     const statuses = new Map<SearchResult['entityId'], TaskStatus>();
     const colors = new Map<SearchResult['entityId'], string | null>();
+    const refs = new Map<SearchResult['entityId'], ExternalRef>();
+    const addRefs = (ids: (TaskId | ProjectId | EventId)[]) => {
+      for (const [id, ref] of getRefs(this.db, ids)) refs.set(id, ref);
+    };
 
     for (const ids of chunks(idsOf<TaskId>('task'))) {
       const found = this.db
@@ -115,6 +122,7 @@ export class SearchService {
         .where(inArray(tasks.id, ids))
         .all();
       for (const { id, status } of found) statuses.set(id, status);
+      addRefs(ids);
     }
     for (const ids of chunks(idsOf<ProjectId>('project'))) {
       const found = this.db
@@ -123,6 +131,7 @@ export class SearchService {
         .where(inArray(projects.id, ids))
         .all();
       for (const { id, color } of found) colors.set(id, color);
+      addRefs(ids);
     }
     for (const ids of chunks(idsOf<EventId>('event'))) {
       const found = this.db
@@ -135,8 +144,9 @@ export class SearchService {
         .where(inArray(events.id, ids))
         .all();
       for (const { id, color } of found) colors.set(id, color);
+      addRefs(ids);
     }
-    return { statuses, colors };
+    return { statuses, colors, refs };
   }
 
   indexTask(task: Task) {

@@ -647,6 +647,15 @@ describe('search', () => {
     });
   });
 
+  it("returns a synced project's provider link", async () => {
+    const id = syncedProject();
+    const [result] = await data<SearchResult[]>('search.search', { query: 'mirrored' });
+    expect(result).toMatchObject({
+      entityId: id,
+      external: { provider: Provider.LINEAR, url: 'https://linear.app/acme/project/1' },
+    });
+  });
+
   it('refuses a limit that is not a whole number within a page', async () => {
     for (const limit of [0, 1.5, 201]) {
       expect(await call('search.search', { query: 'x', limit })).toMatchObject({

@@ -11,6 +11,7 @@ const result = (fields: Partial<SearchResult>): SearchResult => ({
   rank: -1,
   status: null,
   color: null,
+  external: null,
   ...fields,
 });
 

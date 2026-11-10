@@ -1169,8 +1169,9 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 ### Search and editor
 
 - **R1: status and colour in search results (done).** `SearchService.search` adds a task's
-  `status` and a project's or event's `color` (an event's own, else its calendar's), read for the
-  matched ids after the FTS query, so ⌘K and the "@" menu draw real glyphs.
+  `status` and a project's or event's `color` (an event's own, else its calendar's), and the
+  `external` ref of each, read for the matched ids after the FTS query, so ⌘K and the "@" menu
+  draw real glyphs and ⌘K a synced task's source pill.
 - **R3: pickers search** (follow-up "Pickers filter what they loaded instead of searching"):
   Link to ›, Make subtask of › and the project pickers ask `search.search` once something is
   typed, through one mapping of `SearchResult` to a picker row (after R1).
