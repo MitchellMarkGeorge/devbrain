@@ -13,6 +13,11 @@ export interface Project extends Model<ProjectId>, Archivable, Completeable {
   external?: ExternalRef | null;
 }
 
+// a project as projects.list returns it: with the counts of its active tasks, for its progress
+export interface ProjectListItem extends Project {
+  stats: ProjectStats;
+}
+
 export enum ProjectStatus {
   NOT_STARTED = 1,
   ON_HOLD = 2,

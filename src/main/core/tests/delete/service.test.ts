@@ -58,7 +58,7 @@ beforeEach(async () => {
   workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-delete-'));
   await fs.mkdir(path.join(workspacePath, 'notes'), { recursive: true });
   tasks = new TaskService(db);
-  projects = new ProjectService(db);
+  projects = new ProjectService(db, new TaskService(db));
   notes = new NoteService(db, workspacePath);
   archive = new ArchiveService(db);
   favorites = new FavoritesService(db);

@@ -41,7 +41,7 @@ beforeEach(async () => {
   favorites = new FavoritesService(db);
   archive = new ArchiveService(db);
   tasks = new TaskService(db);
-  projects = new ProjectService(db);
+  projects = new ProjectService(db, new TaskService(db));
   notesService = new NoteService(db, workspacePath);
   events = new EventService(db);
 });

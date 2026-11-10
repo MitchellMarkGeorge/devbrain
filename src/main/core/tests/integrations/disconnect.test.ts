@@ -286,7 +286,7 @@ beforeEach(async () => {
     new TaskReconciler({ db, syncState, credentials, providers, writer, logger }),
   );
   tasks = new TaskService(db);
-  projects = new ProjectService(db);
+  projects = new ProjectService(db, new TaskService(db));
   events = new EventService(db);
   notes = new NoteService(db, workspacePath);
 });

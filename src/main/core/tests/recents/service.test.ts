@@ -47,7 +47,7 @@ beforeEach(async () => {
   favorites = new FavoritesService(db);
   archive = new ArchiveService(db);
   tasks = new TaskService(db);
-  projects = new ProjectService(db);
+  projects = new ProjectService(db, new TaskService(db));
   notesService = new NoteService(db, workspacePath);
   events = new EventService(db);
 });
@@ -310,7 +310,7 @@ describe('RecentsService — what an entry carries', () => {
     runMigrations(sqlite, counted, MIGRATIONS_PATH);
     const countedRecents = new RecentsService(counted);
     const countedTasks = new TaskService(counted);
-    const countedProjects = new ProjectService(counted);
+    const countedProjects = new ProjectService(counted, new TaskService(counted));
     const countedNotes = new NoteService(counted, workspacePath);
     const countedEvents = new EventService(counted);
 

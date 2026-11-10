@@ -87,7 +87,7 @@ export class Workspace {
   ) {
     this.notes = new NoteService(db, info.path, options.logger);
     this.tasks = new TaskService(db);
-    this.projects = new ProjectService(db);
+    this.projects = new ProjectService(db, this.tasks);
     // a read of a range before what synced calendars mirror fetches it first; eventFetcher is
     // built with the integration services below, before any read can run
     this.events = new EventService(db, (from, calendarIds) =>

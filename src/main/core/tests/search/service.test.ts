@@ -33,7 +33,7 @@ beforeEach(async () => {
   searchService = new SearchService(db, workspacePath);
   noteService = new NoteService(db, workspacePath);
   taskService = new TaskService(db);
-  projectService = new ProjectService(db);
+  projectService = new ProjectService(db, new TaskService(db));
   eventService = new EventService(db);
 });
 

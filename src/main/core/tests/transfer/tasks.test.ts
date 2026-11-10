@@ -51,7 +51,7 @@ function serviceOver(database: BetterSQLite3Database): {
   transfer: TransferService;
 } {
   const t = new TaskService(database);
-  const p = new ProjectService(database);
+  const p = new ProjectService(database, new TaskService(database));
   const service = new TransferService({
     tasks: t,
     notes: new NoteService(database, dir),

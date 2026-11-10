@@ -192,6 +192,24 @@ export class TaskService {
    * Returns the tasks in that order: each before its subtasks, depth first.
    */
   createTaskTrees(trees: CreateTaskTreeOptions[]): Task[] {
+    return this.db.transaction((tx) => {
+      const { tasks: created, emitCreated } = this.insertTaskTrees(tx, trees);
+      emitCreated();
+      return created;
+    });
+  }
+
+  /**
+   * Inserts tasks with their subtrees as createTaskTrees does, in the caller's transaction `tx`,
+   * and sends nothing: for a write that creates tasks with other rows, such as a project with its
+   * first tasks (ProjectService.createProject). Returns the tasks, each before its subtasks, and
+   * `emitCreated`, which sends their `created` changes in that order: call it once `tx` has
+   * committed (or as its last step, when listeners' writes must commit with it).
+   */
+  insertTaskTrees(
+    tx: Transaction,
+    trees: CreateTaskTreeOptions[],
+  ): { tasks: Task[]; emitCreated: () => void } {
     // Every row is built first, its id generated so its subtasks can name it, parents before their
     // subtasks; then they go in a few hundred per statement. One insert per row would cost an
     // import of the largest size several seconds.
@@ -214,11 +232,11 @@ export class TaskService {
     };
     for (const tree of trees) addSubtasks(add(newTaskValues(tree)), tree.subtasks);
 
-    return this.db.transaction((tx) => {
-      const created = this.insertRows(tx, rows);
+    const created = this.insertRows(tx, rows);
+    const emitCreated = () => {
       for (const task of created) this.changes.emit({ type: 'created', task });
-      return created;
-    });
+    };
+    return { tasks: created, emitCreated };
   }
 
   listTasks(
