@@ -1334,8 +1334,8 @@ linkedTaskId } })`), separate from the task's event or note link. Convert to pro
      is registered.
    - While a search runs, the last one that finished stays on screen (its results or its
      no-results state, and its counts), even across emptying the box, so typing never blanks
-     the list. Before the dialog's first search finishes, the list is empty and the filter
-     shows no counts.
+     the list. Until the dialog's first search finishes, Recent and Go to stay, with no
+     counts.
    - Results aren't virtualized: at most 200 rows, and "All" draws at most 20.
 10. **Trash, Integrations, Settings.** _Main:_ E1, S1, A3, K1.
 11. **Menu commands and polish.** _Main:_ A2. Compact-window behaviour checks against the

@@ -180,12 +180,15 @@ describe('⌘K search', () => {
     expect(filterButton('All')?.textContent).toBe('All0');
   });
 
-  it('shows no counts and no empty state while the first search runs', async () => {
+  it('keeps Recent and Go to, with no counts, while the first search runs', async () => {
     const { main } = await openSearch();
+    await eventually(() => expect(dialog()?.textContent).toContain('Go to'));
+    const before = optionTexts();
     const release = main.hold('search.search');
     type('pkce');
     await eventually(() => expect(main.callsTo('search.search')).toHaveLength(1));
-    expect(optionTexts()).toEqual([]);
+    expect(optionTexts()).toEqual(before);
+    expect(dialog()?.textContent).toContain('Recent');
     expect(filterButton('All')?.textContent).toBe('All');
     expect(dialog()?.textContent).not.toContain('No results');
     release();

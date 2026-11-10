@@ -148,8 +148,10 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
   const results = shown?.results ?? NO_RESULTS;
   const counts = typed && shown ? countResults(results) : undefined;
 
+  // Recent and Go to while nothing is typed, and while the dialog's first search runs
+  const showEmptyQuery = !typed || shown === null;
   const groups = useMemo<Group[]>(() => {
-    if (!typed) {
+    if (showEmptyQuery) {
       const recent = (recents.data?.items ?? []).map(
         (item): Row => ({ kind: 'recent', key: item.entity.id, recent: item }),
       );
@@ -163,7 +165,7 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
       count,
       items: matches.map((result): Row => ({ kind: 'result', key: result.entityId, result })),
     }));
-  }, [typed, recents.data, goTo, results, filter]);
+  }, [showEmptyQuery, recents.data, goTo, results, filter]);
 
   const open = (row: Row) => {
     close();
