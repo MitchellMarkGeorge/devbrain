@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { Settings, Zap } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import { trpc } from '../../ipc';
 import { PlaceholderPage } from './PlaceholderPage';
 
@@ -9,7 +9,6 @@ import { PlaceholderPage } from './PlaceholderPage';
 
 export const pageQueries = {
   integrations: () => trpc.integrations.list.queryOptions(),
-  settings: () => trpc.settings.get.queryOptions(),
 };
 
 export function IntegrationsPage() {
@@ -22,21 +21,6 @@ export function IntegrationsPage() {
         id,
         title: `${provider}: ${accountLabel}`,
       }))}
-    />
-  );
-}
-
-export function SettingsPage() {
-  const { data } = useSuspenseQuery(pageQueries.settings());
-  return (
-    <PlaceholderPage
-      icon={Settings}
-      empty="No settings"
-      rows={[
-        { id: 'landing', title: `Start page: ${data.general.defaultLandingPage}` },
-        { id: 'last', title: `Reopen last page: ${data.general.openToLastPage ? 'on' : 'off'}` },
-        { id: 'theme', title: `Theme: ${data.theme}` },
-      ]}
     />
   );
 }

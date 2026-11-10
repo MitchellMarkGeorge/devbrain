@@ -275,6 +275,14 @@ electron-store fills in defaults only at the top level. So a `settings.json` wri
 
 The fix, done once for every future setting: when the file opens, deep-merge the defaults into it (write each key it lacks, at any depth), and validate the file with the defaults filled in. It should still refuse a file with no `settings` object or with a wrong value. Test it with an old file opened through `openDevBrain`.
 
+## Data and storage
+
+### Show an exported file in Finder
+
+_Found in renderer milestone 10._
+
+Figma's export toast (`7423:37520`) offers "Show in Finder" for the file just written. No route can: `settings.showDataFolder` and `workspace.showInFolder` open folders main chooses, and the renderer never names a path. The toast says where the file went instead. A `transfer.showExport` that reveals the last path an export of this window wrote (kept in main, never taken as input) would allow it, through `shell.showItemInFolder`.
+
 ## Deleting
 
 ### Open trashed projects and notes read-only

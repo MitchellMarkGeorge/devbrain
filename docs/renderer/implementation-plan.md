@@ -18,8 +18,9 @@ the `Screens/*` stories, `docs/design-system/README.md`, `docs/ipc/design.md` an
 > Create subtask), milestone 5 (Notes: list and cards, the note page with autosave and its tasks,
 > `useEntityResolver`), milestone 6 (Projects: list and cards, the project page with its tabs,
 > Create project), milestone 7 (Calendar: week, day and month from the URL, the visibility filter,
-> the right panel, the event sheet with occurrence editing, Create event), milestone 8 (Home) and
-> milestone 9 (⌘K search, with R1) are built, with the
+> the right panel, the event sheet with occurrence editing, Create event), milestone 8 (Home),
+> milestone 9 (⌘K search, with R1) and milestone 10 (Trash, Integrations, Settings) are built, with
+> the
 > **URL-driven workspace model** ([routing.md](routing.md)): every page in a workspace is under
 > `/app/<its id>/…`, main picks the window's first URL, and switching is navigating. Revised after
 > review (Nov 6 2026): FullCalendar for the calendar, `/app/trash`, a create-workspace dialog
@@ -1524,7 +1525,34 @@ linkedTaskId } })`), separate from the task's event or note link.
      the list. Until the dialog's first search finishes, Recent and Go to stay, with no
      counts.
    - Results aren't virtualized: at most 200 rows, and "All" draws at most 20.
-10. **Trash, Integrations, Settings.** _Main:_ E1, S1, A3, K1.
+10. **Trash, Integrations, Settings (done).** _Main:_ E1, S1, S3; A3 and K1 not needed (the
+    providers are hard-coded). As built:
+    - **Trash** (`src/renderer/pages/trash`): `?tab` (snake case, `sort` reserved) over
+      `archive.listArchived`, infinite and virtualized in the page (`TrashList`, on
+      `components/lib/virtual`); Restore with "Restored · Open", Delete asking per
+      `confirmBeforeDeleting` in `deleteConsequence`'s words (docs/deleting.md), the right-click
+      menu (`7175:29207`), Empty Trash in the toolbar (no frame draws it) reporting
+      `keptTaskIds` and `filesNotRemoved`. A row opens its item's page: `tasks.get` now returns a
+      trashed task (`getById(…, { includeArchived })`), shown inert under `TrashedNotice` with
+      Restore. A trashed project or note still opens on not-found: `projects.get` and `notes.get`
+      refuse trashed rows (follow-up "Open trashed projects and notes read-only").
+    - **Integrations** (`src/renderer/pages/integrations`): an `IntegrationAccount` per account,
+      statuses from `sync.status` and `integrations.list` refetched on the push events, and
+      `sync.progress` counted into "Syncing… 24 so far". Connect menu and the empty page from a
+      hard-coded `PROVIDERS`; Linear's key dialog (connect, and Update API Key for a rejected key,
+      with the rejection under the field); Google's waiting dialog, whose Cancel, Esc or click
+      outside calls `cancelConnect`. Every switch is locked while a connect or reconnect runs
+      (`useConnecting`). Disconnect counts with `previewDisconnect` first.
+    - **Settings** (`src/renderer/pages/settings`): `?tab` in a `document` `PageContent`; every
+      control writes its one path through `settings.set`, optimistically (`useSetSetting`, which
+      applies only the last answer when writes overlap). General has Reset settings in the danger
+      zone with Delete workspace (typed name, then `/onboarding`, which `followOutsideChanges`
+      would also do). Import shows the summary dialog with View Tasks / View Notes; Export tasks
+      offers CSV or JSON; the export toasts say where, without Show in Finder (follow-up "Show an
+      exported file in Finder").
+    - Tests: `tests/routing/{trash,integrations,settings}.test.ts` over the fake main (which now
+      takes per-test `routes` and `push`es events), and unit tests of the pages' words and
+      helpers in `tests/{trash,integrations,settings}`.
 11. **Menu commands and polish.** _Main:_ A2. Compact-window behaviour checks against the
     responsive frames (`7602:42368`), light theme checks, empty/loading/error states on every
     list, accessibility pass (focus order, labels, the sheet and dialogs' focus traps).
