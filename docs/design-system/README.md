@@ -89,7 +89,7 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 
 Home answers "what matters right now". It is one centred column, `home-max-width` (800px) wide, with no date line and no right-hand column:
 
-- **The logomark,** then the greeting in the page title ("Good morning, Mitchell"; "Welcome, Mitchell" in a new workspace).
+- **The logomark,** then the greeting in the page title, without a name: "Good morning", "Good afternoon" or "Good evening" by the time of day, and "Welcome to ‹workspace name›" in a new workspace (nothing in DevBrain knows the user's name; see the renderer plan, Home).
 - **The summary,** one sentence in 14px `muted-foreground`: counts and names in `foreground-strong` medium ("**6 tasks**", "**Sprint Planning**"), overdue in `date-overdue` ("2 are overdue"), and good news in `health-on-track` ("Nothing's due today", "Your day is clear"). It can mention what didn't make the sections.
 - **The `CaptureBox`,** 28px below, with its one-line tip under it. It holds the slot an AI prompt will take later, at the same footprint.
 - **One section** (`HomeSection`), 28px below the tip: the one for what is coming up soonest, or what you just did (see Sections).
@@ -188,7 +188,7 @@ Two kinds of page, one rule each:
 
 - Write in the user's terms: tasks, projects, notes, events, workspaces.
 - Buttons and menu items are verbs. Buttons use title case ("New Task", "Show in Finder"); menu items, headings and labels use sentence case ("Turn into", "Due date").
-- Address the user as "you": "Good morning, Mitchell" / "**Sprint Planning** starts in 12 minutes. You have **6 tasks** today, and 2 are overdue."
+- Address the user as "you", without a name: "Good morning" / "**Sprint Planning** starts in 12 minutes. You have **6 tasks** today, and 2 are overdue."
 - Dates are short and worded through `useFormat()`: due dates "Today", "Tomorrow", "In 3 days" within a week, else "Jul 1"; times "10:30 AM" (or "10:30" on a 24 hour clock); edits and countdowns "2h ago", "In 12m".
 - A destructive confirmation says what happens to linked items and how to undo it.
 - Empty values are invitations: "Add description…", "+ Add start date". No emoji.

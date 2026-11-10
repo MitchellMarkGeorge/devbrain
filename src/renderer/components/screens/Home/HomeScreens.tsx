@@ -75,7 +75,7 @@ function Strong({ children }: { children: ReactNode }) {
 
 /** Logomark, greeting, summary, the capture box and its tip, the sections and the footer. */
 function HomePage({
-  greeting = 'Good morning, Mitchell',
+  greeting = 'Good morning',
   summary,
   tip = TIP,
   paused = true,
@@ -134,7 +134,12 @@ function Meetings() {
   return (
     <HomeSection title="Meetings" link="Calendar" more="1 more meeting today">
       {SAMPLE_MEETINGS.map((meeting, i) => (
-        <HomeMeetingRow key={meeting.title} event={meeting} current={i === 0} />
+        <HomeMeetingRow
+          key={meeting.title}
+          event={meeting}
+          current={i === 0}
+          onJoin={i === 0 ? () => {} : undefined}
+        />
       ))}
     </HomeSection>
   );
@@ -390,7 +395,7 @@ export function FirstRunScreen(frame: Partial<ScreenFrameProps>) {
   return (
     <ScreenFrame page="Home" emptySidebar {...frame}>
       <HomePage
-        greeting="Welcome, Mitchell"
+        greeting="Welcome to SurveyMonkey"
         paused={false}
         tip="Try “Draft Q3 roadmap tomorrow”. Press Enter to add it."
         summary="This is your Home. As you add tasks, notes and meetings, the ones that matter most right now show up here."

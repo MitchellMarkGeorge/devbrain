@@ -1,9 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { HomePage, pageQueries } from '../../../pages/app/placeholders';
+import { HomePage } from '../../../pages/home/HomePage';
+import { loadHome } from '../../../pages/home/queries';
 
+// Home: what matters right now (pages/home).
 export const Route = createFileRoute('/app/$workspaceId/home')({
   staticData: { title: 'Home' },
-  loader: ({ context: { queryClient } }) =>
-    queryClient.query({ ...pageQueries.home(), staleTime: 'static' }),
+  loader: ({ context }) => loadHome(context),
   component: HomePage,
 });

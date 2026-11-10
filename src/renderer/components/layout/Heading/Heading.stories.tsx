@@ -5,7 +5,7 @@ import { Heading } from './Heading';
 const meta = {
   title: 'Layout/Heading',
   component: Heading,
-  args: { children: 'Good morning, Mitchell.', level: 1 },
+  args: { children: 'Good morning', level: 1 },
   argTypes: {
     level: { control: 'inline-radio', options: [1, 2, 3, 4, 5, 6] },
     variant: {
