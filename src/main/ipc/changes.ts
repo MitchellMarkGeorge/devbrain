@@ -219,6 +219,9 @@ export function syncProgressEvent({
 // link, a deleted project's tasks and notes their project, a deleted note's tasks their link (or
 // their task note).
 export function entitiesOfTaskChange(change: TaskChange): ChangedEntity[] {
+  // a conversion made a project and may have moved the task's note to it
+  if (change.type === 'converted')
+    return change.note ? ['task', 'project', 'note'] : ['task', 'project'];
   if (change.type !== 'deleted' || change.unlinkedNoteIds.length === 0) return ['task'];
   return ['task', 'note'];
 }

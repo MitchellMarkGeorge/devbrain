@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Editor } from '@tiptap/core';
 import type { WorkspaceId } from '@common/ids';
 import { LinkState, Provider, TaskStatus } from '@common/types';
@@ -210,5 +210,87 @@ describe('the task page', () => {
     await eventually(() =>
       expect(document.querySelector('[data-testid="note-sheet"]')).not.toBeNull(),
     );
+  });
+
+  describe('its "…" menu', () => {
+    // opens the page's "…" menu and clicks the item whose text starts with `label`
+    async function choose(app: ReturnType<typeof startApp>, label: string) {
+      await eventually(() => expect(app.text()).toContain('Implement OAuth2 PKCE flow'));
+      const more = document.querySelector('[aria-label="More actions"]') as HTMLElement;
+      more.click();
+      let item: HTMLElement | undefined;
+      await eventually(() => {
+        item = [...document.querySelectorAll('[role="menuitem"]')].find((element) =>
+          element.textContent?.startsWith(label),
+        ) as HTMLElement | undefined;
+        expect(item).toBeDefined();
+      });
+      item!.click();
+    }
+
+    it('converts the task to a project after a confirmation, then opens the project', async () => {
+      const main = mainWith(store());
+      const app = startApp(main, { url: `/app/${WORK}/tasks/${parent.id}` });
+      await choose(app, 'Convert to project');
+      await eventually(() => expect(document.body.textContent).toContain('Convert to project?'));
+      expect(main.callsTo('tasks.convertToProject')).toEqual([]);
+      const confirm = [...document.querySelectorAll('button')].find(
+        (button) => button.textContent === 'Convert',
+      )!;
+      confirm.click();
+      await eventually(() => expect(main.callsTo('tasks.convertToProject')).toHaveLength(1));
+      await eventually(() => expect(app.path()).toBe(`/app/${WORK}/projects/prj_pkce`));
+      expect(main.callsTo('tasks.convertToProject').map((call) => call.input)).toEqual([
+        { id: parent.id },
+      ]);
+    });
+
+    it('duplicates the task and opens the copy', async () => {
+      const main = mainWith(store());
+      const app = startApp(main, { url: `/app/${WORK}/tasks/${parent.id}` });
+      await choose(app, 'Duplicate');
+      await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks/tsk_new3`));
+      await eventually(() => expect(app.text()).toContain('Copy of Implement OAuth2 PKCE flow'));
+      expect(main.callsTo('tasks.duplicate').map((call) => call.input)).toEqual([
+        { id: parent.id },
+      ]);
+    });
+
+    it('copies the task as Markdown and says so', async () => {
+      const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+      const main = mainWith(store());
+      const app = startApp(main, { url: `/app/${WORK}/tasks/${parent.id}` });
+      await choose(app, 'Copy as Markdown');
+      await eventually(() =>
+        expect(writeText).toHaveBeenCalledWith('# Implement OAuth2 PKCE flow\n'),
+      );
+      await eventually(() => expect(document.body.textContent).toContain('Copied'));
+    });
+
+    it('can’t convert a synced task', async () => {
+      const synced = fakeTask('tsk_pkce', 'Implement OAuth2 PKCE flow', {
+        external: {
+          provider: Provider.LINEAR,
+          state: LinkState.SYNCED,
+          key: 'ENG-1',
+          url: 'https://linear.app/x/issue/ENG-1',
+          statusLabel: 'Todo',
+          priorityLabel: 'Low',
+          lastSyncedAt: new Date(),
+        },
+      });
+      const app = startApp(mainWith(new FakeTasks([synced])), {
+        url: `/app/${WORK}/tasks/${synced.id}`,
+      });
+      await eventually(() => expect(app.text()).toContain('Implement OAuth2 PKCE flow'));
+      (document.querySelector('[aria-label="More actions"]') as HTMLElement).click();
+      await eventually(() => {
+        const item = [...document.querySelectorAll('[role="menuitem"]')].find((element) =>
+          element.textContent?.startsWith('Convert to project'),
+        );
+        expect(item?.getAttribute('aria-disabled')).toBe('true');
+      });
+    });
   });
 });

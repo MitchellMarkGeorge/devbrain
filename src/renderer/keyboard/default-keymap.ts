@@ -146,6 +146,8 @@ export const defaultKeymap: Keymap = {
       group: EVERYWHERE,
     },
     { scope: 'global', keys: 'mod+z', command: 'app.undo', group: EVERYWHERE },
+    // registered by a detail page whose menu has Duplicate (the task page; the note page's too)
+    { scope: 'global', keys: 'mod+d', command: 'page.duplicate', group: EVERYWHERE },
     ...listEntries,
   ],
 };

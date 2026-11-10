@@ -1057,13 +1057,34 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 
 ### Create, duplicate, convert, copy
 
-- **C1: convert task to project** (task menu). A core method that creates the project from the
-  task, moves its subtasks over as tasks, and archives the task, in one transaction.
-- **C2: duplicate** a task (with subtasks) and a note (with its content). Core methods; ⌘D in the
-  menus.
-- **C3: copy as Markdown** for tasks, projects and notes. A core `toMarkdown(id)` (core already has
-  `shared/markdown.ts` and the export writers) returning a string; the renderer writes it with
-  `navigator.clipboard`.
+- **C1 (done): convert task to project** (task menu). `TaskService.convertToProject`, route
+  `tasks.convertToProject({ id })`, returning the new project. One transaction: the project takes
+  the task's title, description, dates, its project's colour and a status from the task's (in
+  progress → active, completed → completed, cancelled → on hold); the task's active subtasks become
+  the project's top-level tasks (their own subtasks stay under them, the whole subtrees join the
+  project, and they keep the link they took from the task); its task note moves to the project
+  and links to no task; the task is archived, keeping its own event or note link (a project has
+  none). Its favorite moves to the project. A synced task is refused (`external_read_only`). One
+  task change, `converted` (the archived task, the project, the moved tasks and the note), after
+  the commit; the tracker reports task and project, and note when one moved.
+- **C2 (done): duplicate** a task (with subtasks) and a note (with its content).
+  `tasks.duplicate({ id })` (`TaskService.duplicateTask`) copies the task and its active subtree
+  in one transaction; only the copy is retitled, "Copy of …" (Figma and the README don't say; a
+  copy with the same title can't be told apart in lists, search and recents). Every field is
+  copied but its favorite, views and task note. A synced task's copy is local; a subtask's copy
+  goes under the same parent unless that parent is synced. `notes.duplicate({ id })`
+  (`NoteService.duplicateNote`) goes through `createNotes` (file, then row, file removed if the row
+  fails), after the note's queued saves; it keeps the project, but links to no event or task (each
+  has one note). ⌘D is `page.duplicate`, a global key a detail page registers while mounted.
+- **C3 (done): copy as Markdown** for tasks, projects and notes: `tasks.toMarkdown`,
+  `projects.toMarkdown` and `notes.toMarkdown` (queries, changing nothing) return a string from
+  `transfer/markdown-copy.ts`, over the export writers' `toExportedTasks` (dates as YYYY-MM-DD): a
+  task's title, properties, description and subtasks as a checklist; a project's with its tasks
+  grouped by status; a note's title and content. The renderer writes it with
+  `navigator.clipboard` and toasts "Copied".
+- **Menus.** The task page's menu uses all three. The note page should call `notes.duplicate`
+  (then open the copy) and `notes.toMarkdown`, registering `page.duplicate` for ⌘D; the project
+  page `projects.toMarkdown`.
 - **C4: create a project with its first tasks** (the create project dialog's inline task list,
   `7175:42128`) in one transaction: `projects.create` accepting `tasks: [{ title }]`. Otherwise
   the dialog creates them one by one after the project.
@@ -1248,7 +1269,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 | T2                                     | Bulk task updates                                        | Selection bar                                | No (sequential)            |
 | S1                                     | Partial settings update, reset                           | Settings                                     | No (whole object)          |
 | A2                                     | Menu commands event, menu items                          | Menu                                         | No                         |
-| C1–C4                                  | Convert, duplicate, copy as Markdown, project with tasks | Detail menus, create project                 | No (hide items)            |
+| C1–C4                                  | Convert, duplicate, copy as Markdown, project with tasks | Detail menus, create project                 | C1–C3 done; C4 no          |
 | N2                                     | Note Show in Finder                                      | Note menu                                    | No (hide item)             |
 | E1                                     | Empty trash                                              | Trash                                        | No (hide action)           |
 | R1                                     | Status/colour in search                                  | ⌘K, "@" menu                                 | Done                       |
@@ -1285,8 +1306,8 @@ page that needs them.
    dialogs; tRPC declares a pass-through transformer, so routes' outputs are typed with their
    `Date`s, as structured clone delivers them.
 4. **Tasks (done).** List view with filters/sort in search params, row menu, selection bar; group view;
-   board with the task sheet; create task and subtask dialogs; task page. _Main:_ T5, T6 (then T2,
-   C1–C3 as they land). As built (`src/renderer/pages/tasks`):
+   board with the task sheet; create task and subtask dialogs; task page. _Main:_ T5, T6, T2,
+   C1–C3. As built (`src/renderer/pages/tasks`):
    - Layout: the shared data and actions at the folder's root (`queries.ts`, `search.ts`,
      `loaders.ts`, `use-task-actions.ts`, `use-tasks-search.ts`); `views/` the Tasks page with
      `list/`, `group/` and `board/`; `sheet/` the board's task sheet; `detail/` the task page;
@@ -1307,8 +1328,9 @@ page that needs them.
      event sheet can do the same. It floats in compact windows. Board cards keep
      `BoardColumn`'s own ↑/↓/↵; the list keys aren't bound on the board yet.
    - The task note is the note whose `linkedTaskId` is the task (`notes.list({ filter: {
-linkedTaskId } })`), separate from the task's event or note link. Convert to project, Duplicate
-     and Copy as Markdown (C1–C3) are drawn disabled.
+linkedTaskId } })`), separate from the task's event or note link.
+   - The menu's Convert to project (confirmation, then the project's page), Duplicate (⌘D, then
+     the copy's page) and Copy as Markdown ("Copied" toast) call C1–C3.
 5. **Notes (done).** List and cards, note page with the editor and autosave, linked tasks,
    `useEntityResolver`. _Main:_ N1 (before this milestone), N2. As built (`src/renderer/pages/notes`):
    - Layout as Tasks': `search.ts`, `queries.ts`, `loaders.ts`, `use-note-actions.ts`,
@@ -1347,7 +1369,8 @@ linkedTaskId } })`), separate from the task's event or note link. Convert to pro
      project and body, saved with the note page's editor and autosave. Back closes either; ⤢ opens
      the full page. The board's task sheet still opens the note's page (the task is the sheet).
      The task note dialog (dropped in milestone 4) is not coming back.
-   - Duplicate and Copy as Markdown (C2, C3) are drawn disabled.
+   - Duplicate and Copy as Markdown are drawn disabled; their routes (`notes.duplicate`,
+     `notes.toMarkdown`, C2 and C3) are in.
 6. **Projects.** List and cards, project page with tabs, create project dialog. _Main:_ P1, C4.
 7. **Calendar.** Add FullCalendar; `CalendarView` themed to the `TimeGrid`/`MonthGrid` guides,
    with its guide and stories, then retire those two; `toEventInput` and `occurrencesBetween` with

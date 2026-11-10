@@ -154,6 +154,23 @@ export const tasksRouter = t.router({
     .input(z.object({ id: zId('task'), parentTaskId: zId('task') }))
     .mutation(({ ctx, input }) => ctx.workspace.tasks.demoteTask(input.id, input.parentTaskId)),
 
+  // Makes the task a project: its subtasks become the project's tasks and its task note the
+  // project's, then the task goes to the trash. A synced task fails with external_read_only.
+  // Returns the new project.
+  convertToProject: wsProcedure
+    .input(byId)
+    .mutation(({ ctx, input }) => ctx.workspace.tasks.convertToProject(input.id)),
+
+  // copies the task and its subtasks as local tasks ("Copy of …"); returns the copy
+  duplicate: wsProcedure
+    .input(byId)
+    .mutation(({ ctx, input }) => ctx.workspace.tasks.duplicateTask(input.id)),
+
+  // the task with its properties and subtasks as Markdown, for the clipboard
+  toMarkdown: wsProcedure
+    .input(byId)
+    .query(({ ctx, input }) => ctx.workspace.tasks.toMarkdown(input.id)),
+
   // the state wanted, not a toggle, so a double click or a stale view can't flip it back
   setFavorite: wsProcedure
     .input(z.object({ id: zId('task'), favorite: z.boolean() }))

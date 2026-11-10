@@ -111,6 +111,12 @@ export class Workspace {
     // in its transaction.
     this.tasks.onChange((change) => {
       if (change.type === 'deleted') this.search.removeFromIndex(change.taskIds);
+      else if (change.type === 'converted') {
+        // the task went to the trash and its project took its place; nothing searched for in the
+        // moved tasks or the note changed
+        this.search.removeFromIndex([change.task.id]);
+        this.search.indexProject(change.project);
+      }
       // a new row has no entry to replace: inserting alone keeps an import linear
       else if (change.type === 'created') this.search.indexCreatedTask(change.task);
       else if (change.task.archivedAt === null) this.search.indexTask(change.task);

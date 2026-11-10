@@ -17,7 +17,7 @@ import {
   type Integration,
   type WorkspaceInfo,
 } from '@common/types';
-import { fakeNote, fakeTask, FakeTasks } from './fake-tasks';
+import { fakeNote, fakeProject, fakeTask, FakeTasks } from './fake-tasks';
 
 // A main process for the renderer's routing tests, over the IPC bridge: a registry of workspaces
 // that opens them as core's WorkspaceService does (opening, then closed, then opened or
@@ -298,6 +298,23 @@ export class FakeMain {
         return [store.patchNote(args.id, { archivedAt: new Date() }), ['note']];
       case 'archive.restoreNote':
         return [store.patchNote(args.id, { archivedAt: null }), ['note']];
+      case 'tasks.duplicate': {
+        const { id, ...fields } = task();
+        void id;
+        return [
+          store.create({ ...fields, title: `Copy of ${fields.title}`, favoritedAt: null }),
+          ['task'],
+        ];
+      }
+      case 'tasks.toMarkdown':
+        return [`# ${task().title}\n`, []];
+      case 'tasks.convertToProject': {
+        const found = task();
+        store.patch(found.id, { archivedAt: new Date() });
+        const project = fakeProject(`prj_${found.id.slice(4)}`, found.title);
+        store.projects.push(project);
+        return [project, ['task', 'project']];
+      }
       case 'archive.restoreTask': {
         const archived = store.tasks.find((t) => t.id === args.id);
         if (archived) archived.archivedAt = null;

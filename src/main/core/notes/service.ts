@@ -13,6 +13,8 @@ import { InvalidInputError, NotArchivedError, NotFoundError } from '../shared/er
 import { keyset, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { withNoteListDetails } from './details';
+import { noteAsMarkdown } from '../transfer/markdown-copy';
+import { copyTitle } from '../tasks/utils';
 import { consoleLogger, errorClass, type Logger } from '../shared/logger';
 
 // what a note row shows of its markdown, or null for an empty note
@@ -118,6 +120,32 @@ export class NoteService {
       await Promise.all(written.map((filePath) => deleteNoteFile(filePath)));
       throw err;
     }
+  }
+
+  /**
+   * Copies a note with its content (the menus' Duplicate) through createNotes: the file first,
+   * then the row, and the file removed again if the row fails. The copy is titled "Copy of …" and
+   * keeps the project. It links to no event or task: each has at most one note (its event note or
+   * task note), which stays the original. It reads the content after the saves already queued for
+   * the note, so the copy has the latest.
+   * Throws NotFoundError for an unknown or archived note, MalformedNoteFileError for a damaged file.
+   */
+  async duplicateNote(id: NoteId): Promise<Note> {
+    const [note, content] = await this.latestContent(id);
+    return this.createNote({
+      title: copyTitle(note.title),
+      projectId: note.projectId,
+      content,
+    });
+  }
+
+  /**
+   * An active note as Markdown (Copy as Markdown): its title as the heading, then its content, read
+   * after the saves already queued for it. Throws as duplicateNote does.
+   */
+  async toMarkdown(id: NoteId): Promise<string> {
+    const [note, content] = await this.latestContent(id);
+    return noteAsMarkdown(note.title, content);
   }
 
   // The path of an active note's markdown file, for showing it in the file manager. The file may
@@ -365,6 +393,14 @@ export class NoteService {
     if (!updatedNote) throw new NotFoundError(id);
     this.changes.emit({ type: 'updated', note: updatedNote, content });
     return updatedNote;
+  }
+
+  // an active note and its markdown, once the content saves queued for it have run
+  private async latestContent(id: NoteId): Promise<[Note, string]> {
+    await this.contentSaves.get(id)?.catch(() => undefined);
+    const note = this.getById(id);
+    const { content } = await readNoteFile(this.noteFilePath(id));
+    return [note, content];
   }
 
   private noteFilePath(id: NoteId): string {
