@@ -41,6 +41,25 @@ export function windowChrome(
   }
 }
 
+/**
+ * Keeps the traffic lights where the page leaves room for them. macOS can drop a window's button
+ * position when the window changes state, drawing them at its own spot (higher, further left,
+ * beside the page's sidebar toggle rather than before it): when the window is shown again after
+ * being hidden (closing hides it on macOS), restored, focused, or out of full screen. Each puts
+ * them back.
+ */
+export function keepTrafficLights(
+  window: Pick<BrowserWindow, 'on' | 'setWindowButtonPosition'>,
+  platform: NodeJS.Platform,
+): void {
+  if (platform !== 'darwin') return;
+  const place = () => window.setWindowButtonPosition(TRAFFIC_LIGHT_POSITION);
+  window.on('show', place);
+  window.on('restore', place);
+  window.on('focus', place);
+  window.on('leave-full-screen', place);
+}
+
 /** The Windows controls' colours: the theme's --background behind --foreground symbols. */
 export function titleBarOverlay(
   theme: Pick<NativeTheme, 'shouldUseDarkColors'>,
