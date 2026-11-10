@@ -5,16 +5,23 @@ descriptions, and read-only synced descriptions. It is built on [TipTap](https:/
 (ProseMirror) with TipTap's own markdown package, `@tiptap/markdown`: markdown in, markdown out.
 
 ```tsx
-const host = useWorkspaceEditorHost(); // "@" search and opening links
-<RichTextEditor
-  {...host}
-  label="Note"
-  value={note.content}
-  onChange={save}
-  resolveEntity={(type, id) => entities.get(id)} // current titles for the pills
-  onOpenEntity={(type, id) => navigate(type, id)}
-/>;
+// in a page: "@" search, links, the pills' entities and opening them (pages/app/use-editor-host.ts)
+const host = useEditorHost();
+// saved as it is typed, without its own save's refetch putting older text back (pages/app/autosave.ts)
+const body = useEditorAutosave(content, (markdown) => save(markdown));
+<RichTextEditor {...host} label="Note" value={body.value} onChange={body.onChange} />;
 ```
+
+- `useEditorHost` combines `useWorkspaceEditorHost` ("@" search, `onOpenUrl`),
+  `useEntityResolver` (`resolveEntity` and `watchEntity`: each pill reads its entity from React
+  Query's cache through `tasks.get`, `projects.get`, `notes.get` or `events.get`, loads it the
+  first time it is drawn, and draws again when it changes; a deleted one is drawn as missing) and
+  `useOpenEntity`. Every page's editor takes it.
+- `useEditorAutosave` saves 500ms after typing stops, and at once on leaving the page, on the
+  window losing focus and when a workspace switch starts. A save makes core report the entity
+  changed, so the text is refetched; by then more may have been typed. The editor is only handed
+  a text it never saved itself (a change from elsewhere), so its own save coming back never
+  overwrites what was typed since.
 
 - `onChange` only fires after an edit, never on load. Opening a note and closing it leaves its
   file alone, and undoing back to the start sends `value` exactly as it was stored.

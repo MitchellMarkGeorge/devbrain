@@ -19,10 +19,11 @@ import { Route as AppWorkspaceIdIndexRouteImport } from './routes/app/$workspace
 import { Route as AppWorkspaceIdCalendarRouteImport } from './routes/app/$workspaceId/calendar';
 import { Route as AppWorkspaceIdHomeRouteImport } from './routes/app/$workspaceId/home';
 import { Route as AppWorkspaceIdIntegrationsRouteImport } from './routes/app/$workspaceId/integrations';
-import { Route as AppWorkspaceIdNotesRouteImport } from './routes/app/$workspaceId/notes';
 import { Route as AppWorkspaceIdProjectsRouteImport } from './routes/app/$workspaceId/projects';
 import { Route as AppWorkspaceIdSettingsRouteImport } from './routes/app/$workspaceId/settings';
 import { Route as AppWorkspaceIdTrashRouteImport } from './routes/app/$workspaceId/trash';
+import { Route as AppWorkspaceIdNotesIndexRouteImport } from './routes/app/$workspaceId/notes/index';
+import { Route as AppWorkspaceIdNotesNoteIdRouteImport } from './routes/app/$workspaceId/notes/$noteId';
 import { Route as AppWorkspaceIdTasksIndexRouteImport } from './routes/app/$workspaceId/tasks/index';
 import { Route as AppWorkspaceIdTasksTaskIdRouteImport } from './routes/app/$workspaceId/tasks/$taskId';
 
@@ -78,11 +79,6 @@ const AppWorkspaceIdIntegrationsRoute =
     path: '/integrations',
     getParentRoute: () => AppWorkspaceIdRouteRoute,
   } as any);
-const AppWorkspaceIdNotesRoute = AppWorkspaceIdNotesRouteImport.update({
-  id: '/notes',
-  path: '/notes',
-  getParentRoute: () => AppWorkspaceIdRouteRoute,
-} as any);
 const AppWorkspaceIdProjectsRoute = AppWorkspaceIdProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
@@ -98,6 +94,18 @@ const AppWorkspaceIdTrashRoute = AppWorkspaceIdTrashRouteImport.update({
   path: '/trash',
   getParentRoute: () => AppWorkspaceIdRouteRoute,
 } as any);
+const AppWorkspaceIdNotesIndexRoute =
+  AppWorkspaceIdNotesIndexRouteImport.update({
+    id: '/notes/',
+    path: '/notes/',
+    getParentRoute: () => AppWorkspaceIdRouteRoute,
+  } as any);
+const AppWorkspaceIdNotesNoteIdRoute =
+  AppWorkspaceIdNotesNoteIdRouteImport.update({
+    id: '/notes/$noteId',
+    path: '/notes/$noteId',
+    getParentRoute: () => AppWorkspaceIdRouteRoute,
+  } as any);
 const AppWorkspaceIdTasksIndexRoute =
   AppWorkspaceIdTasksIndexRouteImport.update({
     id: '/tasks/',
@@ -121,12 +129,13 @@ export interface FileRoutesByFullPath {
   '/app/$workspaceId/calendar': typeof AppWorkspaceIdCalendarRoute;
   '/app/$workspaceId/home': typeof AppWorkspaceIdHomeRoute;
   '/app/$workspaceId/integrations': typeof AppWorkspaceIdIntegrationsRoute;
-  '/app/$workspaceId/notes': typeof AppWorkspaceIdNotesRoute;
   '/app/$workspaceId/projects': typeof AppWorkspaceIdProjectsRoute;
   '/app/$workspaceId/settings': typeof AppWorkspaceIdSettingsRoute;
   '/app/$workspaceId/trash': typeof AppWorkspaceIdTrashRoute;
   '/app/$workspaceId/': typeof AppWorkspaceIdIndexRoute;
+  '/app/$workspaceId/notes/$noteId': typeof AppWorkspaceIdNotesNoteIdRoute;
   '/app/$workspaceId/tasks/$taskId': typeof AppWorkspaceIdTasksTaskIdRoute;
+  '/app/$workspaceId/notes/': typeof AppWorkspaceIdNotesIndexRoute;
   '/app/$workspaceId/tasks/': typeof AppWorkspaceIdTasksIndexRoute;
 }
 export interface FileRoutesByTo {
@@ -137,12 +146,13 @@ export interface FileRoutesByTo {
   '/app/$workspaceId/calendar': typeof AppWorkspaceIdCalendarRoute;
   '/app/$workspaceId/home': typeof AppWorkspaceIdHomeRoute;
   '/app/$workspaceId/integrations': typeof AppWorkspaceIdIntegrationsRoute;
-  '/app/$workspaceId/notes': typeof AppWorkspaceIdNotesRoute;
   '/app/$workspaceId/projects': typeof AppWorkspaceIdProjectsRoute;
   '/app/$workspaceId/settings': typeof AppWorkspaceIdSettingsRoute;
   '/app/$workspaceId/trash': typeof AppWorkspaceIdTrashRoute;
   '/app/$workspaceId': typeof AppWorkspaceIdIndexRoute;
+  '/app/$workspaceId/notes/$noteId': typeof AppWorkspaceIdNotesNoteIdRoute;
   '/app/$workspaceId/tasks/$taskId': typeof AppWorkspaceIdTasksTaskIdRoute;
+  '/app/$workspaceId/notes': typeof AppWorkspaceIdNotesIndexRoute;
   '/app/$workspaceId/tasks': typeof AppWorkspaceIdTasksIndexRoute;
 }
 export interface FileRoutesById {
@@ -156,12 +166,13 @@ export interface FileRoutesById {
   '/app/$workspaceId/calendar': typeof AppWorkspaceIdCalendarRoute;
   '/app/$workspaceId/home': typeof AppWorkspaceIdHomeRoute;
   '/app/$workspaceId/integrations': typeof AppWorkspaceIdIntegrationsRoute;
-  '/app/$workspaceId/notes': typeof AppWorkspaceIdNotesRoute;
   '/app/$workspaceId/projects': typeof AppWorkspaceIdProjectsRoute;
   '/app/$workspaceId/settings': typeof AppWorkspaceIdSettingsRoute;
   '/app/$workspaceId/trash': typeof AppWorkspaceIdTrashRoute;
   '/app/$workspaceId/': typeof AppWorkspaceIdIndexRoute;
+  '/app/$workspaceId/notes/$noteId': typeof AppWorkspaceIdNotesNoteIdRoute;
   '/app/$workspaceId/tasks/$taskId': typeof AppWorkspaceIdTasksTaskIdRoute;
+  '/app/$workspaceId/notes/': typeof AppWorkspaceIdNotesIndexRoute;
   '/app/$workspaceId/tasks/': typeof AppWorkspaceIdTasksIndexRoute;
 }
 export interface FileRouteTypes {
@@ -176,12 +187,13 @@ export interface FileRouteTypes {
     | '/app/$workspaceId/calendar'
     | '/app/$workspaceId/home'
     | '/app/$workspaceId/integrations'
-    | '/app/$workspaceId/notes'
     | '/app/$workspaceId/projects'
     | '/app/$workspaceId/settings'
     | '/app/$workspaceId/trash'
     | '/app/$workspaceId/'
+    | '/app/$workspaceId/notes/$noteId'
     | '/app/$workspaceId/tasks/$taskId'
+    | '/app/$workspaceId/notes/'
     | '/app/$workspaceId/tasks/';
   fileRoutesByTo: FileRoutesByTo;
   to:
@@ -192,12 +204,13 @@ export interface FileRouteTypes {
     | '/app/$workspaceId/calendar'
     | '/app/$workspaceId/home'
     | '/app/$workspaceId/integrations'
-    | '/app/$workspaceId/notes'
     | '/app/$workspaceId/projects'
     | '/app/$workspaceId/settings'
     | '/app/$workspaceId/trash'
     | '/app/$workspaceId'
+    | '/app/$workspaceId/notes/$noteId'
     | '/app/$workspaceId/tasks/$taskId'
+    | '/app/$workspaceId/notes'
     | '/app/$workspaceId/tasks';
   id:
     | '__root__'
@@ -210,12 +223,13 @@ export interface FileRouteTypes {
     | '/app/$workspaceId/calendar'
     | '/app/$workspaceId/home'
     | '/app/$workspaceId/integrations'
-    | '/app/$workspaceId/notes'
     | '/app/$workspaceId/projects'
     | '/app/$workspaceId/settings'
     | '/app/$workspaceId/trash'
     | '/app/$workspaceId/'
+    | '/app/$workspaceId/notes/$noteId'
     | '/app/$workspaceId/tasks/$taskId'
+    | '/app/$workspaceId/notes/'
     | '/app/$workspaceId/tasks/';
   fileRoutesById: FileRoutesById;
 }
@@ -298,13 +312,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWorkspaceIdIntegrationsRouteImport;
       parentRoute: typeof AppWorkspaceIdRouteRoute;
     };
-    '/app/$workspaceId/notes': {
-      id: '/app/$workspaceId/notes';
-      path: '/notes';
-      fullPath: '/app/$workspaceId/notes';
-      preLoaderRoute: typeof AppWorkspaceIdNotesRouteImport;
-      parentRoute: typeof AppWorkspaceIdRouteRoute;
-    };
     '/app/$workspaceId/projects': {
       id: '/app/$workspaceId/projects';
       path: '/projects';
@@ -324,6 +331,20 @@ declare module '@tanstack/react-router' {
       path: '/trash';
       fullPath: '/app/$workspaceId/trash';
       preLoaderRoute: typeof AppWorkspaceIdTrashRouteImport;
+      parentRoute: typeof AppWorkspaceIdRouteRoute;
+    };
+    '/app/$workspaceId/notes/': {
+      id: '/app/$workspaceId/notes/';
+      path: '/notes';
+      fullPath: '/app/$workspaceId/notes/';
+      preLoaderRoute: typeof AppWorkspaceIdNotesIndexRouteImport;
+      parentRoute: typeof AppWorkspaceIdRouteRoute;
+    };
+    '/app/$workspaceId/notes/$noteId': {
+      id: '/app/$workspaceId/notes/$noteId';
+      path: '/notes/$noteId';
+      fullPath: '/app/$workspaceId/notes/$noteId';
+      preLoaderRoute: typeof AppWorkspaceIdNotesNoteIdRouteImport;
       parentRoute: typeof AppWorkspaceIdRouteRoute;
     };
     '/app/$workspaceId/tasks/': {
@@ -361,12 +382,13 @@ interface AppWorkspaceIdRouteRouteChildren {
   AppWorkspaceIdCalendarRoute: typeof AppWorkspaceIdCalendarRoute;
   AppWorkspaceIdHomeRoute: typeof AppWorkspaceIdHomeRoute;
   AppWorkspaceIdIntegrationsRoute: typeof AppWorkspaceIdIntegrationsRoute;
-  AppWorkspaceIdNotesRoute: typeof AppWorkspaceIdNotesRoute;
   AppWorkspaceIdProjectsRoute: typeof AppWorkspaceIdProjectsRoute;
   AppWorkspaceIdSettingsRoute: typeof AppWorkspaceIdSettingsRoute;
   AppWorkspaceIdTrashRoute: typeof AppWorkspaceIdTrashRoute;
   AppWorkspaceIdIndexRoute: typeof AppWorkspaceIdIndexRoute;
+  AppWorkspaceIdNotesNoteIdRoute: typeof AppWorkspaceIdNotesNoteIdRoute;
   AppWorkspaceIdTasksTaskIdRoute: typeof AppWorkspaceIdTasksTaskIdRoute;
+  AppWorkspaceIdNotesIndexRoute: typeof AppWorkspaceIdNotesIndexRoute;
   AppWorkspaceIdTasksIndexRoute: typeof AppWorkspaceIdTasksIndexRoute;
 }
 
@@ -374,12 +396,13 @@ const AppWorkspaceIdRouteRouteChildren: AppWorkspaceIdRouteRouteChildren = {
   AppWorkspaceIdCalendarRoute: AppWorkspaceIdCalendarRoute,
   AppWorkspaceIdHomeRoute: AppWorkspaceIdHomeRoute,
   AppWorkspaceIdIntegrationsRoute: AppWorkspaceIdIntegrationsRoute,
-  AppWorkspaceIdNotesRoute: AppWorkspaceIdNotesRoute,
   AppWorkspaceIdProjectsRoute: AppWorkspaceIdProjectsRoute,
   AppWorkspaceIdSettingsRoute: AppWorkspaceIdSettingsRoute,
   AppWorkspaceIdTrashRoute: AppWorkspaceIdTrashRoute,
   AppWorkspaceIdIndexRoute: AppWorkspaceIdIndexRoute,
+  AppWorkspaceIdNotesNoteIdRoute: AppWorkspaceIdNotesNoteIdRoute,
   AppWorkspaceIdTasksTaskIdRoute: AppWorkspaceIdTasksTaskIdRoute,
+  AppWorkspaceIdNotesIndexRoute: AppWorkspaceIdNotesIndexRoute,
   AppWorkspaceIdTasksIndexRoute: AppWorkspaceIdTasksIndexRoute,
 };
 

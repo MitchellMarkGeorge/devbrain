@@ -1,0 +1,30 @@
+/* The notes list and card views: the list or grid fills the page's region and scrolls in it */
+.region {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* a card while the notes load (Figma 7175:36096): its icon and time, title, preview and pill */
+.cardSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 156px;
+  box-sizing: border-box;
+}
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+}
+.cardLines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.cardPill {
+  margin-top: auto;
+  border-radius: var(--radius-full);
+}

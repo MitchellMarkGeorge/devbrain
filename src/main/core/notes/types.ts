@@ -15,6 +15,8 @@ export interface NoteFilterOptions {
   projectId?: ProjectId | null;
   linkedEventId?: EventId | null;
   linkedTaskId?: TaskId | null;
+  // the notes linked to any event, or to any task (the Notes page's "Link" filter)
+  linkedTo?: 'event' | 'task';
 }
 
 export interface NoteSortOptions {

@@ -26,7 +26,8 @@ export const notesRouter = t.router({
   list: wsProcedure
     .input(
       z.object({
-        filter: z.object(links).optional(),
+        // `linkedTo`: the notes linked to any event, or to any task
+        filter: z.object({ ...links, linkedTo: z.enum(['event', 'task']).optional() }).optional(),
         sort: z
           .object({
             sortBy: z.enum(['createdAt', 'updatedAt', 'title']),

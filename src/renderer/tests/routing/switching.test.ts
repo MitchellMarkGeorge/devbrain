@@ -207,7 +207,16 @@ describe('preloads', () => {
     const app = await onWorkTasks(main);
     await app.router.preloadRoute({ to: '/app/$workspaceId/notes', params: { workspaceId: WORK } });
     expect(main.callsTo('notes.list')).toEqual([
-      { path: 'notes.list', input: { limit: 50 }, open: WORK },
+      {
+        path: 'notes.list',
+        input: {
+          filter: {},
+          sort: { sortBy: 'updatedAt', direction: 'desc' },
+          limit: 100,
+          direction: 'forward',
+        },
+        open: WORK,
+      },
     ]);
   });
 

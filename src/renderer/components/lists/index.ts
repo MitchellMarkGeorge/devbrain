@@ -4,6 +4,7 @@ export * from './EventRow';
 export * from './GroupHeading';
 export * from './LinkedTaskRow';
 export * from './ListRow';
+export * from './NoteList';
 export * from './NoteRow';
 export * from './ProjectRow';
 export * from './QuickAddRow';

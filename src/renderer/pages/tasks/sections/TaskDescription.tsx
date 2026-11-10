@@ -1,11 +1,10 @@
 import type { Task } from '@common/types';
 import { RichTextEditor } from '../../../editor/RichTextEditor';
-import { useWorkspaceEditorHost } from '../../../editor/use-workspace-host';
 import { ipc } from '../../../ipc';
+import { useEditorAutosave } from '../../app/autosave';
+import { useEditorHost } from '../../app/use-editor-host';
 import { useMutationErrorToast } from '../../app/mutation-errors';
-import { useOpenEntity } from '../../app/use-open-entity';
 import { isSynced } from '../queries';
-import { useAutosave } from './TaskPageAutosave';
 
 /**
  * A task's description in the rich text editor, saved 500ms after typing stops and at once when it
@@ -14,14 +13,16 @@ import { useAutosave } from './TaskPageAutosave';
  * read-only, and left out when it has none.
  */
 export function TaskDescription({ task, className }: { task: Task; className?: string }) {
-  const host = useWorkspaceEditorHost();
-  const openEntity = useOpenEntity();
+  const host = useEditorHost();
   const showError = useMutationErrorToast();
   const synced = isSynced(task);
-  const description = useAutosave((markdown: string) => {
+  const description = useEditorAutosave(task.description ?? '', (markdown) => {
+    const blank = markdown.trim() === '';
     ipc.tasks.update
-      .mutate({ id: task.id, description: markdown.trim() === '' ? null : markdown })
+      .mutate({ id: task.id, description: blank ? null : markdown })
       .catch((error: unknown) => showError(error, 'Couldn’t save the description'));
+    // a blank description is stored as none, and comes back as ''
+    return blank ? '' : markdown;
   });
   if (synced && !task.description) return null;
   return (
@@ -29,11 +30,10 @@ export function TaskDescription({ task, className }: { task: Task; className?: s
       {...host}
       className={className}
       label="Description"
-      value={task.description ?? ''}
+      value={description.value}
       editable={!synced}
       placeholder="Add a description…"
-      onChange={description.schedule}
-      onOpenEntity={(_type, id) => openEntity({ id })}
+      onChange={description.onChange}
     />
   );
 }
