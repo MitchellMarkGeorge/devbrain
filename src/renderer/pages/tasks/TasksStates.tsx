@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { CircleCheck, CircleX, ListFilter, Plus } from 'lucide-react';
 import { Button, EmptyState, Stack, TaskRowSkeleton } from '../../components';
 import { useCreateTask } from './use-create-task';
@@ -55,13 +56,20 @@ export function TasksErrorState({ onRetry }: { onRetry: () => void }) {
   );
 }
 
-/** The first page is loading: a few rows' skeleton. */
+// how long a load runs before its skeleton shows: a local read is usually done well within it,
+// and a skeleton drawn for a frame or two only flickers
+const SKELETON_DELAY_MS = 150;
+
+/** The first page is loading: a few rows' skeleton, once the load has run for a moment. */
 export function TasksLoading() {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setShown(true), SKELETON_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, []);
   return (
     <Stack gap="0" aria-busy data-testid="tasks-loading">
-      {Array.from({ length: 8 }, (_, i) => (
-        <TaskRowSkeleton key={i} />
-      ))}
+      {shown && Array.from({ length: 8 }, (_, i) => <TaskRowSkeleton key={i} />)}
     </Stack>
   );
 }

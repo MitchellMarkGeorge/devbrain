@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import type { TaskId } from '@common/ids';
 import { TaskStatus, type TaskListItem } from '@common/types';
 import {
@@ -8,8 +8,6 @@ import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuTrigger,
-  Stack,
-  TaskRowSkeleton,
   useFormat,
 } from '../../components';
 import { KeyScope } from '../../keyboard';
@@ -25,7 +23,7 @@ import {
   placeCards,
   useBoardSensors,
 } from './board-drag';
-import { taskListQuery } from './queries';
+import { prefetchTaskSheet, taskListQuery } from './queries';
 import {
   CLEAR_FILTERS,
   hasFilters,
@@ -38,7 +36,7 @@ import {
   type TaskSort,
 } from './search';
 import { TaskMenuItems } from './TaskMenus';
-import { TasksEmptyState, TasksErrorState } from './TasksStates';
+import { TasksEmptyState, TasksErrorState, TasksLoading } from './TasksStates';
 import { useCreateTask } from './use-create-task';
 import { useTaskActions } from './use-task-actions';
 import { useTasksSearch } from './use-tasks-search';
@@ -86,6 +84,7 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
   const actions = useTaskActions();
   const openEntity = useOpenEntity();
   const createTask = useCreateTask();
+  const queryClient = useQueryClient();
   const shown = boardStatuses(resolved.status);
   // the page's filters other than status (each column adds its own); an overdue filter keeps its
   // "open only"
@@ -108,15 +107,7 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
   const [dragging, setDragging] = useState<TaskListItem | null>(null);
   const sensors = useBoardSensors();
 
-  if (columns.every((column) => column.query.isPending)) {
-    return (
-      <Stack gap="0" aria-busy data-testid="tasks-loading">
-        {Array.from({ length: 6 }, (_, i) => (
-          <TaskRowSkeleton key={i} />
-        ))}
-      </Stack>
-    );
-  }
+  if (columns.every((column) => column.query.isPending)) return <TasksLoading />;
   if (columns.some((column) => column.query.isError)) {
     return (
       <TasksErrorState onRetry={() => columns.forEach((column) => void column.query.refetch())} />
@@ -176,7 +167,14 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
                 onEndReached={() => {
                   if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
                 }}
-                renderCard={(card) => <DraggableCard {...card} />}
+                renderCard={(card, task) => (
+                  <DraggableCard
+                    {...card}
+                    // the sheet's task and subtasks start loading before the click
+                    onPointerEnter={() => prefetchTaskSheet(queryClient, task.id as TaskId)}
+                    onFocus={() => prefetchTaskSheet(queryClient, task.id as TaskId)}
+                  />
+                )}
               />
             ))}
           </KeyScope>

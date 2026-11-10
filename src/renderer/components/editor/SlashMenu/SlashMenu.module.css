@@ -1,7 +1,8 @@
 /* The editor's suggestion menus (slash and mention). See docs/design-system/components/SlashMenu.md */
 .menu[class] {
   width: 260px;
-  max-height: min(560px, 70vh);
+  /* and no taller than the room beside the caret, which the editor sets as it places the menu */
+  max-height: min(560px, 70vh, var(--suggestion-max-height, 70vh));
 }
 .empty {
   padding: var(--space-2) var(--space-1-5);

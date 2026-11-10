@@ -1,3 +1,4 @@
+import { shift, size } from '@floating-ui/dom';
 import { Extension, type Editor, type Range } from '@tiptap/core';
 import { PluginKey } from '@tiptap/pm/state';
 import { ReactRenderer } from '@tiptap/react';
@@ -67,6 +68,25 @@ export function createSuggestionMenu<T>(source: MenuSource<T>) {
           char: source.char,
           allowSpaces: source.allowSpaces ?? false,
           debounce: 80,
+          // Fixed, kept 8px inside the window, and no taller than the room it has there: placed in
+          // the page's flow (TipTap's default, absolute in the body), a menu below the fold made
+          // the whole window taller and scroll. Its height reaches SlashMenu.module.css through a
+          // variable, as the menu that scrolls is inside the mounted element.
+          floatingUi: {
+            strategy: 'fixed',
+            middleware: [
+              shift({ padding: 8 }),
+              size({
+                padding: 8,
+                apply({ availableHeight, elements }) {
+                  elements.floating.style.setProperty(
+                    '--suggestion-max-height',
+                    `${Math.max(120, Math.floor(availableHeight))}px`,
+                  );
+                },
+              }),
+            ],
+          },
           // never inside code, where "/" and "@" are just text
           allow: ({ state, range }) => !state.doc.resolve(range.from).parent.type.spec.code,
           items: ({ query, editor }) => source.items(query, editor),
@@ -89,7 +109,11 @@ export function createSuggestionMenu<T>(source: MenuSource<T>) {
                   editor: props.editor,
                   props: viewProps(props),
                 });
-                unmount = props.mount(renderer.element as HTMLElement);
+                // out of the page's flow from the start: TipTap appends it to the body and only
+                // positions it once its first position is worked out
+                const element = renderer.element as HTMLElement;
+                Object.assign(element.style, { position: 'fixed', top: '0', left: '0' });
+                unmount = props.mount(element);
               },
               onUpdate(props) {
                 renderer?.updateProps(viewProps(props));

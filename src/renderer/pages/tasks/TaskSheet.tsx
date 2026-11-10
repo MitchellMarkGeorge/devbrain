@@ -1,6 +1,6 @@
 import { useState, type KeyboardEvent } from 'react';
 import { useRouter, useRouterState } from '@tanstack/react-router';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, ExternalLink, Folder } from 'lucide-react';
 import type { TaskId } from '@common/ids';
 import type { Task } from '@common/types';
@@ -34,7 +34,7 @@ import { useDockedSheet } from '../app/docked-sheet';
 import { useMutationErrorToast } from '../app/mutation-errors';
 import { useOpenEntity } from '../app/use-open-entity';
 import { DatePill, PriorityPill, ProjectPill, StatusPill } from './pickers';
-import { isSynced } from './queries';
+import { isSynced, listedTask } from './queries';
 import { useTaskActions } from './use-task-actions';
 import styles from './TaskSheet.module.css';
 import { TaskNoteSection } from './TaskNoteSection';
@@ -66,7 +66,13 @@ export function TaskSheet({ taskId, onClose }: TaskSheetProps) {
   useDockedSheet(!floating);
   const openEntity = useOpenEntity();
   const openedHere = useRouterState({ select: (state) => state.location.state.openedSheet });
-  const query = useQuery(trpc.tasks.get.queryOptions({ id: taskId }));
+  const queryClient = useQueryClient();
+  // drawn at once from the board's own row while the task itself loads, so moving from one task
+  // to another never flashes the skeleton
+  const query = useQuery({
+    ...trpc.tasks.get.queryOptions({ id: taskId }),
+    placeholderData: () => listedTask(queryClient, taskId),
+  });
 
   const close = () => {
     if (openedHere) router.history.back();

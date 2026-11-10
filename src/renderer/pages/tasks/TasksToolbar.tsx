@@ -37,6 +37,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
   useWorkspaceShell,
+  type IconSource,
 } from '../../components';
 import { ProjectItems } from './TaskMenus';
 import { useCreateTask } from './use-create-task';
@@ -139,7 +140,8 @@ function FilterSubmenu<Value extends string>({
   icon: LucideIcon;
   label: string;
   value: Value | undefined;
-  options: { value: Value; label: string; icon: React.ReactNode }[];
+  // a Lucide icon, drawn at the menu's 16px, or an icon node that sizes itself (StatusIcon)
+  options: { value: Value; label: string; icon: IconSource }[];
   any?: string | null;
   onChange: (value: Value | undefined) => void;
 }) {
@@ -251,8 +253,7 @@ export function FilterMenu({
             label="Due"
             value={resolved.due}
             options={(Object.keys(DUE_FILTER_LABELS) as DueFilter[]).map((due) => {
-              const Icon = DUE_ICONS[due];
-              return { value: due, label: DUE_FILTER_LABELS[due], icon: <Icon /> };
+              return { value: due, label: DUE_FILTER_LABELS[due], icon: DUE_ICONS[due] };
             })}
             onChange={(due) => setSearch({ due })}
           />
@@ -261,8 +262,8 @@ export function FilterMenu({
             label="Source"
             value={resolved.source}
             options={[
-              { value: 'local', label: 'Local', icon: <Circle /> },
-              { value: 'external', label: 'Synced', icon: <Cloud /> },
+              { value: 'local', label: 'Local', icon: Circle },
+              { value: 'external', label: 'Synced', icon: Cloud },
             ]}
             onChange={(source) => setSearch({ source })}
           />

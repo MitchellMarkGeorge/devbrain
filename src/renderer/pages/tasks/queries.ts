@@ -1,6 +1,6 @@
-import type { QueryClient } from '@tanstack/react-query';
+import type { InfiniteData, QueryClient } from '@tanstack/react-query';
 import type { TaskId } from '@common/ids';
-import { LinkState, type ExternalRef, type TaskListItem } from '@common/types';
+import { LinkState, type ExternalRef, type Page, type TaskListItem } from '@common/types';
 import { trpc } from '../../ipc';
 import type { TaskListInput } from './search';
 
@@ -24,6 +24,34 @@ export function subtasksQuery(id: TaskId) {
     { id, limit: 100 },
     { getNextPageParam: (page) => page.nextCursor, maxPages: MAX_PAGES },
   );
+}
+
+/**
+ * The task as a loaded list already holds it (a board column, a list or a group), for a sheet to
+ * draw at once while `tasks.get` loads the task itself.
+ */
+export function listedTask(queryClient: QueryClient, id: TaskId): TaskListItem | undefined {
+  const lists = queryClient.getQueriesData<InfiniteData<Page<TaskListItem>>>({
+    queryKey: trpc.tasks.list.pathKey(),
+  });
+  for (const [, data] of lists) {
+    for (const page of data?.pages ?? []) {
+      const task = page.items.find((item) => item.id === id);
+      if (task) return task;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Starts loading what the task sheet shows (the task and its subtasks) as a card is pointed at or
+ * focused, so a click opens it drawn.
+ */
+export function prefetchTaskSheet(queryClient: QueryClient, id: TaskId) {
+  // not again while what was loaded is a few seconds old: a change to it refetches it anyway
+  const staleTime = 10_000;
+  void queryClient.prefetchQuery({ ...trpc.tasks.get.queryOptions({ id }), staleTime });
+  void queryClient.prefetchInfiniteQuery({ ...subtasksQuery(id), staleTime });
 }
 
 /** A synced task: its provider owns its fields (status, priority, dates, project, title). */

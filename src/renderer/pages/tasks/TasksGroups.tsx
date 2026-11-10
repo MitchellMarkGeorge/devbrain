@@ -62,6 +62,13 @@ function writeCollapsed(groupBy: string, ids: string[]) {
 // ---------- a group's data ----------
 
 /**
+ * The first groups load before the view draws: drawn first, every heading would be on screen at
+ * once (none has rows yet), and the empty ones would drop out a moment later, a flicker. Those
+ * further down load as their headings come into view.
+ */
+const PRIMED = 12;
+
+/**
  * One group's `tasks.list`, enabled once its heading has been on screen (the view is virtualized,
  * so a workspace with 40 projects queries the groups scrolled to, not all 40) and while it is
  * expanded. Draws nothing: it reports its rows to the view.
@@ -206,13 +213,16 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
     () => groupDefs(resolved, now, projects.data?.items ?? []),
     [resolved, now, projects.data],
   );
+  const primed = new Set(defs.slice(0, PRIMED).map((def) => def.id));
 
   const [states, setStates] = useState<Record<string, GroupState>>({});
   const onState = useCallback(
     (id: string, state: GroupState) => setStates((current) => ({ ...current, [id]: state })),
     [],
   );
-  const [seen, setSeen] = useState<ReadonlySet<string>>(() => new Set());
+  const [seenOnScreen, setSeen] = useState<ReadonlySet<string>>(() => new Set());
+  // the groups whose query runs: the first few, and those whose heading has been on screen
+  const seen = { has: (id: string) => primed.has(id) || seenOnScreen.has(id) };
   const onSeen = useCallback(
     (id: string) => setSeen((current) => (current.has(id) ? current : new Set(current).add(id))),
     [],
@@ -287,6 +297,21 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
   ));
 
   if (resolved.groupBy === 'project' && projects.isPending) return <TasksLoading />;
+  // until the first groups have loaded (a collapsed one doesn't load)
+  const priming = defs.some(
+    (def) =>
+      primed.has(def.id) &&
+      !collapsed.includes(def.id) &&
+      (!states[def.id] || states[def.id].pending),
+  );
+  if (priming) {
+    return (
+      <>
+        {queries}
+        <TasksLoading />
+      </>
+    );
+  }
   if (resolved.groupBy === 'project' && projects.isError) {
     return <TasksErrorState onRetry={() => void projects.refetch()} />;
   }
