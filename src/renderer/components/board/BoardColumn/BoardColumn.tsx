@@ -1,9 +1,12 @@
 import {
   forwardRef,
+  Fragment,
   useEffect,
   useRef,
   type ComponentPropsWithoutRef,
   type KeyboardEvent,
+  type ReactNode,
+  type RefCallback,
 } from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '../../lib/cn';
@@ -31,6 +34,9 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
 /** A task on the board: what a card draws, and the id it is kept by. */
 export type BoardColumnTask = BoardCardData & { id: string };
 
+/** What the column gives a card: the `BoardCard`'s props, with the ref it measures the card by. */
+export type BoardColumnCardProps = BoardCardProps & { ref: RefCallback<HTMLDivElement> };
+
 export interface BoardColumnProps extends Omit<ComponentPropsWithoutRef<'section'>, 'children'> {
   /** the column's status: its icon, and its name unless `name` is given */
   status: TaskStatus;
@@ -55,6 +61,12 @@ export interface BoardColumnProps extends Omit<ComponentPropsWithoutRef<'section
    * the column's own (its ref, role and position) are added to them
    */
   cardProps?: (task: BoardColumnTask, index: number) => Omit<BoardCardProps, 'task'>;
+  /**
+   * draws a card from the props the column gives it (spread them, `ref` included, onto a
+   * `BoardCard`): for a page that wraps each card in a hook of its own, such as dragging. A
+   * `BoardCard` by default
+   */
+  renderCard?: (props: BoardColumnCardProps, task: BoardColumnTask) => ReactNode;
   /** called when the last drawn card comes within `endReachedThreshold` cards of the end */
   onEndReached?: () => void;
   /** default 20 */
@@ -86,6 +98,7 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
     onOpen,
     onDueDateChange,
     cardProps,
+    renderCard = (card) => <BoardCard {...card} />,
     onEndReached,
     endReachedThreshold,
     className,
@@ -121,10 +134,12 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
     }
   });
 
-  // Enter opens the focused card; ↑/↓ move to the next card, scrolling it into view first
+  // Enter opens the focused card; ↑/↓ move to the next card, scrolling it into view first. A key
+  // the card has handled already (`preventDefault`) is left alone
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const card = event.target as HTMLElement;
-    if (!card.dataset.taskId) return;
+    // a key the card handled itself (a card being dragged takes the arrows and Enter)
+    if (event.defaultPrevented || !card.dataset.taskId) return;
     const current = tasks.findIndex((task) => task.id === card.dataset.taskId);
     if (current < 0) return;
     if (event.key === 'Enter') {
@@ -184,25 +199,25 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
           {items.map((item) => {
             const task = tasks[item.index];
             if (!task) return null;
-            return (
-              <BoardCard
-                key={item.key}
-                task={task}
-                onClick={onOpen && (() => onOpen(task))}
-                onDueDateChange={onDueDateChange && ((date) => onDueDateChange(task, date))}
-                {...cardProps?.(task, item.index)}
-                ref={(el: HTMLDivElement | null) => {
-                  virtualizer.measureElement(el);
-                  if (el) drawn.current.set(task.id, el);
-                  else drawn.current.delete(task.id);
-                }}
-                data-index={item.index}
-                data-task-id={task.id}
-                role="listitem"
-                aria-posinset={item.index + 1}
-                aria-setsize={rowCount ?? tasks.length}
-              />
-            );
+            const card: BoardColumnCardProps = {
+              task,
+              onClick: onOpen && (() => onOpen(task)),
+              onDueDateChange: onDueDateChange && ((date) => onDueDateChange(task, date)),
+              ...cardProps?.(task, item.index),
+              ref: (el) => {
+                virtualizer.measureElement(el);
+                if (el) drawn.current.set(task.id, el);
+                else drawn.current.delete(task.id);
+              },
+              ...({
+                'data-index': item.index,
+                'data-task-id': task.id,
+                role: 'listitem',
+                'aria-posinset': item.index + 1,
+                'aria-setsize': rowCount ?? tasks.length,
+              } as object),
+            };
+            return <Fragment key={item.key}>{renderCard(card, task)}</Fragment>;
           })}
         </div>
         {add && (

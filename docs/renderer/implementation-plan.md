@@ -819,8 +819,9 @@ composition in `screens/Tasks`.
   unless filtered), `BoardCard`s, dashed "Add task". Clicking a card sets `?open=tsk_…`, showing
   the **task sheet** (`7175:31599`) docked beside the board (floating in compact windows, as
   the old test bench's `SheetPage` did with `shell.sheetContainer`); its ⤢ goes to `/app/tasks/$taskId`.
-  Drag between columns → `tasks.updateStatus` (optimistic). No manual order within a column (core
-  has no position; see T4).
+  Drag between columns → `tasks.updateStatus` (optimistic), with dnd-kit (`@dnd-kit/core`), by
+  pointer or keyboard (Space, ←/→, Space); the card moves to the top of its new column at once.
+  No manual order within a column (core has no position; see T4).
 - **Selection bar**: Status, Priority, Due date, Move (project), more (Move to trash). Until bulk
   routes exist (T2), run the mutations one after another and report a partial failure.
 - **Synced tasks**: `SourcePill`; read-only fields show the provider's labels; editing a mirrored

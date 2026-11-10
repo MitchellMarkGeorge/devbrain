@@ -1,10 +1,10 @@
-import { useState, type DragEvent } from 'react';
+import { useState } from 'react';
+import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { TaskId } from '@common/ids';
 import { TaskStatus, type TaskListItem } from '@common/types';
 import {
   Board,
-  BoardColumn,
   ContextMenu,
   ContextMenuContent,
   ContextMenuTrigger,
@@ -14,7 +14,18 @@ import {
 } from '../../components';
 import { KeyScope } from '../../keyboard';
 import { useOpenEntity } from '../app/use-open-entity';
-import { isSynced, taskListQuery } from './queries';
+import {
+  boardAnnouncements,
+  boardCollisions,
+  boardInstructions,
+  DraggableCard,
+  DragPreview,
+  dragTask,
+  DroppableColumn,
+  placeCards,
+  useBoardSensors,
+} from './board-drag';
+import { taskListQuery } from './queries';
 import {
   CLEAR_FILTERS,
   hasFilters,
@@ -38,9 +49,6 @@ export interface TasksBoardProps {
   /** shows a task in the sheet (`?open=tsk_…`) */
   onOpen: (id: TaskId) => void;
 }
-
-// what a dragged card carries: its task's id
-const DRAG_TYPE = 'application/x-devbrain-task';
 
 /**
  * The columns the status filter shows: open tasks in Not started and In progress, all of them
@@ -67,9 +75,10 @@ function useColumn(status: TaskStatus, base: TaskFilter, sort: TaskSort, shown: 
 /**
  * The board view (Figma `7158:14338`): a virtualized `BoardColumn` per status, each its own
  * `tasks.list` infinite query with the page's other filters, loading more as it scrolls. A click
- * on a card opens it in the sheet; dragging a card to another column sets its status (optimistic:
- * it changes in place, then moves once the columns refetch). A synced task's card can't be
- * dragged, as its status is its provider's. A right-click opens the task's menu.
+ * on a card opens it in the sheet; dragging a card to another column (`board-drag.tsx`, by pointer
+ * or keyboard) sets its status, and the card moves at once, to the top of that column until the
+ * columns refetch. A synced task's card can't be dragged, as its status is its provider's. A
+ * right-click opens the task's menu.
  */
 export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
   const { now } = useFormat();
@@ -91,11 +100,13 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
     useColumn(TaskStatus.CANCELLED, base, sort, shown),
   ];
   const columns = all.filter((column) => shown.includes(column.status));
+  const placed = placeCards(columns);
   const byId = new Map<string, TaskListItem>();
-  for (const column of columns) for (const task of column.tasks) byId.set(task.id, task);
+  for (const column of placed) for (const task of column.tasks) byId.set(task.id, task);
 
   const [menuTask, setMenuTask] = useState<TaskListItem | null>(null);
-  const [dropTarget, setDropTarget] = useState<TaskStatus | null>(null);
+  const [dragging, setDragging] = useState<TaskListItem | null>(null);
+  const sensors = useBoardSensors();
 
   if (columns.every((column) => column.query.isPending)) {
     return (
@@ -121,32 +132,6 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
   }
 
   const projectId = resolved.project && resolved.project !== 'none' ? resolved.project : undefined;
-  const carries = (event: DragEvent) => event.dataTransfer.types.includes(DRAG_TYPE);
-
-  // a column takes a dragged card: the drop sets the card's task to the column's status
-  function dropProps(status: TaskStatus) {
-    return {
-      className: styles.column,
-      'data-drop-target': dropTarget === status ? '' : undefined,
-      onDragOver: (event: DragEvent<HTMLElement>) => {
-        if (!carries(event)) return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'move';
-        if (dropTarget !== status) setDropTarget(status);
-      },
-      onDragLeave: (event: DragEvent<HTMLElement>) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTarget(null);
-      },
-      onDrop: (event: DragEvent<HTMLElement>) => {
-        setDropTarget(null);
-        const task = byId.get(event.dataTransfer.getData(DRAG_TYPE));
-        if (!task) return;
-        event.preventDefault();
-        if (task.status !== status) actions.setStatus([task], status);
-      },
-    };
-  }
-
   return (
     <ContextMenu>
       <ContextMenuTrigger
@@ -158,40 +143,48 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
           if (!task) event.preventDefault();
         }}
       >
-        <KeyScope name="board" render={<Board />}>
-          {columns.map(({ status, query, tasks }) => (
-            <BoardColumn
-              key={status}
-              status={status}
-              tasks={tasks}
-              add={status !== TaskStatus.COMPLETED && status !== TaskStatus.CANCELLED}
-              onAdd={() => createTask({ defaults: { status, projectId } })}
-              onOpen={(task) => onOpen(task.id as TaskId)}
-              onDueDateChange={(task, date) => {
-                const full = byId.get(task.id);
-                if (full) actions.setDueDate([full], date);
-              }}
-              onEndReached={() => {
-                if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
-              }}
-              cardProps={(task) => {
-                const full = byId.get(task.id);
-                const draggable = full !== undefined && !isSynced(full);
-                return {
-                  draggable,
-                  onDragStart: draggable
-                    ? (event: DragEvent<HTMLDivElement>) => {
-                        event.dataTransfer.setData(DRAG_TYPE, task.id);
-                        event.dataTransfer.effectAllowed = 'move';
-                      }
-                    : undefined,
-                  onDragEnd: () => setDropTarget(null),
-                };
-              }}
-              {...dropProps(status)}
-            />
-          ))}
-        </KeyScope>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={boardCollisions}
+          accessibility={{
+            announcements: boardAnnouncements,
+            screenReaderInstructions: boardInstructions,
+          }}
+          onDragStart={({ active }) => setDragging(dragTask(active.data.current) ?? null)}
+          onDragCancel={() => setDragging(null)}
+          onDragEnd={({ active, over }) => {
+            setDragging(null);
+            const task = dragTask(active.data.current);
+            const status = over?.id as TaskStatus | undefined;
+            if (task && status && task.status !== status) actions.setStatus([task], status);
+          }}
+        >
+          <KeyScope name="board" render={<Board />}>
+            {placed.map(({ status, query, tasks }) => (
+              <DroppableColumn
+                key={status}
+                status={status}
+                tasks={tasks}
+                className={styles.column}
+                add={status !== TaskStatus.COMPLETED && status !== TaskStatus.CANCELLED}
+                onAdd={() => createTask({ defaults: { status, projectId } })}
+                onOpen={(task) => onOpen(task.id as TaskId)}
+                onDueDateChange={(task, date) => {
+                  const full = byId.get(task.id);
+                  if (full) actions.setDueDate([full], date);
+                }}
+                onEndReached={() => {
+                  if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
+                }}
+                renderCard={(card) => <DraggableCard {...card} />}
+              />
+            ))}
+          </KeyScope>
+          {/* the card under the pointer: drawn over everything, so a column's scroll can't clip it */}
+          <DragOverlay dropAnimation={null}>
+            {dragging && <DragPreview task={dragging} />}
+          </DragOverlay>
+        </DndContext>
       </ContextMenuTrigger>
       <ContextMenuContent>
         {menuTask && (

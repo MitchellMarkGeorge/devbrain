@@ -11,6 +11,7 @@ import {
   manyTasks,
   sampleTask,
 } from '../../lists/TaskRow/fixtures';
+import { BoardCard } from '../BoardCard';
 import { Board, BoardColumn } from './BoardColumn';
 
 const DEVBRAIN = sampleProject('DevBrain 1.0', 'blue');
@@ -85,6 +86,28 @@ export const Empty: Story = {
   render: (args) => (
     <div style={{ width: 300 }}>
       <BoardColumn {...args} status={TaskStatus.NOT_STARTED} tasks={[]} />
+    </div>
+  ),
+};
+
+/**
+ * `renderCard` draws each card from the props the column gives it, `ref` included: a page wraps
+ * each card in a hook of its own this way (the tasks board makes them draggable). Here the first
+ * card is faded, as the board draws the card being dragged.
+ */
+export const RenderCard: Story = {
+  name: 'Cards drawn by the page',
+  render: (args) => (
+    <div style={{ width: 300 }}>
+      <BoardColumn
+        {...args}
+        renderCard={(card, task) => (
+          <BoardCard
+            {...card}
+            style={task.id === args.tasks[0]?.id ? { opacity: 0.4 } : undefined}
+          />
+        )}
+      />
     </div>
   ),
 };

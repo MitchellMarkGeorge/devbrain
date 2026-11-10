@@ -6,6 +6,15 @@
   outline-offset: 4px;
 }
 
+/* the card being dragged stays in its column, faded, while its preview follows the pointer */
+.dragging {
+  opacity: 0.4;
+}
+.preview {
+  box-shadow: var(--shadow-md);
+  cursor: grabbing;
+}
+
 /* the right-click area takes no part in the board's layout */
 .trigger {
   display: contents;
