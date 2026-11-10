@@ -1391,7 +1391,7 @@ linkedTaskId } })`), separate from the task's event or note link.
      `tab`, the project left out). The Filter menu then has no Project, Group by no "Project" (it
      groups by status), and New Task and "Add task" file the task in the project.
    - The Overview is two columns that scroll together (one, with the rail under, below 1180px):
-     on the left the header (name, properties, description) over Open tasks (the soonest due
+     on the left the header (name, properties, description; without `ProjectHeader`'s progress pill, which the rail's Progress card replaces) over Open tasks (the soonest due
      first, eight rows) and Recently completed (three), each with "N more in Tasks" opening the
      Tasks tab on the rest; on the right a rail of cards: Progress (the percent, a bar split by
      status with its legend, and the overdue tasks, which open the Tasks tab on them), Timeline

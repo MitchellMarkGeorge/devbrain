@@ -113,7 +113,9 @@ describe('a project’s page', () => {
     const overview = app.container.querySelector('[data-testid="project-overview"]')!;
     expect(overview.textContent).toContain('Auth Overhaul');
     expect(overview.textContent).toContain('Active');
-    await eventually(() => expect(overview.textContent).toContain('1 of 3 done'));
+    await eventually(() => expect(overview.textContent).toContain('1 of 3 tasks done'));
+    // the progress is the rail's, not a pill in the header
+    expect(overview.textContent).not.toContain('1 of 3 done');
     expect(overview.textContent).toContain('Audit token storage');
     expect(overview.textContent).not.toContain('Unfiled task');
     expect(main.callsTo('recents.recordView').map((call) => call.input)).toEqual([{ id: auth.id }]);

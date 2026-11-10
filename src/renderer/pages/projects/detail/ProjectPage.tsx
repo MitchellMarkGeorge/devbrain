@@ -130,16 +130,17 @@ function ProjectPageContent({ project }: { project: Project }) {
   );
 }
 
-/** The overview's header: the name, status, dates, progress and description, all editable. */
+/**
+ * The overview's header: the name, status, dates and description, all editable. Its progress pill
+ * is left out: the Overview's Progress card shows it.
+ */
 function ProjectPageHeader({ project }: { project: Project }) {
   const { now } = useFormat();
   const actions = useProjectActions();
-  const stats = useQuery(trpc.projects.stats.queryOptions({ id: project.id })).data;
   const synced = isSynced(project);
   return (
     <ProjectHeader
       project={project}
-      stats={stats}
       statusPill={
         <ProjectStatusPill
           status={project.status}
