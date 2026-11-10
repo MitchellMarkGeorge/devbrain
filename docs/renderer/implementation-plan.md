@@ -15,7 +15,8 @@ the `Screens/*` stories, `docs/design-system/README.md`, `docs/ipc/design.md` an
 > `useRecordView`, `useMutationErrorToast`, `useConfirm`, `useMoveToTrash` with its Undo toast,
 > Recents, Favorites and sync in the sidebar, the page header slot, `FormatProvider`) and
 > milestone 4 (Tasks: list, group and board views, the task sheet, the task page, Create task and
-> Create subtask) are built, with the
+> Create subtask) and milestone 6 (Projects: list and cards, the project page with its tabs, Create
+> project) are built, with the
 > **URL-driven workspace model** ([routing.md](routing.md)): every page in a workspace is under
 > `/app/<its id>/…`, main picks the window's first URL, and switching is navigating. Revised after
 > review (Nov 6 2026): FullCalendar for the calendar, `/app/trash`, a create-workspace dialog
@@ -858,8 +859,7 @@ Figma `7158:15157` (list), `7158:15487` (cards), `7159:12540` / `7159:13218` / `
 (page tabs), `7424:39896` (status menu), `7424:40578` (menu), `7424:41240` (no tasks).
 
 - **List / cards**: `ProjectRow` / `ProjectCard` (in `CardGrid`, 3 columns, 2 in compact). Progress
-  needs each project's task counts: `projects.stats` per visible project today (N+1), one list call
-  after P1.
+  comes from each list item's `stats` (P1), with no call per row.
 - **Page**: `ProjectHeader` (title, status menu → `projects.updateStatus`, dates, progress,
   description in `RichTextEditor`), `Tabs` Overview / Tasks / Notes in `?tab`:
   - Overview: task groups by status (`GroupHeading` + `TaskList`, collapsible), "+ Add task".
@@ -1305,7 +1305,33 @@ linkedTaskId } })`), separate from the task's event or note link. Convert to pro
      and Copy as Markdown (C1–C3) are drawn disabled.
 5. **Notes.** List and cards, note page with the editor and autosave, linked tasks, task note
    dialog on the task page, `useEntityResolver`. _Main:_ N1 (before this milestone), N2.
-6. **Projects.** List and cards, project page with tabs, create project dialog. _Main:_ P1, C4.
+6. **Projects (done).** List and cards, project page with tabs, create project dialog. _Main:_ P1,
+   C4. As built (`src/renderer/pages/projects`):
+   - Layout as Tasks': `search.ts`, `queries.ts`, `loaders.ts`, `route-api.ts`,
+     `use-project-actions.ts` at the folder's root; `views/` the Projects page; `detail/` the
+     project page and its tabs; `create/` the Create project dialog. The routes are
+     `routes/app/$workspaceId/projects/index.tsx` and `$projectId.tsx`.
+   - The list is a `VirtualList` (new in `shell/`, beside `VirtualCardGrid`) of `ProjectRow`s; the
+     cards a `VirtualCardGrid` of `ProjectCard`s, whose status pill opens the status menu. Rows and
+     cards have a right-click menu (Open, Favorite, Move to trash).
+   - The Tasks tab is the tasks page's views (`pages/tasks/views/TasksView`) with the project fixed:
+     the views read their state from a `TasksSearchProvider` (`use-tasks-search.ts`), which the
+     tasks page fills from its URL and the Tasks tab from the project page's (its params beside
+     `tab`, the project left out). The Filter menu then has no Project, Group by no "Project" (it
+     groups by status), and New Task and "Add task" file the task in the project.
+   - The Overview's groups are the group view by status over every task of the project, under the
+     header; the header keeps its height (scrolling on its own past half the page) and the groups
+     fill the rest. With no tasks, "No tasks in this project yet" offers New Task and Move Tasks
+     Here (the Tasks page's tasks in no project).
+   - `ProjectHeader` gained `onTitleChange` (the name edits in place) and `duePicker`/`startPicker`
+     (clearable dates). Colours are stored as `#rrggbb` (`workspace/colors.ts`'s `SWATCH_HEX`), as
+     `projects.update` takes no swatch names; "Change colour" is a submenu of the six swatches
+     rather than the editor's `ColourMenu`.
+   - The Notes tab draws `NoteCard`s and opens them with `useOpenEntity` (the note page comes with
+     milestone 5). New note (the menu's and the tab's) creates an empty note in the project and
+     opens it. Copy as Markdown (C3) is drawn disabled.
+   - New project is the `project.new` app command (no key: ⌘K lists it with milestone 9), the
+     Projects page's New Project and its empty state. The plan names no sidebar entry for it.
 7. **Calendar.** Add FullCalendar; `CalendarView` themed to the `TimeGrid`/`MonthGrid` guides,
    with its guide and stories, then retire those two; `toEventInput` and `occurrencesBetween` with
    tests (settle the adapter spec's `TZID` checks first); week/day/month from the URL; right panel

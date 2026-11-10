@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useFormat } from '../../../../components';
-import { taskListQuery } from '../../queries';
+import { taskListQuery, withoutProjectPill } from '../../queries';
 import {
   hasFilters,
   taskListInput,
@@ -33,7 +33,7 @@ export function TasksList({ resolved, search, onClearFilters }: TasksListProps) 
   return (
     <TaskListFrame
       loaded={tasks}
-      tasks={tasks}
+      tasks={withoutProjectPill(tasks, resolved.project)}
       onEndReached={() => {
         if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
       }}

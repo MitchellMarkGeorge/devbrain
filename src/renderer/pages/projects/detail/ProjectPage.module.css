@@ -1,0 +1,27 @@
+/*
+ * The Overview tab: the project's header over its task groups. The groups are a virtualized list
+ * that scrolls on its own, so the page is a column: the header keeps its height (scrolling on its
+ * own once a long description passes half the page), and the groups fill the rest.
+ */
+.overview {
+  gap: var(--space-6);
+}
+.header {
+  flex: 0 0 auto;
+  max-height: 50%;
+  overflow-y: auto;
+  padding: var(--space-4) var(--space-6) 0;
+}
+.groups {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 240px;
+}
+
+/* No tasks yet (Figma 7424:41240): the empty state in a dashed box under the header */
+.noTasks {
+  margin: 0 var(--space-6);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+}

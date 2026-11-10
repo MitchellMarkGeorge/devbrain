@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Calendar, CircleAlert, CircleSlash, Folder } from 'lucide-react';
+import type { ProjectId } from '@common/ids';
 import { TaskPriority, TaskStatus, type TaskListItem } from '@common/types';
 import {
   Button,
@@ -15,7 +16,7 @@ import {
 } from '../../../../components';
 import { trpc } from '../../../../ipc';
 import { groupDefs, PRIMED_GROUPS, type TaskGroupDef } from './groups';
-import { groupTasksQuery } from '../../queries';
+import { groupTasksQuery, withoutProjectPill } from '../../queries';
 import {
   hasFilters,
   taskListInput,
@@ -26,6 +27,11 @@ import { TaskListFrame } from '../TaskListFrame';
 import { TasksEmptyState, TasksErrorState, TasksLoading } from '../TasksStates';
 import { useCreateTask } from '../../create/use-create-task';
 import styles from '../TasksView.module.css';
+
+// a project's own groups (its page) file a new task in it
+function projectDefault(resolved: ResolvedTasksSearch): { projectId?: ProjectId } {
+  return resolved.project && resolved.project !== 'none' ? { projectId: resolved.project } : {};
+}
 
 export interface TasksGroupsProps {
   resolved: ResolvedTasksSearch;
@@ -250,11 +256,13 @@ export function TasksGroups({ resolved, search, onClearFilters }: TasksGroupsPro
           state={state}
           collapsed={isCollapsed}
           onCollapsedChange={(value) => toggle(def.id, value)}
-          onAddTask={() => createTask({ defaults: def.defaults })}
+          onAddTask={() =>
+            createTask({ defaults: { ...projectDefault(resolved), ...def.defaults } })
+          }
           onSeen={onSeen}
         />
       ),
-      tasks: state?.tasks ?? [],
+      tasks: withoutProjectPill(state?.tasks ?? [], resolved.project),
       footer: loading ? (
         <TaskRowSkeleton />
       ) : state?.hasNextPage ? (

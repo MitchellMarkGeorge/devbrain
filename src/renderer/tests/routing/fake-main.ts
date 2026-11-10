@@ -281,6 +281,52 @@ export class FakeMain {
     }
   }
 
+  // the projects routes, over the open workspace's projects and their tasks
+  private answerProjects(path: string, args: Record<string, unknown>): [unknown, ChangedEntity[]] {
+    const store = this.tasksOf();
+    const project = () => {
+      const found = store.findProject(args.id);
+      if (!found) throw new RemoteError('not_found', `${String(args.id)} not found`);
+      return found;
+    };
+    switch (path) {
+      case 'projects.list': {
+        const filter = (args.filter ?? {}) as { status?: number };
+        const items = store.projects
+          .filter((p) => p.archivedAt === null)
+          .filter((p) => filter.status === undefined || p.status === filter.status)
+          .map((p) => ({ ...p, stats: store.statsOf(p.id) }));
+        return [{ items, nextCursor: null }, []];
+      }
+      case 'projects.get':
+        return [project(), []];
+      case 'projects.stats':
+        return [store.statsOf(project().id), []];
+      case 'projects.create': {
+        const { tasks = [], ...fields } = args as { title: string; tasks?: { title: string }[] };
+        const created = store.createProject(fields);
+        for (const task of tasks) store.create({ title: task.title, projectId: created.id });
+        return [created, tasks.length > 0 ? ['project', 'task'] : ['project']];
+      }
+      case 'projects.update': {
+        const { id, ...fields } = args;
+        void id;
+        return [Object.assign(project(), fields, { updatedAt: new Date() }), ['project']];
+      }
+      case 'projects.updateStatus':
+        return [Object.assign(project(), { status: args.status }), ['project']];
+      case 'projects.setFavorite':
+        return [
+          Object.assign(project(), { favoritedAt: args.favorite ? new Date() : null }),
+          ['project'],
+        ];
+      case 'archive.archiveProject':
+        return [Object.assign(project(), { archivedAt: new Date() }), ['project']];
+      default:
+        throw new RemoteError('internal', `No route ${path} in the fake main`);
+    }
+  }
+
   // a note's routes, over the open workspace's notes (the task note section's)
   private answerNotes(path: string, args: Record<string, unknown>): [unknown, ChangedEntity[]] {
     const store = this.tasksOf();
@@ -319,7 +365,18 @@ export class FakeMain {
       const notes = this.tasksOf().notes.filter((n) => n.linkedTaskId === filter.linkedTaskId);
       return [{ items: notes, nextCursor: null }, []];
     }
+    if (path === 'notes.list' && filter?.projectId !== undefined) {
+      const notes = this.tasksOf().notes.filter((n) => n.projectId === filter.projectId);
+      return [{ items: notes, nextCursor: null }, []];
+    }
     if (path.startsWith('notes.') && path !== 'notes.list') return this.answerNotes(path, args);
+    if (
+      (path.startsWith('projects.') || path === 'archive.archiveProject') &&
+      this.open !== null &&
+      this.taskStores.has(this.open)
+    ) {
+      return this.answerProjects(path, args);
+    }
     if (PAGE_ROUTES.has(path)) return [this.page(path), []];
     if (path.startsWith('tasks.') || path.startsWith('archive.'))
       return this.answerTasks(path, args);
@@ -428,6 +485,17 @@ export class FakeMain {
         return [{ id, name: title }];
       case 'integrations.list':
         return [{ id, provider: 'linear', accountLabel: title }];
+      case 'projects.list': {
+        const stats = {
+          numOfNotStarted: 0,
+          numOfInProgress: 0,
+          numOfCompleted: 0,
+          numOfCancelled: 0,
+          numOfOverdue: 0,
+          totalTasks: 0,
+        };
+        return { items: [{ id, title, status: 3, color: null, stats }], nextCursor: null };
+      }
       default:
         return { items: [{ id, title }], nextCursor: null };
     }

@@ -23,7 +23,7 @@ import {
   placeCards,
   useBoardSensors,
 } from './board-drag';
-import { prefetchTaskSheet, taskListQuery } from '../../queries';
+import { prefetchTaskSheet, taskListQuery, withoutProjectPill } from '../../queries';
 import {
   CLEAR_FILTERS,
   hasFilters,
@@ -155,7 +155,7 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
               <DroppableColumn
                 key={status}
                 status={status}
-                tasks={tasks}
+                tasks={withoutProjectPill(tasks, resolved.project)}
                 className={styles.column}
                 add={status !== TaskStatus.COMPLETED && status !== TaskStatus.CANCELLED}
                 onAdd={() => createTask({ defaults: { status, projectId } })}

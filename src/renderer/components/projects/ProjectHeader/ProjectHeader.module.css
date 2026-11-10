@@ -15,6 +15,11 @@
   color: var(--foreground-strong);
   font: var(--font-weight-semibold) var(--text-2xl) / var(--text-2xl-leading) var(--font-sans);
 }
+/* an editable name reads as the title, as a note's or task's does: no ring, the caret shows it */
+.title[contenteditable='true'] {
+  cursor: text;
+  outline: none;
+}
 .properties {
   display: flex;
   flex-wrap: wrap;
