@@ -1390,9 +1390,12 @@ linkedTaskId } })`), separate from the task's event or note link.
      tasks page fills from its URL and the Tasks tab from the project page's (its params beside
      `tab`, the project left out). The Filter menu then has no Project, Group by no "Project" (it
      groups by status), and New Task and "Add task" file the task in the project.
-   - The Overview's groups are the group view by status over every task of the project, under the
-     header; the header keeps its height (scrolling on its own past half the page) and the groups
-     fill the rest. With no tasks, "No tasks in this project yet" offers New Task and Move Tasks
+   - The Overview is a document page, as a task's page is: one 720px column that scrolls as a
+     whole. Under the header (name, properties, description) are In progress, Up next (not
+     started, the soonest due first) and Completed (folded), each up to five compact rows from its
+     own `tasks.list` call, with "N more in Tasks" opening the Tasks tab on that status; then the
+     project's three latest notes as small cards. This replaces Figma's full-width groups
+     (`7159:12540`). With no tasks, "No tasks in this project yet" offers New Task and Move Tasks
      Here (the Tasks page's tasks in no project).
    - `ProjectHeader` gained `onTitleChange` (the name edits in place) and `duePicker`/`startPicker`
      (clearable dates). Colours are stored as `#rrggbb` (`workspace/colors.ts`'s `SWATCH_HEX`), as

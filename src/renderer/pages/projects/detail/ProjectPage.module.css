@@ -1,27 +1,30 @@
-/*
- * The Overview tab: the project's header over its task groups. The groups are a virtualized list
- * that scrolls on its own, so the page is a column: the header keeps its height (scrolling on its
- * own once a long description passes half the page), and the groups fill the rest.
- */
-.overview {
-  gap: var(--space-6);
+/* The project page's Overview. See ProjectOverview.tsx */
+
+/* A section's "N more in Tasks": a quiet line under its rows, lined up with the rows' titles */
+.more {
+  display: block;
+  margin: var(--space-1) 0 0;
+  padding: var(--space-1-5) 0 var(--space-1-5) 36px;
+  border: 0;
+  background: none;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  text-align: left;
+  cursor: pointer;
 }
-.header {
-  flex: 0 0 auto;
-  max-height: 50%;
-  overflow-y: auto;
-  padding: var(--space-4) var(--space-6) 0;
+.more:hover {
+  color: var(--foreground);
 }
-.groups {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-height: 240px;
+.more:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
-/* No tasks yet (Figma 7424:41240): the empty state in a dashed box under the header */
-.noTasks {
-  margin: 0 var(--space-6);
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-lg);
+/*
+ * The description sizes to its text here: the editor's 120px minimum (room to start typing on a
+ * note or task) would leave a gap under a project's one-line description before its sections.
+ */
+.description [contenteditable] {
+  min-height: 0;
 }

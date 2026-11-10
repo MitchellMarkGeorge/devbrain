@@ -1,4 +1,4 @@
-import type { Project } from '@common/types';
+import { TaskStatus, type Project } from '@common/types';
 import { trpc } from '../../ipc';
 import type { ProjectListInput } from './search';
 
@@ -21,4 +21,33 @@ export function projectNotesQuery(projectId: Project['id']) {
     { filter: { projectId }, sort: { sortBy: 'updatedAt', direction: 'desc' }, limit: 100 },
     { getNextPageParam: (page) => page.nextCursor, maxPages: MAX_PAGES },
   );
+}
+
+/** How many tasks an Overview section shows; the rest are a click away in the Tasks tab. */
+export const OVERVIEW_SECTION_SIZE = 5;
+
+/**
+ * An Overview section's tasks: the project's tasks of one status, the soonest due first (the
+ * latest edited first for Completed), as many as the section shows. A plain query whose key
+ * starts with `tasks.list`'s, so a change to tasks refetches it.
+ */
+export function overviewTasksQuery(projectId: Project['id'], status: TaskStatus) {
+  const sort =
+    status === TaskStatus.COMPLETED
+      ? ({ sortBy: 'updatedAt', direction: 'desc' } as const)
+      : ({ sortBy: 'dueDate', direction: 'asc' } as const);
+  return trpc.tasks.list.queryOptions({
+    filter: { projectId, status },
+    sort,
+    limit: OVERVIEW_SECTION_SIZE,
+  });
+}
+
+/** The Overview's latest notes: the three most recently edited. */
+export function overviewNotesQuery(projectId: Project['id']) {
+  return trpc.notes.list.queryOptions({
+    filter: { projectId },
+    sort: { sortBy: 'updatedAt', direction: 'desc' },
+    limit: 3,
+  });
 }
