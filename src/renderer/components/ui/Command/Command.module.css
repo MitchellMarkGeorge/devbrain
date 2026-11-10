@@ -223,6 +223,8 @@
   margin-bottom: -2px;
 }
 .twoLine[data-highlighted] .enter {
+  /* centred on the row, while the icon, text and meta keep to its top line */
+  align-self: center;
   margin-top: 0;
 }
 /* the searched words */
