@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { Calendar, Folder, Settings, Trash2, Zap } from 'lucide-react';
+import { Folder, Settings, Trash2, Zap } from 'lucide-react';
 import { trpc } from '../../ipc';
 import { PlaceholderPage } from './PlaceholderPage';
 
@@ -9,7 +9,6 @@ import { PlaceholderPage } from './PlaceholderPage';
 
 export const pageQueries = {
   projects: () => trpc.projects.list.queryOptions({ limit: 50 }),
-  calendar: () => trpc.calendars.list.queryOptions(),
   integrations: () => trpc.integrations.list.queryOptions(),
   trash: () => trpc.archive.listArchived.queryOptions({ limit: 50 }),
   settings: () => trpc.settings.get.queryOptions(),
@@ -18,17 +17,6 @@ export const pageQueries = {
 export function ProjectsPage() {
   const { data } = useSuspenseQuery(pageQueries.projects());
   return <PlaceholderPage icon={Folder} empty="No projects yet" rows={data.items} />;
-}
-
-export function CalendarPage() {
-  const { data } = useSuspenseQuery(pageQueries.calendar());
-  return (
-    <PlaceholderPage
-      icon={Calendar}
-      empty="No calendars yet"
-      rows={data.map(({ id, name }) => ({ id, title: name }))}
-    />
-  );
 }
 
 export function IntegrationsPage() {

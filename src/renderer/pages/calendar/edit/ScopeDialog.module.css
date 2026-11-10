@@ -1,0 +1,6 @@
+/* The calendar's "which events" dialogs, laid out as ConfirmDialog is */
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}

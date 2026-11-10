@@ -1,0 +1,22 @@
+/* The calendar page under its header: the grid, and the right panel in wide windows */
+.page {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  border-top: 1px solid var(--border);
+}
+.grid {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+/* while FullCalendar fetches a range (a synced calendar's older history first): a shimmer along the top */
+.loading {
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  right: 0;
+  left: 0;
+  pointer-events: none;
+}

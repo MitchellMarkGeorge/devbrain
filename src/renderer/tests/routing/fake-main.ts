@@ -17,6 +17,7 @@ import {
   type Integration,
   type WorkspaceInfo,
 } from '@common/types';
+import { fakeCalendar, FakeCalendar } from './fake-calendar';
 import { fakeNote, fakeProject, fakeTask, FakeTasks } from './fake-tasks';
 
 // A main process for the renderer's routing tests, over the IPC bridge: a registry of workspaces
@@ -42,7 +43,6 @@ export interface Call {
 const PAGE_ROUTES = new Set([
   'recents.list',
   'projects.list',
-  'calendars.list',
   'integrations.list',
   'archive.listArchived',
 ]);
@@ -107,13 +107,23 @@ export class FakeMain {
   searchResults: SearchResult[] = [];
   // what search.counts answers; counted from searchResults when null
   searchCounts: SearchCounts | null = null;
-  // the calendar's events (every workspace's), and what events.create adds
+  // the events of a workspace with no calendar store of its own (its one calendar, cal_work), and
+  // what events.create adds there
   readonly calendarEvents: Event[] = [];
   // the integrations, over the one-row page every list route answers by default
   integrations: Integration[] | null = null;
   // projects.list answers with the open workspace's own projects, even none, rather than the
   // one-row page
   storeProjects = false;
+  // the calendar settings the calendar page reads
+  calendarSettings: AppSettings['calendar'] = {
+    defaultEventDuration: '30m',
+    firstDayOfWeek: 'monday',
+    defaultView: 'week',
+    hideWeekends: false,
+  };
+  // each workspace's calendars and events; a workspace without any has one calendar naming it
+  readonly calendarStores = new Map<WorkspaceId, FakeCalendar>();
   // what workspaces.importFolder answers next: a folder's workspace, null (cancelled) or an error
   importResult: FakeWorkspace | null | RemoteError = null;
   private readonly listeners = new Map<string, Set<(payload: unknown) => void>>();
@@ -148,7 +158,12 @@ export class FakeMain {
 
   // the settings the pages read (the general group), as settings.get answers
   private appSettings(): AppSettings {
-    return { theme: 'system', general: this.settings, tasks: this.taskSettings } as AppSettings;
+    return {
+      theme: 'system',
+      general: this.settings,
+      tasks: this.taskSettings,
+      calendar: this.calendarSettings,
+    } as AppSettings;
   }
 
   initialLoadContext(): InitialLoadContext {
@@ -226,6 +241,75 @@ export class FakeMain {
       this.taskStores.set(open.id, store);
     }
     return store;
+  }
+
+  /**
+   * The open workspace's calendars: those set for it, or one calendar naming the workspace whose
+   * events are `calendarEvents`.
+   */
+  calendarOf(id: WorkspaceId | null = this.open): FakeCalendar {
+    const open = this.workspaces.find((w) => w.id === id);
+    if (!open) throw new RemoteError('no_workspace_open', 'No workspace is open');
+    let store = this.calendarStores.get(open.id);
+    if (!store) {
+      store = new FakeCalendar(
+        [fakeCalendar('cal_work', `${open.name} calendars.list`)],
+        this.calendarEvents,
+      );
+      this.calendarStores.set(open.id, store);
+    }
+    return store;
+  }
+
+  // the calendar routes the calendar page calls, over the open workspace's calendars
+  private answerCalendar(path: string, args: Record<string, unknown>): [unknown, ChangedEntity[]] {
+    const store = this.calendarOf();
+    const event = () => {
+      const found = store.find(args.id);
+      if (!found) throw new RemoteError('not_found', `${String(args.id)} not found`);
+      return found;
+    };
+    const { id, seriesId, originalStartAt, scope, ...fields } = args;
+    void id;
+    switch (path) {
+      case 'calendars.list':
+        return [store.calendars, []];
+      case 'calendars.setVisible':
+        return [store.setVisible(args.id, args.visible as boolean), ['calendar']];
+      case 'events.listForCalendar':
+        return [
+          store.listForCalendar(
+            args.start as Date,
+            args.end as Date,
+            args.calendarIds as string[] | undefined,
+          ),
+          [],
+        ];
+      case 'events.get':
+        return [event(), []];
+      case 'events.create':
+        return [store.create(args as never), ['event']];
+      case 'events.update':
+        return [store.update(event().id, fields as never), ['event']];
+      case 'events.updateOccurrence':
+        return [
+          store.updateOccurrence(
+            seriesId,
+            originalStartAt as Date,
+            scope as 'this' | 'following',
+            fields as never,
+          ),
+          ['event'],
+        ];
+      case 'events.delete':
+        store.delete(event().id);
+        return [undefined, ['event']];
+      case 'events.deleteOccurrence':
+        store.deleteOccurrence(seriesId, originalStartAt as Date);
+        return [undefined, ['event']];
+      default:
+        throw new RemoteError('internal', `No route ${path} in the fake main`);
+    }
   }
 
   // the tasks routes the pages call, over the open workspace's tasks
@@ -370,6 +454,7 @@ export class FakeMain {
         const created = fakeNote(`nte_new${store.notes.length + 1}`, (args.title as string) ?? '', {
           linkedTaskId: (args.linkedTaskId as never) ?? null,
           projectId: (args.projectId as never) ?? null,
+          linkedEventId: (args.linkedEventId as never) ?? null,
         });
         store.notes.push(created);
         store.contents.set(created.id, (args.content as string) ?? '');
@@ -386,6 +471,9 @@ export class FakeMain {
     // the open workspace's notes, filtered as core does
     if (path === 'notes.list') {
       return [{ items: this.tasksOf().listNotes(filter as never), nextCursor: null }, []];
+    }
+    if (path.startsWith('events.') || path.startsWith('calendars.')) {
+      return this.answerCalendar(path, args);
     }
     if (path.startsWith('notes.') && path !== 'notes.list') return this.answerNotes(path, args);
     const home = this.answerHome(path, args);
@@ -458,8 +546,6 @@ export class FakeMain {
         for (const { entityType } of this.searchResults) counts[entityType] += 1;
         return [this.searchCounts ?? counts, []];
       }
-      case 'events.get':
-        throw new RemoteError('not_found', `${String(args.id)} not found`);
       default:
         throw new RemoteError('internal', `No route ${path} in the fake main`);
     }
@@ -508,16 +594,6 @@ export class FakeMain {
           },
           [],
         ];
-      case 'events.listForCalendar':
-        return [this.calendarEvents, []];
-      case 'events.create': {
-        const created = {
-          id: `evt_new${this.calendarEvents.length + 1}`,
-          ...args,
-        } as unknown as Event;
-        this.calendarEvents.push(created);
-        return [created, ['event']];
-      }
       default:
         return undefined;
     }
@@ -562,10 +638,8 @@ export class FakeMain {
           items: [{ entityType: 'tasks', entity: { id, title, status: 1 } }],
           nextCursor: null,
         };
-      case 'calendars.list':
-        return [{ id, name: title }];
       case 'integrations.list':
-        return [{ id, provider: 'linear', accountLabel: title }];
+        return [{ id, provider: 'linear', accountLabel: title, sources: [] }];
       default:
         return { items: [{ id, title }], nextCursor: null };
     }

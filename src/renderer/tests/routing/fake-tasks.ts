@@ -101,6 +101,8 @@ type Filter = {
   noDueDate?: boolean;
   noteId?: NoteId | null;
   dueBefore?: Date;
+  eventId?: string | null;
+  dueOn?: Date;
 };
 
 type NoteFilter = {
@@ -109,6 +111,8 @@ type NoteFilter = {
   linkedTaskId?: string | null;
   linkedTo?: 'event' | 'task';
 };
+
+const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
 
 const CLOSED = [TaskStatus.COMPLETED, TaskStatus.CANCELLED];
 
@@ -138,7 +142,10 @@ export class FakeTasks {
         (!filter.noDueDate || task.dueDate === null) &&
         (filter.noteId === undefined || task.linkedNoteId === filter.noteId) &&
         (filter.dueBefore === undefined ||
-          (task.dueDate !== null && task.dueDate < filter.dueBefore)),
+          (task.dueDate !== null && task.dueDate < filter.dueBefore)) &&
+        (filter.eventId === undefined || task.linkedEventId === filter.eventId) &&
+        (filter.dueOn === undefined ||
+          (task.dueDate !== null && sameDay(task.dueDate, filter.dueOn))),
     );
   }
 
