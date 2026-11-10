@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { Settings, Trash2, Zap } from 'lucide-react';
+import { Settings, Zap } from 'lucide-react';
 import { trpc } from '../../ipc';
 import { PlaceholderPage } from './PlaceholderPage';
 
@@ -9,7 +9,6 @@ import { PlaceholderPage } from './PlaceholderPage';
 
 export const pageQueries = {
   integrations: () => trpc.integrations.list.queryOptions(),
-  trash: () => trpc.archive.listArchived.queryOptions({ limit: 50 }),
   settings: () => trpc.settings.get.queryOptions(),
 };
 
@@ -25,11 +24,6 @@ export function IntegrationsPage() {
       }))}
     />
   );
-}
-
-export function TrashPage() {
-  const { data } = useSuspenseQuery(pageQueries.trash());
-  return <PlaceholderPage icon={Trash2} empty="Trash is empty" rows={data.items} />;
 }
 
 export function SettingsPage() {

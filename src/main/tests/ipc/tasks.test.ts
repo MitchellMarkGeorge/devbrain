@@ -109,6 +109,13 @@ describe('tasks', () => {
     const other = dataOf(await mutate<Task>('tasks.create', { title: 'Other', dueDate: DUE })).id;
 
     expect(await call('tasks.get', { id })).toMatchObject({ ok: true, data: { id } });
+    // a task in the trash is still read, for Trash to open it read-only
+    await mutate('archive.archiveTask', { id: other });
+    expect(await call('tasks.get', { id: other })).toMatchObject({
+      ok: true,
+      data: { id: other, archivedAt: expect.any(Date) },
+    });
+    await mutate('archive.restoreTask', { id: other });
 
     // pages through, with the cursor at the top of the input as infiniteQueryOptions passes it
     const first = dataOf(await call<Page<Task>>('tasks.list', { limit: 1 }));

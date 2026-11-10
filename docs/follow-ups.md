@@ -277,6 +277,18 @@ The fix, done once for every future setting: when the file opens, deep-merge the
 
 ## Deleting
 
+### Open trashed projects and notes read-only
+
+_Found in renderer milestone 10._
+
+Trash opens a row's item on its page, read-only until it is restored. `tasks.get` returns a task in the trash (with `archivedAt` set; `TaskService.getById` takes `includeArchived`), and the task page shows it under a "This task is in the trash" bar, inert. `projects.get` and `notes.get` still refuse archived rows (`not_found`), so a trashed project or note opens on its page's not-found. Give `ProjectService.getById` and `NoteService.getById` the same option (and `notes.readContent`), and show `TrashedNotice` (`src/renderer/pages/app`) on the project and note pages, as the task page does.
+
+### Trash rows show only the trash's own columns
+
+_Found in renderer milestone 10._
+
+`TrashRow` can draw a task's status, a project's colour, a note's first line and the item's pills, but `archive.listArchived` returns only `ArchivedEntity` (id, kind, title, when), and no route reads archived rows by id. The rows draw a not-started status and a plain folder until the list carries those fields (a join per kind in `ArchiveService.listArchived`).
+
 ### Rename archive to trash in code
 
 _Found while adding permanent delete._

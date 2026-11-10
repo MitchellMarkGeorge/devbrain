@@ -1,0 +1,24 @@
+/* Trash: the rows fill the page under the toolbar and scroll themselves (Figma 7159:11875) */
+.list {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.viewport {
+  display: flex;
+  flex-direction: column;
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+}
+.rows {
+  flex: none;
+  box-sizing: border-box;
+  width: 100%;
+}
+/* under the last row, in line with the titles */
+.footnote {
+  margin: 0;
+  padding: var(--space-4) 0 var(--space-4) 36px;
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}

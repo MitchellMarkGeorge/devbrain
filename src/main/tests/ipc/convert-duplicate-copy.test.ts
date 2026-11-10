@@ -107,7 +107,10 @@ describe('tasks.convertToProject', () => {
       parentTaskId: null,
       projectId: project.id,
     });
-    expect(code(await call('tasks.get', { id: task.id }))).toBe('not_found');
+    // the task is in the trash: tasks.get still reads it, for Trash to open it read-only
+    expect(await data<Task>('tasks.get', { id: task.id })).toMatchObject({
+      archivedAt: expect.any(Date),
+    });
 
     // search finds the project, not the trashed task
     const found = await data<SearchResult[]>('search.search', { query: 'roadmap' });
