@@ -33,7 +33,7 @@ export interface TaskSubtasksSectionProps {
  * the list keys; "+ Add" opens Create subtask. A synced task's subtasks come from its provider, so
  * it has no "+ Add". With no subtasks and nothing to add, the section is left out.
  */
-export function TaskSubtasksSection({ task, compact = false }: TaskSubtasksSectionProps) {
+export function TaskSubtasksSection({ task, compact = true }: TaskSubtasksSectionProps) {
   const query = useInfiniteQuery(subtasksQuery(task.id));
   // a subtask list item names no parent: the parent is this page
   const subtasks = useMemo<TaskListItem[]>(
@@ -102,6 +102,7 @@ export function TaskSubtasksSection({ task, compact = false }: TaskSubtasksSecti
             >
               <KeyScope name="list">
                 <TaskList
+                  compact={compact}
                   ref={list}
                   // in the sheet's narrow column a subtask shows its title, priority and date:
                   // its project and link are mostly the parent's
@@ -113,7 +114,6 @@ export function TaskSubtasksSection({ task, compact = false }: TaskSubtasksSecti
                   selectionBar={false}
                   // the rows' selection strip hangs into the page margin, so the status icons
                   // line up with the column, as Figma's page draws them
-                  style={compact ? undefined : { marginLeft: -36 }}
                   onEndReached={() => {
                     if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
                   }}

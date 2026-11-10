@@ -79,6 +79,11 @@ export interface TaskListBaseProps extends Omit<
    * selection in one group shows the checkboxes in all of them
    */
   selecting?: boolean;
+
+  /**
+   * Makes every rendered `TaskRow` compact
+   */
+  compact?: boolean;
   /** indents every row (a task page's Subtasks list) */
   subtasks?: boolean;
   /** how the rows' pills stack: `auto` (the default) stacks each row's pills when it runs out of room */
@@ -180,6 +185,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     stack,
     selectionBar = true,
     floatingBar = true,
+    compact = false,
     selectionMenu,
     onStatusChange,
     onOpen,
@@ -411,6 +417,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
               data-index={item.index}
               data-task-id={id}
               aria-rowindex={rowIndex}
+              compact={compact}
               task={task}
               tabIndex={id === focusedId ? 0 : -1}
               onFocus={() => {
