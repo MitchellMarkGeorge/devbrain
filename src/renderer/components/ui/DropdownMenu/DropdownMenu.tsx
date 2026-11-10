@@ -208,12 +208,18 @@ export interface DropdownMenuRadioItemProps extends Menu.RadioItem.Props, ItemCo
 export function DropdownMenuRadioItem({
   icon,
   shortcut,
+  closeOnClick = true,
   className,
   children,
   ...props
 }: DropdownMenuRadioItemProps) {
+  // picking a value closes the menu, as an item does (Base UI keeps it open by default)
   return (
-    <Menu.RadioItem className={mergeClassName(menuItemVariants(), className)} {...props}>
+    <Menu.RadioItem
+      closeOnClick={closeOnClick}
+      className={mergeClassName(menuItemVariants(), className)}
+      {...props}
+    >
       <ItemContent icon={icon} shortcut={shortcut}>
         {children}
       </ItemContent>
