@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { CircleCheck, CircleX, ListFilter, Plus } from 'lucide-react';
 import { Button, EmptyState, Stack, TaskRowSkeleton } from '../../../components';
 import { useCreateTask } from '../create/use-create-task';
+import { TasksSearchContextOrNull } from '../use-tasks-search';
 
 // The tasks views' states (Figma `7175:35659`, `7175:36459`, `7426:44078`): no tasks yet, none
 // matching the filters, and a read that failed.
@@ -15,6 +16,8 @@ export function TasksEmptyState({
   onClearFilters: () => void;
 }) {
   const createTask = useCreateTask();
+  // a project's Tasks tab: New Task files the task there
+  const project = useContext(TasksSearchContextOrNull)?.project;
   return filtered ? (
     <EmptyState
       icon={ListFilter}
@@ -29,10 +32,18 @@ export function TasksEmptyState({
   ) : (
     <EmptyState
       icon={CircleCheck}
-      title="No tasks yet"
-      description="Tasks you create, and tasks synced from Linear, show up here."
+      title={project ? 'No tasks in this project yet' : 'No tasks yet'}
+      description={
+        project
+          ? 'Tasks you add to this project show up here.'
+          : 'Tasks you create, and tasks synced from Linear, show up here.'
+      }
       action={
-        <Button size="sm" icon={Plus} onClick={() => createTask()}>
+        <Button
+          size="sm"
+          icon={Plus}
+          onClick={() => createTask(project ? { defaults: { projectId: project } } : undefined)}
+        >
           New Task
         </Button>
       }

@@ -1,4 +1,11 @@
-import { forwardRef, useId, type ComponentPropsWithoutRef, type ReactNode } from 'react';
+import {
+  forwardRef,
+  useId,
+  type ComponentPropsWithoutRef,
+  type FocusEvent,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { DateRange } from '../../detail/DateRange';
@@ -27,6 +34,18 @@ export interface ProjectHeaderProps extends Omit<ComponentPropsWithoutRef<'div'>
   onAddProperty?: () => void;
   /** the description, rendered from its markdown: paragraphs of 14px body text, 12px apart */
   description?: ReactNode;
+  /**
+   * makes the name editable in place: called with the new name when it loses focus or on Enter,
+   * if it changed and isn't empty (an empty one goes back). Escape puts it back.
+   */
+  onTitleChange?: (title: string) => void;
+  /**
+   * the due date picker (a `DatePicker`): the due pill opens it. With a picker the dates pill shows
+   * without a due date too, as "Due date"
+   */
+  duePicker?: ReactNode;
+  /** the start date picker: the start pill, or "+ Start date", opens it */
+  startPicker?: ReactNode;
 }
 
 /**
@@ -35,7 +54,18 @@ export interface ProjectHeaderProps extends Omit<ComponentPropsWithoutRef<'div'>
  * description and after it.
  */
 export const ProjectHeader = forwardRef<HTMLDivElement, ProjectHeaderProps>(function ProjectHeader(
-  { project, stats, statusPill, onAddProperty, description, className, ...props },
+  {
+    project,
+    stats,
+    statusPill,
+    onAddProperty,
+    description,
+    onTitleChange,
+    duePicker,
+    startPicker,
+    className,
+    ...props
+  },
   ref,
 ) {
   const titleId = useId();
@@ -48,7 +78,36 @@ export const ProjectHeader = forwardRef<HTMLDivElement, ProjectHeaderProps>(func
   return (
     <div ref={ref} aria-labelledby={titleId} className={cn(styles.header, className)} {...props}>
       <div className={styles.titleBlock}>
-        <h1 id={titleId} className={styles.title}>
+        <h1
+          id={titleId}
+          // keyed on the name, so a rename elsewhere shows here
+          key={title}
+          className={styles.title}
+          contentEditable={onTitleChange ? true : undefined}
+          suppressContentEditableWarning
+          spellCheck={false}
+          aria-label={onTitleChange ? 'Name' : undefined}
+          onBlur={
+            onTitleChange &&
+            ((event: FocusEvent<HTMLHeadingElement>) => {
+              const next = (event.currentTarget.textContent ?? '').trim();
+              if (next === '') event.currentTarget.textContent = title;
+              else if (next !== title) onTitleChange(next);
+            })
+          }
+          onKeyDown={
+            onTitleChange &&
+            ((event: KeyboardEvent<HTMLHeadingElement>) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                event.currentTarget.blur();
+              } else if (event.key === 'Escape') {
+                event.currentTarget.textContent = title;
+                event.currentTarget.blur();
+              }
+            })
+          }
+        >
           {title}
         </h1>
         <div className={styles.properties}>
@@ -57,11 +116,13 @@ export const ProjectHeader = forwardRef<HTMLDivElement, ProjectHeaderProps>(func
               {PROJECT_STATUS_LABELS[status]}
             </EntityPill>
           )}
-          {dueDate && (
+          {(dueDate || duePicker != null) && (
             <DateRange
               start={startDate ? formatDate(startDate) : undefined}
-              due={formatDate(dueDate)}
+              due={dueDate ? formatDate(dueDate) : 'Due date'}
               dueTone={dueTone}
+              duePicker={duePicker}
+              startPicker={startPicker}
             />
           )}
           {total > 0 && (

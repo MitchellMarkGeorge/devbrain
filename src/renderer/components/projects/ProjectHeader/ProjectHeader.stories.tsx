@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ProjectStatus } from '@common/types';
 import { storyDate } from '../../lib/story-dates';
 import { AUTH_OVERHAUL } from '../ProjectCard/fixtures';
+import { DatePicker } from '../../ui/DatePicker';
 import { ProjectHeader } from './ProjectHeader';
 
 const meta = {
@@ -51,4 +52,18 @@ export const NewProject: Story = {
 /** Past its due date and still open: the due date's glyph turns red. */
 export const Overdue: Story = {
   args: { project: { ...AUTH_OVERHAUL.project, dueDate: storyDate(-2) } },
+};
+
+/**
+ * The project page's header: the name edits in place (`onTitleChange`), and each date pill opens
+ * its picker (`duePicker`, `startPicker`); with pickers and no due date, the dates pill reads "Due
+ * date".
+ */
+export const Editable: Story = {
+  args: {
+    project: { ...AUTH_OVERHAUL.project, startDate: null, dueDate: null },
+    onTitleChange: () => {},
+    duePicker: <DatePicker today={storyDate(0)} onChange={() => {}} />,
+    startPicker: <DatePicker today={storyDate(0)} onChange={() => {}} />,
+  },
 };
