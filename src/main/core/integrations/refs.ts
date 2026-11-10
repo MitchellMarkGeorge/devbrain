@@ -92,6 +92,23 @@ export function assertRowEditable(row: {
   if (isSynced(row)) throw new ExternalReadOnlyError(row.id);
 }
 
+/** the link columns a ref is read from: select them as one object, and pass it to `toExternalRef` */
+export const refColumns = {
+  provider: externalLinks.provider,
+  state: externalLinks.state,
+  key: externalLinks.externalKey,
+  url: externalLinks.externalUrl,
+  metadata: externalLinks.metadata,
+  lastSyncedAt: externalLinks.lastSyncedAt,
+};
+
+export type RefRow = Omit<ExternalRef, 'statusLabel' | 'priorityLabel'> & { metadata: unknown };
+
+/** a link of `entity`'s, read with `refColumns`, as the ref read models carry */
+export function toExternalRef(entity: LinkedEntity, { metadata, ...link }: RefRow): ExternalRef {
+  return { ...link, ...labelsOf(entity, metadata) };
+}
+
 /**
  * The `external` field of read models: id to ref for each id that has a link, in any state. The
  * ids must share an entity type.
@@ -114,22 +131,12 @@ export function getRefs<T extends LinkedEntityId>(
   const column = LINK_COLUMNS[entity];
 
   const links = db
-    .select({
-      entityId: sql<T>`${column}`,
-      provider: externalLinks.provider,
-      state: externalLinks.state,
-      key: externalLinks.externalKey,
-      url: externalLinks.externalUrl,
-      metadata: externalLinks.metadata,
-      lastSyncedAt: externalLinks.lastSyncedAt,
-    })
+    .select({ entityId: sql<T>`${column}`, link: refColumns })
     .from(externalLinks)
     .where(inArray(column, ids))
     .all();
 
-  for (const { entityId, metadata, ...link } of links) {
-    refs.set(entityId, { ...link, ...labelsOf(entity, metadata) });
-  }
+  for (const { entityId, link } of links) refs.set(entityId, toExternalRef(entity, link));
   return refs;
 }
 

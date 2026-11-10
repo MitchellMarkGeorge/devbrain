@@ -1,4 +1,4 @@
-import { NoteId } from '@common/ids';
+import type { NoteId } from '@common/ids';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import path from 'node:path';
 import { stripMarkdown } from '../shared/markdown';
@@ -9,17 +9,22 @@ import {
   LinkState,
   type Note,
   type Project,
+  type SearchEntityType,
   type SearchResult,
   type Task,
 } from '@common/types';
 import type { IndexEntity, RebuildResult, SearchOptions } from './types';
 import { HIGHLIGHT_END, HIGHLIGHT_START, highlightToHtml, toFtsQuery } from './utils';
-import { and, inArray, isNull, not, sql, SQL } from 'drizzle-orm';
+import { and, eq, inArray, isNull, not, or, sql, SQL } from 'drizzle-orm';
+import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
 import { notes } from '@main/db/schema/notes';
 import { events } from '@main/db/schema/events';
-import { hasLinkInState } from '../integrations/refs';
+import { calendars } from '@main/db/schema/calendars';
+import { hasLinkInState, refColumns, toExternalRef } from '../integrations/refs';
+import { externalLinks } from '@main/db/schema/integrations';
+import { searchIndex } from './search-index';
 
 // rows per INSERT when writing many entries at once: four bound values each, well under SQLite's
 // limit on variables in one statement
@@ -51,41 +56,81 @@ export class SearchService {
    * The entries matching `query`, best first. `title` and `body` are HTML: the indexed text
    * escaped, with each match in <b>…</b> and nothing else (see highlightToHtml). Titles and bodies
    * hold user and provider text, so they are never handed out with unescaped markup.
+   *
+   * Each match also carries what its glyph needs: a task's `status`, a project's or event's
+   * `color` (an event's own, else its calendar's), and the `external` ref of a task, project or
+   * event, read in the same query: one lookup by primary key or unique column per match and
+   * table, after the matches are ranked and cut. An entry whose row is gone gets none of them.
    */
   search({ query, entityType, limit }: SearchOptions): SearchResult[] {
     const ftsQuery = toFtsQuery(query);
-
     if (!ftsQuery) return [];
 
-    const searchQuery = sql`
-      SELECT
-        highlight(search_index, 0, ${HIGHLIGHT_START}, ${HIGHLIGHT_END}) AS title,
-        snippet(search_index, 1, ${HIGHLIGHT_START}, ${HIGHLIGHT_END}, '…', 15) as body,
-        entity_id as entityId,
-        entity_type as entityType,
-        bm25(search_index, 10.0, 1.0) AS rank
-      FROM search_index
-      WHERE search_index MATCH ${ftsQuery}
-    `;
+    // 1. The best matches, highlighted: ranked and cut to `limit` before anything is joined, so
+    //    FTS5 builds titles and snippets only for the matches returned. The computed columns are
+    //    named match_* because Drizzle refers to a CTE's computed columns unqualified, and the
+    //    joined tables have a `title` too.
+    const title = sql<string>`highlight(${searchIndex}, 0, ${HIGHLIGHT_START}, ${HIGHLIGHT_END})`;
+    const body = sql<string>`snippet(${searchIndex}, 1, ${HIGHLIGHT_START}, ${HIGHLIGHT_END}, '…', 15)`;
+    const rank = sql<number>`bm25(${searchIndex}, 10.0, 1.0)`;
+    const ranked = this.db
+      .select({
+        title: title.as('match_title'),
+        body: body.as('match_body'),
+        entityId: searchIndex.entityId,
+        entityType: searchIndex.entityType,
+        rank: rank.as('match_rank'),
+      })
+      .from(searchIndex)
+      .where(
+        and(
+          sql`${searchIndex} MATCH ${ftsQuery}`,
+          entityType.length ? inArray(searchIndex.entityType, entityType) : undefined,
+        ),
+      )
+      .orderBy(sql`match_rank`)
+      .$dynamic();
+    if (limit) ranked.limit(limit);
+    const matches = this.db.$with('matches').as(ranked);
 
-    if (entityType !== undefined && entityType.length) {
-      const entityTypeChunks = entityType.map((type) => sql`${type}`);
-      const entityTypeArray = sql.join(entityTypeChunks, sql.raw(', '));
-      searchQuery.append(sql`AND entity_type IN (${entityTypeArray})`);
-    }
+    // 2. Each match's row and link, by primary key and unique column. A match is one of a task,
+    //    project, note or event, so of the three entity joins at most one finds a row.
+    const isMatch = (type: SearchEntityType, id: SQLiteColumn) =>
+      and(eq(matches.entityType, type), eq(id, matches.entityId));
+    const rows = this.db
+      .with(matches)
+      .select({
+        title: matches.title,
+        body: matches.body,
+        entityId: matches.entityId,
+        entityType: matches.entityType,
+        rank: matches.rank,
+        status: tasks.status,
+        color: sql<string | null>`coalesce(${projects.color}, ${events.color}, ${calendars.color})`,
+        link: refColumns,
+      })
+      .from(matches)
+      .leftJoin(tasks, isMatch('task', tasks.id))
+      .leftJoin(projects, isMatch('project', projects.id))
+      .leftJoin(events, isMatch('event', events.id))
+      .leftJoin(calendars, eq(calendars.id, events.calendarId))
+      .leftJoin(
+        externalLinks,
+        or(
+          eq(externalLinks.taskId, tasks.id),
+          eq(externalLinks.projectId, projects.id),
+          eq(externalLinks.eventId, events.id),
+        ),
+      )
+      .orderBy(sql`match_rank`)
+      .all();
 
-    searchQuery.append(sql`ORDER BY rank`);
-
-    if (limit) {
-      searchQuery.append(sql` LIMIT ${sql.raw(limit.toString())}`);
-    }
-
-    const rows: SearchResult[] = this.db.all(searchQuery);
-
-    return rows.map((row) => ({
-      ...row,
-      title: highlightToHtml(row.title),
-      body: highlightToHtml(row.body),
+    return rows.map(({ link, ...match }) => ({
+      ...match,
+      title: highlightToHtml(match.title),
+      body: highlightToHtml(match.body),
+      // notes have no links; the check narrows the type for toExternalRef
+      external: link && match.entityType !== 'note' ? toExternalRef(match.entityType, link) : null,
     }));
   }
 

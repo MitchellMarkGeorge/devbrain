@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
+import { hexColorSchema } from '@common/color';
+import type { SearchResult } from '@common/types';
 import { trpc } from '../ipc';
 import { highlightToText } from './highlight';
 import type { EditorEntity, EditorHost, MentionType } from './types';
@@ -23,11 +25,7 @@ export function useWorkspaceEditorHost(): Pick<EditorHost, 'searchEntities' | 'o
           const results = await queryClient.query(
             trpc.search.search.queryOptions({ query, entityType: types, limit: 20 }),
           );
-          return results.map((result) => ({
-            type: result.entityType,
-            id: result.entityId,
-            title: highlightToText(result.title),
-          }));
+          return results.map(toEditorEntity);
         } catch {
           // a query search cannot read yet ("@(") finds nothing rather than failing the menu
           return [];
@@ -38,4 +36,20 @@ export function useWorkspaceEditorHost(): Pick<EditorHost, 'searchEntities' | 'o
     }),
     [queryClient, openUrl],
   );
+}
+
+/**
+ * A search result as the "@" menu's entity: its title as text, a task's status and a project's or
+ * event's colour. Colours from core are untrusted, so one that isn't #rrggbb is left out and the
+ * menu draws its default (docs/security/untrusted-content.md).
+ */
+export function toEditorEntity(result: SearchResult): EditorEntity {
+  const color = hexColorSchema.safeParse(result.color);
+  return {
+    type: result.entityType,
+    id: result.entityId,
+    title: highlightToText(result.title),
+    ...(result.status !== null && { status: result.status }),
+    ...(color.success && { color: color.data }),
+  };
 }
