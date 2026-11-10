@@ -47,14 +47,17 @@ const NAV = [
 
 function AppSidebar({ active }: { active: Page }) {
   return (
-    <Sidebar>
-      <SidebarHeader>
-        <SidebarWorkspace name="SurveyMonkey" color="green" />
-        <SidebarHeaderActions>
-          <Button variant="ghost" size="icon-xs" icon={Search} aria-label="Search" />
-          <Button variant="ghost" size="icon-xs" icon={SquarePen} aria-label="New task" />
-        </SidebarHeaderActions>
-      </SidebarHeader>
+    <Sidebar
+      header={
+        <SidebarHeader>
+          <SidebarWorkspace name="SurveyMonkey" color="green" />
+          <SidebarHeaderActions>
+            <Button variant="ghost" size="icon-xs" icon={Search} aria-label="Search" />
+            <Button variant="ghost" size="icon-xs" icon={SquarePen} aria-label="New task" />
+          </SidebarHeaderActions>
+        </SidebarHeader>
+      }
+    >
       <SidebarContent>
         <SidebarGroup>
           {NAV.map((n) => (

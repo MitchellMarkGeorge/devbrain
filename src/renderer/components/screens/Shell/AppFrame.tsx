@@ -75,16 +75,19 @@ export interface DemoSidebarProps {
 /** The sidebar as every Figma screen draws it: SurveyMonkey, the six pages, Recents, Favorites. */
 export function DemoSidebar({ active, empty, sync, workspaceMenuOpen }: DemoSidebarProps) {
   return (
-    <Sidebar>
-      <SidebarHeader>
-        <SidebarWorkspace name="SurveyMonkey" color="green" defaultOpen={workspaceMenuOpen}>
-          <WorkspaceSwitcher workspaces={WORKSPACES} current="surveymonkey" />
-        </SidebarWorkspace>
-        <SidebarHeaderActions>
-          <SidebarAction icon={Search} label="Search" shortcut="⌘K" />
-          <SidebarAction icon={SquarePen} label="New task" shortcut="C" />
-        </SidebarHeaderActions>
-      </SidebarHeader>
+    <Sidebar
+      header={
+        <SidebarHeader>
+          <SidebarWorkspace name="SurveyMonkey" color="green" defaultOpen={workspaceMenuOpen}>
+            <WorkspaceSwitcher workspaces={WORKSPACES} current="surveymonkey" />
+          </SidebarWorkspace>
+          <SidebarHeaderActions>
+            <SidebarAction icon={Search} label="Search" shortcut="⌘K" />
+            <SidebarAction icon={SquarePen} label="New task" shortcut="C" />
+          </SidebarHeaderActions>
+        </SidebarHeader>
+      }
+    >
       <SidebarContent>
         <SidebarGroup>
           {NAV.map((page) => (

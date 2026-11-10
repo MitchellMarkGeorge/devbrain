@@ -23,13 +23,15 @@ type Story = StoryObj<typeof meta>;
 export const Open: Story = {
   render: (args) => (
     <div style={{ height: 320, display: 'flex' }}>
-      <Sidebar>
-        <SidebarHeader>
-          <SidebarWorkspace name="SurveyMonkey" color="green" defaultOpen>
-            <WorkspaceSwitcher {...args} />
-          </SidebarWorkspace>
-        </SidebarHeader>
-      </Sidebar>
+      <Sidebar
+        header={
+          <SidebarHeader>
+            <SidebarWorkspace name="SurveyMonkey" color="green" defaultOpen>
+              <WorkspaceSwitcher {...args} />
+            </SidebarWorkspace>
+          </SidebarHeader>
+        }
+      ></Sidebar>
     </div>
   ),
 };

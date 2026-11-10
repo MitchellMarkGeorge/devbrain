@@ -31,13 +31,6 @@
   background: inherit;
   overscroll-behavior: contain;
 }
-/*
- * outside a WorkspaceShell (no window row) it keeps 8px above the header. The header carries it, as
- * a pinned header stops at the sidebar's own padding and items would show through above it.
- */
-.scroller:not(:has(> .windowRow)) > .header {
-  padding-top: var(--space-2);
-}
 /* ---------- the window row: the title bar's start, then toggle, back and forward beside it ---------- */
 .windowRow {
   display: flex;
@@ -48,8 +41,7 @@
    * toggle stands in the same place docked, in the drawer and in the bar. The title bar's start
    * keeps its own clearance, so the row has no gap.
    */
-  /* the 48px row, and the gap under it that its padding covers (below) */
-  height: calc(48px + var(--sidebar-gap));
+  height: 48px;
   padding-left: var(--space-1);
   -webkit-app-region: drag;
 }
@@ -65,35 +57,31 @@
 }
 
 /*
- * The window row and the header stay put while the rest scrolls under them. Each takes the
- * sidebar's own background and reaches over the gap below it (a padding the margin takes back),
- * so items slide out of sight under its edge rather than showing through the gap.
+ * The window row and the header, pinned together while the rest scrolls under them. The block
+ * takes the sidebar's background and reaches over the gap below it (a padding the margin takes
+ * back), so items slide out of sight under its edge rather than showing through the gap. While
+ * anything is scrolled under it, it casts a shadow from edge to edge: it reaches over the
+ * sidebar's side padding (its content stays where it was).
  */
-.windowRow,
-.header {
+.top {
   position: sticky;
   z-index: 1;
   top: 0;
-  margin-bottom: calc(-1 * var(--sidebar-gap));
-  padding-bottom: var(--sidebar-gap);
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--sidebar-gap);
+  margin: 0 calc(-1 * var(--sidebar-inset)) calc(-1 * var(--sidebar-gap));
+  padding: 0 var(--sidebar-inset) var(--sidebar-gap);
   background: inherit;
-}
-/*
- * while anything is scrolled under it, the header casts a shadow over it, from edge to edge: it
- * reaches over the sidebar's side padding (its content stays where it was)
- */
-.header {
-  align-self: stretch;
-  margin-inline: calc(-1 * var(--sidebar-inset));
-  padding-inline: var(--sidebar-inset);
   transition: box-shadow var(--duration-normal) var(--ease-out);
 }
-.area[data-overflow-y-start] .header {
+.area[data-overflow-y-start] .top {
   box-shadow: var(--shadow-pinned);
 }
-
-.windowRow + .header {
-  top: calc(48px + var(--sidebar-gap));
+/* outside a WorkspaceShell (no window row) the header keeps 8px above it */
+.top:not(:has(> .windowRow)) {
+  padding-top: var(--space-2);
 }
 
 /* ---------- header: workspace switcher, search and new ---------- */
