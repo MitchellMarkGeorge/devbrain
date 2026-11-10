@@ -840,9 +840,10 @@ Figma `7158:6266` and variants (`7158:7794` subtask, `7158:8195` note, `7158:864
   debounced.
 - **Subtasks** `DetailSection` with `TaskList subtasks` and "+ Add" (`tasks.createSubtask`);
   promote/demote from the row menu.
-- **Task note** card (`TaskNoteCard`) → the **task note dialog** (`7412:37391`): a
-  `RichTextEditor` over the note's content (needs N1), "Open full view" → `/app/notes/$noteId`.
-  With no note: "+ Add note" creates one linked to the task.
+- **Task note** card (`TaskNoteCard`) → the note's page, `/app/$workspaceId/notes/$noteId`
+  (built with the Notes pages; until then it shows not-found). Figma's task note dialog
+  (`7412:37391`) was dropped for now: editing in a dialog fought its menus. With no note:
+  "+ Add a task note" creates one linked to the task and opens it.
 - **Header**: `PageFavoriteButton` (`tasks.setFavorite`), `PageMenuButton` with the README's order:
   Convert to project (C1), Link to ›, Make subtask of › (`tasks.demote`, picker `7424:38759`),
   Duplicate (C2), Copy as Markdown (C3), and for a Linear task Open in Linear

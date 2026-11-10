@@ -4,10 +4,8 @@ import type { NoteId } from '@common/ids';
 import { TaskStatus, type Task } from '@common/types';
 import { AddSlot, DetailSection, resolveColor, TaskNoteCard, useFormat } from '../../components';
 import { ipc, trpc } from '../../ipc';
-import { useModals } from '../../modals';
 import { useMutationErrorToast } from '../app/mutation-errors';
 import { useOpenEntity } from '../app/use-open-entity';
-import { TaskNoteDialog } from './TaskNoteDialog';
 
 export interface TaskNoteSectionProps {
   /** the task, as `tasks.get` returns it */
@@ -25,11 +23,10 @@ function tasksSummary(statuses: readonly TaskStatus[]): string | undefined {
 }
 
 /**
- * The task note (the note whose `linkedTaskId` is the task): its `TaskNoteCard`, opening the task
- * note dialog, or "+ Add a task note", which creates one named after the task and opens it.
+ * The task note (the note whose `linkedTaskId` is the task): its `TaskNoteCard`, opening the note's
+ * page, or "+ Add a task note", which creates one named after the task and opens it.
  */
 export function TaskNoteSection({ task, compact = false }: TaskNoteSectionProps) {
-  const modals = useModals();
   const openEntity = useOpenEntity();
   const showError = useMutationErrorToast();
   const { formatRelative } = useFormat('minute');
@@ -43,10 +40,8 @@ export function TaskNoteSection({ task, compact = false }: TaskNoteSectionProps)
     enabled: note !== undefined,
   });
 
-  const open = (id: NoteId) =>
-    modals.open((props) => (
-      <TaskNoteDialog {...props} noteId={id} onOpenFullView={() => openEntity({ id })} />
-    ));
+  // the note's own page (`/notes/$noteId`, not built yet)
+  const open = (id: NoteId) => openEntity({ id });
 
   async function create() {
     setCreating(true);

@@ -281,7 +281,7 @@ export class FakeMain {
     }
   }
 
-  // a note's routes, over the open workspace's notes (the task note dialog's)
+  // a note's routes, over the open workspace's notes (the task note section's)
   private answerNotes(path: string, args: Record<string, unknown>): [unknown, ChangedEntity[]] {
     const store = this.tasksOf();
     const note = () => {

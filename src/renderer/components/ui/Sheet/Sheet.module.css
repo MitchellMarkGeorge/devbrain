@@ -57,14 +57,8 @@
   background: var(--popover);
   color: var(--popover-foreground);
   outline: none;
-  /*
-   * No transform at rest: a transformed sheet would hold, and clip, the fixed menus placed inside
-   * it (the editor's slash menu). It follows a swipe while one lasts
-   */
-  transition: transform var(--duration-slow) var(--ease-surface);
-}
-.popup[data-swiping] {
   transform: translateX(var(--drawer-swipe-movement-x, 0));
+  transition: transform var(--duration-slow) var(--ease-surface);
 }
 .popup[data-starting-style],
 .popup[data-ending-style] {
