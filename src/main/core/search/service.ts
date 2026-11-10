@@ -9,13 +9,14 @@ import {
   LinkState,
   type Note,
   type Project,
+  type SearchCounts,
   type SearchEntityType,
   type SearchResult,
   type Task,
 } from '@common/types';
 import type { IndexEntity, RebuildResult, SearchOptions } from './types';
 import { HIGHLIGHT_END, HIGHLIGHT_START, highlightToHtml, toFtsQuery } from './utils';
-import { and, eq, inArray, isNull, not, or, sql, SQL } from 'drizzle-orm';
+import { and, count, eq, inArray, isNull, not, or, sql, SQL } from 'drizzle-orm';
 import type { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
@@ -132,6 +133,26 @@ export class SearchService {
       // notes have no links; the check narrows the type for toExternalRef
       external: link && match.entityType !== 'note' ? toExternalRef(match.entityType, link) : null,
     }));
+  }
+
+  /**
+   * How many entries match `query`, of each type: all of them, with no limit, so a type filter
+   * can say how many it has before they are listed. Counts what `search` would return, entries
+   * whose row is gone included. One FTS query, grouped by type, with no highlighting.
+   */
+  counts(query: string): SearchCounts {
+    const counts: SearchCounts = { task: 0, note: 0, project: 0, event: 0 };
+    const ftsQuery = toFtsQuery(query);
+    if (!ftsQuery) return counts;
+
+    const rows = this.db
+      .select({ entityType: searchIndex.entityType, count: count() })
+      .from(searchIndex)
+      .where(sql`${searchIndex} MATCH ${ftsQuery}`)
+      .groupBy(searchIndex.entityType)
+      .all();
+    for (const row of rows) counts[row.entityType] = row.count;
+    return counts;
   }
 
   indexTask(task: Task) {

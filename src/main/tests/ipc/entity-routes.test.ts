@@ -12,6 +12,7 @@ import {
   ProjectStatus,
   Provider,
   type RecentEntity,
+  type SearchCounts,
   type SearchResult,
   SourceType,
   TaskStatus,
@@ -653,6 +654,20 @@ describe('search', () => {
     expect(result).toMatchObject({
       entityId: id,
       external: { provider: Provider.LINEAR, url: 'https://linear.app/acme/project/1' },
+    });
+  });
+
+  it('counts the matches of each type', async () => {
+    const ws = workspace();
+    await ws.notes.createNote({ title: 'Roadmap notes' });
+    ws.projects.createProject({ title: 'Roadmap review', dueDate: DUE });
+    ws.projects.createProject({ title: 'Roadmap two', dueDate: DUE });
+
+    expect(await data<SearchCounts>('search.counts', { query: 'roadmap' })).toEqual({
+      task: 0,
+      note: 1,
+      project: 2,
+      event: 0,
     });
   });
 
