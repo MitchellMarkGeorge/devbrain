@@ -215,8 +215,10 @@ export class FakeMain {
     };
     const page = <T>(items: T[]) => ({ items, nextCursor: null });
     switch (path) {
-      case 'tasks.list':
-        return [page(store.list((args.filter ?? {}) as never)), []];
+      case 'tasks.list': {
+        const items = store.list((args.filter ?? {}) as never);
+        return [page(typeof args.limit === 'number' ? items.slice(0, args.limit) : items), []];
+      }
       case 'tasks.get':
         return [task(), []];
       case 'tasks.subtasks':

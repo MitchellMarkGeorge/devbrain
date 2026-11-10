@@ -6,6 +6,7 @@ import { useMutationErrorToast } from '../../app/mutation-errors';
 import { useOpenEntity } from '../../app/use-open-entity';
 import { isSynced } from '../../tasks/queries';
 import { useAutosave } from '../../tasks/sections/TaskPageAutosave';
+import styles from './ProjectPage.module.css';
 
 /**
  * A project's description in the rich text editor, saved 500ms after typing stops and at once when
@@ -26,6 +27,7 @@ export function ProjectDescription({ project }: { project: Project }) {
   return (
     <RichTextEditor
       {...host}
+      className={styles.description}
       label="Description"
       value={project.description ?? ''}
       editable={!synced}
