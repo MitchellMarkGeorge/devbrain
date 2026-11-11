@@ -116,6 +116,33 @@ describe('⌘K search', () => {
     await eventually(() => expect(input()).not.toBeNull());
   });
 
+  it("lists a type filter's latest while nothing is typed", async () => {
+    const { main } = await openSearch();
+    await eventually(() => expect(dialog()?.textContent).toContain('Go to'));
+    input()?.focus();
+    key('Tab');
+    await eventually(() => expect(dialog()?.textContent).toContain('Recently updated'));
+    expect(main.callsTo('tasks.list').map(({ input }) => input)).toContainEqual({
+      sort: { sortBy: 'updatedAt', direction: 'desc' },
+      limit: 10,
+    });
+    expect(dialog()?.textContent).not.toContain('Go to');
+    expect(optionTexts()).toEqual([expect.stringContaining('Work')]);
+
+    // Events have no list by update: their latest viewed
+    key('Tab', { shiftKey: true });
+    key('Tab', { shiftKey: true });
+    await eventually(() =>
+      expect(main.callsTo('recents.list').map(({ input }) => input)).toContainEqual({
+        entityType: 'events',
+        limit: 10,
+      }),
+    );
+    // back to All: Recent and Go to
+    key('Tab');
+    await eventually(() => expect(dialog()?.textContent).toContain('Go to'));
+  });
+
   it('searches once typing settles, and groups the results with counts', async () => {
     const { main } = await openSearch();
     type('p');
