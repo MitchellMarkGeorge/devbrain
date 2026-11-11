@@ -328,6 +328,7 @@ URLs (`z.union([value, z.array(value)])`).
 | `date`       | `YYYY-MM-DD`                         | the anchor day, default today. The visible range is derived from `view` + `date` + `firstDayOfWeek`, so month, year and week all come from one param and can never disagree. "Today" removes it. |
 | `open`       | `evt_…` \| `tsk_…`                   | the item in the sheet. Ids are prefixed, so one param covers both the events and the tasks due that the agenda shows; the sheet picks its body from the prefix.                                  |
 | `occurrence` | ISO datetime                         | with `open=evt_…` of a series: which occurrence was clicked (its `originalStartAt`), needed to edit "this event" vs "all events" (`7424:43188`)                                                  |
+| `sheet`      | `note`                               | with `open=evt_…`: the sheet shows the event's note, where meeting notes are taken (`7410:34948`, `7411:34597`)                                                                                  |
 
 **Calendar filters are not search params.** "Filter: All calendars" (`7424:42573`) toggles which
 calendars show, and core already persists that per calendar (`calendars.setVisible`) and applies
@@ -1390,8 +1391,12 @@ linkedTaskId } })`), separate from the task's event or note link.
      `create/` the New event dialog; `pickers.tsx` the day, time, repeat and calendar pills both
      use.
    - The header's month and Filter fill the shell header's place, and the view, ‹ Today › and New
-     Event its actions, as Figma draws one row; there is no `PageToolbar`. Moving through the
-     calendar replaces the history entry; the sheet pushes one (Back closes it).
+     Event its actions, as Figma draws one row; there is no `PageToolbar`. It steps down as the
+     header narrows (beside the sidebar, the window bar and the sheet; `headerLayout`): the short
+     month and Filter without its value, then Filter and New Event as icons, then the view switch
+     as a menu and Today as an icon, so the two sides never meet and the month is never cut.
+     Moving through the calendar replaces the history entry; the sheet pushes one (Back closes
+     it).
    - Each visible calendar's source reads `events.listForCalendar` for its own calendar through
      `queryClient.query` (`staleTime: Infinity`, so only the invalidator makes it stale); a
      subscription to the query cache calls `refetchEvents()` once when any of them is
@@ -1411,11 +1416,17 @@ linkedTaskId } })`), separate from the task's event or note link.
      or series core returned. Delete asks with `useConfirm` for a one-off and the same choices
      for a series. Figma's dialogs show only This event and All events; the third choice follows
      the adapter spec.
-   - The event note is the note whose `linkedEventId` is the event, edited inline with the note
-     page's `NoteEditor` (milestone 5), with "Open full view" to the note's page; "+ Add a note"
-     creates "<title> notes". For a series it links to the series, not one occurrence. Linked tasks are
-     `tasks.list({ filter: { eventId } })`; "+ Add" opens Create task linked to the event (linking
-     an existing task, Figma's "Link a task", needs a task picker and is left for later).
+   - The event note is the note whose `linkedEventId` is the event (for a series, the series',
+     not one occurrence's). The sheet's Event note shows its card (`TaskNoteCard`: title, tasks,
+     date), or "+ Add a note"; either turns the sheet itself into the note (`?sheet=note`, an entry
+     of its own, so Back and "‹ Event" return to the event): a strip naming the meeting (how soon,
+     its times and place, Join), the note's title and its body in the note page's `NoteEditor`,
+     saved as typed, with ⤢ to the note's page and "Type / for blocks · Notes save as you type"
+     under it. With no note yet: "No note for this meeting yet", Start Note (or N, which the view
+     takes over from New note while it shows) and Link Existing Note (a searchable menu of the 50
+     notes edited last). Linked tasks are `tasks.list({ filter: { eventId } })`; "+ Add" opens
+     Create task linked to the event (linking an existing task, Figma's "Link a task", needs a
+     task picker and is left for later).
    - `?open=tsk_…` shows the board's `TaskSheet`. The sheet's `events.get` doesn't retry
      `not_found`, so a delete's refetch settles at once and the sheet closes.
    - A slot click opens New event for `defaultEventDuration`, a drag for its range, a month or

@@ -1,5 +1,6 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useSuspenseQuery } from '@tanstack/react-query';
+import { useRouter } from '@tanstack/react-router';
 import { DateTime } from 'luxon';
 import { isId, type EventId, type TaskId } from '@common/ids';
 import type { Event } from '@common/types';
@@ -22,16 +23,24 @@ import {
   draftFromSelection,
 } from './create/CreateEventDialog';
 import { useCreateEvent } from './create/use-create-event';
-import { CalendarHeaderEnd, CalendarHeaderStart } from './header/CalendarHeader';
+import { CalendarHeaderEnd, CalendarHeaderStart, headerLayout } from './header/CalendarHeader';
 import { CalendarSidePanel } from './panel/CalendarSidePanel';
 import { neighbouringRanges, rangeOptionsOf, stepDate } from './range';
 import { dateParam, openEventSearch, type CalendarSearch } from './search';
 import { EventSheet } from './sheet/EventSheet';
 import { useCalendarSearch } from './use-calendar-search';
+import { calendarRoute } from './route-api';
 import { useDelayedLoading, useEventSources, usePrefetchRanges } from './use-event-sources';
 import styles from './CalendarPage.module.css';
 
 type SheetItem = Pick<CalendarSearch, 'open' | 'occurrence'>;
+
+declare module '@tanstack/history' {
+  interface HistoryState {
+    /** the event sheet showed its note with this entry: "‹ Event" goes back to the event */
+    openedEventNote?: boolean;
+  }
+}
 
 /**
  * The calendar (`/app/$workspaceId/calendar`, Figma `7158:13273` week, `7158:13856` day,
@@ -42,11 +51,17 @@ type SheetItem = Pick<CalendarSearch, 'open' | 'occurrence'>;
  */
 export function CalendarPage() {
   const { resolved, setSearch } = useCalendarSearch();
+  const navigate = calendarRoute.useNavigate();
+  const router = useRouter();
   const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
   const calendars = useSuspenseQuery(trpc.calendars.list.queryOptions()).data;
   const { size } = useWorkspaceShell();
   const { now } = useFormat('minute');
   const view = useRef<CalendarViewHandle>(null);
+  // the header steps down as it narrows (beside the sidebar, the window bar and the sheet)
+  // (state, not a ref: the header's place is portalled into a moment after the page mounts)
+  const [headerStart, setHeaderStart] = useState<HTMLElement | null>(null);
+  const layout = headerLayout(useHeaderWidth(headerStart));
 
   const options = rangeOptionsOf(settings, resolved.view);
   const sources = useEventSources(calendars, view);
@@ -102,7 +117,17 @@ export function CalendarPage() {
   if (resolved.open && (resolved.open !== sheet.open || occurrence !== sheet.occurrence)) {
     setSheet({ open: resolved.open, occurrence });
   }
-  const closeSheet = () => setSearch({ open: undefined, occurrence: undefined });
+  const closeSheet = () => setSearch({ open: undefined, occurrence: undefined, sheet: undefined });
+  // the event's note in the sheet: an entry of its own, so Back (and "‹ Event") return to the event
+  const openEventNote = () =>
+    void navigate({
+      search: (previous) => ({ ...previous, sheet: 'note' as const }),
+      state: (previous) => ({ ...previous, openedEventNote: true }),
+    });
+  const closeEventNote = () => {
+    if (router.state.location.state.openedEventNote) router.history.back();
+    else setSearch({ sheet: undefined });
+  };
   const sheetOpen = resolved.open !== undefined;
 
   return (
@@ -110,14 +135,16 @@ export function CalendarPage() {
       <PageHeaderSlot
         place={
           <CalendarHeaderStart
+            ref={setHeaderStart}
             date={resolved.date}
             calendars={calendars}
-            narrow={sheetOpen || size !== 'wide'}
+            layout={layout}
           />
         }
         actions={
           <CalendarHeaderEnd
             view={resolved.view}
+            layout={layout}
             onViewChange={(next) => setSearch({ view: next })}
             onStep={(direction) => goTo(stepDate(resolved.view, resolved.date, direction))}
             onToday={() => setSearch({ date: undefined })}
@@ -169,6 +196,9 @@ export function CalendarPage() {
           onClosed={() => setSheet({ open: undefined, occurrence: undefined })}
           onShowEvent={(id, at) => setSearch(openEventSearch(id, at))}
           onOpenTask={openTask}
+          noteView={resolved.eventNote}
+          onOpenNote={openEventNote}
+          onCloseNote={closeEventNote}
         />
       )}
       {sheet.open && isId('task', sheet.open) && (
@@ -181,4 +211,22 @@ export function CalendarPage() {
       )}
     </>
   );
+}
+
+/**
+ * The width of the page header holding `inHeader` (the header's place, portalled into it), followed as
+ * it changes; Infinity until it is measured.
+ */
+function useHeaderWidth(inHeader: HTMLElement | null): number {
+  const [width, setWidth] = useState(Infinity);
+  useLayoutEffect(() => {
+    const header = inHeader?.closest('header');
+    if (!header || typeof ResizeObserver === 'undefined') return;
+    // it reports the width at once, then as it changes. The header's own layout never changes its
+    // width, so this can't feed back on itself
+    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, [inHeader]);
+  return width;
 }

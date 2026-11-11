@@ -20,6 +20,7 @@ import {
   visibleRange,
   type CalendarRangeOptions,
 } from '../../pages/calendar/range';
+import { headerLayout } from '../../pages/calendar/header/CalendarHeader';
 
 // The calendar page's URL (?view, ?date, ?open, ?occurrence) and the ranges it derives from it:
 // what FullCalendar shows for a view and an anchor day, with the week starting on Monday or
@@ -82,6 +83,20 @@ describe('the search schema', () => {
     expect(resolveCalendarSearch({ view: 'day' }, month, today).view).toBe('day');
   });
 
+  it('shows the event’s note only with an event open', () => {
+    const today = new Date(2026, 5, 24);
+    expect(calendarSearchSchema.parse({ sheet: 'note', open: 'evt_standup' })).toEqual({
+      sheet: 'note',
+      open: 'evt_standup',
+    });
+    expect(calendarSearchSchema.parse({ sheet: 'notes' })).toEqual({});
+    const resolve = (search: object) =>
+      resolveCalendarSearch(search as never, SETTINGS, today).eventNote;
+    expect(resolve({ sheet: 'note', open: 'evt_standup' })).toBe(true);
+    expect(resolve({ sheet: 'note', open: 'tsk_guide' })).toBe(false);
+    expect(resolve({ open: 'evt_standup' })).toBe(false);
+  });
+
   it('reads the occurrence only with an event open', () => {
     const occurrence = '2026-06-24T13:00:00.000Z';
     const today = new Date(2026, 5, 24);
@@ -97,6 +112,16 @@ describe('the search schema', () => {
 
 const MONDAY: CalendarRangeOptions = { firstDay: 1, hideWeekends: false };
 const SUNDAY: CalendarRangeOptions = { firstDay: 0, hideWeekends: false };
+
+describe('the header', () => {
+  it('steps down as it narrows, before its two sides meet', () => {
+    expect(headerLayout(Infinity)).toBe('full');
+    expect(headerLayout(1180)).toBe('full');
+    expect(headerLayout(800)).toBe('short');
+    expect(headerLayout(640)).toBe('compact');
+    expect(headerLayout(460)).toBe('tiny');
+  });
+});
 
 describe('the visible range', () => {
   // Wednesday 24 June 2026; June starts on a Monday and ends on a Tuesday

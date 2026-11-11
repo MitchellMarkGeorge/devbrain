@@ -1,22 +1,26 @@
 /* The calendar's header (Figma 7158:13273): the month and Filter at the left, the view, ‹ Today › and New Event at the right */
 .start {
   display: flex;
+  flex: none;
   align-items: center;
   gap: var(--space-3);
-  min-width: 0;
 }
+/* never cut: the header steps down (headerLayout) before its sides meet */
 .title {
+  flex: none;
   margin: 0;
-  overflow: hidden;
   color: var(--foreground-strong);
   font: var(--font-weight-semibold) var(--text-2xl) / var(--text-2xl-leading) var(--font-sans);
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .end {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+}
+.end > *,
+.stepper > * {
+  flex: none;
 }
 .stepper {
   display: flex;

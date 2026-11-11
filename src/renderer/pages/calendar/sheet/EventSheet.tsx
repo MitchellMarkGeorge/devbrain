@@ -4,6 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import {
   ArrowRight,
   CalendarDays,
+  ChevronLeft,
   CircleCheck,
   Clock,
   ExternalLink,
@@ -47,7 +48,9 @@ import { meetingUrlOf } from '../create/CreateEventDialog';
 import { CalendarPill, DayPill, RepeatPill, TimePill } from '../pickers';
 import { repeatText } from '../repeat';
 import { EventLinkedTasks } from './EventLinkedTasks';
-import { EventNoteSection } from './EventNoteSection';
+import { EventNoteSection, eventNoteQuery } from './EventNoteSection';
+import { EventNoteFooter, EventNoteView } from './EventNoteView';
+import { useOpenEntity } from '../../app/use-open-entity';
 import { moveEnd, moveStart, moveToDay, shownTiming, zoneAbbreviation } from './timing';
 import styles from './EventSheet.module.css';
 
@@ -70,13 +73,20 @@ export interface EventSheetProps {
   /** shows another event in the sheet: the row an edit of one occurrence made, a new series */
   onShowEvent: (id: EventId, occurrence?: Date) => void;
   onOpenTask: (id: TaskId) => void;
+  /** the sheet shows the event's note (`?sheet=note`) */
+  noteView?: boolean;
+  /** shows the event's note in the sheet: its card, "+ Add a note" */
+  onOpenNote: () => void;
+  /** back to the event from its note: "‹ Event" */
+  onCloseNote: () => void;
 }
 
 /**
  * The event sheet (`?open=evt_…`, Figma `7175:30140`): the event's detail view, as events have
  * no page of their own. Docked in the shell's sheet column in wide and medium windows, floating in
  * compact ones. A local event is edited in place; one of a series asks which occurrences each
- * change applies to. A synced (Google) event is read-only, with your response.
+ * change applies to. A synced (Google) event is read-only, with your response. With `noteView`, it
+ * shows the event's note instead (`EventNoteView`), with "‹ Event" back to the event.
  */
 export function EventSheet({
   eventId,
@@ -86,6 +96,9 @@ export function EventSheet({
   onClosed,
   onShowEvent,
   onOpenTask,
+  noteView = false,
+  onOpenNote,
+  onCloseNote,
 }: EventSheetProps) {
   const router = useRouter();
   const { size, sheetContainer } = useWorkspaceShell();
@@ -97,6 +110,8 @@ export function EventSheet({
     retry: retryUnlessGone,
   });
   const calendars = useQuery(trpc.calendars.list.queryOptions()).data ?? [];
+  const note = useQuery({ ...eventNoteQuery(eventId), enabled: noteView }).data?.items[0];
+  const openEntity = useOpenEntity();
 
   const close = () => {
     if (openedHere) router.history.back();
@@ -116,7 +131,15 @@ export function EventSheet({
       }}
     >
       <SheetContent container={floating ? undefined : sheetContainer} data-testid="event-sheet">
-        <SheetHeader>Event</SheetHeader>
+        {noteView ? (
+          <SheetHeader onOpenAsPage={note ? () => openEntity({ id: note.id }) : undefined}>
+            <Button size="xs" variant="ghost" icon={ChevronLeft} onClick={onCloseNote}>
+              Event
+            </Button>
+          </SheetHeader>
+        ) : (
+          <SheetHeader>Event</SheetHeader>
+        )}
         <SheetBody>
           {query.data ? (
             <EventSheetBody
@@ -126,6 +149,8 @@ export function EventSheet({
               onShowEvent={onShowEvent}
               onOpenTask={onOpenTask}
               onDeleted={onClose}
+              noteView={noteView}
+              onOpenNote={onOpenNote}
             />
           ) : query.isError ? (
             <Text tone="muted">
@@ -141,6 +166,7 @@ export function EventSheet({
             </Stack>
           )}
         </SheetBody>
+        {noteView && note && <EventNoteFooter />}
       </SheetContent>
     </Sheet>
   );
@@ -156,10 +182,20 @@ interface BodyProps {
   onShowEvent: (id: EventId, occurrence?: Date) => void;
   onOpenTask: (id: TaskId) => void;
   onDeleted: () => void;
+  noteView: boolean;
+  onOpenNote: () => void;
 }
 
 /** The sheet's body for a loaded event. */
-function EventSheetBody({ target, calendars, onShowEvent, onOpenTask, onDeleted }: BodyProps) {
+function EventSheetBody({
+  target,
+  calendars,
+  onShowEvent,
+  onOpenTask,
+  onDeleted,
+  noteView,
+  onOpenNote,
+}: BodyProps) {
   const { event } = target;
   const calendar = calendars.find((c) => c.id === event.calendarId);
   const synced = event.external != null;
@@ -195,6 +231,7 @@ function EventSheetBody({ target, calendars, onShowEvent, onOpenTask, onDeleted 
 
   const barColor = resolveColor(event.color) ?? resolveColor(calendar?.color, 'blue');
   const zone = zoneAbbreviation(shown.start);
+  if (noteView) return <EventNoteView event={event} shown={shown} color={barColor} />;
 
   return (
     <>
@@ -330,7 +367,7 @@ function EventSheetBody({ target, calendars, onShowEvent, onOpenTask, onDeleted 
         series={occurrence !== null}
         onSave={(description) => edit({ description })}
       />
-      <EventNoteSection event={event} />
+      <EventNoteSection event={event} onOpenNote={onOpenNote} />
       <EventLinkedTasks eventId={event.id} onOpenTask={onOpenTask} />
       {!synced && (
         <div>

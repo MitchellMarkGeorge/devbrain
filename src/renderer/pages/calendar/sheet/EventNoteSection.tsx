@@ -1,64 +1,47 @@
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Maximize2 } from 'lucide-react';
-import type { Event, NoteListItem } from '@common/types';
-import { AddSlot, Button, DetailSection } from '../../../components';
-import { ipc, trpc } from '../../../ipc';
-import { useMutationErrorToast } from '../../app/mutation-errors';
-import { useOpenEntity } from '../../app/use-open-entity';
-import { NoteEditor } from '../../notes/detail/NoteEditor';
-import styles from './EventSheet.module.css';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import type { Event } from '@common/types';
+import { AddSlot, DetailSection, TaskNoteCard, useFormat } from '../../../components';
+import { trpc } from '../../../ipc';
+import { noteTasksQuery, tasksSummary } from '../../notes/queries';
 
-/**
- * The event note (the note whose `linkedEventId` is the event, Figma `7175:30140`, `7410:34948`):
- * edited in place in the sheet with the note page's `NoteEditor`, saved as you type, with "Open full view" to the note's page; or
- * "+ Add a note", which creates one named after the event. A synced event can have one too.
- */
-export function EventNoteSection({ event }: { event: Pick<Event, 'id' | 'title'> }) {
-  const showError = useMutationErrorToast('Couldn’t add a note');
-  const [creating, setCreating] = useState(false);
-  const notes = useQuery(
-    trpc.notes.list.queryOptions({ filter: { linkedEventId: event.id }, limit: 1 }),
-  );
-  const note = notes.data?.items[0];
-
-  async function create() {
-    setCreating(true);
-    try {
-      await ipc.notes.create.mutate({ title: `${event.title} notes`, linkedEventId: event.id });
-    } catch (error) {
-      showError(error);
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  return (
-    <DetailSection
-      title="Event note"
-      action={note && <OpenFullView note={note} />}
-      data-testid="event-note"
-    >
-      {note ? (
-        <div className={styles.editor}>
-          <NoteEditor key={note.id} noteId={note.id} />
-        </div>
-      ) : (
-        notes.isSuccess && (
-          <AddSlot disabled={creating} onClick={() => void create()}>
-            Add a note
-          </AddSlot>
-        )
-      )}
-    </DetailSection>
-  );
+/** The event's note: the note whose `linkedEventId` is the event (one at most is shown). */
+export function eventNoteQuery(eventId: Event['id']) {
+  return trpc.notes.list.queryOptions({ filter: { linkedEventId: eventId }, limit: 1 });
 }
 
-function OpenFullView({ note }: { note: Pick<NoteListItem, 'id'> }) {
-  const openEntity = useOpenEntity();
+/**
+ * The event sheet's Event note (Figma `7175:30140`, `7175:30868`): the note's card (its title,
+ * its tasks, when it was edited), or "+ Add a note". Either opens the note in the sheet itself
+ * (`EventNoteView`), where the meeting's notes are taken beside the calendar.
+ */
+export function EventNoteSection({
+  event,
+  onOpenNote,
+}: {
+  event: Pick<Event, 'id'>;
+  onOpenNote: () => void;
+}) {
+  const { formatDate } = useFormat();
+  const notes = useQuery(eventNoteQuery(event.id));
+  const note = notes.data?.items[0];
+  const tasks = useInfiniteQuery({
+    ...noteTasksQuery(note?.id ?? ('nte_none' as never)),
+    enabled: note !== undefined,
+  });
+  const statuses = tasks.data?.pages.flatMap((page) => page.items.map((task) => task.status));
   return (
-    <Button size="xs" variant="ghost" icon={Maximize2} onClick={() => openEntity({ id: note.id })}>
-      Open full view
-    </Button>
+    <DetailSection title="Event note" data-testid="event-note">
+      {note ? (
+        <TaskNoteCard
+          title={note.title || 'Untitled'}
+          updated={formatDate(note.updatedAt)}
+          tasksSummary={tasksSummary(statuses ?? [])}
+          layout="stacked"
+          onOpen={onOpenNote}
+        />
+      ) : (
+        notes.isSuccess && <AddSlot onClick={onOpenNote}>Add a note</AddSlot>
+      )}
+    </DetailSection>
   );
 }

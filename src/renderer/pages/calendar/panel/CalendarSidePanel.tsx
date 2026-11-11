@@ -4,7 +4,13 @@ import { DateTime } from 'luxon';
 import type { EventId, TaskId } from '@common/ids';
 import type { Calendar as CalendarModel, Event, TaskListItem } from '@common/types';
 import { occurrencesBetween, type Occurrence } from '../../../calendar';
-import { Calendar, CalendarAgenda, CalendarAgendaItem, useFormat } from '../../../components';
+import {
+  Calendar,
+  CalendarAgenda,
+  CalendarAgendaItem,
+  ScrollArea,
+  useFormat,
+} from '../../../components';
 import { agendaEventsQuery, agendaRange, tasksDueQuery } from '../queries';
 import styles from './CalendarSidePanel.module.css';
 
@@ -101,7 +107,13 @@ export function CalendarSidePanel({
   ];
 
   return (
-    <aside className={styles.panel} aria-label="Agenda" data-testid="calendar-panel">
+    <ScrollArea
+      render={<aside />}
+      className={styles.panel}
+      viewportClassName={styles.content}
+      aria-label="Agenda"
+      data-testid="calendar-panel"
+    >
       <Calendar
         mode="single"
         today={now}
@@ -140,6 +152,6 @@ export function CalendarSidePanel({
           )}
         </CalendarAgenda>
       ))}
-    </aside>
+    </ScrollArea>
   );
 }

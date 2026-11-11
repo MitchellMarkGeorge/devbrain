@@ -1,6 +1,13 @@
-import { Fragment } from 'react';
+import { forwardRef, Fragment } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, ListFilter, Plus } from 'lucide-react';
+import {
+  CalendarCheck,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ListFilter,
+  Plus,
+} from 'lucide-react';
 import type { Calendar } from '@common/types';
 import {
   Button,
@@ -10,6 +17,8 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   ToggleGroup,
@@ -33,48 +42,93 @@ const STEP_LABELS: Record<CalendarViewParam, [string, string]> = {
   day: ['Previous day', 'Next day'],
 };
 
+/**
+ * How much of the header fits its width, from the most to the least:
+ *
+ * - `full`: "November 2026", Filter with its value, the view switch, ‹ Today ›, "+ New Event";
+ * - `short`: "Nov 2026", and Filter without its value;
+ * - `compact`: Filter as its icon alone (Figma `7410:34948`, with a sheet open), New Event as "+";
+ * - `tiny`: the view switch as a menu ("Day ⌄"), and Today as an icon.
+ *
+ * Each step frees room before the header's two sides would meet; the title is never cut.
+ */
+export type CalendarHeaderLayout = 'full' | 'short' | 'compact' | 'tiny';
+
+/** The layout for a header `width` pixels wide (its 24px sides included). */
+export function headerLayout(width: number): CalendarHeaderLayout {
+  if (width >= 900) return 'full';
+  if (width >= 740) return 'short';
+  if (width >= 600) return 'compact';
+  return 'tiny';
+}
+
 /** The header's place: the month shown, and the calendar filter. */
-export function CalendarHeaderStart({
-  date,
-  calendars,
-  narrow = false,
-}: {
-  date: Date;
-  calendars: readonly Calendar[];
-  /** less room (a sheet is open, or the window isn't wide): "Jun 2026", and Filter without its value */
-  narrow?: boolean;
-}) {
+export const CalendarHeaderStart = forwardRef<
+  HTMLDivElement,
+  { date: Date; calendars: readonly Calendar[]; layout?: CalendarHeaderLayout }
+>(function CalendarHeaderStart({ date, calendars, layout = 'full' }, ref) {
   return (
-    <div className={styles.start}>
-      <h1 className={styles.title}>{monthTitle(date, narrow ? 'short' : 'long')}</h1>
-      <CalendarFilterMenu calendars={calendars} hideValue={narrow} />
+    <div ref={ref} className={styles.start}>
+      <h1 className={styles.title}>{monthTitle(date, layout === 'full' ? 'long' : 'short')}</h1>
+      <CalendarFilterMenu
+        calendars={calendars}
+        display={layout === 'full' ? 'value' : layout === 'short' ? 'label' : 'icon'}
+      />
     </div>
   );
-}
+});
 
 /** The header's actions: the view, ‹ Today ›, New Event. */
 export function CalendarHeaderEnd({
   view,
+  layout = 'full',
   onViewChange,
   onStep,
   onToday,
   onNewEvent,
 }: {
   view: CalendarViewParam;
+  layout?: CalendarHeaderLayout;
   onViewChange: (view: CalendarViewParam) => void;
   onStep: (direction: -1 | 1) => void;
   onToday: () => void;
   onNewEvent: () => void;
 }) {
   const [previous, next] = STEP_LABELS[view];
+  const tiny = layout === 'tiny';
+  const iconNewEvent = layout === 'compact' || tiny;
   return (
     <div className={styles.end}>
-      <ToggleGroup
-        aria-label="View"
-        value={view}
-        items={VIEW_ITEMS}
-        onValueChange={(value) => onViewChange(value as CalendarViewParam)}
-      />
+      {tiny ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button variant="outline" trailingIcon={ChevronDown} aria-label="View">
+                {VIEW_ITEMS.find((item) => item.value === view)?.label}
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="end" width="sm">
+            <DropdownMenuRadioGroup
+              value={view}
+              onValueChange={(value) => onViewChange(value as CalendarViewParam)}
+            >
+              {VIEW_ITEMS.map((item) => (
+                <DropdownMenuRadioItem key={item.value} value={item.value}>
+                  {item.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <ToggleGroup
+          aria-label="View"
+          value={view}
+          items={VIEW_ITEMS}
+          onValueChange={(value) => onViewChange(value as CalendarViewParam)}
+        />
+      )}
       <div className={styles.stepper}>
         <Button
           variant="ghost"
@@ -83,9 +137,19 @@ export function CalendarHeaderEnd({
           aria-label={previous}
           onClick={() => onStep(-1)}
         />
-        <Button variant="outline" onClick={onToday}>
-          Today
-        </Button>
+        {tiny ? (
+          <Button
+            variant="outline"
+            size="icon"
+            icon={CalendarCheck}
+            aria-label="Today"
+            onClick={onToday}
+          />
+        ) : (
+          <Button variant="outline" onClick={onToday}>
+            Today
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="icon"
@@ -94,9 +158,19 @@ export function CalendarHeaderEnd({
           onClick={() => onStep(1)}
         />
       </div>
-      <Button variant="outline" icon={Plus} onClick={onNewEvent}>
-        New Event
-      </Button>
+      {iconNewEvent ? (
+        <Button
+          variant="outline"
+          size="icon"
+          icon={Plus}
+          aria-label="New Event"
+          onClick={onNewEvent}
+        />
+      ) : (
+        <Button variant="outline" icon={Plus} onClick={onNewEvent}>
+          New Event
+        </Button>
+      )}
     </div>
   );
 }
@@ -129,10 +203,11 @@ export function filterGroups(calendars: readonly Calendar[]): Calendar[][] {
  */
 export function CalendarFilterMenu({
   calendars,
-  hideValue = false,
+  display = 'value',
 }: {
   calendars: readonly Calendar[];
-  hideValue?: boolean;
+  /** "Filter All calendars", "Filter", or the icon alone */
+  display?: 'value' | 'label' | 'icon';
 }) {
   const { size } = useWorkspaceShell();
   const integrations = useQuery(trpc.integrations.list.queryOptions()).data;
@@ -151,14 +226,23 @@ export function CalendarFilterMenu({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button
-            variant="outline"
-            icon={ListFilter}
-            value={filterValue(listed)}
-            hideValue={hideValue || size === 'compact'}
-          >
-            Filter
-          </Button>
+          display === 'icon' ? (
+            <Button
+              variant="outline"
+              size="icon"
+              icon={ListFilter}
+              aria-label={`Filter: ${filterValue(listed)}`}
+            />
+          ) : (
+            <Button
+              variant="outline"
+              icon={ListFilter}
+              value={filterValue(listed)}
+              hideValue={display === 'label' || size === 'compact'}
+            >
+              Filter
+            </Button>
+          )
         }
       />
       <DropdownMenuContent align="start" width="sm" data-testid="calendar-filter">

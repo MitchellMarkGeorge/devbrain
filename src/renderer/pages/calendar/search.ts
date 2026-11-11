@@ -33,6 +33,8 @@ export const calendarSearchSchema = z.object({
   open: optional(sheetItem),
   /** with `open=evt_…` of a series: the clicked occurrence's start in it (ISO) */
   occurrence: optional(z.iso.datetime({ offset: true })),
+  /** with `open=evt_…`: the sheet shows the event's note (Figma `7410:34948`) */
+  sheet: optional(z.enum(['note'])),
 });
 
 export type CalendarSearch = z.infer<typeof calendarSearchSchema>;
@@ -46,6 +48,8 @@ export interface ResolvedCalendarSearch {
   isToday: boolean;
   open: EventId | TaskId | undefined;
   occurrence: Date | undefined;
+  /** the sheet shows the open event's note */
+  eventNote: boolean;
 }
 
 export function resolveCalendarSearch(
@@ -65,6 +69,7 @@ export function resolveCalendarSearch(
       search.occurrence && isId('event', search.open ?? '')
         ? new Date(search.occurrence)
         : undefined,
+    eventNote: search.sheet === 'note' && isId('event', search.open ?? ''),
   };
 }
 
@@ -77,6 +82,6 @@ export function dateParam(date: Date): string {
 export function openEventSearch(
   id: EventId,
   occurrence?: Date,
-): Pick<CalendarSearch, 'open' | 'occurrence'> {
-  return { open: id, occurrence: occurrence?.toISOString() };
+): Pick<CalendarSearch, 'open' | 'occurrence' | 'sheet'> {
+  return { open: id, occurrence: occurrence?.toISOString(), sheet: undefined };
 }

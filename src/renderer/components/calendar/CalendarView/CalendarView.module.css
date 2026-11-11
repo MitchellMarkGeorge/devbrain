@@ -22,6 +22,17 @@
   background: var(--background);
   color: var(--foreground);
 }
+/*
+ * A scrollbar never takes width (README): FullCalendar's scrollers (the hours, a month's "+N more"
+ * popover) scroll without their native bar, as macOS draws them by default, so the day columns
+ * reach the edge and the header needs no gutter for it on any platform
+ */
+.calendar * {
+  scrollbar-width: none;
+}
+.calendar *::-webkit-scrollbar {
+  display: none;
+}
 .calendarView {
   background: var(--background);
 }
@@ -60,6 +71,11 @@
 }
 .allDayHeaderInner {
   min-width: var(--calendar-gutter);
+  /* the row is one line of chips tall even while empty (5px + 22px + 4px + 1px), so the first
+     all-day event to load doesn't grow it and shrink the hours under it mid-layout (a
+     "ResizeObserver loop"). On the label, as FullCalendar holds its cells' min-height at 0 */
+  box-sizing: border-box;
+  min-height: 32px;
   padding: 8px var(--space-2) 0;
   color: var(--subtle-foreground);
   font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
@@ -118,6 +134,7 @@
 .view:not([data-view='month']) .dayCellBottom {
   min-height: 1px;
 }
+
 /* a month cell: 6px in, its date in the top spacer, then the event lines */
 .view[data-view='month'] .dayCellTop {
   padding: var(--space-1-5) var(--space-1-5) var(--space-0-5);

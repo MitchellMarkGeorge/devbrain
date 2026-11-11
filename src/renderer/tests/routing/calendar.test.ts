@@ -5,7 +5,7 @@ import type { WorkspaceId } from '@common/ids';
 import { EventResponse, LinkState, Provider } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
 import { fakeCalendar, fakeEvent, FakeCalendar } from './fake-calendar';
-import { fakeTask, FakeTasks } from './fake-tasks';
+import { fakeNote, fakeTask, FakeTasks } from './fake-tasks';
 import { byText, click, eventually, startApp, stopApps } from './harness';
 
 // The calendar page (/app/$workspaceId/calendar) over a fake main's calendars and events: the
@@ -66,8 +66,7 @@ describe('the calendar page', () => {
     const app = startApp(main, { url: `/app/${WORK}/calendar?date=2026-06-24` });
     await eventually(() => expect(eventEl('Design Review')).toBeDefined());
     expect(page(app.container)?.dataset.view).toBe('week');
-    // a compact window: the short month
-    expect(app.text()).toContain('Jun 2026');
+    expect(app.text()).toContain('June 2026');
     expect(eventEl('Gym')).toBeDefined();
     const reads = main.callsTo('events.listForCalendar').map((call) => call.input as never);
     // the week Monday 22 to Monday 29, per calendar
@@ -90,7 +89,7 @@ describe('the calendar page', () => {
     await eventually(() => expect(page(app.container)?.dataset.view).toBe('month'));
     click(app.container.querySelector('[aria-label="Next month"]'));
     await eventually(() => expect(search(app).get('date')).toBe('2026-07-24'));
-    await eventually(() => expect(app.text()).toContain('Jul 2026'));
+    await eventually(() => expect(app.text()).toContain('July 2026'));
     click(byText(app.container, 'button', 'Today'));
     await eventually(() => expect(search(app).get('date')).toBeNull());
   });
@@ -231,6 +230,64 @@ describe('the calendar page', () => {
     );
     await eventually(() => expect(eventEl('Gym')).toBeUndefined());
     await eventually(() => expect(eventEl('Design Review')).toBeDefined());
+  });
+
+  it('opens the event’s note in the sheet from its card, and goes back to the event', async () => {
+    const tasks = new FakeTasks(
+      [],
+      [],
+      [fakeNote('nte_review', 'Design Review notes', { linkedEventId: 'evt_review' as never })],
+    );
+    tasks.contents.set('nte_review', 'Decided: ship the revamp.');
+    const app = startApp(mainWith(store(), tasks), {
+      url: `/app/${WORK}/calendar?date=2026-06-22&open=evt_review`,
+    });
+    const note = () => document.querySelector<HTMLElement>('[data-testid="event-note"]');
+    await eventually(() => expect(note()?.textContent).toContain('Design Review notes'));
+    click(byText(note()!, '[role="button"], button', 'Design Review notes'));
+    await eventually(() => expect(search(app).get('sheet')).toBe('note'));
+    const view = () => document.querySelector<HTMLElement>('[data-testid="event-note-view"]');
+    await eventually(() => expect(view()?.textContent).toContain('Decided: ship the revamp.'));
+    expect(view()!.textContent).toContain('Design Review');
+    expect(view()!.querySelector('input[aria-label="Note title"]')).toHaveProperty(
+      'value',
+      'Design Review notes',
+    );
+    click(byText(sheet()!, 'button', 'Event'));
+    await eventually(() => expect(search(app).get('sheet')).toBeNull());
+    expect(search(app).get('open')).toBe('evt_review');
+    await eventually(() => expect(view()).toBeNull());
+  });
+
+  it('starts the event’s note from its empty state, or with N', async () => {
+    for (const how of ['button', 'key'] as const) {
+      const main = mainWith(store());
+      const app = startApp(main, {
+        url: `/app/${WORK}/calendar?date=2026-06-22&open=evt_review&sheet=note`,
+      });
+      const view = () => document.querySelector<HTMLElement>('[data-testid="event-note-view"]');
+      await eventually(() => expect(view()?.textContent).toContain('No note for this meeting yet'));
+      if (how === 'button') click(byText(view()!, 'button', 'Start Note'));
+      else {
+        document.body.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'n', code: 'KeyN', bubbles: true, cancelable: true }),
+        );
+      }
+      await eventually(() => expect(main.callsTo('notes.create')).toHaveLength(1));
+      expect(main.callsTo('notes.create')[0].input).toEqual({
+        title: 'Design Review notes',
+        linkedEventId: 'evt_review',
+      });
+      // the note opens in place, not on its own page
+      await eventually(() =>
+        expect(view()?.querySelector('input[aria-label="Note title"]')).toHaveProperty(
+          'value',
+          'Design Review notes',
+        ),
+      );
+      expect(app.path()).toContain('/calendar?');
+      stopApps();
+    }
   });
 
   it('creates an event from New Event', async () => {

@@ -214,14 +214,15 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
   const calendarRef = useRef<CalendarRef>(null);
   useImperativeHandle(ref, () => ({ getApi: () => calendarRef.current!.getApi() }), []);
 
-  // `initialView` and `initialDate` are read once: later changes go through the API
-  const mounted = useRef(false);
+  // `initialView` and `initialDate` are read once: later changes go through the API. Compared
+  // with what was last applied rather than skipped on mount, as StrictMode runs the effect twice
+  // on mount, and a `changeView` then lands while FullCalendar measures its first layout (a
+  // "ResizeObserver loop" error)
   const time = date.getTime();
+  const applied = useRef({ view, time });
   useEffect(() => {
-    if (!mounted.current) {
-      mounted.current = true;
-      return;
-    }
+    if (applied.current.view === view && applied.current.time === time) return;
+    applied.current = { view, time };
     calendarRef.current?.getApi().changeView(FULLCALENDAR_VIEW[view], new Date(time));
   }, [view, time]);
 
