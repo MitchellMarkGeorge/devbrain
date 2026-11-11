@@ -16,7 +16,6 @@ import {
 import {
   TaskStatus,
   type ExternalRef,
-  type RecentEntity,
   type SearchCounts,
   type SearchEntityType,
   type SearchResult,
@@ -60,6 +59,7 @@ import type { ModalProps } from '../../modals';
 import type { EntityRef } from '../app/entities';
 import { GROUP_LABELS, groupResults, nextFilter, withAll, type SearchFilter } from './results';
 import { SearchHighlight } from './SearchHighlight';
+import { useAtRest, type EntityItem } from './use-at-rest';
 import styles from './SearchDialog.module.css';
 
 /**
@@ -87,7 +87,8 @@ const NEW_NOTE = 'note.new';
 
 type Row =
   | { kind: 'result'; key: string; result: SearchResult }
-  | { kind: 'recent'; key: string; recent: RecentEntity }
+  // a recent entity, or a type's latest while nothing is typed; `meta` is its right-hand text
+  | { kind: 'entity'; key: string; item: EntityItem; meta: string }
   | { kind: 'command'; key: string; command: AppCommand; shortcut?: string };
 
 interface ShownSearch {
@@ -165,12 +166,39 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
   const results = shown?.results ?? NO_RESULTS;
   const counts = typed && shownCounts ? withAll(shownCounts) : undefined;
 
-  // Recent and Go to while nothing is typed, and while the dialog's first search runs
+  // Recent and Go to (or a type filter's latest) while nothing is typed, and while the dialog's
+  // first search runs
   const showEmptyQuery = !typed || shown === null;
+  // with a type filter, the type's latest instead of Recent and Go to
+  const atRest = useAtRest(showEmptyQuery && filter !== 'all' ? filter : null);
   const groups = useMemo<Group[]>(() => {
+    if (showEmptyQuery && filter !== 'all') {
+      if (!atRest?.items.length) return [];
+      return [
+        {
+          value: atRest.label,
+          items: atRest.items.map(
+            (item): Row => ({
+              kind: 'entity',
+              key: item.entity.id,
+              item,
+              meta:
+                atRest.by === 'updated'
+                  ? format.formatRelative(item.entity.updatedAt)
+                  : entityMeta(item, format),
+            }),
+          ),
+        },
+      ];
+    }
     if (showEmptyQuery) {
       const recent = (recents.data?.items ?? []).map(
-        (item): Row => ({ kind: 'recent', key: item.entity.id, recent: item }),
+        (item): Row => ({
+          kind: 'entity',
+          key: item.entity.id,
+          item,
+          meta: entityMeta(item, format),
+        }),
       );
       return [
         ...(recent.length ? [{ value: 'Recent', count: recent.length, items: recent }] : []),
@@ -182,7 +210,7 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
       count,
       items: matches.map((result): Row => ({ kind: 'result', key: result.entityId, result })),
     }));
-  }, [showEmptyQuery, recents.data, goTo, results, filter, shownCounts]);
+  }, [showEmptyQuery, atRest, recents.data, goTo, results, filter, shownCounts, format]);
 
   const open = (row: Row) => {
     close();
@@ -190,10 +218,10 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
       case 'result':
         onOpenEntity({ id: row.result.entityId });
         break;
-      case 'recent':
+      case 'entity':
         onOpenEntity({
-          id: row.recent.entity.id,
-          startAt: row.recent.entityType === 'events' ? row.recent.entity.startAt : undefined,
+          id: row.item.entity.id,
+          startAt: row.item.entityType === 'events' ? row.item.entity.startAt : undefined,
         });
         break;
       case 'command':
@@ -210,6 +238,9 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
 
   // the selected type's own search found nothing (while another type's runs, the list waits)
   const noResults = typed && shown !== null && shown.filter === filter && results.length === 0;
+  // a type filter with nothing typed, and none of that type to list
+  const noneAtRest =
+    showEmptyQuery && filter !== 'all' && atRest !== undefined && atRest.items.length === 0;
 
   return (
     <CommandDialog {...props}>
@@ -244,6 +275,13 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
               ]}
             />
           </CommandToolbar>
+          {noneAtRest && (
+            <CommandEmpty>
+              {filter === 'event'
+                ? 'No events viewed yet'
+                : `No ${GROUP_LABELS[filter].toLowerCase()} yet`}
+            </CommandEmpty>
+          )}
           {noResults && (
             <CommandEmpty>
               <EmptyState
@@ -294,9 +332,7 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
                 count={group.count}
               >
                 <CommandCollection>
-                  {(row: Row) => (
-                    <SearchRow key={row.key} row={row} format={format} onOpen={open} />
-                  )}
+                  {(row: Row) => <SearchRow key={row.key} row={row} onOpen={open} />}
                 </CommandCollection>
               </CommandGroup>
             )}
@@ -341,15 +377,7 @@ function useGoToRows(): Row[] {
   );
 }
 
-function SearchRow({
-  row,
-  format,
-  onOpen,
-}: {
-  row: Row;
-  format: Format;
-  onOpen: (row: Row) => void;
-}) {
+function SearchRow({ row, onOpen }: { row: Row; onOpen: (row: Row) => void }) {
   const shared = { value: row, onClick: () => onOpen(row) };
   switch (row.kind) {
     case 'result': {
@@ -366,21 +394,19 @@ function SearchRow({
         </CommandItem>
       );
     }
-    case 'recent': {
-      const { recent } = row;
-      const { entity } = recent;
-      const status = recent.entityType === 'tasks' ? recent.entity.status : null;
+    case 'entity': {
+      const { item } = row;
+      const { entity } = item;
+      const status = item.entityType === 'tasks' ? item.entity.status : null;
       const color =
-        recent.entityType === 'projects' || recent.entityType === 'events'
-          ? recent.entity.color
-          : null;
+        item.entityType === 'projects' || item.entityType === 'events' ? item.entity.color : null;
       return (
         <CommandItem
           {...shared}
           variant="result"
-          icon={entityIcon(TYPE_OF[recent.entityType], status, color)}
+          icon={entityIcon(TYPE_OF[item.entityType], status, color)}
           trailing={'external' in entity ? sourcePill(entity.external) : undefined}
-          meta={recentMeta(recent, format)}
+          meta={row.meta}
         >
           {entity.title || 'Untitled'}
         </CommandItem>
@@ -395,14 +421,14 @@ function SearchRow({
   }
 }
 
-const TYPE_OF: Record<RecentEntity['entityType'], SearchEntityType> = {
+const TYPE_OF: Record<EntityItem['entityType'], SearchEntityType> = {
   tasks: 'task',
   notes: 'note',
   projects: 'project',
   events: 'event',
 };
 
-const TYPE_NAMES: Record<RecentEntity['entityType'], string> = {
+const TYPE_NAMES: Record<EntityItem['entityType'], string> = {
   tasks: 'Task',
   notes: 'Note',
   projects: 'Project',
@@ -410,9 +436,9 @@ const TYPE_NAMES: Record<RecentEntity['entityType'], string> = {
 };
 
 // a recent row's right side: an event's day and time ("Today 10:30 AM"), else what it is
-function recentMeta(recent: RecentEntity, format: Format): string {
-  if (recent.entityType !== 'events') return TYPE_NAMES[recent.entityType];
-  const { startAt, allDay } = recent.entity;
+function entityMeta(item: EntityItem, format: Format): string {
+  if (item.entityType !== 'events') return TYPE_NAMES[item.entityType];
+  const { startAt, allDay } = item.entity;
   return allDay
     ? format.formatDue(startAt)
     : `${format.formatDue(startAt)} ${format.formatTime(startAt)}`;
