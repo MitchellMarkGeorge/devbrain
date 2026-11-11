@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { Calendar, Folder, House, Settings, Trash2, Zap } from 'lucide-react';
+import { Calendar, Folder, Settings, Trash2, Zap } from 'lucide-react';
 import { trpc } from '../../ipc';
 import { PlaceholderPage } from './PlaceholderPage';
 
@@ -8,24 +8,12 @@ import { PlaceholderPage } from './PlaceholderPage';
 // route and the page read the same cache entry.
 
 export const pageQueries = {
-  home: () => trpc.recents.list.queryOptions({ limit: 10 }),
   projects: () => trpc.projects.list.queryOptions({ limit: 50 }),
   calendar: () => trpc.calendars.list.queryOptions(),
   integrations: () => trpc.integrations.list.queryOptions(),
   trash: () => trpc.archive.listArchived.queryOptions({ limit: 50 }),
   settings: () => trpc.settings.get.queryOptions(),
 };
-
-export function HomePage() {
-  const { data } = useSuspenseQuery(pageQueries.home());
-  return (
-    <PlaceholderPage
-      icon={House}
-      empty="Nothing opened yet"
-      rows={data.items.map(({ entity }) => ({ id: entity.id, title: entity.title }))}
-    />
-  );
-}
 
 export function ProjectsPage() {
   const { data } = useSuspenseQuery(pageQueries.projects());

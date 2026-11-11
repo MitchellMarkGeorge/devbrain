@@ -115,16 +115,19 @@ export interface HomeMeetingRowProps extends Omit<
   event: HomeMeetingData;
   /** the calendar's colour, for an event with none of its own */
   calendarColor?: string | null;
-  /** the "Join" button on the current meeting, when it has a meeting link */
+  /**
+   * shows the "Join" button, when the event has a meeting link: pass it from 5 minutes before the
+   * start until the end
+   */
   onJoin?: () => void;
 }
 
 /**
  * A meeting in Home's Meetings section, drawn from core's `Event`: the calendar's colour bar, the
  * title, and when it is, from `useFormat()`. The `current` meeting (the next or running one) is
- * filled, shows Join when it has a meeting link, and counts down ("In 12m", "Now") in
+ * filled and counts down ("In 12m", "Now") in
  * `date-today`; later meetings show their start ("10:30 AM"), and another day's its weekday too
- * ("Tue 9:30 AM", dim it with `muted`).
+ * ("Tue 9:30 AM", dim it with `muted`). With `onJoin` and a meeting link it shows Join.
  */
 export const HomeMeetingRow = forwardRef<HTMLDivElement, HomeMeetingRowProps>(
   function HomeMeetingRow({ event, calendarColor, onJoin, current, ...props }, ref) {
@@ -148,7 +151,7 @@ export const HomeMeetingRow = forwardRef<HTMLDivElement, HomeMeetingRowProps>(
         metaTone={current ? 'today' : undefined}
         {...props}
       >
-        {current && event.meetingUrl && (
+        {onJoin && event.meetingUrl && (
           <Button size="xs" icon={Video} onClick={onJoin}>
             Join
           </Button>

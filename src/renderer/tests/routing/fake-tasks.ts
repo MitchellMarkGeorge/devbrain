@@ -100,6 +100,7 @@ type Filter = {
   excludeSubtasks?: boolean;
   noDueDate?: boolean;
   noteId?: NoteId | null;
+  dueBefore?: Date;
 };
 
 type NoteFilter = {
@@ -135,7 +136,9 @@ export class FakeTasks {
         (!filter.excludeClosed || !CLOSED.includes(task.status)) &&
         (!filter.excludeSubtasks || task.parentTaskId === null) &&
         (!filter.noDueDate || task.dueDate === null) &&
-        (filter.noteId === undefined || task.linkedNoteId === filter.noteId),
+        (filter.noteId === undefined || task.linkedNoteId === filter.noteId) &&
+        (filter.dueBefore === undefined ||
+          (task.dueDate !== null && task.dueDate < filter.dueBefore)),
     );
   }
 

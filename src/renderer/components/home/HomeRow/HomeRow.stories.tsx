@@ -36,13 +36,17 @@ type Story = StoryObj<typeof meta>;
 export const Default: Story = {};
 
 /**
- * Meetings, from core's events at 9:48 AM: the next meeting filled with `card`, with Join and its
- * countdown; later ones by their start; tomorrow's first meeting dimmed with its weekday.
+ * Meetings, from core's events at 9:48 AM: the next meeting filled with `card`, with its countdown
+ * and Join (the page passes `onJoin` from 5 minutes before the start); later ones by their start; tomorrow's first meeting dimmed with its weekday.
  */
 export const Meetings: Story = {
   render: () => (
     <div>
-      <HomeMeetingRow current event={meeting('Sprint Planning', storyDate(0, 10), 'green', true)} />
+      <HomeMeetingRow
+        current
+        event={meeting('Sprint Planning', storyDate(0, 10), 'green', true)}
+        onJoin={() => {}}
+      />
       <HomeMeetingRow event={meeting('Mitchell / Jesse 1:1', storyDate(0, 10, 30), 'green')} />
       <HomeMeetingRow event={meeting('Design Review', storyDate(0, 13), 'blue')} />
       <HomeMeetingRow muted event={meeting('Daily Standup', storyDate(1, 9, 30), 'green')} />

@@ -13,6 +13,8 @@ import {
   type AppSettings,
   type SearchCounts,
   type SearchResult,
+  type Event,
+  type Integration,
   type WorkspaceInfo,
 } from '@common/types';
 import { fakeNote, fakeTask, FakeTasks } from './fake-tasks';
@@ -105,6 +107,13 @@ export class FakeMain {
   searchResults: SearchResult[] = [];
   // what search.counts answers; counted from searchResults when null
   searchCounts: SearchCounts | null = null;
+  // the calendar's events (every workspace's), and what events.create adds
+  readonly calendarEvents: Event[] = [];
+  // the integrations, over the one-row page every list route answers by default
+  integrations: Integration[] | null = null;
+  // projects.list answers with the open workspace's own projects, even none, rather than the
+  // one-row page
+  storeProjects = false;
   // what workspaces.importFolder answers next: a folder's workspace, null (cancelled) or an error
   importResult: FakeWorkspace | null | RemoteError = null;
   private readonly listeners = new Map<string, Set<(payload: unknown) => void>>();
@@ -350,6 +359,8 @@ export class FakeMain {
       return [{ items: this.tasksOf().listNotes(filter as never), nextCursor: null }, []];
     }
     if (path.startsWith('notes.') && path !== 'notes.list') return this.answerNotes(path, args);
+    const home = this.answerHome(path, args);
+    if (home) return home;
     if (PAGE_ROUTES.has(path)) return [this.page(path), []];
     if (path.startsWith('tasks.') || path.startsWith('archive.'))
       return this.answerTasks(path, args);
@@ -418,12 +429,68 @@ export class FakeMain {
         for (const { entityType } of this.searchResults) counts[entityType] += 1;
         return [this.searchCounts ?? counts, []];
       }
-      case 'events.listForCalendar':
-        return [[], []];
       case 'events.get':
         throw new RemoteError('not_found', `${String(args.id)} not found`);
       default:
         throw new RemoteError('internal', `No route ${path} in the fake main`);
+    }
+  }
+
+  // what Home reads beyond the page routes: a workspace's own projects and notes when it has
+  // some, the calendar's events, the integrations set, and project stats
+  private answerHome(
+    path: string,
+    args: Record<string, unknown>,
+  ): [unknown, ChangedEntity[]] | undefined {
+    const store = this.open ? this.taskStores.get(this.open) : undefined;
+    const page = <T>(items: T[]) => ({ items, nextCursor: null });
+    switch (path) {
+      case 'projects.list': {
+        if (!store || (!this.storeProjects && !store.projects.length)) return undefined;
+        const dueBefore = (args.filter as { dueBefore?: Date } | undefined)?.dueBefore;
+        const projects = store.projects.filter(
+          (p) => !dueBefore || (p.dueDate !== null && p.dueDate < dueBefore),
+        );
+        return [page(projects), []];
+      }
+      case 'recents.list':
+        if (args.entityType !== 'notes' || !store?.notes.length) return undefined;
+        return [
+          page(
+            store.notes.map((note) => ({
+              entityType: 'notes',
+              entity: note,
+              viewedAt: note.updatedAt,
+            })),
+          ),
+          [],
+        ];
+      case 'integrations.list':
+        return this.integrations ? [this.integrations, []] : undefined;
+      case 'projects.stats':
+        return [
+          {
+            numOfNotStarted: 0,
+            numOfInProgress: 0,
+            numOfCompleted: 0,
+            numOfCancelled: 0,
+            numOfOverdue: 0,
+            totalTasks: 0,
+          },
+          [],
+        ];
+      case 'events.listForCalendar':
+        return [this.calendarEvents, []];
+      case 'events.create': {
+        const created = {
+          id: `evt_new${this.calendarEvents.length + 1}`,
+          ...args,
+        } as unknown as Event;
+        this.calendarEvents.push(created);
+        return [created, ['event']];
+      }
+      default:
+        return undefined;
     }
   }
 

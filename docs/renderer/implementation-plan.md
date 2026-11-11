@@ -16,7 +16,7 @@ the `Screens/*` stories, `docs/design-system/README.md`, `docs/ipc/design.md` an
 > Recents, Favorites and sync in the sidebar, the page header slot, `FormatProvider`) and
 > milestone 4 (Tasks: list, group and board views, the task sheet, the task page, Create task and
 > Create subtask), milestone 5 (Notes: list and cards, the note page with autosave and its tasks,
-> `useEntityResolver`) and milestone 9 (⌘K search, with R1) are built, with the
+> `useEntityResolver`), milestone 8 (Home) and milestone 9 (⌘K search, with R1) are built, with the
 > **URL-driven workspace model** ([routing.md](routing.md)): every page in a workspace is under
 > `/app/<its id>/…`, main picks the window's first URL, and switching is navigating. Revised after
 > review (Nov 6 2026): FullCalendar for the calendar, `/app/trash`, a create-workspace dialog
@@ -1354,8 +1354,28 @@ linkedTaskId } })`), separate from the task's event or note link. Convert to pro
    tests (settle the adapter spec's `TZID` checks first); week/day/month from the URL; right panel
    and agenda; event sheet with occurrence editing; create event dialog; visibility filter. _Main:_
    K0.
-8. **Home.** Summary/section logic with tests over fixed `now`s, capture box with parsing, the
-   time-aware rows.
+8. **Home (done).** Summary/section logic with tests over fixed `now`s, capture box with parsing, the
+   time-aware rows. As built (`src/renderer/pages/home`):
+   - `summary.ts` chooses the greeting, the summary sentence and the one section. A meeting
+     counts as now from an hour before its start (so a meeting in 12 minutes wins over overdue
+     tasks, as Figma's Home frame shows); tasks due today or overdue are now; a project is due on
+     its day. Ties go Meetings, Tasks, Projects. Only today's meetings choose Meetings; tomorrow's
+     first one is the dimmed last row. With nothing coming up: recent notes, then recent projects
+     (`projects.list` by `updatedAt`), then Get started, whose rows go as each step is done.
+     All-day events, focus time, out of office and declined invitations aren't meetings.
+   - "New" (the "Welcome to ‹name›" greeting and the first-run copy) is a workspace with no
+     tasks, projects, viewed notes, meetings today or tomorrow, or integrations.
+   - The clock is `FormatProvider`'s minute clock (`useFormat('minute')`), not a second timer;
+     the reads are keyed by `useFormat('day')`'s day, so they re-key at midnight and keep the
+     previous day's data up until the new day's arrives.
+   - `capture.ts` reads a date (through `parseNaturalDate`), an event's time and a `#project`
+     (the longest title that matches), the last of each when named twice; a pick in a picker wins
+     over the text. An event without a time starts at the next half hour (9 AM on another day),
+     lasting `calendar.defaultEventDuration`.
+   - Join shows from 5 minutes before the start until the end (`HomeMeetingRow` shows it when
+     given `onJoin`), and opens the link through `workspace.openUrl`.
+   - Start a project goes to Projects until the Create project dialog lands; Connect goes to
+     Integrations, without opening its connect dialog yet.
 9. **Search (⌘K) (done)** with recents and Go to commands. _Main:_ R1, R4. As built
    (`src/renderer/pages/search`):
    - `SearchDialog`, shown with `useOpenSearch` by the `search.open` command (⌘K) and the

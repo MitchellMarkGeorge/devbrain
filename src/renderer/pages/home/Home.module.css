@@ -1,0 +1,41 @@
+/* Home's one centred column (README, "Home"): the header, the capture box 28px below the
+   summary, the section 28px below the tip, and the footer 32px below */
+.column {
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.logomark {
+  width: 48px;
+  margin-bottom: 20px;
+}
+
+.summary {
+  max-width: 680px;
+  margin-top: 10px;
+}
+
+.section {
+  margin-top: 28px;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: var(--space-8);
+}
+
+.search {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+}
