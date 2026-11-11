@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import type { Editor } from '@tiptap/core';
 import { TaskStatus } from '@common/types';
 import { RichTextEditor, type RichTextEditorProps } from '../../editor/RichTextEditor';
+import { setLinkEditing } from '../../editor/extensions/editor-host';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -269,5 +270,26 @@ describe('RichTextEditor', () => {
     expect(dom.hasAttribute('aria-activedescendant')).toBe(false);
     // the editor's own attributes stay
     expect(dom.getAttribute('aria-label')).toBe('Note');
+  });
+
+  it('closes the link editor when focus goes back to the text, so the format toolbar returns', async () => {
+    render({ value: 'Some text to link' });
+    await act(async () => {
+      editor.chain().focus().setTextSelection({ from: 6, to: 10 }).run();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      // ⌘K, or the toolbar's Link, with the text focused
+      setLinkEditing(editor, true);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    const field = document.querySelector<HTMLInputElement>('[aria-label="Link address"]')!;
+    expect(field).not.toBeNull();
+    await act(async () => {
+      field.focus();
+      // a click back in the text
+      editor.view.dom.focus();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(editor.storage.editorHost.linkEditing).toBe(false);
+    expect(document.querySelector('[aria-label="Link address"]')).toBeNull();
   });
 });

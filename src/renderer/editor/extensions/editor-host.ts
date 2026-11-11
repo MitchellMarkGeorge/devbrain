@@ -46,6 +46,12 @@ export const EditorHostExtension = Extension.create({
         setLinkEditing(editor, true);
         return true;
       },
+      // Escape in the text closes a link editor left open; otherwise it is the app's
+      Escape: ({ editor }) => {
+        if (!editor.storage.editorHost.linkEditing) return false;
+        setLinkEditing(editor, false);
+        return true;
+      },
     };
   },
 
