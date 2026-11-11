@@ -35,6 +35,11 @@ export interface NoteListProps<Note extends NoteListRow = NoteListRow> extends O
   endReachedThreshold?: number;
   /** opens a note: a click on its row, or Enter */
   onOpen?: (note: Note) => void;
+  /** the selected rows' ids, when controlled */
+  selected?: string[];
+  /** the rows selected at first, when uncontrolled */
+  defaultSelected?: string[];
+  onSelectedChange?: (selected: string[]) => void;
   /** the focused row's id, when controlled; the first row by default */
   focusedId?: string;
   onFocusedIdChange?: (id: string) => void;
@@ -42,8 +47,7 @@ export interface NoteListProps<Note extends NoteListRow = NoteListRow> extends O
 
 /**
  * What the list can do, for the app's keyboard commands (`ref`): it binds no keys itself beyond a
- * row's Enter, so a keymap moves focus through these. Notes have no selection: `selectedItems` is
- * always empty, and the selection commands do nothing.
+ * row's Enter and X, so a keymap moves focus and selects through these.
  */
 export interface NoteListHandle<Note extends NoteListRow = NoteListRow> {
   focusedItem(): Note | undefined;
@@ -58,9 +62,11 @@ export interface NoteListHandle<Note extends NoteListRow = NoteListRow> {
 /**
  * A virtualized list of `NoteRow`s: the Notes page's list view over every note in a workspace. It
  * is its own scroller, filling the height its container gives it, and draws only the rows in view
- * (and about ten either side); rows are `row-height`. The focused row is kept as a note id, so it
- * survives scrolling out of view, and the list is one tab stop. Each row carries `data-note-id`,
- * for a page's right-click menu to find its note.
+ * (and about ten either side); rows are `row-height`. Rows select as `TaskList`'s do: a checkbox on
+ * hover and focus, on every row while anything is selected, and selected rows next to each other
+ * join into one block. The page draws the `SelectionBar`. Focus and selection are kept as note
+ * ids, so they survive a row scrolling out of view, and the list is one tab stop. Each row carries
+ * `data-note-id`, for a page's right-click menu to find its note.
  */
 function NoteListInner<Note extends NoteListRow>(
   {
@@ -71,6 +77,9 @@ function NoteListInner<Note extends NoteListRow>(
     onOpen,
     focusedId: focusedIdProp,
     onFocusedIdChange,
+    selected: selectedProp,
+    defaultSelected = [],
+    onSelectedChange,
     className,
     style,
     onFocus,
@@ -80,6 +89,24 @@ function NoteListInner<Note extends NoteListRow>(
 ) {
   const listRef = useRef<HTMLDivElement>(null);
   const [focusedState, setFocusedState] = useState<string | undefined>(undefined);
+  const [selectedState, setSelectedState] = useState<string[]>(defaultSelected);
+  const selected = new Set(selectedProp ?? selectedState);
+  const setSelected = (next: Set<string>) => {
+    const ids = [...next];
+    setSelectedState(ids);
+    onSelectedChange?.(ids);
+  };
+  const toggle = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelected(next);
+  };
+  const isSelectedAt = (index: number) => {
+    const note = notes[index];
+    return note !== undefined && selected.has(note.id);
+  };
+  const count = notes.filter((note) => selected.has(note.id)).length;
   const indexOfId = useCallback(
     (id: string | undefined) => (id == null ? -1 : notes.findIndex((note) => note.id === id)),
     [notes],
@@ -130,12 +157,14 @@ function NoteListInner<Note extends NoteListRow>(
     };
     return {
       focusedItem: () => notes[indexOfId(focusedId)],
-      selectedItems: () => [],
+      selectedItems: () => notes.filter((note) => selected.has(note.id)),
       moveFocus: (by) => focusAt(Math.max(0, indexOfId(focusedId)) + by),
       focusFirst: () => focusAt(0),
       focusLast: () => focusAt(notes.length - 1),
-      toggleSelected: () => {},
-      clearSelection: () => {},
+      toggleSelected: () => {
+        if (focusedId) toggle(focusedId);
+      },
+      clearSelection: () => setSelected(new Set()),
     };
   });
 
@@ -156,6 +185,7 @@ function NoteListInner<Note extends NoteListRow>(
       viewportClassName={styles.viewport}
       viewportProps={{
         role: 'grid',
+        'aria-multiselectable': true,
         'aria-rowcount': rowCount ?? notes.length,
         tabIndex: focusedDrawn || !focusedId ? -1 : 0,
         onFocus: handleFocus,
@@ -170,6 +200,7 @@ function NoteListInner<Note extends NoteListRow>(
           const note = notes[item.index];
           if (!note) return null;
           const id = note.id;
+          const on = isSelectedAt(item.index);
           return (
             <NoteRow
               key={item.key}
@@ -186,6 +217,11 @@ function NoteListInner<Note extends NoteListRow>(
               onFocus={() => {
                 if (id !== focusedId) setFocused(id);
               }}
+              selected={on}
+              selecting={count > 0}
+              joinPrev={on && isSelectedAt(item.index - 1)}
+              joinNext={on && isSelectedAt(item.index + 1)}
+              onSelect={() => toggle(id)}
               onOpen={onOpen && (() => onOpen(note))}
             />
           );

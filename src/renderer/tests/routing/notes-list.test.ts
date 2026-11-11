@@ -131,6 +131,19 @@ describe('the notes list', () => {
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes/nte_pkce`));
   });
 
+  it('says "Empty note" on a card with no text', async () => {
+    const { app } = notesPage('?view=card');
+    await eventually(() =>
+      expect(app.container.querySelector('[data-note-id="nte_pkce"]')).not.toBeNull(),
+    );
+    expect(app.container.querySelector('[data-note-id="nte_pkce"]')!.textContent).toContain(
+      'Empty note',
+    );
+    expect(app.container.querySelector('[data-note-id="nte_plan"]')!.textContent).not.toContain(
+      'Empty note',
+    );
+  });
+
   it('favorites and trashes from the row menu', async () => {
     const { main } = notesPage();
     await eventually(() => expect(row('Launch plan')).toBeDefined());
@@ -170,6 +183,60 @@ describe('the notes list', () => {
     await eventually(() => expect(row('Launch plan')!.tabIndex).toBe(0));
     key(row('Launch plan')!, 'Enter');
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes/nte_plan`));
+  });
+});
+
+describe('selecting notes', () => {
+  const bar = () => document.querySelector('[role="toolbar"][aria-label="Selected notes"]');
+  const check = (title: string) => row(title)!.querySelector<HTMLElement>('[role="checkbox"]')!;
+
+  it('selects rows with their checkbox, and shows the selection bar', async () => {
+    notesPage();
+    await eventually(() => expect(row('Launch plan')).toBeDefined());
+    expect(bar()).toBeNull();
+    click(check('Launch plan'));
+    click(check('PKCE design notes'));
+    await eventually(() => expect(bar()?.textContent).toContain('2 selected'));
+    expect(row('Launch plan')!.getAttribute('aria-selected')).toBe('true');
+    click(bar()!.querySelector('[aria-label="Clear selection"]'));
+    await eventually(() => expect(bar()).toBeNull());
+  });
+
+  it('selects the focused row with X', async () => {
+    notesPage();
+    await eventually(() => expect(row('Jesse 1:1')).toBeDefined());
+    row('Jesse 1:1')!.focus();
+    await eventually(() => expect(row('Jesse 1:1')!.tabIndex).toBe(0));
+    key(row('Jesse 1:1')!, 'x');
+    await eventually(() => expect(bar()?.textContent).toContain('1 selected'));
+  });
+
+  it('favorites every selected note, then trashes them all from the bar', async () => {
+    const { main } = notesPage();
+    await eventually(() => expect(row('Launch plan')).toBeDefined());
+    click(check('Launch plan'));
+    click(check('Jesse 1:1'));
+    await eventually(() => expect(bar()).not.toBeNull());
+    click(byText(bar()!, 'button', 'Favorite'));
+    await eventually(() =>
+      expect(main.callsTo('notes.setFavorite').map((call) => call.input)).toEqual([
+        { id: 'nte_plan', favorite: true },
+        { id: 'nte_1on1', favorite: true },
+      ]),
+    );
+    click(bar()!.querySelector('[aria-label="More actions"]'));
+    await eventually(() =>
+      expect(byText(document.body, '[role="menuitem"]', 'Move to trash')).not.toBeNull(),
+    );
+    click(byText(document.body, '[role="menuitem"]', 'Move to trash'));
+    await eventually(() =>
+      expect(main.callsTo('archive.archiveNote').map((call) => call.input)).toEqual([
+        { id: 'nte_plan' },
+        { id: 'nte_1on1' },
+      ]),
+    );
+    await eventually(() => expect(bar()).toBeNull());
+    await eventually(() => expect(row('Launch plan')).toBeUndefined());
   });
 });
 

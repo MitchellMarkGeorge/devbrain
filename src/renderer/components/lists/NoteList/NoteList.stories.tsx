@@ -36,5 +36,8 @@ type Story = StoryObj<typeof meta>;
 /** The Notes list view (Figma `7158:11693`): a row per note, newest edit first. */
 export const Default: Story = {};
 
+/** Two rows next to each other selected: they join into one block, and every row shows its checkbox. */
+export const Selected: Story = { args: { defaultSelected: [NOTES[1].id, NOTES[2].id] } };
+
 /** 1,000 notes: about 30 rows are drawn, and the scrollbar is the whole list's. */
 export const Long: Story = { args: { notes: MANY } };

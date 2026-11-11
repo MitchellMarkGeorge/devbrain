@@ -1314,9 +1314,12 @@ linkedTaskId } })`), separate from the task's event or note link. Convert to pro
    - Layout as Tasks': `search.ts`, `queries.ts`, `loaders.ts`, `use-note-actions.ts`,
      `use-create-note.ts` at the root; `views/` the Notes page (list and cards); `detail/` the
      note page; `menus/` the row menu and the link and task pickers.
-   - The list is a new design-system `NoteList` (virtualized `NoteRow`s, focus by id, no
-     selection: notes have no bulk actions); the cards are `VirtualCardGrid`. The list keys open
-     (↵), favorite (F) and trash (⌘⌫) the focused row.
+   - The list is a new design-system `NoteList` (virtualized `NoteRow`s, focus and selection by
+     id, as `TaskList`'s); the cards are `VirtualCardGrid`. Selected rows show a selection bar
+     with Move (project), Favorite and Move to trash, run one note at a time (no bulk note
+     routes). The list keys open (↵), select (X), favorite (F) and trash (⌘⌫) the selection or
+     the focused row. `SelectionBar` now animates in and out (`open`), for tasks too.
+   - A card with no text says "Empty note"; a row or card with no title says "Untitled".
    - `link=event` / `link=task` needed a core filter, `linkedTo` (any event, any task); `link=none`
      is both links null.
    - New Note, N and the sidebar's compose button (now New note, N) create an empty note and open

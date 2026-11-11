@@ -17,6 +17,7 @@ import { noteListQuery } from '../queries';
 import { hasFilters, noteListInput, type NotesSearch, type ResolvedNotesSearch } from '../search';
 import { useNoteActions } from '../use-note-actions';
 import { NotesEmptyState, NotesErrorState, NotesLoading } from './NotesStates';
+import { NotesSelectionBar } from './NotesSelectionBar';
 import styles from './NotesView.module.css';
 
 export interface NotesViewProps {
@@ -29,7 +30,9 @@ export interface NotesViewProps {
 /**
  * The notes, as a list (Figma `7158:11693`) or cards (`7158:12276`), over `notes.list`'s pages,
  * loading the next as the end comes near. A row or card opens its note; right-click shows its menu
- * (`7175:29569`); in the list, the list keys move, open (↵), favorite (F) and trash (⌘⌫).
+ * (`7175:29569`). In the list, rows select (their checkbox, or X) with the selection bar over the
+ * bottom, and the list keys move, open (↵), favorite (F) and trash (⌘⌫) the selection or the
+ * focused row.
  */
 export function NotesView({ resolved, search, onClearFilters, onNewNote }: NotesViewProps) {
   const query = useInfiniteQuery(noteListQuery(noteListInput(resolved)));
@@ -45,12 +48,18 @@ export function NotesView({ resolved, search, onClearFilters, onNewNote }: Notes
     if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
   };
 
+  // the selected notes, by id; on the list view only
+  const [selected, setSelected] = useState<string[]>([]);
+  const selectedNotes = notes.filter((note) => selected.includes(note.id));
+
+  // the selected rows, or the focused one
   useListCommands(list, {
     open,
-    toggleFavorite: (rows) => rows.forEach((note) => actions.toggleFavorite(note)),
-    trash: (rows) => {
-      if (rows[0]) void actions.trash(rows[0]);
-    },
+    toggleFavorite: (rows) => actions.toggleFavorite(rows),
+    trash: (rows) =>
+      void actions.trash(rows).then((moved) => {
+        if (moved) setSelected([]);
+      }),
   });
 
   if (query.isPending) return <NotesLoading view={resolved.view} />;
@@ -102,8 +111,15 @@ export function NotesView({ resolved, search, onClearFilters, onNewNote }: Notes
               ref={list}
               notes={notes}
               aria-label="Notes"
+              selected={selected}
+              onSelectedChange={setSelected}
               onOpen={open}
               onEndReached={more}
+            />
+            <NotesSelectionBar
+              notes={selectedNotes}
+              actions={actions}
+              onClear={() => setSelected([])}
             />
           </KeyScope>
         )}

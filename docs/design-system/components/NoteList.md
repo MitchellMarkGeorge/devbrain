@@ -12,10 +12,13 @@ are core's `NoteListItem`s as they are (`NoteListRow`: a `NoteRow`'s fields and 
   of the end, once per length of the list: where a page calls `fetchNextPage()`.
 - **Focus.** The focused row is kept as a note id, so it survives scrolling away; the list is one
   tab stop (the focused row, or the list while that row is out of view). It binds no keys but a
-  row's Enter (`onOpen`): the app's keymap moves focus through its `ref` (`NoteListHandle`, a
-  `ListKeyTarget` for `useListCommands`).
-- **No selection.** Notes have no bulk actions, so rows have no checkbox and `selectedItems()` is
-  empty.
+  row's Enter (`onOpen`) and X: the app's keymap moves focus and selects through its `ref`
+  (`NoteListHandle`, a `ListKeyTarget` for `useListCommands`).
+- **Selection**, as `TaskList`'s: each row's checkbox shows on hover and focus, and on every row
+  while anything is selected; selected rows next to each other join into one block. X on the
+  focused row toggles it. Controlled with `selected` and `onSelectedChange` (note ids), or not,
+  with `defaultSelected`. The list draws no `SelectionBar`: the page puts one over its bottom
+  with the actions notes have.
 - **Menus.** Each row carries `data-note-id`, so a page's `ContextMenu` around the list finds the
   note a right-click was on.
 - **Accessibility.** `role="grid"` with `aria-rowcount` (pass `rowCount` when a count knows the

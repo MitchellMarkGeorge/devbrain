@@ -103,7 +103,7 @@ function NotePageContent({ note }: { note: Note }) {
   }
 
   async function trash() {
-    if (!(await actions.trash(note))) return;
+    if (!(await actions.trash([note]))) return;
     if (canGoBack) router.history.back();
     else void navigate({ to: '/app/$workspaceId/notes', params: { workspaceId }, replace: true });
   }
@@ -129,7 +129,7 @@ function NotePageContent({ note }: { note: Note }) {
           <>
             <PageFavoriteButton
               favorite={note.favoritedAt !== null}
-              onFavoriteChange={(favorite) => actions.setFavorite(note, favorite)}
+              onFavoriteChange={(favorite) => actions.setFavorite([note], favorite)}
             />
             <NoteDetailMenu note={note} actions={actions} onTrash={() => void trash()} />
           </>

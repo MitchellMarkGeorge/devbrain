@@ -76,7 +76,7 @@ export function NotePills({
       <ProjectPill
         value={note.projectId}
         placeholder="Add to project"
-        onChange={(projectId) => actions.setProject(note, projectId)}
+        onChange={(projectId) => actions.setProject([note], projectId)}
       />
       <LinkPill note={note} />
       {summary ? (

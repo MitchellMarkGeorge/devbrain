@@ -440,8 +440,9 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           );
         })}
       </div>
-      {selectionBar && count > 0 && (
+      {selectionBar && (
         <SelectionBar
+          open={count > 0}
           count={count}
           floating={floatingBar}
           className={styles.bar}

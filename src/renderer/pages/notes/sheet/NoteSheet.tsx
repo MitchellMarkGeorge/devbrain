@@ -148,7 +148,7 @@ function NoteSheetBody({ note }: { note: Note }) {
         <ProjectPill
           value={note.projectId}
           placeholder="Add to project"
-          onChange={(projectId) => actions.setProject(note, projectId)}
+          onChange={(projectId) => actions.setProject([note], projectId)}
         />
       </div>
       <SheetDivider />

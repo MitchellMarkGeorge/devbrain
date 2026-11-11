@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { Button } from '../../ui/Button';
 import { Copy, Folder, Trash2 } from 'lucide-react';
 import { DropdownMenuItem, DropdownMenuSeparator } from '../../ui/DropdownMenu';
 import { SelectionBar } from './SelectionBar';
@@ -36,4 +38,26 @@ export const WithMoreMenu: Story = {
       </div>
     ),
   ],
+};
+
+/** It rises and fades in as rows are selected, and sinks back as the selection clears. */
+export const Animated: Story = {
+  render: function Render(args) {
+    const [count, setCount] = useState(0);
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'start' }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button size="sm" onClick={() => setCount((n) => n + 1)}>
+            Select a row
+          </Button>
+          <Button size="sm" onClick={() => setCount(0)}>
+            Clear
+          </Button>
+        </div>
+        <div style={{ height: 48 }}>
+          <SelectionBar {...args} open={count > 0} count={count} onClear={() => setCount(0)} />
+        </div>
+      </div>
+    );
+  },
 };

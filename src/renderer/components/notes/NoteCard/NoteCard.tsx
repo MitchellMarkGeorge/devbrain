@@ -28,8 +28,9 @@ export type NoteCardData = Pick<
 
 export interface NoteCardProps extends Omit<useRender.ComponentProps<'div'>, 'title'> {
   /**
-   * core's note as it is: its title, its preview (three lines, two with a pill, one at `sm`), when
-   * it was edited, and the pill of what it links to (else its project; never at `sm`)
+   * core's note as it is: its title, its preview (three lines, two with a pill, one at `sm`; "Empty
+   * note" when it has none), when it was edited, and the pill of what it links to (else its
+   * project; never at `sm`)
    */
   note: NoteCardData;
   /**
@@ -73,8 +74,14 @@ export const NoteCard = forwardRef<HTMLDivElement, NoteCardProps>(function NoteC
               <Icon icon={FileText} />
               <span>{formatRelative(note.updatedAt)}</span>
             </div>
-            <div className={styles.title}>{note.title}</div>
-            <div className={styles.preview}>{note.preview}</div>
+            <div className={styles.title}>{note.title || 'Untitled'}</div>
+            {note.preview?.trim() ? (
+              <div className={styles.preview}>{note.preview}</div>
+            ) : (
+              <div className={styles.preview} data-empty="">
+                Empty note
+              </div>
+            )}
             {link != null && <div className={styles.link}>{link}</div>}
           </>
         ),

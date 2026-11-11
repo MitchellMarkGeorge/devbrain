@@ -25,7 +25,7 @@ export function NoteDetailMenu({
       <ProjectSubmenu
         projectId={note.projectId}
         label="Change project"
-        onPick={(projectId) => actions.setProject(note, projectId)}
+        onPick={(projectId) => actions.setProject([note], projectId)}
       />
       <DropdownMenuItem icon={Copy} shortcut="⌘D" disabled>
         Duplicate

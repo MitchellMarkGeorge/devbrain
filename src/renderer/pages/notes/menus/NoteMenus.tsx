@@ -245,14 +245,14 @@ export function NoteMenuItems({
         Open note
       </DropdownMenuItem>
       <DropdownMenuSeparator />
-      <DropdownMenuItem icon={Star} shortcut="F" onClick={() => actions.toggleFavorite(note)}>
+      <DropdownMenuItem icon={Star} shortcut="F" onClick={() => actions.toggleFavorite([note])}>
         {note.favoritedAt ? 'Unfavorite' : 'Favorite'}
       </DropdownMenuItem>
       <LinkSubmenu note={note} label="Change link" onPick={(link) => actions.setLink(note, link)} />
       <ProjectSubmenu
         projectId={note.projectId}
         label="Change project"
-        onPick={(projectId) => actions.setProject(note, projectId)}
+        onPick={(projectId) => actions.setProject([note], projectId)}
       />
       <DropdownMenuItem icon={Code} disabled>
         Copy as Markdown
@@ -262,7 +262,7 @@ export function NoteMenuItems({
         icon={Trash2}
         shortcut={TRASH}
         variant="destructive"
-        onClick={() => void actions.trash(note)}
+        onClick={() => void actions.trash([note])}
       >
         Move to trash
       </DropdownMenuItem>
