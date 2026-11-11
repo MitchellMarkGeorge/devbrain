@@ -51,7 +51,9 @@ describe('SelectionBar', () => {
     render(false, 0);
     expect(bar()?.hasAttribute('data-ending-style')).toBe(true);
     expect(bar()?.textContent).toContain('3 selected');
-    expect(bar()?.getAttribute('aria-hidden')).toBe('true');
+    // inert, not aria-hidden: it gives up focus as it leaves
+    expect(bar()?.inert).toBe(true);
+    expect(bar()?.hasAttribute('aria-hidden')).toBe(false);
     act(() => vi.advanceTimersByTime(250));
     expect(bar()).toBeNull();
   });

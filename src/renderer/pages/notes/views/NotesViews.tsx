@@ -106,22 +106,29 @@ export function NotesView({ resolved, search, onClearFilters, onNewNote }: Notes
             )}
           />
         ) : (
-          <KeyScope name="list" render={<div className={styles.region} />}>
-            <NoteList
-              ref={list}
-              notes={notes}
-              aria-label="Notes"
-              selected={selected}
-              onSelectedChange={setSelected}
-              onOpen={open}
-              onEndReached={more}
-            />
+          // the bar is outside the list's key scope: keys on its buttons (↵ on Clear) are theirs
+          <div className={styles.region}>
+            <KeyScope name="list" render={<div className={styles.region} />}>
+              <NoteList
+                ref={list}
+                notes={notes}
+                aria-label="Notes"
+                selected={selected}
+                onSelectedChange={setSelected}
+                onOpen={open}
+                onEndReached={more}
+              />
+            </KeyScope>
             <NotesSelectionBar
               notes={selectedNotes}
               actions={actions}
-              onClear={() => setSelected([])}
+              onClear={() => {
+                setSelected([]);
+                // the bar is going: focus back to the list's focused row
+                list.current?.moveFocus(0);
+              }}
             />
-          </KeyScope>
+          </div>
         )}
       </ContextMenuTrigger>
       <ContextMenuContent>

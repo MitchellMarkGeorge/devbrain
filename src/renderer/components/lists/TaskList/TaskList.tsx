@@ -447,7 +447,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
           floating={floatingBar}
           className={styles.bar}
           more={selectionMenu}
-          onClear={() => setSelected(new Set())}
+          onClear={() => {
+            setSelected(new Set());
+            // the bar is going: focus back to the list's row
+            if (focusedId) focusTask(focusedId);
+          }}
         />
       )}
     </ScrollArea>

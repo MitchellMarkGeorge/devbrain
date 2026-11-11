@@ -1,6 +1,8 @@
 import {
   forwardRef,
+  useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ComponentProps,
@@ -90,14 +92,29 @@ export const SelectionBar = forwardRef<HTMLDivElement, SelectionBarProps>(functi
     }
   }, [phase]);
 
+  // Leaving, it is inert: out of the accessibility tree, and it gives up focus (the Clear button
+  // just clicked has it), which aria-hidden can't do. React 18 has no `inert` prop, so it is set
+  // on the element; the page puts focus back where it belongs (its list).
+  const element = useRef<HTMLDivElement | null>(null);
+  const setRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      element.current = node;
+      if (typeof ref === 'function') ref(node);
+      else if (ref) ref.current = node;
+    },
+    [ref],
+  );
+  useLayoutEffect(() => {
+    if (element.current) element.current.inert = phase === 'ending';
+  }, [phase]);
+
   if (phase === null) return null;
   return (
     <SelectionBarContent
-      ref={ref}
+      ref={setRef}
       {...(open ? props : shown.current)}
       data-starting-style={phase === 'starting' ? '' : undefined}
       data-ending-style={phase === 'ending' ? '' : undefined}
-      aria-hidden={phase === 'ending' ? true : undefined}
     />
   );
 });

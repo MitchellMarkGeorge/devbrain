@@ -21,10 +21,6 @@
   opacity: 0;
   transform: translateY(8px);
 }
-/* leaving, it takes no clicks */
-.bar[data-ending-style] {
-  pointer-events: none;
-}
 /* sticks to the bottom of the scrolling list, centred */
 .floating {
   position: sticky;

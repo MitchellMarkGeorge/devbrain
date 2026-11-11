@@ -191,14 +191,24 @@ describe('selecting notes', () => {
   const check = (title: string) => row(title)!.querySelector<HTMLElement>('[role="checkbox"]')!;
 
   it('selects rows with their checkbox, and shows the selection bar', async () => {
-    notesPage();
+    const { app } = notesPage();
     await eventually(() => expect(row('Launch plan')).toBeDefined());
     expect(bar()).toBeNull();
     click(check('Launch plan'));
     click(check('PKCE design notes'));
     await eventually(() => expect(bar()?.textContent).toContain('2 selected'));
     expect(row('Launch plan')!.getAttribute('aria-selected')).toBe('true');
-    click(bar()!.querySelector('[aria-label="Clear selection"]'));
+    const clear = bar()!.querySelector<HTMLElement>('[aria-label="Clear selection"]')!;
+    clear.focus();
+    // ↵ on the bar's buttons is theirs, not the list's (which would open the focused note)
+    key(clear, 'Enter');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(app.path()).toBe(`/app/${WORK}/notes`);
+    click(clear);
+    // focus goes back to the list, not to the page, as the bar leaves
+    await eventually(() =>
+      expect(document.activeElement?.closest('[data-note-id]')).not.toBeNull(),
+    );
     await eventually(() => expect(bar()).toBeNull());
   });
 
@@ -230,10 +240,13 @@ describe('selecting notes', () => {
     );
     click(byText(document.body, '[role="menuitem"]', 'Move to trash'));
     await eventually(() =>
-      expect(main.callsTo('archive.archiveNote').map((call) => call.input)).toEqual([
-        { id: 'nte_plan' },
-        { id: 'nte_1on1' },
-      ]),
+      // in the list's order, which favoriting changed (it touches each note's edit time)
+      expect(
+        main
+          .callsTo('archive.archiveNote')
+          .map((call) => (call.input as { id: string }).id)
+          .sort(),
+      ).toEqual(['nte_1on1', 'nte_plan']),
     );
     await eventually(() => expect(bar()).toBeNull());
     await eventually(() => expect(row('Launch plan')).toBeUndefined());
