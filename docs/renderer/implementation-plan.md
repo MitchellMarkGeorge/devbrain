@@ -1329,6 +1329,9 @@ linkedTaskId } })`), separate from the task's event or note link. Convert to pro
    - Rows draw the entity's glyph from R1 (a task's status, a project's or event's colour through
      `resolveColor`) and a synced item's key as its `SourcePill`. ↑↓ move and ↵ opens, through
      `useOpenEntity`.
+   - With a type filter and nothing typed, the type's ten latest (`use-at-rest.ts`): tasks, notes
+     and projects by last update (their `list` routes sorted by `updatedAt`), events by last view
+     (`recents.list`), as no route lists events by update.
    - An empty query shows "Recent" (`recents.list`, five) and "Go to": the registry's `nav.*`
      commands, run with `useRunCommand`, with their keys from the active keymap
      (`commandShortcut`).
