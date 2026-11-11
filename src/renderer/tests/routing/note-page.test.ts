@@ -218,4 +218,22 @@ describe('the note page', () => {
     );
     expect(seen()).toBe(true);
   });
+
+  it('loads the tasks made from it before it draws, so their pill and section are on the first frame', async () => {
+    let release = () => {};
+    const { main, app } = notePage(undefined, NOTE, {}, (fake) => {
+      release = fake.hold('tasks.list');
+    });
+    await eventually(() => expect(main.callsTo('tasks.list').length).toBeGreaterThan(0));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(app.container.querySelector('[data-testid="note-page"]')).toBeNull();
+    const pill = firstFrameHas(app.container, 'note-page', '1 task · 1 in progress');
+    const section = firstFrameHas(app.container, 'note-page', 'Implement PKCE flow');
+    release();
+    await eventually(() =>
+      expect(app.container.querySelector('[data-testid="note-page"]')).not.toBeNull(),
+    );
+    expect(pill()).toBe(true);
+    expect(section()).toBe(true);
+  });
 });

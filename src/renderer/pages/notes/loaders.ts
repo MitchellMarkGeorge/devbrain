@@ -27,12 +27,16 @@ export const parseNoteParams = {
 };
 
 /**
- * The note page: the note and its markdown (a missing note is the route's not-found), so the
- * editor draws with its text on the first frame, and the task or event it links to, for its pill;
- * its tasks after.
+ * The note page, whole on its first frame: the note and its markdown (a missing note is the
+ * route's not-found), the task or event it links to, and the tasks made from it (the pill under
+ * the title, and the Tasks section). The tasks are read alongside the note, as they don't depend
+ * on it; a failed read of them or of the link doesn't fail the page, which then loads them itself.
  */
 export async function loadNote(context: RouterContext, id: NoteId) {
   const { queryClient, trpc } = context;
+  const tasks = queryClient
+    .infiniteQuery({ ...noteTasksQuery(id), staleTime: 'static' })
+    .catch(() => {});
   let note;
   try {
     [note] = await Promise.all([
@@ -43,6 +47,5 @@ export async function loadNote(context: RouterContext, id: NoteId) {
     if (ipcErrorCode(error) === 'not_found') throw notFound();
     throw error;
   }
-  void queryClient.infiniteQuery({ ...noteTasksQuery(id), staleTime: 'static' }).catch(() => {});
-  await primeLinks(context, note);
+  await Promise.all([tasks, primeLinks(context, note)]);
 }
