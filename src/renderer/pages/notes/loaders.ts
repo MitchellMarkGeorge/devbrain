@@ -1,6 +1,7 @@
 import { notFound } from '@tanstack/react-router';
 import { isId, type NoteId } from '@common/ids';
 import type { RouterContext } from '../../router';
+import { primeLinks } from '../app/loaders';
 import { ipcErrorCode } from '../../workspace/errors';
 import { noteListQuery, noteTasksQuery } from './queries';
 import { noteListInput, resolveNotesSearch, type NotesSearch } from './search';
@@ -27,11 +28,14 @@ export const parseNoteParams = {
 
 /**
  * The note page: the note and its markdown (a missing note is the route's not-found), so the
- * editor draws with its text on the first frame; its tasks after.
+ * editor draws with its text on the first frame, and the task or event it links to, for its pill;
+ * its tasks after.
  */
-export async function loadNote({ queryClient, trpc }: RouterContext, id: NoteId) {
+export async function loadNote(context: RouterContext, id: NoteId) {
+  const { queryClient, trpc } = context;
+  let note;
   try {
-    await Promise.all([
+    [note] = await Promise.all([
       queryClient.query({ ...trpc.notes.get.queryOptions({ id }), staleTime: 'static' }),
       queryClient.query({ ...trpc.notes.readContent.queryOptions({ id }), staleTime: 'static' }),
     ]);
@@ -40,4 +44,5 @@ export async function loadNote({ queryClient, trpc }: RouterContext, id: NoteId)
     throw error;
   }
   void queryClient.infiniteQuery({ ...noteTasksQuery(id), staleTime: 'static' }).catch(() => {});
+  await primeLinks(context, note);
 }
