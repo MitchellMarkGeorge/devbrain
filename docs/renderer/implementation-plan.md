@@ -1404,8 +1404,9 @@ linkedTaskId } })`), separate from the task's event or note link.
      rather than the editor's `ColourMenu`.
    - The Notes tab draws `NoteCard`s and opens them on the note page with `useOpenEntity`. New note (the menu's and the tab's) creates an empty note in the project and
      opens it. Copy as Markdown calls C3 (`projects.toMarkdown`).
-   - New project is the `project.new` app command (no key: ⌘K lists it with milestone 9), the
-     Projects page's New Project and its empty state. The plan names no sidebar entry for it.
+   - New project is the `project.new` app command (no key: ⌘K lists it), the Projects page's New
+     Project and its empty state, and Home's Get started "Start a project". The plan names no
+     sidebar entry for it.
 7. **Calendar.** Add FullCalendar; `CalendarView` themed to the `TimeGrid`/`MonthGrid` guides,
    with its guide and stories, then retire those two; `toEventInput` and `occurrencesBetween` with
    tests (settle the adapter spec's `TZID` checks first); week/day/month from the URL; right panel

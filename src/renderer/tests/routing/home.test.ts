@@ -108,7 +108,11 @@ describe('Home', () => {
     expect(app.text()).toContain('Connect Linear');
     expect(app.text()).toContain('Start a project');
     click(byText(app.container, 'button', 'Create'));
-    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/projects`));
+    // Start a project opens the Create project dialog
+    await eventually(() =>
+      expect(document.querySelector('input[aria-label="Name"]')).not.toBeNull(),
+    );
+    expect(byText(document.body, 'button', 'Create Project')).not.toBeNull();
   });
 
   it('offers Reconnect in the footer when an integration needs signing in again', async () => {
