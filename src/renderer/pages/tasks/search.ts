@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { DateTime } from 'luxon';
-import { isId, type ProjectId, type TaskId } from '@common/ids';
+import { isId, type NoteId, type ProjectId, type TaskId } from '@common/ids';
 import { TaskPriority, TaskStatus, type AppSettings } from '@common/types';
 import type { ipc } from '../../ipc';
 
@@ -48,6 +48,13 @@ export const tasksSearchSchema = z.object({
 });
 
 export type TasksSearch = z.infer<typeof tasksSearchSchema>;
+
+const noteId = z.custom<NoteId>((value) => isId('note', value), 'Not a note id');
+
+/** The task page's search params: its task note, open in the sheet. */
+export const taskPageSearchSchema = z.object({ note: optional(noteId) });
+
+export type TaskPageSearch = z.infer<typeof taskPageSearchSchema>;
 export type TaskView = (typeof TASK_VIEWS)[number];
 export type GroupBy = (typeof GROUP_BYS)[number];
 export type SortParam = (typeof SORTS)[number];

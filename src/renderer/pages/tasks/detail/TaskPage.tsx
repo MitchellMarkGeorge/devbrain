@@ -1,4 +1,5 @@
 import { useState, type FocusEvent, type KeyboardEvent } from 'react';
+import type { NoteId } from '@common/ids';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useRouter } from '@tanstack/react-router';
 import type { Task, TaskSummary } from '@common/types';
@@ -19,6 +20,7 @@ import { useRecordView } from '../../app/use-record-view';
 import { ipcErrorCode } from '../../../workspace/errors';
 import { isSynced } from '../queries';
 import { taskRoute } from '../route-api';
+import { NoteSheet } from '../../notes/sheet/NoteSheet';
 import { TaskDetailMenu } from './TaskDetailMenu';
 import { TaskNoteSection } from '../sections/TaskNoteSection';
 import { TaskDescription } from '../sections/TaskDescription';
@@ -29,7 +31,8 @@ import { useTaskActions } from '../use-task-actions';
 /**
  * A task's page (`/app/$workspaceId/tasks/$taskId`, Figma `7158:6266` and its variants): the
  * title, the property rows, the description in the rich text editor (saved as you type), the
- * Subtasks and the task note; the star and the "…" menu in the header. A synced task's fields are
+ * Subtasks and the task note (opening in the sheet beside the page, `?note=nte_…`); the star and
+ * the "…" menu in the header. A synced task's fields are
  * its provider's, so they are read-only here; its links stay editable. The route's loader has the
  * task before the first frame; a task deleted while it is open shows not-found.
  */
@@ -54,6 +57,18 @@ function TaskPageContent({ task }: { task: Task }) {
   const showError = useMutationErrorToast();
   const [adding, setAdding] = useState<AddingProperty>(null);
   const synced = isSynced(task);
+
+  // the task note in the sheet beside the page (?note=nte_…), with an entry of its own, so Back
+  // closes it; it stays mounted once `note` leaves the URL, until it has slid out
+  const { note } = taskRoute.useSearch();
+  const navigateHere = taskRoute.useNavigate();
+  const [sheetNote, setSheetNote] = useState(note);
+  if (note && note !== sheetNote) setSheetNote(note);
+  const openNote = (id: NoteId) =>
+    void navigateHere({
+      search: (previous) => ({ ...previous, note: id }),
+      state: (previous) => ({ ...previous, openedNoteSheet: true }),
+    });
 
   const parentQuery = useQuery({
     ...trpc.tasks.get.queryOptions({ id: task.parentTaskId! }),
@@ -136,9 +151,19 @@ function TaskPageContent({ task }: { task: Task }) {
           />
           <TaskDescription task={task} />
           <TaskSubtasksSection task={task} />
-          <TaskNoteSection task={task} />
+          <TaskNoteSection task={task} onOpenNote={openNote} />
         </Stack>
       </PageContent>
+      {sheetNote && (
+        <NoteSheet
+          noteId={sheetNote}
+          open={note !== undefined}
+          onClose={() =>
+            void navigateHere({ search: (previous) => ({ ...previous, note: undefined }) })
+          }
+          onClosed={() => setSheetNote(undefined)}
+        />
+      )}
     </>
   );
 }

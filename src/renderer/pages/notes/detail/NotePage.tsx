@@ -1,4 +1,4 @@
-import { useEffect, useRef, type FocusEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useRouter, useRouterState } from '@tanstack/react-router';
 import type { Editor } from '@tiptap/react';
@@ -21,6 +21,7 @@ import { useHistoryPosition } from '../../app/use-history-position';
 import { useRecordView } from '../../app/use-record-view';
 import { ipcErrorCode } from '../../../workspace/errors';
 import { useCreateTask } from '../../tasks/create/use-create-task';
+import { TaskSheet } from '../../tasks/sheet/TaskSheet';
 import { noteRoute } from '../route-api';
 import { useNoteActions } from '../use-note-actions';
 import { NoteDetailMenu } from './NoteDetailMenu';
@@ -32,9 +33,9 @@ import styles from './NotePage.module.css';
 /**
  * A note's page (`/app/$workspaceId/notes/$noteId`, Figma `7158:16387`, `7158:16863`): the title
  * (renamed as it's left), "Edited …", the pills (project, link, tasks), the body in the rich text
- * editor (saved as you type), then the Tasks made from it; the star and the "…" menu in the
- * header. The route's loader has the note and its markdown before the first frame; a note deleted
- * while it is open shows not-found.
+ * editor (saved as you type), then the Tasks made from it (each opening in the task sheet beside
+ * the page, `?open=tsk_…`); the star and the "…" menu in the header. The route's loader has the
+ * note and its markdown before the first frame; a note deleted while it is open shows not-found.
  */
 export function NotePage() {
   const { noteId } = noteRoute.useParams();
@@ -64,6 +65,18 @@ function NotePageContent({ note }: { note: Note }) {
   const showError = useMutationErrorToast();
   const { formatRelative } = useFormat('minute');
   const title = useRef<HTMLHeadingElement>(null);
+
+  // a task made from the note, in the sheet beside the page (?open=tsk_…), with an entry of its
+  // own, so Back closes it; it stays mounted once `open` leaves the URL, until it has slid out
+  const { open } = noteRoute.useSearch();
+  const navigateHere = noteRoute.useNavigate();
+  const [sheetTask, setSheetTask] = useState(open);
+  if (open && open !== sheetTask) setSheetTask(open);
+  const openTask = (id: TaskId) =>
+    void navigateHere({
+      search: (previous) => ({ ...previous, open: id }),
+      state: (previous) => ({ ...previous, openedSheet: true }),
+    });
   const editor = useRef<Editor | null>(null);
 
   // a note just created opens with its empty title focused, to name it
@@ -154,8 +167,23 @@ function NotePageContent({ note }: { note: Note }) {
             }}
           />
         </div>
-        <NoteTasksSection noteId={note.id} onNewTask={newTask} onLinkTask={linkTask} />
+        <NoteTasksSection
+          noteId={note.id}
+          onNewTask={newTask}
+          onLinkTask={linkTask}
+          onOpenTask={openTask}
+        />
       </PageContent>
+      {sheetTask && (
+        <TaskSheet
+          taskId={sheetTask}
+          open={open !== undefined}
+          onClose={() =>
+            void navigateHere({ search: (previous) => ({ ...previous, open: undefined }) })
+          }
+          onClosed={() => setSheetTask(undefined)}
+        />
+      )}
     </>
   );
 }

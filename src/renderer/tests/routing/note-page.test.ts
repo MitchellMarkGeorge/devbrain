@@ -236,4 +236,26 @@ describe('the note page', () => {
     expect(pill()).toBe(true);
     expect(section()).toBe(true);
   });
+
+  it('opens a task made from it in the sheet beside the page, and Back closes it', async () => {
+    const { app } = notePage();
+    await eventually(() =>
+      expect(
+        app.container.querySelector('[data-testid="note-tasks"] [data-task-id]'),
+      ).not.toBeNull(),
+    );
+    click(app.container.querySelector('[data-testid="note-tasks"] [data-task-id="tsk_pkce"]'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes/${NOTE}?open=tsk_pkce`));
+    await eventually(() =>
+      expect(
+        document.querySelector<HTMLInputElement>(
+          '[data-testid="task-sheet"] input[aria-label="Title"]',
+        )?.value,
+      ).toBe('Implement PKCE flow'),
+    );
+    // still on the note
+    expect(app.container.querySelector('[data-testid="note-page"]')).not.toBeNull();
+    app.router.history.back();
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes/${NOTE}`));
+  });
 });
