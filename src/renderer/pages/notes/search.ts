@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { isId, type ProjectId } from '@common/ids';
+import { isId, type ProjectId, type TaskId } from '@common/ids';
 import type { ipc } from '../../ipc';
 
 // The notes page's search params (docs/renderer/implementation-plan.md, "Search params ›
@@ -27,6 +27,13 @@ export const notesSearchSchema = z.object({
 });
 
 export type NotesSearch = z.infer<typeof notesSearchSchema>;
+
+const taskId = z.custom<TaskId>((value) => isId('task', value), 'Not a task id');
+
+/** The note page's search params: the task made from the note that is open in the sheet. */
+export const notePageSearchSchema = z.object({ open: optional(taskId) });
+
+export type NotePageSearch = z.infer<typeof notePageSearchSchema>;
 export type NoteView = (typeof NOTE_VIEWS)[number];
 export type NoteSortParam = (typeof NOTE_SORTS)[number];
 export type LinkFilter = (typeof LINK_FILTERS)[number];

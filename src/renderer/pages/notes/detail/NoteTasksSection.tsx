@@ -15,7 +15,6 @@ import {
   type TaskListHandle,
 } from '../../../components';
 import { KeyScope, useListCommands } from '../../../keyboard';
-import { useOpenEntity } from '../../app/use-open-entity';
 import { TaskMenuItems } from '../../tasks/menus/TaskMenus';
 import { useTaskActions } from '../../tasks/use-task-actions';
 import { TaskPicker } from '../menus/NoteMenus';
@@ -28,15 +27,22 @@ export interface NoteTasksSectionProps {
   onNewTask: () => void;
   /** "Link Task": links an existing task to the note */
   onLinkTask: (id: TaskId) => void;
+  /** opens a task (a click on its row, ↵, the menu's Open task): the page's task sheet */
+  onOpenTask: (id: TaskId) => void;
 }
 
 /**
  * A note's Tasks (Figma `7158:16863`): the tasks made from it (`linkedNoteId`), collapsible, with
- * "Link Task" and "+ New Task". Each row changes status at once and opens on click, with the row
- * menu on right-click and the list keys. With no tasks the section is left out: the page's
- * "+ Add task" pill offers both instead.
+ * "Link Task" and "+ New Task". Each row changes status at once and opens in the page's task sheet
+ * on click, with the row menu on right-click and the list keys. With no tasks the section is left
+ * out: the page's "+ Add task" pill offers both instead.
  */
-export function NoteTasksSection({ noteId, onNewTask, onLinkTask }: NoteTasksSectionProps) {
+export function NoteTasksSection({
+  noteId,
+  onNewTask,
+  onLinkTask,
+  onOpenTask,
+}: NoteTasksSectionProps) {
   const query = useInfiniteQuery(noteTasksQuery(noteId));
   // a row's note pill would only name this page
   const tasks = useMemo<TaskListItem[]>(
@@ -49,12 +55,11 @@ export function NoteTasksSection({ noteId, onNewTask, onLinkTask }: NoteTasksSec
   const byId = useMemo(() => new Map(tasks.map((t) => [t.id as string, t])), [tasks]);
   const full = (rows: readonly { id: string }[]) => rows.flatMap((row) => byId.get(row.id) ?? []);
   const actions = useTaskActions();
-  const openEntity = useOpenEntity();
   const list = useRef<TaskListHandle>(null);
   const [menuTask, setMenuTask] = useState<TaskListItem | null>(null);
 
   useListCommands(list, {
-    open: (row) => openEntity({ id: row.id }),
+    open: (row) => onOpenTask(row.id as TaskId),
     setStatus: (rows, status) => actions.setStatus(full(rows), status),
     toggleFavorite: (rows) => actions.toggleFavorite(full(rows)),
     trash: (rows) => void actions.trash(full(rows)),
@@ -107,7 +112,7 @@ export function NoteTasksSection({ noteId, onNewTask, onLinkTask }: NoteTasksSec
                 }}
                 onStatusChange={(row, status) => actions.setStatus(full([row]), status)}
                 onDueDateChange={(row, date) => actions.setDueDate(full([row]), date)}
-                onOpen={(row) => openEntity({ id: row.id })}
+                onOpen={(row) => onOpenTask(row.id as TaskId)}
               />
             </KeyScope>
           </ContextMenuTrigger>
@@ -116,7 +121,7 @@ export function NoteTasksSection({ noteId, onNewTask, onLinkTask }: NoteTasksSec
               <TaskMenuItems
                 task={byId.get(menuTask.id) ?? menuTask}
                 actions={actions}
-                onOpen={() => openEntity({ id: menuTask.id })}
+                onOpen={() => onOpenTask(menuTask.id)}
               />
             )}
           </ContextMenuContent>

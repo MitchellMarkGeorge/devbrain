@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
+import type { Editor } from '@tiptap/core';
 import type { WorkspaceId } from '@common/ids';
 import { LinkState, Provider, TaskStatus } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
 import { fakeNote, fakeTask, FakeTasks } from './fake-tasks';
-import { eventually, startApp, stopApps } from './harness';
+import { byText, click, eventually, startApp, stopApps } from './harness';
 
 // The task page (/app/$workspaceId/tasks/$taskId) over a fake main's tasks.
 
@@ -164,5 +165,50 @@ describe('the task page', () => {
     const app = startApp(main, { url: `/app/${WORK}/tasks/${linked.id}` });
     await eventually(() => expect(app.text()).toContain('Prepare the demo'));
     expect(main.callsTo('events.get').length).toBeGreaterThan(0);
+  });
+
+  it('opens its task note in the sheet beside the page, editable there', async () => {
+    const main = mainWith(store());
+    main.tasksOf(WORK).contents.set('nte_pkce', 'Draft');
+    const app = startApp(main, { url: `/app/${WORK}/tasks/${parent.id}` });
+    await eventually(() =>
+      expect(byText(app.container, 'button', 'PKCE design notes')).not.toBeNull(),
+    );
+    click(byText(app.container, 'button', 'PKCE design notes'));
+    await eventually(() =>
+      expect(app.path()).toBe(`/app/${WORK}/tasks/${parent.id}?note=nte_pkce`),
+    );
+    let editor: HTMLElement | null = null;
+    await eventually(() => {
+      editor = document.querySelector(
+        '[data-testid="note-sheet"] [role="textbox"][aria-label="Note"]',
+      );
+      expect(editor?.textContent).toBe('Draft');
+    });
+    (editor as unknown as { editor: Editor }).editor.chain().focus('end').insertContent('!').run();
+    window.dispatchEvent(new Event('blur'));
+    await eventually(() =>
+      expect(main.callsTo('notes.updateContent').map((call) => call.input)).toEqual([
+        { id: 'nte_pkce', content: 'Draft!' },
+      ]),
+    );
+    expect(app.container.querySelector('[data-testid="task-page"]')).not.toBeNull();
+  });
+
+  it('opens a new task note in the sheet', async () => {
+    const lone = fakeTask('tsk_lone', 'Lone task');
+    const main = mainWith(new FakeTasks([lone]));
+    const app = startApp(main, { url: `/app/${WORK}/tasks/${lone.id}` });
+    await eventually(() =>
+      expect(byText(app.container, 'button', 'Add a task note')).not.toBeNull(),
+    );
+    click(byText(app.container, 'button', 'Add a task note'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks/${lone.id}?note=nte_new1`));
+    expect(main.callsTo('notes.create').map((call) => call.input)).toEqual([
+      { title: 'Lone task', linkedTaskId: lone.id },
+    ]);
+    await eventually(() =>
+      expect(document.querySelector('[data-testid="note-sheet"]')).not.toBeNull(),
+    );
   });
 });
