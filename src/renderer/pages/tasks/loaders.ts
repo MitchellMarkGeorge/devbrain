@@ -3,6 +3,7 @@ import { DateTime } from 'luxon';
 import type { TaskId } from '@common/ids';
 import { isId } from '@common/ids';
 import type { RouterContext } from '../../router';
+import { primeLinks } from '../app/loaders';
 import { ipcErrorCode } from '../../workspace/errors';
 import { groupDefs, PRIMED_GROUPS } from './views/group/groups';
 import { groupTasksQuery, subtasksQuery, taskListQuery } from './queries';
@@ -69,13 +70,19 @@ export const parseTaskParams = {
   stringify: ({ taskId }: { taskId: TaskId }) => ({ taskId }),
 };
 
-/** The task page: the task (a missing one is the route's not-found), and its subtasks after. */
-export async function loadTask({ queryClient, trpc }: RouterContext, id: TaskId) {
+/**
+ * The task page: the task (a missing one is the route's not-found) and the event or note it links
+ * to, for its pill; its subtasks after.
+ */
+export async function loadTask(context: RouterContext, id: TaskId) {
+  const { queryClient, trpc } = context;
+  let task;
   try {
-    await queryClient.query({ ...trpc.tasks.get.queryOptions({ id }), staleTime: 'static' });
+    task = await queryClient.query({ ...trpc.tasks.get.queryOptions({ id }), staleTime: 'static' });
   } catch (error) {
     if (ipcErrorCode(error) === 'not_found') throw notFound();
     throw error;
   }
   void queryClient.infiniteQuery({ ...subtasksQuery(id), staleTime: 'static' }).catch(() => {});
+  await primeLinks(context, task);
 }

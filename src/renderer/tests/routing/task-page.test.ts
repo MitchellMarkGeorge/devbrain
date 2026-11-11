@@ -32,6 +32,20 @@ function store() {
   );
 }
 
+// whether `text` was on the page in the frame `testId` first appeared in
+function firstFrameHas(container: HTMLElement, testId: string, text: string) {
+  let seen: boolean | undefined;
+  const observer = new MutationObserver(() => {
+    const page = container.querySelector(`[data-testid="${testId}"]`);
+    if (page && seen === undefined) seen = (page.textContent ?? '').includes(text);
+  });
+  observer.observe(container, { childList: true, subtree: true, characterData: true });
+  return () => {
+    observer.disconnect();
+    return seen;
+  };
+}
+
 describe('the task page', () => {
   it('shows the task, its properties, its subtasks and its note, and records the view', async () => {
     const main = mainWith(store());
@@ -121,5 +135,34 @@ describe('the task page', () => {
     expect(properties.querySelectorAll('button')).toHaveLength(0);
     const title = app.container.querySelector('[aria-label="Title"]')!;
     expect(title.getAttribute('contenteditable')).toBe('false');
+  });
+
+  it('loads the note it links to before it draws, so its pill is there on the first frame', async () => {
+    const linked = fakeTask('tsk_linked', 'Write the guide', {
+      linkedNoteId: 'nte_guide' as never,
+    });
+    const main = mainWith(new FakeTasks([linked], [], [fakeNote('nte_guide', 'Guide outline')]));
+    const release = main.hold('notes.get');
+    const app = startApp(main, { url: `/app/${WORK}/tasks/${linked.id}` });
+    await eventually(() => expect(main.callsTo('notes.get')).toHaveLength(1));
+    // the loader waits for the note: the page isn't drawn without it
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(app.container.querySelector('[data-testid="task-page"]')).toBeNull();
+    const seen = firstFrameHas(app.container, 'task-page', 'Guide outline');
+    release();
+    await eventually(() =>
+      expect(app.container.querySelector('[data-testid="task-page"]')).not.toBeNull(),
+    );
+    expect(seen()).toBe(true);
+  });
+
+  it('still opens when the event it links to can’t be read', async () => {
+    const linked = fakeTask('tsk_linked', 'Prepare the demo', {
+      linkedEventId: 'evt_gone' as never,
+    });
+    const main = mainWith(new FakeTasks([linked]));
+    const app = startApp(main, { url: `/app/${WORK}/tasks/${linked.id}` });
+    await eventually(() => expect(app.text()).toContain('Prepare the demo'));
+    expect(main.callsTo('events.get').length).toBeGreaterThan(0);
   });
 });

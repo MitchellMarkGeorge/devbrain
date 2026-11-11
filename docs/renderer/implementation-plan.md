@@ -1333,6 +1333,9 @@ linkedTaskId } })`), separate from the task's event or note link. Convert to pro
    - Editors take `useEditorHost()` (`pages/app/use-editor-host.ts`): search, links,
      `useEntityResolver` and `useOpenEntity`. Pills subscribe through a new `EditorHost.watchEntity`;
      `resolveEntity` returns null for an entity known to be gone.
+   - The task and note pages' loaders also prime the event, note or task the entity links to
+     (`primeLinks`, `pages/app/loaders.ts`), so the link pill is there on the first frame; a
+     failed read leaves the pill to load on its own.
    - The task note stays a `TaskNoteCard` on the task page, opening the note's page (the dialog
      was dropped in milestone 4). Duplicate and Copy as Markdown (C2, C3) are drawn disabled.
 6. **Projects.** List and cards, project page with tabs, create project dialog. _Main:_ P1, C4.

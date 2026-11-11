@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Editor } from '@tiptap/core';
 import type { NoteId, WorkspaceId } from '@common/ids';
-import { TaskStatus } from '@common/types';
+import { TaskStatus, type NoteListItem } from '@common/types';
 import { queryClient } from '../../ipc';
 import { FakeMain, workspace } from './fake-main';
 import { fakeNote, fakeProject, fakeTask, FakeTasks } from './fake-tasks';
@@ -23,7 +23,12 @@ const LINKED = fakeTask('tsk_pkce', 'Implement PKCE flow', {
 });
 const OTHER = fakeTask('tsk_audit', 'Audit token storage');
 
-function notePage(content = 'The implicit flow leaks tokens.', id: string = NOTE) {
+function notePage(
+  content = 'The implicit flow leaks tokens.',
+  id: string = NOTE,
+  note: Partial<NoteListItem> = {},
+  before: (main: FakeMain) => void = () => {},
+) {
   const main = new FakeMain([workspace(WORK, 'Work')], WORK);
   const store = new FakeTasks(
     [{ ...LINKED }, { ...OTHER }],
@@ -32,11 +37,13 @@ function notePage(content = 'The implicit flow leaks tokens.', id: string = NOTE
       fakeNote(NOTE, 'Architecture ADR #4', {
         projectId: PROJECT.id,
         project: { id: PROJECT.id, title: PROJECT.title, color: PROJECT.color },
+        ...note,
       }),
     ],
   );
   store.contents.set(NOTE, content);
   main.taskStores.set(WORK, store);
+  before(main);
   const app = startApp(main, { url: `/app/${WORK}/notes/${id}` });
   return { main, app, store };
 }
@@ -47,6 +54,20 @@ const editorOf = (container: HTMLElement) =>
       editor: Editor;
     }
   ).editor;
+
+// whether `text` was on the page in the frame `testId` first appeared in
+function firstFrameHas(container: HTMLElement, testId: string, text: string) {
+  let seen: boolean | undefined;
+  const observer = new MutationObserver(() => {
+    const page = container.querySelector(`[data-testid="${testId}"]`);
+    if (page && seen === undefined) seen = (page.textContent ?? '').includes(text);
+  });
+  observer.observe(container, { childList: true, subtree: true, characterData: true });
+  return () => {
+    observer.disconnect();
+    return seen;
+  };
+}
 
 describe('the note page', () => {
   it('shows the note, its pills, its body and its tasks, and records the view', async () => {
@@ -180,5 +201,21 @@ describe('the note page', () => {
         { id: OTHER.id, linkedNoteId: NOTE },
       ]),
     );
+  });
+
+  it('loads the task it links to before it draws, so its pill is there on the first frame', async () => {
+    let release = () => {};
+    const { main, app } = notePage(undefined, NOTE, { linkedTaskId: OTHER.id }, (fake) => {
+      release = fake.hold('tasks.get');
+    });
+    await eventually(() => expect(main.callsTo('tasks.get').length).toBeGreaterThan(0));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(app.container.querySelector('[data-testid="note-page"]')).toBeNull();
+    const seen = firstFrameHas(app.container, 'note-page', 'Audit token storage');
+    release();
+    await eventually(() =>
+      expect(app.container.querySelector('[data-testid="note-page"]')).not.toBeNull(),
+    );
+    expect(seen()).toBe(true);
   });
 });
