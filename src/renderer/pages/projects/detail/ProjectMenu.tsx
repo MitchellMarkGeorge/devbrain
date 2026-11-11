@@ -8,9 +8,7 @@ import {
   DropdownMenuSubTrigger,
   PageMenuButton,
 } from '../../../components';
-import { ipc } from '../../../ipc';
-import { useMutationErrorToast } from '../../app/mutation-errors';
-import { useOpenEntity } from '../../app/use-open-entity';
+import { useCreateNote } from '../../notes/use-create-note';
 import { useCreateTask } from '../../tasks/create/use-create-task';
 import { isSynced } from '../../tasks/queries';
 import { ColourItems } from '../colour';
@@ -29,15 +27,10 @@ export interface ProjectMenuProps {
  */
 export function ProjectMenu({ project, actions, onTrash }: ProjectMenuProps) {
   const createTask = useCreateTask();
-  const openEntity = useOpenEntity();
-  const showError = useMutationErrorToast();
   const synced = isSynced(project);
 
-  const newNote = () =>
-    ipc.notes.create
-      .mutate({ projectId: project.id })
-      .then((note) => openEntity({ id: note.id }))
-      .catch((error: unknown) => showError(error, 'Couldn’t create the note'));
+  const createNote = useCreateNote();
+  const newNote = () => createNote({ projectId: project.id });
 
   return (
     <PageMenuButton>

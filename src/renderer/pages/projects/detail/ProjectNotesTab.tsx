@@ -12,9 +12,8 @@ import {
   Stack,
   VirtualCardGrid,
 } from '../../../components';
-import { ipc } from '../../../ipc';
-import { useMutationErrorToast } from '../../app/mutation-errors';
 import { useOpenEntity } from '../../app/use-open-entity';
+import { useCreateNote } from '../../notes/use-create-note';
 import { projectNotesQuery } from '../queries';
 
 // a row of note cards: 156px with a pill, and the 16px gap
@@ -26,15 +25,11 @@ const NOTE_ROW_HEIGHT = 172;
  */
 export function ProjectNotesTab({ project }: { project: Project }) {
   const openEntity = useOpenEntity();
-  const showError = useMutationErrorToast();
   const query = useInfiniteQuery(projectNotesQuery(project.id));
   const notes = useMemo(() => query.data?.pages.flatMap((page) => page.items) ?? [], [query.data]);
 
-  const newNote = () =>
-    ipc.notes.create
-      .mutate({ projectId: project.id })
-      .then((note) => openEntity({ id: note.id }))
-      .catch((error: unknown) => showError(error, 'Couldn’t create the note'));
+  const createNote = useCreateNote();
+  const newNote = () => createNote({ projectId: project.id });
 
   let content;
   if (query.isPending) {
