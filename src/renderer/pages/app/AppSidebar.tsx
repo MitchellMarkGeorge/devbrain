@@ -6,6 +6,7 @@ import {
   FileText,
   Folder,
   House,
+  Search,
   Settings,
   SquarePen,
   Trash2,
@@ -22,6 +23,7 @@ import {
   SidebarHeaderActions,
   SidebarItem,
 } from '../../components';
+import { useOpenSearch } from '../search/use-open-search';
 import { useCreateTask } from '../tasks/create/use-create-task';
 import type { FileRouteTypes } from '../../routeTree.gen';
 import { WorkspaceMenu } from './WorkspaceMenu';
@@ -58,6 +60,7 @@ export function AppSidebar() {
   const { workspaceId } = useParams({ from: '/app/$workspaceId' });
   const matchRoute = useMatchRoute();
   const createTask = useCreateTask();
+  const openSearch = useOpenSearch();
   const item = (page: NavPage) => (
     <SidebarItem
       key={page.to}
@@ -74,6 +77,7 @@ export function AppSidebar() {
         <SidebarHeader>
           <WorkspaceMenu />
           <SidebarHeaderActions>
+            <SidebarAction icon={Search} label="Search" shortcut="⌘K" onClick={openSearch} />
             <SidebarAction
               icon={SquarePen}
               label="New task"

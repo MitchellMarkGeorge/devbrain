@@ -1,7 +1,7 @@
 import type { Platform } from '../components/lib/platform';
 import type { Command } from './commands';
 import { entryAppliesInMode, type Keymap } from './keymap';
-import { keyLabels } from './keys';
+import { describeKeys, keyLabels } from './keys';
 import type { Scope } from './scopes';
 
 /** A row of the shortcuts dialog: a label and its bindings, each a list of key caps. */
@@ -62,4 +62,26 @@ export function shortcutSections(
   return [...sections]
     .map(([title, rows]) => ({ title, rows: [...rows.values()] }))
     .filter(({ rows }) => rows.length > 0);
+}
+
+/**
+ * The keys a command is bound to in `mode`, as the shortcuts dialog draws them (`G H`, `Ctrl+K`):
+ * its first visible binding, or undefined when it has none. ⌘K shows them beside its "Go to" rows.
+ */
+export function commandShortcut(
+  keymap: Keymap,
+  commandId: string,
+  mode: string,
+  platform: Platform,
+): string | undefined {
+  const entry = keymap.entries.find(
+    (candidate) =>
+      candidate.command === commandId && !candidate.hidden && entryAppliesInMode(candidate, mode),
+  );
+  if (!entry) return undefined;
+  try {
+    return describeKeys(entry.keys, platform, { upperCase: keymap.upperCaseKeys ?? true });
+  } catch {
+    return undefined;
+  }
 }

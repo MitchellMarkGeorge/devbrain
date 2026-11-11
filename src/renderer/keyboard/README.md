@@ -13,11 +13,11 @@ in Storybook mounts it with a demo keymap.
 | `keymap.ts`            | `Keymap` and `KeymapEntry`: bindings as data                                       |
 | `keys.ts`              | key notation (`mod+k`, `g t`): parsing, reading `keydown`s, and labels for `Kbd`   |
 | `dispatcher.ts`        | `KeyDispatcher`: the one capture-phase `keydown` listener, with no React in it     |
-| `KeyboardProvider.tsx` | the provider and hooks: `useCommands`, `useKeyboardState`, `useUndoStack`, …       |
+| `KeyboardProvider.tsx` | the provider and hooks: `useCommands`, `useRunCommand`, `useKeyboardState`, …      |
 | `KeyScope.tsx`         | `<KeyScope name>`: makes a subtree a scope while focus is inside it                |
 | `default-keymap.ts`    | the keymap DevBrain ships with, and `createAppCommands(actions)`                   |
 | `list-commands.ts`     | `useListCommands(ref, actions)`: the list keys' commands, over a list's ref        |
-| `shortcuts.ts`         | the shortcuts dialog's sections, from the active keymap                            |
+| `shortcuts.ts`         | the shortcuts dialog's sections, and a command's keys (`commandShortcut`, for ⌘K)  |
 | `ShortcutsDialog.tsx`  | the shortcuts dialog (Figma `7426:43880`)                                          |
 | `hints.ts`             | `useHintTarget(ref, action)`: a no-op until Vim's `f` hints                        |
 

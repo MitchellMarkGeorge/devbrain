@@ -1,0 +1,24 @@
+/* a search title or snippet: the matches core wraps in <b>, as CommandMatch draws them */
+.highlight b {
+  color: var(--foreground-strong);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* the no-results state, centred in the list's width; EmptyState's 440px would wrap its line */
+.empty {
+  max-width: none;
+  margin-inline: auto;
+  padding-block: 32px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* an event's bar, centred in the 16px icon slot */
+.bar {
+  display: grid;
+  place-items: center;
+  width: 16px;
+}

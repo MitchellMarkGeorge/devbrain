@@ -49,8 +49,9 @@ describe('the app-wide keys', () => {
     key('?', { shiftKey: true });
     await eventually(() => expect(document.body.textContent).toContain('Keyboard shortcuts'));
     expect(document.body.textContent).toContain('Go to Tasks');
+    expect(document.body.textContent).toContain('Search');
     // not built yet, so not listed
-    expect(document.body.textContent).not.toContain('Search');
+    expect(document.body.textContent).not.toContain('New note');
   });
 
   it('toggle the sidebar with ⌘\\', async () => {

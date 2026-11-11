@@ -34,6 +34,8 @@ import { DatePill, PriorityPill, ProjectPill, StatusPill } from '../menus/picker
 
 /** Where the dialog was opened from, filling in its properties. */
 export interface CreateTaskDefaults {
+  /** ⌘K's "New Task" with what was searched */
+  title?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
   /** null: no due date, over the setting's default */
@@ -80,7 +82,7 @@ export function CreateTaskDialog({
   const showError = useMutationErrorToast();
   const titleRef = useRef<HTMLInputElement>(null);
 
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(defaults.title ?? '');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState(defaults.status ?? TaskStatus.NOT_STARTED);
   const [priority, setPriority] = useState<TaskPriority>(
