@@ -354,6 +354,18 @@ export class FakeMain {
       case 'notes.showInFolder':
         note();
         return [undefined, []];
+      case 'notes.duplicate': {
+        const original = note();
+        const copy = fakeNote(`nte_new${store.notes.length + 1}`, `Copy of ${original.title}`, {
+          projectId: original.projectId,
+          project: original.project,
+        });
+        store.notes.push(copy);
+        store.contents.set(copy.id, store.contents.get(original.id) ?? '');
+        return [copy, ['note']];
+      }
+      case 'notes.toMarkdown':
+        return [`# ${note().title}\n\n${store.contents.get(note().id) ?? ''}\n`, []];
       case 'notes.create': {
         const created = fakeNote(`nte_new${store.notes.length + 1}`, (args.title as string) ?? '', {
           linkedTaskId: (args.linkedTaskId as never) ?? null,

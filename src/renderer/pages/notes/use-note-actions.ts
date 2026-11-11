@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import type { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
+import type { Note } from '@common/types';
+import { toast } from '../../components';
 import { ipc } from '../../ipc';
 import { useMutationErrorToast } from '../app/mutation-errors';
 import { useMoveToTrash } from '../app/use-move-to-trash';
@@ -28,6 +30,13 @@ export interface NoteActions {
   setProject(notes: readonly NoteRef[], projectId: ProjectId | null): void;
   /** links it to an event or a task (the other link removed), or to nothing */
   setLink(note: NoteRef, link: NoteLink): void;
+  /**
+   * copies it and its content ("Copy of …", in the same project, linked to nothing); resolves
+   * with the copy, or null when it failed (the error toast said so)
+   */
+  duplicate(note: NoteRef): Promise<Note | null>;
+  /** puts its title and content on the clipboard as Markdown, with a "Copied" toast */
+  copyAsMarkdown(note: NoteRef): void;
   /** shows its markdown file in the file manager */
   showInFolder(note: NoteRef): void;
   /** to the trash, asking first when the setting says so, with the Undo toast */
@@ -81,6 +90,19 @@ export function useNoteActions(): NoteActions {
             linkedTaskId: link && 'linkedTaskId' in link ? link.linkedTaskId : null,
           }),
           link ? 'Couldn’t link the note' : 'Couldn’t remove the link',
+        ),
+      duplicate: (note) =>
+        ipc.notes.duplicate.mutate({ id: note.id }).catch((error: unknown) => {
+          showError(error, 'Couldn’t duplicate the note');
+          return null;
+        }),
+      copyAsMarkdown: (note) =>
+        run(
+          ipc.notes.toMarkdown
+            .query({ id: note.id })
+            .then((markdown) => navigator.clipboard.writeText(markdown))
+            .then(() => toast({ tone: 'success', title: 'Copied' })),
+          'Couldn’t copy the note',
         ),
       showInFolder: (note) =>
         run(ipc.notes.showInFolder.mutate({ id: note.id }), 'Couldn’t show the note’s file'),

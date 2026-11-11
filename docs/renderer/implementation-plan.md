@@ -1082,9 +1082,9 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
   task's title, properties, description and subtasks as a checklist; a project's with its tasks
   grouped by status; a note's title and content. The renderer writes it with
   `navigator.clipboard` and toasts "Copied".
-- **Menus.** The task page's menu uses all three. The note page should call `notes.duplicate`
-  (then open the copy) and `notes.toMarkdown`, registering `page.duplicate` for ⌘D; the project
-  page `projects.toMarkdown`.
+- **Menus.** The task page's menu uses all three. The note page's menu duplicates (⌘D, then opens
+  the copy) and copies as Markdown, and the note row menu copies too (`useNoteActions`'
+  `duplicate` and `copyAsMarkdown`). The project page should call `projects.toMarkdown`.
 - **C4: create a project with its first tasks** (the create project dialog's inline task list,
   `7175:42128`) in one transaction: `projects.create` accepting `tasks: [{ title }]`. Otherwise
   the dialog creates them one by one after the project.
@@ -1369,8 +1369,8 @@ linkedTaskId } })`), separate from the task's event or note link.
      project and body, saved with the note page's editor and autosave. Back closes either; ⤢ opens
      the full page. The board's task sheet still opens the note's page (the task is the sheet).
      The task note dialog (dropped in milestone 4) is not coming back.
-   - Duplicate and Copy as Markdown are drawn disabled; their routes (`notes.duplicate`,
-     `notes.toMarkdown`, C2 and C3) are in.
+   - The "…" menu's Duplicate (⌘D, then the copy's page) and Copy as Markdown, and the row menu's
+     Copy as Markdown, call C2 and C3 (`notes.duplicate`, `notes.toMarkdown`).
 6. **Projects.** List and cards, project page with tabs, create project dialog. _Main:_ P1, C4.
 7. **Calendar.** Add FullCalendar; `CalendarView` themed to the `TimeGrid`/`MonthGrid` guides,
    with its guide and stories, then retire those two; `toEventInput` and `occurrencesBetween` with

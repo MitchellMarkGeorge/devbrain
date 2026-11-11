@@ -228,7 +228,7 @@ export type MenuNote = Pick<
 
 /**
  * A note's row menu (right-click on a row or card, Figma `7175:29569`): Open note, Favorite,
- * Change link ›, Change project ›, Copy as Markdown (not built yet, drawn disabled), Move to trash.
+ * Change link ›, Change project ›, Copy as Markdown, Move to trash.
  */
 export function NoteMenuItems({
   note,
@@ -254,7 +254,7 @@ export function NoteMenuItems({
         label="Change project"
         onPick={(projectId) => actions.setProject([note], projectId)}
       />
-      <DropdownMenuItem icon={Code} disabled>
+      <DropdownMenuItem icon={Code} onClick={() => actions.copyAsMarkdown(note)}>
         Copy as Markdown
       </DropdownMenuItem>
       <DropdownMenuSeparator />
