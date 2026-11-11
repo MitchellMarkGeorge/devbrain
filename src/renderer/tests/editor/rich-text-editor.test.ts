@@ -187,6 +187,37 @@ describe('RichTextEditor', () => {
     expect(editor.getMarkdown()).toBe('[Login notes](devbrain://note/nte_1) ');
   });
 
+  it('keeps the last results in the "@" menu while the next search runs', async () => {
+    const found = [{ type: 'task' as const, id: 'tsk_1', title: 'Fix login' }];
+    let release: (value: typeof found) => void = () => {};
+    const searchEntities = vi
+      .fn()
+      .mockResolvedValueOnce(found)
+      .mockImplementationOnce(() => new Promise((resolve) => (release = resolve)));
+    render({ value: '', searchEntities });
+    const menuText = () => document.querySelector('[aria-label="Mention"]')?.textContent ?? '';
+    await act(async () => {
+      editor.chain().focus().insertContent('@log').run();
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    });
+    expect(menuText()).toContain('Fix login');
+
+    // the next search waits: the menu keeps what it showed, rather than "No results"
+    await act(async () => {
+      editor.commands.insertContent('in');
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    });
+    expect(searchEntities).toHaveBeenLastCalledWith('login', ['task', 'note', 'event']);
+    expect(menuText()).toContain('Fix login');
+    expect(menuText()).not.toContain('No results');
+
+    await act(async () => {
+      release([]);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(menuText()).toContain('No results');
+  });
+
   it("inserts a Note callout from the slash menu, drawn by the design system's Callout", async () => {
     render({ value: '' });
     await act(async () => {

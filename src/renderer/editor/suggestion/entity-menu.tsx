@@ -64,14 +64,14 @@ export const EntityMenu = createSuggestionMenu<MentionItem>({
       .insertEntityLink({ type: item.kind, id: item.id, label: item.title })
       .run();
   },
-  render: ({ query, items, onSelect, handleRef, id, onActiveDescendantChange }) => (
+  render: ({ itemsQuery, items, onSelect, handleRef, id, onActiveDescendantChange }) => (
     <MentionMenu
       id={id}
       onActiveDescendantChange={onActiveDescendantChange}
       groups={mentionGroups(items)}
       onSelect={onSelect}
       handleRef={handleRef}
-      empty={query.trim() ? 'No results' : 'Type to search tasks, notes and events'}
+      empty={itemsQuery.trim() ? 'No results' : 'Type to search tasks, notes and events'}
     />
   ),
   onExit(editor) {
