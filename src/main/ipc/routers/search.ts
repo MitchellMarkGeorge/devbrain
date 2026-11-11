@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { MAX_PAGE_LIMIT } from '@main/core/shared/pagination';
-import type { SearchEntityType, SearchResult } from '@common/types';
+import type { SearchCounts, SearchEntityType, SearchResult } from '@common/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 
@@ -26,4 +26,8 @@ export const searchRouter = t.router({
       }),
     )
     .query(({ ctx, input }): SearchResult[] => ctx.workspace.search.search(input)),
+  // How many entries match, of each type, with no limit: ⌘K's type filter counts.
+  counts: wsProcedure
+    .input(z.object({ query: z.string() }))
+    .query(({ ctx, input }): SearchCounts => ctx.workspace.search.counts(input.query)),
 });

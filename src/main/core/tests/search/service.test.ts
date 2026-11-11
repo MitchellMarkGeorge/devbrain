@@ -548,6 +548,41 @@ describe('SearchService — status and colour', () => {
   });
 });
 
+describe('SearchService — counts', () => {
+  it('counts every match of each type, past any limit search would apply', async () => {
+    const created = Array.from({ length: 250 }, (_, i) =>
+      taskService.createTask({ title: `Widget ${i}`, dueDate: TOMORROW }),
+    );
+    searchService.indexTasks(created);
+    searchService.indexProject(
+      projectService.createProject({ title: 'Widget', dueDate: TOMORROW }),
+    );
+    const note = await noteService.createNote({ title: 'Widget notes' });
+    searchService.indexNoteContent(note, 'about the widget');
+    searchService.indexTask(taskService.createTask({ title: 'Other', dueDate: TOMORROW }));
+
+    expect(searchService.counts('widget')).toEqual({ task: 250, note: 1, project: 1, event: 0 });
+  });
+
+  it('agrees with what search returns with no limit', () => {
+    searchService.indexTask(taskService.createTask({ title: 'Widget a', dueDate: TOMORROW }));
+    searchService.indexEvent(
+      eventService.createEvent({ title: 'Widget b', startAt: TOMORROW, endAt: TOMORROW }),
+    );
+    const results = searchService.search({ query: 'wid', entityType: [] });
+    const counts = searchService.counts('wid');
+    expect(counts.task + counts.event).toBe(results.length);
+    expect(counts).toMatchObject({ task: 1, event: 1 });
+  });
+
+  it('counts nothing for a blank query or one with no matches', () => {
+    searchService.indexTask(taskService.createTask({ title: 'Widget', dueDate: TOMORROW }));
+    const none = { task: 0, note: 0, project: 0, event: 0 };
+    expect(searchService.counts('   ')).toEqual(none);
+    expect(searchService.counts('nonexistentterm')).toEqual(none);
+  });
+});
+
 describe('SearchService — search highlighting', () => {
   it('highlights the matched term found in the body', async () => {
     const task = taskService.createTask({

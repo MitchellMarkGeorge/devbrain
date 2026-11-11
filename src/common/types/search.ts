@@ -24,3 +24,7 @@ export interface SearchResult {
   // local one or a note
   external: ExternalRef | null;
 }
+
+// How many entries match a query, of each type: every match, not only the ones a search's limit
+// returns. ⌘K's type filter shows them.
+export type SearchCounts = Record<SearchEntityType, number>;
