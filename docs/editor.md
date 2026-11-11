@@ -151,4 +151,7 @@ A new HTML tag joins the list in `extensions/html-elements.ts` (and is then left
 Add the schema node to `createDocumentExtensions` and its view in `RichTextEditor`, and a round
 trip case to the tests. Menus that open on a character use `createSuggestionMenu`
 (`suggestion/suggestion.tsx`), which positions a design-system menu under the caret and passes it
-the keys: `slash-menu.tsx` and `entity-menu.tsx` are the two in use.
+the keys: `slash-menu.tsx` and `entity-menu.tsx` are the two in use. While a new query's items
+load, it keeps the last items on screen (`items`, found for `itemsQuery`), so the menu never
+flashes empty between keystrokes; filter by the live `query` only when the menu does it itself,
+as the slash menu does.

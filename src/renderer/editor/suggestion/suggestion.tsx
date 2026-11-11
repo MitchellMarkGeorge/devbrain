@@ -14,8 +14,12 @@ import { setMenuAria } from '../extensions/editor-host';
  * through `handleRef`.
  */
 export interface MenuProps<T> {
+  // what is typed after the trigger character, as it is now
   query: string;
+  // the items of the last search that finished, kept on screen while the next one runs
   items: T[];
+  // the query `items` were found for: the one an empty list's "No results" is about
+  itemsQuery: string;
   onSelect: (item: T) => void;
   handleRef: Ref<SuggestionMenuHandle>;
   // the list's id and the callback for its highlighted item, which the editor's element names
@@ -94,14 +98,23 @@ export function createSuggestionMenu<T>(source: MenuSource<T>) {
           render: () => {
             let renderer: ReactRenderer<SuggestionMenuHandle, MenuViewProps<T>> | null = null;
             let unmount: (() => void) | null = null;
+            // The last items found, and their query. On each keystroke the plugin updates the menu
+            // twice: first with no items while it waits (debounce, then `items`), then with what
+            // it found. Drawing the first would flash an empty menu ("No results") between every
+            // keystroke, so the menu keeps the last items until the new ones arrive.
+            let found = { query: '', items: [] as T[] };
 
-            const viewProps = (props: SuggestionProps<T, T>): MenuViewProps<T> => ({
-              query: props.query,
-              items: props.items,
-              onSelect: (item) => props.command(item),
-              editor: props.editor,
-              render: source.render,
-            });
+            const viewProps = (props: SuggestionProps<T, T>): MenuViewProps<T> => {
+              if (!props.loading) found = { query: props.query, items: props.items };
+              return {
+                query: props.query,
+                items: found.items,
+                itemsQuery: found.query,
+                onSelect: (item) => props.command(item),
+                editor: props.editor,
+                render: source.render,
+              };
+            };
 
             return {
               onStart(props) {
