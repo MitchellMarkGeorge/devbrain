@@ -72,13 +72,19 @@ export function listedTask(queryClient: QueryClient, id: TaskId): TaskListItem |
   return undefined;
 }
 
-/** A note as a loaded `notes.list` holds it (a picker's), to draw while `notes.get` loads it. */
+/**
+ * A note as a loaded `notes.list` holds it, to draw while `notes.get` loads it: a picker's (one
+ * page) or the Notes page's (an infinite list's pages).
+ */
 export function listedNote(queryClient: QueryClient, id: string): NoteListItem | undefined {
-  for (const [, data] of queryClient.getQueriesData<Page<NoteListItem>>({
-    queryKey: trpc.notes.list.pathKey(),
-  })) {
-    const note = data?.items.find((item) => item.id === id);
-    if (note) return note;
+  for (const [, data] of queryClient.getQueriesData<
+    Page<NoteListItem> | InfiniteData<Page<NoteListItem>>
+  >({ queryKey: trpc.notes.list.pathKey() })) {
+    const pages = data === undefined ? [] : 'pages' in data ? data.pages : [data];
+    for (const page of pages) {
+      const note = page.items.find((item) => item.id === id);
+      if (note) return note;
+    }
   }
   return undefined;
 }

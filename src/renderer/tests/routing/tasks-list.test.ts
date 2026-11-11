@@ -100,6 +100,24 @@ describe('the list view', () => {
     await eventually(() => expect(main.callsTo('archive.restoreTask')).toHaveLength(1));
     await eventually(() => expect(app.text()).toContain('Plan the launch'));
   });
+
+  it('leaves ↵ on the bar’s buttons to them, and Clear puts focus back on the list', async () => {
+    const { app } = tasksPage();
+    await eventually(() => expect(row('Plan the launch')).toBeDefined());
+    row('Plan the launch')!.focus();
+    key(row('Plan the launch')!, 'x');
+    await eventually(() => expect(app.text()).toContain('1 selected'));
+    const clear = document.querySelector<HTMLElement>('[aria-label="Clear selection"]')!;
+    clear.focus();
+    // not the list's ↵, which would open the focused task
+    key(clear, 'Enter');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(app.path()).toBe(`/app/${WORK}/tasks`);
+    click(clear);
+    await eventually(() =>
+      expect(document.activeElement?.closest('[data-task-id]')).not.toBeNull(),
+    );
+  });
 });
 
 describe('a task without a due date', () => {

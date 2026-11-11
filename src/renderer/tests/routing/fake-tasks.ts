@@ -102,6 +102,13 @@ type Filter = {
   noteId?: NoteId | null;
 };
 
+type NoteFilter = {
+  projectId?: ProjectId | null;
+  linkedEventId?: string | null;
+  linkedTaskId?: string | null;
+  linkedTo?: 'event' | 'task';
+};
+
 const CLOSED = [TaskStatus.COMPLETED, TaskStatus.CANCELLED];
 
 export class FakeTasks {
@@ -130,6 +137,37 @@ export class FakeTasks {
         (!filter.noDueDate || task.dueDate === null) &&
         (filter.noteId === undefined || task.linkedNoteId === filter.noteId),
     );
+  }
+
+  /** `notes.list`: the notes not in the trash, filtered as core does, the newest edit first. */
+  listNotes(filter: NoteFilter = {}): NoteListItem[] {
+    return this.notes
+      .filter(
+        (note) =>
+          note.archivedAt === null &&
+          (filter.projectId === undefined || note.projectId === filter.projectId) &&
+          (filter.linkedEventId === undefined || note.linkedEventId === filter.linkedEventId) &&
+          (filter.linkedTaskId === undefined || note.linkedTaskId === filter.linkedTaskId) &&
+          (filter.linkedTo !== 'event' || note.linkedEventId !== null) &&
+          (filter.linkedTo !== 'task' || note.linkedTaskId !== null),
+      )
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  }
+
+  /** Changes a note's fields, its `project` and `link` with them, as core's row would be. */
+  patchNote(id: unknown, fields: Partial<NoteListItem>): NoteListItem {
+    const note = this.notes.find((n) => n.id === id);
+    if (!note) throw new Error(`${String(id)} not found`);
+    Object.assign(note, fields, { updatedAt: new Date() });
+    const project = this.projects.find((p) => p.id === note.projectId);
+    note.project = project ? { id: project.id, title: project.title, color: project.color } : null;
+    const task = this.tasks.find((t) => t.id === note.linkedTaskId);
+    note.link = task
+      ? { type: 'task', id: task.id, title: task.title, status: task.status }
+      : note.link?.type === 'event' && note.linkedEventId === note.link.id
+        ? note.link
+        : null;
+    return note;
   }
 
   subtasks(id: unknown): TaskListItem[] {

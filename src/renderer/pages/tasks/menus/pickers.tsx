@@ -117,10 +117,13 @@ export function ProjectPill({
   value,
   onChange,
   disabled,
+  placeholder = 'Project',
 }: {
   value: ProjectId | null;
   onChange: (projectId: ProjectId | null) => void;
   disabled?: boolean;
+  /** the "+" pill's words while there is no project: "Project", "Add to project" */
+  placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const projects = useProjectOptions();
@@ -132,7 +135,7 @@ export function ProjectPill({
     />
   ) : (
     <EntityPill interactive={!disabled} glyph={Plus}>
-      Project
+      {placeholder}
     </EntityPill>
   );
   if (disabled) return pill;

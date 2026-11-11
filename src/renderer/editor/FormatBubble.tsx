@@ -26,7 +26,8 @@ import {
  * the editor can't make tasks yet.
  *
  * It shows only while the editor (or the toolbar) has focus, for a text selection outside code;
- * a read-only editor has none.
+ * a read-only editor has none. The link editor closes on Enter, on Escape (in it or in the text)
+ * and when the text takes focus back.
  */
 
 // the toolbar's marks, by their names in the editor
@@ -71,6 +72,21 @@ export function FormatBubble({
   useEffect(() => {
     repositionFormatToolbar(editor);
   }, [editor, state.linkEditing]);
+
+  // The text taking focus back (a click in it) closes a link editor left open: else it stays over
+  // the caret, and the format toolbar never comes back. Switching windows and back returns focus
+  // to the link field, not the text, so a link copied elsewhere can still be pasted.
+  useEffect(() => {
+    const onFocus = () => {
+      if (!editor.storage.editorHost.linkEditing) return;
+      setDraft(null);
+      setLinkEditing(editor, false);
+    };
+    editor.on('focus', onFocus);
+    return () => {
+      editor.off('focus', onFocus);
+    };
+  }, [editor]);
 
   const closeLink = () => {
     setDraft(null);

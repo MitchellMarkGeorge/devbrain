@@ -40,7 +40,6 @@ export interface Call {
 const PAGE_ROUTES = new Set([
   'recents.list',
   'projects.list',
-  'notes.list',
   'calendars.list',
   'integrations.list',
   'archive.listArchived',
@@ -99,7 +98,8 @@ export class FakeMain {
     defaultView: 'list',
     showCompletedTasks: false,
   };
-  // each workspace's tasks and projects; a workspace without any lists one task naming it
+  // each workspace's tasks, projects and notes; a workspace without any lists one task and one
+  // note naming it
   readonly taskStores = new Map<WorkspaceId, FakeTasks>();
   // what search.search finds, whatever the query: those of the types asked for
   searchResults: SearchResult[] = [];
@@ -203,13 +203,17 @@ export class FakeMain {
     }
   }
 
-  /** The open workspace's tasks: those set for it, or one task naming the workspace and route. */
+  /** The open workspace's tasks and notes: those set for it, or one of each naming the workspace. */
   tasksOf(id: WorkspaceId | null = this.open): FakeTasks {
     const open = this.workspaces.find((w) => w.id === id);
     if (!open) throw new RemoteError('no_workspace_open', 'No workspace is open');
     let store = this.taskStores.get(open.id);
     if (!store) {
-      store = new FakeTasks([fakeTask(`tsk_${open.id}`, `${open.name} tasks.list`)]);
+      store = new FakeTasks(
+        [fakeTask(`tsk_${open.id}`, `${open.name} tasks.list`)],
+        [],
+        [fakeNote(`nte_${open.id}`, `${open.name} notes.list`)],
+      );
       this.taskStores.set(open.id, store);
     }
     return store;
@@ -281,6 +285,10 @@ export class FakeMain {
           ['task'],
         ];
       }
+      case 'archive.archiveNote':
+        return [store.patchNote(args.id, { archivedAt: new Date() }), ['note']];
+      case 'archive.restoreNote':
+        return [store.patchNote(args.id, { archivedAt: null }), ['note']];
       case 'archive.restoreTask': {
         const archived = store.tasks.find((t) => t.id === args.id);
         if (archived) archived.archivedAt = null;
@@ -307,11 +315,23 @@ export class FakeMain {
       case 'notes.updateContent':
         store.contents.set(note().id, args.content as string);
         return [note(), ['note']];
-      case 'notes.update':
-        return [Object.assign(note(), { title: args.title ?? note().title }), ['note']];
+      case 'notes.update': {
+        const { id, ...fields } = args;
+        void id;
+        return [store.patchNote(note().id, fields as never), ['note']];
+      }
+      case 'notes.setFavorite':
+        return [
+          store.patchNote(note().id, { favoritedAt: args.favorite ? new Date() : null }),
+          ['note'],
+        ];
+      case 'notes.showInFolder':
+        note();
+        return [undefined, []];
       case 'notes.create': {
         const created = fakeNote(`nte_new${store.notes.length + 1}`, (args.title as string) ?? '', {
           linkedTaskId: (args.linkedTaskId as never) ?? null,
+          projectId: (args.projectId as never) ?? null,
         });
         store.notes.push(created);
         store.contents.set(created.id, (args.content as string) ?? '');
@@ -325,9 +345,9 @@ export class FakeMain {
   private async answer(path: string, input: unknown): Promise<[unknown, ChangedEntity[]]> {
     const args = (input ?? {}) as Record<string, unknown>;
     const filter = args.filter as Record<string, unknown> | undefined;
-    if (path === 'notes.list' && filter?.linkedTaskId !== undefined) {
-      const notes = this.tasksOf().notes.filter((n) => n.linkedTaskId === filter.linkedTaskId);
-      return [{ items: notes, nextCursor: null }, []];
+    // the open workspace's notes, filtered as core does
+    if (path === 'notes.list') {
+      return [{ items: this.tasksOf().listNotes(filter as never), nextCursor: null }, []];
     }
     if (path.startsWith('notes.') && path !== 'notes.list') return this.answerNotes(path, args);
     if (PAGE_ROUTES.has(path)) return [this.page(path), []];

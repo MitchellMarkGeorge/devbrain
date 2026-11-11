@@ -51,13 +51,13 @@ const ABOVE = { side: 'top', align: 'start', sideOffset: 8 } as const;
  * nothing), a "more" menu with Favorite and Move to trash (`archive.archiveTasks`), and clear.
  */
 export function TasksSelectionBar({ tasks, actions, onClear }: TasksSelectionBarProps) {
-  if (tasks.length === 0) return null;
   const done = (run: () => unknown) => () => {
     run();
   };
   return (
     <div className={styles.bar}>
       <SelectionBar
+        open={tasks.length > 0}
         count={tasks.length}
         floating={false}
         onClear={onClear}

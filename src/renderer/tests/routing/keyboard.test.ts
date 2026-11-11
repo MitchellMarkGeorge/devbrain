@@ -50,8 +50,7 @@ describe('the app-wide keys', () => {
     await eventually(() => expect(document.body.textContent).toContain('Keyboard shortcuts'));
     expect(document.body.textContent).toContain('Go to Tasks');
     expect(document.body.textContent).toContain('Search');
-    // not built yet, so not listed
-    expect(document.body.textContent).not.toContain('New note');
+    expect(document.body.textContent).toContain('New note');
   });
 
   it('toggle the sidebar with ⌘\\', async () => {

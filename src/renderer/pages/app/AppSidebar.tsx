@@ -23,8 +23,8 @@ import {
   SidebarHeaderActions,
   SidebarItem,
 } from '../../components';
+import { useCreateNote } from '../notes/use-create-note';
 import { useOpenSearch } from '../search/use-open-search';
-import { useCreateTask } from '../tasks/create/use-create-task';
 import type { FileRouteTypes } from '../../routeTree.gen';
 import { WorkspaceMenu } from './WorkspaceMenu';
 import { SidebarFavorites, SidebarRecents, SidebarSync } from './SidebarEntities';
@@ -52,14 +52,14 @@ const FOOTER: NavPage[] = [
 ];
 
 /**
- * The app's sidebar: the workspace menu, the pages as links (a page's details keep it active),
+ * The app's sidebar: the workspace menu and its compose button (New note, as N), the pages as links (a page's details keep it active),
  * Recents and Favorites, then the sync line, Trash, Settings and Help, drawn disabled until there
  * is help.
  */
 export function AppSidebar() {
   const { workspaceId } = useParams({ from: '/app/$workspaceId' });
   const matchRoute = useMatchRoute();
-  const createTask = useCreateTask();
+  const createNote = useCreateNote();
   const openSearch = useOpenSearch();
   const item = (page: NavPage) => (
     <SidebarItem
@@ -80,9 +80,9 @@ export function AppSidebar() {
             <SidebarAction icon={Search} label="Search" shortcut="⌘K" onClick={openSearch} />
             <SidebarAction
               icon={SquarePen}
-              label="New task"
-              shortcut="C"
-              onClick={() => createTask()}
+              label="New note"
+              shortcut="N"
+              onClick={() => void createNote()}
             />
           </SidebarHeaderActions>
         </SidebarHeader>

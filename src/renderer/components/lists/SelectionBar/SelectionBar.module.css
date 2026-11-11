@@ -11,6 +11,15 @@
   background: var(--popover);
   color: var(--popover-foreground);
   box-shadow: var(--shadow-2xl);
+  transition:
+    opacity var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out);
+}
+/* it rises 8px and fades in as rows are selected, and sinks back as the selection clears */
+.bar[data-starting-style],
+.bar[data-ending-style] {
+  opacity: 0;
+  transform: translateY(8px);
 }
 /* sticks to the bottom of the scrolling list, centred */
 .floating {

@@ -47,6 +47,10 @@
   color: var(--muted-foreground);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
 }
+/* a note with no text yet: "Empty note", a step quieter than a preview */
+.preview[data-empty] {
+  color: var(--subtle-foreground);
+}
 .withLink .preview {
   -webkit-line-clamp: 2;
 }

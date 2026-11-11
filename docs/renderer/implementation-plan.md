@@ -15,7 +15,8 @@ the `Screens/*` stories, `docs/design-system/README.md`, `docs/ipc/design.md` an
 > `useRecordView`, `useMutationErrorToast`, `useConfirm`, `useMoveToTrash` with its Undo toast,
 > Recents, Favorites and sync in the sidebar, the page header slot, `FormatProvider`) and
 > milestone 4 (Tasks: list, group and board views, the task sheet, the task page, Create task and
-> Create subtask) and milestone 9 (⌘K search, with R1) are built, with the
+> Create subtask), milestone 5 (Notes: list and cards, the note page with autosave and its tasks,
+> `useEntityResolver`) and milestone 9 (⌘K search, with R1) are built, with the
 > **URL-driven workspace model** ([routing.md](routing.md)): every page in a workspace is under
 > `/app/<its id>/…`, main picks the window's first URL, and switching is navigating. Revised after
 > review (Nov 6 2026): FullCalendar for the calendar, `/app/trash`, a create-workspace dialog
@@ -68,7 +69,7 @@ surveyed three things in parallel and checked the claims the plan rests on again
 | Entity components                  | The entity and list components take **core's own shapes**: a `TaskListItem` goes straight into `TaskRow`, with no mapping step. Each component's props are a `Pick` of the shared type it draws (`Pick<TaskListItem, 'title' \| 'status' \| …>`), and it derives and formats what it draws (overdue, "Today", 10:30 AM) from a `FormatProvider` that supplies `now` and the time format. Needs the shared types and enums moved to `src/common` (X1). See [Entity components take core's shapes](#entity-components-take-cores-shapes).                                                                                                                                                           |
 | Dates                              | **luxon**, already a dependency and what core uses: relative and calendar dates, locale formats, 12/24 hour. No hand-written date formatting.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | Virtualization                     | Every list and grid that can grow is virtualized with **`@tanstack/react-virtual`**: tasks (list, group, board columns), notes, projects, trash, search results. See [Virtualized lists](#virtualized-lists).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| Detail presentation                | As designed: tasks, projects and notes are pages; a task opened from the board and an event opened from the calendar show in the docked `Sheet` over their list, addressed by an `open` search param so Back closes them. The task note opens as a dialog (local state).                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Detail presentation                | As designed: tasks, projects and notes are pages; a task opened from the board and an event opened from the calendar show in the docked `Sheet` over their list, addressed by an `open` search param so Back closes them. On their pages, a task's note (`?note=`) and a note's tasks (`?open=`) open in the same docked sheet.                                                                                                                                                                                                                                                                                                                                                                   |
 | Workspaces in the URL              | **Built (milestones 1–2).** Every page in a workspace is under `/app/$workspaceId`, and `/app/$workspaceId` opens the workspace its URL names when it isn't open. Main picks the window's first URL (the last workspace, or its last page); the renderer never decides which workspace to open. Switching is navigating; Back and Forward across workspaces reopen them. See [routing.md](routing.md).                                                                                                                                                                                                                                                                                            |
 | Splash                             | **Built.** `/app/$workspaceId`'s pending component, shown `SPLASH_DELAY_MS` (50ms) into an open: at startup and on a switch, never for a load that opens nothing (a reload, onboarding, Back from Create workspace). The open takes 600ms at least, so a quick one doesn't flicker. The old page stays mounted, hidden, under it; its queries don't refetch, as the invalidator removes their data; the route remounts on a new workspace (`remountDeps`). No boot route: startup is the same flow on the first load.                                                                                                                                                                             |
 | Not in the route list but designed | `/app/integrations` (in the sidebar nav, Figma `7164:13117`). ⌘K is a dialog, not a route. Help has nothing behind it yet: the sidebar's Help item and Welcome's "What's a workspace?" link are drawn disabled.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -841,10 +842,10 @@ Figma `7158:6266` and variants (`7158:7794` subtask, `7158:8195` note, `7158:864
   debounced.
 - **Subtasks** `DetailSection` with `TaskList subtasks` and "+ Add" (`tasks.createSubtask`);
   promote/demote from the row menu.
-- **Task note** card (`TaskNoteCard`) → the note's page, `/app/$workspaceId/notes/$noteId`
-  (built with the Notes pages; until then it shows not-found). Figma's task note dialog
-  (`7412:37391`) was dropped for now: editing in a dialog fought its menus. With no note:
-  "+ Add a task note" creates one linked to the task and opens it.
+- **Task note** card (`TaskNoteCard`) → the note in the docked sheet beside the page
+  (`NoteSheet`, `?note=nte_…`), its ⤢ the note's page. Figma's task note dialog (`7412:37391`)
+  was dropped: editing in a dialog fought its menus. With no note: "+ Add a task note" creates one
+  linked to the task and opens it in the sheet.
 - **Header**: `PageFavoriteButton` (`tasks.setFavorite`), `PageMenuButton` with the README's order:
   Convert to project (C1), Link to ›, Make subtask of › (`tasks.demote`, picker `7424:38759`),
   Duplicate (C2), Copy as Markdown (C3), and for a Linear task Open in Linear
@@ -886,8 +887,9 @@ tasks), `7158:17380`, `7158:17899`, `7421:36683`, `7527:51820` (menu), `7175:411
   (`useBlocker` without a prompt, or the route's `onLeave`) and on window blur. Core serializes
   saves and the last wins; the page ignores the content refetch its own save triggers (the editor
   already ignores a `value` equal to what it last sent).
-- **Tasks section** (`DetailSection` "Tasks"): `tasks.list({ filter: { noteId } })`, "Link Task"
-  (picker → `tasks.updateLinks`), "+ New Task" (create dialog with `linkedNoteId`). Slash menu
+- **Tasks section** (`DetailSection` "Tasks"): `tasks.list({ filter: { noteId } })`, each task
+  opening in the task sheet beside the note (`?open=tsk_…`), "Link Task" (picker →
+  `tasks.updateLinks`), "+ New Task" (create dialog with `linkedNoteId`). Slash menu
   "Task" creates a linked task too.
 - Menu: Link to ›, Change project ›, Duplicate (C2), Show in Finder (C4), Copy as Markdown (C3),
   Move to trash.
@@ -1307,8 +1309,45 @@ page that needs them.
    - The task note is the note whose `linkedTaskId` is the task (`notes.list({ filter: {
 linkedTaskId } })`), separate from the task's event or note link. Convert to project, Duplicate
      and Copy as Markdown (C1–C3) are drawn disabled.
-5. **Notes.** List and cards, note page with the editor and autosave, linked tasks, task note
-   dialog on the task page, `useEntityResolver`. _Main:_ N1 (before this milestone), N2.
+5. **Notes (done).** List and cards, note page with the editor and autosave, linked tasks,
+   `useEntityResolver`. _Main:_ N1 (before this milestone), N2. As built (`src/renderer/pages/notes`):
+   - Layout as Tasks': `search.ts`, `queries.ts`, `loaders.ts`, `use-note-actions.ts`,
+     `use-create-note.ts` at the root; `views/` the Notes page (list and cards); `detail/` the
+     note page; `menus/` the row menu and the link and task pickers.
+   - The list is a new design-system `NoteList` (virtualized `NoteRow`s, focus and selection by
+     id, as `TaskList`'s); the cards are `VirtualCardGrid`. Selected rows show a selection bar
+     with Move (project), Favorite and Move to trash, run one note at a time (no bulk note
+     routes). The list keys open (↵), select (X), favorite (F) and trash (⌘⌫) the selection or
+     the focused row. `SelectionBar` now animates in and out (`open`), for tasks too.
+   - A card with no text says "Empty note"; a row or card with no title says "Untitled".
+   - `link=event` / `link=task` needed a core filter, `linkedTo` (any event, any task); `link=none`
+     is both links null.
+   - New Note, N and the sidebar's compose button (now New note, N) create an empty note and open
+     it with its title focused (history state `newNote`). On the Notes page filtered to a
+     project, the note goes in that project.
+   - The note page's pills follow Figma `7421:36683`: the project (or "+ Add to project"), the
+     task or event the note links to, and the tasks made from it ("3 tasks · 2 in progress"), or
+     "+ Add task" (a new task linked to the note, or Link existing task ›). The Tasks section
+     shows once it has a task. Link to › (in the "…" menu and the row menu's Change link ›) picks
+     an event or a task.
+   - Saving: `useEditorAutosave` (`pages/app/autosave.ts`, shared with the task description)
+     saves 500ms after typing, flushes on unmount, window blur and the start of a workspace
+     switch, and hands the editor only text it didn't save itself, so its own save's refetch
+     never overwrites newer typing.
+   - Editors take `useEditorHost()` (`pages/app/use-editor-host.ts`): search, links,
+     `useEntityResolver` and `useOpenEntity`. Pills subscribe through a new `EditorHost.watchEntity`;
+     `resolveEntity` returns null for an entity known to be gone.
+   - The task and note pages' loaders also prime the event, note or task the entity links to
+     (`primeLinks`, `pages/app/loaders.ts`), so the link pill is there on the first frame; a
+     failed read leaves the pill to load on its own. The note page's loader awaits the note's
+     tasks too, read alongside the note: the tasks pill under the title needs them.
+   - Sheets beside a page, as the board's: on the note page, a task in its Tasks section opens in
+     the task sheet (`?open=tsk_…`); on the task page, the task note card and "+ Add a task note"
+     open the note in `NoteSheet` (`pages/notes/sheet`, `?note=nte_…`): its title, "Edited …",
+     project and body, saved with the note page's editor and autosave. Back closes either; ⤢ opens
+     the full page. The board's task sheet still opens the note's page (the task is the sheet).
+     The task note dialog (dropped in milestone 4) is not coming back.
+   - Duplicate and Copy as Markdown (C2, C3) are drawn disabled.
 6. **Projects.** List and cards, project page with tabs, create project dialog. _Main:_ P1, C4.
 7. **Calendar.** Add FullCalendar; `CalendarView` themed to the `TimeGrid`/`MonthGrid` guides,
    with its guide and stories, then retire those two; `toEventInput` and `occurrencesBetween` with

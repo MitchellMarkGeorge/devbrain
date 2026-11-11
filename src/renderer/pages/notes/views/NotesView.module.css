@@ -1,0 +1,45 @@
+/* The notes list and card views: the list or grid fills the page's region and scrolls in it */
+.region {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* a card while the notes load (Figma 7175:36096): its icon and time, title, preview and pill */
+.cardSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 156px;
+  box-sizing: border-box;
+}
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+}
+.cardLines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.cardPill {
+  margin-top: auto;
+  border-radius: var(--radius-full);
+}
+
+/* the selection bar floats over the list's bottom, centred, as the tasks list's does */
+.bar {
+  position: absolute;
+  right: 0;
+  bottom: var(--space-4);
+  left: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.bar > * {
+  pointer-events: auto;
+}

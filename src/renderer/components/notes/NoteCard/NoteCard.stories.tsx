@@ -30,6 +30,12 @@ export const WithLink: Story = {
   args: { note: SAMPLE_NOTES[0] },
 };
 
+/** A note with no text yet: "Empty note" where the preview goes, in `subtle-foreground` */
+export const Empty: Story = {
+  decorators: Default.decorators,
+  args: { note: sampleNote({ title: 'Kickoff agenda' }) },
+};
+
 /** Home's small card: 86px, one line of title and one of preview, no pill */
 export const Small: Story = {
   decorators: [

@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { Editor } from '@tiptap/core';
 import { applyBlockType, currentBlockType } from '../../editor/block-types';
-import { EditorHostExtension } from '../../editor/extensions/editor-host';
+import { EditorHostExtension, setLinkEditing } from '../../editor/extensions/editor-host';
 import { linkHref } from '../../editor/FormatBubble';
 import { createDocumentExtensions } from '../../editor/markdown';
 
@@ -99,5 +99,17 @@ describe('links from the link toolbar', () => {
     editor.commands.setTextSelection(caretAt('link'));
     expect(pressModK()).toBe(true);
     expect(editor.storage.editorHost.linkEditing).toBe(true);
+  });
+
+  it('closes on Escape in the text, and leaves Escape to the app otherwise', () => {
+    load('Plain text and [a link](https://example.com).');
+    const escape = () =>
+      editor.view.someProp('handleKeyDown', (handle) =>
+        handle(editor.view, new KeyboardEvent('keydown', { key: 'Escape' })),
+      );
+    expect(escape()).toBeFalsy();
+    setLinkEditing(editor, true);
+    expect(escape()).toBe(true);
+    expect(editor.storage.editorHost.linkEditing).toBe(false);
   });
 });
