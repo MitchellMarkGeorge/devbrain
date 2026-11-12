@@ -29,7 +29,9 @@ A 60px gutter, then one column per day (seven for the week, one for the day):
   Today's column has no tint.
 
 The headers and all-day row stay put while the hours scroll; the view opens scrolled to
-`scrollToHour`.
+`scrollToHour`. FullCalendar's scrollers hide their native scrollbar, so it takes no width on any
+platform (README, "A scrollbar never takes width"); the hours scroll with the wheel, the trackpad
+and the keyboard.
 
 ## Month
 

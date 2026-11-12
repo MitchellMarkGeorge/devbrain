@@ -1,0 +1,14 @@
+/* The calendar's right panel (Figma 7158:13273): 256px, the mini calendar over the agenda,
+   scrolling in a ScrollArea, whose scrollbar takes no width */
+.panel {
+  flex: none;
+  width: 256px;
+  min-height: 0;
+  border-left: 1px solid var(--border);
+}
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-4) var(--space-4) var(--space-4) calc(var(--space-4) + 1px);
+}

@@ -16,7 +16,9 @@ the `Screens/*` stories, `docs/design-system/README.md`, `docs/ipc/design.md` an
 > Recents, Favorites and sync in the sidebar, the page header slot, `FormatProvider`) and
 > milestone 4 (Tasks: list, group and board views, the task sheet, the task page, Create task and
 > Create subtask), milestone 5 (Notes: list and cards, the note page with autosave and its tasks,
-> `useEntityResolver`), milestone 8 (Home) and milestone 9 (⌘K search, with R1) are built, with the
+> `useEntityResolver`), milestone 7 (Calendar: week, day and month from the URL, the visibility
+> filter, the right panel, the event sheet with occurrence editing, Create event), milestone 8
+> (Home) and milestone 9 (⌘K search, with R1) are built, with the
 > **URL-driven workspace model** ([routing.md](routing.md)): every page in a workspace is under
 > `/app/<its id>/…`, main picks the window's first URL, and switching is navigating. Revised after
 > review (Nov 6 2026): FullCalendar for the calendar, `/app/trash`, a create-workspace dialog
@@ -326,6 +328,7 @@ URLs (`z.union([value, z.array(value)])`).
 | `date`       | `YYYY-MM-DD`                         | the anchor day, default today. The visible range is derived from `view` + `date` + `firstDayOfWeek`, so month, year and week all come from one param and can never disagree. "Today" removes it. |
 | `open`       | `evt_…` \| `tsk_…`                   | the item in the sheet. Ids are prefixed, so one param covers both the events and the tasks due that the agenda shows; the sheet picks its body from the prefix.                                  |
 | `occurrence` | ISO datetime                         | with `open=evt_…` of a series: which occurrence was clicked (its `originalStartAt`), needed to edit "this event" vs "all events" (`7424:43188`)                                                  |
+| `sheet`      | `note`                               | with `open=evt_…`: the sheet shows the event's note, where meeting notes are taken (`7410:34948`, `7411:34597`)                                                                                  |
 
 **Calendar filters are not search params.** "Filter: All calendars" (`7424:42573`) toggles which
 calendars show, and core already persists that per calendar (`calendars.setVisible`) and applies
@@ -1377,6 +1380,61 @@ linkedTaskId } })`), separate from the task's event or note link.
    tests (settle the adapter spec's `TZID` checks first); week/day/month from the URL; right panel
    and agenda; event sheet with occurrence editing; create event dialog; visibility filter. _Main:_
    K0.
+
+   **Done.** `CalendarView` and the adapter landed first (#121); the page is
+   `src/renderer/pages/calendar`, at `/app/$workspaceId/calendar`. As built:
+   - Layout: `search.ts` (the params) and `range.ts` (the range a view and date show, checked
+     against FullCalendar's own `activeRange`, weekends hidden or not, the week from Monday or
+     Sunday), `queries.ts`, `loaders.ts` and `use-event-sources.ts` at the folder's root;
+     `header/` the header and the Filter menu; `panel/` the right panel; `sheet/` the event sheet;
+     `edit/` the occurrence-scope logic (`occurrence.ts`, pure and tested) and its dialog;
+     `create/` the New event dialog; `pickers.tsx` the day, time, repeat and calendar pills both
+     use.
+   - The header's month and Filter fill the shell header's place, and the view, ‹ Today › and New
+     Event its actions, as Figma draws one row; there is no `PageToolbar`. It steps down as the
+     header narrows (beside the sidebar, the window bar and the sheet; `headerLayout`): the short
+     month and Filter without its value, then Filter and New Event as icons, then the view switch
+     as a menu and Today as an icon, so the two sides never meet and the month is never cut.
+     Moving through the calendar replaces the history entry; the sheet pushes one (Back closes
+     it).
+   - Each visible calendar's source reads `events.listForCalendar` for its own calendar through
+     `queryClient.query` (`staleTime: Infinity`, so only the invalidator makes it stale); a
+     subscription to the query cache calls `refetchEvents()` once when any of them is
+     invalidated. A source object lives as long as its calendar's colour, so hiding one calendar
+     doesn't refetch the others. The loader primes the range shown without waiting for it; the
+     ranges either side are prefetched. FullCalendar's `loading` shows a skeleton strip after
+     150ms.
+   - The right panel shows in wide windows while no sheet is open (the sheet takes its column).
+     The agenda reads every visible calendar for today and tomorrow in one call and expands it
+     with `occurrencesBetween`; tasks due come from `tasks.list` with `dueOn`, after the events.
+   - The event sheet edits in place (title, day, start and end, repeat, calendar, location, meeting
+     link, description). An edit of a series' occurrence opens "Change a recurring event" with
+     This event, This and following events and All events, leaving out what that change can't
+     use (`editScopes`): "This event" for a new calendar or rule, "This and following" for a rule
+     core can't split. A series' description is saved when the editor loses focus, so the
+     question is asked once. After "This event" or "This and following" the sheet shows the row
+     or series core returned. Delete asks with `useConfirm` for a one-off and the same choices
+     for a series. Figma's dialogs show only This event and All events; the third choice follows
+     the adapter spec.
+   - The event note is the note whose `linkedEventId` is the event (for a series, the series',
+     not one occurrence's). The sheet's Event note shows its card (`TaskNoteCard`: title, tasks,
+     date), or "+ Add a note"; either turns the sheet itself into the note (`?sheet=note`, an entry
+     of its own, so Back and "‹ Event" return to the event): a strip naming the meeting (how soon,
+     its times and place, Join), the note's title and its body in the note page's `NoteEditor`,
+     saved as typed, with ⤢ to the note's page and "Type / for blocks · Notes save as you type"
+     under it. With no note yet: "No note for this meeting yet", Start Note (or N, which the view
+     takes over from New note while it shows) and Link Existing Note (a searchable menu of the 50
+     notes edited last). Linked tasks are `tasks.list({ filter: { eventId } })`; "+ Add" opens
+     Create task linked to the event (linking an existing task, Figma's "Link a task", needs a
+     task picker and is left for later).
+   - `?open=tsk_…` shows the board's `TaskSheet`. The sheet's `events.get` doesn't retry
+     `not_found`, so a delete's refetch settles at once and the sheet closes.
+   - A slot click opens New event for `defaultEventDuration`, a drag for its range, a month or
+     all-day click for that day; New Event starts at the next hour today (9:00 on another day).
+   - Not done: dragging and resizing events (not designed), the ⤢ "open as page" (events have no
+     page), focus/tentative/out-of-office as choices in Create event (`7424:45312`; they are drawn,
+     not set).
+
 8. **Home (done).** Summary/section logic with tests over fixed `now`s, capture box with parsing, the
    time-aware rows. As built (`src/renderer/pages/home`):
    - `summary.ts` chooses the greeting, the summary sentence and the one section. A meeting

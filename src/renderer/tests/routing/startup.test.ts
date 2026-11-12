@@ -73,8 +73,11 @@ describe('startup', () => {
     ]);
     main.settings.openToLastPage = true;
     const app = startApp(main, { url: `/app/${WORK}` });
-    await eventually(() => expect(app.text()).toContain('Work calendars.list'));
+    await eventually(() =>
+      expect(app.container.querySelector('[data-testid="calendar-page"]')).not.toBeNull(),
+    );
     expect(app.path()).toBe(`/app/${WORK}/calendar`);
+    expect(main.callsTo('calendars.list').map((call) => call.open)).toContain(WORK);
   });
 
   it('with Reopen last page off, the link goes to the landing page, whatever the last page', async () => {

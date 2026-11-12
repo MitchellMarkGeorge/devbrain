@@ -1,0 +1,187 @@
+/* The event sheet's own bits (Figma 7175:30140) */
+/* edited in place like the task sheet's title: the caret alone shows it's being edited */
+.titleInput {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+
+.arrow,
+.zone {
+  color: var(--muted-foreground);
+}
+.zone {
+  font: var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+
+/* a location or meeting link edited in place, drawn as a pill until it's focused */
+.inline {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-1-5);
+  min-width: 0;
+  height: 24px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--foreground);
+  font: var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  transition: background-color var(--duration-fast);
+}
+.inline:hover,
+.inline:focus-within {
+  background: var(--accent);
+}
+.inlineGlyph {
+  flex: none;
+  color: var(--muted-foreground);
+}
+.inlineInput {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  outline: none;
+}
+.inlineInput::placeholder {
+  color: var(--muted-foreground);
+}
+
+.meeting {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font: var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calendarBar {
+  display: inline-flex;
+  justify-content: center;
+  width: 14px;
+}
+.calendarBar > span {
+  width: 3px;
+  height: 12px;
+  border-radius: 2px;
+}
+
+.syncHint {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.syncLine {
+  color: var(--subtle-foreground);
+  font: var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+
+.description,
+.editor {
+  font-size: var(--text-sm);
+}
+.description [role='textbox'],
+.editor [role='textbox'] {
+  min-height: 40px;
+}
+
+/* ---------- the event's note in the sheet (Figma 7410:34948) ---------- */
+.noteView {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: 100%;
+}
+/* the meeting, over the note */
+.strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.stripText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.stripTitle {
+  overflow: hidden;
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stripMeta {
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font: var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.soon {
+  color: var(--date-today);
+}
+.noteBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+/* the note's title, as large as the note page's, edited in place */
+.noteTitle {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--foreground-strong);
+  font: var(--font-weight-semibold) var(--text-2xl) / var(--text-2xl-leading) var(--font-sans);
+  outline: none;
+}
+.noteTitle::placeholder {
+  color: var(--muted-foreground);
+}
+.noteEditor {
+  flex: 1;
+  font-size: var(--text-sm);
+}
+.noteEditor [role='textbox'] {
+  min-height: 240px;
+}
+.noteFooter {
+  display: flex;
+  flex: none;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--border);
+  color: var(--subtle-foreground);
+  font: var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+/* no note yet: the empty state in the middle of the sheet */
+.noNote {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  text-align: center;
+}
+.noNoteActions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+}

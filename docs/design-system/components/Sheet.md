@@ -10,4 +10,6 @@ The details panel for a task or an event (shadcn's Sheet), 380px (`sheet-width`)
 - **Motion.** Both slide in from the right and out again in `duration-slow` on `ease-surface`. Docked, the sheet rides its column (WorkspaceShell slides the column's width), so the page narrows and widens with it and the two edges stay together; as an overlay it slides over the page while the `backdrop` fades. Nothing moves under `prefers-reduced-motion`.
 - Use for Task Details from the board or a list, and Event Details or an event's note from the calendar. Dialogs opened from a sheet still float over everything.
 
+**No swipe to dismiss.** A drag across the sheet selects its text (a note, a description), so the popup carries `data-base-ui-swipe-ignore` and the drawer's swipe never starts; ×, Esc and the page's Back close it.
+
 **Base UI:** `Drawer` with `swipeDirection="right"` (shadcn's Sheet becomes Base UI's Drawer): `Root`, `Portal`, `Backdrop`, `Popup`, `Title`, `Close`; the body is a `ScrollArea`. Docked, it renders without the `Backdrop` and the page shrinks beside it; as an overlay it is modal. Styles key off `data-open`, `data-starting-style` / `data-ending-style`, `data-swiping`.
