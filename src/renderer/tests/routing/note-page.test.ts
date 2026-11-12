@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Editor } from '@tiptap/core';
 import type { NoteId, WorkspaceId } from '@common/ids';
 import { TaskStatus, type NoteListItem } from '@common/types';
@@ -156,22 +156,48 @@ describe('the note page', () => {
     expect(app.text()).not.toContain('Old title');
   });
 
-  it('offers the menu’s actions, with Duplicate and Copy as Markdown not built yet', async () => {
+  it('shows the note’s file in Finder from the menu', async () => {
     const { main, app } = notePage();
     await eventually(() => expect(app.text()).toContain('The implicit flow leaks tokens.'));
     click(document.querySelector('[aria-label="More actions"]'));
     await eventually(() =>
       expect(byText(document.body, '[role="menuitem"]', 'Show in Finder')).not.toBeNull(),
     );
-    for (const label of ['Duplicate', 'Copy as Markdown']) {
-      expect(byText(document.body, '[role="menuitem"]', label)!.hasAttribute('data-disabled')).toBe(
-        true,
-      );
-    }
     click(byText(document.body, '[role="menuitem"]', 'Show in Finder'));
     await eventually(() =>
       expect(main.callsTo('notes.showInFolder').map((call) => call.input)).toEqual([{ id: NOTE }]),
     );
+  });
+
+  it('duplicates the note from the menu and opens the copy', async () => {
+    const { main, app } = notePage();
+    await eventually(() => expect(app.text()).toContain('The implicit flow leaks tokens.'));
+    click(document.querySelector('[aria-label="More actions"]'));
+    await eventually(() =>
+      expect(byText(document.body, '[role="menuitem"]', 'Duplicate')).not.toBeNull(),
+    );
+    click(byText(document.body, '[role="menuitem"]', 'Duplicate'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes/nte_new2`));
+    await eventually(() => expect(app.text()).toContain('Copy of Architecture ADR #4'));
+    expect(main.callsTo('notes.duplicate').map((call) => call.input)).toEqual([{ id: NOTE }]);
+  });
+
+  it('copies the note as Markdown from the menu and says so', async () => {
+    const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const { app } = notePage();
+    await eventually(() => expect(app.text()).toContain('The implicit flow leaks tokens.'));
+    click(document.querySelector('[aria-label="More actions"]'));
+    await eventually(() =>
+      expect(byText(document.body, '[role="menuitem"]', 'Copy as Markdown')).not.toBeNull(),
+    );
+    click(byText(document.body, '[role="menuitem"]', 'Copy as Markdown'));
+    await eventually(() =>
+      expect(writeText).toHaveBeenCalledWith(
+        '# Architecture ADR #4\n\nThe implicit flow leaks tokens.\n',
+      ),
+    );
+    await eventually(() => expect(document.body.textContent).toContain('Copied'));
   });
 
   it('moves the note to the trash and goes back to the notes', async () => {

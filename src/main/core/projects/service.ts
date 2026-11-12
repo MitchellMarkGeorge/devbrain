@@ -30,6 +30,9 @@ import {
   withExternalRefs,
 } from '../integrations/refs';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
+import { withListDetails } from '../tasks/details';
+import { toExportedTasks } from '../transfer/task-format';
+import { projectAsMarkdown } from '../transfer/markdown-copy';
 
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
 // layer will forward them to the renderer. Sent after the write commits, with the row as written.
@@ -203,6 +206,22 @@ export class ProjectService {
         totalTasks: 0,
       }
     );
+  }
+
+  /**
+   * An active project as Markdown (Copy as Markdown): its title, properties and description, then
+   * its active tasks as checklists grouped by status, oldest first, each subtask under its parent.
+   * Throws NotFoundError for an unknown or archived project.
+   */
+  toMarkdown(id: ProjectId): string {
+    const project = this.getById(id);
+    const rows = this.db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.projectId, id), isNull(tasks.archivedAt)))
+      .orderBy(tasks.createdAt, tasks.id)
+      .all();
+    return projectAsMarkdown(project, toExportedTasks(withListDetails(this.db, rows)));
   }
 
   /**

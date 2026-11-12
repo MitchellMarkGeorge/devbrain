@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EventId, WorkspaceId } from '@common/ids';
 import { TaskStatus } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
@@ -155,16 +155,34 @@ describe('the notes list', () => {
       item = byText(document.body, '[role="menuitem"]', 'Favorite');
       expect(item).not.toBeNull();
     });
-    // no route for it yet
-    expect(
-      byText(document.body, '[role="menuitem"]', 'Copy as Markdown')!.hasAttribute('data-disabled'),
-    ).toBe(true);
     click(item);
     await eventually(() =>
       expect(main.callsTo('notes.setFavorite').map((call) => call.input)).toEqual([
         { id: 'nte_plan', favorite: true },
       ]),
     );
+  });
+
+  it('copies a note as Markdown from the row menu', async () => {
+    const writeText = vi.fn<(text: string) => Promise<void>>(() => Promise.resolve());
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const { main } = notesPage();
+    await eventually(() => expect(row('Launch plan')).toBeDefined());
+    row('Launch plan')!.dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }),
+    );
+    let item: HTMLElement | null = null;
+    await eventually(() => {
+      item = byText(document.body, '[role="menuitem"]', 'Copy as Markdown');
+      expect(item).not.toBeNull();
+    });
+    click(item);
+    await eventually(() => expect(writeText).toHaveBeenCalledTimes(1));
+    expect(writeText.mock.calls[0][0]).toMatch(/^# Launch plan\n/);
+    expect(main.callsTo('notes.toMarkdown').map((call) => call.input)).toEqual([
+      { id: 'nte_plan' },
+    ]);
+    await eventually(() => expect(document.body.textContent).toContain('Copied'));
   });
 
   it('opens the focused row with ↵ and trashes it with ⌘⌫', async () => {

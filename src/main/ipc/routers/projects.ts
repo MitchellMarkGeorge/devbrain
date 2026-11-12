@@ -102,6 +102,11 @@ export const projectsRouter = t.router({
     .input(byId)
     .query(({ ctx, input }): ProjectStats => ctx.workspace.projects.getProjectStats(input.id)),
 
+  // the project with its tasks grouped by status as Markdown, for the clipboard
+  toMarkdown: wsProcedure
+    .input(byId)
+    .query(({ ctx, input }): string => ctx.workspace.projects.toMarkdown(input.id)),
+
   // the state wanted, not a toggle: a repeat changes nothing. A synced project can be favorited.
   setFavorite: wsProcedure
     .input(byId.extend({ favorite: z.boolean() }))

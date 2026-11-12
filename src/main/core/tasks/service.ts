@@ -7,7 +7,10 @@ import { eq, inArray, notInArray, and, isNull, not, SQL, lt, gt, gte, desc } fro
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   LinkState,
+  Note,
   Page,
+  Project,
+  ProjectStatus,
   SubtaskListItem,
   Task,
   TaskDeleteResult,
@@ -33,9 +36,11 @@ import {
   NotFoundError,
   TaskHierarchyError,
 } from '../shared/errors';
-import { isSubtask } from './utils';
-import { subtreeOf } from './subtree';
+import { copyTitle, isSubtask } from './utils';
+import { subtreeOf, subtreeOfAll } from './subtree';
 import { withListDetails, withSubtaskListDetails } from './details';
+import { toExportedTasks } from '../transfer/task-format';
+import { taskAsMarkdown } from '../transfer/markdown-copy';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { localDayWindow } from '../shared/dates';
 import { keyset, PageOptions } from '../shared/pagination';
@@ -50,6 +55,8 @@ import {
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 
 type NewTaskValues = typeof tasks.$inferInsert;
+// a transaction's handle, which the reads and writes inside it go through
+type Transaction = Parameters<Parameters<BetterSQLite3Database['transaction']>[0]>[0];
 
 // what a subtask takes from its parent
 type SubtaskParent = Pick<Task, 'id' | 'dueDate' | 'projectId' | 'linkedNoteId' | 'linkedEventId'>;
@@ -57,6 +64,25 @@ type SubtaskParent = Pick<Task, 'id' | 'dueDate' | 'projectId' | 'linkedNoteId' 
 // rows per INSERT in createTaskTrees: about 15 bound values each, well under SQLite's limit on
 // variables in one statement
 const INSERT_CHUNK = 500;
+
+// the status a project made from a task starts in
+const PROJECT_STATUS_OF_TASK: Record<TaskStatus, ProjectStatus> = {
+  [TaskStatus.NOT_STARTED]: ProjectStatus.NOT_STARTED,
+  [TaskStatus.IN_PROGRESS]: ProjectStatus.ACTIVE,
+  [TaskStatus.COMPLETED]: ProjectStatus.COMPLETED,
+  [TaskStatus.CANCELLED]: ProjectStatus.ON_HOLD,
+};
+
+// What convertToProject made and changed, for its `converted` change.
+export interface TaskConversion {
+  // the task as archived
+  task: Task;
+  project: Project;
+  // the task's subtasks, now top-level tasks of the project
+  movedTasks: Task[];
+  // the task's task note, now the project's and linked to no task; null when it had none
+  note: Note | null;
+}
 
 // The row createTask inserts: a local top-level task. Throws InvalidInputError for both links.
 function newTaskValues(options: CreateTaskOptions): NewTaskValues {
@@ -105,10 +131,12 @@ function newSubtaskValues(parent: SubtaskParent, options: CreateSubTaskOptions):
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
 // layer will forward them to the renderer. Sent after the write commits, with the row as written.
 // `deleted` is sent as the delete's last step, inside its transaction, so search drops the rows in
-// the same commit (as an archive does).
+// the same commit (as an archive does). `converted` names the project a task became and every row
+// that conversion changed, after its commit.
 export type TaskChange =
   | { type: 'created'; task: Task }
   | { type: 'updated'; task: Task }
+  | ({ type: 'converted' } & TaskConversion)
   | ({ type: 'deleted' } & TaskDeleteResult);
 
 export class TaskService {
@@ -187,17 +215,7 @@ export class TaskService {
     for (const tree of trees) addSubtasks(add(newTaskValues(tree)), tree.subtasks);
 
     return this.db.transaction((tx) => {
-      const inserted = new Map<TaskId, Task>();
-      for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
-        const chunk = tx
-          .insert(tasks)
-          .values(rows.slice(i, i + INSERT_CHUNK))
-          .returning()
-          .all();
-        for (const row of chunk) inserted.set(row.id, { ...row, external: null });
-      }
-      // RETURNING gives no order, so the tasks are put back in the order built
-      const created = rows.map(({ id }) => inserted.get(id)!);
+      const created = this.insertRows(tx, rows);
       for (const task of created) this.changes.emit({ type: 'created', task });
       return created;
     });
@@ -540,6 +558,192 @@ export class TaskService {
   }
 
   /**
+   * Turns a task into a project (the task page's Convert to project), in one transaction:
+   *
+   * - The project takes the task's title, description, start and due dates, and the colour of the
+   *   task's project if it has one. Its status follows the task's (in progress → active, completed
+   *   → completed, cancelled → on hold, else not started).
+   * - The task's active subtasks become top-level tasks of the project. Their own subtasks stay
+   *   under them, and their whole subtrees join the project. They keep the event or note link they
+   *   took from the task, as a promoted subtask does.
+   * - The task's task note (the note whose `linkedTaskId` is the task) moves to the project and
+   *   links to no task, so archiving the task leaves it out.
+   * - The task is archived (it can be restored from the trash). It keeps its own link: a project
+   *   has none. Its favorite moves to the project: the project is what the user starred now.
+   *
+   * One `converted` change is sent after the commit. Returns the new project. Throws NotFoundError
+   * for an unknown or archived task, and ExternalReadOnlyError for a synced one: its provider owns
+   * it, so it is detached first.
+   */
+  convertToProject(id: TaskId): Project {
+    const conversion = this.db.transaction((tx): TaskConversion => {
+      const row = tx
+        .select()
+        .from(tasks)
+        .where(and(eq(tasks.id, id), isNull(tasks.archivedAt)))
+        .get();
+      if (!row) throw new NotFoundError(id);
+      assertRowEditable(withExternalRef(tx, row));
+
+      const color = row.projectId
+        ? (tx
+            .select({ color: projects.color })
+            .from(projects)
+            .where(eq(projects.id, row.projectId))
+            .get()?.color ?? null)
+        : null;
+      const now = new Date();
+      const status = PROJECT_STATUS_OF_TASK[row.status];
+      const projectRow = tx
+        .insert(projects)
+        .values({
+          title: row.title,
+          description: row.description,
+          startDate: row.startDate,
+          dueDate: row.dueDate,
+          color,
+          status,
+          completedAt: status === ProjectStatus.COMPLETED ? (row.completedAt ?? now) : null,
+          favoritedAt: row.favoritedAt,
+        })
+        .returning()
+        .get();
+
+      const childIds = tx
+        .select({ id: tasks.id })
+        .from(tasks)
+        .where(and(eq(tasks.parentTaskId, id), isNull(tasks.archivedAt)))
+        .all()
+        .map((child) => child.id);
+      let movedRows: Task[] = [];
+      if (childIds.length > 0) {
+        // archived rows in their subtrees too, so a restore puts them back in the project
+        tx.update(tasks)
+          .set({ projectId: projectRow.id })
+          .where(inArray(tasks.id, subtreeOfAll(childIds)))
+          .run();
+        movedRows = tx
+          .update(tasks)
+          .set({ parentTaskId: null })
+          .where(inArray(tasks.id, childIds))
+          .returning()
+          .all();
+      }
+
+      const note =
+        tx
+          .update(notes)
+          .set({ projectId: projectRow.id, linkedTaskId: null })
+          .where(and(eq(notes.linkedTaskId, id), isNull(notes.archivedAt)))
+          .returning()
+          .get() ?? null;
+
+      // what is left below the task is archived already, so only its own row changes
+      const archived = tx
+        .update(tasks)
+        .set({ archivedAt: now, favoritedAt: null })
+        .where(eq(tasks.id, id))
+        .returning()
+        .get();
+
+      return {
+        task: withExternalRef(tx, archived),
+        project: { ...projectRow, external: null },
+        movedTasks: withExternalRefs(tx, movedRows),
+        note,
+      };
+    });
+    this.changes.emit({ type: 'converted', ...conversion });
+    return conversion.project;
+  }
+
+  /**
+   * Copies a task with its active subtasks at any depth (the menus' Duplicate), in one
+   * transaction. The copy is titled "Copy of …"; its subtasks keep their titles. Every other field
+   * is copied as it is: status (and completedAt), priority, dates, project, link and pull request.
+   * Its favorite, views and task note are not: a task has at most one task note.
+   *
+   * A copy is always local: a synced task (and its synced subtree) is copied as local tasks, which
+   * sync never touches. A subtask's copy goes under the same parent, unless that parent is synced
+   * (a synced task only has synced tasks below it): then it is a top-level task.
+   *
+   * A `created` is sent for each new task after the commit, the copy first. Returns the copy.
+   * Throws NotFoundError for an unknown or archived task.
+   */
+  duplicateTask(id: TaskId): Task {
+    const created = this.db.transaction((tx) => {
+      const subtree = tx
+        .select()
+        .from(tasks)
+        .where(and(inArray(tasks.id, subtreeOf(id)), isNull(tasks.archivedAt)))
+        .orderBy(tasks.createdAt, tasks.id)
+        .all();
+      const root = subtree.find((row) => row.id === id);
+      if (!root) throw new NotFoundError(id);
+
+      let parentTaskId: TaskId | null = null;
+      if (root.parentTaskId) {
+        const parent = tx
+          .select()
+          .from(tasks)
+          .where(and(eq(tasks.id, root.parentTaskId), isNull(tasks.archivedAt)))
+          .get();
+        if (parent && !isSynced(withExternalRef(tx, parent))) parentTaskId = parent.id;
+      }
+
+      const childrenOf = new Map<TaskId, Task[]>();
+      for (const row of subtree) {
+        if (row.id === id || !row.parentTaskId) continue;
+        childrenOf.set(row.parentTaskId, [...(childrenOf.get(row.parentTaskId) ?? []), row]);
+      }
+      // parents before their subtasks, so each parent row exists when its subtasks go in; a row
+      // under an archived task is not reached, as it is not shown under the task
+      const rows: (NewTaskValues & { id: TaskId })[] = [];
+      const copy = (row: Task, newParentId: TaskId | null, title: string) => {
+        const newId = generateId('task');
+        rows.push({
+          id: newId,
+          title,
+          description: row.description,
+          status: row.status,
+          priority: row.priority,
+          startDate: row.startDate,
+          dueDate: row.dueDate,
+          parentTaskId: newParentId,
+          projectId: row.projectId,
+          linkedEventId: row.linkedEventId,
+          linkedNoteId: row.linkedNoteId,
+          pullRequestUrl: row.pullRequestUrl,
+          completedAt: row.completedAt,
+        });
+        for (const child of childrenOf.get(row.id) ?? []) copy(child, newId, child.title);
+      };
+      copy(root, parentTaskId, copyTitle(root.title));
+      return this.insertRows(tx, rows);
+    });
+    for (const task of created) this.changes.emit({ type: 'created', task });
+    return created[0];
+  }
+
+  /**
+   * An active task as Markdown (Copy as Markdown): its title, properties and description, then its
+   * active subtasks at any depth as a checklist, oldest first. Throws NotFoundError for an unknown
+   * or archived task.
+   */
+  toMarkdown(id: TaskId): string {
+    const rows = this.db
+      .select()
+      .from(tasks)
+      .where(and(inArray(tasks.id, subtreeOf(id)), isNull(tasks.archivedAt)))
+      .orderBy(tasks.createdAt, tasks.id)
+      .all();
+    // a subtask under an archived one would come out as a tree of its own; only the task's is kept
+    const task = toExportedTasks(withListDetails(this.db, rows)).find((root) => root.id === id);
+    if (!task) throw new NotFoundError(id);
+    return taskAsMarkdown(task);
+  }
+
+  /**
    * Deletes an archived task for good (the UI calls archived items "in the trash"; deleting is
    * only offered there), with every task below it at any depth: the `parentTaskId` foreign key
    * cascades. The task and everything below it must be archived, or it throws NotArchivedError:
@@ -595,6 +799,22 @@ export class TaskService {
       this.changes.emit({ type: 'deleted', ...result });
       return result;
     });
+  }
+
+  // Inserts new local task rows a few hundred per statement, parents before their subtasks, and
+  // returns them as tasks in the order given.
+  private insertRows(tx: Transaction, rows: (NewTaskValues & { id: TaskId })[]): Task[] {
+    const inserted = new Map<TaskId, Task>();
+    for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
+      const chunk = tx
+        .insert(tasks)
+        .values(rows.slice(i, i + INSERT_CHUNK))
+        .returning()
+        .all();
+      for (const row of chunk) inserted.set(row.id, { ...row, external: null });
+    }
+    // RETURNING gives no order, so the tasks are put back in the order built
+    return rows.map(({ id }) => inserted.get(id)!);
   }
 
   // An update's result as every read returns it, with `external`, after sending the change. Throws

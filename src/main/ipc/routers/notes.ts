@@ -72,6 +72,17 @@ export const notesRouter = t.router({
         ctx.workspace.notes.updateNoteContent(input.id, input.content),
     ),
 
+  // copies the note and its markdown file ("Copy of …"), keeping its project; the copy links to no
+  // event or task, which each have one note. Returns the copy
+  duplicate: wsProcedure
+    .input(byId)
+    .mutation(({ ctx, input }): Promise<Note> => ctx.workspace.notes.duplicateNote(input.id)),
+
+  // the note's title and content as Markdown, for the clipboard
+  toMarkdown: wsProcedure
+    .input(byId)
+    .query(({ ctx, input }): Promise<string> => ctx.workspace.notes.toMarkdown(input.id)),
+
   // Shows the note's markdown file in the file manager, selected in the notes folder (Finder's
   // "Show in Finder"), or opens the folder when the file is missing. The path comes from core,
   // never from the input; an unknown or trashed note fails with not_found.

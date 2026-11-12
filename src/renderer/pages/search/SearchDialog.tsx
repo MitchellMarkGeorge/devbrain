@@ -164,11 +164,13 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
   const counted = countsQuery.isError ? NO_COUNTS : countsQuery.data;
   if (typed && counted && shownCounts !== counted) setShownCounts(counted);
   const results = shown?.results ?? NO_RESULTS;
-  const counts = typed && shownCounts ? withAll(shownCounts) : undefined;
 
   // Recent and Go to (or a type filter's latest) while nothing is typed, and while the dialog's
   // first search runs
   const showEmptyQuery = !typed || shown === null;
+  // the counts go with results, so none show beside Recent and Go to, even when search.counts
+  // answers before the first search does
+  const counts = !showEmptyQuery && shownCounts ? withAll(shownCounts) : undefined;
   // with a type filter, the type's latest instead of Recent and Go to
   const atRest = useAtRest(showEmptyQuery && filter !== 'all' ? filter : null);
   const groups = useMemo<Group[]>(() => {

@@ -22,9 +22,10 @@ import {
   toast,
 } from '../../../components';
 import { ipc, trpc } from '../../../ipc';
-import { KeyScope } from '../../../keyboard';
+import { KeyScope, useCommands } from '../../../keyboard';
 import { useModals } from '../../../modals';
 import { useMutationErrorToast } from '../../app/mutation-errors';
+import { useOpenEntity } from '../../app/use-open-entity';
 import type { AddingProperty } from './TaskProperties';
 
 export interface TaskDetailMenuProps {
@@ -35,14 +36,16 @@ export interface TaskDetailMenuProps {
 }
 
 /**
- * The task page's "…" menu, in the README's order: Convert to project (not built yet, drawn
- * disabled), Link to…, Make subtask of… (or Make top-level task), Duplicate and Copy as Markdown
- * (not built yet, drawn disabled), the provider's items for a synced or detached task (Open in
- * Linear, Copy Linear URL, Detach or Reattach), then Move to trash.
+ * The task page's "…" menu, in the README's order: Convert to project (after a confirmation, then
+ * opens the project), Link to…, Make subtask of… (or Make top-level task), Duplicate (⌘D, then
+ * opens the copy), Copy as Markdown, the provider's items for a synced or detached task (Open in
+ * Linear, Copy Linear URL, Detach or Reattach), then Move to trash. A synced task can't be
+ * converted (its provider owns it); its copy is a local task.
  */
 export function TaskDetailMenu({ task, onAdd, onTrash }: TaskDetailMenuProps) {
   const modals = useModals();
   const showError = useMutationErrorToast();
+  const openEntity = useOpenEntity();
   const { mutate: openUrl } = useMutation(trpc.workspace.openUrl.mutationOptions());
   const external = task.external ?? null;
   const provider = external ? PROVIDER_LABELS[providerOf(external) ?? 'linear'] : '';
@@ -67,6 +70,42 @@ export function TaskDetailMenu({ task, onAdd, onTrash }: TaskDetailMenuProps) {
       </ConfirmDialog>
     ));
 
+  const convert = () =>
+    modals.open((props) => (
+      <ConfirmDialog
+        {...props}
+        title="Convert to project?"
+        description={`“${task.title}” becomes a project. Its subtasks become the project’s tasks and its task note moves to the project. The task moves to the trash.`}
+        actionLabel="Convert"
+        onConfirm={() => {
+          ipc.tasks.convertToProject
+            .mutate({ id: task.id })
+            .then((project) => {
+              toast({ tone: 'success', title: 'Converted to a project' });
+              openEntity(project);
+            })
+            .catch((error: unknown) => showError(error, 'Couldn’t convert the task'));
+        }}
+      >
+        <KeyScope name="dialog" />
+      </ConfirmDialog>
+    ));
+
+  const duplicate = () =>
+    ipc.tasks.duplicate
+      .mutate({ id: task.id })
+      .then((copy) => openEntity(copy))
+      .catch((error: unknown) => showError(error, 'Couldn’t duplicate the task'));
+
+  const copyAsMarkdown = () =>
+    ipc.tasks.toMarkdown
+      .query({ id: task.id })
+      .then((markdown) => navigator.clipboard.writeText(markdown))
+      .then(() => toast({ tone: 'success', title: 'Copied' }))
+      .catch((error: unknown) => showError(error, 'Couldn’t copy the task'));
+
+  useCommands([{ id: 'page.duplicate', title: 'Duplicate', scope: 'global', run: duplicate }]);
+
   const reattach = () =>
     ipc.tasks.reattach
       .mutate({ id: task.id })
@@ -75,7 +114,7 @@ export function TaskDetailMenu({ task, onAdd, onTrash }: TaskDetailMenuProps) {
 
   return (
     <PageMenuButton>
-      <DropdownMenuItem icon={Folder} disabled>
+      <DropdownMenuItem icon={Folder} disabled={synced} onClick={convert}>
         Convert to project
       </DropdownMenuItem>
       <DropdownMenuItem icon={Link} onClick={() => onAdd('event')}>
@@ -98,11 +137,11 @@ export function TaskDetailMenu({ task, onAdd, onTrash }: TaskDetailMenuProps) {
           Make subtask of…
         </DropdownMenuItem>
       )}
-      <DropdownMenuItem icon={Copy} shortcut="⌘D" disabled>
+      <DropdownMenuItem icon={Copy} shortcut="⌘D" onClick={() => void duplicate()}>
         Duplicate
       </DropdownMenuItem>
       <DropdownMenuSeparator />
-      <DropdownMenuItem icon={Code} disabled>
+      <DropdownMenuItem icon={Code} onClick={() => void copyAsMarkdown()}>
         Copy as Markdown
       </DropdownMenuItem>
       {external && (

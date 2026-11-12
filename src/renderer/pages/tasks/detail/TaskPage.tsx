@@ -38,7 +38,12 @@ import { useTaskActions } from '../use-task-actions';
  */
 export function TaskPage() {
   const { taskId } = taskRoute.useParams();
-  const task = useQuery(trpc.tasks.get.queryOptions({ id: taskId }));
+  const task = useQuery({
+    ...trpc.tasks.get.queryOptions({ id: taskId }),
+    // a task trashed or converted from this page is gone for good: retrying would hold up the
+    // mutation that refetches it (and the page leaves it anyway)
+    retry: (failures, error) => ipcErrorCode(error) !== 'not_found' && failures < 3,
+  });
   useRecordView(taskId);
   if (task.data === undefined) {
     return task.isError && ipcErrorCode(task.error) === 'not_found' ? <NotFoundPage /> : null;
