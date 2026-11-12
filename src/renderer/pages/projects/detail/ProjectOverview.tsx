@@ -3,7 +3,15 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { ArrowRight, FileText, Flag, Plus } from 'lucide-react';
 import { TaskStatus, type Project, type ProjectStats } from '@common/types';
-import { Button, Icon, percentOf, statusVar, StatusIcon, useFormat } from '../../../components';
+import {
+  Button,
+  Card,
+  Icon,
+  percentOf,
+  statusVar,
+  StatusIcon,
+  useFormat,
+} from '../../../components';
 import { trpc } from '../../../ipc';
 import { useOpenEntity } from '../../app/use-open-entity';
 import { useCreateNote } from '../../notes/use-create-note';
@@ -104,13 +112,13 @@ function RailSection({
   children: ReactNode;
 }) {
   return (
-    <section className={styles.railSection} aria-label={title}>
+    <Card className={styles.railCard} render={<section aria-label={title} />}>
       <header className={styles.railHead}>
         <h2 className={styles.railTitle}>{title}</h2>
         {action}
       </header>
       {children}
-    </section>
+    </Card>
   );
 }
 

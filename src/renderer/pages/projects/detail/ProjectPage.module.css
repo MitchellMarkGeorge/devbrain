@@ -66,8 +66,7 @@ button.tile:focus-visible {
   top: var(--space-4);
   display: flex;
   flex-direction: column;
-  padding-left: var(--space-6);
-  border-left: 1px solid var(--border);
+  gap: var(--space-4);
 }
 @media (max-width: 1180px) {
   .layout {
@@ -75,24 +74,13 @@ button.tile:focus-visible {
   }
   .rail {
     position: static;
-    padding: var(--space-2) 0 0;
-    border-top: 1px solid var(--border);
-    border-left: 0;
   }
 }
 
-/* a rail section: its 12px label and an action on the right over its content, hairlines between */
-.railSection {
-  display: flex;
-  flex-direction: column;
+/* a rail card: its 12px label and an action on the right, over its content */
+[data-slot='card'].railCard {
   gap: var(--space-3);
-  padding: var(--space-4) 0;
-}
-.railSection + .railSection {
-  border-top: 1px solid var(--border);
-}
-.railSection:first-child {
-  padding-top: var(--space-1);
+  padding: var(--space-4);
 }
 .railHead {
   display: flex;
