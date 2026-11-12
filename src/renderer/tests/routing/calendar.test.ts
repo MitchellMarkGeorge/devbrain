@@ -110,6 +110,8 @@ describe('the calendar page', () => {
       'value',
       'Room 4B',
     );
+    // a drag in it selects text rather than swiping it away
+    expect(sheet()!.hasAttribute('data-base-ui-swipe-ignore')).toBe(true);
     app.router.history.back();
     await eventually(() => expect(search(app).get('open')).toBeNull());
     await eventually(() => expect(sheet()).toBeNull());

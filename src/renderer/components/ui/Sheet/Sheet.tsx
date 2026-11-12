@@ -38,7 +38,8 @@ export interface SheetProps extends Drawer.Root.Props {
 
 /**
  * The details panel for a task or an event. Docked, it doesn't trap focus or close on outside
- * clicks (the page beside it stays usable); as an `overlay` it is modal.
+ * clicks (the page beside it stays usable); as an `overlay` it is modal. It doesn't close on a
+ * swipe, so a drag in it selects text: ×, Esc or the page's Back close it.
  * ```tsx
  * <Sheet open={open} onOpenChange={setOpen}>
  *   <SheetContent>
@@ -94,6 +95,8 @@ export function SheetContent({
         <Drawer.Popup
           // a docked sheet's column opens while its sheet is open (WorkspaceShell)
           data-sheet=""
+          // no swipe to dismiss: a drag across the sheet selects its text (× and Esc close it)
+          data-base-ui-swipe-ignore=""
           className={mergeClassName(sheetVariants({ variant, size }), className)}
           {...props}
         >
