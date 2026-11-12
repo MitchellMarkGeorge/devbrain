@@ -1,4 +1,4 @@
-import { useMemo, useState, type MouseEvent } from 'react';
+import { useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { ExternalLink, Star, Trash2 } from 'lucide-react';
 import type { ProjectListItem } from '@common/types';
@@ -12,10 +12,11 @@ import {
   PageContent,
   PageToolbar,
   ProjectCard,
-  ProjectRow,
+  ProjectList,
   VirtualCardGrid,
-  VirtualList,
+  type ProjectListHandle,
 } from '../../../components';
+import { KeyScope, useListCommands } from '../../../keyboard';
 import { PageHeaderSlot } from '../../app/page-header';
 import { useOpenEntity } from '../../app/use-open-entity';
 import { isSynced } from '../../tasks/queries';
@@ -25,6 +26,8 @@ import { ProjectStatusPill } from '../ProjectStatusPill';
 import { useProjectActions } from '../use-project-actions';
 import { useProjectsSearch } from '../use-projects-search';
 import { ProjectsEmptyState, ProjectsErrorState, ProjectsLoading } from './ProjectsStates';
+import { ProjectsSelectionBar } from './ProjectsSelectionBar';
+import styles from './ProjectsView.module.css';
 import {
   PROJECT_VIEW_ICONS,
   PROJECT_VIEW_LABELS,
@@ -41,7 +44,9 @@ const CARD_ROW_HEIGHT = 148;
  * The projects page (`/app/$workspaceId/projects`, Figma `7158:15157` list, `7158:15487` cards):
  * Filter (status, Active by default; source), Sort, the list / cards toggle and New Project, over
  * the virtualized rows or cards of `projects.list`, each with its progress from the stats the list
- * returns. A row or card opens the project; right-click for Favorite and Move to trash.
+ * returns. A row or card opens the project; right-click for Favorite and Move to trash. List rows
+ * select as the tasks list's do (a checkbox, X), with a selection bar of Status, Favorite and Move
+ * to trash, and the list keys (↵, F, ⌘⌫).
  */
 export function ProjectsPage() {
   const { search, resolved, setSearch } = useProjectsSearch();
@@ -57,6 +62,20 @@ export function ProjectsPage() {
   };
   // the project whose row or card was right-clicked: the menu is drawn for it
   const [menuProject, setMenuProject] = useState<ProjectListItem | null>(null);
+  const list = useRef<ProjectListHandle<ProjectListItem>>(null);
+  // the selected projects, by id; on the list view only
+  const [selected, setSelected] = useState<string[]>([]);
+  const selectedProjects = projects.filter((project) => selected.includes(project.id));
+
+  // the list keys: on the selected rows, or the focused one
+  useListCommands(list, {
+    open: (project) => openEntity({ id: project.id }),
+    toggleFavorite: (rows) => actions.toggleFavorite(rows),
+    trash: (rows) =>
+      void actions.trashAll(rows).then((moved) => {
+        if (moved) setSelected([]);
+      }),
+  });
 
   let content;
   if (query.isPending) content = <ProjectsLoading />;
@@ -107,20 +126,29 @@ export function ProjectsPage() {
     );
   } else {
     content = (
-      <VirtualList
-        items={projects}
-        getKey={(project) => project.id}
-        onEndReached={onEndReached}
-        aria-label="Projects"
-        renderItem={(project) => (
-          <ProjectRow
-            project={project}
-            stats={project.stats}
-            data-project-id={project.id}
-            onOpen={() => openEntity({ id: project.id })}
+      // the bar is outside the list's key scope: keys on its buttons (↵ on Clear) are theirs
+      <div className={styles.region}>
+        <KeyScope name="list" render={<div className={styles.region} />}>
+          <ProjectList
+            ref={list}
+            projects={projects}
+            aria-label="Projects"
+            selected={selected}
+            onSelectedChange={setSelected}
+            onOpen={(project) => openEntity({ id: project.id })}
+            onEndReached={onEndReached}
           />
-        )}
-      />
+        </KeyScope>
+        <ProjectsSelectionBar
+          projects={selectedProjects}
+          actions={actions}
+          onClear={() => {
+            setSelected([]);
+            // the bar is going: focus back to the list's focused row
+            list.current?.moveFocus(0);
+          }}
+        />
+      </div>
     );
   }
 

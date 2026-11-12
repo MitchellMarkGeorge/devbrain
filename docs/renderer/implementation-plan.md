@@ -1382,9 +1382,12 @@ linkedTaskId } })`), separate from the task's event or note link.
      `use-project-actions.ts` at the folder's root; `views/` the Projects page; `detail/` the
      project page and its tabs; `create/` the Create project dialog. The routes are
      `routes/app/$workspaceId/projects/index.tsx` and `$projectId.tsx`.
-   - The list is a `VirtualList` (new in `shell/`, beside `VirtualCardGrid`) of `ProjectRow`s; the
-     cards a `VirtualCardGrid` of `ProjectCard`s, whose status pill opens the status menu. Rows and
-     cards have a right-click menu (Open, Favorite, Move to trash).
+   - The list is a `ProjectList` (new in `lists/`, as `NoteList`: virtualized `ProjectRow`s, focus
+     and selection by id); the cards a `VirtualCardGrid` of `ProjectCard`s, whose status pill
+     opens the status menu. Selected rows show a selection bar with Status, Favorite and Move to
+     trash, run one project at a time (no bulk project routes); the list keys open (↵), select
+     (X), favorite (F) and trash (⌘⌫). Rows and cards have a right-click menu (Open, Favorite,
+     Move to trash).
    - The Tasks tab is the tasks page's views (`pages/tasks/views/TasksView`) with the project fixed:
      the views read their state from a `TasksSearchProvider` (`use-tasks-search.ts`), which the
      tasks page fills from its URL and the Tasks tab from the project page's (its params beside
@@ -1399,7 +1402,10 @@ linkedTaskId } })`), separate from the task's event or note link.
      Figma's full-width groups (`7159:12540`). With no tasks, "No tasks in this project yet"
      offers New Task and Move Tasks Here (the Tasks page's tasks in no project).
    - `ProjectHeader` gained `onTitleChange` (the name edits in place) and `duePicker`/`startPicker`
-     (clearable dates). Colours are stored as `#rrggbb` (`workspace/colors.ts`'s `SWATCH_HEX`), as
+     (clearable dates), and its name grew to 30px; the tabs are `Tabs size="lg"` (36px, with
+     icons). The Progress card's "N overdue" opens the Tasks tab's list view filtered to overdue
+     tasks; core's `numOfOverdue` counts tasks due before today, as that filter and the rows do (it
+     counted those due earlier today too). Colours are stored as `#rrggbb` (`workspace/colors.ts`'s `SWATCH_HEX`), as
      `projects.update` takes no swatch names; "Change colour" is a submenu of the six swatches
      rather than the editor's `ColourMenu`.
    - The Notes tab draws `NoteCard`s and opens them on the note page with `useOpenEntity`. New note (the menu's and the tab's) creates an empty note in the project and

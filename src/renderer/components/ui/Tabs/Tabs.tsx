@@ -12,8 +12,13 @@ export const tabsVariants = cva(styles.root, {
      * `default`: the segmented control; `line`: an underline (no screen uses it yet)
      */
     variant: { outline: styles.outline, default: styles.segmented, line: styles.line },
+    /**
+     * the outline variant's size: `default` 32px tabs in 14px; `lg` 36px tabs in 16px, for an
+     * item's sub-pages at the top of its page (a project's Overview / Tasks / Notes)
+     */
+    size: { default: undefined, lg: styles.lg },
   },
-  defaultVariants: { variant: 'outline' },
+  defaultVariants: { variant: 'outline', size: 'default' },
 });
 
 export interface TabsProps extends BaseTabs.Root.Props, VariantProps<typeof tabsVariants> {}
@@ -23,7 +28,7 @@ export interface TabsProps extends BaseTabs.Root.Props, VariantProps<typeof tabs
  * (Overview / Tasks / Notes). Compose `TabsList` with `TabsTab`s, then a `TabsPanel` for each.
  */
 export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
-  { variant, className, ...props },
+  { variant, size, className, ...props },
   ref,
 ) {
   return (
@@ -31,7 +36,7 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
       ref={ref}
       data-slot="tabs"
       data-variant={variant ?? 'outline'}
-      className={mergeClassName(tabsVariants({ variant }), className)}
+      className={mergeClassName(tabsVariants({ variant, size }), className)}
       {...props}
     />
   );

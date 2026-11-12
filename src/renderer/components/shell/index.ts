@@ -6,7 +6,6 @@ export * from './PageHeader';
 export * from './Sidebar';
 export * from './SyncStatus';
 export * from './VirtualCardGrid';
-export * from './VirtualList';
 export * from './WindowBar';
 export * from './WorkspaceShell';
 export * from './WorkspaceSwitcher';

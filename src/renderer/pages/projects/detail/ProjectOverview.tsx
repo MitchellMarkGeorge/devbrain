@@ -77,8 +77,12 @@ export function ProjectOverview({ project, header }: { project: Project; header:
           {stats && !empty && (
             <ProgressCard
               stats={stats}
+              // the list view, where overdue subtasks show too (the board lists top-level tasks)
               onShowOverdue={() =>
-                void navigate({ search: { tab: 'tasks', due: 'overdue' }, replace: true })
+                void navigate({
+                  search: { tab: 'tasks', due: 'overdue', view: 'list' },
+                  replace: true,
+                })
               }
             />
           )}

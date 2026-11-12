@@ -22,7 +22,7 @@ export type ProjectHeaderData = Pick<Project, 'title' | 'status' | 'startDate' |
 
 export interface ProjectHeaderProps extends Omit<ComponentPropsWithoutRef<'div'>, 'title'> {
   /**
-   * core's project: its name (24px semibold), status, and dates ("Jun 1 → Jul 1"; with no start
+   * core's project: its name (30px semibold), status, and dates ("Jun 1 → Jul 1"; with no start
    * the due date and "+ Start date"; no dates pill without a due date)
    */
   project: ProjectHeaderData;

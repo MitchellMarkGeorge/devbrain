@@ -77,6 +77,27 @@ describe('the projects page', () => {
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/projects/${auth.id}`));
   });
 
+  it('selects rows with their checkboxes, and sets their status from the selection bar', async () => {
+    const { app, main } = open('/projects?status=all');
+    await eventually(() => expect(app.text()).toContain('Billing Revamp'));
+    const checkbox = (title: string) =>
+      app.container.querySelector<HTMLElement>(`[aria-label="Select ${title}"]`);
+    click(checkbox('Auth Overhaul'));
+    click(checkbox('Billing Revamp'));
+    const bar = () => app.container.querySelector('[aria-label="Selected projects"]');
+    await eventually(() => expect(bar()?.textContent).toContain('2'));
+    click(byText(bar()!, 'button', 'Status'));
+    await eventually(() =>
+      expect(byText(document.body, '[role="menuitemradio"]', 'On hold')).not.toBeNull(),
+    );
+    click(byText(document.body, '[role="menuitemradio"]', 'On hold'));
+    await eventually(() => expect(main.callsTo('projects.updateStatus')).toHaveLength(2));
+    expect(main.callsTo('projects.updateStatus').map((call) => call.input)).toEqual([
+      { id: auth.id, status: ProjectStatus.ON_HOLD },
+      { id: billing.id, status: ProjectStatus.ON_HOLD },
+    ]);
+  });
+
   it('creates a project with its first tasks in one call, then opens it', async () => {
     const { app, main } = open('/projects');
     await eventually(() => expect(app.text()).toContain('Auth Overhaul'));
@@ -170,6 +191,28 @@ describe('a project’s page', () => {
       id: auth.id,
       status: ProjectStatus.ON_HOLD,
     });
+  });
+
+  it('opens the overdue tasks from the Progress card, in the list view', async () => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tasks = store();
+    tasks.tasks.push(
+      fakeTask('tsk_late', 'Rotate signing keys', {
+        projectId: auth.id,
+        dueDate: new Date(today.getTime() - 2 * 86_400_000),
+      }),
+      // due today: not overdue yet
+      fakeTask('tsk_today', 'Write the runbook', { projectId: auth.id, dueDate: today }),
+    );
+    const { app } = open(`/projects/${auth.id}`, tasks);
+    const rail = () => app.container.querySelector('[aria-label="Project at a glance"]')!;
+    await eventually(() => expect(rail().textContent).toContain('1 overdue'));
+    click(byText(rail(), 'button', '1 overdue'));
+    await eventually(() =>
+      expect(app.path()).toBe(`/app/${WORK}/projects/${auth.id}?tab=tasks&due=overdue&view=list`),
+    );
+    await eventually(() => expect(app.text()).toContain('Rotate signing keys'));
   });
 
   it('copies the project as Markdown from its menu', async () => {

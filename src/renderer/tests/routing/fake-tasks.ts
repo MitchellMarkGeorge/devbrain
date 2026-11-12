@@ -16,6 +16,11 @@ import {
 
 const EPOCH = new Date(2026, 5, 22, 9);
 
+function startOfToday(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
 /** A task as `tasks.list` returns it, with defaults for what's left out. */
 export function fakeTask(
   id: string,
@@ -140,7 +145,14 @@ export class FakeTasks {
       numOfInProgress: count(TaskStatus.IN_PROGRESS),
       numOfCompleted: count(TaskStatus.COMPLETED),
       numOfCancelled: count(TaskStatus.CANCELLED),
-      numOfOverdue: 0,
+      // due before today and open, as core counts it
+      numOfOverdue: tasks.filter(
+        (t) =>
+          t.dueDate !== null &&
+          t.dueDate < startOfToday() &&
+          t.status !== TaskStatus.COMPLETED &&
+          t.status !== TaskStatus.CANCELLED,
+      ).length,
       totalTasks: tasks.length - count(TaskStatus.CANCELLED),
     };
   }

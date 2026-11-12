@@ -6,6 +6,7 @@ export * from './LinkedTaskRow';
 export * from './ListRow';
 export * from './NoteList';
 export * from './NoteRow';
+export * from './ProjectList';
 export * from './ProjectRow';
 export * from './QuickAddRow';
 export * from './SelectionBar';

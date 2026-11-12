@@ -1,0 +1,23 @@
+/* The projects list: the list fills the page's region, and the selection bar floats over its bottom */
+.region {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* the selection bar floats over the list's bottom, centred, as the tasks and notes lists' do */
+.bar {
+  position: absolute;
+  right: 0;
+  bottom: var(--space-4);
+  left: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.bar > * {
+  pointer-events: auto;
+}

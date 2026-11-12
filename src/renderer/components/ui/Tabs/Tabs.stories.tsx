@@ -9,7 +9,10 @@ const meta = {
   title: 'UI/Tabs',
   component: Tabs,
   args: { defaultValue: 'General' },
-  argTypes: { variant: { control: 'inline-radio', options: ['outline', 'default', 'line'] } },
+  argTypes: {
+    variant: { control: 'inline-radio', options: ['outline', 'default', 'line'] },
+    size: { control: 'inline-radio', options: ['default', 'lg'] },
+  },
   render: (args) => (
     <Tabs {...args}>
       <TabsList>
@@ -38,10 +41,10 @@ export const Segmented: Story = { args: { variant: 'default' } };
 
 export const Line: Story = { args: { variant: 'line' } };
 
-/** A project's sub-pages */
+/** A project's sub-pages, at the top of its page: the outline variant at `size="lg"` */
 export const WithIcons: Story = {
   render: () => (
-    <Tabs defaultValue="overview">
+    <Tabs defaultValue="overview" size="lg">
       <TabsList>
         <TabsTab value="overview" icon={LayoutDashboard}>
           Overview

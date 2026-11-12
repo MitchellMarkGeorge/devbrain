@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useRouter } from '@tanstack/react-router';
-import { Folder } from 'lucide-react';
+import { CircleCheck, FileText, Folder, LayoutDashboard, type LucideIcon } from 'lucide-react';
 import type { Project } from '@common/types';
 import {
   Breadcrumb,
@@ -31,6 +31,12 @@ import { ProjectMenu } from './ProjectMenu';
 import { ProjectNotesTab } from './ProjectNotesTab';
 import { ProjectOverview } from './ProjectOverview';
 import { ProjectTasksTab } from './ProjectTasksTab';
+
+const TAB_ICONS: Record<ProjectTab, LucideIcon> = {
+  overview: LayoutDashboard,
+  tasks: CircleCheck,
+  notes: FileText,
+};
 
 const TAB_LABELS: Record<ProjectTab, string> = {
   overview: 'Overview',
@@ -110,10 +116,10 @@ function ProjectPageContent({ project }: { project: Project }) {
       />
       <PageToolbar
         start={
-          <Tabs value={tab} onValueChange={(value) => setTab(value as ProjectTab)}>
+          <Tabs size="lg" value={tab} onValueChange={(value) => setTab(value as ProjectTab)}>
             <TabsList aria-label="Project">
               {(Object.keys(TAB_LABELS) as ProjectTab[]).map((value) => (
-                <TabsTab key={value} value={value}>
+                <TabsTab key={value} value={value} icon={TAB_ICONS[value]}>
                   {TAB_LABELS[value]}
                 </TabsTab>
               ))}

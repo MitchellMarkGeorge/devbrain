@@ -36,6 +36,14 @@ export interface ProjectActions {
   setFavorite(project: ProjectRef, favorite: boolean): void;
   /** to the trash, asking first when the setting says so, with the Undo toast */
   trash(project: ProjectRef): Promise<boolean>;
+  // on a selection (the list's selection bar and keys), one call per project, as there are no
+  // bulk project routes
+  /** sets every project's status; none is changed when one is synced */
+  setStatusOf(projects: readonly ProjectRef[], status: ProjectStatus): void;
+  /** favorites them all, or unfavorites them all when every one is a favorite already */
+  toggleFavorite(projects: readonly ProjectRef[]): void;
+  /** to the trash, asking once; none moves when one is synced */
+  trashAll(projects: readonly ProjectRef[]): Promise<boolean>;
 }
 
 /** Why a synced project's fields can't change here (core's external_read_only). */
@@ -74,6 +82,24 @@ export function useProjectActions(): ProjectActions {
           );
       },
       trash: (project) => moveToTrash([project]),
+      setStatusOf(projects, status) {
+        if (!projects.every(editable)) return;
+        Promise.all(
+          projects.map(({ id }) => ipc.projects.updateStatus.mutate({ id, status })),
+        ).catch((error: unknown) => showError(error, 'Couldn’t change the projects’ status'));
+      },
+      toggleFavorite(projects) {
+        const favorite = !projects.every((project) => project.favoritedAt);
+        Promise.all(
+          projects.map(({ id }) => ipc.projects.setFavorite.mutate({ id, favorite })),
+        ).catch((error: unknown) =>
+          showError(error, `Couldn’t ${favorite ? 'favorite' : 'unfavorite'} the projects`),
+        );
+      },
+      async trashAll(projects) {
+        if (!projects.every(editable)) return false;
+        return moveToTrash(projects);
+      },
     };
   }, [showError, moveToTrash]);
 }
