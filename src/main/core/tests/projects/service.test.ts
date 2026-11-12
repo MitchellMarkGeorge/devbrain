@@ -10,7 +10,10 @@ import { ArchiveService } from '../../archive/service';
 import { NoteService } from '../../notes/service';
 import { ProjectStatus, TaskStatus } from '@common/types';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../../shared/errors';
-import { createDb } from '../utils';
+import { createDb, MIGRATIONS_PATH } from '../utils';
+import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { runMigrations } from '@main/db/migrate';
 import { InvalidCursorError } from '../../shared/pagination';
 import { tasks as tasksSchema } from '@main/db/schema/tasks';
 import { eq } from 'drizzle-orm';
@@ -28,8 +31,8 @@ let workspacePath: string;
 
 beforeEach(async () => {
   db = createDb();
-  projects = new ProjectService(db);
   tasks = new TaskService(db);
+  projects = new ProjectService(db, tasks);
   archive = new ArchiveService(db);
   workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-projects-service-'));
   notesService = new NoteService(db, workspacePath);
@@ -1099,5 +1102,140 @@ describe('ProjectService — clearing fields', () => {
     expect(projects.listProjects({ dueBefore: NEXT_WEEK }).items.map((p) => p.id)).toEqual([
       dated.id,
     ]);
+  });
+});
+
+describe('ProjectService — createProject with tasks', () => {
+  it('creates the project and its first tasks in order, filed under it', () => {
+    const project = projects.createProject({
+      title: 'Launch',
+      tasks: [{ title: 'Plan' }, { title: 'Build' }, { title: 'Ship' }],
+    });
+
+    const created = tasks.listTasks({ projectId: project.id }, { sortBy: 'createdAt' }).items;
+    expect(created.map((task) => task.title).sort()).toEqual(['Build', 'Plan', 'Ship']);
+    for (const task of created) {
+      expect(task).toMatchObject({
+        projectId: project.id,
+        status: TaskStatus.NOT_STARTED,
+        parentTaskId: null,
+        external: null,
+      });
+    }
+    expect(projects.getProjectStats(project.id).totalTasks).toBe(3);
+  });
+
+  it('sends the project, then each task in order, once the transaction has committed', () => {
+    const sent: { type: string; title: string; inTransaction: boolean }[] = [];
+    const sqlite = (db as unknown as { $client: { inTransaction: boolean } }).$client;
+    projects.onChange((change) => {
+      if (change.type !== 'created') return;
+      sent.push({
+        type: 'project',
+        title: change.project.title,
+        inTransaction: sqlite.inTransaction,
+      });
+    });
+    tasks.onChange((change) => {
+      if (change.type !== 'created') return;
+      sent.push({ type: 'task', title: change.task.title, inTransaction: sqlite.inTransaction });
+    });
+
+    projects.createProject({ title: 'Launch', tasks: [{ title: 'Plan' }, { title: 'Build' }] });
+
+    expect(sent).toEqual([
+      { type: 'project', title: 'Launch', inTransaction: false },
+      { type: 'task', title: 'Plan', inTransaction: false },
+      { type: 'task', title: 'Build', inTransaction: false },
+    ]);
+  });
+
+  it('creates neither the project nor any task when a task fails', () => {
+    const listener = vi.fn();
+    projects.onChange(listener);
+    tasks.onChange(listener);
+    vi.spyOn(tasks, 'insertTaskTrees').mockImplementationOnce((tx, trees) => {
+      // the first task goes in, then the write fails
+      tx.insert(tasksSchema).values({ title: trees[0].title, projectId: trees[0].projectId }).run();
+      throw new Error('disk full');
+    });
+
+    expect(() =>
+      projects.createProject({ title: 'Launch', tasks: [{ title: 'Plan' }, { title: 'Build' }] }),
+    ).toThrow('disk full');
+
+    expect(projects.listProjects().items).toEqual([]);
+    expect(tasks.listTasks().items).toEqual([]);
+    expect(listener).not.toHaveBeenCalled();
+  });
+
+  it('creates no task for an empty list', () => {
+    const project = projects.createProject({ title: 'Empty', tasks: [] });
+    expect(tasks.listTasks({ projectId: project.id }).items).toEqual([]);
+  });
+});
+
+describe('ProjectService — listProjects stats', () => {
+  it('returns each project with the counts of its active tasks', () => {
+    const busy = projects.createProject({ title: 'Busy' });
+    const empty = projects.createProject({ title: 'Empty' });
+    const other = projects.createProject({ title: 'Other' });
+    const add = (projectId: typeof busy.id, status: TaskStatus, dueDate: Date | null = null) =>
+      tasks.createTask({ title: 'T', projectId, status, dueDate });
+    add(busy.id, TaskStatus.NOT_STARTED, YESTERDAY);
+    add(busy.id, TaskStatus.IN_PROGRESS);
+    add(busy.id, TaskStatus.COMPLETED, YESTERDAY);
+    add(busy.id, TaskStatus.CANCELLED);
+    archive.archiveTask(add(busy.id, TaskStatus.COMPLETED).id);
+    add(other.id, TaskStatus.COMPLETED);
+
+    const byId = new Map(projects.listProjects().items.map((p) => [p.id, p.stats]));
+
+    expect(byId.get(busy.id)).toEqual({
+      numOfNotStarted: 1,
+      numOfInProgress: 1,
+      numOfCompleted: 1,
+      numOfCancelled: 1,
+      numOfOverdue: 1,
+      totalTasks: 3,
+    });
+    expect(byId.get(empty.id)).toEqual({
+      numOfNotStarted: 0,
+      numOfInProgress: 0,
+      numOfCompleted: 0,
+      numOfCancelled: 0,
+      numOfOverdue: 0,
+      totalTasks: 0,
+    });
+    expect(byId.get(other.id)).toMatchObject({ numOfCompleted: 1, totalTasks: 1 });
+    // the same counts as the project's own stats
+    expect(byId.get(busy.id)).toEqual(projects.getProjectStats(busy.id));
+  });
+
+  it('reads a page in the same number of queries whatever its length', () => {
+    // a database that counts the queries run on it
+    const sqlite = new Database(':memory:');
+    let queries = 0;
+    const counted = drizzle({
+      client: sqlite,
+      casing: 'snake_case',
+      logger: { logQuery: () => (queries += 1) },
+    });
+    runMigrations(sqlite, counted, MIGRATIONS_PATH);
+    const countedTasks = new TaskService(counted);
+    const countedProjects = new ProjectService(counted, countedTasks);
+    for (let i = 0; i < 10; i++) {
+      countedProjects.createProject({ title: `P${i}`, tasks: [{ title: 'A' }, { title: 'B' }] });
+    }
+    const queriesFor = (limit: number) => {
+      const before = queries;
+      const page = countedProjects.listProjects({}, undefined, { limit });
+      expect(page.items).toHaveLength(limit);
+      expect(page.items.every((p) => p.stats.totalTasks === 2)).toBe(true);
+      return queries - before;
+    };
+
+    expect(queriesFor(10)).toBe(queriesFor(2));
+    sqlite.close();
   });
 });

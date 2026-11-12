@@ -96,7 +96,7 @@ function insertChild(parentTaskId: TaskId, title: string): TaskId {
 beforeEach(async () => {
   db = createDb();
   tasks = new TaskService(db);
-  projects = new ProjectService(db);
+  projects = new ProjectService(db, new TaskService(db));
   events = new EventService(db);
   archive = new ArchiveService(db);
   workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-read-only-'));

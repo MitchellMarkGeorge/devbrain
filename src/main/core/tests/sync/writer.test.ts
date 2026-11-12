@@ -162,7 +162,7 @@ beforeEach(async () => {
   search = new SearchService(db, workspacePath);
   writer = new SyncWriter(db, search);
   tasks = new TaskService(db);
-  projects = new ProjectService(db);
+  projects = new ProjectService(db, new TaskService(db));
   notes = new NoteService(db, workspacePath);
   const integrationId = db
     .insert(integrations)

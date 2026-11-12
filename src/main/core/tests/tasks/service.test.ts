@@ -45,7 +45,7 @@ beforeEach(async () => {
   workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-tasks-service-'));
   notesService = new NoteService(db, workspacePath);
 
-  const projectService = new ProjectService(db);
+  const projectService = new ProjectService(db, new TaskService(db));
   const eventService = new EventService(db);
 
   FAKE_PROJECT_ID = projectService.createProject({ title: 'Fake Project', dueDate: TOMORROW }).id;
@@ -905,7 +905,10 @@ describe('TaskService — updateProject', () => {
     const sub = tasks.createSubtask(parent.id, { title: 'Sub' });
     expect(sub.projectId).toBe(FAKE_PROJECT_ID);
 
-    const other = new ProjectService(db).createProject({ title: 'Other', dueDate: TOMORROW });
+    const other = new ProjectService(db, new TaskService(db)).createProject({
+      title: 'Other',
+      dueDate: TOMORROW,
+    });
     expect(tasks.updateProject(sub.id, other.id).projectId).toBe(other.id);
     expect(tasks.getById(parent.id).projectId).toBe(FAKE_PROJECT_ID);
     expect(tasks.updateProject(sub.id, null).projectId).toBeNull();
@@ -1839,7 +1842,7 @@ describe('TaskService — updateTasks', () => {
 
   it('refuses a project that does not exist or is archived', () => {
     const a = tasks.createTask({ title: 'A', dueDate: TOMORROW });
-    const projectService = new ProjectService(db);
+    const projectService = new ProjectService(db, new TaskService(db));
     const gone = projectService.createProject({ title: 'Gone' });
     archive.archiveProject(gone.id);
 

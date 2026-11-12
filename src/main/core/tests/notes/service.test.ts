@@ -43,7 +43,7 @@ beforeEach(async () => {
   notesService = new NoteService(db, workspacePath);
   archive = new ArchiveService(db);
 
-  const projectService = new ProjectService(db);
+  const projectService = new ProjectService(db, new TaskService(db));
   const eventService = new EventService(db);
   const taskService = new TaskService(db);
 

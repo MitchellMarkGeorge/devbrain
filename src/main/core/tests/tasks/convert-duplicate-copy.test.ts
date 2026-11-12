@@ -67,7 +67,7 @@ function row(id: TaskId) {
 beforeEach(async () => {
   db = createDb();
   tasks = new TaskService(db);
-  projects = new ProjectService(db);
+  projects = new ProjectService(db, tasks);
   archive = new ArchiveService(db);
   favorites = new FavoritesService(db);
   workspacePath = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-convert-'));

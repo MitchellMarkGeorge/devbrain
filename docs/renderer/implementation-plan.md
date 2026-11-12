@@ -1051,9 +1051,10 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 
 ### Projects
 
-- **P1: progress on the list.** `projects.list` returns no task counts, so the list and cards call
-  `projects.stats` per row. Return the stats with each list item (one grouped count query in
-  `listProjects`), and the same for `favorites`/`recents` project entries if they show progress.
+- **P1 (done): progress on the list.** `projects.list` returns each project with its task counts
+  (`ProjectListItem`, with `stats`), from one grouped count query per page in `listProjects`
+  (`ProjectService.statsOf`), so the list and cards make no `projects.stats` call per row.
+  Favorites and recents keep plain `Project`s: the sidebar draws no progress.
 - **P2: health.** `ProjectHealth` is defined but computed nowhere, and `HealthIcon` exists.
   Compute it in core (from due date, progress and overdue tasks) if the design shows it; Figma's
   project rows show status and progress only, so this can wait.
@@ -1088,9 +1089,10 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 - **Menus.** The task page's menu uses all three. The note page's menu duplicates (⌘D, then opens
   the copy) and copies as Markdown, and the note row menu copies too (`useNoteActions`'
   `duplicate` and `copyAsMarkdown`). The project page should call `projects.toMarkdown`.
-- **C4: create a project with its first tasks** (the create project dialog's inline task list,
-  `7175:42128`) in one transaction: `projects.create` accepting `tasks: [{ title }]`. Otherwise
-  the dialog creates them one by one after the project.
+- **C4 (done): create a project with its first tasks** (the create project dialog's inline task
+  list, `7175:42128`) in one transaction: `projects.create` accepts `tasks: [{ title }]` (up to
+  100), inserted through `TaskService.insertTaskTrees` in the project's transaction. The project's
+  `created` and then each task's are sent once it has committed.
 
 ### Archive
 
@@ -1268,11 +1270,11 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 | T5                                     | Nullable fields in `tasks.update`/`projects.update`      | Date pickers, clearing links                 | **Yes** for clearing       |
 | S2                                     | Each workspace's `lastPage`, in its manifest             | Reopen last page                             | Done                       |
 | T6                                     | Optional `dueDate` on create                             | Create dialogs                               | Done                       |
-| P1                                     | Stats on `projects.list`                                 | Projects list/cards                          | No (N+1)                   |
+| P1                                     | Stats on `projects.list`                                 | Projects list/cards                          | Done                       |
 | T2                                     | Bulk task updates                                        | Selection bar                                | No (sequential)            |
 | S1                                     | Partial settings update, reset                           | Settings                                     | No (whole object)          |
 | A2                                     | Menu commands event, menu items                          | Menu                                         | No                         |
-| C1–C4                                  | Convert, duplicate, copy as Markdown, project with tasks | Detail menus, create project                 | C1–C3 done; C4 no          |
+| C1–C4                                  | Convert, duplicate, copy as Markdown, project with tasks | Detail menus, create project                 | Done                       |
 | N2                                     | Note Show in Finder                                      | Note menu                                    | No (hide item)             |
 | E1                                     | Empty trash                                              | Trash                                        | No (hide action)           |
 | R1                                     | Status/colour in search                                  | ⌘K, "@" menu                                 | Done                       |

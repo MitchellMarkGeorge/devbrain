@@ -71,7 +71,7 @@ const ids = (rows: { id: string }[]) => rows.map((r) => r.id).sort();
 beforeEach(() => {
   db = createDb();
   tasks = new TaskService(db);
-  projects = new ProjectService(db);
+  projects = new ProjectService(db, new TaskService(db));
   events = new EventService(db);
   const integrationId = db
     .insert(integrations)

@@ -8,6 +8,8 @@ export interface CreateProjectOptions {
   dueDate?: Date | null;
   color?: string;
   status?: ProjectStatus;
+  // the project's first tasks, created with it in one transaction, in this order
+  tasks?: { title: string }[];
 }
 
 // A field left out is kept; null clears one the model allows to be empty.
