@@ -134,6 +134,15 @@
 .line .tab:focus-visible {
   border-radius: var(--radius-xs);
 }
+/* lg: 14px medium labels with their icons, 24px apart, 10px over the underline (an item's sub-pages) */
+.line.lg .list {
+  gap: var(--space-6);
+}
+.line.lg .tab {
+  padding-bottom: 10px;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-leading);
+}
 .line .indicator {
   display: block;
   position: absolute;

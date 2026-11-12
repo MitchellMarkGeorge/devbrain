@@ -1,93 +1,68 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { DateTime } from 'luxon';
-import { ArrowRight, Calendar, CircleCheck, FileText, Flag, Folder, Plus } from 'lucide-react';
-import { ProjectStatus, TaskStatus, type Project, type ProjectStats } from '@common/types';
-import {
-  Button,
-  Card,
-  EmptyState,
-  Flex,
-  Icon,
-  percentOf,
-  statusVar,
-  StatusIcon,
-  useFormat,
-} from '../../../components';
+import { ArrowRight, FileText, Flag, Plus } from 'lucide-react';
+import { TaskStatus, type Project, type ProjectStats } from '@common/types';
+import { Button, Icon, percentOf, statusVar, StatusIcon, useFormat } from '../../../components';
 import { trpc } from '../../../ipc';
 import { useOpenEntity } from '../../app/use-open-entity';
-import { useCreateTask } from '../../tasks/create/use-create-task';
-import type { StatusFilter } from '../../tasks/search';
+import { useCreateNote } from '../../notes/use-create-note';
+import type { DueFilter, StatusFilter } from '../../tasks/search';
+import { isSynced } from '../../tasks/queries';
 import { overviewDoneTasksQuery, overviewNotesQuery, overviewOpenTasksQuery } from '../queries';
 import { projectRoute } from '../route-api';
 import { OverviewTaskSection } from './OverviewTaskSection';
 import styles from './ProjectPage.module.css';
 
 /**
- * The Overview tab, in two columns that scroll together: on the left the header (name,
- * properties, description) over the work, Open tasks (the soonest due first) and Recently
- * completed, each a few rows with "N more in Tasks"; on the right a rail with the project at a
- * glance: Progress (done of total, a bar split by status, and what's overdue), Timeline (start,
- * due, and how long is left) and its latest notes. In a narrow window the rail goes under.
+ * The Overview tab, laid out as Linear's project page: the project as a document on the left (its
+ * header, then its open tasks with an "Add task…" row, and the recently completed ones), and a
+ * flat rail on the right, its sections split by hairlines: Progress (the percent, a bar split by
+ * status, and a row per status and for the overdue tasks, each opening the Tasks tab on them) and
+ * the latest notes. The two scroll together; in a narrow window the rail goes under.
  */
 export function ProjectOverview({ project, header }: { project: Project; header: ReactNode }) {
   const navigate = projectRoute.useNavigate();
   const stats = useQuery(trpc.projects.stats.queryOptions({ id: project.id })).data;
   const empty = stats !== undefined && stats.totalTasks + stats.numOfCancelled === 0;
-  // the Tasks tab, filtered: where a section's "N more" goes
-  const showTasks = (status: StatusFilter) =>
-    void navigate({ search: { tab: 'tasks', status }, replace: true });
+  // the Tasks tab, filtered: where a section's "N more" and the progress rows go
+  const showTasks = (search: { status?: StatusFilter; due?: DueFilter; view?: 'list' }) =>
+    void navigate({ search: { tab: 'tasks', ...search }, replace: true });
 
   return (
     <div className={styles.overview} data-testid="project-overview">
       <div className={styles.layout}>
         <div className={styles.main}>
           {header}
-          {empty ? (
-            <ProjectNoTasks project={project} />
-          ) : (
-            stats && (
-              <>
+          {stats && (
+            <>
+              <OverviewTaskSection
+                project={project}
+                title="Open tasks"
+                query={overviewOpenTasksQuery(project.id)}
+                count={stats.numOfNotStarted + stats.numOfInProgress}
+                addStatus={TaskStatus.NOT_STARTED}
+                empty={empty ? 'No tasks in this project yet.' : 'Every task is done.'}
+                footer={empty && !isSynced(project) && <MoveTasksHere />}
+                onShowAll={() => showTasks({ status: 'open' })}
+                data-testid={empty ? 'project-no-tasks' : 'overview-open'}
+              />
+              {stats.numOfCompleted > 0 && (
                 <OverviewTaskSection
                   project={project}
-                  title="Open tasks"
-                  query={overviewOpenTasksQuery(project.id)}
-                  count={stats.numOfNotStarted + stats.numOfInProgress}
-                  addStatus={TaskStatus.NOT_STARTED}
-                  empty="Every task is done."
-                  onShowAll={() => showTasks('open')}
-                  data-testid="overview-open"
+                  title="Recently completed"
+                  query={overviewDoneTasksQuery(project.id)}
+                  count={stats.numOfCompleted}
+                  onShowAll={() => showTasks({ status: 'completed' })}
+                  data-testid="overview-done"
                 />
-                {stats.numOfCompleted > 0 && (
-                  <OverviewTaskSection
-                    project={project}
-                    title="Recently completed"
-                    query={overviewDoneTasksQuery(project.id)}
-                    count={stats.numOfCompleted}
-                    onShowAll={() => showTasks('completed')}
-                    data-testid="overview-done"
-                  />
-                )}
-              </>
-            )
+              )}
+            </>
           )}
         </div>
         <aside className={styles.rail} aria-label="Project at a glance">
-          {stats && !empty && (
-            <ProgressCard
-              stats={stats}
-              // the list view, where overdue subtasks show too (the board lists top-level tasks)
-              onShowOverdue={() =>
-                void navigate({
-                  search: { tab: 'tasks', due: 'overdue', view: 'list' },
-                  replace: true,
-                })
-              }
-            />
-          )}
-          <TimelineCard project={project} />
-          <NotesCard
+          <ProgressSection stats={stats} onShow={showTasks} />
+          <NotesSection
             project={project}
             onShowAll={() => void navigate({ search: { tab: 'notes' }, replace: true })}
           />
@@ -97,7 +72,29 @@ export function ProjectOverview({ project, header }: { project: Project; header:
   );
 }
 
-function RailCard({
+/** "Move Tasks Here": the tasks in no project, to move in from their menus. */
+function MoveTasksHere() {
+  const { workspaceId } = projectRoute.useParams();
+  const navigate = useNavigate();
+  return (
+    <Button
+      size="xs"
+      variant="ghost"
+      className={styles.moveHere}
+      onClick={() =>
+        void navigate({
+          to: '/app/$workspaceId/tasks',
+          params: { workspaceId },
+          search: { project: 'none' },
+        })
+      }
+    >
+      Move Tasks Here
+    </Button>
+  );
+}
+
+function RailSection({
   title,
   action,
   children,
@@ -107,215 +104,155 @@ function RailCard({
   children: ReactNode;
 }) {
   return (
-    <Card className={styles.railCard} render={<section aria-label={title} />}>
+    <section className={styles.railSection} aria-label={title}>
       <header className={styles.railHead}>
         <h2 className={styles.railTitle}>{title}</h2>
         {action}
       </header>
       {children}
-    </Card>
+    </section>
   );
 }
 
 const SEGMENTS = [
-  { status: TaskStatus.COMPLETED, label: 'Completed', key: 'numOfCompleted' },
-  { status: TaskStatus.IN_PROGRESS, label: 'In progress', key: 'numOfInProgress' },
-  { status: TaskStatus.NOT_STARTED, label: 'Not started', key: 'numOfNotStarted' },
-] as const;
+  { status: TaskStatus.COMPLETED, label: 'Completed', key: 'numOfCompleted', filter: 'completed' },
+  {
+    status: TaskStatus.IN_PROGRESS,
+    label: 'In progress',
+    key: 'numOfInProgress',
+    filter: 'in_progress',
+  },
+  {
+    status: TaskStatus.NOT_STARTED,
+    label: 'Not started',
+    key: 'numOfNotStarted',
+    filter: 'not_started',
+  },
+] as const satisfies readonly {
+  status: TaskStatus;
+  label: string;
+  key: keyof ProjectStats;
+  filter: StatusFilter;
+}[];
 
-/** Done of total in large, one bar split by status, its legend, and the overdue tasks. */
-function ProgressCard({
+/**
+ * The percent large with "N of M tasks done", one bar split by status, then a row per status and
+ * one for the overdue tasks: each opens the Tasks tab on its tasks (the overdue ones in the list
+ * view, where overdue subtasks show too; the board lists top-level tasks).
+ */
+function ProgressSection({
   stats,
-  onShowOverdue,
+  onShow,
 }: {
-  stats: ProjectStats;
-  onShowOverdue: () => void;
+  stats: ProjectStats | undefined;
+  onShow: (search: { status?: StatusFilter; due?: DueFilter; view?: 'list' }) => void;
 }) {
-  const total = stats.totalTasks;
+  const total = stats?.totalTasks ?? 0;
   return (
-    <RailCard title="Progress">
-      <div className={styles.progressFigure}>
-        <span className={styles.percent}>
-          {percentOf(stats.numOfCompleted, total)}
-          <span className={styles.percentSign}>%</span>
-        </span>
-        <span className={styles.quiet}>
-          {stats.numOfCompleted} of {total} tasks done
-        </span>
-      </div>
-      <div
-        className={styles.bar}
-        role="img"
-        aria-label={SEGMENTS.map((s) => `${stats[s.key]} ${s.label.toLowerCase()}`).join(', ')}
-      >
-        {SEGMENTS.map(
-          (segment) =>
-            stats[segment.key] > 0 && (
-              <span
-                key={segment.status}
-                style={
-                  {
-                    flexGrow: stats[segment.key],
-                    '--segment': statusVar(segment.status),
-                  } as CSSProperties
-                }
-              />
-            ),
-        )}
-      </div>
-      <ul className={styles.legend}>
-        {SEGMENTS.map((segment) => (
-          <li key={segment.status}>
-            <StatusIcon status={segment.status} size={12} />
-            <span>{segment.label}</span>
-            <span className={styles.legendCount}>{stats[segment.key]}</span>
-          </li>
-        ))}
-      </ul>
-      {stats.numOfOverdue > 0 && (
-        <button type="button" className={styles.overdue} onClick={onShowOverdue}>
-          <Icon icon={Flag} size={12} />
-          {stats.numOfOverdue} overdue
-          <Icon icon={ArrowRight} size={12} className={styles.pushRight} />
-        </button>
+    <RailSection title="Progress">
+      {!stats ? null : total === 0 ? (
+        <p className={styles.quiet}>No tasks yet.</p>
+      ) : (
+        <>
+          <div className={styles.progressFigure}>
+            <span className={styles.percent}>
+              {percentOf(stats.numOfCompleted, total)}
+              <span className={styles.percentSign}>%</span>
+            </span>
+            <span className={styles.quiet}>
+              {stats.numOfCompleted} of {total} tasks done
+            </span>
+          </div>
+          <div
+            className={styles.bar}
+            role="img"
+            aria-label={SEGMENTS.map((s) => `${stats[s.key]} ${s.label.toLowerCase()}`).join(', ')}
+          >
+            {SEGMENTS.map(
+              (segment) =>
+                stats[segment.key] > 0 && (
+                  <span
+                    key={segment.status}
+                    style={
+                      {
+                        flexGrow: stats[segment.key],
+                        '--segment': statusVar(segment.status),
+                      } as CSSProperties
+                    }
+                  />
+                ),
+            )}
+          </div>
+          <ul className={styles.statRows}>
+            {SEGMENTS.map((segment) => (
+              <li key={segment.status}>
+                <button type="button" onClick={() => onShow({ status: segment.filter })}>
+                  <StatusIcon status={segment.status} size={12} />
+                  <span>{segment.label}</span>
+                  <span className={styles.statCount}>{stats[segment.key]}</span>
+                </button>
+              </li>
+            ))}
+            {stats.numOfOverdue > 0 && (
+              <li>
+                <button
+                  type="button"
+                  data-tone="overdue"
+                  onClick={() => onShow({ due: 'overdue', view: 'list' })}
+                >
+                  <Icon icon={Flag} size={12} />
+                  <span>{stats.numOfOverdue} overdue</span>
+                  <Icon icon={ArrowRight} size={12} className={styles.statCount} />
+                </button>
+              </li>
+            )}
+          </ul>
+        </>
       )}
-    </RailCard>
+    </RailSection>
   );
 }
 
-/** Start and due dates, and how long is left (or how late it is), in whole days. */
-function TimelineCard({ project }: { project: Project }) {
-  const { now, formatDate } = useFormat();
-  const { startDate, dueDate, status } = project;
-  const done = status === ProjectStatus.COMPLETED;
-  const today = DateTime.fromJSDate(now).startOf('day');
-  const daysLeft = dueDate
-    ? Math.round(DateTime.fromJSDate(dueDate).startOf('day').diff(today, 'days').days)
-    : null;
-  const left =
-    done && project.completedAt
-      ? `Done ${formatDate(project.completedAt)}`
-      : daysLeft === null
-        ? 'No due date'
-        : daysLeft > 1
-          ? `${daysLeft} days left`
-          : daysLeft === 1
-            ? 'Due tomorrow'
-            : daysLeft === 0
-              ? 'Due today'
-              : `${-daysLeft} ${daysLeft === -1 ? 'day' : 'days'} overdue`;
-  const late = !done && daysLeft !== null && daysLeft < 0;
-  // how far through its dates the project is, when it has both
-  const elapsed =
-    startDate && dueDate && dueDate > startDate
-      ? Math.min(
-          100,
-          Math.max(
-            0,
-            Math.round(
-              ((now.getTime() - startDate.getTime()) / (dueDate.getTime() - startDate.getTime())) *
-                100,
-            ),
-          ),
-        )
-      : null;
-  return (
-    <RailCard title="Timeline">
-      <dl className={styles.dates}>
-        <div>
-          <dt>Start</dt>
-          <dd>{startDate ? formatDate(startDate) : '—'}</dd>
-        </div>
-        <div>
-          <dt>Due</dt>
-          <dd>{dueDate ? formatDate(dueDate) : '—'}</dd>
-        </div>
-      </dl>
-      {elapsed !== null && !done && (
-        <div className={styles.track} aria-hidden>
-          <span style={{ width: `${elapsed}%` }} data-late={late ? '' : undefined} />
-        </div>
-      )}
-      <p className={styles.left} data-late={late ? '' : undefined}>
-        <Icon icon={done ? CircleCheck : Calendar} size={12} />
-        {left}
-      </p>
-    </RailCard>
-  );
-}
-
-/** The latest notes as a short list of titles and when they were edited, with "All notes". */
-function NotesCard({ project, onShowAll }: { project: Project; onShowAll: () => void }) {
+/** The latest notes as a short list of titles and when they were edited, "+" for a new one. */
+function NotesSection({ project, onShowAll }: { project: Project; onShowAll: () => void }) {
   const openEntity = useOpenEntity();
+  const createNote = useCreateNote();
   const { formatRelative } = useFormat('minute');
   const notes = useQuery(overviewNotesQuery(project.id)).data?.items ?? [];
   return (
-    <RailCard
+    <RailSection
       title="Notes"
       action={
-        notes.length > 0 && (
-          <button type="button" className={styles.railLink} onClick={onShowAll}>
-            All notes
-            <Icon icon={ArrowRight} size={12} />
-          </button>
-        )
+        <Button
+          size="icon-xs"
+          variant="ghost"
+          icon={Plus}
+          aria-label="New note"
+          onClick={() => void createNote({ projectId: project.id })}
+        />
       }
     >
       {notes.length === 0 ? (
         <p className={styles.quiet}>No notes in this project yet.</p>
       ) : (
-        <ul className={styles.notes}>
-          {notes.map((note) => (
-            <li key={note.id}>
-              <button type="button" onClick={() => openEntity({ id: note.id })}>
-                <Icon icon={FileText} size={14} />
-                <span className={styles.noteTitle}>{note.title || 'Untitled'}</span>
-                <span className={styles.noteTime}>{formatRelative(note.updatedAt)}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul className={styles.notes}>
+            {notes.map((note) => (
+              <li key={note.id}>
+                <button type="button" onClick={() => openEntity({ id: note.id })}>
+                  <Icon icon={FileText} size={14} />
+                  <span className={styles.noteTitle}>{note.title || 'Untitled'}</span>
+                  <span className={styles.noteTime}>{formatRelative(note.updatedAt)}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className={styles.railLink} onClick={onShowAll}>
+            All notes
+            <Icon icon={ArrowRight} size={12} />
+          </button>
+        </>
       )}
-    </RailCard>
-  );
-}
-
-function ProjectNoTasks({ project }: { project: Project }) {
-  const { workspaceId } = projectRoute.useParams();
-  const createTask = useCreateTask();
-  const navigate = useNavigate();
-  return (
-    <EmptyState
-      placement="inline"
-      icon={Folder}
-      title="No tasks in this project yet"
-      description="Add tasks here, or move existing ones in from the Tasks list."
-      data-testid="project-no-tasks"
-      action={
-        <Flex gap="2" justify="center">
-          <Button
-            size="sm"
-            icon={Plus}
-            onClick={() => createTask({ defaults: { projectId: project.id } })}
-          >
-            New Task
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            // the tasks in no project, to move in from their menus
-            onClick={() =>
-              void navigate({
-                to: '/app/$workspaceId/tasks',
-                params: { workspaceId },
-                search: { project: 'none' },
-              })
-            }
-          >
-            Move Tasks Here
-          </Button>
-        </Flex>
-      }
-    />
+    </RailSection>
   );
 }

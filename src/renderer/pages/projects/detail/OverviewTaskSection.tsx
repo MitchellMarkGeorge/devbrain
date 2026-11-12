@@ -1,20 +1,20 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
 import type { Project, TaskListItem, TaskStatus } from '@common/types';
 import {
-  Button,
   ContextMenu,
   ContextMenuContent,
   ContextMenuTrigger,
   DetailSection,
+  QuickAddRow,
   TaskList,
   TaskRowSkeleton,
   type TaskListHandle,
 } from '../../../components';
+import { ipc } from '../../../ipc';
 import { KeyScope, useListCommands } from '../../../keyboard';
+import { useMutationErrorToast } from '../../app/mutation-errors';
 import { useOpenEntity } from '../../app/use-open-entity';
-import { useCreateTask } from '../../tasks/create/use-create-task';
 import { TaskMenuItems } from '../../tasks/menus/TaskMenus';
 import { isSynced, withoutProjectPill } from '../../tasks/queries';
 import { useTaskActions } from '../../tasks/use-task-actions';
@@ -32,18 +32,21 @@ export interface OverviewTaskSectionProps {
   count: number;
   /** opens the Tasks tab on the section's tasks, for those it leaves out */
   onShowAll: () => void;
-  /** "+ Add" creates a task in the project with this status; none without it */
+  /** the "Add task…" row under the rows creates a task in the project with this status; none without it */
   addStatus?: TaskStatus;
   /** what the section says when it has no tasks */
   empty?: ReactNode;
+  /** under the rows (and the "Add task…" row): "Move Tasks Here" on an empty project */
+  footer?: ReactNode;
   'data-testid'?: string;
 }
 
 /**
  * One of the Overview's task sections (Open tasks, Recently completed): a few of the project's
  * tasks as compact rows, with "N more in Tasks" opening the Tasks tab on the rest. Rows change
- * status at once, open on click, and have the row menu and the list keys; "+ Add" opens Create
- * task in the project.
+ * status at once, open on click, and have the row menu and the list keys. They leave out the
+ * project pill and the linked note's: the overview is a summary, and the Tasks tab has them. The
+ * "Add task…" row creates a task in the project from its title, and stays open for the next.
  */
 export function OverviewTaskSection({
   project,
@@ -54,18 +57,22 @@ export function OverviewTaskSection({
   onShowAll,
   addStatus,
   empty,
+  footer,
   'data-testid': testId,
 }: OverviewTaskSectionProps) {
   const query = useQuery(options);
   const tasks = useMemo(
-    () => withoutProjectPill(query.data?.items ?? [], project.id),
+    () =>
+      withoutProjectPill(query.data?.items ?? [], project.id).map((task) =>
+        task.link ? { ...task, link: null } : task,
+      ),
     [query.data, project.id],
   );
   const byId = useMemo(() => new Map(tasks.map((t) => [t.id as string, t])), [tasks]);
   const full = (rows: readonly { id: string }[]) => rows.flatMap((row) => byId.get(row.id) ?? []);
   const actions = useTaskActions();
   const openEntity = useOpenEntity();
-  const createTask = useCreateTask();
+  const showError = useMutationErrorToast('Couldn’t add the task');
   const list = useRef<TaskListHandle>(null);
   const [menuTask, setMenuTask] = useState<TaskListItem | null>(null);
   const more = count - tasks.length;
@@ -78,25 +85,7 @@ export function OverviewTaskSection({
   });
 
   return (
-    <DetailSection
-      spacing="page"
-      title={title}
-      glyph={glyph}
-      count={count}
-      data-testid={testId}
-      action={
-        addStatus !== undefined &&
-        !isSynced(project) && (
-          <Button
-            size="xs"
-            icon={Plus}
-            onClick={() => createTask({ defaults: { projectId: project.id, status: addStatus } })}
-          >
-            Add
-          </Button>
-        )
-      }
-    >
+    <DetailSection spacing="page" title={title} glyph={glyph} count={count} data-testid={testId}>
       {query.isPending ? (
         <TaskRowSkeleton />
       ) : tasks.length === 0 ? (
@@ -135,13 +124,24 @@ export function OverviewTaskSection({
               )}
             </ContextMenuContent>
           </ContextMenu>
-          {more > 0 && (
-            <button type="button" className={styles.more} onClick={onShowAll}>
-              {more} more in Tasks
-            </button>
-          )}
         </>
       )}
+      {addStatus !== undefined && !isSynced(project) && (
+        <QuickAddRow
+          className={styles.quickAdd}
+          onCreate={(title) =>
+            void ipc.tasks.create
+              .mutate({ title, projectId: project.id, status: addStatus })
+              .catch((error: unknown) => showError(error))
+          }
+        />
+      )}
+      {more > 0 && !query.isPending && (
+        <button type="button" className={styles.more} onClick={onShowAll}>
+          {more} more in Tasks
+        </button>
+      )}
+      {footer}
     </DetailSection>
   );
 }

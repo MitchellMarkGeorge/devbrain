@@ -2,38 +2,35 @@
 .header {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
   min-width: 0;
 }
-.titleBlock {
+.icon {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  margin-bottom: var(--space-4);
 }
 .title {
-  margin: 0;
-  color: var(--foreground-strong);
-  font: var(--font-weight-semibold) var(--text-3xl) / var(--text-3xl-leading) var(--font-sans);
-  letter-spacing: -0.01em;
-}
-/* an editable name reads as the title, as a note's or task's does: no ring, the caret shows it */
-.title[contenteditable='true'] {
-  cursor: text;
-  outline: none;
+  min-width: 0;
 }
 .properties {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1-5);
+  margin-top: var(--space-3);
 }
-.dot {
-  padding: 0 var(--space-1-5);
+.meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-1-5);
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
 }
 .description {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  margin-top: var(--space-6);
   color: var(--foreground);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
 }

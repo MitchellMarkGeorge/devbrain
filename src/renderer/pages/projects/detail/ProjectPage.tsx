@@ -1,10 +1,16 @@
+import type { CSSProperties, FocusEvent, KeyboardEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { DateTime } from 'luxon';
 import { useNavigate, useRouter } from '@tanstack/react-router';
 import { CircleCheck, FileText, Folder, LayoutDashboard, type LucideIcon } from 'lucide-react';
-import type { Project } from '@common/types';
+import { ProjectStatus, type Project } from '@common/types';
 import {
   Breadcrumb,
   DatePicker,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  EditorTitle,
   Icon,
   PageFavoriteButton,
   PageToolbar,
@@ -24,6 +30,7 @@ import { ipcErrorCode } from '../../../workspace/errors';
 import { isSynced } from '../../tasks/queries';
 import { projectRoute } from '../route-api';
 import type { ProjectTab } from '../search';
+import { ColourItems } from '../colour';
 import { ProjectStatusPill } from '../ProjectStatusPill';
 import { useProjectActions } from '../use-project-actions';
 import { ProjectDescription } from './ProjectDescription';
@@ -31,6 +38,7 @@ import { ProjectMenu } from './ProjectMenu';
 import { ProjectNotesTab } from './ProjectNotesTab';
 import { ProjectOverview } from './ProjectOverview';
 import { ProjectTasksTab } from './ProjectTasksTab';
+import styles from './ProjectPage.module.css';
 
 const TAB_ICONS: Record<ProjectTab, LucideIcon> = {
   overview: LayoutDashboard,
@@ -46,8 +54,8 @@ const TAB_LABELS: Record<ProjectTab, string> = {
 
 /**
  * A project's page (`/app/$workspaceId/projects/$projectId`, Figma `7159:12540`, `7159:13218`,
- * `7159:13886`): the star and the "…" menu in the header, then the tabs in `?tab`: Overview (the
- * header with its status, dates, progress and description, over the tasks grouped by status),
+ * `7159:13886`): the star and the "…" menu in the header, then the tabs in `?tab`, underlined:
+ * Overview (the project as a document, its tasks under it, and a rail of its progress and notes),
  * Tasks (the tasks views with the project fixed) and Notes (its notes as cards). A synced project's
  * fields are its provider's, so they are read-only here. The loader has the project before the
  * first frame; a project deleted while it is open shows not-found.
@@ -114,19 +122,23 @@ function ProjectPageContent({ project }: { project: Project }) {
           </>
         }
       />
-      <PageToolbar
-        start={
-          <Tabs size="lg" value={tab} onValueChange={(value) => setTab(value as ProjectTab)}>
-            <TabsList aria-label="Project">
-              {(Object.keys(TAB_LABELS) as ProjectTab[]).map((value) => (
-                <TabsTab key={value} value={value} icon={TAB_ICONS[value]}>
-                  {TAB_LABELS[value]}
-                </TabsTab>
-              ))}
-            </TabsList>
-          </Tabs>
-        }
-      />
+      <PageToolbar className={styles.tabsBar}>
+        <Tabs
+          variant="line"
+          size="lg"
+          className={styles.tabs}
+          value={tab}
+          onValueChange={(value) => setTab(value as ProjectTab)}
+        >
+          <TabsList aria-label="Project">
+            {(Object.keys(TAB_LABELS) as ProjectTab[]).map((value) => (
+              <TabsTab key={value} value={value} icon={TAB_ICONS[value]}>
+                {TAB_LABELS[value]}
+              </TabsTab>
+            ))}
+          </TabsList>
+        </Tabs>
+      </PageToolbar>
       {tab === 'overview' && (
         <ProjectOverview project={project} header={<ProjectPageHeader project={project} />} />
       )}
@@ -137,16 +149,58 @@ function ProjectPageContent({ project }: { project: Project }) {
 }
 
 /**
- * The overview's header: the name, status, dates and description, all editable. Its progress pill
- * is left out: the Overview's Progress card shows it.
+ * The overview's header: the tile (Change colour), the name, status, dates with how long is left,
+ * and the description, all editable but a synced project's. The name is an `EditorTitle`, saved
+ * as a task's is: on leaving it or Enter, if it changed and isn't empty; Escape puts it back.
  */
 function ProjectPageHeader({ project }: { project: Project }) {
   const { now } = useFormat();
   const actions = useProjectActions();
   const synced = isSynced(project);
+
+  function saveTitle(event: FocusEvent<HTMLHeadingElement>) {
+    const title = (event.currentTarget.textContent ?? '').trim();
+    if (title === project.title) return;
+    if (title === '') event.currentTarget.textContent = project.title;
+    else actions.update(project, { title });
+  }
+
+  function onTitleKey(event: KeyboardEvent<HTMLHeadingElement>) {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.currentTarget.blur();
+    } else if (event.key === 'Escape') {
+      event.currentTarget.textContent = project.title;
+      event.currentTarget.blur();
+    }
+  }
+
   return (
     <ProjectHeader
       project={project}
+      icon={
+        <ProjectTile
+          color={project.color}
+          disabled={synced}
+          onChange={(color) => actions.update(project, { color })}
+        />
+      }
+      title={
+        <EditorTitle
+          // keyed on the name, so a rename elsewhere (or a sync) shows here
+          key={project.title}
+          size="lg"
+          placeholder="Project name"
+          contentEditable={!synced}
+          suppressContentEditableWarning
+          spellCheck={false}
+          aria-label="Name"
+          onBlur={saveTitle}
+          onKeyDown={onTitleKey}
+        >
+          {project.title}
+        </EditorTitle>
+      }
       statusPill={
         <ProjectStatusPill
           status={project.status}
@@ -154,7 +208,6 @@ function ProjectPageHeader({ project }: { project: Project }) {
           onChange={(status) => actions.setStatus(project, status)}
         />
       }
-      onTitleChange={synced ? undefined : (title) => actions.update(project, { title })}
       duePicker={
         synced ? undefined : (
           <DatePicker
@@ -177,7 +230,62 @@ function ProjectPageHeader({ project }: { project: Project }) {
           />
         )
       }
+      meta={<TimeLeft project={project} />}
       description={<ProjectDescription project={project} />}
     />
+  );
+}
+
+/** How long is left, in whole days ("6 days left", "Due today", "2 days overdue", "Done Nov 12"). */
+function TimeLeft({ project }: { project: Project }) {
+  const { now, formatDate } = useFormat();
+  const { dueDate, status, completedAt } = project;
+  if (status === ProjectStatus.COMPLETED) {
+    return completedAt ? <>Done {formatDate(completedAt)}</> : null;
+  }
+  if (!dueDate) return null;
+  const today = DateTime.fromJSDate(now).startOf('day');
+  const days = Math.round(DateTime.fromJSDate(dueDate).startOf('day').diff(today, 'days').days);
+  if (days < 0) {
+    return (
+      <span className={styles.late}>
+        {-days} {days === -1 ? 'day' : 'days'} overdue
+      </span>
+    );
+  }
+  return <>{days === 0 ? 'Due today' : days === 1 ? 'Due tomorrow' : `${days} days left`}</>;
+}
+
+/** The project's folder in its colour on a tint of it, opening the swatches. */
+function ProjectTile({
+  color,
+  disabled,
+  onChange,
+}: {
+  color: string | null;
+  disabled: boolean;
+  onChange: (hex: string) => void;
+}) {
+  const style = { '--tile': resolveColor(color, 'blue') } as CSSProperties;
+  if (disabled) {
+    return (
+      <span className={styles.tile} style={style}>
+        <Icon icon={Folder} size={20} />
+      </span>
+    );
+  }
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <button type="button" className={styles.tile} style={style} aria-label="Change colour">
+            <Icon icon={Folder} size={20} />
+          </button>
+        }
+      />
+      <DropdownMenuContent align="start">
+        <ColourItems color={color} onChange={onChange} />
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

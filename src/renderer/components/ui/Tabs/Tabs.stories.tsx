@@ -41,10 +41,29 @@ export const Segmented: Story = { args: { variant: 'default' } };
 
 export const Line: Story = { args: { variant: 'line' } };
 
-/** A project's sub-pages, at the top of its page: the outline variant at `size="lg"` */
+/** The outline variant at `size="lg"`, with icons */
 export const WithIcons: Story = {
   render: () => (
     <Tabs defaultValue="overview" size="lg">
+      <TabsList>
+        <TabsTab value="overview" icon={LayoutDashboard}>
+          Overview
+        </TabsTab>
+        <TabsTab value="tasks" icon={CircleCheck}>
+          Tasks
+        </TabsTab>
+        <TabsTab value="notes" icon={FileText}>
+          Notes
+        </TabsTab>
+      </TabsList>
+    </Tabs>
+  ),
+};
+
+/** A project's sub-pages, at the top of its page: the line variant at `size="lg"`, with icons */
+export const LineLarge: Story = {
+  render: () => (
+    <Tabs defaultValue="overview" variant="line" size="lg">
       <TabsList>
         <TabsTab value="overview" icon={LayoutDashboard}>
           Overview

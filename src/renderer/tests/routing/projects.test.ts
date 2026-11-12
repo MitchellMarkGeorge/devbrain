@@ -155,15 +155,56 @@ describe('a project’s page', () => {
     expect(openTasks.textContent).toContain('Open tasks');
     expect(openTasks.querySelectorAll('[data-task-id]')).toHaveLength(8);
     expect(section('overview-done').textContent).toContain('Draft ADR');
-    // the rail: progress split by status, the timeline and the latest notes
+    // the rail: progress split by status, and the latest notes
     const rail = app.container.querySelector('[aria-label="Project at a glance"]')!;
     expect(rail.textContent).toContain('1 of 11 tasks done');
-    expect(rail.textContent).toContain('No due date');
     expect(rail.textContent).toContain('PKCE design notes');
     click(byText(openTasks, 'button', '2 more in Tasks'));
     await eventually(() =>
       expect(app.path()).toBe(`/app/${WORK}/projects/${auth.id}?tab=tasks&status=open`),
     );
+  });
+
+  it('opens the Tasks tab on a status from its Progress row', async () => {
+    const { app } = open(`/projects/${auth.id}`);
+    const rail = () => app.container.querySelector('[aria-label="Project at a glance"]')!;
+    await eventually(() => expect(rail().textContent).toContain('In progress'));
+    click(byText(rail(), 'button', 'In progress'));
+    await eventually(() =>
+      expect(app.path()).toBe(`/app/${WORK}/projects/${auth.id}?tab=tasks&status=in_progress`),
+    );
+  });
+
+  it('adds a task to the project from the overview’s “Add task…” row', async () => {
+    const { app, main } = open(`/projects/${auth.id}`);
+    await eventually(() => expect(app.text()).toContain('Implement PKCE flow'));
+    const input = app.container.querySelector<HTMLInputElement>('input[aria-label="Add task"]')!;
+    typeInto(input, 'Rotate signing keys');
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    );
+    await eventually(() => expect(main.callsTo('tasks.create')).toHaveLength(1));
+    expect(main.callsTo('tasks.create')[0].input).toMatchObject({
+      title: 'Rotate signing keys',
+      projectId: auth.id,
+      status: TaskStatus.NOT_STARTED,
+    });
+  });
+
+  it('renames the project from its title, and leaves an emptied one as it was', async () => {
+    const { app, main } = open(`/projects/${auth.id}`);
+    await eventually(() => expect(app.text()).toContain('Implement PKCE flow'));
+    const title = () => app.container.querySelector<HTMLElement>('h1[aria-label="Name"]')!;
+    title().textContent = '   ';
+    title().dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    expect(title().textContent).toBe('Auth Overhaul');
+    title().textContent = 'Auth Overhaul v2';
+    title().dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+    await eventually(() => expect(main.callsTo('projects.update')).toHaveLength(1));
+    expect(main.callsTo('projects.update')[0].input).toMatchObject({
+      id: auth.id,
+      title: 'Auth Overhaul v2',
+    });
   });
 
   it('shows not-found for a project that doesn’t exist', async () => {

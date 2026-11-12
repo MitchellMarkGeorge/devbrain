@@ -1,21 +1,59 @@
-/* The project page's Overview. See ProjectOverview.tsx */
+/* The project page: its tabs and the Overview. See ProjectPage.tsx and ProjectOverview.tsx */
+
+/* the tabs: underlined, their line the width of the page, 12px over the tab's content */
+.tabsBar {
+  padding-bottom: var(--space-3);
+}
+.tabs {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* the header's tile: the folder in the project's colour on a 14% tint of it */
+.tile {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: color-mix(in oklab, var(--tile) 14%, transparent);
+  color: var(--tile);
+}
+button.tile {
+  cursor: pointer;
+  transition: background-color var(--duration-fast);
+}
+button.tile:hover,
+button.tile[data-popup-open] {
+  background: color-mix(in oklab, var(--tile) 22%, transparent);
+}
+button.tile:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+/* the header's "2 days overdue" */
+.late {
+  color: var(--date-overdue);
+}
 
 /*
  * Two columns that scroll together (the page keeps its height, so the shell's page scroller
- * scrolls it whole, as a document page): the header and the work on the left, a 288px rail of
- * the project at a glance on the right. Below 1180px of window the rail goes under the work.
+ * scrolls it whole, as a document page): the project as a document, at most 720px, and a 272px
+ * rail with a hairline on its left, 48px apart and centred. Below 1180px of window the rail goes
+ * under the work, its hairline on top.
  */
 .overview {
   flex: none;
-  padding: var(--space-12) var(--space-6);
+  padding: var(--space-8) var(--space-8) var(--space-16);
 }
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 288px;
+  grid-template-columns: minmax(0, 720px) 272px;
   gap: var(--space-12);
+  justify-content: center;
   align-items: start;
-  max-width: 1120px;
-  margin: 0 auto;
 }
 .main {
   display: flex;
@@ -25,29 +63,42 @@
 }
 .rail {
   position: sticky;
-  top: 0;
+  top: var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  padding-left: var(--space-6);
+  border-left: 1px solid var(--border);
 }
 @media (max-width: 1180px) {
   .layout {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 720px);
   }
   .rail {
     position: static;
+    padding: var(--space-2) 0 0;
+    border-top: 1px solid var(--border);
+    border-left: 0;
   }
 }
 
-/* a rail card: its 12px label and a link on the right, over its content */
-[data-slot='card'].railCard {
+/* a rail section: its 12px label and an action on the right over its content, hairlines between */
+.railSection {
+  display: flex;
+  flex-direction: column;
   gap: var(--space-3);
-  padding: var(--space-4);
+  padding: var(--space-4) 0;
+}
+.railSection + .railSection {
+  border-top: 1px solid var(--border);
+}
+.railSection:first-child {
+  padding-top: var(--space-1);
 }
 .railHead {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-height: 24px;
 }
 .railTitle {
   margin: 0;
@@ -57,6 +108,7 @@
 .railLink {
   display: inline-flex;
   align-items: center;
+  align-self: flex-start;
   gap: var(--space-1);
   padding: 0;
   border: 0;
@@ -101,79 +153,42 @@
   min-width: 4px;
   background: var(--segment);
 }
-.legend {
+/* a row per status and the overdue tasks, each opening the Tasks tab on them */
+.statRows {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1-5);
-  margin: 0;
+  margin: 0 calc(-1 * var(--space-2));
   padding: 0;
   list-style: none;
-  color: var(--foreground);
-  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
 }
-.legend li {
+.statRows button {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+  text-align: left;
+  cursor: pointer;
 }
-.legendCount,
-.pushRight {
+.statRows button:hover {
+  background: var(--accent);
+}
+.statRows button[data-tone='overdue'] {
+  color: var(--date-overdue);
+  font-weight: var(--font-weight-medium);
+}
+.statCount {
   margin-left: auto;
   color: var(--muted-foreground);
   font-variant-numeric: tabular-nums;
 }
-.overdue {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1-5) var(--space-2);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--status-overdue-tint);
-  color: var(--date-overdue);
-  font: var(--font-weight-medium) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
-  cursor: pointer;
-}
-
-/* Timeline: start and due side by side, how far through, and how long is left */
-.dates {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  margin: 0;
-}
-.dates dt {
-  color: var(--muted-foreground);
-  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
-}
-.dates dd {
-  margin: 0;
-  color: var(--foreground-strong);
-  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
-}
-.track {
-  height: 4px;
-  overflow: hidden;
-  border-radius: var(--radius-xs);
-  background: var(--border);
-}
-.track > span {
-  display: block;
-  height: 100%;
-  background: var(--foreground);
-}
-.track > span[data-late] {
-  background: var(--date-overdue);
-}
-.left {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1-5);
-  margin: 0;
-  color: var(--muted-foreground);
-  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
-}
-.left[data-late] {
-  color: var(--date-overdue);
+[data-tone='overdue'] .statCount {
+  color: inherit;
 }
 
 /* Notes: titles and when they were edited, each opening its note */
@@ -214,6 +229,16 @@
   font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
 }
 
+/* the "Add task…" row under a section's rows, and "Move Tasks Here" under it on an empty project */
+/* lined up with the compact rows: the "+" in their status slot, the placeholder with their titles */
+div.quickAdd {
+  padding-left: var(--space-3);
+}
+.moveHere {
+  align-self: flex-start;
+  margin: var(--space-2) 0 0 28px;
+}
+
 /* a section with no tasks */
 .sectionEmpty {
   margin: 0;
@@ -226,7 +251,7 @@
 .more {
   display: block;
   margin: var(--space-1) 0 0;
-  padding: var(--space-1-5) 0 var(--space-1-5) 36px;
+  padding: var(--space-1-5) 0 var(--space-1-5) 46px;
   border: 0;
   background: none;
   color: var(--muted-foreground);

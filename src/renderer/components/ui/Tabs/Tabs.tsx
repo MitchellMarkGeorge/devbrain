@@ -9,12 +9,13 @@ export const tabsVariants = cva(styles.root, {
   variants: {
     /**
      * `outline` (the default): page sections, drawn as ToggleGroup's outline variant;
-     * `default`: the segmented control; `line`: an underline (no screen uses it yet)
+     * `default`: the segmented control; `line`: an underline (a project's Overview / Tasks / Notes,
+     * at `lg`)
      */
     variant: { outline: styles.outline, default: styles.segmented, line: styles.line },
     /**
-     * the outline variant's size: `default` 32px tabs in 14px; `lg` 36px tabs in 16px, for an
-     * item's sub-pages at the top of its page (a project's Overview / Tasks / Notes)
+     * `default`; `lg`: outline, 36px tabs in 16px; line, 14px labels 24px apart, for an item's
+     * sub-pages at the top of its page (a project's Overview / Tasks / Notes)
      */
     size: { default: undefined, lg: styles.lg },
   },

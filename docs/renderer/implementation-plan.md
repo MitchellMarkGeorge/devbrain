@@ -1393,21 +1393,26 @@ linkedTaskId } })`), separate from the task's event or note link.
      tasks page fills from its URL and the Tasks tab from the project page's (its params beside
      `tab`, the project left out). The Filter menu then has no Project, Group by no "Project" (it
      groups by status), and New Task and "Add task" file the task in the project.
-   - The Overview is two columns that scroll together (one, with the rail under, below 1180px):
-     on the left the header (name, properties, description; without `ProjectHeader`'s progress pill, which the rail's Progress card replaces) over Open tasks (the soonest due
-     first, eight rows) and Recently completed (three), each with "N more in Tasks" opening the
-     Tasks tab on the rest; on the right a rail of cards: Progress (the percent, a bar split by
-     status with its legend, and the overdue tasks, which open the Tasks tab on them), Timeline
-     (start, due, how far through and how long is left) and the latest notes. This replaces
-     Figma's full-width groups (`7159:12540`). With no tasks, "No tasks in this project yet"
-     offers New Task and Move Tasks Here (the Tasks page's tasks in no project).
-   - `ProjectHeader` gained `onTitleChange` (the name edits in place) and `duePicker`/`startPicker`
-     (clearable dates), and its name grew to 30px; the tabs are `Tabs size="lg"` (36px, with
-     icons). The Progress card's "N overdue" opens the Tasks tab's list view filtered to overdue
-     tasks; core's `numOfOverdue` counts tasks due before today, as that filter and the rows do (it
-     counted those due earlier today too). Colours are stored as `#rrggbb` (`workspace/colors.ts`'s `SWATCH_HEX`), as
-     `projects.update` takes no swatch names; "Change colour" is a submenu of the six swatches
-     rather than the editor's `ColourMenu`.
+   - The Overview follows Linear's project page: the project as a document on the left (at most
+     720px) and a flat rail on the right behind a hairline (one column, the rail under, below
+     1180px). The document is the header (the tile in the project's colour, which opens Change
+     colour; the name as an `EditorTitle size="lg"`, saved as a task's title is; status and
+     dates as pills with how long is left; the description), then Open tasks (the soonest due
+     first, eight compact rows without the linked note's pill, an "Add task…" `QuickAddRow` that
+     creates the task in the project, and "N more in Tasks") and Recently completed (three). The
+     rail's sections are Progress (the percent, a bar split by status, and a row per status and
+     for the overdue tasks, each opening the Tasks tab on them) and the latest notes, with "+"
+     for a new one. This replaces Figma's full-width groups (`7159:12540`). With no tasks, Open
+     tasks says "No tasks in this project yet." over the "Add task…" row and Move Tasks Here (the
+     Tasks page's tasks in no project).
+   - `ProjectHeader` takes its tile, name and "time left" as slots (`icon`, `title`, `meta`) and
+     `duePicker`/`startPicker` (clearable dates); its progress pill and "+ Add" are gone. The tabs
+     are `Tabs variant="line" size="lg"` (underlined, with icons). "N overdue" opens the Tasks
+     tab's list view filtered to overdue tasks; core's `numOfOverdue` counts tasks due before
+     today, as that filter and the rows do (it counted those due earlier today too). Colours are
+     stored as `#rrggbb` (`workspace/colors.ts`'s `SWATCH_HEX`), as `projects.update` takes no
+     swatch names; "Change colour" is a submenu of the six swatches rather than the editor's
+     `ColourMenu`.
    - The Notes tab draws `NoteCard`s and opens them on the note page with `useOpenEntity`. New note (the menu's and the tab's) creates an empty note in the project and
      opens it. Copy as Markdown calls C3 (`projects.toMarkdown`).
    - New project is the `project.new` app command (no key: ⌘K lists it), the Projects page's New
