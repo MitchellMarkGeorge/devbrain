@@ -2,7 +2,7 @@
 
 A vertical scrolling area with a thin scrollbar drawn over its right edge, taking no width from the content: the page (`WorkspaceShell`), `TaskList`, `BoardColumn`, `VirtualCardGrid`, the sidebar, a sheet's body and the editor's suggestion menus (`SlashMenu`, `MentionMenu`) (README "Scrollbars"). The native scrollbar is hidden.
 
-- **Scrollbar.** An 8px strip on the right edge holding a 4px `border-strong` thumb with round ends, 2px in from the edge and 4px from each end (at least 16px tall). It isn't drawn when nothing overflows.
+- **Scrollbar.** An 8px strip on the right edge holding a 4px `border-strong` thumb with round ends, 2px in from the edge and 4px from each end (at least 16px tall). It isn't drawn when nothing overflows, and it measures again whenever the content changes size, not only the area: a page swapping a tall child for a short one (Home for a list page, a project's Overview for its Tasks tab) leaves no stale scrollbar.
 - **Showing.** It fades in (`duration-normal`) while the area scrolls or the pointer is over it, and fades out 0.8s after scrolling stops or once the pointer leaves.
 - **Dragging.** The scrollbar is a control: drag the thumb to scroll, or click the track above or below it to jump there. The wheel, trackpad and keyboard scroll the area as usual.
 - **Keyboard.** While it overflows, the area takes keyboard focus (the arrow keys then scroll it), shown as a 1px `ring` outline inside its edge.
