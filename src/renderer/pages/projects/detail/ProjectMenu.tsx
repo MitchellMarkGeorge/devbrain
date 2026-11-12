@@ -7,7 +7,10 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   PageMenuButton,
+  toast,
 } from '../../../components';
+import { ipc } from '../../../ipc';
+import { useMutationErrorToast } from '../../app/mutation-errors';
 import { useCreateNote } from '../../notes/use-create-note';
 import { useCreateTask } from '../../tasks/create/use-create-task';
 import { isSynced } from '../../tasks/queries';
@@ -22,15 +25,24 @@ export interface ProjectMenuProps {
 
 /**
  * The project page's "…" menu (Figma `7424:40578`): New task and New note, both in the project;
- * Change colour ›; Copy as Markdown (C3, not built yet: drawn disabled); then Move to trash. A
+ * Change colour ›; Copy as Markdown (C3); then Move to trash. A
  * synced project's colour is its provider's, and it can't be trashed (it leaves with its source).
  */
 export function ProjectMenu({ project, actions, onTrash }: ProjectMenuProps) {
   const createTask = useCreateTask();
   const synced = isSynced(project);
 
+  const showError = useMutationErrorToast();
   const createNote = useCreateNote();
   const newNote = () => createNote({ projectId: project.id });
+
+  // the project with its tasks grouped by status (C3), as the task page copies a task
+  const copyAsMarkdown = () =>
+    ipc.projects.toMarkdown
+      .query({ id: project.id })
+      .then((markdown) => navigator.clipboard.writeText(markdown))
+      .then(() => toast({ tone: 'success', title: 'Copied' }))
+      .catch((error: unknown) => showError(error, 'Couldn’t copy the project'));
 
   return (
     <PageMenuButton>
@@ -55,7 +67,7 @@ export function ProjectMenu({ project, actions, onTrash }: ProjectMenuProps) {
         </DropdownMenuSubContent>
       </DropdownMenuSub>
       <DropdownMenuSeparator />
-      <DropdownMenuItem icon={Code} disabled>
+      <DropdownMenuItem icon={Code} onClick={() => void copyAsMarkdown()}>
         Copy as Markdown
       </DropdownMenuItem>
       <DropdownMenuSeparator />

@@ -453,6 +453,8 @@ export class FakeMain {
         ];
       case 'archive.archiveProject':
         return [Object.assign(project(), { archivedAt: new Date() }), ['project']];
+      case 'projects.toMarkdown':
+        return [`# ${project().title}\n`, []];
       default:
         throw new RemoteError('internal', `No route ${path} in the fake main`);
     }

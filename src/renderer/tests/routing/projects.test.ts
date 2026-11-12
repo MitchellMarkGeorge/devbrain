@@ -172,6 +172,21 @@ describe('a project’s page', () => {
     });
   });
 
+  it('copies the project as Markdown from its menu', async () => {
+    const { app, main } = open(`/projects/${auth.id}`);
+    await eventually(() => expect(app.text()).toContain('Implement PKCE flow'));
+    click(app.container.querySelector('button[aria-label="More actions"]'));
+    await eventually(() =>
+      expect(byText(document.body, '[role="menuitem"]', 'Copy as Markdown')).not.toBeNull(),
+    );
+    click(byText(document.body, '[role="menuitem"]', 'Copy as Markdown'));
+    await eventually(() =>
+      expect(main.callsTo('projects.toMarkdown').map((call) => call.input)).toEqual([
+        { id: auth.id },
+      ]),
+    );
+  });
+
   it('switches tabs in the URL, replacing the entry', async () => {
     const { app } = open(`/projects/${auth.id}`);
     await eventually(() => expect(app.text()).toContain('Implement PKCE flow'));
