@@ -1394,13 +1394,12 @@ linkedTaskId } })`), separate from the task's event or note link.
      `tab`, the project left out). The Filter menu then has no Project, Group by no "Project" (it
      groups by status), and New Task and "Add task" file the task in the project.
    - The Overview follows Linear's project page: the project as a document on the left (at most
-     720px) and a flat rail on the right behind a hairline (one column, the rail under, below
-     1180px). The document is the header (the tile in the project's colour, which opens Change
+     720px) and a rail of cards on the right (one column, the rail under, below 1180px). The document is the header (the tile in the project's colour, which opens Change
      colour; the name as an `EditorTitle size="lg"`, saved as a task's title is; status and
      dates as pills with how long is left; the description), then Open tasks (the soonest due
      first, eight compact rows without the linked note's pill, an "Add task…" `QuickAddRow` that
      creates the task in the project, and "N more in Tasks") and Recently completed (three). The
-     rail's sections are Progress (the percent, a bar split by status, and a row per status and
+     rail's cards are Progress (the percent, a bar split by status, and a row per status and
      for the overdue tasks, each opening the Tasks tab on them) and the latest notes, with "+"
      for a new one. This replaces Figma's full-width groups (`7159:12540`). With no tasks, Open
      tasks says "No tasks in this project yet." over the "Add task…" row and Move Tasks Here (the

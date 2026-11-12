@@ -41,8 +41,7 @@ button.tile:focus-visible {
 /*
  * Two columns that scroll together (the page keeps its height, so the shell's page scroller
  * scrolls it whole, as a document page): the project as a document, at most 720px, and a 272px
- * rail with a hairline on its left, 48px apart and centred. Below 1180px of window the rail goes
- * under the work, its hairline on top.
+ * rail of cards, 48px apart and centred. Below 1180px of window the rail goes under the work.
  */
 .overview {
   flex: none;

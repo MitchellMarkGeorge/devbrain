@@ -25,7 +25,7 @@ import styles from './ProjectPage.module.css';
 /**
  * The Overview tab, laid out as Linear's project page: the project as a document on the left (its
  * header, then its open tasks with an "Add task…" row, and the recently completed ones), and a
- * flat rail on the right, its sections split by hairlines: Progress (the percent, a bar split by
+ * rail of cards on the right: Progress (the percent, a bar split by
  * status, and a row per status and for the overdue tasks, each opening the Tasks tab on them) and
  * the latest notes. The two scroll together; in a narrow window the rail goes under.
  */
