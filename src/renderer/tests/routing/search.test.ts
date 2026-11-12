@@ -247,6 +247,9 @@ describe('⌘K search', () => {
     const release = main.hold('search.search');
     type('pkce');
     await eventually(() => expect(main.callsTo('search.search')).toHaveLength(1));
+    // search.counts isn't held: let it answer first, as it can in the app
+    await eventually(() => expect(main.callsTo('search.counts')).toHaveLength(1));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     expect(optionTexts()).toEqual(before);
     expect(dialog()?.textContent).toContain('Recent');
     expect(filterButton('All')?.textContent).toBe('All');
