@@ -41,6 +41,32 @@ const MODE_HINTS: Record<string, readonly HintSpec[]> = {
   ],
 };
 
+/** The keys the line names while focus is in the editor, whose Vim keys are its own. */
+const EDITOR_HINTS: Record<string, readonly StatusLineHint[]> = {
+  normal: [
+    { keys: 'i', label: 'insert' },
+    { keys: 'v', label: 'visual' },
+    { keys: 'Esc', label: 'leave editor' },
+  ],
+  insert: [
+    { keys: 'Esc', label: 'normal mode' },
+    { keys: '/', label: 'insert block' },
+    { keys: '⌘B', label: 'bold' },
+  ],
+  visual: [
+    { keys: 'd', label: 'delete' },
+    { keys: 'y', label: 'copy' },
+    { keys: '>', label: 'indent' },
+    { keys: 'Esc', label: 'cancel' },
+  ],
+};
+EDITOR_HINTS['visual-line'] = EDITOR_HINTS.visual;
+
+// whether focus is in the rich text editor
+function inEditor(): boolean {
+  return document.activeElement?.closest('[contenteditable="true"]') != null;
+}
+
 /** A binding's keys as the line writes them: `gg`, `dd`, `⌃D`. */
 function keysOf(keymap: Keymap, keys: string, platform: Platform): string {
   return keyLabels(keys, platform, { upperCase: keymap.upperCaseKeys ?? true }).join('');
@@ -161,15 +187,20 @@ export function ModeLine({ context }: ModeLineProps) {
     [keymap, mode, registered, platform],
   );
   if (mode === COMMAND_MODE) return <CommandLine />;
-  const lineMode = (LINE_MODES as readonly string[]).includes(mode)
-    ? (mode as StatusLineMode)
-    : 'normal';
+  // the editor's Visual line is Visual, named for itself
+  const lineMode =
+    mode === 'visual-line'
+      ? 'visual'
+      : (LINE_MODES as readonly string[]).includes(mode)
+        ? (mode as StatusLineMode)
+        : 'normal';
   return (
     <StatusLine
       mode={lineMode}
+      label={mode === 'visual-line' ? 'VISUAL LINE' : undefined}
       context={context}
       pending={pendingText(count, pending)}
-      hints={hints}
+      hints={inEditor() ? (EDITOR_HINTS[mode] ?? hints) : hints}
       popup={
         next.length > 0 && (
           <div className={styles.whichKey} aria-label="Keys that can follow">

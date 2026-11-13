@@ -187,6 +187,13 @@ press its ↓/↑).
   "Keys · Vim keys on · Esc closes" (`7704:59901`). The same keys bound in two scopes (`j` in a list
   and on the board) show once.
 
-Still to build: Normal mode inside the editor (a ProseMirror plugin: the dispatcher leaves `contenteditable` alone). Not built:
-`h`/`j`/`k`/`l` over the notes and projects card grids (Figma `7704:59600`), and `yy`, `i` (rename)
-and `/` from the keys sheet, which have no commands yet.
+- **The editor.** The dispatcher leaves `contenteditable` alone, so the editor's Vim keys are a
+  ProseMirror plugin of its own (`src/renderer/editor/extensions/vim.ts`; `docs/editor.md`, "Vim
+  keys"): Normal, Visual, Visual line and Insert. It sets the editor's `data-key-mode`, which the
+  dispatcher reads as focus comes in, and sends a `MODE_CHANGE_EVENT` as it changes, which the
+  dispatcher answers by reading it again; so the mode line shows the editor's mode, with the
+  editor's keys (`ModeLine`'s `EDITOR_HINTS`).
+
+Not built (`docs/follow-ups.md`, "Vim mode"): `h`/`j`/`k`/`l` over the notes and projects card
+grids, `yy`, `i` (rename) and `/` from the keys sheet, which have no commands yet, the sidebar as a
+pane, and the cursor's place in the mode line.

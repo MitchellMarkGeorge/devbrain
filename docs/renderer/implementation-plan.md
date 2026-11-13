@@ -729,6 +729,11 @@ each piece does):
    registry (ids and titles) and a short list of aliases that mean something here (pages, the tasks
    page's views and sorts, which it now registers as `view.*` and `sort.*`, `:u`, `:red`, `:h`); a
    command runs where focus was before `:`. `?` shows the Vim keymap's keys when Vim is on.
+5. **Normal mode in the editor.** A ProseMirror plugin in `RichTextEditor` (`extensions/vim.ts`):
+   Normal (a block cursor, relative line numbers, motions, `x`/`dd`/`yy`/`p`, `u`), Visual and
+   Visual line (`d`, `y`, `>`/`<`), and Insert, which keeps TipTap's own keys. It reports its mode
+   through `data-key-mode` and `MODE_CHANGE_EVENT`, which the dispatcher reads, so the mode line
+   shows it. What Figma shows that isn't built is in `docs/follow-ups.md` ("Vim mode").
 
 **Wiring it in** (milestone 3; the layer itself is built, in `src/renderer/keyboard/`, with its
 `README.md`):

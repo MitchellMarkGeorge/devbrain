@@ -44,4 +44,7 @@ export interface EditorHost {
   // a click on a link or image that safeExternalUrl accepted; the app passes it to
   // Workspace.openUrl, which checks again (docs/security/untrusted-content.md)
   onOpenUrl?: (url: string) => void;
+  // Vim keys are on (the app's general.keyboardMode): the editor has Normal, Visual and Insert
+  // modes (extensions/vim.ts)
+  vim?: boolean;
 }

@@ -242,6 +242,27 @@ They should ask `search.search` (`src/main/ipc/routers/search.ts`) instead, once
 2. **Use it in each picker.** Search with the picker's types (`entityType: ['event', 'note']`, `['task']`, `['project']`), debounced as ⌘K is (`SEARCH_DEBOUNCE_MS`, 300ms), and keep showing the recent rows while the query is empty. Leave out what can't be picked: the task itself and its subtasks under Make subtask of, closed tasks, a synced task's fields.
 3. The "@" menu and ⌘K already search; check they share the mapping.
 
+## Vim mode
+
+_Found while building Vim keys (stages 1–5)._
+
+What Figma's Vim mocks (`7702:55372`–`7714:56845`) show that isn't built yet:
+
+- **Card grids.** `h`/`j`/`k`/`l` over the notes and projects card views (`7704:59600`): the
+  `VirtualCardGrid` needs a handle like `BoardColumn`'s (focus by index, columns per row) and the
+  pages a `ListKeyTarget` over it. The list views have the keys.
+- **Keys with no command yet**, from the keys sheet (`7704:59901`): `yy` to copy a row as markdown,
+  `i` to rename, `/` to filter the list. Each needs its command first; the keymap entry is then one
+  line.
+- **The sidebar as a pane.** `h` past the board's first column focuses the sidebar's current page,
+  but the sidebar has no keys of its own (`j`/`k` between its links, `l` back to the page).
+- **The mode line's place**: "Tasks › List · 3/8" and "rows 2–4" in Visual, "38 targets" in Hint,
+  "Ln 4, Col 14" in the editor. The line shows the page's title; the list, the overlay and the
+  editor would publish their position to it.
+- **The editor**: `/` to search the note (`7714:56193`'s hint), and `i` to go back into the
+  editor once Esc has left it (`7714:56845`): Esc blurs the editor rather than keeping focus on
+  the note around it.
+
 ## Workspaces
 
 ### Workspaces used in place, and bringing one back

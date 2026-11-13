@@ -53,6 +53,37 @@ const body = useEditorAutosave(content, (markdown) => save(markdown));
   tasks, notes and events, as the `MentionMenu` shows them (a project link in a note still reads
   as a pill).
 
+## Vim keys
+
+With Settings › General › Vim keys on, every editable `RichTextEditor` has Vim's modes
+(`extensions/vim.ts`, Figma `7714:56193`–`7714:56845`). `useEditorHost` passes `vim` from the
+active keymap; the extension does nothing while it's off, and nothing in a read-only editor.
+
+- **Normal** is where focus coming in finds it: a block cursor on the character and relative line
+  numbers (drawn by `EditorContent`), and keys that move rather than type: `h`/`j`/`k`/`l`
+  (and the arrows), `w`/`b`/`e`, `0`/`^`/`$`, `gg`/`G` (`3G`: line 3), each with a count; `x`,
+  `dd` (a list item's line takes the item, and a list's only item the list), `yy`, `p`/`P` (after
+  or before the line), `u` and `Ctrl-r`. `i`, `a`, `I`, `A`, `o` and `O` go into Insert (`o` makes a
+  new line of the line's kind, through TipTap's Enter). Esc leaves the editor: it loses focus, and
+  the app's keys (`h`, `g n`) work again. Any other key typed is dropped; ⌘ and Alt chords (⌘B)
+  are left to TipTap and the app.
+- **Insert** is the editor as it is without Vim: TipTap takes every key, `/` and `@` included.
+  Esc goes back to Normal, the cursor one to the left, once the `/` or `@` menu or the link editor
+  has had the Esc it wanted (`VimInsertEscape` runs last).
+- **Visual** (`v`) selects from where it began to the cursor, inclusive; **Visual line** (`V`)
+  whole lines. The motions grow it; `d` or `x` deletes it, `y` copies it, `>` and `<` nest and
+  un-nest list items, `v`/`V` switch between them or end, Esc ends it.
+- `yy`, `dd` and Visual's `y`/`d` keep what they took for `p`, and put its text on the system
+  clipboard. Each change is an undo step of its own (`closeHistory`), so `u` takes back one `dd`
+  however soon the next came.
+- The mode is the editor's `data-key-mode`, which the app's dispatcher reads when focus comes in
+  and again on the `MODE_CHANGE_EVENT` the plugin sends as it changes, so the mode line shows
+  NORMAL, INSERT, VISUAL or VISUAL LINE, with the editor's keys on its right. While focus is in the
+  editor the app's own keys stay off (the dispatcher leaves `contenteditable` alone).
+
+Not built yet (see `docs/follow-ups.md`, "Vim mode"): `/` to search the note, the line and column
+in the mode line, and `i` to go back into the editor once Esc has left it.
+
 ## The note format
 
 Notes, and every description, are **GitHub-flavoured markdown**, with a short list of HTML tags for

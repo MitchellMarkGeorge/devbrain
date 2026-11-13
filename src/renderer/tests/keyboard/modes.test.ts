@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { vimKeymap } from '../../keyboard/vim-keymap';
 import { defaultKeymap } from '../../keyboard/default-keymap';
+import { MODE_CHANGE_EVENT } from '../../keyboard/keymap';
 import { modeHints, pendingText } from '../../keyboard/ModeLine';
 import { button, keymap, press, recorder, scoped, setUp } from './helpers';
 
@@ -97,6 +98,26 @@ describe('the mode following focus', () => {
     expect(dispatcher.getState().mode).toBe('command');
     button(document.body).focus();
     expect(dispatcher.getState().mode).toBe('normal');
+  });
+
+  it('follows an element changing its own mode while focus is in it (the editor’s)', () => {
+    const { dispatcher } = start(modal);
+    const editor = document.createElement('div');
+    editor.contentEditable = 'true';
+    editor.tabIndex = 0;
+    editor.setAttribute('data-key-mode', 'normal');
+    document.body.appendChild(editor);
+    editor.focus();
+    expect(dispatcher.getState().mode).toBe('normal');
+    editor.setAttribute('data-key-mode', 'insert');
+    editor.dispatchEvent(new CustomEvent(MODE_CHANGE_EVENT, { bubbles: true, detail: 'insert' }));
+    expect(dispatcher.getState().mode).toBe('insert');
+    // an element focus isn't in is not listened to
+    const other = document.createElement('div');
+    other.setAttribute('data-key-mode', 'visual');
+    document.body.appendChild(other);
+    other.dispatchEvent(new CustomEvent(MODE_CHANGE_EVENT, { bubbles: true }));
+    expect(dispatcher.getState().mode).toBe('insert');
   });
 
   it('does nothing for a keymap whose mode doesn’t follow focus', () => {

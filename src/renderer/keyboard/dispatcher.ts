@@ -5,6 +5,7 @@ import {
   entryAppliesInMode,
   keymapModes,
   MODE_ATTRIBUTE,
+  MODE_CHANGE_EVENT,
   type Keymap,
   type KeymapEntry,
 } from './keymap';
@@ -187,12 +188,14 @@ export class KeyDispatcher {
     target.addEventListener('keydown', this.handleEscape);
     target.addEventListener('focusin', this.handleFocusIn);
     target.addEventListener('focusout', this.handleFocusOut);
+    target.addEventListener(MODE_CHANGE_EVENT, this.handleModeChange);
     this.followFocus(this.focused());
     return () => {
       target.removeEventListener('keydown', this.handleKeyDown, true);
       target.removeEventListener('keydown', this.handleEscape);
       target.removeEventListener('focusin', this.handleFocusIn);
       target.removeEventListener('focusout', this.handleFocusOut);
+      target.removeEventListener(MODE_CHANGE_EVENT, this.handleModeChange);
       clearTimeout(this.focusTimer);
       this.clearSequence();
     };
@@ -259,6 +262,14 @@ export class KeyDispatcher {
     if (event.relatedTarget || !this.keymap.insertMode) return;
     clearTimeout(this.focusTimer);
     this.focusTimer = setTimeout(() => this.followFocus(this.focused()), 0);
+  };
+
+  // an element focus is in changed its own mode (the editor's Normal to Insert)
+  private handleModeChange = (event: Event): void => {
+    const focused = this.focused();
+    if (event.target instanceof Node && focused && event.target.contains(focused)) {
+      this.followFocus(focused);
+    }
   };
 
   /**
