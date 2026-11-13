@@ -35,12 +35,21 @@ function labelled(name: string, value: ReactNode): string | undefined {
 }
 
 /** A date pill that opens its picker when it has one. */
-function DatePill({ picker, pill }: { picker: ReactNode | undefined; pill: ReactElement }) {
+function DatePill({
+  name,
+  picker,
+  pill,
+}: {
+  /** names the picker's popup: "Start date" */
+  name: string;
+  picker: ReactNode | undefined;
+  pill: ReactElement;
+}) {
   if (picker == null) return pill;
   return (
     <Popover>
       <PopoverTrigger render={pill} />
-      <PopoverContent size="auto" className={styles.picker}>
+      <PopoverContent size="auto" className={styles.picker} aria-label={name}>
         {picker}
       </PopoverContent>
     </Popover>
@@ -60,6 +69,7 @@ export const DateRange = forwardRef<HTMLSpanElement, DateRangeProps>(function Da
       {start != null && (
         <>
           <DatePill
+            name="Start date"
             picker={startPicker}
             pill={
               <EntityPill glyph={CalendarIcon} aria-label={labelled('Start date', start)}>
@@ -71,6 +81,7 @@ export const DateRange = forwardRef<HTMLSpanElement, DateRangeProps>(function Da
         </>
       )}
       <DatePill
+        name="Due date"
         picker={duePicker}
         pill={
           <EntityPill
@@ -84,6 +95,7 @@ export const DateRange = forwardRef<HTMLSpanElement, DateRangeProps>(function Da
       />
       {start == null && (
         <DatePill
+          name="Start date"
           picker={startPicker}
           pill={
             <EntityPill glyph={Plus} onClick={onAddStart}>

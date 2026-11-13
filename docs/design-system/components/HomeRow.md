@@ -10,3 +10,5 @@ Figma's `FocusMeetingRow` and `ProjectRecentRow`: Home's minimal row for meeting
 - Hover takes `row-selected`; with `onOpen` the row takes focus (a 1px `ring` outline) and Enter or a click opens it.
 
 **Base UI:** No Base UI part: plain markup.
+
+**Semantics:** a `role="row"` holding one `gridcell` (`display: contents`, so the parts stay the row's flex items) around its parts, so it belongs in a `grid` (`HomeRows` on Home).

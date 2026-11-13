@@ -35,6 +35,8 @@
   --red-400: #ff6467;
   --red-500: #fb2c36;
   --red-600: #e7000b;
+  --red-700: #c10007;
+  --red-800: #9f0712;
   --red-900: #82181a;
   --red-950: #460809;
   --orange-300: #ffb86a;
@@ -204,12 +206,17 @@
   --capture-switch-thumb: var(--border-strong);
   --muted: var(--neutral-900);
   --muted-foreground: var(--neutral-400);
-  --subtle-foreground: var(--neutral-500); /* DevBrain addition */
+  --subtle-foreground: color-mix(
+    in srgb,
+    var(--neutral-400) 85%,
+    transparent
+  ); /* DevBrain addition */
   --accent: var(--neutral-800);
   --pill-fill: transparent;
   --pill-fill-hover: color-mix(in srgb, var(--neutral-800) 60%, transparent);
   --accent-foreground: var(--neutral-100);
   --destructive: var(--red-400);
+  --destructive-foreground: var(--red-400); /* DevBrain addition */
   --border: color-mix(in srgb, var(--foreground) 10%, transparent);
   --border-strong: color-mix(in srgb, var(--foreground) 15%, transparent); /* DevBrain addition */
   --edge: color-mix(in srgb, var(--foreground) 10%, transparent);
@@ -281,13 +288,14 @@
     --capture-switch-border: var(--border);
     --capture-switch-thumb: var(--segment-thumb);
     --muted: var(--neutral-100);
-    --muted-foreground: var(--neutral-500);
-    --subtle-foreground: var(--neutral-500);
+    --muted-foreground: color-mix(in srgb, var(--neutral-600) 90%, transparent);
+    --subtle-foreground: color-mix(in srgb, var(--neutral-600) 90%, transparent);
     --accent: var(--neutral-100);
     --pill-fill: var(--white);
     --pill-fill-hover: var(--neutral-100);
     --accent-foreground: var(--neutral-900);
-    --destructive: var(--red-600);
+    --destructive: var(--red-700);
+    --destructive-foreground: var(--red-800);
     --border: var(--neutral-200);
     --border-strong: var(--neutral-200);
     --edge: color-mix(in srgb, var(--foreground) 10%, transparent);
@@ -297,7 +305,7 @@
     --input-fill: transparent;
     --ring: var(--neutral-500);
     --sidebar: var(--neutral-50);
-    --sidebar-foreground: var(--neutral-500);
+    --sidebar-foreground: color-mix(in srgb, var(--neutral-600) 90%, transparent);
     --sidebar-primary: var(--neutral-900);
     --sidebar-primary-foreground: var(--neutral-50);
     --sidebar-accent: var(--neutral-100);
@@ -322,7 +330,7 @@
     --health-not-started: var(--neutral-500);
     --health-completed: var(--green-700);
     --date-today: var(--amber-700);
-    --date-overdue: var(--red-600);
+    --date-overdue: var(--red-700);
     --syntax-keyword: var(--violet-700);
     --syntax-string: var(--emerald-700);
     --syntax-number: var(--orange-700);
@@ -359,13 +367,14 @@
   --capture-switch-border: var(--border);
   --capture-switch-thumb: var(--segment-thumb);
   --muted: var(--neutral-100);
-  --muted-foreground: var(--neutral-500);
-  --subtle-foreground: var(--neutral-500);
+  --muted-foreground: color-mix(in srgb, var(--neutral-600) 90%, transparent);
+  --subtle-foreground: color-mix(in srgb, var(--neutral-600) 90%, transparent);
   --accent: var(--neutral-100);
   --pill-fill: var(--white);
   --pill-fill-hover: var(--neutral-100);
   --accent-foreground: var(--neutral-900);
-  --destructive: var(--red-600);
+  --destructive: var(--red-700);
+  --destructive-foreground: var(--red-800);
   --border: var(--neutral-200);
   --border-strong: var(--neutral-200);
   --edge: color-mix(in srgb, var(--foreground) 10%, transparent);
@@ -375,7 +384,7 @@
   --input-fill: transparent;
   --ring: var(--neutral-500);
   --sidebar: var(--neutral-50);
-  --sidebar-foreground: var(--neutral-500);
+  --sidebar-foreground: color-mix(in srgb, var(--neutral-600) 90%, transparent);
   --sidebar-primary: var(--neutral-900);
   --sidebar-primary-foreground: var(--neutral-50);
   --sidebar-accent: var(--neutral-100);
@@ -400,7 +409,7 @@
   --health-not-started: var(--neutral-500);
   --health-completed: var(--green-700);
   --date-today: var(--amber-700);
-  --date-overdue: var(--red-600);
+  --date-overdue: var(--red-700);
   --syntax-keyword: var(--violet-700);
   --syntax-string: var(--emerald-700);
   --syntax-number: var(--orange-700);

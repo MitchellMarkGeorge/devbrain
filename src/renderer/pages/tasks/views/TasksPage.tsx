@@ -1,5 +1,5 @@
 import { Breadcrumb } from '../../../components';
-import { PageHeaderSlot } from '../../app/page-header';
+import { PageHeaderSlot, PageTitle } from '../../app/page-header';
 import { VIEW_ICONS, VIEW_LABELS } from './TasksToolbar';
 import { TasksSearchProvider, useTasksRouteSearch } from '../use-tasks-search';
 import { TasksView } from './TasksView';
@@ -19,6 +19,7 @@ export function TasksPage() {
           <Breadcrumb items={['Tasks', { label: VIEW_LABELS[view], icon: VIEW_ICONS[view] }]} />
         }
       />
+      <PageTitle>Tasks</PageTitle>
       <TasksView />
     </TasksSearchProvider>
   );

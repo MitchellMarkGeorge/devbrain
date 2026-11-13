@@ -229,7 +229,7 @@ function PullRequestPill({
     return (
       <Popover open onOpenChange={(open) => !open && onEditingChange(false)}>
         <PopoverTrigger render={pill} />
-        <PopoverContent align="start">
+        <PopoverContent align="start" aria-label="Pull request">
           <Input
             autoFocus
             aria-label="Pull request URL"

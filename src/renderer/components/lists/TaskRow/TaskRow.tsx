@@ -408,76 +408,90 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
       onClick={handleClick}
       {...props}
     >
-      {!compact && (
-        <Checkbox
-          className={styles.check}
-          checked={selected}
-          onCheckedChange={() => onSelect?.()}
-          tabIndex={-1}
-          aria-label={`Select ${task.title}`}
-        />
-      )}
-      <StatusMenu
-        status={status}
-        open={menuOpen}
-        onOpenChange={setMenuOpen}
-        onStatusChange={(next) => {
-          setPicked({ from: task.status, to: next });
-          onStatusChange?.(next);
-        }}
-        trigger={
-          <button
-            type="button"
-            className={styles.status}
+      {/* the row's one cell, which a grid's row needs; `display: contents`, so it lays out nothing */}
+      <div role="gridcell" className={styles.cell}>
+        {!compact && (
+          <Checkbox
+            className={styles.check}
+            checked={selected}
+            onCheckedChange={() => onSelect?.()}
             tabIndex={-1}
-            aria-label={`Status: ${flag ? OVERDUE_LABEL : TASK_STATUS_LABELS[status]}`}
-          >
-            <StatusIcon status={status} overdue={flag} />
-          </button>
-        }
-      />
-      <div className={styles.title} data-title="">
-        <span className={styles.name} data-name="">
-          {task.title}
-        </span>
-        <PillStack stacked={level === 2}>
-          {key && task.external && (
-            <SourcePill provider={providerOf(task.external)}>{key}</SourcePill>
-          )}
-          {task.parentTask && <EntityPill entity={{ type: 'parent', ...task.parentTask }} />}
-          {subtasks && (
-            <Badge
-              muted
-              icon={<ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />}
+            aria-label={`Select ${task.title}`}
+          />
+        )}
+        <StatusMenu
+          status={status}
+          finalFocus={rowRef}
+          open={menuOpen}
+          onOpenChange={setMenuOpen}
+          onStatusChange={(next) => {
+            setPicked({ from: task.status, to: next });
+            onStatusChange?.(next);
+          }}
+          trigger={
+            <button
+              type="button"
+              className={styles.status}
+              tabIndex={-1}
+              aria-label={`Status: ${flag ? OVERDUE_LABEL : TASK_STATUS_LABELS[status]}`}
             >
-              {subtasks.completed}/{subtasks.total}
-            </Badge>
-          )}
-        </PillStack>
-      </div>
-      <div className={styles.side} data-side="">
-        <PillStack stacked={level >= 1}>
-          {task.link && <EntityPill entity={task.link} />}
-          {task.project && <EntityPill entity={{ type: 'project', ...task.project }} />}
-        </PillStack>
-        <span className={styles.priority}>
-          {!completed && <PriorityIcon priority={task.priority} />}
-        </span>
-        <span
-          className={cn(
-            styles.date,
-            tone === 'today' && styles.today,
-            tone === 'overdue' && styles.overdue,
-          )}
-        >
-          {task.dueDate
-            ? formatDue(task.dueDate)
-            : onDueDateChange &&
-              !isClosed(status) &&
-              task.external?.state !== LinkState.SYNCED && (
-                <SetDueDateButton className={styles.setDue} onDueDateChange={onDueDateChange} />
-              )}
-        </span>
+              <StatusIcon status={status} overdue={flag} />
+            </button>
+          }
+        />
+        <div className={styles.title} data-title="">
+          <span className={styles.name} data-name="">
+            {task.title}
+          </span>
+          <PillStack stacked={level === 2}>
+            {key && task.external && (
+              <SourcePill provider={providerOf(task.external)} tabIndex={-1}>
+                {key}
+              </SourcePill>
+            )}
+            {task.parentTask && (
+              <EntityPill entity={{ type: 'parent', ...task.parentTask }} tabIndex={-1} />
+            )}
+            {subtasks && (
+              <Badge
+                muted
+                icon={<ProgressRing value={subtasks.completed} total={subtasks.total} size={12} />}
+              >
+                {subtasks.completed}/{subtasks.total}
+              </Badge>
+            )}
+          </PillStack>
+        </div>
+        <div className={styles.side} data-side="">
+          <PillStack stacked={level >= 1}>
+            {task.link && <EntityPill entity={task.link} tabIndex={-1} />}
+            {task.project && (
+              <EntityPill entity={{ type: 'project', ...task.project }} tabIndex={-1} />
+            )}
+          </PillStack>
+          <span className={styles.priority}>
+            {!completed && <PriorityIcon priority={task.priority} />}
+          </span>
+          <span
+            className={cn(
+              styles.date,
+              tone === 'today' && styles.today,
+              tone === 'overdue' && styles.overdue,
+            )}
+          >
+            {task.dueDate
+              ? formatDue(task.dueDate)
+              : onDueDateChange &&
+                !isClosed(status) &&
+                task.external?.state !== LinkState.SYNCED && (
+                  <SetDueDateButton
+                    className={styles.setDue}
+                    onDueDateChange={onDueDateChange}
+                    tabIndex={-1}
+                  />
+                )}
+          </span>
+        </div>
       </div>
     </div>
   );

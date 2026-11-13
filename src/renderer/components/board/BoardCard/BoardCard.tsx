@@ -59,7 +59,7 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
   const { external, subtaskProgress: subtasks } = task;
   const pills = [
     external?.key && (
-      <SourcePill key="source" provider={providerOf(external)}>
+      <SourcePill key="source" provider={providerOf(external)} tabIndex={-1}>
         {external.key}
       </SourcePill>
     ),
@@ -72,8 +72,10 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
         {subtasks.completed}/{subtasks.total}
       </Badge>
     ),
-    task.link && <EntityPill key="link" entity={task.link} />,
-    task.project && <EntityPill key="project" entity={{ type: 'project', ...task.project }} />,
+    task.link && <EntityPill key="link" entity={task.link} tabIndex={-1} />,
+    task.project && (
+      <EntityPill key="project" entity={{ type: 'project', ...task.project }} tabIndex={-1} />
+    ),
   ].filter(Boolean);
   // an undated open task the page can date: "Set due date" at the end of the meta line
   const settable =
@@ -94,7 +96,11 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
           ) : (
             settable &&
             onDueDateChange && (
-              <SetDueDateButton className={styles.setDue} onDueDateChange={onDueDateChange} />
+              <SetDueDateButton
+                className={styles.setDue}
+                onDueDateChange={onDueDateChange}
+                tabIndex={-1}
+              />
             )
           )}
         </div>

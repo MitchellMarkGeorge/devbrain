@@ -70,9 +70,9 @@ export const SettingsSection = forwardRef<HTMLElement, SettingsSectionProps>(
         {...props}
       >
         <div className={styles.sectionHeader}>
-          <h3 id={headingId} className={styles.sectionTitle}>
+          <h2 id={headingId} className={styles.sectionTitle}>
             {title}
-          </h3>
+          </h2>
           {description != null && <p className={styles.sectionDescription}>{description}</p>}
         </div>
         {children}

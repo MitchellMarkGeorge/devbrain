@@ -80,14 +80,17 @@ export const HomeRow = forwardRef<HTMLDivElement, HomeRowProps>(function HomeRow
       }}
       {...props}
     >
-      <span className={styles.icon}>{icon}</span>
-      <span className={styles.title}>{title}</span>
-      {children}
-      {meta != null && (
-        <span className={styles.meta} data-tone={metaTone}>
-          {meta}
-        </span>
-      )}
+      {/* the row's one cell, which a grid's row needs; `display: contents`, so it lays out nothing */}
+      <div role="gridcell" className={styles.cell}>
+        <span className={styles.icon}>{icon}</span>
+        <span className={styles.title}>{title}</span>
+        {children}
+        {meta != null && (
+          <span className={styles.meta} data-tone={metaTone}>
+            {meta}
+          </span>
+        )}
+      </div>
     </div>
   );
 });

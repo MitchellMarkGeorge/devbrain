@@ -9,7 +9,7 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useMatches, useNavigate, useRouter, type LinkOptions } from '@tanstack/react-router';
-import type { BreadcrumbItem } from '../../components';
+import { VisuallyHidden, type BreadcrumbItem } from '../../components';
 
 // The page's part of the workspace layout's header (docs/renderer/implementation-plan.md, "App
 // layout"): by default the header shows the route's `staticData.title`; a page that renders a
@@ -55,6 +55,15 @@ export function PageHeaderSlot({ place, actions }: PageHeaderSlotProps) {
       {actions !== undefined && slots.actions && createPortal(actions, slots.actions)}
     </>
   );
+}
+
+/**
+ * A list page's `h1`, for screen readers: the page's name ("Tasks"), which its breadcrumb shows
+ * and a list page draws no title of its own for. Detail pages, Home, Settings and Integrations
+ * draw theirs.
+ */
+export function PageTitle({ children }: { children: ReactNode }) {
+  return <VisuallyHidden render={<h1 />}>{children}</VisuallyHidden>;
 }
 
 /** The title of the nearest route that has one (`staticData.title`): "Tasks". */

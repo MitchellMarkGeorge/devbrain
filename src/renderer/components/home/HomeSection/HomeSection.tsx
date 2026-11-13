@@ -1,4 +1,11 @@
-import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from 'react';
+import {
+  createContext,
+  forwardRef,
+  useContext,
+  useId,
+  type ComponentPropsWithoutRef,
+  type ReactNode,
+} from 'react';
 import { ArrowRight } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { Icon } from '../../ui/Icon';
@@ -14,7 +21,7 @@ export interface HomeSectionProps extends Omit<ComponentPropsWithoutRef<'section
   onLinkClick?: () => void;
   /** the line under the rows for what didn't fit: "3 more tasks today" */
   more?: ReactNode;
-  /** the rows (at most three), or a row of three small `NoteCard`s */
+  /** the rows (at most three) in a `HomeRows`, or a row of three small `NoteCard`s */
   children: ReactNode;
 }
 
@@ -26,6 +33,7 @@ export const HomeSection = forwardRef<HTMLElement, HomeSectionProps>(function Ho
   { title, link, href, onLinkClick, more, className, children, ...props },
   ref,
 ) {
+  const titleId = useId();
   const linkContent = (
     <>
       {link}
@@ -35,7 +43,9 @@ export const HomeSection = forwardRef<HTMLElement, HomeSectionProps>(function Ho
   return (
     <section ref={ref} className={cn(styles.section, className)} {...props}>
       <header className={styles.header}>
-        <h2 className={styles.title}>{title}</h2>
+        <h2 id={titleId} className={styles.title}>
+          {title}
+        </h2>
         {link != null &&
           (href ? (
             <a className={styles.link} href={href} onClick={onLinkClick}>
@@ -47,9 +57,34 @@ export const HomeSection = forwardRef<HTMLElement, HomeSectionProps>(function Ho
             </button>
           ))}
       </header>
-      {children}
+      <SectionTitleContext.Provider value={titleId}>{children}</SectionTitleContext.Provider>
       {more != null && <p className={styles.more}>{more}</p>}
     </section>
+  );
+});
+
+// the section's heading, which names its rows
+const SectionTitleContext = createContext<string | undefined>(undefined);
+
+export type HomeRowsProps = ComponentPropsWithoutRef<'div'>;
+
+/**
+ * The rows of a `HomeSection` (`HomeRow`s, compact `TaskRow`s): a grid named by the section's
+ * heading, as a row needs one around it. Lays out as the section did, one row under another.
+ */
+export const HomeRows = forwardRef<HTMLDivElement, HomeRowsProps>(function HomeRows(
+  { className, ...props },
+  ref,
+) {
+  const titleId = useContext(SectionTitleContext);
+  return (
+    <div
+      ref={ref}
+      role="grid"
+      aria-labelledby={titleId}
+      className={cn(styles.rows, className)}
+      {...props}
+    />
   );
 });
 

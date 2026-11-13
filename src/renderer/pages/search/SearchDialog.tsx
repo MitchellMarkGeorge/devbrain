@@ -33,6 +33,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandStatus,
   CommandToolbar,
   EmptyState,
   Icon,
@@ -277,6 +278,11 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
               ]}
             />
           </CommandToolbar>
+          <CommandStatus>
+            {typed && shown?.filter === filter && results.length > 0
+              ? `${results.length} ${results.length === 1 ? 'result' : 'results'}`
+              : null}
+          </CommandStatus>
           {noneAtRest && (
             <CommandEmpty>
               {filter === 'event'
@@ -474,7 +480,11 @@ function entityIcon(
 // a synced item's key ("ENG-124") as its source pill; none for a local one or one with no key
 function sourcePill(external: ExternalRef | null | undefined): ReactNode {
   if (!external?.key) return undefined;
-  return <SourcePill provider={providerOf(external)}>{external.key}</SourcePill>;
+  return (
+    <SourcePill provider={providerOf(external)} interactive={false}>
+      {external.key}
+    </SourcePill>
+  );
 }
 
 function useDebouncedValue<T>(value: T, ms: number): T {

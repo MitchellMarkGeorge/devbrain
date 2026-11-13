@@ -17,7 +17,7 @@ import {
   type ProjectListHandle,
 } from '../../../components';
 import { KeyScope, useListCommands } from '../../../keyboard';
-import { PageHeaderSlot } from '../../app/page-header';
+import { PageHeaderSlot, PageTitle } from '../../app/page-header';
 import { useOpenEntity } from '../../app/use-open-entity';
 import { isSynced } from '../../tasks/queries';
 import { projectListQuery } from '../queries';
@@ -95,6 +95,7 @@ export function ProjectsPage() {
         getKey={(project) => project.id}
         estimateRowHeight={CARD_ROW_HEIGHT}
         onEndReached={onEndReached}
+        itemCount={query.hasNextPage ? -1 : undefined}
         aria-label="Projects"
         renderItem={(project) => (
           <ProjectCard
@@ -137,6 +138,7 @@ export function ProjectsPage() {
             onSelectedChange={setSelected}
             onOpen={(project) => openEntity({ id: project.id })}
             onEndReached={onEndReached}
+            rowCount={query.hasNextPage ? -1 : undefined}
           />
         </KeyScope>
         <ProjectsSelectionBar
@@ -167,6 +169,7 @@ export function ProjectsPage() {
           />
         }
       />
+      <PageTitle>Projects</PageTitle>
       <PageToolbar
         start={<ProjectsFilterMenu resolved={resolved} setSearch={setSearch} />}
         end={<ProjectsToolbarEnd resolved={resolved} setSearch={setSearch} />}

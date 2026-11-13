@@ -61,7 +61,7 @@ export const GroupHeading = forwardRef<HTMLDivElement, GroupHeadingProps>(functi
     <div
       ref={ref}
       role="heading"
-      aria-level={3}
+      aria-level={2}
       data-collapsed={collapsed ? '' : undefined}
       data-tinted={color ? '' : undefined}
       className={cn(styles.heading, className)}

@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
   type ComponentPropsWithoutRef,
@@ -17,6 +18,7 @@ import { paddingBefore, useVirtualList } from '../../lib/virtual';
 import { SIZE } from '../../../styles/tokens';
 import { ScrollArea } from '../../ui/ScrollArea';
 import { NoteRow, type NoteRowData } from '../NoteRow';
+import { useFocusedRowId, useRefocusOnRemoval } from '../row-focus';
 import styles from './NoteList.module.css';
 
 /** A row of the list: core's `NoteListItem` as it is, or the fields a `NoteRow` reads and its id. */
@@ -27,7 +29,10 @@ export interface NoteListProps<Note extends NoteListRow = NoteListRow> extends O
   'children'
 > {
   notes: Note[];
-  /** how many notes there are in all, loaded or not (`aria-rowcount`); the loaded ones by default */
+  /**
+   * how many notes there are in all, loaded or not (`aria-rowcount`); the loaded ones by default;
+   * -1 while more may load and the total is not known (ARIA's "unknown")
+   */
   rowCount?: number;
   /** called when the last rendered row comes within `endReachedThreshold` rows of the end */
   onEndReached?: () => void;
@@ -111,8 +116,9 @@ function NoteListInner<Note extends NoteListRow>(
     (id: string | undefined) => (id == null ? -1 : notes.findIndex((note) => note.id === id)),
     [notes],
   );
-  const wanted = focusedIdProp ?? focusedState;
-  const focusedId = indexOfId(wanted) >= 0 ? wanted : notes[0]?.id;
+  const ids = useMemo(() => notes.map((item) => item.id), [notes]);
+  // when the focused row's item leaves the list, the row now in its place has focus
+  const focusedId = useFocusedRowId(ids, focusedIdProp ?? focusedState);
 
   const virtualizer = useVirtualList({
     scrollerRef: listRef,
@@ -149,6 +155,13 @@ function NoteListInner<Note extends NoteListRow>(
     if (row) row.focus({ preventScroll: true });
     else pendingFocus.current = id;
   }
+  const rowDetached = useRefocusOnRemoval({
+    listRef,
+    rows,
+    has: (id) => indexOfId(id) >= 0,
+    focusedId,
+    focus: focusNote,
+  });
 
   useImperativeHandle(ref, () => {
     const focusAt = (index: number) => {
@@ -207,7 +220,10 @@ function NoteListInner<Note extends NoteListRow>(
               ref={(el) => {
                 virtualizer.measureElement(el);
                 if (el) rows.current.set(id, el);
-                else rows.current.delete(id);
+                else {
+                  rowDetached(id);
+                  rows.current.delete(id);
+                }
               }}
               data-index={item.index}
               data-note-id={id}

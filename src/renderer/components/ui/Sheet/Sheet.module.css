@@ -60,6 +60,11 @@
   transform: translateX(var(--drawer-swipe-movement-x, 0));
   transition: transform var(--duration-slow) var(--ease-surface);
 }
+/* opened from the keyboard, the sheet itself takes focus: a ring inside its edge says where it went */
+.popup:focus-visible {
+  outline: 1px solid var(--ring);
+  outline-offset: -1px;
+}
 .popup[data-starting-style],
 .popup[data-ending-style] {
   transform: translateX(calc(100% + 8px));

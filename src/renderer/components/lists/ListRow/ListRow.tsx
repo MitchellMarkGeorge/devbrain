@@ -112,32 +112,35 @@ export const ListRow = forwardRef<HTMLDivElement, ListRowProps>(function ListRow
       }}
       {...props}
     >
-      {onSelect && (
-        <Checkbox
-          className={styles.check}
-          checked={!!selected}
-          onCheckedChange={() => onSelect()}
-          tabIndex={-1}
-          aria-label={typeof title === 'string' ? `Select ${title}` : 'Select'}
-        />
-      )}
-      {icon != null && <span className={styles.icon}>{icon}</span>}
-      <div className={styles.main}>
-        <span className={styles.title}>{title}</span>
-        {titlePills}
-        {excerpt != null && <span className={styles.excerpt}>{excerpt}</span>}
-      </div>
-      {(children != null || meta != null || actions != null) && (
-        <div className={styles.side}>
-          {children}
-          {meta != null && (
-            <span className={styles.meta} style={{ minWidth: metaWidth }}>
-              {meta}
-            </span>
-          )}
-          {actions != null && <span className={styles.actions}>{actions}</span>}
+      {/* the row's one cell, which a grid's row needs; `display: contents`, so it lays out nothing */}
+      <div role="gridcell" className={styles.cell}>
+        {onSelect && (
+          <Checkbox
+            className={styles.check}
+            checked={!!selected}
+            onCheckedChange={() => onSelect()}
+            tabIndex={-1}
+            aria-label={typeof title === 'string' ? `Select ${title}` : 'Select'}
+          />
+        )}
+        {icon != null && <span className={styles.icon}>{icon}</span>}
+        <div className={styles.main}>
+          <span className={styles.title}>{title}</span>
+          {titlePills}
+          {excerpt != null && <span className={styles.excerpt}>{excerpt}</span>}
         </div>
-      )}
+        {(children != null || meta != null || actions != null) && (
+          <div className={styles.side}>
+            {children}
+            {meta != null && (
+              <span className={styles.meta} style={{ minWidth: metaWidth }}>
+                {meta}
+              </span>
+            )}
+            {actions != null && <span className={styles.actions}>{actions}</span>}
+          </div>
+        )}
+      </div>
     </div>
   );
 });

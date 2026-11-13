@@ -15,7 +15,7 @@
   width: 60px;
 }
 
-/* the splash screen's pulse; still under reduced motion */
+/* the splash screen's pulse; held still under reduced motion (below) */
 .pulse {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
