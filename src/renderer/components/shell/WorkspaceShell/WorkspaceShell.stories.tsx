@@ -12,6 +12,7 @@ import { WindowFrameProvider, type Platform } from '../../lib/platform';
 import { DemoSidebar } from '../../screens/Shell/AppFrame';
 import { TaskList } from '../../lists/TaskList';
 import { manyTasks } from '../../lists/TaskRow/fixtures';
+import { StatusLine } from '../StatusLine';
 import { WorkspaceShell, type WorkspaceShellControls } from './WorkspaceShell';
 import { defaultKeymap, KeyboardProvider, useCommands } from '../../../keyboard';
 
@@ -72,6 +73,27 @@ function Frame({
 
 /** Wide (1280px and up): the docked sidebar with the window row, the page beside it. */
 export const Wide: Story = { render: () => <Frame width={1440} height={720} /> };
+
+/** Vim mode: the mode line across the bottom of the window, under the sidebar and the page. */
+export const VimStatusLine: Story = {
+  render: () => (
+    <Frame
+      width={1440}
+      height={720}
+      statusLine={
+        <StatusLine
+          mode="normal"
+          context="Tasks › List"
+          hints={[
+            { keys: '?', label: 'keys' },
+            { keys: ':', label: 'command' },
+            { keys: 'f', label: 'hints' },
+          ]}
+        />
+      }
+    />
+  ),
+};
 
 const LONG_LIST = manyTasks(1000);
 

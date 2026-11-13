@@ -5,6 +5,9 @@ import { TaskPriority } from './tasks';
 // 'system' follows the operating system's light or dark appearance
 export const themeSettingSchema = z.enum(['system', 'light', 'dark']);
 
+// the keymap the app's keys follow: the default one, or Vim's
+export const keyboardModeSchema = z.enum(['default', 'vim']);
+
 export const appSettingsSchema = z.object({
   theme: themeSettingSchema,
   devBrainPath: z.string(),
@@ -15,6 +18,9 @@ export const appSettingsSchema = z.object({
     confirmBeforeDeleting: z.boolean(),
     confirmBeforeArchiving: z.boolean(),
     timeFormat: z.enum(['12', '24']),
+    // 'vim' turns the app's keys modal (Normal, Insert, Visual, …); off by default, as single-key
+    // shortcuts must be able to be turned off (WCAG 2.1.4)
+    keyboardMode: keyboardModeSchema,
   }),
   tasks: z.object({
     defaultSort: z.enum(['priority', 'dueDate', 'status']),
@@ -60,6 +66,7 @@ export const settingsFileSchema = z.object({
 });
 
 export type ThemeSetting = z.infer<typeof themeSettingSchema>;
+export type KeyboardMode = z.infer<typeof keyboardModeSchema>;
 export type AppSettings = z.infer<typeof appSettingsSchema>;
 export type AppState = z.infer<typeof appStateSchema>;
 export type SettingsFile = z.infer<typeof settingsFileSchema>;

@@ -37,6 +37,7 @@ import {
 } from '../../types';
 import type { TaskRowData } from './types';
 import styles from './TaskRow.module.css';
+import { useHintTarget } from '../../../keyboard/hints';
 
 export const taskRowVariants = cva(styles.row, {
   variants: {
@@ -353,6 +354,8 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
     },
     [ref],
   );
+  // Vim's `f` labels the row, and its label opens the task
+  useHintTarget(rowRef, onOpen);
   const { now, formatDue } = useFormat();
   const key = task.external?.key;
   const subtasks = task.subtaskProgress;

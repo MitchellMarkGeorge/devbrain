@@ -1,4 +1,11 @@
 /* Trash: the rows fill the page under the toolbar and scroll themselves (Figma 7159:11875) */
+/* the list's key scope: a column the list fills, as the list itself was */
+.scope {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
 .list {
   position: relative;
   flex: 1 1 auto;

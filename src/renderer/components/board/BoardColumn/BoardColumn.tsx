@@ -2,10 +2,12 @@ import {
   forwardRef,
   Fragment,
   useEffect,
+  useImperativeHandle,
   useRef,
   type ComponentPropsWithoutRef,
   type KeyboardEvent,
   type ReactNode,
+  type Ref,
   type RefCallback,
 } from 'react';
 import { Plus } from 'lucide-react';
@@ -33,6 +35,21 @@ export const Board = forwardRef<HTMLDivElement, BoardProps>(function Board(
 
 /** A task on the board: what a card draws, and the id it is kept by. */
 export type BoardColumnTask = BoardCardData & { id: string };
+
+/**
+ * What a column can do, for the app's keyboard commands (`handleRef`): Vim's `j`/`k` and `h`/`l`
+ * move between cards and columns through these, scrolling a card into view before it takes focus.
+ */
+export interface BoardColumnHandle {
+  /** the card with focus, or the one that had it last; -1 before any has */
+  focusedIndex(): number;
+  /** focuses the card at `index` (clamped to the loaded cards), scrolling it into view first */
+  focusCard(index: number): void;
+  /** how many cards are loaded */
+  size(): number;
+  /** whether `node` is in this column */
+  contains(node: Node | null): boolean;
+}
 
 /** What the column gives a card: the `BoardCard`'s props, with the ref it measures the card by. */
 export type BoardColumnCardProps = BoardCardProps & { ref: RefCallback<HTMLDivElement> };
@@ -71,6 +88,8 @@ export interface BoardColumnProps extends Omit<ComponentPropsWithoutRef<'section
   onEndReached?: () => void;
   /** default 20 */
   endReachedThreshold?: number;
+  /** what the column can do for the app's keymap (`BoardColumnHandle`) */
+  handleRef?: Ref<BoardColumnHandle>;
 }
 
 // a card's height before it is measured: the title, one line of pills and the meta line
@@ -101,11 +120,13 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
     renderCard = (card) => <BoardCard {...card} />,
     onEndReached,
     endReachedThreshold,
+    handleRef,
     className,
     ...props
   },
   ref,
 ) {
+  const section = useRef<HTMLElement | null>(null);
   const name = nameProp ?? TASK_STATUS_LABELS[status];
   // the cards area scrolls under the column's header; the board does not scroll
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -134,6 +155,25 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
     }
   });
 
+  // the card focused last, by task id, so moving back into the column lands where it was
+  const lastFocused = useRef<string | null>(null);
+  function focusCard(to: number) {
+    if (tasks.length === 0) return;
+    const index = Math.min(tasks.length - 1, Math.max(0, to));
+    const id = tasks[index].id;
+    lastFocused.current = id;
+    virtualizer.scrollToIndex(index, { align: 'auto' });
+    const card = cardOf(id);
+    if (card) card.focus({ preventScroll: true });
+    else pendingFocus.current = id;
+  }
+  useImperativeHandle(handleRef, () => ({
+    focusedIndex: () => tasks.findIndex((task) => task.id === lastFocused.current),
+    focusCard,
+    size: () => tasks.length,
+    contains: (node) => (node ? (section.current?.contains(node) ?? false) : false),
+  }));
+
   // Enter opens the focused card; ↑/↓ move to the next card, scrolling it into view first. A key
   // the card has handled already (`preventDefault`) is left alone
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -151,16 +191,20 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
     const step = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
     if (step === 0) return;
     event.preventDefault();
-    const to = Math.min(tasks.length - 1, Math.max(0, current + step));
-    const id = tasks[to].id;
-    virtualizer.scrollToIndex(to, { align: 'auto' });
-    const next = cardOf(id);
-    if (next) next.focus({ preventScroll: true });
-    else pendingFocus.current = id;
+    focusCard(current + step);
   }
 
   return (
-    <section ref={ref} aria-label={name} className={cn(styles.column, className)} {...props}>
+    <section
+      ref={(el) => {
+        section.current = el;
+        if (typeof ref === 'function') ref(el);
+        else if (ref) ref.current = el;
+      }}
+      aria-label={name}
+      className={cn(styles.column, className)}
+      {...props}
+    >
       <div className={styles.header}>
         <StatusIcon status={status} />
         {name}
@@ -195,6 +239,10 @@ export const BoardColumn = forwardRef<HTMLElement, BoardColumnProps>(function Bo
             gap: CARD_GAP,
           }}
           onKeyDown={handleKeyDown}
+          onFocus={(event) => {
+            const id = (event.target as HTMLElement).dataset.taskId;
+            if (id) lastFocused.current = id;
+          }}
         >
           {items.map((item) => {
             const task = tasks[item.index];
