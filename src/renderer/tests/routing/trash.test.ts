@@ -1,9 +1,16 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
-import type { WorkspaceId } from '@common/ids';
-import type { ArchivedEntity, EmptyTrashResult } from '@common/types';
+import type { NoteId, ProjectId, TaskId, WorkspaceId } from '@common/ids';
+import {
+  LinkState,
+  Provider,
+  ProjectStatus,
+  TaskStatus,
+  type ArchivedEntity,
+  type EmptyTrashResult,
+} from '@common/types';
 import { FakeMain, workspace } from './fake-main';
-import { fakeTask, FakeTasks } from './fake-tasks';
+import { fakeNote, fakeProject, fakeTask, FakeTasks } from './fake-tasks';
 import { byText, click, eventually, startApp, stopApps } from './harness';
 
 // The trash page: its rows by tab (in the URL), Restore with its Open toast, Delete asking first
@@ -14,12 +21,30 @@ const TRASHED = new Date(2026, 10, 9, 9);
 
 afterEach(() => stopApps());
 
-const archived = (id: string, title: string): ArchivedEntity => ({
-  id: id as ArchivedEntity['id'],
-  title,
-  archivedAt: TRASHED,
-  entityType: id.startsWith('tsk') ? 'tasks' : id.startsWith('prj') ? 'projects' : 'notes',
-});
+// a row as archive.listArchived returns it, of the kind its id names
+function archived(id: string, title: string, extra: Partial<ArchivedEntity> = {}): ArchivedEntity {
+  const base = { title, archivedAt: TRASHED };
+  const row: ArchivedEntity = id.startsWith('tsk')
+    ? {
+        ...base,
+        id: id as TaskId,
+        entityType: 'tasks',
+        status: TaskStatus.NOT_STARTED,
+        project: null,
+        external: null,
+      }
+    : id.startsWith('prj')
+      ? {
+          ...base,
+          id: id as ProjectId,
+          entityType: 'projects',
+          status: ProjectStatus.ACTIVE,
+          color: null,
+          external: null,
+        }
+      : { ...base, id: id as NoteId, entityType: 'notes', preview: null, project: null };
+  return { ...row, ...extra } as ArchivedEntity;
+}
 
 function trashPage(search = '', items = SAMPLE, confirm = true) {
   const main = new FakeMain([workspace(WORK, 'Work')], WORK);
@@ -171,6 +196,80 @@ describe('the trash page', () => {
     expect(app.container.querySelector('[data-trashed]')?.hasAttribute('inert')).toBe(true);
     click(byText(app.container, 'button', 'Restore'));
     await eventually(() => expect(main.callsTo('archive.restoreTask')).toHaveLength(1));
+  });
+
+  it('draws each row’s own fields and pills from the list', async () => {
+    const project = { id: 'prj_api' as ProjectId, title: 'API Gateway v2', color: '#f59e0b' };
+    trashPage('', [
+      archived('prj_ai', 'AI Action Items', { status: ProjectStatus.ON_HOLD, color: '#22c55e' }),
+      archived('tsk_gateway', 'Set up API Gateway', {
+        status: TaskStatus.COMPLETED,
+        project,
+        external: {
+          provider: Provider.LINEAR,
+          state: LinkState.DETACHED,
+          key: 'ENG-102',
+          url: 'https://linear.app/x/issue/ENG-102',
+          statusLabel: null,
+          priorityLabel: null,
+          lastSyncedAt: TRASHED,
+        },
+      }),
+      archived('nte_retro', 'Sprint 14 retro', {
+        preview: 'What went well, and what to change.',
+        project,
+      }),
+    ]);
+    await eventually(() => expect(row('Sprint 14 retro')).toBeDefined());
+    const task = row('Set up API Gateway')!;
+    expect(task.textContent).toContain('ENG-102');
+    expect(task.textContent).toContain('API Gateway v2');
+    expect(task.querySelector('[aria-label="Completed"]')).not.toBeNull();
+    const projectRow = row('AI Action Items')!;
+    expect(projectRow.textContent).toContain('On hold');
+    expect(projectRow.innerHTML).toContain('#22c55e');
+    const note = row('Sprint 14 retro')!;
+    expect(note.textContent).toContain('What went well, and what to change.');
+    expect(note.textContent).toContain('API Gateway v2');
+  });
+
+  it('opens a trashed project read-only, with Restore', async () => {
+    const { app, main } = trashPage();
+    main.taskStores.set(
+      WORK,
+      new FakeTasks([], [fakeProject('prj_ai', 'AI Action Items', { archivedAt: TRASHED })]),
+    );
+    await eventually(() => expect(row('AI Action Items')).toBeDefined());
+    click(row('AI Action Items')!);
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/projects/prj_ai`));
+    await eventually(() => expect(app.text()).toContain('This project is in the trash'));
+    expect(app.container.querySelector('[data-trashed]')?.hasAttribute('inert')).toBe(true);
+    expect(app.text()).toContain('AI Action Items');
+    click(byText(app.container, 'button', 'Restore'));
+    await eventually(() => expect(main.callsTo('archive.restoreProject')).toHaveLength(1));
+    expect(main.callsTo('archive.restoreProject')[0].input).toEqual({ id: 'prj_ai' });
+  });
+
+  it('opens a trashed note read-only, with its body and Restore', async () => {
+    const { app, main } = trashPage();
+    const store = new FakeTasks(
+      [],
+      [],
+      [fakeNote('nte_retro', 'Sprint 14 retro', { archivedAt: TRASHED })],
+    );
+    store.contents.set('nte_retro' as NoteId, 'Ship smaller pull requests.');
+    main.taskStores.set(WORK, store);
+    await eventually(() => expect(row('Sprint 14 retro')).toBeDefined());
+    click(row('Sprint 14 retro')!);
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes/nte_retro`));
+    await eventually(() => expect(app.text()).toContain('This note is in the trash'));
+    await eventually(() => expect(app.text()).toContain('Ship smaller pull requests.'));
+    expect(app.container.querySelector('[data-trashed]')?.hasAttribute('inert')).toBe(true);
+    const editor = app.container.querySelector('[role="textbox"][aria-label="Note"]');
+    expect(editor?.getAttribute('contenteditable')).toBe('false');
+    click(byText(app.container, 'button', 'Restore'));
+    await eventually(() => expect(main.callsTo('archive.restoreNote')).toHaveLength(1));
+    expect(main.callsTo('notes.updateContent')).toHaveLength(0);
   });
 
   it('offers Empty Trash on a tab of one kind from the first frame it draws', async () => {

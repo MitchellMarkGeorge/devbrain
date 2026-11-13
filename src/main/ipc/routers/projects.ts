@@ -47,9 +47,14 @@ export const projectsRouter = t.router({
         ctx.workspace.projects.listProjects(filter, sort, page),
     ),
 
+  // a project, in the trash too (its `archivedAt` set): Trash opens it, and its page shows it
+  // read-only until it is restored
   get: wsProcedure
     .input(byId)
-    .query(({ ctx, input }): Project => ctx.workspace.projects.getById(input.id)),
+    .query(
+      ({ ctx, input }): Project =>
+        ctx.workspace.projects.getById(input.id, { includeArchived: true }),
+    ),
 
   create: wsProcedure
     .input(

@@ -21,11 +21,13 @@ import {
   TabsTab,
   useFormat,
 } from '@renderer/components';
-import { trpc } from '@renderer/ipc';
+import { ipc, trpc } from '@renderer/ipc';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
+import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { PageHeaderSlot, useCrumbLink } from '@renderer/layouts/workspace/page-header';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useRecordView } from '@renderer/shared/hooks/use-record-view';
+import { TrashedNotice } from '@renderer/shared/components/TrashedNotice';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { isSynced } from '@renderer/features/tasks/api/queries';
 import { projectRoute } from '../api/route-api';
@@ -57,8 +59,9 @@ const TAB_LABELS: Record<ProjectTab, string> = {
  * `7159:13886`): the star and the "…" menu in the header, then the tabs in `?tab`, underlined:
  * Overview (the project as a document, its tasks under it, and a rail of its progress and notes),
  * Tasks (the tasks views with the project fixed) and Notes (its notes as cards). A synced project's
- * fields are its provider's, so they are read-only here. The loader has the project before the
- * first frame; a project deleted while it is open shows not-found.
+ * fields are its provider's, so they are read-only here. One in the trash (opened from Trash) is
+ * shown read-only under a "This project is in the trash" bar until it is restored. The loader has
+ * the project before the first frame; a project deleted while it is open shows not-found.
  */
 export function ProjectPage() {
   const { projectId } = projectRoute.useParams();
@@ -82,6 +85,9 @@ function ProjectPageContent({ project }: { project: Project }) {
   const actions = useProjectActions();
   const tab = search.tab ?? 'overview';
   const color = resolveColor(project.color, 'blue');
+  const showError = useMutationErrorToast();
+  // opened from Trash: shown as it is, read-only, until it's restored
+  const trashed = project.archivedAt !== null;
 
   // a tab is a section of the page: switching replaces the entry, and leaves the other tab's params
   const setTab = (next: ProjectTab) =>
@@ -113,13 +119,15 @@ function ProjectPageContent({ project }: { project: Project }) {
           />
         }
         actions={
-          <>
-            <PageFavoriteButton
-              favorite={project.favoritedAt !== null}
-              onFavoriteChange={(favorite) => actions.setFavorite(project, favorite)}
-            />
-            <ProjectMenu project={project} actions={actions} onTrash={() => void trash()} />
-          </>
+          !trashed && (
+            <>
+              <PageFavoriteButton
+                favorite={project.favoritedAt !== null}
+                onFavoriteChange={(favorite) => actions.setFavorite(project, favorite)}
+              />
+              <ProjectMenu project={project} actions={actions} onTrash={() => void trash()} />
+            </>
+          )
         }
       />
       <PageToolbar className={styles.tabsBar}>
@@ -139,11 +147,30 @@ function ProjectPageContent({ project }: { project: Project }) {
           </TabsList>
         </Tabs>
       </PageToolbar>
-      {tab === 'overview' && (
-        <ProjectOverview project={project} header={<ProjectPageHeader project={project} />} />
+      {trashed && (
+        <PageToolbar className={styles.trashedBar}>
+          <TrashedNotice
+            noun="project"
+            onRestore={() =>
+              void ipc.archive.restoreProject
+                .mutate({ id: project.id })
+                .catch((error: unknown) => showError(error, 'Couldn’t restore the project'))
+            }
+          />
+        </PageToolbar>
       )}
-      {tab === 'tasks' && <ProjectTasksTab project={project} />}
-      {tab === 'notes' && <ProjectNotesTab project={project} />}
+      {/* inert while trashed: the tabs still switch, and what they show can't be changed */}
+      <div
+        {...(trashed ? ({ inert: '' } as Record<string, string>) : {})}
+        data-trashed={trashed ? '' : undefined}
+        style={{ display: 'contents' }}
+      >
+        {tab === 'overview' && (
+          <ProjectOverview project={project} header={<ProjectPageHeader project={project} />} />
+        )}
+        {tab === 'tasks' && <ProjectTasksTab project={project} />}
+        {tab === 'notes' && <ProjectNotesTab project={project} />}
+      </div>
     </>
   );
 }

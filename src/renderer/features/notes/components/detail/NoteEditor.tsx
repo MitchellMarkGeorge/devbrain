@@ -12,28 +12,40 @@ import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
  * route's loader), saved through `notes.updateContent` 500ms after typing stops, and at once on
  * leaving the page, on the window losing focus and on a workspace switch. The save's own refetch
  * never replaces what was typed after it; a change from elsewhere (the file edited on disk) does.
- * Key it by the note's id, so a save still pending goes to the note it was typed for.
+ * Key it by the note's id, so a save still pending goes to the note it was typed for. Not
+ * `editable`, it only shows the note (one in the trash).
  */
 export function NoteEditor({
   noteId,
   onReady,
+  editable = true,
 }: {
   noteId: NoteId;
   onReady?: (editor: Editor) => void;
+  editable?: boolean;
 }) {
   const content = useQuery(trpc.notes.readContent.queryOptions({ id: noteId }));
   if (content.data === undefined) return null;
-  return <NoteEditorLoaded noteId={noteId} content={content.data} onReady={onReady} />;
+  return (
+    <NoteEditorLoaded
+      noteId={noteId}
+      content={content.data}
+      onReady={onReady}
+      editable={editable}
+    />
+  );
 }
 
 function NoteEditorLoaded({
   noteId,
   content,
   onReady,
+  editable,
 }: {
   noteId: NoteId;
   content: string;
   onReady?: (editor: Editor) => void;
+  editable: boolean;
 }) {
   const host = useEditorHost();
   const showError = useMutationErrorToast();
@@ -49,6 +61,7 @@ function NoteEditorLoaded({
       value={body.value}
       onChange={body.onChange}
       onReady={onReady}
+      editable={editable}
     />
   );
 }

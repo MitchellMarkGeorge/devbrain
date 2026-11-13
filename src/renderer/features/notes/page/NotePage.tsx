@@ -19,6 +19,7 @@ import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { PageHeaderSlot, useCrumbLink } from '@renderer/layouts/workspace/page-header';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useRecordView } from '@renderer/shared/hooks/use-record-view';
+import { TrashedNotice } from '@renderer/shared/components/TrashedNotice';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
 import { TaskSheet } from '@renderer/features/tasks/components/sheet/TaskSheet';
@@ -34,17 +35,17 @@ import styles from '../components/detail/NotePage.module.css';
  * A note's page (`/app/$workspaceId/notes/$noteId`, Figma `7158:16387`, `7158:16863`): the title
  * (renamed as it's left), "Edited …", the pills (project, link, tasks), the body in the rich text
  * editor (saved as you type), then the Tasks made from it (each opening in the task sheet beside
- * the page, `?open=tsk_…`); the star and the "…" menu in the header. The route's loader has the
- * note and its markdown before the first frame; a note deleted while it is open shows not-found.
+ * the page, `?open=tsk_…`); the star and the "…" menu in the header. A note in the trash (opened
+ * from Trash) is shown read-only under a "This note is in the trash" bar until it is restored. The
+ * route's loader has the note and its markdown before the first frame; a note deleted while it is
+ * open shows not-found.
  */
 export function NotePage() {
   const { noteId } = noteRoute.useParams();
   const note = useQuery(trpc.notes.get.queryOptions({ id: noteId }));
   useRecordView(noteId);
-  if (note.data === undefined || note.data.archivedAt !== null) {
-    const gone =
-      (note.isError && ipcErrorCode(note.error) === 'not_found') || note.data?.archivedAt;
-    return gone ? <NotFoundPage /> : null;
+  if (note.data === undefined) {
+    return note.isError && ipcErrorCode(note.error) === 'not_found' ? <NotFoundPage /> : null;
   }
   // a new note, a fresh page: the title and body start from it
   return <NotePageContent key={note.data.id} note={note.data} />;
@@ -65,6 +66,8 @@ function NotePageContent({ note }: { note: Note }) {
   const showError = useMutationErrorToast();
   const { formatRelative } = useFormat('minute');
   const title = useRef<HTMLHeadingElement>(null);
+  // opened from Trash: shown as it is, read-only, until it's restored
+  const trashed = note.archivedAt !== null;
 
   // a task made from the note, in the sheet beside the page (?open=tsk_…), with an entry of its
   // own, so Back closes it; it stays mounted once `open` leaves the URL, until it has slid out
@@ -126,53 +129,75 @@ function NotePageContent({ note }: { note: Note }) {
           />
         }
         actions={
-          <>
-            <PageFavoriteButton
-              favorite={note.favoritedAt !== null}
-              onFavoriteChange={(favorite) => actions.setFavorite([note], favorite)}
-            />
-            <NoteDetailMenu note={note} actions={actions} onTrash={() => void trash()} />
-          </>
+          !trashed && (
+            <>
+              <PageFavoriteButton
+                favorite={note.favoritedAt !== null}
+                onFavoriteChange={(favorite) => actions.setFavorite([note], favorite)}
+              />
+              <NoteDetailMenu note={note} actions={actions} onTrash={() => void trash()} />
+            </>
+          )
         }
       />
       <PageContent layout="document" data-testid="note-page">
-        <div className={styles.head}>
-          <EditorTitle
-            // keyed on the title, so a rename elsewhere shows here
-            key={note.title}
-            ref={title}
-            placeholder="Untitled"
-            contentEditable
-            suppressContentEditableWarning
-            spellCheck={false}
-            aria-label="Title"
-            onBlur={saveTitle}
-            onKeyDown={onTitleKey}
-          >
-            {note.title}
-          </EditorTitle>
-          <Text size="xs" tone="subtle" className={styles.edited}>
-            Edited {lowerFirst(formatRelative(note.updatedAt))}
-          </Text>
-          <div className={styles.pills}>
-            <NotePills note={note} actions={actions} onNewTask={newTask} onLinkTask={linkTask} />
+        {trashed && (
+          <div className={styles.trashed}>
+            <TrashedNotice
+              noun="note"
+              onRestore={() =>
+                void ipc.archive.restoreNote
+                  .mutate({ id: note.id })
+                  .catch((error: unknown) => showError(error, 'Couldn’t restore the note'))
+              }
+            />
           </div>
-        </div>
-        <div className={styles.body}>
-          <NoteEditor
-            key={note.id}
+        )}
+        {/* inert while trashed: shown, not editable (React 18 passes `inert` through as is) */}
+        <div
+          {...(trashed ? ({ inert: '' } as Record<string, string>) : {})}
+          data-trashed={trashed ? '' : undefined}
+          style={{ display: 'contents' }}
+        >
+          <div className={styles.head}>
+            <EditorTitle
+              // keyed on the title, so a rename elsewhere shows here
+              key={note.title}
+              ref={title}
+              placeholder="Untitled"
+              contentEditable={!trashed}
+              suppressContentEditableWarning
+              spellCheck={false}
+              aria-label="Title"
+              onBlur={saveTitle}
+              onKeyDown={onTitleKey}
+            >
+              {note.title}
+            </EditorTitle>
+            <Text size="xs" tone="subtle" className={styles.edited}>
+              Edited {lowerFirst(formatRelative(note.updatedAt))}
+            </Text>
+            <div className={styles.pills}>
+              <NotePills note={note} actions={actions} onNewTask={newTask} onLinkTask={linkTask} />
+            </div>
+          </div>
+          <div className={styles.body}>
+            <NoteEditor
+              key={note.id}
+              noteId={note.id}
+              editable={!trashed}
+              onReady={(ready) => {
+                editor.current = ready;
+              }}
+            />
+          </div>
+          <NoteTasksSection
             noteId={note.id}
-            onReady={(ready) => {
-              editor.current = ready;
-            }}
+            onNewTask={newTask}
+            onLinkTask={linkTask}
+            onOpenTask={openTask}
           />
         </div>
-        <NoteTasksSection
-          noteId={note.id}
-          onNewTask={newTask}
-          onLinkTask={linkTask}
-          onOpenTask={openTask}
-        />
       </PageContent>
       {sheetTask && (
         <TaskSheet
