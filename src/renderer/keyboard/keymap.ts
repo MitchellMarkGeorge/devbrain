@@ -6,6 +6,12 @@ import type { Scope } from './scopes';
  */
 export const MODE_ATTRIBUTE = 'data-key-mode';
 
+/**
+ * Sent (bubbling) by an element that changed its own `data-key-mode` while focus is in it: the
+ * editor's Vim plugin going from Normal to Insert. The dispatcher reads the mode again.
+ */
+export const MODE_CHANGE_EVENT = 'devbrain:keymode';
+
 /** The mode of a keymap that declares none. */
 export const DEFAULT_MODE = 'default';
 

@@ -107,13 +107,15 @@ const heading = {
 } as const;
 
 interface PlaygroundProps {
+  /** Vim keys on: Normal, Visual and Insert in the editor */
+  vim?: boolean;
   initial: string;
   editable?: boolean;
   label?: string;
 }
 
 // the editor with what it saves and what it opened beside it
-function Playground({ initial, editable = true, label = 'Note' }: PlaygroundProps) {
+function Playground({ initial, editable = true, label = 'Note', vim }: PlaygroundProps) {
   const [value, setValue] = useState(initial);
   const [saves, setSaves] = useState(0);
   const [opened, setOpened] = useState<string[]>([]);
@@ -130,6 +132,7 @@ function Playground({ initial, editable = true, label = 'Note' }: PlaygroundProp
     >
       <RichTextEditor
         {...host}
+        vim={vim}
         label={label}
         value={value}
         editable={editable}
