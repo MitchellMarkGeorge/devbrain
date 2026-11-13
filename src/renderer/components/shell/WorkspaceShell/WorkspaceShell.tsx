@@ -29,6 +29,8 @@ export interface WorkspaceShellProps extends Omit<ComponentPropsWithoutRef<'div'
   header?: ReactNode;
   /** the page under its header: a `PageToolbar` and a `PageContent` */
   children?: ReactNode;
+  /** a `StatusLine` across the bottom of the window, under the sidebar, page and sheet (Vim mode) */
+  statusLine?: ReactNode;
   /** the user's choice: hide the sidebar at any size (⌘\) */
   collapsed?: boolean;
   defaultCollapsed?: boolean;
@@ -74,6 +76,7 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
       sidebar,
       header,
       children,
+      statusLine,
       collapsed: collapsedProp,
       defaultCollapsed = false,
       onCollapsedChange,
@@ -229,6 +232,7 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
             </main>
             {/* a docked sheet is portalled in here; the column slides open while that sheet is open */}
             <aside ref={setSheetContainer} className={styles.sheet} />
+            {statusLine != null && <div className={styles.status}>{statusLine}</div>}
             {hidden && drawer === 'closed' && (
               <div
                 aria-hidden

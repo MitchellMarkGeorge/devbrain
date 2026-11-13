@@ -14,6 +14,7 @@ import { CommandRegistry, type Command, type CommandArgs } from './commands';
 import { KeyDispatcher, type KeyboardState } from './dispatcher';
 import type { Keymap } from './keymap';
 import { UndoStack, type Undoable } from './undo';
+import { SET_MODE_COMMAND_ID } from './vim-keymap';
 
 interface KeyboardContextValue {
   registry: CommandRegistry;
@@ -72,6 +73,14 @@ export function KeyboardProvider({ keymap, platform, onError, children }: Keyboa
             ctx.undoStack.undo().catch((error: unknown) => console.error('Undo failed:', error));
           },
           enabled: (ctx) => ctx.undoStack.size > 0,
+        },
+        {
+          id: SET_MODE_COMMAND_ID,
+          title: 'Change mode',
+          scope: 'global',
+          run: (ctx, { mode }) => {
+            if (typeof mode === 'string') ctx.setMode(mode);
+          },
         },
       ]),
     [core],

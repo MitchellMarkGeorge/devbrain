@@ -16,6 +16,8 @@ in Storybook mounts it with a demo keymap.
 | `KeyboardProvider.tsx` | the provider and hooks: `useCommands`, `useRunCommand`, `useKeyboardState`, …      |
 | `KeyScope.tsx`         | `<KeyScope name>`: makes a subtree a scope while focus is inside it                |
 | `default-keymap.ts`    | the keymap DevBrain ships with, and `createAppCommands(actions)`                   |
+| `vim-keymap.ts`        | Vim mode's keymap (`general.keyboardMode: 'vim'`): modes, counts, Vim's keys       |
+| `ModeLine.tsx`         | Vim's mode line: the shell's `StatusLine`, filled from the dispatcher's state      |
 | `list-commands.ts`     | `useListCommands(ref, actions)`: the list keys' commands, over a list's ref        |
 | `shortcuts.ts`         | the shortcuts dialog's sections, and a command's keys (`commandShortcut`, for ⌘K)  |
 | `ShortcutsDialog.tsx`  | the shortcuts dialog (Figma `7426:43880`)                                          |
@@ -84,27 +86,49 @@ trash · Undo" toast.
 ## How a key is handled
 
 1. A lone modifier is skipped.
-2. With `counts` on, a digit outside a typing target adds to the count (a leading `0` is a key).
+2. With `counts` on, a digit outside a typing target or an open menu adds to the count (a leading
+   `0` is a key).
 3. The stroke joins the pending sequence.
 4. The active scopes are walked from the innermost out (an open `dialog` scope hides everything
    outside it). The first scope with a binding that is in the current mode, allowed where the key
    was typed (`allowInTyping` for inputs and IME composition, `allowInEditor` for
-   `contenteditable`), and whose command is registered and enabled, decides: a binding the strokes
+   `contenteditable`, `allowInMenu` (or `allowInTyping`) in an open `role="menu"` or `"listbox"`,
+   which otherwise keeps letters for its typeahead and digits for its shortcuts), and whose command
+   is registered and enabled, decides: a binding the strokes
    start waits up to `sequenceTimeout` (1s) for the next stroke, then runs a binding they complete
    in that scope, if any; a binding they complete runs now.
 5. Nothing matches: the sequence and count are dropped, and the key goes on to the page.
 
-## Adding Vim
+## Vim mode
 
-A Vim keymap is a `Keymap` with `modes: ['normal', 'insert', 'visual', 'command']`, `counts: true`
-and `upperCaseKeys: false`, binding the same commands (`list.down`, `row.trash`, `nav.tasks`) to
-other keys, and a few of its own (`mode.insert` calling `ctx.setMode('insert')`). The setting
-`general.keyboardMode` picks which keymap the provider gets. The `VimSketch` story shows one. What
-is still to build for it, none of which changes the layer:
+Settings › General › **Vim keys** (`general.keyboardMode: 'vim'`, off by default) gives the root
+layout's `KeyboardProvider` the `vimKeymap` in place of the default one; the registry and the undo
+stack stay. The Vim keymap binds the same commands (`list.down`, `row.trash`, `nav.tasks`) to Vim's
+keys, and a few of its own. It is a `Keymap` with:
 
-- the mode commands, and entering Insert mode when focus moves into a text field;
-- a status line and a which-key popup, from `useKeyboardState()` (`mode`, `pending`, `count`);
-- the `:` command line, running `useCommandList()`'s commands through `dispatcher.run`;
-- `f` hints, filling in `useHintTarget`;
-- Normal mode inside the editor, as a ProseMirror plugin: the dispatcher leaves `contenteditable`
-  alone.
+- `modes: ['normal', 'insert', 'visual', 'hint', 'command']`, starting in Normal;
+- `insertMode: 'insert'`: **the mode follows focus.** Focus in a text field or the editor puts the
+  keyboard in Insert, and focus leaving it (to a row, or nowhere) takes it back to Normal. An
+  element with `data-key-mode` (`MODE_ATTRIBUTE`) puts it in a mode of its own while focused (the
+  `:` line's input is `data-key-mode="command"`). A mode a command set (Visual, from `v`) stays as
+  focus moves between rows;
+- **Esc in a field** leaves it for Normal: the dispatcher listens for Esc in the bubble phase too,
+  and blurs the field (the editor's root, for `contenteditable`) only if the page left the key
+  alone. A field's own Esc (cancelling an edit, closing a popup) prevents it and comes first, and a
+  dialog's fields keep their Esc, which closes the dialog. Insert binds no Esc of its own;
+- `counts: true` (`5j`) and `upperCaseKeys: false` (`g` and `G` differ, and the keys sheet draws
+  them as typed).
+
+`mode.set` (`SET_MODE_COMMAND_ID`, registered by the provider) puts the keyboard in `args.mode`:
+Visual's and Hint's Esc bind it with `{ mode: 'normal' }`. The workspace layout shows `ModeLine`
+in the shell's `statusLine` slot while the keymap has modes: the shell's `StatusLine` with the mode,
+the page's title, the count and keys typed so far, and the mode's keys on the right.
+
+In Normal mode the list keys are `j`/`k` (and the arrows), `gg`/`G`, `o` or ↵ to open, `x` to
+select, `s` for the status menu, `*` to favorite (as `f` is hints), `l`/`h` to show and hide
+subtasks and `dd` to move to trash; everywhere, `g h`/`g t`/…, `c` for a new task, `u` to undo and
+`?` for the keys. `1`–`3` are counts in Vim; Status picks with them once `s` has opened it.
+
+Still to build: Visual ranges, `Ctrl-d`/`Ctrl-u`, redo and `.`, the board, the which-key popup, `f`
+hints (filling in `useHintTarget`), the `:` command line, and Normal mode inside the editor (a
+ProseMirror plugin: the dispatcher leaves `contenteditable` alone).

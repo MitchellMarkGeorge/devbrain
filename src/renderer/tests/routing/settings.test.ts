@@ -86,6 +86,22 @@ describe('the settings page', () => {
     );
   });
 
+  it('turns Vim keys on, which shows the mode line, and off again', async () => {
+    const { main } = settingsPage();
+    await eventually(() => expect(control('Vim keys')).toBeDefined());
+    expect(document.querySelector('[aria-label="normal mode"]')).toBeNull();
+    click(control('Vim keys')!);
+    await eventually(() =>
+      expect(setCalls(main)).toEqual([{ path: 'settings.general.keyboardMode', value: 'vim' }]),
+    );
+    await eventually(() =>
+      expect(document.querySelector('[aria-label="normal mode"]')).not.toBeNull(),
+    );
+    click(control('Vim keys')!);
+    await eventually(() => expect(document.querySelector('[aria-label="normal mode"]')).toBeNull());
+    expect(main.settings.keyboardMode).toBe('default');
+  });
+
   it('renames the workspace when the name field is left', async () => {
     const { main } = settingsPage();
     main.routes.set('workspaces.update', (args) => {
