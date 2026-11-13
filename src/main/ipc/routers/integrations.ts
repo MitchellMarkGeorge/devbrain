@@ -53,7 +53,8 @@ export const integrationsRouter = t.router({
     return integrations.connectWithOAuth(input.provider, { enableSources: input.enableSources });
   }),
 
-  // re-authenticates the same account, keeping the integration's sources and cursors
+  // re-authenticates the same account, keeping the integration's sources and cursors; until it
+  // ends, the integration and its sources can't be switched (integration_busy)
   reconnect: wsProcedure.input(zReconnect).mutation(({ ctx, input }) => {
     const { integrations } = ctx.workspace;
     if (input.auth === AuthType.API_KEY) {
@@ -67,6 +68,7 @@ export const integrationsRouter = t.router({
   cancelConnect: wsProcedure.mutation(({ ctx }) => ctx.workspace.integrations.cancelConnect()),
 
   // disabling switches every source off; enabling switches back on those in `enableSources`, or all
+  // (integration_busy while the integration is being reconnected)
   setEnabled: wsProcedure
     .input(
       z.object({ id: zId('integration'), enabled: z.boolean(), enableSources: zEnableSources }),

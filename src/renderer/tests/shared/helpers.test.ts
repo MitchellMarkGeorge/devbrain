@@ -54,6 +54,13 @@ describe('mutationErrorCopy', () => {
     );
   });
 
+  it('asks to wait for a reconnect before switching the account', () => {
+    expect(mutationErrorCopy(failure('integration_busy'), 'Couldn’t switch Linear')).toEqual({
+      title: 'Couldn’t switch Linear',
+      description: 'The account is being reconnected. Try again once its sign-in has finished.',
+    });
+  });
+
   it('keeps an internal error generic', () => {
     expect(mutationErrorCopy(new Error('boom'))).toEqual({
       title: 'Something went wrong',

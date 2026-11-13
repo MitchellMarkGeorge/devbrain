@@ -53,6 +53,11 @@ export function mutationErrorCopy(
       return { title: action, description: serialized?.message };
     case 'integration_auth':
       return { title: action, description: 'The account needs reconnecting in Integrations.' };
+    case 'integration_busy':
+      return {
+        title: action,
+        description: 'The account is being reconnected. Try again once its sign-in has finished.',
+      };
     case 'provider_unavailable':
     case 'provider_api':
       return { title: action, description: 'The service didn’t answer. Try again later.' };

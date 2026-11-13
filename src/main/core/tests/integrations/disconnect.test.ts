@@ -53,6 +53,7 @@ import { EventService } from '../../events/service';
 import { NoteService } from '../../notes/service';
 import {
   IntegrationAccountMismatchError,
+  IntegrationBusyError,
   NotFoundError,
   ProviderUnavailableError,
 } from '../../shared/errors';
@@ -215,6 +216,13 @@ function projectRow(id: ProjectId) {
 
 function eventRow(id: EventId) {
   return db.select().from(eventsTable).where(eq(eventsTable.id, id)).get();
+}
+
+// a promise settled from outside, to hold a provider call open
+function held<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((settle) => (resolve = settle));
+  return { promise, resolve };
 }
 
 // whether the database connection is inside a transaction now; createDb's type leaves out $client
@@ -1005,6 +1013,93 @@ describe('IntegrationService — reconnect', () => {
     expect(reconnected.status).toBe(IntegrationStatus.DISABLED);
     expect(reconnected.sources.every((source) => !source.enabled)).toBe(true);
     expect(changes).toEqual([]);
+  });
+
+  it('chooses the status from the row as it is when it writes, not as it was before the wait', async () => {
+    const { id } = await connectLinear();
+    service.markNeedsReauth(id);
+    // the account query is held open while the integration is disabled behind the service's back
+    // (setEnabled refuses while the reconnect runs; see the next test)
+    const account = held<typeof FAKE_ACCOUNT>();
+    linear.getAccount = () => account.promise;
+    const changes: IntegrationChange[] = [];
+    service.onChange((change) => changes.push(change));
+
+    const reconnecting = service.reconnect(id, { type: AuthType.API_KEY, apiKey: 'new_api_key' });
+    await vi.waitFor(() => expect(service['reconnecting'].has(id)).toBe(true));
+    db.update(integrations)
+      .set({ status: IntegrationStatus.DISABLED })
+      .where(eq(integrations.id, id))
+      .run();
+    account.resolve(FAKE_ACCOUNT);
+    const reconnected = await reconnecting;
+
+    expect(reconnected.status).toBe(IntegrationStatus.DISABLED);
+    // the disable stands, so there is no status change to announce
+    expect(changes).toEqual([]);
+    await expect(credentials.getAuth(id)).resolves.toEqual({ authorization: 'new_api_key' });
+  });
+
+  it('announces the status the row had when it wrote as `previous`', async () => {
+    const { id } = await connectLinear();
+    const account = held<typeof FAKE_ACCOUNT>();
+    linear.getAccount = () => account.promise;
+    const changes: IntegrationChange[] = [];
+    service.onChange((change) => changes.push(change));
+
+    // connected when read; the sync engine finds the old key rejected meanwhile
+    const reconnecting = service.reconnect(id, { type: AuthType.API_KEY, apiKey: 'new_api_key' });
+    await vi.waitFor(() => expect(service['reconnecting'].has(id)).toBe(true));
+    service.markNeedsReauth(id);
+    account.resolve(FAKE_ACCOUNT);
+    await reconnecting;
+
+    expect(changes.at(-1)).toEqual({
+      type: 'status_changed',
+      integrationId: id,
+      status: IntegrationStatus.CONNECTED,
+      previous: IntegrationStatus.NEEDS_REAUTH,
+    });
+  });
+
+  it('refuses switching the integration or its sources while an API-key reconnect runs', async () => {
+    const { id, sourceId } = await connectLinear();
+    service.markNeedsReauth(id);
+    const account = held<typeof FAKE_ACCOUNT>();
+    linear.getAccount = () => account.promise;
+
+    const reconnecting = service.reconnect(id, { type: AuthType.API_KEY, apiKey: 'new_api_key' });
+    await vi.waitFor(() => expect(service['reconnecting'].has(id)).toBe(true));
+    expect(() => service.setEnabled(id, false)).toThrow(IntegrationBusyError);
+    expect(() => service.setSourceEnabled(sourceId, false)).toThrow(IntegrationBusyError);
+    await expect(
+      service.reconnect(id, { type: AuthType.API_KEY, apiKey: 'new_api_key' }),
+    ).rejects.toThrow(IntegrationBusyError);
+    account.resolve(FAKE_ACCOUNT);
+    await reconnecting;
+
+    // free again once it has ended
+    expect(service.setSourceEnabled(sourceId, false)).toMatchObject({ enabled: false });
+    expect(service.setEnabled(id, false).status).toBe(IntegrationStatus.DISABLED);
+  });
+
+  it('refuses switching while an OAuth reconnect waits on the browser, and after it fails', async () => {
+    const { id, sourceId } = await connectCalendar();
+    service.markNeedsReauth(id);
+    const browser = held<void>();
+    oauth.authorize.mockImplementationOnce(async () => {
+      await browser.promise;
+      throw new ProviderUnavailableError('The sign-in page did not load');
+    });
+
+    const reconnecting = service.reconnect(id, { type: AuthType.OAUTH });
+    await vi.waitFor(() => expect(oauth.authorize).toHaveBeenCalledTimes(2));
+    expect(() => service.setEnabled(id, false)).toThrow(IntegrationBusyError);
+    expect(() => service.setSourceEnabled(sourceId, false)).toThrow(IntegrationBusyError);
+    browser.resolve();
+    await expect(reconnecting).rejects.toThrow(ProviderUnavailableError);
+
+    expect(service.setSourceEnabled(sourceId, false)).toMatchObject({ enabled: false });
   });
 
   it('throws NotFoundError for an unknown integration', async () => {
