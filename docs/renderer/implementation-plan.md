@@ -701,6 +701,35 @@ from the keys that work.
 - **A setting** chooses the keymap: `general.keyboardMode: 'default' | 'vim'` (S5), off by default,
   as Figma's mock shows (`7704:60566`).
 
+**Vim mode** (built after the first plan, in stages; `src/renderer/keyboard/README.md` says what
+each piece does):
+
+1. **The setting and the mode machine.** Settings › General › Vim keys (S5) gives the provider
+   `vimKeymap`. Its modes are Normal, Insert, Visual, Hint and Command; the mode follows focus
+   (`Keymap.insertMode`): a text field or the editor puts it in Insert, and Esc there (left alone by
+   the page) or focus leaving takes it back to Normal. Counts are not read in an open menu, which
+   keeps its digits (Status's 1–3) and its typeahead (`allowInMenu` lets a binding in). The mode
+   line is a design-system `StatusLine` in `WorkspaceShell`'s new `statusLine` slot, across the
+   window's bottom, filled by the keyboard layer's `ModeLine`. The list keys in Normal are `j`/`k`,
+   `gg`/`G`, `o`/↵, `x`, `s`, `*` (favorite: `f` is hints), `l`/`h` (subtasks) and `dd`; `u` undoes.
+2. **Navigation and lists.** `ListKeyTarget` gains optional `pageSize`, `startRange`/`endRange` and
+   `itemsFromFocus`, which `TaskList`, `NoteList`, `ProjectList` and Trash's list implement: half
+   pages (`Ctrl-d`/`Ctrl-u`) and counts become `scrollToIndex` moves, `v`/`V` select by id from the
+   range's first row to the focused one, and `3dd` trashes three. Redo is on the undo stack
+   (`Undoable.redo`, `Ctrl-r`), `.` repeats the last `repeatable` binding. The board's columns get a
+   `handleRef` and `useBoardCommands` (`h`/`l` across, `j`/`k` within, the sheet following the
+   cursor). A first `j` on a page with nothing focused enters its list; `j`/`k` move in menus; the
+   mode line shows what can follow a pending key. Trash's list is one tab stop with the list keys.
+3. **`f` hints.** `useHintTarget` registers with the provider's `HintRegistry`: the rows and cards
+   (`TaskRow`, `ListRow`, `BoardCard`, `HomeRow`, `EventRow`) register with their open, and
+   buttons, links, fields and focusable leaves are found without it, so a page needs no
+   registrations of its own. `f` labels every target on screen (`HintLabel`, in the top-most dialog
+   only while one is open), and typing a label runs it.
+4. **The `:` line and `?`.** `:` turns the mode line into `CommandLine`, completing from the
+   registry (ids and titles) and a short list of aliases that mean something here (pages, the tasks
+   page's views and sorts, which it now registers as `view.*` and `sort.*`, `:u`, `:red`, `:h`); a
+   command runs where focus was before `:`. `?` shows the Vim keymap's keys when Vim is on.
+
 **Wiring it in** (milestone 3; the layer itself is built, in `src/renderer/keyboard/`, with its
 `README.md`):
 
@@ -1170,8 +1199,10 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 - **S4 (dropped): the user's name.** Home greets without a name: "Good morning", and "Welcome to
   ‹workspace name›" in a new workspace. See Home for why. If a name is wanted later, an optional
   `general.displayName` in Settings › General is the way: the greeting adds it when it's set.
-- **S5 (with Vim mode): `general.keyboardMode: 'default' | 'vim'`** in `appSettingsSchema`, off by
-  default. Not needed until Vim mode is built.
+- **S5 (done, with Vim mode): `general.keyboardMode: 'default' | 'vim'`** in `appSettingsSchema`,
+  off by default, shown in Settings › General as **Vim keys** (Figma `7704:60566`). Like
+  `hideWeekends`, a settings file written before it lacks it ("Settings added after a file was
+  written" in `docs/follow-ups.md`); the renderer reads a missing value as the default keymap.
 
 ### App, menu and windows
 
@@ -1282,7 +1313,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 | R4                                     | Match counts per type                                    | ⌘K's type filter                             | Done                       |
 | K0                                     | `readRange` skips unselected synced calendars            | Calendar (unticked calendars vanish at once) | No, but cheap              |
 | T1, T3, T4, P2, A1, A3, A4, K1, R2, E2 | See above                                                |                                              | No                         |
-| S5                                     | `keyboardMode` setting                                   | Vim mode                                     | Later                      |
+| S5                                     | `keyboardMode` setting                                   | Vim mode                                     | Done                       |
 | S3                                     | `calendar.hideWeekends`                                  | Settings, Calendar                           | No                         |
 
 ## Milestones and PR breakdown
@@ -1597,8 +1628,6 @@ Raised by milestones 1–2:
 ## Out of scope
 
 - Multiple windows (the router and invalidator already work per window; nothing opens a second).
-- Vim keyboard mode itself (its keymap, the mode line, hints, the `:` line, Normal mode in the
-  editor). The keyboard layer is built so it slots in; see Keyboard.
 - Drag and drop in the calendar; manual ordering on the board (T4).
 - Notifications and reminders (none designed).
 - Syncing the Claude design-system page and Figma with the code (separate, per `CLAUDE.md`).

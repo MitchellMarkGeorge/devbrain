@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DndContext, DragOverlay } from '@dnd-kit/core';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import type { TaskId } from '@common/ids';
@@ -9,8 +9,9 @@ import {
   ContextMenuContent,
   ContextMenuTrigger,
   useFormat,
+  type BoardColumnHandle,
 } from '../../../../components';
-import { KeyScope } from '../../../../keyboard';
+import { KeyScope, useBoardCommands, useCommands, type BoardCursor } from '../../../../keyboard';
 import { useOpenEntity } from '../../../app/use-open-entity';
 import {
   boardAnnouncements,
@@ -107,6 +108,51 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
   const [dragging, setDragging] = useState<TaskListItem | null>(null);
   const sensors = useBoardSensors();
 
+  // the keys (Vim's j/k within a column, h/l across, gg/G, o, *, dd): the columns as drawn, and
+  // the sheet following the cursor once it's open
+  const handles = useRef<(BoardColumnHandle | null)[]>([]);
+  // a column the status filter no longer shows leaves no handle behind
+  useEffect(() => {
+    handles.current.length = placed.length;
+  });
+  const taskAt = ({ column, index }: BoardCursor) => placed[column]?.tasks[index];
+  const sheetOpen = resolved.open !== undefined;
+  useBoardCommands(handles, {
+    open: (at) => {
+      const task = taskAt(at);
+      if (task) onOpen(task.id as TaskId);
+    },
+    toggleFavorite: (at) => {
+      const task = taskAt(at);
+      if (task) actions.toggleFavorite([task]);
+    },
+    trash: (at) => {
+      const task = taskAt(at);
+      if (task) void actions.trash([task]);
+    },
+    moved: (at) => {
+      const task = taskAt(at);
+      if (task && sheetOpen) setSearch({ open: task.id as TaskId });
+    },
+    // h past the first column goes to the sidebar's page; l past the last into an open sheet
+    leave: (side) => {
+      const target =
+        side === 'left'
+          ? document.querySelector<HTMLElement>('[aria-current="page"]')
+          : document.querySelector<HTMLElement>('[data-sheet][data-open]');
+      target?.focus();
+    },
+  });
+  useCommands([
+    {
+      id: 'board.closeSheet',
+      title: 'Close the sheet',
+      scope: 'board',
+      run: () => setSearch({ open: undefined }),
+      enabled: () => sheetOpen,
+    },
+  ]);
+
   if (columns.every((column) => column.query.isPending)) return <TasksLoading />;
   if (columns.some((column) => column.query.isError)) {
     return (
@@ -151,9 +197,12 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
           }}
         >
           <KeyScope name="board" render={<Board />}>
-            {placed.map(({ status, query, tasks }) => (
+            {placed.map(({ status, query, tasks }, column) => (
               <DroppableColumn
                 key={status}
+                handleRef={(handle) => {
+                  handles.current[column] = handle;
+                }}
                 status={status}
                 tasks={withoutProjectPill(tasks, resolved.project)}
                 className={styles.column}

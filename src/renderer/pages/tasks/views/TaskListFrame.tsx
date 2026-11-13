@@ -112,8 +112,12 @@ export function TaskListFrame({
     selected,
     onSelectedChange: setSelected,
     selectionBar: false,
+    // a selected row's status menu sets the whole selection's (Vim's `v` then `s`)
     onStatusChange: (task: { id: string }, status: Parameters<typeof actions.setStatus>[1]) =>
-      actions.setStatus(full([task]), status),
+      actions.setStatus(
+        full(selected.includes(task.id) ? selected.map((id) => ({ id })) : [task]),
+        status,
+      ),
     onOpen: (task: { id: string }) => openEntity({ id: task.id }),
     onDueDateChange: (task: { id: string }, date: Date) => actions.setDueDate(full([task]), date),
   };

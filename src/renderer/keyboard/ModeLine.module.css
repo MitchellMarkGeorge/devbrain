@@ -1,0 +1,26 @@
+/* the which-key popup over the mode line (Figma `7703:55909`): what can follow the keys typed */
+.whichKey {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+.typed {
+  padding: 0 var(--space-1) var(--space-1);
+  color: var(--muted-foreground);
+}
+.keys {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px var(--space-1);
+}

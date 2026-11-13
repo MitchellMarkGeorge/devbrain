@@ -1,4 +1,4 @@
-import { forwardRef, type MouseEvent } from 'react';
+import { forwardRef, useMemo, useRef, type MouseEvent } from 'react';
 import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
 import { cva } from 'class-variance-authority';
@@ -10,6 +10,8 @@ import { SourcePill } from '../../entities/SourcePill';
 import { LinkState, TaskStatus, type TaskListItem } from '@common/types';
 import { SetDueDateButton } from '../../entities/SetDueDateButton';
 import { useFormat } from '../../lib/format';
+import { mergeRefs } from '../../lib/merge-refs';
+import { useHintTarget } from '../../../keyboard/hints';
 import { dueTone, isClosed, providerOf } from '../../types';
 import styles from './BoardCard.module.css';
 
@@ -54,6 +56,10 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
   { task, state, render, onClick, onDueDateChange, ...props },
   ref,
 ) {
+  // Vim's `f` labels the card, and its label clicks it (the board opens the sheet)
+  const own = useRef<HTMLDivElement>(null);
+  const setRef = useMemo(() => mergeRefs(ref, own), [ref]);
+  useHintTarget(own, onClick && (() => own.current?.click()));
   const { now, formatDue } = useFormat();
   const done = task.status === TaskStatus.COMPLETED;
   const { external, subtaskProgress: subtasks } = task;
@@ -103,7 +109,7 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
   );
 
   return useRender({
-    ref,
+    ref: setRef,
     defaultTagName: 'div',
     render,
     props: mergeProps<'div'>(

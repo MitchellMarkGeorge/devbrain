@@ -1,11 +1,15 @@
 import {
   forwardRef,
+  useMemo,
+  useRef,
   type ComponentProps,
   type KeyboardEvent,
   type MouseEvent,
   type ReactNode,
 } from 'react';
 import { cn } from '../../lib/cn';
+import { mergeRefs } from '../../lib/merge-refs';
+import { useHintTarget } from '../../../keyboard/hints';
 import { Checkbox } from '../../ui/Checkbox';
 import styles from './ListRow.module.css';
 
@@ -80,6 +84,11 @@ export const ListRow = forwardRef<HTMLDivElement, ListRowProps>(function ListRow
   },
   ref,
 ) {
+  // Vim's `f` labels the row, and its label opens the item
+  const own = useRef<HTMLDivElement>(null);
+  const setRef = useMemo(() => mergeRefs(ref, own), [ref]);
+  useHintTarget(own, onOpen);
+
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     onKeyDown?.(event);
     if (event.defaultPrevented || event.target !== event.currentTarget) return;
@@ -94,7 +103,7 @@ export const ListRow = forwardRef<HTMLDivElement, ListRowProps>(function ListRow
 
   return (
     <div
-      ref={ref}
+      ref={setRef}
       role="row"
       tabIndex={0}
       aria-selected={onSelect ? !!selected : undefined}
