@@ -54,12 +54,12 @@ export function TrashPage() {
   const { size } = useWorkspaceShell();
   const list = useInfiniteQuery(trashListQuery(trashEntityType(search.tab)));
   const items = list.data?.pages.flatMap((page) => page.items) ?? [];
-  // Empty Trash empties every kind, so it is offered whenever anything is in the trash: the
-  // whole trash's first page says, whichever tab is shown
+  // Empty Trash empties every kind, so it is offered whenever anything is in the trash: rows in
+  // this tab say so at once, else the whole trash's first page (which the loader primes, so the
+  // button draws in its state from the first frame)
   const anything = useInfiniteQuery({ ...trashListQuery('all'), enabled: tab !== 'all' });
   const trashHasItems =
-    (tab === 'all' ? list.data : anything.data)?.pages.some((page) => page.items.length > 0) ??
-    false;
+    items.length > 0 || (anything.data?.pages.some((page) => page.items.length > 0) ?? false);
 
   return (
     <>

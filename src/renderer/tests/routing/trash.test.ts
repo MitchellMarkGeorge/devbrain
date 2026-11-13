@@ -173,6 +173,13 @@ describe('the trash page', () => {
     await eventually(() => expect(main.callsTo('archive.restoreTask')).toHaveLength(1));
   });
 
+  it('offers Empty Trash on a tab of one kind from the first frame it draws', async () => {
+    const { app } = trashPage('?tab=tasks');
+    // the loader has the whole trash too, so the button never draws off and then on
+    await eventually(() => expect(row('Summarise sprint feedback')).toBeDefined());
+    expect(byText(app.container, 'button', 'Empty Trash')).toHaveProperty('disabled', false);
+  });
+
   it('says when the trash is empty, with Empty Trash off', async () => {
     const { app } = trashPage('', []);
     await eventually(() => expect(app.text()).toContain('Nothing in the trash'));
