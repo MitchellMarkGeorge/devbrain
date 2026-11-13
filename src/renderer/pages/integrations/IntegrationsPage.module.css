@@ -1,0 +1,216 @@
+/* Integrations (Figma 7164:13117): the 720px column, its intro beside Connect Account, the cards
+   24px apart, and the dialogs' bodies */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.intro {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-6);
+}
+.introText {
+  flex: 1;
+  min-width: 0;
+}
+.lead {
+  max-width: 553px;
+  margin: 6px 0 0;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+.footnote {
+  margin: 0;
+  color: var(--subtle-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+
+/* "Syncing…" before an account's switch (7426:42811) */
+.syncing {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.spinner {
+  animation: spin 1s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* the Connect menu's items: the name over what it brings */
+.connectMenu {
+  min-width: 240px;
+}
+.menuItem {
+  padding-block: var(--space-1);
+}
+.menuEntry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.menuItem[data-disabled] .menuText {
+  opacity: 0.6;
+}
+.menuText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.menuLine {
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.comingLater {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  height: 24px;
+  padding: 0 var(--space-2);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-full);
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+
+/* no account yet: every provider in one card (7165:14142) */
+.providerList {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--card);
+}
+.providerRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+.providerRow + .providerRow {
+  border-top: 1px solid var(--border);
+}
+.providerText {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.providerName {
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+
+/* the dialogs */
+.dialogForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.dialogHeader {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-3);
+}
+.dialogText {
+  margin: 0;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+.useFor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.useForLabel,
+.useForTitle {
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+.useForCard {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+}
+.useForCard > span {
+  display: flex;
+  flex-direction: column;
+}
+.useForDescription,
+.useForNote {
+  margin: 0;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+
+.waiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  text-align: center;
+}
+.waitingTitle {
+  margin: 0;
+  color: var(--foreground-strong);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+.waitingText {
+  margin: 0;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+}
+
+.calendarList {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.calendarRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 36px;
+  padding: 0 var(--space-3);
+  cursor: pointer;
+}
+.calendarRow + .calendarRow {
+  border-top: 1px solid var(--border);
+}
+.calendarName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.calendarMeta {
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
+}
+.spreadFooter {
+  justify-content: space-between;
+  align-items: center;
+}

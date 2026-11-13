@@ -1,9 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { IntegrationsPage, pageQueries } from '../../../pages/app/placeholders';
+import { IntegrationsPage } from '../../../pages/integrations/IntegrationsPage';
 
+// The workspace's connected accounts and their sources.
 export const Route = createFileRoute('/app/$workspaceId/integrations')({
   staticData: { title: 'Integrations' },
-  loader: ({ context: { queryClient } }) =>
-    queryClient.query({ ...pageQueries.integrations(), staleTime: 'static' }),
+  loader: ({ context: { queryClient, trpc } }) =>
+    Promise.all([
+      queryClient.query({ ...trpc.integrations.list.queryOptions(), staleTime: 'static' }),
+      queryClient.query({ ...trpc.sync.status.queryOptions(), staleTime: 'static' }),
+    ]),
   component: IntegrationsPage,
 });

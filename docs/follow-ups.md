@@ -188,6 +188,8 @@ Fixes, which can be combined:
 2. **Refuse edits while a flow runs.** Track the integrations being connected or reconnected, and make `setEnabled` and `setSourceEnabled` throw an "integration busy" error for them. The service already does this between OAuth flows (`connecting` and `ConnectInProgressError`), but API-key reconnects are not tracked. Gives the UI a clear error when a click slips through.
 3. **Lock the controls in the UI.** While an integration connects or reconnects, its enable toggle and source switches are disabled ("Waiting for sign-in…"). The clearest experience, but not enough on its own: `markNeedsReauth` also comes from the sync engine and token refresh, and a second window or a stale view can still reach the service. The `integrations.reconnect` and `integrations.setEnabled` routes exist, but no view calls them yet, so this belongs with the integrations settings screen.
 
+_Fix 3 is done_ (renderer milestone 10): while any connect or reconnect runs in the window, every account's switch and source switch is disabled (`useConnecting` in `src/renderer/pages/integrations`, read from React Query's mutation cache, so it holds across pages). Fixes 1 and 2 are still open, for the cases the UI can't cover.
+
 ### Reconnecting leaves kept tasks detached
 
 _Found in feature 15._
@@ -196,6 +198,8 @@ After "keep everything as local copies", connecting the same account again re-ma
 
 - That is safe, but after reconnecting the user has every old task as a local copy and has to reattach each one. The UI could offer "reattach all" after a reconnect: `DetachService.reattachTask` per top-level task, which refreshes it from the provider and overwrites local edits after a confirmation.
 - Or disconnect could mark the links it detached (a `detachedBy` on the link, or a metadata key), so a later sync reattaches those and leaves the ones the user detached alone. That needs a migration and a rule for a copy edited after the disconnect.
+
+Until one of these lands, the Integrations page says it when a disconnect keeps copies: the toast reads "8 tasks and 2 projects kept as local copies. They stay local if you connect again."
 
 ### Viewing months before the synced history
 
