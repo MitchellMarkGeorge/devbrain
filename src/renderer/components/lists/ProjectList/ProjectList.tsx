@@ -131,7 +131,13 @@ function ProjectListInner<Project extends ProjectListRow>(
     [projects],
   );
   const wanted = focusedIdProp ?? focusedState;
-  const focusedId = indexOfId(wanted) >= 0 ? wanted : projects[0]?.id;
+  // the focused row's place, kept so that when its row goes (moved to trash) the row that takes
+  // its place is the focused one, not the first
+  const wantedIndex = indexOfId(wanted);
+  const [lastIndex, setLastIndex] = useState(0);
+  if (wantedIndex >= 0 && wantedIndex !== lastIndex) setLastIndex(wantedIndex);
+  const focusedId =
+    wantedIndex >= 0 ? wanted : projects[Math.min(lastIndex, projects.length - 1)]?.id;
 
   const virtualizer = useVirtualList({
     scrollerRef: listRef,
@@ -153,6 +159,16 @@ function ProjectListInner<Project extends ProjectListRow>(
       pendingFocus.current = null;
       row.focus({ preventScroll: true });
     }
+  });
+
+  // whether a row has focus, or had it until its row went away (as `TaskList` does): focus then
+  // follows the focused row rather than falling to the page
+  const holdsFocus = useRef(false);
+  useEffect(() => {
+    if (!holdsFocus.current || !focusedId || pendingFocus.current === focusedId) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && active.isConnected) return;
+    focusProject(focusedId);
   });
 
   function setFocused(id: string) {
@@ -233,6 +249,11 @@ function ProjectListInner<Project extends ProjectListRow>(
         'aria-rowcount': rowCount ?? projects.length,
         tabIndex: focusedDrawn || !focusedId ? -1 : 0,
         onFocus: handleFocus,
+        // focus going somewhere else (a click, a dialog) lets it go
+        onBlur: (event: FocusEvent<HTMLDivElement>) => {
+          const to = event.relatedTarget;
+          if (to instanceof Node && !event.currentTarget.contains(to)) holdsFocus.current = false;
+        },
         ...props,
       }}
     >
@@ -260,6 +281,7 @@ function ProjectListInner<Project extends ProjectListRow>(
               stats={project.stats}
               tabIndex={id === focusedId ? 0 : -1}
               onFocus={() => {
+                holdsFocus.current = true;
                 if (id !== focusedId) setFocused(id);
               }}
               selected={on}
