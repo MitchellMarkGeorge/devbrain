@@ -1,20 +1,24 @@
-/* the trashed item's bar: a quiet card over the read-only page */
+/*
+ * The trashed item's bar over its read-only page: the warning tint of IntegrationCardAlert
+ * (health-at-risk at 40% for the border, 15% for the ground), with the trash can, in that colour,
+ * saying why the page can't be changed
+ */
 .notice {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-2) var(--space-2) var(--space-3);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in oklab, var(--health-at-risk) 40%, transparent);
   border-radius: var(--radius-lg);
-  background: var(--card);
+  background: color-mix(in oklab, var(--health-at-risk) 15%, transparent);
 }
 .icon {
   flex: none;
-  color: var(--muted-foreground);
+  color: var(--health-at-risk);
 }
 .text {
   flex: 1;
   min-width: 0;
-  color: var(--muted-foreground);
+  color: var(--foreground);
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
 }

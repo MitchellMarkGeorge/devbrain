@@ -4,7 +4,7 @@ import styles from './TrashedNotice.module.css';
 
 /**
  * The bar over an item's page while the item is in the trash, which shows it read-only (opened
- * from Trash): what it is, and Restore.
+ * from Trash): the trash can and what it means, in the warning tint, and Restore.
  */
 export function TrashedNotice({ noun, onRestore }: { noun: string; onRestore: () => void }) {
   return (
