@@ -229,7 +229,15 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     [entries],
   );
   const wanted = focusedIdProp ?? focusedState;
-  const focusedId = indexOfId(wanted) >= 0 ? wanted : firstId;
+  // the focused row's place among the task rows, kept so that when its row goes (moved to trash)
+  // the row that takes its place is the focused one, not the first
+  const wantedPosition = taskEntries.indexOf(indexOfId(wanted));
+  const [lastPosition, setLastPosition] = useState(0);
+  if (wantedPosition >= 0 && wantedPosition !== lastPosition) setLastPosition(wantedPosition);
+  const inPlace = taskEntries.length
+    ? entries[taskEntries[Math.min(lastPosition, taskEntries.length - 1)]].id
+    : undefined;
+  const focusedId = wantedPosition >= 0 ? wanted : (inPlace ?? firstId);
 
   const listRef = useRef<HTMLDivElement>(null);
   // the row whose status menu is open, by task id
@@ -293,6 +301,17 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       pendingFocus.current = null;
       row.focus({ preventScroll: true });
     }
+  });
+
+  // Whether a row of the list has focus, or had it until its row went away: a row moved to trash,
+  // or moved out of view as more rows loaded (subtasks placed under a parent that just came). Focus
+  // then follows the focused row rather than falling to the page, so the keys go on working.
+  const holdsFocus = useRef(false);
+  useEffect(() => {
+    if (!holdsFocus.current || !focusedId || pendingFocus.current === focusedId) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && active.isConnected) return;
+    focusTask(focusedId);
   });
 
   function setFocused(id: string) {
@@ -410,6 +429,11 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
         // one tab stop: the focused row, or the list while that row is scrolled away
         tabIndex: focusedDrawn || !focusedId ? -1 : 0,
         onFocus: handleFocus,
+        // focus going somewhere else (a click, a dialog) lets it go
+        onBlur: (event: FocusEvent<HTMLDivElement>) => {
+          const to = event.relatedTarget;
+          if (to instanceof Node && !event.currentTarget.contains(to)) holdsFocus.current = false;
+        },
         ...props,
       }}
     >
@@ -460,6 +484,7 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
               task={task}
               tabIndex={id === focusedId ? 0 : -1}
               onFocus={() => {
+                holdsFocus.current = true;
                 if (id !== focusedId) setFocused(id);
               }}
               selected={on}
