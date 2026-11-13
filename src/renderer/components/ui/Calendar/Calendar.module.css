@@ -236,8 +236,11 @@ span.dayButton {
   background: transparent;
   color: var(--now-indicator);
 }
+/* …and at a range's end, the end's number in a red ring: a red number on `primary` falls below
+   4.5:1 in both themes, while the ring needs only 3:1 */
 .today.rangeStart .dayButton,
 .today.rangeEnd .dayButton {
   background: var(--primary);
-  color: var(--now-indicator);
+  box-shadow: inset 0 0 0 2px var(--now-indicator);
+  color: var(--primary-foreground);
 }

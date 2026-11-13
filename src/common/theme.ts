@@ -34,12 +34,12 @@ export const BROWSER_PAGE_COLOURS = {
     background: '#111111',
     foreground: '#d4d4d4',
     'foreground-strong': '#e5e5e5',
-    'muted-foreground': '#888888',
+    'muted-foreground': '#8a8a8a',
   },
   light: {
     background: '#ffffff',
     foreground: '#0a0a0a',
     'foreground-strong': '#0a0a0a',
-    'muted-foreground': '#737373',
+    'muted-foreground': '#636363',
   },
 } as const;

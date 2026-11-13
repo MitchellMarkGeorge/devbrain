@@ -22,7 +22,10 @@ export interface VirtualCardGridProps<T> {
   gap?: 'sm' | 'md';
   /** a row of cards' height before it is measured, gap included (the Notes card: 156 + 16) */
   estimateRowHeight?: number;
-  /** how many items there are in all, loaded or not (`aria-rowcount` counts rows of cards from it) */
+  /**
+   * how many items there are in all, loaded or not (`aria-rowcount` counts rows of cards from it);
+   * -1 while more may load and the total is not known (ARIA's "unknown")
+   */
   itemCount?: number;
   /** called when the last drawn row comes within `endReachedThreshold` rows of the end */
   onEndReached?: () => void;
@@ -78,7 +81,7 @@ export function VirtualCardGrid<T>({
       <div
         role="grid"
         aria-label={ariaLabel}
-        aria-rowcount={Math.ceil((itemCount ?? items.length) / shown)}
+        aria-rowcount={itemCount === -1 ? -1 : Math.ceil((itemCount ?? items.length) / shown)}
         aria-colcount={shown}
         className={styles.rows}
         style={{ height: virtualizer.getTotalSize(), paddingTop: paddingBefore(rows) }}

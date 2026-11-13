@@ -4,6 +4,12 @@
   flex-direction: column;
   min-width: 0;
 }
+/* the rows' grid: one under another, as if they were the section's own */
+.rows {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
 /* 26px: the 16px label, then 10px to the first row */
 .header {
   display: flex;

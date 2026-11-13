@@ -88,7 +88,7 @@ export function CaptureDatePicker({
           </CaptureBoxPicker>
         }
       />
-      <PopoverContent size="auto" align="start">
+      <PopoverContent size="auto" align="start" aria-label="Due date">
         <DatePicker
           value={value ?? undefined}
           today={now}
@@ -193,7 +193,7 @@ export function CaptureStartPicker({
           </CaptureBoxPicker>
         }
       />
-      <PopoverContent size="auto" align="start">
+      <PopoverContent size="auto" align="start" aria-label="Date and time">
         <DatePicker
           value={day.toJSDate()}
           today={now}

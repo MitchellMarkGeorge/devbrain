@@ -10,25 +10,30 @@
   outline: none;
   transition: background-color var(--duration-fast);
 }
-.row[role='button'] {
+.row[data-opens] {
   cursor: pointer;
 }
 .row:hover,
 .row[data-state='hover'] {
   background: var(--row-selected);
 }
-.row:focus-visible,
+/* the title's button has focus: the ring goes round the whole row */
+.row:has(.open:focus-visible),
 .row[data-state='focus'] {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
+/* a 24px target (WCAG 2.5.8) drawn as the 20px square it was: the 2px either side is pulled back
+   out of the row's gap */
 .status {
   display: inline-flex;
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
+  width: 24px;
+  height: 24px;
+  margin: -2px;
+  padding: 2px;
+  background-clip: content-box;
   border: 0;
   border-radius: var(--radius-sm);
   background: none;
@@ -50,6 +55,16 @@
   font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+.open {
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.open:focus-visible {
+  outline: none;
 }
 .date {
   flex: none;

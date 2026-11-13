@@ -16,7 +16,8 @@ function TasksPage({ compact = false, hovered }: { compact?: boolean; hovered?: 
   return (
     <>
       <TasksToolbar compact={compact} />
-      <PageContent layout="list">
+      {/* the rows' grid, as TaskList draws it (rows need one around them) */}
+      <PageContent layout="list" role="grid" aria-label="Tasks">
         {FIGMA_TASKS.map((task, i) => (
           <TaskRow key={task.id} task={task} state={i === hovered ? 'hover' : undefined} />
         ))}

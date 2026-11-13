@@ -12,4 +12,6 @@ The details panel for a task or an event (shadcn's Sheet), 380px (`sheet-width`)
 
 **No swipe to dismiss.** A drag across the sheet selects its text (a note, a description), so the popup carries `data-base-ui-swipe-ignore` and the drawer's swipe never starts; ×, Esc and the page's Back close it.
 
+**Focus.** Opening the sheet moves focus into it (Base UI's default: the popup itself), and a sheet opened from the keyboard shows a 1px `ring` inside its edge while it holds focus. Docked, it is not a focus trap (Tab leaves it for the page) and focus leaving it does not close it; as an overlay it traps focus. Closing it returns focus to what opened it: the row or card (see `docs/design-system/README.md` § Lists, focus).
+
 **Base UI:** `Drawer` with `swipeDirection="right"` (shadcn's Sheet becomes Base UI's Drawer): `Root`, `Portal`, `Backdrop`, `Popup`, `Title`, `Close`; the body is a `ScrollArea`. Docked, it renders without the `Backdrop` and the page shrinks beside it; as an overlay it is modal. Styles key off `data-open`, `data-starting-style` / `data-ending-style`, `data-swiping`.

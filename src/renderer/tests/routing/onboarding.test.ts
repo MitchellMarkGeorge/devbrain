@@ -184,7 +184,7 @@ describe('in the app', () => {
   }
 
   async function openMenuItem(app: { container: HTMLElement }, label: string) {
-    click(app.container.querySelector('[aria-label="Workspace: Work"]'));
+    click(byText(app.container, 'button', 'Workspace: Work'));
     await eventually(() =>
       expect(byText(document.body, '[role="menuitem"]', label)).not.toBeNull(),
     );

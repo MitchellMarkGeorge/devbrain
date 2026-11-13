@@ -4,6 +4,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui
 import { Icon } from '../../ui/Icon';
 import { WorkspaceTile } from '../../entities/WorkspaceTile';
 import type { Swatch } from '../../types';
+import { VisuallyHidden } from '../../layout/VisuallyHidden';
 import styles from './WorkspaceButton.module.css';
 
 export interface WorkspaceButtonProps {
@@ -33,8 +34,10 @@ export function WorkspaceButton({
 }: WorkspaceButtonProps) {
   return (
     <DropdownMenu open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
-      <DropdownMenuTrigger className={styles.workspace} aria-label={`Workspace: ${name}`}>
+      {/* named by its content, "Workspace: Work", so the name holds the words it shows (WCAG 2.5.3) */}
+      <DropdownMenuTrigger className={styles.workspace}>
         <WorkspaceTile letter={name} color={color} />
+        <VisuallyHidden>Workspace: </VisuallyHidden>
         <span className={styles.name}>{name}</span>
         <Icon icon={ChevronsUpDown} size={12} className={styles.chevron} />
       </DropdownMenuTrigger>

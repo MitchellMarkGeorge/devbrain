@@ -18,7 +18,7 @@ export function NotesPage() {
       projectId: resolved.project && resolved.project !== 'none' ? resolved.project : undefined,
     });
   return (
-    <Page title="Notes">
+    <Page title="Notes" heading="Notes">
       <PageToolbar
         start={<NotesFilterMenu resolved={resolved} setSearch={setSearch} />}
         end={<NotesToolbarEnd resolved={resolved} setSearch={setSearch} onNewNote={newNote} />}

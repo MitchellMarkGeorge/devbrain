@@ -215,8 +215,11 @@ function hex(name: string, themeName: 'dark' | 'light'): string {
   if (!token) throw new Error(`No colour token ${name}`);
   const raw =
     typeof token.value === 'string' ? token.value : (token.value[themeName] ?? token.value.dark);
+  // a recipe (`{neutral-600} / 90%`) is flattened over the theme's background, as it is drawn
+  const recipe = /^\{(.+)\} \/ (\d+)%$/.exec(raw);
+  if (recipe) return blend(hex(recipe[1], themeName), hex('background', themeName), +recipe[2]);
   const alias = /^\{(.+)\}$/.exec(raw);
-  const value = alias ? hexes.get(alias[1]) : raw;
+  const value = alias ? (hexes.get(alias[1]) ?? hex(alias[1], themeName)) : raw;
   if (!value?.startsWith('#')) throw new Error(`${name} is not a palette colour in ${themeName}`);
   return value;
 }
@@ -226,6 +229,16 @@ if (typeof titleBarToken?.value !== 'string' || !/^\d+px$/.test(titleBarToken.va
   throw new Error('title-bar-height must be a whole number of pixels');
 }
 const titleBarHeight = parseInt(titleBarToken.value, 10);
+
+/** `colour` at `percent` opacity over `ground`, as hex. */
+function blend(colour: string, ground: string, percent: number): string {
+  const channels = (value: string) => [1, 3, 5].map((i) => parseInt(value.slice(i, i + 2), 16));
+  const [top, bottom] = [channels(colour), channels(ground)];
+  return `#${top
+    .map((channel, i) => Math.round((channel * percent + bottom[i] * (100 - percent)) / 100))
+    .map((channel) => channel.toString(16).padStart(2, '0'))
+    .join('')}`;
+}
 
 writeFileSync(
   WINDOW_OUTPUT,

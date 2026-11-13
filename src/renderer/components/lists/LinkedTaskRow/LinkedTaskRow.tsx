@@ -44,22 +44,17 @@ export const LinkedTaskRow = forwardRef<HTMLDivElement, LinkedTaskRowProps>(func
   const shown = onStatusChange ? task.status : picked;
   const flag = showsOverdueFlag(shown, isOverdue(shown, task.dueDate, now));
   return (
+    // The title is the button that opens the task (a click anywhere on the row does too), beside
+    // the status button: a row that was itself a button could not hold one.
     <div
       ref={ref}
-      role={onOpen ? 'button' : undefined}
-      tabIndex={onOpen ? 0 : undefined}
       data-state={state}
+      data-opens={onOpen ? '' : undefined}
       className={cn(styles.row, className)}
       onClick={(event) => {
         if ((event.target as Element).closest('button') == null) onOpen?.();
       }}
-      onKeyDown={(event) => {
-        onKeyDown?.(event);
-        if (event.key === 'Enter' && event.target === event.currentTarget && onOpen) {
-          event.preventDefault();
-          onOpen();
-        }
-      }}
+      onKeyDown={onKeyDown}
       {...props}
     >
       <StatusMenu
@@ -78,7 +73,13 @@ export const LinkedTaskRow = forwardRef<HTMLDivElement, LinkedTaskRowProps>(func
           </button>
         }
       />
-      <span className={styles.title}>{task.title}</span>
+      {onOpen ? (
+        <button type="button" className={cn(styles.title, styles.open)} onClick={onOpen}>
+          {task.title}
+        </button>
+      ) : (
+        <span className={styles.title}>{task.title}</span>
+      )}
       {task.dueDate && (
         <span className={styles.date} data-tone={dueTone(shown, task.dueDate, now)}>
           {formatDue(task.dueDate)}

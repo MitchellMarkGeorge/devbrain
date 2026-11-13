@@ -7,3 +7,5 @@ The strokeless 48px row that every list other than tasks shares with `TaskRow`, 
 - **Right side.** `children` (pills), then `meta`: quiet 12px `subtle-foreground` text right-aligned in `metaWidth` (64px by default) so columns line up from row to row. `actions` (Restore, Delete) appear after the meta while the row is pointed at or focused.
 - **States.** Rest, hover, selected (title in `row-selected-foreground`; `joinPrev`/`joinNext` join neighbours into one block), keyboard focus (the hover tint with a 1px `ring` outline), `muted` (dimmed title). `state` draws hover or focus for pictures.
 - Built on it: `NoteRow`, `ProjectRow`, `TrashRow`.
+
+**Semantics:** a `role="row"` holding one `gridcell` (`display: contents`, so the parts stay the row's flex items) around its parts, so it belongs in a `grid`.

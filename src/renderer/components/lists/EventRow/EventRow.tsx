@@ -56,30 +56,33 @@ export const EventRow = forwardRef<HTMLDivElement, EventRowProps>(function Event
       }}
       {...props}
     >
-      <div className={styles.main}>
-        <ColourBar color={color} height={20} className={styles.bar} />
-        <span className={styles.title}>{event.title}</span>
-        <span className={styles.time}>
-          {!isToday(event.startAt, format.now) && `${format.formatDue(event.startAt)}, `}
-          {eventTimeRange(event, format)}
-          {repeats && ` · ${repeats}`}
-        </span>
-      </div>
-      <div className={styles.side}>
-        {event.meetingUrl && (
-          <Button variant="outline" size="xs" icon={Video} onClick={onJoin}>
-            Join
-          </Button>
-        )}
-        <span
-          className={cn(
-            styles.relative,
-            countdown.tone === 'soon' && styles.soon,
-            countdown.tone === 'today' && styles.today,
+      {/* the row's one cell, which a grid's row needs; `display: contents`, so it lays out nothing */}
+      <div role="gridcell" className={styles.cell}>
+        <div className={styles.main}>
+          <ColourBar color={color} height={20} className={styles.bar} />
+          <span className={styles.title}>{event.title}</span>
+          <span className={styles.time}>
+            {!isToday(event.startAt, format.now) && `${format.formatDue(event.startAt)}, `}
+            {eventTimeRange(event, format)}
+            {repeats && ` · ${repeats}`}
+          </span>
+        </div>
+        <div className={styles.side}>
+          {event.meetingUrl && (
+            <Button variant="outline" size="xs" icon={Video} onClick={onJoin}>
+              Join
+            </Button>
           )}
-        >
-          {countdown.text}
-        </span>
+          <span
+            className={cn(
+              styles.relative,
+              countdown.tone === 'soon' && styles.soon,
+              countdown.tone === 'today' && styles.today,
+            )}
+          >
+            {countdown.text}
+          </span>
+        </div>
       </div>
     </div>
   );

@@ -13,6 +13,11 @@ export interface SetDueDateButtonProps {
   /** opens the picker at first (pictures) */
   defaultOpen?: boolean;
   className?: string;
+  /**
+   * -1 inside a row or card that is itself the tab stop (`TaskRow`, `BoardCard`), so Tab leaves
+   * the list rather than walking every undated task's button
+   */
+  tabIndex?: number;
 }
 
 /**
@@ -25,6 +30,7 @@ export function SetDueDateButton({
   onDueDateChange,
   defaultOpen = false,
   className,
+  tabIndex,
 }: SetDueDateButtonProps) {
   const [open, setOpen] = useState(defaultOpen);
   const { now } = useFormat();
@@ -38,13 +44,14 @@ export function SetDueDateButton({
             icon={CalendarPlus}
             aria-label="Set due date"
             className={cn(styles.button, className)}
+            tabIndex={tabIndex}
             data-set-due=""
           >
             Due
           </Button>
         }
       />
-      <PopoverContent size="auto" align="end">
+      <PopoverContent size="auto" align="end" aria-label="Due date">
         <DatePicker
           today={now}
           onChange={(date) => {

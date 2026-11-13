@@ -8,6 +8,7 @@ import {
   ContextMenuContent,
   ContextMenuTrigger,
   HomeCards,
+  HomeRows,
   HomeMeetingRow,
   HomeRow,
   HomeRowNote,
@@ -81,21 +82,23 @@ function MeetingsSection({ section }: { section: Section<'meetings'> }) {
       onLinkClick={() => goTo('calendar')}
       more={section.more > 0 ? `${plural(section.more, 'more meeting')} today` : undefined}
     >
-      {section.rows.map(({ meeting, current, joinable, muted }) => (
-        <HomeMeetingRow
-          key={meeting.key}
-          event={{ ...meeting.event, startAt: meeting.start, endAt: meeting.end }}
-          calendarColor={colorOf(meeting.event.calendarId)}
-          current={current}
-          muted={muted}
-          onJoin={
-            joinable && meeting.event.meetingUrl
-              ? () => openUrl({ url: meeting.event.meetingUrl! })
-              : undefined
-          }
-          onOpen={() => openEntity({ id: meeting.event.id, startAt: meeting.start })}
-        />
-      ))}
+      <HomeRows>
+        {section.rows.map(({ meeting, current, joinable, muted }) => (
+          <HomeMeetingRow
+            key={meeting.key}
+            event={{ ...meeting.event, startAt: meeting.start, endAt: meeting.end }}
+            calendarColor={colorOf(meeting.event.calendarId)}
+            current={current}
+            muted={muted}
+            onJoin={
+              joinable && meeting.event.meetingUrl
+                ? () => openUrl({ url: meeting.event.meetingUrl! })
+                : undefined
+            }
+            onOpen={() => openEntity({ id: meeting.event.id, startAt: meeting.start })}
+          />
+        ))}
+      </HomeRows>
     </HomeSection>
   );
 }
@@ -111,14 +114,16 @@ function TasksSection({ section }: { section: Section<'tasks'> }) {
       onLinkClick={() => goTo('tasks')}
       more={section.more > 0 ? `${plural(section.more, 'more task')} today` : undefined}
     >
-      {section.rows.map((task) => (
-        <HomeTaskRow
-          key={task.id}
-          task={task}
-          actions={actions}
-          onOpen={() => openEntity({ id: task.id })}
-        />
-      ))}
+      <HomeRows>
+        {section.rows.map((task) => (
+          <HomeTaskRow
+            key={task.id}
+            task={task}
+            actions={actions}
+            onOpen={() => openEntity({ id: task.id })}
+          />
+        ))}
+      </HomeRows>
     </HomeSection>
   );
 }
@@ -155,9 +160,11 @@ function ProjectsSection({ section }: { section: Section<'projects'> }) {
   const goTo = useGoTo();
   return (
     <HomeSection title="Recent projects" link="All projects" onLinkClick={() => goTo('projects')}>
-      {section.rows.map((project) => (
-        <HomeProjectRow key={project.id} project={project} />
-      ))}
+      <HomeRows>
+        {section.rows.map((project) => (
+          <HomeProjectRow key={project.id} project={project} />
+        ))}
+      </HomeRows>
     </HomeSection>
   );
 }

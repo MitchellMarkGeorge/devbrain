@@ -31,7 +31,8 @@
     "test": "tsx scripts/vitest.mts run",
     "test:watch": "tsx scripts/vitest.mts",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build -o dist/storybook"
+    "build-storybook": "storybook build -o dist/storybook",
+    "a11y:storybook": "tsx scripts/axe_storybook.mts"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -43,6 +44,7 @@
     ]
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@electron/rebuild": "^4.1.0",
     "@eslint/js": "^9.39.4",
     "@storybook/react-vite": "^10.6.5",
@@ -55,6 +57,7 @@
     "@types/react-dom": "^18.3.1",
     "@types/turndown": "^5.0.6",
     "@vitejs/plugin-react": "^6.0.2",
+    "axe-core": "^4.14.0",
     "drizzle-kit": "^0.31.10",
     "electron": "^42.4.0",
     "electron-builder": "^26.15.3",

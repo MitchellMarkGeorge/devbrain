@@ -8,7 +8,7 @@ import { HomeRow, HomeRowNote } from '../../home/HomeRow';
 import { Icon } from '../../ui/Icon';
 import { Progress } from '../../ui/Progress';
 import { Heading } from '../../layout/Heading';
-import { HomeCards, HomeSection } from '../../home/HomeSection';
+import { HomeCards, HomeRows, HomeSection } from '../../home/HomeSection';
 import { Kbd } from '../../ui/Kbd';
 import { Logomark } from '../../ui/Logomark';
 import { NoteCard } from '../../notes/NoteCard';
@@ -133,14 +133,16 @@ function HomePage({
 function Meetings() {
   return (
     <HomeSection title="Meetings" link="Calendar" more="1 more meeting today">
-      {SAMPLE_MEETINGS.map((meeting, i) => (
-        <HomeMeetingRow
-          key={meeting.title}
-          event={meeting}
-          current={i === 0}
-          onJoin={i === 0 ? () => {} : undefined}
-        />
-      ))}
+      <HomeRows>
+        {SAMPLE_MEETINGS.map((meeting, i) => (
+          <HomeMeetingRow
+            key={meeting.title}
+            event={meeting}
+            current={i === 0}
+            onJoin={i === 0 ? () => {} : undefined}
+          />
+        ))}
+      </HomeRows>
     </HomeSection>
   );
 }
@@ -154,9 +156,11 @@ function Tasks({ count = 6, projects = true }: { count?: number; projects?: bool
       link={`All ${count} tasks`}
       more={more > 0 ? `${more} more ${more === 1 ? 'task' : 'tasks'} today` : undefined}
     >
-      {shown.map((task) => (
-        <TaskRow key={task.id} task={task} compact />
-      ))}
+      <HomeRows>
+        {shown.map((task) => (
+          <TaskRow key={task.id} task={task} compact />
+        ))}
+      </HomeRows>
     </HomeSection>
   );
 }
@@ -230,14 +234,16 @@ function Projects({ empty = false }: { empty?: boolean }) {
   const count = (done: number, total: number) => (empty ? { done: 0, total: 0 } : { done, total });
   return (
     <HomeSection title="Recent projects" link="All projects">
-      <ProjectRow name="Auth Overhaul" color="blue" {...count(3, 12)} meta="Due Jul 1" />
-      <ProjectRow name="API Gateway v2" color="amber" {...count(4, 10)} meta="Due Jun 30" />
-      <ProjectRow
-        name="ML Platform"
-        color="pink"
-        {...count(6, 10)}
-        meta={empty ? 'Not started' : 'On hold'}
-      />
+      <HomeRows>
+        <ProjectRow name="Auth Overhaul" color="blue" {...count(3, 12)} meta="Due Jul 1" />
+        <ProjectRow name="API Gateway v2" color="amber" {...count(4, 10)} meta="Due Jun 30" />
+        <ProjectRow
+          name="ML Platform"
+          color="pink"
+          {...count(6, 10)}
+          meta={empty ? 'Not started' : 'On hold'}
+        />
+      </HomeRows>
     </HomeSection>
   );
 }

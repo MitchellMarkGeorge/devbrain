@@ -12,6 +12,7 @@ export {
   CommandItem,
   CommandList,
   CommandSeparator,
+  CommandStatus,
   CommandToolbar,
   type CommandDialogProps,
   type CommandGroupProps,

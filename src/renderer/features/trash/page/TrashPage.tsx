@@ -63,7 +63,7 @@ export function TrashPage() {
     items.length > 0 || (anything.data?.pages.some((page) => page.items.length > 0) ?? false);
 
   return (
-    <Page title="Trash">
+    <Page title="Trash" heading="Trash">
       <PageToolbar
         start={
           <ToggleGroup

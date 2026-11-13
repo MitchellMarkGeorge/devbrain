@@ -125,7 +125,7 @@ export function SuggestionMenu<Item>({
         {visible.length === 0 && <div className={styles.empty}>{empty}</div>}
         {visible.map((group, groupIndex) => (
           <Fragment key={group.label}>
-            {groupIndex > 0 && <div role="separator" className={menuStyles.separator} />}
+            {groupIndex > 0 && <div aria-hidden className={menuStyles.separator} />}
             <div role="group" aria-label={group.label}>
               <div className={menuStyles.label} aria-hidden>
                 {group.label}

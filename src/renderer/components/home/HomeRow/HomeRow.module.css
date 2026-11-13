@@ -64,3 +64,7 @@
 .meta[data-tone='overdue'] {
   color: var(--date-overdue);
 }
+/* the row's one gridcell, around its parts: lays out nothing, so the parts stay the row's flex items */
+.cell {
+  display: contents;
+}

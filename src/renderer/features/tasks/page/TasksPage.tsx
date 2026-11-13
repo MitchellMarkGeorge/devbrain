@@ -11,7 +11,7 @@ export function TasksPage() {
   const state = useTasksRouteSearch();
   return (
     <TasksSearchProvider value={state}>
-      <Page title="Tasks">
+      <Page title="Tasks" heading="Tasks">
         <TasksView />
       </Page>
     </TasksSearchProvider>

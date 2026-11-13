@@ -90,7 +90,7 @@ export function DatePill({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger render={pill} />
-      <PopoverContent size="auto" align="start">
+      <PopoverContent size="auto" align="start" aria-label={placeholder}>
         <DatePicker
           value={value ?? undefined}
           today={now}

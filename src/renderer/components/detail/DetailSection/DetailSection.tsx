@@ -49,9 +49,9 @@ export const DetailSection = forwardRef<HTMLElement, DetailSectionProps>(functio
 ) {
   const id = useId();
   const heading = (
-    <h3 id={id} className={styles.title}>
+    <h2 id={id} className={styles.title}>
       {title}
-    </h3>
+    </h2>
   );
   const rest = (
     <>

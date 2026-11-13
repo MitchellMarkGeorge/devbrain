@@ -61,7 +61,7 @@ describe('the title bar', () => {
 
   it('opens the workspace menu from the workspace at its start', async () => {
     await onWorkHome();
-    click(document.querySelector('[aria-label="Workspace: Work"]'));
+    click(byText(document.body, 'button', 'Workspace: Work'));
     await eventually(() => expect(menuItem('New workspace…')).not.toBeNull());
     expect(document.body.textContent).toContain('Home');
   });

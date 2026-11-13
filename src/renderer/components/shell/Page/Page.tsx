@@ -6,6 +6,7 @@ import { cn } from '../../lib/cn';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import { IconButton } from '../../ui/IconButton';
 import { ScrollArea } from '../../ui/ScrollArea';
+import { VisuallyHidden } from '../../layout/VisuallyHidden';
 import { useWorkspaceShell } from '../WorkspaceShell/context';
 import styles from './Page.module.css';
 
@@ -23,6 +24,11 @@ export interface PageProps extends Omit<ComponentPropsWithoutRef<'div'>, 'title'
    * Toolbars (filter, sort, view, "New Task") go in a `PageToolbar` in the page instead.
    */
   actions?: ReactNode;
+  /**
+   * The page's `h1`, for screen readers only, on a page that draws no heading of its own: a list
+   * page ("Tasks"). Detail pages, Home, Settings and Integrations draw theirs. Every page has one.
+   */
+  heading?: string;
   /** classes for the scrolling element (the ScrollArea's viewport) */
   scrollClassName?: string;
 }
@@ -36,7 +42,7 @@ export interface PageProps extends Omit<ComponentPropsWithoutRef<'div'>, 'title'
  * scroller scrolls it whole.
  */
 export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
-  { title, actions, scrollClassName, className, children, ...props },
+  { title, actions, heading, scrollClassName, className, children, ...props },
   ref,
 ) {
   const { titleBarContainer, locationContainer } = useWorkspaceShell();
@@ -66,6 +72,7 @@ export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
         viewportClassName={cn(styles.scrollViewport, scrollClassName)}
         viewportProps={{ 'data-slot': 'page-scroll' } as object}
       >
+        {heading && <VisuallyHidden render={<h1 />}>{heading}</VisuallyHidden>}
         {children}
       </ScrollArea>
     </div>

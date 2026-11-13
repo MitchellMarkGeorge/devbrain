@@ -9,4 +9,6 @@ The command palette on the menu surface: a search row over grouped results, grou
 - Footer band (`CommandFooter`): `muted` at 50% under a `border-strong` line, 10px × 16px, hints 16px apart (`CommandHint`: a `Kbd` and 12px `muted-foreground` text): ↑↓ Navigate, ↵ Open, Tab Change filter.
 - Use for "Link to…" and ⌘K search. Value pickers inside menus (projects) use `ProjectPicker` instead. The editor's "/" and "@" menus are not a Command: the caret stays in the note while they are open, so they are the `SlashMenu` and `MentionMenu`, which the editor drives.
 
+**Accessibility.** The dialog is named by `label` ("Search"); a visually hidden Close button serves a screen reader's own navigation and stays out of the tab order (Esc closes). The results announce their count through a polite `CommandStatus`.
+
 **Base UI:** `Autocomplete` in a `Dialog`, following Base UI's command-palette pattern (it replaces shadcn's cmdk). Styles key off `data-highlighted` on items.

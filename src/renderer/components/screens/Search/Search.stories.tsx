@@ -175,7 +175,9 @@ function SearchPalette({ query: initial, groups }: { query: string; groups: Resu
                     value={item}
                     variant="result"
                     icon={item.icon}
-                    trailing={item.source && <SourcePill>{item.source}</SourcePill>}
+                    trailing={
+                      item.source && <SourcePill interactive={false}>{item.source}</SourcePill>
+                    }
                     description={item.snippet && <CommandMatch text={item.snippet} query={query} />}
                     meta={item.meta}
                   >

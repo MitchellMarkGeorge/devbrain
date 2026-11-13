@@ -79,7 +79,8 @@
 /* Nova's destructive: a tint, never a solid red */
 .destructive {
   background: color-mix(in oklab, var(--destructive) 20%, transparent);
-  color: var(--destructive);
+  /* a step darker than `destructive` in light, for 4.5:1 on the tint */
+  color: var(--destructive-foreground);
 }
 .destructive:hover {
   background: color-mix(in oklab, var(--destructive) 30%, transparent);
