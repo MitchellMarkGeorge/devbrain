@@ -18,6 +18,7 @@ import { SelectionBar } from '../SelectionBar';
 import { ScrollArea } from '../../ui/ScrollArea';
 import type { PickableStatus } from '../../entities/StatusMenu';
 import { TaskRow, type TaskRowData, type TaskRowProps } from '../TaskRow';
+import { useFocusedRowId, useRefocusOnRemoval } from '../row-focus';
 import styles from './TaskList.module.css';
 
 /** One group of a grouped list: its heading, then its rows (none while `collapsed`). */
@@ -55,7 +56,8 @@ export interface TaskListBaseProps extends Omit<
 > {
   /**
    * how many rows the list has in all, loaded or not (`aria-rowcount`), when a count says so;
-   * the loaded rows by default
+   * the loaded rows by default; -1 while more may load and the total is not known (ARIA's
+   * "unknown")
    */
   rowCount?: number;
   /** called when the last rendered row comes within `endReachedThreshold` rows of the end */
@@ -210,15 +212,16 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
   const [selectedState, setSelectedState] = useState<string[]>(defaultSelected);
   const selected = new Set(selectedProp ?? selectedState);
   const [focusedState, setFocusedState] = useState<string | undefined>(undefined);
-  const firstId = taskEntries.length
-    ? idOf((entries[taskEntries[0]] as Extract<Entry, { kind: 'task' }>).task)
-    : undefined;
   const indexOfId = useCallback(
     (id: string | undefined) => (id == null ? -1 : entries.findIndex((e) => e.id === id)),
     [entries],
   );
-  const wanted = focusedIdProp ?? focusedState;
-  const focusedId = indexOfId(wanted) >= 0 ? wanted : firstId;
+  const taskIds = useMemo(
+    () => taskEntries.map((index) => entries[index].id),
+    [entries, taskEntries],
+  );
+  // when the focused row's task leaves the list, the row now in its place has focus
+  const focusedId = useFocusedRowId(taskIds, focusedIdProp ?? focusedState);
 
   const listRef = useRef<HTMLDivElement>(null);
   // the row whose status menu is open, by task id
@@ -282,6 +285,13 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       pendingFocus.current = null;
       row.focus({ preventScroll: true });
     }
+  });
+  const rowDetached = useRefocusOnRemoval({
+    listRef,
+    rows,
+    has: (id) => indexOfId(id) >= 0,
+    focusedId,
+    focus: focusTask,
   });
 
   function setFocused(id: string) {
@@ -412,7 +422,10 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
               ref={(el) => {
                 virtualizer.measureElement(el);
                 if (el) rows.current.set(id, el);
-                else rows.current.delete(id);
+                else {
+                  rowDetached(id);
+                  rows.current.delete(id);
+                }
               }}
               data-index={item.index}
               data-task-id={id}

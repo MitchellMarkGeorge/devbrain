@@ -78,6 +78,14 @@ export function CommandList({ className, ...props }: Autocomplete.List.Props) {
   );
 }
 
+/**
+ * Says how the search went to a screen reader, politely and unseen: "4 results". Keep it mounted
+ * and change its children, so each change is announced.
+ */
+export function CommandStatus(props: Autocomplete.Status.Props) {
+  return <Autocomplete.Status render={<VisuallyHidden render={<div />} />} {...props} />;
+}
+
 /** Shown when nothing matches the search. */
 export function CommandEmpty({ className, ...props }: Autocomplete.Empty.Props) {
   return <Autocomplete.Empty className={mergeClassName(styles.empty, className)} {...props} />;
@@ -234,7 +242,9 @@ export function CommandDialog({
         <Dialog.Backdrop className={styles.backdrop} />
         <Dialog.Popup className={cn(styles.dialog, className)} aria-label={label}>
           {children}
-          <Dialog.Close render={<VisuallyHidden render={<button type="button" />} />}>
+          {/* for a screen reader's own navigation; out of the tab order, as it is never seen
+              (Esc closes) */}
+          <Dialog.Close render={<VisuallyHidden render={<button type="button" tabIndex={-1} />} />}>
             Close
           </Dialog.Close>
         </Dialog.Popup>

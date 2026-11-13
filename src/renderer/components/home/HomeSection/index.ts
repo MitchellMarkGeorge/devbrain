@@ -1,1 +1,8 @@
-export { HomeCards, HomeSection, type HomeCardsProps, type HomeSectionProps } from './HomeSection';
+export {
+  HomeCards,
+  HomeRows,
+  HomeSection,
+  type HomeCardsProps,
+  type HomeRowsProps,
+  type HomeSectionProps,
+} from './HomeSection';

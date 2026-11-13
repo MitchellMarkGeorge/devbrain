@@ -310,3 +310,52 @@ page. The code still says archive: `ArchiveService`, the `archive` router (`arch
 `listArchived`, …), `archivedAt`, `AlreadyArchivedError`/`NotArchivedError` and the `not_archived`
 code the deletes use. Renaming them touches the schema's column names (a rename migration) and every
 caller, so it was left for its own change.
+
+## Accessibility
+
+_Found in the WCAG 2.2 AA audit of milestone 11 (`docs/accessibility.md` says how it was checked)._ Ordered by severity.
+
+### Announce what the list keys change
+
+`S`, `1`–`3`, `X` and ⌘⌫ on a focused row change it without moving focus, so a screen reader hears nothing: the status button's name changes (`TaskRow.tsx`, "Status: In progress") but nothing reads it, and the selection count in the `SelectionBar` appears with its text, which a live region may not read. Trash has its toast. (WCAG 4.1.3, moderate.)
+
+- One polite announcer for the app: a visually hidden `role="status"` mounted once in the root layout, and `useAnnounce()` writing into it. The list actions (`pages/tasks/use-task-actions.ts`, `useListCommands`) call it: "Plan the launch: In progress", "3 selected".
+- Keep it mounted and change its text, clearing it first so the same message twice is read twice.
+
+### Make the board and the card grids one tab stop each
+
+Every `BoardCard` is a tab stop (`BoardCard.tsx`), and so is every `NoteCard` and `ProjectCard` inside `VirtualCardGrid`'s `role="grid"`, which has no arrow keys. A busy board is dozens of Tab presses, and a focused card scrolled out of its column unmounts and drops focus to the page. (2.4.3 and 2.1.1, moderate; dnd-kit's keyboard drag and the status menu already give a keyboard path for moving a card.)
+
+- A roving `tabIndex` per column, its focused card kept by id with `useFocusedRowId` and `useRefocusOnRemoval` (`components/lists/row-focus.ts`), and ↑/↓ (and ←/→ between columns) as list commands, so Vim mode can bind them too.
+- After `S`/`1`–`3` moves a card to another column, focus it there by id.
+- The same for `VirtualCardGrid`: arrows over the rows and columns it already counts.
+
+### Calendar events: one tab stop, and names that carry the time
+
+`eventInteractive` makes every FullCalendar event a tab stop (a busy week is dozens), and short blocks and month chips are named by their title alone, so a screen reader hears no time (`components/calendar/CalendarView/CalendarView.tsx`). Selecting a time range is pointer-only; "New event" in the header is the keyboard alternative. (2.4.3 and 1.3.1, moderate.)
+
+- Name each event in `eventDidMount`: "{title}, {time range}{, Maybe}".
+- Roving focus over the visible events (arrow keys within a day, ←/→ across days), or leave Tab as is and add a skip past the grid.
+- Check FullCalendar's "+N more" popover traps and returns focus.
+
+### Context menus on wrappers return focus to the first row
+
+The tasks list, the board, Trash and Projects wrap the whole list in one `ContextMenuTrigger`. On close Base UI focuses the trigger's first tabbable descendant, so focus lands on the list's tab stop, not the row the menu was opened on (2.4.3, moderate; likely, to confirm in the app). Record the row in `onContextMenu` and pass `finalFocus={() => row}` to `ContextMenuContent`.
+
+### Count the group view's rows
+
+The grouped `TaskList` puts heading and footer rows in the same grid as the tasks, so its `aria-rowindex` counts them, while a page could only give `rowCount` in tasks. The group view passes no count, so a screen reader hears the loaded rows only (1.3.1, minor). Give `aria-rowcount={-1}` while a group has more to load, or count the headings in.
+
+### Scroll viewports inside menus
+
+A menu's items scroll in a `ScrollArea`, whose viewport Base UI makes focusable (`tabIndex` 0) while it overflows. Inside `role="menu"` or `role="listbox"` that is an element the role does not allow and a stray focus target (axe `aria-required-children`; minor, as arrow keys never reach it). Give `MenuScrollArea`'s viewport `tabIndex={-1}` through `viewportProps` if Base UI lets it override, and keep wheel and drag scrolling.
+
+### Toasts: a Close button
+
+Toasts close themselves after 5s, on swipe, or with Esc once F6 has focused them; Base UI pauses the timer while they are pointed at or focused. A visible Close (`Toast.Close`) would let anyone dismiss one without knowing F6 (2.2.1 is met by the pause; minor).
+
+### Accepted, with reasons
+
+- **Mini calendar days are named "Monday, June 1st, 2026" while they show "1"** (axe `label-content-name-mismatch`). react-day-picker's own names; the number is part of the date a speech user would say. Leave.
+- **Base UI's focus guards** are `aria-hidden` spans with `tabIndex=0` (axe `aria-hidden-focus`). They hand focus back into a trapped popup and are never read. Leave.
+- **The skeleton's pulse** stays under reduced motion: an opacity change, not movement (`Skeleton.module.css`).

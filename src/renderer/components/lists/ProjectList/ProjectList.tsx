@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
   type ComponentPropsWithoutRef,
@@ -17,6 +18,7 @@ import { paddingBefore, useVirtualList } from '../../lib/virtual';
 import { SIZE } from '../../../styles/tokens';
 import { ScrollArea } from '../../ui/ScrollArea';
 import { ProjectRow, type ProjectRowData } from '../ProjectRow';
+import { useFocusedRowId, useRefocusOnRemoval } from '../row-focus';
 import styles from './ProjectList.module.css';
 
 /**
@@ -33,7 +35,10 @@ export interface ProjectListProps<Project extends ProjectListRow = ProjectListRo
   'children'
 > {
   projects: Project[];
-  /** how many projects there are in all, loaded or not (`aria-rowcount`); the loaded ones by default */
+  /**
+   * how many projects there are in all, loaded or not (`aria-rowcount`); the loaded ones by default;
+   * -1 while more may load and the total is not known (ARIA's "unknown")
+   */
   rowCount?: number;
   /** called when the last rendered row comes within `endReachedThreshold` rows of the end */
   onEndReached?: () => void;
@@ -119,8 +124,9 @@ function ProjectListInner<Project extends ProjectListRow>(
       id == null ? -1 : projects.findIndex((project) => project.id === id),
     [projects],
   );
-  const wanted = focusedIdProp ?? focusedState;
-  const focusedId = indexOfId(wanted) >= 0 ? wanted : projects[0]?.id;
+  const ids = useMemo(() => projects.map((item) => item.id), [projects]);
+  // when the focused row's item leaves the list, the row now in its place has focus
+  const focusedId = useFocusedRowId(ids, focusedIdProp ?? focusedState);
 
   const virtualizer = useVirtualList({
     scrollerRef: listRef,
@@ -157,6 +163,13 @@ function ProjectListInner<Project extends ProjectListRow>(
     if (row) row.focus({ preventScroll: true });
     else pendingFocus.current = id;
   }
+  const rowDetached = useRefocusOnRemoval({
+    listRef,
+    rows,
+    has: (id) => indexOfId(id) >= 0,
+    focusedId,
+    focus: focusProject,
+  });
 
   useImperativeHandle(ref, () => {
     const focusAt = (index: number) => {
@@ -215,7 +228,10 @@ function ProjectListInner<Project extends ProjectListRow>(
               ref={(el) => {
                 virtualizer.measureElement(el);
                 if (el) rows.current.set(id, el);
-                else rows.current.delete(id);
+                else {
+                  rowDetached(id);
+                  rows.current.delete(id);
+                }
               }}
               data-index={item.index}
               data-project-id={id}

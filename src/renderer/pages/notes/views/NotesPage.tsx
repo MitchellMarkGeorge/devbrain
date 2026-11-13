@@ -1,5 +1,5 @@
 import { Breadcrumb, PageContent, PageToolbar } from '../../../components';
-import { PageHeaderSlot } from '../../app/page-header';
+import { PageHeaderSlot, PageTitle } from '../../app/page-header';
 import { CLEAR_FILTERS } from '../search';
 import { useCreateNote } from '../use-create-note';
 import { useNotesSearch } from '../use-notes-search';
@@ -30,6 +30,7 @@ export function NotesPage() {
           />
         }
       />
+      <PageTitle>Notes</PageTitle>
       <PageToolbar
         start={<NotesFilterMenu resolved={resolved} setSearch={setSearch} />}
         end={<NotesToolbarEnd resolved={resolved} setSearch={setSearch} onNewNote={newNote} />}

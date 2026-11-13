@@ -162,6 +162,11 @@ export interface StatusMenuProps {
   /** where the popup sits against the trigger */
   side?: StatusMenuContentProps['side'];
   align?: StatusMenuContentProps['align'];
+  /**
+   * where focus goes when the menu closes; the trigger by default. A row whose status button is
+   * not a tab stop of its own passes the row (`TaskRow`), so focus comes back to where it was.
+   */
+  finalFocus?: StatusMenuContentProps['finalFocus'];
 }
 
 /**
@@ -177,6 +182,7 @@ export function StatusMenu({
   onOpenChange,
   side,
   align,
+  finalFocus,
 }: StatusMenuProps) {
   const [open, setOpen] = usePickerOpen(openProp, defaultOpen, onOpenChange);
   return (
@@ -186,6 +192,7 @@ export function StatusMenu({
         status={status}
         side={side}
         align={align}
+        finalFocus={finalFocus}
         onPick={(picked) => {
           onStatusChange?.(picked);
           setOpen(false);

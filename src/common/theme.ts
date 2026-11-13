@@ -29,6 +29,6 @@ export const BROWSER_PAGE_COLOURS = {
     background: '#ffffff',
     foreground: '#0a0a0a',
     'foreground-strong': '#0a0a0a',
-    'muted-foreground': '#737373',
+    'muted-foreground': '#636363',
   },
 } as const;

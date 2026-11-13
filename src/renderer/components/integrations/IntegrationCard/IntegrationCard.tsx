@@ -70,9 +70,9 @@ export const IntegrationCard = forwardRef<HTMLElement, IntegrationCardProps>(
           <ProviderTile provider={provider} className={styles.tile} />
           <div className={styles.identity}>
             <div className={styles.nameLine}>
-              <h3 id={nameId} className={styles.name}>
+              <h2 id={nameId} className={styles.name}>
                 {name}
-              </h3>
+              </h2>
               <AccountStatus state={state} />
             </div>
             {meta != null && <div className={styles.meta}>{meta}</div>}

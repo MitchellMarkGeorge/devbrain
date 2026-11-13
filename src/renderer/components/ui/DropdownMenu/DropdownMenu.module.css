@@ -123,9 +123,12 @@
 .destructive > svg {
   color: var(--destructive);
 }
+.destructive[data-highlighted],
+.destructive[data-highlighted] > svg {
+  color: var(--destructive-foreground);
+}
 .destructive[data-highlighted] {
   background: color-mix(in oklab, var(--destructive) 20%, transparent);
-  color: var(--destructive);
 }
 /* `inset`: an item without an icon lines up with the labels of items that have one */
 .inset {

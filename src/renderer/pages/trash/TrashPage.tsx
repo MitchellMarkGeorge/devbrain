@@ -19,6 +19,7 @@ import {
 import { trashListQuery } from './queries';
 import { TRASH_TABS, trashEntityType, type TrashTab } from './search';
 import { TrashList } from './TrashList';
+import { PageTitle } from '../app/page-header';
 import { useTrashActions } from './use-trash-actions';
 import styles from './TrashPage.module.css';
 
@@ -63,6 +64,7 @@ export function TrashPage() {
 
   return (
     <>
+      <PageTitle>Trash</PageTitle>
       <PageToolbar
         start={
           <ToggleGroup

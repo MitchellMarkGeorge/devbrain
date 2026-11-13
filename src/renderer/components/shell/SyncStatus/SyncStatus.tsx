@@ -1,6 +1,7 @@
 import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from 'react';
 import { CircleAlert, CircleCheck, Clock, LoaderCircle, RotateCw, WifiOff } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { VisuallyHidden } from '../../layout/VisuallyHidden';
 import { cn } from '../../lib/cn';
 import { Button } from '../../ui/Button';
 import { Icon } from '../../ui/Icon';
@@ -35,6 +36,16 @@ export interface SyncStatusProps extends Omit<ComponentPropsWithoutRef<'div'>, '
   onRetry?: () => void;
 }
 
+// what the live region says when the state changes: the state alone, so the line's relative time
+// ("Synced 2 min ago") ticking over is never read out
+const ANNOUNCED: Record<SyncState, string> = {
+  synced: 'Synced',
+  syncing: 'Syncing',
+  error: 'Sync failed',
+  'rate-limited': 'Sync paused',
+  offline: 'Offline',
+};
+
 function defaultText(state: SyncState, lastSynced?: string, retryAt?: string): string {
   switch (state) {
     case 'synced':
@@ -60,13 +71,8 @@ export const SyncStatus = forwardRef<HTMLDivElement, SyncStatusProps>(function S
 ) {
   const text = children ?? defaultText(state, lastSynced, retryAt);
   return (
-    <div
-      ref={ref}
-      role="status"
-      data-state={state}
-      className={cn(styles.status, className)}
-      {...props}
-    >
+    <div ref={ref} data-state={state} className={cn(styles.status, className)} {...props}>
+      <VisuallyHidden role="status">{ANNOUNCED[state]}</VisuallyHidden>
       <button type="button" className={styles.main} onClick={onOpen}>
         <Icon icon={ICONS[state]} size={16} className={styles.icon} />
         <span className={styles.text}>{text}</span>

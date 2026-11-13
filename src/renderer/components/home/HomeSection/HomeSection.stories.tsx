@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { TaskPriority, TaskStatus } from '@common/types';
 import { NoteCard } from '../../notes/NoteCard';
 import { TaskRow } from '../../lists/TaskRow';
-import { HomeCards, HomeSection } from './HomeSection';
+import { HomeCards, HomeRows, HomeSection } from './HomeSection';
 import {
   sampleEventLink,
   sampleLinear,
@@ -34,9 +34,11 @@ type Story = StoryObj<typeof meta>;
 export const Meetings: Story = {
   render: (args) => (
     <HomeSection {...args}>
-      {SAMPLE_MEETINGS.map((meeting, i) => (
-        <HomeMeetingRow key={meeting.title} event={meeting} current={i === 0} />
-      ))}
+      <HomeRows>
+        {SAMPLE_MEETINGS.map((meeting, i) => (
+          <HomeMeetingRow key={meeting.title} event={meeting} current={i === 0} />
+        ))}
+      </HomeRows>
     </HomeSection>
   ),
 };
@@ -45,30 +47,32 @@ export const Meetings: Story = {
 export const Tasks: Story = {
   render: () => (
     <HomeSection title="Tasks" link="All 6 tasks" more="3 more tasks today">
-      <TaskRow
-        compact
-        task={sampleTask({
-          title: 'Refactor token refresh logic',
-          status: TaskStatus.IN_PROGRESS,
-          priority: TaskPriority.HIGH,
-          dueDate: storyDate(-4),
-          external: sampleLinear('ENG-131'),
-          project: sampleProject('Auth Overhaul', 'blue'),
-        })}
-      />
-      <TaskRow
-        compact
-        task={sampleTask({
-          title: 'Implement OAuth2 PKCE flow',
-          status: TaskStatus.IN_PROGRESS,
-          priority: TaskPriority.HIGH,
-          dueDate: storyDate(0),
-          external: sampleLinear('ENG-124'),
-          subtaskProgress: { completed: 3, total: 4 },
-          project: sampleProject('Auth Overhaul', 'blue'),
-          link: sampleEventLink('Mitchell / Jesse 1:1', 'green'),
-        })}
-      />
+      <HomeRows>
+        <TaskRow
+          compact
+          task={sampleTask({
+            title: 'Refactor token refresh logic',
+            status: TaskStatus.IN_PROGRESS,
+            priority: TaskPriority.HIGH,
+            dueDate: storyDate(-4),
+            external: sampleLinear('ENG-131'),
+            project: sampleProject('Auth Overhaul', 'blue'),
+          })}
+        />
+        <TaskRow
+          compact
+          task={sampleTask({
+            title: 'Implement OAuth2 PKCE flow',
+            status: TaskStatus.IN_PROGRESS,
+            priority: TaskPriority.HIGH,
+            dueDate: storyDate(0),
+            external: sampleLinear('ENG-124'),
+            subtaskProgress: { completed: 3, total: 4 },
+            project: sampleProject('Auth Overhaul', 'blue'),
+            link: sampleEventLink('Mitchell / Jesse 1:1', 'green'),
+          })}
+        />
+      </HomeRows>
     </HomeSection>
   ),
 };

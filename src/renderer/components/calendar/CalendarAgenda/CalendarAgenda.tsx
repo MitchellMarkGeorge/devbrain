@@ -20,9 +20,9 @@ export const CalendarAgenda = forwardRef<HTMLElement, CalendarAgendaProps>(funct
   const id = useId();
   return (
     <section ref={ref} aria-labelledby={id} className={cn(styles.agenda, className)} {...props}>
-      <h3 id={id} className={styles.heading}>
+      <h2 id={id} className={styles.heading}>
         {title}
-      </h3>
+      </h2>
       <ul className={styles.list}>{children}</ul>
     </section>
   );

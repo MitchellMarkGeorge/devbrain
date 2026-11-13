@@ -34,6 +34,8 @@ export function TasksList({ resolved, search, onClearFilters }: TasksListProps) 
     <TaskListFrame
       loaded={tasks}
       tasks={withoutProjectPill(tasks, resolved.project)}
+      // the total is unknown while more pages may load
+      rowCount={query.hasNextPage ? -1 : undefined}
       onEndReached={() => {
         if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
       }}

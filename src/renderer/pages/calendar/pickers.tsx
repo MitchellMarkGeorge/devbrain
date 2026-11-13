@@ -46,7 +46,7 @@ export function DayPill({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger render={pill} aria-label="Date" />
-      <PopoverContent size="auto" align="start">
+      <PopoverContent size="auto" align="start" aria-label="Date">
         <DatePicker
           value={value}
           today={now}

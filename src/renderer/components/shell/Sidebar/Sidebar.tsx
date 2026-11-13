@@ -9,6 +9,7 @@ import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
 import { Collapsible } from '@base-ui/react/collapsible';
 import { ChevronRight, ChevronsUpDown } from 'lucide-react';
+import { VisuallyHidden } from '../../layout/VisuallyHidden';
 import { cn } from '../../lib/cn';
 import { ColourBar } from '../../ui/ColourBar';
 import { useWorkspaceShell } from '../WorkspaceShell/context';
@@ -153,8 +154,10 @@ export function SidebarWorkspace({
 }: SidebarWorkspaceProps) {
   return (
     <DropdownMenu open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange}>
-      <DropdownMenuTrigger className={styles.workspace} aria-label={`Workspace: ${name}`}>
+      {/* named by its content, "Workspace: Work", so the name holds the words it shows (WCAG 2.5.3) */}
+      <DropdownMenuTrigger className={styles.workspace}>
         <WorkspaceTile letter={name} color={color} />
+        <VisuallyHidden>Workspace: </VisuallyHidden>
         <span className={styles.workspaceName}>{name}</span>
         <Icon icon={ChevronsUpDown} size={12} className={styles.chevron} />
       </DropdownMenuTrigger>

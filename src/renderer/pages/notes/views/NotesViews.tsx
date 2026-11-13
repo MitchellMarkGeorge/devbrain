@@ -44,6 +44,8 @@ export function NotesView({ resolved, search, onClearFilters, onNewNote }: Notes
   // the note whose row or card was right-clicked: the menu is drawn for it
   const [menuNote, setMenuNote] = useState<NoteListItem | null>(null);
   const open = (note: { id: string }) => openEntity({ id: note.id });
+  // the total is unknown while more pages may load
+  const total = query.hasNextPage ? -1 : undefined;
   const more = () => {
     if (query.hasNextPage && !query.isFetchingNextPage) void query.fetchNextPage();
   };
@@ -92,6 +94,7 @@ export function NotesView({ resolved, search, onClearFilters, onNewNote }: Notes
             estimateRowHeight={156 + 16}
             aria-label="Notes"
             onEndReached={more}
+            itemCount={total}
             renderItem={(note) => (
               <NoteCard
                 note={note}
@@ -117,6 +120,7 @@ export function NotesView({ resolved, search, onClearFilters, onNewNote }: Notes
                 onSelectedChange={setSelected}
                 onOpen={open}
                 onEndReached={more}
+                rowCount={total}
               />
             </KeyScope>
             <NotesSelectionBar

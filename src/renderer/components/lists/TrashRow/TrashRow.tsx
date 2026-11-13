@@ -73,10 +73,22 @@ export const TrashRow = forwardRef<HTMLDivElement, TrashRowProps>(function Trash
       actions={
         (onRestore || onDelete) && (
           <>
-            <Button variant="outline" size="xs" icon={RotateCcw} onClick={onRestore}>
+            <Button
+              variant="outline"
+              size="xs"
+              icon={RotateCcw}
+              aria-label={`Restore ${item.title}`}
+              onClick={onRestore}
+            >
               Restore
             </Button>
-            <Button variant="destructive" size="xs" icon={Trash2} onClick={onDelete}>
+            <Button
+              variant="destructive"
+              size="xs"
+              icon={Trash2}
+              aria-label={`Delete ${item.title} forever`}
+              onClick={onDelete}
+            >
               Delete
             </Button>
           </>

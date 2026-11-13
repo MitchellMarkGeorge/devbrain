@@ -131,7 +131,7 @@ describe('a switch', () => {
   it("from the sidebar's workspace menu: navigates to the workspace's link", async () => {
     const main = main3();
     const app = await onWorkTasks(main);
-    click(app.container.querySelector('[aria-label="Workspace: Work"]'));
+    click(byText(app.container, 'button', 'Workspace: Work'));
     await eventually(() =>
       expect(byText(document.body, '[role="menuitemradio"]', 'Side')).not.toBeNull(),
     );

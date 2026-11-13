@@ -189,7 +189,7 @@
 .menu[data-main] {
   gap: var(--space-0-5);
 }
-/* Nova's 32px group label: 12px medium at 70% */
+/* Nova's 32px group label: 12px medium, quieter than the items (`subtle-foreground`, which keeps 4.5:1) */
 .groupLabel {
   display: flex;
   align-items: center;
@@ -200,7 +200,7 @@
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
-  color: color-mix(in oklab, var(--sidebar-foreground) 70%, transparent);
+  color: var(--subtle-foreground);
   font: var(--font-weight-medium) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
   text-align: left;
 }
