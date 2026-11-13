@@ -267,7 +267,13 @@ Electron knows for certain: `webContents.navigationHistory.canGoBack()` and `can
 
 - For: exact, documented and stable, and nothing from TanStack's internals.
 - Against: a new event in `src/common/events.ts`, sent on every navigation, and the arrows update a moment after the page (the answer comes from main). The renderer tests' fake main (`src/renderer/tests/routing/fake-main.ts`) would have to send it too. It sends two booleans, not the location, so the rule against sending the location over IPC still holds.
-- To check: that `navigationHistory` counts a hash change as an entry, as the router does, and what it reports after a reload.
+
+_Checked in milestone 11 (Electron 42.4), and left as it is._ A probe window loaded a page, changed its hash with `pushState`, `location.hash` and `replaceState`, went back twice, reloaded, and went forward:
+
+- `getActiveIndex()` and `length()` behave: a hash change is an entry, `replaceState` is not, and a reload keeps the entries and the index, as the router counts them. `canGoForward()` was right throughout.
+- `canGoBack()` doesn't. Chromium's history manipulation intervention marks an entry the page pushed without a user gesture as skippable, and `canGoBack()` skips those, while the page's own `history.back()` (what the window bar's arrow calls) does not. Pushed from script without a gesture, two entries deep, `canGoBack()` said false; with a gesture, true. Every navigation the app makes after an await (a created task opening, a workspace switch once its open resolves, a redirect) has no gesture, so the arrow would be disabled while Back works.
+
+So `navigation.changed` would have to send `getActiveIndex() > 0` and `getActiveIndex() < length() - 1`: what `useHistoryPosition` already reads from the router, but a moment late, with an event on every navigation and a seed for the first render (`did-navigate` fires before the page subscribes). Not worth it while `tanstack-behaviour.test.ts` pins `__TSR_index`. If an upgrade drops that field, move to Electron's index and length, not `canGoBack()`.
 
 ## Settings
 
