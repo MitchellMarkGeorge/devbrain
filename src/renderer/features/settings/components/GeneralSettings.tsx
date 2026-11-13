@@ -240,6 +240,22 @@ export function PreferencesSettings() {
               />
             }
           />
+          <SettingsRow
+            label="Vim keys"
+            description="Move with h j k l, counts and gg / G. f labels everything you can click."
+            control={
+              <SettingSwitch
+                label="Vim keys"
+                checked={general.keyboardMode === 'vim'}
+                onChange={(on) =>
+                  void set({
+                    path: 'settings.general.keyboardMode',
+                    value: on ? 'vim' : 'default',
+                  })
+                }
+              />
+            }
+          />
         </SettingsGroup>
       </SettingsSection>
       <SettingsSection title="Confirmations">

@@ -3,6 +3,7 @@ export * from './AppShell';
 export * from './CardGrid';
 export * from './Page';
 export * from './Sidebar';
+export * from './StatusLine';
 export * from './SyncStatus';
 export * from './VirtualCardGrid';
 export * from './WindowBar';

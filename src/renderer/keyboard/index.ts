@@ -13,6 +13,7 @@ export {
 } from './default-keymap';
 export {
   DEFAULT_SEQUENCE_TIMEOUT,
+  isTypingTarget,
   KeyDispatcher,
   type KeyDispatcherOptions,
   type KeyboardState,
@@ -37,9 +38,11 @@ export {
   type ListCommandActions,
   type ListKeyTarget,
 } from './list-commands';
-export { DEFAULT_MODE, type Keymap, type KeymapEntry } from './keymap';
+export { DEFAULT_MODE, MODE_ATTRIBUTE, type Keymap, type KeymapEntry } from './keymap';
+export { SET_MODE_COMMAND_ID, VIM_MODES, vimKeymap, type VimMode } from './vim-keymap';
 export { describeKeys, keyLabels, parseKeys, strokeFromEvent, type Stroke } from './keys';
 export { KeyScope, type KeyScopeProps } from './KeyScope';
+export { ModeLine, type ModeLineProps } from './ModeLine';
 export { activeScopes, SCOPES, type Scope } from './scopes';
 export {
   commandShortcut,

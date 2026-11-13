@@ -68,6 +68,6 @@ The shell follows the window frame (`WindowFrameProvider`; README "Window frame"
 - **Windows:** the menu button at the title bar's start; Windows draws its caption buttons over the title bar's right end, where the bar has nothing. In stories (`controls: 'drawn'`) the shell paints the caption buttons.
 - **Linux:** the system draws its own title bar above the window, so the shell's is a row of the toggle, back and forward under it.
 
-The grid is the same on every platform: two rows, `title-bar-height` and the rest, and two columns, the sidebar's and the card's (`bar bar` / `sidebar body`). The title bar is a grid of its own: `sidebar-width`, the middle, and the page's actions.
+The grid is the same on every platform: two rows, `title-bar-height` and the rest, and two columns, the sidebar's and the card's (`bar bar` / `sidebar body`), and a third row, `status status`: the `statusLine` slot, a `StatusLine` in the frame under the card across the whole window, which the app passes while Vim mode is on (the `VimStatusLine` story). The card then sits on it rather than 8px above the window's edge; without one the row is empty and takes no height. The title bar is a grid of its own: `sidebar-width`, the middle, and the page's actions.
 
 **Base UI:** `Drawer` for the hidden sidebar (non-modal while peeking, modal once pinned, which traps focus; Esc, an outside click and a swipe close it). Layout is a CSS grid with a container query on the shell's own width.

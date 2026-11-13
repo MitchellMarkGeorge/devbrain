@@ -11,6 +11,13 @@ import { useAppCommands } from './hooks/use-app-commands';
 import { useMenuCommands } from './hooks/use-menu-commands';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useModalShown } from '@renderer/app/modals';
+import { ModeLine, useKeymap } from '@renderer/keyboard';
+
+// the section a page is in, for the mode line: /app/wsp_…/tasks/tsk_… is "Tasks"
+function sectionOf(pathname: string): string | undefined {
+  const section = pathname.split('/')[3];
+  return section ? section.charAt(0).toUpperCase() + section.slice(1) : undefined;
+}
 
 /**
  * Every page in a workspace: the shell with the sidebar; in its title bar the workspace menu, back
@@ -49,6 +56,8 @@ export function AppLayout() {
   useLayoutEffect(() => {
     if (modalShown) shell.current?.closeDrawer();
   }, [modalShown]);
+  // a keymap with modes (Vim) shows them in the mode line
+  const modal = useKeymap().modes !== undefined;
   return (
     <WorkspaceShell
       controlsRef={shell}
@@ -60,6 +69,7 @@ export function AppLayout() {
       workspace={<WorkspaceMenu />}
       onSearch={openSearch}
       create={<CreateMenu />}
+      statusLine={modal ? <ModeLine context={sectionOf(shown.pathname)} /> : undefined}
     >
       <Outlet />
     </WorkspaceShell>

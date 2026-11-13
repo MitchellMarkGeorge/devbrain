@@ -94,6 +94,7 @@ export class FakeMain {
     confirmBeforeDeleting: true,
     confirmBeforeArchiving: false,
     timeFormat: '12',
+    keyboardMode: 'default',
   };
   readonly calls: Call[] = [];
   readonly events: AppEvents['workspace.changed'][] = [];

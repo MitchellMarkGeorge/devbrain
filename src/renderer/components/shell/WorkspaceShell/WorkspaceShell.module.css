@@ -20,10 +20,13 @@
   display: grid;
   --workspace-sidebar-column: var(--sidebar-width);
   grid-template-columns: var(--workspace-sidebar-column) minmax(0, 1fr);
-  grid-template-rows: var(--title-bar-height) minmax(0, 1fr);
+  grid-template-rows: var(--title-bar-height) minmax(0, 1fr) auto;
+  /* the last row is the status line (Vim mode's mode line), in the frame under the card; empty and
+     no height without one */
   grid-template-areas:
     'bar     bar'
-    'sidebar body';
+    'sidebar body'
+    'status  status';
   width: 100%;
   height: 100%;
   min-height: 0;
@@ -238,6 +241,15 @@
 .shell[data-sidebar='hidden'] .body {
   margin-left: var(--space-2);
 }
+/* with a status line, it is the frame's bottom edge: the card sits on it */
+.shell[data-status-line] .body {
+  margin-bottom: 0;
+}
+.status {
+  grid-area: status;
+  min-width: 0;
+}
+
 /* docking from the open drawer: the sidebar is already where it docks, so nothing slides */
 .shell[data-instant],
 .shell[data-instant] .sidebar > *,

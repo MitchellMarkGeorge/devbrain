@@ -19,6 +19,7 @@ const SETTINGS: AppSettings = {
     confirmBeforeDeleting: true,
     confirmBeforeArchiving: false,
     timeFormat: '12',
+    keyboardMode: 'default',
   },
   tasks: {
     defaultSort: 'priority',

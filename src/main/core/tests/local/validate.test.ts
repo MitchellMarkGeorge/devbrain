@@ -18,6 +18,7 @@ const VALID_SETTINGS = {
       confirmBeforeDeleting: true,
       confirmBeforeArchiving: true,
       timeFormat: '12',
+      keyboardMode: 'default',
     },
     tasks: {
       defaultSort: 'priority',

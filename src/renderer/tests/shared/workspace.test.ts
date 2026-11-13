@@ -13,6 +13,7 @@ const general = (openToLastPage: boolean) => ({
     confirmBeforeDeleting: true,
     confirmBeforeArchiving: false,
     timeFormat: '12' as const,
+    keyboardMode: 'default' as const,
   },
 });
 
