@@ -8,11 +8,15 @@ import {
   type ExternalRef,
   type SearchResult,
 } from '@common/types';
+import { queryClient, trpc } from '../../ipc';
 import { FakeMain, workspace } from './fake-main';
 import { eventually, startApp, stopApps } from './harness';
 
 // ⌘K search as the app mounts it: opened by ⌘K or the sidebar's button, over the fake main's
 // search.search and recents.list.
+//
+// search.search and search.counts answer separately, in either order, so a test that checks the
+// counts waits for them (or holds them), rather than assuming they landed with the results.
 
 const WORK = 'wsp_work' as WorkspaceId;
 
@@ -33,6 +37,10 @@ const filterButton = (label: string) =>
   [...(dialog()?.querySelectorAll<HTMLElement>('[aria-label="Result type"] button') ?? [])].find(
     (button) => button.textContent?.startsWith(label),
   );
+
+// what search.counts answered for `query`, once it has
+const countsOf = (query: string) =>
+  queryClient.getQueryData(trpc.search.counts.queryKey({ query }));
 
 function type(text: string) {
   const field = input();
@@ -149,6 +157,7 @@ describe('⌘K search', () => {
     type('pk');
     type('pkce');
     await eventually(() => expect(optionTexts()).toHaveLength(4));
+    await eventually(() => expect(filterButton('All')?.textContent).toBe('All4'));
     // debounced: the words typed in between were never asked for
     expect(main.callsTo('search.search').map(({ input }) => input)).toEqual([
       { query: 'pkce', entityType: [], limit: 200 },
@@ -157,7 +166,6 @@ describe('⌘K search', () => {
     expect(text).toMatch(/Tasks2/);
     expect(text).toMatch(/Notes1/);
     expect(text).toMatch(/Projects1/);
-    expect(filterButton('All')?.textContent).toBe('All4');
     // a synced task's key as its source pill
     expect(optionTexts()[0]).toContain('ENG-124');
   });
@@ -237,7 +245,7 @@ describe('⌘K search', () => {
       expect(dialog()?.textContent).toContain('No results for “rotation policy”'),
     );
     expect(dialog()?.textContent).toContain('New Task “rotation policy”');
-    expect(filterButton('All')?.textContent).toBe('All0');
+    await eventually(() => expect(filterButton('All')?.textContent).toBe('All0'));
   });
 
   it('keeps Recent and Go to, with no counts, while the first search runs', async () => {
@@ -248,7 +256,7 @@ describe('⌘K search', () => {
     type('pkce');
     await eventually(() => expect(main.callsTo('search.search')).toHaveLength(1));
     // search.counts isn't held: let it answer first, as it can in the app
-    await eventually(() => expect(main.callsTo('search.counts')).toHaveLength(1));
+    await eventually(() => expect(countsOf('pkce')).toBeDefined());
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(optionTexts()).toEqual(before);
     expect(dialog()?.textContent).toContain('Recent');
@@ -263,15 +271,20 @@ describe('⌘K search', () => {
     const { main } = await openSearch();
     type('pkce');
     await eventually(() => expect(optionTexts()).toHaveLength(4));
-    const release = main.hold('search.search');
+    await eventually(() => expect(filterButton('All')?.textContent).toBe('All4'));
+    // the next search, and its counts, wait
+    const releaseSearch = main.hold('search.search');
+    const releaseCounts = main.hold('search.counts');
     main.searchResults = RESULTS.slice(0, 1);
     type('pkce flow');
     await eventually(() => expect(main.callsTo('search.search')).toHaveLength(2));
+    await eventually(() => expect(main.callsTo('search.counts')).toHaveLength(2));
     expect(optionTexts()).toHaveLength(4);
     expect(filterButton('All')?.textContent).toBe('All4');
-    release();
+    releaseSearch();
+    releaseCounts();
     await eventually(() => expect(optionTexts()).toHaveLength(1));
-    expect(filterButton('All')?.textContent).toBe('All1');
+    await eventually(() => expect(filterButton('All')?.textContent).toBe('All1'));
   });
 
   it('keeps the no-results state, naming the query searched, while the next search runs', async () => {
@@ -292,19 +305,24 @@ describe('⌘K search', () => {
     const { main } = await openSearch();
     type('pkce');
     await eventually(() => expect(optionTexts()).toHaveLength(4));
+    await eventually(() => expect(filterButton('All')?.textContent).toBe('All4'));
     type('');
     await eventually(() => expect(dialog()?.textContent).toContain('Go to'));
     // Recent and Go to have no counts
     expect(filterButton('All')?.textContent).toBe('All');
-    const release = main.hold('search.search');
+    const releaseSearch = main.hold('search.search');
+    const releaseCounts = main.hold('search.counts');
     main.searchResults = RESULTS.slice(0, 1);
     type('n');
     // the last search's results, at once, while the new one waits
     await eventually(() => expect(optionTexts()).toHaveLength(4));
     expect(filterButton('All')?.textContent).toBe('All4');
     await eventually(() => expect(main.callsTo('search.search')).toHaveLength(2));
+    await eventually(() => expect(main.callsTo('search.counts')).toHaveLength(2));
     expect(optionTexts()).toHaveLength(4);
-    release();
+    expect(filterButton('All')?.textContent).toBe('All4');
+    releaseSearch();
+    releaseCounts();
     await eventually(() => expect(optionTexts()).toHaveLength(1));
   });
 
