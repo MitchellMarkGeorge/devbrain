@@ -117,6 +117,13 @@ export const vimKeymap: Keymap = {
     normal({ scope: 'global', keys: 'mod+d', command: 'page.duplicate', group: ACT }),
     normal({ scope: 'global', keys: '?', command: 'help.shortcuts', group: FIND, label: 'Keys' }),
     normal({ scope: 'global', keys: 'f', command: 'hints.show', group: FIND, label: 'Hints' }),
+    normal({
+      scope: 'global',
+      keys: ':',
+      command: 'commandLine.open',
+      group: FIND,
+      label: 'Command line',
+    }),
     // in an open menu (Status), j/k are its ↓/↑; elsewhere, from nowhere, they enter the page's
     // list or board
     ...(['j', 'k'] as const).map((keys) =>
@@ -132,8 +139,9 @@ export const vimKeymap: Keymap = {
     ...['j', 'k', 'g g', 'G'].map((keys) =>
       hidden(normal({ scope: 'global', keys, command: 'cursor.enter' })),
     ),
-    // Visual and Hint end with Esc; Insert's Esc is the field's (see `insertMode`)
-    ...(['visual', 'hint'] as const).map(
+    // Visual, Hint and Command end with Esc; Insert's Esc is the field's (see `insertMode`), and
+    // the `:` line's input handles its own
+    ...(['visual', 'hint', 'command'] as const).map(
       (mode): KeymapEntry => ({
         scope: 'global',
         mode,

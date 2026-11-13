@@ -18,6 +18,8 @@ in Storybook mounts it with a demo keymap.
 | `default-keymap.ts`    | the keymap DevBrain ships with, and `createAppCommands(actions)`                   |
 | `vim-keymap.ts`        | Vim mode's keymap (`general.keyboardMode: 'vim'`): modes, counts, Vim's keys       |
 | `ModeLine.tsx`         | Vim's mode line: the shell's `StatusLine`, filled from the dispatcher's state      |
+| `command-line.ts`      | the `:` line's aliases, `completeCommandLine` and `resolveCommandLine`             |
+| `CommandLine.tsx`      | Vim's `:` line: an input in the mode line, completions above it                    |
 | `list-commands.ts`     | `useListCommands(ref, actions)`: the list keys' commands, over a list's ref        |
 | `board-commands.ts`    | `useBoardCommands(columns, actions)`: Vim's board keys, over the columns' handles  |
 | `cursor.ts`            | `cursor.enter` (a first `j` enters the page's list) and `j`/`k` in an open menu    |
@@ -170,6 +172,21 @@ press its ↓/↑).
   Normal; a key no label goes on with is ignored, Backspace takes one back, and Esc, a scroll or a
   resize cancels. Outside a provider `useHintTarget` does nothing, so components call it freely.
 
-Still to build: the `:` command line, and Normal mode inside the editor (a ProseMirror plugin: the dispatcher leaves `contenteditable` alone). Not built:
+- **The `:` line.** `:` (`commandLine.open`, registered by `ModeLine`) puts the keyboard in
+  Command mode, and the mode line becomes `CommandLine`: an input (inside `data-key-mode="command"`,
+  so its focus is Command mode, not Insert) with completions above it, from the registry
+  (`completeCommandLine`): the aliases the text starts (`COMMAND_ALIASES`: a page's name, the tasks
+  page's `list`/`group`/`board` and `sort priority`/`due`/`status`/…, `new`, `search`, and Vim's
+  `u`, `red` and `h`), then commands by id (`list.visual`) or by a word of their title. Tab or ↓
+  picks the next, ⇧Tab or ↑ the one before; ↵ runs the one picked, or the alias or id typed out in
+  full; Esc or Backspace on an empty line cancels. Focus goes back to where it was before `:`, and
+  the command runs there (`dispatcher.run`), in its scopes. `:q` and `:w` aren't aliases: there is
+  no window to close, and everything saves as it's typed.
+- **The keys sheet.** `?` opens the shortcuts dialog, which draws the active keymap in the current
+  mode: with Vim on, the Vim keymap's Normal keys in Figma's sections (Move, Go to, Act, Find), under
+  "Keys · Vim keys on · Esc closes" (`7704:59901`). The same keys bound in two scopes (`j` in a list
+  and on the board) show once.
+
+Still to build: Normal mode inside the editor (a ProseMirror plugin: the dispatcher leaves `contenteditable` alone). Not built:
 `h`/`j`/`k`/`l` over the notes and projects card grids (Figma `7704:59600`), and `yy`, `i` (rename)
 and `/` from the keys sheet, which have no commands yet.

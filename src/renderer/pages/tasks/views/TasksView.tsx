@@ -5,8 +5,9 @@ import { TasksBoard } from './board/TasksBoard';
 import { TasksGroups } from './group/TasksGroups';
 import { TasksList } from './list/TasksList';
 import { TaskSheet } from '../sheet/TaskSheet';
-import { CLEAR_FILTERS } from '../search';
-import { TasksToolbarEnd, TasksToolbarStart } from './TasksToolbar';
+import { CLEAR_FILTERS, SORTS, TASK_VIEWS } from '../search';
+import { SORT_LABELS, TasksToolbarEnd, TasksToolbarStart, VIEW_LABELS } from './TasksToolbar';
+import { useCommands } from '../../../keyboard';
 import { useTasksSearch } from '../use-tasks-search';
 
 /**
@@ -22,6 +23,23 @@ export function TasksView() {
   // the sheet's task stays mounted once `open` leaves the URL, until the sheet has slid out
   const [sheetTask, setSheetTask] = useState(resolved.open);
   if (resolved.open && resolved.open !== sheetTask) setSheetTask(resolved.open);
+  // the toolbar's view and sort, as commands: Vim's `:board`, `:sort priority`
+  useCommands([
+    ...TASK_VIEWS.map((view) => ({
+      id: `view.${view}`,
+      title: `${VIEW_LABELS[view]} view`,
+      scope: 'page' as const,
+      run: () => setSearch({ view, open: undefined }),
+    })),
+    ...SORTS.map((sort) => ({
+      id: `sort.${sort}`,
+      title: `Sort by ${SORT_LABELS[sort].toLowerCase()}`,
+      scope: 'page' as const,
+      run: () => setSearch({ sort, dir: undefined }),
+      // the board has no sort
+      enabled: () => resolved.view !== 'board',
+    })),
+  ]);
   return (
     <>
       <PageToolbar

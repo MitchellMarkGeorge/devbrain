@@ -725,6 +725,10 @@ each piece does):
    buttons, links, fields and focusable leaves are found without it, so a page needs no
    registrations of its own. `f` labels every target on screen (`HintLabel`, in the top-most dialog
    only while one is open), and typing a label runs it.
+4. **The `:` line and `?`.** `:` turns the mode line into `CommandLine`, completing from the
+   registry (ids and titles) and a short list of aliases that mean something here (pages, the tasks
+   page's views and sorts, which it now registers as `view.*` and `sort.*`, `:u`, `:red`, `:h`); a
+   command runs where focus was before `:`. `?` shows the Vim keymap's keys when Vim is on.
 
 **Wiring it in** (milestone 3; the layer itself is built, in `src/renderer/keyboard/`, with its
 `README.md`):
