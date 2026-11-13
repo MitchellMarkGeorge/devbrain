@@ -6,7 +6,7 @@ import {
   PageHeader,
   type WorkspaceShellControls,
 } from '../../components';
-import { ModeLine, useKeymap } from '../../keyboard';
+import { ModeLine, useCommands, useKeymap } from '../../keyboard';
 import { AppSidebar } from './AppSidebar';
 import { PageHeaderProvider, usePageHeaderSlots, useRouteTitle } from './page-header';
 import { useAppCommands } from './use-app-commands';
@@ -25,6 +25,23 @@ export function AppLayout() {
   // the app-wide keys; ⌘\ toggles the shell's sidebar
   const shell = useRef<WorkspaceShellControls>(null);
   useAppCommands({ toggleSidebar: () => shell.current?.toggleSidebar() });
+  // Back and forward, as the window row's arrows (Vim's Ctrl-o / Ctrl-i)
+  useCommands([
+    {
+      id: 'nav.back',
+      title: 'Back',
+      scope: 'global',
+      run: () => router.history.back(),
+      enabled: () => position.canGoBack,
+    },
+    {
+      id: 'nav.forward',
+      title: 'Forward',
+      scope: 'global',
+      run: () => router.history.forward(),
+      enabled: () => position.canGoForward,
+    },
+  ]);
   // a keymap with modes (Vim) shows them in the mode line
   const modal = useKeymap().modes !== undefined;
   return (

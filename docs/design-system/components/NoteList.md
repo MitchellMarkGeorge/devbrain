@@ -13,7 +13,8 @@ are core's `NoteListItem`s as they are (`NoteListRow`: a `NoteRow`'s fields and 
 - **Focus.** The focused row is kept as a note id, so it survives scrolling away; the list is one
   tab stop (the focused row, or the list while that row is out of view). It binds no keys but a
   row's Enter (`onOpen`) and X: the app's keymap moves focus and selects through its `ref`
-  (`NoteListHandle`, a `ListKeyTarget` for `useListCommands`).
+  (`NoteListHandle`, a `ListKeyTarget` for `useListCommands`), with `TaskList`'s Vim parts: `pageSize()`,
+  `itemsFromFocus(n)` and a range (`startRange()`/`endRange()`) that moving focus grows.
 - **Selection**, as `TaskList`'s: each row's checkbox shows on hover and focus, and on every row
   while anything is selected; selected rows next to each other join into one block. X on the
   focused row toggles it. Controlled with `selected` and `onSelectedChange` (note ids), or not,

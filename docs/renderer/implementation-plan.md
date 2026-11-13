@@ -712,6 +712,14 @@ each piece does):
    line is a design-system `StatusLine` in `WorkspaceShell`'s new `statusLine` slot, across the
    window's bottom, filled by the keyboard layer's `ModeLine`. The list keys in Normal are `j`/`k`,
    `gg`/`G`, `o`/↵, `x`, `s`, `*` (favorite: `f` is hints), `l`/`h` (subtasks) and `dd`; `u` undoes.
+2. **Navigation and lists.** `ListKeyTarget` gains optional `pageSize`, `startRange`/`endRange` and
+   `itemsFromFocus`, which `TaskList`, `NoteList`, `ProjectList` and Trash's list implement: half
+   pages (`Ctrl-d`/`Ctrl-u`) and counts become `scrollToIndex` moves, `v`/`V` select by id from the
+   range's first row to the focused one, and `3dd` trashes three. Redo is on the undo stack
+   (`Undoable.redo`, `Ctrl-r`), `.` repeats the last `repeatable` binding. The board's columns get a
+   `handleRef` and `useBoardCommands` (`h`/`l` across, `j`/`k` within, the sheet following the
+   cursor). A first `j` on a page with nothing focused enters its list; `j`/`k` move in menus; the
+   mode line shows what can follow a pending key. Trash's list is one tab stop with the list keys.
 
 **Wiring it in** (milestone 3; the layer itself is built, in `src/renderer/keyboard/`, with its
 `README.md`):

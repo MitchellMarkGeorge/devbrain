@@ -1,7 +1,9 @@
 import { useMemo, type ReactNode } from 'react';
-import { StatusLine, type StatusLineHint, type StatusLineMode } from '../components';
+import { Kbd, StatusLine, type StatusLineHint, type StatusLineMode } from '../components';
 import { entryAppliesInMode, type Keymap } from './keymap';
-import { keyLabels, type Stroke } from './keys';
+import { keyLabels, parseKeys, strokeLabel, type Stroke } from './keys';
+import { activeScopes, type Scope } from './scopes';
+import styles from './ModeLine.module.css';
 import type { Platform } from '../components/lib/platform';
 import { useCommandList, useKeyboard, useKeyboardState } from './KeyboardProvider';
 import { SET_MODE_COMMAND_ID } from './vim-keymap';
@@ -66,6 +68,52 @@ export function modeHints(
   });
 }
 
+/** A key that can follow the strokes typed so far, and what it does: `t` "Tasks" after `g`. */
+export interface Continuation {
+  key: string;
+  label: string;
+}
+
+/**
+ * What can follow `pending` (Figma's which-key popup, `7703:55909`): the next stroke of each
+ * binding in `mode` whose keys start with it, in an active scope, with its command registered, as
+ * the innermost scope binds it. Left out: hidden bindings.
+ */
+export function continuations(
+  keymap: Keymap,
+  pending: readonly Stroke[],
+  mode: string,
+  scopes: readonly Scope[],
+  commands: ReadonlyMap<string, string>,
+  platform: Platform,
+): Continuation[] {
+  if (pending.length === 0) return [];
+  const found = new Map<Stroke, Continuation>();
+  for (const scope of scopes) {
+    for (const entry of keymap.entries) {
+      if (entry.scope !== scope || entry.hidden || !entryAppliesInMode(entry, mode)) continue;
+      const title = commands.get(entry.command);
+      if (title === undefined) continue;
+      let strokes: Stroke[];
+      try {
+        strokes = parseKeys(entry.keys, platform);
+      } catch {
+        continue;
+      }
+      if (strokes.length <= pending.length) continue;
+      if (!pending.every((stroke, i) => strokes[i] === stroke)) continue;
+      const next = strokes[pending.length];
+      if (found.has(next)) continue;
+      const label = strokes.length === pending.length + 1 ? (entry.label ?? title) : '…';
+      found.set(next, {
+        key: strokeLabel(next, { upperCase: keymap.upperCaseKeys ?? true }),
+        label: label.replace(/^Go to /, ''),
+      });
+    }
+  }
+  return [...found.values()];
+}
+
 export interface ModeLineProps {
   /** where the cursor is: the page's title ("Tasks") */
   context?: ReactNode;
@@ -80,7 +128,23 @@ export function ModeLine({ context }: ModeLineProps) {
   const { keymap, platform } = useKeyboard();
   const { mode, pending, count } = useKeyboardState();
   const commands = useCommandList();
-  const registered = useMemo(() => new Set(commands.map((command) => command.id)), [commands]);
+  const titles = useMemo(
+    () => new Map(commands.map((command) => [command.id, command.title])),
+    [commands],
+  );
+  const registered = useMemo(() => new Set(titles.keys()), [titles]);
+  // read as the keys are typed: where focus is says which scopes' bindings can follow
+  const next =
+    pending.length > 0
+      ? continuations(
+          keymap,
+          pending,
+          mode,
+          activeScopes(document.activeElement, document),
+          titles,
+          platform,
+        )
+      : [];
   const hints = useMemo(
     () => modeHints(keymap, mode, registered, platform),
     [keymap, mode, registered, platform],
@@ -94,6 +158,21 @@ export function ModeLine({ context }: ModeLineProps) {
       context={context}
       pending={pendingText(count, pending)}
       hints={hints}
+      popup={
+        next.length > 0 && (
+          <div className={styles.whichKey} aria-label="Keys that can follow">
+            <span className={styles.typed}>{pending.join(' ')} …</span>
+            <ul className={styles.keys}>
+              {next.map(({ key, label }) => (
+                <li key={key} className={styles.row}>
+                  <Kbd variant="raised">{key}</Kbd>
+                  {label}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )
+      }
     />
   );
 }

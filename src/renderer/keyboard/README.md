@@ -19,6 +19,8 @@ in Storybook mounts it with a demo keymap.
 | `vim-keymap.ts`        | Vim mode's keymap (`general.keyboardMode: 'vim'`): modes, counts, Vim's keys       |
 | `ModeLine.tsx`         | Vim's mode line: the shell's `StatusLine`, filled from the dispatcher's state      |
 | `list-commands.ts`     | `useListCommands(ref, actions)`: the list keys' commands, over a list's ref        |
+| `board-commands.ts`    | `useBoardCommands(columns, actions)`: Vim's board keys, over the columns' handles  |
+| `cursor.ts`            | `cursor.enter` (a first `j` enters the page's list) and `j`/`k` in an open menu    |
 | `shortcuts.ts`         | the shortcuts dialog's sections, and a command's keys (`commandShortcut`, for ⌘K)  |
 | `ShortcutsDialog.tsx`  | the shortcuts dialog (Figma `7426:43880`)                                          |
 | `hints.ts`             | `useHintTarget(ref, action)`: a no-op until Vim's `f` hints                        |
@@ -124,11 +126,38 @@ Visual's and Hint's Esc bind it with `{ mode: 'normal' }`. The workspace layout 
 in the shell's `statusLine` slot while the keymap has modes: the shell's `StatusLine` with the mode,
 the page's title, the count and keys typed so far, and the mode's keys on the right.
 
-In Normal mode the list keys are `j`/`k` (and the arrows), `gg`/`G`, `o` or ↵ to open, `x` to
-select, `s` for the status menu, `*` to favorite (as `f` is hints), `l`/`h` to show and hide
-subtasks and `dd` to move to trash; everywhere, `g h`/`g t`/…, `c` for a new task, `u` to undo and
-`?` for the keys. `1`–`3` are counts in Vim; Status picks with them once `s` has opened it.
+**Keys in Normal mode.** Lists: `j`/`k` (and the arrows) with counts (`5j`), `gg`/`G`,
+`Ctrl-d`/`Ctrl-u` (half the rows in view, `ListKeyTarget.pageSize`), `o` or ↵ to open, `x` to
+select, `v` or `V` for a range, `s` for the status menu, `*` to favorite (as `f` is hints), `l`/`h`
+to show and hide subtasks, and `dd` to move to trash (`3dd`: the focused row and the two after it,
+`itemsFromFocus`). Everywhere: `g h`/`g t`/…, `Ctrl-o`/`Ctrl-i` back and forward, `c` for a new
+task, `u` to undo, `Ctrl-r` to redo, `.` to repeat, `?` for the keys. `1`–`3` are counts in Vim;
+Status picks with them once `s` has opened it, and `j`/`k` move in it (`menu.down`/`menu.up`, which
+press its ↓/↑).
 
-Still to build: Visual ranges, `Ctrl-d`/`Ctrl-u`, redo and `.`, the board, the which-key popup, `f`
-hints (filling in `useHintTarget`), the `:` command line, and Normal mode inside the editor (a
-ProseMirror plugin: the dispatcher leaves `contenteditable` alone).
+- **From nowhere.** With focus on no list or board (a page just opened, or Esc left a field), the
+  first `j`, `k`, `gg` or `G` runs `cursor.enter`, which focuses the page's list or board at its
+  focused row; the next key moves.
+- **Visual.** `v` (`list.visual`) starts a range at the focused row (`ListKeyTarget.startRange`)
+  and puts the keyboard in Visual; the list then selects from that row to the focused one as focus
+  moves, so `j`/`k`, `gg`/`G` and half pages grow it. `x` keeps it and goes back to Normal, Esc
+  drops it, and a row key (`s`, `*`, `d`) acts on it and ends it (`endRange`). A selected row's
+  status menu sets the status of the whole selection.
+- **The board.** `useBoardCommands(columns, actions)` registers `board.*` in the `board` scope, over
+  each `BoardColumn`'s `handleRef`: `j`/`k` within a column, `h`/`l` to the next column with cards
+  (at the same place, or its last), past the edge `actions.leave` (the tasks board focuses the
+  sidebar's page, or an open sheet); `gg`/`G`, `o`, `*`, `dd`, and Esc to close the sheet. Once the
+  sheet is open it follows the cursor (`actions.moved`).
+- **Undo, redo and repeat.** An `Undoable` may have a `redo`; `UndoStack.undo` (and the toast's
+  `take`) puts an entry that has one on a redo stack, `redo` (`app.redo`, `Ctrl-r`) does it again
+  and puts it back, and a new entry empties the redo stack. Moving to trash redoes by moving them
+  again. A keymap entry marked `repeatable` (`dd`, `*`) is remembered with its args and count when
+  its keys run it, and `dispatcher.repeat(count)` (`app.repeat`, `.`) runs it again where focus is
+  now, with a new count if one was typed (`3.`).
+- **The which-key popup.** While a sequence is pending (`g`), the mode line lists what can follow
+  in the scopes where focus is (`continuations`), as Figma's `7703:55909` does.
+
+Still to build: `f` hints (filling in `useHintTarget`), the `:` command line, and Normal mode
+inside the editor (a ProseMirror plugin: the dispatcher leaves `contenteditable` alone). Not built:
+`h`/`j`/`k`/`l` over the notes and projects card grids (Figma `7704:59600`), and `yy`, `i` (rename)
+and `/` from the keys sheet, which have no commands yet.

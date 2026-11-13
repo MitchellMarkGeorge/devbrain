@@ -32,6 +32,8 @@ export interface KeymapEntry {
    * binds ⌘K to Link, so search's ⌘K leaves this off
    */
   allowInEditor?: boolean;
+  /** a change Vim's `.` does again (`dd`, `*`): the dispatcher keeps the last one run by its keys */
+  repeatable?: boolean;
   /** the shortcuts dialog's section; by default the scope's ("Everywhere" for `global`) */
   group?: string;
   /** the shortcuts dialog's row label, when not the command's title ("Down / up") */
