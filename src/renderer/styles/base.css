@@ -104,3 +104,10 @@ body {
   );
   --title-bar-end: calc(var(--caption-buttons-width) + var(--space-4));
 }
+
+/* a page's title or the page itself, focused as the page opens (pages/app/use-page-focus.ts): a
+   place to start from, not a control, so no ring */
+main[tabindex='-1']:focus,
+main h1[tabindex='-1']:focus {
+  outline: none;
+}

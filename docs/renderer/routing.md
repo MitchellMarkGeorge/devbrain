@@ -163,6 +163,17 @@ switch, a delete, quit). It must be kept per workspace: the URL moves to the nex
 a switch starts, before the old one closes. Main reads it back for the window's first route, and the
 index route reads it from the opened workspace's info. Nothing goes over IPC as the user navigates.
 
+## Focus on a new page
+
+A page swap unmounts what had focus (the row that opened a task, the task page Back leaves), so
+focus would fall to the document: Tab would start again at the sidebar, and the list keys, whose
+scope is read from the focused element, would do nothing. The workspace layout's `usePageFocus`
+(`pages/app/use-page-focus.ts`) runs a frame after the path changes and, only when focus was lost,
+focuses the new page's list row (its one tab stop), else its `h1`, else `<main>` (the last two
+with `tabIndex=-1` and no ring). A search change (a filter, a sheet's `open`) moves nothing, and
+focus a page placed itself (an editor's autofocus) is left alone. Back lands on the list's first
+row, not the one that opened the task: remembering that row in the history entry is a follow-up.
+
 ## TanStack Router behaviours relied on
 
 Checked against `@tanstack/react-router` 1.170.46 in `src/renderer/tests/routing/tanstack-behaviour.test.ts`;
