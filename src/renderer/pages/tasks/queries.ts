@@ -1,5 +1,5 @@
 import { queryOptions, type InfiniteData, type QueryClient } from '@tanstack/react-query';
-import type { TaskId } from '@common/ids';
+import type { ProjectId, TaskId } from '@common/ids';
 import {
   LinkState,
   type Event,
@@ -109,6 +109,18 @@ export function prefetchTaskSheet(queryClient: QueryClient, id: TaskId) {
   const staleTime = 10_000;
   void queryClient.prefetchQuery({ ...trpc.tasks.get.queryOptions({ id }), staleTime });
   void queryClient.prefetchInfiniteQuery({ ...subtasksQuery(id), staleTime });
+}
+
+/**
+ * The tasks as a list fixed to one project draws them (a project's page, or the project filter):
+ * without that project's pill on every row, as it says nothing there.
+ */
+export function withoutProjectPill<T extends Pick<TaskListItem, 'project'>>(
+  tasks: T[],
+  project: ProjectId | 'none' | undefined,
+): T[] {
+  if (!project || project === 'none') return tasks;
+  return tasks.map((task) => (task.project?.id === project ? { ...task, project: null } : task));
 }
 
 /** A synced task: its provider owns its fields (status, priority, dates, project, title). */

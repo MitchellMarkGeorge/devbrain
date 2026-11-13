@@ -65,6 +65,13 @@
 .outline .tab:focus-visible {
   border-color: var(--ring);
 }
+/* lg: 36px tabs in 16px, 14px in from their sides (an item's sub-pages at the top of its page) */
+.outline.lg .tab {
+  height: var(--control-lg);
+  padding: 0 14px;
+  font-size: var(--text-base);
+  line-height: var(--text-base-leading);
+}
 
 /* ---------- default: the segmented control, drawn and sized as ToggleGroup's ---------- */
 .segmented .list {
@@ -126,6 +133,15 @@
 }
 .line .tab:focus-visible {
   border-radius: var(--radius-xs);
+}
+/* lg: 14px medium labels with their icons, 24px apart, 10px over the underline (an item's sub-pages) */
+.line.lg .list {
+  gap: var(--space-6);
+}
+.line.lg .tab {
+  padding-bottom: 10px;
+  font-size: var(--text-sm);
+  line-height: var(--text-sm-leading);
 }
 .line .indicator {
   display: block;

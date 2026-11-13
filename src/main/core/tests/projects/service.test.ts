@@ -500,6 +500,25 @@ describe('ProjectService — getProjectStats', () => {
     expect(stats.numOfOverdue).toBe(2);
   });
 
+  it('does not count a task due today as overdue, as the tasks list does not', () => {
+    const project = projects.createProject({ title: 'Project' });
+    const now = new Date();
+    // due dates are days: today's is its midnight, already past
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    tasks.createTask({ title: 'Due today', dueDate: today, projectId: project.id });
+    tasks.createTask({ title: 'Due yesterday', dueDate: YESTERDAY, projectId: project.id });
+
+    expect(projects.getProjectStats(project.id).numOfOverdue).toBe(1);
+    expect(projects.listProjects().items[0].stats.numOfOverdue).toBe(1);
+    // the same task the tasks list's Overdue filter finds
+    const overdue = tasks.listTasks({
+      projectId: project.id,
+      dueBefore: today,
+      excludeClosed: true,
+    });
+    expect(overdue.items.map((task) => task.title)).toEqual(['Due yesterday']);
+  });
+
   it('does not count tasks from other projects', async () => {
     const projectA = projects.createProject({ title: 'A', dueDate: TOMORROW });
     const projectB = projects.createProject({ title: 'B', dueDate: TOMORROW });

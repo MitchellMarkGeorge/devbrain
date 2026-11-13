@@ -16,9 +16,10 @@ the `Screens/*` stories, `docs/design-system/README.md`, `docs/ipc/design.md` an
 > Recents, Favorites and sync in the sidebar, the page header slot, `FormatProvider`) and
 > milestone 4 (Tasks: list, group and board views, the task sheet, the task page, Create task and
 > Create subtask), milestone 5 (Notes: list and cards, the note page with autosave and its tasks,
-> `useEntityResolver`), milestone 7 (Calendar: week, day and month from the URL, the visibility
-> filter, the right panel, the event sheet with occurrence editing, Create event), milestone 8
-> (Home) and milestone 9 (⌘K search, with R1) are built, with the
+> `useEntityResolver`), milestone 6 (Projects: list and cards, the project page with its tabs,
+> Create project), milestone 7 (Calendar: week, day and month from the URL, the visibility filter,
+> the right panel, the event sheet with occurrence editing, Create event), milestone 8 (Home) and
+> milestone 9 (⌘K search, with R1) are built, with the
 > **URL-driven workspace model** ([routing.md](routing.md)): every page in a workspace is under
 > `/app/<its id>/…`, main picks the window's first URL, and switching is navigating. Revised after
 > review (Nov 6 2026): FullCalendar for the calendar, `/app/trash`, a create-workspace dialog
@@ -863,8 +864,7 @@ Figma `7158:15157` (list), `7158:15487` (cards), `7159:12540` / `7159:13218` / `
 (page tabs), `7424:39896` (status menu), `7424:40578` (menu), `7424:41240` (no tasks).
 
 - **List / cards**: `ProjectRow` / `ProjectCard` (in `CardGrid`, 3 columns, 2 in compact). Progress
-  needs each project's task counts: `projects.stats` per visible project today (N+1), one list call
-  after P1.
+  comes from each list item's `stats` (P1), with no call per row.
 - **Page**: `ProjectHeader` (title, status menu → `projects.updateStatus`, dates, progress,
   description in `RichTextEditor`), `Tabs` Overview / Tasks / Notes in `?tab`:
   - Overview: task groups by status (`GroupHeading` + `TaskList`, collapsible), "+ Add task".
@@ -1376,7 +1376,47 @@ linkedTaskId } })`), separate from the task's event or note link.
      The task note dialog (dropped in milestone 4) is not coming back.
    - The "…" menu's Duplicate (⌘D, then the copy's page) and Copy as Markdown, and the row menu's
      Copy as Markdown, call C2 and C3 (`notes.duplicate`, `notes.toMarkdown`).
-6. **Projects.** List and cards, project page with tabs, create project dialog. _Main:_ P1, C4.
+6. **Projects (done).** List and cards, project page with tabs, create project dialog. _Main:_ P1,
+   C4. As built (`src/renderer/pages/projects`):
+   - Layout as Tasks': `search.ts`, `queries.ts`, `loaders.ts`, `route-api.ts`,
+     `use-project-actions.ts` at the folder's root; `views/` the Projects page; `detail/` the
+     project page and its tabs; `create/` the Create project dialog. The routes are
+     `routes/app/$workspaceId/projects/index.tsx` and `$projectId.tsx`.
+   - The list is a `ProjectList` (new in `lists/`, as `NoteList`: virtualized `ProjectRow`s, focus
+     and selection by id); the cards a `VirtualCardGrid` of `ProjectCard`s, whose status pill
+     opens the status menu. Selected rows show a selection bar with Status, Favorite and Move to
+     trash, run one project at a time (no bulk project routes); the list keys open (↵), select
+     (X), favorite (F) and trash (⌘⌫). Rows and cards have a right-click menu (Open, Favorite,
+     Move to trash).
+   - The Tasks tab is the tasks page's views (`pages/tasks/views/TasksView`) with the project fixed:
+     the views read their state from a `TasksSearchProvider` (`use-tasks-search.ts`), which the
+     tasks page fills from its URL and the Tasks tab from the project page's (its params beside
+     `tab`, the project left out). The Filter menu then has no Project, Group by no "Project" (it
+     groups by status), and New Task and "Add task" file the task in the project.
+   - The Overview follows Linear's project page: the project as a document on the left (at most
+     720px) and a rail of cards on the right (one column, the rail under, below 1180px). The document is the header (the tile in the project's colour, which opens Change
+     colour; the name as an `EditorTitle size="lg"`, saved as a task's title is; status and
+     dates as pills with how long is left; the description), then Open tasks (the soonest due
+     first, eight compact rows without the linked note's pill, an "Add task…" `QuickAddRow` that
+     creates the task in the project, and "N more in Tasks") and Recently completed (three). The
+     rail's cards are Progress (the percent, a bar split by status, and a row per status and
+     for the overdue tasks, each opening the Tasks tab on them) and the latest notes, with "+"
+     for a new one. This replaces Figma's full-width groups (`7159:12540`). With no tasks, Open
+     tasks says "No tasks in this project yet." over the "Add task…" row and Move Tasks Here (the
+     Tasks page's tasks in no project).
+   - `ProjectHeader` takes its tile, name and "time left" as slots (`icon`, `title`, `meta`) and
+     `duePicker`/`startPicker` (clearable dates); its progress pill and "+ Add" are gone. The tabs
+     are `Tabs variant="line" size="lg"` (underlined, with icons). "N overdue" opens the Tasks
+     tab's list view filtered to overdue tasks; core's `numOfOverdue` counts tasks due before
+     today, as that filter and the rows do (it counted those due earlier today too). Colours are
+     stored as `#rrggbb` (`workspace/colors.ts`'s `SWATCH_HEX`), as `projects.update` takes no
+     swatch names; "Change colour" is a submenu of the six swatches rather than the editor's
+     `ColourMenu`.
+   - The Notes tab draws `NoteCard`s and opens them on the note page with `useOpenEntity`. New note (the menu's and the tab's) creates an empty note in the project and
+     opens it. Copy as Markdown calls C3 (`projects.toMarkdown`).
+   - New project is the `project.new` app command (no key: ⌘K lists it), the Projects page's New
+     Project and its empty state, and Home's Get started "Start a project". The plan names no
+     sidebar entry for it.
 7. **Calendar.** Add FullCalendar; `CalendarView` themed to the `TimeGrid`/`MonthGrid` guides,
    with its guide and stories, then retire those two; `toEventInput` and `occurrencesBetween` with
    tests (settle the adapter spec's `TZID` checks first); week/day/month from the URL; right panel

@@ -34,21 +34,24 @@ export const editorContentClassName = styles.content;
 export interface EditorTitleProps extends ComponentPropsWithoutRef<'h1'> {
   /** shown while the title is empty: "Untitled" */
   placeholder?: string;
+  /** `default`: 24px, a note's or task's; `lg`: 30px, a project's, the page over its work */
+  size?: 'default' | 'lg';
 }
 
 /**
- * A note's title over its content: the 24px semibold document title, "Untitled" in
- * `subtle-foreground` while it is empty. Make it `contentEditable` or render an input through it.
+ * A note's title over its content: the 24px semibold document title (30px at `lg`), "Untitled"
+ * in `subtle-foreground` while it is empty. Make it `contentEditable` or render an input through
+ * it.
  */
 export const EditorTitle = forwardRef<HTMLHeadingElement, EditorTitleProps>(function EditorTitle(
-  { placeholder = 'Untitled', className, ...props },
+  { placeholder = 'Untitled', size = 'default', className, ...props },
   ref,
 ) {
   return (
     <h1
       ref={ref}
       data-placeholder={placeholder}
-      className={cn(styles.title, className)}
+      className={cn(styles.title, size === 'lg' && styles.titleLg, className)}
       {...props}
     />
   );

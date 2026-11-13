@@ -9,11 +9,17 @@ export const tabsVariants = cva(styles.root, {
   variants: {
     /**
      * `outline` (the default): page sections, drawn as ToggleGroup's outline variant;
-     * `default`: the segmented control; `line`: an underline (no screen uses it yet)
+     * `default`: the segmented control; `line`: an underline (a project's Overview / Tasks / Notes,
+     * at `lg`)
      */
     variant: { outline: styles.outline, default: styles.segmented, line: styles.line },
+    /**
+     * `default`; `lg`: outline, 36px tabs in 16px; line, 14px labels 24px apart, for an item's
+     * sub-pages at the top of its page (a project's Overview / Tasks / Notes)
+     */
+    size: { default: undefined, lg: styles.lg },
   },
-  defaultVariants: { variant: 'outline' },
+  defaultVariants: { variant: 'outline', size: 'default' },
 });
 
 export interface TabsProps extends BaseTabs.Root.Props, VariantProps<typeof tabsVariants> {}
@@ -23,7 +29,7 @@ export interface TabsProps extends BaseTabs.Root.Props, VariantProps<typeof tabs
  * (Overview / Tasks / Notes). Compose `TabsList` with `TabsTab`s, then a `TabsPanel` for each.
  */
 export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
-  { variant, className, ...props },
+  { variant, size, className, ...props },
   ref,
 ) {
   return (
@@ -31,7 +37,7 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
       ref={ref}
       data-slot="tabs"
       data-variant={variant ?? 'outline'}
-      className={mergeClassName(tabsVariants({ variant }), className)}
+      className={mergeClassName(tabsVariants({ variant, size }), className)}
       {...props}
     />
   );

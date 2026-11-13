@@ -202,7 +202,7 @@ export const Overview: Story = {
       </div>
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '32px 64px' }}>
         <ProjectHeader
-          {...AUTH_OVERHAUL}
+          project={AUTH_OVERHAUL.project}
           description={
             <>
               <p>

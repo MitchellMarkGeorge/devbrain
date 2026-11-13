@@ -1,0 +1,29 @@
+/* A virtualized list of ProjectRows. See docs/design-system/components/ProjectList.md */
+/*
+ * Its own scroller, a ScrollArea (the scrollbar drawn over its edge, taking no width): it fills the
+ * height its container gives it, or grows to its rows
+ */
+.list {
+  position: relative;
+  flex: 1 1 auto;
+}
+.viewport {
+  display: flex;
+  flex-direction: column;
+  overscroll-behavior: contain;
+  /* the virtualizer keeps the rows in place as they measure; the browser should not move them too */
+  overflow-anchor: none;
+}
+/* the rows show focus; the list itself never draws a ring */
+.viewport.viewport:focus-visible {
+  outline: none;
+}
+/*
+ * The whole list's height, so the scrollbar is the whole list's. Only the rows in view are drawn,
+ * in normal flow in index order, after a padding of the space the rows above them would take.
+ */
+.rows {
+  flex: none;
+  box-sizing: border-box;
+  width: 100%;
+}

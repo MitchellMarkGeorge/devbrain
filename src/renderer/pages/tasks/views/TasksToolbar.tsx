@@ -186,19 +186,25 @@ export function FilterMenu({
   setSearch: SetSearch;
 }) {
   const { size } = useWorkspaceShell();
-  const { search } = useTasksSearch();
+  // a project's Tasks tab has its project fixed: no Project filter
+  const { search, project: fixedProject } = useTasksSearch();
   const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
   // the status the page shows with none in the URL: Open, or All with completed tasks shown
   const defaultStatus = resolveTasksSearch({}, settings).status;
   const projects = useProjectOptions();
-  const projectName = projects.find((project) => project.id === resolved.project)?.name;
+  const projectName = fixedProject
+    ? undefined
+    : projects.find((project) => project.id === resolved.project)?.name;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
           <Button
             icon={ListFilter}
-            value={filterValue(resolved, projectName)}
+            value={filterValue(
+              fixedProject ? { ...resolved, project: undefined } : resolved,
+              projectName,
+            )}
             hideValue={size === 'compact'}
           >
             Filter
@@ -238,30 +244,36 @@ export function FilterMenu({
             }))}
             onChange={(priority) => setSearch({ priority })}
           />
-          <DropdownMenuFilter>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger icon={Folder}>Project</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent width="lg">
-                <ProjectItems
-                  projectId={
-                    resolved.project === 'none' ? null : (resolved.project as ProjectId | undefined)
-                  }
-                  onPick={(project) => setSearch({ project: project === null ? 'none' : project })}
-                />
-                {resolved.project && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      icon={CircleSlash}
-                      onClick={() => setSearch({ project: undefined })}
-                    >
-                      Any project
-                    </DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          </DropdownMenuFilter>
+          {!fixedProject && (
+            <DropdownMenuFilter>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger icon={Folder}>Project</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent width="lg">
+                  <ProjectItems
+                    projectId={
+                      resolved.project === 'none'
+                        ? null
+                        : (resolved.project as ProjectId | undefined)
+                    }
+                    onPick={(project) =>
+                      setSearch({ project: project === null ? 'none' : project })
+                    }
+                  />
+                  {resolved.project && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        icon={CircleSlash}
+                        onClick={() => setSearch({ project: undefined })}
+                      >
+                        Any project
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            </DropdownMenuFilter>
+          )}
           <FilterSubmenu
             icon={Calendar}
             label="Due"
@@ -300,6 +312,11 @@ export function GroupByMenu({
   setSearch: SetSearch;
 }) {
   const { size } = useWorkspaceShell();
+  const { project: fixedProject } = useTasksSearch();
+  // within one project, grouping by project makes one group
+  const groupBys = (Object.keys(GROUP_BY_LABELS) as GroupBy[]).filter(
+    (groupBy) => !fixedProject || groupBy !== 'project',
+  );
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -320,7 +337,7 @@ export function GroupByMenu({
             value={resolved.groupBy}
             onValueChange={(group_by: string) => setSearch({ group_by: group_by as GroupBy })}
           >
-            {(Object.keys(GROUP_BY_LABELS) as GroupBy[]).map((groupBy) => (
+            {groupBys.map((groupBy) => (
               <DropdownMenuRadioItem key={groupBy} value={groupBy} icon={GROUP_BY_ICONS[groupBy]}>
                 {GROUP_BY_LABELS[groupBy]}
               </DropdownMenuRadioItem>

@@ -29,6 +29,7 @@ import { useOpenEntity } from '../app/use-open-entity';
 import { TaskMenuItems } from '../tasks/menus/TaskMenus';
 import { useTaskActions } from '../tasks/use-task-actions';
 import type { HomeSectionChoice, SetupStep } from './summary';
+import { useCreateProject } from '../projects/create/use-create-project';
 
 type Section<K> = Extract<NonNullable<HomeSectionChoice>, { kind: K }>;
 
@@ -222,11 +223,12 @@ const SETUP: Record<SetupStep, { title: string; description: string }> = {
 };
 
 /**
- * The steps of a new workspace. The providers connect on Integrations; Start a project goes to
- * Projects until the Create project dialog lands.
+ * The steps of a new workspace. The providers connect on Integrations; Start a project opens the
+ * Create project dialog.
  */
 function GetStartedSection({ steps }: { steps: SetupStep[] }) {
   const goTo = useGoTo();
+  const createProject = useCreateProject();
   return (
     <HomeSection title="Get started">
       {steps.map((step) => (
@@ -246,7 +248,7 @@ function GetStartedSection({ steps }: { steps: SetupStep[] }) {
           action={
             <Button
               size="sm"
-              onClick={() => goTo(step === 'project' ? 'projects' : 'integrations')}
+              onClick={() => (step === 'project' ? createProject() : goTo('integrations'))}
             >
               {step === 'project' ? 'Create' : 'Connect'}
             </Button>

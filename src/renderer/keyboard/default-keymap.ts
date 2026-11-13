@@ -22,6 +22,7 @@ export interface AppCommandActions {
   openSearch?: () => void;
   newTask?: () => void;
   newNote?: () => void;
+  newProject?: () => void;
   goTo?: (page: GoToPage) => void;
   openShortcuts?: () => void;
   toggleSidebar?: () => void;
@@ -52,6 +53,7 @@ export function createAppCommands(actions: AppCommandActions): Command[] {
     ...command('search.open', 'Search', actions.openSearch),
     ...command('task.new', 'New task', actions.newTask),
     ...command('note.new', 'New note', actions.newNote),
+    ...command('project.new', 'New project', actions.newProject),
     ...PAGES.flatMap(({ page, title }) =>
       command(`nav.${page}`, `Go to ${title}`, goTo && (() => goTo(page))),
     ),

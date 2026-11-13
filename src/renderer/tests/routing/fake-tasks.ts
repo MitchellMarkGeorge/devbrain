@@ -5,6 +5,7 @@ import {
   TaskStatus,
   type NoteListItem,
   type Project,
+  type ProjectStats,
   type Task,
   type TaskListItem,
 } from '@common/types';
@@ -14,6 +15,11 @@ import {
 // (one page, no sort beyond the order given).
 
 const EPOCH = new Date(2026, 5, 22, 9);
+
+function startOfToday(): Date {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
 
 /** A task as `tasks.list` returns it, with defaults for what's left out. */
 export function fakeTask(
@@ -125,6 +131,40 @@ export class FakeTasks {
 
   /** each note's markdown, by id */
   readonly contents = new Map<string, string>();
+
+  findProject(id: unknown): Project | undefined {
+    return this.projects.find((project) => project.id === id && project.archivedAt === null);
+  }
+
+  /** a project's counts of its active tasks, as core's projects.stats */
+  statsOf(id: unknown): ProjectStats {
+    const tasks = this.tasks.filter((t) => t.projectId === id && t.archivedAt === null);
+    const count = (status: TaskStatus) => tasks.filter((t) => t.status === status).length;
+    return {
+      numOfNotStarted: count(TaskStatus.NOT_STARTED),
+      numOfInProgress: count(TaskStatus.IN_PROGRESS),
+      numOfCompleted: count(TaskStatus.COMPLETED),
+      numOfCancelled: count(TaskStatus.CANCELLED),
+      // due before today and open, as core counts it
+      numOfOverdue: tasks.filter(
+        (t) =>
+          t.dueDate !== null &&
+          t.dueDate < startOfToday() &&
+          t.status !== TaskStatus.COMPLETED &&
+          t.status !== TaskStatus.CANCELLED,
+      ).length,
+      totalTasks: tasks.length - count(TaskStatus.CANCELLED),
+    };
+  }
+
+  createProject(fields: Partial<Project> & { title: string }): Project {
+    const project = fakeProject(`prj_new${this.projects.length + 1}`, fields.title, {
+      status: ProjectStatus.NOT_STARTED,
+      ...fields,
+    });
+    this.projects.push(project);
+    return project;
+  }
 
   find(id: unknown): TaskListItem | undefined {
     return this.tasks.find((task) => task.id === id && task.archivedAt === null);

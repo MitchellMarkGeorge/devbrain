@@ -2,13 +2,18 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ProjectStatus } from '@common/types';
 import { storyDate } from '../../lib/story-dates';
 import { AUTH_OVERHAUL } from '../ProjectCard/fixtures';
+import { Folder } from 'lucide-react';
+import { EditorTitle } from '../../editor/EditorContent';
+import { Icon } from '../../ui/Icon';
+import { DatePicker } from '../../ui/DatePicker';
 import { ProjectHeader } from './ProjectHeader';
 
 const meta = {
   title: 'Projects/ProjectHeader',
   component: ProjectHeader,
   args: {
-    ...AUTH_OVERHAUL,
+    project: AUTH_OVERHAUL.project,
+    meta: '30 days left',
     description: (
       <>
         <p>
@@ -34,7 +39,7 @@ type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
 
-/** A new project: no tasks (no progress pill), a due date only, no description */
+/** A new project: a due date only, no description */
 export const NewProject: Story = {
   args: {
     project: {
@@ -43,12 +48,46 @@ export const NewProject: Story = {
       startDate: null,
       dueDate: storyDate(40),
     },
-    stats: { numOfCompleted: 0, totalTasks: 0 },
+    meta: undefined,
     description: undefined,
   },
 };
 
 /** Past its due date and still open: the due date's glyph turns red. */
 export const Overdue: Story = {
-  args: { project: { ...AUTH_OVERHAUL.project, dueDate: storyDate(-2) } },
+  args: { project: { ...AUTH_OVERHAUL.project, dueDate: storyDate(-2) }, meta: '2 days overdue' },
+};
+
+/**
+ * The project page's header: its tile, the name an editable `EditorTitle` (`title`), and each date
+ * pill opening its picker (`duePicker`, `startPicker`); with pickers and no due date, the dates
+ * pill reads "Due date".
+ */
+export const Editable: Story = {
+  args: {
+    project: { ...AUTH_OVERHAUL.project, startDate: null, dueDate: null },
+    meta: undefined,
+    icon: (
+      <span
+        style={{
+          display: 'grid',
+          placeItems: 'center',
+          width: 40,
+          height: 40,
+          borderRadius: 10,
+          background: 'color-mix(in oklab, var(--swatch-blue) 14%, transparent)',
+          color: 'var(--swatch-blue)',
+        }}
+      >
+        <Icon icon={Folder} size={20} />
+      </span>
+    ),
+    title: (
+      <EditorTitle size="lg" contentEditable suppressContentEditableWarning placeholder="Name">
+        Auth Overhaul
+      </EditorTitle>
+    ),
+    duePicker: <DatePicker today={storyDate(0)} onChange={() => {}} />,
+    startPicker: <DatePicker today={storyDate(0)} onChange={() => {}} />,
+  },
 };

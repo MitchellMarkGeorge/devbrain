@@ -155,3 +155,8 @@ export const Placeholders: Story = {
     </div>
   ),
 };
+
+/** `size="lg"`: a project's name over its overview, 30px */
+export const LargeTitle: Story = {
+  render: () => <EditorTitle size="lg">Auth Overhaul</EditorTitle>,
+};

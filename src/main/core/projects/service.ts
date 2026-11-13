@@ -214,7 +214,9 @@ export class ProjectService {
    */
   statsOf(ids: ProjectId[]): Map<ProjectId, ProjectStats> {
     if (ids.length === 0) return new Map();
-    const today = Date.now();
+    // overdue is due before today, as the task rows and the tasks list's Overdue filter count it:
+    // a task due today is not overdue yet
+    const today = localDayWindow(new Date()).startOfDay.getTime();
 
     const count = (predicate: SQL) =>
       sql<number>`coalesce(sum(case when ${predicate} then 1 else 0 end), 0)`;

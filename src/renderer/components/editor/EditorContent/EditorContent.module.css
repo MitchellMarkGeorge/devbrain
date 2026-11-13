@@ -8,6 +8,10 @@
   font: var(--font-weight-semibold) var(--text-2xl) / var(--text-2xl-leading) var(--font-sans);
   outline: none;
 }
+.titleLg {
+  font: var(--font-weight-semibold) var(--text-3xl) / var(--text-3xl-leading) var(--font-sans);
+  letter-spacing: -0.01em;
+}
 .title:empty::before {
   content: attr(data-placeholder);
   color: var(--subtle-foreground);
