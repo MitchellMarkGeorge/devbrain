@@ -322,6 +322,17 @@ _Found in the WCAG 2.2 AA audit of milestone 11 (`docs/accessibility.md` says ho
 - One polite announcer for the app: a visually hidden `role="status"` mounted once in the root layout, and `useAnnounce()` writing into it. The list actions (`pages/tasks/use-task-actions.ts`, `useListCommands`) call it: "Plan the launch: In progress", "3 selected".
 - Keep it mounted and change its text, clearing it first so the same message twice is read twice.
 
+### Give Trash the list's keyboard model
+
+Trash's rows are each a tab stop, and so are their Restore and Delete buttons: three stops a row (`pages/trash/TrashList.tsx`, `components/lists/TrashRow`). It has no `KeyScope name="list"` and no list commands, and restoring or deleting a row removes it with focus on its button, so focus falls to the page (with the confirm dialog, Base UI returns it to a stale element). (2.4.3, serious for keyboard users.)
+
+- Give `TrashList` `NoteList`'s model: a focused id with one tab stop, a handle, and `useFocusedRowId` and `useRefocusOnRemoval` (`components/lists/row-focus.ts`) so the next row takes focus after a restore or delete.
+- New list commands for Trash, `row.restore` and `row.delete` (and Enter to open), in `useListCommands` and the default keymap, so Vim mode can bind them too; then the row's buttons take `tabIndex={-1}`.
+
+### Back returns to the list's first row, not the one that opened the task
+
+`usePageFocus` (`pages/app/use-page-focus.ts`) focuses a list page's tab stop when Back arrives with focus lost, but `TaskList` keeps its focused id in component state, which the page swap drops. Store the focused id in the history entry's state (as `openedSheet` is) and give it back as `focusedId`. (2.4.3, moderate.)
+
 ### Make the board and the card grids one tab stop each
 
 Every `BoardCard` is a tab stop (`BoardCard.tsx`), and so is every `NoteCard` and `ProjectCard` inside `VirtualCardGrid`'s `role="grid"`, which has no arrow keys. A busy board is dozens of Tab presses, and a focused card scrolled out of its column unmounts and drops focus to the page. (2.4.3 and 2.1.1, moderate; dnd-kit's keyboard drag and the status menu already give a keyboard path for moving a card.)
