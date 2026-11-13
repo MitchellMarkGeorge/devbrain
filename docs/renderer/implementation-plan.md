@@ -1205,9 +1205,13 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 - **R4: search counts (done).** `search.counts({ query })` returns how many entries of each
   type match, with no limit (one FTS query grouped by type). ⌘K's type filter shows them, so a
   broad query's counts aren't capped at the 200 results a search returns.
-- **R3: pickers search** (follow-up "Pickers filter what they loaded instead of searching"):
-  Link to ›, Make subtask of › and the project pickers ask `search.search` once something is
-  typed, through one mapping of `SearchResult` to a picker row (after R1).
+- **R3: pickers search (done).** Every picker with a search row (Link to ›, Make subtask of ›,
+  the project pickers, a note's task links, the event sheet's Link Existing Note) lists what it
+  loaded while nothing is typed, then asks `search.search` for its types, debounced as ⌘K is
+  (`usePickerSearch` and `PickerSearchFilter`, `src/renderer/pages/search/picker-search.tsx`).
+  One mapping, `toResultRow` (`src/renderer/search/result-row.ts`), turns a `SearchResult` into
+  a row for the pickers and the "@" menu; search adds a task's `parentTaskId` and a project's
+  `projectStatus`, so a picker leaves out subtasks, closed tasks and completed projects.
 - **R2 (later): `entities.summaries(ids)`** batch route if notes with many pills make per-pill
   `get` queries noticeable.
 

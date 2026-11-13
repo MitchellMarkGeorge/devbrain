@@ -67,6 +67,8 @@ function result(fields: Partial<SearchResult> & Pick<SearchResult, 'entityId'>):
     body: '',
     rank: -1,
     status: null,
+    parentTaskId: null,
+    projectStatus: null,
     color: null,
     external: null,
     ...fields,
