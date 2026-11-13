@@ -1,0 +1,10 @@
+/* Vim's `f` hints: labels over the window, placed at their targets */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  pointer-events: none;
+}
+.label {
+  position: absolute;
+}

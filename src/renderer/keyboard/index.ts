@@ -25,11 +25,21 @@ export {
   type KeyDispatcherOptions,
   type KeyboardState,
 } from './dispatcher';
-export { useHintTarget } from './hints';
+export {
+  activateElement,
+  collectHints,
+  HINT_ALPHABET,
+  hintLabels,
+  HintRegistry,
+  useHintTarget,
+  type HintTarget,
+} from './hints';
+export { HINT_MODE, HintOverlay } from './HintOverlay';
 export {
   KeyboardProvider,
   REDO_COMMAND_ID,
   REPEAT_COMMAND_ID,
+  SHOW_HINTS_COMMAND_ID,
   UNDO_COMMAND_ID,
   useCommandList,
   useCommands,

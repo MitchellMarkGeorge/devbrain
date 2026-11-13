@@ -1,0 +1,23 @@
+/* Vim mode's hint label. See docs/design-system/components/HintLabel.md */
+.label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 var(--space-1);
+  border-radius: 4px;
+  background: var(--swatch-amber);
+  color: var(--neutral-950);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  letter-spacing: 0.02em;
+  box-shadow: var(--shadow-2xl);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.typed {
+  opacity: 0.45;
+}

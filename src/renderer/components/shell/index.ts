@@ -1,6 +1,7 @@
 // The shell components. One line per folder in this directory; keep it sorted.
 export * from './AppShell';
 export * from './CardGrid';
+export * from './HintLabel';
 export * from './Page';
 export * from './Sidebar';
 export * from './StatusLine';

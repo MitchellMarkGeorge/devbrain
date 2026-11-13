@@ -1,6 +1,8 @@
-import { forwardRef, type ComponentProps, type MouseEvent } from 'react';
+import { forwardRef, useMemo, useRef, type ComponentProps, type MouseEvent } from 'react';
 import { Video } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { mergeRefs } from '../../lib/merge-refs';
+import { useHintTarget } from '../../../keyboard/hints';
 import { Button } from '../../ui/Button';
 import { ColourBar } from '../../ui/ColourBar';
 import type { Event } from '@common/types';
@@ -35,13 +37,17 @@ export const EventRow = forwardRef<HTMLDivElement, EventRowProps>(function Event
   { event, calendarColor, onJoin, onOpen, className, style, onClick, onKeyDown, ...props },
   ref,
 ) {
+  // Vim's `f` labels the row, and its label opens the event
+  const own = useRef<HTMLDivElement>(null);
+  const setRef = useMemo(() => mergeRefs(ref, own), [ref]);
+  useHintTarget(own, onOpen);
   const format = useFormat('minute');
   const repeats = repeatLabel(event.recurrenceRule);
   const countdown = eventCountdown(event, format);
   const color = resolveColor(event.color) ?? resolveColor(calendarColor, 'green');
   return (
     <div
-      ref={ref}
+      ref={setRef}
       role="row"
       tabIndex={onOpen ? 0 : undefined}
       className={cn(styles.row, className)}

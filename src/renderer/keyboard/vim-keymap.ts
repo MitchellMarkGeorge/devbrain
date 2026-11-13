@@ -116,6 +116,7 @@ export const vimKeymap: Keymap = {
     hidden(normal({ scope: 'global', keys: 'mod+z', command: 'app.undo' })),
     normal({ scope: 'global', keys: 'mod+d', command: 'page.duplicate', group: ACT }),
     normal({ scope: 'global', keys: '?', command: 'help.shortcuts', group: FIND, label: 'Keys' }),
+    normal({ scope: 'global', keys: 'f', command: 'hints.show', group: FIND, label: 'Hints' }),
     // in an open menu (Status), j/k are its ↓/↑; elsewhere, from nowhere, they enter the page's
     // list or board
     ...(['j', 'k'] as const).map((keys) =>
