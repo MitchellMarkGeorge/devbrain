@@ -10,6 +10,7 @@ import { AppSidebar } from './AppSidebar';
 import { PageHeaderProvider, usePageHeaderSlots, useRouteTitle } from './page-header';
 import { useAppCommands } from './use-app-commands';
 import { useHistoryPosition } from './use-history-position';
+import { usePageFocus } from './use-page-focus';
 
 /**
  * Every page in a workspace: the shell with the sidebar, the page's header, the window bar's back
@@ -24,6 +25,8 @@ export function AppLayout() {
   // the app-wide keys; ⌘\ toggles the shell's sidebar
   const shell = useRef<WorkspaceShellControls>(null);
   useAppCommands({ toggleSidebar: () => shell.current?.toggleSidebar() });
+  // a new page takes focus when the old one took it away
+  usePageFocus();
   return (
     <PageHeaderProvider value={slots}>
       <WorkspaceShell
