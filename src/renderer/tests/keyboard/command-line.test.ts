@@ -172,6 +172,22 @@ describe('the : line', () => {
     expect(state?.mode).toBe('normal');
   });
 
+  it('names the editor’s keys while focus is in it', () => {
+    // the editor in Normal, as its Vim plugin marks it
+    render(
+      [],
+      createElement('div', {
+        id: 'editor',
+        contentEditable: true,
+        tabIndex: 0,
+        'data-key-mode': 'normal',
+      }),
+    );
+    expect(document.body.textContent).not.toContain('leave editor');
+    act(() => document.getElementById('editor')!.focus());
+    expect(document.body.textContent).toContain('leave editor');
+  });
+
   it('runs a command typed out in full', () => {
     const visual = vi.fn();
     render([{ ...command('list.visual', 'Visual range'), run: visual }]);

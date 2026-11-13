@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Kbd, StatusLine, type StatusLineHint, type StatusLineMode } from '../components';
 import { entryAppliesInMode, type Keymap } from './keymap';
 import { keyLabels, parseKeys, strokeLabel, type Stroke } from './keys';
@@ -65,6 +65,21 @@ EDITOR_HINTS['visual-line'] = EDITOR_HINTS.visual;
 // whether focus is in the rich text editor
 function inEditor(): boolean {
   return document.activeElement?.closest('[contenteditable="true"]') != null;
+}
+
+/** Whether focus is in the editor, kept as focus moves (going in can leave the mode as it was). */
+function useFocusInEditor(): boolean {
+  const [editing, setEditing] = useState(inEditor);
+  useEffect(() => {
+    const update = () => setEditing(inEditor());
+    document.addEventListener('focusin', update);
+    document.addEventListener('focusout', update);
+    return () => {
+      document.removeEventListener('focusin', update);
+      document.removeEventListener('focusout', update);
+    };
+  }, []);
+  return editing;
 }
 
 /** A binding's keys as the line writes them: `gg`, `dd`, `⌃D`. */
@@ -155,6 +170,7 @@ export interface ModeLineProps {
 export function ModeLine({ context }: ModeLineProps) {
   const { keymap, platform } = useKeyboard();
   const { mode, pending, count } = useKeyboardState();
+  const editing = useFocusInEditor();
   // `:` opens the line drawn here, so the command lives here too
   useCommands([
     {
@@ -200,7 +216,7 @@ export function ModeLine({ context }: ModeLineProps) {
       label={mode === 'visual-line' ? 'VISUAL LINE' : undefined}
       context={context}
       pending={pendingText(count, pending)}
-      hints={inEditor() ? (EDITOR_HINTS[mode] ?? hints) : hints}
+      hints={editing ? (EDITOR_HINTS[mode] ?? hints) : hints}
       popup={
         next.length > 0 && (
           <div className={styles.whichKey} aria-label="Keys that can follow">
