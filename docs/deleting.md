@@ -96,3 +96,26 @@ the notes folder and each note's queue of content saves. The workspace passes it
   `filesNotRemoved`. Rows that only lost a link are not listed; the response's `changed` names
   their kinds.
 - `general.confirmBeforeDeleting` is the renderer's to check, as for one delete.
+
+## The trash
+
+`ArchiveService.listArchived`, exposed as `archive.listArchived`, lists the trash newest first. It
+pages the three tables as one union by `archivedAt` and id. Then it reads what each row draws with
+one query per kind on the page, plus one batched lookup of the provider links per linked kind. A
+page costs the same few queries however many rows it has, and the union's keyset stays on its own
+columns.
+
+- **What each row carries** (`ArchivedEntity` in `src/common/types/archive.ts`):
+  - a task: its status, its project and its link (a detached item's key);
+  - a project: its status, colour and link;
+  - a note: its preview (the first line) and its project.
+- **A row's project is shown even when it is in the trash too.** Archiving a project takes its tasks
+  and notes along, and the pill says where they came from. Lists elsewhere leave archived projects
+  out.
+- **Opening a row** opens the item on its own page, read-only, under `TrashedNotice` ("This … is in
+  the trash"), with Restore. `tasks.get`, `projects.get` and `notes.get` return a row in the trash
+  (each service's `getById` takes `includeArchived`), and so does `notes.readContent`, for the
+  note's body. Each page hides its star and "…" menu and makes its content inert. The project
+  page's tabs still switch.
+- A note's content save still refuses a trashed note. Other writes are refused only by the pages
+  being inert.

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DevBrain, Workspace } from '@main/core';
-import type { ArchivedEntity, Page } from '@common/types';
+import { TaskStatus, type ArchivedEntity, type Page } from '@common/types';
 import { ChangeTracker } from '@main/ipc/changes';
 import { appRouter } from '@main/ipc/router';
 import { attachRouter } from '@main/ipc/server';
@@ -120,5 +120,68 @@ describe('archive', () => {
     expect(code(await call('archive.listArchived', { entityType: 'events' }))).toBe(
       'invalid_input',
     );
+  });
+
+  it('lists what each row draws: a task’s status and project, a project’s colour, a note’s preview', async () => {
+    const project = workspace().projects.createProject({ title: 'Gateway', color: '#f59e0b' });
+    const task = workspace().tasks.createTask({
+      title: 'Set up',
+      dueDate: DUE,
+      projectId: project.id,
+      status: TaskStatus.COMPLETED,
+    });
+    const note = await workspace().notes.createNote({
+      title: 'Plan',
+      projectId: project.id,
+      content: 'First line of the plan.',
+    });
+    await mutate('archive.archiveProject', { id: project.id });
+
+    const result = await call<Page<ArchivedEntity>>('archive.listArchived', {});
+    if (!result.ok) throw new Error('listArchived failed');
+    const rows = new Map(result.data.items.map((item) => [item.id as string, item]));
+    const summary = { id: project.id, title: 'Gateway', color: '#f59e0b' };
+    expect(rows.get(project.id)).toMatchObject({
+      entityType: 'projects',
+      color: '#f59e0b',
+      status: project.status,
+      external: null,
+    });
+    expect(rows.get(task.id)).toMatchObject({
+      entityType: 'tasks',
+      status: TaskStatus.COMPLETED,
+      project: summary,
+      external: null,
+    });
+    expect(rows.get(note.id)).toMatchObject({
+      entityType: 'notes',
+      preview: expect.stringContaining('First line of the plan.'),
+      project: summary,
+    });
+  });
+
+  it('gets a trashed project and note, and the note’s markdown, for their read-only pages', async () => {
+    const project = workspace().projects.createProject({ title: 'Gone' });
+    const note = await workspace().notes.createNote({ title: 'Gone too', content: 'Kept body' });
+    await mutate('archive.archiveProject', { id: project.id });
+    await mutate('archive.archiveNote', { id: note.id });
+
+    expect(await call('projects.get', { id: project.id })).toMatchObject({
+      ok: true,
+      data: { id: project.id, archivedAt: expect.any(Date) },
+    });
+    expect(await call('notes.get', { id: note.id })).toMatchObject({
+      ok: true,
+      data: { id: note.id, archivedAt: expect.any(Date) },
+    });
+    expect(await call('notes.readContent', { id: note.id })).toMatchObject({
+      ok: true,
+      data: expect.stringContaining('Kept body'),
+    });
+    // its content can't be saved until it is restored
+    expect(code(await mutate('notes.updateContent', { id: note.id, content: 'x' }))).toBe(
+      'not_found',
+    );
+    expect(code(await call('projects.get', { id: 'prj_missing' }))).toBe('not_found');
   });
 });

@@ -137,7 +137,8 @@ function LinkPill({ task }: { task: Task }) {
         color: resolveColor(event.data.color) ?? null,
       }}
     />
-  ) : note.data ? (
+  ) : note.data && note.data.archivedAt === null ? (
+    // notes.get reads a note in the trash too; a link to one isn't shown, as before
     <EntityPill interactive entity={{ type: 'note', title: note.data.title || 'Untitled' }} />
   ) : null;
   if (!pill) return null;

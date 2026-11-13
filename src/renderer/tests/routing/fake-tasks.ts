@@ -132,8 +132,11 @@ export class FakeTasks {
   /** each note's markdown, by id */
   readonly contents = new Map<string, string>();
 
-  findProject(id: unknown): Project | undefined {
-    return this.projects.find((project) => project.id === id && project.archivedAt === null);
+  // an active project, or with `includeArchived` one in the trash too, as core's getById
+  findProject(id: unknown, { includeArchived = false } = {}): Project | undefined {
+    return this.projects.find(
+      (project) => project.id === id && (includeArchived || project.archivedAt === null),
+    );
   }
 
   /** a project's counts of its active tasks, as core's projects.stats */

@@ -55,10 +55,11 @@ export class NoteService {
   /**
    * The note as the notes list shows it: its row with its project and link (withNoteListDetails),
    * so its page and sheet draw its project as its row does, whatever the project's status. Throws
-   * NotFoundError for an unknown or archived note.
+   * NotFoundError for an unknown note, or one in the trash without `includeArchived` (Trash opens
+   * it read-only).
    */
-  getById(id: NoteId): NoteListItem {
-    return withNoteListDetails(this.db, [this.findNote(id)])[0];
+  getById(id: NoteId, options: { includeArchived?: boolean } = {}): NoteListItem {
+    return withNoteListDetails(this.db, [this.findNote(id, options)])[0];
   }
 
   getByIds(ids: NoteId[]): Note[] {
@@ -67,8 +68,11 @@ export class NoteService {
 
   // the note's row, for the checks before a write: what they read, without the list's details.
   // Throws NotFoundError as getById does.
-  private findNote(id: NoteId): Note {
-    const note = this.activeNotes(eq(notes.id, id)).get();
+  // an active note, or with `includeArchived` one in the trash too
+  private findNote(id: NoteId, options: { includeArchived?: boolean } = {}): Note {
+    const note = options.includeArchived
+      ? this.db.select().from(notes).where(eq(notes.id, id)).get()
+      : this.activeNotes(eq(notes.id, id)).get();
     if (!note) throw new NotFoundError(id);
     return note;
   }
@@ -166,10 +170,11 @@ export class NoteService {
     return this.noteFilePath(id);
   }
 
-  // The markdown of an active note, read from its file, without the file's front matter. Throws
-  // NotFoundError for an unknown or archived note, MalformedNoteFileError for a damaged file.
-  async readContent(id: NoteId): Promise<string> {
-    this.findNote(id);
+  // The markdown of a note, read from its file, without the file's front matter. A note in the trash
+  // is read with `includeArchived` (Trash opens it read-only). Throws NotFoundError for an unknown
+  // note, or an archived one without the option, MalformedNoteFileError for a damaged file.
+  async readContent(id: NoteId, options: { includeArchived?: boolean } = {}): Promise<string> {
+    this.findNote(id, options);
     const { content } = await readNoteFile(this.noteFilePath(id));
     return content;
   }

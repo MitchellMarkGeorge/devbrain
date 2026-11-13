@@ -10,9 +10,9 @@ import { resolveColor } from '../../types';
 import styles from './TrashRow.module.css';
 
 /**
- * What Trash shows of a deleted item: core's `ArchivedEntity` (from `archive.list`), and what the
- * page read of the item itself where it has it (a task's status, a project's colour, a note's
- * preview: `getByIds` on the owning service).
+ * What Trash shows of a deleted item, from core's `ArchivedEntity` (`archive.listArchived`): what
+ * the three kinds share, and each kind's own field (a task's status, a project's colour, a note's
+ * preview).
  */
 export type TrashRowData = Pick<ArchivedEntity, 'entityType' | 'title' | 'archivedAt'> & {
   /** a task's status, drawn as its icon (not started without one) */

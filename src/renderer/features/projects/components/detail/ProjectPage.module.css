@@ -14,6 +14,17 @@
   flex: 1 1 auto;
   min-width: 0;
 }
+/* a trashed project's notice, under the tabs, the width of the page, inset as the tabs are */
+.trashedBar {
+  display: flex;
+  flex: none;
+  min-width: 0;
+  padding: var(--space-2) var(--space-4) 0;
+}
+.trashedBar > * {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 
 /* the header's tile: the folder in the project's colour on a 14% tint of it */
 .tile {

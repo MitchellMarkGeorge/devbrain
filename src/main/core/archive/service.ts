@@ -20,6 +20,7 @@ import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../shared
 import { keyset, PageOptions } from '../shared/pagination';
 import {
   assertEditable,
+  getRefs,
   hasLinkInState,
   withExternalRef,
   withExternalRefs,
@@ -479,7 +480,7 @@ export class ArchiveService {
         .orderBy(...pager.orderBy)
         .limit(pager.fetchLimit)
         .all();
-      return pager.toPage(rows as ArchivedEntity[]);
+      return this.withDetails(pager.toPage(rows as ArchivedRow[]));
     }
 
     const pager = this.archivedPager(tasks, page);
@@ -496,11 +497,97 @@ export class ArchiveService {
 
     // archivedAt is nullable on all three tables, but every branch filters on
     // IS NOT NULL, so no row here can carry a null
-    return pager.toPage(rows as ArchivedEntity[]);
+    return this.withDetails(pager.toPage(rows as ArchivedRow[]));
+  }
+
+  /**
+   * The page's rows with what each kind draws: one query per kind on the page (a join to the
+   * project for tasks and notes), and one batched lookup of the links per linked kind, so a page
+   * costs the same few queries however many rows it has. Paging stays on the union's own columns,
+   * so its keyset is untouched.
+   *
+   * A row's project is shown even when it is in the trash too: archiving a project takes its tasks
+   * and notes along, and the pill says where they came from. Lists elsewhere leave archived
+   * projects out (shared/summaries).
+   */
+  private withDetails({ items, nextCursor }: Page<ArchivedRow>): Page<ArchivedEntity> {
+    const idsOf = <Id extends ArchivableId>(type: ArchivableEntityType) =>
+      items.filter((row) => row.entityType === type).map((row) => row.id as Id);
+    const taskIds = idsOf<TaskId>('tasks');
+    const projectIds = idsOf<ProjectId>('projects');
+    const noteIds = idsOf<NoteId>('notes');
+
+    // left-joined, so null for a row with no project
+    const project = { id: projects.id, title: projects.title, color: projects.color };
+
+    const taskDetails = new Map(
+      (taskIds.length === 0
+        ? []
+        : this.db
+            .select({ id: tasks.id, status: tasks.status, project })
+            .from(tasks)
+            .leftJoin(projects, eq(tasks.projectId, projects.id))
+            .where(inArray(tasks.id, taskIds))
+            .all()
+      ).map((row) => [row.id, { status: row.status, project: row.project }]),
+    );
+    const taskRefs = getRefs(this.db, taskIds);
+
+    const projectDetails = new Map(
+      (projectIds.length === 0
+        ? []
+        : this.db
+            .select({ id: projects.id, status: projects.status, color: projects.color })
+            .from(projects)
+            .where(inArray(projects.id, projectIds))
+            .all()
+      ).map((row) => [row.id, row]),
+    );
+    const projectRefs = getRefs(this.db, projectIds);
+
+    const noteDetails = new Map(
+      (noteIds.length === 0
+        ? []
+        : this.db
+            .select({ id: notes.id, preview: notes.preview, project })
+            .from(notes)
+            .leftJoin(projects, eq(notes.projectId, projects.id))
+            .where(inArray(notes.id, noteIds))
+            .all()
+      ).map((row) => [row.id, { preview: row.preview, project: row.project }]),
+    );
+
+    // every id came from the page's own query, in the same synchronous call, so each has its row
+    const entities = items.map((row): ArchivedEntity => {
+      switch (row.entityType) {
+        case 'tasks': {
+          const id = row.id as TaskId;
+          const details = taskDetails.get(id)!;
+          return {
+            ...row,
+            id,
+            entityType: 'tasks',
+            ...details,
+            external: taskRefs.get(id) ?? null,
+          };
+        }
+        case 'projects': {
+          const id = row.id as ProjectId;
+          const { status, color } = projectDetails.get(id)!;
+          const external = projectRefs.get(id) ?? null;
+          return { ...row, id, entityType: 'projects', status, color, external };
+        }
+        case 'notes': {
+          const id = row.id as NoteId;
+          return { ...row, id, entityType: 'notes', ...noteDetails.get(id)! };
+        }
+      }
+    });
+    return { items: entities, nextCursor };
   }
 
   private archivedPager(table: ArchivableTable, page: PageOptions) {
-    return keyset<ArchivedEntity>(
+    return keyset<ArchivedRow>(
       {
         sortKey: 'archivedAt',
         sortColumn: table.archivedAt,
@@ -513,7 +600,7 @@ export class ArchiveService {
     );
   }
 
-  /** the archived rows of one table, shaped as ArchivedEntity summaries */
+  /** the archived rows of one table, with the columns the three share */
   private archivedBranch(type: ArchivableEntityType, after: SQL | undefined) {
     const table = ARCHIVABLE_TABLES[type];
     return this.db
@@ -532,6 +619,12 @@ export class ArchiveService {
 }
 
 type ArchivableTable = typeof tasks | typeof projects | typeof notes;
+
+// a row of the trash's union: the columns the three tables share, before each kind's own
+type ArchivedRow = Pick<ArchivedEntity, 'title' | 'archivedAt'> & {
+  id: ArchivableId;
+  entityType: ArchivableEntityType;
+};
 
 const ARCHIVABLE_TABLES: Record<ArchivableEntityType, ArchivableTable> = {
   tasks,
