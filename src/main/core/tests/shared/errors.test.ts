@@ -16,6 +16,7 @@ import {
   IntegrationAccountMismatchError,
   IntegrationAlreadyConnectedError,
   IntegrationAuthError,
+  IntegrationBusyError,
   IntegrationDisabledError,
   InvalidInputError,
   NotArchivedError,
@@ -71,6 +72,7 @@ const errors: [CoreError, CoreErrorCode][] = [
     'integration_account_mismatch',
   ],
   [new IntegrationDisabledError(integrationId), 'integration_disabled'],
+  [new IntegrationBusyError(integrationId), 'integration_busy'],
   [
     new UnsupportedByProviderError(Provider.LINEAR, "linear can't serve as a source for events"),
     'unsupported_by_provider',

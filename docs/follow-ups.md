@@ -164,32 +164,6 @@ Looking up each event the sweep would remove before removing it (`events.get`, o
 
 Whether any of this is needed rests on Google no longer reporting older deletions in a full listing with `showDeleted=true`, which its documentation implies but does not state. A live check (delete an event, then run a full listing some days later and see whether it still comes back as cancelled) would show how often a deleted event goes unreported at all.
 
-### A reconnect overwrites a disable made while it runs
-
-_Found in PR #31, where reconnecting started syncing again._
-
-`IntegrationService.reconnect` (`src/main/core/integrations/service.ts`) reads the integration's status, awaits `authenticate` (one account query for an API key, the whole browser flow for OAuth, which can take minutes) and sealing the credentials, then writes the new status. It chooses that status from the row it read before the wait: disabled stays disabled, anything else becomes connected. A `setEnabled(id, false)` that lands during the wait is overwritten:
-
-| Step                              | Status       | Source | Event                                             |
-| --------------------------------- | ------------ | ------ | ------------------------------------------------- |
-| `reconnect` reads the row         | needs_reauth | on     |                                                   |
-| the user disables the integration | disabled     | off    | `needs_reauth → disabled`, `source_changed` (off) |
-| `reconnect` writes                | connected    | off    | `needs_reauth → connected`                        |
-
-- The user's disable is lost, and the integration shows connected with every source off, which only a user's own choice otherwise produces.
-- The event's `previous` is the stale status, so a listener tracking status from events gets a wrong history.
-- Nothing syncs, but only because every source is off. If reconnect ever switched sources back on, it would sync what the user just turned off.
-
-A disconnect during the wait is already safe: `CredentialStore.save` throws `NotFoundError` and the transaction rolls back. Moving to `needs_reauth` during the wait and then being overwritten with connected is correct, as the new credentials were just validated.
-
-Fixes, which can be combined:
-
-1. **Re-read the status in the write transaction** and choose the new status and `previous` from it. The transaction is synchronous, so nothing can change between the read and the write. A few lines plus a test that holds the account query open and disables meanwhile. Recommended in any case.
-2. **Refuse edits while a flow runs.** Track the integrations being connected or reconnected, and make `setEnabled` and `setSourceEnabled` throw an "integration busy" error for them. The service already does this between OAuth flows (`connecting` and `ConnectInProgressError`), but API-key reconnects are not tracked. Gives the UI a clear error when a click slips through.
-3. **Lock the controls in the UI.** While an integration connects or reconnects, its enable toggle and source switches are disabled ("Waiting for sign-in…"). The clearest experience, but not enough on its own: `markNeedsReauth` also comes from the sync engine and token refresh, and a second window or a stale view can still reach the service. The `integrations.reconnect` and `integrations.setEnabled` routes exist, but no view calls them yet, so this belongs with the integrations settings screen.
-
-_Fix 3 is done_ (renderer milestone 10): while any connect or reconnect runs in the window, every account's switch and source switch is disabled (`useConnecting` in `src/renderer/pages/integrations`, read from React Query's mutation cache, so it holds across pages). Fixes 1 and 2 are still open, for the cases the UI can't cover.
-
 ### Reconnecting leaves kept tasks detached
 
 _Found in feature 15._

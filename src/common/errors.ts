@@ -16,6 +16,8 @@ export type CoreErrorCode =
   | 'cancelled'
   | 'integration_account_mismatch'
   | 'integration_disabled'
+  // switching an integration or a source of it while it is being reconnected
+  | 'integration_busy'
   | 'unsupported_by_provider'
   | 'oauth_unavailable'
   | 'rate_limited'

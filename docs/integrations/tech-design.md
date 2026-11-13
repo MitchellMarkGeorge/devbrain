@@ -692,6 +692,8 @@ Reconnecting the same account later re-matches detached and removed links by `ex
 
 **Re-authentication.** In `needs_reauth`, the settings page and the status indicator show a "Reconnect" action that reruns the OAuth flow, or asks for a new API key, and keeps the same integration row, sources and cursors. If the returned account id differs, the reconnect is rejected. A connected integration can be reconnected too, to replace an API key before it fails or to switch from an API key to OAuth.
 
+While a reconnect runs (the account query for an API key, the whole browser flow for OAuth), the integration can't be switched: enabling or disabling it, switching one of its sources, or reconnecting it again throws `integration_busy`. The reconnect writes the status when it ends, choosing it from the row as it is in that write's transaction: disabled stays disabled, anything else becomes connected, and the event's `previous` is that row's status.
+
 A successful reconnect syncs the enabled sources at once, with the reconcile pass and the backoff reset (see the scheduler rules). Waiting for the next interval would leave the stale data and the old auth error on screen after the user has fixed the cause. A source rate limited before the reconnect still waits for the provider's retry time.
 
 **Deleting a workspace.** `WorkspaceService.delete` should revoke that workspace's tokens before removing the directory. Revocation is best effort; the delete proceeds if the network call fails.

@@ -8,6 +8,7 @@ import {
   IntegrationAccountMismatchError,
   IntegrationAlreadyConnectedError,
   IntegrationAuthError,
+  IntegrationBusyError,
   IntegrationDisabledError,
   InvalidInputError,
   NotFoundError,
@@ -152,6 +153,11 @@ export class IntegrationService implements BaseIntegrationService {
   // The OAuth flow running now, from the browser until the account query has answered; one per
   // workspace at a time. cancelConnect aborts it.
   private oauthFlow: AbortController | null = null;
+  // The integrations being reconnected, by API key or OAuth, from the first read until the new
+  // status is written. setEnabled and setSourceEnabled refuse them (IntegrationBusyError), as the
+  // reconnect writes the status when it ends. A new connection has no row to switch until it is
+  // stored, so it needs no entry.
+  private readonly reconnecting = new Set<IntegrationId>();
   private readonly signal?: AbortSignal;
 
   constructor(
@@ -235,42 +241,58 @@ export class IntegrationService implements BaseIntegrationService {
    * listening for status_changed starts syncing the enabled sources again from the saved cursors,
    * at once. A disabled integration stays disabled with the new credentials, as enabling it is the
    * user's call.
+   *
+   * While it runs (the account query, or the whole browser flow), the integration can't be
+   * switched: setEnabled and setSourceEnabled throw IntegrationBusyError, and so does a second
+   * reconnect of it. The new status, and the event's `previous`, are still chosen from the row as
+   * it is in the write's transaction, not as it was before the wait, so a status written meanwhile
+   * by anything else (the sync engine's markNeedsReauth) is not lost.
    */
   async reconnect(id: IntegrationId, using: ReconnectWith): Promise<Integration> {
     this.signal?.throwIfAborted();
     const row = this.db.select().from(integrations).where(eq(integrations.id, id)).get();
     if (!row) throw new NotFoundError(id);
     const provider = getProvider(this.providers, row.provider);
+    if (this.reconnecting.has(id)) throw new IntegrationBusyError(id);
 
-    const { credentials, account, scopes } = await this.authenticate(provider, using);
-    if (account.accountId !== row.accountId) {
-      throw new IntegrationAccountMismatchError(id, row.accountLabel, account.label);
-    }
-    const sealed = await this.credentials.seal(credentials);
-    this.signal?.throwIfAborted();
+    this.reconnecting.add(id);
+    try {
+      const { credentials, account, scopes } = await this.authenticate(provider, using);
+      if (account.accountId !== row.accountId) {
+        throw new IntegrationAccountMismatchError(id, row.accountLabel, account.label);
+      }
+      const sealed = await this.credentials.seal(credentials);
+      this.signal?.throwIfAborted();
 
-    const status =
-      row.status === IntegrationStatus.DISABLED
-        ? IntegrationStatus.DISABLED
-        : IntegrationStatus.CONNECTED;
-    this.db.transaction((tx) => {
-      // a reconnect may switch auth method, e.g. from an API key to OAuth
-      tx.update(integrations)
-        .set({ authType: credentials.type, accountLabel: account.label, scopes, status })
-        .where(eq(integrations.id, id))
-        .run();
-      this.credentials.save(id, sealed);
-    });
-
-    if (status === IntegrationStatus.CONNECTED) {
-      this.changes.emit({
-        type: 'status_changed',
-        integrationId: id,
-        status,
-        previous: row.status,
+      // synchronous, so nothing changes the row between this read and the write
+      const { status, previous } = this.db.transaction((tx) => {
+        const current = tx
+          .select({ status: integrations.status })
+          .from(integrations)
+          .where(eq(integrations.id, id))
+          .get();
+        // disconnected during the wait
+        if (!current) throw new NotFoundError(id);
+        const status =
+          current.status === IntegrationStatus.DISABLED
+            ? IntegrationStatus.DISABLED
+            : IntegrationStatus.CONNECTED;
+        // a reconnect may switch auth method, e.g. from an API key to OAuth
+        tx.update(integrations)
+          .set({ authType: credentials.type, accountLabel: account.label, scopes, status })
+          .where(eq(integrations.id, id))
+          .run();
+        this.credentials.save(id, sealed);
+        return { status, previous: current.status };
       });
+
+      if (status === IntegrationStatus.CONNECTED) {
+        this.changes.emit({ type: 'status_changed', integrationId: id, status, previous });
+      }
+      return this.getById(id);
+    } finally {
+      this.reconnecting.delete(id);
     }
-    return this.getById(id);
   }
 
   // Gets credentials from the user, by API key or the provider's OAuth flow, and validates them
@@ -399,6 +421,8 @@ export class IntegrationService implements BaseIntegrationService {
    *
    * One in needs_reauth can be disabled. Enabling it while it needs re-authentication changes
    * nothing: only a reconnect clears that.
+   *
+   * Throws IntegrationBusyError while the integration is being reconnected.
    */
   setEnabled(id: IntegrationId, enabled: boolean, options: EnableOptions = {}): Integration {
     const row = this.db
@@ -407,6 +431,7 @@ export class IntegrationService implements BaseIntegrationService {
       .where(eq(integrations.id, id))
       .get();
     if (!row) throw new NotFoundError(id);
+    if (this.reconnecting.has(id)) throw new IntegrationBusyError(id);
 
     const sources = this.db
       .select({ id: externalSources.id, sourceType: externalSources.sourceType })
@@ -455,6 +480,7 @@ export class IntegrationService implements BaseIntegrationService {
   /**
    * Switches one source on or off. A source of a disabled integration can't be switched on: enable
    * the integration, which can switch on just this source through its `enableSources` option.
+   * Throws IntegrationBusyError while the integration is being reconnected.
    */
   setSourceEnabled(sourceId: ExternalSourceId, enabled: boolean): ExternalSource {
     const row = this.db
@@ -463,6 +489,7 @@ export class IntegrationService implements BaseIntegrationService {
       .where(eq(externalSources.id, sourceId))
       .get();
     if (!row) throw new NotFoundError(sourceId);
+    if (this.reconnecting.has(row.integrationId)) throw new IntegrationBusyError(row.integrationId);
 
     if (row.enabled === enabled) return toSource(row);
     if (enabled) {
