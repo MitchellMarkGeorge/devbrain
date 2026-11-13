@@ -269,16 +269,6 @@ Electron knows for certain: `webContents.navigationHistory.canGoBack()` and `can
 - Against: a new event in `src/common/events.ts`, sent on every navigation, and the arrows update a moment after the page (the answer comes from main). The renderer tests' fake main (`src/renderer/tests/routing/fake-main.ts`) would have to send it too. It sends two booleans, not the location, so the rule against sending the location over IPC still holds.
 - To check: that `navigationHistory` counts a hash change as an entry, as the router does, and what it reports after a reload.
 
-## Settings
-
-### Settings added after a file was written
-
-_Found while adding Hide weekends (S3). Needed before the first release._
-
-electron-store fills in defaults only at the top level. So a `settings.json` written before a setting was added lacks it inside its group: `settings.calendar` without `hideWeekends`, say. `settings.get` returns the group without it, and `validateDevBrainFolderStructure` (`src/main/core/local/validate.ts`) checks the file against the full `settingsFileSchema`, so it refuses the folder as "Invalid settings.json file". Nothing has shipped yet, so this only affects development folders, which can be recreated (or the key added by hand).
-
-The fix, done once for every future setting: when the file opens, deep-merge the defaults into it (write each key it lacks, at any depth), and validate the file with the defaults filled in. It should still refuse a file with no `settings` object or with a wrong value. Test it with an old file opened through `openDevBrain`.
-
 ## Data and storage
 
 ### Show an exported file in Finder

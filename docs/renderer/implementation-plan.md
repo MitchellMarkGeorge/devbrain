@@ -1160,8 +1160,8 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
     written before this has a `settings.calendar` without `hideWeekends`, and `settings.get` would
     return it missing. Read the settings through `appSettingsSchema` with
     `.default(false)` on the new key (or deep-merge the defaults when the file opens), so every
-    new setting has this path, not just this one. **Deferred:** nothing has shipped, so no
-    settings file predates the key; see the follow-up "Settings added after a file was written".
+    new setting has this path, not just this one. **Done:** the defaults are deep-merged
+    into the file when it opens (`SettingsService`), and validated with them filled in.
   - **The design system's rule changes.** The README says the week view always keeps seven days,
     because hiding days could hide events. With the setting, that becomes "seven days unless
     Hide weekends is on". When it's on and the visible week has weekend events, the header says so

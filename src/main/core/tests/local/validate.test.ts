@@ -134,17 +134,46 @@ describe('validateDevBrainFolderStructure', () => {
       expect(result).toMatchObject({ valid: false });
     });
 
-    it('rejects when settings.json is valid JSON but fails schema (empty object)', async () => {
-      await fs.writeFile(path.join(rootPath, 'settings.json'), JSON.stringify({}));
-      const result = await validateDevBrainFolderStructure(rootPath);
-      expect(result).toMatchObject({ valid: false });
+    it('rejects settings.json without a settings object, or with a wrong value', async () => {
+      const invalid = [
+        {},
+        [],
+        { state: {} },
+        { settings: 'dark' },
+        { settings: [], state: {} },
+        { ...VALID_SETTINGS, settings: { ...VALID_SETTINGS.settings, theme: 'purple' } },
+        {
+          ...VALID_SETTINGS,
+          settings: {
+            ...VALID_SETTINGS.settings,
+            calendar: { ...VALID_SETTINGS.settings.calendar, hideWeekends: 'yes' },
+          },
+        },
+        { ...VALID_SETTINGS, settings: { ...VALID_SETTINGS.settings, calendar: 'week' } },
+      ];
+      for (const settings of invalid) {
+        await fs.writeFile(path.join(rootPath, 'settings.json'), JSON.stringify(settings));
+        const result = await validateDevBrainFolderStructure(rootPath);
+        expect(result, JSON.stringify(settings)).toEqual({
+          valid: false,
+          error: 'Invalid settings.json file',
+        });
+      }
     });
 
-    it('rejects when settings.json has missing required fields', async () => {
-      const partial = { settings: { theme: 'dark' }, state: {} };
-      await fs.writeFile(path.join(rootPath, 'settings.json'), JSON.stringify(partial));
-      const result = await validateDevBrainFolderStructure(rootPath);
-      expect(result).toMatchObject({ valid: false });
+    it('accepts settings.json without settings added since, which get their defaults', async () => {
+      const calendar: Partial<typeof VALID_SETTINGS.settings.calendar> = {
+        ...VALID_SETTINGS.settings.calendar,
+      };
+      delete calendar.hideWeekends;
+      const settings: Partial<typeof VALID_SETTINGS.settings> = {
+        ...VALID_SETTINGS.settings,
+        calendar: calendar as typeof VALID_SETTINGS.settings.calendar,
+      };
+      delete settings.tasks;
+      // no state at all, and a group and a key missing under settings
+      await fs.writeFile(path.join(rootPath, 'settings.json'), JSON.stringify({ settings }));
+      expect(await validateDevBrainFolderStructure(rootPath)).toEqual({ valid: true });
     });
   });
 
