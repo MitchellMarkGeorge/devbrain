@@ -17,6 +17,26 @@ export interface ElectronDesktopDeps {
   menu: { getApplicationMenu(): Pick<Menu, 'popup'> | null };
   // where electron-log writes, read when asked
   logFilePath: () => string;
+  // each window's last export (createExportMemory), shared by every desktop made over it
+  exports: ExportMemory;
+}
+
+/** The last file or folder an export wrote, per window. */
+export interface ExportMemory {
+  remember(window: object, exportPath: string): void;
+  last(window: object): string | null;
+}
+
+/**
+ * Remembers each window's last export, for its toast's Show in Finder. Held weakly by the window,
+ * so a closed window's entry goes with it; main keeps nothing on disk.
+ */
+export function createExportMemory(): ExportMemory {
+  const paths = new WeakMap<object, string>();
+  return {
+    remember: (window, exportPath) => void paths.set(window, exportPath),
+    last: (window) => paths.get(window) ?? null,
+  };
 }
 
 /**
@@ -24,7 +44,7 @@ export interface ElectronDesktopDeps {
  * window the call came from), or free-standing when it is null. The app menu pops up in `window`.
  */
 export function createElectronDesktop(
-  { dialog, shell, menu, logFilePath }: ElectronDesktopDeps,
+  { dialog, shell, menu, logFilePath, exports }: ElectronDesktopDeps,
   window: BrowserWindow | null,
 ): Desktop {
   const showOpen = (options: OpenDialogOptions) =>
@@ -47,6 +67,15 @@ export function createElectronDesktop(
     openFolder,
     showItem,
     showLogFile: () => showItem(logFilePath()),
+    rememberExport(exportPath) {
+      if (window) exports.remember(window, exportPath);
+    },
+    async showLastExport() {
+      const last = window ? exports.last(window) : null;
+      if (last === null) return false;
+      await showItem(last);
+      return true;
+    },
     async chooseFiles({ title, filters, multiple = false }) {
       const result = await showOpen({
         title,

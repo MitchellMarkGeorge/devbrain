@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import type { BrowserWindow } from 'electron';
-import { createElectronDesktop } from '@main/runtime/desktop';
+import { createElectronDesktop, createExportMemory } from '@main/runtime/desktop';
 
 // The desktop over Electron's shell and dialog, with fakes of both.
 
@@ -16,6 +16,7 @@ function fakes() {
     shell: { openPath: vi.fn(async () => ''), showItemInFolder: vi.fn() },
     menu: { getApplicationMenu: vi.fn() },
     logFilePath: () => '/logs/main.log',
+    exports: createExportMemory(),
   };
 }
 
@@ -129,6 +130,33 @@ describe('createElectronDesktop', () => {
       const deps = { ...fakes(), logFilePath: () => file };
       await createElectronDesktop(deps as never, null).showLogFile();
       expect(deps.shell.showItemInFolder).toHaveBeenCalledWith(file);
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("remembers each window's last export, and shows it selected", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'devbrain-desktop-'));
+    try {
+      const first = path.join(dir, 'tasks.csv');
+      const second = path.join(dir, 'tasks.json');
+      await fs.writeFile(first, '');
+      await fs.writeFile(second, '');
+      const deps = fakes();
+      const one = {} as BrowserWindow;
+      const other = {} as BrowserWindow;
+      // a desktop is made per call: what one remembers, the window's next one shows
+      expect(await createElectronDesktop(deps as never, one).showLastExport()).toBe(false);
+      createElectronDesktop(deps as never, one).rememberExport(first);
+      createElectronDesktop(deps as never, one).rememberExport(second);
+      expect(await createElectronDesktop(deps as never, one).showLastExport()).toBe(true);
+      expect(deps.shell.showItemInFolder).toHaveBeenCalledWith(second);
+      // another window's exports are its own
+      expect(await createElectronDesktop(deps as never, other).showLastExport()).toBe(false);
+      // without a window, nothing is remembered
+      createElectronDesktop(deps as never, null).rememberExport(first);
+      expect(await createElectronDesktop(deps as never, null).showLastExport()).toBe(false);
+      expect(deps.shell.showItemInFolder).toHaveBeenCalledOnce();
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
     }

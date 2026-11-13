@@ -38,6 +38,8 @@ beforeEach(async () => {
     chooseFolder: vi.fn(async () => null),
     chooseSaveFile: vi.fn(async () => null),
     showAppMenu: vi.fn(async () => {}),
+    rememberExport: vi.fn(),
+    showLastExport: vi.fn(async () => false),
     showLogFile: vi.fn(async () => {}),
   };
   const tracker = new ChangeTracker(vi.fn());
@@ -212,6 +214,7 @@ describe('exporting', () => {
       expect.objectContaining({ defaultName: expect.stringMatching(/^DevBrain tasks .*\.json$/) }),
     );
     expect(JSON.parse(await fs.readFile(target, 'utf8')).tasks[0].title).toBe('Exported');
+    expect(desktop.rememberExport).toHaveBeenCalledWith(target);
     expect(code(await call('transfer.exportTasks', { format: 'xlsx' }, 'mutation'))).toBe(
       'invalid_input',
     );
@@ -231,6 +234,7 @@ describe('exporting', () => {
     const folder = (result as { data: { path: string } }).data.path;
     expect(path.dirname(folder)).toBe(files);
     expect(await fs.readdir(folder)).toEqual(['Plan.md']);
+    expect(desktop.rememberExport).toHaveBeenCalledWith(folder);
   });
 
   it('returns null when a dialog is cancelled', async () => {
@@ -241,5 +245,28 @@ describe('exporting', () => {
     expect(await call('transfer.exportNotes', undefined, 'mutation')).toMatchObject({
       data: null,
     });
+    expect(desktop.rememberExport).not.toHaveBeenCalled();
+  });
+});
+
+describe('showing the last export', () => {
+  it("shows this window's last export, which main kept", async () => {
+    desktop.showLastExport.mockResolvedValueOnce(true);
+    expect(await call('transfer.showExport', undefined, 'mutation')).toMatchObject({
+      ok: true,
+      changed: [],
+    });
+    expect(desktop.showLastExport).toHaveBeenCalledOnce();
+  });
+
+  it('fails with not_found when this window has exported nothing', async () => {
+    expect(code(await call('transfer.showExport', undefined, 'mutation'))).toBe('not_found');
+  });
+
+  it('takes no path from the renderer', async () => {
+    desktop.showLastExport.mockResolvedValueOnce(true);
+    await call('transfer.showExport', { path: '/etc/passwd' }, 'mutation');
+    expect(desktop.showLastExport).toHaveBeenCalledWith();
+    expect(desktop.showItem).not.toHaveBeenCalled();
   });
 });

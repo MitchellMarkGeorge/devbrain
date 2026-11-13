@@ -3,7 +3,7 @@
 How DevBrain moves tasks and notes in and out of a workspace, as on the "Settings (data & storage)"
 screen: import tasks from CSV or JSON, import notes from Markdown, export tasks as CSV or JSON,
 export notes as a folder of Markdown files. The "Import Tasks" button on the empty home screen is
-the same task import.
+the same task import, and so are the app menu's File › Import and File › Export.
 
 | Piece                                                                  | Where                               |
 | ---------------------------------------------------------------------- | ----------------------------------- |
@@ -28,6 +28,7 @@ format. Each route resolves with `null` when the user cancels the dialog.
 | `transfer.importNotes`    | open `.md`, `.markdown`, `.txt` files  | `NoteImportSummary`, or `null`                 |
 | `transfer.exportTasks`    | save as, `{ format: 'csv' \| 'json' }` | `TaskExportResult` (`path`, `count`)           |
 | `transfer.exportNotes`    | choose a folder                        | `NoteExportResult` (`path`, `count`, `errors`) |
+| `transfer.showExport`     | none                                   | shows this window's last export, selected      |
 | `settings.showDataFolder` | none                                   | opens the data folder in the file manager      |
 | `workspace.showInFolder`  | none                                   | opens the open workspace's folder              |
 
@@ -38,6 +39,22 @@ setting, so it is input, and main opens nothing it is handed.
 
 If the workspace is closed or switched while a dialog is open (from another window), the route
 fails with `workspace_closed` and writes nothing.
+
+An export's toast offers "Show in Finder" (Figma `7423:37520`) for the file or folder just
+written. Main remembers the path each export returned, per window (`Desktop.rememberExport`, held
+weakly by the window, never written to disk), and `transfer.showExport` shows the last one selected
+in its folder (`shell.showItemInFolder`; the folder when the file has gone since). It takes no
+input, and fails with `not_found` when the window has exported nothing.
+
+### From the app menu
+
+File › Import and File › Export (`src/main/runtime/menu.ts`) run the same dialogs and the same
+`TransferService` calls in main, then send the window a `transfer.completed` event with what the
+route would have returned, minus paths (`TransferReport` in `src/common/types/transfer.ts`: an
+import's summary; an export's count and the file or folder's own name). The workspace layout
+(`useMenuTransferReports`) shows the same summary dialog or toast as the Settings buttons
+(`src/renderer/pages/settings/transfer-reports.tsx`), and drops a report for a workspace the
+window has left. A menu export is remembered for Show in Finder like any other.
 
 ## Tasks
 

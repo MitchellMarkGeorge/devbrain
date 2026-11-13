@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { MenuItemConstructorOptions } from 'electron';
+import type { BrowserWindow, MenuItemConstructorOptions } from 'electron';
 import type { DevBrain } from '@main/core';
 import { NotFoundError } from '@main/core/shared/errors';
 import type { Desktop } from '../../ipc/desktop';
@@ -14,6 +14,7 @@ import {
 
 function fakeActions(): MenuActions {
   return {
+    runCommand: vi.fn(),
     openWorkspaceFolder: vi.fn(async () => undefined),
     syncNow: vi.fn(async () => undefined),
     showWorkspaceFolder: vi.fn(async () => undefined),
@@ -71,7 +72,7 @@ describe('buildMenuTemplate', () => {
     expect(mac.map((menu) => menu.label ?? menu.role)).toEqual([
       'DevBrain',
       'File',
-      'editMenu',
+      'Edit',
       'View',
       'Workspace',
       'windowMenu',
@@ -99,6 +100,82 @@ describe('buildMenuTemplate', () => {
     }
     expect(item(template({ state: NONE_OPEN }), 'open-workspace-folder').enabled).toBe(true);
     expect(item(template({ state: NONE_OPEN }), 'show-devbrain-folder').enabled).toBe(true);
+  });
+
+  it("enables the window's commands only while a workspace is open", () => {
+    const ids = [
+      'new-task',
+      'new-note',
+      'settings',
+      'find',
+      'go-to',
+      'go-to-home',
+      'go-to-tasks',
+      'go-to-trash',
+    ];
+    for (const id of ids) {
+      expect(item(template({ state: OPEN }), id).enabled).toBe(true);
+      expect(item(template({ state: NONE_OPEN }), id).enabled).toBe(false);
+    }
+  });
+
+  it("shows the default keymap's keys, leaving them to the window's keyboard layer", () => {
+    const items = template({});
+    const keys = (id: string) => {
+      const found = item(items, id);
+      return { accelerator: found.accelerator, registerAccelerator: found.registerAccelerator };
+    };
+    // C and N type in a field, and ⌘K is Link in the editor: the window decides
+    expect(keys('new-task')).toEqual({ accelerator: 'C', registerAccelerator: false });
+    expect(keys('new-note')).toEqual({ accelerator: 'N', registerAccelerator: false });
+    expect(keys('find')).toEqual({ accelerator: 'CmdOrCtrl+K', registerAccelerator: false });
+    // the keymap has no ⌘,: the menu owns it
+    expect(keys('settings')).toEqual({
+      accelerator: 'CmdOrCtrl+,',
+      registerAccelerator: undefined,
+    });
+    // G T is a sequence, which an accelerator can't be
+    expect(item(items, 'go-to-tasks').accelerator).toBeUndefined();
+  });
+
+  it('puts Settings in the app menu on macOS, and in File elsewhere', () => {
+    const mac = template({ platform: 'darwin' });
+    expect(flatten(mac.slice(0, 1)).map((entry) => entry.id)).toContain('settings');
+    const windows = template({ platform: 'win32' });
+    expect(flatten(windows.slice(0, 1)).map((entry) => entry.id)).toContain('settings');
+    expect(flatten(windows).filter((entry) => entry.id === 'settings')).toHaveLength(1);
+  });
+
+  it('lists every page under Go to, and Find in Edit', () => {
+    const items = template({});
+    const goTo = item(items, 'go-to').submenu as MenuItemConstructorOptions[];
+    expect(goTo.map((entry) => entry.label)).toEqual([
+      'Home',
+      'Tasks',
+      'Projects',
+      'Notes',
+      'Calendar',
+      'Integrations',
+      'Trash',
+    ]);
+    const edit = items.find((menu) => menu.label === 'Edit')!;
+    expect(flatten([edit]).map((entry) => entry.id)).toContain('find');
+    expect(roles([edit])).toEqual(expect.arrayContaining(['undo', 'copy', 'paste', 'selectAll']));
+  });
+
+  it("runs the window's commands by their keyboard command id", () => {
+    const actions = fakeActions();
+    const items = template({ actions });
+    for (const id of ['new-task', 'new-note', 'settings', 'find', 'go-to-calendar']) {
+      click(item(items, id));
+    }
+    expect(vi.mocked(actions.runCommand).mock.calls).toEqual([
+      ['task.new'],
+      ['note.new'],
+      ['nav.settings'],
+      ['search.open'],
+      ['nav.calendar'],
+    ]);
   });
 
   it('disables every DevBrain command when DevBrain did not load', () => {
@@ -182,9 +259,13 @@ function fakeDesktop(): { [K in keyof Desktop]: ReturnType<typeof vi.fn> } {
     chooseFolder: vi.fn(async () => '/chosen'),
     chooseSaveFile: vi.fn(async () => '/out/tasks.csv'),
     showAppMenu: vi.fn(async () => undefined),
+    rememberExport: vi.fn(),
+    showLastExport: vi.fn(async () => true),
     showLogFile: vi.fn(async () => undefined),
   };
 }
+
+const WINDOW = { id: 'the window' } as unknown as BrowserWindow;
 
 function setup() {
   const workspace = fakeWorkspace();
@@ -205,7 +286,8 @@ function setup() {
   const dialog = { showMessageBox: vi.fn(async () => ({ response: 0, checkboxChecked: false })) };
   const deps = {
     devBrain: devBrain as unknown as DevBrain,
-    window: () => null,
+    window: () => WINDOW,
+    send: vi.fn(),
     desktop: () => desktop as unknown as Desktop,
     dialog: dialog as unknown as MenuActionDeps['dialog'],
     showItemInFolder: vi.fn(),
@@ -247,31 +329,56 @@ describe('createMenuActions', () => {
     expect(desktop.openFolder.mock.calls).toEqual([['/devbrain/Work'], ['/devbrain']]);
   });
 
-  it('imports and exports, and reports the result', async () => {
-    const { actions, workspace, dialog } = setup();
+  it('sends a command to the window with the open workspace, and nothing without one', () => {
+    const { actions, devBrain, deps } = setup();
+    actions.runCommand('task.new');
+    expect(deps.send).toHaveBeenCalledWith(WINDOW, 'app.command', {
+      command: 'task.new',
+      workspaceId: 'workspace_1',
+    });
+    devBrain.currentWorkspace = null;
+    actions.runCommand('nav.home');
+    expect(deps.send).toHaveBeenCalledOnce();
+  });
+
+  it('imports and exports, and reports the summary to the window without paths', async () => {
+    const { actions, workspace, dialog, desktop, deps } = setup();
+    const reported = () => vi.mocked(deps.send).mock.lastCall!.slice(1);
     await actions.importTasks();
     expect(workspace.transfer.importTasksFromFile).toHaveBeenCalledWith('/in/tasks.csv');
-    expect(dialog.showMessageBox).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        type: 'info',
-        message: 'Imported 3 tasks',
-        detail: '1 skipped (already in the workspace)',
-      }),
-    );
+    expect(reported()).toEqual([
+      'transfer.completed',
+      {
+        workspaceId: 'workspace_1',
+        report: {
+          type: 'tasksImported',
+          summary: { created: 3, skipped: [{}], errors: [], warnings: [] },
+        },
+      },
+    ]);
 
     await actions.importNotes();
-    expect(dialog.showMessageBox).toHaveBeenLastCalledWith(
-      expect.objectContaining({ type: 'warning', message: 'Imported 1 note' }),
-    );
+    expect(reported()[1]).toMatchObject({ report: { type: 'notesImported' } });
 
     await actions.exportTasks('csv');
     expect(workspace.transfer.exportTasksToFile).toHaveBeenCalledWith('/out/tasks.csv', 'csv');
-    expect(dialog.showMessageBox).toHaveBeenLastCalledWith(
-      expect.objectContaining({ message: 'Exported 2 tasks', detail: '/out/tasks.csv' }),
-    );
+    expect(reported()[1]).toEqual({
+      workspaceId: 'workspace_1',
+      report: { type: 'tasksExported', name: 'tasks.csv', format: 'csv', count: 2 },
+    });
+    // remembered for the toast's Show in Finder, in main only
+    expect(desktop.rememberExport).toHaveBeenLastCalledWith('/out/tasks.csv');
 
     await actions.exportNotes();
     expect(workspace.transfer.exportNotesToFolder).toHaveBeenCalledWith('/chosen');
+    expect(reported()[1]).toEqual({
+      workspaceId: 'workspace_1',
+      report: { type: 'notesExported', name: 'notes', count: 4, errors: 0 },
+    });
+    expect(desktop.rememberExport).toHaveBeenLastCalledWith('/chosen/notes');
+    expect(JSON.stringify(vi.mocked(deps.send).mock.calls)).not.toMatch(/\/(in|out|chosen)\//);
+    // the window shows the summary: no message box
+    expect(dialog.showMessageBox).not.toHaveBeenCalled();
   });
 
   it('writes nothing when the workspace switched while the dialog was up', async () => {
@@ -283,6 +390,7 @@ describe('createMenuActions', () => {
     await actions.importTasks();
     expect(workspace.transfer.importTasksFromFile).not.toHaveBeenCalled();
     expect(dialog.showMessageBox).toHaveBeenCalledWith(
+      WINDOW,
       expect.objectContaining({ type: 'error', detail: expect.stringContaining('switched') }),
     );
   });
@@ -292,12 +400,16 @@ describe('createMenuActions', () => {
     workspace.sync.syncNow.mockRejectedValueOnce(new NotFoundError('task_x' as never));
     await expect(actions.syncNow()).resolves.toBeUndefined();
     expect(dialog.showMessageBox).toHaveBeenLastCalledWith(
+      WINDOW,
       expect.objectContaining({ detail: 'No entity found with id: task_x' }),
     );
 
     workspace.sync.syncNow.mockRejectedValueOnce(new Error('secret token abc'));
     await expect(actions.syncNow()).resolves.toBeUndefined();
-    const [options] = dialog.showMessageBox.mock.lastCall as unknown as [{ detail: string }];
+    const [, options] = dialog.showMessageBox.mock.lastCall as unknown as [
+      unknown,
+      { detail: string },
+    ];
     expect(options.detail).not.toContain('secret');
     // the class only, never the message
     expect(deps.logger.warn).toHaveBeenLastCalledWith('Menu command syncNow failed error=Error');
