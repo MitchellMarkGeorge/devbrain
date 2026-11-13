@@ -7,6 +7,12 @@ import { z } from 'zod';
 // a missing key reads as null, so metadata written by an older version still parses
 const nullableString = () => z.string().nullable().default(null);
 
+// Set on a task link a disconnect detached (applyDisconnect), so connecting the same account again
+// can offer to reattach those and leave alone the tasks the user detached. Read with json_extract
+// only, never through the schema below, so any write of the link's metadata (a reattach, a
+// "keep local") drops it.
+export const KEPT_BY_DISCONNECT = 'keptByDisconnect';
+
 export const taskLinkMetadataSchema = z.object({
   statusLabel: nullableString(),
   priorityLabel: nullableString(),

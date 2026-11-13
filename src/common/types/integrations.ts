@@ -1,4 +1,4 @@
-import type { ExternalSourceId, IntegrationId } from '../ids';
+import type { ExternalSourceId, IntegrationId, TaskId } from '../ids';
 
 // The integration types the renderer needs, to show connections, their sources, their sync status
 // and the badge on a synced row.
@@ -102,6 +102,20 @@ export interface DisconnectCounts {
   deleted: EntityCounts;
   // kept as local copies: synced ones are detached, removed (archived or hidden) ones stay so
   kept: EntityCounts;
+}
+
+// Tasks a disconnect kept as local copies that came back to an account connected again: the next
+// sync matched them to its tasks source, and they stay detached until reattached (or left local)
+export interface KeptCopies {
+  tasks: number;
+}
+
+// what reattaching an account's kept copies did
+export interface ReattachKeptResult {
+  // tasks synced again, subtasks included
+  reattached: number;
+  // the kept tasks, each with its subtasks, that stay local copies, and why
+  failed: { taskId: TaskId; message: string }[];
 }
 
 export interface DisconnectResult extends DisconnectCounts {
