@@ -2,6 +2,7 @@
 export * from './AppShell';
 export * from './CardGrid';
 export * from './DocumentPage';
+export * from './HintLabel';
 export * from './PageHeader';
 export * from './Sidebar';
 export * from './StatusLine';

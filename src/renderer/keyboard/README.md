@@ -23,7 +23,8 @@ in Storybook mounts it with a demo keymap.
 | `cursor.ts`            | `cursor.enter` (a first `j` enters the page's list) and `j`/`k` in an open menu    |
 | `shortcuts.ts`         | the shortcuts dialog's sections, and a command's keys (`commandShortcut`, for ⌘K)  |
 | `ShortcutsDialog.tsx`  | the shortcuts dialog (Figma `7426:43880`)                                          |
-| `hints.ts`             | `useHintTarget(ref, action)`: a no-op until Vim's `f` hints                        |
+| `hints.ts`             | `useHintTarget(ref, action)`, the `HintRegistry`, labels, and `collectHints`       |
+| `HintOverlay.tsx`      | Vim's `f`: a `HintLabel` over every target, picked by typing its label             |
 
 ## Mounting it
 
@@ -157,7 +158,18 @@ press its ↓/↑).
 - **The which-key popup.** While a sequence is pending (`g`), the mode line lists what can follow
   in the scopes where focus is (`continuations`), as Figma's `7703:55909` does.
 
-Still to build: `f` hints (filling in `useHintTarget`), the `:` command line, and Normal mode
-inside the editor (a ProseMirror plugin: the dispatcher leaves `contenteditable` alone). Not built:
+- **Hints.** `f` (`hints.show`) puts the keyboard in Hint mode, and the provider's `HintOverlay`
+  draws a `HintLabel` over every target on screen (`collectHints`): the elements registered with
+  `useHintTarget(ref, action)` (`TaskRow`, `ListRow` and the rows built on it, `BoardCard`,
+  `HomeRow`, `EventRow`, each with its open), then the buttons, links, fields, tabs and menu items
+  outside them, and any other `tabindex="0"` element holding no controls of its own (a calendar
+  event, a card); with a dialog open, only the top-most dialog's. A registered element's own
+  buttons and pills get no label, as in Figma. Labels come from the home row (`a`, `s`, … or `aa`,
+  `as`, … when there are more than nine), and none starts another. Typing a whole label runs its
+  target's action (a registered one, or a click; a text field is focused instead) and goes back to
+  Normal; a key no label goes on with is ignored, Backspace takes one back, and Esc, a scroll or a
+  resize cancels. Outside a provider `useHintTarget` does nothing, so components call it freely.
+
+Still to build: the `:` command line, and Normal mode inside the editor (a ProseMirror plugin: the dispatcher leaves `contenteditable` alone). Not built:
 `h`/`j`/`k`/`l` over the notes and projects card grids (Figma `7704:59600`), and `yy`, `i` (rename)
 and `/` from the keys sheet, which have no commands yet.

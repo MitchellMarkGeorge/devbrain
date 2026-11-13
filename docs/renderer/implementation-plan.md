@@ -720,6 +720,11 @@ each piece does):
    `handleRef` and `useBoardCommands` (`h`/`l` across, `j`/`k` within, the sheet following the
    cursor). A first `j` on a page with nothing focused enters its list; `j`/`k` move in menus; the
    mode line shows what can follow a pending key. Trash's list is one tab stop with the list keys.
+3. **`f` hints.** `useHintTarget` registers with the provider's `HintRegistry`: the rows and cards
+   (`TaskRow`, `ListRow`, `BoardCard`, `HomeRow`, `EventRow`) register with their open, and
+   buttons, links, fields and focusable leaves are found without it, so a page needs no
+   registrations of its own. `f` labels every target on screen (`HintLabel`, in the top-most dialog
+   only while one is open), and typing a label runs it.
 
 **Wiring it in** (milestone 3; the layer itself is built, in `src/renderer/keyboard/`, with its
 `README.md`):
