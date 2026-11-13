@@ -1,9 +1,15 @@
 import type { Platform } from '../components/lib/platform';
 import type { Command, CommandArgs, CommandContext, CommandResult } from './commands';
 import type { CommandRegistry } from './commands';
-import { entryAppliesInMode, keymapModes, type Keymap, type KeymapEntry } from './keymap';
+import {
+  entryAppliesInMode,
+  keymapModes,
+  MODE_ATTRIBUTE,
+  type Keymap,
+  type KeymapEntry,
+} from './keymap';
 import { parseKeys, strokeFromEvent, type Stroke } from './keys';
-import { activeScopes, type Scope } from './scopes';
+import { activeScopes, MODAL_ATTRIBUTE, type Scope } from './scopes';
 import { isUndoable, type UndoStack } from './undo';
 
 export const DEFAULT_SEQUENCE_TIMEOUT = 1000;
@@ -17,8 +23,14 @@ export interface KeyboardState {
   count: number | undefined;
 }
 
-/** Where a key was typed: not in a typing target, in a form field, or in `contenteditable`. */
-type TypingTarget = 'none' | 'input' | 'editor';
+/**
+ * Where a key was typed: not in a typing target, in a form field, in `contenteditable`, or in an
+ * open menu or list box (which take letters for typeahead and digits as their own shortcuts).
+ */
+type TypingTarget = 'none' | 'input' | 'editor' | 'menu';
+
+const EDITABLE = '[contenteditable]:not([contenteditable="false"])';
+const MENU = '[role="menu"], [role="listbox"]';
 
 interface CompiledEntry {
   entry: KeymapEntry;
@@ -56,20 +68,28 @@ const NON_TEXT_INPUTS = new Set([
 
 function typingTarget(target: Element | null): TypingTarget {
   if (!target) return 'none';
-  if (target.closest('[contenteditable]:not([contenteditable="false"])')) return 'editor';
+  if (target.closest(EDITABLE)) return 'editor';
   const tag = target.tagName;
   if (tag === 'TEXTAREA' || tag === 'SELECT') return 'input';
   if (tag === 'INPUT') {
     const type = (target.getAttribute('type') ?? 'text').toLowerCase();
-    return NON_TEXT_INPUTS.has(type) ? 'none' : 'input';
+    if (!NON_TEXT_INPUTS.has(type)) return 'input';
   }
+  if (target.closest(MENU)) return 'menu';
   return 'none';
+}
+
+/** Whether focus on `target` is typing: in a text field or the editor (not a menu). */
+export function isTypingTarget(target: Element | null): boolean {
+  const typing = typingTarget(target);
+  return typing === 'input' || typing === 'editor';
 }
 
 function allowedIn(entry: KeymapEntry, typing: TypingTarget, composing: boolean): boolean {
   if (composing) return entry.allowInTyping === true;
   if (typing === 'input') return entry.allowInTyping === true;
   if (typing === 'editor') return entry.allowInEditor === true;
+  if (typing === 'menu') return entry.allowInTyping === true || entry.allowInMenu === true;
   return true;
 }
 
@@ -108,6 +128,10 @@ export class KeyDispatcher {
   private readonly undoStack: UndoStack;
   private readonly doc: Document;
   private onError!: (error: unknown, command: Command) => void;
+  // whether the mode is the one focus put it in (a typing target's insert mode, or a
+  // `data-key-mode` element's), so focus leaving takes it back to the first mode
+  private modeFromFocus = false;
+  private focusTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(options: KeyDispatcherOptions) {
     this.keymap = options.keymap;
@@ -122,15 +146,23 @@ export class KeyDispatcher {
 
   // ---------- configuration ----------
 
-  /** swaps the keymap (the default one for Vim's); a mode the new one lacks becomes its first */
+  /**
+   * swaps the keymap (the default one for Vim's); a mode the new one lacks becomes its first, and
+   * a keymap whose mode follows focus starts in the mode the focused element puts it in
+   */
   setKeymap(keymap: Keymap): void {
     if (keymap === this.keymap) return;
     this.keymap = keymap;
     this.compile();
     const modes = keymapModes(keymap);
     this.clearSequence();
+    this.modeFromFocus = false;
     this.setState({ mode: modes.includes(this.state.mode) ? this.state.mode : modes[0] });
+    this.followFocus(this.focused());
   }
+
+  /** the active keymap */
+  getKeymap = (): Keymap => this.keymap;
 
   setPlatform(platform: Platform): void {
     if (platform === this.platform) return;
@@ -144,11 +176,22 @@ export class KeyDispatcher {
       onError ?? ((error, command) => console.error(`Command ${command.id} failed:`, error));
   }
 
-  /** listens on `target`'s `keydown` in the capture phase; returns the function that stops */
+  /**
+   * listens on `target`'s `keydown` in the capture phase, and (for a keymap whose mode follows
+   * focus) on its focus changes and the Esc a page leaves alone; returns the function that stops
+   */
   attach(target: Pick<Window, 'addEventListener' | 'removeEventListener'> = window): () => void {
     target.addEventListener('keydown', this.handleKeyDown, true);
+    target.addEventListener('keydown', this.handleEscape);
+    target.addEventListener('focusin', this.handleFocusIn);
+    target.addEventListener('focusout', this.handleFocusOut);
+    this.followFocus(this.focused());
     return () => {
       target.removeEventListener('keydown', this.handleKeyDown, true);
+      target.removeEventListener('keydown', this.handleEscape);
+      target.removeEventListener('focusin', this.handleFocusIn);
+      target.removeEventListener('focusout', this.handleFocusOut);
+      clearTimeout(this.focusTimer);
       this.clearSequence();
     };
   }
@@ -162,9 +205,77 @@ export class KeyDispatcher {
     return () => this.listeners.delete(listener);
   };
 
+  /** sets the mode, as a command does (`v` for Visual); it no longer follows focus out */
   setMode = (mode: string): void => {
+    this.modeFromFocus = false;
+    this.applyMode(mode);
+  };
+
+  private applyMode(mode: string): void {
     this.clearSequence();
     if (mode !== this.state.mode) this.setState({ mode });
+  }
+
+  // ---------- the mode following focus ----------
+
+  /**
+   * For a keymap with an `insertMode`: focus in an element with `data-key-mode` (the `:` line) puts
+   * the keyboard in that mode, focus in a typing target in the insert mode, and focus anywhere else
+   * takes a mode focus put it in back to the first one. A mode a command set (Visual) stays.
+   */
+  private followFocus(target: Element | null): void {
+    const insert = this.keymap.insertMode;
+    if (!insert) return;
+    const owner = target?.closest(`[${MODE_ATTRIBUTE}]`);
+    const mode = owner
+      ? owner.getAttribute(MODE_ATTRIBUTE)
+      : isTypingTarget(target)
+        ? insert
+        : null;
+    if (mode) {
+      this.modeFromFocus = true;
+      this.applyMode(mode);
+    } else if (this.modeFromFocus) {
+      this.modeFromFocus = false;
+      this.applyMode(keymapModes(this.keymap)[0]);
+    }
+  }
+
+  private focused(): Element | null {
+    const active = this.doc.activeElement;
+    return active && active !== this.doc.body ? active : null;
+  }
+
+  private handleFocusIn = (event: FocusEvent): void => {
+    clearTimeout(this.focusTimer);
+    this.followFocus(event.target instanceof Element ? event.target : null);
+  };
+
+  // focus leaving for nowhere (a blur, or the window losing focus, after which the field still has
+  // it): looked at once it has settled
+  private handleFocusOut = (event: FocusEvent): void => {
+    if (event.relatedTarget || !this.keymap.insertMode) return;
+    clearTimeout(this.focusTimer);
+    this.focusTimer = setTimeout(() => this.followFocus(this.focused()), 0);
+  };
+
+  /**
+   * Esc in a typing target, in the insert mode, that the page left alone (a field's own Esc, an
+   * open popup's, comes first and prevents it): leaves the field, back to the first mode. A
+   * dialog's fields keep their Esc, which closes the dialog.
+   */
+  private handleEscape = (event: KeyboardEvent): void => {
+    const insert = this.keymap.insertMode;
+    if (!insert || event.key !== 'Escape' || event.defaultPrevented || event.isComposing) return;
+    if (this.state.mode !== insert) return;
+    const target = this.targetOf(event);
+    if (!target || !isTypingTarget(target)) return;
+    if (target.closest(`[${MODE_ATTRIBUTE}], [${MODAL_ATTRIBUTE}]`)) return;
+    const field = target.closest<HTMLElement>(EDITABLE) ?? (target as HTMLElement);
+    event.preventDefault();
+    field.blur();
+    this.modeFromFocus = false;
+    this.applyMode(keymapModes(this.keymap)[0]);
   };
 
   // ---------- running commands ----------
@@ -232,6 +343,7 @@ export class KeyDispatcher {
     this.runEntry(decision.entry.entry, count, scopes);
   };
 
+  // a menu takes digits as its own shortcuts (Status's 1–3), so no count is read in one
   private readsCount(stroke: Stroke, typing: TypingTarget, composing: boolean): boolean {
     if (!this.keymap.counts || typing !== 'none' || composing) return false;
     if (this.state.pending.length > 0 || !/^[0-9]$/.test(stroke)) return false;

@@ -5,7 +5,7 @@ import { RotateCw, ScrollText } from 'lucide-react';
 import { Button, FormatProvider, Logomark, AppShell, ToastProvider } from '../../components';
 import { trpc } from '../../ipc';
 import { ModalProvider } from '../../modals';
-import { defaultKeymap, KeyboardProvider, useUndoStack } from '../../keyboard';
+import { defaultKeymap, KeyboardProvider, useUndoStack, vimKeymap } from '../../keyboard';
 import { useSwitchingWorkspace } from './use-switching-workspace';
 
 // The root route's pieces (src/renderer/routes/__root.tsx).
@@ -31,11 +31,14 @@ export function RootLayout() {
   const router = useRouter();
   const switching = useSwitchingWorkspace();
   // the settings are seeded before the first render, and belong to no workspace
-  const timeFormat = useQuery(trpc.settings.get.queryOptions()).data?.general.timeFormat;
+  const general = useQuery(trpc.settings.get.queryOptions()).data?.general;
+  const timeFormat = general?.timeFormat;
+  // Settings › General › Vim keys picks the keymap; the registry and the undo stack stay
+  const keymap = general?.keyboardMode === 'vim' ? vimKeymap : defaultKeymap;
   return (
     <ToastProvider>
       <FormatProvider timeFormat={timeFormat}>
-        <KeyboardProvider keymap={defaultKeymap}>
+        <KeyboardProvider keymap={keymap}>
           <ClearUndoOnSwitch switching={switching}>
             <ModalProvider closed={switching}>
               <Outlet />

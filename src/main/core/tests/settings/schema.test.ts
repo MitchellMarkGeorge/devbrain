@@ -18,6 +18,7 @@ const validSettings: SettingsFile = {
       confirmBeforeDeleting: true,
       confirmBeforeArchiving: true,
       timeFormat: '12',
+      keyboardMode: 'default',
     },
     tasks: {
       defaultSort: 'priority',
@@ -150,6 +151,20 @@ describe('appSettingsSchema — general block', () => {
   it('rejects an unknown timeFormat value', () => {
     expect(
       appSettingsSchema.safeParse(withGeneral({ timeFormat: '6' as never }).settings).success,
+    ).toBe(false);
+  });
+
+  it('accepts default and vim as keyboardMode', () => {
+    for (const keyboardMode of ['default', 'vim'] as const) {
+      expect(appSettingsSchema.safeParse(withGeneral({ keyboardMode }).settings).success).toBe(
+        true,
+      );
+    }
+  });
+
+  it('rejects an unknown keyboardMode value', () => {
+    expect(
+      appSettingsSchema.safeParse(withGeneral({ keyboardMode: 'emacs' as never }).settings).success,
     ).toBe(false);
   });
 
