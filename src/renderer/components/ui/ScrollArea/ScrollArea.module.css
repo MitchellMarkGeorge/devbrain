@@ -11,8 +11,11 @@
   border-radius: inherit;
   outline: none;
 }
-/* it takes keyboard focus while it overflows (arrow keys scroll it): a 1px ring inside its edge */
-.viewport:focus-visible {
+/*
+ * it takes keyboard focus while it overflows (arrow keys scroll it): a 1px ring inside its edge,
+ * not when a click focused it (data-pointer-focus), which the next key pressed would show
+ */
+.viewport:focus-visible:not([data-pointer-focus]) {
   outline: 1px solid var(--ring);
   outline-offset: -1px;
 }

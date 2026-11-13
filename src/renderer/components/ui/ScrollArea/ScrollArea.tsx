@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   type ComponentPropsWithoutRef,
+  type FocusEvent,
   type Ref,
 } from 'react';
 import { ScrollArea as BaseScrollArea } from '@base-ui/react/scroll-area';
@@ -46,6 +47,14 @@ export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(function S
     <BaseScrollArea.Root ref={ref} className={mergeClassName(styles.root, className)} {...props}>
       <BaseScrollArea.Viewport
         {...viewportProps}
+        onFocus={(event) => {
+          markPointerFocus(event);
+          viewportProps?.onFocus?.(event);
+        }}
+        onBlur={(event) => {
+          if (event.target === event.currentTarget) delete event.currentTarget.dataset.pointerFocus;
+          viewportProps?.onBlur?.(event);
+        }}
         ref={setViewport}
         className={cn(styles.viewport, viewportClassName)}
         // vertical only: content wider than the area is cut, not scrolled sideways
@@ -59,6 +68,24 @@ export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(function S
     </BaseScrollArea.Root>
   );
 });
+
+/**
+ * A click on the area's content (anywhere not itself focusable) focuses the viewport, as it is
+ * focusable while it overflows. Such a focus draws no ring: the browser draws it on the next key
+ * pressed, so every shortcut afterwards would frame the whole area. Marked here when the viewport
+ * takes focus without matching `:focus-visible` (a click, not Tab), until it loses it.
+ */
+function markPointerFocus(event: FocusEvent<HTMLDivElement>) {
+  const viewport = event.currentTarget;
+  if (event.target !== viewport) return;
+  let fromPointer = false;
+  try {
+    fromPointer = !viewport.matches(':focus-visible');
+  } catch {
+    // a DOM without :focus-visible
+  }
+  if (fromPointer) viewport.dataset.pointerFocus = '';
+}
 
 /**
  * Base UI measures whether the area overflows when the viewport resizes or scrolls, not when its

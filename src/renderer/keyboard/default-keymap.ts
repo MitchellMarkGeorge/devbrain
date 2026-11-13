@@ -44,6 +44,15 @@ function command(id: string, title: string, run: (() => void) | undefined): Comm
 }
 
 /**
+ * Going to a page leaves whatever had focus: a sidebar link clicked earlier would otherwise keep
+ * it on the new page, and as a key was just pressed, the browser would draw its focus ring there.
+ */
+function leaveFocus() {
+  const focused = document.activeElement;
+  if (focused instanceof HTMLElement && focused !== document.body) focused.blur();
+}
+
+/**
  * The app-wide commands, registered once by the `/app` layout with
  * `useCommands(createAppCommands(actions))`.
  */
@@ -55,7 +64,15 @@ export function createAppCommands(actions: AppCommandActions): Command[] {
     ...command('note.new', 'New note', actions.newNote),
     ...command('project.new', 'New project', actions.newProject),
     ...PAGES.flatMap(({ page, title }) =>
-      command(`nav.${page}`, `Go to ${title}`, goTo && (() => goTo(page))),
+      command(
+        `nav.${page}`,
+        `Go to ${title}`,
+        goTo &&
+          (() => {
+            leaveFocus();
+            goTo(page);
+          }),
+      ),
     ),
     ...command('help.shortcuts', 'Keyboard shortcuts', actions.openShortcuts),
     ...command('sidebar.toggle', 'Toggle sidebar', actions.toggleSidebar),

@@ -44,6 +44,19 @@ describe('the app-wide keys', () => {
     }
   });
 
+  it('leave what had focus when going to a page, so no focus ring is left behind', async () => {
+    const app = await onWorkHome();
+    // what stays mounted across pages: the page's scroll area, focused by a click on the page
+    const scroll = app.container.querySelector<HTMLElement>('[data-slot="page-scroll"]')!;
+    scroll.tabIndex = 0;
+    scroll.focus();
+    expect(document.activeElement).toBe(scroll);
+    key('g');
+    key('t');
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks`));
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it('show the shortcuts with ?, listing the keys that work', async () => {
     await onWorkHome();
     key('?', { shiftKey: true });
