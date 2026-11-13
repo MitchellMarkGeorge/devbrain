@@ -82,6 +82,17 @@ const card = (title: string) =>
     el.textContent?.includes(title),
   );
 
+// dnd-kit starts a drag a render after the key that picks the card up, and listens for the next
+// keys a moment after that: wait for the drag's first announcement ("Picked up …", replaced at
+// once by "… is over Not started."), then that moment, rather than a fixed delay, which a busy
+// machine can outrun
+async function pickedUp(title: string) {
+  await eventually(() =>
+    expect(document.body.textContent).toMatch(new RegExp(`Picked up ${title}\\.|${title} is over`)),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 10));
+}
+
 describe('the board', () => {
   it('shows the open statuses as columns, each with its tasks', async () => {
     const { app } = board();
@@ -122,8 +133,7 @@ describe('the board', () => {
       const card = cardIn('Not started', 'Plan the launch')!;
       card.focus();
       press(card, 'Space');
-      // dnd-kit listens for the keys after the one that picked the card up a moment later
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await pickedUp('Plan the launch');
       press(card, 'ArrowRight');
       await eventually(() =>
         expect(document.body.textContent).toContain('Plan the launch is over In progress.'),
@@ -150,7 +160,7 @@ describe('the board', () => {
       const card = cardIn('Not started', 'Plan the launch')!;
       card.focus();
       press(card, 'Space');
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      await pickedUp('Plan the launch');
       press(card, 'ArrowRight');
       press(card, 'Escape');
       await eventually(() =>

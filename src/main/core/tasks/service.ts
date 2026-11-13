@@ -149,8 +149,11 @@ export class TaskService {
     return this.changes.add(listener);
   }
 
-  getById(id: TaskId): Task {
-    const row = this.activeTasks(eq(tasks.id, id)).limit(1).get();
+  // A task in the trash is found only with `includeArchived` (Trash opens it read-only)
+  getById(id: TaskId, options: { includeArchived?: boolean } = {}): Task {
+    const row = options.includeArchived
+      ? this.db.select().from(tasks).where(eq(tasks.id, id)).limit(1).get()
+      : this.activeTasks(eq(tasks.id, id)).limit(1).get();
     if (!row) throw new NotFoundError(id);
     return withExternalRef(this.db, row);
   }

@@ -61,7 +61,11 @@ export const tasksRouter = t.router({
       ctx.workspace.tasks.listTasks(filter, sort, page),
     ),
 
-  get: wsProcedure.input(byId).query(({ ctx, input }) => ctx.workspace.tasks.getById(input.id)),
+  // a task, in the trash too (its `archivedAt` set): Trash opens it, and its page shows it
+  // read-only until it is restored
+  get: wsProcedure
+    .input(byId)
+    .query(({ ctx, input }) => ctx.workspace.tasks.getById(input.id, { includeArchived: true })),
 
   // a page of the task's direct subtasks
   subtasks: wsProcedure

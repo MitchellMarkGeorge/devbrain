@@ -74,6 +74,11 @@ class RemoteError extends Error {
   }
 }
 
+/** A route a test answers itself: what it returns, and the kinds of rows it changed. */
+export type FakeRoute = (
+  args: Record<string, unknown>,
+) => [unknown, ChangedEntity[]] | Promise<[unknown, ChangedEntity[]]>;
+
 interface Hold {
   promise: Promise<void>;
   release: () => void;
@@ -115,7 +120,7 @@ export class FakeMain {
   // projects.list answers with the open workspace's own projects, even none, rather than the
   // one-row page
   storeProjects = false;
-  // the calendar settings the calendar page reads
+  // the calendar settings the calendar and settings pages read
   calendarSettings: AppSettings['calendar'] = {
     defaultEventDuration: '30m',
     firstDayOfWeek: 'monday',
@@ -124,6 +129,8 @@ export class FakeMain {
   };
   // each workspace's calendars and events; a workspace without any has one calendar naming it
   readonly calendarStores = new Map<WorkspaceId, FakeCalendar>();
+  // routes a test answers itself, before the fake's own (throw FakeMain.error(…) to fail one)
+  readonly routes = new Map<string, FakeRoute>();
   // what workspaces.importFolder answers next: a folder's workspace, null (cancelled) or an error
   importResult: FakeWorkspace | null | RemoteError = null;
   private readonly listeners = new Map<string, Set<(payload: unknown) => void>>();
@@ -160,10 +167,11 @@ export class FakeMain {
   private appSettings(): AppSettings {
     return {
       theme: 'system',
+      devBrainPath: '/brain',
       general: this.settings,
       tasks: this.taskSettings,
       calendar: this.calendarSettings,
-    } as AppSettings;
+    };
   }
 
   initialLoadContext(): InitialLoadContext {
@@ -196,6 +204,11 @@ export class FakeMain {
 
   private emit(name: 'workspace.changed', payload: AppEvents['workspace.changed']) {
     if (name === 'workspace.changed') this.events.push(payload);
+    for (const listener of this.listeners.get(name) ?? []) listener(payload);
+  }
+
+  /** Main pushes an event to the window (sync.progress, integrations.changed, …). */
+  push<K extends keyof AppEvents>(name: K, payload: AppEvents[K]): void {
     for (const listener of this.listeners.get(name) ?? []) listener(payload);
   }
 
@@ -326,8 +339,12 @@ export class FakeMain {
         const items = store.list((args.filter ?? {}) as never);
         return [page(typeof args.limit === 'number' ? items.slice(0, args.limit) : items), []];
       }
-      case 'tasks.get':
-        return [task(), []];
+      case 'tasks.get': {
+        // as core: a task in the trash too
+        const found = store.tasks.find((t) => t.id === args.id);
+        if (!found) throw new RemoteError('not_found', `${String(args.id)} not found`);
+        return [found, []];
+      }
       case 'tasks.subtasks':
         return [page(store.subtasks(args.id)), []];
       case 'tasks.updateStatus':
@@ -518,6 +535,8 @@ export class FakeMain {
 
   private async answer(path: string, input: unknown): Promise<[unknown, ChangedEntity[]]> {
     const args = (input ?? {}) as Record<string, unknown>;
+    const route = this.routes.get(path);
+    if (route) return route(args);
     const filter = args.filter as Record<string, unknown> | undefined;
     // the open workspace's notes, filtered as core does
     if (path === 'notes.list') {
@@ -697,7 +716,16 @@ export class FakeMain {
           nextCursor: null,
         };
       case 'integrations.list':
-        return [{ id, provider: 'linear', accountLabel: title, sources: [] }];
+        return [
+          {
+            id,
+            provider: 'linear',
+            authType: 'api_key',
+            status: 'connected',
+            accountLabel: title,
+            sources: [],
+          },
+        ];
       case 'projects.list': {
         const stats = {
           numOfNotStarted: 0,
@@ -709,6 +737,11 @@ export class FakeMain {
         };
         return { items: [{ id, title, status: 3, color: null, stats }], nextCursor: null };
       }
+      case 'archive.listArchived':
+        return {
+          items: [{ id, title, entityType: 'tasks', archivedAt: new Date(2026, 5, 22, 9) }],
+          nextCursor: null,
+        };
       default:
         return { items: [{ id, title }], nextCursor: null };
     }

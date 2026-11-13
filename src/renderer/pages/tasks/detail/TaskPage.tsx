@@ -17,6 +17,7 @@ import { useMutationErrorToast } from '../../app/mutation-errors';
 import { PageHeaderSlot, useCrumbLink } from '../../app/page-header';
 import { useHistoryPosition } from '../../app/use-history-position';
 import { useRecordView } from '../../app/use-record-view';
+import { TrashedNotice } from '../../app/TrashedNotice';
 import { ipcErrorCode } from '../../../workspace/errors';
 import { isSynced } from '../queries';
 import { taskRoute } from '../route-api';
@@ -62,6 +63,8 @@ function TaskPageContent({ task }: { task: Task }) {
   const showError = useMutationErrorToast();
   const [adding, setAdding] = useState<AddingProperty>(null);
   const synced = isSynced(task);
+  // opened from Trash: shown as it is, read-only, until it's restored
+  const trashed = task.archivedAt !== null;
 
   // the task note in the sheet beside the page (?note=nte_…), with an entry of its own, so Back
   // closes it; it stays mounted once `note` leaves the URL, until it has slid out
@@ -123,40 +126,61 @@ function TaskPageContent({ task }: { task: Task }) {
           />
         }
         actions={
-          <>
-            <PageFavoriteButton
-              favorite={task.favoritedAt !== null}
-              onFavoriteChange={(favorite) => actions.setFavorite([task], favorite)}
-            />
-            <TaskDetailMenu task={task} onAdd={setAdding} onTrash={() => void trash()} />
-          </>
+          !trashed && (
+            <>
+              <PageFavoriteButton
+                favorite={task.favoritedAt !== null}
+                onFavoriteChange={(favorite) => actions.setFavorite([task], favorite)}
+              />
+              <TaskDetailMenu task={task} onAdd={setAdding} onTrash={() => void trash()} />
+            </>
+          )
         }
       />
       <PageContent layout="document" data-testid="task-page">
         <Stack gap="8">
-          <EditorTitle
-            // keyed on the title, so a rename elsewhere (or a sync) shows here
-            key={task.title}
-            placeholder="Task title"
-            contentEditable={!synced}
-            suppressContentEditableWarning
-            spellCheck={false}
-            aria-label="Title"
-            onBlur={saveTitle}
-            onKeyDown={onTitleKey}
+          {trashed && (
+            <TrashedNotice
+              noun="task"
+              onRestore={() =>
+                void ipc.archive.restoreTask
+                  .mutate({ id: task.id })
+                  .catch((error: unknown) => showError(error, 'Couldn’t restore the task'))
+              }
+            />
+          )}
+          {/* inert while trashed: shown, not editable (React 18 passes `inert` through as is) */}
+          <div
+            {...(trashed ? ({ inert: '' } as Record<string, string>) : {})}
+            data-trashed={trashed ? '' : undefined}
+            style={{ display: 'contents' }}
           >
-            {task.title}
-          </EditorTitle>
-          <TaskProperties
-            task={task}
-            parent={parent}
-            actions={actions}
-            adding={adding}
-            onAddingChange={setAdding}
-          />
-          <TaskDescription task={task} />
-          <TaskSubtasksSection task={task} />
-          <TaskNoteSection task={task} onOpenNote={openNote} />
+            <Stack gap="8">
+              <EditorTitle
+                // keyed on the title, so a rename elsewhere (or a sync) shows here
+                key={task.title}
+                placeholder="Task title"
+                contentEditable={!synced}
+                suppressContentEditableWarning
+                spellCheck={false}
+                aria-label="Title"
+                onBlur={saveTitle}
+                onKeyDown={onTitleKey}
+              >
+                {task.title}
+              </EditorTitle>
+              <TaskProperties
+                task={task}
+                parent={parent}
+                actions={actions}
+                adding={adding}
+                onAddingChange={setAdding}
+              />
+              <TaskDescription task={task} />
+              <TaskSubtasksSection task={task} />
+              <TaskNoteSection task={task} onOpenNote={openNote} />
+            </Stack>
+          </div>
         </Stack>
       </PageContent>
       {sheetNote && (
