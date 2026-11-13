@@ -8,6 +8,7 @@ import { EditorHostContext, EntityLinkView, ImageLinkView } from './EntityPillVi
 import { FormatBubble } from './FormatBubble';
 import { MarkdownClipboard } from './extensions/clipboard';
 import { EditorHostExtension, setEditorHost } from './extensions/editor-host';
+import { setVimEnabled, VimInsertEscape, VimMode } from './extensions/vim';
 import { createDocumentExtensions } from './markdown';
 import { EntityMenu } from './suggestion/entity-menu';
 import { SlashMenu } from './suggestion/slash-menu';
@@ -25,6 +26,7 @@ import styles from './RichTextEditor.module.css';
  *   what the editor last sent.
  * - Links open through `onOpenUrl` (safe http/https only), with ⌘/Ctrl-click while editing and a
  *   plain click when read-only. Entity pills open through `onOpenEntity`.
+ * - With `vim` (Vim keys on), it has Normal, Visual and Insert modes (`extensions/vim.ts`).
  */
 
 export interface RichTextEditorProps extends EditorHost {
@@ -64,6 +66,8 @@ export function RichTextEditor({
     Placeholder.configure({ placeholder }),
     SlashMenu,
     EntityMenu,
+    VimMode,
+    VimInsertEscape,
   ]);
   // the markdown the editor holds as `value` gave it, and the value it came from
   const baseline = useRef<{ value: string; markdown: string } | null>(null);
@@ -126,6 +130,10 @@ export function RichTextEditor({
   useEffect(() => {
     editor.setEditable(editable, false);
   }, [editor, editable]);
+
+  // Vim keys: Normal, Visual and Insert in the editor, while it can be edited
+  const vim = !!host.vim && editable;
+  useEffect(() => setVimEnabled(editor, vim), [editor, vim]);
 
   return (
     <EditorHostContext.Provider value={host}>

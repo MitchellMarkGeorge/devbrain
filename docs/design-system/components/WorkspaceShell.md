@@ -40,6 +40,8 @@ The grid has four templates, one per platform group and sidebar state:
 | macOS, Linux | `sidebar header sheet` / `sidebar main sheet`  | `bar header sheet` / `main main sheet`  |
 | Windows      | `sidebar header header` / `sidebar main sheet` | `bar header header` / `main main sheet` |
 
+Each has a third row, `status status status`: the `statusLine` slot, a `StatusLine` across the window's bottom under the sidebar, the page and a docked sheet, which the app passes while Vim mode is on (the `VimStatusLine` story). Without one the row is empty and takes no height.
+
 In the app the drawer doesn't drag the window (`-webkit-app-region: no-drag`, its window row too): the `WindowBar` under it would otherwise keep dragging through it, and a drag region swallows the pointer, which would close a peek.
 
 **Base UI:** `Drawer` for the hidden sidebar (non-modal while peeking, modal once pinned, which traps focus; Esc, an outside click and a swipe close it). Layout is a CSS grid with a container query on the shell's own width.

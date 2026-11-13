@@ -63,6 +63,17 @@ export interface ProjectListHandle<Project extends ProjectListRow = ProjectListR
   focusLast(): void;
   toggleSelected(): void;
   clearSelection(): void;
+  /** how many rows fit in view (half of it is Vim's `Ctrl-d`) */
+  pageSize(): number;
+  /**
+   * starts a range at the focused row, selecting it: until `endRange`, moving focus selects every
+   * row from it to the focused one (Vim's `v`)
+   */
+  startRange(): void;
+  /** stops the range growing; its rows stay selected */
+  endRange(): void;
+  /** the focused row and the `count - 1` loaded rows after it, in list order (`3dd`) */
+  itemsFromFocus(count: number): Project[];
 }
 
 /**
@@ -120,7 +131,13 @@ function ProjectListInner<Project extends ProjectListRow>(
     [projects],
   );
   const wanted = focusedIdProp ?? focusedState;
-  const focusedId = indexOfId(wanted) >= 0 ? wanted : projects[0]?.id;
+  // the focused row's place, kept so that when its row goes (moved to trash) the row that takes
+  // its place is the focused one, not the first
+  const wantedIndex = indexOfId(wanted);
+  const [lastIndex, setLastIndex] = useState(0);
+  if (wantedIndex >= 0 && wantedIndex !== lastIndex) setLastIndex(wantedIndex);
+  const focusedId =
+    wantedIndex >= 0 ? wanted : projects[Math.min(lastIndex, projects.length - 1)]?.id;
 
   const virtualizer = useVirtualList({
     scrollerRef: listRef,
@@ -144,12 +161,33 @@ function ProjectListInner<Project extends ProjectListRow>(
     }
   });
 
+  // whether a row has focus, or had it until its row went away (as `TaskList` does): focus then
+  // follows the focused row rather than falling to the page
+  const holdsFocus = useRef(false);
+  useEffect(() => {
+    if (!holdsFocus.current || !focusedId || pendingFocus.current === focusedId) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && active.isConnected) return;
+    focusProject(focusedId);
+  });
+
   function setFocused(id: string) {
     setFocusedState(id);
     onFocusedIdChange?.(id);
   }
 
+  // a range's first row (Vim's `v`): while set, moving focus selects from it to the focused row
+  const rangeAnchor = useRef<string | null>(null);
+  function selectRange(from: string, to: string) {
+    const a = indexOfId(from);
+    const b = indexOfId(to);
+    if (a < 0 || b < 0) return;
+    const ids = projects.slice(Math.min(a, b), Math.max(a, b) + 1).map((row) => row.id);
+    setSelected(new Set(ids));
+  }
+
   function focusProject(id: string) {
+    if (rangeAnchor.current) selectRange(rangeAnchor.current, id);
     setFocused(id);
     const index = indexOfId(id);
     const row = rows.current.get(id);
@@ -173,6 +211,20 @@ function ProjectListInner<Project extends ProjectListRow>(
         if (focusedId) toggle(focusedId);
       },
       clearSelection: () => setSelected(new Set()),
+      pageSize: () =>
+        Math.max(1, Math.floor((listRef.current?.clientHeight ?? 0) / SIZE['row-height'])),
+      startRange: () => {
+        if (!focusedId) return;
+        rangeAnchor.current = focusedId;
+        setSelected(new Set([focusedId]));
+      },
+      endRange: () => {
+        rangeAnchor.current = null;
+      },
+      itemsFromFocus: (count) => {
+        const from = Math.max(0, indexOfId(focusedId));
+        return projects.slice(from, from + Math.max(1, count));
+      },
     };
   });
 
@@ -197,6 +249,11 @@ function ProjectListInner<Project extends ProjectListRow>(
         'aria-rowcount': rowCount ?? projects.length,
         tabIndex: focusedDrawn || !focusedId ? -1 : 0,
         onFocus: handleFocus,
+        // focus going somewhere else (a click, a dialog) lets it go
+        onBlur: (event: FocusEvent<HTMLDivElement>) => {
+          const to = event.relatedTarget;
+          if (to instanceof Node && !event.currentTarget.contains(to)) holdsFocus.current = false;
+        },
         ...props,
       }}
     >
@@ -224,6 +281,7 @@ function ProjectListInner<Project extends ProjectListRow>(
               stats={project.stats}
               tabIndex={id === focusedId ? 0 : -1}
               onFocus={() => {
+                holdsFocus.current = true;
                 if (id !== focusedId) setFocused(id);
               }}
               selected={on}

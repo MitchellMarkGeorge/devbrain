@@ -14,6 +14,7 @@ The note editor's block styles, for whichever editor library DevBrain adopts: wr
 - **Sub- and superscript** at 0.75em; keys (`<kbd>`) are the `Kbd` component.
 - **Unsupported HTML**, shown as its source text, in mono `muted-foreground`.
 - **Selection**: a selected block (a divider, a section) has a 2px `ring` outline at 50%.
+- **Vim keys** (Figma `7714:56193`–`7714:56625`), while the editor's element has `data-key-mode` (the editor's Vim plugin sets it): in Normal and Visual the caret is hidden for a **block cursor**, the character under it in `background` on `foreground` (`.vim-cursor`; on an empty line a 0.6em block), and every block shows its **relative line number** in the margin, 48px to its left (68px in a list, clear of the bullets), 11px mono `muted-foreground`: how many lines it is from the cursor's, and on the cursor's own line its number counted from the top, in `foreground` semibold (`data-vim-line`, `data-vim-current`). Insert keeps the thin caret and draws no numbers.
 - **Placeholders**: an empty block with `data-placeholder` shows it in `subtle-foreground` ("Start writing, or press / for commands…", "Press / for commands…", "Heading 2").
 
 The rich-text editor itself is not part of the design system yet; the floating chrome around it is (`FormatToolbar`, `LinkToolbar`, `TurnIntoMenu`, `ColourMenu`, `SlashMenu`, `MentionMenu`).

@@ -1,5 +1,17 @@
 import type { Scope } from './scopes';
 
+/**
+ * Set on an element whose focus puts the keyboard in a mode of its own (the `:` line's input is
+ * `data-key-mode="command"`), for a keymap whose mode follows focus (`insertMode`).
+ */
+export const MODE_ATTRIBUTE = 'data-key-mode';
+
+/**
+ * Sent (bubbling) by an element that changed its own `data-key-mode` while focus is in it: the
+ * editor's Vim plugin going from Normal to Insert. The dispatcher reads the mode again.
+ */
+export const MODE_CHANGE_EVENT = 'devbrain:keymode';
+
 /** The mode of a keymap that declares none. */
 export const DEFAULT_MODE = 'default';
 
@@ -14,13 +26,20 @@ export interface KeymapEntry {
   command: string;
   /** passed to the command's `run`, with the count */
   args?: Record<string, unknown>;
-  /** also fires in inputs, text areas and selects, and during IME composition */
+  /** also fires in inputs, text areas and selects, and during IME composition (and in menus) */
   allowInTyping?: boolean;
+  /**
+   * also fires in an open menu or list box (`role="menu"`/`"listbox"`), which otherwise keeps
+   * letters for its typeahead and digits for its shortcuts: Vim's `j`/`k` in the status menu
+   */
+  allowInMenu?: boolean;
   /**
    * also fires in `contenteditable` (the rich text editor), which otherwise keeps its keys: TipTap
    * binds ⌘K to Link, so search's ⌘K leaves this off
    */
   allowInEditor?: boolean;
+  /** a change Vim's `.` does again (`dd`, `*`): the dispatcher keeps the last one run by its keys */
+  repeatable?: boolean;
   /** the shortcuts dialog's section; by default the scope's ("Everywhere" for `global`) */
   group?: string;
   /** the shortcuts dialog's row label, when not the command's title ("Down / up") */
@@ -38,6 +57,12 @@ export interface Keymap {
   title: string;
   /** the modes it has, the first being the one it starts in; `[DEFAULT_MODE]` when omitted */
   modes?: readonly string[];
+  /**
+   * the mode focus in a typing target (an input, a text area, the editor) puts the keyboard in,
+   * for a modal keymap (Vim's `insert`): focus leaving it, or Esc pressed in it and left alone by
+   * the page, goes back to the first mode. None by default: the mode doesn't follow focus
+   */
+  insertMode?: string;
   /** whether a number typed before keys is a count (`3j`); off by default */
   counts?: boolean;
   /** how long a sequence waits for its next stroke, in ms; 1000 by default */

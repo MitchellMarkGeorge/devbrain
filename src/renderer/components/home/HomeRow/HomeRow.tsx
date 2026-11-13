@@ -1,5 +1,7 @@
 import {
   forwardRef,
+  useMemo,
+  useRef,
   type ComponentPropsWithoutRef,
   type KeyboardEvent,
   type MouseEvent,
@@ -7,6 +9,8 @@ import {
 } from 'react';
 import { DateTime } from 'luxon';
 import { Video } from 'lucide-react';
+import { mergeRefs } from '../../lib/merge-refs';
+import { useHintTarget } from '../../../keyboard/hints';
 import type { Event } from '@common/types';
 import { eventCountdown } from '../../event-text';
 import { cn } from '../../lib/cn';
@@ -56,9 +60,13 @@ export const HomeRow = forwardRef<HTMLDivElement, HomeRowProps>(function HomeRow
   },
   ref,
 ) {
+  // Vim's `f` labels the row, and its label opens it
+  const own = useRef<HTMLDivElement>(null);
+  const setRef = useMemo(() => mergeRefs(ref, own), [ref]);
+  useHintTarget(own, onOpen);
   return (
     <div
-      ref={ref}
+      ref={setRef}
       role="row"
       tabIndex={onOpen ? 0 : undefined}
       data-current={current ? '' : undefined}

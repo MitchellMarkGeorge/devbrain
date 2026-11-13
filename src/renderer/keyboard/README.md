@@ -16,10 +16,17 @@ in Storybook mounts it with a demo keymap.
 | `KeyboardProvider.tsx` | the provider and hooks: `useCommands`, `useRunCommand`, `useKeyboardState`, …      |
 | `KeyScope.tsx`         | `<KeyScope name>`: makes a subtree a scope while focus is inside it                |
 | `default-keymap.ts`    | the keymap DevBrain ships with, and `createAppCommands(actions)`                   |
+| `vim-keymap.ts`        | Vim mode's keymap (`general.keyboardMode: 'vim'`): modes, counts, Vim's keys       |
+| `ModeLine.tsx`         | Vim's mode line: the shell's `StatusLine`, filled from the dispatcher's state      |
+| `command-line.ts`      | the `:` line's aliases, `completeCommandLine` and `resolveCommandLine`             |
+| `CommandLine.tsx`      | Vim's `:` line: an input in the mode line, completions above it                    |
 | `list-commands.ts`     | `useListCommands(ref, actions)`: the list keys' commands, over a list's ref        |
+| `board-commands.ts`    | `useBoardCommands(columns, actions)`: Vim's board keys, over the columns' handles  |
+| `cursor.ts`            | `cursor.enter` (a first `j` enters the page's list) and `j`/`k` in an open menu    |
 | `shortcuts.ts`         | the shortcuts dialog's sections, and a command's keys (`commandShortcut`, for ⌘K)  |
 | `ShortcutsDialog.tsx`  | the shortcuts dialog (Figma `7426:43880`)                                          |
-| `hints.ts`             | `useHintTarget(ref, action)`: a no-op until Vim's `f` hints                        |
+| `hints.ts`             | `useHintTarget(ref, action)`, the `HintRegistry`, labels, and `collectHints`       |
+| `HintOverlay.tsx`      | Vim's `f`: a `HintLabel` over every target, picked by typing its label             |
 
 ## Mounting it
 
@@ -84,27 +91,109 @@ trash · Undo" toast.
 ## How a key is handled
 
 1. A lone modifier is skipped.
-2. With `counts` on, a digit outside a typing target adds to the count (a leading `0` is a key).
+2. With `counts` on, a digit outside a typing target or an open menu adds to the count (a leading
+   `0` is a key).
 3. The stroke joins the pending sequence.
 4. The active scopes are walked from the innermost out (an open `dialog` scope hides everything
    outside it). The first scope with a binding that is in the current mode, allowed where the key
    was typed (`allowInTyping` for inputs and IME composition, `allowInEditor` for
-   `contenteditable`), and whose command is registered and enabled, decides: a binding the strokes
+   `contenteditable`, `allowInMenu` (or `allowInTyping`) in an open `role="menu"` or `"listbox"`,
+   which otherwise keeps letters for its typeahead and digits for its shortcuts), and whose command
+   is registered and enabled, decides: a binding the strokes
    start waits up to `sequenceTimeout` (1s) for the next stroke, then runs a binding they complete
    in that scope, if any; a binding they complete runs now.
 5. Nothing matches: the sequence and count are dropped, and the key goes on to the page.
 
-## Adding Vim
+## Vim mode
 
-A Vim keymap is a `Keymap` with `modes: ['normal', 'insert', 'visual', 'command']`, `counts: true`
-and `upperCaseKeys: false`, binding the same commands (`list.down`, `row.trash`, `nav.tasks`) to
-other keys, and a few of its own (`mode.insert` calling `ctx.setMode('insert')`). The setting
-`general.keyboardMode` picks which keymap the provider gets. The `VimSketch` story shows one. What
-is still to build for it, none of which changes the layer:
+Settings › General › **Vim keys** (`general.keyboardMode: 'vim'`, off by default) gives the root
+layout's `KeyboardProvider` the `vimKeymap` in place of the default one; the registry and the undo
+stack stay. The Vim keymap binds the same commands (`list.down`, `row.trash`, `nav.tasks`) to Vim's
+keys, and a few of its own. It is a `Keymap` with:
 
-- the mode commands, and entering Insert mode when focus moves into a text field;
-- a status line and a which-key popup, from `useKeyboardState()` (`mode`, `pending`, `count`);
-- the `:` command line, running `useCommandList()`'s commands through `dispatcher.run`;
-- `f` hints, filling in `useHintTarget`;
-- Normal mode inside the editor, as a ProseMirror plugin: the dispatcher leaves `contenteditable`
-  alone.
+- `modes: ['normal', 'insert', 'visual', 'hint', 'command']`, starting in Normal;
+- `insertMode: 'insert'`: **the mode follows focus.** Focus in a text field or the editor puts the
+  keyboard in Insert, and focus leaving it (to a row, or nowhere) takes it back to Normal. An
+  element with `data-key-mode` (`MODE_ATTRIBUTE`) puts it in a mode of its own while focused (the
+  `:` line's input is `data-key-mode="command"`). A mode a command set (Visual, from `v`) stays as
+  focus moves between rows;
+- **Esc in a field** leaves it for Normal: the dispatcher listens for Esc in the bubble phase too,
+  and blurs the field (the editor's root, for `contenteditable`) only if the page left the key
+  alone. A field's own Esc (cancelling an edit, closing a popup) prevents it and comes first, and a
+  dialog's fields keep their Esc, which closes the dialog. Insert binds no Esc of its own;
+- `counts: true` (`5j`) and `upperCaseKeys: false` (`g` and `G` differ, and the keys sheet draws
+  them as typed).
+
+`mode.set` (`SET_MODE_COMMAND_ID`, registered by the provider) puts the keyboard in `args.mode`:
+Visual's and Hint's Esc bind it with `{ mode: 'normal' }`. The workspace layout shows `ModeLine`
+in the shell's `statusLine` slot while the keymap has modes: the shell's `StatusLine` with the mode,
+the page's title, the count and keys typed so far, and the mode's keys on the right.
+
+**Keys in Normal mode.** Lists: `j`/`k` (and the arrows) with counts (`5j`), `gg`/`G`,
+`Ctrl-d`/`Ctrl-u` (half the rows in view, `ListKeyTarget.pageSize`), `o` or ↵ to open, `x` to
+select, `v` or `V` for a range, `s` for the status menu, `*` to favorite (as `f` is hints), `l`/`h`
+to show and hide subtasks, and `dd` to move to trash (`3dd`: the focused row and the two after it,
+`itemsFromFocus`). Everywhere: `g h`/`g t`/…, `Ctrl-o`/`Ctrl-i` back and forward, `c` for a new
+task, `u` to undo, `Ctrl-r` to redo, `.` to repeat, `?` for the keys. `1`–`3` are counts in Vim;
+Status picks with them once `s` has opened it, and `j`/`k` move in it (`menu.down`/`menu.up`, which
+press its ↓/↑).
+
+- **From nowhere.** With focus on no list or board (a page just opened, or Esc left a field), the
+  first `j`, `k`, `gg` or `G` runs `cursor.enter`, which focuses the page's list or board at its
+  focused row; the next key moves.
+- **Visual.** `v` (`list.visual`) starts a range at the focused row (`ListKeyTarget.startRange`)
+  and puts the keyboard in Visual; the list then selects from that row to the focused one as focus
+  moves, so `j`/`k`, `gg`/`G` and half pages grow it. `x` keeps it and goes back to Normal, Esc
+  drops it, and a row key (`s`, `*`, `d`) acts on it and ends it (`endRange`). A selected row's
+  status menu sets the status of the whole selection.
+- **The board.** `useBoardCommands(columns, actions)` registers `board.*` in the `board` scope, over
+  each `BoardColumn`'s `handleRef`: `j`/`k` within a column, `h`/`l` to the next column with cards
+  (at the same place, or its last), past the edge `actions.leave` (the tasks board focuses the
+  sidebar's page, or an open sheet); `gg`/`G`, `o`, `*`, `dd`, and Esc to close the sheet. Once the
+  sheet is open it follows the cursor (`actions.moved`).
+- **Undo, redo and repeat.** An `Undoable` may have a `redo`; `UndoStack.undo` (and the toast's
+  `take`) puts an entry that has one on a redo stack, `redo` (`app.redo`, `Ctrl-r`) does it again
+  and puts it back, and a new entry empties the redo stack. Moving to trash redoes by moving them
+  again. A keymap entry marked `repeatable` (`dd`, `*`) is remembered with its args and count when
+  its keys run it, and `dispatcher.repeat(count)` (`app.repeat`, `.`) runs it again where focus is
+  now, with a new count if one was typed (`3.`).
+- **The which-key popup.** While a sequence is pending (`g`), the mode line lists what can follow
+  in the scopes where focus is (`continuations`), as Figma's `7703:55909` does.
+
+- **Hints.** `f` (`hints.show`) puts the keyboard in Hint mode, and the provider's `HintOverlay`
+  draws a `HintLabel` over every target on screen (`collectHints`): the elements registered with
+  `useHintTarget(ref, action)` (`TaskRow`, `ListRow` and the rows built on it, `BoardCard`,
+  `HomeRow`, `EventRow`, each with its open), then the buttons, links, fields, tabs and menu items
+  outside them, and any other `tabindex="0"` element holding no controls of its own (a calendar
+  event, a card); with a dialog open, only the top-most dialog's. A registered element's own
+  buttons and pills get no label, as in Figma. Labels come from the home row (`a`, `s`, … or `aa`,
+  `as`, … when there are more than nine), and none starts another. Typing a whole label runs its
+  target's action (a registered one, or a click; a text field is focused instead) and goes back to
+  Normal; a key no label goes on with is ignored, Backspace takes one back, and Esc, a scroll or a
+  resize cancels. Outside a provider `useHintTarget` does nothing, so components call it freely.
+
+- **The `:` line.** `:` (`commandLine.open`, registered by `ModeLine`) puts the keyboard in
+  Command mode, and the mode line becomes `CommandLine`: an input (inside `data-key-mode="command"`,
+  so its focus is Command mode, not Insert) with completions above it, from the registry
+  (`completeCommandLine`): the aliases the text starts (`COMMAND_ALIASES`: a page's name, the tasks
+  page's `list`/`group`/`board` and `sort priority`/`due`/`status`/…, `new`, `search`, and Vim's
+  `u`, `red` and `h`), then commands by id (`list.visual`) or by a word of their title. Tab or ↓
+  picks the next, ⇧Tab or ↑ the one before; ↵ runs the one picked, or the alias or id typed out in
+  full; Esc or Backspace on an empty line cancels. Focus goes back to where it was before `:`, and
+  the command runs there (`dispatcher.run`), in its scopes. `:q` and `:w` aren't aliases: there is
+  no window to close, and everything saves as it's typed.
+- **The keys sheet.** `?` opens the shortcuts dialog, which draws the active keymap in the current
+  mode: with Vim on, the Vim keymap's Normal keys in Figma's sections (Move, Go to, Act, Find), under
+  "Keys · Vim keys on · Esc closes" (`7704:59901`). The same keys bound in two scopes (`j` in a list
+  and on the board) show once.
+
+- **The editor.** The dispatcher leaves `contenteditable` alone, so the editor's Vim keys are a
+  ProseMirror plugin of its own (`src/renderer/editor/extensions/vim.ts`; `docs/editor.md`, "Vim
+  keys"): Normal, Visual, Visual line and Insert. It sets the editor's `data-key-mode`, which the
+  dispatcher reads as focus comes in, and sends a `MODE_CHANGE_EVENT` as it changes, which the
+  dispatcher answers by reading it again; so the mode line shows the editor's mode, with the
+  editor's keys (`ModeLine`'s `EDITOR_HINTS`).
+
+Not built (`docs/follow-ups.md`, "Vim mode"): `h`/`j`/`k`/`l` over the notes and projects card
+grids, `yy`, `i` (rename) and `/` from the keys sheet, which have no commands yet, the sidebar as a
+pane, and the cursor's place in the mode line.

@@ -314,3 +314,51 @@
 .content [data-selection] {
   border-radius: 1px;
 }
+
+/*
+ * Vim keys (Figma `7714:56193`–`7714:56625`): in Normal and Visual the editor's element has
+ * `data-key-mode`, the caret is hidden for a block cursor on the character, and each line shows
+ * how far it is from the cursor's (its own number on the cursor's line) in the left margin.
+ * Insert keeps the thin caret and no numbers.
+ */
+.content :global(.ProseMirror)[data-key-mode='normal'],
+.content :global(.ProseMirror)[data-key-mode^='visual'] {
+  caret-color: transparent;
+}
+.content :global(.vim-cursor) {
+  border-radius: 1px;
+  background: var(--foreground);
+  color: var(--background);
+}
+.content :global(.vim-cursor-empty) {
+  display: inline-block;
+  width: 0.6em;
+  height: 1.2em;
+  vertical-align: text-bottom;
+}
+.content [data-vim-line] {
+  position: relative;
+}
+.content [data-vim-line]::before {
+  content: attr(data-vim-line);
+  position: absolute;
+  top: 0;
+  /* in the margin, clear of a list's bullets */
+  left: -48px;
+  width: 24px;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: var(--font-weight-normal);
+  line-height: inherit;
+  text-align: right;
+  pointer-events: none;
+  user-select: none;
+}
+.content li [data-vim-line]::before {
+  left: -68px;
+}
+.content [data-vim-current]::before {
+  color: var(--foreground);
+  font-weight: var(--font-weight-semibold);
+}

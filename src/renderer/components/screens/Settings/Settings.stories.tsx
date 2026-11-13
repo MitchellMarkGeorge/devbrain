@@ -239,6 +239,11 @@ function General() {
               />
             }
           />
+          <SettingsRow
+            label="Vim keys"
+            description="Move with h j k l, counts and gg / G. f labels everything you can click."
+            control={<Switch aria-label="Vim keys" />}
+          />
         </SettingsGroup>
       </SettingsSection>
       <SettingsSection title="Confirmations">
