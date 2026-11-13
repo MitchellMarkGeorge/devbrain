@@ -348,7 +348,10 @@ The renderer starts a switch by navigating to a page of the other workspace; its
 3. When the id differs from the workspace whose data is cached, the invalidator drops every query
    outside `app`, `settings` and `workspaces` (cancels what is in flight and removes it, refetching
    nothing: a page still mounted is the old workspace's, and the next page's loaders fetch its
-   data), and refetches the `workspaces` queries.
+   data), and refetches the `workspaces` queries. From `opening` until the switch ends, events
+   refetch only queries outside a workspace: core lets go of the old workspace before its sync
+   runs settle, and their last `db.changes`, `sources.changed` and `integrations.changed` would
+   otherwise refetch the hidden old page's queries and fail with `no_workspace_open`.
 4. The mutation's response carries `changed: ['workspace']`, which only refetches the workspace
    list. Creating, renaming or recolouring a workspace (`workspaces.update`), or adding one from a
    folder (`workspaces.importFolder`, see

@@ -234,6 +234,32 @@ describe('listen', () => {
     expect(events.listeners.size).toBe(0);
   });
 
+  it('refetches only what belongs to no workspace while one opens, and everything after', async () => {
+    const events = fakeEvents();
+    unsubscribes.push(queryInvalidator.listen(events.client));
+    await queryInvalidator.workspaceOpened(WORK);
+    await query('tasks.list');
+    await query('sync.status');
+    await query('workspaces.list');
+
+    // a switch has started: main lets go of Work, whose sync runs settle with their last events
+    events.send('workspace.changed', { id: WORK, opening: HOME });
+    events.send('db.changes', { entities: ['task', 'workspace'] as ChangedEntity[] });
+    events.send('sources.changed', { sourceId: 'src_1' as never });
+    events.send('integrations.changed', {
+      integrationId: 'int_1' as never,
+      type: 'status_changed',
+    });
+    await vi.waitFor(() => expect(count('workspaces.list')).toBe(2));
+    expect(count('tasks.list')).toBe(1);
+    expect(count('sync.status')).toBe(1);
+
+    // the switch failed with Work still open: its data refetches on events again
+    events.send('workspace.changed', { id: WORK, opening: null });
+    events.send('db.changes', { entities: ['task'] as ChangedEntity[] });
+    await vi.waitFor(() => expect(count('tasks.list')).toBe(2));
+  });
+
   it('refetches the sync status when a source or an account changes', async () => {
     const events = fakeEvents();
     unsubscribes.push(queryInvalidator.listen(events.client));

@@ -103,10 +103,21 @@ export function createQueryInvalidator(options: QueryInvalidatorOptions): QueryI
   const onError = options.onError ?? ((error: unknown) => console.error(error));
   // the workspace whose data is cached; unknown until main first says
   let cachedWorkspaceId: WorkspaceId | null | undefined;
+  // the workspace opening, from workspace.changed: set from the moment a switch starts until it
+  // has opened or failed
+  let openingWorkspaceId: WorkspaceId | null = null;
+
+  const outsideWorkspaces = (query: Query) => ROUTERS_OUTSIDE_WORKSPACES.has(routePathOf(query)[0]);
 
   function invalidateQueriesReading(entities: readonly ChangedEntity[]): Promise<void> {
+    // While a workspace opens, the old one's data is about to go and the new one's isn't there
+    // yet: main has let go of the old one before its sync runs settle, and their last events still
+    // come. Refetching its queries then (the old page is still mounted, hidden under the splash)
+    // only fails with no_workspace_open, so only what belongs to no workspace refetches.
+    const switching = openingWorkspaceId !== null;
     return queryClient.invalidateQueries({
       predicate: (query) => {
+        if (switching && !outsideWorkspaces(query)) return false;
         const entitiesRead = entitiesReadBy(routePathOf(query));
         return (
           entitiesRead === 'everything' || entitiesRead.some((entity) => entities.includes(entity))
@@ -121,9 +132,7 @@ export function createQueryInvalidator(options: QueryInvalidatorOptions): QueryI
   // tell the hooks holding it, so that page doesn't render again; the next page's loaders fetch
   // its data from the workspace now open.
   async function dropWorkspaceData(): Promise<void> {
-    const filters = {
-      predicate: (query: Query) => !ROUTERS_OUTSIDE_WORKSPACES.has(routePathOf(query)[0]),
-    };
+    const filters = { predicate: (query: Query) => !outsideWorkspaces(query) };
     await queryClient.cancelQueries(filters);
     queryClient.removeQueries(filters);
   }
@@ -150,7 +159,8 @@ export function createQueryInvalidator(options: QueryInvalidatorOptions): QueryI
         events.on('db.changes', ({ entities }) => {
           onChanged(entities).catch(onError);
         }),
-        events.on('workspace.changed', ({ id }) => {
+        events.on('workspace.changed', ({ id, opening }) => {
+          openingWorkspaceId = opening;
           workspaceOpened(id).catch(onError);
         }),
         // a source's sync state (a run starting or ending, its error, its settings) and an

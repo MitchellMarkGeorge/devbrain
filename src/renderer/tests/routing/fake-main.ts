@@ -690,7 +690,11 @@ export class FakeMain {
     if (hold) await hold.promise;
     await Promise.resolve();
     if (this.open !== null) {
+      // core clears the open workspace, then waits for its sync runs to settle before `closed`:
+      // the old workspace's last events can come meanwhile (hold 'close' to send some)
       this.open = null;
+      const closing = this.holds.get('close');
+      if (closing) await closing.promise;
       this.emit('workspace.changed', { id: null, opening: id });
     }
     if (target.failsAfterClose) {
