@@ -143,6 +143,19 @@ export class IntegrationAccountMismatchError extends CoreError {
   }
 }
 
+// switching an integration or one of its sources while a reconnect of it runs: the reconnect writes
+// the status when it ends, so the switch waits for it
+export class IntegrationBusyError extends CoreError {
+  readonly code = 'integration_busy';
+  readonly integrationId: IntegrationId;
+
+  constructor(integrationId: IntegrationId) {
+    super(`Integration is being reconnected, so it can't be switched now: ${integrationId}`);
+    this.name = 'IntegrationBusyError';
+    this.integrationId = integrationId;
+  }
+}
+
 // switching on a source of a disabled integration; enable the integration instead
 export class IntegrationDisabledError extends CoreError {
   readonly code = 'integration_disabled';

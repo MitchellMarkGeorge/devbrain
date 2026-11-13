@@ -15,8 +15,9 @@ import { providerEntry } from './providers';
 
 /**
  * Whether a connect or reconnect is running, in this window, from any page: the accounts'
- * switches stay locked until it ends, so a switch can't be overwritten by the status the
- * reconnect writes when it ends (follow-up "A reconnect overwrites a disable made while it runs").
+ * switches stay locked until it ends. Core refuses them meanwhile too (`integration_busy`), and
+ * chooses the status the reconnect writes from the row as it is then; the lock keeps the click
+ * from being made at all.
  * Read from React Query's mutation cache, which outlives the page and its dialogs.
  */
 export function useConnecting(): boolean {
