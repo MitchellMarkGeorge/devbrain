@@ -42,3 +42,13 @@
   border-radius: var(--radius-full);
   background: var(--border-strong);
 }
+/* scrolled sideways: the same strip along the bottom edge, the thumb 2px up from it */
+.scrollbar[data-orientation='horizontal'] {
+  width: auto;
+  height: 8px;
+  padding: 2px var(--space-1);
+}
+.scrollbar[data-orientation='horizontal'] .thumb {
+  width: auto;
+  height: 100%;
+}

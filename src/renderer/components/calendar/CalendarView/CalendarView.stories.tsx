@@ -70,6 +70,21 @@ export const Month: Story = {
   ],
 };
 
+/**
+ * The month in a short view (a 640px window, under the page header): too short for six weeks of
+ * three lines, each cell shows as many as it fits and "+N more", and the month doesn't scroll.
+ */
+export const MonthShort: Story = {
+  args: { view: 'month', eventSources: source(MONTH_EVENTS), onDayClick: () => {} },
+  decorators: [
+    (Story) => (
+      <div style={{ height: 540 }}>
+        <Story />
+      </div>
+    ),
+  ],
+};
+
 /** Focus time (dashed, neutral), a tentative "Maybe" and a day out of office */
 export const FocusTentativeOutOfOffice: Story = {
   name: 'Focus time, tentative, out of office',

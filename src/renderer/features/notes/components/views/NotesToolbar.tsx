@@ -99,6 +99,7 @@ export function NotesFilterMenu({
             icon={ListFilter}
             value={filterValue(resolved, projectName)}
             hideValue={size === 'compact'}
+            active={resolved.project !== undefined || resolved.link !== undefined}
           >
             Filter
           </Button>

@@ -48,3 +48,21 @@ export const NoOverflow: Story = {
     </ScrollArea>
   ),
 };
+
+/**
+ * `orientation="horizontal"`: a row wider than the area scrolls sideways, under a scrollbar along
+ * its bottom edge (the board's columns, when a docked sheet narrows the board).
+ */
+export const Horizontal: Story = {
+  render: (args) => (
+    <ScrollArea {...args} orientation="horizontal" style={{ ...box, height: 'auto' }}>
+      <div style={{ display: 'flex', gap: 16, padding: '16px 16px 20px' }}>
+        {Array.from({ length: 12 }, (_, i) => (
+          <span key={i} style={{ flex: 'none' }}>
+            Column {i + 1}
+          </span>
+        ))}
+      </div>
+    </ScrollArea>
+  ),
+};

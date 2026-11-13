@@ -100,9 +100,12 @@ export const ToolbarValue: Story = {
           Sort
         </Button>
       </Flex>
-      {/* the compact toolbar of a narrow window: values hidden, labels keep their toolbar look */}
+      {/*
+        the compact toolbar of a narrow window: values hidden (point at a button for its value),
+        labels keep their toolbar look, and a filter that is on (`active`) draws pressed
+      */}
       <Flex gap="2">
-        <Button icon={ListFilter} value="Today" hideValue>
+        <Button icon={ListFilter} value="Today" hideValue active>
           Filter
         </Button>
         <Button icon={ArrowUpDown} value="Due date" hideValue>

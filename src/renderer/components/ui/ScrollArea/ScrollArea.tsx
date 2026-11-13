@@ -22,11 +22,18 @@ export interface ScrollAreaProps extends BaseScrollArea.Root.Props {
    * `role="grid"`, its `aria-*`, `tabIndex` and focus handlers, a `data-slot` for the router
    */
   viewportProps?: Omit<ComponentPropsWithoutRef<'div'>, 'className' | 'children'>;
+  /**
+   * which way it scrolls: `vertical` (the default; content wider than the area is cut), or
+   * `horizontal` (a row wider than the area, such as the board's columns, scrolled sideways under
+   * a scrollbar along the bottom edge; content taller than the area is cut)
+   */
+  orientation?: 'vertical' | 'horizontal';
 }
 
 /**
  * A vertical scrolling area with a thin scrollbar drawn over its right edge, taking no width from
- * the content (the sidebar, a sheet's body, every list and page that scrolls). The scrollbar shows while the area scrolls or the
+ * the content (or, with `orientation="horizontal"`, one scrolled sideways under a scrollbar over its
+ * bottom edge) (the sidebar, a sheet's body, every list and page that scrolls). The scrollbar shows while the area scrolls or the
  * pointer is over it, never when nothing overflows; drag its thumb or click its track to scroll.
  * Give the area a height (or let a flex column size it); the content goes in its viewport.
  *
@@ -37,7 +44,15 @@ export interface ScrollAreaProps extends BaseScrollArea.Root.Props {
  * ```
  */
 export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(function ScrollArea(
-  { viewportClassName, viewportRef, viewportProps, className, children, ...props },
+  {
+    viewportClassName,
+    viewportRef,
+    viewportProps,
+    orientation = 'vertical',
+    className,
+    children,
+    ...props
+  },
   ref,
 ) {
   const viewport = useRef<HTMLDivElement | null>(null);
@@ -57,12 +72,15 @@ export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(function S
         }}
         ref={setViewport}
         className={cn(styles.viewport, viewportClassName)}
-        // vertical only: content wider than the area is cut, not scrolled sideways
-        style={{ ...viewportProps?.style, overflowX: 'hidden' }}
+        // one way only: content reaching past the other edge is cut, not scrolled
+        style={{
+          ...viewportProps?.style,
+          ...(orientation === 'vertical' ? { overflowX: 'hidden' } : { overflowY: 'hidden' }),
+        }}
       >
         {children}
       </BaseScrollArea.Viewport>
-      <BaseScrollArea.Scrollbar orientation="vertical" className={styles.scrollbar}>
+      <BaseScrollArea.Scrollbar orientation={orientation} className={styles.scrollbar}>
         <BaseScrollArea.Thumb className={styles.thumb} />
       </BaseScrollArea.Scrollbar>
     </BaseScrollArea.Root>
