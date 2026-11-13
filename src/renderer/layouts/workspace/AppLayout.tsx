@@ -9,6 +9,7 @@ import { SettingsSidebar } from './SettingsSidebar';
 import { useTransferCommands } from '@renderer/features/settings/hooks/use-transfers';
 import { useAppCommands } from './hooks/use-app-commands';
 import { useMenuCommands } from './hooks/use-menu-commands';
+import { usePageFocus } from './hooks/use-page-focus';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useModalShown } from '@renderer/app/modals';
 
@@ -42,6 +43,8 @@ export function AppLayout() {
   // import and export, as commands, for the app menu; then the menu's commands, from main
   useTransferCommands();
   useMenuCommands();
+  // a new page takes focus when the old one took it away
+  usePageFocus();
   // a dialog (search, a create dialog, a confirmation) closes the sidebar's drawer, peeking or
   // pinned: the dialog is what the user turned to, and it shouldn't open over a sheet left open.
   // Before paint, so the two never show together
