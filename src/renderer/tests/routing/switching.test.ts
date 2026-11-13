@@ -85,6 +85,33 @@ describe('a switch', () => {
     expect(app.container.contains(workPage)).toBe(false);
   });
 
+  it('refetches nothing of the old workspace while it closes, whatever its last events say', async () => {
+    const main = main3();
+    const app = await onWorkTasks(main);
+    await app.router.navigate({ to: '/app/$workspaceId/tasks', params: { workspaceId: HOME } });
+    await eventually(() => expect(app.text()).toContain('Home tasks.list'));
+    const releaseClose = main.hold('close');
+    const navigation = app.router.navigate({
+      to: '/app/$workspaceId/notes',
+      params: { workspaceId: WORK },
+    });
+    await eventually(() => expect(main.open).toBeNull());
+    // core has let go of Home and waits for its sync runs, whose last events still come
+    main.push('db.changes', { entities: ['task', 'project', 'integration', 'externalSource'] });
+    main.push('sources.changed', { sourceId: 'src_linear' as never });
+    main.push('integrations.changed', {
+      integrationId: 'int_linear' as never,
+      type: 'status_changed',
+    });
+    await tick();
+    releaseClose();
+    await navigation;
+    await eventually(() => expect(app.text()).toContain('Work notes.list'));
+    // nothing went to main while no workspace was open but the calls outside any workspace
+    const whileClosed = main.calls.filter((call) => call.open === null).map((call) => call.path);
+    expect(whileClosed.filter((path) => !path.startsWith('workspaces.'))).toEqual([]);
+  });
+
   it('shows the splash for at least 600ms, however quick the open', async () => {
     const main = main3();
     const app = await onWorkTasks(main, { splashMinimumMs: SPLASH_MINIMUM_MS });
