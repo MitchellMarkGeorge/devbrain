@@ -269,6 +269,8 @@ export function entityOfFavoriteChange(change: FavoriteChange): ChangedEntity {
 export function entitiesOfTaskLinkChange(change: TaskLinkChange): ChangedEntity[] {
   // rejected credentials move the integration to needs_reauth, which it reports itself
   if (change.type === 'credentials_rejected') return ['integration'];
+  // only the offer to reattach them changed, which reads the tasks' links
+  if (change.type === 'kept_local') return ['task'];
   return ['task', ...change.changed];
 }
 

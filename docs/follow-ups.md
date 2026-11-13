@@ -192,14 +192,17 @@ _Fix 3 is done_ (renderer milestone 10): while any connect or reconnect runs in 
 
 ### Reconnecting leaves kept tasks detached
 
-_Found in feature 15._
+_Found in feature 15. Done: a "reattach all" offer on the Integrations page, below._
 
-After "keep everything as local copies", connecting the same account again re-matches every link by provider and external id when the next sync sees the item (`PageWrite.findLinks` in `src/main/core/sync/writer.ts`), so nothing is duplicated. The link's state then rules as for any link: a project or calendar comes back synced (a project was detached automatically, so it is reattached automatically), a removed item is restored, but a task stays detached until the user reattaches it, as a detached task may hold edits made since the disconnect.
+After a disconnect that keeps local copies, connecting the same account again re-matches every link by provider and external id when the next sync sees the item (`PageWrite.findLinks` in `src/main/core/sync/writer.ts`). A project comes back synced, but a task stays detached, as it may hold edits made since. The disconnect now marks the task links it detaches (`KEPT_BY_DISCONNECT` in `src/main/core/integrations/schema.ts`), and once they are matched the account's card offers to reattach them (`integrations.reattachKept`, which runs `DetachService.reattachTask` per top-level kept task after a confirmation that local edits are replaced) or keep them local (`integrations.keepKeptLocal`). Tasks the user detached themselves are never offered.
 
-- That is safe, but after reconnecting the user has every old task as a local copy and has to reattach each one. The UI could offer "reattach all" after a reconnect: `DetachService.reattachTask` per top-level task, which refreshes it from the provider and overwrites local edits after a confirmation.
-- Or disconnect could mark the links it detached (a `detachedBy` on the link, or a metadata key), so a later sync reattaches those and leaves the ones the user detached alone. That needs a migration and a rule for a copy edited after the disconnect.
+Left to do:
 
-Until one of these lands, the Integrations page says it when a disconnect keeps copies: the toast reads "8 tasks and 2 projects kept as local copies. They stay local if you connect again."
+- **Copies kept before this change carry no marker**, so they are not offered; they can still be reattached one at a time.
+- **The offer waits for the first sync.** A kept copy has no source until the sync lists its item, so the count grows as that sync runs. A copy whose item is no longer assigned to the user is never matched, so it is never offered either.
+- **A refused task stays offered.** One that is gone or reassigned is reported and stays a kept copy, so the offer remains until the user picks Keep Local. Clearing the marker for a refusal that won't change (gone, reassigned) would end the offer by itself.
+- **One provider lookup per top-level task**, one after another. Fine for tens of tasks; hundreds would want the reconciler's lookup batched across tasks.
+- **The offer reuses the card's amber alert**, which Figma doesn't show. A calmer, informational style would need a design and an `IntegrationCardAlert` tone.
 
 ### Viewing months before the synced history
 

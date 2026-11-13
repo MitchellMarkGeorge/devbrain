@@ -2,8 +2,9 @@ import { useCallback, useMemo } from 'react';
 import { useMutation, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { ExternalSourceId } from '@common/ids';
 import { AuthType, Provider, type Integration } from '@common/types';
-import { toast } from '../../components';
+import { ConfirmDialog, toast } from '../../components';
 import { ipc, trpc } from '../../ipc';
+import { KeyScope } from '../../keyboard';
 import { useModals } from '../../modals';
 import { ipcErrorCode } from '../../workspace/errors';
 import { useMutationErrorToast } from '../app/mutation-errors';
@@ -37,7 +38,16 @@ export interface IntegrationFlows {
   /** previews what goes, asks, then disconnects */
   disconnect(integration: Integration): Promise<void>;
   chooseCalendars(integration: Integration, sourceId: ExternalSourceId): void;
+  /**
+   * Asks, then reattaches the `count` tasks a disconnect kept as local copies, replacing what was
+   * changed in them since (follow-up "Reconnecting leaves kept tasks detached")
+   */
+  reattachKept(integration: Integration, count: number): void;
+  /** keeps them local, so they are no longer offered */
+  keepKeptLocal(integration: Integration): void;
 }
+
+const tasksText = (count: number) => `${count} task${count === 1 ? '' : 's'}`;
 
 /** The Integrations page's dialogs and the writes behind them. */
 export function useIntegrationFlows(): IntegrationFlows {
@@ -48,6 +58,12 @@ export function useIntegrationFlows(): IntegrationFlows {
   const connectOAuth = useMutation(trpc.integrations.connect.mutationOptions());
   const reconnectOAuth = useMutation(trpc.integrations.reconnect.mutationOptions());
   const disconnectMutation = useMutation(trpc.integrations.disconnect.mutationOptions());
+  const reattachKeptMutation = useMutation(trpc.integrations.reattachKept.mutationOptions());
+  const keepKeptLocalMutation = useMutation(
+    trpc.integrations.keepKeptLocal.mutationOptions({
+      onError: (error) => showError(error, 'Couldn’t keep the tasks local'),
+    }),
+  );
 
   // Google's sign-in: the waiting dialog while main waits for the browser, closed when it ends
   const signIn = useCallback(
@@ -128,10 +144,9 @@ export function useIntegrationFlows(): IntegrationFlows {
                   toast({
                     tone: 'success',
                     title: `${name} disconnected`,
-                    // reconnecting the account later leaves kept tasks as local copies (follow-up
-                    // "Reconnecting leaves kept tasks detached"), so say so now
+                    // connecting the account again offers to reattach the kept tasks
                     description: kept
-                      ? `${kept} kept as local copies. They stay local if you connect again.`
+                      ? `${kept} kept as local copies. Connect the account again to sync them.`
                       : integration.accountLabel,
                   });
                 })
@@ -145,7 +160,55 @@ export function useIntegrationFlows(): IntegrationFlows {
           <ChooseCalendarsDialog {...props} integration={integration} sourceId={sourceId} />
         ));
       },
+      reattachKept(integration, count) {
+        const { vendor } = providerEntry(integration.provider);
+        const reattach = () => {
+          reattachKeptMutation
+            .mutateAsync({ id: integration.id })
+            .then(({ reattached, failed }) => {
+              const left =
+                failed.length > 0
+                  ? `${tasksText(failed.length)} ${failed.length === 1 ? 'stays' : 'stay'} local. `
+                  : '';
+              // the first refusal says why; the others are usually the same
+              const why = failed.length > 0 ? `${failed[0].message}.` : '';
+              toast(
+                reattached > 0
+                  ? {
+                      tone: 'success',
+                      title: `${tasksText(reattached)} reattached`,
+                      description: failed.length > 0 ? `${left}${why}` : integration.accountLabel,
+                    }
+                  : { tone: 'error', title: 'Couldn’t reattach the tasks', description: why },
+              );
+            })
+            .catch((error: unknown) => showError(error, 'Couldn’t reattach the tasks'));
+        };
+        modals.open((props) => (
+          <ConfirmDialog
+            {...props}
+            title={`Reattach ${tasksText(count)}?`}
+            description={`They sync from ${vendor} again. Anything changed in them in DevBrain since the disconnect is replaced with ${vendor}’s copy.`}
+            actionLabel="Reattach Tasks"
+            onConfirm={reattach}
+          >
+            <KeyScope name="dialog" />
+          </ConfirmDialog>
+        ));
+      },
+      keepKeptLocal(integration) {
+        keepKeptLocalMutation.mutate({ id: integration.id });
+      },
     }),
-    [modals, workspaceName, signIn, queryClient, showError, disconnectMutation],
+    [
+      modals,
+      workspaceName,
+      signIn,
+      queryClient,
+      showError,
+      disconnectMutation,
+      reattachKeptMutation,
+      keepKeptLocalMutation,
+    ],
   );
 }

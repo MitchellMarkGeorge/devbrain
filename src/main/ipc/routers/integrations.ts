@@ -82,6 +82,24 @@ export const integrationsRouter = t.router({
     .input(byId)
     .query(({ ctx, input }) => ctx.workspace.integrations.previewDisconnect(input.id)),
 
+  // The account's kept copies: tasks a disconnect kept as local copies that a sync since
+  // connecting the same account again matched back to it. Tasks the user detached are not counted.
+  keptCopies: wsProcedure
+    .input(byId)
+    .query(({ ctx, input }) => ctx.workspace.detach.keptCopies(input.id)),
+
+  // Reattaches the kept copies, replacing what was changed in them since the disconnect, one at a
+  // time: each one refused stays local and is listed in `failed`. Rejected credentials stop it
+  // with integration_auth, moving the account to needs_reauth.
+  reattachKept: wsProcedure
+    .input(byId)
+    .mutation(({ ctx, input }) => ctx.workspace.detach.reattachKept(input.id)),
+
+  // keeps the kept copies local; they are no longer offered for reattaching
+  keepKeptLocal: wsProcedure
+    .input(byId)
+    .mutation(({ ctx, input }) => ctx.workspace.detach.keepKeptLocal(input.id)),
+
   disconnect: wsProcedure
     .input(z.object({ id: zId('integration'), keepLocalCopies: z.boolean() }))
     .mutation(({ ctx, input }) =>
