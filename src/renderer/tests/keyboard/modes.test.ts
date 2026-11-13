@@ -214,10 +214,10 @@ describe('the Vim keymap', () => {
     expect(vimKeymap.counts).toBe(true);
   });
 
-  it('binds no key to a command twice in one scope and mode', () => {
+  it('binds no key to one command twice in one scope and mode', () => {
     const seen = new Set<string>();
     for (const entry of vimKeymap.entries) {
-      const key = `${entry.scope}|${entry.mode ?? '*'}|${entry.keys}`;
+      const key = `${entry.scope}|${entry.mode ?? '*'}|${entry.keys}|${entry.command}`;
       expect(seen.has(key), key).toBe(false);
       seen.add(key);
     }

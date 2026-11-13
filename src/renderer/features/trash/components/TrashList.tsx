@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from 'react';
 import { RotateCcw, SquareArrowOutUpRight, Trash2 } from 'lucide-react';
 import type { ArchivedEntity, ExternalRef, ProjectSummary } from '@common/types';
 import {
@@ -18,6 +18,7 @@ import {
 } from '@renderer/components';
 import { paddingBefore, useVirtualList } from '@renderer/components/lib/virtual';
 import { SIZE } from '@renderer/styles/tokens';
+import { KeyScope, useListCommands, type ListKeyTarget } from '@renderer/keyboard';
 import type { TrashActions } from '../hooks/use-trash-actions';
 import styles from './TrashPage.module.css';
 
@@ -38,7 +39,9 @@ export interface TrashListProps {
  * Trash's rows (Figma `7159:11875`): virtualized, 48px each, in their own scroller. A row opens
  * its item; pointing at it shows Restore and Delete, and a right-click opens Open / Restore /
  * Delete permanently (`7175:29207`). Rows select as the other lists' do (a checkbox, X), and
- * selected rows next to each other join into one block; the page draws the selection bar.
+ * selected rows next to each other join into one block; the page draws the selection bar. The
+ * list is one tab stop, its focused row kept by id, and the list keys move through it, select and
+ * open a row (↵, Vim's `j`/`k`, `gg`/`G`, `Ctrl-d`/`Ctrl-u`, `x`, `o`).
  */
 export function TrashList({
   items,
@@ -64,6 +67,50 @@ export function TrashList({
   });
   const drawn = virtualizer.getVirtualItems();
 
+  // the focused row, by id (the first by default); a row asked to take focus before it is drawn
+  // waits in pendingFocus until scrollToIndex brings it in
+  const [focusedState, setFocusedState] = useState<string | undefined>(undefined);
+  const focusedId = focusedState && byId.has(focusedState) ? focusedState : items[0]?.id;
+  const rows = useRef(new Map<string, HTMLDivElement>());
+  const pendingFocus = useRef<string | null>(null);
+  useEffect(() => {
+    const id = pendingFocus.current;
+    const row = id ? rows.current.get(id) : undefined;
+    if (row) {
+      pendingFocus.current = null;
+      row.focus({ preventScroll: true });
+    }
+  });
+  const indexOf = (id: string | undefined) => items.findIndex((item) => item.id === id);
+  const focusAt = (to: number) => {
+    if (items.length === 0) return;
+    const index = Math.max(0, Math.min(items.length - 1, to));
+    const id = items[index].id;
+    setFocusedState(id);
+    virtualizer.scrollToIndex(index, { align: 'auto' });
+    const row = rows.current.get(id);
+    if (row) row.focus({ preventScroll: true });
+    else pendingFocus.current = id;
+  };
+  const keys = useRef<ListKeyTarget<ArchivedEntity>>(null);
+  useImperativeHandle(keys, () => ({
+    focusedItem: () => items[indexOf(focusedId)],
+    selectedItems: () => items.filter((item) => selected.has(item.id)),
+    moveFocus: (by) => focusAt(Math.max(0, indexOf(focusedId)) + by),
+    focusFirst: () => focusAt(0),
+    focusLast: () => focusAt(items.length - 1),
+    toggleSelected: () => {
+      const item = items[indexOf(focusedId)];
+      if (item) onToggle?.(item);
+    },
+    clearSelection: () => {
+      for (const item of items) if (selected.has(item.id)) onToggle?.(item);
+    },
+    pageSize: () =>
+      Math.max(1, Math.floor((scroller.current?.clientHeight ?? 0) / SIZE['row-height'])),
+  }));
+  useListCommands(keys, { open: (item) => actions.open(item) });
+
   return (
     <ContextMenu>
       <ContextMenuTrigger
@@ -75,45 +122,55 @@ export function TrashList({
           if (!item) event.preventDefault();
         }}
       >
-        <ScrollArea
-          className={styles.list}
-          viewportRef={scroller}
-          viewportClassName={styles.viewport}
-          viewportProps={{ role: 'grid', 'aria-label': 'Trash', 'aria-rowcount': items.length }}
-        >
-          <div
-            className={styles.rows}
-            style={{ height: virtualizer.getTotalSize(), paddingTop: paddingBefore(drawn) }}
+        <KeyScope name="list" render={<div className={styles.scope} />}>
+          <ScrollArea
+            className={styles.list}
+            viewportRef={scroller}
+            viewportClassName={styles.viewport}
+            viewportProps={{ role: 'grid', 'aria-label': 'Trash', 'aria-rowcount': items.length }}
           >
-            {drawn.map((virtual) => {
-              const item = items[virtual.index];
-              if (!item) return null;
-              const { data, titlePills, pills } = rowOf(item);
-              return (
-                <TrashRow
-                  key={virtual.key}
-                  ref={virtualizer.measureElement}
-                  data-index={virtual.index}
-                  data-trash-id={item.id}
-                  aria-rowindex={virtual.index + 1}
-                  item={data}
-                  titlePills={titlePills}
-                  selected={isSelectedAt(virtual.index)}
-                  selecting={selected.size > 0}
-                  joinPrev={isSelectedAt(virtual.index) && isSelectedAt(virtual.index - 1)}
-                  joinNext={isSelectedAt(virtual.index) && isSelectedAt(virtual.index + 1)}
-                  onSelect={onToggle && (() => onToggle(item))}
-                  onOpen={() => actions.open(item)}
-                  onRestore={() => void actions.restore(item)}
-                  onDelete={() => void actions.remove(item)}
-                >
-                  {pills}
-                </TrashRow>
-              );
-            })}
-          </div>
-          {footer}
-        </ScrollArea>
+            <div
+              className={styles.rows}
+              style={{ height: virtualizer.getTotalSize(), paddingTop: paddingBefore(drawn) }}
+            >
+              {drawn.map((virtual) => {
+                const item = items[virtual.index];
+                if (!item) return null;
+                const { data, titlePills, pills } = rowOf(item);
+                return (
+                  <TrashRow
+                    key={virtual.key}
+                    ref={(el) => {
+                      virtualizer.measureElement(el);
+                      if (el) rows.current.set(item.id, el);
+                      else rows.current.delete(item.id);
+                    }}
+                    tabIndex={item.id === focusedId ? 0 : -1}
+                    onFocus={(event) => {
+                      if (event.target === event.currentTarget) setFocusedState(item.id);
+                    }}
+                    data-index={virtual.index}
+                    data-trash-id={item.id}
+                    aria-rowindex={virtual.index + 1}
+                    item={data}
+                    titlePills={titlePills}
+                    selected={isSelectedAt(virtual.index)}
+                    selecting={selected.size > 0}
+                    joinPrev={isSelectedAt(virtual.index) && isSelectedAt(virtual.index - 1)}
+                    joinNext={isSelectedAt(virtual.index) && isSelectedAt(virtual.index + 1)}
+                    onSelect={onToggle && (() => onToggle(item))}
+                    onOpen={() => actions.open(item)}
+                    onRestore={() => void actions.restore(item)}
+                    onDelete={() => void actions.remove(item)}
+                  >
+                    {pills}
+                  </TrashRow>
+                );
+              })}
+            </div>
+            {footer}
+          </ScrollArea>
+        </KeyScope>
       </ContextMenuTrigger>
       <ContextMenuContent width="sm">
         {menuItem && (

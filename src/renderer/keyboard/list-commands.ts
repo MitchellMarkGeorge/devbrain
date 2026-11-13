@@ -1,7 +1,11 @@
 import type { RefObject } from 'react';
 import type { TaskStatus } from '@common/types';
-import type { Command, CommandResult } from './commands';
+import type { Command, CommandContext, CommandResult } from './commands';
 import { useCommands } from './KeyboardProvider';
+
+// Vim's modes the list commands know: a range is Visual, and ends back in Normal
+const VISUAL = 'visual';
+const NORMAL = 'normal';
 
 /**
  * What a list component does for the keyboard (`TaskList`'s `TaskListHandle` is one): it binds no
@@ -17,6 +21,17 @@ export interface ListKeyTarget<Item> {
   clearSelection(): void;
   /** a list whose rows have a status menu (tasks) */
   openStatusMenu?(): void;
+  /** how many rows fit in view, for half a page (Vim's `Ctrl-d`/`Ctrl-u`) */
+  pageSize?(): number;
+  /**
+   * starts a range at the focused row (Vim's `v`): it is selected, and until `endRange` moving
+   * focus selects every row from it to the focused one, and only those
+   */
+  startRange?(): void;
+  /** stops a range growing as focus moves; what it selected stays selected */
+  endRange?(): void;
+  /** the focused row and the `count - 1` loaded rows after it, in list order (`3dd`) */
+  itemsFromFocus?(count: number): Item[];
 }
 
 /**
@@ -44,15 +59,23 @@ export function listCommands<Item>(
   actions: ListCommandActions<Item>,
 ): Command[] {
   const list = () => target.current;
-  // the selected rows, or the focused one
-  const rows = (): Item[] => {
+  // the selected rows, or the focused one (and the `count - 1` after it: `3dd`)
+  const rows = (count = 1): Item[] => {
     const current = list();
     if (!current) return [];
     const selected = current.selectedItems();
     if (selected.length > 0) return selected;
+    if (count > 1 && current.itemsFromFocus) return current.itemsFromFocus(count);
     const focused = current.focusedItem();
     return focused ? [focused] : [];
   };
+  // a row command run on a Visual range ends it, keeping what it selected, back in Normal mode
+  const leaveVisual = (ctx: CommandContext) => {
+    if (ctx.mode !== VISUAL) return;
+    list()?.endRange?.();
+    ctx.setMode(NORMAL);
+  };
+  const halfPage = () => Math.max(1, Math.ceil((list()?.pageSize?.() ?? 2) / 2));
   const command = (
     id: string,
     title: string,
@@ -65,7 +88,23 @@ export function listCommands<Item>(
     command('list.up', 'Previous row', (_, { count = 1 }) => list()?.moveFocus(-count)),
     command('list.first', 'First row', () => list()?.focusFirst()),
     command('list.last', 'Last row', () => list()?.focusLast()),
-    command('list.toggleSelect', 'Select', () => list()?.toggleSelected()),
+    command(
+      'list.halfPageDown',
+      'Half a page down',
+      (_, { count = 1 }) => list()?.moveFocus(halfPage() * count),
+      () => list()?.pageSize !== undefined,
+    ),
+    command(
+      'list.halfPageUp',
+      'Half a page up',
+      (_, { count = 1 }) => list()?.moveFocus(-halfPage() * count),
+      () => list()?.pageSize !== undefined,
+    ),
+    // in Visual mode, `x` keeps the range selected and goes back to Normal
+    command('list.toggleSelect', 'Select', (ctx) => {
+      if (ctx.mode === VISUAL) leaveVisual(ctx);
+      else list()?.toggleSelected();
+    }),
     command(
       'list.clearSelection',
       'Clear selection',
@@ -73,9 +112,27 @@ export function listCommands<Item>(
       () => (list()?.selectedItems().length ?? 0) > 0,
     ),
     command(
+      'list.visual',
+      'Visual range',
+      (ctx) => {
+        list()?.startRange?.();
+        ctx.setMode(VISUAL);
+      },
+      () => list()?.startRange !== undefined && list()?.focusedItem() !== undefined,
+    ),
+    // Esc in Visual mode: the range is dropped, selection and all
+    command('list.cancelVisual', 'Cancel range', (ctx) => {
+      list()?.endRange?.();
+      list()?.clearSelection();
+      ctx.setMode(NORMAL);
+    }),
+    command(
       'row.openStatusMenu',
       'Change status',
-      () => list()?.openStatusMenu?.(),
+      (ctx) => {
+        leaveVisual(ctx);
+        list()?.openStatusMenu?.();
+      },
       () => list()?.openStatusMenu !== undefined,
     ),
   ];
@@ -89,7 +146,8 @@ export function listCommands<Item>(
   }
   if (setStatus) {
     commands.push(
-      command('row.setStatus', 'Set status', (_, args) => {
+      command('row.setStatus', 'Set status', (ctx, args) => {
+        leaveVisual(ctx);
         const items = rows();
         if (items.length > 0 && typeof args.status === 'number') {
           setStatus(items, args.status as TaskStatus);
@@ -99,16 +157,18 @@ export function listCommands<Item>(
   }
   if (toggleFavorite) {
     commands.push(
-      command('row.favorite', 'Favorite', () => {
-        const items = rows();
+      command('row.favorite', 'Favorite', (ctx, { count }) => {
+        leaveVisual(ctx);
+        const items = rows(count);
         if (items.length > 0) toggleFavorite(items);
       }),
     );
   }
   if (trash) {
     commands.push(
-      command('row.trash', 'Move to trash', () => {
-        const items = rows();
+      command('row.trash', 'Move to trash', (ctx, { count }) => {
+        leaveVisual(ctx);
+        const items = rows(count);
         return items.length > 0 ? trash(items) : undefined;
       }),
     );

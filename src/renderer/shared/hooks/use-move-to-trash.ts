@@ -72,7 +72,12 @@ export function useMoveToTrash(): (items: readonly TrashItem[]) => Promise<boole
         showError(error, `Couldn’t move ${what} to trash`);
         return false;
       }
-      const entry: Undoable = { label: `Moved ${what} to trash`, undo: () => restore(items) };
+      // Vim's Ctrl-r moves them again, with no second confirmation: they were confirmed once
+      const entry: Undoable = {
+        label: `Moved ${what} to trash`,
+        undo: () => restore(items),
+        redo: () => archive(items),
+      };
       undoStack.push(entry);
       toast({
         tone: 'success',

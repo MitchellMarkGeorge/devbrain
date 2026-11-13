@@ -1,11 +1,13 @@
 /**
  * What a command returns when it can be taken back: moving a task to trash returns "restore it".
- * The toast's Undo button, ⌘Z and later Vim's `u` pop the app's undo stack.
+ * The toast's Undo button, ⌘Z and Vim's `u` pop the app's undo stack; Vim's `Ctrl-r` redoes.
  */
 export interface Undoable {
   /** what is undone, for the toast and menus: "Moved “Fix login” to trash" */
   label: string;
   undo: () => void | Promise<void>;
+  /** does it again once undone ("move it to trash again"); an entry without one can't be redone */
+  redo?: () => void | Promise<void>;
 }
 
 export function isUndoable(value: unknown): value is Undoable {
@@ -17,15 +19,20 @@ export function isUndoable(value: unknown): value is Undoable {
   );
 }
 
-/** The app's undo stack: the last `limit` undoable commands, newest last. */
+/**
+ * The app's undo stack: the last `limit` undoable commands, newest last. An entry undone that can
+ * be redone goes on the redo stack, which a new entry empties, as in an editor.
+ */
 export class UndoStack {
   private entries: readonly Undoable[] = [];
+  private undone: readonly Undoable[] = [];
   private readonly listeners = new Set<() => void>();
 
   constructor(private readonly limit = 50) {}
 
   push(entry: Undoable): void {
     this.entries = [...this.entries, entry].slice(-this.limit);
+    this.undone = [];
     this.emit();
   }
 
@@ -41,6 +48,11 @@ export class UndoStack {
     return this.entries.length;
   }
 
+  /** how many entries `redo` can do again */
+  get redoSize(): number {
+    return this.undone.length;
+  }
+
   /**
    * Takes back the newest entry and returns it, or `undefined` when there is none. The entry
    * leaves the stack before its `undo` runs, so a failed undo is not tried twice; the error is
@@ -52,6 +64,22 @@ export class UndoStack {
     this.entries = this.entries.slice(0, -1);
     this.emit();
     await entry.undo();
+    this.undid(entry);
+    return entry;
+  }
+
+  /**
+   * Does the newest undone entry again and puts it back on the undo stack, or returns `undefined`
+   * when there is none. Like `undo`, it leaves the redo stack before its `redo` runs.
+   */
+  async redo(): Promise<Undoable | undefined> {
+    const entry = this.undone[this.undone.length - 1];
+    if (!entry?.redo) return undefined;
+    this.undone = this.undone.slice(0, -1);
+    this.emit();
+    await entry.redo();
+    this.entries = [...this.entries, entry].slice(-this.limit);
+    this.emit();
     return entry;
   }
 
@@ -65,12 +93,21 @@ export class UndoStack {
     this.entries = this.entries.filter((other) => other !== entry);
     this.emit();
     await entry.undo();
+    this.undid(entry);
     return entry;
   }
 
   clear(): void {
-    if (this.entries.length === 0) return;
+    if (this.entries.length === 0 && this.undone.length === 0) return;
     this.entries = [];
+    this.undone = [];
+    this.emit();
+  }
+
+  // an entry undone, once its undo has worked: on the redo stack if it can be redone
+  private undid(entry: Undoable): void {
+    if (!entry.redo) return;
+    this.undone = [...this.undone, entry].slice(-this.limit);
     this.emit();
   }
 

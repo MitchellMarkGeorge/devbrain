@@ -124,6 +124,17 @@ export interface TaskListHandle {
   clearSelection(): void;
   /** opens the focused row's status menu */
   openStatusMenu(): void;
+  /** how many rows fit in view (half of it is Vim's `Ctrl-d`) */
+  pageSize(): number;
+  /**
+   * starts a range at the focused row, selecting it: until `endRange`, moving focus selects every
+   * row from it to the focused one (Vim's `v`)
+   */
+  startRange(): void;
+  /** stops the range growing; its rows stay selected */
+  endRange(): void;
+  /** the focused row and the `count - 1` loaded rows after it, in list order (`3dd`) */
+  itemsFromFocus(count: number): TaskRowData[];
 }
 
 // One row of the flat list, with an `id` unique in the list: a task's own id, or its group's id
@@ -289,7 +300,18 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
     onFocusedIdChange?.(id);
   }
 
+  // a range's first row (Vim's `v`): while set, moving focus selects from it to the focused row
+  const rangeAnchor = useRef<string | null>(null);
+  function selectRange(from: string, to: string) {
+    const a = taskEntries.findIndex((index) => entries[index].id === from);
+    const b = taskEntries.findIndex((index) => entries[index].id === to);
+    if (a < 0 || b < 0) return;
+    const ids = taskEntries.slice(Math.min(a, b), Math.max(a, b) + 1).map((i) => entries[i].id);
+    setSelected(new Set(ids));
+  }
+
   function focusTask(id: string) {
+    if (rangeAnchor.current) selectRange(rangeAnchor.current, id);
     setFocused(id);
     const index = indexOfId(id);
     const row = rows.current.get(id);
@@ -339,6 +361,23 @@ export const TaskList = forwardRef<TaskListHandle, TaskListProps>(function TaskL
       clearSelection: () => setSelected(new Set()),
       openStatusMenu: () => {
         if (focusedId) setMenuOpenId(focusedId);
+      },
+      pageSize: () =>
+        Math.max(1, Math.floor((listRef.current?.clientHeight ?? 0) / SIZE['row-height'])),
+      startRange: () => {
+        if (!focusedId) return;
+        rangeAnchor.current = focusedId;
+        setSelected(new Set([focusedId]));
+      },
+      endRange: () => {
+        rangeAnchor.current = null;
+      },
+      itemsFromFocus: (count) => {
+        const from = Math.max(0, focusedPosition());
+        return taskEntries.slice(from, from + Math.max(1, count)).flatMap((index) => {
+          const task = taskAt(index);
+          return task ? [task] : [];
+        });
       },
     };
   });

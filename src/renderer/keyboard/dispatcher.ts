@@ -132,6 +132,8 @@ export class KeyDispatcher {
   // `data-key-mode` element's), so focus leaving takes it back to the first mode
   private modeFromFocus = false;
   private focusTimer: ReturnType<typeof setTimeout> | undefined;
+  // the last `repeatable` binding run by its keys, with its args and count, for Vim's `.`
+  private lastChange: { command: string; args: CommandArgs } | undefined;
 
   constructor(options: KeyDispatcherOptions) {
     this.keymap = options.keymap;
@@ -289,6 +291,16 @@ export class KeyDispatcher {
     return this.execute(commandId, args, scopes);
   };
 
+  /**
+   * Runs the last `repeatable` binding run by its keys again, where focus is now (Vim's `.`), with
+   * `count` in place of its own when given. Returns whether it ran.
+   */
+  repeat = (count?: number): boolean => {
+    const last = this.lastChange;
+    if (!last) return false;
+    return this.run(last.command, count === undefined ? last.args : { ...last.args, count });
+  };
+
   // ---------- keys ----------
 
   handleKeyDown = (event: KeyboardEvent): void => {
@@ -389,7 +401,8 @@ export class KeyDispatcher {
   private runEntry(entry: KeymapEntry, count: number | undefined, scopes: readonly Scope[]): void {
     const args: CommandArgs = { ...entry.args };
     if (count !== undefined) args.count = count;
-    this.execute(entry.command, args, scopes);
+    const ran = this.execute(entry.command, args, scopes);
+    if (ran && entry.repeatable) this.lastChange = { command: entry.command, args };
   }
 
   private execute(commandId: string, args: CommandArgs, scopes: readonly Scope[]): boolean {

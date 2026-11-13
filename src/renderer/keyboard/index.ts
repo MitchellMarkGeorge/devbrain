@@ -1,4 +1,11 @@
 export {
+  boardCommands,
+  useBoardCommands,
+  type BoardColumnKeyTarget,
+  type BoardCommandActions,
+  type BoardCursor,
+} from './board-commands';
+export {
   CommandRegistry,
   type Command,
   type CommandArgs,
@@ -21,6 +28,8 @@ export {
 export { useHintTarget } from './hints';
 export {
   KeyboardProvider,
+  REDO_COMMAND_ID,
+  REPEAT_COMMAND_ID,
   UNDO_COMMAND_ID,
   useCommandList,
   useCommands,

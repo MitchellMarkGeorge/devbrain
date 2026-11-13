@@ -11,7 +11,7 @@ import { useAppCommands } from './hooks/use-app-commands';
 import { useMenuCommands } from './hooks/use-menu-commands';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useModalShown } from '@renderer/app/modals';
-import { ModeLine, useKeymap } from '@renderer/keyboard';
+import { ModeLine, useCommands, useKeymap } from '@renderer/keyboard';
 
 // the section a page is in, for the mode line: /app/wsp_…/tasks/tsk_… is "Tasks"
 function sectionOf(pathname: string): string | undefined {
@@ -56,6 +56,23 @@ export function AppLayout() {
   useLayoutEffect(() => {
     if (modalShown) shell.current?.closeDrawer();
   }, [modalShown]);
+  // Back and forward, as the title bar's arrows (Vim's Ctrl-o / Ctrl-i)
+  useCommands([
+    {
+      id: 'nav.back',
+      title: 'Back',
+      scope: 'global',
+      run: () => router.history.back(),
+      enabled: () => position.canGoBack,
+    },
+    {
+      id: 'nav.forward',
+      title: 'Forward',
+      scope: 'global',
+      run: () => router.history.forward(),
+      enabled: () => position.canGoForward,
+    },
+  ]);
   // a keymap with modes (Vim) shows them in the mode line
   const modal = useKeymap().modes !== undefined;
   return (
