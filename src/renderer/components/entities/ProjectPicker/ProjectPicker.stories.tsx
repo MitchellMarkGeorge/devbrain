@@ -59,3 +59,45 @@ export const Multiple: Story = {
     );
   },
 };
+
+/**
+ * A search's matches (what a page passes once something is typed): each project's `label` is its
+ * title with the matches in bold, and "No project" is left out (`showNone={false}`).
+ */
+export const SearchResults: Story = {
+  render: function SearchResults() {
+    const [value, setValue] = useState('');
+    const matches: PickerProject[] = [
+      {
+        id: 'api',
+        name: 'API Gateway v2',
+        label: (
+          <>
+            <b>API</b> Gateway v2
+          </>
+        ),
+        color: 'amber',
+      },
+      {
+        id: 'ai',
+        name: 'AI Action Items',
+        label: (
+          <>
+            <b>A</b>I Action Items
+          </>
+        ),
+        color: 'green',
+      },
+    ];
+    return (
+      <ProjectPicker
+        projects={matches}
+        showNone={false}
+        defaultOpen
+        value={value}
+        onValueChange={setValue}
+        trigger={<Button icon={Folder}>Project</Button>}
+      />
+    );
+  },
+};

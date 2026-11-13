@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { CircleSlash, Folder } from 'lucide-react';
 import {
   DropdownMenu,
@@ -20,6 +20,8 @@ import { cssColor, type Swatch } from '../../types';
 export interface PickerProject {
   id: string;
   name: string;
+  /** drawn in place of `name`, such as a search result's title with its matches in bold */
+  label?: ReactNode;
   /** the project's colour: a swatch name or a CSS colour */
   color: Swatch | string;
 }
@@ -60,7 +62,9 @@ export type ProjectPickerItemsProps = ProjectPickerItemsBase &
  * Figma's `ProjectPicker` inside any menu popup (a `DropdownMenuContent`, or a
  * `DropdownMenuSubContent` for Filter › Project): a search, the projects with their coloured
  * folders, the current ones ticked, then "No project". The search filters the list, so wrap the
- * menu (`DropdownMenu` or `DropdownMenuSub`) in a `DropdownMenuFilter`.
+ * menu (`DropdownMenu` or `DropdownMenuSub`) in a `DropdownMenuFilter`; a page that searches for
+ * what is typed instead turns the filter off (`filter={null}`) and passes the matches as
+ * `projects`, each with its highlighted title as `label`.
  */
 export function ProjectPickerItems(props: ProjectPickerItemsProps) {
   const { projects, placeholder = 'Search projects…', showNone = true } = props;
@@ -71,6 +75,7 @@ export function ProjectPickerItems(props: ProjectPickerItemsProps) {
         <DropdownMenuCheckboxItem
           key={project.id}
           icon={<ProjectGlyph color={project.color} />}
+          label={project.name}
           checked={props.value.includes(project.id)}
           onCheckedChange={(checked) =>
             props.onValueChange?.(
@@ -80,7 +85,7 @@ export function ProjectPickerItems(props: ProjectPickerItemsProps) {
             )
           }
         >
-          {project.name}
+          {project.label ?? project.name}
         </DropdownMenuCheckboxItem>
       ))}
       {showNone && <DropdownMenuSeparator />}
@@ -111,8 +116,9 @@ export function ProjectPickerItems(props: ProjectPickerItemsProps) {
           value={project.id}
           closeOnClick
           icon={<ProjectGlyph color={project.color} />}
+          label={project.name}
         >
-          {project.name}
+          {project.label ?? project.name}
         </DropdownMenuRadioItem>
       ))}
       {showNone && <DropdownMenuSeparator />}

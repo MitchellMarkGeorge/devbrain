@@ -4,11 +4,11 @@ import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuFilter,
   DropdownMenuItem,
   DropdownMenuTrigger,
   SelectionBar,
 } from '../../../components';
+import { PickerSearchFilter } from '../../search/picker-search';
 import { ProjectItems } from '../../tasks/menus/TaskMenus';
 import type { NoteActions } from '../use-note-actions';
 import styles from './NotesView.module.css';
@@ -39,7 +39,7 @@ export function NotesSelectionBar({ notes, actions, onClear }: NotesSelectionBar
         onClear={onClear}
         actions={
           <>
-            <DropdownMenuFilter>
+            <PickerSearchFilter>
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button variant="ghost" size="sm" icon={Folder} />}>
                   Move
@@ -51,7 +51,7 @@ export function NotesSelectionBar({ notes, actions, onClear }: NotesSelectionBar
                   />
                 </DropdownMenuContent>
               </DropdownMenu>
-            </DropdownMenuFilter>
+            </PickerSearchFilter>
             <Button
               variant="ghost"
               size="sm"

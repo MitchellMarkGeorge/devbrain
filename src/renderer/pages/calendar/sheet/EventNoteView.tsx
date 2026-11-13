@@ -2,6 +2,7 @@ import { useState, type KeyboardEvent } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import type { Editor } from '@tiptap/react';
 import { FileText, Link2, Video } from 'lucide-react';
+import type { NoteId } from '@common/ids';
 import type { Event, Note } from '@common/types';
 import {
   Button,
@@ -9,7 +10,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuEmpty,
-  DropdownMenuFilter,
   DropdownMenuItem,
   DropdownMenuList,
   DropdownMenuSearch,
@@ -26,6 +26,7 @@ import { useCommands } from '../../../keyboard';
 import { useMutationErrorToast } from '../../app/mutation-errors';
 import { NoteEditor } from '../../notes/detail/NoteEditor';
 import { useNoteActions } from '../../notes/use-note-actions';
+import { PickerSearchFilter, ResultItem, usePickerSearch } from '../../search/picker-search';
 import { eventNoteQuery } from './EventNoteSection';
 import type { ShownTiming } from './timing';
 import styles from './EventSheet.module.css';
@@ -204,19 +205,14 @@ function NoNote({ event, onStarted }: { event: Event; onStarted: () => void }) {
   );
 }
 
-/** Link Existing Note: a note edited lately, searched by title, becomes the event's note. */
+/**
+ * Link Existing Note: a note edited lately, or one search finds once something is typed, becomes
+ * the event's note.
+ */
 function LinkNotePicker({ event }: { event: Event }) {
-  const actions = useNoteActions();
   const [open, setOpen] = useState(false);
-  const notes = useQuery({
-    ...trpc.notes.list.queryOptions({
-      sort: { sortBy: 'updatedAt', direction: 'desc' },
-      limit: 50,
-    }),
-    enabled: open,
-  });
   return (
-    <DropdownMenuFilter>
+    <PickerSearchFilter>
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger
           render={
@@ -227,20 +223,41 @@ function LinkNotePicker({ event }: { event: Event }) {
         />
         <DropdownMenuContent width="lg" align="center">
           <DropdownMenuSearch aria-label="Search notes" placeholder="Link a note…" />
-          <DropdownMenuList>
-            {notes.data?.items.map((note) => (
-              <DropdownMenuItem
-                key={note.id}
-                icon={FileText}
-                onClick={() => actions.setLink(note, { linkedEventId: event.id })}
-              >
-                {note.title || 'Untitled'}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuList>
+          <LinkNoteItems event={event} enabled={open} />
           <DropdownMenuEmpty>No notes match</DropdownMenuEmpty>
         </DropdownMenuContent>
       </DropdownMenu>
-    </DropdownMenuFilter>
+    </PickerSearchFilter>
+  );
+}
+
+const NOTE_TYPES = ['note'] as const;
+
+function LinkNoteItems({ event, enabled }: { event: Event; enabled: boolean }) {
+  const actions = useNoteActions();
+  const search = usePickerSearch(NOTE_TYPES);
+  const notes = useQuery({
+    ...trpc.notes.list.queryOptions({
+      sort: { sortBy: 'updatedAt', direction: 'desc' },
+      limit: 50,
+    }),
+    enabled,
+  });
+  const link = (note: { id: string; title: string }) =>
+    actions.setLink({ id: note.id as NoteId, title: note.title }, { linkedEventId: event.id });
+  return (
+    <DropdownMenuList>
+      {search.results
+        ? search.results.map((row) => (
+            <ResultItem key={row.id} row={row} onClick={() => link(row)} />
+          ))
+        : notes.data?.items
+            .filter((note) => search.matches(note.title || 'Untitled'))
+            .map((note) => (
+              <DropdownMenuItem key={note.id} icon={FileText} onClick={() => link(note)}>
+                {note.title || 'Untitled'}
+              </DropdownMenuItem>
+            ))}
+    </DropdownMenuList>
   );
 }

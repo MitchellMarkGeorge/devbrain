@@ -6,23 +6,23 @@ import {
   DatePicker,
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuFilter,
   DropdownMenuTrigger,
   EntityPill,
-  NO_PROJECT,
   Popover,
   PopoverContent,
   PopoverTrigger,
   PRIORITY_LABELS,
   PriorityIcon,
   PriorityMenu,
-  ProjectPickerItems,
   StatusIcon,
   StatusMenu,
   TASK_STATUS_LABELS,
   useFormat,
 } from '../../../components';
+import { PickerSearchFilter } from '../../search/picker-search';
+import { ProjectItems } from './TaskMenus';
 import { useProjectOptions } from './use-project-options';
+import { usePickedProject } from './use-project-search';
 
 // A task's properties as pills that open their pickers (Figma 7175:28012, 7175:28582): the create
 // dialog's property bar, and anywhere else a property is a pill. Each is controlled: it shows
@@ -126,8 +126,7 @@ export function ProjectPill({
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const projects = useProjectOptions();
-  const project = projects.find((p) => p.id === value);
+  const project = usePickedProject(value, useProjectOptions());
   const pill = project ? (
     <EntityPill
       interactive={!disabled}
@@ -140,20 +139,19 @@ export function ProjectPill({
   );
   if (disabled) return pill;
   return (
-    <DropdownMenuFilter>
+    <PickerSearchFilter>
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger render={pill} />
         <DropdownMenuContent width="lg" align="start">
-          <ProjectPickerItems
-            projects={projects}
-            value={value ?? NO_PROJECT}
-            onValueChange={(id) => {
-              onChange(id === NO_PROJECT ? null : (id as ProjectId));
+          <ProjectItems
+            projectId={value}
+            onPick={(projectId) => {
+              onChange(projectId);
               setOpen(false);
             }}
           />
         </DropdownMenuContent>
       </DropdownMenu>
-    </DropdownMenuFilter>
+    </PickerSearchFilter>
   );
 }

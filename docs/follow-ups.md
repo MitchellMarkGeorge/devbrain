@@ -226,22 +226,6 @@ The editor knows an entity only by its type, id and title, so the pills in a not
 
 Colours from core are untrusted (docs/security/untrusted-content.md): parse them with `hexColorSchema` before they reach a style, falling back to the default when they fail.
 
-### Pickers filter what they loaded instead of searching
-
-_Found in the tasks pages (PR #136)._
-
-The pickers with a search row narrow the rows they already loaded, by title, in the browser (`DropdownMenuSearch`). Anything outside what they load can never be found:
-
-- **Link to › an event or note** (`TaskLinkPicker` in `src/renderer/pages/tasks/detail/TaskLinkPicker.tsx`): events from the last week and the next four, and the 50 notes edited last.
-- **Make subtask of ›** (the same file): the first page of open top-level tasks.
-- **Project pickers** (`ProjectPicker`, through `useProjectOptions` in `src/renderer/pages/tasks/menus/use-project-options.ts`): the first 200 projects.
-
-They should ask `search.search` (`src/main/ipc/routers/search.ts`) instead, once something is typed:
-
-1. **Map the results.** One place that turns a `SearchResult` (`entityType`, `entityId`, a highlighted `title`, `body`) into what a picker row draws, beside `toMentionItem` (`src/renderer/editor/suggestion/entity-menu.tsx`), which the "@" menu uses for the same results. `SearchResult` carries a task's `status` and a project's or event's `color` (R1) for its glyph. The highlighted title is HTML from core (escaped text with `<b>` around matches, docs/security/untrusted-content.md).
-2. **Use it in each picker.** Search with the picker's types (`entityType: ['event', 'note']`, `['task']`, `['project']`), debounced as ⌘K is (`SEARCH_DEBOUNCE_MS`, 300ms), and keep showing the recent rows while the query is empty. Leave out what can't be picked: the task itself and its subtasks under Make subtask of, closed tasks, a synced task's fields.
-3. The "@" menu and ⌘K already search; check they share the mapping.
-
 ## Workspaces
 
 ### Workspaces used in place, and bringing one back

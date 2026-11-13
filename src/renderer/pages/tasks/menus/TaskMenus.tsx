@@ -16,7 +16,6 @@ import type { ProjectId } from '@common/ids';
 import type { TaskListItem, TaskPriority, TaskStatus } from '@common/types';
 import {
   defaultQuickPicks,
-  DropdownMenuFilter,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
@@ -29,7 +28,8 @@ import {
   useFormat,
 } from '../../../components';
 import { useOpenEntity } from '../../app/use-open-entity';
-import { useProjectOptions } from './use-project-options';
+import { PickerSearchFilter } from '../../search/picker-search';
+import { useProjectPickerRows } from './use-project-search';
 import { isSynced } from '../queries';
 import type { TaskActions } from '../use-task-actions';
 
@@ -123,7 +123,10 @@ export function DateSubmenu({
   );
 }
 
-/** The project picker's items (a search, the projects, "No project"), for a menu or submenu. */
+/**
+ * The project picker's items (a search, the projects, "No project"), for a menu or submenu
+ * wrapped in a `PickerSearchFilter`: typing searches every project.
+ */
 export function ProjectItems({
   projectId,
   onPick,
@@ -131,10 +134,11 @@ export function ProjectItems({
   projectId: ProjectId | null | undefined;
   onPick: (projectId: ProjectId | null) => void;
 }) {
-  const projects = useProjectOptions();
+  const { projects, searching } = useProjectPickerRows();
   return (
     <ProjectPickerItems
       projects={projects}
+      showNone={!searching}
       value={projectId === undefined ? undefined : (projectId ?? NO_PROJECT)}
       onValueChange={(value) => onPick(value === NO_PROJECT ? null : (value as ProjectId))}
     />
@@ -154,7 +158,7 @@ export function ProjectSubmenu({
   onPick: (projectId: ProjectId | null) => void;
 }) {
   return (
-    <DropdownMenuFilter>
+    <PickerSearchFilter>
       <DropdownMenuSub>
         <DropdownMenuSubTrigger icon={Folder} disabled={disabled}>
           {label}
@@ -163,7 +167,7 @@ export function ProjectSubmenu({
           <ProjectItems projectId={projectId} onPick={onPick} />
         </DropdownMenuSubContent>
       </DropdownMenuSub>
-    </DropdownMenuFilter>
+    </PickerSearchFilter>
   );
 }
 

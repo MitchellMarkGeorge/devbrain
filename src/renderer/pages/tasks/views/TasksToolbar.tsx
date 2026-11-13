@@ -23,7 +23,6 @@ import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuFilter,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -41,10 +40,12 @@ import {
   useWorkspaceShell,
   type IconSource,
 } from '../../../components';
+import { PickerSearchFilter } from '../../search/picker-search';
 import { trpc } from '../../../ipc';
 import { ProjectItems } from '../menus/TaskMenus';
 import { useCreateTask } from '../create/use-create-task';
 import { useProjectOptions } from '../menus/use-project-options';
+import { usePickedProject } from '../menus/use-project-search';
 import { useTasksSearch } from '../use-tasks-search';
 import {
   CLEAR_FILTERS,
@@ -191,10 +192,11 @@ export function FilterMenu({
   const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
   // the status the page shows with none in the URL: Open, or All with completed tasks shown
   const defaultStatus = resolveTasksSearch({}, settings).status;
-  const projects = useProjectOptions();
-  const projectName = fixedProject
-    ? undefined
-    : projects.find((project) => project.id === resolved.project)?.name;
+  const picked = usePickedProject(
+    resolved.project === 'none' ? null : resolved.project,
+    useProjectOptions(),
+  );
+  const projectName = fixedProject ? undefined : picked?.name;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -245,7 +247,7 @@ export function FilterMenu({
             onChange={(priority) => setSearch({ priority })}
           />
           {!fixedProject && (
-            <DropdownMenuFilter>
+            <PickerSearchFilter>
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger icon={Folder}>Project</DropdownMenuSubTrigger>
                 <DropdownMenuSubContent width="lg">
@@ -272,7 +274,7 @@ export function FilterMenu({
                   )}
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
-            </DropdownMenuFilter>
+            </PickerSearchFilter>
           )}
           <FilterSubmenu
             icon={Calendar}

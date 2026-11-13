@@ -1,9 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
-import { hexColorSchema } from '@common/color';
 import type { SearchResult } from '@common/types';
 import { trpc } from '../ipc';
-import { highlightToText } from './highlight';
+import { toResultRow } from '../search/result-row';
 import type { EditorEntity, EditorHost, MentionType } from './types';
 
 /**
@@ -40,16 +39,16 @@ export function useWorkspaceEditorHost(): Pick<EditorHost, 'searchEntities' | 'o
 
 /**
  * A search result as the "@" menu's entity: its title as text, a task's status and a project's or
- * event's colour. Colours from core are untrusted, so one that isn't #rrggbb is left out and the
+ * event's colour, as `toResultRow` reads them. A colour that isn't #rrggbb is left out and the
  * menu draws its default (docs/security/untrusted-content.md).
  */
 export function toEditorEntity(result: SearchResult): EditorEntity {
-  const color = hexColorSchema.safeParse(result.color);
+  const row = toResultRow(result);
   return {
-    type: result.entityType,
-    id: result.entityId,
-    title: highlightToText(result.title),
-    ...(result.status !== null && { status: result.status }),
-    ...(color.success && { color: color.data }),
+    type: row.type,
+    id: row.id,
+    title: row.title,
+    ...(row.status !== null && { status: row.status }),
+    ...(row.color !== null && { color: row.color }),
   };
 }
