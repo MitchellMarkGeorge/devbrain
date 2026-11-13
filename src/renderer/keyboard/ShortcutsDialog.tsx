@@ -22,9 +22,10 @@ export interface ShortcutsDialogProps {
 }
 
 /**
- * The keyboard shortcuts sheet (Figma `7426:43880`), drawn from the active keymap in the current
- * mode, so the keys it shows are the keys that work. Sections are the entries' groups, in columns.
- * It is a modal key scope: while it is open, only Esc (Base UI's) closes it.
+ * The keyboard shortcuts sheet (Figma `7426:43880`; with Vim keys, `7704:59901`), drawn from the
+ * active keymap in the current mode, so the keys it shows are the keys that work. Sections are the
+ * entries' groups, in columns. With Vim keys its header says so ("Keys · Vim keys on · Esc
+ * closes"). It is a modal key scope: while it is open, only Esc (Base UI's) closes it.
  */
 export function ShortcutsDialog({
   open,
@@ -36,6 +37,8 @@ export function ShortcutsDialog({
   const commands = useCommandList();
   const { mode } = useKeyboardState();
   const formatKeys = useFormatKeys();
+  // a keymap with modes is Vim's
+  const vim = keymap.modes !== undefined;
   const sections = useMemo(
     () => shortcutSections(keymap, commands, mode, platform),
     [keymap, commands, mode, platform],
@@ -52,11 +55,15 @@ export function ShortcutsDialog({
       <DialogContent showClose={false} className={styles.dialog}>
         <KeyScope name="dialog">
           <div className={styles.header}>
-            <DialogTitle>Keyboard shortcuts</DialogTitle>
-            {openKeys.length > 0 && (
-              <span className={styles.hint}>
-                Press {openKeys.map(formatKeys).join(' ')} to open this any time
-              </span>
+            <DialogTitle>{vim ? 'Keys' : 'Keyboard shortcuts'}</DialogTitle>
+            {vim ? (
+              <span className={styles.hint}>{keymap.title} keys on · Esc closes</span>
+            ) : (
+              openKeys.length > 0 && (
+                <span className={styles.hint}>
+                  Press {openKeys.map(formatKeys).join(' ')} to open this any time
+                </span>
+              )
             )}
           </div>
           <div className={styles.sections}>

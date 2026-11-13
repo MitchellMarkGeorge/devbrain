@@ -5,7 +5,9 @@ import { keyLabels, parseKeys, strokeLabel, type Stroke } from './keys';
 import { activeScopes, type Scope } from './scopes';
 import styles from './ModeLine.module.css';
 import type { Platform } from '../components/lib/platform';
-import { useCommandList, useKeyboard, useKeyboardState } from './KeyboardProvider';
+import { useCommandList, useCommands, useKeyboard, useKeyboardState } from './KeyboardProvider';
+import { COMMAND_MODE, CommandLine } from './CommandLine';
+import { OPEN_COMMAND_LINE_ID } from './command-line';
 import { SET_MODE_COMMAND_ID } from './vim-keymap';
 
 const LINE_MODES: readonly StatusLineMode[] = ['normal', 'insert', 'visual', 'hint', 'command'];
@@ -127,6 +129,15 @@ export interface ModeLineProps {
 export function ModeLine({ context }: ModeLineProps) {
   const { keymap, platform } = useKeyboard();
   const { mode, pending, count } = useKeyboardState();
+  // `:` opens the line drawn here, so the command lives here too
+  useCommands([
+    {
+      id: OPEN_COMMAND_LINE_ID,
+      title: 'Command line',
+      scope: 'global',
+      run: (ctx) => ctx.setMode(COMMAND_MODE),
+    },
+  ]);
   const commands = useCommandList();
   const titles = useMemo(
     () => new Map(commands.map((command) => [command.id, command.title])),
@@ -149,6 +160,7 @@ export function ModeLine({ context }: ModeLineProps) {
     () => modeHints(keymap, mode, registered, platform),
     [keymap, mode, registered, platform],
   );
+  if (mode === COMMAND_MODE) return <CommandLine />;
   const lineMode = (LINE_MODES as readonly string[]).includes(mode)
     ? (mode as StatusLineMode)
     : 'normal';

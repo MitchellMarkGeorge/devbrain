@@ -57,7 +57,10 @@ export function shortcutSections(
     sections.set(title, rows);
     const row = rows.get(label) ?? { label, bindings: [] };
     rows.set(label, row);
-    row.bindings.push(bindings);
+    // the same keys in another scope (`j` in a list and on the board) are one binding
+    if (!row.bindings.some((other) => other.join(' ') === bindings.join(' '))) {
+      row.bindings.push(bindings);
+    }
   }
   return [...sections]
     .map(([title, rows]) => ({ title, rows: [...rows.values()] }))
