@@ -57,6 +57,17 @@ export interface NoteListHandle<Note extends NoteListRow = NoteListRow> {
   focusLast(): void;
   toggleSelected(): void;
   clearSelection(): void;
+  /** how many rows fit in view (half of it is Vim's `Ctrl-d`) */
+  pageSize(): number;
+  /**
+   * starts a range at the focused row, selecting it: until `endRange`, moving focus selects every
+   * row from it to the focused one (Vim's `v`)
+   */
+  startRange(): void;
+  /** stops the range growing; its rows stay selected */
+  endRange(): void;
+  /** the focused row and the `count - 1` loaded rows after it, in list order (`3dd`) */
+  itemsFromFocus(count: number): Note[];
 }
 
 /**
@@ -112,7 +123,12 @@ function NoteListInner<Note extends NoteListRow>(
     [notes],
   );
   const wanted = focusedIdProp ?? focusedState;
-  const focusedId = indexOfId(wanted) >= 0 ? wanted : notes[0]?.id;
+  // the focused row's place, kept so that when its row goes (moved to trash) the row that takes
+  // its place is the focused one, not the first
+  const wantedIndex = indexOfId(wanted);
+  const [lastIndex, setLastIndex] = useState(0);
+  if (wantedIndex >= 0 && wantedIndex !== lastIndex) setLastIndex(wantedIndex);
+  const focusedId = wantedIndex >= 0 ? wanted : notes[Math.min(lastIndex, notes.length - 1)]?.id;
 
   const virtualizer = useVirtualList({
     scrollerRef: listRef,
@@ -136,12 +152,33 @@ function NoteListInner<Note extends NoteListRow>(
     }
   });
 
+  // whether a row has focus, or had it until its row went away (as `TaskList` does): focus then
+  // follows the focused row rather than falling to the page
+  const holdsFocus = useRef(false);
+  useEffect(() => {
+    if (!holdsFocus.current || !focusedId || pendingFocus.current === focusedId) return;
+    const active = document.activeElement;
+    if (active && active !== document.body && active.isConnected) return;
+    focusNote(focusedId);
+  });
+
   function setFocused(id: string) {
     setFocusedState(id);
     onFocusedIdChange?.(id);
   }
 
+  // a range's first row (Vim's `v`): while set, moving focus selects from it to the focused row
+  const rangeAnchor = useRef<string | null>(null);
+  function selectRange(from: string, to: string) {
+    const a = indexOfId(from);
+    const b = indexOfId(to);
+    if (a < 0 || b < 0) return;
+    const ids = notes.slice(Math.min(a, b), Math.max(a, b) + 1).map((row) => row.id);
+    setSelected(new Set(ids));
+  }
+
   function focusNote(id: string) {
+    if (rangeAnchor.current) selectRange(rangeAnchor.current, id);
     setFocused(id);
     const index = indexOfId(id);
     const row = rows.current.get(id);
@@ -165,6 +202,20 @@ function NoteListInner<Note extends NoteListRow>(
         if (focusedId) toggle(focusedId);
       },
       clearSelection: () => setSelected(new Set()),
+      pageSize: () =>
+        Math.max(1, Math.floor((listRef.current?.clientHeight ?? 0) / SIZE['row-height'])),
+      startRange: () => {
+        if (!focusedId) return;
+        rangeAnchor.current = focusedId;
+        setSelected(new Set([focusedId]));
+      },
+      endRange: () => {
+        rangeAnchor.current = null;
+      },
+      itemsFromFocus: (count) => {
+        const from = Math.max(0, indexOfId(focusedId));
+        return notes.slice(from, from + Math.max(1, count));
+      },
     };
   });
 
@@ -189,6 +240,11 @@ function NoteListInner<Note extends NoteListRow>(
         'aria-rowcount': rowCount ?? notes.length,
         tabIndex: focusedDrawn || !focusedId ? -1 : 0,
         onFocus: handleFocus,
+        // focus going somewhere else (a click, a dialog) lets it go
+        onBlur: (event: FocusEvent<HTMLDivElement>) => {
+          const to = event.relatedTarget;
+          if (to instanceof Node && !event.currentTarget.contains(to)) holdsFocus.current = false;
+        },
         ...props,
       }}
     >
@@ -215,6 +271,7 @@ function NoteListInner<Note extends NoteListRow>(
               note={note}
               tabIndex={id === focusedId ? 0 : -1}
               onFocus={() => {
+                holdsFocus.current = true;
                 if (id !== focusedId) setFocused(id);
               }}
               selected={on}

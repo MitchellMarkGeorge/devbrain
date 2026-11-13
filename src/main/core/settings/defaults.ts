@@ -15,6 +15,7 @@ export function getDefaults(rootPath?: string): SettingsFile {
         launchOnStartup: false,
         openToLastPage: true,
         timeFormat: '12',
+        keyboardMode: 'default',
         confirmBeforeArchiving: true,
         confirmBeforeDeleting: true,
       },

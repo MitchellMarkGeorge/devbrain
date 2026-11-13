@@ -9,7 +9,13 @@ import { TaskStatus } from '@common/types';
 import { storyDate } from '../../lib/story-dates';
 import { BUSY_TASK, manyTasks, SAMPLE_SUBTASKS, SAMPLE_TASKS } from '../TaskRow/fixtures';
 import { Text } from '../../layout/Text';
-import { defaultKeymap, KeyboardProvider, KeyScope, useListCommands } from '../../../keyboard';
+import {
+  defaultKeymap,
+  KeyboardProvider,
+  KeyScope,
+  useListCommands,
+  vimKeymap,
+} from '../../../keyboard';
 import {
   TaskList as TaskListComponent,
   type FlatTaskListProps,
@@ -49,9 +55,10 @@ const meta = {
   args: { tasks: SAMPLE_TASKS },
   render: (args) => <TaskList {...args} />,
   decorators: [
-    (Story) => (
-      <KeyboardProvider keymap={defaultKeymap}>
-        <div style={{ maxWidth: 900 }}>
+    // `parameters.vim` mounts the Vim keymap in place of the default one
+    (Story, { parameters }) => (
+      <KeyboardProvider keymap={parameters.vim ? vimKeymap : defaultKeymap}>
+        <div style={parameters.vim ? { height: 480, display: 'flex' } : { maxWidth: 900 }}>
           <Story />
         </div>
       </KeyboardProvider>
@@ -64,6 +71,16 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+
+/**
+ * With Vim keys (Figma `7703:55372`–`7703:57675`): click a row, then `j`/`k` (with counts:
+ * `5j`), `gg`/`G`, `Ctrl-d`/`Ctrl-u`, `v` or `V` and `j`/`k` for a range, `x` to keep it, `s`
+ * for Status, `dd` (or `3dd`) to trash, `*` to favorite.
+ */
+export const VimKeys: Story = {
+  args: { tasks: manyTasks(60) },
+  parameters: { vim: true },
+};
 
 /** Neighbouring selected rows join into one block; the bar floats over the bottom. */
 export const Selection: Story = {

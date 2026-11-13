@@ -1,4 +1,11 @@
 export {
+  boardCommands,
+  useBoardCommands,
+  type BoardColumnKeyTarget,
+  type BoardCommandActions,
+  type BoardCursor,
+} from './board-commands';
+export {
   CommandRegistry,
   type Command,
   type CommandArgs,
@@ -13,6 +20,7 @@ export {
 } from './default-keymap';
 export {
   DEFAULT_SEQUENCE_TIMEOUT,
+  isTypingTarget,
   KeyDispatcher,
   type KeyDispatcherOptions,
   type KeyboardState,
@@ -20,6 +28,8 @@ export {
 export { useHintTarget } from './hints';
 export {
   KeyboardProvider,
+  REDO_COMMAND_ID,
+  REPEAT_COMMAND_ID,
   UNDO_COMMAND_ID,
   useCommandList,
   useCommands,
@@ -37,9 +47,11 @@ export {
   type ListCommandActions,
   type ListKeyTarget,
 } from './list-commands';
-export { DEFAULT_MODE, type Keymap, type KeymapEntry } from './keymap';
+export { DEFAULT_MODE, MODE_ATTRIBUTE, type Keymap, type KeymapEntry } from './keymap';
+export { SET_MODE_COMMAND_ID, VIM_MODES, vimKeymap, type VimMode } from './vim-keymap';
 export { describeKeys, keyLabels, parseKeys, strokeFromEvent, type Stroke } from './keys';
 export { KeyScope, type KeyScopeProps } from './KeyScope';
+export { ModeLine, type ModeLineProps } from './ModeLine';
 export { activeScopes, SCOPES, type Scope } from './scopes';
 export {
   commandShortcut,

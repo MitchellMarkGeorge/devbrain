@@ -4,6 +4,7 @@ export * from './CardGrid';
 export * from './DocumentPage';
 export * from './PageHeader';
 export * from './Sidebar';
+export * from './StatusLine';
 export * from './SyncStatus';
 export * from './VirtualCardGrid';
 export * from './WindowBar';

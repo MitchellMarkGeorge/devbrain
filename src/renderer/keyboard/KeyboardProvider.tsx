@@ -14,6 +14,8 @@ import { CommandRegistry, type Command, type CommandArgs } from './commands';
 import { KeyDispatcher, type KeyboardState } from './dispatcher';
 import type { Keymap } from './keymap';
 import { UndoStack, type Undoable } from './undo';
+import { SET_MODE_COMMAND_ID } from './vim-keymap';
+import { cursorCommands } from './cursor';
 
 interface KeyboardContextValue {
   registry: CommandRegistry;
@@ -27,6 +29,10 @@ const KeyboardContext = createContext<KeyboardContextValue | null>(null);
 
 /** `app.undo`: takes back the newest entry of the undo stack. Registered by `KeyboardProvider`. */
 export const UNDO_COMMAND_ID = 'app.undo';
+/** `app.redo`: does the newest undone entry again (Vim's `Ctrl-r`). */
+export const REDO_COMMAND_ID = 'app.redo';
+/** `app.repeat`: runs the last change made by its keys again (Vim's `.`). */
+export const REPEAT_COMMAND_ID = 'app.repeat';
 
 export interface KeyboardProviderProps {
   /** the active keymap; swapping it (default for Vim) keeps the registry and the undo stack */
@@ -73,6 +79,30 @@ export function KeyboardProvider({ keymap, platform, onError, children }: Keyboa
           },
           enabled: (ctx) => ctx.undoStack.size > 0,
         },
+        {
+          id: REDO_COMMAND_ID,
+          title: 'Redo',
+          scope: 'global',
+          run: (ctx) => {
+            ctx.undoStack.redo().catch((error: unknown) => console.error('Redo failed:', error));
+          },
+          enabled: (ctx) => ctx.undoStack.redoSize > 0,
+        },
+        {
+          id: REPEAT_COMMAND_ID,
+          title: 'Repeat',
+          scope: 'global',
+          run: (_ctx, { count }) => void core.dispatcher.repeat(count),
+        },
+        {
+          id: SET_MODE_COMMAND_ID,
+          title: 'Change mode',
+          scope: 'global',
+          run: (ctx, { mode }) => {
+            if (typeof mode === 'string') ctx.setMode(mode);
+          },
+        },
+        ...cursorCommands(),
       ]),
     [core],
   );
