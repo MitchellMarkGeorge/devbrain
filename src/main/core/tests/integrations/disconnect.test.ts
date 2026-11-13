@@ -33,7 +33,7 @@ import { CURSOR_OVERLAP_MS, REVOKE_TIMEOUT_MS } from '../../sync/constants';
 import { SearchService } from '../../search/service';
 import { CredentialStore } from '../../integrations/credential-store';
 import { IntegrationChange, IntegrationService } from '../../integrations/service';
-import { DetachService } from '../../integrations/detach';
+import { DetachService, TaskLinkChange } from '../../integrations/detach';
 import { OAuthClient } from '../../integrations/oauth/types';
 import {
   AuthType,
@@ -53,6 +53,7 @@ import { EventService } from '../../events/service';
 import { NoteService } from '../../notes/service';
 import {
   IntegrationAccountMismatchError,
+  IntegrationAuthError,
   NotFoundError,
   ProviderUnavailableError,
 } from '../../shared/errors';
@@ -902,6 +903,151 @@ describe('IntegrationService — connecting the same account again', () => {
     const links = db.select().from(externalLinks).all();
     expect(links).toHaveLength(2);
     expect(links.find((link) => link.eventId)!.sourceId).toBeNull();
+  });
+});
+
+describe('DetachService — kept copies after connecting the same account again', () => {
+  // answers a reattach's lookup with these items, by external id; anything else is gone
+  function provide(...items: ExternalTask[]) {
+    linear.tasks.respondToLookup = ({ externalIds }) => ({
+      tasks: items.filter((item) => externalIds.includes(item.externalId)),
+      gone: externalIds.filter((id) => !items.some((item) => item.externalId === id)),
+    });
+  }
+
+  it('counts the tasks a disconnect kept once a sync matches them, not the ones the user detached', async () => {
+    const first = await connectLinear();
+    const parent = issue();
+    const child = issue({ parentExternalId: parent.externalId });
+    const ownChoice = issue();
+    await syncTasks(first.sourceId, [parent, child, ownChoice]);
+    detach.detachTask(taskIdOf(ownChoice));
+    await service.disconnect(first.id, { keepLocalCopies: true });
+
+    const second = await connectLinear();
+    // not matched yet: the copies have no source until the first sync sees them
+    expect(detach.keptCopies(second.id)).toEqual({ tasks: 0 });
+    await syncTasks(second.sourceId, [parent, child, ownChoice]);
+
+    expect(detach.keptCopies(second.id)).toEqual({ tasks: 2 });
+  });
+
+  it('counts a task kept for its note when the disconnect removed the rest', async () => {
+    const first = await connectLinear();
+    const noted = issue();
+    await syncTasks(first.sourceId, [noted, issue()]);
+    await notes.createNote({ title: 'Notes', linkedTaskId: taskIdOf(noted) });
+    await service.disconnect(first.id, { keepLocalCopies: false });
+
+    const second = await connectLinear();
+    await syncTasks(second.sourceId, [noted]);
+
+    expect(detach.keptCopies(second.id)).toEqual({ tasks: 1 });
+  });
+
+  it('reattaches each kept task with its subtasks, replacing local edits', async () => {
+    const first = await connectLinear();
+    const parent = issue();
+    const child = issue({ parentExternalId: parent.externalId });
+    const loose = issue();
+    await syncTasks(first.sourceId, [parent, child, loose]);
+    await service.disconnect(first.id, { keepLocalCopies: true });
+    tasks.updateTask(taskIdOf(loose), { title: 'Edited after the disconnect' });
+    const second = await connectLinear();
+    await syncTasks(second.sourceId, [parent, child, loose]);
+    provide(parent, child, { ...loose, title: 'From Linear' });
+    const changes: TaskLinkChange[] = [];
+    detach.onChange((change) => changes.push(change));
+
+    const result = await detach.reattachKept(second.id);
+
+    expect(result).toEqual({ reattached: 3, failed: [] });
+    for (const item of [parent, child, loose]) {
+      expect(linkOf(item)!.state).toBe(LinkState.SYNCED);
+    }
+    expect(taskRow(taskIdOf(child))!.parentTaskId).toBe(taskIdOf(parent));
+    expect(taskRow(taskIdOf(loose))!.title).toBe('From Linear');
+    // one reattach per top-level kept task; the subtask goes with its parent
+    expect(changes.map((change) => [change.type, 'taskId' in change && change.taskId])).toEqual([
+      ['reattached', taskIdOf(parent)],
+      ['reattached', taskIdOf(loose)],
+    ]);
+    expect(detach.keptCopies(second.id)).toEqual({ tasks: 0 });
+    // the marker went with the reattach, so a later detach is the user's own
+    detach.detachTask(taskIdOf(loose));
+    expect(detach.keptCopies(second.id)).toEqual({ tasks: 0 });
+  });
+
+  it('leaves a task the provider refuses local and still offered, and reports why', async () => {
+    const first = await connectLinear();
+    const kept = issue();
+    const gone = issue();
+    await syncTasks(first.sourceId, [kept, gone]);
+    await service.disconnect(first.id, { keepLocalCopies: true });
+    const second = await connectLinear();
+    await syncTasks(second.sourceId, [kept, gone]);
+    provide(kept);
+
+    const result = await detach.reattachKept(second.id);
+
+    expect(result).toEqual({
+      reattached: 1,
+      failed: [
+        {
+          taskId: taskIdOf(gone),
+          message: `Task ${gone.key} can't be reattached because it no longer exists`,
+        },
+      ],
+    });
+    expect(linkOf(gone)!.state).toBe(LinkState.DETACHED);
+    expect(detach.keptCopies(second.id)).toEqual({ tasks: 1 });
+  });
+
+  it('stops on rejected credentials, moving nothing more', async () => {
+    const first = await connectLinear();
+    const items = [issue(), issue()];
+    await syncTasks(first.sourceId, items);
+    await service.disconnect(first.id, { keepLocalCopies: true });
+    const second = await connectLinear();
+    await syncTasks(second.sourceId, items);
+    linear.tasks.respondToLookup = () => {
+      throw new IntegrationAuthError('rejected');
+    };
+
+    await expect(detach.reattachKept(second.id)).rejects.toThrow(IntegrationAuthError);
+    expect(linear.tasks.lookups).toHaveLength(1);
+    expect(detach.keptCopies(second.id)).toEqual({ tasks: 2 });
+  });
+
+  it('keeping them local stops offering them and leaves the tasks as they are', async () => {
+    const first = await connectLinear();
+    const item = issue();
+    await syncTasks(first.sourceId, [item]);
+    await service.disconnect(first.id, { keepLocalCopies: true });
+    const second = await connectLinear();
+    await syncTasks(second.sourceId, [item]);
+    const before = taskRow(taskIdOf(item));
+    const changes: TaskLinkChange[] = [];
+    detach.onChange((change) => changes.push(change));
+
+    detach.keepKeptLocal(second.id);
+
+    expect(detach.keptCopies(second.id)).toEqual({ tasks: 0 });
+    expect(linkOf(item)!.state).toBe(LinkState.DETACHED);
+    expect(taskRow(taskIdOf(item))).toEqual(before);
+    expect(changes).toEqual([
+      { type: 'kept_local', integrationId: second.id, taskIds: [taskIdOf(item)] },
+    ]);
+    // nothing left to keep: no change
+    detach.keepKeptLocal(second.id);
+    expect(changes).toHaveLength(1);
+  });
+
+  it('throws NotFoundError for an unknown integration', async () => {
+    const missing = 'int_missing' as IntegrationId;
+    expect(() => detach.keptCopies(missing)).toThrow(NotFoundError);
+    expect(() => detach.keepKeptLocal(missing)).toThrow(NotFoundError);
+    await expect(detach.reattachKept(missing)).rejects.toThrow(NotFoundError);
   });
 });
 

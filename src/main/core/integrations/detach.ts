@@ -1,15 +1,22 @@
 import { ExternalSourceId, IntegrationId, TaskId } from '@common/ids';
-import { externalLinks, externalSources } from '@main/db/schema/integrations';
+import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
 import { tasks } from '@main/db/schema/tasks';
-import { and, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { TaskReconciler } from '../sync/task-reconciler';
-import { LinkState, SyncEntityType, Task } from '@common/types';
+import {
+  type KeptCopies,
+  LinkState,
+  type ReattachKeptResult,
+  SyncEntityType,
+  Task,
+} from '@common/types';
 import { ReattachRefusal, ReattachResult, SyncSkipReason } from '../sync/types';
 import { subtreeOf } from '../tasks/subtree';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { DetachError, IntegrationAuthError, NotFoundError } from '../shared/errors';
 import { withExternalRef } from './refs';
+import { KEPT_BY_DISCONNECT } from './schema';
 
 // A detach or reattach; the IPC layer will forward it so the renderer refetches the tasks, and the
 // projects too when a reattach wrote one
@@ -24,10 +31,12 @@ export interface TaskLinkStateChange {
 
 // What changed, for in-process subscribers. `credentials_rejected`: the provider refused a
 // reattach's credentials, which only a reconnect can fix, so the workspace moves the integration to
-// needs_reauth. Ids only, never credentials.
+// needs_reauth. `kept_local`: the user chose to keep an account's kept copies local, so they are no
+// longer offered for reattaching (the tasks themselves are unchanged). Ids only, never credentials.
 export type TaskLinkChange =
   | TaskLinkStateChange
-  | { type: 'credentials_rejected'; taskId: TaskId; integrationId: IntegrationId };
+  | { type: 'credentials_rejected'; taskId: TaskId; integrationId: IntegrationId }
+  | { type: 'kept_local'; integrationId: IntegrationId; taskIds: TaskId[] };
 
 export type TaskLinkChangeListener = ChangeListener<TaskLinkChange>;
 
@@ -183,6 +192,78 @@ export class DetachService {
     return this.getTask(id);
   }
 
+  /**
+   * How many of the integration's tasks are kept copies: detached by a disconnect of the same
+   * account (KEPT_BY_DISCONNECT), matched back to this integration's tasks source by a sync since
+   * it was connected again, and active. Tasks the user detached are not counted. A kept copy the
+   * sync has not seen yet still has no source, so the count grows as the first sync runs.
+   */
+  keptCopies(integrationId: IntegrationId): KeptCopies {
+    this.assertIntegration(integrationId);
+    const row = this.db
+      .select({ tasks: count() })
+      .from(externalLinks)
+      .innerJoin(tasks, eq(tasks.id, externalLinks.taskId))
+      .where(this.kept(integrationId))
+      .get();
+    return { tasks: row?.tasks ?? 0 };
+  }
+
+  /**
+   * Reattaches every kept copy of the integration (see keptCopies), overwriting what the user
+   * changed in them since the disconnect: reattachTask on each one whose parent is not a kept copy
+   * too, which takes its kept subtasks with it. One at a time, as each asks the provider.
+   *
+   * A task reattachTask refuses (gone, reassigned, holding local subtasks, its source switched off)
+   * stays a local copy, still offered, and is listed in `failed` with the reason. Rejected
+   * credentials stop at once with IntegrationAuthError, after the integration is moved to
+   * needs_reauth, as do other provider failures; what was reattached before stays reattached.
+   */
+  async reattachKept(integrationId: IntegrationId): Promise<ReattachKeptResult> {
+    const before = this.keptCopies(integrationId).tasks;
+    const rows = this.db
+      .select({ taskId: tasks.id, parentTaskId: tasks.parentTaskId })
+      .from(externalLinks)
+      .innerJoin(tasks, eq(tasks.id, externalLinks.taskId))
+      .where(this.kept(integrationId))
+      .orderBy(asc(tasks.createdAt), asc(tasks.id))
+      .all();
+    const keptIds = new Set(rows.map((row) => row.taskId));
+    const roots = rows.filter((row) => row.parentTaskId === null || !keptIds.has(row.parentTaskId));
+
+    const failed: ReattachKeptResult['failed'] = [];
+    for (const { taskId } of roots) {
+      try {
+        await this.reattachTask(taskId);
+      } catch (error) {
+        // a refusal for this task alone; anything else (rejected credentials, the provider down)
+        // would fail every task after it
+        if (!(error instanceof DetachError || error instanceof NotFoundError)) throw error;
+        failed.push({ taskId, message: error.message });
+      }
+    }
+    return { reattached: before - this.keptCopies(integrationId).tasks, failed };
+  }
+
+  /**
+   * Keeps the integration's kept copies local: they stay detached, as the tasks the user detached
+   * do, and are no longer offered for reattaching. Each can still be reattached on its own.
+   */
+  keepKeptLocal(integrationId: IntegrationId): void {
+    this.assertIntegration(integrationId);
+    const taskIds = this.db
+      .update(externalLinks)
+      .set({
+        metadata: sql`json_remove(${externalLinks.metadata}, ${`$.${KEPT_BY_DISCONNECT}`})`,
+      })
+      .where(this.kept(integrationId))
+      .returning({ taskId: externalLinks.taskId })
+      .all()
+      .map((row) => row.taskId!);
+    if (taskIds.length === 0) return;
+    this.changes.emit({ type: 'kept_local', integrationId, taskIds });
+  }
+
   // returns a function that unsubscribes the listener
   onChange(listener: TaskLinkChangeListener): () => void {
     return this.changes.add(listener);
@@ -199,6 +280,39 @@ export class DetachService {
     if (!row) throw new NotFoundError(id);
     if (!row.link) throw new DetachError(id, `Task ${id} is a local task with no integration`);
     return row.link;
+  }
+
+  /**
+   * The integration's kept task links: detached by a disconnect and matched back to one of its
+   * sources. Archived tasks are left out where the query joins tasks.
+   */
+  private kept(integrationId: IntegrationId) {
+    return and(
+      inArray(
+        externalLinks.sourceId,
+        this.db
+          .select({ id: externalSources.id })
+          .from(externalSources)
+          .where(eq(externalSources.integrationId, integrationId)),
+      ),
+      eq(externalLinks.state, LinkState.DETACHED),
+      isNotNull(externalLinks.taskId),
+      sql`json_extract(${externalLinks.metadata}, ${`$.${KEPT_BY_DISCONNECT}`}) = 1`,
+      // keepKeptLocal updates links, so the active check is a subquery rather than a join
+      inArray(
+        externalLinks.taskId,
+        this.db.select({ id: tasks.id }).from(tasks).where(isNull(tasks.archivedAt)),
+      ),
+    );
+  }
+
+  private assertIntegration(id: IntegrationId): void {
+    const row = this.db
+      .select({ id: integrations.id })
+      .from(integrations)
+      .where(eq(integrations.id, id))
+      .get();
+    if (!row) throw new NotFoundError(id);
   }
 
   /** a link's source always exists: deleting one nulls the sourceId of its links */

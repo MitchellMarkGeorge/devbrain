@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useMutationState, useQuery } from '@tanstack/react-query';
 import { Calendar, CircleCheck, GitPullRequest, RefreshCw, RotateCcw } from 'lucide-react';
 import {
   AuthType,
@@ -39,6 +39,13 @@ const SOURCE_ICONS = {
   [SourceType.VERSION_CONTROL]: GitPullRequest,
 };
 
+/** The kept-copies offer's words: "3 tasks from Linear are still local copies …" */
+function keptText(count: number, vendor: string): string {
+  const one = count === 1;
+  const them = one ? 'it' : 'them';
+  return `${one ? '1 task' : `${count} tasks`} from ${vendor} ${one ? 'is still a local copy' : 'are still local copies'} from when this account was disconnected. Reattach to sync ${them} again, or keep ${them} as your own.`;
+}
+
 export interface IntegrationAccountProps {
   integration: Integration;
   /** each source's sync state (sync.status) */
@@ -55,6 +62,10 @@ export interface IntegrationAccountProps {
  * One connected account (Figma `7164:13117`): its state, its On/Off switch and Disconnect…, an
  * alert with Reconnect when its sign-in was rejected, and its sources, each with its own switch
  * and status. Every status comes from core and its events; nothing here polls.
+ *
+ * After the account was disconnected keeping local copies and then connected again, its first
+ * sync matches those tasks back to it (`integrations.keptCopies`), and the alert offers to
+ * reattach them or keep them local. Not in Figma; it reuses the card's alert.
  */
 export function IntegrationAccount({
   integration,
@@ -94,6 +105,22 @@ export function IntegrationAccount({
     ? 'Events'
     : 'Tasks';
   const switchesLocked = locked || setEnabled.isPending;
+  const hasTasks = integration.sources.some((s) => s.sourceType === SourceType.TASKS);
+  const kept =
+    useQuery({
+      ...trpc.integrations.keptCopies.queryOptions({ id: integration.id }),
+      enabled: hasTasks,
+    }).data?.tasks ?? 0;
+  // a reattach or "keep local" of this account running, from the page's flows
+  const pendingIds = (key: readonly unknown[]) => ({
+    filters: { mutationKey: key, status: 'pending' as const },
+    select: (mutation: { state: { variables: unknown } }) =>
+      (mutation.state.variables as { id: string }).id,
+  });
+  const keptBusy = [
+    ...useMutationState(pendingIds(trpc.integrations.reattachKept.mutationKey())),
+    ...useMutationState(pendingIds(trpc.integrations.keepKeptLocal.mutationKey())),
+  ].includes(integration.id);
 
   return (
     <IntegrationCard
@@ -123,7 +150,7 @@ export function IntegrationAccount({
         </>
       }
       alert={
-        needsReconnect && (
+        needsReconnect ? (
           <IntegrationCardAlert
             action={
               <Button
@@ -140,6 +167,35 @@ export function IntegrationAccount({
             {entry.vendor} rejected the saved {apiKey ? 'API key' : 'sign-in'}, so nothing from this
             account is syncing. {what} already in DevBrain stay visible.
           </IntegrationCardAlert>
+        ) : (
+          kept > 0 && (
+            <IntegrationCardAlert
+              data-testid="kept-copies"
+              action={
+                <span className={styles.alertActions}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={keptBusy}
+                    onClick={() => flows.keepKeptLocal(integration)}
+                  >
+                    Keep Local
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={RotateCcw}
+                    disabled={keptBusy || !on}
+                    onClick={() => flows.reattachKept(integration, kept)}
+                  >
+                    Reattach…
+                  </Button>
+                </span>
+              }
+            >
+              {keptText(kept, entry.vendor)}
+            </IntegrationCardAlert>
+          )
         )
       }
     >

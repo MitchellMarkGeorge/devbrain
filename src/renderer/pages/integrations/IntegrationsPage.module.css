@@ -27,6 +27,11 @@
 }
 
 /* "Syncing…" before an account's switch (7426:42811) */
+.alertActions {
+  display: flex;
+  gap: var(--space-2);
+}
+
 .syncing {
   display: inline-flex;
   align-items: center;

@@ -57,6 +57,9 @@ export const ENTITIES_READ_BY_ROUTE: Readonly<
     'event',
     'note',
   ],
+  // a sync matches kept copies back to the account without writing the tasks, then reports its
+  // run ended (externalSource); a reattach or "keep local" changes the tasks' links
+  'integrations.keptCopies': ['integration', 'externalSource', 'task'],
   sync: ['integration', 'externalSource'],
   // mutations only: imports report the tasks and notes they create
   transfer: [],

@@ -688,6 +688,8 @@ A workspace settings page lists each provider with its account, its sources, las
 
 Reconnecting the same account later re-matches detached and removed links by `externalId` rather than creating duplicates.
 
+**Kept copies.** A disconnect marks each task link it detaches (`keptByDisconnect` in the link's metadata), so connecting the same account again can tell the tasks it kept from those the user detached. A project comes back synced by itself, but a task stays detached, as it may hold edits made since. Once the new connection's sync has matched them, `DetachService.keptCopies` counts them and the Integrations page offers to reattach them: `reattachKept` runs `reattachTask` on each kept task whose parent is not kept too, after a confirmation that local edits are replaced. A task the provider refuses stays local and is reported; rejected credentials stop the run. "Keep Local" (`keepKeptLocal`) drops the marker, after which they are the user's like any detached task. Any write of the link's metadata (a reattach) drops the marker too.
+
 **Connected but not a source.** An integration with all sources disabled is valid. It holds a working connection and syncs nothing. This is the state a future GitHub connection is in when used for version control only.
 
 **Re-authentication.** In `needs_reauth`, the settings page and the status indicator show a "Reconnect" action that reruns the OAuth flow, or asks for a new API key, and keeps the same integration row, sources and cursors. If the returned account id differs, the reconnect is rejected. A connected integration can be reconnected too, to replace an API key before it fails or to switch from an API key to OAuth.
@@ -1027,7 +1029,7 @@ Most work is new code. Changes to existing files are small but touch every entit
 | `src/common/ipc`, `src/common/events.ts`                      | The shared IPC contract (request, envelope, error codes) and the push events, imported by main, preload and renderer                                                                                       |
 | `.env.template`                                               | `DEV_LINEAR_API_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`                                                                                                                                           |
 
-**IPC.** Built as the typed tRPC layer described in `docs/ipc/design.md`. The integration operations are routes in `src/main/ipc/routers`: `integrations` (`list`, `get`, `connect`, `reconnect`, `cancelConnect`, `setEnabled`, `previewDisconnect`, `disconnect`), `sources` (`setEnabled`), `calendars` (`list`, `setVisible`, `setSelected`), `sync` (`now`, `status`), and `tasks.detach` and `tasks.reattach`. Each returns what the core service returns, which never holds credentials.
+**IPC.** Built as the typed tRPC layer described in `docs/ipc/design.md`. The integration operations are routes in `src/main/ipc/routers`: `integrations` (`list`, `get`, `connect`, `reconnect`, `cancelConnect`, `setEnabled`, `previewDisconnect`, `disconnect`, `keptCopies`, `reattachKept`, `keepKeptLocal`), `sources` (`setEnabled`), `calendars` (`list`, `setVisible`, `setSelected`), `sync` (`now`, `status`), and `tasks.detach` and `tasks.reattach`. Each returns what the core service returns, which never holds credentials.
 
 Main pushes the events in `AppEvents` (`src/common/events.ts`). Each is a delta carrying ids, not a snapshot; the renderer refetches what it shows:
 
