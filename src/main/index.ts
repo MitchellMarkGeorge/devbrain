@@ -22,7 +22,7 @@ import { openElectronSettingsStore } from './runtime/settings-store';
 import { loadDevBrain } from './runtime/start';
 import { closeBeforeQuit, forwardSyncTriggers, holdSingleInstance } from './runtime/lifecycle';
 import { initialRoute, saveLastPageOnClose, type LastPages } from './runtime/last-page';
-import { createElectronDesktop } from './runtime/desktop';
+import { createElectronDesktop, createExportMemory } from './runtime/desktop';
 import { createMenuActions, installAppMenu } from './runtime/menu';
 import { applyTheme, windowBackground } from './runtime/theme';
 import { keepTrafficLights, repaintChrome, windowChrome } from './runtime/window-chrome';
@@ -65,6 +65,10 @@ function configureLogging() {
 
 // where electron-log writes: the menu's Show Log File, and app.showLogFile
 const logFilePath = () => log.transports.file.getFile().path;
+
+// each window's last export, from Settings or the menu: its toast's Show in Finder
+const exportMemory = createExportMemory();
+const desktopDeps = { dialog, shell, menu: Menu, logFilePath, exports: exportMemory };
 
 // --- DevBrain -------------------------------------------------------------
 const devBrainLog = log.scope('devbrain');
@@ -132,7 +136,7 @@ function attachIpc(devBrain: DevBrain | null) {
         ...call,
         devBrain,
         desktop: createElectronDesktop(
-          { dialog, shell, menu: Menu, logFilePath },
+          desktopDeps,
           BrowserWindow.fromWebContents(call.event.sender),
         ),
         log: ipcLog,
@@ -277,7 +281,13 @@ function attachMenu(devBrain: DevBrain | null) {
     actions: createMenuActions({
       devBrain,
       window: focusedWindow,
-      desktop: (win) => createElectronDesktop({ dialog, shell, menu: Menu, logFilePath }, win),
+      desktop: (win) => createElectronDesktop(desktopDeps, win),
+      // a command or a report shows the window first: on macOS the menu stays when it is hidden
+      send: (win, name, payload) => {
+        if (win === null || win.isDestroyed()) return;
+        if (win === mainWindow) showMainWindow();
+        win.webContents.send(`${IPC_EVENT_PREFIX}${name}`, payload);
+      },
       dialog,
       showItemInFolder: (fullPath) => shell.showItemInFolder(fullPath),
       logFilePath,

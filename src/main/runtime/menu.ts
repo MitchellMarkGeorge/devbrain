@@ -1,3 +1,4 @@
+import path from 'node:path';
 import type {
   BrowserWindow,
   Dialog,
@@ -8,14 +9,27 @@ import type { DevBrain, Workspace } from '@main/core';
 import { toDateString } from '@main/core/shared/dates';
 import { CoreError } from '@main/core/shared/errors';
 import { NOTE_EXTENSIONS } from '@main/core/transfer/service';
-import type { TaskFileFormat } from '@common/types';
+import type { AppEventName, AppEvents, MenuCommandId, MenuPage } from '@common/events';
+import type { TaskFileFormat, TransferReport } from '@common/types';
 import type { Desktop } from '../ipc/desktop';
 
-// The app's menu bar: the platform's standard menus, plus DevBrain's own commands. Each command runs
-// in main against core, as its IPC route would, and core announces what it changed, so the
-// renderer refetches through the ChangeTracker as for any background change. The template is built
-// from plain state, so tests can check it without Electron; installAppMenu rebuilds it whenever the
-// open workspace changes, which enables or disables the workspace's commands.
+// The app's menu bar: the platform's standard menus, plus DevBrain's own commands, of two kinds.
+//
+// - The window's commands (New Task, New Note, Settings…, Find…, Go to › a page) run in the window:
+//   the item sends `app.command` with the keyboard layer's command id, and the window runs that
+//   command from its registry, as its keys would. Their accelerators show the default keymap's
+//   keys; the window's keyboard layer handles those keys itself (registerAccelerator: false), so
+//   C and N still type in a field and ⌘K is still Link in the editor. Sequences (G T) can't be
+//   accelerators, so Go to's items show none. Settings… (⌘,) has no key in the keymap, so the
+//   menu owns that one.
+// - Workspace commands (import, export, sync, show a folder) run in main against core, as their
+//   IPC routes would, and core announces what it changed, so the renderer refetches through the
+//   ChangeTracker as for any background change. An import or export then sends its summary to the
+//   window (`transfer.completed`), which shows the same dialog or toast as the Settings buttons.
+//
+// The template is built from plain state, so tests can check it without Electron; installAppMenu
+// rebuilds it whenever the open workspace changes, which enables or disables the commands that
+// need one. On Windows the title bar's menu button pops up this same menu (app.showMenu).
 
 // what the menu shows depends on
 export interface MenuState {
@@ -27,6 +41,8 @@ export interface MenuState {
 
 // What each DevBrain command does. None rejects: a failure is shown to the user and logged.
 export interface MenuActions {
+  // sends a command to the window, to run as its keys would; does nothing without a workspace
+  runCommand(command: MenuCommandId): void;
   openWorkspaceFolder(): Promise<void>;
   syncNow(): Promise<void>;
   showWorkspaceFolder(): Promise<void>;
@@ -54,6 +70,17 @@ function fileManagerName(platform: NodeJS.Platform): string {
   return 'File Manager';
 }
 
+// Go to's pages, in the sidebar's order
+const GO_TO: { page: MenuPage; label: string }[] = [
+  { page: 'home', label: 'Home' },
+  { page: 'tasks', label: 'Tasks' },
+  { page: 'projects', label: 'Projects' },
+  { page: 'notes', label: 'Notes' },
+  { page: 'calendar', label: 'Calendar' },
+  { page: 'integrations', label: 'Integrations' },
+  { page: 'trash', label: 'Trash' },
+];
+
 export function buildMenuTemplate({
   platform,
   appName,
@@ -67,10 +94,36 @@ export function buildMenuTemplate({
   // a command's promise never rejects (MenuActions); this only drops it
   const run = (action: () => Promise<void>) => () => void action();
 
+  // An item that runs one of the window's commands. `keys` is the default keymap's binding, shown
+  // only: the window's keyboard layer handles it (see the top of this file).
+  const command = (
+    id: string,
+    label: string,
+    commandId: MenuCommandId,
+    keys?: string,
+  ): MenuItemConstructorOptions => ({
+    id,
+    label,
+    enabled: hasWorkspace,
+    ...(keys ? { accelerator: keys, registerAccelerator: false } : {}),
+    click: () => actions.runCommand(commandId),
+  });
+
+  // ⌘, opens Settings: the menu's own key, as the keymap has none
+  const settingsItem: MenuItemConstructorOptions = {
+    id: 'settings',
+    label: 'Settings…',
+    accelerator: 'CmdOrCtrl+,',
+    enabled: hasWorkspace,
+    click: () => actions.runCommand('nav.settings'),
+  };
+
   const appMenu: MenuItemConstructorOptions = {
     label: appName,
     submenu: [
       { role: 'about' },
+      { type: 'separator' },
+      settingsItem,
       { type: 'separator' },
       { role: 'services' },
       { type: 'separator' },
@@ -85,6 +138,9 @@ export function buildMenuTemplate({
   const fileMenu: MenuItemConstructorOptions = {
     label: 'File',
     submenu: [
+      command('new-task', 'New Task', 'task.new', 'C'),
+      command('new-note', 'New Note', 'note.new', 'N'),
+      { type: 'separator' },
       {
         id: 'open-workspace-folder',
         label: 'Open Workspace Folder…',
@@ -138,13 +194,40 @@ export function buildMenuTemplate({
         ],
       },
       { type: 'separator' },
+      // Settings sits in the app menu on macOS
+      ...(isMac ? [] : [settingsItem, { type: 'separator' } as const]),
       isMac ? { role: 'close' } : { role: 'quit' },
+    ],
+  };
+
+  // the platform's Edit menu (as role: 'editMenu' builds it), with Find… opening search
+  const editMenu: MenuItemConstructorOptions = {
+    label: 'Edit',
+    submenu: [
+      { role: 'undo' },
+      { role: 'redo' },
+      { type: 'separator' },
+      { role: 'cut' },
+      { role: 'copy' },
+      { role: 'paste' },
+      ...(isMac
+        ? ([{ role: 'pasteAndMatchStyle' }, { role: 'delete' }, { role: 'selectAll' }] as const)
+        : ([{ role: 'delete' }, { type: 'separator' }, { role: 'selectAll' }] as const)),
+      { type: 'separator' },
+      command('find', 'Find…', 'search.open', 'CmdOrCtrl+K'),
     ],
   };
 
   const viewMenu: MenuItemConstructorOptions = {
     label: 'View',
     submenu: [
+      {
+        id: 'go-to',
+        label: 'Go to',
+        enabled: hasWorkspace,
+        submenu: GO_TO.map(({ page, label }) => command(`go-to-${page}`, label, `nav.${page}`)),
+      },
+      { type: 'separator' },
       { role: 'reload' },
       ...(isPackaged ? [] : ([{ role: 'forceReload' }, { role: 'toggleDevTools' }] as const)),
       { type: 'separator' },
@@ -194,7 +277,7 @@ export function buildMenuTemplate({
   return [
     ...(isMac ? [appMenu] : []),
     fileMenu,
-    { role: 'editMenu' },
+    editMenu,
     viewMenu,
     workspaceMenu,
     { role: 'windowMenu' },
@@ -207,8 +290,15 @@ export function buildMenuTemplate({
 export interface MenuActionDeps {
   // null when DevBrain could not be loaded
   devBrain: DevBrain | null;
-  // the window the dialogs are modal to: the focused one when a command runs, or null
+  // the window the dialogs are modal to, and commands and reports go to: the focused one when a
+  // command runs, or null
   window: () => BrowserWindow | null;
+  // sends an event to that window, showing it first if it is hidden; nothing without a window
+  send: <K extends AppEventName>(
+    window: BrowserWindow | null,
+    name: K,
+    payload: AppEvents[K],
+  ) => void;
   // the file manager and the system dialogs, modal to that window
   desktop: (window: BrowserWindow | null) => Desktop;
   dialog: Pick<Dialog, 'showMessageBox'>;
@@ -224,19 +314,6 @@ class WorkspaceSwitchedError extends Error {
     super('The workspace was closed or switched before the command could run.');
     this.name = 'WorkspaceSwitchedError';
   }
-}
-
-function plural(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? '' : 's'}`;
-}
-
-// how many were left out, refused and imported with a warning, as lines under the count
-function issueLines(summary: { skipped: unknown[]; errors: unknown[]; warnings: unknown[] }) {
-  return [
-    summary.skipped.length ? `${summary.skipped.length} skipped (already in the workspace)` : '',
-    summary.errors.length ? `${summary.errors.length} could not be imported` : '',
-    summary.warnings.length ? `${summary.warnings.length} imported with warnings` : '',
-  ].filter(Boolean);
 }
 
 export function createMenuActions(deps: MenuActionDeps): MenuActions {
@@ -269,6 +346,13 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
 
   const desktop = () => deps.desktop(deps.window());
 
+  // tells the window what an import or export did, in the workspace it ran in
+  const report = (workspace: Workspace, transfer: TransferReport) =>
+    deps.send(deps.window(), 'transfer.completed', {
+      workspaceId: workspace.info.id,
+      report: transfer,
+    });
+
   const currentWorkspace = (): Workspace => {
     const workspace = devBrain?.currentWorkspace;
     if (!workspace) throw new WorkspaceSwitchedError();
@@ -282,6 +366,12 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
   };
 
   return {
+    runCommand: (command) => {
+      const workspace = devBrain?.currentWorkspace;
+      if (!workspace) return;
+      deps.send(deps.window(), 'app.command', { command, workspaceId: workspace.info.id });
+    },
+
     // asks for a folder, adds it as a workspace, and opens it, remembering it as the last one
     // (as the workspaces.importFolder and workspaces.open routes do in turn)
     openWorkspaceFolder: guard('openWorkspaceFolder', async () => {
@@ -314,12 +404,8 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
         filters: [{ name: 'Tasks (CSV or JSON)', extensions: ['csv', 'json'] }],
       });
       if (files === null) return;
-      const result = await stillOpen(workspace).transfer.importTasksFromFile(files[0]);
-      await showMessage({
-        type: result.errors.length ? 'warning' : 'info',
-        message: `Imported ${plural(result.created, 'task')}`,
-        detail: issueLines(result).join('\n') || undefined,
-      });
+      const summary = await stillOpen(workspace).transfer.importTasksFromFile(files[0]);
+      report(workspace, { type: 'tasksImported', summary });
     }),
 
     importNotes: guard('importNotes', async () => {
@@ -330,12 +416,8 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
         multiple: true,
       });
       if (files === null) return;
-      const result = await stillOpen(workspace).transfer.importNotesFromFiles(files);
-      await showMessage({
-        type: result.errors.length ? 'warning' : 'info',
-        message: `Imported ${plural(result.created, 'note')}`,
-        detail: issueLines(result).join('\n') || undefined,
-      });
+      const summary = await stillOpen(workspace).transfer.importNotesFromFiles(files);
+      report(workspace, { type: 'notesImported', summary });
     }),
 
     exportTasks: (format) =>
@@ -348,10 +430,12 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
         });
         if (filePath === null) return;
         const result = await stillOpen(workspace).transfer.exportTasksToFile(filePath, format);
-        await showMessage({
-          type: 'info',
-          message: `Exported ${plural(result.count, 'task')}`,
-          detail: result.path,
+        desktop().rememberExport(result.path);
+        report(workspace, {
+          type: 'tasksExported',
+          name: path.basename(result.path),
+          format: result.format,
+          count: result.count,
         });
       })(),
 
@@ -363,13 +447,12 @@ export function createMenuActions(deps: MenuActionDeps): MenuActions {
       });
       if (dir === null) return;
       const result = await stillOpen(workspace).transfer.exportNotesToFolder(dir);
-      const left = result.errors.length
-        ? `\n${plural(result.errors.length, 'note')} could not be read and were left out`
-        : '';
-      await showMessage({
-        type: result.errors.length ? 'warning' : 'info',
-        message: `Exported ${plural(result.count, 'note')}`,
-        detail: `${result.path}${left}`,
+      desktop().rememberExport(result.path);
+      report(workspace, {
+        type: 'notesExported',
+        name: path.basename(result.path),
+        count: result.count,
+        errors: result.errors.length,
       });
     }),
 

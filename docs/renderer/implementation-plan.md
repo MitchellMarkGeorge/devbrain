@@ -623,8 +623,9 @@ workspace switch starts. The keys and commands that open them are app-wide comma
   `tasks.defaultDueDate`, `calendar.defaultEventDuration`) and from where it was opened (the
   project page passes `projectId`, a calendar slot its time).
 - **Keyboard shortcuts** dialog (`?`, and from ⌘K), generated from the keymap.
-- **Menu commands from main:** a new push event (A2) runs the app menu's New Task, New Note,
-  Settings… and Find as commands from the registry below.
+- **Menu commands from main** (A2, built in milestone 11): the `app.command` push event runs the
+  app menu's New Task, New Note, Settings…, Find… and Go to › a page as commands from the registry
+  below (`useMenuCommands` in the workspace layout).
 
 ### Keyboard: commands, keymaps and Vim mode
 
@@ -1178,12 +1179,19 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 - **A1 (later): open a URL without a workspace.** `workspace.openUrl` needs an open workspace. There
   is no help link yet (Help and "What's a workspace?" are drawn disabled), so nothing needs this
   now. When help exists, add `app.openUrl` on `publicProcedure` with the same `safeUrlSchema`.
-- **A2: menu commands to the renderer.** The app menu runs import, export and sync in main, and has
-  no New Task, New Note, Settings… (⌘,) or Find (⌘K). Add those items, and a push event
-  `app.command` (`{ command: 'newTask' | 'newNote' | 'openSettings' | 'search' | 'navigate', to? }`)
-  in `AppEvents`, which `/app` turns into a dialog or a navigation. Import/export from the menu
-  should also report its summary (`transfer.completed` event) so the renderer can show the same
-  dialog and toast as the Settings buttons.
+- **A2: menu commands to the renderer (done).** The app menu has New Task (C) and New Note (N) in
+  File, Settings… (⌘,) in the app menu on macOS and in File elsewhere, Find… (⌘K) in Edit, and View
+  › Go to › each page. Each sends `app.command { command, workspaceId }` (in `AppEvents`), where
+  `command` is the keyboard layer's command id, and the workspace layout runs it from the registry
+  (`useMenuCommands`). The keymap's keys are shown, with `registerAccelerator: false`, so the
+  window's keyboard layer keeps handling them (C still types in a field, ⌘K is still Link in the
+  editor); Go to's sequences can't be accelerators, and ⌘, is the menu's own. The items are
+  disabled while no workspace is open, and the window drops one sent for a workspace it has left.
+  The Windows title bar's menu button pops up the same menu. File › Import and Export send
+  `transfer.completed` with the summary (no paths), and the window shows the same dialog and toast
+  as the Settings buttons, whose export toast now has Show in Finder (`transfer.showExport`). The
+  menu shows the default keymap's keys: when Vim mode lands, its hints would need the active
+  keymap from the renderer.
 - **A3: provider catalogue.** The "Connect Account" menu (`7165:13363`) lists what can be connected:
   Linear (API key or OAuth, syncs tasks), Google Calendar (OAuth, syncs events), GitHub (coming
   later). Nothing in IPC says that. `integrations.list` returns accounts already connected, not the
@@ -1274,7 +1282,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 | P1                                     | Stats on `projects.list`                                 | Projects list/cards                          | Done                       |
 | T2                                     | Bulk task updates                                        | Selection bar                                | No (sequential)            |
 | S1                                     | Partial settings update, reset                           | Settings                                     | No (whole object)          |
-| A2                                     | Menu commands event, menu items                          | Menu                                         | No                         |
+| A2                                     | Menu commands event, menu items                          | Menu                                         | Done                       |
 | C1–C4                                  | Convert, duplicate, copy as Markdown, project with tasks | Detail menus, create project                 | Done                       |
 | N2                                     | Note Show in Finder                                      | Note menu                                    | No (hide item)             |
 | E1                                     | Empty trash                                              | Trash                                        | No (hide action)           |
@@ -1548,12 +1556,16 @@ linkedTaskId } })`), separate from the task's event or note link.
       applies only the last answer when writes overlap). General has Reset settings in the danger
       zone with Delete workspace (typed name, then `/onboarding`, which `followOutsideChanges`
       would also do). Import shows the summary dialog with View Tasks / View Notes; Export tasks
-      offers CSV or JSON; the export toasts say where, without Show in Finder (follow-up "Show an
-      exported file in Finder").
+      offers CSV or JSON; the export toasts say where, with Show in Finder (added in milestone 11,
+      `transfer.showExport`).
     - Tests: `tests/routing/{trash,integrations,settings}.test.ts` over the fake main (which now
       takes per-test `routes` and `push`es events), and unit tests of the pages' words and
       helpers in `tests/{trash,integrations,settings}`.
-11. **Menu commands and polish.** _Main:_ A2. Compact-window behaviour checks against the
+11. **Menu commands and polish.** _Main:_ A2 (done): the menu's New Task, New Note, Settings…,
+    Find… and Go to run the keyboard layer's commands through `app.command`; its imports and
+    exports report through `transfer.completed` with the Settings page's dialog and toasts; export
+    toasts have Show in Finder. Tests: `tests/runtime/menu.test.ts` and `tests/ipc/transfer.test.ts`
+    in main, `tests/routing/menu.test.ts` in the renderer. Compact-window behaviour checks against the
     responsive frames (`7602:42368`), light theme checks, empty/loading/error states on every
     list, accessibility pass (focus order, labels, the sheet and dialogs' focus traps).
 

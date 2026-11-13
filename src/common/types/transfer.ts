@@ -55,3 +55,14 @@ export interface NoteExportResult {
   // notes whose file could not be read, so they were left out
   errors: { noteId: NoteId; title: string; message: string }[];
 }
+
+// What an import or export the app menu ran reports to the window, as the transfer.completed event
+// carries it: what the Settings buttons' routes return, with a file or folder's own name in place
+// of its path, so the window can show the same summary dialog and toast.
+export type TransferReport =
+  | { type: 'tasksImported'; summary: TaskImportSummary }
+  | { type: 'notesImported'; summary: NoteImportSummary }
+  // `name` is the file's own name: `DevBrain tasks 2026-11-13.csv`
+  | { type: 'tasksExported'; name: string; format: TaskFileFormat; count: number }
+  // `name` is the folder created for the notes; `errors` counts the notes left out
+  | { type: 'notesExported'; name: string; count: number; errors: number };

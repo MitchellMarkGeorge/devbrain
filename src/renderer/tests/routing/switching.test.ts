@@ -107,9 +107,12 @@ describe('a switch', () => {
     releaseClose();
     await navigation;
     await eventually(() => expect(app.text()).toContain('Work notes.list'));
-    // nothing went to main while no workspace was open but the calls outside any workspace
+    // nothing went to main while no workspace was open but the calls outside any workspace (the
+    // splash's app.version, when a loaded run holds the close past SPLASH_DELAY_MS)
     const whileClosed = main.calls.filter((call) => call.open === null).map((call) => call.path);
-    expect(whileClosed.filter((path) => !path.startsWith('workspaces.'))).toEqual([]);
+    expect(
+      whileClosed.filter((path) => !path.startsWith('workspaces.') && !path.startsWith('app.')),
+    ).toEqual([]);
   });
 
   it('shows the splash for at least 600ms, however quick the open', async () => {

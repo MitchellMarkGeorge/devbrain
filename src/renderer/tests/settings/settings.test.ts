@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TaskPriority, type AppSettings } from '@common/types';
-import { importSummaryText } from '../../pages/settings/DataStorageSettings';
+import { importSummaryText } from '../../pages/settings/transfer-reports';
 import { settingsSearchSchema } from '../../pages/settings/search';
 import { withSetting } from '../../pages/settings/use-set-setting';
 

@@ -188,7 +188,8 @@ value: '24' }`), or one group (`settings.calendar`), checking the value against 
   `settings.showDataFolder` and `workspace.showInFolder` open `devBrain.path` and the open
   workspace's folder; `notes.showInFolder({ id })` shows the note's markdown file selected in its
   folder (Electron's `shell.showItemInFolder`), at the path `NoteService.filePathOf` gives, or
-  opens the notes folder when the file is missing. A path handed to the desktop comes from main's state or a dialog, never from
+  opens the notes folder when the file is missing. `transfer.showExport` shows the file or folder
+  this window's last export wrote, which main kept (`Desktop.rememberExport`). A path handed to the desktop comes from main's state or a dialog, never from
   the renderer's input.
 - **`app.showLogFile`** shows the log file in the file manager (`ctx.desktop.showLogFile`). It is
   public, as the renderer offers it when DevBrain couldn't open its data folder, the one time no
@@ -273,11 +274,23 @@ never a snapshot and never credentials, and the renderer refetches what it shows
 | `sync.progress`        | `sourceId`, `phase`, `itemsApplied`  | After each page a sync run commits                                                     |
 | `integrations.changed` | `integrationId`, `type`              | On every `IntegrationChange`                                                           |
 | `sources.changed`      | `sourceId`                           | When a source is switched on or off, or a run records how it ended                     |
+| `app.command`          | `command`, `workspaceId`             | An app menu item that runs a window command (New Task, Find…, Go to), to that window   |
+| `transfer.completed`   | `workspaceId`, `report`              | An import or export the app menu ran has finished, to the window it ran from           |
 
 `db.changes` and `workspace.changed` keep data fresh, and the query invalidator follows them. The
-other three are for a status UI (a sync indicator, the integrations page). They are sent at once,
+next three are for a status UI (a sync indicator, the integrations page). They are sent at once,
 to every window, beside the entities their change maps to, so a view refetching on `changed` or
 `db.changes` doesn't need them.
+
+The last two come from the app menu (`src/main/runtime/menu.ts`), not the tracker, and go to the
+focused window only. `app.command` names a command of the renderer's keyboard layer
+(`MenuCommandId`: `task.new`, `note.new`, `search.open`, `nav.<page>`), which the workspace layout
+runs from its registry as the command's keys would (`useMenuCommands`), so the menu and the keys
+can't drift apart. `transfer.completed` is the one event that carries a result rather than a delta:
+an import's summary or an export's count, with file names but no paths, so the window can show the
+same dialog or toast as the Settings buttons. Both carry the workspace main had open, and a window
+showing another drops them. Neither carries the location: Go to names a page, and the renderer
+navigates within its own workspace.
 
 ### The initial load context
 

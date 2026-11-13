@@ -187,5 +187,14 @@ describe('the settings page', () => {
     click(buttons[buttons.length - 1]);
     await eventually(() => expect(document.body.textContent).toContain('Exported 12 notes'));
     expect(document.body.textContent).toContain('Saved to DevBrain notes.');
+    // Show in Finder names no path: main shows the export it kept for this window
+    main.routes.set('transfer.showExport', () => [undefined, []]);
+    // the toast's, not the data folder's above it
+    const shows = [...document.querySelectorAll('button')].filter(
+      (button) => button.textContent === 'Show in Finder',
+    );
+    click(shows[shows.length - 1]);
+    await eventually(() => expect(main.callsTo('transfer.showExport')).toHaveLength(1));
+    expect(main.callsTo('transfer.showExport')[0].input).toBeUndefined();
   });
 });

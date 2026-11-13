@@ -8,12 +8,15 @@ import {
 } from '../../components';
 import { AppSidebar } from './AppSidebar';
 import { PageHeaderProvider, usePageHeaderSlots, useRouteTitle } from './page-header';
+import { useMenuTransferReports } from '../settings/transfer-reports';
 import { useAppCommands } from './use-app-commands';
 import { useHistoryPosition } from './use-history-position';
+import { useMenuCommands } from './use-menu-commands';
 
 /**
  * Every page in a workspace: the shell with the sidebar, the page's header, the window bar's back
- * and forward on the router's history, the app-wide commands, and the page. The header shows the
+ * and forward on the router's history, the app-wide commands (from the keys and the app menu), the
+ * app menu's import and export reports, and the page. The header shows the
  * route's title until the page fills it (`PageHeaderSlot`: its breadcrumb and actions).
  */
 export function AppLayout() {
@@ -24,6 +27,9 @@ export function AppLayout() {
   // the app-wide keys; ⌘\ toggles the shell's sidebar
   const shell = useRef<WorkspaceShellControls>(null);
   useAppCommands({ toggleSidebar: () => shell.current?.toggleSidebar() });
+  // the app menu's commands, and what its imports and exports did
+  useMenuCommands();
+  useMenuTransferReports();
   return (
     <PageHeaderProvider value={slots}>
       <WorkspaceShell
