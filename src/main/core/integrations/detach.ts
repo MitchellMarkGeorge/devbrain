@@ -9,6 +9,7 @@ import { ReattachRefusal, ReattachResult, SyncSkipReason } from '../sync/types';
 import { subtreeOf } from '../tasks/subtree';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { DetachError, IntegrationAuthError, NotFoundError } from '../shared/errors';
+import { assertRowNotTrashed } from '../shared/trash';
 import { withExternalRef } from './refs';
 
 // A detach or reattach; the IPC layer will forward it so the renderer refetches the tasks, and the
@@ -74,8 +75,8 @@ export class DetachService {
    * transaction. The rows are untouched, so the user keeps the provider's last values and can edit
    * them from here; sync skips detached links from then on.
    *
-   * Throws NotFoundError for an archived or unknown task, and DetachError for one with no link or
-   * one that is not synced.
+   * Throws NotFoundError for an unknown task, AlreadyArchivedError for one in the trash, and
+   * DetachError for one with no link or one that is not synced.
    */
   detachTask(id: TaskId): Task {
     const taskIds = this.db.transaction((tx) => {
@@ -117,9 +118,9 @@ export class DetachService {
    *    are gone or reassigned stay detached and become top-level. When it refuses, the task stays
    *    detached.
    *
-   * Throws NotFoundError for an archived or unknown task, DetachError for every refusal, and
-   * IntegrationAuthError, after sending `credentials_rejected`, when the provider rejects the
-   * credentials. The task stays detached on any failure.
+   * Throws NotFoundError for an unknown task, AlreadyArchivedError for one in the trash,
+   * DetachError for every refusal, and IntegrationAuthError, after sending `credentials_rejected`,
+   * when the provider rejects the credentials. The task stays detached on any failure.
    */
   async reattachTask(id: TaskId): Promise<Task> {
     // 1. the task, and what sits below it
@@ -188,15 +189,19 @@ export class DetachService {
     return this.changes.add(listener);
   }
 
-  /** the link of an active task; an archived or unknown task is not found, a local one refused */
+  /**
+   * the link of an active task; an unknown task is not found, one in the trash refused with
+   * AlreadyArchivedError (it opens read-only), a local one refused with DetachError
+   */
   private activeTaskLink(id: TaskId): Link {
     const row = this.db
-      .select({ link: externalLinks })
+      .select({ link: externalLinks, archivedAt: tasks.archivedAt })
       .from(tasks)
       .leftJoin(externalLinks, eq(externalLinks.taskId, tasks.id))
-      .where(and(eq(tasks.id, id), isNull(tasks.archivedAt)))
+      .where(eq(tasks.id, id))
       .get();
     if (!row) throw new NotFoundError(id);
+    assertRowNotTrashed({ id, archivedAt: row.archivedAt });
     if (!row.link) throw new DetachError(id, `Task ${id} is a local task with no integration`);
     return row.link;
   }
