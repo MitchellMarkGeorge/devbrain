@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { ProjectPage } from '@renderer/features/projects/components/detail/ProjectPage';
+import { ProjectPage } from '@renderer/features/projects/page/ProjectPage';
 import {
   loadProject,
   parseProjectParams,

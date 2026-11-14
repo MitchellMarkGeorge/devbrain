@@ -1,10 +1,15 @@
 import { Breadcrumb, PageContent, PageToolbar } from '@renderer/components';
 import { PageHeaderSlot } from '@renderer/layouts/workspace/page-header';
-import { CLEAR_FILTERS } from '../../api/search';
-import { useCreateNote } from '../../hooks/use-create-note';
-import { useNotesSearch } from '../../hooks/use-notes-search';
-import { NotesFilterMenu, NotesToolbarEnd, VIEW_ICONS, VIEW_LABELS } from './NotesToolbar';
-import { NotesView } from './NotesViews';
+import { CLEAR_FILTERS } from '../api/search';
+import { useCreateNote } from '../hooks/use-create-note';
+import { useNotesSearch } from '../hooks/use-notes-search';
+import {
+  NotesFilterMenu,
+  NotesToolbarEnd,
+  VIEW_ICONS,
+  VIEW_LABELS,
+} from '../components/views/NotesToolbar';
+import { NotesView } from '../components/views/NotesViews';
 
 /**
  * The notes page (`/app/$workspaceId/notes`, Figma `7158:11693`, `7158:12276`): the toolbar

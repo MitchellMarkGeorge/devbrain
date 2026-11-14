@@ -21,13 +21,17 @@ import {
   defaultDurationMinutes,
   draftForDay,
   draftFromSelection,
-} from './create/CreateEventDialog';
+} from '../components/create/CreateEventDialog';
 import { useCreateEvent } from '../hooks/use-create-event';
-import { CalendarHeaderEnd, CalendarHeaderStart, headerLayout } from './header/CalendarHeader';
-import { CalendarSidePanel } from './panel/CalendarSidePanel';
+import {
+  CalendarHeaderEnd,
+  CalendarHeaderStart,
+  headerLayout,
+} from '../components/header/CalendarHeader';
+import { CalendarSidePanel } from '../components/panel/CalendarSidePanel';
 import { neighbouringRanges, rangeOptionsOf, stepDate } from '../lib/range';
 import { dateParam, openEventSearch, type CalendarSearch } from '../api/search';
-import { EventSheet } from './sheet/EventSheet';
+import { EventSheet } from '../components/sheet/EventSheet';
 import { useCalendarSearch } from '../hooks/use-calendar-search';
 import { calendarRoute } from '../api/route-api';
 import { useDelayedLoading, useEventSources, usePrefetchRanges } from '../hooks/use-event-sources';

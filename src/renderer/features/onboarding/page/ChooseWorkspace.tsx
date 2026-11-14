@@ -3,7 +3,7 @@ import { useSuspenseInfiniteQuery } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
 import { Button, Logomark, AppShell, WorkspaceList } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
-import { WorkspaceRow } from './workspace-rows';
+import { WorkspaceRow } from '../components/workspace-rows';
 import styles from './Onboarding.module.css';
 
 const PAGE_SIZE = 20;

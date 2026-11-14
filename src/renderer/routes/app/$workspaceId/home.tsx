@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { HomePage } from '@renderer/features/home/components/HomePage';
+import { HomePage } from '@renderer/features/home/page/HomePage';
 import { loadHome } from '@renderer/features/home/api/queries';
 
 // Home: what matters right now (features/home).

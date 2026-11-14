@@ -28,17 +28,17 @@ import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position'
 import { useRecordView } from '@renderer/shared/hooks/use-record-view';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { isSynced } from '@renderer/features/tasks/api/queries';
-import { projectRoute } from '../../api/route-api';
-import type { ProjectTab } from '../../api/search';
-import { ColourItems } from '../colour';
-import { ProjectStatusPill } from '../ProjectStatusPill';
-import { useProjectActions } from '../../hooks/use-project-actions';
-import { ProjectDescription } from './ProjectDescription';
-import { ProjectMenu } from './ProjectMenu';
-import { ProjectNotesTab } from './ProjectNotesTab';
-import { ProjectOverview } from './ProjectOverview';
-import { ProjectTasksTab } from './ProjectTasksTab';
-import styles from './ProjectPage.module.css';
+import { projectRoute } from '../api/route-api';
+import type { ProjectTab } from '../api/search';
+import { ColourItems } from '../components/colour';
+import { ProjectStatusPill } from '../components/ProjectStatusPill';
+import { useProjectActions } from '../hooks/use-project-actions';
+import { ProjectDescription } from '../components/detail/ProjectDescription';
+import { ProjectMenu } from '../components/detail/ProjectMenu';
+import { ProjectNotesTab } from '../components/detail/ProjectNotesTab';
+import { ProjectOverview } from '../components/detail/ProjectOverview';
+import { ProjectTasksTab } from '../components/detail/ProjectTasksTab';
+import styles from '../components/detail/ProjectPage.module.css';
 
 const TAB_ICONS: Record<ProjectTab, LucideIcon> = {
   overview: LayoutDashboard,

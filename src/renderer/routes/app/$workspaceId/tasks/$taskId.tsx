@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { TaskPage } from '@renderer/features/tasks/components/detail/TaskPage';
+import { TaskPage } from '@renderer/features/tasks/page/TaskPage';
 import { loadTask, parseTaskParams } from '@renderer/features/tasks/api/loaders';
 import { taskPageSearchSchema } from '@renderer/features/tasks/api/search';
 

@@ -3,7 +3,7 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { CircleHelp, Folder, Plus } from 'lucide-react';
 import { Button, Logomark, AppShell, WorkspaceList } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
-import { byRecentlyOpened, WorkspaceRow } from './workspace-rows';
+import { byRecentlyOpened, WorkspaceRow } from '../components/workspace-rows';
 import { useOpenFolder } from '@renderer/features/workspaces/hooks/use-open-folder';
 import styles from './Onboarding.module.css';
 

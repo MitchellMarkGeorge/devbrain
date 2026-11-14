@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { ProjectsPage } from '@renderer/features/projects/components/views/ProjectsPage';
+import { ProjectsPage } from '@renderer/features/projects/page/ProjectsPage';
 import { loadProjects } from '@renderer/features/projects/api/loaders';
 import { projectsSearchSchema } from '@renderer/features/projects/api/search';
 

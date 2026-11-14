@@ -152,9 +152,11 @@ The renderer reaches core through the typed tRPC router in `src/main/ipc`, run o
   integrations, trash, onboarding, workspaces), each split the same way:
   - `api/`: `queries.ts` (query options and keys), `loaders.ts`, `search.ts` (search params),
     `route-api.ts`;
+  - `page/`: the page components a route renders (`TasksPage`, `TaskPage`), and a style module
+    only they use;
   - `hooks/`: its `use-*` hooks;
-  - `components/`: its pages, dialogs, sheets, menus and views, in subfolders by part
-    (`create/`, `detail/`, `menus/`, `sheet/`, `views/`);
+  - `components/`: the pieces of its pages: dialogs, sheets, menus and views, in subfolders by
+    part (`create/`, `detail/`, `menus/`, `sheet/`, `views/`);
   - `lib/`: plain functions with no React (grouping, ranges, parsing).
     A feature may import another's `api`, `hooks` or `components` (tasks' menus are used across
     pages); when something is used by many, move it to `shared` instead.

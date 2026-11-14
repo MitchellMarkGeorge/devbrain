@@ -19,15 +19,15 @@ import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position'
 import { useRecordView } from '@renderer/shared/hooks/use-record-view';
 import { TrashedNotice } from '@renderer/shared/components/TrashedNotice';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
-import { isSynced } from '../../api/queries';
-import { taskRoute } from '../../api/route-api';
+import { isSynced } from '../api/queries';
+import { taskRoute } from '../api/route-api';
 import { NoteSheet } from '@renderer/features/notes/components/sheet/NoteSheet';
-import { TaskDetailMenu } from './TaskDetailMenu';
-import { TaskNoteSection } from '../sections/TaskNoteSection';
-import { TaskDescription } from '../sections/TaskDescription';
-import { TaskProperties, type AddingProperty } from './TaskProperties';
-import { TaskSubtasksSection } from '../sections/TaskSubtasksSection';
-import { useTaskActions } from '../../hooks/use-task-actions';
+import { TaskDetailMenu } from '../components/detail/TaskDetailMenu';
+import { TaskNoteSection } from '../components/sections/TaskNoteSection';
+import { TaskDescription } from '../components/sections/TaskDescription';
+import { TaskProperties, type AddingProperty } from '../components/detail/TaskProperties';
+import { TaskSubtasksSection } from '../components/sections/TaskSubtasksSection';
+import { useTaskActions } from '../hooks/use-task-actions';
 
 /**
  * A task's page (`/app/$workspaceId/tasks/$taskId`, Figma `7158:6266` and its variants): the

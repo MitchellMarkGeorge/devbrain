@@ -22,13 +22,13 @@ import { useRecordView } from '@renderer/shared/hooks/use-record-view';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import { useCreateTask } from '@renderer/features/tasks/hooks/use-create-task';
 import { TaskSheet } from '@renderer/features/tasks/components/sheet/TaskSheet';
-import { noteRoute } from '../../api/route-api';
-import { useNoteActions } from '../../hooks/use-note-actions';
-import { NoteDetailMenu } from './NoteDetailMenu';
-import { NoteEditor } from './NoteEditor';
-import { NotePills } from './NotePills';
-import { NoteTasksSection } from './NoteTasksSection';
-import styles from './NotePage.module.css';
+import { noteRoute } from '../api/route-api';
+import { useNoteActions } from '../hooks/use-note-actions';
+import { NoteDetailMenu } from '../components/detail/NoteDetailMenu';
+import { NoteEditor } from '../components/detail/NoteEditor';
+import { NotePills } from '../components/detail/NotePills';
+import { NoteTasksSection } from '../components/detail/NoteTasksSection';
+import styles from '../components/detail/NotePage.module.css';
 
 /**
  * A note's page (`/app/$workspaceId/notes/$noteId`, Figma `7158:16387`, `7158:16863`): the title

@@ -17,10 +17,10 @@ import {
   ProviderTile,
 } from '@renderer/components';
 import { events, trpc } from '@renderer/ipc';
-import { IntegrationAccount } from './IntegrationAccount';
+import { IntegrationAccount } from '../components/IntegrationAccount';
 import { PROVIDERS, type ProviderEntry } from '../lib/providers';
 import { useConnecting, useIntegrationFlows } from '../hooks/use-integration-flows';
-import styles from './IntegrationsPage.module.css';
+import styles from '../components/IntegrationsPage.module.css';
 
 /**
  * How far each running source's sync has got, from `sync.progress`: items applied, by source id.

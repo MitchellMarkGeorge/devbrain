@@ -20,20 +20,24 @@ import { KeyScope, useListCommands } from '@renderer/keyboard';
 import { PageHeaderSlot } from '@renderer/layouts/workspace/page-header';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
 import { isSynced } from '@renderer/features/tasks/api/queries';
-import { projectListQuery } from '../../api/queries';
-import { CLEAR_PROJECT_FILTERS, hasProjectFilters, projectListInput } from '../../api/search';
-import { ProjectStatusPill } from '../ProjectStatusPill';
-import { useProjectActions } from '../../hooks/use-project-actions';
-import { useProjectsSearch } from '../../hooks/use-projects-search';
-import { ProjectsEmptyState, ProjectsErrorState, ProjectsLoading } from './ProjectsStates';
-import { ProjectsSelectionBar } from './ProjectsSelectionBar';
-import styles from './ProjectsView.module.css';
+import { projectListQuery } from '../api/queries';
+import { CLEAR_PROJECT_FILTERS, hasProjectFilters, projectListInput } from '../api/search';
+import { ProjectStatusPill } from '../components/ProjectStatusPill';
+import { useProjectActions } from '../hooks/use-project-actions';
+import { useProjectsSearch } from '../hooks/use-projects-search';
+import {
+  ProjectsEmptyState,
+  ProjectsErrorState,
+  ProjectsLoading,
+} from '../components/views/ProjectsStates';
+import { ProjectsSelectionBar } from '../components/views/ProjectsSelectionBar';
+import styles from '../components/views/ProjectsView.module.css';
 import {
   PROJECT_VIEW_ICONS,
   PROJECT_VIEW_LABELS,
   ProjectsFilterMenu,
   ProjectsToolbarEnd,
-} from './ProjectsToolbar';
+} from '../components/views/ProjectsToolbar';
 
 const stopOpen = (event: MouseEvent) => event.stopPropagation();
 

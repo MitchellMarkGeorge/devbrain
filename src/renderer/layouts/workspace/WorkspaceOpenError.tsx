@@ -10,7 +10,7 @@ import { Button, Logomark, AppShell } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { ipcErrorCode, openFailure } from '@renderer/shared/lib/workspace/errors';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
-import styles from '@renderer/features/onboarding/components/Onboarding.module.css';
+import styles from '@renderer/features/onboarding/page/Onboarding.module.css';
 
 /**
  * The workspace the URL names couldn't be opened (the /app/$workspaceId route's error): why, by

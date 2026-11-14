@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { NotePage } from '@renderer/features/notes/components/detail/NotePage';
+import { NotePage } from '@renderer/features/notes/page/NotePage';
 import { loadNote, parseNoteParams } from '@renderer/features/notes/api/loaders';
 import { notePageSearchSchema } from '@renderer/features/notes/api/search';
 

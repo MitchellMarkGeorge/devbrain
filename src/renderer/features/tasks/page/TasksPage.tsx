@@ -1,8 +1,8 @@
 import { Breadcrumb } from '@renderer/components';
 import { PageHeaderSlot } from '@renderer/layouts/workspace/page-header';
-import { VIEW_ICONS, VIEW_LABELS } from './TasksToolbar';
-import { TasksSearchProvider, useTasksRouteSearch } from '../../hooks/use-tasks-search';
-import { TasksView } from './TasksView';
+import { VIEW_ICONS, VIEW_LABELS } from '../components/views/TasksToolbar';
+import { TasksSearchProvider, useTasksRouteSearch } from '../hooks/use-tasks-search';
+import { TasksView } from '../components/views/TasksView';
 
 /**
  * The tasks page (`/app/$workspaceId/tasks`, Figma `7155:5231`, `7158:9538`, `7158:14338`): the

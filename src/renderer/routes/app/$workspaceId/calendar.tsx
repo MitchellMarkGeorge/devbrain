@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { CalendarPage } from '@renderer/features/calendar/components/CalendarPage';
+import { CalendarPage } from '@renderer/features/calendar/page/CalendarPage';
 import { calendarLoaderDeps, loadCalendar } from '@renderer/features/calendar/api/loaders';
 import { calendarSearchSchema } from '@renderer/features/calendar/api/search';
 

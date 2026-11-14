@@ -18,8 +18,8 @@ import {
 import { usePlatform } from '@renderer/components/lib/platform';
 import { trpc } from '@renderer/ipc';
 import { keyLabels } from '@renderer/keyboard/keys';
-import { HomeCapture } from './HomeCapture';
-import { HomeSectionView } from './HomeSections';
+import { HomeCapture } from '../components/HomeCapture';
+import { HomeSectionView } from '../components/HomeSections';
 import { useHomeData } from '../api/queries';
 import { pausedIntegration, summarizeHome, type SummaryPart } from '../lib/summary';
 import styles from './Home.module.css';

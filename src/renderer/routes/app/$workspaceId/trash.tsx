@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { TrashPage } from '@renderer/features/trash/components/TrashPage';
+import { TrashPage } from '@renderer/features/trash/page/TrashPage';
 import { trashListQuery } from '@renderer/features/trash/api/queries';
 import { trashEntityType, trashSearchSchema } from '@renderer/features/trash/api/search';
 

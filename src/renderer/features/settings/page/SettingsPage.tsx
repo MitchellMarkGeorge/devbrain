@@ -1,10 +1,10 @@
 import { getRouteApi } from '@tanstack/react-router';
 import { Heading, PageContent, Tabs, TabsList, TabsTab } from '@renderer/components';
-import { DataStorageSettings } from './DataStorageSettings';
-import { GeneralSettings } from './GeneralSettings';
-import { CalendarSettingsSection, TasksSettings } from './sections';
+import { DataStorageSettings } from '../components/DataStorageSettings';
+import { GeneralSettings } from '../components/GeneralSettings';
+import { CalendarSettingsSection, TasksSettings } from '../components/sections';
 import type { SettingsTab } from '../api/search';
-import styles from './SettingsPage.module.css';
+import styles from '../components/SettingsPage.module.css';
 
 const settingsRoute = getRouteApi('/app/$workspaceId/settings');
 

@@ -18,9 +18,9 @@ import {
 } from '@renderer/components';
 import { trashListQuery } from '../api/queries';
 import { TRASH_TABS, trashEntityType, type TrashTab } from '../api/search';
-import { TrashList } from './TrashList';
+import { TrashList } from '../components/TrashList';
 import { useTrashActions } from '../hooks/use-trash-actions';
-import styles from './TrashPage.module.css';
+import styles from '../components/TrashPage.module.css';
 
 const trashRoute = getRouteApi('/app/$workspaceId/trash');
 
