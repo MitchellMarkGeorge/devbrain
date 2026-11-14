@@ -1,5 +1,5 @@
 import { mergeAttributes, Node } from '@tiptap/core';
-import type { CalloutKind } from '../../components/editor/Callout';
+import type { CalloutKind } from '@renderer/components/editor/Callout';
 
 /**
  * A callout, written as GitHub's alert syntax, which GitHub draws as an alert and other markdown

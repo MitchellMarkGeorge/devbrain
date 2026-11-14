@@ -17,7 +17,7 @@ import { Icon } from '../../ui/Icon';
 import { StatusIcon } from '../../entities/StatusIcon';
 import type { TaskStatus } from '@common/types';
 import { TASK_STATUS_LABELS } from '../../types';
-import { SIZE } from '../../../styles/tokens';
+import { SIZE } from '@renderer/styles/tokens';
 import { ScrollArea } from '../../ui/ScrollArea';
 import styles from './BoardColumn.module.css';
 

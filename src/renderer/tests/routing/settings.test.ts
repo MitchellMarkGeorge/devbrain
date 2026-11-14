@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
 import type { TaskImportSummary } from '@common/types';
-import { trpc, queryClient } from '../../ipc';
+import { trpc, queryClient } from '@renderer/ipc';
 import { FakeMain, workspace } from './fake-main';
 import { byText, click, eventually, startApp, stopApps } from './harness';
 

@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { TaskPage } from '../../../../pages/tasks/detail/TaskPage';
-import { loadTask, parseTaskParams } from '../../../../pages/tasks/loaders';
-import { taskPageSearchSchema } from '../../../../pages/tasks/search';
+import { TaskPage } from '@renderer/features/tasks/page/TaskPage';
+import { loadTask, parseTaskParams } from '@renderer/features/tasks/api/loaders';
+import { taskPageSearchSchema } from '@renderer/features/tasks/api/search';
 
 // A task's page; a missing or deleted task is its not-found. Its task note opens in the sheet at
 // ?note=nte_….

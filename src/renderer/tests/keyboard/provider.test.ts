@@ -14,8 +14,8 @@ import {
   type AppCommandActions,
   type Command,
   type KeyboardState,
-} from '../../keyboard';
-import { ModalProvider, useModals, type ModalProps } from '../../modals';
+} from '@renderer/keyboard';
+import { ModalProvider, useModals, type ModalProps } from '@renderer/app/modals';
 import { keymap, press } from './helpers';
 
 declare global {

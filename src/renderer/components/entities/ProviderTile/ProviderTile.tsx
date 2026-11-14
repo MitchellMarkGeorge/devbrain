@@ -3,7 +3,7 @@ import { cva } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
 import { INTEGRATION_PROVIDER_LABELS, type IntegrationProvider } from '../../types';
 // Linear's company icon, as Linear publishes it; served as a file (the page's CSP allows no data: URLs)
-import linearIcon from '../../../assets/brand/linear-icon.svg?no-inline';
+import linearIcon from '@renderer/assets/brand/linear-icon.svg?no-inline';
 import { GoogleCalendarLogo, MARKS } from '../ProviderLogo/marks';
 import styles from './ProviderTile.module.css';
 

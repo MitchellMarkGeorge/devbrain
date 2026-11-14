@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import { Editor } from '@tiptap/core';
-import { applyBlockType, currentBlockType } from '../../editor/block-types';
-import { EditorHostExtension, setLinkEditing } from '../../editor/extensions/editor-host';
-import { linkHref } from '../../editor/FormatBubble';
-import { createDocumentExtensions } from '../../editor/markdown';
+import { applyBlockType, currentBlockType } from '@renderer/editor/block-types';
+import { EditorHostExtension, setLinkEditing } from '@renderer/editor/extensions/editor-host';
+import { linkHref } from '@renderer/editor/FormatBubble';
+import { createDocumentExtensions } from '@renderer/editor/markdown';
 
 let editor: Editor;
 

@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TaskStatus } from '@common/types';
-import { defaultKeymap } from '../../keyboard/default-keymap';
-import { listCommands, type ListKeyTarget } from '../../keyboard/list-commands';
-import { SCOPE_ATTRIBUTE } from '../../keyboard/scopes';
+import { defaultKeymap } from '@renderer/keyboard/default-keymap';
+import { listCommands, type ListKeyTarget } from '@renderer/keyboard/list-commands';
+import { SCOPE_ATTRIBUTE } from '@renderer/keyboard/scopes';
 import { press, setUp } from './helpers';
 
 // The list keys as the default keymap binds them, over a fake list in a `list` scope.

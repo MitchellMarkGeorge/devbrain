@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { openWorkspaceInfo } from '../pages/app/workspace-route';
+import { openWorkspaceInfo } from '@renderer/app/workspace-route';
 
 // `/`: an empty hash. Main always gives the window a route, so this is reached only by a URL
 // without one: the open workspace's page, or onboarding.

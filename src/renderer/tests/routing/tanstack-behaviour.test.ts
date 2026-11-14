@@ -40,7 +40,7 @@ const text = (value: string) => {
 };
 const wait = (ms = 20) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// The router's types are the app's (Register in src/renderer/router.tsx); these trees are not
+// The router's types are the app's (Register in src/renderer/app/router.tsx); these trees are not
 interface TestRouter {
   navigate(options: { to: string; replace?: boolean }): Promise<void>;
   preloadRoute(options: { to: string }): Promise<unknown>;

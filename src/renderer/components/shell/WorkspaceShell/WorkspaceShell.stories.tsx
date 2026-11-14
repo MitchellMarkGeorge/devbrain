@@ -13,7 +13,7 @@ import { DemoSidebar } from '../../screens/Shell/AppFrame';
 import { TaskList } from '../../lists/TaskList';
 import { manyTasks } from '../../lists/TaskRow/fixtures';
 import { WorkspaceShell, type WorkspaceShellControls } from './WorkspaceShell';
-import { defaultKeymap, KeyboardProvider, useCommands } from '../../../keyboard';
+import { defaultKeymap, KeyboardProvider, useCommands } from '@renderer/keyboard';
 
 // the shell with ⌘\ bound as the app binds it: the keymap's sidebar.toggle runs the shell's
 // toggle, through its controlsRef

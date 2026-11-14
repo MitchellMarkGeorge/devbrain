@@ -9,7 +9,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react';
-import { usePlatform, type Platform } from '../components/lib/platform';
+import { usePlatform, type Platform } from '@renderer/components/lib/platform';
 import { CommandRegistry, type Command, type CommandArgs } from './commands';
 import { KeyDispatcher, type KeyboardState } from './dispatcher';
 import type { Keymap } from './keymap';

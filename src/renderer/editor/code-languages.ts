@@ -1,6 +1,6 @@
 import hljs from 'highlight.js/lib/core';
 import { common, createLowlight } from 'lowlight';
-import type { CodeLanguage } from '../components';
+import type { CodeLanguage } from '@renderer/components';
 
 /**
  * The languages a code block is highlighted in: highlight.js's common set (TypeScript,

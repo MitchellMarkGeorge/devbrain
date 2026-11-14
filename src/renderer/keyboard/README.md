@@ -23,8 +23,8 @@ in Storybook mounts it with a demo keymap.
 
 ## Mounting it
 
-As built: the provider is in the root layout (`pages/root/Root.tsx`), which clears the undo stack
-as a switch of workspace starts; the app-wide commands are `useAppCommands` (`pages/app/use-app-commands.ts`), called by the
+As built: the provider is in the root layout (`app/Root.tsx`), which clears the undo stack
+as a switch of workspace starts; the app-wide commands are `useAppCommands` (`layouts/workspace/hooks/use-app-commands.ts`), called by the
 workspace layout, whose ⌘\ runs the `WorkspaceShell`'s toggle through its `controlsRef` (the shell
 binds no keys itself).
 
@@ -78,7 +78,7 @@ key outside it fires while it is open (`useConfirm` passes one as `ConfirmDialog
 
 A command that can be taken back returns an `Undoable` (`{ label, undo }`), which goes on the undo
 stack; `app.undo` (⌘Z, registered by the provider) pops it, and a toast's Undo takes back its own
-entry (`undoStack.take(entry)`). `useMoveToTrash` (`pages/app`) pushes one and shows the "Moved to
+entry (`undoStack.take(entry)`). `useMoveToTrash` (`shared/hooks`) pushes one and shows the "Moved to
 trash · Undo" toast.
 
 ## How a key is handled

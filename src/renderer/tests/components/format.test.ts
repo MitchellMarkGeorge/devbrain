@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { TaskStatus } from '@common/types';
-import { createFormat, dueText } from '../../components/lib/format';
-import { eventCountdown, eventTimeRange, repeatLabel } from '../../components/event-text';
-import { dueTone, isOverdue, resolveColor, showsOverdueFlag } from '../../components/types';
+import { createFormat, dueText } from '@renderer/components/lib/format';
+import { eventCountdown, eventTimeRange, repeatLabel } from '@renderer/components/event-text';
+import { dueTone, isOverdue, resolveColor, showsOverdueFlag } from '@renderer/components/types';
 
 // Monday 22 June 2026, 9:48 AM local time, as the stories use
 const NOW = new Date(2026, 5, 22, 9, 48);

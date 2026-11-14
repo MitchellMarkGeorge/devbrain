@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { DateTime } from 'luxon';
 import type { IntegrationId, WorkspaceId } from '@common/ids';
 import { AuthType, IntegrationStatus, Provider, TaskStatus } from '@common/types';
-import { event, id } from '../calendar/fixtures';
+import { event, id } from '../fixtures/calendar';
 import { FakeMain, workspace } from './fake-main';
 import { fakeNote, fakeProject, fakeTask, FakeTasks } from './fake-tasks';
 import { byText, click, eventually, startApp, stopApps } from './harness';

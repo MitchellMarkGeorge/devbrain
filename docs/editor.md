@@ -5,9 +5,9 @@ descriptions, and read-only synced descriptions. It is built on [TipTap](https:/
 (ProseMirror) with TipTap's own markdown package, `@tiptap/markdown`: markdown in, markdown out.
 
 ```tsx
-// in a page: "@" search, links, the pills' entities and opening them (pages/app/use-editor-host.ts)
+// in a page: "@" search, links, the pills' entities and opening them (shared/hooks/use-editor-host.ts)
 const host = useEditorHost();
-// saved as it is typed, without its own save's refetch putting older text back (pages/app/autosave.ts)
+// saved as it is typed, without its own save's refetch putting older text back (shared/hooks/use-autosave.ts)
 const body = useEditorAutosave(content, (markdown) => save(markdown));
 <RichTextEditor {...host} label="Note" value={body.value} onChange={body.onChange} />;
 ```

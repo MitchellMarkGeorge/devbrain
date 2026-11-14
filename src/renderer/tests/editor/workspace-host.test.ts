@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { TaskStatus, type SearchResult } from '@common/types';
 import type { EventId, NoteId, TaskId } from '@common/ids';
-import { toEditorEntity } from '../../editor/use-workspace-host';
+import { toEditorEntity } from '@renderer/editor/use-workspace-host';
 
 const result = (fields: Partial<SearchResult>): SearchResult => ({
   entityId: 'note_1' as NoteId,

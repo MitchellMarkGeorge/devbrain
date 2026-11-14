@@ -11,8 +11,8 @@ import {
 } from '../../lists/TaskRow/fixtures';
 import { storyAgo, storyDate } from '../../lib/story-dates';
 import { sampleNote } from '../../notes/NoteCard/fixtures';
-import { HomeMeetingRow } from '../../home/HomeRow';
-import { SAMPLE_MEETINGS } from '../../home/HomeRow/fixtures';
+import { HomeMeetingRow } from '../HomeRow';
+import { SAMPLE_MEETINGS } from '../HomeRow/fixtures';
 
 const meta = {
   title: 'Home/HomeSection',

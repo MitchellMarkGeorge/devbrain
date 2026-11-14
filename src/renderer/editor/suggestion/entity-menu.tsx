@@ -1,6 +1,6 @@
 import type { Editor } from '@tiptap/core';
 import { TaskStatus } from '@common/types';
-import { MentionMenu, type MentionItem, type SuggestionGroup } from '../../components';
+import { MentionMenu, type MentionItem, type SuggestionGroup } from '@renderer/components';
 import { MENTION_TYPES, type EditorEntity, type MentionType } from '../types';
 import { createSuggestionMenu } from './suggestion';
 

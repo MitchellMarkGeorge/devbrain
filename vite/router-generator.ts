@@ -11,7 +11,7 @@ export const routerGeneratorConfig = {
   routesDirectory: path.join(REPO_ROOT, 'src/renderer/routes'),
   generatedRouteTree: path.join(REPO_ROOT, 'src/renderer/routeTree.gen.ts'),
   autoCodeSplitting: false,
-  // the route files' pieces that are not routes live under src/renderer/pages
+  // the route files' pieces that are not routes live under src/renderer/features
   routeFileIgnorePrefix: '-',
   quoteStyle: 'single' as const,
   semicolons: true,

@@ -3,15 +3,19 @@ import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createHashHistory } from '@tanstack/react-router';
 import log from 'electron-log/renderer';
-import { WindowFrameProvider, detectPlatform, type WindowFrame } from './components/lib/platform';
-import { events, ipc, queryInvalidator, queryClient, trpc } from './ipc';
-import { readInitialLoadContext, seedQueryCache } from './ipc/initial-load-context';
-import { applyThemeSetting } from './theme';
-import { createAppRouter, followOutsideChanges } from './router';
-import { AppWindow } from './pages/root/AppWindow';
-import './styles/fonts.css';
-import './styles/tokens.css';
-import './styles/base.css';
+import {
+  WindowFrameProvider,
+  detectPlatform,
+  type WindowFrame,
+} from '@renderer/components/lib/platform';
+import { events, ipc, queryInvalidator, queryClient, trpc } from '@renderer/ipc';
+import { readInitialLoadContext, seedQueryCache } from '@renderer/ipc/initial-load-context';
+import { applyThemeSetting } from '@renderer/app/theme';
+import { createAppRouter, followOutsideChanges } from '@renderer/app/router';
+import { AppWindow } from '@renderer/app/AppWindow';
+import '@renderer/styles/fonts.css';
+import '@renderer/styles/tokens.css';
+import '@renderer/styles/base.css';
 
 // this might have to be done in the App component so the stopCatching() method can be called
 log.errorHandler.startCatching();

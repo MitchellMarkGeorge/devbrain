@@ -1,4 +1,4 @@
-import type { Platform } from '../components/lib/platform';
+import type { Platform } from '@renderer/components/lib/platform';
 import type { Command, CommandArgs, CommandContext, CommandResult } from './commands';
 import type { CommandRegistry } from './commands';
 import { entryAppliesInMode, keymapModes, type Keymap, type KeymapEntry } from './keymap';

@@ -6,7 +6,7 @@ import {
   parseKeys,
   parseStroke,
   strokeFromEvent,
-} from '../../keyboard/keys';
+} from '@renderer/keyboard/keys';
 
 function event(key: string, init: KeyboardEventInit = {}): KeyboardEvent {
   return new KeyboardEvent('keydown', { key, ...init });

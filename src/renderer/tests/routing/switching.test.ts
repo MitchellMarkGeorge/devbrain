@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
-import { SPLASH_MINIMUM_MS } from '../../router';
+import { SPLASH_MINIMUM_MS } from '@renderer/app/router';
 import { FakeMain, workspace } from './fake-main';
 import {
   byText,
@@ -13,7 +13,7 @@ import {
   visibleText,
   watchDom,
 } from './harness';
-import { SPLASH_DELAY_MS } from '../../pages/root/Splash';
+import { SPLASH_DELAY_MS } from '@renderer/app/Splash';
 
 // Switching workspaces is navigating to a page of another workspace (docs/renderer/routing.md).
 
@@ -261,7 +261,7 @@ describe('changes that come from no navigation', () => {
   it('deleting the open workspace sends the window to onboarding', async () => {
     const main = main3();
     const app = await onWorkTasks(main);
-    await (await import('../../ipc')).ipc.workspaces.delete.mutate({ id: WORK });
+    await (await import('@renderer/ipc')).ipc.workspaces.delete.mutate({ id: WORK });
     await eventually(() => expect(app.text()).toContain('Welcome to DevBrain'));
     expect(app.path()).toBe('/onboarding');
     // Work has gone from the list (its tile's letter, then its name)

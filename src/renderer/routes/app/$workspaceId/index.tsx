@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { landingHref } from '../../../workspace/landing';
+import { landingHref } from '@renderer/shared/lib/workspace/landing';
 
 // `/app/<id>`, the workspace's link (the menu, onboarding, Create, Open Folder): its last page
 // when "Reopen last page" is on, else its landing page.

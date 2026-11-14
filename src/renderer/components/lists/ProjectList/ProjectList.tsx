@@ -14,7 +14,7 @@ import {
 import type { ProjectListItem } from '@common/types';
 import { cn } from '../../lib/cn';
 import { paddingBefore, useVirtualList } from '../../lib/virtual';
-import { SIZE } from '../../../styles/tokens';
+import { SIZE } from '@renderer/styles/tokens';
 import { ScrollArea } from '../../ui/ScrollArea';
 import { ProjectRow, type ProjectRowData } from '../ProjectRow';
 import styles from './ProjectList.module.css';

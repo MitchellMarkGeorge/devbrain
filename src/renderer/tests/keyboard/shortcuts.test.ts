@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { commandShortcut, defaultKeymap, type Keymap } from '../../keyboard';
+import { commandShortcut, defaultKeymap, type Keymap } from '@renderer/keyboard';
 
 describe('commandShortcut', () => {
   it("names a command's keys for the platform, as the shortcuts dialog does", () => {

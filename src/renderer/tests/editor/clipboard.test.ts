@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import { Editor } from '@tiptap/core';
-import { looksLikeMarkdown, MarkdownClipboard } from '../../editor/extensions/clipboard';
-import { createDocumentExtensions } from '../../editor/markdown';
+import { looksLikeMarkdown, MarkdownClipboard } from '@renderer/editor/extensions/clipboard';
+import { createDocumentExtensions } from '@renderer/editor/markdown';
 
 let editor: Editor;
 

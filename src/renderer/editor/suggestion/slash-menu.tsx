@@ -7,7 +7,7 @@ import {
   type BlockType,
   type SlashCommand,
   type SlashItem,
-} from '../../components';
+} from '@renderer/components';
 import { applyBlockType } from '../block-types';
 import { openMention } from './entity-menu';
 import { createSuggestionMenu } from './suggestion';

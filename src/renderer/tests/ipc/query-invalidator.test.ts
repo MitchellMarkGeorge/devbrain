@@ -3,12 +3,12 @@ import { QueryClient, QueryObserver, type QueryKey } from '@tanstack/react-query
 import type { ChangedEntity } from '@common/changes';
 import type { AppEvents } from '@common/events';
 import type { WorkspaceId } from '@common/ids';
-import type { EventClient } from '../../ipc/events';
+import type { EventClient } from '@renderer/ipc/events';
 import {
   createQueryInvalidator,
   entitiesReadBy,
   type QueryInvalidator,
-} from '../../ipc/query-invalidator';
+} from '@renderer/ipc/query-invalidator';
 
 // What the renderer refetches when main says what changed, over a real QueryClient.
 

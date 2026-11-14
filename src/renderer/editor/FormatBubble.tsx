@@ -10,7 +10,7 @@ import {
   LinkToolbar,
   TurnIntoMenu,
   type FormatMark,
-} from '../components';
+} from '@renderer/components';
 import { applyBlockType, currentBlockType } from './block-types';
 import {
   FORMAT_TOOLBAR_KEY,

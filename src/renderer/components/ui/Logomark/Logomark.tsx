@@ -1,8 +1,8 @@
 import type { ComponentPropsWithoutRef } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
-import markOnDark from '../../../assets/devbrain-logomark.svg';
-import markOnLight from '../../../assets/devbrain-logomark-dark.svg';
+import markOnDark from '@renderer/assets/devbrain-logomark.svg';
+import markOnLight from '@renderer/assets/devbrain-logomark-dark.svg';
 import styles from './Logomark.module.css';
 
 export const logomarkVariants = cva(styles.mark, {
