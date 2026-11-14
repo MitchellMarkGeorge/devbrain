@@ -3,13 +3,13 @@
 
 // --background in each theme, which the window shows before the page has painted
 export const WINDOW_BACKGROUND = {
-  dark: '#0a0a0a',
+  dark: '#191919',
   light: '#ffffff',
 } as const;
 
 // --foreground in each theme: the symbols on the window controls Windows draws over the page
 export const WINDOW_FOREGROUND = {
-  dark: '#e5e5e5',
+  dark: '#d4d4d4',
   light: '#0a0a0a',
 } as const;
 
@@ -20,10 +20,10 @@ export const BROWSER_PAGE_FONT =
 
 export const BROWSER_PAGE_COLOURS = {
   dark: {
-    background: '#0a0a0a',
-    foreground: '#e5e5e5',
-    'foreground-strong': '#f5f5f5',
-    'muted-foreground': '#a1a1a1',
+    background: '#191919',
+    foreground: '#d4d4d4',
+    'foreground-strong': '#e5e5e5',
+    'muted-foreground': '#8e8e8e',
   },
   light: {
     background: '#ffffff',

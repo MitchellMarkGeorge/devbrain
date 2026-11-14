@@ -19,9 +19,19 @@
 .heading:hover {
   --band: var(--accent);
 }
-/* any colour, swatch or token: 8% of it over the band, so it stays a hint and opaque when stuck */
+/* any colour, swatch or token: a little of it over the band, so it stays a hint and opaque when
+   stuck. 5% in dark, where a colour mixed into a dark band reads heavier, and 8% on white */
 .heading[data-tinted] {
-  background: color-mix(in oklab, var(--group-color) 8%, var(--band));
+  --tint: 5%;
+  background: color-mix(in oklab, var(--group-color) var(--tint), var(--band));
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) .heading[data-tinted] {
+    --tint: 8%;
+  }
+}
+:root[data-theme='light'] .heading[data-tinted] {
+  --tint: 8%;
 }
 
 .chevron {
