@@ -1,13 +1,22 @@
 import { useRef, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { List } from 'lucide-react';
+import { Copy, Folder, List, Trash2 } from 'lucide-react';
 import { Stack } from '../../layout/Flex';
 import { Text } from '../../layout/Text';
 import { Breadcrumb } from '../../ui/Breadcrumb';
 import { Button } from '../../ui/Button';
 import { Sheet, SheetBody, SheetContent, SheetHeader, SheetItemTitle } from '../../ui/Sheet';
 import { useWorkspaceShell } from './context';
-import { Page, PageContent, PageFavoriteButton, PageHeader, PageToolbar } from '../PageHeader';
+import { DropdownMenuItem, DropdownMenuSeparator } from '../../ui/DropdownMenu';
+import { Heading } from '../../layout/Heading';
+import {
+  Page,
+  PageContent,
+  PageFavoriteButton,
+  PageHeader,
+  PageMenuButton,
+  PageToolbar,
+} from '../PageHeader';
 import { WindowFrameProvider, type Platform } from '../../lib/platform';
 import { DemoSidebar } from '../../screens/Shell/AppFrame';
 import { TaskList } from '../../lists/TaskList';
@@ -100,6 +109,55 @@ export const ListPage: Story = {
           </PageContent>
         </Page>
       </WorkspaceShell>
+    </div>
+  ),
+};
+
+/**
+ * A detail page: its `Page`'s header (the breadcrumb, the star and the "…" menu) goes up into the
+ * title bar after the window's controls, starting at the card's left edge while the sidebar is
+ * docked; the document starts at the top of the card. Hide the sidebar (⌘\) and the header moves
+ * up to the controls.
+ */
+export const DetailPage: Story = {
+  render: () => (
+    <div style={{ width: 1280, height: 720 }}>
+      <KeyboardProvider keymap={defaultKeymap}>
+        <ShellWithKeys sidebar={<DemoSidebar active="Projects" />}>
+          <Page
+            header={
+              <PageHeader
+                actions={
+                  <>
+                    <PageFavoriteButton favorite />
+                    <PageMenuButton>
+                      <DropdownMenuItem icon={<Copy />}>Copy as Markdown</DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem icon={<Trash2 />} variant="destructive">
+                        Move to trash
+                      </DropdownMenuItem>
+                    </PageMenuButton>
+                  </>
+                }
+              >
+                <Breadcrumb
+                  items={[
+                    { label: 'Projects', href: '#' },
+                    { label: 'Auth Overhaul', href: '#', icon: Folder },
+                    'Implement OAuth2 PKCE flow',
+                  ]}
+                />
+              </PageHeader>
+            }
+          >
+            <PageContent layout="document">
+              <Heading level={1} variant="document">
+                Implement OAuth2 PKCE flow
+              </Heading>
+            </PageContent>
+          </Page>
+        </ShellWithKeys>
+      </KeyboardProvider>
     </div>
   ),
 };

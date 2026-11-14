@@ -40,6 +40,11 @@ export interface WorkspaceShellContextValue {
    * mounted it, and outside a shell; a docked sheet waits for it (else it would land in the body)
    */
   sheetContainer: HTMLElement | null;
+  /**
+   * The title bar's slot for the page's header, after the window's controls: `Page` portals its
+   * `header` into it. Null outside a shell, where a `Page` draws its header itself
+   */
+  titleBarContainer: HTMLElement | null;
 }
 
 const noop = () => {};
@@ -58,6 +63,7 @@ export const WorkspaceShellContext = createContext<WorkspaceShellContextValue>({
   canGoBack: true,
   canGoForward: false,
   sheetContainer: null,
+  titleBarContainer: null,
 });
 
 /** The shell around this component: window size, whether the sidebar is hidden, the drawer, and the window controls. */

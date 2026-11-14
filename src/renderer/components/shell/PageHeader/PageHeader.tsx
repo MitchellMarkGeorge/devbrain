@@ -1,19 +1,20 @@
 import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Ellipsis, Star } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import { IconButton } from '../../ui/IconButton';
 import { ScrollArea } from '../../ui/ScrollArea';
+import { useWorkspaceShell } from '../WorkspaceShell/context';
 import styles from './PageHeader.module.css';
 
 export interface PageProps extends ComponentPropsWithoutRef<'div'> {
   /**
-   * The page's top bar, which stays put while the page scrolls: a `PageHeader` with its
-   * breadcrumb and actions, or a bar of the page's own. Leave it out for a page with no header
-   * (Settings, Integrations): its content starts at the top of the page. The window's title bar
-   * is the `WorkspaceShell`'s, above the page, so a page's header neither drags the window nor
-   * makes room for its controls
+   * The page's header: a `PageHeader` with its breadcrumb and actions, or a bar of the page's own.
+   * Inside a `WorkspaceShell` it goes in the window's title bar, after the window's controls (so
+   * it stays put while the page scrolls, and takes no room in the page); elsewhere the page draws
+   * it at its top. Leave it out for a page with no header (Settings, Integrations)
    */
   header?: ReactNode;
   /** classes for the scrolling element (the ScrollArea's viewport) */
@@ -21,18 +22,26 @@ export interface PageProps extends ComponentPropsWithoutRef<'div'> {
 }
 
 /**
- * A page in a `WorkspaceShell`: its header, then everything under it (a `PageToolbar` and a
- * `PageContent`, or a layout of the page's own) in the page's scroller. Every page renders one, so
- * each decides its own header, or none. A list or grid page's content fills the scroller and
+ * A page in a `WorkspaceShell`: its header, in the shell's title bar, and everything else (a
+ * `PageToolbar` and a `PageContent`, or a layout of the page's own) in the page's scroller. Every
+ * page renders one, so each decides its own header, or none. The header is still the page's own
+ * JSX, so it can use the page's state; the shell only gives it a place. A list or grid page's content fills the scroller and
  * scrolls itself; a Home or document page keeps its height, and the scroller scrolls it whole.
  */
 export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
   { header, scrollClassName, className, children, ...props },
   ref,
 ) {
+  const { titleBarContainer } = useWorkspaceShell();
+  const inTitleBar = header != null && titleBarContainer !== null;
   return (
-    <div ref={ref} className={cn(styles.page, className)} {...props}>
-      {header}
+    <div
+      ref={ref}
+      data-title-bar={inTitleBar ? '' : undefined}
+      className={cn(styles.page, className)}
+      {...props}
+    >
+      {inTitleBar ? createPortal(header, titleBarContainer) : header}
       {/*
        * a ScrollArea, whose scrollbar is drawn over the page's edge and takes no width; data-slot
        * on its scrolling element: the app's router restores it, and scrolls it to the top on a
@@ -61,10 +70,10 @@ export interface PageHeaderProps extends Omit<ComponentPropsWithoutRef<'header'>
 }
 
 /**
- * A page's top bar (its `Page`'s `header`): a 48px bar with the breadcrumb at the left and the
- * page's actions at the right, 24px in from the sides. It spans the page even where the content is
- * a capped column. It is the top of the page, under the `WorkspaceShell`'s title bar: it doesn't
- * drag the window.
+ * A page's header (its `Page`'s `header`): a 48px bar with the breadcrumb at the left and the
+ * page's actions at the right, 24px in from the sides. Inside a `WorkspaceShell` it fills the
+ * title bar after the window's controls (its buttons and links don't drag the window; the bar
+ * around them does); elsewhere it tops the page.
  */
 export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function PageHeader(
   { actions, className, children, ...props },

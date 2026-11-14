@@ -1,5 +1,16 @@
 /* The frame every screen shares. See docs/design-system/components/WorkspaceShell.md */
 /*
+ * The sidebar's column width, animated: the sidebar's width while docked, 0 while hidden. A
+ * registered property, so the shell can transition it, and the column and the title bar's slot
+ * (which starts no further left than the column's end) move together.
+ */
+@property --workspace-sidebar-column {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
+}
+
+/*
  * Two rows: the title bar across the window, always there; then the sidebar's column and the card
  * holding the page and the docked sheet. The window behind them takes the sidebar's colour, so the
  * title bar and the sidebar read as one frame around the card.
@@ -7,7 +18,8 @@
 .shell {
   position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  --workspace-sidebar-column: var(--sidebar-width);
+  grid-template-columns: var(--workspace-sidebar-column) minmax(0, 1fr);
   grid-template-rows: var(--title-bar-height) minmax(0, 1fr);
   grid-template-areas:
     'bar     bar'
@@ -22,6 +34,10 @@
   /* the shell fades in as it appears (after the app's splash, at startup and on a switch of
      workspace); a page changing inside it doesn't replay it. 0ms under reduced motion */
   animation: shell-enter var(--duration-slow) var(--ease-surface);
+  transition: --workspace-sidebar-column var(--duration-slow) var(--ease-surface);
+}
+.shell[data-sidebar='hidden'] {
+  --workspace-sidebar-column: 0px;
 }
 @keyframes shell-enter {
   from {
@@ -30,24 +46,53 @@
   }
 }
 
-/* the title bar: the WindowBar, on the window's colour rather than its own */
-.shell > .bar {
+/*
+ * The title bar: the WindowBar (the window's controls), then the slot for the page's header. The
+ * controls take at least the sidebar column's width, so the slot starts at the card's left edge
+ * while the sidebar is docked (the header's 24px padding lining its crumbs up with the page under
+ * them), and right after the controls while it's hidden. It drags the window; what the page puts
+ * in it to press doesn't. On Windows the slot stops short of the caption buttons.
+ */
+.titleBar {
   grid-area: bar;
+  display: flex;
+  min-width: 0;
+  -webkit-app-region: drag;
+}
+.titleBar > .bar {
+  flex: none;
+  min-width: var(--workspace-sidebar-column);
   background: transparent;
+}
+.titleSlot {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  padding-right: var(--title-bar-end, 0px);
+}
+.titleSlot > * {
+  flex: 1;
+  min-width: 0;
+}
+/* one page's header at a time: a page still mounted under the next one's loading keeps its own out */
+.titleSlot > :not(:last-child) {
+  display: none;
+}
+.titleSlot :is(button, a, input, select, [role='button'], [role='tab'], [role='combobox']) {
+  -webkit-app-region: no-drag;
 }
 
 /*
- * The sidebar's column: the sidebar's width while docked, 0 while hidden. It slides between them
- * (duration-slow, ease-surface; at once under reduced motion), clipping the sidebar, which slides
+ * The sidebar's column: `--workspace-sidebar-column` wide, sliding between the sidebar's width and
+ * 0 (duration-slow, ease-surface; at once under reduced motion), clipping the sidebar, which slides
  * out with it so its right edge stays on the column's.
  */
 .sidebar {
   grid-area: sidebar;
   display: flex;
-  width: var(--sidebar-width);
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
-  transition: width var(--duration-slow) var(--ease-surface);
 }
 /* doubled class: outranks the sidebar's own border and background */
 .sidebar.sidebar > * {
@@ -57,9 +102,6 @@
   border-right: none;
   background: transparent;
   transition: transform var(--duration-slow) var(--ease-surface);
-}
-.shell[data-sidebar='hidden'] .sidebar {
-  width: 0;
 }
 .shell[data-sidebar='hidden'] .sidebar > * {
   transform: translateX(-100%);
@@ -85,7 +127,7 @@
   margin-left: var(--space-2);
 }
 /* docking from the open drawer: the sidebar is already where it docks, so nothing slides */
-.shell[data-instant] .sidebar,
+.shell[data-instant],
 .shell[data-instant] .sidebar > *,
 .shell[data-instant] .body {
   transition: none;

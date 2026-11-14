@@ -1,13 +1,13 @@
 # WorkspaceShell
 
-The window inside a workspace, the frame every page in it shares: the **title bar** across the top, then the `Sidebar` at the left and the page and a docked sheet in a **card** beside it. A CSS grid places each part, and nothing is moved from one parent to another as the sidebar docks and hides, so the page never remounts. The page is the shell's `children`: a `Page`, which draws its own header (a `PageHeader`, or none) and scrolls itself (`PageHeader.md`); the shell holds nothing of the page's. It measures its own width and follows the README's window sizes. Outside a workspace (onboarding, Create workspace, the splash) the window is an `AppShell`.
+The window inside a workspace, the frame every page in it shares: the **title bar** across the top, then the `Sidebar` at the left and the page and a docked sheet in a **card** beside it. A CSS grid places each part, and nothing is moved from one parent to another as the sidebar docks and hides, so the page never remounts. The page is the shell's `children`: a `Page`, which declares its own header (a `PageHeader`, or none) and scrolls itself (`PageHeader.md`). The shell gives the header a place in the title bar but holds nothing of the page's. It measures its own width and follows the README's window sizes. Outside a workspace (onboarding, Create workspace, the splash) the window is an `AppShell`.
 
 - **Wide and medium (1080px and up):** the sidebar rests docked; sheets dock.
 - **Compact (below 1080px):** the sidebar rests hidden. Sheets float (`Sheet variant="overlay"`); read `useWorkspaceShell().size` to choose.
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│ ●●●  ◫  ←  →                     title bar (WindowBar)│
+│ ●●●  ◫  ←  →    Tasks › List                    ☆  ⋯ │
 ├──────────┬───────────────────────────────────────────┤
 │ sidebar  │ ╭───────────────────────────────┬───────╮ │
 │          │ │ page (a Page)                 │ sheet │ │
@@ -18,7 +18,9 @@ The window inside a workspace, the frame every page in it shares: the **title ba
 
 ## The title bar
 
-The `WindowBar` (`title-bar-height`, 48px) runs across the whole window, whether the sidebar is docked or hidden: the title bar's start (the traffic lights on macOS, the menu button on Windows, nothing on Linux), then the sidebar toggle, back and forward. It is always there and its controls never move, so the toggle is in the same place to hide the sidebar and to show it again. It drags the window; its buttons don't. Nothing else is in the window's top row: the page's header is the top of its card, under the bar, and the sidebar starts under it too.
+The `WindowBar` (`title-bar-height`, 48px) runs across the whole window, whether the sidebar is docked or hidden: the title bar's start (the traffic lights on macOS, the menu button on Windows, nothing on Linux), then the sidebar toggle, back and forward. It is always there and its controls never move, so the toggle is in the same place to hide the sidebar and to show it again. It drags the window; its buttons don't.
+
+After the controls, the title bar holds **the page's header**: a `Page` portals its `header` into the bar's slot (`useWorkspaceShell().titleBarContainer`, as a docked sheet goes into `sheetContainer`). The header is still the page's own JSX, so its menus and buttons use the page's state. The slot starts at the card's left edge while the sidebar is docked, so the header's crumbs (24px in) line up with the page under them, and right after the controls while it's hidden: the controls take at least the sidebar column's width (`min-width: var(--workspace-sidebar-column)`), and the slot follows them. As the sidebar slides, the header moves with the card's edge until it reaches the controls. In the slot, buttons, links and other controls don't drag the window; the rest of the bar does. On Windows the slot stops short of the caption buttons (`--title-bar-end`). Only one page's header shows at a time: a page kept mounted under the next one's loading keeps its header out of the way (the slot shows its last child).
 
 ## Docked and hidden
 
@@ -26,7 +28,7 @@ The sidebar is **docked or hidden**. `collapsed` is the user's choice (⌘\ or t
 
 - **Docked:** the sidebar in its `sidebar-width` (256px) column under the title bar, the card beside it.
 - **Hidden:** the column is 0 wide and the card spans the window under the title bar. The sidebar opens as a drawer over the page (below).
-- **Hiding and docking slide.** The column's width slides between the two in `duration-slow` (`ease-surface`), the sidebar sliding out (or in) with it so its right edge stays on the column's, and the card's left edge follows. Nothing moves under `prefers-reduced-motion`. While it slides shut the sidebar is `inert`; once shut it is unmounted and the drawer, which renders the sidebar again, takes over (so only during that slide are there two). Anything the sidebar keeps only in its own state (a scroll position) starts afresh; what should survive, such as folded groups, belongs in the app's state.
+- **Hiding and docking slide.** The column's width (`--workspace-sidebar-column`, a registered property the shell transitions) slides between the two in `duration-slow` (`ease-surface`), the sidebar sliding out (or in) with it so its right edge stays on the column's, and the card's left edge follows. Nothing moves under `prefers-reduced-motion`. While it slides shut the sidebar is `inert`; once shut it is unmounted and the drawer, which renders the sidebar again, takes over (so only during that slide are there two). Anything the sidebar keeps only in its own state (a scroll position) starts afresh; what should survive, such as folded groups, belongs in the app's state.
 - **Docking from the open drawer** doesn't slide: the sidebar is already showing where it docks, so the column opens at once under it (`data-instant` on the shell for that change).
 
 The shell binds no keys of its own. ⌘\ is the app keymap's `sidebar.toggle` command (`src/renderer/keyboard`), which the workspace layout registers to run the shell's `toggleSidebar`, the same as clicking the toggle. The layout reaches it through `controlsRef` (`WorkspaceShellControls`), as it renders the shell rather than sitting inside it; the stories register it the same way. Inside the shell, `useWorkspaceShell()` gives the same toggle.
@@ -48,7 +50,7 @@ The drawer floats over the page, so it doesn't drag the window (`-webkit-app-reg
 
 The page and the docked sheet sit in a card on `background`, with a `border` hairline and `radius-lg` corners, inset 8px from the window's right and bottom edges (and from its left while the sidebar is hidden). The window behind, the title bar and the sidebar are on `sidebar`, so they read as one frame around it.
 
-The page fills the card. Its `Page` keeps its header put; on a list or grid page the toolbar stays put too, and the page's `TaskList`, `Board` or `VirtualCardGrid` fills the height left under it (through `PageContent`) and scrolls itself, so the page never scrolls (the `ListPage` story). A Home or document page keeps its own height and scrolls whole inside the `Page`'s scroller, never the window (`data-slot="page-scroll"`, which the app's router scrolls to the top on a new page and restores on Back and Forward; `docs/renderer/routing.md`). `onBack`/`onForward`/`canGoBack`/`canGoForward` drive the title bar's arrows; the app passes its router's history.
+The page fills the card, its header up in the title bar; on a list or grid page the toolbar stays put too, and the page's `TaskList`, `Board` or `VirtualCardGrid` fills the height left under it (through `PageContent`) and scrolls itself, so the page never scrolls (the `ListPage` story). A Home or document page keeps its own height and scrolls whole inside the `Page`'s scroller, never the window (`data-slot="page-scroll"`, which the app's router scrolls to the top on a new page and restores on Back and Forward; `docs/renderer/routing.md`). `onBack`/`onForward`/`canGoBack`/`canGoForward` drive the title bar's arrows; the app passes its router's history.
 
 A page docks a sheet by portalling its `SheetContent` into `useWorkspaceShell().sheetContainer`, the column at the card's right. The column is `sheet-width` while an open sheet is in it (`:has([data-sheet][data-open])`, which `SheetContent` marks) and 0 wide otherwise, so there is no open flag to keep in step. Its width slides with the sheet's own duration and easing: it opens as the sheet mounts and shuts as the sheet closes. To slide out, a sheet has to stay mounted while it closes: pass `open={false}` and unmount it from `onOpenChangeComplete` (the tasks page's `TaskSheet` does), rather than unmounting it at once.
 

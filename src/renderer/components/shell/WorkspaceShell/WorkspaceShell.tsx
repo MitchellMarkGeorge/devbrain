@@ -63,6 +63,7 @@ type DrawerState = 'closed' | 'peek' | 'open';
  * the README's window sizes: below 1080px the sidebar rests hidden and sheets float. It binds no
  * keys: the app's keymap runs `toggleSidebar` (through `controlsRef`) on ⌘\.
  *
+ * A `Page` puts its header in the title bar, through `useWorkspaceShell().titleBarContainer`.
  * A page docks a sheet by portalling its `SheetContent` into `useWorkspaceShell().sheetContainer`:
  * the column at the right slides open while an open sheet is in it.
  */
@@ -90,8 +91,9 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
     useImperativeHandle(ref, () => root.current as HTMLDivElement);
     // state, not a ref: a page portalling a sheet into it renders again once it's there
     const [sheetContainer, setSheetContainer] = useState<HTMLElement | null>(null);
+    // the title bar's slot for the page's header, likewise
+    const [titleBarContainer, setTitleBarContainer] = useState<HTMLElement | null>(null);
     const drawerPopup = useRef<HTMLDivElement>(null);
-    const sidebarColumn = useRef<HTMLDivElement>(null);
 
     const [measured, setMeasured] = useState<WindowSize>(() =>
       typeof window === 'undefined' ? 'wide' : windowSizeFor(window.innerWidth),
@@ -133,9 +135,9 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
     if (!hidden && !docked) setDocked(true);
     useEffect(() => {
       if (!hidden || !docked) return;
-      // the column's own transition time; 0 under reduced motion
-      const column = sidebarColumn.current;
-      const seconds = column ? parseFloat(getComputedStyle(column).transitionDuration) || 0 : 0;
+      // the column's slide time (the shell's transition); 0 under reduced motion
+      const shell = root.current;
+      const seconds = shell ? parseFloat(getComputedStyle(shell).transitionDuration) || 0 : 0;
       const timer = setTimeout(() => setDocked(false), seconds * 1000);
       return () => clearTimeout(timer);
     }, [hidden, docked]);
@@ -196,9 +198,11 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
         canGoBack,
         canGoForward,
         sheetContainer,
+        titleBarContainer,
       }),
       [
         sheetContainer,
+        titleBarContainer,
         size,
         hidden,
         drawer,
@@ -228,13 +232,20 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
             className={cn(styles.shell, className)}
             {...props}
           >
-            {/* the title bar: always there, across the window, so its controls never move */}
-            <WindowBar className={styles.bar} />
+            {/*
+             * the title bar: always there, across the window, so its controls never move; the
+             * page's header (a `Page`'s) is portalled into its slot, which starts at the card's
+             * left edge while the sidebar is docked, and after the controls while it's hidden
+             */}
+            <div className={styles.titleBar}>
+              <WindowBar className={styles.bar} />
+              <div ref={setTitleBarContainer} className={styles.titleSlot} />
+            </div>
             {/*
              * the sidebar's column: the sidebar's width while docked, sliding shut as it hides; the
              * hidden sidebar is inert while it slides out, then unmounted (the drawer has it)
              */}
-            <div ref={sidebarColumn} className={styles.sidebar} {...(hidden ? { inert: '' } : {})}>
+            <div className={styles.sidebar} {...(hidden ? { inert: '' } : {})}>
               {docked && sidebar}
             </div>
             {/* the card: the page, which draws its own header and scrolls, and the docked sheet */}

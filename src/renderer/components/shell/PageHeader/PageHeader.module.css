@@ -18,6 +18,11 @@
   overscroll-behavior: contain;
 }
 
+/* the header is up in the title bar: the toolbar keeps 12px clear of the card's top edge */
+.page[data-title-bar] .toolbar {
+  padding-top: var(--space-3);
+}
+
 /* ---------- header ---------- */
 .header {
   display: flex;
@@ -26,7 +31,6 @@
   gap: var(--space-2);
   height: 48px;
   min-width: 0;
-  /* the top of the page's card, under the shell's title bar: it doesn't drag the window */
   padding: 0 var(--space-6);
 }
 .place {

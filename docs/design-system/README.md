@@ -132,9 +132,9 @@ The window is never smaller than `window-min-width` × `window-min-height` (960 
 
 ## Window frame
 
-The window draws its own title bar, a 48px strip across the top (the `WorkspaceShell`'s
-`WindowBar`, docked sidebar or hidden; `AppShell`'s outside a workspace), and leaves room for the
-window controls the system draws. Main sets the frame up per platform
+The window draws its own title bar, a 48px strip across the top (the `WorkspaceShell`'s: the
+`WindowBar`, then the page's header, docked sidebar or hidden; `AppShell`'s outside a workspace),
+and leaves room for the window controls the system draws. Main sets the frame up per platform
 (`src/main/runtime/window-chrome.ts`); the page reads the platform from `WindowFrameProvider`
 (`src/renderer/components/lib/platform.ts`), and the Storybook toolbar picks one.
 

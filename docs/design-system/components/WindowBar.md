@@ -7,6 +7,6 @@ Figma's `WindowBar` (a `platform` variant per platform): the title bar: a `title
 
 The strip drags the window; its buttons don't. In the app the system draws the traffic lights and Windows' caption buttons and the bar only keeps their space; stories paint stand-ins (`TrafficLights drawn`, `CaptionButtons`, 3 × 46px by `title-bar-height`), which `WindowFrameProvider`'s `controls: 'drawn'` turns on.
 
-`WindowStart`, `TrafficLights`, `AppMenuButton` and `WindowControls` are exported on their own; `AppShell` uses `WindowStart` for its title bar. `WorkspaceShell` places the bar in its first row, across the window, and in stories paints the caption buttons too. Nothing else shares the row: the sidebar and the page's card start under it. Pages never render it themselves.
+`WindowStart`, `TrafficLights`, `AppMenuButton` and `WindowControls` are exported on their own; `AppShell` uses `WindowStart` for its title bar. `WorkspaceShell` places the bar at the start of its title bar, across the window (at least the sidebar column's width, so the page's header after it starts at the card's edge while the sidebar is docked), and in stories paints the caption buttons too. Pages never render it themselves.
 
 **Base UI:** No Base UI part: plain markup with `IconButton`s.
