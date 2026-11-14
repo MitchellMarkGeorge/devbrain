@@ -42,9 +42,13 @@ export const notesRouter = t.router({
         ctx.workspace.notes.listNotes(filter, sort, page),
     ),
 
+  // a note, in the trash too (its `archivedAt` set): Trash opens it, and its page shows it
+  // read-only until it is restored
   get: wsProcedure
     .input(byId)
-    .query(({ ctx, input }): Note => ctx.workspace.notes.getById(input.id)),
+    .query(
+      ({ ctx, input }): Note => ctx.workspace.notes.getById(input.id, { includeArchived: true }),
+    ),
 
   // writes the note's file, with `content` or empty, then its row
   create: wsProcedure
@@ -58,11 +62,14 @@ export const notesRouter = t.router({
       ({ ctx, input: { id, ...updates } }): Note => ctx.workspace.notes.updateNote(id, updates),
     ),
 
-  // the note's markdown, read from its file; fails with not_found, or malformed_note_file when the
-  // file can't be parsed
+  // the note's markdown, read from its file, in the trash too (its page shows it read-only); fails
+  // with not_found, or malformed_note_file when the file can't be parsed
   readContent: wsProcedure
     .input(byId)
-    .query(({ ctx, input }): Promise<string> => ctx.workspace.notes.readContent(input.id)),
+    .query(
+      ({ ctx, input }): Promise<string> =>
+        ctx.workspace.notes.readContent(input.id, { includeArchived: true }),
+    ),
 
   // replaces the note's markdown; core runs one note's saves one at a time, so the last call wins
   updateContent: wsProcedure

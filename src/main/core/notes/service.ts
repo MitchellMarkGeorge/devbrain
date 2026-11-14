@@ -52,8 +52,11 @@ export class NoteService {
     return this.changes.add(listener);
   }
 
-  getById(id: NoteId): Note {
-    const note = this.activeNotes(eq(notes.id, id)).get();
+  // A note in the trash is found only with `includeArchived` (Trash opens it read-only)
+  getById(id: NoteId, options: { includeArchived?: boolean } = {}): Note {
+    const note = options.includeArchived
+      ? this.db.select().from(notes).where(eq(notes.id, id)).get()
+      : this.activeNotes(eq(notes.id, id)).get();
     if (!note) throw new NotFoundError(id);
     return note;
   }
@@ -155,10 +158,11 @@ export class NoteService {
     return this.noteFilePath(id);
   }
 
-  // The markdown of an active note, read from its file, without the file's front matter. Throws
-  // NotFoundError for an unknown or archived note, MalformedNoteFileError for a damaged file.
-  async readContent(id: NoteId): Promise<string> {
-    this.getById(id);
+  // The markdown of a note, read from its file, without the file's front matter. A note in the trash
+  // is read with `includeArchived` (Trash opens it read-only). Throws NotFoundError for an unknown
+  // note, or an archived one without the option, MalformedNoteFileError for a damaged file.
+  async readContent(id: NoteId, options: { includeArchived?: boolean } = {}): Promise<string> {
+    this.getById(id, options);
     const { content } = await readNoteFile(this.noteFilePath(id));
     return content;
   }

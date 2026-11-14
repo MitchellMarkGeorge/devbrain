@@ -70,8 +70,11 @@ export class ProjectService {
     return this.changes.add(listener);
   }
 
-  getById(id: ProjectId): Project {
-    const row = this.activeProjects(eq(projects.id, id)).limit(1).get();
+  // A project in the trash is found only with `includeArchived` (Trash opens it read-only)
+  getById(id: ProjectId, options: { includeArchived?: boolean } = {}): Project {
+    const row = options.includeArchived
+      ? this.db.select().from(projects).where(eq(projects.id, id)).limit(1).get()
+      : this.activeProjects(eq(projects.id, id)).limit(1).get();
     if (!row) throw new NotFoundError(id);
     return withExternalRef(this.db, row);
   }

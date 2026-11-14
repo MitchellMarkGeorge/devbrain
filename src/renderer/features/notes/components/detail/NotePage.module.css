@@ -18,3 +18,7 @@
 .divider {
   margin: var(--space-6) 0 var(--space-4);
 }
+/* a trashed note's notice over the page, as far above the title as the task page's */
+.trashed {
+  margin-bottom: var(--space-8);
+}

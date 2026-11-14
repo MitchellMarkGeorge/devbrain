@@ -395,6 +395,9 @@ describe('ArchiveService — listArchived entity type filter', () => {
       entityType: 'notes',
       title: 'Only note',
       archivedAt: archived.archivedAt,
+      // a note's own fields (list-details.test.ts covers them)
+      preview: null,
+      project: null,
     });
   });
 
