@@ -24,7 +24,7 @@ import { NoteChange, NoteService } from '../../notes/service';
 import { ArchiveService } from '../../archive/service';
 import { FavoritesService } from '../../favorites/service';
 import { EventService } from '../../events/service';
-import { ExternalReadOnlyError, NotFoundError } from '../../shared/errors';
+import { AlreadyArchivedError, ExternalReadOnlyError, NotFoundError } from '../../shared/errors';
 import { readNoteFile } from '../../local/notes';
 
 // C1–C3: convert a task to a project, duplicate a task or note, copy a task, project or note as
@@ -236,10 +236,10 @@ describe('TaskService.convertToProject', () => {
     expect(tasks.convertToProject(detached.id).title).toBe('Detached');
   });
 
-  it('throws NotFoundError for an unknown or archived task', () => {
+  it('throws AlreadyArchivedError for an archived task and NotFoundError for an unknown one', () => {
     const task = tasks.createTask({ title: 'Task' });
     archive.archiveTask(task.id);
-    expect(() => tasks.convertToProject(task.id)).toThrow(NotFoundError);
+    expect(() => tasks.convertToProject(task.id)).toThrow(AlreadyArchivedError);
     expect(() => tasks.convertToProject('tsk_missing' as TaskId)).toThrow(NotFoundError);
   });
 });

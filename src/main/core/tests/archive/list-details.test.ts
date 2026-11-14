@@ -20,7 +20,7 @@ import { ArchiveService } from '../../archive/service';
 import { NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
 import { TaskService } from '../../tasks/service';
-import { NotFoundError } from '../../shared/errors';
+import { AlreadyArchivedError, NotFoundError } from '../../shared/errors';
 
 // What each Trash row carries beyond the trash's own columns (archive.listArchived): a task's
 // status, project and link, a project's status, colour and link, a note's preview and project;
@@ -240,7 +240,7 @@ describe('a trashed project and note, read by id', () => {
     await expect(notes.readContent(note.id, { includeArchived: true })).resolves.toContain(
       'Body text',
     );
-    await expect(notes.updateNoteContent(note.id, 'Changed')).rejects.toThrow(NotFoundError);
+    await expect(notes.updateNoteContent(note.id, 'Changed')).rejects.toThrow(AlreadyArchivedError);
   });
 
   it('still refuses an unknown id with includeArchived', async () => {

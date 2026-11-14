@@ -53,6 +53,7 @@ import {
   withExternalRefs,
 } from '../integrations/refs';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
+import { assertNotTrashed, assertRowNotTrashed } from '../shared/trash';
 
 type NewTaskValues = typeof tasks.$inferInsert;
 // a transaction's handle, which the reads and writes inside it go through
@@ -184,8 +185,9 @@ export class TaskService {
   }
 
   createSubtask(parentTaskId: TaskId, options: CreateSubTaskOptions): Task {
-    // throws NotFoundError when no task matches the provided id
-    const parentTask = this.findTask(parentTaskId);
+    // throws NotFoundError when no task matches the provided id, AlreadyArchivedError for one in
+    // the trash
+    const parentTask = this.writableTask(parentTaskId);
     // a synced parent's subtree is provider-owned; local subtasks nest at any depth
     assertRowEditable(parentTask);
 
@@ -379,12 +381,14 @@ export class TaskService {
   }
 
   updateTask(id: TaskId, updates: UpdateTaskOptions): Task {
+    assertNotTrashed(this.db, id);
     assertEditable(this.db, id);
     const row = this.db.update(tasks).set(updates).where(eq(tasks.id, id)).returning().get();
     return this.updated(id, row);
   }
 
   updateStatus(id: TaskId, newStatus: TaskStatus): Task {
+    assertNotTrashed(this.db, id);
     assertEditable(this.db, id);
     const row = this.db
       .update(tasks)
@@ -405,7 +409,7 @@ export class TaskService {
   }
 
   updateProject(id: TaskId, projectId: ProjectId | null): Task {
-    const task = this.findTask(id);
+    const task = this.writableTask(id);
     // a synced task's project follows the provider; a local one can move into a mirrored project
     assertRowEditable(task);
 
@@ -426,7 +430,8 @@ export class TaskService {
    * changed, or none is. Each is checked as its own route checks it, and one refusal fails the
    * batch:
    *
-   * - NotFoundError for an id with no active task, or a `projectId` with no active project.
+   * - NotFoundError for an id with no task, or a `projectId` with no active project.
+   * - AlreadyArchivedError for a task in the trash, which opens read-only.
    * - ExternalReadOnlyError for a synced task (its provider owns these fields). The whole batch is
    *   refused rather than skipping it, so the user sees why nothing changed, not a half-applied
    *   selection; detaching it first makes it editable.
@@ -455,16 +460,13 @@ export class TaskService {
     return this.db.transaction((tx) => {
       const existing = withExternalRefs(
         tx,
-        tx
-          .select()
-          .from(tasks)
-          .where(and(inArray(tasks.id, uniqueIds), isNull(tasks.archivedAt)))
-          .all(),
+        tx.select().from(tasks).where(inArray(tasks.id, uniqueIds)).all(),
       );
       const byId = new Map(existing.map((task) => [task.id, task]));
       for (const id of uniqueIds) {
         const task = byId.get(id);
         if (!task) throw new NotFoundError(id);
+        assertRowNotTrashed(task);
         assertRowEditable(task);
       }
       if (projectId) {
@@ -493,7 +495,7 @@ export class TaskService {
   }
 
   updateLinks(id: TaskId, options: UpdateTaskLinkOptions): Task {
-    const task = this.findTask(id);
+    const task = this.writableTask(id);
 
     // links are DevBrain-owned, so allowed on synced tasks; external subtasks carry their own
     if (isSubtask(task) && !isSynced(task)) {
@@ -522,7 +524,7 @@ export class TaskService {
 
   promoteSubtask(id: TaskId): Task {
     // makes an existing subtask a top level task
-    const task = this.findTask(id);
+    const task = this.writableTask(id);
     assertRowEditable(task);
 
     if (!isSubtask(task)) {
@@ -547,9 +549,10 @@ export class TaskService {
       throw new TaskHierarchyError(id, 'cycle', 'Tasks cannot be their own parent');
     }
 
-    // both throw NotFoundError when the id has no active task behind it
-    const task = this.findTask(id);
-    const parentTask = this.findTask(newParentId);
+    // both throw NotFoundError when the id has no task behind it, AlreadyArchivedError when it is
+    // in the trash
+    const task = this.writableTask(id);
+    const parentTask = this.writableTask(newParentId);
     // both sides are guarded; local tasks nest at any depth
     assertRowEditable(task);
     assertRowEditable(parentTask);
@@ -606,17 +609,14 @@ export class TaskService {
    *   has none. Its favorite moves to the project: the project is what the user starred now.
    *
    * One `converted` change is sent after the commit. Returns the new project. Throws NotFoundError
-   * for an unknown or archived task, and ExternalReadOnlyError for a synced one: its provider owns
-   * it, so it is detached first.
+   * for an unknown task, AlreadyArchivedError for one in the trash, and ExternalReadOnlyError for a
+   * synced one: its provider owns it, so it is detached first.
    */
   convertToProject(id: TaskId): Project {
     const conversion = this.db.transaction((tx): TaskConversion => {
-      const row = tx
-        .select()
-        .from(tasks)
-        .where(and(eq(tasks.id, id), isNull(tasks.archivedAt)))
-        .get();
+      const row = tx.select().from(tasks).where(eq(tasks.id, id)).get();
       if (!row) throw new NotFoundError(id);
+      assertRowNotTrashed(row);
       assertRowEditable(withExternalRef(tx, row));
 
       const color = row.projectId
@@ -849,6 +849,14 @@ export class TaskService {
     }
     // RETURNING gives no order, so the tasks are put back in the order built
     return rows.map(({ id }) => inserted.get(id)!);
+  }
+
+  // A task a user's write may change: NotFoundError for an unknown id, AlreadyArchivedError for one
+  // in the trash. Whether a synced task may take the write is the caller's to check.
+  private writableTask(id: TaskId): Task {
+    const task = this.findTask(id, { includeArchived: true });
+    assertRowNotTrashed(task);
+    return task;
   }
 
   // An update's result as every read returns it, with `external`, after sending the change. Throws
