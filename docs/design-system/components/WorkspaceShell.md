@@ -31,9 +31,9 @@ A page docks a sheet by portalling its `SheetContent` into `useWorkspaceShell().
 The shell follows the window frame (`WindowFrameProvider`; README "Window frame"), and sets `data-platform` for the CSS:
 
 - **macOS and Linux:** as above. The page and a docked sheet each run the full height.
-- **Windows:** Windows draws its caption buttons over the top right, so a docked sheet starts under a 48px strip (`title`, draggable) that the buttons sit over; the page's header actions stop 16px short of the buttons (`--title-bar-end`), which matters while no sheet is open. In stories (`controls: 'drawn'`) the shell paints the caption buttons.
+- **Windows:** Windows draws its caption buttons over the top right, so a docked sheet starts under a `title-bar-height` strip (`title`, draggable) that the buttons sit over; the page's header actions stop 16px short of the buttons (`--title-bar-end`), which matters while no sheet is open. In stories (`controls: 'drawn'`) the shell paints the caption buttons.
 
-The grid's rows are 48px and the rest; it has four templates, one per platform group and sidebar state. While hidden, the `WindowBar` is placed in the first row's first column, over `main`:
+The grid's rows are `title-bar-height` (48px) and the rest; it has four templates, one per platform group and sidebar state. While hidden, the `WindowBar` is placed in the first row's first column, over `main`:
 
 |              | Docked                                      | Hidden                                |
 | ------------ | ------------------------------------------- | ------------------------------------- |

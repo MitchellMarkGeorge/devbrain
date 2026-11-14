@@ -2,7 +2,7 @@
 .bar {
   display: flex;
   align-items: center;
-  height: 48px;
+  height: var(--title-bar-height);
   padding-left: var(--space-4);
   background: var(--background);
   -webkit-app-region: drag;
@@ -50,10 +50,10 @@
   background: var(--green-500);
 }
 
-/* ---------- Windows' caption buttons, drawn (stories): 3 × 46px by 48px ---------- */
+/* ---------- Windows' caption buttons, drawn (stories): 3 × 46px by title-bar-height ---------- */
 .captionButtons {
   display: inline-flex;
-  height: 48px;
+  height: var(--title-bar-height);
   color: var(--foreground);
 }
 .captionButtons > span {

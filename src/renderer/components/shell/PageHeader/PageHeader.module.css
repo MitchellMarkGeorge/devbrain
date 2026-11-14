@@ -7,10 +7,10 @@
   min-width: 0;
   min-height: 0;
 }
-/* a page with no header: the 48px strip to drag the window by, under the WindowBar while hidden */
+/* a page with no header: the title-bar-height strip to drag the window by, under the WindowBar while hidden */
 .bare {
   flex: none;
-  height: 48px;
+  height: var(--title-bar-height);
   -webkit-app-region: drag;
 }
 .scroll {
@@ -30,7 +30,7 @@
   flex: none;
   align-items: center;
   gap: var(--space-2);
-  height: 48px;
+  height: var(--title-bar-height);
   min-width: 0;
   /* on Windows the actions stop 16px short of the caption buttons over the top right (base.css) */
   /* while the sidebar is hidden it starts after the WindowBar over its left (WorkspaceShell) */

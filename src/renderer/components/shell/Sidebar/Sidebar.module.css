@@ -41,7 +41,7 @@
    * toggle stands in the same place docked, in the drawer and in the bar. The title bar's start
    * keeps its own clearance, so the row has no gap.
    */
-  height: 48px;
+  height: var(--title-bar-height);
   padding-left: var(--space-1);
   -webkit-app-region: drag;
 }

@@ -7,7 +7,7 @@
   position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-rows: 48px minmax(0, 1fr);
+  grid-template-rows: var(--title-bar-height) minmax(0, 1fr);
   /* macOS, Linux: the docked sidebar, the page and a docked sheet each run the full height */
   grid-template-areas:
     'sidebar main sheet'
@@ -39,7 +39,7 @@
     'main main sheet';
 }
 /*
- * Windows: the caption buttons sit over the top right, so a docked sheet starts under a 48px strip
+ * Windows: the caption buttons sit over the top right, so a docked sheet starts under a `title-bar-height` strip
  * (`.titleBar`) that drags the window
  */
 .shell[data-platform='windows'] {
@@ -119,7 +119,7 @@
  */
 .edge {
   position: absolute;
-  top: 48px;
+  top: var(--title-bar-height);
   bottom: 0;
   left: 0;
   z-index: var(--z-overlay);
