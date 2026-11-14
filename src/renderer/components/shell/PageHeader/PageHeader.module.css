@@ -11,6 +11,8 @@
 .bare {
   flex: none;
   height: var(--title-bar-height);
+  /* clear of the WindowBar, so its drag box never covers the bar's buttons (see .header) */
+  margin-left: var(--window-bar-inset, 0px);
   -webkit-app-region: drag;
 }
 .scroll {
@@ -32,10 +34,15 @@
   gap: var(--space-2);
   height: var(--title-bar-height);
   min-width: 0;
+  /*
+   * While the sidebar is hidden it starts after the WindowBar over the page's top left
+   * (`--window-bar-inset`, set by WorkspaceShell). A margin, not padding: the header's box drags
+   * the window, and Electron lets a later drag box override an earlier no-drag one, so a header
+   * box over the bar would swallow its buttons' clicks.
+   */
+  margin-left: var(--window-bar-inset, 0px);
   /* on Windows the actions stop 16px short of the caption buttons over the top right (base.css) */
-  /* while the sidebar is hidden it starts after the WindowBar over its left (WorkspaceShell) */
-  padding: 0 max(var(--space-6), var(--title-bar-end, 0px)) 0
-    calc(var(--window-bar-inset, 0px) + var(--space-6));
+  padding: 0 max(var(--space-6), var(--title-bar-end, 0px)) 0 var(--space-6);
   -webkit-app-region: drag;
 }
 .header button,
