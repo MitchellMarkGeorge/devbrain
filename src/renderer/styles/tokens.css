@@ -209,7 +209,7 @@
   --pill-fill: transparent;
   --pill-fill-hover: color-mix(in srgb, var(--neutral-800) 60%, transparent);
   --accent-foreground: var(--neutral-200);
-  --destructive: #e5676a;
+  --destructive: var(--red-400);
   --border: color-mix(in srgb, var(--foreground) 8%, transparent);
   --border-strong: color-mix(in srgb, var(--foreground) 12%, transparent); /* DevBrain addition */
   --edge: color-mix(in srgb, var(--foreground) 8%, transparent);
@@ -231,20 +231,20 @@
   --pinned-shadow: color-mix(in srgb, black 50%, transparent); /* DevBrain addition */
 
   --status-not-started: var(--neutral-500);
-  --status-in-progress: #dd7f4a;
-  --status-completed: #3fa96b;
+  --status-in-progress: var(--orange-500);
+  --status-completed: var(--green-500);
   --status-cancelled: var(--neutral-500);
-  --status-overdue: #e5676a;
-  --priority-high: #e5676a;
-  --priority-medium: #d39a42;
-  --priority-low: #3a9b7a;
-  --health-on-track: #8db552;
-  --health-at-risk: #d39a42;
-  --health-off-track: #e5676a;
+  --status-overdue: var(--red-400);
+  --priority-high: var(--red-400);
+  --priority-medium: var(--amber-500);
+  --priority-low: var(--emerald-600);
+  --health-on-track: var(--lime-500);
+  --health-at-risk: var(--amber-500);
+  --health-off-track: var(--red-400);
   --health-not-started: var(--neutral-500);
-  --health-completed: #3fa96b;
-  --date-today: #d39a42;
-  --date-overdue: #e5676a;
+  --health-completed: var(--green-500);
+  --date-today: var(--amber-500);
+  --date-overdue: var(--red-400);
   --syntax-keyword: var(--violet-400);
   --syntax-string: var(--emerald-400);
   --syntax-number: var(--orange-300);
