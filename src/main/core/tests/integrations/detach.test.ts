@@ -37,10 +37,10 @@ import { NoteService } from '../../notes/service';
 import { ArchiveService } from '../../archive/service';
 import { projects as projectsTable } from '@main/db/schema/projects';
 import {
+  AlreadyArchivedError,
   DetachError,
   ExternalReadOnlyError,
   IntegrationAuthError,
-  NotFoundError,
 } from '../../shared/errors';
 
 const CREATED = new Date('2026-01-15T09:00:00Z');
@@ -277,7 +277,7 @@ describe('DetachService — detach', () => {
     expect(() => detach.detachTask(idOf(item))).toThrow(/already detached/);
 
     archive.archiveTask(idOf(item));
-    expect(() => detach.detachTask(idOf(item))).toThrow(NotFoundError);
+    expect(() => detach.detachTask(idOf(item))).toThrow(AlreadyArchivedError);
     expect(changes).toHaveLength(1);
   });
 

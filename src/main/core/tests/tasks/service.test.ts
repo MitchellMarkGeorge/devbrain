@@ -1833,7 +1833,7 @@ describe('TaskService — updateTasks', () => {
       tasks.updateTasks([a.id, generateId('task')], { priority: TaskPriority.HIGH }),
     ).toThrow(NotFoundError);
     expect(() => tasks.updateTasks([a.id, archived.id], { priority: TaskPriority.HIGH })).toThrow(
-      NotFoundError,
+      AlreadyArchivedError,
     );
 
     expect(tasks.getById(a.id).priority).toBe(TaskPriority.LOW);

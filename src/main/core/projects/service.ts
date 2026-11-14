@@ -31,6 +31,7 @@ import {
   withExternalRefs,
 } from '../integrations/refs';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
+import { assertNotTrashed } from '../shared/trash';
 import { withListDetails } from '../tasks/details';
 import { toExportedTasks } from '../transfer/task-format';
 import { projectAsMarkdown } from '../transfer/markdown-copy';
@@ -108,13 +109,18 @@ export class ProjectService {
     return project;
   }
 
+  // Throws NotFoundError for an unknown project, AlreadyArchivedError for one in the trash, and
+  // ExternalReadOnlyError for a synced one
   updateProject(id: ProjectId, updates: UpdateProjectOptions): Project {
+    assertNotTrashed(this.db, id);
     assertEditable(this.db, id);
     const row = this.db.update(projects).set(updates).where(eq(projects.id, id)).returning().get();
     return this.updated(id, row);
   }
 
+  // throws as updateProject does
   updateStatus(id: ProjectId, newStatus: ProjectStatus): Project {
+    assertNotTrashed(this.db, id);
     assertEditable(this.db, id);
     const row = this.db
       .update(projects)

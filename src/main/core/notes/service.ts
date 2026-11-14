@@ -13,6 +13,7 @@ import { InvalidInputError, NotArchivedError, NotFoundError } from '../shared/er
 import { keyset, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { withNoteListDetails } from './details';
+import { assertNotTrashed } from '../shared/trash';
 import { noteAsMarkdown } from '../transfer/markdown-copy';
 import { copyTitle } from '../tasks/utils';
 import { consoleLogger, errorClass, type Logger } from '../shared/logger';
@@ -233,10 +234,13 @@ export class NoteService {
     return { ...result, items: withNoteListDetails(this.db, result.items) };
   }
 
+  // Throws NotFoundError for an unknown note, AlreadyArchivedError for one in the trash, and
+  // InvalidInputError for links to both an event and a task
   updateNote(id: NoteId, options: UpdateNoteOptions): Note {
     if (options.linkedEventId && options.linkedTaskId) {
       throw new InvalidInputError('Notes cannot be linked to both an event and a task');
     }
+    assertNotTrashed(this.db, id);
 
     const updates: UpdateNoteOptions = {};
     if (options.title !== undefined) updates.title = options.title;
@@ -259,7 +263,8 @@ export class NoteService {
   // content is what ends up in the file, the preview and the search index. Each save's file write,
   // preview and change come from its own content, and every call resolves with the row it wrote
   // (or rejects with its own error, which does not stop the saves queued after it).
-  // Throws NotFoundError for an unknown or archived note, or one deleted while saving.
+  // Throws NotFoundError for an unknown note or one deleted while saving, and AlreadyArchivedError
+  // for one in the trash (moved there while saving, too).
   async updateNoteContent(id: NoteId, content: string): Promise<Note> {
     const previous = this.contentSaves.get(id);
     const save = previous
@@ -377,7 +382,8 @@ export class NoteService {
   }
 
   private async saveNoteContent(id: NoteId, content: string): Promise<Note> {
-    // think about this, could just pass in the title or the note object itself
+    // one in the trash is read-only; then the active row, which an unknown id has none of
+    assertNotTrashed(this.db, id);
     const existing = this.getById(id);
 
     await updateNoteFile(this.noteFilePath(id), { id, title: existing.title }, content);

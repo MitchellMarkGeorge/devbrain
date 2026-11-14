@@ -70,6 +70,44 @@ to suppress it. The same holds for detached and removed projects.
 - A project that is not synced holds no synced tasks (sync moves them out before detaching it), so
   deleting one writes no provider-owned field.
 
+## Writes to items in the trash
+
+A task, project or note in the trash opens read-only on its page (`TrashedNotice`, the page made
+`inert`). Core holds the same rule, so it does not depend on the renderer: every write a user makes
+to a row in the trash is refused with `AlreadyArchivedError` (`already_archived`), changes nothing
+and sends no change. Restoring the item makes it writable again.
+
+- **Where.** `assertNotTrashed` and `assertRowNotTrashed` (`src/main/core/shared/trash.ts`), called
+  before the write next to `assertEditable`, as it is for synced rows.
+- **What it covers.** Tasks: `updateTask` (title, description, priority, dates, pull request),
+  `updateStatus`, `updateProject`, `updateTasks` (one trashed task refuses the whole batch),
+  `updateLinks`, `promoteSubtask`, `demoteTask` (either side), `createSubtask` under one,
+  `convertToProject`, and `detachTask`/`reattachTask`. Projects: `updateProject` (title,
+  description, dates, colour) and `updateStatus`. Notes: `updateNote` (title, project, links) and
+  `updateNoteContent`. Favourites: favoriting and unfavoriting any of the three; a favorite the item
+  had is kept, and it shows again once restored.
+- **What it leaves alone.** `SyncWriter` writes the rows it mirrors whatever their state (it
+  archives a removed item and restores it when it comes back), and the archive service's archive,
+  restore, delete and empty-trash paths are the way into and out of the trash. Neither calls it.
+  Reads that already ask for an active item (`duplicateTask`, `toMarkdown`, `readContent`, …) keep
+  answering `not_found` for one in the trash.
+- **A content save already running** when the note goes to the trash finishes; one queued behind
+  it is refused.
+
+### Why `already_archived`, not `not_found`
+
+`AlreadyArchivedError` is `NotArchivedError`'s counterpart: delete and restore refuse an item that
+is not in the trash with `not_archived`, and writes refuse one that is with `already_archived`, the
+code archive already sends for "this is in the trash". `NotFoundError` would say something false:
+the row exists, `tasks.get` returns it, and its page shows it. The renderer reads `not_found` as
+gone (the pages' loaders show the not-found page, and a failed write's toast says "It may have been
+deleted"), while `already_archived` says "It's already in the trash." It also keeps the two cases
+apart: `not_found` stays the answer for an id with no row, such as one deleted for good.
+
+Before this, the writes that read the row as active first (`updateLinks`, `promoteSubtask`,
+`demoteTask`, `createSubtask`, `convertToProject`, `updateTasks`, detach and a note's content save)
+answered `not_found`; they now answer `already_archived` like the rest.
+
 ## Empty trash
 
 `ArchiveService.emptyTrash`, exposed as `archive.emptyTrash`, deletes every item in the trash for

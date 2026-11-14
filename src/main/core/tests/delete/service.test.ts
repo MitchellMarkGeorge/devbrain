@@ -240,7 +240,10 @@ describe('TaskService.deleteTask', () => {
     expect(noteRow(otherNote.id)).toMatchObject({ linkedTaskId: other.id });
     // the note files are the user's and stay
     expect(await exists(noteFile(taskNote.id))).toBe(true);
-    // a note freed by the delete can become another task's task note; one task note per task holds
+    // a note freed by the delete can become another task's task note once restored (one in the
+    // trash is read-only); one task note per task holds
+    archive.restoreNote(taskNote.id);
+    archive.restoreNote(subNote.id);
     const fresh = tasks.createTask({ title: 'Fresh', dueDate: TOMORROW });
     notes.updateNote(taskNote.id, { linkedTaskId: fresh.id });
     expect(() => notes.updateNote(subNote.id, { linkedTaskId: fresh.id })).toThrow();
