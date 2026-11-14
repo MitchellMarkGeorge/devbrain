@@ -4,7 +4,7 @@ A group in the grouped list, as a band: `group-height` (36px) with `radius-md` c
 
 ## Tint
 
-The band is `muted` with 8% of the group's colour mixed in: `color-mix(in oklab, <color> 8%, var(--muted))`. `color` (or an event's `bar`) takes any swatch or CSS colour, so a new colour needs no token. Hovering swaps `muted` for `accent` under the same 8%. A group without a colour keeps the plain `muted` band: Not started, No priority, later due-date buckets, a note, No link. The mix is opaque, so a stuck band still covers the rows scrolling under it.
+The band is `muted` with the group's colour mixed in, 5% in dark and 8% in light: `color-mix(in oklab, <color> 5%, var(--muted))`. `color` (or an event's `bar`) takes any swatch or CSS colour, so a new colour needs no token. Hovering swaps `muted` for `accent` under the same tint. A group without a colour keeps the plain `muted` band: Not started, No priority, later due-date buckets, a note, No link. The mix is opaque, so a stuck band still covers the rows scrolling under it.
 
 - One heading for every way a list groups: by project (a folder in the project's swatch), status (the `StatusIcon`, with `color` its `status-*` token), priority (the `PriorityIcon` with its `priority-*` token; no priority is a muted dash and no colour), due date (Overdue in `status-overdue`, Today in `date-today`, later buckets muted) and what tasks link to (an event's `ColourBar`, a note's muted file icon). Pass a `StatusIcon` or `PriorityIcon` at `size={14}`; they colour themselves, and `color` tints the band.
 - `subtitle` is for an event's time ("Today, 10:00 AM"), read after its title. Keep other groups to a title and a count: no progress, no due date.

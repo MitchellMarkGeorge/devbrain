@@ -9,7 +9,7 @@ export const WINDOW_BACKGROUND = {
 
 // --foreground in each theme: the symbols on the window controls Windows draws over the page
 export const WINDOW_FOREGROUND = {
-  dark: '#e5e5e5',
+  dark: '#d4d4d4',
   light: '#0a0a0a',
 } as const;
 
@@ -21,8 +21,8 @@ export const BROWSER_PAGE_FONT =
 export const BROWSER_PAGE_COLOURS = {
   dark: {
     background: '#0a0a0a',
-    foreground: '#e5e5e5',
-    'foreground-strong': '#f5f5f5',
+    foreground: '#d4d4d4',
+    'foreground-strong': '#e5e5e5',
     'muted-foreground': '#a1a1a1',
   },
   light: {

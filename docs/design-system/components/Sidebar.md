@@ -1,6 +1,6 @@
 # Sidebar
 
-shadcn's Sidebar laid out as in Figma's `Sidebar` symbol: 256px on the page colour (`sidebar`) with a `sidebar-border` hairline at its right, 12px side padding, 16px between blocks.
+shadcn's Sidebar laid out as in Figma's `Sidebar` symbol: 256px on `sidebar` (`black` in dark, a step below the page; `neutral-50` in light) with a `sidebar-border` hairline at its right, 12px side padding, 16px between blocks.
 
 - **Window row** (inside a `WorkspaceShell`, docked and in the drawer; Figma's `SidebarWindowRow`, a `platform` variant per platform): 48px, the title bar's start at the left (the traffic lights on macOS, the menu button on Windows, nothing on Linux: see `WindowBar`), then the sidebar toggle beside it, and back and forward at the right (28px muted icon buttons, 8px apart). It starts exactly as the `WindowBar` does (16px in, the same gaps), so the toggle stands in the same place whether the sidebar is docked, in the drawer or hidden.
 - **Header:** a 20px `WorkspaceTile`, the workspace name (14px medium `foreground`) and a 12px up-down chevron that opens the `WorkspaceSwitcher` (the row fills with `sidebar-accent` on hover and `accent` while open); then search and new (`SidebarAction`: 28px icon buttons with their shortcut in the tooltip).
