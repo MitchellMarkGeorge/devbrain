@@ -1,7 +1,7 @@
 import { useRef, type ReactNode } from 'react';
 import { cn } from '../../lib/cn';
 import { paddingBefore, useVirtualList } from '../../lib/virtual';
-import { SPACING } from '../../../styles/tokens';
+import { SPACING } from '@renderer/styles/tokens';
 import { CardGrid } from '../CardGrid';
 import { useWorkspaceShell } from '../WorkspaceShell/context';
 import { ScrollArea } from '../../ui/ScrollArea';

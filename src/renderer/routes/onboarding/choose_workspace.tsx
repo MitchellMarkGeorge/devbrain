@@ -1,5 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { ChooseWorkspace, workspacePagesOptions } from '../../pages/onboarding/ChooseWorkspace';
+import {
+  ChooseWorkspace,
+  workspacePagesOptions,
+} from '@renderer/features/onboarding/components/ChooseWorkspace';
 
 export const Route = createFileRoute('/onboarding/choose_workspace')({
   loader: ({ context: { queryClient } }) =>

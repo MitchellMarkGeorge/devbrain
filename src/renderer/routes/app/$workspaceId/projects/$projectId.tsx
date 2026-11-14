@@ -1,11 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { ProjectPage } from '../../../../pages/projects/detail/ProjectPage';
+import { ProjectPage } from '@renderer/features/projects/components/detail/ProjectPage';
 import {
   loadProject,
   parseProjectParams,
   projectLoaderDeps,
-} from '../../../../pages/projects/loaders';
-import { projectSearchSchema } from '../../../../pages/projects/search';
+} from '@renderer/features/projects/api/loaders';
+import { projectSearchSchema } from '@renderer/features/projects/api/search';
 
 // A project's page, with its tab in the URL (?tab=tasks); a missing or deleted project is its
 // not-found.

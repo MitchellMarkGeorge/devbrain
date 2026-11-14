@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { AppLayout } from '../../../pages/app/AppLayout';
-import { NotFoundPage } from '../../../pages/app/NotFoundPage';
-import { Splash, SPLASH_DELAY_MS } from '../../../pages/root/Splash';
-import { WorkspaceOpenError } from '../../../pages/app/WorkspaceOpenError';
-import { openWorkspaceOf, parseWorkspaceParams } from '../../../pages/app/workspace-route';
+import { AppLayout } from '@renderer/layouts/workspace/AppLayout';
+import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
+import { Splash, SPLASH_DELAY_MS } from '@renderer/app/Splash';
+import { WorkspaceOpenError } from '@renderer/layouts/workspace/WorkspaceOpenError';
+import { openWorkspaceOf, parseWorkspaceParams } from '@renderer/app/workspace-route';
 
 // Every page in a workspace: /app/<its id>/…. The route opens the workspace its URL names when
 // it isn't the open one, before any page's loader runs, with the splash as its pending component;

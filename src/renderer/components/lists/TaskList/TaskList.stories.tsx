@@ -9,7 +9,7 @@ import { TaskStatus } from '@common/types';
 import { storyDate } from '../../lib/story-dates';
 import { BUSY_TASK, manyTasks, SAMPLE_SUBTASKS, SAMPLE_TASKS } from '../TaskRow/fixtures';
 import { Text } from '../../layout/Text';
-import { defaultKeymap, KeyboardProvider, KeyScope, useListCommands } from '../../../keyboard';
+import { defaultKeymap, KeyboardProvider, KeyScope, useListCommands } from '@renderer/keyboard';
 import {
   TaskList as TaskListComponent,
   type FlatTaskListProps,

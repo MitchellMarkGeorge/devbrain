@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { isUndoable, UndoStack } from '../../keyboard/undo';
+import { isUndoable, UndoStack } from '@renderer/keyboard/undo';
 import { keymap, press, setUp } from './helpers';
 
 describe('UndoStack', () => {

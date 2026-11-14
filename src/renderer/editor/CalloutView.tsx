@@ -4,7 +4,7 @@ import {
   ReactNodeViewRenderer,
   type ReactNodeViewProps,
 } from '@tiptap/react';
-import { Callout as CalloutBlock, type CalloutKind } from '../components';
+import { Callout as CalloutBlock, type CalloutKind } from '@renderer/components';
 import { Callout } from './extensions/callout';
 
 // a callout as the design system's Callout; while editing, its title changes the kind

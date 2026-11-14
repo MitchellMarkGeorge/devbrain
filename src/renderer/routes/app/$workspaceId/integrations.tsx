@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { IntegrationsPage } from '../../../pages/integrations/IntegrationsPage';
+import { IntegrationsPage } from '@renderer/features/integrations/components/IntegrationsPage';
 
 // The workspace's connected accounts and their sources.
 export const Route = createFileRoute('/app/$workspaceId/integrations')({

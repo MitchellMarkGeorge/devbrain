@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { TasksPage } from '../../../../pages/tasks/views/TasksPage';
-import { loadTasks, tasksLoaderDeps } from '../../../../pages/tasks/loaders';
-import { tasksSearchSchema } from '../../../../pages/tasks/search';
+import { TasksPage } from '@renderer/features/tasks/components/views/TasksPage';
+import { loadTasks, tasksLoaderDeps } from '@renderer/features/tasks/api/loaders';
+import { tasksSearchSchema } from '@renderer/features/tasks/api/search';
 
 // The tasks: list, group or board, with filters and sort in the URL (?view=board&sort=due_date),
 // and the board's task sheet at ?open=tsk_….

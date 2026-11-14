@@ -4,8 +4,8 @@ import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import type { Editor } from '@tiptap/core';
 import { TaskStatus } from '@common/types';
-import { RichTextEditor, type RichTextEditorProps } from '../../editor/RichTextEditor';
-import { setLinkEditing } from '../../editor/extensions/editor-host';
+import { RichTextEditor, type RichTextEditorProps } from '@renderer/editor/RichTextEditor';
+import { setLinkEditing } from '@renderer/editor/extensions/editor-host';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

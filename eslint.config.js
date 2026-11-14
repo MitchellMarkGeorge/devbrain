@@ -84,7 +84,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/renderer/pages/search/SearchHighlight.tsx'],
+    files: ['src/renderer/features/search/components/SearchHighlight.tsx'],
     rules: { 'react/no-danger': 'off' },
   },
 

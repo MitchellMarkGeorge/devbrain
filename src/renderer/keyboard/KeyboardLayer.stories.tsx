@@ -1,10 +1,10 @@
 import { useRef, useState, type CSSProperties } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Stack } from '../components/layout/Flex';
-import { Text } from '../components/layout/Text';
-import { WindowFrameProvider } from '../components/lib/platform';
-import { Input } from '../components/ui/Input';
-import { Kbd, KbdGroup } from '../components/ui/Kbd';
+import { Stack } from '@renderer/components/layout/Flex';
+import { Text } from '@renderer/components/layout/Text';
+import { WindowFrameProvider } from '@renderer/components/lib/platform';
+import { Input } from '@renderer/components/ui/Input';
+import { Kbd, KbdGroup } from '@renderer/components/ui/Kbd';
 import { createAppCommands, defaultKeymap } from './default-keymap';
 import type { Command } from './commands';
 import {

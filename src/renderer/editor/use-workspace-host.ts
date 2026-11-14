@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { hexColorSchema } from '@common/color';
 import type { SearchResult } from '@common/types';
-import { trpc } from '../ipc';
+import { trpc } from '@renderer/ipc';
 import { highlightToText } from './highlight';
 import type { EditorEntity, EditorHost, MentionType } from './types';
 

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { EventSourceInput } from '@fullcalendar/react';
 import type { CalendarId, EventId } from '@common/ids';
 import { EventKind, EventStatus, TaskStatus, type Calendar, type Event } from '@common/types';
-import { toEventInput } from '../../../calendar';
+import { toEventInput } from '@renderer/shared/lib/calendar';
 import type { CalendarEvent } from '../../types';
 import { MONTH_EVENTS, NOW, WEEK_EVENTS, WEEK_EVENTS_MORE } from '../../screens/Calendar/data';
 import { CalendarView, calendarEventInput } from './CalendarView';

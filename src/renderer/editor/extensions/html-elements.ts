@@ -12,7 +12,7 @@ import { Details, DetailsSummary } from '@tiptap/extension-details';
 import Subscript from '@tiptap/extension-subscript';
 import Superscript from '@tiptap/extension-superscript';
 import Underline from '@tiptap/extension-underline';
-import { kbdVariants } from '../../components/ui/Kbd';
+import { kbdVariants } from '@renderer/components/ui/Kbd';
 
 /**
  * The HTML tags DevBrain notes support, for what GitHub-flavoured markdown has no syntax for. Each

@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Welcome } from '../../pages/onboarding/Welcome';
+import { Welcome } from '@renderer/features/onboarding/components/Welcome';
 
 export const Route = createFileRoute('/onboarding/')({
   loader: ({ context: { queryClient, trpc } }) =>

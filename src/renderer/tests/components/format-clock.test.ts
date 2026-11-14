@@ -8,7 +8,7 @@ import {
   useFormat,
   type FormatProviderProps,
   type Precision,
-} from '../../components/lib/format';
+} from '@renderer/components/lib/format';
 
 // Monday 22 June 2026, 11:58:30 PM local time: a minute tick, then midnight, are close
 const START = new Date(2026, 5, 22, 23, 58, 30);

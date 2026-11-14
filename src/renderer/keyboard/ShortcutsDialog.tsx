@@ -1,7 +1,7 @@
 import { Fragment, useMemo } from 'react';
-import { Dialog, DialogContent, DialogTitle } from '../components/ui/Dialog';
-import { Kbd, KbdGroup } from '../components/ui/Kbd';
-import { useFormatKeys } from '../components/lib/platform';
+import { Dialog, DialogContent, DialogTitle } from '@renderer/components/ui/Dialog';
+import { Kbd, KbdGroup } from '@renderer/components/ui/Kbd';
+import { useFormatKeys } from '@renderer/components/lib/platform';
 import { useCommandList, useKeyboard, useKeyboardState } from './KeyboardProvider';
 import { KeyScope } from './KeyScope';
 import { shortcutSections } from './shortcuts';

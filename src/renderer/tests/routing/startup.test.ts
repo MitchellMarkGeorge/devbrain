@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
 import type { WorkspaceId } from '@common/ids';
-import { SPLASH_MINIMUM_MS } from '../../router';
-import { SPLASH_DELAY_MS } from '../../pages/root/Splash';
+import { SPLASH_MINIMUM_MS } from '@renderer/app/router';
+import { SPLASH_DELAY_MS } from '@renderer/app/Splash';
 import { FakeMain, workspace } from './fake-main';
 import {
   byText,

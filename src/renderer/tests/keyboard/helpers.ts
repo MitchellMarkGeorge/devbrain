@@ -1,8 +1,8 @@
-import type { Platform } from '../../components/lib/platform';
-import { CommandRegistry, type Command, type CommandArgs } from '../../keyboard/commands';
-import { KeyDispatcher } from '../../keyboard/dispatcher';
-import type { Keymap, KeymapEntry } from '../../keyboard/keymap';
-import { UndoStack } from '../../keyboard/undo';
+import type { Platform } from '@renderer/components/lib/platform';
+import { CommandRegistry, type Command, type CommandArgs } from '@renderer/keyboard/commands';
+import { KeyDispatcher } from '@renderer/keyboard/dispatcher';
+import type { Keymap, KeymapEntry } from '@renderer/keyboard/keymap';
+import { UndoStack } from '@renderer/keyboard/undo';
 
 export interface PressOptions {
   shift?: boolean;

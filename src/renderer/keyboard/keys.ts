@@ -1,4 +1,4 @@
-import { formatKeys, type Platform } from '../components/lib/platform';
+import { formatKeys, type Platform } from '@renderer/components/lib/platform';
 
 /**
  * Key notation.

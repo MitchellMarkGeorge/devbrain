@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Editor } from '@tiptap/core';
 import type { NoteId, WorkspaceId } from '@common/ids';
 import { TaskStatus, type NoteListItem } from '@common/types';
-import { queryClient } from '../../ipc';
+import { queryClient } from '@renderer/ipc';
 import { FakeMain, workspace } from './fake-main';
 import { fakeNote, fakeProject, fakeTask, FakeTasks } from './fake-tasks';
 import { byText, click, eventually, startApp, stopApps } from './harness';

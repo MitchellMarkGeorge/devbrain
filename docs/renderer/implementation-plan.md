@@ -88,7 +88,7 @@ surveyed three things in parallel and checked the claims the plan rests on again
 
 - `src/renderer/ipc`: `trpc`, `ipc`, `queryClient`, `events`, `queryInvalidator` (with
   `ENTITIES_READ_BY_ROUTE`), the initial load context and `seedQueryCache`.
-- `src/renderer/theme.tsx` (`workspace-opening.ts` was replaced by the
+- `src/renderer/app/theme.tsx` (`workspace-opening.ts` was replaced by the
   root's splash, drawn in place of the page during a switch.)
 - `main.tsx` bootstrap (error catching, invalidator, seeding, theme, `WindowFrameProvider`), now
   also making the one router and following outside changes.
@@ -101,7 +101,7 @@ surveyed three things in parallel and checked the claims the plan rests on again
 compositions in `components/screens/*` (not their frames: the Calendar, Tasks and TaskDetail screens
 use older hand-made frames; the Shell screens' `ScreenFrame` + `DemoSidebar` is the canonical one).
 
-**Built in milestones 1–2:** the router (`src/renderer/router.tsx`, `routes/`, `pages/`), with
+**Built in milestones 1–2:** the router (`src/renderer/app/router.tsx`, `routes/`, `features/`), with
 `ToastProvider` mounted in the root route; `App.tsx` and `workspace-opening.ts` are gone.
 
 **Missing:**
@@ -168,8 +168,8 @@ app/$workspaceId/
 ```
 
 Route files stay thin: `validateSearch`, `loader`, `beforeLoad`, and a component that composes a
-page from `src/renderer/pages/<feature>/`. Page pieces that are not routes (toolbars, the task
-sheet, the event sheet, dialogs) live under `src/renderer/pages/<feature>/` too, so the route
+page from `src/renderer/features/<feature>/`. Page pieces that are not routes (toolbars, the task
+sheet, the event sheet, dialogs) live under `src/renderer/features/<feature>/` too, so the route
 generator never sees them. `src/renderer/components/` stays the design system: presentational, no
 IPC, no router (its ESLint layering already enforces no `@main`/`@common` imports there).
 
@@ -190,7 +190,7 @@ and the TanStack Router behaviours it relies on, each checked by a test.
 routes` regenerates it without a build.
 - Storybook needs no change: the components never import the router.
 
-### `src/renderer/router.tsx`
+### `src/renderer/app/router.tsx`
 
 `createAppRouter({ history, context })` makes the router; `main.tsx` calls it once with
 `createHashHistory()`, and the tests with memory history. Context:
@@ -221,7 +221,7 @@ is open already, so nothing reopens and no splash shows. `/` (an empty hash) red
 onboarding. `workspaces.openLast` is removed.
 
 The **landing page** is one function, `landingHref(settings, workspace, id)`
-(`src/renderer/workspace/landing.ts`), used by `/app/$workspaceId/`: `WorkspaceInfo.lastPage` when
+(`src/renderer/shared/lib/workspace/landing.ts`), used by `/app/$workspaceId/`: `WorkspaceInfo.lastPage` when
 `general.openToLastPage` is on and it is that workspace's page (and not the index itself), else
 `/app/<id>/<general.defaultLandingPage>`.
 
@@ -269,7 +269,7 @@ previous filter; opening a sheet (`open=…`) pushes, so Back closes it.
 
 ## Search params
 
-Schemas live beside each route's page in `src/renderer/pages/<feature>/search.ts`, so a `<Link>`
+Schemas live beside each route's page in `src/renderer/features/<feature>/api/search.ts`, so a `<Link>`
 elsewhere imports the type. Every field is `.optional().catch(undefined)`: a bad value drops that
 field back to its default instead of failing the page (see Decisions).
 
@@ -584,7 +584,7 @@ favorites and pills.
 
 `WorkspaceShell` with (built in milestone 1, except where marked):
 
-- **Sidebar header:** `WorkspaceMenu` (`src/renderer/pages/app/WorkspaceMenu.tsx`): picking a
+- **Sidebar header:** `WorkspaceMenu` (`src/renderer/layouts/workspace/WorkspaceMenu.tsx`): picking a
   workspace navigates to its link; "New workspace…" opens the Create workspace dialog, which
   creates it and navigates to it; "Open folder…" calls `workspaces.importFolder`, then navigates
   to the workspace added (errors in the import error dialog); "Show in Finder". Search (⌘K) and New
@@ -610,10 +610,10 @@ to=… />}` with `active` from `useMatchRoute` (fuzzy, so a detail page keeps it
 ### Global dialogs and commands
 
 Shown from anywhere with `useModals().open((props) => <TheDialog {...props} />)`
-(`src/renderer/modals.tsx`): the root layout's `ModalProvider` draws them, and drops them all when a
+(`src/renderer/app/modals.tsx`): the root layout's `ModalProvider` draws them, and drops them all when a
 workspace switch starts. The keys and commands that open them are app-wide commands (see Keyboard):
 
-- **Search ⌘K** (`7170:15331`; built in milestone 9, `pages/search`): `CommandDialog`,
+- **Search ⌘K** (`7170:15331`; built in milestone 9, `features/search`): `CommandDialog`,
   `search.search` debounced 300ms with the type filter, grouped results with counts, "Recent"
   (from `recents.list`) and "Go to" commands on an empty query. Results' titles and bodies are
   core's escaped HTML with `<b>`; `SearchHighlight` is the one place that renders them, never raw
@@ -704,13 +704,13 @@ from the keys that work.
 **Wiring it in** (milestone 3; the layer itself is built, in `src/renderer/keyboard/`, with its
 `README.md`):
 
-- **`KeyboardProvider` goes in the root layout** (`pages/root/Root.tsx`), around `ModalProvider`.
+- **`KeyboardProvider` goes in the root layout** (`app/Root.tsx`), around `ModalProvider`.
   Dialogs shown with `useModals` render in the root, outside the page, and the shortcuts dialog
   reads the keymap and the registry, so the provider must be above them. It holds no workspace
   data: the registry empties itself as pages unmount, and its undo stack is cleared when a
   workspace switch starts (`useSwitchingWorkspace`), as an entry would undo a change in the
   workspace being closed.
-- **The app-wide commands register in the workspace layout** (`pages/app/AppLayout.tsx`), with
+- **The app-wide commands register in the workspace layout** (`layouts/workspace/AppLayout.tsx`), with
   `useCommands(createAppCommands(actions))`: `goTo` navigates with `params: { workspaceId }`,
   `openShortcuts` is `modals.open((props) => <ShortcutsDialog {...props} />)`, and
   `toggleSidebar` is `AppShell`'s, whose own ⌘\ listener is removed in the same change (or ⌘\
@@ -738,7 +738,7 @@ the version from `app.version`. See Root route.
 Layout: `AppShell` with the window bar (traffic lights or the Windows menu button) and no
 sidebar.
 
-**Built in milestone 2** (`src/renderer/pages/onboarding`, `pages/workspaces`). Each open is a
+**Built in milestone 2** (`src/renderer/features/onboarding`, `features/workspaces`). Each open is a
 navigation to the workspace's link (`/app/<id>`), which opens it under the splash.
 
 - **Welcome** (`/onboarding`, `7175:19898`; with workspaces `7285:53770`): with no workspaces,
@@ -752,7 +752,7 @@ navigation to the workspace's link (`/app/<id>`), which opens it under the splas
   workspace's link, replacing the form in the history. Back (or Esc) goes back. The same page
   serves the app's "New workspace…", which was a dialog (`7760:61527`) before; why it moved, and
   how going back avoids the splash: routing.md, "Create workspace". The colour is stored as the
-  swatch's hex (`SWATCH_HEX`, `src/renderer/workspace/colors.ts`), and a stored colour is drawn as
+  swatch's hex (`SWATCH_HEX`, `src/renderer/shared/lib/workspace/colors.ts`), and a stored colour is drawn as
   the nearest swatch.
 - **Choose workspace** (`/onboarding/choose_workspace`): the full `WorkspaceList` (all workspaces,
   `workspaces.list` as an infinite query, 20 a page, "Show More"), for when the Welcome card shows
@@ -783,7 +783,7 @@ Figma `7254:8102` and its variants; composition in `screens/Home/HomeScreens.tsx
   The summary line under the greeting carries Home's content; the name added nothing to it. The
   design-system README and the Figma Home frames change their copy to match when Home is built.
 
-- **Summary and section choice** are computed in `pages/home/summary.ts`, a pure function over:
+- **Summary and section choice** are computed in `features/home/lib/summary.ts`, a pure function over:
   today's and tomorrow's events (`events.listForCalendar` for now → end of tomorrow), open tasks
   due by end of today (`tasks.list({ filter: { dueBefore, excludeClosed } })`), projects due in the
   next 7 days (`projects.list`), and recent notes (`recents.list({ entityType: 'notes' })`). It
@@ -1305,7 +1305,7 @@ page that needs them.
    toast and `useConfirm`; Recents/Favorites/SyncStatus in the sidebar; page header slot and
    breadcrumbs; the keyboard layer (built: `src/renderer/keyboard/`) mounted as Keyboard's "Wiring
    it in" says, with the default keymap, the list keys moved out of `TaskRow`/`TaskList` into it,
-   and the shortcuts dialog. _Main:_ X1 first. As built: the pieces are in `src/renderer/pages/app`
+   and the shortcuts dialog. _Main:_ X1 first. As built: the pieces are in `src/renderer/layouts/workspace` and `src/renderer/shared`
    (`use-open-entity.ts`, `use-record-view.ts`, `mutation-errors.ts`, `use-confirm.tsx`,
    `use-move-to-trash.ts`, `page-header.tsx` with `PageHeaderSlot`, `SidebarEntities.tsx`,
    `use-app-commands.ts`); `FormatProvider` and `KeyboardProvider` are in the root layout, around the
@@ -1313,7 +1313,7 @@ page that needs them.
    `Date`s, as structured clone delivers them.
 4. **Tasks (done).** List view with filters/sort in search params, row menu, selection bar; group view;
    board with the task sheet; create task and subtask dialogs; task page. _Main:_ T5, T6, T2,
-   C1–C3. As built (`src/renderer/pages/tasks`):
+   C1–C3. As built (`src/renderer/features/tasks`):
    - Layout: the shared data and actions at the folder's root (`queries.ts`, `search.ts`,
      `loaders.ts`, `use-task-actions.ts`, `use-tasks-search.ts`); `views/` the Tasks page with
      `list/`, `group/` and `board/`; `sheet/` the board's task sheet; `detail/` the task page;
@@ -1338,7 +1338,7 @@ linkedTaskId } })`), separate from the task's event or note link.
    - The menu's Convert to project (confirmation, then the project's page), Duplicate (⌘D, then
      the copy's page) and Copy as Markdown ("Copied" toast) call C1–C3.
 5. **Notes (done).** List and cards, note page with the editor and autosave, linked tasks,
-   `useEntityResolver`. _Main:_ N1 (before this milestone), N2. As built (`src/renderer/pages/notes`):
+   `useEntityResolver`. _Main:_ N1 (before this milestone), N2. As built (`src/renderer/features/notes`):
    - Layout as Tasks': `search.ts`, `queries.ts`, `loaders.ts`, `use-note-actions.ts`,
      `use-create-note.ts` at the root; `views/` the Notes page (list and cards); `detail/` the
      note page; `menus/` the row menu and the link and task pickers.
@@ -1358,27 +1358,27 @@ linkedTaskId } })`), separate from the task's event or note link.
      "+ Add task" (a new task linked to the note, or Link existing task ›). The Tasks section
      shows once it has a task. Link to › (in the "…" menu and the row menu's Change link ›) picks
      an event or a task.
-   - Saving: `useEditorAutosave` (`pages/app/autosave.ts`, shared with the task description)
+   - Saving: `useEditorAutosave` (`shared/hooks/use-autosave.ts`, shared with the task description)
      saves 500ms after typing, flushes on unmount, window blur and the start of a workspace
      switch, and hands the editor only text it didn't save itself, so its own save's refetch
      never overwrites newer typing.
-   - Editors take `useEditorHost()` (`pages/app/use-editor-host.ts`): search, links,
+   - Editors take `useEditorHost()` (`shared/hooks/use-editor-host.ts`): search, links,
      `useEntityResolver` and `useOpenEntity`. Pills subscribe through a new `EditorHost.watchEntity`;
      `resolveEntity` returns null for an entity known to be gone.
    - The task and note pages' loaders also prime the event, note or task the entity links to
-     (`primeLinks`, `pages/app/loaders.ts`), so the link pill is there on the first frame; a
+     (`primeLinks`, `shared/api/loaders.ts`), so the link pill is there on the first frame; a
      failed read leaves the pill to load on its own. The note page's loader awaits the note's
      tasks too, read alongside the note: the tasks pill under the title needs them.
    - Sheets beside a page, as the board's: on the note page, a task in its Tasks section opens in
      the task sheet (`?open=tsk_…`); on the task page, the task note card and "+ Add a task note"
-     open the note in `NoteSheet` (`pages/notes/sheet`, `?note=nte_…`): its title, "Edited …",
+     open the note in `NoteSheet` (`features/notes/sheet`, `?note=nte_…`): its title, "Edited …",
      project and body, saved with the note page's editor and autosave. Back closes either; ⤢ opens
      the full page. The board's task sheet still opens the note's page (the task is the sheet).
      The task note dialog (dropped in milestone 4) is not coming back.
    - The "…" menu's Duplicate (⌘D, then the copy's page) and Copy as Markdown, and the row menu's
      Copy as Markdown, call C2 and C3 (`notes.duplicate`, `notes.toMarkdown`).
 6. **Projects (done).** List and cards, project page with tabs, create project dialog. _Main:_ P1,
-   C4. As built (`src/renderer/pages/projects`):
+   C4. As built (`src/renderer/features/projects`):
    - Layout as Tasks': `search.ts`, `queries.ts`, `loaders.ts`, `route-api.ts`,
      `use-project-actions.ts` at the folder's root; `views/` the Projects page; `detail/` the
      project page and its tabs; `create/` the Create project dialog. The routes are
@@ -1389,7 +1389,7 @@ linkedTaskId } })`), separate from the task's event or note link.
      trash, run one project at a time (no bulk project routes); the list keys open (↵), select
      (X), favorite (F) and trash (⌘⌫). Rows and cards have a right-click menu (Open, Favorite,
      Move to trash).
-   - The Tasks tab is the tasks page's views (`pages/tasks/views/TasksView`) with the project fixed:
+   - The Tasks tab is the tasks page's views (`features/tasks/components/views/TasksView`) with the project fixed:
      the views read their state from a `TasksSearchProvider` (`use-tasks-search.ts`), which the
      tasks page fills from its URL and the Tasks tab from the project page's (its params beside
      `tab`, the project left out). The Filter menu then has no Project, Group by no "Project" (it
@@ -1410,7 +1410,7 @@ linkedTaskId } })`), separate from the task's event or note link.
      are `Tabs variant="line" size="lg"` (underlined, with icons). "N overdue" opens the Tasks
      tab's list view filtered to overdue tasks; core's `numOfOverdue` counts tasks due before
      today, as that filter and the rows do (it counted those due earlier today too). Colours are
-     stored as `#rrggbb` (`workspace/colors.ts`'s `SWATCH_HEX`), as `projects.update` takes no
+     stored as `#rrggbb` (`shared/lib/workspace/colors.ts`'s `SWATCH_HEX`), as `projects.update` takes no
      swatch names; "Change colour" is a submenu of the six swatches rather than the editor's
      `ColourMenu`.
    - The Notes tab draws `NoteCard`s and opens them on the note page with `useOpenEntity`. New note (the menu's and the tab's) creates an empty note in the project and
@@ -1425,7 +1425,7 @@ linkedTaskId } })`), separate from the task's event or note link.
    K0.
 
    **Done.** `CalendarView` and the adapter landed first (#121); the page is
-   `src/renderer/pages/calendar`, at `/app/$workspaceId/calendar`. As built:
+   `src/renderer/features/calendar`, at `/app/$workspaceId/calendar`. As built:
    - Layout: `search.ts` (the params) and `range.ts` (the range a view and date show, checked
      against FullCalendar's own `activeRange`, weekends hidden or not, the week from Monday or
      Sunday), `queries.ts`, `loaders.ts` and `use-event-sources.ts` at the folder's root;
@@ -1479,7 +1479,7 @@ linkedTaskId } })`), separate from the task's event or note link.
      not set).
 
 8. **Home (done).** Summary/section logic with tests over fixed `now`s, capture box with parsing, the
-   time-aware rows. As built (`src/renderer/pages/home`):
+   time-aware rows. As built (`src/renderer/features/home`):
    - `summary.ts` chooses the greeting, the summary sentence and the one section. A meeting
      counts as now from an hour before its start (so a meeting in 12 minutes wins over overdue
      tasks, as Figma's Home frame shows); tasks due today or overdue are now; a project is due on
@@ -1501,7 +1501,7 @@ linkedTaskId } })`), separate from the task's event or note link.
    - Start a project goes to Projects until the Create project dialog lands; Connect goes to
      Integrations, without opening its connect dialog yet.
 9. **Search (⌘K) (done)** with recents and Go to commands. _Main:_ R1, R4. As built
-   (`src/renderer/pages/search`):
+   (`src/renderer/features/search`):
    - `SearchDialog`, shown with `useOpenSearch` by the `search.open` command (⌘K) and the
      sidebar's search button. Per settled query (300ms, so results change when typing pauses rather than mid-word),
      one `search.search` for the selected type (every type for "All"), up to the route's page
@@ -1527,7 +1527,7 @@ linkedTaskId } })`), separate from the task's event or note link.
    - Results aren't virtualized: at most 200 rows, and "All" draws at most 20.
 10. **Trash, Integrations, Settings (done).** _Main:_ E1, S1, S3; A3 and K1 not needed (the
     providers are hard-coded). As built:
-    - **Trash** (`src/renderer/pages/trash`): `?tab` (snake case, `sort` reserved) over
+    - **Trash** (`src/renderer/features/trash`): `?tab` (snake case, `sort` reserved) over
       `archive.listArchived`, infinite and virtualized in the page (`TrashList`, on
       `components/lib/virtual`); Restore with "Restored · Open", Delete asking per
       `confirmBeforeDeleting` in `deleteConsequence`'s words (docs/deleting.md), the right-click
@@ -1536,14 +1536,14 @@ linkedTaskId } })`), separate from the task's event or note link.
       trashed task (`getById(…, { includeArchived })`), shown inert under `TrashedNotice` with
       Restore. A trashed project or note still opens on not-found: `projects.get` and `notes.get`
       refuse trashed rows (follow-up "Open trashed projects and notes read-only").
-    - **Integrations** (`src/renderer/pages/integrations`): an `IntegrationAccount` per account,
+    - **Integrations** (`src/renderer/features/integrations`): an `IntegrationAccount` per account,
       statuses from `sync.status` and `integrations.list` refetched on the push events, and
       `sync.progress` counted into "Syncing… 24 so far". Connect menu and the empty page from a
       hard-coded `PROVIDERS`; Linear's key dialog (connect, and Update API Key for a rejected key,
       with the rejection under the field); Google's waiting dialog, whose Cancel, Esc or click
       outside calls `cancelConnect`. Every switch is locked while a connect or reconnect runs
       (`useConnecting`). Disconnect counts with `previewDisconnect` first.
-    - **Settings** (`src/renderer/pages/settings`): `?tab` in a `document` `PageContent`; every
+    - **Settings** (`src/renderer/features/settings`): `?tab` in a `document` `PageContent`; every
       control writes its one path through `settings.set`, optimistically (`useSetSetting`, which
       applies only the last answer when writes overlap). General has Reset settings in the danger
       zone with Delete workspace (typed name, then `/onboarding`, which `followOutsideChanges`

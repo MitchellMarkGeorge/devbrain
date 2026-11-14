@@ -8,7 +8,7 @@ import {
   type ExternalRef,
   type SearchResult,
 } from '@common/types';
-import { queryClient, trpc } from '../../ipc';
+import { queryClient, trpc } from '@renderer/ipc';
 import { FakeMain, workspace } from './fake-main';
 import { eventually, startApp, stopApps } from './harness';
 

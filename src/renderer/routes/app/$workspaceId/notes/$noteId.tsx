@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { NotePage } from '../../../../pages/notes/detail/NotePage';
-import { loadNote, parseNoteParams } from '../../../../pages/notes/loaders';
-import { notePageSearchSchema } from '../../../../pages/notes/search';
+import { NotePage } from '@renderer/features/notes/components/detail/NotePage';
+import { loadNote, parseNoteParams } from '@renderer/features/notes/api/loaders';
+import { notePageSearchSchema } from '@renderer/features/notes/api/search';
 
 // A note's page; a missing or deleted note is its not-found. A task made from it opens in the
 // sheet at ?open=tsk_….

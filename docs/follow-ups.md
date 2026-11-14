@@ -188,7 +188,7 @@ Fixes, which can be combined:
 2. **Refuse edits while a flow runs.** Track the integrations being connected or reconnected, and make `setEnabled` and `setSourceEnabled` throw an "integration busy" error for them. The service already does this between OAuth flows (`connecting` and `ConnectInProgressError`), but API-key reconnects are not tracked. Gives the UI a clear error when a click slips through.
 3. **Lock the controls in the UI.** While an integration connects or reconnects, its enable toggle and source switches are disabled ("Waiting for sign-in…"). The clearest experience, but not enough on its own: `markNeedsReauth` also comes from the sync engine and token refresh, and a second window or a stale view can still reach the service. The `integrations.reconnect` and `integrations.setEnabled` routes exist, but no view calls them yet, so this belongs with the integrations settings screen.
 
-_Fix 3 is done_ (renderer milestone 10): while any connect or reconnect runs in the window, every account's switch and source switch is disabled (`useConnecting` in `src/renderer/pages/integrations`, read from React Query's mutation cache, so it holds across pages). Fixes 1 and 2 are still open, for the cases the UI can't cover.
+_Fix 3 is done_ (renderer milestone 10): while any connect or reconnect runs in the window, every account's switch and source switch is disabled (`useConnecting` in `src/renderer/features/integrations`, read from React Query's mutation cache, so it holds across pages). Fixes 1 and 2 are still open, for the cases the UI can't cover.
 
 ### Reconnecting leaves kept tasks detached
 
@@ -222,7 +222,7 @@ _Found in the rich text editor (PR #101)._
 
 The editor knows an entity only by its type, id and title, so the pills in a note didn’t show its real state. (The "@" menu does now: search results carry a task's `status` and a project's or event's `color`, and `toMentionItem` in `src/renderer/editor/suggestion/entity-menu.tsx` passes them through.)
 
-**Done (milestone 5): `useEntityResolver`** (`src/renderer/editor/use-entity-resolver.ts`), which every page's editor takes through `useEditorHost` (`src/renderer/pages/app/use-editor-host.ts`). `resolveEntity` reads `tasks.get`, `projects.get`, `notes.get` and `events.get` from React Query's cache, one query per pill, which the query invalidator refetches when core reports a change; each pill subscribes through the host's `watchEntity`, so it draws again when its query settles, and an entity known to be gone (`resolveEntity` returns null) gets the "missing" style. A batch route (`entities.summaries(ids)`) can come later if notes with many pills make the per-pill queries noticeable.
+**Done (milestone 5): `useEntityResolver`** (`src/renderer/editor/use-entity-resolver.ts`), which every page's editor takes through `useEditorHost` (`src/renderer/shared/hooks/use-editor-host.ts`). `resolveEntity` reads `tasks.get`, `projects.get`, `notes.get` and `events.get` from React Query's cache, one query per pill, which the query invalidator refetches when core reports a change; each pill subscribes through the host's `watchEntity`, so it draws again when its query settles, and an entity known to be gone (`resolveEntity` returns null) gets the "missing" style. A batch route (`entities.summaries(ids)`) can come later if notes with many pills make the per-pill queries noticeable.
 
 Colours from core are untrusted (docs/security/untrusted-content.md): parse them with `hexColorSchema` before they reach a style, falling back to the default when they fail.
 
@@ -232,9 +232,9 @@ _Found in the tasks pages (PR #136)._
 
 The pickers with a search row narrow the rows they already loaded, by title, in the browser (`DropdownMenuSearch`). Anything outside what they load can never be found:
 
-- **Link to › an event or note** (`TaskLinkPicker` in `src/renderer/pages/tasks/detail/TaskLinkPicker.tsx`): events from the last week and the next four, and the 50 notes edited last.
+- **Link to › an event or note** (`TaskLinkPicker` in `src/renderer/features/tasks/components/detail/TaskLinkPicker.tsx`): events from the last week and the next four, and the 50 notes edited last.
 - **Make subtask of ›** (the same file): the first page of open top-level tasks.
-- **Project pickers** (`ProjectPicker`, through `useProjectOptions` in `src/renderer/pages/tasks/menus/use-project-options.ts`): the first 200 projects.
+- **Project pickers** (`ProjectPicker`, through `useProjectOptions` in `src/renderer/features/tasks/hooks/use-project-options.ts`): the first 200 projects.
 
 They should ask `search.search` (`src/main/ipc/routers/search.ts`) instead, once something is typed:
 
@@ -261,7 +261,7 @@ Separately, bringing a workspace back to a computer that still lists it is refus
 
 _Found in the routing work (PR #130)._
 
-`useHistoryPosition` (`src/renderer/pages/app/use-history-position.ts`) decides whether the window bar's arrows (and Back on a failed open) are enabled from TanStack Router's history: the entry's `__TSR_index` against `router.history.length`. It avoids TanStack's `useCanGoBack`, which is experimental and has no forward counterpart, but `__TSR_index` is still TanStack's own field: typed in `@tanstack/history`'s `ParsedHistoryState`, not described in its docs. `src/renderer/tests/routing/tanstack-behaviour.test.ts` checks how it counts, so an upgrade that changes it fails there.
+`useHistoryPosition` (`src/renderer/shared/hooks/use-history-position.ts`) decides whether the window bar's arrows (and Back on a failed open) are enabled from TanStack Router's history: the entry's `__TSR_index` against `router.history.length`. It avoids TanStack's `useCanGoBack`, which is experimental and has no forward counterpart, but `__TSR_index` is still TanStack's own field: typed in `@tanstack/history`'s `ParsedHistoryState`, not described in its docs. `src/renderer/tests/routing/tanstack-behaviour.test.ts` checks how it counts, so an upgrade that changes it fails there.
 
 Electron knows for certain: `webContents.navigationHistory.canGoBack()` and `canGoForward()` (Electron 42). Main already follows the window's navigations (`did-navigate`, `did-navigate-in-page`, in `src/main/runtime/last-page.ts`), so it could send an event such as `navigation.changed { canGoBack, canGoForward }` after each, and the hook would read that instead.
 
@@ -293,7 +293,7 @@ Figma's export toast (`7423:37520`) offers "Show in Finder" for the file just wr
 
 _Found in renderer milestone 10._
 
-Trash opens a row's item on its page, read-only until it is restored. `tasks.get` returns a task in the trash (with `archivedAt` set; `TaskService.getById` takes `includeArchived`), and the task page shows it under a "This task is in the trash" bar, inert. `projects.get` and `notes.get` still refuse archived rows (`not_found`), so a trashed project or note opens on its page's not-found. Give `ProjectService.getById` and `NoteService.getById` the same option (and `notes.readContent`), and show `TrashedNotice` (`src/renderer/pages/app`) on the project and note pages, as the task page does.
+Trash opens a row's item on its page, read-only until it is restored. `tasks.get` returns a task in the trash (with `archivedAt` set; `TaskService.getById` takes `includeArchived`), and the task page shows it under a "This task is in the trash" bar, inert. `projects.get` and `notes.get` still refuse archived rows (`not_found`), so a trashed project or note opens on its page's not-found. Give `ProjectService.getById` and `NoteService.getById` the same option (and `notes.readContent`), and show `TrashedNotice` (`src/renderer/shared/components`) on the project and note pages, as the task page does.
 
 ### Trash rows show only the trash's own columns
 

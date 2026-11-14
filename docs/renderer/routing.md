@@ -18,12 +18,12 @@ to open it when it isn't open.
   (`general.openToLastPage`) is on and its manifest has one. With none, a deleted one, or no
   DevBrain, `/onboarding`. Main opens nothing at startup.
 - **`/app/$workspaceId` opens the workspace** its URL names when it isn't the open one
-  (`openWorkspaceOf`, `src/renderer/pages/app/workspace-route.ts`) in its `beforeLoad`, so every
+  (`openWorkspaceOf`, `src/renderer/app/workspace-route.ts`) in its `beforeLoad`, so every
   loader below runs against it, with the splash as its pending component. When it is open (a reload, a navigation
   within it), nothing.
 - **`/app/$workspaceId/` (the index)** is the workspace's link: it redirects to the workspace's last
   page (setting on, and the page is that workspace's) or `/app/<id>/<defaultLandingPage>`
-  (`landingHref`, `src/renderer/workspace/landing.ts`).
+  (`landingHref`, `src/renderer/shared/lib/workspace/landing.ts`).
 - **Switching is navigating** to the workspace's link: the sidebar's workspace menu, onboarding's
   lists, Create workspace (create, then navigate, replacing the form in the history), Open
   Existing Folder (add, then navigate). Back and Forward
@@ -36,15 +36,15 @@ to open it when it isn't open.
 
 ## The pieces
 
-| Piece                                 | Where                                                            | Role                                                                            |
-| ------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `createAppRouter`                     | `src/renderer/router.tsx`                                        | The router, its options and context                                             |
-| `followOutsideChanges`                | `src/renderer/router.tsx`                                        | A delete or an open elsewhere moves the window                                  |
-| `openWorkspaceOf`                     | `src/renderer/pages/app/workspace-route.ts`                      | `/app/$workspaceId`'s beforeLoad: skips preloads, opens (taking 600ms at least) |
-| `Splash`, `SPLASH_DELAY_MS`           | `src/renderer/pages/root/Splash.tsx`                             | `/app/$workspaceId`'s pending component, and when it shows                      |
-| `AppWindow`                           | `src/renderer/pages/root/AppWindow.tsx`                          | The router, or the DevBrain-unavailable screen in its place                     |
-| `RootLayout`, `useSwitchingWorkspace` | `src/renderer/pages/root/Root.tsx`, `use-switching-workspace.ts` | Toasts, dialogs and the page; dialogs dropped as a switch starts                |
-| `initialRoute`, `saveLastPageOnClose` | `src/main/runtime/last-page.ts`                                  | The window's first route; the last page of each workspace, saved as it closes   |
+| Piece                                 | Where                                                     | Role                                                                            |
+| ------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `createAppRouter`                     | `src/renderer/app/router.tsx`                             | The router, its options and context                                             |
+| `followOutsideChanges`                | `src/renderer/app/router.tsx`                             | A delete or an open elsewhere moves the window                                  |
+| `openWorkspaceOf`                     | `src/renderer/app/workspace-route.ts`                     | `/app/$workspaceId`'s beforeLoad: skips preloads, opens (taking 600ms at least) |
+| `Splash`, `SPLASH_DELAY_MS`           | `src/renderer/app/Splash.tsx`                             | `/app/$workspaceId`'s pending component, and when it shows                      |
+| `AppWindow`                           | `src/renderer/app/AppWindow.tsx`                          | The router, or the DevBrain-unavailable screen in its place                     |
+| `RootLayout`, `useSwitchingWorkspace` | `src/renderer/app/Root.tsx`, `use-switching-workspace.ts` | Toasts, dialogs and the page; dialogs dropped as a switch starts                |
+| `initialRoute`, `saveLastPageOnClose` | `src/main/runtime/last-page.ts`                           | The window's first route; the last page of each workspace, saved as it closes   |
 
 There is no state of the renderer's own about which workspace is open: it is `workspaces.current`
 in React Query's cache, seeded from the initial load context, set by an open's answer, and marked

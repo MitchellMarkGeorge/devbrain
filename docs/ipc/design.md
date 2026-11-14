@@ -289,7 +289,7 @@ that value. Main answers with an `InitialLoadContext`
 ([`src/main/ipc/initial-load-context.ts`](../../src/main/ipc/initial-load-context.ts)), built fresh
 for each load: `{ devBrainAvailable, current, workspaces, settings }`, workspace info and the
 settings (`settings.get`'s answer, `null` without DevBrain). The theme setting is applied to the
-page before the first render (`src/renderer/theme.tsx`), which then follows `settings.get`. When building it throws, main
+page before the first render (`src/renderer/app/theme.tsx`), which then follows `settings.get`. When building it throws, main
 logs the error and answers `null`, so the page never waits forever.
 
 `seedQueryCache` puts `current`, `workspaces` and `settings` in the cache as `workspaces.current`,

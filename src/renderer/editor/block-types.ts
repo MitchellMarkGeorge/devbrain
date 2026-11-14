@@ -1,5 +1,5 @@
 import type { Editor } from '@tiptap/core';
-import type { BlockType } from '../components';
+import type { BlockType } from '@renderer/components';
 
 /**
  * The block types of the design system's TurnIntoMenu and SlashMenu (`BLOCK_TYPES`), in the editor:

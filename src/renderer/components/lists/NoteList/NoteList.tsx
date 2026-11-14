@@ -14,7 +14,7 @@ import {
 import type { NoteListItem } from '@common/types';
 import { cn } from '../../lib/cn';
 import { paddingBefore, useVirtualList } from '../../lib/virtual';
-import { SIZE } from '../../../styles/tokens';
+import { SIZE } from '@renderer/styles/tokens';
 import { ScrollArea } from '../../ui/ScrollArea';
 import { NoteRow, type NoteRowData } from '../NoteRow';
 import styles from './NoteList.module.css';

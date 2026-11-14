@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { CreateWorkspacePage } from '../../pages/workspaces/CreateWorkspacePage';
+import { CreateWorkspacePage } from '@renderer/features/workspaces/components/CreateWorkspacePage';
 
 // Create workspace, a page of its own outside any workspace: from Welcome when none is open, and
 // from the app's workspace menu, over the workspace still open behind it. Its URL names none, so

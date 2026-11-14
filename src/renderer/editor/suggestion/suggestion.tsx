@@ -4,7 +4,7 @@ import { PluginKey } from '@tiptap/pm/state';
 import { ReactRenderer } from '@tiptap/react';
 import Suggestion, { type SuggestionProps } from '@tiptap/suggestion';
 import { forwardRef, useCallback, useId, type ReactElement, type Ref } from 'react';
-import type { SuggestionMenuHandle } from '../../components';
+import type { SuggestionMenuHandle } from '@renderer/components';
 import { setMenuAria } from '../extensions/editor-host';
 
 /**

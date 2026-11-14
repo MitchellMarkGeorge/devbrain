@@ -7,9 +7,9 @@ import {
   parseMarkdown,
   relaxEntities,
   serializeMarkdown,
-} from '../../editor/markdown';
-import { highlightToText } from '../../editor/highlight';
-import { kbdVariants } from '../../components/ui/Kbd';
+} from '@renderer/editor/markdown';
+import { highlightToText } from '@renderer/editor/highlight';
+import { kbdVariants } from '@renderer/components/ui/Kbd';
 
 // Notes are markdown files, so loading one into the editor and saving it must give the file back.
 // Each document here is written the way the editor writes markdown, and must come back unchanged.

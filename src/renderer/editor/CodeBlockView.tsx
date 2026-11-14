@@ -4,7 +4,7 @@ import {
   ReactNodeViewRenderer,
   type ReactNodeViewProps,
 } from '@tiptap/react';
-import { CodeBlock } from '../components';
+import { CodeBlock } from '@renderer/components';
 import { CODE_LANGUAGES, languageLabel, languageValue } from './code-languages';
 import { DocumentCodeBlock } from './markdown';
 

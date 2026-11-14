@@ -1,5 +1,5 @@
 import { EditorContent as TiptapEditorContent, useEditor, type Editor } from '@tiptap/react';
-import { EditorContent } from '../components';
+import { EditorContent } from '@renderer/components';
 import { Placeholder } from '@tiptap/extensions';
 import { useEffect, useRef, useState } from 'react';
 import { CalloutView } from './CalloutView';

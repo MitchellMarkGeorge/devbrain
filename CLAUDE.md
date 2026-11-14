@@ -113,7 +113,7 @@ holds a copy of the data that lags the cache by a render, and draws a frame with
 ## Dialogs
 
 A page shows a dialog with `useModals().open((props) => <MyDialog {...props} />)`
-(`src/renderer/modals.tsx`), not with open state of its own or a callback passed up to whoever
+(`src/renderer/app/modals.tsx`), not with open state of its own or a callback passed up to whoever
 renders it. The dialog spreads `props` onto `Dialog` or `AlertDialog`, closes with
 `props.onOpenChange(false)`, and is removed once its closing animation ends. The root layout holds
 them, inside the router and the query client, and drops them all when a workspace switch starts.
@@ -140,11 +140,39 @@ The renderer reaches core through the typed tRPC router in `src/main/ipc`, run o
 - A new core change type must be mapped to its `ChangedEntity` list in the `ChangeTracker`, and a
   new router added to `ENTITIES_READ_BY_ROUTE` (`src/renderer/ipc/query-invalidator.ts`).
 
+## Renderer layout
+
+`src/renderer` is organised by feature, with code used by several features in `shared`:
+
+- `app/`: what starts the window and holds every page: the router (`router.tsx`), the root
+  layout, splash and error pages, `theme.tsx`, `modals.tsx`, `workspace-route.ts`.
+- `layouts/workspace/`: the shell around a workspace's pages (`AppLayout`, the sidebar, the
+  workspace menu, the page header slots, the app-wide commands).
+- `features/<feature>/`: one per area (tasks, notes, projects, calendar, home, search, settings,
+  integrations, trash, onboarding, workspaces), each split the same way:
+  - `api/`: `queries.ts` (query options and keys), `loaders.ts`, `search.ts` (search params),
+    `route-api.ts`;
+  - `hooks/`: its `use-*` hooks;
+  - `components/`: its pages, dialogs, sheets, menus and views, in subfolders by part
+    (`create/`, `detail/`, `menus/`, `sheet/`, `views/`);
+  - `lib/`: plain functions with no React (grouping, ranges, parsing).
+    A feature may import another's `api`, `hooks` or `components` (tasks' menus are used across
+    pages); when something is used by many, move it to `shared` instead.
+- `shared/`: `hooks/`, `lib/` (including `workspace/` and `calendar/`), `components/` (app
+  components that need IPC or the router; plain UI goes in `src/renderer/components`) and `api/`.
+- `components/`, `editor/`, `keyboard/`, `ipc/`, `routes/`, `styles/`, `assets/`: as described in
+  their own sections.
+- `tests/`: mirrors the folders above (`tests/features/<feature>`, `tests/shared`, `tests/app`);
+  `tests/routing` holds the route tests and their fake main.
+
+Import across folders with the `@renderer/*` alias (`@renderer/shared/hooks/use-confirm`); within
+one feature (or within `shared`, `app`, a layout) import relatively.
+
 ## Routing
 
 The renderer routes with TanStack Router: file routes in `src/renderer/routes`, generated into
 `src/renderer/routeTree.gen.ts` (checked in; `npm run routes` regenerates it), pages in
-`src/renderer/pages`. `docs/renderer/routing.md` is the design note.
+`src/renderer/features` (see "Renderer layout"). `docs/renderer/routing.md` is the design note.
 
 - **The URL names the workspace.** Every page in a workspace is under `/app/$workspaceId/…`; add new
   pages there (`routes/app/$workspaceId/<page>.tsx`; a folder's layout is its `route.tsx`), never

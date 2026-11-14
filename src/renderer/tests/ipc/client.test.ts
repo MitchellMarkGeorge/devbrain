@@ -6,9 +6,9 @@ import type { ChangedEntity } from '@common/changes';
 import type { AppEvents } from '@common/events';
 import type { IpcBridge, IpcErrorCode, IpcResult } from '@common/ipc/types';
 import type { AppRouter } from '@main/ipc/router';
-import { createEventClient } from '../../ipc/events';
-import { ipcLink } from '../../ipc/link';
-import type { IpcLinkOptions } from '../../ipc/link';
+import { createEventClient } from '@renderer/ipc/events';
+import { ipcLink } from '@renderer/ipc/link';
+import type { IpcLinkOptions } from '@renderer/ipc/link';
 
 // a bridge whose invoke answers with `result`
 function fakeBridge(result: IpcResult<unknown> = { ok: true, data: null, changed: [] }) {

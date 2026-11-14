@@ -2,7 +2,7 @@ import { NodeViewWrapper, ReactNodeViewRenderer, type ReactNodeViewProps } from 
 import { createContext, useCallback, useContext, useSyncExternalStore } from 'react';
 import { Image as ImageIcon } from 'lucide-react';
 import { TaskStatus } from '@common/types';
-import { EntityPill } from '../components';
+import { EntityPill } from '@renderer/components';
 import { EntityLink } from './extensions/entity-link';
 import { ImageLink } from './extensions/image-link';
 import type { EditorEntityType, EditorHost } from './types';

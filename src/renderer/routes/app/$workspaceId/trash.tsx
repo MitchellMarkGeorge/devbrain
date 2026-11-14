@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { TrashPage } from '../../../pages/trash/TrashPage';
-import { trashListQuery } from '../../../pages/trash/queries';
-import { trashEntityType, trashSearchSchema } from '../../../pages/trash/search';
+import { TrashPage } from '@renderer/features/trash/components/TrashPage';
+import { trashListQuery } from '@renderer/features/trash/api/queries';
+import { trashEntityType, trashSearchSchema } from '@renderer/features/trash/api/search';
 
 // The trash, by kind in ?tab=projects|tasks|notes (every kind without it).
 export const Route = createFileRoute('/app/$workspaceId/trash')({

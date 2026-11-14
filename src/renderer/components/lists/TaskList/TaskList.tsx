@@ -13,7 +13,7 @@ import {
 import { defaultRangeExtractor, type Range } from '@tanstack/react-virtual';
 import { cn } from '../../lib/cn';
 import { paddingBefore, useVirtualList } from '../../lib/virtual';
-import { SIZE, SPACING } from '../../../styles/tokens';
+import { SIZE, SPACING } from '@renderer/styles/tokens';
 import { SelectionBar } from '../SelectionBar';
 import { ScrollArea } from '../../ui/ScrollArea';
 import type { PickableStatus } from '../../entities/StatusMenu';

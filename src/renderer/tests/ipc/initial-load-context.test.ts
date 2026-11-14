@@ -7,8 +7,8 @@ import {
   readInitialLoadContext,
   seedQueryCache,
   type InitialLoadContext,
-} from '../../ipc/initial-load-context';
-import { trpc } from '../../ipc';
+} from '@renderer/ipc/initial-load-context';
+import { trpc } from '@renderer/ipc';
 
 // Reading main's initial load context as the page loads, and seeding the query cache with it.
 

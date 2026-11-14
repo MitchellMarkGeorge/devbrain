@@ -6,9 +6,9 @@ import {
 } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { isId } from '@common/ids';
-import { resolveColor } from '../components';
-import { trpc } from '../ipc';
-import { ipcErrorCode } from '../workspace/errors';
+import { resolveColor } from '@renderer/components';
+import { trpc } from '@renderer/ipc';
+import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
 import type { EditorEntity, EditorEntityType, EditorHost } from './types';
 
 // The entities behind an editor's pills, from React Query's cache: one query per pill, through the

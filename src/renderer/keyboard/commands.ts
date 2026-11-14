@@ -1,4 +1,4 @@
-import type { Platform } from '../components/lib/platform';
+import type { Platform } from '@renderer/components/lib/platform';
 import type { Scope } from './scopes';
 import type { Undoable, UndoStack } from './undo';
 
