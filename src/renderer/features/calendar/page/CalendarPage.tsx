@@ -13,9 +13,10 @@ import {
   type CalendarViewEvent,
   type CalendarViewHandle,
   type CalendarViewSelection,
+  Page,
+  PageHeader,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
-import { PageHeaderSlot } from '@renderer/layouts/workspace/page-header';
 import { TaskSheet } from '@renderer/features/tasks/components/sheet/TaskSheet';
 import {
   defaultDurationMinutes,
@@ -135,27 +136,29 @@ export function CalendarPage() {
   const sheetOpen = resolved.open !== undefined;
 
   return (
-    <>
-      <PageHeaderSlot
-        place={
+    <Page
+      header={
+        <PageHeader
+          actions={
+            <CalendarHeaderEnd
+              view={resolved.view}
+              layout={layout}
+              onViewChange={(next) => setSearch({ view: next })}
+              onStep={(direction) => goTo(stepDate(resolved.view, resolved.date, direction))}
+              onToday={() => setSearch({ date: undefined })}
+              onNewEvent={() => createEvent(draftForDay(resolved.date, now, duration))}
+            />
+          }
+        >
           <CalendarHeaderStart
             ref={setHeaderStart}
             date={resolved.date}
             calendars={calendars}
             layout={layout}
           />
-        }
-        actions={
-          <CalendarHeaderEnd
-            view={resolved.view}
-            layout={layout}
-            onViewChange={(next) => setSearch({ view: next })}
-            onStep={(direction) => goTo(stepDate(resolved.view, resolved.date, direction))}
-            onToday={() => setSearch({ date: undefined })}
-            onNewEvent={() => createEvent(draftForDay(resolved.date, now, duration))}
-          />
-        }
-      />
+        </PageHeader>
+      }
+    >
       <div className={styles.page} data-testid="calendar-page" data-view={resolved.view}>
         <div className={styles.grid}>
           {loading && (
@@ -213,7 +216,7 @@ export function CalendarPage() {
           onClosed={() => setSheet({ open: undefined, occurrence: undefined })}
         />
       )}
-    </>
+    </Page>
   );
 }
 

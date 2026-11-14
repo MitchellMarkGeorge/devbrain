@@ -14,6 +14,9 @@ import {
   Stack,
   Text,
   useFormat,
+  Page,
+  PageHeader,
+  Breadcrumb,
 } from '@renderer/components';
 import { usePlatform } from '@renderer/components/lib/platform';
 import { trpc } from '@renderer/ipc';
@@ -47,50 +50,58 @@ export function HomePage() {
   );
 
   return (
-    <PageContent layout="home">
-      <div className={styles.column}>
-        <header className={styles.header}>
-          <Logomark size="md" className={styles.logomark} />
-          {summary ? (
-            <>
-              <Heading level={1}>{summary.greeting}</Heading>
-              <Text tone="muted" align="center" className={styles.summary}>
-                <Summary parts={summary.summary} />
-              </Text>
-            </>
-          ) : (
-            <>
-              <Skeleton height={36} width={280} />
-              <Skeleton height={20} width={420} className={styles.summary} />
-            </>
-          )}
-        </header>
-        <HomeCapture firstRun={summary?.isNew ?? false} />
-        <div className={styles.section}>
-          {home.isError ? (
-            <EmptyState
-              icon={CircleX}
-              title="Home couldn’t be loaded"
-              description="Something went wrong reading this workspace."
-              action={
-                <Button size="sm" onClick={home.retry}>
-                  Retry
-                </Button>
-              }
-            />
-          ) : summary ? (
-            summary.section && <HomeSectionView section={summary.section} />
-          ) : (
-            <Stack gap="3">
-              {[0, 1, 2].map((row) => (
-                <Skeleton key={row} height={20} width={row % 2 ? '60%' : '80%'} />
-              ))}
-            </Stack>
-          )}
+    <Page
+      header={
+        <PageHeader>
+          <Breadcrumb items={['Home']} />
+        </PageHeader>
+      }
+    >
+      <PageContent layout="home">
+        <div className={styles.column}>
+          <header className={styles.header}>
+            <Logomark size="md" className={styles.logomark} />
+            {summary ? (
+              <>
+                <Heading level={1}>{summary.greeting}</Heading>
+                <Text tone="muted" align="center" className={styles.summary}>
+                  <Summary parts={summary.summary} />
+                </Text>
+              </>
+            ) : (
+              <>
+                <Skeleton height={36} width={280} />
+                <Skeleton height={20} width={420} className={styles.summary} />
+              </>
+            )}
+          </header>
+          <HomeCapture firstRun={summary?.isNew ?? false} />
+          <div className={styles.section}>
+            {home.isError ? (
+              <EmptyState
+                icon={CircleX}
+                title="Home couldn’t be loaded"
+                description="Something went wrong reading this workspace."
+                action={
+                  <Button size="sm" onClick={home.retry}>
+                    Retry
+                  </Button>
+                }
+              />
+            ) : summary ? (
+              summary.section && <HomeSectionView section={summary.section} />
+            ) : (
+              <Stack gap="3">
+                {[0, 1, 2].map((row) => (
+                  <Skeleton key={row} height={20} width={row % 2 ? '60%' : '80%'} />
+                ))}
+              </Stack>
+            )}
+          </div>
+          <HomeFooter />
         </div>
-        <HomeFooter />
-      </div>
-    </PageContent>
+      </PageContent>
+    </Page>
   );
 }
 

@@ -1,5 +1,4 @@
-import { Breadcrumb, PageContent, PageToolbar } from '@renderer/components';
-import { PageHeaderSlot } from '@renderer/layouts/workspace/page-header';
+import { Breadcrumb, PageContent, PageToolbar, Page, PageHeader } from '@renderer/components';
 import { CLEAR_FILTERS } from '../api/search';
 import { useCreateNote } from '../hooks/use-create-note';
 import { useNotesSearch } from '../hooks/use-notes-search';
@@ -24,17 +23,18 @@ export function NotesPage() {
       projectId: resolved.project && resolved.project !== 'none' ? resolved.project : undefined,
     });
   return (
-    <>
-      <PageHeaderSlot
-        place={
+    <Page
+      header={
+        <PageHeader>
           <Breadcrumb
             items={[
               'Notes',
               { label: VIEW_LABELS[resolved.view], icon: VIEW_ICONS[resolved.view] },
             ]}
           />
-        }
-      />
+        </PageHeader>
+      }
+    >
       <PageToolbar
         start={<NotesFilterMenu resolved={resolved} setSearch={setSearch} />}
         end={<NotesToolbarEnd resolved={resolved} setSearch={setSearch} onNewNote={newNote} />}
@@ -47,6 +47,6 @@ export function NotesPage() {
           onNewNote={newNote}
         />
       </PageContent>
-    </>
+    </Page>
   );
 }

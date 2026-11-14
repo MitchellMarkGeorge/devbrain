@@ -598,9 +598,9 @@ to=… />}` with `active` from `useMatchRoute` (fuzzy, so a detail page keeps it
   `SyncStatus` (from `sync.status`, kept fresh by `sources.changed` and `sync.progress` events;
   Retry calls `sync.now`) comes with milestone 3. The keyboard shortcuts dialog opens with `?` and
   from ⌘K.
-- **Header:** each page's title from its route's `staticData.title`, as a `Breadcrumb` in the
-  `PageHeader`. Milestone 3 replaces it with the `usePageHeader(node)` slot (breadcrumbs with the
-  entity title, page actions).
+- **Header:** each page draws its own, in the `Page` it renders: a `PageHeader` with its
+  `Breadcrumb` (the section, then the entity's title, built with `useCrumbLink`) and actions, or
+  no header at all (Settings, Integrations). The workspace layout holds nothing of the page's.
 - **Pages:** placeholders (`src/renderer/pages/app/placeholders.tsx`) whose loaders prime real
   queries and list what they load, until each page's milestone. Not-found (`NotFoundPage`) and
   error (`RouteErrorPage`, with Retry) pages draw inside the shell; slow pages show `PagePending`.

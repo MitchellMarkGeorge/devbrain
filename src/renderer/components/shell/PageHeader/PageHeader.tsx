@@ -1,11 +1,53 @@
-import { forwardRef, type ComponentPropsWithoutRef, type ReactNode, type Ref } from 'react';
+import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from 'react';
 import { Ellipsis, Star } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
 import { useWorkspaceShell } from '../WorkspaceShell/context';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import { IconButton } from '../../ui/IconButton';
+import { ScrollArea } from '../../ui/ScrollArea';
 import styles from './PageHeader.module.css';
+
+export interface PageProps extends ComponentPropsWithoutRef<'div'> {
+  /**
+   * The page's top bar, which stays put while the page scrolls: a `PageHeader` with its
+   * breadcrumb and actions, or any 48px bar of the page's own. Leave it out for a page with no
+   * header (Settings, Integrations): a bare 48px strip takes its place, to drag the window by and
+   * to keep the content clear of the `WindowBar`
+   */
+  header?: ReactNode;
+  /** classes for the scrolling element (the ScrollArea's viewport) */
+  scrollClassName?: string;
+}
+
+/**
+ * A page in a `WorkspaceShell`: its header, then everything under it (a `PageToolbar` and a
+ * `PageContent`, or a layout of the page's own) in the page's scroller. Every page renders one, so
+ * each decides its own header, or none. A list or grid page's content fills the scroller and
+ * scrolls itself; a Home or document page keeps its height, and the scroller scrolls it whole.
+ */
+export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
+  { header, scrollClassName, className, children, ...props },
+  ref,
+) {
+  return (
+    <div ref={ref} className={cn(styles.page, className)} {...props}>
+      {header ?? <div aria-hidden className={styles.bare} />}
+      {/*
+       * a ScrollArea, whose scrollbar is drawn over the page's edge and takes no width; data-slot
+       * on its scrolling element: the app's router restores it, and scrolls it to the top on a
+       * new page
+       */}
+      <ScrollArea
+        className={styles.scroll}
+        viewportClassName={cn(styles.scrollViewport, scrollClassName)}
+        viewportProps={{ 'data-slot': 'page-scroll' } as object}
+      >
+        {children}
+      </ScrollArea>
+    </div>
+  );
+});
 
 export interface PageHeaderProps extends Omit<ComponentPropsWithoutRef<'header'>, 'title'> {
   /** the page's place, at the left: a `Breadcrumb` ("Tasks › List"), or its title */
@@ -16,39 +58,22 @@ export interface PageHeaderProps extends Omit<ComponentPropsWithoutRef<'header'>
    * `PageToolbar` under the header instead.
    */
   actions?: ReactNode;
-  /**
-   * The place's element, for a page to portal its breadcrumb into from below (the app's
-   * `PageHeaderSlot`); leave `children` out then
-   */
-  placeRef?: Ref<HTMLDivElement>;
-  /** The actions' element, likewise; it's there even with no `actions`, and takes no room while empty */
-  actionsRef?: Ref<HTMLDivElement>;
-  /** what the place shows while nothing is in it: the section's name, until a page fills it */
-  fallback?: ReactNode;
 }
 
 /**
- * The top of every page: a 48px bar with the breadcrumb at the left and the page's actions at the
- * right, 24px in from the sides. It spans the page even where the content is a capped column.
- * While the sidebar is hidden, `WorkspaceShell` puts it beside the `WindowBar`.
+ * A page's top bar (its `Page`'s `header`): a 48px bar with the breadcrumb at the left and the
+ * page's actions at the right, 24px in from the sides. It spans the page even where the content is
+ * a capped column. While the sidebar is hidden it starts after the `WindowBar`
+ * (`--window-bar-inset`, set by `WorkspaceShell`).
  */
 export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function PageHeader(
-  { actions, placeRef, actionsRef, fallback, className, children, ...props },
+  { actions, className, children, ...props },
   ref,
 ) {
   return (
     <header ref={ref} className={cn(styles.header, className)} {...props}>
-      <div ref={placeRef} className={styles.place}>
-        {children}
-      </div>
-      {fallback !== undefined && (
-        <div className={cn(styles.place, styles.fallback)}>{fallback}</div>
-      )}
-      {(actions || actionsRef) && (
-        <div ref={actionsRef} className={styles.actions}>
-          {actions}
-        </div>
-      )}
+      <div className={styles.place}>{children}</div>
+      {actions && <div className={styles.actions}>{actions}</div>}
     </header>
   );
 });

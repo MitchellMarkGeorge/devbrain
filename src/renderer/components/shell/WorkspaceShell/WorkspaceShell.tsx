@@ -8,13 +8,13 @@ import {
   useRef,
   useState,
   type ComponentPropsWithoutRef,
+  type CSSProperties,
   type ReactNode,
   type Ref,
 } from 'react';
 import { Drawer } from '@base-ui/react/drawer';
 import { cn } from '../../lib/cn';
 import { useWindowFrame } from '../../lib/platform';
-import { ScrollArea } from '../../ui/ScrollArea';
 import { TooltipProvider } from '../../ui/Tooltip';
 import { CaptionButtons, WindowBar } from '../WindowBar';
 import { WorkspaceShellContext, type WorkspaceShellContextValue, type WindowSize } from './context';
@@ -25,9 +25,11 @@ import styles from './WorkspaceShell.module.css';
 export interface WorkspaceShellProps extends Omit<ComponentPropsWithoutRef<'div'>, 'children'> {
   /** the app's `Sidebar`: docked at the left, or in a drawer over the page while hidden */
   sidebar: ReactNode;
-  /** the page's `PageHeader`: beside the docked sidebar, or after the `WindowBar` while hidden */
-  header?: ReactNode;
-  /** the page under its header: a `PageToolbar` and a `PageContent` */
+  /**
+   * the page: a `Page`, which draws its own header (or none) and scrolls. While the sidebar is
+   * hidden the `WindowBar` sits over the page's top left; `--window-bar-inset` is its width, which
+   * a `PageHeader` keeps clear of
+   */
   children?: ReactNode;
   /** the user's choice: hide the sidebar at any size (⌘\) */
   collapsed?: boolean;
@@ -72,7 +74,6 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
   function WorkspaceShell(
     {
       sidebar,
-      header,
       children,
       collapsed: collapsedProp,
       defaultCollapsed = false,
@@ -94,6 +95,18 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
     // state, not a ref: a page portalling a sheet into it renders again once it's there
     const [sheetContainer, setSheetContainer] = useState<HTMLElement | null>(null);
     const drawerPopup = useRef<HTMLDivElement>(null);
+    // the WindowBar's width, for the page's header to start after it while the sidebar is hidden
+    const [windowBar, setWindowBar] = useState<HTMLDivElement | null>(null);
+    const [windowBarWidth, setWindowBarWidth] = useState(0);
+    useLayoutEffect(() => {
+      if (!windowBar) return;
+      setWindowBarWidth(windowBar.getBoundingClientRect().width);
+      const observer = new ResizeObserver(([entry]) => {
+        setWindowBarWidth(entry.borderBoxSize?.[0]?.inlineSize ?? entry.contentRect.width);
+      });
+      observer.observe(windowBar);
+      return () => observer.disconnect();
+    }, [windowBar]);
 
     const [measured, setMeasured] = useState<WindowSize>(() =>
       typeof window === 'undefined' ? 'wide' : windowSizeFor(window.innerWidth),
@@ -206,27 +219,22 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
             data-platform={frame.platform}
             className={cn(styles.shell, className)}
             {...props}
+            style={
+              {
+                '--window-bar-inset': hidden ? `${windowBarWidth}px` : '0px',
+                ...props.style,
+              } as CSSProperties
+            }
           >
             {hidden ? (
-              <WindowBar className={styles.bar} />
+              <WindowBar ref={setWindowBar} className={styles.bar} />
             ) : (
               <div className={styles.sidebar}>{sidebar}</div>
             )}
-            <div className={styles.header}>{header}</div>
-            <main className={styles.main}>
-              {/*
-               * a ScrollArea, whose scrollbar is drawn over the page's edge and takes no width;
-               * data-slot on its scrolling element: the app's router scrolls it to the top on a
-               * new page
-               */}
-              <ScrollArea
-                className={styles.scroll}
-                viewportClassName={styles.scrollViewport}
-                viewportProps={{ 'data-slot': 'page-scroll' } as object}
-              >
-                {children}
-              </ScrollArea>
-            </main>
+            {/* the page draws its own header (a `Page`) and scrolls itself */}
+            <main className={styles.main}>{children}</main>
+            {/* Windows: a strip to drag the window by, over the sheet's column, under the caption buttons */}
+            {frame.platform === 'windows' && <div aria-hidden className={styles.titleBar} />}
             {/* a docked sheet is portalled in here; the column slides open while that sheet is open */}
             <aside ref={setSheetContainer} className={styles.sheet} />
             {hidden && drawer === 'closed' && (

@@ -20,10 +20,12 @@ import {
   TabsList,
   TabsTab,
   useFormat,
+  Page,
+  PageHeader,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
-import { PageHeaderSlot, useCrumbLink } from '@renderer/layouts/workspace/page-header';
+import { useCrumbLink } from '@renderer/shared/hooks/use-crumb-link';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useRecordView } from '@renderer/shared/hooks/use-record-view';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
@@ -99,9 +101,19 @@ function ProjectPageContent({ project }: { project: Project }) {
   }
 
   return (
-    <>
-      <PageHeaderSlot
-        place={
+    <Page
+      header={
+        <PageHeader
+          actions={
+            <>
+              <PageFavoriteButton
+                favorite={project.favoritedAt !== null}
+                onFavoriteChange={(favorite) => actions.setFavorite(project, favorite)}
+              />
+              <ProjectMenu project={project} actions={actions} onTrash={() => void trash()} />
+            </>
+          }
+        >
           <Breadcrumb
             items={[
               crumbLink('Projects', { to: '/app/$workspaceId/projects', params: { workspaceId } }),
@@ -111,17 +123,9 @@ function ProjectPageContent({ project }: { project: Project }) {
               },
             ]}
           />
-        }
-        actions={
-          <>
-            <PageFavoriteButton
-              favorite={project.favoritedAt !== null}
-              onFavoriteChange={(favorite) => actions.setFavorite(project, favorite)}
-            />
-            <ProjectMenu project={project} actions={actions} onTrash={() => void trash()} />
-          </>
-        }
-      />
+        </PageHeader>
+      }
+    >
       <PageToolbar className={styles.tabsBar}>
         <Tabs
           variant="line"
@@ -144,7 +148,7 @@ function ProjectPageContent({ project }: { project: Project }) {
       )}
       {tab === 'tasks' && <ProjectTasksTab project={project} />}
       {tab === 'notes' && <ProjectNotesTab project={project} />}
-    </>
+    </Page>
   );
 }
 

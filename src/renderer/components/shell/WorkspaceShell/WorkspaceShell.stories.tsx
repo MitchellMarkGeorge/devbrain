@@ -7,7 +7,7 @@ import { Breadcrumb } from '../../ui/Breadcrumb';
 import { Button } from '../../ui/Button';
 import { Sheet, SheetBody, SheetContent, SheetHeader, SheetItemTitle } from '../../ui/Sheet';
 import { useWorkspaceShell } from './context';
-import { PageContent, PageFavoriteButton, PageHeader, PageToolbar } from '../PageHeader';
+import { Page, PageContent, PageFavoriteButton, PageHeader, PageToolbar } from '../PageHeader';
 import { WindowFrameProvider, type Platform } from '../../lib/platform';
 import { DemoSidebar } from '../../screens/Shell/AppFrame';
 import { TaskList } from '../../lists/TaskList';
@@ -48,22 +48,22 @@ function Frame({
   return (
     <div style={{ width, height }}>
       <KeyboardProvider keymap={defaultKeymap}>
-        <ShellWithKeys
-          sidebar={<DemoSidebar active="Tasks" />}
-          header={
-            <PageHeader actions={<PageFavoriteButton favorite={false} />}>
-              <Breadcrumb items={['Tasks', { label: 'List', icon: List }]} />
-            </PageHeader>
-          }
-          {...props}
-        >
-          <PageToolbar start={<Text tone="muted">Toolbar</Text>} />
-          <PageContent>
-            <Text tone="subtle">
-              Page content. Press ⌘\ to show or hide the sidebar; while it’s hidden, point at the
-              toggle or the window’s left edge to peek at it.
-            </Text>
-          </PageContent>
+        <ShellWithKeys sidebar={<DemoSidebar active="Tasks" />} {...props}>
+          <Page
+            header={
+              <PageHeader actions={<PageFavoriteButton favorite={false} />}>
+                <Breadcrumb items={['Tasks', { label: 'List', icon: List }]} />
+              </PageHeader>
+            }
+          >
+            <PageToolbar start={<Text tone="muted">Toolbar</Text>} />
+            <PageContent>
+              <Text tone="subtle">
+                Page content. Press ⌘\ to show or hide the sidebar; while it’s hidden, point at the
+                toggle or the window’s left edge to peek at it.
+              </Text>
+            </PageContent>
+          </Page>
         </ShellWithKeys>
       </KeyboardProvider>
     </div>
@@ -83,21 +83,22 @@ const LONG_LIST = manyTasks(1000);
 export const ListPage: Story = {
   render: () => (
     <div style={{ width: 1280, height: 720 }}>
-      <WorkspaceShell
-        sidebar={<DemoSidebar active="Tasks" />}
-        header={
-          <PageHeader actions={<PageFavoriteButton favorite={false} />}>
-            <Breadcrumb items={['Tasks', { label: 'List', icon: List }]} />
-          </PageHeader>
-        }
-      >
-        <PageToolbar
-          start={<Button value="Open">Filter</Button>}
-          end={<Button value="Priority">Sort</Button>}
-        />
-        <PageContent layout="list">
-          <TaskList tasks={LONG_LIST} />
-        </PageContent>
+      <WorkspaceShell sidebar={<DemoSidebar active="Tasks" />}>
+        <Page
+          header={
+            <PageHeader actions={<PageFavoriteButton favorite={false} />}>
+              <Breadcrumb items={['Tasks', { label: 'List', icon: List }]} />
+            </PageHeader>
+          }
+        >
+          <PageToolbar
+            start={<Button value="Open">Filter</Button>}
+            end={<Button value="Priority">Sort</Button>}
+          />
+          <PageContent layout="list">
+            <TaskList tasks={LONG_LIST} />
+          </PageContent>
+        </Page>
       </WorkspaceShell>
     </div>
   ),
@@ -231,15 +232,16 @@ function SheetFrame({ defaultOpen = false }: { defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div style={{ width: 1440, height: 720 }}>
-      <WorkspaceShell
-        sidebar={<DemoSidebar active="Tasks" />}
-        header={
-          <PageHeader>
-            <Breadcrumb items={['Tasks', { label: 'List', icon: List }]} />
-          </PageHeader>
-        }
-      >
-        <DockedSheetPage open={open} onOpenChange={setOpen} />
+      <WorkspaceShell sidebar={<DemoSidebar active="Tasks" />}>
+        <Page
+          header={
+            <PageHeader>
+              <Breadcrumb items={['Tasks', { label: 'List', icon: List }]} />
+            </PageHeader>
+          }
+        >
+          <DockedSheetPage open={open} onOpenChange={setOpen} />
+        </Page>
       </WorkspaceShell>
     </div>
   );

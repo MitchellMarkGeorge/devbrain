@@ -10,11 +10,13 @@ import {
   PageFavoriteButton,
   Stack,
   StatusIcon,
+  Page,
+  PageHeader,
 } from '@renderer/components';
 import { ipc, trpc } from '@renderer/ipc';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
-import { PageHeaderSlot, useCrumbLink } from '@renderer/layouts/workspace/page-header';
+import { useCrumbLink } from '@renderer/shared/hooks/use-crumb-link';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useRecordView } from '@renderer/shared/hooks/use-record-view';
 import { TrashedNotice } from '@renderer/shared/components/TrashedNotice';
@@ -115,28 +117,30 @@ function TaskPageContent({ task }: { task: Task }) {
   }
 
   return (
-    <>
-      <PageHeaderSlot
-        place={
+    <Page
+      header={
+        <PageHeader
+          actions={
+            !trashed && (
+              <>
+                <PageFavoriteButton
+                  favorite={task.favoritedAt !== null}
+                  onFavoriteChange={(favorite) => actions.setFavorite([task], favorite)}
+                />
+                <TaskDetailMenu task={task} onAdd={setAdding} onTrash={() => void trash()} />
+              </>
+            )
+          }
+        >
           <Breadcrumb
             items={[
               crumbLink('Tasks', { to: '/app/$workspaceId/tasks', params: { workspaceId } }),
               { label: task.title, icon: <StatusIcon status={task.status} /> },
             ]}
           />
-        }
-        actions={
-          !trashed && (
-            <>
-              <PageFavoriteButton
-                favorite={task.favoritedAt !== null}
-                onFavoriteChange={(favorite) => actions.setFavorite([task], favorite)}
-              />
-              <TaskDetailMenu task={task} onAdd={setAdding} onTrash={() => void trash()} />
-            </>
-          )
-        }
-      />
+        </PageHeader>
+      }
+    >
       <PageContent layout="document" data-testid="task-page">
         <Stack gap="8">
           {trashed && (
@@ -193,6 +197,6 @@ function TaskPageContent({ task }: { task: Task }) {
           onClosed={() => setSheetNote(undefined)}
         />
       )}
-    </>
+    </Page>
   );
 }

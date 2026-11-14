@@ -1,5 +1,5 @@
 import { getRouteApi } from '@tanstack/react-router';
-import { Heading, PageContent, Tabs, TabsList, TabsTab } from '@renderer/components';
+import { Heading, PageContent, Tabs, TabsList, TabsTab, Page } from '@renderer/components';
 import { DataStorageSettings } from '../components/DataStorageSettings';
 import { GeneralSettings } from '../components/GeneralSettings';
 import { CalendarSettingsSection, TasksSettings } from '../components/sections';
@@ -23,32 +23,34 @@ export function SettingsPage() {
   const tab = settingsRoute.useSearch().tab ?? 'general';
   const navigate = settingsRoute.useNavigate();
   return (
-    <PageContent layout="document" data-testid="page" data-tab={tab}>
-      <Heading level={1}>Settings</Heading>
-      <Tabs
-        className={styles.tabs}
-        value={tab}
-        onValueChange={(value: SettingsTab) =>
-          void navigate({
-            search: { tab: value === 'general' ? undefined : value },
-            replace: true,
-          })
-        }
-      >
-        <TabsList aria-label="Settings sections">
-          {TABS.map(({ value, label }) => (
-            <TabsTab key={value} value={value}>
-              {label}
-            </TabsTab>
-          ))}
-        </TabsList>
-      </Tabs>
-      <div className={styles.sections}>
-        {tab === 'general' && <GeneralSettings />}
-        {tab === 'tasks' && <TasksSettings />}
-        {tab === 'calendar' && <CalendarSettingsSection />}
-        {tab === 'data_storage' && <DataStorageSettings />}
-      </div>
-    </PageContent>
+    <Page>
+      <PageContent layout="document" data-testid="page" data-tab={tab}>
+        <Heading level={1}>Settings</Heading>
+        <Tabs
+          className={styles.tabs}
+          value={tab}
+          onValueChange={(value: SettingsTab) =>
+            void navigate({
+              search: { tab: value === 'general' ? undefined : value },
+              replace: true,
+            })
+          }
+        >
+          <TabsList aria-label="Settings sections">
+            {TABS.map(({ value, label }) => (
+              <TabsTab key={value} value={value}>
+                {label}
+              </TabsTab>
+            ))}
+          </TabsList>
+        </Tabs>
+        <div className={styles.sections}>
+          {tab === 'general' && <GeneralSettings />}
+          {tab === 'tasks' && <TasksSettings />}
+          {tab === 'calendar' && <CalendarSettingsSection />}
+          {tab === 'data_storage' && <DataStorageSettings />}
+        </div>
+      </PageContent>
+    </Page>
   );
 }

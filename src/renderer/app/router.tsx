@@ -81,8 +81,4 @@ declare module '@tanstack/react-router' {
   interface Register {
     router: AppRouter;
   }
-  interface StaticDataRouteOption {
-    /** the page's name in its header (a later milestone adds the entity's title) */
-    title?: string;
-  }
 }

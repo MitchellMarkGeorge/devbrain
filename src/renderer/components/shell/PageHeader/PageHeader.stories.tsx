@@ -1,5 +1,3 @@
-import { useState } from 'react';
-import { createPortal } from 'react-dom';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { ArrowUpDown, CircleCheck, Copy, ListFilter, Plus, Trash2, List } from 'lucide-react';
 import { Text } from '../../layout/Text';
@@ -9,6 +7,7 @@ import { DropdownMenuItem, DropdownMenuSeparator } from '../../ui/DropdownMenu';
 import { ToggleGroup } from '../../ui/ToggleGroup';
 import { TooltipProvider } from '../../ui/Tooltip';
 import {
+  Page,
   PageContent,
   PageFavoriteButton,
   PageHeader,
@@ -117,32 +116,29 @@ export const DocumentContent: Story = {
 };
 
 /**
- * Filled from below: the header shows its `fallback` ("Tasks") while its place is empty, and a page
- * portals its own breadcrumb and actions into `placeRef` and `actionsRef` (the app's
- * `PageHeaderSlot`). Toggle the page's part in and out.
+ * A `Page` with its own header, and one without: Settings and Integrations draw their title in the
+ * content, so their `Page` has no header and keeps only the bare 48px strip to drag the window by.
  */
-export const FilledFromBelow: Story = {
-  render: function Render() {
-    const [place, setPlace] = useState<HTMLDivElement | null>(null);
-    const [actions, setActions] = useState<HTMLDivElement | null>(null);
-    const [filled, setFilled] = useState(true);
-    return (
-      <>
-        <PageHeader
-          placeRef={setPlace}
-          actionsRef={setActions}
-          fallback={<Breadcrumb items={['Tasks']} />}
-        />
-        <PageContent>
-          <Button variant="outline" onClick={() => setFilled((on) => !on)}>
-            {filled ? 'Empty the place' : 'Fill the place'}
-          </Button>
+export const PageWithAndWithoutHeader: Story = {
+  render: () => (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, height: 320 }}>
+      <Page
+        style={{ outline: '1px dashed var(--border)' }}
+        header={
+          <PageHeader actions={<PageFavoriteButton favorite={false} />}>
+            <Breadcrumb items={['Tasks', 'Implement OAuth2 PKCE flow']} />
+          </PageHeader>
+        }
+      >
+        <PageContent layout="document">
+          <Text tone="muted">A task: its breadcrumb and actions in its own header.</Text>
         </PageContent>
-        {filled &&
-          place &&
-          createPortal(<Breadcrumb items={['Tasks', 'Implement OAuth2 PKCE flow']} />, place)}
-        {filled && actions && createPortal(<PageFavoriteButton favorite={false} />, actions)}
-      </>
-    );
-  },
+      </Page>
+      <Page style={{ outline: '1px dashed var(--border)' }}>
+        <PageContent layout="document">
+          <Text tone="muted">Settings: no header, its title in the content.</Text>
+        </PageContent>
+      </Page>
+    </div>
+  ),
 };

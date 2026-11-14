@@ -197,6 +197,9 @@ The renderer routes with TanStack Router: file routes in `src/renderer/routes`, 
   stops the splash showing at startup.
 - **A saved page names its workspace** (`lastPageSchema`); main keeps one per workspace. Don't send
   the location over IPC.
+- **Each page draws its own header.** A page component renders a `Page` (`src/renderer/components`)
+  with its `PageHeader` (breadcrumb from `useCrumbLink`, actions), or no `header` at all; the
+  workspace layout holds nothing of the page's, so there is no slot or portal to fill.
 - Route files stay thin (`params`, `validateSearch`, `beforeLoad`, `loader`, a page component).
   `src/renderer/components` stays the design system: no router, no IPC.
 - When a TanStack upgrade fails `src/renderer/tests/routing/tanstack-behaviour.test.ts`, the

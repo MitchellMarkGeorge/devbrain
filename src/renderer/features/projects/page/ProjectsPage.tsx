@@ -15,9 +15,10 @@ import {
   ProjectList,
   VirtualCardGrid,
   type ProjectListHandle,
+  Page,
+  PageHeader,
 } from '@renderer/components';
 import { KeyScope, useListCommands } from '@renderer/keyboard';
-import { PageHeaderSlot } from '@renderer/layouts/workspace/page-header';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
 import { isSynced } from '@renderer/features/tasks/api/queries';
 import { projectListQuery } from '../api/queries';
@@ -157,9 +158,9 @@ export function ProjectsPage() {
   }
 
   return (
-    <>
-      <PageHeaderSlot
-        place={
+    <Page
+      header={
+        <PageHeader>
           <Breadcrumb
             items={[
               'Projects',
@@ -169,8 +170,9 @@ export function ProjectsPage() {
               },
             ]}
           />
-        }
-      />
+        </PageHeader>
+      }
+    >
       <PageToolbar
         start={<ProjectsFilterMenu resolved={resolved} setSearch={setSearch} />}
         end={<ProjectsToolbarEnd resolved={resolved} setSearch={setSearch} />}
@@ -224,6 +226,6 @@ export function ProjectsPage() {
           )}
         </ContextMenuContent>
       </ContextMenu>
-    </>
+    </Page>
   );
 }

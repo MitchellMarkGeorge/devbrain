@@ -12,11 +12,13 @@ import {
   PageFavoriteButton,
   Text,
   useFormat,
+  Page,
+  PageHeader,
 } from '@renderer/components';
 import { ipc, trpc } from '@renderer/ipc';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
-import { PageHeaderSlot, useCrumbLink } from '@renderer/layouts/workspace/page-header';
+import { useCrumbLink } from '@renderer/shared/hooks/use-crumb-link';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useRecordView } from '@renderer/shared/hooks/use-record-view';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
@@ -115,26 +117,28 @@ function NotePageContent({ note }: { note: Note }) {
       .catch((error: unknown) => showError(error, 'Couldn’t link the task'));
 
   return (
-    <>
-      <PageHeaderSlot
-        place={
+    <Page
+      header={
+        <PageHeader
+          actions={
+            <>
+              <PageFavoriteButton
+                favorite={note.favoritedAt !== null}
+                onFavoriteChange={(favorite) => actions.setFavorite([note], favorite)}
+              />
+              <NoteDetailMenu note={note} actions={actions} onTrash={() => void trash()} />
+            </>
+          }
+        >
           <Breadcrumb
             items={[
               crumbLink('Notes', { to: '/app/$workspaceId/notes', params: { workspaceId } }),
               { label: note.title || 'Untitled', icon: FileText },
             ]}
           />
-        }
-        actions={
-          <>
-            <PageFavoriteButton
-              favorite={note.favoritedAt !== null}
-              onFavoriteChange={(favorite) => actions.setFavorite([note], favorite)}
-            />
-            <NoteDetailMenu note={note} actions={actions} onTrash={() => void trash()} />
-          </>
-        }
-      />
+        </PageHeader>
+      }
+    >
       <PageContent layout="document" data-testid="note-page">
         <div className={styles.head}>
           <EditorTitle
@@ -184,6 +188,6 @@ function NotePageContent({ note }: { note: Note }) {
           onClosed={() => setSheetTask(undefined)}
         />
       )}
-    </>
+    </Page>
   );
 }

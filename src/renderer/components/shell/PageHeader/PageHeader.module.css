@@ -1,4 +1,30 @@
-/* The page's top bar, toolbar and content frame. See docs/design-system/components/PageHeader.md */
+/* The page's frame, top bar, toolbar and content. See docs/design-system/components/PageHeader.md */
+
+/* ---------- page: the header, then the scroller under it ---------- */
+.page {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+/* a page with no header: the 48px strip to drag the window by, under the WindowBar while hidden */
+.bare {
+  flex: none;
+  height: 48px;
+  -webkit-app-region: drag;
+}
+.scroll {
+  flex: 1;
+  min-height: 0;
+}
+/* the ScrollArea's viewport, which scrolls the page; its scrollbar is drawn over the edge */
+.scrollViewport {
+  display: flex;
+  flex-direction: column;
+  overscroll-behavior: contain;
+}
+
+/* ---------- header ---------- */
 .header {
   display: flex;
   flex: none;
@@ -7,7 +33,9 @@
   height: 48px;
   min-width: 0;
   /* on Windows the actions stop 16px short of the caption buttons over the top right (base.css) */
-  padding: 0 max(var(--space-6), var(--title-bar-end, 0px)) 0 var(--space-6);
+  /* while the sidebar is hidden it starts after the WindowBar over its left (WorkspaceShell) */
+  padding: 0 max(var(--space-6), var(--title-bar-end, 0px)) 0
+    calc(var(--window-bar-inset, 0px) + var(--space-6));
   -webkit-app-region: drag;
 }
 .header button,
@@ -20,19 +48,11 @@
   align-items: center;
   min-width: 0;
 }
-/* the fallback stands in for an empty place, and steps aside once something is in it */
-.place:empty:has(+ .fallback),
-.place:not(:empty) + .fallback {
-  display: none;
-}
 .actions {
   display: flex;
   flex: none;
   align-items: center;
   gap: var(--space-2);
-}
-.actions:empty {
-  display: none;
 }
 .favorite[data-favorite] {
   color: var(--date-today);
