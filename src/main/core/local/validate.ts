@@ -4,6 +4,7 @@ import { isJunk } from 'junk';
 import { isErrnoException, isNotFound } from './utils';
 import { settingsFileSchema } from '@common/types';
 import { inspectRegistry, type RegistryInspection } from '../workspace/registry';
+import { getDefaults, isRecord, withDefaults } from '../settings/defaults';
 
 // What is at a DevBrain folder's path: nothing, an empty directory (junk files such as .DS_Store
 // aside), or something else, which only validation can tell apart from a DevBrain folder.
@@ -58,9 +59,13 @@ export async function validateDevBrainFolderStructure(rootPath: string): Promise
     return { valid: false, error: 'settings.json is not valid JSON' };
   }
 
-  const result = settingsFileSchema.safeParse(parsedSettings);
+  // A setting the file lacks gets its default when it opens (SettingsService), so a file written
+  // before that setting was added is valid. One without a `settings` object is not a DevBrain
+  // folder's, and a value the file has must still match the schema.
+  const hasSettings = isRecord(parsedSettings) && isRecord(parsedSettings.settings);
+  const result = settingsFileSchema.safeParse(withDefaults(parsedSettings, getDefaults(rootPath)));
 
-  if (!result.success) {
+  if (!hasSettings || !result.success) {
     return { valid: false, error: 'Invalid settings.json file' };
   }
 
