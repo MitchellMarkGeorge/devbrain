@@ -15,6 +15,7 @@ import {
 } from '@renderer/components';
 import { ipc, trpc } from '@renderer/ipc';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
+import { SectionPage } from '@renderer/shared/components/SectionPage';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useCrumbLink } from '@renderer/shared/hooks/use-crumb-link';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
@@ -40,7 +41,8 @@ import { useTaskActions } from '../hooks/use-task-actions';
  * task before the first frame; a task deleted while it is open shows not-found.
  */
 export function TaskPage() {
-  const { taskId } = taskRoute.useParams();
+  const { taskId, workspaceId } = taskRoute.useParams();
+  const crumbLink = useCrumbLink();
   const task = useQuery({
     ...trpc.tasks.get.queryOptions({ id: taskId }),
     // a task trashed or converted from this page is gone for good: retrying would hold up the
@@ -49,7 +51,13 @@ export function TaskPage() {
   });
   useRecordView(taskId);
   if (task.data === undefined) {
-    return task.isError && ipcErrorCode(task.error) === 'not_found' ? <NotFoundPage /> : null;
+    if (task.isError && ipcErrorCode(task.error) === 'not_found') return <NotFoundPage />;
+    // not loaded yet (the loader normally has it): the section's crumb, so the header is there
+    return (
+      <SectionPage
+        section={crumbLink('Tasks', { to: '/app/$workspaceId/tasks', params: { workspaceId } })}
+      />
+    );
   }
   // a new task, a fresh page: the title and description start from it
   return <TaskPageContent key={task.data.id} task={task.data} />;

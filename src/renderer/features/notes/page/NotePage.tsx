@@ -17,6 +17,7 @@ import {
 } from '@renderer/components';
 import { ipc, trpc } from '@renderer/ipc';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
+import { SectionPage } from '@renderer/shared/components/SectionPage';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { useCrumbLink } from '@renderer/shared/hooks/use-crumb-link';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
@@ -40,13 +41,20 @@ import styles from '../components/detail/NotePage.module.css';
  * note and its markdown before the first frame; a note deleted while it is open shows not-found.
  */
 export function NotePage() {
-  const { noteId } = noteRoute.useParams();
+  const { noteId, workspaceId } = noteRoute.useParams();
+  const crumbLink = useCrumbLink();
   const note = useQuery(trpc.notes.get.queryOptions({ id: noteId }));
   useRecordView(noteId);
   if (note.data === undefined || note.data.archivedAt !== null) {
     const gone =
       (note.isError && ipcErrorCode(note.error) === 'not_found') || note.data?.archivedAt;
-    return gone ? <NotFoundPage /> : null;
+    if (gone) return <NotFoundPage />;
+    // not loaded yet (the loader normally has it): the section's crumb, so the header is there
+    return (
+      <SectionPage
+        section={crumbLink('Notes', { to: '/app/$workspaceId/notes', params: { workspaceId } })}
+      />
+    );
   }
   // a new note, a fresh page: the title and body start from it
   return <NotePageContent key={note.data.id} note={note.data} />;

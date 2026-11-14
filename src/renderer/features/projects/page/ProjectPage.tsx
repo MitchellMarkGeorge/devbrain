@@ -25,6 +25,7 @@ import {
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
+import { SectionPage } from '@renderer/shared/components/SectionPage';
 import { useCrumbLink } from '@renderer/shared/hooks/use-crumb-link';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useRecordView } from '@renderer/shared/hooks/use-record-view';
@@ -63,11 +64,21 @@ const TAB_LABELS: Record<ProjectTab, string> = {
  * first frame; a project deleted while it is open shows not-found.
  */
 export function ProjectPage() {
-  const { projectId } = projectRoute.useParams();
+  const { projectId, workspaceId } = projectRoute.useParams();
+  const crumbLink = useCrumbLink();
   const project = useQuery(trpc.projects.get.queryOptions({ id: projectId }));
   useRecordView(projectId);
   if (project.data === undefined) {
-    return project.isError && ipcErrorCode(project.error) === 'not_found' ? <NotFoundPage /> : null;
+    if (project.isError && ipcErrorCode(project.error) === 'not_found') return <NotFoundPage />;
+    // not loaded yet (the loader normally has it): the section's crumb, so the header is there
+    return (
+      <SectionPage
+        section={crumbLink('Projects', {
+          to: '/app/$workspaceId/projects',
+          params: { workspaceId },
+        })}
+      />
+    );
   }
   // a new project, a fresh page: the name and description start from it
   return <ProjectPageContent key={project.data.id} project={project.data} />;
