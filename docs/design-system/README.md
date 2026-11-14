@@ -125,15 +125,15 @@ The window is never smaller than `window-min-width` × `window-min-height` (960 
   - Sheets float over the page instead of docking.
   - Toolbar values hide, and card grids (the Notes and Projects card views) drop to two columns.
 - **The sidebar has two states:** docked (`sidebar-width`, 256px, the page beside it) or hidden. The user hides and shows it with ⌘\ or the sidebar toggle at any width; a sidebar the user hid stays hidden at any width, and in compact windows it rests hidden. While it's hidden:
-  - The `WindowBar` takes the sidebar's place at the top left (the title bar's start, the sidebar toggle, back and forward), and the page's header sits beside it.
-  - The sidebar opens as a drawer over the page, with the `backdrop` scrim behind it. Pointing at the toggle, or at an 8px strip along the window's left edge, peeks at it after 200ms, so a passing pointer doesn't; it closes 300ms after the pointer leaves it. A peek leaves focus where it was.
+  - Its column slides shut and the page's card widens; the title bar above (the title bar's start, the sidebar toggle, back and forward) stays as it is, so the toggle never moves.
+  - The sidebar opens as a drawer over the page, under the title bar (with the `backdrop` scrim behind it once pinned). Pointing at the toggle, or at an 8px strip along the window's left edge, peeks at it after 200ms, so a passing pointer doesn't; it closes 300ms after the pointer leaves it. A peek leaves focus where it was.
   - Clicking the toggle or ⌘\ pins the drawer open in compact windows, and docks the sidebar where the window is wide enough. Clicking inside a peeking drawer, or moving focus into it, pins it too. Esc, a click outside or picking a page closes it. Keyboard users open it with the toggle or ⌘\.
 - **At every size:** the week view keeps all seven days unless Hide weekends is on (Settings › Calendar, `calendar.hideWeekends`), since hiding days could hide events; the day columns narrow instead. With Hide weekends on and events on the visible week's weekend, the header says so ("2 events on the weekend") with a link that shows the weekend. Long text ends in "…" at its own width: pill labels before titles, titles before dates, and breadcrumbs keep the first and last items. Sheets and dialogs scroll inside themselves at the minimum height, and the selection bar and toasts sit on the window's bottom edge. Document pages cap their content and centre it in the page (see Page widths); workspace pages use the full width.
 
 ## Window frame
 
-The page draws its own title bar, a 48px strip (the `WindowBar` while the sidebar is hidden; the
-sidebar's window row and the `PageHeader` beside the docked sidebar), and leaves room for the
+The window draws its own title bar, a 48px strip across the top (the `WorkspaceShell`'s
+`WindowBar`, docked sidebar or hidden; `AppShell`'s outside a workspace), and leaves room for the
 window controls the system draws. Main sets the frame up per platform
 (`src/main/runtime/window-chrome.ts`); the page reads the platform from `WindowFrameProvider`
 (`src/renderer/components/lib/platform.ts`), and the Storybook toolbar picks one.
@@ -217,7 +217,7 @@ Two kinds of page, one rule each:
 - Heights: `control-xs` (24px) pills and xs buttons, `control-sm` (28px) sm buttons and menu items, `control-md` (32px) buttons, inputs, segmented controls and sidebar items, `control-lg` (36px) lg buttons, `row-height` (48px) and `group-gap` (12px) for list density, `group-height` (36px) for group heading bands, `board-card-gap` (10px) between board cards.
 - Corners: `radius-md` (8px) inside controls, `radius-lg` (10px) controls and menus, `radius-xl` (14px) surfaces, `radius-full` pills.
 - Shadows only on floating layers: `shadow-md` for menus and tooltips, `shadow-2xl` for dialogs, sheets and toasts. The exceptions are `shadow-segment`, under the current segment of a segmented control (Figma's in dark, shadcn's `shadow-sm` in light), and `shadow-pinned`, under the sidebar's pinned header while content is scrolled beneath it.
-- Layout: the window's top row is `title-bar-height` (48px): the `WindowBar`, the sidebar's window row and a page's `PageHeader`; Home's `home-max-width` (800px) column; a `sidebar-width` (256px) sidebar, docked or hidden (and then a drawer over the page); lists run edge to edge; details open in a `sheet-width` (380px) panel docked on the right, and the page narrows beside it (an overlay only in narrow windows).
+- Layout: the window's top row is `title-bar-height` (48px), the title bar (`WindowBar`), with the sidebar and the page's card under it; Home's `home-max-width` (800px) column; a `sidebar-width` (256px) sidebar, docked or hidden (and then a drawer over the page); lists run edge to edge; details open in a `sheet-width` (380px) panel docked on the right, and the page narrows beside it (an overlay only in narrow windows).
 
 ## Scrollbars
 

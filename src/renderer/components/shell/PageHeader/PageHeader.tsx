@@ -2,7 +2,6 @@ import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from 'react
 import { Ellipsis, Star } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
-import { useWorkspaceShell } from '../WorkspaceShell/context';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import { IconButton } from '../../ui/IconButton';
 import { ScrollArea } from '../../ui/ScrollArea';
@@ -11,9 +10,10 @@ import styles from './PageHeader.module.css';
 export interface PageProps extends ComponentPropsWithoutRef<'div'> {
   /**
    * The page's top bar, which stays put while the page scrolls: a `PageHeader` with its
-   * breadcrumb and actions, or any 48px bar of the page's own. Leave it out for a page with no
-   * header (Settings, Integrations): a bare 48px strip takes its place, to drag the window by and
-   * to keep the content clear of the `WindowBar`
+   * breadcrumb and actions, or a bar of the page's own. Leave it out for a page with no header
+   * (Settings, Integrations): its content starts at the top of the page. The window's title bar
+   * is the `WorkspaceShell`'s, above the page, so a page's header neither drags the window nor
+   * makes room for its controls
    */
   header?: ReactNode;
   /** classes for the scrolling element (the ScrollArea's viewport) */
@@ -32,7 +32,7 @@ export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
 ) {
   return (
     <div ref={ref} className={cn(styles.page, className)} {...props}>
-      {header ?? <div aria-hidden className={styles.bare} />}
+      {header}
       {/*
        * a ScrollArea, whose scrollbar is drawn over the page's edge and takes no width; data-slot
        * on its scrolling element: the app's router restores it, and scrolls it to the top on a
@@ -63,8 +63,8 @@ export interface PageHeaderProps extends Omit<ComponentPropsWithoutRef<'header'>
 /**
  * A page's top bar (its `Page`'s `header`): a 48px bar with the breadcrumb at the left and the
  * page's actions at the right, 24px in from the sides. It spans the page even where the content is
- * a capped column. While the sidebar is hidden it starts after the `WindowBar`
- * (`--window-bar-inset`, set by `WorkspaceShell`).
+ * a capped column. It is the top of the page, under the `WorkspaceShell`'s title bar: it doesn't
+ * drag the window.
  */
 export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function PageHeader(
   { actions, className, children, ...props },
@@ -135,14 +135,8 @@ export const PageToolbar = forwardRef<HTMLDivElement, PageToolbarProps>(function
   { start, end, className, children, ...props },
   ref,
 ) {
-  const { sidebarHidden } = useWorkspaceShell();
   return (
-    <div
-      ref={ref}
-      data-under-window-bar={sidebarHidden ? '' : undefined}
-      className={cn(styles.toolbar, className)}
-      {...props}
-    >
+    <div ref={ref} className={cn(styles.toolbar, className)} {...props}>
       {start && <div className={styles.group}>{start}</div>}
       {children}
       {end && <div className={cn(styles.group, styles.end)}>{end}</div>}

@@ -11,8 +11,9 @@ export interface WorkspaceShellContextValue {
   inShell: boolean;
   size: WindowSize;
   /**
-   * The sidebar is hidden (the user collapsed it, or the window is compact): the `WindowBar` runs
-   * across the top with the page's header in it, and the sidebar opens as a drawer over the page.
+   * The sidebar is hidden (the user collapsed it, or the window is compact): its column has slid
+   * shut, the page's card spans the window under the title bar, and the sidebar opens as a drawer
+   * over the page.
    */
   sidebarHidden: boolean;
   /** this subtree is the sidebar drawer */

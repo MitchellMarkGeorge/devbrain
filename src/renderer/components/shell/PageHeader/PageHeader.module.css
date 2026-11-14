@@ -7,14 +7,6 @@
   min-width: 0;
   min-height: 0;
 }
-/* a page with no header: the title-bar-height strip to drag the window by, under the WindowBar while hidden */
-.bare {
-  flex: none;
-  height: var(--title-bar-height);
-  /* clear of the WindowBar, so its drag box never covers the bar's buttons (see .header) */
-  margin-left: var(--window-bar-inset, 0px);
-  -webkit-app-region: drag;
-}
 .scroll {
   flex: 1;
   min-height: 0;
@@ -32,22 +24,10 @@
   flex: none;
   align-items: center;
   gap: var(--space-2);
-  height: var(--title-bar-height);
+  height: 48px;
   min-width: 0;
-  /*
-   * While the sidebar is hidden it starts after the WindowBar over the page's top left
-   * (`--window-bar-inset`, set by WorkspaceShell). A margin, not padding: the header's box drags
-   * the window, and Electron lets a later drag box override an earlier no-drag one, so a header
-   * box over the bar would swallow its buttons' clicks.
-   */
-  margin-left: var(--window-bar-inset, 0px);
-  /* on Windows the actions stop 16px short of the caption buttons over the top right (base.css) */
-  padding: 0 max(var(--space-6), var(--title-bar-end, 0px)) 0 var(--space-6);
-  -webkit-app-region: drag;
-}
-.header button,
-.header a {
-  -webkit-app-region: no-drag;
+  /* the top of the page's card, under the shell's title bar: it doesn't drag the window */
+  padding: 0 var(--space-6);
 }
 .place {
   display: flex;
@@ -76,10 +56,6 @@
   gap: var(--space-2);
   min-width: 0;
   padding: 1px var(--space-6) var(--space-3);
-}
-/* under the window bar the toolbar starts 4px lower (Figma's collapsed screens) */
-.toolbar[data-under-window-bar] {
-  padding-top: var(--space-1);
 }
 .group {
   display: flex;

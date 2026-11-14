@@ -1,22 +1,22 @@
 /* The frame every screen shares. See docs/design-system/components/WorkspaceShell.md */
 /*
- * Each part is one element in one place; these grid templates place them. The first column holds
- * the docked sidebar, or the WindowBar beside the header while the sidebar is hidden.
+ * Two rows: the title bar across the window, always there; then the sidebar's column and the card
+ * holding the page and the docked sheet. The window behind them takes the sidebar's colour, so the
+ * title bar and the sidebar read as one frame around the card.
  */
 .shell {
   position: relative;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   grid-template-rows: var(--title-bar-height) minmax(0, 1fr);
-  /* macOS, Linux: the docked sidebar, the page and a docked sheet each run the full height */
   grid-template-areas:
-    'sidebar main sheet'
-    'sidebar main sheet';
+    'bar     bar'
+    'sidebar body';
   width: 100%;
   height: 100%;
   min-height: 0;
   overflow: hidden;
-  background: var(--background);
+  background: var(--sidebar);
   color: var(--foreground);
   container-type: inline-size;
   /* the shell fades in as it appears (after the app's splash, at startup and on a switch of
@@ -29,54 +29,71 @@
     transform: scale(0.99);
   }
 }
-/*
- * hidden: the page takes the whole width, and the WindowBar sits over its top left (`.bar`); the
- * page's header starts after it (`--window-bar-inset`)
- */
-.shell[data-sidebar='hidden'] {
-  grid-template-areas:
-    'main main sheet'
-    'main main sheet';
-}
-/*
- * Windows: the caption buttons sit over the top right, so a docked sheet starts under a `title-bar-height` strip
- * (`.titleBar`) that drags the window
- */
-.shell[data-platform='windows'] {
-  grid-template-areas:
-    'sidebar main title'
-    'sidebar main sheet';
-}
-.shell[data-platform='windows'][data-sidebar='hidden'] {
-  grid-template-areas:
-    'main main title'
-    'main main sheet';
+
+/* the title bar: the WindowBar, on the window's colour rather than its own */
+.shell > .bar {
+  grid-area: bar;
+  background: transparent;
 }
 
+/*
+ * The sidebar's column: the sidebar's width while docked, 0 while hidden. It slides between them
+ * (duration-slow, ease-surface; at once under reduced motion), clipping the sidebar, which slides
+ * out with it so its right edge stays on the column's.
+ */
 .sidebar {
   grid-area: sidebar;
   display: flex;
   width: var(--sidebar-width);
   min-height: 0;
+  overflow: hidden;
+  transition: width var(--duration-slow) var(--ease-surface);
 }
-.sidebar > * {
-  flex: 1;
+/* doubled class: outranks the sidebar's own border and background */
+.sidebar.sidebar > * {
+  flex: none;
+  width: var(--sidebar-width);
+  /* the card's edge separates them, so no hairline of its own */
+  border-right: none;
+  background: transparent;
+  transition: transform var(--duration-slow) var(--ease-surface);
+}
+.shell[data-sidebar='hidden'] .sidebar {
+  width: 0;
+}
+.shell[data-sidebar='hidden'] .sidebar > * {
+  transform: translateX(-100%);
 }
 
-.bar {
-  z-index: 1;
-  grid-row: 1;
-  grid-column: 1;
+/*
+ * The card: the page and the docked sheet, on the page colour, inset 8px from the window's edges
+ * (and from the sidebar's column while it's hidden) under the title bar
+ */
+.body {
+  grid-area: body;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  margin: 0 var(--space-2) var(--space-2) 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--background);
+  transition: margin-left var(--duration-slow) var(--ease-surface);
 }
-
-.titleBar {
-  grid-area: title;
-  -webkit-app-region: drag;
+.shell[data-sidebar='hidden'] .body {
+  margin-left: var(--space-2);
+}
+/* docking from the open drawer: the sidebar is already where it docks, so nothing slides */
+.shell[data-instant] .sidebar,
+.shell[data-instant] .sidebar > *,
+.shell[data-instant] .body {
+  transition: none;
 }
 
 .main {
-  grid-area: main;
   display: flex;
+  flex: 1;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
@@ -93,8 +110,8 @@
  * (no longer open) until the column has shut.
  */
 .sheet {
-  grid-area: sheet;
   position: relative;
+  flex: none;
   width: 0;
   min-height: 0;
   overflow: clip;
@@ -145,18 +162,18 @@
 }
 .drawer {
   position: absolute;
-  top: 0;
+  /* under the title bar, which stays in view (and in reach) above it */
+  top: var(--title-bar-height);
   bottom: 0;
   left: 0;
   display: flex;
+  width: var(--sidebar-width);
+  border-top-right-radius: var(--radius-lg);
   background: var(--sidebar);
   box-shadow: var(--shadow-2xl);
   outline: none;
   pointer-events: auto;
-  /*
-   * In the app, the WindowBar under it would otherwise keep dragging the window (and swallowing
-   * the pointer) through the drawer's top
-   */
+  /* it floats over the page, so it never drags the window (a drag region would also swallow the pointer) */
   -webkit-app-region: no-drag;
   /*
    * The drawer slides in from the window's left edge over the page and back out, following a

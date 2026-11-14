@@ -117,7 +117,7 @@ export const DocumentContent: Story = {
 
 /**
  * A `Page` with its own header, and one without: Settings and Integrations draw their title in the
- * content, so their `Page` has no header and keeps only the bare 48px strip to drag the window by.
+ * content, so their `Page` has no header and their content starts at its top.
  */
 export const PageWithAndWithoutHeader: Story = {
   render: () => (
