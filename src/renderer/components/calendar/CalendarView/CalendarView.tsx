@@ -45,6 +45,19 @@ const PLUGINS = [timeGridPlugin, dayGridPlugin, interactionPlugin, rrulePlugin];
 /** pixels per hour, and the height under which a block is compact (title only) */
 const HOUR_HEIGHT = 48;
 const COMPACT_BELOW = 40;
+/**
+ * How far above `scrollToHour`'s line the hours open: an hour's label (16px) is centred on its
+ * line, so scrolled to the line itself the top half of it would sit above the scroller's edge.
+ * A quarter of an hour (12px) shows the whole label, 4px clear of the all-day row's line.
+ */
+const SCROLL_ABOVE_HOUR_MINUTES = 15;
+
+/** FullCalendar's `scrollTime` for an hour: `SCROLL_ABOVE_HOUR_MINUTES` before it, from 0:00 */
+function scrollTimeFor(hour: number): string {
+  const minutes = Math.max(0, hour * 60 - SCROLL_ABOVE_HOUR_MINUTES);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}:00`;
+}
 
 const WEEKDAY = new Intl.DateTimeFormat('en-US', { weekday: 'short' });
 
@@ -110,7 +123,7 @@ export interface CalendarViewProps {
   /** the first and last hour drawn by the week and day views (0 and 24) */
   startHour?: number;
   endHour?: number;
-  /** the hour the week and day views scroll to (8) */
+  /** the hour the week and day views open at (8), its label shown whole just under the top */
   scrollToHour?: number;
   /** events listed in a month day before "+N more" (3) */
   maxEvents?: number;
@@ -312,7 +325,8 @@ export const CalendarView = forwardRef<CalendarViewHandle, CalendarViewProps>(fu
         slotMinHeight={HOUR_HEIGHT}
         slotMinTime={`${String(startHour).padStart(2, '0')}:00:00`}
         slotMaxTime={`${String(endHour).padStart(2, '0')}:00:00`}
-        scrollTime={`${String(scrollToHour).padStart(2, '0')}:00:00`}
+        // a little above the hour, so its label reads whole (FullCalendar stops at `startHour`)
+        scrollTime={scrollTimeFor(scrollToHour)}
         scrollTimeReset={false}
         slotEventOverlap={false}
         // 16px drawn, inside its 1px margins

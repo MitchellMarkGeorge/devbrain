@@ -37,8 +37,6 @@ const meta = {
     date: NOW,
     now: NOW,
     eventSources: source(WEEK_EVENTS),
-    startHour: 8,
-    endHour: 24,
   },
   decorators: [
     (Story) => (
@@ -52,11 +50,17 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** The week of 22 June 2026: an all-day chip across three days, the now line on Monday */
+/**
+ * The week of 22 June 2026: an all-day chip across three days, the now line on Monday. The hours
+ * run 0–24 and open a quarter hour above 8 AM, so its label reads whole under the all-day row
+ */
 export const Week: Story = {};
 
 /** The day view: the same grid with one column */
 export const Day: Story = { args: { view: 'day' } };
+
+/** Hours from 8 AM (`startHour`): the first line is the all-day row's, and its label is hidden */
+export const StartAt8: Story = { name: 'Start at 8 AM', args: { startHour: 8 } };
 
 /** June 2026: all-day events first, "+2 more" on the 22nd, other months' days dimmed */
 export const Month: Story = {

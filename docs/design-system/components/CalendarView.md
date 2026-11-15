@@ -28,10 +28,12 @@ A 60px gutter, then one column per day (seven for the week, one for the day):
 - **Now**: the red `NowIndicator` (1px line, 8px dot at the left edge) in today's column, at `now`.
   Today's column has no tint.
 
-The headers and all-day row stay put while the hours scroll; the view opens scrolled to
-`scrollToHour`. FullCalendar's scrollers hide their native scrollbar, so it takes no width on any
-platform (README, "A scrollbar never takes width"); the hours scroll with the wheel, the trackpad
-and the keyboard.
+The headers and all-day row stay put while the hours scroll; the view opens a quarter hour
+(12px) above `scrollToHour`, so that hour's label, centred on its line, reads whole 4px under the
+all-day row instead of being cut in half by the scroller's edge (when `scrollToHour` is
+`startHour`, the grid starts at its line and the label is hidden, as above). FullCalendar's
+scrollers hide their native scrollbar, so it takes no width on any platform (README, "A scrollbar
+never takes width"); the hours scroll with the wheel, the trackpad and the keyboard.
 
 ## Month
 
@@ -67,9 +69,9 @@ Events are focusable and open on Enter when `onEventClick` is set.
 `changeView`), `eventSources` (FullCalendar `EventSourceInput[]`), `firstDay` (1 Monday, 0 Sunday,
 from `firstDayOfWeek`), `timeFormat` (`'12' | '24'`: "9:00 – 10:00 AM" or "09:00 – 10:00", hour
 labels "8 AM" or "08:00"), `hideWeekends` (FullCalendar's `weekends: false`), `now`, `startHour`/
-`endHour` (0–24), `scrollToHour` (8), `maxEvents` (3), `selectedEventId`, `allDayLabel`,
-`onEventClick(event, info)` (the occurrence clicked: its `id`, `groupId`, `start` as drawn,
-`end`, `allDay` and `props`), `onSelect({ start, end, allDay })` (a drag on empty grid, or a click,
+`endHour` (0–24), `scrollToHour` (8, opened at 7:45), `maxEvents` (3), `selectedEventId`,
+`allDayLabel`, `onEventClick(event, info)` (the occurrence clicked: its `id`, `groupId`, `start`
+as drawn, `end`, `allDay` and `props`), `onSelect({ start, end, allDay })` (a drag on empty grid, or a click,
 which selects one 15-minute slot or one day; selecting is off without it), `onDayClick(day)`,
 `onLoading(loading)`. The ref's `getApi()` returns FullCalendar's API, for `refetchEvents()`.
 
