@@ -227,6 +227,7 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
             ref={root}
             data-size={size}
             data-sidebar={hidden ? 'hidden' : 'docked'}
+            data-drawer={drawer !== 'closed' ? '' : undefined}
             data-platform={frame.platform}
             data-instant={instant ? '' : undefined}
             className={cn(styles.shell, className)}
@@ -291,7 +292,8 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
             >
               {/* kept mounted while closed, so a peek opens at once */}
               <Drawer.Portal keepMounted container={root}>
-                {drawer === 'open' && <Drawer.Backdrop className={styles.backdrop} />}
+                {/* the page dims behind the drawer, peeking or pinned; pressing it closes the drawer */}
+                <Drawer.Backdrop className={styles.backdrop} />
                 <Drawer.Viewport className={styles.drawerViewport}>
                   <Drawer.Popup
                     ref={drawerPopup}

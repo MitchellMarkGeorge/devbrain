@@ -31,6 +31,11 @@
   background: var(--sidebar);
   color: var(--foreground);
   container-type: inline-size;
+  /*
+   * its own stacking context: the window's controls rise over the drawer (below) without rising
+   * over dialogs and menus, which open outside the shell
+   */
+  isolation: isolate;
   /* the shell fades in as it appears (after the app's splash, at startup and on a switch of
      workspace); a page changing inside it doesn't replay it. 0ms under reduced motion */
   animation: shell-enter var(--duration-slow) var(--ease-surface);
@@ -63,6 +68,14 @@
   flex: none;
   min-width: var(--workspace-sidebar-column);
   background: transparent;
+}
+/*
+ * while the drawer is open it runs the window's full height, and the window's controls stay on top
+ * of it, at its top, over the backdrop too: the drawer reads as the whole sidebar, controls and all
+ */
+.shell[data-drawer] .titleBar > .bar {
+  position: relative;
+  z-index: calc(var(--z-overlay) + 1);
 }
 .titleSlot {
   /* the page's header fills the bar's height */
@@ -220,8 +233,12 @@
 }
 .drawer {
   position: absolute;
-  /* under the title bar, which stays in view (and in reach) above it */
-  top: var(--title-bar-height);
+  /*
+   * the window's full height; the title bar's row at its top holds the window's controls, drawn
+   * over it (above), and the sidebar starts under them
+   */
+  top: 0;
+  padding-top: var(--title-bar-height);
   bottom: 0;
   left: 0;
   display: flex;
