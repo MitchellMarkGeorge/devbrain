@@ -150,8 +150,12 @@
   position: absolute;
   inset: 1px;
   background: var(--primary-foreground);
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
-    center / contain no-repeat;
+  /*
+   * the tick is a file, not a data: URL: the page's Content-Security-Policy (index.html) loads
+   * images from 'self' only, and blocks a data: URL, leaving a checked box blank. The build keeps
+   * SVGs as files (vite/renderer.config.ts)
+   */
+  mask: url('../../../assets/check.svg') center / contain no-repeat;
 }
 .content input[type='checkbox']:focus-visible {
   outline: none;
