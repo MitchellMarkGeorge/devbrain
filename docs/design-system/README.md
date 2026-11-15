@@ -146,12 +146,12 @@ height from the token (generated into `src/common/theme.ts`), so the system's co
   title bar, on the title bar's `sidebar` colour with `foreground` symbols) over the top right, so
   maximise keeps its snap layouts. A menu button takes the traffic lights' place and pops up the
   app menu, as there is no menu bar. The page's header in the title bar stops 16px short of the
-  buttons. Sheets start under the title bar, inside the page's card, so a sheet's own close never
+  buttons. Sheets start under the title bar, a card beside the page's, so a sheet's own close never
   sits beside the window's. Outside a workspace the `AppShell`'s page colour shows around the
   buttons, which differs from `sidebar` by one small step (`#fafafa` on white in light, `#0d0d0d` on
   `#111111` in dark).
 - **Linux:** the system frame, with its title bar and the menu bar, sits above the page. The strip
-  has no start (no traffic lights, no menu button); a sheet runs the full height, as on macOS.
+  has no start (no traffic lights, no menu button); a docked sheet is a card under it, as on macOS.
 
 Keys are written as on macOS ("⌘K", "⌘⇧X"). `Kbd`, menu shortcuts and the tooltips that show keys
 name them for the platform: "Ctrl+K", "Ctrl+Shift+X" on Windows and Linux (`formatKeys`).

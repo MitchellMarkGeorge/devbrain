@@ -71,6 +71,14 @@
   flex: 1;
   min-width: 0;
   padding-right: var(--title-bar-end, 0px);
+  transition: padding-right var(--duration-slow) var(--ease-surface);
+}
+/*
+ * while a sheet is docked, the page's header ends over the page's card (its star and menu act on
+ * the page), not over the sheet: the slot gives up the sheet's card, its gap and the window's margin
+ */
+.shell:has(.sheet [data-sheet][data-open]) .titleSlot {
+  padding-right: max(var(--title-bar-end, 0px), calc(var(--sheet-width) + 2 * var(--space-2)));
 }
 .titleSlot > * {
   flex: 1;
@@ -110,8 +118,9 @@
 }
 
 /*
- * The card: the page and the docked sheet, on the page colour, inset 8px from the window's edges
- * (and from the sidebar's column while it's hidden) under the title bar
+ * Under the title bar, beside the sidebar's column: the page's card, and a docked sheet's beside
+ * it, 8px apart, inset 8px from the window's edges (and from the sidebar's column while it's
+ * hidden). The page and the sheet are each a card, on the page colour with a `border` hairline
  */
 .body {
   grid-area: body;
@@ -119,10 +128,6 @@
   min-width: 0;
   min-height: 0;
   margin: 0 var(--space-2) var(--space-2) 0;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--background);
   transition: margin-left var(--duration-slow) var(--ease-surface);
 }
 .shell[data-sidebar='hidden'] .body {
@@ -135,12 +140,17 @@
   transition: none;
 }
 
+/* the page's card */
 .main {
   display: flex;
   flex: 1;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--background);
 }
 /* the page (a `Page`) fills it */
 .main > * {
@@ -162,7 +172,11 @@
   transition: width var(--duration-slow) var(--ease-surface);
 }
 .sheet:has([data-sheet][data-open]) {
-  width: var(--sheet-width);
+  width: calc(var(--space-2) + var(--sheet-width));
+}
+/* the docked sheet (Sheet draws it as a card) keeps the 8px gap from the page's card */
+.sheet [data-sheet] {
+  margin-left: var(--space-2);
 }
 
 /* Windows' caption buttons, painted in stories (the system draws them in the app) */

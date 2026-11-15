@@ -1,7 +1,7 @@
 /*
- * The details panel (Base UI Drawer from the right). Docked: a full-height column beside the
- * page (under the header on Windows). Overlay (compact windows): floats over the page, inset 8px
- * (and under the title-bar strip on Windows).
+ * The details panel (Base UI Drawer from the right). Docked: a card beside the page's, under the
+ * title bar. Overlay (compact windows): floats over the page, inset 8px (and under the title bar
+ * on Windows).
  * See docs/design-system/components/Sheet.md
  */
 .backdrop {
@@ -39,12 +39,12 @@
   justify-content: flex-start;
 }
 /*
- * Floating on Windows: under the 48px title-bar strip, as Windows' caption buttons sit over the
- * window's top right and the sheet's own close would sit beside theirs. A docked sheet is already
- * under the header there (WorkspaceShell).
+ * Floating on Windows: under the title bar, as Windows' caption buttons sit over the window's top
+ * right and the sheet's own close would sit beside theirs. A docked sheet is already under it
+ * (WorkspaceShell).
  */
 .viewport[data-platform='windows']:not([data-contained]) {
-  top: 48px;
+  top: var(--title-bar-height);
 }
 
 .popup {
@@ -78,10 +78,13 @@
   user-select: none;
 }
 
+/* a card beside the page's, as WorkspaceShell draws the page: the page colour, a `border` hairline */
 .docked {
   width: var(--sheet-width);
   height: 100%;
-  border-left: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--background);
 }
 .overlay {
   width: var(--sheet-width);
@@ -102,7 +105,8 @@
   gap: var(--space-1);
   height: 48px;
   padding: 0 var(--space-3) 0 var(--space-4);
-  background: var(--popover);
+  /* the panel's own surface: the page colour docked, popover floating */
+  background: inherit;
 }
 /* the panel's name ("Task", "Event"): the item's own title is SheetItemTitle */
 .title {
