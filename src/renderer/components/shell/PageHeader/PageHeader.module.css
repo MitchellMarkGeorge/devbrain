@@ -18,8 +18,11 @@
   overscroll-behavior: contain;
 }
 
-/* the header is up in the title bar: the toolbar keeps 12px clear of the card's top edge */
-.page[data-title-bar] .toolbar {
+/*
+ * In a shell the page is a card under the title bar, its header (if any) up in the bar: a toolbar
+ * at the card's top keeps 12px clear of its edge, whether the page has a header or not
+ */
+.page[data-in-shell] .toolbar {
   padding-top: var(--space-3);
 }
 

@@ -33,11 +33,13 @@ export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
   ref,
 ) {
   const { titleBarContainer } = useWorkspaceShell();
-  const inTitleBar = header != null && titleBarContainer !== null;
+  // in a shell, the page is the card under the title bar, header or not
+  const inShell = titleBarContainer !== null;
+  const inTitleBar = header != null && inShell;
   return (
     <div
       ref={ref}
-      data-title-bar={inTitleBar ? '' : undefined}
+      data-in-shell={inShell ? '' : undefined}
       className={cn(styles.page, className)}
       {...props}
     >
