@@ -54,7 +54,7 @@ const STEP_LABELS: Record<CalendarViewParam, [string, string]> = {
  */
 export type CalendarHeaderLayout = 'full' | 'short' | 'compact' | 'tiny';
 
-/** The layout for a header `width` pixels wide (its 24px sides included). */
+/** The layout for a toolbar `width` pixels wide (its 24px sides included). */
 export function headerLayout(width: number): CalendarHeaderLayout {
   if (width >= 900) return 'full';
   if (width >= 740) return 'short';
@@ -62,7 +62,7 @@ export function headerLayout(width: number): CalendarHeaderLayout {
   return 'tiny';
 }
 
-/** The header's place: the month shown, and the calendar filter. */
+/** The toolbar's start: the month shown, and the calendar filter. */
 export const CalendarHeaderStart = forwardRef<
   HTMLDivElement,
   { date: Date; calendars: readonly Calendar[]; layout?: CalendarHeaderLayout }
@@ -78,7 +78,7 @@ export const CalendarHeaderStart = forwardRef<
   );
 });
 
-/** The header's actions: the view, ‹ Today ›, New Event. */
+/** The toolbar's end: the view, ‹ Today ›, New Event. */
 export function CalendarHeaderEnd({
   view,
   layout = 'full',

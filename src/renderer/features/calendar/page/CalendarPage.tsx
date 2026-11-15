@@ -13,8 +13,10 @@ import {
   type CalendarViewEvent,
   type CalendarViewHandle,
   type CalendarViewSelection,
+  Breadcrumb,
   Page,
   PageHeader,
+  PageToolbar,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { TaskSheet } from '@renderer/features/tasks/components/sheet/TaskSheet';
@@ -63,10 +65,10 @@ export function CalendarPage() {
   const { size } = useWorkspaceShell();
   const { now } = useFormat('minute');
   const view = useRef<CalendarViewHandle>(null);
-  // the header steps down as it narrows (beside the sidebar, the window bar and the sheet)
-  // (state, not a ref: the header's place is portalled into a moment after the page mounts)
-  const [headerStart, setHeaderStart] = useState<HTMLElement | null>(null);
-  const layout = headerLayout(useHeaderWidth(headerStart));
+  // the toolbar steps down as it narrows (beside the sidebar and the sheet); state, not a ref, so
+  // the measuring starts once it is mounted
+  const [toolbar, setToolbar] = useState<HTMLElement | null>(null);
+  const layout = headerLayout(useWidth(toolbar));
 
   const options = rangeOptionsOf(settings, resolved.view);
   const sources = useEventSources(calendars, view);
@@ -138,27 +140,29 @@ export function CalendarPage() {
   return (
     <Page
       header={
-        <PageHeader
-          actions={
-            <CalendarHeaderEnd
-              view={resolved.view}
-              layout={layout}
-              onViewChange={(next) => setSearch({ view: next })}
-              onStep={(direction) => goTo(stepDate(resolved.view, resolved.date, direction))}
-              onToday={() => setSearch({ date: undefined })}
-              onNewEvent={() => createEvent(draftForDay(resolved.date, now, duration))}
-            />
-          }
-        >
-          <CalendarHeaderStart
-            ref={setHeaderStart}
-            date={resolved.date}
-            calendars={calendars}
-            layout={layout}
-          />
+        <PageHeader>
+          <Breadcrumb items={['Calendar']} />
         </PageHeader>
       }
     >
+      {/*
+       * the month, the filter and the controls are the page's toolbar, in the page under the title
+       * bar, where the 24px title and 32px controls have room
+       */}
+      <PageToolbar
+        ref={setToolbar}
+        start={<CalendarHeaderStart date={resolved.date} calendars={calendars} layout={layout} />}
+        end={
+          <CalendarHeaderEnd
+            view={resolved.view}
+            layout={layout}
+            onViewChange={(next) => setSearch({ view: next })}
+            onStep={(direction) => goTo(stepDate(resolved.view, resolved.date, direction))}
+            onToday={() => setSearch({ date: undefined })}
+            onNewEvent={() => createEvent(draftForDay(resolved.date, now, duration))}
+          />
+        }
+      />
       <div className={styles.page} data-testid="calendar-page" data-view={resolved.view}>
         <div className={styles.grid}>
           {loading && (
@@ -220,20 +224,16 @@ export function CalendarPage() {
   );
 }
 
-/**
- * The width of the page header holding `inHeader` (the header's place, portalled into it), followed as
- * it changes; Infinity until it is measured.
- */
-function useHeaderWidth(inHeader: HTMLElement | null): number {
+/** The width of `element`, followed as it changes; Infinity until it is measured. */
+function useWidth(element: HTMLElement | null): number {
   const [width, setWidth] = useState(Infinity);
   useLayoutEffect(() => {
-    const header = inHeader?.closest('header');
-    if (!header || typeof ResizeObserver === 'undefined') return;
-    // it reports the width at once, then as it changes. The header's own layout never changes its
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    // it reports the width at once, then as it changes. The toolbar's own layout never changes its
     // width, so this can't feed back on itself
     const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
-    observer.observe(header);
+    observer.observe(element);
     return () => observer.disconnect();
-  }, [inHeader]);
+  }, [element]);
   return width;
 }

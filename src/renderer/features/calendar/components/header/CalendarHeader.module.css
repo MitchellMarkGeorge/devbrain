@@ -1,4 +1,4 @@
-/* The calendar's header (Figma 7158:13273): the month and Filter at the left, the view, ‹ Today › and New Event at the right */
+/* The calendar's toolbar (Figma 7158:13273's header, in the page under the title bar): the month and Filter at the left, the view, ‹ Today › and New Event at the right */
 .start {
   display: flex;
   flex: none;
