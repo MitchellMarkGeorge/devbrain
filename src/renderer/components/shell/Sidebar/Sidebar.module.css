@@ -13,6 +13,11 @@
   color: var(--sidebar-foreground);
   overflow: hidden;
 }
+/* in the drawer: on the drawer's own surface (WorkspaceShell draws it as a sheet), with no hairline */
+.sidebar[data-drawer] {
+  border-right: none;
+  background: inherit;
+}
 /*
  * Below the pinned row (the workspace switcher with search and new), the
  * pages, Recents, Favorites and the footer scroll together when the window is too short for

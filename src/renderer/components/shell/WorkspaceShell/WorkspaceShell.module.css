@@ -226,8 +226,16 @@
   left: 0;
   display: flex;
   width: var(--sidebar-width);
-  border-top-right-radius: var(--radius-lg);
-  background: var(--sidebar);
+  /*
+   * a sheet over the page, as a floating Sheet is drawn: `popover`, the `edge` outline (none on
+   * the window's edge) and rounded corners on the page's side, so it reads as a layer above the
+   * page in both themes, not the docked sidebar laid over it
+   */
+  overflow: hidden;
+  border: 1px solid var(--edge);
+  border-left: none;
+  border-radius: 0 var(--radius-xl) var(--radius-xl) 0;
+  background: var(--popover);
   box-shadow: var(--shadow-2xl);
   outline: none;
   pointer-events: auto;
