@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { WINDOW_BACKGROUND, WINDOW_FOREGROUND } from '@common/theme';
+import { TITLE_BAR_BACKGROUND, WINDOW_BACKGROUND, WINDOW_FOREGROUND } from '@common/theme';
 import {
   TITLE_BAR_HEIGHT,
   TRAFFIC_LIGHT_POSITION,
@@ -24,7 +24,7 @@ describe('windowChrome', () => {
     expect(windowChrome('win32', DARK)).toEqual({
       titleBarStyle: 'hidden',
       titleBarOverlay: {
-        color: WINDOW_BACKGROUND.dark,
+        color: TITLE_BAR_BACKGROUND.dark,
         symbolColor: WINDOW_FOREGROUND.dark,
         height: TITLE_BAR_HEIGHT,
       },
@@ -33,6 +33,12 @@ describe('windowChrome', () => {
 
   it('keeps the system frame on Linux', () => {
     expect(windowChrome('linux', LIGHT)).toEqual({});
+  });
+});
+
+describe('TRAFFIC_LIGHT_POSITION', () => {
+  it('centres the 12px traffic lights down the 40px title bar, 16px in', () => {
+    expect(TRAFFIC_LIGHT_POSITION).toEqual({ x: 16, y: 14 });
   });
 });
 
@@ -63,11 +69,11 @@ describe('keepTrafficLights', () => {
 });
 
 describe('titleBarOverlay', () => {
-  it("is the theme's background and foreground, as tall as the page's title bar", () => {
+  it("is the title bar's colour behind the theme's foreground, as tall as the title bar", () => {
     expect(titleBarOverlay(LIGHT)).toEqual({
-      color: WINDOW_BACKGROUND.light,
+      color: TITLE_BAR_BACKGROUND.light,
       symbolColor: WINDOW_FOREGROUND.light,
-      height: 48,
+      height: 40,
     });
   });
 });

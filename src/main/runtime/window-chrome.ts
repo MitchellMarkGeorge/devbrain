@@ -4,25 +4,35 @@ import type {
   NativeTheme,
   TitleBarOverlayOptions,
 } from 'electron';
-import { WINDOW_BACKGROUND, WINDOW_FOREGROUND } from '@common/theme';
+import {
+  TITLE_BAR_BACKGROUND,
+  TITLE_BAR_HEIGHT,
+  WINDOW_BACKGROUND,
+  WINDOW_FOREGROUND,
+} from '@common/theme';
 
-// The height of the strip across the top of the page that stands in for a title bar: the
-// WindowBar, and the page header beside the full sidebar (PageHeader).
-export const TITLE_BAR_HEIGHT = 48;
+// The height of the title bar the page draws across its top (the `title-bar-height` token,
+// generated into @common/theme): the WorkspaceShell's and the AppShell's.
+export { TITLE_BAR_HEIGHT };
 
-// Where macOS draws the traffic lights (the top left of the three 12px buttons): 16px in and 18px
-// down, centred in the 48px title bar strip: the sidebar's window row and the WindowBar alike.
-export const TRAFFIC_LIGHT_POSITION = { x: 16, y: 18 } as const;
+// Where macOS draws the traffic lights (the top left of the three 12px buttons): 16px in, and
+// centred down the title bar (14px in a 40px bar).
+const TRAFFIC_LIGHT_SIZE = 12;
+export const TRAFFIC_LIGHT_POSITION = {
+  x: 16,
+  y: (TITLE_BAR_HEIGHT - TRAFFIC_LIGHT_SIZE) / 2,
+} as const;
 
 /**
- * The window frame on each platform. The page draws the title bar itself (WindowBar, PageHeader,
- * the sidebar's window row) and leaves room for the controls the system draws:
+ * The window frame on each platform. The page draws the title bar itself (the WorkspaceShell's,
+ * or the AppShell's) and leaves room for the controls the system draws:
  *
  * - **macOS**: no title bar (`hiddenInset`); the system draws the traffic lights over the page's
  *   top left, in the slot the page keeps for them.
  * - **Windows**: no title bar (`hidden`), with the Window Controls Overlay: Windows draws minimise,
- *   maximise and close over the page's top right, as tall as the page's title bar and in the
- *   theme's colours. Windows draws them, rather than the page, so maximise keeps its snap layouts.
+ *   maximise and close over the page's top right, as tall as the page's title bar and in its
+ *   colours (the WorkspaceShell's title bar; the AppShell's page colour differs from it only
+ *   slightly, in the light theme). Windows draws them, rather than the page, so maximise keeps its snap layouts.
  *   The page keeps that corner clear with the `titlebar-area-*` CSS environment variables.
  * - **Linux**: the system frame, title bar and menu bar included. Desktops place and draw window
  *   controls differently, and some have no title bar at all, so the page draws none of them.
@@ -60,13 +70,13 @@ export function keepTrafficLights(
   window.on('leave-full-screen', place);
 }
 
-/** The Windows controls' colours: the theme's --background behind --foreground symbols. */
+/** The Windows controls' colours: the title bar's (--sidebar) behind --foreground symbols. */
 export function titleBarOverlay(
   theme: Pick<NativeTheme, 'shouldUseDarkColors'>,
 ): TitleBarOverlayOptions {
   const mode = theme.shouldUseDarkColors ? 'dark' : 'light';
   return {
-    color: WINDOW_BACKGROUND[mode],
+    color: TITLE_BAR_BACKGROUND[mode],
     symbolColor: WINDOW_FOREGROUND[mode],
     height: TITLE_BAR_HEIGHT,
   };

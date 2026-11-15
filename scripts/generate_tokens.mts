@@ -206,8 +206,9 @@ lines.push(
 writeFileSync(OUTPUT, lines.join('\n'));
 console.log(`Wrote ${OUTPUT}`);
 
-// The window's background and foreground in each theme, as hex: the main process paints the
-// background before the page loads, and on Windows colours the system's window controls with both
+// The window's colours in each theme, as hex, and the title bar's height: the main process paints
+// the background before the page loads, and on Windows draws the system's window controls in the
+// title bar's colour and height
 const hexes = new Map(palette.map((t) => [t.name, t.value as string]));
 function hex(name: string, themeName: 'dark' | 'light'): string {
   const token = tokens.color.tokens.find((t) => t.name === name);
@@ -219,6 +220,12 @@ function hex(name: string, themeName: 'dark' | 'light'): string {
   if (!value?.startsWith('#')) throw new Error(`${name} is not a palette colour in ${themeName}`);
   return value;
 }
+
+const titleBarToken = tokens.size.tokens.find((t) => t.name === 'title-bar-height');
+if (typeof titleBarToken?.value !== 'string' || !/^\d+px$/.test(titleBarToken.value)) {
+  throw new Error('title-bar-height must be a whole number of pixels');
+}
+const titleBarHeight = parseInt(titleBarToken.value, 10);
 
 writeFileSync(
   WINDOW_OUTPUT,
@@ -236,6 +243,17 @@ export const WINDOW_FOREGROUND = {
   dark: '${hex('foreground', 'dark')}',
   light: '${hex('foreground', 'light')}',
 } as const;
+
+// --sidebar in each theme: the colour of the WorkspaceShell's title bar, which the window controls
+// Windows draws over its right end take as their background
+export const TITLE_BAR_BACKGROUND = {
+  dark: '${hex('sidebar', 'dark')}',
+  light: '${hex('sidebar', 'light')}',
+} as const;
+
+// --title-bar-height in pixels: how tall the window controls the system draws are (Windows), and
+// what the traffic lights centre in (macOS)
+export const TITLE_BAR_HEIGHT = ${titleBarHeight};
 
 // The tokens of the pages the OAuth loopback serves to the browser, which loads nothing from the
 // app: --font-sans, and the colours they use in each theme

@@ -28,7 +28,7 @@ export const SIZE = {
   'group-height': 36,
   'group-gap': 12,
   'board-card-gap': 10,
-  'title-bar-height': 48,
+  'title-bar-height': 40,
   'sidebar-width': 256,
   'window-min-width': 960,
   'window-min-height': 640,

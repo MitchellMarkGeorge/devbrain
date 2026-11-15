@@ -65,6 +65,8 @@
   background: transparent;
 }
 .titleSlot {
+  /* the page's header fills the bar's height */
+  --page-header-height: var(--title-bar-height);
   display: flex;
   flex: 1;
   min-width: 0;

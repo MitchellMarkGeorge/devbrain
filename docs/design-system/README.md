@@ -132,20 +132,23 @@ The window is never smaller than `window-min-width` × `window-min-height` (960 
 
 ## Window frame
 
-The window draws its own title bar, a 48px strip across the top (the `WorkspaceShell`'s: the
-`WindowBar`, then the page's header, docked sidebar or hidden; `AppShell`'s outside a workspace),
-and leaves room for the window controls the system draws. Main sets the frame up per platform
+The window draws its own title bar, a `title-bar-height` (40px) strip across the top (the
+`WorkspaceShell`'s: the `WindowBar`, then the page's header, docked sidebar or hidden; `AppShell`'s
+outside a workspace), and leaves room for the window controls the system draws. Main reads the
+height from the token (generated into `src/common/theme.ts`), so the system's controls follow it. Main sets the frame up per platform
 (`src/main/runtime/window-chrome.ts`); the page reads the platform from `WindowFrameProvider`
 (`src/renderer/components/lib/platform.ts`), and the Storybook toolbar picks one.
 
 - **macOS** (the designs): no title bar; the system draws the traffic lights in the 68px slot the
-  strip keeps at its top left (52px of lights, then 16px clear).
-- **Windows:** no title bar; Windows draws minimise, maximise and close (138px, 48px tall, in the
-  theme's `background` and `foreground`) over the top right, so maximise keeps its snap layouts. A
-  menu button takes the traffic lights' place and pops up the app menu, as there is no menu bar.
-  The header's actions stop 16px short of the buttons. Beside the docked sidebar the header gets a
-  row of its own across the window, and a docked sheet starts under it, so a sheet's own close
-  never sits beside the window's; floating sheets start under the strip too.
+  strip keeps at its top left (52px of lights, then 16px clear), centred down it (14px from the
+  top of the 40px strip).
+- **Windows:** no title bar; Windows draws minimise, maximise and close (138px, as tall as the
+  title bar, on the title bar's `sidebar` colour with `foreground` symbols) over the top right, so
+  maximise keeps its snap layouts. A menu button takes the traffic lights' place and pops up the
+  app menu, as there is no menu bar. The page's header in the title bar stops 16px short of the
+  buttons. Sheets start under the title bar, inside the page's card, so a sheet's own close never
+  sits beside the window's. Outside a workspace the `AppShell`'s page colour shows around the
+  buttons, which differs from `sidebar` only slightly, in the light theme.
 - **Linux:** the system frame, with its title bar and the menu bar, sits above the page. The strip
   has no start (no traffic lights, no menu button); a sheet runs the full height, as on macOS.
 
@@ -217,7 +220,7 @@ Two kinds of page, one rule each:
 - Heights: `control-xs` (24px) pills and xs buttons, `control-sm` (28px) sm buttons and menu items, `control-md` (32px) buttons, inputs, segmented controls and sidebar items, `control-lg` (36px) lg buttons, `row-height` (48px) and `group-gap` (12px) for list density, `group-height` (36px) for group heading bands, `board-card-gap` (10px) between board cards.
 - Corners: `radius-md` (8px) inside controls, `radius-lg` (10px) controls and menus, `radius-xl` (14px) surfaces, `radius-full` pills.
 - Shadows only on floating layers: `shadow-md` for menus and tooltips, `shadow-2xl` for dialogs, sheets and toasts. The exceptions are `shadow-segment`, under the current segment of a segmented control (Figma's in dark, shadcn's `shadow-sm` in light), and `shadow-pinned`, under the sidebar's pinned header while content is scrolled beneath it.
-- Layout: the window's top row is `title-bar-height` (48px), the title bar (`WindowBar`), with the sidebar and the page's card under it; Home's `home-max-width` (800px) column; a `sidebar-width` (256px) sidebar, docked or hidden (and then a drawer over the page); lists run edge to edge; details open in a `sheet-width` (380px) panel docked on the right, and the page narrows beside it (an overlay only in narrow windows).
+- Layout: the window's top row is `title-bar-height` (40px), the title bar (`WindowBar`, then the page's header), with the sidebar and the page's card under it; Home's `home-max-width` (800px) column; a `sidebar-width` (256px) sidebar, docked or hidden (and then a drawer over the page); lists run edge to edge; details open in a `sheet-width` (380px) panel docked on the right, and the page narrows beside it (an overlay only in narrow windows).
 
 ## Scrollbars
 
