@@ -15,8 +15,6 @@ import {
   Text,
   useFormat,
   Page,
-  PageHeader,
-  Breadcrumb,
 } from '@renderer/components';
 import { usePlatform } from '@renderer/components/lib/platform';
 import { trpc } from '@renderer/ipc';
@@ -50,13 +48,7 @@ export function HomePage() {
   );
 
   return (
-    <Page
-      header={
-        <PageHeader>
-          <Breadcrumb items={['Home']} />
-        </PageHeader>
-      }
-    >
+    <Page>
       <PageContent layout="home">
         <div className={styles.column}>
           <header className={styles.header}>

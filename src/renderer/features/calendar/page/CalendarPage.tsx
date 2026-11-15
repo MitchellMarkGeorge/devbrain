@@ -13,9 +13,7 @@ import {
   type CalendarViewEvent,
   type CalendarViewHandle,
   type CalendarViewSelection,
-  Breadcrumb,
   Page,
-  PageHeader,
   PageToolbar,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
@@ -138,13 +136,7 @@ export function CalendarPage() {
   const sheetOpen = resolved.open !== undefined;
 
   return (
-    <Page
-      header={
-        <PageHeader>
-          <Breadcrumb items={['Calendar']} />
-        </PageHeader>
-      }
-    >
+    <Page>
       {/*
        * the month, the filter and the controls are the page's toolbar, in the page under the title
        * bar, where the 24px title and 32px controls have room

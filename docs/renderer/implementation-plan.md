@@ -600,7 +600,7 @@ to=… />}` with `active` from `useMatchRoute` (fuzzy, so a detail page keeps it
   from ⌘K.
 - **Header:** each page draws its own, in the `Page` it renders: a `PageHeader` with its
   `Breadcrumb` (the section, then the entity's title, built with `useCrumbLink`) and actions, or
-  no header at all (Settings, Integrations). `Page` shows it in the window's title bar; the
+  no header at all (Home, the calendar, Settings, Integrations). `Page` shows it in the window's title bar; the
   workspace layout holds nothing of the page's.
 - **Pages:** placeholders (`src/renderer/pages/app/placeholders.tsx`) whose loaders prime real
   queries and list what they load, until each page's milestone. Not-found (`NotFoundPage`) and

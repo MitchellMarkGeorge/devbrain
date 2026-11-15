@@ -14,7 +14,7 @@ export interface PageProps extends ComponentPropsWithoutRef<'div'> {
    * The page's header: a `PageHeader` with its breadcrumb and actions, or a bar of the page's own.
    * Inside a `WorkspaceShell` it goes in the window's title bar, after the window's controls (so
    * it stays put while the page scrolls, and takes no room in the page); elsewhere the page draws
-   * it at its top. Leave it out for a page with no header (Settings, Integrations)
+   * it at its top. Leave it out for a page with no header (Home, the calendar, Settings, Integrations)
    */
   header?: ReactNode;
   /** classes for the scrolling element (the ScrollArea's viewport) */
