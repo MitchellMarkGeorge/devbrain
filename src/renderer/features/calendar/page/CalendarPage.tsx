@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import { DateTime } from 'luxon';
@@ -63,9 +63,8 @@ export function CalendarPage() {
   const { size } = useWorkspaceShell();
   const { now } = useFormat('minute');
   const view = useRef<CalendarViewHandle>(null);
-  // the toolbar steps down as it narrows (beside the sidebar and the sheet); state, not a ref, so
-  // the measuring starts once it is mounted
-  const [toolbar, setToolbar] = useState<HTMLElement | null>(null);
+  // the toolbar steps down as it narrows (beside the sidebar and the sheet)
+  const toolbar = useRef<HTMLDivElement>(null);
   const layout = headerLayout(useWidth(toolbar));
 
   const options = rangeOptionsOf(settings, resolved.view);
@@ -142,7 +141,7 @@ export function CalendarPage() {
        * bar, where the 24px title and 32px controls have room
        */}
       <PageToolbar
-        ref={setToolbar}
+        ref={toolbar}
         start={<CalendarHeaderStart date={resolved.date} calendars={calendars} layout={layout} />}
         end={
           <CalendarHeaderEnd
@@ -216,16 +215,22 @@ export function CalendarPage() {
   );
 }
 
-/** The width of `element`, followed as it changes; Infinity until it is measured. */
-function useWidth(element: HTMLElement | null): number {
+/**
+ * The width of the element `ref` holds, followed as it changes; Infinity until it is measured. The
+ * element is read once, after the first commit: React sets a child's ref before its parent's
+ * layout effects run, so it is there, as long as it is rendered in place and always (not behind a
+ * condition or a portal), and stays the same element.
+ */
+function useWidth(ref: RefObject<HTMLElement | null>): number {
   const [width, setWidth] = useState(Infinity);
   useLayoutEffect(() => {
+    const element = ref.current;
     if (!element || typeof ResizeObserver === 'undefined') return;
     // it reports the width at once, then as it changes. The toolbar's own layout never changes its
     // width, so this can't feed back on itself
     const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
     observer.observe(element);
     return () => observer.disconnect();
-  }, [element]);
+  }, [ref]);
   return width;
 }
