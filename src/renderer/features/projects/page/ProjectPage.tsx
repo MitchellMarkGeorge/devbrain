@@ -13,7 +13,6 @@ import {
   EditorTitle,
   Icon,
   PageFavoriteButton,
-  PageToolbar,
   ProjectHeader,
   resolveColor,
   Tabs,
@@ -57,7 +56,8 @@ const TAB_LABELS: Record<ProjectTab, string> = {
 
 /**
  * A project's page (`/app/$workspaceId/projects/$projectId`, Figma `7159:12540`, `7159:13218`,
- * `7159:13886`): the star and the "…" menu in the header, then the tabs in `?tab`, underlined:
+ * `7159:13886`): the star and the "…" menu in the header, then the tabs in `?tab`, as quiet pills at
+ * the card's top left:
  * Overview (the project as a document, its tasks under it, and a rail of its progress and notes),
  * Tasks (the tasks views with the project fixed) and Notes (its notes as cards). A synced project's
  * fields are its provider's, so they are read-only here. The loader has the project before the
@@ -137,10 +137,9 @@ function ProjectPageContent({ project }: { project: Project }) {
         </PageHeader>
       }
     >
-      <PageToolbar className={styles.tabsBar}>
+      <div className={styles.tabsBar}>
         <Tabs
-          variant="line"
-          size="lg"
+          variant="ghost"
           className={styles.tabs}
           value={tab}
           onValueChange={(value) => setTab(value as ProjectTab)}
@@ -153,7 +152,7 @@ function ProjectPageContent({ project }: { project: Project }) {
             ))}
           </TabsList>
         </Tabs>
-      </PageToolbar>
+      </div>
       {tab === 'overview' && (
         <ProjectOverview project={project} header={<ProjectPageHeader project={project} />} />
       )}

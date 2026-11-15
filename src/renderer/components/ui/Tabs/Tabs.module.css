@@ -1,5 +1,6 @@
 /* shadcn's Tabs. outline (the default): ToggleGroup's outline look, for page sections;
-   default: the segmented control; line: an underline. See docs/design-system/components/Tabs.md */
+   default: the segmented control; line: an underline; ghost: quiet pills.
+   See docs/design-system/components/Tabs.md */
 .root {
   display: flex;
   flex-direction: column;
@@ -154,4 +155,31 @@
   transition:
     left var(--duration-normal) var(--ease-out),
     width var(--duration-normal) var(--ease-out);
+}
+
+/*
+ * ---------- ghost: 28px pills, 2px apart, no outline or underline; the current one fills ----------
+ * An item's sub-pages at the top of its page (a project's Overview / Tasks / Notes): quiet labels in
+ * `muted-foreground` with 14px icons, the current tab on `accent` in `foreground-strong`
+ */
+.ghost .list {
+  gap: var(--space-0-5);
+}
+.ghost .tab {
+  height: var(--control-sm);
+  padding: 0 10px;
+  border-radius: var(--radius-md);
+  color: var(--muted-foreground);
+}
+.ghost .tab > svg {
+  width: 14px;
+  height: 14px;
+}
+.ghost .tab:hover {
+  background: color-mix(in oklab, var(--accent) 60%, transparent);
+  color: var(--foreground);
+}
+.ghost .tab[data-active] {
+  background: var(--accent);
+  color: var(--foreground-strong);
 }

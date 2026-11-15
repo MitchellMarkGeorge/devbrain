@@ -1408,7 +1408,8 @@ linkedTaskId } })`), separate from the task's event or note link.
      Tasks page's tasks in no project).
    - `ProjectHeader` takes its tile, name and "time left" as slots (`icon`, `title`, `meta`) and
      `duePicker`/`startPicker` (clearable dates); its progress pill and "+ Add" are gone. The tabs
-     are `Tabs variant="line" size="lg"` (underlined, with icons). "N overdue" opens the Tasks
+     are `Tabs variant="ghost"` (quiet pills with icons, the current one filled, at the card's
+     top left; they were underlined, `variant="line" size="lg"`, until Nov 2026). "N overdue" opens the Tasks
      tab's list view filtered to overdue tasks; core's `numOfOverdue` counts tasks due before
      today, as that filter and the rows do (it counted those due earlier today too). Colours are
      stored as `#rrggbb` (`shared/lib/workspace/colors.ts`'s `SWATCH_HEX`), as `projects.update` takes no

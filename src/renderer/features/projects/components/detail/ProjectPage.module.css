@@ -1,8 +1,14 @@
 /* The project page: its tabs and the Overview. See ProjectPage.tsx and ProjectOverview.tsx */
 
-/* the tabs: underlined, their line the width of the page, 12px over the tab's content */
+/*
+ * the tabs: ghost pills 8px under the card's top, 16px in, so their labels (10px into each pill)
+ * line up with a toolbar's 24px side; no line under them, the current pill's fill says where you are
+ */
 .tabsBar {
-  padding-bottom: var(--space-3);
+  display: flex;
+  flex: none;
+  min-width: 0;
+  padding: var(--space-2) var(--space-4) 0;
 }
 .tabs {
   flex: 1 1 auto;

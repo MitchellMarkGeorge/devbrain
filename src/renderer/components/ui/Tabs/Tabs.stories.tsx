@@ -10,7 +10,7 @@ const meta = {
   component: Tabs,
   args: { defaultValue: 'General' },
   argTypes: {
-    variant: { control: 'inline-radio', options: ['outline', 'default', 'line'] },
+    variant: { control: 'inline-radio', options: ['outline', 'default', 'line', 'ghost'] },
     size: { control: 'inline-radio', options: ['default', 'lg'] },
   },
   render: (args) => (
@@ -60,10 +60,29 @@ export const WithIcons: Story = {
   ),
 };
 
-/** A project's sub-pages, at the top of its page: the line variant at `size="lg"`, with icons */
+/** The line variant at `size="lg"`, with icons */
 export const LineLarge: Story = {
   render: () => (
     <Tabs defaultValue="overview" variant="line" size="lg">
+      <TabsList>
+        <TabsTab value="overview" icon={LayoutDashboard}>
+          Overview
+        </TabsTab>
+        <TabsTab value="tasks" icon={CircleCheck}>
+          Tasks
+        </TabsTab>
+        <TabsTab value="notes" icon={FileText}>
+          Notes
+        </TabsTab>
+      </TabsList>
+    </Tabs>
+  ),
+};
+
+/** A project's sub-pages, at the top of its page: the ghost variant, with icons */
+export const Ghost: Story = {
+  render: () => (
+    <Tabs defaultValue="overview" variant="ghost">
       <TabsList>
         <TabsTab value="overview" icon={LayoutDashboard}>
           Overview
