@@ -36,6 +36,9 @@ interface Modal {
 }
 
 const ModalsContext = createContext<Modals | null>(null);
+// whether a dialog is open: its own context, so a component that only opens dialogs (useModals)
+// doesn't render again as they come and go
+const ModalShownContext = createContext(false);
 
 let nextId = 0;
 
@@ -66,10 +69,11 @@ export function ModalProvider({
     return () => setModals(closing(id));
   }, []);
   const modalsApi = useMemo(() => ({ open }), [open]);
+  const shown = !closed && modals.some((modal) => modal.open);
 
   return (
     <ModalsContext.Provider value={modalsApi}>
-      {children}
+      <ModalShownContext.Provider value={shown}>{children}</ModalShownContext.Provider>
       {!closed &&
         modals.map((modal) => (
           <Fragment key={modal.id}>
@@ -93,4 +97,12 @@ export function useModals(): Modals {
   const modals = useContext(ModalsContext);
   if (modals === null) throw new Error('useModals needs a ModalProvider (the root layout has one)');
   return modals;
+}
+
+/**
+ * Whether a dialog shown with `useModals` is open (from when it opens until it starts closing).
+ * The workspace layout closes the sidebar's drawer when one opens.
+ */
+export function useModalShown(): boolean {
+  return useContext(ModalShownContext);
 }

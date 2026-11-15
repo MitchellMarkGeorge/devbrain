@@ -13,8 +13,15 @@
   color: var(--sidebar-foreground);
   overflow: hidden;
 }
-/* in the drawer: on the drawer's own surface (WorkspaceShell draws it as a sheet), with no hairline */
+/*
+ * in the drawer: on the drawer's own surface (WorkspaceShell draws it as a sheet, on `popover`),
+ * with no hairline. Its hover and current item take 8% of the text colour over that surface: the
+ * sidebar's own fill (`sidebar-accent`, tuned for the frame) is a step off `popover` in dark, and
+ * wouldn't show; in light this is about `neutral-100`, as before
+ */
 .sidebar[data-drawer] {
+  --sidebar-accent: color-mix(in oklab, var(--foreground) 8%, var(--popover));
+  --sidebar-accent-foreground: var(--accent-foreground);
   border-right: none;
   background: inherit;
 }

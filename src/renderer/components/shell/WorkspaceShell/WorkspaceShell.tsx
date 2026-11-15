@@ -49,6 +49,8 @@ export interface WorkspaceShellProps extends Omit<ComponentPropsWithoutRef<'div'
 export interface WorkspaceShellControls {
   /** hides the sidebar, docks it again, or opens and closes its drawer in a compact window */
   toggleSidebar: () => void;
+  /** closes the hidden sidebar's drawer, peeking or pinned: the app does when a dialog opens */
+  closeDrawer: () => void;
 }
 
 /** The hidden sidebar's drawer: shut, peeked at by pointing, or pinned open. */
@@ -170,7 +172,10 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
       else if (!compact) setCollapsed(false);
       else setDrawer((state) => (state === 'open' ? 'closed' : 'open'));
     }, [clearTimers, pointer, hidden, drawer, compact, setCollapsed]);
-    useImperativeHandle(controlsRef, () => ({ toggleSidebar }), [toggleSidebar]);
+    useImperativeHandle(controlsRef, () => ({ toggleSidebar, closeDrawer }), [
+      toggleSidebar,
+      closeDrawer,
+    ]);
 
     const peekSidebar = useCallback(() => {
       clearTimeout(closeTimer.current);

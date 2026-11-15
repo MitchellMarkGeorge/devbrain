@@ -117,6 +117,7 @@ A page shows a dialog with `useModals().open((props) => <MyDialog {...props} />)
 renders it. The dialog spreads `props` onto `Dialog` or `AlertDialog`, closes with
 `props.onOpenChange(false)`, and is removed once its closing animation ends. The root layout holds
 them, inside the router and the query client, and drops them all when a workspace switch starts.
+Opening one closes the sidebar's drawer (`useModalShown`, in `AppLayout`).
 Components in `src/renderer/components` stay controlled (`open`, `onOpenChange`); `useModals` is
 for pages.
 

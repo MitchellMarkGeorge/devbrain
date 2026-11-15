@@ -3,7 +3,13 @@ import { createElement as h, useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Dialog, DialogContent, DialogTitle } from '@renderer/components';
-import { ModalProvider, useModals, type ModalProps, type Modals } from '@renderer/app/modals';
+import {
+  ModalProvider,
+  useModalShown,
+  useModals,
+  type ModalProps,
+  type Modals,
+} from '@renderer/app/modals';
 
 // The modal API (src/renderer/app/modals.tsx): dialogs shown from anywhere, drawn by the provider.
 
@@ -36,8 +42,9 @@ interface Handles {
 
 function Page({ onModals }: { onModals: (modals: Modals) => void }) {
   const modals = useModals();
+  const modalShown = useModalShown();
   useEffect(() => onModals(modals), [modals, onModals]);
-  return h('p', null, 'page');
+  return h('p', { 'data-modal-shown': String(modalShown) }, 'page');
 }
 
 function App({ handles }: { handles: (next: Partial<Handles>) => void }) {
@@ -66,6 +73,8 @@ function mount() {
     setClosed: (closed: boolean) => handles.setClosed!(closed),
     shown: () =>
       [...document.querySelectorAll('[data-testid^="modal-"]')].map((el) => el.textContent),
+    modalShown: () =>
+      container.querySelector('[data-modal-shown]')?.getAttribute('data-modal-shown'),
   };
 }
 
@@ -110,5 +119,30 @@ describe('useModals', () => {
     app.setClosed(false);
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(app.shown()).toEqual([]);
+  });
+});
+
+describe('useModalShown', () => {
+  it('is true while a dialog is open, through a second one, and false once the last closes', async () => {
+    const app = mount();
+    await vi.waitFor(() => expect(app.modals()).toBeDefined());
+    expect(app.modalShown()).toBe('false');
+    const closeA = show(app.modals(), 'modal-a');
+    await vi.waitFor(() => expect(app.modalShown()).toBe('true'));
+    const closeB = show(app.modals(), 'modal-b');
+    closeA();
+    await vi.waitFor(() => expect(app.shown()).toEqual(['modal-bDone']));
+    expect(app.modalShown()).toBe('true');
+    closeB();
+    await vi.waitFor(() => expect(app.modalShown()).toBe('false'));
+  });
+
+  it('is false while the provider is closed (a switch of workspace)', async () => {
+    const app = mount();
+    await vi.waitFor(() => expect(app.modals()).toBeDefined());
+    show(app.modals(), 'modal-a');
+    await vi.waitFor(() => expect(app.modalShown()).toBe('true'));
+    app.setClosed(true);
+    await vi.waitFor(() => expect(app.modalShown()).toBe('false'));
   });
 });
