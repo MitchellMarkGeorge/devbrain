@@ -148,7 +148,8 @@ height from the token (generated into `src/common/theme.ts`), so the system's co
   app menu, as there is no menu bar. The page's header in the title bar stops 16px short of the
   buttons. Sheets start under the title bar, inside the page's card, so a sheet's own close never
   sits beside the window's. Outside a workspace the `AppShell`'s page colour shows around the
-  buttons, which differs from `sidebar` only slightly, in the light theme.
+  buttons, which differs from `sidebar` by one small step (`#fafafa` on white in light, `#0d0d0d` on
+  `#111111` in dark).
 - **Linux:** the system frame, with its title bar and the menu bar, sits above the page. The strip
   has no start (no traffic lights, no menu button); a sheet runs the full height, as on macOS.
 

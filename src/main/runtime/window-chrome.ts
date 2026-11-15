@@ -31,8 +31,9 @@ export const TRAFFIC_LIGHT_POSITION = {
  *   top left, in the slot the page keeps for them.
  * - **Windows**: no title bar (`hidden`), with the Window Controls Overlay: Windows draws minimise,
  *   maximise and close over the page's top right, as tall as the page's title bar and in its
- *   colours (the WorkspaceShell's title bar; the AppShell's page colour differs from it only
- *   slightly, in the light theme). Windows draws them, rather than the page, so maximise keeps its snap layouts.
+ *   colours (the WorkspaceShell's title bar, on `sidebar`; the AppShell's page colour differs
+ *   from it by one small step in each theme). Windows draws them, rather than the page, so
+ *   maximise keeps its snap layouts.
  *   The page keeps that corner clear with the `titlebar-area-*` CSS environment variables.
  * - **Linux**: the system frame, title bar and menu bar included. Desktops place and draw window
  *   controls differently, and some have no title bar at all, so the page draws none of them.

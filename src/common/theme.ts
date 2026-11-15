@@ -16,7 +16,7 @@ export const WINDOW_FOREGROUND = {
 // --sidebar in each theme: the colour of the WorkspaceShell's title bar, which the window controls
 // Windows draws over its right end take as their background
 export const TITLE_BAR_BACKGROUND = {
-  dark: '#0a0a0a',
+  dark: '#0d0d0d',
   light: '#fafafa',
 } as const;
 
