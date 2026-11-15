@@ -39,6 +39,7 @@ export function createDocumentExtensions(
     imageLink?: AnyExtension;
     callout?: AnyExtension;
     codeBlock?: AnyExtension;
+    taskItem?: AnyExtension;
   } = {},
 ): AnyExtension[] {
   return [
@@ -53,7 +54,7 @@ export function createDocumentExtensions(
     options.codeBlock ?? DocumentCodeBlock,
     SafeLink,
     TaskList,
-    TaskItem.configure({ nested: true }),
+    options.taskItem ?? TaskItem.configure({ nested: true }),
     TableKit.configure({ table: false }),
     DocumentTable.configure({ resizable: false }),
     // the UI layer passes its own versions, with node views; they keep the same markdown rules

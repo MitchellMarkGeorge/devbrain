@@ -293,3 +293,39 @@ describe('RichTextEditor', () => {
     expect(document.querySelector('[aria-label="Link address"]')).toBeNull();
   });
 });
+
+describe('RichTextEditor to-dos', () => {
+  const TODOS = '- [ ] Write tests\n- [x] Ship it';
+  const boxes = () => [...container.querySelectorAll<HTMLElement>('[role="checkbox"]')];
+
+  it('draws each with the Checkbox, as the list item itself', async () => {
+    render({ value: TODOS });
+    await act(async () => {});
+    expect(boxes().map((box) => box.getAttribute('aria-checked'))).toEqual(['false', 'true']);
+    expect(boxes()[0].getAttribute('aria-label')).toBe('To-do: Write tests');
+    // the node view's li is the list's own, carrying what EditorContent styles it by
+    const done = container.querySelector('ul[data-type="taskList"] > li[data-checked="true"]');
+    expect(done?.getAttribute('data-type')).toBe('taskItem');
+    expect(done?.textContent).toContain('Ship it');
+  });
+
+  it('ticks and unticks a to-do into the markdown', async () => {
+    const onChange = vi.fn();
+    render({ value: TODOS, onChange });
+    await act(async () => {});
+    act(() => boxes()[0].click());
+    expect(onChange).toHaveBeenLastCalledWith('- [x] Write tests\n- [x] Ship it');
+    expect(container.querySelector('li[data-checked="true"]')?.textContent).toContain('Write');
+    act(() => boxes()[1].click());
+    expect(onChange).toHaveBeenLastCalledWith('- [x] Write tests\n- [ ] Ship it');
+  });
+
+  it("leaves a read-only note's to-dos as they are", async () => {
+    const onChange = vi.fn();
+    render({ value: TODOS, onChange, editable: false });
+    await act(async () => {});
+    act(() => boxes()[0].click());
+    expect(onChange).not.toHaveBeenCalled();
+    expect(boxes()[0].getAttribute('aria-checked')).toBe('false');
+  });
+});
