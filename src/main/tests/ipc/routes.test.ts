@@ -90,6 +90,30 @@ describe('app.showLogFile', () => {
   });
 });
 
+describe('app.showFile', () => {
+  it('shows the file at the path given, without DevBrain, changing nothing', async () => {
+    const desktop = { showItem: vi.fn(async () => {}) };
+    attachRouter(appRouter, { createContext: testContext(null, desktop as unknown as Desktop) });
+
+    expect(await call('app.showFile', { path: '/Users/me/tasks.csv' }, 'mutation')).toEqual({
+      ok: true,
+      data: undefined,
+      changed: [],
+    });
+    expect(desktop.showItem).toHaveBeenCalledWith('/Users/me/tasks.csv');
+  });
+
+  it('refuses a missing or relative path', async () => {
+    const desktop = { showItem: vi.fn(async () => {}) };
+    attachRouter(appRouter, { createContext: testContext(null, desktop as unknown as Desktop) });
+    expect(code(await call('app.showFile', undefined, 'mutation'))).toBe('invalid_input');
+    expect(code(await call('app.showFile', { path: 'tasks.csv' }, 'mutation'))).toBe(
+      'invalid_input',
+    );
+    expect(desktop.showItem).not.toHaveBeenCalled();
+  });
+});
+
 describe('workspaces', () => {
   beforeEach(() => attach());
 

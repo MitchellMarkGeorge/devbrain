@@ -3,7 +3,7 @@
 How DevBrain moves tasks and notes in and out of a workspace, as on the "Settings (data & storage)"
 screen: import tasks from CSV or JSON, import notes from Markdown, export tasks as CSV or JSON,
 export notes as a folder of Markdown files. The "Import Tasks" button on the empty home screen is
-the same task import.
+the same task import, and so are the app menu's File › Import and File › Export.
 
 | Piece                                                                  | Where                               |
 | ---------------------------------------------------------------------- | ----------------------------------- |
@@ -17,8 +17,9 @@ the same task import.
 
 Core never opens a dialog and never imports Electron. A route asks the user for a file or folder
 through `ctx.desktop` (the `Desktop` in `src/main/ipc/desktop.ts`), then passes the path it got to
-`TransferService`. The renderer never names a path: every route takes no input but the export
-format. Each route resolves with `null` when the user cancels the dialog.
+`TransferService`. The renderer never names a path to read or write: every import and export
+route takes no input but the export format. Each resolves with `null` when the user cancels the
+dialog.
 
 ## Routes
 
@@ -38,6 +39,22 @@ setting, so it is input, and main opens nothing it is handed.
 
 If the workspace is closed or switched while a dialog is open (from another window), the route
 fails with `workspace_closed` and writes nothing.
+
+An export's toast offers "Show in Finder" (Figma `7423:37520`) for the file or folder just
+written: it calls `app.showFile({ path })` with the `path` the export route returned, and main
+shows it selected in its folder (`shell.showItemInFolder`; the folder when the file has gone
+since). `app.showFile` is the one route that takes a path from the renderer: it only reveals it,
+never opens or reads it, and takes an absolute path only.
+
+### From the app menu
+
+File › Import and File › Export (`src/main/runtime/menu.ts`) don't run anything in main: each
+sends the window an `app.command` (`transfer.importTasks`, `transfer.exportTasksCsv`, …), and the
+window runs the Settings buttons' own flow (`useTransfers`, in
+`src/renderer/features/settings/hooks/use-transfers.tsx`): the same route, so the same system
+dialog and `workspace_closed` check, then the same summary dialog, toast or error toast. One
+transfer runs at a time, whichever entry point started it: the Settings buttons are disabled and
+the menu's commands do nothing while one runs. The items are disabled while no workspace is open.
 
 ## Tasks
 

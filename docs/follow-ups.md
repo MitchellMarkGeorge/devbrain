@@ -253,14 +253,6 @@ Electron knows for certain: `webContents.navigationHistory.canGoBack()` and `can
 - Against: a new event in `src/common/events.ts`, sent on every navigation, and the arrows update a moment after the page (the answer comes from main). The renderer tests' fake main (`src/renderer/tests/routing/fake-main.ts`) would have to send it too. It sends two booleans, not the location, so the rule against sending the location over IPC still holds.
 - To check: that `navigationHistory` counts a hash change as an entry, as the router does, and what it reports after a reload.
 
-## Data and storage
-
-### Show an exported file in Finder
-
-_Found in renderer milestone 10._
-
-Figma's export toast (`7423:37520`) offers "Show in Finder" for the file just written. No route can: `settings.showDataFolder` and `workspace.showInFolder` open folders main chooses, and the renderer never names a path. The toast says where the file went instead. A `transfer.showExport` that reveals the last path an export of this window wrote (kept in main, never taken as input) would allow it, through `shell.showItemInFolder`.
-
 ## Deleting
 
 ### Open trashed projects and notes read-only

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TaskPriority, type AppSettings } from '@common/types';
-import { importSummaryText } from '@renderer/features/settings/components/DataStorageSettings';
+import { importSummaryText } from '@renderer/features/settings/hooks/use-transfers';
 import {
   legacySettingsSearchSchema,
   sectionOfLegacyTab,

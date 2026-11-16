@@ -66,6 +66,8 @@ function configureLogging() {
 // where electron-log writes: the menu's Show Log File, and app.showLogFile
 const logFilePath = () => log.transports.file.getFile().path;
 
+const desktopDeps = { dialog, shell, menu: Menu, logFilePath };
+
 // --- DevBrain -------------------------------------------------------------
 const devBrainLog = log.scope('devbrain');
 
@@ -132,7 +134,7 @@ function attachIpc(devBrain: DevBrain | null) {
         ...call,
         devBrain,
         desktop: createElectronDesktop(
-          { dialog, shell, menu: Menu, logFilePath },
+          desktopDeps,
           BrowserWindow.fromWebContents(call.event.sender),
         ),
         log: ipcLog,
@@ -277,7 +279,13 @@ function attachMenu(devBrain: DevBrain | null) {
     actions: createMenuActions({
       devBrain,
       window: focusedWindow,
-      desktop: (win) => createElectronDesktop({ dialog, shell, menu: Menu, logFilePath }, win),
+      desktop: (win) => createElectronDesktop(desktopDeps, win),
+      // a command or a report shows the window first: on macOS the menu stays when it is hidden
+      send: (win, name, payload) => {
+        if (win === null || win.isDestroyed()) return;
+        if (win === mainWindow) showMainWindow();
+        win.webContents.send(`${IPC_EVENT_PREFIX}${name}`, payload);
+      },
       dialog,
       showItemInFolder: (fullPath) => shell.showItemInFolder(fullPath),
       logFilePath,

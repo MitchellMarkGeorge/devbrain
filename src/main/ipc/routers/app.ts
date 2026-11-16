@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { app } from 'electron';
 import { z } from 'zod';
 import { publicProcedure } from '../procedures';
@@ -15,4 +16,13 @@ export const appRouter = t.router({
   // Shows the log file in the file manager. Public: the renderer offers it when DevBrain couldn't
   // open its data folder, the one time nothing else can run.
   showLogFile: publicProcedure.mutation(({ ctx }) => ctx.desktop.showLogFile()),
+  // Shows a file or folder selected in the file manager (Finder, Explorer), or opens its folder
+  // when it has gone: an export toast's Show in Finder, with the path the export returned. The one
+  // route that takes a path from the renderer: it only reveals it, never opens or reads it, and
+  // takes an absolute path only.
+  showFile: publicProcedure
+    .input(
+      z.object({ path: z.string().min(1).refine(path.isAbsolute, 'Must be an absolute path') }),
+    )
+    .mutation(({ ctx, input }) => ctx.desktop.showItem(input.path)),
 });

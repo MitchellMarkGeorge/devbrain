@@ -16,7 +16,8 @@ import { t } from '../trpc';
 // Importing and exporting the open workspace's tasks and notes (docs/import-export.md). Main asks
 // for the file or folder with the system dialog, then hands its path to core's TransferService:
 // the renderer never names a path. Each resolves with null when the dialog is cancelled. What an
-// import creates is announced by TaskService and NoteService, so it comes back in `changed`.
+// import creates is announced by TaskService and NoteService, so it comes back in `changed`. An
+// export toast's Show in Finder shows the file with app.showFile.
 
 // The workspace the call started on, once the dialog has closed: one switched or closed meanwhile
 // (from another window) gets nothing written to it, and the call fails with workspace_closed.
