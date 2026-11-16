@@ -31,8 +31,8 @@ export const tabsVariants = cva(styles.root, {
 export interface TabsProps extends BaseTabs.Root.Props, VariantProps<typeof tabsVariants> {}
 
 /**
- * Page sections: Settings (General / Tasks / Calendar / Data & storage) and an item's sub-pages
- * (Overview / Tasks / Notes). Compose `TabsList` with `TabsTab`s, then a `TabsPanel` for each.
+ * Page sections, and an item's sub-pages (a project's Overview / Tasks / Notes, `ghost`). Compose
+ * `TabsList` with `TabsTab`s, then a `TabsPanel` for each.
  */
 export const Tabs = forwardRef<HTMLDivElement, TabsProps>(function Tabs(
   { variant, size, className, ...props },

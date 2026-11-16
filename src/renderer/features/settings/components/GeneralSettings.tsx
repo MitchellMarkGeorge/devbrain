@@ -107,11 +107,10 @@ function WorkspaceSection({ workspace }: { workspace: WorkspaceInfo }) {
   );
 }
 
-/** Danger zone: reset the settings, delete the workspace. Both always ask first. */
+/** Danger zone: delete the workspace, after asking for its name. */
 function DangerZone({ workspace }: { workspace: WorkspaceInfo }) {
   const modals = useModals();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const showError = useMutationErrorToast();
 
   const deleteWorkspace = () =>
@@ -137,35 +136,9 @@ function DangerZone({ workspace }: { workspace: WorkspaceInfo }) {
       </ConfirmDialog>
     ));
 
-  const resetSettings = () =>
-    modals.open((props) => (
-      <ConfirmDialog
-        {...props}
-        title="Reset settings?"
-        description="Every setting goes back to its default. Your workspaces and everything in them are kept."
-        actionLabel="Reset Settings"
-        onConfirm={() => {
-          ipc.settings.reset
-            .mutate()
-            .then((settings) => {
-              queryClient.setQueryData(trpc.settings.get.queryKey(), settings);
-              toast({ tone: 'success', title: 'Settings reset' });
-            })
-            .catch((error: unknown) => showError(error, 'Couldn’t reset the settings'));
-        }}
-      >
-        <KeyScope name="dialog" />
-      </ConfirmDialog>
-    ));
-
   return (
     <SettingsSection title="Danger zone">
       <SettingsGroup>
-        <SettingsRow
-          label="Reset settings"
-          description="Puts every setting back to its default. Your data is kept."
-          control={<Button onClick={resetSettings}>Reset Settings</Button>}
-        />
         <SettingsRow
           label="Delete workspace"
           description="Deletes the workspace, its tasks, notes and projects. This can't be undone."
@@ -180,15 +153,31 @@ function DangerZone({ workspace }: { workspace: WorkspaceInfo }) {
   );
 }
 
-/** Settings › General (Figma `7158:10515`). */
-export function GeneralSettings() {
-  const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
+/**
+ * Settings › General, under Current workspace: the open workspace's name and colour, and deleting
+ * it (Figma `7158:10515`'s Workspace and Danger zone).
+ */
+export function WorkspaceSettings() {
   const workspace = useSuspenseQuery(trpc.workspaces.current.queryOptions()).data;
+  if (!workspace) return null;
+  return (
+    <>
+      <WorkspaceSection workspace={workspace} />
+      <DangerZone workspace={workspace} />
+    </>
+  );
+}
+
+/**
+ * Settings › Preferences, for every workspace: appearance, the start page, launching, the time
+ * format, and the confirmations (Figma `7158:10515`'s General and Confirmations).
+ */
+export function PreferencesSettings() {
+  const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
   const set = useSetSetting();
   const { general } = settings;
   return (
     <>
-      {workspace && <WorkspaceSection workspace={workspace} />}
       <SettingsSection title="General">
         <SettingsGroup>
           <SettingsRow
@@ -283,7 +272,45 @@ export function GeneralSettings() {
           />
         </SettingsGroup>
       </SettingsSection>
-      {workspace && <DangerZone workspace={workspace} />}
     </>
+  );
+}
+
+/** Reset settings: every workspace's settings back to their defaults, after asking. */
+export function ResetSettingsSection() {
+  const modals = useModals();
+  const queryClient = useQueryClient();
+  const showError = useMutationErrorToast();
+  const resetSettings = () =>
+    modals.open((props) => (
+      <ConfirmDialog
+        {...props}
+        title="Reset settings?"
+        description="Every setting goes back to its default. Your workspaces and everything in them are kept."
+        actionLabel="Reset Settings"
+        onConfirm={() => {
+          ipc.settings.reset
+            .mutate()
+            .then((settings) => {
+              queryClient.setQueryData(trpc.settings.get.queryKey(), settings);
+              toast({ tone: 'success', title: 'Settings reset' });
+            })
+            .catch((error: unknown) => showError(error, 'Couldn’t reset the settings'));
+        }}
+      >
+        <KeyScope name="dialog" />
+      </ConfirmDialog>
+    ));
+
+  return (
+    <SettingsSection title="Reset">
+      <SettingsGroup>
+        <SettingsRow
+          label="Reset settings"
+          description="Puts every setting back to its default, in every workspace. Your data is kept."
+          control={<Button onClick={resetSettings}>Reset Settings</Button>}
+        />
+      </SettingsGroup>
+    </SettingsSection>
   );
 }

@@ -132,7 +132,7 @@ describe('Home', () => {
     });
     await eventually(() => expect(app.text()).toContain('Google Calendar paused'));
     click(byText(app.container, 'button', 'Reconnect'));
-    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/integrations`));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/settings/integrations`));
   });
 
   it('creates a task from the capture box, with the date and project it names', async () => {

@@ -34,7 +34,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Settings sections: the outline variant */
+/** The outline variant, for page sections */
 export const Default: Story = {};
 
 export const Segmented: Story = { args: { variant: 'default' } };

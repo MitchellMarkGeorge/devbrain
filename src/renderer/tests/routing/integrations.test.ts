@@ -137,7 +137,7 @@ function integrationsPage(integrations: Integration[]) {
       ['integration', 'task', 'project'],
     ];
   });
-  const app = startApp(main, { url: `/app/${WORK}/integrations` });
+  const app = startApp(main, { url: `/app/${WORK}/settings/integrations` });
   return { main, app, accounts, statuses };
 }
 

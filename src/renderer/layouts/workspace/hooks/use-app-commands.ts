@@ -25,8 +25,17 @@ export function useAppCommands({ toggleSidebar }: { toggleSidebar: () => void })
   useCommands(
     createAppCommands({
       openSearch,
+      // Integrations is a section of the settings; Settings opens on their first section
       goTo: (page: GoToPage) =>
-        void navigate({ to: `/app/$workspaceId/${page}`, params: { workspaceId } }),
+        void navigate({
+          to:
+            page === 'integrations'
+              ? '/app/$workspaceId/settings/integrations'
+              : page === 'settings'
+                ? '/app/$workspaceId/settings/general'
+                : `/app/$workspaceId/${page}`,
+          params: { workspaceId },
+        }),
       openShortcuts: () => modals.open((props) => createElement(ShortcutsDialog, props)),
       toggleSidebar,
       newTask: () => createTask(),
