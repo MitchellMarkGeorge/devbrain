@@ -9,7 +9,14 @@ import { TaskService } from '../../tasks/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
 import { generateId } from '@common/ids';
-import { AuthType, LinkState, Provider, SourceType, TaskStatus } from '@common/types';
+import {
+  AuthType,
+  LinkState,
+  ProjectStatus,
+  Provider,
+  SourceType,
+  TaskStatus,
+} from '@common/types';
 import { eq } from 'drizzle-orm';
 import { calendars } from '@main/db/schema/calendars';
 import { tasks } from '@main/db/schema/tasks';
@@ -411,6 +418,30 @@ describe('SearchService — status and colour', () => {
     expect(searchService.search({ query: 'widget', entityType: [] })).toMatchObject([
       { entityId: task.id, status: TaskStatus.IN_PROGRESS, color: null },
     ]);
+  });
+
+  it("adds a task's parent, and a project's status, for the pickers that leave some out", () => {
+    const parent = taskService.createTask({ title: 'Widget parent', dueDate: TOMORROW });
+    const subtask = taskService.createSubtask(parent.id, { title: 'Widget subtask' });
+    const project = projectService.createProject({ title: 'Widget project', dueDate: TOMORROW });
+    projectService.updateStatus(project.id, ProjectStatus.COMPLETED);
+    searchService.indexTask(parent);
+    searchService.indexTask(subtask);
+    searchService.indexProjects([projectService.getById(project.id)]);
+
+    const results = searchService.search({ query: 'widget', entityType: [] });
+    expect(results.find(({ entityId }) => entityId === parent.id)).toMatchObject({
+      parentTaskId: null,
+      projectStatus: null,
+    });
+    expect(results.find(({ entityId }) => entityId === subtask.id)).toMatchObject({
+      parentTaskId: parent.id,
+      projectStatus: null,
+    });
+    expect(results.find(({ entityId }) => entityId === project.id)).toMatchObject({
+      parentTaskId: null,
+      projectStatus: ProjectStatus.COMPLETED,
+    });
   });
 
   it("adds a project's colour, or null when it has none", () => {

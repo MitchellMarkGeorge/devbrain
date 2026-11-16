@@ -10,6 +10,8 @@ const result = (fields: Partial<SearchResult>): SearchResult => ({
   body: '',
   rank: -1,
   status: null,
+  parentTaskId: null,
+  projectStatus: null,
   color: null,
   external: null,
   ...fields,
