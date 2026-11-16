@@ -188,7 +188,8 @@ value: '24' }`), or one group (`settings.calendar`), checking the value against 
   `settings.showDataFolder` and `workspace.showInFolder` open `devBrain.path` and the open
   workspace's folder; `notes.showInFolder({ id })` shows the note's markdown file selected in its
   folder (Electron's `shell.showItemInFolder`), at the path `NoteService.filePathOf` gives, or
-  opens the notes folder when the file is missing. A path handed to the desktop comes from main's state or a dialog, never from
+  opens the notes folder when the file is missing. `transfer.showExport` shows the file or folder
+  this window's last export wrote, which main kept (`Desktop.rememberExport`). A path handed to the desktop comes from main's state or a dialog, never from
   the renderer's input.
 - **`app.showLogFile`** shows the log file in the file manager (`ctx.desktop.showLogFile`). It is
   public, as the renderer offers it when DevBrain couldn't open its data folder, the one time no
@@ -276,11 +277,20 @@ never a snapshot and never credentials, and the renderer refetches what it shows
 | `sync.progress`        | `sourceId`, `phase`, `itemsApplied`  | After each page a sync run commits                                                     |
 | `integrations.changed` | `integrationId`, `type`              | On every `IntegrationChange`                                                           |
 | `sources.changed`      | `sourceId`                           | When a source is switched on or off, or a run records how it ended                     |
+| `app.command`          | `command`, `workspaceId`             | An app menu item that runs a window command (New Task, Go to, Export), to that window  |
 
 `db.changes` and `workspace.changed` keep data fresh, and the query invalidator follows them. The
-other three are for a status UI (a sync indicator, the integrations page). They are sent at once,
+next three are for a status UI (a sync indicator, the integrations page). They are sent at once,
 to every window, beside the entities their change maps to, so a view refetching on `changed` or
 `db.changes` doesn't need them.
+
+The last comes from the app menu (`src/main/runtime/menu.ts`), not the tracker, and goes to the
+focused window only. It names a command in the window's registry (`MenuCommandId`: `task.new`,
+`note.new`, `search.open`, `nav.<page>`, and the `transfer.*` imports and exports), which the
+workspace layout runs as the command's keys or buttons would (`useMenuCommands`), so the menu and
+the window can't drift apart: an import from the menu is the Settings page's import, route and
+all. It carries the workspace main had open, and a window showing another drops it. It doesn't
+carry the location: Go to names a page, and the renderer navigates within its own workspace.
 
 ### The initial load context
 

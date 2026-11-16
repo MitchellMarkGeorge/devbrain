@@ -3,7 +3,7 @@
 How DevBrain moves tasks and notes in and out of a workspace, as on the "Settings (data & storage)"
 screen: import tasks from CSV or JSON, import notes from Markdown, export tasks as CSV or JSON,
 export notes as a folder of Markdown files. The "Import Tasks" button on the empty home screen is
-the same task import.
+the same task import, and so are the app menu's File › Import and File › Export.
 
 | Piece                                                                  | Where                               |
 | ---------------------------------------------------------------------- | ----------------------------------- |
@@ -28,6 +28,7 @@ format. Each route resolves with `null` when the user cancels the dialog.
 | `transfer.importNotes`    | open `.md`, `.markdown`, `.txt` files  | `NoteImportSummary`, or `null`                 |
 | `transfer.exportTasks`    | save as, `{ format: 'csv' \| 'json' }` | `TaskExportResult` (`path`, `count`)           |
 | `transfer.exportNotes`    | choose a folder                        | `NoteExportResult` (`path`, `count`, `errors`) |
+| `transfer.showExport`     | none                                   | shows this window's last export, selected      |
 | `settings.showDataFolder` | none                                   | opens the data folder in the file manager      |
 | `workspace.showInFolder`  | none                                   | opens the open workspace's folder              |
 
@@ -38,6 +39,22 @@ setting, so it is input, and main opens nothing it is handed.
 
 If the workspace is closed or switched while a dialog is open (from another window), the route
 fails with `workspace_closed` and writes nothing.
+
+An export's toast offers "Show in Finder" (Figma `7423:37520`) for the file or folder just
+written. Main remembers the path each export returned, per window (`Desktop.rememberExport`, held
+weakly by the window, never written to disk), and `transfer.showExport` shows the last one selected
+in its folder (`shell.showItemInFolder`; the folder when the file has gone since). It takes no
+input, and fails with `not_found` when the window has exported nothing.
+
+### From the app menu
+
+File › Import and File › Export (`src/main/runtime/menu.ts`) don't run anything in main: each
+sends the window an `app.command` (`transfer.importTasks`, `transfer.exportTasksCsv`, …), and the
+window runs the Settings buttons' own flow (`useTransfers`, in
+`src/renderer/features/settings/hooks/use-transfers.tsx`): the same route, so the same system
+dialog and `workspace_closed` check, then the same summary dialog, toast or error toast. One
+transfer runs at a time, whichever entry point started it: the Settings buttons are disabled and
+the menu's commands do nothing while one runs. The items are disabled while no workspace is open.
 
 ## Tasks
 

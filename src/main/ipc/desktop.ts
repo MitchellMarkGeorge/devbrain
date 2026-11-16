@@ -1,5 +1,5 @@
 // What a route can do on the desktop besides calling core: show a folder or file in the file manager, ask
-// the user for files with the system dialogs, and pop up the app menu. Main builds one per call over Electron's shell and
+// the user for files with the system dialogs, pop up the app menu, and show the last export. Main builds one per call over Electron's shell and
 // dialog (runtime/desktop.ts), modal to the window that called; tests pass a fake. Every path a
 // route hands it comes from main's own state or from one of these dialogs, never from the renderer.
 
@@ -34,6 +34,13 @@ export interface Desktop {
   // its menu button calls this. Resolves once the menu closes; rejects when there is no menu or
   // window to show it in.
   showAppMenu(at: { x: number; y: number }): Promise<void>;
+  // Remembers the file or folder an export just wrote, as this window's last export: the one
+  // showLastExport reveals. Called by main with the path the export returned, never one the
+  // renderer gave. Without a window, remembers nothing.
+  rememberExport(exportPath: string): void;
+  // Shows this window's last export selected in the file manager (its folder when it is gone).
+  // Resolves false when this window has exported nothing since main started.
+  showLastExport(): Promise<boolean>;
   // shows the app's log file selected in the file manager, as the menu's Show Log File does: the
   // way to find out why DevBrain could not load its data folder
   showLogFile(): Promise<void>;
@@ -47,6 +54,8 @@ export const noDesktop: Desktop = {
   chooseFolder: unavailable,
   chooseSaveFile: unavailable,
   showAppMenu: unavailable,
+  rememberExport: () => {},
+  showLastExport: unavailable,
   showLogFile: unavailable,
 };
 

@@ -3,16 +3,18 @@ import { Outlet, useParams, useRouter, useRouterState } from '@tanstack/react-ro
 import { WorkspaceShell, type WorkspaceShellControls } from '@renderer/components';
 import { AppSidebar } from './AppSidebar';
 import { SettingsSidebar } from './SettingsSidebar';
+import { useTransferCommands } from '@renderer/features/settings/hooks/use-transfers';
 import { useAppCommands } from './hooks/use-app-commands';
+import { useMenuCommands } from './hooks/use-menu-commands';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useModalShown } from '@renderer/app/modals';
 
 /**
  * Every page in a workspace: the shell with the sidebar, the window bar's back and forward on the
- * router's history, the app-wide commands, and the page. Each page draws its own header (a `Page`
- * with a `PageHeader`, or none), so the layout holds nothing of the page's. While the settings are
- * open the sidebar is theirs (`SettingsSidebar`), whose Back to app returns to the last page outside
- * them.
+ * router's history, the app-wide commands (from the keys and the app menu), import and export
+ * (for the app menu), and the page. Each page draws its own header (a `Page` with a `PageHeader`,
+ * or none), so the layout holds nothing of the page's. While the settings are open the sidebar is
+ * theirs (`SettingsSidebar`), whose Back to app returns to the last page outside them.
  */
 export function AppLayout() {
   const router = useRouter();
@@ -33,6 +35,9 @@ export function AppLayout() {
   // the app-wide keys; ⌘\ toggles the shell's sidebar
   const shell = useRef<WorkspaceShellControls>(null);
   useAppCommands({ toggleSidebar: () => shell.current?.toggleSidebar() });
+  // import and export, as commands, for the app menu; then the menu's commands, from main
+  useTransferCommands();
+  useMenuCommands();
   // a dialog (search, a create dialog, a confirmation) closes the sidebar's drawer, peeking or
   // pinned: the dialog is what the user turned to, and it shouldn't open over a sheet left open.
   // Before paint, so the two never show together

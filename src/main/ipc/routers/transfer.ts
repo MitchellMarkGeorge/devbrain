@@ -10,7 +10,8 @@ import type {
   TaskImportSummary,
 } from '@common/types';
 import type { AppContext } from '../context';
-import { wsProcedure } from '../procedures';
+import { IpcError } from '../errors';
+import { devBrainProcedure, wsProcedure } from '../procedures';
 import { t } from '../trpc';
 
 // Importing and exporting the open workspace's tasks and notes (docs/import-export.md). Main asks
@@ -59,7 +60,12 @@ export const transferRouter = t.router({
         filters: [{ name: input.format.toUpperCase(), extensions: [input.format] }],
       });
       if (filePath === null) return null;
-      return stillOpen(ctx, ctx.workspace).transfer.exportTasksToFile(filePath, input.format);
+      const result = await stillOpen(ctx, ctx.workspace).transfer.exportTasksToFile(
+        filePath,
+        input.format,
+      );
+      ctx.desktop.rememberExport(result.path);
+      return result;
     }),
 
   // every active note, as .md files in a new folder inside the one the user picks
@@ -69,6 +75,17 @@ export const transferRouter = t.router({
       buttonLabel: 'Export here',
     });
     if (dir === null) return null;
-    return stillOpen(ctx, ctx.workspace).transfer.exportNotesToFolder(dir);
+    const result = await stillOpen(ctx, ctx.workspace).transfer.exportNotesToFolder(dir);
+    ctx.desktop.rememberExport(result.path);
+    return result;
+  }),
+
+  // Shows the file or folder this window's last export wrote (from Settings or the app menu)
+  // selected in the file manager: the export toast's Show in Finder. Takes no path: main kept the
+  // one the export returned. Fails with not_found when this window has exported nothing.
+  showExport: devBrainProcedure.mutation(async ({ ctx }): Promise<void> => {
+    if (!(await ctx.desktop.showLastExport())) {
+      throw new IpcError('not_found', 'Nothing has been exported from this window');
+    }
   }),
 });

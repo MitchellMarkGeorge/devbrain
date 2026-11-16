@@ -20,6 +20,11 @@ export interface AppEvents {
   // `opening` set until `id` is it, the app shows its splash; with neither, it shows the picker.
   // A switch sends three: the new one opening, then the old one closed, then the new one open.
   'workspace.changed': { id: WorkspaceId | null; opening: WorkspaceId | null };
+  // An app menu item that runs one of the window's commands (New Task, Find…, Go to › Tasks,
+  // Export › Tasks as CSV…), sent to the window it was picked in. `command` is the id of a command
+  // in the window's registry, so the menu does what the keys and buttons do; `workspaceId` is the
+  // workspace open in main when it was picked, and a window showing another drops it.
+  'app.command': { command: MenuCommandId; workspaceId: WorkspaceId };
 }
 
 export type AppEventName = keyof AppEvents;
@@ -33,3 +38,28 @@ export type IntegrationChangeType =
   | 'status_changed'
   | 'source_changed'
   | 'disconnected';
+
+// The pages the menu's Go to submenu opens, as the keyboard layer's `nav.<page>` commands name them
+export type MenuPage =
+  | 'home'
+  | 'tasks'
+  | 'projects'
+  | 'notes'
+  | 'calendar'
+  | 'integrations'
+  | 'settings'
+  | 'trash';
+
+// The window's commands the app menu runs: the keyboard layer's app-wide commands
+// (src/renderer/keyboard/default-keymap.ts), and import and export (the Settings page's flow,
+// registered by the workspace layout)
+export type MenuCommandId =
+  | 'task.new'
+  | 'note.new'
+  | 'search.open'
+  | `nav.${MenuPage}`
+  | 'transfer.importTasks'
+  | 'transfer.importNotes'
+  | 'transfer.exportTasksCsv'
+  | 'transfer.exportTasksJson'
+  | 'transfer.exportNotes';
