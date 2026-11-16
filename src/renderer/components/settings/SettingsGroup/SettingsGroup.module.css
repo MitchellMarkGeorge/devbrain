@@ -29,8 +29,17 @@
   color: var(--muted-foreground);
   font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
 }
+/*
+ * the value takes no more than half the row and ends in "…" past that (a long data folder path),
+ * so the label and description keep their room; the whole value is its tooltip
+ */
 .value {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--muted-foreground);
   font: var(--font-weight-normal) var(--text-xs) / var(--text-xs-leading) var(--font-sans);
 }

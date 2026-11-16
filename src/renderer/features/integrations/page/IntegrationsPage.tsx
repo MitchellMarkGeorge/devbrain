@@ -132,7 +132,8 @@ function ProviderList({
 }
 
 /**
- * Integrations (`/app/$workspaceId/integrations`, Figma `7164:13117`): the workspace's connected
+ * Integrations (`/app/$workspaceId/settings/integrations`, a section of the settings under Current
+ * workspace; Figma `7164:13117`): the workspace's connected
  * accounts, each with its sources, and Connect Account. Statuses follow `integrations.changed`,
  * `sources.changed` and `sync.progress` (the invalidator refetches on the first two); nothing polls.
  */

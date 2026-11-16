@@ -6,15 +6,16 @@ import { trpc, queryClient } from '@renderer/ipc';
 import { FakeMain, workspace } from './fake-main';
 import { byText, click, eventually, startApp, stopApps } from './harness';
 
-// The settings page: its sections in ?tab, each control writing its one setting through
-// settings.set at once, the workspace's name and colour, Delete workspace (typed, then
-// onboarding), Reset settings, and Import with its summary.
+// The settings: a page per section, listed in the settings' own sidebar (the open workspace's
+// sections apart from every workspace's) with Back to app; older ?tab links; each control writing
+// its one setting through settings.set at once; the workspace's name and colour, Delete workspace
+// (typed, then onboarding), Reset settings, and Import with its summary.
 
 const WORK = 'wsp_work' as WorkspaceId;
 
 afterEach(() => stopApps());
 
-function settingsPage(search = '') {
+function settingsPage(path = '/settings/general') {
   const main = new FakeMain([workspace(WORK, 'Work'), workspace('wsp_home', 'Home')], WORK);
   main.routes.set('settings.set', (args) => {
     const keys = (args.path as string).split('.').slice(1);
@@ -29,7 +30,7 @@ function settingsPage(search = '') {
     node[keys[keys.length - 1]] = args.value;
     return [{ ...settings, devBrainPath: '/brain' }, ['settings']];
   });
-  const app = startApp(main, { url: `/app/${WORK}/settings${search}` });
+  const app = startApp(main, { url: `/app/${WORK}${path}` });
   return { main, app };
 }
 
@@ -37,23 +38,71 @@ const setCalls = (main: FakeMain) => main.callsTo('settings.set').map((call) => 
 const control = (label: string) =>
   document.querySelector<HTMLElement>(`[aria-label="${label}"]`) ?? undefined;
 
-describe('the settings page', () => {
-  it('opens on General, and on the section in ?tab', async () => {
+const settingsNav = () => document.querySelector<HTMLElement>('nav[aria-label="Settings"]')!;
+
+describe('the settings', () => {
+  it('show a section a page, and another from their sidebar', async () => {
     const { app } = settingsPage();
     await eventually(() => expect(app.text()).toContain('Workspace name'));
     expect(app.text()).toContain('Danger zone');
-    click(byText(app.container, '[role="tab"]', 'Calendar'));
-    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/settings?tab=calendar`));
+    // the preferences are every workspace's, on a page of their own
+    expect(app.text()).not.toContain('Appearance');
+    click(byText(settingsNav(), 'a', 'Calendar'));
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/settings/calendar`));
     await eventually(() => expect(app.text()).toContain('Hide weekends'));
   });
 
-  it('falls back to General for a bad tab', async () => {
-    const { app } = settingsPage('?tab=everything');
-    await eventually(() => expect(app.text()).toContain('Workspace name'));
+  it('list the open workspace’s sections apart from every workspace’s, in place of the app’s sidebar', async () => {
+    settingsPage();
+    await eventually(() => expect(settingsNav()).not.toBeNull());
+    const groups = [...settingsNav().querySelectorAll('[role="group"]')]
+      .map((group) => group.getAttribute('aria-label'))
+      .filter((label) => label === 'Current workspace' || label === 'All workspaces');
+    expect(groups).toEqual(['Current workspace', 'All workspaces']);
+    const links = [...settingsNav().querySelectorAll('a')].map((a) => a.textContent);
+    expect(links).toEqual([
+      'General',
+      'Integrations',
+      'Import & export',
+      'Preferences',
+      'Tasks',
+      'Calendar',
+      'Data & storage',
+    ]);
+    expect(document.querySelector('nav[aria-label="Main"]')).toBeNull();
+  });
+
+  it('open General at /settings, and an older link’s ?tab at its section', async () => {
+    const { app } = settingsPage('/settings');
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/settings/general`));
+    stopApps();
+    const older = settingsPage('/settings?tab=data_storage');
+    await eventually(() => expect(older.app.path()).toBe(`/app/${WORK}/settings/data-storage`));
+    stopApps();
+    const bad = settingsPage('/settings?tab=everything');
+    await eventually(() => expect(bad.app.path()).toBe(`/app/${WORK}/settings/general`));
+  });
+
+  it('send an older Integrations link to its section', async () => {
+    const { app } = settingsPage('/integrations');
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/settings/integrations`));
+  });
+
+  it('go Back to app, to the page they were opened from', async () => {
+    const { app } = settingsPage('/tasks');
+    await eventually(() => expect(byText(app.container, 'a', 'Settings')).toBeTruthy());
+    click(byText(app.container, 'a', 'Settings')!);
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/settings/general`));
+    await eventually(() => expect(settingsNav()).not.toBeNull());
+    click(byText(settingsNav(), 'a', 'Tasks')!);
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/settings/tasks`));
+    click(byText(settingsNav(), 'button', 'Back to app')!);
+    await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks`));
+    await eventually(() => expect(document.querySelector('nav[aria-label="Main"]')).not.toBeNull());
   });
 
   it('writes one setting at a time, showing it at once', async () => {
-    const { main } = settingsPage('?tab=calendar');
+    const { main } = settingsPage('/settings/calendar');
     await eventually(() => expect(control('Hide weekends')).toBeDefined());
     const hold = main.hold('settings.set');
     click(control('Hide weekends')!);
@@ -73,8 +122,8 @@ describe('the settings page', () => {
     expect(main.calendarSettings.hideWeekends).toBe(true);
   });
 
-  it('sets the confirmations and the time format on General', async () => {
-    const { main } = settingsPage();
+  it('sets the confirmations and the time format in Preferences', async () => {
+    const { main } = settingsPage('/settings/preferences');
     await eventually(() => expect(control('Ask before deleting permanently')).toBeDefined());
     click(control('Ask before deleting permanently')!);
     click(byText(control('Time format')!, 'button', '24-hour'));
@@ -123,8 +172,8 @@ describe('the settings page', () => {
     expect(main.workspaces.map((w) => w.id)).toEqual(['wsp_home']);
   });
 
-  it('resets the settings after asking', async () => {
-    const { main, app } = settingsPage();
+  it('resets the settings after asking, from Data & storage', async () => {
+    const { main, app } = settingsPage('/settings/data-storage');
     main.routes.set('settings.reset', () => [
       {
         theme: 'system',
@@ -143,8 +192,14 @@ describe('the settings page', () => {
     await eventually(() => expect(document.body.textContent).toContain('Settings reset'));
   });
 
+  it('shows the data folder in Data & storage', async () => {
+    const { app } = settingsPage('/settings/data-storage');
+    await eventually(() => expect(app.text()).toContain('Data folder'));
+    expect(app.text()).toContain('/brain');
+  });
+
   it('imports tasks and shows what was left out, with View Tasks', async () => {
-    const { main, app } = settingsPage('?tab=data_storage');
+    const { main, app } = settingsPage('/settings/import-export');
     const summary: TaskImportSummary = {
       created: 42,
       skipped: [],
@@ -155,8 +210,7 @@ describe('the settings page', () => {
       warnings: [],
     };
     main.routes.set('transfer.importTasks', () => [summary, ['task']]);
-    await eventually(() => expect(app.text()).toContain('Data folder'));
-    expect(app.text()).toContain('/brain');
+    await eventually(() => expect(app.text()).toContain('Import tasks'));
     click(byText(app.container, 'button', 'Choose File'));
     await eventually(() => expect(document.body.textContent).toContain('Imported 42 tasks'));
     expect(document.body.textContent).toContain('2 rows were skipped.');
@@ -166,7 +220,7 @@ describe('the settings page', () => {
   });
 
   it('says nothing when an import’s file dialog is cancelled', async () => {
-    const { main, app } = settingsPage('?tab=data_storage');
+    const { main, app } = settingsPage('/settings/import-export');
     main.routes.set('transfer.importNotes', () => [null, []]);
     await eventually(() => expect(app.text()).toContain('Import notes'));
     click(byText(app.container, 'button', 'Choose Files'));
@@ -175,7 +229,7 @@ describe('the settings page', () => {
   });
 
   it('exports notes and says where', async () => {
-    const { main, app } = settingsPage('?tab=data_storage');
+    const { main, app } = settingsPage('/settings/import-export');
     main.routes.set('transfer.exportNotes', () => [
       { path: '/Users/me/Downloads/DevBrain notes', count: 12, errors: [] },
       [],

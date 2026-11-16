@@ -148,6 +148,6 @@ describe('startup', () => {
     await app.router.navigate({ href: `/app/${WORK}/nowhere` });
     await eventually(() => expect(app.text()).toContain('There’s nothing here'));
     // inside the shell, with its sidebar
-    expect(app.text()).toContain('Integrations');
+    expect(app.text()).toContain('Projects');
   });
 });

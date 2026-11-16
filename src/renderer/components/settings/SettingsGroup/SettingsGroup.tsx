@@ -26,7 +26,11 @@ export const SettingsRow = forwardRef<HTMLDivElement, SettingsRowProps>(function
         <div className={styles.label}>{label}</div>
         {description != null && <div className={styles.description}>{description}</div>}
       </div>
-      {value != null && <span className={styles.value}>{value}</span>}
+      {value != null && (
+        <span className={styles.value} title={typeof value === 'string' ? value : undefined}>
+          {value}
+        </span>
+      )}
       {control != null && <div className={styles.control}>{control}</div>}
     </div>
   );
