@@ -3,6 +3,7 @@ import type { Note, NoteDeleteResult, NoteListItem, Page } from '@common/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId, zPageFields } from '../zod';
+import { MAX_PAGE_LIMIT } from '@main/core/shared/pagination';
 
 // The workspace's active notes. A note's markdown lives in its file: `updateContent` writes it, and
 // the rows returned carry its preview only.
@@ -40,6 +41,18 @@ export const notesRouter = t.router({
     .query(
       ({ ctx, input: { filter, sort, ...page } }): Page<NoteListItem> =>
         ctx.workspace.notes.listNotes(filter, sort, page),
+    ),
+
+  // the notes matching `query` in search's index (title or content), best first: a picker's search
+  search: wsProcedure
+    .input(
+      z.object({
+        query: z.string(),
+        limit: z.number().int().positive().max(MAX_PAGE_LIMIT).optional(),
+      }),
+    )
+    .query(({ ctx, input }): NoteListItem[] =>
+      ctx.workspace.notes.searchNotes(input.query, input.limit),
     ),
 
   get: wsProcedure

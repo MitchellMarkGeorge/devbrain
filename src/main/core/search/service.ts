@@ -60,9 +60,8 @@ export class SearchService {
    *
    * Each match also carries what its glyph needs: a task's `status`, a project's or event's
    * `color` (an event's own, else its calendar's), and the `external` ref of a task, project or
-   * event; and what a picker needs to leave out what it can't offer: a task's `parentTaskId` and
-   * a project's `projectStatus`. All are read in the same query: one lookup by primary key or
-   * unique column per match and table, after the matches are ranked and cut. An entry whose row is gone gets none of them.
+   * event, read in the same query: one lookup by primary key or unique column per match and
+   * table, after the matches are ranked and cut. An entry whose row is gone gets none of them.
    */
   search({ query, entityType, limit }: SearchOptions): SearchResult[] {
     const ftsQuery = toFtsQuery(query);
@@ -108,8 +107,6 @@ export class SearchService {
         entityType: matches.entityType,
         rank: matches.rank,
         status: tasks.status,
-        parentTaskId: tasks.parentTaskId,
-        projectStatus: projects.status,
         color: sql<string | null>`coalesce(${projects.color}, ${events.color}, ${calendars.color})`,
         link: refColumns,
       })

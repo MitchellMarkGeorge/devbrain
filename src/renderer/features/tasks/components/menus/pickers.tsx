@@ -6,23 +6,23 @@ import {
   DatePicker,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuFilter,
   DropdownMenuTrigger,
   EntityPill,
+  NO_PROJECT,
   Popover,
   PopoverContent,
   PopoverTrigger,
   PRIORITY_LABELS,
   PriorityIcon,
   PriorityMenu,
+  ProjectPickerItems,
   StatusIcon,
   StatusMenu,
   TASK_STATUS_LABELS,
   useFormat,
 } from '@renderer/components';
 import { useProjectOptions } from '../../hooks/use-project-options';
-import { usePickedProject } from '../../hooks/use-project-search';
-import { ProjectItems } from './TaskMenus';
-import { PickerSearchFilter } from '@renderer/features/search/components/picker-search';
 
 // A task's properties as pills that open their pickers (Figma 7175:28012, 7175:28582): the create
 // dialog's property bar, and anywhere else a property is a pill. Each is controlled: it shows
@@ -126,7 +126,8 @@ export function ProjectPill({
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const project = usePickedProject(value, useProjectOptions());
+  const projects = useProjectOptions();
+  const project = projects.find((p) => p.id === value);
   const pill = project ? (
     <EntityPill
       interactive={!disabled}
@@ -139,19 +140,20 @@ export function ProjectPill({
   );
   if (disabled) return pill;
   return (
-    <PickerSearchFilter>
+    <DropdownMenuFilter autoHighlight>
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger render={pill} />
         <DropdownMenuContent width="lg" align="start">
-          <ProjectItems
-            projectId={value}
-            onPick={(projectId) => {
-              onChange(projectId);
+          <ProjectPickerItems
+            projects={projects}
+            value={value ?? NO_PROJECT}
+            onValueChange={(id) => {
+              onChange(id === NO_PROJECT ? null : (id as ProjectId));
               setOpen(false);
             }}
           />
         </DropdownMenuContent>
       </DropdownMenu>
-    </PickerSearchFilter>
+    </DropdownMenuFilter>
   );
 }

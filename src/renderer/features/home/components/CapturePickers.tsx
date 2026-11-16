@@ -8,16 +8,19 @@ import {
   DatePicker,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuFilter,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
   Icon,
+  NO_PROJECT,
   Popover,
   PopoverContent,
   PopoverTrigger,
   PRIORITY_LABELS,
   PriorityIcon,
   PriorityMenu,
+  ProjectPickerItems,
   Select,
   SelectContent,
   SelectItem,
@@ -26,9 +29,6 @@ import {
   useFormat,
   type PickerProject,
 } from '@renderer/components';
-import { PickerSearchFilter } from '@renderer/features/search/components/picker-search';
-import { ProjectItems } from '@renderer/features/tasks/components/menus/TaskMenus';
-import { usePickedProject } from '@renderer/features/tasks/hooks/use-project-search';
 
 // The capture box's pickers (Figma 7675:50883): outline pills under the field showing what the
 // text filled in or what was picked, each opening its picker. A pick wins over the text.
@@ -43,9 +43,9 @@ export function CaptureProjectPicker({
   onChange: (projectId: ProjectId | null) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const project = usePickedProject(value, projects);
+  const project = projects.find((p) => p.id === value);
   return (
-    <PickerSearchFilter>
+    <DropdownMenuFilter autoHighlight>
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger
           render={
@@ -55,16 +55,17 @@ export function CaptureProjectPicker({
           }
         />
         <DropdownMenuContent width="lg" align="start">
-          <ProjectItems
-            projectId={value}
-            onPick={(projectId) => {
-              onChange(projectId);
+          <ProjectPickerItems
+            projects={projects}
+            value={value ?? NO_PROJECT}
+            onValueChange={(id) => {
+              onChange(id === NO_PROJECT ? null : (id as ProjectId));
               setOpen(false);
             }}
           />
         </DropdownMenuContent>
       </DropdownMenu>
-    </PickerSearchFilter>
+    </DropdownMenuFilter>
   );
 }
 

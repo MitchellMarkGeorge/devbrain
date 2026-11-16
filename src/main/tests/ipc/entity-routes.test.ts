@@ -671,6 +671,33 @@ describe('search', () => {
     });
   });
 
+  it("searches one type's own rows: tasks with the list's filter, notes and events", async () => {
+    const ws = workspace();
+    const open = ws.tasks.createTask({ title: 'Roadmap draft', dueDate: DUE });
+    const done = ws.tasks.createTask({ title: 'Roadmap old', dueDate: DUE });
+    ws.tasks.updateStatus(done.id, TaskStatus.COMPLETED);
+    const note = await ws.notes.createNote({ title: 'Roadmap notes' });
+    const event = ws.events.createEvent({ title: 'Roadmap review', startAt: NINE, endAt: TEN });
+
+    const found = await data<{ id: string; title: string }[]>('tasks.search', {
+      query: 'roadmap',
+      filter: { excludeClosed: true },
+    });
+    expect(found.map(({ id }) => id)).toEqual([open.id]);
+    expect(await data<Note[]>('notes.search', { query: 'roadmap' })).toMatchObject([
+      { id: note.id },
+    ]);
+    expect(await data<Event[]>('events.search', { query: 'roadmap' })).toMatchObject([
+      { id: event.id, startAt: NINE },
+    ]);
+    for (const path of ['tasks.search', 'notes.search', 'events.search']) {
+      expect(await call(path, { query: 'x', limit: 201 })).toMatchObject({
+        ok: false,
+        error: { data: { code: 'invalid_input' } },
+      });
+    }
+  });
+
   it('refuses a limit that is not a whole number within a page', async () => {
     for (const limit of [0, 1.5, 201]) {
       expect(await call('search.search', { query: 'x', limit })).toMatchObject({

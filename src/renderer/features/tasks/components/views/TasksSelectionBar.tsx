@@ -4,6 +4,7 @@ import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuFilter,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -11,7 +12,6 @@ import {
   SelectionBar,
   StatusMenuContent,
 } from '@renderer/components';
-import { PickerSearchFilter } from '@renderer/features/search/components/picker-search';
 import { DateItems, ProjectItems } from '../menus/TaskMenus';
 import type { TaskActions } from '../../hooks/use-task-actions';
 import styles from './TasksView.module.css';
@@ -94,7 +94,7 @@ export function TasksSelectionBar({ tasks, actions, onClear }: TasksSelectionBar
                 </DropdownMenuContent>
               }
             />
-            <PickerSearchFilter>
+            <DropdownMenuFilter autoHighlight>
               <MenuAction
                 icon={Folder}
                 label="Move"
@@ -107,7 +107,7 @@ export function TasksSelectionBar({ tasks, actions, onClear }: TasksSelectionBar
                   </DropdownMenuContent>
                 }
               />
-            </PickerSearchFilter>
+            </DropdownMenuFilter>
           </>
         }
         more={

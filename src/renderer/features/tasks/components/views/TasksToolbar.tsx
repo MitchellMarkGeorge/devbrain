@@ -23,6 +23,7 @@ import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuFilter,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -44,8 +45,6 @@ import { trpc } from '@renderer/ipc';
 import { ProjectItems } from '../menus/TaskMenus';
 import { useCreateTask } from '../../hooks/use-create-task';
 import { useProjectOptions } from '../../hooks/use-project-options';
-import { usePickedProject } from '../../hooks/use-project-search';
-import { PickerSearchFilter } from '@renderer/features/search/components/picker-search';
 import { useTasksSearch } from '../../hooks/use-tasks-search';
 import {
   CLEAR_FILTERS,
@@ -192,11 +191,10 @@ export function FilterMenu({
   const settings = useSuspenseQuery(trpc.settings.get.queryOptions()).data;
   // the status the page shows with none in the URL: Open, or All with completed tasks shown
   const defaultStatus = resolveTasksSearch({}, settings).status;
-  const picked = usePickedProject(
-    resolved.project === 'none' ? null : resolved.project,
-    useProjectOptions(),
-  );
-  const projectName = fixedProject ? undefined : picked?.name;
+  const projects = useProjectOptions();
+  const projectName = fixedProject
+    ? undefined
+    : projects.find((project) => project.id === resolved.project)?.name;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -247,7 +245,7 @@ export function FilterMenu({
             onChange={(priority) => setSearch({ priority })}
           />
           {!fixedProject && (
-            <PickerSearchFilter>
+            <DropdownMenuFilter autoHighlight>
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger icon={Folder}>Project</DropdownMenuSubTrigger>
                 <DropdownMenuSubContent width="lg">
@@ -274,7 +272,7 @@ export function FilterMenu({
                   )}
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
-            </PickerSearchFilter>
+            </DropdownMenuFilter>
           )}
           <FilterSubmenu
             icon={Calendar}

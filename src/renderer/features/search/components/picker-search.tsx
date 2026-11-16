@@ -1,28 +1,35 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import type { SearchEntityType } from '@common/types';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 import {
-  DropdownMenuFilter,
-  DropdownMenuItem,
-  type DropdownMenuItemProps,
-} from '@renderer/components';
-import { trpc } from '@renderer/ipc';
-import { toResultRow, type ResultRow } from '@renderer/shared/lib/result-row';
-import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '../hooks/use-debounced-value';
-import { entityGlyph } from './EntityGlyph';
-import { SearchHighlight } from './SearchHighlight';
+  keepPreviousData,
+  useQuery,
+  type QueryKey,
+  type UseQueryOptions,
+} from '@tanstack/react-query';
+import { DropdownMenuEmpty, DropdownMenuFilter } from '@renderer/components';
+import { useDebouncedValue } from '@renderer/shared/hooks/use-debounced-value';
 
-// A picker with a search row (Link to ›, Make subtask of ›, a project picker) lists the rows it
-// loaded while nothing is typed: the latest, the nearest. Once something is typed it asks
-// search.search for its types, debounced as ⌘K is, so it finds what it never loaded. Each picker
-// leaves out what it can't offer (closed tasks, subtasks, read-only synced rows).
+// A picker of events, notes or tasks lists the rows it loaded while nothing is typed: the nearest
+// events, the notes and tasks changed last. Once something is typed it searches every row of its
+// type through that type's search route (`tasks.search`, `notes.search`, `events.search`), which
+// returns the same rows as the type's list, so a searched row draws as a loaded one does. Until
+// the first search answers it keeps showing the loaded rows; after that, the last results.
 //
 //   <PickerSearchFilter>                  // in place of DropdownMenuFilter
 //     <DropdownMenu>…<DropdownMenuSearch />
-//       const search = usePickerSearch(['task'])   // in the component drawing the rows
-//       search.results ? results.map(row => <ResultItem row={row} />) : the loaded rows
+//       // in the component drawing the rows:
+//       const search = usePickerSearch((query) => trpc.notes.search.queryOptions({ query, limit }));
+//       const rows = search.results ?? loadedNotes;
+//       …<PickerEmpty searching={search.searching}>No notes match</PickerEmpty>
+//
+// Projects are few: a project picker loads them all and keeps the menu's own filter.
 
-/** The most results a picker's search asks for: more than a picker's list shows in practice. */
+/**
+ * How long typing pauses before a picker searches: shorter than ⌘K's 300ms, as a picker's list is
+ * short and a search takes a few milliseconds, so results follow typing closely.
+ */
+export const PICKER_SEARCH_DEBOUNCE_MS = 120;
+
+/** The most rows a picker's search asks for: more than a picker's list shows in practice. */
 export const PICKER_SEARCH_LIMIT = 50;
 
 // null outside a PickerSearchFilter, where usePickerSearch has no search row to read
@@ -30,81 +37,62 @@ const PickerQuery = createContext<string | null>(null);
 
 /**
  * `DropdownMenuFilter` for a picker that searches: it holds the search row's query for
- * `usePickerSearch` and turns off the menu's own filtering, as the picker filters its rows.
+ * `usePickerSearch` and turns off the menu's own filtering, as the rows come from search. The
+ * first row is highlighted as the user types, so Enter picks the best match.
  */
 export function PickerSearchFilter({ children }: { children: ReactNode }) {
   const [query, setQuery] = useState('');
   return (
     <PickerQuery.Provider value={query}>
-      <DropdownMenuFilter value={query} onValueChange={setQuery} filter={null}>
+      <DropdownMenuFilter value={query} onValueChange={setQuery} filter={null} autoHighlight>
         {children}
       </DropdownMenuFilter>
     </PickerQuery.Provider>
   );
 }
 
-export interface PickerSearch {
-  /** what is typed in the search row, trimmed */
-  query: string;
+export interface PickerSearch<T> {
   /**
-   * The matches of the last search that finished, best first; kept while the next one runs, so
-   * typing never blanks the list. null while nothing is typed, and while the first search runs:
-   * the picker then shows its loaded rows, narrowed with `matches`.
+   * What the last search that answered found, best first; kept while the next one runs, so the
+   * list never blanks as the user types. null while nothing is typed, and until the first search
+   * answers: the picker shows its loaded rows then.
    */
-  results: ResultRow[] | null;
-  /** whether a loaded row's title matches what is typed (everything matches an empty query) */
-  matches: (title: string) => boolean;
+  results: T[] | null;
+  /** something is typed that search hasn't answered yet: an empty list isn't "no matches" */
+  searching: boolean;
 }
 
 /**
- * The search for the picker around it (a `PickerSearchFilter`): `search.search` with `types` once
- * something is typed, debounced like ⌘K's. Leave out what the picker can't offer from `results`.
- * Throws outside a `PickerSearchFilter`, which would otherwise never search.
+ * The search for the picker around it (a `PickerSearchFilter`): `search(query)`'s query once
+ * something is typed and typing pauses. `enabled` false never searches (a kind the picker isn't
+ * offering). Throws outside a `PickerSearchFilter`, which would otherwise never search.
  */
-export function usePickerSearch(types: readonly SearchEntityType[]): PickerSearch {
+export function usePickerSearch<T, TError, TKey extends QueryKey>(
+  search: (query: string) => UseQueryOptions<T[], TError, T[], TKey>,
+  enabled = true,
+): PickerSearch<T> {
   const context = useContext(PickerQuery);
   if (context === null) {
     throw new Error('usePickerSearch needs a PickerSearchFilter around its menu');
   }
   const query = context.trim();
-  const searched = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
-  const search = useQuery({
-    ...trpc.search.search.queryOptions({
-      query: searched,
-      entityType: [...types],
-      limit: PICKER_SEARCH_LIMIT,
-    }),
-    enabled: searched !== '',
+  const searched = useDebouncedValue(query, PICKER_SEARCH_DEBOUNCE_MS);
+  const result = useQuery({
+    ...search(searched),
+    enabled: enabled && searched !== '',
     placeholderData: keepPreviousData,
   });
-  // a query search cannot read ("(") finds nothing rather than failing
-  const results = useMemo(
-    () => (search.isError ? [] : search.data)?.map(toResultRow) ?? null,
-    [search.isError, search.data],
-  );
-  const lower = query.toLocaleLowerCase();
+  if (query === '') return { results: null, searching: false };
   return {
-    query,
-    results: query === '' ? null : results,
-    matches: (title) => title.toLocaleLowerCase().includes(lower),
+    results: result.data ?? null,
+    searching: searched !== query || result.isFetching,
   };
 }
 
 /**
- * A search result as a picker's item: its glyph, and its title with the matches highlighted.
- * `label` is the title as text, for the menu's type-ahead.
+ * The picker's empty state: "Searching…" while a search the user typed hasn't answered, so the
+ * list never says nothing matches before search has looked; `children` once it has.
  */
-export function ResultItem({
-  row,
-  ...props
-}: { row: ResultRow } & Omit<DropdownMenuItemProps, 'icon' | 'label' | 'children'>) {
-  return (
-    <DropdownMenuItem
-      icon={entityGlyph(row.type, row.status, row.color)}
-      label={row.title || 'Untitled'}
-      {...props}
-    >
-      {row.title ? <SearchHighlight html={row.titleHtml} /> : 'Untitled'}
-    </DropdownMenuItem>
-  );
+export function PickerEmpty({ searching, children }: { searching: boolean; children: ReactNode }) {
+  return <DropdownMenuEmpty>{searching ? 'Searching…' : children}</DropdownMenuEmpty>;
 }

@@ -17,7 +17,7 @@ import {
   UpdateProjectOptions,
 } from './types';
 import { projects } from '@main/db/schema/projects';
-import { eq, inArray, SQL, sql, and, isNull, not, desc, gt, gte, lt } from 'drizzle-orm';
+import { eq, inArray, SQL, sql, and, isNull, not, ne, desc, gt, gte, lt } from 'drizzle-orm';
 import { localDayWindow } from '../shared/dates';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { keyset, PageOptions } from '../shared/pagination';
@@ -139,6 +139,7 @@ export class ProjectService {
 
     // apply easy filters
     if (filter.status) clauses.push(eq(projects.status, filter.status));
+    if (filter.excludeCompleted) clauses.push(ne(projects.status, ProjectStatus.COMPLETED));
     if (filter.dueBefore != null) clauses.push(lt(projects.dueDate, filter.dueBefore));
     if (filter.dueAfter != null) clauses.push(gt(projects.dueDate, filter.dueAfter));
     if (filter.dueOn != null) {

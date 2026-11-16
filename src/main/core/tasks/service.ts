@@ -3,7 +3,21 @@ import { tasks } from '@main/db/schema/tasks';
 import { projects } from '@main/db/schema/projects';
 import { notes } from '@main/db/schema/notes';
 import { externalLinks } from '@main/db/schema/integrations';
-import { eq, inArray, notInArray, and, isNull, not, SQL, lt, gt, gte, desc } from 'drizzle-orm';
+import {
+  eq,
+  inArray,
+  notInArray,
+  and,
+  isNull,
+  not,
+  SQL,
+  lt,
+  gt,
+  gte,
+  desc,
+  getTableColumns,
+} from 'drizzle-orm';
+import { BEST_MATCH_FIRST, searchMatches } from '../search/matches';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import {
   LinkState,
@@ -247,51 +261,7 @@ export class TaskService {
     sort: TaskSortOptions = { sortBy: 'createdAt' },
     page: PageOptions = {},
   ): Page<TaskListItem> {
-    const clauses = [isNull(tasks.archivedAt)];
-    if (filter.excludeSubtasks) clauses.push(isNull(tasks.parentTaskId));
-    if (filter.excludeClosed) {
-      clauses.push(notInArray(tasks.status, [TaskStatus.COMPLETED, TaskStatus.CANCELLED]));
-    }
-
-    if (filter.status) clauses.push(eq(tasks.status, filter.status));
-
-    if (filter.projectId !== undefined) {
-      clauses.push(
-        filter.projectId === null ? isNull(tasks.projectId) : eq(tasks.projectId, filter.projectId),
-      );
-    }
-
-    if (filter.noteId !== undefined) {
-      clauses.push(
-        filter.noteId === null ? isNull(tasks.linkedNoteId) : eq(tasks.linkedNoteId, filter.noteId),
-      );
-    }
-
-    if (filter.eventId !== undefined) {
-      clauses.push(
-        filter.eventId === null
-          ? isNull(tasks.linkedEventId)
-          : eq(tasks.linkedEventId, filter.eventId),
-      );
-    }
-
-    if (filter.priority) clauses.push(eq(tasks.priority, filter.priority));
-    // figure this out
-    if (filter.dueBefore != null) clauses.push(lt(tasks.dueDate, filter.dueBefore));
-    if (filter.dueAfter != null) clauses.push(gt(tasks.dueDate, filter.dueAfter));
-    if (filter.noDueDate) clauses.push(isNull(tasks.dueDate));
-    if (filter.dueOn != null) {
-      // get the start and end time the date and compare (inclusive start and exlusive end/midnight)
-      const { startOfDay, endOfDay } = localDayWindow(filter.dueOn);
-      clauses.push(gte(tasks.dueDate, startOfDay));
-      clauses.push(lt(tasks.dueDate, endOfDay));
-    }
-
-    if (filter.origin !== undefined) {
-      // only a synced link makes a task external; a detached one is the user's own again
-      const isSynced = hasLinkInState('task', tasks.id, LinkState.SYNCED);
-      clauses.push(filter.origin === 'external' ? isSynced : not(isSynced));
-    }
+    const clauses = filterClauses(filter);
 
     let sortColumn: SQLiteColumn;
     switch (sort.sortBy) {
@@ -337,6 +307,24 @@ export class TaskService {
     // filled after the page is cut, so the lookups cover only the rows returned
     const result = pager.toPage(rows);
     return { ...result, items: withListDetails(this.db, result.items) };
+  }
+
+  /**
+   * The tasks matching `query` in search's index, best first, filtered as listTasks filters them
+   * (before `limit`, so what a filter leaves out never takes a place): a picker's search.
+   */
+  searchTasks(query: string, filter: TaskFilterOptions = {}, limit = 20): TaskListItem[] {
+    const matches = searchMatches(this.db, query, 'task');
+    if (!matches) return [];
+    const rows = this.db
+      .select(getTableColumns(tasks))
+      .from(tasks)
+      .innerJoin(matches, eq(matches.entityId, tasks.id))
+      .where(and(...filterClauses(filter)))
+      .orderBy(BEST_MATCH_FIRST)
+      .limit(limit)
+      .all();
+    return withListDetails(this.db, rows);
   }
 
   listSubtasks(parentTaskId: TaskId, page: PageOptions = {}): Page<SubtaskListItem> {
@@ -858,4 +846,54 @@ export class TaskService {
         .orderBy(desc(tasks.createdAt))
     );
   }
+}
+
+// what listTasks and searchTasks keep: unarchived tasks, narrowed by the filter
+function filterClauses(filter: TaskFilterOptions): SQL[] {
+  const clauses: SQL[] = [isNull(tasks.archivedAt)];
+  if (filter.excludeSubtasks) clauses.push(isNull(tasks.parentTaskId));
+  if (filter.excludeClosed) {
+    clauses.push(notInArray(tasks.status, [TaskStatus.COMPLETED, TaskStatus.CANCELLED]));
+  }
+
+  if (filter.status) clauses.push(eq(tasks.status, filter.status));
+
+  if (filter.projectId !== undefined) {
+    clauses.push(
+      filter.projectId === null ? isNull(tasks.projectId) : eq(tasks.projectId, filter.projectId),
+    );
+  }
+
+  if (filter.noteId !== undefined) {
+    clauses.push(
+      filter.noteId === null ? isNull(tasks.linkedNoteId) : eq(tasks.linkedNoteId, filter.noteId),
+    );
+  }
+
+  if (filter.eventId !== undefined) {
+    clauses.push(
+      filter.eventId === null
+        ? isNull(tasks.linkedEventId)
+        : eq(tasks.linkedEventId, filter.eventId),
+    );
+  }
+
+  if (filter.priority) clauses.push(eq(tasks.priority, filter.priority));
+  // figure this out
+  if (filter.dueBefore != null) clauses.push(lt(tasks.dueDate, filter.dueBefore));
+  if (filter.dueAfter != null) clauses.push(gt(tasks.dueDate, filter.dueAfter));
+  if (filter.noDueDate) clauses.push(isNull(tasks.dueDate));
+  if (filter.dueOn != null) {
+    // get the start and end time the date and compare (inclusive start and exlusive end/midnight)
+    const { startOfDay, endOfDay } = localDayWindow(filter.dueOn);
+    clauses.push(gte(tasks.dueDate, startOfDay));
+    clauses.push(lt(tasks.dueDate, endOfDay));
+  }
+
+  if (filter.origin !== undefined) {
+    // only a synced link makes a task external; a detached one is the user's own again
+    const isSynced = hasLinkInState('task', tasks.id, LinkState.SYNCED);
+    clauses.push(filter.origin === 'external' ? isSynced : not(isSynced));
+  }
+  return clauses;
 }

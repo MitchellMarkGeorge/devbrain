@@ -16,8 +16,6 @@ const result = (entityType: SearchEntityType, n: number): SearchResult =>
     body: '',
     rank: -n,
     status: null,
-    parentTaskId: null,
-    projectStatus: null,
     color: null,
     external: null,
   }) as SearchResult;

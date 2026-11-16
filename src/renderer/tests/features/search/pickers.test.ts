@@ -4,30 +4,27 @@ import { createElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
 import { QueryClientProvider } from '@tanstack/react-query';
-import type { ProjectId, TaskId, WorkspaceId } from '@common/ids';
-import {
-  LinkState,
-  ProjectStatus,
-  Provider,
-  TaskStatus,
-  type ExternalRef,
-  type SearchResult,
-} from '@common/types';
+import type { WorkspaceId } from '@common/ids';
+import { LinkState, Provider, TaskStatus, type ExternalRef } from '@common/types';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@renderer/components';
-import { queryClient } from '@renderer/ipc';
+import { queryClient, trpc } from '@renderer/ipc';
 import { TaskPickerItems } from '@renderer/features/notes/components/menus/NoteMenus';
 import {
   PickerSearchFilter,
   usePickerSearch,
 } from '@renderer/features/search/components/picker-search';
-import { TaskParentPicker } from '@renderer/features/tasks/components/detail/TaskLinkPicker';
+import {
+  TaskLinkPicker,
+  TaskParentPicker,
+} from '@renderer/features/tasks/components/detail/TaskLinkPicker';
 import { ProjectItems } from '@renderer/features/tasks/components/menus/TaskMenus';
 import { click, eventually } from '../../routing/harness';
 import { FakeMain, workspace } from '../../routing/fake-main';
 
-// The pickers with a search row list what they loaded until something is typed, then ask
-// search.search for their types: they find what they never loaded, leave out what they can't
-// offer, and draw core's highlighted titles as search's HTML only.
+// The pickers of events, notes and tasks list what they loaded until something is typed, then
+// search every row of their type through its own route (tasks.search, notes.search,
+// events.search), which answers with the same rows as the type's list. Project pickers load every
+// open project and filter them in the menu.
 
 const WORK = 'wsp_work' as WorkspaceId;
 
@@ -54,39 +51,32 @@ afterEach(() => {
 const render = (element: ReactElement) =>
   root.render(createElement(QueryClientProvider, { client: queryClient }, element));
 
-// a picker's open menu, with the search row and items
-const items = () =>
-  [...document.querySelectorAll<HTMLElement>('[role^="menuitem"]')].map((item) =>
-    item.textContent?.trim(),
+// a menu of its own, as the Notes pages' pickers are drawn
+const inMenu = (items: ReactElement) =>
+  createElement(
+    PickerSearchFilter,
+    null,
+    createElement(
+      DropdownMenu,
+      { open: true },
+      createElement(DropdownMenuTrigger, { render: createElement('button') }),
+      createElement(DropdownMenuContent, null, items),
+    ),
   );
+
+const itemElements = () => [...document.querySelectorAll<HTMLElement>('[role^="menuitem"]')];
+const items = () => itemElements().map((item) => item.textContent?.trim());
 const item = (text: string) =>
-  [...document.querySelectorAll<HTMLElement>('[role^="menuitem"]')].find(
-    (element) => element.textContent?.trim() === text,
-  ) ?? null;
+  itemElements().find((element) => element.textContent?.trim().startsWith(text)) ?? null;
+const emptyText = () => document.querySelector('[role="status"]')?.textContent ?? null;
 
 // types into the search row, once the menu is open
 async function type(label: string, text: string) {
   const input = () => document.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`);
   await eventually(() => expect(input()).not.toBeNull());
-  const field = input()!;
   const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-  setter?.call(field, text);
-  field.dispatchEvent(new Event('input', { bubbles: true }));
-}
-
-function result(fields: Partial<SearchResult> & Pick<SearchResult, 'entityId'>): SearchResult {
-  return {
-    entityType: 'task',
-    title: '',
-    body: '',
-    rank: -1,
-    status: TaskStatus.NOT_STARTED,
-    parentTaskId: null,
-    projectStatus: null,
-    color: null,
-    external: null,
-    ...fields,
-  };
+  setter?.call(input()!, text);
+  input()!.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
 const synced: ExternalRef = {
@@ -99,64 +89,29 @@ const synced: ExternalRef = {
   lastSyncedAt: new Date('2026-11-01T00:00:00Z'),
 };
 
-// tasks.list's first page: one open top-level task
-function loadTasks(...titles: string[]) {
-  main.routes.set('tasks.list', () => [
-    {
-      items: titles.map((title, n) => ({
-        id: `tsk_loaded_${n}`,
-        title,
-        status: TaskStatus.NOT_STARTED,
-        parentTaskId: null,
-        dueDate: null,
-        external: null,
-      })),
-      nextCursor: 'more',
-    },
-    [],
-  ]);
+// a task as tasks.list and tasks.search return it, with what the pickers read
+function taskRow(id: string, title: string, fields: Record<string, unknown> = {}) {
+  return {
+    id,
+    title,
+    status: TaskStatus.NOT_STARTED,
+    parentTaskId: null,
+    dueDate: null,
+    external: null,
+    ...fields,
+  };
 }
 
-const searchCalls = () => main.callsTo('search.search').map(({ input }) => input);
-
-describe('usePickerSearch', () => {
-  it('throws outside a PickerSearchFilter, where it would never search', () => {
-    function Rows() {
-      usePickerSearch(['task']);
-      return null;
-    }
-    expect(() => renderToString(createElement(Rows))).toThrow(
-      'usePickerSearch needs a PickerSearchFilter around its menu',
-    );
-  });
-});
+const answer = (path: string, data: unknown) => main.routes.set(path, () => [data, []]);
+const inputsTo = (path: string) => main.callsTo(path).map(({ input }) => input);
 
 describe('Make subtask of ›', () => {
-  const SELF = 'tsk_self' as TaskId;
-
-  beforeEach(() => {
-    loadTasks('Loaded parent');
-    main.searchResults = [
-      result({ entityId: 'tsk_far' as TaskId, title: 'Far away <b>parent</b>' }),
-      result({ entityId: SELF, title: 'This <b>parent</b>' }),
-      result({
-        entityId: 'tsk_sub' as TaskId,
-        title: 'Its subtask <b>parent</b>',
-        parentTaskId: SELF,
-      }),
-      result({
-        entityId: 'tsk_done' as TaskId,
-        title: 'Done <b>parent</b>',
-        status: TaskStatus.COMPLETED,
-      }),
-      result({ entityId: 'tsk_synced' as TaskId, title: 'Synced <b>parent</b>', external: synced }),
-    ];
-  });
+  const SELF = 'tsk_self';
 
   const open = (onPick = vi.fn()) => {
     render(
       createElement(TaskParentPicker, {
-        taskId: SELF,
+        taskId: SELF as never,
         onPick,
         open: true,
         trigger: createElement('button', null, 'Make subtask of'),
@@ -165,143 +120,131 @@ describe('Make subtask of ›', () => {
     return onPick;
   };
 
-  it('lists its loaded tasks while nothing is typed', async () => {
-    open();
-    await eventually(() => expect(items()).toEqual(['Loaded parent']));
-    expect(searchCalls()).toEqual([]);
+  beforeEach(() => {
+    answer('tasks.list', { items: [taskRow('tsk_loaded', 'Loaded parent')], nextCursor: 'more' });
   });
 
-  it('finds a task outside its first page, and picks it', async () => {
+  it('lists its loaded tasks while nothing is typed, searching nothing', async () => {
+    open();
+    await eventually(() => expect(items()).toEqual(['Loaded parent']));
+    expect(inputsTo('tasks.search')).toEqual([]);
+  });
+
+  it('searches every open local top-level task once typing pauses, and picks what it found', async () => {
+    answer('tasks.search', [taskRow('tsk_far', 'Far away parent'), taskRow(SELF, 'This task')]);
     const onPick = open();
     await eventually(() => expect(items()).toEqual(['Loaded parent']));
     await type('Search tasks', 'par');
     await type('Search tasks', 'parent');
+    // the task itself is never offered
     await eventually(() => expect(items()).toEqual(['Far away parent']));
-    // debounced, and only tasks
-    expect(searchCalls()).toEqual([{ query: 'parent', entityType: ['task'], limit: 50 }]);
+    // debounced, with the loaded list's own filter
+    expect(inputsTo('tasks.search')).toEqual([
+      {
+        query: 'parent',
+        filter: { excludeSubtasks: true, excludeClosed: true, origin: 'local' },
+        limit: 50,
+      },
+    ]);
+    expect(inputsTo('tasks.list')).toContainEqual(
+      expect.objectContaining({
+        filter: { excludeSubtasks: true, excludeClosed: true, origin: 'local' },
+      }),
+    );
     click(item('Far away parent'));
     expect(onPick).toHaveBeenCalledWith('tsk_far');
   });
 
-  it('leaves out the task, its subtasks, closed tasks and synced tasks', async () => {
+  it('says "Searching…" until search answers, and only then that nothing matches', async () => {
+    answer('tasks.list', { items: [], nextCursor: null });
+    answer('tasks.search', []);
+    const release = main.hold('tasks.search');
     open();
-    await type('Search tasks', 'parent');
-    await eventually(() => expect(searchCalls()).toHaveLength(1));
-    await eventually(() => expect(items()).toEqual(['Far away parent']));
+    await type('Search tasks', 'zzz');
+    await eventually(() => expect(inputsTo('tasks.search')).toHaveLength(1));
+    expect(emptyText()).toBe('Searching…');
+    release();
+    await eventually(() => expect(emptyText()).toBe('No tasks match'));
   });
 
-  it('narrows its loaded tasks by title until the search answers', async () => {
+  it('keeps the loaded tasks on screen until the first search answers', async () => {
+    answer('tasks.search', [taskRow('tsk_far', 'Far away parent')]);
+    const release = main.hold('tasks.search');
     open();
     await eventually(() => expect(items()).toEqual(['Loaded parent']));
-    await type('Search tasks', 'zzz');
-    await eventually(() => expect(items()).toEqual([]));
+    await type('Search tasks', 'far');
+    await eventually(() => expect(inputsTo('tasks.search')).toHaveLength(1));
+    expect(items()).toEqual(['Loaded parent']);
+    release();
+    await eventually(() => expect(items()).toEqual(['Far away parent']));
   });
 });
 
-describe('a search result’s title', () => {
-  beforeEach(() => loadTasks());
-
-  it('draws the matches in bold, and markup that is not search’s as text', async () => {
-    main.searchResults = [
-      result({ entityId: 'tsk_1' as TaskId, title: '&lt;img src=x&gt; <b>bold</b>' }),
-      result({ entityId: 'tsk_2' as TaskId, title: '<img src=x onerror=alert(1)> <b>raw</b>' }),
-    ];
+describe('Link to › (a task’s)', () => {
+  it('draws a searched event as a loaded one, with its date, at any date', async () => {
+    answer('events.listForCalendar', []);
+    answer('notes.list', { items: [], nextCursor: null });
+    const lastYear = new Date(2025, 2, 4, 9);
+    answer('events.search', [
+      { id: 'evt_old', title: 'Old review', startAt: lastYear, endAt: lastYear, color: null },
+    ]);
+    answer('notes.search', [{ id: 'nte_old', title: 'Old notes', project: null }]);
+    const onPick = vi.fn();
     render(
-      createElement(TaskParentPicker, {
-        taskId: 'tsk_self' as TaskId,
-        onPick: vi.fn(),
+      createElement(TaskLinkPicker, {
+        task: { linkedEventId: null, linkedNoteId: null },
+        onPick,
         open: true,
-        trigger: createElement('button', null, 'Make subtask of'),
+        trigger: createElement('button', null, 'Link to'),
       }),
     );
-    await type('Search tasks', 'b');
+    await type('Search events and notes', 'old');
     await eventually(() => expect(items()).toHaveLength(2));
-    const [escaped, raw] = document.querySelectorAll<HTMLElement>('[role^="menuitem"]');
-    // core's escaped text stays text; the match is a <b>
-    expect(escaped.textContent).toContain('<img src=x> bold');
-    expect(escaped.querySelector('b')?.textContent).toBe('bold');
-    // HTML that isn't escaped text and <b> is never parsed
-    expect(raw.textContent).toContain('<img src=x onerror=alert(1)> raw');
-    expect(document.querySelector('img')).toBeNull();
-    expect(raw.querySelector('b')).toBeNull();
+    expect(item('Old review')?.textContent).toMatch(/Mar 4/);
+    expect(item('Old notes')).not.toBeNull();
+    click(item('Old review'));
+    expect(onPick).toHaveBeenCalledWith({ linkedEventId: 'evt_old' });
   });
 });
 
 describe('Link existing task › (a note’s)', () => {
-  it('leaves out closed tasks, linked ones and local subtasks, and keeps a synced subtask', async () => {
-    loadTasks('Loaded task');
-    main.searchResults = [
-      result({ entityId: 'tsk_far' as TaskId, title: 'Far <b>task</b>' }),
-      result({ entityId: 'tsk_linked' as TaskId, title: 'Linked <b>task</b>' }),
-      result({
-        entityId: 'tsk_done' as TaskId,
-        title: 'Cancelled <b>task</b>',
-        status: TaskStatus.CANCELLED,
-      }),
-      result({
-        entityId: 'tsk_sub' as TaskId,
-        title: 'Local subtask <b>task</b>',
-        parentTaskId: 'tsk_far' as TaskId,
-      }),
-      result({
-        entityId: 'tsk_synced_sub' as TaskId,
-        title: 'Synced subtask <b>task</b>',
-        parentTaskId: 'tsk_synced' as TaskId,
-        external: synced,
-      }),
-    ];
+  it('leaves out linked tasks and local subtasks, loaded or searched, and keeps a synced subtask', async () => {
+    answer('tasks.list', {
+      items: [
+        taskRow('tsk_loaded', 'Loaded task'),
+        taskRow('tsk_loaded_sub', 'Loaded subtask', { parentTaskId: 'tsk_loaded' }),
+      ],
+      nextCursor: null,
+    });
+    answer('tasks.search', [
+      taskRow('tsk_far', 'Far task'),
+      taskRow('tsk_linked', 'Linked task'),
+      taskRow('tsk_sub', 'Local subtask', { parentTaskId: 'tsk_far' }),
+      taskRow('tsk_synced_sub', 'Synced subtask', { parentTaskId: 'tsk_x', external: synced }),
+    ]);
     render(
-      createElement(
-        PickerSearchFilter,
-        null,
-        createElement(
-          DropdownMenu,
-          { open: true },
-          createElement(DropdownMenuTrigger, { render: createElement('button') }),
-          createElement(
-            DropdownMenuContent,
-            null,
-            createElement(TaskPickerItems, { exclude: new Set(['tsk_linked']), onPick: vi.fn() }),
-          ),
-        ),
-      ),
+      inMenu(createElement(TaskPickerItems, { exclude: new Set(['tsk_linked']), onPick: vi.fn() })),
     );
     await eventually(() => expect(items()).toEqual(['Loaded task']));
     await type('Search tasks', 'task');
-    await eventually(() => expect(items()).toEqual(['Far task', 'Synced subtask task']));
+    await eventually(() => expect(items()).toEqual(['Far task', 'Synced subtask']));
+    expect(inputsTo('tasks.search')).toEqual([
+      { query: 'task', filter: { excludeClosed: true }, limit: 50 },
+    ]);
   });
 });
 
 describe('the project picker', () => {
-  beforeEach(() => {
-    main.routes.set('projects.list', () => [
-      {
-        items: [
-          { id: 'prj_loaded', title: 'Loaded project', color: null, status: ProjectStatus.ACTIVE },
-        ],
-        nextCursor: 'more',
-      },
+  it('loads every open project, page after page, and filters them as typed', async () => {
+    main.routes.set('projects.list', (args) => [
+      args.cursor === 'page2'
+        ? { items: [{ id: 'prj_2', title: 'Second page project', color: null }], nextCursor: null }
+        : {
+            items: [{ id: 'prj_1', title: 'First page project', color: null }],
+            nextCursor: 'page2',
+          },
       [],
     ]);
-    main.searchResults = [
-      result({
-        entityId: 'prj_far' as ProjectId,
-        entityType: 'project',
-        title: 'Far <b>project</b>',
-        status: null,
-        projectStatus: ProjectStatus.ACTIVE,
-      }),
-      result({
-        entityId: 'prj_done' as ProjectId,
-        entityType: 'project',
-        title: 'Finished <b>project</b>',
-        status: null,
-        projectStatus: ProjectStatus.COMPLETED,
-      }),
-    ];
-  });
-
-  it('finds a project beyond the loaded ones, leaving out completed ones and "No project"', async () => {
     const onPick = vi.fn();
     render(
       createElement(
@@ -319,11 +262,25 @@ describe('the project picker', () => {
         ),
       ),
     );
-    await eventually(() => expect(items()).toEqual(['Loaded project', 'No project']));
-    await type('Search projects', 'project');
-    await eventually(() => expect(items()).toEqual(['Far project']));
-    expect(searchCalls()).toEqual([{ query: 'project', entityType: ['project'], limit: 50 }]);
-    click(item('Far project'));
-    expect(onPick).toHaveBeenCalledWith('prj_far');
+    await eventually(() =>
+      expect(items()).toEqual(['First page project', 'Second page project', 'No project']),
+    );
+    expect(inputsTo('projects.list')[0]).toMatchObject({
+      filter: { excludeCompleted: true },
+      limit: 200,
+    });
+    expect(inputsTo('search.search')).toEqual([]);
+  });
+});
+
+describe('usePickerSearch', () => {
+  it('throws outside a PickerSearchFilter, where it would never search', () => {
+    function Rows() {
+      usePickerSearch((query) => trpc.notes.search.queryOptions({ query }));
+      return null;
+    }
+    expect(() => renderToString(createElement(Rows))).toThrow(
+      'usePickerSearch needs a PickerSearchFilter around its menu',
+    );
   });
 });

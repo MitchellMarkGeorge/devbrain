@@ -199,6 +199,10 @@ value: '24' }`), or one group (`settings.calendar`), checking the value against 
   menu runs reports its own changes.
 - **`search.search`** returns the only HTML core produces: escaped text with matches in `<b>`
   (see [untrusted-content.md](../security/untrusted-content.md)).
+- **`tasks.search`, `notes.search` and `events.search`** search one type for a picker and answer
+  with that type's own rows (`TaskListItem`, `NoteListItem`, `Event`), not `SearchResult`s: the
+  service joins search's index to its table (`searchMatches`), so a list's filter applies before
+  the limit and the rows draw as the list's do. Their titles are plain text.
 
 ## How changes reach the renderer
 

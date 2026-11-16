@@ -4,6 +4,7 @@ import { type TaskDeleteResult, TaskPriority, TaskStatus } from '@common/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId, zPageFields } from '../zod';
+import { MAX_PAGE_LIMIT } from '@main/core/shared/pagination';
 
 // Tasks, subtasks and their links. Archiving one is the archive router's; detach and reattach hand
 // a synced task to the user and back (DetachService).
@@ -59,6 +60,20 @@ export const tasksRouter = t.router({
     .input(z.object({ filter: filter.optional(), sort: sort.optional(), ...zPageFields }))
     .query(({ ctx, input: { filter, sort, ...page } }) =>
       ctx.workspace.tasks.listTasks(filter, sort, page),
+    ),
+
+  // The tasks matching `query` in search's index, best first, filtered as `list` filters them:
+  // a picker's search
+  search: wsProcedure
+    .input(
+      z.object({
+        query: z.string(),
+        filter: filter.optional(),
+        limit: z.number().int().positive().max(MAX_PAGE_LIMIT).optional(),
+      }),
+    )
+    .query(({ ctx, input }) =>
+      ctx.workspace.tasks.searchTasks(input.query, input.filter, input.limit),
     ),
 
   // a task, in the trash too (its `archivedAt` set): Trash opens it, and its page shows it

@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import {
+  TaskStatus,
   type ExternalRef,
   type SearchCounts,
   type SearchEntityType,
@@ -21,6 +22,7 @@ import {
 } from '@common/types';
 import {
   Button,
+  ColourBar,
   Command,
   CommandCollection,
   CommandDialog,
@@ -33,9 +35,12 @@ import {
   CommandList,
   CommandToolbar,
   EmptyState,
+  Icon,
   Kbd,
   providerOf,
+  resolveColor,
   SourcePill,
+  StatusIcon,
   ToggleGroup,
   useFormat,
   type Format,
@@ -52,14 +57,18 @@ import {
 } from '@renderer/keyboard';
 import type { ModalProps } from '@renderer/app/modals';
 import type { EntityRef } from '@renderer/shared/lib/entities';
-import { SEARCH_DEBOUNCE_MS, useDebouncedValue } from '../hooks/use-debounced-value';
+import { useDebouncedValue } from '@renderer/shared/hooks/use-debounced-value';
 import { GROUP_LABELS, groupResults, nextFilter, withAll, type SearchFilter } from '../lib/results';
-import { entityGlyph } from './EntityGlyph';
 import { SearchHighlight } from './SearchHighlight';
 import { useAtRest, type EntityItem } from '../hooks/use-at-rest';
 import styles from './SearchDialog.module.css';
 
-export { SEARCH_DEBOUNCE_MS } from '../hooks/use-debounced-value';
+/**
+ * How long typing pauses before a search is asked for. Long enough that results change when the
+ * user stops, not mid-word at a normal typing speed (a key every 150–250ms); a search itself
+ * takes a few milliseconds.
+ */
+export const SEARCH_DEBOUNCE_MS = 300;
 // the most results one search returns (the route's page limit); search.counts counts them all
 const SEARCH_LIMIT = 200;
 const RECENT_LIMIT = 5;
@@ -380,7 +389,7 @@ function SearchRow({ row, onOpen }: { row: Row; onOpen: (row: Row) => void }) {
         <CommandItem
           {...shared}
           variant="result"
-          icon={entityGlyph(result.entityType, result.status, result.color)}
+          icon={entityIcon(result.entityType, result.status, result.color)}
           trailing={sourcePill(result.external)}
           description={result.body ? <SearchHighlight html={result.body} /> : undefined}
         >
@@ -398,7 +407,7 @@ function SearchRow({ row, onOpen }: { row: Row; onOpen: (row: Row) => void }) {
         <CommandItem
           {...shared}
           variant="result"
-          icon={entityGlyph(TYPE_OF[item.entityType], status, color)}
+          icon={entityIcon(TYPE_OF[item.entityType], status, color)}
           trailing={'external' in entity ? sourcePill(entity.external) : undefined}
           meta={row.meta}
         >
@@ -436,6 +445,31 @@ function entityMeta(item: EntityItem, format: Format): string {
   return allDay
     ? format.formatDue(startAt)
     : `${format.formatDue(startAt)} ${format.formatTime(startAt)}`;
+}
+
+/**
+ * An entity's glyph: a task's status, a note's page, a project's folder in its colour, an event's
+ * bar in its colour. Colours from core are untrusted; resolveColor parses them as #rrggbb.
+ */
+function entityIcon(
+  type: SearchEntityType,
+  status: TaskStatus | null,
+  color: string | null,
+): ReactNode {
+  switch (type) {
+    case 'task':
+      return <StatusIcon status={status ?? TaskStatus.NOT_STARTED} />;
+    case 'note':
+      return <Icon icon={FileText} />;
+    case 'project':
+      return <Icon icon={Folder} style={{ color: resolveColor(color, 'blue') }} />;
+    case 'event':
+      return (
+        <span className={styles.bar}>
+          <ColourBar color={resolveColor(color, 'blue')} height={14} />
+        </span>
+      );
+  }
 }
 
 // a synced item's key ("ENG-124") as its source pill; none for a local one or one with no key

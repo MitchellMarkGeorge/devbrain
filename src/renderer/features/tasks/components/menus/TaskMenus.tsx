@@ -16,6 +16,7 @@ import type { ProjectId } from '@common/ids';
 import type { TaskListItem, TaskPriority, TaskStatus } from '@common/types';
 import {
   defaultQuickPicks,
+  DropdownMenuFilter,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
@@ -28,8 +29,7 @@ import {
   useFormat,
 } from '@renderer/components';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
-import { PickerSearchFilter } from '@renderer/features/search/components/picker-search';
-import { useProjectPickerRows } from '../../hooks/use-project-search';
+import { useProjectOptions } from '../../hooks/use-project-options';
 import { isSynced } from '../../api/queries';
 import type { TaskActions } from '../../hooks/use-task-actions';
 
@@ -123,10 +123,7 @@ export function DateSubmenu({
   );
 }
 
-/**
- * The project picker's items (a search, the projects, "No project"), for a menu or submenu
- * wrapped in a `PickerSearchFilter`: typing searches every project.
- */
+/** The project picker's items (a search, the projects, "No project"), for a menu or submenu. */
 export function ProjectItems({
   projectId,
   onPick,
@@ -134,11 +131,10 @@ export function ProjectItems({
   projectId: ProjectId | null | undefined;
   onPick: (projectId: ProjectId | null) => void;
 }) {
-  const { projects, searching } = useProjectPickerRows();
+  const projects = useProjectOptions();
   return (
     <ProjectPickerItems
       projects={projects}
-      showNone={!searching}
       value={projectId === undefined ? undefined : (projectId ?? NO_PROJECT)}
       onValueChange={(value) => onPick(value === NO_PROJECT ? null : (value as ProjectId))}
     />
@@ -158,7 +154,7 @@ export function ProjectSubmenu({
   onPick: (projectId: ProjectId | null) => void;
 }) {
   return (
-    <PickerSearchFilter>
+    <DropdownMenuFilter autoHighlight>
       <DropdownMenuSub>
         <DropdownMenuSubTrigger icon={Folder} disabled={disabled}>
           {label}
@@ -167,7 +163,7 @@ export function ProjectSubmenu({
           <ProjectItems projectId={projectId} onPick={onPick} />
         </DropdownMenuSubContent>
       </DropdownMenuSub>
-    </PickerSearchFilter>
+    </DropdownMenuFilter>
   );
 }
 

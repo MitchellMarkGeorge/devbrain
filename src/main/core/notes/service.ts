@@ -1,7 +1,7 @@
 import { generateId, NoteId } from '@common/ids';
 import { notes } from '@main/db/schema/notes';
 import { tasks } from '@main/db/schema/tasks';
-import { SQL, and, isNull, isNotNull, desc, eq, inArray } from 'drizzle-orm';
+import { SQL, and, isNull, isNotNull, desc, eq, inArray, getTableColumns } from 'drizzle-orm';
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import path from 'node:path';
@@ -13,6 +13,7 @@ import { InvalidInputError, NotArchivedError, NotFoundError } from '../shared/er
 import { keyset, PageOptions } from '../shared/pagination';
 import { ChangeListener, ChangeListeners } from '../shared/changes';
 import { withNoteListDetails } from './details';
+import { BEST_MATCH_FIRST, searchMatches } from '../search/matches';
 import { noteAsMarkdown } from '../transfer/markdown-copy';
 import { copyTitle } from '../tasks/utils';
 import { consoleLogger, errorClass, type Logger } from '../shared/logger';
@@ -231,6 +232,21 @@ export class NoteService {
     // filled after the page is cut, so the lookups cover only the rows returned
     const result = pager.toPage(rows);
     return { ...result, items: withNoteListDetails(this.db, result.items) };
+  }
+
+  /** The unarchived notes matching `query` in search's index, title or content, best first. */
+  searchNotes(query: string, limit = 20): NoteListItem[] {
+    const matches = searchMatches(this.db, query, 'note');
+    if (!matches) return [];
+    const rows = this.db
+      .select(getTableColumns(notes))
+      .from(notes)
+      .innerJoin(matches, eq(matches.entityId, notes.id))
+      .where(isNull(notes.archivedAt))
+      .orderBy(BEST_MATCH_FIRST)
+      .limit(limit)
+      .all();
+    return withNoteListDetails(this.db, rows);
   }
 
   updateNote(id: NoteId, options: UpdateNoteOptions): Note {

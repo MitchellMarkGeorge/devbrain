@@ -18,6 +18,7 @@ import {
   Button,
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuFilter,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -34,8 +35,6 @@ import {
 } from '@renderer/components';
 import { ProjectItems } from '@renderer/features/tasks/components/menus/TaskMenus';
 import { useProjectOptions } from '@renderer/features/tasks/hooks/use-project-options';
-import { usePickedProject } from '@renderer/features/tasks/hooks/use-project-search';
-import { PickerSearchFilter } from '@renderer/features/search/components/picker-search';
 import {
   CLEAR_FILTERS,
   type LinkFilter,
@@ -90,10 +89,8 @@ export function NotesFilterMenu({
   setSearch: SetSearch;
 }) {
   const { size } = useWorkspaceShell();
-  const projectName = usePickedProject(
-    resolved.project === 'none' ? null : resolved.project,
-    useProjectOptions(),
-  )?.name;
+  const projects = useProjectOptions();
+  const projectName = projects.find((project) => project.id === resolved.project)?.name;
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -110,7 +107,7 @@ export function NotesFilterMenu({
       <DropdownMenuContent width="sm" align="start">
         <DropdownMenuGroup>
           <DropdownMenuLabel>Filter</DropdownMenuLabel>
-          <PickerSearchFilter>
+          <DropdownMenuFilter autoHighlight>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger icon={Folder}>Project</DropdownMenuSubTrigger>
               <DropdownMenuSubContent width="lg">
@@ -133,7 +130,7 @@ export function NotesFilterMenu({
                 )}
               </DropdownMenuSubContent>
             </DropdownMenuSub>
-          </PickerSearchFilter>
+          </DropdownMenuFilter>
           <DropdownMenuSub>
             <DropdownMenuSubTrigger icon={Link}>Link</DropdownMenuSubTrigger>
             <DropdownMenuSubContent width="sm">

@@ -1206,13 +1206,18 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 - **R4: search counts (done).** `search.counts({ query })` returns how many entries of each
   type match, with no limit (one FTS query grouped by type). ⌘K's type filter shows them, so a
   broad query's counts aren't capped at the 200 results a search returns.
-- **R3: pickers search (done).** Every picker with a search row (Link to ›, Make subtask of ›,
-  the project pickers, a note's task links, the event sheet's Link Existing Note) lists what it
-  loaded while nothing is typed, then asks `search.search` for its types, debounced as ⌘K is
-  (`usePickerSearch` and `PickerSearchFilter`, `src/renderer/features/search/components/picker-search.tsx`).
-  One mapping, `toResultRow` (`src/renderer/shared/lib/result-row.ts`), turns a `SearchResult` into
-  a row for the pickers and the "@" menu; search adds a task's `parentTaskId` and a project's
-  `projectStatus`, so a picker leaves out subtasks, closed tasks and completed projects.
+- **R3: pickers search (done).** The pickers of events, notes and tasks (Link to ›, Make
+  subtask of ›, a note's task links, the event sheet's Link Existing Note) list what they loaded
+  while nothing is typed, then search every row of their type through its own route:
+  `tasks.search` (with `tasks.list`'s filter), `notes.search` and `events.search`. Each joins
+  search's index to its table (`searchMatches`, `src/main/core/search/matches.ts`) and answers
+  with the type's own rows, filtered before the limit, so a searched row draws as a loaded one
+  does and no search result carries what one type needs. `usePickerSearch` and
+  `PickerSearchFilter` (`src/renderer/features/search/components/picker-search.tsx`) search
+  120ms after typing pauses, keep the loaded rows until the first search answers, say
+  "Searching…" rather than "no matches" until it has, and highlight the first row so Enter picks
+  it. Project pickers load every open project (`projects.list`'s `excludeCompleted`, page after
+  page) and keep the menu's own filter.
 - **R2 (later): `entities.summaries(ids)`** batch route if notes with many pills make per-pill
   `get` queries noticeable.
 
