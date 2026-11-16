@@ -617,7 +617,7 @@ describe('search', () => {
 
     const results = await data<SearchResult[]>('search.search', { query: 'roadmap' });
     expect(results).toHaveLength(2);
-    const noteResult = results.find(({ entityId }) => entityId === note.id);
+    const noteResult = results.find(({ entity }) => entity.id === note.id);
     expect(noteResult?.title).toBe('&lt;img src=x onerror=alert(1)&gt; <b>roadmap</b>');
 
     const projects = await data<SearchResult[]>('search.search', {
@@ -627,7 +627,7 @@ describe('search', () => {
     expect(projects).toMatchObject([{ entityType: 'project', title: '<b>Roadmap</b> review' }]);
   });
 
-  it("returns a task's status and a project's colour with each match", async () => {
+  it('returns the entity each match found, as its list returns it', async () => {
     const ws = workspace();
     const task = ws.tasks.createTask({ title: 'Launch checklist', dueDate: DUE });
     ws.tasks.updateStatus(task.id, TaskStatus.COMPLETED);
@@ -638,13 +638,13 @@ describe('search', () => {
     });
 
     const results = await data<SearchResult[]>('search.search', { query: 'launch' });
-    expect(results.find(({ entityId }) => entityId === task.id)).toMatchObject({
-      status: TaskStatus.COMPLETED,
-      color: null,
+    expect(results.find(({ entity }) => entity.id === task.id)).toMatchObject({
+      entityType: 'task',
+      entity: { status: TaskStatus.COMPLETED, project: null },
     });
-    expect(results.find(({ entityId }) => entityId === project.id)).toMatchObject({
-      status: null,
-      color: '#123456',
+    expect(results.find(({ entity }) => entity.id === project.id)).toMatchObject({
+      entityType: 'project',
+      entity: { color: '#123456', stats: { totalTasks: 0 } },
     });
   });
 
@@ -652,8 +652,10 @@ describe('search', () => {
     const id = syncedProject();
     const [result] = await data<SearchResult[]>('search.search', { query: 'mirrored' });
     expect(result).toMatchObject({
-      entityId: id,
-      external: { provider: Provider.LINEAR, url: 'https://linear.app/acme/project/1' },
+      entity: {
+        id,
+        external: { provider: Provider.LINEAR, url: 'https://linear.app/acme/project/1' },
+      },
     });
   });
 
@@ -669,33 +671,6 @@ describe('search', () => {
       project: 2,
       event: 0,
     });
-  });
-
-  it("searches one type's own rows: tasks with the list's filter, notes and events", async () => {
-    const ws = workspace();
-    const open = ws.tasks.createTask({ title: 'Roadmap draft', dueDate: DUE });
-    const done = ws.tasks.createTask({ title: 'Roadmap old', dueDate: DUE });
-    ws.tasks.updateStatus(done.id, TaskStatus.COMPLETED);
-    const note = await ws.notes.createNote({ title: 'Roadmap notes' });
-    const event = ws.events.createEvent({ title: 'Roadmap review', startAt: NINE, endAt: TEN });
-
-    const found = await data<{ id: string; title: string }[]>('tasks.search', {
-      query: 'roadmap',
-      filter: { excludeClosed: true },
-    });
-    expect(found.map(({ id }) => id)).toEqual([open.id]);
-    expect(await data<Note[]>('notes.search', { query: 'roadmap' })).toMatchObject([
-      { id: note.id },
-    ]);
-    expect(await data<Event[]>('events.search', { query: 'roadmap' })).toMatchObject([
-      { id: event.id, startAt: NINE },
-    ]);
-    for (const path of ['tasks.search', 'notes.search', 'events.search']) {
-      expect(await call(path, { query: 'x', limit: 201 })).toMatchObject({
-        ok: false,
-        error: { data: { code: 'invalid_input' } },
-      });
-    }
   });
 
   it('refuses a limit that is not a whole number within a page', async () => {

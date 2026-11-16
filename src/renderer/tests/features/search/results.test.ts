@@ -10,15 +10,12 @@ import {
 
 const result = (entityType: SearchEntityType, n: number): SearchResult =>
   ({
-    entityId: `${entityType}_${n}`,
     entityType,
+    entity: { id: `${entityType}_${n}` },
     title: `${entityType} ${n}`,
     body: '',
     rank: -n,
-    status: null,
-    color: null,
-    external: null,
-  }) as SearchResult;
+  }) as unknown as SearchResult;
 
 const RESULTS = [
   result('event', 1),
@@ -49,7 +46,7 @@ describe('groupResults', () => {
     ]);
     expect(groups[0].results).toHaveLength(PER_GROUP);
     // best first, as search returned them
-    expect(groups[0].results[0].entityId).toBe('task_1');
+    expect(groups[0].results[0].entity.id).toBe('task_1');
   });
 
   it("counts each group with search.counts' figure when given one", () => {

@@ -220,7 +220,7 @@ Left to do:
 
 _Found in the rich text editor (PR #101)._
 
-The editor knows an entity only by its type, id and title, so the pills in a note didn’t show its real state. (The "@" menu does now: search results carry a task's `status` and a project's or event's `color`, and `toMentionItem` in `src/renderer/editor/suggestion/entity-menu.tsx` passes them through.)
+The editor knows an entity only by its type, id and title, so the pills in a note didn’t show its real state. (The "@" menu does now: each search result carries the entity it found, and `toEditorEntity` in `src/renderer/editor/use-workspace-host.ts` reads its status and colour from it.)
 
 **Done (milestone 5): `useEntityResolver`** (`src/renderer/editor/use-entity-resolver.ts`), which every page's editor takes through `useEditorHost` (`src/renderer/shared/hooks/use-editor-host.ts`). `resolveEntity` reads `tasks.get`, `projects.get`, `notes.get` and `events.get` from React Query's cache, one query per pill, which the query invalidator refetches when core reports a change; each pill subscribes through the host's `watchEntity`, so it draws again when its query settles, and an entity known to be gone (`resolveEntity` returns null) gets the "missing" style. A batch route (`entities.summaries(ids)`) can come later if notes with many pills make the per-pill queries noticeable.
 

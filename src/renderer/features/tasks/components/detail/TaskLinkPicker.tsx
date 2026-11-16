@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { CircleSlash, FileText } from 'lucide-react';
 import type { EventId, NoteId, TaskId } from '@common/ids';
-import type { Event, NoteListItem, Task } from '@common/types';
+import type { Task, TaskListItem } from '@common/types';
 import {
   ColourBar,
   DropdownMenu,
@@ -15,14 +15,17 @@ import {
   DropdownMenuSearch,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  isClosed,
   resolveColor,
   StatusIcon,
   useFormat,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
+import { isSynced } from '../../api/queries';
 import {
-  PICKER_SEARCH_LIMIT,
   PickerEmpty,
+  PickerTitle,
+  pickerRows,
   PickerSearchFilter,
   usePickerSearch,
 } from '@renderer/features/search/components/picker-search';
@@ -46,15 +49,12 @@ function linkEventsQuery(now: Date) {
 const linkNotesQuery = () =>
   trpc.notes.list.queryOptions({ sort: { sortBy: 'updatedAt', direction: 'desc' }, limit: 50 });
 /**
- * The tasks Make subtask of › offers, loaded or searched: open local top-level tasks. A synced task
- * takes no subtasks of the user's, and only a top-level task is offered, so the task's own
- * subtasks never are.
+ * The tasks Make subtask of › offers while nothing is typed: open local top-level tasks, the 100
+ * changed last. A search's matches are narrowed the same way (`canBeParent`).
  */
-const PARENT_FILTER = { excludeSubtasks: true, excludeClosed: true, origin: 'local' } as const;
-/** The 100 of them changed last, listed while nothing is typed. */
 const parentTasksQuery = () =>
   trpc.tasks.list.queryOptions({
-    filter: PARENT_FILTER,
+    filter: { excludeSubtasks: true, excludeClosed: true, origin: 'local' },
     sort: { sortBy: 'updatedAt', direction: 'desc' },
     limit: 100,
   });
@@ -129,23 +129,15 @@ function LinkItems({
   const offersNotes = kinds.includes('note');
   const events = useQuery({ ...linkEventsQuery(now), enabled: enabled && offersEvents });
   const notes = useQuery({ ...linkNotesQuery(), enabled: enabled && offersNotes });
-  const eventSearch = usePickerSearch(
-    (query) => trpc.events.search.queryOptions({ query, limit: PICKER_SEARCH_LIMIT }),
-    offersEvents,
-  );
-  const noteSearch = usePickerSearch(
-    (query) => trpc.notes.search.queryOptions({ query, limit: PICKER_SEARCH_LIMIT }),
-    offersNotes,
-  );
+  const eventSearch = usePickerSearch(EVENT_TYPES, offersEvents);
+  const noteSearch = usePickerSearch(NOTE_TYPES, offersNotes);
   // a series is one row, however often it repeats
   const eventRows = useMemo(() => {
     const seen = new Set<string>();
     return (events.data ?? []).filter((event) => !seen.has(event.id) && seen.add(event.id));
   }, [events.data]);
-  const shownEvents: Event[] = offersEvents ? (eventSearch.results ?? eventRows) : [];
-  const shownNotes: NoteListItem[] = offersNotes
-    ? (noteSearch.results ?? notes.data?.items ?? [])
-    : [];
+  const shownEvents = offersEvents ? pickerRows(eventSearch.results, eventRows) : [];
+  const shownNotes = offersNotes ? pickerRows(noteSearch.results, notes.data?.items ?? []) : [];
 
   return (
     <>
@@ -153,16 +145,20 @@ function LinkItems({
         {shownEvents.length > 0 && (
           <DropdownMenuGroup>
             <DropdownMenuLabel>Events</DropdownMenuLabel>
-            {shownEvents.map((event) => (
+            {shownEvents.map((row) => (
               <DropdownMenuItem
-                key={event.id}
+                key={row.entity.id}
                 icon={
-                  <ColourBar color={resolveColor(event.color, 'green') ?? 'green'} height={14} />
+                  <ColourBar
+                    color={resolveColor(row.entity.color, 'green') ?? 'green'}
+                    height={14}
+                  />
                 }
-                shortcut={formatDate(event.startAt)}
-                onClick={() => onPick({ linkedEventId: event.id })}
+                label={row.entity.title}
+                shortcut={formatDate(row.entity.startAt)}
+                onClick={() => onPick({ linkedEventId: row.entity.id })}
               >
-                {event.title}
+                <PickerTitle row={row} title={row.entity.title} />
               </DropdownMenuItem>
             ))}
           </DropdownMenuGroup>
@@ -170,13 +166,14 @@ function LinkItems({
         {shownNotes.length > 0 && (
           <DropdownMenuGroup>
             <DropdownMenuLabel>Notes</DropdownMenuLabel>
-            {shownNotes.map((note) => (
+            {shownNotes.map((row) => (
               <DropdownMenuItem
-                key={note.id}
+                key={row.entity.id}
                 icon={FileText}
-                onClick={() => onPick({ linkedNoteId: note.id })}
+                label={row.entity.title || 'Untitled'}
+                onClick={() => onPick({ linkedNoteId: row.entity.id })}
               >
-                {note.title || 'Untitled'}
+                <PickerTitle row={row} title={row.entity.title} />
               </DropdownMenuItem>
             ))}
           </DropdownMenuGroup>
@@ -187,6 +184,19 @@ function LinkItems({
       </PickerEmpty>
     </>
   );
+}
+
+const EVENT_TYPES = ['event'] as const;
+const NOTE_TYPES = ['note'] as const;
+const TASK_TYPES = ['task'] as const;
+
+/**
+ * Whether a task can be made the parent: an open, top-level, local one. A synced task takes no
+ * subtasks of the user's, and only a top-level task is offered, so the task's own subtasks never
+ * are.
+ */
+function canBeParent(task: TaskListItem): boolean {
+  return task.parentTaskId === null && !isClosed(task.status) && !isSynced(task);
 }
 
 /**
@@ -224,22 +234,21 @@ function ParentItems({
   onPick: (parentId: TaskId) => void;
 }) {
   const tasks = useQuery({ ...parentTasksQuery(), enabled });
-  const search = usePickerSearch((query) =>
-    trpc.tasks.search.queryOptions({ query, filter: PARENT_FILTER, limit: PICKER_SEARCH_LIMIT }),
-  );
-  const candidates = (search.results ?? tasks.data?.items ?? []).filter(
-    (task) => task.id !== taskId,
+  const search = usePickerSearch(TASK_TYPES);
+  const candidates = pickerRows(search.results, tasks.data?.items ?? []).filter(
+    ({ entity }) => entity.id !== taskId && canBeParent(entity),
   );
   return (
     <>
       <DropdownMenuList>
-        {candidates.map((task) => (
+        {candidates.map((row) => (
           <DropdownMenuItem
-            key={task.id}
-            icon={<StatusIcon status={task.status} />}
-            onClick={() => onPick(task.id)}
+            key={row.entity.id}
+            icon={<StatusIcon status={row.entity.status} />}
+            label={row.entity.title}
+            onClick={() => onPick(row.entity.id)}
           >
-            {task.title}
+            <PickerTitle row={row} title={row.entity.title} />
           </DropdownMenuItem>
         ))}
       </DropdownMenuList>

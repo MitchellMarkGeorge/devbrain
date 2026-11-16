@@ -25,9 +25,10 @@ import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { NoteEditor } from '@renderer/features/notes/components/detail/NoteEditor';
 import { useNoteActions } from '@renderer/features/notes/hooks/use-note-actions';
 import {
-  PICKER_SEARCH_LIMIT,
   PickerEmpty,
   PickerSearchFilter,
+  PickerTitle,
+  pickerRows,
   usePickerSearch,
 } from '@renderer/features/search/components/picker-search';
 import { eventNoteQuery } from './EventNoteSection';
@@ -233,6 +234,8 @@ function LinkNotePicker({ event }: { event: Event }) {
   );
 }
 
+const NOTE_TYPES = ['note'] as const;
+
 // Link Existing Note's rows: the 50 notes edited last while nothing is typed, else what search finds
 function LinkNoteItems({ event, enabled }: { event: Event; enabled: boolean }) {
   const actions = useNoteActions();
@@ -243,19 +246,18 @@ function LinkNoteItems({ event, enabled }: { event: Event; enabled: boolean }) {
     }),
     enabled,
   });
-  const search = usePickerSearch((query) =>
-    trpc.notes.search.queryOptions({ query, limit: PICKER_SEARCH_LIMIT }),
-  );
+  const search = usePickerSearch(NOTE_TYPES);
   return (
     <>
       <DropdownMenuList>
-        {(search.results ?? notes.data?.items ?? []).map((note) => (
+        {pickerRows(search.results, notes.data?.items ?? []).map((row) => (
           <DropdownMenuItem
-            key={note.id}
+            key={row.entity.id}
             icon={FileText}
-            onClick={() => actions.setLink(note, { linkedEventId: event.id })}
+            label={row.entity.title || 'Untitled'}
+            onClick={() => actions.setLink(row.entity, { linkedEventId: event.id })}
           >
-            {note.title || 'Untitled'}
+            <PickerTitle row={row} title={row.entity.title} />
           </DropdownMenuItem>
         ))}
       </DropdownMenuList>

@@ -27,7 +27,6 @@ import {
   withExternalRefs,
 } from '../integrations/refs';
 import { DEFAULT_CALENDAR_ID } from '../calendars/types';
-import { BEST_MATCH_FIRST, searchMatches } from '../search/matches';
 import {
   allDayDates,
   fromDateString,
@@ -525,31 +524,6 @@ export class EventService {
     const fetched = (await this.fetchHistory?.(start, options.calendarIds)) ?? [];
     if (fetched.length > 0) this.changes.emit({ type: 'events_fetched', calendarIds: fetched });
     return this.readRange(start, end, options);
-  }
-
-  /**
-   * The events matching `query` in search's index, best first: those the calendar shows (a visible
-   * calendar, a ticked or local one, not removed), at any date. A series is one event.
-   */
-  searchEvents(query: string, limit = 20): Event[] {
-    const matches = searchMatches(this.db, query, 'event');
-    if (!matches) return [];
-    const rows = this.db
-      .select({ event: events })
-      .from(events)
-      .innerJoin(matches, eq(matches.entityId, events.id))
-      .innerJoin(calendars, eq(calendars.id, events.calendarId))
-      .where(
-        and(
-          eq(calendars.visible, true),
-          or(eq(calendars.selected, true), isNull(calendars.sourceId)),
-          not(hasLinkInState('event', events.id, LinkState.REMOVED)),
-        ),
-      )
-      .orderBy(BEST_MATCH_FIRST)
-      .limit(limit)
-      .all();
-    return this.withDetails(rows.map((row) => row.event));
   }
 
   // the database's events for listForCalendar

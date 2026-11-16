@@ -6,7 +6,6 @@ import { type Event, EventKind, EventStatus } from '@common/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId } from '../zod';
-import { MAX_PAGE_LIMIT } from '@main/core/shared/pagination';
 
 // The calendar's events. Events on a synced calendar are read-only: writes to them, or creating one
 // there, fail with external_read_only.
@@ -51,19 +50,6 @@ export const eventsRouter = t.router({
     .query(
       ({ ctx, input: { start, end, ...options } }): Promise<Event[]> =>
         ctx.workspace.events.listForCalendar(start, end, options),
-    ),
-
-  // the events matching `query` in search's index that the calendar shows, at any date, best
-  // first: a picker's search
-  search: wsProcedure
-    .input(
-      z.object({
-        query: z.string(),
-        limit: z.number().int().positive().max(MAX_PAGE_LIMIT).optional(),
-      }),
-    )
-    .query(({ ctx, input }): Event[] =>
-      ctx.workspace.events.searchEvents(input.query, input.limit),
     ),
 
   get: wsProcedure

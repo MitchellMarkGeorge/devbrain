@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { DateTime } from 'luxon';
 import { CircleSlash, Code, Link, SquareArrowOutUpRight, Star, Trash2 } from 'lucide-react';
 import type { TaskId } from '@common/ids';
-import type { Event, Note, TaskListItem } from '@common/types';
+import type { Note } from '@common/types';
 import {
   ColourBar,
   DropdownMenu,
@@ -18,15 +18,17 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
+  isClosed,
   resolveColor,
   StatusIcon,
   useFormat,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import {
-  PICKER_SEARCH_LIMIT,
   PickerEmpty,
   PickerSearchFilter,
+  PickerTitle,
+  pickerRows,
   usePickerSearch,
 } from '@renderer/features/search/components/picker-search';
 import { ProjectSubmenu } from '@renderer/features/tasks/components/menus/TaskMenus';
@@ -47,19 +49,19 @@ function linkEventsQuery(now: Date) {
   });
 }
 
-/** The tasks a note can link to, or be linked from, loaded or searched: open tasks. */
-const LINK_TASKS_FILTER = { excludeClosed: true } as const;
-/** The 100 of them changed last, listed while nothing is typed. */
+/**
+ * The tasks a note can link to, or be linked from, while nothing is typed: open tasks, the 100
+ * changed last. A search's matches leave out closed tasks too.
+ */
 const linkTasksQuery = () =>
   trpc.tasks.list.queryOptions({
-    filter: LINK_TASKS_FILTER,
+    filter: { excludeClosed: true },
     sort: { sortBy: 'updatedAt', direction: 'desc' },
     limit: 100,
   });
 
-/** The open tasks matching what is typed, as a picker searches them. */
-const searchLinkTasks = (query: string) =>
-  trpc.tasks.search.queryOptions({ query, filter: LINK_TASKS_FILTER, limit: PICKER_SEARCH_LIMIT });
+const EVENT_TYPES = ['event'] as const;
+const TASK_TYPES = ['task'] as const;
 
 /**
  * Link to › an event (the last week and the next four) or a task (open, the 100 changed last),
@@ -76,17 +78,17 @@ export function NoteLinkItems({
   const { now, formatDate } = useFormat();
   const events = useQuery(linkEventsQuery(now));
   const tasks = useQuery(linkTasksQuery());
-  const eventSearch = usePickerSearch((query) =>
-    trpc.events.search.queryOptions({ query, limit: PICKER_SEARCH_LIMIT }),
-  );
-  const taskSearch = usePickerSearch(searchLinkTasks);
+  const eventSearch = usePickerSearch(EVENT_TYPES);
+  const taskSearch = usePickerSearch(TASK_TYPES);
   // a series is one row, however often it repeats
   const loadedEvents = useMemo(() => {
     const seen = new Set<string>();
     return (events.data ?? []).filter((event) => !seen.has(event.id) && seen.add(event.id));
   }, [events.data]);
-  const eventRows: Event[] = eventSearch.results ?? loadedEvents;
-  const taskRows: TaskListItem[] = taskSearch.results ?? tasks.data?.items ?? [];
+  const eventRows = pickerRows(eventSearch.results, loadedEvents);
+  const taskRows = pickerRows(taskSearch.results, tasks.data?.items ?? []).filter(
+    ({ entity }) => !isClosed(entity.status),
+  );
   const linked = note.linkedEventId !== null || note.linkedTaskId !== null;
   return (
     <>
@@ -98,16 +100,20 @@ export function NoteLinkItems({
         {eventRows.length > 0 && (
           <DropdownMenuGroup>
             <DropdownMenuLabel>Events</DropdownMenuLabel>
-            {eventRows.map((event) => (
+            {eventRows.map((row) => (
               <DropdownMenuItem
-                key={event.id}
+                key={row.entity.id}
                 icon={
-                  <ColourBar color={resolveColor(event.color, 'green') ?? 'green'} height={14} />
+                  <ColourBar
+                    color={resolveColor(row.entity.color, 'green') ?? 'green'}
+                    height={14}
+                  />
                 }
-                shortcut={formatDate(event.startAt)}
-                onClick={() => onPick({ linkedEventId: event.id })}
+                label={row.entity.title}
+                shortcut={formatDate(row.entity.startAt)}
+                onClick={() => onPick({ linkedEventId: row.entity.id })}
               >
-                {event.title}
+                <PickerTitle row={row} title={row.entity.title} />
               </DropdownMenuItem>
             ))}
           </DropdownMenuGroup>
@@ -115,14 +121,15 @@ export function NoteLinkItems({
         {taskRows.length > 0 && (
           <DropdownMenuGroup>
             <DropdownMenuLabel>Tasks</DropdownMenuLabel>
-            {taskRows.map((task) => (
+            {taskRows.map((row) => (
               <DropdownMenuItem
-                key={task.id}
-                icon={<StatusIcon status={task.status} />}
-                shortcut={task.dueDate ? formatDate(task.dueDate) : undefined}
-                onClick={() => onPick({ linkedTaskId: task.id })}
+                key={row.entity.id}
+                icon={<StatusIcon status={row.entity.status} />}
+                label={row.entity.title}
+                shortcut={row.entity.dueDate ? formatDate(row.entity.dueDate) : undefined}
+                onClick={() => onPick({ linkedTaskId: row.entity.id })}
               >
-                {task.title}
+                <PickerTitle row={row} title={row.entity.title} />
               </DropdownMenuItem>
             ))}
           </DropdownMenuGroup>
@@ -180,22 +187,26 @@ export function TaskPickerItems({
 }) {
   const { formatDate } = useFormat();
   const tasks = useQuery(linkTasksQuery());
-  const search = usePickerSearch(searchLinkTasks);
-  const candidates = (search.results ?? tasks.data?.items ?? []).filter(
-    (task) => !exclude.has(task.id) && (task.parentTaskId === null || isSynced(task)),
+  const search = usePickerSearch(TASK_TYPES);
+  const candidates = pickerRows(search.results, tasks.data?.items ?? []).filter(
+    ({ entity }) =>
+      !exclude.has(entity.id) &&
+      !isClosed(entity.status) &&
+      (entity.parentTaskId === null || isSynced(entity)),
   );
   return (
     <>
       <DropdownMenuSearch aria-label="Search tasks" placeholder="Link a task…" />
       <DropdownMenuList>
-        {candidates.map((task) => (
+        {candidates.map((row) => (
           <DropdownMenuItem
-            key={task.id}
-            icon={<StatusIcon status={task.status} />}
-            shortcut={task.dueDate ? formatDate(task.dueDate) : undefined}
-            onClick={() => onPick(task.id)}
+            key={row.entity.id}
+            icon={<StatusIcon status={row.entity.status} />}
+            label={row.entity.title}
+            shortcut={row.entity.dueDate ? formatDate(row.entity.dueDate) : undefined}
+            onClick={() => onPick(row.entity.id)}
           >
-            {task.title}
+            <PickerTitle row={row} title={row.entity.title} />
           </DropdownMenuItem>
         ))}
       </DropdownMenuList>

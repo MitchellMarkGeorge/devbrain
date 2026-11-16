@@ -176,7 +176,7 @@ function count(
 }
 
 function searchIds(query: string): string[] {
-  return search.search({ query, entityType: [] }).map((result) => result.entityId);
+  return search.search({ query, entityType: [] }).map((result) => result.entity.id);
 }
 
 // the index's entries for synced rows, as rebuilding must reproduce them; notes are left out, since

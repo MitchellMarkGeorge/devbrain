@@ -62,7 +62,7 @@ describe('projects.create', () => {
     expect(tasks.map((task) => task.title).sort()).toEqual(['Plan', 'Ship']);
     // the tasks are in search, as any created task is
     const hits = workspace().search.search({ query: 'Ship', entityType: ['task'] });
-    expect(hits.map((hit) => hit.entityId)).toContain(tasks.find((t) => t.title === 'Ship')!.id);
+    expect(hits.map((hit) => hit.entity.id)).toContain(tasks.find((t) => t.title === 'Ship')!.id);
   });
 
   it('refuses a task with an empty title, creating nothing', async () => {

@@ -8,7 +8,6 @@ import {
   ProjectListItem,
   ProjectStats,
   ProjectStatus,
-  TaskStatus,
 } from '@common/types';
 import {
   CreateProjectOptions,
@@ -17,7 +16,7 @@ import {
   UpdateProjectOptions,
 } from './types';
 import { projects } from '@main/db/schema/projects';
-import { eq, inArray, SQL, sql, and, isNull, not, ne, desc, gt, gte, lt } from 'drizzle-orm';
+import { eq, inArray, SQL, and, isNull, not, ne, desc, gt, gte, lt } from 'drizzle-orm';
 import { localDayWindow } from '../shared/dates';
 import { SQLiteColumn } from 'drizzle-orm/sqlite-core';
 import { keyset, PageOptions } from '../shared/pagination';
@@ -35,17 +34,7 @@ import { withListDetails } from '../tasks/details';
 import { toExportedTasks } from '../transfer/task-format';
 import { projectAsMarkdown } from '../transfer/markdown-copy';
 import type { TaskService } from '../tasks/service';
-
-function emptyStats(): ProjectStats {
-  return {
-    numOfCompleted: 0,
-    numOfInProgress: 0,
-    numOfNotStarted: 0,
-    numOfCancelled: 0,
-    numOfOverdue: 0,
-    totalTasks: 0,
-  };
-}
+import { emptyStats, projectStatsOf, withProjectListDetails } from './details';
 
 // What a write changed, for in-process subscribers: the workspace keeps search in step, and the IPC
 // layer will forward them to the renderer. Sent after the write commits, with the row as written.
@@ -195,12 +184,7 @@ export class ProjectService {
 
     // filled after the page is cut, so the lookups cover only the rows returned
     const result = pager.toPage(rows);
-    const stats = this.statsOf(result.items.map((project) => project.id));
-    const items = withExternalRefs(this.db, result.items).map((project) => ({
-      ...project,
-      stats: stats.get(project.id) ?? emptyStats(),
-    }));
-    return { ...result, items };
+    return { ...result, items: withProjectListDetails(this.db, result.items) };
   }
 
   getProjectStats(id: ProjectId): ProjectStats {
@@ -209,39 +193,9 @@ export class ProjectService {
     return this.statsOf([id]).get(id) ?? emptyStats();
   }
 
-  /**
-   * Each project's counts of its active tasks, in one grouped query (served by the project_id
-   * index). A project with no active tasks is missing from the map: its counts are all 0.
-   */
+  /** Each project's counts of its active tasks (`projectStatsOf`). */
   statsOf(ids: ProjectId[]): Map<ProjectId, ProjectStats> {
-    if (ids.length === 0) return new Map();
-    // overdue is due before today, as the task rows and the tasks list's Overdue filter count it:
-    // a task due today is not overdue yet
-    const today = localDayWindow(new Date()).startOfDay.getTime();
-
-    const count = (predicate: SQL) =>
-      sql<number>`coalesce(sum(case when ${predicate} then 1 else 0 end), 0)`;
-
-    const rows = this.db
-      .select({
-        projectId: tasks.projectId,
-        numOfCompleted: count(sql`${tasks.status} = ${TaskStatus.COMPLETED}`),
-        numOfNotStarted: count(sql`${tasks.status} = ${TaskStatus.NOT_STARTED}`),
-        numOfInProgress: count(sql`${tasks.status} = ${TaskStatus.IN_PROGRESS}`),
-        numOfCancelled: count(sql`${tasks.status} = ${TaskStatus.CANCELLED}`),
-        numOfOverdue: count(
-          // an undated task is never overdue, and neither is a closed one
-          sql`${tasks.dueDate} IS NOT NULL AND ${tasks.dueDate} < ${today} AND ${tasks.status} NOT IN (${TaskStatus.COMPLETED}, ${TaskStatus.CANCELLED})`,
-        ),
-        // cancelled tasks are left out so they do not dilute progress
-        totalTasks: count(sql`${tasks.status} != ${TaskStatus.CANCELLED}`),
-      })
-      .from(tasks)
-      .where(and(inArray(tasks.projectId, ids), isNull(tasks.archivedAt)))
-      .groupBy(tasks.projectId)
-      .all();
-
-    return new Map(rows.map(({ projectId, ...stats }) => [projectId as ProjectId, stats]));
+    return projectStatsOf(this.db, ids);
   }
 
   /**

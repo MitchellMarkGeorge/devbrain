@@ -198,11 +198,10 @@ value: '24' }`), or one group (`settings.calendar`), checking the value against 
   menu bar (`src/main/runtime/window-chrome.ts`). It resolves once the menu closes; a command the
   menu runs reports its own changes.
 - **`search.search`** returns the only HTML core produces: escaped text with matches in `<b>`
-  (see [untrusted-content.md](../security/untrusted-content.md)).
-- **`tasks.search`, `notes.search` and `events.search`** search one type for a picker and answer
-  with that type's own rows (`TaskListItem`, `NoteListItem`, `Event`), not `SearchResult`s: the
-  service joins search's index to its table (`searchMatches`), so a list's filter applies before
-  the limit and the rows draw as the list's do. Their titles are plain text.
+  (see [untrusted-content.md](../security/untrusted-content.md)). Each match also carries the
+  entity it found, as that entity's list returns it (`entity`: a `TaskListItem`, `NoteListItem`,
+  `ProjectListItem` or `Event`, by `entityType`), read with one query per type after the matches
+  are ranked and cut; anything else a caller draws comes from `entity`.
 
 ## How changes reach the renderer
 
