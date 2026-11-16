@@ -1,4 +1,5 @@
 export {
+  Page,
   PageContent,
   PageFavoriteButton,
   PageHeader,
@@ -9,5 +10,6 @@ export {
   type PageFavoriteButtonProps,
   type PageHeaderProps,
   type PageMenuButtonProps,
+  type PageProps,
   type PageToolbarProps,
 } from './PageHeader';

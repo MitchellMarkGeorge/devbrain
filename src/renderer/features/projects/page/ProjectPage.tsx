@@ -13,17 +13,19 @@ import {
   EditorTitle,
   Icon,
   PageFavoriteButton,
-  PageToolbar,
   ProjectHeader,
   resolveColor,
   Tabs,
   TabsList,
   TabsTab,
   useFormat,
+  Page,
+  PageHeader,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
-import { PageHeaderSlot, useCrumbLink } from '@renderer/layouts/workspace/page-header';
+import { SectionPage } from '@renderer/shared/components/SectionPage';
+import { useCrumbLink } from '@renderer/shared/hooks/use-crumb-link';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useRecordView } from '@renderer/shared/hooks/use-record-view';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
@@ -54,18 +56,29 @@ const TAB_LABELS: Record<ProjectTab, string> = {
 
 /**
  * A project's page (`/app/$workspaceId/projects/$projectId`, Figma `7159:12540`, `7159:13218`,
- * `7159:13886`): the star and the "…" menu in the header, then the tabs in `?tab`, underlined:
+ * `7159:13886`): the star and the "…" menu in the header, then the tabs in `?tab`, as quiet pills at
+ * the card's top left:
  * Overview (the project as a document, its tasks under it, and a rail of its progress and notes),
  * Tasks (the tasks views with the project fixed) and Notes (its notes as cards). A synced project's
  * fields are its provider's, so they are read-only here. The loader has the project before the
  * first frame; a project deleted while it is open shows not-found.
  */
 export function ProjectPage() {
-  const { projectId } = projectRoute.useParams();
+  const { projectId, workspaceId } = projectRoute.useParams();
+  const crumbLink = useCrumbLink();
   const project = useQuery(trpc.projects.get.queryOptions({ id: projectId }));
   useRecordView(projectId);
   if (project.data === undefined) {
-    return project.isError && ipcErrorCode(project.error) === 'not_found' ? <NotFoundPage /> : null;
+    if (project.isError && ipcErrorCode(project.error) === 'not_found') return <NotFoundPage />;
+    // not loaded yet (the loader normally has it): the section's crumb, so the header is there
+    return (
+      <SectionPage
+        section={crumbLink('Projects', {
+          to: '/app/$workspaceId/projects',
+          params: { workspaceId },
+        })}
+      />
+    );
   }
   // a new project, a fresh page: the name and description start from it
   return <ProjectPageContent key={project.data.id} project={project.data} />;
@@ -99,9 +112,19 @@ function ProjectPageContent({ project }: { project: Project }) {
   }
 
   return (
-    <>
-      <PageHeaderSlot
-        place={
+    <Page
+      header={
+        <PageHeader
+          actions={
+            <>
+              <PageFavoriteButton
+                favorite={project.favoritedAt !== null}
+                onFavoriteChange={(favorite) => actions.setFavorite(project, favorite)}
+              />
+              <ProjectMenu project={project} actions={actions} onTrash={() => void trash()} />
+            </>
+          }
+        >
           <Breadcrumb
             items={[
               crumbLink('Projects', { to: '/app/$workspaceId/projects', params: { workspaceId } }),
@@ -111,21 +134,12 @@ function ProjectPageContent({ project }: { project: Project }) {
               },
             ]}
           />
-        }
-        actions={
-          <>
-            <PageFavoriteButton
-              favorite={project.favoritedAt !== null}
-              onFavoriteChange={(favorite) => actions.setFavorite(project, favorite)}
-            />
-            <ProjectMenu project={project} actions={actions} onTrash={() => void trash()} />
-          </>
-        }
-      />
-      <PageToolbar className={styles.tabsBar}>
+        </PageHeader>
+      }
+    >
+      <div className={styles.tabsBar}>
         <Tabs
-          variant="line"
-          size="lg"
+          variant="ghost"
           className={styles.tabs}
           value={tab}
           onValueChange={(value) => setTab(value as ProjectTab)}
@@ -138,13 +152,13 @@ function ProjectPageContent({ project }: { project: Project }) {
             ))}
           </TabsList>
         </Tabs>
-      </PageToolbar>
+      </div>
       {tab === 'overview' && (
         <ProjectOverview project={project} header={<ProjectPageHeader project={project} />} />
       )}
       {tab === 'tasks' && <ProjectTasksTab project={project} />}
       {tab === 'notes' && <ProjectNotesTab project={project} />}
-    </>
+    </Page>
   );
 }
 

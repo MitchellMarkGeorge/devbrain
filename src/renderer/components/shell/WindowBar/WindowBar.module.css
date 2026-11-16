@@ -2,7 +2,7 @@
 .bar {
   display: flex;
   align-items: center;
-  height: 48px;
+  height: var(--title-bar-height);
   padding-left: var(--space-4);
   background: var(--background);
   -webkit-app-region: drag;
@@ -50,10 +50,10 @@
   background: var(--green-500);
 }
 
-/* ---------- Windows' caption buttons, drawn (stories): 3 × 46px by 48px ---------- */
+/* ---------- Windows' caption buttons, drawn (stories): 3 × 46px by title-bar-height ---------- */
 .captionButtons {
   display: inline-flex;
-  height: 48px;
+  height: var(--title-bar-height);
   color: var(--foreground);
 }
 .captionButtons > span {
@@ -71,12 +71,6 @@
   gap: var(--space-2);
 }
 /* the sidebar's window row: the toggle at the start, back and forward at the end */
-.controls[data-history-at-end] {
-  flex: 1;
-}
-.controls[data-history-at-end] > :nth-child(2) {
-  margin-left: auto;
-}
 .key {
   margin-left: var(--space-1);
   color: var(--muted-foreground);

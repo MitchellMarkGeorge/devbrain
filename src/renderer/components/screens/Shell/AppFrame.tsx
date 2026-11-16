@@ -20,6 +20,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { WorkspaceShell, type WorkspaceShellProps } from '../../shell/WorkspaceShell';
+import { Page } from '../../shell/PageHeader';
 import {
   Sidebar,
   SidebarAction,
@@ -139,6 +140,8 @@ export interface ScreenFrameProps extends Omit<WorkspaceShellProps, 'sidebar'> {
   width?: number;
   height?: number;
   sidebar?: ReactNode;
+  /** the page's header (a `PageHeader`); the children are drawn in a `Page` under it */
+  header?: ReactNode;
   /** props for the default `DemoSidebar` */
   page?: PageName;
   emptySidebar?: boolean;
@@ -154,11 +157,13 @@ export function ScreenFrame({
   width = 1440,
   height = 1024,
   sidebar,
+  header,
   page,
   emptySidebar,
   sync,
   workspaceMenuOpen,
   style,
+  children,
   ...props
 }: ScreenFrameProps) {
   return (
@@ -176,7 +181,9 @@ export function ScreenFrame({
         }
         style={style}
         {...props}
-      />
+      >
+        <Page header={header}>{children}</Page>
+      </WorkspaceShell>
     </div>
   );
 }

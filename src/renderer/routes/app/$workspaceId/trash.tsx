@@ -5,7 +5,6 @@ import { trashEntityType, trashSearchSchema } from '@renderer/features/trash/api
 
 // The trash, by kind in ?tab=projects|tasks|notes (every kind without it).
 export const Route = createFileRoute('/app/$workspaceId/trash')({
-  staticData: { title: 'Trash' },
   validateSearch: trashSearchSchema,
   loaderDeps: ({ search }) => ({ tab: search.tab }),
   // the tab's rows, and for a tab of one kind the whole trash's first page too: Empty Trash needs

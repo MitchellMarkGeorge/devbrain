@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { Checkbox } from '../../ui/Checkbox';
 import { kbdVariants } from '../../ui/Kbd';
 import { EditorContent, EditorTitle } from './EditorContent';
 
@@ -43,7 +44,7 @@ const challenge = createHash('sha256').update(verifier).digest('base64url');`}</
         ].map(([text, done]) => (
           <li key={text as string} data-checked={String(done)}>
             <label>
-              <input type="checkbox" defaultChecked={done as boolean} aria-label={text as string} />
+              <Checkbox defaultChecked={done as boolean} aria-label={text as string} />
             </label>
             <div>
               <p>{text}</p>

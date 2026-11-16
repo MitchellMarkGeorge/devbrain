@@ -103,7 +103,11 @@
   background: var(--border-strong);
 }
 
-/* to-dos (Tiptap's task list): a 16px checkbox, then the text; done ones struck through */
+/*
+ * to-dos (Tiptap's task list): a `Checkbox` in a `label`, then the text; done ones struck through.
+ * In the editor each item is a node view, whose wrapper (`data-node-view-wrapper`) takes no box,
+ * so the li lays out the label and the text as in plain markup
+ */
 .content ul[data-type='taskList'] {
   padding: 0;
   list-style: none;
@@ -114,49 +118,24 @@
   gap: var(--space-2);
   padding: var(--space-1) 0;
 }
-.content ul[data-type='taskList'] > li > label {
+.content ul[data-type='taskList'] > li > [data-node-view-wrapper] {
+  display: contents;
+}
+.content ul[data-type='taskList'] > li > label,
+.content ul[data-type='taskList'] > li > [data-node-view-wrapper] > label {
   display: inline-flex;
   flex: none;
   margin-top: 2px;
 }
-.content ul[data-type='taskList'] > li > div {
+.content ul[data-type='taskList'] > li > div,
+.content ul[data-type='taskList'] > li > [data-node-view-wrapper] > div {
   flex: 1;
   min-width: 0;
 }
-.content ul[data-type='taskList'] > li[data-checked='true'] > div {
+.content ul[data-type='taskList'] > li[data-checked='true'] > div,
+.content ul[data-type='taskList'] > li[data-checked='true'] > [data-node-view-wrapper] > div {
   color: var(--muted-foreground);
   text-decoration: line-through;
-}
-.content input[type='checkbox'] {
-  position: relative;
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  border: 1px solid var(--input);
-  border-radius: 4px;
-  background: var(--input-fill);
-  appearance: none;
-  cursor: pointer;
-  transition:
-    background-color var(--duration-fast),
-    border-color var(--duration-fast);
-}
-.content input[type='checkbox']:checked {
-  border-color: var(--primary);
-  background: var(--primary);
-}
-.content input[type='checkbox']:checked::after {
-  content: '';
-  position: absolute;
-  inset: 1px;
-  background: var(--primary-foreground);
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
-    center / contain no-repeat;
-}
-.content input[type='checkbox']:focus-visible {
-  outline: none;
-  border-color: var(--ring);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 
 /* code blocks: a `card` panel with the language as a quiet label */

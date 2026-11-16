@@ -11,8 +11,9 @@ export interface WorkspaceShellContextValue {
   inShell: boolean;
   size: WindowSize;
   /**
-   * The sidebar is hidden (the user collapsed it, or the window is compact): the `WindowBar` runs
-   * across the top with the page's header in it, and the sidebar opens as a drawer over the page.
+   * The sidebar is hidden (the user collapsed it, or the window is compact): its column has slid
+   * shut, the page's card spans the window under the title bar, and the sidebar opens as a drawer
+   * over the page.
    */
   sidebarHidden: boolean;
   /** this subtree is the sidebar drawer */
@@ -39,6 +40,11 @@ export interface WorkspaceShellContextValue {
    * mounted it, and outside a shell; a docked sheet waits for it (else it would land in the body)
    */
   sheetContainer: HTMLElement | null;
+  /**
+   * The title bar's slot for the page's header, after the window's controls: `Page` portals its
+   * `header` into it. Null outside a shell, where a `Page` draws its header itself
+   */
+  titleBarContainer: HTMLElement | null;
 }
 
 const noop = () => {};
@@ -57,6 +63,7 @@ export const WorkspaceShellContext = createContext<WorkspaceShellContextValue>({
   canGoBack: true,
   canGoForward: false,
   sheetContainer: null,
+  titleBarContainer: null,
 });
 
 /** The shell around this component: window size, whether the sidebar is hidden, the drawer, and the window controls. */

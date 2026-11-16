@@ -3,15 +3,26 @@
 
 // --background in each theme, which the window shows before the page has painted
 export const WINDOW_BACKGROUND = {
-  dark: '#0a0a0a',
+  dark: '#111111',
   light: '#ffffff',
 } as const;
 
 // --foreground in each theme: the symbols on the window controls Windows draws over the page
 export const WINDOW_FOREGROUND = {
-  dark: '#e5e5e5',
+  dark: '#d4d4d4',
   light: '#0a0a0a',
 } as const;
+
+// --sidebar in each theme: the colour of the WorkspaceShell's title bar, which the window controls
+// Windows draws over its right end take as their background
+export const TITLE_BAR_BACKGROUND = {
+  dark: '#0d0d0d',
+  light: '#fafafa',
+} as const;
+
+// --title-bar-height in pixels: how tall the window controls the system draws are (Windows), and
+// what the traffic lights centre in (macOS)
+export const TITLE_BAR_HEIGHT = 40;
 
 // The tokens of the pages the OAuth loopback serves to the browser, which loads nothing from the
 // app: --font-sans, and the colours they use in each theme
@@ -20,10 +31,10 @@ export const BROWSER_PAGE_FONT =
 
 export const BROWSER_PAGE_COLOURS = {
   dark: {
-    background: '#0a0a0a',
-    foreground: '#e5e5e5',
-    'foreground-strong': '#f5f5f5',
-    'muted-foreground': '#a1a1a1',
+    background: '#111111',
+    foreground: '#d4d4d4',
+    'foreground-strong': '#e5e5e5',
+    'muted-foreground': '#888888',
   },
   light: {
     background: '#ffffff',

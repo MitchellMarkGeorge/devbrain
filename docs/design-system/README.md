@@ -36,24 +36,24 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 - **Sizes.** 32px is the default for buttons, inputs, selects, segmented controls and sidebar items; 28px `sm` and menu items; 24px `xs`, `icon-xs` and pills; 36px `lg`. Rows are 48px (`row-height`).
 - **Type.** Controls, menus, inputs, labels, rows and descriptions use 14px (`text-sm`): medium for buttons, labels and tabs, regular for rows and menu items. Badges, metadata, shortcuts and menu labels use 12px. Dialog and card titles are 16px medium.
 - **Corners.** shadcn's 10px radius scale: `radius-md` (8px) for items inside a control, `radius-lg` (10px) for controls, menus and popovers, `radius-xl` (14px) for cards, dialogs, sheets and toasts.
-- **Edges.** Raised surfaces (cards, menus, popovers, dialogs, sheets, toasts) take the translucent `edge` outline, Nova's `ring-foreground/10`, instead of a solid line, so they read on any ground.
-- **Lines are translucent.** In dark, `border` is `foreground` at 10% and `input` at 15%, as shadcn's white at 10% and 15%: a divider, a field or a pill outline shows on the page, on a card and on a hovered row alike.
-- **Cards are filled.** `card` is `neutral-900` in dark (shadcn's card) and `neutral-50` on the white page in light, outlined with `edge`.
-- **Fields.** Inputs, selects, checkboxes and the quiet default button sit on `input-fill` (`foreground` at 5% in dark, none in light) with an `input` outline, so they are findable at rest.
+- **Edges.** Raised surfaces (cards, menus, popovers, dialogs, sheets, toasts) take the translucent `edge` outline, Nova's `ring-foreground/10` (8% in dark), instead of a solid line, so they read on any ground.
+- **Lines are translucent.** In dark, `border` is `foreground` at 8% and `input` at 12%, a step under shadcn's white at 10% and 15% so lines are as quiet as light's `neutral-200`: a divider, a field or a pill outline still shows on the page, on a card and on a hovered row alike.
+- **Cards are filled.** `card` is one small step above the page: `#171717` on `#111111` in dark, `neutral-50` on the white page in light, outlined with `edge`.
+- **Fields.** Inputs, selects, checkboxes and the quiet default button sit on `input-fill` (`foreground` at 4% in dark, none in light) with an `input` outline, so they are findable at rest.
 - **Destructive.** `destructive` is a red tint (20%) with red text, never a solid red.
 - **Dialogs.** 16px padding and gap, 384px wide, with the actions in a footer band (`muted` at 50% over a `border-strong` line). They hang about 160px from the top of the window (create dialogs 140px, the ⌘K search 120px), centred on the whole window, ignoring the sidebar (Figma centres them over the page beside it; the window was chosen instead).
 - **Focus.** shadcn's ring, unchanged: the border turns `ring` with a 3px `ring` halo at 50%.
 
 **Kept from DevBrain** (these make it DevBrain, not stock shadcn):
 
-- **Colour.** Every colour token: the near-black neutral ground, `foreground` at neutral-200, the status, priority, health and date colours, the six swatches, and the red `now-indicator`. (Red is one shade in dark and workspace tiles use the 900 steps: see Colour.)
+- **Colour.** Every colour token: the soft black neutral ground (`#111111`, with the sidebar a step darker), `foreground` at neutral-300, the status, priority, health and date colours, the six swatches, and the red `now-indicator`. (Red is one shade in dark and workspace tiles use the 900 steps: see Colour.)
 - **Type family.** Inter for everything; 30px and 24px titles.
 - **The logomark.**
 - **Glyphs.** `StatusIcon`, `PriorityIcon`, `HealthIcon` and `ProgressRing`, each status with its own shape and colour.
 - **The quiet default button.** `default` is still DevBrain's quiet bordered button, drawn as Nova's dark outline button; the filled style stays `primary`, rarely used.
 - **Entity pills.** Every relation is an outlined pill (shadcn's outline badge) with an entity icon or the calendar's colour bar. Its fill (`pill-fill`) is none in dark, so the outline alone marks it, and white in light, a chip on cards and hovered rows (in dark it was the page colour until Nov 2026).
 - **The segmented control.** In dark, `ToggleGroup` is outlined segments on the page colour (Nova's are a muted track); light keeps shadcn's muted track with a white thumb. For quick choices: views, calendar range, settings values.
-- **Section switchers.** Page sections (Settings, a project's Overview / Tasks / Notes) use `Tabs` drawn as shadcn's outline ToggleGroup, and so does the search dialog's type filter: separate outlined buttons 8px apart, the current one filled in `accent`.
+- **Section switchers.** Settings' sections use `Tabs` drawn as shadcn's outline ToggleGroup, and so does the search dialog's type filter: separate outlined buttons 8px apart, the current one filled in `accent`. A project's Overview / Tasks / Notes are `Tabs variant="ghost"`: quiet 28px pills at the card's top left with no outline or underline, the current one filled in `accent`.
 - **The dark tooltip.** Nova inverts tooltips; DevBrain keeps them dark with an outline.
 - **Lists.** Entity pills, priority and date on the right of every row (the rows themselves follow the list behaviours below).
 - **Planning views.** The board, the time grid, event blocks and the mini calendar with its red "today".
@@ -72,14 +72,14 @@ DevBrain's design system: shadcn's Nova style with DevBrain's colours, glyphs an
 
 ## Lists
 
-- **Strokeless rows.** No line between rows. A row is a `row-height` (48px) block with `radius-md` corners that take `row-selected` on hover and when selected (the same tint; selected also brightens the title). A `muted` band, tinted 8% with the group's colour, heads each group, with `group-gap` (12px) above it. List density is these two tokens: 48px rows with a 12px gap, or 40px rows with an 8px gap.
+- **Strokeless rows.** No line between rows. A row is a `row-height` (48px) block with `radius-md` corners that take `row-selected` on hover and when selected (the same tint; selected also brightens the title). A `muted` band, tinted with the group's colour (5% in dark, 8% in light), heads each group, with `group-gap` (12px) above it. List density is these two tokens: 48px rows with a 12px gap, or 40px rows with an 8px gap.
 - **Title first.** The task name leads, then pills: a synced task's `SourcePill` (provider logo and key), a subtask's parent pill, and the subtask count (`ProgressRing` and "3/4"). Entity pills, priority and date stay on the right, as in Nova.
 - **The status icon is a button.** Clicking it, or pressing `S` on a focused row, opens the `StatusMenu`; `1`, `2`, `3` pick. Overdue (open, due before today) shows as the flag until the task is started or done; a started task keeps its icon, with its date in `date-overdue`.
 - **Leading control.** The selection checkbox lives in a strip left of the status icon. It appears on hover and keyboard focus, and on every row once anything is selected. `X` toggles the focused row.
 - **Keys are the app's, not the row's.** ↑/↓, Home/End, ↵, `X`, `S`, `1`–`3`, `F` and ⌘⌫ are the default keymap's list commands (`src/renderer/keyboard`), so a Vim keymap can rebind them. `TaskRow` and `TaskList` bind no keys: the list exposes what the keys do (move focus, select, open the status menu) through its ref, and the page supplies open, status, favorite and trash.
 - **Row states.** Rest, hover (`row-selected`, the selected tint), selected (`row-selected` with `row-selected-foreground` titles; neighbouring selected rows join into one block), keyboard focus (the hover tint with a 1px `ring` outline around the whole row, no halo), completed (the title in `muted-foreground`, not struck through), overdue (flag and `date-overdue`), subtask (indented).
 - **Selection bar.** While rows are selected, a `SelectionBar` floats over the bottom of the list: the count, then Status, Priority, Due date, Move, more, and clear.
-- **Grouped list.** `GroupHeading` is a 36px band in one line, `muted` with 8% of the group's colour mixed in: the group's 14px icon in its colour, the title and the count ("Auth Overhaul 12"; an event adds its time, "Mitchell / Jesse 1:1 Today, 10:00 AM 1"), and a "+" on hover. In a grouped `TaskList` it sticks to the top of the list while its group scrolls.
+- **Grouped list.** `GroupHeading` is a 36px band in one line, `muted` with the group's colour mixed in (5% in dark, 8% in light): the group's 14px icon in its colour, the title and the count ("Auth Overhaul 12"; an event adds its time, "Mitchell / Jesse 1:1 Today, 10:00 AM 1"), and a "+" on hover. In a grouped `TaskList` it sticks to the top of the list while its group scrolls.
 - **Board.** Open `BoardColumn`s (no panel, 24px apart) hold borderless filled `BoardCard`s (`card`): the title, then the task's relations as the same pills a task row uses (source, subtasks, event or note, project), wrapping as needed, then priority and the date. Hover lightens the card, with no outline; completed cards go darker; each open column ends with a dashed "Add task" slot.
 - **Toolbar values.** Toolbar buttons show their current choice after the label ("Filter Assigned to me", "Sort Due date"), still Nova's quiet button. The main action stays the quiet `default` "New Task", not `primary`. In compact windows the values hide (the label stays, an active filter shows as the pressed state, the value moves to the tooltip).
 - **Long lists are virtualized and scroll on their own.** `TaskList` (flat and grouped), `NoteList`, `ProjectList`, each `BoardColumn` and `VirtualCardGrid` fill the height the page gives them and scroll there, under the page header, which never scrolls away; each board column scrolls by itself. `PageContent`'s `list` and `grid` layouts give them that height under the toolbar, so a list page never scrolls. They draw only what is in view, with `@tanstack/react-virtual`; rows are `row-height` tall, and focus and selection are kept by id so they survive scrolling. The grouped view is one list whose current heading sticks to its top. Each calls `onEndReached` near its last loaded rows to load the next page.
@@ -125,29 +125,33 @@ The window is never smaller than `window-min-width` × `window-min-height` (960 
   - Sheets float over the page instead of docking.
   - Toolbar values hide, and card grids (the Notes and Projects card views) drop to two columns.
 - **The sidebar has two states:** docked (`sidebar-width`, 256px, the page beside it) or hidden. The user hides and shows it with ⌘\ or the sidebar toggle at any width; a sidebar the user hid stays hidden at any width, and in compact windows it rests hidden. While it's hidden:
-  - The `WindowBar` takes the sidebar's place at the top left (the title bar's start, the sidebar toggle, back and forward), and the page's header sits beside it.
-  - The sidebar opens as a drawer over the page, with the `backdrop` scrim behind it. Pointing at the toggle, or at an 8px strip along the window's left edge, peeks at it after 200ms, so a passing pointer doesn't; it closes 300ms after the pointer leaves it. A peek leaves focus where it was.
+  - Its column slides shut and the page's card widens; the title bar above (the title bar's start, the sidebar toggle, back and forward) stays as it is, so the toggle never moves.
+  - The sidebar opens as a drawer over the page, drawn as a floating sheet is (`popover`, the `edge` outline, rounded on the page's side), the window's full height with the window's controls on top of it, and the `backdrop` scrim dimming the page behind it. Pointing at the toggle, or at an 8px strip along the window's left edge, peeks at it after 200ms, so a passing pointer doesn't; it closes 300ms after the pointer leaves it. A peek leaves focus where it was.
   - Clicking the toggle or ⌘\ pins the drawer open in compact windows, and docks the sidebar where the window is wide enough. Clicking inside a peeking drawer, or moving focus into it, pins it too. Esc, a click outside or picking a page closes it. Keyboard users open it with the toggle or ⌘\.
 - **At every size:** the week view keeps all seven days unless Hide weekends is on (Settings › Calendar, `calendar.hideWeekends`), since hiding days could hide events; the day columns narrow instead. With Hide weekends on and events on the visible week's weekend, the header says so ("2 events on the weekend") with a link that shows the weekend. Long text ends in "…" at its own width: pill labels before titles, titles before dates, and breadcrumbs keep the first and last items. Sheets and dialogs scroll inside themselves at the minimum height, and the selection bar and toasts sit on the window's bottom edge. Document pages cap their content and centre it in the page (see Page widths); workspace pages use the full width.
 
 ## Window frame
 
-The page draws its own title bar, a 48px strip (the `WindowBar` while the sidebar is hidden; the
-sidebar's window row and the `PageHeader` beside the docked sidebar), and leaves room for the
-window controls the system draws. Main sets the frame up per platform
+The window draws its own title bar, a `title-bar-height` (40px) strip across the top (the
+`WorkspaceShell`'s: the `WindowBar`, then the page's header, docked sidebar or hidden; `AppShell`'s
+outside a workspace), and leaves room for the window controls the system draws. Main reads the
+height from the token (generated into `src/common/theme.ts`), so the system's controls follow it. Main sets the frame up per platform
 (`src/main/runtime/window-chrome.ts`); the page reads the platform from `WindowFrameProvider`
 (`src/renderer/components/lib/platform.ts`), and the Storybook toolbar picks one.
 
 - **macOS** (the designs): no title bar; the system draws the traffic lights in the 68px slot the
-  strip keeps at its top left (52px of lights, then 16px clear).
-- **Windows:** no title bar; Windows draws minimise, maximise and close (138px, 48px tall, in the
-  theme's `background` and `foreground`) over the top right, so maximise keeps its snap layouts. A
-  menu button takes the traffic lights' place and pops up the app menu, as there is no menu bar.
-  The header's actions stop 16px short of the buttons. Beside the docked sidebar the header gets a
-  row of its own across the window, and a docked sheet starts under it, so a sheet's own close
-  never sits beside the window's; floating sheets start under the strip too.
+  strip keeps at its top left (52px of lights, then 16px clear), centred down it (14px from the
+  top of the 40px strip).
+- **Windows:** no title bar; Windows draws minimise, maximise and close (138px, as tall as the
+  title bar, on the title bar's `sidebar` colour with `foreground` symbols) over the top right, so
+  maximise keeps its snap layouts. A menu button takes the traffic lights' place and pops up the
+  app menu, as there is no menu bar. The page's header in the title bar stops 16px short of the
+  buttons. Sheets start under the title bar, a card beside the page's, so a sheet's own close never
+  sits beside the window's. Outside a workspace the `AppShell`'s page colour shows around the
+  buttons, which differs from `sidebar` by one small step (`#fafafa` on white in light, `#0d0d0d` on
+  `#111111` in dark).
 - **Linux:** the system frame, with its title bar and the menu bar, sits above the page. The strip
-  has no start (no traffic lights, no menu button); a sheet runs the full height, as on macOS.
+  has no start (no traffic lights, no menu button); a docked sheet is a card under it, as on macOS.
 
 Keys are written as on macOS ("⌘K", "⌘⇧X"). `Kbd`, menu shortcuts and the tooltips that show keys
 name them for the platform: "Ctrl+K", "Ctrl+Shift+X" on Windows and Linux (`formatKeys`).
@@ -195,13 +199,13 @@ Two kinds of page, one rule each:
 
 ## Colour
 
-- Dark is the primary theme. Pages, the sidebar and lists sit on `background`; cards, board cards and settings groups on `card` (`neutral-900` in dark, `neutral-50` in light); menus, popovers, tooltips, dialogs, sheets and toasts on `popover`, lifted by their shadow.
+- Dark is the primary theme, and as quiet as light: the same small steps between surfaces, and secondary text that recedes. Status, priority, health and date colours keep their bright steps: the glyphs that carry them are small. Pages and lists sit on `background`; the sidebar on `sidebar`, a step darker in dark (`#0d0d0d`) as light's `neutral-50` sidebar is a step off white; cards, board cards and settings groups on `card` (`#171717` in dark, `neutral-50` in light); menus, popovers, tooltips, dialogs, sheets and toasts on `popover`, lifted by their shadow.
 - Text: `foreground` for body, `foreground-strong` for titles and row names, `muted-foreground` for labels, descriptions and menu icons, `subtle-foreground` for metadata a reader can skip.
 - Lines: `border` between rows, settings rows and around pills; `input` around fields and the quiet button; `edge` around anything raised. All three are translucent in dark, so they never vanish into the surface beneath them.
-- Hover and highlight: `accent` is `neutral-800` in dark, so a highlighted item shows on `popover` (`neutral-900`) as well as on the page.
-- **One red.** In dark, overdue, high priority, off track and delete all use `red-400` (6.2:1 on `popover`); light uses `red-600` throughout. The calendar's today and the time grid's now line keep `now-indicator` (`red-600`), which carries a white number.
+- Hover and highlight: `accent` is `#222222` in dark, so a highlighted item shows on `popover` (`#1a1a1a`) as well as on the page.
+- **One red.** In dark, overdue, high priority, off track and delete all use `red-400` (6.0:1 on `popover`); light uses `red-600` throughout. The calendar's today and the time grid's now line keep `now-indicator` (`red-600`), which carries a white number.
 - **Workspace tiles** sit on the 900 step of their swatch (`swatch-*-tile`), so a 20px tile reads as colour; the white letter stays above 9:1.
-- **Group headings** show the group's colour on their 14px icon and as an 8% tint of the `muted` band (`color-mix`, so any colour works without a token).
+- **Group headings** show the group's colour on their 14px icon and as a tint of the `muted` band, 5% in dark and 8% in light (`color-mix`, so any colour works without a token).
 - Status colours keep one meaning each (`status-*`, `priority-*`, `health-*`, `date-today`, `date-overdue`), each with its own icon shape. Users pick from the six `swatch-*` colours, shown as 3px bars, dots and swatches.
 - **Derived colours say what they derive from.** In `tokens.json` a translucent token is written as a recipe, `{foreground} / 10%` (another token at an opacity, as Tailwind's `foreground/10`), not as the numbers it comes to; the generator writes it as `color-mix(in srgb, var(--foreground) 10%, transparent)`. So `border` reads `{foreground} / 10%` beside shadcn's white at 10%, a tint follows its colour, and how a token differs from shadcn shows in the token itself. Components derive states the same way at the point of use (`color-mix(in oklab, var(--ring) 50%, transparent)` for shadcn's `ring/50`).
 
@@ -217,7 +221,7 @@ Two kinds of page, one rule each:
 - Heights: `control-xs` (24px) pills and xs buttons, `control-sm` (28px) sm buttons and menu items, `control-md` (32px) buttons, inputs, segmented controls and sidebar items, `control-lg` (36px) lg buttons, `row-height` (48px) and `group-gap` (12px) for list density, `group-height` (36px) for group heading bands, `board-card-gap` (10px) between board cards.
 - Corners: `radius-md` (8px) inside controls, `radius-lg` (10px) controls and menus, `radius-xl` (14px) surfaces, `radius-full` pills.
 - Shadows only on floating layers: `shadow-md` for menus and tooltips, `shadow-2xl` for dialogs, sheets and toasts. The exceptions are `shadow-segment`, under the current segment of a segmented control (Figma's in dark, shadcn's `shadow-sm` in light), and `shadow-pinned`, under the sidebar's pinned header while content is scrolled beneath it.
-- Layout: Home's `home-max-width` (800px) column; a `sidebar-width` (256px) sidebar, docked or hidden (and then a drawer over the page); lists run edge to edge; details open in a `sheet-width` (380px) panel docked on the right, and the page narrows beside it (an overlay only in narrow windows).
+- Layout: the window's top row is `title-bar-height` (40px), the title bar (`WindowBar`, then the page's header), with the sidebar and the page's card under it; Home's `home-max-width` (800px) column; a `sidebar-width` (256px) sidebar, docked or hidden (and then a drawer over the page); lists run edge to edge; details open in a `sheet-width` (380px) panel docked on the right, and the page narrows beside it (an overlay only in narrow windows).
 
 ## Scrollbars
 

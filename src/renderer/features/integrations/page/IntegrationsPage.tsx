@@ -15,6 +15,7 @@ import {
   IntegrationCard,
   PageContent,
   ProviderTile,
+  Page,
 } from '@renderer/components';
 import { events, trpc } from '@renderer/ipc';
 import { IntegrationAccount } from '../components/IntegrationAccount';
@@ -149,47 +150,49 @@ export function IntegrationsPage() {
   const empty = integrations.length === 0;
 
   return (
-    <PageContent layout="document" data-testid="page">
-      <div className={styles.page}>
-        <div className={styles.intro}>
-          <div className={styles.introText}>
-            <Heading level={1}>Integrations</Heading>
-            <p className={styles.lead}>
-              {empty
-                ? 'Connect an account to bring its tasks and events into DevBrain. Synced items are read-only in DevBrain.'
-                : `Accounts connected to the ${workspace?.name ?? ''} workspace. Each account can be used for one or more sources. Synced items are read-only in DevBrain.`}
-            </p>
+    <Page>
+      <PageContent layout="document" data-testid="page">
+        <div className={styles.page}>
+          <div className={styles.intro}>
+            <div className={styles.introText}>
+              <Heading level={1}>Integrations</Heading>
+              <p className={styles.lead}>
+                {empty
+                  ? 'Connect an account to bring its tasks and events into DevBrain. Synced items are read-only in DevBrain.'
+                  : `Accounts connected to the ${workspace?.name ?? ''} workspace. Each account can be used for one or more sources. Synced items are read-only in DevBrain.`}
+              </p>
+            </div>
+            {!empty && <ConnectMenu onConnect={flows.connect} disabled={connecting} />}
           </div>
-          {!empty && <ConnectMenu onConnect={flows.connect} disabled={connecting} />}
-        </div>
-        {empty ? (
-          <ProviderList onConnect={flows.connect} disabled={connecting} />
-        ) : (
-          <>
-            {integrations.map((integration) => (
-              <IntegrationAccount
-                key={integration.id}
-                integration={integration}
-                statuses={statuses}
-                progress={progress}
-                calendars={calendars ?? []}
-                flows={flows}
-                locked={connecting}
+          {empty ? (
+            <ProviderList onConnect={flows.connect} disabled={connecting} />
+          ) : (
+            <>
+              {integrations.map((integration) => (
+                <IntegrationAccount
+                  key={integration.id}
+                  integration={integration}
+                  statuses={statuses}
+                  progress={progress}
+                  calendars={calendars ?? []}
+                  flows={flows}
+                  locked={connecting}
+                />
+              ))}
+              <IntegrationCard
+                provider="github"
+                name="GitHub"
+                state="coming-later"
+                meta="Pull requests and branches for linked tasks"
               />
-            ))}
-            <IntegrationCard
-              provider="github"
-              name="GitHub"
-              state="coming-later"
-              meta="Pull requests and branches for linked tasks"
-            />
-            <p className={styles.footnote}>
-              Turning an account off pauses all of its sources; turning it back on picks up where it
-              left off. Mirrored items stay as they are until you disconnect.
-            </p>
-          </>
-        )}
-      </div>
-    </PageContent>
+              <p className={styles.footnote}>
+                Turning an account off pauses all of its sources; turning it back on picks up where
+                it left off. Mirrored items stay as they are until you disconnect.
+              </p>
+            </>
+          )}
+        </div>
+      </PageContent>
+    </Page>
   );
 }

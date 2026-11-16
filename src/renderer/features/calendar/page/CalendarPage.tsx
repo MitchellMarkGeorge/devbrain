@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import { DateTime } from 'luxon';
@@ -13,9 +13,10 @@ import {
   type CalendarViewEvent,
   type CalendarViewHandle,
   type CalendarViewSelection,
+  Page,
+  PageToolbar,
 } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
-import { PageHeaderSlot } from '@renderer/layouts/workspace/page-header';
 import { TaskSheet } from '@renderer/features/tasks/components/sheet/TaskSheet';
 import {
   defaultDurationMinutes,
@@ -62,10 +63,9 @@ export function CalendarPage() {
   const { size } = useWorkspaceShell();
   const { now } = useFormat('minute');
   const view = useRef<CalendarViewHandle>(null);
-  // the header steps down as it narrows (beside the sidebar, the window bar and the sheet)
-  // (state, not a ref: the header's place is portalled into a moment after the page mounts)
-  const [headerStart, setHeaderStart] = useState<HTMLElement | null>(null);
-  const layout = headerLayout(useHeaderWidth(headerStart));
+  // the toolbar steps down as it narrows (beside the sidebar and the sheet)
+  const toolbar = useRef<HTMLDivElement>(null);
+  const layout = headerLayout(useWidth(toolbar));
 
   const options = rangeOptionsOf(settings, resolved.view);
   const sources = useEventSources(calendars, view);
@@ -135,17 +135,15 @@ export function CalendarPage() {
   const sheetOpen = resolved.open !== undefined;
 
   return (
-    <>
-      <PageHeaderSlot
-        place={
-          <CalendarHeaderStart
-            ref={setHeaderStart}
-            date={resolved.date}
-            calendars={calendars}
-            layout={layout}
-          />
-        }
-        actions={
+    <Page>
+      {/*
+       * the month, the filter and the controls are the page's toolbar, in the page under the title
+       * bar, where the 24px title and 32px controls have room
+       */}
+      <PageToolbar
+        ref={toolbar}
+        start={<CalendarHeaderStart date={resolved.date} calendars={calendars} layout={layout} />}
+        end={
           <CalendarHeaderEnd
             view={resolved.view}
             layout={layout}
@@ -213,24 +211,26 @@ export function CalendarPage() {
           onClosed={() => setSheet({ open: undefined, occurrence: undefined })}
         />
       )}
-    </>
+    </Page>
   );
 }
 
 /**
- * The width of the page header holding `inHeader` (the header's place, portalled into it), followed as
- * it changes; Infinity until it is measured.
+ * The width of the element `ref` holds, followed as it changes; Infinity until it is measured. The
+ * element is read once, after the first commit: React sets a child's ref before its parent's
+ * layout effects run, so it is there, as long as it is rendered in place and always (not behind a
+ * condition or a portal), and stays the same element.
  */
-function useHeaderWidth(inHeader: HTMLElement | null): number {
+function useWidth(ref: RefObject<HTMLElement | null>): number {
   const [width, setWidth] = useState(Infinity);
   useLayoutEffect(() => {
-    const header = inHeader?.closest('header');
-    if (!header || typeof ResizeObserver === 'undefined') return;
-    // it reports the width at once, then as it changes. The header's own layout never changes its
+    const element = ref.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    // it reports the width at once, then as it changes. The toolbar's own layout never changes its
     // width, so this can't feed back on itself
     const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width));
-    observer.observe(header);
+    observer.observe(element);
     return () => observer.disconnect();
-  }, [inHeader]);
+  }, [ref]);
   return width;
 }

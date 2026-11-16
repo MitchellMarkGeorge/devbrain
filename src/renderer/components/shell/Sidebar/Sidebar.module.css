@@ -14,7 +14,19 @@
   overflow: hidden;
 }
 /*
- * Below the pinned rows (the window row, then the workspace switcher with search and new), the
+ * in the drawer: on the drawer's own surface (WorkspaceShell draws it as a sheet, on `popover`),
+ * with no hairline. Its hover and current item take 8% of the text colour over that surface: the
+ * sidebar's own fill (`sidebar-accent`, tuned for the frame) is a step off `popover` in dark, and
+ * wouldn't show; in light this is about `neutral-100`, as before
+ */
+.sidebar[data-drawer] {
+  --sidebar-accent: color-mix(in oklab, var(--foreground) 8%, var(--popover));
+  --sidebar-accent-foreground: var(--accent-foreground);
+  border-right: none;
+  background: inherit;
+}
+/*
+ * Below the pinned row (the workspace switcher with search and new), the
  * pages, Recents, Favorites and the footer scroll together when the window is too short for
  * them. The ScrollArea's thin scrollbar sits over the right edge, taking no width from the items.
  * Both take the sidebar's background, which the pinned rows inherit.
@@ -31,33 +43,8 @@
   background: inherit;
   overscroll-behavior: contain;
 }
-/* ---------- the window row: the title bar's start, then toggle, back and forward beside it ---------- */
-.windowRow {
-  display: flex;
-  flex: none;
-  align-items: center;
-  /*
-   * As tall as the WindowBar, and starting as far in (16px, with the sidebar's inset), so the
-   * toggle stands in the same place docked, in the drawer and in the bar. The title bar's start
-   * keeps its own clearance, so the row has no gap.
-   */
-  height: 48px;
-  padding-left: var(--space-1);
-  -webkit-app-region: drag;
-}
-.windowRow button {
-  -webkit-app-region: no-drag;
-}
 /*
- * The drawer floats over the page, so it doesn't drag the window; in Electron a drag region also
- * swallows the pointer, which would close a peek while the pointer rests on the row
- */
-.sidebar[data-drawer] .windowRow {
-  -webkit-app-region: no-drag;
-}
-
-/*
- * The window row and the header, pinned together while the rest scrolls under them. The block
+ * The header, pinned while the rest scrolls under it. The block
  * takes the sidebar's background and reaches over the gap below it (a padding the margin takes
  * back), so items slide out of sight under its edge rather than showing through the gap. While
  * anything is scrolled under it, it casts a shadow from edge to edge: it reaches over the
@@ -72,16 +59,13 @@
   flex-direction: column;
   gap: var(--sidebar-gap);
   margin: 0 calc(-1 * var(--sidebar-inset)) calc(-1 * var(--sidebar-gap));
-  padding: 0 var(--sidebar-inset) var(--sidebar-gap);
+  /* 8px under the title bar (or the sidebar's top) */
+  padding: var(--space-2) var(--sidebar-inset) var(--sidebar-gap);
   background: inherit;
   transition: box-shadow var(--duration-normal) var(--ease-out);
 }
 .area[data-overflow-y-start] .top {
   box-shadow: var(--shadow-pinned);
-}
-/* outside a WorkspaceShell (no window row) the header keeps 8px above it */
-.top:not(:has(> .windowRow)) {
-  padding-top: var(--space-2);
 }
 
 /* ---------- header: workspace switcher, search and new ---------- */

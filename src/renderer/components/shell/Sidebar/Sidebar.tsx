@@ -17,23 +17,17 @@ import { Icon, renderIcon, type IconSource } from '../../ui/Icon';
 import { Kbd } from '../../ui/Kbd';
 import { ScrollArea } from '../../ui/ScrollArea';
 import { Tooltip } from '../../ui/Tooltip';
-import { WindowControls, WindowStart } from '../WindowBar';
 import { WorkspaceTile } from '../../entities/WorkspaceTile';
 import { cssColor, type Swatch } from '../../types';
 import styles from './Sidebar.module.css';
 
 export interface SidebarProps extends ComponentPropsWithoutRef<'nav'> {
   /**
-   * The row pinned at the top, under the window row: a `SidebarHeader` (the workspace switcher,
-   * then search and "new"). It and the window row stay put together while the rest scrolls.
+   * The row pinned at the top: a `SidebarHeader` (the workspace switcher, then search and "new").
+   * It stays put while the rest scrolls. The window's controls aren't the sidebar's: they are in
+   * the `WorkspaceShell`'s title bar, above it.
    */
   header?: ReactNode;
-  /**
-   * The title bar's start (traffic lights on macOS, the menu button on Windows, nothing on Linux)
-   * and the sidebar toggle beside it, with back and forward at the right, on a 48px row at the top
-   * of the sidebar. It starts as the `WindowBar` does, so the toggle never moves. On by default inside a `WorkspaceShell`, docked and in the drawer alike.
-   */
-  windowControls?: boolean;
 }
 
 /**
@@ -42,11 +36,10 @@ export interface SidebarProps extends ComponentPropsWithoutRef<'nav'> {
  * `SidebarFooter`. Inside a `WorkspaceShell` the shell docks it, or hides it and opens it as a drawer.
  */
 export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
-  { header, windowControls, className, children, 'aria-label': ariaLabel = 'Main', ...props },
+  { header, className, children, 'aria-label': ariaLabel = 'Main', ...props },
   ref,
 ) {
   const shell = useWorkspaceShell();
-  const showControls = windowControls ?? shell.inShell;
   return (
     <nav
       ref={ref}
@@ -57,17 +50,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
     >
       {/* everything scrolls in it, under the pinned rows, with the thin scrollbar */}
       <ScrollArea className={styles.area} viewportClassName={styles.scroller}>
-        {(showControls || header) && (
-          <div className={styles.top}>
-            {showControls && (
-              <div className={styles.windowRow}>
-                <WindowStart />
-                <WindowControls historyAtEnd />
-              </div>
-            )}
-            {header}
-          </div>
-        )}
+        {header && <div className={styles.top}>{header}</div>}
         {children}
       </ScrollArea>
     </nav>

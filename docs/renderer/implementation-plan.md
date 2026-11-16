@@ -598,9 +598,10 @@ to=… />}` with `active` from `useMatchRoute` (fuzzy, so a detail page keeps it
   `SyncStatus` (from `sync.status`, kept fresh by `sources.changed` and `sync.progress` events;
   Retry calls `sync.now`) comes with milestone 3. The keyboard shortcuts dialog opens with `?` and
   from ⌘K.
-- **Header:** each page's title from its route's `staticData.title`, as a `Breadcrumb` in the
-  `PageHeader`. Milestone 3 replaces it with the `usePageHeader(node)` slot (breadcrumbs with the
-  entity title, page actions).
+- **Header:** each page draws its own, in the `Page` it renders: a `PageHeader` with its
+  `Breadcrumb` (the section, then the entity's title, built with `useCrumbLink`) and actions, or
+  no header at all (Home, the calendar, Settings, Integrations). `Page` shows it in the window's title bar; the
+  workspace layout holds nothing of the page's.
 - **Pages:** placeholders (`src/renderer/pages/app/placeholders.tsx`) whose loaders prime real
   queries and list what they load, until each page's milestone. Not-found (`NotFoundPage`) and
   error (`RouteErrorPage`, with Retry) pages draw inside the shell; slow pages show `PagePending`.
@@ -1407,7 +1408,8 @@ linkedTaskId } })`), separate from the task's event or note link.
      Tasks page's tasks in no project).
    - `ProjectHeader` takes its tile, name and "time left" as slots (`icon`, `title`, `meta`) and
      `duePicker`/`startPicker` (clearable dates); its progress pill and "+ Add" are gone. The tabs
-     are `Tabs variant="line" size="lg"` (underlined, with icons). "N overdue" opens the Tasks
+     are `Tabs variant="ghost"` (quiet pills with icons, the current one filled, at the card's
+     top left; they were underlined, `variant="line" size="lg"`, until Nov 2026). "N overdue" opens the Tasks
      tab's list view filtered to overdue tasks; core's `numOfOverdue` counts tasks due before
      today, as that filter and the rows do (it counted those due earlier today too). Colours are
      stored as `#rrggbb` (`shared/lib/workspace/colors.ts`'s `SWATCH_HEX`), as `projects.update` takes no

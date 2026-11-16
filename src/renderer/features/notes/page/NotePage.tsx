@@ -12,11 +12,14 @@ import {
   PageFavoriteButton,
   Text,
   useFormat,
+  Page,
+  PageHeader,
 } from '@renderer/components';
 import { ipc, trpc } from '@renderer/ipc';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
+import { SectionPage } from '@renderer/shared/components/SectionPage';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
-import { PageHeaderSlot, useCrumbLink } from '@renderer/layouts/workspace/page-header';
+import { useCrumbLink } from '@renderer/shared/hooks/use-crumb-link';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useRecordView } from '@renderer/shared/hooks/use-record-view';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
@@ -38,13 +41,20 @@ import styles from '../components/detail/NotePage.module.css';
  * note and its markdown before the first frame; a note deleted while it is open shows not-found.
  */
 export function NotePage() {
-  const { noteId } = noteRoute.useParams();
+  const { noteId, workspaceId } = noteRoute.useParams();
+  const crumbLink = useCrumbLink();
   const note = useQuery(trpc.notes.get.queryOptions({ id: noteId }));
   useRecordView(noteId);
   if (note.data === undefined || note.data.archivedAt !== null) {
     const gone =
       (note.isError && ipcErrorCode(note.error) === 'not_found') || note.data?.archivedAt;
-    return gone ? <NotFoundPage /> : null;
+    if (gone) return <NotFoundPage />;
+    // not loaded yet (the loader normally has it): the section's crumb, so the header is there
+    return (
+      <SectionPage
+        section={crumbLink('Notes', { to: '/app/$workspaceId/notes', params: { workspaceId } })}
+      />
+    );
   }
   // a new note, a fresh page: the title and body start from it
   return <NotePageContent key={note.data.id} note={note.data} />;
@@ -115,26 +125,28 @@ function NotePageContent({ note }: { note: Note }) {
       .catch((error: unknown) => showError(error, 'Couldn’t link the task'));
 
   return (
-    <>
-      <PageHeaderSlot
-        place={
+    <Page
+      header={
+        <PageHeader
+          actions={
+            <>
+              <PageFavoriteButton
+                favorite={note.favoritedAt !== null}
+                onFavoriteChange={(favorite) => actions.setFavorite([note], favorite)}
+              />
+              <NoteDetailMenu note={note} actions={actions} onTrash={() => void trash()} />
+            </>
+          }
+        >
           <Breadcrumb
             items={[
               crumbLink('Notes', { to: '/app/$workspaceId/notes', params: { workspaceId } }),
               { label: note.title || 'Untitled', icon: FileText },
             ]}
           />
-        }
-        actions={
-          <>
-            <PageFavoriteButton
-              favorite={note.favoritedAt !== null}
-              onFavoriteChange={(favorite) => actions.setFavorite([note], favorite)}
-            />
-            <NoteDetailMenu note={note} actions={actions} onTrash={() => void trash()} />
-          </>
-        }
-      />
+        </PageHeader>
+      }
+    >
       <PageContent layout="document" data-testid="note-page">
         <div className={styles.head}>
           <EditorTitle
@@ -184,6 +196,6 @@ function NotePageContent({ note }: { note: Note }) {
           onClosed={() => setSheetTask(undefined)}
         />
       )}
-    </>
+    </Page>
   );
 }

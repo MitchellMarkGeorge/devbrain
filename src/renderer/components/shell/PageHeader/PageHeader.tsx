@@ -1,11 +1,64 @@
-import { forwardRef, type ComponentPropsWithoutRef, type ReactNode, type Ref } from 'react';
+import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Ellipsis, Star } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
-import { useWorkspaceShell } from '../WorkspaceShell/context';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../../ui/DropdownMenu';
 import { IconButton } from '../../ui/IconButton';
+import { ScrollArea } from '../../ui/ScrollArea';
+import { useWorkspaceShell } from '../WorkspaceShell/context';
 import styles from './PageHeader.module.css';
+
+export interface PageProps extends ComponentPropsWithoutRef<'div'> {
+  /**
+   * The page's header: a `PageHeader` with its breadcrumb and actions, or a bar of the page's own.
+   * Inside a `WorkspaceShell` it goes in the window's title bar, after the window's controls (so
+   * it stays put while the page scrolls, and takes no room in the page); elsewhere the page draws
+   * it at its top. Leave it out for a page with no header (Home, the calendar, Settings, Integrations)
+   */
+  header?: ReactNode;
+  /** classes for the scrolling element (the ScrollArea's viewport) */
+  scrollClassName?: string;
+}
+
+/**
+ * A page in a `WorkspaceShell`: its header, in the shell's title bar, and everything else (a
+ * `PageToolbar` and a `PageContent`, or a layout of the page's own) in the page's scroller. Every
+ * page renders one, so each decides its own header, or none. The header is still the page's own
+ * JSX, so it can use the page's state; the shell only gives it a place. A list or grid page's content fills the scroller and
+ * scrolls itself; a Home or document page keeps its height, and the scroller scrolls it whole.
+ */
+export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
+  { header, scrollClassName, className, children, ...props },
+  ref,
+) {
+  const { titleBarContainer } = useWorkspaceShell();
+  // in a shell, the page is the card under the title bar, header or not
+  const inShell = titleBarContainer !== null;
+  const inTitleBar = header != null && inShell;
+  return (
+    <div
+      ref={ref}
+      data-in-shell={inShell ? '' : undefined}
+      className={cn(styles.page, className)}
+      {...props}
+    >
+      {inTitleBar ? createPortal(header, titleBarContainer) : header}
+      {/*
+       * a ScrollArea, whose scrollbar is drawn over the page's edge and takes no width; data-slot
+       * on its scrolling element: the app's router restores it, and scrolls it to the top on a
+       * new page
+       */}
+      <ScrollArea
+        className={styles.scroll}
+        viewportClassName={cn(styles.scrollViewport, scrollClassName)}
+        viewportProps={{ 'data-slot': 'page-scroll' } as object}
+      >
+        {children}
+      </ScrollArea>
+    </div>
+  );
+});
 
 export interface PageHeaderProps extends Omit<ComponentPropsWithoutRef<'header'>, 'title'> {
   /** the page's place, at the left: a `Breadcrumb` ("Tasks › List"), or its title */
@@ -16,39 +69,22 @@ export interface PageHeaderProps extends Omit<ComponentPropsWithoutRef<'header'>
    * `PageToolbar` under the header instead.
    */
   actions?: ReactNode;
-  /**
-   * The place's element, for a page to portal its breadcrumb into from below (the app's
-   * `PageHeaderSlot`); leave `children` out then
-   */
-  placeRef?: Ref<HTMLDivElement>;
-  /** The actions' element, likewise; it's there even with no `actions`, and takes no room while empty */
-  actionsRef?: Ref<HTMLDivElement>;
-  /** what the place shows while nothing is in it: the section's name, until a page fills it */
-  fallback?: ReactNode;
 }
 
 /**
- * The top of every page: a 48px bar with the breadcrumb at the left and the page's actions at the
- * right, 24px in from the sides. It spans the page even where the content is a capped column.
- * While the sidebar is hidden, `WorkspaceShell` puts it beside the `WindowBar`.
+ * A page's header (its `Page`'s `header`): a 48px bar with the breadcrumb at the left and the
+ * page's actions at the right, 24px in from the sides. Inside a `WorkspaceShell` it fills the
+ * title bar after the window's controls (its buttons and links don't drag the window; the bar
+ * around them does); elsewhere it tops the page.
  */
 export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function PageHeader(
-  { actions, placeRef, actionsRef, fallback, className, children, ...props },
+  { actions, className, children, ...props },
   ref,
 ) {
   return (
     <header ref={ref} className={cn(styles.header, className)} {...props}>
-      <div ref={placeRef} className={styles.place}>
-        {children}
-      </div>
-      {fallback !== undefined && (
-        <div className={cn(styles.place, styles.fallback)}>{fallback}</div>
-      )}
-      {(actions || actionsRef) && (
-        <div ref={actionsRef} className={styles.actions}>
-          {actions}
-        </div>
-      )}
+      <div className={styles.place}>{children}</div>
+      {actions && <div className={styles.actions}>{actions}</div>}
     </header>
   );
 });
@@ -110,14 +146,8 @@ export const PageToolbar = forwardRef<HTMLDivElement, PageToolbarProps>(function
   { start, end, className, children, ...props },
   ref,
 ) {
-  const { sidebarHidden } = useWorkspaceShell();
   return (
-    <div
-      ref={ref}
-      data-under-window-bar={sidebarHidden ? '' : undefined}
-      className={cn(styles.toolbar, className)}
-      {...props}
-    >
+    <div ref={ref} className={cn(styles.toolbar, className)} {...props}>
       {start && <div className={styles.group}>{start}</div>}
       {children}
       {end && <div className={cn(styles.group, styles.end)}>{end}</div>}

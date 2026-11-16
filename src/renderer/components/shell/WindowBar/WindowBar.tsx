@@ -107,11 +107,6 @@ export function CaptionButtons({ className, ...props }: ComponentPropsWithoutRef
 }
 
 export interface WindowControlsProps extends ComponentPropsWithoutRef<'div'> {
-  /**
-   * Back and forward at the end of the row the controls fill, the toggle staying at the start (the
-   * sidebar's window row); otherwise all three sit together (the `WindowBar`)
-   */
-  historyAtEnd?: boolean;
   onToggleSidebar?: () => void;
   onBack?: () => void;
   onForward?: () => void;
@@ -121,11 +116,11 @@ export interface WindowControlsProps extends ComponentPropsWithoutRef<'div'> {
 
 /** What the sidebar toggle does, as its label and tooltip say. */
 function toggleLabel(shell: WorkspaceShellContextValue): string {
-  if (shell.inDrawer) {
-    if (shell.size !== 'compact') return 'Dock sidebar';
-    return shell.peeking ? 'Keep sidebar open' : 'Close sidebar';
-  }
-  return shell.sidebarHidden ? 'Show sidebar' : 'Hide sidebar';
+  if (!shell.sidebarHidden) return 'Hide sidebar';
+  if (!shell.drawerOpen) return 'Show sidebar';
+  // the drawer is open under the title bar: the toggle docks it, or pins or closes it
+  if (shell.size !== 'compact') return 'Dock sidebar';
+  return shell.peeking ? 'Keep sidebar open' : 'Close sidebar';
 }
 
 /**
@@ -136,16 +131,7 @@ function toggleLabel(shell: WorkspaceShellContextValue): string {
  */
 export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
   function WindowControls(
-    {
-      historyAtEnd,
-      onToggleSidebar,
-      onBack,
-      onForward,
-      canGoBack,
-      canGoForward,
-      className,
-      ...props
-    },
+    { onToggleSidebar, onBack, onForward, canGoBack, canGoForward, className, ...props },
     ref,
   ) {
     const shell = useWorkspaceShell();
@@ -153,17 +139,13 @@ export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
     const label = toggleLabel(shell);
     const peeks = !onToggleSidebar && shell.sidebarHidden && !shell.inDrawer;
     return (
-      <div
-        ref={ref}
-        data-history-at-end={historyAtEnd ? '' : undefined}
-        className={cn(styles.controls, className)}
-        {...props}
-      >
+      <div ref={ref} className={cn(styles.controls, className)} {...props}>
         <IconButton
           size="sm"
           tone="muted"
           icon={PanelLeft}
           label={label}
+          data-sidebar-toggle=""
           tooltip={
             <>
               {label} <span className={styles.key}>{formatKeys('⌘\\')}</span>
@@ -203,9 +185,9 @@ export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
 export type WindowBarProps = Omit<ComponentPropsWithoutRef<'div'>, 'children'>;
 
 /**
- * The 48px strip at the window's top left while the sidebar is hidden: the title bar's start
- * (traffic lights on macOS, the menu button on Windows) and the window controls. `WorkspaceShell`
- * puts the page's header beside it. The strip drags the window; its buttons don't.
+ * The title bar: a `title-bar-height` strip across the top of a `WorkspaceShell`, docked sidebar or
+ * hidden: the title bar's start (traffic lights on macOS, the menu button on Windows) and the
+ * window controls, which never move. The strip drags the window; its buttons don't.
  */
 export const WindowBar = forwardRef<HTMLDivElement, WindowBarProps>(function WindowBar(
   { className, ...props },

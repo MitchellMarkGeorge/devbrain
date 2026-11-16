@@ -117,6 +117,7 @@ A page shows a dialog with `useModals().open((props) => <MyDialog {...props} />)
 renders it. The dialog spreads `props` onto `Dialog` or `AlertDialog`, closes with
 `props.onOpenChange(false)`, and is removed once its closing animation ends. The root layout holds
 them, inside the router and the query client, and drops them all when a workspace switch starts.
+Opening one closes the sidebar's drawer (`useModalShown`, in `AppLayout`).
 Components in `src/renderer/components` stay controlled (`open`, `onOpenChange`); `useModals` is
 for pages.
 
@@ -197,6 +198,10 @@ The renderer routes with TanStack Router: file routes in `src/renderer/routes`, 
   stops the splash showing at startup.
 - **A saved page names its workspace** (`lastPageSchema`); main keeps one per workspace. Don't send
   the location over IPC.
+- **Each page draws its own header.** A page component renders a `Page` (`src/renderer/components`)
+  with its `PageHeader` (breadcrumb from `useCrumbLink`, actions), or no `header` at all. The
+  workspace layout holds nothing of the page's; `Page` itself puts the header in the window's
+  title bar (`WorkspaceShell`'s `titleBarContainer`), so a page never fills a slot of its own.
 - Route files stay thin (`params`, `validateSearch`, `beforeLoad`, `loader`, a page component).
   `src/renderer/components` stays the design system: no router, no IPC.
 - When a TanStack upgrade fails `src/renderer/tests/routing/tanstack-behaviour.test.ts`, the

@@ -9,8 +9,10 @@ import styles from './EditorContent.module.css';
  *
  * - `p`, `h1`–`h6`, `ul`, `ol`, `hr`, `a`, `strong`, `em`, `u`, `s`, `sub`, `sup`, inline `code`,
  *   `mark` (a `<kbd>` takes the `Kbd` component's class)
- * - to-dos: `ul[data-type='taskList'] > li[data-checked]` with a `label > input[type=checkbox]`
- *   then a `div` (Tiptap's markup), checked ones struck through in `muted-foreground`
+ * - to-dos: `ul[data-type='taskList'] > li[data-checked]` with a `label` holding a `Checkbox`, then
+ *   a `div` (Tiptap's markup, the checkbox drawn by the editor's node view), checked ones struck
+ *   through in `muted-foreground`; a node view's wrapper (`data-node-view-wrapper`) between the li
+ *   and them takes no box
  * - code blocks: `pre[data-language]` (the language shows as a label) around `code`
  * - quotes: `blockquote`, a 2px bar on the left
  * - tables: `table` with `th`/`td`, row lines in `border`; dragged cells (`.selectedCell`) tinted

@@ -1,18 +1,41 @@
-/* The page's top bar, toolbar and content frame. See docs/design-system/components/PageHeader.md */
+/* The page's frame, top bar, toolbar and content. See docs/design-system/components/PageHeader.md */
+
+/* ---------- page: the header, then the scroller under it ---------- */
+.page {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.scroll {
+  flex: 1;
+  min-height: 0;
+}
+/* the ScrollArea's viewport, which scrolls the page; its scrollbar is drawn over the edge */
+.scrollViewport {
+  display: flex;
+  flex-direction: column;
+  overscroll-behavior: contain;
+}
+
+/*
+ * In a shell the page is a card under the title bar, its header (if any) up in the bar: a toolbar
+ * at the card's top keeps 12px clear of its edge, whether the page has a header or not
+ */
+.page[data-in-shell] .toolbar {
+  padding-top: var(--space-3);
+}
+
+/* ---------- header ---------- */
 .header {
   display: flex;
   flex: none;
   align-items: center;
   gap: var(--space-2);
-  height: 48px;
+  /* 48px topping a page; as tall as the title bar inside it (WorkspaceShell sets this) */
+  height: var(--page-header-height, 48px);
   min-width: 0;
-  /* on Windows the actions stop 16px short of the caption buttons over the top right (base.css) */
-  padding: 0 max(var(--space-6), var(--title-bar-end, 0px)) 0 var(--space-6);
-  -webkit-app-region: drag;
-}
-.header button,
-.header a {
-  -webkit-app-region: no-drag;
+  padding: 0 var(--space-6);
 }
 .place {
   display: flex;
@@ -20,19 +43,11 @@
   align-items: center;
   min-width: 0;
 }
-/* the fallback stands in for an empty place, and steps aside once something is in it */
-.place:empty:has(+ .fallback),
-.place:not(:empty) + .fallback {
-  display: none;
-}
 .actions {
   display: flex;
   flex: none;
   align-items: center;
   gap: var(--space-2);
-}
-.actions:empty {
-  display: none;
 }
 .favorite[data-favorite] {
   color: var(--date-today);
@@ -49,10 +64,6 @@
   gap: var(--space-2);
   min-width: 0;
   padding: 1px var(--space-6) var(--space-3);
-}
-/* under the window bar the toolbar starts 4px lower (Figma's collapsed screens) */
-.toolbar[data-under-window-bar] {
-  padding-top: var(--space-1);
 }
 .group {
   display: flex;
