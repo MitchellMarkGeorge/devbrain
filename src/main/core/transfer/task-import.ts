@@ -1,7 +1,12 @@
 import { safeExternalUrl } from '@common/safe-url';
 import type { ProjectId } from '@common/ids';
 import { fromDateString, isDateString } from '../shared/dates';
-import { type TaskImportIssue, TaskPriority, TaskStatus } from '@common/types';
+import {
+  type SettablePriority,
+  type TaskImportIssue,
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
 import { type CreateSubtaskTreeOptions, type CreateTaskTreeOptions } from '../tasks/types';
 import { MAX_DESCRIPTION_LENGTH, MAX_TITLE_LENGTH } from './limits';
 import type { TaskRecord } from './task-format';
@@ -13,7 +18,7 @@ export interface TaskImportContext {
   // for a top-level task without one, as the create dialog fills it in; a subtask without one
   // takes its parent's
   defaultDueDate: Date;
-  defaultPriority: TaskPriority;
+  defaultPriority: SettablePriority;
   // the active projects by matchKey(title)
   projectsByTitle: Map<string, ProjectId[]>;
   // ids in the file that are tasks already in the workspace
@@ -52,10 +57,14 @@ const STATUSES: Record<string, TaskStatus> = {
 
 const STATUS_LIST = 'not_started, in_progress, completed or cancelled';
 
-const PRIORITIES: Record<string, TaskPriority> = {
+// null: none set, as exported from a synced task with no priority. An imported task is the user's
+// own, which always has one, so it takes the default priority like a blank cell
+const PRIORITIES: Record<string, SettablePriority | null> = {
   low: TaskPriority.LOW,
   medium: TaskPriority.MEDIUM,
   high: TaskPriority.HIGH,
+  none: null,
+  no_priority: null,
 };
 
 // a field's value, or why the row can't be imported
@@ -85,7 +94,7 @@ function dateField(raw: string | null, column: string): Checked<Date | undefined
  * 3. A missing title, an unknown status or priority, a date that is not YYYY-MM-DD, a pull request
  *    link that is not http(s), or a title or description over its limit is an error.
  *
- * A missing status is not started, a missing priority the default priority, and a missing due
+ * A missing status is not started, a missing priority (or "none") the default priority, and a missing due
  * date the default due date (a subtask's, its parent's). A project is matched by title; when no
  * project, or more than one, has that title, the task is imported without one and a warning says
  * so. A subtask takes its top-level task's project, as every local subtask does. The subtasks of a
@@ -129,7 +138,7 @@ export function planTaskImport(roots: TaskRecord[], context: TaskImportContext):
     if ('error' in status) return status;
     const priority =
       fields.priority === null
-        ? { value: context.defaultPriority }
+        ? { value: null }
         : lookup(PRIORITIES, fields.priority, 'priority', 'low, medium or high');
     if ('error' in priority) return priority;
     const startDate = dateField(fields.startDate, 'Start date');
@@ -161,7 +170,7 @@ export function planTaskImport(roots: TaskRecord[], context: TaskImportContext):
         title,
         description: fields.description ?? undefined,
         status: status.value,
-        priority: priority.value,
+        priority: priority.value ?? context.defaultPriority,
         startDate: startDate.value,
         dueDate: dueDate.value ?? (isRoot ? context.defaultDueDate : undefined),
         pullRequestUrl,

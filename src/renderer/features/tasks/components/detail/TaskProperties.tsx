@@ -25,7 +25,6 @@ import {
   PopoverContent,
   PopoverTrigger,
   PRIORITY_LABELS,
-  shownPriority,
   PriorityIcon,
   PropertyRow,
   PROVIDER_LABELS,
@@ -322,10 +321,7 @@ export function TaskProperties({
       <EntityPill interactive={false} glyph={<StatusIcon status={task.status} size={12} />}>
         {external?.statusLabel ?? TASK_STATUS_LABELS[task.status]}
       </EntityPill>
-      <EntityPill
-        interactive={false}
-        glyph={<PriorityIcon priority={shownPriority(task)} size={12} />}
-      >
+      <EntityPill interactive={false} glyph={<PriorityIcon priority={task.priority} size={12} />}>
         {external?.priorityLabel ?? PRIORITY_LABELS[task.priority]}
       </EntityPill>
       {task.dueDate && (

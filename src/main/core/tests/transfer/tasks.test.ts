@@ -222,6 +222,15 @@ describe('importing rows', () => {
     });
   });
 
+  it('imports "none" (a synced task exported with no priority) with the default priority', () => {
+    defaults = { defaultDueDate: 'today', defaultPriority: TaskPriority.MEDIUM };
+    transfer.importTasks('title,priority\nFrom Linear,none\nWorded,No priority\n', 'csv');
+
+    const byTitle = new Map(allTasks(tasks).map((task) => [task.title, task]));
+    expect(byTitle.get('From Linear')!.priority).toBe(TaskPriority.MEDIUM);
+    expect(byTitle.get('Worded')!.priority).toBe(TaskPriority.MEDIUM);
+  });
+
   it('reports bad rows by row number and imports the rest', () => {
     const csv = [
       'id,parent_id,Title,Status,Priority,Due Date,Pull Request URL',

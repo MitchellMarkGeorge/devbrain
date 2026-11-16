@@ -36,23 +36,19 @@ export function entityOf(id: LinkedEntityId): LinkedEntity {
 function labelsOf(
   entity: LinkedEntity,
   metadata: unknown,
-): Pick<ExternalRef, 'statusLabel' | 'priorityLabel' | 'unprioritized'> {
+): Pick<ExternalRef, 'statusLabel' | 'priorityLabel'> {
   // an unreadable metadata blob only costs the labels, never the read
   switch (entity) {
     case 'task': {
       const { data } = taskLinkMetadataSchema.safeParse(metadata);
-      return {
-        statusLabel: data?.statusLabel ?? null,
-        priorityLabel: data?.priorityLabel ?? null,
-        unprioritized: data?.unprioritized ?? false,
-      };
+      return { statusLabel: data?.statusLabel ?? null, priorityLabel: data?.priorityLabel ?? null };
     }
     case 'project': {
       const { data } = projectLinkMetadataSchema.safeParse(metadata);
-      return { statusLabel: data?.statusLabel ?? null, priorityLabel: null, unprioritized: false };
+      return { statusLabel: data?.statusLabel ?? null, priorityLabel: null };
     }
     case 'event':
-      return { statusLabel: null, priorityLabel: null, unprioritized: false };
+      return { statusLabel: null, priorityLabel: null };
   }
 }
 
@@ -106,9 +102,7 @@ export const refColumns = {
   lastSyncedAt: externalLinks.lastSyncedAt,
 };
 
-export type RefRow = Omit<ExternalRef, 'statusLabel' | 'priorityLabel' | 'unprioritized'> & {
-  metadata: unknown;
-};
+export type RefRow = Omit<ExternalRef, 'statusLabel' | 'priorityLabel'> & { metadata: unknown };
 
 /** a link of `entity`'s, read with `refColumns`, as the ref read models carry */
 export function toExternalRef(entity: LinkedEntity, { metadata, ...link }: RefRow): ExternalRef {

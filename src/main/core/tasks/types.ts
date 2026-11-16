@@ -1,5 +1,5 @@
 import type { EventId, NoteId, ProjectId } from '@common/ids';
-import type { TaskPriority, TaskStatus } from '@common/types';
+import type { SettablePriority, TaskPriority, TaskStatus } from '@common/types';
 import { tasks } from '@main/db/schema/tasks';
 import { InferSelectModel } from 'drizzle-orm';
 
@@ -7,7 +7,7 @@ export interface CreateTaskOptions {
   title: string;
   description?: string;
   // optional for quick capture, will be given defaults
-  priority?: TaskPriority;
+  priority?: SettablePriority;
   status?: TaskStatus;
 
   // left out or null: no due date
@@ -23,7 +23,7 @@ export interface CreateTaskOptions {
 export interface CreateSubTaskOptions {
   title: string;
   description?: string;
-  priority?: TaskPriority;
+  priority?: SettablePriority;
   status?: TaskStatus;
   // left out, the parent's; null, none
   dueDate?: Date | null;
@@ -74,7 +74,7 @@ export interface TaskSortOptions {
 export interface UpdateTaskOptions {
   title?: string;
   description?: string | null;
-  priority?: TaskPriority;
+  priority?: SettablePriority;
   startDate?: Date | null;
   dueDate?: Date | null;
   pullRequestUrl?: string | null;
@@ -84,7 +84,7 @@ export interface UpdateTaskOptions {
 // out is kept; a null due date or project clears it. Status sets completedAt as updateStatus does.
 export interface BulkTaskPatch {
   status?: TaskStatus;
-  priority?: TaskPriority;
+  priority?: SettablePriority;
   dueDate?: Date | null;
   projectId?: ProjectId | null;
 }

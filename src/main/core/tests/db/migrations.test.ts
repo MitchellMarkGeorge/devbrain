@@ -471,38 +471,39 @@ describe('migration 0025 — viewed_at', () => {
   });
 });
 
-describe('migration 0027 — unprioritized Linear tasks', () => {
-  it("marks the Linear task links whose priority is Linear's 0, leaving the rest", () => {
+describe("migration 0027 — Linear's no priority", () => {
+  it('moves the synced Linear tasks with no priority from Low to none, leaving the rest', () => {
     const { sqlite, db } = openDb();
     migrate(db, { migrationsFolder: migrationsUpTo(26) });
-    seed(sqlite);
-    const link = (id: string, column: string, entityId: string, metadata: object) =>
-      `INSERT INTO external_links (id, provider, ${column}, external_id, external_url,
-         external_updated_at, metadata, last_synced_at)
-       VALUES ('${id}', 'linear', '${entityId}', '${id}', 'https://linear.app/${id}', 1000,
-         '${JSON.stringify(metadata)}', 1000);`;
     sqlite.exec(`
-      ${link('lnk_none', 'task_id', 'tsk_a', { statusLabel: 'Backlog', priorityLabel: 'No priority' })}
-      ${link('lnk_low', 'task_id', 'tsk_b', { statusLabel: 'Todo', priorityLabel: 'Low' })}
-      ${link('lnk_project', 'project_id', 'prj_a', { statusLabel: 'Planned' })}
+      INSERT INTO tasks (id, title, priority) VALUES
+        ('tsk_none', 'No priority in Linear', 1),
+        ('tsk_low', 'Low in Linear', 1),
+        ('tsk_detached', 'Detached, no priority in Linear', 1),
+        ('tsk_local', 'Local', 1),
+        ('tsk_high', 'Changed since, high', 3);
     `);
-    const metadata = () =>
-      Object.fromEntries(
-        (
-          sqlite.prepare(`SELECT id, metadata FROM external_links ORDER BY id`).all() as {
-            id: string;
-            metadata: string;
-          }[]
-        ).map((row) => [row.id, JSON.parse(row.metadata) as unknown]),
-      );
-    const before = metadata();
+    const link = (task: string, state: string, priorityLabel: string) =>
+      `INSERT INTO external_links (id, provider, task_id, external_id, external_url,
+         external_updated_at, state, metadata, last_synced_at)
+       VALUES ('lnk_${task}', 'linear', '${task}', '${task}', 'https://linear.app/${task}', 1000,
+         '${state}', '${JSON.stringify({ priorityLabel })}', 1000);`;
+    sqlite.exec(`
+      ${link('tsk_none', 'synced', 'No priority')}
+      ${link('tsk_low', 'synced', 'Low')}
+      ${link('tsk_detached', 'detached', 'No priority')}
+      ${link('tsk_high', 'synced', 'No priority')}
+    `);
 
     runMigrations(sqlite, db, migrationsUpTo(27));
 
-    expect(metadata()).toEqual({
-      ...before,
-      lnk_none: { statusLabel: 'Backlog', priorityLabel: 'No priority', unprioritized: true },
-    });
+    expect(sqlite.prepare(`SELECT id, priority FROM tasks ORDER BY id`).all()).toEqual([
+      { id: 'tsk_detached', priority: 1 },
+      { id: 'tsk_high', priority: 3 },
+      { id: 'tsk_local', priority: 1 },
+      { id: 'tsk_low', priority: 1 },
+      { id: 'tsk_none', priority: 0 },
+    ]);
     sqlite.close();
   });
 });

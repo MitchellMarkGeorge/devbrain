@@ -3,6 +3,7 @@ import {
   ProjectHealth,
   ProjectStatus,
   Provider as CoreProvider,
+  type SettablePriority,
   TaskPriority,
   TaskStatus,
   type ExternalRef,
@@ -193,8 +194,11 @@ export function statusVar(status: TaskStatus, overdue = false): string {
   return `var(--status-${statusSlug(status, overdue)})`;
 }
 
-/** The priorities in menu order, highest first. */
-export const PRIORITIES: readonly TaskPriority[] = [
+/**
+ * The priorities in menu order, highest first: the ones a user sets. `TaskPriority.NONE` only comes
+ * from a provider, so no menu offers it.
+ */
+export const PRIORITIES: readonly SettablePriority[] = [
   TaskPriority.HIGH,
   TaskPriority.MEDIUM,
   TaskPriority.LOW,
@@ -204,21 +208,9 @@ export const PRIORITY_LABELS: Record<TaskPriority, string> = {
   [TaskPriority.HIGH]: 'High',
   [TaskPriority.MEDIUM]: 'Medium',
   [TaskPriority.LOW]: 'Low',
+  // as Linear words it
+  [TaskPriority.NONE]: 'No priority',
 };
-
-/** What a synced task whose provider has no priority set shows, as Linear words it. */
-export const NO_PRIORITY_LABEL = 'No priority';
-
-/**
- * The priority a task's icon draws: null for a synced task whose provider has no priority set,
- * which core keeps as Low so it still sorts and groups.
- */
-export function shownPriority(task: {
-  priority: TaskPriority;
-  external?: Pick<ExternalRef, 'unprioritized'> | null;
-}): TaskPriority | null {
-  return task.external?.unprioritized ? null : task.priority;
-}
 
 export const HEALTH_LABELS: Record<ProjectHealth, string> = {
   [ProjectHealth.ON_TRACK]: 'On track',

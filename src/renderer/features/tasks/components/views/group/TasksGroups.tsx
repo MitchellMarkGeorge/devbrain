@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Calendar, CircleAlert, CircleSlash, Folder } from 'lucide-react';
 import type { ProjectId } from '@common/ids';
-import { TaskPriority, TaskStatus, type TaskListItem } from '@common/types';
+import { type SettablePriority, TaskPriority, TaskStatus, type TaskListItem } from '@common/types';
 import {
   Button,
   GroupHeading,
@@ -77,7 +77,8 @@ function groupIcon(def: TaskGroupDef) {
     case 'status':
       return def.look.status ? <StatusIcon status={def.look.status} size={14} /> : undefined;
     case 'priority':
-      return def.look.priority ? (
+      // NONE is 0: test for a value, not truthiness
+      return def.look.priority !== undefined ? (
         <PriorityIcon priority={def.look.priority} size={14} />
       ) : undefined;
     case 'project':
@@ -100,7 +101,10 @@ function groupColor(def: TaskGroupDef): string | undefined {
         ? statusVar(look.status)
         : undefined;
     case 'priority':
-      return look.priority ? `var(--priority-${PRIORITY_SLUGS[look.priority]})` : undefined;
+      // No priority stays neutral
+      return look.priority !== undefined && look.priority !== TaskPriority.NONE
+        ? `var(--priority-${PRIORITY_SLUGS[look.priority]})`
+        : undefined;
     case 'due':
       return look.tone === 'overdue'
         ? 'var(--status-overdue)'
@@ -112,7 +116,7 @@ function groupColor(def: TaskGroupDef): string | undefined {
   }
 }
 
-const PRIORITY_SLUGS: Record<TaskPriority, string> = {
+const PRIORITY_SLUGS: Record<SettablePriority, string> = {
   [TaskPriority.HIGH]: 'high',
   [TaskPriority.MEDIUM]: 'medium',
   [TaskPriority.LOW]: 'low',

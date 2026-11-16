@@ -22,6 +22,8 @@ export const PRIORITY_NAMES: Record<TaskPriority, string> = {
   [TaskPriority.LOW]: 'low',
   [TaskPriority.MEDIUM]: 'medium',
   [TaskPriority.HIGH]: 'high',
+  // a synced task with no priority; an import reads it as the default priority
+  [TaskPriority.NONE]: 'none',
 };
 
 // a task's fields as the file has them; null when absent or empty

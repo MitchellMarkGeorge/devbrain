@@ -10,8 +10,6 @@ const nullableString = () => z.string().nullable().default(null);
 export const taskLinkMetadataSchema = z.object({
   statusLabel: nullableString(),
   priorityLabel: nullableString(),
-  // the provider has no priority set (Linear's 0, mapped to Low)
-  unprioritized: z.boolean().default(false),
   parentExternalId: nullableString(),
   parentKey: nullableString(),
   parentTitle: nullableString(),

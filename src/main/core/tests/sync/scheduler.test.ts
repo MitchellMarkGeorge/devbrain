@@ -858,7 +858,6 @@ function issue(): ExternalTask {
     priority: TaskPriority.LOW,
     statusLabel: 'Todo',
     priorityLabel: 'Low',
-    unprioritized: false,
     startDate: null,
     dueDate: null,
     completedAt: null,

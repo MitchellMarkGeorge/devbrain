@@ -119,6 +119,7 @@ describe('the filter tasks.list gets', () => {
       origin: 'local',
     });
     expect(filterOf({ project: 'none' }).projectId).toBeNull();
+    expect(filterOf({ priority: 'none' }).priority).toBe(TaskPriority.NONE);
   });
 
   it('maps a due bucket to dates around today', () => {
@@ -182,10 +183,18 @@ describe('the group view’s groups', () => {
     ]);
   });
 
-  it('groups by priority, highest first', () => {
+  it('groups by priority, highest first, then synced tasks with no priority', () => {
+    const defs = groupDefs(resolved({ group_by: 'priority' }), TODAY, []);
+    expect(defs.map((def) => def.label)).toEqual(['High', 'Medium', 'Low', 'No priority']);
+    const none = defs.find((def) => def.label === 'No priority')!;
+    expect(none.filter).toEqual({ priority: TaskPriority.NONE });
+    // a task added there is the user's own: it takes the default priority, never NONE
+    expect(none.defaults).toEqual({});
     expect(
-      groupDefs(resolved({ group_by: 'priority' }), TODAY, []).map((def) => def.label),
-    ).toEqual(['High', 'Medium', 'Low']);
+      groupDefs(resolved({ group_by: 'priority', priority: 'none' }), TODAY, []).map(
+        (def) => def.label,
+      ),
+    ).toEqual(['No priority']);
   });
 });
 

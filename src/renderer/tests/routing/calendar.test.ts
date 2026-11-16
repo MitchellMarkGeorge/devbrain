@@ -183,7 +183,6 @@ describe('the calendar page', () => {
           url: 'https://calendar.google.com/event?eid=1',
           statusLabel: null,
           priorityLabel: null,
-          unprioritized: false,
           lastSyncedAt: new Date(),
         },
       }),

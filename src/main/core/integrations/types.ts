@@ -26,8 +26,6 @@ export interface ExternalTask {
   priority: TaskPriority; // already mapped
   statusLabel: string | null; // "In Review"
   priorityLabel: string | null; // "Urgent"
-  // the provider has no priority set; `priority` then holds the fallback it maps to
-  unprioritized: boolean;
   startDate: Date | null;
   dueDate: Date | null;
   completedAt: Date | null; // set only when status is COMPLETED

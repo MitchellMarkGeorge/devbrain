@@ -1,5 +1,5 @@
 # PriorityIcon
 
-A task's priority (core's `TaskPriority`): `HIGH` double chevron up (`priority-high`), `MEDIUM` equals (`priority-medium`), `LOW` chevron down (`priority-low`), at a 2.5 stroke. Unlabelled in rows (it still names itself to screen readers, "High priority"); inside a Badge with its word in the properties panel.
+A task's priority (core's `TaskPriority`): `HIGH` double chevron up (`priority-high`), `MEDIUM` equals (`priority-medium`), `LOW` chevron down (`priority-low`), and `NONE` a dash in `muted-foreground`, at a 2.5 stroke. Unlabelled in rows (it still names itself to screen readers, "High priority"); inside a Badge with its word in the properties panel.
 
-`null` is no priority, for a synced task whose provider has none set (Linear's "No priority"): a neutral dash (`Minus`) in `muted-foreground`, named "No priority". Core still stores such a task as `LOW` so it sorts and groups, and marks it with `external.unprioritized`; draw it with `shownPriority(task)` rather than `task.priority`. Task rows, board cards and the task's properties do.
+`NONE` is no priority, which only a synced task has (Linear's "No priority"; sync is the only thing that sets it). It names itself "No priority" and stays neutral, as its group heading does. No menu offers it: see `PriorityMenu`.

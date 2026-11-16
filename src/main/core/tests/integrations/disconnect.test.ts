@@ -95,7 +95,6 @@ function issue(overrides: Partial<ExternalTask> = {}): ExternalTask {
     priority: TaskPriority.LOW,
     statusLabel: 'Todo',
     priorityLabel: 'Low',
-    unprioritized: false,
     startDate: null,
     dueDate: null,
     completedAt: null,
@@ -591,7 +590,6 @@ describe('IntegrationService — disconnect, keeping local copies', () => {
         url: item.url,
         statusLabel: item.statusLabel,
         priorityLabel: item.priorityLabel,
-        unprioritized: false,
         lastSyncedAt: linkOf(item)!.lastSyncedAt,
       });
       expect(linkOf(item)!.sourceId).toBeNull();

@@ -10,7 +10,6 @@ import {
   DetailRows,
   EntityPill,
   PRIORITY_LABELS,
-  shownPriority,
   PriorityIcon,
   ReadOnlyRow,
   resolveColor,
@@ -218,7 +217,7 @@ function TaskSheetBody({ task }: { task: TaskListItem }) {
             </ReadOnlyRow>
             <ReadOnlyRow
               label="Priority"
-              glyph={<PriorityIcon priority={shownPriority(task)} size={14} />}
+              glyph={<PriorityIcon priority={task.priority} size={14} />}
             >
               {external?.priorityLabel ?? PRIORITY_LABELS[task.priority]}
             </ReadOnlyRow>

@@ -9,7 +9,7 @@ import { ArchiveService } from '../../archive/service';
 import { NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
-import { ProjectStatus, TaskPriority, TaskStatus } from '@common/types';
+import { ProjectStatus, type SettablePriority, TaskPriority, TaskStatus } from '@common/types';
 import {
   AlreadyArchivedError,
   InvalidInputError,
@@ -513,6 +513,22 @@ describe('TaskService — listTasks', () => {
     const result = tasks.listTasks({ priority: TaskPriority.HIGH }).items;
     expect(result).toHaveLength(1);
     expect(result[0].id).toBe(high.id);
+  });
+
+  it('filter.priority finds the tasks with no priority (NONE is 0, not "no filter")', () => {
+    const none = tasks.createTask({ title: 'Synced, no priority', dueDate: TOMORROW });
+    // only sync sets NONE; stand in for it with a direct write
+    db.update(tasksTable)
+      .set({ priority: TaskPriority.NONE })
+      .where(eq(tasksTable.id, none.id))
+      .run();
+    tasks.createTask({ title: 'Low', dueDate: TOMORROW, priority: TaskPriority.LOW });
+
+    const result = tasks.listTasks({ priority: TaskPriority.NONE }).items;
+    expect(result.map((task) => task.id)).toEqual([none.id]);
+    // and it sorts below Low
+    const sorted = tasks.listTasks({}, { sortBy: 'priority', direction: 'asc' }).items;
+    expect(sorted[0].id).toBe(none.id);
   });
 
   it('filter.dueBefore returns tasks due strictly before the date', async () => {
@@ -1324,7 +1340,7 @@ describe('TaskService — cursor pagination', () => {
         tasks.createTask({
           title: `T${i}`,
           dueDate: TOMORROW,
-          priority: ((i % 3) + 1) as TaskPriority,
+          priority: ((i % 3) + 1) as SettablePriority,
         }),
       );
     }

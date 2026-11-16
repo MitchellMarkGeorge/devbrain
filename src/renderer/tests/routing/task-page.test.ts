@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Editor } from '@tiptap/core';
 import type { WorkspaceId } from '@common/ids';
-import { LinkState, Provider, TaskStatus } from '@common/types';
+import { LinkState, Provider, TaskPriority, TaskStatus } from '@common/types';
 import { FakeMain, workspace } from './fake-main';
 import { fakeNote, fakeTask, FakeTasks } from './fake-tasks';
 import { byText, click, eventually, startApp, stopApps } from './harness';
@@ -139,7 +139,6 @@ describe('the task page', () => {
         url: 'https://linear.app/x/issue/ENG-124',
         statusLabel: 'In Review',
         priorityLabel: 'Urgent',
-        unprioritized: false,
         lastSyncedAt: new Date(),
       },
     });
@@ -157,6 +156,7 @@ describe('the task page', () => {
 
   it('shows a synced task with no priority as none, not as Low', async () => {
     const synced = fakeTask('tsk_mit69', 'Re-run codegen', {
+      priority: TaskPriority.NONE,
       external: {
         provider: Provider.LINEAR,
         state: LinkState.SYNCED,
@@ -164,7 +164,6 @@ describe('the task page', () => {
         url: 'https://linear.app/x/issue/MIT-69',
         statusLabel: 'Backlog',
         priorityLabel: 'No priority',
-        unprioritized: true,
         lastSyncedAt: new Date(),
       },
     });
@@ -316,7 +315,6 @@ describe('the task page', () => {
           url: 'https://linear.app/x/issue/ENG-1',
           statusLabel: 'Todo',
           priorityLabel: 'Low',
-          unprioritized: false,
           lastSyncedAt: new Date(),
         },
       });

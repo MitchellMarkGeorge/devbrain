@@ -13,7 +13,12 @@ const TASK_STATUS_LABELS: Record<string, string> = {
   [STATUS_NAMES[TaskStatus.CANCELLED]]: 'Cancelled',
 };
 
-const PRIORITY_LABELS: Record<string, string> = { low: 'Low', medium: 'Medium', high: 'High' };
+const PRIORITY_LABELS: Record<string, string> = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  none: 'No priority',
+};
 
 const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
   [ProjectStatus.NOT_STARTED]: 'Not started',

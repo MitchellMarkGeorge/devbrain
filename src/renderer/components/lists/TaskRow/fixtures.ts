@@ -70,7 +70,6 @@ export function sampleLinear(key: string): ExternalRef {
     url: `https://linear.app/devbrain/issue/${key}`,
     statusLabel: 'In Progress',
     priorityLabel: null,
-    unprioritized: false,
     lastSyncedAt: storyAgo(3),
   };
 }

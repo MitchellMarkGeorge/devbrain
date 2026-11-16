@@ -45,7 +45,8 @@ const STATUSES = [
   TaskStatus.COMPLETED,
   TaskStatus.CANCELLED,
 ];
-const PRIORITIES = [TaskPriority.HIGH, TaskPriority.MEDIUM, TaskPriority.LOW];
+// No priority last: only synced tasks have it, so it is usually empty and drops out
+const PRIORITIES = [TaskPriority.HIGH, TaskPriority.MEDIUM, TaskPriority.LOW, TaskPriority.NONE];
 
 /** The statuses the page's status filter lets through, in order. */
 export function statusesFor(resolved: ResolvedTasksSearch): TaskStatus[] {
@@ -99,7 +100,8 @@ export function groupDefs(
         label: PRIORITY_LABELS[priority],
         look: { icon: 'priority', priority },
         filter: { priority },
-        defaults: { priority },
+        // a task added under No priority is the user's own, so it takes the default priority
+        defaults: priority === TaskPriority.NONE ? {} : { priority },
       }));
     case 'due': {
       if (resolved.due) {

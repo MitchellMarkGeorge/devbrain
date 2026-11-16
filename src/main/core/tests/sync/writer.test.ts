@@ -54,7 +54,6 @@ function issue(overrides: Partial<ExternalTask> = {}): ExternalTask {
     priority: TaskPriority.LOW,
     statusLabel: 'Todo',
     priorityLabel: 'Low',
-    unprioritized: false,
     startDate: null,
     dueDate: null,
     completedAt: null,
@@ -224,7 +223,6 @@ describe('SyncWriter — no link: insert', () => {
       url: item.url,
       statusLabel: 'In Review',
       priorityLabel: 'Urgent',
-      unprioritized: false,
     });
     expect(linkOf(item.externalId)).toMatchObject({
       externalUpdatedAt: V1,
@@ -233,18 +231,14 @@ describe('SyncWriter — no link: insert', () => {
     });
   });
 
-  it('marks an issue with no priority, which keeps Low as its priority', () => {
-    const item = issue({
-      priority: TaskPriority.LOW,
-      priorityLabel: 'No priority',
-      unprioritized: true,
-    });
+  it("writes an issue with no priority as NONE, and Linear's label with it", () => {
+    const item = issue({ priority: TaskPriority.NONE, priorityLabel: 'No priority' });
 
     writer.applyTaskPage(sourceId, page({ tasks: [item] }));
 
     const task = tasks.getById(taskIdOf(item.externalId));
-    expect(task.priority).toBe(TaskPriority.LOW);
-    expect(task.external).toMatchObject({ priorityLabel: 'No priority', unprioritized: true });
+    expect(task.priority).toBe(TaskPriority.NONE);
+    expect(task.external?.priorityLabel).toBe('No priority');
   });
 
   it('inserts the project and its link, and puts the task in it', async () => {

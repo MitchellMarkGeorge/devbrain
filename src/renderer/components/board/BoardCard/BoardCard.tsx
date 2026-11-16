@@ -10,7 +10,7 @@ import { SourcePill } from '../../entities/SourcePill';
 import { LinkState, TaskStatus, type TaskListItem } from '@common/types';
 import { SetDueDateButton } from '../../entities/SetDueDateButton';
 import { useFormat } from '../../lib/format';
-import { dueTone, isClosed, providerOf, shownPriority } from '../../types';
+import { dueTone, isClosed, providerOf } from '../../types';
 import styles from './BoardCard.module.css';
 
 /** The fields of core's `TaskListItem` a board card reads; pass the row as it is. */
@@ -86,7 +86,7 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
       {pills.length > 0 && <div className={styles.pills}>{pills}</div>}
       {meta && (
         <div className={styles.meta}>
-          {!done && <PriorityIcon priority={shownPriority(task)} />}
+          {!done && <PriorityIcon priority={task.priority} />}
           {task.dueDate ? (
             <span className={styles.date} data-tone={dueTone(task.status, task.dueDate, now)}>
               {formatDue(task.dueDate)}

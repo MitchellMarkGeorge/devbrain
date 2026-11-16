@@ -20,9 +20,9 @@ export const STATE_TYPE_STATUS: Record<string, TaskStatus> = {
 // the state types that close an issue
 export const CLOSED_STATE_TYPES = ['completed', 'canceled', 'duplicate'];
 
-// priority number -> DevBrain priority; 0 is "No priority"
+// priority number -> DevBrain priority
 export const PRIORITY: Record<number, TaskPriority> = {
-  0: TaskPriority.LOW,
+  0: TaskPriority.NONE, // "No priority"
   1: TaskPriority.HIGH, // urgent
   2: TaskPriority.HIGH,
   3: TaskPriority.MEDIUM,

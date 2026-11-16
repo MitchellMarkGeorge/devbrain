@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { ProjectId, TaskId } from '@common/ids';
-import type { ExternalRef, TaskPriority, TaskStatus } from '@common/types';
+import type { ExternalRef, SettablePriority, TaskStatus } from '@common/types';
 import { toast } from '@renderer/components';
 import { ipc } from '@renderer/ipc';
 import { mutationErrorCopy, useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
@@ -25,7 +25,7 @@ export interface TaskRef {
  */
 export interface TaskActions {
   setStatus(tasks: readonly TaskRef[], status: TaskStatus): void;
-  setPriority(tasks: readonly TaskRef[], priority: TaskPriority): void;
+  setPriority(tasks: readonly TaskRef[], priority: SettablePriority): void;
   setDueDate(tasks: readonly TaskRef[], dueDate: Date | null): void;
   setStartDate(task: TaskRef, startDate: Date | null): void;
   setProject(tasks: readonly TaskRef[], projectId: ProjectId | null): void;

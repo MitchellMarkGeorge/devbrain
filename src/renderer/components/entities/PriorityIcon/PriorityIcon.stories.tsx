@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Flex, Stack } from '../../layout/Flex';
 import { Text } from '../../layout/Text';
 import { TaskPriority } from '@common/types';
-import { NO_PRIORITY_LABEL, PRIORITIES, PRIORITY_LABELS } from '../../types';
+import { PRIORITIES, PRIORITY_LABELS } from '../../types';
 import { PriorityIcon } from './PriorityIcon';
 
 const meta = {
@@ -10,7 +10,10 @@ const meta = {
   component: PriorityIcon,
   args: { priority: TaskPriority.HIGH, size: 16 },
   argTypes: {
-    priority: { control: { type: 'inline-radio', labels: PRIORITY_LABELS }, options: PRIORITIES },
+    priority: {
+      control: { type: 'inline-radio', labels: PRIORITY_LABELS },
+      options: [...PRIORITIES, TaskPriority.NONE],
+    },
     size: { control: 'inline-radio', options: [12, 16, 24] },
   },
 } satisfies Meta<typeof PriorityIcon>;
@@ -30,12 +33,12 @@ export const AllPriorities: Story = {
         </Flex>
       ))}
       <Flex gap="2" align="center">
-        <PriorityIcon priority={null} />
-        <Text>{NO_PRIORITY_LABEL}</Text>
+        <PriorityIcon priority={TaskPriority.NONE} />
+        <Text>{PRIORITY_LABELS[TaskPriority.NONE]}</Text>
       </Flex>
     </Stack>
   ),
 };
 
-/** A synced task whose provider has no priority set (Linear's "No priority"). */
-export const NoPriority: Story = { args: { priority: null } };
+/** A synced task whose provider has no priority set (Linear's "No priority"): neutral. */
+export const NoPriority: Story = { args: { priority: TaskPriority.NONE } };

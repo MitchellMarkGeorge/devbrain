@@ -27,7 +27,6 @@ describe('Linear mapper — issues', () => {
       priority: TaskPriority.HIGH,
       statusLabel: 'In Review',
       priorityLabel: 'High',
-      unprioritized: false,
       startDate: new Date('2026-10-02T08:30:00.000Z'),
       dueDate: new Date(2026, 9, 20),
       completedAt: null,
@@ -72,21 +71,16 @@ describe('Linear mapper — issues', () => {
   });
 
   it.each([
-    [0, 'No priority', TaskPriority.LOW, true],
-    [1, 'Urgent', TaskPriority.HIGH, false],
-    [2, 'High', TaskPriority.HIGH, false],
-    [3, 'Medium', TaskPriority.MEDIUM, false],
-    [4, 'Low', TaskPriority.LOW, false],
-  ])(
-    'maps priority %i (%s) and keeps the raw label',
-    (priority, priorityLabel, expected, unprioritized) => {
-      const task = toExternalTask(issue({ ...issueFixture, priority, priorityLabel }), VIEWER_ID);
-      expect(task.priority).toBe(expected);
-      expect(task.priorityLabel).toBe(priorityLabel);
-      // 0 is no priority: it sorts as Low but is shown as none
-      expect(task.unprioritized).toBe(unprioritized);
-    },
-  );
+    [0, 'No priority', TaskPriority.NONE],
+    [1, 'Urgent', TaskPriority.HIGH],
+    [2, 'High', TaskPriority.HIGH],
+    [3, 'Medium', TaskPriority.MEDIUM],
+    [4, 'Low', TaskPriority.LOW],
+  ])('maps priority %i (%s) and keeps the raw label', (priority, priorityLabel, expected) => {
+    const task = toExternalTask(issue({ ...issueFixture, priority, priorityLabel }), VIEWER_ID);
+    expect(task.priority).toBe(expected);
+    expect(task.priorityLabel).toBe(priorityLabel);
+  });
 
   it('maps an issue with no due date, project, parent or description', () => {
     const task = toExternalTask(issue(minimalFixture), VIEWER_ID);

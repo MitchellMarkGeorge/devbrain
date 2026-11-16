@@ -25,7 +25,8 @@ export const STATUS_FILTERS = [
   'completed',
   'cancelled',
 ] as const;
-export const PRIORITY_FILTERS = ['high', 'medium', 'low'] as const;
+// none: synced tasks whose provider has no priority set
+export const PRIORITY_FILTERS = ['high', 'medium', 'low', 'none'] as const;
 export const DUE_FILTERS = ['overdue', 'today', 'week', 'none'] as const;
 export const SOURCE_FILTERS = ['local', 'external'] as const;
 
@@ -92,6 +93,7 @@ export const PRIORITY_OF: Record<PriorityFilter, TaskPriority> = {
   high: TaskPriority.HIGH,
   medium: TaskPriority.MEDIUM,
   low: TaskPriority.LOW,
+  none: TaskPriority.NONE,
 };
 
 // what a sort reads best in, when the URL doesn't say: the most urgent first for priority, the

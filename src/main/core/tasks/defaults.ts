@@ -1,10 +1,10 @@
-import { TaskPriority } from '@common/types';
+import { type SettablePriority, TaskPriority } from '@common/types';
 
 // the task settings a task made without them takes (AppSettings.tasks): what an import fills
 // missing values from
 export interface TaskDefaults {
   defaultDueDate: 'today' | 'tomorrow' | 'nextWeek';
-  defaultPriority: TaskPriority;
+  defaultPriority: SettablePriority;
 }
 
 export const FALLBACK_TASK_DEFAULTS: TaskDefaults = {

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { isId, type WorkspaceId } from '../ids';
-import { TaskPriority } from './tasks';
+import { settablePrioritySchema } from './tasks';
 
 // 'system' follows the operating system's light or dark appearance
 export const themeSettingSchema = z.enum(['system', 'light', 'dark']);
@@ -18,7 +18,7 @@ export const appSettingsSchema = z.object({
   }),
   tasks: z.object({
     defaultSort: z.enum(['priority', 'dueDate', 'status']),
-    defaultPriority: z.enum(TaskPriority),
+    defaultPriority: settablePrioritySchema,
     defaultDueDate: z.enum(['today', 'tomorrow', 'nextWeek']),
     defaultView: z.enum(['list', 'group', 'board']),
     showCompletedTasks: z.boolean(),

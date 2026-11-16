@@ -13,7 +13,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { ProjectId } from '@common/ids';
-import type { TaskListItem, TaskPriority, TaskStatus } from '@common/types';
+import type { SettablePriority, TaskListItem, TaskPriority, TaskStatus } from '@common/types';
 import {
   defaultQuickPicks,
   DropdownMenuFilter,
@@ -67,7 +67,7 @@ export function PrioritySubmenu({
 }: {
   priority: TaskPriority | undefined;
   disabled?: boolean;
-  onPick: (priority: TaskPriority) => void;
+  onPick: (priority: SettablePriority) => void;
 }) {
   return (
     <DropdownMenuSub>
