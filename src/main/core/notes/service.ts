@@ -52,23 +52,25 @@ export class NoteService {
     return this.changes.add(listener);
   }
 
-  getById(id: NoteId): Note {
-    const note = this.activeNotes(eq(notes.id, id)).get();
-    if (!note) throw new NotFoundError(id);
-    return note;
-  }
-
   /**
-   * The note as the notes list shows it: its row with its project and link (withNoteListDetails).
-   * What a note's page and sheet read, so they draw its project as its row does, whatever the
-   * project's status. Throws NotFoundError as getById does.
+   * The note as the notes list shows it: its row with its project and link (withNoteListDetails),
+   * so its page and sheet draw its project as its row does, whatever the project's status. Throws
+   * NotFoundError for an unknown or archived note.
    */
-  getListItem(id: NoteId): NoteListItem {
-    return withNoteListDetails(this.db, [this.getById(id)])[0];
+  getById(id: NoteId): NoteListItem {
+    return withNoteListDetails(this.db, [this.findNote(id)])[0];
   }
 
   getByIds(ids: NoteId[]): Note[] {
     return this.activeNotes(inArray(notes.id, ids)).all();
+  }
+
+  // the note's row, for the checks before a write: what they read, without the list's details.
+  // Throws NotFoundError as getById does.
+  private findNote(id: NoteId): Note {
+    const note = this.activeNotes(eq(notes.id, id)).get();
+    if (!note) throw new NotFoundError(id);
+    return note;
   }
 
   async createNote(options: CreateNoteOptions): Promise<Note> {
@@ -160,14 +162,14 @@ export class NoteService {
   // The path of an active note's markdown file, for showing it in the file manager. The file may
   // be missing. Throws NotFoundError for an unknown or archived note.
   filePathOf(id: NoteId): string {
-    this.getById(id);
+    this.findNote(id);
     return this.noteFilePath(id);
   }
 
   // The markdown of an active note, read from its file, without the file's front matter. Throws
   // NotFoundError for an unknown or archived note, MalformedNoteFileError for a damaged file.
   async readContent(id: NoteId): Promise<string> {
-    this.getById(id);
+    this.findNote(id);
     const { content } = await readNoteFile(this.noteFilePath(id));
     return content;
   }
@@ -387,7 +389,7 @@ export class NoteService {
 
   private async saveNoteContent(id: NoteId, content: string): Promise<Note> {
     // think about this, could just pass in the title or the note object itself
-    const existing = this.getById(id);
+    const existing = this.findNote(id);
 
     await updateNoteFile(this.noteFilePath(id), { id, title: existing.title }, content);
 
@@ -407,7 +409,7 @@ export class NoteService {
   // an active note and its markdown, once the content saves queued for it have run
   private async latestContent(id: NoteId): Promise<[Note, string]> {
     await this.contentSaves.get(id)?.catch(() => undefined);
-    const note = this.getById(id);
+    const note = this.findNote(id);
     const { content } = await readNoteFile(this.noteFilePath(id));
     return [note, content];
   }

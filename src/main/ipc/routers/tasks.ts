@@ -67,7 +67,7 @@ export const tasksRouter = t.router({
     .input(byId)
     .query(
       ({ ctx, input }): TaskListItem =>
-        ctx.workspace.tasks.getListItem(input.id, { includeArchived: true }),
+        ctx.workspace.tasks.getById(input.id, { includeArchived: true }),
     ),
 
   // a page of the task's direct subtasks

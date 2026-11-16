@@ -45,7 +45,7 @@ export const notesRouter = t.router({
   // a note as the notes list shows it: its project and link
   get: wsProcedure
     .input(byId)
-    .query(({ ctx, input }): NoteListItem => ctx.workspace.notes.getListItem(input.id)),
+    .query(({ ctx, input }): NoteListItem => ctx.workspace.notes.getById(input.id)),
 
   // writes the note's file, with `content` or empty, then its row
   create: wsProcedure

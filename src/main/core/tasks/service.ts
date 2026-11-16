@@ -150,29 +150,28 @@ export class TaskService {
   }
 
   // A task in the trash is found only with `includeArchived` (Trash opens it read-only)
-  getById(id: TaskId, options: { includeArchived?: boolean } = {}): Task {
+  /**
+   * The task as the task list shows it: its row with its provider ref, subtask progress, parent,
+   * project and link (withListDetails), so its page and sheet draw them as its row does, whatever
+   * the project's status. Throws NotFoundError for an unknown task, or an archived one unless
+   * `includeArchived`.
+   */
+  getById(id: TaskId, options: { includeArchived?: boolean } = {}): TaskListItem {
+    return withListDetails(this.db, [this.findTask(id, options)])[0];
+  }
+
+  getByIds(ids: TaskId[]): Task[] {
+    return withExternalRefs(this.db, this.activeTasks(inArray(tasks.id, ids)).all());
+  }
+
+  // the task's row with its provider ref, for the checks before a write: what they read, without
+  // the list's details. Throws NotFoundError as getById does.
+  private findTask(id: TaskId, options: { includeArchived?: boolean } = {}): Task {
     const row = options.includeArchived
       ? this.db.select().from(tasks).where(eq(tasks.id, id)).limit(1).get()
       : this.activeTasks(eq(tasks.id, id)).limit(1).get();
     if (!row) throw new NotFoundError(id);
     return withExternalRef(this.db, row);
-  }
-
-  /**
-   * The task as the task list shows it: its row with its provider ref, subtask progress, parent,
-   * project and link (withListDetails). What a task's page and sheet read, so they draw its project
-   * and links as its row does, whatever the project's status. Throws NotFoundError as getById does.
-   */
-  getListItem(id: TaskId, options: { includeArchived?: boolean } = {}): TaskListItem {
-    const row = options.includeArchived
-      ? this.db.select().from(tasks).where(eq(tasks.id, id)).limit(1).get()
-      : this.activeTasks(eq(tasks.id, id)).limit(1).get();
-    if (!row) throw new NotFoundError(id);
-    return withListDetails(this.db, [row])[0];
-  }
-
-  getByIds(ids: TaskId[]): Task[] {
-    return withExternalRefs(this.db, this.activeTasks(inArray(tasks.id, ids)).all());
   }
 
   // a local task can be created in a mirrored project: it stays local and sync never touches it
@@ -186,7 +185,7 @@ export class TaskService {
 
   createSubtask(parentTaskId: TaskId, options: CreateSubTaskOptions): Task {
     // throws NotFoundError when no task matches the provided id
-    const parentTask = this.getById(parentTaskId);
+    const parentTask = this.findTask(parentTaskId);
     // a synced parent's subtree is provider-owned; local subtasks nest at any depth
     assertRowEditable(parentTask);
 
@@ -405,7 +404,7 @@ export class TaskService {
   }
 
   updateProject(id: TaskId, projectId: ProjectId | null): Task {
-    const task = this.getById(id);
+    const task = this.findTask(id);
     // a synced task's project follows the provider; a local one can move into a mirrored project
     assertRowEditable(task);
 
@@ -493,7 +492,7 @@ export class TaskService {
   }
 
   updateLinks(id: TaskId, options: UpdateTaskLinkOptions): Task {
-    const task = this.getById(id);
+    const task = this.findTask(id);
 
     // links are DevBrain-owned, so allowed on synced tasks; external subtasks carry their own
     if (isSubtask(task) && !isSynced(task)) {
@@ -522,7 +521,7 @@ export class TaskService {
 
   promoteSubtask(id: TaskId): Task {
     // makes an existing subtask a top level task
-    const task = this.getById(id);
+    const task = this.findTask(id);
     assertRowEditable(task);
 
     if (!isSubtask(task)) {
@@ -548,8 +547,8 @@ export class TaskService {
     }
 
     // both throw NotFoundError when the id has no active task behind it
-    const task = this.getById(id);
-    const parentTask = this.getById(newParentId);
+    const task = this.findTask(id);
+    const parentTask = this.findTask(newParentId);
     // both sides are guarded; local tasks nest at any depth
     assertRowEditable(task);
     assertRowEditable(parentTask);
