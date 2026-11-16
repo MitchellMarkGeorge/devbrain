@@ -135,15 +135,17 @@ function HomeTaskRow({
 }) {
   return (
     <ContextMenu>
-      <ContextMenuTrigger style={{ display: 'contents' }}>
-        <TaskRow
-          task={task}
-          compact
-          onOpen={onOpen}
-          onStatusChange={(status) => actions.setStatus([task], status)}
-          onDueDateChange={(date) => actions.setDueDate([task], date)}
-        />
-      </ContextMenuTrigger>
+      <ContextMenuTrigger
+        render={
+          <TaskRow
+            task={task}
+            compact
+            onOpen={onOpen}
+            onStatusChange={(status) => actions.setStatus([task], status)}
+            onDueDateChange={(date) => actions.setDueDate([task], date)}
+          />
+        }
+      />
       <ContextMenuContent>
         <TaskMenuItems task={task} actions={actions} onOpen={onOpen} />
       </ContextMenuContent>

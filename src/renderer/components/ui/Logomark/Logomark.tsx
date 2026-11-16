@@ -45,10 +45,10 @@ export function Logomark({
   }
   // both marks, one shown by the theme: a <picture> media query could not follow `data-theme`
   return (
-    <span className={styles.themed}>
+    <>
       <img src={markOnDark} alt={alt} className={cn(imgClass, styles.onDark)} {...props} />
       <img src={markOnLight} alt={alt} className={cn(imgClass, styles.onLight)} {...props} />
-    </span>
+    </>
   );
 }
 

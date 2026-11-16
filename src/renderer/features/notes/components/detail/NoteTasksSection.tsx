@@ -94,7 +94,6 @@ export function NoteTasksSection({
       >
         <ContextMenu>
           <ContextMenuTrigger
-            style={{ display: 'contents' }}
             onContextMenu={(event) => {
               const row = (event.target as Element).closest<HTMLElement>('[data-task-id]');
               const found = row ? (byId.get(row.dataset.taskId ?? '') ?? null) : null;

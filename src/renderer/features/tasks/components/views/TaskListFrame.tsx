@@ -120,8 +120,9 @@ export function TaskListFrame({
 
   return (
     <ContextMenu>
+      {/* the bar is outside the list's key scope: keys on its buttons (↵ on Clear) are theirs */}
       <ContextMenuTrigger
-        style={{ display: 'contents' }}
+        render={<div className={styles.region} />}
         onContextMenu={(event) => {
           const row = (event.target as Element).closest<HTMLElement>('[data-task-id]');
           const task = row ? (byId.get(row.dataset.taskId ?? '') ?? null) : null;
@@ -129,25 +130,22 @@ export function TaskListFrame({
           if (!task) event.preventDefault();
         }}
       >
-        {/* the bar is outside the list's key scope: keys on its buttons (↵ on Clear) are theirs */}
-        <div className={styles.region}>
-          <KeyScope name="list" render={<div className={styles.region} />}>
-            {groups ? (
-              <TaskList {...common} groups={grouped ?? []} selecting={selected.length > 0} />
-            ) : (
-              <TaskList {...common} tasks={rows ?? []} />
-            )}
-          </KeyScope>
-          <TasksSelectionBar
-            tasks={full(selected.map((id) => ({ id })))}
-            actions={actions}
-            onClear={() => {
-              setSelected([]);
-              // the bar is going: focus back to the list's focused row
-              list.current?.moveFocus(0);
-            }}
-          />
-        </div>
+        <KeyScope name="list" render={<div className={styles.region} />}>
+          {groups ? (
+            <TaskList {...common} groups={grouped ?? []} selecting={selected.length > 0} />
+          ) : (
+            <TaskList {...common} tasks={rows ?? []} />
+          )}
+        </KeyScope>
+        <TasksSelectionBar
+          tasks={full(selected.map((id) => ({ id })))}
+          actions={actions}
+          onClear={() => {
+            setSelected([]);
+            // the bar is going: focus back to the list's focused row
+            list.current?.moveFocus(0);
+          }}
+        />
       </ContextMenuTrigger>
       <ContextMenuContent>
         {menuTask && (

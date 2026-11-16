@@ -42,6 +42,8 @@ export const NoteRow: Story = {
   render: (args) => (
     <ContextMenu {...args}>
       <ContextMenuTrigger
+        // a trigger draws no box of its own: this story's row is its own div, given as `render`
+        render={<div />}
         style={{
           width: 420,
           height: 48,

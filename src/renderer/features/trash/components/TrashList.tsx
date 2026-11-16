@@ -67,7 +67,6 @@ export function TrashList({
   return (
     <ContextMenu>
       <ContextMenuTrigger
-        style={{ display: 'contents' }}
         onContextMenu={(event) => {
           const row = (event.target as Element).closest<HTMLElement>('[data-trash-id]');
           const item = row ? (byId.get(row.dataset.trashId ?? '') ?? null) : null;

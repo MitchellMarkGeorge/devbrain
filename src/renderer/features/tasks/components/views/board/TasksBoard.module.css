@@ -14,8 +14,3 @@
   box-shadow: var(--shadow-md);
   cursor: grabbing;
 }
-
-/* the right-click area takes no part in the board's layout */
-.trigger {
-  display: contents;
-}

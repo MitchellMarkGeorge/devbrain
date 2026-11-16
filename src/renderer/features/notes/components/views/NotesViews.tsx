@@ -81,7 +81,6 @@ export function NotesView({ resolved, search, onClearFilters, onNewNote }: Notes
   return (
     <ContextMenu>
       <ContextMenuTrigger
-        style={{ display: 'contents' }}
         onContextMenu={(event) => {
           const row = (event.target as Element).closest<HTMLElement>('[data-note-id]');
           const note = row ? (byId.get(row.dataset.noteId ?? '') ?? null) : null;
