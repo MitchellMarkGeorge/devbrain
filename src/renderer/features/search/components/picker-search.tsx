@@ -25,7 +25,8 @@ import { SearchHighlight } from './SearchHighlight';
 /** The most results a picker's search asks for: more than a picker's list shows in practice. */
 export const PICKER_SEARCH_LIMIT = 50;
 
-const PickerQuery = createContext<string>('');
+// null outside a PickerSearchFilter, where usePickerSearch has no search row to read
+const PickerQuery = createContext<string | null>(null);
 
 /**
  * `DropdownMenuFilter` for a picker that searches: it holds the search row's query for
@@ -58,9 +59,14 @@ export interface PickerSearch {
 /**
  * The search for the picker around it (a `PickerSearchFilter`): `search.search` with `types` once
  * something is typed, debounced like ⌘K's. Leave out what the picker can't offer from `results`.
+ * Throws outside a `PickerSearchFilter`, which would otherwise never search.
  */
 export function usePickerSearch(types: readonly SearchEntityType[]): PickerSearch {
-  const query = useContext(PickerQuery).trim();
+  const context = useContext(PickerQuery);
+  if (context === null) {
+    throw new Error('usePickerSearch needs a PickerSearchFilter around its menu');
+  }
+  const query = context.trim();
   const searched = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
   const search = useQuery({
     ...trpc.search.search.queryOptions({

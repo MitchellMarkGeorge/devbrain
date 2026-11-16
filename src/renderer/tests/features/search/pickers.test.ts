@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { renderToString } from 'react-dom/server';
 import { QueryClientProvider } from '@tanstack/react-query';
 import type { ProjectId, TaskId, WorkspaceId } from '@common/ids';
 import {
@@ -15,7 +16,10 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@renderer/components';
 import { queryClient } from '@renderer/ipc';
 import { TaskPickerItems } from '@renderer/features/notes/components/menus/NoteMenus';
-import { PickerSearchFilter } from '@renderer/features/search/components/picker-search';
+import {
+  PickerSearchFilter,
+  usePickerSearch,
+} from '@renderer/features/search/components/picker-search';
 import { TaskParentPicker } from '@renderer/features/tasks/components/detail/TaskLinkPicker';
 import { ProjectItems } from '@renderer/features/tasks/components/menus/TaskMenus';
 import { click, eventually } from '../../routing/harness';
@@ -114,6 +118,18 @@ function loadTasks(...titles: string[]) {
 }
 
 const searchCalls = () => main.callsTo('search.search').map(({ input }) => input);
+
+describe('usePickerSearch', () => {
+  it('throws outside a PickerSearchFilter, where it would never search', () => {
+    function Rows() {
+      usePickerSearch(['task']);
+      return null;
+    }
+    expect(() => renderToString(createElement(Rows))).toThrow(
+      'usePickerSearch needs a PickerSearchFilter around its menu',
+    );
+  });
+});
 
 describe('Make subtask of ›', () => {
   const SELF = 'tsk_self' as TaskId;
