@@ -57,7 +57,14 @@ function useGoTo() {
   const { workspaceId } = useParams({ from: '/app/$workspaceId' });
   const navigate = useNavigate();
   return (page: 'tasks' | 'projects' | 'notes' | 'calendar' | 'integrations') =>
-    void navigate({ to: `/app/$workspaceId/${page}`, params: { workspaceId } });
+    void navigate({
+      // Integrations is a section of the settings
+      to:
+        page === 'integrations'
+          ? '/app/$workspaceId/settings/integrations'
+          : `/app/$workspaceId/${page}`,
+      params: { workspaceId },
+    });
 }
 
 function MeetingsSection({ section }: { section: Section<'meetings'> }) {

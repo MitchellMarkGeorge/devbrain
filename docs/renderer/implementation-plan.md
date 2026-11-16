@@ -132,8 +132,11 @@ __root                         toasts, splash (in place of the page), DevBrain u
     │   └── /$noteId
     ├── /calendar              ?view=week|month|day, ?date=YYYY-MM-DD, ?open=evt_…|tsk_…
     ├── /trash                 ?tab=all|projects|tasks|notes
-    ├── /integrations          (added: designed and in the sidebar)
-    └── /settings              ?tab=general|calendar|tasks|data_storage
+    ├── /integrations          redirect to /settings/integrations (it was its own page until Nov 2026)
+    └── /settings              a page per section, with the settings' own sidebar (routing.md)
+        ├── /                  redirect: /general, or an older ?tab=calendar|tasks|data_storage's section
+        ├── /general, /integrations, /import-export          Current workspace
+        └── /preferences, /tasks, /calendar, /data-storage   All workspaces
 ```
 
 Files (`src/renderer/routes`), a folder per section. A folder's layout is its `route.tsx`; a
@@ -343,8 +346,9 @@ sort exists in core, newest first).
 
 ### `/app/settings`
 
-`tab` (`general` default \| `calendar` \| `tasks` \| `data_storage`). Figma orders the tabs
-General / Tasks / Calendar / Data & storage.
+A page per section since Nov 2026 (`/settings/general`, …); `/settings` alone opens General. It
+still reads the old `tab` (`general` \| `calendar` \| `tasks` \| `data_storage`) to send an older
+link (a saved last page) to its section.
 
 ## Data: queries, lists, components
 
@@ -986,6 +990,14 @@ Figma `7158:10515` (general), `7158:10842` (tasks), `7158:11133` (calendar), `71
 storage), `7423:37352` (delete workspace), `7423:37433` (import summary), `7423:37520` (export
 toast). `DocumentPage` at 720px, `Tabs` in `?tab`, `SettingsSection` / `SettingsGroup` /
 `SettingsRow`.
+
+> **Nov 2026:** the tabs became a page per section, with the settings' own sidebar in place of the
+> app's (`SettingsSidebar`; routing.md). Under **Current workspace**: General (the workspace's name
+> and colour, Delete workspace), Integrations (moved out of the main sidebar), Import & export.
+> Under **All workspaces**: Preferences (what General held besides the workspace: appearance,
+> start page, launching, time format, confirmations), Tasks, Calendar, Data & storage (the data
+> folder, and Reset settings, moved from General's danger zone as it resets every workspace's
+> settings). The list below is as first built.
 
 - **General**: Workspace name and colour (`workspaces.update`), Appearance (theme, optimistic, as
   `FramePage` does now), Start page, Reopen last page, Launch at login, Time format, the two

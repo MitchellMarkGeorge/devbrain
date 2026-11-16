@@ -1,6 +1,12 @@
-/* Settings (Figma 7158:10515): the heading, 24px, the tabs, 32px, then the groups 32px apart */
-.tabs {
-  margin-top: var(--space-6);
+/*
+ * A settings section's page (Figma 7158:10515): the heading, what the section covers 6px under it
+ * (as Integrations' lead), then the groups, 32px under that and 32px apart
+ */
+.lead {
+  max-width: 553px;
+  margin: 6px 0 0;
+  color: var(--muted-foreground);
+  font: var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
 }
 .sections {
   display: flex;
