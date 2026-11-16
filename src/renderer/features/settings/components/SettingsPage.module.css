@@ -17,15 +17,17 @@
 }
 
 /* the import summary's list of rows left out (7423:37433) */
+/* the import summary's list: a ScrollArea, whose thin scrollbar sits over its edge */
 .issues {
-  display: flex;
-  flex-direction: column;
   max-height: 240px;
-  margin: 0;
-  padding: 0;
-  overflow: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
+}
+.issueList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
   list-style: none;
 }
 .issue {

@@ -16,6 +16,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  ScrollArea,
   toast,
 } from '@renderer/components';
 import { ipc, trpc } from '@renderer/ipc';
@@ -118,14 +119,16 @@ function ImportSummaryDialog({
           <DialogDescription>{text.description}</DialogDescription>
         </DialogHeader>
         {text.lines.length > 0 && (
-          <ul className={styles.issues} aria-label="Not imported">
-            {text.lines.map((line, index) => (
-              <li key={index} className={styles.issue}>
-                <span className={styles.issueWhere}>{line.where}</span>
-                <span>{line.message}</span>
-              </li>
-            ))}
-          </ul>
+          <ScrollArea className={styles.issues}>
+            <ul className={styles.issueList} aria-label="Not imported">
+              {text.lines.map((line, index) => (
+                <li key={index} className={styles.issue}>
+                  <span className={styles.issueWhere}>{line.where}</span>
+                  <span>{line.message}</span>
+                </li>
+              ))}
+            </ul>
+          </ScrollArea>
         )}
         <DialogFooter>
           <DialogClose render={<Button variant="ghost" />}>Close</DialogClose>
