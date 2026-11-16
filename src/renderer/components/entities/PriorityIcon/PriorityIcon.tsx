@@ -1,9 +1,9 @@
-import { ChevronDown, ChevronsUp, Equal, type LucideIcon } from 'lucide-react';
+import { ChevronDown, ChevronsUp, Equal, Minus, type LucideIcon } from 'lucide-react';
 import { cva } from 'class-variance-authority';
 import { cn } from '../../lib/cn';
 import { Icon } from '../../ui/Icon';
 import { TaskPriority } from '@common/types';
-import { PRIORITY_LABELS } from '../../types';
+import { NO_PRIORITY_LABEL, PRIORITY_LABELS } from '../../types';
 import styles from './PriorityIcon.module.css';
 
 export const priorityIconVariants = cva(undefined, {
@@ -24,7 +24,8 @@ const ICONS: Record<TaskPriority, LucideIcon> = {
 };
 
 export interface PriorityIconProps {
-  priority: TaskPriority;
+  /** null: no priority set (a synced task whose provider has none; see `shownPriority`) */
+  priority: TaskPriority | null;
   /** 16px in rows (the default), 12px inside pills */
   size?: number;
   className?: string;
@@ -33,9 +34,21 @@ export interface PriorityIconProps {
 /**
  * A task's priority (core's `TaskPriority`) in its `priority-*` colour: `high` double chevron up, `medium` equals, `low`
  * chevron down, at a heavier stroke so it reads at a glance. Unlabelled in rows (it still names
- * itself to screen readers); inside a Badge with its word on detail pages.
+ * itself to screen readers); inside a Badge with its word on detail pages. No priority (`null`) is
+ * a neutral dash in `muted-foreground`.
  */
 export function PriorityIcon({ priority, size = 16, className }: PriorityIconProps) {
+  if (priority === null) {
+    return (
+      <Icon
+        icon={Minus}
+        size={size}
+        strokeWidth={2.5}
+        label={NO_PRIORITY_LABEL}
+        className={cn(styles.none, className)}
+      />
+    );
+  }
   return (
     <Icon
       icon={ICONS[priority]}

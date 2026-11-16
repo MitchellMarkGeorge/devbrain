@@ -471,6 +471,42 @@ describe('migration 0025 — viewed_at', () => {
   });
 });
 
+describe('migration 0027 — unprioritized Linear tasks', () => {
+  it("marks the Linear task links whose priority is Linear's 0, leaving the rest", () => {
+    const { sqlite, db } = openDb();
+    migrate(db, { migrationsFolder: migrationsUpTo(26) });
+    seed(sqlite);
+    const link = (id: string, column: string, entityId: string, metadata: object) =>
+      `INSERT INTO external_links (id, provider, ${column}, external_id, external_url,
+         external_updated_at, metadata, last_synced_at)
+       VALUES ('${id}', 'linear', '${entityId}', '${id}', 'https://linear.app/${id}', 1000,
+         '${JSON.stringify(metadata)}', 1000);`;
+    sqlite.exec(`
+      ${link('lnk_none', 'task_id', 'tsk_a', { statusLabel: 'Backlog', priorityLabel: 'No priority' })}
+      ${link('lnk_low', 'task_id', 'tsk_b', { statusLabel: 'Todo', priorityLabel: 'Low' })}
+      ${link('lnk_project', 'project_id', 'prj_a', { statusLabel: 'Planned' })}
+    `);
+    const metadata = () =>
+      Object.fromEntries(
+        (
+          sqlite.prepare(`SELECT id, metadata FROM external_links ORDER BY id`).all() as {
+            id: string;
+            metadata: string;
+          }[]
+        ).map((row) => [row.id, JSON.parse(row.metadata) as unknown]),
+      );
+    const before = metadata();
+
+    runMigrations(sqlite, db, migrationsUpTo(27));
+
+    expect(metadata()).toEqual({
+      ...before,
+      lnk_none: { statusLabel: 'Backlog', priorityLabel: 'No priority', unprioritized: true },
+    });
+    sqlite.close();
+  });
+});
+
 describe('runMigrations — failures', () => {
   function caught(fn: () => void): WorkspaceMigrationError {
     try {

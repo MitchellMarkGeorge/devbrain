@@ -68,6 +68,8 @@ export interface ExternalRef {
   url: string;
   statusLabel: string | null; // "In Review"
   priorityLabel: string | null; // "Urgent"
+  // a synced task whose provider has no priority set: `priority` holds the fallback (Low)
+  unprioritized: boolean;
   lastSyncedAt: Date;
 }
 

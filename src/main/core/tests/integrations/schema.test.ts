@@ -21,10 +21,11 @@ describe('integration ids — prefixes', () => {
 });
 
 describe('integration schemas — link metadata', () => {
-  it('fills missing task and project keys with null', () => {
+  it('fills missing task and project keys with null, and unprioritized with false', () => {
     expect(taskLinkMetadataSchema.parse({ statusLabel: 'In Review' })).toEqual({
       statusLabel: 'In Review',
       priorityLabel: null,
+      unprioritized: false,
       parentExternalId: null,
       parentKey: null,
       parentTitle: null,

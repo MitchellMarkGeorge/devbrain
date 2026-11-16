@@ -115,6 +115,7 @@ describe('refs — tasks', () => {
     url: 'https://linear.app/acme/issue/ENG-123',
     statusLabel: 'In Review',
     priorityLabel: 'Urgent',
+    unprioritized: false,
     lastSyncedAt: SYNCED_AT,
   };
 
@@ -158,6 +159,7 @@ describe('refs — tasks', () => {
       key: null,
       statusLabel: null,
       priorityLabel: null,
+      unprioritized: false,
     });
   });
 
@@ -168,6 +170,7 @@ describe('refs — tasks', () => {
       key: expect.any(String),
       statusLabel: null,
       priorityLabel: null,
+      unprioritized: false,
     });
   });
 });
@@ -187,6 +190,7 @@ describe('refs — projects', () => {
       url: expect.any(String),
       statusLabel: 'Planned',
       priorityLabel: null,
+      unprioritized: false,
       lastSyncedAt: SYNCED_AT,
     };
 
@@ -228,6 +232,7 @@ describe('refs — events', () => {
       url: expect.any(String),
       statusLabel: null,
       priorityLabel: null,
+      unprioritized: false,
       lastSyncedAt: SYNCED_AT,
     };
 

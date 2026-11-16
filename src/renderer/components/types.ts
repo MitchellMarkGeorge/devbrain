@@ -206,6 +206,20 @@ export const PRIORITY_LABELS: Record<TaskPriority, string> = {
   [TaskPriority.LOW]: 'Low',
 };
 
+/** What a synced task whose provider has no priority set shows, as Linear words it. */
+export const NO_PRIORITY_LABEL = 'No priority';
+
+/**
+ * The priority a task's icon draws: null for a synced task whose provider has no priority set,
+ * which core keeps as Low so it still sorts and groups.
+ */
+export function shownPriority(task: {
+  priority: TaskPriority;
+  external?: Pick<ExternalRef, 'unprioritized'> | null;
+}): TaskPriority | null {
+  return task.external?.unprioritized ? null : task.priority;
+}
+
 export const HEALTH_LABELS: Record<ProjectHealth, string> = {
   [ProjectHealth.ON_TRACK]: 'On track',
   [ProjectHealth.AT_RISK]: 'At risk',

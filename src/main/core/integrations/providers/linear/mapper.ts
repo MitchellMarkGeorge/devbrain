@@ -24,6 +24,7 @@ export function toExternalTask(issue: LinearIssue, viewerId: string): ExternalTa
     priority: PRIORITY[issue.priority],
     statusLabel: issue.state.name,
     priorityLabel: issue.priorityLabel,
+    unprioritized: issue.priority === 0,
     startDate: toDate(issue.startedAt),
     dueDate: toLocalMidnight(issue.dueDate),
     // a cancelled issue keeps completedAt null; the database checks the pair

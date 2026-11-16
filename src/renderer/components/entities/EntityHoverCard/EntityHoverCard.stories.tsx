@@ -51,6 +51,7 @@ const LINEAR: ExternalRef = {
   url: 'https://linear.app/devbrain/issue/ENG-124',
   statusLabel: 'In Review',
   priorityLabel: null,
+  unprioritized: false,
   lastSyncedAt: storyAgo(3),
 };
 

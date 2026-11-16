@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Flex, Stack } from '../../layout/Flex';
 import { Text } from '../../layout/Text';
 import { TaskPriority } from '@common/types';
-import { PRIORITIES, PRIORITY_LABELS } from '../../types';
+import { NO_PRIORITY_LABEL, PRIORITIES, PRIORITY_LABELS } from '../../types';
 import { PriorityIcon } from './PriorityIcon';
 
 const meta = {
@@ -29,6 +29,13 @@ export const AllPriorities: Story = {
           <Text>{PRIORITY_LABELS[priority]}</Text>
         </Flex>
       ))}
+      <Flex gap="2" align="center">
+        <PriorityIcon priority={null} />
+        <Text>{NO_PRIORITY_LABEL}</Text>
+      </Flex>
     </Stack>
   ),
 };
+
+/** A synced task whose provider has no priority set (Linear's "No priority"). */
+export const NoPriority: Story = { args: { priority: null } };

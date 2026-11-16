@@ -32,6 +32,7 @@ import {
   isOverdue,
   OVERDUE_LABEL,
   providerOf,
+  shownPriority,
   showsOverdueFlag,
   TASK_STATUS_LABELS,
 } from '../../types';
@@ -461,7 +462,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
           {task.project && <EntityPill entity={{ type: 'project', ...task.project }} />}
         </PillStack>
         <span className={styles.priority}>
-          {!completed && <PriorityIcon priority={task.priority} />}
+          {!completed && <PriorityIcon priority={shownPriority(task)} />}
         </span>
         <span
           className={cn(

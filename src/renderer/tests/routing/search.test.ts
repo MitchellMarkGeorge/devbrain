@@ -57,6 +57,7 @@ const linear: ExternalRef = {
   url: 'https://linear.app/acme/issue/ENG-124',
   statusLabel: null,
   priorityLabel: null,
+  unprioritized: false,
   lastSyncedAt: new Date('2026-11-01T00:00:00Z'),
 };
 

@@ -139,6 +139,7 @@ describe('the task page', () => {
         url: 'https://linear.app/x/issue/ENG-124',
         statusLabel: 'In Review',
         priorityLabel: 'Urgent',
+        unprioritized: false,
         lastSyncedAt: new Date(),
       },
     });
@@ -152,6 +153,28 @@ describe('the task page', () => {
     expect(properties.querySelectorAll('button')).toHaveLength(0);
     const title = app.container.querySelector('[aria-label="Title"]')!;
     expect(title.getAttribute('contenteditable')).toBe('false');
+  });
+
+  it('shows a synced task with no priority as none, not as Low', async () => {
+    const synced = fakeTask('tsk_mit69', 'Re-run codegen', {
+      external: {
+        provider: Provider.LINEAR,
+        state: LinkState.SYNCED,
+        key: 'MIT-69',
+        url: 'https://linear.app/x/issue/MIT-69',
+        statusLabel: 'Backlog',
+        priorityLabel: 'No priority',
+        unprioritized: true,
+        lastSyncedAt: new Date(),
+      },
+    });
+    const app = startApp(mainWith(new FakeTasks([synced])), {
+      url: `/app/${WORK}/tasks/${synced.id}`,
+    });
+    await eventually(() => expect(app.text()).toContain('No priority'));
+    const properties = app.container.querySelector('[aria-label="Properties"]')!;
+    expect(properties.querySelector('[aria-label="No priority"]')).not.toBeNull();
+    expect(properties.querySelector('[aria-label="Low priority"]')).toBeNull();
   });
 
   it('loads the note it links to before it draws, so its pill is there on the first frame', async () => {
@@ -293,6 +316,7 @@ describe('the task page', () => {
           url: 'https://linear.app/x/issue/ENG-1',
           statusLabel: 'Todo',
           priorityLabel: 'Low',
+          unprioritized: false,
           lastSyncedAt: new Date(),
         },
       });

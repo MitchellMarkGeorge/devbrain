@@ -8,3 +8,6 @@
 .low {
   color: var(--priority-low);
 }
+.none {
+  color: var(--muted-foreground);
+}

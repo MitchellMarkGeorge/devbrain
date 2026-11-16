@@ -89,6 +89,7 @@ function dataset() {
       priority: TaskPriority.MEDIUM,
       statusLabel: 'Todo',
       priorityLabel: 'Medium',
+      unprioritized: false,
       startDate: null,
       dueDate: null,
       completedAt: null,

@@ -472,6 +472,7 @@ class PageWrite {
         metadata: taskLinkMetadataSchema.parse({
           statusLabel: item.statusLabel,
           priorityLabel: item.priorityLabel,
+          unprioritized: item.unprioritized,
           parentExternalId: item.parentExternalId,
           parentKey: item.parentKey,
           parentTitle: item.parentTitle,
