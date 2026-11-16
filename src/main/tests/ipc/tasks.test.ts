@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { TaskId } from '@common/ids';
 import type { DevBrain, Workspace } from '@main/core';
-import { type Page, Provider, type Task, TaskPriority, TaskStatus } from '@common/types';
+import {
+  type Page,
+  ProjectStatus,
+  Provider,
+  type Task,
+  TaskPriority,
+  TaskStatus,
+} from '@common/types';
 import { type ExternalTask } from '@main/core/integrations/types';
 import { FakeCipher } from '@main/core/tests/__mocks__/fake-cipher';
 import {
@@ -98,6 +105,23 @@ async function syncedTask(item: ExternalTask): Promise<TaskId> {
 }
 
 describe('tasks', () => {
+  it('reads a task with its list details: its project, though completed, and its parent', async () => {
+    const ws = devBrain.currentWorkspace!;
+    const project = ws.projects.createProject({ title: 'Shipped', dueDate: DUE });
+    ws.projects.updateStatus(project.id, ProjectStatus.COMPLETED);
+    const parent = ws.tasks.createTask({ title: 'Parent', dueDate: DUE, projectId: project.id });
+    const child = ws.tasks.createSubtask(parent.id, { title: 'Child' });
+
+    expect(await call('tasks.get', { id: child.id })).toMatchObject({
+      ok: true,
+      data: {
+        id: child.id,
+        project: { id: project.id, title: 'Shipped' },
+        parentTask: { id: parent.id, title: 'Parent' },
+      },
+    });
+  });
+
   it('creates, reads, lists by page and edits a task, returning task in changed', async () => {
     const created = await mutate<Task>('tasks.create', { title: ' Write tests ', dueDate: DUE });
     expect(created).toMatchObject({

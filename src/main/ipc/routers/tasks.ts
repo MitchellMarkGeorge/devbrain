@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { safeUrlSchema } from '@common/safe-url';
-import { type TaskDeleteResult, TaskPriority, TaskStatus } from '@common/types';
+import { type TaskDeleteResult, type TaskListItem, TaskPriority, TaskStatus } from '@common/types';
 import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId, zPageFields } from '../zod';
@@ -61,11 +61,14 @@ export const tasksRouter = t.router({
       ctx.workspace.tasks.listTasks(filter, sort, page),
     ),
 
-  // a task, in the trash too (its `archivedAt` set): Trash opens it, and its page shows it
-  // read-only until it is restored
+  // a task as the task list shows it (its project, parent and link), in the trash too (its
+  // `archivedAt` set): Trash opens it, and its page shows it read-only until it is restored
   get: wsProcedure
     .input(byId)
-    .query(({ ctx, input }) => ctx.workspace.tasks.getById(input.id, { includeArchived: true })),
+    .query(
+      ({ ctx, input }): TaskListItem =>
+        ctx.workspace.tasks.getListItem(input.id, { includeArchived: true }),
+    ),
 
   // a page of the task's direct subtasks
   subtasks: wsProcedure

@@ -3,7 +3,7 @@ import { useRouter, useRouterState } from '@tanstack/react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CalendarDays, ExternalLink, Folder } from 'lucide-react';
 import type { TaskId } from '@common/ids';
-import type { Task } from '@common/types';
+import type { Task, TaskListItem } from '@common/types';
 import {
   Button,
   DetailRow,
@@ -192,7 +192,7 @@ function LinkRow({ task }: { task: Task }) {
 }
 
 /** The sheet's body for a loaded task. */
-function TaskSheetBody({ task }: { task: Task }) {
+function TaskSheetBody({ task }: { task: TaskListItem }) {
   const actions = useTaskActions();
   const { formatDate, formatRelative } = useFormat('minute');
   const openUrl = useMutation(trpc.workspace.openUrl.mutationOptions());
@@ -262,8 +262,8 @@ function TaskSheetBody({ task }: { task: Task }) {
             </DetailRow>
             <DetailRow label="Project">
               <ProjectPill
-                value={task.projectId}
-                onChange={(projectId) => actions.setProject([task], projectId)}
+                value={task.project}
+                onChange={(project) => actions.setProject([task], project?.id ?? null)}
               />
             </DetailRow>
           </>

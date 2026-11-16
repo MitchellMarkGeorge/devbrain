@@ -2,7 +2,7 @@ import { useState, type KeyboardEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter, useRouterState } from '@tanstack/react-router';
 import type { NoteId } from '@common/ids';
-import type { Note } from '@common/types';
+import type { Note, NoteListItem } from '@common/types';
 import {
   Sheet,
   SheetBody,
@@ -133,7 +133,7 @@ function lowerFirst(text: string): string {
 }
 
 /** The sheet's body for a loaded note. */
-function NoteSheetBody({ note }: { note: Note }) {
+function NoteSheetBody({ note }: { note: NoteListItem }) {
   const actions = useNoteActions();
   const { formatRelative } = useFormat('minute');
   return (
@@ -146,9 +146,9 @@ function NoteSheetBody({ note }: { note: Note }) {
       </Stack>
       <div className={styles.pills}>
         <ProjectPill
-          value={note.projectId}
+          value={note.project}
           placeholder="Add to project"
-          onChange={(projectId) => actions.setProject([note], projectId)}
+          onChange={(project) => actions.setProject([note], project?.id ?? null)}
         />
       </div>
       <SheetDivider />

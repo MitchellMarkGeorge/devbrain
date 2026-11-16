@@ -2,7 +2,13 @@ import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Ellipsis } from 'lucide-react';
 import type { EventId, NoteId, ProjectId, TaskId } from '@common/ids';
-import { TaskStatus, type AppSettings, type TaskPriority, type TaskSummary } from '@common/types';
+import {
+  TaskStatus,
+  type AppSettings,
+  type ProjectSummary,
+  type TaskPriority,
+  type TaskSummary,
+} from '@common/types';
 import {
   Button,
   CreateDialogBody,
@@ -95,7 +101,15 @@ export function CreateTaskDialog({
   );
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [showStart, setShowStart] = useState(false);
-  const [projectId, setProjectId] = useState<ProjectId | null>(defaults.projectId ?? null);
+  // the project picked, as its pill draws it; until one is, the default's (`defaults.projectId`),
+  // read on its own so the pill names it whatever its status
+  const [picked, setPicked] = useState<{ project: ProjectSummary | null } | null>(null);
+  const defaultProject = useQuery({
+    ...trpc.projects.get.queryOptions({ id: defaults.projectId! }),
+    enabled: !!defaults.projectId && picked === null,
+  });
+  const projectId = picked ? (picked.project?.id ?? null) : (defaults.projectId ?? null);
+  const project = picked ? picked.project : (defaultProject.data ?? null);
   const [subtasks, setSubtasks] = useState<string[]>([]);
   const [showSubtasks, setShowSubtasks] = useState(false);
   const [createMore, setCreateMore] = useState(false);
@@ -225,7 +239,9 @@ export function CreateTaskDialog({
                   />
                 )}
                 <DatePill value={dueDate} onChange={setDueDate} prefix="Due" />
-                {!parent && <ProjectPill value={projectId} onChange={setProjectId} />}
+                {!parent && (
+                  <ProjectPill value={project} onChange={(next) => setPicked({ project: next })} />
+                )}
               </CreateDialogProperties>
               {(showSubtasks || subtasks.length > 0) && (
                 <DraftTaskList

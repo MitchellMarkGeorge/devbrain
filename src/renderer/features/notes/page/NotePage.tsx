@@ -4,7 +4,7 @@ import { useNavigate, useRouter, useRouterState } from '@tanstack/react-router';
 import type { Editor } from '@tiptap/react';
 import { FileText } from 'lucide-react';
 import type { TaskId } from '@common/ids';
-import type { Note } from '@common/types';
+import type { NoteListItem } from '@common/types';
 import {
   Breadcrumb,
   EditorTitle,
@@ -64,7 +64,7 @@ function lowerFirst(text: string): string {
   return text.charAt(0).toLowerCase() + text.slice(1);
 }
 
-function NotePageContent({ note }: { note: Note }) {
+function NotePageContent({ note }: { note: NoteListItem }) {
   const { workspaceId } = noteRoute.useParams();
   const router = useRouter();
   const navigate = useNavigate();

@@ -158,6 +158,19 @@ export class TaskService {
     return withExternalRef(this.db, row);
   }
 
+  /**
+   * The task as the task list shows it: its row with its provider ref, subtask progress, parent,
+   * project and link (withListDetails). What a task's page and sheet read, so they draw its project
+   * and links as its row does, whatever the project's status. Throws NotFoundError as getById does.
+   */
+  getListItem(id: TaskId, options: { includeArchived?: boolean } = {}): TaskListItem {
+    const row = options.includeArchived
+      ? this.db.select().from(tasks).where(eq(tasks.id, id)).limit(1).get()
+      : this.activeTasks(eq(tasks.id, id)).limit(1).get();
+    if (!row) throw new NotFoundError(id);
+    return withListDetails(this.db, [row])[0];
+  }
+
   getByIds(ids: TaskId[]): Task[] {
     return withExternalRefs(this.db, this.activeTasks(inArray(tasks.id, ids)).all());
   }

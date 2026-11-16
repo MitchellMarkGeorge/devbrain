@@ -9,7 +9,7 @@ import { ArchiveService } from '../../archive/service';
 import { NoteService } from '../../notes/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
-import { TaskPriority, TaskStatus } from '@common/types';
+import { ProjectStatus, TaskPriority, TaskStatus } from '@common/types';
 import {
   AlreadyArchivedError,
   InvalidInputError,
@@ -284,6 +284,35 @@ describe('TaskService — getById', () => {
     const task = tasks.createTask({ title: 'Soon archived', dueDate: TOMORROW });
     archive.archiveTask(task.id);
     expect(() => tasks.getById(task.id)).toThrow(NotFoundError);
+  });
+});
+
+describe('TaskService — getListItem', () => {
+  it('returns the task with its list details: its project, whatever its status, and its parent', () => {
+    const projects = new ProjectService(db, tasks);
+    const project = projects.createProject({
+      title: 'Shipped',
+      dueDate: TOMORROW,
+      color: '#123456',
+    });
+    projects.updateStatus(project.id, ProjectStatus.COMPLETED);
+    const parent = tasks.createTask({ title: 'Parent', dueDate: TOMORROW, projectId: project.id });
+    const subtask = tasks.createSubtask(parent.id, { title: 'Child' });
+
+    expect(tasks.getListItem(subtask.id)).toMatchObject({
+      id: subtask.id,
+      project: { id: project.id, title: 'Shipped', color: '#123456' },
+      parentTask: { id: parent.id, title: 'Parent' },
+      external: null,
+    });
+  });
+
+  it('reads an archived task only when asked to, and throws NotFoundError otherwise', () => {
+    const task = tasks.createTask({ title: 'Soon archived', dueDate: TOMORROW });
+    archive.archiveTask(task.id);
+    expect(() => tasks.getListItem(task.id)).toThrow(NotFoundError);
+    expect(tasks.getListItem(task.id, { includeArchived: true })).toMatchObject({ id: task.id });
+    expect(() => tasks.getListItem(generateId('task'))).toThrow(NotFoundError);
   });
 });
 

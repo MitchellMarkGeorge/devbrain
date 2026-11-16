@@ -62,6 +62,22 @@ describe('the task page', () => {
     ]);
   });
 
+  it("names the task's project from the task, though no picker lists it (completed)", async () => {
+    const task = fakeTask('tsk_shipped', 'Write the launch post', {
+      projectId: 'prj_done' as never,
+      project: { id: 'prj_done' as never, title: 'Shipped launch', color: '#123456' },
+    });
+    const main = mainWith(new FakeTasks([task]));
+    // the pickers' list holds open projects only
+    main.routes.set('projects.list', () => [{ items: [], nextCursor: null }, []]);
+    const app = startApp(main, { url: `/app/${WORK}/tasks/${task.id}` });
+    await eventually(() =>
+      expect(app.container.querySelector('[aria-label="Properties"]')?.textContent).toContain(
+        'Shipped launch',
+      ),
+    );
+  });
+
   it('shows not-found for a task that doesn’t exist', async () => {
     const app = startApp(mainWith(store()), { url: `/app/${WORK}/tasks/tsk_gone` });
     await eventually(() => expect(app.text()).toContain('There’s nothing here'));

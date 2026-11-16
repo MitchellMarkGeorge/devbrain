@@ -133,9 +133,10 @@ describe('notes', () => {
       cursor: first.nextCursor,
     });
     expect(second.items.map(({ title }) => title)).toEqual(['Plan']);
+    // as the notes list shows it: with its project and link
     expect(await call('notes.get', { id: plan.id })).toMatchObject({
       ok: true,
-      data: { id: plan.id },
+      data: { id: plan.id, project: null, link: null },
       changed: [],
     });
 

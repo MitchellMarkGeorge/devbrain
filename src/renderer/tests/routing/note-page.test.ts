@@ -84,6 +84,18 @@ describe('the note page', () => {
     expect(main.callsTo('tasks.list').at(-1)!.input).toMatchObject({ filter: { noteId: NOTE } });
   });
 
+  it("names the note's project from the note, though no picker lists it (completed)", async () => {
+    const { app } = notePage(undefined, NOTE, {}, (main) =>
+      // the pickers' list holds open projects only
+      main.routes.set('projects.list', () => [{ items: [], nextCursor: null }, []]),
+    );
+    await eventually(() =>
+      expect(app.container.querySelector('[data-testid="note-page"]')?.textContent).toContain(
+        'Auth Overhaul',
+      ),
+    );
+  });
+
   it('shows not-found for a note that doesn’t exist, or an id of no note', async () => {
     const missing = notePage(undefined, 'nte_gone');
     await eventually(() => expect(missing.app.text()).toContain('There’s nothing here'));

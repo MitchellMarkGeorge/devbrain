@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useInfiniteQuery } from '@tanstack/react-query';
+import type { ProjectListItem, ProjectSummary } from '@common/types';
 import { resolveColor, type PickerProject } from '@renderer/components';
 import { trpc } from '@renderer/ipc';
 
@@ -14,18 +15,26 @@ const openProjectsQuery = () =>
     { getNextPageParam: (page) => page.nextCursor },
   );
 
-/** The projects a picker offers: every open project, each with its folder colour. */
-export function useProjectOptions(): PickerProject[] {
+/** Every open project, as `projects.list` returns them, loading page after page. */
+export function useOpenProjects(): ProjectListItem[] {
   const query = useInfiniteQuery(openProjectsQuery());
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = query;
   useEffect(() => {
     if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
-  return (query.data?.pages ?? []).flatMap((page) =>
-    page.items.map((project) => ({
-      id: project.id,
-      name: project.title,
-      color: resolveColor(project.color, 'blue') ?? 'blue',
-    })),
-  );
+  return useMemo(() => (query.data?.pages ?? []).flatMap((page) => page.items), [query.data]);
+}
+
+/** A project as a picker's row: its id, name and folder colour. */
+export function toPickerProject(project: ProjectSummary): PickerProject {
+  return {
+    id: project.id,
+    name: project.title,
+    color: resolveColor(project.color, 'blue') ?? 'blue',
+  };
+}
+
+/** The projects a picker offers: every open project, each with its folder colour. */
+export function useProjectOptions(): PickerProject[] {
+  return useOpenProjects().map(toPickerProject);
 }

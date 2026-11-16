@@ -11,7 +11,7 @@ import { ArchiveService } from '../../archive/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
 import { TaskService } from '../../tasks/service';
-import { TaskStatus } from '@common/types';
+import { ProjectStatus, TaskStatus } from '@common/types';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../../shared/errors';
 import { fileExists } from '../../local/utils';
 import { readNoteFile } from '../../local/notes';
@@ -158,6 +158,22 @@ describe('NoteService — getById', () => {
     const note = await notesService.createNote({ title: 'Will be archived' });
     archive.archiveNote(note.id);
     expect(() => notesService.getById(note.id)).toThrow(NotFoundError);
+  });
+});
+
+describe('NoteService — getListItem', () => {
+  it('returns the note with its project, whatever its status, and throws for an archived one', async () => {
+    const projects = new ProjectService(db, new TaskService(db));
+    projects.updateStatus(FAKE_PROJECT_ID, ProjectStatus.COMPLETED);
+    const note = await notesService.createNote({ title: 'Plan', projectId: FAKE_PROJECT_ID });
+
+    expect(notesService.getListItem(note.id)).toMatchObject({
+      id: note.id,
+      project: { id: FAKE_PROJECT_ID, title: 'Fake Project' },
+      link: null,
+    });
+    archive.archiveNote(note.id);
+    expect(() => notesService.getListItem(note.id)).toThrow(NotFoundError);
   });
 });
 

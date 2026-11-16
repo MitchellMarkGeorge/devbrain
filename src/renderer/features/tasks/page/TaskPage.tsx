@@ -2,7 +2,7 @@ import { useState, type FocusEvent, type KeyboardEvent } from 'react';
 import type { NoteId } from '@common/ids';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useRouter } from '@tanstack/react-router';
-import type { Task, TaskSummary } from '@common/types';
+import type { TaskListItem, TaskSummary } from '@common/types';
 import {
   Breadcrumb,
   EditorTitle,
@@ -63,7 +63,7 @@ export function TaskPage() {
   return <TaskPageContent key={task.data.id} task={task.data} />;
 }
 
-function TaskPageContent({ task }: { task: Task }) {
+function TaskPageContent({ task }: { task: TaskListItem }) {
   const { workspaceId } = taskRoute.useParams();
   const router = useRouter();
   const navigate = useNavigate();

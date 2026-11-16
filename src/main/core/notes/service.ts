@@ -58,6 +58,15 @@ export class NoteService {
     return note;
   }
 
+  /**
+   * The note as the notes list shows it: its row with its project and link (withNoteListDetails).
+   * What a note's page and sheet read, so they draw its project as its row does, whatever the
+   * project's status. Throws NotFoundError as getById does.
+   */
+  getListItem(id: NoteId): NoteListItem {
+    return withNoteListDetails(this.db, [this.getById(id)])[0];
+  }
+
   getByIds(ids: NoteId[]): Note[] {
     return this.activeNotes(inArray(notes.id, ids)).all();
   }
