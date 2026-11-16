@@ -82,7 +82,7 @@ describe("the menu's Import and Export", () => {
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/tasks`));
   });
 
-  it("exports, and its toast's Show in Finder asks main for the last export", async () => {
+  it("exports, and its toast's Show in Finder shows the exported folder", async () => {
     const { main } = await onWorkHome();
     main.routes.set('transfer.exportNotes', () => [
       {
@@ -100,7 +100,9 @@ describe("the menu's Import and Export", () => {
     );
     click(byText(document.body, 'button', 'Show in Finder'));
     await eventually(() => expect(main.callsTo('transfer.showExport')).toHaveLength(1));
-    expect(main.callsTo('transfer.showExport')[0].input).toBeUndefined();
+    expect(main.callsTo('transfer.showExport')[0].input).toEqual({
+      path: '/Users/me/DevBrain notes',
+    });
   });
 
   it('exports tasks in the format the item names', async () => {

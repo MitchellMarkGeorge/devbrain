@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { z } from 'zod';
 import type { Workspace } from '@main/core';
 import { toDateString } from '@main/core/shared/dates';
@@ -10,14 +11,14 @@ import type {
   TaskImportSummary,
 } from '@common/types';
 import type { AppContext } from '../context';
-import { IpcError } from '../errors';
 import { devBrainProcedure, wsProcedure } from '../procedures';
 import { t } from '../trpc';
 
 // Importing and exporting the open workspace's tasks and notes (docs/import-export.md). Main asks
 // for the file or folder with the system dialog, then hands its path to core's TransferService:
-// the renderer never names a path. Each resolves with null when the dialog is cancelled. What an
-// import creates is announced by TaskService and NoteService, so it comes back in `changed`.
+// the renderer never names a path to read or write. Each resolves with null when the dialog is
+// cancelled. What an import creates is announced by TaskService and NoteService, so it comes back
+// in `changed`. showExport is the one route that takes a path: it only reveals it.
 
 // The workspace the call started on, once the dialog has closed: one switched or closed meanwhile
 // (from another window) gets nothing written to it, and the call fails with workspace_closed.
@@ -60,12 +61,7 @@ export const transferRouter = t.router({
         filters: [{ name: input.format.toUpperCase(), extensions: [input.format] }],
       });
       if (filePath === null) return null;
-      const result = await stillOpen(ctx, ctx.workspace).transfer.exportTasksToFile(
-        filePath,
-        input.format,
-      );
-      ctx.desktop.rememberExport(result.path);
-      return result;
+      return stillOpen(ctx, ctx.workspace).transfer.exportTasksToFile(filePath, input.format);
     }),
 
   // every active note, as .md files in a new folder inside the one the user picks
@@ -75,17 +71,15 @@ export const transferRouter = t.router({
       buttonLabel: 'Export here',
     });
     if (dir === null) return null;
-    const result = await stillOpen(ctx, ctx.workspace).transfer.exportNotesToFolder(dir);
-    ctx.desktop.rememberExport(result.path);
-    return result;
+    return stillOpen(ctx, ctx.workspace).transfer.exportNotesToFolder(dir);
   }),
 
-  // Shows the file or folder this window's last export wrote (from Settings or the app menu)
-  // selected in the file manager: the export toast's Show in Finder. Takes no path: main kept the
-  // one the export returned. Fails with not_found when this window has exported nothing.
-  showExport: devBrainProcedure.mutation(async ({ ctx }): Promise<void> => {
-    if (!(await ctx.desktop.showLastExport())) {
-      throw new IpcError('not_found', 'Nothing has been exported from this window');
-    }
-  }),
+  // Shows an export's file or folder selected in the file manager (its folder when it has gone):
+  // the export toast's Show in Finder, with the `path` the export returned. It only reveals the
+  // path, never opens or reads it, so it is the one route that takes a path from the renderer.
+  showExport: devBrainProcedure
+    .input(
+      z.object({ path: z.string().min(1).refine(path.isAbsolute, 'Must be an absolute path') }),
+    )
+    .mutation(({ ctx, input }) => ctx.desktop.showItem(input.path)),
 });

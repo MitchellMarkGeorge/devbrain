@@ -17,8 +17,9 @@ the same task import, and so are the app menu's File › Import and File › Exp
 
 Core never opens a dialog and never imports Electron. A route asks the user for a file or folder
 through `ctx.desktop` (the `Desktop` in `src/main/ipc/desktop.ts`), then passes the path it got to
-`TransferService`. The renderer never names a path: every route takes no input but the export
-format. Each route resolves with `null` when the user cancels the dialog.
+`TransferService`. The renderer never names a path to read or write: every import and export
+route takes no input but the export format. Each resolves with `null` when the user cancels the
+dialog.
 
 ## Routes
 
@@ -28,7 +29,7 @@ format. Each route resolves with `null` when the user cancels the dialog.
 | `transfer.importNotes`    | open `.md`, `.markdown`, `.txt` files  | `NoteImportSummary`, or `null`                 |
 | `transfer.exportTasks`    | save as, `{ format: 'csv' \| 'json' }` | `TaskExportResult` (`path`, `count`)           |
 | `transfer.exportNotes`    | choose a folder                        | `NoteExportResult` (`path`, `count`, `errors`) |
-| `transfer.showExport`     | none                                   | shows this window's last export, selected      |
+| `transfer.showExport`     | none, `{ path }`                       | shows that file or folder, selected            |
 | `settings.showDataFolder` | none                                   | opens the data folder in the file manager      |
 | `workspace.showInFolder`  | none                                   | opens the open workspace's folder              |
 
@@ -41,10 +42,10 @@ If the workspace is closed or switched while a dialog is open (from another wind
 fails with `workspace_closed` and writes nothing.
 
 An export's toast offers "Show in Finder" (Figma `7423:37520`) for the file or folder just
-written. Main remembers the path each export returned, per window (`Desktop.rememberExport`, held
-weakly by the window, never written to disk), and `transfer.showExport` shows the last one selected
-in its folder (`shell.showItemInFolder`; the folder when the file has gone since). It takes no
-input, and fails with `not_found` when the window has exported nothing.
+written: it calls `transfer.showExport({ path })` with the `path` the export route returned, and
+main shows it selected in its folder (`shell.showItemInFolder`; the folder when the file has gone
+since). It is the one route that takes a path from the renderer. It only reveals it, never opens
+or reads it, and takes an absolute path only.
 
 ### From the app menu
 

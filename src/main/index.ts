@@ -22,7 +22,7 @@ import { openElectronSettingsStore } from './runtime/settings-store';
 import { loadDevBrain } from './runtime/start';
 import { closeBeforeQuit, forwardSyncTriggers, holdSingleInstance } from './runtime/lifecycle';
 import { initialRoute, saveLastPageOnClose, type LastPages } from './runtime/last-page';
-import { createElectronDesktop, createExportMemory } from './runtime/desktop';
+import { createElectronDesktop } from './runtime/desktop';
 import { createMenuActions, installAppMenu } from './runtime/menu';
 import { applyTheme, windowBackground } from './runtime/theme';
 import { keepTrafficLights, repaintChrome, windowChrome } from './runtime/window-chrome';
@@ -66,9 +66,7 @@ function configureLogging() {
 // where electron-log writes: the menu's Show Log File, and app.showLogFile
 const logFilePath = () => log.transports.file.getFile().path;
 
-// each window's last export, from Settings or the menu: its toast's Show in Finder
-const exportMemory = createExportMemory();
-const desktopDeps = { dialog, shell, menu: Menu, logFilePath, exports: exportMemory };
+const desktopDeps = { dialog, shell, menu: Menu, logFilePath };
 
 // --- DevBrain -------------------------------------------------------------
 const devBrainLog = log.scope('devbrain');

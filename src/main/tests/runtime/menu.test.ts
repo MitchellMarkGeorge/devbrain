@@ -250,8 +250,6 @@ function fakeDesktop(): { [K in keyof Desktop]: ReturnType<typeof vi.fn> } {
     chooseFolder: vi.fn(async () => '/chosen'),
     chooseSaveFile: vi.fn(async () => '/out/tasks.csv'),
     showAppMenu: vi.fn(async () => undefined),
-    rememberExport: vi.fn(),
-    showLastExport: vi.fn(async () => true),
     showLogFile: vi.fn(async () => undefined),
   };
 }

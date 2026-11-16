@@ -159,8 +159,8 @@ export interface Transfers {
 
 /**
  * Runs an import or export and shows what it did. A call while another transfer runs (from the
- * page or the menu) does nothing. Show in Finder asks main to show the file this window's last
- * export wrote (`transfer.showExport`): the renderer never names a path.
+ * page or the menu) does nothing. Show in Finder asks main to show the file or folder the export
+ * wrote (`transfer.showExport`, with the path its route returned).
  */
 export function useTransfers(): Transfers {
   const { workspaceId } = useParams({ from: '/app/$workspaceId' });
@@ -205,14 +205,14 @@ export function useTransfers(): Transfers {
     ));
   };
 
-  const showExport = (text: ReturnType<typeof exportToastText>) =>
+  const showExport = (text: ReturnType<typeof exportToastText>, path: string) =>
     toast({
       ...text,
       action: {
         label: 'Show in Finder',
         onClick: () =>
           void ipc.transfer.showExport
-            .mutate()
+            .mutate({ path })
             .catch((error: unknown) => showError(error, 'Couldn’t show the export')),
       },
     });
@@ -229,11 +229,11 @@ export function useTransfers(): Transfers {
     },
     async exportTasks(format) {
       const result = await run('export tasks', () => ipc.transfer.exportTasks.mutate({ format }));
-      if (result) showExport(exportToastText({ kind: 'tasks', result }));
+      if (result) showExport(exportToastText({ kind: 'tasks', result }), result.path);
     },
     async exportNotes() {
       const result = await run('export notes', () => ipc.transfer.exportNotes.mutate());
-      if (result) showExport(exportToastText({ kind: 'notes', result }));
+      if (result) showExport(exportToastText({ kind: 'notes', result }), result.path);
     },
   };
 }
