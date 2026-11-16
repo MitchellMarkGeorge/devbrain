@@ -8,8 +8,6 @@ import {
   ColourBar,
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuEmpty,
-  DropdownMenuFilter,
   DropdownMenuItem,
   DropdownMenuList,
   DropdownMenuSearch,
@@ -26,6 +24,13 @@ import { useCommands } from '@renderer/keyboard';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
 import { NoteEditor } from '@renderer/features/notes/components/detail/NoteEditor';
 import { useNoteActions } from '@renderer/features/notes/hooks/use-note-actions';
+import {
+  PickerEmpty,
+  PickerSearchFilter,
+  PickerTitle,
+  pickerRows,
+  usePickerSearch,
+} from '@renderer/features/search/components/picker-search';
 import { eventNoteQuery } from './EventNoteSection';
 import type { ShownTiming } from '../../lib/timing';
 import styles from './EventSheet.module.css';
@@ -204,19 +209,14 @@ function NoNote({ event, onStarted }: { event: Event; onStarted: () => void }) {
   );
 }
 
-/** Link Existing Note: a note edited lately, searched by title, becomes the event's note. */
+/**
+ * Link Existing Note: a note edited lately, or any note matching what is typed, becomes the
+ * event's note.
+ */
 function LinkNotePicker({ event }: { event: Event }) {
-  const actions = useNoteActions();
   const [open, setOpen] = useState(false);
-  const notes = useQuery({
-    ...trpc.notes.list.queryOptions({
-      sort: { sortBy: 'updatedAt', direction: 'desc' },
-      limit: 50,
-    }),
-    enabled: open,
-  });
   return (
-    <DropdownMenuFilter>
+    <PickerSearchFilter>
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger
           render={
@@ -227,20 +227,41 @@ function LinkNotePicker({ event }: { event: Event }) {
         />
         <DropdownMenuContent width="lg" align="center">
           <DropdownMenuSearch aria-label="Search notes" placeholder="Link a note…" />
-          <DropdownMenuList>
-            {notes.data?.items.map((note) => (
-              <DropdownMenuItem
-                key={note.id}
-                icon={FileText}
-                onClick={() => actions.setLink(note, { linkedEventId: event.id })}
-              >
-                {note.title || 'Untitled'}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuList>
-          <DropdownMenuEmpty>No notes match</DropdownMenuEmpty>
+          <LinkNoteItems event={event} enabled={open} />
         </DropdownMenuContent>
       </DropdownMenu>
-    </DropdownMenuFilter>
+    </PickerSearchFilter>
+  );
+}
+
+const NOTE_TYPES = ['note'] as const;
+
+// Link Existing Note's rows: the 50 notes edited last while nothing is typed, else what search finds
+function LinkNoteItems({ event, enabled }: { event: Event; enabled: boolean }) {
+  const actions = useNoteActions();
+  const notes = useQuery({
+    ...trpc.notes.list.queryOptions({
+      sort: { sortBy: 'updatedAt', direction: 'desc' },
+      limit: 50,
+    }),
+    enabled,
+  });
+  const search = usePickerSearch(NOTE_TYPES);
+  return (
+    <>
+      <DropdownMenuList>
+        {pickerRows(search.results, notes.data?.items ?? []).map((row) => (
+          <DropdownMenuItem
+            key={row.entity.id}
+            icon={FileText}
+            label={row.entity.title || 'Untitled'}
+            onClick={() => actions.setLink(row.entity, { linkedEventId: event.id })}
+          >
+            <PickerTitle row={row} title={row.entity.title} />
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuList>
+      <PickerEmpty searching={search.searching}>No notes match</PickerEmpty>
+    </>
   );
 }

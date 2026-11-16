@@ -154,7 +154,7 @@ export function ProjectSubmenu({
   onPick: (projectId: ProjectId | null) => void;
 }) {
   return (
-    <DropdownMenuFilter>
+    <DropdownMenuFilter autoHighlight>
       <DropdownMenuSub>
         <DropdownMenuSubTrigger icon={Folder} disabled={disabled}>
           {label}

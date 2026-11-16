@@ -86,9 +86,10 @@ describe('RecentsService — recordView', () => {
   it('stamps viewedAt on each entity type and returns the entity as its service reads it', async () => {
     const [task, project, note, event] = await oneOfEach();
     const cases = [
-      [task, () => tasks.getById(task.id)],
+      // a task's and a note's row, as getByIds reads it (getById adds the list's details)
+      [task, () => tasks.getByIds([task.id])[0]],
       [project, () => projects.getById(project.id)],
-      [note, () => notesService.getById(note.id)],
+      [note, () => notesService.getByIds([note.id])[0]],
       [event, () => events.getById(event.id)],
     ] as const;
 

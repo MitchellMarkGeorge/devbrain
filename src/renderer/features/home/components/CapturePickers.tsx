@@ -45,7 +45,7 @@ export function CaptureProjectPicker({
   const [open, setOpen] = useState(false);
   const project = projects.find((p) => p.id === value);
   return (
-    <DropdownMenuFilter>
+    <DropdownMenuFilter autoHighlight>
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger
           render={

@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Calendar, Plus } from 'lucide-react';
-import type { ProjectId } from '@common/ids';
-import type { TaskPriority, TaskStatus } from '@common/types';
+import type { ProjectSummary, TaskPriority, TaskStatus } from '@common/types';
 import {
   DatePicker,
   DropdownMenu,
@@ -16,13 +15,14 @@ import {
   PRIORITY_LABELS,
   PriorityIcon,
   PriorityMenu,
+  resolveColor,
   ProjectPickerItems,
   StatusIcon,
   StatusMenu,
   TASK_STATUS_LABELS,
   useFormat,
 } from '@renderer/components';
-import { useProjectOptions } from '../../hooks/use-project-options';
+import { toPickerProject, useOpenProjects } from '../../hooks/use-project-options';
 
 // A task's properties as pills that open their pickers (Figma 7175:28012, 7175:28582): the create
 // dialog's property bar, and anywhere else a property is a pill. Each is controlled: it shows
@@ -112,26 +112,34 @@ export function DatePill({
   );
 }
 
-/** The project as a pill (its folder in its colour), or "+ Project", opening the project picker. */
+/**
+ * The project as a pill (its folder in its colour), or "+ Project", opening the project picker.
+ * `value` is the project as the task or note carries it (its `project` summary), so the pill draws
+ * it whatever its status, though the picker offers only open projects.
+ */
 export function ProjectPill({
   value,
   onChange,
   disabled,
   placeholder = 'Project',
 }: {
-  value: ProjectId | null;
-  onChange: (projectId: ProjectId | null) => void;
+  value: ProjectSummary | null;
+  /** the project picked, as a summary to draw until the task or note is read again; null for none */
+  onChange: (project: ProjectSummary | null) => void;
   disabled?: boolean;
   /** the "+" pill's words while there is no project: "Project", "Add to project" */
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const projects = useProjectOptions();
-  const project = projects.find((p) => p.id === value);
-  const pill = project ? (
+  const projects = useOpenProjects();
+  const pill = value ? (
     <EntityPill
       interactive={!disabled}
-      entity={{ type: 'project', title: project.name, color: project.color }}
+      entity={{
+        type: 'project',
+        title: value.title,
+        color: resolveColor(value.color, 'blue') ?? 'blue',
+      }}
     />
   ) : (
     <EntityPill interactive={!disabled} glyph={Plus}>
@@ -140,15 +148,15 @@ export function ProjectPill({
   );
   if (disabled) return pill;
   return (
-    <DropdownMenuFilter>
+    <DropdownMenuFilter autoHighlight>
       <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger render={pill} />
         <DropdownMenuContent width="lg" align="start">
           <ProjectPickerItems
-            projects={projects}
-            value={value ?? NO_PROJECT}
+            projects={projects.map(toPickerProject)}
+            value={value?.id ?? NO_PROJECT}
             onValueChange={(id) => {
-              onChange(id === NO_PROJECT ? null : (id as ProjectId));
+              onChange(projects.find((project) => project.id === id) ?? null);
               setOpen(false);
             }}
           />

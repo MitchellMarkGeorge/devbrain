@@ -133,9 +133,10 @@ describe('notes', () => {
       cursor: first.nextCursor,
     });
     expect(second.items.map(({ title }) => title)).toEqual(['Plan']);
+    // as the notes list shows it: with its project and link
     expect(await call('notes.get', { id: plan.id })).toMatchObject({
       ok: true,
-      data: { id: plan.id },
+      data: { id: plan.id, project: null, link: null },
       changed: [],
     });
 
@@ -617,7 +618,7 @@ describe('search', () => {
 
     const results = await data<SearchResult[]>('search.search', { query: 'roadmap' });
     expect(results).toHaveLength(2);
-    const noteResult = results.find(({ entityId }) => entityId === note.id);
+    const noteResult = results.find(({ entity }) => entity.id === note.id);
     expect(noteResult?.title).toBe('&lt;img src=x onerror=alert(1)&gt; <b>roadmap</b>');
 
     const projects = await data<SearchResult[]>('search.search', {
@@ -627,7 +628,7 @@ describe('search', () => {
     expect(projects).toMatchObject([{ entityType: 'project', title: '<b>Roadmap</b> review' }]);
   });
 
-  it("returns a task's status and a project's colour with each match", async () => {
+  it('returns the entity each match found, as its list returns it', async () => {
     const ws = workspace();
     const task = ws.tasks.createTask({ title: 'Launch checklist', dueDate: DUE });
     ws.tasks.updateStatus(task.id, TaskStatus.COMPLETED);
@@ -638,13 +639,13 @@ describe('search', () => {
     });
 
     const results = await data<SearchResult[]>('search.search', { query: 'launch' });
-    expect(results.find(({ entityId }) => entityId === task.id)).toMatchObject({
-      status: TaskStatus.COMPLETED,
-      color: null,
+    expect(results.find(({ entity }) => entity.id === task.id)).toMatchObject({
+      entityType: 'task',
+      entity: { status: TaskStatus.COMPLETED, project: null },
     });
-    expect(results.find(({ entityId }) => entityId === project.id)).toMatchObject({
-      status: null,
-      color: '#123456',
+    expect(results.find(({ entity }) => entity.id === project.id)).toMatchObject({
+      entityType: 'project',
+      entity: { color: '#123456', stats: { totalTasks: 0 } },
     });
   });
 
@@ -652,8 +653,10 @@ describe('search', () => {
     const id = syncedProject();
     const [result] = await data<SearchResult[]>('search.search', { query: 'mirrored' });
     expect(result).toMatchObject({
-      entityId: id,
-      external: { provider: Provider.LINEAR, url: 'https://linear.app/acme/project/1' },
+      entity: {
+        id,
+        external: { provider: Provider.LINEAR, url: 'https://linear.app/acme/project/1' },
+      },
     });
   });
 

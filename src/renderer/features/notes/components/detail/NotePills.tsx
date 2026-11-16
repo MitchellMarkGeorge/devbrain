@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { CircleCheck, Plus } from 'lucide-react';
 import type { TaskId } from '@common/ids';
-import type { Note } from '@common/types';
+import type { Note, NoteListItem } from '@common/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -60,7 +60,8 @@ export function NotePills({
   onNewTask,
   onLinkTask,
 }: {
-  note: Note;
+  /** as `notes.get` reads it: with its project, which its pill draws */
+  note: NoteListItem;
   actions: NoteActions;
   onNewTask: () => void;
   onLinkTask: (id: TaskId) => void;
@@ -74,9 +75,9 @@ export function NotePills({
   return (
     <>
       <ProjectPill
-        value={note.projectId}
+        value={note.project}
         placeholder="Add to project"
-        onChange={(projectId) => actions.setProject([note], projectId)}
+        onChange={(project) => actions.setProject([note], project?.id ?? null)}
       />
       <LinkPill note={note} />
       {summary ? (

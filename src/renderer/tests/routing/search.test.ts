@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
-import type { NoteId, ProjectId, TaskId, WorkspaceId } from '@common/ids';
+import type { WorkspaceId } from '@common/ids';
 import {
   LinkState,
   Provider,
@@ -60,38 +60,48 @@ const linear: ExternalRef = {
   lastSyncedAt: new Date('2026-11-01T00:00:00Z'),
 };
 
-function result(fields: Partial<SearchResult> & Pick<SearchResult, 'entityId'>): SearchResult {
+// a match as search.search answers it: the highlighted title and body, and the entity it found
+// with what ⌘K reads of it
+function result(
+  id: string,
+  fields: {
+    entityType?: SearchResult['entityType'];
+    title?: string;
+    body?: string;
+    entity?: Record<string, unknown>;
+  } = {},
+): SearchResult {
   return {
-    entityType: 'task',
-    title: '',
-    body: '',
+    entityType: fields.entityType ?? 'task',
+    entity: {
+      id,
+      title: '',
+      status: TaskStatus.NOT_STARTED,
+      color: null,
+      external: null,
+      ...fields.entity,
+    },
+    title: fields.title ?? '',
+    body: fields.body ?? '',
     rank: -1,
-    status: null,
-    color: null,
-    external: null,
-    ...fields,
-  };
+  } as unknown as SearchResult;
 }
 
 const RESULTS: SearchResult[] = [
-  result({
-    entityId: 'tsk_1' as TaskId,
+  result('tsk_1', {
     title: 'Implement OAuth2 <b>PKCE</b> flow',
-    status: TaskStatus.IN_PROGRESS,
-    external: linear,
+    entity: { status: TaskStatus.IN_PROGRESS, external: linear },
   }),
-  result({ entityId: 'tsk_2' as TaskId, title: 'Write <b>PKCE</b> guide' }),
-  result({
-    entityId: 'nte_1' as NoteId,
+  result('tsk_2', { title: 'Write <b>PKCE</b> guide' }),
+  result('nte_1', {
     entityType: 'note',
     title: '&lt;img src=x onerror=alert(1)&gt; <b>PKCE</b> notes',
     body: '…a 10-minute code TTL, behind a <b>PKCE</b> flag…',
   }),
-  result({
-    entityId: 'prj_1' as ProjectId,
+  result('prj_1', {
     entityType: 'project',
     title: 'Auth <b>PKCE</b>',
-    color: '#3366ff',
+    entity: { color: '#3366ff' },
   }),
 ];
 
@@ -214,9 +224,7 @@ describe('⌘K search', () => {
   });
 
   it('draws a title with other markup as text', async () => {
-    await openSearch([
-      result({ entityId: 'tsk_9' as TaskId, title: '<img src=x onerror=alert(1)><b>PKCE</b>' }),
-    ]);
+    await openSearch([result('tsk_9', { title: '<img src=x onerror=alert(1)><b>PKCE</b>' })]);
     type('pkce');
     await eventually(() => expect(optionTexts()).toHaveLength(1));
     expect(options()[0].querySelector('img, b')).toBeNull();

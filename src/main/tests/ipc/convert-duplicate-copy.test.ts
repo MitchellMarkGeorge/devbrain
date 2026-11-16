@@ -114,7 +114,7 @@ describe('tasks.convertToProject', () => {
 
     // search finds the project, not the trashed task
     const found = await data<SearchResult[]>('search.search', { query: 'roadmap' });
-    expect(found.map((hit) => hit.entityId)).toEqual([project.id]);
+    expect(found.map((hit) => hit.entity.id)).toEqual([project.id]);
   });
 
   it('leaves note out of changed when the task had no note', async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Calendar,
@@ -57,6 +57,7 @@ import {
 } from '@renderer/keyboard';
 import type { ModalProps } from '@renderer/app/modals';
 import type { EntityRef } from '@renderer/shared/lib/entities';
+import { useDebouncedValue } from '@renderer/shared/hooks/use-debounced-value';
 import { GROUP_LABELS, groupResults, nextFilter, withAll, type SearchFilter } from '../lib/results';
 import { SearchHighlight } from './SearchHighlight';
 import { useAtRest, type EntityItem } from '../hooks/use-at-rest';
@@ -140,6 +141,10 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
     ...trpc.search.counts.queryOptions({ query: searched }),
     enabled: searched !== '',
   });
+  // an event with no colour of its own is drawn in its calendar's
+  const calendars = useQuery(trpc.calendars.list.queryOptions()).data;
+  const calendarColor = (id: string) =>
+    calendars?.find((calendar) => calendar.id === id)?.color ?? null;
   const recents = useQuery({
     ...trpc.recents.list.queryOptions({ limit: RECENT_LIMIT }),
     enabled: query.trim() === '',
@@ -210,7 +215,7 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
     return groupResults(results, filter, shownCounts).map(({ label, count, results: matches }) => ({
       value: label,
       count,
-      items: matches.map((result): Row => ({ kind: 'result', key: result.entityId, result })),
+      items: matches.map((result): Row => ({ kind: 'result', key: result.entity.id, result })),
     }));
   }, [showEmptyQuery, atRest, recents.data, goTo, results, filter, shownCounts, format]);
 
@@ -218,7 +223,10 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
     close();
     switch (row.kind) {
       case 'result':
-        onOpenEntity({ id: row.result.entityId });
+        onOpenEntity({
+          id: row.result.entity.id,
+          startAt: row.result.entityType === 'event' ? row.result.entity.startAt : undefined,
+        });
         break;
       case 'entity':
         onOpenEntity({
@@ -334,7 +342,14 @@ export function SearchDialog({ onOpenEntity, onNewTask, ...props }: SearchDialog
                 count={group.count}
               >
                 <CommandCollection>
-                  {(row: Row) => <SearchRow key={row.key} row={row} onOpen={open} />}
+                  {(row: Row) => (
+                    <SearchRow
+                      key={row.key}
+                      row={row}
+                      calendarColor={calendarColor}
+                      onOpen={open}
+                    />
+                  )}
                 </CommandCollection>
               </CommandGroup>
             )}
@@ -379,17 +394,35 @@ function useGoToRows(): Row[] {
   );
 }
 
-function SearchRow({ row, onOpen }: { row: Row; onOpen: (row: Row) => void }) {
+function SearchRow({
+  row,
+  calendarColor,
+  onOpen,
+}: {
+  row: Row;
+  /** a calendar's colour, for an event with none of its own */
+  calendarColor: (calendarId: string) => string | null;
+  onOpen: (row: Row) => void;
+}) {
   const shared = { value: row, onClick: () => onOpen(row) };
   switch (row.kind) {
     case 'result': {
       const { result } = row;
+      const { entity } = result;
       return (
         <CommandItem
           {...shared}
           variant="result"
-          icon={entityIcon(result.entityType, result.status, result.color)}
-          trailing={sourcePill(result.external)}
+          icon={entityIcon(
+            result.entityType,
+            result.entityType === 'task' ? result.entity.status : null,
+            result.entityType === 'project'
+              ? result.entity.color
+              : result.entityType === 'event'
+                ? (result.entity.color ?? calendarColor(result.entity.calendarId))
+                : null,
+          )}
+          trailing={'external' in entity ? sourcePill(entity.external) : undefined}
           description={result.body ? <SearchHighlight html={result.body} /> : undefined}
         >
           <SearchHighlight html={result.title} />
@@ -401,7 +434,11 @@ function SearchRow({ row, onOpen }: { row: Row; onOpen: (row: Row) => void }) {
       const { entity } = item;
       const status = item.entityType === 'tasks' ? item.entity.status : null;
       const color =
-        item.entityType === 'projects' || item.entityType === 'events' ? item.entity.color : null;
+        item.entityType === 'projects'
+          ? item.entity.color
+          : item.entityType === 'events'
+            ? (item.entity.color ?? calendarColor(item.entity.calendarId))
+            : null;
       return (
         <CommandItem
           {...shared}
@@ -475,13 +512,4 @@ function entityIcon(
 function sourcePill(external: ExternalRef | null | undefined): ReactNode {
   if (!external?.key) return undefined;
   return <SourcePill provider={providerOf(external)}>{external.key}</SourcePill>;
-}
-
-function useDebouncedValue<T>(value: T, ms: number): T {
-  const [settled, setSettled] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setSettled(value), ms);
-    return () => clearTimeout(timer);
-  }, [value, ms]);
-  return settled;
 }

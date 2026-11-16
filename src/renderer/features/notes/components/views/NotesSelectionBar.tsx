@@ -39,7 +39,7 @@ export function NotesSelectionBar({ notes, actions, onClear }: NotesSelectionBar
         onClear={onClear}
         actions={
           <>
-            <DropdownMenuFilter>
+            <DropdownMenuFilter autoHighlight>
               <DropdownMenu>
                 <DropdownMenuTrigger render={<Button variant="ghost" size="sm" icon={Folder} />}>
                   Move

@@ -11,10 +11,8 @@ import { EventService } from '../../events/service';
 import { generateId } from '@common/ids';
 import { AuthType, LinkState, Provider, SourceType, TaskStatus } from '@common/types';
 import { eq } from 'drizzle-orm';
-import { calendars } from '@main/db/schema/calendars';
 import { tasks } from '@main/db/schema/tasks';
 import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
-import { DEFAULT_CALENDAR_ID } from '../../calendars/types';
 import { createDb } from '../utils';
 
 const TOMORROW = new Date(Date.now() + 86_400_000);
@@ -83,7 +81,7 @@ describe('SearchService — indexTask', () => {
     // wrapped rather than as the raw stored string
     expect(results[0]).toMatchObject({
       title: 'Refactor payment <b>pipeline</b>',
-      entityId: task.id,
+      entity: { id: task.id },
       entityType: 'task',
     });
   });
@@ -98,7 +96,7 @@ describe('SearchService — indexTask', () => {
 
     const results = searchService.search({ query: 'infrastructure', entityType: [] });
     expect(results).toHaveLength(1);
-    expect(results[0].entityId).toBe(task.id);
+    expect(results[0].entity.id).toBe(task.id);
   });
 
   it('indexes with an empty body when description is null', async () => {
@@ -119,7 +117,7 @@ describe('SearchService — indexTask', () => {
 
     const updated = searchService.search({ query: 'Updated', entityType: [] });
     expect(updated).toHaveLength(1);
-    expect(updated[0].entityId).toBe(task.id);
+    expect(updated[0].entity.id).toBe(task.id);
   });
 });
 
@@ -173,7 +171,7 @@ describe('SearchService — removeFromIndex', () => {
     searchService.removeFromIndex([task.id, project.id]);
 
     const results = searchService.search({ query: 'Deploy', entityType: [] });
-    expect(results.map((r) => r.entityId)).toEqual([kept.id]);
+    expect(results.map((r) => r.entity.id)).toEqual([kept.id]);
   });
 
   it('ignores ids with no entry and an empty list', async () => {
@@ -247,7 +245,7 @@ describe('SearchService — indexNote', () => {
 
     const results = searchService.search({ query: 'Alpha', entityType: [] });
     expect(results).toHaveLength(1);
-    expect(results[0]).toMatchObject({ entityId: note.id, entityType: 'note', body: '' });
+    expect(results[0]).toMatchObject({ entity: { id: note.id }, entityType: 'note', body: '' });
   });
 
   it('reads the backing file and strips markdown formatting from the body', async () => {
@@ -261,7 +259,7 @@ describe('SearchService — indexNote', () => {
 
     const results = searchService.search({ query: 'casserole', entityType: [] });
     expect(results).toHaveLength(1);
-    expect(results[0].entityId).toBe(note.id);
+    expect(results[0].entity.id).toBe(note.id);
     expect(results[0].body).not.toContain('**');
     expect(results[0].body).not.toContain('#');
   });
@@ -287,7 +285,11 @@ describe('SearchService — indexNoteContent', () => {
 
     const results = searchService.search({ query: 'casserole', entityType: ['note'] });
     expect(results).toHaveLength(1);
-    expect(results[0]).toMatchObject({ entityId: note.id, entityType: 'note', title: 'Recipe' });
+    expect(results[0]).toMatchObject({
+      entity: { id: note.id },
+      entityType: 'note',
+      title: 'Recipe',
+    });
     expect(results[0].body).not.toContain('**');
     expect(results[0].body).not.toContain('#');
   });
@@ -309,13 +311,16 @@ describe('SearchService — indexCreatedTask and indexCreatedNote', () => {
     searchService.indexCreatedTask(task);
     searchService.indexTask({ ...task, description: 'revenue figures' });
     expect(searchService.search({ query: 'Quarterly', entityType: ['task'] })).toEqual([
-      expect.objectContaining({ entityId: task.id, body: 'revenue figures' }),
+      expect.objectContaining({
+        entity: expect.objectContaining({ id: task.id }),
+        body: 'revenue figures',
+      }),
     ]);
 
     const note = await noteService.createNote({ title: 'Retro' });
     searchService.indexCreatedNote(note, '# What went **well**');
     expect(searchService.search({ query: 'well', entityType: ['note'] })).toEqual([
-      expect.objectContaining({ entityId: note.id, title: 'Retro' }),
+      expect.objectContaining({ entity: expect.objectContaining({ id: note.id }), title: 'Retro' }),
     ]);
     searchService.indexNoteContent(note, 'replaced');
     expect(searchService.search({ query: 'Retro', entityType: ['note'] })).toEqual([
@@ -333,7 +338,7 @@ describe('SearchService — updateIndexedTitle', () => {
 
     expect(searchService.search({ query: 'Old', entityType: [] })).toEqual([]);
     expect(searchService.search({ query: 'New', entityType: [] })).toMatchObject([
-      { entityId: note.id, body: 'kept body' },
+      { entity: { id: note.id }, body: 'kept body' },
     ]);
   });
 
@@ -402,76 +407,86 @@ describe('SearchService — search', () => {
   });
 });
 
-describe('SearchService — status and colour', () => {
-  it("adds a task's status as it is now, and leaves colour out", () => {
-    const task = taskService.createTask({ title: 'Widget task', dueDate: TOMORROW });
+describe('SearchService — the entities found', () => {
+  it('gives a task as the task list returns it, as it is now', () => {
+    const project = projectService.createProject({ title: 'Launch', dueDate: TOMORROW });
+    // a subtask takes its parent's project
+    const parent = taskService.createTask({
+      title: 'Parent',
+      dueDate: TOMORROW,
+      projectId: project.id,
+    });
+    const task = taskService.createSubtask(parent.id, { title: 'Widget task' });
     searchService.indexTask(task);
     taskService.updateStatus(task.id, TaskStatus.IN_PROGRESS);
 
     expect(searchService.search({ query: 'widget', entityType: [] })).toMatchObject([
-      { entityId: task.id, status: TaskStatus.IN_PROGRESS, color: null },
+      {
+        entityType: 'task',
+        entity: {
+          id: task.id,
+          status: TaskStatus.IN_PROGRESS,
+          parentTaskId: parent.id,
+          parentTask: { id: parent.id, title: 'Parent' },
+          project: { id: project.id, title: 'Launch' },
+          external: null,
+        },
+      },
     ]);
   });
 
-  it("adds a project's colour, or null when it has none", () => {
+  it('gives a project with its colour and task counts, as the projects list does', () => {
     const coloured = projectService.createProject({
       title: 'Widget red',
       dueDate: TOMORROW,
       color: '#ff0000',
     });
-    const plain = projectService.createProject({ title: 'Widget plain', dueDate: TOMORROW });
-    searchService.indexProjects([coloured, plain]);
+    taskService.createTask({ title: 'Its task', dueDate: TOMORROW, projectId: coloured.id });
+    searchService.indexProjects([coloured]);
 
-    const results = searchService.search({ query: 'widget', entityType: ['project'] });
-    expect(results.find(({ entityId }) => entityId === coloured.id)).toMatchObject({
-      status: null,
-      color: '#ff0000',
-    });
-    expect(results.find(({ entityId }) => entityId === plain.id)).toMatchObject({
-      status: null,
-      color: null,
-    });
+    expect(searchService.search({ query: 'widget', entityType: ['project'] })).toMatchObject([
+      {
+        entityType: 'project',
+        entity: { id: coloured.id, color: '#ff0000', stats: { totalTasks: 1 } },
+      },
+    ]);
   });
 
-  it("adds an event's own colour, else its calendar's", () => {
-    db.update(calendars)
-      .set({ color: '#00ff00' })
-      .where(eq(calendars.id, DEFAULT_CALENDAR_ID))
-      .run();
-    const own = eventService.createEvent({
-      title: 'Widget own',
+  it('gives a note and an event as their lists do', async () => {
+    const note = await noteService.createNote({ title: 'Widget note' });
+    searchService.indexNoteContent(note, '');
+    const event = eventService.createEvent({
+      title: 'Widget review',
       startAt: TOMORROW,
       endAt: TOMORROW,
       color: '#0000ff',
     });
-    const inherited = eventService.createEvent({
-      title: 'Widget inherited',
-      startAt: TOMORROW,
-      endAt: TOMORROW,
-    });
-    searchService.indexEvents([own, inherited]);
-
-    const results = searchService.search({ query: 'widget', entityType: ['event'] });
-    expect(results.find(({ entityId }) => entityId === own.id)?.color).toBe('#0000ff');
-    expect(results.find(({ entityId }) => entityId === inherited.id)?.color).toBe('#00ff00');
-  });
-
-  it('gives a note neither, and an entry whose row is gone neither', async () => {
-    const note = await noteService.createNote({ title: 'Widget note' });
-    searchService.indexNoteContent(note, '');
-    // deleted without its entry: this service alone doesn't hear of the delete
-    const gone = taskService.createTask({ title: 'Widget gone', dueDate: TOMORROW });
-    searchService.indexTask(gone);
-    db.delete(tasks).where(eq(tasks.id, gone.id)).run();
+    searchService.indexEvent(event);
 
     const results = searchService.search({ query: 'widget', entityType: [] });
-    expect(results).toHaveLength(2);
-    for (const result of results) {
-      expect(result).toMatchObject({ status: null, color: null, external: null });
-    }
+    expect(results.find(({ entityType }) => entityType === 'note')).toMatchObject({
+      entity: { id: note.id, title: 'Widget note', project: null, link: null },
+    });
+    expect(results.find(({ entityType }) => entityType === 'event')).toMatchObject({
+      entity: { id: event.id, startAt: TOMORROW, color: '#0000ff', exdates: [] },
+    });
   });
 
-  it("adds a synced task's provider link, and null for a local one", () => {
+  it('leaves out an entry whose row is gone or archived', () => {
+    // deleted without its entry: this service alone doesn't hear of the delete
+    const gone = taskService.createTask({ title: 'Widget gone', dueDate: TOMORROW });
+    const archived = taskService.createTask({ title: 'Widget archived', dueDate: TOMORROW });
+    const kept = taskService.createTask({ title: 'Widget kept', dueDate: TOMORROW });
+    searchService.indexTasks([gone, archived, kept]);
+    db.delete(tasks).where(eq(tasks.id, gone.id)).run();
+    db.update(tasks).set({ archivedAt: new Date() }).where(eq(tasks.id, archived.id)).run();
+
+    expect(
+      searchService.search({ query: 'widget', entityType: [] }).map(({ entity }) => entity.id),
+    ).toEqual([kept.id]);
+  });
+
+  it("gives a synced task's provider link, and null for a local one", () => {
     const synced = taskService.createTask({ title: 'Widget synced', dueDate: TOMORROW });
     const local = taskService.createTask({ title: 'Widget local', dueDate: TOMORROW });
     searchService.indexTasks([synced, local]);
@@ -505,12 +520,12 @@ describe('SearchService — status and colour', () => {
       .run();
 
     const results = searchService.search({ query: 'widget', entityType: ['task'] });
-    expect(results.find(({ entityId }) => entityId === synced.id)?.external).toMatchObject({
-      provider: Provider.LINEAR,
-      state: LinkState.SYNCED,
-      key: 'ENG-124',
+    expect(results.find(({ entity }) => entity.id === synced.id)).toMatchObject({
+      entity: { external: { provider: Provider.LINEAR, state: LinkState.SYNCED, key: 'ENG-124' } },
     });
-    expect(results.find(({ entityId }) => entityId === local.id)?.external).toBeNull();
+    expect(results.find(({ entity }) => entity.id === local.id)).toMatchObject({
+      entity: { external: null },
+    });
   });
 
   it('keeps the best-first order across types, and the limit', () => {
@@ -525,14 +540,14 @@ describe('SearchService — status and colour', () => {
 
     // the title weighs ten times the body (bm25 in search)
     expect(
-      searchService.search({ query: 'widget', entityType: [] }).map(({ entityId }) => entityId),
+      searchService.search({ query: 'widget', entityType: [] }).map(({ entity }) => entity.id),
     ).toEqual([inTitle.id, inBody.id]);
     expect(searchService.search({ query: 'widget', entityType: [], limit: 1 })).toMatchObject([
-      { entityId: inTitle.id, color: null },
+      { entityType: 'project', entity: { id: inTitle.id } },
     ]);
   });
 
-  it('looks up many matches of each type', () => {
+  it('reads many matches of a type at once', () => {
     const created = Array.from({ length: 600 }, (_, i) =>
       taskService.createTask({ title: `Widget ${i}`, dueDate: TOMORROW }),
     );
@@ -541,10 +556,9 @@ describe('SearchService — status and colour', () => {
 
     const results = searchService.search({ query: 'widget', entityType: ['task'] });
     expect(results).toHaveLength(600);
-    expect(results.every(({ status }) => status !== null)).toBe(true);
-    expect(results.find(({ entityId }) => entityId === created[599].id)?.status).toBe(
-      TaskStatus.COMPLETED,
-    );
+    expect(results.find(({ entity }) => entity.id === created[599].id)).toMatchObject({
+      entity: { status: TaskStatus.COMPLETED },
+    });
   });
 });
 
@@ -719,6 +733,6 @@ describe('SearchService — special characters', () => {
 
     const results = searchService.search({ query: 'C++', entityType: ['task'] });
     expect(results).toHaveLength(1);
-    expect(results[0].entityId).toBe(cpp.id);
+    expect(results[0].entity.id).toBe(cpp.id);
   });
 });

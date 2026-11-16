@@ -1,29 +1,33 @@
-import type { EventId, NoteId, ProjectId, TaskId } from '../ids';
-import type { ExternalRef } from './integrations';
-import type { TaskStatus } from './tasks';
+import type { Event } from './events';
+import type { NoteListItem } from './notes';
+import type { ProjectListItem } from './projects';
+import type { TaskListItem } from './tasks';
 
 export type SearchEntityType = 'note' | 'task' | 'project' | 'event';
 
-// What search returns. `title` and `body` are HTML, unlike the text core indexes: escaped, with
-// each match in <b>…</b>, the only markup they hold (docs/security/untrusted-content.md)
-export interface SearchResult {
-  entityId: NoteId | TaskId | ProjectId | EventId;
-  entityType: SearchEntityType;
-  // the whole title
-  title: string;
-  // an excerpt of the body around the matches, '…' where it was cut
-  body: string;
-  rank: number;
-  // a task's status, read when it was found; null for every other type
-  status: TaskStatus | null;
-  // a project's colour, or an event's own colour, else its calendar's (as Event.color says); null
-  // for a task or note, or when there is none. Untrusted, like every colour from core: parse it
-  // with hexColorSchema before it reaches a style
-  color: string | null;
-  // the provider item a task, project or event mirrors (its key draws the source pill); null for a
-  // local one or a note
-  external: ExternalRef | null;
+// What one match is, by type: the entity itself, as its list returns it.
+interface SearchEntities {
+  task: TaskListItem;
+  note: NoteListItem;
+  project: ProjectListItem;
+  event: Event;
 }
+
+// A match for a query, of one type: the entity found, as its list returns it, and where the query
+// matched. `title` and `body` are HTML, unlike the text core indexes: escaped, with each match in
+// <b>…</b>, the only markup they hold (docs/security/untrusted-content.md). Everything else is
+// read from `entity`, as anywhere that entity is drawn.
+export type SearchResult<Type extends SearchEntityType = SearchEntityType> = {
+  [K in Type]: {
+    entityType: K;
+    entity: SearchEntities[K];
+    // the whole title, highlighted
+    title: string;
+    // an excerpt of the body around the matches, '…' where it was cut, highlighted
+    body: string;
+    rank: number;
+  };
+}[Type];
 
 // How many entries match a query, of each type: every match, not only the ones a search's limit
 // returns. ⌘K's type filter shows them.

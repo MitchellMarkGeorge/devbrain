@@ -94,7 +94,7 @@ export function TasksSelectionBar({ tasks, actions, onClear }: TasksSelectionBar
                 </DropdownMenuContent>
               }
             />
-            <DropdownMenuFilter>
+            <DropdownMenuFilter autoHighlight>
               <MenuAction
                 icon={Folder}
                 label="Move"

@@ -375,7 +375,7 @@ describe('Workspace — detach', () => {
       provider.tasks.script({ tasks: [item] });
       await workspace.integrations.connectWithApiKey(Provider.LINEAR, FAKE_API_KEY);
       const search = (query: string) =>
-        workspace.search.search({ query, entityType: ['task'] }).map(({ entityId }) => entityId);
+        workspace.search.search({ query, entityType: ['task'] }).map(({ entity }) => entity.id);
       await vi.waitFor(() => expect(search('Issue')).toHaveLength(1));
       const [{ id }] = workspace.tasks.listTasks().items;
       const changes: TaskLinkChange[] = [];
@@ -416,7 +416,7 @@ describe('Workspace — detach', () => {
         FAKE_API_KEY,
       );
       const search = (query: string) =>
-        workspace.search.search({ query, entityType: ['task'] }).map(({ entityId }) => entityId);
+        workspace.search.search({ query, entityType: ['task'] }).map(({ entity }) => entity.id);
       await vi.waitFor(() => expect(search('Issue')).toHaveLength(1));
       const [{ id }] = workspace.tasks.listTasks().items;
       workspace.detach.detachTask(id);
@@ -456,7 +456,7 @@ describe('Workspace — search', () => {
       const search = (query: string) =>
         workspace.search
           .search({ query, entityType: ['task', 'project', 'note'] })
-          .map(({ entityId }) => entityId);
+          .map(({ entity }) => entity.id);
 
       const project = workspace.projects.createProject({
         title: 'Apollo',
@@ -501,7 +501,7 @@ describe('Workspace — concurrent note saves', () => {
       await Promise.all(words.map((w) => workspace.notes.updateNoteContent(note.id, w)));
 
       const search = (query: string) =>
-        workspace.search.search({ query, entityType: ['note'] }).map(({ entityId }) => entityId);
+        workspace.search.search({ query, entityType: ['note'] }).map(({ entity }) => entity.id);
       const last = words[words.length - 1];
       expect(search(last)).toEqual([note.id]);
       for (const w of words.slice(0, -1)) expect(search(w)).toEqual([]);
@@ -516,7 +516,7 @@ describe('Workspace — concurrent note saves', () => {
 function searchIds(workspace: Workspace, query: string) {
   return workspace.search
     .search({ query, entityType: ['task', 'project', 'note', 'event'] })
-    .map(({ entityId }) => entityId)
+    .map(({ entity }) => entity.id)
     .sort();
 }
 

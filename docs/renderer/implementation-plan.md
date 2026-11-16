@@ -1206,9 +1206,19 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
 - **R4: search counts (done).** `search.counts({ query })` returns how many entries of each
   type match, with no limit (one FTS query grouped by type). ⌘K's type filter shows them, so a
   broad query's counts aren't capped at the 200 results a search returns.
-- **R3: pickers search** (follow-up "Pickers filter what they loaded instead of searching"):
-  Link to ›, Make subtask of › and the project pickers ask `search.search` once something is
-  typed, through one mapping of `SearchResult` to a picker row (after R1).
+- **R3: pickers search (done).** Each `search.search` result now carries the entity it found,
+  as its list returns it (`entity`, typed by `entityType`), read with one query per type after the
+  matches are ranked and cut; this replaces R1's `status`, `color` and `external` fields, and ⌘K
+  and the "@" menu read them from `entity` (⌘K draws an event with no colour of its own in its
+  calendar's). The pickers of events, notes and tasks (Link to ›, Make subtask of ›, a note's task
+  links, the event sheet's Link Existing Note) list what they loaded while nothing is typed, then
+  ask `search.search` for their type (`usePickerSearch`, `PickerSearchFilter`, `pickerRows`,
+  `src/renderer/features/search/components/picker-search.tsx`): 120ms after typing pauses, keeping
+  the loaded rows until the first search answers, "Searching…" rather than "no matches" until it
+  has, the first row highlighted so Enter picks it. A searched row draws as a loaded one, its
+  title's matches in bold; each picker leaves out what it can't offer from `entity` (closed tasks,
+  subtasks, synced parents). Project pickers load every open project (`projects.list`'s
+  `excludeCompleted`, page after page) and keep the menu's own filter.
 - **R2 (later): `entities.summaries(ids)`** batch route if notes with many pills make per-pill
   `get` queries noticeable.
 

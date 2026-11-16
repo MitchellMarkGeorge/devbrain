@@ -107,7 +107,7 @@ export function NotesFilterMenu({
       <DropdownMenuContent width="sm" align="start">
         <DropdownMenuGroup>
           <DropdownMenuLabel>Filter</DropdownMenuLabel>
-          <DropdownMenuFilter>
+          <DropdownMenuFilter autoHighlight>
             <DropdownMenuSub>
               <DropdownMenuSubTrigger icon={Folder}>Project</DropdownMenuSubTrigger>
               <DropdownMenuSubContent width="lg">

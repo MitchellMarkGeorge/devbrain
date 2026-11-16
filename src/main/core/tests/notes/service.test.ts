@@ -11,7 +11,7 @@ import { ArchiveService } from '../../archive/service';
 import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
 import { TaskService } from '../../tasks/service';
-import { TaskStatus } from '@common/types';
+import { type Note, ProjectStatus, TaskStatus } from '@common/types';
 import { AlreadyArchivedError, NotArchivedError, NotFoundError } from '../../shared/errors';
 import { fileExists } from '../../local/utils';
 import { readNoteFile } from '../../local/notes';
@@ -156,6 +156,20 @@ describe('NoteService — getById', () => {
 
   it('throws NotFoundError for an archived note', async () => {
     const note = await notesService.createNote({ title: 'Will be archived' });
+    archive.archiveNote(note.id);
+    expect(() => notesService.getById(note.id)).toThrow(NotFoundError);
+  });
+
+  it('returns the note with its list details: its project, whatever its status', async () => {
+    const projects = new ProjectService(db, new TaskService(db));
+    projects.updateStatus(FAKE_PROJECT_ID, ProjectStatus.COMPLETED);
+    const note = await notesService.createNote({ title: 'Plan', projectId: FAKE_PROJECT_ID });
+
+    expect(notesService.getById(note.id)).toMatchObject({
+      id: note.id,
+      project: { id: FAKE_PROJECT_ID, title: 'Fake Project' },
+      link: null,
+    });
     archive.archiveNote(note.id);
     expect(() => notesService.getById(note.id)).toThrow(NotFoundError);
   });
@@ -549,7 +563,10 @@ describe('NoteService — updateNoteContent', () => {
 
   it('throws NotFoundError when the row is deleted while saving', async () => {
     const note = await notesService.createNote({ title: 'Note' });
-    vi.spyOn(notesService, 'getById').mockReturnValueOnce(note);
+    // the check before the save finds the row; it is gone by the time the save writes it
+    vi.spyOn(notesService as unknown as { findNote: () => Note }, 'findNote').mockReturnValueOnce(
+      note,
+    );
     db.delete(notesTable).where(eq(notesTable.id, note.id)).run();
 
     await expect(notesService.updateNoteContent(note.id, 'content')).rejects.toBeInstanceOf(
@@ -591,8 +608,9 @@ describe('NoteService — updateNoteContent', () => {
 
     it('keep going after one of them fails', async () => {
       const note = await notesService.createNote({ title: 'Note' });
-      const getById = vi.spyOn(notesService, 'getById');
-      getById.mockImplementationOnce(() => {
+      // the first save's check before its write fails
+      const findNote = vi.spyOn(notesService as unknown as { findNote: () => Note }, 'findNote');
+      findNote.mockImplementationOnce(() => {
         throw new Error('boom');
       });
 

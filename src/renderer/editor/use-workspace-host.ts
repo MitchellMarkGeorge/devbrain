@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { hexColorSchema } from '@common/color';
 import type { SearchResult } from '@common/types';
 import { trpc } from '@renderer/ipc';
-import { highlightToText } from './highlight';
 import type { EditorEntity, EditorHost, MentionType } from './types';
 
 /**
@@ -39,17 +38,20 @@ export function useWorkspaceEditorHost(): Pick<EditorHost, 'searchEntities' | 'o
 }
 
 /**
- * A search result as the "@" menu's entity: its title as text, a task's status and a project's or
- * event's colour. Colours from core are untrusted, so one that isn't #rrggbb is left out and the
- * menu draws its default (docs/security/untrusted-content.md).
+ * A search result as the "@" menu's entity, read from the entity it found: its title, a task's
+ * status and a project's or event's own colour. Colours from core are untrusted, so one that isn't
+ * #rrggbb is left out and the menu draws its default (docs/security/untrusted-content.md).
  */
 export function toEditorEntity(result: SearchResult): EditorEntity {
-  const color = hexColorSchema.safeParse(result.color);
+  const { entity } = result;
+  const color = hexColorSchema.safeParse(
+    result.entityType === 'project' || result.entityType === 'event' ? result.entity.color : null,
+  );
   return {
     type: result.entityType,
-    id: result.entityId,
-    title: highlightToText(result.title),
-    ...(result.status !== null && { status: result.status }),
+    id: entity.id,
+    title: entity.title,
+    ...(result.entityType === 'task' && { status: result.entity.status }),
     ...(color.success && { color: color.data }),
   };
 }

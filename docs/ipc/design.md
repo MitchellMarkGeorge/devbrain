@@ -198,7 +198,10 @@ value: '24' }`), or one group (`settings.calendar`), checking the value against 
   menu bar (`src/main/runtime/window-chrome.ts`). It resolves once the menu closes; a command the
   menu runs reports its own changes.
 - **`search.search`** returns the only HTML core produces: escaped text with matches in `<b>`
-  (see [untrusted-content.md](../security/untrusted-content.md)).
+  (see [untrusted-content.md](../security/untrusted-content.md)). Each match also carries the
+  entity it found, as that entity's list returns it (`entity`: a `TaskListItem`, `NoteListItem`,
+  `ProjectListItem` or `Event`, by `entityType`), read with one query per type after the matches
+  are ranked and cut; anything else a caller draws comes from `entity`.
 
 ## How changes reach the renderer
 

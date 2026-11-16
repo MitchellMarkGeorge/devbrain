@@ -10,7 +10,7 @@ import {
   X,
 } from 'lucide-react';
 import { safeUrlSchema } from '@common/safe-url';
-import { LinkState, type Task, type TaskSummary } from '@common/types';
+import { LinkState, type Task, type TaskListItem, type TaskSummary } from '@common/types';
 import {
   DatePicker,
   DateRange,
@@ -277,7 +277,8 @@ function PullRequestPill({
 }
 
 export interface TaskPropertiesProps {
-  task: Task;
+  /** as `tasks.get` reads it: with its project, which its pill draws */
+  task: TaskListItem;
   /** the task's parent, for a subtask */
   parent: TaskSummary | null;
   actions: TaskActions;
@@ -328,7 +329,7 @@ export function TaskProperties({
           {formatDate(task.dueDate)}
         </EntityPill>
       )}
-      {task.projectId && <ProjectPill value={task.projectId} onChange={() => {}} disabled />}
+      {task.project && <ProjectPill value={task.project} onChange={() => {}} disabled />}
     </>
   ) : (
     <>
@@ -359,8 +360,8 @@ export function TaskProperties({
         }
       />
       <ProjectPill
-        value={task.projectId}
-        onChange={(projectId) => actions.setProject(tasks, projectId)}
+        value={task.project}
+        onChange={(project) => actions.setProject(tasks, project?.id ?? null)}
       />
     </>
   );

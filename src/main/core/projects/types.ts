@@ -29,6 +29,8 @@ export interface ProjectFilterOptions {
   dueBefore?: Date;
   dueAfter?: Date;
   status?: ProjectStatus;
+  // every status but completed: the projects a picker offers
+  excludeCompleted?: boolean;
   // external: synced from an integration; local: everything else, detached projects included
   origin?: 'local' | 'external';
   // health?: ProjectHealth;

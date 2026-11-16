@@ -245,7 +245,7 @@ export function FilterMenu({
             onChange={(priority) => setSearch({ priority })}
           />
           {!fixedProject && (
-            <DropdownMenuFilter>
+            <DropdownMenuFilter autoHighlight>
               <DropdownMenuSub>
                 <DropdownMenuSubTrigger icon={Folder}>Project</DropdownMenuSubTrigger>
                 <DropdownMenuSubContent width="lg">

@@ -46,7 +46,8 @@ export const ENTITIES_READ_BY_ROUTE: Readonly<
   // titles come from the entities, so an edit or archive changes the list too
   recents: ['recent', 'task', 'project', 'note', 'event'],
   archive: ['task', 'project', 'note'],
-  search: ['task', 'project', 'note', 'event'],
+  // each match is its entity as its list returns it: a task or note row shows its links
+  search: ['task', 'project', 'note', 'event', 'calendar'],
   integrations: ['integration', 'externalSource'],
   // counts the synced rows a disconnect would delete or keep, and those notes point at
   'integrations.previewDisconnect': [
