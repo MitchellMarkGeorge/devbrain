@@ -323,6 +323,10 @@ The tasks list, the board, Trash and Projects wrap the whole list in one `Contex
 
 The grouped `TaskList` puts heading and footer rows in the same grid as the tasks, so its `aria-rowindex` counts them, while a page could only give `rowCount` in tasks. The group view passes no count, so a screen reader hears the loaded rows only (1.3.1, minor). Give `aria-rowcount={-1}` while a group has more to load, or count the headings in.
 
+### Name the title bar's search field by what it shows
+
+The title bar's search field (`components/shell/WorkspaceShell/WorkspaceShell.tsx`) is a button named `aria-label="Search"` while it shows the page's title ("Tasks") and "⌘K", so its name drops the words it shows (WCAG 2.5.3, axe `label-content-name-mismatch` on every shell screen; moderate, for speech users who say what they see). Name it by its content instead: a visually hidden "Search, " before the location, the `Kbd` `aria-hidden` (`aria-keyshortcuts` already carries ⌘K), and no `aria-label`; the tests that find it by `button[aria-label="Search"]` (`tests/routing/title-bar.test.ts`, `search.test.ts`) then find it by its text.
+
 ### Scroll viewports inside menus
 
 A menu's items scroll in a `ScrollArea`, whose viewport Base UI makes focusable (`tabIndex` 0) while it overflows. Inside `role="menu"` or `role="listbox"` that is an element the role does not allow and a stray focus target (axe `aria-required-children`; minor, as arrow keys never reach it). Give `MenuScrollArea`'s viewport `tabIndex={-1}` through `viewportProps` if Base UI lets it override, and keep wheel and drag scrolling.

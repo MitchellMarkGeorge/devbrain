@@ -17,6 +17,8 @@
 }
 .raised {
   background: var(--border-strong);
+  /* `muted-foreground` falls to 3.8:1 on the lighter key in dark: `foreground` keeps 4.5:1 */
+  color: var(--foreground);
 }
 .kbd > svg {
   width: 12px;

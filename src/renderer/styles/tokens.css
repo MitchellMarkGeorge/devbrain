@@ -32,6 +32,7 @@
   --neutral-800: #262626;
   --neutral-900: #171717;
   --neutral-950: #0a0a0a;
+  --red-300: #ffa2a2;
   --red-400: #ff6467;
   --red-500: #fb2c36;
   --red-600: #e7000b;
@@ -214,7 +215,7 @@
   --pill-fill-hover: color-mix(in srgb, var(--neutral-800) 60%, transparent);
   --accent-foreground: var(--neutral-200);
   --destructive: var(--red-400);
-  --destructive-foreground: var(--red-400); /* DevBrain addition */
+  --destructive-foreground: var(--red-300); /* DevBrain addition */
   --border: color-mix(in srgb, var(--foreground) 8%, transparent);
   --border-strong: color-mix(in srgb, var(--foreground) 12%, transparent); /* DevBrain addition */
   --edge: color-mix(in srgb, var(--foreground) 8%, transparent);

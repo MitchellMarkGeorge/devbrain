@@ -83,7 +83,8 @@ export const SyncFailed: Story = {
   render: () => (
     <ScreenFrame page="Tasks" title="Tasks" sync="error">
       <TasksToolbar />
-      <PageContent layout="list">
+      {/* the rows' grid, as TaskList draws it (rows need one around them) */}
+      <PageContent layout="list" role="grid" aria-label="Tasks">
         {FIGMA_TASKS.filter((t) => t.id !== 'tsk_mobile').map((task) => (
           <TaskRow key={task.id} task={task} />
         ))}
