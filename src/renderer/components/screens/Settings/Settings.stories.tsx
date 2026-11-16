@@ -1,88 +1,118 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { TaskStatus } from '@common/types';
 import { useState, type ReactNode } from 'react';
 import {
-  ArrowLeft,
   Calendar,
   CircleCheck,
-  Database,
-  FolderInput,
-  PanelTop,
-  SlidersHorizontal,
+  CircleHelp,
+  Ellipsis,
+  FileText,
+  Folder,
+  House,
+  Search,
+  Settings as SettingsIcon,
+  SquarePen,
+  Trash2,
   Zap,
-  type LucideIcon,
 } from 'lucide-react';
 import { Heading } from '../../layout/Heading';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '../../ui/Select';
 import { SettingsGroup, SettingsRow, SettingsSection } from '../../settings/SettingsGroup';
-import { Sidebar, SidebarContent, SidebarGroup, SidebarItem } from '../../shell/Sidebar';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarHeader,
+  SidebarHeaderActions,
+  SidebarItem,
+  SidebarWorkspace,
+} from '../../shell/Sidebar';
+import { StatusIcon } from '../../entities/StatusIcon';
 import { SwatchPicker } from '../../ui/SwatchPicker';
 import { Switch } from '../../ui/Switch';
+import { Tabs, TabsList, TabsTab } from '../../ui/Tabs';
 import { ToggleGroup } from '../../ui/ToggleGroup';
 import { TooltipProvider } from '../../ui/Tooltip';
 import type { Swatch } from '../../types';
+import { WorkspaceTile } from '../../entities/WorkspaceTile';
+import { DropdownMenuItem } from '../../ui/DropdownMenu';
 
 /*
  * Figma: v2 Screens › Trash & Settings › "Settings (general)" (7158:10515, light 7426:45491) and
- * "Settings (data & storage)" (7158:11416), since split into a page per section. The settings'
- * sidebar takes the app's place: Back to app, then the sections the open workspace owns (Current
- * workspace) apart from those every workspace shares (All workspaces). A section's page is a 720px
- * column, 48px down: its 30px heading, what it covers 6px under it, 32px, then the groups 32px
- * apart.
+ * "Settings (data & storage)" (7158:11416). A 720px column, 212px in from the sidebar, 48px down:
+ * the 30px page heading, 24px, the section tabs, 32px, then the groups 32px apart.
  */
 
-type Section =
-  | 'General'
-  | 'Integrations'
-  | 'Import & export'
-  | 'Preferences'
-  | 'Tasks'
-  | 'Calendar'
-  | 'Data & storage';
-
-const CURRENT_WORKSPACE: { label: Section; icon: LucideIcon }[] = [
-  { label: 'General', icon: PanelTop },
-  { label: 'Integrations', icon: Zap },
-  { label: 'Import & export', icon: FolderInput },
-];
-const ALL_WORKSPACES: { label: Section; icon: LucideIcon }[] = [
-  { label: 'Preferences', icon: SlidersHorizontal },
+const NAV = [
+  { label: 'Home', icon: House },
   { label: 'Tasks', icon: CircleCheck },
+  { label: 'Projects', icon: Folder },
+  { label: 'Notes', icon: FileText },
   { label: 'Calendar', icon: Calendar },
-  { label: 'Data & storage', icon: Database },
+  { label: 'Integrations', icon: Zap },
 ];
 
-function SettingsSidebar({ active }: { active: Section }) {
-  const item = ({ label, icon }: { label: Section; icon: LucideIcon }) => (
-    <SidebarItem key={label} icon={icon} active={label === active}>
-      {label}
-    </SidebarItem>
-  );
+function AppSidebar() {
   return (
-    <Sidebar aria-label="Settings" header={<SidebarItem icon={ArrowLeft}>Back to app</SidebarItem>}>
+    <Sidebar
+      header={
+        <SidebarHeader>
+          <SidebarWorkspace name="SurveyMonkey" color="green">
+            <DropdownMenuItem icon={<WorkspaceTile letter="S" color="green" />}>
+              SurveyMonkey
+            </DropdownMenuItem>
+          </SidebarWorkspace>
+          <SidebarHeaderActions>
+            <Button variant="ghost" size="icon-xs" icon={Search} aria-label="Search" />
+            <Button variant="ghost" size="icon-xs" icon={SquarePen} aria-label="New task" />
+          </SidebarHeaderActions>
+        </SidebarHeader>
+      }
+    >
       <SidebarContent>
-        <SidebarGroup label="Current workspace" collapsible={false}>
-          {CURRENT_WORKSPACE.map(item)}
+        <SidebarGroup>
+          {NAV.map((n) => (
+            <SidebarItem key={n.label} icon={n.icon}>
+              {n.label}
+            </SidebarItem>
+          ))}
         </SidebarGroup>
-        <SidebarGroup label="All workspaces" collapsible={false}>
-          {ALL_WORKSPACES.map(item)}
+        <SidebarGroup label="Recents">
+          <SidebarItem icon={<StatusIcon status={TaskStatus.IN_PROGRESS} />}>
+            Implement OAuth2 PKCE flow
+          </SidebarItem>
+          <SidebarItem icon={<StatusIcon status={TaskStatus.IN_PROGRESS} />}>
+            Refactor token refresh logic
+          </SidebarItem>
+          <SidebarItem bar="green">Mitchell / Jesse 1:1</SidebarItem>
+          <SidebarItem icon={Folder}>Auth Overhaul</SidebarItem>
+          <SidebarItem icon={FileText}>PKCE design notes</SidebarItem>
+        </SidebarGroup>
+        <SidebarGroup label="Favorites">
+          <SidebarItem icon={Folder}>API Gateway v2</SidebarItem>
+          <SidebarItem bar="green">Sprint Planning</SidebarItem>
+          <SidebarItem icon={FileText}>Auth provider eval matrix</SidebarItem>
+          <SidebarItem icon={Ellipsis}>More</SidebarItem>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter>
+        <SidebarItem icon={Trash2}>Trash</SidebarItem>
+        <SidebarItem icon={SettingsIcon} active>
+          Settings
+        </SidebarItem>
+        <SidebarItem icon={CircleHelp}>Help</SidebarItem>
+      </SidebarFooter>
     </Sidebar>
   );
 }
 
-/** The window: the settings' sidebar, then the section's column with its heading and lead. */
-function SettingsPage({
-  section,
-  description,
-  children,
-}: {
-  section: Section;
-  description: string;
-  children: ReactNode;
-}) {
+type Section = 'general' | 'tasks' | 'calendar' | 'data';
+
+/** The window: sidebar, then the settings column with its heading and section tabs. */
+function SettingsPage({ section, children }: { section: Section; children: ReactNode }) {
   return (
     <TooltipProvider>
       <div
@@ -94,21 +124,20 @@ function SettingsPage({
           overflow: 'hidden',
         }}
       >
-        <SettingsSidebar active={section} />
+        <AppSidebar />
         <main style={{ flex: 1, minWidth: 0, overflow: 'auto' }}>
           <div
             style={{ width: 720, margin: '48px auto', display: 'flex', flexDirection: 'column' }}
           >
-            <Heading level={1}>{section}</Heading>
-            <p
-              style={{
-                margin: '6px 0 0',
-                color: 'var(--muted-foreground)',
-                font: 'var(--font-weight-normal) var(--text-sm) / var(--text-sm-leading) var(--font-sans)',
-              }}
-            >
-              {description}
-            </p>
+            <Heading level={1}>Settings</Heading>
+            <Tabs value={section} style={{ marginTop: 24 }}>
+              <TabsList aria-label="Settings sections">
+                <TabsTab value="general">General</TabsTab>
+                <TabsTab value="tasks">Tasks</TabsTab>
+                <TabsTab value="calendar">Calendar</TabsTab>
+                <TabsTab value="data">Data &amp; storage</TabsTab>
+              </TabsList>
+            </Tabs>
             <div style={{ marginTop: 32, display: 'flex', flexDirection: 'column', gap: 32 }}>
               {children}
             </div>
@@ -128,7 +157,7 @@ const START_PAGES = [
 function General() {
   const [colour, setColour] = useState<Swatch>('green');
   return (
-    <SettingsPage section="General" description="This workspace’s name and colour.">
+    <SettingsPage section="general">
       <SettingsSection title="Workspace">
         <SettingsGroup>
           <SettingsRow
@@ -155,25 +184,6 @@ function General() {
           />
         </SettingsGroup>
       </SettingsSection>
-      <SettingsSection title="Danger zone">
-        <SettingsGroup>
-          <SettingsRow
-            label="Delete workspace"
-            description="Deletes the workspace, its tasks, notes and projects. This can't be undone."
-            control={<Button variant="destructive">Delete Workspace</Button>}
-          />
-        </SettingsGroup>
-      </SettingsSection>
-    </SettingsPage>
-  );
-}
-
-function Preferences() {
-  return (
-    <SettingsPage
-      section="Preferences"
-      description="How DevBrain looks, opens and asks before it acts, in every workspace."
-    >
       <SettingsSection title="General">
         <SettingsGroup>
           <SettingsRow
@@ -245,46 +255,33 @@ function Preferences() {
           />
         </SettingsGroup>
       </SettingsSection>
+      <SettingsSection title="Danger zone">
+        <SettingsGroup>
+          <SettingsRow
+            label="Delete workspace"
+            description="Deletes the workspace, its tasks, notes and projects. This can't be undone."
+            control={<Button variant="destructive">Delete Workspace</Button>}
+          />
+        </SettingsGroup>
+      </SettingsSection>
     </SettingsPage>
   );
 }
 
 function DataAndStorage() {
   return (
-    <SettingsPage
-      section="Data & storage"
-      description="Where DevBrain keeps your workspaces, and putting its settings back."
-    >
+    <SettingsPage section="data">
       <SettingsSection title="Storage">
         <SettingsGroup>
           {/* Figma's SettingsDataFolder: the path as the row's value, then the button */}
           <SettingsRow
             label="Data folder"
-            description="Where DevBrain keeps your workspaces."
+            description="Where DevBrain keeps your workspace."
             value="~/DevBrain"
             control={<Button>Show in Finder</Button>}
           />
         </SettingsGroup>
       </SettingsSection>
-      <SettingsSection title="Reset">
-        <SettingsGroup>
-          <SettingsRow
-            label="Reset settings"
-            description="Puts every setting back to its default, in every workspace. Your data is kept."
-            control={<Button>Reset Settings</Button>}
-          />
-        </SettingsGroup>
-      </SettingsSection>
-    </SettingsPage>
-  );
-}
-
-function ImportExport() {
-  return (
-    <SettingsPage
-      section="Import & export"
-      description="Bring tasks and notes into this workspace, or save a copy of them."
-    >
       <SettingsSection title="Import & export">
         <SettingsGroup>
           <SettingsRow
@@ -321,17 +318,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** General, the open workspace's: its name and colour, and the danger zone */
+/** Settings (general): workspace, appearance, start page, confirmations and the danger zone */
 export const GeneralSettings: Story = { name: 'General', render: () => <General /> };
 
-/** Preferences, every workspace's: appearance, start page, launching, time format, confirmations */
-export const PreferencesSettings: Story = { name: 'Preferences', render: () => <Preferences /> };
-
-/** Import & export, the open workspace's: tasks and notes in and out */
-export const ImportExportSettings: Story = {
-  name: 'Import & export',
-  render: () => <ImportExport />,
-};
-
-/** Data & storage, every workspace's: the data folder, then Reset settings */
+/** Settings (data & storage): the data folder, then import and export */
 export const DataStorage: Story = { name: 'Data & storage', render: () => <DataAndStorage /> };

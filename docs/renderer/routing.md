@@ -63,21 +63,8 @@ __root                         toasts, dialogs, not found
 └── /app/$workspaceId          opens the workspace, under the splash (its pending component);
     │                          WorkspaceShell + sidebar; its error is the open's
     ├── /                      redirect: last page or landing page
-    ├── /home, /tasks, /projects, /notes, /calendar, /trash
-    ├── /integrations          redirect: /settings/integrations (an older link)
-    └── /settings              the settings' sidebar in place of the app's (AppLayout)
-        ├── /                  redirect: /general, or an older ?tab's section
-        └── /general, /integrations, /import-export      the open workspace's
-            /preferences, /tasks, /calendar, /data-storage   every workspace's
+    └── /home, /tasks, /projects, /notes, /calendar, /integrations, /trash, /settings
 ```
-
-**Settings is a mode of the workspace layout.** While a page under `/settings` is shown,
-`AppLayout` gives the shell `SettingsSidebar` instead of `AppSidebar`: Back to app, then a page
-per section, the open workspace's (Current workspace: what its database and accounts hold) apart
-from every workspace's (All workspaces: what the DevBrain folder's settings file holds). Back to
-app goes to the last page shown outside the settings (`resolvedLocation`, so a `/settings` that
-is about to redirect isn't taken for one), or Home. The pages are ordinary routes, so Back and
-Forward, links and "Reopen last page" work per section.
 
 ## How a switch flows
 

@@ -10,6 +10,7 @@ import {
   Settings,
   SquarePen,
   Trash2,
+  Zap,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -42,6 +43,7 @@ const NAV: NavPage[] = [
   { to: '/app/$workspaceId/projects', label: 'Projects', icon: Folder },
   { to: '/app/$workspaceId/notes', label: 'Notes', icon: FileText },
   { to: '/app/$workspaceId/calendar', label: 'Calendar', icon: Calendar },
+  { to: '/app/$workspaceId/integrations', label: 'Integrations', icon: Zap },
 ];
 
 const FOOTER: NavPage[] = [
@@ -50,8 +52,7 @@ const FOOTER: NavPage[] = [
 ];
 
 /**
- * The app's sidebar: the workspace menu and its compose button (New note, as N), the pages as links
- * (a page's details keep it active; Integrations is a section of the settings),
+ * The app's sidebar: the workspace menu and its compose button (New note, as N), the pages as links (a page's details keep it active),
  * Recents and Favorites, then the sync line, Trash, Settings and Help, drawn disabled until there
  * is help.
  */

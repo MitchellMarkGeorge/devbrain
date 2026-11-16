@@ -1,8 +1,7 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
-import { Outlet, useParams, useRouter, useRouterState } from '@tanstack/react-router';
+import { useLayoutEffect, useRef } from 'react';
+import { Outlet, useRouter } from '@tanstack/react-router';
 import { WorkspaceShell, type WorkspaceShellControls } from '@renderer/components';
 import { AppSidebar } from './AppSidebar';
-import { SettingsSidebar } from './SettingsSidebar';
 import { useAppCommands } from './hooks/use-app-commands';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useModalShown } from '@renderer/app/modals';
@@ -10,25 +9,10 @@ import { useModalShown } from '@renderer/app/modals';
 /**
  * Every page in a workspace: the shell with the sidebar, the window bar's back and forward on the
  * router's history, the app-wide commands, and the page. Each page draws its own header (a `Page`
- * with a `PageHeader`, or none), so the layout holds nothing of the page's. While the settings are
- * open the sidebar is theirs (`SettingsSidebar`), whose Back to app returns to the last page outside
- * them.
+ * with a `PageHeader`, or none), so the layout holds nothing of the page's.
  */
 export function AppLayout() {
   const router = useRouter();
-  const { workspaceId } = useParams({ from: '/app/$workspaceId' });
-  // the page shown, once loaded (not one still loading, nor a /settings about to redirect)
-  const shown = useRouterState({ select: (state) => state.resolvedLocation ?? state.location });
-  const inSettings = shown.pathname.startsWith(`/app/${workspaceId}/settings`);
-  // the last page outside the settings, for Back to app (Home when they were opened first)
-  const lastPage = useRef<string | null>(null);
-  useEffect(() => {
-    if (!inSettings) lastPage.current = shown.href;
-  }, [inSettings, shown.href]);
-  const backToApp = () => {
-    if (lastPage.current) void router.navigate({ href: lastPage.current });
-    else void router.navigate({ to: '/app/$workspaceId/home', params: { workspaceId } });
-  };
   const position = useHistoryPosition();
   // the app-wide keys; ⌘\ toggles the shell's sidebar
   const shell = useRef<WorkspaceShellControls>(null);
@@ -43,7 +27,7 @@ export function AppLayout() {
   return (
     <WorkspaceShell
       controlsRef={shell}
-      sidebar={inSettings ? <SettingsSidebar onBack={backToApp} /> : <AppSidebar />}
+      sidebar={<AppSidebar />}
       onBack={() => router.history.back()}
       onForward={() => router.history.forward()}
       canGoBack={position.canGoBack}

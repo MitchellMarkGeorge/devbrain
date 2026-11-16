@@ -122,7 +122,7 @@ export function SidebarSync() {
       }
       retryAt={summary.retryAt ? format.formatTime(summary.retryAt) : undefined}
       onOpen={() =>
-        void navigate({ to: '/app/$workspaceId/settings/integrations', params: { workspaceId } })
+        void navigate({ to: '/app/$workspaceId/integrations', params: { workspaceId } })
       }
       onRetry={() => syncNow.mutate(undefined)}
     />

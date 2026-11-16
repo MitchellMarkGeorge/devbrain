@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { TaskPriority, type AppSettings } from '@common/types';
 import { importSummaryText } from '@renderer/features/settings/components/DataStorageSettings';
-import {
-  legacySettingsSearchSchema,
-  sectionOfLegacyTab,
-} from '@renderer/features/settings/api/search';
+import { settingsSearchSchema } from '@renderer/features/settings/api/search';
 import { withSetting } from '@renderer/features/settings/hooks/use-set-setting';
 
-// An older settings link's ?tab and the section it opens, its optimistic write, and the import summary's words.
+// The settings page's search param, its optimistic write, and the import summary's words.
 
 const SETTINGS: AppSettings = {
   theme: 'system',
@@ -35,18 +32,10 @@ const SETTINGS: AppSettings = {
   },
 };
 
-describe('an older settings link’s ?tab', () => {
+describe('settingsSearchSchema', () => {
   it('reads the tab, snake case, and drops a bad one', () => {
-    expect(legacySettingsSearchSchema.parse({ tab: 'data_storage' })).toEqual({
-      tab: 'data_storage',
-    });
-    expect(legacySettingsSearchSchema.parse({ tab: 'dataStorage' })).toEqual({ tab: undefined });
-  });
-
-  it('opens the section the tab was, and General for none', () => {
-    expect(sectionOfLegacyTab('data_storage')).toBe('data-storage');
-    expect(sectionOfLegacyTab('calendar')).toBe('calendar');
-    expect(sectionOfLegacyTab(undefined)).toBe('general');
+    expect(settingsSearchSchema.parse({ tab: 'data_storage' })).toEqual({ tab: 'data_storage' });
+    expect(settingsSearchSchema.parse({ tab: 'dataStorage' })).toEqual({ tab: undefined });
   });
 });
 

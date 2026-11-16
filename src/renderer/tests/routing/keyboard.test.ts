@@ -34,8 +34,8 @@ describe('the app-wide keys', () => {
     key('n');
     await eventually(() => expect(app.path()).toBe(`/app/${WORK}/notes`));
     for (const [letter, page] of [
-      ['i', 'settings/integrations'],
-      ['s', 'settings/general'],
+      ['i', 'integrations'],
+      ['s', 'settings'],
       ['x', 'trash'],
     ]) {
       key('g');

@@ -1,8 +1,12 @@
-import { createFileRoute, redirect } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
+import { IntegrationsPage } from '@renderer/features/integrations/page/IntegrationsPage';
 
-// Integrations moved into the settings; an older link (a saved last page) goes there.
+// The workspace's connected accounts and their sources.
 export const Route = createFileRoute('/app/$workspaceId/integrations')({
-  beforeLoad: ({ params }) => {
-    throw redirect({ to: '/app/$workspaceId/settings/integrations', params, replace: true });
-  },
+  loader: ({ context: { queryClient, trpc } }) =>
+    Promise.all([
+      queryClient.query({ ...trpc.integrations.list.queryOptions(), staleTime: 'static' }),
+      queryClient.query({ ...trpc.sync.status.queryOptions(), staleTime: 'static' }),
+    ]),
+  component: IntegrationsPage,
 });

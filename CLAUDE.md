@@ -202,11 +202,6 @@ The renderer routes with TanStack Router: file routes in `src/renderer/routes`, 
   with its `PageHeader` (breadcrumb from `useCrumbLink`, actions), or no `header` at all. The
   workspace layout holds nothing of the page's; `Page` itself puts the header in the window's
   title bar (`WorkspaceShell`'s `titleBarContainer`), so a page never fills a slot of its own.
-- **Settings has its own sidebar.** Under `/app/$workspaceId/settings/…` the workspace layout gives
-  the shell `SettingsSidebar` (Back to app, then a page per section) in place of `AppSidebar`. List
-  a new setting under **Current workspace** when the workspace stores it (its database, its
-  accounts) and under **All workspaces** when the settings file does, so it is clear which one it
-  changes.
 - Route files stay thin (`params`, `validateSearch`, `beforeLoad`, `loader`, a page component).
   `src/renderer/components` stays the design system: no router, no IPC.
 - When a TanStack upgrade fails `src/renderer/tests/routing/tanstack-behaviour.test.ts`, the
