@@ -1204,7 +1204,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
   commands too (`transfer.importTasks`, `transfer.exportTasksCsv`, …, registered by the workspace
   layout with `useTransferCommands`), which run the Settings buttons' own flow (`useTransfers`):
   the same route and dialog, summary dialog, toast and error toast, one transfer at a time. The
-  export toast now has Show in Finder (`transfer.showExport`). The
+  export toast now has Show in Finder (`app.showFile`). The
   menu shows the default keymap's keys: when Vim mode lands, its hints would need the active
   keymap from the renderer.
 - **A3: provider catalogue.** The "Connect Account" menu (`7165:13363`) lists what can be connected:
@@ -1583,7 +1583,7 @@ linkedTaskId } })`), separate from the task's event or note link.
       zone with Delete workspace (typed name, then `/onboarding`, which `followOutsideChanges`
       would also do). Import shows the summary dialog with View Tasks / View Notes; Export tasks
       offers CSV or JSON; the export toasts say where, with Show in Finder (added in milestone 11,
-      `transfer.showExport`).
+      `app.showFile`).
     - Tests: `tests/routing/{trash,integrations,settings}.test.ts` over the fake main (which now
       takes per-test `routes` and `push`es events), and unit tests of the pages' words and
       helpers in `tests/{trash,integrations,settings}`.

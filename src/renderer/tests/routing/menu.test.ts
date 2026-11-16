@@ -92,15 +92,15 @@ describe("the menu's Import and Export", () => {
       },
       [],
     ]);
-    main.routes.set('transfer.showExport', () => [undefined, []]);
+    main.routes.set('app.showFile', () => [undefined, []]);
     main.push('app.command', { command: 'transfer.exportNotes', workspaceId: WORK });
     await eventually(() => expect(document.body.textContent).toContain('Exported 5 notes'));
     expect(document.body.textContent).toContain(
       'Saved to DevBrain notes. 1 note couldn’t be read and was left out.',
     );
     click(byText(document.body, 'button', 'Show in Finder'));
-    await eventually(() => expect(main.callsTo('transfer.showExport')).toHaveLength(1));
-    expect(main.callsTo('transfer.showExport')[0].input).toEqual({
+    await eventually(() => expect(main.callsTo('app.showFile')).toHaveLength(1));
+    expect(main.callsTo('app.showFile')[0].input).toEqual({
       path: '/Users/me/DevBrain notes',
     });
   });

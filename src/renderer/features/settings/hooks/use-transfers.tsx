@@ -160,7 +160,7 @@ export interface Transfers {
 /**
  * Runs an import or export and shows what it did. A call while another transfer runs (from the
  * page or the menu) does nothing. Show in Finder asks main to show the file or folder the export
- * wrote (`transfer.showExport`, with the path its route returned).
+ * wrote (`app.showFile`, with the path its route returned).
  */
 export function useTransfers(): Transfers {
   const { workspaceId } = useParams({ from: '/app/$workspaceId' });
@@ -211,7 +211,7 @@ export function useTransfers(): Transfers {
       action: {
         label: 'Show in Finder',
         onClick: () =>
-          void ipc.transfer.showExport
+          void ipc.app.showFile
             .mutate({ path })
             .catch((error: unknown) => showError(error, 'Couldn’t show the export')),
       },

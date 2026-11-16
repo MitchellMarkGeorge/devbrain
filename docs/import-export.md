@@ -29,7 +29,6 @@ dialog.
 | `transfer.importNotes`    | open `.md`, `.markdown`, `.txt` files  | `NoteImportSummary`, or `null`                 |
 | `transfer.exportTasks`    | save as, `{ format: 'csv' \| 'json' }` | `TaskExportResult` (`path`, `count`)           |
 | `transfer.exportNotes`    | choose a folder                        | `NoteExportResult` (`path`, `count`, `errors`) |
-| `transfer.showExport`     | none, `{ path }`                       | shows that file or folder, selected            |
 | `settings.showDataFolder` | none                                   | opens the data folder in the file manager      |
 | `workspace.showInFolder`  | none                                   | opens the open workspace's folder              |
 
@@ -42,10 +41,10 @@ If the workspace is closed or switched while a dialog is open (from another wind
 fails with `workspace_closed` and writes nothing.
 
 An export's toast offers "Show in Finder" (Figma `7423:37520`) for the file or folder just
-written: it calls `transfer.showExport({ path })` with the `path` the export route returned, and
-main shows it selected in its folder (`shell.showItemInFolder`; the folder when the file has gone
-since). It is the one route that takes a path from the renderer. It only reveals it, never opens
-or reads it, and takes an absolute path only.
+written: it calls `app.showFile({ path })` with the `path` the export route returned, and main
+shows it selected in its folder (`shell.showItemInFolder`; the folder when the file has gone
+since). `app.showFile` is the one route that takes a path from the renderer: it only reveals it,
+never opens or reads it, and takes an absolute path only.
 
 ### From the app menu
 

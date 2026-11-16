@@ -189,9 +189,10 @@ value: '24' }`), or one group (`settings.calendar`), checking the value against 
   workspace's folder; `notes.showInFolder({ id })` shows the note's markdown file selected in its
   folder (Electron's `shell.showItemInFolder`), at the path `NoteService.filePathOf` gives, or
   opens the notes folder when the file is missing. A path handed to the desktop comes from main's
-  state or a dialog, never from the renderer's input, with one exception: `transfer.showExport({
-path })` shows an export's file or folder selected, at the path its export route returned. It
-  only reveals the path (`shell.showItemInFolder`), never opens or reads it.
+  state or a dialog, never from the renderer's input, with one exception: `app.showFile({ path })` shows any file or folder selected
+  in the file manager (an export toast's Show in Finder passes the path its export route
+  returned). It only reveals the path (`shell.showItemInFolder`), never opens or reads it, and
+  takes an absolute path only.
 - **`app.showLogFile`** shows the log file in the file manager (`ctx.desktop.showLogFile`). It is
   public, as the renderer offers it when DevBrain couldn't open its data folder, the one time no
   other route runs.

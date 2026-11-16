@@ -1,4 +1,3 @@
-import path from 'node:path';
 import { z } from 'zod';
 import type { Workspace } from '@main/core';
 import { toDateString } from '@main/core/shared/dates';
@@ -11,14 +10,14 @@ import type {
   TaskImportSummary,
 } from '@common/types';
 import type { AppContext } from '../context';
-import { devBrainProcedure, wsProcedure } from '../procedures';
+import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 
 // Importing and exporting the open workspace's tasks and notes (docs/import-export.md). Main asks
 // for the file or folder with the system dialog, then hands its path to core's TransferService:
-// the renderer never names a path to read or write. Each resolves with null when the dialog is
-// cancelled. What an import creates is announced by TaskService and NoteService, so it comes back
-// in `changed`. showExport is the one route that takes a path: it only reveals it.
+// the renderer never names a path. Each resolves with null when the dialog is cancelled. What an
+// import creates is announced by TaskService and NoteService, so it comes back in `changed`. An
+// export toast's Show in Finder shows the file with app.showFile.
 
 // The workspace the call started on, once the dialog has closed: one switched or closed meanwhile
 // (from another window) gets nothing written to it, and the call fails with workspace_closed.
@@ -73,13 +72,4 @@ export const transferRouter = t.router({
     if (dir === null) return null;
     return stillOpen(ctx, ctx.workspace).transfer.exportNotesToFolder(dir);
   }),
-
-  // Shows an export's file or folder selected in the file manager (its folder when it has gone):
-  // the export toast's Show in Finder, with the `path` the export returned. It only reveals the
-  // path, never opens or reads it, so it is the one route that takes a path from the renderer.
-  showExport: devBrainProcedure
-    .input(
-      z.object({ path: z.string().min(1).refine(path.isAbsolute, 'Must be an absolute path') }),
-    )
-    .mutation(({ ctx, input }) => ctx.desktop.showItem(input.path)),
 });

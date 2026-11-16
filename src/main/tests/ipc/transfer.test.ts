@@ -243,23 +243,3 @@ describe('exporting', () => {
     });
   });
 });
-
-describe('showing an export', () => {
-  it('shows the path the export returned, selected in its folder', async () => {
-    const exported = path.join(files, 'tasks.csv');
-    expect(await call('transfer.showExport', { path: exported }, 'mutation')).toMatchObject({
-      ok: true,
-      changed: [],
-    });
-    expect(desktop.showItem).toHaveBeenCalledWith(exported);
-    expect(desktop.openFolder).not.toHaveBeenCalled();
-  });
-
-  it('refuses a missing or relative path', async () => {
-    expect(code(await call('transfer.showExport', undefined, 'mutation'))).toBe('invalid_input');
-    expect(code(await call('transfer.showExport', { path: 'tasks.csv' }, 'mutation'))).toBe(
-      'invalid_input',
-    );
-    expect(desktop.showItem).not.toHaveBeenCalled();
-  });
-});

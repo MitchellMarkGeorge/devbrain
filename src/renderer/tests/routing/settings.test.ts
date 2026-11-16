@@ -242,14 +242,14 @@ describe('the settings', () => {
     await eventually(() => expect(document.body.textContent).toContain('Exported 12 notes'));
     expect(document.body.textContent).toContain('Saved to DevBrain notes.');
     // Show in Finder sends the path the export returned
-    main.routes.set('transfer.showExport', () => [undefined, []]);
+    main.routes.set('app.showFile', () => [undefined, []]);
     // the toast's, not the data folder's above it
     const shows = [...document.querySelectorAll('button')].filter(
       (button) => button.textContent === 'Show in Finder',
     );
     click(shows[shows.length - 1]);
-    await eventually(() => expect(main.callsTo('transfer.showExport')).toHaveLength(1));
-    expect(main.callsTo('transfer.showExport')[0].input).toEqual({
+    await eventually(() => expect(main.callsTo('app.showFile')).toHaveLength(1));
+    expect(main.callsTo('app.showFile')[0].input).toEqual({
       path: '/Users/me/Downloads/DevBrain notes',
     });
   });
