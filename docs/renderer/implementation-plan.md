@@ -77,7 +77,7 @@ surveyed three things in parallel and checked the claims the plan rests on again
 | Workspaces in the URL              | **Built (milestones 1–2).** Every page in a workspace is under `/app/$workspaceId`, and `/app/$workspaceId` opens the workspace its URL names when it isn't open. Main picks the window's first URL (the last workspace, or its last page); the renderer never decides which workspace to open. Switching is navigating; Back and Forward across workspaces reopen them. See [routing.md](routing.md).                                                                                                                                                                                                                                                                                            |
 | Splash                             | **Built.** `/app/$workspaceId`'s pending component, shown `SPLASH_DELAY_MS` (50ms) into an open: at startup and on a switch, never for a load that opens nothing (a reload, onboarding, Back from Create workspace). The open takes 600ms at least, so a quick one doesn't flicker. The old page stays mounted, hidden, under it; its queries don't refetch, as the invalidator removes their data; the route remounts on a new workspace (`remountDeps`). No boot route: startup is the same flow on the first load.                                                                                                                                                                             |
 | Not in the route list but designed | `/app/integrations` (in the sidebar nav, Figma `7164:13117`). ⌘K is a dialog, not a route. The sidebar's Help item opens the keyboard shortcuts; Welcome's "What's a workspace?" link has nothing behind it yet and is drawn disabled.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Trash                              | The route is **`/app/trash`**, matching the UI and `docs/deleting.md`. Core still says archive (`archive` router, `listArchived`); the code rename is its own follow-up (E2).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Trash                              | The route is **`/app/trash`**, matching the UI and `docs/deleting.md`. Core says trash too (`trash` router, `listTrashed`), since the code rename (E2).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | New workspace                      | Create workspace is a page of its own, `/workspaces/new` (an `AppShell`, no sidebar), from Welcome and from the app's workspace menu, where the open workspace stays open behind it until the new one is created. It replaced the in-app dialog (Figma `7760:61527`, now out of date). See routing.md, "Create workspace".                                                                                                                                                                                                                                                                                                                                                                        |
 | Calendar rendering                 | **FullCalendar 7** (`@fullcalendar/react` with its `timegrid`, `daygrid` and `interaction` plugins, and `@fullcalendar/rrule`), mapped per `docs/calendar/fullcalendar-adapter.md`. `TimeGrid` and `MonthGrid` are the visual spec: FullCalendar is themed to match them with tokens and draws `EventBlock`/`AllDayEvent` through its content hooks. See [Calendar](#calendar-appcalendar).                                                                                                                                                                                                                                                                                                       |
 | Keyboard                           | One command registry and a keymap dispatcher of our own, with modes and key sequences from the start, so Vim mode is a second keymap rather than a rewrite. See [Keyboard](#keyboard-commands-keymaps-and-vim-mode).                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -461,10 +461,10 @@ sheet's `open` param does not.
 - **Errors** go through one `useMutationErrorToast()` that maps `IpcErrorCode` to copy
   (`external_read_only` → "This task is synced from Linear. Change it there, or detach it.",
   `rate_limited` → retry time, `internal` → "Something went wrong").
-- **Confirmations** honour `settings.general.confirmBeforeArchiving` and `confirmBeforeDeleting`
+- **Confirmations** honour `settings.general.confirmBeforeTrashing` and `confirmBeforeDeleting`
   in one `useConfirm()` (ConfirmDialog); core never reads them.
 - **Undo**: moving to trash shows the "Moved to trash · Undo" toast (`7175:33810`), whose action
-  calls the matching `archive.restore*`.
+  calls the matching `trash.restore*`.
 
 ### Entity components take core's shapes
 
@@ -863,8 +863,8 @@ Figma `7158:6266` and variants (`7158:7794` subtask, `7158:8195` note, `7158:864
   Convert to project (C1), Link to ›, Make subtask of › (`tasks.demote`, picker `7424:38759`),
   Duplicate (C2), Copy as Markdown (C3), and for a Linear task Open in Linear
   (`workspace.openUrl`), Copy Linear URL, Detach (`tasks.detach`, dialog `7175:32683`) or Reattach;
-  then Move to trash (`archive.archiveTask`, then navigate back with the Undo toast).
-- A subtask shows its parent pill; an archived task (opened from Trash) shows a "In trash ·
+  then Move to trash (`trash.trashTask`, then navigate back with the Undo toast).
+- A subtask shows its parent pill; a trashed task (opened from Trash) shows a "In trash ·
   Restore" banner and is read-only.
 
 ### Projects (`/app/projects`) and project page (`/app/projects/$projectId`)
@@ -963,12 +963,12 @@ Figma `7158:13273` (week), `7158:13856` (day), `7158:18439` (month), `7175:30140
 Figma `7159:11875`, `7175:29207` (row menu), `7285:53046` (delete confirm), `7426:43525`
 (restored toast), `7175:36899` (empty).
 
-- Tabs (`ToggleGroup`) in `?tab` → `archive.listArchived({ entityType })`, infinite.
-- `TrashRow` with Restore (`archive.restore*` + "Restored" toast with "Open") and Delete
+- Tabs (`ToggleGroup`) in `?tab` → `trash.listTrashed({ entityType })`, infinite.
+- `TrashRow` with Restore (`trash.restore*` + "Restored" toast with "Open") and Delete
   (`ConfirmDialog` when `confirmBeforeDeleting`, saying what happens to linked items, then
   `tasks.delete` / `projects.delete` / `notes.delete`). Clicking a row opens the item's page
   read-only.
-- "Empty trash" calls `archive.emptyTrash` (E1), after the confirm when `general.confirmBeforeDeleting` is on.
+- "Empty trash" calls `trash.emptyTrash` (E1), after the confirm when `general.confirmBeforeDeleting` is on.
 
 ### Integrations (`/app/integrations`)
 
@@ -1047,7 +1047,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
   workspace with many projects makes the group view slow to open, or the headings' counts need
   loading every page.
 - **T2: bulk updates** for the selection bar: `tasks.updateMany({ ids, patch })` and
-  `archive.archiveTasks({ ids })` in one transaction with one change event, so a partial failure
+  `trash.trashTasks({ ids })` in one transaction with one change event, so a partial failure
   can't happen and the list refetches once.
 - **T3: multi-value filters.** Core filters by **one** value per field: `status: 2`, not
   "In progress or Not started"; `priority: 3`, not "High or Medium". So the filter menu can offer
@@ -1084,9 +1084,9 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
   progress → active, completed → completed, cancelled → on hold); the task's active subtasks become
   the project's top-level tasks (their own subtasks stay under them, the whole subtrees join the
   project, and they keep the link they took from the task); its task note moves to the project
-  and links to no task; the task is archived, keeping its own event or note link (a project has
+  and links to no task; the task is trashed, keeping its own event or note link (a project has
   none). Its favorite moves to the project. A synced task is refused (`external_read_only`). One
-  task change, `converted` (the archived task, the project, the moved tasks and the note), after
+  task change, `converted` (the trashed task, the project, the moved tasks and the note), after
   the commit; the tracker reports task and project, and note when one moved.
 - **C2 (done): duplicate** a task (with subtasks) and a note (with its content).
   `tasks.duplicate({ id })` (`TaskService.duplicateTask`) copies the task and its active subtree
@@ -1111,27 +1111,28 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
   100), inserted through `TaskService.insertTaskTrees` in the project's transaction. The project's
   `created` and then each task's are sent once it has committed.
 
-### Archive
+### Trash
 
-- **E1 (done): empty trash** (follow-up "Empty trash"): `ArchiveService.emptyTrash` deletes every
-  archived task, project and note in one transaction, then the note files (through the note
-  service); one archive change, `emptied`.
-- **E2 (later): rename archive to trash in code** (follow-up). Independent of the UI, which says
-  Trash already.
+- **E1 (done): empty trash** (follow-up "Empty trash"): `TrashService.emptyTrash` deletes every
+  trashed task, project and note in one transaction, then the note files (through the note
+  service); one trash change, `emptied`.
+- **E2 (done): rename archive to trash in code** (follow-up). `TrashService` and the `trash`
+  router, `trashedAt` (migration 0028 renames the `archived_at` columns) and
+  `confirmBeforeTrashing`, carried over from `confirmBeforeArchiving` when the settings file opens.
 
 ### Shared types
 
 - **X1: move the DTO types and their enums to `src/common`.** `src/common/types.ts` exists and is
   empty; this fills it. A **DTO** here is anything a route takes or returns: `Task`,
   `TaskListItem`, `Project`, `ProjectStats`, `Note`, `NoteListItem`, `Event`, `Calendar`,
-  `Integration`, `ExternalRef`, `SourceSyncStatus`, `WorkspaceInfo`, `ArchivedEntity`,
+  `Integration`, `ExternalRef`, `SourceSyncStatus`, `WorkspaceInfo`, `TrashedEntity`,
   `SearchResult`, the favorite and recent entries, `Page<T>`, the summaries (`TaskSummary`,
   `ProjectSummary`, …), `AppSettings` with `appSettingsSchema`, and the enums they use
   (`TaskStatus`, `TaskPriority`, `ProjectStatus`, `EventKind`, `EventStatus`, `EventResponse`).
 
   - **Layout:** one file per feature (`src/common/types/tasks.ts`, `projects.ts`, `notes.ts`,
     `events.ts`, `calendars.ts`, `integrations.ts`, `workspaces.ts`, `settings.ts`, `search.ts`,
-    `archive.ts`, `shared.ts`), re-exported from `src/common/types/index.ts`.
+    `trash.ts`, `shared.ts`), re-exported from `src/common/types/index.ts`.
   - **Core imports them from `@common`** with no re-export from the old files, so each type has one
     home. The renderer stops using `import type` from `@main` for data, and keeps it only for
     `AppRouter`.
@@ -1365,7 +1366,7 @@ page that needs them.
    - A group's "Add task" opens Create task with the group's project, status, priority or date,
      rather than an inline `QuickAddRow`. Groups load once their heading has been on screen; a
      project group with no tasks for the filters is left out once loaded.
-   - The selection bar uses `tasks.updateMany` and `archive.archiveTasks` (T2).
+   - The selection bar uses `tasks.updateMany` and `trash.trashTasks` (T2).
    - The board's sheet docks by portalling into the shell's sheet column
      (`useWorkspaceShell().sheetContainer`), which opens while the sheet is in it; the calendar's
      event sheet can do the same. It floats in compact windows. Board cards keep
@@ -1566,12 +1567,12 @@ linkedTaskId } })`), separate from the task's event or note link.
 10. **Trash, Integrations, Settings (done).** _Main:_ E1, S1, S3; A3 and K1 not needed (the
     providers are hard-coded). As built:
     - **Trash** (`src/renderer/features/trash`): `?tab` (snake case, `sort` reserved) over
-      `archive.listArchived`, infinite and virtualized in the page (`TrashList`, on
+      `trash.listTrashed`, infinite and virtualized in the page (`TrashList`, on
       `components/lib/virtual`); Restore with "Restored · Open", Delete asking per
       `confirmBeforeDeleting` in `deleteConsequence`'s words (docs/deleting.md), the right-click
       menu (`7175:29207`), Empty Trash in the toolbar (no frame draws it) reporting
       `keptTaskIds` and `filesNotRemoved`. A row opens its item's page: `tasks.get` now returns a
-      trashed task (`getById(…, { includeArchived })`), shown inert under `TrashedNotice` with
+      trashed task (`getById(…, { includeTrashed })`), shown inert under `TrashedNotice` with
       Restore. A trashed project or note still opens on not-found: `projects.get` and `notes.get`
       refuse trashed rows (follow-up "Open trashed projects and notes read-only").
     - **Integrations** (`src/renderer/features/integrations`): an `IntegrationAccount` per account,

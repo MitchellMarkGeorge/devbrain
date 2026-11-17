@@ -1,22 +1,22 @@
 # Deleting tasks, projects and notes
 
-The UI calls archiving "moving to trash": it sets `archivedAt` and can be undone. Deleting removes
+Moving an item to the trash sets its `trashedAt` and can be undone. Deleting removes
 an item for good, and is only offered on the Trash page, for items already in the trash (Figma,
 "v2 Screens": "Trash – row right-click menu" and "Trash — delete permanently confirm"). Menus and
-detail views offer "Move to trash" and no delete. So core deletes only archived items and refuses
-an active one with `NotArchivedError` (`not_archived`), the error restore already uses. The code
-still says "archive"; renaming it to trash is a follow-up.
+detail views offer "Move to trash" and no delete. So core deletes only trashed items and refuses
+an active one with `NotInTrashError` (`not_in_trash`), the error restore already uses. The code
+said "archive" for the trash until migration 0028 renamed `archived_at` to `trashed_at`.
 
 ## Where it lives
 
 `TaskService.deleteTask`, `ProjectService.deleteProject` and `NoteService.deleteNote`, exposed as
 `tasks.delete`, `projects.delete` and `notes.delete`, like `EventService.deleteEvent` and
-`events.delete`. They are on each entity's service rather than the archive service because each
+`events.delete`. They are on each entity's service rather than the trash service because each
 needs what only its own service has: the task tree and its sync rules for tasks, and for notes the notes folder and the
 queue of content saves the delete must wait behind.
 
 Each delete runs in one transaction and sends a `deleted` change as its last step, inside it, so
-search drops the rows in the same commit, as an archive does. The `ChangeTracker` maps it to the
+search drops the rows in the same commit, as moving to the trash does. The `ChangeTracker` maps it to the
 deleted kind plus the kinds that lost a link to it.
 
 ## What goes, what stays
@@ -30,12 +30,12 @@ it.
 | Project | Its external link                                                | Its tasks and notes (`projectId` set null)                                                                            |
 | Note    | Its markdown file, after the commit                              | Tasks made from it, subtasks included (`linkedNoteId` set null); the task it was the task note of, which now has none |
 
-- **Only from the trash.** A task needs its whole subtree archived. Archiving takes the subtree
-  along, but sync archives a removed Linear task on its own and can leave synced subtasks live under
+- **Only from the trash.** A task needs its whole subtree trashed. Trashing takes the subtree
+  along, but sync trashes a removed Linear task on its own and can leave synced subtasks live under
   it; deleting it would take those with it, so it is refused until they are gone too.
 - The response lists every id removed (a task's whole subtree) and every row that lost a link.
 - **Projects keep their tasks and notes.** They are the user's own work, and a project is a
-  grouping. Deleting them too is a delete of each. Archived ones stay archived.
+  grouping. Deleting them too is a delete of each. Trashed ones stay trashed.
 - **One task note per task** still holds: `notes.linkedTaskId` is unique, and a delete only clears
   it. A freed note can become another task's task note.
 - **Deleting a task note** leaves its task as it was: the link lives on the note, so the task row
@@ -51,11 +51,11 @@ it.
 
 ## Synced items
 
-| Link state                         | Delete                                                                               |
-| ---------------------------------- | ------------------------------------------------------------------------------------ |
-| none (local)                       | Allowed                                                                              |
-| `synced`                           | Never archived, so refused with `not_archived` (`external_read_only` is checked too) |
-| `detached` or `removed` (any kind) | Allowed, nothing recorded for sync                                                   |
+| Link state                         | Delete                                                                              |
+| ---------------------------------- | ----------------------------------------------------------------------------------- |
+| none (local)                       | Allowed                                                                             |
+| `synced`                           | Never trashed, so refused with `not_in_trash` (`external_read_only` is checked too) |
+| `detached` or `removed` (any kind) | Allowed, nothing recorded for sync                                                  |
 
 A detached task is the user's own copy of a provider item, and they own the copy, not the item. A
 `removed` one is the same: the provider no longer assigns it, and what is left is the user's.
@@ -72,20 +72,20 @@ to suppress it. The same holds for detached and removed projects.
 
 ## Empty trash
 
-`ArchiveService.emptyTrash`, exposed as `archive.emptyTrash`, deletes every item in the trash for
-good. It lives with the trash: one transaction deletes every archived task, project and note, so
+`TrashService.emptyTrash`, exposed as `trash.emptyTrash`, deletes every item in the trash for
+good. It lives with the trash: one transaction deletes every trashed task, project and note, so
 either the whole trash goes or none of it. Then the deleted notes' files are removed through
 `NoteService.removeDeletedFiles`, the one part it leaves to the note service: that service owns
 the notes folder and each note's queue of content saves. The workspace passes it in.
 
 - **The same rules as one delete.** Links work as in the table above: a task takes its subtasks and
   their links, a project leaves its tasks and notes with no project, a note leaves the tasks linked
-  to it. An archived task with an active or synced task anywhere below it stays in the trash, as
+  to it. A trashed task with an active or synced task anywhere below it stays in the trash, as
   `tasks.delete` refuses it; the response lists it in `keptTaskIds`.
 - **One step per kind.** `emptyTrash` runs a private method for each, inside the transaction:
   tasks first, then projects, then notes, so the later steps' unlinked rows are only tasks that are
   left.
-- **One change**, the archive's `emptied`, sent as the transaction's last step, inside it. It names
+- **One change**, the trash's `emptied`, sent as the transaction's last step, inside it. It names
   every id deleted and every row left that lost a link (`unlinkedTaskIds`, `unlinkedNoteIds`), so
   the `ChangeTracker` reports those kinds too.
 - **The files after the commit.** Each waits behind the content saves already queued for its note.
@@ -99,22 +99,22 @@ the notes folder and each note's queue of content saves. The workspace passes it
 
 ## The trash
 
-`ArchiveService.listArchived`, exposed as `archive.listArchived`, lists the trash newest first. It
-pages the three tables as one union by `archivedAt` and id. Then it reads what each row draws with
+`TrashService.listTrashed`, exposed as `trash.listTrashed`, lists the trash newest first. It
+pages the three tables as one union by `trashedAt` and id. Then it reads what each row draws with
 one query per kind on the page, plus one batched lookup of the provider links per linked kind. A
 page costs the same few queries however many rows it has, and the union's keyset stays on its own
 columns.
 
-- **What each row carries** (`ArchivedEntity` in `src/common/types/archive.ts`):
+- **What each row carries** (`TrashedEntity` in `src/common/types/trash.ts`):
   - a task: its status, its project and its link (a detached item's key);
   - a project: its status, colour and link;
   - a note: its preview (the first line) and its project.
-- **A row's project is shown even when it is in the trash too.** Archiving a project takes its tasks
-  and notes along, and the pill says where they came from. Lists elsewhere leave archived projects
+- **A row's project is shown even when it is in the trash too.** Trashing a project takes its tasks
+  and notes along, and the pill says where they came from. Lists elsewhere leave trashed projects
   out.
 - **Opening a row** opens the item on its own page, read-only, under `TrashedNotice` ("This … is in
   the trash"), with Restore. `tasks.get`, `projects.get` and `notes.get` return a row in the trash
-  (each service's `getById` takes `includeArchived`), and so does `notes.readContent`, for the
+  (each service's `getById` takes `includeTrashed`), and so does `notes.readContent`, for the
   note's body. Each page hides its star and "…" menu and makes its content inert. The project
   page's tabs still switch.
 - **Several at once.** Rows select as the other lists' do (a checkbox, X), and the selection bar
@@ -125,13 +125,13 @@ columns.
 
 ## Restore or delete several
 
-`ArchiveService.restoreMany` and `ArchiveService.deleteMany`, exposed as `archive.restoreMany` and
-`archive.deleteMany`, take the rows chosen in Trash by kind (`TrashSelection`: `taskIds`,
+`TrashService.restoreMany` and `TrashService.deleteMany`, exposed as `trash.restoreMany` and
+`trash.deleteMany`, take the rows chosen in Trash by kind (`TrashSelection`: `taskIds`,
 `projectIds`, `noteIds`). They live with the trash, like `emptyTrash`, because a selection mixes
 the three kinds.
 
 - **All or nothing.** Each runs in one transaction. Every id is checked first: an unknown one
-  fails the call with `not_found`, one not in the trash with `not_archived`, and nothing changes.
+  fails the call with `not_found`, one not in the trash with `not_in_trash`, and nothing changes.
   An empty selection is refused as invalid input.
 - **Overlaps are resolved in core.** Restoring goes projects first (each with its tasks and their
   notes, as `restoreProject`), then tasks (each with its subtree and notes, as `restoreTask`), then

@@ -135,7 +135,7 @@ One row per task, with a header. The columns an export writes, in order:
 | Date that is not `YYYY-MM-DD`                                   | **error** for the row                                                                                 |
 | Pull request link that is not http(s)                           | **error** for the row                                                                                 |
 | No title; title over 500 or description over 100,000 characters | **error** for the row                                                                                 |
-| Project title that matches one project                          | the task goes in it (trimmed, ignoring case; archived projects don't count)                           |
+| Project title that matches one project                          | the task goes in it (trimmed, ignoring case; trashed projects don't count)                            |
 | Project title that matches none, or several                     | imported without a project, with a **warning**                                                        |
 | Project on a subtask                                            | ignored: a subtask takes its top-level task's project                                                 |
 | `id` of a task already in the workspace                         | **skipped**, so importing an export twice adds nothing                                                |
@@ -192,7 +192,7 @@ that never closes, another extension) fails with `ImportFileError` (code `import
 
 - **Only tasks made in DevBrain**, the ones wholly the user's: active ones, subtasks included,
   oldest first. Left out are:
-  - **archived tasks** (the archive is DevBrain's trash);
+  - **tasks in the trash**;
   - **synced tasks**, such as a Linear issue: they belong to their integration, which brings them
     back;
   - **detached tasks**: the user can edit them, but they came from an integration.
@@ -240,7 +240,7 @@ id: nte_0193…
   and trailing dots and spaces are dropped, Windows device names (`CON`, `NUL`, …) get a `_`, names
   are cut at 100 characters, and an untitled note is `Untitled`. Names that clash (ignoring case)
   get ` (2)`, ` (3)`, ….
-- A note whose file can't be read is left out and listed in `errors`; archived notes are left out.
+- A note whose file can't be read is left out and listed in `errors`; trashed notes are left out.
 
 ## Safety
 

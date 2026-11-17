@@ -141,7 +141,7 @@ There is no sender check: the window is sandboxed, denies new windows and cancel
 
 [`router.ts`](../../src/main/ipc/router.ts) merges one router per feature, in
 [`src/main/ipc/routers`](../../src/main/ipc/routers): `app`, `workspaces`, `workspace`, `settings`,
-`tasks`, `archive`, `calendars`, `integrations`, `sources`, `sync`, `notes`, `projects`, `events`,
+`tasks`, `trash`, `calendars`, `integrations`, `sources`, `sync`, `notes`, `projects`, `events`,
 `favorites`, `recents`, `search` and `transfer`. Each file's comments say what its procedures do. A few points that are
 not obvious from one file:
 
@@ -172,14 +172,14 @@ value: '24' }`), or one group (`settings.calendar`), checking the value against 
 - **Work left running.** The first sync after `integrations.connect`, `sources.setEnabled` or
   `calendars.setSelected` goes on after the response. What it writes reaches the renderer as
   `db.changes`.
-- **`tasks.delete`, `projects.delete`, `notes.delete`** delete an archived item for good and refuse an
-  active one with `not_archived`: the UI calls the archive "Trash", and only the Trash page offers
+- **`tasks.delete`, `projects.delete`, `notes.delete`** delete a trashed item for good and refuse an
+  active one with `not_in_trash`: only the Trash page offers
   delete. Each returns the ids it removed (a task's
   whole subtree) and those of the rows that only lost a link to it. Asking the user to confirm
   (`general.confirmBeforeDeleting`) is the renderer's; core never reads that setting. See
   [docs/deleting.md](../deleting.md).
-- **`archive.emptyTrash`** deletes every archived task, project and note in one transaction
-  (`ArchiveService.emptyTrash`), then the notes' files, and returns the ids removed, the archived tasks
+- **`trash.emptyTrash`** deletes every trashed task, project and note in one transaction
+  (`TrashService.emptyTrash`), then the notes' files, and returns the ids removed, the trashed tasks
   it had to keep (`keptTaskIds`) and the notes whose file could not be removed
   (`filesNotRemoved`); its `changed` names each kind removed or unlinked.
 - **Dialogs and the file manager.** `transfer` (import and export, see
@@ -211,7 +211,7 @@ value: '24' }`), or one group (`settings.calendar`), checking the value against 
 ### The ChangeTracker
 
 [`ChangeTracker`](../../src/main/ipc/changes.ts) listens to every service of the open workspace
-that changes rows (`tasks`, `projects`, `notes`, `events`, `calendars`, `archive`, `favorites`,
+that changes rows (`tasks`, `projects`, `notes`, `events`, `calendars`, `trash`, `favorites`,
 `recents`, `detach`, `integrations`, and the sync scheduler's `onProgress` and `onStatus`), and to
 `devBrain.workspaces.onChange`. It maps each change to `ChangedEntity[]` and decides where those go:
 
@@ -245,7 +245,7 @@ The rules that shape it:
 - **One `db.changes` per event-loop turn.** One write often emits several events in a row (a sync
   page's progress, then the run's status). The first background change of a turn schedules the
   send with `setImmediate`, so the turn's changes go out together and the renderer refetches once.
-- **Changes emitted inside a transaction** (archive, disconnect) are safe to send: main is
+- **Changes emitted inside a transaction** (trash, disconnect) are safe to send: main is
   single-threaded and the transaction synchronous, so nothing reaches the renderer before the
   commit.
 - **Over-reporting is safe.** It only costs a refetch, so a mapping returns more when in doubt.
@@ -254,7 +254,7 @@ The rules that shape it:
 | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TaskChange`, `NoteChange`, `ProjectChange` | `task`, `note`, `project`; a `deleted` one also names the kinds that lost a link to it (a task's notes, a project's tasks and notes, a note's tasks) |
 | `EventChange`, `CalendarChange`             | `event`, `calendar`                                                                                                                                  |
-| `ArchiveChange`                             | each of `task`, `project`, `note` whose id list is not empty; for `emptied`, also those of the rows that lost a link                                 |
+| `TrashChange`                               | each of `task`, `project`, `note` whose id list is not empty; for `emptied`, also those of the rows that lost a link                                 |
 | `FavoriteChange`                            | the favorited entity's type                                                                                                                          |
 | `RecentChange` (a view recorded)            | `recent`                                                                                                                                             |
 | `TaskLinkChange` (detach, reattach)         | `task` plus its `changed`; `credentials_rejected` → `integration`                                                                                    |
