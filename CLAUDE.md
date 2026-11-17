@@ -200,7 +200,7 @@ The renderer routes with TanStack Router: file routes in `src/renderer/routes`, 
   the location over IPC.
 - **Each page draws its own title and header.** A page component renders a `Page`
   (`src/renderer/components`) with its `title` ("Tasks", the task's title), shown in the title
-  bar's search field, and a `PageHeader` with its actions, or no `header` at all. There are no
+  bar's search field and as the window's title, and a `PageHeader` with its actions, or no `header` at all. There are no
   breadcrumbs. The workspace layout holds nothing of the page's; `Page` itself puts both in the
   window's title bar (`WorkspaceShell`'s `locationContainer` and `titleBarContainer`), so a page
   never fills a slot of its own.

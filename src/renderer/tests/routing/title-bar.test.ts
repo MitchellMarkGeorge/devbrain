@@ -33,6 +33,13 @@ describe('the title bar', () => {
     expect(field()?.textContent).not.toContain('Home');
   });
 
+  it('names the window after the page, following it', async () => {
+    const { app } = await onWorkHome();
+    await eventually(() => expect(document.title).toBe('Home'));
+    click(byText(app.container, 'nav[aria-label="Main"] a', 'Tasks'));
+    await eventually(() => expect(document.title).toBe('Tasks'));
+  });
+
   it('opens search from the field', async () => {
     await onWorkHome();
     click(field());
