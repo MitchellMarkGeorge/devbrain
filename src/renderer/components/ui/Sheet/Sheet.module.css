@@ -123,9 +123,6 @@
 .bodyArea {
   flex: 1;
 }
-.bodyViewport {
-  overscroll-behavior: contain;
-}
 .body {
   display: flex;
   flex-direction: column;

@@ -7,7 +7,6 @@
 .viewport {
   display: flex;
   flex-direction: column;
-  overscroll-behavior: contain;
   overflow-anchor: none;
 }
 .rows {

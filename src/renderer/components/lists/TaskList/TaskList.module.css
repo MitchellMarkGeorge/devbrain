@@ -10,7 +10,6 @@
 .viewport {
   display: flex;
   flex-direction: column;
-  overscroll-behavior: contain;
   /* the virtualizer keeps the rows in place as they measure; the browser should not move them too */
   overflow-anchor: none;
 }
