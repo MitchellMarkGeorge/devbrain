@@ -9,7 +9,7 @@ import { CredentialStore } from '../integrations/credential-store';
 import { TaskSource } from '../integrations/providers/provider';
 import { ProviderRegistry } from '../integrations/providers/registry';
 import { LinkState, SourceType, TaskStatus } from '@common/types';
-import { ExternalProject } from '../integrations/types';
+import { ExternalProject, ExternalTask } from '../integrations/types';
 import { CLOSED_ISSUE_WINDOW_MS } from './constants';
 import { SyncStateManager, syncSkipReason } from './sync-state';
 import { PendingReconcile } from './syncer';
@@ -261,14 +261,7 @@ export class TaskReconciler {
     let reattached = 0;
     let leftDetachedCount = 0;
     for (const { rootExternalId, descendantExternalIds } of groups) {
-      const root = found.get(rootExternalId);
-      const refusal = gone.has(rootExternalId)
-        ? ReattachRefusal.GONE
-        : !root
-          ? ReattachRefusal.UNREADABLE
-          : !root.assignedToViewer
-            ? ReattachRefusal.UNASSIGNED
-            : null;
+      const refusal = rootRefusal(rootExternalId, found, gone);
       if (refusal) {
         results.set(rootExternalId, { ok: false, reason: refusal });
         continue;
@@ -304,6 +297,20 @@ export class TaskReconciler {
     );
     return results;
   }
+}
+
+// Why a root can't be reattached from the provider's answer, or null when it can: deleted or
+// trashed, came back unreadable, or no longer assigned to the viewer
+function rootRefusal(
+  rootExternalId: string,
+  found: ReadonlyMap<string, ExternalTask>,
+  gone: ReadonlySet<string>,
+): ReattachRefusal | null {
+  if (gone.has(rootExternalId)) return ReattachRefusal.GONE;
+  const root = found.get(rootExternalId);
+  if (!root) return ReattachRefusal.UNREADABLE;
+  if (!root.assignedToViewer) return ReattachRefusal.UNASSIGNED;
+  return null;
 }
 
 // a closed task is not watched: its issue is out of the open-assignment snapshot by design
