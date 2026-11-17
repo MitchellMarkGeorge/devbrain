@@ -1528,7 +1528,7 @@ linkedTaskId } })`), separate from the task's event or note link.
    - The clock is `FormatProvider`'s minute clock (`useFormat('minute')`), not a second timer;
      the reads are keyed by `useFormat('day')`'s day, so they re-key at midnight and keep the
      previous day's data up until the new day's arrives.
-   - `capture.ts` reads a date (through `parseNaturalDate`), an event's time and a `#project`
+   - `capture.ts` reads a date and an event's time (with chrono) and a `#project`
      (the longest title that matches), the last of each when named twice; a pick in a picker wins
      over the text. An event without a time starts at the next half hour (9 AM on another day),
      lasting `calendar.defaultEventDuration`.

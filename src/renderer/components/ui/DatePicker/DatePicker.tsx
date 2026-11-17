@@ -26,34 +26,16 @@ export function defaultQuickPicks(today: Date): DatePickerQuickPick[] {
   ];
 }
 
-const WEEKDAY =
-  /^next\s+((?:mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)\.?|(?:mon|tues|wednes|thurs|fri|satur|sun)day)$/;
-
 /**
- * Reads a typed date with chrono (https://github.com/wanasit/chrono): "today", "tomorrow",
- * "in 3 days", "next month", a weekday ("fri", "next friday": the next one after today), a month
- * and day ("Jun 30", "30 June": this year, or next if passed), "2027-01-05", and so on. "Next
- * week" is the coming Monday, as the quick pick. A time typed with it is dropped: the day only.
+ * Reads a typed date with chrono (https://github.com/wanasit/chrono), as chrono reads it, looking
+ * forward from `today`: "tomorrow", "in 3 days", "next friday", "Jun 30" (this year, or next if
+ * passed), "2027-01-05", and so on. A time typed with it is dropped: the day only.
  */
 export function parseNaturalDate(text: string, today: Date = new Date()): Date | undefined {
-  const input = text.trim().toLowerCase();
-  if (!input) return undefined;
-  const day = (offset: number) =>
-    new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
-  if (input === 'next week') return defaultQuickPicks(today)[2].date;
-  // chrono reads "next friday" as the one in the following week; here it is the next one
-  const weekday = WEEKDAY.exec(input)?.[1];
-  const [result] = chrono.parse(weekday ?? input, day(0), { forwardDate: true });
-  if (!result) return undefined;
-  const date = result.start.date();
-  const parsed = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  // a weekday alone is never today: "tuesday" on a Tuesday is next week's
-  const weekdayOnly =
-    result.start.isCertain('weekday') &&
-    !result.start.isCertain('day') &&
-    result.text === (weekday ?? input);
-  if (weekdayOnly && parsed.getTime() === day(0).getTime()) return day(7);
-  return parsed;
+  // from the start of today, so "tuesday" on a Tuesday reads the same all day
+  const from = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const date = chrono.parseDate(text, from, { forwardDate: true });
+  return date ? new Date(date.getFullYear(), date.getMonth(), date.getDate()) : undefined;
 }
 
 export interface DatePickerProps {
