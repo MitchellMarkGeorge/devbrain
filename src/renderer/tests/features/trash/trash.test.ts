@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { NoteId, ProjectId, TaskId } from '@common/ids';
 import { trashSearchSchema } from '@renderer/features/trash/api/search';
 import {
+  deleteAllConsequence,
   deleteConsequence,
   emptyTrashSummary,
 } from '@renderer/features/trash/hooks/use-trash-actions';
@@ -33,6 +34,22 @@ describe('deleteConsequence', () => {
     expect(deleteConsequence(item('tasks'))).toContain('task notes are kept');
     expect(deleteConsequence(item('projects'))).toContain('no longer belong to a project');
     expect(deleteConsequence(item('notes'))).toContain('without the link');
+  });
+});
+
+describe('deleteAllConsequence', () => {
+  const task = { id: 'tsk_1' as TaskId, entityType: 'tasks' as const, title: 'Plan' };
+  const note = { id: 'nte_1' as NoteId, entityType: 'notes' as const, title: 'Notes' };
+
+  it('says what one item’s delete does, as for one row', () => {
+    expect(deleteAllConsequence([task])).toBe(deleteConsequence(task));
+  });
+
+  it('counts several, and says what happens to their subtasks and links', () => {
+    const text = deleteAllConsequence([task, note]);
+    expect(text).toContain('2 items will be removed from the trash for good');
+    expect(text).toContain('subtasks');
+    expect(text).toContain('without the link');
   });
 });
 

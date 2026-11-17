@@ -96,3 +96,52 @@ the notes folder and each note's queue of content saves. The workspace passes it
   `filesNotRemoved`. Rows that only lost a link are not listed; the response's `changed` names
   their kinds.
 - `general.confirmBeforeDeleting` is the renderer's to check, as for one delete.
+
+## The trash
+
+`ArchiveService.listArchived`, exposed as `archive.listArchived`, lists the trash newest first. It
+pages the three tables as one union by `archivedAt` and id. Then it reads what each row draws with
+one query per kind on the page, plus one batched lookup of the provider links per linked kind. A
+page costs the same few queries however many rows it has, and the union's keyset stays on its own
+columns.
+
+- **What each row carries** (`ArchivedEntity` in `src/common/types/archive.ts`):
+  - a task: its status, its project and its link (a detached item's key);
+  - a project: its status, colour and link;
+  - a note: its preview (the first line) and its project.
+- **A row's project is shown even when it is in the trash too.** Archiving a project takes its tasks
+  and notes along, and the pill says where they came from. Lists elsewhere leave archived projects
+  out.
+- **Opening a row** opens the item on its own page, read-only, under `TrashedNotice` ("This … is in
+  the trash"), with Restore. `tasks.get`, `projects.get` and `notes.get` return a row in the trash
+  (each service's `getById` takes `includeArchived`), and so does `notes.readContent`, for the
+  note's body. Each page hides its star and "…" menu and makes its content inert. The project
+  page's tabs still switch.
+- **Several at once.** Rows select as the other lists' do (a checkbox, X), and the selection bar
+  restores them (Restore) or deletes them for good (Delete permanently, asking once when
+  `confirmBeforeDeleting` is on). Switching tab clears the selection. Each is one call, below.
+- A note's content save still refuses a trashed note. Other writes are refused only by the pages
+  being inert.
+
+## Restore or delete several
+
+`ArchiveService.restoreMany` and `ArchiveService.deleteMany`, exposed as `archive.restoreMany` and
+`archive.deleteMany`, take the rows chosen in Trash by kind (`TrashSelection`: `taskIds`,
+`projectIds`, `noteIds`). They live with the trash, like `emptyTrash`, because a selection mixes
+the three kinds.
+
+- **All or nothing.** Each runs in one transaction. Every id is checked first: an unknown one
+  fails the call with `not_found`, one not in the trash with `not_archived`, and nothing changes.
+  An empty selection is refused as invalid input.
+- **Overlaps are resolved in core.** Restoring goes projects first (each with its tasks and their
+  notes, as `restoreProject`), then tasks (each with its subtree and notes, as `restoreTask`), then
+  notes. A row an earlier step already brought back, such as a task of a chosen project, is
+  restored once, not refused. Deleting takes a task's subtree with it, so a chosen subtask goes with
+  its chosen parent.
+- **Deleting is `emptyTrash` limited to the selection.** It uses the same per-kind steps, so the
+  same rules hold: a task with an active or synced task below it stays (`keptTaskIds`), a project
+  leaves its tasks and notes, and the notes' files go after the commit (`filesNotRemoved`). It
+  returns the same `EmptyTrashResult`.
+- **One change each.** `restoreMany` sends one `restored`, and `deleteMany` one `emptied` (the
+  change for rows deleted from the trash, all or some), as the transaction's last step. Search and
+  the `ChangeTracker` handle them as they do for one restore and for Empty Trash.

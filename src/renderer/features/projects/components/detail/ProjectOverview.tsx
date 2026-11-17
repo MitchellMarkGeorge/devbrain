@@ -35,7 +35,11 @@ import styles from './ProjectPage.module.css';
  */
 export function ProjectOverview({ project, header }: { project: Project; header: ReactNode }) {
   const navigate = projectRoute.useNavigate();
-  const stats = useQuery(trpc.projects.stats.queryOptions({ id: project.id })).data;
+  // a project in the trash has no active tasks to count (they went with it), and stats refuses it
+  const stats = useQuery({
+    ...trpc.projects.stats.queryOptions({ id: project.id }),
+    enabled: project.archivedAt === null,
+  }).data;
   const empty = stats !== undefined && stats.totalTasks + stats.numOfCancelled === 0;
   // the Tasks tab, filtered: where a section's "N more" and the progress rows go
   const showTasks = (search: { status?: StatusFilter; due?: DueFilter; view?: 'list' }) =>

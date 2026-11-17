@@ -446,8 +446,12 @@ export class FakeMain {
           .map((p) => ({ ...p, stats: store.statsOf(p.id) }));
         return [{ items, nextCursor: null }, []];
       }
-      case 'projects.get':
-        return [project(), []];
+      // a project in the trash too, as core's projects.get
+      case 'projects.get': {
+        const found = store.findProject(args.id, { includeArchived: true });
+        if (!found) throw new RemoteError('not_found', `${String(args.id)} not found`);
+        return [found, []];
+      }
       case 'projects.stats':
         return [store.statsOf(project().id), []];
       case 'projects.create': {

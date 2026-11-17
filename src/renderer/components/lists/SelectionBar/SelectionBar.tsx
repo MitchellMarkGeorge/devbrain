@@ -44,6 +44,8 @@ export interface SelectionBarProps
   /** the "more" menu's items (`DropdownMenuItem`s); without them the button calls `onMore` */
   more?: ReactNode;
   onMore?: () => void;
+  /** false leaves the "more" button out, for a bar whose actions are all shown (Trash's) */
+  showMore?: boolean;
   /** replaces the standard actions (Status, Priority, Due date, Move) */
   actions?: ReactNode;
 }
@@ -130,6 +132,7 @@ const SelectionBarContent = forwardRef<HTMLDivElement, Omit<SelectionBarProps, '
       onMove,
       more,
       onMore,
+      showMore = true,
       actions,
       floating,
       className,
@@ -198,7 +201,7 @@ const SelectionBarContent = forwardRef<HTMLDivElement, Omit<SelectionBarProps, '
             </Button>
           </>
         )}
-        {more ? (
+        {!showMore ? null : more ? (
           <DropdownMenu>
             <DropdownMenuTrigger render={moreButton} />
             <DropdownMenuContent side="top" align="end" sideOffset={8}>

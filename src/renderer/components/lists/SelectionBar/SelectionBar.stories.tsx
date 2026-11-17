@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Button } from '../../ui/Button';
-import { Copy, Folder, Trash2 } from 'lucide-react';
+import { Copy, Folder, RotateCcw, Trash2 } from 'lucide-react';
 import { DropdownMenuItem, DropdownMenuSeparator } from '../../ui/DropdownMenu';
 import { SelectionBar } from './SelectionBar';
 
@@ -38,6 +38,23 @@ export const WithMoreMenu: Story = {
       </div>
     ),
   ],
+};
+
+/** Trash's: every action shown, so no "more" button (`showMore={false}`). */
+export const AllActionsShown: Story = {
+  args: {
+    showMore: false,
+    actions: (
+      <>
+        <Button variant="ghost" size="sm" icon={RotateCcw}>
+          Restore
+        </Button>
+        <Button variant="ghost" size="sm" icon={Trash2}>
+          Delete permanently
+        </Button>
+      </>
+    ),
+  },
 };
 
 /** It rises and fades in as rows are selected, and sinks back as the selection clears. */
