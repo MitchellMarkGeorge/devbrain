@@ -52,36 +52,122 @@
 }
 
 /*
- * The title bar: the WindowBar (the window's controls), then the slot for the page's header. The
- * controls take at least the sidebar column's width, so the slot starts at the card's left edge
- * while the sidebar is docked (the header's 24px padding lining its crumbs up with the page under
- * them), and right after the controls while it's hidden. It drags the window; what the page puts
- * in it to press doesn't. On Windows the slot stops short of the caption buttons.
+ * The title bar, three columns: its start, as wide as the sidebar (the WindowBar: the window's start,
+ * the workspace switcher, the sidebar toggle over the sidebar's right edge), so nothing in it moves
+ * as the sidebar hides; the middle, over the page's card, with back, forward, the search field and
+ * New centred in it; and the page's actions (its header) at the end. It drags the window; what's in
+ * it to press doesn't. On Windows the actions stop short of the caption buttons.
  */
 .titleBar {
   grid-area: bar;
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) auto;
+  align-items: center;
   min-width: 0;
   -webkit-app-region: drag;
 }
 .titleBar > .bar {
-  flex: none;
-  min-width: var(--workspace-sidebar-column);
+  min-width: 0;
   background: transparent;
 }
 /*
- * while the drawer is open it runs the window's full height, and the window's controls stay on top
- * of it, at its top, over the backdrop too: the drawer reads as the whole sidebar, controls and all
+ * The middle spans from the start to the window's end, under the page's actions, and keeps the
+ * same room clear at both ends (`--title-bar-actions-room`, the star and "…" with the header's
+ * side), so it centres over the card the same way on every page, actions or not. While a sheet is
+ * docked it gives up the sheet's card too, and centres over the page's. On Windows its end also
+ * clears the caption buttons.
+ */
+.center {
+  --title-bar-actions-room: 104px;
+  grid-row: 1;
+  grid-column: 2 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0 calc(var(--title-bar-actions-room) + var(--title-bar-end, 0px)) 0
+    var(--title-bar-actions-room);
+  transition: padding-right var(--duration-slow) var(--ease-surface);
+}
+.shell:has(.sheet [data-sheet][data-open]) .center {
+  padding-right: calc(
+    var(--title-bar-actions-room) +
+      max(var(--title-bar-end, 0px), calc(var(--sheet-width) + 2 * var(--space-2)))
+  );
+}
+.center :is(button, a, [role='button']) {
+  -webkit-app-region: no-drag;
+}
+/*
+ * the search field: 28px, up to 480px and shrinking with the window, on the page's colour with a
+ * `border` hairline. It shows the page's title (14px medium), or "Search or jump to…" where the
+ * page gives none, and ⌘K at its end; pressing it opens search
+ */
+.search {
+  display: flex;
+  flex: 0 1 480px;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 160px;
+  height: var(--control-sm);
+  padding: 0 var(--space-1-5) 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--background);
+  color: var(--foreground);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--duration-fast);
+}
+.search:hover {
+  border-color: var(--border-strong);
+}
+.search:focus-visible {
+  outline: none;
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+.location,
+.placeholder {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.location:empty,
+.location:not(:empty) + .placeholder {
+  display: none;
+}
+/* one page's title at a time: a page still mounted under the next one's loading keeps its own out */
+.location > :not(:last-child) {
+  display: none;
+}
+.placeholder {
+  color: var(--muted-foreground);
+  font-weight: var(--font-weight-normal);
+}
+.searchKey {
+  flex: none;
+}
+/*
+ * while the drawer is open it runs the window's full height, and the title bar's start (the
+ * window's start, the workspace, the toggle) stays on top of it, over the backdrop too: the drawer
+ * reads as the whole sidebar, its top row and all
  */
 .shell[data-drawer] .titleBar > .bar {
   position: relative;
   z-index: calc(var(--z-overlay) + 1);
 }
 .titleSlot {
-  /* the page's header fills the bar's height */
+  /* the page's header (its actions) fills the bar's height */
   --page-header-height: var(--title-bar-height);
+  grid-row: 1;
+  grid-column: 3;
+  position: relative;
   display: flex;
-  flex: 1;
   min-width: 0;
   padding-right: var(--title-bar-end, 0px);
   transition: padding-right var(--duration-slow) var(--ease-surface);

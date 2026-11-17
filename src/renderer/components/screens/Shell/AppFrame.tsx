@@ -4,6 +4,7 @@
  * every area import these; nothing in the app does.
  */
 import type { ReactNode } from 'react';
+import { WorkspaceButton } from '../../shell/WorkspaceSwitcher';
 import { TaskStatus } from '@common/types';
 import {
   Calendar,
@@ -13,26 +14,28 @@ import {
   FileText,
   Folder,
   House,
-  Search,
+  Plus,
   Settings,
-  SquarePen,
   Trash2,
-  Zap,
 } from 'lucide-react';
 import { WorkspaceShell, type WorkspaceShellProps } from '../../shell/WorkspaceShell';
 import { Page } from '../../shell/PageHeader';
 import {
   Sidebar,
-  SidebarAction,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
-  SidebarHeader,
-  SidebarHeaderActions,
   SidebarItem,
-  SidebarWorkspace,
 } from '../../shell/Sidebar';
 import { StatusIcon } from '../../entities/StatusIcon';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../../ui/DropdownMenu';
+import { IconButton } from '../../ui/IconButton';
 import { SyncStatus, type SyncState } from '../../shell/SyncStatus';
 import { WorkspaceSwitcher, type WorkspaceSummary } from '../../shell/WorkspaceSwitcher';
 
@@ -53,7 +56,6 @@ const NAV: { label: PageName; icon: typeof House }[] = [
   { label: 'Projects', icon: Folder },
   { label: 'Notes', icon: FileText },
   { label: 'Calendar', icon: Calendar },
-  { label: 'Integrations', icon: Zap },
 ];
 
 export const WORKSPACES: WorkspaceSummary[] = [
@@ -69,26 +71,12 @@ export interface DemoSidebarProps {
   empty?: boolean;
   /** the sync line at the top of the footer */
   sync?: SyncState;
-  /** open the workspace menu (the switcher screen) */
-  workspaceMenuOpen?: boolean;
 }
 
-/** The sidebar as every Figma screen draws it: SurveyMonkey, the six pages, Recents, Favorites. */
-export function DemoSidebar({ active, empty, sync, workspaceMenuOpen }: DemoSidebarProps) {
+/** The sidebar as every Figma screen draws it: the six pages, Recents, Favorites. */
+export function DemoSidebar({ active, empty, sync }: DemoSidebarProps) {
   return (
-    <Sidebar
-      header={
-        <SidebarHeader>
-          <SidebarWorkspace name="SurveyMonkey" color="green" defaultOpen={workspaceMenuOpen}>
-            <WorkspaceSwitcher workspaces={WORKSPACES} current="surveymonkey" />
-          </SidebarWorkspace>
-          <SidebarHeaderActions>
-            <SidebarAction icon={Search} label="Search" shortcut="⌘K" />
-            <SidebarAction icon={SquarePen} label="New task" shortcut="C" />
-          </SidebarHeaderActions>
-        </SidebarHeader>
-      }
-    >
+    <Sidebar>
       <SidebarContent>
         <SidebarGroup>
           {NAV.map((page) => (
@@ -135,18 +123,57 @@ export function DemoSidebar({ active, empty, sync, workspaceMenuOpen }: DemoSide
   );
 }
 
-export interface ScreenFrameProps extends Omit<WorkspaceShellProps, 'sidebar'> {
+/** The New menu as the app draws it, for screen stories: "+" opening the four things to create. */
+export function DemoCreateMenu() {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<IconButton size="sm" tone="muted" icon={Plus} label="New" />} />
+      <DropdownMenuContent align="start">
+        <DropdownMenuItem icon={CircleCheck} shortcut="C">
+          New task
+        </DropdownMenuItem>
+        <DropdownMenuItem icon={FileText} shortcut="N">
+          New note
+        </DropdownMenuItem>
+        <DropdownMenuItem icon={Folder}>New project</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem icon={Calendar}>New event</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/**
+ * The title bar's workspace and New as the app fills them, for a `WorkspaceShell` in a story: the
+ * sample workspace (its menu open with `workspaceMenuOpen`), and `DemoCreateMenu`.
+ */
+export function demoTitleBar(workspaceMenuOpen?: boolean) {
+  return {
+    workspace: (
+      <WorkspaceButton name="SurveyMonkey" color="green" defaultOpen={workspaceMenuOpen}>
+        <WorkspaceSwitcher workspaces={WORKSPACES} current="surveymonkey" />
+      </WorkspaceButton>
+    ),
+    create: <DemoCreateMenu />,
+    onSearch: () => {},
+  };
+}
+
+export interface ScreenFrameProps extends Omit<WorkspaceShellProps, 'sidebar' | 'title'> {
   /** the Figma frame's size: 1440×1024 by default, 960×640 for the compact frames */
   width?: number;
   height?: number;
   sidebar?: ReactNode;
+  /** the page's title, in the title bar's search field */
+  title?: ReactNode;
   /** the page's header (a `PageHeader`); the children are drawn in a `Page` under it */
   header?: ReactNode;
+  /** open the workspace menu (the switcher screen) */
+  workspaceMenuOpen?: boolean;
   /** props for the default `DemoSidebar` */
   page?: PageName;
   emptySidebar?: boolean;
   sync?: SyncState;
-  workspaceMenuOpen?: boolean;
 }
 
 /**
@@ -157,6 +184,7 @@ export function ScreenFrame({
   width = 1440,
   height = 1024,
   sidebar,
+  title,
   header,
   page,
   emptySidebar,
@@ -169,20 +197,14 @@ export function ScreenFrame({
   return (
     <div style={{ width, height, overflow: 'hidden', position: 'relative' }}>
       <WorkspaceShell
-        sidebar={
-          sidebar ?? (
-            <DemoSidebar
-              active={page}
-              empty={emptySidebar}
-              sync={sync}
-              workspaceMenuOpen={workspaceMenuOpen}
-            />
-          )
-        }
+        sidebar={sidebar ?? <DemoSidebar active={page} empty={emptySidebar} sync={sync} />}
         style={style}
+        {...demoTitleBar(workspaceMenuOpen)}
         {...props}
       >
-        <Page header={header}>{children}</Page>
+        <Page title={title} header={header}>
+          {children}
+        </Page>
       </WorkspaceShell>
     </div>
   );

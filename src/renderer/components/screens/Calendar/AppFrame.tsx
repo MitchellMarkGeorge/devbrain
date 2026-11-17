@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import { WorkspaceButton } from '../../shell/WorkspaceSwitcher';
 import { TaskStatus } from '@common/types';
 import {
   Calendar,
@@ -25,7 +26,6 @@ import {
   SidebarHeader,
   SidebarHeaderActions,
   SidebarItem,
-  SidebarWorkspace,
 } from '../../shell/Sidebar';
 
 const NAV = [
@@ -68,7 +68,7 @@ export function AppFrame({
         <Sidebar
           header={
             <SidebarHeader>
-              <SidebarWorkspace name="SurveyMonkey" color="green" />
+              <WorkspaceButton name="SurveyMonkey" color="green" />
               <SidebarHeaderActions>
                 <Button variant="ghost" size="icon-xs" icon={Search} aria-label="Search" />
                 <Button variant="ghost" size="icon-xs" icon={SquarePen} aria-label="New task" />

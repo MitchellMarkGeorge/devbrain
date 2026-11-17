@@ -198,10 +198,12 @@ The renderer routes with TanStack Router: file routes in `src/renderer/routes`, 
   stops the splash showing at startup.
 - **A saved page names its workspace** (`lastPageSchema`); main keeps one per workspace. Don't send
   the location over IPC.
-- **Each page draws its own header.** A page component renders a `Page` (`src/renderer/components`)
-  with its `PageHeader` (breadcrumb from `useCrumbLink`, actions), or no `header` at all. The
-  workspace layout holds nothing of the page's; `Page` itself puts the header in the window's
-  title bar (`WorkspaceShell`'s `titleBarContainer`), so a page never fills a slot of its own.
+- **Each page draws its own title and header.** A page component renders a `Page`
+  (`src/renderer/components`) with its `title` ("Tasks", the task's title), shown in the title
+  bar's search field, and a `PageHeader` with its actions, or no `header` at all. There are no
+  breadcrumbs. The workspace layout holds nothing of the page's; `Page` itself puts both in the
+  window's title bar (`WorkspaceShell`'s `locationContainer` and `titleBarContainer`), so a page
+  never fills a slot of its own.
 - **Settings has its own sidebar.** Under `/app/$workspaceId/settings/…` the workspace layout gives
   the shell `SettingsSidebar` (Back to app, then a page per section) in place of `AppSidebar`. List
   a new setting under **Current workspace** when the workspace stores it (its database, its

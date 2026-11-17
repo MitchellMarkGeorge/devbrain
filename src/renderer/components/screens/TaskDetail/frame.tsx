@@ -4,6 +4,7 @@
  * top bar is PageHeader (agent E1); these stories draw their own so they don't depend on it.
  */
 import type { ReactNode } from 'react';
+import { WorkspaceButton } from '../../shell/WorkspaceSwitcher';
 import { TaskStatus } from '@common/types';
 import {
   Calendar,
@@ -31,7 +32,6 @@ import {
   SidebarHeader,
   SidebarHeaderActions,
   SidebarItem,
-  SidebarWorkspace,
 } from '../../shell/Sidebar';
 import { StatusIcon } from '../../entities/StatusIcon';
 import { TooltipProvider } from '../../ui/Tooltip';
@@ -50,7 +50,7 @@ export function AppSidebar({ active }: { active: string }) {
     <Sidebar
       header={
         <SidebarHeader>
-          <SidebarWorkspace name="SurveyMonkey" color="green" />
+          <WorkspaceButton name="SurveyMonkey" color="green" />
           <SidebarHeaderActions>
             <Button variant="ghost" size="icon-xs" icon={Search} aria-label="Search" />
             <Button variant="ghost" size="icon-xs" icon={SquarePen} aria-label="New task" />

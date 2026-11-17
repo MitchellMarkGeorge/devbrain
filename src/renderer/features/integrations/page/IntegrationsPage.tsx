@@ -151,7 +151,7 @@ export function IntegrationsPage() {
   const empty = integrations.length === 0;
 
   return (
-    <Page>
+    <Page title="Settings · Integrations">
       <PageContent layout="document" data-testid="page">
         <div className={styles.page}>
           <div className={styles.intro}>

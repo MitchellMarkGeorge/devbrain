@@ -294,11 +294,15 @@ describe('a new note', () => {
     expect(main.callsTo('notes.create')).toHaveLength(1);
   });
 
-  it('is created by the sidebar’s compose button', async () => {
+  it('is created from the title bar’s New menu', async () => {
     const main = new FakeMain([workspace(WORK, 'Work')], WORK);
     const app = startApp(main, { url: `/app/${WORK}/home` });
     await eventually(() => expect(app.text()).toContain('Work recents.list'));
-    click(document.querySelector('[aria-label="New note"]'));
+    click(document.querySelector('[aria-label="New"]'));
+    await eventually(() =>
+      expect(byText(document.body, '[role="menuitem"]', 'New note')).not.toBeNull(),
+    );
+    click(byText(document.body, '[role="menuitem"]', 'New note'));
     await eventually(() => expect(app.path()).toMatch(new RegExp(`/app/${WORK}/notes/nte_new`)));
   });
 });

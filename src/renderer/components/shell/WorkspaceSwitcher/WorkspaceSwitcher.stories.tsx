@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Sidebar, SidebarHeader, SidebarWorkspace } from '../Sidebar';
+import { WorkspaceButton } from './WorkspaceButton';
 import { WorkspaceSwitcher } from './WorkspaceSwitcher';
 
 const meta = {
@@ -19,19 +19,20 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Open from the sidebar's workspace row, which shows pressed while it is open. */
+/** Open from the title bar's workspace button, which shows pressed while it is open. */
 export const Open: Story = {
   render: (args) => (
-    <div style={{ height: 320, display: 'flex' }}>
-      <Sidebar
-        header={
-          <SidebarHeader>
-            <SidebarWorkspace name="SurveyMonkey" color="green" defaultOpen>
-              <WorkspaceSwitcher {...args} />
-            </SidebarWorkspace>
-          </SidebarHeader>
-        }
-      ></Sidebar>
+    <div
+      style={{
+        height: 320,
+        width: 'var(--sidebar-width)',
+        padding: 8,
+        background: 'var(--sidebar)',
+      }}
+    >
+      <WorkspaceButton name="SurveyMonkey" color="green" defaultOpen>
+        <WorkspaceSwitcher {...args} />
+      </WorkspaceButton>
     </div>
   ),
 };

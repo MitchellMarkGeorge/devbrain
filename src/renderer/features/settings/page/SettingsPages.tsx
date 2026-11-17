@@ -25,7 +25,7 @@ function SettingsSectionPage({
   children: ReactNode;
 }) {
   return (
-    <Page>
+    <Page title={`Settings · ${title}`}>
       <PageContent layout="document" data-testid="page">
         <Heading level={1}>{title}</Heading>
         <p className={styles.lead}>{description}</p>

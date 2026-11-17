@@ -1,0 +1,37 @@
+/* The open workspace, opening its menu. See docs/design-system/components/WorkspaceSwitcher.md */
+.workspace {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  height: var(--control-sm);
+  max-width: 100%;
+  padding: 0 var(--space-1) 0 var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--foreground);
+  font: var(--font-weight-medium) var(--text-sm) / var(--text-sm-leading) var(--font-sans);
+  cursor: pointer;
+  transition: background-color var(--duration-fast);
+}
+.workspace:hover {
+  background: var(--sidebar-accent);
+}
+/* pressed while its menu is open */
+.workspace[data-popup-open] {
+  background: var(--accent);
+}
+.workspace:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--sidebar-ring) 50%, transparent);
+}
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chevron {
+  flex: none;
+  color: var(--muted-foreground);
+}

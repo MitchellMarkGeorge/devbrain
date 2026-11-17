@@ -9,12 +9,19 @@ import { ScrollArea } from '../../ui/ScrollArea';
 import { useWorkspaceShell } from '../WorkspaceShell/context';
 import styles from './PageHeader.module.css';
 
-export interface PageProps extends ComponentPropsWithoutRef<'div'> {
+export interface PageProps extends Omit<ComponentPropsWithoutRef<'div'>, 'title'> {
   /**
-   * The page's header: a `PageHeader` with its breadcrumb and actions, or a bar of the page's own.
-   * Inside a `WorkspaceShell` it goes in the window's title bar, after the window's controls (so
-   * it stays put while the page scrolls, and takes no room in the page); elsewhere the page draws
-   * it at its top. Leave it out for a page with no header (Home, the calendar, Settings, Integrations)
+   * Where you are, in a few words: "Tasks", a task's or note's title. Inside a `WorkspaceShell` it
+   * shows in the title bar's search field (which opens search), so the window always says which
+   * page this is; elsewhere it isn't drawn. A page still loading leaves it out, and the field reads
+   * "Search or jump to…"
+   */
+  title?: ReactNode;
+  /**
+   * The page's header: a `PageHeader` with the page's actions (a detail page's star and "…" menu).
+   * Inside a `WorkspaceShell` it goes at the title bar's end (so it stays put while the page
+   * scrolls, and takes no room in the page); elsewhere the page draws it at its top. Leave it out
+   * for a page with no actions there
    */
   header?: ReactNode;
   /** classes for the scrolling element (the ScrollArea's viewport) */
@@ -22,17 +29,18 @@ export interface PageProps extends ComponentPropsWithoutRef<'div'> {
 }
 
 /**
- * A page in a `WorkspaceShell`: its header, in the shell's title bar, and everything else (a
+ * A page in a `WorkspaceShell`: its title, in the title bar's search field; its header (its
+ * actions), at the title bar's end; and everything else (a
  * `PageToolbar` and a `PageContent`, or a layout of the page's own) in the page's scroller. Every
  * page renders one, so each decides its own header, or none. The header is still the page's own
  * JSX, so it can use the page's state; the shell only gives it a place. A list or grid page's content fills the scroller and
  * scrolls itself; a Home or document page keeps its height, and the scroller scrolls it whole.
  */
 export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
-  { header, scrollClassName, className, children, ...props },
+  { title, header, scrollClassName, className, children, ...props },
   ref,
 ) {
-  const { titleBarContainer } = useWorkspaceShell();
+  const { titleBarContainer, locationContainer } = useWorkspaceShell();
   // in a shell, the page is the card under the title bar, header or not
   const inShell = titleBarContainer !== null;
   const inTitleBar = header != null && inShell;
@@ -44,6 +52,7 @@ export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
       {...props}
     >
       {inTitleBar ? createPortal(header, titleBarContainer) : header}
+      {title != null && locationContainer && createPortal(<span>{title}</span>, locationContainer)}
       {/*
        * a ScrollArea, whose scrollbar is drawn over the page's edge and takes no width; data-slot
        * on its scrolling element: the app's router restores it, and scrolls it to the top on a
@@ -61,7 +70,10 @@ export const Page = forwardRef<HTMLDivElement, PageProps>(function Page(
 });
 
 export interface PageHeaderProps extends Omit<ComponentPropsWithoutRef<'header'>, 'title'> {
-  /** the page's place, at the left: a `Breadcrumb` ("Tasks › List"), or its title */
+  /**
+   * Something at the left, before the actions. Pages in a `WorkspaceShell` leave it out: their
+   * title shows in the title bar's search field (`Page`'s `title`)
+   */
   children?: ReactNode;
   /**
    * The page's actions at the right, 8px apart: a detail page's `PageFavoriteButton` and
@@ -72,10 +84,10 @@ export interface PageHeaderProps extends Omit<ComponentPropsWithoutRef<'header'>
 }
 
 /**
- * A page's header (its `Page`'s `header`): a 48px bar with the breadcrumb at the left and the
- * page's actions at the right, 24px in from the sides. Inside a `WorkspaceShell` it fills the
- * title bar after the window's controls (its buttons and links don't drag the window; the bar
- * around them does); elsewhere it tops the page.
+ * A page's header (its `Page`'s `header`): the page's actions at the right, 24px in from the
+ * side, and anything passed as children at the left. Inside a `WorkspaceShell` it sits at the
+ * title bar's end, as tall as the bar (its buttons don't drag the window; the bar around them
+ * does); elsewhere it tops the page, 48px tall.
  */
 export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function PageHeader(
   { actions, className, children, ...props },
@@ -83,7 +95,7 @@ export const PageHeader = forwardRef<HTMLElement, PageHeaderProps>(function Page
 ) {
   return (
     <header ref={ref} className={cn(styles.header, className)} {...props}>
-      <div className={styles.place}>{children}</div>
+      {children != null && <div className={styles.place}>{children}</div>}
       {actions && <div className={styles.actions}>{actions}</div>}
     </header>
   );

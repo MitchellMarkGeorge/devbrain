@@ -5,7 +5,6 @@ import { useNavigate, useRouter } from '@tanstack/react-router';
 import { CircleCheck, FileText, Folder, LayoutDashboard, type LucideIcon } from 'lucide-react';
 import { ProjectStatus, type Project } from '@common/types';
 import {
-  Breadcrumb,
   DatePicker,
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +24,6 @@ import {
 import { trpc } from '@renderer/ipc';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
 import { SectionPage } from '@renderer/shared/components/SectionPage';
-import { useCrumbLink } from '@renderer/shared/hooks/use-crumb-link';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useRecordView } from '@renderer/shared/hooks/use-record-view';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
@@ -64,21 +62,13 @@ const TAB_LABELS: Record<ProjectTab, string> = {
  * first frame; a project deleted while it is open shows not-found.
  */
 export function ProjectPage() {
-  const { projectId, workspaceId } = projectRoute.useParams();
-  const crumbLink = useCrumbLink();
+  const { projectId } = projectRoute.useParams();
   const project = useQuery(trpc.projects.get.queryOptions({ id: projectId }));
   useRecordView(projectId);
   if (project.data === undefined) {
     if (project.isError && ipcErrorCode(project.error) === 'not_found') return <NotFoundPage />;
     // not loaded yet (the loader normally has it): the section's crumb, so the header is there
-    return (
-      <SectionPage
-        section={crumbLink('Projects', {
-          to: '/app/$workspaceId/projects',
-          params: { workspaceId },
-        })}
-      />
-    );
+    return <SectionPage title="Projects" />;
   }
   // a new project, a fresh page: the name and description start from it
   return <ProjectPageContent key={project.data.id} project={project.data} />;
@@ -91,10 +81,8 @@ function ProjectPageContent({ project }: { project: Project }) {
   const appNavigate = useNavigate();
   const router = useRouter();
   const { canGoBack } = useHistoryPosition();
-  const crumbLink = useCrumbLink();
   const actions = useProjectActions();
   const tab = search.tab ?? 'overview';
-  const color = resolveColor(project.color, 'blue');
 
   // a tab is a section of the page: switching replaces the entry, and leaves the other tab's params
   const setTab = (next: ProjectTab) =>
@@ -113,6 +101,7 @@ function ProjectPageContent({ project }: { project: Project }) {
 
   return (
     <Page
+      title={project.title}
       header={
         <PageHeader
           actions={
@@ -124,17 +113,7 @@ function ProjectPageContent({ project }: { project: Project }) {
               <ProjectMenu project={project} actions={actions} onTrash={() => void trash()} />
             </>
           }
-        >
-          <Breadcrumb
-            items={[
-              crumbLink('Projects', { to: '/app/$workspaceId/projects', params: { workspaceId } }),
-              {
-                label: project.title,
-                icon: <Icon icon={Folder} size={16} style={{ color }} />,
-              },
-            ]}
-          />
-        </PageHeader>
+        ></PageHeader>
       }
     >
       <div className={styles.tabsBar}>

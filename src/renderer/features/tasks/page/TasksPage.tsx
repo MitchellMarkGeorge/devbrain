@@ -1,5 +1,4 @@
-import { Breadcrumb, Page, PageHeader } from '@renderer/components';
-import { VIEW_ICONS, VIEW_LABELS } from '../components/views/TasksToolbar';
+import { Page } from '@renderer/components';
 import { TasksSearchProvider, useTasksRouteSearch } from '../hooks/use-tasks-search';
 import { TasksView } from '../components/views/TasksView';
 
@@ -10,16 +9,9 @@ import { TasksView } from '../components/views/TasksView';
  */
 export function TasksPage() {
   const state = useTasksRouteSearch();
-  const { view } = state.resolved;
   return (
     <TasksSearchProvider value={state}>
-      <Page
-        header={
-          <PageHeader>
-            <Breadcrumb items={['Tasks', { label: VIEW_LABELS[view], icon: VIEW_ICONS[view] }]} />
-          </PageHeader>
-        }
-      >
+      <Page title="Tasks">
         <TasksView />
       </Page>
     </TasksSearchProvider>

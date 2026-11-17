@@ -3,7 +3,6 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { ExternalLink, Star, Trash2 } from 'lucide-react';
 import type { ProjectListItem } from '@common/types';
 import {
-  Breadcrumb,
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
@@ -16,7 +15,6 @@ import {
   VirtualCardGrid,
   type ProjectListHandle,
   Page,
-  PageHeader,
 } from '@renderer/components';
 import { KeyScope, useListCommands } from '@renderer/keyboard';
 import { useOpenEntity } from '@renderer/shared/hooks/use-open-entity';
@@ -33,12 +31,7 @@ import {
 } from '../components/views/ProjectsStates';
 import { ProjectsSelectionBar } from '../components/views/ProjectsSelectionBar';
 import styles from '../components/views/ProjectsView.module.css';
-import {
-  PROJECT_VIEW_ICONS,
-  PROJECT_VIEW_LABELS,
-  ProjectsFilterMenu,
-  ProjectsToolbarEnd,
-} from '../components/views/ProjectsToolbar';
+import { ProjectsFilterMenu, ProjectsToolbarEnd } from '../components/views/ProjectsToolbar';
 
 const stopOpen = (event: MouseEvent) => event.stopPropagation();
 
@@ -158,21 +151,7 @@ export function ProjectsPage() {
   }
 
   return (
-    <Page
-      header={
-        <PageHeader>
-          <Breadcrumb
-            items={[
-              'Projects',
-              {
-                label: PROJECT_VIEW_LABELS[resolved.view],
-                icon: PROJECT_VIEW_ICONS[resolved.view],
-              },
-            ]}
-          />
-        </PageHeader>
-      }
-    >
+    <Page title="Projects">
       <PageToolbar
         start={<ProjectsFilterMenu resolved={resolved} setSearch={setSearch} />}
         end={<ProjectsToolbarEnd resolved={resolved} setSearch={setSearch} />}

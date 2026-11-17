@@ -22,7 +22,7 @@ export const TITLE_BAR_BACKGROUND = {
 
 // --title-bar-height in pixels: how tall the window controls the system draws are (Windows), and
 // what the traffic lights centre in (macOS)
-export const TITLE_BAR_HEIGHT = 40;
+export const TITLE_BAR_HEIGHT = 44;
 
 // The tokens of the pages the OAuth loopback serves to the browser, which loads nothing from the
 // app: --font-sans, and the colours they use in each theme

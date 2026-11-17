@@ -9,10 +9,8 @@ export {
   SidebarHeaderActions,
   SidebarItem,
   SidebarMenu,
-  SidebarWorkspace,
   type SidebarActionProps,
   type SidebarGroupProps,
   type SidebarItemProps,
   type SidebarProps,
-  type SidebarWorkspaceProps,
 } from './Sidebar';

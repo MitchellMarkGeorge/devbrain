@@ -37,8 +37,8 @@ describe('windowChrome', () => {
 });
 
 describe('TRAFFIC_LIGHT_POSITION', () => {
-  it('centres the 12px traffic lights down the 40px title bar, 16px in', () => {
-    expect(TRAFFIC_LIGHT_POSITION).toEqual({ x: 16, y: 14 });
+  it('centres the 12px traffic lights down the 44px title bar, 16px in', () => {
+    expect(TRAFFIC_LIGHT_POSITION).toEqual({ x: 16, y: 16 });
   });
 });
 
@@ -73,7 +73,7 @@ describe('titleBarOverlay', () => {
     expect(titleBarOverlay(LIGHT)).toEqual({
       color: TITLE_BAR_BACKGROUND.light,
       symbolColor: WINDOW_FOREGROUND.light,
-      height: 40,
+      height: 44,
     });
   });
 });

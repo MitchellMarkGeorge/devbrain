@@ -135,7 +135,7 @@ export function CalendarPage() {
   const sheetOpen = resolved.open !== undefined;
 
   return (
-    <Page>
+    <Page title="Calendar">
       {/*
        * the month, the filter and the controls are the page's toolbar, in the page under the title
        * bar, where the 24px title and 32px controls have room

@@ -2,11 +2,9 @@ import { useEffect, useRef, useState, type FocusEvent, type KeyboardEvent } from
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useRouter, useRouterState } from '@tanstack/react-router';
 import type { Editor } from '@tiptap/react';
-import { FileText } from 'lucide-react';
 import type { TaskId } from '@common/ids';
 import type { NoteListItem } from '@common/types';
 import {
-  Breadcrumb,
   EditorTitle,
   PageContent,
   PageFavoriteButton,
@@ -19,7 +17,6 @@ import { ipc, trpc } from '@renderer/ipc';
 import { NotFoundPage } from '@renderer/shared/components/NotFoundPage';
 import { SectionPage } from '@renderer/shared/components/SectionPage';
 import { useMutationErrorToast } from '@renderer/shared/lib/mutation-errors';
-import { useCrumbLink } from '@renderer/shared/hooks/use-crumb-link';
 import { useHistoryPosition } from '@renderer/shared/hooks/use-history-position';
 import { useRecordView } from '@renderer/shared/hooks/use-record-view';
 import { ipcErrorCode } from '@renderer/shared/lib/workspace/errors';
@@ -41,8 +38,7 @@ import styles from '../components/detail/NotePage.module.css';
  * note and its markdown before the first frame; a note deleted while it is open shows not-found.
  */
 export function NotePage() {
-  const { noteId, workspaceId } = noteRoute.useParams();
-  const crumbLink = useCrumbLink();
+  const { noteId } = noteRoute.useParams();
   const note = useQuery(trpc.notes.get.queryOptions({ id: noteId }));
   useRecordView(noteId);
   if (note.data === undefined || note.data.archivedAt !== null) {
@@ -50,11 +46,7 @@ export function NotePage() {
       (note.isError && ipcErrorCode(note.error) === 'not_found') || note.data?.archivedAt;
     if (gone) return <NotFoundPage />;
     // not loaded yet (the loader normally has it): the section's crumb, so the header is there
-    return (
-      <SectionPage
-        section={crumbLink('Notes', { to: '/app/$workspaceId/notes', params: { workspaceId } })}
-      />
-    );
+    return <SectionPage title="Notes" />;
   }
   // a new note, a fresh page: the title and body start from it
   return <NotePageContent key={note.data.id} note={note.data} />;
@@ -69,7 +61,6 @@ function NotePageContent({ note }: { note: NoteListItem }) {
   const router = useRouter();
   const navigate = useNavigate();
   const { canGoBack } = useHistoryPosition();
-  const crumbLink = useCrumbLink();
   const actions = useNoteActions();
   const createTask = useCreateTask();
   const showError = useMutationErrorToast();
@@ -126,6 +117,7 @@ function NotePageContent({ note }: { note: NoteListItem }) {
 
   return (
     <Page
+      title={note.title || 'Untitled'}
       header={
         <PageHeader
           actions={
@@ -137,14 +129,7 @@ function NotePageContent({ note }: { note: NoteListItem }) {
               <NoteDetailMenu note={note} actions={actions} onTrash={() => void trash()} />
             </>
           }
-        >
-          <Breadcrumb
-            items={[
-              crumbLink('Notes', { to: '/app/$workspaceId/notes', params: { workspaceId } }),
-              { label: note.title || 'Untitled', icon: FileText },
-            ]}
-          />
-        </PageHeader>
+        ></PageHeader>
       }
     >
       <PageContent layout="document" data-testid="note-page">

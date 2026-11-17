@@ -1,4 +1,4 @@
-import { forwardRef, type ComponentPropsWithoutRef } from 'react';
+import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from 'react';
 import { ArrowLeft, ArrowRight, Menu, Minus, PanelLeft, Square, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { useFormatKeys, useWindowFrame } from '../../lib/platform';
@@ -108,10 +108,6 @@ export function CaptionButtons({ className, ...props }: ComponentPropsWithoutRef
 
 export interface WindowControlsProps extends ComponentPropsWithoutRef<'div'> {
   onToggleSidebar?: () => void;
-  onBack?: () => void;
-  onForward?: () => void;
-  canGoBack?: boolean;
-  canGoForward?: boolean;
 }
 
 /** What the sidebar toggle does, as its label and tooltip say. */
@@ -124,16 +120,13 @@ function toggleLabel(shell: WorkspaceShellContextValue): string {
 }
 
 /**
- * The sidebar toggle (⌘\, Ctrl+\ off macOS), then back and forward: three 28px muted icon
- * buttons, 8px apart. They act on the `WorkspaceShell` around them unless given handlers. While the
- * sidebar is hidden, pointing at the toggle peeks at the drawer; clicking it pins the drawer open,
- * or docks the sidebar where the window is wide enough.
+ * The sidebar toggle (⌘\, Ctrl+\ off macOS), a 28px muted icon button. It acts on the
+ * `WorkspaceShell` around it unless given a handler. While the sidebar is hidden, pointing at it
+ * peeks at the drawer; clicking it pins the drawer open, or docks the sidebar where the window is
+ * wide enough.
  */
 export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
-  function WindowControls(
-    { onToggleSidebar, onBack, onForward, canGoBack, canGoForward, className, ...props },
-    ref,
-  ) {
+  function WindowControls({ onToggleSidebar, className, ...props }, ref) {
     const shell = useWorkspaceShell();
     const formatKeys = useFormatKeys();
     const label = toggleLabel(shell);
@@ -161,6 +154,30 @@ export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
           }
           onPointerLeave={peeks ? shell.cancelPeek : undefined}
         />
+      </div>
+    );
+  },
+);
+
+export interface HistoryControlsProps extends ComponentPropsWithoutRef<'div'> {
+  onBack?: () => void;
+  onForward?: () => void;
+  canGoBack?: boolean;
+  canGoForward?: boolean;
+}
+
+/**
+ * Back and forward: two 28px muted icon buttons, 4px apart, on the `WorkspaceShell`'s history
+ * unless given handlers. The shell puts them before its search field, in the title bar's middle.
+ */
+export const HistoryControls = forwardRef<HTMLDivElement, HistoryControlsProps>(
+  function HistoryControls(
+    { onBack, onForward, canGoBack, canGoForward, className, ...props },
+    ref,
+  ) {
+    const shell = useWorkspaceShell();
+    return (
+      <div ref={ref} className={cn(styles.history, className)} {...props}>
         <IconButton
           size="sm"
           tone="muted"
@@ -182,20 +199,25 @@ export const WindowControls = forwardRef<HTMLDivElement, WindowControlsProps>(
   },
 );
 
-export type WindowBarProps = Omit<ComponentPropsWithoutRef<'div'>, 'children'>;
+export interface WindowBarProps extends Omit<ComponentPropsWithoutRef<'div'>, 'children'> {
+  /** the open workspace, opening the workspace menu (a `WorkspaceButton`), between the start and the toggle */
+  workspace?: ReactNode;
+}
 
 /**
- * The title bar: a `title-bar-height` strip across the top of a `WorkspaceShell`, docked sidebar or
- * hidden: the title bar's start (traffic lights on macOS, the menu button on Windows) and the
- * window controls, which never move. The strip drags the window; its buttons don't.
+ * The start of the title bar, as wide as the sidebar: the window's start (traffic lights on macOS,
+ * the menu button on Windows), the workspace switcher, and the sidebar toggle at its end, over the
+ * sidebar's right edge. The switcher takes what room is left and cuts a long name short. None of it
+ * moves as the sidebar hides and docks. The strip drags the window; its buttons don't.
  */
 export const WindowBar = forwardRef<HTMLDivElement, WindowBarProps>(function WindowBar(
-  { className, ...props },
+  { workspace, className, ...props },
   ref,
 ) {
   return (
     <div ref={ref} className={cn(styles.bar, className)} {...props}>
       <WindowStart />
+      <div className={styles.workspace}>{workspace}</div>
       <WindowControls />
     </div>
   );
