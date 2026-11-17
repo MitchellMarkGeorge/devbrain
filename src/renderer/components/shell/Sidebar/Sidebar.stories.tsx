@@ -4,7 +4,7 @@ import { Folder } from 'lucide-react';
 import { DemoSidebar } from '../../screens/Shell/AppFrame';
 import type { SyncState } from '../SyncStatus';
 import { TooltipProvider } from '../../ui/Tooltip';
-import { Sidebar, SidebarContent, SidebarGroup, SidebarItem } from './Sidebar';
+import { Sidebar, SidebarContent, SidebarGroup, SidebarHint, SidebarItem } from './Sidebar';
 
 const meta = {
   title: 'Shell/Sidebar',
@@ -64,4 +64,17 @@ export const CollapsibleGroups: Story = {
       </Sidebar>
     );
   },
+};
+
+/** An empty group keeps its label and says what it would hold: Favorites before anything is starred. */
+export const EmptyGroupHint: Story = {
+  render: () => (
+    <Sidebar>
+      <SidebarContent>
+        <SidebarGroup label="Favorites">
+          <SidebarHint>Star a task, note or project to keep it here.</SidebarHint>
+        </SidebarGroup>
+      </SidebarContent>
+    </Sidebar>
+  ),
 };

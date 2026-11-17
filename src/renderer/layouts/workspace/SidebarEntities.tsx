@@ -6,6 +6,7 @@ import type { StampedEntity } from '@common/types';
 import {
   resolveColor,
   SidebarGroup,
+  SidebarHint,
   SidebarItem,
   StatusIcon,
   SyncStatus,
@@ -76,7 +77,15 @@ export function SidebarFavorites() {
   const [all, setAll] = useState(false);
   const favorites = useQuery(trpc.favorites.list.queryOptions({ limit: all ? MORE : SHOWN }));
   const items = favorites.data?.items ?? [];
-  if (items.length === 0) return null;
+  if (!favorites.data) return null;
+  if (items.length === 0) {
+    // nothing starred yet: the group says how to fill it
+    return (
+      <SidebarGroup label="Favorites">
+        <SidebarHint>Star a task, note or project to keep it here.</SidebarHint>
+      </SidebarGroup>
+    );
+  }
   return (
     <SidebarGroup label="Favorites">
       {items.map((item) => (

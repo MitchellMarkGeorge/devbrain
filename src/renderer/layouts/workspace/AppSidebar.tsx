@@ -17,6 +17,7 @@ import {
   SidebarGroup,
   SidebarItem,
 } from '@renderer/components';
+import { useRunCommand } from '@renderer/keyboard';
 import type { FileRouteTypes } from '@renderer/routeTree.gen';
 import { SidebarFavorites, SidebarRecents, SidebarSync } from './SidebarEntities';
 
@@ -44,12 +45,13 @@ const FOOTER: NavPage[] = [
 /**
  * The app's sidebar: the pages as links (a page's details keep it active; Integrations is a
  * section of the settings), Recents and Favorites, then the sync line, Trash, Settings and Help,
- * drawn disabled until there is help. The workspace menu, search and New are in the title bar
+ * which opens the keyboard shortcuts (as `?` does). The workspace menu, search and New are in the title bar
  * (`AppLayout` gives them to the shell).
  */
 export function AppSidebar() {
   const { workspaceId } = useParams({ from: '/app/$workspaceId' });
   const matchRoute = useMatchRoute();
+  const run = useRunCommand();
   const item = (page: NavPage) => (
     <SidebarItem
       key={page.to}
@@ -70,7 +72,7 @@ export function AppSidebar() {
       <SidebarFooter>
         <SidebarSync />
         {FOOTER.map(item)}
-        <SidebarItem icon={CircleHelp} disabled>
+        <SidebarItem icon={CircleHelp} onClick={() => run('help.shortcuts')}>
           Help
         </SidebarItem>
       </SidebarFooter>
