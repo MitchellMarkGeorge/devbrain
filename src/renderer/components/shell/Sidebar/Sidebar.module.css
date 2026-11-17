@@ -39,7 +39,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--sidebar-gap);
-  padding: 0 var(--sidebar-inset) var(--space-3);
+  /* 8px under the title bar (or the sidebar's top) before the first item; a pinned header takes
+     it back and keeps it as its own padding, so it stays when items scroll under it */
+  padding: var(--space-2) var(--sidebar-inset) var(--space-3);
   background: inherit;
   overscroll-behavior: contain;
 }
@@ -53,13 +55,13 @@
 .top {
   position: sticky;
   z-index: 1;
-  top: 0;
+  /* sticks to the scroller's edge, not inside its top padding */
+  top: calc(-1 * var(--space-2));
   display: flex;
   flex: none;
   flex-direction: column;
   gap: var(--sidebar-gap);
-  margin: 0 calc(-1 * var(--sidebar-inset)) calc(-1 * var(--sidebar-gap));
-  /* 8px under the title bar (or the sidebar's top) */
+  margin: calc(-1 * var(--space-2)) calc(-1 * var(--sidebar-inset)) calc(-1 * var(--sidebar-gap));
   padding: var(--space-2) var(--sidebar-inset) var(--sidebar-gap);
   background: inherit;
   transition: box-shadow var(--duration-normal) var(--ease-out);
