@@ -33,7 +33,7 @@ export function RootLayout() {
   // the settings are seeded before the first render, and belong to no workspace
   const general = useQuery(trpc.settings.get.queryOptions()).data?.general;
   const timeFormat = general?.timeFormat;
-  // Settings › General › Vim keys picks the keymap; the registry and the undo stack stay
+  // Settings › Preferences › Vim keys picks the keymap; the registry and the undo stack stay
   const keymap = general?.keyboardMode === 'vim' ? vimKeymap : defaultKeymap;
   return (
     <ToastProvider>

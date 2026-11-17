@@ -135,8 +135,8 @@ describe('the settings', () => {
     );
   });
 
-  it('turns Vim keys on, which shows the mode line, and off again', async () => {
-    const { main } = settingsPage();
+  it('turns Vim keys on in Preferences, which shows the mode line, and off again', async () => {
+    const { main } = settingsPage('/settings/preferences');
     await eventually(() => expect(control('Vim keys')).toBeDefined());
     expect(document.querySelector('[aria-label="normal mode"]')).toBeNull();
     click(control('Vim keys')!);

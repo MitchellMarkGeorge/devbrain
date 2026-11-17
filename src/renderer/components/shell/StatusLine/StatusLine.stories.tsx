@@ -16,7 +16,8 @@ const meta = {
   parameters: { layout: 'fullscreen' },
   decorators: [
     (Story) => (
-      <div style={{ paddingTop: 260, containerType: 'inline-size' }}>
+      // on the window's frame, as in the shell
+      <div style={{ paddingTop: 260, containerType: 'inline-size', background: 'var(--sidebar)' }}>
         <Story />
       </div>
     ),

@@ -5,9 +5,9 @@
   align-items: center;
   gap: var(--space-3);
   height: 28px;
-  padding-right: var(--space-3);
-  border-top: 1px solid var(--border);
-  background: var(--sidebar);
+  padding: 0 var(--space-3) 0 var(--space-2);
+  /* part of the window's frame, under the page's card: the frame's own colour shows through */
+  background: transparent;
   color: var(--muted-foreground);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -18,8 +18,9 @@
 .mode {
   display: flex;
   align-items: center;
-  align-self: stretch;
-  padding: 0 var(--space-3);
+  height: 18px;
+  padding: 0 var(--space-2);
+  border-radius: 4px;
   color: var(--white);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.06em;

@@ -712,7 +712,7 @@ from the keys that work.
 **Vim mode** (built after the first plan, in stages; `src/renderer/keyboard/README.md` says what
 each piece does):
 
-1. **The setting and the mode machine.** Settings › General › Vim keys (S5) gives the provider
+1. **The setting and the mode machine.** Settings › Preferences › Vim keys (S5) gives the provider
    `vimKeymap`. Its modes are Normal, Insert, Visual, Hint and Command; the mode follows focus
    (`Keymap.insertMode`): a text field or the editor puts it in Insert, and Esc there (left alone by
    the page) or focus leaving takes it back to Normal. Counts are not read in an open menu, which
@@ -1199,7 +1199,7 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
   ‹workspace name›" in a new workspace. See Home for why. If a name is wanted later, an optional
   `general.displayName` in Settings › General is the way: the greeting adds it when it's set.
 - **S5 (done, with Vim mode): `general.keyboardMode: 'default' | 'vim'`** in `appSettingsSchema`,
-  off by default, shown in Settings › General as **Vim keys** (Figma `7704:60566`). Like
+  off by default, shown in Settings › Preferences as **Vim keys** (Figma `7704:60566`). Like
   `hideWeekends`, a settings file written before it lacks it ("Settings added after a file was
   written" in `docs/follow-ups.md`); the renderer reads a missing value as the default keymap.
 
