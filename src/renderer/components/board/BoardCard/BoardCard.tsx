@@ -78,27 +78,24 @@ export const BoardCard = forwardRef<HTMLDivElement, BoardCardProps>(function Boa
   // an undated open task the page can date: "Set due date" at the end of the meta line
   const settable =
     onDueDateChange !== undefined && !isClosed(task.status) && external?.state !== LinkState.SYNCED;
-  const meta = !done || task.dueDate;
 
   const children = (
     <>
       <div className={styles.title}>{task.title}</div>
       {pills.length > 0 && <div className={styles.pills}>{pills}</div>}
-      {meta && (
-        <div className={styles.meta}>
-          {!done && <PriorityIcon priority={task.priority} />}
-          {task.dueDate ? (
-            <span className={styles.date} data-tone={dueTone(task.status, task.dueDate, now)}>
-              {formatDue(task.dueDate)}
-            </span>
-          ) : (
-            settable &&
-            onDueDateChange && (
-              <SetDueDateButton className={styles.setDue} onDueDateChange={onDueDateChange} />
-            )
-          )}
-        </div>
-      )}
+      <div className={styles.meta}>
+        <PriorityIcon priority={task.priority} />
+        {task.dueDate ? (
+          <span className={styles.date} data-tone={dueTone(task.status, task.dueDate, now)}>
+            {formatDue(task.dueDate)}
+          </span>
+        ) : (
+          settable &&
+          onDueDateChange && (
+            <SetDueDateButton className={styles.setDue} onDueDateChange={onDueDateChange} />
+          )
+        )}
+      </div>
     </>
   );
 

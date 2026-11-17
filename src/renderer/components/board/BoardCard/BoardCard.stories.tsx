@@ -90,6 +90,7 @@ export const ManyPills: Story = {
 export const Hover: Story = { args: { state: 'hover' } };
 export const Focus: Story = { args: { state: 'focus' } };
 
+/** Completed: the card goes darker and keeps its priority */
 export const Completed: Story = {
   args: {
     task: {

@@ -461,7 +461,7 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
           {task.project && <EntityPill entity={{ type: 'project', ...task.project }} />}
         </PillStack>
         <span className={styles.priority}>
-          {!completed && <PriorityIcon priority={task.priority} />}
+          <PriorityIcon priority={task.priority} />
         </span>
         <span
           className={cn(
