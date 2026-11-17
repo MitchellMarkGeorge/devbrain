@@ -23,14 +23,16 @@ import { notes } from '@main/db/schema/notes';
 import { events } from '@main/db/schema/events';
 import { hasLinkInState } from '../integrations/refs';
 import { searchIndex } from './search-index';
+import { searchIndexEntries } from '@main/db/schema/search';
 import { withListDetails } from '../tasks/details';
 import { withNoteListDetails } from '../notes/details';
 import { withProjectListDetails } from '../projects/details';
 import { withEventDetails } from '../events/service';
 
-// rows per INSERT when writing many entries at once: four bound values each, well under SQLite's
-// limit on variables in one statement
+// entries per statement when writing many at once: an INSERT binds five values per entry, a DELETE
+// one, both well under SQLite's limit of 32,766 variables in one statement
 const INSERT_CHUNK = 1000;
+const DELETE_CHUNK = 10_000;
 
 // The note files read for one call, and the notes whose content a write indexed while they were
 // being read: those writes are newer than the files read, so their entries are kept.
@@ -193,12 +195,11 @@ export class SearchService {
   }
 
   /**
-   * Indexes a task just created, which has no entry yet. Only inserts: replacing an entry first
-   * deletes by entity_id, which FTS5 can't index, so that delete reads the whole index, and doing
-   * it for every row of an import made the import quadratic.
+   * Indexes a task just created, which has no entry yet: it only inserts, skipping the lookup a
+   * replace makes, which keeps an import of thousands of rows cheap.
    */
   indexCreatedTask(task: Task): void {
-    this.db.run(insertQuery([taskEntity(task)]));
+    this.insertEntries([taskEntity(task)]);
   }
 
   async indexNote(note: Note) {
@@ -207,16 +208,14 @@ export class SearchService {
 
   // a note just created, from its markdown; only inserts, as indexCreatedTask does
   indexCreatedNote(note: Note, content: string): void {
-    this.db.run(
-      insertQuery([
-        {
-          title: note.title,
-          body: stripMarkdown(content.trim()),
-          entityId: note.id,
-          entityType: 'note',
-        },
-      ]),
-    );
+    this.insertEntries([
+      {
+        title: note.title,
+        body: stripMarkdown(content.trim()),
+        entityId: note.id,
+        entityType: 'note',
+      },
+    ]);
     for (const written of this.noteWrites) written.add(note.id);
   }
 
@@ -284,15 +283,23 @@ export class SearchService {
           .map((note) => noteEntity(note, bodies)),
       ];
 
-      const kept = [...written].map((id) => sql`${id}`);
-      this.db.run(
-        kept.length === 0
-          ? sql`DELETE FROM search_index`
-          : sql`DELETE FROM search_index WHERE entity_id NOT IN (${sql.join(kept, sql.raw(', '))})`,
+      // every entry but those of the notes written meanwhile, including rows the map lost track of
+      // (the drift a rebuild repairs): one pass over the index
+      const kept = sql.join(
+        [...written].map((id) => sql`${id}`),
+        sql.raw(', '),
       );
-      for (let i = 0; i < entities.length; i += INSERT_CHUNK) {
-        this.db.run(insertQuery(entities.slice(i, i + INSERT_CHUNK)));
+      if (written.size === 0) {
+        this.db.run(sql`DELETE FROM search_index`);
+        this.db.run(sql`DELETE FROM search_index_entries`);
+      } else {
+        this.db.run(
+          sql`DELETE FROM search_index WHERE rowid NOT IN
+              (SELECT row_id FROM search_index_entries WHERE entity_id IN (${kept}))`,
+        );
+        this.db.run(sql`DELETE FROM search_index_entries WHERE entity_id NOT IN (${kept})`);
       }
+      this.insertEntries(entities);
       const [[indexed]] = this.db.values<[number]>(sql`SELECT count(*) FROM search_index`);
       return { indexed, unreadableNoteIds: unreadable };
     });
@@ -307,10 +314,10 @@ export class SearchService {
   }
 
   // plural counterparts to the single-entity methods above — the whole batch
-  // is deleted+inserted as one DELETE and one multi-row INSERT inside one
-  // transaction, instead of a DELETE+INSERT pair per entity. Matters once
-  // you're indexing more than a handful of rows at a time (e.g. a bulk
-  // (re)index or a seed script).
+  // is deleted+inserted in one transaction, a few thousand entries per
+  // statement, instead of a DELETE+INSERT pair per entity. Matters once
+  // you're indexing more than a handful of rows at a time (e.g. a sync page
+  // or a restore from the trash).
   indexTasks(tasks: Task[]): void {
     this.upsertIndexBatch(tasks.map((task) => taskEntity(task)));
   }
@@ -355,20 +362,18 @@ export class SearchService {
   }
 
   // drops the entries for these entities, e.g. synced rows that left scope; ids with no entry
-  // are ignored. One DELETE for the whole batch, like upsertIndexBatch.
+  // are ignored
   removeFromIndex(entityIds: IndexEntity['entityId'][]): void {
     if (entityIds.length === 0) return;
-
-    const ids = sql.join(
-      entityIds.map((entityId) => sql`${entityId}`),
-      sql.raw(', '),
-    );
-    this.db.run(sql`DELETE FROM search_index WHERE entity_id IN (${ids})`);
+    this.db.transaction(() => this.deleteEntries(entityIds));
   }
 
   // changes an entry's title and keeps its body; an entity with no entry is ignored
   updateIndexedTitle(entityId: IndexEntity['entityId'], title: string): void {
-    this.db.run(sql`UPDATE search_index SET title = ${title} WHERE entity_id = ${entityId}`);
+    this.db.run(
+      sql`UPDATE search_index SET title = ${title}
+          WHERE rowid = (SELECT row_id FROM search_index_entries WHERE entity_id = ${entityId})`,
+    );
   }
 
   private noteFilePath(id: NoteId): string {
@@ -441,38 +446,74 @@ export class SearchService {
     return running;
   }
 
+  // replaces these entities' entries, or adds them, in one transaction
   private upsertIndexBatch(entities: IndexEntity[]): void {
     if (entities.length === 0) return;
-
-    // search_index is a plain (non-content-linked) fts5 table, so there's no
-    // rowid tied to entityId to UPSERT against — clear out any existing rows
-    // for these entities first, then insert the current versions. entity_id
-    // alone is enough to match on: ids are generated per-entity-type-prefixed
-    // uuidv7s (see @common/ids), so they're globally unique across every
-    // entity type already, the same guarantee the rest of the schema relies
-    // on — no need to also filter on entity_type here.
-    const entityIds = sql.join(
-      entities.map(({ entityId }) => sql`${entityId}`),
-      sql.raw(', '),
-    );
-    const deleteQuery = sql`DELETE FROM search_index WHERE entity_id IN (${entityIds})`;
-
-    this.db.transaction((tx) => {
-      tx.run(deleteQuery);
-      tx.run(insertQuery(entities));
+    this.db.transaction(() => {
+      this.deleteEntries(entities.map(({ entityId }) => entityId));
+      this.insertEntries(entities);
     });
+  }
+
+  /**
+   * Drops these entities' entries. search_index can't index entity_id, so finding an entry by it
+   * reads the whole index; search_index_entries gives each one's rowid, which FTS5 looks up. Runs
+   * inside the caller's transaction, so the two tables change together.
+   */
+  private deleteEntries(entityIds: readonly string[]): void {
+    for (let i = 0; i < entityIds.length; i += DELETE_CHUNK) {
+      const chunk = entityIds.slice(i, i + DELETE_CHUNK);
+      const ids = sql.join(
+        chunk.map((id) => sql`${id}`),
+        sql.raw(', '),
+      );
+      this.db.run(
+        sql`DELETE FROM search_index WHERE rowid IN
+            (SELECT row_id FROM search_index_entries WHERE entity_id IN (${ids}))`,
+      );
+      this.db.run(sql`DELETE FROM search_index_entries WHERE entity_id IN (${ids})`);
+    }
+  }
+
+  /**
+   * Adds entries for entities that have none: a row in search_index_entries for each, whose rowid
+   * the FTS row then takes. An entity listed twice gets its last entry. Runs inside the caller's
+   * transaction.
+   */
+  private insertEntries(entities: readonly IndexEntity[]): void {
+    if (entities.length === 1) {
+      // one row, as each created task or note is: the FTS row takes the rowid just added
+      const [{ title, body, entityId, entityType }] = entities;
+      this.db.run(sql`INSERT INTO search_index_entries (entity_id) VALUES (${entityId})`);
+      this.db.run(
+        sql`INSERT INTO search_index (rowid, title, body, entity_id, entity_type)
+            VALUES (last_insert_rowid(), ${title}, ${body}, ${entityId}, ${entityType})`,
+      );
+      return;
+    }
+    const unique = [...new Map(entities.map((entity) => [entity.entityId, entity])).values()];
+    for (let i = 0; i < unique.length; i += INSERT_CHUNK) {
+      const chunk = unique.slice(i, i + INSERT_CHUNK);
+      const rows = this.db
+        .insert(searchIndexEntries)
+        .values(chunk.map(({ entityId }) => ({ entityId })))
+        .returning()
+        .all();
+      const rowIds = new Map(rows.map(({ entityId, rowId }) => [entityId, rowId]));
+      this.db.run(insertQuery(chunk, rowIds));
+    }
   }
 }
 
-function insertQuery(entities: IndexEntity[]): SQL {
+function insertQuery(entities: readonly IndexEntity[], rowIds: Map<string, number>): SQL {
   const valueRows = sql.join(
     entities.map(
       ({ title, body, entityId, entityType }) =>
-        sql`(${title}, ${body}, ${entityId}, ${entityType})`,
+        sql`(${rowIds.get(entityId)}, ${title}, ${body}, ${entityId}, ${entityType})`,
     ),
     sql.raw(', '),
   );
-  return sql`INSERT INTO search_index (title, body, entity_id, entity_type) VALUES ${valueRows}`;
+  return sql`INSERT INTO search_index (rowid, title, body, entity_id, entity_type) VALUES ${valueRows}`;
 }
 
 // what each entity type puts in the index; tables' rows and the services' types both fit

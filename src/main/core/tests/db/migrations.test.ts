@@ -508,6 +508,36 @@ describe("migration 0027 — Linear's no priority", () => {
   });
 });
 
+describe('migrations 0028–0029 — the search index map', () => {
+  it("records every search entry's rowid, keeping an entity's newest entry when it has several", () => {
+    const { sqlite, db } = openDb();
+    migrate(db, { migrationsFolder: migrationsUpTo(27) });
+    sqlite.exec(`
+      INSERT INTO search_index (rowid, title, body, entity_id, entity_type) VALUES
+        (3, 'Task', '', 'tsk_a', 'task'),
+        (7, 'Note', 'body', 'nte_a', 'note'),
+        (8, 'Task, again', '', 'tsk_a', 'task'),
+        (9, 'Project', '', 'prj_a', 'project');
+    `);
+
+    runMigrations(sqlite, db, migrationsUpTo(29));
+
+    expect(
+      sqlite.prepare(`SELECT row_id, entity_id FROM search_index_entries ORDER BY row_id`).all(),
+    ).toEqual([
+      { row_id: 7, entity_id: 'nte_a' },
+      { row_id: 8, entity_id: 'tsk_a' },
+      { row_id: 9, entity_id: 'prj_a' },
+    ]);
+    expect(sqlite.prepare(`SELECT rowid, title FROM search_index ORDER BY rowid`).all()).toEqual([
+      { rowid: 7, title: 'Note' },
+      { rowid: 8, title: 'Task, again' },
+      { rowid: 9, title: 'Project' },
+    ]);
+    sqlite.close();
+  });
+});
+
 describe('runMigrations — failures', () => {
   function caught(fn: () => void): WorkspaceMigrationError {
     try {

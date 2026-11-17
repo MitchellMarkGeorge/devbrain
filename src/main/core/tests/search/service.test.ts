@@ -10,7 +10,7 @@ import { ProjectService } from '../../projects/service';
 import { EventService } from '../../events/service';
 import { generateId } from '@common/ids';
 import { AuthType, LinkState, Provider, SourceType, TaskStatus } from '@common/types';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { tasks } from '@main/db/schema/tasks';
 import { externalLinks, externalSources, integrations } from '@main/db/schema/integrations';
 import { createDb } from '../utils';
@@ -346,6 +346,56 @@ describe('SearchService — updateIndexedTitle', () => {
     searchService.updateIndexedTitle(generateId('note'), 'Nothing');
 
     expect(searchService.search({ query: 'Nothing', entityType: [] })).toEqual([]);
+  });
+});
+
+describe('SearchService — the index map (search_index_entries)', () => {
+  const entries = () =>
+    db.all<{ entity_id: string; row_id: number; fts_entity: string | null }>(
+      sql`SELECT e.entity_id, e.row_id, s.entity_id AS fts_entity
+          FROM search_index_entries e LEFT JOIN search_index s ON s.rowid = e.row_id
+          ORDER BY e.entity_id`,
+    );
+  const ftsRows = () => db.all<{ n: number }>(sql`SELECT count(*) AS n FROM search_index`)[0].n;
+
+  it('keeps one entry per entity, its FTS row under the rowid it records', () => {
+    const a = taskService.createTask({ title: 'Alpha', dueDate: TOMORROW });
+    const b = taskService.createTask({ title: 'Beta', dueDate: TOMORROW });
+    searchService.indexTasks([a, b]);
+    searchService.indexTask({ ...a, title: 'Alpha renamed' });
+    searchService.updateIndexedTitle(b.id, 'Beta renamed');
+
+    expect(entries().map(({ entity_id, fts_entity }) => [entity_id, fts_entity])).toEqual(
+      [a.id, b.id].sort().map((id) => [id, id]),
+    );
+    expect(ftsRows()).toBe(2);
+    expect(
+      searchService
+        .search({ query: 'renamed', entityType: [] })
+        .map((r) => r.entity.id)
+        .sort(),
+    ).toEqual([a.id, b.id].sort());
+
+    searchService.removeFromIndex([a.id]);
+    expect(entries().map(({ entity_id }) => entity_id)).toEqual([b.id]);
+    expect(ftsRows()).toBe(1);
+  });
+
+  it('indexes and removes more entries at once than SQLite binds in one statement', () => {
+    // 9,000 entries take 45,000 values to insert, past SQLite's 32,766
+    const many = Array.from({ length: 9_000 }, (_, i) => ({
+      id: generateId('task'),
+      title: `Bulk ${i}`,
+      description: null,
+    })) as unknown as Parameters<SearchService['indexTasks']>[0];
+    searchService.indexTasks(many);
+    searchService.indexTasks(many);
+    expect(ftsRows()).toBe(9_000);
+    expect(entries()).toHaveLength(9_000);
+
+    searchService.removeFromIndex(many.map((task) => task.id));
+    expect(ftsRows()).toBe(0);
+    expect(entries()).toHaveLength(0);
   });
 });
 

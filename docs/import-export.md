@@ -289,9 +289,11 @@ the app runs meanwhile, so the cost is kept small and in proportion to the rows:
 - **Rows go in a few hundred per statement.** `createTaskTrees` builds every row first, with its id,
   so a subtask can name its parent before anything is written, then inserts them 500 at a time.
 - **Search only inserts.** A created task or note has no entry yet, so the workspace indexes it with
-  `indexCreatedTask` / `indexCreatedNote`, which insert without deleting first. Replacing an entry
-  deletes by `entity_id`, which the FTS5 table can't index, so that delete reads the whole index;
-  done per row, it made an import's cost grow with the square of its rows.
+  `indexCreatedTask` / `indexCreatedNote`, which insert without looking for one to replace. Replacing
+  an entry once deleted by `entity_id`, which the FTS5 table can't index, so that delete read the
+  whole index, and done per row it made an import's cost grow with the square of its rows. It now
+  finds the entry by rowid through `search_index_entries` (docs/performance.md), but the insert
+  alone is still cheaper.
 - **The cap** is 10,000 tasks per file, which bounds the pause.
 
 Measured on a workspace database file (WAL, search kept in step), tasks with 350-character
