@@ -206,9 +206,10 @@ export interface WindowBarProps extends Omit<ComponentPropsWithoutRef<'div'>, 'c
 
 /**
  * The start of the title bar, as wide as the sidebar: the window's start (traffic lights on macOS,
- * the menu button on Windows), the workspace switcher, and the sidebar toggle at its end, over the
- * sidebar's right edge. The switcher takes what room is left and cuts a long name short. None of it
- * moves as the sidebar hides and docks. The strip drags the window; its buttons don't.
+ * the menu button on Windows), the workspace switcher, and the sidebar toggle right after it. The
+ * switcher shrinks to its name and cuts a long one short, so the three never pass the sidebar's
+ * width. None of it moves as the sidebar hides and docks. The strip drags the window; its buttons
+ * don't.
  */
 export const WindowBar = forwardRef<HTMLDivElement, WindowBarProps>(function WindowBar(
   { workspace, className, ...props },

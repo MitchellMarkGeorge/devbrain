@@ -259,9 +259,10 @@ export const WorkspaceShell = forwardRef<HTMLDivElement, WorkspaceShellProps>(
           >
             {/*
              * the title bar: always there, across the window, so nothing in it moves. Its start
-             * is as wide as the sidebar (the window's start, the workspace, the toggle); then, in
-             * the middle, back, forward, the search field showing the page's title (a `Page`'s,
-             * portalled in) and New; then the page's actions (its header, portalled in)
+             * is as wide as the sidebar (the window's start, the workspace, the toggle); centred
+             * on the window, back, forward, the search field showing the page's title (a
+             * `Page`'s, portalled in) and New; at its end the page's actions (its header,
+             * portalled in)
              */}
             <div className={styles.titleBar}>
               <WindowBar className={styles.bar} workspace={workspace} />

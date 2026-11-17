@@ -53,7 +53,7 @@ function Bar({ name = 'SurveyMonkey' }: { name?: string }) {
  */
 export const Default: Story = { render: () => <Bar /> };
 
-/** A long workspace name is cut short; the toggle stays at the sidebar's edge. */
+/** A long workspace name is cut short, so the switcher and the toggle stay within the sidebar's width. */
 export const LongName: Story = { render: () => <Bar name="Developer Platform Team" /> };
 
 /** The bar on each platform. On Windows the caption buttons are painted here, as `WorkspaceShell` does. */
