@@ -18,6 +18,7 @@ import { cn } from '../../lib/cn';
 import { Badge } from '../../ui/Badge';
 import { Checkbox } from '../../ui/Checkbox';
 import { EntityPill } from '../../entities/EntityPill';
+import { linkTarget, PillHoverCard } from '../../entities/EntityHoverCard';
 import { PriorityIcon } from '../../entities/PriorityIcon';
 import { ProgressRing } from '../../ui/ProgressRing';
 import { SourcePill } from '../../entities/SourcePill';
@@ -442,9 +443,15 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
         </span>
         <PillStack stacked={level === 2}>
           {key && task.external && (
-            <SourcePill provider={providerOf(task.external)}>{key}</SourcePill>
+            <PillHoverCard target={{ type: 'source', title: task.title, external: task.external }}>
+              <SourcePill provider={providerOf(task.external)}>{key}</SourcePill>
+            </PillHoverCard>
           )}
-          {task.parentTask && <EntityPill entity={{ type: 'parent', ...task.parentTask }} />}
+          {task.parentTask && (
+            <PillHoverCard target={{ type: 'task', ...task.parentTask }}>
+              <EntityPill entity={{ type: 'parent', ...task.parentTask }} />
+            </PillHoverCard>
+          )}
           {subtasks && (
             <Badge
               muted
@@ -457,8 +464,16 @@ export const TaskRow = forwardRef<HTMLDivElement, TaskRowProps>(function TaskRow
       </div>
       <div className={styles.side} data-side="">
         <PillStack stacked={level >= 1}>
-          {task.link && <EntityPill entity={task.link} />}
-          {task.project && <EntityPill entity={{ type: 'project', ...task.project }} />}
+          {task.link && (
+            <PillHoverCard target={linkTarget(task.link)}>
+              <EntityPill entity={task.link} />
+            </PillHoverCard>
+          )}
+          {task.project && (
+            <PillHoverCard target={{ type: 'project', ...task.project }}>
+              <EntityPill entity={{ type: 'project', ...task.project }} />
+            </PillHoverCard>
+          )}
         </PillStack>
         <span className={styles.priority}>
           <PriorityIcon priority={task.priority} />

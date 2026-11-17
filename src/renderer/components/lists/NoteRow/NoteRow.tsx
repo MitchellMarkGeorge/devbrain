@@ -2,6 +2,7 @@ import { forwardRef } from 'react';
 import { FileText } from 'lucide-react';
 import type { NoteListItem } from '@common/types';
 import { EntityPill } from '../../entities/EntityPill';
+import { linkTarget, PillHoverCard } from '../../entities/EntityHoverCard';
 import { useFormat } from '../../lib/format';
 import { Icon } from '../../ui/Icon';
 import { ListRow, type ListRowProps } from '../ListRow';
@@ -42,8 +43,16 @@ export const NoteRow = forwardRef<HTMLDivElement, NoteRowProps>(function NoteRow
     >
       {pills && (
         <>
-          {note.link && <EntityPill entity={note.link} />}
-          {note.project && <EntityPill entity={{ type: 'project', ...note.project }} />}
+          {note.link && (
+            <PillHoverCard target={linkTarget(note.link)}>
+              <EntityPill entity={note.link} />
+            </PillHoverCard>
+          )}
+          {note.project && (
+            <PillHoverCard target={{ type: 'project', ...note.project }}>
+              <EntityPill entity={{ type: 'project', ...note.project }} />
+            </PillHoverCard>
+          )}
         </>
       )}
     </ListRow>

@@ -13,7 +13,14 @@ import { storyAgo, storyDate } from '../../lib/story-dates';
 import { Button } from '../../ui/Button';
 import { EntityPill } from '../EntityPill';
 import { SourcePill } from '../SourcePill';
+import { TaskRow } from '../../lists/TaskRow';
+import { BUSY_TASK } from '../../lists/TaskRow/fixtures';
 import { EntityHoverCard, EntityHoverCardContent, type HoverCardEntity } from './EntityHoverCard';
+import {
+  EntityHoverCardPlaceholder,
+  PillHoverCardsProvider,
+  type PillTarget,
+} from './PillHoverCards';
 
 const PROJECT = {
   type: 'project',
@@ -172,5 +179,66 @@ export const ContentOnly: Story = {
         }}
       />
     </div>
+  ),
+};
+
+// what a row's pills show in the story below: the fixtures above, under the pill's own name
+function storyCard(target: PillTarget) {
+  switch (target.type) {
+    case 'project':
+      return <EntityHoverCardContent entity={{ ...PROJECT, title: target.title }} />;
+    case 'event':
+      return <EntityHoverCardContent entity={{ ...EVENT, title: target.title }} />;
+    case 'note':
+      return <EntityHoverCardContent entity={{ ...NOTE, title: target.title }} />;
+    case 'task':
+      return (
+        <EntityHoverCardContent
+          entity={{
+            type: 'task',
+            title: target.title,
+            status: TaskStatus.NOT_STARTED,
+            priority: TaskPriority.MEDIUM,
+            dueDate: storyDate(9),
+            subtaskProgress: { completed: 1, total: 5 },
+          }}
+        />
+      );
+    case 'source':
+      return <EntityHoverCardContent entity={target} />;
+  }
+}
+
+/**
+ * A task row's pills in a `PillHoverCardsProvider`: each but the subtask count opens its card, one
+ * popup for them all, filled by `renderCard` (the app's loads the item; this one draws fixtures).
+ */
+export const InATaskRow: Story = {
+  render: () => (
+    <PillHoverCardsProvider renderCard={storyCard}>
+      <div style={{ maxWidth: 960 }}>
+        <TaskRow task={BUSY_TASK} />
+      </div>
+    </PillHoverCardsProvider>
+  ),
+};
+
+/** While the item loads, and once it can no longer be read. */
+export const Placeholder: Story = {
+  render: () => (
+    <Flex gap="3" align="start">
+      {[undefined, 'No longer available'].map((message) => (
+        <div
+          key={message ?? 'loading'}
+          style={{
+            border: '1px solid var(--edge)',
+            borderRadius: 'var(--radius-lg)',
+            background: 'var(--popover)',
+          }}
+        >
+          <EntityHoverCardPlaceholder title="Website redesign" message={message} />
+        </div>
+      ))}
+    </Flex>
   ),
 };

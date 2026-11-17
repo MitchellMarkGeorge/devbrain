@@ -5,6 +5,7 @@ import { useRender } from '@base-ui/react/use-render';
 import { mergeProps } from '@base-ui/react/merge-props';
 import type { NoteListItem } from '@common/types';
 import { EntityPill } from '../../entities/EntityPill';
+import { linkTarget, PillHoverCard } from '../../entities/EntityHoverCard';
 import { cn } from '../../lib/cn';
 import { useFormat } from '../../lib/format';
 import { cardVariants } from '../../ui/Card';
@@ -53,9 +54,13 @@ export const NoteCard = forwardRef<HTMLDivElement, NoteCardProps>(function NoteC
   const { formatRelative } = useFormat('minute');
   const link =
     size === 'sm' ? null : note.link ? (
-      <EntityPill entity={note.link} />
+      <PillHoverCard target={linkTarget(note.link)}>
+        <EntityPill entity={note.link} />
+      </PillHoverCard>
     ) : note.project ? (
-      <EntityPill entity={{ type: 'project', ...note.project }} />
+      <PillHoverCard target={{ type: 'project', ...note.project }}>
+        <EntityPill entity={{ type: 'project', ...note.project }} />
+      </PillHoverCard>
     ) : null;
   return useRender({
     ref,

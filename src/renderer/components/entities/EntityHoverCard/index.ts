@@ -8,3 +8,13 @@ export {
   type EntityHoverCardType,
   type HoverCardEntity,
 } from './EntityHoverCard';
+export {
+  EntityHoverCardPlaceholder,
+  linkTarget,
+  PillHoverCard,
+  PillHoverCardsProvider,
+  type EntityHoverCardPlaceholderProps,
+  type PillHoverCardProps,
+  type PillHoverCardsProviderProps,
+  type PillTarget,
+} from './PillHoverCards';
