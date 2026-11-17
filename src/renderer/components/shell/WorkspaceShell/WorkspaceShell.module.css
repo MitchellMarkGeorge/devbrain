@@ -78,8 +78,8 @@
  * at both ends (`--title-bar-side`: the title bar's start, which is the sidebar's width, or the
  * page's actions and on Windows the caption buttons, whichever is wider), so it sits in the same
  * place on every page, sidebar docked or hidden. It lets presses through to the start and the
- * actions under its ends. While a sheet is docked it centres over the page's card instead, where
- * the window's centre would put it over the sheet's.
+ * actions under its ends. A docked sheet changes none of it: the group stays centred on the
+ * window and the page's actions stay at its end.
  */
 .center {
   --title-bar-actions-room: 104px;
@@ -96,18 +96,9 @@
   min-width: 0;
   padding: 0 var(--title-bar-side);
   pointer-events: none;
-  transition: padding var(--duration-slow) var(--ease-surface);
 }
 .center > * {
   pointer-events: auto;
-}
-.shell:has(.sheet [data-sheet][data-open]) .center {
-  padding: 0
-    calc(
-      var(--title-bar-actions-room) +
-        max(var(--title-bar-end, 0px), calc(var(--sheet-width) + 2 * var(--space-2)))
-    )
-    0 calc(var(--sidebar-width) + var(--title-bar-actions-room));
 }
 .center :is(button, a, [role='button']) {
   -webkit-app-region: no-drag;
@@ -183,14 +174,6 @@
   display: flex;
   min-width: 0;
   padding-right: var(--title-bar-end, 0px);
-  transition: padding-right var(--duration-slow) var(--ease-surface);
-}
-/*
- * while a sheet is docked, the page's header ends over the page's card (its star and menu act on
- * the page), not over the sheet: the slot gives up the sheet's card, its gap and the window's margin
- */
-.shell:has(.sheet [data-sheet][data-open]) .titleSlot {
-  padding-right: max(var(--title-bar-end, 0px), calc(var(--sheet-width) + 2 * var(--space-2)));
 }
 .titleSlot > * {
   flex: 1;
