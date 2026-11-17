@@ -1,7 +1,7 @@
 import type { EventId, NoteId, ProjectId, TaskId } from '../ids';
-import type { Archivable, EventSummary, Model, ProjectSummary, TaskSummary } from './shared';
+import type { Trashable, EventSummary, Model, ProjectSummary, TaskSummary } from './shared';
 
-export interface Note extends Model<NoteId>, Archivable {
+export interface Note extends Model<NoteId>, Trashable {
   title: string; // think about untitled notes
   preview: string | null;
   projectId: ProjectId | null;

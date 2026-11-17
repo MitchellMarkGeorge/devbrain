@@ -1,6 +1,6 @@
 // The types IPC routes take and return (DTOs), and the enums they use: shared by core and the
 // renderer. Imports only other src/common files and zod, as the renderer bundles it.
-export * from './archive';
+export * from './trash';
 export * from './calendars';
 export * from './events';
 export * from './integrations';

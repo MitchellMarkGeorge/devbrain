@@ -109,7 +109,7 @@ describe('tasks.convertToProject', () => {
     });
     // the task is in the trash: tasks.get still reads it, for Trash to open it read-only
     expect(await data<Task>('tasks.get', { id: task.id })).toMatchObject({
-      archivedAt: expect.any(Date),
+      trashedAt: expect.any(Date),
     });
 
     // search finds the project, not the trashed task
@@ -129,7 +129,7 @@ describe('tasks.convertToProject', () => {
     const id = syncedTask();
     const result = await mutate('tasks.convertToProject', { id });
     expect(code(result)).toBe('external_read_only');
-    expect(await data<Task>('tasks.get', { id })).toMatchObject({ archivedAt: null });
+    expect(await data<Task>('tasks.get', { id })).toMatchObject({ trashedAt: null });
   });
 });
 

@@ -134,12 +134,12 @@ describe('tasks', () => {
 
     expect(await call('tasks.get', { id })).toMatchObject({ ok: true, data: { id } });
     // a task in the trash is still read, for Trash to open it read-only
-    await mutate('archive.archiveTask', { id: other });
+    await mutate('trash.trashTask', { id: other });
     expect(await call('tasks.get', { id: other })).toMatchObject({
       ok: true,
-      data: { id: other, archivedAt: expect.any(Date) },
+      data: { id: other, trashedAt: expect.any(Date) },
     });
-    await mutate('archive.restoreTask', { id: other });
+    await mutate('trash.restoreTask', { id: other });
 
     // pages through, with the cursor at the top of the input as infiniteQueryOptions passes it
     const first = dataOf(await call<Page<Task>>('tasks.list', { limit: 1 }));
@@ -383,33 +383,33 @@ describe('bulk task updates', () => {
     expect(
       code(await mutate('tasks.updateMany', { ids: [id, 'prj_1'], patch: { priority: 1 } })),
     ).toBe('invalid_input');
-    expect(code(await mutate('archive.archiveTasks', { ids: [] }))).toBe('invalid_input');
+    expect(code(await mutate('trash.trashTasks', { ids: [] }))).toBe('invalid_input');
   });
 
-  it('archives every selected task with its notes in one call', async () => {
+  it('trashes every selected task with its notes in one call', async () => {
     const a = workspace().tasks.createTask({ title: 'A', dueDate: DUE });
     const b = workspace().tasks.createTask({ title: 'B', dueDate: DUE });
     await workspace().notes.createNote({ title: 'A notes', linkedTaskId: a.id });
 
-    const result = await mutate<Task[]>('archive.archiveTasks', { ids: [a.id, b.id] });
+    const result = await mutate<Task[]>('trash.trashTasks', { ids: [a.id, b.id] });
     expect(result).toMatchObject({
       ok: true,
       data: [
-        { id: a.id, archivedAt: expect.any(Date) },
-        { id: b.id, archivedAt: expect.any(Date) },
+        { id: a.id, trashedAt: expect.any(Date) },
+        { id: b.id, trashedAt: expect.any(Date) },
       ],
       changed: ['task', 'note'],
     });
     expect(workspace().tasks.listTasks().items).toEqual([]);
 
-    // all or nothing: one already archived fails the call
+    // all or nothing: one already trashed fails the call
     const c = workspace().tasks.createTask({ title: 'C', dueDate: DUE });
-    expect(await mutate('archive.archiveTasks', { ids: [c.id, a.id] })).toMatchObject({
+    expect(await mutate('trash.trashTasks', { ids: [c.id, a.id] })).toMatchObject({
       ok: false,
-      error: { data: { code: 'already_archived' } },
+      error: { data: { code: 'already_in_trash' } },
       changed: [],
     });
-    expect(workspace().tasks.getById(c.id).archivedAt).toBeNull();
+    expect(workspace().tasks.getById(c.id).trashedAt).toBeNull();
   });
 
   it('refuses a whole batch holding a synced task, changing none of it', async () => {
@@ -422,14 +422,14 @@ describe('bulk task updates', () => {
         patch: { priority: TaskPriority.HIGH },
       }),
     ).toMatchObject({ ok: false, error: { data: { code: 'external_read_only' } }, changed: [] });
-    expect(await mutate('archive.archiveTasks', { ids: [local.id, synced] })).toMatchObject({
+    expect(await mutate('trash.trashTasks', { ids: [local.id, synced] })).toMatchObject({
       ok: false,
       error: { data: { code: 'external_read_only' } },
       changed: [],
     });
     expect(workspace().tasks.getById(local.id)).toMatchObject({
       priority: TaskPriority.LOW,
-      archivedAt: null,
+      trashedAt: null,
     });
   });
 });

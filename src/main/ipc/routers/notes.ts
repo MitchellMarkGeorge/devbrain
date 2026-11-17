@@ -42,13 +42,13 @@ export const notesRouter = t.router({
         ctx.workspace.notes.listNotes(filter, sort, page),
     ),
 
-  // a note as the notes list shows it (its project and link), in the trash too (its `archivedAt`
+  // a note as the notes list shows it (its project and link), in the trash too (its `trashedAt`
   // set): Trash opens it, and its page shows it read-only until it is restored
   get: wsProcedure
     .input(byId)
     .query(
       ({ ctx, input }): NoteListItem =>
-        ctx.workspace.notes.getById(input.id, { includeArchived: true }),
+        ctx.workspace.notes.getById(input.id, { includeTrashed: true }),
     ),
 
   // writes the note's file, with `content` or empty, then its row
@@ -69,7 +69,7 @@ export const notesRouter = t.router({
     .input(byId)
     .query(
       ({ ctx, input }): Promise<string> =>
-        ctx.workspace.notes.readContent(input.id, { includeArchived: true }),
+        ctx.workspace.notes.readContent(input.id, { includeTrashed: true }),
     ),
 
   // replaces the note's markdown; core runs one note's saves one at a time, so the last call wins
@@ -98,7 +98,7 @@ export const notesRouter = t.router({
     .input(byId)
     .mutation(({ ctx, input }) => ctx.desktop.showItem(ctx.workspace.notes.filePathOf(input.id))),
 
-  // Deletes an archived (trashed) note for good; an active one fails with not_archived. Its row
+  // Deletes a trashed note for good; an active one fails with not_in_trash. Its row
   // goes, then its file, after any save already in flight. Tasks linked to it are kept: the task
   // it was the task note of (`linkedTaskId`) has none now, and tasks made from it lose the link
   // (`unlinkedTaskIds`). If the file can't be removed the note is still deleted and `fileRemoved`

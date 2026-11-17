@@ -11,7 +11,7 @@ import { wsProcedure } from '../procedures';
 import { t } from '../trpc';
 import { zId, zPageFields } from '../zod';
 
-// Tasks, subtasks and their links. Archiving one is the archive router's; detach and reattach hand
+// Tasks, subtasks and their links. Trashing one is the trash router's; detach and reattach hand
 // a synced task to the user and back (DetachService).
 
 const byId = z.object({ id: zId('task') });
@@ -70,12 +70,12 @@ export const tasksRouter = t.router({
     ),
 
   // a task as the task list shows it (its project, parent and link), in the trash too (its
-  // `archivedAt` set): Trash opens it, and its page shows it read-only until it is restored
+  // `trashedAt` set): Trash opens it, and its page shows it read-only until it is restored
   get: wsProcedure
     .input(byId)
     .query(
       ({ ctx, input }): TaskListItem =>
-        ctx.workspace.tasks.getById(input.id, { includeArchived: true }),
+        ctx.workspace.tasks.getById(input.id, { includeTrashed: true }),
     ),
 
   // a page of the task's direct subtasks
@@ -195,8 +195,8 @@ export const tasksRouter = t.router({
         : ctx.workspace.favorites.unfavoriteTask(input.id),
     ),
 
-  // Deletes an archived (trashed) task for good, with its subtasks at any depth; an active one
-  // fails with not_archived. The response's `taskIds` lists every task removed, for the renderer to
+  // Deletes a trashed task for good, with its subtasks at any depth; an active one
+  // fails with not_in_trash. The response's `taskIds` lists every task removed, for the renderer to
   // drop. Its task notes are kept, unlinked (`unlinkedNoteIds`). A detached task is the user's own
   // copy: deleting it records nothing, so if Linear sends the issue again it syncs back as a new
   // task. Asking the user to confirm (general.confirmBeforeDeleting) is the renderer's.

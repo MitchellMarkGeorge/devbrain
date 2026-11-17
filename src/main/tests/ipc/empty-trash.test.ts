@@ -8,8 +8,8 @@ import { attachRouter } from '@main/ipc/server';
 import { resetElectronMock } from '../__mocks__/electron';
 import { call, createWorkspace, tempDevBrain, testContext } from './helpers';
 
-// archive.emptyTrash end to end, through the transport and a real ChangeTracker, over a real
-// DevBrain folder: every archived task, project and note goes for good, and `changed` names each
+// trash.emptyTrash end to end, through the transport and a real ChangeTracker, over a real
+// DevBrain folder: every trashed task, project and note goes for good, and `changed` names each
 // kind removed and each kind that lost a link.
 
 let devBrain: DevBrain;
@@ -32,13 +32,13 @@ afterEach(async () => {
 const open = async (): Promise<Workspace> =>
   devBrain.workspaces.open(await createWorkspace(devBrain, 'Work'));
 
-const emptyTrash = () => call('archive.emptyTrash', undefined, 'mutation');
+const emptyTrash = () => call('trash.emptyTrash', undefined, 'mutation');
 
 const code = (result: { ok: boolean }) =>
   (result as { error?: { data: { code: string } } }).error?.data.code;
 
-describe('archive.emptyTrash', () => {
-  it('deletes every archived item and its files, returning the ids removed', async () => {
+describe('trash.emptyTrash', () => {
+  it('deletes every trashed item and its files, returning the ids removed', async () => {
     const workspace = await open();
     const project = workspace.projects.createProject({ title: 'Old', dueDate: DUE });
     const task = workspace.tasks.createTask({ title: 'Old', dueDate: DUE });
@@ -49,10 +49,10 @@ describe('archive.emptyTrash', () => {
       dueDate: DUE,
       projectId: project.id,
     });
-    workspace.archive.archiveProject(project.id);
-    workspace.archive.restoreTask(filed.id);
-    workspace.archive.archiveTask(task.id);
-    workspace.archive.archiveNote(note.id);
+    workspace.trash.trashProject(project.id);
+    workspace.trash.restoreTask(filed.id);
+    workspace.trash.trashTask(task.id);
+    workspace.trash.trashNote(note.id);
 
     const result = await emptyTrash();
 
@@ -68,7 +68,7 @@ describe('archive.emptyTrash', () => {
     });
     // the project's task lost its project: `task` is named by the tasks' and the project's changes
     expect([...result.changed].sort()).toEqual(['note', 'project', 'task']);
-    expect(workspace.archive.listArchived().items).toEqual([]);
+    expect(workspace.trash.listTrashed().items).toEqual([]);
     expect(workspace.tasks.getById(filed.id).projectId).toBeNull();
     expect(await fs.readdir(path.join(workspace.info.path, 'notes'))).toEqual([]);
   });
@@ -76,7 +76,7 @@ describe('archive.emptyTrash', () => {
   it('names only the kinds it removed, and nothing for an empty trash', async () => {
     const workspace = await open();
     const note = await workspace.notes.createNote({ title: 'Old' });
-    workspace.archive.archiveNote(note.id);
+    workspace.trash.trashNote(note.id);
 
     expect(await emptyTrash()).toMatchObject({ ok: true, changed: ['note'] });
     expect(await emptyTrash()).toEqual({

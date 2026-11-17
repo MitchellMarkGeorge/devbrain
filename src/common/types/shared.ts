@@ -10,8 +10,8 @@ export interface Model<T extends Id<EntityType>> {
   viewedAt: Date | null;
 }
 
-export interface Archivable {
-  archivedAt: Date | null;
+export interface Trashable {
+  trashedAt: Date | null;
 }
 
 export interface Completeable {
@@ -27,7 +27,7 @@ export interface Page<T> {
 
 // The few fields a list row shows of another entity it points at, as a pill: a task's or note's
 // project, a task's parent, and what a task or note is linked to. Core's shared/summaries loads
-// them; archived rows are left out, as every list leaves them out.
+// them; trashed rows are left out, as every list leaves them out.
 
 export interface ProjectSummary {
   id: ProjectId;

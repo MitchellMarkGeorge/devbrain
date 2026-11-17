@@ -1,8 +1,8 @@
 import type { NoteId, ProjectId, TaskId } from '../ids';
 import type { ExternalRef } from './integrations';
-import type { Archivable, Completeable, Model } from './shared';
+import type { Trashable, Completeable, Model } from './shared';
 
-export interface Project extends Model<ProjectId>, Archivable, Completeable {
+export interface Project extends Model<ProjectId>, Trashable, Completeable {
   title: string;
   description: string | null;
   startDate: Date | null;

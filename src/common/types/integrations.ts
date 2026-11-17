@@ -33,7 +33,7 @@ export enum LinkState {
   SYNCED = 'synced',
   // a local copy that remembers where it came from, ignored by sync
   DETACHED = 'detached',
-  // left scope (archived, or hidden for events), restored if it returns
+  // left scope (trashed, or hidden for events), restored if it returns
   REMOVED = 'removed',
 }
 
@@ -100,7 +100,7 @@ export interface EntityCounts {
 export interface DisconnectCounts {
   // deleted with their links
   deleted: EntityCounts;
-  // kept as local copies: synced ones are detached, removed (archived or hidden) ones stay so
+  // kept as local copies: synced ones are detached, removed (trashed or hidden) ones stay so
   kept: EntityCounts;
 }
 

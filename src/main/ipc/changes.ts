@@ -3,7 +3,7 @@ import type { ChangedEntity } from '@common/changes';
 import type { WorkspaceId } from '@common/ids';
 import type { AppEventName, AppEvents } from '@common/events';
 import type { DevBrain, Workspace } from '@main/core';
-import type { ArchiveChange } from '@main/core/archive/service';
+import type { TrashChange } from '@main/core/trash/service';
 import type { FavoriteChange } from '@main/core/favorites/service';
 import type { TaskLinkChange } from '@main/core/integrations/detach';
 import type { IntegrationChange } from '@main/core/integrations/service';
@@ -172,7 +172,7 @@ export class ChangeTracker {
       workspace.notes.onChange((change) => this.recordChange(...entitiesOfNoteChange(change))),
       workspace.events.onChange(() => this.recordChange('event')),
       workspace.calendars.onChange(() => this.recordChange('calendar')),
-      workspace.archive.onChange((change) => this.recordChange(...entitiesOfArchiveChange(change))),
+      workspace.trash.onChange((change) => this.recordChange(...entitiesOfTrashChange(change))),
       workspace.favorites.onChange((change) => this.recordChange(entityOfFavoriteChange(change))),
       workspace.recents.onChange(() => this.recordChange('recent')),
       workspace.detach.onChange((change) => this.recordChange(...entitiesOfTaskLinkChange(change))),
@@ -242,7 +242,7 @@ export function entitiesOfNoteChange(change: NoteChange): ChangedEntity[] {
 }
 
 // an emptied trash also changes the rows left that lost a link to what it deleted
-export function entitiesOfArchiveChange(change: ArchiveChange): ChangedEntity[] {
+export function entitiesOfTrashChange(change: TrashChange): ChangedEntity[] {
   const { taskIds, projectIds, noteIds } = change;
   const tasksChanged =
     taskIds.length > 0 || (change.type === 'emptied' && change.unlinkedTaskIds.length > 0);

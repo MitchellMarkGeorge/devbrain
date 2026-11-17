@@ -4,24 +4,24 @@ import type { ProjectStatus } from './projects';
 import type { ProjectSummary } from './shared';
 import type { TaskStatus } from './tasks';
 
-export type ArchivableId = NoteId | TaskId | ProjectId;
+export type TrashableId = NoteId | TaskId | ProjectId;
 
-export type ArchivableEntityType = 'tasks' | 'projects' | 'notes';
+export type TrashableEntityType = 'tasks' | 'projects' | 'notes';
 
 /**
  * A row in Trash: what the three kinds share (id, kind, title, when it was trashed), and what each
  * row draws of its own kind. Pills name the item's links and source as summaries, so the page needs
- * no other read. `archive.listArchived` pages the three tables as one union by `archivedAt`, then
+ * no other read. `trash.listTrashed` pages the three tables as one union by `trashedAt`, then
  * reads these fields with one query per kind on the page.
  */
-interface ArchivedBase<Id extends ArchivableId, Type extends ArchivableEntityType> {
+interface TrashedBase<Id extends TrashableId, Type extends TrashableEntityType> {
   id: Id;
   entityType: Type;
   title: string;
-  archivedAt: Date;
+  trashedAt: Date;
 }
 
-export interface ArchivedTask extends ArchivedBase<TaskId, 'tasks'> {
+export interface TrashedTask extends TrashedBase<TaskId, 'tasks'> {
   status: TaskStatus;
   // its project, as a pill; null when it has none (or the project was deleted)
   project: ProjectSummary | null;
@@ -29,22 +29,22 @@ export interface ArchivedTask extends ArchivedBase<TaskId, 'tasks'> {
   external: ExternalRef | null;
 }
 
-export interface ArchivedProject extends ArchivedBase<ProjectId, 'projects'> {
+export interface TrashedProject extends TrashedBase<ProjectId, 'projects'> {
   status: ProjectStatus;
   // untrusted: parse it before drawing (docs/security/untrusted-content.md)
   color: string | null;
   external: ExternalRef | null;
 }
 
-export interface ArchivedNote extends ArchivedBase<NoteId, 'notes'> {
+export interface TrashedNote extends TrashedBase<NoteId, 'notes'> {
   // the note's first line
   preview: string | null;
   project: ProjectSummary | null;
 }
 
-export type ArchivedEntity = ArchivedTask | ArchivedProject | ArchivedNote;
+export type TrashedEntity = TrashedTask | TrashedProject | TrashedNote;
 
-/** Rows chosen in Trash, by kind: what `archive.restoreMany` and `archive.deleteMany` act on. */
+/** Rows chosen in Trash, by kind: what `trash.restoreMany` and `trash.deleteMany` act on. */
 export interface TrashSelection {
   taskIds: TaskId[];
   projectIds: ProjectId[];
@@ -52,7 +52,7 @@ export interface TrashSelection {
 }
 
 /**
- * What `archive.restoreMany` brought back: the rows chosen and every row their cascades restored
+ * What `trash.restoreMany` brought back: the rows chosen and every row their cascades restored
  * (a project's tasks and notes, a task's subtree and notes).
  */
 export type RestoreResult = TrashSelection;
@@ -62,8 +62,8 @@ export interface EmptyTrashResult {
   taskIds: TaskId[];
   projectIds: ProjectId[];
   noteIds: NoteId[];
-  // Archived tasks left in the trash: each has an active or synced task below it, which deleting
-  // it would take along (sync can archive a removed Linear task and leave its subtasks live)
+  // Trashed tasks left in the trash: each has an active or synced task below it, which deleting
+  // it would take along (sync can trash a removed Linear task and leave its subtasks live)
   keptTaskIds: TaskId[];
   // deleted notes whose markdown file could not be removed; the notes are gone all the same
   filesNotRemoved: NoteId[];

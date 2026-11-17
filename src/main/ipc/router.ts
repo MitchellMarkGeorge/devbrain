@@ -1,6 +1,6 @@
 import { t } from './trpc';
 import { appRouter as app } from './routers/app';
-import { archiveRouter as archive } from './routers/archive';
+import { trashRouter as trash } from './routers/trash';
 import { calendarsRouter as calendars } from './routers/calendars';
 import { eventsRouter as events } from './routers/events';
 import { favoritesRouter as favorites } from './routers/favorites';
@@ -25,7 +25,7 @@ export const appRouter = t.router({
   workspace,
   settings,
   tasks,
-  archive,
+  trash,
   calendars,
   integrations,
   sources,

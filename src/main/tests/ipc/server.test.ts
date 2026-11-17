@@ -168,7 +168,7 @@ describe('attachRouter', () => {
     };
     attach(
       t.router({
-        archive: t.procedure.mutation(() => {
+        trash: t.procedure.mutation(() => {
           write('task', 'note');
           write('task');
           return null;
@@ -182,7 +182,7 @@ describe('attachRouter', () => {
       { changeTracker },
     );
 
-    expect(await call('archive', undefined, 'mutation')).toEqual({
+    expect(await call('trash', undefined, 'mutation')).toEqual({
       ok: true,
       data: null,
       changed: ['task', 'note'],

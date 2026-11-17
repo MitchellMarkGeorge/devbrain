@@ -13,7 +13,7 @@ export const appSettingsSchema = z.object({
     launchOnStartup: z.boolean(),
     openToLastPage: z.boolean(),
     confirmBeforeDeleting: z.boolean(),
-    confirmBeforeArchiving: z.boolean(),
+    confirmBeforeTrashing: z.boolean(),
     timeFormat: z.enum(['12', '24']),
   }),
   tasks: z.object({

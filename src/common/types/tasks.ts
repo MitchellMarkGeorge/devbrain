@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { EventId, NoteId, ProjectId, TaskId } from '../ids';
 import type { ExternalRef } from './integrations';
 import type {
-  Archivable,
+  Trashable,
   Completeable,
   EventSummary,
   Model,
@@ -40,7 +40,7 @@ export enum TaskStatus {
   CANCELLED = 4,
 }
 
-export interface Task extends Model<TaskId>, Archivable, Completeable {
+export interface Task extends Model<TaskId>, Trashable, Completeable {
   // so it is not coupled to Drizzle
   title: string;
   description: string | null;
@@ -61,7 +61,7 @@ export interface Task extends Model<TaskId>, Archivable, Completeable {
 export interface SubtaskListItem extends Task {
   // always set on a listed task: null for a local one
   external: ExternalRef | null;
-  // counts of the task's direct, unarchived subtasks, leaving out cancelled ones as project stats
+  // counts of the task's direct, restored subtasks, leaving out cancelled ones as project stats
   // do; null when none are left
   subtaskProgress: SubtaskProgress | null;
   project: ProjectSummary | null;

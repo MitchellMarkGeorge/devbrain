@@ -48,13 +48,13 @@ export const projectsRouter = t.router({
         ctx.workspace.projects.listProjects(filter, sort, page),
     ),
 
-  // a project, in the trash too (its `archivedAt` set): Trash opens it, and its page shows it
+  // a project, in the trash too (its `trashedAt` set): Trash opens it, and its page shows it
   // read-only until it is restored
   get: wsProcedure
     .input(byId)
     .query(
       ({ ctx, input }): Project =>
-        ctx.workspace.projects.getById(input.id, { includeArchived: true }),
+        ctx.workspace.projects.getById(input.id, { includeTrashed: true }),
     ),
 
   create: wsProcedure
@@ -96,8 +96,8 @@ export const projectsRouter = t.router({
       ({ ctx, input }): Project => ctx.workspace.projects.updateStatus(input.id, input.status),
     ),
 
-  // Deletes an archived (trashed) project for good; an active one fails with not_archived (a synced
-  // project is never archived). Its tasks and notes are the user's own work and are kept, only
+  // Deletes a trashed project for good; an active one fails with not_in_trash (a synced
+  // project is never trashed). Its tasks and notes are the user's own work and are kept, only
   // without a project (`unfiledTaskIds`, `unfiledNoteIds`), and stay in the trash with it.
   // Deleting them too is a separate delete of each.
   delete: wsProcedure

@@ -92,7 +92,7 @@ describe('Show in Finder', () => {
       path.join(workspace.info.path, 'notes', `${note.id}.md`),
     );
 
-    workspace.archive.archiveNote(note.id);
+    workspace.trash.trashNote(note.id);
     expect(code(await call('notes.showInFolder', { id: note.id }, 'mutation'))).toBe('not_found');
     expect(code(await call('notes.showInFolder', { id: 'tsk_1' }, 'mutation'))).toBe(
       'invalid_input',

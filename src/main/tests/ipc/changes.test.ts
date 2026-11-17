@@ -9,7 +9,7 @@ import { DEFAULT_CALENDAR_ID } from '@main/core/calendars/types';
 import {
   ChangeTracker,
   entityOfFavoriteChange,
-  entitiesOfArchiveChange,
+  entitiesOfTrashChange,
   entitiesOfIntegrationChange,
   entitiesOfNoteChange,
   entitiesOfProjectChange,
@@ -111,7 +111,7 @@ describe('a mutation', () => {
     await afterBackgroundBatchSent();
     sendToWindows.mockReset();
 
-    const result = await act((ws) => ws.archive.archiveTask(task.id), 'window-a');
+    const result = await act((ws) => ws.trash.trashTask(task.id), 'window-a');
 
     expect(result).toMatchObject({ ok: true });
     expect([...result.changed].sort()).toEqual(['note', 'task']);
@@ -321,12 +321,12 @@ describe('switching workspace', () => {
 describe('the entities of each change', () => {
   const none = { taskIds: [], projectIds: [], noteIds: [] };
 
-  it('names what an archive cascaded to', () => {
+  it('names what a trash cascaded to', () => {
     expect(
-      entitiesOfArchiveChange({ type: 'archived', ...none, taskIds: ['tsk_1' as never] }),
+      entitiesOfTrashChange({ type: 'trashed', ...none, taskIds: ['tsk_1' as never] }),
     ).toEqual(['task']);
     expect(
-      entitiesOfArchiveChange({
+      entitiesOfTrashChange({
         type: 'restored',
         taskIds: ['tsk_1' as never],
         projectIds: ['prj_1' as never],
@@ -337,11 +337,11 @@ describe('the entities of each change', () => {
 
   it('names what emptying the trash deleted, and the kinds of rows that lost a link', () => {
     const emptied = { type: 'emptied' as const, ...none, unlinkedTaskIds: [], unlinkedNoteIds: [] };
-    expect(entitiesOfArchiveChange(emptied)).toEqual([]);
-    expect(entitiesOfArchiveChange({ ...emptied, noteIds: ['nte_1' as never] })).toEqual(['note']);
+    expect(entitiesOfTrashChange(emptied)).toEqual([]);
+    expect(entitiesOfTrashChange({ ...emptied, noteIds: ['nte_1' as never] })).toEqual(['note']);
     // a project that went leaves its tasks and notes without one
     expect(
-      entitiesOfArchiveChange({
+      entitiesOfTrashChange({
         ...emptied,
         projectIds: ['prj_1' as never],
         unlinkedTaskIds: ['tsk_1' as never],
