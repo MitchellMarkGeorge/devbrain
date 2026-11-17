@@ -382,8 +382,11 @@ below), so a list only loads what has been scrolled near.
 **When something changes**, the invalidator marks the entry stale and React Query refetches it by
 re-requesting the loaded pages in order, starting again from the first cursor. That keeps pages
 consistent with each other, but a list scrolled through five pages refetches five pages (five
-IPC calls of 100 rows: a few milliseconds each on SQLite). `maxPages: 10` caps that; scrolling back
-up past the cap reloads the earlier pages.
+IPC calls of 100 rows: a few milliseconds each on SQLite). Every loaded page stays: React Query's
+`maxPages` drops the first pages as new ones load, and with no previous-page cursor (and a
+virtualizer that would have to keep its place as rows vanish above it) they never came back; the
+lists stopped loading at ten pages, so the tasks list ended at 1,000 rows. A list scrolled to the end
+of 8,859 tasks refetches 89 pages after a change, about 0.6 s (docs/performance.md).
 
 **The board** is three of these, one per column, each with its own input (`filter: { status: 1 }`,
 `{ status: 2 }`, `{ status: 3 }`). They're three cache entries, each loading its first page when

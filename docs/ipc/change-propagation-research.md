@@ -470,7 +470,9 @@ flicker, and a "Saving…" state covers the refetch.
   invalidation that follows replaces the guess with the truth, so no `onSettled` refetch is needed.
 - **Infinite lists.** Invalidation refetches every loaded page, one after another, starting from
   the first ([TanStack: infinite queries][tq-infinite]). Our keyset cursors survive rows moving.
-  At ~1 ms a page this is fine for a few pages. Set `maxPages` (e.g. 5) on long lists to cap it.
+  At ~1 ms a page this is fine for a few pages. (`maxPages` would cap it, but drops pages it can't
+  load again without a previous-page cursor; the lists keep every page instead. See
+  docs/performance.md.)
 - **Note autosave.** Each `updateNoteContent` reports `note`, which refetches note lists. That is
   cheap and correct, since the preview and `updatedAt` changed. The open editor must not be
   overwritten by its own refetch: it should treat the content query as its initial value only

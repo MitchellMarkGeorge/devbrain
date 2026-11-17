@@ -5,14 +5,10 @@ import type { NoteListInput } from './search';
 
 // The notes pages' reads (docs/renderer/implementation-plan.md, "How the infinite lists work").
 
-/** At most this many pages stay loaded; scrolling back past them reloads the earlier ones. */
-const MAX_PAGES = 10;
-
 /** The notes list (`notes.list`), paged by core's cursor. */
 export function noteListQuery(input: NoteListInput) {
   return trpc.notes.list.infiniteQueryOptions(input, {
     getNextPageParam: (page) => page.nextCursor,
-    maxPages: MAX_PAGES,
   });
 }
 
@@ -20,7 +16,7 @@ export function noteListQuery(input: NoteListInput) {
 export function noteTasksQuery(id: NoteId) {
   return trpc.tasks.list.infiniteQueryOptions(
     { filter: { noteId: id }, sort: { sortBy: 'createdAt', direction: 'asc' }, limit: 100 },
-    { getNextPageParam: (page) => page.nextCursor, maxPages: MAX_PAGES },
+    { getNextPageParam: (page) => page.nextCursor },
   );
 }
 
