@@ -23,6 +23,12 @@ import {
 } from './types';
 import { SyncWriter } from './writer';
 
+// a detached root task and its detached descendants, by external id, to reattach together
+export interface ReattachGroup {
+  rootExternalId: string;
+  descendantExternalIds: string[];
+}
+
 export interface TaskReconcilerOptions {
   // for the reads that plan a reconcile pass; writes go through `writer`
   db: BetterSQLite3Database;
@@ -190,58 +196,113 @@ export class TaskReconciler {
   /**
    * Refreshes detached tasks from the provider and hands them back to sync: the reattach behind
    * DetachService. Not a run: no cursor moves, no outcome is recorded on the source, and a run in
-   * flight is not waited for, as each write is its own transaction.
-   *
-   * 1. Refuse, as a run would be skipped, when the source or its integration is off, the
-   *    integration needs re-authentication, the provider asked to wait, or it has no tasks.
-   * 2. Resolve the root and its detached descendants. The root must come back readable and
-   *    assigned to the viewer; otherwise this refuses, having written nothing.
-   * 3. Hand the descendants that came back assigned back to sync with the root, through
-   *    SyncWriter.reattachTasks. Those gone, reassigned or unreadable stay detached.
-   *
-   * Any provider failure throws, rejected credentials (IntegrationAuthError) included. Unlike a
-   * run, this does not move the integration to needs_reauth: that is left to the caller, so sync
-   * does not depend on IntegrationService. DetachService reports it, and the workspace marks the
-   * integration.
+   * flight is not waited for, as each write is its own transaction. One root and its detached
+   * descendants; see reattachGroups.
    */
   async reattachTasks(
     sourceId: ExternalSourceId,
     rootExternalId: string,
     descendantExternalIds: string[],
   ): Promise<ReattachResult> {
+    const results = await this.reattachGroups(sourceId, [
+      { rootExternalId, descendantExternalIds },
+    ]);
+    return results.get(rootExternalId)!;
+  }
+
+  /**
+   * reattachTasks for several roots of one source at once, from a single provider lookup:
+   * DetachService.reattachKept hands back every task a disconnect kept this way.
+   *
+   * 1. Refuse every group, as a run would be skipped, when the source or its integration is off,
+   *    the integration needs re-authentication, the provider asked to wait, or it has no tasks.
+   * 2. Resolve every root and descendant in one resolveTasks call (the provider splits it into
+   *    lookups of LOOKUP_BATCH_SIZE). Any provider failure throws here, before anything is
+   *    written, rejected credentials (IntegrationAuthError) included.
+   * 3. Per group, in the order given: refuse it when its root came back gone, unreadable or not
+   *    assigned to the viewer; otherwise hand its root and the descendants that came back assigned
+   *    to sync through SyncWriter.reattachTasks, each group in its own transaction. Descendants
+   *    gone, reassigned or unreadable stay detached. A root no longer detached by then (changed
+   *    while the provider answered) is refused alone.
+   *
+   * Returns each group's result by its root's external id. Unlike a run, rejected credentials do
+   * not move the integration to needs_reauth: that is left to the caller, so sync does not depend
+   * on IntegrationService. DetachService reports it, and the workspace marks the integration.
+   */
+  async reattachGroups(
+    sourceId: ExternalSourceId,
+    groups: ReattachGroup[],
+  ): Promise<Map<string, ReattachResult>> {
+    const results = new Map<string, ReattachResult>();
+    const refuseAll = (reason: SyncSkipReason) => {
+      for (const group of groups) results.set(group.rootExternalId, { ok: false, reason });
+      return results;
+    };
+    if (groups.length === 0) return results;
+
     // 1.
     const target = this.syncState.getSyncTarget(sourceId);
     const blocked = syncSkipReason(target, this.now());
-    if (blocked) return { ok: false, reason: blocked };
+    if (blocked) return refuseAll(blocked);
     const tasks = this.providers.get(target.provider)?.tasks;
     if (target.sourceType !== SourceType.TASKS || !tasks) {
-      return { ok: false, reason: SyncSkipReason.UNSUPPORTED };
+      return refuseAll(SyncSkipReason.UNSUPPORTED);
     }
 
     // 2.
-    const ids = [rootExternalId, ...descendantExternalIds];
+    const ids = groups.flatMap((group) => [group.rootExternalId, ...group.descendantExternalIds]);
     const auth = await this.credentials.getAuth(target.integrationId);
     const resolved = await tasks.resolveTasks(auth, ids);
-    const root = resolved.found.find((task) => task.externalId === rootExternalId);
-    if (resolved.gone.includes(rootExternalId)) return { ok: false, reason: ReattachRefusal.GONE };
-    if (!root) return { ok: false, reason: ReattachRefusal.UNREADABLE };
-    if (!root.assignedToViewer) return { ok: false, reason: ReattachRefusal.UNASSIGNED };
+    const found = new Map(resolved.found.map((task) => [task.externalId, task]));
+    const gone = new Set(resolved.gone);
+    const projects = new Map(resolved.projects.map((project) => [project.externalId, project]));
 
     // 3.
-    const assigned = resolved.found.filter((task) => task.assignedToViewer);
-    const leftDetached = ids.filter((id) => !assigned.some((task) => task.externalId === id));
-    const summary = this.writer.reattachTasks(
-      sourceId,
-      rootExternalId,
-      { tasks: assigned, projects: resolved.projects },
-      leftDetached,
-    );
-    if (!summary) return { ok: false, reason: ReattachRefusal.CHANGED };
+    let reattached = 0;
+    let leftDetachedCount = 0;
+    for (const { rootExternalId, descendantExternalIds } of groups) {
+      const root = found.get(rootExternalId);
+      const refusal = gone.has(rootExternalId)
+        ? ReattachRefusal.GONE
+        : !root
+          ? ReattachRefusal.UNREADABLE
+          : !root.assignedToViewer
+            ? ReattachRefusal.UNASSIGNED
+            : null;
+      if (refusal) {
+        results.set(rootExternalId, { ok: false, reason: refusal });
+        continue;
+      }
+
+      const groupIds = [rootExternalId, ...descendantExternalIds];
+      const assigned = groupIds.flatMap((id) => {
+        const task = found.get(id);
+        return task?.assignedToViewer ? [task] : [];
+      });
+      const leftDetached = groupIds.filter((id) => !found.get(id)?.assignedToViewer);
+      // the projects of this group's tasks, so each write files them as a page would
+      const groupProjects = [
+        ...new Set(assigned.flatMap((task) => task.projectExternalId ?? [])),
+      ].flatMap((id) => projects.get(id) ?? []);
+      const summary = this.writer.reattachTasks(
+        sourceId,
+        rootExternalId,
+        { tasks: assigned, projects: groupProjects },
+        leftDetached,
+      );
+      if (!summary) {
+        results.set(rootExternalId, { ok: false, reason: ReattachRefusal.CHANGED });
+        continue;
+      }
+      reattached += summary.reattached.length;
+      leftDetachedCount += leftDetached.length;
+      results.set(rootExternalId, { ok: true, summary });
+    }
     this.logger.info(
-      `Reattached ${summary.reattached.length} task(s) on ${sourceId}, ` +
-        `${leftDetached.length} left detached`,
+      `Reattached ${reattached} task(s) on ${sourceId} from ${groups.length} root(s), ` +
+        `${leftDetachedCount} left detached`,
     );
-    return { ok: true, summary };
+    return results;
   }
 }
 

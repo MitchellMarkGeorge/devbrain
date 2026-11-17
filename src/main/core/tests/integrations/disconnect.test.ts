@@ -967,9 +967,15 @@ describe('DetachService — kept copies after connecting the same account again'
     const changes: TaskLinkChange[] = [];
     detach.onChange((change) => changes.push(change));
 
+    const lookupsBefore = linear.tasks.lookups.length;
+
     const result = await detach.reattachKept(second.id);
 
     expect(result).toEqual({ reattached: 3, failed: [] });
+    // one provider lookup for both kept tasks and the subtask
+    expect(linear.tasks.lookups.slice(lookupsBefore).map((lookup) => lookup.externalIds)).toEqual([
+      [parent.externalId, child.externalId, loose.externalId],
+    ]);
     for (const item of [parent, child, loose]) {
       expect(linkOf(item)!.state).toBe(LinkState.SYNCED);
     }
@@ -1022,9 +1028,37 @@ describe('DetachService — kept copies after connecting the same account again'
       throw new IntegrationAuthError('rejected');
     };
 
+    const changes: TaskLinkChange[] = [];
+    detach.onChange((change) => changes.push(change));
+
     await expect(detach.reattachKept(second.id)).rejects.toThrow(IntegrationAuthError);
-    expect(linear.tasks.lookups).toHaveLength(1);
+    // both asked for in the one lookup, and the rejection reported once
+    expect(linear.tasks.lookups.at(-1)!.externalIds).toEqual(items.map((item) => item.externalId));
+    expect(changes.map((change) => change.type)).toEqual(['credentials_rejected']);
     expect(detach.keptCopies(second.id)).toEqual({ tasks: 2 });
+  });
+
+  it('writes nothing when the provider is down', async () => {
+    const first = await connectLinear();
+    const items = [issue(), issue()];
+    await syncTasks(first.sourceId, items);
+    await service.disconnect(first.id, { keepLocalCopies: true });
+    const second = await connectLinear();
+    await syncTasks(second.sourceId, items);
+    linear.tasks.respondToLookup = () => {
+      throw new ProviderUnavailableError('Linear is down');
+    };
+    const changes: TaskLinkChange[] = [];
+    detach.onChange((change) => changes.push(change));
+
+    await expect(detach.reattachKept(second.id)).rejects.toThrow(ProviderUnavailableError);
+
+    expect(detach.keptCopies(second.id)).toEqual({ tasks: 2 });
+    expect(items.map((item) => linkOf(item)!.state)).toEqual([
+      LinkState.DETACHED,
+      LinkState.DETACHED,
+    ]);
+    expect(changes).toEqual([]);
   });
 
   it('keeping them local stops offering them and leaves the tasks as they are', async () => {

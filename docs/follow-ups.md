@@ -168,14 +168,13 @@ Whether any of this is needed rests on Google no longer reporting older deletion
 
 _Found in feature 15. Done: a "reattach all" offer on the Integrations page, below._
 
-After a disconnect that keeps local copies, connecting the same account again re-matches every link by provider and external id when the next sync sees the item (`PageWrite.findLinks` in `src/main/core/sync/writer.ts`). A project comes back synced, but a task stays detached, as it may hold edits made since. The disconnect now marks the task links it detaches (`KEPT_BY_DISCONNECT` in `src/main/core/integrations/schema.ts`), and once they are matched the account's card offers to reattach them (`integrations.reattachKept`, which runs `DetachService.reattachTask` per top-level kept task after a confirmation that local edits are replaced) or keep them local (`integrations.keepKeptLocal`). Tasks the user detached themselves are never offered.
+After a disconnect that keeps local copies, connecting the same account again re-matches every link by provider and external id when the next sync sees the item (`PageWrite.findLinks` in `src/main/core/sync/writer.ts`). A project comes back synced, but a task stays detached, as it may hold edits made since. The disconnect now marks the task links it detaches (`KEPT_BY_DISCONNECT` in `src/main/core/integrations/schema.ts`), and once they are matched the account's card offers to reattach them (`integrations.reattachKept`, after a confirmation that local edits are replaced: every top-level kept task with its subtasks, from one provider lookup through `TaskReconciler.reattachGroups`) or keep them local (`integrations.keepKeptLocal`). Tasks the user detached themselves are never offered.
 
 Left to do:
 
 - **Copies kept before this change carry no marker**, so they are not offered; they can still be reattached one at a time.
 - **The offer waits for the first sync.** A kept copy has no source until the sync lists its item, so the count grows as that sync runs. A copy whose item is no longer assigned to the user is never matched, so it is never offered either.
 - **A refused task stays offered.** One that is gone or reassigned is reported and stays a kept copy, so the offer remains until the user picks Keep Local. Clearing the marker for a refusal that won't change (gone, reassigned) would end the offer by itself.
-- **One provider lookup per top-level task**, one after another. Fine for tens of tasks; hundreds would want the reconciler's lookup batched across tasks.
 
 ### Viewing months before the synced history
 
