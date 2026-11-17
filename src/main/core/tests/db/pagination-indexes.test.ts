@@ -17,7 +17,7 @@ const db = createDb();
 
 interface Case {
   name: string;
-  table: { id: SQLiteColumn; archivedAt?: SQLiteColumn } & Record<string, unknown>;
+  table: { id: SQLiteColumn; trashedAt?: SQLiteColumn } & Record<string, unknown>;
   from: unknown;
   sortColumn: SQLiteColumn;
   // index used when sorting descending, and ascending unless `ascIndex` is given
@@ -139,7 +139,7 @@ describe.each(cases)('pagination index — $name', (c) => {
         .select()
         .from(c.from as typeof tasks)
         .where(
-          and(isNull(c.table.archivedAt!), originFilter(c.entity, c.table.id, origin), pager.after),
+          and(isNull(c.table.trashedAt!), originFilter(c.entity, c.table.id, origin), pager.after),
         )
         .orderBy(...pager.orderBy)
         .limit(pager.fetchLimit);
@@ -169,7 +169,7 @@ describe('pagination index — tasks.listSubtasks', () => {
     const query = db
       .select()
       .from(tasks)
-      .where(and(eq(tasks.parentTaskId, 'tsk_x' as never), isNull(tasks.archivedAt), pager.after))
+      .where(and(eq(tasks.parentTaskId, 'tsk_x' as never), isNull(tasks.trashedAt), pager.after))
       .orderBy(...pager.orderBy)
       .limit(pager.fetchLimit);
     const detail = plan(query).join('\n');
@@ -178,61 +178,61 @@ describe('pagination index — tasks.listSubtasks', () => {
   });
 });
 
-describe('pagination index — archive.listArchived', () => {
-  // mirrors the UNION ALL in ArchiveService.listArchived: each branch should use its own
-  // (archived_at, id) index. On the first page the branches are merged with no sort step; with
-  // a cursor sqlite plans the keyset OR as a multi-index OR, so each branch sorts the archived
-  // rows past the cursor (accepted: see the note on listArchived)
-  it.each([false, true])('with cursor: %s, uses the per-table archived indexes', (withCursor) => {
+describe('pagination index — trash.listTrashed', () => {
+  // mirrors the UNION ALL in TrashService.listTrashed: each branch should use its own
+  // (trashed_at, id) index. On the first page the branches are merged with no sort step; with
+  // a cursor sqlite plans the keyset OR as a multi-index OR, so each branch sorts the trashed
+  // rows past the cursor (accepted: see the note on listTrashed)
+  it.each([false, true])('with cursor: %s, uses the per-table trashed indexes', (withCursor) => {
     const branch = (table: typeof tasks | typeof projects | typeof notes) => {
       const pager = keyset<{ v: unknown; id: string }>(
         {
-          sortKey: 'archivedAt',
-          sortColumn: table.archivedAt,
+          sortKey: 'trashedAt',
+          sortColumn: table.trashedAt,
           idColumn: table.id,
           direction: 'desc',
           sortValue: (r) => r.v,
           id: (r) => r.id,
         },
         {
-          cursor: withCursor ? cursorFor(table.archivedAt, 'archivedAt', new Date()) : undefined,
+          cursor: withCursor ? cursorFor(table.trashedAt, 'trashedAt', new Date()) : undefined,
         },
       );
       return db
-        .select({ id: sql`${table.id}`.as('id'), title: table.title, archivedAt: table.archivedAt })
+        .select({ id: sql`${table.id}`.as('id'), title: table.title, trashedAt: table.trashedAt })
         .from(table)
-        .where(and(isNotNull(table.archivedAt), pager.after));
+        .where(and(isNotNull(table.trashedAt), pager.after));
     };
     const query = unionAll(branch(tasks), branch(projects), branch(notes))
-      .orderBy(sql`archived_at desc`, sql`id desc`)
+      .orderBy(sql`trashed_at desc`, sql`id desc`)
       .limit(51);
     const detail = plan(query).join('\n');
     expect(detail).toContain('MERGE (UNION ALL)');
-    expect(detail).toContain('idx_tasks_archived_at_id');
-    expect(detail).toContain('idx_projects_archived_at_id');
-    expect(detail).toContain('idx_notes_archived_at_id');
+    expect(detail).toContain('idx_tasks_trashed_at_id');
+    expect(detail).toContain('idx_projects_trashed_at_id');
+    expect(detail).toContain('idx_notes_trashed_at_id');
     if (!withCursor) expect(detail).not.toContain('TEMP B-TREE');
   });
 });
 
-describe('pagination index — archive.listArchived filtered to one entity type', () => {
+describe('pagination index — trash.listTrashed filtered to one entity type', () => {
   it.each([
-    ['tasks', tasks, 'idx_tasks_archived_at_id'],
-    ['projects', projects, 'idx_projects_archived_at_id'],
-    ['notes', notes, 'idx_notes_archived_at_id'],
-  ] as const)('%s: first page reads the archived index in order', (_, table, index) => {
+    ['tasks', tasks, 'idx_tasks_trashed_at_id'],
+    ['projects', projects, 'idx_projects_trashed_at_id'],
+    ['notes', notes, 'idx_notes_trashed_at_id'],
+  ] as const)('%s: first page reads the trashed index in order', (_, table, index) => {
     const pager = keyset<{ v: unknown; id: string }>({
-      sortKey: 'archivedAt',
-      sortColumn: table.archivedAt,
+      sortKey: 'trashedAt',
+      sortColumn: table.trashedAt,
       idColumn: table.id,
       direction: 'desc',
       sortValue: (r) => r.v,
       id: (r) => r.id,
     });
     const query = db
-      .select({ id: table.id, title: table.title, archivedAt: table.archivedAt })
+      .select({ id: table.id, title: table.title, trashedAt: table.trashedAt })
       .from(table as typeof tasks)
-      .where(and(isNotNull(table.archivedAt), pager.after))
+      .where(and(isNotNull(table.trashedAt), pager.after))
       .orderBy(...pager.orderBy)
       .limit(pager.fetchLimit);
     const detail = plan(query).join('\n');
@@ -250,7 +250,7 @@ describe.each([
   },
   { list: 'recents.listRecents', stamp: 'viewedAt', column: 'viewed_at', name: 'viewed' },
 ] as const)('pagination index — $list', ({ stamp, column, name }) => {
-  // mirrors the branches of listByStamp (shared/stamped.ts): stamped rows that are not archived,
+  // mirrors the branches of listByStamp (shared/stamped.ts): stamped rows that are not trashed,
   // or for events not removed by their provider
   type Table = typeof tasks | typeof projects | typeof notes | typeof events;
   const branch = (table: Table, withCursor: boolean) => {
@@ -270,7 +270,7 @@ describe.each([
     const shown =
       table === events
         ? not(hasLinkInState('event', events.id, LinkState.REMOVED))
-        : isNull((table as typeof tasks).archivedAt);
+        : isNull((table as typeof tasks).trashedAt);
     return {
       pager,
       query: db

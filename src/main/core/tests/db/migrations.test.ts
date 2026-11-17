@@ -5,6 +5,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { runMigrations } from '@main/db/migrate';
 import { WorkspaceMigrationError } from '@main/core/shared/errors';
 import { migrationsWithExtra } from '../utils';
+import { TrashService } from '../../trash/service';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -53,6 +54,12 @@ function openDb() {
   return { sqlite, db: drizzle({ client: sqlite, casing: 'snake_case' }) };
 }
 
+/** the trash column: archived_at before migration 0028 renamed it trashed_at */
+function trashColumn(sqlite: Database.Database, table: string): string {
+  const cols = sqlite.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  return cols.some((c) => c.name === 'trashed_at') ? 'trashed_at' : 'archived_at';
+}
+
 function seed(sqlite: Database.Database) {
   sqlite.exec(`
     INSERT INTO projects (id, title, due_date, status, completed_at) VALUES
@@ -70,7 +77,7 @@ function seed(sqlite: Database.Database) {
       ('tsk_a', 'Parent', 1000, 'prj_a', 'nte_a');
     INSERT INTO tasks (id, title, due_date, project_id, parent_task_id, linked_event_id) VALUES
       ('tsk_b', 'Child', 1000, 'prj_a', 'tsk_a', 'evt_a');
-    INSERT INTO tasks (id, title, due_date, project_id, status, completed_at, archived_at) VALUES
+    INSERT INTO tasks (id, title, due_date, project_id, status, completed_at, ${trashColumn(sqlite, 'tasks')}) VALUES
       ('tsk_c', 'Done', 1000, 'prj_b', 3, 2000, 3000);
 
     INSERT INTO notes (id, title, file_path, linked_task_id) VALUES ('nte_c', 'Task note', 'c.md', 'tsk_a');
@@ -406,7 +413,7 @@ INSERT INTO no_such_table VALUES (1);`;
 const DANGLING_SQL = `INSERT INTO tasks (id, title, project_id) VALUES ('tsk_dangling', 'Dangling', 'prj_missing');`;
 
 describe('migration 0022 — full parent_task_id index', () => {
-  it('indexes parent_task_id over archived rows too, without touching existing rows', () => {
+  it('indexes parent_task_id over rows in the trash too, without touching existing rows', () => {
     const { sqlite, db } = openDb();
     migrate(db, { migrationsFolder: migrationsUpTo(21) });
     seed(sqlite);
@@ -426,7 +433,7 @@ describe('migration 0022 — full parent_task_id index', () => {
 });
 
 describe('migration 0023 — full project and linked event indexes', () => {
-  it('indexes the columns over archived rows too, without touching existing rows', () => {
+  it('indexes the columns over rows in the trash too, without touching existing rows', () => {
     const { sqlite, db } = openDb();
     migrate(db, { migrationsFolder: migrationsUpTo(22) });
     seed(sqlite);
@@ -436,7 +443,7 @@ describe('migration 0023 — full project and linked event indexes', () => {
     runMigrations(sqlite, db, migrationsUpTo(23));
 
     expect(snapshot(sqlite)).toEqual(before);
-    // a lookup with no archived filter, as a disconnect's and a foreign key's are, uses them
+    // a lookup with no trash filter, as a disconnect's and a foreign key's are, uses them
     const plan = (query: string) =>
       (sqlite.prepare(`EXPLAIN QUERY PLAN ${query}`).all('x') as { detail: string }[])
         .map((row) => row.detail)
@@ -503,6 +510,42 @@ describe("migration 0027 — Linear's no priority", () => {
       { id: 'tsk_local', priority: 1 },
       { id: 'tsk_low', priority: 1 },
       { id: 'tsk_none', priority: 0 },
+    ]);
+    sqlite.close();
+  });
+});
+
+describe('migration 0028 — archived_at renamed trashed_at', () => {
+  it('keeps every row and what is in the trash, and renames the trash index', () => {
+    const { sqlite, db } = openDb();
+    migrate(db, { migrationsFolder: migrationsUpTo(27) });
+    seed(sqlite);
+    // seed() trashes tsk_c; trash a project and a note too
+    sqlite.exec(`
+      UPDATE projects SET archived_at = 4000 WHERE id = 'prj_b';
+      UPDATE notes SET archived_at = 5000 WHERE id = 'nte_b';
+    `);
+    const before = snapshot(sqlite);
+
+    runMigrations(sqlite, db, migrationsUpTo(28));
+
+    const renamed = (rows: unknown[]) =>
+      rows.map((row) => {
+        const { archived_at: trashedAt, ...rest } = row as { archived_at?: number | null };
+        return 'archived_at' in (row as object) ? { ...rest, trashed_at: trashedAt } : rest;
+      });
+    expect(snapshot(sqlite)).toEqual(
+      Object.fromEntries(TABLES.map((t) => [t, renamed(before[t])])),
+    );
+    for (const table of ['tasks', 'projects', 'notes']) {
+      expect(schemaObjects(sqlite, 'index')).toContain(`${table}.idx_${table}_trashed_at_id`);
+      expect(schemaObjects(sqlite, 'index')).not.toContain(`${table}.idx_${table}_archived_at_id`);
+    }
+    // the trash lists the same rows as before, newest first
+    expect(new TrashService(db).listTrashed().items.map((row) => [row.id, row.trashedAt])).toEqual([
+      ['nte_b', new Date(5000)],
+      ['prj_b', new Date(4000)],
+      ['tsk_c', new Date(3000)],
     ]);
     sqlite.close();
   });

@@ -197,6 +197,13 @@
       "when": 1794846988210,
       "tag": "0027_linear_no_priority_to_none",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1794952861481,
+      "tag": "0028_rename_archived_at_to_trashed_at",
+      "breakpoints": true
     }
   ]
 }

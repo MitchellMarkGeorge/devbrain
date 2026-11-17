@@ -1,7 +1,7 @@
 import { TaskId, generateId, ProjectId, EventId, NoteId } from '@common/ids';
 import { AnySQLiteColumn, index, sqliteTable, text, check, integer } from 'drizzle-orm/sqlite-core';
 import { TaskPriority, TaskStatus } from '@common/types';
-import { timesamps, date, completedAt, archivedAt } from './utils';
+import { timesamps, date, completedAt, trashedAt } from './utils';
 import { projects } from './projects';
 import { events } from './events';
 import { notes } from './notes';
@@ -38,18 +38,18 @@ export const tasks = sqliteTable(
     pullRequestUrl: text(), // should be more generic to allow things like issue/tickets links
     ...timesamps,
     ...completedAt,
-    ...archivedAt,
+    ...trashedAt,
   },
   (table) => [
-    // subtreeOf walks parent_task_id over archived rows too (restore needs them), which the
+    // subtreeOf walks parent_task_id over trashed rows too (restore needs them), which the
     // partial idx_tasks_parent_created_at_id below cannot serve, so it gets a full index of its
     // own; without it every step of the walk scans the whole table
     index('idx_tasks_parent_task_id').on(table.parentTaskId),
-    index('idx_tasks_project_id').on(table.projectId).where(isNull(table.archivedAt)),
-    index('idx_tasks_linked_note_id').on(table.linkedNoteId).where(isNull(table.archivedAt)),
-    index('idx_tasks_linked_event_id').on(table.linkedEventId).where(isNull(table.archivedAt)),
-    // Full indexes beside the partial ones above, for lookups that include archived rows: what a
-    // disconnect keeps (an archived task still keeps its event and project), and the foreign keys
+    index('idx_tasks_project_id').on(table.projectId).where(isNull(table.trashedAt)),
+    index('idx_tasks_linked_note_id').on(table.linkedNoteId).where(isNull(table.trashedAt)),
+    index('idx_tasks_linked_event_id').on(table.linkedEventId).where(isNull(table.trashedAt)),
+    // Full indexes beside the partial ones above, for lookups that include trashed rows: what a
+    // disconnect keeps (a trashed task still keeps its event and project), and the foreign keys
     // that null these columns when an event or project is deleted. Without them each deleted event
     // or project scans the whole table
     index('idx_tasks_project_id_all').on(table.projectId),
@@ -57,41 +57,41 @@ export const tasks = sqliteTable(
     // having status here first filters out by status first, then followed by due date
     index('idx_tasks_status_due_date')
       .on(table.status, table.dueDate)
-      .where(isNull(table.archivedAt)),
+      .where(isNull(table.trashedAt)),
 
     // keyset pagination in TaskService.listTasks: (sort column, id), either direction
-    // (sqlite can scan an index backwards). `where` must match the query's archived filter.
-    index('idx_tasks_due_date_id').on(table.dueDate, table.id).where(isNull(table.archivedAt)),
+    // (sqlite can scan an index backwards). `where` must match the query's trashed filter.
+    index('idx_tasks_due_date_id').on(table.dueDate, table.id).where(isNull(table.trashedAt)),
     // the due-date sort puts undated rows last (keyset's `isSortValueNullable`): descending order
     // gets that from the index above, ascending order leads with `(due_date IS NULL)` and is served
     // by this one. drizzle-kit wraps the expression in backticks, which sqlite reads as a column
     // name, so the generated CREATE INDEX was fixed by hand
     index('idx_tasks_due_date_nulls_last_id')
       .on(sql`(${table.dueDate} IS NULL)`, table.dueDate, table.id)
-      .where(isNull(table.archivedAt)),
-    index('idx_tasks_priority_id').on(table.priority, table.id).where(isNull(table.archivedAt)),
-    index('idx_tasks_status_id').on(table.status, table.id).where(isNull(table.archivedAt)),
-    index('idx_tasks_created_at_id').on(table.createdAt, table.id).where(isNull(table.archivedAt)),
-    index('idx_tasks_updated_at_id').on(table.updatedAt, table.id).where(isNull(table.archivedAt)),
+      .where(isNull(table.trashedAt)),
+    index('idx_tasks_priority_id').on(table.priority, table.id).where(isNull(table.trashedAt)),
+    index('idx_tasks_status_id').on(table.status, table.id).where(isNull(table.trashedAt)),
+    index('idx_tasks_created_at_id').on(table.createdAt, table.id).where(isNull(table.trashedAt)),
+    index('idx_tasks_updated_at_id').on(table.updatedAt, table.id).where(isNull(table.trashedAt)),
     // TaskService.listSubtasks: subtasks of a parent ordered by createdAt
     index('idx_tasks_parent_created_at_id')
       .on(table.parentTaskId, table.createdAt, table.id)
-      .where(isNull(table.archivedAt)),
-    // keyset pagination in ArchiveService.listArchived: the inverse of the partial indexes above,
-    // covering only archived rows. `where` must match the query's archived filter.
-    index('idx_tasks_archived_at_id')
-      .on(table.archivedAt, table.id)
-      .where(isNotNull(table.archivedAt)),
-    // keyset pagination in FavoritesService.listFavorites: favorited rows that are not archived.
+      .where(isNull(table.trashedAt)),
+    // keyset pagination in TrashService.listTrashed: the inverse of the partial indexes above,
+    // covering only trashed rows. `where` must match the query's trashed filter.
+    index('idx_tasks_trashed_at_id')
+      .on(table.trashedAt, table.id)
+      .where(isNotNull(table.trashedAt)),
+    // keyset pagination in FavoritesService.listFavorites: favorited rows that are not trashed.
     // `where` must match the query's filter.
     index('idx_tasks_favorited_at_id')
       .on(table.favoritedAt, table.id)
-      .where(and(isNotNull(table.favoritedAt), isNull(table.archivedAt))!),
-    // keyset pagination in RecentsService.listRecents: viewed rows that are not archived.
+      .where(and(isNotNull(table.favoritedAt), isNull(table.trashedAt))!),
+    // keyset pagination in RecentsService.listRecents: viewed rows that are not trashed.
     // `where` must match the query's filter.
     index('idx_tasks_viewed_at_id')
       .on(table.viewedAt, table.id)
-      .where(and(isNotNull(table.viewedAt), isNull(table.archivedAt))!),
+      .where(and(isNotNull(table.viewedAt), isNull(table.trashedAt))!),
 
     // make sure there is one link if any
     check(

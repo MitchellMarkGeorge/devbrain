@@ -18,8 +18,8 @@ export const timesamps = {
   viewedAt: date(),
 };
 
-export const archivedAt = {
-  archivedAt: date(),
+export const trashedAt = {
+  trashedAt: date(),
 };
 
 export const completedAt = {
