@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "tsx scripts/dev.mts",
     "seed:dev": "tsx scripts/run-with-vite.mts scripts/setup_dev_workspace.mts",
+    "seed:large": "tsx scripts/run-with-vite.mts scripts/setup_dev_workspace.mts --size=large",
     "routes": "tsx scripts/generate_routes.mts",
     "tokens": "tsx scripts/generate_tokens.mts && prettier --write src/renderer/styles/tokens.css src/renderer/styles/tokens.ts src/common/theme.ts",
     "icons": "tsx scripts/generate_icons.mts",
