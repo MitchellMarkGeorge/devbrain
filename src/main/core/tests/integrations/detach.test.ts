@@ -23,6 +23,7 @@ import { SearchService } from '../../search/service';
 import { CredentialStore } from '../../integrations/credential-store';
 import { IntegrationService } from '../../integrations/service';
 import { DetachService, TaskLinkChange, TaskLinkStateChange } from '../../integrations/detach';
+import { ReattachRefusal, SyncSkipReason } from '../../sync/types';
 import {
   IntegrationStatus,
   LinkState,
@@ -555,6 +556,94 @@ describe('TaskReconciler — reattachTasks', () => {
     expect(db.select().from(externalSources).where(eq(externalSources.id, sourceId)).get()).toEqual(
       before,
     );
+  });
+});
+
+describe('TaskReconciler — reattachGroups', () => {
+  it('resolves every group in one lookup and writes or refuses each on its own', async () => {
+    const [root, child] = [issue(), issue()];
+    child.parentExternalId = root.externalId;
+    const filed = project();
+    const inProject = issue({ projectExternalId: filed.externalId });
+    const gone = issue();
+    const reassigned = issue();
+    const neverDetached = issue();
+    await sync(root, child, inProject, gone, reassigned, neverDetached);
+    for (const item of [root, inProject, gone, reassigned]) detach.detachTask(idOf(item));
+    answerLookup(
+      [
+        root,
+        child,
+        { ...inProject, updatedAt: V2 },
+        { ...reassigned, assignedToViewer: false },
+        neverDetached,
+      ],
+      [filed],
+    );
+
+    const results = await reconciler.reattachGroups(sourceId, [
+      { rootExternalId: root.externalId, descendantExternalIds: [child.externalId] },
+      { rootExternalId: inProject.externalId, descendantExternalIds: [] },
+      { rootExternalId: gone.externalId, descendantExternalIds: [] },
+      { rootExternalId: reassigned.externalId, descendantExternalIds: [] },
+      // not detached, so the write refuses it, as when it changed while the provider answered
+      { rootExternalId: neverDetached.externalId, descendantExternalIds: [] },
+    ]);
+
+    // one request for all six ids
+    expect(lookups()).toEqual([
+      [
+        root.externalId,
+        child.externalId,
+        inProject.externalId,
+        gone.externalId,
+        reassigned.externalId,
+        neverDetached.externalId,
+      ],
+    ]);
+    expect(results.get(root.externalId)).toMatchObject({
+      ok: true,
+      summary: { reattached: [idOf(root), idOf(child)] },
+    });
+    expect(results.get(inProject.externalId)).toMatchObject({ ok: true });
+    expect(results.get(gone.externalId)).toEqual({ ok: false, reason: ReattachRefusal.GONE });
+    expect(results.get(reassigned.externalId)).toEqual({
+      ok: false,
+      reason: ReattachRefusal.UNASSIGNED,
+    });
+    expect(results.get(neverDetached.externalId)).toEqual({
+      ok: false,
+      reason: ReattachRefusal.CHANGED,
+    });
+    expect(stateOf(root)).toBe(LinkState.SYNCED);
+    expect(stateOf(child)).toBe(LinkState.SYNCED);
+    expect(stateOf(gone)).toBe(LinkState.DETACHED);
+    expect(stateOf(reassigned)).toBe(LinkState.DETACHED);
+    // each group's write files its tasks in their projects
+    expect(taskOf(inProject.externalId).projectId).not.toBeNull();
+  });
+
+  it('refuses every group without a lookup while the source is off', async () => {
+    const items = [issue(), issue()];
+    await sync(...items);
+    for (const item of items) detach.detachTask(idOf(item));
+    service.setSourceEnabled(sourceId, false);
+
+    const results = await reconciler.reattachGroups(
+      sourceId,
+      items.map((item) => ({ rootExternalId: item.externalId, descendantExternalIds: [] })),
+    );
+
+    expect([...results.values()]).toEqual([
+      { ok: false, reason: SyncSkipReason.SOURCE_DISABLED },
+      { ok: false, reason: SyncSkipReason.SOURCE_DISABLED },
+    ]);
+    expect(lookups()).toEqual([]);
+  });
+
+  it('makes no request for no groups', async () => {
+    expect(await reconciler.reattachGroups(sourceId, [])).toEqual(new Map());
+    expect(lookups()).toEqual([]);
   });
 });
 

@@ -404,6 +404,79 @@ describe('integrations', () => {
   });
 });
 
+describe('integrations, kept copies', () => {
+  // keeps both tasks as local copies, then connects the account again; its first sync matches them
+  async function keepThenConnectAgain(items: ExternalTask[]): Promise<Integration> {
+    const first = await connectLinear(items);
+    await call('integrations.disconnect', { id: first.id, keepLocalCopies: true }, 'mutation');
+    return connectLinear(items);
+  }
+
+  it('counts the kept copies, and reattaches them, reporting the tasks changed', async () => {
+    const items = [issue(), issue()];
+    const { id } = await keepThenConnectAgain(items);
+    expect(data(await call('integrations.keptCopies', { id }))).toEqual({ tasks: 2 });
+    linear.tasks.respondToLookup = ({ externalIds }) => ({
+      tasks: items.filter((item) => externalIds.includes(item.externalId)),
+    });
+    sendToWindows.mockClear();
+
+    const result = await call('integrations.reattachKept', { id }, 'mutation');
+
+    expect(data(result)).toEqual({ reattached: 2, failed: [] });
+    expect(result.changed).toContain('task');
+    // the other windows refetch too
+    expect(sent('db.changes')).toContainEqual({ entities: expect.arrayContaining(['task']) });
+    expect(data(await call('integrations.keptCopies', { id }))).toEqual({ tasks: 0 });
+  });
+
+  it('lists the tasks the provider refused, which stay local', async () => {
+    const items = [issue()];
+    const { id } = await keepThenConnectAgain(items);
+    // gone from Linear
+    linear.tasks.respondToLookup = ({ externalIds }) => ({ gone: externalIds });
+
+    const result = await call('integrations.reattachKept', { id }, 'mutation');
+
+    expect(data(result)).toMatchObject({
+      reattached: 0,
+      failed: [{ message: `Task ${items[0].key} can't be reattached because it no longer exists` }],
+    });
+    expect(result.changed).toEqual([]);
+  });
+
+  it('keeps them local, so they are no longer offered', async () => {
+    const { id } = await keepThenConnectAgain([issue()]);
+
+    const result = await call('integrations.keepKeptLocal', { id }, 'mutation');
+
+    expect(result).toMatchObject({ ok: true, changed: ['task'] });
+    expect(data(await call('integrations.keptCopies', { id }))).toEqual({ tasks: 0 });
+  });
+
+  it('a rejected sign-in stops the reattach and asks for a reconnect', async () => {
+    const { id } = await keepThenConnectAgain([issue()]);
+    linear.tasks.respondToLookup = () => {
+      throw new IntegrationAuthError('rejected');
+    };
+
+    const result = await call('integrations.reattachKept', { id }, 'mutation');
+
+    expect(code(result)).toBe('integration_auth');
+    expect(result.changed).toContain('integration');
+    expect(data<Integration>(await call('integrations.get', { id })).status).toBe(
+      IntegrationStatus.NEEDS_REAUTH,
+    );
+  });
+
+  it('refuses an unknown integration', async () => {
+    const id = generateId('integration');
+    expect(code(await call('integrations.keptCopies', { id }))).toBe('not_found');
+    expect(code(await call('integrations.reattachKept', { id }, 'mutation'))).toBe('not_found');
+    expect(code(await call('integrations.keepKeptLocal', { id }, 'mutation'))).toBe('not_found');
+  });
+});
+
 describe('sources', () => {
   it('switches a source off and on', async () => {
     const { sources } = await connectLinear();

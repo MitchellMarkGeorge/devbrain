@@ -9,6 +9,7 @@ import { and, eq, exists, inArray, isNotNull, notExists, notInArray, or, sql } f
 import { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 import { RunResult } from 'better-sqlite3';
 import { type DisconnectCounts, type EntityCounts, LinkState, SyncEntityType } from '@common/types';
+import { KEPT_BY_DISCONNECT } from './schema';
 
 // What a disconnect does to an integration's mirrored rows. IntegrationService.previewDisconnect
 // and disconnect both go through planDisconnect, so what the dialog states is what happens.
@@ -152,8 +153,9 @@ export function countPlan(plan: DisconnectPlan): DisconnectCounts {
  * 1. Children of a deleted task that are kept become top-level, as deleting a task deletes its
  *    subtasks.
  * 2. Delete the deleted items; their links go with them.
- * 3. Detach every synced link left. Removed ones stay removed: their rows are archived or hidden,
- *    and a later connect of the same account can still restore them.
+ * 3. Detach every synced link left, marking the task links KEPT_BY_DISCONNECT so a later connect
+ *    of the same account can offer to reattach them (DetachService.reattachKept). Removed ones
+ *    stay removed: their rows are archived or hidden, and that connect can still restore them.
  * 4. Delete the integration's calendars left with no events, which hold nothing of the user's.
  *    Kept ones become local calendars when the cascade nulls their source.
  *
@@ -192,7 +194,12 @@ export function applyDisconnect(tx: Tx, plan: DisconnectPlan): SyncEntityType[] 
   // 3.
   const detached = tx
     .update(externalLinks)
-    .set({ state: LinkState.DETACHED })
+    .set({
+      state: LinkState.DETACHED,
+      metadata: sql`CASE WHEN ${externalLinks.taskId} IS NOT NULL
+        THEN json_set(${externalLinks.metadata}, ${`$.${KEPT_BY_DISCONNECT}`}, json('true'))
+        ELSE ${externalLinks.metadata} END`,
+    })
     .where(and(inArray(externalLinks.sourceId, sources), eq(externalLinks.state, LinkState.SYNCED)))
     .returning({
       taskId: externalLinks.taskId,
