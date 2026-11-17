@@ -118,9 +118,25 @@ export function TasksBoard({ resolved, onOpen }: TasksBoardProps) {
   const taskAt = ({ column, index }: BoardCursor) => placed[column]?.tasks[index];
   const sheetOpen = resolved.open !== undefined;
   useBoardCommands(handles, {
+    // the sheet takes focus as it opens (its first field); the keys keep the board's cursor, so
+    // focus goes back to the card, and the sheet then follows it (Figma `7704:59020`)
     open: (at) => {
       const task = taskAt(at);
-      if (task) onOpen(task.id as TaskId);
+      if (!task) return;
+      const card = document.activeElement;
+      onOpen(task.id as TaskId);
+      if (!(card instanceof HTMLElement)) return;
+      const back = (event: FocusEvent) => {
+        if (!(event.target instanceof Element) || !event.target.closest('[data-sheet]')) return;
+        stop();
+        card.focus({ preventScroll: true });
+      };
+      const stop = () => {
+        document.removeEventListener('focusin', back);
+        clearTimeout(timer);
+      };
+      const timer = setTimeout(stop, 1000);
+      document.addEventListener('focusin', back);
     },
     toggleFavorite: (at) => {
       const task = taskAt(at);

@@ -322,6 +322,20 @@ describe('from nowhere, and in menus', () => {
     expect(document.activeElement).toBe(row);
   });
 
+  it('enters a board at a card, not a column’s button before it', () => {
+    vim(cursorCommands());
+    const board = document.createElement('div');
+    board.setAttribute(SCOPE_ATTRIBUTE, 'board');
+    const add = document.createElement('button');
+    const card = document.createElement('div');
+    card.setAttribute('role', 'listitem');
+    card.tabIndex = 0;
+    board.append(add, card);
+    document.body.appendChild(board);
+    press(document.body, 'j');
+    expect(document.activeElement).toBe(card);
+  });
+
   it('makes j/k a menu’s arrows', () => {
     vim(cursorCommands());
     const menu = document.createElement('div');

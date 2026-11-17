@@ -30,7 +30,11 @@ export function pageRegion(doc: Document): HTMLElement | null {
  * scrolled away), or its first focusable element. Returns whether something took focus.
  */
 export function enterRegion(region: HTMLElement): boolean {
+  // a row or a card first: a board column's "+" comes before its cards
   const target =
+    region.querySelector<HTMLElement>(
+      '[role="row"][tabindex="0"], [role="listitem"][tabindex="0"], [role="grid"][tabindex="0"]',
+    ) ??
     region.querySelector<HTMLElement>('[tabindex="0"]') ??
     region.querySelector<HTMLElement>('[tabindex]:not([tabindex="-1"]), button, a[href]');
   if (!target) return false;
