@@ -1196,9 +1196,11 @@ without it; the rest have a renderer-side workaround noted above. Each follows `
   File, Settings… (⌘,) in the app menu on macOS and in File elsewhere, Find… (⌘K) in Edit, and View
   › Go to › each page. Each sends `app.command { command, workspaceId }` (in `AppEvents`), where
   `command` is the keyboard layer's command id, and the workspace layout runs it from the registry
-  (`useMenuCommands`). The keymap's keys are shown, with `registerAccelerator: false`, so the
-  window's keyboard layer keeps handling them (C still types in a field, ⌘K is still Link in the
-  editor); Go to's sequences can't be accelerators, and ⌘, is the menu's own. The items are
+  (`useMenuCommands`). On Windows and Linux the keymap's keys are shown, with
+  `registerAccelerator: false`, so the window's keyboard layer keeps handling them (C still types
+  in a field, ⌘K is still Link in the editor). macOS shows none: `registerAccelerator` is Linux and
+  Windows only, and a Mac menu item's key always fires before the page sees it. Go to's sequences
+  can't be accelerators, and ⌘, is the menu's own. The items are
   disabled while no workspace is open, and the window drops one sent for a workspace it has left.
   The Windows title bar's menu button pops up the same menu. File › Import and Export are
   commands too (`transfer.importTasks`, `transfer.exportTasksCsv`, …, registered by the workspace
